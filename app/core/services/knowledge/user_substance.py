@@ -17,10 +17,20 @@ by making them agree:
 * **Six channels here, five there.** The node counters have no principles field,
   so ``GROUNDED_IN_KNOWLEDGE`` contributes to the personal score only.
 * **No time decay here.** The node carries a ``last_*_date`` per channel; the
-  ``UserContext`` maps carry uids only, with no timestamps anywhere. A personal
-  decay curve is therefore not computable from this input, and inventing one
-  from engagement timestamps would be measuring a different event (opening a
-  step is not applying it). The personal score is cumulative.
+  channel maps carry uids only, with no timestamps anywhere. A personal decay
+  curve is therefore not computable from this input, and inventing one from
+  engagement timestamps would be measuring a different event (opening a step is
+  not applying it). The personal score is cumulative.
+
+⚠ **The score is only as cumulative as its SOURCE.** These functions take the six
+maps; they do not fetch them. ``UserContext``'s copies are built by the MEGA-QUERY
+for *planning*, so they are window-bounded — and inconsistently, which is the part
+that bites: an ACTIVE habit is admitted at any age, while an event is admitted
+only if it falls inside the window at all. Scoring off that context yields
+"substance among my live and recent activity", which is not what this module's
+arithmetic claims. A caller wanting the cumulative figure must source the maps
+from ``CrossDomainBackendOperations.get_user_knowledge_channels``, which applies
+no window. See § Two sources, one calculation in the philosophy doc.
 
 **Why this module exists at all.** The same six weights and caps were written out
 by hand in ``KuIntelligenceService`` and ``PsIntelligenceService``, and the
@@ -38,7 +48,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Final, cast
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping, Sequence
+    from collections.abc import Iterable, Mapping, Sequence
 
     from core.services.user import UserContext
 
@@ -56,6 +66,10 @@ class SubstanceChannel:
 
     name: str
     context_field: str
+    entity_type: str
+    """The ``entity_type`` of the activity that feeds this channel — the key the
+    unwindowed backend read groups by, since two channels (tasks, events) travel
+    over the SAME edge and are told apart only by what sits at the tail."""
     weight: float
     cap: float
     recommendation: str
@@ -69,6 +83,7 @@ USER_SUBSTANCE_CHANNELS: Final[tuple[SubstanceChannel, ...]] = (
     SubstanceChannel(
         name="tasks",
         context_field="task_knowledge_applied",
+        entity_type="task",
         weight=0.05,
         cap=0.25,
         recommendation="Create a task that applies '{title}' in your work",
@@ -76,6 +91,7 @@ USER_SUBSTANCE_CHANNELS: Final[tuple[SubstanceChannel, ...]] = (
     SubstanceChannel(
         name="habits",
         context_field="habit_knowledge_applied",
+        entity_type="habit",
         weight=0.10,
         cap=0.30,
         recommendation="Build a habit that reinforces '{title}' daily",
@@ -83,6 +99,7 @@ USER_SUBSTANCE_CHANNELS: Final[tuple[SubstanceChannel, ...]] = (
     SubstanceChannel(
         name="events",
         context_field="event_knowledge_applied",
+        entity_type="event",
         weight=0.05,
         cap=0.25,
         recommendation="Schedule a practice session to deepen '{title}'",
@@ -90,6 +107,7 @@ USER_SUBSTANCE_CHANNELS: Final[tuple[SubstanceChannel, ...]] = (
     SubstanceChannel(
         name="entries",
         context_field="entry_knowledge_applied",
+        entity_type="user_entry",
         weight=0.07,
         cap=0.20,
         recommendation="Write an entry reflecting on '{title}'",
@@ -97,6 +115,7 @@ USER_SUBSTANCE_CHANNELS: Final[tuple[SubstanceChannel, ...]] = (
     SubstanceChannel(
         name="choices",
         context_field="choice_knowledge_informed",
+        entity_type="choice",
         weight=0.07,
         cap=0.15,
         recommendation="Record a choice informed by '{title}'",
@@ -104,6 +123,7 @@ USER_SUBSTANCE_CHANNELS: Final[tuple[SubstanceChannel, ...]] = (
     SubstanceChannel(
         name="principles",
         context_field="principle_knowledge_grounded",
+        entity_type="principle",
         weight=0.07,
         cap=0.15,
         recommendation="Write a principle grounded in '{title}'",
@@ -117,7 +137,7 @@ MAX_SUBSTANCE: Final = 1.0
 SubstanceIndex = dict[str, dict[str, int]]
 
 
-def build_substance_index(user_context: UserContext) -> SubstanceIndex:
+def build_substance_index(channels: Mapping[str, Mapping[str, Sequence[str]]]) -> SubstanceIndex:
     """Invert the six channel maps into ``ku_uid -> per-channel activity counts``.
 
     Built ONCE per caller and then queried per Ku. The maps are keyed by activity
@@ -127,15 +147,84 @@ def build_substance_index(user_context: UserContext) -> SubstanceIndex:
 
     Counts ACTIVITIES, not edges: an activity naming the same Ku twice is one
     application of it, which is what the per-instance weights are denominated in.
+
+    Takes the maps rather than fetching them so the windowed (UserContext) and
+    unwindowed (backend) sources run the SAME arithmetic — the alternative is two
+    scorers that agree until one is edited.
     """
     index: SubstanceIndex = {}
     for channel in USER_SUBSTANCE_CHANNELS:
-        applied = cast("Mapping[str, Sequence[str]]", getattr(user_context, channel.context_field))
-        for ku_uids in applied.values():
+        for ku_uids in channels.get(channel.name, {}).values():
             for ku_uid in dict.fromkeys(ku_uids):
                 counts = index.setdefault(ku_uid, {})
                 counts[channel.name] = counts.get(channel.name, 0) + 1
     return index
+
+
+def channel_maps_from_context(
+    user_context: UserContext,
+) -> dict[str, Mapping[str, Sequence[str]]]:
+    """Read the six maps off a UserContext, keyed by channel name.
+
+    ⚠ WINDOW-BOUNDED, and unevenly so — see the module docstring. Correct for a
+    detail page answering "how am I applying this *lately*"; wrong for a
+    cumulative figure, which must come from
+    ``CrossDomainBackendOperations.get_user_knowledge_channels``.
+
+    One ``getattr`` per channel, without a default, so a ``UserContext`` field
+    renamed out from under the table raises here rather than quietly scoring
+    every learner at zero.
+    """
+    return {
+        channel.name: cast(
+            "Mapping[str, Sequence[str]]", getattr(user_context, channel.context_field)
+        )
+        for channel in USER_SUBSTANCE_CHANNELS
+    }
+
+
+def build_substance_index_from_context(user_context: UserContext) -> SubstanceIndex:
+    """``build_substance_index`` over a UserContext's (windowed) channel maps."""
+    return build_substance_index(channel_maps_from_context(user_context))
+
+
+SUBSTANCE_ACTIVITY_TYPES: Final[tuple[str, ...]] = tuple(
+    channel.entity_type for channel in USER_SUBSTANCE_CHANNELS
+)
+"""The activity ``entity_type``s that carry substance — the backend read's filter.
+
+Derived from the channel table rather than listed again in the persistence layer,
+so adding a seventh channel widens the query by construction.
+"""
+
+_CHANNEL_BY_ENTITY_TYPE: Final[dict[str, str]] = {
+    channel.entity_type: channel.name for channel in USER_SUBSTANCE_CHANNELS
+}
+
+
+def channel_maps_from_rows(
+    rows: Iterable[Mapping[str, object]],
+) -> dict[str, dict[str, list[str]]]:
+    """Fold ``{entity_type, activity_uid, ku_uids}`` rows into the channel maps.
+
+    The unwindowed counterpart of :func:`channel_maps_from_context`, over
+    ``CrossDomainBackendOperations.get_user_knowledge_channels``. A row whose
+    ``entity_type`` is not a substance channel is dropped rather than guessed at
+    — the query filters on ``SUBSTANCE_ACTIVITY_TYPES``, so one arriving here
+    means the two have diverged, and silently bucketing it would hide that.
+    """
+    channels: dict[str, dict[str, list[str]]] = {
+        channel.name: {} for channel in USER_SUBSTANCE_CHANNELS
+    }
+    for row in rows:
+        channel_name = _CHANNEL_BY_ENTITY_TYPE.get(str(row.get("entity_type") or ""))
+        activity_uid = row.get("activity_uid")
+        if channel_name is None or not activity_uid:
+            continue
+        ku_uids = [str(uid) for uid in cast("Sequence[object]", row.get("ku_uids") or []) if uid]
+        if ku_uids:
+            channels[channel_name][str(activity_uid)] = list(dict.fromkeys(ku_uids))
+    return channels
 
 
 def channel_counts(ku_uid: str, index: SubstanceIndex) -> dict[str, int]:

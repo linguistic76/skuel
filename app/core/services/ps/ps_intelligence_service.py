@@ -41,6 +41,7 @@ from core.services.intelligence import _CoreIntelligenceMixin
 from core.services.knowledge.user_substance import (
     SubstanceIndex,
     build_substance_index,
+    build_substance_index_from_context,
     user_substance_score,
 )
 from core.utils.decorators import with_error_handling
@@ -568,7 +569,7 @@ class PsIntelligenceService(
         #    The weights come from core.services.knowledge.user_substance — the
         #    single table this, KuIntelligenceService and the Layer-0 analytics
         #    metric all read, so they cannot drift apart.
-        index = build_substance_index(user_context)
+        index = build_substance_index_from_context(user_context)
         total_substance = 0.0
         total_mastery = 0.0
         ku_details = []
@@ -617,7 +618,7 @@ class PsIntelligenceService(
         )
 
     async def calculate_user_substance_for_steps(
-        self, ps_uids: Sequence[str], user_context: UserContext
+        self, ps_uids: Sequence[str], channels: Mapping[str, Mapping[str, Sequence[str]]]
     ) -> Result[dict[str, float]]:
         """Personal substance score for many PathSteps — one round trip.
 
@@ -631,7 +632,11 @@ class PsIntelligenceService(
         ("theoretical for me"), not a gap for the caller to guess at, so callers
         can index the result directly rather than defaulting a miss.
 
-        Requires a RICH context, for the same reason the per-step form does.
+        Takes the six channel maps rather than a ``UserContext`` because the
+        caller chooses the temporal semantics, and for an aggregate the answer is
+        the UNWINDOWED source (``get_user_knowledge_channels``); a context's maps
+        are window-bounded, which understates a cumulative figure. The per-step
+        form keeps the context because a detail page already holds one.
 
         Backend: PsIntelligenceBackend.fetch_taught_ku_uids_for_steps
         """
@@ -647,7 +652,7 @@ class PsIntelligenceService(
             return Result.fail(rows_result)
 
         taught: dict[str, list[str]] = {row["ps_uid"]: row["ku_uids"] for row in rows_result.value}
-        index = build_substance_index(user_context)
+        index = build_substance_index(channels)
         return Result.ok(
             {
                 ps_uid: round(self._mean_ku_substance(taught.get(ps_uid, []), index), 3)

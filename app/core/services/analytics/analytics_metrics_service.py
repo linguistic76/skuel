@@ -37,6 +37,10 @@ from typing import Any
 from core.constants import QueryLimit
 from core.models.enums import EntityStatus, PrincipleStrength
 from core.models.type_hints import UserUID
+from core.services.knowledge.user_substance import (
+    SUBSTANCE_ACTIVITY_TYPES,
+    channel_maps_from_rows,
+)
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -70,7 +74,6 @@ class AnalyticsMetricsService:
         ku_service=None,
         lp_service=None,
         cross_domain_backend=None,
-        user_service=None,
     ) -> None:
         """
         Initialize with domain and layer services.
@@ -85,11 +88,11 @@ class AnalyticsMetricsService:
             content_enrichment: ContentEnrichmentService (Layer 2)
             ku_service: PsService for knowledge metrics (Layer 0)
             lp_service: LpService for curriculum metrics (Layer 0)
-            cross_domain_backend: CrossDomainBackend for cross-domain queries
-            user_service: UserService — source of the learner's own activity
-                channels. Required by calculate_knowledge_metrics: without it
-                substance has no per-learner denominator and the metric refuses
-                rather than falling back to the shared node's counters.
+            cross_domain_backend: CrossDomainBackend for cross-domain queries.
+                Also the source of the learner's own activity channels, which
+                calculate_knowledge_metrics REQUIRES: without it substance has no
+                per-learner denominator and the metric refuses rather than
+                falling back to the shared node's counters.
         """
         # Layer 1 domain services
         self.tasks = tasks_service
@@ -106,11 +109,9 @@ class AnalyticsMetricsService:
         self.ku_service = ku_service
         self.lp_service = lp_service
 
-        # Layer 3: the learner themselves — per-user substance is scored against
-        # their UserContext, not against the shared curriculum node.
-        self.user_service = user_service
-
-        # Cross-domain backend for analytics queries
+        # Cross-domain backend for analytics queries — and for the learner's
+        # six activity→knowledge channels, which per-user substance is scored
+        # against instead of the shared curriculum node's counters.
         self.cross_domain_backend = cross_domain_backend
 
     # ========================================================================
@@ -699,10 +700,13 @@ class AnalyticsMetricsService:
                 )
             )
 
-        if not self.user_service:
+        if not self.cross_domain_backend:
             return Result.fail(
                 Errors.system(
-                    message="UserService not available — per-learner substance cannot be scored",
+                    message=(
+                        "CrossDomainBackend not available — the learner's activity "
+                        "channels cannot be read, so substance has no per-learner source"
+                    ),
                     operation="calculate_knowledge_metrics",
                 )
             )
@@ -736,20 +740,28 @@ class AnalyticsMetricsService:
 
             knowledge_units = kus_result.value
 
-            # The learner's own activity channels. Built ONCE for the whole
-            # window and RICH, not standard: the six activity→knowledge maps the
-            # score reads are populated only by build_rich. A standard context
-            # carries them empty, and an empty map scores every step 0.0 without
-            # erroring — the failure mode is a confident flat zero, not a crash.
-            context_result = await self.user_service.get_rich_unified_context(user_uid)
-            if context_result.is_error:
-                return Result.fail(context_result)
+            # The learner's own activity channels, read ONCE and UNWINDOWED.
+            #
+            # Deliberately not `UserService.get_rich_unified_context`. Those maps
+            # exist for planning, so the MEGA-QUERY admits a row only if it is
+            # currently open or was touched inside a 30-day window — and unevenly:
+            # an ACTIVE habit is admitted at any age while an event outside the
+            # window vanishes entirely. Substance is cumulative (a task completed
+            # last year still applied the knowledge), so a planning window would
+            # understate it, shift the bands, and raise review warnings on
+            # knowledge the learner did apply — purely because of its age.
+            channels_result = await self.cross_domain_backend.get_user_knowledge_channels(
+                user_uid, list(SUBSTANCE_ACTIVITY_TYPES)
+            )
+            if channels_result.is_error:
+                return Result.fail(channels_result)
 
             # One read for the whole window's step→Ku composition. Same rule as
             # the engagement read above: a failed scoring pass is not a learner
             # who applied nothing.
             scores_result = await self.ku_service.get_user_substance_scores(
-                [ku.uid for ku in knowledge_units], context_result.value
+                [ku.uid for ku in knowledge_units],
+                channel_maps_from_rows(channels_result.value or []),
             )
             if scores_result.is_error:
                 return Result.fail(scores_result)

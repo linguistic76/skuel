@@ -161,6 +161,42 @@ RETURN h.uid AS habit_uid,
        collect(ku.uid) AS ku_uids
 """
 
+# The six activity→knowledge channels the Knowledge Substance Philosophy weights,
+# UNWINDOWED and status-blind. This is deliberately NOT the MEGA-QUERY's rollup:
+# that one exists for planning and admits a row only if it is currently open or
+# was touched inside the context window — and unevenly, so an ACTIVE habit counts
+# at any age while an event older than the window vanishes entirely. Substance is
+# a cumulative quantity (a task you completed last year still applied the
+# knowledge), so it cannot be sourced from a planning window.
+#
+# Channel is keyed on the ACTIVITY's entity_type, not on the edge: tasks, events
+# and entries all travel over APPLIES_KNOWLEDGE and are told apart only by what
+# sits at the tail.
+#
+# PathStep targets bridge to the Kus they compose over the canonical triple —
+# the same three edges KuBackend.increment_substance fans substance out along and
+# PsIntelligenceBackend.fetch_taught_ku_uids* reads back. Matching a narrower set
+# here would credit the learner for fewer Kus than the step's own composition
+# claims, which reads as "you never applied this" on knowledge they did apply.
+_USER_KNOWLEDGE_CHANNELS_QUERY = f"""
+MATCH (u:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(a:Entity)
+WHERE a.entity_type IN $activity_types
+MATCH (a)-[:{RelationshipName.APPLIES_KNOWLEDGE.value}
+          |{RelationshipName.REINFORCES_KNOWLEDGE.value}
+          |{RelationshipName.INFORMED_BY_KNOWLEDGE.value}
+          |{RelationshipName.GROUNDED_IN_KNOWLEDGE.value}]->(target:Entity)
+WITH a, collect(DISTINCT target) AS targets
+RETURN a.entity_type AS entity_type,
+       a.uid AS activity_uid,
+       [n IN targets WHERE n.entity_type = 'ku' | n.uid] +
+       reduce(acc = [], p IN targets |
+              acc + [(p)-[:{RelationshipName.USES_KU.value}
+                          |{RelationshipName.CONTAINS_KNOWLEDGE.value}
+                          |{RelationshipName.TRAINS_KU.value}]->(k:Entity)
+                     WHERE k.entity_type = 'ku' | k.uid])
+       AS ku_uids
+"""
+
 _CHOICE_PRINCIPLE_ADHERENCE_QUERY = f"""
 MATCH (u:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(c:Entity {{entity_type: 'choice'}})
 WHERE datetime(c.created_at) >= datetime() - duration({{days: $period_days}})
@@ -498,6 +534,26 @@ class CrossDomainBackend:
         return await self.executor.execute_query(
             _HABIT_KNOWLEDGE_REINFORCEMENT_QUERY,
             {"user_uid": user_uid, "active_statuses": _HABIT_ACTIVE_STATUSES},
+        )
+
+    async def get_user_knowledge_channels(
+        self, user_uid: str, activity_types: list[str]
+    ) -> Result[list[dict[str, Any]]]:
+        """One row per activity of the learner's that names knowledge.
+
+        Rows are ``{entity_type, activity_uid, ku_uids}``, PathStep targets
+        already bridged to the Kus they compose. The cumulative, unwindowed
+        source for per-user substance — see ``_USER_KNOWLEDGE_CHANNELS_QUERY``
+        for why the MEGA-QUERY's rollup cannot serve that purpose.
+
+        ``activity_types`` comes from the caller rather than being hardcoded
+        here: the set of channels is a Knowledge Substance Philosophy decision
+        that lives in ``core.services.knowledge.user_substance``, and a second
+        copy in the persistence layer is how the two drift.
+        """
+        return await self.executor.execute_query(
+            _USER_KNOWLEDGE_CHANNELS_QUERY,
+            {"user_uid": user_uid, "activity_types": activity_types},
         )
 
     async def get_choice_principle_adherence(

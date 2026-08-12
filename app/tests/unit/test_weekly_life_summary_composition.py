@@ -55,7 +55,6 @@ from core.models.task.task import Task
 from core.ports.analytics_protocols import AnalyticsMetricsOperations
 from core.services.analytics.analytics_aggregation_service import AnalyticsAggregationService
 from core.services.analytics.analytics_metrics_service import AnalyticsMetricsService
-from core.services.user import UserContext
 from core.utils.result_simplified import Result
 
 USER = "user_weekly_summary"
@@ -126,21 +125,6 @@ class _StubPsService:
         return Result.ok({uid: self._substance[uid] for uid in ps_uids})
 
 
-class _StubUserService:
-    """``get_rich_unified_context`` — the one call the knowledge metric makes.
-
-    Only the rich depth is served. The standard build leaves the six activity→
-    knowledge maps empty, and the metric that reached for it would score every
-    step 0.0 without erroring; the depth choice is pinned over a real graph in
-    ``tests/integration/test_knowledge_metrics_learner_scope.py``.
-    """
-
-    async def get_rich_unified_context(
-        self, user_uid: str, min_confidence: float = 0.7
-    ) -> Result[Any]:
-        return Result.ok(UserContext(user_uid=user_uid))
-
-
 class _StubLpService:
     """``LpService.list_by_user`` — the one call ``calculate_curriculum_metrics`` makes."""
 
@@ -152,7 +136,20 @@ class _StubLpService:
 
 
 class _StubCrossDomainBackend:
-    """``get_journal_entries_in_range`` — rows shaped as ``_get_journal_reports`` reads them."""
+    """The two cross-domain reads the metrics service makes — ONE object, as in production.
+
+    ``get_journal_entries_in_range`` returns rows shaped as
+    ``_get_journal_reports`` reads them.
+
+    ``get_user_knowledge_channels`` is the learner's activity read UNWINDOWED,
+    and returns nothing here: the per-step scores this file asserts on are handed
+    back ready-made by ``_StubPsService``, and the real channels→scores join is
+    guarded over a live graph in
+    ``tests/integration/test_knowledge_metrics_learner_scope.py``. What matters
+    at this seam is that the metric sources its channels from the BACKEND at all
+    — a UserContext's copies are bounded by the planning window and would drop
+    older applications.
+    """
 
     def __init__(self, records: list[dict[str, Any]]) -> None:
         self._records = records
@@ -161,6 +158,11 @@ class _StubCrossDomainBackend:
         self, user_uid: str, start_datetime: str, end_datetime: str
     ) -> Result[list[dict[str, Any]]]:
         return Result.ok(list(self._records))
+
+    async def get_user_knowledge_channels(
+        self, user_uid: str, activity_types: list[str]
+    ) -> Result[list[dict[str, Any]]]:
+        return Result.ok([])
 
 
 # ============================================================================
@@ -275,7 +277,6 @@ def metrics() -> AnalyticsMetricsService:
         ku_service=_StubPsService(
             _seed_path_steps(), {"total": 4, "mastered": 1}, PERSONAL_SUBSTANCE
         ),
-        user_service=_StubUserService(),
         lp_service=_StubLpService([LearningPath(uid="lp.python", title="Python Mastery")]),
         cross_domain_backend=_StubCrossDomainBackend(
             [

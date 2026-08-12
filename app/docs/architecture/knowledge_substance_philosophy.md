@@ -388,13 +388,24 @@ Three differences are deliberate and must not be reconciled by making the two ag
 |---|---|---|
 | **Source** | counters on the shared node, written by `KuBackend.increment_substance` with **no `user_uid`** | the six `UserContext` activity→knowledge maps, which are by construction one learner's |
 | **Channels** | 5 — there is no principles counter | 6 — principles (`GROUNDED_IN_KNOWLEDGE`) counts |
-| **Time decay** | exponential, 30-day half-life, per-channel `last_*_date` | **none** — the channel maps carry uids and no timestamps, so a personal decay curve is not computable from this input. The score is cumulative. |
+| **Time decay** | exponential, 30-day half-life, per-channel `last_*_date` | **none** — the channel maps carry uids and no timestamps, so a personal decay curve is not computable from this input. The score is cumulative, provided the maps come from the unwindowed source (see below). |
 
 Deriving a personal decay clock from engagement-edge timestamps would time a *different event*: opening a step is not applying it.
 
-### Requires a RICH context
+### Two sources, one calculation
 
-The six maps are populated **only** by `UserContextBuilder.build_rich` (`populate_graph_sourced_fields` + `populate_entry_knowledge_applied`). The standard `build` / `get_user_context` leaves them empty — and an empty map does not raise, it scores every entity a confident **0.0**. Any caller of `calculate_user_substance` must therefore use `get_rich_unified_context`.
+The scoring functions take the six maps; they do not fetch them. **Where the maps come from decides what the score means**, and there are two sources with different temporal semantics:
+
+| Source | Window | Use for |
+|---|---|---|
+| `CrossDomainBackendOperations.get_user_knowledge_channels` | **none** — every activity, any age, any status | the **cumulative** figure: "how substantiated is this for me" (the Layer-0 weekly metric) |
+| `UserContext`'s six fields (`channel_maps_from_context`) | the MEGA-QUERY's planning window | a detail page answering "how am I applying this *lately*" |
+
+The context's copies are built for **planning**, so they admit a row only if it is currently open or was touched inside the window — and **unevenly**: an ACTIVE habit is admitted at any age, while an event outside the window vanishes entirely. There is no single sentence describing what a score over that mixture means, which is why the cumulative path does not use it.
+
+⚠ **Two silent-zero traps on the context path.** The six maps are populated **only** by `UserContextBuilder.build_rich` (`populate_graph_sourced_fields` + `populate_entry_knowledge_applied`); the standard `build` / `get_user_context` leaves them empty. And an empty map does not raise — it scores every entity a confident **0.0**. Any caller passing a context to `calculate_user_substance` must therefore use `get_rich_unified_context`.
+
+Both sources bridge PathStep targets to the Kus they compose over the **canonical triple** `USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU` — the same three edges the substance write fan-out uses. The MEGA-QUERY rollups listed only two of the three until 2026-08-12, so knowledge reachable from a step only over `CONTAINS_KNOWLEDGE` sat in the denominator and never the numerator.
 
 ### API Endpoints
 
@@ -410,10 +421,18 @@ Requires authentication. Returns personalized substance data for the current use
 Uses the same weighted scoring, but only counts THIS user's applications:
 
 ```python
-from core.services.knowledge.user_substance import build_substance_index, user_substance_score
+from core.services.knowledge.user_substance import (
+    SUBSTANCE_ACTIVITY_TYPES, build_substance_index, channel_maps_from_rows, user_substance_score,
+)
 
-# One inversion of the six channel maps: ku_uid -> {channel: activity count}
-index = build_substance_index(rich_user_context)
+# Cumulative: the unwindowed source
+rows = (await cross_domain_backend.get_user_knowledge_channels(
+    user_uid, list(SUBSTANCE_ACTIVITY_TYPES))).value
+index = build_substance_index(channel_maps_from_rows(rows))
+
+# Or, for a detail page that already holds a RICH context (window-bounded):
+#   index = build_substance_index_from_context(rich_user_context)
+
 score = user_substance_score(ku_uid, index)   # weights + per-channel caps, total capped at 1.0
 ```
 

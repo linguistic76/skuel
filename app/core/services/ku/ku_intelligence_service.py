@@ -26,7 +26,7 @@ from core.ports.query_types import KuUserSubstanceResult
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.intelligence import _CoreIntelligenceMixin
 from core.services.knowledge.user_substance import (
-    build_substance_index,
+    build_substance_index_from_context,
     channel_counts,
     empty_channel_prompts,
     substance_breakdown,
@@ -217,7 +217,7 @@ class KuIntelligenceService(
         if not ku:
             return Result.fail(Errors.not_found(resource="Ku", identifier=ku_uid))
 
-        counts = channel_counts(ku_uid, build_substance_index(user_context))
+        counts = channel_counts(ku_uid, build_substance_index_from_context(user_context))
         breakdown = substance_breakdown(counts)
         user_substance_score = substance_score(breakdown)
 

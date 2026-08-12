@@ -87,6 +87,16 @@ class CrossDomainBackendOperations(Protocol):
         self, user_uid: str
     ) -> Result[list[dict[str, Any]]]: ...
 
+    async def get_user_knowledge_channels(
+        self, user_uid: str, activity_types: list[str]
+    ) -> Result[list[dict[str, Any]]]:
+        """``{entity_type, activity_uid, ku_uids}`` per knowledge-naming activity.
+
+        Unwindowed and status-blind — the cumulative source for per-user
+        substance, as distinct from the MEGA-QUERY's planning-window rollup.
+        """
+        ...
+
     async def get_choice_principle_adherence(
         self, user_uid: str, period_days: int
     ) -> Result[list[dict[str, Any]]]: ...

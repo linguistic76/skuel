@@ -54,9 +54,16 @@ can pass against both implementations:
 have EMBODIED, which this learner opened and never applied. It must report as
 theoretical for them, and 0.80/"embodied" is the pre-fix answer.
 
-The per-learner score is computed from the six ``UserContext`` activity→
-knowledge maps, over the Kus each step teaches (USES_KU), so the fixture links
-Kus and the stub user service supplies the maps.
+The per-learner score is computed from the learner's six activity→knowledge
+channels, over the Kus each step teaches, so the fixture links Kus AND seeds real
+activity nodes with real OWNS/knowledge edges.
+
+Those activities are all completed/archived and stamped 200 days ago on purpose.
+The channels are read UNWINDOWED (``CrossDomainBackend.get_user_knowledge_channels``)
+rather than off a ``UserContext``, whose copies the MEGA-QUERY builds for
+PLANNING — bounded to open-or-recent rows, and unevenly (an active habit at any
+age, an event only inside the window). Substance is cumulative, so sourcing it
+there would drop every application below and read as "you applied nothing".
 
 See: adapters/persistence/neo4j/backends/curriculum_backends.py (_ENGAGEMENT_EDGES)
      core/services/knowledge/user_substance.py (the one weight table)
@@ -69,13 +76,13 @@ import pytest
 import pytest_asyncio
 
 from adapters.persistence.neo4j.backends.curriculum_backends import PsBackend
+from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from adapters.persistence.neo4j.ps_intelligence_backend import PsIntelligenceBackend
 from core.models.enums.neo_labels import NeoLabel
 from core.models.pathways.path_step import PathStep
 from core.services.analytics.analytics_metrics_service import AnalyticsMetricsService
 from core.services.ps.ps_intelligence_service import PsIntelligenceService
-from core.services.user import UserContext
 from core.utils.result_simplified import Errors, Result
 
 USER = "user_knowledge_scope"
@@ -97,47 +104,11 @@ KU_DEEP = "ku_learner_applied_deeply"  # 3 habits + 2 tasks -> 0.30 + 0.10
 KU_LIGHT = "ku_learner_applied_once"  # 1 habit           -> 0.10
 KU_UNTOUCHED = "ku_learner_never_applied"  # nothing            -> 0.00
 
-# What the learner's own six channels say, as the rich UserContext carries them:
-# {activity_uid: [ku_uid, ...]}.
-LEARNER_HABITS = {"habit_1": [KU_DEEP], "habit_2": [KU_DEEP], "habit_3": [KU_DEEP, KU_LIGHT]}
-LEARNER_TASKS = {"task_1": [KU_DEEP], "task_2": [KU_DEEP]}
-
 EXPECTED_PERSONAL = {
     ENGAGED_IN_PROGRESS: 0.40,
     ENGAGED_MASTERED: 0.10,
     ENGAGED_BOTH: 0.00,
 }
-
-
-def _learner_context(user_uid: str = USER) -> UserContext:
-    """A RICH context: the six activity→knowledge maps populated."""
-    return UserContext(
-        user_uid=user_uid,
-        habit_knowledge_applied=dict(LEARNER_HABITS),
-        task_knowledge_applied=dict(LEARNER_TASKS),
-    )
-
-
-class _StubUserService:
-    """Both context depths, so the metric's CHOICE of depth is observable.
-
-    ``get_user_context`` — the standard build — returns a context whose six
-    activity→knowledge maps are EMPTY, which is what the real standard build
-    returns: ``populate_graph_sourced_fields`` is called only from
-    ``build_rich_user_context``. A caller that reaches for the standard depth
-    therefore scores every step 0.0 and reports a learner who applied nothing.
-    It does not raise. Serving both depths here turns that wiring mistake into
-    a wrong number a test can see.
-    """
-
-    def __init__(self, rich: UserContext) -> None:
-        self._rich = rich
-
-    async def get_user_context(self, user_uid):
-        return Result.ok(UserContext(user_uid=user_uid))
-
-    async def get_rich_unified_context(self, user_uid, min_confidence: float = 0.7):
-        return Result.ok(self._rich)
 
 
 class _StubPsService:
@@ -166,15 +137,21 @@ class _StubPsService:
     async def count_engaged_knowledge(self, user_uid):
         return await self._backend.count_engaged_knowledge(user_uid)
 
-    async def get_user_substance_scores(self, ps_uids, user_context):
-        return await self._intelligence.calculate_user_substance_for_steps(ps_uids, user_context)
+    async def get_user_substance_scores(self, ps_uids, channels):
+        return await self._intelligence.calculate_user_substance_for_steps(ps_uids, channels)
 
 
-def _metrics_service(backend: PsBackend, context: UserContext | None = None):
-    """The service under test, wired the way the composition root wires it."""
+def _metrics_service(backend: PsBackend):
+    """The service under test, wired the way the composition root wires it.
+
+    Both collaborators are REAL over the seeded graph — the activity-channel read
+    especially. Stubbing that one would have hidden the defect this file's window
+    test exists for: the channels have to be sourced somewhere, and where they
+    come from IS the question.
+    """
     return AnalyticsMetricsService(
         ku_service=_StubPsService(backend),
-        user_service=_StubUserService(context if context is not None else _learner_context()),
+        cross_domain_backend=CrossDomainBackend(Neo4jQueryExecutor(backend.driver)),
     )
 
 
@@ -257,6 +234,53 @@ class TestKnowledgeMetricsLearnerScope:
                     ps_uid=ps_uid,
                     ku_uid=ku_uid,
                 )
+
+            # The learner's OWN activity — the numerator, read unwindowed.
+            #
+            # Every one of these is deliberately COMPLETED/ARCHIVED and stamped
+            # 200 days ago, i.e. outside any planning window and past every
+            # "still open" escape hatch. The MEGA-QUERY's rollup admits a task
+            # only if it is open or was touched inside the window, and an event
+            # only if it falls inside the window at all — so if substance is ever
+            # re-sourced from a UserContext, every figure below collapses to 0.0.
+            for uid, entity_type, status, ku_uid, edge in (
+                ("habit_1", "habit", "archived", KU_DEEP, "REINFORCES_KNOWLEDGE"),
+                ("habit_2", "habit", "archived", KU_DEEP, "REINFORCES_KNOWLEDGE"),
+                ("habit_3", "habit", "archived", KU_DEEP, "REINFORCES_KNOWLEDGE"),
+                ("habit_4", "habit", "archived", KU_LIGHT, "REINFORCES_KNOWLEDGE"),
+                ("task_1", "task", "completed", KU_DEEP, "APPLIES_KNOWLEDGE"),
+                ("task_2", "task", "completed", KU_DEEP, "APPLIES_KNOWLEDGE"),
+            ):
+                await session.run(
+                    f"""
+                    MATCH (u:User {{uid: $u}}), (k:Entity {{uid: $ku_uid}})
+                    CREATE (a:Entity {{uid: $uid, entity_type: $entity_type,
+                                       title: $uid, status: $status,
+                                       created_at: $stale, updated_at: $stale}})
+                    MERGE (u)-[:OWNS]->(a)
+                    MERGE (a)-[:{edge}]->(k)
+                    """,
+                    u=USER,
+                    uid=uid,
+                    entity_type=entity_type,
+                    status=status,
+                    ku_uid=ku_uid,
+                    stale=stale,
+                )
+
+            # The tenancy control on the NUMERATOR: another learner grinding the
+            # same Ku must not move this learner's score.
+            await session.run(
+                """
+                MATCH (u:User {uid: $u}), (k:Entity {uid: $ku_uid})
+                CREATE (a:Entity {uid: 'other_habit', entity_type: 'habit',
+                                  title: 'Their habit', status: 'active'})
+                MERGE (u)-[:OWNS]->(a)
+                MERGE (a)-[:REINFORCES_KNOWLEDGE]->(k)
+                """,
+                u=OTHER_USER,
+                ku_uid=KU_UNTOUCHED,
+            )
 
             await session.run(
                 """
@@ -370,8 +394,8 @@ class TestKnowledgeMetricsLearnerScope:
         # (0.40 + 0.10 + 0.00) / 3. The global reading is (0.30 + 0.30 + 0.80) / 3.
         assert metrics["avg_substance_score"] == pytest.approx(0.17), (
             "0.47 = the shared node's counters — six learners' activity on this "
-            "learner's material; 0.0 = the channel maps arrived empty, i.e. the "
-            "STANDARD UserContext was used where the rich one is required"
+            "learner's material; 0.0 = the channels arrived empty, i.e. a "
+            "windowed source dropped these 200-day-old applications"
         )
         assert metrics["applied_knowledge"] == 1, f"only {ENGAGED_IN_PROGRESS} (0.40) is applied"
         assert metrics["theoretical_knowledge"] == 2, (
@@ -383,26 +407,111 @@ class TestKnowledgeMetricsLearnerScope:
         )
         assert metrics["practiced_knowledge"] == 0
 
-    async def test_a_standard_context_would_be_a_flat_zero_not_an_error(self, backend):
-        """Why the depth choice is load-bearing, asserted rather than asserted-about.
+    async def test_activity_older_than_any_planning_window_still_counts(self, backend):
+        """Substance is cumulative: a task you finished last year still applied it.
 
-        The six activity→knowledge maps are populated only by
-        ``build_rich_user_context``. Feeding the metric a standard-depth context
-        does not fail — it scores every step 0.0 and publishes a week in which
-        the learner applied nothing. This pins that the metric asks for the rich
-        depth by showing what the other one produces.
+        Every seeded activity is completed/archived and stamped 200 days back,
+        so this whole file's numbers are unreachable from a ``UserContext``. The
+        MEGA-QUERY builds those maps for PLANNING — a task enters only if it is
+        open or was touched inside a 30-day window, an event only if it falls
+        inside the window at all — which understates a cumulative figure, shifts
+        the bands, and raises review warnings on knowledge the learner did apply,
+        purely because of its age. It also does so INCONSISTENTLY: an active
+        habit is admitted at any age while a month-old event vanishes, so there
+        is no single sentence describing what such a score would mean.
+
+        Hence ``get_user_knowledge_channels``, which applies no window and no
+        status filter. A zero here is that read having been swapped back for a
+        context.
         """
         start, end = self._window()
-        standard = UserContext(user_uid=USER)  # what get_user_context returns
-        result = await _metrics_service(backend, standard).calculate_knowledge_metrics(
-            USER, start, end
-        )
+        result = await _metrics_service(backend).calculate_knowledge_metrics(USER, start, end)
         assert result.is_ok
 
-        assert result.value["avg_substance_score"] == 0.0
-        assert result.value["theoretical_knowledge"] == 3, (
-            "an empty context is indistinguishable from an unapplied learner — "
-            "which is exactly why the depth cannot be chosen by accident"
+        assert result.value["avg_substance_score"] == pytest.approx(0.17), (
+            "0.0 = the channels came from a windowed source, so 200-day-old "
+            "applications were dropped and every step read as theoretical"
+        )
+        assert result.value["applied_knowledge"] == 1
+
+    async def test_another_learners_activity_does_not_move_this_score(self, backend):
+        """The tenancy control on the numerator, not just the denominator.
+
+        ``OTHER_USER`` holds an ACTIVE habit reinforcing ``KU_UNTOUCHED`` — the
+        Ku behind ``ENGAGED_BOTH``. The channel read is anchored on
+        ``(u:User {uid})-[:OWNS]->``, so their habit must not appear in this
+        learner's index; ``ENGAGED_BOTH`` stays at 0.00 rather than 0.10.
+        """
+        start, end = self._window()
+        result = await _metrics_service(backend).calculate_knowledge_metrics(USER, start, end)
+        assert result.is_ok
+
+        by_uid = {w["ku_uid"]: w["current_substance"] for w in result.value["decay_warnings"]}
+        assert by_uid[ENGAGED_BOTH] == 0.0, (
+            "0.1 = the OWNS anchor is missing and another learner's habit was counted"
+        )
+
+    async def test_a_ku_reachable_only_by_contains_knowledge_is_credited(
+        self, backend, neo4j_driver
+    ):
+        """The step→Ku resolver and the channel rollup must agree on the edge set.
+
+        The substance write fan-out, ``fetch_taught_ku_uids*`` and the channel
+        read all traverse USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU. The MEGA-QUERY's
+        rollup listed only two of the three until 2026-08-12, so a Ku reachable
+        from a step only over CONTAINS_KNOWLEDGE landed in the DENOMINATOR (the
+        step teaches it) and never in the numerator (no channel could see it) —
+        an under-return that reads as "you never applied this".
+        """
+        cn_user = "user_contains_knowledge"
+        async with neo4j_driver.session() as session:
+            await session.run("MERGE (u:User {uid: $u})", u=cn_user)
+            await session.run(
+                """
+                CREATE (p:Entity:PathStep {uid: 'ps_contains', entity_type: 'path_step',
+                                           title: 'Contains-only step', status: 'active'})
+                CREATE (k:Entity:Ku {uid: 'ku_contains_only', entity_type: 'ku',
+                                     title: 'Reachable only by CONTAINS_KNOWLEDGE',
+                                     status: 'active'})
+                MERGE (p)-[:CONTAINS_KNOWLEDGE]->(k)
+                """
+            )
+            # TWO shapes, because the triple has to hold on both sides of the
+            # join and each side has its own arm of the query:
+            #   cn_habit  -> the Ku DIRECTLY  (exercises the resolver: the step
+            #                reaches its Ku only over CONTAINS_KNOWLEDGE)
+            #   cn_task   -> the STEP         (exercises the channel bridge: the
+            #                activity's target must expand to the step's Kus over
+            #                the same triple — the exact shape the MEGA-QUERY
+            #                rollup got wrong)
+            await session.run(
+                """
+                MATCH (u:User {uid: $u}), (k:Entity {uid: 'ku_contains_only'}),
+                      (p:Entity {uid: 'ps_contains'})
+                CREATE (h:Entity {uid: 'cn_habit', entity_type: 'habit',
+                                  title: 'Habit', status: 'active'})
+                CREATE (t:Entity {uid: 'cn_task', entity_type: 'task',
+                                  title: 'Task', status: 'completed'})
+                MERGE (u)-[:OWNS]->(h)
+                MERGE (u)-[:OWNS]->(t)
+                MERGE (h)-[:REINFORCES_KNOWLEDGE]->(k)
+                MERGE (t)-[:APPLIES_KNOWLEDGE]->(p)
+                """,
+                u=cn_user,
+            )
+        assert (
+            await backend.mark_in_progress(cn_user, "ps_contains", datetime.now(UTC).isoformat())
+        ).is_ok
+
+        start, end = self._window()
+        result = await _metrics_service(backend).calculate_knowledge_metrics(cn_user, start, end)
+        assert result.is_ok
+
+        # habit 0.10 + task 0.05, both landing on the one Ku the step composes.
+        assert result.value["avg_substance_score"] == pytest.approx(0.15), (
+            "0.0  = the resolver dropped CONTAINS_KNOWLEDGE, so the step teaches "
+            "nothing;  0.10 = the CHANNEL BRIDGE dropped it, so the task's "
+            "PathStep target never expanded to the Ku it composes"
         )
 
     async def test_a_step_teaching_no_ku_scores_zero(self, backend, neo4j_driver):
@@ -431,7 +540,7 @@ class TestKnowledgeMetricsLearnerScope:
         ).is_ok
 
         start, end = self._window()
-        service = _metrics_service(backend, _learner_context(lone_user))
+        service = _metrics_service(backend)
         result = await service.calculate_knowledge_metrics(lone_user, start, end)
         assert result.is_ok
 
@@ -497,37 +606,38 @@ class TestKnowledgeMetricsLearnerScope:
 
         start, end = self._window()
         service = AnalyticsMetricsService(
-            ku_service=_FailingPsService(), user_service=_StubUserService(_learner_context())
+            ku_service=_FailingPsService(),
+            cross_domain_backend=CrossDomainBackend(Neo4jQueryExecutor(backend.driver)),
         )
 
         result = await service.calculate_knowledge_metrics(USER, start, end)
         assert result.is_error, "an infrastructure failure was reported as an empty week"
 
-    async def test_a_failed_context_read_is_not_reported_as_an_unapplied_week(self, backend):
+    async def test_a_failed_channel_read_is_not_reported_as_an_unapplied_week(self, backend):
         """The same rule for the SECOND read the metric now depends on.
 
         A learner's activity channels arriving as an error must propagate. If it
-        degraded to an empty context instead, every step would score 0.0 and the
+        degraded to empty channels instead, every step would score 0.0 and the
         week would persist as "learned it, applied none of it" — a plausible
         reading, which is what makes it dangerous.
         """
 
-        class _FailingUserService:
-            async def get_rich_unified_context(self, *_args, **_kwargs):
+        class _FailingChannelBackend:
+            async def get_user_knowledge_channels(self, *_args, **_kwargs):
                 return Result.fail(
                     Errors.database(message="simulated Neo4j outage", operation="test")
                 )
 
         start, end = self._window()
         service = AnalyticsMetricsService(
-            ku_service=_StubPsService(backend), user_service=_FailingUserService()
+            ku_service=_StubPsService(backend), cross_domain_backend=_FailingChannelBackend()
         )
 
         result = await service.calculate_knowledge_metrics(USER, start, end)
         assert result.is_error, "a failed context read was reported as an unapplied week"
 
-    async def test_the_metric_refuses_without_a_user_service(self, backend):
-        """No learner, no per-learner figure — refuse rather than fall back.
+    async def test_the_metric_refuses_without_a_channel_source(self, backend):
+        """No learner activity, no per-learner figure — refuse rather than fall back.
 
         The fallback would be ``Curriculum.substance_score()``, i.e. silently
         reporting the corpus-global number under a per-learner heading. That is
@@ -670,7 +780,7 @@ class TestKnowledgeMetricsLearnerScope:
     async def test_a_learner_with_no_engagement_gets_zeroes_not_the_corpus(self, backend):
         """The empty case must be empty — 7 here would mean the scope was never applied."""
         start, end = self._window()
-        service = _metrics_service(backend, _learner_context("user_with_no_knowledge"))
+        service = _metrics_service(backend)
 
         result = await service.calculate_knowledge_metrics("user_with_no_knowledge", start, end)
         assert result.is_ok

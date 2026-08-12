@@ -59,7 +59,7 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_created_at_attr, get_second_item, get_title_lower
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Mapping, Sequence
 
     from core.infrastructure.relationships.semantic_relationships import SemanticTriple
     from core.models.context_types import ContextualKnowledge
@@ -1105,7 +1105,7 @@ class PsService:
         return await self.intelligence.calculate_user_substance(ps_uid, user_context)
 
     async def get_user_substance_scores(
-        self, ps_uids: Sequence[str], user_context: UserContext
+        self, ps_uids: Sequence[str], channels: Mapping[str, Mapping[str, Sequence[str]]]
     ) -> Result[dict[str, float]]:
         """Personal substance score for a set of path steps, keyed by uid.
 
@@ -1114,8 +1114,11 @@ class PsService:
         the mapping; 0.0 means the learner has applied none of the step's Kus
         through any of the six channels, which is a reading, not a gap.
 
-        The context must be RICH: the six activity→knowledge maps this scores
-        against are populated only by ``UserContextBuilder.build_rich``.
+        ``channels`` is the learner's six activity→knowledge maps. For a
+        cumulative figure they must come from
+        ``CrossDomainBackendOperations.get_user_knowledge_channels`` (unwindowed);
+        a ``UserContext``'s copies are bounded by the planning window and would
+        drop older applications.
         """
         if getattr(self, "intelligence", None) is None:
             return Result.fail(
@@ -1124,7 +1127,7 @@ class PsService:
                     operation="get_user_substance_scores",
                 )
             )
-        return await self.intelligence.calculate_user_substance_for_steps(ps_uids, user_context)
+        return await self.intelligence.calculate_user_substance_for_steps(ps_uids, channels)
 
     # =========================================================================
     # QUERY LAYER (FilteredContextProvider)

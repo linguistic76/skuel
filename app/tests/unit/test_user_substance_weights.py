@@ -29,9 +29,12 @@ import pytest
 
 from core.services.knowledge.user_substance import (
     MAX_SUBSTANCE,
+    SUBSTANCE_ACTIVITY_TYPES,
     USER_SUBSTANCE_CHANNELS,
     build_substance_index,
+    build_substance_index_from_context,
     channel_counts,
+    channel_maps_from_rows,
     empty_channel_prompts,
     substance_breakdown,
     substance_score,
@@ -97,7 +100,9 @@ class TestScoring:
 
         for count, expected in ((below, below * channel.weight), (above, channel.cap)):
             context = _context(**{channel.context_field: {f"act_{i}": [ku] for i in range(count)}})
-            breakdown = substance_breakdown(channel_counts(ku, build_substance_index(context)))
+            breakdown = substance_breakdown(
+                channel_counts(ku, build_substance_index_from_context(context))
+            )
             assert breakdown[channel.name] == pytest.approx(expected, abs=1e-9), (
                 f"{channel.name} at {count} activities"
             )
@@ -107,11 +112,15 @@ class TestScoring:
     def test_an_activity_naming_a_ku_twice_counts_once(self):
         """The weights are per ACTIVITY. An edge written twice is not two habits."""
         context = _context(habit_knowledge_applied={"habit_1": ["ku_a", "ku_a", "ku_a"]})
-        assert user_substance_score("ku_a", build_substance_index(context)) == pytest.approx(0.10)
+        assert user_substance_score(
+            "ku_a", build_substance_index_from_context(context)
+        ) == pytest.approx(0.10)
 
     def test_an_unknown_ku_scores_zero_rather_than_raising(self):
         """A step whose Kus the learner never touched is a reading, not a gap."""
-        index = build_substance_index(_context(task_knowledge_applied={"t": ["ku_other"]}))
+        index = build_substance_index_from_context(
+            _context(task_knowledge_applied={"t": ["ku_other"]})
+        )
         assert user_substance_score("ku_untouched", index) == 0.0
         assert channel_counts("ku_untouched", index) == dict.fromkeys(
             (c.name for c in USER_SUBSTANCE_CHANNELS), 0
@@ -125,21 +134,72 @@ class TestScoring:
             for c in USER_SUBSTANCE_CHANNELS
         }
         breakdown = substance_breakdown(
-            channel_counts(ku, build_substance_index(_context(**channels)))
+            channel_counts(ku, build_substance_index_from_context(_context(**channels)))
         )
         assert sum(breakdown.values()) == pytest.approx(1.30), "the caps themselves changed"
         assert substance_score(breakdown) == MAX_SUBSTANCE
 
     def test_one_learners_activity_does_not_score_for_another(self):
         """The whole point: this is a per-CONTEXT figure, and a context is one user's."""
-        mine = build_substance_index(_context(habit_knowledge_applied={"h1": ["ku_shared"]}))
-        theirs = build_substance_index(_context())
+        mine = build_substance_index_from_context(
+            _context(habit_knowledge_applied={"h1": ["ku_shared"]})
+        )
+        theirs = build_substance_index_from_context(_context())
         assert user_substance_score("ku_shared", mine) == pytest.approx(0.10)
         assert user_substance_score("ku_shared", theirs) == 0.0
 
+    def test_both_sources_produce_the_same_index(self):
+        """The windowed and unwindowed sources must feed identical arithmetic.
+
+        Two entry points into one calculation is the shape that drifts, so this
+        asserts they agree on the same underlying facts rather than trusting
+        that they were written to.
+        """
+        from_context = build_substance_index_from_context(
+            _context(
+                habit_knowledge_applied={"h1": ["ku_a"], "h2": ["ku_a"]},
+                task_knowledge_applied={"t1": ["ku_a", "ku_b"]},
+            )
+        )
+        from_rows = build_substance_index(
+            channel_maps_from_rows(
+                [
+                    {"entity_type": "habit", "activity_uid": "h1", "ku_uids": ["ku_a"]},
+                    {"entity_type": "habit", "activity_uid": "h2", "ku_uids": ["ku_a"]},
+                    {"entity_type": "task", "activity_uid": "t1", "ku_uids": ["ku_a", "ku_b"]},
+                ]
+            )
+        )
+        assert from_rows == from_context
+        assert user_substance_score("ku_a", from_rows) == pytest.approx(0.25)  # 0.20 + 0.05
+
+    def test_a_row_from_a_non_substance_entity_is_dropped_not_bucketed(self):
+        """A goal names knowledge but is not one of the six channels.
+
+        Dropping it is the honest move: the query filters on
+        SUBSTANCE_ACTIVITY_TYPES, so a stray row means query and table have
+        diverged, and quietly bucketing it into some channel would score the
+        learner for a channel the philosophy does not weight.
+        """
+        assert "goal" not in SUBSTANCE_ACTIVITY_TYPES
+        channels = channel_maps_from_rows(
+            [
+                {"entity_type": "goal", "activity_uid": "g1", "ku_uids": ["ku_a"]},
+                {"entity_type": "habit", "activity_uid": "h1", "ku_uids": ["ku_a"]},
+            ]
+        )
+        assert user_substance_score("ku_a", build_substance_index(channels)) == pytest.approx(0.10)
+
+    def test_activity_types_cover_every_channel(self):
+        """The query's filter is derived from the table, so it cannot under-select."""
+        assert set(SUBSTANCE_ACTIVITY_TYPES) == {c.entity_type for c in USER_SUBSTANCE_CHANNELS}
+        assert len(SUBSTANCE_ACTIVITY_TYPES) == len(USER_SUBSTANCE_CHANNELS), (
+            "duplicate entity_type"
+        )
+
     def test_prompts_cover_exactly_the_empty_channels(self):
         context = _context(habit_knowledge_applied={"h1": ["ku_a"]})
-        counts = channel_counts("ku_a", build_substance_index(context))
+        counts = channel_counts("ku_a", build_substance_index_from_context(context))
         prompts = empty_channel_prompts(counts, "Breath Awareness")
 
         assert len(prompts) == len(USER_SUBSTANCE_CHANNELS) - 1, "habits is used, so not prompted"
