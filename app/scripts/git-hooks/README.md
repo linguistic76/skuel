@@ -16,7 +16,7 @@ Four checks, fail-fast on any:
 
 2. **Cross-reference validation** — only when at least one `.md` file is staged.
    - Runs `app/scripts/validate_cross_references.py --errors-only`.
-   - Blocks on broken `@skill-name` references, broken `/docs/...` links, and missing frontmatter on pattern docs.
+   - Blocks on unresolvable names in a doc's `related_skills:` frontmatter, broken `/docs/...` links, and missing frontmatter on pattern docs.
 
 3. **MyPy type check** — only when at least one `app/**/*.py` file is staged.
    - Runs `uv run mypy --follow-imports=silent <staged files>` from `app/`.

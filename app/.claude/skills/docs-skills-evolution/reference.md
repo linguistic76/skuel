@@ -658,12 +658,15 @@ uv run python scripts/detect_library_changes.py --from-ref HEAD~5
 
 **Manual validator** (`validate_cross_references.py`):
 
+Reads `related_skills:` frontmatter as the doc→skill representation (prose
+`@skill` mentions are not links).
+
 | Check | Severity | Notes |
 |-------|----------|-------|
-| **Broken skill references** | ❌ Error | `@skill-name` in docs exists? |
+| **Broken skill references** | ❌ Error | Name in `related_skills` exists? |
 | **Broken doc links** | ❌ Error | `/docs/...` file exists? |
 | **Missing reverse links** | ⚠️  Warning | Bidirectional coverage |
-| **Orphaned docs** | ℹ️  Info | Suggests improvements |
+| **Orphaned docs** | ℹ️  Info | No `related_skills` declared |
 
 ---
 

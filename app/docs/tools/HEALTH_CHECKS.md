@@ -248,30 +248,37 @@ Run `./dev health-names --list` to print the complete RENAMED and DELETED tables
 
 Validates bidirectional consistency between skills and documentation, and detects stale skills whose primary docs have been updated since `last_reviewed`.
 
+**Doc→skill links live in `related_skills:` frontmatter.** That field is the canonical representation — the same one `skills_validator.py` validates, `sync_cross_references.py` projects into doc bodies, and `generate_cross_reference_index.py` indexes. Prose `@skill` mentions are *not* links: this script formerly read only prose, which made the two halves of the system invisible to each other (and counted `@pytest.fixture` in a code block as a link).
+
 ```
 Cross-Reference Validation Report
 ================================================================================
 
 📊 Statistics:
-   Total skills: 23
-   Total docs scanned: 257
-   Skill references in docs: 111
-   Doc references in skills: 101
+   Total skills: 30
+   Total docs scanned: 410
+   Skill references in docs: 116
+   Doc references in skills: 108
 
-✅ Bidirectional Links: 80/111 (72.1%)
-❌ Broken Links: 1
-⚠️  Missing Reverse Links: 51
+✅ Bidirectional Links: 86/116 (74.1%)
+❌ Broken Links: 0
+⚠️  Missing Reverse Links: 52
 🔵 Stale Skills: 0
+ℹ️  Orphaned Docs: 321
+ℹ️  Skills Without Docs: 2
 ```
 
 **What it checks:**
 
 | Check | Severity | Meaning |
 |-------|----------|---------|
-| Broken skill reference | ❌ Error | `@skill-name` in a doc doesn't exist in `skills_metadata.yaml` |
+| Broken skill reference | ❌ Error | A name in a doc's `related_skills` doesn't exist in `skills_metadata.yaml` |
 | Broken doc link | ❌ Error | Doc in `skills_metadata.yaml` doesn't exist on disk |
 | Missing reverse link | ⚠️ Warning | Unidirectional reference (A→B but not B→A) |
+| Orphaned doc | 🔵 Info | Doc declares no `related_skills` at all |
 | Stale skill | 🔵 Info | Primary docs have git commits after `last_reviewed` |
+
+The orphaned/skills-without-docs counts are printed in the statistics block because the listings below them are truncated — read the count, not the length of the list.
 
 **Verbose mode:** `uv run python scripts/validate_cross_references.py --verbose` includes orphaned docs and info-level issues.
 
