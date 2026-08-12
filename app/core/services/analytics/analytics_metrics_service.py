@@ -846,7 +846,12 @@ class AnalyticsMetricsService:
             ku_metrics = {"total": 0, "mastered": 0}
             if self.ku_service:
                 counts_result = await self.ku_service.count_engaged_steps(user_uid)
-                if counts_result.is_ok and counts_result.value:
+                # Same rule as the sibling metric: a failed count is not a count
+                # of zero. Leaving the zeros in place here would publish a
+                # curriculum report claiming no knowledge on a Neo4j outage.
+                if counts_result.is_error:
+                    return Result.fail(counts_result)
+                if counts_result.value:
                     ku_metrics = dict(counts_result.value)
 
             return Result.ok(

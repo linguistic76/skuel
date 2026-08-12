@@ -319,6 +319,50 @@ class TestKnowledgeMetricsLearnerScope:
             f"got {len(result.value)} — 100 means the LIMIT is still capping the aggregate"
         )
 
+    async def test_every_real_writer_path_lands_in_the_window(self, backend, neo4j_driver):
+        """Engagement must be recognised however the edge was written.
+
+        Six backend methods write these three edge types and between them use
+        NINE timestamp field names. The first version of this query hand-listed
+        four, so a step mastered through ``_AdaptiveMixin.track_mastery_completion``
+        (``created_at``/``updated_at``) evaluated to NULL and vanished from every
+        windowed report — an under-return, which is indistinguishable from "the
+        learner did nothing" unless a test drives the actual writer.
+
+        So this drives the REAL methods rather than seeding properties by hand:
+        a hand-seeded fixture can only ever confirm the names its author already
+        thought of.
+        """
+        writer_user = "user_writer_paths"
+        async with neo4j_driver.session() as session:
+            await session.run("MERGE (u:User {uid: $u})", u=writer_user)
+            for uid in ("ps_w_learning_state", "ps_w_adaptive", "ps_w_read"):
+                await session.run(
+                    """
+                    CREATE (n:Entity:PathStep {uid: $uid, entity_type: 'path_step',
+                                               title: $uid, status: 'active'})
+                    """,
+                    uid=uid,
+                )
+
+        now_iso = datetime.now(UTC).isoformat()
+        # started_at / last_activity_at
+        assert (await backend.mark_in_progress(writer_user, "ps_w_learning_state", now_iso)).is_ok
+        # created_at only — the field family the original enumeration missed
+        assert (await backend.track_mastery_completion(writer_user, "ps_w_adaptive", 30)).is_ok
+        # marked_at
+        assert (await backend.mark_as_read(writer_user, "ps_w_read")).is_ok
+
+        start, end = self._window()
+        result = await backend.find_engaged_path_steps_by_date_range(writer_user, start, end)
+        assert result.is_ok
+
+        assert {s.uid for s in result.value} == {
+            "ps_w_learning_state",
+            "ps_w_adaptive",
+            "ps_w_read",
+        }, "a writer path was dropped — its timestamp field is not being recognised"
+
     async def test_a_learner_with_no_engagement_gets_zeroes_not_the_corpus(self, backend):
         """The empty case must be empty — 7 here would mean the scope was never applied."""
         start, end = self._window()

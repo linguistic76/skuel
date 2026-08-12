@@ -510,13 +510,37 @@ them would inflate the denominator of every substance average with material the
 learner never worked.
 """
 
-_ENGAGED_AT = "coalesce(r.last_activity_at, r.mastered_at, r.marked_at, r.started_at)"
-"""When the learner last touched the step, across the three engagement edges.
+_ENGAGED_AT = (
+    "reduce(latest = null,"
+    " v IN [k IN keys(r) WHERE valueType(r[k]) STARTS WITH 'ZONED DATETIME' | r[k]]"
+    " | CASE WHEN latest IS NULL OR v > latest THEN v ELSE latest END)"
+)
+"""When the learner last touched the step: the newest timestamp ON the edge.
 
-Each edge type stamps its own field (``mark_in_progress`` writes
-``last_activity_at``, ``mark_mastered`` writes ``mastered_at``, ``mark_as_read``
-writes ``marked_at``), so a single field name would silently window out two
-thirds of the engagement set.
+Derived from the edge's properties rather than named, because the field name is
+NOT one vocabulary. Six writers stamp these three edge types, and between them
+they use NINE different names:
+
+    started_at, last_activity_at   _LearningStateMixin / KuBackend (IN_PROGRESS)
+    mastered_at                    _LearningStateMixin / KuBackend (MASTERED)
+    marked_at                      _LearningStateMixin (MARKED_AS_READ)
+    created_at, updated_at         _AdaptiveMixin.track_mastery_completion
+    achieved_at, last_practiced    UserProgressBackend
+    last_accessed                  UserProgressBackend / UserBackend
+
+A hand-written ``coalesce`` of the names one happens to know is exactly the
+enumeration defect this codebase keeps re-learning: the first version of this
+listed four, so a step mastered through ``PsService.track_curriculum_completion``
+(which writes ``created_at``/``updated_at``) evaluated to NULL and was dropped
+from every windowed report — silently, because an under-return looks identical
+to "the learner did nothing".
+
+Keying on the TYPE instead has no list to drift: a new writer stamping a new
+name is picked up without touching this. Every datetime on these edges is an
+engagement time, so widening to all of them costs nothing in precision.
+``STARTS WITH`` rather than ``CONTAINS`` so a hypothetical ``LIST<ZONED
+DATETIME>`` cannot reach the comparison. Newest wins, not first-non-null —
+``coalesce`` returns by priority order, which is not the same question.
 """
 
 
