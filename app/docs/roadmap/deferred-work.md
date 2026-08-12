@@ -479,8 +479,8 @@ uv run python scripts/sync_cross_references.py --all --dry-run
 ```
 
 **Enable when**: either a docs-taxonomy pass (item 1) or the next `docs/patterns` sweep that is
-already touching these files (item 2). Neither blocks anything — all 28 are warnings, and
-`--errors-only`, the pre-commit gate, exits 0.
+already touching these files (item 2). Neither blocks anything — every one of them is a warning,
+and `--errors-only`, the pre-commit gate, exits 0.
 
 **Watch for:** the report's orphaned/skills-without-docs listings are truncated. Read the
 counts in the statistics block, not the length of the printed list — the info listing caps at
@@ -511,7 +511,7 @@ Review this document at the **September 2026 quarterly review**. Checklist:
 | Monthly-template vault cleanup | Founder vault pass | Founder-owned, non-repo |
 | Monthly-note panel parity | Lived monthly-note use wants the weekly panel | Product need (not a data threshold) |
 | Tasks/Events edge-clear on edit (`""` → None) | Next touch of the Tasks/Events edit forms | Ride-along; re-verify the bug still reproduces first |
-| Skill↔doc backlink reconciliation (28 surfaced warnings) | Docs-taxonomy pass — ruling needed per warning, not a rote edit | `uv run python scripts/validate_cross_references.py --verbose` |
+| Skill↔doc backlink reconciliation | Docs-taxonomy pass — ruling needed per warning, not a rote edit | `uv run python scripts/validate_cross_references.py --verbose` |
 | Drifted `## Related Skills` body sections (3 of 35) | Next `docs/patterns` sweep already touching these files | `uv run python scripts/sync_cross_references.py --all --dry-run` |
 
 **The document is the checklist, the table is a convenience:** a section added to this file
