@@ -145,11 +145,14 @@ Validates bidirectional consistency between skills and documentation, and detect
 
 **What it checks:**
 
+A doc declares its skill links in `related_skills:` frontmatter — that field, not
+prose `@skill` mentions, is what the validator reads.
+
 | Check | Severity | Meaning |
 |-------|----------|---------|
-| Broken skill reference | Error | `@skill-name` in a doc doesn't exist in `skills_metadata.yaml` |
+| Broken skill reference | Error | A name in a doc's `related_skills` doesn't exist in `skills_metadata.yaml` |
 | Broken doc link | Error | Doc referenced in `skills_metadata.yaml` doesn't exist on disk |
-| Missing reverse link | Warning | Doc references `@skill` but skill doesn't list that doc (or vice versa) |
+| Missing reverse link | Warning | Doc's `related_skills` names a skill that doesn't list that doc (or vice versa) |
 | Stale skill | Info | A skill's `primary_docs` have git commits after its `last_reviewed` date |
 
 **Fixing stale skills:**

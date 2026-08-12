@@ -9,6 +9,32 @@ Validates bidirectional consistency between skills and documentation:
 4. Suggests missing cross-references
 5. Detects stale skills (primary docs updated after last_reviewed date)
 
+Canonical doc→skill representation: ``related_skills:`` frontmatter
+-------------------------------------------------------------------
+A doc declares its skill links in frontmatter, not in prose. Everything else in
+the repo already agreed on this — `skills_validator.py` validates the field
+(checks 5 and 7), `sync_cross_references.py` projects it into the body, and
+`generate_cross_reference_index.py` and `add_skill_backlinks.py` read and write
+it. This script was the lone holdout: it regexed ``@([a-z0-9-]+)`` out of the
+file *body*, so the two systems never met.
+
+Prose ``@skill`` scanning is deliberately gone rather than unioned in, because
+what it collected was not a link declaration:
+
+- The regex read whole files, code blocks included, so ``@pytest.fixture`` and
+  sample *output of this very validator* pasted into GIT_HOOKS.md counted as
+  links (17 of 151 edges).
+- ``docs/CROSS_REFERENCE_INDEX.md`` is generated and names every skill by
+  design, which alone manufactured 30 of the 89 missing-reverse warnings.
+- Another 51 edges sat inside the ``## Related Skills`` blocks that
+  `sync_cross_references.py` generates *from* frontmatter — a stale cache of the
+  canonical field, not an independent source. Three had already drifted from it.
+
+Reading frontmatter also makes the broken-link check real. Values are taken
+verbatim instead of being filtered against the registry first, so a retired or
+misspelled skill name is now reported; under the old regex the filter ran before
+the check and that branch could never fire.
+
 Usage:
     uv run python scripts/validate_cross_references.py [--fix-suggestions]
 """
@@ -21,6 +47,8 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+
+from core.utils.frontmatter import parse_frontmatter
 
 
 @dataclass
@@ -55,18 +83,21 @@ def load_skills_metadata(base_path: Path) -> dict[str, Any]:
         return yaml.safe_load(f)
 
 
-def get_valid_skills(skills_data: dict[str, Any]) -> set[str]:
-    """Derive valid skill names dynamically from loaded metadata."""
-    return {skill["name"] for skill in skills_data["skills"]}
+def find_skill_references_in_file(file_path: Path) -> set[str]:
+    """Read a doc's declared skill links from its ``related_skills`` frontmatter.
 
-
-def find_skill_references_in_file(file_path: Path, valid_skills: set[str]) -> set[str]:
-    """Find all @skill-name references in a file."""
-    content = file_path.read_text()
-    # Find @skill-name patterns (but not in code blocks)
-    matches = re.findall(r"@([a-z0-9-]+)", content)
-    # Validate against known skills
-    return {m for m in matches if m in valid_skills}
+    Names are returned verbatim — deliberately *not* filtered against the skills
+    registry. A name that doesn't resolve is a broken link and the caller reports
+    it; filtering here is what made that check unreachable before.
+    """
+    frontmatter, _ = parse_frontmatter(file_path.read_text())
+    related = frontmatter.get("related_skills") or []
+    # Tolerate the scalar form (`related_skills: fasthtml`) alongside the list form.
+    if isinstance(related, str):
+        related = [related]
+    if not isinstance(related, list):
+        return set()
+    return {name for name in related if isinstance(name, str)}
 
 
 def find_actual_adr_files(base_path: Path) -> dict[str, str]:
@@ -118,10 +149,9 @@ def find_doc_references_in_skills(
 
 def collect_doc_to_skills_mapping(
     base_path: Path,
-    valid_skills: set[str],
 ) -> tuple[dict[str, set[str]], set[Path]]:
     """
-    Scan all docs and find which skills they reference.
+    Scan all docs and collect the skills each one declares in its frontmatter.
 
     Returns: ({doc_path: set of skills}, set of scanned files)
     """
@@ -136,7 +166,7 @@ def collect_doc_to_skills_mapping(
             if "archive" in file_path.parts:
                 continue
 
-            skills = find_skill_references_in_file(file_path, valid_skills)
+            skills = find_skill_references_in_file(file_path)
             # Store with path relative to base (e.g., /docs/development/EMBEDDINGS_SETUP.md)
             rel_path = f"/{file_path.relative_to(base_path)}"
             doc_to_skills[rel_path] = skills
@@ -144,7 +174,7 @@ def collect_doc_to_skills_mapping(
 
     # Also scan root-level markdown files
     for file_path in base_path.glob("*.md"):
-        skills = find_skill_references_in_file(file_path, valid_skills)
+        skills = find_skill_references_in_file(file_path)
         rel_path = f"/{file_path.relative_to(base_path)}"
         doc_to_skills[rel_path] = skills
         scanned_files.add(file_path)
@@ -153,7 +183,7 @@ def collect_doc_to_skills_mapping(
     monitoring_dir = base_path / "monitoring"
     if monitoring_dir.exists():
         for file_path in monitoring_dir.rglob("*.md"):
-            skills = find_skill_references_in_file(file_path, valid_skills)
+            skills = find_skill_references_in_file(file_path)
             rel_path = f"/{file_path.relative_to(base_path)}"
             doc_to_skills[rel_path] = skills
             scanned_files.add(file_path)
@@ -234,10 +264,9 @@ def validate_cross_references(base_path: Path) -> tuple[list[ValidationIssue], C
 
     # Load data
     skills_data = load_skills_metadata(base_path)
-    valid_skills = get_valid_skills(skills_data)
     adr_map = find_actual_adr_files(base_path)
     skill_to_docs = find_doc_references_in_skills(skills_data, adr_map)
-    doc_to_skills, scanned_files = collect_doc_to_skills_mapping(base_path, valid_skills)
+    doc_to_skills, scanned_files = collect_doc_to_skills_mapping(base_path)
 
     stats.total_skills = len(skills_data["skills"])
     stats.total_docs = len(scanned_files)
@@ -255,8 +284,8 @@ def validate_cross_references(base_path: Path) -> tuple[list[ValidationIssue], C
                         severity="error",
                         category="broken_link",
                         source=doc_path,
-                        message=f"References @{skill} but skill not found in metadata",
-                        suggestion=f"Add {skill} to skills_metadata.yaml or remove reference",
+                        message=f"related_skills names '{skill}' but no such skill in metadata",
+                        suggestion=f"Add {skill} to skills_metadata.yaml, or fix/remove it in the doc's related_skills",
                     )
                 )
                 stats.broken_links += 1
@@ -269,7 +298,7 @@ def validate_cross_references(base_path: Path) -> tuple[list[ValidationIssue], C
                         severity="warning",
                         category="missing_reverse",
                         source=doc_path,
-                        message=f"References @{skill} but skill doesn't link back",
+                        message=f"related_skills declares @{skill} but skill doesn't link back",
                         suggestion=f"Add {doc_path} to @{skill} in skills_metadata.yaml",
                     )
                 )
@@ -304,13 +333,15 @@ def validate_cross_references(base_path: Path) -> tuple[list[ValidationIssue], C
                         severity="warning",
                         category="missing_reverse",
                         source=f"@{skill}",
-                        message=f"Links to {doc_path} but doc doesn't reference @{skill}",
-                        suggestion=f"Add @{skill} reference to {doc_path}",
+                        message=f"Links to {doc_path} but that doc's related_skills omits '{skill}'",
+                        suggestion=f"Add '{skill}' to related_skills in {doc_path} frontmatter",
                     )
                 )
                 stats.missing_reverse_links += 1
 
-    # Check for docs with no skill references (potential orphans)
+    # Check for docs with no declared skill links (potential orphans).
+    # Reads the same canonical field as everything above — an "orphan" is a doc
+    # with no related_skills entry, not a doc that happens not to say "@skill".
     for doc_path in doc_to_skills:
         if not doc_to_skills[doc_path]:
             # Skip certain docs that legitimately have no skills
@@ -325,8 +356,8 @@ def validate_cross_references(base_path: Path) -> tuple[list[ValidationIssue], C
                     severity="info",
                     category="orphaned",
                     source=doc_path,
-                    message="No skill references found",
-                    suggestion="Consider adding relevant @skill-name references",
+                    message="No related_skills declared in frontmatter",
+                    suggestion="Consider adding 'related_skills: [<skill>]' to frontmatter",
                 )
             )
 
@@ -381,6 +412,10 @@ def print_report(
     print(f"❌ Broken Links: {stats.broken_links}")
     print(f"⚠️  Missing Reverse Links: {stats.missing_reverse_links}")
     print(f"🔵 Stale Skills: {stats.stale_skills}")
+    # Orphaned/suggestion counts are stated here because the listings below are
+    # truncated — without this the report reads as "20 orphans" when there are 300+.
+    print(f"ℹ️  Orphaned Docs: {sum(1 for i in issues if i.category == 'orphaned')}")
+    print(f"ℹ️  Skills Without Docs: {sum(1 for i in issues if i.category == 'suggestion')}")
     print()
 
     # Issues by category
