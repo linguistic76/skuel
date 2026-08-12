@@ -25,7 +25,7 @@ AskesisService (Facade - Zero Business Logic)
 ┌────────────────────────────────────────────────────────────────────┐
 │ UserStateAnalyzer          │ State assessment, pattern detection   │
 │ ActionRecommendationEngine │ Prioritized recommendations           │
-│ QueryProcessor             │ RAG pipeline orchestration (~500 lines)│
+│ QueryProcessor             │ RAG pipeline orchestration             │
 │ IntentClassifier           │ Embeddings-based intent classification │
 │ ResponseGenerator          │ Action and context generation          │
 │ EntityExtractor            │ Entity extraction from queries         │
@@ -38,8 +38,8 @@ UserContextIntelligenceFactory (13-Domain Synthesis)
 ```
 
 **Files:**
-- Facade: `/core/services/askesis_service.py` (~1,050 lines)
-- Sub-services: `/core/services/askesis/` (9 files)
+- Facade: `/core/services/askesis_service.py`
+- Sub-services: `/core/services/askesis/` — one module per sub-service
 - Pure functions: `/core/services/askesis/state_scoring.py`
 - Protocol: `/core/ports/askesis_protocols.py`
 
@@ -308,7 +308,7 @@ Both methods run the same PS-first pipeline: enrollment gate (an active PathStep
 - `load_ps_bundle()` - Load complete PS bundle from UserContext + service lookups (absorbed from LSContextLoader, March 2026)
 
 **Internal Methods:**
-- `_find_similar_chunks()` - Chunk-level vector search via `Neo4jVectorSearchService.find_similar_chunks_by_text` (cosine ≥0.6, intent-aware `chunk_types` filter); returns chunk text + owning PathStep for citation
+- `_find_similar_chunks()` - Chunk-level vector search routed through `SearchRouter.retrieve_scoped_chunks()` (THE single path for external chunk retrieval), which calls `Neo4jVectorSearchService.find_similar_chunks_by_text` (cosine ≥0.6, intent-aware `chunk_types` filter, optional facet `scope`); returns chunk text + owning PathStep for citation
 - `_analyze_blocked_knowledge_prerequisites()` - Gap analysis via `KuBackend.get_unmastered_prerequisites()` + `count_dependents()`
 - `_identify_quick_wins_and_high_impact()` - Classification by prerequisite count:
   - **Quick wins**: 0-1 prerequisites (easy to start)
@@ -320,7 +320,9 @@ Both methods run the same PS-first pipeline: enrollment gate (an active PathStep
 
 **Backend deps** for graph queries: `ku_backend` (KuBackend), `ps_backend` (PsBackend).
 
-**Graph Integration:** Uses PsBackend for learning context queries, KuBackend for prerequisite analysis, and `Neo4jVectorSearchService` for chunk-level vector similarity (`contentchunk_embedding_idx`).
+**Search dep:** `search_router` is post-wired in compose (typed against the `ScopedChunkRetrievalOperations` ISP slice), never a constructor param — ContextRetriever does not hold `Neo4jVectorSearchService` itself.
+
+**Graph Integration:** Uses PsBackend for learning context queries, KuBackend for prerequisite analysis, and SearchRouter → `Neo4jVectorSearchService` for chunk-level vector similarity (`contentchunk_embedding_idx`).
 
 ---
 
@@ -460,7 +462,7 @@ print('Protocol defined correctly')
 ## Related Documentation
 
 - **Architecture:** [ASKESIS_ARCHITECTURE.md](../architecture/ASKESIS_ARCHITECTURE.md)
-- **Search Integration:** [ASKESIS_SEARCH_ARCHITECTURE.md](../guides/ASKESIS_SEARCH_ARCHITECTURE.md)
+- **Search Integration:** [SEARCH_ARCHITECTURE.md](../architecture/SEARCH_ARCHITECTURE.md) — SearchRouter, the single path Askesis retrieves chunks through
 - **Protocol Definition:** `/core/ports/askesis_protocols.py`
 - **ADR-021:** UserContext Intelligence Modularization
 - **ADR-029:** GraphNative Service Removal

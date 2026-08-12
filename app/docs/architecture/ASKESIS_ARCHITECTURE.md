@@ -459,7 +459,7 @@ Six stub implementations were completed to bring Askesis from ~60-70% to ~95% fu
 
 | Method | File | Implementation |
 |--------|------|----------------|
-| `_find_similar_chunks()` | `context_retriever.py` | Chunk-level vector search via `Neo4jVectorSearchService.find_similar_chunks_by_text` |
+| `_find_similar_chunks()` | `context_retriever.py` | Chunk-level vector search via `SearchRouter.retrieve_scoped_chunks()` → `Neo4jVectorSearchService.find_similar_chunks_by_text` |
 | `get_learning_context()` | `context_retriever.py` | Delegates to `PsBackend.get_user_learning_context()` |
 | `_analyze_blocked_knowledge_prerequisites()` | `context_retriever.py` | Gap analysis via `KuBackend.get_unmastered_prerequisites()` + `count_dependents()` |
 | `_identify_quick_wins_and_high_impact()` | `context_retriever.py` | Classification based on prerequisite count |
@@ -469,7 +469,12 @@ Six stub implementations were completed to bring Askesis from ~60-70% to ~95% fu
 ### Semantic Search Implementation
 
 `ContextRetriever._find_similar_chunks()` performs chunk-level vector search so
-answers cite the actual matching passage (not just the parent PathStep's title):
+answers cite the actual matching passage (not just the parent PathStep's title).
+It routes through **SearchRouter — THE single path for external chunk (RAG)
+retrieval**; `self.search_router` is post-wired in compose (typed against the
+`ScopedChunkRetrievalOperations` ISP slice), so the retriever never holds
+`Neo4jVectorSearchService` directly. A facet `scope` narrows the passages to a
+topic, which is how Find and Ask share one facet→scope path:
 
 ```python
 async def _find_similar_chunks(
@@ -477,14 +482,20 @@ async def _find_similar_chunks(
     query: str,
     _user_uid: UserUID,
     chunk_types: list[str] | None = None,
+    scope: SearchRequest | None = None,
 ) -> list[dict[str, Any]]:
-    # Targets contentchunk_embedding_idx (not entity_embedding_idx).
+    # The router targets contentchunk_embedding_idx (not entity_embedding_idx).
     # The join chunk → content → entity surfaces the owning PathStep for citation.
-    result = await self.vector_search_service.find_similar_chunks_by_text(
-        text=query,
+    request = (
+        scope.model_copy(update={"query_text": query, "limit": 5})
+        if scope is not None
+        else SearchRequest(query_text=query, limit=5)
+    )
+    result = await self.search_router.retrieve_scoped_chunks(
+        request,
         chunk_types=chunk_types,  # intent-aware (e.g. PRACTICE → ["exercise","example"])
-        limit=5,
         min_score=0.6,
+        user_uid=_user_uid,
     )
     return [
         {
@@ -586,7 +597,7 @@ The LLM context assembly layer (`build_llm_context()`) and the Q&A/planning resp
 - **How Askesis Works:** [ASKESIS_HOW_IT_WORKS.md](./ASKESIS_HOW_IT_WORKS.md) — plain-English explanation of both halves (start here)
 - **Pedagogical Architecture:** [ASKESIS_PEDAGOGICAL_ARCHITECTURE.md](./ASKESIS_PEDAGOGICAL_ARCHITECTURE.md) — GuidanceMode, ZPD, Socratic companion design
 - **Intelligence Guide:** [ASKESIS_INTELLIGENCE.md](../intelligence/ASKESIS_INTELLIGENCE.md)
-- **Search Integration:** [ASKESIS_SEARCH_ARCHITECTURE.md](../guides/ASKESIS_SEARCH_ARCHITECTURE.md)
+- **Search Integration:** [SEARCH_ARCHITECTURE.md](./SEARCH_ARCHITECTURE.md) — SearchRouter, the single path Askesis retrieves chunks through
 - **UserContext Architecture:** [UNIFIED_USER_ARCHITECTURE.md](./UNIFIED_USER_ARCHITECTURE.md)
 - **Prompt Registry:** `core/prompts/` — centralized LLM template store
 - **ADR-021:** UserContext Intelligence Modularization
