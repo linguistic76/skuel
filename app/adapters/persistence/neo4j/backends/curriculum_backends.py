@@ -603,6 +603,11 @@ class PsBackend(
         rather than edges and ``mastered`` is a strict subset of it.
 
         Publication gate: OFF for the same USER_STATE reason as its sibling.
+
+        ``$mastered_edge`` is a parameter rather than an interpolated literal:
+        the edge types in the MATCH pattern sit in IDENTIFIER position and must
+        be interpolated, but this one is a VALUE compared against ``type(r)``,
+        and a value belongs in the parameter map (CYP003).
         """
         knowledge_clause, params = build_knowledge_read_clause("ps", apply_publication_gate=False)
         query = f"""
@@ -610,9 +615,10 @@ class PsBackend(
         WHERE {knowledge_clause}
         WITH ps, collect(type(r)) AS rels
         RETURN count(ps) AS total,
-               sum(CASE WHEN '{RelationshipName.MASTERED}' IN rels THEN 1 ELSE 0 END) AS mastered
+               sum(CASE WHEN $mastered_edge IN rels THEN 1 ELSE 0 END) AS mastered
         """
         params["user_uid"] = user_uid
+        params["mastered_edge"] = RelationshipName.MASTERED.value
         result = await self.execute_query(query, params)
         if result.is_error:
             return Result.fail(result)
