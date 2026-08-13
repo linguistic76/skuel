@@ -121,10 +121,14 @@ terminal state is correct.
 - **Move lines are not warnings.** They flow to `VaultSyncStats` as `moves_detected` /
   `moves`. Putting them in `warnings` would flip `is_clean` and report a clean rename as a
   problem sync.
-- **Scoring uses resolved content, not raw file text.** `_resolve_markdown_comparison_content`
-  mirrors `build_user_entry_request`: an explicit `content:` wins by key presence — so
-  `content: ""` suppresses matching entirely — otherwise the markdown body. Scoring raw
-  text would dilute below T on bulky frontmatter.
+- **Scoring uses resolved content, not raw file text.** `_similarity_candidate_content`
+  (`core/services/ingestion/ingestion_tracker.py`) is one function doing both jobs: it
+  gates the candidate *and* returns the comparison content, resolved the way ingestion
+  resolves it — an explicit frontmatter `content:` wins by key presence rather than
+  truthiness, otherwise the markdown body. The gone node's stored `content` is the
+  *resolved* body, so scoring raw file text would dilute the score with frontmatter noise.
+  Unparseable or oversized files, non-mapping frontmatter, and empty resolved content all
+  return `None` — not a candidate.
 - **Abstention beats guessing.** Word-trigram Jaccard, lowercased and whitespace-normalized
   (reflow-proof). A tied top score on either side abstains and logs. Below a ten-token
   floor (`_MIN_TOKENS`) it abstains entirely — an earlier unigram fallback let two
