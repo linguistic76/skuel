@@ -541,12 +541,14 @@ Ku uid fetched through a `:PathStep`-labelled backend, and the `TypeError`
 above). Any stored alignment score or `ALIGNMENT_SNAPSHOT` predating 2026-08-12
 is on that basis and is not comparable to one recorded after.
 
-**Reading a designated life path.** Designation flips an existing LearningPath
-node's `entity_type` to `'life_path'` **in place** and leaves its `:LearningPath`
-label untouched. So `LpService.get` builds a `LearningPath` from it and trips that
-model's honest-leaf-identity guard (G6) — a raise, for exactly the paths a caller
-means to read. Read a designated path through
-`LifePathService.get_life_path_composition`, which is keyed on the property.
+**Reading a designated life path.** Designation is the `ULTIMATE_PATH` edge and
+nothing else — the node keeps its `:LearningPath` label and its `'learning_path'`
+entity_type — so `LpService.get` reads a designated path normally. It used to flip
+`entity_type` **in place**, which tripped `LearningPath`'s honest-leaf-identity
+guard (G6) on exactly the paths a caller meant to read; see
+`docs/technical_debt/LIFEPATH_ALIGNMENT_DEBT.md` item 2.
+`LifePathService.get_life_path_composition` remains the read for a path *and* its
+ordered steps in one pass.
 
 ### Ruling: the five-dimension metric reads the table too (2026-08-12)
 

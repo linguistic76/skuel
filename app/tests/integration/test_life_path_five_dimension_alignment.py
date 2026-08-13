@@ -29,9 +29,8 @@ asserts the DIRECTION on all three at once. Seeding ``APPLIES_KNOWLEDGE`` on a
 habit passes against the bug, so nothing here does.
 
 The designation is written by the REAL writer
-(``LifePathBackend.designate_life_path``), which promotes ``entity_type`` in
-place and leaves the ``:LearningPath`` label alone — the state every one of
-these reads has to survive.
+(``LifePathBackend.designate_life_path``) rather than a hand-seeded edge, so
+these reads run against whatever shape that writer actually produces.
 
 See: docs/technical_debt/LIFEPATH_ALIGNMENT_DEBT.md
      core/services/knowledge/user_substance.py (the one weight table)

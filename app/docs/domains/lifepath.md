@@ -256,10 +256,18 @@ LifePath follows SKUEL's three-tier pattern:
 ## UserContext Wiring
 
 The MEGA-QUERY surfaces the designation to the whole intelligence stack
-(flagship `calculate_life_path_alignment`, Analytics, Askesis, ZPD): it
-matches the designated node by `entity_type: 'life_path'` (designation flips
-the property, never the label) and reads `alignment_score` off the
-`ULTIMATE_PATH` edge — see `user_context_queries.py` "LIFE PATH" section.
+(flagship `calculate_life_path_alignment`, Analytics, Askesis, ZPD): it reaches
+the designated path by **traversing `ULTIMATE_PATH`** and reads `alignment_score`
+off that same edge — see `user_context_queries.py` "LIFE PATH" section.
+
+⚠ **Nothing on the node marks it as a life path.** Designation is the edge and
+only the edge; the path keeps its `:LearningPath` label and its
+`'learning_path'` entity_type throughout, so a predicate of
+`{entity_type: 'life_path'}` matches **zero rows** and would report every
+designated learner as having no life path. It used to flip that property in
+place, which put the label and the discriminator into permanent disagreement —
+see [LIFEPATH_ALIGNMENT_DEBT.md](../technical_debt/LIFEPATH_ALIGNMENT_DEBT.md)
+item 2 for what that cost.
 
 ## Key Insight
 

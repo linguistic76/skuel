@@ -13,11 +13,12 @@ Inherits ~48 common fields from Entity. Adds 14 life-path-specific fields:
 Life-path-specific methods: is_designated, calculate_alignment_score,
 get_weakest_dimension, get_summary, from_dto.
 
-Note: LifePath is a designation on a Learning Path. When designated,
-the LP's entity_type changes from 'learning_path' to 'life_path'.
-Vision data lives on the User node. Alignment scores live on the
-ULTIMATE_PATH relationship. These fields are hydrated onto the Ku
-node for model consistency.
+Note: LifePath is a designation on a Learning Path, carried entirely by the
+ULTIMATE_PATH edge — designation does NOT change the LearningPath node, which
+keeps its label and its 'learning_path' entity_type throughout. Vision data
+lives on the User node. Alignment scores live on the ULTIMATE_PATH
+relationship. These fields are hydrated for model consistency; nothing
+persists a node with entity_type 'life_path' as a result of designation.
 
 See: /.claude/plans/ku-decomposition-domain-types.md
 See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md

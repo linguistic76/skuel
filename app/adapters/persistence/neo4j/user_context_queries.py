@@ -903,11 +903,13 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 
 // ====================================================================
 // LIFE PATH - Fetch user's designated life path
-// Designation flips entity_type on the LP node (no label swap) and stores
-// the alignment score on the ULTIMATE_PATH edge — match/read accordingly
-// (LifePathBackend.designate_life_path / update_alignment_score).
+// The ULTIMATE_PATH edge IS the designation — it carries the alignment score
+// and nothing on the node marks it (LifePathBackend.designate_life_path /
+// update_alignment_score). The node stays an ordinary :LearningPath with
+// entity_type 'learning_path', so predicating on 'life_path' here would match
+// zero rows and report every designated learner as having no life path.
 // ====================================================================
-OPTIONAL MATCH (user)-[lp_rel:ULTIMATE_PATH]->(life_path:Entity {entity_type: 'life_path'})
+OPTIONAL MATCH (user)-[lp_rel:ULTIMATE_PATH]->(life_path:Entity)
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,

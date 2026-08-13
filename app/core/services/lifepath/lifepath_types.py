@@ -31,7 +31,7 @@ class LifePathDesignation:
 
     This is NOT a stored entity — it's computed from:
     1. User's vision statement (their own words, stored on User node)
-    2. Designated LP (an Entity with entity_type='life_path', via ULTIMATE_PATH)
+    2. Designated LP (an ordinary LearningPath, identified by ULTIMATE_PATH)
     3. Alignment scores (stored on ULTIMATE_PATH relationship)
     4. UserContext (actual behavior tracked across all domains)
 
@@ -47,7 +47,7 @@ class LifePathDesignation:
     vision_themes: tuple[str, ...] = field(default_factory=tuple)
     vision_captured_at: datetime | None = None
 
-    # THE DESIGNATION (Entity with entity_type='life_path', via ULTIMATE_PATH)
+    # THE DESIGNATION (carried by the ULTIMATE_PATH edge alone)
     life_path_uid: str | None = None
     designated_at: datetime | None = None
 
