@@ -35,6 +35,35 @@ Both items below are in the first one. That the *substance weights are hand-copi
 into Cypher* is the through-line: it is the third copy of the table that
 `user_substance.py` exists to prevent, and it has already drifted.
 
+## Picking this up
+
+**Do item 1 first.** It is user-visible today (a learner's score moves the wrong
+way), it is self-contained, and it does not depend on item 2. Item 2 is currently
+mitigated for the one caller that hit it, so it is latent rather than live.
+
+**Reproduce before fixing, in both cases.** Every defect in this file returns a
+plausible number rather than an error, so a fix "verified" by a green run proves
+nothing. Seed the state, record the score, apply the change, and assert the score
+**moved** — that is the only evidence that distinguishes these from a learner who
+genuinely did nothing.
+
+The habit test that would have caught item 1:
+
+```
+seed  a habit with -[:REINFORCES_KNOWLEDGE]-> a Ku the life path teaches
+then  calculate_alignment() and assert the ACTIVITY dimension changes
+```
+
+A test seeding `APPLIES_KNOWLEDGE` instead passes against the bug, and a test
+asserting only "the result is non-empty" passes against both.
+
+**Done means**: the dimension responds to habit activity; the `0.5` no-data default
+has an explicit ruling (item 1 §2); and — if the weights move onto
+`USER_SUBSTANCE_CHANNELS` — the Cypher no longer spells any per-instance weight.
+
+⚠ **Line numbers below were verified against `2d8c31d03` and will drift.** Grep the
+quoted Cypher, not the line.
+
 **The shared name is itself a hazard.** The analytics metric carried a `trends`
 block reading `ALIGNMENT_SNAPSHOT` — a history written *only* by the
 five-dimension metric, on a different scale (its `CASE WHEN total = 0 THEN 0.5`
