@@ -39,7 +39,7 @@ the 88-route cutover, not a permanent knob — delete after staging is green.
 **Production override:** when ``SKUEL_ENVIRONMENT=production`` the flag is
 ignored and CSRF is always enforced, regardless of ``SKUEL_CSRF_ENFORCE``.
 
-See: `plans/user-entry-deferred-security-items.md` § Commit G
+See: `docs/roadmap/security-hardening-deferred.md` § 8 — the removal is tracked there.
 """
 
 from __future__ import annotations

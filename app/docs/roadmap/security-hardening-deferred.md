@@ -20,8 +20,10 @@ dependency CVE audit (now the `dep_audit` CI job — osv-scanner over both lockf
 (session rotation) shipped as session revocation on privilege change plus per-request
 graph-session enforcement.
 
-**See**: `/home/mike/.claude/plans/snazzy-gliding-shore.md` — the original review that produced
-the implemented fixes (Phases 1–3) and surfaced these deferrals.
+**Addition 2026-08-13**: item 8 (CSRF enforcement flag) was **reconstructed** from the code
+that cites it — its source document was an untracked `plans/` file that no longer exists
+anywhere. See CLAUDE.md § Documentation Architecture for why nothing tracked may cite
+`plans/`.
 
 ---
 
@@ -281,9 +283,54 @@ Two pieces deliberately remain:
 
 ---
 
+## 8. `SKUEL_CSRF_ENFORCE` — delete the revert lever
+
+**Reconstructed 2026-08-13** from `/adapters/inbound/csrf.py`, whose module docstring carried
+the only surviving record of this commitment. The `plans/` document it cited no longer exists.
+
+`SKUEL_CSRF_ENFORCE=false` disables CSRF verification while leaving token issuance in place.
+It was a **revert lever for the route cutover, not a permanent knob** — the docstring's own
+words: "delete after staging is green."
+
+**What the code shows today:**
+
+- Default is `true` (`is_csrf_enforced()`); only `false` / `0` / `no` disable it.
+- **Production ignores the flag entirely.** When `SKUEL_ENVIRONMENT=production`, CSRF is
+  always enforced regardless of the flag, so it affects local and dev only.
+- The cutover it hedged has more than doubled since: **184 `@csrf_protected` routes** today,
+  against the 88 the original note described.
+- It is declared in **no** `.env.example`, compose file, or `.env.production` — it lives only
+  in code and the `security` skill doc. An undeclared knob.
+
+**But it is not only a rollout lever — it is a test affordance.** 45 test files set it: 32 set
+it `true` to assert enforcement (those become redundant), and **15 set it `false`** so route
+tests can POST without minting a token. Deleting the flag makes those 15 fixtures fail, so this
+is a test-infrastructure change, not housekeeping. That dependency is the actual reason it has
+survived, and it is what the original note missed.
+
+**The argument for doing it now** (Codex, PR #1044): a roadmap item that preserves an obsolete
+alternative path until some future edit **is** a deprecation period, which One Path Forward
+forbids. The counter-argument is scope, not principle — see the 15 fixtures above.
+
+**⚠ Do NOT delete `_is_production()`.** It has two callers and only one is the bypass:
+
+| Call site | Purpose | On flag removal |
+|---|---|---|
+| `csrf.py` `secure=_is_production()` | the CSRF cookie's **`Secure` attribute** | **KEEP — independently load-bearing** |
+| `csrf.py` `if not is_csrf_enforced() and not _is_production():` | the enforcement bypass | delete this call |
+
+Removing `_is_production()` outright would strip `Secure` from the CSRF cookie in production.
+
+**Do when**: whoever next has appetite for the 15 fixtures. Delete `CSRF_ENFORCE_ENV`,
+`is_csrf_enforced()`, its `__all__` entry, and the bypass condition; rework the 15 `false`
+fixtures to mint tokens; drop the flag assertions in `tests/unit/adapters/test_csrf.py`; keep
+`_is_production()` for the cookie attribute.
+
+---
+
 ## Priority Order
 
-Status as of 2026-07-24 (public-launch hardening shipped in PR #794):
+Status as of 2026-07-24 (public-launch hardening shipped in PR #794); item 8 added 2026-08-13:
 
 | # | Item | Status / trigger |
 |---|------|------------------|
@@ -294,6 +341,7 @@ Status as of 2026-07-24 (public-launch hardening shipped in PR #794):
 | 5 | **Session rotation** | ✅ Done (2026-07-24) — revocation on role change/deactivation + per-request graph-session enforcement |
 | 6 | **CAPTCHA** | Open — only if automated sign-up abuse occurs despite the invite gate |
 | 7 | **Security headers** | ✅ Done (PR #794) — CSP promotion + Caddy HSTS remain |
+| 8 | **CSRF flag removal** | Open — production already ignores the flag, but 15 test fixtures rely on the off-switch, so removal is a test-infrastructure change, not a one-liner |
 
 ---
 
