@@ -19,8 +19,6 @@ Expectations:
   inactive Group Z must not satisfy the `g.is_active = true` predicate).
 - Teacher B over submission_2 → match.
 - Teacher over their own submission UID → no match (``student.uid <> teacher.uid``).
-
-See: Commit E of `/home/mike/.claude/plans/user-entry-deferred-security-items.md`.
 """
 
 import pytest

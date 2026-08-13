@@ -1,14 +1,22 @@
 """
 Per-user rate limiting — minimal in-memory token bucket.
 
-Adapter-level concern. Keyed on ``UserUID`` (not IP), so each authenticated
-user gets their own bucket regardless of how many processes share the host.
+Adapter-level concern. Keyed on ``UserUID`` rather than IP, so users sharing
+an egress address (household NAT, campus, VPN) never throttle each other.
 
-Process-local only. A multi-worker deployment gets one bucket per worker —
-acceptable for the coarse "don't hammer /upload" guard this module provides.
-A shared backend (Redis) is the upgrade path when we need a cluster-wide cap.
+**Process-local, and that assumption is load-bearing.** Buckets live in a
+module-level dict, so N app processes mean N independent buckets and every
+cap this module enforces multiplies by N. Production runs a single container
+process (``CMD ["python", "main.py"]`` in ``Dockerfile.production``), so the
+caps are exact today — this is a scaling limit, not a defect.
 
-See: /home/mike/.claude/plans/user-entry-upload-security-review.md (Finding 7)
+A shared backend (Redis) is the upgrade path, and it becomes necessary the
+moment the deployment grows past one app process: a second replica, a load
+balancer, or uvicorn workers. Whichever lands first silently loosens every
+cap, with no error to notice. Adding one is an infrastructure decision — a
+new service on the droplet or a managed instance — not a code change, which
+is why it has stayed unbuilt. The "pre-wired Redis" knob that once suggested
+otherwise was dead config, deleted in PR #793.
 """
 
 from __future__ import annotations

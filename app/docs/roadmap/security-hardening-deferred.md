@@ -20,8 +20,10 @@ dependency CVE audit (now the `dep_audit` CI job — osv-scanner over both lockf
 (session rotation) shipped as session revocation on privilege change plus per-request
 graph-session enforcement.
 
-**See**: `/home/mike/.claude/plans/snazzy-gliding-shore.md` — the original review that produced
-the implemented fixes (Phases 1–3) and surfaced these deferrals.
+**Addition 2026-08-13**: item 8 (CSRF enforcement flag) was **reconstructed** from the code
+that cites it — its source document was an untracked `plans/` file that no longer exists
+anywhere. See CLAUDE.md § Documentation Architecture for why nothing tracked may cite
+`plans/`.
 
 ---
 
@@ -281,9 +283,38 @@ Two pieces deliberately remain:
 
 ---
 
+## 8. `SKUEL_CSRF_ENFORCE` — delete the revert lever
+
+**Reconstructed 2026-08-13** from `/adapters/inbound/csrf.py`, whose module docstring carried
+the only surviving record of this commitment. The `plans/` document it cited no longer exists.
+
+`SKUEL_CSRF_ENFORCE=false` disables CSRF verification while leaving token issuance in place.
+It was a **revert lever for the route cutover, not a permanent knob** — the docstring's own
+words: "delete after staging is green."
+
+**What the code shows today:**
+
+- Default is `true` (`is_csrf_enforced()`); only `false` / `0` / `no` disable it.
+- **Production ignores the flag entirely.** When `SKUEL_ENVIRONMENT=production`, CSRF is
+  always enforced regardless of the flag, so it affects local and dev only.
+- The cutover it hedged has more than doubled since: **184 `@csrf_protected` routes** today,
+  against the 88 the original note described.
+- It is declared in **no** `.env.example`, compose file, or `.env.production` — it lives only
+  in code and the `security` skill doc. An undeclared knob.
+
+**Why deleting it is safe:** it removes a local debugging escape hatch and nothing production
+depends on. The stated trigger never had a staging environment to fire against — production
+shipped straight to the droplet (ADR-080), where the flag is already inert.
+
+**Do when**: the next time CSRF code is touched. Delete `CSRF_ENFORCE_ENV`,
+`is_csrf_enforced()`, and the `_is_production()` bypass **together** — with the flag gone, the
+production special-case has nothing left to guard against.
+
+---
+
 ## Priority Order
 
-Status as of 2026-07-24 (public-launch hardening shipped in PR #794):
+Status as of 2026-07-24 (public-launch hardening shipped in PR #794); item 8 added 2026-08-13:
 
 | # | Item | Status / trigger |
 |---|------|------------------|
@@ -294,6 +325,7 @@ Status as of 2026-07-24 (public-launch hardening shipped in PR #794):
 | 5 | **Session rotation** | ✅ Done (2026-07-24) — revocation on role change/deactivation + per-request graph-session enforcement |
 | 6 | **CAPTCHA** | Open — only if automated sign-up abuse occurs despite the invite gate |
 | 7 | **Security headers** | ✅ Done (PR #794) — CSP promotion + Caddy HSTS remain |
+| 8 | **CSRF flag removal** | Open — housekeeping; production already ignores the flag, so this is dead-knob cleanup rather than a control |
 
 ---
 
