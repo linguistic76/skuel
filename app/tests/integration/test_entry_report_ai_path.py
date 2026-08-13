@@ -1,12 +1,11 @@
 """Integration test: AI report generation wires through UserEntryBackend.
 
 Verifies the canonical report-creation path end-to-end against a real Neo4j
-instance. Covers the behavioral fix from plans/steady-swimming-axolotl.md
-Step 1: AI reports must get a SHARES_WITH edge from the entry owner
+instance. AI reports must get a SHARES_WITH edge from the entry owner
 (student) to the report node, so they appear in the same student-visible
 read path as teacher reports.
 
-Cypher-level equivalent of Verification step 3 from the plan:
+Cypher-level equivalent of that guarantee:
 
     MATCH (s:Entity {uid: $sub})<-[:REPORT_FOR]-(r:EntryReport)
     OPTIONAL MATCH (student:User)-[:SHARES_WITH]->(r)

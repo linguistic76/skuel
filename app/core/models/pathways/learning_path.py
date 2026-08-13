@@ -12,7 +12,6 @@ Learning-path-specific methods/properties: steps, goal, get_summary, from_dto.
 Note: LP steps are graph relationships (HAS_STEP), not model attributes.
 The `steps` property returns an empty tuple — use LpService.get_steps() instead.
 
-See: /.claude/plans/crispy-spinning-wozniak.md
 See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
 

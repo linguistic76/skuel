@@ -10,7 +10,6 @@ the per-file frontmatter (pipeline + audience), expands the
 audit, TRANSFORMS edges, sharing fan-out, compensation delete) is identical
 to the form path.
 
-See: /home/mike/.claude/plans/upload-userentry-integration.md
 See: /docs/decisions/ADR-054-user-entry-unified-submissions.md
 """
 

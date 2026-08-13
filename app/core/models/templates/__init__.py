@@ -15,7 +15,6 @@ Value types:
     RelativeOffsetDTO — Pydantic companion for serialization at boundaries
 
 See:
-    /home/mike/.claude/plans/skip-when-do-idempotent-shell.md (build plan)
     project_template_relative_offset.md (memory)
     project_engage_pathstep_contract.md (memory)
     project_pathstep_lifecycle_contract.md (memory)

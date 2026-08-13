@@ -20,7 +20,6 @@ lives on the User node. Alignment scores live on the ULTIMATE_PATH
 relationship. These fields are hydrated for model consistency; nothing
 persists a node with entity_type 'life_path' as a result of designation.
 
-See: /.claude/plans/ku-decomposition-domain-types.md
 See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
 

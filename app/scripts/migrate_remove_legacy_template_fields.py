@@ -6,8 +6,7 @@ One-shot migration to drop the denormalized
 ``source_learning_path_uid`` and ``curriculum_driven`` properties from
 Activity nodes (Task, Habit, Event, Goal) on Neo4j.
 
-The Activity Templates work (see /.claude/plans/skip-when-do-idempotent-shell.md
-Phase 6) replaces these properties:
+The Activity Templates work (Phase 6) replaces these properties:
 
 * ``source_learning_path_uid`` is now redundant — the LP is reachable via
   ``(activity)-[:?]->(PS)-[:IS_STEP_OF]->(LP)`` traversal whenever

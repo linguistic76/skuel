@@ -1,7 +1,6 @@
 """PsEngagementService — facade for the 4-transition lifecycle.
 
-Phase 4 of the PathStep + Activity Templates build (see plan at
-``/home/mike/.claude/plans/skip-when-do-idempotent-shell.md``).
+Phase 4 of the PathStep + Activity Templates build.
 
 Surface (matches the contract in project_pathstep_lifecycle_contract.md):
 

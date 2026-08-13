@@ -6,9 +6,6 @@ classes are intentionally thin: Phase 2 only needs CRUD + multi-label storage.
 PS-link traversal queries (``HAS_*_TEMPLATE`` edge management, cross-template
 reference validation, spawn) live on the engagement service in Phase 4 — keeping
 them off the backends here keeps the surface area small and reviewable.
-
-See:
-    /home/mike/.claude/plans/skip-when-do-idempotent-shell.md
 """
 
 from __future__ import annotations

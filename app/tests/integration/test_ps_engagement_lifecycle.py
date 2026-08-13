@@ -23,7 +23,6 @@ and spawn-builder pure functions in isolation. This file is the only place
 the four transitions are wired together against the real backends.
 
 See:
-    /home/mike/.claude/plans/skip-when-do-idempotent-shell.md  § Phase 4 verification
     project_pathstep_lifecycle_contract.md (memory)
 """
 
