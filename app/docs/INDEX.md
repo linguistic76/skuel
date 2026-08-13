@@ -473,6 +473,9 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [Journals Discussion-First — Design & Choices](roadmap/done/journals-discussion-first.md) | 2026-07-13 | The arc SoT: two doors converging into one grounded conversation; P1→P3 shipped (#627–#640); post-arc items live in [journals-discussion-deferred](roadmap/journals-discussion-deferred.md) |
 | [Journals Discussion Storage P2](roadmap/done/journals-discussion-storage-p2.md) | 2026-07-13 | The stored substrate: ConversationSession/Turn + understanding wall; in-arc refinements all shipped (source-selection restore, deterministic titles, export) |
 | [Journals Discussion Storage P3](roadmap/done/journals-discussion-storage-p3.md) | 2026-07-13 | Opt-in persistence reconciliation: ephemeral default + Save on both doors; PR1–PR3 shipped, arc complete |
+| [Path-Keyed Identity for uid-less Vault UserEntries](roadmap/done/uidless-vault-entry-identity-upsert.md) | 2026-07-12 | The contract the UserEntry ingest door cites: path = identity, the three reuse gates, private-flip chunk retraction (#616) |
+| [Content-Hash Move Detection](roadmap/done/hash-assisted-move-detection.md) | 2026-07-12 | Renames preserve identity: exact-hash then mutual-best similarity over the residual; T=0.8 empirics and the both-sides candidacy gates (#617, #618) |
+| [MOC + Knowledge Channel — Design Rulings](roadmap/done/moc-knowledge-channel-design-notes.md) | 2026-07-05 | Vault map, MOC as emergent identity, and the Phase 0 vault-exercise-channel rulings R1–R7 (#506–#511) |
 
 ## Examples
 

@@ -1,6 +1,6 @@
 """One-time cleanup: delete provably-superseded uid-less vault UserEntry orphans.
 
-Contract: /plans/uidless-vault-entry-identity-upsert.md
+Contract: docs/roadmap/done/uidless-vault-entry-identity-upsert.md
 
 Before the path-keyed-upsert door fix, a knowledge note without ``uid:``
 frontmatter minted a fresh random ``ue_`` uid on every re-ingest while the

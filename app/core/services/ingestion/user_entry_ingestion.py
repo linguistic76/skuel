@@ -254,7 +254,7 @@ async def build_user_entry_request(
     that uid on every later sync routes the note through the MERGE-on-uid
     living-entry channel instead of orphaning the old node. Hard-gated (see
     below) — an authored/periodic uid, a turn-in file, or an upload never
-    honors it. See: /plans/uidless-vault-entry-identity-upsert.md
+    honors it. See: docs/roadmap/done/uidless-vault-entry-identity-upsert.md
     """
     pipeline_result = _parse_pipeline(data.get("pipeline"), file_path.name)
     if pipeline_result.is_error:
@@ -397,7 +397,7 @@ async def build_user_entry_request(
                 uid_override = f"ue:monthly:{user_uid}:{month_str}"
 
     # Path-keyed identity for uid-less vault entries (contract:
-    # /plans/uidless-vault-entry-identity-upsert.md). When the file carries no
+    # docs/roadmap/done/uidless-vault-entry-identity-upsert.md). When the file carries no
     # authored/periodic uid, reuse the tracker's prior uid for this path so the
     # note upserts in place instead of minting a fresh random uid every sync
     # (which orphans the old node — 276 stale copies measured 2026-07-12). Path

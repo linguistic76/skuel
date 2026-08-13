@@ -17,7 +17,8 @@ Colors come from ``CalendarItemType.get_color()`` so the legend stays truthful.
 (The single-day agenda view was dropped — for the current day the Today surface
 (/today) is the one path; the calendar keeps the Week/Month temporal lenses.)
 
-See: plans/design_handoff_calendar_month/README.md
+See: docs/design-handoff/calendar-month/README.md — historical design record
+(visual intent only; its route/surface inventory predates the two-view contract)
 """
 
 __version__ = "2.0"

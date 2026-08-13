@@ -276,15 +276,15 @@ the vault's authoring habits, not of the algorithm. Only unambiguous matches wit
 non-trivial content qualify; ambiguity (shared hashes, tied similarity) and
 sub-threshold edits fall back to delete+create — a missed move is the safe
 failure, a wrong merge is not. Contracts:
-`plans/uidless-vault-entry-identity-upsert.md` (#616),
-`plans/hash-assisted-move-detection.md` (#617 + Phase 2).
+[`docs/roadmap/done/uidless-vault-entry-identity-upsert.md`](../roadmap/done/uidless-vault-entry-identity-upsert.md) (#616),
+[`docs/roadmap/done/hash-assisted-move-detection.md`](../roadmap/done/hash-assisted-move-detection.md) (#617 + Phase 2).
 
 ### Vault exercise channel: `uid` + `fulfills_exercise_uid` + `status`
 
 Any exercise, any file: work an exercise in your own vault, sync freely
 while in progress, flip one frontmatter line to submit. The channel is
 defined by **deterministic `uid:` + `fulfills_exercise_uid:`** on one file
-(see `plans/moc-knowledge-channel-design-notes.md` § Phase 0 rulings):
+(see [`docs/roadmap/done/moc-knowledge-channel-design-notes.md`](../roadmap/done/moc-knowledge-channel-design-notes.md) § Phase 0 rulings):
 
 - **Living entry** (`status: in process` or any non-submitted status):
   ONE node, upserted in place every sync. The exercise declaration is

@@ -4,7 +4,7 @@ The script is a CLI over the live graph; ``select_orphans`` is the pure
 criterion and is pinned here against fixture rows. The DELETE set requires the
 positive orphan signal (path tracked to a live entry, Codex #616 P1); an
 untracked path is REVIEW-only (ambiguous). Contract:
-/plans/uidless-vault-entry-identity-upsert.md.
+docs/roadmap/done/uidless-vault-entry-identity-upsert.md.
 """
 
 from __future__ import annotations

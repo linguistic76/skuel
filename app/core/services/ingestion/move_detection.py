@@ -18,7 +18,7 @@ Pure matching logic for the move-detection pre-pass
   Everything else stays delete+create — a missed move is the safe
   failure; a wrong merge silently fuses two notes' identities.
 
-Contract: /plans/hash-assisted-move-detection.md
+Contract: docs/roadmap/done/hash-assisted-move-detection.md
 """
 
 from __future__ import annotations
