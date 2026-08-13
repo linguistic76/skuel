@@ -161,6 +161,16 @@ def main():
     ):
         all_passed = False
 
+    # 6c. Untracked-reference guard (nothing tracked may cite the gitignored
+    # plans/ scratch tier — a citation there is invisible to CI, absent from every
+    # worktree, and rots silently; see CLAUDE.md § Documentation Architecture)
+    if not run_command(
+        ["uv", "run", "python", "scripts/audit_untracked_refs.py"],
+        "Untracked-Reference Guard",
+        check=False,
+    ):
+        all_passed = False
+
     # 7. Dead-code gate (PLANNED tier is the escape hatch for staged work)
     if not run_command(
         ["uv", "run", "python", "scripts/detect_bloat.py", "--check"],
