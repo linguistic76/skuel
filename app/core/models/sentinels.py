@@ -19,8 +19,8 @@ Usage::
 
     @dataclass(frozen=True)
     class TaskUpdateIntent:
-        title: str | None | Unset = UNSET
-        status: str | None | Unset = UNSET
+        title: str | Unset | None = UNSET
+        status: str | Unset | None = UNSET
 
         def to_changes(self) -> dict[str, Any]:
             return {

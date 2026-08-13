@@ -3364,7 +3364,7 @@ class TestSKUEL021LeadingClauseAnchor:
         # very same prose, moved OUT of docstring position, must fire. Otherwise a
         # rule that had stopped matching entirely would sail through the clean
         # assertions below.
-        probe_line = corpus[sorted(sanctioned)[0]][0]
+        probe_line = corpus[min(sanctioned)][0]
         probe = lint_content(make_linter(["SKUEL021"]), f'msg = "{probe_line}"\n')
         assert [v.rule_id for v in probe] == ["SKUEL021"], (
             f"{probe_line!r} no longer trips SKUEL021 in value position — this guard proves nothing"

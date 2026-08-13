@@ -259,7 +259,7 @@ class EventsService(
     @staticmethod
     def _split_relationship_intent(
         intent: EventUpdateIntent,
-    ) -> tuple[str | None | Unset, str | None | Unset, EventUpdateIntent]:
+    ) -> tuple[str | Unset | None, str | Unset | None, EventUpdateIntent]:
         """Split the two edge-typed fields off an ``EventUpdateIntent``.
 
         Returns ``(goal_uid, habit_uid, prop_intent)`` where ``prop_intent`` is the same
@@ -274,7 +274,7 @@ class EventsService(
         return intent.milestone_celebration_for_goal, intent.reinforces_habit_uid, prop_intent
 
     async def _publish_edge_only_update(
-        self, event: Event, goal_uid: str | None | Unset, habit_uid: str | None | Unset
+        self, event: Event, goal_uid: str | Unset | None, habit_uid: str | Unset | None
     ) -> None:
         """Publish CalendarEventUpdated after an edge-only update so user-context caches
         invalidate.

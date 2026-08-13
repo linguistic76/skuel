@@ -432,7 +432,7 @@ class TasksService(
     @staticmethod
     def _split_relationship_intent(
         intent: TaskUpdateIntent,
-    ) -> tuple[str | None | Unset, list[str] | None | Unset, TaskUpdateIntent]:
+    ) -> tuple[str | Unset | None, list[str] | Unset | None, TaskUpdateIntent]:
         """Split the edge-typed fields off a ``TaskUpdateIntent``.
 
         Returns ``(habit_uid, applies_knowledge_uids, prop_intent)`` where ``prop_intent``
@@ -449,8 +449,8 @@ class TasksService(
     async def _sync_relationship_edges(
         self,
         task_uid: str,
-        habit_uid: str | None | Unset,
-        applies_knowledge_uids: list[str] | None | Unset,
+        habit_uid: str | Unset | None,
+        applies_knowledge_uids: list[str] | Unset | None,
     ) -> Result[None]:
         """Replace the task's habit/knowledge edges from the split intent values.
 
@@ -514,8 +514,8 @@ class TasksService(
     async def _publish_edge_only_update(
         self,
         task: Task,
-        habit_uid: str | None | Unset,
-        applies_knowledge_uids: list[str] | None | Unset,
+        habit_uid: str | Unset | None,
+        applies_knowledge_uids: list[str] | Unset | None,
     ) -> None:
         """Publish TaskUpdated after an edge-only update so user-context caches invalidate.
 
