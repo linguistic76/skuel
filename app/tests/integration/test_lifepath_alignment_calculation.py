@@ -1,16 +1,23 @@
 """
 Integration tests for LifePath alignment calculation + facade flows.
 
-Exercises LifePathAlignmentService's 5-dimension Cypher against a seeded
-real graph (testcontainer): knowledge (MASTERED + APPLIES_KNOWLEDGE
-substance), activity (OWNS + APPLIES_KNOWLEDGE ratios), goal/principle
-(SERVES_LIFE_PATH), and momentum (recent vs previous week). Then drives
-the LifePathService facade end-to-end: designate_and_calculate,
-get_full_status, and check_word_action_alignment.
+Exercises LifePathAlignmentService's 5 dimensions against a seeded real graph
+(testcontainer): knowledge (MASTERED + the six substance channels), activity
+(OWNS ratios), goal/principle (SERVES_LIFE_PATH), and momentum (recent vs
+previous week). Then drives the LifePathService facade end-to-end:
+designate_and_calculate, get_full_status, and check_word_action_alignment.
 
-The dimension assertions pin the documented weights (25/25/20/15/15) and
-per-query scoring rules — if a weight changes deliberately, update both
-the service and these numbers together.
+The dimension assertions pin the documented weights (25/25/20/15/15) and the
+service's scoring rules — if a weight changes deliberately, update both the
+service and these numbers together.
+
+⚠ **This file used to seed habits with ``APPLIES_KNOWLEDGE``** and pin the
+resulting figures as correct, which made it a test OF the defect rather than a
+guard against it: habits are written with ``REINFORCES_KNOWLEDGE``
+(``HabitsCoreService``), the dimension queries read the other edge, and the
+counts they produced were zero. The seeding below uses the writers' vocabulary.
+The behavioural guards for that defect live in
+``test_life_path_five_dimension_alignment.py``; these are the facade flows.
 """
 
 from __future__ import annotations
@@ -20,11 +27,16 @@ from datetime import datetime, timedelta
 import pytest
 import pytest_asyncio
 
+from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend
 from adapters.persistence.neo4j.lifepath_backend import LifePathBackend
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
+from core.services.knowledge.user_substance import USER_SUBSTANCE_CHANNELS
 from core.services.lifepath.lifepath_alignment_service import LifePathAlignmentService
 from core.services.lifepath.lifepath_service import LifePathService
 from core.services.user.unified_user_context import UserContext
+
+_W = {channel.name: channel.weight for channel in USER_SUBSTANCE_CHANNELS}
+_HABIT_SHARE = _W["habits"] / (_W["tasks"] + _W["habits"])
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -154,9 +166,11 @@ async def alignment_graph(neo4j_driver):
             )
             if applies:
                 await session.run(
+                    # REINFORCES_KNOWLEDGE, the edge HabitsCoreService writes.
+                    # Seeding APPLIES_KNOWLEDGE here passes against the defect.
                     """
                     MATCH (h:Entity {uid: $uid}), (ku:Entity {uid: 'ku_test_align_mastered'})
-                    MERGE (h)-[:APPLIES_KNOWLEDGE]->(ku)
+                    MERGE (h)-[:REINFORCES_KNOWLEDGE]->(ku)
                     """,
                     uid=uid,
                 )
@@ -237,20 +251,32 @@ async def alignment_graph(neo4j_driver):
 
 @pytest_asyncio.fixture(loop_scope="session")
 async def alignment_service(neo4j_driver) -> LifePathAlignmentService:
-    backend = LifePathBackend(Neo4jQueryExecutor(neo4j_driver))
-    return LifePathAlignmentService(backend=backend, lp_service=None, ku_service=None)
+    """Real backends on both sides.
+
+    ``cross_domain_backend`` is not optional in practice: it carries the
+    learner's six activity→knowledge channels, and the service refuses to score
+    without them rather than reporting mastery alone as substance.
+    """
+    executor = Neo4jQueryExecutor(neo4j_driver)
+    return LifePathAlignmentService(
+        backend=LifePathBackend(executor),
+        lp_service=None,
+        ku_service=None,
+        cross_domain_backend=CrossDomainBackend(executor),
+    )
 
 
 @pytest_asyncio.fixture(loop_scope="session")
 async def lifepath_facade(neo4j_driver) -> LifePathService:
-    """Facade with real backend; peer services None (CORE-tier shape)."""
-    backend = LifePathBackend(Neo4jQueryExecutor(neo4j_driver))
+    """Facade with real backends; peer services None (CORE-tier shape)."""
+    executor = Neo4jQueryExecutor(neo4j_driver)
     return LifePathService(
-        backend=backend,
+        backend=LifePathBackend(executor),
         lp_service=None,
         ku_service=None,
         user_service=None,
         llm_service=None,
+        cross_domain_backend=CrossDomainBackend(executor),
     )
 
 
@@ -275,11 +301,16 @@ class TestCalculateAlignment:
         assert data["life_path_uid"] == _LP_RICH
         dims = data["dimensions"]
 
-        # knowledge: avg over 2 KUs of (mastery*0.6 + tasks*0.05 + habits*0.10)
-        #   mastered KU: 0.9*0.6 + 2*0.05 + 1*0.10 = 0.74; gap KU: 0.0
+        # knowledge: mean over 2 KUs of (mastery*0.6 + substance from the table)
+        #   mastered KU: 0.9*0.6 + 2 tasks*0.05 + 1 habit*0.10 = 0.74; gap KU: 0.0
+        #   The habit term is only non-zero because the seed above uses
+        #   REINFORCES_KNOWLEDGE; over APPLIES_KNOWLEDGE this reads 0.32.
         assert dims["knowledge"] == pytest.approx(0.37, abs=1e-3)
-        # activity: task_ratio 2/3 * 0.4 + habit_ratio 1/2 * 0.6
-        assert dims["activity"] == pytest.approx(2 / 3 * 0.4 + 0.5 * 0.6, abs=1e-3)
+        # activity: task_ratio 2/3 and habit_ratio 1/2, blended in the table's
+        # task:habit proportion (⅓ : ⅔) rather than a second hand-picked 0.4/0.6
+        assert dims["activity"] == pytest.approx(
+            2 / 3 * (1 - _HABIT_SHARE) + 0.5 * _HABIT_SHARE, abs=1e-3
+        )
         # goal / principle: 1 serving of 2 active
         assert dims["goal"] == pytest.approx(0.5, abs=1e-3)
         assert dims["principle"] == pytest.approx(0.5, abs=1e-3)
@@ -316,9 +347,13 @@ class TestFacadeFlows:
         assert payload["designation"]["life_path_uid"] == _LP_FACADE
         assert payload["designation"]["designated_at"] is not None
 
-        # Untouched LP: knowledge 0, everything else at the 0.5 neutral default
-        # → overall 0*0.25 + 0.5*0.25 + 0.5*0.20 + 0.5*0.15 + 0.5*0.15 = 0.375
-        assert payload["alignment"]["alignment_score"] == pytest.approx(0.375, abs=1e-3)
+        # Untouched LP, learner with no activity at all: the four LEVEL
+        # dimensions read 0.0 — no evidence is not half-aligned — and only
+        # momentum keeps its neutral 0.5, being a rate rather than a level.
+        # → 0*0.25 + 0*0.25 + 0*0.20 + 0*0.15 + 0.5*0.15 = 0.075
+        # (0.375 = the old 0.5 no-data default, the one that let the metric
+        # invert by giving an inactive learner a score to fall from.)
+        assert payload["alignment"]["alignment_score"] == pytest.approx(0.075, abs=1e-3)
 
         # The score must land on the ULTIMATE_PATH edge (trend/source of truth)
         async with neo4j_driver.session() as session:
@@ -332,7 +367,7 @@ class TestFacadeFlows:
             )
             record = await edge.single()
         assert record is not None
-        assert record["score"] == pytest.approx(0.375, abs=1e-3)
+        assert record["score"] == pytest.approx(0.075, abs=1e-3)
 
         # Recommendations derive from the weakest dimension (knowledge = 0.0)
         recs = payload["recommendations"]

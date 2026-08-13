@@ -2093,6 +2093,61 @@ class LifePathComposition(TypedDict):
     steps: list[LifePathStepRow]
 
 
+class LifePathKuMasteryRow(TypedDict):
+    """Row shape for get_life_path_ku_mastery() — one row per Ku the path teaches.
+
+    Carries the learner's MASTERED signal ONLY. The substance half of the
+    knowledge dimension is not in this row and must not be added to it: it comes
+    from ``get_user_knowledge_channels`` and is weighted by the one table in
+    ``core/services/knowledge/user_substance.py``. The two halves used to be
+    summed inside Cypher with hand-copied per-instance weights, which is how the
+    habit channel came to be read over the wrong edge and worth zero.
+
+    ``mastery`` is 0.0 for a Ku the learner has never mastered — a real reading,
+    not a missing one, since the query LEFT-joins MASTERED over the whole path.
+    """
+
+    ku_uid: str
+    mastery: float
+
+
+class LifePathActivityCounts(TypedDict):
+    """Counts behind the activity dimension — aligned vs owned, per channel.
+
+    Raw counts, deliberately: the ratio and the task/habit blend are scoring
+    policy and live in ``LifePathAlignmentService``, so the no-data rule has one
+    home rather than one copy per dimension query.
+    """
+
+    total_tasks: int
+    aligned_tasks: int
+    total_habits: int
+    aligned_habits: int
+
+
+class LifePathServingCounts(TypedDict):
+    """How many of the learner's goals — or principles — serve the life path.
+
+    One shape for both dimensions: they ask the same question over
+    ``SERVES_LIFE_PATH`` and differ only in which entity_type they count.
+    """
+
+    total: int
+    serving: int
+
+
+class LifePathMomentumCounts(TypedDict):
+    """Path-aligned commitments created in the recent vs the previous week.
+
+    Counts CREATIONS, tasks and habits alike — momentum is the rate at which the
+    learner commits to new path-aligned work. Banding these two numbers into a
+    score is scoring policy and lives in the service.
+    """
+
+    recent: int
+    previous: int
+
+
 # ============================================================================
 # LP INTELLIGENCE RESULT TYPES
 # ============================================================================

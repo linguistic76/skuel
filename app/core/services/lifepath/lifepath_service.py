@@ -45,6 +45,7 @@ from .lifepath_types import WordActionAlignment
 from .lifepath_vision_service import LifePathVisionService
 
 if TYPE_CHECKING:
+    from core.ports.cross_domain_protocols import CrossDomainBackendOperations
     from core.ports.service_protocols import LifePathAlignmentOperations
     from core.services.llm_service import LLMService
     from core.services.lp_service import LpService
@@ -90,6 +91,7 @@ class LifePathService:
         ku_service: PsService | None = None,
         user_service: UserService | None = None,
         llm_service: LLMService | None = None,
+        cross_domain_backend: CrossDomainBackendOperations | None = None,
     ) -> None:
         """
         Initialize LifePath service with all sub-services.
@@ -100,6 +102,9 @@ class LifePathService:
             ku_service: KU service for knowledge operations
             user_service: User service for context
             llm_service: LLM service for vision analysis
+            cross_domain_backend: the learner's activity→knowledge channels —
+                required by the alignment sub-service, which refuses to score
+                without them rather than reporting mastery alone as substance
         """
         # Sub-services
         self.vision = LifePathVisionService(
@@ -118,6 +123,7 @@ class LifePathService:
             backend=backend,
             lp_service=lp_service,
             ku_service=ku_service,
+            cross_domain_backend=cross_domain_backend,
         )
 
         self.user_service = user_service
