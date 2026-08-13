@@ -18,7 +18,7 @@ Everything drives through ``ingest_user_entry`` — the same door the vault
 sync uses — so the request-building, coercion, and copy-filing behavior
 under test is the shipped path, not a test-local reconstruction.
 
-See: plans/moc-knowledge-channel-design-notes.md § Phase 0 rulings (R2, R3).
+See: docs/roadmap/done/moc-knowledge-channel-design-notes.md § Phase 0 rulings (R2, R3).
 """
 
 from __future__ import annotations

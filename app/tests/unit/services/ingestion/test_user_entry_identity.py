@@ -7,7 +7,7 @@ minting a fresh random uid every sync (which orphaned the old node — 276 stale
 copies measured 2026-07-12). These tests pin that wiring at the door and the
 private-flip retraction that rides on the now-stable identity.
 
-Contract: /plans/uidless-vault-entry-identity-upsert.md
+Contract: docs/roadmap/done/uidless-vault-entry-identity-upsert.md
 Pure gating of ``build_user_entry_request`` lives in
 ``tests/unit/services/user_entry/test_user_entry_ingestion.py``.
 """

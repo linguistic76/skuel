@@ -13,7 +13,7 @@ Pins the MOC ingestion arc's PR-1 seams:
    ordered targets, and the two vault postures (personal silent /
    content Arc E warnings).
 
-See: plans/moc-knowledge-channel-design-notes.md
+See: docs/roadmap/done/moc-knowledge-channel-design-notes.md
 """
 
 from __future__ import annotations

@@ -244,7 +244,7 @@ class TestBuildUserEntryRequest:
 class TestPriorUidReuse:
     """Path-keyed identity: the tracker's prior uid gives uid-less vault notes a
     stable identity so they upsert in place instead of orphaning the old node.
-    Contract: /plans/uidless-vault-entry-identity-upsert.md."""
+    Contract: docs/roadmap/done/uidless-vault-entry-identity-upsert.md."""
 
     @pytest.mark.asyncio
     async def test_uidless_knowledge_note_reuses_prior_uid(self):

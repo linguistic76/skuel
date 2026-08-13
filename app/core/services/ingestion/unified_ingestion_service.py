@@ -637,7 +637,7 @@ class UnifiedIngestionService:
         A uid-less knowledge note mints a random ``ue_`` uid on first sync; the
         tracker's ``IngestionMetadata`` path→uid row lets every later sync reuse
         it so the note upserts in place instead of orphaning the old node
-        (contract: /plans/uidless-vault-entry-identity-upsert.md). Both ingest
+        (contract: docs/roadmap/done/uidless-vault-entry-identity-upsert.md). Both ingest
         doors converge on ``ingest_file``'s USER_ENTRY branch, so this single
         lookup covers the reconciler sync path and the direct door alike.
 

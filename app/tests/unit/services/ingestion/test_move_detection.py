@@ -1,6 +1,6 @@
 """Unit tests for content-based move detection (exact hash + similarity).
 
-Contract: /plans/hash-assisted-move-detection.md. A uid-less vault rename must
+Contract: docs/roadmap/done/hash-assisted-move-detection.md. A uid-less vault rename must
 rewrite the tracker row (old path → new path, SAME uid) so the #616
 path-keyed upsert reuses the uid instead of delete+creating. Phase 1's exact
 hash catches pure renames; Phase 2's mutual-best lexical similarity over the
