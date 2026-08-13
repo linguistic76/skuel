@@ -35,13 +35,17 @@ from core.ports.query_types import (
     PsPerformanceAnalytics,
     PsPracticeCountsRow,
     PsPracticeSummaryResult,
+    StepSubstance,
 )
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.intelligence import _CoreIntelligenceMixin
 from core.services.knowledge.user_substance import (
+    USER_SUBSTANCE_CHANNELS,
     SubstanceIndex,
     build_substance_index,
     build_substance_index_from_context,
+    channel_counts,
+    substance_breakdown,
     user_substance_score,
 )
 from core.utils.decorators import with_error_handling
@@ -541,6 +545,32 @@ class PsIntelligenceService(
             return 0.0
         return sum(user_substance_score(ku_uid, index) for ku_uid in ku_uids) / len(ku_uids)
 
+    @staticmethod
+    def _mean_ku_breakdown(ku_uids: Sequence[str], index: SubstanceIndex) -> dict[str, float]:
+        """A step's substance decomposed by channel: the per-channel mean.
+
+        The channel-wise counterpart of :meth:`_mean_ku_substance`, over the same
+        Kus and the same weights, so the parts describe the whole the score
+        reports.
+
+        They do not sum to it, and must not be made to. ``user_substance_score``
+        caps each Ku at 1.0 while the six channels contribute up to 1.30 raw, so
+        for a heavily-applied Ku the parts total more than the capped score. The
+        decomposition answers "which channels is this coming from", which is a
+        question about proportions; normalise against the breakdown's own sum.
+
+        A step teaching no Ku yields a zero-filled breakdown, matching the 0.0
+        the score reports — an empty dict would force every caller to
+        re-enumerate the six channels to render it.
+        """
+        zeroed = {channel.name: 0.0 for channel in USER_SUBSTANCE_CHANNELS}
+        if not ku_uids:
+            return zeroed
+        for ku_uid in ku_uids:
+            for name, value in substance_breakdown(channel_counts(ku_uid, index)).items():
+                zeroed[name] += value
+        return {name: total / len(ku_uids) for name, total in zeroed.items()}
+
     async def calculate_user_substance(
         self, ps_uid: str, user_context: UserContext
     ) -> Result[dict[str, Any]]:
@@ -640,6 +670,35 @@ class PsIntelligenceService(
 
         Backend: PsIntelligenceBackend.fetch_taught_ku_uids_for_steps
         """
+        detailed = await self.calculate_user_substance_breakdown_for_steps(ps_uids, channels)
+        if detailed.is_error:
+            return Result.fail(detailed)
+        return Result.ok({ps_uid: parts["score"] for ps_uid, parts in detailed.value.items()})
+
+    async def calculate_user_substance_breakdown_for_steps(
+        self, ps_uids: Sequence[str], channels: Mapping[str, Mapping[str, Sequence[str]]]
+    ) -> Result[dict[str, StepSubstance]]:
+        """Personal substance for many PathSteps, WITH the per-channel parts.
+
+        The full form of :meth:`calculate_user_substance_for_steps`, which is a
+        projection of this one — the score and its decomposition are computed in
+        a single pass so a caller that needs both makes one round trip, and so
+        the two can never come from separately-edited arithmetic.
+
+        Use this when the question is "which channels is the learner's substance
+        coming from" (the life-path alignment breakdown); use the score-only form
+        when it is not, so the payload stays the size of the question.
+
+        Every requested uid appears in the result, a step teaching no Ku included
+        — it maps to 0.0 with a zero-filled breakdown, which is a reading, not a
+        gap for the caller to default.
+
+        ``sum(breakdown.values())`` may exceed ``score``: see
+        :meth:`_mean_ku_breakdown` for why, and normalise proportions against the
+        breakdown's own sum rather than against the score.
+
+        Backend: PsIntelligenceBackend.fetch_taught_ku_uids_for_steps
+        """
         if not ps_uids:
             return Result.ok({})
 
@@ -659,5 +718,11 @@ class PsIntelligenceService(
         # and one at 0.29 average 0.2995, which is theoretical, but rounds to
         # the 0.30 that reads as applied. Presentation rounds; scoring does not.
         return Result.ok(
-            {ps_uid: self._mean_ku_substance(taught.get(ps_uid, []), index) for ps_uid in ps_uids}
+            {
+                ps_uid: StepSubstance(
+                    score=self._mean_ku_substance(taught.get(ps_uid, []), index),
+                    breakdown=self._mean_ku_breakdown(taught.get(ps_uid, []), index),
+                )
+                for ps_uid in ps_uids
+            }
         )

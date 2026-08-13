@@ -28,6 +28,7 @@ from typing import TYPE_CHECKING, Any
 from core.models.type_hints import UserUID
 from core.ports.query_types import (
     LifePathAlignmentResult,
+    LifePathComposition,
     LifePathDesignation,
     LifePathRecommendation,
     LifePathRecommendationItem,
@@ -418,3 +419,30 @@ class LifePathService:
     ) -> Result[list[dict[str, Any]]]:
         """Get historical alignment snapshots for trend analysis, newest first."""
         return await self.core.get_alignment_trend_data(user_uid=user_uid, days=days)
+
+    async def get_designated_life_path_uid(self, user_uid: UserUID) -> Result[str | None]:
+        """The uid of the path this user designated, or None if they have not.
+
+        The designated uid is NOT readable off a standard ``UserContext``:
+        ``life_path_uid`` is populated only by ``build_rich``
+        (``UserContextBuilder.build_rich_user_context`` is the sole call site of
+        ``populate_life_path``), so a caller using ``get_user_context`` reads
+        None for every user and concludes nobody has designated a path — a
+        silent zero, since an unset field does not raise.
+
+        Returns the uid alone rather than the designation record: the two
+        ``LifePathDesignation`` types in this codebase (the ``query_types``
+        TypedDict and the ``lifepath_types`` dataclass) make a designation-shaped
+        return ambiguous at a glance, and every caller of this wants the uid.
+        """
+        designation_result = await self.core.get_designation(user_uid)
+        if designation_result.is_error:
+            return Result.fail(designation_result)
+        designation = designation_result.value
+        return Result.ok(designation.life_path_uid if designation else None)
+
+    async def get_life_path_composition(
+        self, life_path_uid: str
+    ) -> Result[LifePathComposition | None]:
+        """The designated path's title and the PathSteps it composes, in order."""
+        return await self.core.get_life_path_composition(life_path_uid)

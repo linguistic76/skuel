@@ -31,7 +31,7 @@ from .lifepath_types import LifePathDesignation
 
 if TYPE_CHECKING:
     from core.ports.lifepath_protocols import LifePathBackendOperations
-    from core.ports.query_types import AlignmentDimensions
+    from core.ports.query_types import AlignmentDimensions, LifePathComposition
     from core.services.lp_service import LpService
 
 logger = get_logger(__name__)
@@ -393,4 +393,30 @@ class LifePathCoreService:
             logger.error(f"Failed to get alignment trend data for {user_uid}: {e}")
             return Result.fail(
                 Errors.database("get_alignment_trend_data", f"Failed to get snapshots: {e}")
+            )
+
+    async def get_life_path_composition(
+        self, life_path_uid: str
+    ) -> Result[LifePathComposition | None]:
+        """What the designated path is made of — its title and ordered steps.
+
+        Deliberately NOT ``LpService.get``: designation flips an existing
+        LearningPath node's ``entity_type`` to ``'life_path'`` in place, leaving
+        its ``:LearningPath`` label untouched, so reading a designated path
+        through the LP service builds a ``LearningPath`` model and trips its
+        honest-leaf-identity guard (G6) — a raise, for exactly the paths the
+        caller means to read.
+
+        Backend: LifePathBackend.get_life_path_composition — HAS_STEP traversal.
+        """
+        if not self.backend:
+            return Result.fail(
+                Errors.system("Backend not available", operation="get_life_path_composition")
+            )
+        try:
+            return await self.backend.get_life_path_composition(life_path_uid)
+        except NEO4J_EXCEPTIONS as e:
+            logger.error(f"Failed to get composition for life path {life_path_uid}: {e}")
+            return Result.fail(
+                Errors.database("get_life_path_composition", f"Failed to get composition: {e}")
             )

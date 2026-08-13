@@ -50,17 +50,21 @@ def render_life_path_alignment_dashboard(alignment_data: dict[str, Any]) -> Any:
                 StatsGrid(
                     [
                         StatItem(label="Total Knowledge", value=str(knowledge_count)),
+                        # Band edges transcribed from the service's own
+                        # thresholds (EMBODIED_THRESHOLD / APPLIED_THRESHOLD) —
+                        # the label used to read "<0.5" over a count the service
+                        # computed at <0.3.
                         StatItem(label="Embodied (0.8+)", value=str(embodied)),
-                        StatItem(label="Theoretical (<0.5)", value=str(theoretical)),
+                        StatItem(label="Theoretical (<0.3)", value=str(theoretical)),
                     ],
                     cols=3,
                 ),
             ),
             cls="mb-6",
         ),
-        # Domain Contributions
+        # Channel Contributions — where this learner's substance comes from
         Card(
-            CardHeader(CardTitle("Domain Contributions to Life Path")),
+            CardHeader(CardTitle("Where Your Alignment Comes From")),
             CardBody(
                 Div(
                     *[

@@ -48,13 +48,12 @@ class TestAnalyticsGenerationFlow:
         """
         Create AnalyticsService with event bus.
 
-        Note: AnalyticsService has many dependencies (user_service, domain services, etc.)
+        Note: AnalyticsService has many dependencies (domain services, curriculum services, etc.)
         For integration tests, we only test event handler execution.
         Real analytics generation requires full service wiring.
         """
         # Minimal AnalyticsService for event handler testing
         return AnalyticsService(
-            user_service=None,  # Not needed for event handler tests
             tasks_service=None,
             habits_service=None,
             goals_service=None,
@@ -321,7 +320,6 @@ class TestAnalyticsGenerationFlow:
         """Test that missing event_bus logs warning but doesn't raise error."""
         # Create analytics service without event bus
         service_no_bus = AnalyticsService(
-            user_service=None,
             tasks_service=None,
             habits_service=None,
             goals_service=None,

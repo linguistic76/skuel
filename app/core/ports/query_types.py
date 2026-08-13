@@ -2049,6 +2049,50 @@ class PsStepTaughtKuUidsRow(TypedDict):
     ku_uids: list[str]
 
 
+class StepSubstance(TypedDict):
+    """One PathStep's personal substance: the total and its per-channel parts.
+
+    ``score`` is the capped 0.0-1.0 figure; ``breakdown`` is the same reading
+    decomposed over the six channels of
+    ``core.services.knowledge.user_substance``, keyed by channel name.
+
+    The two are computed together rather than derived from one another because
+    ``sum(breakdown.values())`` can EXCEED ``score``: the six channels
+    contribute up to 1.30 raw and the total is capped at 1.0. A caller wanting
+    proportions must normalise the breakdown against its own sum, never against
+    ``score``.
+    """
+
+    score: float
+    breakdown: dict[str, float]
+
+
+class LifePathStepRow(TypedDict):
+    """Row shape for get_life_path_composition() — one row per composed step.
+
+    The designated life path's own composition, over ``HAS_STEP``. Steps arrive
+    in ``sequence`` order; ``sequence`` is None for a step whose edge carries no
+    ordering, which sorts last rather than being dropped.
+    """
+
+    ps_uid: str
+    title: str
+    sequence: int | None
+
+
+class LifePathComposition(TypedDict):
+    """What a life path is made of — its title and its ordered path steps.
+
+    Read in one pass so the alignment metric does not fetch the path and then
+    its steps. ``steps`` is empty for a designated path that composes nothing,
+    which is a real state (a path with no steps yet), not an error.
+    """
+
+    life_path_uid: str
+    life_path_title: str
+    steps: list[LifePathStepRow]
+
+
 # ============================================================================
 # LP INTELLIGENCE RESULT TYPES
 # ============================================================================

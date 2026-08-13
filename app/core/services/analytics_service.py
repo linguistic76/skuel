@@ -75,7 +75,6 @@ class AnalyticsService:
         choices_service=None,
         principle_service=None,
         content_enrichment=None,
-        user_service=None,
         ku_service=None,
         lp_service=None,
         lifepath_service=None,
@@ -95,7 +94,6 @@ class AnalyticsService:
             choices_service: ChoicesService facade (Layer 1)
             principle_service: PrinciplesService facade (Layer 1)
             content_enrichment: ContentEnrichmentService (Layer 2)
-            user_service: UserService for getting UserContext (Layer 3 - for Life Path)
             ku_service: PsService for knowledge substance scores (Layer 0)
             lp_service: LpService for Learning Path CRUD (Layer 0)
             lifepath_service: LifePathService for designation + alignment history
@@ -107,7 +105,6 @@ class AnalyticsService:
                 report is unavailable when unwired)
         """
         self.event_bus = event_bus
-        self.user_service = user_service
         # Knowledge-subgraph structural-health gauge (ADR-080 Horizon-1). CORE-tier
         # safe (no AI); None only when the backend is not wired (e.g. unit tests).
         self.knowledge_health: KnowledgeHealthService | None = (
@@ -138,11 +135,13 @@ class AnalyticsService:
         self.aggregation = AnalyticsAggregationService(metrics_service=self.metrics)
 
         # NEW: Life Path alignment tracking (Layer 3 cross-layer metric!)
+        # Same per-learner substance source as self.metrics: the cross-domain
+        # backend carries the learner's own activity channels, which alignment is
+        # scored against rather than against the shared curriculum node.
         self.life_path = AnalyticsLifePathService(
-            user_service=user_service,
             ku_service=ku_service,
-            lp_service=lp_service,
             lifepath_service=lifepath_service,
+            cross_domain_backend=cross_domain_backend,
         )
 
         # Analytics storage — default relative to the app root (parents[2] of

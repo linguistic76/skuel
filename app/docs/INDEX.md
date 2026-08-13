@@ -489,6 +489,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | Document | Description |
 |----------|-------------|
 | [Analytics Untyped-Seam Defects](technical_debt/ANALYTICS_UNTYPED_SEAM_DEFECTS.md) | |
+| [LifePath Alignment Debt](technical_debt/LIFEPATH_ALIGNMENT_DEBT.md) | OPEN — habits score zero in every dimension; a designated path's label and `entity_type` disagree |
 | [MyPy Limitations in Universal Backend](technical_debt/MYPY_BACKEND_LIMITATIONS.md) | |
 | [Return Value Type Errors Analysis](technical_debt/RETURN_VALUE_ERRORS_ANALYSIS.md) | |
 

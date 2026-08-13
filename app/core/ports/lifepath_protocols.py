@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from typing import Any, Protocol, runtime_checkable
 
+from core.ports.query_types import LifePathComposition
 from core.utils.result_simplified import Result
 
 
@@ -43,6 +44,10 @@ class LifePathBackendOperations(Protocol):
     async def get_alignment_snapshots(
         self, user_uid: str, days: int = 31
     ) -> Result[list[dict[str, Any]]]: ...
+
+    async def get_life_path_composition(
+        self, life_path_uid: str
+    ) -> Result[LifePathComposition | None]: ...
 
     # Alignment — Graph queries
     async def get_user_life_path(self, user_uid: str) -> Result[list[dict[str, Any]]]: ...

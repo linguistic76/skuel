@@ -1475,7 +1475,6 @@ async def compose_services(
             choices_service=activity_services["choices"],
             principle_service=activity_services["principles"],
             content_enrichment=content_enrichment,  # ✅ ContentEnrichmentService - Layer 2 reporting
-            user_service=user_service,  # Life path alignment
             ku_service=learning_services["ps"],  # Layer 0 reporting
             lp_service=learning_services["learning_paths"],  # Layer 0 reporting
             lifepath_service=lifepath_service,  # alignment snapshot history
