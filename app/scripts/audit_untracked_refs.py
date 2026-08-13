@@ -28,8 +28,16 @@ Two violation classes:
    the ignore stay tracked and make the tier incoherent. Four such files were found
    and untracked in August 2026.
 
-Run: ``uv run python scripts/audit_untracked_refs.py`` (also ``./dev quality`` check
-6c, and asserted by ``tests/unit/test_untracked_refs.py`` so CI gates it).
+Run: ``uv run python scripts/audit_untracked_refs.py``. Also ``./dev quality`` check
+6c, a step in CI's gate-required **``content_boundary``** job, and asserted by
+``tests/unit/test_untracked_refs.py``.
+
+``content_boundary`` and not ``lint`` because that job is always-on: this guard reads
+every tracked file, and ``app/.envrc`` and ``app/CLAUDE.md`` are matched by no path
+filter at all, so under ``lint``'s ``py`` filter a docs-only PR would skip it. The CI
+step is not optional belt-and-braces — ``tests/unit/scripts/test_quality_ci_parity.py``
+fails any ``./dev quality`` check lacking a gate-required home, and its
+``ALWAYS_ON_ONLY`` set pins this one to an unconditional job specifically.
 Exit 0 = clean, 1 = violations.
 """
 
@@ -102,9 +110,15 @@ def find_violations() -> tuple[list[tuple[str, int, str]], list[str]]:
         if path.suffix.lower() in _SKIP_SUFFIXES or not path.is_file():
             continue
         try:
-            text = path.read_text(encoding="utf-8")
-        except UnicodeDecodeError, OSError:
-            continue  # binary or unreadable — nothing to cite
+            # errors="replace" rather than catching UnicodeDecodeError: binary
+            # content decodes to noise that cannot match a citation, and a single
+            # except clause keeps this runnable on any interpreter. (Ruff's py314
+            # target rewrites `except (A, B):` into PEP 758's unparenthesized
+            # form, which older interpreters reject — CI pins 3.14, a developer's
+            # `python3` may not.)
+            text = path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue  # unreadable — nothing to cite
 
         for lineno, line in enumerate(text.splitlines(), 1):
             if SCRATCH_CITATION.search(line):

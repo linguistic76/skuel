@@ -208,6 +208,14 @@ REQUIRED_FILTERS: dict[str, frozenset[str]] = {
     "scripts/skills_validator.py": frozenset({"docs"}),
 }
 
+# Checks NO path filter can cover, so only an unconditional job counts as a home.
+# Listing filters for these would be an approximation that reads like an encoding:
+# `filters_cover_check` accepts any job whose OR-chain is a superset, so a filtered
+# job carrying every named filter would pass this test while still skipping the
+# check — and `app/.envrc` and `app/CLAUDE.md` are matched by NO filter at all,
+# yet both are tracked files that can carry a scratch citation (both did).
+ALWAYS_ON_ONLY: frozenset[str] = frozenset({"scripts/audit_untracked_refs.py"})
+
 
 def job_filter_names(condition: object) -> frozenset[str] | None:
     """The changes-filter outputs a job's `if:` ORs over, or None if unsafe.
@@ -234,6 +242,9 @@ def job_filter_names(condition: object) -> frozenset[str] | None:
 def filters_cover_check(identifier: str, job_filters: frozenset[str] | None) -> bool:
     if job_filters is None:
         return False
+    if identifier in ALWAYS_ON_ONLY:
+        # Reads files no filter names — only an unconditional job is coverage.
+        return job_filters == ALWAYS_ON
     if job_filters == ALWAYS_ON:
         return identifier in REQUIRED_FILTERS
     required = REQUIRED_FILTERS.get(identifier)
