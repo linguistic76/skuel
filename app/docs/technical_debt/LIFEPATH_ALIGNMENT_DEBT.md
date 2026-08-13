@@ -10,7 +10,8 @@ related: [ANALYTICS_UNTYPED_SEAM_DEFECTS.md, knowledge_substance_philosophy.md]
 # LifePath Alignment Debt
 
 **Status**: 🔶 OPEN (2 items, both found 2026-08-12 while rewriting a *different*
-alignment metric)
+alignment metric). **Both are LIVE on the production wiring** — one corrupts the
+score, the other the title; neither raises.
 **Surfaces affected**: `LifePathService.get_alignment` / `get_full_status` /
 `designate_and_calculate`; the `/lifepath` dashboard; every stored
 `ULTIMATE_PATH.alignment_score`
@@ -37,29 +38,56 @@ into Cypher* is the through-line: it is the third copy of the table that
 
 ## Picking this up
 
-**Do item 1 first.** It is user-visible today (a learner's score moves the wrong
-way), it is self-contained, and it does not depend on item 2. Item 2 is currently
-mitigated for the one caller that hit it, so it is latent rather than live.
+**Both items are LIVE on the production alignment flow.** Order them by blast
+radius, not by one being latent:
 
-**Reproduce before fixing, in both cases.** Every defect in this file returns a
-plausible number rather than an error, so a fix "verified" by a green run proves
-nothing. Seed the state, record the score, apply the change, and assert the score
-**moved** — that is the only evidence that distinguishes these from a learner who
-genuinely did nothing.
+1. **Item 1** — corrupts the *score* itself, and inverts it: building habits
+   toward your life path lowers your alignment. Self-contained, no dependency on
+   item 2.
+2. **Item 2** — corrupts the life path's *title*, silently, on every designated
+   user's calculation.
 
-The habit test that would have caught item 1:
+**Reproduce before fixing.** Every defect in this file yields a plausible value
+rather than an error, so a fix "verified" by a green run proves nothing. But the
+two need *different* recipes, because they have different symptoms — a score, and
+a string:
+
+### Item 1 — assert the score MOVED
 
 ```
 seed  a habit with -[:REINFORCES_KNOWLEDGE]-> a Ku the life path teaches
-then  calculate_alignment() and assert the ACTIVITY dimension changes
+then  calculate_alignment() and assert the dimension changes
 ```
 
-A test seeding `APPLIES_KNOWLEDGE` instead passes against the bug, and a test
-asserting only "the result is non-empty" passes against both.
+Seeding `APPLIES_KNOWLEDGE` instead passes against the bug. Asserting only "the
+result is non-empty" passes against both readings.
 
-**Done means**: the dimension responds to habit activity; the `0.5` no-data default
-has an explicit ruling (item 1 §2); and — if the weights move onto
-`USER_SUBSTANCE_CHANNELS` — the Cypher no longer spells any per-instance weight.
+**Done means all three habit-dependent sites**, not the first one fixed:
+`calculate_activity_alignment` AND `calculate_knowledge_alignment` (whose `* 0.10`
+habit term never fires) AND `calculate_momentum` (which has no habit arm at all —
+or an explicit ruling that momentum is deliberately task-only). Requiring only
+"the dimension responds" lets the item close with two of its three defects intact.
+
+Plus: the `0.5` no-data default has an explicit ruling (§ *Decide, don't just swap
+the edge*, point 2), and — if the weights move onto `USER_SUBSTANCE_CHANNELS` —
+the Cypher no longer spells any per-instance weight.
+
+### Item 2 — a score-movement test CANNOT see this one
+
+Designation changes the result from the no-designation response either way, and
+all five dimension queries still return numbers while the typed read fails. A test
+following item 1's recipe therefore **passes before item 2 is fixed**.
+
+What actually detects it:
+
+```
+seed   designate a life path via the REAL writer (LifePathBackend.designate_life_path)
+then   assert a TYPED read of that uid succeeds — LpService/LpCoreService.get(uid)
+       returns ok, not a failed Result
+and    assert the alignment payload carries the path's real title, not "Unknown"
+then   remove_designation() and assert the read still succeeds — the round trip is
+       where a label swap (option (a)) breaks if only half of it is implemented
+```
 
 ⚠ **Line numbers below were verified against `2d8c31d03` and will drift.** Grep the
 quoted Cypher, not the line.
@@ -149,7 +177,8 @@ the dimension **changes**; model it on
 
 **Site**: `adapters/persistence/neo4j/lifepath_backend.py:155` (`designate_life_path`),
 `:190` (`remove_designation`)
-**Severity**: raises for exactly the paths a caller means to read.
+**Severity**: LIVE — every designated user's alignment calculation reads the life
+path's title as `"Unknown"`, silently, on the production wiring.
 
 Designation promotes an existing LearningPath by mutating a property **in place**:
 
@@ -173,16 +202,37 @@ ValueError: LearningPath constructed with entity_type=<EntityType.LIFE_PATH: 'li
             (uid='lp.x') — the writer persisted a wrong type (G6)
 ```
 
-A `ValueError` is in `DATA_CONVERSION_EXCEPTIONS`, so callers that wrap it report a
-system error; callers that do not, propagate.
+### The raise never reaches a caller — which is what makes it live
 
-### Known reachable site
+`LpBackend.get` is decorated `@safe_backend_operation("get")`, whose
+`except Exception` safety-net (`core/utils/error_boundary.py:130`) converts the
+`ValueError` into `Result.fail`. Verified at runtime:
 
-`LifePathAlignmentService._get_life_path_details`
-(`core/services/lifepath/lifepath_alignment_service.py:173`) calls
-`self.lp_service.core.get(life_path_uid)` with a designated uid and guards with
-`if lp_result.is_ok and lp_result.value` — but a raise is not a `Result`, so the
-guard is not on the path the failure takes.
+```
+from_neo4j_node({... 'entity_type': 'life_path'}, LearningPath)  inside the decorator
+  → raise propagated?  NO — converted
+  → is_error: True
+```
+
+So the failure is indistinguishable from a database outage, exactly the amplifier
+`ANALYTICS_UNTYPED_SEAM_DEFECTS.md` § 1 describes: *a broad error decorator makes a
+coding defect look like a runtime failure.*
+
+**Reachable on the production wiring, on every designated user.**
+`services_bootstrap/compose.py:1062-1064` constructs `LifePathService` with the
+real `lp_service` (`learning_services["learning_paths"]`), and
+`LifePathAlignmentService.calculate_alignment:97` calls
+`_get_life_path_details` before scoring any dimension.
+`_get_life_path_details` (`core/services/lifepath/lifepath_alignment_service.py:173`)
+guards with `if lp_result.is_ok and lp_result.value` — which is now False — and
+returns its fallback:
+
+```python
+return {"title": "Unknown", "description": ""}
+```
+
+The alignment payload therefore names the user's life path `"Unknown"` and scores
+it anyway. Nothing errors; nothing logs at the service layer.
 
 Sweep the rest before fixing: `git grep -n "lp_service" core/ adapters/ ui/`, then
 check which call sites can receive a designated uid.
@@ -204,7 +254,7 @@ Whatever is chosen must round-trip through `remove_designation`, and the `:LifeP
 label's index (if any) has to move with it — an index holds a label alive at zero
 nodes.
 
-### Current mitigation
+### What is already routed around it — and what is NOT
 
 `AnalyticsLifePathService` no longer touches `LpService`; it reads through
 `LifePathService.get_life_path_composition`, which is keyed on `entity_type` and
@@ -212,6 +262,12 @@ returns rows rather than a `LearningPath` model.
 `tests/integration/test_life_path_alignment_learner_scope.py` drives the **real**
 `designate_life_path` writer rather than hand-seeding the promoted state, so that
 test fails if designation's output shape changes.
+
+⚠ **That covers ONE consumer, and the defect is not mitigated.**
+`LifePathAlignmentService` — the five-dimension metric, on the production wiring —
+still reads through `LpService` on every designated user and still gets
+`"Unknown"`. Routing one caller around a defect is not the same as fixing it, and
+this file previously described the item as latent on exactly that confusion.
 
 ---
 
