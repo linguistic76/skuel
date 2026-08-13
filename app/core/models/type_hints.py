@@ -109,7 +109,7 @@ type Metadata = dict[
 # Neo4j boundary types — primitives the driver returns from node properties.
 # boundary: neo4j-primitives — Neo4j maps graph properties to Python scalars.
 # Strings represent unknown-shape values stored as JSON in Neo4j.
-type Neo4jValue = str | int | float | bool | list[str | int | float] | None | date | datetime
+type Neo4jValue = str | int | float | bool | list[str | int | float] | date | datetime | None
 type Neo4jProperties = dict[str, Neo4jValue]
 
 # Typed filter/query parameters.

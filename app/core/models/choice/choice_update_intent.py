@@ -50,21 +50,21 @@ class ChoiceUpdateIntent:
     """
 
     # --- Identity / classification -------------------------------------------
-    title: str | None | Unset = UNSET
-    description: str | None | Unset = UNSET
-    choice_type: str | None | Unset = UNSET
-    domain: str | None | Unset = UNSET
+    title: str | Unset | None = UNSET
+    description: str | Unset | None = UNSET
+    choice_type: str | Unset | None = UNSET
+    domain: str | Unset | None = UNSET
 
     # --- Decision context ----------------------------------------------------
-    decision_deadline: datetime | None | Unset = UNSET
-    decision_criteria: list[str] | None | Unset = UNSET
-    constraints: list[str] | None | Unset = UNSET
-    stakeholders: list[str] | None | Unset = UNSET
+    decision_deadline: datetime | Unset | None = UNSET
+    decision_criteria: list[str] | Unset | None = UNSET
+    constraints: list[str] | Unset | None = UNSET
+    stakeholders: list[str] | Unset | None = UNSET
 
     # --- Status / priority / tags --------------------------------------------
-    status: str | None | Unset = UNSET
-    priority: str | None | Unset = UNSET
-    tags: list[str] | None | Unset = UNSET
+    status: str | Unset | None = UNSET
+    priority: str | Unset | None = UNSET
+    tags: list[str] | Unset | None = UNSET
 
     def to_changes(self) -> dict[str, Any]:
         """Return only the explicitly-set fields as a backend-ready patch.

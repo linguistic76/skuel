@@ -50,26 +50,26 @@ class PrincipleUpdateIntent:
     """
 
     # --- Identity / statement ------------------------------------------------
-    title: str | None | Unset = UNSET
-    statement: str | None | Unset = UNSET
-    description: str | None | Unset = UNSET
+    title: str | Unset | None = UNSET
+    statement: str | Unset | None = UNSET
+    description: str | Unset | None = UNSET
 
     # --- Classification ------------------------------------------------------
-    principle_category: str | None | Unset = UNSET
-    principle_source: str | None | Unset = UNSET
-    strength: str | None | Unset = UNSET
+    principle_category: str | Unset | None = UNSET
+    principle_source: str | Unset | None = UNSET
+    strength: str | Unset | None = UNSET
 
     # --- Philosophical context ----------------------------------------------
-    tradition: str | None | Unset = UNSET
-    personal_interpretation: str | None | Unset = UNSET
+    tradition: str | Unset | None = UNSET
+    personal_interpretation: str | Unset | None = UNSET
 
     # --- Behavioral expression ----------------------------------------------
-    key_behaviors: list[str] | None | Unset = UNSET
+    key_behaviors: list[str] | Unset | None = UNSET
 
     # --- Status / priority / tags -------------------------------------------
-    status: str | None | Unset = UNSET
-    priority: str | None | Unset = UNSET
-    tags: list[str] | None | Unset = UNSET
+    status: str | Unset | None = UNSET
+    priority: str | Unset | None = UNSET
+    tags: list[str] | Unset | None = UNSET
 
     def to_changes(self) -> dict[str, Any]:
         """Return only the explicitly-set fields as a backend-ready patch.

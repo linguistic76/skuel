@@ -44,29 +44,29 @@ class TaskUpdateIntent:
     """
 
     # --- Node properties -----------------------------------------------------
-    title: str | None | Unset = UNSET
-    description: str | None | Unset = UNSET
-    due_date: date | None | Unset = UNSET
-    scheduled_date: date | None | Unset = UNSET
-    duration_minutes: int | None | Unset = UNSET
-    priority: str | None | Unset = UNSET
-    status: str | None | Unset = UNSET
-    project: str | None | Unset = UNSET
-    assignee: str | None | Unset = UNSET
-    tags: list[str] | None | Unset = UNSET
-    actual_minutes: int | None | Unset = UNSET
-    completion_date: date | None | Unset = UNSET
-    fulfills_goal_uid: str | None | Unset = UNSET
-    aligned_principle_uids: list[str] | None | Unset = UNSET
-    goal_progress_contribution: float | None | Unset = UNSET
-    knowledge_mastery_check: bool | None | Unset = UNSET
-    habit_streak_maintainer: bool | None | Unset = UNSET
-    prerequisite_knowledge_uids: list[str] | None | Unset = UNSET
-    prerequisite_task_uids: list[str] | None | Unset = UNSET
+    title: str | Unset | None = UNSET
+    description: str | Unset | None = UNSET
+    due_date: date | Unset | None = UNSET
+    scheduled_date: date | Unset | None = UNSET
+    duration_minutes: int | Unset | None = UNSET
+    priority: str | Unset | None = UNSET
+    status: str | Unset | None = UNSET
+    project: str | Unset | None = UNSET
+    assignee: str | Unset | None = UNSET
+    tags: list[str] | Unset | None = UNSET
+    actual_minutes: int | Unset | None = UNSET
+    completion_date: date | Unset | None = UNSET
+    fulfills_goal_uid: str | Unset | None = UNSET
+    aligned_principle_uids: list[str] | Unset | None = UNSET
+    goal_progress_contribution: float | Unset | None = UNSET
+    knowledge_mastery_check: bool | Unset | None = UNSET
+    habit_streak_maintainer: bool | Unset | None = UNSET
+    prerequisite_knowledge_uids: list[str] | Unset | None = UNSET
+    prerequisite_task_uids: list[str] | Unset | None = UNSET
 
     # --- Relationship-typed (edge) fields — split off by the facade ----------
-    reinforces_habit_uid: str | None | Unset = UNSET
-    applies_knowledge_uids: list[str] | None | Unset = UNSET
+    reinforces_habit_uid: str | Unset | None = UNSET
+    applies_knowledge_uids: list[str] | Unset | None = UNSET
 
     def to_changes(self) -> dict[str, Any]:
         """Return only the explicitly-set fields as a backend-ready patch.

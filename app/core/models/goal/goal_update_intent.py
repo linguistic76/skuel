@@ -47,39 +47,39 @@ class GoalUpdateIntent:
     """
 
     # --- Identity / classification -------------------------------------------
-    title: str | None | Unset = UNSET
-    description: str | None | Unset = UNSET
-    vision_statement: str | None | Unset = UNSET
-    goal_type: str | None | Unset = UNSET
-    domain: str | None | Unset = UNSET
-    timeframe: str | None | Unset = UNSET
+    title: str | Unset | None = UNSET
+    description: str | Unset | None = UNSET
+    vision_statement: str | Unset | None = UNSET
+    goal_type: str | Unset | None = UNSET
+    domain: str | Unset | None = UNSET
+    timeframe: str | Unset | None = UNSET
 
     # --- Measurement ---------------------------------------------------------
-    measurement_type: str | None | Unset = UNSET
-    target_value: float | None | Unset = UNSET
-    current_value: float | None | Unset = UNSET
-    unit_of_measurement: str | None | Unset = UNSET
+    measurement_type: str | Unset | None = UNSET
+    target_value: float | Unset | None = UNSET
+    current_value: float | Unset | None = UNSET
+    unit_of_measurement: str | Unset | None = UNSET
 
     # --- Timeline ------------------------------------------------------------
-    start_date: date | None | Unset = UNSET
-    target_date: date | None | Unset = UNSET
-    completion_date: date | None | Unset = UNSET
+    start_date: date | Unset | None = UNSET
+    target_date: date | Unset | None = UNSET
+    completion_date: date | Unset | None = UNSET
 
     # --- Progress ------------------------------------------------------------
-    progress_percentage: float | None | Unset = UNSET
-    milestones: list[dict[str, Any]] | None | Unset = UNSET
+    progress_percentage: float | Unset | None = UNSET
+    milestones: list[dict[str, Any]] | Unset | None = UNSET
 
     # --- Motivation ----------------------------------------------------------
-    why_important: str | None | Unset = UNSET
-    success_criteria: str | None | Unset = UNSET
-    potential_obstacles: list[str] | None | Unset = UNSET
-    strategies: list[str] | None | Unset = UNSET
+    why_important: str | Unset | None = UNSET
+    success_criteria: str | Unset | None = UNSET
+    potential_obstacles: list[str] | Unset | None = UNSET
+    strategies: list[str] | Unset | None = UNSET
 
     # --- Status / priority / tags / metadata ---------------------------------
-    status: str | None | Unset = UNSET
-    priority: str | None | Unset = UNSET
-    tags: list[str] | None | Unset = UNSET
-    metadata: dict[str, Any] | None | Unset = UNSET
+    status: str | Unset | None = UNSET
+    priority: str | Unset | None = UNSET
+    tags: list[str] | Unset | None = UNSET
+    metadata: dict[str, Any] | Unset | None = UNSET
 
     def to_changes(self) -> dict[str, Any]:
         """Return only the explicitly-set fields as a backend-ready patch.

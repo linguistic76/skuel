@@ -52,38 +52,38 @@ class EventUpdateIntent:
     """
 
     # --- Identity / classification -------------------------------------------
-    title: str | None | Unset = UNSET
-    description: str | None | Unset = UNSET
-    event_type: str | None | Unset = UNSET
+    title: str | Unset | None = UNSET
+    description: str | Unset | None = UNSET
+    event_type: str | Unset | None = UNSET
 
     # --- Timing --------------------------------------------------------------
-    event_date: date | None | Unset = UNSET
-    start_time: time | None | Unset = UNSET
-    end_time: time | None | Unset = UNSET
+    event_date: date | Unset | None = UNSET
+    start_time: time | Unset | None = UNSET
+    end_time: time | Unset | None = UNSET
 
     # --- Logistics -----------------------------------------------------------
-    location: str | None | Unset = UNSET
-    is_online: bool | None | Unset = UNSET
-    meeting_url: str | None | Unset = UNSET
+    location: str | Unset | None = UNSET
+    is_online: bool | Unset | None = UNSET
+    meeting_url: str | Unset | None = UNSET
 
     # --- Reminders -----------------------------------------------------------
-    reminder_minutes: int | None | Unset = UNSET
+    reminder_minutes: int | Unset | None = UNSET
 
     # --- Quality / learning --------------------------------------------------
-    habit_completion_quality: int | None | Unset = UNSET
-    knowledge_retention_check: bool | None | Unset = UNSET
+    habit_completion_quality: int | Unset | None = UNSET
+    knowledge_retention_check: bool | Unset | None = UNSET
 
     # --- Status / visibility / priority / tags / metadata --------------------
-    status: str | None | Unset = UNSET
-    visibility: str | None | Unset = UNSET
-    priority: str | None | Unset = UNSET
-    tags: list[str] | None | Unset = UNSET
-    metadata: dict[str, Any] | None | Unset = UNSET
+    status: str | Unset | None = UNSET
+    visibility: str | Unset | None = UNSET
+    priority: str | Unset | None = UNSET
+    tags: list[str] | Unset | None = UNSET
+    metadata: dict[str, Any] | Unset | None = UNSET
 
     # --- Edge-typed fields (split off by the facade, never node columns) ------
     # (Event)-[:CELEBRATES_GOAL]->(Goal) / (Event)-[:REINFORCES_HABIT]->(Habit).
-    milestone_celebration_for_goal: str | None | Unset = UNSET
-    reinforces_habit_uid: str | None | Unset = UNSET
+    milestone_celebration_for_goal: str | Unset | None = UNSET
+    reinforces_habit_uid: str | Unset | None = UNSET
 
     def to_changes(self) -> dict[str, Any]:
         """Return only the explicitly-set fields as a backend-ready patch.

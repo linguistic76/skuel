@@ -49,35 +49,35 @@ class HabitUpdateIntent:
     """
 
     # --- Identity / content --------------------------------------------------
-    title: str | None | Unset = UNSET
-    description: str | None | Unset = UNSET
+    title: str | Unset | None = UNSET
+    description: str | Unset | None = UNSET
 
     # --- Classification ------------------------------------------------------
-    polarity: str | None | Unset = UNSET
-    habit_category: str | None | Unset = UNSET
-    habit_difficulty: str | None | Unset = UNSET
+    polarity: str | Unset | None = UNSET
+    habit_category: str | Unset | None = UNSET
+    habit_difficulty: str | Unset | None = UNSET
 
     # --- Schedule ------------------------------------------------------------
-    recurrence_pattern: str | None | Unset = UNSET
-    target_days_per_week: int | None | Unset = UNSET
-    preferred_time: str | None | Unset = UNSET
-    duration_minutes: int | None | Unset = UNSET
+    recurrence_pattern: str | Unset | None = UNSET
+    target_days_per_week: int | Unset | None = UNSET
+    preferred_time: str | Unset | None = UNSET
+    duration_minutes: int | Unset | None = UNSET
 
     # --- Behavioral science (Atomic Habits loop) -----------------------------
-    cue: str | None | Unset = UNSET
-    routine: str | None | Unset = UNSET
-    reward: str | None | Unset = UNSET
+    cue: str | Unset | None = UNSET
+    routine: str | Unset | None = UNSET
+    reward: str | Unset | None = UNSET
 
     # --- Reminders (not on the request; written by set/delete_habit_reminder
     #     through the core.update funnel) -----------------------------------
-    reminder_time: str | None | Unset = UNSET
-    reminder_days: list[str] | None | Unset = UNSET
-    reminder_enabled: bool | None | Unset = UNSET
+    reminder_time: str | Unset | None = UNSET
+    reminder_days: list[str] | Unset | None = UNSET
+    reminder_enabled: bool | Unset | None = UNSET
 
     # --- Status / priority / tags --------------------------------------------
-    status: str | None | Unset = UNSET
-    priority: str | None | Unset = UNSET
-    tags: list[str] | None | Unset = UNSET
+    status: str | Unset | None = UNSET
+    priority: str | Unset | None = UNSET
+    tags: list[str] | Unset | None = UNSET
 
     def to_changes(self) -> dict[str, Any]:
         """Return only the explicitly-set fields as a backend-ready patch.

@@ -42,7 +42,7 @@ class CredentialSetup:
     # Credentials to manage. Required = production cannot start without it;
     # Optional = feature degrades gracefully when missing (e.g. AI features
     # disabled, Firefly sidecar not used). All are stored encrypted.
-    CREDENTIALS: ClassVar[dict[str, dict[str, Any | bool | None | Callable[[str], bool]]]] = {
+    CREDENTIALS: ClassVar[dict[str, dict[str, Any | bool | Callable[[str], bool] | None]]] = {
         # --- Core infra (required for app to function) ---
         "NEO4J_PASSWORD": {
             "description": "Neo4j database password",
