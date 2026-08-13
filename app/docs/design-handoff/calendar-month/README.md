@@ -1,5 +1,21 @@
 # Handoff: Calendar Month View Redesign
 
+> **Status: HISTORICAL DESIGN RECORD (2026-07-12). Shipped — do not follow as instructions.**
+>
+> This is the design record for the month-view redesign, kept for its visual intent
+> (Monday-start grid, ISO week-number rail, chip treatment, legend). It was written
+> *before* the redesign shipped, so its inventory of routes and surfaces describes the
+> calendar as it was then, **not** as it is now. Three drifts matter:
+>
+> | The handoff says | The shipped contract |
+> |---|---|
+> | A Day/Week/Month view switcher | **Two surfaces only.** `CalendarView` is `WEEK` and `MONTH`; the single-day view was dropped and `/today` owns the current day |
+> | `create_view_switcher()` — restyle it | **The function no longer exists** |
+> | `/events/day\|week\|month/…`, `/events/calendar/item-details/…` | `/cal/month`, `/cal/week`, `/cal/item-details/…` (see `adapters/inbound/calendar_ui.py`) |
+>
+> Read it for the visual design. For the current contract, read
+> `core/models/event/calendar_models.py` and `ui/calendar/components.py`.
+
 ## Overview
 A redesign of the SKUEL calendar **Month** view (route `GET /events/month/{year}/{month}`).
 It keeps every existing feature — the Day/Week/Month view switcher, the Prev/Today/Next
