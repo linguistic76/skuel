@@ -233,7 +233,7 @@ class RelationshipName(StrEnum):
     # =========================================================================
     # ACTIVITY TEMPLATE RELATIONSHIPS
     # PathStep ownership of Activity Templates + per-instance back-pointers +
-    # student engagement edge. See: project_pathstep_lifecycle_contract.md.
+    # student engagement edge.
     # =========================================================================
     # (PathStep)-[:HAS_*_TEMPLATE]->(*Template) — PS owns its 6 template kinds
     HAS_TASK_TEMPLATE = "HAS_TASK_TEMPLATE"

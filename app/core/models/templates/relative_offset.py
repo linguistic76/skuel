@@ -24,8 +24,6 @@ Out of scope (V1):
     - Negative offsets (rejected at construction).
     - Business-day arithmetic.
     - Sub-minute granularity.
-
-See: project_template_relative_offset.md (memory) for the full sketch.
 """
 
 from __future__ import annotations

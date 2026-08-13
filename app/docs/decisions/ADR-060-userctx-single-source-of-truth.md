@@ -164,6 +164,3 @@ needs over wrapping protocols.
   ADR-031 established the mixin layer that previously consumed slice
   protocols; ADR-060 simplifies those mixin signatures to a single
   `UserContext` parameter.
-- In-repo memory: the project memory entry
-  `feedback_userctx_single_source_of_truth.md` captures this rule for
-  future sessions.

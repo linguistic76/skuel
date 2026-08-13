@@ -84,8 +84,7 @@ that a submission "is" a MOC.** Ruled twice in one session:
    writes is still just a MOC.
 
 The only join is the user's authored `fulfills_exercise_uid:` frontmatter on a particular
-file during a particular engagement. Saved as a working agreement in memory
-(`feedback_entity_independence_no_coupling.md`).
+file during a particular engagement. Recorded as a durable working agreement.
 
 **A MOC is an anchor, not a deliverable** — gather what you know, link it via an index page,
 develop it over time as a discipline. Its home is the living in-progress channel, never a

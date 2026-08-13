@@ -326,8 +326,6 @@ type-agnostic).
 - **Removed types cascade through docs, memory, and skills.** CLAUDE.md
   entity table shrinks by 2 net (`EXERCISE_SUBMISSION`, `JE_INPUT`,
   `JE_OUTPUT` removed; `USER_ENTRY` added). Affected docs:
-  `memory/project_journal_domain_extraction.md` (becomes stale — mark or
-  delete), `memory/submission-report-hierarchy-refactoring` entry (update),
   CLAUDE.md "22 Entity Types" heading + table, `/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md`,
   `/docs/patterns/DOMAIN_PATTERNS_CATALOG.md`, and skill files referencing
   the old types.
@@ -415,9 +413,6 @@ Phase 1 work:
 - Delete label-inclusive read helpers added in Phase 1 (no legacy labels
   left to match)
 - Update CLAUDE.md entity table and the "22 Entity Types" heading
-- Update `memory/project_journal_domain_extraction.md` (mark superseded or
-  rewrite to reflect the collapse) and the submission-report hierarchy
-  memory entry
 - Update or delete affected skills: any skill referencing the old types
 - Update `docs/architecture/ENTITY_TYPE_ARCHITECTURE.md`,
   `docs/patterns/DOMAIN_PATTERNS_CATALOG.md`, and any tutorial that walks

@@ -260,4 +260,4 @@ Proposed to Accepted (with or without the reconciliation job) or Rejected.
 - [ADR-062: ChargeKeep as the Billing Layer](../decisions/ADR-062-chargekeep-billing-layer.md) *(Proposed)*
 - FastStripe — https://stripe.fast.ai/ · FastHTML Stripe example (by_example tutorial, "Again, with Credits!")
 - ChargeKeep — https://www.chargekeep.com/help/ · API at https://www.chargekeep.com/api
-- `memory/feedback_leverage_maintained_software.md` — the principle this applies
+- `/docs/design-principles/LEVERAGE_MAINTAINED_SOFTWARE.md` — the principle this applies

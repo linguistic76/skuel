@@ -14,10 +14,6 @@ Value types:
     RelativeOffset    — engagement-relative timing (days/hours/minutes from anchor)
     RelativeOffsetDTO — Pydantic companion for serialization at boundaries
 
-See:
-    project_template_relative_offset.md (memory)
-    project_engage_pathstep_contract.md (memory)
-    project_pathstep_lifecycle_contract.md (memory)
 """
 
 from core.models.templates._template_request_base import TemplateCreateRequest

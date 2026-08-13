@@ -41,8 +41,7 @@ persisted instances. A true single-transaction spawn would require a custom
 multi-statement Cypher block — deferred to a follow-up once the per-instance
 backend create surface is stable.
 
-See: ``docs/decisions/ADR-061-spawn-layer-consolidation.md``,
-``project_engage_pathstep_contract.md``.
+See: ``docs/decisions/ADR-061-spawn-layer-consolidation.md``.
 """
 
 from __future__ import annotations

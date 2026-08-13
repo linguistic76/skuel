@@ -11,9 +11,6 @@ since those are populated by the spawned Goal as the student tracks progress.
 ``milestones`` are kept as authored content (the template author defines milestone
 structure; instance milestones are spawned alongside the goal).
 
-See:
-    project_engage_pathstep_contract.md (memory)
-    project_template_relative_offset.md (memory)
 """
 
 from __future__ import annotations
