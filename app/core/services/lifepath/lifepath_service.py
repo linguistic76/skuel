@@ -221,21 +221,30 @@ class LifePathService:
 
         designation = designation_result.value
 
-        # Step 2: Build UserContext and calculate initial alignment
-        alignment_data: LifePathAlignmentResult | None = None
+        # Step 2: Build UserContext and calculate initial alignment.
+        #
+        # Both legs PROPAGATE. This method is named for both halves of what it
+        # does, and a failed scoring run returning Result.ok with an empty
+        # alignment reported "designated and calculated" when nothing was
+        # calculated and nothing was written to ULTIMATE_PATH. Step 1's write is
+        # already durable and designation is idempotent, so a caller that
+        # retries on this error re-designates harmlessly and scores again.
         ctx_result = await self._build_context(user_uid)
-        if ctx_result.is_ok:
-            alignment_result = await self.alignment.calculate_alignment(ctx_result.value)
+        if ctx_result.is_error:
+            return Result.fail(ctx_result)
 
-            if alignment_result.is_ok:
-                alignment_data = alignment_result.value
+        alignment_result = await self.alignment.calculate_alignment(ctx_result.value)
+        if alignment_result.is_error:
+            return Result.fail(alignment_result)
 
-                # Update stored alignment score
-                await self.core.update_alignment_score(
-                    user_uid=user_uid,
-                    alignment_score=alignment_data.get("alignment_score", 0.0),
-                    dimension_scores=alignment_data.get("dimensions"),
-                )
+        alignment_data = alignment_result.value
+
+        # Update stored alignment score
+        await self.core.update_alignment_score(
+            user_uid=user_uid,
+            alignment_score=alignment_data.get("alignment_score", 0.0),
+            dimension_scores=alignment_data.get("dimensions"),
+        )
 
         # Step 3: Get initial recommendations
         recommendations_result = await self.intelligence.get_recommendations(
@@ -290,14 +299,21 @@ class LifePathService:
                 )
             )
 
-        # Get alignment
+        # Get alignment. Both legs PROPAGATE: `alignment=None` alongside
+        # `has_designation=True` is a contradictory status that renders as "this
+        # learner has a life path and no alignment on it" — indistinguishable
+        # from the genuine no-designation case handled above, and produced by a
+        # database outage rather than by anything the learner did.
         alignment_data: LifePathAlignmentResult | None = None
         if designation.has_designation:
             ctx_result = await self._build_context(user_uid)
-            if ctx_result.is_ok:
-                alignment_result = await self.alignment.calculate_alignment(ctx_result.value)
-                if alignment_result.is_ok:
-                    alignment_data = alignment_result.value
+            if ctx_result.is_error:
+                return Result.fail(ctx_result)
+
+            alignment_result = await self.alignment.calculate_alignment(ctx_result.value)
+            if alignment_result.is_error:
+                return Result.fail(alignment_result)
+            alignment_data = alignment_result.value
 
         # Get recommendations
         recommendations: list[LifePathRecommendationItem] = []

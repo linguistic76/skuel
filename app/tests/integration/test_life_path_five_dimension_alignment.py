@@ -50,6 +50,7 @@ from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.ports.query_types import AlignmentDimensions
 from core.services.knowledge.user_substance import USER_SUBSTANCE_CHANNELS
 from core.services.lifepath.lifepath_alignment_service import LifePathAlignmentService
+from core.services.lifepath.lifepath_service import LifePathService
 from core.services.user.unified_user_context import UserContext
 from core.utils.result_simplified import Errors, Result
 
@@ -350,3 +351,38 @@ class TestAlignmentRefusesRatherThanScoringAConfidentZero:
         assert result.value["life_path_uid"] is None
         assert result.value["alignment_score"] == pytest.approx(0.0)
         assert result.value["alignment_level"] == "undefined"
+
+    async def test_the_facade_does_not_swallow_a_failed_scoring_run(self, graph):
+        """The refusal has to survive the layer the UI actually calls.
+
+        A service that fails correctly buys nothing if the facade reports the
+        failure as success. ``designate_and_calculate`` returned ``Result.ok``
+        with an EMPTY alignment payload and no write to ``ULTIMATE_PATH``, and
+        ``get_full_status`` returned ``has_designation=True`` with
+        ``alignment=None`` — a state indistinguishable from the genuine
+        no-designation case, produced by a database outage.
+        """
+
+        class _FailingChannels:
+            async def get_user_knowledge_channels(self, *_args, **_kwargs):
+                return Result.fail(
+                    Errors.database(message="simulated Neo4j outage", operation="test")
+                )
+
+        executor = Neo4jQueryExecutor(graph)
+        facade = LifePathService(
+            backend=LifePathBackend(executor),
+            cross_domain_backend=_FailingChannels(),
+        )
+
+        designated = await facade.designate_and_calculate(USER_SIX, DESIGNATED[USER_SIX])
+        assert designated.is_error, (
+            "designate_and_calculate reported success while scoring nothing — "
+            "the method is named for both halves of what it does"
+        )
+
+        status = await facade.get_full_status(USER_SIX)
+        assert status.is_error, (
+            "get_full_status returned a designated learner with alignment=None, "
+            "which reads as 'no life path' rather than as an outage"
+        )
