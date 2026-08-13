@@ -29,10 +29,15 @@ Two violation classes:
    and untracked in August 2026.
 
 Run: ``uv run python scripts/audit_untracked_refs.py``. Also ``./dev quality`` check
-6c, a step in CI's gate-required ``lint`` job, and asserted by
-``tests/unit/test_untracked_refs.py`` — the CI step is not optional belt-and-braces,
-it is required by ``tests/unit/scripts/test_quality_ci_parity.py``, which fails any
-``./dev quality`` check lacking a home in a gate-required job.
+6c, a step in CI's gate-required **``content_boundary``** job, and asserted by
+``tests/unit/test_untracked_refs.py``.
+
+``content_boundary`` and not ``lint`` because that job is always-on: this guard reads
+every tracked file, and ``app/.envrc`` and ``app/CLAUDE.md`` are matched by no path
+filter at all, so under ``lint``'s ``py`` filter a docs-only PR would skip it. The CI
+step is not optional belt-and-braces — ``tests/unit/scripts/test_quality_ci_parity.py``
+fails any ``./dev quality`` check lacking a gate-required home, and its
+``ALWAYS_ON_ONLY`` set pins this one to an unconditional job specifically.
 Exit 0 = clean, 1 = violations.
 """
 

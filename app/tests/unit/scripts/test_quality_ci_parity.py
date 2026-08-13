@@ -206,14 +206,15 @@ REQUIRED_FILTERS: dict[str, frozenset[str]] = {
     "scripts/audit_dependencies.sh": frozenset({"py", "audit"}),
     "scripts/audit_content_boundary.py": frozenset({"py"}),
     "scripts/skills_validator.py": frozenset({"docs"}),
-    # Scans EVERY tracked file — a scratch citation lands in a .md, a Python
-    # docstring, or .envrc alike — so no path filter covers it and it must live
-    # in an always-on job. The full filter set encodes that: any filtered job
-    # would have to carry all seven, which is the point.
-    "scripts/audit_untracked_refs.py": frozenset(
-        {"py", "docs", "ui", "cypher", "neo4j_config", "js", "audit"}
-    ),
 }
+
+# Checks NO path filter can cover, so only an unconditional job counts as a home.
+# Listing filters for these would be an approximation that reads like an encoding:
+# `filters_cover_check` accepts any job whose OR-chain is a superset, so a filtered
+# job carrying every named filter would pass this test while still skipping the
+# check — and `app/.envrc` and `app/CLAUDE.md` are matched by NO filter at all,
+# yet both are tracked files that can carry a scratch citation (both did).
+ALWAYS_ON_ONLY: frozenset[str] = frozenset({"scripts/audit_untracked_refs.py"})
 
 
 def job_filter_names(condition: object) -> frozenset[str] | None:
@@ -241,6 +242,9 @@ def job_filter_names(condition: object) -> frozenset[str] | None:
 def filters_cover_check(identifier: str, job_filters: frozenset[str] | None) -> bool:
     if job_filters is None:
         return False
+    if identifier in ALWAYS_ON_ONLY:
+        # Reads files no filter names — only an unconditional job is coverage.
+        return job_filters == ALWAYS_ON
     if job_filters == ALWAYS_ON:
         return identifier in REQUIRED_FILTERS
     required = REQUIRED_FILTERS.get(identifier)
