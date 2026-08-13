@@ -209,6 +209,24 @@ _CHANNEL_BY_ENTITY_TYPE: Final[dict[str, str]] = {
     channel.entity_type: channel.name for channel in USER_SUBSTANCE_CHANNELS
 }
 
+_WEIGHT_BY_CHANNEL: Final[dict[str, float]] = {
+    channel.name: channel.weight for channel in USER_SUBSTANCE_CHANNELS
+}
+
+
+def channel_weight(name: str) -> float:
+    """The per-instance weight of one channel, by name.
+
+    For callers that need to state a channel's RELATIVE importance without
+    re-deriving a substance score — the Life Path activity dimension blends its
+    task and habit ratios in this proportion rather than asserting a second,
+    independent pair of numbers next to the table's.
+
+    Raises ``KeyError`` on an unknown channel: a renamed channel must break the
+    caller here rather than silently weight it at zero.
+    """
+    return _WEIGHT_BY_CHANNEL[name]
+
 
 def channel_maps_from_rows(
     rows: Iterable[UserKnowledgeChannelRow],

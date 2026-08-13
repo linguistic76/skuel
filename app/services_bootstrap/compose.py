@@ -1065,6 +1065,9 @@ async def compose_services(
             ku_service=learning_services["ps"],
             user_service=user_service,
             llm_service=llm_service,
+            # The alignment metric's substance half. Unwired, alignment refuses
+            # rather than reporting mastery alone under a substance heading.
+            cross_domain_backend=cross_domain_backend,
         )
         logger.info("✅ LifePath service created (Vision→Action bridge)")
 

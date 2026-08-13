@@ -49,6 +49,8 @@ from core.models.relationship_names import RelationshipName
 # Names these reads used to carry that no writer creates.
 DEAD_CURRICULUM_NAMES = ["INCLUDES_KU", "INCLUDES_KNOWLEDGE", "FUNDS_HABIT", "FUNDS_TASK"]
 
+OWNS = RelationshipName.OWNS.value
+
 
 def _source(obj: object) -> str:
     return inspect.getsource(obj)  # type: ignore[arg-type]
@@ -122,12 +124,48 @@ def test_curriculum_lp_lookup_uses_live_endpoints() -> None:
     assert "(lp:LearningPath)-[:CONTAINS_KNOWLEDGE" not in source
 
 
-def test_lifepath_reads_kus_through_path_steps() -> None:
-    """All four LifePath alignment queries traverse the live composition edge."""
-    source = _cypher_only(_source(lifepath_backend))
+# The LifePath alignment reads that bridge a path to the Kus it teaches. Asserted
+# on the BUILT query, never the source text: these are f-strings sharing
+# CURRICULUM_COMPOSITION_EDGES, and a token that never got substituted would leave
+# `[:{CURRICULUM_COMPOSITION_EDGES}]` in the query — which Neo4j answers with zero
+# rows rather than an error, i.e. every learner reads as having learned nothing.
+_LIFEPATH_COMPOSITION_READS = (
+    lifepath_backend._LIFE_PATH_KU_MASTERY_QUERY,
+    lifepath_backend._LIFE_PATH_ACTIVITY_COUNTS_QUERY,
+    lifepath_backend._LIFE_PATH_MOMENTUM_COUNTS_QUERY,
+)
 
+
+def test_lifepath_reads_kus_through_path_steps() -> None:
+    """Every LifePath alignment read traverses the live composition triple."""
+    source = _cypher_only(_source(lifepath_backend))
     assert "-[:CONTAINS]->" not in source
-    assert source.count("-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku:Entity") == 4
+
+    for query in _LIFEPATH_COMPOSITION_READS:
+        assert f"-[:{CURRICULUM_COMPOSITION_EDGES}]->(ku:Entity" in query
+        assert "{CURRICULUM_COMPOSITION_EDGES}" not in query, "token never substituted"
+
+
+def test_lifepath_habit_reads_use_the_edge_habits_are_written_with() -> None:
+    """Habits reach knowledge over REINFORCES_KNOWLEDGE, not APPLIES_KNOWLEDGE.
+
+    ``HabitsCoreService`` is the writer and it emits ``REINFORCES_KNOWLEDGE``.
+    Two alignment queries matched habits over ``APPLIES_KNOWLEDGE`` instead —
+    registered, so SKUEL030/CYP011 pass it, but wrong for this tail — and Neo4j
+    answers an edge type nothing writes with zero rows rather than an error. The
+    heaviest substance channel was therefore worth exactly 0.0 in every dimension
+    that named it, and the activity dimension INVERTED: a learner's first
+    life-path habit entered the denominator and never the numerator.
+
+    Both names must appear together, because tasks and habits are told apart by
+    ``entity_type`` at the tail, not by the edge.
+    """
+    for query in (
+        lifepath_backend._LIFE_PATH_ACTIVITY_COUNTS_QUERY,
+        lifepath_backend._LIFE_PATH_MOMENTUM_COUNTS_QUERY,
+    ):
+        assert RelationshipName.REINFORCES_KNOWLEDGE.value in query
+        assert RelationshipName.APPLIES_KNOWLEDGE.value in query
 
 
 def test_lifepath_mastery_reads_use_mastery_score_not_mastery_level() -> None:
@@ -135,20 +173,21 @@ def test_lifepath_mastery_reads_use_mastery_score_not_mastery_level() -> None:
     source = _cypher_only(_source(lifepath_backend))
 
     assert "mastery_level" not in source
-    # Both the alignment score and the substance proxy read the numeric property,
-    # falling back to 1.0 for the one writer that records mastery without a score.
-    assert source.count("coalesce(m.mastery_score, 1.0)") == 2
+    # ONE mastery read now: the embodied/theoretical split bands the same rows
+    # the knowledge dimension scores, so it no longer re-runs the traversal.
+    # 1.0 is the fallback for the one writer that records mastery without a score.
+    assert "coalesce(m.mastery_score, 1.0)" in lifepath_backend._LIFE_PATH_KU_MASTERY_QUERY
+    assert source.count("coalesce(m.mastery_score, 1.0)") == 1
     assert "substance_score" not in source
 
 
 def test_momentum_does_not_collapse_when_recent_activity_is_zero() -> None:
     """A user whose aligned activity stopped must score as declining, not "no data"."""
-    source = _cypher_only(_source(lifepath_backend.LifePathBackend.calculate_momentum))
+    query = lifepath_backend._LIFE_PATH_MOMENTUM_COUNTS_QUERY
 
-    assert "APPLIES_KNOWLEDGE" in source
     # Both week-window legs are OPTIONAL; a mandatory MATCH would return no rows
     # and the service would fall back to the neutral 0.5 default.
-    assert source.count("OPTIONAL MATCH (u:User {uid: $user_uid})-[:OWNS]->(task") == 2
+    assert query.count(f"OPTIONAL MATCH (u:User {{uid: $user_uid}})-[:{OWNS}]->") == 2
 
 
 def test_batch_cross_domain_context_drops_the_dead_funds_arms() -> None:

@@ -45,6 +45,7 @@ from .lifepath_types import WordActionAlignment
 from .lifepath_vision_service import LifePathVisionService
 
 if TYPE_CHECKING:
+    from core.ports.cross_domain_protocols import CrossDomainBackendOperations
     from core.ports.service_protocols import LifePathAlignmentOperations
     from core.services.llm_service import LLMService
     from core.services.lp_service import LpService
@@ -90,6 +91,7 @@ class LifePathService:
         ku_service: PsService | None = None,
         user_service: UserService | None = None,
         llm_service: LLMService | None = None,
+        cross_domain_backend: CrossDomainBackendOperations | None = None,
     ) -> None:
         """
         Initialize LifePath service with all sub-services.
@@ -100,6 +102,9 @@ class LifePathService:
             ku_service: KU service for knowledge operations
             user_service: User service for context
             llm_service: LLM service for vision analysis
+            cross_domain_backend: the learner's activity→knowledge channels —
+                required by the alignment sub-service, which refuses to score
+                without them rather than reporting mastery alone as substance
         """
         # Sub-services
         self.vision = LifePathVisionService(
@@ -118,6 +123,7 @@ class LifePathService:
             backend=backend,
             lp_service=lp_service,
             ku_service=ku_service,
+            cross_domain_backend=cross_domain_backend,
         )
 
         self.user_service = user_service
@@ -215,21 +221,39 @@ class LifePathService:
 
         designation = designation_result.value
 
-        # Step 2: Build UserContext and calculate initial alignment
-        alignment_data: LifePathAlignmentResult | None = None
+        # Step 2: Build UserContext and calculate initial alignment.
+        #
+        # Every leg PROPAGATES, the write included. This method is named for both
+        # halves of what it does, and returning Result.ok with an empty alignment
+        # reported "designated and calculated" when nothing was calculated —
+        # while a discarded write result reported it when the score never reached
+        # the edge.
+        #
+        # ⚠ Step 1's write is durable but NOT idempotent: designate_life_path
+        # MATCHes the target only while its entity_type is 'learning_path', and
+        # step 1 has already flipped it to 'life_path'. So a caller retrying
+        # after a step-2 failure gets not_found rather than a second scoring run,
+        # and the learner is left designated with no alignment on the edge. That
+        # is item 2 of LIFEPATH_ALIGNMENT_DEBT.md showing through — the in-place
+        # entity_type mutation — and it is fixed there, by removing the mutation.
         ctx_result = await self._build_context(user_uid)
-        if ctx_result.is_ok:
-            alignment_result = await self.alignment.calculate_alignment(ctx_result.value)
+        if ctx_result.is_error:
+            return Result.fail(ctx_result)
 
-            if alignment_result.is_ok:
-                alignment_data = alignment_result.value
+        alignment_result = await self.alignment.calculate_alignment(ctx_result.value)
+        if alignment_result.is_error:
+            return Result.fail(alignment_result)
 
-                # Update stored alignment score
-                await self.core.update_alignment_score(
-                    user_uid=user_uid,
-                    alignment_score=alignment_data.get("alignment_score", 0.0),
-                    dimension_scores=alignment_data.get("dimensions"),
-                )
+        alignment_data = alignment_result.value
+
+        # Update stored alignment score
+        stored = await self.core.update_alignment_score(
+            user_uid=user_uid,
+            alignment_score=alignment_data.get("alignment_score", 0.0),
+            dimension_scores=alignment_data.get("dimensions"),
+        )
+        if stored.is_error:
+            return Result.fail(stored)
 
         # Step 3: Get initial recommendations
         recommendations_result = await self.intelligence.get_recommendations(
@@ -284,14 +308,21 @@ class LifePathService:
                 )
             )
 
-        # Get alignment
+        # Get alignment. Both legs PROPAGATE: `alignment=None` alongside
+        # `has_designation=True` is a contradictory status that renders as "this
+        # learner has a life path and no alignment on it" — indistinguishable
+        # from the genuine no-designation case handled above, and produced by a
+        # database outage rather than by anything the learner did.
         alignment_data: LifePathAlignmentResult | None = None
         if designation.has_designation:
             ctx_result = await self._build_context(user_uid)
-            if ctx_result.is_ok:
-                alignment_result = await self.alignment.calculate_alignment(ctx_result.value)
-                if alignment_result.is_ok:
-                    alignment_data = alignment_result.value
+            if ctx_result.is_error:
+                return Result.fail(ctx_result)
+
+            alignment_result = await self.alignment.calculate_alignment(ctx_result.value)
+            if alignment_result.is_error:
+                return Result.fail(alignment_result)
+            alignment_data = alignment_result.value
 
         # Get recommendations
         recommendations: list[LifePathRecommendationItem] = []

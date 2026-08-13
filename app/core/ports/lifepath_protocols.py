@@ -12,7 +12,13 @@ from __future__ import annotations
 
 from typing import Any, Protocol, runtime_checkable
 
-from core.ports.query_types import LifePathComposition
+from core.ports.query_types import (
+    LifePathActivityCounts,
+    LifePathComposition,
+    LifePathKuMasteryRow,
+    LifePathMomentumCounts,
+    LifePathServingCounts,
+)
 from core.utils.result_simplified import Result
 
 
@@ -52,26 +58,28 @@ class LifePathBackendOperations(Protocol):
     # Alignment — Graph queries
     async def get_user_life_path(self, user_uid: str) -> Result[list[dict[str, Any]]]: ...
 
-    async def calculate_knowledge_alignment(
+    # Alignment — dimension INPUTS, not dimension scores. These return counts
+    # and mastery; the ratios, weights, bands and no-data rule are scoring
+    # policy and live in LifePathAlignmentService. The split is deliberate: the
+    # per-instance substance weights that used to be spelled inside these
+    # queries were a third hand-copy of USER_SUBSTANCE_CHANNELS, and it had
+    # already drifted — habits were read over an edge no habit writer emits.
+    async def get_life_path_ku_mastery(
         self, user_uid: str, life_path_uid: str
-    ) -> Result[list[dict[str, Any]]]: ...
+    ) -> Result[list[LifePathKuMasteryRow]]: ...
 
-    async def calculate_activity_alignment(
+    async def get_life_path_activity_counts(
         self, user_uid: str, life_path_uid: str
-    ) -> Result[list[dict[str, Any]]]: ...
+    ) -> Result[LifePathActivityCounts]: ...
 
-    async def calculate_goal_alignment(
+    async def get_life_path_goal_counts(
         self, user_uid: str, life_path_uid: str
-    ) -> Result[list[dict[str, Any]]]: ...
+    ) -> Result[LifePathServingCounts]: ...
 
-    async def calculate_principle_alignment(
+    async def get_life_path_principle_counts(
         self, user_uid: str, life_path_uid: str
-    ) -> Result[list[dict[str, Any]]]: ...
+    ) -> Result[LifePathServingCounts]: ...
 
-    async def calculate_momentum(
+    async def get_life_path_momentum_counts(
         self, user_uid: str, life_path_uid: str, seven_days_ago: str, fourteen_days_ago: str
-    ) -> Result[list[dict[str, Any]]]: ...
-
-    async def get_knowledge_substance_stats(
-        self, user_uid: str, life_path_uid: str
-    ) -> Result[list[dict[str, Any]]]: ...
+    ) -> Result[LifePathMomentumCounts]: ...

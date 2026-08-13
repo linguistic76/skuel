@@ -137,13 +137,13 @@ Per-dimension scores live on the `ULTIMATE_PATH` edge (written by
 
 LifePath calculates alignment across 5 weighted dimensions:
 
-| Dimension | Weight | What It Measures |
-|-----------|--------|------------------|
-| **Knowledge** | 25% | Mastery of knowledge in life path LP |
-| **Activity** | 25% | Tasks/habits supporting life path |
-| **Goal** | 20% | Active goals contributing to life path |
-| **Principle** | 15% | Values aligned with life path direction |
-| **Momentum** | 15% | Recent activity trend toward life path |
+| Dimension | Weight | What It Measures | No data |
+|-----------|--------|------------------|---------|
+| **Knowledge** | 25% | Mastery of the path's Kus (0.6) + what the learner has DONE with them, scored by `USER_SUBSTANCE_CHANNELS` | 0.0 |
+| **Activity** | 25% | What share of the learner's tasks and habits point at the life path, blended in the table's task:habit proportion (⅓ : ⅔) | 0.0 |
+| **Goal** | 20% | Active goals that `SERVES_LIFE_PATH` | 0.0 |
+| **Principle** | 15% | Active principles that `SERVES_LIFE_PATH` | 0.0 |
+| **Momentum** | 15% | Rate of NEW path-aligned commitments — tasks *and* habits created — last 7 days vs the 7 before | **0.5** |
 
 **Formula:**
 ```python
@@ -155,6 +155,29 @@ alignment_score = (
     momentum * 0.15
 )
 ```
+
+**Where the scoring lives.** `LifePathBackend` returns mastery and counts only;
+`LifePathAlignmentService` owns every ratio, weight, band and the no-data rule.
+The per-instance substance weights come from
+`core/services/knowledge/user_substance.py` and are not restated in Cypher —
+they were, and that copy drifted into reading habits over `APPLIES_KNOWLEDGE`,
+an edge no habit writer emits.
+
+**Habits reach knowledge over `REINFORCES_KNOWLEDGE`** (writer:
+`HabitsCoreService`); tasks over `APPLIES_KNOWLEDGE`. The two are told apart by
+`entity_type` at the tail, not by the edge.
+
+**A level with no evidence scores 0.0, not 0.5.** Only momentum keeps a neutral
+default, being a rate rather than a level. Scores recorded before 2026-08-12 are
+on the old basis and are not comparable. See
+[knowledge_substance_philosophy.md](../architecture/knowledge_substance_philosophy.md)
+§ Ruling: the five-dimension metric reads the table too.
+
+**Failures propagate.** `get_alignment`, `designate_and_calculate` and
+`get_full_status` all return `Result.fail` on a failed read rather than a low
+score or `alignment=None` — with no-data at 0.0, a silent fallback is
+indistinguishable from a learner who has done nothing, and gets persisted as
+one.
 
 ## Routes
 
