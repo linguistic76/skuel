@@ -52,15 +52,30 @@ rather than an error, so a fix "verified" by a green run proves nothing. But the
 two need *different* recipes, because they have different symptoms — a score, and
 a string:
 
-### Item 1 — assert the score MOVED
+### Item 1 — assert the score went UP (not merely that it moved)
 
 ```
 seed  a habit with -[:REINFORCES_KNOWLEDGE]-> a Ku the life path teaches
-then  calculate_alignment() and assert the dimension changes
+then  calculate_alignment() and assert the dimension INCREASES
 ```
 
-Seeding `APPLIES_KNOWLEDGE` instead passes against the bug. Asserting only "the
-result is non-empty" passes against both readings.
+⚠ **"Changes" is not enough, and this is the trap the whole item turns on.** The
+bug makes the score move — *downward* — all by itself. Adding the learner's first
+habit raises `total_habits` from 0, while the wrong edge leaves `aligned_habits`
+at 0, so `habit_ratio` falls off its no-data default:
+
+| activity dimension | value |
+|---|---|
+| no habits at all (`habit_ratio` = 0.5 default) | **0.50** |
+| 1 aligned habit, **bug present** (`aligned_habits` = 0) | **0.20** |
+| 1 aligned habit, **fixed** (`aligned_habits` = 1) | **0.80** |
+
+A test asserting "the dimension changed" is satisfied by 0.50 → 0.20 — i.e. by the
+defect. Assert the increase, or pin the exact value, for **every** habit-dependent
+dimension.
+
+Seeding `APPLIES_KNOWLEDGE` instead also passes against the bug, and asserting
+only "the result is non-empty" passes against both readings.
 
 **Done means all three habit-dependent sites**, not the first one fixed:
 `calculate_activity_alignment` AND `calculate_knowledge_alignment` (whose `* 0.10`
@@ -78,16 +93,30 @@ Designation changes the result from the no-designation response either way, and
 all five dimension queries still return numbers while the typed read fails. A test
 following item 1's recipe therefore **passes before item 2 is fixed**.
 
-What actually detects it:
+What actually detects it — **stated as an outcome, not as a specific reader**:
 
 ```
 seed   designate a life path via the REAL writer (LifePathBackend.designate_life_path)
-then   assert a TYPED read of that uid succeeds — LpService/LpCoreService.get(uid)
-       returns ok, not a failed Result
-and    assert the alignment payload carries the path's real title, not "Unknown"
-then   remove_designation() and assert the read still succeeds — the round trip is
-       where a label swap (option (a)) breaks if only half of it is implemented
+then   assert the alignment payload carries the path's REAL TITLE, not "Unknown"
+       — this is the invariant, and it holds under every option below
+then   remove_designation() and assert the title is still readable — the round trip
+       is where a label swap breaks if only half of it is implemented
 ```
+
+⚠ **Do not assert "`LpCoreService.get(uid)` succeeds while designated".** That
+looks like the natural check and it **rules out option (a)**: `LpBackend` matches
+`(n:LearningPath {uid})`, so if designation correctly swaps the label to
+`:LifePath`, an `LpService` read of a designated path *should* miss — that is the
+option working, not failing. Which reader must succeed depends on the option
+chosen:
+
+| option | designated-state read that must succeed |
+|---|---|
+| (a) swap the label | a `:LifePath`-typed reader (`NeoLabel.LIFE_PATH`); `LpService` correctly misses |
+| (b) stop mutating `entity_type` | `LpService.get` — the node stays a LearningPath throughout |
+| (c) property-keyed readers | `LifePathBackend.get_life_path_composition`; the typed LP read still fails by design |
+
+The title invariant is what all three share, which is why it is the assertion.
 
 ⚠ **Line numbers below were verified against `2d8c31d03` and will drift.** Grep the
 quoted Cypher, not the line.
