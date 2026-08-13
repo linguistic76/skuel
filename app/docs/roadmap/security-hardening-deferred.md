@@ -302,13 +302,29 @@ words: "delete after staging is green."
 - It is declared in **no** `.env.example`, compose file, or `.env.production` — it lives only
   in code and the `security` skill doc. An undeclared knob.
 
-**Why deleting it is safe:** it removes a local debugging escape hatch and nothing production
-depends on. The stated trigger never had a staging environment to fire against — production
-shipped straight to the droplet (ADR-080), where the flag is already inert.
+**But it is not only a rollout lever — it is a test affordance.** 45 test files set it: 32 set
+it `true` to assert enforcement (those become redundant), and **15 set it `false`** so route
+tests can POST without minting a token. Deleting the flag makes those 15 fixtures fail, so this
+is a test-infrastructure change, not housekeeping. That dependency is the actual reason it has
+survived, and it is what the original note missed.
 
-**Do when**: the next time CSRF code is touched. Delete `CSRF_ENFORCE_ENV`,
-`is_csrf_enforced()`, and the `_is_production()` bypass **together** — with the flag gone, the
-production special-case has nothing left to guard against.
+**The argument for doing it now** (Codex, PR #1044): a roadmap item that preserves an obsolete
+alternative path until some future edit **is** a deprecation period, which One Path Forward
+forbids. The counter-argument is scope, not principle — see the 15 fixtures above.
+
+**⚠ Do NOT delete `_is_production()`.** It has two callers and only one is the bypass:
+
+| Call site | Purpose | On flag removal |
+|---|---|---|
+| `csrf.py` `secure=_is_production()` | the CSRF cookie's **`Secure` attribute** | **KEEP — independently load-bearing** |
+| `csrf.py` `if not is_csrf_enforced() and not _is_production():` | the enforcement bypass | delete this call |
+
+Removing `_is_production()` outright would strip `Secure` from the CSRF cookie in production.
+
+**Do when**: whoever next has appetite for the 15 fixtures. Delete `CSRF_ENFORCE_ENV`,
+`is_csrf_enforced()`, its `__all__` entry, and the bypass condition; rework the 15 `false`
+fixtures to mint tokens; drop the flag assertions in `tests/unit/adapters/test_csrf.py`; keep
+`_is_production()` for the cookie attribute.
 
 ---
 
@@ -325,7 +341,7 @@ Status as of 2026-07-24 (public-launch hardening shipped in PR #794); item 8 add
 | 5 | **Session rotation** | ✅ Done (2026-07-24) — revocation on role change/deactivation + per-request graph-session enforcement |
 | 6 | **CAPTCHA** | Open — only if automated sign-up abuse occurs despite the invite gate |
 | 7 | **Security headers** | ✅ Done (PR #794) — CSP promotion + Caddy HSTS remain |
-| 8 | **CSRF flag removal** | Open — housekeeping; production already ignores the flag, so this is dead-knob cleanup rather than a control |
+| 8 | **CSRF flag removal** | Open — production already ignores the flag, but 15 test fixtures rely on the off-switch, so removal is a test-infrastructure change, not a one-liner |
 
 ---
 
