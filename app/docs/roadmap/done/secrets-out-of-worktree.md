@@ -13,7 +13,7 @@
 >
 > The "10 keys in secrets.env" snapshot in commit `5cd6970e`'s message is the Stage 2 inventory at migration time — not a current contract. Once Stage 3 ran, the keys moved into the keychain and `secrets.env` was trimmed to the docker-compose residue. If you see `secrets.env` with only NEO4J_* in it, that's healthy state, not a regression.
 
-**Canonical plan**: `/home/mike/.claude/plans/secrets-out-of-worktree.md` — full design, decision points, and rationale. This document is the in-repo "where are we" view.
+**This document is canonical.** It was the in-repo "where are we" view alongside an untracked working plan; that plan no longer exists, and this is now the full record — design, decision points, and current state.
 
 ---
 
@@ -126,7 +126,6 @@ From the plan's § "Out of scope":
 
 ## Pointers
 
-- Plan (full design): `~/.claude/plans/secrets-out-of-worktree.md`
 - Hook stack (the seatbelt): `app/scripts/git-hooks/README.md`
 - Credential store (both backends — Fernet + Keyring): `app/core/config/credential_store.py`
 - Setup tool: `app/core/config/credential_setup.py`

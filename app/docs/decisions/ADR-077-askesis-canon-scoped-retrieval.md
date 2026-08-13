@@ -1,7 +1,6 @@
 # ADR-077: Companion Grounding via a Shared Corpus-Scope Seam — Askesis (PS-scoped) & Journals (vault-scoped) Share One Retrieve-and-Cite Contract
 
-**Status:** Accepted (Mike, 2026-07-11) — Phase 1 shipped per
-`plans/askesis-canon-phase1-implementation.md`: PR-A (scoped retrieval seam +
+**Status:** Accepted (Mike, 2026-07-11) — Phase 1 shipped: PR-A (scoped retrieval seam +
 `to_teaching_block` framing) shipped 2026-07-11 (#612); PR-B (Askesis consumer + citation
 surface) shipped 2026-07-11 (#613).
 **Amendment (2026-07-11, Codex #613 P2):** the teaching block is **mode-aware**, not
@@ -155,8 +154,8 @@ breaks. Quoted passages stay ephemeral prompt context (ADR-073 unaffected).
 - **P1 — PS-scoped reference seam** (uniform, no weight machinery): scope arg + exact-cosine
   branch + `to_teaching_block` + Askesis wiring + shared citation block. Verify end-to-end.
 - **P2 — grow the shelf** (content, not code).
-- **P3 — vault-minus-private scope for Journals** — SHIPPED 2026-07-12 per
-  `plans/canon-p3-vault-scope-implementation.md`: knowledge UserEntries chunked at the ingest
+- **P3 — vault-minus-private scope for Journals** — SHIPPED 2026-07-12:
+  knowledge UserEntries chunked at the ingest
   door (write substrate) + `private:` marker; `retrieve_vault` sibling on
   `CanonRetrievalService` over the owner-scoped content index
   (`semantic_search_chunks(owner_uid=…)` — OWNS edge + hard private WHERE); `SourceKind`

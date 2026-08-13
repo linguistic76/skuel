@@ -169,7 +169,7 @@ periodic-notes-only), the recent-sessions landing + sidebar lists, the suggestio
 metadata helpers, and `UserEntryService.submit_file`/`_store_file` (the bytes-to-disk +
 entry-creation helper journals was the sole consumer of). Periodic-note machinery is retained.
 
-**Sequenced code pass:** `plans/journals-zero-persistence-code-pass.md` — PR 1 ✅ (stateless text
+**Sequenced code pass:** PR 1 ✅ (stateless text
 sessions + expanded allowlist, the privacy win), PR 2 ✅ (upload/transcription), PR 3 ✅ (disk-only
 exemplar processing; the #1 global / #2b per-user stored split remains PLANNED).
 

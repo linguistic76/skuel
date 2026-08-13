@@ -445,4 +445,3 @@ Comparison to naive approach (18 separate queries):
 **External resources that informed this decision:**
 - Neo4j documentation: https://neo4j.com/docs/cypher-manual/current/clauses/with/
 - SKUEL Cypher Linter: `/scripts/cypher_linter.py` (flagged this query as CYP009)
-- Strategic Quality Initiatives Plan: `/docs/plans/STRATEGIC_QUALITY_INITIATIVES_PLAN.md`

@@ -9,9 +9,7 @@ entity type split. Revises the "learning loop" framing of ADR-040.
 [ADR-053 Groups First-Class and Unified Sharing](ADR-053-groups-first-class-and-unified-sharing.md)
 
 > **Execution note (2026-04-17).** Executed as a disciplined commit sequence
-> on `adr-054-user-entry` under
-> `/home/mike/.claude/plans/cosmic-kindling-papert.md` (completing the work
-> started by `woolly-weaving-hejlsberg.md`). The three-phase rollout in
+> on the `adr-054-user-entry` branch. The three-phase rollout in
 > §Rollout is superseded by One Path Forward — shims and label-inclusive
 > reads were not built. Activity extraction from the journal pipeline was
 > dropped; journals no longer auto-create Tasks/Goals via DSL.

@@ -1,7 +1,6 @@
 # ADR-069: EXTRACT_ACTIVITIES Pipeline + EntryReport Convergence
 
-**Status:** Accepted (Decisions 1–2, Mike 2026-06-12 — implementation plan:
-`plans/extract-activities-and-entry-report-implementation.md`). Decision 3 ruled
+**Status:** Accepted (Decisions 1–2, Mike 2026-06-12). Decision 3 ruled
 and executed 2026-06-12: all 10 findings PLANNED, no deletions (§3 table).
 **Date:** 2026-06-12
 **Builds on:** [ADR-054 UserEntry](ADR-054-user-entry-unified-submissions.md) (incl. Postscript),

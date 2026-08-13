@@ -302,7 +302,6 @@ The navbar navigation bug was traced to HTMX version mismatch:
 - `/docs/patterns/UI_COMPONENT_PATTERNS.md` - Page Layout Architecture section
 - `/docs/architecture/ALPINE_JS_ARCHITECTURE.md` - Alpine.js + HTMX coordination
 - `/docs/patterns/FASTHTML_ROUTE_REGISTRATION.md` - Route patterns
-- `/.claude/plans/navbar-htmx-boost-fix.md` - Original investigation notes
 
 ---
 

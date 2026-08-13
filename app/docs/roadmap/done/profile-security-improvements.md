@@ -1,6 +1,11 @@
 # Profile Routes Security & Robustness Improvements
 
-**Status:** Ready for implementation
+> **Status: SHIPPED 2026-01-25.** All medium-and-above items were implemented; see
+> `.claude/completed/profile-security-improvements-2026-01-25.md` for the completion
+> record. The header below is the pre-execution status and is kept as written —
+> this document is the design record, not a live plan.
+
+**Status (as authored):** Ready for implementation
 **Priority:** Medium (prevents runtime errors, improves error handling)
 **Scope:** `/adapters/inbound/user_profile_ui.py`
 

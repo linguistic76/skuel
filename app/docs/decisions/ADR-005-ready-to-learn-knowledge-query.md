@@ -596,5 +596,4 @@ Comparison to naive approach (5000+ queries):
 - Neo4j documentation: https://neo4j.com/docs/cypher-manual/current/clauses/where/#existential-subqueries
 - Graph Query Optimization: Neo4j Performance Tuning Guide
 - SKUEL Cypher Linter: `/scripts/cypher_linter.py` (flagged this query as CYP009)
-- Strategic Quality Initiatives Plan: `/docs/plans/STRATEGIC_QUALITY_INITIATIVES_PLAN.md`
 - Learning Science: "Mastery Learning Theory" - Benjamin Bloom (prerequisite checking rationale)

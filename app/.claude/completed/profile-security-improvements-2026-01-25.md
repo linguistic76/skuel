@@ -282,7 +282,7 @@ These remain as technical debt for future refactoring:
 
 ## Related Documentation
 
-- **Original plan:** `/.claude/plans/profile-security-improvements.md`
+- **Original plan:** `/docs/roadmap/done/profile-security-improvements.md`
 - **ChatGPT review:** Provided by user in prompt
 - **CLAUDE.md patterns:** Error handling, auth patterns
 

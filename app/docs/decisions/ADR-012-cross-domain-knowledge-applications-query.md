@@ -563,5 +563,4 @@ Comparison to naive approach (7 separate queries):
 - Neo4j documentation: https://neo4j.com/docs/cypher-manual/current/clauses/optional-match/
 - Knowledge Substance Philosophy: `/docs/architecture/knowledge_substance_philosophy.md`
 - SKUEL Cypher Linter: `/scripts/cypher_linter.py` (flagged this query as CYP009)
-- Strategic Quality Initiatives Plan: `/docs/plans/STRATEGIC_QUALITY_INITIATIVES_PLAN.md`
 - Graph Query Performance Patterns: Neo4j Best Practices Guide

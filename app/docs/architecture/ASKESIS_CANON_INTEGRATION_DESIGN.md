@@ -1,7 +1,7 @@
 # Askesis × Canon — PS-Scoped Readings in Socratic Guidance
 
-**Status:** Approved design — Phase 1 implementing per `plans/askesis-canon-phase1-implementation.md`.
-PR-A (scoped retrieval + teaching framing) shipped 2026-07-11; PR-B (Askesis wiring + citations) pending.
+**Status:** Approved design — Phase 1 shipped.
+PR-A (scoped retrieval + teaching framing) shipped 2026-07-11 (#612); PR-B (Askesis wiring + citations) shipped 2026-07-11 (#613).
 **Companion ADR:** [ADR-077](../decisions/ADR-077-askesis-canon-scoped-retrieval.md)
 **Builds on:** [CANON_CITATION_DESIGN.md](CANON_CITATION_DESIGN.md) · [ADR-076](../decisions/ADR-076-canon-quotation-and-citation-policy.md) · [ASKESIS_SOCRATIC_ARCHITECTURE.md](ASKESIS_SOCRATIC_ARCHITECTURE.md)
 **Roadmap:** [`docs/roadmap/canon-journaling-companion.md`](../roadmap/canon-journaling-companion.md) — "Future rungs → Askesis"
@@ -366,7 +366,7 @@ authoring on the unchanged pipeline; makes phase 1 progressively useful. Track w
 Resources are shelvable vs. pointer-only.
 
 **Phase 3 — vault-minus-private scope for Journals (the sibling realization).** SHIPPED
-2026-07-12 (`plans/canon-p3-vault-scope-implementation.md`; ADR-077 amendment). The Journals
+2026-07-12 (ADR-077 amendment). The Journals
 personal cell of the 2×2 is realized:
 
 - **Substrate:** knowledge-pipeline UserEntries are chunked at the ingest door

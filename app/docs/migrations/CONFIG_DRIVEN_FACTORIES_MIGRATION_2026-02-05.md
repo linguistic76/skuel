@@ -467,7 +467,6 @@ This order ensures factories with static params run first, then domain-specific 
 - **Pattern Documentation:** `/docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md`
 - **Route Factories:** `/docs/patterns/ROUTE_FACTORIES.md`
 - **Test Suite:** `/tests/infrastructure/test_domain_route_factory.py`
-- **Plan:** `/.claude/plans/functional-sauteeing-abelson.md`
 
 ---
 

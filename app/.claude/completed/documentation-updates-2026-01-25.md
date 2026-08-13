@@ -188,7 +188,7 @@ These documentation updates complete the profile URL simplification work:
 
 **Implementation reports:**
 - `/.claude/completed/profile-security-improvements-2026-01-25.md` - Security fixes
-- `/.claude/plans/profile-security-improvements.md` - Original plan
+- `/docs/roadmap/done/profile-security-improvements.md` - Original plan
 
 ---
 
@@ -262,7 +262,7 @@ When making similar changes in the future:
 ## Related Documentation
 
 - **Security fixes:** `/.claude/completed/profile-security-improvements-2026-01-25.md`
-- **Implementation plan:** `/.claude/plans/profile-security-improvements.md`
+- **Implementation plan:** `/docs/roadmap/done/profile-security-improvements.md`
 - **Error handling main doc:** `/docs/patterns/ERROR_HANDLING.md`
 - **User architecture:** `/docs/architecture/UNIFIED_USER_ARCHITECTURE.md`
 - **Intelligence integration:** `/docs/intelligence/USER_CONTEXT_INTELLIGENCE.md`
