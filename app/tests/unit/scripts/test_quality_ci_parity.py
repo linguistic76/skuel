@@ -206,6 +206,13 @@ REQUIRED_FILTERS: dict[str, frozenset[str]] = {
     "scripts/audit_dependencies.sh": frozenset({"py", "audit"}),
     "scripts/audit_content_boundary.py": frozenset({"py"}),
     "scripts/skills_validator.py": frozenset({"docs"}),
+    # Scans EVERY tracked file — a scratch citation lands in a .md, a Python
+    # docstring, or .envrc alike — so no path filter covers it and it must live
+    # in an always-on job. The full filter set encodes that: any filtered job
+    # would have to carry all seven, which is the point.
+    "scripts/audit_untracked_refs.py": frozenset(
+        {"py", "docs", "ui", "cypher", "neo4j_config", "js", "audit"}
+    ),
 }
 
 

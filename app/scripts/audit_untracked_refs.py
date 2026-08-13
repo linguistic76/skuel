@@ -28,8 +28,11 @@ Two violation classes:
    the ignore stay tracked and make the tier incoherent. Four such files were found
    and untracked in August 2026.
 
-Run: ``uv run python scripts/audit_untracked_refs.py`` (also ``./dev quality`` check
-6c, and asserted by ``tests/unit/test_untracked_refs.py`` so CI gates it).
+Run: ``uv run python scripts/audit_untracked_refs.py``. Also ``./dev quality`` check
+6c, a step in CI's gate-required ``lint`` job, and asserted by
+``tests/unit/test_untracked_refs.py`` — the CI step is not optional belt-and-braces,
+it is required by ``tests/unit/scripts/test_quality_ci_parity.py``, which fails any
+``./dev quality`` check lacking a home in a gate-required job.
 Exit 0 = clean, 1 = violations.
 """
 
@@ -102,9 +105,15 @@ def find_violations() -> tuple[list[tuple[str, int, str]], list[str]]:
         if path.suffix.lower() in _SKIP_SUFFIXES or not path.is_file():
             continue
         try:
-            text = path.read_text(encoding="utf-8")
-        except UnicodeDecodeError, OSError:
-            continue  # binary or unreadable — nothing to cite
+            # errors="replace" rather than catching UnicodeDecodeError: binary
+            # content decodes to noise that cannot match a citation, and a single
+            # except clause keeps this runnable on any interpreter. (Ruff's py314
+            # target rewrites `except (A, B):` into PEP 758's unparenthesized
+            # form, which older interpreters reject — CI pins 3.14, a developer's
+            # `python3` may not.)
+            text = path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue  # unreadable — nothing to cite
 
         for lineno, line in enumerate(text.splitlines(), 1):
             if SCRATCH_CITATION.search(line):

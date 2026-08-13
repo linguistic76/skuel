@@ -388,6 +388,7 @@ jobs:
         working-directory: app
         run: uv run python scripts/audit_raw_headers.py
 
+
       # Dead-code gate — fails only on WARNING-tier findings; staged work
       # registered in the PLANNED tiers never fails (see BLOAT_DETECTION.md).
       - name: Dead-code gate
@@ -856,6 +857,17 @@ jobs:
       - name: Content boundary guard
         working-directory: app
         run: python scripts/audit_content_boundary.py
+
+      # Untracked-reference guard — nothing tracked may cite the gitignored
+      # plans/ scratch tier (CLAUDE.md § Documentation Architecture). It lives in
+      # THIS always-on job rather than lint on purpose: it scans every tracked
+      # file, and a citation can land in a .md, a docstring, or .envrc alike.
+      # Under lint's `py` filter a docs-only PR would skip it — precisely the
+      # blind spot that let 13 docs-side citations accumulate unnoticed.
+      # Stdlib-only, so bare `python` is enough (same as the guard above).
+      - name: Untracked-reference guard
+        working-directory: app
+        run: python scripts/audit_untracked_refs.py
 
   # Always-on aggregator. This is the single status to mark required in branch
   # protection. Passes when every required job succeeded OR was legitimately
