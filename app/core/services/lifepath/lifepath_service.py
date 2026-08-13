@@ -223,12 +223,19 @@ class LifePathService:
 
         # Step 2: Build UserContext and calculate initial alignment.
         #
-        # Both legs PROPAGATE. This method is named for both halves of what it
-        # does, and a failed scoring run returning Result.ok with an empty
-        # alignment reported "designated and calculated" when nothing was
-        # calculated and nothing was written to ULTIMATE_PATH. Step 1's write is
-        # already durable and designation is idempotent, so a caller that
-        # retries on this error re-designates harmlessly and scores again.
+        # Every leg PROPAGATES, the write included. This method is named for both
+        # halves of what it does, and returning Result.ok with an empty alignment
+        # reported "designated and calculated" when nothing was calculated —
+        # while a discarded write result reported it when the score never reached
+        # the edge.
+        #
+        # ⚠ Step 1's write is durable but NOT idempotent: designate_life_path
+        # MATCHes the target only while its entity_type is 'learning_path', and
+        # step 1 has already flipped it to 'life_path'. So a caller retrying
+        # after a step-2 failure gets not_found rather than a second scoring run,
+        # and the learner is left designated with no alignment on the edge. That
+        # is item 2 of LIFEPATH_ALIGNMENT_DEBT.md showing through — the in-place
+        # entity_type mutation — and it is fixed there, by removing the mutation.
         ctx_result = await self._build_context(user_uid)
         if ctx_result.is_error:
             return Result.fail(ctx_result)
@@ -240,11 +247,13 @@ class LifePathService:
         alignment_data = alignment_result.value
 
         # Update stored alignment score
-        await self.core.update_alignment_score(
+        stored = await self.core.update_alignment_score(
             user_uid=user_uid,
             alignment_score=alignment_data.get("alignment_score", 0.0),
             dimension_scores=alignment_data.get("dimensions"),
         )
+        if stored.is_error:
+            return Result.fail(stored)
 
         # Step 3: Get initial recommendations
         recommendations_result = await self.intelligence.get_recommendations(

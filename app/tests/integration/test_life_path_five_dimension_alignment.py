@@ -127,6 +127,21 @@ async def graph(neo4j_driver, clean_neo4j):
             off=KU_OFF_PATH,
         )
 
+        # An undesignated path, so a test needing a live designate_life_path
+        # call has a target: the writer MATCHes entity_type 'learning_path', so
+        # an already-designated path cannot be designated a second time.
+        await session.run(
+            """
+            CREATE (lp:Entity:LearningPath {uid: 'lp.test.5d.unclaimed',
+                                            entity_type: 'learning_path',
+                                            title: 'Unclaimed', status: 'active'})
+            WITH lp
+            MATCH (ps:Entity {uid: $ps})
+            CREATE (lp)-[:HAS_STEP {sequence: 0}]->(ps)
+            """,
+            ps=PS_SHARED,
+        )
+
         for lp_uid in DESIGNATED.values():
             await session.run(
                 """
@@ -351,6 +366,57 @@ class TestAlignmentRefusesRatherThanScoringAConfidentZero:
         assert result.value["life_path_uid"] is None
         assert result.value["alignment_score"] == pytest.approx(0.0)
         assert result.value["alignment_level"] == "undefined"
+
+    async def test_a_failed_designation_lookup_is_not_reported_as_no_designation(self, graph):
+        """Three outcomes, not two: designated, not designated, and UNKNOWN.
+
+        The lookup used to log and return None, so a Neo4j outage produced the
+        no-designation payload — ``Result.ok``, score 0.0, level "undefined".
+        ``designate_and_calculate`` would then write that zero onto the
+        ULTIMATE_PATH edge it had just created, for a learner who is designated.
+        """
+
+        class _FailingDesignationLookup(LifePathBackend):
+            async def get_user_life_path(self, user_uid):
+                return Result.fail(
+                    Errors.database(message="simulated Neo4j outage", operation="test")
+                )
+
+        executor = Neo4jQueryExecutor(graph)
+        service = LifePathAlignmentService(
+            backend=_FailingDesignationLookup(executor),
+            cross_domain_backend=CrossDomainBackend(executor),
+        )
+
+        result = await service.calculate_alignment(UserContext(user_uid=USER_SIX))
+
+        assert result.is_error, (
+            "an outage on the designation lookup was reported as 'no life path "
+            "designated', which scores 0.0 and gets persisted as one"
+        )
+
+    async def test_a_failed_score_write_is_not_reported_as_success(self, graph):
+        """Scoring the metric and never storing it is not a completed flow."""
+
+        class _FailingScoreWrite(LifePathBackend):
+            async def update_alignment_score(self, params):
+                return Result.fail(
+                    Errors.database(message="simulated Neo4j outage", operation="test")
+                )
+
+        executor = Neo4jQueryExecutor(graph)
+        facade = LifePathService(
+            backend=_FailingScoreWrite(executor),
+            cross_domain_backend=CrossDomainBackend(executor),
+        )
+
+        # A path nobody has designated yet, so step 1 can succeed.
+        result = await facade.designate_and_calculate(USER_OTHER, "lp.test.5d.unclaimed")
+
+        assert result.is_error, (
+            "the score never reached ULTIMATE_PATH and the flow still reported "
+            "'designated and calculated'"
+        )
 
     async def test_the_facade_does_not_swallow_a_failed_scoring_run(self, graph):
         """The refusal has to survive the layer the UI actually calls.

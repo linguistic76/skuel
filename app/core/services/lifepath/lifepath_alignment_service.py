@@ -153,8 +153,14 @@ class LifePathAlignmentService:
         user_uid = context.user_uid
         logger.info(f"Calculating life path alignment for user {user_uid}")
 
-        # Get user's life path
-        life_path_uid = await self._get_user_life_path(user_uid)
+        # Get user's life path. A FAILED lookup is not "no designation": the
+        # no-designation payload scores 0.0, and designate_and_calculate would
+        # write that zero straight onto the ULTIMATE_PATH edge it just created.
+        designation_result = await self._get_user_life_path(user_uid)
+        if designation_result.is_error:
+            return Result.fail(designation_result)
+
+        life_path_uid = designation_result.value
         if not life_path_uid:
             return Result.ok(self._no_designation_response())
 
@@ -236,26 +242,24 @@ class LifePathAlignmentService:
 
         return Result.ok(result)
 
-    async def _get_user_life_path(self, user_uid: UserUID) -> str | None:
-        """Get user's designated life path UID."""
+    async def _get_user_life_path(self, user_uid: UserUID) -> Result[str | None]:
+        """The user's designated life path UID, or None if they have none.
+
+        ``Result`` rather than a bare ``str | None`` because those are three
+        outcomes, not two: designated, not designated, and *unknown*. Collapsing
+        the third into None reported a Neo4j outage as "no life path designated"
+        — a successful payload scoring 0.0, which ``designate_and_calculate``
+        then wrote onto the ULTIMATE_PATH edge it had just created.
+        """
         if not self.backend:
-            return None
+            return Result.fail(Errors.system("Backend not available", operation="get_life_path"))
 
         result = await self.backend.get_user_life_path(user_uid)
         if result.is_error:
-            logger.error(
-                "Failed to get life path - returning None",
-                extra={
-                    "user_uid": user_uid,
-                    "error_message": str(result.error),
-                },
-            )
-            return None
+            return Result.fail(result)
 
         records = result.value or []
-        if records:
-            return records[0].get("life_path_uid")
-        return None
+        return Result.ok(records[0].get("life_path_uid") if records else None)
 
     async def _get_life_path_details(self, life_path_uid: str) -> dict[str, str]:
         """Get life path title and metadata."""
