@@ -17,7 +17,6 @@ Inherits common fields from UserOwnedEntity. Adds 19 principle-specific fields:
 Principle-specific methods: is_well_aligned, has_alignment_issues, has_concrete_behaviors,
 is_actionable, assess_alignment, get_summary, explain_existence, category, from_dto.
 
-See: /.claude/plans/ku-decomposition-domain-types.md
 See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
 

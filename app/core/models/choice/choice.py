@@ -14,7 +14,6 @@ Inherits common fields from UserOwnedEntity. Adds 14 choice-specific fields:
 Choice-specific methods: has_high_stakes, calculate_decision_complexity,
 get_decision_quality_score, get_summary, explain_existence, category, from_dto.
 
-See: /.claude/plans/ku-decomposition-domain-types.md
 See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
 

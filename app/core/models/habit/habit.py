@@ -22,7 +22,6 @@ Habit-specific methods: calculate_consistency_score, is_keystone, should_do_toda
 get_effort_score, is_identity_based, predict_goal_impact, get_atomic_habits_analysis,
 get_summary, explain_existence, category, from_dto.
 
-See: /.claude/plans/ku-decomposition-domain-types.md
 See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
 

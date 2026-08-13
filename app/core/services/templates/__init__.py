@@ -2,8 +2,7 @@
 Activity Template Services — CRUD facades for the 6 PS-owned template entities
 ================================================================================
 
-Phase 5 of the PathStep + Activity Templates build (see plan at
-``/home/mike/.claude/plans/skip-when-do-idempotent-shell.md``).
+Phase 5 of the PathStep + Activity Templates build.
 
 Each template kind (Task/Goal/Habit/Event/Choice/Principle) gets a thin
 :class:`BaseService` subclass over its UniversalNeo4jBackend so that the route

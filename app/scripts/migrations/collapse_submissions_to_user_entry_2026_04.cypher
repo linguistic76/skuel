@@ -1,7 +1,6 @@
 // Migration: Collapse ExerciseSubmission + JeInput + JeOutput into UserEntry
 // Date: 2026-04-14
 // ADR: docs/decisions/ADR-054-user-entry-unified-submissions.md
-// Plan: /home/mike/.claude/plans/woolly-weaving-hejlsberg.md (Step 12)
 //
 // Context: ADR-054 collapses four parallel user-authored content types
 // (Submission abstract base, ExerciseSubmission, JeInput, JeOutput) into a

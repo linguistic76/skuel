@@ -15,8 +15,6 @@ Alpine component in ``static/js/skuel.js``, which copies ``data-uid`` /
 
 The dropdown is populated by HTMX hits to ``GET /api/picker/search`` defined
 in ``adapters/inbound/picker_routes.py``.
-
-See: /home/mike/.claude/plans/entity_picker_component_plan.md
 """
 
 from __future__ import annotations

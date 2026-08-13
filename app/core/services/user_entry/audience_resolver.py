@@ -12,7 +12,6 @@ Public surface:
     - ``ShareOutcome``           — frozen result dataclass
     - ``AudienceResolver``       — validate + resolve_and_share + resolve_default_teachers
 
-See: /home/mike/.claude/plans/upload-userentry-integration.md
 See: /docs/decisions/ADR-054-user-entry-unified-submissions.md
 """
 

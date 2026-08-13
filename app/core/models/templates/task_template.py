@@ -27,7 +27,6 @@ Field shape vs Task (instance):
       Task by user actions, not authored on the template.
 
 See:
-    /home/mike/.claude/plans/skip-when-do-idempotent-shell.md
     project_engage_pathstep_contract.md (memory)
     project_template_relative_offset.md (memory)
 """
