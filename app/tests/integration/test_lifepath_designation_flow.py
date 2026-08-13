@@ -137,9 +137,18 @@ class TestVisionPersistence:
 
 
 class TestDesignation:
-    async def test_designate_creates_edge_and_promotes_entity_type(
+    async def test_designate_creates_the_edge_and_leaves_the_node_alone(
         self, core_service, designation_graph, neo4j_driver
     ):
+        """The ULTIMATE_PATH edge IS the designation.
+
+        This used to also assert the node's ``entity_type`` was promoted to
+        ``'life_path'`` in place. That promotion left the node's
+        ``:LearningPath`` label saying one thing and its discriminator another,
+        which made every LP-service read of a designated path fail and the
+        alignment payload report the title as "Unknown" (LIFEPATH_ALIGNMENT_DEBT
+        item 2).
+        """
         result = await core_service.designate_life_path(_USER_UID, _LP_A)
 
         assert result.is_ok
@@ -147,7 +156,9 @@ class TestDesignation:
         assert result.value.designated_at is not None
 
         assert await _ultimate_path_targets(neo4j_driver) == [_LP_A]
-        assert await _entity_type_of(neo4j_driver, _LP_A) == "life_path"
+        assert await _entity_type_of(neo4j_driver, _LP_A) == "learning_path", (
+            "designation mutated the node — label and discriminator now disagree"
+        )
 
         fetched = await core_service.get_designation(_USER_UID)
         assert fetched.is_ok and fetched.value is not None
@@ -155,9 +166,14 @@ class TestDesignation:
         assert fetched.value.life_path_uid == _LP_A
         assert fetched.value.alignment_score == pytest.approx(0.0)
 
-    async def test_redesignation_reverts_previous_path(
+    async def test_redesignation_moves_the_edge(
         self, core_service, designation_graph, neo4j_driver
     ):
+        """One life path per user; neither node is touched by the move.
+
+        There is no longer a demotion to get wrong: the previous path was never
+        promoted, so re-designating cannot leave it half-reverted.
+        """
         assert (await core_service.designate_life_path(_USER_UID, _LP_A)).is_ok
 
         result = await core_service.designate_life_path(_USER_UID, _LP_B)
@@ -165,9 +181,9 @@ class TestDesignation:
         assert result.is_ok
         # Exactly one designation, pointing at the new path
         assert await _ultimate_path_targets(neo4j_driver) == [_LP_B]
-        # Old path demoted back, new path promoted
+        # Both nodes are ordinary LearningPaths throughout
         assert await _entity_type_of(neo4j_driver, _LP_A) == "learning_path"
-        assert await _entity_type_of(neo4j_driver, _LP_B) == "life_path"
+        assert await _entity_type_of(neo4j_driver, _LP_B) == "learning_path"
 
     async def test_designate_nonexistent_lp_is_not_found(self, core_service, designation_graph):
         result = await core_service.designate_life_path(_USER_UID, "lp.test.designation.ghost")

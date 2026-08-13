@@ -76,10 +76,11 @@ All domain entities use **multi-label architecture**: every entity gets `:Entity
 (choice:Choice)-[:ALIGNED_WITH_PRINCIPLE]->(principle:Principle)
 
 // Life path (everything flows toward the life path)
-// Designation flips entity_type on the LP node — it does NOT add a :LifePath
-// label, so match by property, never by label.
-(user:User)-[:ULTIMATE_PATH]->(lp:Entity {entity_type: 'life_path'})
-(entity:Entity)-[:SERVES_LIFE_PATH]->(lp:Entity {entity_type: 'life_path'})
+// The ULTIMATE_PATH edge IS the designation. The node is NOT mutated and gets
+// no :LifePath label — a designated path stays an ordinary LearningPath, so
+// {entity_type: 'life_path'} matches ZERO rows. Traverse the edge.
+(user:User)-[:ULTIMATE_PATH]->(lp:Entity)
+(entity:Entity)-[:SERVES_LIFE_PATH]->(lp:Entity)
 ```
 
 ## Query Patterns

@@ -126,9 +126,12 @@ class AnalyticsLifePathService:
           (``populate_life_path`` is called only from ``build_rich_user_context``),
           so the designation now comes from ``LifePathService``, one row.
         * ``LpService.get`` was the old source of the path title and steps.
-          Designation flips a LearningPath node's ``entity_type`` to
+          Designation used to flip a LearningPath node's ``entity_type`` to
           ``'life_path'`` in place, so reading a designated path through the LP
-          service raises on ``LearningPath``'s honest-leaf-identity guard.
+          service raised on ``LearningPath``'s honest-leaf-identity guard. That
+          mutation is gone (designation is the ULTIMATE_PATH edge alone), but the
+          composition read stays: it returns rows and the path's steps in one
+          pass, which is what this service needs.
         """
         self.ku_service = ku_service
         self.lifepath_service = lifepath_service

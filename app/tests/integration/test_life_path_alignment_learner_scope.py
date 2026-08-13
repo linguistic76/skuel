@@ -47,9 +47,11 @@ embodied by this learner — a fix that merely swapped one shared number for
 another still fails it.
 
 The designation is written by the REAL writer (``LifePathBackend.designate_life_path``)
-rather than hand-seeded, because what that writer produces — a ``:LearningPath``
-node whose ``entity_type`` property alone says ``'life_path'`` — is precisely
-what defects 2 and 3 tripped over.
+rather than hand-seeded, because what that writer produces is precisely what
+defects 2 and 3 tripped over. (It then produced a ``:LearningPath`` node whose
+``entity_type`` alone said ``'life_path'``; that in-place mutation was removed
+2026-08-12 — LIFEPATH_ALIGNMENT_DEBT item 2 — and designation is now carried by
+the ``ULTIMATE_PATH`` edge alone. Driving the writer means this tracks it.)
 
 Every seeded activity is completed/archived and stamped 200 days ago, outside
 any planning window and past every "still open" escape hatch. The channels are
@@ -318,9 +320,7 @@ class TestLifePathAlignmentLearnerScope:
                 ku=KU_NEVER,
             )
 
-        # The REAL designation writer: it promotes entity_type in place and
-        # leaves the :LearningPath label alone, which is the state that used to
-        # make the LP-service read raise.
+        # The REAL designation writer, not a hand-seeded ULTIMATE_PATH edge.
         designated = await LifePathBackend(Neo4jQueryExecutor(neo4j_driver)).designate_life_path(
             USER, LIFE_PATH, datetime.now(UTC).isoformat()
         )
@@ -346,20 +346,18 @@ class TestLifePathAlignmentLearnerScope:
     async def test_the_designated_path_is_found_at_all(self, backend, neo4j_driver):
         """The designation survives the promotion that used to break every reader.
 
-        ``designate_life_path`` flips ``entity_type`` to ``'life_path'`` on a node
-        that keeps its ``:LearningPath`` label. Reading it back through
-        ``LpService`` builds a ``LearningPath`` whose G6 guard rejects the
-        mismatched type — so this asserts the composition read, which is keyed on
-        the property, returns the path and its steps.
+        ``designate_life_path`` once flipped ``entity_type`` to ``'life_path'`` on a
+                node that kept its ``:LearningPath`` label, and reading it back through
+                ``LpService`` tripped that model's G6 guard. This asserts the composition
+                read returns the path and its steps whatever the writer does to the node.
         """
         composition = await LifePathBackend(
             Neo4jQueryExecutor(neo4j_driver)
         ).get_life_path_composition(LIFE_PATH)
         assert composition.is_ok, f"composition read failed: {composition}"
         assert composition.value is not None, (
-            "the designated path was not found — a reader keyed on the "
-            ":LearningPath label alone, or on entity_type 'learning_path', "
-            "sees nothing after designation"
+            "the designated path was not found — the composition read no "
+            "longer agrees with what designate_life_path writes"
         )
 
         assert composition.value["life_path_title"] == "Become a mindful engineer"

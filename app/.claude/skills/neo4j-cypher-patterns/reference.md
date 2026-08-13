@@ -163,7 +163,10 @@ Available on Tasks, Goals, Habits, Events, Choices, Principles, KU, PS, LP. Writ
 
 ## Life Path (the destination)
 
-Designation flips `entity_type` on the node — match by property, never by a `:LifePath`-only assumption.
+The `ULTIMATE_PATH` edge IS the designation — match by traversing it. The node is NOT mutated:
+a designated path keeps its `:LearningPath` label and its `'learning_path'` entity_type, so
+`{entity_type: 'life_path'}` matches ZERO rows. (It used to be flipped in place; that divergence
+made every LP read of a designated path fail — see `docs/technical_debt/LIFEPATH_ALIGNMENT_DEBT.md`.)
 
 | Relationship | From | To | Purpose |
 |--------------|------|-----|---------|

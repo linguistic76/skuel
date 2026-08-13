@@ -53,7 +53,7 @@ _ACTIVITY_KNOWLEDGE_EDGES = (
 # denominator — an over-return, which reads as a longer path rather than as a
 # bug. Same rule the engaged-step read applies over its engagement edges.
 _LIFE_PATH_COMPOSITION_QUERY = """
-MATCH (lp:Entity {uid: $life_path_uid, entity_type: $life_path_type})
+MATCH (lp:Entity {uid: $life_path_uid})
 OPTIONAL MATCH (lp)-[r:HAS_STEP]->(ps:Entity {entity_type: $path_step_type})
 WITH lp, ps, min(r.sequence) AS sequence
 ORDER BY sequence, ps.uid
@@ -116,7 +116,7 @@ _MOMENTUM_ACTIVITY_TYPES: list[str] = [EntityType.TASK.value, EntityType.HABIT.v
 # is one piece of knowledge to master, and two rows would weight it twice in the
 # mean the service takes.
 _LIFE_PATH_KU_MASTERY_QUERY = f"""
-MATCH (lp:Entity {{uid: $life_path_uid, entity_type: $life_path_type}})
+MATCH (lp:Entity {{uid: $life_path_uid}})
       -[:{RelationshipName.HAS_STEP.value}]->(ps:Entity {{entity_type: $path_step_type}})
       -[:{CURRICULUM_COMPOSITION_EDGES}]->(ku:Entity {{entity_type: $ku_type}})
 OPTIONAL MATCH (u:User {{uid: $user_uid}})-[m:{RelationshipName.MASTERED.value}]->(ku)
@@ -131,7 +131,7 @@ RETURN ku_uid, mastery
 # difference matters: zero rows reads back as "no data", while the truth is
 # "you own N activities and none of them can align" — a real, scoreable state.
 _LIFE_PATH_ACTIVITY_COUNTS_QUERY = f"""
-MATCH (lp:Entity {{uid: $life_path_uid, entity_type: $life_path_type}})
+MATCH (lp:Entity {{uid: $life_path_uid}})
 OPTIONAL MATCH (lp)-[:{RelationshipName.HAS_STEP.value}]->(ps:Entity {{entity_type: $path_step_type}})
       -[:{CURRICULUM_COMPOSITION_EDGES}]->(ku:Entity {{entity_type: $ku_type}})
 WITH collect(DISTINCT ku.uid) AS lp_knowledge
@@ -160,7 +160,7 @@ _LIFE_PATH_GOAL_COUNTS_QUERY = f"""
 MATCH (u:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(g:Entity {{entity_type: $goal_type}})
 WHERE g.status IN $active_statuses
 OPTIONAL MATCH (g)-[:{RelationshipName.SERVES_LIFE_PATH.value}]->
-      (lp:Entity {{uid: $life_path_uid, entity_type: $life_path_type}})
+      (lp:Entity {{uid: $life_path_uid}})
 RETURN count(g) AS total, count(lp) AS serving
 """
 
@@ -168,7 +168,7 @@ _LIFE_PATH_PRINCIPLE_COUNTS_QUERY = f"""
 MATCH (u:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(p:Entity {{entity_type: $principle_type}})
 WHERE p.status = $active_status
 OPTIONAL MATCH (p)-[:{RelationshipName.SERVES_LIFE_PATH.value}]->
-      (lp:Entity {{uid: $life_path_uid, entity_type: $life_path_type}})
+      (lp:Entity {{uid: $life_path_uid}})
 RETURN count(p) AS total, count(lp) AS serving
 """
 
@@ -177,7 +177,7 @@ RETURN count(p) AS total, count(lp) AS serving
 # _USER_KNOWLEDGE_CHANNELS_QUERY uses, so a habit is counted through the edge it
 # is actually written with.
 _LIFE_PATH_MOMENTUM_COUNTS_QUERY = f"""
-MATCH (lp:Entity {{uid: $life_path_uid, entity_type: $life_path_type}})
+MATCH (lp:Entity {{uid: $life_path_uid}})
 OPTIONAL MATCH (lp)-[:{RelationshipName.HAS_STEP.value}]->(ps:Entity {{entity_type: $path_step_type}})
       -[:{CURRICULUM_COMPOSITION_EDGES}]->(ku:Entity {{entity_type: $ku_type}})
 WITH collect(DISTINCT ku.uid) AS lp_knowledge
@@ -273,17 +273,16 @@ class LifePathBackend:
         the alignment metric used to read, is populated on no node in the live
         graph; the composition has always lived on edges.
 
-        Returns None when no such life path exists. Note the ``entity_type``
-        discriminators are parameters: a designated path is an ordinary
-        LearningPath node whose ``entity_type`` was flipped in place, so this
-        read is keyed on the property, and a re-normalised vocabulary must break
-        loudly here rather than match zero rows.
+        Returns None when no such life path exists. Keyed on ``uid`` alone: a
+        designated path is an ordinary LearningPath node — designation lives on
+        the ``ULTIMATE_PATH`` edge and changes nothing about the node — and the
+        caller has already resolved this uid FROM that edge, so re-checking a
+        discriminator here would only add a way to match zero rows.
         """
         return await self._executor.execute(
             query=_LIFE_PATH_COMPOSITION_QUERY,
             params={
                 "life_path_uid": life_path_uid,
-                "life_path_type": EntityType.LIFE_PATH.value,
                 "path_step_type": EntityType.PATH_STEP.value,
             },
             processor=_to_life_path_composition,
@@ -299,7 +298,7 @@ class LifePathBackend:
         return await self._executor.execute_query(
             """
             MATCH (u:User {uid: $user_uid})
-            OPTIONAL MATCH (u)-[r:ULTIMATE_PATH]->(lp:Entity {entity_type: 'life_path'})
+            OPTIONAL MATCH (u)-[r:ULTIMATE_PATH]->(lp:Entity)
             RETURN u.vision_statement AS vision_statement,
                    u.vision_themes AS vision_themes,
                    u.vision_captured_at AS vision_captured_at,
@@ -340,21 +339,43 @@ class LifePathBackend:
         life_path_uid: str,
         designated_at: str,
     ) -> Result[list[dict[str, Any]]]:
-        """Designate LP as life path: remove old designation, create new ULTIMATE_PATH."""
+        """Designate a LearningPath as this user's life path. IDEMPOTENT.
+
+        The designation lives on the ``ULTIMATE_PATH`` edge and NOWHERE else.
+        This writer used to also flip the node's ``entity_type`` to
+        ``'life_path'`` in place while leaving its ``:LearningPath`` label
+        untouched, which put the label and the discriminator into permanent
+        disagreement and cost three separate things:
+
+        * ``LpService`` reads of a designated path RAISED (``LearningPath``'s
+          honest-leaf-identity guard, G6) and the safety-net decorator turned
+          that into an indistinguishable-from-outage ``Result.fail``, so the
+          alignment payload named every designated learner's path "Unknown".
+        * Re-designation was impossible: this query matched the target only
+          while its ``entity_type`` was still ``'learning_path'``.
+        * A content-vault re-sync silently UN-designated the path — bulk ingest
+          is ``MERGE (n:Entity:LearningPath {uid}) ... ON MATCH SET n += props``,
+          and ``props`` carries ``entity_type: 'learning_path'``.
+
+        Only the previous designation to a DIFFERENT path is deleted, so
+        re-designating the current one is a no-op that preserves the original
+        ``designated_at`` rather than resetting it.
+        """
         return await self._executor.execute_query(
             """
             MATCH (u:User {uid: $user_uid})
-            MATCH (lp:Entity {uid: $life_path_uid, entity_type: 'learning_path'})
+            MATCH (lp:Entity {uid: $life_path_uid, entity_type: $learning_path_type})
 
-            // Revert previous designation's entity_type back to learning_path
-            OPTIONAL MATCH (u)-[old:ULTIMATE_PATH]->(old_lp:Entity {entity_type: 'life_path'})
-            SET old_lp.entity_type = 'learning_path'
+            // One life path per user: drop any designation of a DIFFERENT path.
+            // Scoped by uid rather than deleted wholesale so re-designating the
+            // current path does not delete-and-recreate its own edge.
+            OPTIONAL MATCH (u)-[old:ULTIMATE_PATH]->(old_lp:Entity)
+            WHERE old_lp.uid <> $life_path_uid
             DELETE old
 
-            // Create new designation and promote entity_type
             WITH u, lp
-            CREATE (u)-[r:ULTIMATE_PATH {designated_at: $designated_at}]->(lp)
-            SET lp.entity_type = 'life_path'
+            MERGE (u)-[r:ULTIMATE_PATH]->(lp)
+              ON CREATE SET r.designated_at = $designated_at
 
             RETURN u.vision_statement AS vision_statement,
                    u.vision_themes AS vision_themes,
@@ -366,15 +387,20 @@ class LifePathBackend:
                 "user_uid": user_uid,
                 "life_path_uid": life_path_uid,
                 "designated_at": designated_at,
+                "learning_path_type": EntityType.LEARNING_PATH.value,
             },
         )
 
     async def remove_designation(self, user_uid: str) -> Result[list[dict[str, Any]]]:
-        """Remove ULTIMATE_PATH and revert entity_type to learning_path."""
+        """Remove the ULTIMATE_PATH edge. The node is not touched.
+
+        Nothing to revert: designation never mutated the node, so removing it
+        cannot half-revert. The path goes back to being an ordinary
+        LearningPath by the edge's absence alone.
+        """
         return await self._executor.execute_query(
             """
-            MATCH (u:User {uid: $user_uid})-[r:ULTIMATE_PATH]->(lp:Entity {entity_type: 'life_path'})
-            SET lp.entity_type = 'learning_path'
+            MATCH (u:User {uid: $user_uid})-[r:ULTIMATE_PATH]->(:Entity)
             DELETE r
             RETURN count(r) > 0 AS removed
             """,
@@ -387,7 +413,7 @@ class LifePathBackend:
         has_dimensions = "knowledge_alignment" in params
 
         query = """
-        MATCH (u:User {uid: $user_uid})-[r:ULTIMATE_PATH]->(lp:Entity {entity_type: 'life_path'})
+        MATCH (u:User {uid: $user_uid})-[r:ULTIMATE_PATH]->(lp:Entity)
         SET r.alignment_score = $alignment_score,
             r.alignment_level = $alignment_level,
             r.alignment_updated_at = datetime()
@@ -412,7 +438,7 @@ class LifePathBackend:
         """Record today's alignment score as a daily snapshot (idempotent per day)."""
         return await self._executor.execute_query(
             """
-            MATCH (u:User {uid: $user_uid})-[:ULTIMATE_PATH]->(lp:Entity {entity_type: 'life_path'})
+            MATCH (u:User {uid: $user_uid})-[:ULTIMATE_PATH]->(lp:Entity)
             MERGE (u)-[r:ALIGNMENT_SNAPSHOT {date: date()}]->(lp)
             ON CREATE SET r.score = $score, r.recorded_at = datetime()
             ON MATCH SET r.score = $score, r.recorded_at = datetime()
@@ -427,7 +453,7 @@ class LifePathBackend:
         """Get daily alignment snapshots for trend analysis, newest first."""
         return await self._executor.execute_query(
             """
-            MATCH (u:User {uid: $user_uid})-[:ULTIMATE_PATH]->(lp:Entity {entity_type: 'life_path'})
+            MATCH (u:User {uid: $user_uid})-[:ULTIMATE_PATH]->(lp:Entity)
             MATCH (u)-[r:ALIGNMENT_SNAPSHOT]->(lp)
             WHERE r.recorded_at >= datetime() - duration({days: $days})
             RETURN r.score AS score, toString(r.date) AS date_str
@@ -444,7 +470,7 @@ class LifePathBackend:
         """Get user's designated life path UID."""
         return await self._executor.execute_query(
             """
-            MATCH (u:User {uid: $user_uid})-[:ULTIMATE_PATH]->(lp:Entity {entity_type: 'life_path'})
+            MATCH (u:User {uid: $user_uid})-[:ULTIMATE_PATH]->(lp:Entity)
             RETURN lp.uid AS life_path_uid
             """,
             {"user_uid": user_uid},
@@ -473,7 +499,6 @@ class LifePathBackend:
             params={
                 "user_uid": user_uid,
                 "life_path_uid": life_path_uid,
-                "life_path_type": EntityType.LIFE_PATH.value,
                 "path_step_type": EntityType.PATH_STEP.value,
                 "ku_type": EntityType.KU.value,
             },
@@ -503,7 +528,6 @@ class LifePathBackend:
             params={
                 "user_uid": user_uid,
                 "life_path_uid": life_path_uid,
-                "life_path_type": EntityType.LIFE_PATH.value,
                 "path_step_type": EntityType.PATH_STEP.value,
                 "ku_type": EntityType.KU.value,
                 "task_type": EntityType.TASK.value,
@@ -525,7 +549,6 @@ class LifePathBackend:
             params={
                 "user_uid": user_uid,
                 "life_path_uid": life_path_uid,
-                "life_path_type": EntityType.LIFE_PATH.value,
                 "goal_type": EntityType.GOAL.value,
                 "active_statuses": _ACTIVE_GOAL_STATUSES,
             },
@@ -545,7 +568,6 @@ class LifePathBackend:
             params={
                 "user_uid": user_uid,
                 "life_path_uid": life_path_uid,
-                "life_path_type": EntityType.LIFE_PATH.value,
                 "principle_type": EntityType.PRINCIPLE.value,
                 "active_status": EntityStatus.ACTIVE.value,
             },
@@ -579,7 +601,6 @@ class LifePathBackend:
             params={
                 "user_uid": user_uid,
                 "life_path_uid": life_path_uid,
-                "life_path_type": EntityType.LIFE_PATH.value,
                 "path_step_type": EntityType.PATH_STEP.value,
                 "ku_type": EntityType.KU.value,
                 "momentum_types": _MOMENTUM_ACTIVITY_TYPES,

@@ -11,8 +11,9 @@ This package provides services for:
 4. Intelligence (recommendations)
 
 LifePath is NOT a stored entity - it's a designation that elevates a
-Learning Path (Ku with entity_type='learning_path') to life-path status
-(entity_type='life_path'). The ULTIMATE_PATH relationship is the mechanism.
+Learning Path to life-path status. The ULTIMATE_PATH relationship is the
+mechanism, and the ONLY one: the node is never mutated, so a designated path
+remains an ordinary LearningPath and reads back as one.
 
 Sub-Services:
 - LifePathVisionService: Capture and analyze user's vision statement

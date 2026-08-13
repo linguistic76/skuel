@@ -228,6 +228,11 @@ class LifePathCoreService:
 
             record = dict(records[0])
             parse_datetime_field(record, "vision_captured_at")
+            # Read the timestamp BACK rather than reporting `now`. Designation
+            # is idempotent, so re-designating the current path preserves the
+            # date the learner originally committed to it — and reporting `now`
+            # would tell the caller the commitment had just been made.
+            parse_datetime_field(record, "designated_at")
             logger.info(f"Life path {life_path_uid} designated for user {user_uid}")
 
             return Result.ok(
@@ -237,7 +242,7 @@ class LifePathCoreService:
                     vision_themes=tuple(record.get("vision_themes") or []),
                     vision_captured_at=record.get("vision_captured_at"),
                     life_path_uid=life_path_uid,
-                    designated_at=now,
+                    designated_at=record.get("designated_at") or now,
                 )
             )
 
@@ -400,12 +405,15 @@ class LifePathCoreService:
     ) -> Result[LifePathComposition | None]:
         """What the designated path is made of — its title and ordered steps.
 
-        Deliberately NOT ``LpService.get``: designation flips an existing
-        LearningPath node's ``entity_type`` to ``'life_path'`` in place, leaving
-        its ``:LearningPath`` label untouched, so reading a designated path
-        through the LP service builds a ``LearningPath`` model and trips its
-        honest-leaf-identity guard (G6) — a raise, for exactly the paths the
-        caller means to read.
+        Not ``LpService.get``, which returns the path alone: this answers the
+        path AND its ordered steps in one pass, which is what every caller of it
+        actually needs.
+
+        (It was once the only read that WORKED on a designated path: designation
+        used to flip ``entity_type`` in place, tripping ``LearningPath``'s
+        honest-leaf-identity guard (G6) in the LP service. That mutation is gone
+        — designation is the ULTIMATE_PATH edge alone — so the LP read is no
+        longer broken, and this method is kept on its own merits.)
 
         Backend: LifePathBackend.get_life_path_composition — HAS_STEP traversal.
         """
