@@ -1,6 +1,6 @@
 """_PsValidator — PS-save validation for Activity Templates.
 
-Runs six checks per the Phase 4 plan and project_engage_pathstep_contract.md:
+Runs six checks:
 
 1. ``target_missing`` — ``*_template_uid`` points to a template that doesn't
    exist (or isn't attached to this PS).

@@ -21,9 +21,6 @@ Plus the cross-transition invariants the unit tests can't reach:
 The unit tests (``tests/unit/services/ps_engagement/``) cover the validator
 and spawn-builder pure functions in isolation. This file is the only place
 the four transitions are wired together against the real backends.
-
-See:
-    project_pathstep_lifecycle_contract.md (memory)
 """
 
 from __future__ import annotations

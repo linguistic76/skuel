@@ -163,4 +163,4 @@ docker-compose.yml  (--profile finance)
 - `docs/domains/finance.md` — domain overview reflecting the split
 - `adapters/outbound/firefly_client.py` — the Firefly REST adapter
 - `core/ports/finance_protocols.py` — `FireflyOperations` protocol
-- `memory/feedback_leverage_maintained_software.md` — the principle this ADR applies
+- `/docs/design-principles/LEVERAGE_MAINTAINED_SOFTWARE.md` — the principle this ADR applies

@@ -182,4 +182,4 @@ on `external_id` (existing `find_transaction_by_external_id`).
 - FastStripe — https://stripe.fast.ai/
 - ChargeKeep — https://www.chargekeep.com/help/ , API https://www.chargekeep.com/api
 - `core/ports/finance_protocols.py` — existing `FireflyOperations` (reused for revenue sync)
-- `memory/feedback_leverage_maintained_software.md` — the principle this ADR applies
+- `/docs/design-principles/LEVERAGE_MAINTAINED_SOFTWARE.md` — the principle this ADR applies

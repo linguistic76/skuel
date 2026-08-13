@@ -50,4 +50,3 @@ Before building custom:
 
 - `/docs/roadmap/obsidian-headless-sync.md` — detailed rationale
 - `/docs/decisions/ADR-050-pwa-mobile-strategy.md` — PWA over native apps
-- `CLAUDE.md` § "Leverage Maintained Software Principle" (memory)

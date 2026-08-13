@@ -7,7 +7,7 @@ Frozen dataclass for task templates (EntityType.TASK_TEMPLATE).
 A TaskTemplate is curriculum content authored by an admin/teacher and owned by
 a PathStep via the ``HAS_TASK_TEMPLATE`` edge. When a student engages the
 owning PathStep, the engagement service spawns a Task instance from this
-template (see project_engage_pathstep_contract.md).
+template.
 
 Hierarchy:
     Entity (~19 fields)
@@ -26,9 +26,6 @@ Field shape vs Task (instance):
       intelligence dicts) is not present — those are populated on the spawned
       Task by user actions, not authored on the template.
 
-See:
-    project_engage_pathstep_contract.md (memory)
-    project_template_relative_offset.md (memory)
 """
 
 from __future__ import annotations

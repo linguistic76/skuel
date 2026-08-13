@@ -19,10 +19,6 @@ route file's api_factory:
 
 These methods delegate to the shared executor used by ``PsEngagementService``
 so the engagement service and the route layer see the same edges.
-
-See:
-    project_pathstep_activity_bridge.md (memory) — bridge contract overview
-    project_pathstep_lifecycle_contract.md (memory) — lifecycle invariants
 """
 
 from __future__ import annotations

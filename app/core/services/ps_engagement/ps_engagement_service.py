@@ -2,7 +2,7 @@
 
 Phase 4 of the PathStep + Activity Templates build.
 
-Surface (matches the contract in project_pathstep_lifecycle_contract.md):
+Surface:
 
     publish_pathstep(ps_uid)             -> Result[PathStep]    # T1
     engage_pathstep(student, ps)         -> Result[Engagement]  # T2

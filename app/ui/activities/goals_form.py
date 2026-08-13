@@ -113,7 +113,7 @@ def GoalCreateForm() -> Any:
     ``guiding_principle_uids``, ``potential_obstacles``, ``strategies``, ``tags``)
     are intentionally omitted — UID-list relationships belong on the detail-page
     relationship picker, and free-text list fields hit the FormGenerator list
-    bug. See: project_form_generator_list_bug.md.
+    bug.
     """
     return render_activity_form(
         domain_slug="goals",

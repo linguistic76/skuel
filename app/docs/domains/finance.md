@@ -183,4 +183,4 @@ build against it.
 - [ADR-052: Firefly III Finance Integration](../decisions/ADR-052-firefly-iii-finance-integration.md) — accounting-side decision
 - [ADR-062: ChargeKeep as the SaaS Billing Layer](../decisions/ADR-062-chargekeep-billing-layer.md) — billing-side decision (Proposed)
 - [ADR-044 § Scope](../decisions/ADR-044-neo4j-committed-architectural-choice.md) — why finance lives outside the Neo4j graph
-- `memory/feedback_leverage_maintained_software.md` — the principle this migration applies
+- `/docs/design-principles/LEVERAGE_MAINTAINED_SOFTWARE.md` — the principle this migration applies

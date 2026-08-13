@@ -75,6 +75,5 @@ These landed *with* their doc updates, so VERIFY rather than assume gaps:
 
 ## Pointers
 - ADR-063 (`docs/decisions/ADR-063-llm-embeddings-sdk-ports.md`) — the W1 decision + scope.
-- Memory: `project_w1_llm_embeddings_ports.md` (W1 details + gotchas), `project_skuel022_import_direction_series.md` (W3).
 - Guard: `tests/unit/test_llm_sdk_boundary.py`.
 - New ports: `core/ports/llm_protocols.py`, `core/ports/embeddings_protocols.py`. New adapters: `adapters/external/llm/`, `adapters/external/embeddings/`.

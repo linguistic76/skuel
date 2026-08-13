@@ -1,6 +1,6 @@
 """_EngagementGateway — manages the (User)-[:ENGAGED_WITH]->(PS) edge.
 
-Edge schema (per project_pathstep_lifecycle_contract.md):
+Edge schema:
 
     (User)-[:ENGAGED_WITH {
         since:        datetime,           # set on engage
