@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --background:0 0% 100%;
+    --foreground:222 47% 11%;
+    --muted:210 40% 96%;
+    --muted-foreground:215 16% 47%;
+    --border:214 32% 91%;
+    --card:0 0% 100%;
+    --primary:221 83% 53%;
+    --primary-foreground:210 40% 98%;
+  }
+  *{box-sizing:border-box;}
+  a{color:hsl(var(--primary));text-decoration:none;}
+  a:hover{color:hsl(221 83% 45%);}
+</style>
+</helmet>
+<div style="min-height:100vh;background:hsl(var(--muted)/0.4);font-family:'Inter',system-ui,sans-serif;color:hsl(var(--foreground));-webkit-font-smoothing:antialiased;padding:32px 40px 64px;">
+  <div style="max-width:1240px;margin:0 auto;">
+
+    <!-- Header -->
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:24px;flex-wrap:wrap;margin-bottom:20px;">
+      <div>
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:hsl(var(--muted-foreground));">Calendar</div>
+        <h1 style="margin:6px 0 0;font-size:40px;font-weight:700;letter-spacing:-0.02em;line-height:1;">{{ headerTitle }}</h1>
+      </div>
+      <!-- Legend -->
+      <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding-bottom:4px;">
+        <sc-for list="{{ legend }}" as="lg" hint-placeholder-count="5">
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span style="{{ lg.dotStyle }}"></span>
+            <span style="font-size:11px;font-weight:500;color:hsl(var(--muted-foreground));">{{ lg.label }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <!-- Toolbar -->
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px;">
+      <!-- Segmented view switcher -->
+      <div style="display:inline-flex;padding:3px;background:hsl(var(--muted));border:1px solid hsl(var(--border));border-radius:9px;">
+        <button onClick="{{ viewDay }}" style="{{ segDayStyle }}">Day</button>
+        <button onClick="{{ viewWeek }}" style="{{ segWeekStyle }}">Week</button>
+        <button onClick="{{ viewMonth }}" style="{{ segMonthStyle }}">Month</button>
+      </div>
+      <!-- Nav cluster -->
+      <div style="display:flex;align-items:center;gap:8px;">
+        <button onClick="{{ goPrev }}" style="display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 12px;border:1px solid hsl(var(--border));background:hsl(var(--card));border-radius:8px;font-size:13px;font-weight:500;color:hsl(var(--foreground));cursor:pointer;" style-hover="background:hsl(var(--muted));">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+          <span>{{ prevLabel }}</span>
+        </button>
+        <button onClick="{{ goToday }}" style="height:34px;padding:0 16px;border:1px solid hsl(var(--primary));background:hsl(var(--primary));border-radius:8px;font-size:13px;font-weight:600;color:hsl(var(--primary-foreground));cursor:pointer;">Today</button>
+        <button onClick="{{ goNext }}" style="display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 12px;border:1px solid hsl(var(--border));background:hsl(var(--card));border-radius:8px;font-size:13px;font-weight:500;color:hsl(var(--foreground));cursor:pointer;" style-hover="background:hsl(var(--muted));">
+          <span>{{ nextLabel }}</span>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+        </button>
+        <div style="width:1px;height:22px;background:hsl(var(--border));margin:0 4px;"></div>
+        <a href="{{ monthlyNoteHref }}" title="Open monthly note" style="display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 13px;border:1px solid hsl(var(--border));background:hsl(var(--card));border-radius:8px;font-size:13px;font-weight:500;color:hsl(var(--foreground));cursor:pointer;white-space:nowrap;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg>
+          <span>Monthly note</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- ============ MONTH VIEW ============ -->
+    <sc-if value="{{ isMonth }}" hint-placeholder-val="{{ true }}">
+      <div style="border:1px solid hsl(var(--border));border-radius:12px;overflow:hidden;background:hsl(var(--card));box-shadow:0 1px 3px rgba(0,0,0,0.04);">
+        <!-- Weekday header -->
+        <div style="display:grid;grid-template-columns:46px repeat(7,minmax(0,1fr));background:hsl(var(--muted)/0.5);">
+          <div style="display:flex;align-items:center;justify-content:center;padding:11px 0;font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:hsl(var(--muted-foreground));border-bottom:1px solid hsl(var(--border));border-right:1px solid hsl(var(--border));">Wk</div>
+          <sc-for list="{{ weekdays }}" as="wd" hint-placeholder-count="7">
+            <div style="{{ wd.style }}">{{ wd.label }}</div>
+          </sc-for>
+        </div>
+        <!-- Week rows -->
+        <sc-for list="{{ weeks }}" as="week" hint-placeholder-count="5">
+          <div style="display:grid;grid-template-columns:46px repeat(7,minmax(0,1fr));">
+            <a href="{{ week.weekHref }}" title="{{ week.weekTitle }}" style="display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:11px;color:hsl(var(--muted-foreground));border-right:1px solid hsl(var(--border));border-bottom:1px solid hsl(var(--border));background:hsl(var(--muted)/0.25);" style-hover="color:hsl(var(--primary));background:hsl(var(--muted)/0.6);">{{ week.weekNum }}</a>
+            <sc-for list="{{ week.days }}" as="day" hint-placeholder-count="7">
+              <div style="{{ day.cellStyle }}">
+                <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;min-height:24px;">
+                  <sc-if value="{{ day.isToday }}">
+                    <a href="{{ day.dailyHref }}" title="Daily note" style="display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:24px;padding:0 6px;border-radius:9999px;background:hsl(var(--primary));color:hsl(var(--primary-foreground));font-size:12px;font-weight:700;">{{ day.dayNum }}</a>
+                  </sc-if>
+                  <sc-if value="{{ day.notToday }}" hint-placeholder-val="{{ true }}">
+                    <a href="{{ day.dailyHref }}" title="Daily note" style="{{ day.numStyle }}">{{ day.dayNum }}</a>
+                  </sc-if>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:3px;">
+                  <sc-for list="{{ day.events }}" as="ev" hint-placeholder-count="2">
+                    <div onClick="{{ ev.open }}" title="{{ ev.title }}" style="{{ ev.chipStyle }}" style-hover="box-shadow:0 2px 5px rgba(0,0,0,0.12);transform:translateY(-1px);">
+                      <span style="{{ ev.dotStyle }}"></span>
+                      <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ ev.title }}</span>
+                    </div>
+                  </sc-for>
+                  <sc-if value="{{ day.showMore }}">
+                    <div style="font-size:11px;font-weight:500;color:hsl(var(--muted-foreground));padding:1px 6px;cursor:default;">{{ day.moreLabel }}</div>
+                  </sc-if>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <!-- ============ WEEK VIEW ============ -->
+    <sc-if value="{{ isWeek }}">
+      <div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:10px;">
+        <sc-for list="{{ weekDays }}" as="wd" hint-placeholder-count="7">
+          <div style="border:1px solid hsl(var(--border));border-radius:11px;overflow:hidden;background:hsl(var(--card));min-height:360px;display:flex;flex-direction:column;">
+            <a href="{{ wd.dailyHref }}" style="{{ wd.headStyle }}">
+              <span style="font-size:10px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;opacity:0.75;">{{ wd.dow }}</span>
+              <span style="font-size:18px;font-weight:700;">{{ wd.dayNum }}</span>
+            </a>
+            <div style="padding:8px;display:flex;flex-direction:column;gap:6px;flex:1;">
+              <sc-for list="{{ wd.events }}" as="ev" hint-placeholder-count="1">
+                <div onClick="{{ ev.open }}" style="{{ ev.chipStyleLg }}" style-hover="box-shadow:0 2px 6px rgba(0,0,0,0.1);">
+                  <div style="display:flex;align-items:center;gap:6px;">
+                    <span style="{{ ev.dotStyle }}"></span>
+                    <span style="font-size:12.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ ev.title }}</span>
+                  </div>
+                  <div style="font-size:11px;color:hsl(var(--muted-foreground));font-family:'JetBrains Mono',monospace;margin-top:3px;">{{ ev.timeLabel }}</div>
+                </div>
+              </sc-for>
+              <sc-if value="{{ wd.empty }}">
+                <div style="font-size:12px;color:hsl(var(--muted-foreground));opacity:0.6;padding:6px;">No events</div>
+              </sc-if>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <!-- ============ DAY VIEW ============ -->
+    <sc-if value="{{ isDay }}">
+      <div style="max-width:760px;">
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <sc-for list="{{ dayEvents }}" as="ev" hint-placeholder-count="3">
+            <div onClick="{{ ev.open }}" style="display:flex;gap:16px;align-items:stretch;cursor:pointer;">
+              <div style="width:72px;flex:none;text-align:right;padding-top:14px;font-family:'JetBrains Mono',monospace;font-size:12px;color:hsl(var(--muted-foreground));">{{ ev.startLabel }}</div>
+              <div style="flex:1;{{ ev.dayCardStyle }}" style-hover="box-shadow:0 3px 10px rgba(0,0,0,0.08);">
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <span style="{{ ev.dotStyle }}"></span>
+                  <span style="font-size:15px;font-weight:600;">{{ ev.title }}</span>
+                  <span style="{{ ev.pillStyle }}">{{ ev.typeLabel }}</span>
+                </div>
+                <div style="font-size:12.5px;color:hsl(var(--muted-foreground));font-family:'JetBrains Mono',monospace;margin-top:4px;">{{ ev.timeLabel }}</div>
+                <sc-if value="{{ ev.hasDesc }}">
+                  <div style="font-size:13px;color:hsl(var(--muted-foreground));margin-top:6px;line-height:1.5;">{{ ev.desc }}</div>
+                </sc-if>
+              </div>
+            </div>
+          </sc-for>
+          <sc-if value="{{ dayEmpty }}">
+            <div style="text-align:center;padding:64px 24px;color:hsl(var(--muted-foreground));">
+              <div style="font-size:16px;font-weight:600;color:hsl(var(--foreground));margin-bottom:6px;">Nothing scheduled</div>
+              <div style="font-size:13px;">This day is clear.</div>
+            </div>
+          </sc-if>
+        </div>
+      </div>
+    </sc-if>
+
+  </div>
+
+  <!-- ============ DETAIL MODAL ============ -->
+  <sc-if value="{{ hasModal }}">
+    <div onClick="{{ closeModal }}" style="position:fixed;inset:0;z-index:40;background:hsl(var(--foreground)/0.4);display:flex;align-items:center;justify-content:center;padding:24px;">
+      <div onClick="{{ stop }}" style="width:100%;max-width:460px;background:hsl(var(--background));border:1px solid hsl(var(--border));border-radius:14px;box-shadow:0 20px 50px rgba(0,0,0,0.25);overflow:hidden;">
+        <div style="padding:22px 22px 18px;">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span style="{{ modal.dotStyle }}"></span>
+              <span style="{{ modal.pillStyle }}">{{ modal.typeLabel }}</span>
+            </div>
+            <button onClick="{{ closeModal }}" aria-label="Close" style="width:30px;height:30px;border:none;background:transparent;border-radius:7px;cursor:pointer;color:hsl(var(--muted-foreground));display:inline-flex;align-items:center;justify-content:center;" style-hover="background:hsl(var(--muted));">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+            </button>
+          </div>
+          <h2 style="margin:0;font-size:21px;font-weight:700;letter-spacing:-0.01em;line-height:1.25;">{{ modal.title }}</h2>
+          <div style="margin-top:16px;background:hsl(var(--muted)/0.6);border-radius:10px;padding:14px;">
+            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:hsl(var(--muted-foreground));margin-bottom:5px;">Schedule</div>
+            <div style="font-size:13.5px;font-weight:500;">{{ modal.dateText }}</div>
+            <div style="font-size:13px;color:hsl(var(--muted-foreground));font-family:'JetBrains Mono',monospace;margin-top:3px;">{{ modal.timeText }}</div>
+          </div>
+          <sc-if value="{{ modal.hasWhere }}">
+            <div style="display:flex;align-items:center;gap:8px;margin-top:12px;font-size:13px;color:hsl(var(--muted-foreground));">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+              <span>{{ modal.where }}</span>
+            </div>
+          </sc-if>
+          <sc-if value="{{ modal.hasDesc }}">
+            <div style="margin-top:14px;">
+              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:hsl(var(--muted-foreground));margin-bottom:5px;">Details</div>
+              <p style="margin:0;font-size:13.5px;line-height:1.55;color:hsl(var(--foreground)/0.85);">{{ modal.desc }}</p>
+            </div>
+          </sc-if>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;padding:14px 22px;border-top:1px solid hsl(var(--border));background:hsl(var(--muted)/0.3);">
+          <button onClick="{{ closeModal }}" style="height:36px;padding:0 16px;border:1px solid hsl(var(--border));background:hsl(var(--card));border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;color:hsl(var(--foreground));">Close</button>
+          <a href="{{ modal.editHref }}" style="height:36px;padding:0 16px;border:1px solid hsl(var(--primary));background:hsl(var(--primary));border-radius:8px;font-size:13px;font-weight:600;color:hsl(var(--primary-foreground));display:inline-flex;align-items:center;white-space:nowrap;">{{ modal.editLabel }}</a>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1240,&quot;height&quot;:900}}">
+class Component extends DCLogic {
+  state = { year: 2026, month: 7, view: 'month', refDate: '2026-07-12', openId: null };
+
+  TODAY = '2026-07-12';
+  MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  MSHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  DOWLONG = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+
+  TYPES = {
+    event:    { label: 'Event',    color: '#2563eb' },
+    task:     { label: 'Task',     color: '#6366f1' },
+    deadline: { label: 'Deadline', color: '#e11d48' },
+    habit:    { label: 'Habit',    color: '#16a34a' },
+    milestone:{ label: 'Milestone',color: '#9333ea' },
+  };
+
+  EVENTS = [
+    { id:'e1', title:'Van on Monday morning', type:'event', date:'2026-07-01', time:'08:00', end:'09:00', location:'Depot', desc:'Pick up the van before the morning rush.' },
+    { id:'e2', title:'Van for Joffe', type:'event', date:'2026-07-01', time:'11:00', end:'12:00', location:'', desc:'' },
+    { id:'e3', title:'Van on Monday', type:'event', date:'2026-07-01', time:'15:00', end:'16:00', location:'', desc:'' },
+    { id:'e4', title:'Weekly reflection', type:'task', date:'2026-07-12', time:'21:00', end:'21:20', location:'', desc:'Review the week, capture what mattered.' },
+    { id:'e5', title:'Events review', type:'event', date:'2026-07-04', time:'09:30', end:'10:30', location:'', desc:'Go over the events backlog.' },
+    { id:'e6', title:'Leave for Van', type:'event', date:'2026-07-04', time:'12:00', end:'12:30', location:'', desc:'' },
+    { id:'e7', title:'Meeting for Joffe', type:'event', date:'2026-07-04', time:'14:00', end:'15:00', location:'Room 2', desc:'' },
+    { id:'e8', title:'Packing checklist', type:'task', date:'2026-07-04', time:'17:00', end:'17:30', location:'', desc:'' },
+    { id:'e9', title:'Identify what matters', type:'deadline', date:'2026-07-11', time:'', end:'', location:'', desc:'Deadline: define the quarter priorities.' },
+    { id:'e10', title:'Morning sit · 20m', type:'habit', date:'2026-07-02', time:'07:30', end:'07:50', location:'', desc:'Daily meditation.' },
+    { id:'e11', title:'ADR-021 proposal', type:'milestone', date:'2026-07-08', time:'10:00', end:'11:00', location:'', desc:'Milestone: land the event-sourcing decision.' },
+    { id:'e12', title:'Dentist', type:'event', date:'2026-07-15', time:'13:00', end:'14:00', location:'Clinic', desc:'' },
+    { id:'e13', title:'Sprint planning', type:'event', date:'2026-07-20', time:'10:00', end:'11:30', location:'', desc:'' },
+    { id:'e14', title:'Ship v2', type:'deadline', date:'2026-07-20', time:'', end:'', location:'', desc:'Release cut-off.' },
+    { id:'e15', title:'1:1 with mentor', type:'event', date:'2026-07-23', time:'16:00', end:'16:45', location:'', desc:'' },
+    { id:'e16', title:'Quarterly review', type:'milestone', date:'2026-07-28', time:'09:00', end:'12:00', location:'HQ', desc:'End-of-quarter checkpoint.' },
+  ];
+
+  // ---- helpers ----
+  pad(n){ return String(n).padStart(2,'0'); }
+  iso(d){ return `${d.getFullYear()}-${this.pad(d.getMonth()+1)}-${this.pad(d.getDate())}`; }
+  parse(s){ const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); }
+  hexRgba(hex,a){ const h=hex.replace('#',''); const r=parseInt(h.slice(0,2),16),g=parseInt(h.slice(2,4),16),b=parseInt(h.slice(4,6),16); return `rgba(${r},${g},${b},${a})`; }
+
+  time12(t){
+    if(!t) return '';
+    let [h,m]=t.split(':').map(Number);
+    const ap = h>=12?'PM':'AM'; let hh=h%12; if(hh===0)hh=12;
+    return `${hh}:${this.pad(m)} ${ap}`;
+  }
+  rangeLabel(ev){
+    if(!ev.time) return 'All day';
+    return ev.end ? `${this.time12(ev.time)} – ${this.time12(ev.end)}` : this.time12(ev.time);
+  }
+  startLabel(ev){ return ev.time ? this.time12(ev.time) : 'All day'; }
+
+  isoWeek(d){
+    const t=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));
+    const day=(t.getUTCDay()+6)%7;
+    t.setUTCDate(t.getUTCDate()-day+3);
+    const firstThu=new Date(Date.UTC(t.getUTCFullYear(),0,4));
+    const fday=(firstThu.getUTCDay()+6)%7;
+    firstThu.setUTCDate(firstThu.getUTCDate()-fday+3);
+    const week=1+Math.round((t-firstThu)/(7*86400000));
+    return { year:t.getUTCFullYear(), week };
+  }
+
+  eventsOn(dateStr){
+    return this.EVENTS.filter(e=>e.date===dateStr)
+      .sort((a,b)=>(a.time||'99:99').localeCompare(b.time||'99:99'));
+  }
+
+  dotStyle(color){ return `flex:none;width:8px;height:8px;border-radius:9999px;background:${color};`; }
+  pillStyle(color){ return `display:inline-flex;align-items:center;padding:2px 9px;border-radius:9999px;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;background:${this.hexRgba(color,0.12)};color:${color};`; }
+
+  mkEv(ev){
+    const meta=this.TYPES[ev.type];
+    const color=meta.color;
+    return {
+      id:ev.id, title:ev.title, typeLabel:meta.label,
+      color, dotStyle:this.dotStyle(color), pillStyle:this.pillStyle(color),
+      timeLabel:this.rangeLabel(ev), startLabel:this.startLabel(ev),
+      desc:ev.desc, hasDesc:!!ev.desc,
+      chipStyle:`display:flex;align-items:center;gap:6px;padding:2px 7px;border-radius:6px;font-size:11.5px;font-weight:500;line-height:1.5;color:hsl(var(--foreground));background:${this.hexRgba(color,0.1)};border-left:3px solid ${color};cursor:pointer;transition:box-shadow 0.15s ease,transform 0.15s ease;`,
+      chipStyleLg:`padding:8px 10px;border-radius:8px;background:${this.hexRgba(color,0.1)};border-left:3px solid ${color};cursor:pointer;transition:box-shadow 0.15s ease;`,
+      dayCardStyle:`background:hsl(var(--card));border:1px solid hsl(var(--border));border-left:4px solid ${color};border-radius:10px;padding:14px 16px;`,
+      open:()=>this.setState({ openId:ev.id }),
+    };
+  }
+
+  // ---- month model ----
+  buildWeeks(){
+    const {year,month}=this.state;
+    const first=new Date(year,month-1,1);
+    const startDow=(first.getDay()+6)%7;
+    const gridStart=new Date(year,month-1,1-startDow);
+    const lastDate=new Date(year,month,0).getDate();
+    const last=new Date(year,month-1,lastDate);
+    const endDow=(last.getDay()+6)%7;
+    const total=Math.round((new Date(year,month-1,lastDate+(6-endDow))-gridStart)/86400000)+1;
+    const nWeeks=total/7;
+    const weeks=[];
+    const cur=new Date(gridStart);
+    for(let w=0; w<nWeeks; w++){
+      const {year:iy,week:iw}=this.isoWeek(cur);
+      const days=[];
+      for(let i=0;i<7;i++){
+        const ds=this.iso(cur);
+        const inMonth=(cur.getMonth()===month-1);
+        const isToday=(ds===this.TODAY);
+        const weekend=(i>=5);
+        let bg='background:hsl(var(--background));';
+        let box='';
+        if(isToday){ bg='background:hsl(var(--primary)/0.07);'; box='box-shadow:inset 0 0 0 2px hsl(var(--primary));'; }
+        else if(!inMonth){ bg='background:hsl(var(--muted)/0.5);'; }
+        else if(weekend){ bg='background:hsl(var(--muted)/0.3);'; }
+        const cellStyle=`border-right:1px solid hsl(var(--border));border-bottom:1px solid hsl(var(--border));min-height:120px;padding:6px 7px 9px;position:relative;overflow:hidden;${bg}${box}`;
+        const numStyle=`font-size:13px;font-weight:600;color:${inMonth?'hsl(var(--foreground))':'hsl(var(--muted-foreground)/0.6)'};`;
+        const evs=this.eventsOn(ds);
+        const shown=evs.slice(0,3).map(e=>this.mkEv(e));
+        days.push({
+          dayNum:cur.getDate(), dailyHref:`/journals/daily/${ds}`,
+          isToday, notToday:!isToday, cellStyle, numStyle,
+          events:shown,
+          showMore:evs.length>3, moreLabel:`+${evs.length-3} more`,
+        });
+        cur.setDate(cur.getDate()+1);
+      }
+      weeks.push({ weekNum:iw, weekHref:`/journals/weekly/${iy}/${iw}`, weekTitle:`Weekly note — W${iw}, ${iy}`, days });
+    }
+    return weeks;
+  }
+
+  // ---- week model ----
+  buildWeekDays(){
+    const ref=this.parse(this.state.refDate);
+    const mondayOff=(ref.getDay()+6)%7;
+    const monday=new Date(ref); monday.setDate(ref.getDate()-mondayOff);
+    const out=[];
+    for(let i=0;i<7;i++){
+      const d=new Date(monday); d.setDate(monday.getDate()+i);
+      const ds=this.iso(d);
+      const isToday=(ds===this.TODAY);
+      const evs=this.eventsOn(ds).map(e=>this.mkEv(e));
+      const headStyle=`display:flex;flex-direction:column;gap:1px;padding:10px 12px;border-bottom:1px solid hsl(var(--border));${isToday?'background:hsl(var(--primary));color:hsl(var(--primary-foreground));':'background:hsl(var(--muted)/0.5);color:hsl(var(--foreground));'}`;
+      out.push({ dow:['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][i], dayNum:d.getDate(), dailyHref:`/journals/daily/${ds}`, headStyle, events:evs, empty:evs.length===0 });
+    }
+    return out;
+  }
+
+  weekRangeLabel(){
+    const ref=this.parse(this.state.refDate);
+    const mondayOff=(ref.getDay()+6)%7;
+    const monday=new Date(ref); monday.setDate(ref.getDate()-mondayOff);
+    const sunday=new Date(monday); sunday.setDate(monday.getDate()+6);
+    const a=`${this.MSHORT[monday.getMonth()]} ${monday.getDate()}`;
+    const b=(monday.getMonth()===sunday.getMonth())?`${sunday.getDate()}`:`${this.MSHORT[sunday.getMonth()]} ${sunday.getDate()}`;
+    return `Week of ${a} – ${b}`;
+  }
+
+  // ---- nav ----
+  goPrev(){
+    const s=this.state;
+    if(s.view==='month'){ let m=s.month-1,y=s.year; if(m<1){m=12;y--;} this.setState({month:m,year:y}); }
+    else { const d=this.parse(s.refDate); d.setDate(d.getDate()-(s.view==='week'?7:1)); this.setState({refDate:this.iso(d)}); }
+  }
+  goNext(){
+    const s=this.state;
+    if(s.view==='month'){ let m=s.month+1,y=s.year; if(m>12){m=1;y++;} this.setState({month:m,year:y}); }
+    else { const d=this.parse(s.refDate); d.setDate(d.getDate()+(s.view==='week'?7:1)); this.setState({refDate:this.iso(d)}); }
+  }
+  goToday(){ const t=this.parse(this.TODAY); this.setState({year:t.getFullYear(),month:t.getMonth()+1,refDate:this.TODAY}); }
+  setView(v){ this.setState({view:v,refDate:this.TODAY,year:this.parse(this.TODAY).getFullYear(),month:this.parse(this.TODAY).getMonth()+1}); }
+
+  seg(active){
+    const base='height:28px;padding:0 16px;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;background:transparent;color:hsl(var(--muted-foreground));';
+    return active ? 'height:28px;padding:0 16px;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;background:hsl(var(--card));color:hsl(var(--foreground));box-shadow:0 1px 2px rgba(0,0,0,0.08);' : base;
+  }
+
+  componentDidMount(){ document.addEventListener('keydown', this._onKey=(e)=>{ if(e.key==='Escape'&&this.state.openId) this.setState({openId:null}); }); }
+  componentWillUnmount(){ document.removeEventListener('keydown', this._onKey); }
+
+  renderVals(){
+    const s=this.state;
+    const view=s.view;
+    const isMonth=view==='month', isWeek=view==='week', isDay=view==='day';
+
+    let headerTitle, monthlyNoteHref, prevLabel, nextLabel;
+    if(isMonth){ headerTitle=`${this.MONTHS[s.month-1]} ${s.year}`; prevLabel='Prev'; nextLabel='Next'; }
+    else if(isWeek){ headerTitle=this.weekRangeLabel(); prevLabel='Prev'; nextLabel='Next'; }
+    else { const d=this.parse(s.refDate); headerTitle=`${this.DOWLONG[d.getDay()]}, ${this.MONTHS[d.getMonth()]} ${d.getDate()}`; prevLabel='Prev'; nextLabel='Next'; }
+    monthlyNoteHref=`/journals/monthly/${s.year}/${s.month}`;
+
+    const weekdays=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((label,i)=>({
+      label,
+      style:`text-align:center;padding:11px 0;font-size:12px;font-weight:600;border-bottom:1px solid hsl(var(--border));color:${i>=5?'hsl(var(--muted-foreground))':'hsl(var(--foreground))'};`,
+    }));
+
+    const legend=Object.keys(this.TYPES).map(k=>({
+      label:this.TYPES[k].label,
+      dotStyle:`width:9px;height:9px;border-radius:3px;background:${this.TYPES[k].color};`,
+    }));
+
+    // day view
+    let dayEvents=[], dayEmpty=false;
+    if(isDay){ dayEvents=this.eventsOn(s.refDate).map(e=>this.mkEv(e)); dayEmpty=dayEvents.length===0; }
+
+    // modal
+    const ev = s.openId ? this.EVENTS.find(e=>e.id===s.openId) : null;
+    let modal=null;
+    if(ev){
+      const meta=this.TYPES[ev.type];
+      const d=this.parse(ev.date);
+      const editMap={ event:'Edit event', task:'Edit task', deadline:'Edit task', habit:'Open habit', milestone:'Edit milestone' };
+      const routeMap={ event:'/events', task:'/tasks', deadline:'/tasks', habit:'/habits', milestone:'/milestones' };
+      modal={
+        title:ev.title, typeLabel:meta.label,
+        dotStyle:this.dotStyle(meta.color), pillStyle:this.pillStyle(meta.color),
+        dateText:`${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()]}, ${this.MSHORT[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`,
+        timeText:this.rangeLabel(ev),
+        where:ev.location, hasWhere:!!ev.location,
+        desc:ev.desc, hasDesc:!!ev.desc,
+        editHref:`${routeMap[ev.type]}/${ev.id}/edit`, editLabel:editMap[ev.type],
+      };
+    }
+
+    return {
+      headerTitle, monthlyNoteHref, prevLabel, nextLabel,
+      isMonth, isWeek, isDay,
+      weekdays, legend,
+      weeks: isMonth ? this.buildWeeks() : [],
+      weekDays: isWeek ? this.buildWeekDays() : [],
+      dayEvents, dayEmpty,
+      viewDay:()=>this.setView('day'),
+      viewWeek:()=>this.setView('week'),
+      viewMonth:()=>this.setView('month'),
+      segDayStyle:this.seg(isDay), segWeekStyle:this.seg(isWeek), segMonthStyle:this.seg(isMonth),
+      goPrev:()=>this.goPrev(), goNext:()=>this.goNext(), goToday:()=>this.goToday(),
+      hasModal:!!modal, modal:modal||{},
+      closeModal:()=>this.setState({openId:null}),
+      stop:(e)=>{ e.stopPropagation(); },
+    };
+  }
+}
+</script>
+</body>
+</html>
