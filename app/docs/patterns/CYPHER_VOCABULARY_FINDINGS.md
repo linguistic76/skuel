@@ -490,6 +490,18 @@ not a read repoint. It belongs with the semantic-layer roadmap alongside §9,
 
 Same shape as tranche 3's: a dead read hides what is broken inside it.
 
+> **Historical record — the method names below no longer exist.** The
+> LifePath alignment queries were restructured on 2026-08-12 (see
+> `docs/technical_debt/LIFEPATH_ALIGNMENT_DEBT.md` item 1): the backend now
+> returns mastery and counts under `get_life_path_*` names and
+> `LifePathAlignmentService` does the scoring, while
+> `get_knowledge_substance_stats` was deleted outright — it re-ran the same
+> traversal to band mastery the knowledge dimension already reads. The
+> *findings* below stand; only their sites moved. Note also that the sweep did
+> not catch a fourth bug of the same class in the same queries: habits were
+> matched over `APPLIES_KNOWLEDGE`, which no habit writer emits. SKUEL030 and
+> CYP011 both pass it — the name is registered, just wrong for that tail.
+
 - **`m.mastery_level * 0.6` would have thrown, not zeroed.**
   `LifePathBackend.calculate_knowledge_alignment` weighted `mastery_level`
   arithmetically, but `_AdaptiveMixin` is its only writer and sets the *strings*

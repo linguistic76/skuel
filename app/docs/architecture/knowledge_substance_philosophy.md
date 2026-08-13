@@ -548,6 +548,43 @@ model's honest-leaf-identity guard (G6) — a raise, for exactly the paths a cal
 means to read. Read a designated path through
 `LifePathService.get_life_path_composition`, which is keyed on the property.
 
+### Ruling: the five-dimension metric reads the table too (2026-08-12)
+
+`LifePathAlignmentService.calculate_alignment` — a **separate** metric from the
+one above, five weighted dimensions rather than a substance mean — spelled its
+own substance weights inside Cypher: `0.6 * mastery + 0.05/task + 0.10/habit`.
+That was the **third** hand-copy of this table, and it had already drifted:
+
+- **Four of the six channels were missing.** Events, entries, choices and
+  principles never appeared, so applying life-path knowledge through them was
+  worth nothing.
+- **No per-channel caps.** Ten tasks on one Ku scored 0.50 where the table caps
+  tasks at 0.25.
+- **Habits were read over `APPLIES_KNOWLEDGE`**, which no habit writer emits, so
+  the heaviest channel was worth 0.0 — and the activity dimension *inverted*.
+
+**The weights do not live in Cypher.** The backend returns per-Ku mastery and
+raw counts; `LifePathAlignmentService` scores them, taking substance from
+`user_substance_score` over `get_user_knowledge_channels` — the same unwindowed
+source, the same table, the same caps as the metric above. What stays in the
+service is the part that belongs to *this* metric and not to the table: the
+0.6 mastery share, the five dimension weights, and the momentum bands.
+
+**A level with no evidence scores 0.0.** The four level dimensions (knowledge,
+activity, goal, principle) used a `CASE WHEN total = 0 THEN 0.5` neutral
+default, and that default is what made the inversion *possible* — it gave an
+inactive learner a score to fall from. Momentum keeps a neutral 0.5: it measures
+a rate of change, where "no data" genuinely means "no trend" rather than "no
+progress". Any stored `ULTIMATE_PATH.alignment_score` predating 2026-08-12 is on
+the old basis and is not comparable to one recorded after.
+
+**Three metrics share the name "life path alignment"**, and no two share code:
+this one, `AnalyticsLifePathService.calculate_life_path_alignment` (above), and
+`core/services/user/intelligence/life_path_intelligence.py`, an in-memory
+calculator over `RichUserContext` that reuses the same five dimension names and
+25/25/20/15/15 weights but scores them from learning-goal prerequisites. Check
+which one a caller means before comparing numbers.
+
 ---
 
 ## Implementation Files
@@ -556,7 +593,8 @@ means to read. Read a designated path through
 |-----------|----------|---------|
 | **Substance Fields** | `/core/models/curriculum.py` | Substance fields + methods on `Curriculum` base class (the GLOBAL figure) |
 | **Decay Algorithm** | `/core/models/curriculum.py` | Exponential decay, spaced repetition (global only — see Per-User Substance) |
-| **Per-User Weight Table** | `/core/services/knowledge/user_substance.py` | THE six-channel table + pure scoring; read by both intelligence services, the Layer-0 metric, and life-path alignment |
+| **Per-User Weight Table** | `/core/services/knowledge/user_substance.py` | THE six-channel table + pure scoring; read by both intelligence services, the Layer-0 metric, and BOTH graph-backed life-path alignment metrics |
+| **Five-Dimension Alignment** | `/core/services/lifepath/lifepath_alignment_service.py` | Owns all five dimensions' scoring policy — ratios, weights, momentum bands, the no-data rule. The backend returns counts and mastery only |
 | **Life Path Composition** | `/adapters/persistence/neo4j/lifepath_backend.py` | `get_life_path_composition()` — HAS_STEP traversal, keyed on `entity_type` (a designated path keeps its `:LearningPath` label) |
 | **Domain Events** | `/core/events/knowledge_substance_events.py` | 9 substance events (5 channels; task/habit/choice also have bulk forms) |
 | **Event Handlers** | `/core/services/ps_service.py` | `PsService.increment_substance_metric()` |
