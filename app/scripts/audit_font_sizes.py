@@ -50,11 +50,32 @@ from quality_discovery import iter_python_files  # type: ignore[import-not-found
 # tests/ and scripts/ may quote arbitrary class strings freely.
 EXTRA_EXCLUDED_DIR_NAMES: frozenset[str] = frozenset({"scripts", "tests"})
 
-# Arbitrary font-size literal, with any variant prefixes (sm:, dark:, hover:…)
-# and function-valued sizes (clamp()/calc()/min()/max() — Codex, PR #1057).
-# Excludes arbitrary colors/vars (text-[#fff], text-[var(--x)]) — those are
-# not font sizes.
-ARBITRARY_FONT_SIZE = re.compile(r"(?:[\w-]+:)*text-\[(?:[\d.]|clamp\(|calc\(|min\(|max\()")
+# Any arbitrary text-[...] value, with variant prefixes (sm:, dark:, hover:…).
+# `text-*` is ambiguous (font-size OR color), and enumerating size spellings
+# proved unwinnable (digits, clamp, calc, min, max, round, length: hints, … —
+# Codex, PR #1057 rounds 2-3) — so the match is generic and the CLOSED set,
+# color payloads, is excluded below.
+ARBITRARY_TEXT = re.compile(r"(?:[\w-]+:)*text-\[([^\]\s]+)\]")
+
+# Payloads that compile to `color`, not `font-size`: explicit color: hint,
+# hex, color functions, bare var() (un-hinted vars on text-* resolve to
+# color; a length:var(--x) hint IS a font size and is deliberately not here),
+# and the color-ish keywords. Named colors (text-[red]) are not excluded —
+# the house bans raw colors anyway (semantic tokens rule), so a false
+# positive there is a report worth reading, and the allowlist can absorb a
+# deliberate one.
+COLOR_PAYLOAD = re.compile(
+    r"^(?:color:|#|(?:rgb|rgba|hsl|hsla|hwb|lab|lch|oklab|oklch|color|color-mix|light-dark)\(|var\(|currentcolor$|transparent$|inherit$)",
+    re.IGNORECASE,
+)
+
+
+def _iter_size_matches(text: str) -> Iterator[re.Match[str]]:
+    """Arbitrary text-[...] matches whose payload is a font size, not a color."""
+    for match in ARBITRARY_TEXT.finditer(text):
+        if not COLOR_PAYLOAD.match(match.group(1)):
+            yield match
+
 
 # ---------------------------------------------------------------------------
 # Exception ledger — permanent arbitrary sites, pinned by exact match count
@@ -93,9 +114,7 @@ def _find_matches(source: str) -> list[tuple[int, str]]:
     for node in ast.walk(tree):
         if not isinstance(node, ast.Constant) or not isinstance(node.value, str):
             continue
-        matches.extend(
-            (node.lineno, match.group(0)) for match in ARBITRARY_FONT_SIZE.finditer(node.value)
-        )
+        matches.extend((node.lineno, match.group(0)) for match in _iter_size_matches(node.value))
     return matches
 
 
@@ -103,7 +122,7 @@ def _find_matches_text(source: str) -> list[tuple[int, str]]:
     """Raw-text scan (JS) — line numbers computed from match offsets."""
     return [
         (source.count("\n", 0, match.start()) + 1, match.group(0))
-        for match in ARBITRARY_FONT_SIZE.finditer(source)
+        for match in _iter_size_matches(source)
     ]
 
 

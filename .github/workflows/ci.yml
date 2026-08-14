@@ -331,7 +331,9 @@ jobs:
     # cypher too (Codex, PR #701): keeps a Cypher-only PR inside the lint job.
     # cypher_linter.py lints standalone .cypher files (indexes, migrations,
     # bulk-upsert templates) since 2026-07, so this filter is load-bearing.
-    if: needs.changes.outputs.py == 'true' || needs.changes.outputs.cypher == 'true'
+    # js too (Codex, PR #1057): audit_font_sizes.py scans static/js/*.js — a
+    # Tailwind @source tree — so a JS-only PR must still run the lint job.
+    if: needs.changes.outputs.py == 'true' || needs.changes.outputs.cypher == 'true' || needs.changes.outputs.js == 'true'
     runs-on: ubuntu-latest
     # Pin every uv command in this job to the committed lock (see the mypy job
     # for the full note). `uv run` re-locks just like `uv sync`, so the flag on
