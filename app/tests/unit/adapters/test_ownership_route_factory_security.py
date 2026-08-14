@@ -44,11 +44,6 @@ def _raise_401(request: object) -> str:
     raise HTTPException(401, "Authentication required")
 
 
-@pytest.fixture(autouse=True)
-def _csrf_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "true")
-
-
 def _make_client(
     monkeypatch: pytest.MonkeyPatch,
     *,

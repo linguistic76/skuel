@@ -29,11 +29,6 @@ def _fake_auth(request: object) -> str:
     return _USER_UID
 
 
-@pytest.fixture(autouse=True)
-def _csrf_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "true")
-
-
 def _transcription() -> MagicMock:
     entity = MagicMock()
     entity.to_dict.return_value = {"uid": _TRANSCRIPTION_UID, "status": "pending"}

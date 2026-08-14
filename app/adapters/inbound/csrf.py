@@ -29,17 +29,6 @@ Mint exemption
 Static assets, manifest, service worker, and favicon never mint a new cookie
 — the preload scanner and SW install race the HTML response, and a cookieless
 subresource minting a replacement would desync the form/cookie pair.
-
-Rollout
--------
-`SKUEL_CSRF_ENFORCE=false` disables verification while leaving token issuance
-in place. Default is `true` for new installs. The flag is a revert lever for
-the 88-route cutover, not a permanent knob — delete after staging is green.
-
-**Production override:** when ``SKUEL_ENVIRONMENT=production`` the flag is
-ignored and CSRF is always enforced, regardless of ``SKUEL_CSRF_ENFORCE``.
-
-See: `docs/roadmap/security-hardening-deferred.md` § 8 — the removal is tracked there.
 """
 
 from __future__ import annotations
@@ -72,7 +61,6 @@ CSRF_COOKIE_NAME = "csrf_token"
 CSRF_HEADER_NAME = "X-CSRF-Token"
 # CSRF_FORM_FIELD lives in core/utils/csrf_token_context.py (the render
 # surface UI form builders read) — imported above so verify stays in sync.
-CSRF_ENFORCE_ENV = "SKUEL_CSRF_ENFORCE"
 CSRF_TOKEN_BYTES = 32
 CSRF_COOKIE_MAX_AGE = 60 * 60 * 24 * 30  # match session max_age
 
@@ -92,11 +80,6 @@ _MINT_EXEMPT_PATHS: frozenset[str] = frozenset(
 
 def _is_mint_exempt(path: str) -> bool:
     return path in _MINT_EXEMPT_PATHS or path.startswith(_MINT_EXEMPT_PREFIXES)
-
-
-def is_csrf_enforced() -> bool:
-    """Enforcement flag — default True; set SKUEL_CSRF_ENFORCE=false to disable."""
-    return os.getenv(CSRF_ENFORCE_ENV, "true").strip().lower() not in ("false", "0", "no")
 
 
 def _is_production() -> bool:
@@ -239,17 +222,13 @@ def _forbidden_response(reason: str = "invalid") -> JSONResponse:
 def csrf_protected(func: Callable[..., Awaitable[Any]]) -> Callable[..., Awaitable[Any]]:
     """Reject state-changing requests that lack a matching CSRF token.
 
-    GET/HEAD/OPTIONS pass through unchecked. When ``SKUEL_CSRF_ENFORCE=false``
-    the decorator is a no-op in non-production environments — useful for the
-    transition commit that lands this module before all 88 POST routes are
-    wired. Production always enforces regardless of the flag.
+    GET/HEAD/OPTIONS pass through unchecked; every other method is verified
+    unconditionally, in every environment.
     """
 
     @wraps(func)
     async def wrapper(request: Request, *args: Any, **kwargs: Any) -> Any:
         if request.method in _SAFE_METHODS:
-            return await func(request, *args, **kwargs)
-        if not is_csrf_enforced() and not _is_production():
             return await func(request, *args, **kwargs)
         ok, reason = await verify_csrf(request)
         if not ok:
@@ -269,7 +248,6 @@ __all__ = [
     "CSRFMiddleware",
     "csrf_protected",
     "get_csrf_token",
-    "is_csrf_enforced",
     "mint_token",
     "verify_csrf",
 ]

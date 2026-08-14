@@ -44,11 +44,6 @@ def _fake_session_user(request: object) -> str:
     return _OWNER_UID
 
 
-@pytest.fixture(autouse=True)
-def _csrf_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "true")
-
-
 def _owned_goal() -> Goal:
     return Goal(uid=_GOAL_UID, title="Pinned goal", user_uid=_OWNER_UID)
 

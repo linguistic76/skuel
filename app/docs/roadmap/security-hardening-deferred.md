@@ -283,53 +283,28 @@ Two pieces deliberately remain:
 
 ---
 
-## 8. `SKUEL_CSRF_ENFORCE` — delete the revert lever
+## 8. `SKUEL_CSRF_ENFORCE` — delete the revert lever — ✅ CLOSED (2026-08-13)
 
-**Reconstructed 2026-08-13** from `/adapters/inbound/csrf.py`, whose module docstring carried
-the only surviving record of this commitment. The `plans/` document it cited no longer exists.
+The flag was a revert lever for the CSRF route cutover ("delete after staging is green"),
+not a permanent knob. Production always ignored it; it was declared in no `.env.example`,
+compose file, or `.env.production`; and the cutover it hedged had grown from 88 to 184
+`@csrf_protected` routes.
 
-`SKUEL_CSRF_ENFORCE=false` disables CSRF verification while leaving token issuance in place.
-It was a **revert lever for the route cutover, not a permanent knob** — the docstring's own
-words: "delete after staging is green."
+Closed in two PRs:
 
-**What the code shows today:**
+1. **PR #1049** cleared the test-affordance dependency — the 15 suites that set the flag
+   `false` to POST without a token now mint real cookie+header pairs via
+   `tests/fixtures/csrf.py` (`attach_csrf`), so verification runs for real in front of
+   every route-test assertion.
+2. **This removal** deleted `CSRF_ENFORCE_ENV`, `is_csrf_enforced()`, the bypass branch in
+   `csrf_protected`, the flag-semantics tests, and every now-dead
+   `SKUEL_CSRF_ENFORCE=true` setenv. `@csrf_protected` now verifies unsafe methods
+   unconditionally, in every environment;
+   `tests/unit/adapters/test_csrf.py::TestEnforcementIsUnconditional` guards against an
+   environment-gated bypass being reintroduced.
 
-- Default is `true` (`is_csrf_enforced()`); only `false` / `0` / `no` disable it.
-- **Production ignores the flag entirely.** When `SKUEL_ENVIRONMENT=production`, CSRF is
-  always enforced regardless of the flag, so it affects local and dev only.
-- The cutover it hedged has more than doubled since: **184 `@csrf_protected` routes** today,
-  against the 88 the original note described.
-- It is declared in **no** `.env.example`, compose file, or `.env.production` — it lives only
-  in code and the `security` skill doc. An undeclared knob.
-
-**The test-affordance dependency is cleared (2026-08-13).** It was the actual reason the flag
-survived — 15 test files set it `false` so route tests could POST without minting a token.
-Those suites now mint real tokens instead: `tests/fixtures/csrf.py` (`attach_csrf`) puts a
-matching cookie+header pair on the request stubs and each migrated suite pins enforcement ON,
-so real verification runs in front of every route-test assertion. The only remaining `false`
-sites are the flag's own semantics tests (`tests/unit/adapters/test_csrf.py`,
-`tests/integration/test_csrf_end_to_end.py::TestEnforcementOff`) — they reference
-`CSRF_ENFORCE_ENV` and are deleted with the flag. The `true` sites merely pin the default and
-sweep with the removal.
-
-**The argument for doing it now** (Codex, PR #1044): a roadmap item that preserves an obsolete
-alternative path until some future edit **is** a deprecation period, which One Path Forward
-forbids. The counter-argument was fixture scope — now cleared (see above).
-
-**⚠ Do NOT delete `_is_production()`.** It has two callers and only one is the bypass:
-
-| Call site | Purpose | On flag removal |
-|---|---|---|
-| `csrf.py` `secure=_is_production()` | the CSRF cookie's **`Secure` attribute** | **KEEP — independently load-bearing** |
-| `csrf.py` `if not is_csrf_enforced() and not _is_production():` | the enforcement bypass | delete this call |
-
-Removing `_is_production()` outright would strip `Secure` from the CSRF cookie in production.
-
-**Do when**: next appetite — the fixture rework is done, so this is now the small PR the
-original note imagined. Delete `CSRF_ENFORCE_ENV`, `is_csrf_enforced()`, its `__all__` entry,
-and the bypass condition; drop the flag-semantics tests (grep `CSRF_ENFORCE_ENV` under
-`tests/`) and the now-redundant `SKUEL_CSRF_ENFORCE=true` setenvs; keep `_is_production()`
-for the cookie attribute.
+`_is_production()` was deliberately kept — its surviving call site is the CSRF cookie's
+`Secure` attribute (`secure=_is_production()`), which is independent of enforcement.
 
 ---
 
@@ -346,7 +321,7 @@ Status as of 2026-07-24 (public-launch hardening shipped in PR #794); item 8 add
 | 5 | **Session rotation** | ✅ Done (2026-07-24) — revocation on role change/deactivation + per-request graph-session enforcement |
 | 6 | **CAPTCHA** | Open — only if automated sign-up abuse occurs despite the invite gate |
 | 7 | **Security headers** | ✅ Done (PR #794) — CSP promotion + Caddy HSTS remain |
-| 8 | **CSRF flag removal** | Open — production already ignores the flag; the 15-fixture dependency was cleared 2026-08-13 (real-token helper `tests/fixtures/csrf.py`), so removal is now the small delete § 8 describes |
+| 8 | **CSRF flag removal** | ✅ Closed (2026-08-13) — flag, bypass, and dead setenvs deleted; CSRF verified unconditionally; `_is_production()` kept for the cookie's `Secure` attribute |
 
 ---
 

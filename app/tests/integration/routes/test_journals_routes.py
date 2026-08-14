@@ -33,13 +33,6 @@ from tests.fixtures.csrf import attach_csrf
 
 
 @pytest.fixture(autouse=True)
-def _enforce_csrf(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Pin ``@csrf_protected`` enforcement ON — the request stubs carry a
-    real minted token pair (attach_csrf), so verification runs for real."""
-    monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "true")
-
-
-@pytest.fixture(autouse=True)
 def _reset_rate_limiter() -> None:
     """Clear the module-global rate-limit buckets so per-user counts don't leak
     across tests (many handlers here share ``@rate_limited`` on ``user_mike``)."""

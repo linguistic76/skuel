@@ -31,12 +31,11 @@ def _fake_require_authenticated_user(request: object) -> str:
 
 
 @pytest.fixture(autouse=True)
-def _auth_and_csrf_env(monkeypatch: pytest.MonkeyPatch):
+def _auth_and_quota_env(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(
         "adapters.inbound.journals_routes.require_authenticated_user",
         _fake_require_authenticated_user,
     )
-    monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "true")
     # The journals AI gate records daily-quota units per request — clean
     # buckets so tests never accumulate against the shared _USER_UID.
     reset_buckets_for_testing()

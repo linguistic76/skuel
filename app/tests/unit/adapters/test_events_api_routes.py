@@ -51,11 +51,6 @@ def _fake_auth(request: object) -> str:
     return _USER_UID
 
 
-@pytest.fixture(autouse=True)
-def _csrf_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "true")
-
-
 def _make_services() -> tuple[MagicMock, MagicMock]:
     events_service = MagicMock()
     events_service.verify_ownership = AsyncMock(return_value=Result.ok(True))

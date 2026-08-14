@@ -55,8 +55,8 @@ AUTHORED_RESOURCES = "one mentor plus a rowing machine"
 def _make_request(user_uid: str | None = OWNER, method: str = "GET") -> Any:
     """Session-backed request stub that also satisfies ``@csrf_protected``.
 
-    The cookie/header pair is minted from the real ``csrf`` module, so these
-    tests pass whether or not ``SKUEL_CSRF_ENFORCE`` is set in the environment.
+    The cookie/header pair is minted from the real ``csrf`` module, so
+    verification runs for real.
     """
     token = mint_token()
     return SimpleNamespace(

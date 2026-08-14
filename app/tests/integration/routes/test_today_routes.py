@@ -63,12 +63,6 @@ def _make_request(
     return attach_csrf(request) if csrf else request
 
 
-@pytest.fixture(autouse=True)
-def _enforce_csrf(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Pin ``@csrf_protected`` enforcement ON — the request stubs verify for real."""
-    monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "true")
-
-
 def _make_task(
     uid: str = "task_001",
     due: date | None = None,

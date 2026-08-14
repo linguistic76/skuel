@@ -36,8 +36,7 @@ def _fake_auth(request: object) -> str:
 
 
 @pytest.fixture(autouse=True)
-def _csrf_env(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "true")
+def _reset_quota_buckets():
     # folder-transcribe records daily-quota units — clean buckets so tests
     # never accumulate against the shared _USER_UID.
     reset_buckets_for_testing()

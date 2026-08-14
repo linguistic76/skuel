@@ -26,13 +26,6 @@ from core.utils.result_simplified import Errors, Result
 from tests.fixtures.csrf import attach_csrf
 
 
-@pytest.fixture(autouse=True)
-def _enforce_csrf(monkeypatch: pytest.MonkeyPatch) -> None:
-    """``csrf_protected`` reads env at call time — pin enforcement ON so the
-    request stubs (which carry a real minted token pair) verify for real."""
-    monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "true")
-
-
 class _RouteRegistry:
     """Capture handlers registered via ``@rt(path, methods=...)``."""
 

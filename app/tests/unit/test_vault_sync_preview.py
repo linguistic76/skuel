@@ -282,13 +282,6 @@ class TestVaultPreview:
 # ---------------------------------------------------------------------------
 
 
-@pytest.fixture(autouse=True)
-def _enforce_csrf(monkeypatch) -> None:
-    """csrf_protected reads env at call time — pin enforcement ON; the
-    request stubs carry a real minted token pair (attach_csrf)."""
-    monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "true")
-
-
 class _RouteRegistry:
     """Capture handlers registered via @rt(path, methods=...)."""
 

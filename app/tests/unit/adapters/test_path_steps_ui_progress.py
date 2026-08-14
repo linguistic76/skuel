@@ -45,7 +45,7 @@ def _fake_require_authenticated_user(request: object) -> str:
 
 
 @pytest.fixture(autouse=True)
-def _auth_and_csrf_env(monkeypatch: pytest.MonkeyPatch) -> None:
+def _auth_env(monkeypatch: pytest.MonkeyPatch) -> None:
     # Auth: the handlers call require_authenticated_user(request), which reads
     # request.session (SessionMiddleware). Patch it at the import site so the
     # harness stays Neo4j/login-free. CSRF is NOT patched — enforced for real.
@@ -53,7 +53,6 @@ def _auth_and_csrf_env(monkeypatch: pytest.MonkeyPatch) -> None:
         "adapters.inbound.path_steps_ui.require_authenticated_user",
         _fake_require_authenticated_user,
     )
-    monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "true")
 
 
 def _mastery_mock(

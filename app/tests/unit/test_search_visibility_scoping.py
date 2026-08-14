@@ -551,8 +551,7 @@ class _RouteRegistry:
 
 class TestUnifiedRouteUserScope:
     @pytest.mark.asyncio
-    async def test_route_builds_request_with_caller_uid(self, monkeypatch) -> None:
-        monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "true")
+    async def test_route_builds_request_with_caller_uid(self) -> None:
         from adapters.inbound.search_routes import create_search_api_routes
         from tests.fixtures.csrf import attach_csrf
 

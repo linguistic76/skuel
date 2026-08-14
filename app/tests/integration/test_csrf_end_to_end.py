@@ -19,7 +19,6 @@ from starlette.testclient import TestClient
 
 from adapters.inbound.csrf import (
     CSRF_COOKIE_NAME,
-    CSRF_ENFORCE_ENV,
     CSRF_HEADER_NAME,
     CSRFMiddleware,
     csrf_protected,
@@ -55,8 +54,7 @@ def _build_app() -> Starlette:
 
 
 @pytest.fixture
-def client(monkeypatch) -> TestClient:
-    monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "true")
+def client() -> TestClient:
     return TestClient(_build_app())
 
 
@@ -133,16 +131,3 @@ class TestMintExemption:
         # Original client's cookie survives and the form-POST flow still works.
         response = client.post("/write", headers={CSRF_HEADER_NAME: token})
         assert response.status_code == 200
-
-
-class TestEnforcementOff:
-    """The flag's own off-switch semantics — not a route-test affordance
-    (route suites mint real tokens via tests/fixtures/csrf.py). Dies with
-    the flag (PR B, security-hardening-deferred.md § 8)."""
-
-    def test_post_without_token_passes_when_disabled(self, monkeypatch):
-        monkeypatch.setenv(CSRF_ENFORCE_ENV, "false")
-        client = TestClient(_build_app())
-        response = client.post("/write")
-        assert response.status_code == 200
-        assert response.text == "written"
