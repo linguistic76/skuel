@@ -1010,9 +1010,16 @@ ku:breath-awareness      ❌ colon spelling — REJECTED (input alias deleted 20
 Authored UIDs pass through the preparer **verbatim** — there is no rewrite of any kind.
 The former `normalize_uid()` colon→dot shim was deleted 2026-08-14 (One Path Forward,
 vault swept the same day): a colon-spelled entity uid now fails prefix validation loudly
-instead of being silently mutated. Spaces are **not** rewritten (a UID with spaces is
-simply wrong — author hyphens) and case is untouched (author lowercase). A `uid:` key
-that is present but blank is a validation error, not a fallback to filename.
+instead of being silently mutated. The same strictness covers **relationship targets** —
+a colon target in any registered relationship field (`uses_kus:`, `resource_uids:`,
+`organizes:`, `connections:`, Edge-YAML `from`/`to`) is rejected at the preparer/validator
+with the dot-form remedy, because a colon target would otherwise pass validation and then
+match nothing at the edge MERGE (the link vanishing silently). One carve-out: sanctioned
+machine identifiers (`ue:daily:…` periodic entries — the grammar's colon row) are accepted
+as targets, since their colon form IS the stored uid and no dot spelling exists. Spaces are **not**
+rewritten (a UID with spaces is simply wrong — author hyphens) and case is untouched
+(author lowercase). A `uid:` key that is present but blank is a validation error, not a
+fallback to filename.
 
 **See:** `/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md` § Separator Grammar — the
 one-character-one-job table (hyphen joins words; dot = authored segments; underscore =

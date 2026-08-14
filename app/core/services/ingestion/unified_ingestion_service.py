@@ -855,14 +855,25 @@ class UnifiedIngestionService:
         # Owner is descriptor-derived from the file's vault (surface-independent);
         # only requires_user_uid types persist it, SHARED curriculum drops it.
         effective_user_uid = self._resolve_owner(file_path, user_uid)
-        entity_data = prepare_entity_data(
-            entity_type,
-            data,
-            body,
-            file_path,
-            effective_user_uid,
-            owner_is_authoritative=self._owner_is_authoritative,
-        )
+        try:
+            entity_data = prepare_entity_data(
+                entity_type,
+                data,
+                body,
+                file_path,
+                effective_user_uid,
+                owner_is_authoritative=self._owner_is_authoritative,
+            )
+        except ValueError as e:
+            # Content faults the preparer raises (blank ``uid:``, colon-spelled
+            # relationship targets) are the file author's to fix — a validation
+            # failure (HTTP 400), not a system error. Without this, the method's
+            # ``@with_error_handling(error_type="system")`` wrapper would turn
+            # an authoring mistake into a 500. Mirrors the batch door, where
+            # "preparation" is a content-fault stage.
+            return Result.fail(
+                Errors.validation(str(e), user_message=f"File {file_path.name}: {e}")
+            )
 
         # Validate entity data after preparation (ensures auto-generated fields present)
         validation_result = validate_entity_data(entity_type, entity_data, file_path)

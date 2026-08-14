@@ -19,6 +19,7 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
 
+from core.ingestion.ingestion_types import RelationshipConfig
 from core.models.enum_field_registry import ENUM_FIELD_TYPES
 from core.models.enums.entity_enums import EntityType, NonKuDomain
 from core.models.type_hints import TypeConverter, UserUID
@@ -28,6 +29,52 @@ from .config import DEFAULT_USER_UID, ENTITY_CONFIGS
 from .moc_links import extract_moc_link_suffixes
 
 logger = get_logger("skuel.ingestion.preparer")
+
+
+def is_sanctioned_machine_uid(uid: str) -> bool:
+    """True for the colon-bearing INTERNAL machine-identifier families.
+
+    The separator grammar's colon row (CURRICULUM_GROUPING_PATTERNS): periodic
+    UserEntry uids (``ue:daily:{user}:{date}`` and weekly/monthly) keep colons
+    by design — they are real graph identities with no dot spelling, so a
+    reference to one is legitimate input, not a retired authoring alias.
+    """
+    return uid.startswith("ue:")
+
+
+def _reject_colon_relationship_targets(
+    entity_data: dict[str, Any],
+    relationship_config: dict[str, RelationshipConfig] | None,
+) -> None:
+    """Raise ValueError on a colon-spelled relationship target.
+
+    The colon input alias was deleted 2026-08-14 (authored = stored). Every
+    registered relationship field (``uses_kus``, ``resource_uids``,
+    ``connections.requires``, ``organizes``, …) must author the stored dot
+    form — a colon target survives field validation but the edge MERGE
+    matches nothing, so the link would vanish silently instead of failing.
+    Sanctioned machine identifiers (``ue:…``) are exempt: their colon form
+    IS the stored uid (see ``is_sanctioned_machine_uid``).
+    """
+    if not relationship_config:
+        return
+    for field_name in relationship_config:
+        value = entity_data.get(field_name)
+        # ``object``, not ``Any``: each element is narrowed with isinstance
+        # below, so nothing here needs to opt out of type checking.
+        if isinstance(value, str):
+            targets: list[object] = [value]
+        elif isinstance(value, list):
+            targets = value
+        else:
+            continue
+        for target in targets:
+            if isinstance(target, str) and ":" in target and not is_sanctioned_machine_uid(target):
+                raise ValueError(
+                    f"Relationship target '{target}' in '{field_name}' uses the "
+                    f"retired colon spelling — author the stored dot form "
+                    f"('{target.replace(':', '.')}')"
+                )
 
 
 def generate_uid(entity_type: EntityType | NonKuDomain, file_path: Path) -> str:
@@ -295,6 +342,14 @@ def prepare_entity_data(
         for key, value in recommends.items():
             if value:
                 entity_data[f"recommends.{key}"] = value
+
+    # Reject colon-spelled relationship targets loudly (runs after the
+    # connections flatten so dotted rel-config keys are populated). A colon
+    # target would pass validation but the phase-2 exact-UID edge MATCH
+    # creates no edge — the file would count as ingested while its links
+    # silently vanished (Codex P1 #1054). ValueError classifies as
+    # ignored-with-reason ("preparation" is a content-fault stage).
+    _reject_colon_relationship_targets(entity_data, config.relationship_config)
 
     # Add timestamps. ``created_at`` is stamped ONLY by the write layer's
     # ``ON CREATE`` branch — stamping "now" here put it inside ``props``, so the
