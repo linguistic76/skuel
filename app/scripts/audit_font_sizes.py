@@ -100,10 +100,14 @@ def audit(root: Path, strict: bool) -> int:
     over_pin: list[tuple[str, int, int]] = []  # (rel, found, pinned)
     under_pin: list[tuple[str, int, int]] = []
     burndown_total = 0
+    seen_allowlisted: set[str] = set()
 
     for path in iter_python_files(root, extra_dir_names=EXTRA_EXCLUDED_DIR_NAMES):
         rel = _relative(path, root)
         source = path.read_text(encoding="utf-8", errors="replace")
+
+        if rel in ALLOWED_ARBITRARY:
+            seen_allowlisted.add(rel)
 
         # Cheap pre-filter: only parse files that can possibly match.
         if "text-[" not in source:
@@ -124,6 +128,15 @@ def audit(root: Path, strict: bool) -> int:
         elif count:
             violations.append((rel, matches))
             burndown_total += count
+
+    # Allowlist entries the walk never visited (file deleted, renamed, or
+    # moved into an excluded tree) would otherwise vanish silently — report
+    # them as under their pin so --strict cannot pass with a stale ledger
+    # (Codex, PR #1057).
+    under_pin.extend(
+        (rel, 0, ALLOWED_ARBITRARY[rel])
+        for rel in sorted(set(ALLOWED_ARBITRARY) - seen_allowlisted)
+    )
 
     findings = len(violations) + len(over_pin) + len(under_pin)
 
