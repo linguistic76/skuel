@@ -61,7 +61,7 @@ from core.models.relationship_registry import TASKS_CONFIG
 from core.services.relationships import UnifiedRelationshipService
 
 service = UnifiedRelationshipService(backend, graph_intel, TASKS_CONFIG)
-await service.get_related_uids("knowledge", "task:123")
+await service.get_related_uids("knowledge", "task.123")
 ```
 
 **Configs:** `TASKS_CONFIG`, `GOAPS_CONFIG`, `HABITS_CONFIG`, `EVENTS_CONFIG`, `CHOICES_CONFIG`, `PRINCIPLES_CONFIG` (from `core.models.relationship_registry`)

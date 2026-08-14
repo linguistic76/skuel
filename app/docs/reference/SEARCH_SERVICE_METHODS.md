@@ -469,7 +469,7 @@ if tasks_result.is_ok:
 
 ```python
 # Get path steps, check user progress
-steps_result = await lp_service.get_path_steps("lp:tech:python-mastery")
+steps_result = await lp_service.get_path_steps("lp.tech.python-mastery")
 if steps_result.is_ok:
     for step in steps_result.value:
         for ku_uid in step.knowledge_uids:

@@ -13,7 +13,7 @@ confirmed 2026-07-21.*
 `core/infrastructure/relationships/semantic_relationships.py` implements RDF-triple
 thinking for relationship precision: instead of one generic `RELATED_TO`, edges carry
 namespaced semantic meaning (`learn:requires_theoretical_understanding`,
-`habit:reinforces`, `concept:specializes`). The module provides:
+`habit.reinforces`, `concept:specializes`). The module provides:
 
 - **`RelationshipNamespace`** — 8 namespaces (`learn`, `task`, `habit`, `cross`, `time`, `skill`, `concept`, `moc`)
 - **`SemanticRelationshipType`** — 81 namespaced predicates with behavior:

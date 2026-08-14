@@ -207,7 +207,7 @@ advanced_factory = AdvancedIntelligenceFactory(
 
 ### 2. Context Route (GET /api/{domain}/{uid}/context)
 
-**Request:** `GET /api/habits/habit:abc123/context?context_type=detailed`
+**Request:** `GET /api/habits/habit.abc123/context?context_type=detailed`
 
 **Process:**
 1. Extract `uid` from path params
@@ -218,7 +218,7 @@ advanced_factory = AdvancedIntelligenceFactory(
 **Response:**
 ```json
 {
-  "uid": "habit:abc123",
+  "uid": "habit.abc123",
   "context_type": "detailed",
   "context_data": {
     "related_habits": [...],

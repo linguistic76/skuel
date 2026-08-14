@@ -31,7 +31,7 @@ version: 1.0
 type: PathStep                          # ← tells ingestion: this is a PathStep node
 
 # ─── TRACK 1: Entity node properties ─────────────────────────────────────────
-uid: ps:mindfulness:101
+uid: ps.mindfulness-101.intro
 title: Mindfulness 101 — Two Minutes, One Breath, No Perfection
 sel_category: self_awareness
 learning_level: beginner
@@ -44,10 +44,10 @@ learning_objectives:
   - Recognize mind wandering as normal and expected
   - Practice the gentle return — the core skill of mindfulness
 uses_kus:
-  - ku:mindfulness:breath
-  - ku:mindfulness:attention
-  - ku:mindfulness:mind-wandering
-  - ku:mindfulness:gentle-return
+  - ku.mindfulness.breath
+  - ku.mindfulness.attention
+  - ku.mindfulness.mind-wandering
+  - ku.mindfulness.gentle-return
 tags:
   - mindfulness
   - breath
@@ -74,7 +74,7 @@ After ingestion, this YAML produces the following graph structure:
 
 ```
 (:Entity:PathStep {
-    uid: "ps:mindfulness:101",
+    uid: "ps.mindfulness-101.intro",
     entity_type: "path_step",
     title: "Mindfulness 101 — Two Minutes, One Breath, No Perfection",
     learning_level: "beginner",
@@ -94,7 +94,7 @@ After ingestion, this YAML produces the following graph structure:
     -[:HAS_CONTENT]->
 
 (:Content {
-    uid: "ps:mindfulness:101",
+    uid: "ps.mindfulness-101.intro",
     body: "## What Is Mindfulness?\n\nMindfulness is ...",
     format: "markdown",
     word_count: 1247,
@@ -105,7 +105,7 @@ After ingestion, this YAML produces the following graph structure:
     -[:HAS_CHUNK {sequence: 0}]->
 
 (:ContentChunk {
-    uid: "ps:mindfulness:101:chunk:0",  ← deterministic: {parent_uid}:chunk:{index}
+    uid: "ps.mindfulness-101.intro.chunk.0",  ← deterministic: {parent_uid}:chunk:{index}
     chunk_type: "section",              ← ContentChunkType value (section | definition |
                                           example | exercise | code | summary | ...)
     text: "## What Is Mindfulness?\n\nMindfulness is paying attention...",
@@ -144,9 +144,9 @@ analytics would return with a live metadata write-path first, not as scaffolding
 Also created from the `uses_kus:` list:
 
 ```
-(:Entity:PathStep {uid: "ps:mindfulness:101"})
+(:Entity:PathStep {uid: "ps.mindfulness-101.intro"})
     -[:USES_KU]->
-(:Entity:Ku {uid: "ku:mindfulness:breath"})
+(:Entity:Ku {uid: "ku.mindfulness.breath"})
 ```
 
 ---
@@ -266,7 +266,7 @@ A minimal PathStep YAML:
 ```yaml
 ---
 type: PathStep
-uid: ps:your-topic:001
+uid: ps.your-topic.001
 title: "Your PathStep Title"
 domain: personal          # any Domain member — e.g. tech, business, education, creative
 learning_level: beginner  # beginner | intermediate | advanced | expert
@@ -277,7 +277,7 @@ learning_objectives:
   - What the learner will be able to do after completing this
 
 uses_kus:
-  - ku:your-domain:concept-name   # Ku UIDs this PathStep composes
+  - ku.your-domain.concept-name   # Ku UIDs this PathStep composes
 
 tags:
   - your-tag

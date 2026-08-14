@@ -29,19 +29,19 @@ The ingestion system supports two file formats. Use the one that matches the ent
 ```markdown
 ---
 type: PathStep
-uid: ps:self-reflection:noticing-patterns
+uid: ps.self-reflection.noticing-patterns
 title: Noticing Your Patterns
 sel_category: self_awareness
 learning_level: beginner
 
 uses_kus:
-  - ku:self-reflection:self-observation
-  - ku:self-reflection:emotional-patterns
+  - ku.self-reflection.self-observation
+  - ku.self-reflection.emotional-patterns
 
 connections:
   requires: []
   enables:
-    - ps:self-reflection:emotional-awareness
+    - ps.self-reflection.emotional-awareness
 
 tags:
   - self-reflection
@@ -65,7 +65,7 @@ The frontmatter contains all the PathStep fields — `type`, `uid`, `uses_kus`, 
 version: 1.0
 type: Ku
 
-uid: ku:self-reflection:self-observation
+uid: ku.self-reflection.self-observation
 title: Self-Observation
 aliases:
   - introspection
@@ -84,7 +84,7 @@ tags:
 version: 1.0
 type: Exercise
 
-uid: ex:sel:know-yourself-check-in
+uid: ex.sel.know-yourself-check-in
 title: Know Yourself Check-In
 description: A structured self-awareness exercise
 scope: personal
@@ -118,7 +118,7 @@ Every YAML file starts with required fields:
 ```yaml
 version: 1.0
 type: Task              # Entity type (see table below)
-uid: task:my-task-name  # Unique identifier (prefix:slug format)
+uid: task.my-task-name  # Unique identifier (prefix:slug format)
 title: My Task Title    # Display title
 ```
 
@@ -128,25 +128,25 @@ title: My Task Title    # Display title
 
 | Type Value | Aliases | Prefix | Example UID |
 |------------|---------|--------|-------------|
-| `Ku` | `KnowledgeUnit` | `ku:` | `ku:attention:buzzing` |
-| `PathStep` | `ps`, `Lesson` (legacy) | `ps:` | `ps:mindfulness:breath-awareness-basics` |
-| `Exercise` | — | `ex:` | `ex:sel:know-yourself-check-in` |
-| `LearningPath` | `lp` | `lp:` | `lp:mindfulness-101` |
-| `Resource` | — | `resource:` | `resource:atlas-of-the-heart` |
-| `Task` | — | `task:` | `task:log-first-5-sessions` |
-| `Goal` | — | `goal:` | `goal:mindfulness-beginner` |
-| `Habit` | — | `habit:` | `habit:daily-2min-breath` |
-| `Event` | — | `event:` | `event:practice-block-2min` |
-| `Choice` | — | `choice:` | `choice:2-minutes-right-now` |
-| `Principle` | — | `principle:` | `principle:small-steps` |
+| `Ku` | `KnowledgeUnit` | `ku:` | `ku.attention.buzzing` |
+| `PathStep` | `ps`, `Lesson` (legacy) | `ps:` | `ps.mindfulness.breath-awareness-basics` |
+| `Exercise` | — | `ex:` | `ex.sel.know-yourself-check-in` |
+| `LearningPath` | `lp` | `lp:` | `lp.mindfulness-101` |
+| `Resource` | — | `resource:` | `resource.atlas-of-the-heart` |
+| `Task` | — | `task:` | `task.log-first-5-sessions` |
+| `Goal` | — | `goal:` | `goal.mindfulness-beginner` |
+| `Habit` | — | `habit:` | `habit.daily-2min-breath` |
+| `Event` | — | `event:` | `event.practice-block-2min` |
+| `Choice` | — | `choice:` | `choice.2-minutes-right-now` |
+| `Principle` | — | `principle:` | `principle.small-steps` |
 | `UserEntry` | `UserEntry` | `ue:` | `ue:my-work` |
-| `LifePath` | — | `lifepath:` | `lifepath:my-direction` |
+| `LifePath` | — | `lifepath:` | `lifepath.my-direction` |
 | `Expense` | `Finance` | `expense:` | `expense:books` |
 | `Edge` | — | *(n/a)* | *(standalone relationship file)* |
 
 The `type` value is case-insensitive. Aliases resolve to the canonical type during ingestion.
 
-**UID format:** `prefix:slug` or `prefix:namespace:slug`. Colons are normalized to dots internally (`ku:attention:buzzing` becomes `ku.attention.buzzing` in Neo4j). **UID prefix validation:** Explicit UIDs must start with the correct prefix for their entity type (e.g., `ps:` for PathSteps, `ku:` for Kus, `ex:` for Exercises). A mismatched prefix is rejected during ingestion.
+**UID format:** `prefix.slug` or `prefix.namespace.slug`, authored in dot form directly — what you write is what Neo4j stores (e.g. `ku.attention.buzzing`). The former colon spelling (`ku:attention:buzzing`) was retired 2026-08-14; legacy colons are still normalized to dots at the boundary. **UID prefix validation:** Explicit UIDs must start with the correct prefix for their entity type (e.g., `ps.` for PathSteps, `ku.` for Kus, `ex.` for Exercises). A mismatched prefix is rejected during ingestion.
 
 **What happens during ingestion:** The `type` field determines which Neo4j labels the node gets (e.g., `type: Task` creates a node with `:Entity:Task` labels) and sets the `entity_type` property on the node (e.g., `entity_type: "task"`). The `type` field itself is not stored — it is translated into labels and properties.
 
@@ -276,44 +276,44 @@ The substance tracking pipeline measures how knowledge is LIVED, not just learne
 ```yaml
 # Task applies knowledge
 type: Task
-uid: task:log-first-5-sessions
+uid: task.log-first-5-sessions
 title: Log First 5 Sessions
 connections:
   applies_knowledge:
-    - ps:mindfulness:breath-awareness-basics
+    - ps.mindfulness.breath-awareness-basics
 
 # Habit reinforces knowledge (HIGHEST substance weight)
 type: Habit
-uid: habit:daily-2min-breath
+uid: habit.daily-2min-breath
 title: Daily 2-Minute Breath
 connections:
   reinforces_knowledge:
-    - ps:mindfulness:breath-awareness-basics
+    - ps.mindfulness.breath-awareness-basics
 
 # Choice informed by knowledge
 type: Choice
-uid: choice:2-minutes-right-now
+uid: choice.2-minutes-right-now
 title: Do Two Minutes Right Now
 connections:
   informed_by_knowledge:
-    - ps:mindfulness:breath-awareness-basics
+    - ps.mindfulness.breath-awareness-basics
 
 # Principle grounded in knowledge
 type: Principle
-uid: principle:small-steps
+uid: principle.small-steps
 name: Small Steps Beat Big Bursts
 connections:
   grounded_in_knowledge:
-    - ps:mindfulness:breath-awareness-basics
-    - ps:mindfulness:mind-wandering-happens
+    - ps.mindfulness.breath-awareness-basics
+    - ps.mindfulness.mind-wandering-happens
 
 # Event applies knowledge
 type: Event
-uid: event:practice-block-2min
+uid: event.practice-block-2min
 title: 2-Minute Practice Block
 connections:
   applies_knowledge:
-    - ps:mindfulness:breath-awareness-basics
+    - ps.mindfulness.breath-awareness-basics
 ```
 
 **At runtime**, when a user completes a task, creates a habit, makes a choice, etc., domain events (`KnowledgeAppliedInTask`, `KnowledgeBuiltIntoHabit`, `KnowledgeInformedChoice`) increment substance counters on the knowledge node. The YAML connections define the *structural* links; runtime events track *usage* counts.
@@ -330,57 +330,57 @@ Activities also connect to other activities:
 
 ```yaml
 connections:
-  applies_knowledge: [ps:namespace:path-step-slug]       # APPLIES_KNOWLEDGE → PathStep/Ku
-  fulfills_goal: [goal:goal-name]                    # FULFILLS_GOAL → Goal (single)
-  reinforces_habit: [habit:habit-name]               # REINFORCES_HABIT → Habit (single)
-  depends_on: [task:other-task]                      # DEPENDS_ON → Task
+  applies_knowledge: [ps.namespace.path-step-slug]       # APPLIES_KNOWLEDGE → PathStep/Ku
+  fulfills_goal: [goal.goal-name]                    # FULFILLS_GOAL → Goal (single)
+  reinforces_habit: [habit.habit-name]               # REINFORCES_HABIT → Habit (single)
+  depends_on: [task.other-task]                      # DEPENDS_ON → Task
 ```
 
 ### Goal Connections
 
 ```yaml
 connections:
-  requires_knowledge: [ps:namespace:path-step-slug]      # REQUIRES_KNOWLEDGE → PathStep/Ku
-  aligned_with_principle: [principle:name]            # GUIDED_BY_PRINCIPLE → Principle
+  requires_knowledge: [ps.namespace.path-step-slug]      # REQUIRES_KNOWLEDGE → PathStep/Ku
+  aligned_with_principle: [principle.name]            # GUIDED_BY_PRINCIPLE → Principle
 ```
 
 ### Habit Connections
 
 ```yaml
 connections:
-  reinforces_knowledge: [ps:namespace:path-step-slug]    # REINFORCES_KNOWLEDGE → PathStep/Ku
-  supports_goal: [goal:goal-name]                    # SUPPORTS_GOAL → Goal
-  embodies_principle: [principle:name]                # EMBODIES_PRINCIPLE → Principle
-  prerequisite_habits: [habit:other-habit]            # REQUIRES_PREREQUISITE_HABIT → Habit
+  reinforces_knowledge: [ps.namespace.path-step-slug]    # REINFORCES_KNOWLEDGE → PathStep/Ku
+  supports_goal: [goal.goal-name]                    # SUPPORTS_GOAL → Goal
+  embodies_principle: [principle.name]                # EMBODIES_PRINCIPLE → Principle
+  prerequisite_habits: [habit.other-habit]            # REQUIRES_PREREQUISITE_HABIT → Habit
 ```
 
 ### Event Connections
 
 ```yaml
 connections:
-  applies_knowledge: [ps:namespace:path-step-slug]       # APPLIES_KNOWLEDGE → PathStep/Ku
-  contributes_to_goal: [goal:goal-name]              # CONTRIBUTES_TO_GOAL → Goal
-  reinforces_habit: [habit:habit-name]               # REINFORCES_HABIT → Habit
-  executes_task: [task:task-name]                    # EXECUTES_TASK → Task
+  applies_knowledge: [ps.namespace.path-step-slug]       # APPLIES_KNOWLEDGE → PathStep/Ku
+  contributes_to_goal: [goal.goal-name]              # CONTRIBUTES_TO_GOAL → Goal
+  reinforces_habit: [habit.habit-name]               # REINFORCES_HABIT → Habit
+  executes_task: [task.task-name]                    # EXECUTES_TASK → Task
 ```
 
 ### Choice Connections
 
 ```yaml
 connections:
-  informed_by_knowledge: [ps:namespace:path-step-slug]   # INFORMED_BY_KNOWLEDGE → PathStep/Ku
-  guided_by_principle: [principle:name]               # INFORMED_BY_PRINCIPLE → Principle
-  affects_goal: [goal:goal-name]                     # AFFECTS_GOAL → Goal
-  impacts_habit: [habit:habit-name]                  # IMPACTS_HABIT → Habit
+  informed_by_knowledge: [ps.namespace.path-step-slug]   # INFORMED_BY_KNOWLEDGE → PathStep/Ku
+  guided_by_principle: [principle.name]               # INFORMED_BY_PRINCIPLE → Principle
+  affects_goal: [goal.goal-name]                     # AFFECTS_GOAL → Goal
+  impacts_habit: [habit.habit-name]                  # IMPACTS_HABIT → Habit
 ```
 
 ### Principle Connections
 
 ```yaml
 connections:
-  grounded_in_knowledge: [ps:namespace:path-step-slug]   # GROUNDED_IN_KNOWLEDGE → PathStep/Ku
-  guides_goal: [goal:goal-name]                      # GUIDES_GOAL → Goal
-  inspires_habit: [habit:habit-name]                 # INSPIRES_HABIT → Habit
+  grounded_in_knowledge: [ps.namespace.path-step-slug]   # GROUNDED_IN_KNOWLEDGE → PathStep/Ku
+  guides_goal: [goal.goal-name]                      # GUIDES_GOAL → Goal
+  inspires_habit: [habit.habit-name]                 # INSPIRES_HABIT → Habit
 ```
 
 ### Curriculum Connections
@@ -388,20 +388,20 @@ connections:
 ```yaml
 # PathStep
 connections:
-  requires: [ps:namespace:prerequisite]              # REQUIRES_KNOWLEDGE → PathStep
-  enables: [ps:namespace:next-path-step]             # ENABLES_KNOWLEDGE → PathStep
+  requires: [ps.namespace.prerequisite]              # REQUIRES_KNOWLEDGE → PathStep
+  enables: [ps.namespace.next-path-step]             # ENABLES_KNOWLEDGE → PathStep
 uses_kus:
-  - ku:namespace:concept                             # USES_KU → Ku
+  - ku.namespace.concept                             # USES_KU → Ku
 exercise_uids:
-  - ex:namespace:exercise-slug                       # HAS_EXERCISE → Exercise (learning loop anchor)
+  - ex.namespace.exercise-slug                       # HAS_EXERCISE → Exercise (learning loop anchor)
 resource_uids:
-  - resource:book-slug                               # CITES_RESOURCE → Resource (works on Ku YAML too)
+  - resource.book-slug                               # CITES_RESOURCE → Resource (works on Ku YAML too)
 
 # Learning Path
 connections:
   contains_steps:                                    # HAS_STEP → PathStep
-    - ps:path:step-1
-    - ps:path:step-2
+    - ps.path.step-1
+    - ps.path.step-2
 ```
 
 ### PathStep Fields
@@ -412,18 +412,18 @@ See the [YAML Authoring Guide — PathStep Fields](#pathstep-fields) section abo
 
 ```yaml
 type: PathStep
-uid: ps:mindfulness-101:breath-awareness-basics
+uid: ps.mindfulness-101.breath-awareness-basics
 uses_kus:
-  - ku:mindfulness:breath
-  - ku:mindfulness:attention
-trains_ku_uids: [ku:mindfulness:breath]
-learning_path_uid: lp:mindfulness-101
+  - ku.mindfulness.breath
+  - ku.mindfulness.attention
+trains_ku_uids: [ku.mindfulness.breath]
+learning_path_uid: lp.mindfulness-101
 sequence: 1
 # Activity fields (habit_uids, task_uids, etc.) belong on this PathStep YAML/frontmatter directly
-habit_uids: [habit:daily-2min-breath]
-task_uids: [task:log-first-5-sessions]
+habit_uids: [habit.daily-2min-breath]
+task_uids: [task.log-first-5-sessions]
 # Learning loop: wire the Exercise that closes the loop for this PathStep
-exercise_uids: [ex:mindfulness-101:breath-awareness-check-in]
+exercise_uids: [ex.mindfulness-101.breath-awareness-check-in]
 ```
 
 ---
@@ -480,7 +480,7 @@ POST /api/task-templates/
 **Step 2 — Attach it to the PathStep:**
 
 ```
-POST /api/ps/ps:mindfulness-101:breath-awareness-basics/task-templates/tt:mindfulness-101:log-first-5-sessions/attach
+POST /api/ps/ps.mindfulness-101.breath-awareness-basics/task-templates/tt:mindfulness-101:log-first-5-sessions/attach
 ```
 
 This creates the `(PathStep)-[:HAS_TASK_TEMPLATE]->(TaskTemplate)` edge. The attachment is permanent until explicitly detached — publish the PathStep once all templates are attached.
@@ -488,7 +488,7 @@ This creates the `(PathStep)-[:HAS_TASK_TEMPLATE]->(TaskTemplate)` edge. The att
 **Step 3 — Publish the PathStep:**
 
 ```
-POST /api/ps/ps:mindfulness-101:breath-awareness-basics/publish
+POST /api/ps/ps.mindfulness-101.breath-awareness-basics/publish
 ```
 
 Publishing validates all cross-template references and flips the PathStep status to `published`. Students can't engage an unpublished PathStep.
@@ -528,8 +528,8 @@ POST /api/task-templates/
 **Attach both to the PathStep:**
 
 ```
-POST /api/ps/ps:mindfulness-101:breath-awareness-basics/task-templates/tt:mindfulness-101:breath-practice-primary/attach
-POST /api/ps/ps:mindfulness-101:breath-awareness-basics/task-templates/tt:mindfulness-101:breath-practice-reflection/attach
+POST /api/ps/ps.mindfulness-101.breath-awareness-basics/task-templates/tt:mindfulness-101:breath-practice-primary/attach
+POST /api/ps/ps.mindfulness-101.breath-awareness-basics/task-templates/tt:mindfulness-101:breath-practice-reflection/attach
 ```
 
 **What the student sees after engaging:**
@@ -573,11 +573,11 @@ If you want to link pre-existing tasks directly to a PathStep (not engagement-dr
 # ps_breath-awareness-basics.md
 ---
 type: PathStep
-uid: ps:mindfulness-101:breath-awareness-basics
+uid: ps.mindfulness-101.breath-awareness-basics
 title: Breath Awareness Basics
 
 task_uids:
-  - task:mindfulness-101:log-first-5-sessions   # ASSIGNS_TASK → (shared task)
+  - task.mindfulness-101.log-first-5-sessions   # ASSIGNS_TASK → (shared task)
 ---
 
 ## The Core Technique
@@ -585,7 +585,7 @@ task_uids:
 When attention wanders — and it will — the moment you *notice* is the practice...
 ```
 
-This creates a static link: all students see the same `task:mindfulness-101:log-first-5-sessions` entity. Use this pattern for reference or demonstration tasks, not for per-student practice tasks. For per-student tasks, use the TaskTemplate pattern above.
+This creates a static link: all students see the same `task.mindfulness-101.log-first-5-sessions` entity. Use this pattern for reference or demonstration tasks, not for per-student practice tasks. For per-student tasks, use the TaskTemplate pattern above.
 
 ---
 
@@ -597,8 +597,8 @@ Standalone edge files in `{vault}/edges/` create relationships between entities.
 
 ```yaml
 type: Edge
-from: ku:nutrition:caffeine
-to: ku:attention:buzzing
+from: ku.nutrition.caffeine
+to: ku.attention.buzzing
 relationship: EXACERBATED_BY
 evidence: "After coffee I feel more restless."
 confidence: 0.8
@@ -623,25 +623,25 @@ version: 1.0
 
 edges:
   # PathSteps → Kus (USES_KU)
-  - from: ps:mindfulness:breath-awareness-basics
-    to: ku:mindfulness:breath
+  - from: ps.mindfulness.breath-awareness-basics
+    to: ku.mindfulness.breath
     type: USES_KU
-  - from: ps:mindfulness:breath-awareness-basics
-    to: ku:mindfulness:attention
+  - from: ps.mindfulness.breath-awareness-basics
+    to: ku.mindfulness.attention
     type: USES_KU
 
   # Learning Path → PathSteps (HAS_STEP — the one containment edge;
   # prefer `connections.contains_steps:` in the LP frontmatter, which
   # writes HAS_STEP with `sequence` from list order automatically)
-  - from: lp:mindfulness-101
-    to: ps:mindfulness:breath-awareness-basics
+  - from: lp.mindfulness-101
+    to: ps.mindfulness.breath-awareness-basics
     type: HAS_STEP
     properties:
       sequence: 0
 
   # Ku lateral relationships
-  - from: ku:mindfulness:breath
-    to: ku:mindfulness:attention
+  - from: ku.mindfulness.breath
+    to: ku.mindfulness.attention
     type: RELATED_TO
 ```
 
@@ -654,16 +654,16 @@ When two domain bundles connect (e.g., Mindfulness 101 → Self-Reflection 101),
 version: 1.0
 
 edges:
-  - from: lp:mindfulness-101
-    to: lp:self-reflection-101
+  - from: lp.mindfulness-101
+    to: lp.self-reflection-101
     type: PREREQUISITE_FOR
 
-  - from: ku:mindfulness:attention
-    to: ku:self-reflection:self-observation
+  - from: ku.mindfulness.attention
+    to: ku.self-reflection.self-observation
     type: PREREQUISITE_FOR
 
-  - from: ps:mindfulness:mind-wandering-happens
-    to: ps:self-reflection:noticing-patterns
+  - from: ps.mindfulness.mind-wandering-happens
+    to: ps.self-reflection.noticing-patterns
     type: ENABLES
 ```
 
@@ -711,10 +711,10 @@ description: Complete beginner mindfulness bundle
 version: 1.0
 
 import_order:
-  1_kus: [ku:mindfulness:breath, ku:mindfulness:attention]
-  2_path_steps: [ps:mindfulness:breath-awareness-basics, ps:mindfulness:posture-basics]
-  3_supporting: [habit:daily-2min-breath, task:log-first-5-sessions, ...]
-  4_paths: [lp:mindfulness-101]
+  1_kus: [ku.mindfulness.breath, ku.mindfulness.attention]
+  2_path_steps: [ps.mindfulness.breath-awareness-basics, ps.mindfulness.posture-basics]
+  3_supporting: [habit.daily-2min-breath, task.log-first-5-sessions, ...]
+  4_paths: [lp.mindfulness-101]
 ```
 
 **Import order matters:** Kus first (referenced by PathSteps), then PathSteps (referenced by Activities), then Activities, then LearningPaths.

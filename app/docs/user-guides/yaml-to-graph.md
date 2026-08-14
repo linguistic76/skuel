@@ -35,7 +35,7 @@ The eleven sections are: `stories`, `environment`, `intelligence`, `investment`,
 
 `nous` powers topic-scoped search (e.g. `SearchRequest(nous="body")`). The vocabulary is *derived from the graph*, not enum-validated at ingestion — so spelling matters: use the exact section slugs above.
 
-> **The UID's middle segment is not a field.** A Ku UID like `ku:mindfulness:breath` carries a middle grouping token (`mindfulness`), but it is opaque — nothing parses or validates it, and no field stores it (UIDs are opaque identity, ADR-013). Choose it for human readability; express real topic membership with `nous:`.
+> **The UID's middle segment is not a field.** A Ku UID like `ku.mindfulness.breath` carries a middle grouping token (`mindfulness`), but it is opaque — nothing parses or validates it, and no field stores it (UIDs are opaque identity, ADR-013). Choose it for human readability; express real topic membership with `nous:`.
 
 ### Aliases
 
@@ -49,7 +49,7 @@ The `aliases` field provides alternative names that feed both text search and em
 version: 1.0
 type: Ku
 
-uid: ku:mindfulness:breath
+uid: ku.mindfulness.breath
 title: Breath
 aliases:
   - breathing
@@ -84,7 +84,7 @@ MERGE (n:Ku {uid: "ku.mindfulness.breath"})
     n.updated_at = datetime()
 ```
 
-Note the UID normalization: colons in YAML (`ku:mindfulness:breath`) become dots in Neo4j (`ku.mindfulness.breath`). This happens automatically in the preparer.
+Note the UID normalization: colons in YAML (`ku.mindfulness.breath`) become dots in Neo4j (`ku.mindfulness.breath`). This happens automatically in the preparer.
 
 ---
 
@@ -117,7 +117,7 @@ PathStep YAML files accept `type: PathStep` (canonical). The legacy `type: lesso
 version: 1.0
 type: PathStep
 
-uid: ps:mindfulness:breath-awareness-basics
+uid: ps.mindfulness.breath-awareness-basics
 title: Breath Awareness — Basics
 content: |
   ## Introduction to Breath Awareness
@@ -132,14 +132,14 @@ complexity: basic
 quality_score: 0.85
 
 uses_kus:
-  - ku:mindfulness:breath
-  - ku:mindfulness:attention
+  - ku.mindfulness.breath
+  - ku.mindfulness.attention
 
 connections:
   requires: []
   enables:
-    - ps:mindfulness:posture-basics
-    - ps:mindfulness:mind-wandering-happens
+    - ps.mindfulness.posture-basics
+    - ps.mindfulness.mind-wandering-happens
 
 tags:
   - breath
@@ -153,7 +153,7 @@ tags:
 **How flattening works:** The preparer extracts the nested `connections` dict and flattens it to dotted keys:
 
 ```python
-# Input:  {"connections": {"requires": [], "enables": ["ps:mindfulness:posture-basics", ...]}}
+# Input:  {"connections": {"requires": [], "enables": ["ps.mindfulness.posture-basics", ...]}}
 # Output: {"connections.enables": ["ps.mindfulness.posture-basics", ...]}
 ```
 
@@ -216,37 +216,37 @@ Every UID-list field on a PathStep becomes a set of edges in the graph:
 version: 1.0
 type: PathStep
 
-uid: ps:mindfulness-101:step-1
+uid: ps.mindfulness-101.step-1
 title: Two Minutes Today
 intent: Try one two-minute breath session, note what you notice
 
 uses_kus:
-  - ku:mindfulness:breath
-  - ku:mindfulness:attention
+  - ku.mindfulness.breath
+  - ku.mindfulness.attention
 
 trains_ku_uids:
-  - ku:mindfulness:breath
+  - ku.mindfulness.breath
 
-learning_path_uid: lp:mindfulness-101
+learning_path_uid: lp.mindfulness-101
 sequence: 1
 
 prerequisite_step_uids: []
 
 principle_uids:
-  - principle:small-steps
+  - principle.small-steps
 
 choice_uids:
-  - choice:2-minutes-right-now
-  - choice:2-minutes-before-bed
+  - choice.2-minutes-right-now
+  - choice.2-minutes-before-bed
 
 habit_uids:
-  - habit:daily-2min-breath
+  - habit.daily-2min-breath
 
 task_uids:
-  - task:log-first-5-sessions
+  - task.log-first-5-sessions
 
 event_template_uids:
-  - event:practice-block-2min
+  - event.practice-block-2min
 
 mastery_threshold: 0.7
 estimated_hours: 0.5
@@ -265,7 +265,7 @@ A LearningPath sequences PathSteps via `(LearningPath)-[:HAS_STEP]->(PathStep)` 
 version: 1.0
 type: LearningPath
 
-uid: lp:mindfulness-101
+uid: lp.mindfulness-101
 name: Mindfulness 101 — Light & Conversational
 goal: >-
   Build a gentle daily starter practice with breath
@@ -276,8 +276,8 @@ difficulty: beginner
 
 connections:
   contains_steps:
-    - ps:mindfulness-101:step-1
-    - ps:mindfulness-101:step-2
+    - ps.mindfulness-101.step-1
+    - ps.mindfulness-101.step-2
 
 outcomes:
   - Establish a daily 2-minute breath awareness practice
@@ -289,7 +289,7 @@ estimated_hours: 1.0
 
 ### Prerequisite Chains
 
-When `ps:mindfulness-101:step-2` declares `prerequisite_step_uids: [ps:mindfulness-101:step-1]`, the graph gains a `REQUIRES_STEP` edge. This enables "ready to learn" queries — the system can traverse prerequisite chains to determine which steps a user is prepared for based on their mastery state.
+When `ps.mindfulness-101.step-2` declares `prerequisite_step_uids: [ps.mindfulness-101.step-1]`, the graph gains a `REQUIRES_STEP` edge. This enables "ready to learn" queries — the system can traverse prerequisite chains to determine which steps a user is prepared for based on their mastery state.
 
 ---
 
@@ -302,20 +302,20 @@ SKUEL's graph connects curriculum to life. Activity Domains — Task, Goal, Habi
 **YAML** (`goal_mindfulness-beginner.yaml`):
 
 ```yaml
-uid: goal:mindfulness-beginner
+uid: goal.mindfulness-beginner
 title: Build a gentle daily starter practice
 
 connections:
   requires_knowledge:
-    - ps:mindfulness:breath-awareness-basics
-    - ps:mindfulness:posture-basics
-    - ps:mindfulness:mind-wandering-happens
+    - ps.mindfulness.breath-awareness-basics
+    - ps.mindfulness.posture-basics
+    - ps.mindfulness.mind-wandering-happens
   supporting_habits:
-    - habit:daily-2min-breath
-    - habit:label-wander-daily
+    - habit.daily-2min-breath
+    - habit.label-wander-daily
   aligned_with_principle:
-    - principle:small-steps
-    - principle:attention-over-intensity
+    - principle.small-steps
+    - principle.attention-over-intensity
 ```
 
 Each `connections.*` field becomes edges: `REQUIRES_KNOWLEDGE`, `SUPPORTS_GOAL` (incoming), `GUIDED_BY_PRINCIPLE`.
@@ -324,7 +324,7 @@ Each `connections.*` field becomes edges: `REQUIRES_KNOWLEDGE`, `SUPPORTS_GOAL` 
 
 ```
                     ┌─────────────────────┐
-                    │  goal:mindfulness-   │
+                    │  goal.mindfulness-   │
                     │      beginner        │
                     └──────┬──┬──┬────────┘
            REQUIRES_       │  │  │    GUIDED_BY_
@@ -332,14 +332,14 @@ Each `connections.*` field becomes edges: `REQUIRES_KNOWLEDGE`, `SUPPORTS_GOAL` 
           ┌────────────────┘  │  └──────────────┐
           ▼                   │                  ▼
   ┌───────────────┐    SUPPORTS_    ┌─────────────────────┐
-  │  l:breath-    │      GOAL       │ principle:small-steps│
+  │  l:breath-    │      GOAL       │ principle.small-steps│
   │  awareness    │           │     └─────────────────────┘
   │  -basics      │           ▼
   └───┬───────────┘   ┌──────────────────┐
-      │ USES_KU       │ habit:daily-2min │
+      │ USES_KU       │ habit.daily-2min │
       ▼               │   -breath        │
   ┌────────────┐      └────────┬─────────┘
-  │ ku:breath  │               │ REINFORCES_
+  │ ku.breath  │               │ REINFORCES_
   └────────────┘               │ KNOWLEDGE
                                ▼
                     ┌───────────────────┐
@@ -355,16 +355,16 @@ This is how SKUEL answers "What should I work on today?" — by traversing from 
 **YAML** (`habit_daily-2min-breath.yaml`):
 
 ```yaml
-uid: habit:daily-2min-breath
+uid: habit.daily-2min-breath
 name: Daily Two-Minute Breath
 
 connections:
   reinforces_knowledge:
-    - ps:mindfulness:breath-awareness-basics
+    - ps.mindfulness.breath-awareness-basics
   supports_goal:
-    - goal:mindfulness-beginner
+    - goal.mindfulness-beginner
   embodies_principle:
-    - principle:small-steps
+    - principle.small-steps
 
 cue: After morning coffee / Right after waking
 routine: |
@@ -412,8 +412,8 @@ Edges are standalone YAML files of `type: Edge` that create relationships with e
 version: 1.0
 type: Edge
 
-from: ku:nutrition:caffeine
-to: ku:attention:buzzing
+from: ku.nutrition.caffeine
+to: ku.attention.buzzing
 relationship: EXACERBATED_BY
 
 evidence: >-
@@ -529,22 +529,22 @@ Dependencies must exist before the entities that reference them. The manifest's 
 ```yaml
 import_order:
   1_kus:                    # Kus first — referenced by PathSteps
-    - ku:mindfulness:breath
-    - ku:mindfulness:attention
+    - ku.mindfulness.breath
+    - ku.mindfulness.attention
 
   2_supporting_entities:    # Activity entities — referenced by PathSteps
-    - principle:small-steps
-    - habit:daily-2min-breath
-    - task:log-first-5-sessions
-    - event:practice-block-2min
-    - goal:mindfulness-beginner
+    - principle.small-steps
+    - habit.daily-2min-breath
+    - task.log-first-5-sessions
+    - event.practice-block-2min
+    - goal.mindfulness-beginner
 
   3_path_steps:             # PathSteps — reference all of the above
-    - ps:mindfulness-101:step-1
-    - ps:mindfulness-101:step-2
+    - ps.mindfulness-101.step-1
+    - ps.mindfulness-101.step-2
 
   4_learning_paths:         # Paths last — reference PathSteps
-    - lp:mindfulness-101
+    - lp.mindfulness-101
 ```
 
 MERGE semantics make ingestion idempotent — re-ingesting a bundle updates existing nodes without duplication.
@@ -594,15 +594,15 @@ result = await service.dry_run(Path("yaml_templates/domains/mindfulness_101/"))
 
 | Entity Type | UID Format | Mindfulness 101 Example |
 |-------------|-----------|------------------------|
-| Ku | `ku:{namespace}:{slug}` | `ku:mindfulness:breath` |
-| PathStep | `ps:{namespace}:{slug}` | `ps:mindfulness-101:step-1` |
-| LearningPath | `lp:{slug}` | `lp:mindfulness-101` |
-| Task | `task:{slug}` | `task:log-first-5-sessions` |
-| Goal | `goal:{slug}` | `goal:mindfulness-beginner` |
-| Habit | `habit:{slug}` | `habit:daily-2min-breath` |
-| Event | `event:{slug}` | `event:practice-block-2min` |
-| Choice | `choice:{slug}` | `choice:2-minutes-right-now` |
-| Principle | `principle:{slug}` | `principle:small-steps` |
+| Ku | `ku.{namespace}.{slug}` | `ku.mindfulness.breath` |
+| PathStep | `ps.{namespace}.{slug}` | `ps.mindfulness-101.step-1` |
+| LearningPath | `lp:{slug}` | `lp.mindfulness-101` |
+| Task | `task:{slug}` | `task.log-first-5-sessions` |
+| Goal | `goal:{slug}` | `goal.mindfulness-beginner` |
+| Habit | `habit:{slug}` | `habit.daily-2min-breath` |
+| Event | `event:{slug}` | `event.practice-block-2min` |
+| Choice | `choice:{slug}` | `choice.2-minutes-right-now` |
+| Principle | `principle:{slug}` | `principle.small-steps` |
 | Edge | (no UID) | N/A — relationship only |
 
 ### Required Fields by Type

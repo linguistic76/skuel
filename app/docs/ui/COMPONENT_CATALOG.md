@@ -986,7 +986,7 @@ ExploreGraphView(mode="hub")
 ExploreGraphView(mode="entity", entity_uid="ku_abc", entity_type="ku")
 
 # Entity mode — centered on PathStep
-ExploreGraphView(mode="entity", entity_uid="ps:step_1", entity_type="ps")
+ExploreGraphView(mode="entity", entity_uid="ps.step_1", entity_type="ps")
 ```
 
 ---

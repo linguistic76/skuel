@@ -82,9 +82,9 @@ In each PathStep YAML, the `connections` field declares what must come before an
 # From ps_managing-yourself.yaml
 connections:
   requires:
-    - ps:sel:knowing-yourself       # Must complete this first
+    - ps.sel.knowing-yourself       # Must complete this first
   enables:
-    - ps:sel:understanding-others   # Unlocks this next
+    - ps.sel.understanding-others   # Unlocks this next
 ```
 
 When ingested, the system creates directed relationships in the knowledge graph:
@@ -114,8 +114,8 @@ In SKUEL's graph, this circularity is captured not through prerequisite edges (w
 # A future advanced PathStep
 connections:
   requires:
-    - ps:sel:making-good-decisions   # Completed the beginner chain
-    - ps:sel:knowing-yourself        # Revisiting self-awareness at depth
+    - ps.sel.making-good-decisions   # Completed the beginner chain
+    - ps.sel.knowing-yourself        # Revisiting self-awareness at depth
 ```
 
 ---
@@ -130,7 +130,7 @@ A Ku is a YAML file with no content body. It defines a concept.
 version: 1.0
 type: Ku
 
-uid: ku:sel:empathy
+uid: ku.sel.empathy
 title: Empathy
 aliases:
   - perspective-taking
@@ -155,7 +155,7 @@ tags:
 
 | Field | Purpose | Required? |
 |-------|---------|-----------|
-| `uid` | Unique identifier (`ku:{group}:{slug}` — the middle token is an opaque grouping label, not a stored field) | Yes |
+| `uid` | Unique identifier (`ku.{group}.{slug}` — the middle token is an opaque grouping label, not a stored field) | Yes |
 | `title` | Display name | Yes |
 | `nous` | Topic-section membership — zero or more of the 11 official sections | No (empty is valid) |
 | `sel_category` | Which SEL competency it belongs to | No (only for SEL content) |
@@ -164,6 +164,24 @@ tags:
 | `tags` | For filtering and search | No |
 
 The 11 `nous` sections: `stories`, `environment`, `intelligence`, `investment`, `words`, `relationships`, `social`, `body`, `exercises`, `self-management`, `self-awareness`. The vocabulary is derived from the graph, not enum-validated — use the exact slugs.
+
+**Grouping-label vocabulary (rulings 2026-08-14):** the middle UID token is a human-readable
+grouping hint (machine-opaque — hierarchy lives in edges). To keep the hints coherent across
+authoring sessions:
+
+- **`mind` vs `mindfulness` are distinct families, kept deliberately.** `mind` = cognition
+  (mistakes, cognitive-biases, ego, conditioning); `mindfulness` = the practice (attention,
+  breath, anchors). Don't merge them.
+- **`sel` vs `self-*`:** use `sel` for framework-level entities (the CASEL/SEL frame itself,
+  cross-competency content); use the specific competency (`self-awareness`, `self-management`,
+  `self-reflection`) when the entity belongs to one competency.
+- **Course-bound steps use the course slug as their grouping label** —
+  `ps.mindfulness-101.step-1`, `ps.mindfulness-101.intro` — so a course's steps read as one
+  family. Freestanding steps keep a topic namespace (`ps.mindfulness.posture-basics`). Real
+  membership is always the `HAS_STEP` edge; the label is the human hint.
+
+Changing an existing entity's UID is an **identity change** (a new node) — harmonize labels in
+deliberate passes, not casual edits.
 
 **Guidelines:**
 
@@ -179,7 +197,7 @@ A PathStep is a **markdown file** (`.md`) with YAML frontmatter. Metadata goes i
 ```markdown
 ---
 type: PathStep
-uid: ps:mindfulness:breath-awareness-basics
+uid: ps.mindfulness.breath-awareness-basics
 title: Breath Awareness — Basics
 sel_category: self_awareness
 learning_level: beginner
@@ -192,17 +210,17 @@ learning_objectives:
   - Complete a two-minute breath awareness session
 
 uses_kus:
-  - ku:mindfulness:breath
-  - ku:mindfulness:attention
+  - ku.mindfulness.breath
+  - ku.mindfulness.attention
 
 exercise_uids:
-  - ex:mindfulness:breath-awareness-check-in
+  - ex.mindfulness.breath-awareness-check-in
 
 connections:
   requires: []
   enables:
-    - ps:mindfulness:posture-basics
-    - ps:mindfulness:mind-wandering-happens
+    - ps.mindfulness.posture-basics
+    - ps.mindfulness.mind-wandering-happens
 
 quality_score: 0.88
 
@@ -239,7 +257,7 @@ where do you feel the breath most?
 
 | Field | Purpose | Required? |
 |-------|---------|-----------|
-| `uid` | Unique identifier (`ps:{namespace}:{slug}`) | Yes |
+| `uid` | Unique identifier (`ps.{namespace}.{slug}`) | Yes |
 | `title` | Display name | Yes |
 | `content` | Full markdown teaching narrative (auto-extracted from body) | Yes |
 | `uses_kus` | Which atomic Kus this PathStep composes | No, but essential for graph |
@@ -269,7 +287,7 @@ An Exercise is a YAML file with an `instructions` field (the LLM prompt that pro
 version: 1.0
 type: Exercise
 
-uid: ex:sel:know-yourself-check-in
+uid: ex.sel.know-yourself-check-in
 title: Know Yourself Check-In
 description: A structured self-awareness reflection exercise
 scope: curriculum
@@ -300,7 +318,7 @@ form_schema:
 
 | Field | Purpose | Required? |
 |-------|---------|-----------|
-| `uid` | Unique identifier (`ex:{namespace}:{slug}`) | Yes |
+| `uid` | Unique identifier (`ex.{namespace}.{slug}`) | Yes |
 | `title` | Display name | Yes |
 | `scope` | Must be `curriculum` (shared vault-authored content, no user owner). `personal`/`assigned`/`assessment` are app-created only — ingestion rejects them (they describe an owner or group the file boundary cannot provide) | No (ingestion default: `curriculum`) |
 | `instructions` | The LLM prompt that processes the learner's submission | Yes |
@@ -334,7 +352,7 @@ The learner sees all four phases on the PathStep detail page at `/explore/ps/{ui
 
 ### How the PathStep ↔ Exercise Connection is Stored
 
-When you write `exercise_uids: [ex:mindfulness-101:breath-awareness-check-in]` in a
+When you write `exercise_uids: [ex.mindfulness-101.breath-awareness-check-in]` in a
 PathStep YAML, you might assume this sets a property on the PathStep — something like
 `exercise_uid = "ex:..."` stored alongside its title and description. It does not. This
 section explains what actually happens, because misunderstanding it leads to incorrect
@@ -345,7 +363,7 @@ assumptions about how to query and build on this relationship.
 ```yaml
 # PathStep YAML
 exercise_uids:
-  - ex:mindfulness-101:breath-awareness-check-in
+  - ex.mindfulness-101.breath-awareness-check-in
 ```
 
 This creates one thing in the database: a directed graph relationship.
@@ -375,7 +393,7 @@ of Exercises naturally: each new Exercise is a single atomic write.
 The relationship is stored in one other place: as a property *on the Exercise node itself*.
 
 ```
-Exercise.path_step_uid = "ps:mindfulness-101:breath-awareness-basics"
+Exercise.path_step_uid = "ps.mindfulness-101.breath-awareness-basics"
 ```
 
 This covers the reverse direction. Given an Exercise, you can read which PathStep it
@@ -396,8 +414,8 @@ the no-traversal reverse lookup), include `path_step_uid` in the Exercise YAML i
 
 ```yaml
 type: Exercise
-uid: ex:mindfulness-101:breath-awareness-check-in
-path_step_uid: ps:mindfulness-101:breath-awareness-basics
+uid: ex.mindfulness-101.breath-awareness-check-in
+path_step_uid: ps.mindfulness-101.breath-awareness-basics
 ...
 ```
 
@@ -505,7 +523,7 @@ Foundations
         └── PathStep B2
 ```
 
-Both A1 and B1 declare `requires: [ps:foundations]`. Neither requires the other.
+Both A1 and B1 declare `requires: [ps.foundations]`. Neither requires the other.
 
 ### Convergence
 
@@ -515,8 +533,8 @@ Two parallel tracks merge into a capstone:
 # Capstone PathStep
 connections:
   requires:
-    - ps:track-a:lesson-a2
-    - ps:track-b:lesson-b2
+    - ps.track-a.lesson-a2
+    - ps.track-b.lesson-b2
 ```
 
 The learner must complete both tracks before the capstone unlocks.
@@ -529,7 +547,7 @@ The same competency taught at increasing depth:
 Empathy (Beginner) → Empathy (Intermediate) → Empathy (Advanced)
 ```
 
-Each level uses some of the same Kus but adds new ones. The beginner PathStep might use `ku:sel:empathy` and `ku:sel:perspective-taking`. The advanced PathStep might add `ku:sel:compassion-fatigue` and `ku:sel:structural-empathy`. The Ku layer makes this overlap explicit in the graph.
+Each level uses some of the same Kus but adds new ones. The beginner PathStep might use `ku.sel.empathy` and `ku.sel.perspective-taking`. The advanced PathStep might add `ku.sel.compassion-fatigue` and `ku.sel.structural-empathy`. The Ku layer makes this overlap explicit in the graph.
 
 ---
 
@@ -549,7 +567,7 @@ Mindfulness 101                          Self-Reflection 101
   PS: Posture Basics                       PS: Emotional Awareness
   PS: Mind Wandering Happens               PS: Values Discovery
 
-         lp:mindfulness-101  ──PREREQUISITE_FOR──>  lp:self-reflection-101
+         lp.mindfulness-101  ──PREREQUISITE_FOR──>  lp.self-reflection-101
 ```
 
 ### The Three-Entity Stack
@@ -558,9 +576,9 @@ This is the full curriculum hierarchy in action:
 
 | Layer | What It Does | Example |
 |-------|-------------|---------|
-| **Ku** | Defines one atomic concept | `ku:mindfulness:breath` — "The natural rhythm of breathing, used as the primary anchor for attention" |
-| **PathStep** | Composes Kus into a teaching narrative with practice exercises | `ps:mindfulness:breath-awareness-basics` — 10-minute step teaching the two-minute practice |
-| **LearningPath** | Sequences PathSteps into a learner journey | `lp:mindfulness-101` — beginner path from breath to labeling |
+| **Ku** | Defines one atomic concept | `ku.mindfulness.breath` — "The natural rhythm of breathing, used as the primary anchor for attention" |
+| **PathStep** | Composes Kus into a teaching narrative with practice exercises | `ps.mindfulness.breath-awareness-basics` — 10-minute step teaching the two-minute practice |
+| **LearningPath** | Sequences PathSteps into a learner journey | `lp.mindfulness-101` — beginner path from breath to labeling |
 
 Each layer has a distinct purpose. Kus don't teach. PathSteps don't sequence an entire journey. Paths don't contain content. Mixing these roles creates confusion.
 
@@ -572,16 +590,16 @@ The connection between the two domains is declared in a standalone edge file:
 # edges/edge_mindfulness-to-self-reflection.yaml
 version: 1.0
 edges:
-  - from: lp:mindfulness-101
-    to: lp:self-reflection-101
+  - from: lp.mindfulness-101
+    to: lp.self-reflection-101
     type: PREREQUISITE_FOR
 
-  - from: ku:mindfulness:attention
-    to: ku:self-reflection:self-observation
+  - from: ku.mindfulness.attention
+    to: ku.self-reflection.self-observation
     type: PREREQUISITE_FOR
 
-  - from: ps:mindfulness:mind-wandering-happens
-    to: ps:self-reflection:noticing-patterns
+  - from: ps.mindfulness.mind-wandering-happens
+    to: ps.self-reflection.noticing-patterns
     type: ENABLES
 ```
 
@@ -590,12 +608,12 @@ This creates a progression: a learner who completes Mindfulness 101 is ready for
 ### Supporting Activity Entities
 
 Each domain wires activities directly to its PathSteps. The Mindfulness 101 bundle includes:
-- `habit:daily-2min-breath` — the core daily practice
-- `task:log-first-5-sessions` — a one-time logging task
-- `event:practice-block-2min` — a recurring calendar template
-- `goal:mindfulness-beginner` — the four-week process goal
-- `principle:small-steps` — the guiding principle
-- `choice:2-minutes-right-now` — the immediate action prompt
+- `habit.daily-2min-breath` — the core daily practice
+- `task.log-first-5-sessions` — a one-time logging task
+- `event.practice-block-2min` — a recurring calendar template
+- `goal.mindfulness-beginner` — the four-week process goal
+- `principle.small-steps` — the guiding principle
+- `choice.2-minutes-right-now` — the immediate action prompt
 
 Self-Reflection 101 has its own parallel set: different habits, tasks, and principles — but the same structural pattern. Activities connect back to their domain's PathSteps via the `connections` block and substance tracking.
 
@@ -650,31 +668,31 @@ Add these to any PathStep frontmatter:
 
 ```yaml
 type: PathStep
-uid: ps:sel:understanding-others
+uid: ps.sel.understanding-others
 title: Understanding Others — Empathy, Perspective, and Compassion
 
 uses_kus:
-  - ku:sel:empathy
-  - ku:sel:perspective-taking
+  - ku.sel.empathy
+  - ku.sel.perspective-taking
 
 # Activity domain wiring
 habit_uids:
-  - habit:daily-empathy-check        # BUILDS_HABIT → Habit
+  - habit.daily-empathy-check        # BUILDS_HABIT → Habit
 
 task_uids:
-  - task:perspective-journal          # ASSIGNS_TASK → Task
+  - task.perspective-journal          # ASSIGNS_TASK → Task
 
 event_template_uids:
-  - event:weekly-reflection           # SCHEDULES_EVENT → Event
+  - event.weekly-reflection           # SCHEDULES_EVENT → Event
 
 goal_uids:
-  - goal:deeper-listening             # SUPPORTS_GOAL → Goal
+  - goal.deeper-listening             # SUPPORTS_GOAL → Goal
 
 principle_uids:
-  - principle:empathy-first           # GUIDED_BY_PRINCIPLE → Principle
+  - principle.empathy-first           # GUIDED_BY_PRINCIPLE → Principle
 
 choice_uids:
-  - choice:ask-before-assuming        # INFORMS_CHOICE → Choice
+  - choice.ask-before-assuming        # INFORMS_CHOICE → Choice
 ```
 
 Not every PathStep needs all 6. Use what fits the content.
@@ -793,11 +811,11 @@ The graph grows one node at a time.
 
 | Entity | Pattern | Example |
 |--------|---------|---------|
-| Ku | `ku:{namespace}:{slug}` | `ku:mindfulness:breath` |
-| PathStep | `ps:{namespace}:{slug}` | `ps:mindfulness:breath-awareness-basics` |
-| Exercise | `ex:{namespace}:{slug}` | `ex:sel:know-yourself-check-in` |
-| LearningPath | `lp:{slug}` | `lp:mindfulness-101` |
-| Activity | `{type}:{slug}` | `habit:daily-2min-breath` |
+| Ku | `ku.{namespace}.{slug}` | `ku.mindfulness.breath` |
+| PathStep | `ps.{namespace}.{slug}` | `ps.mindfulness.breath-awareness-basics` |
+| Exercise | `ex.{namespace}.{slug}` | `ex.sel.know-yourself-check-in` |
+| LearningPath | `lp.{slug}` | `lp.mindfulness-101` |
+| Activity | `{type}:{slug}` | `habit.daily-2min-breath` |
 
 ### SEL Categories
 

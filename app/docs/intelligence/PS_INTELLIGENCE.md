@@ -652,7 +652,7 @@ async def test_practice_completeness_score():
         "total": 5
     }))
 
-    result = await service.practice_completeness_score("ps:test")
+    result = await service.practice_completeness_score("ps.test")
 
     assert result.is_ok
     # Two types (habits + events) = 2/3 = 0.67

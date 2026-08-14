@@ -323,7 +323,7 @@ upcoming_events = result.value
 from core.models.event.event_request import CheckConflictsRequest
 
 result = await events_service.check_conflicts(
-    CheckConflictsRequest(event_uid="event:123")
+    CheckConflictsRequest(event_uid="event.123")
 )
 conflicting_event_uids = result.value  # List of conflicting event UIDs
 ```

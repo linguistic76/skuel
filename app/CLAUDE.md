@@ -86,15 +86,15 @@ SKUEL measures knowledge by how it's LIVED. Substance accrues from lived activit
 
 ### Curriculum Grouping Patterns
 
-| Pattern | UID authored (vault) → stored (graph) | Topology | Metaphor |
+| Pattern | UID (authored = stored) | Topology | Metaphor |
 |---------|-----------|----------|----------|
-| Ku | `ku:{ns}:{slug}` → `ku.{ns}.{slug}` (API-generated: `ku_{slug}_{random}`) | Atom | A single concept/fact |
-| PS | `ps:{namespace}:{slug}` → `ps.{namespace}.{slug}` | Content Unit | THE curriculum content entity (composes Kus) |
-| LP | `lp:{namespace}:{slug}` → `lp.{namespace}.{slug}` | Path | An ordered sequence of path steps |
+| Ku | `ku.{ns}.{slug}` (API-generated: `ku_{slug}_{random}`) | Atom | A single concept/fact |
+| PS | `ps.{namespace}.{slug}` | Content Unit | THE curriculum content entity (composes Kus) |
+| LP | `lp.{namespace}.{slug}` | Path | An ordered sequence of path steps |
 
-**Colon → dot normalization:** ingestion rewrites `:` → `.` in every UID (`normalize_uid`, `core/services/ingestion/preparer.py` — entity `uid:`, rel-config fields, edge `from`/`to`). Vault files author colons; the graph stores dots. Never compare file↔graph UIDs raw.
+**Dot authoring (ratified 2026-08-14):** vault files author UIDs in dot form directly (`ku.{ns}.{slug}`) — authored = stored. The colon spelling is retired; `normalize_uid` (`core/services/ingestion/preparer.py`) remains a boundary shim rewriting stray `:` → `.` (entity `uid:`, rel-config fields, edge `from`/`to`). Periodic `ue:daily:…` UIDs keep colons by design.
 
-**Separator grammar (ratified 2026-08-14):** `-` joins words; `:`→`.` = authored-UID segments (middle segment = human-readable grouping hint, machine-opaque); `_` = generated-UID segments + filename type-prefix; family lives ONLY in edges (`ORGANIZES` etc.), never in UID strings. **See:** `/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md § Separator Grammar`.
+**Separator grammar (ratified 2026-08-14):** `-` joins words; `.` = authored-UID segments (middle segment = human-readable grouping hint, machine-opaque); `_` = generated-UID segments + filename type-prefix; family lives ONLY in edges (`ORGANIZES` etc.), never in UID strings. **See:** `/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md § Separator Grammar`.
 
 **Two Paths to Knowledge:** PS Path (structured, linear) and ORGANIZES Path (unstructured, graph, learner-directed). MOC is emergent identity — any Entity with ORGANIZES relationships. Authoring surface: `moc: true` frontmatter on any ingestible file → body links become `ORGANIZES {order}` edges (dangling links: silent in personal vaults, warned in content vault). **See:** `/docs/patterns/UNIFIED_INGESTION_GUIDE.md` § MOC files.
 

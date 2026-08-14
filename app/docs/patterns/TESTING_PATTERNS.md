@@ -111,15 +111,15 @@ for uid in entity_uids:
 SKUEL normalizes UIDs during ingestion - colons become dots:
 
 ```
-External format: ku:python-basics  →  Internal format: ku.python-basics
+External format: ku.python-basics  →  Internal format: ku.python-basics
 ```
 
 Tests that use colon notation for retrieval will fail:
 
 ```python
-# ❌ FAILS - Database has "ku.simple-test", not "ku:simple-test"
-result = await ku_service.get("ku:simple-test")
-# Error: "Knowledge unit ku:simple-test not found"
+# ❌ FAILS - Database has "ku.simple-test", not "ku.simple-test"
+result = await ku_service.get("ku.simple-test")
+# Error: "Knowledge unit ku.simple-test not found"
 ```
 
 ### The Solution
@@ -145,7 +145,7 @@ domain: tech
 
 # ❌ WRONG - colon notation will be normalized
 ---
-uid: ku:simple-test  # Stored as ku.simple-test
+uid: ku.simple-test  # Stored as ku.simple-test
 title: Simple Test
 domain: tech
 ---
@@ -160,14 +160,14 @@ Match the internal format in assertions:
 assert ku_dto.uid == "ku.simple-test"
 
 # ❌ WRONG - won't match
-assert ku_dto.uid == "ku:simple-test"
+assert ku_dto.uid == "ku.simple-test"
 ```
 
 ### UID Normalization Reference
 
 | Input | Normalized | Used Where |
 |-------|------------|------------|
-| `ku:name` | `ku.name` | Ingestion, storage, retrieval |
+| `ku.name` | `ku.name` | Ingestion, storage, retrieval |
 | `ku.name` | `ku.name` | (No change) |
 | `ku name` | `ku-name` | Space handling |
 
@@ -320,7 +320,7 @@ async def test_bad():
 
 ```python
 # BAD - Uses external format internally
-await service.get("ku:topic")  # Will fail
+await service.get("ku.topic")  # Will fail
 ```
 
 ### ❌ Don't Assume Mock Methods

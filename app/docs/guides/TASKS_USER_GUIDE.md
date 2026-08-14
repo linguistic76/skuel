@@ -64,7 +64,7 @@ For tasks you're authoring as part of a learning plan or curriculum bundle, writ
 version: 1.0
 type: Task
 
-uid: task:sel:daily-reflection-week-1
+uid: task.sel.daily-reflection-week-1
 title: Daily Reflection — Week 1
 description: >
   Each evening, spend 5 minutes writing down one emotion you noticed today
@@ -75,9 +75,9 @@ tags: [sel, self-awareness, practice]
 
 connections:
   applies_knowledge:
-    - ps:sel:knowing-yourself          # Knowledge substance channel
-  fulfills_goal: [goal:sel:self-awareness-practice]
-  reinforces_habit: [habit:daily-evening-reflection]
+    - ps.sel.knowing-yourself          # Knowledge substance channel
+  fulfills_goal: [goal.sel.self-awareness-practice]
+  reinforces_habit: [habit.daily-evening-reflection]
 ```
 
 Drop this file in your vault directory (`INGESTION_PATH`) and run the sync. SKUEL creates the task and wires all connections in one pass.
@@ -144,9 +144,9 @@ Any task can have sub-tasks. Sub-tasks give you a lightweight breakdown of large
 
 ```yaml
 type: Task
-uid: task:sel:reflection-day-1
+uid: task.sel.reflection-day-1
 title: Day 1 Reflection
-parent_uid: task:sel:daily-reflection-week-1    # Makes this a sub-task
+parent_uid: task.sel.daily-reflection-week-1    # Makes this a sub-task
 ```
 
 **From TaskTemplates:** Curriculum authors can create a template hierarchy using `parent_template_uid` — when the parent task spawns from a PathStep engagement, the sub-task templates spawn alongside it.

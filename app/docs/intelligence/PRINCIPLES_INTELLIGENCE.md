@@ -60,7 +60,7 @@ async def get_with_context(
 **Example:**
 ```python
 result = await principles_service.intelligence.get_with_context(
-    uid="principle:integrity",
+    uid="principle.integrity",
     depth=2
 )
 
@@ -145,7 +145,7 @@ async def assess_principle_alignment(
 **Example:**
 ```python
 result = await principles_service.intelligence.assess_principle_alignment(
-    principle_uid="principle:integrity"
+    principle_uid="principle.integrity"
 )
 
 if result.is_ok:
@@ -242,7 +242,7 @@ async def get_principle_adherence_trends(
 ```python
 # Analyze last 90 days
 result = await principles_service.intelligence.get_principle_adherence_trends(
-    principle_uid="principle:integrity",
+    principle_uid="principle.integrity",
     days=90
 )
 
@@ -296,11 +296,11 @@ async def get_principle_conflict_analysis(
     "conflicts": [
         {
             "principle1": {
-                "uid": "principle:work-excellence",
+                "uid": "principle.work-excellence",
                 "label": "Work Excellence"
             },
             "principle2": {
-                "uid": "principle:family-first",
+                "uid": "principle.family-first",
                 "label": "Family First"
             },
             "severity": "high",
@@ -310,11 +310,11 @@ async def get_principle_conflict_analysis(
         },
         {
             "principle1": {
-                "uid": "principle:health",
+                "uid": "principle.health",
                 "label": "Health"
             },
             "principle2": {
-                "uid": "principle:productivity",
+                "uid": "principle.productivity",
                 "label": "Productivity"
             },
             "severity": "medium",
@@ -404,7 +404,7 @@ async def get_quick_principle_impact(
 **Returns:**
 ```python
 {
-    "principle_uid": "principle:integrity",
+    "principle_uid": "principle.integrity",
     "relationship_counts": {
         "grounded_knowledge": 2,
         "guided_goals": 4,
@@ -423,7 +423,7 @@ async def get_quick_principle_impact(
 ```python
 # Quick check first (fast - ~160ms)
 result = await principles_service.intelligence.get_quick_principle_impact(
-    principle_uid="principle:integrity"
+    principle_uid="principle.integrity"
 )
 
 if result.is_ok:
@@ -489,21 +489,21 @@ async def batch_analyze_principle_adoption(
 **Returns:**
 ```python
 {
-    "principle:integrity": {
+    "principle.integrity": {
         "impact_score": 7.5,
         "adoption_level": "embodied",
         "total_actions": 7,
         "has_foundation": True,
         "guides_actions": True
     },
-    "principle:excellence": {
+    "principle.excellence": {
         "impact_score": 3.5,
         "adoption_level": "developing",
         "total_actions": 3,
         "has_foundation": True,
         "guides_actions": True
     },
-    "principle:balance": {
+    "principle.balance": {
         "impact_score": 1.0,
         "adoption_level": "exploring",
         "total_actions": 1,
@@ -516,7 +516,7 @@ async def batch_analyze_principle_adoption(
 **Example:**
 ```python
 # Analyze all user principles in ~2s instead of ~4s
-all_principles = ["principle:integrity", "principle:excellence", "principle:balance"]
+all_principles = ["principle.integrity", "principle.excellence", "principle.balance"]
 
 result = await principles_service.intelligence.batch_analyze_principle_adoption(
     principle_uids=all_principles
@@ -575,7 +575,7 @@ async def assess_alignment_dual_track(
 **Returns:**
 ```python
 DualTrackResult[AlignmentLevel](
-    entity_uid="principle:integrity",
+    entity_uid="principle.integrity",
     entity_type="principle",
 
     # USER-DECLARED (Vision)
@@ -635,7 +635,7 @@ class AlignmentLevel(StrEnum):
 **Example:**
 ```python
 result = await principles_service.intelligence.assess_alignment_dual_track(
-    principle_uid="principle:integrity",
+    principle_uid="principle.integrity",
     user_uid="user.mike",
     user_alignment_level=AlignmentLevel.ALIGNED,
     user_evidence="I always act with integrity",
@@ -709,7 +709,7 @@ principles_service = PrinciplesService(
 
 # Access via .intelligence attribute
 result = await principles_service.intelligence.assess_principle_alignment(
-    principle_uid="principle:integrity"
+    principle_uid="principle.integrity"
 )
 ```
 

@@ -99,7 +99,7 @@ Use `uid_param` to include UID in error details:
 @with_error_handling("get_task", error_type="database", uid_param="uid")
 async def get(self, uid: str) -> Result[Task]:
     return await self.backend.get(uid)
-    # On error: {"uid": "task:123"} included in error details
+    # On error: {"uid": "task.123"} included in error details
 ```
 
 ### Method Pattern
