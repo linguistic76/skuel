@@ -93,8 +93,9 @@ in `scripts/audit_font_sizes.py`:
 ### 4. Guardrail
 
 `scripts/audit_font_sizes.py` (sibling of `audit_raw_headers.py`) scans every string
-constant in production UI code for `text-[<number-or-clamp>` (variant prefixes included)
-and reports findings outside the count-pinned allowlist. Advisory (exit 0) during the
+constant in production UI code — plus the `static/js/*.js` Tailwind `@source` tree — for
+arbitrary font sizes (`text-[<number>`, `clamp()`/`calc()`/`min()`/`max()` values; variant
+prefixes included) and reports findings outside the count-pinned allowlist. Advisory (exit 0) during the
 sweep PRs — the shrinking count is each PR body's burndown metric; `--strict` flips on in
 PR6. Wired as `./dev quality` check 5c and a CI lint step. The paired `css_freshness` CI
 job compiles `input.css` and fails on `output.css` drift, so a sweep can never land with a
