@@ -334,7 +334,7 @@ def parse_link(value: str) -> list[LinkRef]:
 
 **Example:**
 ```python
-parse_link("goal.teens-yoga/10-members, principle.discernment-first")
+parse_link("goal:teens-yoga/10-members, principle:discernment-first")
 # Result: [
 #   LinkRef(type="goal", id="teens-yoga/10-members"),
 #   LinkRef(type="principle", id="discernment-first")

@@ -76,11 +76,16 @@ to dots in the same pass (572 rewrites across 265 files; identity unchanged, sin
 normalize to the same stored UID).
 
 `normalize_uid()` in `core/services/ingestion/preparer.py` **remains** at the ingestion boundary
-as a legacy-compatibility shim: it still rewrites `:` → `.` on the entity `uid:`, on every
-rel-config UID field (`kus:`, `exercise_uids:`, `resource_uids:`, `contains_steps`, …), and on
-Edge-YAML `from`/`to` — so a stray colon-spelled file lands correctly instead of failing.
-Exception by design: **periodic UserEntry UIDs** (`ue:daily:{user_uid}:{date}`) are a distinct
-machine format that keeps its colons and is deliberately never normalized.
+as an **input alias** — the same sanctioned pattern as `from_string()` aliases (Naming
+Conventions § Emission rule: aliases are input-only, resolved to the canonical spelling at the
+boundary, never emitted). It rewrites `:` → `.` on the entity `uid:`, on every rel-config UID
+field (`kus:`, `exercise_uids:`, `resource_uids:`, `contains_steps`, …), and on Edge-YAML
+`from`/`to` — so a stray colon-spelled file lands correctly instead of failing. Whether to
+delete the alias outright (strict One Path: colon input becomes a loud validation error) is an
+open decision queued with the UID code-fix arc — it is a code change with personal-vault blast
+radius, not a docs call. Exception by design: **periodic UserEntry UIDs**
+(`ue:daily:{user_uid}:{date}`) are a distinct machine format that keeps its colons and is
+deliberately never normalized.
 
 Consequences:
 - For compliant files, file UID and graph UID now compare **directly** — no mental translation.
@@ -97,7 +102,7 @@ beyond this table is historical:
 | Character | Role |
 |-----------|------|
 | `-` hyphen | Joins words **within** a single segment (`active-listening`). The only word-joiner, everywhere — `UIDGenerator.slugify()` emits it. Known gap: slugify currently *preserves* underscores arriving in input titles (its `\w` class includes `_`) instead of converting them; the `_`→`-` fix is queued. Author hyphens. |
-| `.` dot | Segment separator of **authored** UIDs — authored and stored identically. Shape: `{prefix}.{grouping-label}.{slug}`. (The `:` colon authoring spelling was retired 2026-08-14; `normalize_uid()` still rewrites stray `:` → `.` at the boundary as a legacy shim. Periodic `ue:` UIDs keep colons by design.) |
+| `.` dot | Segment separator of **authored** UIDs — authored and stored identically. Shape: `{prefix}.{grouping-label}.{slug}`. (The `:` colon authoring spelling was retired 2026-08-14; `normalize_uid()` keeps accepting it as an input-only alias, resolved at the boundary. Periodic `ue:` UIDs keep colons by design. The DSL's `@link(type:id)` argument colon is tag syntax, not a UID spelling.) |
 | `_` underscore | Segment separator of **generated** UIDs (`{prefix}_{slug}_{random}`, `{prefix}_{random}`), and the conventional filename type-prefix (`ku_attention.md`). |
 | *(edges)* | Family. Parent/child/lineage lives **only** in graph relationships (`ORGANIZES`, `USES_KU`, `HAS_STEP`, …) — never in UID strings. |
 

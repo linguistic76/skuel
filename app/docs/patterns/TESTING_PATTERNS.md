@@ -108,26 +108,27 @@ for uid in entity_uids:
 
 ### The Problem
 
-SKUEL normalizes UIDs during ingestion - colons become dots:
+Dot form is the authoring AND stored spelling (colons retired 2026-08-14), but the ingestion
+boundary still normalizes stray legacy colons to dots:
 
 ```
-External format: ku.python-basics  →  Internal format: ku.python-basics
+Legacy colon input: ku:python-basics  →  Stored format: ku.python-basics
 ```
 
-Tests that use colon notation for retrieval will fail:
+Tests that use the legacy colon spelling for retrieval will fail — the graph never stores colons:
 
 ```python
-# ❌ FAILS - Database has "ku.simple-test", not "ku.simple-test"
-result = await ku_service.get("ku.simple-test")
-# Error: "Knowledge unit ku.simple-test not found"
+# ❌ FAILS - Database has "ku.simple-test", not "ku:simple-test"
+result = await ku_service.get("ku:simple-test")
+# Error: "Knowledge unit ku:simple-test not found"
 ```
 
 ### The Solution
 
-Use **dot notation** (internal format) consistently in tests:
+Use **dot notation** (the stored format) consistently in tests:
 
 ```python
-# ✅ WORKS - Matches internal format
+# ✅ WORKS - Matches stored format
 result = await ku_service.get("ku.simple-test")
 ```
 
@@ -143,9 +144,9 @@ title: Simple Test
 domain: tech
 ---
 
-# ❌ WRONG - colon notation will be normalized
+# ❌ WRONG - legacy colon spelling will be normalized on ingest
 ---
-uid: ku.simple-test  # Stored as ku.simple-test
+uid: ku:simple-test  # Stored as ku.simple-test
 title: Simple Test
 domain: tech
 ---
@@ -153,23 +154,25 @@ domain: tech
 
 ### Assertions
 
-Match the internal format in assertions:
+Match the stored format in assertions:
 
 ```python
 # ✅ CORRECT
 assert ku_dto.uid == "ku.simple-test"
 
 # ❌ WRONG - won't match
-assert ku_dto.uid == "ku.simple-test"
+assert ku_dto.uid == "ku:simple-test"
 ```
 
 ### UID Normalization Reference
 
 | Input | Normalized | Used Where |
 |-------|------------|------------|
-| `ku.name` | `ku.name` | Ingestion, storage, retrieval |
-| `ku.name` | `ku.name` | (No change) |
-| `ku name` | `ku-name` | Space handling |
+| `ku.name` | `ku.name` | (No change — authored = stored) |
+| `ku:name` | `ku.name` | Legacy colon shim at the ingestion boundary |
+
+(`normalize_uid()` performs ONLY the colon→dot rewrite — spaces and case are never
+touched; a UID with spaces is an authoring error, not something normalization fixes.)
 
 **Key Insight:** Tests are integration tests - they should use the **internal format** to validate the system correctly stores and retrieves data.
 

@@ -105,7 +105,7 @@ After ingestion, this YAML produces the following graph structure:
     -[:HAS_CHUNK {sequence: 0}]->
 
 (:ContentChunk {
-    uid: "ps.mindfulness-101.intro.chunk.0",  ← deterministic: {parent_uid}:chunk:{index}
+    uid: "ps.mindfulness-101.intro:chunk:0",   ← deterministic: {parent_uid}:chunk:{index}
     chunk_type: "section",              ← ContentChunkType value (section | definition |
                                           example | exercise | code | summary | ...)
     text: "## What Is Mindfulness?\n\nMindfulness is paying attention...",

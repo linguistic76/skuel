@@ -345,9 +345,9 @@ vortex:     → Vortexes
 
 **Examples:**
 ```markdown
-@link(goal.teens-yoga/10-members)
-@link(principle.discernment-first, project:askesis-v1)
-@link(ku.sel/thought-not-reality, goal.wisdom-development)
+@link(goal:teens-yoga/10-members)
+@link(principle:discernment-first, project:askesis-v1)
+@link(ku:sel/thought-not-reality, goal:wisdom-development)
 ```
 
 ---
@@ -373,7 +373,7 @@ vortex:     → Vortexes
 ## Complete Example
 
 ```markdown
-- [ ] Draft Teens.yoga lesson on focus @context(task,learning) @when(2025-11-30T09:00) @priority(1) @duration(90m) @energy(focus,creative) @ku(ku.teens-yoga/focus-lesson) @link(goal.teens-yoga/20-members, principle.discernment-first)
+- [ ] Draft Teens.yoga lesson on focus @context(task,learning) @when(2025-11-30T09:00) @priority(1) @duration(90m) @energy(focus,creative) @ku(ku.teens-yoga/focus-lesson) @link(goal:teens-yoga/20-members, principle:discernment-first)
 ```
 
 **Parsing yields:**
