@@ -54,7 +54,7 @@ from core.services.ingestion import UnifiedIngestionService
 service = UnifiedIngestionService(driver)
 
 # Ingest a single file
-result = await service.ingest_file(Path("ku.machine-learning.md"))
+result = await service.ingest_file(Path("ku_machine-learning.md"))
 
 # Ingest the default vault
 stats = await service.ingest_directory(Path("data/vault"), pattern="ku_*.yaml")
@@ -789,7 +789,7 @@ not remove the `services_bootstrap/compose.py` exclusion without that ruling.
 Ingest a single file (Markdown or YAML).
 
 ```python
-result = await service.ingest_file(Path("/docs/ku.python-basics.md"))
+result = await service.ingest_file(Path("/docs/ku_python-basics.md"))
 
 if result.is_ok:
     entity = result.value
@@ -842,9 +842,9 @@ Ingest a manifest-driven bundle.
 # Bundle structure:
 # /bundles/mindfulness/
 # ├── manifest.yaml          # Lists files to ingest
-# ├── ku.breath-awareness.md
-# ├── ku.body-scan.md
-# └── lp.mindfulness-basics.yaml
+# ├── ku_breath-awareness.md
+# ├── ku_body-scan.md
+# └── lp_mindfulness-basics.yaml
 
 stats = await service.ingest_bundle(Path("/bundles/mindfulness"))
 ```
@@ -858,14 +858,15 @@ stats = await service.ingest_bundle(Path("/bundles/mindfulness"))
 Configurable via environment variable:
 
 ```bash
-export SKUEL_DEFAULT_USER_UID="user:admin"
+export SKUEL_DEFAULT_USER_UID="user_admin"
 ```
 
-Falls back to `"user:system"` if not set.
+Falls back to `"user_system"` if not set. User UIDs are always underscore form
+(`user_{username}` — `TypeConverter.to_user_uid` rejects `user:...` / `user....`).
 
 ```python
 from core.services.ingestion import DEFAULT_USER_UID
-print(DEFAULT_USER_UID)  # "user:admin" or "user:system"
+print(DEFAULT_USER_UID)  # "user_admin" or "user_system"
 ```
 
 ---
@@ -929,20 +930,24 @@ also auto-fall back to the filename.
 | Entity Type | Prefix | Neo4j Labels | Required Fields | Example File |
 |-------------|--------|-------------|-----------------|--------------|
 | `exercise` | `ex.` | `:Entity:Exercise` | title, instructions | `exercise_know-yourself.yaml` |
-| `ku` | `ku.` | `:Entity:Ku` | title | `ku.python-basics.md` |
-| `ps` | `ps.` | `:Entity:PathStep` | title | `ps.learn-variables.md` |
-| `lp` | `lp.` | `:Entity:LearningPath` | title | `lp.python-journey.yaml` |
-| `resource` | `resource.` | `:Entity:Resource` | title | `resource.atomic-habits.yaml` |
-| `task` | `task.` | `:Entity:Task` | title | `task.complete-exercise.yaml` |
-| `goal` | `goal.` | `:Entity:Goal` | title | `goal.learn-python.yaml` |
-| `habit` | `habit.` | `:Entity:Habit` | title | `habit.daily-practice.yaml` |
-| `event` | `event.` | `:Entity:Event` | title | `event.workshop.yaml` |
-| `choice` | `choice.` | `:Entity:Choice` | title | `choice.career-path.yaml` |
-| `principle` | `principle.` | `:Entity:Principle` | title, statement | `principle.consistency.yaml` |
-| `user_entry` | `ue.` | `:Entity:UserEntry` | title (+ `pipeline:`, door-level) | `ue.journal-2026-06-12.yaml` |
-| `interaction` | `ia.` | `:Entity:Interaction` | interaction_type, target_uid | `ia.viewed-ps.yaml` |
-| `group` | `group.` | `:Group` | name | `group.class-of-2026.yaml` |
-| `lifepath` | `lifepath.` | `:Entity:LifePath` | user_uid | `lifepath.vision.yaml` |
+| `ku` | `ku.` | `:Entity:Ku` | title | `ku_python-basics.md` |
+| `ps` | `ps.` | `:Entity:PathStep` | title | `ps_learn-variables.md` |
+| `lp` | `lp.` | `:Entity:LearningPath` | title | `lp_python-journey.yaml` |
+| `resource` | `resource.` | `:Entity:Resource` | title | `resource_atomic-habits.yaml` |
+| `task` | `task.` | `:Entity:Task` | title | `task_complete-exercise.yaml` |
+| `goal` | `goal.` | `:Entity:Goal` | title | `goal_learn-python.yaml` |
+| `habit` | `habit.` | `:Entity:Habit` | title | `habit_daily-practice.yaml` |
+| `event` | `event.` | `:Entity:Event` | title | `event_workshop.yaml` |
+| `choice` | `choice.` | `:Entity:Choice` | title | `choice_career-path.yaml` |
+| `principle` | `principle.` | `:Entity:Principle` | title, statement | `principle_consistency.yaml` |
+| `user_entry` | `ue.` | `:Entity:UserEntry` | title (+ `pipeline:`, door-level) | `ue_journal-2026-06-12.yaml` |
+| `interaction` | `ia.` | `:Entity:Interaction` | interaction_type, target_uid | `ia_viewed-ps.yaml` |
+| `group` | `group.` | `:Group` | name | `group_class-of-2026.yaml` |
+| `lifepath` | `lifepath.` | `:Entity:LifePath` | user_uid | `lifepath_vision.yaml` |
+
+**Example filenames are convention, not contract** — the filename never determines type or
+identity (only frontmatter does; see § Entity Type Detection). The `Prefix` column is the
+*stored UID* prefix the validator enforces on explicit `uid:` values, always dot-form.
 
 **Multi-label architecture:** All domain entities get both `:Entity` (universal base) and a domain-specific label (e.g., `:Task`). This enables cross-domain queries via `:Entity` and fast indexed queries via domain labels. Group is the exception — `:Group` only, no `:Entity` base label (it lives in `NonKuDomain`, ADR-053).
 
@@ -978,20 +983,33 @@ Explicit UIDs in vault files are validated against the expected prefix for their
 
 ## UID Format
 
-**Standard:** Dot notation (`entity.name`)
+**Two sanctioned forms** (ADR-013 addendum — spelling is provenance, never type information):
+
+- **Authored** (vault frontmatter): colon spelling, normalized to dots at ingestion —
+  `ku:mindfulness:attention` is stored as `ku.mindfulness.attention`. The middle segment is a
+  human-readable grouping hint; hierarchy lives in `ORGANIZES` edges, never in the UID.
+- **Generated** (API): `{prefix}_{slug}_{random}` — e.g. `ku_meditation-basics_a1b2c3d4`.
+  Not valid in vault files (the validator requires the dot-form prefix on explicit `uid:`).
 
 ```
-ku.breath-awareness      ✅ Correct
-task.log-sessions        ✅ Correct
-ku:breath-awareness      ❌ Auto-normalized to ku.breath-awareness
+ku:breath-awareness      ✅ authored spelling — stored as ku.breath-awareness
+ku.breath-awareness      ✅ already-dotted authored form
+task.log-sessions        ✅ authored activity file (stored spelling)
 ```
 
 ### Auto-Normalization
 
-The service automatically normalizes:
+`normalize_uid()` performs exactly one rewrite:
+
 - Colon notation: `ku:name` → `ku.name`
-- Spaces: `ku.my name` → `ku.my-name`
-- Case: Preserved (lowercase recommended)
+
+Nothing else is normalized: spaces are **not** rewritten (a UID with spaces is simply wrong —
+author hyphens) and case is untouched (author lowercase). A `uid:` key that is present but
+blank is a validation error, not a fallback to filename.
+
+**See:** `/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md` § Separator Grammar — the
+one-character-one-job table (hyphen joins words; colon/dot = authored segments; underscore =
+generated segments; family lives in edges).
 
 ---
 
@@ -1265,7 +1283,7 @@ Pre-validate files before ingestion:
 from core.services.ingestion import validate_file, validate_directory
 
 # Single file
-result = await service.validate_file(Path("/docs/ku.test.md"))
+result = await service.validate_file(Path("/docs/ku_test.md"))
 if result.value.valid:
     print(f"Valid: {result.value.entity_type} - {result.value.uid}")
 else:
@@ -1318,8 +1336,8 @@ from core.services.ingestion import (
 
 # Example: Check if file needs ingestion
 tracker = IngestionTracker(driver)
-metadata_map = await tracker.get_ingestion_metadata([Path("/docs/ku.test.md")])
-decision = tracker.needs_ingestion(Path("/docs/ku.test.md"), metadata_map.get("/docs/ku.test.md"))
+metadata_map = await tracker.get_ingestion_metadata([Path("/docs/ku_test.md")])
+decision = tracker.needs_ingestion(Path("/docs/ku_test.md"), metadata_map.get("/docs/ku_test.md"))
 print(f"Needs ingestion: {decision.needs_ingestion} ({decision.reason})")
 ```
 
