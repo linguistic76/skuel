@@ -23,12 +23,17 @@ Usage:
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TypeVar
 
 from adapters.inbound.csrf import CSRF_COOKIE_NAME, CSRF_HEADER_NAME, mint_token
 
+# The stubs are deliberately heterogeneous (SimpleNamespace, MagicMock,
+# bespoke classes) — the TypeVar hands each factory back exactly the stub
+# type it built, instead of erasing it to Any.
+_RequestStubT = TypeVar("_RequestStubT")
 
-def attach_csrf(request: Any) -> Any:
+
+def attach_csrf(request: _RequestStubT) -> _RequestStubT:
     """Attach a real, matching CSRF cookie+header pair to a request stub.
 
     Merges into existing ``cookies``/``headers`` dicts (preserving e.g. an
@@ -40,13 +45,13 @@ def attach_csrf(request: Any) -> Any:
     cookies = getattr(request, "cookies", None)
     if cookies is None:
         cookies = {}
-        request.cookies = cookies
+        setattr(request, "cookies", cookies)  # noqa: B010 — stub may lack the attr
     cookies[CSRF_COOKIE_NAME] = token
 
     headers = getattr(request, "headers", None)
     if headers is None:
         headers = {}
-        request.headers = headers
+        setattr(request, "headers", headers)  # noqa: B010 — stub may lack the attr
     headers[CSRF_HEADER_NAME] = token
 
     return request
