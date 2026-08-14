@@ -200,6 +200,8 @@ REQUIRED_FILTERS: dict[str, frozenset[str]] = {
     "scripts/cypher_linter.py --errors-only --strict": frozenset({"py", "cypher"}),
     "scripts/audit_route_security.py": frozenset({"py"}),
     "scripts/audit_raw_headers.py": frozenset({"py"}),
+    # Scans .py UI trees AND static/js (a Tailwind @source tree) — needs both doors.
+    "scripts/audit_font_sizes.py": frozenset({"py", "js"}),
     "scripts/detect_bloat.py --check": frozenset({"py"}),
     "scripts/shellcheck_tracked.py": frozenset({"py"}),
     # Lockfiles ride the py filter; osv-scanner.toml + the JS lockfile ride audit.

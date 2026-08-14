@@ -75,6 +75,16 @@
 
   /* Soft 2px ring matching hsl(var(--ring) / 0.2) — used as focus ring. */
   --shadow-focus: 0 0 0 2px hsl(var(--ring) / 0.2);
+
+  /* Compact UI font-size steps — SKUEL-owned sizes below/between Tailwind's
+     named scale (ADR-084, extends ADR-071 token ownership). Deliberately NO
+     --text-N--line-height companions: utilities emit font-size only and
+     inherit line-height, preserving pre-migration rhythm. Designed leadings
+     are a named follow-up campaign, not this one. */
+  --text-10: 0.625rem;   /* 10px — micro labels, badges, mono kickers */
+  --text-11: 0.6875rem;  /* 11px — metadata, uppercase section labels */
+  --text-13: 0.8125rem;  /* 13px — dense body/list text (house workhorse) */
+  --text-15: 0.9375rem;  /* 15px — emphasized body, list titles */
 }
 
 /*

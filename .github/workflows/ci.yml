@@ -36,6 +36,7 @@ jobs:
       neo4j_config: ${{ steps.filter.outputs.neo4j_config }}
       js: ${{ steps.filter.outputs.js }}
       audit: ${{ steps.filter.outputs.audit }}
+      css: ${{ steps.filter.outputs.css }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
@@ -138,6 +139,22 @@ jobs:
               - 'app/.nvmrc'
               - 'app/.npmrc'
               - 'app/vitest.config.js'
+              - '.github/workflows/ci.yml'
+            css:
+              # css_freshness surface (ADR-084): the committed output.css must
+              # stay in sync with input.css AND with every tree Tailwind scans
+              # for class literals — the @source roots in input.css (ui/,
+              # adapters/inbound/, core/, static/js/) — plus the Tailwind CLI
+              # pins. A class-string-only .py change can alter the compiled
+              # CSS, so the filter mirrors the @source globs, not just the
+              # css files.
+              - 'app/static/css/**'
+              - 'app/ui/**'
+              - 'app/adapters/inbound/**'
+              - 'app/core/**'
+              - 'app/static/js/**'
+              - 'app/package.json'
+              - 'app/package-lock.json'
               - '.github/workflows/ci.yml'
             audit:
               # dep_audit's own tooling (Codex, PR #797): a PR that changes
@@ -314,7 +331,9 @@ jobs:
     # cypher too (Codex, PR #701): keeps a Cypher-only PR inside the lint job.
     # cypher_linter.py lints standalone .cypher files (indexes, migrations,
     # bulk-upsert templates) since 2026-07, so this filter is load-bearing.
-    if: needs.changes.outputs.py == 'true' || needs.changes.outputs.cypher == 'true'
+    # js too (Codex, PR #1057): audit_font_sizes.py scans static/js/*.js — a
+    # Tailwind @source tree — so a JS-only PR must still run the lint job.
+    if: needs.changes.outputs.py == 'true' || needs.changes.outputs.cypher == 'true' || needs.changes.outputs.js == 'true'
     runs-on: ubuntu-latest
     # Pin every uv command in this job to the committed lock (see the mypy job
     # for the full note). `uv run` re-locks just like `uv sync`, so the flag on
@@ -387,6 +406,14 @@ jobs:
         if: ${{ !cancelled() && steps.fmt.outcome != 'skipped' }}
         working-directory: app
         run: uv run python scripts/audit_raw_headers.py
+
+      # Font-size audit — arbitrary text-[Npx] outside the ADR-084 exception
+      # ledger. Advisory (exit 0) during the sweep PRs; --strict flips on when
+      # the burndown reaches zero (campaign PR6).
+      - name: Font-size audit
+        if: ${{ !cancelled() && steps.fmt.outcome != 'skipped' }}
+        working-directory: app
+        run: uv run python scripts/audit_font_sizes.py
 
 
       # Dead-code gate — fails only on WARNING-tier findings; staged work
@@ -838,6 +865,40 @@ jobs:
         working-directory: app
         run: npm run test:js
 
+  # Compiled-CSS freshness (ADR-084): output.css is a committed build artifact
+  # loaded directly in production, so any change to input.css or the scanned
+  # class-bearing trees must ship its recompile in the same PR. Recompiles and
+  # fails on drift — a stale output.css silently drops newly-used utilities.
+  css_freshness:
+    name: CSS Freshness
+    needs: changes
+    if: needs.changes.outputs.css == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          # Same pin rationale as js_tests: range form mirrors engines.node,
+          # moves in lockstep with dependency-audit.yml (ADR-067 § 2 / § 6c).
+          node-version: '^24.15.0'
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install dependencies
+        working-directory: app
+        run: npm ci
+
+      - name: Rebuild production CSS
+        working-directory: app
+        run: npm run css:prod
+
+      - name: Verify committed output.css is fresh
+        working-directory: app
+        run: git diff --exit-code -- static/css/output.css
+
   # Deliberately NOT gated by the `changes` path filter: a content-only PR (e.g.
   # a force-added app/docs/content/*.md or app/data/user_vaults/*.md, with no
   # Python change) would skip the py-gated jobs, so the boundary must be checked
@@ -874,7 +935,7 @@ jobs:
   # skipped (path not touched); fails on ANY other result value.
   gate:
     name: CI Gate
-    needs: [changes, mypy, lint, dep_audit, validate_documentation, unit_tests, integration_tests, smoke, content_boundary, js_tests]
+    needs: [changes, mypy, lint, dep_audit, validate_documentation, unit_tests, integration_tests, smoke, content_boundary, js_tests, css_freshness]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -891,6 +952,7 @@ jobs:
             "smoke=${{ needs.smoke.result }}"
             "content_boundary=${{ needs.content_boundary.result }}"
             "js_tests=${{ needs.js_tests.result }}"
+            "css_freshness=${{ needs.css_freshness.result }}"
           )
           echo "${results[*]}"
           # ALLOW-LIST: only 'success' and 'skipped' pass — 'skipped' is a job

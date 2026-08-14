@@ -140,7 +140,7 @@ SKUEL's CSS is compiled by the **Tailwind CLI** (`./dev css-build`) into `static
 
 **Global border radius:** `radii="sm"` (2px/4px) — set in `ui/theme.py` and `ui/layouts/base_page.py`. Keeps corners crisp and visible across all components (buttons, inputs, cards, modals).
 
-`output.css` is the production CSS asset, loaded by `skuel_headers()` / `build_head()`. Run `./dev css-build` after changing component class strings so newly-used utilities are present in the compiled output.
+`output.css` is the production CSS asset, loaded by `skuel_headers()` / `build_head()`. Run `./dev css-prod` after changing component class strings so newly-used utilities are present in the committed compiled output — CI's `css_freshness` job recompiles and **fails on drift** whenever `input.css` or any scanned class-bearing tree changes (ADR-084). `./dev css-build` (unminified) is for local inspection only; the committed artifact is the `css-prod` build.
 
 **Tabs** use SKUEL's `TabContainer` from `ui.components` (pure Tailwind + Alpine.js) — there are no DaisyUI `.tabs`/`.tab-active` classes anymore. For dynamic active-state styling, use the Alpine `:style` pattern with semantic CSS variables (see below).
 
@@ -194,6 +194,11 @@ Div(cls="max-w-6xl mx-auto")  # Use Container.STANDARD
 # ❌ Inconsistent spacing
 Div(cls="p-5")  # Use p-4 or p-6 (standard scale)
 
+# ❌ New arbitrary font sizes
+Span("Meta", cls="text-[11px]")  # Use the named scale: text-10/11/13/15 (SKUEL
+# compact steps, ADR-084) or stock text-xs/sm/base/lg/xl — audit_font_sizes.py
+# flags arbitrary sizes outside the exception ledger
+
 # ❌ Passing cls=None to a raw FT component
 Div(*c, cls=None)  # Renders class="None"
 # ✅ Omit cls or pass empty string (ui.components handle this via _cls())
@@ -212,7 +217,7 @@ NotStr("<!DOCTYPE html>...")  # Use AuthPage() or BasePage()
 |------|---------|
 | `/ui/tokens.py` | Design tokens (Container, Spacing, Card) |
 | `/static/css/main.css` | Custom CSS: animations, HTMX states, button/input visibility overrides |
-| `/static/css/input.css` | Tailwind v4 CSS-first config (the whole config — `@source` scanning + inline safelist, `@custom-variant dark`, `@theme inline` color tokens) + SKUEL-owned semantic CSS variables (`--primary`, `--background`, `--card`, …) |
+| `/static/css/input.css` | Tailwind v4 CSS-first config (the whole config — `@source` scanning + inline safelist, `@custom-variant dark`, `@theme inline` color tokens + compact font-size tokens `--text-10/11/13/15`, ADR-084) + SKUEL-owned semantic CSS variables (`--primary`, `--background`, `--card`, …) |
 | `/static/css/output.css` | Compiled Tailwind CLI output — **the production CSS asset** (ADR-071) |
 | `ui/components/` | **SKUEL-owned component layer (ADR-071 complete)** — pure Tailwind + Alpine.js. Button/ButtonT, Alert/AlertT/Loading/Progress, Icon, form set, table set, Divider, TabContainer, Accordion, layout helpers, Card/CardBody/CardHeader/CardTitle/CardFooter. |
 | `ui/forms/`, `ui/feedback.py`, `ui/layout.py`, `ui/data.py`, `ui/theme.py` | Pure Tailwind wrappers (ADR-071 complete). `ui/buttons.py`/`ui/cards.py`/`ui/text.py` deleted (PR E); `ui/navigation.py` deleted 2026-08 (zero consumers). |
