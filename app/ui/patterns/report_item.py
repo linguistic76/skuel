@@ -36,7 +36,7 @@ def render_report_item(report: EntryReport) -> Div:
         badge = Span(
             "AI",
             cls=(
-                "ml-2 px-1.5 py-0.5 text-[10px] font-semibold rounded-sm "
+                "ml-2 px-1.5 py-0.5 text-10 font-semibold rounded-sm "
                 "bg-info/10 text-info uppercase tracking-wide"
             ),
         )

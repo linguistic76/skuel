@@ -108,7 +108,7 @@ def Badge(
     color_cls = _BADGE_COLORS.get(variant.value, _BADGE_COLORS["neutral"]) if variant else ""
 
     size_cls = {
-        "xs": "text-[10px] px-1.5 py-0",
+        "xs": "text-10 px-1.5 py-0",
         "sm": "text-xs px-2 py-0.5",
         "md": "text-xs px-2.5 py-0.5",
         "lg": "text-sm px-3 py-1",

@@ -145,6 +145,14 @@ def main():
     ):
         all_passed = False
 
+    # 5c. Font-Size Audit (advisory: arbitrary text-[Npx] outside the ADR-084 exception ledger)
+    if not run_command(
+        ["uv", "run", "python", "scripts/audit_font_sizes.py"],
+        "Font-Size Audit",
+        check=False,
+    ):
+        all_passed = False
+
     # 6. Skills Validation (.claude/skills/*/SKILL.md structure; fails on errors, not warnings)
     if not run_command(
         ["uv", "run", "python", "scripts/skills_validator.py"],

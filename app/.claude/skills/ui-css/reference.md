@@ -236,22 +236,39 @@ DividerSplit("or")  # divider with centered text
 
 ```html
 <!-- Heading hierarchy -->
-<h1 class="text-2xl font-bold text-base-content">Page Title</h1>
+<h1 class="text-2xl font-bold text-foreground">Page Title</h1>
 <h2 class="text-xl font-semibold">Section</h2>
 <h3 class="text-lg font-medium">Subsection</h3>
-<p class="text-base text-base-content/70">Body text</p>
-<p class="text-sm text-base-content/50">Secondary text</p>
-<p class="text-xs uppercase tracking-wide font-semibold">Label</p>
+<p class="text-base text-muted-foreground">Body text</p>
+<p class="text-sm text-muted-foreground">Secondary text</p>
+<p class="text-11 uppercase tracking-wide font-semibold">Label</p>
 ```
+
+The full scale — Tailwind's stock steps plus SKUEL's compact steps
+(`text-10`/`text-11`/`text-13`/`text-15`, ADR-084, minted in `input.css`
+`@theme inline`). Compact steps emit **font-size only** (line-height is
+inherited — deliberately no `--text-N--line-height` companions):
 
 | Class | Size | Use |
 |-------|------|-----|
+| `text-10` | 10px | Micro labels, badges, mono kickers (SKUEL compact) |
+| `text-11` | 11px | Metadata, uppercase section labels (SKUEL compact) |
 | `text-xs` | 12px | Labels, metadata |
+| `text-13` | 13px | Dense body/list text — house workhorse (SKUEL compact) |
 | `text-sm` | 14px | Secondary, captions |
+| `text-15` | 15px | Emphasized body, list titles (SKUEL compact) |
 | `text-base` | 16px | Body text |
 | `text-lg` | 18px | Lead text |
 | `text-xl` | 20px | Card titles |
 | `text-2xl` | 24px | Page headings |
+
+**Never write a new arbitrary font size** (`text-[13px]`, `sm:text-[40px]`) —
+the scale above covers every sanctioned step, and `scripts/audit_font_sizes.py`
+flags arbitrary sizes outside the ADR-084 exception ledger. Migrating legacy
+sites (campaign mapping): 9–10.5px → `text-10` · 11/11.5 → `text-11` ·
+12/12.5 → `text-xs` · 13/13.5 → `text-13` · 14/14.5 → `text-sm` ·
+15/15.5 → `text-15` · 16 → `text-base` · 17/18 → `text-lg` · 20/22 →
+`text-xl` · ~30 → `text-3xl` · clamp()/40px+ heroes → allowlisted exceptions.
 
 ### Responsive Breakpoints (mobile-first)
 
