@@ -19,6 +19,7 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
 
+from core.ingestion.ingestion_types import RelationshipConfig
 from core.models.enum_field_registry import ENUM_FIELD_TYPES
 from core.models.enums.entity_enums import EntityType, NonKuDomain
 from core.models.type_hints import TypeConverter, UserUID
@@ -43,7 +44,7 @@ def is_sanctioned_machine_uid(uid: str) -> bool:
 
 def _reject_colon_relationship_targets(
     entity_data: dict[str, Any],
-    relationship_config: dict[str, Any] | None,
+    relationship_config: dict[str, RelationshipConfig] | None,
 ) -> None:
     """Raise ValueError on a colon-spelled relationship target.
 
