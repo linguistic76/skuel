@@ -30,6 +30,37 @@ from .moc_links import extract_moc_link_suffixes
 logger = get_logger("skuel.ingestion.preparer")
 
 
+def _reject_colon_relationship_targets(
+    entity_data: dict[str, Any],
+    relationship_config: dict[str, Any] | None,
+) -> None:
+    """Raise ValueError on any colon-spelled relationship target.
+
+    The colon input alias was deleted 2026-08-14 (authored = stored). Every
+    registered relationship field (``uses_kus``, ``resource_uids``,
+    ``connections.requires``, ``organizes``, …) must author the stored dot
+    form — a colon target survives field validation but the edge MERGE
+    matches nothing, so the link would vanish silently instead of failing.
+    """
+    if not relationship_config:
+        return
+    for field_name in relationship_config:
+        value = entity_data.get(field_name)
+        if isinstance(value, str):
+            targets: list[Any] = [value]
+        elif isinstance(value, list):
+            targets = value
+        else:
+            continue
+        for target in targets:
+            if isinstance(target, str) and ":" in target:
+                raise ValueError(
+                    f"Relationship target '{target}' in '{field_name}' uses the "
+                    f"retired colon spelling — author the stored dot form "
+                    f"('{target.replace(':', '.')}')"
+                )
+
+
 def generate_uid(entity_type: EntityType | NonKuDomain, file_path: Path) -> str:
     """
     Generate UID from entity type and file path.
@@ -295,6 +326,14 @@ def prepare_entity_data(
         for key, value in recommends.items():
             if value:
                 entity_data[f"recommends.{key}"] = value
+
+    # Reject colon-spelled relationship targets loudly (runs after the
+    # connections flatten so dotted rel-config keys are populated). A colon
+    # target would pass validation but the phase-2 exact-UID edge MATCH
+    # creates no edge — the file would count as ingested while its links
+    # silently vanished (Codex P1 #1054). ValueError classifies as
+    # ignored-with-reason ("preparation" is a content-fault stage).
+    _reject_colon_relationship_targets(entity_data, config.relationship_config)
 
     # Add timestamps. ``created_at`` is stamped ONLY by the write layer's
     # ``ON CREATE`` branch — stamping "now" here put it inside ``props``, so the

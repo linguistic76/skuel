@@ -770,11 +770,22 @@ def validate_edge_data(data: dict[str, Any]) -> Result[None]:
     """
     errors: list[str] = []
 
-    # Required fields
+    # Required fields. Colon-spelled endpoints are rejected here (the input
+    # alias was deleted 2026-08-14): a colon endpoint would reach the edge
+    # writer and report a confusing "not found" instead of naming the
+    # authoring mistake.
     if not data.get("from"):
         errors.append("Missing required field: 'from'")
+    elif isinstance(data["from"], str) and ":" in data["from"]:
+        errors.append(
+            f"'from: {data['from']}' uses the retired colon spelling — author the stored dot form"
+        )
     if not data.get("to"):
         errors.append("Missing required field: 'to'")
+    elif isinstance(data["to"], str) and ":" in data["to"]:
+        errors.append(
+            f"'to: {data['to']}' uses the retired colon spelling — author the stored dot form"
+        )
     if not data.get("relationship"):
         errors.append("Missing required field: 'relationship'")
     elif not RelationshipName.is_valid(data["relationship"]):
