@@ -78,6 +78,9 @@ class TestMemoryCitationPattern:
     """Memory slugs must be told apart from document names and code symbols."""
 
     def test_flags_the_marked_forms_this_arc_found(self) -> None:
+        """Asserted through ``_probe``, the way ``find_violations`` matches — the
+        pattern is written against delimiter-flattened text, so testing it on raw
+        lines would test something the guard never runs."""
         guard = _load_guard()
         for line in (
             "    project_template_relative_offset.md (memory)",
@@ -86,7 +89,7 @@ class TestMemoryCitationPattern:
             "Edge schema (per project_pathstep_lifecycle_contract.md):",
             "- Memory: `project_find_by_user_uid_vs_owns`, `project_user_uid_canonical`.",
         ):
-            assert guard.MEMORY_CITATION.search(line), f"should flag: {line}"
+            assert guard.MEMORY_CITATION.search(guard._probe(line)), f"should flag: {line}"
 
     def test_does_not_flag_tracked_document_filenames(self) -> None:
         """The regression that made this guard report 81 false positives: an
@@ -98,6 +101,45 @@ class TestMemoryCitationPattern:
             "`/docs/intelligence/USER_CONTEXT_INTELLIGENCE.md`",
         ):
             assert not guard.MEMORY_CITATION.search(line), f"should NOT flag: {line}"
+
+    def test_flags_markdown_formatted_and_wrapped_markers(self) -> None:
+        """Codex #1047 P2: a marker separated from its slug by markdown emphasis,
+        wiki-brackets, or a NEWLINE still cites memory. Both shapes were live in
+        the tree while the guard reported clean — a false clean is the failure this
+        whole arc exists to prevent."""
+        guard = _load_guard()
+        # markdown emphasis + wiki-link between marker and slug
+        assert guard.MEMORY_CITATION.search(
+            guard._probe("- **Memory:** [[project_journals_discussion_arc]]")
+        )
+        # marker ends one line, slug begins the next (inside a comment block)
+        assert guard.MEMORY_CITATION.search(
+            guard._probe(
+                "    # understand cache semantics before changing. See memory:",
+                "    # project_lucide_mutationobserver_infinite_loop.",
+            )
+        )
+
+    def test_flags_bare_wiki_links(self) -> None:
+        """`[[project_foo]]` needs no marker — Python has no `[[ ]]` syntax, so
+        unlike a bare backticked slug this form is unambiguous and IS gated."""
+        guard = _load_guard()
+        for line in (
+            "- **Privacy commitment:** [[project_journal_privacy_commitment]] (ADR-073)",
+            "per standing merge authorization — [[feedback_standing_merge_after_reviews]]):",
+        ):
+            assert guard.WIKILINK_MEMORY_CITATION.search(line), f"should flag: {line}"
+
+    def test_does_not_flag_an_identifier_that_merely_contains_memory(self) -> None:
+        """`self.user_memory[user_uid]` flattens to `user_memory user_uid` under
+        _probe, which read as marker-plus-slug until \\b anchored the marker."""
+        guard = _load_guard()
+        for line in (
+            "            self.user_memory[user_uid] = {}",
+            "        if user_uid not in self.user_memory:",
+            "        self.user_memory[user_uid][key] = value",
+        ):
+            assert not guard.MEMORY_CITATION.search(guard._probe(line)), f"should NOT flag: {line}"
 
     def test_does_not_flag_real_code_symbols(self) -> None:
         """Why the unmarked bare-slug form is deliberately out of scope: these are

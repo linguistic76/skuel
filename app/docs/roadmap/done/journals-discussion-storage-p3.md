@@ -19,8 +19,7 @@ saved by default; there is an explicit choice to save it.** ADR-078 is amended t
 - **Governing ADR:** `docs/decisions/ADR-078-discussion-sessions-stored-not-understood.md` — the
   binding shape (now amended to opt-in persistence). If this doc and ADR-078 disagree, ADR-078 wins.
 - **Predecessor:** `docs/roadmap/done/journals-discussion-storage-p2.md` (the store this reuses)
-- **Privacy commitment:** [[project_journal_privacy_commitment]] (ADR-073)
-- **Memory:** [[project_journals_discussion_arc]]
+- **Privacy commitment:** ADR-073
 
 ---
 
@@ -144,7 +143,7 @@ existing "empty scope = None" convention). *Continue* restores them, exactly as 
 Deferred, per C6 — P3 changes **zero** prompt composition. And the signal-vs-noise realignment
 weakens the original motivation: opt-in save means the corpus isn't flooded with auto-saved
 noise, so heavy weighting is not the pressing problem it looked like. If tackled later, it is a
-separate **measured** refinement ([[feedback_verify_plan_recipes]]), not a guess here.
+separate **measured** refinement, not a guess here.
 
 ### 6. Revert P2's typed-door auto-save  *(confirmed)*
 

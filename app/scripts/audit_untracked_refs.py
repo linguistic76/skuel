@@ -97,11 +97,19 @@ SCRATCH_CITATION = re.compile(
 MEMORY_CITATION = re.compile(
     r"""
     (?:
-        [Mm]emory[:/\s]+`?\b(?:project|feedback|user|reference|archive)_[a-z0-9_]+  # memory foo, Memory: foo, memory/foo
+        \b[Mm]emory[:/\s]+\b(?:project|feedback|user|reference|archive)_[a-z0-9_]+  # memory foo, Memory: foo, memory/foo
       | \b(?:project|feedback|user|reference|archive)_[a-z0-9_]+\.md\b          # foo.md
     )
     """,
     re.VERBOSE,
+)
+
+# Obsidian wiki-link to a memory slug — ``[[project_foo]]``. Unambiguous even with
+# no marker word (Python has no ``[[ ]]`` syntax), so unlike the bare backticked
+# slug this form CAN be gated. Matched against the raw line, before ``_probe``
+# flattens brackets.
+WIKILINK_MEMORY_CITATION = re.compile(
+    r"\[\[(?:project|feedback|user|reference|archive)_[a-z0-9_]+\]\]"
 )
 
 # Files allowed to contain the pattern: this guard and its test necessarily spell
@@ -117,6 +125,17 @@ EXEMPT_PATHS: frozenset[str] = frozenset(
 SCRATCH_DIRS: tuple[str, ...] = ("plans/",)
 
 _SKIP_SUFFIXES = frozenset({".png", ".jpg", ".jpeg", ".gif", ".ico", ".zip", ".pdf", ".woff2"})
+
+# Delimiters that sit BETWEEN a marker and its slug without changing the meaning:
+# markdown emphasis and wiki-links (``**Memory:** [[project_foo]]``), backticks, and
+# comment leaders (a citation continued onto the next ``#`` line). Blanked to spaces
+# before matching so formatting cannot smuggle a citation past the gate.
+_DELIMITER_NOISE = re.compile(r"[*\[\]`>#~]+")
+
+
+def _probe(*lines: str) -> str:
+    """Delimiter-flattened text to match against, joined across the given lines."""
+    return _DELIMITER_NOISE.sub(" ", " ".join(lines))
 
 
 def tracked_files() -> list[str]:
@@ -157,9 +176,27 @@ def find_violations() -> tuple[list[tuple[str, int, str]], list[str]]:
         except OSError:
             continue  # unreadable — nothing to cite
 
-        for lineno, line in enumerate(text.splitlines(), 1):
-            if SCRATCH_CITATION.search(line) or MEMORY_CITATION.search(line):
-                citations.append((rel, lineno, line.strip()))
+        lines = text.splitlines()
+        for index, line in enumerate(lines):
+            probe = _probe(line)
+            if (
+                SCRATCH_CITATION.search(probe)
+                or MEMORY_CITATION.search(probe)
+                or WIKILINK_MEMORY_CITATION.search(line)
+            ):
+                citations.append((rel, index + 1, line.strip()))
+                continue
+            # A marker can end a line with its slug on the next ("See memory:\n
+            # # project_foo."). Reported only when NEITHER line matches alone —
+            # otherwise the same citation is counted twice, once wrapped and once
+            # on the line that already carries it.
+            if index + 1 >= len(lines):
+                continue
+            following = lines[index + 1]
+            if MEMORY_CITATION.search(_probe(following)):
+                continue  # it will be reported on its own iteration
+            if MEMORY_CITATION.search(_probe(line, following)):
+                citations.append((rel, index + 1, f"{line.strip()} ⏎ {following.strip()}"))
 
     return citations, under_scratch
 
