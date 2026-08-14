@@ -159,8 +159,7 @@ A relationship qualifies only when **all four** links are live at once:
 4. **A consumer partitions on it** — some service/UI/intelligence reads the *separate* buckets
    (not just their union) and does something different per tier.
 
-Audit evidence (live Docker Neo4j, full-graph scan; full table in memory
-`project_filter_property_extension_audit.md`):
+Audit evidence (live Docker Neo4j, full-graph scan):
 
 | Candidate prop | Relationship | Writer | Consumer | Verdict |
 |---|---|---|---|---|

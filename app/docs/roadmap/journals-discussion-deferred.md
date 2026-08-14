@@ -30,7 +30,7 @@ content enters as the opening user turn (source→output pair) and as follow-up
 context — it is not specially weighted or de-weighted.
 
 **What "done" looks like (if ever).** A **measured** refinement, not a guess:
-prove the success metric moved (see `feedback_verify_plan_recipes`) before/after
+prove the success metric moved before/after
 any weighting change. Likely trivial or unnecessary; only pick up if real usage
 shows file-grounded discussions drift.
 

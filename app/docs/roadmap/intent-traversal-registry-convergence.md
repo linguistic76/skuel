@@ -50,15 +50,14 @@ The audit found the intent side is **mostly aspirational**: every activity-domai
 
 ## Guardrails (lessons already paid for)
 
-- **Don't mechanically patch the doc in isolation** — it describes behavior; a find-replace leaves false claims (see `feedback_mechanical_doc_rename_unsound`). Phase 0 is a genuine rewrite-to-reality, not a rename.
+- **Don't mechanically patch the doc in isolation** — it describes behavior; a find-replace leaves false claims. Phase 0 is a genuine rewrite-to-reality, not a rename.
 - **Verify every behavioral claim against code or defer it.** Phases 1–2 must be proven on live Neo4j.
 - **`CONFLICTS_WITH_GOAL` is written nowhere** — do not resurrect it; if a "conflict" lens is wanted, it needs a real edge a writer produces first.
 - **Doc + dead code + plan move together** — pruning the dead `QueryIntent` clauses, correcting the doc, and proving the registry source are one arc, not three drive-by edits.
 
 ## Key references
 
-- Audit findings + reframe: memory `project_intent_traversal_registry_convergence`.
-- Real choice edges + the cross-domain-context hardening: `project_xdctx_family_a_unimplemented`, PRs #214/#218; `docs/intelligence/CHOICES_INTELLIGENCE.md`.
+- Real choice edges + the cross-domain-context hardening: PRs #214/#218; `docs/intelligence/CHOICES_INTELLIGENCE.md`.
 - Cross-domain-context mechanics (incident-edge attribution, strongest-path dedup): `docs/patterns/UNIFIED_RELATIONSHIP_SERVICE.md`.
 - Registry (single source of truth): `core/models/relationship_registry.py` (`DomainRelationshipConfig`, `cross_domain_relationship_types`, `default_context_intent`, `get_intent_for_operation`).
 - Live intent engine: `core/services/infrastructure/graph_intelligence_service.py`, `adapters/persistence/neo4j/query/graph_context_query_builder.py`.

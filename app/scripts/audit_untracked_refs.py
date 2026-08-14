@@ -27,6 +27,18 @@ Two violation classes:
    but gitignore does not apply to already-tracked files, so files committed before
    the ignore stay tracked and make the tier incoherent. Four such files were found
    and untracked in August 2026.
+3. **A tracked file cites a MEMORY document** — memory lives outside the repo
+   (``~/.claude/projects/<slug>/memory/``), so the same three costs apply.
+
+**Known limit, stated rather than hidden.** Class 3 matches only MARKED citations —
+the slug carries ``memory``, a ``memory/`` path, a ``(memory)`` tag, or a ``.md``
+suffix. A bare backticked slug cannot be matched, because it is indistinguishable
+from a legitimate identifier: ``user_service``, ``user_context``,
+``feedback_points`` and ``user_ownership_relationship`` are all real symbols of the
+same shape. A regex broad enough to catch ``project_foo`` unmarked flags hundreds of
+them, which would make the guard useless. That form is left to review. Four distinct
+spellings were found across this cleanup and three are covered; pretending to cover
+the fourth would be the rubber stamp this codebase keeps deleting.
 
 Run: ``uv run python scripts/audit_untracked_refs.py``. Also ``./dev quality`` check
 6c, a step in CI's gate-required **``content_boundary``** job, and asserted by
@@ -63,6 +75,31 @@ SCRATCH_CITATION = re.compile(
     plans/                     # the scratch directory
     (?:[\w.-]+/)*              # optional subdirectories
     [\w.-]+\.[A-Za-z0-9]+      # a FILENAME WITH AN EXTENSION — the pointer itself
+    """,
+    re.VERBOSE,
+)
+
+# A citation of a MEMORY document. Memory lives outside the repo entirely
+# (~/.claude/projects/<slug>/memory/), so the same reasoning applies: invisible to
+# CI, absent from every worktree, gone for anyone who clones.
+#
+# Only MARKED forms are matched — the slug must be accompanied by `memory`, a
+# `memory/` path, a `(memory)` tag, or a `.md` suffix. That is a deliberate limit,
+# not an oversight: a BARE backticked slug is indistinguishable from a legitimate
+# identifier. `user_service`, `user_context`, `feedback_points` and
+# `user_ownership_relationship` are all real code symbols matching the same shape,
+# and a regex that caught `project_foo` unmarked would flag hundreds of them. The
+# unmarked form is left to review; see the module docstring.
+# NOT case-insensitive, and \b-anchored: memory slugs are lowercase by convention,
+# while tracked docs SHOUT (UNIFIED_USER_ARCHITECTURE.md, CROSS_REFERENCE_INDEX.md).
+# An IGNORECASE version of this pattern matched 81 such filenames — the boundary and
+# the case are what separate a memory slug from a document name.
+MEMORY_CITATION = re.compile(
+    r"""
+    (?:
+        [Mm]emory[:/\s]+`?\b(?:project|feedback|user|reference|archive)_[a-z0-9_]+  # memory foo, Memory: foo, memory/foo
+      | \b(?:project|feedback|user|reference|archive)_[a-z0-9_]+\.md\b          # foo.md
+    )
     """,
     re.VERBOSE,
 )
@@ -121,7 +158,7 @@ def find_violations() -> tuple[list[tuple[str, int, str]], list[str]]:
             continue  # unreadable — nothing to cite
 
         for lineno, line in enumerate(text.splitlines(), 1):
-            if SCRATCH_CITATION.search(line):
+            if SCRATCH_CITATION.search(line) or MEMORY_CITATION.search(line):
                 citations.append((rel, lineno, line.strip()))
 
     return citations, under_scratch

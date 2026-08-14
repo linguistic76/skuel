@@ -73,6 +73,46 @@ class TestCitationPattern:
         ):
             assert not guard.SCRATCH_CITATION.search(line), f"should NOT flag: {line}"
 
+
+class TestMemoryCitationPattern:
+    """Memory slugs must be told apart from document names and code symbols."""
+
+    def test_flags_the_marked_forms_this_arc_found(self) -> None:
+        guard = _load_guard()
+        for line in (
+            "    project_template_relative_offset.md (memory)",
+            "- `memory/feedback_leverage_maintained_software.md` — the principle",
+            "Full traced rationale: memory `project_update_intents_phase7_plan`.",
+            "Edge schema (per project_pathstep_lifecycle_contract.md):",
+            "- Memory: `project_find_by_user_uid_vs_owns`, `project_user_uid_canonical`.",
+        ):
+            assert guard.MEMORY_CITATION.search(line), f"should flag: {line}"
+
+    def test_does_not_flag_tracked_document_filenames(self) -> None:
+        """The regression that made this guard report 81 false positives: an
+        IGNORECASE pattern reads SHOUTING doc names as memory slugs."""
+        guard = _load_guard()
+        for line in (
+            "**File:** `/docs/architecture/UNIFIED_USER_ARCHITECTURE.md`",
+            "- `/docs/CROSS_REFERENCE_INDEX.md` - Auto-generated skill↔doc mapping",
+            "`/docs/intelligence/USER_CONTEXT_INTELLIGENCE.md`",
+        ):
+            assert not guard.MEMORY_CITATION.search(line), f"should NOT flag: {line}"
+
+    def test_does_not_flag_real_code_symbols(self) -> None:
+        """Why the unmarked bare-slug form is deliberately out of scope: these are
+        legitimate identifiers of exactly the shape a memory slug has."""
+        guard = _load_guard()
+        for line in (
+            "| `user_ownership_relationship` | `str \\| None` | `'OWNS'` |",
+            "requires `user_service` to be set",
+            "- `feedback_points` carries typed `FeedbackPoint` objects",
+            "when `user_context` is supplied the mastery split is real",
+        ):
+            assert not guard.MEMORY_CITATION.search(line), f"should NOT flag: {line}"
+
+
+class TestScratchPathEdgeCases:
     def test_does_not_flag_a_tracked_docs_plans_path(self) -> None:
         """`docs/plans/` would be TRACKED content, not the scratch tier. No such
         directory exists today, but the guard must not claim jurisdiction over one."""

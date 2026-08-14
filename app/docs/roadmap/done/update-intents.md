@@ -75,7 +75,7 @@ Shared `UNSET` sentinel: ☑ (Phase 1, `core/models/sentinels.py`) · Base param
 > 3.14**, ADR-067) so only the six activity domains override `U` and the rest are untouched.
 > The default must itself satisfy `SupportsToChanges` (a plain `Mapping` does **not** — has no
 > `to_changes()`); resolve in Phase 7 (likely a tiny `RawChanges` wrapper as the default, or a
-> looser bound). Full traced rationale: memory `project_update_intents_phase7_plan`.
+> looser bound).
 
 ## The pattern per domain (what each phase does)
 
@@ -234,8 +234,8 @@ Shared `UNSET` sentinel: ☑ (Phase 1, `core/models/sentinels.py`) · Base param
   `service.core.update(uid, {"status": ...})` to `habits_service.update_habit(uid, HabitUpdateIntent(status=new_status))`.
   **End-state invariant achieved: no activity `*_api.py` calls `.core.update(dict)`** — Tasks/Events/Choices/Principles/Habits
   use the typed-intent status route and Goals uses `set_status`.
-- **Phase 7 — Teardown + One-Path cleanup + base parameterization.** Split into two PRs (see memory
-  `project_update_intents_phase7_plan` for the full traced plan). The edge-clear UX gap (Tasks/Events
+- **Phase 7 — Teardown + One-Path cleanup + base parameterization.** Split into two PRs.
+  The edge-clear UX gap (Tasks/Events
   picker `""`→None) is **out of Phase 7** — a deferred UX bug, not One-Path teardown; track separately
   (now tracked live in `../deferred-work.md` § Tasks/Events Edge-Clear on Edit).
 
@@ -299,8 +299,8 @@ Shared `UNSET` sentinel: ☑ (Phase 1, `core/models/sentinels.py`) · Base param
     `docs/roadmap/functional-direction.md` extension #2 to ✅ with PR references.
   - **Optional guard (One Path Forward):** a *trivially sound, AST-structural* lint check that fails on
     any re-introduced `*UpdatePayload` import/name. Do **not** attempt flow-analysis to detect "#2
-    partial backend calls" — that needs control-flow domination and is unsound (see
-    `feedback_lint_rules_refuse_flow_analysis`). The `# raw-write:` convention + review is the guard
+    partial backend calls" — that needs control-flow domination and is unsound.
+    The `# raw-write:` convention + review is the guard
     for #2.
 
 ## Verification (per phase)

@@ -198,14 +198,22 @@ def validate_knowledge_config(_config: KnowledgeConfig) -> list[str]:
     """
     Validate knowledge configuration.
 
+    **Deliberately a no-op — do not delete.** The rule this would enforce is an
+    ``embedding_model`` / ``embedding_dimension`` compatibility check (a mismatched
+    pair silently produces wrong similarity scores rather than failing). Neither
+    field exists on :class:`KnowledgeConfig` yet, so there is nothing to validate;
+    writing rules before the fields would validate nothing.
+
+    Kept wired into :func:`validate_config` so the call site does not have to move
+    when those fields land. Today's fields — domains, mastery_levels, boolean
+    flags — are valid by construction.
+
     Args:
-        _config: Knowledge configuration (currently unused - reserved for future validation)
+        _config: Knowledge configuration (unused until the fields above exist)
 
     Returns:
-        List of validation errors (empty until validation rules are implemented)
+        Empty list — no rules are implementable yet.
     """
-    # For now, knowledge config has no fields that need validation
-    # (domains, mastery_levels, and boolean flags are valid by default)
     return []
 
 

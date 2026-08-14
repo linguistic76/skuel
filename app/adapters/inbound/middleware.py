@@ -116,9 +116,8 @@ class StaticCacheHeadersMiddleware:
     so revalidation re-downloads the full body (200) rather than returning a cheap
     304. A smarter scheme (immutable long-lived caching for version-stamped vendor
     assets, content hashing + 304 for app assets) is a planned follow-up — see
-    TECHNICAL_DEBT.md item 11, the TODO at the static mount in
-    ``scripts/dev/bootstrap.py``, and memory
-    ``project_lucide_mutationobserver_infinite_loop``.
+    TECHNICAL_DEBT.md item 11 and the TODO at the static mount in
+    ``scripts/dev/bootstrap.py``.
     """
 
     _STATIC_PREFIX = "/static/"
