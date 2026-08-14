@@ -19,13 +19,15 @@ from adapters.inbound.vault_routes import create_vault_routes
 from core.ports.vault_bridge_protocol import VaultSyncStats
 from core.services.vault.vault_reconciler import VaultDescription
 from core.utils.result_simplified import Result
+from tests.fixtures.csrf import attach_csrf
 from ui.vault.sync_fragments import consent_form, privacy_wall_panel
 
 
 @pytest.fixture(autouse=True)
-def _disable_csrf(monkeypatch) -> None:
-    """csrf_protected reads env at call time — force enforcement off for unit tests."""
-    monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "false")
+def _enforce_csrf(monkeypatch) -> None:
+    """csrf_protected reads env at call time — pin enforcement ON; the
+    request stubs carry a real minted token pair (attach_csrf)."""
+    monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "true")
 
 
 class _RouteRegistry:
@@ -52,7 +54,7 @@ def _request(method: str = "POST", path: str = "/settings/vault/sync"):
     request.session = {"user_uid": "user_owner"}
     request.method = method
     request.url = SimpleNamespace(path=path)
-    return request
+    return attach_csrf(request)
 
 
 _DOORWAYS = VaultDescription(

@@ -28,6 +28,7 @@ from starlette.exceptions import HTTPException
 from core.models.enums import EntityStatus
 from core.models.task.task_update_intent import TaskUpdateIntent
 from core.utils.result_simplified import Errors, Result
+from tests.fixtures.csrf import attach_csrf
 
 
 def _make_request(
@@ -35,13 +36,15 @@ def _make_request(
     form: dict[str, str] | None = None,
     query: dict[str, str] | None = None,
     method: str = "POST",
+    csrf: bool = True,
 ) -> Any:
     """Build a minimal request-like object for session-backed auth.
 
-    Carries ``method`` because the POST routes are now ``@csrf_protected`` and
-    the wrapper reads ``request.method``. CSRF verification itself is disabled
-    for this module (see ``_disable_csrf_enforcement``) — these tests cover
-    handler logic, not the CSRF layer (that has its own tests).
+    Carries ``method`` because the POST routes are ``@csrf_protected`` and the
+    wrapper reads ``request.method``. The stub carries a real minted CSRF
+    cookie+header pair (attach_csrf), so verification runs for real before
+    the 401/404/204 assertions below. ``csrf=False`` leaves the stub bare —
+    for ``TestCsrfProtection``'s tokenless 403 assertions.
     """
     session = {"user_uid": user_uid} if user_uid is not None else {}
     form_data = form or {}
@@ -49,7 +52,7 @@ def _make_request(
     async def _form() -> dict[str, str]:
         return form_data
 
-    return SimpleNamespace(
+    request = SimpleNamespace(
         method=method,
         session=session,
         url=SimpleNamespace(path="/today"),
@@ -57,18 +60,13 @@ def _make_request(
         form=_form,
         cookies={},
     )
+    return attach_csrf(request) if csrf else request
 
 
 @pytest.fixture(autouse=True)
-def _disable_csrf_enforcement(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Let the ``@csrf_protected`` POST wrappers pass through to the handler.
-
-    The request stubs here are ``SimpleNamespace`` objects without cookies, so
-    real CSRF verification can't run; with enforcement off the wrapper falls
-    straight through after the method check, preserving the 401/404/204
-    assertions below.
-    """
-    monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "false")
+def _enforce_csrf(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Pin ``@csrf_protected`` enforcement ON — the request stubs verify for real."""
+    monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "true")
 
 
 def _make_task(
@@ -738,7 +736,7 @@ class TestLifepathWake:
 class TestCsrfProtection:
     """The mutating Today POST routes must reject tokenless requests when CSRF
     enforcement is on. Guards against the ``@csrf_protected`` decorator being
-    dropped (the other tests run with enforcement disabled)."""
+    dropped (the other tests carry a real minted pair via ``attach_csrf``)."""
 
     @pytest.mark.parametrize(
         "path",
@@ -750,18 +748,18 @@ class TestCsrfProtection:
         ],
     )
     async def test_post_without_csrf_token_is_forbidden(
-        self, handlers: dict[str, Any], monkeypatch: pytest.MonkeyPatch, path: str
+        self, handlers: dict[str, Any], path: str
     ) -> None:
-        monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "true")  # override the module-wide disable
-        request = _make_request()  # authenticated, but carries no CSRF cookie/token
+        request = _make_request(csrf=False)  # authenticated, but no CSRF cookie/token
         response = await handlers[path](request=request, uid="x_001")
         assert response.status_code == 403
 
     async def test_quick_add_without_csrf_token_is_forbidden(
-        self, handlers: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+        self, handlers: dict[str, Any]
     ) -> None:
         # quick-add takes no uid path param — verify its own CSRF guard.
-        monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "true")
-        request = _make_request(form={"title": "x", "view_date": date.today().isoformat()})
+        request = _make_request(
+            form={"title": "x", "view_date": date.today().isoformat()}, csrf=False
+        )
         response = await handlers["/today/tasks/quick-add"](request=request)
         assert response.status_code == 403

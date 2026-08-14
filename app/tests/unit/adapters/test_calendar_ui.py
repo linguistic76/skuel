@@ -24,6 +24,7 @@ from core.models.event.calendar_models import (
     CalendarView,
 )
 from core.utils.result_simplified import Errors, Result
+from tests.fixtures.csrf import attach_csrf
 
 
 def _render(response) -> str:
@@ -64,15 +65,15 @@ def _make_request(*, user_uid: str = "user_smoke", form_data=None, query_params=
     request.cookies = {}
     request.query_params = query_params or {}
     request.form = AsyncMock(return_value=form_data if form_data is not None else {})
-    return request
+    return attach_csrf(request)
 
 
 @pytest.fixture(autouse=True)
-def _disable_csrf_enforcement(monkeypatch) -> None:
-    """The @csrf_protected calendar handlers read enforcement state at call time;
-    disable it so these handler-logic tests pass through (CSRF behaviour itself is
-    covered by the csrf module's own tests)."""
-    monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "false")
+def _enforce_csrf(monkeypatch) -> None:
+    """The @csrf_protected calendar handlers read enforcement state at call
+    time; pin it ON — the request stubs carry a real minted token pair, so
+    verification runs for real in front of the handler-logic assertions."""
+    monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "true")
 
 
 def _make_calendar_data(items=None) -> CalendarData:

@@ -8,6 +8,7 @@ import pytest
 
 from adapters.inbound.csrf import (
     CSRF_COOKIE_NAME,
+    CSRF_ENFORCE_ENV,
     CSRF_HEADER_NAME,
     csrf_protected,
     is_csrf_enforced,
@@ -184,7 +185,11 @@ class TestCsrfProtectedDecorator:
 
     @pytest.mark.asyncio
     async def test_enforcement_off_passes(self, monkeypatch):
-        monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "false")
+        # Deliberately exercises the off-switch — this is the flag's own
+        # semantics test, not a route-test affordance (those mint real
+        # tokens via tests/fixtures/csrf.py). Dies with the flag (PR B,
+        # security-hardening-deferred.md § 8).
+        monkeypatch.setenv(CSRF_ENFORCE_ENV, "false")
         monkeypatch.setenv("SKUEL_ENVIRONMENT", "local")
 
         @csrf_protected
@@ -248,7 +253,7 @@ class TestCsrfProtectedDecorator:
 class TestProductionEnforcement:
     @pytest.mark.asyncio
     async def test_production_ignores_enforce_flag(self, monkeypatch):
-        monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "false")
+        monkeypatch.setenv(CSRF_ENFORCE_ENV, "false")
         monkeypatch.setenv("SKUEL_ENVIRONMENT", "production")
 
         @csrf_protected
@@ -261,7 +266,7 @@ class TestProductionEnforcement:
 
     @pytest.mark.asyncio
     async def test_non_production_respects_flag(self, monkeypatch):
-        monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "false")
+        monkeypatch.setenv(CSRF_ENFORCE_ENV, "false")
         monkeypatch.setenv("SKUEL_ENVIRONMENT", "staging")
 
         @csrf_protected
@@ -273,7 +278,7 @@ class TestProductionEnforcement:
 
     @pytest.mark.asyncio
     async def test_production_with_valid_token_passes(self, monkeypatch):
-        monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "false")
+        monkeypatch.setenv(CSRF_ENFORCE_ENV, "false")
         monkeypatch.setenv("SKUEL_ENVIRONMENT", "production")
         token = mint_token()
 

@@ -24,12 +24,14 @@ from adapters.inbound.agent_channel_registry import (
 from adapters.inbound.device_routes import create_device_routes
 from core.models.auth.device import Device, PairingCodeIssued
 from core.utils.result_simplified import Errors, Result
+from tests.fixtures.csrf import attach_csrf
 
 
 @pytest.fixture(autouse=True)
-def _disable_csrf(monkeypatch) -> None:
-    """csrf_protected reads env at call time — force enforcement off for unit tests."""
-    monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "false")
+def _enforce_csrf(monkeypatch) -> None:
+    """csrf_protected reads env at call time — pin enforcement ON; the
+    request stubs carry a real minted token pair (attach_csrf)."""
+    monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "true")
 
 
 @pytest.fixture(autouse=True)
@@ -66,7 +68,7 @@ def _request(body: bytes = b"", form: dict | None = None):
     request.url = SimpleNamespace(path="/settings/devices")
     request.body = AsyncMock(return_value=body)
     request.form = AsyncMock(return_value=form or {})
-    return request
+    return attach_csrf(request)
 
 
 def _device(uid: str = "device_ab12cd34", revoked: bool = False) -> Device:

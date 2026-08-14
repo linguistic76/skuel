@@ -20,6 +20,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from core.utils.result_simplified import Errors, Result
+from tests.fixtures.csrf import attach_csrf
 
 
 class MockServices:
@@ -512,19 +513,23 @@ class TestInviteCodeGate:
         async def _form() -> FormData:
             return form_data
 
-        return SimpleNamespace(
-            method="POST",
-            session={},
-            form=_form,
-            client=SimpleNamespace(host="10.0.0.9"),
-            headers={},
-            cookies={},
-            url=SimpleNamespace(path="/register/submit"),
+        return attach_csrf(
+            SimpleNamespace(
+                method="POST",
+                session={},
+                form=_form,
+                client=SimpleNamespace(host="10.0.0.9"),
+                headers={},
+                cookies={},
+                url=SimpleNamespace(path="/register/submit"),
+            )
         )
 
     @pytest.fixture(autouse=True)
     def _route_test_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "false")
+        # Pin CSRF enforcement ON — the request stubs carry a real minted
+        # token pair (attach_csrf), so verification runs for real.
+        monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "true")
         monkeypatch.delenv("SIGNUP_INVITE_CODE", raising=False)
 
         # Pin the credential funnel to the process env: the route resolves the

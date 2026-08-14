@@ -22,12 +22,14 @@ from core.models.enums import UserRole
 from core.ports.vault_bridge_protocol import VaultSyncStats
 from core.services.vault.vault_descriptor import VaultKind
 from core.utils.result_simplified import Result
+from tests.fixtures.csrf import attach_csrf
 
 
 @pytest.fixture(autouse=True)
-def _disable_csrf(monkeypatch) -> None:
-    """csrf_protected reads env at call time — force enforcement off for unit tests."""
-    monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "false")
+def _enforce_csrf(monkeypatch) -> None:
+    """csrf_protected reads env at call time — pin enforcement ON; the
+    request stubs carry a real minted token pair (attach_csrf)."""
+    monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "true")
 
 
 class _RouteRegistry:
@@ -64,7 +66,7 @@ def _request(body: bytes = b""):
     request.method = "POST"
     request.url = SimpleNamespace(path="/api/vault/sync/content")
     request.body = AsyncMock(return_value=body)
-    return request
+    return attach_csrf(request)
 
 
 def _routes(is_admin: bool) -> tuple[_RouteRegistry, MagicMock]:

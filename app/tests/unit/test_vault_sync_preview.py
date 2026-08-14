@@ -33,6 +33,7 @@ from core.services.vault.vault_reconciler import (
     VaultSyncPreview,
 )
 from core.utils.result_simplified import Result
+from tests.fixtures.csrf import attach_csrf
 
 # ---------------------------------------------------------------------------
 # plan_deletions — read-only classification
@@ -282,9 +283,10 @@ class TestVaultPreview:
 
 
 @pytest.fixture(autouse=True)
-def _disable_csrf(monkeypatch) -> None:
-    """csrf_protected reads env at call time — force enforcement off for unit tests."""
-    monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "false")
+def _enforce_csrf(monkeypatch) -> None:
+    """csrf_protected reads env at call time — pin enforcement ON; the
+    request stubs carry a real minted token pair (attach_csrf)."""
+    monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "true")
 
 
 class _RouteRegistry:
@@ -311,7 +313,7 @@ def _request():
     request.session = {"user_uid": "user_owner"}
     request.method = "POST"
     request.url = SimpleNamespace(path="/settings/vault/preview")
-    return request
+    return attach_csrf(request)
 
 
 class TestPreviewRoute:

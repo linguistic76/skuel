@@ -29,12 +29,14 @@ import pytest
 from starlette.exceptions import HTTPException
 
 from core.utils.result_simplified import Errors, Result
+from tests.fixtures.csrf import attach_csrf
 
 
 @pytest.fixture(autouse=True)
-def _disable_csrf_enforcement(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Let the ``@csrf_protected`` wrapper fall through to the handler."""
-    monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "false")
+def _enforce_csrf(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Pin ``@csrf_protected`` enforcement ON — the request stubs carry a
+    real minted token pair (attach_csrf), so verification runs for real."""
+    monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "true")
 
 
 @pytest.fixture(autouse=True)
@@ -67,14 +69,16 @@ def _make_request(
     async def _form() -> FormData:
         return form_data
 
-    return SimpleNamespace(
-        method="POST",
-        session=session,
-        url=SimpleNamespace(path="/journals/start"),
-        query_params={},
-        form=_form,
-        cookies={},
-        headers={},
+    return attach_csrf(
+        SimpleNamespace(
+            method="POST",
+            session=session,
+            url=SimpleNamespace(path="/journals/start"),
+            query_params={},
+            form=_form,
+            cookies={},
+            headers={},
+        )
     )
 
 
@@ -236,14 +240,16 @@ def _make_upload_request(form_items: list[tuple[str, Any]], user_uid: str = "use
     async def _form() -> FormData:
         return form_data
 
-    return SimpleNamespace(
-        method="POST",
-        session={"user_uid": user_uid},
-        url=SimpleNamespace(path="/journals/upload"),
-        query_params={},
-        form=_form,
-        cookies={},
-        headers={},
+    return attach_csrf(
+        SimpleNamespace(
+            method="POST",
+            session={"user_uid": user_uid},
+            url=SimpleNamespace(path="/journals/upload"),
+            query_params={},
+            form=_form,
+            cookies={},
+            headers={},
+        )
     )
 
 

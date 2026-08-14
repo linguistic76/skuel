@@ -47,6 +47,7 @@ from adapters.persistence.neo4j.backends.conversation_backend import Conversatio
 from core.models.conversation import CONVERSATION_KIND_DISCUSSION, ROLE_ASSISTANT, ROLE_USER
 from core.services.conversation import ConversationService
 from core.utils.result_simplified import ErrorCategory, Result
+from tests.fixtures.csrf import attach_csrf
 
 # Two distinct owners — the whole point of guard 1 is cross-owner isolation.
 _OWNER = "user_test_conv_owner"
@@ -66,14 +67,16 @@ def _journal_request(user_uid: str, form: dict[str, str], *, hx: bool = False) -
     async def _form() -> FormData:
         return form_data
 
-    return SimpleNamespace(
-        method="POST",
-        session={"user_uid": user_uid},
-        url=SimpleNamespace(path="/journals/save"),
-        query_params={},
-        form=_form,
-        cookies={},
-        headers={"HX-Request": "true"} if hx else {},
+    return attach_csrf(
+        SimpleNamespace(
+            method="POST",
+            session={"user_uid": user_uid},
+            url=SimpleNamespace(path="/journals/save"),
+            query_params={},
+            form=_form,
+            cookies={},
+            headers={"HX-Request": "true"} if hx else {},
+        )
     )
 
 
@@ -335,7 +338,8 @@ class TestOptInPersistenceGuard:
     @pytest_asyncio.fixture
     def journal_handlers(self, neo4j_driver, clean_neo4j, monkeypatch) -> dict[str, Any]:
         """Register the journals routes with a REAL conversation store, LLM mocked."""
-        monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "false")
+        # Pin enforcement ON — _journal_request stubs carry a real token pair.
+        monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "true")
         from adapters.inbound.journals_routes import create_journals_routes
         from adapters.inbound.rate_limit import reset_buckets_for_testing
         from core.services.journal.journal_service import JournalFollowUp
