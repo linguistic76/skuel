@@ -71,7 +71,7 @@ def _living_file_data(
     return {
         "pipeline": "knowledge",
         "title": "My task list",
-        "uid": "ue:vault:tasks-list",  # colon-authored → dot-stored
+        "uid": "ue.vault.tasks-list",  # authored = stored, verbatim (colon alias deleted 2026-08-14)
         "fulfills_exercise_uid": exercise_uid,
         "status": status,
         "content": content,
