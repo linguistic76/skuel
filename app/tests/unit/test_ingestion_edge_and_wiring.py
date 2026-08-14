@@ -84,6 +84,17 @@ class TestEdgeValidation:
         assert result.is_error
         assert "retired colon spelling" in str(result.expect_error())
 
+    def test_sanctioned_machine_uid_endpoint_accepted(self):
+        """Periodic UserEntry uids keep colons BY DESIGN (grammar colon row) —
+        they are real graph identities with no dot spelling, so an edge may
+        target one (Codex P2 #1055)."""
+        data = {
+            "from": "ku.mind.attention",
+            "to": "ue:daily:user_mike:2026-06-28",
+            "relationship": "RELATED_TO",
+        }
+        assert validate_edge_data(data).is_ok
+
     def test_missing_to(self):
         data = {"from": "ku.a", "relationship": "CAUSES"}
         result = validate_edge_data(data)
@@ -513,6 +524,18 @@ class TestLsPreparerNormalization:
         }
         with pytest.raises(ValueError, match="retired colon spelling"):
             prepare_entity_data(EntityType.PATH_STEP, data, None, Path("s.yaml"))
+
+    def test_sanctioned_machine_uid_target_accepted(self):
+        """A ``ue:…`` periodic-entry target survives the guard — its colon
+        form IS the stored uid (Codex P2 #1055)."""
+        data = {
+            "type": "ps",
+            "uid": "ps.test.step",
+            "title": "S",
+            "organizes": ["ue:daily:user_mike:2026-06-28"],
+        }
+        result = prepare_entity_data(EntityType.PATH_STEP, data, None, Path("s.yaml"))
+        assert result["organizes"] == ["ue:daily:user_mike:2026-06-28"]
 
 
 # ============================================================================

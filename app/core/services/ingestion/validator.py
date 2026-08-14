@@ -40,7 +40,7 @@ from .config import (
 )
 from .detector import detect_entity_type, detect_format
 from .parser import parse_markdown, parse_yaml
-from .preparer import prepare_entity_data
+from .preparer import is_sanctioned_machine_uid, prepare_entity_data
 from .types import DirectoryValidationResult, RelationshipValidationResult, ValidationResult
 
 logger = get_logger("skuel.services.ingestion.validator")
@@ -773,19 +773,21 @@ def validate_edge_data(data: dict[str, Any]) -> Result[None]:
     # Required fields. Colon-spelled endpoints are rejected here (the input
     # alias was deleted 2026-08-14): a colon endpoint would reach the edge
     # writer and report a confusing "not found" instead of naming the
-    # authoring mistake.
-    if not data.get("from"):
-        errors.append("Missing required field: 'from'")
-    elif isinstance(data["from"], str) and ":" in data["from"]:
-        errors.append(
-            f"'from: {data['from']}' uses the retired colon spelling — author the stored dot form"
-        )
-    if not data.get("to"):
-        errors.append("Missing required field: 'to'")
-    elif isinstance(data["to"], str) and ":" in data["to"]:
-        errors.append(
-            f"'to: {data['to']}' uses the retired colon spelling — author the stored dot form"
-        )
+    # authoring mistake. Sanctioned machine identifiers (``ue:…`` periodic
+    # entries) are exempt — their colon form IS the stored uid.
+    for endpoint_field in ("from", "to"):
+        endpoint = data.get(endpoint_field)
+        if not endpoint:
+            errors.append(f"Missing required field: '{endpoint_field}'")
+        elif (
+            isinstance(endpoint, str)
+            and ":" in endpoint
+            and not is_sanctioned_machine_uid(endpoint)
+        ):
+            errors.append(
+                f"'{endpoint_field}: {endpoint}' uses the retired colon spelling "
+                f"— author the stored dot form"
+            )
     if not data.get("relationship"):
         errors.append("Missing required field: 'relationship'")
     elif not RelationshipName.is_valid(data["relationship"]):

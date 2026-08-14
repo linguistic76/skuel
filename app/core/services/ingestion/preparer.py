@@ -30,17 +30,30 @@ from .moc_links import extract_moc_link_suffixes
 logger = get_logger("skuel.ingestion.preparer")
 
 
+def is_sanctioned_machine_uid(uid: str) -> bool:
+    """True for the colon-bearing INTERNAL machine-identifier families.
+
+    The separator grammar's colon row (CURRICULUM_GROUPING_PATTERNS): periodic
+    UserEntry uids (``ue:daily:{user}:{date}`` and weekly/monthly) keep colons
+    by design — they are real graph identities with no dot spelling, so a
+    reference to one is legitimate input, not a retired authoring alias.
+    """
+    return uid.startswith("ue:")
+
+
 def _reject_colon_relationship_targets(
     entity_data: dict[str, Any],
     relationship_config: dict[str, Any] | None,
 ) -> None:
-    """Raise ValueError on any colon-spelled relationship target.
+    """Raise ValueError on a colon-spelled relationship target.
 
     The colon input alias was deleted 2026-08-14 (authored = stored). Every
     registered relationship field (``uses_kus``, ``resource_uids``,
     ``connections.requires``, ``organizes``, …) must author the stored dot
     form — a colon target survives field validation but the edge MERGE
     matches nothing, so the link would vanish silently instead of failing.
+    Sanctioned machine identifiers (``ue:…``) are exempt: their colon form
+    IS the stored uid (see ``is_sanctioned_machine_uid``).
     """
     if not relationship_config:
         return
@@ -53,7 +66,7 @@ def _reject_colon_relationship_targets(
         else:
             continue
         for target in targets:
-            if isinstance(target, str) and ":" in target:
+            if isinstance(target, str) and ":" in target and not is_sanctioned_machine_uid(target):
                 raise ValueError(
                     f"Relationship target '{target}' in '{field_name}' uses the "
                     f"retired colon spelling — author the stored dot form "
