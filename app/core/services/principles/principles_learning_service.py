@@ -29,7 +29,7 @@ from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.infrastructure.learning_alignment_bridge import LearningAlignmentBridge
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
 
 logger = get_logger(__name__)
 
@@ -167,7 +167,7 @@ class PrinciplesLearningService(BaseService[PrinciplesOperations, Principle]):
     # LEARNING CONTEXT ENHANCEMENT
     # ========================================================================
 
-    async def frame_principle_practice_with_learning(  # skuel-lint: disable=SKUEL029 -- facade-delegated: service facade awaits this via delegation (facade uniformity)
+    async def frame_principle_practice_with_learning(
         self, principle_uid: str, learning_position: LpPosition
     ) -> Result[dict[str, Any]]:
         """
@@ -183,9 +183,15 @@ class PrinciplesLearningService(BaseService[PrinciplesOperations, Principle]):
         Returns:
             Result containing learning-contextual principle practice framework
         """
-        # Get the principle (assuming we have access to principles)
-        # For now, use the principle_uid as category
-        principle_category = principle_uid.split(".")[-1] if "." in principle_uid else principle_uid
+        # Resolve the principle — its title names the virtue in the practice
+        # text; UIDs are opaque identity, never content (ADR-013 never-sniff).
+        principle_result = await self.backend.get(principle_uid)
+        if principle_result.is_error:
+            return Result.fail(principle_result)
+        principle = principle_result.value
+        if principle is None:
+            return Result.fail(Errors.not_found("principle", principle_uid))
+        principle_category = principle.title
 
         # Get learning-contextualized practice framework
         practice_frame = learning_position.frame_principle_practice(principle_category)
@@ -353,7 +359,7 @@ class PrinciplesLearningService(BaseService[PrinciplesOperations, Principle]):
 
         return Result.ok(suggestions[:8])  # Return top 8 suggestions
 
-    async def track_principle_learning_development(  # skuel-lint: disable=SKUEL029 -- facade-delegated: service facade awaits this via delegation (facade uniformity)
+    async def track_principle_learning_development(
         self,
         principle_uid: str,
         learning_position: LpPosition,
@@ -370,7 +376,15 @@ class PrinciplesLearningService(BaseService[PrinciplesOperations, Principle]):
         Returns:
             Result containing principle development tracking in learning context
         """
-        principle_category = principle_uid.split(".")[-1] if "." in principle_uid else principle_uid
+        # Resolve the principle — the tracked virtue is named by its title,
+        # never derived from the uid string (ADR-013 never-sniff).
+        principle_result = await self.backend.get(principle_uid)
+        if principle_result.is_error:
+            return Result.fail(principle_result)
+        principle = principle_result.value
+        if principle is None:
+            return Result.fail(Errors.not_found("principle", principle_uid))
+        principle_category = principle.title
 
         # Type-annotated lists for MyPy
         character_growth_indicators: list[str] = []

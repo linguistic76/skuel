@@ -28,6 +28,15 @@ class TestSlugify:
     def test_markdown_link_inline_with_text(self):
         assert UIDGenerator.slugify("See [the docs](https://d.io) here") == "see-the-docs-here"
 
+    def test_underscores_become_hyphens(self):
+        """Separator grammar: `_` marks generated-UID segment boundaries, so a
+        title's underscores must fold into the hyphen word-joiner — a surviving
+        underscore would make the slug's segment boundaries ambiguous."""
+        assert UIDGenerator.slugify("active_listening") == "active-listening"
+
+    def test_mixed_underscore_space_runs_collapse(self):
+        assert UIDGenerator.slugify("a _ b__c") == "a-b-c"
+
     def test_empty_string(self):
         assert UIDGenerator.slugify("") == ""
 

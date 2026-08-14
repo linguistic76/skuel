@@ -73,23 +73,20 @@ Vault files author curriculum UIDs in **dot form directly** (`ps.mindfulness.bre
 — what you author is exactly what the graph stores. The former colon authoring spelling
 (`ps:mindfulness:…`) was retired by ruling on 2026-08-14, and the whole content vault was swept
 to dots in the same pass (572 rewrites across 265 files; identity unchanged, since both spellings
-normalize to the same stored UID).
+resolved to the same stored UID).
 
-`normalize_uid()` in `core/services/ingestion/preparer.py` **remains** at the ingestion boundary
-as an **input alias** — the same sanctioned pattern as `from_string()` aliases (Naming
-Conventions § Emission rule: aliases are input-only, resolved to the canonical spelling at the
-boundary, never emitted). It rewrites `:` → `.` on the entity `uid:`, on every rel-config UID
-field (`kus:`, `exercise_uids:`, `resource_uids:`, `contains_steps`, …), and on Edge-YAML
-`from`/`to` — so a stray colon-spelled file lands correctly instead of failing. Whether to
-delete the alias outright (strict One Path: colon input becomes a loud validation error) is an
-open decision queued with the UID code-fix arc — it is a code change with personal-vault blast
-radius, not a docs call. Exception by design: **periodic UserEntry UIDs**
-(`ue:daily:{user_uid}:{date}`) are a distinct machine format that keeps its colons and is
-deliberately never normalized.
+**The colon input alias was DELETED (ruled by Mike 2026-08-14, strict One Path).**
+`normalize_uid()` — the boundary shim that rewrote `:` → `.` on entity `uid:`, rel-config UID
+fields, and Edge-YAML `from`/`to` — is gone: a colon-spelled entity uid now fails prefix
+validation **loudly** instead of being silently rewritten. Authored input is stored verbatim.
+This retires the colon as an *entity-UID spelling only*; deliberately-colon **internal machine
+identifiers** are untouched and now own the character outright (see the grammar table's colon
+row below): periodic UserEntry UIDs (`ue:daily:{user_uid}:{date}`), the `edge:` tracker-row
+sentinel, and `transcription:`/`invoice:` mints.
 
 Consequences:
-- For compliant files, file UID and graph UID now compare **directly** — no mental translation.
-  When handling legacy or third-party files, still normalize before comparing.
+- File UID and graph UID compare **directly** — no mental translation, no normalization step
+  anywhere.
 - Stored UIDs are NOT being migrated to flat `{prefix}_{slug}_{random}` — the graph holds dotted
   authored curriculum UIDs; the flat form activates only for API-created entities. Both forms
   stay sanctioned; see the never-sniff rule below.
@@ -101,9 +98,10 @@ beyond this table is historical:
 
 | Character | Role |
 |-----------|------|
-| `-` hyphen | Joins words **within** a single segment (`active-listening`). The only word-joiner, everywhere — `UIDGenerator.slugify()` emits it. Known gap: slugify currently *preserves* underscores arriving in input titles (its `\w` class includes `_`) instead of converting them; the `_`→`-` fix is queued. Author hyphens. |
-| `.` dot | Segment separator of **authored** UIDs — authored and stored identically. Shape: `{prefix}.{grouping-label}.{slug}`. (The `:` colon authoring spelling was retired 2026-08-14; `normalize_uid()` keeps accepting it as an input-only alias, resolved at the boundary. Periodic `ue:` UIDs keep colons by design. The DSL's `@link(type:id)` argument colon is tag syntax, not a UID spelling.) |
+| `-` hyphen | Joins words **within** a single segment (`active-listening`). The only word-joiner, everywhere — `UIDGenerator.slugify()` emits it, and folds input underscores into it (`active_listening` → `active-listening`). Author hyphens. |
+| `.` dot | Segment separator of **authored** UIDs — authored and stored identically. Shape: `{prefix}.{grouping-label}.{slug}`. (The `:` colon authoring spelling was retired 2026-08-14 and its input alias deleted — a colon-spelled entity uid is rejected loudly. The DSL's `@link(type:id)` argument colon is tag syntax, not a UID spelling.) |
 | `_` underscore | Segment separator of **generated** UIDs (`{prefix}_{slug}_{random}`, `{prefix}_{random}`), and the conventional filename type-prefix (`ku_attention.md`). |
+| `:` colon | **Internal machine identifier, never an entity UID** (ratified 2026-08-14): periodic UserEntry UIDs (`ue:daily:{user}:{date}` — the calendar routes' join contract), the `edge:` tracker-row sentinel (`ingestion_write_backend.py`), and `transcription:`/`invoice:` mints. The disjoint spelling is what makes these collision-proof against entity UIDs — do NOT unify them into underscore form (`ue_daily_…` would masquerade as a generated entity uid while carrying parsed segments, and the `edge:` sentinel's exclusion query depends on distinctness). |
 | *(edges)* | Family. Parent/child/lineage lives **only** in graph relationships (`ORGANIZES`, `USES_KU`, `HAS_STEP`, …) — never in UID strings. |
 
 Two clarifications the grammar hangs on:

@@ -1111,9 +1111,11 @@ class ActivityDSLParser:
         """
         Parse @ku() knowledge unit reference.
 
-        Accepted forms: the canonical flat UID ``ku_{slug}_{random}``
-        (ADR-013) plus the ``ku:``/``ku.`` separator forms ingestion
-        normalizes. Returns the full UID string.
+        Accepted forms: the two sanctioned spellings — generated
+        ``ku_{slug}_{random}`` (ADR-013) and authored ``ku.{ns}.{slug}``.
+        Returns the full UID string. The lenient fallback emits the
+        authored dot form: machine channels speak canonical spellings
+        (emission rule; the colon input alias was deleted 2026-08-14).
         """
         if not value:
             return None
@@ -1121,12 +1123,12 @@ class ActivityDSLParser:
         # Clean up the value
         value = value.strip()
 
-        if value.startswith(("ku:", "ku.", "ku_")):
+        if value.startswith(("ku.", "ku_")):
             return value
 
         self.logger.warning(f"Invalid KU format (missing ku prefix): {value}")
         # Be lenient - add prefix if missing
-        return f"ku:{value}"
+        return f"ku.{value}"
 
     def _parse_links(self, value: str) -> list[dict[str, str]]:
         """

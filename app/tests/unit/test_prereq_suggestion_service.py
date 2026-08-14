@@ -25,7 +25,6 @@ from core.services.prereq_suggestion_service import (
     JudgeVerdict,
     PrereqSuggestionConfig,
     PrereqSuggestionService,
-    denormalize_uid,
     edge_filename,
     render_edge_yaml,
 )
@@ -157,6 +156,8 @@ async def test_no_embeddings_fails_soft_with_clear_message() -> None:
 
 
 def test_render_edge_yaml_exact_authored_format() -> None:
+    """Edge YAMLs author the STORED dot form directly (authored = stored;
+    colon spelling retired 2026-08-14 — denormalize_uid deleted with it)."""
     content = render_edge_yaml(
         "ku.mindfulness.attention",
         "ku.mindfulness.labeling",
@@ -165,12 +166,12 @@ def test_render_edge_yaml_exact_authored_format() -> None:
     )
     assert content == (
         "---\n"
-        "# Edge: ku:mindfulness:attention -> PREREQUISITE_FOR -> ku:mindfulness:labeling\n"
+        "# Edge: ku.mindfulness.attention -> PREREQUISITE_FOR -> ku.mindfulness.labeling\n"
         "# Labeling requires attentional stability.\n"
         "type: Edge\n"
         "\n"
-        "from: ku:mindfulness:attention\n"
-        "to: ku:mindfulness:labeling\n"
+        "from: ku.mindfulness.attention\n"
+        "to: ku.mindfulness.labeling\n"
         "relationship: PREREQUISITE_FOR\n"
         "\n"
         "source: inferred-approved\n"
@@ -184,21 +185,18 @@ def test_rationale_newlines_cannot_inject_frontmatter() -> None:
         "ku.a.one",
         "ku.a.two",
         RelationshipName.RELATED_TO,
-        rationale="evil\nfrom: ku:x:y\nto: ku:z:w",
+        rationale="evil\nfrom: ku.x.y\nto: ku.z.w",
     )
     # The injected lines are collapsed into the single comment line — the only
     # line-start (parseable) from:/to: keys are the legitimate ones.
-    assert "\nfrom: ku:x:y" not in content
-    assert "\nfrom: ku:a:one\n" in content
-    assert [ln for ln in content.splitlines() if ln.startswith("from:")] == ["from: ku:a:one"]
-    assert [ln for ln in content.splitlines() if ln.startswith("to:")] == ["to: ku:a:two"]
-    assert "# evil from: ku:x:y to: ku:z:w" in content
+    assert "\nfrom: ku.x.y" not in content
+    assert "\nfrom: ku.a.one\n" in content
+    assert [ln for ln in content.splitlines() if ln.startswith("from:")] == ["from: ku.a.one"]
+    assert [ln for ln in content.splitlines() if ln.startswith("to:")] == ["to: ku.a.two"]
+    assert "# evil from: ku.x.y to: ku.z.w" in content
 
 
-def test_denormalize_uid_and_filename() -> None:
-    assert denormalize_uid("ku.mindfulness.attention") == "ku:mindfulness:attention"
-    # Generated-form UIDs (dotless) pass through unchanged — round-trip holds
-    assert denormalize_uid("ku_deep-work_a1b2c3") == "ku_deep-work_a1b2c3"
+def test_edge_filename_slugs() -> None:
     assert (
         edge_filename("ku.mind.attention", "ku.mind.labeling", RelationshipName.PREREQUISITE_FOR)
         == "edge_attention-prereq-labeling.md"
@@ -337,8 +335,8 @@ async def test_approve_writes_rendered_yaml_via_writer() -> None:
     writer.write_edge_file.assert_awaited_once()
     filename, content = writer.write_edge_file.await_args.args
     assert filename == "edge_one-prereq-two.md"
-    assert "from: ku:a:one" in content
-    assert "to: ku:a:two" in content
+    assert "from: ku.a.one" in content
+    assert "to: ku.a.two" in content
     assert "relationship: PREREQUISITE_FOR" in content
     assert "source: inferred-approved" in content
 

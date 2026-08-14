@@ -3271,9 +3271,12 @@ class ReinforcementCandidateResult(TypedDict):
 
 
 class UserMasteryResult(TypedDict, total=False):
-    """Return shape for query_user_masteries() — MASTERED relationship properties."""
+    """Return shape for query_user_masteries() — MASTERED relationship
+    properties plus the mastered node's ``sel_category`` (the field-based
+    SEL grouping; uids are opaque and carry no category)."""
 
     ku_uid: str
+    sel_category: str | None
     mastery_level: str | None
     confidence_score: float | None
     mastery_score: float | None

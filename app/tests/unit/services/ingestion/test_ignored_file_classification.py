@@ -8,9 +8,10 @@ sync errors. That requires the two empty-value crashes to classify cleanly:
    "unknown" → misclassified as a system fault). Now it raises the same
    clean ValueError as a missing type.
 2. ``prepare_entity_data`` — an empty ``uid:`` line satisfied
-   ``"uid" in entity_data`` then crashed in ``normalize_uid(None)``. Now it
-   raises a clear reason; it must NOT silently fall back to a generated UID
-   (guessing an identity invites a split on the fix-up sync).
+   ``"uid" in entity_data`` then crashed downstream (historically in the
+   since-deleted ``normalize_uid``). Now it raises a clear reason; it must
+   NOT silently fall back to a generated UID (guessing an identity invites
+   a split on the fix-up sync).
 
 Plus the batch parse path (``parse_file_sync``) tagging both with
 content-fault stages, which is what ``_merge_ingest_stats`` classifies on.
@@ -85,8 +86,11 @@ class TestPreparerEmptyUid:
         assert prepared["uid"] == "ku.my-concept"
 
     def test_non_string_uid_is_stringified_not_crashed(self):
-        prepared = prepare_entity_data(EntityType.KU, {"uid": "ku:5", "title": "t"}, None, _MD)
-        assert prepared["uid"] == "ku.5"
+        # YAML can parse a bare uid value to a non-string (e.g. ``uid: 5``);
+        # the preparer stringifies rather than crashing. No rewrite happens —
+        # authored = stored (colon input alias deleted 2026-08-14).
+        prepared = prepare_entity_data(EntityType.KU, {"uid": 5, "title": "t"}, None, _MD)
+        assert prepared["uid"] == "5"
 
 
 class TestParseFileSyncStageTagging:

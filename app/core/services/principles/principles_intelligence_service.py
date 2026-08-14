@@ -89,7 +89,7 @@ class PrinciplesIntelligenceService(
             relationship_service=relationship_service,
             insight_store=insight_store,
         )
-        self._knowledge_analyzer = KnowledgePatternAnalyzer()
+        self._knowledge_analyzer = KnowledgePatternAnalyzer(graph_intel=self.graph_intel)
 
     async def analyze_learning_patterns(
         self, user_uid: UserUID, timeframe_days: int = 30

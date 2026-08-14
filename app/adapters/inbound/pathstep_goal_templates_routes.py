@@ -27,7 +27,7 @@ PATHSTEP_GOAL_TEMPLATES_CONFIG = make_pathstep_template_route_config(
     primary_service_attr="goal_templates",
     create_schema=GoalTemplateCreateRequest,
     update_schema=GoalTemplateUpdateRequest,
-    uid_prefix="goal-template",
+    uid_prefix="gt",
 )
 
 

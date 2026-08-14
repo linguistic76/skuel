@@ -64,6 +64,20 @@ class KuPattern:
         return self.contributing_types or [self.pattern_type]
 
 
+def _table_domain(knowledge_uid: str) -> str:
+    """Grouping label for a *hardcoded inference-table* key.
+
+    The keyword/phrase tables author their keys in dot form
+    (``ku.programming.python``), so the middle segment is a table-local
+    grouping label written right beside the keywords — this is NOT uid
+    sniffing of unknown input (stored uids stay opaque per ADR-013).
+    Guarded so a future dotless table key groups under ``general``
+    instead of raising IndexError.
+    """
+    parts = knowledge_uid.split(".")
+    return parts[1] if len(parts) >= 2 else "general"
+
+
 @dataclass
 class CrossDomainRelationship:
     """Represents a relationship between knowledge across domains."""
@@ -458,7 +472,7 @@ class EntityInferenceService:
         patterns = []
 
         for knowledge_uid, keywords_dict in self.knowledge_keywords.items():
-            domain = knowledge_uid.split(".")[1]
+            domain = _table_domain(knowledge_uid)
             evidence = []
             confidence_factors = []
 
@@ -503,7 +517,7 @@ class EntityInferenceService:
         patterns = []
 
         for knowledge_uid, phrase_patterns in self.knowledge_phrases.items():
-            domain = knowledge_uid.split(".")[1]
+            domain = _table_domain(knowledge_uid)
             evidence = []
 
             for pattern in phrase_patterns:

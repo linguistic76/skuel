@@ -42,9 +42,6 @@ class UIDGenerator:
 
     # Prefixes for different entity types
     KNOWLEDGE_PREFIX = "ku"
-    DOMAIN_PREFIX = "dom"
-    PATH_PREFIX = "path"
-    CONTENT_PREFIX = "content"
 
     @staticmethod
     def slugify(text: str) -> str:
@@ -68,9 +65,13 @@ class UIDGenerator:
         # Convert to lowercase
         text = text.lower()
 
-        # Replace spaces and special chars with hyphens
+        # Replace spaces, underscores, and special chars with hyphens.
+        # Underscores fold into the hyphen collapse (not the drop class): the
+        # separator grammar reserves `_` for generated-UID segment boundaries,
+        # so a title's underscores must become hyphens, never survive into the
+        # slug ("active_listening" → "active-listening").
         text = re.sub(r"[^\w\s-]", "", text)
-        text = re.sub(r"[-\s]+", "-", text)
+        text = re.sub(r"[-_\s]+", "-", text)
 
         # Remove leading/trailing hyphens
         return text.strip("-")
@@ -105,76 +106,12 @@ class UIDGenerator:
         return EntityUID(f"{cls.KNOWLEDGE_PREFIX}_{slug}_{random_suffix}")
 
     @classmethod
-    def generate_domain_uid(cls, name: str, parent_domain_uid: str | None = None) -> EntityUID:
-        """
-        Generate a domain UID.
-
-        Args:
-            name: Domain name,
-            parent_domain_uid: Parent domain's UID
-
-        Returns:
-            Domain UID,
-
-        Examples:
-            - dom.technology
-            - dom.technology.programming
-        """
-        slug = cls.slugify(name)
-
-        if parent_domain_uid:
-            # Append to parent hierarchy
-            return EntityUID(f"{parent_domain_uid}.{slug}")
-        else:
-            # Root domain
-            return EntityUID(f"{cls.DOMAIN_PREFIX}.{slug}")
-
-    @classmethod
-    def generate_content_uid(cls, unit_uid: str) -> EntityUID:
-        """
-        Generate a content UID for a knowledge unit.
-
-        Args:
-            unit_uid: The knowledge unit's UID
-
-        Returns:
-            Content UID
-        """
-        # Replace ku. prefix with content.
-        if unit_uid.startswith(cls.KNOWLEDGE_PREFIX + "."):
-            return EntityUID(unit_uid.replace(cls.KNOWLEDGE_PREFIX + ".", cls.CONTENT_PREFIX + "."))
-        return EntityUID(f"{cls.CONTENT_PREFIX}.{unit_uid}")
-
-    @classmethod
-    def generate_path_uid(cls, name: str, level: str | None = None) -> EntityUID:
-        """
-        Generate a learning path UID.
-
-        Args:
-            name: Path name,
-            level: Skill level (beginner, intermediate, advanced)
-
-        Returns:
-            Path UID,
-
-        Examples:
-            - path.beginner.python-basics
-            - path.advanced.machine-learning
-        """
-        slug = cls.slugify(name)
-
-        if level:
-            return EntityUID(f"{cls.PATH_PREFIX}.{level}.{slug}")
-        return EntityUID(f"{cls.PATH_PREFIX}.{slug}")
-
-    @classmethod
     def generate_random_uid(cls, prefix: str = "ku") -> EntityUID:
         """
         Generate a random UID for non-hierarchical entities.
 
         Uses underscore notation for activity domains and infrastructure entities.
-        Curriculum entities (ku, dom, path, ls) should use their specialized
-        generators (generate_knowledge_uid, generate_domain_uid, generate_path_uid).
+        Knowledge units should use generate_knowledge_uid for semantic slugs.
 
         Args:
             prefix: Entity type prefix (task, goal, habit, user, askesis, etc.)

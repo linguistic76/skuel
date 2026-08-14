@@ -421,8 +421,10 @@ class CRUDRouteFactory[T]:
                     logger.info(f"Created {domain}: {created_uid} for user {user_uid}")
                 return result
 
-            # Generate UID
-            uid = f"{uid_prefix}:{uuid.uuid4().hex[:12]}"
+            # Generate UID — underscore form per the separator grammar
+            # (generated = `{prefix}_{random}`; the colon shape this factory
+            # historically minted was a spelling is_valid_uid itself rejects).
+            uid = f"{uid_prefix}_{uuid.uuid4().hex[:12]}"
 
             # Convert schema to entity using injected converter or registry
             if entity_converter:

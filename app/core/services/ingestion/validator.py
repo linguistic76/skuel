@@ -60,7 +60,7 @@ def validate_uid_format(
     Validate that an explicit UID starts with the correct prefix for its entity type.
 
     If no explicit uid is declared (auto-generated from filename), validation is skipped.
-    Accepts both colon and dot notation (pre-normalization).
+    Dot form only — the colon input alias was deleted 2026-08-14.
 
     Args:
         entity_type: EntityType | NonKuDomain enum value
@@ -84,11 +84,10 @@ def validate_uid_format(
 
     expected_prefix = config.uid_prefix
 
-    # Normalize for comparison: accept both colon and dot separators
-    normalized = raw_uid.replace(":", ".")
-
-    # UID must start with "{prefix}." (e.g., "l.", "ku.", "ex.")
-    if not normalized.startswith(f"{expected_prefix}."):
+    # UID must start with "{prefix}." (e.g., "ku.", "ps.", "ex.") — dot form
+    # only. The colon input alias was deleted 2026-08-14 (One Path Forward):
+    # a colon-spelled uid fails here loudly instead of being rewritten.
+    if not raw_uid.startswith(f"{expected_prefix}."):
         return Result.fail(
             Errors.validation(
                 f"UID '{raw_uid}' does not start with expected prefix '{expected_prefix}.' "
@@ -96,9 +95,9 @@ def validate_uid_format(
                 field="uid",
                 user_message=(
                     f"File {file_path.name}: UID '{raw_uid}' must start with "
-                    f"'{expected_prefix}:' or '{expected_prefix}.' "
-                    f"for {entity_type.value} entities. "
-                    f"Example: '{expected_prefix}:{file_path.stem}'"
+                    f"'{expected_prefix}.' for {entity_type.value} entities "
+                    f"(dot form; colon authoring retired 2026-08-14). "
+                    f"Example: '{expected_prefix}.{file_path.stem}'"
                 ),
             )
         )

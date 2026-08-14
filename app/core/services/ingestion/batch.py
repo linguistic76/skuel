@@ -54,7 +54,7 @@ from .detector import detect_entity_type, detect_format, is_edge_type
 from .ingestion_tracker import IngestionTracker, edge_identity
 from .moc_links import frontmatter_organizes_targets
 from .parser import check_file_size, parse_markdown, parse_yaml
-from .preparer import normalize_uid, prepare_edge_data, prepare_entity_data
+from .preparer import prepare_edge_data, prepare_entity_data
 from .types import (
     BundleStats,
     ChunkSource,
@@ -1657,12 +1657,9 @@ def find_entity_file(
     Returns:
         Path to file or None
     """
-    # Normalize UID for filename matching
-    normalized_uid = normalize_uid(uid)
-
-    # Try direct filename match
+    # Try direct filename match (authored = stored — uid used verbatim)
     for ext in (".yaml", ".yml", ".md"):
-        direct_path = bundle_path / f"{normalized_uid}{ext}"
+        direct_path = bundle_path / f"{uid}{ext}"
         if direct_path.exists():
             return direct_path
 
@@ -1676,7 +1673,7 @@ def find_entity_file(
                 continue
             content = yaml_file.read_text()
             data = yaml.safe_load(content)
-            if data and normalize_uid(data.get("uid", "")) == normalized_uid:
+            if data and data.get("uid", "") == uid:
                 return yaml_file
         except (*FILE_IO_EXCEPTIONS, *PARSING_EXCEPTIONS) as e:
             # Log but continue searching - file may be malformed but others may match
@@ -1699,7 +1696,7 @@ def find_entity_file(
             raw_yaml, _ = split_frontmatter(content)
             if raw_yaml is not None:
                 frontmatter = yaml.safe_load(raw_yaml)
-                if frontmatter and normalize_uid(frontmatter.get("uid", "")) == normalized_uid:
+                if frontmatter and frontmatter.get("uid", "") == uid:
                     return md_file
         except (*FILE_IO_EXCEPTIONS, *PARSING_EXCEPTIONS) as e:
             # Log but continue searching - file may be malformed but others may match

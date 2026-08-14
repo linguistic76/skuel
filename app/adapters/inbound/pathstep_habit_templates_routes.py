@@ -27,7 +27,7 @@ PATHSTEP_HABIT_TEMPLATES_CONFIG = make_pathstep_template_route_config(
     primary_service_attr="habit_templates",
     create_schema=HabitTemplateCreateRequest,
     update_schema=HabitTemplateUpdateRequest,
-    uid_prefix="habit-template",
+    uid_prefix="ht",
 )
 
 

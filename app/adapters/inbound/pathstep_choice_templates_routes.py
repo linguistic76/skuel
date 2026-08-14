@@ -27,7 +27,7 @@ PATHSTEP_CHOICE_TEMPLATES_CONFIG = make_pathstep_template_route_config(
     primary_service_attr="choice_templates",
     create_schema=ChoiceTemplateCreateRequest,
     update_schema=ChoiceTemplateUpdateRequest,
-    uid_prefix="choice-template",
+    uid_prefix="ct",
 )
 
 

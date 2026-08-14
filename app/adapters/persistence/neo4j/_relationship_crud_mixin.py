@@ -89,27 +89,29 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
 
     def _extract_label_from_uid(self, uid: str) -> str | None:
         """
-        Extract label from UID pattern (e.g., 'task:123' → 'Task').
+        Extract label from UID pattern (e.g., 'ku.mindfulness.attention' → 'Ku').
 
-        SKUEL uses consistent UID patterns: {domain}:{id} or {domain}.{id}.
-        Fast pattern matching, no DB query needed.
+        Performance fast-path only: a known prefix skips the DB label lookup;
+        anything else falls back to the DB (never a wrong answer). UID prefixes
+        are provenance, not type authority (ADR-013 never-sniff) — the DB
+        fallback stays the source of truth for unknown shapes.
 
         Args:
-            uid: Entity UID (e.g., "task:123", "ku:python-basics")
+            uid: Entity UID (e.g., "ku.python-basics", "task:123")
 
         Returns:
             Label string if pattern matches, None otherwise (requires DB fallback)
 
         Examples:
-            >>> backend._extract_label_from_uid("task:123")
-            "Task"
-            >>> backend._extract_label_from_uid("ku:python-basics")
+            >>> backend._extract_label_from_uid("ku.python-basics")
             "Ku"
             >>> backend._extract_label_from_uid("unknown:xyz")
             None
         """
-        # Common UID patterns in SKUEL
-        # Ingestion accepts both ':' and '.' separators (validator.py normalizes).
+        # Common UID patterns in SKUEL. Curriculum entries match the authored
+        # dot form only — the colon spelling was retired 2026-08-14 (nothing
+        # stores or passes colon-form curriculum uids). The remaining colon
+        # entries cover legacy crud-factory mints that may persist in graphs.
         patterns = {
             "task:": "Task",
             "event:": "Event",
@@ -117,13 +119,9 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
             "goal:": "Goal",
             "principle:": "Principle",
             "choice:": "Choice",
-            "ku:": "Ku",
             "ku.": "Ku",
-            "ps:": "PathStep",
             "ps.": "PathStep",
-            "lp:": "LearningPath",
             "lp.": "LearningPath",
-            "ex:": "Exercise",
             "ex.": "Exercise",
             "user.": "User",
             "ue_": "UserEntry",  # ADR-054 unified user-authored content

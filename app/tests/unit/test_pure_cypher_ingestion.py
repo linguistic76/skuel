@@ -743,7 +743,7 @@ name: Test Principle
         wrong_uid = tmppath / "wrong_uid.yaml"
         wrong_uid.write_text("""
 type: principle
-uid: task:not-a-principle
+uid: task.not-a-principle
 name: Test Principle
 statement: A principle with a task-prefixed UID
 """)

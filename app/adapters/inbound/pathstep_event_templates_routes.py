@@ -27,7 +27,7 @@ PATHSTEP_EVENT_TEMPLATES_CONFIG = make_pathstep_template_route_config(
     primary_service_attr="event_templates",
     create_schema=EventTemplateCreateRequest,
     update_schema=EventTemplateUpdateRequest,
-    uid_prefix="event-template",
+    uid_prefix="et",
 )
 
 

@@ -85,6 +85,9 @@ class Mastery:
     learning_path_context: str | None  # Which learning path led to mastery
     difficulty_experienced: str | None  # How difficult user found this
     preferred_learning_method: ContentPreference | None
+    # SEL competency of the mastered node (its sel_category field at query
+    # time) — the field-based grouping; never derived from the uid string.
+    sel_category: str | None = None
 
     # Temporal tracking
     created_at: datetime

@@ -207,13 +207,14 @@ This is the same UID the calendar routes use, so vault-synced daily notes
 resolve to the correct SKUEL journal page automatically. You may still
 supply an explicit `uid:` to override.
 
-An **explicit authored** `uid:` follows the vault convention (colons in the
-file, dots in the graph): `uid: moc:worldview` persists as `moc.worldview`.
-Any authored prefix is accepted — a UserEntry uid is an opaque deterministic
-join key, never type information (ADR-013 never-sniff; the entity kind is
-whatever `type:` says). The *derived* periodic UIDs in the table above are
-deliberately NOT normalized — their colon form is the calendar routes' join
-contract.
+An **explicit authored** `uid:` persists verbatim (authored = stored;
+the colon input alias was deleted 2026-08-14): `uid: moc.worldview`
+persists as `moc.worldview`. Any authored prefix is accepted — a
+UserEntry uid is an opaque deterministic join key, never type information
+(ADR-013 never-sniff; the entity kind is whatever `type:` says). The
+*derived* periodic UIDs in the table above keep their colon form by
+design — it is the calendar routes' join contract and an internal machine
+identifier, not an entity-UID spelling.
 
 ### Path-keyed identity for uid-less vault entries
 
@@ -744,7 +745,7 @@ template of their own creates a fresh PERSONAL exercise via the `/submit`
 save-template flow.
 
 **Authored enum values are canonicalized at the preparer.** `canonicalize_enum_values()`
-(the enum sibling of `normalize_uid`'s colon→dot rewrite) resolves, against
+resolves, against
 `core/models/enum_field_registry.py` — THE field→Enum association registry the DTOs
 also slice — everything the `parse_enum_field` read boundary sanctions (#513/#536):
 casing (`learning_level: BEGINNER` stored as `beginner`), each enum's own
@@ -998,24 +999,21 @@ Explicit UIDs in vault files are validated against the expected prefix for their
 ```
 ku.breath-awareness      ✅ authored form (= stored form)
 task.log-sessions        ✅ authored activity file
-ku:breath-awareness      ⚠️ legacy colon spelling — still accepted, normalized to ku.breath-awareness
+ku:breath-awareness      ❌ colon spelling — REJECTED (input alias deleted 2026-08-14)
 ```
 
-### Auto-Normalization
+### No Normalization
 
-`normalize_uid()` performs exactly one rewrite, kept as a legacy-compatibility shim now that
-dot authoring is the convention:
-
-- Colon notation: `ku.name` → `ku.name` (periodic UserEntry `ue:` UIDs are exempt by design —
-  they never pass through this path)
-
-Nothing else is normalized: spaces are **not** rewritten (a UID with spaces is simply wrong —
-author hyphens) and case is untouched (author lowercase). A `uid:` key that is present but
-blank is a validation error, not a fallback to filename.
+Authored UIDs pass through the preparer **verbatim** — there is no rewrite of any kind.
+The former `normalize_uid()` colon→dot shim was deleted 2026-08-14 (One Path Forward,
+vault swept the same day): a colon-spelled entity uid now fails prefix validation loudly
+instead of being silently mutated. Spaces are **not** rewritten (a UID with spaces is
+simply wrong — author hyphens) and case is untouched (author lowercase). A `uid:` key
+that is present but blank is a validation error, not a fallback to filename.
 
 **See:** `/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md` § Separator Grammar — the
-one-character-one-job table (hyphen joins words; colon/dot = authored segments; underscore =
-generated segments; family lives in edges).
+one-character-one-job table (hyphen joins words; dot = authored segments; underscore =
+generated segments; colon = internal machine identifiers only; family lives in edges).
 
 ---
 
@@ -1113,7 +1111,7 @@ tags: [health, nervous-system]
 **How it works:**
 - `is_edge_type()` detects `type: Edge` before entity type detection
 - `validate_edge_data()` validates required fields and value constraints
-- `prepare_edge_data()` normalizes UIDs (colon→dot) and extracts evidence properties
+- `prepare_edge_data()` carries from/to UIDs verbatim (authored = stored) and extracts evidence properties
 - `ingest_edge()` upserts with `MERGE`, stamping `created_at` on create only, and
   returns `MERGE`'s own create-vs-match flag
 - In batch mode, edges are processed AFTER entities (so referenced nodes exist)
@@ -1320,7 +1318,6 @@ from core.services.ingestion import (
 
     # Preparation
     generate_uid,
-    normalize_uid,
     prepare_entity_data,
 
     # Validation

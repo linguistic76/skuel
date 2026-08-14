@@ -277,7 +277,7 @@ class TestPriorUidReuse:
     async def test_authored_uid_wins_over_prior_uid(self):
         """An authored ``uid:`` is identity — never overridden by the tracker."""
         result = await build_user_entry_request(
-            data={"pipeline": "knowledge", "title": "Nous", "uid": "ku:mine:nous"},
+            data={"pipeline": "knowledge", "title": "Nous", "uid": "ku.mine.nous"},
             file_path=Path("/vault/knowledge/nous.md"),
             user_uid="user_1",
             audience_resolver=_resolver(),
@@ -551,7 +551,7 @@ def _living_file_data(status: str = "in process") -> dict:
     return {
         "pipeline": "knowledge",
         "title": "My task list",
-        "uid": "ue:vault:tasks-list",
+        "uid": "ue.vault.tasks-list",
         "fulfills_exercise_uid": "ex_list_tasks",
         "status": status,
         "content": "- buy milk",
@@ -582,7 +582,7 @@ class TestVaultExerciseChannel:
         assert result.is_ok, result.expect_error()
         assert service.create_entry.await_count == 1
         request = service.create_entry.await_args.kwargs["request"]
-        assert request.uid == "ue.vault.tasks-list"  # colon → dot normalization
+        assert request.uid == "ue.vault.tasks-list"  # authored = stored, verbatim
         assert request.fulfills_exercise_uid == "ex_list_tasks"
         assert request.status == EntityStatus.ACTIVE
         assert result.value["submitted_copy_uid"] is None

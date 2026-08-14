@@ -76,14 +76,14 @@ class TestActivityToTaskConversion:
     def test_convert_task_with_knowledge(self):
         """@ku and @link(ku:...) map to applies_knowledge_uids."""
         result = parse_journal_text(
-            "- [ ] Study @context(task) @ku(ku:math/algebra) @link(ku:math/basics)"
+            "- [ ] Study @context(task) @ku(ku.math/algebra) @link(ku:math/basics)"
         )
         task_activity = result.value.get_tasks()[0]
         convert_result = activity_to_task_request(task_activity)
 
         assert convert_result.is_ok
         request = convert_result.value
-        assert "ku:math/algebra" in request.applies_knowledge_uids
+        assert "ku.math/algebra" in request.applies_knowledge_uids
         assert "ku:math/basics" in request.applies_knowledge_uids
 
     def test_convert_task_with_goal(self):
@@ -148,7 +148,7 @@ Had a productive morning.
 
 - [ ] Call the bank @context(task) @priority(1) @when({when_str})
 - [ ] Morning meditation @context(habit) @duration(20m) @energy(spiritual)
-- [ ] Read chapter 3 @context(task,learning) @ku(ku:books/productivity)
+- [ ] Read chapter 3 @context(task,learning) @ku(ku.books/productivity)
 
 Some reflections on the day...
 """,
@@ -223,7 +223,7 @@ Some reflections on the day...
         result = await extractor.extract_and_create(mock_ku, "user_mike")
 
         assert result.is_ok
-        assert result.value.referenced_ku_uids == ["ku:books/productivity"]
+        assert result.value.referenced_ku_uids == ["ku.books/productivity"]
 
     @pytest.mark.asyncio
     async def test_extract_content_override_wins(self, extractor, mock_ku):
@@ -257,7 +257,7 @@ Some reflections on the day...
             pipeline=Pipeline.EXTRACT_ACTIVITIES,
             content=(
                 "- [ ] Python decorators @context(ku)\n"
-                "- [ ] Practice decorators @context(task) @ku(ku:tech/decorators)\n"
+                "- [ ] Practice decorators @context(task) @ku(ku.tech/decorators)\n"
             ),
         )
 
@@ -274,7 +274,7 @@ Some reflections on the day...
             for e in extraction.creation_errors
         )
         # The @ku() reference on the task line still resolves
-        assert "ku:tech/decorators" in extraction.referenced_ku_uids
+        assert "ku.tech/decorators" in extraction.referenced_ku_uids
         assert extraction.tasks_created == 1
 
     @pytest.mark.asyncio
@@ -569,7 +569,7 @@ Today I want to focus on deep work and learning.
 - [ ] Evening journaling @context(habit) @duration(15m) @repeat(daily)
 
 **Learning goals:**
-- [ ] Complete Python async chapter @context(task,learning) @ku(ku:tech/python-async) @link(goal:tech/mastery)
+- [ ] Complete Python async chapter @context(task,learning) @ku(ku.tech/python-async) @link(goal:tech/mastery)
 - Reach 1000 GitHub stars @context(goal) @link(project:opensource/mylib)
 
 Some reflections on yesterday's work...
@@ -600,7 +600,7 @@ Some reflections on yesterday's work...
 
         learning_task = next(t for t in parsed.get_tasks() if "Python" in t.description)
         assert learning_task.is_learning()
-        assert learning_task.primary_ku == "ku:tech/python-async"
+        assert learning_task.primary_ku == "ku.tech/python-async"
         assert "goal:tech/mastery" in learning_task.get_linked_goals()
 
 

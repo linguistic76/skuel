@@ -32,7 +32,7 @@ _FILE = Path("resource_atlas-of-the-heart.md")
 
 _DESCRIPTOR = {
     "type": "resource",
-    "uid": "resource:atlas-of-the-heart",
+    "uid": "resource.atlas-of-the-heart",
     "title": "Atlas of the Heart",
     "description": "Mapping 87 emotions and experiences that define being human.",
     "author": "Brené Brown",
@@ -76,7 +76,7 @@ def test_resource_config_shape() -> None:
 
 def test_valid_descriptor_prepares_and_validates() -> None:
     prepared = prepare_entity_data(EntityType.RESOURCE, dict(_DESCRIPTOR), None, _FILE)
-    assert prepared["uid"] == "resource.atlas-of-the-heart"  # colon normalized
+    assert prepared["uid"] == "resource.atlas-of-the-heart"  # authored = stored, verbatim
     assert prepared["entity_type"] == "resource"
     assert prepared["author"] == "Brené Brown"
     result = validate_entity_data(EntityType.RESOURCE, prepared, _FILE)
@@ -97,10 +97,16 @@ def test_uid_prefix_enforced() -> None:
     assert "resource." in str(result.expect_error().message)
 
 
-def test_uid_accepts_both_separators() -> None:
-    for uid in ("resource:transcend", "resource.transcend"):
-        result = validate_uid_format(EntityType.RESOURCE, dict(_DESCRIPTOR, uid=uid), _FILE)
-        assert result.is_ok, uid
+def test_uid_dot_form_accepted_colon_rejected() -> None:
+    """Dot form only — the colon input alias was deleted 2026-08-14."""
+    ok = validate_uid_format(
+        EntityType.RESOURCE, dict(_DESCRIPTOR, uid="resource.transcend"), _FILE
+    )
+    assert ok.is_ok
+    rejected = validate_uid_format(
+        EntityType.RESOURCE, dict(_DESCRIPTOR, uid="resource:transcend"), _FILE
+    )
+    assert rejected.is_error
 
 
 def test_missing_title_falls_back_to_filename() -> None:
@@ -139,14 +145,15 @@ def test_ku_rel_config_maps_resource_uids_to_cites_resource() -> None:
     assert entry["target_label"] == "Resource"
 
 
-def test_ps_normalizes_resource_uid_list() -> None:
-    """Authored ``resource:...`` colon UIDs normalize to dots so the edge
-    MERGE matches the stored node UID."""
+def test_ps_resource_uid_list_passes_through_verbatim() -> None:
+    """Authored ``resource_uids`` are stored verbatim (authored = stored;
+    the colon→dot rewrite was deleted 2026-08-14) — the edge MERGE matches
+    because vault files author the stored dot form directly."""
     data = {
         "type": "PathStep",
-        "uid": "ps:mindfulness:test",
+        "uid": "ps.mindfulness.test",
         "title": "Test",
-        "resource_uids": ["resource:transcend"],
+        "resource_uids": ["resource.transcend"],
     }
     prepared = prepare_entity_data(EntityType.PATH_STEP, data, None, Path("ps_test.md"))
     assert prepared["resource_uids"] == ["resource.transcend"]

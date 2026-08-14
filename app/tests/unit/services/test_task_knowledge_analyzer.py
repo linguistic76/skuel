@@ -5,7 +5,7 @@ Tests focus on:
 - Public async orchestration methods (analyze_learning_patterns, calculate_knowledge_aware_priority,
   generate_task_insights)
 - Pure utility functions (_is_progressive_sequence, _calculate_growth_indicator,
-  _extract_domains_from_knowledge_uids) — accessed via the composed KnowledgePatternAnalyzer
+  _categories_for) — accessed via the composed KnowledgePatternAnalyzer
 
 TaskKnowledgeAnalyzer is a utility service — NOT a facade. Its public methods contain real
 branching logic (relationship_service guard, pattern detection, sorting).
@@ -339,43 +339,53 @@ class TestCalculateGrowthIndicator:
 
 
 # ---------------------------------------------------------------------------
-# TestExtractDomainsFromKnowledgeUids — pure sync function, no I/O
+# TestCategoriesFor — pure sync helper, no I/O (field-based grouping)
 # ---------------------------------------------------------------------------
 
 
-class TestExtractDomainsFromKnowledgeUids:
-    """Tests the pure helper via the composed KnowledgePatternAnalyzer."""
+class TestCategoriesFor:
+    """Tests the pure helper via the composed KnowledgePatternAnalyzer.
 
-    def test_extracts_domain_from_ku_prefixed_uids(
+    Grouping comes from a resolved uid→sel_category FIELD map — never from
+    parsing uid strings (ADR-013 never-sniff), so authored (`ku.ns.slug`)
+    and generated (`ku_slug_rand`) uids contribute alike.
+    """
+
+    CATEGORIES = {
+        "ku.mind.attention": "self_awareness",
+        "ku_labeling_a1b2c3d4": "self_awareness",
+        "ku.sel.empathy": "social_awareness",
+    }
+
+    def test_both_uid_forms_resolve_via_field_map(
         self, engine_no_svc: TaskKnowledgeAnalyzer
     ) -> None:
-        """ku.domain-name UIDs → domain portion extracted."""
-        result = engine_no_svc._generic_analyzer._extract_domains_from_knowledge_uids(
-            ["ku.python", "ku.mathematics"]
+        result = engine_no_svc._generic_analyzer._categories_for(
+            ["ku.mind.attention", "ku_labeling_a1b2c3d4"], self.CATEGORIES
         )
-        assert result == ["python", "mathematics"]
+        assert result == ["self_awareness", "self_awareness"]
 
-    def test_ignores_non_ku_prefixed_uids(self, engine_no_svc: TaskKnowledgeAnalyzer) -> None:
-        """UIDs not starting with 'ku' are silently skipped."""
-        result = engine_no_svc._generic_analyzer._extract_domains_from_knowledge_uids(
-            ["task_xyz_abc", "goal_learn_def"]
+    def test_unresolved_uids_drop_out(self, engine_no_svc: TaskKnowledgeAnalyzer) -> None:
+        """UIDs absent from the field map carry no cross-domain signal."""
+        result = engine_no_svc._generic_analyzer._categories_for(
+            ["task_xyz_abc", "ku.unknown.thing"], self.CATEGORIES
         )
         assert result == []
 
-    def test_mixed_ku_and_other_uids(self, engine_no_svc: TaskKnowledgeAnalyzer) -> None:
-        """Mixed list: only ku.* ones are extracted."""
-        result = engine_no_svc._generic_analyzer._extract_domains_from_knowledge_uids(
-            ["ku.philosophy", "task_study_abc", "ku.logic"]
+    def test_mixed_resolved_and_unresolved(self, engine_no_svc: TaskKnowledgeAnalyzer) -> None:
+        result = engine_no_svc._generic_analyzer._categories_for(
+            ["ku.sel.empathy", "task_study_abc", "ku.mind.attention"], self.CATEGORIES
         )
-        assert result == ["philosophy", "logic"]
+        assert result == ["social_awareness", "self_awareness"]
 
     def test_empty_list_returns_empty(self, engine_no_svc: TaskKnowledgeAnalyzer) -> None:
-        """Empty input → empty output."""
-        result = engine_no_svc._generic_analyzer._extract_domains_from_knowledge_uids([])
+        result = engine_no_svc._generic_analyzer._categories_for([], self.CATEGORIES)
         assert result == []
 
-    def test_single_part_uid_excluded(self, engine_no_svc: TaskKnowledgeAnalyzer) -> None:
-        """UIDs with only one part (no dot) are excluded even if starting with ku."""
-        result = engine_no_svc._generic_analyzer._extract_domains_from_knowledge_uids(["ku"])
-        # "ku" splits to ["ku"] — len(parts) < 2 → excluded
-        assert result == []
+    @pytest.mark.asyncio
+    async def test_resolve_categories_without_graph_intel_returns_empty(
+        self, engine_no_svc: TaskKnowledgeAnalyzer
+    ) -> None:
+        """No graph_intel wired → {} (degrade, never uid-string guessing)."""
+        result = await engine_no_svc._generic_analyzer.resolve_categories(["ku.mind.attention"])
+        assert result == {}

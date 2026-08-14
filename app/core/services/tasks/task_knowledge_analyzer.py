@@ -47,6 +47,9 @@ from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from core.models.entity import Entity
+    from core.services.infrastructure.graph_intelligence_service import (
+        GraphIntelligenceService,
+    )
     from core.services.relationships import UnifiedRelationshipService
 
 
@@ -78,10 +81,14 @@ class TaskKnowledgeAnalyzer:
     All four public methods match the API of the former AnalyticsEngine.
     """
 
-    def __init__(self, relationship_service: UnifiedRelationshipService | None = None) -> None:
+    def __init__(
+        self,
+        relationship_service: UnifiedRelationshipService | None = None,
+        graph_intel: GraphIntelligenceService | None = None,
+    ) -> None:
         self.logger = get_logger("skuel.analytics.knowledge")
         self.relationship_service = relationship_service
-        self._generic_analyzer = KnowledgePatternAnalyzer()
+        self._generic_analyzer = KnowledgePatternAnalyzer(graph_intel=graph_intel)
 
     # =========================================================================
     # Public methods (same API as former AnalyticsEngine)
@@ -181,8 +188,11 @@ class TaskKnowledgeAnalyzer:
             mastery_progression = self._calculate_mastery_progression_score(
                 task, rels, user_mastery_progressions
             )
+            ku_categories = await self._generic_analyzer.resolve_categories(
+                rels.applies_knowledge_uids + rels.inferred_knowledge_uids
+            )
             cross_domain_impact = self._calculate_cross_domain_impact_score(
-                task, rels, learning_patterns
+                task, rels, learning_patterns, ku_categories
             )
 
             final_score = (
@@ -547,11 +557,18 @@ class TaskKnowledgeAnalyzer:
         return min(1.0, base_score + urgency_boost)
 
     def _calculate_cross_domain_impact_score(
-        self, task: Task, rels: TaskRelationships, patterns: list[LearningPattern]
+        self,
+        task: Task,
+        rels: TaskRelationships,
+        patterns: list[LearningPattern],
+        ku_categories: dict[str, str],
     ) -> float:
+        """Score cross-domain reach from the linked entities' ``sel_category``
+        field (``ku_categories``, resolved by the async caller) — uid strings
+        are opaque and carry no category (ADR-013 never-sniff)."""
         all_knowledge_uids = rels.applies_knowledge_uids + rels.inferred_knowledge_uids
         task_domains = set(
-            self._generic_analyzer._extract_domains_from_knowledge_uids(all_knowledge_uids)
+            self._generic_analyzer._categories_for(all_knowledge_uids, ku_categories)
         )
 
         if len(task_domains) <= 1:
@@ -562,9 +579,9 @@ class TaskKnowledgeAnalyzer:
         ]
         alignment_score = 0.0
         for pattern in cross_domain_patterns:
-            pattern_domains = set(
-                self._generic_analyzer._extract_domains_from_knowledge_uids(pattern.knowledge_uids)
-            )
+            # CROSS_DOMAIN patterns carry their category set in metadata —
+            # written by the generic detector from the same field lookup.
+            pattern_domains = set(pattern.metadata.get("sel_categories", []))
             overlap = task_domains.intersection(pattern_domains)
             if overlap:
                 alignment_score += (
@@ -846,15 +863,15 @@ class TaskKnowledgeAnalyzer:
 
         total_domains: set[str] = set()
         for pattern in cross_domain_patterns:
-            total_domains.update(
-                self._generic_analyzer._extract_domains_from_knowledge_uids(pattern.knowledge_uids)
-            )
+            # Category sets ride on the patterns' metadata (field-derived by
+            # the generic detector) — never re-parsed from uid strings.
+            total_domains.update(pattern.metadata.get("sel_categories", []))
 
         insights.append(
             ActivityInsight(
                 insight_type="cross_domain_integration",
                 title="Cross-Domain Knowledge Integration",
-                description=f"Successfully integrating knowledge across {len(total_domains)} domains",
+                description=f"Successfully integrating knowledge across {len(total_domains)} knowledge areas",
                 knowledge_areas_involved=[
                     ku for p in cross_domain_patterns for ku in p.knowledge_uids
                 ],

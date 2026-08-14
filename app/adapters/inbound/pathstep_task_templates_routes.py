@@ -31,7 +31,7 @@ PATHSTEP_TASK_TEMPLATES_CONFIG = make_pathstep_template_route_config(
     primary_service_attr="task_templates",
     create_schema=TaskTemplateCreateRequest,
     update_schema=TaskTemplateUpdateRequest,
-    uid_prefix="task-template",
+    uid_prefix="tt",
 )
 
 

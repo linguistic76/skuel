@@ -108,14 +108,14 @@ for uid in entity_uids:
 
 ### The Problem
 
-Dot form is the authoring AND stored spelling (colons retired 2026-08-14), but the ingestion
-boundary still normalizes stray legacy colons to dots:
+Dot form is the authoring AND stored spelling — authored = stored, verbatim. The colon
+spelling was retired 2026-08-14 and its ingestion input alias deleted in the same ruling:
 
 ```
-Legacy colon input: ku:python-basics  →  Stored format: ku.python-basics
+Colon input: ku:python-basics  →  REJECTED (prefix validation error, no rewrite)
 ```
 
-Tests that use the legacy colon spelling for retrieval will fail — the graph never stores colons:
+Tests that use the colon spelling for retrieval will fail — the graph never stores colons:
 
 ```python
 # ❌ FAILS - Database has "ku.simple-test", not "ku:simple-test"
@@ -144,9 +144,9 @@ title: Simple Test
 domain: tech
 ---
 
-# ❌ WRONG - legacy colon spelling will be normalized on ingest
+# ❌ WRONG - colon spelling is rejected at ingestion (input alias deleted 2026-08-14)
 ---
-uid: ku:simple-test  # Stored as ku.simple-test
+uid: ku:simple-test  # Fails prefix validation loudly
 title: Simple Test
 domain: tech
 ---
@@ -164,15 +164,16 @@ assert ku_dto.uid == "ku.simple-test"
 assert ku_dto.uid == "ku:simple-test"
 ```
 
-### UID Normalization Reference
+### UID Input Reference
 
-| Input | Normalized | Used Where |
-|-------|------------|------------|
-| `ku.name` | `ku.name` | (No change — authored = stored) |
-| `ku:name` | `ku.name` | Legacy colon shim at the ingestion boundary |
+| Input | Outcome | Why |
+|-------|---------|-----|
+| `ku.name` | Stored verbatim | Authored = stored — no rewrite of any kind |
+| `ku:name` | Rejected (validation error) | Colon input alias deleted 2026-08-14 |
 
-(`normalize_uid()` performs ONLY the colon→dot rewrite — spaces and case are never
-touched; a UID with spaces is an authoring error, not something normalization fixes.)
+(There is no normalization step: spaces and case are never touched either — a UID
+with spaces is an authoring error the validator reports, not something the
+boundary fixes.)
 
 **Key Insight:** Tests are integration tests - they should use the **internal format** to validate the system correctly stores and retrieves data.
 

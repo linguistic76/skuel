@@ -79,7 +79,7 @@ class EventsIntelligenceService(
             insight_store=insight_store,
         )
         self.cross_domain_query = cross_domain_query
-        self._knowledge_analyzer = KnowledgePatternAnalyzer()
+        self._knowledge_analyzer = KnowledgePatternAnalyzer(graph_intel=self.graph_intel)
 
     # ========================================================================
     # INTELLIGENCEOPERATIONS PROTOCOL METHODS (January 2026)

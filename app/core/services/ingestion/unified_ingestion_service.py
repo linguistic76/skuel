@@ -115,7 +115,7 @@ class UnifiedIngestionService:
         service = make_unified_ingestion_service(driver)
 
         # Single file
-        result = await service.ingest_file(Path("ku.machine-learning.md"))
+        result = await service.ingest_file(Path("ku_machine-learning.md"))
 
         # Directory
         result = await service.ingest_directory(Path("/docs"))
@@ -152,7 +152,7 @@ class UnifiedIngestionService:
                 never imports the adapter (ADR-044 / SKUEL022); use
                 ``make_unified_ingestion_service(driver, ...)`` to build them.
             default_user_uid: Default user UID for entities without explicit user_uid.
-                              If not provided, uses SKUEL_DEFAULT_USER_UID env var or "user:system".
+                              If not provided, uses SKUEL_DEFAULT_USER_UID env var or "user_system".
             max_file_size_bytes: Maximum file size in bytes (default: 10 MB).
                                  Files larger than this will be rejected to prevent OOM.
             chunking_service: Optional EntityChunkingService for automatic chunk generation.

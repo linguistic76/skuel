@@ -171,7 +171,7 @@ def _sha256(path: Path) -> str:
 
 def _write_ku(directory: Path, slug: str) -> Path:
     file = directory / f"{slug}.md"
-    file.write_text(f"---\ntype: ku\nuid: ku:{slug}\ntitle: {slug}\n---\nBody.\n", encoding="utf-8")
+    file.write_text(f"---\ntype: ku\nuid: ku.{slug}\ntitle: {slug}\n---\nBody.\n", encoding="utf-8")
     return file
 
 

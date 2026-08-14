@@ -177,17 +177,6 @@ class PrereqSuggestionRun:
 # =============================================================================
 
 
-def denormalize_uid(uid: str) -> str:
-    """Reverse the ingestion normalization for authored UIDs: ``.`` → ``:``.
-
-    The graph stores ``ku.mindfulness.attention``; vault files author
-    ``ku:mindfulness:attention`` (ingestion rewrites ``:`` → ``.``). Dotless
-    UIDs (the generated ``ku_{slug}_{random}`` form) pass through unchanged —
-    ingestion's normalization is a no-op for them, so the round trip holds.
-    """
-    return uid.replace(".", ":")
-
-
 def _uid_slug(uid: str) -> str:
     """Filename slug for a Ku UID: last dot segment, sanitized to ``[a-z0-9-]``.
 
@@ -219,26 +208,25 @@ def render_edge_yaml(
     relationship: RelationshipName,
     rationale: str | None = None,
 ) -> str:
-    """Render the exact authored Edge YAML format with colon-form UIDs.
+    """Render the exact authored Edge YAML format.
 
-    Matches ``0vault/edges/edge_attention-prereq-labeling.md`` (comment
-    header, ``type: Edge``, from/to/relationship) plus the
+    UIDs are written in stored (dot) form — authored = stored since the
+    colon spelling was retired 2026-08-14. Matches the vault edge-file
+    shape (comment header, ``type: Edge``, from/to/relationship) plus the
     ``source: inferred-approved`` provenance stamp Mike ruled for
     app-written edges.
     """
-    authored_from = denormalize_uid(from_uid)
-    authored_to = denormalize_uid(to_uid)
     lines = [
         "---",
-        _comment_line(f"Edge: {authored_from} -> {relationship.value} -> {authored_to}"),
+        _comment_line(f"Edge: {from_uid} -> {relationship.value} -> {to_uid}"),
     ]
     if rationale and rationale.strip():
         lines.append(_comment_line(rationale))
     lines += [
         "type: Edge",
         "",
-        f"from: {authored_from}",
-        f"to: {authored_to}",
+        f"from: {from_uid}",
+        f"to: {to_uid}",
         f"relationship: {relationship.value}",
         "",
         "source: inferred-approved",

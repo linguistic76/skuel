@@ -284,7 +284,7 @@ class TestExerciseConversion:
 
     def test_title_from_name_and_entity_type_forced(self) -> None:
         exercise = ConversionServiceV2.exercise_create_to_pure(
-            self.make_request(), uid="exercise:e1", user_uid="user_owner"
+            self.make_request(), uid="ex_e1", user_uid="user_owner"
         )
 
         assert type(exercise) is Exercise
@@ -293,10 +293,10 @@ class TestExerciseConversion:
 
     def test_domain_string_becomes_enum_and_defaults_to_knowledge(self) -> None:
         with_domain = ConversionServiceV2.exercise_create_to_pure(
-            self.make_request(domain="personal"), uid="exercise:e1", user_uid="user_owner"
+            self.make_request(domain="personal"), uid="ex_e1", user_uid="user_owner"
         )
         without_domain = ConversionServiceV2.exercise_create_to_pure(
-            self.make_request(), uid="exercise:e2", user_uid="user_owner"
+            self.make_request(), uid="ex_e2", user_uid="user_owner"
         )
 
         assert with_domain.domain == Domain.PERSONAL
@@ -304,7 +304,7 @@ class TestExerciseConversion:
 
     def test_context_notes_default_empty_tuple(self) -> None:
         exercise = ConversionServiceV2.exercise_create_to_pure(
-            self.make_request(), uid="exercise:e1", user_uid="user_owner"
+            self.make_request(), uid="ex_e1", user_uid="user_owner"
         )
 
         assert exercise.context_notes == ()
@@ -314,7 +314,7 @@ class TestExerciseConversion:
         # UserOwnedEntity). Ownership's single source is the user_uid KWARG
         # (auth context) — ExerciseCreateRequest carries no user_uid field.
         exercise = ConversionServiceV2.exercise_create_to_pure(
-            self.make_request(), uid="exercise:e1", user_uid="user_owner"
+            self.make_request(), uid="ex_e1", user_uid="user_owner"
         )
 
         assert exercise.owner_uid == "user_owner"
@@ -324,9 +324,7 @@ class TestExerciseConversion:
         # Without the user_uid kwarg there is no ownership source, so
         # owner_uid stays at its None default — same convention as every
         # other converter (CRUDRouteFactory always supplies the kwarg).
-        exercise = ConversionServiceV2.exercise_create_to_pure(
-            self.make_request(), uid="exercise:e1"
-        )
+        exercise = ConversionServiceV2.exercise_create_to_pure(self.make_request(), uid="ex_e1")
 
         assert exercise.owner_uid is None
 
@@ -490,12 +488,13 @@ class TestConverterRegistry:
 
 class TestCrudRouteFactoryCallingConvention:
     def test_registry_lookup_then_positional_uid_keyword_user_uid(self) -> None:
-        # Mirrors adapters/inbound/route_factories/crud_route_factory.py
-        # (~L383-400): uid = f"{uid_prefix}:{uuid.uuid4().hex[:12]}", then
-        # converter_method = ConversionServiceV2.get_converter(type(schema)),
-        # then converter_method(schema, uid, user_uid=user_uid).
+        # Mirrors adapters/inbound/route_factories/crud_route_factory.py:
+        # uid = f"{uid_prefix}_{uuid.uuid4().hex[:12]}" (generated = underscore
+        # per the separator grammar), then converter_method =
+        # ConversionServiceV2.get_converter(type(schema)), then
+        # converter_method(schema, uid, user_uid=user_uid).
         schema = TaskCreateRequest(title="Route-created task")
-        uid = f"task:{uuid.uuid4().hex[:12]}"
+        uid = f"task_{uuid.uuid4().hex[:12]}"
 
         converter_method = ConversionServiceV2.get_converter(type(schema))
         assert converter_method is not None

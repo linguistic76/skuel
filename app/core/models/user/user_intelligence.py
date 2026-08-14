@@ -69,7 +69,6 @@ class UserLearningIntelligence:
     # Learning Path Intelligence
     active_learning_paths: list[LearningPath] = field(default_factory=list)
     completed_learning_paths: list[str] = field(default_factory=list)
-    learning_velocity_by_domain: dict[Domain, LearningVelocity] = field(default_factory=dict)
 
     # Search Intelligence (simplified - no longer using deprecated SearchQuery/SearchIntent)
     recent_search_queries: list[dict[str, Any]] = field(
@@ -95,15 +94,22 @@ class UserLearningIntelligence:
     intelligence_confidence: float = 0.5  # How confident are we in our intelligence
 
     def get_dominant_learning_velocity(self) -> LearningVelocity:
-        """Get the user's dominant learning velocity across domains."""
-        if not self.learning_velocity_by_domain:
+        """Most frequent learning velocity across the user's masteries.
+
+        Computed directly from ``current_masteries`` — the former
+        by-"domain" grouping parsed uid strings for a Domain that no
+        entity actually carries (ADR-013: uids are opaque), so every
+        mastery landed in one bucket and this was always the mode.
+        """
+        if not self.current_masteries:
             return LearningVelocity.MODERATE
 
         from core.utils.sort_functions import make_dict_value_getter
 
         # Count velocity occurrences
         velocity_counts: dict[LearningVelocity, int] = {}
-        for velocity in self.learning_velocity_by_domain.values():
+        for mastery in self.current_masteries.values():
+            velocity = mastery.learning_velocity
             velocity_counts[velocity] = velocity_counts.get(velocity, 0) + 1
 
         return max(velocity_counts.keys(), key=make_dict_value_getter(velocity_counts))

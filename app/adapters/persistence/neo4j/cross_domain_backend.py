@@ -877,6 +877,24 @@ class CrossDomainBackend:
             {"uid": uid},
         )
 
+    async def get_sel_categories(self, uids: list[str]) -> Result[list[dict[str, Any]]]:
+        """Batch-read the ``sel_category`` field for a set of entity UIDs.
+
+        The field-based grouping for cross-domain pattern analysis — UID
+        strings are opaque and never encode a category (ADR-013 never-sniff).
+        Entities without a ``sel_category`` are omitted (deliberately
+        unassigned is valid — the rawness principle).
+        """
+        return await self.executor.execute_query(
+            """
+            UNWIND $uids AS uid
+            MATCH (n:Entity {uid: uid})
+            WHERE n.sel_category IS NOT NULL
+            RETURN n.uid AS uid, n.sel_category AS sel_category
+            """,
+            {"uids": uids},
+        )
+
     async def get_ku_titles_and_tags(self) -> Result[list[dict[str, Any]]]:
         """Get all Ku titles and tags for skill vocabulary derivation."""
         return await self.executor.execute_query(

@@ -7,7 +7,7 @@ Covers:
 - Edge preparation (prepare_edge_data)
 - PathStep USES_KU wiring via registry
 - PS relationship field wiring (all 10+ fields)
-- PS preparer normalization (single→list, UID normalization)
+- PS preparer field handling (single→list consolidation, verbatim UIDs)
 - Evidence relationship types on RelationshipName
 """
 
@@ -60,8 +60,8 @@ class TestEdgeValidation:
     def test_valid_edge(self):
         data = {
             "type": "edge",
-            "from": "ku:caffeine",
-            "to": "ku:tinnitus-buzzing",
+            "from": "ku.caffeine",
+            "to": "ku.tinnitus-buzzing",
             "relationship": "EXACERBATED_BY",
             "confidence": 0.8,
             "polarity": -1,
@@ -70,63 +70,63 @@ class TestEdgeValidation:
         assert result.is_ok
 
     def test_missing_from(self):
-        data = {"to": "ku:b", "relationship": "CAUSES"}
+        data = {"to": "ku.b", "relationship": "CAUSES"}
         result = validate_edge_data(data)
         assert result.is_error
 
     def test_missing_to(self):
-        data = {"from": "ku:a", "relationship": "CAUSES"}
+        data = {"from": "ku.a", "relationship": "CAUSES"}
         result = validate_edge_data(data)
         assert result.is_error
 
     def test_missing_relationship(self):
-        data = {"from": "ku:a", "to": "ku:b"}
+        data = {"from": "ku.a", "to": "ku.b"}
         result = validate_edge_data(data)
         assert result.is_error
 
     def test_unknown_relationship(self):
-        data = {"from": "ku:a", "to": "ku:b", "relationship": "TOTALLY_FAKE"}
+        data = {"from": "ku.a", "to": "ku.b", "relationship": "TOTALLY_FAKE"}
         result = validate_edge_data(data)
         assert result.is_error
         assert "Unknown relationship" in str(result.expect_error())
 
     def test_confidence_out_of_range(self):
-        data = {"from": "ku:a", "to": "ku:b", "relationship": "CAUSES", "confidence": 1.5}
+        data = {"from": "ku.a", "to": "ku.b", "relationship": "CAUSES", "confidence": 1.5}
         result = validate_edge_data(data)
         assert result.is_error
         assert "confidence" in str(result.expect_error())
 
     def test_confidence_negative(self):
-        data = {"from": "ku:a", "to": "ku:b", "relationship": "CAUSES", "confidence": -0.1}
+        data = {"from": "ku.a", "to": "ku.b", "relationship": "CAUSES", "confidence": -0.1}
         result = validate_edge_data(data)
         assert result.is_error
 
     def test_invalid_polarity(self):
-        data = {"from": "ku:a", "to": "ku:b", "relationship": "CAUSES", "polarity": 2}
+        data = {"from": "ku.a", "to": "ku.b", "relationship": "CAUSES", "polarity": 2}
         result = validate_edge_data(data)
         assert result.is_error
         assert "polarity" in str(result.expect_error())
 
     def test_invalid_temporality(self):
-        data = {"from": "ku:a", "to": "ku:b", "relationship": "CAUSES", "temporality": "forever"}
+        data = {"from": "ku.a", "to": "ku.b", "relationship": "CAUSES", "temporality": "forever"}
         result = validate_edge_data(data)
         assert result.is_error
         assert "temporality" in str(result.expect_error())
 
     def test_valid_temporalities(self):
         for temp in ("minutes", "hours", "days", "chronic"):
-            data = {"from": "ku:a", "to": "ku:b", "relationship": "CAUSES", "temporality": temp}
+            data = {"from": "ku.a", "to": "ku.b", "relationship": "CAUSES", "temporality": temp}
             assert validate_edge_data(data).is_ok
 
     def test_invalid_source(self):
-        data = {"from": "ku:a", "to": "ku:b", "relationship": "CAUSES", "source": "gossip"}
+        data = {"from": "ku.a", "to": "ku.b", "relationship": "CAUSES", "source": "gossip"}
         result = validate_edge_data(data)
         assert result.is_error
         assert "source" in str(result.expect_error())
 
     def test_valid_sources(self):
         for src in ("self_observation", "research", "teacher", "clinical"):
-            data = {"from": "ku:a", "to": "ku:b", "relationship": "CAUSES", "source": src}
+            data = {"from": "ku.a", "to": "ku.b", "relationship": "CAUSES", "source": src}
             assert validate_edge_data(data).is_ok
 
 
@@ -140,8 +140,8 @@ class TestEdgePreparer:
 
     def test_basic_preparation(self):
         data = {
-            "from": "ku:caffeine",
-            "to": "ku:buzzing",
+            "from": "ku.caffeine",
+            "to": "ku.buzzing",
             "relationship": "EXACERBATED_BY",
         }
         result = prepare_edge_data(data)
@@ -151,10 +151,10 @@ class TestEdgePreparer:
         assert "created_at" in result["properties"]
         assert "updated_at" in result["properties"]
 
-    def test_uid_normalization(self):
+    def test_uids_pass_through_verbatim(self):
         data = {
-            "from": "ku:deep-breathing",
-            "to": "ku:anxiety-response",
+            "from": "ku.deep-breathing",
+            "to": "ku.anxiety-response",
             "relationship": "REDUCED_BY",
         }
         result = prepare_edge_data(data)
@@ -163,8 +163,8 @@ class TestEdgePreparer:
 
     def test_evidence_properties_extracted(self):
         data = {
-            "from": "ku:a",
-            "to": "ku:b",
+            "from": "ku.a",
+            "to": "ku.b",
             "relationship": "CAUSES",
             "evidence": "Observed repeatedly",
             "confidence": 0.9,
@@ -184,8 +184,8 @@ class TestEdgePreparer:
 
     def test_locator_property_extracted(self):
         data = {
-            "from": "ku:values:tao-te-ching-v1",
-            "to": "resource:tao-of-pooh",
+            "from": "ku.values.tao-te-ching-v1",
+            "to": "resource.tao-of-pooh",
             "relationship": "CITES_RESOURCE",
             "locator": "ch. 4",
         }
@@ -194,8 +194,8 @@ class TestEdgePreparer:
 
     def test_tags_extracted(self):
         data = {
-            "from": "ku:a",
-            "to": "ku:b",
+            "from": "ku.a",
+            "to": "ku.b",
             "relationship": "CAUSES",
             "tags": ["health", "nervous-system"],
         }
@@ -203,7 +203,7 @@ class TestEdgePreparer:
         assert result["properties"]["tags"] == ["health", "nervous-system"]
 
     def test_source_file_recorded(self):
-        data = {"from": "ku:a", "to": "ku:b", "relationship": "CAUSES"}
+        data = {"from": "ku.a", "to": "ku.b", "relationship": "CAUSES"}
         result = prepare_edge_data(data, file_path=Path("/vault/edges/test.yaml"))
         assert result["properties"]["source_file"] == "/vault/edges/test.yaml"
 
@@ -224,11 +224,11 @@ class TestPathStepUsesKuWiring:
         assert config["uses_kus"]["target_label"] == "Ku"
         assert config["uses_kus"]["direction"] == "outgoing"
 
-    def test_preparer_normalizes_uses_kus(self):
+    def test_preparer_keeps_uses_kus_verbatim(self):
         data = {
             "type": "lesson",
             "title": "Test Lesson",
-            "uses_kus": ["ku:meditation-basics", "ku:breathwork"],
+            "uses_kus": ["ku.meditation-basics", "ku.breathwork"],
         }
         result = prepare_entity_data(EntityType.PATH_STEP, data, "body content", Path("test.md"))
         assert result["uses_kus"] == ["ku.meditation-basics", "ku.breathwork"]
@@ -263,7 +263,7 @@ class TestPathStepUsesKuWiring:
         null — so ``ON MATCH SET n += props`` would remove the stored creation
         date, which is exactly the loss this change exists to prevent.
         """
-        data = {"type": "lesson", "title": "T", "uid": "ps:x:y", "created_at": None}
+        data = {"type": "lesson", "title": "T", "uid": "ps.x.y", "created_at": None}
         result = prepare_entity_data(EntityType.PATH_STEP, data, "body", Path("t.md"))
         assert "created_at" not in result
 
@@ -282,7 +282,7 @@ class TestPathStepUsesKuWiring:
         for authored, expected in cases.items():
             out = prepare_entity_data(
                 EntityType.PATH_STEP,
-                {"type": "lesson", "title": "T", "uid": "ps:x:y", "created_at": authored},
+                {"type": "lesson", "title": "T", "uid": "ps.x.y", "created_at": authored},
                 "body",
                 Path("t.md"),
             )
@@ -303,7 +303,7 @@ class TestPathStepUsesKuWiring:
         for bad in ("unknown", "2026-13-45", ["a", "b"], 12345):
             data = prepare_entity_data(
                 EntityType.PATH_STEP,
-                {"type": "lesson", "title": "T", "uid": "ps:x:y", "created_at": bad},
+                {"type": "lesson", "title": "T", "uid": "ps.x.y", "created_at": bad},
                 "body",
                 Path("t.md"),
             )
@@ -327,7 +327,7 @@ class TestPathStepUsesKuWiring:
         ):
             data = prepare_entity_data(
                 EntityType.PATH_STEP,
-                {"type": "lesson", "title": "T", "uid": "ps:x:y", "created_at": good},
+                {"type": "lesson", "title": "T", "uid": "ps.x.y", "created_at": good},
                 "body",
                 Path("t.md"),
             )
@@ -432,14 +432,14 @@ class TestLsFieldWiring:
 
 
 class TestLsPreparerNormalization:
-    """Tests for PS-specific field normalization in the preparer."""
+    """Tests for PS-specific field handling in the preparer."""
 
     def test_learning_path_uid_to_list(self):
         """Single learning_path_uid should be converted to learning_path_uids list."""
         data = {
             "type": "ps",
             "title": "Step 1",
-            "learning_path_uid": "lp:mindfulness-101",
+            "learning_path_uid": "lp.mindfulness-101",
         }
         result = prepare_entity_data(EntityType.PATH_STEP, data, None, Path("step1.yaml"))
         assert "learning_path_uid" not in result
@@ -450,7 +450,7 @@ class TestLsPreparerNormalization:
         data = {
             "type": "ps",
             "title": "Step 1",
-            "knowledge_uid": "ku:breathing",
+            "knowledge_uid": "ku.breathing",
         }
         result = prepare_entity_data(EntityType.PATH_STEP, data, None, Path("step1.yaml"))
         assert "knowledge_uid" not in result
@@ -461,19 +461,19 @@ class TestLsPreparerNormalization:
         data = {
             "type": "ps",
             "title": "Step 1",
-            "knowledge_uid": "ku:breathing",
-            "knowledge_uids": ["ku:breathing"],
+            "knowledge_uid": "ku.breathing",
+            "knowledge_uids": ["ku.breathing"],
         }
         result = prepare_entity_data(EntityType.PATH_STEP, data, None, Path("step1.yaml"))
         assert result["knowledge_uids"].count("ku.breathing") == 1
 
-    def test_uid_normalization_in_list_fields(self):
-        """All UID list fields should have colon→dot normalization."""
+    def test_uid_list_fields_pass_through_verbatim(self):
+        """UID list fields are stored verbatim (authored = stored; the colon→dot rewrite was deleted 2026-08-14)."""
         data = {
             "type": "ps",
             "title": "Step 1",
-            "trains_ku_uids": ["ku:concept-a", "ku:concept-b"],
-            "knowledge_uids": ["ku:concept-c"],
+            "trains_ku_uids": ["ku.concept-a", "ku.concept-b"],
+            "knowledge_uids": ["ku.concept-c"],
         }
         result = prepare_entity_data(EntityType.PATH_STEP, data, None, Path("step1.yaml"))
         assert result["trains_ku_uids"] == ["ku.concept-a", "ku.concept-b"]
