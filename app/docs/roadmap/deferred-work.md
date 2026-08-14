@@ -1,8 +1,6 @@
 # Deferred Work
 
-**Context**: Items here are real, valuable improvements that are intentionally on hold. They are
-not rejected — they are waiting for usage data, business decisions, or production prerequisites
-that do not yet exist. Each item has an explicit trigger condition.
+**Context**: Items here are real, valuable improvements that are intentionally on hold. They are not rejected — they are waiting for usage data, business decisions, or production prerequisites that do not yet exist. Each item has an explicit trigger condition.
 
 **Related**: `/docs/roadmap/security-hardening-deferred.md` — the security hardening backlog
 (see its Priority Order table for current status).
@@ -11,10 +9,7 @@ that do not yet exist. Each item has an explicit trigger condition.
 
 ## Shelved Intelligence Features
 
-The three features below are shelved — not premature ideas, but fully scoped and correctly
-deferred until enough data exists to make them meaningful. Semantic Analysis and Discovery
-Analytics have dedicated roadmap documents in `/docs/roadmap/`; Real-time Intelligence's
-roadmap was retired, so its trigger-gated note lives inline below.
+The three features below are shelved — not premature ideas, but fully scoped and correctly deferred until enough data exists to make them meaningful. Semantic Analysis and Discovery Analytics have dedicated roadmap documents in `/docs/roadmap/`; Real-time Intelligence's roadmap was retired, so its trigger-gated note lives inline below.
 
 **See**: `/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md` — the authoritative index of the intelligence layer.
 
@@ -95,15 +90,11 @@ than 1,000 logged searches, clustering and usage-weighted ranking are noise.
 session-aware context updates) requires concurrent users to be meaningful. With a single
 developer testing the system, "real-time" is indistinguishable from "refresh the page."
 
-**The problem**: `UserContextIntelligence.get_ready_to_work_on_today()` currently rebuilds
-context on every request. For 10+ daily active users, incremental updates (only recompute what
-changed) would meaningfully reduce Neo4j load. Real-time also enables "your colleague just
-completed the same KU" social signals.
+**The problem**: `UserContextIntelligence.get_ready_to_work_on_today()` currently rebuilds context on every request. For 10+ daily active users, incremental updates (only recompute what changed) would meaningfully reduce Neo4j load. Real-time also enables "your colleague just completed the same KU" social signals.
 
 **What to do**:
 
-1. Verify daily active users: instrument `skuel_daily_active_users` Prometheus gauge — proceed
-   when consistently ≥ 10.
+1. Verify daily active users: instrument `skuel_daily_active_users` Prometheus gauge — proceed when consistently ≥ 10.
 2. Add WebSocket session tracking to `SessionBackend` (groundwork exists in `core/auth/`).
 3. Replace full `build_rich()` calls with incremental delta queries for unchanged domains.
 
@@ -113,21 +104,16 @@ completed the same KU" social signals.
 
 ## Decision Points
 
-These items are blocked on business decisions, not engineering complexity. The code stubs exist;
-they need a decision to wire up.
+These items are blocked on business decisions, not engineering complexity. The code stubs exist; they need a decision to wire up.
 
 ---
 
 ### 4. Per-user Intelligence Tier
 
-**Why deferred**: The system-wide `INTELLIGENCE_TIER` env var toggle (CORE vs FULL) works
-correctly. Per-user tier control requires a billing model — specifically, which features are
-free vs paid — and that model has not been defined.
+**Why deferred**: The system-wide `INTELLIGENCE_TIER` env var toggle (CORE vs FULL) works correctly. Per-user tier control requires a billing model — specifically, which features are free vs paid — and that model has not been defined.
 
-**The problem**: `core/services/intelligence_tier_service.py` implements the pure function
-`get_user_intelligence_tier(system_tier, user_role)` — system tier is the ceiling, REGISTERED
-gets CORE, MEMBER+ get the system tier. It is not wired anywhere (registered in the bloat
-detector's PLANNED tier). Currently all users get the same tier controlled by the env var.
+**The problem**: `core/services/intelligence_tier_service.py` implements the pure function `get_user_intelligence_tier(system_tier, user_role)` — system tier is the ceiling, REGISTERED gets CORE, MEMBER+ get the system tier.
+It is not wired anywhere (registered in the bloat detector's PLANNED tier). Currently all users get the same tier controlled by the env var.
 
 **What to do**:
 
@@ -141,36 +127,7 @@ detector's PLANNED tier). Currently all users get the same tier controlled by th
 
 ---
 
-### 5. KnowledgeConfig Validation
 
-**Why deferred**: `config/validation.py` has a `validate_knowledge_config()` function that
-returns an empty list (stub). The fields it would validate — `embedding_model` and
-`embedding_dimension` — do not yet exist on `KnowledgeConfig`. This is a 30-minute task once
-those fields are added.
-
-**The problem**: If someone deploys SKUEL with a mismatched `embedding_model` / `embedding_dimension`
-pair (e.g., `text-embedding-3-large` with dimension 1536 instead of 3072), Neo4j vector index
-operations will silently produce incorrect similarity scores. The validation stub exists but
-does not catch this.
-
-**What to do**:
-
-1. Add `embedding_model: str` and `embedding_dimension: int` to `KnowledgeConfig` in
-   `core/config/unified_config.py`.
-2. In `config/validation.py`, implement `validate_knowledge_config()`:
-   ```python
-   VALID_EMBEDDING_DIMENSIONS = {
-       "text-embedding-3-small": [512, 1536],
-       "text-embedding-3-large": [256, 1024, 3072],
-       "text-embedding-ada-002": [1536],
-   }
-   if config.embedding_model in VALID_EMBEDDING_DIMENSIONS:
-       if config.embedding_dimension not in VALID_EMBEDDING_DIMENSIONS[config.embedding_model]:
-           errors.append(f"embedding_dimension {config.embedding_dimension} invalid for {config.embedding_model}")
-   ```
-3. Add a test in `tests/unit/test_config_validation.py`.
-
-**Enable when**: `embedding_model` and `embedding_dimension` fields are added to `KnowledgeConfig`.
 
 ---
 
