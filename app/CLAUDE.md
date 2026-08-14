@@ -94,6 +94,8 @@ SKUEL measures knowledge by how it's LIVED. Substance accrues from lived activit
 
 **Colon → dot normalization:** ingestion rewrites `:` → `.` in every UID (`normalize_uid`, `core/services/ingestion/preparer.py` — entity `uid:`, rel-config fields, edge `from`/`to`). Vault files author colons; the graph stores dots. Never compare file↔graph UIDs raw.
 
+**Separator grammar (ratified 2026-08-14):** `-` joins words; `:`→`.` = authored-UID segments (middle segment = human-readable grouping hint, machine-opaque); `_` = generated-UID segments + filename type-prefix; family lives ONLY in edges (`ORGANIZES` etc.), never in UID strings. **See:** `/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md § Separator Grammar`.
+
 **Two Paths to Knowledge:** PS Path (structured, linear) and ORGANIZES Path (unstructured, graph, learner-directed). MOC is emergent identity — any Entity with ORGANIZES relationships. Authoring surface: `moc: true` frontmatter on any ingestible file → body links become `ORGANIZES {order}` edges (dangling links: silent in personal vaults, warned in content vault). **See:** `/docs/patterns/UNIFIED_INGESTION_GUIDE.md` § MOC files.
 
 **Ku UID is flat & opaque** — hierarchy lives in `(parent)-[:ORGANIZES {order, importance}]->(child)` edges (multiple parents allowed), not in the UID. Two sanctioned forms — authored `ku.{ns}.{slug}` (vault) and generated `ku_{slug}_{random}` (API) — are BOTH valid; **never sniff type from the prefix** (spelling is provenance, not type information; determine entity kind by label/`entity_type`/edge).

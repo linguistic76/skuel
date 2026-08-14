@@ -1,6 +1,6 @@
 ---
 title: "Curriculum Grouping Patterns: KU, PS, LP + MOC Organization"
-updated: 2026-03-03
+updated: 2026-08-14
 status: current
 category: architecture
 tags: [architecture, curriculum, grouping, patterns, moc, montessori]
@@ -10,7 +10,7 @@ related_skills: [curriculum-domains]
 
 # Curriculum Grouping Patterns: KU, PS, LP + MOC Organization
 
-*Last updated: 2026-04-02*
+*Last updated: 2026-08-14*
 ## Related Skills
 
 For implementation guidance, see:
@@ -81,6 +81,35 @@ Consequences:
 - Stored UIDs are NOT being migrated to flat `{prefix}_{slug}_{random}` — as of 2026-07-04 the
   graph holds only dotted authored curriculum UIDs (all 89 Kus are `ku.{ns}.{slug}`; zero flat
   generated Kus exist yet). Both forms stay sanctioned; see the never-sniff rule below.
+
+### Separator Grammar (ratified 2026-08-14)
+
+One character, one job. This is the whole separator law — anything a doc or code comment says
+beyond this table is historical:
+
+| Character | Role |
+|-----------|------|
+| `-` hyphen | Joins words **within** a single segment (`active-listening`). The only word-joiner, everywhere — `UIDGenerator.slugify()` emits it. Known gap: slugify currently *preserves* underscores arriving in input titles (its `\w` class includes `_`) instead of converting them; the `_`→`-` fix is queued. Author hyphens. |
+| `:` colon / `.` dot | Segment separator of **authored** UIDs. Colon is the vault authoring spelling, dot the stored spelling (`normalize_uid()` rewrites `:` → `.`). Shape: `{prefix}.{grouping-label}.{slug}`. |
+| `_` underscore | Segment separator of **generated** UIDs (`{prefix}_{slug}_{random}`, `{prefix}_{random}`), and the conventional filename type-prefix (`ku_attention.md`). |
+| *(edges)* | Family. Parent/child/lineage lives **only** in graph relationships (`ORGANIZES`, `USES_KU`, `HAS_STEP`, …) — never in UID strings. |
+
+Two clarifications the grammar hangs on:
+
+- **The middle segment of an authored UID is a human-readable grouping *hint*, not machine
+  hierarchy.** `ku.mindfulness.attention` tells a human editor which family the author had in
+  mind; the system never parses it (see the never-sniff rule below). Knowledge is a graph —
+  one Ku belongs to many families at once, which no string can encode. Hierarchy-in-edges is
+  what makes multiple parents possible.
+- **Separator spelling is provenance** — dot says "authored/curated", underscore says
+  "API-generated". It carries no type information and no behavior.
+
+**Supersession note:** the January 2026 migration plan
+(`/docs/migrations/UID_STANDARDIZATION_MIGRATION_2026-01-30.md`) assigned dots the job of
+encoding hierarchy ("Rule 2: Dot for Hierarchical Curriculum Entities"). That rule was
+superseded by ADR-013 — hierarchy is never encoded in UIDs — and the demotion of the dot to
+a provenance marker with a human-readable hint was ratified 2026-08-14. The dated migration
+log itself stays as history.
 
 ### Two Paths to Knowledge (Montessori-Inspired)
 

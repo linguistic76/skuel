@@ -1,6 +1,6 @@
 ---
 title: ADR-013: KU UID Flat Identity Design
-updated: 2026-01-30
+updated: 2026-08-14
 status: implemented
 category: decisions
 tags: [adr, decisions, ku, uid, identity, curriculum, universal-hierarchical-pattern]
@@ -77,9 +77,10 @@ Title: "Python Functions"     →  ku_python-functions_x7y8z9w0
 Title: "Machine Learning 101" →  ku_machine-learning-101_def45678
 ```
 
-**Previous Format (Pre-2026-01-30):**
-- Markdown ingestion: `ku.{filename}` (e.g., `ku.meditation-basics`)
-- Still supported for backward compatibility during transition
+**Authored Format (dot form):**
+- Vault ingestion: `ku.{ns}.{slug}` (authored `ku:{ns}:{slug}`, colon→dot at ingestion)
+- Not a transitional legacy — permanently sanctioned alongside the generated form as a
+  provenance marker (see Addendum: the two-form reality)
 
 ### Override Mechanism
 
@@ -158,7 +159,7 @@ If two files produce the same UID, the second sync overwrites the first. This is
 
 ### Alternative 2: UUID-Based
 
-**Description:** Use random UUIDs: `ku.550e8400-e29b-41d4-a716-446655440000`
+**Description:** Use random UUIDs: `ku_550e8400-e29b-41d4-a716-446655440000`
 
 **Pros:**
 - Guaranteed unique
@@ -193,7 +194,7 @@ If two files produce the same UID, the second sync overwrites the first. This is
 ## Consequences
 
 ### Positive Consequences
-- ✅ Short, clean UIDs (`ku.machine-learning`)
+- ✅ Location-free UIDs (`ku.machine-learning`, never `ku.stories.tech.machine-learning` path chains)
 - ✅ Identity stable across reorganization
 - ✅ Aligns with SKUEL's graph-based knowledge model
 - ✅ MOC provides flexible navigation independent of UID
@@ -224,15 +225,16 @@ If two files produce the same UID, the second sync overwrites the first. This is
 
 ### Code Location
 
-**Primary files:**
-- `/core/utils/uid_generator.py:67-92` - Flat UID generation
-- `/core/services/ku/ku_core_service.py:183-218` - KU creation with ORGANIZES support
-- `/core/services/ku/ku_core_service.py:750-1013` - Hierarchical methods
-- `/core/models/relationship_names.py:273` - ORGANIZES relationship
+**Primary files** (function names, not line pins — lines drift):
+- `/core/utils/uid_generator.py` — `generate_knowledge_uid()`, flat UID generation
+- `/core/services/ku/ku_core_service.py` — `create()`, KU creation
+- `/core/services/ku/ku_organization_service.py` — ORGANIZES relationship operations (MOC)
+- `/core/models/relationship_names.py` — ORGANIZES relationship
 
 **Related files:**
-- `/core/services/markdown_sync_service.py` - Markdown ingestion (legacy dot format)
-- `/core/ingestion/bulk_ingestion.py` - MERGE upsert logic
+- `/core/services/ingestion/` — the unified ingestion pipeline (successor to the retired
+  `markdown_sync_service` / `bulk_ingestion`); `normalize_uid()` + filename-fallback UID in
+  `preparer.py`, MERGE upsert below `adapters/persistence/neo4j/`
 
 ### UID Generation Code (2026-01-30)
 
@@ -329,10 +331,12 @@ Current CLAUDE.md documents `ku:` (colon notation) but implementation uses `ku.`
 
 ### UID Normalization (ADR-014)
 
-As of ADR-014 (Unified Ingestion Service), **dot notation is the canonical UID format**:
-- All new UIDs generated with dot notation: `ku.filename`
+As of ADR-014 (Unified Ingestion Service), **dot notation is the spelling of authored UIDs**
+(not "the canonical format" — there is no single canonical spelling; see the Addendum):
 - Colon notation (`ku:filename`) auto-converted to dot notation on ingestion
-- UnifiedIngestionService handles normalization transparently
+- Ingestion's filename-fallback UID is dot form (`ku.{file-stem}`)
+- API-generated UIDs remain underscore form (`ku_{slug}_{random}`)
+- Separator law: `/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md` § Separator Grammar
 
 ---
 
@@ -344,6 +348,7 @@ As of ADR-014 (Unified Ingestion Service), **dot notation is the canonical UID f
 | 2025-12-03 | Claude | Added UID normalization note (ADR-014) | 1.1 |
 | 2026-01-30 | Claude | Implemented Universal Hierarchical Pattern | 2.0 |
 | 2026-01-30 | Claude | Updated with underscore format & ORGANIZES | 2.1 |
+| 2026-08-14 | Mike + Claude | Separator grammar ratified (dot = authored provenance, hierarchy in edges); fixed stale citations, "canonical dot format" claim, and the "backward compatibility" framing of the authored form | 2.2 |
 
 ---
 

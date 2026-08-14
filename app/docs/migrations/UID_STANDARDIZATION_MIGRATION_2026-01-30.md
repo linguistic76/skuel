@@ -5,6 +5,13 @@
 **Author:** Claude Code
 **Related:** ADR-036 (to be created)
 
+> **Historical note (2026-08-14):** Rule 2 below ("Dot for Hierarchical Curriculum Entities")
+> was superseded by ADR-013 — hierarchy is NEVER encoded in UIDs; it lives in `ORGANIZES`
+> edges. The dot survives only as the segment separator of *authored* UIDs, whose middle
+> segment is a human-readable grouping hint, not machine hierarchy. Current law:
+> `/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md` § Separator Grammar. This dated log
+> is otherwise preserved as-is.
+
 ## Executive Summary
 
 SKUEL currently uses three different UID separators (`.`, `_`, `:`) inconsistently across the codebase. This migration standardizes all non-hierarchical entity UIDs to use underscore (`_`) notation, reserving dot (`.`) notation exclusively for hierarchical curriculum entities.

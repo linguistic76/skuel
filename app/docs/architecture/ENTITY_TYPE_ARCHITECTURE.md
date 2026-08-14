@@ -43,17 +43,17 @@ This doc is **Model A at the fine grain** per ADR-055 — the 25 EntityTypes. Fo
 | PrincipleTemplate | PS-owned template that spawns Principle instances on engagement | `pt_{slug}_{random}` | Admin/teacher-created, shared |
 | FormTemplate | General-purpose form definition | `ft_{slug}_{random}` | Admin-created, shared |
 | FormSubmission | User response to a FormTemplate | `fs_{slug}_{random}` | User-owned |
-| Ku | Atomic knowledge unit (concept, principle, substance) | `ku_{slug}_{random}` | Admin-created, shared |
-| Resource | Curated content (books, talks, films) | N/A | Admin-created, shared |
-| PathStep | THE curriculum content entity (composes Kus into learning content) | `ps:{namespace}:{slug}` | Admin-created, shared |
-| LearningPath | An ordered sequence of PathSteps | `lp:{namespace}:{slug}` | Admin-created, shared |
-| Exercise | Instruction template, assignment, or formal assessment | N/A | Admin-created, shared |
+| Ku | Atomic knowledge unit (concept, principle, substance) | `ku.{ns}.{slug}` authored / `ku_{slug}_{random}` API | Admin-created, shared |
+| Resource | Curated content (books, talks, films) | `resource.{slug}` authored | Admin-created, shared |
+| PathStep | THE curriculum content entity (composes Kus into learning content) | `ps.{namespace}.{slug}` authored | Admin-created, shared |
+| LearningPath | An ordered sequence of PathSteps | `lp.{namespace}.{slug}` authored | Admin-created, shared |
+| Exercise | Instruction template, assignment, or formal assessment | `ex.{ns}.{slug}` authored / `ex_{slug}_{random}` API | Admin-created, shared |
 | RevisedExercise | Targeted revision after feedback | `re_{slug}_{random}` | Teacher-owned |
 | UserEntry | Unified user-authored content — submissions, journals, uploads (ADR-054) | `ue_{slug}_{random}` | User-owned |
 | Interaction | Situated learning-loop event (curriculum context at submission time) | `ia_{slug}_{random}` | User-owned |
 | ActivityReport | Feedback about activity patterns over time | `ar_{random}` | User-owned |
 | EntryReport | Report (teacher/AI assessment or LLM reflective response) tied to a specific UserEntry | `er_{random}` | User-owned |
-| LifePath | The user's life direction | `lp_{random}` | User-owned |
+| LifePath | The user's life direction | `lifepath.{slug}` authored (no API mint) | User-owned |
 
 **Not EntityTypes** (listed separately): Groups (`NonKuDomain.GROUP`, ADR-053 — teacher-student class management, `:Group` nodes). Finance (`NonKuDomain.FINANCE`, ADR-052 — Firefly III sidecar). MOC is emergent (any Entity with ORGANIZES edges, no dedicated EntityType).
 
