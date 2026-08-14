@@ -25,7 +25,6 @@ from core.models.enums.pipeline import JeUse, Pipeline
 from core.models.enums.user_enums import UserRole
 from core.models.type_hints import UserUID
 from core.models.user_entry.user_entry_request import UserEntryCreateRequest
-from core.services.ingestion.preparer import normalize_uid
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -364,13 +363,27 @@ async def build_user_entry_request(
     # .isoformat() normalises it to the string the routes expect.
     uid_override: str | None = data.get("uid")
     if uid_override:
-        # Authored uids follow the vault convention: colons in the file, dots
-        # in the graph (``moc:worldview`` → ``moc.worldview``). The prefix is
-        # opaque provenance, never type information (ADR-013 never-sniff), so
-        # any authored prefix is accepted. The DERIVED periodic uids below are
-        # deliberately NOT normalized — their colon form
-        # (``ue:daily:{user}:{date}``) is the calendar routes' join contract.
-        uid_override = normalize_uid(str(uid_override))
+        # Authored uids pass through verbatim (authored = stored; the colon
+        # input alias was deleted 2026-08-14). The prefix is opaque
+        # provenance, never type information (ADR-013 never-sniff), so any
+        # authored DOT/underscore prefix is accepted — but the retired colon
+        # spelling is rejected loudly: forwarding it would upsert a NEW node
+        # under the colon identity, silently splitting a note previously
+        # stored in dot form (Codex P1 #1054). The DERIVED periodic uids
+        # below keep their colon form (``ue:daily:{user}:{date}``) by design
+        # — internal machine identifiers are BUILT here, never authored; a
+        # periodic note needs no ``uid:`` line at all.
+        uid_override = str(uid_override)
+        if ":" in uid_override:
+            return Result.fail(
+                Errors.validation(
+                    f"Authored uid '{uid_override}' uses the retired colon "
+                    f"spelling — author the stored dot form "
+                    f"('{uid_override.replace(':', '.')}'), or remove the "
+                    f"uid line (periodic notes derive their identity)",
+                    field="uid",
+                )
+            )
     if not uid_override:
         entry_kind = metadata.get("entry_kind") if isinstance(metadata, dict) else None
         if entry_kind == "daily":

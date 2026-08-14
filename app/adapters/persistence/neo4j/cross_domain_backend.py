@@ -26,7 +26,7 @@ from adapters.persistence.neo4j.query.cypher import (
 from core.models.enums import EntityStatus, EntityType
 from core.models.enums.principle_enums import AlignmentLevel
 from core.models.relationship_names import RelationshipName
-from core.ports.query_types import UserKnowledgeChannelRow
+from core.ports.query_types import SelCategoryRow, UserKnowledgeChannelRow
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -200,6 +200,23 @@ RETURN a.entity_type AS entity_type,
                      WHERE k.entity_type = $ku_entity_type | k.uid])
        AS ku_uids
 """
+
+
+def _to_sel_category_rows(
+    records: list[dict[str, Any]],  # boundary: raw neo4j-driver rows (AsyncResult.data())
+) -> list[SelCategoryRow]:
+    """Project raw rows onto SelCategoryRow (KeyError on alias drift).
+
+    Indexing each alias turns a renamed RETURN into a failed ``Result`` at
+    the boundary instead of a silently-empty category map downstream.
+    """
+    return [
+        {
+            "uid": str(row["uid"]),
+            "sel_category": str(row["sel_category"]),
+        }
+        for row in records
+    ]
 
 
 def _to_user_knowledge_channel_rows(
@@ -875,6 +892,26 @@ class CrossDomainBackend:
             RETURN n, labels(n) as labels
             """,
             {"uid": uid},
+        )
+
+    async def get_sel_categories(self, uids: list[str]) -> Result[list[SelCategoryRow]]:
+        """Batch-read the ``sel_category`` field for a set of entity UIDs.
+
+        The field-based grouping for cross-domain pattern analysis — UID
+        strings are opaque and never encode a category (ADR-013 never-sniff).
+        Entities without a ``sel_category`` are omitted (deliberately
+        unassigned is valid — the rawness principle).
+        """
+        return await self.executor.execute(
+            query="""
+            UNWIND $uids AS uid
+            MATCH (n:Entity {uid: uid})
+            WHERE n.sel_category IS NOT NULL
+            RETURN n.uid AS uid, n.sel_category AS sel_category
+            """,
+            params={"uids": uids},
+            processor=_to_sel_category_rows,
+            operation="get_sel_categories",
         )
 
     async def get_ku_titles_and_tags(self) -> Result[list[dict[str, Any]]]:

@@ -34,7 +34,7 @@ _PS_UID = "ps.test.force-reingest"
 
 _PS_FIXTURE = """---
 type: path_step
-uid: ps:test:force-reingest
+uid: ps.test.force-reingest
 title: Force Reingest Fixture
 domain: knowledge
 ---

@@ -171,7 +171,7 @@ class TestCreateRouteBinding:
         assert service.request_door == []
         [entity] = service.entity_door
         assert isinstance(entity, Task)
-        assert body["uid"].startswith("task:")
+        assert body["uid"].startswith("task_")
 
     async def test_unresolvable_method_name_raises_at_construction(self) -> None:
         """FAIL-FAST WIRING: a config naming a method the service does not expose is

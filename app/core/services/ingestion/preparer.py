@@ -30,22 +30,6 @@ from .moc_links import extract_moc_link_suffixes
 logger = get_logger("skuel.ingestion.preparer")
 
 
-def normalize_uid(uid: str) -> str:
-    """
-    Normalize UID to dot notation.
-
-    Converts colon notation to dot notation:
-        "ku:machine-learning" -> "ku.machine-learning"
-
-    Args:
-        uid: Raw UID from file
-
-    Returns:
-        Normalized UID with dot notation
-    """
-    return uid.replace(":", ".")
-
-
 def generate_uid(entity_type: EntityType | NonKuDomain, file_path: Path) -> str:
     """
     Generate UID from entity type and file path.
@@ -60,7 +44,7 @@ def generate_uid(entity_type: EntityType | NonKuDomain, file_path: Path) -> str:
         file_path: Path to the file
 
     Returns:
-        Generated UID (e.g., "ku.machine-learning")
+        Generated UID (e.g., "machine-learning.md" → "ku.machine-learning")
     """
     from core.services.ingestion.config import ENTITY_CONFIGS
 
@@ -216,16 +200,17 @@ def prepare_entity_data(
     # guessing one behind their back invites split identities on the fix-up
     # sync. Fail with the reason instead (the batch door classifies this as
     # ignored-with-reason, not a sync error). Non-string values (``uid: 5``)
-    # are stringified rather than crashing normalize_uid.
+    # are stringified. Authored = stored (dot form; the colon input alias was
+    # deleted 2026-08-14 — a colon uid now fails prefix validation loudly).
     if "uid" in entity_data:
         raw_uid = entity_data["uid"]
         if raw_uid is None or not str(raw_uid).strip():
             raise ValueError(
                 "'uid:' field is present but empty — fill it in "
-                "(e.g. 'uid: ku:my-concept') or remove the line to auto-generate "
+                "(e.g. 'uid: ku.my-concept') or remove the line to auto-generate "
                 "from the filename"
             )
-        entity_data["uid"] = normalize_uid(str(raw_uid))
+        entity_data["uid"] = str(raw_uid)
     else:
         entity_data["uid"] = generate_uid(entity_type, file_path)
 
@@ -245,19 +230,11 @@ def prepare_entity_data(
     if data.get("moc") is True:
         entity_data["_moc_links"] = extract_moc_link_suffixes(body)
 
-    # Singular → plural consolidation (runs first; normalization pass follows)
+    # Singular → plural consolidation
     for singular_field, plural_field in config.uid_singular_to_plural_fields:
         single_uid = entity_data.pop(singular_field, None)
-        if single_uid:
-            normalized = normalize_uid(single_uid)
-            existing = [normalize_uid(u) for u in entity_data.get(plural_field, [])]
-            if normalized not in existing:
-                entity_data.setdefault(plural_field, []).insert(0, normalized)
-
-    # List UID normalization
-    for field in config.uid_normalization_fields:
-        if field in entity_data and isinstance(entity_data[field], list):
-            entity_data[field] = [normalize_uid(uid) for uid in entity_data[field]]
+        if single_uid and single_uid not in entity_data.get(plural_field, []):
+            entity_data.setdefault(plural_field, []).insert(0, single_uid)
 
     name_field = config.primary_name_field
     alt_field = "name" if name_field == "title" else "title"
@@ -272,8 +249,7 @@ def prepare_entity_data(
             if key not in entity_data:
                 entity_data[key] = value
 
-    # Canonicalize authored enum values (the enum sibling of normalize_uid's
-    # colon→dot rewrite — "plain English in, working code out")
+    # Canonicalize authored enum values ("plain English in, working code out")
     canonicalize_enum_values(entity_data)
 
     # Stamp the owner for multi-tenant entity types. When ``owner_is_authoritative``
@@ -300,15 +276,11 @@ def prepare_entity_data(
 
     # Flatten relationship data for the bulk-upsert backend
     # Format: "connections.requires" -> flat key in metadata
-    # Target UIDs must be normalized (colon -> dot) to match stored UIDs
+    # Target UIDs are authored in stored (dot) form — no rewrite.
     connections = entity_data.pop("connections", {})
     if connections:
         for key, value in connections.items():
             if value:
-                if isinstance(value, list):
-                    value = [normalize_uid(v) if isinstance(v, str) else v for v in value]
-                elif isinstance(value, str):
-                    value = normalize_uid(value)
                 entity_data[f"connections.{key}"] = value
 
     # Flatten contains/recommends for organizing KUs
@@ -365,7 +337,8 @@ def prepare_edge_data(
     """
     Prepare edge data for ingestion into Neo4j.
 
-    Normalizes from/to UIDs and extracts evidence properties.
+    Carries from/to UIDs verbatim (authored = stored) and extracts
+    evidence properties.
 
     Args:
         data: Parsed edge YAML data (already validated)
@@ -377,8 +350,8 @@ def prepare_edge_data(
     now = datetime.now().isoformat()
 
     edge_data: dict[str, Any] = {
-        "from_uid": normalize_uid(data["from"]),
-        "to_uid": normalize_uid(data["to"]),
+        "from_uid": data["from"],
+        "to_uid": data["to"],
         "relationship": data["relationship"],
     }
 
@@ -415,7 +388,6 @@ def prepare_edge_data(
 __all__ = [
     "canonicalize_enum_values",
     "generate_uid",
-    "normalize_uid",
     "prepare_edge_data",
     "prepare_entity_data",
 ]

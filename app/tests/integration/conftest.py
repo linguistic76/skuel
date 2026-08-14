@@ -863,7 +863,7 @@ async def enrolled_user_with_lp(skuel_app):
     user_uid = "user_test_guided"
     lp_uid = "lp:test:guided-pipeline"
     ps_uid = "ps:test:guided-step"
-    ku_uid = "ku_test_guided_concept"  # ku_ prefix: _fetch_kus filters on startswith("ku_")
+    ku_uid = "ku_test_guided_concept"  # kind derives from the :Ku label/entity_type, never the uid spelling
     created_at = datetime.now().isoformat()
 
     async with driver.session() as session:
@@ -905,7 +905,7 @@ async def enrolled_user_with_lp(skuel_app):
         )
 
         # PathStep — non-mastered so _find_active_ps includes it.
-        # knowledge_uids property is read by _fetch_kus() (filters for "ku_" prefix).
+        # Kus are resolved via edges/entity_type (context_retriever), not uid shape.
         await session.run(
             """
             MERGE (ps:Entity:PathStep {uid: $uid})

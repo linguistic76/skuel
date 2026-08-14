@@ -122,7 +122,7 @@ Each item follows the proven pattern: add method to `*EventHandlerService`, subs
 
 3. **Goal timeline forecasting** — Use `goal_duration_ratio` to adjust deadline estimates. "Based on your history, this goal will likely take 1.4x your estimate."
 
-4. **Learning path time estimates** — Personalized LP duration based on user's `learning_velocity_by_domain` and per-step time history.
+4. **Learning path time estimates** — Personalized LP duration based on the user's dominant learning velocity (`UserLearningIntelligence.get_dominant_learning_velocity()`, the mode over mastery velocities — the per-"domain" grouping was deleted 2026-08-14 as uid-derived fiction) and per-step time history.
 
 5. **Daily planning intelligence** — `UserContextIntelligence.get_ready_to_work_on_today()` already exists. Enhance with learned patterns: prioritize tasks at times the user has historically been productive, suggest habits during preferred hours, recommend KUs in the user's current ZPD.
 

@@ -393,47 +393,17 @@ RETURN length(path)
 
 ---
 
-## Migration Guide
+## Migration Status
 
-### Step 1: Check Current State
-
-```bash
-# Run analysis
-uv run python scripts/migrations/analyze_ku_uids.py
-
-# Expected output:
-# - Flat UIDs (underscore): X KUs
-# - Hierarchical UIDs: Y KUs (if any need migration)
-```
-
-### Step 2: Backup Database
-
-```bash
-# Critical: Backup before any migration
-neo4j-admin dump --database=neo4j --to=/backups/pre-universal-hierarchical.dump
-```
-
-### Step 3: Dry Run
-
-```bash
-# See what would change
-uv run python scripts/migrations/flatten_ku_uids.py --dry-run
-```
-
-### Step 4: Execute (if needed)
-
-```bash
-# Only if hierarchical KUs exist
-uv run python scripts/migrations/flatten_ku_uids.py --execute
-```
-
-### Step 5: Verify
-
-```bash
-# Check results
-uv run python scripts/migrations/analyze_ku_uids.py
-# Should show: 0 hierarchical UIDs
-```
+The 2026-01-30 flattening migration is **complete** — hierarchy lives only in
+ORGANIZES edges. The migration scripts (`flatten_ku_uids.py`,
+`analyze_ku_uids.py`, `verify_task_uids.py`) were deleted 2026-08-14: their
+"hierarchical" test (`uid CONTAINS '.' AND split > 2`) predates the separator
+grammar and now matches the *sanctioned* authored form `ku.{ns}.{slug}`
+(dot segments are opaque grouping labels, not hierarchy — see
+`CURRICULUM_GROUPING_PATTERNS.md § Separator Grammar`), so re-running them
+would have rewritten every authored Ku. The dated record lives in
+`docs/migrations/UNIVERSAL_HIERARCHICAL_PATTERN_FINAL_2026-01-30.md`.
 
 ---
 

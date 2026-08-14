@@ -20,7 +20,7 @@ from datetime import datetime
 from typing import Any
 
 from core.models.curriculum import Curriculum
-from core.models.enums import Domain, LearningLevel, SELCategory
+from core.models.enums import LearningLevel, SELCategory
 from core.models.pathways.learning_path import LearningPath
 from core.models.pathways.learning_progress import CurriculumProgress, LearningJourney
 from core.models.pathways.mastery import (
@@ -144,10 +144,16 @@ class PsAdaptiveService:
     def _determine_user_level(
         self, user_intel: UserLearningIntelligence, sel_category: SELCategory
     ) -> LearningLevel:
-        """Determine user's current learning level in this SEL category."""
+        """Determine user's current learning level in this SEL category.
+
+        Counts masteries by the mastered node's ``sel_category`` FIELD
+        (carried on Mastery from the backend query) — uid strings are
+        opaque and never encode a category (ADR-013 never-sniff), so
+        authored and generated uids both count.
+        """
         category_masteries = 0
-        for ku_uid in user_intel.current_masteries:
-            if ku_uid.startswith(f"ku.{sel_category.value}"):
+        for mastery in user_intel.current_masteries.values():
+            if mastery.sel_category == sel_category.value:
                 category_masteries += 1
 
         if category_masteries >= 20:
@@ -351,9 +357,6 @@ class PsAdaptiveService:
             completed_paths = await self._query_completed_learning_paths(user_uid)
             intelligence.completed_learning_paths = completed_paths
 
-            intelligence.learning_velocity_by_domain = self._calculate_learning_velocities(
-                masteries
-            )
             # intelligence.learning_preferences stays at its UserLearningIntelligence
             # default (None): its only source was a :LearningPreference node nothing
             # ever wrote (SKUEL030 tranche 3).
@@ -381,7 +384,6 @@ class PsAdaptiveService:
         return UserLearningIntelligence(
             user_uid=user_uid,
             current_masteries={},
-            learning_velocity_by_domain={},
             learning_preferences=None,
             knowledge_recommendations=[],
             active_learning_paths=[],
@@ -453,10 +455,14 @@ class PsAdaptiveService:
                     datetime.fromisoformat(updated_at_str) if updated_at_str else datetime.now()
                 )
 
+                sel_category_raw = record.get("sel_category")
+                sel_category = str(sel_category_raw) if sel_category_raw else None
+
                 mastery = Mastery(
                     uid=f"mastery_{user_uid}_{ku_uid}",
                     user_uid=user_uid,
                     knowledge_uid=ku_uid,
+                    sel_category=sel_category,
                     mastery_level=mastery_level,
                     confidence_score=float(record.get("confidence_score", 0.5)),
                     mastery_score=float(record.get("mastery_score", 0.0)),
@@ -507,48 +513,3 @@ class PsAdaptiveService:
 
         except NEO4J_EXCEPTIONS:
             return []
-
-    def _calculate_learning_velocities(
-        self, masteries: dict[str, Mastery]
-    ) -> dict[Domain, LearningVelocity]:
-        """Calculate learning velocity by domain from mastery patterns."""
-        domain_masteries: dict[Domain, list[Mastery]] = {}
-        for ku_uid, mastery in masteries.items():
-            domain = self._extract_domain_from_uid(ku_uid)
-            if domain not in domain_masteries:
-                domain_masteries[domain] = []
-            domain_masteries[domain].append(mastery)
-
-        velocities: dict[Domain, LearningVelocity] = {}
-        for domain, domain_mastery_list in domain_masteries.items():
-            if not domain_mastery_list:
-                velocities[domain] = LearningVelocity.MODERATE
-                continue
-
-            velocity_counts: dict[LearningVelocity, int] = {}
-            for mastery in domain_mastery_list:
-                vel = mastery.learning_velocity
-                velocity_counts[vel] = velocity_counts.get(vel, 0) + 1
-
-            if velocity_counts:
-                from core.utils.sort_functions import make_dict_value_getter
-
-                dominant_vel = max(
-                    velocity_counts.keys(), key=make_dict_value_getter(velocity_counts)
-                )
-                velocities[domain] = dominant_vel
-            else:
-                velocities[domain] = LearningVelocity.MODERATE
-
-        return velocities
-
-    def _extract_domain_from_uid(self, knowledge_uid: str) -> Domain:
-        """Extract domain from knowledge UID."""
-        parts = knowledge_uid.split(".")
-        if len(parts) >= 2:
-            domain_str = parts[1].upper()
-            try:
-                return Domain[domain_str]
-            except KeyError:
-                return Domain.KNOWLEDGE
-        return Domain.KNOWLEDGE

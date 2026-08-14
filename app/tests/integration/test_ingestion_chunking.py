@@ -144,7 +144,7 @@ async def test_batch_door_ingest_directory_creates_chunks(neo4j_driver, tmp_path
     ChunkEmbeddingRequested carrying every persisted chunk id (ADR-074 PR 2)."""
     from core.events.chunk_events import ChunkEmbeddingRequested
 
-    ps_uid = "ps:test:batch-chunk-unification"
+    ps_uid = "ps.test.batch-chunk-unification"
     body = """# Batch Chunk Unification
 
 PathSteps ingested through the directory door get the same chunk treatment
@@ -186,7 +186,7 @@ One shared chunk step, two doors.
         f"Batch ingestion failed: {result.expect_error() if result.is_error else 'unknown'}"
     )
 
-    normalized_uid = ps_uid.replace(":", ".")
+    normalized_uid = ps_uid  # authored = stored, verbatim (colon alias deleted 2026-08-14)
 
     async with neo4j_driver.session() as session:
         cypher_result = await session.run(
@@ -222,7 +222,7 @@ async def test_empty_body_reingest_clears_content_subtree(neo4j_driver, tmp_path
     explicit clear path (ADR-074). The bulk upsert alone can't do it: `n +=
     props` never removes omitted keys, and orphaned chunks would keep serving
     stale vectors from the chunk index."""
-    ps_uid = "ps:test:empty-body-clear"
+    ps_uid = "ps.test.empty-body-clear"
     ps_file = tmp_path / "empty-body-clear.md"
     ps_file.write_text(
         f"---\ntype: path_step\nuid: {ps_uid}\ntitle: Empty Body Clear\n---\n\n"
@@ -240,7 +240,7 @@ async def test_empty_body_reingest_clears_content_subtree(neo4j_driver, tmp_path
     result = await ingestion_service.ingest_directory(tmp_path)
     assert result.is_ok
 
-    normalized_uid = ps_uid.replace(":", ".")
+    normalized_uid = ps_uid  # authored = stored, verbatim (colon alias deleted 2026-08-14)
     subtree_query = """
         MATCH (ps:PathStep {uid: $uid})
         OPTIONAL MATCH (ps)-[:HAS_CONTENT]->(c:Content)

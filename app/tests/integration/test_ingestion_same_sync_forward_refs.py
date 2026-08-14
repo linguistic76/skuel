@@ -46,7 +46,7 @@ _ALL_UIDS = [_KU_ALPHA, _KU_BETA, _PS_ONE, _PS_TWO]
 _KU_ALPHA_FIXTURE = """---
 version: 1.0
 type: Ku
-uid: ku:zzzitest:alpha
+uid: ku.zzzitest.alpha
 title: ZZZ Integration Test Alpha
 nous:
   - zzzitest
@@ -62,7 +62,7 @@ Body alpha.
 _KU_BETA_FIXTURE = """---
 version: 1.0
 type: Ku
-uid: ku:zzzitest:beta
+uid: ku.zzzitest.beta
 title: ZZZ Integration Test Beta
 nous:
   - zzzitest
@@ -79,17 +79,17 @@ Body beta.
 # PathStep (connections.enables) — both defined in later type batches.
 _PS_ONE_FIXTURE = """---
 type: PathStep
-uid: ps:zzzitest:one
+uid: ps.zzzitest.one
 title: ZZZ Integration Test PathStep One
 sel_category: self_awareness
 learning_level: beginner
 nous:
   - zzzitest
 uses_kus:
-  - ku:zzzitest:alpha
+  - ku.zzzitest.alpha
 connections:
   enables:
-    - ps:zzzitest:two
+    - ps.zzzitest.two
 tags:
   - zzzitest
 ---
@@ -99,7 +99,7 @@ Body one.
 
 _PS_TWO_FIXTURE = """---
 type: PathStep
-uid: ps:zzzitest:two
+uid: ps.zzzitest.two
 title: ZZZ Integration Test PathStep Two
 sel_category: self_awareness
 learning_level: beginner
@@ -116,8 +116,8 @@ Body two.
 # from the inline pre-check).
 _EDGE_FIXTURE = """---
 type: Edge
-from: ku:zzzitest:alpha
-to: ku:zzzitest:beta
+from: ku.zzzitest.alpha
+to: ku.zzzitest.beta
 relationship: ENABLES_KNOWLEDGE
 ---
 """
@@ -195,8 +195,8 @@ async def test_genuinely_missing_target_still_warns(
     vault.mkdir()
     # A PathStep whose uses_kus points at a Ku that is NOT in this sync.
     typo_ps = _PS_ONE_FIXTURE.replace(
-        "  - ku:zzzitest:alpha", "  - ku:zzzitest:does-not-exist"
-    ).replace("  enables:\n    - ps:zzzitest:two", "  enables: []")
+        "  - ku.zzzitest.alpha", "  - ku.zzzitest.does-not-exist"
+    ).replace("  enables:\n    - ps.zzzitest.two", "  enables: []")
     (vault / "ps_typo.md").write_text(typo_ps, encoding="utf-8")
 
     result = await forward_ref_service.ingest_directory(
@@ -222,10 +222,10 @@ async def test_same_sync_target_with_wrong_label_still_warns(
     pre-check must still warn (and the edge must genuinely be absent)."""
     vault = tmp_path / "wrong_label_vault"
     vault.mkdir()
-    # PathStep one's uses_kus points at ps:zzzitest:two (a PathStep, not a Ku),
+    # PathStep one's uses_kus points at ps.zzzitest.two (a PathStep, not a Ku),
     # and that PathStep IS in this same sync.
-    mislabelled = _PS_ONE_FIXTURE.replace("  - ku:zzzitest:alpha", "  - ps:zzzitest:two").replace(
-        "  enables:\n    - ps:zzzitest:two", "  enables: []"
+    mislabelled = _PS_ONE_FIXTURE.replace("  - ku.zzzitest.alpha", "  - ps.zzzitest.two").replace(
+        "  enables:\n    - ps.zzzitest.two", "  enables: []"
     )
     (vault / "ps_one.md").write_text(mislabelled, encoding="utf-8")
     (vault / "ps_two.md").write_text(_PS_TWO_FIXTURE, encoding="utf-8")

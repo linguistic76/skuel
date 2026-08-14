@@ -278,7 +278,7 @@ class TestTheRepresentationIsAnISOString:
         lateral_stamp = record["props"]["created_at"]
 
         ingestion_stamp = prepare_edge_data(
-            {"from": "ku:a", "to": "ku:b", "relationship": RelationshipName.BLOCKS.value}
+            {"from": "ku.a", "to": "ku.b", "relationship": RelationshipName.BLOCKS.value}
         )["properties"]["created_at"]
 
         assert type(lateral_stamp) is type(ingestion_stamp)

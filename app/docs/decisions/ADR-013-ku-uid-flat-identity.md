@@ -78,7 +78,7 @@ Title: "Machine Learning 101" →  ku_machine-learning-101_def45678
 ```
 
 **Authored Format (dot form):**
-- Vault ingestion: `ku.{ns}.{slug}` (authored in dot form directly; legacy colons normalized at the boundary)
+- Vault ingestion: `ku.{ns}.{slug}` (authored in dot form directly; the colon input alias was deleted 2026-08-14 — colon spellings are rejected loudly)
 - Not a transitional legacy — permanently sanctioned alongside the generated form as a
   provenance marker (see Addendum: the two-form reality)
 
@@ -233,7 +233,7 @@ If two files produce the same UID, the second sync overwrites the first. This is
 
 **Related files:**
 - `/core/services/ingestion/` — the unified ingestion pipeline (successor to the retired
-  `markdown_sync_service` / `bulk_ingestion`); `normalize_uid()` + filename-fallback UID in
+  `markdown_sync_service` / `bulk_ingestion`); filename-fallback UID in
   `preparer.py`, MERGE upsert below `adapters/persistence/neo4j/`
 
 ### UID Generation Code (2026-01-30)
@@ -333,7 +333,7 @@ Current CLAUDE.md documents `ku:` (colon notation) but implementation uses `ku.`
 
 As of ADR-014 (Unified Ingestion Service), **dot notation is the spelling of authored UIDs**
 (not "the canonical format" — there is no single canonical spelling; see the Addendum):
-- Legacy colon notation (`ku:filename`) auto-converted to dot notation on ingestion
+- Colon notation (`ku:filename`) is REJECTED — the auto-convert input alias was deleted 2026-08-14
 - Ingestion's filename-fallback UID is dot form (`ku.{file-stem}`)
 - API-generated UIDs remain underscore form (`ku_{slug}_{random}`)
 - Separator law: `/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md` § Separator Grammar
@@ -453,9 +453,9 @@ await lesson_core.organize_lesson(new_parent_uid, ku_uid, order=1)
 Both UID forms remain sanctioned, but they are provenance, not a migration plan:
 
 - **Authored** (vault): `ku.{ns}.{slug}`, written in dot form directly since 2026-08-14
-  (the colon authoring spelling was retired and the vault swept; `normalize_uid()` in
-  `core/services/ingestion/preparer.py` remains a boundary shim rewriting stray `:` → `.`
-  on entity `uid:`, rel-config fields, and Edge-YAML `from`/`to`).
+  (the colon authoring spelling was retired and the vault swept; the `normalize_uid()`
+  boundary shim was deleted in the same ruling — authored = stored verbatim, and a
+  colon-spelled entity uid fails prefix validation loudly).
 - **Generated** (API): `ku_{slug}_{random}`, this ADR's format.
 
 As of 2026-07-04 the live graph holds **only** dotted authored Ku UIDs (89/89);

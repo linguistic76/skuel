@@ -6,8 +6,9 @@ Pins the MOC ingestion arc's PR-1 seams:
 2. Preparer hook — ``moc: true`` stashes the transient ``_moc_links`` key;
    unflagged files don't get it.
 3. UID acceptance — the batch door no longer prefix-rejects an authored
-   UserEntry uid (``moc:worldview``, the seed fixture's actual failure);
-   the user-entry door normalizes authored uids colon→dot while derived
+   UserEntry uid (``moc.worldview``, the seed fixture's actual failure);
+   authored uids pass through verbatim (the colon input alias was deleted
+   2026-08-14 — colon-spelled entity uids reject loudly) while derived
    periodic uids keep their colon-form calendar contract.
 4. The service edge pass — resolution winner selection, self-link skip,
    ordered targets, and the two vault postures (personal silent /
@@ -115,7 +116,7 @@ class TestExtractMocLinkSuffixes:
 
 class TestPreparerMocHook:
     def test_moc_true_stashes_ordered_suffixes(self):
-        data = {"type": "ku", "uid": "ku:test", "title": "T", "moc": True}
+        data = {"type": "ku", "uid": "ku.test", "title": "T", "moc": True}
         body = "[[first]] and [second](second.md)"
         entity = prepare_entity_data(EntityType.KU, data, body, Path("test.md"))
         assert entity["_moc_links"] == ["/first.md", "/second.md"]
@@ -123,30 +124,30 @@ class TestPreparerMocHook:
         assert entity["moc"] is True
 
     def test_moc_true_with_empty_body_stashes_empty_list(self):
-        data = {"type": "ku", "uid": "ku:test", "title": "T", "moc": True}
+        data = {"type": "ku", "uid": "ku.test", "title": "T", "moc": True}
         entity = prepare_entity_data(EntityType.KU, data, None, Path("test.md"))
         assert entity["_moc_links"] == []
 
     def test_no_moc_flag_no_stash(self):
-        data = {"type": "ku", "uid": "ku:test", "title": "T"}
+        data = {"type": "ku", "uid": "ku.test", "title": "T"}
         entity = prepare_entity_data(EntityType.KU, data, "[[linked]]", Path("test.md"))
         assert "_moc_links" not in entity
 
     def test_moc_non_true_values_do_not_trigger(self):
         for value in (False, "true", 1, None):
-            data = {"type": "ku", "uid": "ku:test", "title": "T", "moc": value}
+            data = {"type": "ku", "uid": "ku.test", "title": "T", "moc": value}
             entity = prepare_entity_data(EntityType.KU, data, "[[x]]", Path("test.md"))
             assert "_moc_links" not in entity, f"moc={value!r} must not trigger the pass"
 
-    def test_pathstep_organizes_frontmatter_is_normalized(self):
-        """Colon-authored ``organizes:`` targets must normalize to dots — both
-        for the rel-config edge MATCH (latent pre-existing miss) and for the
-        MOC pass's protected-targets comparison."""
+    def test_pathstep_organizes_frontmatter_passes_through_verbatim(self):
+        """Authored ``organizes:`` targets are stored verbatim (authored =
+        stored; the colon→dot rewrite was deleted 2026-08-14) and feed the
+        MOC pass's protected-targets comparison unchanged."""
         data = {
             "type": "ps",
-            "uid": "ps:test:map",
+            "uid": "ps.test.map",
             "title": "T",
-            "organizes": ["ku:test:fm-child"],
+            "organizes": ["ku.test.fm-child"],
             "moc": True,
         }
         entity = prepare_entity_data(EntityType.PATH_STEP, data, "[[x]]", Path("map.md"))
@@ -169,12 +170,12 @@ class TestPreparerMocHook:
 
 class TestUserEntryUidAcceptance:
     def test_batch_door_accepts_authored_moc_uid(self, tmp_path: Path):
-        """``uid: moc:worldview`` on a user_entry file must parse, not
+        """``uid: moc.worldview`` on a user_entry file must parse, not
         prefix-reject — the batch door now mirrors the single-file door
         (which routes USER_ENTRY before uid validation)."""
         f = tmp_path / "nous topics.md"
         f.write_text(
-            "---\ntype: user_entry\npipeline: knowledge\nuid: moc:worldview\n"
+            "---\ntype: user_entry\npipeline: knowledge\nuid: moc.worldview\n"
             "title: Worldview Taxonomy\nmoc: true\n---\n[[some topic]]\n"
         )
         entity_type, entity_data, error = parse_file_sync(f)
@@ -185,18 +186,30 @@ class TestUserEntryUidAcceptance:
 
     def test_other_types_keep_prefix_validation(self, tmp_path: Path):
         f = tmp_path / "bad.md"
-        f.write_text("---\ntype: ku\nuid: moc:worldview\ntitle: T\n---\nbody\n")
+        f.write_text("---\ntype: ku\nuid: moc.worldview\ntitle: T\n---\nbody\n")
         _, _entity_data, error = parse_file_sync(f)
         assert error is not None
-        assert "must start with 'ku:'" in error["error"]
+        assert "must start with 'ku.'" in error["error"]
 
     def test_validate_uid_format_still_rejects_user_entry_prefix_directly(self, tmp_path: Path):
         """The validator itself is unchanged — the exemption is the batch
         door's routing decision, mirroring the single-file door."""
         result = validate_uid_format(
-            EntityType.USER_ENTRY, {"uid": "moc:worldview"}, tmp_path / "f.md"
+            EntityType.USER_ENTRY, {"uid": "moc.worldview"}, tmp_path / "f.md"
         )
         assert result.is_error
+
+    def test_colon_spelled_uid_is_rejected_loudly(self, tmp_path: Path):
+        """The colon input alias was DELETED 2026-08-14 (One Path Forward):
+        a colon-spelled entity uid is no longer rewritten to dots — it fails
+        prefix validation with a clear message instead of silently mutating."""
+        result = validate_uid_format(EntityType.KU, {"uid": "ku:python-basics"}, tmp_path / "f.md")
+        assert result.is_error
+        error = result.expect_error()
+        assert "ku." in error.message
+        # And the correct dot spelling passes untouched.
+        ok = validate_uid_format(EntityType.KU, {"uid": "ku.python-basics"}, tmp_path / "f.md")
+        assert not ok.is_error
 
 
 class _FakeAudienceResolver:
@@ -213,7 +226,7 @@ class _FakeAudienceResolver:
 
 
 @pytest.mark.asyncio
-class TestUserEntryDoorUidNormalization:
+class TestUserEntryDoorUidHandling:
     async def _build(self, data: dict[str, Any], file_path: Path):
         return await build_user_entry_request(
             data=data,
@@ -223,9 +236,9 @@ class TestUserEntryDoorUidNormalization:
             body="body text",
         )
 
-    async def test_authored_uid_normalized_colon_to_dot(self, tmp_path: Path):
+    async def test_authored_dot_uid_passes_through_verbatim(self, tmp_path: Path):
         result = await self._build(
-            {"pipeline": "knowledge", "uid": "moc:worldview", "title": "T", "moc": True},
+            {"pipeline": "knowledge", "uid": "moc.worldview", "title": "T", "moc": True},
             tmp_path / "nous topics.md",
         )
         assert result.is_ok
@@ -234,7 +247,7 @@ class TestUserEntryDoorUidNormalization:
 
     async def test_moc_flag_rides_metadata_inert(self, tmp_path: Path):
         result = await self._build(
-            {"pipeline": "knowledge", "uid": "moc:worldview", "title": "T", "moc": True},
+            {"pipeline": "knowledge", "uid": "moc.worldview", "title": "T", "moc": True},
             tmp_path / "nous topics.md",
         )
         assert result.is_ok
@@ -242,7 +255,7 @@ class TestUserEntryDoorUidNormalization:
 
     async def test_no_moc_flag_no_metadata_marker(self, tmp_path: Path):
         result = await self._build(
-            {"pipeline": "knowledge", "uid": "k:note", "title": "T"},
+            {"pipeline": "knowledge", "uid": "k.note", "title": "T"},
             tmp_path / "note.md",
         )
         assert result.is_ok

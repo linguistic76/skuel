@@ -277,15 +277,32 @@ class TestPriorUidReuse:
     async def test_authored_uid_wins_over_prior_uid(self):
         """An authored ``uid:`` is identity — never overridden by the tracker."""
         result = await build_user_entry_request(
-            data={"pipeline": "knowledge", "title": "Nous", "uid": "ku:mine:nous"},
+            data={"pipeline": "knowledge", "title": "Nous", "uid": "ku.mine.nous"},
             file_path=Path("/vault/knowledge/nous.md"),
             user_uid="user_1",
             audience_resolver=_resolver(),
             prior_uid="ue_prior_abc",
         )
         assert result.is_ok
-        # colon → dot normalization on authored uids; prior uid ignored.
+        # Authored = stored, verbatim; prior uid ignored.
         assert result.value.uid == "ku.mine.nous"
+
+    @pytest.mark.asyncio
+    async def test_authored_colon_uid_is_rejected_loudly(self):
+        """The retired colon spelling must fail, not upsert — forwarding
+        ``moc:worldview`` verbatim would split identity against a note
+        previously stored as ``moc.worldview`` (Codex P1 #1054). Derived
+        periodic ``ue:…`` uids are unaffected — they are built, not authored."""
+        result = await build_user_entry_request(
+            data={"pipeline": "knowledge", "title": "Worldview", "uid": "moc:worldview"},
+            file_path=Path("/vault/knowledge/worldview.md"),
+            user_uid="user_1",
+            audience_resolver=_resolver(),
+        )
+        assert result.is_error
+        error = result.expect_error()
+        assert error.details.get("field") == "uid"
+        assert "moc.worldview" in error.message  # remedy names the dot form
 
     @pytest.mark.asyncio
     async def test_fulfills_exercise_blocks_reuse(self):
@@ -551,7 +568,7 @@ def _living_file_data(status: str = "in process") -> dict:
     return {
         "pipeline": "knowledge",
         "title": "My task list",
-        "uid": "ue:vault:tasks-list",
+        "uid": "ue.vault.tasks-list",
         "fulfills_exercise_uid": "ex_list_tasks",
         "status": status,
         "content": "- buy milk",
@@ -582,7 +599,7 @@ class TestVaultExerciseChannel:
         assert result.is_ok, result.expect_error()
         assert service.create_entry.await_count == 1
         request = service.create_entry.await_args.kwargs["request"]
-        assert request.uid == "ue.vault.tasks-list"  # colon → dot normalization
+        assert request.uid == "ue.vault.tasks-list"  # authored = stored, verbatim
         assert request.fulfills_exercise_uid == "ex_list_tasks"
         assert request.status == EntityStatus.ACTIVE
         assert result.value["submitted_copy_uid"] is None

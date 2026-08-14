@@ -128,8 +128,11 @@ class TasksIntelligenceService(
         )
 
         # TaskKnowledgeAnalyzer owned here — requires relationship_service
-        # (BaseAnalyticsService stores relationship_service as self.relationships)
-        self._knowledge_analyzer = TaskKnowledgeAnalyzer(relationship_service=relationship_service)
+        # (BaseAnalyticsService stores relationship_service as self.relationships);
+        # graph_intel feeds sel_category resolution for cross-domain grouping.
+        self._knowledge_analyzer = TaskKnowledgeAnalyzer(
+            relationship_service=relationship_service, graph_intel=graph_intel
+        )
 
     # ========================================================================
     # INTELLIGENCEOPERATIONS PROTOCOL METHODS (January 2026)

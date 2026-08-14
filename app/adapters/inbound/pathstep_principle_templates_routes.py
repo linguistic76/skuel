@@ -27,7 +27,7 @@ PATHSTEP_PRINCIPLE_TEMPLATES_CONFIG = make_pathstep_template_route_config(
     primary_service_attr="principle_templates",
     create_schema=PrincipleTemplateCreateRequest,
     update_schema=PrincipleTemplateUpdateRequest,
-    uid_prefix="principle-template",
+    uid_prefix="pt",
 )
 
 

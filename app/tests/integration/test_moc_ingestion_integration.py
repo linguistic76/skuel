@@ -35,7 +35,7 @@ _UID_PREFIX = "ku.test.mocpass"
 def _ku_file(path: Path, slug: str, body: str = "plain body", moc: bool = False) -> None:
     moc_line = "moc: true\n" if moc else ""
     path.write_text(
-        f"---\ntype: ku\nuid: ku:test:mocpass-{slug}\ntitle: MOC Pass {slug}\n"
+        f"---\ntype: ku\nuid: ku.test.mocpass-{slug}\ntitle: MOC Pass {slug}\n"
         f"{moc_line}---\n{body}\n"
     )
 
@@ -175,8 +175,8 @@ class TestMocEdgePass:
         _ku_file(vault / "fm child.md", "fmchild")
         _ku_file(vault / "body child.md", "bodychild")
         (vault / "psmap.md").write_text(
-            "---\ntype: ps\nuid: ps:test:mocpass-psmap\ntitle: PS Map\nmoc: true\n"
-            "organizes:\n  - ku:test:mocpass-fmchild\n---\n[[body child]]\n"
+            "---\ntype: ps\nuid: ps.test.mocpass-psmap\ntitle: PS Map\nmoc: true\n"
+            "organizes:\n  - ku.test.mocpass-fmchild\n---\n[[body child]]\n"
         )
         # PathStep uid gets the ps prefix — adjust the module cleanup key.
         result = await moc_ingestion_service.ingest_directory(vault, ingestion_mode="smart")
@@ -192,8 +192,8 @@ class TestMocEdgePass:
 
         # Edit the body (drop the body link): frontmatter edge must survive.
         (vault / "psmap.md").write_text(
-            "---\ntype: ps\nuid: ps:test:mocpass-psmap\ntitle: PS Map\nmoc: true\n"
-            "organizes:\n  - ku:test:mocpass-fmchild\n---\nno links now\n"
+            "---\ntype: ps\nuid: ps.test.mocpass-psmap\ntitle: PS Map\nmoc: true\n"
+            "organizes:\n  - ku.test.mocpass-fmchild\n---\nno links now\n"
         )
         result2 = await moc_ingestion_service.ingest_directory(vault, ingestion_mode="smart")
         assert result2.is_ok

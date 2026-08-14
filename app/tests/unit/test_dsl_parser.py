@@ -210,11 +210,22 @@ class TestKnowledgeAndLinks:
     def test_parse_ku(self):
         """Parse @ku knowledge unit reference."""
         result = parse_activity_line(
+            "- [ ] Study mindfulness @context(task,learning) @ku(ku.sel/mindfulness-intro)"
+        )
+
+        assert result.is_ok
+        assert result.value.primary_ku == "ku.sel/mindfulness-intro"
+
+    def test_parse_ku_colon_spelling_rejected(self):
+        """The retired colon spelling is OMITTED (None), never rewritten —
+        the old lenient fallback minted garbage (``ku.ku:…``) that parsed
+        successfully but silently missed the intended Ku (Codex P1 #1054)."""
+        result = parse_activity_line(
             "- [ ] Study mindfulness @context(task,learning) @ku(ku:sel/mindfulness-intro)"
         )
 
         assert result.is_ok
-        assert result.value.primary_ku == "ku:sel/mindfulness-intro"
+        assert result.value.primary_ku is None
 
     def test_parse_single_link(self):
         """Parse single @link."""
@@ -306,7 +317,7 @@ class TestFullActivityLine:
             "@duration(90m) "
             "@priority(1) "
             "@energy(focus,creative) "
-            "@ku(ku:teens-yoga/focus-lesson) "
+            "@ku(ku.teens-yoga/focus-lesson) "
             "@link(goal:teens-yoga/20-members)"
         )
 
@@ -322,7 +333,7 @@ class TestFullActivityLine:
         assert activity.duration_minutes == 90
         assert activity.priority == 1
         assert activity.energy_states == ["focus", "creative"]
-        assert activity.primary_ku == "ku:teens-yoga/focus-lesson"
+        assert activity.primary_ku == "ku.teens-yoga/focus-lesson"
         assert len(activity.links) == 1
 
     def test_parse_full_habit(self):
@@ -333,7 +344,7 @@ class TestFullActivityLine:
             "@repeat(daily) "
             "@duration(20m) "
             "@energy(spiritual,rest) "
-            "@ku(ku:yoga/meditation-intro)"
+            "@ku(ku.yoga/meditation-intro)"
         )
 
         result = parse_activity_line(line)
@@ -365,7 +376,7 @@ class TestJournalParsing:
 Today's goals:
 - [ ] Morning meditation @context(habit) @duration(20m) @energy(spiritual)
 - [ ] Write proposal @context(task) @priority(1) @when({when_str})
-- [ ] Learn Python async @context(task,learning) @ku(ku:tech/python-async)
+- [ ] Learn Python async @context(task,learning) @ku(ku.tech/python-async)
 
 Some notes without @context that should be ignored.
 

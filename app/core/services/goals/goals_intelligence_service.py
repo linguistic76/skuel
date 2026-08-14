@@ -138,7 +138,7 @@ class GoalsIntelligenceService(
         )
         self.progress = progress_service  # Domain-specific: for velocity calculations
         self.habits_service: HabitsOperations | None = None  # Post-wired cross-domain dep
-        self._knowledge_analyzer = KnowledgePatternAnalyzer()
+        self._knowledge_analyzer = KnowledgePatternAnalyzer(graph_intel=self.graph_intel)
 
     # ========================================================================
     # INTELLIGENCEOPERATIONS PROTOCOL METHODS (January 2026)

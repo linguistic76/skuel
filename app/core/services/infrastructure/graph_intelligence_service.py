@@ -513,6 +513,23 @@ class GraphIntelligenceService:
 
         return Result.ok(graph_context)
 
+    @with_error_handling(error_type="database")
+    async def get_sel_categories(self, uids: list[str]) -> Result[dict[str, str]]:
+        """Batch-resolve entity UIDs to their ``sel_category`` field.
+
+        The field-based grouping for cross-domain pattern analysis — entity
+        kind and category come from stored fields, never from parsing the
+        UID string (ADR-013 never-sniff). Entities without a category are
+        omitted from the mapping (deliberately unassigned is valid).
+
+        Backend: CrossDomainBackend.get_sel_categories
+        """
+        result = await self.backend.get_sel_categories(uids)
+        if result.is_error:
+            return Result.fail(result)
+        # SelCategoryRow guarantees both keys (nulls filtered at the source).
+        return Result.ok({row["uid"]: row["sel_category"] for row in result.value or []})
+
     @with_error_handling(error_type="database", uid_param="entity_uid")
     async def get_entity_context(
         self, entity_uid: EntityUID, depth: int = 2

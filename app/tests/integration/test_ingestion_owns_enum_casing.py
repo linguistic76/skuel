@@ -38,7 +38,7 @@ def _write_task_file(directory: Path, slug: str, extra_frontmatter: str = "") ->
     path.write_text(
         f"""---
 type: task
-uid: task:{slug}
+uid: task.{slug}
 title: Task {slug}
 user_uid: {OWNER_UID}
 {extra_frontmatter}---
@@ -55,7 +55,7 @@ def _write_curriculum_exercise_file(directory: Path, slug: str) -> Path:
     path.write_text(
         f"""---
 type: exercise
-uid: ex:{slug}
+uid: ex.{slug}
 title: Exercise {slug}
 instructions: Reflect on the practice and describe one concrete observation.
 scope: CURRICULUM

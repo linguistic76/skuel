@@ -63,7 +63,7 @@ from .ingestion_tracker import FileIngestionMetadata, IngestionDecision, Ingesti
 from .parser import parse_markdown, parse_yaml
 
 # Preparer functions
-from .preparer import generate_uid, normalize_uid, prepare_edge_data, prepare_entity_data
+from .preparer import generate_uid, prepare_edge_data, prepare_entity_data
 
 # Reference-book ingest door (canon journaling companion, Phase 2)
 from .reference_ingestion import ReferenceIngestionService, ReferenceIngestReport
@@ -127,7 +127,6 @@ __all__ = [
     "is_edge_type",
     # Preparer
     "generate_uid",
-    "normalize_uid",
     "prepare_edge_data",
     "prepare_entity_data",
     # Parser

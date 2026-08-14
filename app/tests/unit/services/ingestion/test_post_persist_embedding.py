@@ -288,7 +288,7 @@ async def test_batch_door_strips_file_path_and_calls_post_persist(tmp_path: Path
 
     ku_file = tmp_path / "batch-embed-test.md"
     ku_file.write_text(
-        "---\ntype: ku\nuid: ku:batch-embed-test\ntitle: Batch Embed Test\n---\nBody.\n"
+        "---\ntype: ku\nuid: ku.batch-embed-test\ntitle: Batch Embed Test\n---\nBody.\n"
     )
 
     backend = _FakeBulkBackend()
@@ -337,7 +337,7 @@ async def test_batch_door_pops_path_step_content_and_threads_chunk_source(tmp_pa
     ps_file = tmp_path / "ps-chunk-test.md"
     body = "# Intro\n\nSome PathStep body content worth chunking.\n"
     ps_file.write_text(
-        f"---\ntype: path_step\nuid: ps:test:chunk-unification\ntitle: Chunk Test\n---\n{body}"
+        f"---\ntype: path_step\nuid: ps.test.chunk-unification\ntitle: Chunk Test\n---\n{body}"
     )
 
     backend = _FakeBulkBackend()
@@ -574,7 +574,7 @@ async def test_batch_door_empty_body_writes_zero_word_count_and_threads_clear(tm
     from core.services.ingestion.batch import ingest_directory
 
     ps_file = tmp_path / "ps-emptied.md"
-    ps_file.write_text("---\ntype: path_step\nuid: ps:test:emptied\ntitle: Emptied\n---\n")
+    ps_file.write_text("---\ntype: path_step\nuid: ps.test.emptied\ntitle: Emptied\n---\n")
 
     backend = _FakeBulkBackend()
     calls: list[tuple[Any, list[dict[str, Any]], dict[str, Any]]] = []
@@ -610,7 +610,7 @@ async def test_batch_door_null_content_frontmatter_is_treated_as_empty(tmp_path:
 
     ps_file = tmp_path / "ps-null-content.yaml"
     ps_file.write_text(
-        "type: path_step\nuid: ps:test:null-content\ntitle: Null Content\ncontent:\n"
+        "type: path_step\nuid: ps.test.null-content\ntitle: Null Content\ncontent:\n"
     )
 
     backend = _FakeBulkBackend()

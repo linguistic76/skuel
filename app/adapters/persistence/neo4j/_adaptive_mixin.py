@@ -140,6 +140,7 @@ class _AdaptiveMixin:
         MATCH (u:User {uid: $user_uid})-[m:MASTERED]->(k:Entity)
         RETURN
             k.uid as ku_uid,
+            k.sel_category as sel_category,
             m.mastery_level as mastery_level,
             m.confidence_score as confidence_score,
             m.mastery_score as mastery_score,

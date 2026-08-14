@@ -3271,9 +3271,12 @@ class ReinforcementCandidateResult(TypedDict):
 
 
 class UserMasteryResult(TypedDict, total=False):
-    """Return shape for query_user_masteries() — MASTERED relationship properties."""
+    """Return shape for query_user_masteries() — MASTERED relationship
+    properties plus the mastered node's ``sel_category`` (the field-based
+    SEL grouping; uids are opaque and carry no category)."""
 
     ku_uid: str
+    sel_category: str | None
     mastery_level: str | None
     confidence_score: float | None
     mastery_score: float | None
@@ -3288,6 +3291,15 @@ class UserMasteryResult(TypedDict, total=False):
     preferred_learning_method: str | None
     created_at: str | None
     updated_at: str | None
+
+
+class SelCategoryRow(TypedDict):
+    """Return shape for get_sel_categories() — an entity uid paired with its
+    non-null ``sel_category`` field (the query filters null categories at the
+    source, so both keys are always present)."""
+
+    uid: str
+    sel_category: str
 
 
 class PrereqMasteryResult(TypedDict, total=False):

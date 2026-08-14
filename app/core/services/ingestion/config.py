@@ -174,7 +174,6 @@ class EntityIngestionConfig:
     # staleness so only that domain re-chunks. Resolved via resolve_chunking_params.
     chunking_params: ChunkingParams | None = None
     primary_name_field: str = "title"
-    uid_normalization_fields: tuple[str, ...] = ()
     uid_singular_to_plural_fields: tuple[tuple[str, str], ...] = ()
     owner_uid_from_user_uid: bool = False
     embeddable: bool = False
@@ -234,7 +233,6 @@ ENTITY_CONFIGS: dict[EntityType | NonKuDomain, EntityIngestionConfig] = {
         uid_prefix="ku",
         required_fields=("title",),
         relationship_config=generate_ingestion_relationship_config(EntityType.KU),
-        uid_normalization_fields=("resource_uids",),
         # Kus carry lesson bodies (stubs → lessons, 2026-07-06): same recipe
         # as PathStep — body popped pre-upsert, chunked to :Content subtree,
         # entity vector stays frontmatter-only (title/summary/description).
@@ -330,27 +328,6 @@ ENTITY_CONFIGS: dict[EntityType | NonKuDomain, EntityIngestionConfig] = {
         # defaults only fill absent keys). The Arc B NULL-tolerant read stays
         # as the guard for graphs that have not re-synced under this code yet.
         default_values={"status": EntityStatus.ACTIVE.value},
-        uid_normalization_fields=(
-            "uses_kus",
-            "habit_uids",
-            "task_uids",
-            "event_template_uids",
-            "goal_uids",
-            "principle_uids",
-            "choice_uids",
-            "exercise_uids",
-            "resource_uids",
-            "knowledge_uids",
-            "trains_ku_uids",
-            "prerequisite_step_uids",
-            "prerequisite_knowledge_uids",
-            "learning_path_uids",
-            # Was missing (latent): a colon-authored ``organizes:`` target kept
-            # its colons and the edge MATCH silently missed the dot-stored uid.
-            # Also load-bearing for the MOC pass, which spares frontmatter-
-            # authored ORGANIZES targets from its stale-edge refresh.
-            "organizes",
-        ),
         uid_singular_to_plural_fields=(
             ("learning_path_uid", "learning_path_uids"),
             ("knowledge_uid", "knowledge_uids"),

@@ -77,13 +77,16 @@ _DOMAIN_TO_SERVICE_ATTR: dict[str, str] = {
     "principle": "principle_templates",
 }
 
+# Canonical generated prefixes per ENTITY_TYPE_ARCHITECTURE.md (tt_/gt_/…).
+# Existing entities minted with the former hyphenated prefixes stay valid —
+# uids are opaque; kind derives from label/entity_type (ADR-013 never-sniff).
 _DOMAIN_UID_PREFIX: dict[str, str] = {
-    "task": "task-template",
-    "goal": "goal-template",
-    "habit": "habit-template",
-    "event": "event-template",
-    "choice": "choice-template",
-    "principle": "principle-template",
+    "task": "tt",
+    "goal": "gt",
+    "habit": "ht",
+    "event": "et",
+    "choice": "ct",
+    "principle": "pt",
 }
 
 

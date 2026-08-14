@@ -46,9 +46,7 @@ from core.services.ingestion.preparer import prepare_edge_data
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
-# Vault files author colons; the graph stores dots (``normalize_uid``).
-SOURCE_AUTHORED = "ku:edgeflag-source"
-TARGET_AUTHORED = "ku:edgeflag-target"
+# Authored = stored (dot form; the colon input alias was deleted 2026-08-14).
 SOURCE_UID = "ku.edgeflag-source"
 TARGET_UID = "ku.edgeflag-target"
 _FIXTURE_UIDS = [SOURCE_UID, TARGET_UID]
@@ -69,8 +67,8 @@ def _prepare(evidence: str) -> dict[str, Any]:
     """
     return prepare_edge_data(
         {
-            "from": SOURCE_AUTHORED,
-            "to": TARGET_AUTHORED,
+            "from": SOURCE_UID,
+            "to": TARGET_UID,
             "relationship": REL.value,
             "evidence": evidence,
         }

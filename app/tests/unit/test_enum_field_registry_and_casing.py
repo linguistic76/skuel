@@ -248,7 +248,7 @@ class TestPrepareEntityDataNormalizesCasing:
         prepared = prepare_entity_data(
             EntityType.EXERCISE,
             {
-                "uid": "ex:casing-check",
+                "uid": "ex.casing-check",
                 "title": "Casing check",
                 "instructions": "Do the thing.",
                 "scope": "CURRICULUM",

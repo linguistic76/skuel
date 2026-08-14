@@ -19,7 +19,7 @@ Usage::
         return await GoalRelationships.fetch(uid, self.relationships)
 
 
-    analyzer = KnowledgePatternAnalyzer()
+    analyzer = KnowledgePatternAnalyzer(graph_intel=self.graph_intel)
     result = await analyzer.analyze_learning_patterns(
         goals, fetch_rels=_fetch_goal_rels
     )
@@ -37,7 +37,6 @@ from operator import itemgetter
 from typing import TYPE_CHECKING, Any
 
 from core.constants import ConfidenceLevel, CrossDomainImpactScore, InsightThreshold
-from core.models.enums.entity_enums import EntityType
 from core.ports.knowledge_pattern_protocol import KnowledgeLinkedRelationships
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -45,6 +44,9 @@ from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from core.models.entity import Entity
+    from core.services.infrastructure.graph_intelligence_service import (
+        GraphIntelligenceService,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -117,11 +119,39 @@ class KnowledgePatternAnalyzer:
     Generic knowledge-pattern analyzer for any Ku-linked activity domain.
 
     Stateless — construct once per intelligence service; no per-call state.
-    All graph access goes through the caller-supplied ``fetch_rels`` callable.
+    Relationship access goes through the caller-supplied ``fetch_rels``
+    callable; ``graph_intel`` (optional) batch-resolves linked entities'
+    ``sel_category`` field for cross-domain grouping — the field-based
+    replacement for the former uid-namespace parsing (ADR-013 never-sniff:
+    uids are opaque; without ``graph_intel`` no cross-domain patterns are
+    detected rather than fabricating groups from uid strings).
     """
 
-    def __init__(self) -> None:
+    def __init__(self, graph_intel: GraphIntelligenceService | None = None) -> None:
         self.logger = get_logger("skuel.analytics.knowledge_patterns")
+        self.graph_intel = graph_intel
+
+    async def resolve_categories(
+        self, knowledge_uids: Sequence[str]
+    ) -> dict[str, str]:  # skuel-lint: disable=SKUEL005 -- deliberate degrade-to-{}, see docstring
+        """Map knowledge UIDs to their ``sel_category`` field (batch, one query).
+
+        Deliberately NOT Result[T]: pattern analytics must never fail on a
+        missing enrichment, so a failed lookup collapses to {} (logged) —
+        "no cross-domain signal", never uid-string guessing. Returns {} too
+        when ``graph_intel`` is absent or the input is empty.
+        """
+        unique_uids = list(dict.fromkeys(knowledge_uids))
+        if not unique_uids or self.graph_intel is None:
+            return {}
+        result = await self.graph_intel.get_sel_categories(unique_uids)
+        if result.is_error:
+            self.logger.warning(
+                "sel_category resolution failed — cross-domain detection degraded: %s",
+                result.expect_error().message,
+            )
+            return {}
+        return result.value or {}
 
     async def analyze_learning_patterns(
         self,
@@ -168,9 +198,17 @@ class KnowledgePatternAnalyzer:
             # Filter to entities that actually have knowledge links.
             linked = [(e, r) for e, r in entity_rels if r.has_any_knowledge()]
 
+            # One batched field lookup serves the cross-domain detector.
+            all_linked_uids = [
+                uid
+                for _, r in linked
+                for uid in (r.primary_knowledge_uids + r.secondary_knowledge_uids)
+            ]
+            ku_categories = await self.resolve_categories(all_linked_uids)
+
             patterns: list[LearningPattern] = []
             patterns.extend(self._detect_knowledge_building_patterns(linked, complexity_fn))
-            patterns.extend(self._detect_cross_domain_patterns(linked))
+            patterns.extend(self._detect_cross_domain_patterns(linked, ku_categories))
             patterns.extend(self._detect_learning_spiral_patterns(linked))
             patterns.extend(self._detect_skill_specialization_patterns(linked))
             patterns.extend(self._detect_knowledge_bridging_patterns(linked))
@@ -252,8 +290,14 @@ class KnowledgePatternAnalyzer:
     def _detect_cross_domain_patterns(
         self,
         entity_rels: list[tuple[Entity, KnowledgeLinkedRelationships]],
+        ku_categories: dict[str, str],
     ) -> list[LearningPattern]:
-        """Detect cross-domain knowledge application (entity spans ≥2 Ku domains)."""
+        """Detect cross-domain knowledge application (entity spans ≥2 SEL categories).
+
+        Grouping comes from the linked entities' ``sel_category`` FIELD
+        (``ku_categories``, pre-resolved in one batch) — never from parsing
+        uid strings, so authored and generated uids contribute alike.
+        """
         patterns: list[LearningPattern] = []
 
         cross_domain = [
@@ -261,8 +305,8 @@ class KnowledgePatternAnalyzer:
             for e, r in entity_rels
             if len(
                 set(
-                    self._extract_domains_from_knowledge_uids(
-                        r.primary_knowledge_uids + r.secondary_knowledge_uids
+                    self._categories_for(
+                        r.primary_knowledge_uids + r.secondary_knowledge_uids, ku_categories
                     )
                 )
             )
@@ -274,7 +318,7 @@ class KnowledgePatternAnalyzer:
         domain_combos: dict[tuple[str, ...], list[tuple[Entity, KnowledgeLinkedRelationships]]] = {}
         for entity, rels in cross_domain:
             all_uids = rels.primary_knowledge_uids + rels.secondary_knowledge_uids
-            domains = tuple(sorted(set(self._extract_domains_from_knowledge_uids(all_uids))))
+            domains = tuple(sorted(set(self._categories_for(all_uids, ku_categories))))
             domain_combos.setdefault(domains, []).append((entity, rels))
 
         for domains, pairs in domain_combos.items():
@@ -293,7 +337,7 @@ class KnowledgePatternAnalyzer:
                     timeframe_days=(pairs[-1][0].created_at - pairs[0][0].created_at).days,
                     frequency=len(pairs),
                     growth_indicator=CrossDomainImpactScore.NEUTRAL_GROWTH,
-                    metadata={"domains": list(domains)},
+                    metadata={"sel_categories": list(domains)},
                 )
             )
         return patterns
@@ -439,18 +483,16 @@ class KnowledgePatternAnalyzer:
             return 1.0 if second_avg > 0 else 0.0
         return max(-1.0, min(1.0, (second_avg - first_avg) / first_avg))
 
-    def _extract_domains_from_knowledge_uids(self, knowledge_uids: list[str]) -> list[str]:
-        """Extract namespace/domain segment from Ku UIDs (e.g. 'ku.python.…' → 'python')."""
-        domains = []
-        for uid in knowledge_uids:
-            parts = uid.split(".")
-            if len(parts) >= 2 and parts[0] in (
-                EntityType.PATH_STEP.value,
-                EntityType.KU.value,
-                "a",
-            ):
-                domains.append(parts[1])
-        return domains
+    @staticmethod
+    def _categories_for(knowledge_uids: list[str], ku_categories: dict[str, str]) -> list[str]:
+        """SEL categories of the given knowledge UIDs, via the resolved field map.
+
+        Replaces the former uid-namespace parser: uids are opaque identity
+        (ADR-013 never-sniff) — grouping comes from the ``sel_category``
+        field. UIDs with no resolved category drop out (deliberately
+        unassigned is valid; they simply carry no cross-domain signal).
+        """
+        return [ku_categories[uid] for uid in knowledge_uids if uid in ku_categories]
 
     def _find_learning_gaps(self, timeline: list[tuple[datetime, Any]]) -> list[int]:
         """Return gap lengths (days) that exceed InsightThreshold.LEARNING_GAP_DAYS."""

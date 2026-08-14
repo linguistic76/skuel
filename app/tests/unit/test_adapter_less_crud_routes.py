@@ -694,7 +694,7 @@ async def test_multi_domain_coverage():
         async def create_route(request, uid_prefix=uid_prefix, service=service):
             body = await request.json()
             task_data = body.copy()
-            task_data["uid"] = f"{uid_prefix}:test"
+            task_data["uid"] = f"{uid_prefix}_test"
             return await service.create(task_data)
 
         request = MockRequest(
@@ -818,7 +818,8 @@ async def test_real_factory_create_returns_201_with_entity_json():
 
     assert status == 201
     assert body["title"] == "Real factory create"
-    assert body["uid"].startswith("task:")
+    # Generated = underscore per the separator grammar (colon mint retired).
+    assert body["uid"].startswith("task_")
     assert body["entity_type"] == "task"
     assert body["user_uid"] == "user_test"
     assert isinstance(body["status"], str)
