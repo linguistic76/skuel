@@ -60,8 +60,10 @@ def _reject_colon_relationship_targets(
         return
     for field_name in relationship_config:
         value = entity_data.get(field_name)
+        # ``object``, not ``Any``: each element is narrowed with isinstance
+        # below, so nothing here needs to opt out of type checking.
         if isinstance(value, str):
-            targets: list[Any] = [value]
+            targets: list[object] = [value]
         elif isinstance(value, list):
             targets = value
         else:
