@@ -161,7 +161,11 @@ class TaskKnowledgeAnalyzer:
                 )
             )
 
-    async def resolve_ku_categories(self, knowledge_uids: Sequence[str]) -> dict[str, str]:  # skuel-lint: disable=SKUEL005 -- deliberate degrade-to-{}, mirrors KnowledgePatternAnalyzer.resolve_categories
+    async def resolve_ku_categories(
+        self, knowledge_uids: Sequence[str]
+    ) -> dict[
+        str, str
+    ]:  # skuel-lint: disable=SKUEL005 -- deliberate degrade-to-{}, mirrors KnowledgePatternAnalyzer.resolve_categories
         """Batch-map knowledge UIDs to their ``sel_category`` field.
 
         Public passthrough to the composed generic analyzer so batch callers

@@ -226,7 +226,7 @@ class _FakeAudienceResolver:
 
 
 @pytest.mark.asyncio
-class TestUserEntryDoorUidNormalization:
+class TestUserEntryDoorUidHandling:
     async def _build(self, data: dict[str, Any], file_path: Path):
         return await build_user_entry_request(
             data=data,
@@ -236,7 +236,7 @@ class TestUserEntryDoorUidNormalization:
             body="body text",
         )
 
-    async def test_authored_uid_normalized_colon_to_dot(self, tmp_path: Path):
+    async def test_authored_dot_uid_passes_through_verbatim(self, tmp_path: Path):
         result = await self._build(
             {"pipeline": "knowledge", "uid": "moc.worldview", "title": "T", "moc": True},
             tmp_path / "nous topics.md",
@@ -255,7 +255,7 @@ class TestUserEntryDoorUidNormalization:
 
     async def test_no_moc_flag_no_metadata_marker(self, tmp_path: Path):
         result = await self._build(
-            {"pipeline": "knowledge", "uid": "k:note", "title": "T"},
+            {"pipeline": "knowledge", "uid": "k.note", "title": "T"},
             tmp_path / "note.md",
         )
         assert result.is_ok

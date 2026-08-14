@@ -284,8 +284,25 @@ class TestPriorUidReuse:
             prior_uid="ue_prior_abc",
         )
         assert result.is_ok
-        # colon → dot normalization on authored uids; prior uid ignored.
+        # Authored = stored, verbatim; prior uid ignored.
         assert result.value.uid == "ku.mine.nous"
+
+    @pytest.mark.asyncio
+    async def test_authored_colon_uid_is_rejected_loudly(self):
+        """The retired colon spelling must fail, not upsert — forwarding
+        ``moc:worldview`` verbatim would split identity against a note
+        previously stored as ``moc.worldview`` (Codex P1 #1054). Derived
+        periodic ``ue:…`` uids are unaffected — they are built, not authored."""
+        result = await build_user_entry_request(
+            data={"pipeline": "knowledge", "title": "Worldview", "uid": "moc:worldview"},
+            file_path=Path("/vault/knowledge/worldview.md"),
+            user_uid="user_1",
+            audience_resolver=_resolver(),
+        )
+        assert result.is_error
+        error = result.expect_error()
+        assert error.details.get("field") == "uid"
+        assert "moc.worldview" in error.message  # remedy names the dot form
 
     @pytest.mark.asyncio
     async def test_fulfills_exercise_blocks_reuse(self):

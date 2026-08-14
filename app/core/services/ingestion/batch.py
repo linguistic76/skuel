@@ -87,7 +87,7 @@ logger = get_logger("skuel.services.ingestion.batch")
 # turn-in was dropped and must be retried, and a TEACHER_REVIEW request with
 # no resolvable audience is a state-of-the-world failure (Codex #788).
 _USER_ENTRY_CONTENT_FIELDS: frozenset[str] = frozenset(
-    {"pipeline", "status", "je_use", "private", "audience", "metadata"}
+    {"pipeline", "status", "je_use", "private", "audience", "metadata", "uid"}
 )
 
 
