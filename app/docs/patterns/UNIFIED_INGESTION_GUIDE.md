@@ -945,9 +945,13 @@ also auto-fall back to the filename.
 | `group` | `group.` | `:Group` | name | `group_class-of-2026.yaml` |
 | `lifepath` | `lifepath.` | `:Entity:LifePath` | user_uid | `lifepath_vision.yaml` |
 
-**Example filenames are convention, not contract** — the filename never determines type or
-identity (only frontmatter does; see § Entity Type Detection). The `Prefix` column is the
-*stored UID* prefix the validator enforces on explicit `uid:` values, always dot-form.
+**Example filenames are convention, not contract** — the filename never determines *type*
+(only the frontmatter `type:` field does; see § Entity Type Detection). Identity has one
+filename-shaped exception: when `uid:` is **absent**, ingestion derives the stored UID from
+the filename stem (`{prefix}.{stem}` — so `ku_python-basics.md` without a `uid:` becomes
+`ku.ku_python-basics`, prefix leak and all, and a later rename changes identity). Author an
+explicit `uid:` and the filename stays fully free. The `Prefix` column is the *stored UID*
+prefix the validator enforces on explicit `uid:` values, always dot-form.
 
 **Multi-label architecture:** All domain entities get both `:Entity` (universal base) and a domain-specific label (e.g., `:Task`). This enables cross-domain queries via `:Entity` and fast indexed queries via domain labels. Group is the exception — `:Group` only, no `:Entity` base label (it lives in `NonKuDomain`, ADR-053).
 

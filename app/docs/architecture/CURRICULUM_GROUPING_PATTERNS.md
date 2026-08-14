@@ -89,7 +89,7 @@ beyond this table is historical:
 
 | Character | Role |
 |-----------|------|
-| `-` hyphen | Joins words **within** a single segment (`active-listening`). The only word-joiner, everywhere — `UIDGenerator.slugify()` emits it. |
+| `-` hyphen | Joins words **within** a single segment (`active-listening`). The only word-joiner, everywhere — `UIDGenerator.slugify()` emits it. Known gap: slugify currently *preserves* underscores arriving in input titles (its `\w` class includes `_`) instead of converting them; the `_`→`-` fix is queued. Author hyphens. |
 | `:` colon / `.` dot | Segment separator of **authored** UIDs. Colon is the vault authoring spelling, dot the stored spelling (`normalize_uid()` rewrites `:` → `.`). Shape: `{prefix}.{grouping-label}.{slug}`. |
 | `_` underscore | Segment separator of **generated** UIDs (`{prefix}_{slug}_{random}`, `{prefix}_{random}`), and the conventional filename type-prefix (`ku_attention.md`). |
 | *(edges)* | Family. Parent/child/lineage lives **only** in graph relationships (`ORGANIZES`, `USES_KU`, `HAS_STEP`, …) — never in UID strings. |
