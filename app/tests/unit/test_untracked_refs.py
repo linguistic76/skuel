@@ -141,6 +141,19 @@ class TestMemoryCitationPattern:
         ):
             assert guard.MEMORY_CITATION.search(guard._probe(line)), f"should flag: {line}"
 
+    def test_flags_the_trailing_memory_tag(self) -> None:
+        """Codex #1047 round 3: the tag can FOLLOW the slug. No live instance
+        existed, but PR #1046 removed citations in this exact shape — they matched
+        only because those slugs ended in `.md`, so a hyphenated one would have
+        passed. A gap with no current violation is still a gap."""
+        guard = _load_guard()
+        for line in (
+            "see entity-label-overload (memory)",
+            "    project_template_relative_offset.md (memory)",
+            "- the lookup label has two jobs (see entity-label-overload (memory))",
+        ):
+            assert guard.MEMORY_CITATION.search(guard._probe(line)), f"should flag: {line}"
+
     def test_does_not_flag_prose_about_ram(self) -> None:
         """The cost of widening the slug grammar: 'memory' is an ordinary English
         word here. A CUE — `see memory`, a colon, or a path slash — is what makes a

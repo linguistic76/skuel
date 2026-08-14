@@ -108,9 +108,14 @@ MEMORY_CITATION = re.compile(
           | \bsee\s+memory\s+
         )
         `?\b[a-z][a-z0-9]*[_-][a-z0-9_-]{2,}      # slug must carry a _ or - (multi-word)
-        # 2. A memory slug written as a filename, cue or not.
+        # 2. TRAILING tag — "entity-label-overload (memory)". The cue follows the
+        #    slug instead of preceding it, so alternative 1 cannot see it. PR #1046
+        #    removed citations in this exact shape, but they matched only because
+        #    those slugs ended in `.md`; a hyphenated one would have slipped past.
+      | \b[a-z][a-z0-9]*[_-][a-z0-9_-]{2,}\s*\(memory\)
+        # 3. A memory slug written as a filename, cue or not.
       | \b(?:project|feedback|user|reference|archive)_[a-z0-9_]+\.md\b
-        # 3. The prefixed slug directly after the word, no punctuation cue.
+        # 4. The prefixed slug directly after the word, no punctuation cue.
       | \b[Mm]emory\s+`?\b(?:project|feedback|user|reference|archive)_[a-z0-9_]+
     )
     """,
