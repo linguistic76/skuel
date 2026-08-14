@@ -36,9 +36,20 @@ suffix. A bare backticked slug cannot be matched, because it is indistinguishabl
 from a legitimate identifier: ``user_service``, ``user_context``,
 ``feedback_points`` and ``user_ownership_relationship`` are all real symbols of the
 same shape. A regex broad enough to catch ``project_foo`` unmarked flags hundreds of
-them, which would make the guard useless. That form is left to review. Four distinct
-spellings were found across this cleanup and three are covered; pretending to cover
-the fourth would be the rubber stamp this codebase keeps deleting.
+them, which would make the guard useless. That form is left to review.
+
+Three forms are deliberately NOT gated, each for a stated reason:
+
+1. **A bare backticked slug** — indistinguishable from a code identifier.
+2. **A bare wiki-link** ``[[slug]]`` — first-class product syntax here
+   (``core/services/ingestion/moc_links.py`` parses it for MOC ingestion), and a
+   dangling target is *ruled legitimate* in a personal vault.
+3. **A prefixless slug under a bare ``Memory:``** — backticks would be the
+   distinguishing evidence, but ``_probe`` blanks them before matching.
+
+Eight citation spellings surfaced during the August 2026 cleanup; five are gated.
+Enumerating the limits beats implying coverage that does not exist — an
+always-on gate that cries wolf is worse than one with a documented boundary.
 
 Run: ``uv run python scripts/audit_untracked_refs.py``. Also ``./dev quality`` check
 6c, a step in CI's gate-required **``content_boundary``** job, and asserted by
@@ -107,14 +118,21 @@ MEMORY_CITATION = re.compile(
         \b(?i:see\s+memory)[:\s]\s*`?\b[a-z][a-z0-9]*[_-][a-z0-9_-]{2,}
         # A bare "Memory:" is NOT unmistakable — it is also an ordinary field or
         # metric label ("Peak Memory: per_worker_buffer", "Memory: page_cache",
-        # Codex #1047 r7). So the colon/slash form additionally requires the slug to
-        # look like a memory doc: backticked, prefix-named, or a .md filename. The
-        # one real instance of this form found in the tree was
-        # "- Memory: `project_find_by_user_uid_vs_owns`" — backticked and prefixed.
+        # Codex #1047 r7). So the colon/slash form requires the slug to look like a
+        # memory doc: prefix-named, or a .md filename.
+        #
+        # KNOWN LIMIT (Codex #1047 r8, accepted deliberately): a PREFIXLESS slug
+        # under a bare colon — "Memory: `entity-label-overload`" — is NOT gated.
+        # Backticks would be the evidence that distinguishes it from a metric label,
+        # but `_probe` blanks them before matching, so a backtick alternative here
+        # would be unreachable; one was written in r7 and has been deleted rather
+        # than left to imply coverage it cannot deliver. Recovering that evidence
+        # means threading raw and flattened text through every branch, and no
+        # instance of the form exists in the tree. `see memory <anything>` still
+        # catches prefixless slugs, so the gap is only bare-colon + prefixless.
       | (?<!in-)\b(?i:memory)\s*[:/]\s*
         (?:
-            `[a-z][a-z0-9]*[_-][a-z0-9_-]{2,}`
-          | (?:project|feedback|user|reference|archive)_[a-z0-9_]+
+            (?:project|feedback|user|reference|archive)_[a-z0-9_]+
           | [a-z][a-z0-9]*[_-][a-z0-9_-]{2,}\.md\b
         )
         # 2. TRAILING tag — "entity-label-overload (memory)". The cue follows the
