@@ -15,7 +15,9 @@ closed.
 nodes, which also cover dict values, module/function constants, implicit
 concatenation, and the constant parts of f-strings) — deliberately INCLUDING
 docstrings: a class string quoted in a docstring teaches the anti-pattern
-just as well as live code (primitives.py taught one from a docstring).
+just as well as live code (primitives.py taught one from a docstring). The
+``static/js/*.js`` Tailwind source tree (``@source "../js/*.js"``) is scanned
+as raw text — it emits production class strings too.
 
 **Allowlist is count-pinned and honest in both directions**: a file over its
 pin reports the overage as a violation; a file under its pin reports "tighten
@@ -37,6 +39,7 @@ import argparse
 import ast
 import re
 import sys
+from collections.abc import Callable, Iterator
 from pathlib import Path
 
 # Shared with lint_skuel.py — one exclusion vocabulary, one walk helper.
@@ -48,9 +51,10 @@ from quality_discovery import iter_python_files  # type: ignore[import-not-found
 EXTRA_EXCLUDED_DIR_NAMES: frozenset[str] = frozenset({"scripts", "tests"})
 
 # Arbitrary font-size literal, with any variant prefixes (sm:, dark:, hover:…)
-# and clamp() fluid values. Excludes arbitrary colors/vars (text-[#fff],
-# text-[var(--x)]) — those are not font sizes.
-ARBITRARY_FONT_SIZE = re.compile(r"(?:[\w-]+:)*text-\[(?:\d|clamp)")
+# and function-valued sizes (clamp()/calc()/min()/max() — Codex, PR #1057).
+# Excludes arbitrary colors/vars (text-[#fff], text-[var(--x)]) — those are
+# not font sizes.
+ARBITRARY_FONT_SIZE = re.compile(r"(?:[\w-]+:)*text-\[(?:[\d.]|clamp\(|calc\(|min\(|max\()")
 
 # ---------------------------------------------------------------------------
 # Exception ledger — permanent arbitrary sites, pinned by exact match count
@@ -95,6 +99,32 @@ def _find_matches(source: str) -> list[tuple[int, str]]:
     return matches
 
 
+def _find_matches_text(source: str) -> list[tuple[int, str]]:
+    """Raw-text scan (JS) — line numbers computed from match offsets."""
+    return [
+        (source.count("\n", 0, match.start()) + 1, match.group(0))
+        for match in ARBITRARY_FONT_SIZE.finditer(source)
+    ]
+
+
+Matcher = Callable[[str], list[tuple[int, str]]]
+
+
+def _scan_targets(root: Path) -> Iterator[tuple[Path, Matcher]]:
+    """Every file Tailwind scans for class literals, with its matcher.
+
+    Python UI trees get the AST scan; ``static/js/*.js`` is ALSO a Tailwind
+    class source (``@source "../js/*.js"`` in ``static/css/input.css`` — the
+    page-local Alpine bundles emit class strings), so it gets a raw-text scan
+    (Codex, PR #1057). The glob mirrors the @source exactly: top-level only,
+    which keeps vendored trees out.
+    """
+    for path in iter_python_files(root, extra_dir_names=EXTRA_EXCLUDED_DIR_NAMES):
+        yield path, _find_matches
+    for path in sorted((root / "static" / "js").glob("*.js")):
+        yield path, _find_matches_text
+
+
 def audit(root: Path, strict: bool) -> int:
     violations: list[tuple[str, list[tuple[int, str]]]] = []
     over_pin: list[tuple[str, int, int]] = []  # (rel, found, pinned)
@@ -102,7 +132,7 @@ def audit(root: Path, strict: bool) -> int:
     burndown_total = 0
     seen_allowlisted: set[str] = set()
 
-    for path in iter_python_files(root, extra_dir_names=EXTRA_EXCLUDED_DIR_NAMES):
+    for path, find_matches in _scan_targets(root):
         rel = _relative(path, root)
         source = path.read_text(encoding="utf-8", errors="replace")
 
@@ -115,7 +145,7 @@ def audit(root: Path, strict: bool) -> int:
                 under_pin.append((rel, 0, ALLOWED_ARBITRARY[rel]))
             continue
 
-        matches = _find_matches(source)
+        matches = find_matches(source)
         count = len(matches)
 
         if rel in ALLOWED_ARBITRARY:
