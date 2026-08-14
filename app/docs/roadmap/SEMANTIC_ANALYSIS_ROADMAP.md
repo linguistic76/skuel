@@ -113,7 +113,7 @@ scope (pedagogical rulings 2026-07-10):
 **Explicitly deferred — semantic pool expansion** (routing vector neighbours of
 weak areas INTO the candidate pool): parked until engagement data exists
 (Mike's ZPD is empty — zero activity→Ku edges). The fuel arc is
-entry-enrichment ([[entry-enrichment-capability]], EXTRACT_ACTIVITIES /
+entry-enrichment (EXTRACT_ACTIVITIES /
 vector-first entry↔graph linking), which stays parked. Re-open only with
 engagement data AND a fresh pedagogical ruling on weighing inferred gaps
 against authored order.

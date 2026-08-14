@@ -113,8 +113,13 @@ MEMORY_CITATION = re.compile(
         #    removed citations in this exact shape, but they matched only because
         #    those slugs ended in `.md`; a hyphenated one would have slipped past.
       | \b[a-z][a-z0-9]*[_-][a-z0-9_-]{2,}\s*\(memory\)
-        # 3. A memory slug written as a filename, cue or not.
-      | \b(?:project|feedback|user|reference|archive)_[a-z0-9_]+\.md\b
+        # 3. A memory slug written as a BARE filename, cue or not. `(?<![/\w])`
+        #    keeps it off path-qualified links: `docs/user_guide.md` is a tracked
+        #    document, not a memory citation, and flagging it would red the
+        #    always-on gate on a legitimate link — a false positive here is worse
+        #    than a miss, because it breaks every PR rather than letting one slip.
+        #    `find_violations` additionally clears any name that IS a tracked file.
+      | (?<![/\w])(?:project|feedback|user|reference|archive)_[a-z0-9_]+\.md\b
         # 4. The prefixed slug directly after the word, no punctuation cue.
       | \b[Mm]emory\s+`?\b(?:project|feedback|user|reference|archive)_[a-z0-9_]+
     )
@@ -126,9 +131,7 @@ MEMORY_CITATION = re.compile(
 # no marker word (Python has no ``[[ ]]`` syntax), so unlike the bare backticked
 # slug this form CAN be gated. Matched against the raw line, before ``_probe``
 # flattens brackets.
-WIKILINK_MEMORY_CITATION = re.compile(
-    r"\[\[(?:project|feedback|user|reference|archive)_[a-z0-9_]+\]\]"
-)
+WIKILINK_MEMORY_CITATION = re.compile(r"\[\[[a-z][a-z0-9]*[_-][a-z0-9_-]{2,}\]\]")
 
 # Files allowed to contain the pattern: this guard and its test necessarily spell
 # out what they forbid.
@@ -172,8 +175,14 @@ def find_violations() -> tuple[list[tuple[str, int, str]], list[str]]:
     """Return (citations, tracked-under-scratch) violations."""
     citations: list[tuple[str, int, str]] = []
     under_scratch: list[str] = []
+    tracked = tracked_files()
+    # A name that IS a tracked file cannot be an external-memory citation, whatever
+    # its spelling. Belt to the regex's braces: the cost of a false positive in an
+    # always-on gate is every PR going red, so this clears the whole class rather
+    # than trusting one lookbehind.
+    tracked_basenames = {rel.rsplit("/", 1)[-1] for rel in tracked}
 
-    for rel in tracked_files():
+    for rel in tracked:
         if rel in EXEMPT_PATHS:
             continue
         if any(rel.startswith(d) or f"/{d}" in f"/{rel}" for d in SCRATCH_DIRS):
@@ -197,9 +206,12 @@ def find_violations() -> tuple[list[tuple[str, int, str]], list[str]]:
         lines = text.splitlines()
         for index, line in enumerate(lines):
             probe = _probe(line)
+            memory_hit = MEMORY_CITATION.search(probe)
+            if memory_hit and memory_hit.group().rsplit("/", 1)[-1] in tracked_basenames:
+                memory_hit = None  # names a real tracked document, not memory
             if (
                 SCRATCH_CITATION.search(probe)
-                or MEMORY_CITATION.search(probe)
+                or memory_hit
                 or WIKILINK_MEMORY_CITATION.search(line)
             ):
                 citations.append((rel, index + 1, line.strip()))

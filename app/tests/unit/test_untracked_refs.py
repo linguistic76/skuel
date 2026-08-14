@@ -121,14 +121,31 @@ class TestMemoryCitationPattern:
         )
 
     def test_flags_bare_wiki_links(self) -> None:
-        """`[[project_foo]]` needs no marker — Python has no `[[ ]]` syntax, so
-        unlike a bare backticked slug this form is unambiguous and IS gated."""
+        """`[[foo]]` needs no marker — Python has no `[[ ]]` syntax, so unlike a
+        bare backticked slug this form is unambiguous and IS gated. The grammar
+        must be the FULL slug grammar (Codex #1047 round 4): restricting it to the
+        five underscore prefixes let `[[entity-label-overload]]` through, which
+        contradicted this rule's own rationale."""
         guard = _load_guard()
         for line in (
             "- **Privacy commitment:** [[project_journal_privacy_commitment]] (ADR-073)",
             "per standing merge authorization — [[feedback_standing_merge_after_reviews]]):",
+            "read as current (no infinite re-chunk). See [[chunk_version_tag]].",
+            "entry-enrichment ([[entry-enrichment-capability]], EXTRACT_ACTIVITIES /",
         ):
             assert guard.WIKILINK_MEMORY_CITATION.search(line), f"should flag: {line}"
+
+    def test_does_not_flag_a_path_qualified_document_link(self) -> None:
+        """Codex #1047 round 4, the dangerous direction: an unqualified prefix
+        match reads a legitimate tracked doc as memory. In an ALWAYS-ON gate a
+        false positive reds every PR, which is worse than letting one citation
+        slip — hence both a `(?<![/\\w])` lookbehind and a tracked-file check."""
+        guard = _load_guard()
+        for line in (
+            "see [docs/user_guide.md](docs/user_guide.md)",
+            "- `/docs/reference/project_index.md` — the generated index",
+        ):
+            assert not guard.MEMORY_CITATION.search(guard._probe(line)), f"should NOT flag: {line}"
 
     def test_flags_hyphenated_and_prefixless_slugs(self) -> None:
         """Codex #1047 round 2: real memory slugs are not all
