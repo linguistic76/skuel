@@ -72,4 +72,3 @@ idempotent.
 
 - `docs/migrations/USER_UID_CANONICALIZATION_2026-05.md` — sibling fix for the user-id *format*
   (colon → underscore). This fix addresses the *value* (property vs edge), not the format.
-- Memory: `project_find_by_user_uid_vs_owns`, `project_user_uid_canonical`.

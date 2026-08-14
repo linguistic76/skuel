@@ -445,7 +445,7 @@ def diverged_chunk_version_by_label() -> dict[str, str]:
     detection is byte-for-byte unchanged (zero churn). When a domain diverges,
     its label maps to the suffixed tag ``chunk_version_tag`` would stamp, so its
     default-tagged chunks read as stale (re-chunk once) and its own-tagged chunks
-    read as current (no infinite re-chunk). See [[chunk_version_tag]].
+    read as current (no infinite re-chunk).
     """
     return {
         cfg.entity_label: chunk_version_tag(cfg.chunking_params)

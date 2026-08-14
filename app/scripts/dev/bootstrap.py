@@ -567,8 +567,7 @@ def _create_web_app(
     # always-correct; a proper scheme would cache version-stamped vendor assets
     # (lucide/alpine/htmx/chart.js/vis-network) as immutable + long-lived and
     # content-hash app assets (skuel.js, output.css). Needs a planning pass to
-    # understand cache semantics before changing. See memory:
-    # project_lucide_mutationobserver_infinite_loop.
+    # understand cache semantics before changing.
     app.add_middleware(StaticCacheHeadersMiddleware)
 
     # Browser security headers (SecurityHeadersMiddleware) are NOT registered

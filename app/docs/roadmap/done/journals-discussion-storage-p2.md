@@ -16,7 +16,6 @@ gate — now cleared (PR #631). This plan translates ADR-078 into a concrete, PR
 - **Governing ADR:** `docs/decisions/ADR-078-discussion-sessions-stored-not-understood.md` — **the
   binding shape.** If this plan and ADR-078 ever disagree, ADR-078 wins.
 - **Amends:** ADR-073 §1/§3 (already noted in-repo)
-- **Memory:** [[project_journals_discussion_arc]], [[project_journal_privacy_commitment]]
 
 ---
 
@@ -191,7 +190,7 @@ plan is the standing authorization for all three PRs. Concretely:
 - **Roll to the end.** PR1 → PR2 → PR3 flow without a founder checkpoint. Report progress as each
   PR merges, but keep going.
 
-**The only stop conditions** (per standing merge authorization — [[feedback_standing_merge_after_reviews]]):
+**The only stop conditions** (per standing merge authorization):
 1. A genuine **design decision / scope change** not already settled here (the three refinements
    below have proposed rulings — proceed on them; a *new* fork that they don't cover = stop + ask).
 2. A **destructive migration** (none is expected — these are additive nodes/edges).
@@ -228,7 +227,7 @@ Codex (app-code) → merge on green → straight into the next PR.
 
 ### PR3 — Revisit, continue, delete, export
 - Revisit list (the user's sessions, `last_activity` desc, `title` + timestamp) — a journals UI
-  surface (unblocks the parked "Revisit Past Chats", [[project_journals_ux_refinement]]).
+  surface (unblocks the parked "Revisit Past Chats").
 - Continue-thread: open a session → rehydrate composer from stored turns + `source_selection`.
 - Per-session delete (first-class button → `delete_session`).
 - Export-to-`.md` (refinement 3).
