@@ -209,12 +209,15 @@ supply an explicit `uid:` to override.
 
 An **explicit authored** `uid:` persists verbatim (authored = stored;
 the colon input alias was deleted 2026-08-14): `uid: moc.worldview`
-persists as `moc.worldview`. Any authored prefix is accepted — a
-UserEntry uid is an opaque deterministic join key, never type information
-(ADR-013 never-sniff; the entity kind is whatever `type:` says). The
-*derived* periodic UIDs in the table above keep their colon form by
-design — it is the calendar routes' join contract and an internal machine
-identifier, not an entity-UID spelling.
+persists as `moc.worldview`. Any authored dot/underscore prefix is
+accepted — a UserEntry uid is an opaque deterministic join key, never
+type information (ADR-013 never-sniff; the entity kind is whatever
+`type:` says) — but a colon-spelled authored uid is **rejected loudly**
+(ignored-with-reason): forwarding it would upsert a new node under the
+colon identity and silently split a note previously stored in dot form.
+The *derived* periodic UIDs in the table above keep their colon form by
+design — internal machine identifiers are built by the door, never
+authored; a periodic note needs no `uid:` line at all.
 
 ### Path-keyed identity for uid-less vault entries
 
