@@ -29,11 +29,6 @@ def _fake_admin_auth(request: object) -> str:
     return _ADMIN_UID
 
 
-@pytest.fixture(autouse=True)
-def _csrf_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "true")
-
-
 def _caller(role: UserRole) -> MagicMock:
     user = MagicMock()
     user.uid = _ADMIN_UID

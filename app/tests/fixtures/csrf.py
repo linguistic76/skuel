@@ -6,9 +6,8 @@ The route suites (unit, integration, and infrastructure) call
 verification to pass, a stub needs what a browser round-trip would give
 it: the ``csrf_token`` cookie ``CSRFMiddleware`` minted, echoed back in
 the ``X-CSRF-Token`` header. ``attach_csrf`` equips a stub with exactly
-that — one freshly minted token on both sides — so ``verify_csrf`` runs
-its real constant-time compare instead of being bypassed via
-``SKUEL_CSRF_ENFORCE=false``.
+that — one freshly minted token on both sides — so ``verify_csrf``'s
+real constant-time compare passes.
 
 For ``TestClient``-based flows, skip this helper: GET any page first (the
 middleware sets the cookie), then send the token back as the header or

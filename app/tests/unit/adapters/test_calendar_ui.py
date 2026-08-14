@@ -68,14 +68,6 @@ def _make_request(*, user_uid: str = "user_smoke", form_data=None, query_params=
     return attach_csrf(request)
 
 
-@pytest.fixture(autouse=True)
-def _enforce_csrf(monkeypatch) -> None:
-    """The @csrf_protected calendar handlers read enforcement state at call
-    time; pin it ON — the request stubs carry a real minted token pair, so
-    verification runs for real in front of the handler-logic assertions."""
-    monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "true")
-
-
 def _make_calendar_data(items=None) -> CalendarData:
     return CalendarData(
         items=items or [],

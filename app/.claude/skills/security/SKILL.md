@@ -133,7 +133,7 @@ Primary defense is `SameSite=Strict` on the session cookie — the browser refus
 2. **HTMX header** — `static/js/skuel.js` attaches `X-CSRF-Token` via `htmx:configRequest`
 3. **Native form sync** — capture-phase `submit` handler in `skuel.js` refreshes the hidden input from the cookie before serialization (covers SW-cached HTML, extension-mutated DOM)
 
-State-changing routes wear `@csrf_protected`. The decorator reads header first then form field, constant-time compares against the cookie, returns 403 on mismatch. `SKUEL_CSRF_ENFORCE=false` is a revert lever; production runs enforcement on.
+State-changing routes wear `@csrf_protected`. The decorator reads header first then form field, constant-time compares against the cookie, returns 403 on mismatch. Verification is unconditional in every environment — there is no enforcement toggle. Route tests satisfy it by minting a real cookie+header pair via `tests/fixtures/csrf.py` (`attach_csrf`).
 
 ```python
 from adapters.inbound.csrf import csrf_protected

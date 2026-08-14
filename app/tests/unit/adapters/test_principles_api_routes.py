@@ -33,11 +33,6 @@ def _fake_auth(request: object) -> str:
     return _USER_UID
 
 
-@pytest.fixture(autouse=True)
-def _csrf_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "true")
-
-
 def _not_owned(uid: str) -> Result[bool]:
     return Result.fail(Errors.not_found("principle", uid))
 

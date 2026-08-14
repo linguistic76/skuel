@@ -35,12 +35,6 @@ from core.utils.result_simplified import Result
 from tests.fixtures.csrf import attach_csrf
 
 
-@pytest.fixture(autouse=True)
-def _enforce_csrf(monkeypatch) -> None:
-    """Pin enforcement ON — request stubs carry a real minted token pair."""
-    monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "true")
-
-
 class _RouteRegistry:
     def __init__(self) -> None:
         self.handlers: dict[tuple[str, str], object] = {}

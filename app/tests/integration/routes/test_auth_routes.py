@@ -527,9 +527,6 @@ class TestInviteCodeGate:
 
     @pytest.fixture(autouse=True)
     def _route_test_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        # Pin CSRF enforcement ON — the request stubs carry a real minted
-        # token pair (attach_csrf), so verification runs for real.
-        monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "true")
         monkeypatch.delenv("SIGNUP_INVITE_CODE", raising=False)
 
         # Pin the credential funnel to the process env: the route resolves the

@@ -28,13 +28,6 @@ from tests.fixtures.csrf import attach_csrf
 
 
 @pytest.fixture(autouse=True)
-def _enforce_csrf(monkeypatch) -> None:
-    """csrf_protected reads env at call time — pin enforcement ON; the
-    request stubs carry a real minted token pair (attach_csrf)."""
-    monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "true")
-
-
-@pytest.fixture(autouse=True)
 def _clean_registry():
     """The routes use the module-level registry singleton — keep tests isolated."""
     agent_channel_registry._sessions.clear()

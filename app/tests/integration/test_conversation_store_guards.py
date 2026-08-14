@@ -338,8 +338,6 @@ class TestOptInPersistenceGuard:
     @pytest_asyncio.fixture
     def journal_handlers(self, neo4j_driver, clean_neo4j, monkeypatch) -> dict[str, Any]:
         """Register the journals routes with a REAL conversation store, LLM mocked."""
-        # Pin enforcement ON — _journal_request stubs carry a real token pair.
-        monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "true")
         from adapters.inbound.journals_routes import create_journals_routes
         from adapters.inbound.rate_limit import reset_buckets_for_testing
         from core.services.journal.journal_service import JournalFollowUp

@@ -29,11 +29,6 @@ def _fake_auth(request: object) -> str:
     return _USER_UID
 
 
-@pytest.fixture(autouse=True)
-def _csrf_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "true")
-
-
 @dataclass(frozen=True)
 class _Harness:
     client: TestClient

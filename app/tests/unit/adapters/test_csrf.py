@@ -8,10 +8,8 @@ import pytest
 
 from adapters.inbound.csrf import (
     CSRF_COOKIE_NAME,
-    CSRF_ENFORCE_ENV,
     CSRF_HEADER_NAME,
     csrf_protected,
-    is_csrf_enforced,
     mint_token,
     verify_csrf,
 )
@@ -79,27 +77,6 @@ class TestTokenMinting:
 
     def test_mint_token_is_random(self):
         assert mint_token() != mint_token()
-
-
-# ============================================================================
-# Enforcement flag
-# ============================================================================
-
-
-class TestEnforcementFlag:
-    def test_default_is_enforced(self, monkeypatch):
-        monkeypatch.delenv("SKUEL_CSRF_ENFORCE", raising=False)
-        assert is_csrf_enforced() is True
-
-    @pytest.mark.parametrize("value", ["false", "False", "0", "no", " NO "])
-    def test_falsy_values_disable(self, monkeypatch, value):
-        monkeypatch.setenv("SKUEL_CSRF_ENFORCE", value)
-        assert is_csrf_enforced() is False
-
-    @pytest.mark.parametrize("value", ["true", "True", "1", "yes", "on"])
-    def test_truthy_values_enforce(self, monkeypatch, value):
-        monkeypatch.setenv("SKUEL_CSRF_ENFORCE", value)
-        assert is_csrf_enforced() is True
 
 
 # ============================================================================
@@ -184,26 +161,7 @@ class TestCsrfProtectedDecorator:
         assert await handler(request) == "ok"
 
     @pytest.mark.asyncio
-    async def test_enforcement_off_passes(self, monkeypatch):
-        # Deliberately exercises the off-switch — this is the flag's own
-        # semantics test, not a route-test affordance (those mint real
-        # tokens via tests/fixtures/csrf.py). Dies with the flag (PR B,
-        # security-hardening-deferred.md § 8).
-        monkeypatch.setenv(CSRF_ENFORCE_ENV, "false")
-        monkeypatch.setenv("SKUEL_ENVIRONMENT", "local")
-
-        @csrf_protected
-        async def handler(request):
-            return "ok"
-
-        # POST with no token at all — should still pass because enforcement off
-        request = _make_request(method="POST")
-        assert await handler(request) == "ok"
-
-    @pytest.mark.asyncio
-    async def test_missing_token_returns_403(self, monkeypatch):
-        monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "true")
-
+    async def test_missing_token_returns_403(self):
         @csrf_protected
         async def handler(request):
             return "ok"
@@ -213,8 +171,7 @@ class TestCsrfProtectedDecorator:
         assert response.status_code == 403
 
     @pytest.mark.asyncio
-    async def test_valid_token_runs_handler(self, monkeypatch):
-        monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "true")
+    async def test_valid_token_runs_handler(self):
         token = mint_token()
 
         @csrf_protected
@@ -229,8 +186,7 @@ class TestCsrfProtectedDecorator:
         assert await handler(request) == "ran"
 
     @pytest.mark.asyncio
-    async def test_decorator_preserves_kwargs(self, monkeypatch):
-        monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "true")
+    async def test_decorator_preserves_kwargs(self):
         token = mint_token()
 
         @csrf_protected
@@ -246,15 +202,17 @@ class TestCsrfProtectedDecorator:
 
 
 # ============================================================================
-# Production enforcement override
+# Enforcement is unconditional
 # ============================================================================
 
 
-class TestProductionEnforcement:
+class TestEnforcementIsUnconditional:
     @pytest.mark.asyncio
-    async def test_production_ignores_enforce_flag(self, monkeypatch):
-        monkeypatch.setenv(CSRF_ENFORCE_ENV, "false")
-        monkeypatch.setenv("SKUEL_ENVIRONMENT", "production")
+    @pytest.mark.parametrize("environment", ["local", "staging", "production"])
+    async def test_no_environment_bypasses_verification(self, monkeypatch, environment):
+        # Regression guard: the SKUEL_CSRF_ENFORCE revert lever is deleted —
+        # no environment may reintroduce an unverified path for unsafe methods.
+        monkeypatch.setenv("SKUEL_ENVIRONMENT", environment)
 
         @csrf_protected
         async def handler(request):
@@ -263,35 +221,6 @@ class TestProductionEnforcement:
         request = _make_request(method="POST")
         response = await handler(request)
         assert response.status_code == 403
-
-    @pytest.mark.asyncio
-    async def test_non_production_respects_flag(self, monkeypatch):
-        monkeypatch.setenv(CSRF_ENFORCE_ENV, "false")
-        monkeypatch.setenv("SKUEL_ENVIRONMENT", "staging")
-
-        @csrf_protected
-        async def handler(request):
-            return "ok"
-
-        request = _make_request(method="POST")
-        assert await handler(request) == "ok"
-
-    @pytest.mark.asyncio
-    async def test_production_with_valid_token_passes(self, monkeypatch):
-        monkeypatch.setenv(CSRF_ENFORCE_ENV, "false")
-        monkeypatch.setenv("SKUEL_ENVIRONMENT", "production")
-        token = mint_token()
-
-        @csrf_protected
-        async def handler(request):
-            return "ran"
-
-        request = _make_request(
-            method="POST",
-            cookies={CSRF_COOKIE_NAME: token},
-            headers={CSRF_HEADER_NAME: token},
-        )
-        assert await handler(request) == "ran"
 
 
 # ============================================================================
