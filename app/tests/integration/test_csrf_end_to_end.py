@@ -17,7 +17,13 @@ from starlette.responses import PlainTextResponse
 from starlette.routing import Route
 from starlette.testclient import TestClient
 
-from adapters.inbound.csrf import CSRF_COOKIE_NAME, CSRF_HEADER_NAME, CSRFMiddleware, csrf_protected
+from adapters.inbound.csrf import (
+    CSRF_COOKIE_NAME,
+    CSRF_ENFORCE_ENV,
+    CSRF_HEADER_NAME,
+    CSRFMiddleware,
+    csrf_protected,
+)
 
 if TYPE_CHECKING:
     from starlette.requests import Request
@@ -130,8 +136,12 @@ class TestMintExemption:
 
 
 class TestEnforcementOff:
+    """The flag's own off-switch semantics — not a route-test affordance
+    (route suites mint real tokens via tests/fixtures/csrf.py). Dies with
+    the flag (PR B, security-hardening-deferred.md § 8)."""
+
     def test_post_without_token_passes_when_disabled(self, monkeypatch):
-        monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "false")
+        monkeypatch.setenv(CSRF_ENFORCE_ENV, "false")
         client = TestClient(_build_app())
         response = client.post("/write")
         assert response.status_code == 200

@@ -32,11 +32,13 @@ from core.models.ps_content.content_chunks import CHUNKING_ALGORITHM_VERSION
 from core.services.chunks.batch_chunking_service import BatchChunkingService
 from core.services.entity_chunking_service import EntityChunkingService
 from core.utils.result_simplified import Result
+from tests.fixtures.csrf import attach_csrf
 
 
 @pytest.fixture(autouse=True)
-def _disable_csrf(monkeypatch) -> None:
-    monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "false")
+def _enforce_csrf(monkeypatch) -> None:
+    """Pin enforcement ON — request stubs carry a real minted token pair."""
+    monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "true")
 
 
 class _RouteRegistry:
@@ -82,7 +84,7 @@ def _admin_request(json_body: dict | None = None):
     request.method = "POST"
     request.url = SimpleNamespace(path="/api/chunks/regenerate")
     request.json = AsyncMock(return_value=json_body or {})
-    return request
+    return attach_csrf(request)
 
 
 _FIXTURE_BODY = """---

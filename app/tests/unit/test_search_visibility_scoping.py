@@ -552,8 +552,9 @@ class _RouteRegistry:
 class TestUnifiedRouteUserScope:
     @pytest.mark.asyncio
     async def test_route_builds_request_with_caller_uid(self, monkeypatch) -> None:
-        monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "false")
+        monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "true")
         from adapters.inbound.search_routes import create_search_api_routes
+        from tests.fixtures.csrf import attach_csrf
 
         registry = _RouteRegistry()
         search_router = MagicMock()
@@ -565,11 +566,13 @@ class TestUnifiedRouteUserScope:
         create_search_api_routes(app=MagicMock(), rt=registry, search_router=search_router)
         handler = registry.handlers[("/api/search/unified", "POST")]
 
-        fake_request = SimpleNamespace(
-            method="POST",  # csrf_protected passes: enforcement disabled above
-            session={"user_uid": "user_caller"},
-            url=SimpleNamespace(path="/api/search/unified"),
-            headers={},
+        fake_request = attach_csrf(
+            SimpleNamespace(
+                method="POST",  # csrf_protected verifies for real: minted pair attached
+                session={"user_uid": "user_caller"},
+                url=SimpleNamespace(path="/api/search/unified"),
+                headers={},
+            )
         )
         response = await handler(fake_request, query="Alpha")
 

@@ -302,15 +302,19 @@ words: "delete after staging is green."
 - It is declared in **no** `.env.example`, compose file, or `.env.production` — it lives only
   in code and the `security` skill doc. An undeclared knob.
 
-**But it is not only a rollout lever — it is a test affordance.** 45 test files set it: 32 set
-it `true` to assert enforcement (those become redundant), and **15 set it `false`** so route
-tests can POST without minting a token. Deleting the flag makes those 15 fixtures fail, so this
-is a test-infrastructure change, not housekeeping. That dependency is the actual reason it has
-survived, and it is what the original note missed.
+**The test-affordance dependency is cleared (2026-08-13).** It was the actual reason the flag
+survived — 15 test files set it `false` so route tests could POST without minting a token.
+Those suites now mint real tokens instead: `tests/fixtures/csrf.py` (`attach_csrf`) puts a
+matching cookie+header pair on the request stubs and each migrated suite pins enforcement ON,
+so real verification runs in front of every route-test assertion. The only remaining `false`
+sites are the flag's own semantics tests (`tests/unit/adapters/test_csrf.py`,
+`tests/integration/test_csrf_end_to_end.py::TestEnforcementOff`) — they reference
+`CSRF_ENFORCE_ENV` and are deleted with the flag. The `true` sites merely pin the default and
+sweep with the removal.
 
 **The argument for doing it now** (Codex, PR #1044): a roadmap item that preserves an obsolete
 alternative path until some future edit **is** a deprecation period, which One Path Forward
-forbids. The counter-argument is scope, not principle — see the 15 fixtures above.
+forbids. The counter-argument was fixture scope — now cleared (see above).
 
 **⚠ Do NOT delete `_is_production()`.** It has two callers and only one is the bypass:
 
@@ -321,10 +325,11 @@ forbids. The counter-argument is scope, not principle — see the 15 fixtures ab
 
 Removing `_is_production()` outright would strip `Secure` from the CSRF cookie in production.
 
-**Do when**: whoever next has appetite for the 15 fixtures. Delete `CSRF_ENFORCE_ENV`,
-`is_csrf_enforced()`, its `__all__` entry, and the bypass condition; rework the 15 `false`
-fixtures to mint tokens; drop the flag assertions in `tests/unit/adapters/test_csrf.py`; keep
-`_is_production()` for the cookie attribute.
+**Do when**: next appetite — the fixture rework is done, so this is now the small PR the
+original note imagined. Delete `CSRF_ENFORCE_ENV`, `is_csrf_enforced()`, its `__all__` entry,
+and the bypass condition; drop the flag-semantics tests (grep `CSRF_ENFORCE_ENV` under
+`tests/`) and the now-redundant `SKUEL_CSRF_ENFORCE=true` setenvs; keep `_is_production()`
+for the cookie attribute.
 
 ---
 
@@ -341,7 +346,7 @@ Status as of 2026-07-24 (public-launch hardening shipped in PR #794); item 8 add
 | 5 | **Session rotation** | ✅ Done (2026-07-24) — revocation on role change/deactivation + per-request graph-session enforcement |
 | 6 | **CAPTCHA** | Open — only if automated sign-up abuse occurs despite the invite gate |
 | 7 | **Security headers** | ✅ Done (PR #794) — CSP promotion + Caddy HSTS remain |
-| 8 | **CSRF flag removal** | Open — production already ignores the flag, but 15 test fixtures rely on the off-switch, so removal is a test-infrastructure change, not a one-liner |
+| 8 | **CSRF flag removal** | Open — production already ignores the flag; the 15-fixture dependency was cleared 2026-08-13 (real-token helper `tests/fixtures/csrf.py`), so removal is now the small delete § 8 describes |
 
 ---
 

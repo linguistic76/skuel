@@ -20,12 +20,14 @@ from core.models.chunks_request import RegenerateChunksRequest
 from core.models.enums import UserRole
 from core.services.chunks.batch_chunking_service import RegenerationStats
 from core.utils.result_simplified import Errors, Result
+from tests.fixtures.csrf import attach_csrf
 
 
 @pytest.fixture(autouse=True)
-def _disable_csrf(monkeypatch) -> None:
-    """csrf_protected reads env at call time — force enforcement off for unit tests."""
-    monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "false")
+def _enforce_csrf(monkeypatch) -> None:
+    """csrf_protected reads env at call time — pin enforcement ON; the
+    request stubs carry a real minted token pair (attach_csrf)."""
+    monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "true")
 
 
 class _RouteRegistry:
@@ -78,7 +80,7 @@ def _request_with_session(session: dict | None, json_body: dict | None = None):
         request.json = AsyncMock(return_value=json_body)
     else:
         request.json = AsyncMock(return_value={})
-    return request
+    return attach_csrf(request)
 
 
 # ============================================================================

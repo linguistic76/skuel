@@ -23,12 +23,14 @@ from adapters.inbound.route_factories import (
     create_activity_field_api_routes,
 )
 from core.utils.result_simplified import Errors, Result
+from tests.fixtures.csrf import attach_csrf
 
 
 @pytest.fixture(autouse=True)
-def _disable_csrf(monkeypatch: pytest.MonkeyPatch) -> None:
-    """``csrf_protected`` reads env at call time — force enforcement off."""
-    monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "false")
+def _enforce_csrf(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``csrf_protected`` reads env at call time — pin enforcement ON so the
+    request stubs (which carry a real minted token pair) verify for real."""
+    monkeypatch.setenv("SKUEL_CSRF_ENFORCE", "true")
 
 
 class _RouteRegistry:
@@ -60,11 +62,13 @@ class _FakeEntity:
 
 def _request(form_data: dict[str, str] | None, user_uid: str = "user_test") -> Any:
     """Build a minimal request stub with a session and async ``.form()``."""
-    return SimpleNamespace(
-        method="POST",
-        session={"user_uid": user_uid},
-        url=SimpleNamespace(path="/api/tasks/uid/status"),
-        form=AsyncMock(return_value=form_data or {}),
+    return attach_csrf(
+        SimpleNamespace(
+            method="POST",
+            session={"user_uid": user_uid},
+            url=SimpleNamespace(path="/api/tasks/uid/status"),
+            form=AsyncMock(return_value=form_data or {}),
+        )
     )
 
 
