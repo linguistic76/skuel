@@ -97,8 +97,21 @@ SCRATCH_CITATION = re.compile(
 MEMORY_CITATION = re.compile(
     r"""
     (?:
-        \b[Mm]emory[:/\s]+\b(?:project|feedback|user|reference|archive)_[a-z0-9_]+  # memory foo, Memory: foo, memory/foo
-      | \b(?:project|feedback|user|reference|archive)_[a-z0-9_]+\.md\b          # foo.md
+        # 1. Explicit citation CUE + any slug — "see memory entity-label-overload",
+        #    "Memory: project_foo", "memory/feedback_bar". The cue (a `see`, a colon,
+        #    or a path slash) is what separates a citation from ordinary prose about
+        #    RAM: "in-memory filtering", "memory usage", "Memory exhaustion" carry no
+        #    cue and must never fire. `(?<!in-)` kills the in-memory compound, whose
+        #    hyphen would otherwise satisfy \b.
+        (?:
+            (?<!in-)\b[Mm]emory\s*[:/]\s*
+          | \bsee\s+memory\s+
+        )
+        `?\b[a-z][a-z0-9]*[_-][a-z0-9_-]{2,}      # slug must carry a _ or - (multi-word)
+        # 2. A memory slug written as a filename, cue or not.
+      | \b(?:project|feedback|user|reference|archive)_[a-z0-9_]+\.md\b
+        # 3. The prefixed slug directly after the word, no punctuation cue.
+      | \b[Mm]emory\s+`?\b(?:project|feedback|user|reference|archive)_[a-z0-9_]+
     )
     """,
     re.VERBOSE,

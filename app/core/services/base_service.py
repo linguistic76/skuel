@@ -532,7 +532,8 @@ class BaseService(
         spelling (EntityType values: "task", "path_step", "ku") from producer
         to consumer, replacing the three vocabularies #536 normalized at the
         render boundary. Distinct from ``config_lookup_label`` (a registry key,
-        not an EntityType) — see memory entity-label-overload.
+        not an EntityType) — the lookup label already carries two jobs; do not
+        add a third.
 
         Returns:
             EntityType value string. Falls back to the lowered lookup label

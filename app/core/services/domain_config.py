@@ -286,8 +286,8 @@ class DomainConfig:
 
         Derived from ``model_class`` via ENTITY_TYPE_CLASS_MAP (the canonical
         EntityType→class map) — never string-munged from a label, and never
-        conflated with ``config_lookup_label`` (see memory entity-label-overload:
-        the lookup label has two jobs already; do not add a third).
+        conflated with ``config_lookup_label`` — that lookup label has two jobs
+        already; do not add a third.
 
         Returns:
             The EntityType value (e.g., "task", "path_step", "ku").

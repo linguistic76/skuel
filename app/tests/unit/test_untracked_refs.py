@@ -130,6 +130,32 @@ class TestMemoryCitationPattern:
         ):
             assert guard.WIKILINK_MEMORY_CITATION.search(line), f"should flag: {line}"
 
+    def test_flags_hyphenated_and_prefixless_slugs(self) -> None:
+        """Codex #1047 round 2: real memory slugs are not all
+        `project_`/`feedback_`-prefixed with underscores. `entity-label-overload`
+        is hyphenated and prefixless, and two live docstrings cited it."""
+        guard = _load_guard()
+        for line in (
+            "        not an EntityType) — see memory entity-label-overload.",
+            "        conflated with ``config_lookup_label`` (see memory entity-label-overload:",
+        ):
+            assert guard.MEMORY_CITATION.search(guard._probe(line)), f"should flag: {line}"
+
+    def test_does_not_flag_prose_about_ram(self) -> None:
+        """The cost of widening the slug grammar: 'memory' is an ordinary English
+        word here. A CUE — `see memory`, a colon, or a path slash — is what makes a
+        citation, and `(?<!in-)` keeps the in-memory compound out."""
+        guard = _load_guard()
+        for line in (
+            "    The counter lives in the in-memory rate-limit store",
+            "            10-100x performance improvement over in-memory filtering.",
+            "dataclass is the in-memory projection returned by the facade's lifecycle",
+            "| Memory exhaustion on large result sets | Low | Medium | monitor memory usage |",
+            "- Minimal memory footprint (~few KB)",
+            "- Memory intensive (loading all KUs and prerequisites into Python)",
+        ):
+            assert not guard.MEMORY_CITATION.search(guard._probe(line)), f"should NOT flag: {line}"
+
     def test_does_not_flag_an_identifier_that_merely_contains_memory(self) -> None:
         """`self.user_memory[user_uid]` flattens to `user_memory user_uid` under
         _probe, which read as marker-plus-slug until \\b anchored the marker."""
