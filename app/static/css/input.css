@@ -127,14 +127,6 @@
     --input: 214.3 31.8% 91.4%;
     --ring: 221.2 83.2% 53.3%;
     --radius: 0.375rem;
-
-    /* Spacing tokens (consistent across pages) */
-    --space-page: 1.5rem;        /* Page padding (24px = p-6) */
-    --space-page-lg: 2rem;       /* Desktop page padding (32px = p-8) */
-    --space-section: 2rem;       /* Between major sections (32px) */
-    --space-content: 1rem;       /* Between content items (16px = gap-4) */
-    --space-card: 1.5rem;        /* Card internal padding (24px = p-6) */
-    --space-card-compact: 1rem;  /* Compact card padding (16px = p-4) */
   }
 
   .dark {

@@ -346,20 +346,6 @@ SectionHeader("Recent Tasks")
 SectionHeader("Active Goals", action=ButtonLink("View All", href="/goals", cls=ButtonT.ghost, size="xs"))
 ```
 
-### CSS Spacing Tokens
-
-Defined in `/static/css/input.css`:
-
-```css
-:root {
-  --space-page: 1.5rem;        /* p-6 */
-  --space-page-lg: 2rem;       /* lg:p-8 */
-  --space-section: 2rem;       /* Between sections */
-  --space-content: 1rem;       /* Between items */
-  --space-card: 1.5rem;        /* Card padding */
-}
-```
-
 ---
 
 ## Import Pattern (SKUEL Components)
