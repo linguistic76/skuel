@@ -104,8 +104,8 @@ MEMORY_CITATION = re.compile(
         #    cue and must never fire. `(?<!in-)` kills the in-memory compound, whose
         #    hyphen would otherwise satisfy \b.
         (?:
-            (?<!in-)\b[Mm]emory\s*[:/]\s*
-          | \bsee\s+memory\s+
+            (?<!in-)\b(?i:memory)\s*[:/]\s*
+          | \b(?i:see\s+memory)\s+
         )
         `?\b[a-z][a-z0-9]*[_-][a-z0-9_-]{2,}      # slug must carry a _ or - (multi-word)
         # 2. TRAILING tag — "entity-label-overload (memory)". The cue follows the
@@ -127,11 +127,17 @@ MEMORY_CITATION = re.compile(
     re.VERBOSE,
 )
 
-# Obsidian wiki-link to a memory slug — ``[[project_foo]]``. Unambiguous even with
-# no marker word (Python has no ``[[ ]]`` syntax), so unlike the bare backticked
-# slug this form CAN be gated. Matched against the raw line, before ``_probe``
-# flattens brackets.
-WIKILINK_MEMORY_CITATION = re.compile(r"\[\[[a-z][a-z0-9]*[_-][a-z0-9_-]{2,}\]\]")
+# NOTE: there is deliberately NO bare-wiki-link rule. An earlier version gated
+# ``[[slug]]`` on the reasoning that brackets are unambiguous — which is exactly
+# backwards HERE (Codex, PR #1047 round 5). ``[[target]]`` is first-class product
+# syntax: ``core/services/ingestion/moc_links.py`` parses wiki-links for MOC
+# ingestion, and a tracked fixture in ``tests/unit/test_content_boundary.py``
+# already embeds them. Resolving the target against tracked files does not rescue
+# it either — a dangling MOC link is RULED legitimate in a personal vault
+# (docs/roadmap/done/moc-knowledge-channel-design-notes.md § MOC). So the bare
+# wiki-link joins the bare backticked slug on the "cannot gate" list; a MARKED one
+# (``**Memory:** [[slug]]``) is still caught, because ``_probe`` flattens the
+# brackets and the cue alternative sees it.
 
 # Files allowed to contain the pattern: this guard and its test necessarily spell
 # out what they forbid.
@@ -209,11 +215,7 @@ def find_violations() -> tuple[list[tuple[str, int, str]], list[str]]:
             memory_hit = MEMORY_CITATION.search(probe)
             if memory_hit and memory_hit.group().rsplit("/", 1)[-1] in tracked_basenames:
                 memory_hit = None  # names a real tracked document, not memory
-            if (
-                SCRATCH_CITATION.search(probe)
-                or memory_hit
-                or WIKILINK_MEMORY_CITATION.search(line)
-            ):
+            if SCRATCH_CITATION.search(probe) or memory_hit:
                 citations.append((rel, index + 1, line.strip()))
                 continue
             # A marker can end a line with its slug on the next ("See memory:\n

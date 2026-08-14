@@ -120,20 +120,43 @@ class TestMemoryCitationPattern:
             )
         )
 
-    def test_flags_bare_wiki_links(self) -> None:
-        """`[[foo]]` needs no marker — Python has no `[[ ]]` syntax, so unlike a
-        bare backticked slug this form is unambiguous and IS gated. The grammar
-        must be the FULL slug grammar (Codex #1047 round 4): restricting it to the
-        five underscore prefixes let `[[entity-label-overload]]` through, which
-        contradicted this rule's own rationale."""
+    def test_marked_wiki_links_are_caught_by_the_cue(self) -> None:
+        """A MARKED wiki-link still fires: `_probe` flattens the brackets and the
+        cue alternative sees `Memory: slug`. No separate wiki-link rule needed."""
+        guard = _load_guard()
+        assert guard.MEMORY_CITATION.search(
+            guard._probe("- **Memory:** [[project_journals_discussion_arc]]")
+        )
+
+    def test_does_not_flag_a_bare_wiki_link(self) -> None:
+        """Codex #1047 round 5, and it reverses an earlier assumption of mine.
+        `[[target]]` is PRODUCT syntax here — `core/services/ingestion/moc_links.py`
+        parses wiki-links for MOC ingestion, and a tracked fixture in
+        `test_content_boundary.py` embeds them. Gating on slug shape would red the
+        always-on gate on a legitimate MOC example. Resolving the target does not
+        help either: a dangling MOC link is RULED legitimate in a personal vault.
+        So the bare form joins the bare backticked slug on the cannot-gate list."""
         guard = _load_guard()
         for line in (
-            "- **Privacy commitment:** [[project_journal_privacy_commitment]] (ADR-073)",
-            "per standing merge authorization — [[feedback_standing_merge_after_reviews]]):",
-            "read as current (no infinite re-chunk). See [[chunk_version_tag]].",
-            "entry-enrichment ([[entry-enrichment-capability]], EXTRACT_ACTIVITIES /",
+            "moc.write_text('---\\nmoc: true\\n---\\n\\n[[link-a]] [[linked-note]]\\n')",
+            "- Wiki-links: ``[[target]]``, ``[[target|alias]]``, ``[[target#heading]]``",
+            "See [[some-vault-note]] for the map.",
         ):
-            assert guard.WIKILINK_MEMORY_CITATION.search(line), f"should flag: {line}"
+            assert not guard.MEMORY_CITATION.search(guard._probe(line)), f"should NOT flag: {line}"
+
+    def test_accepts_uppercase_cues(self) -> None:
+        """Codex #1047 round 5: `MEMORY:` and `See MEMORY:` are unambiguous marked
+        citations. The CUE is case-insensitive; the slug and document-name forms
+        stay lowercase, which is what keeps SHOUTING doc names out."""
+        guard = _load_guard()
+        for line in (
+            "MEMORY: project_external_slug",
+            "See MEMORY: entity-label-overload",
+        ):
+            assert guard.MEMORY_CITATION.search(guard._probe(line)), f"should flag: {line}"
+        assert not guard.MEMORY_CITATION.search(
+            guard._probe("**File:** `/docs/architecture/UNIFIED_USER_ARCHITECTURE.md`")
+        )
 
     def test_does_not_flag_a_path_qualified_document_link(self) -> None:
         """Codex #1047 round 4, the dangerous direction: an unqualified prefix
