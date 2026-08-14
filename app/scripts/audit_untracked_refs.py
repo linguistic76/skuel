@@ -103,11 +103,20 @@ MEMORY_CITATION = re.compile(
         #    RAM: "in-memory filtering", "memory usage", "Memory exhaustion" carry no
         #    cue and must never fire. `(?<!in-)` kills the in-memory compound, whose
         #    hyphen would otherwise satisfy \b.
+        # "see memory X" is an unmistakable citation verb, so X may be any slug.
+        \b(?i:see\s+memory)[:\s]\s*`?\b[a-z][a-z0-9]*[_-][a-z0-9_-]{2,}
+        # A bare "Memory:" is NOT unmistakable — it is also an ordinary field or
+        # metric label ("Peak Memory: per_worker_buffer", "Memory: page_cache",
+        # Codex #1047 r7). So the colon/slash form additionally requires the slug to
+        # look like a memory doc: backticked, prefix-named, or a .md filename. The
+        # one real instance of this form found in the tree was
+        # "- Memory: `project_find_by_user_uid_vs_owns`" — backticked and prefixed.
+      | (?<!in-)\b(?i:memory)\s*[:/]\s*
         (?:
-            (?<!in-)\b(?i:memory)\s*[:/]\s*
-          | \b(?i:see\s+memory)\s+
+            `[a-z][a-z0-9]*[_-][a-z0-9_-]{2,}`
+          | (?:project|feedback|user|reference|archive)_[a-z0-9_]+
+          | [a-z][a-z0-9]*[_-][a-z0-9_-]{2,}\.md\b
         )
-        `?\b[a-z][a-z0-9]*[_-][a-z0-9_-]{2,}      # slug must carry a _ or - (multi-word)
         # 2. TRAILING tag — "entity-label-overload (memory)". The cue follows the
         #    slug instead of preceding it, so alternative 1 cannot see it. PR #1046
         #    removed citations in this exact shape, but they matched only because

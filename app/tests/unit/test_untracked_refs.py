@@ -210,6 +210,21 @@ class TestMemoryCitationPattern:
         ):
             assert guard.MEMORY_CITATION.search(guard._probe(line)), f"should flag: {line}"
 
+    def test_does_not_flag_memory_used_as_a_field_label(self) -> None:
+        """Codex #1047 round 7. A bare `Memory:` is not a citation verb — it is
+        also an ordinary field or metric label. `see memory X` stays permissive
+        because the verb is unmistakable; the colon form requires the slug to look
+        like a memory doc (backticked, prefixed, or a .md name)."""
+        guard = _load_guard()
+        for line in ("Peak Memory: per_worker_buffer", "Memory: page_cache"):
+            assert not guard.MEMORY_CITATION.search(guard._probe(line)), f"should NOT flag: {line}"
+        # …while the real observed shape of this form still fires.
+        assert guard.MEMORY_CITATION.search(
+            guard._probe(
+                "- Memory: `project_find_by_user_uid_vs_owns`, `project_user_uid_canonical`."
+            )
+        )
+
     def test_does_not_flag_prose_about_ram(self) -> None:
         """The cost of widening the slug grammar: 'memory' is an ordinary English
         word here. A CUE — `see memory`, a colon, or a path slash — is what makes a
