@@ -1113,9 +1113,11 @@ class ActivityDSLParser:
 
         Accepted forms: the two sanctioned spellings — generated
         ``ku_{slug}_{random}`` (ADR-013) and authored ``ku.{ns}.{slug}``.
-        Returns the full UID string. The lenient fallback emits the
-        authored dot form: machine channels speak canonical spellings
-        (emission rule; the colon input alias was deleted 2026-08-14).
+        Returns the full UID string. The retired colon spelling
+        (``ku:…``) is REJECTED (returns None with a warning) — never
+        rewritten, never double-prefixed. The lenient missing-prefix
+        fallback emits the authored dot form: machine channels speak
+        canonical spellings (emission rule).
         """
         if not value:
             return None
@@ -1125,6 +1127,13 @@ class ActivityDSLParser:
 
         if value.startswith(("ku.", "ku_")):
             return value
+
+        if value.startswith("ku:"):
+            # Retired colon spelling (input alias deleted 2026-08-14) —
+            # prefixing it would mint garbage (``ku.ku:…``) that silently
+            # misses the intended Ku; omit the reference and say why.
+            self.logger.warning(f"Rejected retired colon-spelled KU reference: {value}")
+            return None
 
         self.logger.warning(f"Invalid KU format (missing ku prefix): {value}")
         # Be lenient - add prefix if missing

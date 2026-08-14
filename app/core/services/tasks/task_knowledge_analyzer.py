@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import asyncio
 import statistics
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import TYPE_CHECKING, Any, cast
@@ -160,14 +161,29 @@ class TaskKnowledgeAnalyzer:
                 )
             )
 
+    async def resolve_ku_categories(self, knowledge_uids: Sequence[str]) -> dict[str, str]:  # skuel-lint: disable=SKUEL005 -- deliberate degrade-to-{}, mirrors KnowledgePatternAnalyzer.resolve_categories
+        """Batch-map knowledge UIDs to their ``sel_category`` field.
+
+        Public passthrough to the composed generic analyzer so batch callers
+        (calculate_knowledge_aware_priorities) can resolve once for a whole
+        task set instead of once per task.
+        """
+        return await self._generic_analyzer.resolve_categories(knowledge_uids)
+
     async def calculate_knowledge_aware_priority(
         self,
         task: Task,
         user_mastery_progressions: dict[str, MasteryProgression],
         learning_patterns: list[LearningPattern],
+        ku_categories: dict[str, str] | None = None,
     ) -> Result[KuAwarePriority]:
         """
         Calculate knowledge-aware priority scoring for a task.
+
+        Args:
+            ku_categories: Optional pre-resolved uid→sel_category map. Batch
+                callers pass one map for the whole task set (one query);
+                when None, this task's linked uids are resolved here.
 
         Returns:
             Result[KuAwarePriority] with weighted composite score.
@@ -188,9 +204,10 @@ class TaskKnowledgeAnalyzer:
             mastery_progression = self._calculate_mastery_progression_score(
                 task, rels, user_mastery_progressions
             )
-            ku_categories = await self._generic_analyzer.resolve_categories(
-                rels.applies_knowledge_uids + rels.inferred_knowledge_uids
-            )
+            if ku_categories is None:
+                ku_categories = await self._generic_analyzer.resolve_categories(
+                    rels.applies_knowledge_uids + rels.inferred_knowledge_uids
+                )
             cross_domain_impact = self._calculate_cross_domain_impact_score(
                 task, rels, learning_patterns, ku_categories
             )

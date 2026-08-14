@@ -3293,6 +3293,15 @@ class UserMasteryResult(TypedDict, total=False):
     updated_at: str | None
 
 
+class SelCategoryRow(TypedDict):
+    """Return shape for get_sel_categories() — an entity uid paired with its
+    non-null ``sel_category`` field (the query filters null categories at the
+    source, so both keys are always present)."""
+
+    uid: str
+    sel_category: str
+
+
 class PrereqMasteryResult(TypedDict, total=False):
     """Return shape for query_user_mastery_for_prereqs()."""
 

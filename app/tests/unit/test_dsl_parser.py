@@ -216,6 +216,17 @@ class TestKnowledgeAndLinks:
         assert result.is_ok
         assert result.value.primary_ku == "ku.sel/mindfulness-intro"
 
+    def test_parse_ku_colon_spelling_rejected(self):
+        """The retired colon spelling is OMITTED (None), never rewritten —
+        the old lenient fallback minted garbage (``ku.ku:…``) that parsed
+        successfully but silently missed the intended Ku (Codex P1 #1054)."""
+        result = parse_activity_line(
+            "- [ ] Study mindfulness @context(task,learning) @ku(ku:sel/mindfulness-intro)"
+        )
+
+        assert result.is_ok
+        assert result.value.primary_ku is None
+
     def test_parse_single_link(self):
         """Parse single @link."""
         result = parse_activity_line("- [ ] Exercise @context(habit) @link(goal:health/fitness)")

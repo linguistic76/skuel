@@ -114,10 +114,19 @@ class _ProductivityMixin:
         )
         mastery_progressions = mastery_result.value if mastery_result.is_ok else {}
 
+        # One sel_category batch for the whole task set — the per-task scorer
+        # would otherwise issue one lookup per task (Codex P2 #1054). Union of
+        # the same uid tiers the scorer reads (applies + inferred).
+        linked_uids: set[str] = set()
+        for rels in rels_list:
+            linked_uids.update(rels.applies_knowledge_uids)
+            linked_uids.update(rels.inferred_knowledge_uids)
+        ku_categories = await self._knowledge_analyzer.resolve_ku_categories(list(linked_uids))
+
         priorities = []
         for task in tasks_to_prioritize:
             priority_result = await self._knowledge_analyzer.calculate_knowledge_aware_priority(
-                task, mastery_progressions, patterns
+                task, mastery_progressions, patterns, ku_categories=ku_categories
             )
             if priority_result.is_ok:
                 priorities.append(priority_result.value)

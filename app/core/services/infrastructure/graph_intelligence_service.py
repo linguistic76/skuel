@@ -527,13 +527,8 @@ class GraphIntelligenceService:
         result = await self.backend.get_sel_categories(uids)
         if result.is_error:
             return Result.fail(result)
-        mapping: dict[str, str] = {}
-        for record in result.value or []:
-            uid = record.get("uid")
-            sel_category = record.get("sel_category")
-            if uid and sel_category:
-                mapping[str(uid)] = str(sel_category)
-        return Result.ok(mapping)
+        # SelCategoryRow guarantees both keys (nulls filtered at the source).
+        return Result.ok({row["uid"]: row["sel_category"] for row in result.value or []})
 
     @with_error_handling(error_type="database", uid_param="entity_uid")
     async def get_entity_context(
