@@ -88,7 +88,7 @@ FormTemplates are linked to PathSteps via the `EMBEDS_FORM` relationship. When a
 POST /api/form-templates/link-path-step
 {
   "form_template_uid": "ft_weekly_reflection_abc123",
-  "path_step_uid": "ps:intro-to-python:basics"
+  "path_step_uid": "ps.intro-to-python.basics"
 }
 ```
 
@@ -98,7 +98,7 @@ POST /api/form-templates/link-path-step
 POST /api/form-templates/unlink-path-step
 {
   "form_template_uid": "ft_weekly_reflection_abc123",
-  "path_step_uid": "ps:intro-to-python:basics"
+  "path_step_uid": "ps.intro-to-python.basics"
 }
 ```
 

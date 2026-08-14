@@ -624,7 +624,7 @@ From the `mindfulness_101` bundle — enum-governed fields marked with `# ← en
 
 ```yaml
 type: Habit                    # ← EntityType.HABIT
-uid: habit:daily-2min-breath
+uid: habit.daily-2min-breath
 title: Daily 2-Minute Breath
 priority: medium               # ← Priority.MEDIUM
 polarity: build                # ← HabitPolarity.BUILD

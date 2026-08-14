@@ -134,16 +134,17 @@ MERGE (child)-[:SUBTASK_OF]->(parent)
 
 #### KU (Knowledge Units)
 
-**UID Format:**
+**UID Format** (two sanctioned forms — spelling is provenance, never type information):
 ```
-ku_{slug}_{random}
+ku.{namespace}.{slug}     # authored (vault)
+ku_{slug}_{random}        # generated (API)
 ```
 
 **Examples:**
 ```
+ku.mindfulness.attention
+ku.yoga.pranayama
 ku_meditation-basics_a1b2c3d4
-ku_python-functions_x7y8z9w0
-ku_machine-learning-101_def45678
 ```
 
 **Organization Relationship:**
@@ -204,15 +205,15 @@ A KU "is" a MOC when it has outgoing ORGANIZES relationships. MOC is NOT a separ
 
 #### PS (Path Steps)
 
-**UID Format:**
+**UID Format** (authored; the retired `ls:` Lesson prefix is history — Lesson merged into PathStep 2026-04):
 ```
-ls:{random12}
+ps.{namespace}.{slug}
 ```
 
 **Examples:**
 ```
-ls:a1b2c3d4e5f6
-ls:x7y8z9w0v1u2
+ps.mindfulness.breath-awareness-basics
+ps.mindfulness-101.step-1
 ```
 
 **Relationships:**
@@ -248,15 +249,15 @@ wrappers were deleted in the 2026-06 curriculum dead-code campaign.
 
 #### LP (Learning Paths)
 
-**UID Format:**
+**UID Format** (authored):
 ```
-lp:{random}
+lp.{slug}            # or lp.{namespace}.{slug}
 ```
 
 **Examples:**
 ```
-lp:abc123xyz789
-lp:def456ghi012
+lp.mindfulness-101
+lp.self-reflection-101
 ```
 
 **Relationships:**

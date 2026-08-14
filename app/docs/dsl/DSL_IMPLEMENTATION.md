@@ -306,7 +306,7 @@ def parse_ku(value: str) -> tuple[str, str] | None:
 
 **Example:**
 ```python
-parse_ku("ku:teens-yoga/focus-lesson")
+parse_ku("ku.teens-yoga/focus-lesson")
 # Result: ("teens-yoga", "focus-lesson")
 ```
 

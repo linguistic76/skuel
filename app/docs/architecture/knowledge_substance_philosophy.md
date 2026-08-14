@@ -201,7 +201,7 @@ Entry-Enrichment PR 3). The handler is writer-agnostic — same event, same cred
 ```yaml
 # Choice — informed by knowledge (creates INFORMED_BY_KNOWLEDGE edge)
 type: Choice
-uid: choice:2-minutes-right-now
+uid: choice.2-minutes-right-now
 title: Do Two Minutes Right Now
 connections:
   informed_by_knowledge:
@@ -209,7 +209,7 @@ connections:
 
 # Principle — grounded in knowledge (creates GROUNDED_IN_KNOWLEDGE edge)
 type: Principle
-uid: principle:small-steps
+uid: principle.small-steps
 name: Small Steps Beat Big Bursts
 connections:
   grounded_in_knowledge:
@@ -218,7 +218,7 @@ connections:
 
 # Task — applies knowledge (creates APPLIES_KNOWLEDGE edge)
 type: Task
-uid: task:log-first-5-sessions
+uid: task.log-first-5-sessions
 title: Log First 5 Sessions
 connections:
   applies_knowledge:
@@ -226,7 +226,7 @@ connections:
 
 # Habit — reinforces knowledge (creates REINFORCES_KNOWLEDGE edge)
 type: Habit
-uid: habit:daily-2min-breath
+uid: habit.daily-2min-breath
 title: Daily 2-Minute Breath
 connections:
   reinforces_knowledge:

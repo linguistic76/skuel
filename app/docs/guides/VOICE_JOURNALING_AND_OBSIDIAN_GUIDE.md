@@ -319,7 +319,7 @@ For activities that aren't part of a daily note — a goal you're setting for th
 **Task**
 ```yaml
 type: Task
-uid: task:write-chapter-3
+uid: task.write-chapter-3
 title: Write Chapter 3 — Habits
 status: active
 priority: high
@@ -328,7 +328,7 @@ priority: high
 **Goal**
 ```yaml
 type: Goal
-uid: goal:finish-book-draft
+uid: goal.finish-book-draft
 title: Finish the book draft by August
 goal_type: project
 timeframe: quarterly
@@ -338,7 +338,7 @@ status: active
 **Habit**
 ```yaml
 type: Habit
-uid: habit:morning-meditation
+uid: habit.morning-meditation
 title: Morning Meditation (20 min)
 polarity: build
 category: mindfulness
@@ -350,7 +350,7 @@ status: active
 **Event**
 ```yaml
 type: Event
-uid: event:riverside-workshop-2026-07-15
+uid: event.riverside-workshop-2026-07-15
 title: Workshop at Riverside School
 status: scheduled
 ```
@@ -358,7 +358,7 @@ status: scheduled
 **Choice**
 ```yaml
 type: Choice
-uid: choice:publish-over-perfect
+uid: choice.publish-over-perfect
 title: Publish now rather than wait for perfect
 choice_type: binary
 status: active
@@ -367,7 +367,7 @@ status: active
 **Principle**
 ```yaml
 type: Principle
-uid: principle:small-steps
+uid: principle.small-steps
 title: Small Steps Beat Big Bursts
 category: personal
 strength: core
@@ -380,14 +380,14 @@ Once you have learning content in SKUEL (PathSteps and Knowledge Units), you can
 
 ```yaml
 type: Habit
-uid: habit:morning-meditation
+uid: habit.morning-meditation
 title: Morning Meditation (20 min)
 polarity: build
 category: mindfulness
 status: active
 connections:
   reinforces_knowledge:
-    - ps:mindfulness:breath-awareness-basics
+    - ps.mindfulness.breath-awareness-basics
 ```
 
 Each connection type carries a different weight. Habits that reinforce knowledge (you practice something every day) score highest; tasks and events that apply knowledge score slightly lower. The substance score on a knowledge item climbs as you actually live it.

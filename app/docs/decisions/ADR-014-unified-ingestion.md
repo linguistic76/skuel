@@ -72,8 +72,8 @@ SKUEL philosophy: "One path forward." A single, well-designed service is better 
 
 All UIDs normalized to dot notation:
 ```
-ku:breath-awareness  →  ku.breath-awareness
-task:log-sessions    →  task.log-sessions
+ku:breath-awareness  →  ku.breath-awareness   (legacy colon spelling, normalized)
+task:log-sessions    →  task.log-sessions     (legacy colon spelling, normalized)
 ```
 
 ### Service Interface

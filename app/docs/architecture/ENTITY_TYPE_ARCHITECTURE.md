@@ -508,7 +508,7 @@ The Activity DSL enables natural language parsing into entity types:
 - [ ] Choose tech stack          @context(choice)    @link(goal:mvp-launch)
 - [ ] AWS hosting $150           @context(finance)   @category(skuel)
 - [ ] Python async/await         @context(ku)        @energy(focus)
-- [ ] Complete async exercises   @context(ls)        @ku(ku:python/async)
+- [ ] Complete async exercises   @context(ls)        @ku(ku.python/async)
 - [ ] Master async programming   @context(lp)        @link(goal:python-expert)
 - [ ] Embody wisdom and service  @context(lifepath)  @link(principle:service)
 ```

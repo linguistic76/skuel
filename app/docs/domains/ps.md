@@ -76,7 +76,7 @@ await ps_service.intelligence.is_ready(step_uid, completed_steps)
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `uid` | `str` | Unique identifier (`ps:{namespace}:{slug}`) |
+| `uid` | `str` | Unique identifier (`ps.{namespace}.{slug}`) |
 | `title` | `str` | Step title |
 | `intent` | `str?` | Learning intent/goal |
 | `description` | `str?` | Step description |

@@ -78,7 +78,7 @@ Title: "Machine Learning 101" →  ku_machine-learning-101_def45678
 ```
 
 **Authored Format (dot form):**
-- Vault ingestion: `ku.{ns}.{slug}` (authored `ku:{ns}:{slug}`, colon→dot at ingestion)
+- Vault ingestion: `ku.{ns}.{slug}` (authored in dot form directly; legacy colons normalized at the boundary)
 - Not a transitional legacy — permanently sanctioned alongside the generated form as a
   provenance marker (see Addendum: the two-form reality)
 
@@ -333,7 +333,7 @@ Current CLAUDE.md documents `ku:` (colon notation) but implementation uses `ku.`
 
 As of ADR-014 (Unified Ingestion Service), **dot notation is the spelling of authored UIDs**
 (not "the canonical format" — there is no single canonical spelling; see the Addendum):
-- Colon notation (`ku:filename`) auto-converted to dot notation on ingestion
+- Legacy colon notation (`ku:filename`) auto-converted to dot notation on ingestion
 - Ingestion's filename-fallback UID is dot form (`ku.{file-stem}`)
 - API-generated UIDs remain underscore form (`ku_{slug}_{random}`)
 - Separator law: `/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md` § Separator Grammar
@@ -452,10 +452,10 @@ await lesson_core.organize_lesson(new_parent_uid, ku_uid, order=1)
 
 Both UID forms remain sanctioned, but they are provenance, not a migration plan:
 
-- **Authored** (vault): files author `ku:{ns}:{slug}` (colons); ingestion normalizes
-  `:` → `.` (`normalize_uid()`, `core/services/ingestion/preparer.py`), so the graph
-  stores `ku.{ns}.{slug}`. The same colon→dot rewrite applies to PS/LP UIDs and to
-  Edge-YAML `from`/`to` references.
+- **Authored** (vault): `ku.{ns}.{slug}`, written in dot form directly since 2026-08-14
+  (the colon authoring spelling was retired and the vault swept; `normalize_uid()` in
+  `core/services/ingestion/preparer.py` remains a boundary shim rewriting stray `:` → `.`
+  on entity `uid:`, rel-config fields, and Edge-YAML `from`/`to`).
 - **Generated** (API): `ku_{slug}_{random}`, this ADR's format.
 
 As of 2026-07-04 the live graph holds **only** dotted authored Ku UIDs (89/89);

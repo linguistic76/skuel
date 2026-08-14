@@ -243,24 +243,24 @@ The service provides 41 methods across categories:
 
 ```python
 # Get related UIDs for a relationship type
-uids = await service.get_related_uids("knowledge", "task:123")
+uids = await service.get_related_uids("knowledge", "task.123")
 
 # Check if relationship exists
-has_goal = await service.has_relationship("goal", "task:123")
+has_goal = await service.has_relationship("goal", "task.123")
 
 # Count related entities
-count = await service.count_related("dependents", "task:123")
+count = await service.count_related("dependents", "task.123")
 
 # Batch operations
-has_batch = await service.batch_has_relationship("goal", ["task:1", "task:2"])
-counts = await service.batch_count_related("knowledge", ["task:1", "task:2"])
+has_batch = await service.batch_has_relationship("goal", ["task.1", "task.2"])
+counts = await service.batch_count_related("knowledge", ["task.1", "task.2"])
 
 # Get all relationships of a type
-entities = await service.get_related_entities("knowledge", "task:123")
+entities = await service.get_related_entities("knowledge", "task.123")
 
 # Edge-property-FILTERED keys (e.g. essentiality tiers on SUPPORTS_GOAL).
-essential = await service.get_related_uids("essential_habits", "goal:123")    # r.essentiality = "essential"
-all_habits = await service.get_related_uids("supporting_habits", "goal:123")  # no filter → every tier
+essential = await service.get_related_uids("essential_habits", "goal.123")    # r.essentiality = "essential"
+all_habits = await service.get_related_uids("supporting_habits", "goal.123")  # no filter → every tier
 ```
 
 > **Filtered method-keys (`filter_property`/`filter_value`).** A
@@ -285,15 +285,15 @@ all_habits = await service.get_related_uids("supporting_habits", "goal:123")  # 
 # multi-key call iterates keys, so it is NOT all-or-nothing across keys — a
 # per-key failure is skipped, not rolled back. Use one key for atomic semantics.
 await service.create_relationships_batch(
-    EntityUID("task:123"),
-    {"knowledge": ["ku:py", "ku:js", "ku:sql"]},
+    EntityUID("task.123"),
+    {"knowledge": ["ku.py", "ku.js", "ku.sql"]},
 )
 
 # Delete relationship
-await service.delete_relationship("task:123", "knowledge", "ku:py")
+await service.delete_relationship("task.123", "knowledge", "ku.py")
 
 # Single edge — config-keyed, every-domain-safe (root-fixed PR #197)
-await service.create_relationship("knowledge", "task:123", "ku:py", {"confidence": 0.9})
+await service.create_relationship("knowledge", "task.123", "ku.py", {"confidence": 0.9})
 ```
 
 > **`create_relationship(key, from_uid, to_uid, properties)` is safe** (root-fixed
@@ -362,7 +362,7 @@ the query backend.)
 from core.services.tasks.task_relationships import TaskRelationships
 
 # Fetch all task relationships for an entity (parallel execution)
-rels = await TaskRelationships.fetch("task:123", service)
+rels = await TaskRelationships.fetch("task.123", service)
 # Returns a TaskRelationships dataclass with all relationship UID lists
 
 # Check for any knowledge connections
@@ -378,7 +378,7 @@ if rels.has_prerequisites():
 
 ```python
 # Get cross-domain context with typed path-aware entities
-context = await service.get_cross_domain_context_typed("task:123")
+context = await service.get_cross_domain_context_typed("task.123")
 # Returns TaskCrossContext with PathAwareKnowledge, PathAwareGoal, etc.
 
 # Access typed relationships
@@ -386,7 +386,7 @@ for ku in context.required_knowledge:
     print(f"{ku.title} (distance: {ku.distance}, strength: {ku.path_strength})")
 
 # Direct path-aware entity creation
-entity = await service.get_path_aware_entity("task:123", distance=1)
+entity = await service.get_path_aware_entity("task.123", distance=1)
 ```
 
 ### UserContext Planning (6 methods)
@@ -409,11 +409,11 @@ for item in blocked:
 # Get learning-related items
 learning = await service.get_learning_related_for_user(
     context,
-    knowledge_focus="ku:python"
+    knowledge_focus="ku.python"
 )
 
 # Get goal-aligned items
-goal_aligned = await service.get_goal_aligned_for_user(context, goal_uid="goal:123")
+goal_aligned = await service.get_goal_aligned_for_user(context, goal_uid="goal.123")
 ```
 
 ### Cross-domain linking — `create_relationship(method_key, ...)`
@@ -429,15 +429,15 @@ already knows exactly which edge it means, so it names the key directly.
 # registry (fails closed on a typo), orients direction, and writes via the batch path.
 await service.create_relationship(
     "knowledge",            # method_key in this domain's config -> APPLIES_KNOWLEDGE
-    "task:123",
-    "ku:python",
+    "task.123",
+    "ku.python",
     {"knowledge_score_required": 0.9, "is_learning_opportunity": True},
 )
 
 await service.create_relationship(
     "contributes_to_goal",  # -> CONTRIBUTES_TO_GOAL (Task config)
-    "task:123",
-    "goal:456",
+    "task.123",
+    "goal.456",
     {"contribution_percentage": 0.1},
 )
 ```
@@ -472,8 +472,8 @@ stringly-typed key**.
 ```python
 # Create semantic relationship
 await service.create_semantic_relationship(
-    "task:123",
-    "ku:python",
+    "task.123",
+    "ku.python",
     semantic_type=SemanticRelationshipType.APPLIES_KNOWLEDGE,
     confidence=0.9,
     strength=0.8,
@@ -482,23 +482,23 @@ await service.create_semantic_relationship(
 
 # Get relationships by semantic type
 rels = await service.get_by_semantic_type(
-    "task:123",
+    "task.123",
     SemanticRelationshipType.APPLIES_KNOWLEDGE
 )
 
 # Calculate semantic score
-score = await service.calculate_semantic_score("task:123", "ku:python")
+score = await service.calculate_semantic_score("task.123", "ku.python")
 ```
 
 ### Cross-Domain Intelligence (2 methods)
 
 ```python
 # Get full cross-domain context
-context = await service.get_cross_domain_context("task:123")
+context = await service.get_cross_domain_context("task.123")
 # Returns dict with all related entities across domains
 
 # Analyze cross-domain connections
-analysis = await service.analyze_cross_domain_connections("task:123")
+analysis = await service.analyze_cross_domain_connections("task.123")
 ```
 
 **Categorization — incident-edge attribution (PR #212).** `get_cross_domain_context`
@@ -581,7 +581,7 @@ from core.services.relationships import (
 # Create single path-aware entity
 entity = create_path_aware_entity(
     domain=Domain.TASKS,
-    raw_data={"uid": "task:123", "title": "Fix bug", "status": "pending"},
+    raw_data={"uid": "task.123", "title": "Fix bug", "status": "pending"},
     distance=1,
     path_strength=0.9,
     via_relationships=["APPLIES_KNOWLEDGE"]
@@ -593,7 +593,7 @@ entities = create_path_aware_entities_batch(Domain.TASKS, raw_data_list)
 # Create cross-context
 context = create_cross_context(
     source_domain=Domain.TASKS,
-    source_uid="task:123",
+    source_uid="task.123",
     categorized_data={"prerequisites": [...], "required_knowledge": [...]},
     category_domain_map={"prerequisites": Domain.TASKS, "required_knowledge": Domain.KNOWLEDGE}
 )
@@ -609,7 +609,7 @@ Generic container for fetched relationship data:
 from core.services.relationships import DomainRelationships
 
 # Fetch all relationships in parallel
-rels = await DomainRelationships.fetch("task:123", service)
+rels = await DomainRelationships.fetch("task.123", service)
 
 # Access fields dynamically
 knowledge_uids = rels.get_field("knowledge_uids")
@@ -699,7 +699,7 @@ The two patterns coexist:
 
 ```python
 # DomainRelationships.fetch() executes all queries in parallel
-rels = await DomainRelationships.fetch("task:123", service)
+rels = await DomainRelationships.fetch("task.123", service)
 # ↳ All relationship types fetched concurrently via asyncio.gather()
 ```
 
@@ -737,7 +737,7 @@ mock_backend.execute_query.return_value = Result.ok([...])
 service = UnifiedRelationshipService(mock_backend, None, TASKS_CONFIG)
 
 # Test basic query
-result = await service.get_related_uids("knowledge", "task:123")
+result = await service.get_related_uids("knowledge", "task.123")
 assert result.is_ok
 ```
 
@@ -835,7 +835,7 @@ from core.models.relationship_registry import TASKS_CONFIG
 from core.services.relationships import UnifiedRelationshipService
 
 service = UnifiedRelationshipService(backend, graph_intel, TASKS_CONFIG)
-await service.get_related_uids("knowledge", "task:123")
+await service.get_related_uids("knowledge", "task.123")
 ```
 
 **See Also:** ADR-026 for the consolidation decision and implementation details.

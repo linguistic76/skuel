@@ -55,7 +55,7 @@ LifePath is NOT a stored entity - it's a **DESIGNATION** that elevates a Learnin
 The flow:
 1. User expresses **vision** in their own words ("I want to become a mindful technical leader")
 2. System extracts **themes** from vision (leadership, mindfulness, technology)
-3. Themes are matched to **LP candidates** (lp:mindful-engineer, lp:tech-leadership)
+3. Themes are matched to **LP candidates** (lp.mindful-engineer, lp.tech-leadership)
 4. User **designates** an LP as their life path
 5. System measures **alignment** between declared vision and actual behavior
 
@@ -233,7 +233,7 @@ vision = await lifepath.vision.capture_vision(
 recommendations = await lifepath.vision.recommend_learning_paths(vision.themes)
 
 # 3. Designate an LP as life path
-designation = await lifepath.core.designate_life_path(user_uid, "lp:tech-leadership")
+designation = await lifepath.core.designate_life_path(user_uid, "lp.tech-leadership")
 
 # 4. Calculate alignment
 alignment = await lifepath.get_alignment(user_uid)

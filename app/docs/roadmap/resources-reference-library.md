@@ -40,7 +40,7 @@ The stated goal — "point to a page in a book" — splits into two very differe
 "This Ku relates to Transcend, ch. 4 — go read it." The book stays walled on disk. SKUEL holds a **pointer**, not the content. This is maximally faithful to SKUEL's way. Tier 1 ingests **no book bodies**: no chunking, no `:ReferenceChunk`, no embedding cost, no dominance problem.
 
 **Already built (the citation spine exists):**
-- `(Ku|PathStep)-[:CITES_RESOURCE]->(Resource)` exists, authored via `resource_uids:` frontmatter, **live** (e.g. `ku_tao-te-ching-v1` cites `resource:tao-te-ching` / `resource:tao-of-pooh`). Askesis traverses it (`get_cited_resources`).
+- `(Ku|PathStep)-[:CITES_RESOURCE]->(Resource)` exists, authored via `resource_uids:` frontmatter, **live** (e.g. `ku_tao-te-ching-v1` cites `resource.tao-te-ching` / `resource.tao-of-pooh`). Askesis traverses it (`get_cited_resources`).
 - **PathStep detail already renders a "Resources" section** (`ui/explore/ps_detail.py` — `_resources_section` / `_resource_chip`): media icon, title, author/year, and an external `source_url` link when the descriptor carries one.
 - **Edge YAML already supports custom scalar edge properties** (`core/services/ingestion/preparer.py` extracts edge `properties`) — so a `locator` on the edge needs no new ingestion primitive.
 

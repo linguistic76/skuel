@@ -482,7 +482,7 @@ All ownership-verified unless otherwise noted.
 **Reflection request body** (`PrincipleReflectionRequest`):
 ```json
 {
-  "principle_uid": "principle:integrity",
+  "principle_uid": "principle.integrity",
   "alignment_level": "aligned",
   "evidence": "Kept my commitment despite pressure to cut corners",
   "trigger_type": "choice",

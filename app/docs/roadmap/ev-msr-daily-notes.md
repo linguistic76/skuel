@@ -21,7 +21,7 @@ An `ev__` is a timestamped occurrence -- a "run" of a Path Step or Exercise.
 ```yaml
 uid: ev:ps_track_coffee_buzzing:2026_03_06
 type: EventInstance
-run_of: ps:track-coffee-buzzing     # RUN_OF -> PathStep
+run_of: ps.track-coffee-buzzing     # RUN_OF -> PathStep
 timestamp: "2026-03-06T10:30:00+07:00"
 duration_minutes: 5
 notes: "Tracked coffee intake and buzzing levels for the morning."
@@ -36,7 +36,7 @@ An `msr__` is a numeric or categorical observation at a specific time.
 ```yaml
 uid: msr:buzzing:2026_03_06_1030
 type: Measurement
-ku_uid: ku:attention:buzzing          # MEASURES -> Ku
+ku_uid: ku.attention.buzzing          # MEASURES -> Ku
 value: 7                              # numeric value (0-10 scale)
 unit: subjective_rating
 timestamp: "2026-03-06T10:30:00+07:00"
@@ -71,12 +71,12 @@ msr:{ku_slug}:{date}_{time}      # msr:buzzing:2026_03_06_1030
 ### "Show me buzzing scores on days with coffee after 2pm"
 
 ```cypher
-MATCH (msr_b:Measurement)-[:MEASURES]->(ku:Ku {uid: 'ku:attention:buzzing'})
+MATCH (msr_b:Measurement)-[:MEASURES]->(ku:Ku {uid: 'ku.attention.buzzing'})
 WHERE msr_b.timestamp >= date('2026-02-01')
 WITH msr_b, date(msr_b.timestamp) AS day
 
 // Find coffee measurements after 2pm on same days
-OPTIONAL MATCH (msr_c:Measurement)-[:MEASURES]->(coffee:Ku {uid: 'ku:nutrition:caffeine'})
+OPTIONAL MATCH (msr_c:Measurement)-[:MEASURES]->(coffee:Ku {uid: 'ku.nutrition.caffeine'})
 WHERE date(msr_c.timestamp) = day
   AND time(msr_c.timestamp) > time('14:00')
 
@@ -89,10 +89,10 @@ ORDER BY day
 ### "What's my average buzzing on coffee vs no-coffee days?"
 
 ```cypher
-MATCH (msr:Measurement)-[:MEASURES]->(ku:Ku {uid: 'ku:attention:buzzing'})
+MATCH (msr:Measurement)-[:MEASURES]->(ku:Ku {uid: 'ku.attention.buzzing'})
 WITH date(msr.timestamp) AS day, avg(msr.value) AS avg_buzzing
 
-OPTIONAL MATCH (coffee:Measurement)-[:MEASURES]->(c:Ku {uid: 'ku:nutrition:caffeine'})
+OPTIONAL MATCH (coffee:Measurement)-[:MEASURES]->(c:Ku {uid: 'ku.nutrition.caffeine'})
 WHERE date(coffee.timestamp) = day
 
 WITH day, avg_buzzing, count(coffee) > 0 AS had_coffee

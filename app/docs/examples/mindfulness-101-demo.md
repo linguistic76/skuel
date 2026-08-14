@@ -46,7 +46,7 @@ RETURN labels(n) as type, count(n) as count
 ORDER BY count DESC
 
 // View the learning path structure
-MATCH (lp:LearningPath {uid: 'lp:mindfulness-101'})
+MATCH (lp:LearningPath {uid: 'lp.mindfulness-101'})
 OPTIONAL MATCH (lp)-[:HAS_STEP]->(ps:PathStep)
 OPTIONAL MATCH (ls)-[:PRIMARY_KNOWLEDGE]->(ku:Curriculum)
 RETURN lp, ls, ku
@@ -103,12 +103,12 @@ These YAML files exist but YamlIngestionService doesn't have handlers for them y
 ✅ Deleted 0 nodes successfully
 
 📦 Ingesting bundle from: yaml_templates/domains/mindfulness_101
-✅ Knowledge unit created: ku:breath-awareness-basics
-✅ Knowledge unit created: ku:posture-basics
-✅ Knowledge unit created: ku:mind-wandering-happens
+✅ Knowledge unit created: ku.breath-awareness-basics
+✅ Knowledge unit created: ku.posture-basics
+✅ Knowledge unit created: ku.mind-wandering-happens
 ✅ Learning step created: ls:mindfulness-101:step-1
 ✅ Learning step created: ls:mindfulness-101:step-2
-✅ Learning path created: lp:mindfulness-101
+✅ Learning path created: lp.mindfulness-101
 
 📊 Final database stats:
    Total nodes: 6
@@ -146,12 +146,12 @@ After ingestion, you can adjust entities directly in Neo4j Browser:
 
 ```cypher
 // Update a knowledge unit
-MATCH (ku:Curriculum {uid: 'ku:breath-awareness-basics'})
+MATCH (ku:Curriculum {uid: 'ku.breath-awareness-basics'})
 SET ku.content = 'Your updated content here'
 RETURN ku
 
 // Update a path step
-MATCH (ps:PathStep {uid: 'ps:mindfulness-101:step-1'})
+MATCH (ps:PathStep {uid: 'ps.mindfulness-101.step-1'})
 SET ls.title = 'Your new title'
 RETURN ls
 ```

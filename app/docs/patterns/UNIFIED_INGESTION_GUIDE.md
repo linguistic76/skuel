@@ -989,23 +989,25 @@ Explicit UIDs in vault files are validated against the expected prefix for their
 
 **Two sanctioned forms** (ADR-013 addendum — spelling is provenance, never type information):
 
-- **Authored** (vault frontmatter): colon spelling, normalized to dots at ingestion —
-  `ku:mindfulness:attention` is stored as `ku.mindfulness.attention`. The middle segment is a
+- **Authored** (vault frontmatter): dot form, written directly — `ku.mindfulness.attention` —
+  authored and stored identically (colon authoring retired 2026-08-14). The middle segment is a
   human-readable grouping hint; hierarchy lives in `ORGANIZES` edges, never in the UID.
 - **Generated** (API): `{prefix}_{slug}_{random}` — e.g. `ku_meditation-basics_a1b2c3d4`.
   Not valid in vault files (the validator requires the dot-form prefix on explicit `uid:`).
 
 ```
-ku:breath-awareness      ✅ authored spelling — stored as ku.breath-awareness
-ku.breath-awareness      ✅ already-dotted authored form
-task.log-sessions        ✅ authored activity file (stored spelling)
+ku.breath-awareness      ✅ authored form (= stored form)
+task.log-sessions        ✅ authored activity file
+ku:breath-awareness      ⚠️ legacy colon spelling — still accepted, normalized to ku.breath-awareness
 ```
 
 ### Auto-Normalization
 
-`normalize_uid()` performs exactly one rewrite:
+`normalize_uid()` performs exactly one rewrite, kept as a legacy-compatibility shim now that
+dot authoring is the convention:
 
-- Colon notation: `ku:name` → `ku.name`
+- Colon notation: `ku.name` → `ku.name` (periodic UserEntry `ue:` UIDs are exempt by design —
+  they never pass through this path)
 
 Nothing else is normalized: spaces are **not** rewritten (a UID with spaces is simply wrong —
 author hyphens) and case is untouched (author lowercase). A `uid:` key that is present but
@@ -1097,8 +1099,8 @@ Edge files declare relationships between existing entities. They create graph ed
 
 ```yaml
 type: Edge
-from: ku:caffeine
-to: ku:tinnitus-buzzing
+from: ku.caffeine
+to: ku.tinnitus-buzzing
 relationship: EXACERBATED_BY
 confidence: 0.8
 polarity: -1

@@ -59,28 +59,40 @@ Type safety doesn't restrict - it **channels energy** so it flows and feeds back
 
 ## The Three Grouping Patterns
 
-| Pattern | UID authored (vault) → stored (graph) | Grouping Style | Topology | Metaphor |
+| Pattern | UID (authored = stored) | Grouping Style | Topology | Metaphor |
 |---------|------------|----------------|----------|----------|
-| **KU** | `ku:{ns}:{slug}` → `ku.{ns}.{slug}` (API-generated: `ku_{slug}_{random}`) | Atomic unit | Point | A single concept/fact |
-| **PS** | `ps:{namespace}:{slug}` → `ps.{namespace}.{slug}` | Unit for learning | Unit | A step that composes Kus into content |
-| **LP** | `lp:{namespace}:{slug}` → `lp.{namespace}.{slug}` | Linear sequence | Path | An ordered sequence of PathSteps |
+| **KU** | `ku.{ns}.{slug}` (API-generated: `ku_{slug}_{random}`) | Atomic unit | Point | A single concept/fact |
+| **PS** | `ps.{namespace}.{slug}` | Unit for learning | Unit | A step that composes Kus into content |
+| **LP** | `lp.{namespace}.{slug}` | Linear sequence | Path | An ordered sequence of PathSteps |
 
 **Note:** MOC uses whatever UID form its Ku carries, since MOC IS a Ku with ORGANIZES relationships — no separate UID prefix needed.
 
-### Authored Colons → Stored Dots (the sanctioned two-form reality)
+### Authoring Spelling: Dots (colons retired 2026-08-14)
 
-Vault files author curriculum UIDs with **colons** (`ps:mindfulness:breath-awareness-basics`);
-the graph stores **dots** (`ps.mindfulness.breath-awareness-basics`). The rewrite happens at
-ingestion — `normalize_uid()` in `core/services/ingestion/preparer.py` replaces `:` → `.` on
-the entity `uid:`, on every rel-config UID field (`kus:`, `exercise_uids:`, `resource_uids:`,
-`contains_steps`, …), and on Edge-YAML `from`/`to`. This is deliberate, not drift (colons are
-Neo4j-hostile in several tooling contexts; dots are the storage spelling).
+Vault files author curriculum UIDs in **dot form directly** (`ps.mindfulness.breath-awareness-basics`)
+— what you author is exactly what the graph stores. The former colon authoring spelling
+(`ps:mindfulness:…`) was retired by ruling on 2026-08-14, and the whole content vault was swept
+to dots in the same pass (572 rewrites across 265 files; identity unchanged, since both spellings
+normalize to the same stored UID).
+
+`normalize_uid()` in `core/services/ingestion/preparer.py` **remains** at the ingestion boundary
+as an **input alias** — the same sanctioned pattern as `from_string()` aliases (Naming
+Conventions § Emission rule: aliases are input-only, resolved to the canonical spelling at the
+boundary, never emitted). It rewrites `:` → `.` on the entity `uid:`, on every rel-config UID
+field (`kus:`, `exercise_uids:`, `resource_uids:`, `contains_steps`, …), and on Edge-YAML
+`from`/`to` — so a stray colon-spelled file lands correctly instead of failing. Whether to
+delete the alias outright (strict One Path: colon input becomes a loud validation error) is an
+open decision queued with the UID code-fix arc — it is a code change with personal-vault blast
+radius, not a docs call. Exception by design: **periodic UserEntry UIDs**
+(`ue:daily:{user_uid}:{date}`) are a distinct machine format that keeps its colons and is
+deliberately never normalized.
 
 Consequences:
-- **Never compare a file UID to a graph UID raw** — normalize first (or query by the dotted form).
-- Stored UIDs are NOT being migrated to flat `{prefix}_{slug}_{random}` — as of 2026-07-04 the
-  graph holds only dotted authored curriculum UIDs (all 89 Kus are `ku.{ns}.{slug}`; zero flat
-  generated Kus exist yet). Both forms stay sanctioned; see the never-sniff rule below.
+- For compliant files, file UID and graph UID now compare **directly** — no mental translation.
+  When handling legacy or third-party files, still normalize before comparing.
+- Stored UIDs are NOT being migrated to flat `{prefix}_{slug}_{random}` — the graph holds dotted
+  authored curriculum UIDs; the flat form activates only for API-created entities. Both forms
+  stay sanctioned; see the never-sniff rule below.
 
 ### Separator Grammar (ratified 2026-08-14)
 
@@ -90,7 +102,7 @@ beyond this table is historical:
 | Character | Role |
 |-----------|------|
 | `-` hyphen | Joins words **within** a single segment (`active-listening`). The only word-joiner, everywhere — `UIDGenerator.slugify()` emits it. Known gap: slugify currently *preserves* underscores arriving in input titles (its `\w` class includes `_`) instead of converting them; the `_`→`-` fix is queued. Author hyphens. |
-| `:` colon / `.` dot | Segment separator of **authored** UIDs. Colon is the vault authoring spelling, dot the stored spelling (`normalize_uid()` rewrites `:` → `.`). Shape: `{prefix}.{grouping-label}.{slug}`. |
+| `.` dot | Segment separator of **authored** UIDs — authored and stored identically. Shape: `{prefix}.{grouping-label}.{slug}`. (The `:` colon authoring spelling was retired 2026-08-14; `normalize_uid()` keeps accepting it as an input-only alias, resolved at the boundary. Periodic `ue:` UIDs keep colons by design. The DSL's `@link(type:id)` argument colon is tag syntax, not a UID spelling.) |
 | `_` underscore | Segment separator of **generated** UIDs (`{prefix}_{slug}_{random}`, `{prefix}_{random}`), and the conventional filename type-prefix (`ku_attention.md`). |
 | *(edges)* | Family. Parent/child/lineage lives **only** in graph relationships (`ORGANIZES`, `USES_KU`, `HAS_STEP`, …) — never in UID strings. |
 
@@ -173,7 +185,7 @@ reaffirmed 2026-07-03):
 
 | Form | Format | Provenance |
 |------|--------|------------|
-| Authored | `ku.{namespace}.{slug}` | Vault/editorial — validator-enforced (`core/services/ingestion/validator.py` requires `"{prefix}."`); vault frontmatter uses colon form `ku:{ns}:{slug}`, normalized `:` → `.` at ingestion |
+| Authored | `ku.{namespace}.{slug}` | Vault/editorial — validator-enforced (`core/services/ingestion/validator.py` requires `"{prefix}."`); authored in dot form directly (colon spelling retired 2026-08-14; legacy colons still normalized at the boundary) |
 | Generated | `ku_{slug}_{random}` | API — the Universal flat format shared with all Activity domains |
 
 **No migration between them, ever.** UID spelling is provenance (curated vs
@@ -197,14 +209,14 @@ on `knowledge_relationships`, or resolve by lookup.
 - Can require mastery threshold
 - May include practice activities
 
-**Example (authored form — stored as `ps.python.understanding-functions`):**
+**Example (authored = stored):**
 ```yaml
-uid: ps:python:understanding-functions
+uid: ps.python.understanding-functions
 title: Understanding Functions
 order: 3
 kus:
-  - ku:python:functions
-  - ku:python:parameters
+  - ku.python.functions
+  - ku.python.parameters
 mastery_threshold: 0.8
 ```
 
@@ -222,15 +234,15 @@ mastery_threshold: 0.8
 - Represents a full competency arc
 - Linear progression (Step 1 → 2 → 3 → Done)
 
-**Example (authored form — stored as `lp.python.beginners`):**
+**Example (authored = stored):**
 ```yaml
-uid: lp:python:beginners
+uid: lp.python.beginners
 title: Python for Beginners
 connections:
   contains_steps:
-    - ps:python:understanding-functions
-    - ps:python:control-flow
-    - ps:python:first-program
+    - ps.python.understanding-functions
+    - ps.python.control-flow
+    - ps.python.first-program
 prerequisites: []
 outcomes:
   - "Write basic Python programs"

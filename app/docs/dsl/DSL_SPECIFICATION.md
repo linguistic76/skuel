@@ -309,9 +309,9 @@ Slug ::= Identifier ("-" Identifier)*
 
 **Examples:**
 ```markdown
-@ku(ku:sel/thought-not-reality)
-@ku(ku:teens-yoga/focus-lesson)
-@ku(ku:math/algebra-basics)
+@ku(ku.sel/thought-not-reality)
+@ku(ku.teens-yoga/focus-lesson)
+@ku(ku.math/algebra-basics)
 ```
 
 **Constraint:** One `@ku()` per Activity Line (v0.3). Multiple KU links use `@link()`.
@@ -373,7 +373,7 @@ vortex:     → Vortexes
 ## Complete Example
 
 ```markdown
-- [ ] Draft Teens.yoga lesson on focus @context(task,learning) @when(2025-11-30T09:00) @priority(1) @duration(90m) @energy(focus,creative) @ku(ku:teens-yoga/focus-lesson) @link(goal:teens-yoga/20-members, principle:discernment-first)
+- [ ] Draft Teens.yoga lesson on focus @context(task,learning) @when(2025-11-30T09:00) @priority(1) @duration(90m) @energy(focus,creative) @ku(ku.teens-yoga/focus-lesson) @link(goal:teens-yoga/20-members, principle:discernment-first)
 ```
 
 **Parsing yields:**
@@ -385,7 +385,7 @@ vortex:     → Vortexes
   "priority": 1,
   "duration_minutes": 90,
   "energy_states": ["focus", "creative"],
-  "primary_ku": "ku:teens-yoga/focus-lesson",
+  "primary_ku": "ku.teens-yoga/focus-lesson",
   "links": [
     {"type": "goal", "id": "teens-yoga/20-members"},
     {"type": "principle", "id": "discernment-first"}

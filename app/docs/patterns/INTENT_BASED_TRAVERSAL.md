@@ -299,13 +299,13 @@ There is **no** bespoke per-domain "analysis method" (`get_goal_achievement_anal
 ```python
 # Mechanism A — Goals facade convenience method. Goes through GraphContextLoader, which applies
 # entity.get_suggested_query_intent() == EXPLORATORY → an unfiltered neighbourhood (LIMIT 100).
-result = await goals_service.get_goal_with_context(uid="goal:123", depth=2)
+result = await goals_service.get_goal_with_context(uid="goal.123", depth=2)
 
 # Mechanism B — config-sourced intent. Applies GOAPS_CONFIG.default_context_intent (GOAL_ACHIEVEMENT),
 # so the GOAL_ACHIEVEMENT edge filter is used. Pass intent=... to use an intent_mappings override.
 # (This is also exactly what the Tasks *facade* method does — TasksService.get_task_with_context
 #  delegates here, applying PREREQUISITE — whereas the Goals facade above does not.)
-result = await goals_service.relationships.get_with_context(uid="goal:123", depth=2)
+result = await goals_service.relationships.get_with_context(uid="goal.123", depth=2)
 
 if result.is_error:
     return handle_error(result)

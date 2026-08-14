@@ -184,10 +184,10 @@ from core.services.relationships import UnifiedRelationshipService
 tasks_rel = UnifiedRelationshipService(backend, graph_intel, TASKS_CONFIG)
 
 # Get related knowledge
-knowledge_uids = await tasks_rel.get_related_uids("knowledge", "task:123")
+knowledge_uids = await tasks_rel.get_related_uids("knowledge", "task.123")
 
 # Get task with full context
-task, context = await tasks_rel.get_entity_with_context("task:123", depth=2)
+task, context = await tasks_rel.get_entity_with_context("task.123", depth=2)
 ```
 
 ## Search Methods

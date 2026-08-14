@@ -364,7 +364,7 @@ Type hints make testing easier - no need to mock Request objects:
 # OLD - Requires Request mock
 async def test_complete_task_old():
     request = Mock()
-    request.path_params = {"uid": "task:123"}
+    request.path_params = {"uid": "task.123"}
     request.json = AsyncMock(return_value={
         "actual_minutes": 30,
         "quality_score": 0.9
@@ -375,7 +375,7 @@ async def test_complete_task_old():
 # NEW - Direct function call
 async def test_complete_task_new():
     result = await complete(
-        uid="task:123",
+        uid="task.123",
         actual_minutes=30,
         quality_score=0.9
     )
