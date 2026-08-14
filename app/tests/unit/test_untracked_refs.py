@@ -144,6 +144,22 @@ class TestMemoryCitationPattern:
         ):
             assert not guard.MEMORY_CITATION.search(guard._probe(line)), f"should NOT flag: {line}"
 
+    def test_basename_suppression_only_clears_unmarked_filenames(self) -> None:
+        """Codex #1047 round 6. The tracked-basename check exists to stop a bare
+        `project_x.md` link being read as memory — but it must not override an
+        EXPLICIT marker. If a tracked file ever shares a basename with a memory
+        doc, `Memory: project_x.md` still means memory; suppressing it would let a
+        coincidence of naming produce a false clean."""
+        guard = _load_guard()
+        # Unmarked → carries the group the suppression is allowed to act on.
+        unmarked = guard.MEMORY_CITATION.search(guard._probe("project_foo.md"))
+        assert unmarked and unmarked.group("unmarked")
+        # Cued and tagged → same filename, but the suppression must not reach them.
+        for line in ("Memory: project_foo.md", "project_foo.md (memory)"):
+            hit = guard.MEMORY_CITATION.search(guard._probe(line))
+            assert hit, f"should flag: {line}"
+            assert not hit.group("unmarked"), f"marker must outrank basename check: {line}"
+
     def test_accepts_uppercase_cues(self) -> None:
         """Codex #1047 round 5: `MEMORY:` and `See MEMORY:` are unambiguous marked
         citations. The CUE is case-insensitive; the slug and document-name forms

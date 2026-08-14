@@ -112,14 +112,14 @@ MEMORY_CITATION = re.compile(
         #    slug instead of preceding it, so alternative 1 cannot see it. PR #1046
         #    removed citations in this exact shape, but they matched only because
         #    those slugs ended in `.md`; a hyphenated one would have slipped past.
-      | \b[a-z][a-z0-9]*[_-][a-z0-9_-]{2,}\s*\(memory\)
+      | \b[a-z][a-z0-9]*[_-][a-z0-9_-]{2,}(?:\.md)?\s*\(memory\)
         # 3. A memory slug written as a BARE filename, cue or not. `(?<![/\w])`
         #    keeps it off path-qualified links: `docs/user_guide.md` is a tracked
         #    document, not a memory citation, and flagging it would red the
         #    always-on gate on a legitimate link — a false positive here is worse
         #    than a miss, because it breaks every PR rather than letting one slip.
         #    `find_violations` additionally clears any name that IS a tracked file.
-      | (?<![/\w])(?:project|feedback|user|reference|archive)_[a-z0-9_]+\.md\b
+      | (?P<unmarked>(?<![/\w])(?:project|feedback|user|reference|archive)_[a-z0-9_]+\.md\b)
         # 4. The prefixed slug directly after the word, no punctuation cue.
       | \b[Mm]emory\s+`?\b(?:project|feedback|user|reference|archive)_[a-z0-9_]+
     )
@@ -213,8 +213,18 @@ def find_violations() -> tuple[list[tuple[str, int, str]], list[str]]:
         for index, line in enumerate(lines):
             probe = _probe(line)
             memory_hit = MEMORY_CITATION.search(probe)
-            if memory_hit and memory_hit.group().rsplit("/", 1)[-1] in tracked_basenames:
-                memory_hit = None  # names a real tracked document, not memory
+            # Suppress ONLY the unmarked-filename alternative: a bare `project_x.md`
+            # that names a real tracked document is a link, not a citation. A match
+            # carrying an explicit cue (`Memory: project_x.md`) or tag
+            # (`project_x.md (memory)`) says outright that it means memory, and must
+            # survive even when a tracked file happens to share the basename —
+            # otherwise the marker is overridden by a coincidence (Codex #1047 r6).
+            if (
+                memory_hit
+                and memory_hit.group("unmarked")
+                and memory_hit.group("unmarked").rsplit("/", 1)[-1] in tracked_basenames
+            ):
+                memory_hit = None
             if SCRATCH_CITATION.search(probe) or memory_hit:
                 citations.append((rel, index + 1, line.strip()))
                 continue
