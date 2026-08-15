@@ -30,10 +30,13 @@ Embedding freshness (ADR-074): the embedding worker is subscribed BEFORE the
 sync and its queues are drained in-process afterwards, so the sync's embedding
 events (entity + chunk) are processed right here instead of evaporating with
 the script — same event path as the app process, no follow-up commands. In
-CORE tier (or with no API key) there is no worker and ingestion publishes no
-events, so the drain step is skipped. ``scripts/generate_embeddings_batch.py
-[--stale]`` remains the backstop for pre-existing coverage gaps or drift, not
-a required follow-up to this script.
+CORE tier there is no worker and ingestion publishes no events, so the drain
+step is skipped and this sync's new content is stored without embeddings
+(``./dev embed-backfill`` under FULL tier fills the gap). A FULL-tier run
+with a missing OpenAI key never reaches that branch — composition fails fast
+in bootstrap first. ``scripts/generate_embeddings_batch.py [--stale]``
+remains the backstop for pre-existing coverage gaps or drift, not a required
+follow-up to this script.
 
 Grounding (Entry-Enrichment PR 3): after the drain, personal-vault syncs run
 an entry→Ku grounding pass over pending ``pipeline: knowledge`` entries —
@@ -104,7 +107,11 @@ async def run_sync(vault: str, user_uid: str, force: bool = False) -> int:
             )
             print(f"  chunk parents dequeued: {drained['chunk_parents']} (includes retry passes)")
         else:
-            print("\n(no embedding worker — CORE tier or embeddings unavailable; skipped drain)")
+            print(
+                "\n(no embedding worker — CORE tier: this sync's new content is stored"
+                "\n without embeddings and is not yet vector-searchable; run"
+                "\n ./dev embed-backfill under FULL tier to fill the gap)"
+            )
 
         if result.is_error:
             print(f"ERROR: sync failed: {result.expect_error()}", file=sys.stderr)

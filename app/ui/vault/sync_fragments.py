@@ -168,6 +168,12 @@ def sync_stats_fragment(stats_dict: dict[str, Any]) -> Div:
     reasons but do NOT flip the header — a sync whose only findings are
     ignored files is complete (2026-07-23 ruling).
 
+    A clean sync that added content not yet vector-searchable (a CORE-tier
+    period stores embeddings as NULL) STAYS clean: the header variant
+    "Sync complete — N items not yet searchable" carries the signal, never a
+    warning or error. ``coverage_probe_failed`` is deliberately not rendered —
+    an optional probe's outage is not a sync problem.
+
     Edge YAMLs and deleted files report only when they happened. Entities and
     edges create no ``entries_ingested`` movement between them, so without these
     lines a sync that wrote five relationships and removed a note read exactly
@@ -278,14 +284,21 @@ def sync_stats_fragment(stats_dict: dict[str, Any]) -> Div:
     # Every failed file also appends an error entry, so len(errors) already
     # covers files_failed — max() only guards a count drift between the two.
     problem_count = max(len(errors), failed)
-    header = (
-        H3("Sync complete", cls="text-base font-semibold text-success mb-2")
-        if clean
-        else H3(
+    # Retrievability: a clean sync stays clean when it added not-yet-searchable
+    # content — the header variant carries the signal (see docstring).
+    unretrievable = stats_dict.get("retrievability_delta", 0)
+    if not clean:
+        header = H3(
             f"Sync finished with problems ({problem_count} error(s), {len(warnings)} warning(s))",
             cls="text-base font-semibold text-error mb-2",
         )
-    )
+    elif unretrievable:
+        header = H3(
+            f"Sync complete — {unretrievable} items not yet searchable",
+            cls="text-base font-semibold text-warning mb-2",
+        )
+    else:
+        header = H3("Sync complete", cls="text-base font-semibold text-success mb-2")
 
     return Div(
         Div(

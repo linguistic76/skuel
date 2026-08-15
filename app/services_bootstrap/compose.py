@@ -1447,6 +1447,10 @@ async def compose_services(
             user_entry_service=user_entry_service,
             tasks_service=activity_services["tasks"],
             user_service=user_service,
+            # Retrievability probe (sync honesty): before/after embedding-
+            # coverage counts so sync stats can say how much of the synced
+            # content is not yet vector-searchable. Tier-independent.
+            embedding_coverage=embedding_coverage_backend,
         )
         logger.info(
             "✅ UserEntry service + processing dispatcher + AssessmentService created (ADR-054)"
