@@ -108,7 +108,9 @@ def _reconciler(tmp_path: Path, probe: _CoverageProbe | None) -> VaultReconciler
 async def test_delta_and_absolutes_filled_from_both_probes(tmp_path: Path) -> None:
     """before missing=2, after missing=5 → delta 3; absolutes from the after-probe."""
     probe = _CoverageProbe([Result.ok(_coverage(1, 1)), Result.ok(_coverage(3, 2))])
-    result = await _reconciler(tmp_path, probe).sync(VaultKind.PERSONAL, OWNER)
+    reconciler = _reconciler(tmp_path, probe)
+    assert reconciler.embedding_coverage is probe  # script door reads the same gauge
+    result = await reconciler.sync(VaultKind.PERSONAL, OWNER)
 
     assert result.is_ok
     stats = result.value
@@ -170,7 +172,9 @@ async def test_concurrent_embedding_never_reports_negative_delta(tmp_path: Path)
 @pytest.mark.asyncio
 async def test_no_gauge_wired_leaves_all_defaults(tmp_path: Path) -> None:
     """Optional means optional: an unwired gauge probes nothing and flags nothing."""
-    result = await _reconciler(tmp_path, None).sync(VaultKind.PERSONAL, OWNER)
+    reconciler = _reconciler(tmp_path, None)
+    assert reconciler.embedding_coverage is None
+    result = await reconciler.sync(VaultKind.PERSONAL, OWNER)
 
     assert result.is_ok
     stats = result.value

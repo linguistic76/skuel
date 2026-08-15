@@ -185,6 +185,17 @@ class VaultReconciler:
     # PUBLIC API
     # =========================================================================
 
+    @property
+    def embedding_coverage(self) -> EmbeddingCoverageOperations | None:
+        """The wired retrievability gauge, or ``None`` when not composed.
+
+        Read-only door for one-shot script syncs (``vault_bridge_sync.py``)
+        that drain the embedding worker AFTER ``sync()`` returns: the stats'
+        retrievability figures describe the pre-drain graph, so the script
+        re-probes through the same gauge to report post-drain coverage.
+        """
+        return self._embedding_coverage
+
     async def sync(
         self, kind: VaultKind, user_uid: UserUID, *, force: bool = False
     ) -> Result[VaultSyncStats]:
@@ -509,10 +520,14 @@ class VaultReconciler:
         Fail-soft by ruling: a failed probe sets ``coverage_probe_failed`` and
         NOTHING else — never a warning, never an error — so an optional
         probe's outage can never flip ``is_clean`` or turn a perfect sync's
-        banner red. Absolute counts come from the after-probe alone; the delta
-        needs both probes and reports only what this sync ADDED (the worker
-        may embed concurrently mid-sync at FULL tier, shrinking the missing
-        count — clamp at zero rather than report a negative credit).
+        banner red. Absolute counts come from the after-probe alone; the
+        delta needs both probes. Both probes are corpus-wide (the gauge's
+        design), so the delta is the gap's growth across this sync's window:
+        in the common case exactly what this sync added, though a concurrent
+        writer on another root lands in the same window — every counted item
+        is genuinely not yet searchable either way. Clamped at zero because
+        the FULL-tier worker may embed concurrently mid-sync, shrinking the
+        missing count — never report a negative credit.
         """
         after = await self._probe_coverage()
         if after is None or before is None:

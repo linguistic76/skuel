@@ -191,12 +191,19 @@ class VaultSyncStats:
     warnings: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
     # Retrievability (embedding coverage): how much of the corpus lacks a
-    # vector AFTER this sync, and how much of that gap THIS sync added.
-    # Measured in the graph by an optional count probe — a CORE-tier period
-    # stores content with embedding = NULL, so a "complete" sync can still
-    # leave its content invisible to vector search. Absolute counts are
-    # corpus-wide (chunks vs entities split because their remedies differ);
-    # the delta is this sync's own contribution, clamped ≥ 0.
+    # vector AFTER this sync, and how much the gap GREW across this sync's
+    # window. Measured in the graph by an optional count probe — a CORE-tier
+    # period stores content with embedding = NULL, so a "complete" sync can
+    # still leave its content invisible to vector search. Absolute counts are
+    # corpus-wide (chunks vs entities split because their remedies differ).
+    # The delta is corpus-wide too, probed before/after ingest and clamped
+    # ≥ 0: in the common case it is exactly what this sync added, but a
+    # concurrent writer (another root's sync, an API create) lands in the
+    # same window — every counted item IS genuinely not yet searchable
+    # either way. NULL vectors only: a stale vector on an updated entity is
+    # invisible to a count probe by design — that class belongs to the
+    # content-hash backstops (generate_embeddings_batch --stale/--audit,
+    # ADR-074 §8), not to a per-sync count query.
     chunks_awaiting_embedding: int = 0
     entities_awaiting_embedding: int = 0
     retrievability_delta: int = 0
