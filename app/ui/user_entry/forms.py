@@ -45,8 +45,10 @@ def _dest_trigger(dest_configs: dict[str, dict[str, str]]) -> Any:
             Span(
                 icon_tile(cfg["icon"], cfg["tile_bg"], cfg["icon_cls"]),
                 Span(
-                    Span(cfg["title"], cls="block text-[14.5px] font-semibold text-foreground"),
-                    Span(cfg["desc"], cls="block text-[12.5px] text-muted-foreground mt-[3px]"),
+                    Span(cfg["title"], cls="block text-sm font-semibold text-foreground"),
+                    Span(
+                        cfg["desc"], cls="block text-xs leading-snug text-muted-foreground mt-[3px]"
+                    ),
                     cls="flex-1 min-w-0",
                 ),
                 cls="flex items-center gap-[13px] w-full",
@@ -181,7 +183,7 @@ def render_upload_form(
                 title_extra=Span(
                     "Coming soon",
                     cls=(
-                        "text-[10px] font-bold uppercase tracking-wider "
+                        "text-10 font-bold uppercase tracking-wider "
                         "text-amber-800 bg-amber-100 px-[7px] py-[2px] rounded-full"
                     ),
                 )
@@ -247,7 +249,7 @@ def render_upload_form(
     )
 
     card_footer = Div(
-        Span("Up to 100 MB per file.", cls="text-[12.5px] text-slate-400"),
+        Span("Up to 100 MB per file.", cls="text-xs text-slate-400"),
         Div(send_btn_enabled, send_btn_disabled),
         cls=(
             "mt-[26px] pt-[22px] border-t border-slate-100 flex items-center justify-between gap-4"

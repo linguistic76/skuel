@@ -34,7 +34,7 @@ def _preview_tile(record: dict[str, Any], group_uid: str) -> A:
             title,
             cls="text-xs font-medium text-foreground line-clamp-2 leading-snug",
         ),
-        P(meta_line, cls="text-[11px] text-muted-foreground mt-1") if meta_line else "",
+        P(meta_line, cls="text-11 text-muted-foreground mt-1") if meta_line else "",
         href=f"/groups/{group_uid}/entries/{entry_uid}",
         cls=(
             "flex flex-col gap-1 p-2.5 rounded-lg border border-border "

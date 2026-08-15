@@ -33,7 +33,7 @@ def detail_back_link(label: str, href: str, *, htmx: bool = False) -> FT:
         f" {label}",
         href=href,
         cls=(
-            "inline-flex items-center gap-1.5 text-[12.5px] font-semibold "
+            "inline-flex items-center gap-1.5 text-xs font-semibold "
             "text-muted-foreground hover:text-foreground mb-[18px]"
         ),
         **_htmx_attrs(href, htmx),
@@ -69,16 +69,16 @@ def render_entity_not_found(
     return Div(
         detail_back_link(back_label, back_href),
         Div(
-            P(f"{entity_label} not found.", cls="text-[14px] font-semibold text-foreground"),
+            P(f"{entity_label} not found.", cls="text-sm font-semibold text-foreground"),
             P(
                 f"No {uid_label or entity_label.lower()} with ID: {uid}",
-                cls="text-[13px] text-muted-foreground mt-1",
+                cls="text-13 text-muted-foreground mt-1",
             ),
             A(
                 f"← Back to {back_label}",
                 href=back_href,
                 cls=(
-                    "inline-flex items-center gap-1.5 text-[13px] font-medium "
+                    "inline-flex items-center gap-1.5 text-13 font-medium "
                     "text-muted-foreground hover:text-foreground mt-4"
                 ),
             ),
@@ -96,7 +96,7 @@ def detail_footer_nav(label: str, href: str, *, htmx: bool = False) -> FT:
             f" {label}",
             href=href,
             cls=(
-                "inline-flex items-center gap-2 text-[13px] font-medium "
+                "inline-flex items-center gap-2 text-13 font-medium "
                 "text-muted-foreground hover:text-foreground"
             ),
             **_htmx_attrs(href, htmx),

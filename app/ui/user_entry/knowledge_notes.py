@@ -41,7 +41,7 @@ def _grounding_chip(entry_uid: str, chip: GroundedKuChip) -> Any:
     if confidence is not None:
         confidence_label = Span(
             f"{round(confidence * 100)}%",
-            cls="text-[11px] text-muted-foreground",
+            cls="text-11 text-muted-foreground",
         )
 
     return Span(
@@ -70,7 +70,7 @@ def _grounding_chip(entry_uid: str, chip: GroundedKuChip) -> Any:
         data_grounding_chip="1",
         cls=(
             "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border "
-            "border-border bg-muted/40 text-[13px] font-medium text-foreground"
+            "border-border bg-muted/40 text-13 font-medium text-foreground"
         ),
     )
 

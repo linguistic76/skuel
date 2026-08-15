@@ -133,7 +133,7 @@ def create_revised_exercises_ui_routes(
             revision_number = getattr(rev, "revision_number", 1) or 1
             badge = Span(
                 f"#{revision_number}",
-                cls="text-[10px] font-medium text-destructive",
+                cls="text-10 font-medium text-destructive",
             )
             instructions = getattr(rev, "instructions", None) or ""
             href = f"/revised-exercises/detail?uid={uid}" if uid else "/gradebook"

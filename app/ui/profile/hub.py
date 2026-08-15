@@ -42,7 +42,7 @@ def ProfileHubView(active_tab: str = _DEFAULT_TAB_SLUG) -> Div:
 # Tab bar — underline style (Alpine-driven activeTab state)
 # ---------------------------------------------------------------------------
 
-_TAB_BASE = "px-4 py-2.5 text-[14px] font-medium cursor-pointer transition-colors -mb-px"
+_TAB_BASE = "px-4 py-2.5 text-sm font-medium cursor-pointer transition-colors -mb-px"
 
 _TAB_SPEC: tuple[tuple[str, str], ...] = (
     ("activities", "Activities"),

@@ -131,7 +131,7 @@ def create_entry_reports_ui_routes(
             badge = (
                 Span(
                     processor_type.get_short_label(),
-                    cls="text-[10px] font-medium text-muted-foreground",
+                    cls="text-10 font-medium text-muted-foreground",
                 )
                 if isinstance(processor_type, ReportSource)
                 else None

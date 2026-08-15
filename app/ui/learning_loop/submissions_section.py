@@ -129,7 +129,7 @@ def render_ps_submissions_and_feedback(rows: list[PathStepSubmissionRow]) -> Div
         return Div(
             P(
                 "Nothing submitted for this step yet.",
-                cls="text-[13px] text-muted-foreground",
+                cls="text-13 text-muted-foreground",
             )
         )
     return Div(
