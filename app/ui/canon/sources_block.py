@@ -46,13 +46,13 @@ def CanonSourcesBlock(sources: "tuple[CanonSource, ...]", cls: str = "") -> Any:
                     cls="text-primary hover:underline font-medium no-underline",
                 ),
                 Span(where, cls="text-muted-foreground"),
-                cls="text-[13px] leading-relaxed",
+                cls="text-13 leading-relaxed",
             )
         )
     return Div(
         Span(
             "Sources",
-            cls="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground",
+            cls="text-11 font-semibold uppercase tracking-wide text-muted-foreground",
         ),
         Ul(*items, cls="mt-1 space-y-1 list-none pl-0"),
         cls=f"border-l-2 border-border pl-3 {cls}".strip(),

@@ -790,7 +790,7 @@ primary_btn("Generate", icon="sparkles", cls="w-full")
 # Flex row with gap-[13px] — standard icon-tile + text content layout
 card_row(
     icon_tile("check", "bg-green-50", "text-green-600"),
-    P("Task complete", cls="text-[14px] font-semibold"),
+    P("Task complete", cls="text-sm font-semibold"),
 )
 
 # Selectable option row: icon tile + title + subtitle + checkmark (active/hover state lives here)

@@ -8,7 +8,7 @@ Import these instead of duplicating the class strings across modules.
 Design language reference:
 - Container:  border border-border rounded-[12px] bg-card
 - Selection:  bg-blue-50 (active) / hover:bg-slate-100 (hover)
-- Typography: text-[14px] font-semibold (title) / text-[12.5px] text-muted-foreground (body)
+- Typography: text-sm font-semibold (title) / text-xs text-muted-foreground (body)
 
 See: ui/journals/forms.py, ui/user_entry/forms.py, ui/askesis/chat.py
 """
@@ -24,7 +24,7 @@ from ui.components._util import _cls
 from ui.components.button import _BTN_BASE, _BTN_SIZES
 
 # Default subtitle class for option rows (description text)
-_SUBTITLE_CLS = "block text-[12.5px] text-muted-foreground mt-[6px] leading-[1.35]"
+_SUBTITLE_CLS = "block text-xs text-muted-foreground mt-[6px] leading-[1.35]"
 
 
 def safe_external_url(url: str | None) -> str | None:
@@ -97,7 +97,7 @@ def primary_btn(
     The label is wrapped in a ``.btn-label`` span so JS can swap loading text.
     """
     base = (
-        "flex items-center gap-2 bg-foreground text-background text-[14px] font-semibold "
+        "flex items-center gap-2 bg-foreground text-background text-sm font-semibold "
         "px-[18px] py-[11px] rounded-[9px] shadow-xs hover:opacity-90 transition-opacity"
     )
     return Button(
@@ -182,12 +182,12 @@ def SelectableOptionRow(
     title_content: Any
     if title_extra is not None:
         title_content = Span(
-            Span(title, cls="text-[14px] font-semibold text-foreground"),
+            Span(title, cls="text-sm font-semibold text-foreground"),
             title_extra,
             cls="flex items-center gap-2",
         )
     else:
-        title_content = Span(title, cls="text-[14px] font-semibold text-foreground")
+        title_content = Span(title, cls="text-sm font-semibold text-foreground")
 
     body = Div(
         title_content,
@@ -266,8 +266,8 @@ def UploadDropzone(
                 "flex items-center justify-center mb-3"
             ),
         ),
-        P(title, cls="text-[14.5px] font-semibold text-foreground mb-1"),
-        P(*hint_content, cls="text-[13px] text-muted-foreground"),
+        P(title, cls="text-sm font-semibold text-foreground mb-1"),
+        P(*hint_content, cls="text-13 text-muted-foreground"),
         cls=f"{base} {cls}".strip(),
         **attrs,
     )
@@ -309,7 +309,7 @@ def SelectedFileCard(
             type="button",
             cls=(
                 "flex-none border border-border rounded-[8px] px-3 py-[7px] "
-                "text-[13px] font-semibold bg-card text-foreground cursor-pointer "
+                "text-13 font-semibold bg-card text-foreground cursor-pointer "
                 "hover:bg-slate-50 transition-colors"
             ),
             **{"@click": replace_handler},

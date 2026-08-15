@@ -53,7 +53,7 @@ def resource_chip(resource: dict) -> "FT":
         href=f"/library/resources/get?uid={uid}",
         cls=(
             "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border "
-            "border-border bg-muted/40 text-[13px] text-foreground "
+            "border-border bg-muted/40 text-13 text-foreground "
             "hover:bg-accent hover:text-accent-foreground"
         ),
     )

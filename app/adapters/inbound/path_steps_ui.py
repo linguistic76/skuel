@@ -577,7 +577,7 @@ def _ps_tasks_fragment(uid: str, tasks: list[Any]) -> Any:
         body: Any = P(
             "No tasks from this step yet. Steps that include task templates "
             "create them when you start learning.",
-            cls="text-[13px] text-muted-foreground",
+            cls="text-13 text-muted-foreground",
         )
     else:
         rows = []
@@ -596,7 +596,7 @@ def _ps_tasks_fragment(uid: str, tasks: list[Any]) -> Any:
                         getattr(task, "title", None) or task.uid,
                         href=f"/tasks/detail?uid={task.uid}",
                         cls=(
-                            "text-[13px] font-medium hover:underline "
+                            "text-13 font-medium hover:underline "
                             + (
                                 "line-through text-muted-foreground"
                                 if is_done

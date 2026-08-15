@@ -191,9 +191,7 @@ def create_activity_reports_ui_routes(
             title = str(getattr(report, "title", None) or uid or "Report")
             period = getattr(report, "time_period", None) or ""
             badge = (
-                Span(period, cls="text-[10px] font-medium text-muted-foreground")
-                if period
-                else None
+                Span(period, cls="text-10 font-medium text-muted-foreground") if period else None
             )
             content = getattr(report, "processed_content", None) or ""
             href = f"/activity-reports/detail?uid={uid}" if uid else "/gradebook"

@@ -68,7 +68,7 @@ def _priority_badge(item: Any) -> Span:
     label = _PRIORITY_LABELS.get(priority, "P4")
     return Span(
         Span(cls=f"w-2 h-2 rounded-full {color} shrink-0"),
-        Span(label, cls="text-[10px] font-medium text-muted-foreground"),
+        Span(label, cls="text-10 font-medium text-muted-foreground"),
         cls="inline-flex items-center gap-1",
         title=f"Priority: {priority.value.title()}",
     )

@@ -17,7 +17,7 @@ from ui.layout import Size
 def submission_preview_badge(status: str) -> Span:
     """Status badge for submission preview cards (student hub + KU preview)."""
     label = status.replace("_", " ").title() if status else "Unknown"
-    return Span(label, cls="text-[10px] font-medium text-muted-foreground")
+    return Span(label, cls="text-10 font-medium text-muted-foreground")
 
 
 def entity_type_badge(entity_type: EntityType | str | None) -> Any:

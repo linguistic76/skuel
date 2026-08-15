@@ -87,7 +87,7 @@ def render_resource_detail(resource: Any, cited_by: tuple | list = ()) -> Div:
                 H1(
                     title,
                     id="resource-title",
-                    cls="text-[30px] font-extrabold leading-[1.12] tracking-[-0.02em]",
+                    cls="text-3xl font-extrabold leading-[1.12] tracking-[-0.02em]",
                 ),
                 _attribution_line(resource),
                 _meta_chips(resource),
@@ -121,7 +121,7 @@ def _attribution_line(resource: Any) -> "FT":
         return Div()
     return P(
         " · ".join(parts),
-        cls="mt-[13px] text-[15px] font-medium text-foreground/75",
+        cls="mt-[13px] text-15 font-medium text-foreground/75",
     )
 
 
@@ -129,7 +129,7 @@ def _meta_chips(resource: Any) -> "FT":
     """ISBN + duration chips (only the present ones)."""
     isbn = getattr(resource, "isbn", None)
     duration = getattr(resource, "resource_duration_minutes", None)
-    chip_cls = "inline-flex items-center gap-1.5 text-[12.5px] font-medium text-muted-foreground"
+    chip_cls = "inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground"
     items: list[Any] = []
 
     if duration:
@@ -155,7 +155,7 @@ def _open_source_button(source_url: str | None) -> "FT":
             rel="noopener noreferrer",
             cls=(
                 "inline-flex items-center gap-2 px-[18px] py-[9px] rounded-lg "
-                "bg-primary text-primary-foreground text-[13.5px] font-semibold hover:opacity-90"
+                "bg-primary text-primary-foreground text-13 font-semibold hover:opacity-90"
             ),
         ),
         cls="mt-[24px]",
@@ -168,7 +168,7 @@ def _annotation_section(description: str) -> "FT":
         return Div()
     return Section(
         section_label("About", tag=H2, id="resource-about-h"),
-        P(description, cls="text-[16px] leading-[1.6] text-foreground/80"),
+        P(description, cls="text-base leading-[1.6] text-foreground/80"),
         cls="mt-[30px]",
         role="region",
         **{"aria-labelledby": "resource-about-h"},
@@ -221,7 +221,7 @@ def _cited_by_row(row: dict) -> "FT":
     ]
     chip_cls = (
         "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border "
-        "border-border bg-muted/40 text-[13px] text-foreground"
+        "border-border bg-muted/40 text-13 text-foreground"
     )
     if route:
         return A(
@@ -245,7 +245,7 @@ def _tags_section(tags: tuple | list) -> "FT":
                 Span(
                     Span(cls="w-1.5 h-1.5 rounded-full bg-strength-core"),
                     f" {tag}",
-                    cls="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border bg-muted/40 text-[13px] font-medium text-foreground/85",
+                    cls="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border bg-muted/40 text-13 font-medium text-foreground/85",
                 )
                 for tag in tag_list
             ],
