@@ -260,7 +260,7 @@ class EntityType(StrEnum):
         Parse EntityType from string (case-insensitive, alias-aware).
 
         Canonical DSL shorthands: "ps" → PATH_STEP, "lp" → LEARNING_PATH,
-        "ku" → KU, "book"/"film"/"talk" → RESOURCE, "step" → PATH_STEP.
+        "ku"/"knowledge" → KU, "book"/"film"/"talk" → RESOURCE, "step" → PATH_STEP.
         """
         normalized = text.strip().lower().replace("-", "_").replace(" ", "_")
         return _ENTITY_TYPE_ALIASES.get(normalized)
@@ -422,6 +422,7 @@ _ENTITY_TYPE_ALIASES: dict[str, EntityType] = {
     "principle": EntityType.PRINCIPLE,
     "life_path": EntityType.LIFE_PATH,
     # Shorthand aliases
+    "knowledge": EntityType.KU,  # friendly @context spelling for ku
     "book": EntityType.RESOURCE,
     "film": EntityType.RESOURCE,
     "talk": EntityType.RESOURCE,

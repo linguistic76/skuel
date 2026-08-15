@@ -55,6 +55,7 @@ CONTENT_TYPES: frozenset[str] = frozenset(
     {
         # Curriculum
         "ku",
+        "knowledge",
         "knowledgeunit",
         "knowledgecluster",
         "pathstep",
