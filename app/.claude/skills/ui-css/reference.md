@@ -263,12 +263,9 @@ inherited — deliberately no `--text-N--line-height` companions):
 | `text-2xl` | 24px | Page headings |
 
 **Never write a new arbitrary font size** (`text-[13px]`, `sm:text-[40px]`) —
-the scale above covers every sanctioned step, and `scripts/audit_font_sizes.py`
-flags arbitrary sizes outside the ADR-084 exception ledger. Migrating legacy
-sites (campaign mapping): 9–10.5px → `text-10` · 11/11.5 → `text-11` ·
-12/12.5 → `text-xs` · 13/13.5 → `text-13` · 14/14.5 → `text-sm` ·
-15/15.5 → `text-15` · 16 → `text-base` · 17/18 → `text-lg` · 20/22 →
-`text-xl` · ~30 → `text-3xl` · clamp()/40px+ heroes → allowlisted exceptions.
+the scale above covers every sanctioned step, and `scripts/audit_font_sizes.py
+--strict` (CI lint job + `./dev quality`) fails on any arbitrary size outside
+the ADR-084 exception ledger (a handful of pinned clamp()/hero sites).
 
 ### Responsive Breakpoints (mobile-first)
 

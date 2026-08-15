@@ -197,7 +197,7 @@ Div(cls="p-5")  # Use p-4 or p-6 (standard scale)
 # ❌ New arbitrary font sizes
 Span("Meta", cls="text-[11px]")  # Use the named scale: text-10/11/13/15 (SKUEL
 # compact steps, ADR-084) or stock text-xs/sm/base/lg/xl — audit_font_sizes.py
-# flags arbitrary sizes outside the exception ledger
+# --strict (CI + ./dev quality) fails on arbitrary sizes outside the exception ledger
 
 # ❌ Passing cls=None to a raw FT component
 Div(*c, cls=None)  # Renders class="None"

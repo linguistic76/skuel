@@ -145,9 +145,9 @@ def main():
     ):
         all_passed = False
 
-    # 5c. Font-Size Audit (advisory: arbitrary text-[Npx] outside the ADR-084 exception ledger)
+    # 5c. Font-Size Audit (strict: arbitrary text-[Npx] outside the ADR-084 exception ledger fails)
     if not run_command(
-        ["uv", "run", "python", "scripts/audit_font_sizes.py"],
+        ["uv", "run", "python", "scripts/audit_font_sizes.py", "--strict"],
         "Font-Size Audit",
         check=False,
     ):
