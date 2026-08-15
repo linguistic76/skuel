@@ -1301,7 +1301,7 @@ from ui.activities._shared import MetadataField
 MetadataField("Due Date", Span(str(task.due_date), cls=due_cls))
 # Complex (multiple children)
 MetadataField("Satisfaction",
-    Span(stars, cls="text-yellow-600", style="font-size: 1.2rem;"),
+    Span(stars, cls="text-yellow-600 text-xl"),
     Span(f" {score}/5", cls="text-muted-foreground text-sm"),
 )
 ```
