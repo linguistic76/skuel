@@ -112,7 +112,7 @@ def render_user_message(text: str) -> Any:
     return Div(
         Div(
             text,
-            cls="max-w-[80%] bg-muted rounded-[20px] px-[18px] py-3 text-[15px] leading-[1.6] text-foreground",
+            cls="max-w-[80%] bg-muted rounded-[20px] px-[18px] py-3 text-15 leading-[1.6] text-foreground",
         ),
         cls="flex justify-end px-7 py-2",
     )
@@ -130,7 +130,7 @@ def render_assistant_message(
     distinct block from ``_sources_accordion`` (graph-prereq "Sources & Evidence").
     """
     content_nodes: list[Any] = [
-        Div(text, cls="text-[15px] leading-[1.75] text-foreground/80"),
+        Div(text, cls="text-15 leading-[1.75] text-foreground/80"),
     ]
     if sources:
         content_nodes.append(_sources_accordion(sources))
@@ -199,7 +199,7 @@ def _sidebar(username: str, learning_scope_label: str) -> Any:
 
 def _sb_header() -> Any:
     return Div(
-        Span("Askesis", cls="text-[17px] font-bold tracking-tight text-foreground"),
+        Span("Askesis", cls="text-lg font-bold tracking-tight text-foreground"),
         Button(
             Icon("panel-left-close", size=16),
             cls="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-slate-100 hover:text-slate-600 transition-colors",
@@ -215,7 +215,7 @@ def _sb_new_chat_btn() -> Any:
     return Div(
         Button(
             Icon("square-pen", size=17, cls="text-slate-600 shrink-0"),
-            Span("New chat", cls="text-[14px] font-semibold text-foreground"),
+            Span("New chat", cls="text-sm font-semibold text-foreground"),
             cls="w-full flex items-center gap-2 px-3 py-[10px] rounded-[10px] border border-border bg-background hover:bg-slate-50 transition-colors shadow-xs",
             type="button",
         ),
@@ -230,7 +230,7 @@ def _sb_search_field() -> Any:
             Input(
                 type="search",
                 placeholder="Search chats",
-                cls="flex-1 bg-transparent border-none outline-hidden text-[13.5px] text-foreground placeholder:text-muted-foreground",
+                cls="flex-1 bg-transparent border-none outline-hidden text-13 text-foreground placeholder:text-muted-foreground",
             ),
             cls="flex items-center gap-2 h-[38px] rounded-[9px] px-3 bg-slate-100",
         ),
@@ -243,12 +243,12 @@ def _sb_history() -> Any:
     return Div(
         Div(
             "Today",
-            cls="px-3 py-1 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider",
+            cls="px-3 py-1 text-11 font-semibold text-muted-foreground uppercase tracking-wider",
         ),
         Div(cls="border-t border-border mx-3 mb-1"),
         P(
             "No conversations yet. Start chatting above.",
-            cls="px-4 py-3 text-[12.5px] text-muted-foreground italic",
+            cls="px-4 py-3 text-xs leading-snug text-muted-foreground italic",
         ),
         cls="flex-1 overflow-y-auto",
     )
@@ -265,11 +265,11 @@ def _sb_account_footer(username: str, learning_scope_label: str) -> Any:
             Div(
                 Div(
                     username,
-                    cls="text-[13.5px] font-semibold text-foreground leading-tight",
+                    cls="text-13 font-semibold text-foreground leading-tight",
                 ),
                 Div(
                     learning_scope_label,
-                    cls="text-[11.5px] text-muted-foreground leading-tight truncate",
+                    cls="text-11 text-muted-foreground leading-tight truncate",
                 ),
                 cls="flex-1 min-w-0",
             ),
@@ -303,7 +303,7 @@ def _response_mode_panel() -> Any:
     ]
     return Div(
         Div(
-            Span("Response mode", cls="text-[13px] font-semibold text-foreground"),
+            Span("Response mode", cls="text-13 font-semibold text-foreground"),
             Button(
                 Icon("x", size=14),
                 cls="text-muted-foreground hover:text-foreground transition-colors",
@@ -344,8 +344,8 @@ def _mode_row(value: str, label: str, desc: str) -> Any:
             **{":class": f"responseMode === '{value}' ? 'border-foreground' : ''"},
         ),
         Div(
-            Div(label, cls="text-[13px] font-semibold text-foreground leading-tight"),
-            Div(desc, cls="text-[11.5px] text-muted-foreground leading-snug"),
+            Div(label, cls="text-13 font-semibold text-foreground leading-tight"),
+            Div(desc, cls="text-11 text-muted-foreground leading-snug"),
             cls="flex-1",
         ),
         cls=(
@@ -397,7 +397,7 @@ def _top_bar(model_options: list[tuple[str, str]]) -> Any:
     # wrong provider, dead chevron); this is its real replacement.
     return Div(
         Div(
-            Span("Askesis", cls="text-[15.5px] font-semibold text-foreground px-3 py-1.5"),
+            Span("Askesis", cls="text-15 font-semibold text-foreground px-3 py-1.5"),
             _model_select(model_options),
             cls="flex items-center gap-1",
         ),
@@ -424,7 +424,7 @@ def _model_select(model_options: list[tuple[str, str]]) -> Any:
         *[Option(label, value=value) for value, label in model_options],
         aria_label="Model",
         cls=(
-            "text-[13px] text-muted-foreground bg-transparent border border-border"
+            "text-13 text-muted-foreground bg-transparent border border-border"
             " rounded-[8px] px-2 py-1 outline-hidden cursor-pointer"
         ),
         **{"x-model": "selectedModel"},
@@ -440,7 +440,7 @@ def _composer_area(
             _composer_form(nous_topics, nous_subtopic_map, initial_question),
             P(
                 "Askesis answers from the Path Steps you're studying, citing its sources. Verify anything important.",
-                cls="text-center text-[11.5px] text-muted-foreground mt-2 px-4",
+                cls="text-center text-11 text-muted-foreground mt-2 px-4",
             ),
             cls="max-w-[768px] mx-auto w-full px-4",
         ),
@@ -463,7 +463,7 @@ def _nous_scope_chip() -> Any:
             cls="ml-0.5 text-muted-foreground hover:text-foreground",
             **{"@click": "selectedNous = ''"},
         ),
-        cls="flex items-center gap-1.5 w-fit mx-auto mb-2 px-3 py-1 rounded-[18px] text-[12px]",
+        cls="flex items-center gap-1.5 w-fit mx-auto mb-2 px-3 py-1 rounded-[18px] text-xs",
         style="background:#f4f1fc; border:1px solid #e0d9f4;",
         **{"x-show": "selectedNous", "x-cloak": True},
     )
@@ -483,7 +483,7 @@ def _nous_scope_select(nous_topics: list[str]) -> Any:
         *options,
         aria_label="Scope answer to a NOUS topic",
         cls=(
-            "text-[13px] text-muted-foreground bg-transparent border border-border"
+            "text-13 text-muted-foreground bg-transparent border border-border"
             " rounded-[18px] px-2.5 py-1.5 outline-hidden cursor-pointer max-w-[160px]"
         ),
         **{"x-model": "selectedNous"},
@@ -524,7 +524,7 @@ def _nous_subtopic_scope_select(nous_subtopic_map: dict[str, list[str]]) -> Any:
         ),
         aria_label="Scope answer to a NOUS sub-topic",
         cls=(
-            "text-[13px] text-muted-foreground bg-transparent border border-border"
+            "text-13 text-muted-foreground bg-transparent border border-border"
             " rounded-[18px] px-2.5 py-1.5 outline-hidden cursor-pointer max-w-[160px]"
             " disabled:opacity-60 disabled:cursor-not-allowed"
         ),
@@ -596,7 +596,7 @@ def _composer_form(
             placeholder="Ask about your learning…",
             name="message",
             rows=1,
-            cls="w-full border-none outline-hidden bg-transparent resize-none text-[15px] leading-[1.6] text-foreground placeholder:text-muted-foreground",
+            cls="w-full border-none outline-hidden bg-transparent resize-none text-15 leading-[1.6] text-foreground placeholder:text-muted-foreground",
             style="max-height:200px; overflow:hidden;",
             oninput="this.style.height='auto'; this.style.height=Math.min(this.scrollHeight,200)+'px'",
             required=True,
@@ -628,7 +628,7 @@ def _composer_form(
 def _kb_pill() -> Any:
     return Button(
         Icon("book-open-text", size=14, cls="shrink-0 text-strength-core"),
-        Span("Knowledge base", cls="text-[13px] font-semibold text-strength-core"),
+        Span("Knowledge base", cls="text-13 font-semibold text-strength-core"),
         cls="flex items-center gap-1.5 px-3 py-1.5 rounded-[18px] transition-colors",
         style="background:#f4f1fc; border:1px solid #e0d9f4;",
         type="button",
@@ -666,15 +666,15 @@ def _sources_accordion(sources: list[dict]) -> Any:
         Button(
             Div(
                 Icon("book-open-text", size=16, cls="text-strength-core shrink-0"),
-                Span("Sources", cls="text-[13px] font-semibold text-foreground"),
+                Span("Sources", cls="text-13 font-semibold text-foreground"),
                 Span(
                     str(count),
-                    cls="text-[11px] font-mono px-2 py-0.5 rounded-[20px] bg-muted text-muted-foreground",
+                    cls="text-11 font-mono px-2 py-0.5 rounded-[20px] bg-muted text-muted-foreground",
                 ),
                 cls="flex items-center gap-1.5",
             ),
             Div(
-                (Span(caption, cls="text-[12px] text-muted-foreground mr-2") if caption else None),
+                (Span(caption, cls="text-xs text-muted-foreground mr-2") if caption else None),
                 Div(
                     Icon(
                         "chevron-down",
@@ -713,7 +713,7 @@ def _source_card(n: int, source: dict) -> Any:
 
     title_row: list[Any] = [
         icon,
-        Span(title, cls="text-[13.5px] font-semibold text-foreground truncate"),
+        Span(title, cls="text-13 font-semibold text-foreground truncate"),
     ]
     if kind == "web" and source.get("url"):
         title_row.append(Icon("arrow-up-right", size=13, cls="text-muted-foreground shrink-0"))
@@ -721,20 +721,20 @@ def _source_card(n: int, source: dict) -> Any:
     return Div(
         Div(
             str(n),
-            cls="w-[21px] h-[21px] rounded-[6px] flex items-center justify-center text-[11px] font-semibold font-mono bg-muted text-muted-foreground shrink-0",
+            cls="w-[21px] h-[21px] rounded-[6px] flex items-center justify-center text-11 font-semibold font-mono bg-muted text-muted-foreground shrink-0",
         ),
         Div(
             Div(*title_row, cls="flex items-center gap-1.5"),
             (
                 P(
                     snippet,
-                    cls="text-[12.5px] text-muted-foreground leading-normal line-clamp-2 mt-0.5",
+                    cls="text-xs text-muted-foreground leading-normal line-clamp-2 mt-0.5",
                 )
                 if snippet
                 else None
             ),
             (
-                Span(origin, cls="text-[11px] text-muted-foreground font-mono mt-1 block")
+                Span(origin, cls="text-11 text-muted-foreground font-mono mt-1 block")
                 if origin
                 else None
             ),
