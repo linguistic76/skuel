@@ -27,6 +27,8 @@ from typing import TYPE_CHECKING
 
 from core.events.embedding_publisher import EMBEDDING_NODE_LABELS
 from core.models.enums.entity_enums import EntityType
+from core.models.enums.neo_labels import NeoLabel
+from core.models.enums.pipeline import Pipeline
 
 if TYPE_CHECKING:
     from core.ports.query_types import EmbeddingCoverageReport, EmbeddingLabelCoverage
@@ -38,8 +40,8 @@ EMBEDDABLE_LABELS: dict[str, EntityType] = {
     label: entity_type for entity_type, label in EMBEDDING_NODE_LABELS.items()
 }
 
-CONTENT_CHUNK_LABEL = "ContentChunk"
-REFERENCE_CHUNK_LABEL = "ReferenceChunk"
+CONTENT_CHUNK_LABEL = NeoLabel.CONTENT_CHUNK.value
+REFERENCE_CHUNK_LABEL = NeoLabel.REFERENCE_CHUNK.value
 
 # Chunk labels carry embeddings but are not entities (no EntityType) — the
 # coverage split (missing_chunks vs missing_entities) keys off this set.
@@ -62,7 +64,9 @@ EMBEDDING_SCAN_LABELS: tuple[str, ...] = (
 # deliberately never publishes. Private notes never embed either (canon P3) —
 # no vector may exist for them, so the gauge must not count them as missing.
 LABEL_EXTRA_FILTERS: dict[str, str] = {
-    "UserEntry": "n.pipeline = 'knowledge' AND coalesce(n.private, false) = false",
+    NeoLabel.USER_ENTRY.value: (
+        f"n.pipeline = '{Pipeline.KNOWLEDGE.value}' AND coalesce(n.private, false) = false"
+    ),
 }
 
 # The remedy for a coverage gap on labels the backstop script covers.
