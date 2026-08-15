@@ -69,7 +69,11 @@ SHORTHAND_LENGTH = re.compile(r"(?:[\w-]+:)*text-\(length:[^)\s]+\)")
 # Tailwind's arbitrary-property form: [font-size:13px] / [font-size:var(--fs)]
 # emits a font-size declaration with no text- prefix at all (Codex, PR #1062).
 # The property is named, so every payload is a font size by construction.
-ARBITRARY_PROPERTY = re.compile(r"(?:[\w-]+:)*\[font-size:[^\]\s]+\]")
+# The (?<!-) lookbehind keeps bracketed VARIANT payloads out: in
+# supports-[font-size:12px]:block the bracket follows `supports-` and
+# compiles to an @supports query, not a font size (Codex, PR #1062 round 2).
+# A real variant prefix (sm:, dark:) ends in `:`, which the lookbehind allows.
+ARBITRARY_PROPERTY = re.compile(r"(?:[\w-]+:)*(?<!-)\[font-size:[^\]\s]+\]")
 
 # Payloads that compile to `color`, not `font-size`: explicit color: hint,
 # hex, color functions, bare var() (un-hinted vars on text-* resolve to
