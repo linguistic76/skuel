@@ -32,11 +32,12 @@ For implementation guidance, see:
 
 **Scope:** This service covers the **service layer** (graph enrichment, context queries, relationship operations). The **ingestion layer** (`core/services/ingestion/config.py`) also derives its config from the registry via its own `generate_ingestion_relationship_config()` function — see ADR-026 "Ingestion Config Unified" section.
 
-**Scope:** All 10 searchable domains now have relationship configs:
+**Scope:** 16 `DomainRelationshipConfig`s in `relationship_registry.py` — every searchable domain plus supporting configs:
 - **Activity (6):** Tasks, Goals, Habits, Events, Choices, Principles (user-owned)
-- **Curriculum (3):** KU, PS, LP (shared content)
-- **Content/Organization Domains (3):** Journals, Assignments, MOC (MOC provides navigation across curriculum)
-- **Finance is NOT an Activity Domain** - it's a standalone expense/budget tracker
+- **Curriculum (4):** KU, PS, LP, Exercise (shared content)
+- **Learning loop (4):** RevisedExercise, UserEntry, EntryReport, Interaction
+- **Supporting (2):** User, PrincipleReflection
+- **Finance is NOT covered** — it's a Firefly III sidecar (ADR-052), outside the Entity graph
 
 **Before:**
 ```

@@ -59,11 +59,11 @@ Neo4j Graph (digital)
 - Relationships are first-class citizens (stored as edges, not foreign keys)
 - Graph traversal is native and performant (no joins)
 - Cypher query language matches the domain model
-- Supports 14 heterogeneous entity types with shared relationship patterns
+- Supports all 25 heterogeneous entity types with shared relationship patterns
 
 **Core Patterns:**
-- **Entity Labels:** Task, Goal, Habit, Event, Choice, Principle, Ku, Ls, Lp, Journal, Assignment, Expense, LifePath, User
-- **Relationship Types:** PREREQUISITE, ENABLES, APPLIES_KNOWLEDGE, FULFILLS_GOAL, SUPPORTS_GOAL, SERVES_LIFE_PATH, etc.
+- **Entity Labels:** multi-label nodes — `:Entity` plus a domain label (`:Task`, `:Goal`, `:Ku`, `:PathStep`, `:LearningPath`, `:LifePath`, …); `:User` and `:Group` are non-Entity labels
+- **Relationship Types:** PREREQUISITE_FOR, USES_KU, APPLIES_KNOWLEDGE, FULFILLS_GOAL, SUPPORTS_GOAL, SERVES_LIFE_PATH, etc.
 - **Universal Backend:** `UniversalNeo4jBackend[T]` provides generic CRUD for all types
 
 **Graph-Native Principle:**

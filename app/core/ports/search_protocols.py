@@ -704,8 +704,8 @@ class SupportsTextSearch(Protocol):
         query: str,
         limit: int = 50,
         user_uid: UserUID | None = None,
-        # boundary: genuinely heterogeneous — the router dispatches across 12
-        # domains by runtime enum, so the element type is the cross-domain
+        # boundary: genuinely heterogeneous — the router dispatches across the
+        # searchable domains by runtime enum, so the element type is the cross-domain
         # union no static T can name at the isinstance narrowing site (same
         # shape as SupportsGraphTraversalSearch / SupportsTagSearch below).
     ) -> Result[list[Any]]:

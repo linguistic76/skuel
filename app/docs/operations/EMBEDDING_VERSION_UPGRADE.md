@@ -10,8 +10,8 @@ ADR-068), follow this workflow to re-embed all entities with version tracking.
 through `EmbeddingsService.store_embedding_with_metadata()`, so there is exactly one writer of
 version/model metadata. There are NO embedding env vars (ADR-068 deleted `EmbeddingConfig`).
 
-**Applies to:** all 12 embeddable labels (Task, Goal, Habit, Event, Choice, Principle, Ku,
-Resource, Exercise, PathStep, LearningPath, RevisedExercise).
+**Applies to:** all 13 embeddable labels (Task, Goal, Habit, Event, Choice, Principle, Ku,
+Resource, Exercise, PathStep, LearningPath, RevisedExercise, UserEntry).
 
 ---
 

@@ -118,35 +118,38 @@ Every YAML file starts with required fields:
 ```yaml
 version: 1.0
 type: Task              # Entity type (see table below)
-uid: task.my-task-name  # Unique identifier (prefix:slug format)
+uid: task.my-task-name  # Unique identifier (prefix.slug format)
 title: My Task Title    # Display title
 ```
 
 ### Ingestible Entity Types
 
-14 of SKUEL's entity types are file-ingestible. The remaining are created via API or internal pipelines (RevisedExercise, FormTemplate, FormSubmission, EntryReport, ActivityReport).
+14 of SKUEL's entity types are file-ingestible. The remaining 11 are created via API or internal pipelines (RevisedExercise, FormTemplate, FormSubmission, EntryReport, ActivityReport, and the 6 Activity Templates).
 
 | Type Value | Aliases | Prefix | Example UID |
 |------------|---------|--------|-------------|
-| `Ku` | `KnowledgeUnit` | `ku:` | `ku.attention.buzzing` |
-| `PathStep` | `ps`, `Lesson` (legacy) | `ps:` | `ps.mindfulness.breath-awareness-basics` |
-| `Exercise` | — | `ex:` | `ex.sel.know-yourself-check-in` |
-| `LearningPath` | `lp` | `lp:` | `lp.mindfulness-101` |
-| `Resource` | — | `resource:` | `resource.atlas-of-the-heart` |
-| `Task` | — | `task:` | `task.log-first-5-sessions` |
-| `Goal` | — | `goal:` | `goal.mindfulness-beginner` |
-| `Habit` | — | `habit:` | `habit.daily-2min-breath` |
-| `Event` | — | `event:` | `event.practice-block-2min` |
-| `Choice` | — | `choice:` | `choice.2-minutes-right-now` |
-| `Principle` | — | `principle:` | `principle.small-steps` |
-| `UserEntry` | `UserEntry` | `ue:` | `ue:my-work` |
-| `LifePath` | — | `lifepath:` | `lifepath.my-direction` |
-| `Expense` | `Finance` | `expense:` | `expense:books` |
+| `Ku` | — | `ku.` | `ku.attention.buzzing` |
+| `PathStep` | `ps`, `learningstep`, `Lesson` (legacy) | `ps.` | `ps.mindfulness.breath-awareness-basics` |
+| `Exercise` | — | `ex.` | `ex.sel.know-yourself-check-in` |
+| `LearningPath` | `lp` | `lp.` | `lp.mindfulness-101` |
+| `Resource` | — | `resource.` | `resource.atlas-of-the-heart` |
+| `Task` | — | `task.` | `task.log-first-5-sessions` |
+| `Goal` | — | `goal.` | `goal.mindfulness-beginner` |
+| `Habit` | — | `habit.` | `habit.daily-2min-breath` |
+| `Event` | — | `event.` | `event.practice-block-2min` |
+| `Choice` | — | `choice.` | `choice.2-minutes-right-now` |
+| `Principle` | — | `principle.` | `principle.small-steps` |
+| `user_entry` | `ue` (requires explicit `pipeline:`) | `ue.` | `ue.my-work` |
+| `Interaction` | `ia` | `ia.` | `ia.viewed-ps` |
+| `LifePath` | — | `lifepath.` | `lifepath.my-direction` |
+| `Group` | — | `group.` | `group.class-of-2026` |
 | `Edge` | — | *(n/a)* | *(standalone relationship file)* |
 
 The `type` value is case-insensitive. Aliases resolve to the canonical type during ingestion.
 
-**UID format:** `prefix.slug` or `prefix.namespace.slug`, authored in dot form directly — what you write is what Neo4j stores (e.g. `ku.attention.buzzing`). The former colon spelling (`ku:attention:buzzing`) was retired 2026-08-14; legacy colons are still normalized to dots at the boundary. **UID prefix validation:** Explicit UIDs must start with the correct prefix for their entity type (e.g., `ps.` for PathSteps, `ku.` for Kus, `ex.` for Exercises). A mismatched prefix is rejected during ingestion.
+**Retired type values are rejected with a clear error:** `expense` / `finance` (ADR-052 — finance is a Firefly III sidecar, not vault-ingestible) and the pre-ADR-054 UserEntry spellings (`exercise_submission`, `je_input`, `je_output`).
+
+**UID format:** `prefix.slug` or `prefix.namespace.slug`, authored in dot form directly — what you write is what Neo4j stores (e.g. `ku.attention.buzzing`). The former colon spelling (`ku:attention:buzzing`) was retired 2026-08-14 and its input alias deleted — a colon-spelled UID fails prefix validation loudly. **UID prefix validation:** Explicit UIDs must start with the correct prefix for their entity type (e.g., `ps.` for PathSteps, `ku.` for Kus, `ex.` for Exercises). A mismatched prefix is rejected during ingestion.
 
 **What happens during ingestion:** The `type` field determines which Neo4j labels the node gets (e.g., `type: Task` creates a node with `:Entity:Task` labels) and sets the `entity_type` property on the node (e.g., `entity_type: "task"`). The `type` field itself is not stored — it is translated into labels and properties.
 

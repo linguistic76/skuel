@@ -877,10 +877,10 @@ class Neo4jSchemaManager(Neo4jSessionRunner):
 
         Creates:
         - Entity.uid UNIQUENESS constraint (base label — globally unique uid)
-        - UID indexes for the per-type labels (21)
-        - user_uid indexes for all UserOwnedEntity types (14)
+        - UID indexes for the per-type labels (18)
+        - user_uid indexes for the user-owned domain labels (12)
         - Status indexes for time-sensitive domains (4)
-        - Date indexes for temporal queries (4)
+        - Date indexes for temporal queries (3)
         - Entity type discriminator index (1)
         - Composite indexes for hot query paths (3)
         - :SearchEvent behavioral-log indexes (2)

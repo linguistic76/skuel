@@ -34,6 +34,7 @@ from adapters.inbound.middleware import (
     StaticCacheHeadersMiddleware,
 )
 from core.config import UnifiedConfig
+from core.events.embedding_publisher import EMBEDDING_EVENT_TYPES
 from core.ports.infrastructure_protocols import DrainableEventBusOperations, EventBusOperations
 from core.ports.service_protocols import GraphAuthOperations
 from core.utils.logging import get_logger
@@ -941,7 +942,8 @@ async def startup_skuel(
         # Store task reference on app state for shutdown cleanup
         container.app.state.embedding_worker_task = background_task
         logger.info(
-            "✅ Embedding background worker started (12 embeddable entity types + content chunks)"
+            f"✅ Embedding background worker started "
+            f"({len(EMBEDDING_EVENT_TYPES)} embeddable entity types + content chunks)"
         )
     else:
         logger.info(

@@ -213,7 +213,7 @@ EntityDTO (~18 fields)
 └── ResourceDTO(EntityDTO)
 ```
 
-**KuDTO deleted** (February 2026). All services now use per-domain DTOs exclusively. Cross-domain services (SearchRouter, MEGA-QUERY, analytics) use `ENTITY_TYPE_CLASS_MAP` for generic entity deserialization across all 15 EntityType domains.
+**KuDTO deleted** (February 2026). All services now use per-domain DTOs exclusively. Cross-domain services (SearchRouter, MEGA-QUERY, analytics) use `ENTITY_TYPE_CLASS_MAP` for generic entity deserialization across all 25 EntityType domains.
 
 ## Tier 1: Pydantic Request Models (External)
 
@@ -910,7 +910,7 @@ SKUEL uses two approved patterns: **Domain-First (Pattern A)** for most domains,
 
 | Pattern | Files | Tiers | Use For | Domains |
 |---------|-------|-------|---------|---------|
-| **Domain-First** | Per-domain model + per-domain DTO | Pydantic -> DTO -> Entity hierarchy | All 15 EntityType domains | Tasks, Goals, Habits, Events, Choices, Principles, KU, PS, LP, Reports, LifePath |
+| **Domain-First** | Per-domain model + per-domain DTO | Pydantic -> DTO -> Entity hierarchy | All 25 EntityType domains | Tasks, Goals, Habits, Events, Choices, Principles, KU, PS, LP, Reports, LifePath |
 | **B: Two-Tier** | 2 | Pydantic -> DTO | Simple CRUD, minimal logic | Finance (1 domain) |
 
 **Decision Matrix:**
@@ -923,7 +923,7 @@ Does the domain have 3+ business logic methods?
 ```
 
 **Key enum renames (February 2026):**
-- `KuType` -> `EntityType` (15 values)
+- `KuType` -> `EntityType` (15 values at the time; the enum has since grown to 25)
 - `KuStatus` -> `EntityStatus` (14 values)
 - `ku_enums.py` was deleted and split into 8 domain-specific enum files (Feb 2026); EntityType/EntityStatus live in `entity_enums.py`
 - `ku_type` field and Neo4j property renamed to `entity_type` (March 2026); `parent_ku_uid` renamed to `parent_entity_uid`

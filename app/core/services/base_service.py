@@ -23,23 +23,23 @@ ENTITY TYPES USING THIS BASE SERVICE (6)
     5. ChoicesService(BaseService[ChoicesOperations, Choice])
     6. PrinciplesService(BaseService[PrinciplesOperations, Principle])
 
-ENTITY TYPES NOT USING THIS BASE SERVICE
+SERVICES NOT USING THIS BASE SERVICE (examples)
 -----------------------------------------
 
-**Activity Domain (1 of 7)** - Standalone facade:
-    7. FinanceService - Expenses and budgets (standalone facade)
+**Finance (NonKuDomain — Firefly III sidecar, ADR-052):**
+    7. FinanceService - Standalone facade (admin-only)
 
 **Curriculum Domain Services (3)** - Standalone facades:
-    8. KuService - Knowledge Units (ku:)
-    9. PsService - PathSteps (ps:)
-    10. LpService - Learning Paths (lp:)
+    8. KuService - Knowledge Units (ku.)
+    9. PsService - PathSteps (ps.)
+    10. LpService - Learning Paths (lp.)
 
-**Content/Organization Domains (3)** - Cross-domain composition:
-    11. JournalsService - File processing
+**Content/Organization Domains** - Cross-domain composition:
+    11. JournalService - Journal workflows
     12. AnalyticsLifePathService - Life goal alignment
     13. AnalyticsService - Statistical aggregation
 
-THE 4 CROSS-CUTTING SYSTEMS
+CROSS-CUTTING INFRASTRUCTURE
 --------------------------
 
 **Foundation & Infrastructure (not domains):**

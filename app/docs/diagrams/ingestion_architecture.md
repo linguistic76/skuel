@@ -19,7 +19,7 @@ flowchart TD
     subgraph Ingestion["Ingestion Pipeline (core/services/ingestion/)"]
         B --> C["detect_format()<br/>MD vs YAML"]
         C --> D["parse_markdown() / parse_yaml()<br/>Extract frontmatter + body"]
-        D --> E["detect_entity_type()<br/>14 entity types"]
+        D --> E["detect_entity_type()<br/>frontmatter type → EntityType"]
         E --> F["validate_required_fields()<br/>Early fail-fast"]
         F --> G["prepare_entity_data()<br/>UID generation, normalization"]
         G --> H["validate_entity_data()<br/>Post-preparation checks"]

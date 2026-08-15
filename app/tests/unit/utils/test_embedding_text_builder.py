@@ -1,7 +1,8 @@
 """
 Tests for embedding text builder utility.
 
-Covers all 7 entity types with both dict and model inputs.
+Covers a sample of the content-bearing entity types with both dict and
+model inputs (the full map is pinned by EMBEDDING_FIELD_MAPS itself).
 """
 
 from dataclasses import dataclass

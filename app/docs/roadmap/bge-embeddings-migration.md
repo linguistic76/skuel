@@ -41,7 +41,7 @@ secret on the droplet, and one batch re-embed.
    ```bash
    uv run python scripts/generate_embeddings_batch.py --stale
    ```
-   Walks all 12 embeddable entity types plus ContentChunk/ReferenceChunk. Idempotent and
+   Walks all 13 embeddable entity types (`EMBEDDABLE_LABELS`) plus ContentChunk/ReferenceChunk. Idempotent and
    resumable.
 5. **Verify** — done when nothing is left on v3:
    ```cypher
