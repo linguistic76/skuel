@@ -151,7 +151,7 @@ def _article_header(
     is_pinned: bool = False,
 ) -> "FT":
     meta_items: list[FT] = [
-        Span(f"{reading_minutes} min read", cls="font-mono text-[12.5px] text-muted-foreground"),
+        Span(f"{reading_minutes} min read", cls="font-mono text-xs text-muted-foreground"),
         Span("·", cls="text-muted-foreground/40"),
     ]
     if user_uid:
@@ -163,7 +163,7 @@ def _article_header(
             Span(
                 Icon("info", cls="w-3 h-3"),
                 " Knowledge",
-                cls="inline-flex items-center gap-1.5 font-mono text-[10.5px] font-medium tracking-widest uppercase text-muted-foreground",
+                cls="inline-flex items-center gap-1.5 font-mono text-10 font-medium tracking-widest uppercase text-muted-foreground",
             ),
             cls="flex flex-wrap items-center gap-2.5 mb-3",
         ),
@@ -181,7 +181,7 @@ def _status_control(uid: str) -> "FT":
             role="radio",
             hx_post=endpoint,
             hx_swap="none",
-            cls="px-2.5 py-1 rounded-md text-[12px] font-medium transition-colors",
+            cls="px-2.5 py-1 rounded-md text-xs font-medium transition-colors",
             **{
                 ":aria-checked": f"(status==='{val}').toString()",
                 "@click": f"setStatus('{val}')",
@@ -227,7 +227,7 @@ def _relationships_section(uid: str) -> "FT":
         Div(
             "Relationships",
             id="rel-heading",
-            cls="font-mono text-[11px] font-medium tracking-[0.09em] uppercase text-muted-foreground mb-3.5",
+            cls="font-mono text-11 font-medium tracking-[0.09em] uppercase text-muted-foreground mb-3.5",
         ),
         EntityRelationshipsSection(entity_uid=EntityUID(uid), entity_type="ku"),
         cls="mb-9",
@@ -252,7 +252,7 @@ def _resources_section(resources: list[dict]) -> "FT":
         Div(
             "Resources",
             id="res-heading",
-            cls="font-mono text-[11px] font-medium tracking-[0.09em] uppercase text-muted-foreground mb-3.5",
+            cls="font-mono text-11 font-medium tracking-[0.09em] uppercase text-muted-foreground mb-3.5",
         ),
         Div(
             *[resource_chip(r) for r in resources if r.get("uid")],
@@ -300,7 +300,7 @@ def render_ku_related_concepts(related: "list[RelatedConceptChip]") -> "FT":
         Div(
             "Related concepts",
             id="ku-related-heading",
-            cls="font-mono text-[11px] font-medium tracking-[0.09em] uppercase text-muted-foreground mb-3.5",
+            cls="font-mono text-11 font-medium tracking-[0.09em] uppercase text-muted-foreground mb-3.5",
         ),
         Div(
             *[
@@ -309,7 +309,7 @@ def render_ku_related_concepts(related: "list[RelatedConceptChip]") -> "FT":
                     href=f"/explore/ku/{r['uid']}",
                     cls=(
                         "inline-flex items-center px-3 py-1.5 rounded-full border "
-                        "border-border bg-muted/40 text-[13px] font-medium "
+                        "border-border bg-muted/40 text-13 font-medium "
                         "text-foreground hover:bg-accent hover:text-accent-foreground"
                     ),
                 )
