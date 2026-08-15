@@ -528,8 +528,12 @@ async def main():
     try:
         embedding_client = create_embedding_client()
     except ValueError as e:
+        # Exit nonzero: this script is the canonical coverage remedy
+        # (./dev embed-backfill), and a missing key is exactly the gap class
+        # the gauge reports — a zero exit here would let automation treat an
+        # unrepaired gap as repaired (Codex #1068 P2).
         logger.error(f"❌ Embedding client not available - cannot generate embeddings: {e}")
-        return
+        raise SystemExit(1) from e
 
     embeddings_service = EmbeddingsService(
         backend=EmbeddingsBackend(executor=Neo4jQueryExecutor(driver)),
@@ -643,6 +647,16 @@ async def main():
         logger.error(
             f"\n❌ Audit incomplete — aborted labels: {', '.join(aborted_labels)}. "
             "Re-run when Neo4j freshness reads work."
+        )
+        raise SystemExit(1)
+
+    if total_failed:
+        # Same honesty contract as the aborted-audit exit: failures already
+        # logged per batch above; the remedy must not report success while
+        # gaps remain (Codex #1068 P2).
+        logger.error(
+            f"\n❌ Batch embedding generation incomplete: {total_processed} successful, "
+            f"{total_failed} failed — see per-batch errors above and re-run."
         )
         raise SystemExit(1)
 
