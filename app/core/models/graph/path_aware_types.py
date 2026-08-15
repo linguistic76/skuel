@@ -465,7 +465,7 @@ class GoalCrossContext:
         cls, source_uid: str, categorized_data: dict[str, Any]
     ) -> "GoalCrossContext":
         """Build the path-aware goal context from a ``get_cross_domain_context_typed``
-        categorized payload (the GOAPS_CONFIG ``context_field_name`` buckets).
+        categorized payload (the GOALS_CONFIG ``context_field_name`` buckets).
 
         This is the per-domain seam the generic factory delegates to: it SELECTs the
         goal-relevant buckets, RENAMEs them to the dataclass fields, UNIONs the multi-tier

@@ -48,7 +48,7 @@ TasksRelationshipService, GoalsRelationshipService, HabitsRelationshipService...
 **After:**
 ```
 1 service + 9 configs = ~1,600 lines (67% reduction)
-UnifiedRelationshipService + TASKS_CONFIG, GOAPS_CONFIG, HABITS_CONFIG...
+UnifiedRelationshipService + TASKS_CONFIG, GOALS_CONFIG, HABITS_CONFIG...
 ```
 
 **Old services archived:** `zarchives/relationships/`
@@ -90,7 +90,7 @@ Need relationship data?
 Instead of subclassing for each domain, we use configuration objects:
 
 ```python
-from core.models.relationship_registry import TASKS_CONFIG, GOAPS_CONFIG
+from core.models.relationship_registry import TASKS_CONFIG, GOALS_CONFIG
 from core.services.relationships import UnifiedRelationshipService
 
 # Create relationship service for tasks
@@ -104,7 +104,7 @@ tasks_relationship_service = UnifiedRelationshipService(
 goals_relationship_service = UnifiedRelationshipService(
     backend=goals_backend,
     graph_intel=graph_intel,
-    config=GOAPS_CONFIG,
+    config=GOALS_CONFIG,
 )
 ```
 
@@ -203,7 +203,7 @@ All 9 domains have named configs in `core.models.relationship_registry`:
 |--------|--------|--------------|-------------------|
 | **Activity (6)** |
 | `TASKS_CONFIG` | TASKS | Task | APPLIES_KNOWLEDGE, FULFILLS_GOAL, DEPENDS_ON |
-| `GOAPS_CONFIG` | GOALS | Goal | REQUIRES_KNOWLEDGE, SUPPORTS_GOAL, SUBGOAL_OF |
+| `GOALS_CONFIG` | GOALS | Goal | REQUIRES_KNOWLEDGE, SUPPORTS_GOAL, SUBGOAL_OF |
 | `HABITS_CONFIG` | HABITS | Habit | REINFORCES_KNOWLEDGE, SUPPORTS_GOAL, EMBODIES_PRINCIPLE |
 | `EVENTS_CONFIG` | EVENTS | Event | APPLIES_KNOWLEDGE, CONTRIBUTES_TO_GOAL, CONFLICTS_WITH |
 | `CHOICES_CONFIG` | CHOICES | Choice | INFORMED_BY_KNOWLEDGE, INFORMED_BY_PRINCIPLE, AFFECTS_GOAL |
@@ -265,7 +265,7 @@ all_habits = await service.get_related_uids("supporting_habits", "goal.123")  # 
 ```
 
 > **Filtered method-keys (`filter_property`/`filter_value`).** A
-> `UnifiedRelationshipDefinition` may scope a relationship by an edge property — GOAPS_CONFIG
+> `UnifiedRelationshipDefinition` may scope a relationship by an edge property — GOALS_CONFIG
 > splits SUPPORTS_GOAL into `essential_habits`/`critical_habits`/`optional_habits` (filtered)
 > plus the no-filter `supporting_habits`/`contributing_habits` catch-all. The filter applies
 > on **every** read path: `get_related_uids`/`count_related`/`has_relationship` (backend

@@ -152,7 +152,7 @@ metrics_result = await tasks_service.analyze_task_learning_metrics(user_uid)
 - Querying cross-domain connections
 - Semantic relationship management
 
-**Configuration:** Uses `DomainRelationshipConfig` from registry (e.g., `TASKS_CONFIG`, `GOAPS_CONFIG`)
+**Configuration:** Uses `DomainRelationshipConfig` from registry (e.g., `TASKS_CONFIG`, `GOALS_CONFIG`)
 
 **Example:**
 ```python

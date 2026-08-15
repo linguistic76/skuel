@@ -91,7 +91,7 @@ The per-domain `get_<domain>_with_context()` facade methods do **not** route uni
 | Domain | `default_context_intent` | Config | Clause it hits on mechanism B |
 |--------|--------------------------|--------|-------------------------------|
 | Tasks | `PREREQUISITE` | `TASKS_CONFIG` | `REQUIRES_KNOWLEDGE / PREREQUISITE_FOR / ENABLES` |
-| Goals | `GOAL_ACHIEVEMENT` | `GOAPS_CONFIG` | goal-tailored (`FULFILLS_GOAL / SUPPORTS_GOAL / …`) |
+| Goals | `GOAL_ACHIEVEMENT` | `GOALS_CONFIG` | goal-tailored (`FULFILLS_GOAL / SUPPORTS_GOAL / …`) |
 | Habits | `PRACTICE` | `HABITS_CONFIG` | `REINFORCES_KNOWLEDGE / APPLIES_KNOWLEDGE` |
 | Events | `PRACTICE` | `EVENTS_CONFIG` | `REINFORCES_KNOWLEDGE / APPLIES_KNOWLEDGE` |
 | Choices | `HIERARCHICAL` | `CHOICES_CONFIG` | `HAS_SUBTASK / HAS_SUBGOAL / HAS_SUBHABIT / HAS_SUBEVENT / HAS_SUBCHOICE / HAS_SUBPRINCIPLE / HAS_STEP / ORGANIZES` |
@@ -137,7 +137,7 @@ class QueryIntent(str, Enum):
     SCHEDULED_ACTION = "scheduled_action"          # DEAD — selected by no config (unreachable clause)
 ```
 
-> **Only `GOAL_ACHIEVEMENT` is reachable** among the domain-specific intents (it is `GOAPS_CONFIG`'s
+> **Only `GOAL_ACHIEVEMENT` is reachable** among the domain-specific intents (it is `GOALS_CONFIG`'s
 > default). `PRINCIPLE_EMBODIMENT`, `PRINCIPLE_ALIGNMENT`, and `SCHEDULED_ACTION` are referenced
 > **nowhere** outside the enum and their own builder clauses — no `default_context_intent` and no
 > `intent_mappings` value selects them, so those clauses are dead code. (Note: `PRINCIPLE_ALIGNMENT`
@@ -301,7 +301,7 @@ There is **no** bespoke per-domain "analysis method" (`get_goal_achievement_anal
 # entity.get_suggested_query_intent() == EXPLORATORY → an unfiltered neighbourhood (LIMIT 100).
 result = await goals_service.get_goal_with_context(uid="goal.123", depth=2)
 
-# Mechanism B — config-sourced intent. Applies GOAPS_CONFIG.default_context_intent (GOAL_ACHIEVEMENT),
+# Mechanism B — config-sourced intent. Applies GOALS_CONFIG.default_context_intent (GOAL_ACHIEVEMENT),
 # so the GOAL_ACHIEVEMENT edge filter is used. Pass intent=... to use an intent_mappings override.
 # (This is also exactly what the Tasks *facade* method does — TasksService.get_task_with_context
 #  delegates here, applying PREREQUISITE — whereas the Goals facade above does not.)

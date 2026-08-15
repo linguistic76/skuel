@@ -180,7 +180,7 @@ class TestGoalsServiceRelationships:
         """link_goal_to_habit writes the SUPPORTS_GOAL edge with weight + essentiality tier.
 
         The essentiality property (not the former ``contribution_type``) is THE key the
-        GOAPS_CONFIG tier mappings filter on — see test_goal_habit_essentiality.py.
+        GOALS_CONFIG tier mappings filter on — see test_goal_habit_essentiality.py.
         """
         goals_service.relationships.create_relationship = AsyncMock(return_value=Result.ok(True))
 

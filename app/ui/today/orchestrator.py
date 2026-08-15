@@ -404,7 +404,7 @@ async def _first_principle_map(service: object, entity_uids: list[str]) -> dict[
     """Return ``{entity_uid: first_principle_uid}`` for the given entities.
 
     Uses the ``"principles"`` relationship key, which both ``HABITS_CONFIG``
-    (EMBODIES_PRINCIPLE) and ``GOAPS_CONFIG`` (GUIDED_BY_PRINCIPLE) expose.
+    (EMBODIES_PRINCIPLE) and ``GOALS_CONFIG`` (GUIDED_BY_PRINCIPLE) expose.
     Failures degrade to "no principle linked" rather than aborting the page.
     """
     if not entity_uids:

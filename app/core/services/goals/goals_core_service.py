@@ -10,7 +10,7 @@ Responsibilities:
 - Publishes domain events (GoalCreated, GoalUpdated, GoalAchieved, GoalAbandoned).
   GoalProgressUpdated is owned by GoalsProgressService (progress-propagation provenance).
 
-  RelationshipRegistry (GOAPS_CONFIG). Shared-neighbor pattern for
+  RelationshipRegistry (GOALS_CONFIG). Shared-neighbor pattern for
   related_goals is now defined in the registry.
   See: /core/models/relationship_registry.py
 - v2.1.0 (2025-11-28): Eliminated APOC dependency.
@@ -225,7 +225,7 @@ class GoalsCoreService(
     # NOTE: get_with_context() is inherited from BaseService (January 2026)
     #
     # Uses registry-driven query generation from RelationshipRegistry.
-    # The GOAPS_CONFIG config includes:
+    # The GOALS_CONFIG config includes:
     # - contributing_tasks, contributing_habits (supporting activities)
     # - sub_goals, parent_goal (hierarchy)
     # - required_knowledge, aligned_principles (prerequisites and guidance)
@@ -234,7 +234,7 @@ class GoalsCoreService(
     # - related_goals (shared-neighbor pattern via FULFILLS_GOAL|SUPPORTS_GOAL)
     # - milestone_progress (calculated in BaseService._parse_context_result)
     #
-    # See: /core/models/relationship_registry.py - GOAPS_CONFIG
+    # See: /core/models/relationship_registry.py - GOALS_CONFIG
     # See: /core/services/base_service.py - get_with_context()
     # ========================================================================
 
@@ -350,7 +350,7 @@ class GoalsCoreService(
         ``Goal.fulfills_goal_uid`` (the request's ``parent_goal_uid``) is a node PROPERTY,
         and every hierarchy READER goes to the edge instead: ``GET /api/goals/children`` /
         ``/parent`` / ``/hierarchy`` traverse HAS_SUBGOAL via ``get_children_raw``, the
-        user-context MEGA-QUERY collects ``sub_goals`` from it, and the GOAPS registry
+        user-context MEGA-QUERY collects ``sub_goals`` from it, and the GOALS_CONFIG registry
         resolves ``parent_goal`` / ``sub_goals`` from SUBGOAL_OF. Setting the property
         alone — all creation did until now — left every one of those reads empty for a
         goal the create form's own Hierarchy section had just given a parent.
@@ -407,7 +407,7 @@ class GoalsCoreService(
         """GRAPH-NATIVE: turn the request's three link lists into edges, in one batch.
 
         Each names a registered, READ relationship that nothing was writing at creation
-        (GOAPS_CONFIG in core/models/relationship_registry.py):
+        (GOALS_CONFIG in core/models/relationship_registry.py):
 
         - ``required_knowledge_uids``  → REQUIRES_KNOWLEDGE, OUTGOING (``knowledge`` key)
         - ``guiding_principle_uids``   → GUIDED_BY_PRINCIPLE, OUTGOING (``principles``)
@@ -418,7 +418,7 @@ class GoalsCoreService(
         other way round persists an edge that every reader misses.
 
         Readers: the user-context MEGA-QUERY collects ``required_knowledge`` from
-        ``(goal)-[:REQUIRES_KNOWLEDGE]->()``, and the GOAPS habit tiers
+        ``(goal)-[:REQUIRES_KNOWLEDGE]->()``, and the GOALS_CONFIG habit tiers
         (``contributing_habits`` and the essentiality-filtered buckets) resolve from
         SUPPORTS_GOAL. Properties are the defaults of the existing single-link writers —
         ``link_goal_to_knowledge`` / ``link_goal_to_principle`` / ``link_goal_to_habit`` —
@@ -460,7 +460,7 @@ class GoalsCoreService(
             )
             for principle_uid in request.guiding_principle_uids
         )
-        # INCOMING: (habit)-[:SUPPORTS_GOAL]->(goal) — habit first, per GOAPS_CONFIG.
+        # INCOMING: (habit)-[:SUPPORTS_GOAL]->(goal) — habit first, per GOALS_CONFIG.
         # The habit is therefore the edge's SOURCE and the checked endpoint.
         candidates.extend(
             LinkEdge(

@@ -232,7 +232,7 @@ _graph_enrichment_patterns = [
 search_fields = ("title", "description")
 category_field = "domain"  # Goals use the 'domain' field for categorization
 date_field = "target_date"
-# graph_enrichment_patterns come from the relationship registry (GOAPS_CONFIG):
+# graph_enrichment_patterns come from the relationship registry (GOALS_CONFIG):
 # REQUIRES_KNOWLEDGE → required_knowledge, GUIDED_BY_PRINCIPLE → aligned_principles,
 # SUBGOAL_OF → parent_goal / sub_goals, SUPPORTS_GOAL → contributing_habits +
 # essential/critical/optional_habits (essentiality-filtered), FULFILLS_GOAL →

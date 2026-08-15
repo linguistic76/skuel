@@ -30,7 +30,7 @@ from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.goal.goal_dto import GoalDTO
 from core.models.habit.habit_dto import HabitDTO
-from core.models.relationship_registry import GOAPS_CONFIG, HABITS_CONFIG
+from core.models.relationship_registry import GOALS_CONFIG, HABITS_CONFIG
 from core.services.goals.goals_intelligence_service import GoalsIntelligenceService
 from core.services.habits.habits_intelligence_service import HabitsIntelligenceService
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
@@ -103,7 +103,7 @@ def goals_rel(neo4j_driver):
     """Goals UnifiedRelationshipService wired to a real graph_intel — mechanism B."""
     graph_intel = GraphIntelligenceService(CrossDomainBackend(Neo4jQueryExecutor(neo4j_driver)))
     backend = UniversalNeo4jBackend[GoalDTO](neo4j_driver, "Entity", GoalDTO)
-    return UnifiedRelationshipService(backend=backend, config=GOAPS_CONFIG, graph_intel=graph_intel)
+    return UnifiedRelationshipService(backend=backend, config=GOALS_CONFIG, graph_intel=graph_intel)
 
 
 @pytest.fixture
@@ -143,7 +143,7 @@ async def test_goals_registry_sourced_through_get_with_context(
         )
 
     # GUIDES_GOAL is a registry edge but is absent from the hard-coded GOAL_ACHIEVEMENT clause.
-    assert "GUIDES_GOAL" in GOAPS_CONFIG.cross_domain_relationship_types
+    assert "GUIDES_GOAL" in GOALS_CONFIG.cross_domain_relationship_types
     assert "GUIDES_GOAL" not in {
         "FULFILLS_GOAL",
         "SUPPORTS_GOAL",
@@ -152,7 +152,7 @@ async def test_goals_registry_sourced_through_get_with_context(
         "GUIDED_BY_PRINCIPLE",
         "CONTRIBUTES_TO_GOAL",
     }
-    assert GOAPS_CONFIG.default_context_intent.value == "goal_achievement"
+    assert GOALS_CONFIG.default_context_intent.value == "goal_achievement"
 
     # Mechanism B (intent=None → registry-sourced): the real edge surfaces, noise out.
     # get_with_context returns (entity, GraphContext) — the context is the second element.
@@ -166,7 +166,7 @@ async def test_goals_registry_sourced_through_get_with_context(
 
     # Negative control: the bare GOAL_ACHIEVEMENT clause misses GUIDES_GOAL.
     bare = await goals_rel.graph_intel.query_with_intent(
-        domain=None, node_uid=GOAL, intent=GOAPS_CONFIG.default_context_intent, depth=1
+        domain=None, node_uid=GOAL, intent=GOALS_CONFIG.default_context_intent, depth=1
     )
     assert bare.is_ok, bare
     assert GOAL_PRINCIPLE not in _uids(bare.value), (

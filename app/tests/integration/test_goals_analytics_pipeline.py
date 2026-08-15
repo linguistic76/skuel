@@ -32,7 +32,7 @@ import pytest
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.enums.neo_labels import NeoLabel
 from core.models.goal.goal import Goal
-from core.models.relationship_registry import GOAPS_CONFIG
+from core.models.relationship_registry import GOALS_CONFIG
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.goals._analytics_mixin import _AnalyticsMixin
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
@@ -127,7 +127,7 @@ def _harness(rel_backend, goal_uid: str) -> _GoalIntelHarness:
         progress_percentage=25.0,
     )
     rels: UnifiedRelationshipService[Any, Any, Any] = UnifiedRelationshipService(
-        backend=rel_backend, config=GOAPS_CONFIG, graph_intel=None
+        backend=rel_backend, config=GOALS_CONFIG, graph_intel=None
     )
     return _GoalIntelHarness(_FakeGoalBackend(goal), rels)
 

@@ -93,7 +93,7 @@ EntityType is the type discriminator for every entity in SKUEL. It lives on the 
 The enum defines ONE canonical vocabulary and one alias layer, with a strict direction of flow:
 
 - **Canonical values** (`"path_step"`, `"learning_path"`, ...) are what the enum serializes to. Neo4j stores them in the `entity_type` property; search results carry them in `_domain` stamps; facet counts key on them.
-- **Aliases** (`"ps"`, `"step"`, `"lp"`, `"knowledge"`, ...) exist for humans. They are registered in one map (`entity_enums.py`) and resolved by one function, `EntityType.from_string()`.
+- **Aliases** (`"ps"`, `"step"`, `"lp"`, `"book"`, ...) exist for humans. They are registered in one map (`entity_enums.py`) and resolved by one function, `EntityType.from_string()`.
 
 **The rule: aliases are input-only.** A human may type `ps` in a DSL line, a hand-edited URL, or vault YAML — `from_string()` resolves it once at the boundary. After that, the system speaks canonical values on every machine channel: payloads, stamps, query params it emits, and `<select>` option values (visible labels stay human — "Path Steps"). Emitting an alias on a machine channel creates a second dialect that some later comparison has to translate — the search breakdown chips needed exactly such a shim (`_DOMAIN_TO_TYPE_OPTION`, since deleted) before the Type dropdown switched to canonical wire values.
 
