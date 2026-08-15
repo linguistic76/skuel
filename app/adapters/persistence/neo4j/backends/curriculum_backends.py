@@ -814,9 +814,15 @@ class PsBackend(
         has_knowledge: bool = False,
         path_uid: str | None = None,
     ) -> Result[list[dict[str, Any]]]:
-        """Create step node with conditional knowledge and path relationships."""
+        """Create step node with conditional knowledge and path relationships.
+
+        Multi-label (:Entity:PathStep) like every other Entity writer — an
+        Entity-only node is invisible to every label-matched instrument (the
+        embedding worker's store, the backfill, the coverage gauge), so its
+        embedding request would silently match zero rows (Codex #1068 P1).
+        """
         query = """
-        CREATE (s:Entity {
+        CREATE (s:Entity:PathStep {
             uid: $uid,
             entity_type: 'path_step',
             title: $title,

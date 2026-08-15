@@ -308,9 +308,9 @@ async def test_requires_step_counts_in_prerequisite_dag(neo4j_driver, clean_neo4
 async def test_label_less_pathstep_counted_by_entity_type(neo4j_driver, clean_neo4j) -> None:
     """PathSteps persisted without the :PathStep label must still count (Codex #770 P2).
 
-    `create_step_node` persists `:Entity {entity_type:'path_step'}` with no
-    `:PathStep` label; the gauge matches by entity_type so such steps are not
-    silently dropped from the census/coverage.
+    The one writer that produced such nodes (`create_step_node`) now stamps
+    the multi-label (Codex #1068 P1), but the structural gauge keeps matching
+    by entity_type as defense for any legacy label-less data.
     """
     async with neo4j_driver.session() as s:
         # Label-less path step (mirrors create_step_node) + a labelled one.
@@ -421,3 +421,53 @@ async def test_embedding_coverage_empty_graph_is_complete(neo4j_driver, clean_ne
     assert result.is_ok, result
     assert result.value.total == 0
     assert result.value.is_complete is True
+
+
+@pytest.mark.asyncio
+async def test_create_step_node_multilabel_visible_to_coverage(neo4j_driver, clean_neo4j) -> None:
+    """The API step writer stamps :Entity:PathStep (Codex #1068 P1).
+
+    An Entity-only step is invisible to every label-matched instrument — the
+    embedding worker's store, the backfill script, and the coverage probe — so
+    its embedding request would silently match zero rows. Guard the writer's
+    labels AND the step's visibility to the coverage gauge.
+    """
+    from adapters.persistence.neo4j.backends.curriculum_backends import (
+        EmbeddingCoverageBackend,
+        PsBackend,
+    )
+    from core.models.enums.neo_labels import NeoLabel
+    from core.models.pathways.path_step import PathStep
+
+    ps_backend = PsBackend(neo4j_driver, NeoLabel.PATH_STEP, PathStep, base_label=NeoLabel.ENTITY)
+    created = await ps_backend.create_step_node(
+        {
+            "uid": P + "api_ps1",
+            "title": "API-created step",
+            "intent": "coverage guard",
+            "description": "",
+            "learning_path_uid": None,
+            "sequence": 1,
+            "mastery_threshold": 0.8,
+            "current_mastery": 0.0,
+            "estimated_hours": 1.0,
+            "step_difficulty": "beginner",
+            "status": "active",
+            "completed": False,
+            "domain": "test",
+        }
+    )
+    assert created.is_ok, created
+
+    async with neo4j_driver.session() as s:
+        result = await s.run("MATCH (n {uid:$u}) RETURN labels(n) AS labels", u=P + "api_ps1")
+        record = await result.single()
+    assert set(record["labels"]) == {"Entity", "PathStep"}
+
+    coverage_result = await EmbeddingCoverageBackend(
+        Neo4jQueryExecutor(neo4j_driver)
+    ).measure_embedding_coverage()
+    assert coverage_result.is_ok, coverage_result
+    by = {c.label: c for c in coverage_result.value.by_label}
+    assert by["PathStep"].total == 1
+    assert by["PathStep"].missing == 1  # no embedding yet — the gauge must see it
