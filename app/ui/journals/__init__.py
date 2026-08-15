@@ -44,7 +44,7 @@ def ModelControl(model: str, model_options: "list[tuple[str, str]] | None") -> A
         name="model",
         aria_label="Model",
         cls=(
-            "text-[13px] text-muted-foreground bg-transparent border border-border"
+            "text-13 text-muted-foreground bg-transparent border border-border"
             " rounded-[8px] px-2 py-1 outline-hidden cursor-pointer"
         ),
     )
@@ -81,7 +81,7 @@ def _UserBubble(text: str) -> Any:
             text,
             cls=(
                 "max-w-[80%] bg-muted rounded-[20px] px-[18px] py-3"
-                " text-[15px] leading-[1.6] text-foreground whitespace-pre-wrap"
+                " text-15 leading-[1.6] text-foreground whitespace-pre-wrap"
             ),
         ),
         cls="flex justify-end py-2",
@@ -117,10 +117,10 @@ def _AiBubble(label: str, text: str) -> Any:
         ),
         # Content
         Div(
-            Span(label, cls="text-[13px] font-semibold text-muted-foreground"),
+            Span(label, cls="text-13 font-semibold text-muted-foreground"),
             P(
                 text,
-                cls="text-[15px] leading-[1.75] text-foreground whitespace-pre-wrap mt-1",
+                cls="text-15 leading-[1.75] text-foreground whitespace-pre-wrap mt-1",
             ),
             # Copy action
             Div(
@@ -197,7 +197,7 @@ def _SaveAffordance(session_id: str, transcript_json: str) -> Any:
         return Span(
             Icon("check", size=14),
             Span("Saved"),
-            cls="inline-flex items-center gap-1 text-[13px] text-green-600 font-medium",
+            cls="inline-flex items-center gap-1 text-13 text-green-600 font-medium",
         )
     if transcript_json:
         return Button(
@@ -220,7 +220,7 @@ def _SaveAffordance(session_id: str, transcript_json: str) -> Any:
                 ":style": "busy ? 'opacity:0.4;pointer-events:none' : ''",
             },
             cls=(
-                "text-[13px] text-muted-foreground hover:text-foreground"
+                "text-13 text-muted-foreground hover:text-foreground"
                 " underline underline-offset-2 decoration-dotted cursor-pointer"
                 " bg-transparent border-0 p-0"
             ),
@@ -300,7 +300,7 @@ def _Composer(
                 required=True,
                 cls=(
                     "w-full border-none outline-hidden bg-transparent resize-none"
-                    " text-[15px] leading-[1.6] text-foreground"
+                    " text-15 leading-[1.6] text-foreground"
                     " placeholder:text-muted-foreground"
                 ),
             ),
@@ -326,7 +326,7 @@ def _Composer(
                                 ),
                                 "Summon the canon shelf",
                                 cls=(
-                                    "flex items-center text-[13px] text-muted-foreground"
+                                    "flex items-center text-13 text-muted-foreground"
                                     " cursor-pointer select-none"
                                 ),
                             ),
@@ -340,7 +340,7 @@ def _Composer(
                                 ),
                                 "Draw on my vault",
                                 cls=(
-                                    "flex items-center text-[13px] text-muted-foreground"
+                                    "flex items-center text-13 text-muted-foreground"
                                     " cursor-pointer select-none"
                                 ),
                             ),
@@ -551,7 +551,7 @@ def Stage3Fragment(
                 "Process another file",
                 href="/journals",
                 cls=(
-                    "text-[13px] text-muted-foreground hover:text-foreground"
+                    "text-13 text-muted-foreground hover:text-foreground"
                     " transition-colors no-underline"
                 ),
             ),
@@ -768,7 +768,7 @@ def FileOutputFragment(
                 Div(
                     Span(
                         "Daily Notes Workflow",
-                        cls="text-[13px] font-semibold text-muted-foreground",
+                        cls="text-13 font-semibold text-muted-foreground",
                     ),
                     Div(
                         Button(
@@ -901,7 +901,7 @@ def PeriodicNoteFragment(entry_uid: str, title: str, content: str) -> Any:
     """
     return Div(
         Div(
-            P(title or "Note", cls="text-[20px] font-bold text-foreground mb-4"),
+            P(title or "Note", cls="text-xl font-bold text-foreground mb-4"),
             Form(
                 Textarea(
                     content,
@@ -910,12 +910,12 @@ def PeriodicNoteFragment(entry_uid: str, title: str, content: str) -> Any:
                     rows="18",
                     cls=(
                         "w-full border border-border rounded-[16px] px-[18px] py-4"
-                        " bg-background text-[15px] leading-[1.7] text-foreground"
+                        " bg-background text-15 leading-[1.7] text-foreground"
                         " resize-y outline-hidden focus:border-foreground/30"
                     ),
                 ),
                 Div(
-                    P("", id="note-save-status", cls="text-[13px] text-green-600"),
+                    P("", id="note-save-status", cls="text-13 text-green-600"),
                     Button(
                         "Save",
                         type="submit",
@@ -960,7 +960,7 @@ def SuggestedActivitiesContainer(content: str) -> Any:
     import json as _json
 
     return Div(
-        P("Finding activities…", cls="text-[13px] text-muted-foreground"),
+        P("Finding activities…", cls="text-13 text-muted-foreground"),
         id="suggested-activities",
         cls="mt-2 rounded-[12px] border border-border bg-slate-50 px-4 py-3",
         hx_post="/journals/suggest-activities",
@@ -986,11 +986,11 @@ def SuggestedActivitiesPanel(
     items = items or []
 
     header = Div(
-        P("Suggested activities", cls="text-[14px] font-semibold text-foreground"),
+        P("Suggested activities", cls="text-sm font-semibold text-foreground"),
         P(
             "Copy any line into a Periodic Note or your activity notes folder. "
             "Nothing is saved automatically.",
-            cls="text-[12px] text-muted-foreground mt-1 leading-snug",
+            cls="text-xs text-muted-foreground mt-1 leading-snug",
         ),
         cls="mb-3",
     )
@@ -1000,17 +1000,17 @@ def SuggestedActivitiesPanel(
             "Suggestions aren't available right now. You can still type @context() "
             'lines yourself, e.g. "- [ ] Call hosting provider @context(task) '
             '@priority(2)" — types: task, habit, goal, event, principle, choice.',
-            cls="text-[12.5px] text-muted-foreground leading-snug",
+            cls="text-xs text-muted-foreground leading-snug",
         )
     elif error:
         body = P(
             "Couldn't generate suggestions just now — your reflection is unaffected.",
-            cls="text-[12.5px] text-muted-foreground leading-snug",
+            cls="text-xs text-muted-foreground leading-snug",
         )
     elif not items:
         body = P(
             "No activities recognised yet — write a bit more, or tag them yourself.",
-            cls="text-[12.5px] text-muted-foreground leading-snug",
+            cls="text-xs text-muted-foreground leading-snug",
         )
     else:
         body = Div(*[_suggestion_row(item) for item in items], cls="space-y-2")
@@ -1037,7 +1037,7 @@ def _suggestion_row(item: "SuggestedActivity") -> Any:
             Span(
                 item.domain,
                 cls=(
-                    "text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5"
+                    "text-10 font-semibold uppercase tracking-wide px-1.5 py-0.5"
                     " rounded-[4px] bg-foreground/10 text-foreground/70 shrink-0"
                 ),
             ),
@@ -1045,7 +1045,7 @@ def _suggestion_row(item: "SuggestedActivity") -> Any:
                 Icon("copy", size=13),
                 Span(
                     "Copied!",
-                    cls="text-[10px] text-green-600",
+                    cls="text-10 text-green-600",
                     **{"x-show": "copied", "x-cloak": True},  # boundary: fasthtml-elements
                 ),
                 type="button",
@@ -1060,7 +1060,7 @@ def _suggestion_row(item: "SuggestedActivity") -> Any:
         ),
         P(
             item.dsl_line,
-            cls="text-[12px] font-mono leading-snug text-foreground/80 wrap-break-word",
+            cls="text-xs font-mono leading-snug text-foreground/80 wrap-break-word",
         ),
         cls="rounded-[10px] border border-border bg-background px-3 py-2",
         **{"x-data": alpine_data},  # boundary: fasthtml-elements

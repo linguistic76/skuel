@@ -56,8 +56,8 @@ def _build_processing_section() -> Any:
                     ),
                 ),
                 Span(
-                    Span(cfg["title"], cls="block text-[18px] font-bold"),
-                    Span(cfg["desc"], cls="block text-[15px] text-muted-foreground mt-0.5"),
+                    Span(cfg["title"], cls="block text-lg font-bold"),
+                    Span(cfg["desc"], cls="block text-15 text-muted-foreground mt-0.5"),
                     cls="flex-1 min-w-0",
                 ),
                 cls="flex items-center gap-[18px] flex-1 min-w-0",
@@ -86,10 +86,10 @@ def _build_processing_section() -> Any:
                     cls="w-8 h-8 flex-none rounded-lg bg-muted flex items-center justify-center",
                 ),
                 Span(
-                    Span(cfg["title"], cls="block text-[14px] font-semibold text-foreground"),
+                    Span(cfg["title"], cls="block text-sm font-semibold text-foreground"),
                     Span(
                         cfg["desc"],
-                        cls="block text-[12.5px] text-muted-foreground mt-0.5",
+                        cls="block text-xs leading-snug text-muted-foreground mt-0.5",
                     ),
                     cls="flex-1 min-w-0",
                 ),
@@ -146,7 +146,7 @@ def _build_source_section() -> Any:
             type="button",
             cls=(
                 "flex items-center justify-center gap-2.5 px-3 py-3 rounded-lg "
-                "text-[16px] font-semibold whitespace-nowrap transition-colors "
+                "text-base font-semibold whitespace-nowrap transition-colors "
                 "cursor-pointer border-0 font-[inherit]"
             ),
             **{
@@ -206,7 +206,7 @@ def _build_browse_area() -> Any:
                 type="button",
                 cls=(
                     "inline-flex items-center gap-2.5 px-7 py-3.5 rounded-[11px] "
-                    "bg-primary text-primary-foreground text-[17px] font-bold tracking-tight "
+                    "bg-primary text-primary-foreground text-lg font-bold tracking-tight "
                     "whitespace-nowrap hover:opacity-90 cursor-pointer border-0 font-[inherit]"
                 ),
                 **{"@click": "openPicker()"},  # boundary: fasthtml-elements
@@ -236,7 +236,7 @@ def _build_browse_area() -> Any:
 def _build_footer() -> Any:
     """Card footer — file-size limit and Process submit button."""
     return Div(
-        P("Up to 100 MB per file.", cls="text-[15px] text-muted-foreground"),
+        P("Up to 100 MB per file.", cls="text-15 text-muted-foreground"),
         primary_btn("Process", icon="send", type="submit"),
         cls="border-t border-border pt-[22px] flex items-center justify-between",
     )
@@ -407,8 +407,10 @@ def _build_compact_processing_section() -> Any:
                     cls="w-9 h-9 flex-none rounded-lg bg-muted flex items-center justify-center",
                 ),
                 Span(
-                    Span(cfg["title"], cls="block text-[14px] font-semibold"),
-                    Span(cfg["desc"], cls="block text-[12px] text-muted-foreground mt-0.5"),
+                    Span(cfg["title"], cls="block text-sm font-semibold"),
+                    Span(
+                        cfg["desc"], cls="block text-xs leading-snug text-muted-foreground mt-0.5"
+                    ),
                     cls="flex-1 min-w-0",
                 ),
                 cls="flex items-center gap-3 flex-1 min-w-0",
@@ -437,8 +439,8 @@ def _build_compact_processing_section() -> Any:
                     cls="w-7 h-7 flex-none rounded-md bg-muted flex items-center justify-center",
                 ),
                 Span(
-                    Span(cfg["title"], cls="block text-[13px] font-semibold text-foreground"),
-                    Span(cfg["desc"], cls="block text-[11.5px] text-muted-foreground mt-0.5"),
+                    Span(cfg["title"], cls="block text-13 font-semibold text-foreground"),
+                    Span(cfg["desc"], cls="block text-11 text-muted-foreground mt-0.5"),
                     cls="flex-1 min-w-0",
                 ),
                 Span(
@@ -489,7 +491,7 @@ def _build_compact_source_section() -> Any:
             type="button",
             cls=(
                 "flex items-center justify-center gap-2 px-2 py-2 rounded-lg "
-                "text-[14px] font-medium whitespace-nowrap transition-colors "
+                "text-sm font-medium whitespace-nowrap transition-colors "
                 "cursor-pointer border-0 font-[inherit]"
             ),
             **{
@@ -542,7 +544,7 @@ def _build_compact_browse_area() -> Any:
                 type="button",
                 cls=(
                     "inline-flex items-center gap-2 px-5 py-2.5 rounded-[11px] "
-                    "bg-primary text-primary-foreground text-[15px] font-semibold tracking-tight "
+                    "bg-primary text-primary-foreground text-15 font-semibold tracking-tight "
                     "whitespace-nowrap hover:opacity-90 cursor-pointer border-0 font-[inherit]"
                 ),
                 **{"@click": "openPicker()"},  # boundary: fasthtml-elements

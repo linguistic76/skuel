@@ -169,7 +169,7 @@ def _periodic_note_sidebar(entry: "UserEntry") -> Any:
         Div(
             A(
                 Icon("chevron-left", size=14),
-                Span("Calendar", cls="text-[13px]"),
+                Span("Calendar", cls="text-13"),
                 href="/cal",
                 cls=(
                     "flex items-center gap-1 text-muted-foreground hover:text-foreground"
@@ -185,7 +185,7 @@ def _periodic_note_sidebar(entry: "UserEntry") -> Any:
         Div(
             A(
                 Icon("chevron-left", size=13),
-                Span(prev_label, cls="text-[11px]"),
+                Span(prev_label, cls="text-11"),
                 href=prev_url,
                 cls=(
                     "flex items-center gap-0.5 text-muted-foreground hover:text-foreground"
@@ -193,7 +193,7 @@ def _periodic_note_sidebar(entry: "UserEntry") -> Any:
                 ),
             ),
             A(
-                Span(next_label, cls="text-[11px]"),
+                Span(next_label, cls="text-11"),
                 Icon("chevron-right", size=13),
                 href=next_url,
                 cls=(
@@ -225,34 +225,34 @@ def _mini_month_calendar(ref_date: datetime.date, highlight_dates: "set[datetime
         is_today = d == today
         if is_hi and is_today:
             cls = (
-                "w-7 h-7 flex items-center justify-center text-[11px] rounded-full"
+                "w-7 h-7 flex items-center justify-center text-11 rounded-full"
                 " bg-foreground text-background font-bold ring-2 ring-offset-1 ring-foreground"
             )
         elif is_hi:
             cls = (
-                "w-7 h-7 flex items-center justify-center text-[11px] rounded-full"
+                "w-7 h-7 flex items-center justify-center text-11 rounded-full"
                 " bg-foreground text-background font-semibold"
             )
         elif is_today:
             cls = (
-                "w-7 h-7 flex items-center justify-center text-[11px] rounded-full"
+                "w-7 h-7 flex items-center justify-center text-11 rounded-full"
                 " ring-1 ring-foreground font-medium text-foreground"
             )
         else:
             cls = (
-                "w-7 h-7 flex items-center justify-center text-[11px] rounded-full"
+                "w-7 h-7 flex items-center justify-center text-11 rounded-full"
                 " hover:bg-slate-200 text-foreground"
             )
         return A(str(day_num), href=f"/journals/daily/{d.isoformat()}", cls=f"{cls} no-underline")
 
     return Div(
         Div(
-            Span(month_name, cls="text-[12px] font-semibold text-foreground"),
+            Span(month_name, cls="text-xs font-semibold text-foreground"),
             cls="flex justify-center mb-3 px-1",
         ),
         Div(
             *[
-                Div(h, cls="w-7 text-[10px] text-muted-foreground text-center font-medium")
+                Div(h, cls="w-7 text-10 text-muted-foreground text-center font-medium")
                 for h in dow_headers
             ],
             cls="flex gap-0.5 mb-1",
@@ -332,7 +332,7 @@ def journal_sidebar(user: "User", sessions: "list[ConversationSession] | None" =
 
 def _sb_header() -> Any:
     return Div(
-        Span("Journal", cls="text-[17px] font-bold tracking-tight text-foreground"),
+        Span("Journal", cls="text-lg font-bold tracking-tight text-foreground"),
         Button(
             Icon("panel-left-close", size=16),
             cls=(
@@ -352,7 +352,7 @@ def _sb_new_journal_btn() -> Any:
     return Div(
         A(
             Icon("square-pen", size=17, cls="text-slate-600 shrink-0"),
-            Span("New Journal", cls="text-[14px] font-semibold text-foreground"),
+            Span("New Journal", cls="text-sm font-semibold text-foreground"),
             href="/journals",
             cls=(
                 "w-full flex items-center gap-2 px-3 py-[10px] rounded-[10px]"
@@ -378,11 +378,11 @@ def _sb_identity_footer(user: "User") -> Any:
             ),
         ),
         Div(
-            Div(name, cls="text-[13.5px] font-semibold text-foreground leading-tight"),
+            Div(name, cls="text-13 font-semibold text-foreground leading-tight"),
             Span(
                 tier,
                 cls=(
-                    "text-[10px] font-semibold px-1.5 py-0.5 rounded-[4px]"
+                    "text-10 font-semibold px-1.5 py-0.5 rounded-[4px]"
                     " bg-foreground/10 text-foreground/70 uppercase tracking-wide"
                 ),
             ),
@@ -408,7 +408,7 @@ def discussions_revisit_panel(sessions: "list[ConversationSession]", *, oob: boo
     if not sessions:
         body: Any = P(
             "Your past discussions appear here.",
-            cls="text-[12.5px] text-muted-foreground px-4 py-2 leading-snug",
+            cls="text-xs text-muted-foreground px-4 py-2 leading-snug",
         )
     else:
         body = Div(
@@ -421,8 +421,7 @@ def discussions_revisit_panel(sessions: "list[ConversationSession]", *, oob: boo
         P(
             "Discussions",
             cls=(
-                "text-[11px] font-semibold uppercase tracking-wide text-muted-foreground"
-                " px-4 pt-3 pb-1"
+                "text-11 font-semibold uppercase tracking-wide text-muted-foreground px-4 pt-3 pb-1"
             ),
         ),
         body,
@@ -447,7 +446,7 @@ def DiscussionRow(session: "ConversationSession") -> Any:
                 href=f"/journals/discussion/{sid}",
                 title=title,
                 cls=(
-                    "flex-1 min-w-0 truncate text-[13.5px] text-foreground/90 no-underline"
+                    "flex-1 min-w-0 truncate text-13 text-foreground/90 no-underline"
                     " hover:text-foreground py-0.5"
                 ),
             ),
@@ -460,7 +459,7 @@ def DiscussionRow(session: "ConversationSession") -> Any:
                 name="title",
                 value=title,
                 cls=(
-                    "flex-1 min-w-0 text-[13.5px] px-2 py-1 rounded-sm border border-border"
+                    "flex-1 min-w-0 text-13 px-2 py-1 rounded-sm border border-border"
                     " bg-background outline-hidden focus:border-foreground/40"
                 ),
                 **{"x-ref": "titleInput", "@keydown.escape": "editing = false"},
@@ -533,10 +532,10 @@ def _landing_center_column(
         center = Div(
             Div(
                 Div(
-                    P("Journal", cls="text-[22px] font-bold text-foreground"),
+                    P("Journal", cls="text-xl font-bold text-foreground"),
                     P(
                         "Your private thinking space.",
-                        cls="text-[15px] text-muted-foreground mt-1",
+                        cls="text-15 text-muted-foreground mt-1",
                     ),
                     cls="mb-6",
                 ),
@@ -572,9 +571,7 @@ def _landing_source_panel(shelf_books: "list[dict[str, str]]") -> Any:
                 cls="mr-2 align-middle accent-foreground",
             ),
             book["title"] or "(untitled)",
-            cls=(
-                "flex items-center text-[13px] text-foreground/80 cursor-pointer select-none py-0.5"
-            ),
+            cls=("flex items-center text-13 text-foreground/80 cursor-pointer select-none py-0.5"),
         )
         for book in shelf_books
     ]
@@ -583,7 +580,7 @@ def _landing_source_panel(shelf_books: "list[dict[str, str]]") -> Any:
         Div(
             P(
                 "Canon shelf",
-                cls="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1",
+                cls="text-11 font-semibold uppercase tracking-wide text-muted-foreground mb-1",
             ),
             *book_rows,
             cls="mb-3",
@@ -591,7 +588,7 @@ def _landing_source_panel(shelf_books: "list[dict[str, str]]") -> Any:
         if book_rows
         else P(
             "No books are on the shelf yet.",
-            cls="text-[12.5px] text-muted-foreground mb-3",
+            cls="text-xs leading-snug text-muted-foreground mb-3",
         )
     )
 
@@ -599,7 +596,7 @@ def _landing_source_panel(shelf_books: "list[dict[str, str]]") -> Any:
         Summary(
             "Sources",
             cls=(
-                "text-[13px] font-medium text-muted-foreground cursor-pointer select-none"
+                "text-13 font-medium text-muted-foreground cursor-pointer select-none"
                 " list-none hover:text-foreground"
             ),
         ),
@@ -613,7 +610,7 @@ def _landing_source_panel(shelf_books: "list[dict[str, str]]") -> Any:
                     cls="mr-2 align-middle accent-foreground",
                 ),
                 "Draw on my vault",
-                cls=("flex items-center text-[13px] text-foreground/80 cursor-pointer select-none"),
+                cls=("flex items-center text-13 text-foreground/80 cursor-pointer select-none"),
             ),
             cls="mt-2 pl-1",
         ),
@@ -640,7 +637,7 @@ def _landing_text_form(
                     required=True,
                     cls=(
                         "w-full border-none outline-hidden bg-transparent resize-none"
-                        " text-[15px] leading-[1.6] text-foreground"
+                        " text-15 leading-[1.6] text-foreground"
                         " placeholder:text-muted-foreground"
                     ),
                 ),
