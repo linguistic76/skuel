@@ -186,12 +186,12 @@ def _hero_card(step: Any, uid: str, user_uid: str | None) -> "FT":
             H1(
                 title,
                 id="ps-title",
-                cls="text-[30px] font-extrabold leading-[1.12] tracking-[-0.02em]",
+                cls="text-3xl font-extrabold leading-[1.12] tracking-[-0.02em]",
             ),
             # Description/central idea
             P(
                 description,
-                cls="mt-[13px] text-[16px] leading-[1.55] text-foreground/75 max-w-[62ch]",
+                cls="mt-[13px] text-base leading-[1.55] text-foreground/75 max-w-[62ch]",
             )
             if description
             else Div(),
@@ -214,7 +214,7 @@ def _kind_badge() -> "FT":
         cls=(
             "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] "
             "bg-blue-50 text-blue-600 "
-            "text-[12px] font-semibold whitespace-nowrap"
+            "text-xs font-semibold whitespace-nowrap"
         ),
     )
 
@@ -226,7 +226,7 @@ def _bookmark_btn(uid: str) -> "FT":
         type="button",
         cls=(
             "inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md "
-            "text-[12px] font-semibold border transition-colors "
+            "text-xs font-semibold border transition-colors "
             "focus:outline-hidden focus:shadow-focus"
         ),
         **{
@@ -250,7 +250,7 @@ def _meta_chips(est_minutes: int | None, tags: tuple | list) -> "FT":
             Span(
                 Icon("clock", cls="w-3.5 h-3.5"),
                 f" {est_minutes} min",
-                cls="inline-flex items-center gap-1.5 text-[12.5px] font-medium text-muted-foreground",
+                cls="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground",
             )
         )
 
@@ -263,7 +263,7 @@ def _meta_chips(est_minutes: int | None, tags: tuple | list) -> "FT":
                 Span(
                     Span(cls="w-1.5 h-1.5 rounded-full bg-strength-core"),
                     f" {tag}",
-                    cls="inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-foreground/85",
+                    cls="inline-flex items-center gap-1.5 text-xs font-semibold text-foreground/85",
                 )
             )
 
@@ -299,21 +299,21 @@ def _action_bar(uid: str) -> "FT":
                 Span(
                     Span(cls="w-2 h-2 rounded-full bg-muted-foreground/50"),
                     " Not started",
-                    cls="inline-flex items-center gap-1.5 text-[13px] font-semibold text-muted-foreground whitespace-nowrap",
+                    cls="inline-flex items-center gap-1.5 text-13 font-semibold text-muted-foreground whitespace-nowrap",
                     **{"x-show": "status === 'not_started'"},
                 ),
                 # learning
                 Span(
                     Span(cls="w-2 h-2 rounded-full bg-warning"),
                     " Learning",
-                    cls="inline-flex items-center gap-1.5 text-[13px] font-semibold text-warning whitespace-nowrap",
+                    cls="inline-flex items-center gap-1.5 text-13 font-semibold text-warning whitespace-nowrap",
                     **{"x-show": "status === 'learning'"},
                 ),
                 # read / completed
                 Span(
                     Icon("check", cls="w-[15px] h-[15px]"),
                     " Completed",
-                    cls="inline-flex items-center gap-1.5 text-[13px] font-semibold text-priority-low whitespace-nowrap",
+                    cls="inline-flex items-center gap-1.5 text-13 font-semibold text-priority-low whitespace-nowrap",
                     **{"x-show": "status === 'read'"},
                 ),
                 cls="flex items-center gap-2",
@@ -331,7 +331,7 @@ def _action_bar(uid: str) -> "FT":
                     cls=(
                         "inline-flex items-center gap-2 px-[18px] py-[9px] rounded-lg "
                         "bg-primary text-primary-foreground "
-                        "text-[13.5px] font-semibold hover:opacity-90 "
+                        "text-13 font-semibold hover:opacity-90 "
                         "focus:outline-hidden focus:shadow-focus whitespace-nowrap"
                     ),
                     **{
@@ -347,7 +347,7 @@ def _action_bar(uid: str) -> "FT":
                     cls=(
                         "inline-flex items-center gap-1.5 px-4 py-[9px] rounded-lg "
                         "border border-border bg-card "
-                        "text-[13px] font-semibold text-foreground/80 "
+                        "text-13 font-semibold text-foreground/80 "
                         "hover:bg-muted focus:outline-hidden focus:shadow-focus"
                     ),
                     **{
@@ -372,7 +372,7 @@ def _unauthenticated_cta() -> "FT":
             cls=(
                 "inline-flex items-center gap-2 px-[18px] py-[9px] rounded-lg "
                 "bg-primary text-primary-foreground "
-                "text-[13.5px] font-semibold hover:opacity-90"
+                "text-13 font-semibold hover:opacity-90"
             ),
         ),
         cls="border-t border-border bg-muted/40 px-8 py-4 flex justify-end",
@@ -410,7 +410,7 @@ def _kus_section(kus: list[dict]) -> "FT":
                     href=f"/explore/ku/{ku['uid']}",
                     cls=(
                         "inline-flex items-center px-3 py-1.5 rounded-full border "
-                        "border-border bg-muted/40 text-[13px] font-medium "
+                        "border-border bg-muted/40 text-13 font-medium "
                         "text-foreground hover:bg-accent hover:text-accent-foreground"
                     ),
                 )
@@ -489,7 +489,7 @@ def render_ps_related_concepts(related: "list[RelatedConceptChip]") -> "FT":
                     href=f"/explore/ps/{r['uid']}",
                     cls=(
                         "inline-flex items-center px-3 py-1.5 rounded-full border "
-                        "border-border bg-muted/40 text-[13px] font-medium "
+                        "border-border bg-muted/40 text-13 font-medium "
                         "text-foreground hover:bg-accent hover:text-accent-foreground"
                     ),
                 )
@@ -546,7 +546,7 @@ def render_ps_next_step_related(groups: "list[NextStepRelatedGroup]") -> "FT":
     def _chip(node: "RelatedConceptChip", *, emphasis: bool = False) -> "FT":
         base = (
             "inline-flex items-center px-3 py-1.5 rounded-full border "
-            "text-[13px] font-medium hover:bg-accent hover:text-accent-foreground "
+            "text-13 font-medium hover:bg-accent hover:text-accent-foreground "
         )
         tone = (
             "border-strength-core/50 bg-strength-core/10 text-foreground"
@@ -566,7 +566,7 @@ def render_ps_next_step_related(groups: "list[NextStepRelatedGroup]") -> "FT":
                     [
                         Span(
                             "related (unordered):",
-                            cls="text-[11px] text-muted-foreground font-mono self-center",
+                            cls="text-11 text-muted-foreground font-mono self-center",
                         ),
                         *[_chip(r) for r in related],
                     ]
@@ -582,7 +582,7 @@ def render_ps_next_step_related(groups: "list[NextStepRelatedGroup]") -> "FT":
         P(
             "Your readiest next concepts (from what you've engaged), each with "
             "unordered related hints — not a prescribed sequence.",
-            cls="text-[12px] text-muted-foreground mb-3",
+            cls="text-xs text-muted-foreground mb-3",
         ),
         Div(*rows, cls="flex flex-col gap-2.5"),
         id="ps-next-step-fragment",
@@ -683,12 +683,12 @@ def _deps_accordion() -> "FT":
             Span(
                 Span(
                     "Blocking dependencies",
-                    cls="block text-[13.5px] font-bold",
+                    cls="block text-13 font-bold",
                     id="deps-h",
                 ),
                 Span(
                     "",
-                    cls="block text-[12px] font-semibold mt-px",
+                    cls="block text-xs font-semibold mt-px",
                     **{
                         "x-text": (
                             "allMet "
@@ -718,7 +718,7 @@ def _deps_accordion() -> "FT":
         Div(
             P(
                 "No prerequisites defined for this step.",
-                cls="text-[13px] leading-[1.55] text-muted-foreground",
+                cls="text-13 leading-[1.55] text-muted-foreground",
                 **{"x-show": "blocking.length === 0"},
             ),
             Ul(
@@ -743,7 +743,7 @@ def _deps_accordion() -> "FT":
                         ),
                         A(
                             "",
-                            cls="flex-1 text-[13px] font-semibold text-foreground/85 hover:underline",
+                            cls="flex-1 text-13 font-semibold text-foreground/85 hover:underline",
                             **{
                                 ":href": "'/explore/ps/' + dep.uid",
                                 "x-text": "dep.title",
@@ -751,7 +751,7 @@ def _deps_accordion() -> "FT":
                         ),
                         Span(
                             "",
-                            cls="font-mono text-[10.5px] font-semibold uppercase tracking-wider",
+                            cls="font-mono text-10 font-semibold uppercase tracking-wider",
                             **{
                                 "x-text": "dep.status === 'met' ? 'Completed' : 'Blocked'",
                                 ":class": "dep.status === 'met' ? 'text-priority-low' : 'text-destructive'",

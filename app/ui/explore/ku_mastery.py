@@ -51,7 +51,7 @@ def render_ku_mastery_section(
             label,
             type="button",
             role="radio",
-            cls="flex-1 sm:flex-none px-3.5 py-1.5 rounded-md text-[13px] font-medium transition-colors",
+            cls="flex-1 sm:flex-none px-3.5 py-1.5 rounded-md text-13 font-medium transition-colors",
             **{
                 ":aria-checked": f"(mastery === '{level_id}').toString()",
                 "@click": f"mastery = '{level_id}'",
@@ -71,16 +71,16 @@ def render_ku_mastery_section(
         Div(
             "Mastery self-check",
             id="mastery-heading",
-            cls="font-mono text-[11px] font-medium tracking-[0.09em] uppercase text-muted-foreground mb-1",
+            cls="font-mono text-11 font-medium tracking-[0.09em] uppercase text-muted-foreground mb-1",
         ),
         P(
             "Rate how well you feel you know this. SKUEL compares it with how much your "
             "tracked actions show you actually applying it — the gap is the point.",
-            cls="text-[13.5px] text-muted-foreground leading-relaxed mb-4 max-w-[56ch]",
+            cls="text-13 text-muted-foreground leading-relaxed mb-4 max-w-[56ch]",
         ),
         Form(
             Div(
-                Div("How well do you know this?", cls="text-[15px] font-semibold mb-3"),
+                Div("How well do you know this?", cls="text-15 font-semibold mb-3"),
                 Div(
                     *level_buttons,
                     cls="inline-flex w-full sm:w-auto rounded-lg border border-border p-1 bg-muted/40",
@@ -93,7 +93,7 @@ def render_ku_mastery_section(
                     Span(
                         "What's behind this rating?",
                         Span(" (optional)", cls="font-normal text-muted-foreground/70"),
-                        cls="block text-[12.5px] font-medium text-muted-foreground mb-1.5",
+                        cls="block text-xs font-medium text-muted-foreground mb-1.5",
                     ),
                     Textarea(
                         rows=2,
@@ -101,7 +101,7 @@ def render_ku_mastery_section(
                         placeholder="A sentence or two of context…",
                         cls=(
                             "w-full rounded-lg border border-border bg-card px-3.5 py-2.5 "
-                            "text-[14px] leading-relaxed placeholder:text-muted-foreground/70 "
+                            "text-sm leading-relaxed placeholder:text-muted-foreground/70 "
                             "focus:outline-hidden resize-none"
                         ),
                         **{"x-model": "note"},
@@ -114,7 +114,7 @@ def render_ku_mastery_section(
                     type="submit",
                     cls=(
                         "mt-4 inline-flex items-center gap-2 bg-foreground text-background "
-                        "rounded-lg px-4 py-2.5 text-[14px] font-semibold "
+                        "rounded-lg px-4 py-2.5 text-sm font-semibold "
                         "hover:opacity-90 focus:outline-hidden"
                     ),
                 ),
@@ -127,7 +127,7 @@ def render_ku_mastery_section(
         Div(results_content, id=_RESULTS_SLOT, cls="mt-5" if checkins else ""),
         P(
             "Your ratings are saved so you can watch the gap change over time.",
-            cls="text-[11.5px] text-muted-foreground/80 mt-2.5",
+            cls="text-11 text-muted-foreground/80 mt-2.5",
         ),
         cls="mb-9",
         role="region",

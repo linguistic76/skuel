@@ -142,7 +142,7 @@ def _greeting_header(plan: dict[str, Any]) -> "FT":
     return Header(
         Div(
             date_label,
-            cls="font-mono text-[11px] font-medium tracking-widest uppercase text-muted-foreground",
+            cls="font-mono text-11 font-medium tracking-widest uppercase text-muted-foreground",
         ),
         H2(
             Span(**{"x-text": "greeting()"}),
@@ -184,13 +184,13 @@ def _hero_article(plan: dict[str, Any]) -> "FT":
             Span(
                 Span(cls="w-[7px] h-[7px] rounded-full bg-green-500 flex-none"),
                 featured.get("status_label", "Ready now"),
-                cls="inline-flex items-center gap-1.5 font-mono text-[10.5px] font-medium tracking-widest uppercase text-green-700",
+                cls="inline-flex items-center gap-1.5 font-mono text-10 font-medium tracking-widest uppercase text-green-700",
             ),
-            Span("·", cls="text-[11px] text-muted-foreground/70"),
+            Span("·", cls="text-11 text-muted-foreground/70"),
             Span(
                 "an idea on ",
                 Span(thread, cls="text-foreground font-medium"),
-                cls="text-[12px] text-muted-foreground",
+                cls="text-xs text-muted-foreground",
             ),
             cls="flex flex-wrap items-center gap-2.5 mb-4",
         ),
@@ -227,7 +227,7 @@ def _why_now_panel(featured: dict[str, Any]) -> "FT":
             P(
                 Span("Why now — ", cls="font-semibold text-foreground"),
                 why_now_text,
-                cls="text-[13px] leading-relaxed text-foreground/80",
+                cls="text-13 leading-relaxed text-foreground/80",
             ),
             cls="flex gap-3 items-start",
         ),
@@ -240,7 +240,7 @@ def _why_now_panel(featured: dict[str, Any]) -> "FT":
                     **{":class": "{'rotate-180': whyOpen}"},
                 ),
                 type="button",
-                cls="inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-primary",
+                cls="inline-flex items-center gap-1.5 text-xs font-semibold text-primary",
                 **{
                     "@click": "whyOpen = !whyOpen",
                     ":aria-expanded": "whyOpen.toString()",
@@ -268,13 +268,13 @@ def _evidence_item(row: dict[str, Any]) -> "FT":
 
     if met is True:
         indicator: FT = Icon("check", cls="w-[15px] h-[15px] text-green-600 flex-none mt-0.5")
-        text_cls = "text-[12.5px] leading-snug text-foreground/80"
+        text_cls = "text-xs leading-snug text-foreground/80"
     else:
         indicator = Span(
             Span(cls="w-[7px] h-[7px] rounded-full border-[1.5px] border-muted-foreground"),
             cls="flex-none mt-0.5 w-[15px] h-[15px] flex items-center justify-center",
         )
-        text_cls = "text-[12.5px] leading-snug text-muted-foreground"
+        text_cls = "text-xs leading-snug text-muted-foreground"
 
     return Li(
         indicator,
@@ -291,13 +291,13 @@ def _hero_actions(uid: str, minutes: int) -> "FT":
             href=f"/explore/read/{uid}",
             cls=(
                 "inline-flex items-center gap-2.5 bg-foreground text-background "
-                "rounded-lg px-5 py-3 text-[14.5px] font-semibold "
+                "rounded-lg px-5 py-3 text-sm font-semibold "
                 "hover:opacity-90 focus:outline-hidden focus-visible:ring-2"
             ),
         ),
         Span(
             f"{minutes} min read" if minutes else "",
-            cls="font-mono text-[12.5px] text-muted-foreground",
+            cls="font-mono text-xs text-muted-foreground",
         ),
         Button(
             Icon("bookmark", cls="w-[17px] h-[17px]"),
@@ -334,11 +334,11 @@ def _thread_rail(plan: dict[str, Any]) -> "FT":
             Span(
                 "Or follow your own thread",
                 id="thread-heading",
-                cls="font-mono text-[11px] font-medium tracking-[0.09em] uppercase text-muted-foreground",
+                cls="font-mono text-11 font-medium tracking-[0.09em] uppercase text-muted-foreground",
             ),
             Span(
                 "you're ready for these too — pick what pulls you",
-                cls="text-[12px] text-muted-foreground/80 hidden sm:inline",
+                cls="text-xs text-muted-foreground/80 hidden sm:inline",
             ),
             cls="flex items-baseline justify-between gap-3 mb-3.5",
         ),
@@ -365,15 +365,15 @@ def _thread_card(ku: dict[str, Any]) -> "FT":
             Span(cls="w-[7px] h-[7px] rounded-full", style=f"background:{thread_color}"),
             Span(
                 ku.get("thread", ""),
-                cls="font-mono text-[10px] tracking-[0.06em] uppercase text-muted-foreground",
+                cls="font-mono text-10 tracking-[0.06em] uppercase text-muted-foreground",
             ),
             cls="flex items-center gap-2",
         ),
-        Span(ku.get("title", ""), cls="text-[15px] font-semibold text-foreground"),
-        Span(ku.get("excerpt", ""), cls="text-[12.5px] text-muted-foreground leading-snug"),
+        Span(ku.get("title", ""), cls="text-15 font-semibold text-foreground"),
+        Span(ku.get("excerpt", ""), cls="text-xs text-muted-foreground leading-snug"),
         Span(
             Span(cls="w-[6px] h-[6px] rounded-full bg-green-500"),
-            Span(f"ready · {minutes} min", cls="font-mono text-[11px] text-muted-foreground"),
+            Span(f"ready · {minutes} min", cls="font-mono text-11 text-muted-foreground"),
             cls="flex items-center gap-2 mt-auto",
         ),
         href=f"/explore/read/{ku.get('uid', '')}",
@@ -403,7 +403,7 @@ def _in_progress_section(plan: dict[str, Any]) -> "FT":
         Div(
             "Pick up where you left off",
             id="continue-heading",
-            cls="font-mono text-[11px] font-medium tracking-[0.09em] uppercase text-muted-foreground mb-3",
+            cls="font-mono text-11 font-medium tracking-[0.09em] uppercase text-muted-foreground mb-3",
         ),
         Div(*rows, cls="flex flex-col gap-2"),
         cls="mb-7 sm:mb-9",
@@ -423,13 +423,13 @@ def _in_progress_row(r: dict[str, Any]) -> "FT":
             cls="flex-none w-[38px] h-[38px] rounded-lg flex items-center justify-center bg-violet-50 text-violet-700",
         ),
         Span(
-            Span(r.get("title", ""), cls="block text-[14.5px] font-semibold text-foreground"),
+            Span(r.get("title", ""), cls="block text-sm font-semibold text-foreground"),
             Span(
                 Span(
                     Span(cls="block h-full rounded-full bg-primary", style=f"width:{width_pct}"),
                     cls="flex-1 max-w-[200px] h-1 bg-muted rounded-full overflow-hidden",
                 ),
-                Span(f"{minutes_left} min left", cls="font-mono text-[11px] text-muted-foreground"),
+                Span(f"{minutes_left} min left", cls="font-mono text-11 text-muted-foreground"),
                 cls="flex items-center gap-2.5 mt-2",
             ),
             cls="flex-1 min-w-0",
@@ -460,9 +460,9 @@ def _path_step_section(plan: dict[str, Any]) -> "FT":
         Div(
             Span(
                 "The path step you're inside",
-                cls="font-mono text-[11px] font-medium tracking-[0.09em] uppercase text-muted-foreground",
+                cls="font-mono text-11 font-medium tracking-[0.09em] uppercase text-muted-foreground",
             ),
-            Span(featured_thread, cls="text-[12px] text-muted-foreground/80"),
+            Span(featured_thread, cls="text-xs text-muted-foreground/80"),
             cls="flex items-baseline justify-between gap-3 mb-3.5",
         ),
         Div(
@@ -487,7 +487,7 @@ def _ps_header(ps: dict[str, Any]) -> "FT":
         Span(
             Icon("layers", cls="w-3 h-3"),
             " Path step",
-            cls="inline-flex items-center gap-1.5 font-mono text-[10px] font-medium tracking-widest uppercase text-primary rounded-md px-2.5 py-1 bg-primary/8",
+            cls="inline-flex items-center gap-1.5 font-mono text-10 font-medium tracking-widest uppercase text-primary rounded-md px-2.5 py-1 bg-primary/8",
         ),
         H3(
             ps.get("title", ""),
@@ -496,7 +496,7 @@ def _ps_header(ps: dict[str, Any]) -> "FT":
         ),
         P(
             ps.get("summary", ""),
-            cls="mt-1.5 text-[13.5px] text-muted-foreground leading-relaxed max-w-[50ch]",
+            cls="mt-1.5 text-13 text-muted-foreground leading-relaxed max-w-[50ch]",
         ),
         Div(
             Span(
@@ -505,7 +505,7 @@ def _ps_header(ps: dict[str, Any]) -> "FT":
             ),
             Span(
                 f"{units_read} / {units_total} ideas read",
-                cls="font-mono text-[11px] text-muted-foreground whitespace-nowrap",
+                cls="font-mono text-11 text-muted-foreground whitespace-nowrap",
             ),
             cls="flex items-center gap-3 mt-4",
         ),
@@ -521,7 +521,7 @@ def _ps_ku_list(ps: dict[str, Any]) -> "FT":
     return Div(
         Div(
             f"Built from {units_total} ideas",
-            cls="font-mono text-[10px] font-medium tracking-widest uppercase text-muted-foreground/70 mb-3",
+            cls="font-mono text-10 font-medium tracking-widest uppercase text-muted-foreground/70 mb-3",
         ),
         Div(*rows, cls="flex flex-col gap-0.5"),
         cls="p-4 sm:p-[19px]",
@@ -540,40 +540,40 @@ def _ps_ku_row(ku: dict[str, Any]) -> "FT":
             Icon("check", cls="w-3 h-3"),
             cls="flex-none w-[22px] h-[22px] rounded-full flex items-center justify-center bg-muted border border-border text-muted-foreground",
         )
-        title_cls = "text-[14px] text-muted-foreground line-through"
+        title_cls = "text-sm text-muted-foreground line-through"
         row_cls = "py-2 px-0 hover:bg-muted/50"
         meta: FT = Span(
             f"read · {minutes} min" if minutes else "read",
-            cls="font-mono text-[11px] text-muted-foreground/50 whitespace-nowrap",
+            cls="font-mono text-11 text-muted-foreground/50 whitespace-nowrap",
         )
     elif status == "current":
         node = Span(
             Span(cls="w-[7px] h-[7px] rounded-full bg-primary"),
             cls="flex-none w-[22px] h-[22px] rounded-full flex items-center justify-center bg-white border-2 border-primary",
         )
-        title_cls = "text-[14px] font-semibold text-foreground"
+        title_cls = "text-sm font-semibold text-foreground"
         row_cls = "px-3 py-2.5 border rounded-lg bg-primary/5 border-primary/20"
         meta = Span(
             "reading now",
-            cls="font-mono text-[10.5px] font-medium tracking-wider uppercase text-primary whitespace-nowrap",
+            cls="font-mono text-10 font-medium tracking-wider uppercase text-primary whitespace-nowrap",
         )
     else:  # upcoming
         node = Span(
             cls="flex-none w-[22px] h-[22px] rounded-full bg-white",
             style="border: 1.5px dashed hsl(214 20% 78%)",
         )
-        title_cls = "text-[14px] font-medium text-foreground/90"
+        title_cls = "text-sm font-medium text-foreground/90"
         row_cls = "py-2 px-0 hover:bg-muted/50"
         meta = Span(
             f"{minutes} min" if minutes else "",
-            cls="font-mono text-[11px] text-muted-foreground whitespace-nowrap",
+            cls="font-mono text-11 text-muted-foreground whitespace-nowrap",
         )
 
     return A(
         node,
         Span(
             Span(title, cls=title_cls),
-            Span(excerpt, cls="block text-[12.5px] text-muted-foreground mt-0.5")
+            Span(excerpt, cls="block text-xs leading-snug text-muted-foreground mt-0.5")
             if excerpt
             else Div(),
             cls="flex-1 min-w-0",
@@ -596,15 +596,15 @@ def _ps_capabilities(ps: dict[str, Any]) -> "FT":
         Div(
             Span(
                 "What this step adds",
-                cls="font-mono text-[10px] font-medium tracking-widest uppercase text-muted-foreground/70",
+                cls="font-mono text-10 font-medium tracking-widest uppercase text-muted-foreground/70",
             ),
-            Span("varies by step", cls="text-[11px] text-muted-foreground/60"),
+            Span("varies by step", cls="text-11 text-muted-foreground/60"),
             cls="flex items-baseline justify-between gap-2.5 mb-3",
         ),
         Div(*cap_buttons, cls="flex flex-col gap-2"),
         P(
             "Another step might add an assessment, a journal, or nothing at all — the tray belongs to the step.",
-            cls="mt-3 text-[11.5px] text-muted-foreground/80 leading-snug",
+            cls="mt-3 text-11 text-muted-foreground/80 leading-snug",
         ),
         cls="p-4 sm:p-[19px] bg-muted/40 border-t border-muted",
     )
@@ -643,16 +643,16 @@ def _ps_capability_button(cap: dict[str, Any], ps_uid: str) -> "FT":
             Span(
                 Span(
                     cap.get("title", ""),
-                    cls=f"text-[14px] font-semibold {'text-foreground/80' if locked else 'text-foreground'}",
+                    cls=f"text-sm font-semibold {'text-foreground/80' if locked else 'text-foreground'}",
                 ),
                 Span(
                     label,
-                    cls=f"font-mono text-[9.5px] font-medium tracking-[0.06em] uppercase rounded-sm px-1.5 py-0.5 {label_cls}",
+                    cls=f"font-mono text-10 font-medium tracking-[0.06em] uppercase rounded-sm px-1.5 py-0.5 {label_cls}",
                 ),
                 Span(
                     Icon("lock", cls="w-2.5 h-2.5"),
                     " locked",
-                    cls="inline-flex items-center gap-1 font-mono text-[9.5px] text-muted-foreground bg-muted rounded-sm px-1.5 py-0.5",
+                    cls="inline-flex items-center gap-1 font-mono text-10 text-muted-foreground bg-muted rounded-sm px-1.5 py-0.5",
                 )
                 if locked
                 else Div(),
@@ -660,7 +660,7 @@ def _ps_capability_button(cap: dict[str, Any], ps_uid: str) -> "FT":
             ),
             Span(
                 cap.get("summary", ""),
-                cls="block text-[12.5px] mt-0.5 leading-snug text-muted-foreground",
+                cls="block text-xs mt-0.5 leading-snug text-muted-foreground",
             ),
             cls="flex-1 min-w-0",
         ),
@@ -689,7 +689,7 @@ def _related_section(plan: dict[str, Any]) -> "FT":
         Div(
             heading,
             id="related-heading",
-            cls="font-mono text-[11px] font-medium tracking-[0.09em] uppercase text-muted-foreground mb-3.5",
+            cls="font-mono text-11 font-medium tracking-[0.09em] uppercase text-muted-foreground mb-3.5",
         ),
         Div(*rows, cls="flex flex-col gap-0.5"),
         cls="mb-7 sm:mb-9",
@@ -705,10 +705,10 @@ def _related_row(k: dict[str, Any]) -> "FT":
     return A(
         Span(
             Span(
-                Span(k.get("title", ""), cls="text-[14.5px] font-semibold text-foreground"),
+                Span(k.get("title", ""), cls="text-sm font-semibold text-foreground"),
                 Span(
                     kind,
-                    cls="font-mono text-[10px] text-muted-foreground bg-muted rounded-sm px-1.5 py-0.5",
+                    cls="font-mono text-10 text-muted-foreground bg-muted rounded-sm px-1.5 py-0.5",
                 )
                 if kind
                 else Div(),
@@ -716,13 +716,13 @@ def _related_row(k: dict[str, Any]) -> "FT":
             ),
             Span(
                 k.get("excerpt", ""),
-                cls="block text-[13px] text-muted-foreground mt-1 leading-snug",
+                cls="block text-13 text-muted-foreground mt-1 leading-snug",
             ),
             cls="flex-1 min-w-0",
         ),
         Span(
             f"{minutes} min",
-            cls="font-mono text-[11px] text-muted-foreground whitespace-nowrap pt-0.5",
+            cls="font-mono text-11 text-muted-foreground whitespace-nowrap pt-0.5",
         ),
         href=f"/explore/read/{k.get('uid', '')}",
         cls=(
@@ -747,7 +747,7 @@ def _library_section(plan: dict[str, Any]) -> "FT":
         A(
             tag,
             href=f"/explore/library?tag={tag.lstrip('#')}",
-            cls="text-[12px] text-muted-foreground bg-card border border-border rounded-full px-2.5 py-1 hover:bg-muted",
+            cls="text-xs text-muted-foreground bg-card border border-border rounded-full px-2.5 py-1 hover:bg-muted",
         )
         for tag in tags
     ]
@@ -756,17 +756,17 @@ def _library_section(plan: dict[str, Any]) -> "FT":
         Div(
             "Looking for something specific?",
             id="browse-heading",
-            cls="text-[14.5px] font-semibold text-foreground",
+            cls="text-sm font-semibold text-foreground",
         ),
         P(
             f"The full library is {total_text}. Most days you won't need it — but it's here when you do.",
-            cls="mt-1 text-[13px] text-muted-foreground leading-relaxed",
+            cls="mt-1 text-13 text-muted-foreground leading-relaxed",
         ),
         A(
             Icon("search", cls="w-4 h-4 text-muted-foreground/70"),
             Span(
                 "Search ideas, paths, and tags…",
-                cls="flex-1 text-[13.5px] text-muted-foreground/70",
+                cls="flex-1 text-13 text-muted-foreground/70",
             ),
             href="/explore/library",
             cls=(
@@ -780,7 +780,7 @@ def _library_section(plan: dict[str, Any]) -> "FT":
                 "Browse all ",
                 Icon("arrow-right", cls="w-3.5 h-3.5"),
                 href="/explore/library",
-                cls="inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-primary px-1 py-1",
+                cls="inline-flex items-center gap-1.5 text-xs font-semibold text-primary px-1 py-1",
             ),
             cls="flex flex-wrap items-center gap-2 mt-3.5",
         ),
@@ -789,7 +789,7 @@ def _library_section(plan: dict[str, Any]) -> "FT":
             " View learning graph",
             href="/explore/graph",
             cls=(
-                "mt-3 inline-flex items-center gap-1.5 text-[12px] "
+                "mt-3 inline-flex items-center gap-1.5 text-xs "
                 "text-muted-foreground hover:text-foreground transition-colors"
             ),
         ),
