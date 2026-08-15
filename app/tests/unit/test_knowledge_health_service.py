@@ -13,6 +13,12 @@ import pytest
 from core.constants import KnowledgeHealth
 from core.ports.query_types import KnowledgeHealthRaw
 from core.services.analytics.knowledge_health_service import KnowledgeHealthService
+from core.services.embeddings.retrievability import (
+    BACKFILL_COMMAND,
+    EmbeddingCoverage,
+    LabelCoverage,
+    label_backfill,
+)
 from core.utils.result_simplified import Errors, Result
 
 # Raw measurement of the live dev graph on 2026-07-22 — the numbers ADR-080
@@ -194,6 +200,53 @@ class TestEdgeCases:
         assert total == pytest.approx(1.0)
 
 
+def _coverage(*counts: tuple[str, int, int]) -> EmbeddingCoverage:
+    """Build an EmbeddingCoverage from (label, total, missing) triples."""
+    return EmbeddingCoverage.from_label_counts(
+        tuple(
+            LabelCoverage(label=label, total=total, missing=missing, backfill=label_backfill(label))
+            for label, total, missing in counts
+        )
+    )
+
+
+class TestEmbeddingCoverageBlock:
+    """The optional retrievability block + its authoring flag."""
+
+    def test_unprobed_report_has_no_coverage_key(self) -> None:
+        report = KnowledgeHealthService._build_report(LIVE_RAW)
+        assert "embedding_coverage" not in report
+        assert "not yet searchable" not in " ".join(report["flags"])
+
+    def test_coverage_gap_attaches_block_and_flag(self) -> None:
+        coverage = _coverage(("Ku", 121, 4), ("ContentChunk", 1143, 208))
+        report = KnowledgeHealthService._build_report(LIVE_RAW, coverage)
+
+        block = report["embedding_coverage"]
+        assert block["missing"] == 212
+        assert block["missing_chunks"] == 208
+        assert block["missing_entities"] == 4
+        assert block["is_complete"] is False
+
+        joined = " ".join(report["flags"])
+        assert "212 nodes lack an embedding" in joined
+        assert "not yet searchable" in joined
+        assert BACKFILL_COMMAND in joined
+
+    def test_complete_coverage_attaches_block_without_flag(self) -> None:
+        coverage = _coverage(("Ku", 121, 0), ("ContentChunk", 1143, 0))
+        report = KnowledgeHealthService._build_report(LIVE_RAW, coverage)
+        assert report["embedding_coverage"]["is_complete"] is True
+        assert "not yet searchable" not in " ".join(report["flags"])
+
+    def test_coverage_flag_survives_structurally_healthy_graph(self) -> None:
+        """Retrievability is its own axis — a green structural graph still flags a gap."""
+        report = KnowledgeHealthService._build_report(_healthy_raw(), _coverage(("Ku", 100, 7)))
+        joined = " ".join(report["flags"])
+        assert "structurally healthy" in joined
+        assert "7 nodes lack an embedding" in joined
+
+
 class _FakeBackend:
     """Minimal KnowledgeHealthOperations stub."""
 
@@ -201,6 +254,16 @@ class _FakeBackend:
         self._result = result
 
     async def measure_knowledge_subgraph(self) -> Result:
+        return self._result
+
+
+class _FakeCoverageBackend:
+    """Minimal EmbeddingCoverageOperations stub."""
+
+    def __init__(self, result: Result) -> None:
+        self._result = result
+
+    async def measure_embedding_coverage(self) -> Result:
         return self._result
 
 
@@ -221,6 +284,27 @@ class TestServiceAsyncPath:
         result = await service.analyze_knowledge_subgraph_health()
         assert result.is_error
 
+    @pytest.mark.asyncio
+    async def test_analyze_probes_coverage_when_wired(self) -> None:
+        service = KnowledgeHealthService(
+            backend=_FakeBackend(Result.ok(LIVE_RAW)),
+            coverage=_FakeCoverageBackend(Result.ok(_coverage(("Ku", 121, 4)))),
+        )
+        result = await service.analyze_knowledge_subgraph_health()
+        assert result.is_ok
+        assert result.value["embedding_coverage"]["missing"] == 4
+
+    @pytest.mark.asyncio
+    async def test_analyze_propagates_coverage_probe_error(self) -> None:
+        service = KnowledgeHealthService(
+            backend=_FakeBackend(Result.ok(LIVE_RAW)),
+            coverage=_FakeCoverageBackend(
+                Result.fail(Errors.database(operation="coverage", message="boom"))
+            ),
+        )
+        result = await service.analyze_knowledge_subgraph_health()
+        assert result.is_error
+
 
 class TestFacadeDelegation:
     @pytest.mark.asyncio
@@ -231,6 +315,18 @@ class TestFacadeDelegation:
         result = await facade.analyze_knowledge_subgraph_health()
         assert result.is_ok
         assert result.value["total_kus"] == 121
+
+    @pytest.mark.asyncio
+    async def test_facade_wires_coverage_probe(self) -> None:
+        from core.services.analytics_service import AnalyticsService
+
+        facade = AnalyticsService(
+            knowledge_health_backend=_FakeBackend(Result.ok(LIVE_RAW)),
+            embedding_coverage_backend=_FakeCoverageBackend(Result.ok(_coverage(("Ku", 121, 2)))),
+        )
+        result = await facade.analyze_knowledge_subgraph_health()
+        assert result.is_ok
+        assert result.value["embedding_coverage"]["missing"] == 2
 
     @pytest.mark.asyncio
     async def test_facade_errors_when_unwired(self) -> None:

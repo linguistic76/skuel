@@ -308,9 +308,9 @@ async def test_requires_step_counts_in_prerequisite_dag(neo4j_driver, clean_neo4
 async def test_label_less_pathstep_counted_by_entity_type(neo4j_driver, clean_neo4j) -> None:
     """PathSteps persisted without the :PathStep label must still count (Codex #770 P2).
 
-    `create_step_node` persists `:Entity {entity_type:'path_step'}` with no
-    `:PathStep` label; the gauge matches by entity_type so such steps are not
-    silently dropped from the census/coverage.
+    The one writer that produced such nodes (`create_step_node`) now stamps
+    the multi-label (Codex #1068 P1), but the structural gauge keeps matching
+    by entity_type as defense for any legacy label-less data.
     """
     async with neo4j_driver.session() as s:
         # Label-less path step (mirrors create_step_node) + a labelled one.
@@ -347,3 +347,127 @@ async def test_empty_subgraph_is_all_zeros(neo4j_driver, clean_neo4j) -> None:
     report = KnowledgeHealthService._build_report(raw)
     assert report["gds_readiness_score"] == 0.0
     assert report["gds_ready"] is False
+
+
+@pytest.mark.asyncio
+async def test_embedding_coverage_probe_counts_and_scope(neo4j_driver, clean_neo4j) -> None:
+    """``EmbeddingCoverageBackend`` counts total vs embedding-NULL per label.
+
+    The load-bearing halves: the UserEntry scope filter (only knowledge-pipeline,
+    non-private entries are gauge-visible — a vector may never exist for the
+    rest, so they must count as neither total nor missing) and remedy
+    assignment (ReferenceChunk has no backfill path).
+    """
+    from adapters.persistence.neo4j.backends.curriculum_backends import (
+        EmbeddingCoverageBackend,
+    )
+    from core.services.embeddings.retrievability import BACKFILL_COMMAND
+
+    async with neo4j_driver.session() as s:
+        # Ku: one embedded, one not.
+        await s.run(
+            "CREATE (:Entity:Ku {uid:$k1, entity_type:'ku', title:$k1, embedding:[0.1,0.2]}),"
+            " (:Entity:Ku {uid:$k2, entity_type:'ku', title:$k2})",
+            k1=P + "ec_k1",
+            k2=P + "ec_k2",
+        )
+        # Chunks: ContentChunk missing, ReferenceChunk embedded.
+        await s.run(
+            "CREATE (:ContentChunk {uid:$cc}), (:ReferenceChunk {uid:$rc, embedding:[0.1]})",
+            cc=P + "ec_cc1",
+            rc=P + "ec_rc1",
+        )
+        # UserEntry scope: only the knowledge-pipeline, non-private entry counts.
+        await s.run(
+            "CREATE (:Entity:UserEntry {uid:$u1, entity_type:'user_entry', pipeline:'knowledge'}),"
+            " (:Entity:UserEntry {uid:$u2, entity_type:'user_entry', pipeline:'knowledge', private:true}),"
+            " (:Entity:UserEntry {uid:$u3, entity_type:'user_entry', pipeline:'exercise'})",
+            u1=P + "ec_ue1",
+            u2=P + "ec_ue2",
+            u3=P + "ec_ue3",
+        )
+    backend = EmbeddingCoverageBackend(Neo4jQueryExecutor(neo4j_driver))
+
+    result = await backend.measure_embedding_coverage()
+    assert result.is_ok, result
+    coverage = result.value
+
+    by = {c.label: c for c in coverage.by_label}
+    assert by["Ku"].total == 2 and by["Ku"].missing == 1
+    assert by["ContentChunk"].total == 1 and by["ContentChunk"].missing == 1
+    assert by["ReferenceChunk"].total == 1 and by["ReferenceChunk"].missing == 0
+    # Scope filter: the private + non-knowledge entries are gauge-invisible.
+    assert by["UserEntry"].total == 1 and by["UserEntry"].missing == 1
+
+    assert coverage.missing == 3  # ec_k2 + ec_cc1 + ec_ue1
+    assert coverage.missing_chunks == 1
+    assert coverage.missing_entities == 2
+    assert coverage.is_complete is False
+
+    # Remedy assignment travels with the measurement.
+    assert by["Ku"].backfill == BACKFILL_COMMAND
+    assert by["ReferenceChunk"].backfill is None
+
+
+@pytest.mark.asyncio
+async def test_embedding_coverage_empty_graph_is_complete(neo4j_driver, clean_neo4j) -> None:
+    """An empty graph measures as complete (all-zero coverage), not an error."""
+    from adapters.persistence.neo4j.backends.curriculum_backends import (
+        EmbeddingCoverageBackend,
+    )
+
+    backend = EmbeddingCoverageBackend(Neo4jQueryExecutor(neo4j_driver))
+    result = await backend.measure_embedding_coverage()
+    assert result.is_ok, result
+    assert result.value.total == 0
+    assert result.value.is_complete is True
+
+
+@pytest.mark.asyncio
+async def test_create_step_node_multilabel_visible_to_coverage(neo4j_driver, clean_neo4j) -> None:
+    """The API step writer stamps :Entity:PathStep (Codex #1068 P1).
+
+    An Entity-only step is invisible to every label-matched instrument — the
+    embedding worker's store, the backfill script, and the coverage probe — so
+    its embedding request would silently match zero rows. Guard the writer's
+    labels AND the step's visibility to the coverage gauge.
+    """
+    from adapters.persistence.neo4j.backends.curriculum_backends import (
+        EmbeddingCoverageBackend,
+        PsBackend,
+    )
+    from core.models.enums.neo_labels import NeoLabel
+    from core.models.pathways.path_step import PathStep
+
+    ps_backend = PsBackend(neo4j_driver, NeoLabel.PATH_STEP, PathStep, base_label=NeoLabel.ENTITY)
+    created = await ps_backend.create_step_node(
+        {
+            "uid": P + "api_ps1",
+            "title": "API-created step",
+            "intent": "coverage guard",
+            "description": "",
+            "learning_path_uid": None,
+            "sequence": 1,
+            "mastery_threshold": 0.8,
+            "current_mastery": 0.0,
+            "estimated_hours": 1.0,
+            "step_difficulty": "beginner",
+            "status": "active",
+            "completed": False,
+            "domain": "test",
+        }
+    )
+    assert created.is_ok, created
+
+    async with neo4j_driver.session() as s:
+        result = await s.run("MATCH (n {uid:$u}) RETURN labels(n) AS labels", u=P + "api_ps1")
+        record = await result.single()
+    assert set(record["labels"]) == {"Entity", "PathStep"}
+
+    coverage_result = await EmbeddingCoverageBackend(
+        Neo4jQueryExecutor(neo4j_driver)
+    ).measure_embedding_coverage()
+    assert coverage_result.is_ok, coverage_result
+    by = {c.label: c for c in coverage_result.value.by_label}
+    assert by["PathStep"].total == 1
+    assert by["PathStep"].missing == 1  # no embedding yet — the gauge must see it

@@ -36,6 +36,13 @@ from core.ports.query_types import (
     PsEngagementCountsRow,
     PsKnowledgeSummaryResult,
 )
+from core.services.embeddings.retrievability import (
+    EMBEDDING_SCAN_LABELS,
+    LABEL_EXTRA_FILTERS,
+    EmbeddingCoverage,
+    LabelCoverage,
+    label_backfill,
+)
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
@@ -807,9 +814,15 @@ class PsBackend(
         has_knowledge: bool = False,
         path_uid: str | None = None,
     ) -> Result[list[dict[str, Any]]]:
-        """Create step node with conditional knowledge and path relationships."""
+        """Create step node with conditional knowledge and path relationships.
+
+        Multi-label (:Entity:PathStep) like every other Entity writer — an
+        Entity-only node is invisible to every label-matched instrument (the
+        embedding worker's store, the backfill, the coverage gauge), so its
+        embedding request would silently match zero rows (Codex #1068 P1).
+        """
         query = """
-        CREATE (s:Entity {
+        CREATE (s:Entity:PathStep {
             uid: $uid,
             entity_type: 'path_step',
             title: $title,
@@ -1415,3 +1428,75 @@ class KnowledgeHealthBackend:
                 draft_curriculum_count=int(row["draft_curriculum_count"]),
             )
         )
+
+
+def _embedding_coverage_entry(label: NeoLabel) -> str:
+    """One scan label's map entry: total vs embedding-less counts.
+
+    The per-label scope filter (``LABEL_EXTRA_FILTERS`` — e.g. UserEntry's
+    knowledge-pipeline/non-private clause) is ANDed into BOTH counts, so a
+    node the pipeline deliberately never embeds is neither counted nor
+    reported missing.
+    """
+    extra = LABEL_EXTRA_FILTERS.get(label.value)
+    total_scope = f" WHERE {extra}" if extra else ""
+    missing_where = "n.embedding IS NULL" + (f" AND {extra}" if extra else "")
+    return (
+        f"{{label: '{label.value}', "
+        f"total: count{{ MATCH (n:{label.value}){total_scope} }}, "
+        f"missing: count{{ MATCH (n:{label.value}) WHERE {missing_where} }}}}"
+    )
+
+
+# Import-time NeoLabel() conversion: SKUEL030 cannot see through the
+# interpolation below, and Neo4j answers an unknown label with zero rows
+# instead of an error — so an unknown scan label must fail loudly here.
+_EMBEDDING_COVERAGE_LABELS: tuple[NeoLabel, ...] = tuple(
+    NeoLabel(label) for label in EMBEDDING_SCAN_LABELS
+)
+
+_EMBEDDING_COVERAGE_QUERY = (
+    "RETURN [\n  "
+    + ",\n  ".join(_embedding_coverage_entry(label) for label in _EMBEDDING_COVERAGE_LABELS)
+    + "\n] AS coverage"
+)
+
+
+class EmbeddingCoverageBackend:
+    """Read-only embedding-coverage scan across every embeddable label.
+
+    Executor-based like ``KnowledgeHealthBackend`` (the probe spans the
+    embeddable entity labels plus both chunk labels at once, so the
+    single-entity-type model does not fit). One round trip of ``count{}``
+    pairs — total vs ``embedding IS NULL`` — per ``EMBEDDING_SCAN_LABELS``
+    label. A pure count query: no LLM/embedding client, CORE-tier safe, which
+    is exactly why the gauge works when the capability that fills the gap is
+    off.
+    """
+
+    def __init__(self, executor: "Neo4jQueryExecutor") -> None:
+        self.executor = executor
+        self.logger = get_logger("skuel.backends.embedding_coverage")
+
+    async def measure_embedding_coverage(self) -> Result[EmbeddingCoverage]:
+        """Count total vs embedding-less nodes per scan label, one round trip.
+
+        An empty graph yields all-zero coverage (``is_complete`` True), not an
+        error. Remedy assignment (``LabelCoverage.backfill``) and the totals
+        fold live in ``core.services.embeddings.retrievability``.
+        """
+        result = await self.executor.execute_query(_EMBEDDING_COVERAGE_QUERY)
+        if result.is_error:
+            return Result.fail(result)
+        rows = result.value or []
+        entries = (rows[0].get("coverage") or []) if rows else []
+        by_label = tuple(
+            LabelCoverage(
+                label=str(entry["label"]),
+                total=int(entry["total"]),
+                missing=int(entry["missing"]),
+                backfill=label_backfill(str(entry["label"])),
+            )
+            for entry in entries
+        )
+        return Result.ok(EmbeddingCoverage.from_label_counts(by_label))

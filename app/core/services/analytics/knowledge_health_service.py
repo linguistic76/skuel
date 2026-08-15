@@ -27,9 +27,11 @@ from core.constants import KnowledgeHealth
 from core.models.ku.ku import Ku
 from core.ports.knowledge_health_protocols import KnowledgeHealthOperations
 from core.services.base_analytics_service import BaseAnalyticsService
+from core.services.embeddings.retrievability import EmbeddingCoverage, remedy_text
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
+    from core.ports.embedding_coverage_protocols import EmbeddingCoverageOperations
     from core.ports.query_types import (
         KnowledgeCoverageMetric,
         KnowledgeHealthRaw,
@@ -48,21 +50,46 @@ class KnowledgeHealthService(BaseAnalyticsService[KnowledgeHealthOperations, Ku]
     Pure graph analytics — no LLM/embedding dependency (ADR-043 CORE tier). The
     single public method fetches the raw measurement from the backend and folds
     it into a :class:`KnowledgeHealthReport`; all scoring is deterministic Python.
+    The optional embedding-coverage collaborator keeps that promise true — it is
+    a count probe over the graph (``embedding IS NULL`` per label), never an
+    embedding client.
     """
 
     _service_name = "knowledge_health"
+
+    def __init__(
+        self,
+        backend: KnowledgeHealthOperations,
+        coverage: EmbeddingCoverageOperations | None = None,
+    ) -> None:
+        """
+        Args:
+            backend: Corpus structural measurement (REQUIRED).
+            coverage: Embedding-coverage probe (optional — the report's
+                ``embedding_coverage`` block and its authoring flag are absent
+                when unwired).
+        """
+        super().__init__(backend=backend)
+        self.coverage = coverage
 
     async def analyze_knowledge_subgraph_health(self) -> Result[KnowledgeHealthReport]:
         """Produce the consolidated structural-health report.
 
         Backend: ``KnowledgeHealthBackend.measure_knowledge_subgraph`` (one
-        round-trip corpus query). This layer interprets the raw facts — coverage
+        round-trip corpus query), plus ``measure_embedding_coverage`` when the
+        coverage probe is wired. This layer interprets the raw facts — coverage
         ratios, the composite readiness score, and authoring flags.
         """
         raw_result = await self.backend.measure_knowledge_subgraph()
         if raw_result.is_error:
             return Result.fail(raw_result)
-        return Result.ok(self._build_report(raw_result.value))
+        coverage: EmbeddingCoverage | None = None
+        if self.coverage is not None:
+            coverage_result = await self.coverage.measure_embedding_coverage()
+            if coverage_result.is_error:
+                return Result.fail(coverage_result)
+            coverage = coverage_result.value
+        return Result.ok(self._build_report(raw_result.value, coverage))
 
     # ------------------------------------------------------------------
     # PURE COMPUTATION (sync — no I/O, SKUEL029)
@@ -109,6 +136,23 @@ class KnowledgeHealthService(BaseAnalyticsService[KnowledgeHealthOperations, Ku]
             + KnowledgeHealth.WEIGHT_LATERAL_DENSITY * lateral_norm
         )
         return round(max(0.0, min(score, 1.0)), 4)
+
+    @staticmethod
+    def _coverage_flag(coverage: EmbeddingCoverage | None) -> list[str]:
+        """The embedding-coverage authoring flag — empty when complete or unprobed.
+
+        Structural health and retrievability are different axes: a node the
+        graph connects perfectly is still invisible to vector search until it
+        carries an embedding, so this flag stands even when every structural
+        signal is green.
+        """
+        if coverage is None or coverage.is_complete:
+            return []
+        return [
+            f"{coverage.missing} nodes lack an embedding "
+            f"({coverage.missing_chunks} chunks, {coverage.missing_entities} entities) "
+            f"— not yet searchable; {remedy_text(coverage)}."
+        ]
 
     @staticmethod
     def _authoring_flags(
@@ -167,8 +211,15 @@ class KnowledgeHealthService(BaseAnalyticsService[KnowledgeHealthOperations, Ku]
         return flags
 
     @classmethod
-    def _build_report(cls, raw: KnowledgeHealthRaw) -> KnowledgeHealthReport:
-        """Fold the raw structural facts into the consolidated report."""
+    def _build_report(
+        cls, raw: KnowledgeHealthRaw, coverage: EmbeddingCoverage | None = None
+    ) -> KnowledgeHealthReport:
+        """Fold the raw structural facts into the consolidated report.
+
+        ``coverage`` (when the probe is wired) adds the ``embedding_coverage``
+        block and its authoring flag; ``None`` leaves the report shape exactly
+        as before.
+        """
         total_kus = raw["total_kus"]
         total_path_steps = raw["total_path_steps"]
 
@@ -199,8 +250,9 @@ class KnowledgeHealthService(BaseAnalyticsService[KnowledgeHealthOperations, Ku]
             practice_coverage=practice_coverage,
             gds_ready=gds_ready,
         )
+        flags.extend(cls._coverage_flag(coverage))
 
-        return {
+        report: KnowledgeHealthReport = {
             "total_kus": total_kus,
             "total_path_steps": total_path_steps,
             "total_learning_paths": raw["total_learning_paths"],
@@ -235,3 +287,6 @@ class KnowledgeHealthService(BaseAnalyticsService[KnowledgeHealthOperations, Ku]
             "gds_ready": gds_ready,
             "flags": flags,
         }
+        if coverage is not None:
+            report["embedding_coverage"] = coverage.as_report()
+        return report

@@ -59,32 +59,19 @@ import argparse
 import asyncio
 from typing import Any
 
-from core.events.embedding_publisher import EMBEDDING_NODE_LABELS
-from core.models.enums.entity_enums import EntityType
+# Label maps + per-label scope filters live in the retrievability module —
+# the coverage gauge and this backfill share ONE source, so the gauge's
+# missing counts and the remedy's candidate queries can never drift apart.
+from core.services.embeddings.retrievability import (
+    CONTENT_CHUNK_LABEL,
+    EMBEDDABLE_LABELS,
+    LABEL_EXTRA_FILTERS,
+)
 from core.services.embeddings_service import EMBEDDING_VERSION, EmbeddingsService
 from core.utils.embedding_text_builder import build_embedding_text
 from core.utils.logging import get_logger
 
 logger = get_logger("skuel.batch_embeddings")
-
-# Neo4j label → EntityType, inverted from the chokepoint's one label map —
-# no hand-maintained mirror (the map itself is guarded against
-# EMBEDDING_EVENT_TYPES drift by test_post_persist_embedding.py).
-EMBEDDABLE_LABELS: dict[str, EntityType] = {
-    label: entity_type for entity_type, label in EMBEDDING_NODE_LABELS.items()
-}
-
-# Per-label extra WHERE clauses, ANDed into every candidate query (all modes +
-# hash stamping). UserEntry embedding is pipeline-scoped: only knowledge
-# entries embed (the event path gates in UserEntryService) — without this the
-# backfill would embed every entry, including exercise turn-ins and
-# teacher-review submissions the event path deliberately never publishes.
-# Private notes never embed either (canon P3) — no vector may exist for them.
-LABEL_EXTRA_FILTERS: dict[str, str] = {
-    "UserEntry": "n.pipeline = 'knowledge' AND coalesce(n.private, false) = false",
-}
-
-CHUNK_LABEL = "ContentChunk"
 
 
 def _label_scope_clause(label: str) -> str:
@@ -398,7 +385,7 @@ async def generate_chunk_embeddings(
     # memory at a time. Textless chunks are excluded in Cypher, not Python:
     # they can never leave the predicate and would loop forever.
     query = f"""
-    MATCH (c:{CHUNK_LABEL})
+    MATCH (c:{CONTENT_CHUNK_LABEL})
     WHERE {predicate}
       AND c.context_window IS NOT NULL AND c.context_window <> ''
     RETURN c.uid as uid, c.context_window as text
@@ -458,7 +445,7 @@ async def generate_chunk_embeddings(
         f"{successful} successful, {failed} failed"
     )
     return {
-        "label": CHUNK_LABEL,
+        "label": CONTENT_CHUNK_LABEL,
         "total": total,
         "processed": successful + failed,
         "successful": successful,
@@ -541,8 +528,12 @@ async def main():
     try:
         embedding_client = create_embedding_client()
     except ValueError as e:
+        # Exit nonzero: this script is the canonical coverage remedy
+        # (./dev embed-backfill), and a missing key is exactly the gap class
+        # the gauge reports — a zero exit here would let automation treat an
+        # unrepaired gap as repaired (Codex #1068 P2).
         logger.error(f"❌ Embedding client not available - cannot generate embeddings: {e}")
-        return
+        raise SystemExit(1) from e
 
     embeddings_service = EmbeddingsService(
         backend=EmbeddingsBackend(executor=Neo4jQueryExecutor(driver)),
@@ -553,7 +544,7 @@ async def main():
     if args.label is None:
         entity_labels = list(EMBEDDABLE_LABELS)
         include_chunks = True
-    elif args.label == CHUNK_LABEL:
+    elif args.label == CONTENT_CHUNK_LABEL:
         entity_labels = []
         include_chunks = True
     else:
@@ -584,7 +575,9 @@ async def main():
     logger.info(f"\n{'=' * 60}")
     logger.info("Batch Embedding Generation" + mode_suffix)
     logger.info(f"{'=' * 60}\n")
-    logger.info(f"Labels: {', '.join(entity_labels + ([CHUNK_LABEL] if include_chunks else []))}")
+    logger.info(
+        f"Labels: {', '.join(entity_labels + ([CONTENT_CHUNK_LABEL] if include_chunks else []))}"
+    )
     logger.info(f"Batch size: {args.batch_size}")
     if args.max_batches:
         logger.info(f"Max batches: {args.max_batches}")
@@ -616,7 +609,7 @@ async def main():
         from adapters.persistence.neo4j.neo4j_content_adapter import Neo4jContentAdapter
 
         logger.info(f"\n{'=' * 60}")
-        logger.info(f"Processing {CHUNK_LABEL}")
+        logger.info(f"Processing {CONTENT_CHUNK_LABEL}")
         logger.info(f"{'=' * 60}\n")
 
         chunk_stats = await generate_chunk_embeddings(
@@ -654,6 +647,16 @@ async def main():
         logger.error(
             f"\n❌ Audit incomplete — aborted labels: {', '.join(aborted_labels)}. "
             "Re-run when Neo4j freshness reads work."
+        )
+        raise SystemExit(1)
+
+    if total_failed:
+        # Same honesty contract as the aborted-audit exit: failures already
+        # logged per batch above; the remedy must not report success while
+        # gaps remain (Codex #1068 P2).
+        logger.error(
+            f"\n❌ Batch embedding generation incomplete: {total_processed} successful, "
+            f"{total_failed} failed — see per-batch errors above and re-run."
         )
         raise SystemExit(1)
 

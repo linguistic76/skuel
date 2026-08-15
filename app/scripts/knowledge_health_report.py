@@ -71,6 +71,24 @@ def _print_human(report: dict[str, Any]) -> None:
         f"{report['total_path_steps']} steps ({report['practice_coverage']:.1%})"
     )
 
+    coverage = report.get("embedding_coverage")
+    if coverage is not None:
+        print("\nEmbedding coverage (retrievability):")
+        scanned = [row for row in coverage["by_label"] if row["total"]]
+        for row in scanned:
+            embedded = row["total"] - row["missing"]
+            gap = f"  ⚠ {row['missing']} missing" if row["missing"] else ""
+            print(f"  {row['label'] + ':':<18} {embedded}/{row['total']} embedded{gap}")
+        if not scanned:
+            print("  (no embeddable nodes in the graph)")
+        if coverage["is_complete"]:
+            print("  ✓ complete — every scanned node is searchable")
+        else:
+            print(
+                f"  MISSING: {coverage['missing']} ({coverage['missing_chunks']} chunks, "
+                f"{coverage['missing_entities']} entities) — {coverage['remedy']}"
+            )
+
     ready = "YES" if report["gds_ready"] else "not yet"
     print(f"\nGDS-readiness score: {report['gds_readiness_score']:.4f}  (ready: {ready})")
 

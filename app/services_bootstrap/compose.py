@@ -485,10 +485,18 @@ async def compose_services(
 
         # Knowledge-subgraph structural-health gauge (ADR-080 Horizon-1). Executor-
         # based corpus reader, tier-independent (pure graph analytics, CORE-safe).
-        from adapters.persistence.neo4j.backends.curriculum_backends import KnowledgeHealthBackend
+        from adapters.persistence.neo4j.backends.curriculum_backends import (
+            EmbeddingCoverageBackend,
+            KnowledgeHealthBackend,
+        )
 
         knowledge_health_backend = KnowledgeHealthBackend(query_executor)
         logger.info("✅ KnowledgeHealthBackend created")
+
+        # Embedding-coverage (retrievability) probe — a count query, so it is
+        # tier-independent too: it measures the gaps CORE-tier periods leave.
+        embedding_coverage_backend = EmbeddingCoverageBackend(query_executor)
+        logger.info("✅ EmbeddingCoverageBackend created")
 
         # Wire cross-domain backend to UserService (post-construction — UserService created first)
         user_service.wire_cross_domain_backend(cross_domain_backend)
@@ -1517,6 +1525,7 @@ async def compose_services(
             event_bus=event_bus,  # Event-driven report generation
             cross_domain_backend=cross_domain_backend,  # Cross-domain analytics queries
             knowledge_health_backend=knowledge_health_backend,  # ADR-080 Horizon-1 gauge
+            embedding_coverage_backend=embedding_coverage_backend,  # retrievability block
         )
         logger.info("✅ Analytics service created")
 
