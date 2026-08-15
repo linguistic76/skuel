@@ -97,7 +97,8 @@ hardened in PR6):
 `scripts/audit_font_sizes.py` (sibling of `audit_raw_headers.py`) scans every string
 constant in production UI code — plus the `static/js/*.js` Tailwind `@source` tree — for
 arbitrary `text-[...]` values (variant prefixes included) plus the parenthesized
-`text-(length:--x)` shorthand, matching the payload generically and excluding only the
+`text-(length:--x)` shorthand and the `[font-size:...]` arbitrary-property form,
+matching the payload generically and excluding only the
 color payloads (`text-*` is ambiguous; enumerating size spellings proved unwinnable), and
 reports findings outside the payload-pinned allowlist. Advisory (exit 0) during the sweep
 PRs; since PR6 both wiring points run `--strict` (exit 1 on any finding). Wired as

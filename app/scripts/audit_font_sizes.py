@@ -66,6 +66,11 @@ ARBITRARY_TEXT = re.compile(r"(?:[\w-]+:)*text-\[([^\]\s]+)\]")
 # text-(color:--x) resolve to color, exactly like their bracket twins.
 SHORTHAND_LENGTH = re.compile(r"(?:[\w-]+:)*text-\(length:[^)\s]+\)")
 
+# Tailwind's arbitrary-property form: [font-size:13px] / [font-size:var(--fs)]
+# emits a font-size declaration with no text- prefix at all (Codex, PR #1062).
+# The property is named, so every payload is a font size by construction.
+ARBITRARY_PROPERTY = re.compile(r"(?:[\w-]+:)*\[font-size:[^\]\s]+\]")
+
 # Payloads that compile to `color`, not `font-size`: explicit color: hint,
 # hex, color functions, bare var() (un-hinted vars on text-* resolve to
 # color; a length:var(--x) hint IS a font size and is deliberately not here),
@@ -80,11 +85,12 @@ COLOR_PAYLOAD = re.compile(
 
 
 def _iter_size_matches(text: str) -> Iterator[re.Match[str]]:
-    """Arbitrary text-[...] / text-(length:...) matches that set font-size."""
+    """Arbitrary font-size matches: text-[...], text-(length:...), [font-size:...]."""
     for match in ARBITRARY_TEXT.finditer(text):
         if not COLOR_PAYLOAD.match(match.group(1)):
             yield match
     yield from SHORTHAND_LENGTH.finditer(text)
+    yield from ARBITRARY_PROPERTY.finditer(text)
 
 
 # ---------------------------------------------------------------------------
@@ -181,7 +187,7 @@ def audit(root: Path, strict: bool) -> int:
             seen_allowlisted.add(rel)
 
         # Cheap pre-filter: only parse files that can possibly match.
-        if "text-[" not in source and "text-(" not in source:
+        if "text-[" not in source and "text-(" not in source and "[font-size:" not in source:
             if rel in ALLOWED_ARBITRARY:
                 under_pin.append((rel, sorted(ALLOWED_ARBITRARY[rel])))
             continue
