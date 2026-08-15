@@ -14,7 +14,7 @@ Sub-Services:
 - GoalsProgressService: Progress tracking and milestones
 - GoalsLearningService: Learning path integration
 - GoalsSchedulingService: Capacity management and schedule optimization (January 2026)
-- UnifiedRelationshipService (GOAPS_CONFIG): Graph relationships and cross-domain links
+- UnifiedRelationshipService (GOALS_CONFIG): Graph relationships and cross-domain links
 - GoalsIntelligenceService: pure Cypher analytics (5 intelligence mixins)
 - GoalEventHandlerService: Event-driven reactive handlers
 
@@ -663,7 +663,7 @@ class GoalsService(
 
         Writes ``(Habit)-[:SUPPORTS_GOAL {weight, essentiality}]->(Goal)``. The
         ``essentiality`` property (``essential`` / ``critical`` / ``supporting`` /
-        ``optional``) is THE single source for the GOAPS_CONFIG tier buckets
+        ``optional``) is THE single source for the GOALS_CONFIG tier buckets
         (``essential_habits`` / ``critical_habits`` / ``optional_habits``, with the
         ``supporting`` and unset cases falling to the ``contributing_habits`` catch-all).
         It MUST match the read mappings' ``filter_property="essentiality"`` — storing the

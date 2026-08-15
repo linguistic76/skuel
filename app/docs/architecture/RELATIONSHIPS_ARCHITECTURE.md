@@ -115,7 +115,7 @@ class DomainRelationshipConfig:
     is_shared_content: bool = False  # True for KU, PS, LP
 ```
 
-**Named configs:** `TASKS_CONFIG`, `GOAPS_CONFIG`, `HABITS_CONFIG`, `EVENTS_CONFIG`, `CHOICES_CONFIG`, `PRINCIPLES_CONFIG`, `KU_CONFIG`, `PS_CONFIG`, `LP_CONFIG`
+**Named configs:** `TASKS_CONFIG`, `GOALS_CONFIG`, `HABITS_CONFIG`, `EVENTS_CONFIG`, `CHOICES_CONFIG`, `PRINCIPLES_CONFIG`, `KU_CONFIG`, `PS_CONFIG`, `LP_CONFIG`
 
 ---
 

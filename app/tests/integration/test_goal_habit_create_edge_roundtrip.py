@@ -234,7 +234,7 @@ class TestGoalHierarchyEdgeRoundTrip:
     ) -> None:
         """The three link lists persist — with SUPPORTS_GOAL pointing INTO the goal.
 
-        Direction is the whole risk here: GOAPS_CONFIG declares ``supporting_habits``
+        Direction is the whole risk here: GOALS_CONFIG declares ``supporting_habits``
         incoming, so the habit is the source. An edge written the other way persists
         perfectly and is invisible to every tier read. (Codex, #965.)
         """
@@ -486,7 +486,7 @@ class TestHabitLinkEdgeRoundTrip:
     async def test_supports_goal_carries_the_essentiality_tier(
         self, habits_service, neo4j_driver, test_user_uid
     ) -> None:
-        """GOAPS resolves the habit tiers by filtering SUPPORTS_GOAL on this property.
+        """GOALS_CONFIG resolves the habit tiers by filtering SUPPORTS_GOAL on this property.
 
         An unstamped edge is not merely untidy — it disappears from every filtered
         tier read. Pinned against the value ``link_goal_to_habit`` writes by default.

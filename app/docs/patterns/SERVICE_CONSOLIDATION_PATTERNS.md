@@ -489,7 +489,7 @@ Define processors declaratively in the registry, implement once in `post_process
 
 ```python
 # In relationship_registry.py
-GOAPS_CONFIG = DomainRelationshipConfig(
+GOALS_CONFIG = DomainRelationshipConfig(
     # ... relationships ...
     post_processors=(
         PostProcessor(

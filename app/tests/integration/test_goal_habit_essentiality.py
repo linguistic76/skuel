@@ -32,7 +32,7 @@ import pytest
 from adapters.persistence.neo4j.query import generate_context_query
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.goal.goal_dto import GoalDTO
-from core.models.relationship_registry import GOAPS_CONFIG
+from core.models.relationship_registry import GOALS_CONFIG
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
 
 P = "esstest_"
@@ -54,7 +54,7 @@ def rel_backend(neo4j_driver):
 @pytest.fixture
 def goal_rel(rel_backend):
     return UnifiedRelationshipService[Any, Any, Any](
-        backend=rel_backend, config=GOAPS_CONFIG, graph_intel=None
+        backend=rel_backend, config=GOALS_CONFIG, graph_intel=None
     )
 
 

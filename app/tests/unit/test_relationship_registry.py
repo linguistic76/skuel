@@ -16,7 +16,7 @@ from core.models.relationship_registry import (
     DOMAIN_CONFIGS,
     ENTRY_REPORT_CONFIG,
     EVENTS_CONFIG,
-    GOAPS_CONFIG,
+    GOALS_CONFIG,
     HABITS_CONFIG,
     KU_CONFIG,
     LABEL_CONFIGS,
@@ -309,7 +309,7 @@ class TestNamedUnifiedConfigs:
     def test_activity_unified_configs_match_registry(self):
         """Verify *_CONFIG configs match DOMAIN_CONFIGS entries."""
         assert TASKS_CONFIG is DOMAIN_CONFIGS[Domain.TASKS]
-        assert GOAPS_CONFIG is DOMAIN_CONFIGS[Domain.GOALS]
+        assert GOALS_CONFIG is DOMAIN_CONFIGS[Domain.GOALS]
         assert HABITS_CONFIG is DOMAIN_CONFIGS[Domain.HABITS]
         assert EVENTS_CONFIG is DOMAIN_CONFIGS[Domain.EVENTS]
         assert CHOICES_CONFIG is DOMAIN_CONFIGS[Domain.CHOICES]
@@ -328,7 +328,7 @@ class TestNamedUnifiedConfigs:
         """Verify all named configs are DomainRelationshipConfig."""
         for config in [
             TASKS_CONFIG,
-            GOAPS_CONFIG,
+            GOALS_CONFIG,
             HABITS_CONFIG,
             EVENTS_CONFIG,
             CHOICES_CONFIG,

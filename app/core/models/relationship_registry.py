@@ -668,7 +668,7 @@ TASKS_CONFIG = DomainRelationshipConfig(
 # -----------------------------------------------------------------------------
 # GOALS
 # -----------------------------------------------------------------------------
-GOAPS_CONFIG = DomainRelationshipConfig(
+GOALS_CONFIG = DomainRelationshipConfig(
     domain=Domain.GOALS,
     entity_label="Entity",
     dto_class=GoalDTO,
@@ -2311,7 +2311,7 @@ INTERACTION_CONFIG = DomainRelationshipConfig(
 DOMAIN_CONFIGS: dict[Domain, DomainRelationshipConfig] = {
     # Activity Domains (6) - User-owned entities
     Domain.TASKS: TASKS_CONFIG,
-    Domain.GOALS: GOAPS_CONFIG,
+    Domain.GOALS: GOALS_CONFIG,
     Domain.HABITS: HABITS_CONFIG,
     Domain.EVENTS: EVENTS_CONFIG,
     Domain.CHOICES: CHOICES_CONFIG,
@@ -2330,7 +2330,7 @@ DOMAIN_CONFIGS: dict[Domain, DomainRelationshipConfig] = {
 LABEL_CONFIGS: dict[str, DomainRelationshipConfig] = {
     # Activity Domains (6)
     "Task": TASKS_CONFIG,
-    "Goal": GOAPS_CONFIG,
+    "Goal": GOALS_CONFIG,
     "Habit": HABITS_CONFIG,
     "Event": EVENTS_CONFIG,
     "Choice": CHOICES_CONFIG,  # Virtual key — config lookup key for 'choice'}

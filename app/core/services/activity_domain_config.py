@@ -47,7 +47,7 @@ from typing import Any, Generic, Protocol, TypeVar
 from core.models.relationship_registry import (
     CHOICES_CONFIG,
     EVENTS_CONFIG,
-    GOAPS_CONFIG,
+    GOALS_CONFIG,
     HABITS_CONFIG,
     PRINCIPLES_CONFIG,
     TASKS_CONFIG,
@@ -170,7 +170,7 @@ ACTIVITY_DOMAIN_CONFIGS: dict[str, ActivityDomainConfig] = {
         intelligence_class=None,  # GoalsService builds it (needs progress_service)
         event_handler_class=GoalEventHandlerService,
         learning_class=GoalsLearningService,
-        relationship_config=GOAPS_CONFIG,
+        relationship_config=GOALS_CONFIG,
         domain_name="goals",
         entity_label="Goal",
     ),

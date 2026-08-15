@@ -74,7 +74,7 @@ D = TypeVar("D")  # DTO type
 def _spec_edge_filter(spec: UnifiedRelationshipDefinition) -> Neo4jProperties | None:
     """Edge-property filter for a relationship spec, or ``None`` when unfiltered.
 
-    A spec with ``filter_property`` (e.g. GOAPS_CONFIG's ``essential_habits`` =
+    A spec with ``filter_property`` (e.g. GOALS_CONFIG's ``essential_habits`` =
     SUPPORTS_GOAL incoming filtered by ``essentiality="essential"``) selects only edges
     carrying that property value. Without this, every essentiality tier resolved to the
     same unfiltered set — the read half of the goal-habit essentiality bug. The backend

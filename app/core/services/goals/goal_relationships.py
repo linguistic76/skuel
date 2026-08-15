@@ -15,8 +15,8 @@ from core.ports.knowledge_pattern_protocol import compute_knowledge_intensity
 from core.services.relationships import UnifiedRelationshipService
 from core.utils.generic_fetcher import fetch_relationships_parallel
 
-# Query specifications: (field_name, GOAPS_CONFIG relationship method key).
-# Keys must match GOAPS_CONFIG exactly — validated by tests/unit/test_query_spec_keys.py.
+# Query specifications: (field_name, GOALS_CONFIG relationship method key).
+# Keys must match GOALS_CONFIG exactly — validated by tests/unit/test_query_spec_keys.py.
 GOAL_QUERY_SPECS: list[tuple[str, str]] = [
     ("aligned_learning_path_uids", "aligned_paths"),
     ("requires_completion_of_paths", "required_paths"),

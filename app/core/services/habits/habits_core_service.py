@@ -444,7 +444,7 @@ class HabitsCoreService(
         habit linked at creation is indistinguishable from one linked afterwards through
         ``HabitsService.link_habit_to_knowledge`` / ``link_habit_to_principle`` /
         ``GoalsService.link_goal_to_habit``. ``essentiality`` in particular is load-bearing:
-        the GOAPS registry resolves the ``essential`` / ``critical`` / ``optional`` habit
+        the GOALS_CONFIG registry resolves the ``essential`` / ``critical`` / ``optional`` habit
         tiers by filtering SUPPORTS_GOAL on that exact property, and ``supporting`` is the
         value that lands a habit in the unfiltered ``contributing_habits`` catch-all.
         REQUIRES_PREREQUISITE_HABIT carries no properties in the registry, so it gets none.

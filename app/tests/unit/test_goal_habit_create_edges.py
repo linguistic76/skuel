@@ -21,7 +21,7 @@ Goals
         HAS_SUBGOAL via ``get_children_raw`` / ``get_parent_raw``
       - the user-context MEGA-QUERY collects ``sub_goals`` from
         ``(goal)-[:HAS_SUBGOAL]->(subgoal)``
-      - GOAPS_CONFIG resolves ``parent_goal`` and ``sub_goals`` from SUBGOAL_OF
+      - GOALS_CONFIG resolves ``parent_goal`` and ``sub_goals`` from SUBGOAL_OF
 
     So a goal created through the create form's own Hierarchy section — which
     ships an ``EntityPicker`` for ``parent_goal_uid`` and a ``progress_weight``
@@ -33,7 +33,7 @@ Goals
 
     ``required_knowledge_uids``, ``guiding_principle_uids`` and
     ``supporting_habit_uids`` were dropped by both doors for the same reason, and
-    name read relationships GOAPS_CONFIG declares: the MEGA-QUERY collects
+    name read relationships GOALS_CONFIG declares: the MEGA-QUERY collects
     ``required_knowledge`` from ``(goal)-[:REQUIRES_KNOWLEDGE]->()``, and the habit
     tiers (``contributing_habits`` plus the essentiality-filtered buckets) resolve
     from SUPPORTS_GOAL. Their direction is NOT uniform — SUPPORTS_GOAL is declared
@@ -116,7 +116,7 @@ from core.models.goal.goal_request import GoalCreateRequest
 from core.models.habit.habit import Habit
 from core.models.habit.habit_request import HabitCreateRequest
 from core.models.relationship_names import RelationshipName
-from core.models.relationship_registry import GOAPS_CONFIG, HABITS_CONFIG
+from core.models.relationship_registry import GOALS_CONFIG, HABITS_CONFIG
 from core.services.goals import goals_core_service as goals_module
 from core.services.goals.goals_core_service import GoalsCoreService
 from core.services.goals_service import GoalsService
@@ -422,7 +422,7 @@ class TestGoalLinkEdgesAreWritten:
 
     Same defect as the Habit lists, and the same census: each names a registered,
     read relationship. ``required_knowledge`` is collected by the user-context
-    MEGA-QUERY off ``(goal)-[:REQUIRES_KNOWLEDGE]->()``, and the GOAPS habit tiers
+    MEGA-QUERY off ``(goal)-[:REQUIRES_KNOWLEDGE]->()``, and the GOALS_CONFIG habit tiers
     resolve from SUPPORTS_GOAL. (Codex, #965.)
     """
 
@@ -460,13 +460,13 @@ class TestGoalLinkEdgesAreWritten:
     ) -> None:
         """RED before the fix: all three lists were dropped by both doors.
 
-        Direction is read off GOAPS_CONFIG rather than hand-asserted, because it is
+        Direction is read off GOALS_CONFIG rather than hand-asserted, because it is
         NOT uniform here: SUPPORTS_GOAL is declared incoming, so for that list the
         habit is the edge SOURCE and the goal the target. Writing it like the other
         two would persist an edge every reader misses.
         """
-        spec = GOAPS_CONFIG.get_relationship_by_method(method_key)
-        assert spec is not None, f"GOAPS_CONFIG has no '{method_key}' relationship"
+        spec = GOALS_CONFIG.get_relationship_by_method(method_key)
+        assert spec is not None, f"GOALS_CONFIG has no '{method_key}' relationship"
         assert spec.relationship == relationship
 
         result = await goal_core.create_goal(
@@ -990,7 +990,7 @@ class TestHabitLinkEdgesAreWritten:
 
         These are the defaults of ``link_habit_to_knowledge`` /
         ``link_habit_to_principle`` / ``link_goal_to_habit``. ``essentiality`` is
-        the load-bearing one: GOAPS_CONFIG resolves the essential / critical /
+        the load-bearing one: GOALS_CONFIG resolves the essential / critical /
         optional habit tiers by filtering SUPPORTS_GOAL on that exact property, and
         an unstamped edge reads back only through the unfiltered catch-all.
         """
