@@ -633,6 +633,15 @@ class TestErrorHandling:
 
             assert result.is_ok, f"@context({ctx}) should parse"
 
+    def test_knowledge_alias_parses_to_ku(self):
+        """knowledge is the friendly spelling for ku (alias restored 2026-08-15)."""
+        from core.models.enums.entity_enums import EntityType
+
+        result = parse_activity_line("- [ ] Study spaced repetition @context(knowledge)")
+
+        assert result.is_ok
+        assert result.value.contexts == [EntityType.KU]
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

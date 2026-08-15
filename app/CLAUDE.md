@@ -181,7 +181,7 @@ Presentation logic lives inside enum methods (e.g. `Priority.get_color()`, `Enti
 
 ### Activity DSL & Domain Enums
 
-`EntityType` (25 values) covers multi-label `:Entity` Neo4j nodes; `NonKuDomain` (FINANCE, GROUP, CALENDAR, LEARNING) covers the 4 non-Entity domains. Both expose `from_string()` with alias support (e.g. `"ps"` → `EntityType.PATH_STEP`) — aliases are input-only (see [Naming Conventions](#naming-conventions) § Emission rule).
+`EntityType` (25 values) covers multi-label `:Entity` Neo4j nodes; `NonKuDomain` (FINANCE, GROUP, CALENDAR, LEARNING) covers the 4 non-Entity domains. Both expose `from_string()` with alias support (e.g. `"knowledge"` → `EntityType.KU`) — aliases are input-only (see [Naming Conventions](#naming-conventions) § Emission rule).
 
 **See:** `/docs/dsl/DSL_SPECIFICATION.md`, `/docs/dsl/DSL_USAGE_GUIDE.md`
 

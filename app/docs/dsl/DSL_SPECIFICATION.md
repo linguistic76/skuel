@@ -97,7 +97,7 @@ goal        → desired outcome or state             (Activity Domain)
 event       → scheduled occurrence                 (Activity Domain)
 principle   → value or belief to embody            (Activity Domain)
 choice      → decision to make                     (Activity Domain)
-ku          → atomic Knowledge Unit                (Curriculum; creation role-gated)
+ku          → atomic Knowledge Unit — alias: knowledge   (Curriculum; creation role-gated)
 ```
 
 **Modifier context** (valid ONLY in combination — `@context(learning)` alone fails validation, since a modifier with no base type creates nothing):
@@ -127,7 +127,7 @@ finance       →                                    (retired as in-app domain �
 
 **Type Safety Note:** The `@context()` value maps to `EntityType` (for all entity types) or `NonKuDomain` (for finance, group, calendar, learning) in `/core/models/enums/` for compile-time verification. The union type `DomainIdentifier = EntityType | NonKuDomain` covers all domains.
 
-Values are validated via `EntityType.from_string()`, which supports aliases (e.g., `"ps"` and `"path-step"` both resolve to `EntityType.PATH_STEP`). Any invalid context value fails the **entire line** with a clear error listing the valid options — the strict failure is deliberate (a silently dropped context would disguise typos as success, and partial creation would produce duplicates when the corrected line re-syncs under line-hash dedup). The enum IS the specification of valid context values. Aliases are **input-only**: a note line may say `ps`, but once `from_string()` resolves it, the system speaks canonical values (`path_step`) on every machine channel — see [Enum Architecture § Canonical Values vs Aliases](/docs/architecture/ENUM_ARCHITECTURE.md) for the emission rule, the complete `EntityType` value list, and alias mappings.
+Values are validated via `EntityType.from_string()`, which supports aliases (e.g., `"knowledge"` resolves to `EntityType.KU`; `"ps"` and `"path-step"` both resolve to `EntityType.PATH_STEP`). Any invalid context value fails the **entire line** with a clear error listing the valid options — the strict failure is deliberate (a silently dropped context would disguise typos as success, and partial creation would produce duplicates when the corrected line re-syncs under line-hash dedup). The enum IS the specification of valid context values. Aliases are **input-only**: a note line may say `ps`, but once `from_string()` resolves it, the system speaks canonical values (`path_step`) on every machine channel — see [Enum Architecture § Canonical Values vs Aliases](/docs/architecture/ENUM_ARCHITECTURE.md) for the emission rule, the complete `EntityType` value list, and alias mappings.
 
 ---
 
