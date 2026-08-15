@@ -68,7 +68,7 @@ _DSL_CONTEXT_ALIASES: dict[str, EntityType | NonKuDomain] = {
 
 # The DSL's sanctioned @context vocabulary ("shorten the menu", 2026-07-10):
 # the 12 domain types a person can capture in a note, plus the learning
-# modifier. EntityType/NonKuDomain hold 29 values, but the other 17 are
+# modifier. EntityType/NonKuDomain hold 29 values, but the rest are
 # system-side records (reports, templates, forms, interactions) a journal
 # line can never mean — resolving them here would let lines parse and then
 # silently create nothing. See DSL_SPECIFICATION § @context types.

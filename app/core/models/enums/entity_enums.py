@@ -5,7 +5,7 @@ Entity Enums - Core Identity, Lifecycle, and Domain Classification
 Core enums for entity type discrimination, processing lifecycle,
 content origin, and domain classification.
 
-Organized in 4 sections:
+Organized in 5 sections:
 1. Core Identity: EntityType, ContentOrigin (4 tiers)
 2. Processing Lifecycle: EntityStatus
 3. Domain Classification: Domain, NonKuDomain, DomainIdentifier

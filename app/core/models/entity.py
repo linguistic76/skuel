@@ -2,7 +2,7 @@
 Entity - Common Fields and Methods for All Knowledge Types
 ==========================================================
 
-Base frozen dataclass shared by all 15 EntityType domain subclasses.
+Base frozen dataclass shared by all 25 EntityType domain subclasses.
 Contains ~19 fields genuinely common to every manifestation of knowledge:
 Identity (5), Content (4), Status (1), Sharing (1), Meta (6), Embedding (3).
 

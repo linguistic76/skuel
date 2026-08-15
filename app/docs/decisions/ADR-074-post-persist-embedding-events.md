@@ -38,8 +38,8 @@ not gated — preparation is one sync function for both doors.
 
 The chokepoint is `core/events/embedding_publisher.py`:
 
-- `EMBEDDING_EVENT_TYPES` — the one `EntityType → event class` map (12 types, mirroring the
-  worker's subscriptions).
+- `EMBEDDING_EVENT_TYPES` — the one `EntityType → event class` map (one entry per embeddable
+  type, mirroring the worker's subscriptions).
 - `publish_embedding_requested(event_bus, entity_type, source, logger, changed_fields=...)` —
   used by **every** producer: both ingest doors (via
   `UnifiedIngestionService._publish_embedding_requests`), all in-app create paths, and all

@@ -80,7 +80,7 @@ INTELLIGENCE_TIER=full
 
 At bootstrap, `services_bootstrap/compose.py` checks `IntelligenceTier.from_env()`:
 
-- **Always created (both tiers):** Auth indexes, domain indexes (UID, user_uid, status, date, composite), and **full-text indexes** for all 15 searchable domains via `Neo4jSchemaManager.sync_fulltext_indexes()`. This is the Cypher-first search foundation.
+- **Always created (both tiers):** Auth indexes, domain indexes (UID, user_uid, status, date, composite), and **full-text indexes** for 14 domain labels (the 12 searchable domains + FormTemplate/FormSubmission) via `Neo4jSchemaManager.sync_fulltext_indexes()`. This is the Cypher-first search foundation.
 - **FULL tier only:** Vector indexes (1024-dim, cosine similarity) on Entity and ContentChunk labels via `sync_vector_indexes()`. AI services (embeddings, LLM, vector search) are created. Background embedding worker starts.
 - **CORE tier:** Vector indexes and all AI services are skipped. All downstream code receives `None` and handles it through the None-propagation pattern.
 

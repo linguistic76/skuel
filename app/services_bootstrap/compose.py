@@ -6,6 +6,7 @@ import os
 from typing import TYPE_CHECKING, Any
 
 from core.constants import EmbeddingGeometry
+from core.events.embedding_publisher import EMBEDDING_EVENT_TYPES
 from core.models.enums.neo_labels import NeoLabel
 from core.ports import EventBusOperations
 from core.utils.logging import get_logger
@@ -769,7 +770,8 @@ async def compose_services(
             )
             logger.info("✅ Embedding background worker created (batch_size=25, interval=30s)")
             logger.info(
-                "   Worker handles: 6 Activity + 7 Curriculum entity types + content chunks"
+                f"   Worker handles: {len(EMBEDDING_EVENT_TYPES)} embeddable entity types"
+                " + content chunks"
             )
         else:
             logger.info("⏭️  Embedding background worker skipped (embeddings_service not available)")
