@@ -83,7 +83,7 @@ def _legend_swatch(item_type: CalendarItemType) -> HtmlButton:
             cls="w-[9px] h-[9px] rounded-[3px]",
             style=f"background-color: {item_type.get_color()}",
         ),
-        Span(label, cls="text-[11px] font-medium text-muted-foreground"),
+        Span(label, cls="text-11 font-medium text-muted-foreground"),
         type="button",
         title=f"Click to show/hide {label} items · hover to spotlight",
         aria_label=f"Show or hide {label} items",
@@ -118,7 +118,7 @@ def create_calendar_legend() -> Div:
             Span(
                 pair_label,
                 cls=(
-                    "text-[10px] uppercase tracking-[0.08em] font-semibold"
+                    "text-10 uppercase tracking-[0.08em] font-semibold"
                     " text-muted-foreground/60 whitespace-nowrap"
                 ),
             ),
@@ -153,7 +153,7 @@ def _nav_button(label: str, href: str, icon_name: str, *, trailing: bool = False
         href=href,
         cls=(
             "inline-flex items-center gap-1.5 h-[34px] px-3 border border-border bg-card"
-            " rounded-lg text-[13px] font-medium text-foreground hover:bg-muted"
+            " rounded-lg text-13 font-medium text-foreground hover:bg-muted"
         ),
     )
 
@@ -168,7 +168,7 @@ def _note_button(href: str, label: str) -> A:
         **_NO_BOOST,
         cls=(
             "inline-flex items-center gap-[7px] h-[34px] px-[13px] border border-border"
-            " bg-card rounded-lg text-[13px] font-medium text-foreground hover:bg-muted"
+            " bg-card rounded-lg text-13 font-medium text-foreground hover:bg-muted"
             " whitespace-nowrap"
         ),
     )
@@ -205,7 +205,7 @@ def calendar_nav_cluster(
             href=today_href,
             cls=(
                 "inline-flex items-center h-[34px] px-4 bg-primary text-primary-foreground"
-                " border border-primary rounded-lg text-[13px] font-semibold hover:opacity-90"
+                " border border-primary rounded-lg text-13 font-semibold hover:opacity-90"
             ),
         ),
         _nav_button("Next", next_href, "chevron-right", trailing=True),
@@ -438,7 +438,7 @@ def _event_chip(item: CalendarItem, *, large: bool = False) -> Div:
     # the Task kind color but swaps its dot for ⏰ (plus the red left accent
     # from calendar.css via data-due) — urgency is a state, not a kind.
     if item.is_due:
-        dot = Span("⏰", cls="flex-none text-[10px] leading-none", aria_label="Due")
+        dot = Span("⏰", cls="flex-none text-10 leading-none", aria_label="Due")
     else:
         dot = Span(cls="flex-none w-2 h-2 rounded-full", style=f"background-color: {color}")
     chip_style = f"background-color: {color}1a; border-left: 3px solid {color}"
@@ -468,7 +468,7 @@ def _event_chip(item: CalendarItem, *, large: bool = False) -> Div:
                 Span(
                     item.title,
                     cls=(
-                        "calendar-item-title flex-1 min-w-0 truncate text-[12.5px]"
+                        "calendar-item-title flex-1 min-w-0 truncate text-xs"
                         " font-semibold text-foreground"
                     ),
                 ),
@@ -476,7 +476,7 @@ def _event_chip(item: CalendarItem, *, large: bool = False) -> Div:
             ),
             Div(
                 _time_range_label(item),
-                cls="text-[11px] text-muted-foreground font-mono mt-[3px]",
+                cls="text-11 text-muted-foreground font-mono mt-[3px]",
             ),
             cls=f"calendar-item px-2.5 py-2 rounded-lg{cursor}",
             style=chip_style,
@@ -498,7 +498,7 @@ def _event_chip(item: CalendarItem, *, large: bool = False) -> Div:
         Span(item.title, cls="calendar-item-title flex-1 min-w-0 truncate"),
         cls=(
             "calendar-item flex items-center gap-1.5 px-[7px] py-0.5 rounded-md"
-            f" text-[11.5px] font-medium leading-normal text-foreground{cursor}"
+            f" text-11 font-medium leading-normal text-foreground{cursor}"
         ),
         style=chip_style,
         title=f"{item.title} · {block}" if block is not None else item.title,
@@ -555,7 +555,7 @@ def create_month_grid(calendar_data: CalendarData, year: int, month: int) -> Div
             title=f"Weekly note — W{iso_week}, {iso_year}",
             **_NO_BOOST,
             cls=(
-                "flex items-center justify-center font-mono text-[11px] text-muted-foreground"
+                "flex items-center justify-center font-mono text-11 text-muted-foreground"
                 " bg-muted/25 border-r border-b border-border hover:text-primary hover:bg-muted/60"
             ),
         )
@@ -568,7 +568,7 @@ def create_month_grid(calendar_data: CalendarData, year: int, month: int) -> Div
         Div(
             "Wk",
             cls=(
-                "flex items-center justify-center py-[11px] text-[10px] font-bold uppercase"
+                "flex items-center justify-center py-[11px] text-10 font-bold uppercase"
                 " tracking-[0.06em] text-muted-foreground border-b border-r border-border"
             ),
         ),
@@ -576,7 +576,7 @@ def create_month_grid(calendar_data: CalendarData, year: int, month: int) -> Div
             Div(
                 label,
                 cls=(
-                    "text-center py-[11px] text-[12px] font-semibold border-b border-border "
+                    "text-center py-[11px] text-xs font-semibold border-b border-border "
                     + ("text-muted-foreground" if i >= 5 else "text-foreground")
                 ),
             )
@@ -629,7 +629,7 @@ def create_day_cell(
             **_NO_BOOST,
             cls=(
                 "inline-flex items-center justify-center min-w-[24px] h-6 px-1.5 rounded-full"
-                " bg-primary text-primary-foreground text-[12px] font-bold"
+                " bg-primary text-primary-foreground text-xs font-bold"
             ),
         )
     else:
@@ -639,7 +639,7 @@ def create_day_cell(
             href=daily_href,
             title="Daily note",
             **_NO_BOOST,
-            cls=f"text-[13px] font-semibold {tone} hover:text-primary",
+            cls=f"text-13 font-semibold {tone} hover:text-primary",
         )
 
     chips = [_event_chip(item) for item in items]
@@ -697,9 +697,9 @@ def create_week_grid(calendar_data: CalendarData) -> Div:
         head = A(
             Span(
                 _WEEKDAY_LABELS[offset],
-                cls="text-[10px] font-bold uppercase tracking-[0.06em] opacity-75",
+                cls="text-10 font-bold uppercase tracking-[0.06em] opacity-75",
             ),
-            Span(str(day.day), cls="text-[18px] font-bold leading-none"),
+            Span(str(day.day), cls="text-lg font-bold leading-none"),
             href=f"/journals/daily/{day.isoformat()}",
             title="Daily note",
             **_NO_BOOST,
@@ -709,7 +709,7 @@ def create_week_grid(calendar_data: CalendarData) -> Div:
         if day_items:
             body_children: list[FT] = [_event_chip(item, large=True) for item in day_items]
         else:
-            body_children = [Div("No events", cls="text-[12px] text-muted-foreground/60 p-1.5")]
+            body_children = [Div("No events", cls="text-xs text-muted-foreground/60 p-1.5")]
         body = Div(*body_children, cls="p-2 flex flex-col gap-1.5 flex-1")
 
         # Same non-chip/non-link click-through as the month cells: the card's
@@ -885,7 +885,7 @@ def reschedule_form(
     return Form(
         P(
             "Move to",
-            cls="text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground mb-1.5",
+            cls="text-10 font-bold uppercase tracking-[0.08em] text-muted-foreground mb-1.5",
         ),
         Div(*fields, cls="flex items-center gap-2"),
         error_line,
@@ -937,7 +937,7 @@ def create_item_details_modal(item: Any) -> Div:
     type_pill = Span(
         item.item_type.get_label(),
         cls=(
-            "inline-flex items-center px-[9px] py-0.5 rounded-full text-[10.5px]"
+            "inline-flex items-center px-[9px] py-0.5 rounded-full text-10"
             " font-semibold uppercase tracking-[0.04em]"
         ),
         style=f"background-color: {color}1f; color: {color}",
@@ -1157,7 +1157,7 @@ def create_item_details_modal(item: Any) -> Div:
             Div(
                 P(
                     "Schedule",
-                    cls="text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground mb-1.5",
+                    cls="text-10 font-bold uppercase tracking-[0.08em] text-muted-foreground mb-1.5",
                 ),
                 schedule_display,
                 recurrence_info,
