@@ -29,6 +29,29 @@ if TYPE_CHECKING:
 
 logger = get_logger("skuel.bootstrap")
 
+_TRUE = {"true", "1", "yes", "on"}
+_FALSE = {"false", "0", "no", "off"}
+
+
+def _bool_flag(name: str, *, default: bool) -> bool:
+    """Strict tri-state env flag: unset → default, else must be a known boolean.
+
+    Deliberately NOT IntelligenceTier.from_env's fail-open-to-FULL and
+    deliberately NOT EMAIL_ENABLED's silent `not in (...)` → off: a typo in a
+    capability-availability flag would silently DROP that capability on a stack
+    whose health gate cannot see it. Malformed values fail composition instead —
+    call this only inside compose_services' try, where the raise becomes
+    Result.fail (same contract as the missing-credential raises).
+    """
+    raw = os.environ.get(name, "").strip().lower()
+    if not raw:
+        return default
+    if raw in _TRUE:
+        return True
+    if raw in _FALSE:
+        return False
+    raise RuntimeError(f"{name}={raw!r} is not a recognised boolean")
+
 
 async def compose_services(
     neo4j_adapter: Any,
@@ -549,13 +572,20 @@ async def compose_services(
         )
         logger.info("✅ Activity Domain services created (6 facades with embedded intelligence)")
 
-        # Deepgram API key — FULL tier only (transcription is the Digital layer: ADR-043).
-        # CORE tier skips transcription entirely; no key required, no cost incurred.
+        # Deepgram API key — FULL tier only (transcription is the Digital layer: ADR-043),
+        # with a per-capability opt-out (TRANSCRIPTION_ENABLED, default true).
+        # Ceiling FIRST, flag second — CORE never reads a paid credential. Do not reorder.
         deepgram_api_key: str | None = None
-        if not tier.ai_enabled:
-            logger.info(
-                "⏭️  Deepgram skipped (intelligence tier: CORE — audio transcription is FULL tier)"
+        transcription_enabled = tier.ai_enabled and _bool_flag(
+            "TRANSCRIPTION_ENABLED", default=True
+        )
+        if not transcription_enabled:
+            reason = (
+                "intelligence tier: CORE — audio transcription is FULL tier"
+                if not tier.ai_enabled
+                else "TRANSCRIPTION_ENABLED=false"
             )
+            logger.info(f"⏭️  Transcription skipped ({reason})")
         else:
             from core.config.credential_store import get_credential
 
@@ -563,7 +593,8 @@ async def compose_services(
             if not deepgram_api_key:
                 raise RuntimeError(
                     "FULL-tier bootstrap requires DEEPGRAM_API_KEY for audio transcription. "
-                    "Set INTELLIGENCE_TIER=core to run without transcription, or "
+                    "Set TRANSCRIPTION_ENABLED=false to run FULL without transcription, "
+                    "set INTELLIGENCE_TIER=core to run without any AI services, or "
                     "set DEEPGRAM_API_KEY in the credential store / environment."
                 )
             logger.info("✅ DEEPGRAM_API_KEY validated")

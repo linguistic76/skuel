@@ -247,6 +247,16 @@ NONE_OK_CORE_TIER = NONE_OK_BOTH_TIERS | frozenset(
     }
 )
 
+NONE_OK_FULL_NO_TRANSCRIPTION = NONE_OK_BOTH_TIERS | frozenset(
+    {
+        # Transcription opt-out (TRANSCRIPTION_ENABLED=false) at FULL tier —
+        # only the Deepgram-backed pair is absent; the rest of the Digital
+        # layer must still compose.
+        "transcription",
+        "batch_transcription",
+    }
+)
+
 
 # ---------------------------------------------------------------------------
 # Test doubles
@@ -435,6 +445,9 @@ def hermetic_credentials(monkeypatch) -> None:
     monkeypatch.setenv("SKUEL_CREDENTIAL_BACKEND", "fernet")
     monkeypatch.setattr(credential_store, "_store_instance", None)
     monkeypatch.delenv("EMAIL_ENABLED", raising=False)
+    # tests/conftest.py runs load_dotenv() — a TRANSCRIPTION_ENABLED line in the
+    # developer's .env would otherwise leak into the tier tests (locally, not CI).
+    monkeypatch.delenv("TRANSCRIPTION_ENABLED", raising=False)
 
 
 EXPECTED_STARTUP_CALLS_CORE = {
@@ -553,5 +566,28 @@ class TestComposeServicesExecution:
         assert services.intelligence_tier is not None
         assert services.intelligence_tier.ai_enabled
         _assert_container_complete(services, NONE_OK_BOTH_TIERS)
+        _assert_subscriptions_wired(event_bus, full_tier=True)
+        assert set(startup_calls) == EXPECTED_STARTUP_CALLS_FULL
+
+    async def test_full_tier_without_transcription_composes(
+        self, monkeypatch, compose_config, startup_calls, hermetic_credentials
+    ) -> None:
+        monkeypatch.setenv("INTELLIGENCE_TIER", "full")
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-test-compose-execution-not-a-real-key")
+        monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+        # The flag must make the Deepgram credential irrelevant — prove it by
+        # removing the key entirely, not just leaving it unread.
+        monkeypatch.setenv("TRANSCRIPTION_ENABLED", "false")
+        monkeypatch.delenv("DEEPGRAM_API_KEY", raising=False)
+
+        services, event_bus = await _compose(compose_config)
+
+        assert services.intelligence_tier is not None
+        assert services.intelligence_tier.ai_enabled
+        assert services.embeddings_service is not None
+        assert services.embedding_worker is not None
+        assert services.transcription is None
+        assert services.batch_transcription is None
+        _assert_container_complete(services, NONE_OK_FULL_NO_TRANSCRIPTION)
         _assert_subscriptions_wired(event_bus, full_tier=True)
         assert set(startup_calls) == EXPECTED_STARTUP_CALLS_FULL
