@@ -295,9 +295,15 @@ class VaultReconciler:
 
             # Retrievability after-probe: fill the coverage fields now that
             # ingest has persisted — before the outbound half, so BOTH return
-            # paths below carry them.
+            # paths below carry them. Corpus-wide ABSOLUTES only for content
+            # syncs (admin-only door): a personal sync's stats reach a
+            # non-admin surface, which must not see corpus aggregates.
             if self._embedding_coverage is not None:
-                await self._apply_retrievability(stats, coverage_before)
+                await self._apply_retrievability(
+                    stats,
+                    coverage_before,
+                    include_absolutes=descriptor.kind is VaultKind.CONTENT,
+                )
 
             # Step 4: outbound. Only vaults that support the task round-trip
             # have anything to write back; curriculum vaults are inbound-only
@@ -513,7 +519,11 @@ class VaultReconciler:
         return result.value
 
     async def _apply_retrievability(
-        self, stats: VaultSyncStats, before: EmbeddingCoverage | None
+        self,
+        stats: VaultSyncStats,
+        before: EmbeddingCoverage | None,
+        *,
+        include_absolutes: bool,
     ) -> None:
         """Fill the retrievability fields from a post-ingest coverage probe.
 
@@ -528,14 +538,22 @@ class VaultReconciler:
         is genuinely not yet searchable either way. Clamped at zero because
         the FULL-tier worker may embed concurrently mid-sync, shrinking the
         missing count — never report a negative credit.
+
+        ``include_absolutes`` gates the corpus-wide counts: only content-vault
+        syncs (admin-only door) carry them. A personal sync's stats serialize
+        through non-admin responses, and corpus aggregates over other users'
+        entities are admin-surface data (the PR-gauge lives behind
+        /admin/knowledge-health for the same reason) — a personal sync
+        reports only its window delta and the probe flag.
         """
         after = await self._probe_coverage()
         if after is None or before is None:
             stats.coverage_probe_failed = True
         if after is None:
             return
-        stats.chunks_awaiting_embedding = after.missing_chunks
-        stats.entities_awaiting_embedding = after.missing_entities
+        if include_absolutes:
+            stats.chunks_awaiting_embedding = after.missing_chunks
+            stats.entities_awaiting_embedding = after.missing_entities
         if before is not None:
             stats.retrievability_delta = max(0, after.missing - before.missing)
 

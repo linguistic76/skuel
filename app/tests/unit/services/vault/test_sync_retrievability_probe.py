@@ -105,12 +105,14 @@ def _reconciler(tmp_path: Path, probe: _CoverageProbe | None) -> VaultReconciler
 
 
 @pytest.mark.asyncio
-async def test_delta_and_absolutes_filled_from_both_probes(tmp_path: Path) -> None:
-    """before missing=2, after missing=5 → delta 3; absolutes from the after-probe."""
+async def test_content_sync_fills_delta_and_absolutes(tmp_path: Path) -> None:
+    """before missing=2, after missing=5 → delta 3; absolutes from the after-probe.
+
+    Corpus-wide absolutes are CONTENT-sync only (admin door)."""
     probe = _CoverageProbe([Result.ok(_coverage(1, 1)), Result.ok(_coverage(3, 2))])
     reconciler = _reconciler(tmp_path, probe)
     assert reconciler.embedding_coverage is probe  # script door reads the same gauge
-    result = await reconciler.sync(VaultKind.PERSONAL, OWNER)
+    result = await reconciler.sync(VaultKind.CONTENT, ADMIN)
 
     assert result.is_ok
     stats = result.value
@@ -120,6 +122,23 @@ async def test_delta_and_absolutes_filled_from_both_probes(tmp_path: Path) -> No
     assert stats.retrievability_delta == 3
     assert stats.coverage_probe_failed is False
     assert stats.is_clean
+
+
+@pytest.mark.asyncio
+async def test_personal_sync_suppresses_corpus_absolutes(tmp_path: Path) -> None:
+    """A personal sync's stats serialize through non-admin responses — corpus
+    aggregates over other users' entities never reach them. Only the window
+    delta and the probe flag are carried; absolutes stay at 0."""
+    probe = _CoverageProbe([Result.ok(_coverage(1, 1)), Result.ok(_coverage(3, 2))])
+    result = await _reconciler(tmp_path, probe).sync(VaultKind.PERSONAL, OWNER)
+
+    assert result.is_ok
+    stats = result.value
+    assert probe.calls == 2
+    assert stats.chunks_awaiting_embedding == 0
+    assert stats.entities_awaiting_embedding == 0
+    assert stats.retrievability_delta == 3
+    assert stats.coverage_probe_failed is False
 
 
 @pytest.mark.asyncio
@@ -146,7 +165,7 @@ async def test_after_probe_alone_fills_absolutes_without_delta(tmp_path: Path) -
     probe = _CoverageProbe(
         [Result.fail(Errors.database("coverage_probe", "hiccup")), Result.ok(_coverage(4, 1))]
     )
-    result = await _reconciler(tmp_path, probe).sync(VaultKind.PERSONAL, OWNER)
+    result = await _reconciler(tmp_path, probe).sync(VaultKind.CONTENT, ADMIN)
 
     assert result.is_ok
     stats = result.value

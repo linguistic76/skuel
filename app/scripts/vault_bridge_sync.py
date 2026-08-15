@@ -148,12 +148,17 @@ async def run_sync(vault: str, user_uid: str, force: bool = False) -> int:
         # The retrievability figures above were measured INSIDE sync(), i.e.
         # BEFORE the in-process drain embedded this sync's content — without a
         # re-probe this report would claim missing coverage the drain already
-        # filled. Only when a worker drained and the stats carry a gap.
+        # filled. Only when a worker drained and the stats carry a gap
+        # (personal syncs carry only the delta — absolutes are content-only).
         gauge = reconciler.embedding_coverage
         if (
             worker is not None
             and gauge is not None
-            and (stats.chunks_awaiting_embedding or stats.entities_awaiting_embedding)
+            and (
+                stats.retrievability_delta
+                or stats.chunks_awaiting_embedding
+                or stats.entities_awaiting_embedding
+            )
         ):
             coverage = await gauge.measure_embedding_coverage()
             if coverage.is_ok:

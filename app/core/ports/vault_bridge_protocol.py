@@ -195,7 +195,11 @@ class VaultSyncStats:
     # window. Measured in the graph by an optional count probe — a CORE-tier
     # period stores content with embedding = NULL, so a "complete" sync can
     # still leave its content invisible to vector search. Absolute counts are
-    # corpus-wide (chunks vs entities split because their remedies differ).
+    # corpus-wide (chunks vs entities split because their remedies differ)
+    # and are filled for CONTENT-vault syncs ONLY: personal-sync stats
+    # serialize through non-admin responses, and corpus aggregates over
+    # other users' entities are admin-surface data — a personal sync carries
+    # just the delta and the probe flag, absolutes stay 0.
     # The delta is corpus-wide too, probed before/after ingest and clamped
     # ≥ 0: in the common case it is exactly what this sync added, but a
     # concurrent writer (another root's sync, an API create) lands in the
