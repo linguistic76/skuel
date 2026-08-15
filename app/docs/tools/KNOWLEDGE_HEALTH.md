@@ -1,9 +1,9 @@
 ---
 title: Knowledge-Health Gauge
-updated: 2026-08-07
+updated: 2026-08-15
 status: current
 category: tools
-tags: [analytics, knowledge, graph, authoring, gds, adr-080]
+tags: [analytics, knowledge, graph, authoring, gds, adr-080, embeddings]
 related: [HEALTH_CHECKS.md]
 ---
 
@@ -19,6 +19,18 @@ user-generated data and telemetry excluded): node counts, Ku degree
 distribution, orphan Kus, composition / prerequisite-DAG / ORGANIZES / lateral
 coverage, practice coverage, and a composite GDS-readiness score with
 authoring-guidance flags. Pure graph analytics — CORE-tier safe, no API keys.
+
+**Embedding coverage (retrievability) block:** the report also carries per-label
+embedding coverage — total vs `embedding IS NULL` counts over every embeddable
+label (the 13 entity labels + ContentChunk + ReferenceChunk), measured by
+`EmbeddingCoverageBackend` in one count query. Unlike the structural gauge
+above, this block is deliberately corpus-wide *including* user-owned labels:
+retrievability is about what vector search can see, not about authoring. A gap
+is flagged as "not yet searchable" with the remedy (`./dev embed-backfill`;
+ReferenceChunk has no backfill mode — re-run `scripts/ingest_canon_book.py`).
+Still a pure count probe — no embedding client, CORE-tier safe. Label set +
+scope filters live in `core/services/embeddings/retrievability.py` (shared
+with the backfill script, drift-tested).
 
 Not to be confused with `./dev health` (codebase rot — see
 [HEALTH_CHECKS.md](/docs/tools/HEALTH_CHECKS.md)): this gauge measures the

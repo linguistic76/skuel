@@ -3687,6 +3687,40 @@ class KnowledgeCoverageMetric(TypedDict):
     coverage: float
 
 
+class EmbeddingLabelCoverage(TypedDict):
+    """One label's embedding coverage row — total scanned nodes vs nodes
+    lacking a vector, plus the backfill command that closes the gap.
+
+    ``backfill`` is ``None`` when no backfill path exists (ReferenceChunk —
+    recovery is re-running ``scripts/ingest_canon_book.py``, named in the
+    summary's ``remedy``).
+    """
+
+    label: str
+    total: int
+    missing: int
+    backfill: str | None
+
+
+class EmbeddingCoverageReport(TypedDict):
+    """JSON-safe corpus-wide embedding-coverage summary.
+
+    The TypedDict mirror of ``core.services.embeddings.retrievability.
+    EmbeddingCoverage`` (built by its ``as_report()``), so the knowledge-health
+    report stays serializable end to end. ``missing`` splits into chunks vs
+    entities because their remedies differ; ``remedy`` is the ready-to-print
+    command line ("" when complete).
+    """
+
+    by_label: list[EmbeddingLabelCoverage]
+    total: int
+    missing: int
+    missing_chunks: int
+    missing_entities: int
+    is_complete: bool
+    remedy: str
+
+
 class KnowledgeHealthReport(TypedDict):
     """Consolidated corpus-level structural-health report over the knowledge
     subgraph (Ku / PathStep / LearningPath / Exercise — telemetry excluded).
@@ -3753,6 +3787,10 @@ class KnowledgeHealthReport(TypedDict):
     gds_readiness_score: float
     gds_ready: bool
     flags: list[str]
+    # Embedding coverage (retrievability) — present only when the coverage
+    # probe is wired into KnowledgeHealthService; NotRequired keeps every
+    # renderer valid when it is not.
+    embedding_coverage: NotRequired[EmbeddingCoverageReport]
 
 
 class KnowledgeHealthRaw(TypedDict):
@@ -4025,6 +4063,9 @@ __all__ = [
     "KnowledgeCoverageMetric",
     "KnowledgeHealthReport",
     "KnowledgeHealthRaw",
+    # Embedding-Coverage Gauge Types (retrievability)
+    "EmbeddingLabelCoverage",
+    "EmbeddingCoverageReport",
     # FormSubmission Access + Audience Migration Rows
     "TeacherSubmissionAccessRow",
     "UnaudiencedSubmissionRow",

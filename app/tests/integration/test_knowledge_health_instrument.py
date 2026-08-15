@@ -347,3 +347,77 @@ async def test_empty_subgraph_is_all_zeros(neo4j_driver, clean_neo4j) -> None:
     report = KnowledgeHealthService._build_report(raw)
     assert report["gds_readiness_score"] == 0.0
     assert report["gds_ready"] is False
+
+
+@pytest.mark.asyncio
+async def test_embedding_coverage_probe_counts_and_scope(neo4j_driver, clean_neo4j) -> None:
+    """``EmbeddingCoverageBackend`` counts total vs embedding-NULL per label.
+
+    The load-bearing halves: the UserEntry scope filter (only knowledge-pipeline,
+    non-private entries are gauge-visible — a vector may never exist for the
+    rest, so they must count as neither total nor missing) and remedy
+    assignment (ReferenceChunk has no backfill path).
+    """
+    from adapters.persistence.neo4j.backends.curriculum_backends import (
+        EmbeddingCoverageBackend,
+    )
+    from core.services.embeddings.retrievability import BACKFILL_COMMAND
+
+    async with neo4j_driver.session() as s:
+        # Ku: one embedded, one not.
+        await s.run(
+            "CREATE (:Entity:Ku {uid:$k1, entity_type:'ku', title:$k1, embedding:[0.1,0.2]}),"
+            " (:Entity:Ku {uid:$k2, entity_type:'ku', title:$k2})",
+            k1=P + "ec_k1",
+            k2=P + "ec_k2",
+        )
+        # Chunks: ContentChunk missing, ReferenceChunk embedded.
+        await s.run(
+            "CREATE (:ContentChunk {uid:$cc}), (:ReferenceChunk {uid:$rc, embedding:[0.1]})",
+            cc=P + "ec_cc1",
+            rc=P + "ec_rc1",
+        )
+        # UserEntry scope: only the knowledge-pipeline, non-private entry counts.
+        await s.run(
+            "CREATE (:Entity:UserEntry {uid:$u1, entity_type:'user_entry', pipeline:'knowledge'}),"
+            " (:Entity:UserEntry {uid:$u2, entity_type:'user_entry', pipeline:'knowledge', private:true}),"
+            " (:Entity:UserEntry {uid:$u3, entity_type:'user_entry', pipeline:'exercise'})",
+            u1=P + "ec_ue1",
+            u2=P + "ec_ue2",
+            u3=P + "ec_ue3",
+        )
+    backend = EmbeddingCoverageBackend(Neo4jQueryExecutor(neo4j_driver))
+
+    result = await backend.measure_embedding_coverage()
+    assert result.is_ok, result
+    coverage = result.value
+
+    by = {c.label: c for c in coverage.by_label}
+    assert by["Ku"].total == 2 and by["Ku"].missing == 1
+    assert by["ContentChunk"].total == 1 and by["ContentChunk"].missing == 1
+    assert by["ReferenceChunk"].total == 1 and by["ReferenceChunk"].missing == 0
+    # Scope filter: the private + non-knowledge entries are gauge-invisible.
+    assert by["UserEntry"].total == 1 and by["UserEntry"].missing == 1
+
+    assert coverage.missing == 3  # ec_k2 + ec_cc1 + ec_ue1
+    assert coverage.missing_chunks == 1
+    assert coverage.missing_entities == 2
+    assert coverage.is_complete is False
+
+    # Remedy assignment travels with the measurement.
+    assert by["Ku"].backfill == BACKFILL_COMMAND
+    assert by["ReferenceChunk"].backfill is None
+
+
+@pytest.mark.asyncio
+async def test_embedding_coverage_empty_graph_is_complete(neo4j_driver, clean_neo4j) -> None:
+    """An empty graph measures as complete (all-zero coverage), not an error."""
+    from adapters.persistence.neo4j.backends.curriculum_backends import (
+        EmbeddingCoverageBackend,
+    )
+
+    backend = EmbeddingCoverageBackend(Neo4jQueryExecutor(neo4j_driver))
+    result = await backend.measure_embedding_coverage()
+    assert result.is_ok, result
+    assert result.value.total == 0
+    assert result.value.is_complete is True

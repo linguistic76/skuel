@@ -30,6 +30,7 @@ from core.services.analytics import (
 from core.utils.result_simplified import Errors
 
 if TYPE_CHECKING:
+    from core.ports.embedding_coverage_protocols import EmbeddingCoverageOperations
     from core.ports.knowledge_health_protocols import KnowledgeHealthOperations
     from core.ports.query_types import KnowledgeHealthReport
 from core.utils.decorators import with_error_handling
@@ -82,6 +83,7 @@ class AnalyticsService:
         event_bus=None,
         cross_domain_backend=None,
         knowledge_health_backend: "KnowledgeHealthOperations | None" = None,
+        embedding_coverage_backend: "EmbeddingCoverageOperations | None" = None,
     ) -> None:
         """
         Initialize analytics facade with all domain and curriculum services.
@@ -103,12 +105,18 @@ class AnalyticsService:
             knowledge_health_backend: KnowledgeHealthBackend for the ADR-080
                 Horizon-1 structural-health gauge (optional — the knowledge-health
                 report is unavailable when unwired)
+            embedding_coverage_backend: EmbeddingCoverageBackend for the
+                embedding-coverage (retrievability) block of the knowledge-health
+                report (optional — the block is absent when unwired)
         """
         self.event_bus = event_bus
         # Knowledge-subgraph structural-health gauge (ADR-080 Horizon-1). CORE-tier
         # safe (no AI); None only when the backend is not wired (e.g. unit tests).
         self.knowledge_health: KnowledgeHealthService | None = (
-            KnowledgeHealthService(backend=knowledge_health_backend)
+            KnowledgeHealthService(
+                backend=knowledge_health_backend,
+                coverage=embedding_coverage_backend,
+            )
             if knowledge_health_backend is not None
             else None
         )

@@ -166,6 +166,24 @@ def test_node_label_map_mirrors_event_map():
     assert all(label and label[0].isupper() for label in labels)
 
 
+def test_embedding_scan_labels_cover_every_embeddable_label():
+    """EMBEDDING_SCAN_LABELS (the coverage probe) must scan exactly the
+    embeddable entity labels + both chunk labels — a fourth unguarded label
+    list is how the 16-vs-13 doc drift happened."""
+    from core.models.enums.neo_labels import NeoLabel
+    from core.services.embeddings.retrievability import EMBEDDING_SCAN_LABELS
+
+    assert set(EMBEDDING_SCAN_LABELS) == set(EMBEDDING_NODE_LABELS.values()) | {
+        "ContentChunk",
+        "ReferenceChunk",
+    }
+    # Every scan label must be a real NeoLabel member — SKUEL030 cannot see
+    # through the coverage backend's interpolation, and Neo4j answers an
+    # unknown label with zero rows instead of an error.
+    for label in EMBEDDING_SCAN_LABELS:
+        NeoLabel(label)
+
+
 def test_every_ingestible_embeddable_type_has_an_event_class():
     """ENTITY_CONFIGS.embeddable gates the ingestion step — each gated type must map."""
     for entity_type, config in ENTITY_CONFIGS.items():

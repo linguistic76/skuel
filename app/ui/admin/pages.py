@@ -434,6 +434,23 @@ def knowledge_health_page(report: "KnowledgeHealthReport") -> Any:
         ),
     ]
 
+    # Embedding coverage (retrievability) — present only when the probe is wired.
+    coverage = report.get("embedding_coverage")
+    if coverage is not None:
+        embedded = coverage["total"] - coverage["missing"]
+        structural_stats.append(
+            StatItem(
+                label="Embedding Coverage",
+                value=_pct(embedded / coverage["total"]) if coverage["total"] else "—",
+                change=(
+                    f"{coverage['missing']} not yet searchable"
+                    if coverage["missing"]
+                    else f"{coverage['total']} nodes embedded"
+                ),
+                color="error" if coverage["missing"] else "success",
+            )
+        )
+
     return Div(
         PageHeader(
             "Knowledge Health",
