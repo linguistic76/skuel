@@ -66,8 +66,8 @@ def WeeklyPlanningPanel(items: "list[CalendarItem]", week_start: date) -> Div:
     week_end = week_start + timedelta(days=6)
     return Div(
         Div(
-            P("This week", cls="text-[15px] font-bold text-foreground"),
-            P(_range_label(week_start, week_end), cls="text-[12px] text-muted-foreground"),
+            P("This week", cls="text-15 font-bold text-foreground"),
+            P(_range_label(week_start, week_end), cls="text-xs text-muted-foreground"),
             cls="mb-3",
         ),
         *[
@@ -90,12 +90,12 @@ def _panel_group(label: str, items: "list[CalendarItem]") -> Div:
     rows: list[FT] = (
         [_panel_row(item) for item in items]
         if items
-        else [P("Nothing this week", cls="text-[12px] text-muted-foreground italic px-2 py-1")]
+        else [P("Nothing this week", cls="text-xs text-muted-foreground italic px-2 py-1")]
     )
     return Div(
         Span(
             label,
-            cls=("text-[10px] uppercase tracking-[0.08em] font-semibold text-muted-foreground/60"),
+            cls=("text-10 uppercase tracking-[0.08em] font-semibold text-muted-foreground/60"),
         ),
         Div(*rows, cls="mt-1 flex flex-col gap-0.5"),
         cls="mb-4",
@@ -115,11 +115,11 @@ def _panel_row(item: "CalendarItem") -> A:
             cls="w-2 h-2 rounded-full shrink-0",
             style=f"background-color: {item.color};",
         ),
-        Span(item.title, cls="flex-1 min-w-0 truncate text-[13px] text-foreground"),
+        Span(item.title, cls="flex-1 min-w-0 truncate text-13 text-foreground"),
         Span(
             f"⏰ {day_label}" if item.is_due else day_label,
             cls=(
-                "text-[11px] whitespace-nowrap "
+                "text-11 whitespace-nowrap "
                 + ("text-red-600 font-medium" if item.is_due else "text-muted-foreground")
             ),
         ),
