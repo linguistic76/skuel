@@ -258,7 +258,7 @@ def ChoiceDetailView(
             outcome_items.append(
                 MetadataField(
                     "Satisfaction",
-                    Span(stars, cls="text-yellow-600", style="font-size: 1.2rem;"),
+                    Span(stars, cls="text-yellow-600 text-xl"),
                     Span(f" {choice.satisfaction_score}/5", cls="text-muted-foreground text-sm"),
                 )
             )
