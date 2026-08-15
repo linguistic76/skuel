@@ -30,10 +30,13 @@ Embedding freshness (ADR-074): the embedding worker is subscribed BEFORE the
 sync and its queues are drained in-process afterwards, so the sync's embedding
 events (entity + chunk) are processed right here instead of evaporating with
 the script — same event path as the app process, no follow-up commands. In
-CORE tier (or with no API key) there is no worker and ingestion publishes no
-events, so the drain step is skipped. ``scripts/generate_embeddings_batch.py
-[--stale]`` remains the backstop for pre-existing coverage gaps or drift, not
-a required follow-up to this script.
+CORE tier there is no worker and ingestion publishes no events, so the drain
+step is skipped and this sync's new content is stored without embeddings
+(``./dev embed-backfill`` under FULL tier fills the gap). A FULL-tier run
+with a missing OpenAI key never reaches that branch — composition fails fast
+in bootstrap first. ``scripts/generate_embeddings_batch.py [--stale]``
+remains the backstop for pre-existing coverage gaps or drift, not a required
+follow-up to this script.
 
 Grounding (Entry-Enrichment PR 3): after the drain, personal-vault syncs run
 an entry→Ku grounding pass over pending ``pipeline: knowledge`` entries —
@@ -104,7 +107,11 @@ async def run_sync(vault: str, user_uid: str, force: bool = False) -> int:
             )
             print(f"  chunk parents dequeued: {drained['chunk_parents']} (includes retry passes)")
         else:
-            print("\n(no embedding worker — CORE tier or embeddings unavailable; skipped drain)")
+            print(
+                "\n(no embedding worker — CORE tier: this sync's new content is stored"
+                "\n without embeddings and is not yet vector-searchable; run"
+                "\n ./dev embed-backfill under FULL tier to fill the gap)"
+            )
 
         if result.is_error:
             print(f"ERROR: sync failed: {result.expect_error()}", file=sys.stderr)
@@ -137,6 +144,35 @@ async def run_sync(vault: str, user_uid: str, force: bool = False) -> int:
             if key == "ignored":
                 continue  # rendered line-by-line below (9 reasons in one list is unreadable)
             print(f"  {key}: {value}")
+
+        # The retrievability figures above were measured INSIDE sync(), i.e.
+        # BEFORE the in-process drain embedded this sync's content — without a
+        # re-probe this report would claim missing coverage the drain already
+        # filled. Only when a worker drained and the stats carry a gap
+        # (personal syncs carry only the delta — absolutes are content-only).
+        gauge = reconciler.embedding_coverage
+        if (
+            worker is not None
+            and gauge is not None
+            and (
+                stats.retrievability_delta
+                or stats.chunks_awaiting_embedding
+                or stats.entities_awaiting_embedding
+            )
+        ):
+            coverage = await gauge.measure_embedding_coverage()
+            if coverage.is_ok:
+                cov = coverage.value
+                print(
+                    f"\n  post-drain coverage: {cov.missing} node(s) still missing embeddings"
+                    f" corpus-wide ({cov.missing_chunks} chunks, {cov.missing_entities}"
+                    " entities) — the retrievability figures above are pre-drain"
+                )
+            else:
+                print(
+                    "\n  (post-drain coverage re-probe failed — the retrievability figures"
+                    " above are pre-drain; ./dev knowledge-health for current coverage)"
+                )
         if stats.ignored:
             print(f"\nIgnored files ({len(stats.ignored)}) — content not ingestible; fix or leave:")
             for line in stats.ignored:

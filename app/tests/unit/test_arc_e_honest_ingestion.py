@@ -181,6 +181,55 @@ class TestSyncStatsFragment:
         assert "removed" not in xml
 
 
+class TestRetrievabilityHonesty:
+    """Sync-honesty ruling: unretrievable content and probe failures never
+    flip cleanliness — the clean header VARIANT carries the signal, and a
+    probe outage is invisible to the banner entirely."""
+
+    def test_unretrievable_content_does_not_flip_is_clean(self):
+        stats = VaultSyncStats(
+            retrievability_delta=5,
+            chunks_awaiting_embedding=3,
+            entities_awaiting_embedding=2,
+        )
+        assert stats.is_clean
+
+    def test_coverage_probe_failed_does_not_flip_is_clean(self):
+        assert VaultSyncStats(coverage_probe_failed=True).is_clean
+
+    def test_clean_sync_with_unretrievable_content_gets_variant_header(self):
+        xml = to_xml(
+            sync_stats_fragment(asdict(VaultSyncStats(entries_ingested=2, retrievability_delta=7)))
+        )
+        assert "Sync complete — 7 items not yet searchable" in xml
+        assert "text-warning" in xml
+        assert "Sync finished with problems" not in xml
+
+    def test_clean_sync_with_zero_delta_keeps_success_header(self):
+        xml = to_xml(sync_stats_fragment(asdict(VaultSyncStats(entries_ingested=1))))
+        assert ">Sync complete</h3>" in xml
+        assert "text-success" in xml
+        assert "not yet searchable" not in xml
+
+    def test_problem_header_wins_over_delta(self):
+        """A sync with real problems reports the problems — the retrievability
+        variant exists only on the clean path."""
+        xml = to_xml(
+            sync_stats_fragment(
+                asdict(
+                    VaultSyncStats(files_failed=1, errors=["x.md: boom"], retrievability_delta=4)
+                )
+            )
+        )
+        assert "Sync finished with problems" in xml
+        assert "not yet searchable" not in xml
+
+    def test_probe_failure_renders_no_warning_section(self):
+        xml = to_xml(sync_stats_fragment(asdict(VaultSyncStats(coverage_probe_failed=True))))
+        assert ">Sync complete</h3>" in xml
+        assert "Warnings" not in xml
+
+
 class TestIgnoredClassification:
     """2026-07-23 ruling: content-caused failures are ignored-with-reason,
     never sync errors; ``errors``/``files_failed`` keep only system faults."""

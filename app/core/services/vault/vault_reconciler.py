@@ -57,6 +57,8 @@ from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from core.models.user_entry.user_entry import UserEntry
+    from core.ports.embedding_coverage_protocols import EmbeddingCoverageOperations
+    from core.services.embeddings.retrievability import EmbeddingCoverage
     from core.services.ingestion.unified_ingestion_service import UnifiedIngestionService
     from core.services.tasks_service import TasksService
     from core.services.user_entry.user_entry_service import UserEntryService
@@ -162,12 +164,18 @@ class VaultReconciler:
         user_entry_service: UserEntryService,
         tasks_service: TasksService,
         user_service: UserService,
+        embedding_coverage: EmbeddingCoverageOperations | None = None,
     ) -> None:
         self._registry = registry
         self._ingestion = unified_ingestion
         self._user_entry = user_entry_service
         self._tasks = tasks_service
         self._user_service = user_service
+        # Optional retrievability gauge: when wired, sync() probes embedding
+        # coverage before and after ingest so the stats can say how much of
+        # this sync's content is not yet vector-searchable. None → the
+        # retrievability fields stay at their defaults (no probe, no flag).
+        self._embedding_coverage = embedding_coverage
         # Per-root concurrency locks, keyed by resolved vault root. Created
         # lazily; bounded by the number of distinct vault roots. Different
         # roots never serialize against each other.
@@ -176,6 +184,17 @@ class VaultReconciler:
     # =========================================================================
     # PUBLIC API
     # =========================================================================
+
+    @property
+    def embedding_coverage(self) -> EmbeddingCoverageOperations | None:
+        """The wired retrievability gauge, or ``None`` when not composed.
+
+        Read-only door for one-shot script syncs (``vault_bridge_sync.py``)
+        that drain the embedding worker AFTER ``sync()`` returns: the stats'
+        retrievability figures describe the pre-drain graph, so the script
+        re-probes through the same gauge to report post-drain coverage.
+        """
+        return self._embedding_coverage
 
     async def sync(
         self, kind: VaultKind, user_uid: UserUID, *, force: bool = False
@@ -231,6 +250,14 @@ class VaultReconciler:
 
             stats = VaultSyncStats()
 
+            # Retrievability before-probe: a snapshot of embedding coverage
+            # BEFORE ingest, so the after-probe can report the delta — how many
+            # items THIS sync added that are not yet vector-searchable.
+            # Optional and fail-soft; see _apply_retrievability.
+            coverage_before: EmbeddingCoverage | None = None
+            if self._embedding_coverage is not None:
+                coverage_before = await self._probe_coverage()
+
             # Step 2: mirror refresh (ADR-075 Decision 4) — local_agent
             # transport only. Runs INSIDE the per-root lock (a preview can
             # never race a half-refreshed mirror) and AFTER the consent gate
@@ -265,6 +292,18 @@ class VaultReconciler:
             if ingest_result.is_error:
                 return Result.fail(ingest_result)
             _merge_ingest_stats(stats, ingest_result.value, descriptor.root)
+
+            # Retrievability after-probe: fill the coverage fields now that
+            # ingest has persisted — before the outbound half, so BOTH return
+            # paths below carry them. Corpus-wide ABSOLUTES only for content
+            # syncs (admin-only door): a personal sync's stats reach a
+            # non-admin surface, which must not see corpus aggregates.
+            if self._embedding_coverage is not None:
+                await self._apply_retrievability(
+                    stats,
+                    coverage_before,
+                    include_absolutes=descriptor.kind is VaultKind.CONTENT,
+                )
 
             # Step 4: outbound. Only vaults that support the task round-trip
             # have anything to write back; curriculum vaults are inbound-only
@@ -464,6 +503,59 @@ class VaultReconciler:
                 Errors.not_found(resource="User", identifier=str(descriptor.owner_uid))
             )
         return Result.ok(not user.preferences.vault_write_consent)
+
+    async def _probe_coverage(self) -> EmbeddingCoverage | None:
+        """One fail-soft embedding-coverage probe — ``None`` on error, logged.
+
+        Backend: EmbeddingCoverageBackend.measure_embedding_coverage (a count
+        query; CORE-tier safe, no embedding client involved).
+        """
+        if self._embedding_coverage is None:
+            return None
+        result = await self._embedding_coverage.measure_embedding_coverage()
+        if result.is_error:
+            logger.warning("embedding-coverage probe failed: %s", result.expect_error())
+            return None
+        return result.value
+
+    async def _apply_retrievability(
+        self,
+        stats: VaultSyncStats,
+        before: EmbeddingCoverage | None,
+        *,
+        include_absolutes: bool,
+    ) -> None:
+        """Fill the retrievability fields from a post-ingest coverage probe.
+
+        Fail-soft by ruling: a failed probe sets ``coverage_probe_failed`` and
+        NOTHING else — never a warning, never an error — so an optional
+        probe's outage can never flip ``is_clean`` or turn a perfect sync's
+        banner red. Absolute counts come from the after-probe alone; the
+        delta needs both probes. Both probes are corpus-wide (the gauge's
+        design), so the delta is the gap's growth across this sync's window:
+        in the common case exactly what this sync added, though a concurrent
+        writer on another root lands in the same window — every counted item
+        is genuinely not yet searchable either way. Clamped at zero because
+        the FULL-tier worker may embed concurrently mid-sync, shrinking the
+        missing count — never report a negative credit.
+
+        ``include_absolutes`` gates the corpus-wide counts: only content-vault
+        syncs (admin-only door) carry them. A personal sync's stats serialize
+        through non-admin responses, and corpus aggregates over other users'
+        entities are admin-surface data (the PR-gauge lives behind
+        /admin/knowledge-health for the same reason) — a personal sync
+        reports only its window delta and the probe flag.
+        """
+        after = await self._probe_coverage()
+        if after is None or before is None:
+            stats.coverage_probe_failed = True
+        if after is None:
+            return
+        if include_absolutes:
+            stats.chunks_awaiting_embedding = after.missing_chunks
+            stats.entities_awaiting_embedding = after.missing_entities
+        if before is not None:
+            stats.retrievability_delta = max(0, after.missing - before.missing)
 
     async def grant_consent(self, user_uid: UserUID) -> Result[None]:
         """Record vault-write consent for the user (ADR-070 Decision 6 first-run gate)."""
