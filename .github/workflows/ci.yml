@@ -408,12 +408,12 @@ jobs:
         run: uv run python scripts/audit_raw_headers.py
 
       # Font-size audit — arbitrary text-[Npx] outside the ADR-084 exception
-      # ledger. Advisory (exit 0) during the sweep PRs; --strict flips on when
-      # the burndown reaches zero (campaign PR6).
+      # ledger. Strict since PR6 (campaign complete — burndown zero): any
+      # arbitrary font size outside the pinned ledger fails the job.
       - name: Font-size audit
         if: ${{ !cancelled() && steps.fmt.outcome != 'skipped' }}
         working-directory: app
-        run: uv run python scripts/audit_font_sizes.py
+        run: uv run python scripts/audit_font_sizes.py --strict
 
 
       # Dead-code gate — fails only on WARNING-tier findings; staged work

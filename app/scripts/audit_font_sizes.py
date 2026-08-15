@@ -19,18 +19,20 @@ just as well as live code (primitives.py taught one from a docstring). The
 ``static/js/*.js`` Tailwind source tree (``@source "../js/*.js"``) is scanned
 as raw text — it emits production class strings too.
 
-**Allowlist is count-pinned and honest in both directions**: a file over its
-pin reports the overage as a violation; a file under its pin reports "tighten
-the pin" so the ledger can never go stale silently.
+**Allowlist is payload-multiset-pinned and honest in both directions**: a
+ledger file carrying an arbitrary class NOT in its pin reports it as a
+violation (even if a permitted one vanished in the same change — count
+pinning missed that swap); a pinned class missing from its file reports
+"tighten the pin" so the ledger can never go stale silently.
 
-**Advisory, not blocking** (exit 0) while the PR2–PR5 sweeps burn down the
-backlog — the remaining-findings count printed at the end is the burndown
-metric quoted in each sweep PR body. ``--strict`` (exit 1 on any finding)
-flips on in the final campaign PR.
+**Strict since PR6** (campaign complete — burndown zero): CI's lint job and
+``./dev quality`` check 5c run ``--strict`` (exit 1 on any finding). The
+default invocation stays advisory (exit 0) for local iteration.
 
 Usage:
     uv run python scripts/audit_font_sizes.py           # advisory report
     uv run python scripts/audit_font_sizes.py --strict  # exit 1 on any finding
+                                                        # (the CI / ./dev quality mode)
 
 Exit codes: 0 = always (advisory), 1 = only with --strict and findings present.
 """
@@ -39,6 +41,7 @@ import argparse
 import ast
 import re
 import sys
+from collections import Counter
 from collections.abc import Callable, Iterator
 from pathlib import Path
 
@@ -57,6 +60,12 @@ EXTRA_EXCLUDED_DIR_NAMES: frozenset[str] = frozenset({"scripts", "tests"})
 # color payloads, is excluded below.
 ARBITRARY_TEXT = re.compile(r"(?:[\w-]+:)*text-\[([^\]\s]+)\]")
 
+# Tailwind's parenthesized custom-property shorthand: text-(length:--fs)
+# compiles to font-size:var(--fs) (Codex, PR #1057 round 4). Only the
+# `length:`-hinted form is a font size — un-hinted text-(--x) and
+# text-(color:--x) resolve to color, exactly like their bracket twins.
+SHORTHAND_LENGTH = re.compile(r"(?:[\w-]+:)*text-\(length:[^)\s]+\)")
+
 # Payloads that compile to `color`, not `font-size`: explicit color: hint,
 # hex, color functions, bare var() (un-hinted vars on text-* resolve to
 # color; a length:var(--x) hint IS a font size and is deliberately not here),
@@ -71,21 +80,34 @@ COLOR_PAYLOAD = re.compile(
 
 
 def _iter_size_matches(text: str) -> Iterator[re.Match[str]]:
-    """Arbitrary text-[...] matches whose payload is a font size, not a color."""
+    """Arbitrary text-[...] / text-(length:...) matches that set font-size."""
     for match in ARBITRARY_TEXT.finditer(text):
         if not COLOR_PAYLOAD.match(match.group(1)):
             yield match
+    yield from SHORTHAND_LENGTH.finditer(text)
 
 
 # ---------------------------------------------------------------------------
-# Exception ledger — permanent arbitrary sites, pinned by exact match count
-# (ADR-084 § 3). Over the pin = violation; under the pin = tighten the pin.
+# Exception ledger — permanent arbitrary sites, pinned by exact payload
+# multiset (ADR-084 § 3). A count pin let a permitted class be swapped for an
+# unrelated arbitrary size without detection (Codex, PR #1057 round 4);
+# pinning the classes themselves closes that. A class not in the pin =
+# violation; a pinned class not in the file = tighten the pin.
 # ---------------------------------------------------------------------------
 
-ALLOWED_ARBITRARY: dict[str, int] = {
-    "ui/explore/reading_plan.py": 5,  # clamp() fluid heroes — deliberate responsive design (ADR-084)
-    "ui/calendar/components.py": 2,  # 32px + sm:40px hero H1 pair (components.py:140)
-    "ui/today/page.py": 1,  # 44px planning-board headline (mirrors ALLOWED_H1 rationale)
+ALLOWED_ARBITRARY: dict[str, tuple[str, ...]] = {
+    # clamp() fluid heroes — deliberate responsive design (ADR-084)
+    "ui/explore/reading_plan.py": (
+        "text-[clamp(24px,5vw,30px)]",
+        "text-[clamp(14px,2.6vw,15.5px)]",
+        "text-[clamp(28px,6vw,40px)]",
+        "text-[clamp(16px,3vw,19px)]",
+        "text-[clamp(18px,3.6vw,21px)]",
+    ),
+    # 32px + sm:40px hero H1 pair (components.py:140)
+    "ui/calendar/components.py": ("text-[32px]", "sm:text-[40px]"),
+    # 44px planning-board headline (mirrors ALLOWED_H1 rationale)
+    "ui/today/page.py": ("text-[44px]",),
 }
 
 
@@ -146,8 +168,8 @@ def _scan_targets(root: Path) -> Iterator[tuple[Path, Matcher]]:
 
 def audit(root: Path, strict: bool) -> int:
     violations: list[tuple[str, list[tuple[int, str]]]] = []
-    over_pin: list[tuple[str, int, int]] = []  # (rel, found, pinned)
-    under_pin: list[tuple[str, int, int]] = []
+    over_pin: list[tuple[str, list[str]]] = []  # (rel, classes present but not pinned)
+    under_pin: list[tuple[str, list[str]]] = []  # (rel, classes pinned but not present)
     burndown_total = 0
     seen_allowlisted: set[str] = set()
 
@@ -159,46 +181,48 @@ def audit(root: Path, strict: bool) -> int:
             seen_allowlisted.add(rel)
 
         # Cheap pre-filter: only parse files that can possibly match.
-        if "text-[" not in source:
+        if "text-[" not in source and "text-(" not in source:
             if rel in ALLOWED_ARBITRARY:
-                under_pin.append((rel, 0, ALLOWED_ARBITRARY[rel]))
+                under_pin.append((rel, sorted(ALLOWED_ARBITRARY[rel])))
             continue
 
         matches = find_matches(source)
-        count = len(matches)
 
         if rel in ALLOWED_ARBITRARY:
-            pinned = ALLOWED_ARBITRARY[rel]
-            if count > pinned:
-                over_pin.append((rel, count, pinned))
-                burndown_total += count - pinned
-            elif count < pinned:
-                under_pin.append((rel, count, pinned))
-        elif count:
+            found = Counter(text for _, text in matches)
+            pinned = Counter(ALLOWED_ARBITRARY[rel])
+            extra = found - pinned
+            missing = pinned - found
+            if extra:
+                over_pin.append((rel, sorted(extra.elements())))
+                burndown_total += sum(extra.values())
+            if missing:
+                under_pin.append((rel, sorted(missing.elements())))
+        elif matches:
             violations.append((rel, matches))
-            burndown_total += count
+            burndown_total += len(matches)
 
     # Allowlist entries the walk never visited (file deleted, renamed, or
     # moved into an excluded tree) would otherwise vanish silently — report
-    # them as under their pin so --strict cannot pass with a stale ledger
-    # (Codex, PR #1057).
+    # them as fully under their pin so --strict cannot pass with a stale
+    # ledger (Codex, PR #1057).
     under_pin.extend(
-        (rel, 0, ALLOWED_ARBITRARY[rel])
+        (rel, sorted(ALLOWED_ARBITRARY[rel]))
         for rel in sorted(set(ALLOWED_ARBITRARY) - seen_allowlisted)
     )
 
     findings = len(violations) + len(over_pin) + len(under_pin)
 
     if over_pin:
-        print("\n🔴 Allowlisted files OVER their pin (new arbitrary sites in a ledger file):")
-        for rel, found, pinned in over_pin:
-            print(f"  {rel}: {found} found, {pinned} pinned — convert the new sites (ADR-084)")
+        print("\n🔴 Ledger files carrying arbitrary sites NOT in their pin (convert them):")
+        for rel, classes in over_pin:
+            print(f"  {rel}: {', '.join(classes)} — convert to the named scale (ADR-084)")
 
     if under_pin:
-        print("\n⚠️  Allowlisted files UNDER their pin (stale ledger — tighten the pin):")
-        for rel, found, pinned in under_pin:
+        print("\n⚠️  Pinned sites missing from their ledger file (stale ledger — tighten the pin):")
+        for rel, classes in under_pin:
             print(
-                f"  {rel}: {found} found, {pinned} pinned — update ALLOWED_ARBITRARY in "
+                f"  {rel}: {', '.join(classes)} — update ALLOWED_ARBITRARY in "
                 "scripts/audit_font_sizes.py"
             )
 
@@ -217,9 +241,9 @@ def audit(root: Path, strict: bool) -> int:
         f"in {len(violations) + len(over_pin)} file(s)."
     )
     print(
-        "  This is advisory during the ADR-084 sweep PRs — convert sites to the named\n"
-        "  scale (text-10/11/13/15 or stock text-xs/sm/base/lg/xl/3xl) per the mapping\n"
-        "  table in docs/decisions/ADR-084-compact-font-size-tokens.md."
+        "  Convert sites to the named scale (text-10/11/13/15 or stock\n"
+        "  text-xs/sm/base/lg/xl/3xl) — see docs/decisions/ADR-084-compact-font-size-tokens.md.\n"
+        "  CI and ./dev quality run this audit with --strict (blocking) since PR6."
     )
 
     return 1 if strict else 0

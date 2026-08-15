@@ -36,7 +36,7 @@ def render_task_drawer_body(task: Task) -> FT:
         return Div(
             P(
                 "No additional detail captured for this node.",
-                cls="text-[12.5px] text-muted-foreground italic",
+                cls="text-xs leading-snug text-muted-foreground italic",
             ),
         )
 
@@ -44,7 +44,7 @@ def render_task_drawer_body(task: Task) -> FT:
         section_label("Details"),
         P(
             description,
-            cls="text-[13px] leading-relaxed text-foreground whitespace-pre-wrap",
+            cls="text-13 leading-relaxed text-foreground whitespace-pre-wrap",
         ),
     )
 

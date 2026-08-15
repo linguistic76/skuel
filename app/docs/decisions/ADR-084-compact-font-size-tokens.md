@@ -1,6 +1,6 @@
 ---
 title: "ADR-084: Compact Font-Size Tokens (Micro Type Scale)"
-updated: 2026-08-14
+updated: 2026-08-15
 status: accepted
 category: decisions
 tags: [adr, decisions, ui, tailwind, typography, tokens]
@@ -10,7 +10,7 @@ related_skills: [ui-css, skuel-ui]
 
 # ADR-084: Compact Font-Size Tokens (Micro Type Scale)
 
-**Status:** Accepted (2026-08-14) — foundations + tracer shipped in PR1; sweeps land in PR2–PR6
+**Status:** Accepted (2026-08-14) — implemented: foundations + tracer in PR1, sweeps in PR2–PR6, audit strict since PR6 (2026-08-15)
 
 **Date:** 2026-08-14
 
@@ -79,10 +79,12 @@ five wrapping-subtitle sites in the 12px cohort take `text-xs leading-snug` in t
 edit (`ui/journals/forms.py:92,411`, `ui/user_entry/forms.py:49`,
 `ui/explore/reading_plan.py:576`, `ui/journals/chat_page.py:594`).
 
-### 3. Exception ledger (permanent, count-pinned)
+### 3. Exception ledger (permanent, payload-pinned)
 
-8 sites in 3 files stay arbitrary — deliberate responsive/hero typography, pinned by count
-in `scripts/audit_font_sizes.py`:
+8 sites in 3 files stay arbitrary — deliberate responsive/hero typography, pinned by
+exact payload multiset in `scripts/audit_font_sizes.py` (count-pinning let a permitted
+class be swapped for an unrelated arbitrary size undetected — Codex, PR #1057 round 4;
+hardened in PR6):
 
 | File | Count | Why |
 |---|---|---|
@@ -94,12 +96,12 @@ in `scripts/audit_font_sizes.py`:
 
 `scripts/audit_font_sizes.py` (sibling of `audit_raw_headers.py`) scans every string
 constant in production UI code — plus the `static/js/*.js` Tailwind `@source` tree — for
-arbitrary `text-[...]` values (variant prefixes included), matching the payload
-generically and excluding only the color payloads (`text-*` is ambiguous; enumerating
-size spellings proved unwinnable), and reports findings outside the count-pinned
-allowlist. Advisory (exit 0) during the
-sweep PRs — the shrinking count is each PR body's burndown metric; `--strict` flips on in
-PR6. Wired as `./dev quality` check 5c and a CI lint step. The paired `css_freshness` CI
+arbitrary `text-[...]` values (variant prefixes included) plus the parenthesized
+`text-(length:--x)` shorthand, matching the payload generically and excluding only the
+color payloads (`text-*` is ambiguous; enumerating size spellings proved unwinnable), and
+reports findings outside the payload-pinned allowlist. Advisory (exit 0) during the sweep
+PRs; since PR6 both wiring points run `--strict` (exit 1 on any finding). Wired as
+`./dev quality` check 5c and a CI lint step. The paired `css_freshness` CI
 job compiles `input.css` and fails on `output.css` drift, so a sweep can never land with a
 stale compiled asset.
 
@@ -132,8 +134,8 @@ judgment call requiring screenshots at review. Fallback if rejected: allowlist
 
 ## Consequences
 
-- New UI code uses the named scale; `scripts/audit_font_sizes.py` flags any new
-  `text-[Npx]` outside the 8-site ledger (advisory now, strict from PR6).
+- New UI code uses the named scale; `scripts/audit_font_sizes.py` fails CI and
+  `./dev quality` on any new `text-[Npx]` outside the 8-site ledger (strict since PR6).
 - The 4 tokens are SKUEL-owned in `input.css` `@theme inline` (ADR-071 ownership model);
   no `@source inline()` safelist is needed — all class literals are statically scanned.
 - Line-height behavior at stock-step adoption sites changes only where the mapping table

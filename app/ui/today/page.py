@@ -128,7 +128,7 @@ def _header(view_date: date, heading: str) -> FT:
     return Header(
         Div(
             Div(
-                cls="text-[11px] font-bold uppercase tracking-[0.09em] text-muted-foreground",
+                cls="text-11 font-bold uppercase tracking-[0.09em] text-muted-foreground",
                 **{"x-text": "seed.date_label"},
             ),
             # Server-rendered (not x-text) so the relative word — "Today" /
@@ -171,11 +171,11 @@ def _header(view_date: date, heading: str) -> FT:
 def _stats_row() -> FT:
     stat_cell = Div(
         Span(
-            cls="text-[22px] font-semibold tabular-nums leading-none",
+            cls="text-xl font-semibold tabular-nums leading-none",
             **{":class": "s.accent || 'text-foreground'", "x-text": "s.value"},
         ),
         Span(
-            cls="mt-1 text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground",
+            cls="mt-1 text-11 font-medium uppercase tracking-[0.08em] text-muted-foreground",
             **{"x-text": "s.label"},
         ),
         cls="flex flex-col items-start",
@@ -273,12 +273,12 @@ def _empty_state() -> FT:
         ),
         H2(
             "You're caught up.",
-            cls="text-[22px] font-bold tracking-tight mb-2",
+            cls="text-xl font-bold tracking-tight mb-2",
         ),
         P(
             "No nodes scheduled for today. This is the point where most apps would "
             "offer you more to do. SKUEL suggests you close the laptop.",
-            cls="text-[13.5px] text-muted-foreground leading-relaxed",
+            cls="text-13 text-muted-foreground leading-relaxed",
         ),
         cls="text-center mx-auto max-w-md py-20 px-8",
         **{"x-show": "allEmpty"},
@@ -320,7 +320,7 @@ def _task_row(*, is_triage: bool) -> FT:
     title_block = Div(
         Div(
             Span(
-                cls="text-[14px] font-semibold text-foreground leading-snug truncate",
+                cls="text-sm font-semibold text-foreground leading-snug truncate",
                 **{"x-text": "t.label"},
             ),
             Span(
@@ -337,7 +337,7 @@ def _task_row(*, is_triage: bool) -> FT:
             cls="flex items-center gap-2",
         ),
         Div(
-            cls="text-[12px] text-slate-400 font-mono mt-0.5 truncate",
+            cls="text-xs text-slate-400 font-mono mt-0.5 truncate",
             **{"x-text": "t.meta || ''"},
         ),
         cls="flex-1 min-w-0",
@@ -345,13 +345,13 @@ def _task_row(*, is_triage: bool) -> FT:
 
     right_block = Div(
         Span(
-            cls="text-[11px] font-semibold text-foreground",
+            cls="text-11 font-semibold text-foreground",
             **{"x-text": right_label_expr},
         ),
         Span(
             Span(**{"x-text": "t.est_min"}),
             "m",
-            cls="text-[10px] text-muted-foreground font-mono",
+            cls="text-10 text-muted-foreground font-mono",
         ),
         cls="flex flex-col items-end gap-0.5 flex-none",
     )
@@ -423,7 +423,7 @@ def _triage_bar() -> FT:
             Div(
                 "Face first",
                 id="triage-heading",
-                cls="text-[10px] font-bold uppercase tracking-[0.09em] text-destructive",
+                cls="text-10 font-bold uppercase tracking-[0.09em] text-destructive",
             ),
             Div(
                 Span(**{"x-text": "fTriage.length"}),
@@ -432,13 +432,13 @@ def _triage_bar() -> FT:
                 " need",
                 Span("s", **{"x-show": "fTriage.length === 1"}),
                 " your attention",
-                cls="text-[13px] font-semibold text-foreground",
+                cls="text-13 font-semibold text-foreground",
             ),
             cls="flex-1 min-w-0",
         ),
         Span(
             "drag → to defer",
-            cls="font-mono text-[11px] text-muted-foreground hidden sm:inline",
+            cls="font-mono text-11 text-muted-foreground hidden sm:inline",
         ),
         cls="flex items-center gap-2.5 mb-3",
     )
@@ -494,11 +494,11 @@ def _dormant_ribbon() -> FT:
                 Span(
                     "dormant",
                     cls=(
-                        "ml-2 inline-block text-[10px] font-semibold uppercase "
+                        "ml-2 inline-block text-10 font-semibold uppercase "
                         "tracking-[0.08em] px-1.5 py-0.5 rounded-sm bg-muted text-muted-foreground"
                     ),
                 ),
-                cls="text-[13px] font-semibold text-foreground",
+                cls="text-13 font-semibold text-foreground",
             ),
             Div(
                 "Nothing active today. Last touched ",
@@ -508,7 +508,7 @@ def _dormant_ribbon() -> FT:
                     NotStr("<em x-text=\"' · ' + principlesFor(lp.id)[0].label\"></em>"),
                     **{"x-if": "principlesFor(lp.id)[0]"},
                 ),
-                cls="text-[11.5px] mt-0.5",
+                cls="text-11 mt-0.5",
             ),
             cls="flex-1 min-w-0",
         ),
@@ -539,11 +539,11 @@ def _active_ribbon() -> FT:
         Div(
             Div(
                 H2(
-                    cls="text-[15px] font-semibold tracking-tight",
+                    cls="text-15 font-semibold tracking-tight",
                     **{":id": "'ribbon-' + lp.id", "x-text": "lp.label"},
                 ),
                 Span(
-                    cls="text-[11px] text-muted-foreground font-mono",
+                    cls="text-11 text-muted-foreground font-mono",
                     **{"x-text": "lp.blurb"},
                 ),
                 cls="flex items-center gap-2",
@@ -560,7 +560,7 @@ def _active_ribbon() -> FT:
                                 ": ''"
                             },
                         ),
-                        cls="inline-flex items-center gap-1 text-[10.5px] font-medium px-1.5 py-0.5 rounded-full",
+                        cls="inline-flex items-center gap-1 text-10 font-medium px-1.5 py-0.5 rounded-full",
                         **{":class": "strengthClass(p.strength)"},
                     ),
                     **{"x-for": "p in principlesFor(lp.id)", ":key": "p.id"},
@@ -570,7 +570,7 @@ def _active_ribbon() -> FT:
             cls="flex-1 min-w-0",
         ),
         Span(
-            cls="text-[11px] text-muted-foreground font-mono flex-none",
+            cls="text-11 text-muted-foreground font-mono flex-none",
             **{"x-text": "tasksFor(lp.id).length + ' today'"},
         ),
         cls="flex items-center gap-3 px-[18px] py-3 border-b border-border/70",
@@ -583,7 +583,7 @@ def _active_ribbon() -> FT:
         Template(
             Li(
                 "Nothing committed for today on this ribbon.",
-                cls="px-[18px] py-3 text-[12px] text-muted-foreground italic",
+                cls="px-[18px] py-3 text-xs leading-snug text-muted-foreground italic",
             ),
             **{"x-if": "tasksFor(lp.id).length === 0"},
         ),
@@ -623,7 +623,7 @@ def _day_spine() -> FT:
         Div(
             "Day spine",
             cls=(
-                "absolute top-3.5 left-[18px] text-[10px] font-bold uppercase "
+                "absolute top-3.5 left-[18px] text-10 font-bold uppercase "
                 "tracking-[0.09em] text-muted-foreground"
             ),
         ),
@@ -643,7 +643,7 @@ def _day_spine() -> FT:
 def _hour_ticks() -> FT:
     return Template(
         Div(
-            cls="absolute left-2.5 -translate-y-1/2 text-[9px] text-muted-foreground/70 font-mono",
+            cls="absolute left-2.5 -translate-y-1/2 text-10 text-muted-foreground/70 font-mono",
             **{
                 ":style": "`top: calc(52px + ${((h - 6) / 16) * (640 - 70)}px)`",
                 "x-text": "String(h).padStart(2, '0')",
@@ -660,7 +660,7 @@ def _now_marker() -> FT:
             "NOW · ",
             Span(**{"x-text": "seed.now_hhmm"}),
             cls=(
-                "absolute left-8 -top-2 text-[9px] font-bold text-destructive "
+                "absolute left-8 -top-2 text-10 font-bold text-destructive "
                 "bg-card px-1 font-mono whitespace-nowrap"
             ),
         ),
@@ -687,7 +687,7 @@ def _rituals_list() -> FT:
     )
     body = Div(
         Div(
-            cls="text-[11.5px] font-semibold truncate",
+            cls="text-11 font-semibold truncate",
             **{
                 ":class": (
                     "ritualPast(r.time) ? 'text-muted-foreground line-through' : 'text-foreground'"
@@ -700,7 +700,7 @@ def _rituals_list() -> FT:
             " · ",
             Span(**{"x-text": "r.est_min"}),
             "m",
-            cls="text-[9.5px] font-mono text-muted-foreground",
+            cls="text-10 font-mono text-muted-foreground",
         ),
         cls="flex-1 min-w-0",
     )
@@ -728,7 +728,7 @@ def _flash_toast() -> FT:
             type="button",
             cls=(
                 "bg-transparent border border-background/20 text-background "
-                "px-2.5 py-1 rounded-sm text-[11px] font-semibold uppercase tracking-wider "
+                "px-2.5 py-1 rounded-sm text-11 font-semibold uppercase tracking-wider "
                 "hover:bg-background/10 focus:outline-hidden focus:shadow-focus"
             ),
             **{"x-show": "flash?.action === 'undo'", "@click": "undoFlash()"},
@@ -736,7 +736,7 @@ def _flash_toast() -> FT:
         cls=(
             "fixed bottom-6 left-1/2 -translate-x-1/2 z-20 "
             "bg-foreground text-background rounded-lg px-4 py-2.5 pr-3 "
-            "flex items-center gap-3.5 text-[13px] shadow-xl"
+            "flex items-center gap-3.5 text-13 shadow-xl"
         ),
         role="status",
         **{
@@ -820,7 +820,7 @@ def _drawer_toolbar() -> FT:
         Span(**{"x-html": "openTaskIconHtml()"}),
         Span(**{"x-text": "seed.kinds[openTask.kind]?.label || openTask.kind"}),
         cls=(
-            "inline-flex items-center gap-1.5 px-2 py-1 rounded-sm text-[10.5px] "
+            "inline-flex items-center gap-1.5 px-2 py-1 rounded-sm text-10 "
             "font-semibold uppercase tracking-[0.08em] bg-muted text-muted-foreground"
         ),
     )
@@ -858,7 +858,7 @@ def _drawer_title_meta() -> FT:
     return Div(
         H2(
             id="drawer-title",
-            cls="text-[22px] font-bold tracking-tight leading-tight",
+            cls="text-xl font-bold tracking-tight leading-tight",
             **{"x-text": "openTask.label"},
         ),
         Div(
@@ -882,7 +882,7 @@ def _drawer_title_meta() -> FT:
             ),
             sep,
             Span(Span(**{"x-text": "openTask.est_min"}), "m"),
-            cls="mt-2.5 flex items-center gap-3 text-[12px] text-muted-foreground font-mono",
+            cls="mt-2.5 flex items-center gap-3 text-xs text-muted-foreground font-mono",
         ),
     )
 
@@ -943,7 +943,7 @@ def _drawer_connects() -> FT:
                 Icon(icon, size=14, cls="text-muted-foreground"),
                 Span(label, cls="text-muted-foreground"),
                 Span(cls="font-medium", **{"x-text": field_expr}),
-                cls="flex items-center gap-2 text-[13px]",
+                cls="flex items-center gap-2 text-13",
             ),
             **{"x-if": if_expr},
         )
