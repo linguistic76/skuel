@@ -202,9 +202,15 @@ At startup, `Neo4jSchemaManager` creates all indexes needed for search:
 | Index Type | Method | Tier | What It Powers |
 |-----------|--------|------|---------------|
 | **Full-text indexes** | `sync_fulltext_indexes()` | Always (CORE + FULL) | Lucene keyword search — 14 domains |
-| **Vector indexes** | `sync_vector_indexes()` | FULL only | 1024-dim cosine — Entity, ContentChunk, ReferenceChunk (bootstrap) + Goal, Task per-label (`scripts/create_vector_indexes.py`) |
+| **Vector indexes** | `sync_vector_indexes()` | FULL only | 1024-dim cosine — Entity, ContentChunk, ReferenceChunk, Ku, PathStep, LearningPath (bootstrap) + Goal, Task per-label (`scripts/create_vector_indexes.py`) |
 
-Full-text indexes are the **Cypher-first search foundation**. They enable `db.index.fulltext.queryNodes()` for relevance-ranked keyword search without embeddings. The `_SearchMixin.search()` method provides a `CONTAINS`-based fallback, but full-text indexes are always available for richer search.
+Full-text indexes are the **Cypher-first search foundation**, created in both tiers. Who actually reads them is narrower than "always available" suggests, so be precise:
+
+- **SearchRouter's hybrid rung** (August 2026) is the one production reader — Ku/PathStep/LearningPath, FULL tier, via `hybrid_search_with_metrics` (Lucene RRF-merged with vector similarity). See SEARCH_ARCHITECTURE § Hybrid Fulltext + Vector Rung.
+- **Every other text search is `CONTAINS`**, including all of CORE tier and all OWNER_ONLY domains. `_SearchMixin.search()` is case-SENSITIVE `CONTAINS` — not a fulltext path.
+- Making domain-level search fulltext-first is the named **D1(b) follow-on** in `docs/roadmap/deferred-work.md`; until it lands, do not assume a fulltext index has a reader just because it exists.
+
+Index names come from `NeoLabel.fulltext_index_name()` — THE rule shared by creation and lookup (`PathStep` → `path_step_fulltext_idx`; never flat `label.lower()`).
 
 Vector indexes are only created when `INTELLIGENCE_TIER=full` (embeddings enabled). When absent, search gracefully falls back to keyword-only results.
 

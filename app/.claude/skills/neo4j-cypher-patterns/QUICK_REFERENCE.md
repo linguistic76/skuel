@@ -84,9 +84,9 @@ validate_identifier(field)   # safe identifier or ValueError
 | Index type | Count | Tier | Notes |
 |-----------|-------|------|-------|
 | Domain (uid/status/date/composite) | ~48 | Always | `sync_domain_indexes()` |
-| Full-text (Lucene) | 14 | Always | 6 Activity + 4 Curriculum + 2 Learning Loop + 2 Forms |
+| Full-text (Lucene) | 14 | Always | 6 Activity + 4 Curriculum + 2 Learning Loop + 2 Forms. Read by the SearchRouter hybrid rung (Ku/PS/LP, FULL tier) — every other text search is `CONTAINS` |
 | Auth | — | Always | sessions, rate limiting, email uniqueness |
-| Vector (1024-dim cosine) | 5 | FULL only | Entity, ContentChunk, ReferenceChunk (bootstrap) + Goal, Task (`scripts/create_vector_indexes.py`) |
+| Vector (1024-dim cosine) | 8 | FULL only | Entity, ContentChunk, ReferenceChunk, Ku, PathStep, LearningPath (bootstrap) + Goal, Task (`scripts/create_vector_indexes.py`) |
 
 ```cypher
 CALL db.index.fulltext.queryNodes('task_fulltext_idx', 'urgent deadline') YIELD node, score

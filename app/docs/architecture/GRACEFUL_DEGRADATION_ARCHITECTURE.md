@@ -30,7 +30,7 @@ The app is architecturally split into two layers. The foundational layer — CRU
 |-----------|-------------|--------------|
 | CRUD | Create, read, update, delete all 25 entity types | Neo4j only |
 | Ingestion | Markdown/YAML → Neo4j pipeline | Neo4j only |
-| Keyword Search | Full-text search across 15 domains | Neo4j fulltext indexes (auto-created at bootstrap via `sync_fulltext_indexes()`) |
+| Keyword Search | Text search across the 12 searchable domains — case-sensitive `CONTAINS` | Neo4j property scan (fulltext indexes are synced at bootstrap but read only by the FULL-tier hybrid rung) |
 | UserContext | ~250-field user state (standard + rich) | Neo4j MEGA-QUERY |
 | Analytics | 13 `BaseAnalyticsService` instances | Neo4j + Python |
 | UserContextIntelligence | Daily planning, life path alignment | Neo4j + Python |
@@ -69,10 +69,10 @@ INTELLIGENCE_TIER=core
 - OpenAI / Anthropic chat adapters + the OpenAI embedding client (`adapters/external/`, behind `ChatCompletionPort` / `EmbeddingClientOperations`; HF/BGE adapter staged — ADR-068) — not constructed (no API keys read, no vendor SDK clients; W1 / ADR-063)
 - `DeepgramAdapter` / `TranscriptionService` / `BatchTranscriptionService` — not created (`DEEPGRAM_API_KEY` not read)
 - All 12 `BaseAIService` instances — not created
-- Search falls back to keyword (fulltext indexes)
+- Search falls back to keyword (`CONTAINS` — the hybrid fulltext rung is FULL-tier only)
 - Askesis is **not created** (requires FULL tier — no degraded mode)
 - Vector indexes **not created** (unnecessary without embeddings)
-- Full-text indexes still synced (Cypher-first keyword search always available)
+- Full-text indexes still synced (created in both tiers; CORE has no reader yet — D1(b) follow-on)
 - `ProgressReportWorker` **does start** (CORE-tier Analog worker — graph analytics, no API calls)
 
 ### Turn on AI/Embeddings (Full mode)
@@ -136,13 +136,13 @@ When AI is disabled, no worker exists and ingestion publishes nothing (its `even
 
 ```python
 # SearchRouter dispatches to the same domain services regardless of tier
-# Vector search is additive — keyword search always works
+# The hybrid rung is additive — text search always works
 
-# With embeddings (FULL):
-#   keyword results + vector similarity + RRF fusion
+# With embeddings (FULL), for Ku/PathStep/LearningPath:
+#   Lucene fulltext + vector similarity, RRF-fused (the hybrid rung)
 
-# Without embeddings (CORE):
-#   keyword results only (Neo4j fulltext indexes)
+# Every other case — CORE tier, or any other domain:
+#   case-sensitive CONTAINS (the fulltext indexes exist but have no reader here)
 ```
 
 ## Five Gating Points
