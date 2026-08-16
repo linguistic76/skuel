@@ -1761,7 +1761,13 @@ class SearchRouter:
         - no eligible domain in the curriculum allowlist;
         - a graph or tag filter is present — those take Strategy 1 / 2, and the
           rung lives only in Strategy 3's `else`. Without this check every
-          filtered search would buy an embedding it never reads.
+          filtered search would buy an embedding it never reads;
+        - a semantic-boost or learning-aware flag is set — Strategy 0 runs
+          first and does its own embedding, then returns early on a hit, so
+          pre-embedding here would pay twice and use neither. Strategy 0 falls
+          through when it finds nothing, and the rung then embeds per domain
+          as it would without this optimization at all: correct, just not
+          deduplicated on a path that is already the rare one.
 
         Also returns None on embedding failure — `hybrid_search` then falls
         back to its own embed and degrades to fulltext-only if that fails too,
@@ -1776,6 +1782,8 @@ class SearchRouter:
         if vector_search is None or not request.query_text:
             return None
         if request.has_graph_traversal_filter() or request.has_tag_filter():
+            return None
+        if request.has_semantic_boost() or request.has_learning_aware():
             return None
         if not any(
             isinstance(domain, EntityType) and domain.value in self._HYBRID_TEXT_DOMAIN_VALUES

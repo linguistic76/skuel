@@ -471,6 +471,35 @@ class TestQueryEmbeddingReuse:
         vector_search.embed_query.assert_not_awaited()
 
     @pytest.mark.anyio
+    async def test_no_embed_when_strategy_0_will_run(self) -> None:
+        """Semantic-boost / learning-aware take Strategy 0, which embeds for
+        itself and returns early on a hit — pre-embedding pays twice and uses
+        neither."""
+        vector_search = _vector_search()
+        router = _router(vector_search)
+
+        boosted = await router._embed_query_for_hybrid_rung(
+            SearchRequest(
+                query_text="photosynthesis",
+                enable_semantic_boost=True,
+                context_uids=["ku.plants"],
+            ),
+            [EntityType.KU],
+        )
+        learning = await router._embed_query_for_hybrid_rung(
+            SearchRequest(
+                query_text="photosynthesis",
+                enable_learning_aware=True,
+                user_uid="user_probe",
+            ),
+            [EntityType.KU],
+        )
+
+        assert boosted is None
+        assert learning is None
+        vector_search.embed_query.assert_not_awaited()
+
+    @pytest.mark.anyio
     async def test_no_embed_on_core_tier(self) -> None:
         embedding = await _router(vector_search=None)._embed_query_for_hybrid_rung(
             SearchRequest(query_text="photosynthesis"), [EntityType.KU]

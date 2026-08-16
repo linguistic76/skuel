@@ -18,7 +18,7 @@ See: /docs/architecture/NEO4J_GENAI_ARCHITECTURE.md
 """
 
 import time
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from datetime import datetime
 from operator import itemgetter
 from typing import TYPE_CHECKING, Any
@@ -957,7 +957,7 @@ class Neo4jVectorSearchService:
             query=text,
             search_type="vector",
             label=label,
-            results=result.value,
+            scores=[float(hit["score"]) for hit in result.value],
             latency_ms=latency_ms,
             min_score_threshold=min_score,
         )
@@ -1001,7 +1001,7 @@ class Neo4jVectorSearchService:
             query=query_text,
             search_type="hybrid",
             label=label,
-            results=result.value,
+            scores=[hit["score"] for hit in result.value],
             latency_ms=latency_ms,
             vector_weight=vector_weight or self.config.vector_weight,
             min_score_threshold=min_rrf_score,
@@ -1016,18 +1016,20 @@ class Neo4jVectorSearchService:
         query: str,
         search_type: str,
         label: str,
-        # Sequence[Mapping] rather than list[dict]: it only reads "score", and
-        # both plain vector hits and TypedDict hybrid hits are passed in.
-        results: Sequence[Mapping[str, Any]],
+        # The scores themselves, not the records: this only ever computed
+        # count/avg/min/max over `r["score"]`, so taking floats removes the
+        # `Any` rather than justifying it (CLAUDE.md Any policy, option A) and
+        # lets MyPy check the score type at both call sites. Vector hits and
+        # hybrid hits have different record shapes but the same score type.
+        scores: Sequence[float],
         latency_ms: float,
         vector_weight: float | None = None,
         min_score_threshold: float | None = None,
     ) -> SearchMetrics:
-        """Create search metrics from search results."""
-        num_results = len(results)
+        """Create search metrics from search-result scores."""
+        num_results = len(scores)
 
         if num_results > 0:
-            scores = [r["score"] for r in results]
             avg_similarity = sum(scores) / len(scores)
             min_similarity = min(scores)
             max_similarity = max(scores)
