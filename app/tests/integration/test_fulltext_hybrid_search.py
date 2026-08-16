@@ -282,8 +282,13 @@ async def test_router_rung_reaches_the_index_end_to_end(fulltext_graph: AsyncDri
         "or PathStep stopped qualifying"
     )
     assert DRAFT_UID not in uids, "draft leaked through the router path"
-    # Case-different match proves it was Lucene, not the CONTAINS fallback:
-    # the seeded title is 'Photosynthesis…' and CONTAINS is case-sensitive.
-    assert all(item.match_reason == "Keyword + semantic match" for item in items), (
-        "results did not come from the hybrid rung — it silently fell through to CONTAINS"
+    # This service has no embeddings, so the vector half returns nothing and
+    # every hit is Lucene's alone — the reason must say so rather than claim
+    # semantic matching. It still proves the rung ran: the CONTAINS fallback
+    # produces a different reason entirely, and could not have matched the
+    # case-different term ('Photosynthesis…' vs 'photosynthesis') at all.
+    assert all(item.match_reason == "Keyword match" for item in items), (
+        "expected fulltext-only attribution; got "
+        f"{sorted({item.match_reason for item in items})} — either the rung fell "
+        "through to CONTAINS or the match reason is not derived from the sources"
     )

@@ -217,7 +217,10 @@ class Neo4jVectorSearchService:
                 re-embeds the same text through the uncached embeddings service.
 
         Returns:
-            Result containing list of {node, score} dicts sorted by RRF score
+            Result containing list of {node, score, matched_vector,
+            matched_fulltext} dicts sorted by RRF score. The two flags say
+            which half produced the hit, so a caller can describe the match
+            honestly when only one half ran.
 
         Example:
             >>> result = await service.hybrid_search("Entity", "python programming", limit=10)
@@ -269,6 +272,13 @@ class Neo4jVectorSearchService:
         # Step 3: RRF scoring and merging
         rrf_scores: dict[str, float] = {}
         node_data: dict[str, dict[str, Any]] = {}
+        # WHICH half produced each uid, carried through to the caller: a
+        # presentation layer that says "keyword + semantic" for every hit lies
+        # whenever one half returned nothing — fulltext-only after an
+        # embedding/index failure, or before a label's embeddings are
+        # backfilled (Codex, PR #1074).
+        vector_uids: set[str] = set()
+        fulltext_uids: set[str] = set()
 
         # Process vector results
         for rank, item in enumerate(vector_nodes, start=1):
@@ -276,6 +286,7 @@ class Neo4jVectorSearchService:
             rrf_score = vector_weight * (1.0 / (k + rank))
             rrf_scores[uid] = rrf_scores.get(uid, 0.0) + rrf_score
             node_data[uid] = item["node"]
+            vector_uids.add(uid)
 
         # Process full-text results
         text_weight = 1.0 - vector_weight
@@ -283,12 +294,18 @@ class Neo4jVectorSearchService:
             uid = item["node"]["uid"]
             rrf_score = text_weight * (1.0 / (k + rank))
             rrf_scores[uid] = rrf_scores.get(uid, 0.0) + rrf_score
+            fulltext_uids.add(uid)
             if uid not in node_data:
                 node_data[uid] = item["node"]
 
         # Step 4: Sort by RRF score and filter by min_rrf_score
         merged = [
-            {"node": node_data[uid], "score": score}
+            {
+                "node": node_data[uid],
+                "score": score,
+                "matched_vector": uid in vector_uids,
+                "matched_fulltext": uid in fulltext_uids,
+            }
             for uid, score in rrf_scores.items()
             if score >= min_rrf_score
         ]

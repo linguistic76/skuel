@@ -2120,9 +2120,12 @@ class SearchRouter:
                         title=node.get("title", ""),
                         relevance_score=score,
                         priority_score=node.get("priority_score", 0.0),
-                        # RRF output carries no vector_score/semantic_boost
-                        # keys, so _create_match_reason would mislabel it
-                        match_reason="Keyword + semantic match",
+                        # Derived per result, not a constant: hybrid runs
+                        # fulltext-only whenever the vector half is empty (no
+                        # index yet, embeddings not backfilled, provider down),
+                        # and "semantic match" would be a claim about machine
+                        # understanding that did not happen.
+                        match_reason=self._hybrid_match_reason(vec_result),
                     )
                 )
 
@@ -2135,6 +2138,29 @@ class SearchRouter:
         except Exception as e:  # safety-net: catch unexpected errors
             self.logger.error(f"Hybrid search failed for {entity_type.value} (unexpected): {e}")
             return []  # Fall through to CONTAINS
+
+    def _hybrid_match_reason(self, vec_result: dict[str, Any]) -> str:
+        """
+        Describe which half of hybrid search actually produced this hit.
+
+        `hybrid_search` reports `matched_vector` / `matched_fulltext` per
+        result. Both halves agreeing is the strongest signal and the reason
+        the rung exists; either half alone is a weaker but honest claim. A
+        fixed "Keyword + semantic match" would assert semantic understanding
+        for results a Lucene index found on its own — which is every result
+        for a label whose embeddings are not backfilled yet.
+
+        Falls back to the keyword claim when both flags are absent, because
+        fulltext is the half that always runs.
+        """
+        matched_vector = bool(vec_result.get("matched_vector"))
+        matched_fulltext = bool(vec_result.get("matched_fulltext"))
+
+        if matched_vector and matched_fulltext:
+            return "Keyword + semantic match"
+        if matched_vector:
+            return "Semantic match"
+        return "Keyword match"
 
     def _create_match_reason(self, vec_result: dict) -> str:
         """

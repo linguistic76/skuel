@@ -41,8 +41,18 @@ from core.utils.result_simplified import Errors, Result
 # `beta` by one half only, so it scores exactly half as much. Using arbitrary
 # larger numbers here would silently exercise the clamp instead of the scale.
 HYBRID_ROWS: list[dict[str, Any]] = [
-    {"node": {"uid": "ps.alpha", "title": "Alpha"}, "score": 1.0 / 61},
-    {"node": {"uid": "ps.beta", "title": "Beta"}, "score": 0.5 / 61},
+    {
+        "node": {"uid": "ps.alpha", "title": "Alpha"},
+        "score": 1.0 / 61,
+        "matched_vector": True,
+        "matched_fulltext": True,
+    },
+    {
+        "node": {"uid": "ps.beta", "title": "Beta"},
+        "score": 0.5 / 61,
+        "matched_vector": False,
+        "matched_fulltext": True,
+    },
 ]
 
 
@@ -277,13 +287,50 @@ class TestResultMapping:
         assert items[0].entity_type is EntityType.KU
 
     @pytest.mark.anyio
-    async def test_match_reason_names_both_halves(self) -> None:
+    async def test_match_reason_reflects_which_half_matched(self) -> None:
         """RRF output carries no vector_score/semantic_boost — the vector rung's
-        reason builder would silently produce an empty string here."""
+        reason builder would silently produce an empty string here — and a fixed
+        string would claim semantic understanding for a Lucene-only hit."""
         items = await _run(_router(_vector_search()), _search_service(), EntityType.KU)
 
-        assert items[0].match_reason
-        assert "semantic" in items[0].match_reason.lower()
+        assert items[0].match_reason == "Keyword + semantic match"  # both halves
+        assert items[1].match_reason == "Keyword match"  # fulltext only
+
+    @pytest.mark.anyio
+    async def test_fulltext_only_results_do_not_claim_semantic_matching(self) -> None:
+        """The shipped LearningPath case: no vector index until the next FULL-tier
+        boot, so every LP hit is Lucene's alone."""
+        rows: list[dict[str, Any]] = [
+            {
+                "node": {"uid": "lp.a", "title": "A"},
+                "score": 0.5 / 61,
+                "matched_vector": False,
+                "matched_fulltext": True,
+            }
+        ]
+        items = await _run(
+            _router(_vector_search(Result.ok(rows))), _search_service(), EntityType.LEARNING_PATH
+        )
+
+        assert items[0].match_reason == "Keyword match"
+        assert "semantic" not in items[0].match_reason.lower()
+
+    @pytest.mark.anyio
+    async def test_vector_only_results_say_so(self) -> None:
+        """The mirror case: a term Lucene missed but the embedding caught."""
+        rows: list[dict[str, Any]] = [
+            {
+                "node": {"uid": "ku.a", "title": "A"},
+                "score": 0.5 / 61,
+                "matched_vector": True,
+                "matched_fulltext": False,
+            }
+        ]
+        items = await _run(
+            _router(_vector_search(Result.ok(rows))), _search_service(), EntityType.KU
+        )
+
+        assert items[0].match_reason == "Semantic match"
 
     @pytest.mark.anyio
     async def test_zero_scores_do_not_divide_by_zero(self) -> None:

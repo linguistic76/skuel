@@ -250,6 +250,67 @@ async def test_hybrid_search_handles_fulltext_failure(vector_search_service, moc
 
 
 @pytest.mark.asyncio
+async def test_results_report_which_half_matched(vector_search_service, mock_backend):
+    """Source membership must survive the RRF merge.
+
+    Without it the caller cannot tell a both-halves-agree hit from one Lucene
+    found alone, and any presentation of the match is guesswork (Codex,
+    PR #1074).
+    """
+    mock_backend.query_vector_index.return_value = Result.ok(
+        [
+            {"node": {"uid": "ku.both", "title": "Both"}, "score": 0.9},
+            {"node": {"uid": "ku.vector_only", "title": "Vector"}, "score": 0.8},
+        ]
+    )
+    mock_backend.query_fulltext_index.return_value = Result.ok(
+        [
+            {"node": {"uid": "ku.both", "title": "Both"}, "score": 5.0},
+            {"node": {"uid": "ku.text_only", "title": "Text"}, "score": 3.0},
+        ]
+    )
+
+    result = await vector_search_service.hybrid_search(
+        label="Entity", query_text="test", min_rrf_score=0.0
+    )
+
+    assert result.is_ok
+    by_uid = {r["node"]["uid"]: r for r in result.value}
+    assert (by_uid["ku.both"]["matched_vector"], by_uid["ku.both"]["matched_fulltext"]) == (
+        True,
+        True,
+    )
+    assert (
+        by_uid["ku.vector_only"]["matched_vector"],
+        by_uid["ku.vector_only"]["matched_fulltext"],
+    ) == (True, False)
+    assert (
+        by_uid["ku.text_only"]["matched_vector"],
+        by_uid["ku.text_only"]["matched_fulltext"],
+    ) == (False, True)
+
+
+@pytest.mark.asyncio
+async def test_fulltext_only_operation_is_reported_as_such(vector_search_service, mock_backend):
+    """Vector half unavailable (no index, no embeddings, provider down) — every
+    result must be flagged fulltext-only rather than silently look hybrid."""
+    mock_backend.query_vector_index.return_value = Result.fail(
+        Errors.database(operation="vector_search", message="index missing")
+    )
+    mock_backend.query_fulltext_index.return_value = Result.ok(
+        [{"node": {"uid": "lp.a", "title": "A"}, "score": 3.0}]
+    )
+
+    result = await vector_search_service.hybrid_search(
+        label="LearningPath", query_text="test", min_rrf_score=0.0
+    )
+
+    assert result.is_ok
+    assert result.value[0]["matched_vector"] is False
+    assert result.value[0]["matched_fulltext"] is True
+
+
+@pytest.mark.asyncio
 async def test_max_rrf_score_is_the_real_ceiling(vector_search_service, mock_backend):
     """`max_rrf_score` must equal what hybrid_search actually produces at best.
 
