@@ -4,9 +4,9 @@ This guide covers setting up SKUEL for local development.
 
 ## Prerequisites
 
-- Python 3.12+
+- Python 3.14 (pinned in `.python-version`)
 - uv (package manager)
-- Neo4j database running locally
+- A Neo4j database — local Docker for a from-scratch setup, or a hosted AuraDB Free instance (see the note below)
 - OpenAI API key (required at `INTELLIGENCE_TIER=full`)
 - Deepgram API key (optional — voice journal transcription)
 
@@ -23,6 +23,8 @@ SKUEL requires Neo4j as its primary database. All dependencies are REQUIRED — 
    NEO4J_USERNAME=neo4j
    ```
 3. Load `NEO4J_PASSWORD` into the active credential backend (the keychain by default — `SKUEL_CREDENTIAL_BACKEND=keyring` in `app/.env`). See `app/README.md` § "Configure Environment" for the three supported shapes and the `python -m core.config` entry point.
+
+> **Hosted alternative:** a Neo4j AuraDB Free instance works identically (`NEO4J_URI=neo4j+s://<dbid>.databases.neo4j.io`) — since 2026-08-15 the primary dev machine's daily graph is AuraDB, with local Docker kept as an opt-in sandbox. ⚠️ Aura usernames are the **instance ID**, not `neo4j` — copy `NEO4J_USERNAME` from the Aura credentials file. See `/docs/deployment/AURADB_MIGRATION_GUIDE.md` § 6.1.
 
 ### Development Users
 

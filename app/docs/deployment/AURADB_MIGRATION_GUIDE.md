@@ -1,6 +1,6 @@
 ---
 title: AuraDB Migration Guide
-updated: 2026-07-24
+updated: 2026-08-16
 category: deployment
 tags: [deployment, auradb, neo4j, migration]
 related_skills:
@@ -8,8 +8,9 @@ related_skills:
 ---
 # AuraDB Free Data Migration Guide
 
-**Last Updated:** 2026-07-24
+**Last Updated:** 2026-08-16
 **Migration Type:** Data move — local Docker Neo4j → Neo4j AuraDB Free
+**Status:** Executed 2026-08-15 (instance `skuel`, `d2d160c4`, US West) — kept as the re-run recipe. The app runs locally against Aura; public hosting (droplet) stays parked, and local Docker Neo4j is a stopped opt-in sandbox.
 **Estimated Time:** 1–2 hours
 
 ---
@@ -43,8 +44,8 @@ Caps verified 2026-07-24 against the Neo4j Aura FAQ — the 50k-node/175k-relati
 
 ## 2. Prerequisites
 
-- [ ] Aura account + a **Free** instance created at https://console.neo4j.io/ (pick the region closest to the droplet). Save the generated password immediately — it is shown once.
-- [ ] Local Neo4j running with current data (`cd infrastructure && docker compose up -d`).
+- [ ] Aura account + a **Free** instance created at https://console.neo4j.io/ (pick the region closest to where the app runs). **Download and keep the credentials file** — it is shown once, and on Free it is the only recovery path: AuraDB Free refuses ALL user-admin Cypher (`ALTER USER` / `CREATE USER` → `42NFF`), so the generic Aura lost-credentials recovery flow does not apply — lost credentials mean clone/recreate.
+- [ ] Local Neo4j running with current data — started through the compose project that owns the container (see § 4).
 - [ ] A quiet app — stop `main.py`/containers writing to the local graph before dumping.
 
 ---
@@ -71,8 +72,19 @@ uv run python scripts/export_entity_counts.py > before.json
 
 ## 4. Dump the local database
 
+⚠️ **Run stop/dump/start through the compose project that OWNS the running container** — `docker compose` manages only its own project's containers. Both `infrastructure/` and `app/` can own `skuel-neo4j` (the app compose `extends` the infrastructure definition); on the dev machine it is typically the **`app`** project. Aimed at the wrong project, `stop neo4j` is a silent no-op and the one-off dump container then fails against the still-running instance (2026-08-15 cutover finding). Check first:
+
 ```bash
-cd /home/mike/skuel/infrastructure
+docker inspect skuel-neo4j \
+  --format '{{ index .Config.Labels "com.docker.compose.project" }}'
+```
+
+```bash
+# The dump runs as container uid 7474, but the host dir behind the /backups
+# volume is owned by your user — open it for the dump, revert afterwards
+chmod o+w /home/mike/skuel/infrastructure/neo4j/backups
+
+cd /home/mike/skuel/app   # or infrastructure/ — whichever project the check named
 
 docker compose stop neo4j
 # --to-path is a DIRECTORY — the tool writes <database>.dump (here: neo4j.dump)
@@ -81,7 +93,11 @@ docker compose run --rm neo4j \
   neo4j-admin database dump neo4j --to-path=/backups --overwrite-destination=true
 docker compose start neo4j
 
-# /backups is volume-mapped to ./neo4j/backups on the host; stamp it with a date
+chmod o-w /home/mike/skuel/infrastructure/neo4j/backups
+
+# /backups is volume-mapped to infrastructure/neo4j/backups on the host;
+# stamp it with a date
+cd /home/mike/skuel/infrastructure
 mv neo4j/backups/neo4j.dump "neo4j/backups/aura_migration_$(date +%Y%m%d).dump"
 ls -lh neo4j/backups/
 ```
@@ -102,13 +118,15 @@ In the [Aura console](https://console.neo4j.io/): select the instance → **Impo
 
 ### 6.1 Point the environment at Aura
 
-Wherever the app runs (droplet: `/opt/skuel/app/.env.production` + `/opt/skuel/secrets.env`; local test: `.env`):
+Wherever the app runs (locally: `.env`; droplet, if/when unparked: `/opt/skuel/app/.env.production` + `/opt/skuel/secrets.env`):
 
 ```bash
 NEO4J_URI=neo4j+s://<dbid>.databases.neo4j.io
-NEO4J_USERNAME=neo4j
-# NEO4J_PASSWORD → secrets.env (droplet) / keychain (local)
+NEO4J_USERNAME=<dbid>
+# NEO4J_PASSWORD → keychain (local) / secrets.env (droplet)
 ```
+
+⚠️ **Aura database usernames are the INSTANCE ID, not `neo4j`** (burned an hour at the 2026-08-15 cutover). The credentials file downloaded at instance creation is authoritative — copy its `NEO4J_USERNAME=<dbid>` verbatim. Authenticating as `neo4j` returns `Unauthorized` even with the correct password, indistinguishable from a bad password.
 
 `neo4j+s://` is required in production — `SKUEL_ENVIRONMENT=production` boot-refuses plaintext schemes (`/core/config/validation.py`). TLS comes solely from the URI scheme; there is no separate encryption knob (the dead `NEO4J_ENCRYPTED` flag was deleted).
 
@@ -202,5 +220,5 @@ cd /home/mike/skuel/app && uv run python main.py             # restart — env i
 
 ---
 
-**Last Updated:** 2026-07-24
+**Last Updated:** 2026-08-16
 **Maintained By:** SKUEL Core Team

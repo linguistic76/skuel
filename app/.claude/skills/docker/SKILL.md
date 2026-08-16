@@ -6,7 +6,7 @@ allowed-tools: Read, Grep, Glob, Bash
 
 # Docker in SKUEL
 
-SKUEL uses Docker in two contexts: **local development** (Neo4j always; optionally the full stack) and the **production droplet** (app + Caddy containers talking to Neo4j AuraDB Free — no Neo4j container in production). Getting the file split wrong is the most common source of "it works locally but not in Docker" confusion.
+SKUEL uses Docker in two contexts: the **local Neo4j sandbox** (opt-in since the 2026-08-15 AuraDB cutover — the daily graph is AuraDB Free reached from the locally-run app, and the Docker Neo4j is stopped by default; optionally the full local stack) and the **production droplet** (app + Caddy containers talking to Neo4j AuraDB Free — no Neo4j container in production; public hosting currently parked). Getting the file split wrong is the most common source of "it works locally but not in Docker" confusion.
 
 ---
 
@@ -40,7 +40,7 @@ SKUEL uses Docker in two contexts: **local development** (Neo4j always; optional
 
 | File | What it runs | When to use it |
 |------|--------------|----------------|
-| `infrastructure/docker-compose.yml` | Neo4j only (canonical definition) | Local dev database. `./dev up-neo4j` starts it. |
+| `infrastructure/docker-compose.yml` | Neo4j only (canonical definition) | Local sandbox graph. `./dev up-neo4j` starts it. |
 | `app/docker-compose.yml` | Neo4j (via `extends`) + App. Prometheus + Grafana behind the `monitoring` profile; Firefly III + MariaDB behind `finance` (ADR-052). | Full local Docker stack. |
 | `app/docker-compose.production.yml` | `skuel-app` + `caddy` — nothing else. Neo4j is AuraDB, reached over `neo4j+s://`. | The droplet. Also local rehearsal with `SKUEL_DOMAIN=localhost`. |
 
@@ -59,12 +59,16 @@ Firefly requires `FIREFLY_APP_KEY` in `.env` with the `base64:` prefix — gener
 
 ## Correct Startup Sequences
 
-**Recommended local workflow (fastest iteration):**
+**Daily workflow (since the 2026-08-15 cutover):** `./dev serve` alone — `.env` points at AuraDB Free (`neo4j+s://…`), no local container involved.
+
+**Sandbox workflow (local Docker Neo4j, opt-in):**
 
 ```bash
 ./dev up-neo4j        # Start Neo4j only (Docker, detached)
 ./dev serve           # Run the app locally (uv run python main.py)
 ```
+
+⚠️ A running `skuel-neo4j` container is managed by the compose project that created it (`app` or `infrastructure`) — `docker compose stop/start neo4j` from the other directory is a silent no-op. Check with `docker inspect skuel-neo4j --format '{{ index .Config.Labels "com.docker.compose.project" }}'`.
 
 **Full local Docker stack:**
 
