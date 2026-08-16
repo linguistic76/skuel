@@ -36,7 +36,6 @@ from core.models.event.event_request import EventCreateRequest
 from core.models.event.event_update_intent import EventUpdateIntent
 from core.models.sentinels import UNSET, Unset
 from core.models.type_hints import EntityUID, UserUID
-from core.ports import get_enum_attr_str
 from core.services.activity_domain_config import CommonSubServices, create_common_sub_services
 from core.services.base_service import BaseService
 from core.services.cross_domain.cross_domain_query_service import CrossDomainQueryService
@@ -72,6 +71,7 @@ from core.utils.list_helpers import (
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 from core.utils.sort_functions import get_created_at_attr, get_title_lower
+from core.utils.type_converters import get_enum_attr_str
 
 if TYPE_CHECKING:
     from core.ports.domain_protocols import EventsOperations

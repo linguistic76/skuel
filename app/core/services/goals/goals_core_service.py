@@ -41,7 +41,6 @@ from core.models.enums.neo_labels import NeoLabel
 from core.models.goal.goal import Goal
 from core.models.goal.goal_dto import GoalDTO
 from core.models.goal.goal_update_intent import GoalUpdateIntent
-from core.ports import get_enum_value
 from core.ports.domain_protocols import GoalsOperations
 from core.ports.query_types import GoalStats
 from core.services.base_service import BaseService
@@ -55,6 +54,7 @@ from core.services.mixins.link_edge_guard import (
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+from core.utils.type_converters import get_enum_value
 from core.utils.uid_generator import UIDGenerator
 
 # Weight the entity door stamps on HAS_SUBGOAL. progress_weight is an EDGE property that

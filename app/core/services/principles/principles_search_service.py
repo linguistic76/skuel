@@ -239,7 +239,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
         Returns:
             Result containing list of Principles
         """
-        from core.ports import get_enum_value
+        from core.utils.type_converters import get_enum_value
 
         category_value = get_enum_value(category) if not isinstance(category, str) else category
         result = await self.backend.find_by(category=category_value, limit=limit)

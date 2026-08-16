@@ -171,7 +171,7 @@ if hasattr(user, 'preferences'):
     prefs = user.preferences
 
 # ✅ CORRECT - Explicit type checks
-from core.ports import get_enum_value
+from core.utils.type_converters import get_enum_value
 value = get_enum_value(obj)  # Helper for enum extraction
 
 if user.preferences is not None:

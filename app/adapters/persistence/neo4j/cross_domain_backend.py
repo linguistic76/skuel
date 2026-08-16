@@ -867,7 +867,7 @@ class CrossDomainBackend:
         attributed node list the service-layer transformer de-dups into a ``GraphContext``.
         See: /docs/roadmap/intent-traversal-registry-convergence.md
         """
-        from core.ports import get_enum_value
+        from core.utils.type_converters import get_enum_value
 
         registry_sourced = bool(relationship_types)
         edge_set = relationship_types or _INTENT_EDGE_SETS.get(get_enum_value(intent), [])

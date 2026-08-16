@@ -26,7 +26,6 @@ from core.models.habit.habit_request import HabitCreateRequest
 from core.models.habit.habit_update_intent import HabitUpdateIntent
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
-from core.ports import get_enum_value
 from core.ports.domain_protocols import HabitsOperations
 from core.ports.query_types import HabitStats
 from core.services.base_service import BaseService
@@ -39,6 +38,7 @@ from core.services.mixins.link_edge_guard import (
 )
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
+from core.utils.type_converters import get_enum_value
 from core.utils.uid_generator import UIDGenerator
 
 

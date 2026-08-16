@@ -32,6 +32,7 @@ related: [ADR-025, ADR-027]
 | Category | Location | Purpose |
 |----------|----------|---------|
 | **Base Protocols** | `/core/ports/base_protocols.py` | Core types, backend operations |
+| **Conversion Protocols + Helpers** | `/core/utils/type_converters.py` | Duck-typed conversion (EnumLike, PydanticModel, HasDict, HasToDict, Serializable + to_dict/get_enum_value/get_enum_attr_str/normalize_enum_str) — import leaf, safe from anywhere |
 | **Domain Protocols** | `/core/ports/domain_protocols.py` | Domain service operations |
 | **Curriculum Protocols** | `/core/ports/curriculum_protocols.py` | KU, PS, LP, MOC operations |
 | **Askesis Protocols** | `/core/ports/askesis_protocols.py` | Cross-cutting intelligence + CRUD |
@@ -54,7 +55,7 @@ related: [ADR-025, ADR-027]
 **Purpose:** Objects with a `.value` attribute (Enum members)
 
 ```python
-from core.ports import EnumLike
+from core.utils.type_converters import EnumLike
 
 @runtime_checkable
 class EnumLike[V = str | int | float](Protocol):
@@ -77,7 +78,7 @@ if isinstance(priority, EnumLike):
 
 **Helper Function:**
 ```python
-from core.ports import get_enum_value
+from core.utils.type_converters import get_enum_value
 
 # Handles both enums and plain values
 value = get_enum_value(priority)  # Works for Priority.HIGH or "high"
@@ -113,9 +114,10 @@ class HasToDict(Protocol):
 
 **Helper Function:**
 ```python
-from core.ports import to_dict
+from core.utils.type_converters import to_dict
 
-# Universal conversion - tries model_dump(), dict(), to_dict(), serialize()
+# Universal conversion - tries model_dump(), dict(), to_dict(), serialize(),
+# then dataclasses.asdict() for plain (frozen) dataclasses
 data = to_dict(any_object)
 ```
 
@@ -129,7 +131,7 @@ data = to_dict(any_object)
 ```python
 @runtime_checkable
 class PydanticModel(Protocol):
-    def model_dump(self, **kwargs) -> dict[str, Any]: ...
+    def model_dump(self, *, exclude_none: bool = False) -> dict[str, Any]: ...
 ```
 
 ---
@@ -637,7 +639,7 @@ task_priority = Priority.HIGH
 priority_str = task_priority.value if hasattr(task_priority, 'value') else "medium"
 
 # RIGHT - using get_enum_value()
-from core.ports import get_enum_value
+from core.utils.type_converters import get_enum_value
 
 priority_str = get_enum_value(task_priority)  # "high"
 ```

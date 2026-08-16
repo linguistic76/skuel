@@ -34,12 +34,13 @@ from core.models.pathways.learning_path import LearningPath
 from core.models.pathways.learning_path_dto import LearningPathDTO
 from core.models.pathways.path_step import PathStep
 from core.models.type_hints import EntityUID, UserUID
-from core.ports import HasUID, get_enum_value
+from core.ports import HasUID
 from core.services.base_service import BaseService
 from core.services.domain_config import create_curriculum_domain_config
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+from core.utils.type_converters import get_enum_value
 
 if TYPE_CHECKING:
     from core.ports import LpOperations

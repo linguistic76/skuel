@@ -2,15 +2,17 @@
 Type Converter Utilities
 ========================
 
-Protocol-based type conversion utilities for duck-typed objects.
+THE canonical home of SKUEL's duck-typed conversion layer: five
+`@runtime_checkable` protocols describing the shapes objects convert
+through, and the helpers that perform the conversions.
 
-These functions use Protocol-based type checking (isinstance with @runtime_checkable)
-instead of hasattr() to provide type-safe duck typing.
-
-Why these live here (not in protocols):
-- Protocols define contracts (what an object CAN do)
-- These utilities implement behavior (HOW to convert objects)
-- Separation of concerns: protocols/*.py for contracts, utils/ for implementations
+This module MUST import only the standard library. That constraint is
+load-bearing: it makes the module a true import leaf, so any module —
+including `core/ports` and `core/models` — can import from it without
+ever creating an import cycle. (The previous arrangement duplicated the
+protocols and helpers between here and `core.ports.base_protocols` to
+dodge a cycle, and the copies drifted. The leaf property is what makes
+the single copy possible; do not add first-party imports here.)
 
 Usage:
     from core.utils.type_converters import to_dict, get_enum_value
@@ -20,70 +22,80 @@ Usage:
 
     # Extract enum value safely
     value = get_enum_value(some_enum_or_value)
-
-Note:
-    These functions are also available from core.ports for
-    backward compatibility with existing code. Both locations use the
-    same implementation.
-
-Architecture Note:
-    The protocols (EnumLike, PydanticModel, etc.) are defined in
-    core.ports.base_protocols. This module imports them
-    to provide protocol-based type checking without hasattr().
 """
 
 import dataclasses
 import math
-from typing import Any, Protocol, runtime_checkable
-
-# ============================================================================
-# Local Protocol Definitions (to avoid circular imports)
-# ============================================================================
-# These mirror the protocols in base_protocols.py but are defined here
-# to avoid circular import issues. The behavior is identical.
+from typing import Any, Protocol, overload, runtime_checkable
 
 
 @runtime_checkable
-class _PydanticModel(Protocol):
+class PydanticModel(Protocol):
     """Protocol for Pydantic models with model_dump method."""
 
-    def model_dump(self, **kwargs: Any) -> dict[str, Any]: ...
+    def model_dump(self, *, exclude_none: bool = False) -> dict[str, Any]:
+        """Dump model to dictionary.
+
+        ``exclude_none`` is the whole keyword surface the two consumers use
+        (``ConversionServiceV2.create_to_pure`` passes it; ``to_dict`` below
+        calls it bare). A real ``pydantic.BaseModel`` still satisfies this —
+        its extra keywords all have defaults.
+        """
+        ...
 
 
 @runtime_checkable
-class _HasDict(Protocol):
+class HasDict(Protocol):
     """Protocol for objects that can be converted to dict."""
 
-    def dict(self) -> dict[str, Any]: ...
+    def dict(self) -> dict[str, Any]:
+        """Convert to dictionary."""
+        ...
 
 
 @runtime_checkable
-class _HasToDict(Protocol):
+class HasToDict(Protocol):
     """Protocol for objects with to_dict method."""
 
-    def to_dict(self) -> dict[str, Any]: ...
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary."""
+        ...
 
 
 @runtime_checkable
-class _Serializable(Protocol):
+class Serializable(Protocol):
     """Protocol for objects that can be serialized to dict."""
 
-    def serialize(self) -> dict[str, Any]: ...
+    def serialize(self) -> dict[str, Any]:
+        """Serialize to dictionary."""
+        ...
 
 
 @runtime_checkable
-class _EnumLike(Protocol):
-    """Protocol for enum-like objects with a value attribute."""
+class EnumLike[V = str | int | float](Protocol):
+    """Protocol for enum-like objects with a value attribute.
 
-    value: Any
+    ``value`` is a read-only property, not a mutable attribute: ``Enum.value``
+    is a descriptor, so a settable-attribute protocol does not match an enum
+    statically (it only ever matched at runtime, where ``runtime_checkable``
+    just tests for the name). Parameterising it is what lets
+    ``get_enum_value`` hand the member's value type back to its caller; the
+    ``str | int | float`` default keeps bare ``EnumLike`` narrowing as before.
+    """
+
+    @property
+    def value(self) -> V: ...
 
 
-def to_dict(obj: Any) -> Any:
+def to_dict(obj: object) -> object:
     """
     Universal converter to dictionary format.
 
-    Uses Protocol-based type checking instead of hasattr() to determine
-    the appropriate conversion method.
+    Every branch is an isinstance narrow, so ``object`` accepts exactly what
+    ``Any`` did while forbidding unchecked attribute access inside. The return
+    is ``object`` because the arms genuinely differ — ``dict[str, Any]`` from
+    the four protocol branches and the dataclass branch, a list from the
+    sequence branch, and the input untouched otherwise.
 
     Conversion priority:
     1. PydanticModel.model_dump() - Pydantic v2 models
@@ -93,7 +105,11 @@ def to_dict(obj: Any) -> Any:
     5. dataclass - Use dataclasses.asdict() for frozen dataclasses
     6. dict - Pass through unchanged
     7. list/tuple - Recursively convert elements
-    8. Any - Return as-is (primitives, etc.)
+    8. Anything else - Return as-is (primitives, etc.)
+
+    A dataclass that also defines ``to_dict()`` takes the HasToDict branch:
+    the protocol branches outrank the structural dataclass check so a type's
+    own conversion method always wins over field-dump reflection.
 
     Args:
         obj: Object to convert to dictionary format
@@ -114,14 +130,13 @@ def to_dict(obj: Any) -> Any:
         >>> to_dict({"key": "value"})
         {'key': 'value'}
     """
-    # Check protocols in order of preference (Protocol-based, no hasattr)
-    if isinstance(obj, _PydanticModel):
+    if isinstance(obj, PydanticModel):
         return obj.model_dump()
-    elif isinstance(obj, _HasDict):
+    elif isinstance(obj, HasDict):
         return obj.dict()
-    elif isinstance(obj, _HasToDict):
+    elif isinstance(obj, HasToDict):
         return obj.to_dict()
-    elif isinstance(obj, _Serializable):
+    elif isinstance(obj, Serializable):
         return obj.serialize()
     elif dataclasses.is_dataclass(obj) and not isinstance(obj, type):
         # Handle frozen dataclasses (SKUEL domain models)
@@ -135,12 +150,18 @@ def to_dict(obj: Any) -> Any:
         return obj
 
 
-def get_enum_value(obj: Any) -> Any:
+@overload
+def get_enum_value[V](obj: EnumLike[V]) -> V: ...
+@overload
+def get_enum_value[T](obj: T) -> T: ...
+def get_enum_value(obj: object) -> object:
     """
     Extract the value from an enum-like object.
 
-    Uses Protocol-based type checking to safely extract .value from
-    enum-like objects without using hasattr().
+    Two overloads rather than one signature: callers that pass an enum need
+    the member's value type back (``GoalCreated.domain: str | None`` and
+    ``GraphContext.query_intent: str`` are both fed from here), and callers
+    that pass a plain value need it returned unchanged.
 
     Args:
         obj: Object to extract value from (enum or plain value)
@@ -165,13 +186,12 @@ def get_enum_value(obj: Any) -> Any:
         This is useful when you need to serialize enums or when working
         with APIs that expect primitive values instead of enum objects.
     """
-    # Protocol-based checking - no hasattr needed
-    if isinstance(obj, _EnumLike):
+    if isinstance(obj, EnumLike):
         return obj.value
     return obj
 
 
-def normalize_enum_str(value: Any, default: str = "") -> str:
+def normalize_enum_str(value: object, default: str = "") -> str:
     """Normalize an enum or string value to a clean lowercase string.
 
     Replaces the duplicated ``str(val).lower().replace("enumprefix.", "")``
@@ -199,7 +219,7 @@ def normalize_enum_str(value: Any, default: str = "") -> str:
     """
     if value is None:
         return default
-    if isinstance(value, _EnumLike):
+    if isinstance(value, EnumLike):
         return str(value.value).lower()
     return str(value).lower()
 
@@ -251,7 +271,7 @@ def finite_float(
     return narrowed if math.isfinite(narrowed) else None
 
 
-def get_enum_attr_str(obj: Any, attr: str, default: str = "") -> str:
+def get_enum_attr_str(obj: object, attr: str, default: str = "") -> str:
     """Extract an attribute as a lowercase string, handling both enum and string values.
 
     Combines getattr + enum extraction + lowercase normalization into one call.
@@ -283,12 +303,17 @@ def get_enum_attr_str(obj: Any, attr: str, default: str = "") -> str:
     value = getattr(obj, attr, None)
     if value is None:
         return default
-    if isinstance(value, _EnumLike):
+    if isinstance(value, EnumLike):
         return str(value.value).lower()
     return str(value).lower()
 
 
 __all__ = [
+    "EnumLike",
+    "HasDict",
+    "HasToDict",
+    "PydanticModel",
+    "Serializable",
     "finite_float",
     "get_enum_attr_str",
     "get_enum_value",

@@ -71,7 +71,6 @@ from core.models.habit.habit import Habit
 from core.models.habit.habit_request import TrackHabitRequest
 from core.models.task.task import Task
 from core.models.task.task_update_intent import TaskUpdateIntent
-from core.ports import get_enum_value
 
 # Import protocol interfaces for dependency injection
 from core.ports.domain_protocols import (
@@ -88,6 +87,7 @@ from core.utils.neo4j_temporal import (
     convert_neo4j_time,
 )
 from core.utils.result_simplified import Errors, Result
+from core.utils.type_converters import get_enum_value
 
 logger = get_logger("skuel.services.calendar")
 

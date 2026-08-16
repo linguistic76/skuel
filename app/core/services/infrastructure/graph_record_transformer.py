@@ -22,7 +22,7 @@ from core.models.graph_context import (
     GraphRelationship,
     RelationshipStrength,
 )
-from core.ports import get_enum_value
+from core.utils.type_converters import get_enum_value
 
 
 def determine_domain(node_dict: dict[str, Any], labels: list[str]) -> Domain:

@@ -36,7 +36,6 @@ from core.events.curriculum_events import (
 from core.models.pathways.path_step import PathStep
 from core.models.pathways.path_step_dto import PathStepDTO
 from core.models.type_hints import UserUID
-from core.ports import get_enum_value
 from core.ports.query_types import PsKnowledgeSummaryResult
 from core.services.base_service import BaseService
 from core.services.domain_config import create_curriculum_domain_config
@@ -44,6 +43,7 @@ from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.metrics import track_query_metrics
 from core.utils.result_simplified import Errors, Result
+from core.utils.type_converters import get_enum_value
 
 if TYPE_CHECKING:
     from core.ports.curriculum_protocols import PsOperations

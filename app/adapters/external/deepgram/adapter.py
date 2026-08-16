@@ -39,7 +39,7 @@ from core.utils.exception_types import DEEPGRAM_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.retry import async_retry
-from core.utils.type_converters import _HasToDict
+from core.utils.type_converters import HasToDict
 
 if TYPE_CHECKING:
     from core.config.deepgram_config import DeepgramConfig
@@ -237,7 +237,7 @@ class DeepgramAdapter:
                     confidence_score=confidence_score,
                     duration_seconds=duration_seconds,
                     word_count=word_count,
-                    raw_response=response.to_dict() if isinstance(response, _HasToDict) else None,
+                    raw_response=response.to_dict() if isinstance(response, HasToDict) else None,
                 )
             )
 

@@ -22,7 +22,7 @@ from enum import Enum
 from typing import Any
 
 from core.models.enums.entity_enums import EntityStatus
-from core.ports import EnumLike
+from core.utils.type_converters import EnumLike
 
 
 def parse_datetime_field(data: dict, field_name: str) -> None:

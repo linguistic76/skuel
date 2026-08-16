@@ -19,11 +19,11 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
 
-from core.ports.base_protocols import EnumLike
 from core.ports.llm_protocols import ChatMessage
 from core.prompts import PROMPT_REGISTRY
 from core.services.chat import resolve_chat_model
 from core.services.llm_caller import LLMCallerProtocol
+from core.utils.type_converters import EnumLike
 
 logger = logging.getLogger(__name__)
 
