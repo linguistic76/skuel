@@ -127,6 +127,12 @@ This is intentional for a solo project (no second person exists to unblock you),
 
 All work goes through a branch + PR — no exceptions except a genuine production emergency. Direct pushes to `main` skip every gate (CI, Codex, Kody) and leave no review audit trail. The `enforce_admins=false` setting makes direct pushes technically possible for the admin, but they are not part of the normal workflow.
 
+### The decommission check (consumer-death rule)
+
+When a PR **deletes or reroutes a consumer** — removes a service, swaps a call site to a new mechanism, deletes an adapter — name in the PR description what upstream machinery just lost its **last invoker**. What happens to that machinery follows the existing staged-vs-abandoned line (CLAUDE.md § One Path Forward): if it is genuinely staged work with a concrete integration intent, register it deliberately (a `PLANNED_*` tier in `scripts/detect_bloat.py`, or a debt-register row with a trigger); otherwise **delete it in the same PR** — a PLANNED entry is a completion backlog, not an escape hatch for abandoned paths. Silence is the failure mode: the orphan stays wired and later reads as alive.
+
+Corollary for liveness audits: **construction is not liveness.** A class built in the composition root, injected on every boot, and annotated "REQUIRED" can still have zero production invocations — audit *invocation reachability from production entry points* (routes, background workers, event subscriptions, one-shot `./dev` scripts), never construction alone. Both failure modes shipped together in the `query_builders/` stack: it lost its last invoker as a side effect of feature PRs (2026-02-09, 2026-05-12) with no decommission step, and a deliberate audit then certified the corpse as live because it was constructed at boot (#58/#66; corrected 2026-08-16). No gate can catch this mechanically — invocation reachability is flow analysis, which SKUEL's linters deliberately refuse — so, like the rest of this section, it is self-discipline.
+
 ### Closing orphaned PRs after a cherry-pick
 
 When commits are cherry-picked to `main` directly (e.g. because the branch diverged after a prior session landed commits on `main`), the PR remains open on GitHub with `mergedAt: null` — a confusing audit trail. After cherry-picking, **close the PR with a note** citing the SHAs that landed:
