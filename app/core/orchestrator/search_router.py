@@ -91,6 +91,7 @@ if TYPE_CHECKING:
     )
     from core.ports.query_types import (
         CapacityWarnings,
+        HybridSearchHit,
         NousSubtopicPair,
         SemanticSearchChunkResult,
         TagFrequency,
@@ -2112,14 +2113,24 @@ class SearchRouter:
             for vec_result in result.value:
                 node = vec_result["node"]
                 score = min(vec_result["score"] / max_rrf, 1.0) if max_rrf > 0 else 0.0
+                # A Neo4j property map is heterogeneous (str/int/float/list/date/
+                # None), so narrow before handing values to the typed result —
+                # a non-string uid must degrade to "" rather than reach the API
+                # as some other type. These narrowings only became visible once
+                # the hit shape stopped being `Any` (Codex P1, PR #1074).
+                uid = node.get("uid")
+                title = node.get("title")
+                priority = node.get("priority_score")
                 items.append(
                     SearchResultItem(
                         entity=node,  # The node dict
                         entity_type=entity_type,
-                        uid=node.get("uid", ""),
-                        title=node.get("title", ""),
+                        uid=uid if isinstance(uid, str) else "",
+                        title=title if isinstance(title, str) else "",
                         relevance_score=score,
-                        priority_score=node.get("priority_score", 0.0),
+                        priority_score=float(priority)
+                        if isinstance(priority, int | float)
+                        else 0.0,
                         # Derived per result, not a constant: hybrid runs
                         # fulltext-only whenever the vector half is empty (no
                         # index yet, embeddings not backfilled, provider down),
@@ -2139,7 +2150,7 @@ class SearchRouter:
             self.logger.error(f"Hybrid search failed for {entity_type.value} (unexpected): {e}")
             return []  # Fall through to CONTAINS
 
-    def _hybrid_match_reason(self, vec_result: dict[str, Any]) -> str:
+    def _hybrid_match_reason(self, vec_result: "HybridSearchHit") -> str:
         """
         Describe which half of hybrid search actually produced this hit.
 

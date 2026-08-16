@@ -267,6 +267,47 @@ class TestResultMapping:
         assert weak_items[0].relevance_score < strong_items[0].relevance_score
 
     @pytest.mark.anyio
+    async def test_odd_neo4j_property_types_degrade_rather_than_leak(self) -> None:
+        """A Neo4j property map is heterogeneous — str/int/float/list/date/None.
+
+        Typing the hit shape (Codex P1) exposed that uid/title/priority_score
+        were being passed through unnarrowed. A non-string uid must become ""
+        rather than reach the API as some other type.
+        """
+        rows: list[dict[str, Any]] = [
+            {
+                "node": {"uid": 12345, "title": ["a", "list"], "priority_score": "high"},
+                "score": 0.5 / 61,
+                "matched_vector": True,
+                "matched_fulltext": True,
+            }
+        ]
+        items = await _run(
+            _router(_vector_search(Result.ok(rows))), _search_service(), EntityType.KU
+        )
+
+        assert items[0].uid == ""
+        assert items[0].title == ""
+        assert items[0].priority_score == 0.0
+
+    @pytest.mark.anyio
+    async def test_integer_priority_score_is_coerced_not_dropped(self) -> None:
+        """Neo4j returns whole numbers as int; that IS a usable priority."""
+        rows: list[dict[str, Any]] = [
+            {
+                "node": {"uid": "ku.a", "title": "A", "priority_score": 3},
+                "score": 0.5 / 61,
+                "matched_vector": True,
+                "matched_fulltext": True,
+            }
+        ]
+        items = await _run(
+            _router(_vector_search(Result.ok(rows))), _search_service(), EntityType.KU
+        )
+
+        assert items[0].priority_score == 3.0
+
+    @pytest.mark.anyio
     async def test_scores_are_clamped_to_one(self) -> None:
         """A score above the theoretical ceiling would be a bug upstream, but
         must not leak a >1 relevance into cross-domain comparison."""

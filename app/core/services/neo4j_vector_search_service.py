@@ -18,6 +18,7 @@ See: /docs/architecture/NEO4J_GENAI_ARCHITECTURE.md
 """
 
 import time
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from operator import itemgetter
 from typing import TYPE_CHECKING, Any
@@ -26,7 +27,7 @@ from core.config.unified_config import VectorSearchConfig
 from core.models.enums.neo_labels import NeoLabel
 from core.models.semantic import SearchMetrics
 from core.models.type_hints import EntityUID, FilterParams, UserUID
-from core.ports.query_types import SemanticSearchChunkResult
+from core.ports.query_types import HybridSearchHit, SemanticSearchChunkResult
 
 if TYPE_CHECKING:
     from core.ports.vector_search_protocols import VectorSearchBackendOperations
@@ -193,7 +194,7 @@ class Neo4jVectorSearchService:
         limit: int | None = None,
         min_rrf_score: float | None = None,
         query_embedding: list[float] | None = None,
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[HybridSearchHit]]:
         """
         Hybrid search combining vector similarity and full-text search.
 
@@ -299,7 +300,7 @@ class Neo4jVectorSearchService:
                 node_data[uid] = item["node"]
 
         # Step 4: Sort by RRF score and filter by min_rrf_score
-        merged = [
+        merged: list[HybridSearchHit] = [
             {
                 "node": node_data[uid],
                 "score": score,
@@ -310,7 +311,7 @@ class Neo4jVectorSearchService:
             if score >= min_rrf_score
         ]
 
-        def by_score(item: dict[str, Any]) -> float:
+        def by_score(item: HybridSearchHit) -> float:
             """Extract score for sorting."""
             return item["score"]
 
@@ -973,7 +974,7 @@ class Neo4jVectorSearchService:
         limit: int | None = None,
         min_rrf_score: float | None = None,
         query_embedding: list[float] | None = None,
-    ) -> tuple[Result[list[dict[str, Any]]], SearchMetrics | None]:
+    ) -> tuple[Result[list[HybridSearchHit]], SearchMetrics | None]:
         """
         Hybrid search with metrics tracking.
 
@@ -1015,7 +1016,9 @@ class Neo4jVectorSearchService:
         query: str,
         search_type: str,
         label: str,
-        results: list[dict[str, Any]],
+        # Sequence[Mapping] rather than list[dict]: it only reads "score", and
+        # both plain vector hits and TypedDict hybrid hits are passed in.
+        results: Sequence[Mapping[str, Any]],
         latency_ms: float,
         vector_weight: float | None = None,
         min_score_threshold: float | None = None,
