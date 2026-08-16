@@ -65,6 +65,8 @@ from adapters.persistence.neo4j.backends.curriculum_backends import (
 )
 from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
+from adapters.persistence.neo4j.neo4j_schema_manager import Neo4jSchemaManager
+from adapters.persistence.neo4j.vector_search_backend import VectorSearchBackend
 from core.models.enums import EntityType, PublicationState
 from core.models.enums.metadata_enums import SearchVisibility
 from core.models.enums.neo_labels import NeoLabel
@@ -341,7 +343,16 @@ def neutralised_gates() -> Iterator[None]:
 
 @pytest_asyncio.fixture(loop_scope="session")
 async def gate_graph(neo4j_driver: AsyncDriver) -> AsyncGenerator[AsyncDriver]:
-    """Seed the fixture corpus; tear it down whatever the test does."""
+    """Seed the fixture corpus; tear it down whatever the test does.
+
+    Fulltext indexes are synced through the real schema manager — the same call
+    the composition root makes at boot — because ``query_fulltext_index`` is
+    measured here and ``db.index.fulltext.queryNodes`` errors on a name that
+    does not resolve. Indexes are idempotent and survive the node teardown.
+    """
+    sync_result = await Neo4jSchemaManager(neo4j_driver).sync_fulltext_indexes()
+    assert sync_result.is_ok, f"fulltext index sync failed: {sync_result}"
+
     async with neo4j_driver.session() as session:
         await session.run(
             "MATCH (n) WHERE n.uid STARTS WITH 'lp.gate-' OR n.uid STARTS WITH 'ps.gate-' "
@@ -349,6 +360,9 @@ async def gate_graph(neo4j_driver: AsyncDriver) -> AsyncGenerator[AsyncDriver]:
             {"user": USER, "goal": GOAL},
         )
         await session.run(SEED, SEED_PARAMS)
+        # Fulltext indexes are eventually consistent: without this the seeded
+        # rows may not be searchable yet and the surface reads clean vacuously.
+        await session.run("CALL db.awaitIndexes(120)")
     yield neo4j_driver
     async with neo4j_driver.session() as session:
         await session.run(
@@ -439,6 +453,7 @@ def build_surfaces(driver: AsyncDriver) -> dict[tuple[str, str], SurfaceCall]:
     ps = PsBackend(driver, NeoLabel.PATH_STEP, PathStep, base_label=NeoLabel.ENTITY)
     lp = LpBackend(driver, NeoLabel.LEARNING_PATH, LearningPath, base_label=NeoLabel.ENTITY)
     xd = CrossDomainBackend(Neo4jQueryExecutor(driver))
+    vs = VectorSearchBackend(Neo4jQueryExecutor(driver))
     hub_params = {"min_confidence": 0.0, "min_connections": 0, "limit": LIMIT}
 
     return {
@@ -532,6 +547,14 @@ def build_surfaces(driver: AsyncDriver) -> dict[tuple[str, str], SurfaceCall]:
             "adapters.persistence.neo4j.cross_domain_backend",
             "CrossDomainBackend.find_similar_knowledge",
         ): partial(xd.find_similar_knowledge, KU_SHARED, 0.0, LIMIT),
+        # The fulltext half of hybrid search. Unlike its vector twin (UNMEASURABLE
+        # — needs an embedding this container has no model for), Lucene ranks the
+        # seeded titles directly: "ku" matches Shared KU, Draft KU and Far draft KU,
+        # so the withheld pair is a real, measurable delta.
+        (
+            "adapters.persistence.neo4j.vector_search_backend",
+            "VectorSearchBackend.query_fulltext_index",
+        ): partial(vs.query_fulltext_index, NeoLabel.fulltext_index_name(NeoLabel.KU), "ku", LIMIT),
     }
 
 
@@ -690,6 +713,10 @@ _COVERED_KEYS = (
     (
         "adapters.persistence.neo4j.cross_domain_backend",
         "CrossDomainBackend.find_similar_knowledge",
+    ),
+    (
+        "adapters.persistence.neo4j.vector_search_backend",
+        "VectorSearchBackend.query_fulltext_index",
     ),
 )
 

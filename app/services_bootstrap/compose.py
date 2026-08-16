@@ -213,6 +213,7 @@ async def compose_services(
                 "ReferenceChunk",  # Canon reference-book chunks (own index, SearchRouter-invisible)
                 "Ku",  # Ku→Ku similarity — "Related concepts" on /explore/ku/{uid}
                 "PathStep",  # PS→PS similarity — "Related concepts" on /explore/ps/{uid}
+                "LearningPath",  # Hybrid rung's vector half (SearchRouter)
             ]
             vector_result = await schema_manager.sync_vector_indexes(
                 entity_labels=vector_labels,
@@ -247,7 +248,9 @@ async def compose_services(
         logger.info(f"✅ Domain indexes synced: {len(domain_summary['created'])} created/verified")
 
         # Sync full-text indexes (Cypher-first search foundation — always created).
-        # Missing fulltext indexes break SearchRouter for that domain.
+        # They back the SearchRouter hybrid rung's fulltext half for curriculum
+        # domains (and the D1(b) domain-level follow-on); a missing index
+        # degrades that domain's hybrid search to vector-only.
         fulltext_result = await schema_manager.sync_fulltext_indexes()
         fulltext_summary = _check_schema_sync(fulltext_result, "fulltext indexes")
         logger.info(

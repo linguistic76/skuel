@@ -566,6 +566,102 @@ learning_state_boost_not_started: float = 0.15   # +15%
 
 ---
 
+## Hybrid Fulltext + Vector Rung (curriculum text search, August 2026)
+
+**What it is:** the text rung of `_execute_advanced_search`'s Strategy 3. Before it
+runs the domain's `CONTAINS` search, an eligible domain gets
+`Neo4jVectorSearchService.hybrid_search_with_metrics` — Lucene fulltext RRF-merged
+with vector similarity. This is the first production reader of the 14
+`*_fulltext_idx` indexes, which were synced every boot with no consumer until now
+(rulings D1(c)/D2(i), 2026-08-16).
+
+**Which surface it serves — read this before assuming:** `_execute_advanced_search`
+is reached only from `SearchRouter.advanced_search()`, i.e. the **`/api/search/unified`
+JSON endpoint**. The **`/search` HTML page runs `faceted_search`**, a different path
+that still uses `CONTAINS`. So the rung is live in production, but the browser search
+page is not yet one of its callers — extending it there is part of the D1(b)
+follow-on.
+
+**Why it matters:** the `CONTAINS` path is case-SENSITIVE, so "photosynthesis" misses
+a title reading "Photosynthesis". Lucene matches it and ranks by relevance.
+
+**Eligibility — all four, belt and braces:**
+
+| Condition | Why |
+|-----------|-----|
+| `entity_type` in `{ku, path_step, learning_path}` | The explicit curriculum allowlist |
+| `search_visibility is PUBLIC` (live read) | `hybrid_search` is **label-wide** — it composes no `user_uid`, so an OWNER_ONLY domain reaching it would return every user's nodes |
+| `self._vector_search is not None` | FULL tier only — the vector half needs embeddings (D3) |
+| non-empty `query_text` | Nothing to rank |
+
+Both visibility halves are deliberate redundancy: the allowlist alone would not notice
+a domain's `SearchVisibility` changing, and the live read alone would admit any PUBLIC
+domain the arc never reviewed. **Exercise is deliberately excluded** — its
+`SCOPE_AWARE` visibility needs `user_uid` threading, deferred to the D1(b) follow-on
+in `docs/roadmap/deferred-work.md`.
+
+**Publication gating:** `VectorSearchBackend.query_fulltext_index` composes
+`build_publication_clause` exactly as its vector twin does — hybrid search reads both
+doors, and an ungated fulltext half would resurface drafts the vector half withholds
+(the Codex #1006 class). Registered in `scripts/publication_gate_registry.py` and
+measured in both directions by `test_publication_gate_output_invariant.py`.
+
+**Score normalization:** RRF emits 0.001–0.05 while every other rung emits ~0–1, and
+`UnifiedSearchResult.get_top_results` compares combined scores ACROSS domains — so
+hybrid scores are divided onto 0–1 at the mapping point. Without it, hybrid-ranked
+domains sink below `CONTAINS` domains in a mixed sweep.
+
+The divisor is `Neo4jVectorSearchService.max_rrf_score` = **1/(k+1)** — the theoretical
+ceiling, *not* the batch's own maximum. A document ranked first by both halves scores
+`vector_weight/(k+1) + text_weight/(k+1)`, and the weights always sum to 1, so the
+ceiling is the same for every label. Using each batch's max instead would give every
+domain's best hit exactly 1.0: Ku, PathStep and LearningPath would tie at the top, the
+merged order would fall to iteration order, and the difference between "ranked first by
+both halves" and "ranked first by one" — twice the raw score — would be erased.
+
+**Fallback:** ineligible, empty, or failed → `[]`, and Strategy 3 runs the domain's
+`CONTAINS` search unchanged. The rung can never make a working search worse.
+
+**Match attribution is derived, never assumed.** `hybrid_search` returns
+`HybridSearchHit` (`core/ports/query_types.py`), which reports `matched_vector` /
+`matched_fulltext` per result; the rung turns those into the `match_reason`
+("Keyword + semantic match" / "Semantic match" / "Keyword match").
+Do not collapse this back to a constant: the vector half is empty whenever a label
+has no index or no backfilled embeddings yet, and a fixed "semantic" label would
+claim machine understanding for a hit Lucene found on its own.
+
+**Per-domain thresholds** come from `VectorSearchConfig.get_min_score_for_entity()`,
+keyed on canonical `NeoLabel` spellings *and* `EntityType` values. Curriculum labels
+sit at 0.75 (calibrated for text→entity queries) against a 0.70 generic default — a
+label missing from that mapping silently searches at the default, which is how Ku and
+PathStep ran at 0.70 before this arc.
+
+**One embed per request, not per domain:** an unfiltered sweep runs the rung for all
+three curriculum domains, and `EmbeddingsService.create_embedding` is uncached — so
+`advanced_search` embeds the query once (`_embed_query_for_hybrid_rung`) and passes the
+vector to each `hybrid_search` call. Adding a domain to the allowlist costs no extra
+embedding. It returns `None` when the rung cannot fire at all, so nothing is paid for a
+rung that will not run.
+
+**Index naming:** `NeoLabel.fulltext_index_name()` is THE rule, shared by the schema
+manager (creation) and the query side (lookup) so the two cannot drift. It snake-cases
+multi-word labels — `PathStep` → `path_step_fulltext_idx`, which flat `label.lower()`
+got wrong, silently matching no index at all.
+
+**Lucene escaping:** `core/utils/lucene.py::escape_lucene_query` neutralizes user input at
+the boundary. Syntax reaches the parser through **two** doors and both must be closed:
+
+1. **Special characters** (`+ - && || ! ( ) { } [ ] ^ " ~ * ? : \ /`) — backslash-escaped.
+   Unescaped, `C++ (advanced)` is a parse error rather than a search.
+2. **Reserved boolean keywords** (bare uppercase `AND`/`OR`/`NOT`) — quoted. Left bare, a
+   lone `AND` raises `ParseException` (which `_fulltext_search` turns into an empty result,
+   silently degrading hybrid to vector-only), and `peace NOT war` *excludes* documents the
+   user never asked to exclude. Lowercase `and` and words merely containing a keyword
+   (`NOTE`, `android`) are deliberately untouched; `TO` is reserved only inside a range,
+   which cannot form because `[`/`]` are already escaped.
+
+---
+
 ## Search-Event Logging (Discovery Analytics Phase 1, July 2026)
 
 Every EXTERNAL search through SearchRouter publishes a `search.executed` event

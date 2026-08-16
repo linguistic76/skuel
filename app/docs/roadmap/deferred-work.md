@@ -312,6 +312,38 @@ navigate to it — product need, not a data threshold.
 
 ---
 
+## Domain-level fulltext-first text search (D1(b) follow-on)
+
+Deferred 2026-08-16 from the fulltext/hybrid wiring arc (D1 ruling: SearchRouter rung now,
+domain-level later). The rung gave Ku/PathStep/LearningPath relevance-ranked hybrid search on
+`/api/search/unified` (FULL tier) — and **only** there. Every other text-search caller,
+including the `/search` browser page, still runs case-sensitive `CONTAINS`.
+The follow-on, in rough order of value:
+
+- **The `/search` HTML page.** The shipped rung sits in `_execute_advanced_search`, reached
+  only from `advanced_search()` — the `/api/search/unified` JSON endpoint. The browser page
+  runs `faceted_search`, a separate path still on `CONTAINS`, so the highest-traffic search
+  surface has not changed. Reaching it means either routing the faceted path through the
+  same rung or giving `faceted_search` its own; decide which when a consumer asks.
+- **`_search_mixin.search` goes fulltext-first with CONTAINS fallback** — makes every caller
+  of domain search index-backed and the "Cypher-first search foundation" claim true. Requires
+  threading each domain's `SearchVisibility` into the fulltext Cypher (OWNER_ONLY domains need
+  `user_uid` scoping the current label-wide fulltext path does not have — the reason this half
+  was split off). The gating helpers (`NeoLabel.fulltext_index_name`, `escape_lucene_query`,
+  the publication-gated `query_fulltext_index`) already exist.
+- **CORE-tier text story** — fulltext needs no embeddings, so a fulltext-only rung (skip the
+  vector half) would give CORE-tier relevance-ranked search too. Decide whether that lives in
+  the mixin (above) or as a CORE branch of the SearchRouter rung.
+- **Exercise** — SCOPE_AWARE visibility (curriculum scope public, owned scopes via
+  OWNS/SHARES_WITH/group membership) needs the same user_uid threading, plus Exercise has no
+  vector index (add it alongside, or run fulltext-only).
+
+**Enable when**: a consumer wants relevance-ranked text search beyond the curriculum
+domains on `/api/search/unified` — the `/search` page included. Product need, not a
+data threshold.
+
+---
+
 ## ZPD Snapshot History & Trend Analysis
 
 Extracted 2026-08-07 from [`done/zpd-service-architecture.md`](done/zpd-service-architecture.md)
@@ -461,6 +493,7 @@ Review this document at the **September 2026 quarterly review**. Checklist:
 | Secrets follow-ups (shred `secrets.env` residue; KeyringBackend test) | Next touch of the compose/secrets surface | Ride-along, not standalone |
 | Principles `_validate_update` reform or deletion | Next substantive touch of the Principles update path | Ruling needed — see the section's landmine note |
 | EntryReport / ActivityReport search | A teacher workflow wants direct report-content search | Product need (not a data threshold) |
+| Domain-level fulltext-first text search (D1(b)) | A consumer wants relevance-ranked text search beyond `/api/search/unified` curriculum (incl. the `/search` page) | Product need (not a data threshold) |
 | ZPD snapshot history & trend analysis | A ZPD-over-time consumer exists | Product need + `MATCH (h:ZPDHistory) RETURN count(h)` for accrual |
 | Habit rows in the weekly-note panel | Lived weekly-review use wants the backward look | Product need (not a data threshold) |
 | Non-positive-duration follow-ups (habit `0m` on `/today` / proposes `15`) | Next touch of either surface | Ride-along, not standalone |

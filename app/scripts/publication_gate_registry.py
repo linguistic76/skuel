@@ -375,6 +375,13 @@ SURFACES: tuple[Surface, ...] = (
         "THE vector-discovery chokepoint — gating here covers every similarity "
         "surface at once rather than per-caller.",
     ),
+    Surface(
+        "adapters.persistence.neo4j.vector_search_backend",
+        "VectorSearchBackend.query_fulltext_index",
+        Disposition.GATED,
+        "The fulltext half of hybrid search — an ungated fulltext door would "
+        "resurface drafts the vector gate withholds (Codex #1006 class).",
+    ),
 )
 
 

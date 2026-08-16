@@ -162,7 +162,8 @@ class VectorSearchConfig:
     goal_min_score: float = 0.70  # Goals need moderate precision
     habit_min_score: float = 0.70  # Habits similar to goals
     event_min_score: float = 0.65  # Events similar to tasks
-    lpstep_min_score: float = 0.75  # Learning steps like knowledge
+    path_step_min_score: float = 0.75  # Learning steps like knowledge
+    learning_path_min_score: float = 0.75  # Paths like the steps they hold
 
     # Lesson-BODY chunk search (SearchRouter body-chunk augmentation).
     # Short body-phrase queries score below the strict 0.7 ContentChunk default
@@ -189,8 +190,10 @@ class VectorSearchConfig:
     vector_weight: float = 0.5  # 50% vector similarity
     text_weight: float = 0.5  # 50% full-text match
 
-    # RRF (Reciprocal Rank Fusion) parameter
+    # RRF (Reciprocal Rank Fusion) parameters
     rrf_k: int = 60  # Standard RRF k value
+    # RRF scores live on a 0.0-0.05 scale (not 0-1) — threshold accordingly
+    min_rrf_score: float = 0.001
 
     # Semantic relationship boosting
     semantic_boost_weight: float = 0.3  # 30% semantic, 70% vector similarity
@@ -213,8 +216,17 @@ class VectorSearchConfig:
         """
         Get minimum similarity score for specific entity type.
 
+        Keys are the CANONICAL Neo4j labels (plus the `entity` base label and
+        the `EntityType` values, which differ in spelling: `path_step` vs
+        `PathStep`). Both spellings are registered because callers arrive from
+        both directions — a miss silently returns the generic default rather
+        than the calibrated threshold, which is how `Ku` and `PathStep` were
+        searched at 0.70 instead of 0.75 (Codex, PR #1074). The retired
+        `lpstep` spelling is gone; that label became `PathStep` and its indexes
+        are actively dropped as stale by the schema manager.
+
         Args:
-            entity_type: Entity type enum or Neo4j label string
+            entity_type: Entity type enum, EntityType value, or Neo4j label
 
         Returns:
             Minimum similarity score (0.0-1.0)
@@ -225,12 +237,18 @@ class VectorSearchConfig:
             else entity_type.lower()
         )
         mapping = {
+            # Base label — cross-domain vectors live on :Entity
             "entity": self.ku_min_score,
             "task": self.task_min_score,
             "goal": self.goal_min_score,
             "habit": self.habit_min_score,
             "event": self.event_min_score,
-            "lpstep": self.lpstep_min_score,
+            "ku": self.ku_min_score,
+            # NeoLabel spelling and EntityType spelling both land here
+            "pathstep": self.path_step_min_score,
+            "path_step": self.path_step_min_score,
+            "learningpath": self.learning_path_min_score,
+            "learning_path": self.learning_path_min_score,
         }
         return mapping.get(entity_lower, self.default_min_score)
 

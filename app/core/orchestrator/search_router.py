@@ -58,13 +58,14 @@ Usage:
     result = await router.advanced_search(request)
 """
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from itertools import zip_longest
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from core.models.enums import SearchVisibility
 from core.models.enums.entity_enums import Domain, EntityType, NonKuDomain
+from core.models.enums.neo_labels import NeoLabel
 from core.models.search.filter_enums import SearchSortOrder
 from core.models.type_hints import UserUID
 from core.ports.search_protocols import (
@@ -72,6 +73,7 @@ from core.ports.search_protocols import (
     SupportsGraphTraversalSearch,
     SupportsTagSearch,
     SupportsTextSearch,
+    SupportsVisibilityDeclaration,
 )
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -89,6 +91,7 @@ if TYPE_CHECKING:
     )
     from core.ports.query_types import (
         CapacityWarnings,
+        HybridSearchHit,
         NousSubtopicPair,
         SemanticSearchChunkResult,
         TagFrequency,
@@ -947,6 +950,19 @@ class SearchRouter:
         "ps": EntityType.PATH_STEP.value,  # "path_step"
     }
 
+    # Curriculum EntityType values eligible for the hybrid fulltext+vector text
+    # rung (D2 ruling 2026-08-16: PUBLIC-visibility domains only — Exercise is
+    # SCOPE_AWARE and deferred to the D1(b) domain-level follow-on). The belt
+    # half of the rung's belt-and-braces eligibility; the braces half is the
+    # live search_visibility read in _hybrid_curriculum_search.
+    _HYBRID_TEXT_DOMAIN_VALUES: ClassVar[frozenset[str]] = frozenset(
+        {
+            EntityType.KU.value,
+            EntityType.PATH_STEP.value,
+            EntityType.LEARNING_PATH.value,
+        }
+    )
+
     async def _augment_with_body_chunks(
         self,
         request: "SearchRequest",
@@ -1664,6 +1680,13 @@ class SearchRouter:
             )
             limit_per_domain = max(limit_per_domain, 10)  # Minimum 10 per domain
 
+            # One embed per request, not per domain: an unfiltered sweep runs
+            # the hybrid rung for Ku, PathStep AND LearningPath, and the
+            # embeddings service is uncached — embedding inside each rung call
+            # would issue the same paid request three times, sequentially
+            # (Codex, PR #1074).
+            query_embedding = await self._embed_query_for_hybrid_rung(request, eligible_domains)
+
             for entity_type in eligible_domains:
                 service = self.get_service(entity_type)
                 if service is None:
@@ -1682,6 +1705,7 @@ class SearchRouter:
                     entity_type=entity_type,
                     request=request,
                     limit_per_domain=limit_per_domain,
+                    query_embedding=query_embedding,
                 )
 
                 if items:
@@ -1721,12 +1745,67 @@ class SearchRouter:
             self.logger.error(f"Advanced search failed (unexpected): {e}")
             return Result.fail(Errors.database(operation="advanced_search", message=str(e)))
 
+    async def _embed_query_for_hybrid_rung(
+        self,
+        request: "SearchRequest",
+        eligible_domains: "Sequence[EntityType | NonKuDomain]",
+    ) -> list[float] | None:
+        """
+        Embed the query once, for every hybrid-eligible domain in this request.
+
+        Returns None whenever the rung cannot run at all, so nothing is paid
+        for a rung that will not fire:
+
+        - CORE tier (no vector service) or no query text — the rung's own
+          preconditions;
+        - no eligible domain in the curriculum allowlist;
+        - a graph or tag filter is present — those take Strategy 1 / 2, and the
+          rung lives only in Strategy 3's `else`. Without this check every
+          filtered search would buy an embedding it never reads;
+        - a semantic-boost or learning-aware flag is set — Strategy 0 runs
+          first and does its own embedding, then returns early on a hit, so
+          pre-embedding here would pay twice and use neither. Strategy 0 falls
+          through when it finds nothing, and the rung then embeds per domain
+          as it would without this optimization at all: correct, just not
+          deduplicated on a path that is already the rare one.
+
+        Also returns None on embedding failure — `hybrid_search` then falls
+        back to its own embed and degrades to fulltext-only if that fails too,
+        exactly as it does without this optimization.
+
+        Deliberately checks the allowlist but NOT each domain's live
+        `search_visibility`: the visibility read belongs to the rung itself
+        (one composition point), and the only cost of the looser precondition
+        is a single wasted embed in a misconfiguration that should not exist.
+        """
+        vector_search = self._vector_search
+        if vector_search is None or not request.query_text:
+            return None
+        if request.has_graph_traversal_filter() or request.has_tag_filter():
+            return None
+        if request.has_semantic_boost() or request.has_learning_aware():
+            return None
+        if not any(
+            isinstance(domain, EntityType) and domain.value in self._HYBRID_TEXT_DOMAIN_VALUES
+            for domain in eligible_domains
+        ):
+            return None
+
+        result = await vector_search.embed_query(request.query_text)
+        if result.is_error:
+            self.logger.warning(
+                f"Query embedding failed, hybrid rung falls back per-domain: {result.error}"
+            )
+            return None
+        return result.value
+
     async def _execute_advanced_search(
         self,
         search_service: SupportsTextSearch,
         entity_type: EntityType | NonKuDomain,
         request: "SearchRequest",
         limit_per_domain: int,
+        query_embedding: list[float] | None = None,
     ) -> list[SearchResultItem]:
         """
         Execute the appropriate search strategy based on request filters.
@@ -1735,7 +1814,9 @@ class SearchRouter:
         0. Semantic/Learning-Aware: Use vector search with boosting
         1. Graph + Text: Use search_connected_to if available
         2. Tags + Text: Use search_by_tags, then filter by text
-        3. Text only: Use search directly
+        3. Text only: hybrid fulltext+vector rung for eligible PUBLIC
+           curriculum domains (FULL tier), falling through to the domain's
+           CONTAINS search when ineligible, empty, or failed
 
         ``limit_per_domain`` is computed by ``advanced_search`` from the
         ELIGIBLE domain count (skips already applied), not the raw request
@@ -1813,8 +1894,18 @@ class SearchRouter:
                     search_service, entity_type, request, limit_per_domain
                 )
 
-        # Strategy 3: Text search only
+        # Strategy 3: Text search only — hybrid rung first, CONTAINS fallback
         else:
+            items = await self._hybrid_curriculum_search(
+                search_service=search_service,
+                entity_type=entity_type,
+                request=request,
+                limit=limit_per_domain,
+                query_embedding=query_embedding,
+            )
+            if items:
+                return items
+
             result = await search_service.search(
                 request.query_text or "", limit_per_domain, user_uid=request.user_uid
             )
@@ -1882,8 +1973,14 @@ class SearchRouter:
             self.logger.debug("Vector search requires query_text, skipping")
             return []
 
-        # Get label from entity type
-        label = entity_type.value.capitalize()  # Task -> "Task", ku -> "Entity"
+        # Get label from entity type. .capitalize() flattened multi-word
+        # values ("path_step" → "Path_step"), missing those domains' vector
+        # indexes entirely — the enum mapping is the one label source.
+        neo_label = NeoLabel.from_domain(entity_type)
+        if neo_label is None:
+            self.logger.debug(f"No Neo4j label for {entity_type.value}, skipping vector search")
+            return []
+        label = neo_label.value
 
         try:
             # Choose search method based on flags
@@ -1950,6 +2047,139 @@ class SearchRouter:
         except Exception as e:  # safety-net: catch unexpected errors
             self.logger.error(f"Semantic/learning-aware search failed (unexpected): {e}")
             return []  # Graceful degradation
+
+    async def _hybrid_curriculum_search(
+        self,
+        search_service: SupportsTextSearch,
+        entity_type: EntityType | NonKuDomain,
+        request: "SearchRequest",
+        limit: int,
+        query_embedding: list[float] | None = None,
+    ) -> list[SearchResultItem]:
+        """
+        Hybrid fulltext+vector text search for PUBLIC curriculum domains.
+
+        The relevance-ranked text rung (rulings D1(c)/D2(i), 2026-08-16):
+        RRF-merges Lucene fulltext with vector similarity via
+        ``Neo4jVectorSearchService.hybrid_search_with_metrics``. Eligibility is
+        belt-and-braces — the explicit curriculum allowlist AND a live PUBLIC
+        ``search_visibility`` read — because the hybrid path is label-wide
+        (no user_uid scoping): an OWNER_ONLY domain must never reach it.
+
+        ``query_embedding`` is the request-scoped vector from
+        ``_embed_query_for_hybrid_rung``; None makes ``hybrid_search`` embed
+        for itself, which is correct but pays per domain.
+
+        Returns [] when ineligible, empty, or failed — the caller falls
+        through to the domain's CONTAINS search unchanged.
+        """
+        if not isinstance(entity_type, EntityType):
+            return []
+        if entity_type.value not in self._HYBRID_TEXT_DOMAIN_VALUES:
+            return []
+        if not (
+            isinstance(search_service, SupportsVisibilityDeclaration)
+            and search_service.search_visibility is SearchVisibility.PUBLIC
+        ):
+            return []
+        vector_search = self._vector_search
+        if vector_search is None:
+            # CORE tier (D3): no embeddings, no hybrid — CONTAINS unchanged
+            return []
+        if not request.query_text:
+            return []
+
+        label = NeoLabel.from_entity_type(entity_type).value
+
+        try:
+            result, _metrics = await vector_search.hybrid_search_with_metrics(
+                label=label,
+                query_text=request.query_text,
+                limit=limit,
+                query_embedding=query_embedding,
+            )
+
+            if result.is_error:
+                self.logger.warning(
+                    f"Hybrid search failed for {entity_type.value}: "
+                    f"{result.error} — falling back to CONTAINS"
+                )
+                return []
+            if not result.value:
+                return []
+
+            # RRF scores live on a 0.001-0.05 scale while every other rung
+            # emits ~0-1 relevance, and UnifiedSearchResult.get_top_results
+            # compares combined scores ACROSS domains — so normalize onto 0-1.
+            # The divisor is the SHARED theoretical ceiling (1/(k+1)), not this
+            # batch's max: a per-batch max would score every domain's best hit
+            # exactly 1.0, tying Ku/PathStep/LearningPath at the top and
+            # letting iteration order decide the merged ranking, with the
+            # both-halves-agree signal discarded (Codex, PR #1074).
+            max_rrf = vector_search.max_rrf_score
+            items: list[SearchResultItem] = []
+            for vec_result in result.value:
+                node = vec_result["node"]
+                score = min(vec_result["score"] / max_rrf, 1.0) if max_rrf > 0 else 0.0
+                # A Neo4j property map is heterogeneous (str/int/float/list/date/
+                # None), so narrow before handing values to the typed result —
+                # a non-string uid must degrade to "" rather than reach the API
+                # as some other type. These narrowings only became visible once
+                # the hit shape stopped being `Any` (Codex P1, PR #1074).
+                uid = node.get("uid")
+                title = node.get("title")
+                priority = node.get("priority_score")
+                items.append(
+                    SearchResultItem(
+                        entity=node,  # The node dict
+                        entity_type=entity_type,
+                        uid=uid if isinstance(uid, str) else "",
+                        title=title if isinstance(title, str) else "",
+                        relevance_score=score,
+                        priority_score=float(priority)
+                        if isinstance(priority, int | float)
+                        else 0.0,
+                        # Derived per result, not a constant: hybrid runs
+                        # fulltext-only whenever the vector half is empty (no
+                        # index yet, embeddings not backfilled, provider down),
+                        # and "semantic match" would be a claim about machine
+                        # understanding that did not happen.
+                        match_reason=self._hybrid_match_reason(vec_result),
+                    )
+                )
+
+            self.logger.info(f"Hybrid search returned {len(items)} results for {entity_type.value}")
+            return items
+
+        except (AttributeError, TypeError, ValueError, KeyError) as e:
+            self.logger.error(f"Hybrid search failed for {entity_type.value}: {e}")
+            return []  # Fall through to CONTAINS
+        except Exception as e:  # safety-net: catch unexpected errors
+            self.logger.error(f"Hybrid search failed for {entity_type.value} (unexpected): {e}")
+            return []  # Fall through to CONTAINS
+
+    def _hybrid_match_reason(self, vec_result: "HybridSearchHit") -> str:
+        """
+        Describe which half of hybrid search actually produced this hit.
+
+        `hybrid_search` reports `matched_vector` / `matched_fulltext` per
+        result. Both halves agreeing is the strongest signal and the reason
+        the rung exists; either half alone is a weaker but honest claim. A
+        fixed "Keyword + semantic match" would assert semantic understanding
+        for results a Lucene index found on its own — which is every result
+        for a label whose embeddings are not backfilled yet.
+
+        Falls back to the keyword claim when both flags are absent, because
+        fulltext is the half that always runs.
+        """
+        matched_vector = bool(vec_result.get("matched_vector"))
+        matched_fulltext = bool(vec_result.get("matched_fulltext"))
+
+        if matched_vector and matched_fulltext:
+            return "Keyword + semantic match"
+        if matched_vector:
+            return "Semantic match"
+        return "Keyword match"
 
     def _create_match_reason(self, vec_result: dict) -> str:
         """

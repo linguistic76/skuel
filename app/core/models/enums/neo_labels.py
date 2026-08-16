@@ -256,6 +256,31 @@ class NeoLabel(StrEnum):
         return label in cls._value2member_map_
 
     @classmethod
+    def fulltext_index_name(cls, label: NeoLabel | str) -> str:
+        """
+        Derive the fulltext index name for a label.
+
+        THE single naming rule shared by index creation (schema manager) and
+        index querying (vector search) — the two sides cannot drift. Snake-cases
+        multi-word labels via the enum member name, which flat `label.lower()`
+        gets wrong (`PathStep` → `pathstep`, not `path_step`).
+
+        Note: vector index names deliberately use a different flat convention —
+        this rule covers fulltext indexes only.
+
+        Args:
+            label: NeoLabel member or its label string (e.g. "PathStep")
+
+        Returns:
+            The fulltext index name (e.g. "path_step_fulltext_idx")
+
+        Example:
+            NeoLabel.fulltext_index_name(NeoLabel.PATH_STEP)  # "path_step_fulltext_idx"
+            NeoLabel.fulltext_index_name("Task")  # "task_fulltext_idx"
+        """
+        return f"{cls(label).name.lower()}_fulltext_idx"
+
+    @classmethod
     def all_labels(cls) -> frozenset[str]:
         """
         Get all valid label strings.

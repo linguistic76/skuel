@@ -18,6 +18,7 @@ See: /docs/architecture/NEO4J_GENAI_ARCHITECTURE.md
 """
 
 import time
+from collections.abc import Sequence
 from datetime import datetime
 from operator import itemgetter
 from typing import TYPE_CHECKING, Any
@@ -26,12 +27,13 @@ from core.config.unified_config import VectorSearchConfig
 from core.models.enums.neo_labels import NeoLabel
 from core.models.semantic import SearchMetrics
 from core.models.type_hints import EntityUID, FilterParams, UserUID
-from core.ports.query_types import SemanticSearchChunkResult
+from core.ports.query_types import HybridSearchHit, SemanticSearchChunkResult
 
 if TYPE_CHECKING:
     from core.ports.vector_search_protocols import VectorSearchBackendOperations
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
+from core.utils.lucene import escape_lucene_query
 from core.utils.result_simplified import Errors, Result
 
 logger = get_logger("skuel.vector_search")
@@ -62,6 +64,25 @@ class Neo4jVectorSearchService:
         self.embeddings = embeddings_service
         self.config = config or VectorSearchConfig()
         self.logger = logger
+
+    @property
+    def max_rrf_score(self) -> float:
+        """
+        The largest RRF score `hybrid_search` can produce, for normalization.
+
+        A document ranked first by BOTH halves scores
+        `vector_weight/(k+1) + text_weight/(k+1)`, and the two weights always
+        sum to 1 (`text_weight = 1.0 - vector_weight`), so the ceiling is
+        `1/(k+1)` — independent of the weight split, and identical for every
+        label.
+
+        That last property is the point: a caller ranking hits from several
+        labels together must divide by a SHARED ceiling. Normalizing per batch
+        instead hands every label's best hit a 1.0 and throws away the
+        difference between "ranked first by both halves" and "ranked first by
+        one" (Codex, PR #1074).
+        """
+        return 1.0 / (self.config.rrf_k + 1)
 
     async def find_similar_by_vector(
         self,
@@ -129,26 +150,41 @@ class Neo4jVectorSearchService:
         Returns:
             Result containing list of {node, score} dicts sorted by similarity
         """
+        embedding_result = await self.embed_query(text)
+        if embedding_result.is_error:
+            return Result.fail(embedding_result)
+
+        return await self.find_similar_by_vector(
+            label=label, embedding=embedding_result.value, limit=limit, min_score=min_score
+        )
+
+    async def embed_query(self, text: str) -> Result[list[float]]:
+        """
+        Embed query text for vector search.
+
+        Split out so a caller fanning ONE query across several labels can pay
+        for the embedding once and hand the vector to each `hybrid_search`
+        call. `create_embedding` is uncached, so a per-label embed makes the
+        same request N times, sequentially (Codex, PR #1074).
+
+        Args:
+            text: Query text to embed
+
+        Returns:
+            Result containing the embedding vector, or `unavailable` on the
+            CORE tier (no embeddings service)
+        """
         if not self.embeddings:
             return Result.fail(
                 Errors.unavailable(
                     feature="semantic_search",
                     reason="Embeddings service required for semantic search. Configure OPENAI_API_KEY.",
-                    operation="find_similar_by_text",
+                    operation="embed_query",
                 )
             )
 
-        # Generate embedding
-        embedding_result = await self.embeddings.create_embedding(text)
-        if embedding_result.is_error:
-            return Result.fail(embedding_result)
-
-        embedding = embedding_result.value
-
-        # Search by vector
-        return await self.find_similar_by_vector(
-            label=label, embedding=embedding, limit=limit, min_score=min_score
-        )
+        result: Result[list[float]] = await self.embeddings.create_embedding(text)
+        return result
 
     async def hybrid_search(
         self,
@@ -157,7 +193,8 @@ class Neo4jVectorSearchService:
         vector_weight: float | None = None,
         limit: int | None = None,
         min_rrf_score: float | None = None,
-    ) -> Result[list[dict[str, Any]]]:
+        query_embedding: list[float] | None = None,
+    ) -> Result[list[HybridSearchHit]]:
         """
         Hybrid search combining vector similarity and full-text search.
 
@@ -176,9 +213,15 @@ class Neo4jVectorSearchService:
             vector_weight: Weight for vector results (uses config default if None)
             limit: Max results to return (uses config default if None)
             min_rrf_score: Minimum RRF score threshold (default: 0.001, not entity-specific)
+            query_embedding: Pre-computed embedding of `query_text`. Supply it when
+                fanning one query across several labels — otherwise each call
+                re-embeds the same text through the uncached embeddings service.
 
         Returns:
-            Result containing list of {node, score} dicts sorted by RRF score
+            Result containing list of {node, score, matched_vector,
+            matched_fulltext} dicts sorted by RRF score. The two flags say
+            which half produced the hit, so a caller can describe the match
+            honestly when only one half ran.
 
         Example:
             >>> result = await service.hybrid_search("Entity", "python programming", limit=10)
@@ -193,16 +236,22 @@ class Neo4jVectorSearchService:
             vector_weight = self.config.vector_weight
         # RRF scores are small (0.0-0.05), use low threshold
         if min_rrf_score is None:
-            min_rrf_score = 0.001  # Not entity-specific - RRF scores are different scale
+            min_rrf_score = self.config.min_rrf_score  # Not entity-specific - different scale
 
         # RRF k parameter (standard value)
         k = self.config.rrf_k
 
-        # Step 1: Vector search (use entity-specific threshold for input search)
+        # Step 1: Vector search (use entity-specific threshold for input search).
+        # A caller-supplied embedding skips the paid embed — same vector either way.
         entity_min_score = self.config.get_min_score_for_entity(label)
-        vector_results = await self.find_similar_by_text(
-            label=label, text=query_text, limit=limit * 2, min_score=entity_min_score
-        )
+        if query_embedding is not None:
+            vector_results = await self.find_similar_by_vector(
+                label=label, embedding=query_embedding, limit=limit * 2, min_score=entity_min_score
+            )
+        else:
+            vector_results = await self.find_similar_by_text(
+                label=label, text=query_text, limit=limit * 2, min_score=entity_min_score
+            )
 
         if vector_results.is_error:
             self.logger.warning(f"Vector search failed: {vector_results.expect_error()}")
@@ -224,6 +273,13 @@ class Neo4jVectorSearchService:
         # Step 3: RRF scoring and merging
         rrf_scores: dict[str, float] = {}
         node_data: dict[str, dict[str, Any]] = {}
+        # WHICH half produced each uid, carried through to the caller: a
+        # presentation layer that says "keyword + semantic" for every hit lies
+        # whenever one half returned nothing — fulltext-only after an
+        # embedding/index failure, or before a label's embeddings are
+        # backfilled (Codex, PR #1074).
+        vector_uids: set[str] = set()
+        fulltext_uids: set[str] = set()
 
         # Process vector results
         for rank, item in enumerate(vector_nodes, start=1):
@@ -231,6 +287,7 @@ class Neo4jVectorSearchService:
             rrf_score = vector_weight * (1.0 / (k + rank))
             rrf_scores[uid] = rrf_scores.get(uid, 0.0) + rrf_score
             node_data[uid] = item["node"]
+            vector_uids.add(uid)
 
         # Process full-text results
         text_weight = 1.0 - vector_weight
@@ -238,17 +295,23 @@ class Neo4jVectorSearchService:
             uid = item["node"]["uid"]
             rrf_score = text_weight * (1.0 / (k + rank))
             rrf_scores[uid] = rrf_scores.get(uid, 0.0) + rrf_score
+            fulltext_uids.add(uid)
             if uid not in node_data:
                 node_data[uid] = item["node"]
 
         # Step 4: Sort by RRF score and filter by min_rrf_score
-        merged = [
-            {"node": node_data[uid], "score": score}
+        merged: list[HybridSearchHit] = [
+            {
+                "node": node_data[uid],
+                "score": score,
+                "matched_vector": uid in vector_uids,
+                "matched_fulltext": uid in fulltext_uids,
+            }
             for uid, score in rrf_scores.items()
             if score >= min_rrf_score
         ]
 
-        def by_score(item: dict[str, Any]) -> float:
+        def by_score(item: HybridSearchHit) -> float:
             """Extract score for sorting."""
             return item["score"]
 
@@ -270,19 +333,31 @@ class Neo4jVectorSearchService:
         """
         Full-text search using Neo4j full-text indexes.
 
-        Internal method used by hybrid_search.
+        Internal method used by hybrid_search. User input is Lucene-escaped
+        here — ``queryNodes`` parses its argument as a Lucene query, so a raw
+        ``+``/``(``/``"`` is a parse error rather than a search.
 
         Args:
-            label: Node label (e.g., "Entity", "Task", "Goal")
+            label: Node label (e.g., "Entity", "Task", "Goal") — comes from
+                config/enum derivation, never user input
             query_text: Search query
             limit: Max results to return
 
         Returns:
-            Result containing list of {node, score} dicts sorted by relevance
-        """
-        index_name = f"{label.lower()}_fulltext_idx"
+            Result containing list of {node, score} dicts sorted by relevance.
+            A label whose index does not exist degrades to an empty result so
+            hybrid search can continue vector-only.
 
-        result = await self.backend.query_fulltext_index(index_name, query_text, limit)
+        Raises:
+            ValueError: label is not a NeoLabel member. Fail-fast by design —
+                an unknown label is a coding error, and the old flat
+                ``label.lower()`` derivation turned it into a silent no-op.
+        """
+        index_name = NeoLabel.fulltext_index_name(label)
+
+        result = await self.backend.query_fulltext_index(
+            index_name, escape_lucene_query(query_text), limit
+        )
 
         if result.is_error:
             # Full-text index might not exist - return empty results instead of error
@@ -882,7 +957,7 @@ class Neo4jVectorSearchService:
             query=text,
             search_type="vector",
             label=label,
-            results=result.value,
+            scores=[float(hit["score"]) for hit in result.value],
             latency_ms=latency_ms,
             min_score_threshold=min_score,
         )
@@ -898,11 +973,13 @@ class Neo4jVectorSearchService:
         vector_weight: float | None = None,
         limit: int | None = None,
         min_rrf_score: float | None = None,
-    ) -> tuple[Result[list[dict[str, Any]]], SearchMetrics | None]:
+        query_embedding: list[float] | None = None,
+    ) -> tuple[Result[list[HybridSearchHit]], SearchMetrics | None]:
         """
         Hybrid search with metrics tracking.
 
         Wrapper around hybrid_search that collects performance metrics.
+        `query_embedding` is passed straight through — see `hybrid_search`.
         """
         start_time = time.perf_counter()
 
@@ -912,6 +989,7 @@ class Neo4jVectorSearchService:
             vector_weight=vector_weight,
             limit=limit,
             min_rrf_score=min_rrf_score,
+            query_embedding=query_embedding,
         )
 
         latency_ms = (time.perf_counter() - start_time) * 1000
@@ -923,7 +1001,7 @@ class Neo4jVectorSearchService:
             query=query_text,
             search_type="hybrid",
             label=label,
-            results=result.value,
+            scores=[hit["score"] for hit in result.value],
             latency_ms=latency_ms,
             vector_weight=vector_weight or self.config.vector_weight,
             min_score_threshold=min_rrf_score,
@@ -938,16 +1016,20 @@ class Neo4jVectorSearchService:
         query: str,
         search_type: str,
         label: str,
-        results: list[dict[str, Any]],
+        # The scores themselves, not the records: this only ever computed
+        # count/avg/min/max over `r["score"]`, so taking floats removes the
+        # `Any` rather than justifying it (CLAUDE.md Any policy, option A) and
+        # lets MyPy check the score type at both call sites. Vector hits and
+        # hybrid hits have different record shapes but the same score type.
+        scores: Sequence[float],
         latency_ms: float,
         vector_weight: float | None = None,
         min_score_threshold: float | None = None,
     ) -> SearchMetrics:
-        """Create search metrics from search results."""
-        num_results = len(results)
+        """Create search metrics from search-result scores."""
+        num_results = len(scores)
 
         if num_results > 0:
-            scores = [r["score"] for r in results]
             avg_similarity = sum(scores) / len(scores)
             min_similarity = min(scores)
             max_similarity = max(scores)

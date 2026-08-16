@@ -3349,6 +3349,27 @@ class SemanticSearchChunkResult(TypedDict):
     parent_metadata: NotRequired[str | None]
 
 
+class HybridSearchHit(TypedDict):
+    """Return shape for `Neo4jVectorSearchService.hybrid_search()`.
+
+    `score` is a Reciprocal Rank Fusion score on a 0-0.05 scale, NOT 0-1 — its
+    ceiling is `max_rrf_score` (1/(k+1)), which is what a cross-domain caller
+    must divide by.
+
+    The two flags say which half produced the hit. They exist because the merge
+    otherwise discards source membership, and a caller that assumes both halves
+    ran will claim semantic matching for results Lucene found alone — every
+    result for a label with no vector index or un-backfilled embeddings
+    (Codex, PR #1074). Both false is impossible: a uid reaches the merge only
+    by appearing in at least one source list.
+    """
+
+    node: Neo4jProperties
+    score: float
+    matched_vector: bool
+    matched_fulltext: bool
+
+
 class ReferenceChunkHit(TypedDict):
     """Return shape for search_reference_chunks() — the canon shelf's read side.
 

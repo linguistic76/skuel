@@ -56,6 +56,34 @@ def _validate_similarity(similarity: str) -> None:
         )
 
 
+# Full-text index definitions: label → indexed fields.
+# Fields sourced from SEARCH_FIELD_CONFIG — the single source of truth.
+# Index names derive from NeoLabel.fulltext_index_name — the one naming rule
+# shared with the query side (hybrid search), so creation and lookup cannot
+# drift. Parity with the live-graph names is pinned by
+# tests/unit/test_fulltext_index_naming.py.
+FULLTEXT_INDEX_DEFINITIONS: list[tuple[NeoLabel, list[str]]] = [
+    # Activity Domains (6)
+    (NeoLabel.TASK, ["title", "description"]),
+    (NeoLabel.GOAL, ["title", "description"]),
+    (NeoLabel.HABIT, ["title", "description"]),
+    (NeoLabel.EVENT, ["title", "description"]),
+    (NeoLabel.CHOICE, ["title", "description", "context"]),
+    (NeoLabel.PRINCIPLE, ["title", "statement", "description"]),
+    # Curriculum Domains (4)
+    (NeoLabel.KU, ["title", "description"]),
+    (NeoLabel.PATH_STEP, ["title", "intent", "description"]),
+    (NeoLabel.LEARNING_PATH, ["title", "goal", "description"]),
+    (NeoLabel.EXERCISE, ["title", "instructions"]),
+    # Learning Loop (2)
+    (NeoLabel.REVISED_EXERCISE, ["title", "instructions"]),
+    (NeoLabel.USER_ENTRY, ["title", "processed_content"]),
+    # Forms (2)
+    (NeoLabel.FORM_TEMPLATE, ["title", "description", "instructions"]),
+    (NeoLabel.FORM_SUBMISSION, ["title", "processed_content"]),
+]
+
+
 class Neo4jSchemaManager(Neo4jSessionRunner):
     """
     Manages Neo4j schema (indexes, constraints) based on model metadata.
@@ -658,46 +686,8 @@ class Neo4jSchemaManager(Neo4jSessionRunner):
         """
         results: dict[str, Any] = {"created": [], "failed": []}
 
-        # Full-text index definitions: (index_name, label, fields)
-        # Fields sourced from SEARCH_FIELD_CONFIG — the single source of truth
-        fulltext_definitions: list[tuple[str, NeoLabel, list[str]]] = [
-            # Activity Domains (6)
-            ("task_fulltext_idx", NeoLabel.TASK, ["title", "description"]),
-            ("goal_fulltext_idx", NeoLabel.GOAL, ["title", "description"]),
-            ("habit_fulltext_idx", NeoLabel.HABIT, ["title", "description"]),
-            ("event_fulltext_idx", NeoLabel.EVENT, ["title", "description"]),
-            ("choice_fulltext_idx", NeoLabel.CHOICE, ["title", "description", "context"]),
-            ("principle_fulltext_idx", NeoLabel.PRINCIPLE, ["title", "statement", "description"]),
-            # Curriculum Domains (4)
-            ("ku_fulltext_idx", NeoLabel.KU, ["title", "description"]),
-            ("path_step_fulltext_idx", NeoLabel.PATH_STEP, ["title", "intent", "description"]),
-            (
-                "learning_path_fulltext_idx",
-                NeoLabel.LEARNING_PATH,
-                ["title", "goal", "description"],
-            ),
-            ("exercise_fulltext_idx", NeoLabel.EXERCISE, ["title", "instructions"]),
-            # Learning Loop (2)
-            ("revised_exercise_fulltext_idx", NeoLabel.REVISED_EXERCISE, ["title", "instructions"]),
-            (
-                "user_entry_fulltext_idx",
-                NeoLabel.USER_ENTRY,
-                ["title", "processed_content"],
-            ),
-            # Forms (2)
-            (
-                "form_template_fulltext_idx",
-                NeoLabel.FORM_TEMPLATE,
-                ["title", "description", "instructions"],
-            ),
-            (
-                "form_submission_fulltext_idx",
-                NeoLabel.FORM_SUBMISSION,
-                ["title", "processed_content"],
-            ),
-        ]
-
-        for index_name, label, index_fields in fulltext_definitions:
+        for label, index_fields in FULLTEXT_INDEX_DEFINITIONS:
+            index_name = NeoLabel.fulltext_index_name(label)
             result = await self._create_fulltext_index(index_name, label, index_fields)
             if result.is_ok:
                 results["created"].append(index_name)

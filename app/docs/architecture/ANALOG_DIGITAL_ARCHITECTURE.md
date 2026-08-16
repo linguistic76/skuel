@@ -43,7 +43,7 @@ The test suite runs without any API mocking for AI services. Services accept `No
 |--------|-----------|
 | **Curriculum** | Ku, Exercise, PathStep, LearningPath authoring and ingestion |
 | **Activity** | Task, Goal, Habit, Event, Choice, Principle — full CRUD with status transitions |
-| **Search** | Keyword search across 15 domains via Neo4j fulltext indexes (auto-created at bootstrap) |
+| **Search** | Keyword search across the 12 searchable domains — case-sensitive `CONTAINS` (the fulltext indexes are created here but read only by the FULL-tier hybrid rung; CORE-tier fulltext is the D1(b) follow-on) |
 | **User Context** | ~250-field UserContext built from MEGA-QUERY (standard + rich) |
 | **Analytics** | 13 BaseAnalyticsService instances — graph traversal, no AI |
 | **Intelligence** | UserContextIntelligence — daily planning, life path alignment, schedule-aware recommendations |
@@ -80,8 +80,8 @@ INTELLIGENCE_TIER=full
 
 At bootstrap, `services_bootstrap/compose.py` checks `IntelligenceTier.from_env()`:
 
-- **Always created (both tiers):** Auth indexes, domain indexes (UID, user_uid, status, date, composite), and **full-text indexes** for 14 domain labels (the 12 searchable domains + FormTemplate/FormSubmission) via `Neo4jSchemaManager.sync_fulltext_indexes()`. This is the Cypher-first search foundation.
-- **FULL tier only:** Vector indexes (1024-dim, cosine similarity) on Entity and ContentChunk labels via `sync_vector_indexes()`. AI services (embeddings, LLM, vector search) are created. Background embedding worker starts.
+- **Always created (both tiers):** Auth indexes, domain indexes (UID, user_uid, status, date, composite), and **full-text indexes** for 14 domain labels (the 12 searchable domains + FormTemplate/FormSubmission) via `Neo4jSchemaManager.sync_fulltext_indexes()`. This is the Cypher-first search foundation — created in both tiers, but read only by the FULL-tier SearchRouter hybrid rung (Ku/PathStep/LearningPath). CORE-tier text search is `CONTAINS`; giving CORE a fulltext-only path is the named D1(b) follow-on.
+- **FULL tier only:** Vector indexes (1024-dim, cosine similarity) on Entity, ContentChunk, ReferenceChunk, Ku, PathStep and LearningPath via `sync_vector_indexes()`. AI services (embeddings, LLM, vector search) are created. Background embedding worker starts.
 - **CORE tier:** Vector indexes and all AI services are skipped. All downstream code receives `None` and handles it through the None-propagation pattern.
 
 **See:** [Graceful Degradation Architecture](/docs/architecture/GRACEFUL_DEGRADATION_ARCHITECTURE.md) for implementation details — the three gating points, None-propagation pattern, event-driven embedding architecture, and search fallback behavior.

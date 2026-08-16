@@ -221,13 +221,13 @@ Neo4j indexes are created automatically at startup via `Neo4jSchemaManager` in `
 | **Domain indexes** | `sync_domain_indexes()` | Always | UID, user_uid, status, date, composite — 48 indexes |
 | **Full-text indexes** | `sync_fulltext_indexes()` | Always | Lucene keyword search across 14 domains (6 Activity + 4 Curriculum + 2 Learning Loop + 2 Forms) — Cypher-first foundation |
 | **Auth indexes** | `sync_auth_indexes()` | Always | Rate limiting, session lookup, email uniqueness |
-| **Vector indexes** | `sync_vector_indexes()` | FULL tier only | 1024-dim cosine — bootstrap creates Entity, ContentChunk, ReferenceChunk; Goal + Task per-label indexes via `scripts/create_vector_indexes.py` (5 total live) |
+| **Vector indexes** | `sync_vector_indexes()` | FULL tier only | 1024-dim cosine — bootstrap creates Entity, ContentChunk, ReferenceChunk, Ku, PathStep, LearningPath; Goal + Task per-label indexes via `scripts/create_vector_indexes.py` (8 total live) |
 
 > **Server side:** the Java Vector API (SIMD) must be enabled for these to run optimally —
 > `NEO4J_server_jvm_additional=--add-modules jdk.incubator.vector` in `infrastructure/docker-compose.yml`.
 > See [NEO4J_SERVER_TUNING.md](../../../docs/patterns/NEO4J_SERVER_TUNING.md).
 
-Full-text indexes are the **Cypher-first search foundation** — always available, no embeddings needed:
+Full-text indexes are the **Cypher-first search foundation** — created in both tiers, no embeddings needed. Their one production reader is the SearchRouter hybrid rung (Ku/PathStep/LearningPath, FULL tier, `advanced_search`/`/api/search/unified` only); every other text search — including the `/search` page — runs case-sensitive `CONTAINS`. Derive index names from `NeoLabel.fulltext_index_name()`, never flat `label.lower()` (`PathStep` → `path_step_fulltext_idx`):
 
 ```cypher
 // Full-text search (Lucene-based, relevance-ranked)
