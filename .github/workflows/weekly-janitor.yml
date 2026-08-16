@@ -92,7 +92,7 @@ jobs:
 
       - name: Install uv
         continue-on-error: true
-        uses: astral-sh/setup-uv@v10.0.0
+        uses: astral-sh/setup-uv@v10.0.1
 
       - name: Load cached venv
         continue-on-error: true
