@@ -28,7 +28,7 @@ Make the implicit explicit with a single environment variable `INTELLIGENCE_TIER
 
 ### Gating Points (3)
 
-All in `services_bootstrap.py`:
+All in `services_bootstrap/` (one file at the time of this ADR):
 
 1. **Vector indexes** (`compose_services`): `sync_vector_indexes()` — skipped in CORE (full-text indexes always created)
 2. **Embeddings** (`_create_learning_services`): `HuggingFaceEmbeddingsService` + `Neo4jVectorSearchService` — skipped in CORE
@@ -56,11 +56,11 @@ Wired into `adapters/inbound/ai_routes.py:_ai_route` (June 2026): after the syst
 
 ### Route Protection
 
-`adapters/inbound/ai_guard.py` provides `is_ai_available()` and `ai_unavailable_result()`. Defense-in-depth guards added on Askesis RAG and suggestions endpoints.
+Route-level gating lives in the AI routes themselves: `_ai_route` in `adapters/inbound/ai_routes.py` plus per-route `get_user_intelligence_tier` checks (Askesis, exercises, batch transcription, journals, search). The original standalone guard-helper module in `adapters/inbound/` (`is_ai_available()` / `ai_unavailable_result()`) ended up with zero callers and was deleted (2026-08-15).
 
 ### Relationship to FeatureFlags
 
-`IntelligenceTier` is the system gate (binary: does it cost API money?). `FeatureFlags` are granular knobs within FULL mode. They are complementary, not overlapping.
+`IntelligenceTier` is the system gate (binary: does it cost API money?). The granular per-capability knobs within FULL are compose-time env flags — `TRANSCRIPTION_ENABLED` (strict-parsed in `services_bootstrap/compose.py`) is the first. The `FeatureFlags` dataclass on `UnifiedConfig` is NOT that mechanism: it is preset/serialization plumbing (`from_environment` presets + `to_dict`) and gates nothing at composition.
 
 ## Consequences
 
@@ -84,7 +84,5 @@ Wired into `adapters/inbound/ai_routes.py:_ai_route` (June 2026): after the syst
 | File | Purpose |
 |------|---------|
 | `core/config/intelligence_tier.py` | `IntelligenceTier` enum + `from_env()` |
-| `core/config/unified_config.py` | `intelligence_tier` field on `UnifiedConfig` |
-| `services_bootstrap.py` | 3 gating points + `Services.intelligence_tier` |
-| `adapters/inbound/ai_guard.py` | Route-level guard helpers |
+| `services_bootstrap/compose.py` | Gating points + `Services.intelligence_tier` (single `from_env()` read; embeddings gate in `_learning_services.py` takes the tier as a parameter) |
 | `core/services/intelligence_tier_service.py` | Per-user tier stub |

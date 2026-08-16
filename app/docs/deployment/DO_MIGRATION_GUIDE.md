@@ -46,9 +46,9 @@ Local development is untouched by all of this: `infrastructure/docker-compose.ym
 | `/opt/skuel/app/.env.production` | non-secret config (copy of `.env.production.example`, filled in) | created once by hand; **survives deploys** (`.deployignore` excludes `.env*` from transfer AND deletion) |
 | `/opt/skuel/secrets.env` | secrets, mode **0600** | created once by hand; loaded via compose `env_file` |
 
-The droplet is **headless** — no keychain. `get_credential()` falls back to the process environment, so env-file injection is the secrets path. Required in `secrets.env`: `NEO4J_PASSWORD`, `OPENAI_API_KEY`, `DEEPGRAM_API_KEY`, `SESSION_SECRET_KEY`. Optional per-feature: `RESEND_API_KEY` (when `EMAIL_ENABLED=true`), `ANTHROPIC_API_KEY`, `STRIPE_WEBHOOK_SECRET`, and `SIGNUP_INVITE_CODE` if you prefer keeping the invite code out of `.env.production` (it resolves through `get_credential()` either way).
+The droplet is **headless** — no keychain. `get_credential()` falls back to the process environment, so env-file injection is the secrets path. Required in `secrets.env`: `NEO4J_PASSWORD`, `OPENAI_API_KEY`, `DEEPGRAM_API_KEY` (unless `TRANSCRIPTION_ENABLED=false` in `.env.production`), `SESSION_SECRET_KEY`. Optional per-feature: `RESEND_API_KEY` (when `EMAIL_ENABLED=true`), `ANTHROPIC_API_KEY`, `STRIPE_WEBHOOK_SECRET`, and `SIGNUP_INVITE_CODE` if you prefer keeping the invite code out of `.env.production` (it resolves through `get_credential()` either way).
 
-`INTELLIGENCE_TIER=full` **boot-fails without `OPENAI_API_KEY` and `DEEPGRAM_API_KEY`** — that is correct fail-fast behavior, not a bug: FULL-tier dependencies are required, never silently degraded.
+`INTELLIGENCE_TIER=full` **boot-fails without `OPENAI_API_KEY` (and `DEEPGRAM_API_KEY`, unless `TRANSCRIPTION_ENABLED=false` opts out of transcription)** — that is correct fail-fast behavior, not a bug: FULL-tier dependencies are required, never silently degraded.
 
 ---
 

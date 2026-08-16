@@ -755,6 +755,7 @@ async def compose_services(
             user_service=user_service,
             graph_intelligence=graph_intelligence,
             llm_service=llm_service,  # Pass LLM service for askesis RAG
+            tier=tier,  # single IntelligenceTier.from_env() read lives above
             event_bus=event_bus,  # Event-driven architecture
             prometheus_metrics=prometheus_metrics,  # Metrics instrumentation
             query_executor=query_executor,
@@ -1132,7 +1133,11 @@ async def compose_services(
             )
             logger.info("✅ BatchTranscriptionService created (Tier 1: audio → txt)")
         else:
-            logger.info("⏭️  BatchTranscriptionService skipped (intelligence tier: CORE)")
+            # Adapter absence = transcription disabled upstream (CORE tier or
+            # TRANSCRIPTION_ENABLED=false) — the specific reason was logged there.
+            logger.info(
+                "⏭️  BatchTranscriptionService skipped (no Deepgram adapter — transcription disabled)"
+            )
 
         # Learning loop query service — read-side peer of LearningLoopEventHandlerService.
         # Owns Cypher that traverses Interaction/Exercise/Report edges, keeping

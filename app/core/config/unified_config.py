@@ -24,7 +24,6 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
-from core.config.intelligence_tier import IntelligenceTier
 from core.constants import SYSTEM_USER_UID
 from core.models.enums import EntityType
 from core.utils.logging import get_logger
@@ -730,9 +729,6 @@ class UnifiedConfig:
     application: ApplicationConfig = field(default_factory=ApplicationConfig)
     features: FeatureFlags = field(default_factory=FeatureFlags)
     dependencies: DependencyConfig = field(default_factory=DependencyConfig)
-
-    # Intelligence tier (CORE = analytics only, FULL = analytics + AI)
-    intelligence_tier: IntelligenceTier = field(default_factory=IntelligenceTier.from_env)
 
     # Metadata
     created_at: datetime = field(default_factory=datetime.now)

@@ -119,7 +119,7 @@ When switching from Digital back to Analog, nothing is lost. Existing embeddings
 | `core/config/intelligence_tier.py` | `IntelligenceTier` enum — the toggle |
 | `services_bootstrap/compose.py` | Bootstrap orchestration: index sync + tier-gated AI service creation |
 | `adapters/persistence/neo4j/neo4j_schema_manager.py` | `sync_fulltext_indexes()` (always), `sync_vector_indexes()` (FULL only), `sync_domain_indexes()` (always) |
-| `adapters/inbound/ai_guard.py` | Route-level guards for AI endpoints |
+| `core/services/intelligence_tier_service.py` | Per-user tier gate consumed by the AI routes |
 | `core/services/base_analytics_service.py` | Analog intelligence base (no AI deps) |
 | `core/services/base_ai_service.py` | Digital intelligence base (requires LLM + embeddings) |
 | `core/utils/embedding_text_builder.py` | Field mappings for 16 content-bearing entity types |

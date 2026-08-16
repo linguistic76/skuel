@@ -70,13 +70,13 @@ No OpenAI API key needed. The app starts without creating any AI services. All C
 ```bash
 INTELLIGENCE_TIER=full
 OPENAI_API_KEY=sk-...
+DEEPGRAM_API_KEY=...
 ```
 
-Or simply set your API key — `full` is the default:
-
-```bash
-OPENAI_API_KEY=sk-...
-```
+`full` is the default, so both keys are read whenever `INTELLIGENCE_TIER` is unset.
+`DEEPGRAM_API_KEY` is required unless you opt out of transcription with
+`TRANSCRIPTION_ENABLED=false` — FULL then composes without Deepgram and the
+transcription routes simply don't register.
 
 ### What Happens at Startup
 
@@ -144,6 +144,5 @@ This is not wired into routes yet. It exists as a documented decision point for 
 
 - `/docs/decisions/ADR-043-intelligence-tier-toggle.md` — Architecture decision record
 - `/core/config/intelligence_tier.py` — Enum implementation
-- `/services_bootstrap.py` — Three gating points
-- `/adapters/inbound/ai_guard.py` — Route protection helpers
+- `/services_bootstrap/compose.py` — Tier gating points (embeddings gate in `_learning_services.py`)
 - `/core/services/intelligence_tier_service.py` — Per-user tier stub
