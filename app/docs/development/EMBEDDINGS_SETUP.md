@@ -111,9 +111,11 @@ uv run python scripts/generate_embeddings_batch.py --label Ku # one label
 uv run python scripts/generate_embeddings_batch.py --stale    # re-embed drifted/version-mismatched nodes (ADR-074)
 ```
 
-After a one-shot script sync (`./dev vault-sync`), run **both** the default mode (embeds
-brand-new nodes) and `--stale` (re-embeds drifted ones) — script-mode events die with the
-script process, so the backfill script is that path's freshness mechanism (ADR-074).
+`./dev vault-sync` subscribes the embedding worker before the sync and drains it after —
+the script path embeds through the same event pipeline as the app, so no routine backfill
+follows a sync. The batch script is the backstop for gaps: default mode (aliased as
+`./dev embed-backfill`) fills embedding-NULL nodes; `--stale` re-embeds drifted or
+version-mismatched ones (ADR-074).
 
 ### 5. Test Semantic Search
 

@@ -24,6 +24,7 @@ from core.models.enums.pipeline import ProcessingMode
 from core.services.journal.journal_batch_service import (
     LLM_UNAVAILABLE_MESSAGE,
     TEXT_EXTENSIONS,
+    TRANSCRIPTION_UNAVAILABLE_MESSAGE,
     BatchRunReport,
     JournalBatchService,
     _build_exemplar_preamble,
@@ -365,7 +366,7 @@ class TestTranscribeUpload:
         result = await service.transcribe_upload(b"audio", ".mp3")
 
         assert result.is_error
-        assert "FULL tier" in str(result.expect_error())
+        assert str(result.expect_error().message) == TRANSCRIPTION_UNAVAILABLE_MESSAGE
 
     @pytest.mark.asyncio
     async def test_transcription_failure_propagates(self, tmp_path: Path) -> None:
@@ -413,7 +414,7 @@ class TestBatchTranscribeOnly:
         report = await service.run_batch_over_dir(tmp_path, ProcessingMode.TRANSCRIBE_ONLY, None)
 
         assert not report.ok
-        assert "FULL tier" in report.message
+        assert report.message == TRANSCRIPTION_UNAVAILABLE_MESSAGE
 
     @pytest.mark.asyncio
     async def test_success_counts_and_honors_skip_existing(self, tmp_path: Path) -> None:

@@ -189,7 +189,7 @@ Switching from FULL → CORE:
 | `core/config/intelligence_tier.py` | `IntelligenceTier` enum, `from_env()` |
 | `services_bootstrap/compose.py` | Bootstrap: index sync (tier-gated) + the 5 AI gating points |
 | `adapters/persistence/neo4j/neo4j_schema_manager.py` | `sync_fulltext_indexes()` (always), `sync_vector_indexes()` (FULL only) |
-| `adapters/inbound/ai_guard.py` | Route-level guard (`is_ai_available()`) |
+| `core/services/intelligence_tier_service.py` | Per-user tier gate (`get_user_intelligence_tier`) consumed by the AI routes |
 | `.env` | `INTELLIGENCE_TIER=core\|full` |
 | `core/services/background/embedding_worker.py` | Only starts when embeddings service exists |
 | `core/events/embedding_publisher.py` | The one `*EmbeddingRequested` publish chokepoint (ADR-074) — ingestion never embeds inline |

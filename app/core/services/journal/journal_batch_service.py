@@ -67,10 +67,11 @@ _LLM_MAX_TOKENS = 4000
 TRANSCRIPT_SUFFIX = ".txt"
 COMPILED_SUFFIX = "_out.md"
 
-# Tier-availability messages. Both upload doors (the single-file route helper and
-# the batch engine below) surface these verbatim, so they live here as the one
-# source rather than being re-typed at each call site.
-TRANSCRIPTION_UNAVAILABLE_MESSAGE = "Transcription service not available (requires FULL tier)"
+# Availability messages (tier / capability-flag preflights). Both upload doors
+# (the single-file route helper and the batch engine below) surface these
+# verbatim, so they live here as the one source rather than being re-typed at
+# each call site.
+TRANSCRIPTION_UNAVAILABLE_MESSAGE = "Transcription service not available (requires INTELLIGENCE_TIER=full and TRANSCRIPTION_ENABLED)"
 LLM_UNAVAILABLE_MESSAGE = "LLM service not available (requires INTELLIGENCE_TIER=full)"
 
 
@@ -192,7 +193,7 @@ class JournalBatchService:
 
     @property
     def transcription_available(self) -> bool:
-        """Deepgram wired (FULL tier) — audio modes need it."""
+        """Deepgram wired (FULL tier with transcription enabled) — audio modes need it."""
         return self.batch_transcription_service is not None
 
     @property
@@ -246,7 +247,7 @@ class JournalBatchService:
         if self.batch_transcription_service is None:
             return Result.fail(
                 Errors.business(
-                    rule="transcription_tier_required",
+                    rule="transcription_service_required",
                     message=TRANSCRIPTION_UNAVAILABLE_MESSAGE,
                 )
             )

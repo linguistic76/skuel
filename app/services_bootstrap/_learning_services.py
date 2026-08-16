@@ -6,6 +6,7 @@ from core.models.enums.neo_labels import NeoLabel
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
+    from core.config.intelligence_tier import IntelligenceTier
     from core.infrastructure.monitoring.prometheus_metrics import PrometheusMetrics
 
 logger = get_logger("skuel.bootstrap")
@@ -20,6 +21,7 @@ def _create_learning_services(
     user_service: Any,
     graph_intelligence: Any,
     llm_service: Any,  # LLMService for RAG generation (None when CORE tier)
+    tier: "IntelligenceTier",  # resolved once in compose_services — the single from_env() read
     event_bus: Any = None,
     prometheus_metrics: "PrometheusMetrics | None" = None,
     query_executor: Any = None,
@@ -37,10 +39,6 @@ def _create_learning_services(
     # Gated by intelligence tier (ADR-043): CORE skips entirely, FULL creates normally
     embeddings_service = None
     vector_search_service = None
-
-    from core.config.intelligence_tier import IntelligenceTier
-
-    tier = IntelligenceTier.from_env()
 
     if not tier.ai_enabled:
         logger.info("⏭️  Embedding services skipped (intelligence tier: CORE)")
