@@ -608,8 +608,16 @@ measured in both directions by `test_publication_gate_output_invariant.py`.
 
 **Score normalization:** RRF emits 0.001–0.05 while every other rung emits ~0–1, and
 `UnifiedSearchResult.get_top_results` compares combined scores ACROSS domains — so
-hybrid scores are normalized by the batch max at the mapping point. Without it,
-hybrid-ranked domains sink below `CONTAINS` domains in a mixed sweep.
+hybrid scores are divided onto 0–1 at the mapping point. Without it, hybrid-ranked
+domains sink below `CONTAINS` domains in a mixed sweep.
+
+The divisor is `Neo4jVectorSearchService.max_rrf_score` = **1/(k+1)** — the theoretical
+ceiling, *not* the batch's own maximum. A document ranked first by both halves scores
+`vector_weight/(k+1) + text_weight/(k+1)`, and the weights always sum to 1, so the
+ceiling is the same for every label. Using each batch's max instead would give every
+domain's best hit exactly 1.0: Ku, PathStep and LearningPath would tie at the top, the
+merged order would fall to iteration order, and the difference between "ranked first by
+both halves" and "ranked first by one" — twice the raw score — would be erased.
 
 **Fallback:** ineligible, empty, or failed → `[]`, and Strategy 3 runs the domain's
 `CONTAINS` search unchanged. The rung can never make a working search worse.
