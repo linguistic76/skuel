@@ -316,7 +316,8 @@ navigate to it — product need, not a data threshold.
 
 Deferred 2026-08-16 from the fulltext/hybrid wiring arc (D1 ruling: SearchRouter rung now,
 domain-level later). The rung gave Ku/PathStep/LearningPath relevance-ranked hybrid search on
-`/search` (FULL tier); every other text-search caller still runs case-sensitive `CONTAINS`.
+`/api/search/unified` (FULL tier) — and **only** there. Every other text-search caller,
+including the `/search` browser page, still runs case-sensitive `CONTAINS`.
 The follow-on, in rough order of value:
 
 - **The `/search` HTML page.** The shipped rung sits in `_execute_advanced_search`, reached
@@ -337,8 +338,9 @@ The follow-on, in rough order of value:
   OWNS/SHARES_WITH/group membership) needs the same user_uid threading, plus Exercise has no
   vector index (add it alongside, or run fulltext-only).
 
-**Enable when**: a consumer wants relevance-ranked text search outside the `/search`
-curriculum surface — product need, not a data threshold.
+**Enable when**: a consumer wants relevance-ranked text search beyond the curriculum
+domains on `/api/search/unified` — the `/search` page included. Product need, not a
+data threshold.
 
 ---
 
@@ -491,7 +493,7 @@ Review this document at the **September 2026 quarterly review**. Checklist:
 | Secrets follow-ups (shred `secrets.env` residue; KeyringBackend test) | Next touch of the compose/secrets surface | Ride-along, not standalone |
 | Principles `_validate_update` reform or deletion | Next substantive touch of the Principles update path | Ruling needed — see the section's landmine note |
 | EntryReport / ActivityReport search | A teacher workflow wants direct report-content search | Product need (not a data threshold) |
-| Domain-level fulltext-first text search (D1(b)) | A consumer wants relevance-ranked text search outside `/search` curriculum | Product need (not a data threshold) |
+| Domain-level fulltext-first text search (D1(b)) | A consumer wants relevance-ranked text search beyond `/api/search/unified` curriculum (incl. the `/search` page) | Product need (not a data threshold) |
 | ZPD snapshot history & trend analysis | A ZPD-over-time consumer exists | Product need + `MATCH (h:ZPDHistory) RETURN count(h)` for accrual |
 | Habit rows in the weekly-note panel | Lived weekly-review use wants the backward look | Product need (not a data threshold) |
 | Non-positive-duration follow-ups (habit `0m` on `/today` / proposes `15`) | Next touch of either surface | Ride-along, not standalone |
