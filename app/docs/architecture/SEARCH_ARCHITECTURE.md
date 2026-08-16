@@ -619,9 +619,17 @@ manager (creation) and the query side (lookup) so the two cannot drift. It snake
 multi-word labels — `PathStep` → `path_step_fulltext_idx`, which flat `label.lower()`
 got wrong, silently matching no index at all.
 
-**Lucene escaping:** `core/utils/lucene.py::escape_lucene_query` neutralizes query-parser
-specials at the input boundary — `queryNodes` parses Lucene syntax, so an unescaped
-`C++ (advanced)` is a parse error rather than a search.
+**Lucene escaping:** `core/utils/lucene.py::escape_lucene_query` neutralizes user input at
+the boundary. Syntax reaches the parser through **two** doors and both must be closed:
+
+1. **Special characters** (`+ - && || ! ( ) { } [ ] ^ " ~ * ? : \ /`) — backslash-escaped.
+   Unescaped, `C++ (advanced)` is a parse error rather than a search.
+2. **Reserved boolean keywords** (bare uppercase `AND`/`OR`/`NOT`) — quoted. Left bare, a
+   lone `AND` raises `ParseException` (which `_fulltext_search` turns into an empty result,
+   silently degrading hybrid to vector-only), and `peace NOT war` *excludes* documents the
+   user never asked to exclude. Lowercase `and` and words merely containing a keyword
+   (`NOTE`, `android`) are deliberately untouched; `TO` is reserved only inside a range,
+   which cannot form because `[`/`]` are already escaped.
 
 ---
 
