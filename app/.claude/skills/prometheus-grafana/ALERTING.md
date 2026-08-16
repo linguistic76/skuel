@@ -55,16 +55,23 @@ cutover, part 1 runs in the local app process against the real Aura counts:
    through `check_aura_cap_headroom()` (`core/infrastructure/monitoring/aura_cap_check.py`):
    WARNING above 80% of cap, ERROR above 95%, logged **every cycle** while over threshold so
    any log tail surfaces it. Thresholds live in `core/constants.py` `AuraDBCaps` and are
-   drift-pinned to the alert exprs by `tests/unit/test_metric_reference_drift.py`. Grep:
+   drift-pinned to the alert exprs by `tests/unit/test_metric_reference_drift.py`. Grep
+   the process that actually talks to Aura — the local host process (logs are
+   repo-root-relative, `logs/skuel.log`), or the compose app only on an unparked droplet:
 
    ```bash
-   docker compose logs skuel-app | grep 'AuraDB cap'
+   grep 'AuraDB cap' logs/skuel.log                   # local Aura-backed process (daily)
+   docker compose logs skuel-app | grep 'AuraDB cap'  # droplet, if/when unparked
    ```
 
-2. **Weekly manual verification** — read the gauges when the Sunday telemetry-retention
-   cron runs (same rhythm, see DO_MIGRATION_GUIDE § Operations Runbook):
+2. **Weekly manual verification** — read the gauges on the telemetry-retention rhythm
+   (`./dev telemetry-retention` locally; on an unparked droplet this is the Sunday cron,
+   see DO_MIGRATION_GUIDE § Operations Runbook):
 
    ```bash
+   # Local Aura-backed process (APP_PORT, default 8000):
+   curl -s localhost:8000/metrics | grep -E 'skuel_total_(entities|relationships) '
+   # Droplet, if/when unparked (container listens on 5001):
    docker compose exec skuel-app curl -s localhost:5001/metrics \
      | grep -E 'skuel_total_(entities|relationships) '
    ```
