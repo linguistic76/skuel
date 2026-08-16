@@ -195,6 +195,40 @@ async def test_unbalanced_quote_does_not_raise(search_service: Neo4jVectorSearch
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+@pytest.mark.parametrize("query", ["AND", "OR", "NOT"])
+async def test_bare_boolean_keyword_does_not_raise(
+    search_service: Neo4jVectorSearchService, query: str
+) -> None:
+    """Escaping characters alone left this door open — a bare uppercase
+    operator raised Lucene's ParseException (Codex, PR #1074)."""
+    result = await search_service._fulltext_search(
+        label=NeoLabel.PATH_STEP.value, query_text=query, limit=10
+    )
+
+    assert result.is_ok, f"bare {query!r} broke the query: {result}"
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_boolean_keywords_are_literal_not_operators(
+    search_service: Neo4jVectorSearchService,
+) -> None:
+    """`photosynthesis NOT shade` must not EXCLUDE the shade step.
+
+    Unquoted, Lucene reads `NOT` as negation and withholds the published step —
+    silently answering a question the user never asked.
+    """
+    result = await search_service._fulltext_search(
+        label=NeoLabel.PATH_STEP.value, query_text="photosynthesis NOT shade", limit=10
+    )
+
+    assert result.is_ok, f"boolean query broke: {result}"
+    uids = [item["node"]["uid"] for item in result.value]
+    assert PUBLISHED_UID in uids, "NOT was parsed as negation — the term is meant to be literal"
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
 async def test_hybrid_search_degrades_to_fulltext_without_embeddings(
     search_service: Neo4jVectorSearchService,
 ) -> None:

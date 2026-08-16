@@ -8,13 +8,18 @@ because either one alone would admit a domain the other refuses.
 
 The rung also must never turn a working search into a broken one: every
 ineligible/empty/failed path falls through to the domain's CONTAINS search.
+
+``TestRealServicesQualify`` is the half doubles cannot cover: every test above
+builds a service that satisfies the protocol BY CONSTRUCTION, so all of them
+would still pass if the real Ku/PS/LP services stopped qualifying and the rung
+went quietly dead.
 """
 
 from __future__ import annotations
 
 from types import SimpleNamespace
 from typing import Any
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -22,6 +27,10 @@ from core.models.enums import SearchVisibility
 from core.models.enums.entity_enums import EntityType
 from core.models.search_request import SearchRequest
 from core.orchestrator.search_router import SearchRouter
+from core.ports.search_protocols import SupportsVisibilityDeclaration
+from core.services.ku.ku_search_service import KuSearchService
+from core.services.lp.lp_search_service import LpSearchService
+from core.services.ps.ps_search_service import PsSearchService
 from core.utils.result_simplified import Errors, Result
 
 HYBRID_ROWS = [
@@ -250,3 +259,46 @@ class TestLabelDerivation:
 
         kwargs = vector_search.hybrid_search_with_metrics.await_args.kwargs
         assert kwargs["label"] == "LearningPath"
+
+
+class TestRealServicesQualify:
+    """The rung's liveness, checked against the real services rather than doubles.
+
+    Every other test here builds a service that satisfies the protocol by
+    construction. If `KuSearchService` stopped exposing `search_visibility`, or
+    a DomainConfig gained a `user_ownership_relationship` (deriving OWNER_ONLY),
+    the rung would silently stop firing in production and all of them would
+    still pass — construction is not liveness (#1073).
+    """
+
+    @pytest.mark.parametrize(
+        ("name", "service_class"),
+        [("ku", KuSearchService), ("ps", PsSearchService), ("lp", LpSearchService)],
+    )
+    def test_service_satisfies_the_protocol_and_declares_public(
+        self, name: str, service_class: type
+    ) -> None:
+        service = service_class(backend=MagicMock())
+
+        assert isinstance(service, SupportsVisibilityDeclaration), (
+            f"{name} no longer exposes search_visibility — the rung's isinstance "
+            "narrowing fails and it falls through to CONTAINS forever"
+        )
+        assert service.search_visibility is SearchVisibility.PUBLIC, (
+            f"{name} declares {service.search_visibility}, not PUBLIC — the rung "
+            "refuses it. Either the domain changed (drop it from the allowlist) "
+            "or a config regressed"
+        )
+
+    def test_the_allowlist_matches_the_domains_that_qualify(self) -> None:
+        """Allowlist and reality agree — a stale entry is a rung that never fires."""
+        allowlist = set(SearchRouter._HYBRID_TEXT_DOMAIN_VALUES)
+        assert allowlist == {
+            EntityType.KU.value,
+            EntityType.PATH_STEP.value,
+            EntityType.LEARNING_PATH.value,
+        }
+
+    def test_exercise_is_deliberately_absent(self) -> None:
+        """Exercise is SCOPE_AWARE — admitting it needs user_uid threading (D1(b))."""
+        assert EntityType.EXERCISE.value not in SearchRouter._HYBRID_TEXT_DOMAIN_VALUES
