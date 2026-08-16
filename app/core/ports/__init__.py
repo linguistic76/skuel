@@ -62,8 +62,6 @@ from .base_protocols import (
     # Type Aliases and TypedDicts (3)
     Direction,
     EntitySearchOperations,
-    # Core Conversion Protocols (5)
-    EnumLike,
     # Pydantic Field Constraint Protocols (7)
     GeConstraint,
     GraphContextNode,
@@ -73,7 +71,6 @@ from .base_protocols import (
     GtConstraint,
     # Timestamp Protocols (3)
     HasCreatedAt,
-    HasDict,
     HasLogger,
     HasMetadata,
     # Priority/Sorting Protocols (3)
@@ -85,7 +82,6 @@ from .base_protocols import (
     HasSeverity,
     HasStrategy,
     HasSummary,
-    HasToDict,
     HasToNumeric,
     # Entity Attribute Protocols - Core (6)
     HasUID,
@@ -105,7 +101,6 @@ from .base_protocols import (
     MetricsLike,
     MinLenConstraint,
     PydanticFieldInfo,
-    PydanticModel,
     # Standalone query execution port (February 2026)
     QueryExecutor,
     RelationshipCrudOperations,
@@ -113,13 +108,8 @@ from .base_protocols import (
     RelationshipMetadataOperations,
     RelationshipQueryOperations,
     Result,
-    Serializable,
     StreaksLike,
     # Backend Capability Protocols (10)
-    # Helper Functions (3)
-    get_enum_attr_str,
-    get_enum_value,
-    to_dict,
 )
 
 # Curriculum operation protocols (November 2025 - consistent hierarchy)
@@ -338,8 +328,6 @@ __all__ = [
     "Direction",
     "DomainSearchOperations",
     "EntitySearchOperations",  # Search/filter (3 methods)
-    # ========== CORE CONVERSION PROTOCOLS (5) ==========
-    "EnumLike",
     "EventBusOperations",
     "EventsSearchOperations",
     "EventsOperations",
@@ -366,7 +354,6 @@ __all__ = [
     "HabitEventSchedulerOperations",
     # ========== TIMESTAMP PROTOCOLS (3) ==========
     "HasCreatedAt",
-    "HasDict",
     "HasLogger",
     "HasMetadata",
     # ========== PRIORITY/SORTING PROTOCOLS (3) ==========
@@ -378,7 +365,6 @@ __all__ = [
     "HasSeverity",
     "HasStrategy",
     "HasSummary",
-    "HasToDict",
     "HasToNumeric",
     # ========== ENTITY ATTRIBUTE PROTOCOLS (6) ==========
     "HasUID",
@@ -417,7 +403,6 @@ __all__ = [
     "PrinciplesSearchOperations",
     "PrinciplesOperations",
     "PydanticFieldInfo",
-    "PydanticModel",
     "QueryBuilderOperations",
     # ========== SHARING PROTOCOL ==========
     "SharingOperations",
@@ -442,7 +427,6 @@ __all__ = [
     "SchemaOperations",
     "SchemaQueryExecutor",
     "ScopedChunkRetrievalOperations",
-    "Serializable",
     "StreaksLike",
     # ========== BACKEND CAPABILITY PROTOCOLS (10) ==========
     # Graph-aware search capability protocols (January 2026)
@@ -460,10 +444,6 @@ __all__ = [
     "UserOperations",
     "UserLearningStateOperations",
     "VisualizationOperations",
-    # ========== HELPER FUNCTIONS (3) ==========
-    "get_enum_attr_str",
-    "get_enum_value",
-    "to_dict",
     # ========== ZPD PROTOCOL (1 - March 2026) ==========
     "ZPDOperations",
 ]

@@ -555,7 +555,7 @@ class CRUDRouteFactory[T]:
             if isinstance(schema, SupportsToIntent):
                 updates = schema.to_intent()
             else:
-                from core.ports import get_enum_value
+                from core.utils.type_converters import get_enum_value
 
                 raw = schema.model_dump(exclude_unset=True)
                 updates = RawChanges({k: get_enum_value(v) for k, v in raw.items()})

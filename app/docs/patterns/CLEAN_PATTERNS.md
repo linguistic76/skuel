@@ -13,7 +13,7 @@ This document contains established patterns for SKUEL service development, moved
 ## The Standard Pattern
 
 ```python
-from core.ports import get_enum_value, EnumLike
+from core.utils.type_converters import EnumLike, get_enum_value
 
 # For any enum value extraction:
 value = get_enum_value(some_enum)  # Returns enum.value or object itself

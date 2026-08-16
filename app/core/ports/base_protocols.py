@@ -36,7 +36,7 @@ See Also
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Literal, Protocol, TypedDict, overload, runtime_checkable
+from typing import TYPE_CHECKING, Any, Literal, Protocol, TypedDict, runtime_checkable
 
 from core.models.type_hints import EntityUID, Neo4jProperties, Neo4jValue, UserUID
 
@@ -200,69 +200,6 @@ class GraphContextNode(TypedDict, total=False):
 
     # Escape hatch for domain-specific properties
     raw_properties: dict[str, Any]
-
-
-# ============================================================================
-# Core Conversion Protocols (USED: adapters, services)
-# ============================================================================
-
-
-@runtime_checkable
-class PydanticModel(Protocol):
-    """Protocol for Pydantic models with model_dump method."""
-
-    def model_dump(self, *, exclude_none: bool = False) -> dict[str, Any]:
-        """Dump model to dictionary.
-
-        ``exclude_none`` is the whole keyword surface the two consumers use
-        (``ConversionServiceV2.create_to_pure`` passes it; ``to_dict`` below
-        calls it bare). A real ``pydantic.BaseModel`` still satisfies this —
-        its extra keywords all have defaults.
-        """
-        ...
-
-
-@runtime_checkable
-class HasDict(Protocol):
-    """Protocol for objects that can be converted to dict."""
-
-    def dict(self) -> dict[str, Any]:
-        """Convert to dictionary."""
-        ...
-
-
-@runtime_checkable
-class HasToDict(Protocol):
-    """Protocol for objects with to_dict method."""
-
-    def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary."""
-        ...
-
-
-@runtime_checkable
-class Serializable(Protocol):
-    """Protocol for objects that can be serialized to dict."""
-
-    def serialize(self) -> dict[str, Any]:
-        """Serialize to dictionary."""
-        ...
-
-
-@runtime_checkable
-class EnumLike[V = str | int | float](Protocol):
-    """Protocol for enum-like objects with a value attribute.
-
-    ``value`` is a read-only property, not a mutable attribute: ``Enum.value``
-    is a descriptor, so a settable-attribute protocol does not match an enum
-    statically (it only ever matched at runtime, where ``runtime_checkable``
-    just tests for the name). Parameterising it is what lets
-    ``get_enum_value`` hand the member's value type back to its caller; the
-    ``str | int | float`` default keeps bare ``EnumLike`` narrowing as before.
-    """
-
-    @property
-    def value(self) -> V: ...
 
 
 # ============================================================================
@@ -1343,88 +1280,9 @@ class MaxItemsConstraint(Protocol):
 
 
 # ============================================================================
-# Utility Helper Functions — SECOND IMPLEMENTATION, not a re-export
-# ============================================================================
-#
-# core/utils/type_converters.py carries its own copy of to_dict /
-# get_enum_value / get_enum_attr_str, over its own private protocols
-# (_PydanticModel, _EnumLike, ...). Neither file imports the other:
-# type_converters would cycle back through this module's protocols, so the
-# bodies are duplicated rather than shared. Both copies have live callers
-# (~20 import from core.ports, 2 from core.utils.type_converters).
-#
-# Consequence for anyone editing here: a change to a body or a signature
-# below does NOT propagate — mirror it in core/utils/type_converters.py, or
-# the two copies drift.
-# ============================================================================
-
-
-def to_dict(obj: object) -> object:
-    """
-    Universal converter to dictionary format.
-
-    Every branch is an isinstance narrow, so ``object`` accepts exactly what
-    ``Any`` did while forbidding unchecked attribute access inside. The return
-    is ``object`` because the arms genuinely differ — ``dict[str, Any]`` from
-    the four protocol branches, a list from the sequence branch, and the input
-    untouched otherwise.
-
-    See core.utils.type_converters.to_dict for full documentation.
-    """
-    if isinstance(obj, PydanticModel):
-        return obj.model_dump()
-    elif isinstance(obj, HasDict):
-        return obj.dict()
-    elif isinstance(obj, HasToDict):
-        return obj.to_dict()
-    elif isinstance(obj, Serializable):
-        return obj.serialize()
-    elif isinstance(obj, dict):
-        return obj
-    elif isinstance(obj, list | tuple):
-        return [to_dict(item) for item in obj]
-    else:
-        return obj
-
-
-@overload
-def get_enum_value[V](obj: EnumLike[V]) -> V: ...
-@overload
-def get_enum_value[T](obj: T) -> T: ...
-def get_enum_value(obj: object) -> object:
-    """
-    Get the value of an enum-like object.
-
-    Two overloads rather than one signature: callers that pass an enum need
-    the member's value type back (``GoalCreated.domain: str | None`` and
-    ``GraphContext.query_intent: str`` are both fed from here), and callers
-    that pass a plain value need it returned unchanged.
-
-    Uses Protocol-based type checking instead of hasattr.
-    See core.utils.type_converters.get_enum_value for full documentation.
-    """
-    if isinstance(obj, EnumLike):
-        return obj.value
-    return obj
-
-
-def get_enum_attr_str(obj: object, attr: str, default: str = "") -> str:
-    """Extract an attribute as a lowercase string, handling both enum and string values.
-
-    See core.utils.type_converters.get_enum_attr_str for full documentation.
-    """
-    value = getattr(obj, attr, None)
-    if value is None:
-        return default
-    if isinstance(value, EnumLike):
-        return str(value.value).lower()
-    return str(value).lower()
-
-
-# ============================================================================
 # EXPLICIT EXPORTS - ISP-compliant protocols (streamlined Nov 2025)
 # NOTE: Deepgram protocols moved to adapters/external/deepgram/
-# NOTE: Helper functions also available from core.utils.type_converters
+# NOTE: Conversion protocols + helpers live in core.utils.type_converters
 # ============================================================================
 
 __all__ = [
@@ -1435,8 +1293,6 @@ __all__ = [
     # Type Aliases (3)
     "Direction",
     "EntitySearchOperations",  # Search/filter
-    # Core Conversion Protocols (5)
-    "EnumLike",
     # Base Service Protocols (4)
     # Pydantic Field Constraint Protocols (7)
     "GeConstraint",
@@ -1449,7 +1305,6 @@ __all__ = [
     "GtConstraint",
     # Timestamp Protocols (3)
     "HasCreatedAt",
-    "HasDict",
     "HasLogger",
     "HasMetadata",
     # Priority/Sorting Protocols (3)
@@ -1461,7 +1316,6 @@ __all__ = [
     "HasSeverity",
     "HasStrategy",
     "HasSummary",
-    "HasToDict",
     "HasToNumeric",
     # Entity Attribute Protocols - Core (6)
     "HasUID",
@@ -1478,17 +1332,11 @@ __all__ = [
     "MetricsLike",
     "MinLenConstraint",
     "PydanticFieldInfo",
-    "PydanticModel",
     "RelationshipCrudOperations",  # Edge CRUD
     "RelationshipMetadata",
     "RelationshipMetadataOperations",  # Edge properties
     "RelationshipQueryOperations",  # Relationship queries
     "Result",
-    "Serializable",
     "StreaksLike",
     # Backend Capability Protocols (7 - kept used ones)
-    # Helper Functions (3)
-    "get_enum_attr_str",
-    "get_enum_value",
-    "to_dict",
 ]

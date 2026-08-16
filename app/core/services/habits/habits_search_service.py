@@ -310,7 +310,7 @@ class HabitsSearchService(BaseService[HabitsOperations, Habit]):
         Returns:
             Result containing habits with matching frequency
         """
-        from core.ports import get_enum_value
+        from core.utils.type_converters import get_enum_value
 
         frequency_value = get_enum_value(frequency)
         result = await self.backend.find_by(frequency=frequency_value, limit=limit)

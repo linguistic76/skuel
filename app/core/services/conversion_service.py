@@ -62,7 +62,7 @@ from core.models.templates.principle_template_request import PrincipleTemplateCr
 from core.models.templates.relative_offset_dto import RelativeOffsetDTO
 from core.models.templates.task_template import TaskTemplate
 from core.models.templates.task_template_request import TaskTemplateCreateRequest
-from core.ports import PydanticModel
+from core.utils.type_converters import PydanticModel
 
 # Type variables for generic methods
 T = TypeVar("T")

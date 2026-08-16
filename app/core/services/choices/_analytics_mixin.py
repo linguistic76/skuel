@@ -18,9 +18,9 @@ from typing import TYPE_CHECKING, Any
 
 from core.constants import QueryLimit
 from core.models.type_hints import UserUID
-from core.ports import get_enum_value
 from core.utils.result_simplified import Result
 from core.utils.sort_functions import get_domain_choice_count, get_principle_frequency_rank
+from core.utils.type_converters import get_enum_value
 
 if TYPE_CHECKING:
     import structlog

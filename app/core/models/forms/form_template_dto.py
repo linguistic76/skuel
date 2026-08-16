@@ -14,7 +14,7 @@ from typing import Any
 from core.models.entity_dto import EntityDTO
 from core.models.enum_field_registry import enum_fields_for
 from core.models.enums.entity_enums import EntityType
-from core.ports import get_enum_value
+from core.utils.type_converters import get_enum_value
 
 
 @dataclass

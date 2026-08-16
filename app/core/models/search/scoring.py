@@ -808,7 +808,7 @@ def score_habit(habit: "Habit", context: "UserContext") -> PriorityScore:
         )
 
     # Frequency alignment (weight: 0.15) - use recurrence_pattern field
-    from core.ports import get_enum_value
+    from core.utils.type_converters import get_enum_value
 
     freq_value = get_enum_value(habit.recurrence_pattern) if habit.recurrence_pattern else None
 
@@ -932,7 +932,7 @@ def score_event(event: "Event", context: "UserContext") -> PriorityScore:
     )
 
     # Event type priority (weight: 0.10)
-    from core.ports import get_enum_value
+    from core.utils.type_converters import get_enum_value
 
     event_type = get_enum_value(event.event_type) if event.event_type else None
 
