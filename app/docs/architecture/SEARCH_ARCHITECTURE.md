@@ -622,9 +622,10 @@ both halves" and "ranked first by one" — twice the raw score — would be eras
 **Fallback:** ineligible, empty, or failed → `[]`, and Strategy 3 runs the domain's
 `CONTAINS` search unchanged. The rung can never make a working search worse.
 
-**Match attribution is derived, never assumed.** `hybrid_search` reports
-`matched_vector` / `matched_fulltext` per result and the rung turns those into the
-`match_reason` ("Keyword + semantic match" / "Semantic match" / "Keyword match").
+**Match attribution is derived, never assumed.** `hybrid_search` returns
+`HybridSearchHit` (`core/ports/query_types.py`), which reports `matched_vector` /
+`matched_fulltext` per result; the rung turns those into the `match_reason`
+("Keyword + semantic match" / "Semantic match" / "Keyword match").
 Do not collapse this back to a constant: the vector half is empty whenever a label
 has no index or no backfilled embeddings yet, and a fixed "semantic" label would
 claim machine understanding for a hit Lucene found on its own.
