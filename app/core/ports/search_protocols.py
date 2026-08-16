@@ -714,6 +714,26 @@ class SupportsTextSearch(Protocol):
 
 
 @runtime_checkable
+class SupportsVisibilityDeclaration(Protocol):
+    """
+    Protocol for search services that declare their domain's search visibility.
+
+    The narrow slice SearchRouter's hybrid rung needs: a live read of the
+    domain's ``SearchVisibility`` declaration, without requiring the full
+    graph-aware faceted surface. ``SupportsTextSearch`` deliberately omits
+    this — thin services may search without declaring visibility.
+
+    Use isinstance(service, SupportsVisibilityDeclaration) to narrow before
+    reading ``search_visibility`` (SKUEL011 — no hasattr).
+    """
+
+    @property
+    def search_visibility(self) -> SearchVisibility:
+        """The domain's declared visibility (DomainConfig-resolved)."""
+        ...
+
+
+@runtime_checkable
 class SupportsGraphAwareSearch(Protocol):
     """
     Protocol for search services with graph-aware faceted search capability.

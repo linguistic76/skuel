@@ -56,7 +56,8 @@ logger = get_logger("skuel.scripts.create_vector_indexes")
 # multi-label architecture; Task/Goal are per-label query optimizations;
 # ContentChunk powers RAG retrieval; ReferenceChunk powers canon reference
 # retrieval on its own index (SearchRouter-invisible); Ku/PathStep power the
-# node→node "Related concepts" lens on the explore detail pages.
+# node→node "Related concepts" lens on the explore detail pages;
+# LearningPath powers the SearchRouter hybrid rung's vector half.
 PRIORITY_ENTITIES = [
     "Entity",
     "ContentChunk",
@@ -65,6 +66,7 @@ PRIORITY_ENTITIES = [
     "Goal",
     "Ku",
     "PathStep",
+    "LearningPath",
 ]
 
 

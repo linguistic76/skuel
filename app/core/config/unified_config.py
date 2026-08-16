@@ -189,8 +189,10 @@ class VectorSearchConfig:
     vector_weight: float = 0.5  # 50% vector similarity
     text_weight: float = 0.5  # 50% full-text match
 
-    # RRF (Reciprocal Rank Fusion) parameter
+    # RRF (Reciprocal Rank Fusion) parameters
     rrf_k: int = 60  # Standard RRF k value
+    # RRF scores live on a 0.0-0.05 scale (not 0-1) — threshold accordingly
+    min_rrf_score: float = 0.001
 
     # Semantic relationship boosting
     semantic_boost_weight: float = 0.3  # 30% semantic, 70% vector similarity

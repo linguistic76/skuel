@@ -775,11 +775,6 @@ PLANNED_METHODS: dict[str, str] = {
         "test coverage in test_search_metrics_tracking.py; wire when metrics "
         "collection is needed on the vector search path"
     ),
-    "core/services/neo4j_vector_search_service.py::hybrid_search_with_metrics": (
-        "hybrid_search wrapper that captures SearchMetrics; full integration test "
-        "coverage in test_search_metrics_tracking.py; wire alongside hybrid_search "
-        "when metrics collection is needed"
-    ),
     # Restored — test-covered, no production caller (same pattern as vector search above)
     "core/services/base_service.py::ensure_backend_available": (
         "backend health-check method; unit test coverage in "

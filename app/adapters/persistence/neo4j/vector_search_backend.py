@@ -91,16 +91,29 @@ class VectorSearchBackend:
     async def query_fulltext_index(
         self, index_name: str, query_text: str, limit: int
     ) -> Result[list[dict[str, Any]]]:
-        """Query a Neo4j full-text index."""
+        """Query a Neo4j full-text index, excluding draft curriculum.
+
+        The fulltext twin of ``query_vector_index``'s gate: hybrid search reads
+        both doors, so an ungated fulltext path would resurface draft-marked
+        curriculum that the vector gate withholds (Codex #1006 class). Same
+        NULL-tolerant predicate — inert for nodes without ``publication_state``.
+        """
+        published, published_params = build_publication_clause("node")
         return await self._executor.execute_query(
-            """
+            f"""
             CALL db.index.fulltext.queryNodes($index_name, $query_text)
             YIELD node, score
+            WHERE {published}
             RETURN node, score
             ORDER BY score DESC
             LIMIT $limit
             """,
-            {"index_name": index_name, "query_text": query_text, "limit": limit},
+            {
+                "index_name": index_name,
+                "query_text": query_text,
+                "limit": limit,
+                **published_params,
+            },
         )
 
     async def get_semantic_relationships(

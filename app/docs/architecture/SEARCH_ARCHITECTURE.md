@@ -566,6 +566,58 @@ learning_state_boost_not_started: float = 0.15   # +15%
 
 ---
 
+## Hybrid Fulltext + Vector Rung (curriculum text search, August 2026)
+
+**What it is:** the text rung of `_execute_advanced_search`'s Strategy 3. Before it
+runs the domain's `CONTAINS` search, an eligible domain gets
+`Neo4jVectorSearchService.hybrid_search_with_metrics` — Lucene fulltext RRF-merged
+with vector similarity. This is the first production reader of the 14
+`*_fulltext_idx` indexes, which were synced every boot with no consumer until now
+(rulings D1(c)/D2(i), 2026-08-16).
+
+**Why it matters:** the `CONTAINS` path is case-SENSITIVE, so "photosynthesis" misses
+a title reading "Photosynthesis". Lucene matches it and ranks by relevance.
+
+**Eligibility — all four, belt and braces:**
+
+| Condition | Why |
+|-----------|-----|
+| `entity_type` in `{ku, path_step, learning_path}` | The explicit curriculum allowlist |
+| `search_visibility is PUBLIC` (live read) | `hybrid_search` is **label-wide** — it composes no `user_uid`, so an OWNER_ONLY domain reaching it would return every user's nodes |
+| `self._vector_search is not None` | FULL tier only — the vector half needs embeddings (D3) |
+| non-empty `query_text` | Nothing to rank |
+
+Both visibility halves are deliberate redundancy: the allowlist alone would not notice
+a domain's `SearchVisibility` changing, and the live read alone would admit any PUBLIC
+domain the arc never reviewed. **Exercise is deliberately excluded** — its
+`SCOPE_AWARE` visibility needs `user_uid` threading, deferred to the D1(b) follow-on
+in `docs/roadmap/deferred-work.md`.
+
+**Publication gating:** `VectorSearchBackend.query_fulltext_index` composes
+`build_publication_clause` exactly as its vector twin does — hybrid search reads both
+doors, and an ungated fulltext half would resurface drafts the vector half withholds
+(the Codex #1006 class). Registered in `scripts/publication_gate_registry.py` and
+measured in both directions by `test_publication_gate_output_invariant.py`.
+
+**Score normalization:** RRF emits 0.001–0.05 while every other rung emits ~0–1, and
+`UnifiedSearchResult.get_top_results` compares combined scores ACROSS domains — so
+hybrid scores are normalized by the batch max at the mapping point. Without it,
+hybrid-ranked domains sink below `CONTAINS` domains in a mixed sweep.
+
+**Fallback:** ineligible, empty, or failed → `[]`, and Strategy 3 runs the domain's
+`CONTAINS` search unchanged. The rung can never make a working search worse.
+
+**Index naming:** `NeoLabel.fulltext_index_name()` is THE rule, shared by the schema
+manager (creation) and the query side (lookup) so the two cannot drift. It snake-cases
+multi-word labels — `PathStep` → `path_step_fulltext_idx`, which flat `label.lower()`
+got wrong, silently matching no index at all.
+
+**Lucene escaping:** `core/utils/lucene.py::escape_lucene_query` neutralizes query-parser
+specials at the input boundary — `queryNodes` parses Lucene syntax, so an unescaped
+`C++ (advanced)` is a parse error rather than a search.
+
+---
+
 ## Search-Event Logging (Discovery Analytics Phase 1, July 2026)
 
 Every EXTERNAL search through SearchRouter publishes a `search.executed` event

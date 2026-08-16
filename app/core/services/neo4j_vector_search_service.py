@@ -32,6 +32,7 @@ if TYPE_CHECKING:
     from core.ports.vector_search_protocols import VectorSearchBackendOperations
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
+from core.utils.lucene import escape_lucene_query
 from core.utils.result_simplified import Errors, Result
 
 logger = get_logger("skuel.vector_search")
@@ -193,7 +194,7 @@ class Neo4jVectorSearchService:
             vector_weight = self.config.vector_weight
         # RRF scores are small (0.0-0.05), use low threshold
         if min_rrf_score is None:
-            min_rrf_score = 0.001  # Not entity-specific - RRF scores are different scale
+            min_rrf_score = self.config.min_rrf_score  # Not entity-specific - different scale
 
         # RRF k parameter (standard value)
         k = self.config.rrf_k
@@ -270,19 +271,31 @@ class Neo4jVectorSearchService:
         """
         Full-text search using Neo4j full-text indexes.
 
-        Internal method used by hybrid_search.
+        Internal method used by hybrid_search. User input is Lucene-escaped
+        here — ``queryNodes`` parses its argument as a Lucene query, so a raw
+        ``+``/``(``/``"`` is a parse error rather than a search.
 
         Args:
-            label: Node label (e.g., "Entity", "Task", "Goal")
+            label: Node label (e.g., "Entity", "Task", "Goal") — comes from
+                config/enum derivation, never user input
             query_text: Search query
             limit: Max results to return
 
         Returns:
-            Result containing list of {node, score} dicts sorted by relevance
-        """
-        index_name = f"{label.lower()}_fulltext_idx"
+            Result containing list of {node, score} dicts sorted by relevance.
+            A label whose index does not exist degrades to an empty result so
+            hybrid search can continue vector-only.
 
-        result = await self.backend.query_fulltext_index(index_name, query_text, limit)
+        Raises:
+            ValueError: label is not a NeoLabel member. Fail-fast by design —
+                an unknown label is a coding error, and the old flat
+                ``label.lower()`` derivation turned it into a silent no-op.
+        """
+        index_name = NeoLabel.fulltext_index_name(label)
+
+        result = await self.backend.query_fulltext_index(
+            index_name, escape_lucene_query(query_text), limit
+        )
 
         if result.is_error:
             # Full-text index might not exist - return empty results instead of error

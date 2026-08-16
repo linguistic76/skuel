@@ -336,7 +336,7 @@ Examples:
     if not metrics_list:
         print("No search metrics found in log file.")
         print(
-            "Make sure the application is using find_similar_with_metrics() or hybrid_search_with_metrics()"
+            "Make sure the application is using find_similar_by_text_with_metrics() or hybrid_search_with_metrics()"
         )
         return 1
 
