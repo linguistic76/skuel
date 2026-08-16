@@ -64,6 +64,25 @@ class Neo4jVectorSearchService:
         self.config = config or VectorSearchConfig()
         self.logger = logger
 
+    @property
+    def max_rrf_score(self) -> float:
+        """
+        The largest RRF score `hybrid_search` can produce, for normalization.
+
+        A document ranked first by BOTH halves scores
+        `vector_weight/(k+1) + text_weight/(k+1)`, and the two weights always
+        sum to 1 (`text_weight = 1.0 - vector_weight`), so the ceiling is
+        `1/(k+1)` — independent of the weight split, and identical for every
+        label.
+
+        That last property is the point: a caller ranking hits from several
+        labels together must divide by a SHARED ceiling. Normalizing per batch
+        instead hands every label's best hit a 1.0 and throws away the
+        difference between "ranked first by both halves" and "ranked first by
+        one" (Codex, PR #1074).
+        """
+        return 1.0 / (self.config.rrf_k + 1)
+
     async def find_similar_by_vector(
         self,
         label: str,

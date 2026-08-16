@@ -23,6 +23,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from core.config.unified_config import VectorSearchConfig
 from core.models.enums import SearchVisibility
 from core.models.enums.entity_enums import EntityType
 from core.models.relationship_names import RelationshipName
@@ -31,12 +32,17 @@ from core.orchestrator.search_router import SearchRouter
 from core.ports.search_protocols import SupportsVisibilityDeclaration
 from core.services.ku.ku_search_service import KuSearchService
 from core.services.lp.lp_search_service import LpSearchService
+from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
 from core.services.ps.ps_search_service import PsSearchService
 from core.utils.result_simplified import Errors, Result
 
-HYBRID_ROWS = [
-    {"node": {"uid": "ps.alpha", "title": "Alpha"}, "score": 0.032},
-    {"node": {"uid": "ps.beta", "title": "Beta"}, "score": 0.016},
+# Realistic RRF output for the default k=60 / 50-50 weighting. `alpha` is
+# ranked first by BOTH halves (0.5/61 + 0.5/61, the theoretical ceiling);
+# `beta` by one half only, so it scores exactly half as much. Using arbitrary
+# larger numbers here would silently exercise the clamp instead of the scale.
+HYBRID_ROWS: list[dict[str, Any]] = [
+    {"node": {"uid": "ps.alpha", "title": "Alpha"}, "score": 1.0 / 61},
+    {"node": {"uid": "ps.beta", "title": "Beta"}, "score": 0.5 / 61},
 ]
 
 
@@ -62,6 +68,11 @@ def _vector_search(
         embed_query=AsyncMock(
             return_value=embedding if embedding is not None else Result.ok([0.1, 0.2, 0.3])
         ),
+        # The real property — a hand-picked constant here would let the router
+        # and the service drift apart without any test noticing.
+        max_rrf_score=Neo4jVectorSearchService(
+            backend=MagicMock(), config=VectorSearchConfig()
+        ).max_rrf_score,
     )
 
 
@@ -213,13 +224,48 @@ class TestFallback:
 
 class TestResultMapping:
     @pytest.mark.anyio
-    async def test_rrf_scores_are_normalized_to_the_batch_max(self) -> None:
+    async def test_rrf_scores_are_normalized_onto_the_shared_ceiling(self) -> None:
         """RRF emits 0.001-0.05; every other rung emits ~0-1, and get_top_results
-        compares combined scores ACROSS domains — unnormalized, hybrid always sinks."""
+        compares combined scores ACROSS domains — unnormalized, hybrid always sinks.
+
+        The divisor is the theoretical max (1/(k+1)), not this batch's max, so
+        the score means the same thing in every domain.
+        """
         items = await _run(_router(_vector_search()), _search_service(), EntityType.KU)
 
-        assert items[0].relevance_score == pytest.approx(1.0)
-        assert items[1].relevance_score == pytest.approx(0.5)
+        ceiling = 1.0 / (VectorSearchConfig().rrf_k + 1)
+        assert items[0].relevance_score == pytest.approx(HYBRID_ROWS[0]["score"] / ceiling)
+        assert items[1].relevance_score == pytest.approx(HYBRID_ROWS[1]["score"] / ceiling)
+
+    @pytest.mark.anyio
+    async def test_a_weaker_domains_best_hit_does_not_score_1_point_0(self) -> None:
+        """The per-batch-max bug: every domain's leader scored exactly 1.0, so
+        Ku/PathStep/LearningPath tied at the top and iteration order decided the
+        merged ranking — discarding the both-halves-agree signal entirely."""
+        strong = [{"node": {"uid": "ku.top", "title": "Top"}, "score": 1.0 / 61}]
+        weak = [{"node": {"uid": "ps.weak", "title": "Weak"}, "score": 0.5 / 61}]
+
+        strong_items = await _run(
+            _router(_vector_search(Result.ok(strong))), _search_service(), EntityType.KU
+        )
+        weak_items = await _run(
+            _router(_vector_search(Result.ok(weak))), _search_service(), EntityType.PATH_STEP
+        )
+
+        assert strong_items[0].relevance_score == pytest.approx(1.0)
+        assert weak_items[0].relevance_score == pytest.approx(0.5)
+        assert weak_items[0].relevance_score < strong_items[0].relevance_score
+
+    @pytest.mark.anyio
+    async def test_scores_are_clamped_to_one(self) -> None:
+        """A score above the theoretical ceiling would be a bug upstream, but
+        must not leak a >1 relevance into cross-domain comparison."""
+        rows = [{"node": {"uid": "ku.a", "title": "A"}, "score": 99.0}]
+        items = await _run(
+            _router(_vector_search(Result.ok(rows))), _search_service(), EntityType.KU
+        )
+
+        assert items[0].relevance_score == 1.0
 
     @pytest.mark.anyio
     async def test_uid_and_title_survive_the_dict_shape(self) -> None:

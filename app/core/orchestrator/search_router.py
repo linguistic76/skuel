@@ -2101,13 +2101,17 @@ class SearchRouter:
 
             # RRF scores live on a 0.001-0.05 scale while every other rung
             # emits ~0-1 relevance, and UnifiedSearchResult.get_top_results
-            # compares combined scores ACROSS domains — normalize by the batch
-            # max so hybrid-ranked domains don't sink below CONTAINS domains.
-            max_score = max(item["score"] for item in result.value)
+            # compares combined scores ACROSS domains — so normalize onto 0-1.
+            # The divisor is the SHARED theoretical ceiling (1/(k+1)), not this
+            # batch's max: a per-batch max would score every domain's best hit
+            # exactly 1.0, tying Ku/PathStep/LearningPath at the top and
+            # letting iteration order decide the merged ranking, with the
+            # both-halves-agree signal discarded (Codex, PR #1074).
+            max_rrf = vector_search.max_rrf_score
             items: list[SearchResultItem] = []
             for vec_result in result.value:
                 node = vec_result["node"]
-                score = vec_result["score"] / max_score if max_score > 0 else 0.0
+                score = min(vec_result["score"] / max_rrf, 1.0) if max_rrf > 0 else 0.0
                 items.append(
                     SearchResultItem(
                         entity=node,  # The node dict
