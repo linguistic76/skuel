@@ -614,6 +614,13 @@ hybrid-ranked domains sink below `CONTAINS` domains in a mixed sweep.
 **Fallback:** ineligible, empty, or failed → `[]`, and Strategy 3 runs the domain's
 `CONTAINS` search unchanged. The rung can never make a working search worse.
 
+**One embed per request, not per domain:** an unfiltered sweep runs the rung for all
+three curriculum domains, and `EmbeddingsService.create_embedding` is uncached — so
+`advanced_search` embeds the query once (`_embed_query_for_hybrid_rung`) and passes the
+vector to each `hybrid_search` call. Adding a domain to the allowlist costs no extra
+embedding. It returns `None` when the rung cannot fire at all, so nothing is paid for a
+rung that will not run.
+
 **Index naming:** `NeoLabel.fulltext_index_name()` is THE rule, shared by the schema
 manager (creation) and the query side (lookup) so the two cannot drift. It snake-cases
 multi-word labels — `PathStep` → `path_step_fulltext_idx`, which flat `label.lower()`
