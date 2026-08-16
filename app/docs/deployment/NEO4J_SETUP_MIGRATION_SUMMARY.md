@@ -1,12 +1,12 @@
 ---
 title: Neo4j Setup Migration Summary
-updated: 2026-07-24
+updated: 2026-08-16
 category: deployment
 tags: [deployment, neo4j, auradb, history]
 ---
 # Neo4j Setup Migration Summary
 
-**Date:** 2026-02-01 (decision change appended 2026-07-24 — see the final section)
+**Date:** 2026-02-01 (decision changes appended 2026-07-24 and 2026-08-16 — see the final sections)
 **Status:** ✅ Complete
 **Approach:** One Path Forward - Docker (Development) vs AuraDB (Production)
 
@@ -255,6 +255,20 @@ is the pure Free-tier data migration.
 
 ---
 
-**Last Updated:** 2026-07-24
+## Decision Change (2026-08-15): data cutover executed, droplet parked
+
+The data migration in [AURADB_MIGRATION_GUIDE.md](./AURADB_MIGRATION_GUIDE.md) was executed
+2026-08-15: THE graph is now AuraDB Free instance `d2d160c4` (US West). The topology differs
+from the shipped diagram above in one respect — the app runs **locally**
+(`uv run python main.py`) against Aura; public hosting at skuel.app (the droplet stack)
+stays parked. Local Docker Neo4j remains as a stopped, opt-in sandbox — so the
+"Docker (Development) vs AuraDB (Production)" split this summary established is itself
+historical now: development runs against AuraDB too. Gotchas learned at the cutover
+(Aura username = instance ID, not `neo4j`; Free refuses user-admin Cypher; dump via the
+compose project that owns the container) are recorded in the migration guide.
+
+---
+
+**Last Updated:** 2026-08-16
 **Maintained By:** SKUEL Core Team
 **Status:** Complete (historical record + decision change)

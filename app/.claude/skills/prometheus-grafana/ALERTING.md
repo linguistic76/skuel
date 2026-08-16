@@ -39,11 +39,14 @@ watch -n 10 'curl -s http://localhost:9090/api/v1/alerts | jq ".data.alerts[] | 
 ## Where Alerts Actually Evaluate
 
 Alert rules run wherever Prometheus runs — and **Prometheus runs only in the dev stack**
-(`./dev up-monitoring`), scraping the dev app backed by **local Docker Neo4j**. The production
-droplet runs no Prometheus (PR #803 posture: app + Caddy only, `/metrics` blocked publicly).
+(`./dev up-monitoring`), scraping the dev app — which, since the 2026-08-15 cutover, is
+backed by **AuraDB Free itself** (local Docker Neo4j is an opt-in sandbox). The production
+droplet runs no Prometheus (PR #803 posture: app + Caddy only, `/metrics` blocked publicly;
+public hosting currently parked).
 
-Consequence: the AuraDB cap alert rules do **not** observe AuraDB. The **production
-evaluation posture** (ruled 2026-07-25) is a two-part answer:
+Consequence: the AuraDB cap alert rules observe the real graph only while the opt-in dev
+monitoring stack is up — they are not resident. The **always-on evaluation posture**
+(ruled 2026-07-25) is a two-part answer:
 
 1. **In-app evaluator** — the 5-min graph-health poller feeds each freshly polled count
    through `check_aura_cap_headroom()` (`core/infrastructure/monitoring/aura_cap_check.py`):
