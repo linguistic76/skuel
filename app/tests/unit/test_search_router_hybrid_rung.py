@@ -25,6 +25,7 @@ import pytest
 
 from core.models.enums import SearchVisibility
 from core.models.enums.entity_enums import EntityType
+from core.models.relationship_names import RelationshipName
 from core.models.search_request import SearchRequest
 from core.orchestrator.search_router import SearchRouter
 from core.ports.search_protocols import SupportsVisibilityDeclaration
@@ -309,6 +310,30 @@ class TestQueryEmbeddingReuse:
         )
 
         assert embedding is None
+        vector_search.embed_query.assert_not_awaited()
+
+    @pytest.mark.anyio
+    async def test_no_embed_when_a_filter_takes_another_strategy(self) -> None:
+        """A graph or tag filter routes to Strategy 1/2; the rung lives in
+        Strategy 3's `else`, so embedding for it would buy an unread vector."""
+        vector_search = _vector_search()
+        router = _router(vector_search)
+
+        tagged = await router._embed_query_for_hybrid_rung(
+            SearchRequest(query_text="photosynthesis", tags_contain=["biology"]),
+            [EntityType.KU],
+        )
+        graphed = await router._embed_query_for_hybrid_rung(
+            SearchRequest(
+                query_text="photosynthesis",
+                connected_to_uid="ku.plants",
+                connected_relationship=RelationshipName.ENABLES_KNOWLEDGE,
+            ),
+            [EntityType.KU],
+        )
+
+        assert tagged is None
+        assert graphed is None
         vector_search.embed_query.assert_not_awaited()
 
     @pytest.mark.anyio

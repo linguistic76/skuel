@@ -1752,11 +1752,19 @@ class SearchRouter:
         """
         Embed the query once, for every hybrid-eligible domain in this request.
 
-        Returns None whenever the rung cannot run at all (CORE tier, no query
-        text, no eligible curriculum domain) so nothing is paid for a rung that
-        will not fire, and None on embedding failure — `hybrid_search` then
-        falls back to its own embed and degrades to fulltext-only if that fails
-        too, exactly as it does without this optimization.
+        Returns None whenever the rung cannot run at all, so nothing is paid
+        for a rung that will not fire:
+
+        - CORE tier (no vector service) or no query text — the rung's own
+          preconditions;
+        - no eligible domain in the curriculum allowlist;
+        - a graph or tag filter is present — those take Strategy 1 / 2, and the
+          rung lives only in Strategy 3's `else`. Without this check every
+          filtered search would buy an embedding it never reads.
+
+        Also returns None on embedding failure — `hybrid_search` then falls
+        back to its own embed and degrades to fulltext-only if that fails too,
+        exactly as it does without this optimization.
 
         Deliberately checks the allowlist but NOT each domain's live
         `search_visibility`: the visibility read belongs to the rung itself
@@ -1765,6 +1773,8 @@ class SearchRouter:
         """
         vector_search = self._vector_search
         if vector_search is None or not request.query_text:
+            return None
+        if request.has_graph_traversal_filter() or request.has_tag_filter():
             return None
         if not any(
             isinstance(domain, EntityType) and domain.value in self._HYBRID_TEXT_DOMAIN_VALUES
