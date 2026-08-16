@@ -39,14 +39,17 @@ watch -n 10 'curl -s http://localhost:9090/api/v1/alerts | jq ".data.alerts[] | 
 ## Where Alerts Actually Evaluate
 
 Alert rules run wherever Prometheus runs — and **Prometheus runs only in the dev stack**
-(`./dev up-monitoring`), scraping the dev app — which, since the 2026-08-15 cutover, is
-backed by **AuraDB Free itself** (local Docker Neo4j is an opt-in sandbox). The production
-droplet runs no Prometheus (PR #803 posture: app + Caddy only, `/metrics` blocked publicly;
-public hosting currently parked).
+(`./dev up-monitoring`), scraping the compose `skuel-app` container (`skuel-app:8000` in
+`monitoring/prometheus/prometheus.yml`), which pins `NEO4J_URI=bolt://neo4j:7687` — the
+**local Docker sandbox**. The 2026-08-15 cutover did not change this wiring: the daily
+graph is AuraDB Free reached from the locally-run app, which this Prometheus does not
+scrape unless you switch to the commented-out `host.docker.internal`/`172.17.0.1` fallback
+target in `prometheus.yml`. The production droplet runs no Prometheus (PR #803 posture:
+app + Caddy only, `/metrics` blocked publicly; public hosting currently parked).
 
-Consequence: the AuraDB cap alert rules observe the real graph only while the opt-in dev
-monitoring stack is up — they are not resident. The **always-on evaluation posture**
-(ruled 2026-07-25) is a two-part answer:
+Consequence: the AuraDB cap alert rules still do **not** observe AuraDB as wired. The
+**always-on evaluation posture** (ruled 2026-07-25) is a two-part answer — since the
+cutover, part 1 runs in the local app process against the real Aura counts:
 
 1. **In-app evaluator** — the 5-min graph-health poller feeds each freshly polled count
    through `check_aura_cap_headroom()` (`core/infrastructure/monitoring/aura_cap_check.py`):
