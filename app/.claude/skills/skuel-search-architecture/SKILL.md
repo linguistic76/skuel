@@ -206,7 +206,7 @@ At startup, `Neo4jSchemaManager` creates all indexes needed for search:
 
 Full-text indexes are the **Cypher-first search foundation**, created in both tiers. Who actually reads them is narrower than "always available" suggests, so be precise:
 
-- **SearchRouter's hybrid rung** (August 2026) is the one production reader — Ku/PathStep/LearningPath, FULL tier, via `hybrid_search_with_metrics` (Lucene RRF-merged with vector similarity). See SEARCH_ARCHITECTURE § Hybrid Fulltext + Vector Rung.
+- **SearchRouter's hybrid rung** (August 2026) is the one production reader — Ku/PathStep/LearningPath, FULL tier, via `hybrid_search_with_metrics` (Lucene RRF-merged with vector similarity). It sits in `_execute_advanced_search`, so it serves **`advanced_search()` / `/api/search/unified`** — the `/search` HTML page runs `faceted_search` and is still on `CONTAINS`. See SEARCH_ARCHITECTURE § Hybrid Fulltext + Vector Rung.
 - **Every other text search is `CONTAINS`**, including all of CORE tier and all OWNER_ONLY domains. `_SearchMixin.search()` is case-SENSITIVE `CONTAINS` — not a fulltext path.
 - Making domain-level search fulltext-first is the named **D1(b) follow-on** in `docs/roadmap/deferred-work.md`; until it lands, do not assume a fulltext index has a reader just because it exists.
 

@@ -319,6 +319,11 @@ domain-level later). The rung gave Ku/PathStep/LearningPath relevance-ranked hyb
 `/search` (FULL tier); every other text-search caller still runs case-sensitive `CONTAINS`.
 The follow-on, in rough order of value:
 
+- **The `/search` HTML page.** The shipped rung sits in `_execute_advanced_search`, reached
+  only from `advanced_search()` — the `/api/search/unified` JSON endpoint. The browser page
+  runs `faceted_search`, a separate path still on `CONTAINS`, so the highest-traffic search
+  surface has not changed. Reaching it means either routing the faceted path through the
+  same rung or giving `faceted_search` its own; decide which when a consumer asks.
 - **`_search_mixin.search` goes fulltext-first with CONTAINS fallback** — makes every caller
   of domain search index-backed and the "Cypher-first search foundation" claim true. Requires
   threading each domain's `SearchVisibility` into the fulltext Cypher (OWNER_ONLY domains need

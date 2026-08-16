@@ -227,7 +227,7 @@ Neo4j indexes are created automatically at startup via `Neo4jSchemaManager` in `
 > `NEO4J_server_jvm_additional=--add-modules jdk.incubator.vector` in `infrastructure/docker-compose.yml`.
 > See [NEO4J_SERVER_TUNING.md](../../../docs/patterns/NEO4J_SERVER_TUNING.md).
 
-Full-text indexes are the **Cypher-first search foundation** — created in both tiers, no embeddings needed. Their one production reader is the SearchRouter hybrid rung (Ku/PathStep/LearningPath, FULL tier); every other text search runs case-sensitive `CONTAINS`. Derive index names from `NeoLabel.fulltext_index_name()`, never flat `label.lower()` (`PathStep` → `path_step_fulltext_idx`):
+Full-text indexes are the **Cypher-first search foundation** — created in both tiers, no embeddings needed. Their one production reader is the SearchRouter hybrid rung (Ku/PathStep/LearningPath, FULL tier, `advanced_search`/`/api/search/unified` only); every other text search — including the `/search` page — runs case-sensitive `CONTAINS`. Derive index names from `NeoLabel.fulltext_index_name()`, never flat `label.lower()` (`PathStep` → `path_step_fulltext_idx`):
 
 ```cypher
 // Full-text search (Lucene-based, relevance-ranked)

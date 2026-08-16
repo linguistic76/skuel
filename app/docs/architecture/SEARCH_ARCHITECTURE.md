@@ -575,6 +575,13 @@ with vector similarity. This is the first production reader of the 14
 `*_fulltext_idx` indexes, which were synced every boot with no consumer until now
 (rulings D1(c)/D2(i), 2026-08-16).
 
+**Which surface it serves — read this before assuming:** `_execute_advanced_search`
+is reached only from `SearchRouter.advanced_search()`, i.e. the **`/api/search/unified`
+JSON endpoint**. The **`/search` HTML page runs `faceted_search`**, a different path
+that still uses `CONTAINS`. So the rung is live in production, but the browser search
+page is not yet one of its callers — extending it there is part of the D1(b)
+follow-on.
+
 **Why it matters:** the `CONTAINS` path is case-SENSITIVE, so "photosynthesis" misses
 a title reading "Photosynthesis". Lucene matches it and ranks by relevance.
 

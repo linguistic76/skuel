@@ -79,7 +79,7 @@ Build from HTML forms with `SearchRequest.from_form_params(...)` (handles empty-
 
 | Index | Tier | Coverage |
 |-------|------|----------|
-| Full-text (Lucene) | Always | 14 domains (`sync_fulltext_indexes()`) — read by the SearchRouter hybrid rung (Ku/PS/LP, FULL tier); every other text search is `CONTAINS` |
+| Full-text (Lucene) | Always | 14 domains (`sync_fulltext_indexes()`) — read by the hybrid rung (Ku/PS/LP, FULL tier, `advanced_search`/`/api/search/unified` only); `/search` and every other text path is `CONTAINS` |
 | Vector (1024-dim cosine) | FULL only | Entity, ContentChunk, ReferenceChunk, Ku, PathStep, LearningPath (bootstrap) + Goal, Task (script) |
 
 ---
