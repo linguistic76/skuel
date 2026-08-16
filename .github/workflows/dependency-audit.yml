@@ -99,7 +99,7 @@ jobs:
       # with an honest message, which routes the failure through the issue.
       - name: Install uv
         continue-on-error: true
-        uses: astral-sh/setup-uv@v10.0.0
+        uses: astral-sh/setup-uv@v10.0.1
 
       - name: Install osv-scanner
         continue-on-error: true
