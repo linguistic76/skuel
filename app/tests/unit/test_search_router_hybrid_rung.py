@@ -50,11 +50,17 @@ def _search_service(
     )
 
 
-def _vector_search(result: Result[list[dict[str, Any]]] | None = None) -> SimpleNamespace:
+def _vector_search(
+    result: Result[list[dict[str, Any]]] | None = None,
+    embedding: Result[list[float]] | None = None,
+) -> SimpleNamespace:
     return SimpleNamespace(
         hybrid_search_with_metrics=AsyncMock(
             return_value=(result if result is not None else Result.ok(HYBRID_ROWS), None)
-        )
+        ),
+        embed_query=AsyncMock(
+            return_value=embedding if embedding is not None else Result.ok([0.1, 0.2, 0.3])
+        ),
     )
 
 
@@ -259,6 +265,147 @@ class TestLabelDerivation:
 
         kwargs = vector_search.hybrid_search_with_metrics.await_args.kwargs
         assert kwargs["label"] == "LearningPath"
+
+
+class TestQueryEmbeddingReuse:
+    """One paid embed per request, not one per domain.
+
+    `EmbeddingsService.create_embedding` is uncached, so an unfiltered sweep —
+    which runs the rung for Ku, PathStep AND LearningPath — would otherwise
+    issue the identical embedding request three times, sequentially (Codex,
+    PR #1074).
+    """
+
+    @pytest.mark.anyio
+    async def test_embedding_is_computed_once_for_all_eligible_domains(self) -> None:
+        vector_search = _vector_search()
+        router = _router(vector_search)
+        request = SearchRequest(query_text="photosynthesis")
+        domains = [EntityType.KU, EntityType.PATH_STEP, EntityType.LEARNING_PATH]
+
+        embedding = await router._embed_query_for_hybrid_rung(request, domains)
+        for entity_type in domains:
+            await router._hybrid_curriculum_search(
+                search_service=_search_service(),
+                entity_type=entity_type,
+                request=request,
+                limit=10,
+                query_embedding=embedding,
+            )
+
+        assert vector_search.embed_query.await_count == 1
+        assert vector_search.hybrid_search_with_metrics.await_count == 3
+        for call in vector_search.hybrid_search_with_metrics.await_args_list:
+            assert call.kwargs["query_embedding"] == [0.1, 0.2, 0.3]
+
+    @pytest.mark.anyio
+    async def test_no_embed_when_no_domain_is_eligible(self) -> None:
+        """Never pay for a rung that cannot fire."""
+        vector_search = _vector_search()
+        router = _router(vector_search)
+
+        embedding = await router._embed_query_for_hybrid_rung(
+            SearchRequest(query_text="urgent"), [EntityType.TASK, EntityType.GOAL]
+        )
+
+        assert embedding is None
+        vector_search.embed_query.assert_not_awaited()
+
+    @pytest.mark.anyio
+    async def test_no_embed_on_core_tier(self) -> None:
+        embedding = await _router(vector_search=None)._embed_query_for_hybrid_rung(
+            SearchRequest(query_text="photosynthesis"), [EntityType.KU]
+        )
+
+        assert embedding is None
+
+    @pytest.mark.anyio
+    async def test_no_embed_without_query_text(self) -> None:
+        vector_search = _vector_search()
+
+        embedding = await _router(vector_search)._embed_query_for_hybrid_rung(
+            SearchRequest(domain=None), [EntityType.KU]
+        )
+
+        assert embedding is None
+        vector_search.embed_query.assert_not_awaited()
+
+    @pytest.mark.anyio
+    async def test_embedding_failure_degrades_rather_than_breaking(self) -> None:
+        """A failed embed must not take the whole search down — hybrid_search
+        re-embeds for itself and degrades to fulltext-only if that fails too."""
+        failed: Result[list[float]] = Result.fail(
+            Errors.database(operation="embed_query", message="provider down")
+        )
+        vector_search = _vector_search(embedding=failed)
+        router = _router(vector_search)
+
+        embedding = await router._embed_query_for_hybrid_rung(
+            SearchRequest(query_text="photosynthesis"), [EntityType.KU]
+        )
+        assert embedding is None
+
+        items = await router._hybrid_curriculum_search(
+            search_service=_search_service(),
+            entity_type=EntityType.KU,
+            request=SearchRequest(query_text="photosynthesis"),
+            limit=10,
+            query_embedding=embedding,
+        )
+        assert [item.uid for item in items] == ["ps.alpha", "ps.beta"]
+
+    @pytest.mark.anyio
+    async def test_advanced_search_threads_the_embedding_to_the_rung(self) -> None:
+        """The wiring itself: the value computed in advanced_search reaches the rung."""
+        vector_search = _vector_search()
+        router = _router(vector_search)
+
+        await router._execute_advanced_search(
+            search_service=_search_service(),
+            entity_type=EntityType.KU,
+            request=SearchRequest(query_text="photosynthesis"),
+            limit_per_domain=10,
+            query_embedding=[0.9, 0.8],
+        )
+
+        kwargs = vector_search.hybrid_search_with_metrics.await_args.kwargs
+        assert kwargs["query_embedding"] == [0.9, 0.8]
+
+    @pytest.mark.anyio
+    async def test_a_real_advanced_search_sweep_embeds_once(self) -> None:
+        """Through `advanced_search` itself, not its helpers.
+
+        The helper-level tests above pass the embedding in by hand, so they
+        stay green even if `advanced_search` stops computing it — which is the
+        whole optimization. This drives the public entry across all three
+        curriculum domains and counts the paid calls.
+        """
+        vector_search = _vector_search()
+        router = SearchRouter(
+            ku=SimpleNamespace(search=_search_service()),
+            ps=SimpleNamespace(search=_search_service()),
+            lp=SimpleNamespace(search=_search_service()),
+            vector_search_service=vector_search,
+        )
+
+        result = await router.advanced_search(
+            SearchRequest(
+                query_text="photosynthesis",
+                entity_types=[
+                    EntityType.KU,
+                    EntityType.PATH_STEP,
+                    EntityType.LEARNING_PATH,
+                ],
+            )
+        )
+
+        assert result.is_ok, f"sweep failed: {result}"
+        assert vector_search.hybrid_search_with_metrics.await_count == 3, (
+            "the rung did not run for all three curriculum domains"
+        )
+        assert vector_search.embed_query.await_count == 1, (
+            "the query was embedded once per domain — the paid call must be made once per request"
+        )
 
 
 class TestRealServicesQualify:

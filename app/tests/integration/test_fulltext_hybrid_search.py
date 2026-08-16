@@ -20,12 +20,18 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver
 
+from adapters.persistence.neo4j.backends.curriculum_backends import PsBackend
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from adapters.persistence.neo4j.neo4j_schema_manager import Neo4jSchemaManager
 from adapters.persistence.neo4j.vector_search_backend import VectorSearchBackend
 from core.config.unified_config import VectorSearchConfig
+from core.models.enums.entity_enums import EntityType
 from core.models.enums.neo_labels import NeoLabel
+from core.models.pathways.path_step import PathStep
+from core.models.search_request import SearchRequest
+from core.orchestrator.search_router import SearchRouter
 from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
+from core.services.ps.ps_search_service import PsSearchService
 
 PUBLISHED_UID = "ps.fulltext-probe.published"
 DRAFT_UID = "ps.fulltext-probe.draft"
@@ -242,3 +248,42 @@ async def test_hybrid_search_degrades_to_fulltext_without_embeddings(
     uids = [item["node"]["uid"] for item in result.value]
     assert PUBLISHED_UID in uids
     assert DRAFT_UID not in uids
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_router_rung_reaches_the_index_end_to_end(fulltext_graph: AsyncDriver) -> None:
+    """The whole rung with nothing stubbed — router → service → backend → index.
+
+    The unit tests drive the rung through doubles, so they would all stay green
+    if the router and the service disagreed about the call signature, or if the
+    real PsSearchService stopped qualifying. This is the only test that would
+    notice. Deliberately reaches through `_execute_advanced_search` (the rung's
+    own caller) rather than a public entry, so the assertion is about the rung
+    and not about `advanced_search`'s domain fan-out.
+    """
+    backend = VectorSearchBackend(Neo4jQueryExecutor(fulltext_graph))
+    vector_search = Neo4jVectorSearchService(backend=backend, config=VectorSearchConfig())
+    ps_search = PsSearchService(
+        backend=PsBackend(fulltext_graph, NeoLabel.PATH_STEP, PathStep, base_label=NeoLabel.ENTITY)
+    )
+    router = SearchRouter(vector_search_service=vector_search)
+
+    items = await router._execute_advanced_search(
+        search_service=ps_search,
+        entity_type=EntityType.PATH_STEP,
+        request=SearchRequest(query_text="photosynthesis"),
+        limit_per_domain=10,
+    )
+
+    uids = [item.uid for item in items]
+    assert PUBLISHED_UID in uids, (
+        "the rung returned nothing for a term Lucene matches — router/service wiring broke, "
+        "or PathStep stopped qualifying"
+    )
+    assert DRAFT_UID not in uids, "draft leaked through the router path"
+    # Case-different match proves it was Lucene, not the CONTAINS fallback:
+    # the seeded title is 'Photosynthesis…' and CONTAINS is case-sensitive.
+    assert all(item.match_reason == "Keyword + semantic match" for item in items), (
+        "results did not come from the hybrid rung — it silently fell through to CONTAINS"
+    )

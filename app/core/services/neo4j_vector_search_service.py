@@ -130,26 +130,41 @@ class Neo4jVectorSearchService:
         Returns:
             Result containing list of {node, score} dicts sorted by similarity
         """
+        embedding_result = await self.embed_query(text)
+        if embedding_result.is_error:
+            return Result.fail(embedding_result)
+
+        return await self.find_similar_by_vector(
+            label=label, embedding=embedding_result.value, limit=limit, min_score=min_score
+        )
+
+    async def embed_query(self, text: str) -> Result[list[float]]:
+        """
+        Embed query text for vector search.
+
+        Split out so a caller fanning ONE query across several labels can pay
+        for the embedding once and hand the vector to each `hybrid_search`
+        call. `create_embedding` is uncached, so a per-label embed makes the
+        same request N times, sequentially (Codex, PR #1074).
+
+        Args:
+            text: Query text to embed
+
+        Returns:
+            Result containing the embedding vector, or `unavailable` on the
+            CORE tier (no embeddings service)
+        """
         if not self.embeddings:
             return Result.fail(
                 Errors.unavailable(
                     feature="semantic_search",
                     reason="Embeddings service required for semantic search. Configure OPENAI_API_KEY.",
-                    operation="find_similar_by_text",
+                    operation="embed_query",
                 )
             )
 
-        # Generate embedding
-        embedding_result = await self.embeddings.create_embedding(text)
-        if embedding_result.is_error:
-            return Result.fail(embedding_result)
-
-        embedding = embedding_result.value
-
-        # Search by vector
-        return await self.find_similar_by_vector(
-            label=label, embedding=embedding, limit=limit, min_score=min_score
-        )
+        result: Result[list[float]] = await self.embeddings.create_embedding(text)
+        return result
 
     async def hybrid_search(
         self,
@@ -158,6 +173,7 @@ class Neo4jVectorSearchService:
         vector_weight: float | None = None,
         limit: int | None = None,
         min_rrf_score: float | None = None,
+        query_embedding: list[float] | None = None,
     ) -> Result[list[dict[str, Any]]]:
         """
         Hybrid search combining vector similarity and full-text search.
@@ -177,6 +193,9 @@ class Neo4jVectorSearchService:
             vector_weight: Weight for vector results (uses config default if None)
             limit: Max results to return (uses config default if None)
             min_rrf_score: Minimum RRF score threshold (default: 0.001, not entity-specific)
+            query_embedding: Pre-computed embedding of `query_text`. Supply it when
+                fanning one query across several labels — otherwise each call
+                re-embeds the same text through the uncached embeddings service.
 
         Returns:
             Result containing list of {node, score} dicts sorted by RRF score
@@ -199,11 +218,17 @@ class Neo4jVectorSearchService:
         # RRF k parameter (standard value)
         k = self.config.rrf_k
 
-        # Step 1: Vector search (use entity-specific threshold for input search)
+        # Step 1: Vector search (use entity-specific threshold for input search).
+        # A caller-supplied embedding skips the paid embed — same vector either way.
         entity_min_score = self.config.get_min_score_for_entity(label)
-        vector_results = await self.find_similar_by_text(
-            label=label, text=query_text, limit=limit * 2, min_score=entity_min_score
-        )
+        if query_embedding is not None:
+            vector_results = await self.find_similar_by_vector(
+                label=label, embedding=query_embedding, limit=limit * 2, min_score=entity_min_score
+            )
+        else:
+            vector_results = await self.find_similar_by_text(
+                label=label, text=query_text, limit=limit * 2, min_score=entity_min_score
+            )
 
         if vector_results.is_error:
             self.logger.warning(f"Vector search failed: {vector_results.expect_error()}")
@@ -911,11 +936,13 @@ class Neo4jVectorSearchService:
         vector_weight: float | None = None,
         limit: int | None = None,
         min_rrf_score: float | None = None,
+        query_embedding: list[float] | None = None,
     ) -> tuple[Result[list[dict[str, Any]]], SearchMetrics | None]:
         """
         Hybrid search with metrics tracking.
 
         Wrapper around hybrid_search that collects performance metrics.
+        `query_embedding` is passed straight through — see `hybrid_search`.
         """
         start_time = time.perf_counter()
 
@@ -925,6 +952,7 @@ class Neo4jVectorSearchService:
             vector_weight=vector_weight,
             limit=limit,
             min_rrf_score=min_rrf_score,
+            query_embedding=query_embedding,
         )
 
         latency_ms = (time.perf_counter() - start_time) * 1000

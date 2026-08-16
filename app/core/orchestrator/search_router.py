@@ -58,7 +58,7 @@ Usage:
     result = await router.advanced_search(request)
 """
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from itertools import zip_longest
 from typing import TYPE_CHECKING, Any, ClassVar
@@ -1679,6 +1679,13 @@ class SearchRouter:
             )
             limit_per_domain = max(limit_per_domain, 10)  # Minimum 10 per domain
 
+            # One embed per request, not per domain: an unfiltered sweep runs
+            # the hybrid rung for Ku, PathStep AND LearningPath, and the
+            # embeddings service is uncached — embedding inside each rung call
+            # would issue the same paid request three times, sequentially
+            # (Codex, PR #1074).
+            query_embedding = await self._embed_query_for_hybrid_rung(request, eligible_domains)
+
             for entity_type in eligible_domains:
                 service = self.get_service(entity_type)
                 if service is None:
@@ -1697,6 +1704,7 @@ class SearchRouter:
                     entity_type=entity_type,
                     request=request,
                     limit_per_domain=limit_per_domain,
+                    query_embedding=query_embedding,
                 )
 
                 if items:
@@ -1736,12 +1744,49 @@ class SearchRouter:
             self.logger.error(f"Advanced search failed (unexpected): {e}")
             return Result.fail(Errors.database(operation="advanced_search", message=str(e)))
 
+    async def _embed_query_for_hybrid_rung(
+        self,
+        request: "SearchRequest",
+        eligible_domains: "Sequence[EntityType | NonKuDomain]",
+    ) -> list[float] | None:
+        """
+        Embed the query once, for every hybrid-eligible domain in this request.
+
+        Returns None whenever the rung cannot run at all (CORE tier, no query
+        text, no eligible curriculum domain) so nothing is paid for a rung that
+        will not fire, and None on embedding failure — `hybrid_search` then
+        falls back to its own embed and degrades to fulltext-only if that fails
+        too, exactly as it does without this optimization.
+
+        Deliberately checks the allowlist but NOT each domain's live
+        `search_visibility`: the visibility read belongs to the rung itself
+        (one composition point), and the only cost of the looser precondition
+        is a single wasted embed in a misconfiguration that should not exist.
+        """
+        vector_search = self._vector_search
+        if vector_search is None or not request.query_text:
+            return None
+        if not any(
+            isinstance(domain, EntityType) and domain.value in self._HYBRID_TEXT_DOMAIN_VALUES
+            for domain in eligible_domains
+        ):
+            return None
+
+        result = await vector_search.embed_query(request.query_text)
+        if result.is_error:
+            self.logger.warning(
+                f"Query embedding failed, hybrid rung falls back per-domain: {result.error}"
+            )
+            return None
+        return result.value
+
     async def _execute_advanced_search(
         self,
         search_service: SupportsTextSearch,
         entity_type: EntityType | NonKuDomain,
         request: "SearchRequest",
         limit_per_domain: int,
+        query_embedding: list[float] | None = None,
     ) -> list[SearchResultItem]:
         """
         Execute the appropriate search strategy based on request filters.
@@ -1837,6 +1882,7 @@ class SearchRouter:
                 entity_type=entity_type,
                 request=request,
                 limit=limit_per_domain,
+                query_embedding=query_embedding,
             )
             if items:
                 return items
@@ -1989,6 +2035,7 @@ class SearchRouter:
         entity_type: EntityType | NonKuDomain,
         request: "SearchRequest",
         limit: int,
+        query_embedding: list[float] | None = None,
     ) -> list[SearchResultItem]:
         """
         Hybrid fulltext+vector text search for PUBLIC curriculum domains.
@@ -1999,6 +2046,10 @@ class SearchRouter:
         belt-and-braces — the explicit curriculum allowlist AND a live PUBLIC
         ``search_visibility`` read — because the hybrid path is label-wide
         (no user_uid scoping): an OWNER_ONLY domain must never reach it.
+
+        ``query_embedding`` is the request-scoped vector from
+        ``_embed_query_for_hybrid_rung``; None makes ``hybrid_search`` embed
+        for itself, which is correct but pays per domain.
 
         Returns [] when ineligible, empty, or failed — the caller falls
         through to the domain's CONTAINS search unchanged.
@@ -2023,7 +2074,10 @@ class SearchRouter:
 
         try:
             result, _metrics = await vector_search.hybrid_search_with_metrics(
-                label=label, query_text=request.query_text, limit=limit
+                label=label,
+                query_text=request.query_text,
+                limit=limit,
+                query_embedding=query_embedding,
             )
 
             if result.is_error:
