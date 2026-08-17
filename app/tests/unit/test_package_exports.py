@@ -88,6 +88,14 @@ _APP_ROOT = Path(__file__).resolve().parents[2]
 # this, lower it on purpose.
 _MIN_DISCOVERED_PACKAGES = 100
 
+# Sentinel for the attribute probe in _unresolved(). `getattr(module, name,
+# _MISSING)` is the repo-sanctioned spelling of an existence check — SKUEL011
+# forbids `hasattr` and names `getattr` as the replacement (AGENTS.md § Style);
+# the rule's test-file exclusion is a lint-scope decision, not a design exemption.
+# A sentinel rather than a None default, because a package may legitimately export
+# a name that is bound to None.
+_MISSING = object()
+
 
 def _tracked_init_files() -> list[str]:
     """Every git-tracked ``__init__.py``, as app-root-relative posix paths.
@@ -141,7 +149,7 @@ def _unresolved(module: ModuleType, exported: Sequence[str]) -> list[str]:
     ``test_guard_detects_a_re_export_whose_source_module_vanished`` proves it
     fires on the shape that got past every static check in PR #1081.
     """
-    return [name for name in exported if not hasattr(module, name)]
+    return [name for name in exported if getattr(module, name, _MISSING) is _MISSING]
 
 
 def test_every_advertised_name_resolves() -> None:
