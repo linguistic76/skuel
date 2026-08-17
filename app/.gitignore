@@ -103,6 +103,16 @@ server.log
 scratch*.py
 firefly startup command
 
+# Graph census exports (scripts/export_entity_counts.py). Point-in-time node /
+# relationship counts of a LIVE graph, written to the repo root by the migration
+# guides (AURADB_MIGRATION_GUIDE "> before.json", DO_MIGRATION_GUIDE
+# "> counts_$(date +%Y%m%d).json"), consumed by --compare, then disposable.
+# Never tracked: this repo is PUBLIC and a census publishes the shape and scale
+# of personal data. Regenerate on demand instead. Other census filenames vary —
+# add them here rather than committing one.
+before.json
+counts_*.json
+
 # Implementation plans (local working notes, not source)
 plans/
 
