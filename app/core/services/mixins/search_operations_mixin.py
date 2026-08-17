@@ -77,8 +77,6 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         search_order_by: str - Default sort field (DomainConfig-resolved property)
         category_field: str - Field for categorization (DomainConfig-resolved property)
         search_visibility: SearchVisibility - Scoping declaration (DomainConfig-resolved property)
-        user_ownership_relationship: RelationshipName | None - Ownership relationship
-            (DomainConfig-resolved property)
         _dto_class: type[DTOProtocol] - DTO class
         _model_class: type[T] - Domain model class
         _graph_enrichment_patterns: tuple - Graph enrichment config
@@ -156,18 +154,6 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
 
         THE scoping input for every search strategy. See
         ``DomainConfig.get_search_visibility()`` for the derivation.
-        """
-        ...
-
-    @property
-    @abstractmethod
-    def user_ownership_relationship(self) -> RelationshipName | None:
-        """DomainConfig-resolved ownership relationship — provided by composing class.
-
-        Same bug class as ``search_fields``: the raw
-        ``_user_ownership_relationship`` ClassVar bypassed DomainConfig, so
-        curriculum domains declaring ``None`` were silently OWNS-scoped by
-        faceted search — hiding all shared content from /search.
         """
         ...
 
@@ -573,8 +559,8 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         if config_result.is_error:
             return Result.fail(config_result)
 
-        # PUBLIC domains (PS, LP, KU) get no ownership MATCH; SCOPE_AWARE
-        # (Exercise) scopes via WHERE in the backend instead of the MATCH.
+        # The domain's declaration is the ONLY scoping input the backend gets:
+        # it composes every visibility through build_search_visibility_clause.
         visibility = self.search_visibility
 
         # Fail-closed anonymous gate: without a user there is nothing to own,
@@ -600,16 +586,8 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         # back to the domain's search_order_by DESC (historical behavior).
         sort = request.get_sort_order()
 
-        ownership_relationship = (
-            self.user_ownership_relationship if visibility is SearchVisibility.OWNER_ONLY else None
-        )
-
         result = await self.backend.faceted_search_raw(
             user_uid,
-            # Pass the RelationshipName enum straight through — no from_string
-            # round-trip (which would silently drop the ownership filter on an
-            # unknown name; see ADR / project_security_posture fail-open risk).
-            user_ownership_relationship=ownership_relationship,
             search_fields=self.search_fields,
             search_order_by=self.search_order_by,
             graph_enrichment_patterns=self._graph_enrichment_patterns,

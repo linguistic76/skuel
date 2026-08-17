@@ -713,8 +713,13 @@ class TestSharedContent:
 
     @pytest.mark.asyncio
     async def test_shared_content_no_ownership_check(self, shared_service, mock_backend):
-        """Shared content services skip ownership verification."""
-        assert shared_service.user_ownership_relationship is None
+        """Shared content services skip ownership verification.
+
+        ``search_visibility`` IS the ownership declaration a service exposes —
+        ``DomainConfig.get_search_visibility()`` derives PUBLIC from a
+        ``user_ownership_relationship`` of None, so asserting on the derived
+        value covers the declaration without a second accessor for the raw one.
+        """
         assert shared_service.search_visibility is SearchVisibility.PUBLIC
 
     @pytest.mark.asyncio

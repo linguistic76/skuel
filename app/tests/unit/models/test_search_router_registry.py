@@ -18,10 +18,13 @@ import inspect
 
 import pytest
 
+from core.models.enums import SearchVisibility
 from core.models.enums.entity_enums import EntityType, NonKuDomain
 from core.models.ps_content.content_chunks import ContentChunkType
+from core.models.search.filter_enums import SearchSortOrder
 from core.models.search_request import SearchRequest
 from core.orchestrator.search_router import SearchRouter, UnifiedSearchResult
+from core.utils.result_simplified import Result
 from services_bootstrap import Services
 
 SERVICES_FIELD_NAMES = {f.name for f in dataclasses.fields(Services)}
@@ -103,17 +106,219 @@ class TestRegistryCompleteness:
         )
 
 
-class TestUserEntryPrivacyLine:
-    """Unscoped UserEntry search must be refused, never leaked."""
+class TestOwnerOnlyDomainsCarryTheScopingProperty:
+    """Every searchable OWNER_ONLY domain must have the property the clause filters.
+
+    ``build_search_visibility_clause`` renders OWNER_ONLY as
+    ``entity.user_uid = $user_uid`` — a *property* predicate. A domain that
+    declares OWNER_ONLY but stores ownership somewhere else (``owner_uid``, or
+    only an ``:OWNS`` edge) gets a predicate that is null for every row, so its
+    search silently returns nothing.
+
+    This became reachable when faceted search stopped anchoring on
+    ``(User)-[:OWNS]->(entity)``: the edge anchor happened to work for such a
+    domain, the property predicate does not. Codex flagged exactly this shape
+    on ``GroupService`` (P2, PR #1079) — correct about the mechanism. Group is
+    NOT searchable (see below), so nothing invokes it; this test is the guard
+    that stops it becoming live silently.
+    """
+
+    # The one domain that legitimately keys on owner_uid. Its exemption is
+    # verified below rather than asserted, so the set cannot quietly grow.
+    _OWNER_UID_EXEMPT = frozenset({EntityType.EXERCISE})
+
+    def test_the_owner_uid_exemption_is_earned_not_declared(self) -> None:
+        """Exercise may key on ``owner_uid`` only because it declares SCOPE_AWARE."""
+        from core.services.exercises.exercise_service import ExerciseService
+
+        assert EntityType.EXERCISE in self._OWNER_UID_EXEMPT
+        assert len(self._OWNER_UID_EXEMPT) == 1, (
+            "the exemption set must not grow silently — each member needs its own "
+            "earned justification, like the SCOPE_AWARE check below"
+        )
+        assert ExerciseService._config.get_search_visibility() is SearchVisibility.SCOPE_AWARE, (
+            "Exercise's exemption below rests on it NOT being OWNER_ONLY"
+        )
+
+    def test_every_searchable_owner_only_domain_has_user_uid(self) -> None:
+        import dataclasses as dc
+
+        from core.models.entity_types import ENTITY_TYPE_CLASS_MAP
+
+        offenders: list[str] = []
+        examined: list[EntityType] = []
+        for entity_type in SearchRouter._SEARCHABLE_DOMAINS:
+            model = ENTITY_TYPE_CLASS_MAP.get(entity_type)
+            if model is None or entity_type in self._OWNER_UID_EXEMPT:
+                continue
+            examined.append(entity_type)
+            fields = {f.name for f in dc.fields(model)}
+            # PUBLIC curriculum carries no owner at all — only the mismatch
+            # (owner present, but under the name the clause does NOT filter)
+            # is a defect.
+            if "user_uid" not in fields and "owner_uid" in fields:
+                offenders.append(f"{entity_type.value} (owner_uid, not user_uid)")
+
+        assert len(examined) == len(SearchRouter._SEARCHABLE_DOMAINS) - len(
+            self._OWNER_UID_EXEMPT
+        ), "every searchable domain must be reachable in ENTITY_TYPE_CLASS_MAP to be checked"
+        assert offenders == [], (
+            "a searchable domain stores ownership in owner_uid but OWNER_ONLY "
+            f"scoping filters user_uid, so its search returns nothing: {offenders}"
+        )
+
+    def test_group_is_not_a_searchable_domain(self) -> None:
+        """The known non-conformer, pinned deliberately rather than left implicit.
+
+        ``GroupService`` declares ``user_ownership_relationship=OWNS`` (deriving
+        OWNER_ONLY) while ``Group`` stores ownership in ``owner_uid`` and has no
+        ``user_uid``. That declaration is only harmless because Group is absent
+        from every search registry and no caller invokes its inherited search —
+        the sole production callers of ``graph_aware_faceted_search`` are inside
+        SearchRouter, which resolves services from ``_SERVICE_REGISTRY``.
+
+        Wiring Group into search without first fixing its ownership declaration
+        will fail here. Fix the declaration, don't delete the test.
+        """
+        registry_values = set(SearchRouter._SERVICE_REGISTRY.values())
+        assert "groups" not in registry_values
+        assert "groups" not in SearchRouter._GRAPH_AWARE_DOMAINS
+        assert NonKuDomain.GROUP not in SearchRouter._SERVICE_REGISTRY
+
+
+class _OwnerOnlySearchStub:
+    """A wired, OWNER_ONLY-declaring search service that records every call.
+
+    Wired deliberately: an *unwired* router refuses everything with not_found,
+    so a test built on one passes even with the ownership gate deleted.
+    """
+
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, str | None]] = []
+
+    @property
+    def search_visibility(self) -> SearchVisibility:
+        return SearchVisibility.OWNER_ONLY
+
+    async def search(
+        self, query: str, limit: int = 50, user_uid: str | None = None
+    ) -> Result[list[object]]:
+        self.calls.append((query, user_uid))
+        return Result.ok([object()])
+
+
+class TestOwnerOnlySearchScopeGate:
+    """Unscoped OWNER_ONLY search must be refused, never leaked.
+
+    UserEntry was the first domain to get this line (entries are private user
+    content). It is not special: every OWNER_ONLY domain composes the same
+    ownership predicate, and ``build_search_visibility_clause`` emits NO
+    predicate without a user — so an unscoped call returns every user's rows
+    unless ``search()`` refuses first.
+    """
 
     @pytest.mark.asyncio
     async def test_search_without_user_uid_is_refused(self) -> None:
-        router = SearchRouter()
+        stub = _OwnerOnlySearchStub()
+        router = SearchRouter(user_entry=stub)
 
         result = await router.search(EntityType.USER_ENTRY, "anything")
 
         assert result.is_error
         assert "user scope" in str(result.expect_error().message)
+        assert stub.calls == [], "the domain must never be queried unscoped"
+
+    @pytest.mark.asyncio
+    async def test_search_with_user_uid_reaches_the_domain(self) -> None:
+        """Positive control: the gate refuses the null uid, not every call."""
+        stub = _OwnerOnlySearchStub()
+        router = SearchRouter(user_entry=stub)
+
+        result = await router.search(EntityType.USER_ENTRY, "anything", user_uid="user_a")
+
+        assert result.is_ok, result.expect_error()
+        assert stub.calls == [("anything", "user_a")]
+
+    @pytest.mark.asyncio
+    async def test_task_domain_gets_the_same_gate(self) -> None:
+        """The gate is keyed on the visibility declaration, not on UserEntry."""
+        stub = _OwnerOnlySearchStub()
+        router = SearchRouter(tasks=stub)
+
+        result = await router.search(EntityType.TASK, "anything")
+
+        assert result.is_error
+        assert "user scope" in str(result.expect_error().message)
+        assert stub.calls == []
+
+    @pytest.mark.asyncio
+    async def test_anonymous_faceted_single_domain_never_queries_unscoped(self) -> None:
+        """The production-reachable shape: an anonymous single-domain faceted call.
+
+        ``/api/explore/search`` serves anonymous callers and resolves its raw
+        ``?type=`` param through ``EntityType.from_string`` with no catalog
+        whitelist, so ``?type=revised_exercise`` reaches
+        ``faceted_search(request, user_uid=None)`` for an OWNER_ONLY domain.
+        There, ``_graph_aware_domain_search`` correctly declines (anonymous +
+        non-PUBLIC) and hands off to ``_simple_domain_search`` — which mapped
+        ``revised_exercises`` to a real EntityType and called ``search()``
+        without any scope. Every teacher's revised exercises, to a logged-out
+        caller.
+
+        ``user_entry`` never had this hole: ``faceted_search`` guards it by
+        name at the entry point. The gate under test is the general form of
+        that guard.
+
+        Asserted on the stub's call log, not just on the returned rows: an
+        empty response is the right answer for several wrong reasons, but a
+        domain query issued with ``user_uid=None`` is unambiguous.
+        """
+        stub = _OwnerOnlySearchStub()
+        router = SearchRouter(revised_exercises=stub)
+
+        result = await router.faceted_search(
+            SearchRequest(query_text="anything", entity_types=[EntityType.REVISED_EXERCISE]),
+            user_uid=None,
+            log_event=False,
+        )
+
+        assert result.is_ok, result.expect_error()
+        assert result.value.results == []
+        assert stub.calls == [], (
+            "an anonymous faceted call must never reach an OWNER_ONLY domain's "
+            f"search — got {stub.calls}"
+        )
+
+    @pytest.mark.asyncio
+    async def test_authenticated_faceted_single_domain_forwards_the_scope(self) -> None:
+        """Positive control, and the second half of the same defect.
+
+        ``_simple_domain_search`` took no ``user_uid`` at all, so the scope was
+        dropped for authenticated callers too. Refusing unscoped searches
+        without also forwarding the scope would have turned that leak into an
+        owner seeing an empty page — fail-closed, but still wrong.
+
+        The explicit sort is load-bearing, not decoration: it makes
+        ``_cross_domain_search`` take the faceted sweep, which skips this
+        non-graph-aware stub. Without it the scored text sweep would issue a
+        second, correctly-scoped ``search()`` and the assertion below would
+        pass even with the scope still dropped upstream.
+        """
+        stub = _OwnerOnlySearchStub()
+        router = SearchRouter(revised_exercises=stub)
+
+        result = await router.faceted_search(
+            SearchRequest(
+                query_text="anything",
+                entity_types=[EntityType.REVISED_EXERCISE],
+                sort_order=SearchSortOrder.TITLE_ASC,
+            ),
+            user_uid="user_teacher",
+            log_event=False,
+        )
+
+        assert result.is_ok, result.expect_error()
+        assert stub.calls == [("anything", "user_teacher")]
 
     @pytest.mark.asyncio
     async def test_cross_domain_sweep_excludes_user_entry(self, monkeypatch) -> None:

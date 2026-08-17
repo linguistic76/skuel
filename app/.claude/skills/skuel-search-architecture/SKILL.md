@@ -51,7 +51,9 @@ SearchRouter (THE Orchestrator):
 
 **Note:** MOC is NOT a searchable domain — it is emergent identity (any Ku with ORGANIZES relationships). Ku joined `_SEARCHABLE_DOMAINS` in July 2026 (content campaigns made Kus full lessons; `KuService` now exposes `.search` as the sub-service attribute, PS pattern). Learning Loop services implement `SupportsGraphAwareSearch` directly (no `.search` sub-service). SearchRouter detects this via `isinstance(domain_service, SupportsGraphAwareSearch)` fallback.
 
-**UserEntry privacy line (July 2026):** `SearchRouter.search(USER_ENTRY, ...)` REQUIRES `user_uid` (refused unscoped). UserEntry is excluded from the default "All Types" sweep + `advanced_search` aggregation; it participates only when explicitly requested AND user-scoped — the `/search` "My Entries" filter routes through OWNS-scoped `graph_aware_faceted_search()`, and a multi-type `entity_types` filter sweeps it owner-scoped. Registry completeness is guarded by `tests/unit/models/test_search_router_registry.py`.
+**Owner-scope gate (generalized August 2026):** `SearchRouter.search()` REQUIRES `user_uid` for **every** `OWNER_ONLY` domain and refuses without it — `build_search_visibility_clause` emits no ownership predicate when there is no user, so an unscoped call would return every user's rows. Only `PUBLIC` and `SCOPE_AWARE` may be searched anonymously; an undeclared service is refused too (default-deny). This started as a UserEntry-only privacy line; the by-name `user_entry` guard in `faceted_search` remains as the loud refusal at the entry point.
+
+**UserEntry aggregation rules (July 2026):** UserEntry is excluded from the default "All Types" sweep + `advanced_search` aggregation; it participates only when explicitly requested AND user-scoped — the `/search` "My Entries" filter routes through `graph_aware_faceted_search()`, and a multi-type `entity_types` filter sweeps it owner-scoped. Registry completeness and the owner-scope gate are guarded by `tests/unit/models/test_search_router_registry.py`.
 
 ## Unified BaseService Pattern (ADR-023, January 2026 DomainConfig)
 

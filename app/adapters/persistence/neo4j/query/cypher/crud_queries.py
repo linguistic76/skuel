@@ -293,10 +293,16 @@ def build_search_visibility_clause(
             scoped query unless the domain explicitly declares PUBLIC).
         PUBLIC: shared content — no ownership clause, but the publication
             predicate still applies (a draft PathStep has no audience yet).
-        OWNER_ONLY: property scope on ``user_uid``. Without a user this
+        OWNER_ONLY: property scope on ``user_uid``. ⚠ Without a user this
             applies NO clause — external surfaces (SearchRouter) are
             responsible for not exposing unscoped user-owned searches
             (fail-closed skip); internal callers keep today's semantics.
+            A caller holding a ``user_uid`` that may be None must therefore
+            pass ``has_user=True`` anyway and let the emitted predicate do
+            the work: ``entity.user_uid = $user_uid`` on a null parameter is
+            a null predicate and matches nothing. Deriving ``has_user`` from
+            ``user_uid is not None`` inverts that into a cross-user
+            disclosure — it drops the predicate exactly when it is needed.
         SCOPE_AWARE: CURRICULUM-scope entities are always visible; owned
             scopes require the ``owner_uid`` claim, :OWNS, :SHARES_WITH, or
             group membership (:MEMBER_OF + :SHARED_WITH_GROUP). Without a

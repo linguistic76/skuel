@@ -112,16 +112,56 @@ genuinely instance-scoped domains declare it explicitly.
 | Value | Domains | Semantics |
 |-------|---------|-----------|
 | `PUBLIC` | PS, LP, KU | No filter — shared curriculum content |
-| `OWNER_ONLY` | Activities, UserEntry, RevisedExercise | Property scope `n.user_uid = $user_uid` — retained by design even though the `user_uid == :OWNS owner` invariant now holds (ingestion writes the edge in `build_node_upsert_template`; `backfill_owns_from_user_uid_2026_07.cypher` restored existing nodes). Faceted search stays edge-based; the two mechanisms are kept equivalent by the invariant, which **both** write doors now hold by construction — ingestion in `build_node_upsert_template`, and the CRUD door in `_crud_mixin._create_node`, which writes the `:OWNS` edge in the same statement as the node and `MATCH`es the owner (an unknown owner fails the create rather than leaving a property-only orphan). Guarded on both sides: `test_ingestion_owns_enum_casing.py` and `test_owner_only_ownership_invariant.py` |
+| `OWNER_ONLY` | Activities, UserEntry, RevisedExercise | Property scope `n.user_uid = $user_uid` — **every** strategy, faceted included (see the convergence note below) |
 | `SCOPE_AWARE` | Exercise | `scope = 'curriculum'` always visible; owned scopes (PERSONAL/ASSIGNED/ASSESSMENT) visible via `:OWNS`, `:SHARES_WITH`, or group membership (`:MEMBER_OF` + `:SHARED_WITH_GROUP`) — ADR-038/040 semantics. A student finds their group's assigned exercise by search; a stranger never sees someone's PERSONAL template |
 
 **Composition point:** `build_search_visibility_clause()`
 (`adapters/persistence/neo4j/query/cypher/crud_queries.py`) — the single
 WHERE-fragment builder consumed by `build_text_search_query`,
-`build_graph_aware_search_query`, `build_array_any_match_query`, and
-`faceted_search_raw` (which swaps its ownership MATCH for the SCOPE_AWARE
-WHERE fragment, since an ownership MATCH would hide ownerless CURRICULUM
-content). No strategy carries its own ad-hoc filter.
+`build_graph_aware_search_query`, `build_array_any_match_query`,
+`build_knowledge_read_clause`, `_crud_mixin.get_visible_to_user`, and
+`faceted_search_raw`. No strategy carries its own ad-hoc filter.
+
+**Faceted search converged onto the clause (August 2026).** Until then the
+faceted path expressed OWNER_ONLY as an anchor `MATCH (user:User {uid:
+$user_uid})-[:OWNS]->(entity)` instead of composing the clause, making it the
+only strategy that read the `:OWNS` **edge** rather than the denormalized
+`user_uid` **property**. The two were held equal by the write-door invariant
+`user_uid property == :OWNS owner`, so both answers agreed on a healthy graph —
+but the split was real, and the edge is the half that actually went missing in
+production: a 2026-07 ingest batch stamped `user_uid` with no edge and an
+owner's own Principles vanished from `/search`. Converging on the property also
+buys the only index-seek plan (`NodeIndexSeek RANGE INDEX entity:Task(user_uid)`
+vs. a `:User` label scan + expand — every OWNER_ONLY label carries a `user_uid`
+RANGE index; `User.uid` has none).
+
+The invariant is unchanged and still enforced on both write doors — the `:OWNS`
+edge remains the ownership signal for cascade deletes, sharing, and the adapter
+Cypher that traverses it. What changed is that **search scoping no longer
+depends on it.**
+
+⚠️ **An `OWNER_ONLY` domain must store its owner in `user_uid`.** The clause
+renders that visibility as a *property* predicate, so a domain declaring
+`OWNER_ONLY` while keying on `owner_uid` (or on the `:OWNS` edge alone) gets a
+predicate that is null for every row — its search silently returns nothing.
+The edge anchor happened to tolerate that shape; the property predicate does
+not. `GroupService` is exactly this: it declares `user_ownership_relationship=OWNS`
+(deriving `OWNER_ONLY`) while `Group` carries `owner_uid` and no `user_uid`.
+It is harmless only because **Group is not a searchable domain** — absent from
+`_SEARCHABLE_DOMAINS`, `_SERVICE_REGISTRY` and `_GRAPH_AWARE_DOMAINS`, and the
+only production callers of `graph_aware_faceted_search` are inside SearchRouter,
+which resolves services from that registry. Wiring Group into search requires
+fixing its ownership declaration first; guarded by
+`test_search_router_registry.py::TestOwnerOnlyDomainsCarryTheScopingProperty`
+(found by Codex on PR #1079).
+
+⚠️ **`faceted_search_raw` passes `has_user=True` unconditionally, on purpose.**
+`build_search_visibility_clause(OWNER_ONLY, has_user=False)` emits **no
+predicate at all**, so deriving `has_user` from `user_uid is not None` would
+turn a null uid into an unscoped query over every user's rows. Passing True
+always emits `entity.user_uid = $user_uid`, which on a null parameter is a null
+predicate matching nothing — fail-closed. Guarded by
+`test_search_visibility_scoping.py::test_faceted_null_user_fails_closed`.
 
 **Fail-closed rules:**
 - `advanced_search` without `request.user_uid` skips user-owned domains
@@ -129,13 +169,36 @@ content). No strategy carries its own ad-hoc filter.
   the unscoped floor. `/api/search/unified` always passes the authenticated uid.
 - A raw-layer caller passing `user_uid` with no visibility declaration gets
   `OWNER_ONLY` scoping by default (scoping-by-default; PUBLIC must be declared).
-- `SearchRouter.search()` forwards `user_uid` unconditionally — the former
-  `is_user_owned()` gate is gone; the config declaration decides.
+- **`SearchRouter.search()` refuses an `OWNER_ONLY` domain with no user** —
+  the text strategy's chokepoint. Only `PUBLIC` (shared curriculum) and
+  `SCOPE_AWARE` (floors at CURRICULUM) may be searched anonymously; a service
+  that declares nothing is refused too (default-deny). Every aggregate caller
+  — `search_domains`, `_cross_domain_search`, `_simple_domain_search` — already
+  treats a failed domain result as "contributes nothing", so refusing reads as
+  a skip while keeping the fault visible to a direct caller. When present,
+  `user_uid` is forwarded unconditionally; the config declaration decides what
+  it means.
+
+**Why that gate exists (August 2026).** `build_search_visibility_clause` emits
+*no* ownership predicate for `OWNER_ONLY` without a user, and names external
+surfaces as responsible for the skip. Only `user_entry` had one, by name, in
+`faceted_search`. An anonymous single-domain faceted call for any *other*
+OWNER_ONLY domain declined at `_graph_aware_domain_search` (correctly), fell
+through to `_simple_domain_search`, and reached `search()` with no scope —
+returning every user's rows. `/api/explore/search` resolves its raw `?type=`
+param through `EntityType.from_string` with no catalog whitelist and serves
+anonymous callers, so `?type=revised_exercise` reached it. `_simple_domain_search`
+compounded it by taking no `user_uid` at all, dropping the scope for
+authenticated callers too. Both are fixed; the by-name `user_entry` guard in
+`faceted_search` stays as the loud refusal at the entry point.
 
 Guarded by `tests/unit/test_search_visibility_scoping.py` (clause shapes,
-parenthesization, derivation, router forwarding) and
+parenthesization, derivation, faceted composition, router forwarding),
 `tests/integration/test_advanced_search_scoping.py` (per-strategy cross-user
-negatives + the exercise visibility matrix, revert-verified against pre-fix main).
+negatives incl. faceted + the exercise visibility matrix, revert-verified
+against pre-fix main), and
+`tests/integration/test_owner_only_ownership_invariant.py` (the write-door
+invariant and the two read surfaces over it).
 
 ---
 
@@ -278,18 +341,24 @@ SearchRouter.faceted_search(request, user_uid)      ← THE public entry point
 What actually happens when you type **"python"**, set Type to **Tasks**, and
 check **Ready to learn**. The Cypher below is assembled by
 `faceted_search_raw` (`adapters/persistence/neo4j/_search_raw_mixin.py`) from
-three sources — the ownership MATCH (from the domain's `DomainConfig`), the
-text filter (from `search_fields`), and the relationship-filter fragment
-(from `adapters/persistence/neo4j/query/cypher/relationship_filter_fragments.py`,
+three sources — the ownership predicate (from `build_search_visibility_clause`,
+per the domain's `SearchVisibility`), the text filter (from `search_fields`),
+and the relationship-filter fragment (from
+`adapters/persistence/neo4j/query/cypher/relationship_filter_fragments.py`,
 quoted verbatim):
 
 ```cypher
-// 1. Ownership scoping: only YOUR tasks are candidates.
-//    OWNS is the universal ownership edge; $user_uid is a query parameter —
-//    user data is never spliced into the query text.
-MATCH (user:User {uid: $user_uid})-[:OWNS]->(entity:Task)
+// A plain label MATCH — no ownership pattern. Scoping is a WHERE predicate
+// so that one clause builder serves every strategy and every visibility.
+MATCH (entity:Task)
 
 WHERE 1=1
+  // 1. Ownership scoping: only YOUR tasks survive. $user_uid is a query
+  //    parameter — user data is never spliced into the query text. Each
+  //    relationship fragment below binds its OWN (user:User {uid: $user_uid});
+  //    none depends on this predicate having bound one.
+  AND (entity.user_uid = $user_uid)
+
   // 2. Text search over the domain's configured search_fields
   //    (title + description for Tasks). Case-insensitive substring match.
   AND (toLower(entity.title) CONTAINS $query_text

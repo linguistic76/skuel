@@ -107,7 +107,6 @@ from typing import TYPE_CHECKING, Any, ClassVar, Generic, TypeVar
 # Import protocols for type constraints and runtime validation
 from core.models.enums import SearchVisibility
 from core.models.protocols import DomainModelProtocol, DTOProtocol
-from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID
 from core.models.update_contracts import RawChanges, SupportsToChanges
 from core.ports import BackendOperations
@@ -486,25 +485,6 @@ class BaseService(
         return self._get_config_value("category_field", "category")
 
     @cached_property
-    def user_ownership_relationship(self) -> RelationshipName | None:
-        """
-        Get the ownership relationship from DomainConfig.
-
-        Read straight off the config object — ``_get_config_value`` treats a
-        configured ``None`` (shared content: PS, LP, KU) as "not set" and
-        would silently substitute a default, which is exactly the bypass
-        this property exists to close.
-
-        Returns:
-            RelationshipName for user-owned domains, None for shared content.
-            OWNS when no DomainConfig exists (fail-closed default).
-        """
-        config = self._get_config_cls()
-        if config is None:
-            return RelationshipName.OWNS
-        return config.user_ownership_relationship
-
-    @cached_property
     def search_visibility(self) -> SearchVisibility:
         """
         Get the search-visibility declaration from DomainConfig.
@@ -581,11 +561,6 @@ class BaseService(
     _graph_enrichment_patterns: ClassVar[
         tuple[tuple[str, str, str] | tuple[str, str, str, str], ...]
     ] = ()
-
-    # User ownership relationship — resolved from DomainConfig, see the
-    # user_ownership_relationship property. (The old raw ClassVar bypassed
-    # DomainConfig — curriculum domains declaring None were silently
-    # OWNS-scoped by faceted search, hiding all shared content.)
 
     # ========================================================================
     # CURRICULUM/PREREQUISITE CONFIGURATION (January 2026 - Unified)
