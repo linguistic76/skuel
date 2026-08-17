@@ -29,14 +29,13 @@ import pytest
 from fasthtml.common import to_xml
 
 from adapters.inbound.explore_ui import _library_cards, _library_search_request
-from adapters.persistence.neo4j._search_raw_mixin import _SearchRawMixin
 from core.models.enums import SearchVisibility
 from core.models.enums.entity_enums import EntityType
-from core.models.enums.neo_labels import NeoLabel
 from core.models.search.filter_enums import SearchSortOrder
 from core.models.search_request import SearchRequest
 from core.orchestrator.search_router import SearchRouter
 from core.utils.result_simplified import Result
+from tests.helpers.faceted_capture import run_faceted
 from ui.explore.cards import (
     LIBRARY_PAGE_SIZE,
     VISIBLE_TAG_CHIPS,
@@ -96,74 +95,24 @@ class TestFormParamBoundary:
 # ============================================================================
 
 
-class _CapturingResult:
-    async def data(self) -> list[dict[str, Any]]:
-        return []
-
-
-class _CapturingSession:
-    def __init__(self, store: dict[str, Any]) -> None:
-        self._store = store
-
-    async def __aenter__(self) -> _CapturingSession:
-        return self
-
-    async def __aexit__(self, *exc: object) -> bool:
-        return False
-
-    async def run(self, query: str, params: dict[str, Any]) -> _CapturingResult:
-        self._store["query"] = query
-        self._store["params"] = params
-        return _CapturingResult()
-
-
-class _CapturingDriver:
-    def __init__(self, store: dict[str, Any]) -> None:
-        self._store = store
-
-    def session(self) -> _CapturingSession:
-        return _CapturingSession(self._store)
-
-
-class _StubBackend(_SearchRawMixin):
-    def __init__(self, store: dict[str, Any]) -> None:
-        self.driver = _CapturingDriver(store)
-        self.label = NeoLabel.KU
-        self.entity_class = object
-
-
-async def _run_faceted(store: dict[str, Any], **overrides: Any) -> Result[list[dict[str, Any]]]:
-    backend = _StubBackend(store)
-    kwargs: dict[str, Any] = {
-        "user_ownership_relationship": None,
-        "search_fields": ("title", "description"),
-        "search_order_by": "updated_at",
-        "graph_enrichment_patterns": (),
-        "property_filters": {},
-        "visibility": SearchVisibility.PUBLIC,
-    }
-    kwargs.update(overrides)
-    return await backend.faceted_search_raw(None, **kwargs)
-
-
 class TestFacetedSearchRawClauses:
     @pytest.mark.asyncio
     async def test_default_order_by_config_field_desc(self) -> None:
         store: dict[str, Any] = {}
-        await _run_faceted(store)
+        await run_faceted(store)
         assert "ORDER BY entity.updated_at DESC" in store["query"]
         assert "SKIP" not in store["query"]
 
     @pytest.mark.asyncio
     async def test_explicit_sort_overrides_direction_and_field(self) -> None:
         store: dict[str, Any] = {}
-        await _run_faceted(store, order_by="title", order_desc=False)
+        await run_faceted(store, order_by="title", order_desc=False)
         assert "ORDER BY entity.title ASC" in store["query"]
 
     @pytest.mark.asyncio
     async def test_offset_emits_skip_before_limit(self) -> None:
         store: dict[str, Any] = {}
-        await _run_faceted(store, offset=24, limit=24)
+        await run_faceted(store, offset=24, limit=24)
         query = store["query"]
         assert "SKIP 24" in query
         assert query.index("SKIP 24") < query.index("LIMIT 24")
@@ -171,14 +120,14 @@ class TestFacetedSearchRawClauses:
     @pytest.mark.asyncio
     async def test_tags_any_semantics(self) -> None:
         store: dict[str, Any] = {}
-        await _run_faceted(store, tags_contain=["yoga", "mind"])
+        await run_faceted(store, tags_contain=["yoga", "mind"])
         assert "ANY(t IN $tags_contain WHERE t IN entity.tags)" in store["query"]
         assert store["params"]["tags_contain"] == ["yoga", "mind"]
 
     @pytest.mark.asyncio
     async def test_tags_all_semantics(self) -> None:
         store: dict[str, Any] = {}
-        await _run_faceted(store, tags_contain=["yoga"], tags_match_all=True)
+        await run_faceted(store, tags_contain=["yoga"], tags_match_all=True)
         assert "ALL(t IN $tags_contain WHERE t IN entity.tags)" in store["query"]
 
     @pytest.mark.asyncio
@@ -186,14 +135,14 @@ class TestFacetedSearchRawClauses:
         # _validate_identifier raises; safe_backend_operation converts to a
         # failed Result. Either way the injection must never reach the driver.
         store: dict[str, Any] = {}
-        result = await _run_faceted(store, order_by="title DESC; MATCH (n) DETACH DELETE n //")
+        result = await run_faceted(store, order_by="title DESC; MATCH (n) DETACH DELETE n //")
         assert result.is_error
         assert "query" not in store  # never reached the driver
 
     @pytest.mark.asyncio
     async def test_empty_query_text_omits_text_clause(self) -> None:
         store: dict[str, Any] = {}
-        await _run_faceted(store, query_text=None)
+        await run_faceted(store, query_text=None)
         assert "CONTAINS" not in store["query"]
 
 

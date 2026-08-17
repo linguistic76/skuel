@@ -660,7 +660,6 @@ class EntitySearchOperations[T: "DomainModelProtocol"](Protocol):
         self,
         user_uid: UserUID | None,
         *,
-        user_ownership_relationship: RelationshipName | None,
         search_fields: tuple[str, ...],
         search_order_by: str,
         graph_enrichment_patterns: tuple[tuple[str, ...], ...],
@@ -676,6 +675,10 @@ class EntitySearchOperations[T: "DomainModelProtocol"](Protocol):
         visibility: SearchVisibility | None = None,
     ) -> ResultType[builtins.list[dict[str, Any]]]:
         """Graph-aware faceted search with ownership, filters, and enrichment.
+
+        Ownership is expressed entirely by ``visibility`` — the adapter composes
+        it through the same clause builder every other strategy uses, so the
+        caller declares WHO may see the rows, never HOW that is matched.
 
         The Cypher for ``relationship_filters`` is authored below the boundary
         (ADR-044); callers pass only the active-flag intent. ``user_uid`` may

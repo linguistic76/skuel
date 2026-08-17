@@ -8,6 +8,8 @@ Unit coverage for the SearchVisibility mechanism (the #512 follow-up):
    point for every search strategy.
 2. Query builders (text / graph / tags) compose the clause with correct
    parenthesization — the #512 OR-precedence lesson, now structural.
+2b. The faceted path composes the same clause for EVERY visibility —
+   including OWNER_ONLY, which used to anchor on the ``:OWNS`` edge instead.
 3. ``DomainConfig.get_search_visibility`` derivation + the live domain
    declarations (Exercise SCOPE_AWARE, PS PUBLIC, Tasks OWNER_ONLY).
 4. ``SearchRouter.advanced_search`` — fail-closed skip without a user,
@@ -43,6 +45,7 @@ from core.models.task.task import Task
 from core.orchestrator.search_router import SearchRouter
 from core.services.domain_config import DomainConfig
 from core.utils.result_simplified import Result
+from tests.helpers.faceted_capture import run_faceted
 
 # ============================================================================
 # 1. Clause builder
@@ -113,29 +116,6 @@ class TestVisibilityClause:
         assert clause == "((n.scope = $visibility_curriculum_scope))"
         assert "publication_state" not in clause
         assert "publication_draft" not in params
-
-    def test_faceted_search_composes_the_gate_for_public(self) -> None:
-        """Codex #1006 P1: the FACETED path must gate PUBLIC too.
-
-        ``faceted_search_raw`` composed the visibility clause only when
-        ``scope_aware`` — true for Exercise, false for Ku/PathStep/LearningPath.
-        PUBLIC domains therefore got a plain MATCH and no WHERE, so the primary
-        /api/explore/search catalogue listed draft curriculum while search and
-        the listing withheld it. Reproduced before the fix: 25 rows including
-        the draft; after: 15, draft withheld.
-
-        Asserted on the source because the composition point is a private mixin
-        branch — the guard must name PUBLIC, not just SCOPE_AWARE.
-        """
-        import inspect
-
-        from adapters.persistence.neo4j._search_raw_mixin import _SearchRawMixin
-
-        src = inspect.getsource(_SearchRawMixin.faceted_search_raw)
-        assert "scope_aware or visibility is SearchVisibility.PUBLIC" in src, (
-            "faceted_search_raw must compose the visibility clause for PUBLIC, "
-            "not only SCOPE_AWARE — else draft curriculum leaks into the catalogue"
-        )
 
     def test_publication_state_survives_the_dto_round_trip(self) -> None:
         """Codex #1006 P2: listing a name in ``enum_fields`` does not declare a field.
@@ -355,6 +335,98 @@ class TestQueryBuilderComposition:
         # Anonymous callers see published curriculum only.
         assert "publication_state" in cypher
         assert params["publication_draft"] == "draft"
+
+
+# ============================================================================
+# 2b. The faceted path composes the SAME clause — every visibility
+# ============================================================================
+
+
+class TestFacetedPathComposesTheClause:
+    """``faceted_search_raw`` scopes through the one composition point.
+
+    It used to be the exception: OWNER_ONLY was expressed as an anchor
+    ``MATCH (user:User {uid: $user_uid})-[:OWNS]->(entity)``, making faceted
+    search the only strategy that read the ``:OWNS`` edge rather than the
+    ``user_uid`` property. Two mechanisms held equivalent by an invariant is
+    one mechanism more than the docs claimed and one more than we need.
+    """
+
+    @pytest.mark.asyncio
+    async def test_owner_only_emits_the_property_predicate_not_an_owns_match(self) -> None:
+        store: dict[str, Any] = {}
+        await run_faceted(
+            store,
+            user_uid="user_alice",
+            label=NeoLabel.TASK,
+            visibility=SearchVisibility.OWNER_ONLY,
+        )
+
+        query = store["query"]
+        assert "(entity.user_uid = $user_uid)" in query
+        assert store["params"]["user_uid"] == "user_alice"
+        assert "MATCH (entity:Task)" in query
+        assert ":User" not in query, "the ownership anchor MATCH is gone"
+        assert f":{RelationshipName.OWNS.value}]" not in query
+
+    @pytest.mark.asyncio
+    async def test_faceted_null_user_fails_closed(self) -> None:
+        """⚠ The regression guard for the ``has_user=True`` trap.
+
+        ``build_search_visibility_clause(OWNER_ONLY, has_user=False)`` returns
+        None — NO predicate. So deriving ``has_user`` from ``user_uid is not
+        None`` would turn a null uid into an unscoped query returning every
+        user's rows. Passing True unconditionally emits the predicate, and
+        ``entity.user_uid = null`` is a null predicate that matches nothing.
+
+        The service layer already refuses OWNER_ONLY without a user
+        (``graph_aware_faceted_search``); this asserts the structural floor
+        underneath it, because that gate is not the only way in.
+        """
+        store: dict[str, Any] = {}
+        await run_faceted(
+            store,
+            user_uid=None,
+            label=NeoLabel.TASK,
+            visibility=SearchVisibility.OWNER_ONLY,
+        )
+
+        assert "(entity.user_uid = $user_uid)" in store["query"], (
+            "a null user must still emit the ownership predicate — dropping it "
+            "returns every user's rows"
+        )
+        assert store["params"]["user_uid"] is None
+
+    @pytest.mark.asyncio
+    async def test_public_still_carries_the_publication_gate(self) -> None:
+        """Codex #1006 P1, re-asserted behaviourally.
+
+        The faceted path once composed the clause only for SCOPE_AWARE, so
+        PUBLIC domains (Ku/PathStep/LearningPath) got a plain MATCH and no
+        WHERE — the primary /api/explore/search catalogue listed draft
+        curriculum while search and the listing withheld it.
+        """
+        store: dict[str, Any] = {}
+        await run_faceted(store, visibility=SearchVisibility.PUBLIC)
+
+        assert "publication_state" in store["query"]
+        assert store["params"]["publication_draft"] == "draft"
+
+    @pytest.mark.asyncio
+    async def test_scope_aware_keeps_its_sharing_fragment(self) -> None:
+        """Exercise is unaffected: it keys on ``owner_uid``, not ``user_uid``."""
+        store: dict[str, Any] = {}
+        await run_faceted(
+            store,
+            user_uid="user_alice",
+            label=NeoLabel.EXERCISE,
+            visibility=SearchVisibility.SCOPE_AWARE,
+        )
+
+        query = store["query"]
+        assert "$visibility_curriculum_scope" in query
+        assert "entity.owner_uid = $user_uid" in query
+        assert "entity.user_uid" not in query
 
 
 # ============================================================================

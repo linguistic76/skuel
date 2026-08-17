@@ -1,24 +1,25 @@
-"""OWNER_ONLY ownership — the two read mechanisms and the invariant that couples them.
+"""OWNER_ONLY ownership — the write-door invariant, and the read surfaces over it.
 
-SKUEL scopes OWNER_ONLY reads two different ways, by ruling (see
-``docs/architecture/SEARCH_ARCHITECTURE.md`` § *Ownership Scoping — SearchVisibility
-(July 2026 ruling)*):
-
-* the **faceted** path anchors on the ``(User)-[:OWNS]->(entity)`` edge
-  (``faceted_search_raw``), and
-* every other strategy filters the denormalized ``user_uid`` **property**
-  (``build_search_visibility_clause``, reached here through ``text_search_raw``).
-
-They return the same rows only because both write doors hold one invariant:
-**``user_uid`` property == ``:OWNS`` owner.** The ingestion door holds it inside
-``build_node_upsert_template`` and is guarded by
+**Writes.** Both doors hold one invariant: **``user_uid`` property == ``:OWNS`` owner.**
+The ingestion door holds it inside ``build_node_upsert_template``, guarded by
 ``test_ingestion_owns_enum_casing.py::test_invariant_no_user_uid_bearing_entity_without_owns``.
-
 These tests hold the **CRUD door** — the other half, which used to CREATE the node and
 then write the edge in a *separate* query, merely ``logger.warning``-ing when the second
 one failed and returning ``Result.ok``. That left a property-only node: still visible to
 property-scoped reads, invisible to every ``:OWNS``-traversing read. A 2026-07 ingest batch
 shipped exactly that shape and an owner's own Principles vanished from ``/search``.
+
+**Reads.** OWNER_ONLY search used to be scoped two different ways — the faceted path
+anchored on the ``:OWNS`` edge while every other strategy filtered the ``user_uid``
+property — and the invariant above is what kept the two answers equal. That split is
+gone: ``faceted_search_raw`` now composes ``build_search_visibility_clause`` like every
+other strategy, so **all** search scoping reads the property. The read tests below
+therefore prove that the two *surfaces* (faceted and text) agree, not that two
+mechanisms do.
+
+The invariant is still load-bearing — the ``:OWNS`` edge remains the ownership signal
+for cascade deletes, sharing, and the ~174 lines of hand-written adapter Cypher that
+traverse it — which is why the write-door guards above stay, and stay strict.
 
 Requires: Docker running with Neo4j testcontainer.
 """
@@ -76,11 +77,10 @@ def _task(uid: str, user_uid: str, title: str) -> Task:
     )
 
 
-async def _edge_mechanism_uids(backend, user_uid: str) -> set[str]:
-    """The faceted path — ownership expressed as the anchor :OWNS MATCH."""
+async def _faceted_surface_uids(backend, user_uid: str) -> set[str]:
+    """The faceted path — /search, /explore/library, the cross-domain sweep."""
     result = await backend.faceted_search_raw(
         user_uid,
-        user_ownership_relationship=RelationshipName.OWNS,
         search_fields=SEARCH_FIELDS,
         search_order_by="created_at",
         graph_enrichment_patterns=(),
@@ -92,8 +92,8 @@ async def _edge_mechanism_uids(backend, user_uid: str) -> set[str]:
     return {row["entity"]["uid"] for row in result.value}
 
 
-async def _property_mechanism_uids(backend, user_uid: str) -> set[str]:
-    """Every other strategy — ownership expressed as build_search_visibility_clause."""
+async def _text_surface_uids(backend, user_uid: str) -> set[str]:
+    """The text-search strategy — the other consumer of the same clause."""
     result = await backend.text_search_raw(
         MARKER,
         SEARCH_FIELDS,
@@ -253,14 +253,14 @@ async def test_crud_door_leaves_no_user_uid_bearing_entity_without_owns(
 
 
 # =============================================================================
-# The two read mechanisms agree — and the invariant is what makes them agree
+# Both read surfaces scope through the one clause
 # =============================================================================
 
 
-async def test_both_mechanisms_return_the_same_owner_scoped_set(
+async def test_both_surfaces_return_the_same_owner_scoped_set(
     clean_neo4j, neo4j_driver, tasks_service, tasks_backend
 ) -> None:
-    """Edge-anchored and property-scoped reads return the same rows on a healthy graph."""
+    """The faceted and text surfaces both return the owner's row and only the owner's row."""
     await _seed_users(neo4j_driver)
     owner_uid = f"task_{MARKER}_agree_owner"
     stranger_uid = f"task_{MARKER}_agree_stranger"
@@ -272,31 +272,60 @@ async def test_both_mechanisms_return_the_same_owner_scoped_set(
     # Ungated control — both rows are reachable, so a scoped assertion can fail.
     assert await _unscoped_uids(neo4j_driver) == {owner_uid, stranger_uid}
 
-    edge_hits = await _edge_mechanism_uids(tasks_backend, OWNER)
-    property_hits = await _property_mechanism_uids(tasks_backend, OWNER)
+    faceted_hits = await _faceted_surface_uids(tasks_backend, OWNER)
+    text_hits = await _text_surface_uids(tasks_backend, OWNER)
 
-    assert edge_hits == {owner_uid}, "faceted path must return only the owner's row"
-    assert property_hits == {owner_uid}, "property path must return only the owner's row"
-    assert edge_hits == property_hits
+    assert faceted_hits == {owner_uid}, "faceted surface must return only the owner's row"
+    assert text_hits == {owner_uid}, "text surface must return only the owner's row"
+    assert faceted_hits == text_hits
 
 
-async def test_breaking_the_invariant_out_of_band_makes_the_paths_disagree(
+async def test_faceted_surface_hides_another_users_rows_from_the_stranger(
     clean_neo4j, neo4j_driver, tasks_service, tasks_backend
 ) -> None:
-    """Characterisation: the two mechanisms are NOT interchangeable — the invariant is load-bearing.
+    """The cross-user negative from the other side, with its own positive control.
 
-    Deleting the :OWNS edge behind the CRUD door's back reproduces the 2026-07 shape.
-    The property path still finds the row; the edge path loses it. This is deliberately
-    asserted rather than fixed: it is the reason the write doors must keep both halves
-    inseparable, and it fails loudly if someone decides the two mechanisms are equivalent
-    and drops one guard.
+    Read together with the test above this pins both directions: each user sees their
+    own row, neither sees the other's, and the ungated control proves the query *could*
+    have returned both.
+    """
+    await _seed_users(neo4j_driver)
+    owner_uid = f"task_{MARKER}_neg_owner"
+    stranger_uid = f"task_{MARKER}_neg_stranger"
+
+    for uid, user in ((owner_uid, OWNER), (stranger_uid, STRANGER)):
+        created = await tasks_service.create(_task(uid, user, f"{MARKER} neg {user}"))
+        assert created.is_ok, created.expect_error()
+
+    assert await _unscoped_uids(neo4j_driver) == {owner_uid, stranger_uid}
+    assert await _faceted_surface_uids(tasks_backend, STRANGER) == {stranger_uid}
+
+
+async def test_out_of_band_edge_deletion_no_longer_hides_the_owners_own_rows(
+    clean_neo4j, neo4j_driver, tasks_service, tasks_backend
+) -> None:
+    """Characterisation, restated: search scoping no longer depends on the :OWNS edge.
+
+    This test used to assert the opposite — that deleting the edge behind the CRUD
+    door's back made the faceted and text paths *disagree*, reproducing the 2026-07
+    shape where an owner's own Principles vanished from ``/search``. That divergence
+    was possible because faceted search anchored on the edge and nothing else did.
+
+    Now every strategy scopes on the ``user_uid`` property, so a missing edge cannot
+    hide an owner's row from their own search. The failure mode is structurally gone,
+    not merely unobserved — which is the point of the change, and worth asserting so
+    that reintroducing an edge-anchored search path fails here.
+
+    This is NOT a licence to relax the write-door guards above: the edge is still the
+    ownership signal for cascade deletes, sharing, and every adapter query that
+    traverses it. A property-only node stays broken — just not broken *here*.
     """
     await _seed_users(neo4j_driver)
     uid = f"task_{MARKER}_divergent"
 
     created = await tasks_service.create(_task(uid, OWNER, f"{MARKER} divergent"))
     assert created.is_ok, created.expect_error()
-    assert await _edge_mechanism_uids(tasks_backend, OWNER) == {uid}  # baseline: agrees
+    assert await _faceted_surface_uids(tasks_backend, OWNER) == {uid}  # baseline
 
     async with neo4j_driver.session() as session:
         await session.run(
@@ -306,9 +335,12 @@ async def test_breaking_the_invariant_out_of_band_makes_the_paths_disagree(
             node=uid,
         )
 
-    assert await _property_mechanism_uids(tasks_backend, OWNER) == {uid}, (
-        "the property half survives — the node still carries user_uid"
-    )
-    assert await _edge_mechanism_uids(tasks_backend, OWNER) == set(), (
-        "the edge half is gone — the owner's own row has vanished from faceted search"
+    # The edge really is gone — otherwise the assertions below prove nothing.
+    state = await _node_state(neo4j_driver, uid)
+    assert state is not None and state["edge_owners"] == []
+
+    assert await _text_surface_uids(tasks_backend, OWNER) == {uid}
+    assert await _faceted_surface_uids(tasks_backend, OWNER) == {uid}, (
+        "faceted search must still find the owner's own row without the :OWNS edge — "
+        "this is exactly the row the 2026-07 incident lost"
     )

@@ -36,7 +36,6 @@ if TYPE_CHECKING:
 
     from core.models.enums.neo_labels import NeoLabel
     from core.models.relationship_filters import RelationshipFilters
-    from core.models.relationship_names import RelationshipName
     from core.ports.base_protocols import Direction
 
 
@@ -314,7 +313,6 @@ class _SearchRawMixin[T: DomainModelProtocol]:
         self,
         user_uid: UserUID | None,
         *,
-        user_ownership_relationship: RelationshipName | None,
         search_fields: tuple[str, ...],
         search_order_by: str,
         graph_enrichment_patterns: tuple[tuple[str, ...], ...],
@@ -336,8 +334,8 @@ class _SearchRawMixin[T: DomainModelProtocol]:
         Args:
             user_uid: User identifier for ownership patterns; None is valid for
                 PUBLIC-visibility domains (anonymous browse — the service layer
-                fails closed before reaching here for OWNER_ONLY domains)
-            user_ownership_relationship: Relationship type for ownership (None for shared content)
+                fails closed before reaching here for OWNER_ONLY domains, and
+                a null value fails closed again at the WHERE clause below)
             search_fields: Fields for text search
             search_order_by: Default sort field (from DomainConfig)
             graph_enrichment_patterns: Tuples of (rel_type, target_label, context_name[, direction])
@@ -351,9 +349,9 @@ class _SearchRawMixin[T: DomainModelProtocol]:
             order_desc: Sort direction for the effective sort field
             limit: Maximum results
             offset: Rows to SKIP before the LIMIT window (pagination)
-            visibility: SCOPE_AWARE replaces the ownership MATCH with the
-                scope/sharing WHERE fragment (curriculum + OWNS/SHARES_WITH/
-                group membership); other values keep the MATCH-based path
+            visibility: The domain's scoping declaration. Every value composes
+                its scope through ``build_search_visibility_clause`` — this
+                path carries no ownership predicate of its own
 
         Returns:
             Result[list[dict]]: Records with entity data and enrichment collections
@@ -367,35 +365,37 @@ class _SearchRawMixin[T: DomainModelProtocol]:
         cypher_parts: builtins.list[str] = []
         params: dict[str, Any] = {"user_uid": user_uid}
 
-        # 1. Base MATCH with optional user ownership. SCOPE_AWARE domains
-        # (Exercise) can't use an ownership MATCH — it would hide CURRICULUM
-        # content that has no owner — so they scope via WHERE instead.
-        scope_aware = visibility is SearchVisibility.SCOPE_AWARE
-        if user_ownership_relationship and not scope_aware:
-            cypher_parts.append(
-                f"MATCH (user:User {{uid: $user_uid}})-[:{user_ownership_relationship}]->"
-                f"(entity:{self.label})"
-            )
-        else:
-            cypher_parts.append(f"MATCH (entity:{self.label})")
+        # 1. Base MATCH. No ownership pattern: EVERY visibility — OWNER_ONLY
+        # included — scopes through the one WHERE-clause composition point
+        # below. OWNER_ONLY used to anchor on (User)-[:OWNS]->(entity) here,
+        # which made this the only strategy reading the edge instead of the
+        # denormalized `user_uid` property, and the only one that could return
+        # a different row set on a graph where the two disagreed.
+        cypher_parts.append(f"MATCH (entity:{self.label})")
 
-        # 2. WHERE clause for property filters
+        # 2. WHERE clause: visibility scope first, then property filters.
         #
-        # SCOPE_AWARE scopes via WHERE (see the MATCH note above). PUBLIC needs
-        # this branch too: it has no ownership predicate — hence the plain MATCH
-        # — but it still carries the publication gate, and this is the FACETED
-        # path behind /api/explore/search for Ku/PathStep/LearningPath. Skipping
-        # it here listed draft curriculum in the primary catalogue while search
-        # and the listing withheld it (Codex #1006).
+        # ⚠ ``has_user=True`` is deliberate and load-bearing — do NOT "fix" it
+        # to ``user_uid is not None``. OWNER_ONLY with ``has_user=False``
+        # returns NO predicate at all (see build_search_visibility_clause),
+        # so a null ``user_uid`` would return every user's rows. Passing True
+        # unconditionally emits ``entity.user_uid = $user_uid``, which on a
+        # null parameter is a null predicate and drops every row — fail-closed.
+        # Guarded by test_faceted_null_user_fails_closed.
+        #
+        # PUBLIC composes here too: it has no ownership predicate but still
+        # carries the publication gate, and this is the FACETED path behind
+        # /api/explore/search for Ku/PathStep/LearningPath. Skipping it listed
+        # draft curriculum in the primary catalogue while search and the
+        # listing withheld it (Codex #1006).
         where_clauses = ["1=1"]
-        if scope_aware or visibility is SearchVisibility.PUBLIC:
-            visibility_scope = build_search_visibility_clause(
-                visibility, entity_alias="entity", has_user=True
-            )
-            if visibility_scope:
-                scope_clause, scope_params = visibility_scope
-                where_clauses.append(scope_clause)
-                params.update(scope_params)
+        visibility_scope = build_search_visibility_clause(
+            visibility, entity_alias="entity", has_user=True
+        )
+        if visibility_scope:
+            scope_clause, scope_params = visibility_scope
+            where_clauses.append(scope_clause)
+            params.update(scope_params)
         for field, value in property_filters.items():
             param_name = f"filter_{field}"
             if isinstance(value, list):
