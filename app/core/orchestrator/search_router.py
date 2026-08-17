@@ -1914,6 +1914,14 @@ class SearchRouter:
             if items and len(items) >= limit_per_domain:
                 return items
 
+            # `limit_per_domain` is the right fetch size even though the domain
+            # applies its LIMIT before `_backfill_with_contains` dedupes, and
+            # over-fetching to "leave room for overlap" is a provable no-op:
+            # overlaps cannot exceed len(items) (nothing can collide with more
+            # hybrid hits than exist), so the fetched page yields at least
+            # limit_per_domain - len(items) fresh rows — exactly the budget the
+            # backfill has left. The merged page therefore can never come up
+            # short, and a row fetched beyond that budget could not fit anyway.
             result = await search_service.search(
                 request.query_text or "", limit_per_domain, user_uid=request.user_uid
             )

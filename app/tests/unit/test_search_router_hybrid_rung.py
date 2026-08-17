@@ -319,6 +319,36 @@ class TestContainsBackfill:
 
         assert [item.uid for item in items] == ["ps.only"]
 
+    @pytest.mark.anyio
+    async def test_heavy_overlap_still_fills_the_page(self) -> None:
+        """The fetch budget is sufficient without over-fetching for overlap.
+
+        The domain applies its LIMIT before the dedupe, so most of the fetched
+        page can be rows the rung already returned. That cannot starve the
+        backfill: overlaps can never exceed the hybrid count, so at least
+        `limit - len(hybrid)` fresh rows survive — exactly the budget left.
+        Asserted here at the tightest ratio (2 of 3 fetched rows are overlaps).
+        """
+        service = _search_service(
+            contains_rows=[
+                SimpleNamespace(uid="ps.alpha", title="Alpha"),  # overlap
+                SimpleNamespace(uid="ps.beta", title="Beta"),  # overlap
+                SimpleNamespace(uid="ps.gamma", title="Running technique"),
+            ]
+        )
+        router = _router(_vector_search())
+
+        items = await router._execute_advanced_search(
+            search_service=service,
+            entity_type=EntityType.KU,
+            request=SearchRequest(query_text="run"),
+            limit_per_domain=3,
+        )
+
+        assert service.search.await_args is not None
+        assert service.search.await_args.args[1] == 3, "no over-fetch needed"
+        assert [item.uid for item in items] == ["ps.alpha", "ps.beta", "ps.gamma"]
+
     def test_a_falsy_uid_is_kept_rather_than_deduped_away(self) -> None:
         """A degraded node property must not cost a result."""
         merged = SearchRouter._backfill_with_contains(
