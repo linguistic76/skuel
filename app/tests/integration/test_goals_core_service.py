@@ -137,12 +137,20 @@ class TestGoalsCoreOperations:
         assert fetch.value.title == "Updated title"
 
     async def test_delete_goal(self, goals_core, user_uid):
-        """Deleting a goal makes it unfindable."""
-        goal = self._goal("goal_del_001", user_uid)
-        await goals_core.create(goal)
+        """Deleting a goal makes it unfindable.
 
-        del_result = await goals_core.delete("goal_del_001")
-        assert del_result.is_ok
+        ``cascade=True`` mirrors production: every owned entity carries at
+        least the ``:OWNS`` edge, so ownership-verified deletes always cascade
+        (``crud_route_factory`` G18). This test previously passed without it
+        only because its fixture goal had no ``:OWNS`` edge at all — a graph
+        shape the CRUD door can no longer produce.
+        """
+        goal = self._goal("goal_del_001", user_uid)
+        created = await goals_core.create(goal)
+        assert created.is_ok, created.expect_error()
+
+        del_result = await goals_core.delete("goal_del_001", cascade=True)
+        assert del_result.is_ok, del_result.expect_error()
 
         fetch = await goals_core.get("goal_del_001")
         assert fetch.is_error

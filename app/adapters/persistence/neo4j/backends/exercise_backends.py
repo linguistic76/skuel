@@ -545,7 +545,6 @@ class RevisedExerciseBackend(UniversalNeo4jBackend["RevisedExercise"]):
 
     Provides relationship-specific Cypher for the four-phase learning loop:
     - verify_teacher_authority    — Check teacher review authority graph path
-    - create_owns_relationship   — MERGE OWNS (teacher -> revised exercise)
     - auto_share_with_student    — MERGE SHARES_WITH (student -> revised exercise)
     - list_for_student           — Query revisions targeting a student
     - link_to_report             — MERGE RESPONDS_TO_REPORT relationship
@@ -622,28 +621,6 @@ class RevisedExerciseBackend(UniversalNeo4jBackend["RevisedExercise"]):
                 "teacher_uid": teacher_uid,
                 "student_uid": student_uid,
             },
-        )
-
-    async def create_owns_relationship(
-        self, teacher_uid: str, re_uid: str
-    ) -> Result[list[Neo4jProperties]]:
-        """Create OWNS relationship from teacher to revised exercise.
-
-        Args:
-            teacher_uid: Teacher user UID
-            re_uid: Revised exercise UID
-
-        Returns:
-            Result containing query records
-        """
-        return await self.execute_query(
-            f"""
-            MATCH (u:User {{uid: $teacher_uid}})
-            MATCH (re:Entity {{uid: $re_uid}})
-            MERGE (u)-[:{RelationshipName.OWNS.value}]->(re)
-            RETURN true as success
-            """,
-            {"teacher_uid": teacher_uid, "re_uid": re_uid},
         )
 
     async def auto_share_with_student(

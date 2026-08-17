@@ -15,7 +15,10 @@ Test Coverage:
 - record_conversation(): Increment metrics
 """
 
+from collections.abc import AsyncGenerator
+
 import pytest
+import pytest_asyncio
 
 from core.models.askesis.askesis import Askesis
 from core.models.askesis.askesis_request import (
@@ -40,10 +43,21 @@ async def core_service(neo4j_driver):
     return AskesisCoreService(backend=backend)
 
 
-@pytest.fixture
-def test_user_uid() -> str:
-    """Generate test user UID."""
-    return UIDGenerator.generate_random_uid("user")
+@pytest_asyncio.fixture
+async def test_user_uid(neo4j_driver) -> AsyncGenerator[str]:
+    """A random test user UID, with its :User node actually in the graph.
+
+    The node is not optional: an Askesis carries ``user_uid``, and the CRUD
+    door now writes the ``(User)-[:OWNS]->(entity)`` edge in the same statement
+    as the node, so an owner that does not exist fails the create outright
+    rather than leaving a property-only orphan.
+    """
+    uid = UIDGenerator.generate_random_uid("user")
+    async with neo4j_driver.session() as session:
+        await session.run("MERGE (u:User {uid: $uid}) ON CREATE SET u.title = $uid", uid=uid)
+    yield uid
+    async with neo4j_driver.session() as session:
+        await session.run("MATCH (u:User {uid: $uid}) DETACH DELETE u", uid=uid)
 
 
 @pytest.mark.asyncio

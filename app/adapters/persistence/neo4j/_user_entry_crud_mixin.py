@@ -14,12 +14,13 @@ Requires on concrete class:
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node, to_neo4j_node
 from core.models.enums.entity_enums import EntityType
 from core.models.relationship_names import RelationshipName
-from core.models.type_hints import EntityUID, Neo4jProperties, UserUID
+from core.models.type_hints import Neo4jProperties, UserUID
 from core.ports.query_types import ExtractionTwinRow
 from core.utils.result_simplified import Errors, Result
 
@@ -63,14 +64,6 @@ class _UserEntryCrudMixin:
             self, query: str, params: dict[str, Any] | None = None
         ) -> Result[list[dict[str, Any]]]: ...
 
-        async def create_user_relationship(
-            self,
-            user_uid: UserUID,
-            entity_uid: EntityUID,
-            relationship_type: RelationshipName | None = None,
-            metadata: dict[str, Any] | None = None,
-        ) -> Result[bool]: ...
-
     # ------------------------------------------------------------------
     # Deterministic upsert (MERGE-on-uid)
     # ------------------------------------------------------------------
@@ -97,8 +90,12 @@ class _UserEntryCrudMixin:
         ``created_at`` is preserved across re-syncs (set only ``ON CREATE``);
         every other property — including ``updated_at`` and the note body in
         ``content`` — is refreshed from ``entry``. Like ``create()``, the
-        ``(User)-[:OWNS]->(entry)`` edge is MERGEd when ``entry`` carries a
-        ``user_uid`` (warning-only on failure, never fails the node write).
+        ``(User)-[:OWNS]->(entry)`` edge is MERGEd in the SAME statement when
+        ``entry`` carries a ``user_uid``, so the node and its owner edge are
+        never separable: UserEntry is ``OWNER_ONLY``, and a property-only entry
+        answers property-scoped reads while vanishing from every
+        :OWNS-traversing one. An unknown owner fails the upsert rather than
+        persisting that shape.
 
         Backend: MERGE on the generic ``UserEntryBackend``.
         """
@@ -110,12 +107,42 @@ class _UserEntryCrudMixin:
         # match-side payload so re-sync keeps the first-seen timestamp.
         on_match_props = {k: v for k, v in node_data.items() if k != "created_at"}
 
+        # The owner edge rides in THIS statement, not a follow-up query, so the
+        # node and its :OWNS edge cannot come apart. Two guards matter here:
+        #   1. The owner is MATCHed up front, so an unknown owner aborts the
+        #      whole upsert rather than leaving a property-only entry.
+        #   2. The MERGE is inside a CALL subquery filtered on
+        #      ``n.user_uid = owner.uid`` — the SAME gate the ON MATCH write
+        #      uses. Without it, losing the ownership race would still hand the
+        #      caller an :OWNS edge onto someone else's entry, which the
+        #      edge-anchored faceted path reads as ownership.
+        owner_match = ""
+        owns_clause = ""
+        owns_params: dict[str, Any] = {}
+        if user_uid:
+            owner_match = "MATCH (owner:User {uid: $owner})"
+            owns_clause = f"""
+        WITH n, owner
+        CALL {{
+          WITH n, owner
+          WITH n, owner WHERE n.user_uid = owner.uid
+          MERGE (owner)-[owns:{RelationshipName.OWNS.value}]->(n)
+          ON CREATE SET
+              owns.created_at = $owns_timestamp,
+              owns.last_accessed = $owns_timestamp,
+              owns.access_count = 0,
+              owns.is_active = true
+        }}"""
+            owns_params = {"owns_timestamp": datetime.now().isoformat()}
+
         # ON CREATE stamps the owner from $props; ON MATCH only writes when the
         # existing owner matches $owner, else it is a no-op and `owned` is false.
         query = f"""
+        {owner_match}
         MERGE (n:{self._create_labels} {{uid: $uid}})
           ON CREATE SET n = $props
           ON MATCH SET n += (CASE WHEN n.user_uid = $owner THEN $on_match_props ELSE {{}} END)
+        {owns_clause}
         RETURN n, coalesce(n.user_uid = $owner, false) AS owned
         """
 
@@ -126,6 +153,7 @@ class _UserEntryCrudMixin:
                 "props": node_data,
                 "on_match_props": on_match_props,
                 "owner": user_uid,
+                **owns_params,
             },
         )
         if not record:
@@ -137,19 +165,6 @@ class _UserEntryCrudMixin:
                 Errors.not_found(resource=str(self.label), identifier=str(node_data["uid"]))
             )
         upserted = from_neo4j_node(dict(record["n"]), self.entity_class)
-
-        if user_uid:
-            rel_result = await self.create_user_relationship(
-                user_uid=UserUID(str(user_uid)),
-                entity_uid=EntityUID(upserted.uid),
-                relationship_type=RelationshipName.OWNS,
-            )
-            if rel_result.is_error:
-                self.logger.warning(
-                    f"Upserted {self.label} {upserted.uid} but failed to MERGE OWNS edge: "
-                    f"{rel_result.expect_error()}"
-                )
-
         return Result.ok(upserted)
 
     # ------------------------------------------------------------------
