@@ -152,7 +152,7 @@ class _CrudMixin[T: DomainModelProtocol]:
         user_uid = node_data.get("user_uid")
         owner_match = ""
         owns_clause = ""
-        owns_params: dict[str, Any] = {}
+        owns_params: Neo4jProperties = {}
         if user_uid:
             owner_match = "MATCH (owner:User {uid: $owns_owner_uid})"
             owns_clause = f"""

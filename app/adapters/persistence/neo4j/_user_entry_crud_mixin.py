@@ -118,7 +118,7 @@ class _UserEntryCrudMixin:
         #      edge-anchored faceted path reads as ownership.
         owner_match = ""
         owns_clause = ""
-        owns_params: dict[str, Any] = {}
+        owns_params: Neo4jProperties = {}
         if user_uid:
             owner_match = "MATCH (owner:User {uid: $owner})"
             owns_clause = f"""
