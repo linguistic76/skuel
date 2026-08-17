@@ -140,6 +140,21 @@ edge remains the ownership signal for cascade deletes, sharing, and the adapter
 Cypher that traverses it. What changed is that **search scoping no longer
 depends on it.**
 
+⚠️ **An `OWNER_ONLY` domain must store its owner in `user_uid`.** The clause
+renders that visibility as a *property* predicate, so a domain declaring
+`OWNER_ONLY` while keying on `owner_uid` (or on the `:OWNS` edge alone) gets a
+predicate that is null for every row — its search silently returns nothing.
+The edge anchor happened to tolerate that shape; the property predicate does
+not. `GroupService` is exactly this: it declares `user_ownership_relationship=OWNS`
+(deriving `OWNER_ONLY`) while `Group` carries `owner_uid` and no `user_uid`.
+It is harmless only because **Group is not a searchable domain** — absent from
+`_SEARCHABLE_DOMAINS`, `_SERVICE_REGISTRY` and `_GRAPH_AWARE_DOMAINS`, and the
+only production callers of `graph_aware_faceted_search` are inside SearchRouter,
+which resolves services from that registry. Wiring Group into search requires
+fixing its ownership declaration first; guarded by
+`test_search_router_registry.py::TestOwnerOnlyDomainsCarryTheScopingProperty`
+(found by Codex on PR #1079).
+
 ⚠️ **`faceted_search_raw` passes `has_user=True` unconditionally, on purpose.**
 `build_search_visibility_clause(OWNER_ONLY, has_user=False)` emits **no
 predicate at all**, so deriving `has_user` from `user_uid is not None` would

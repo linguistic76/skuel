@@ -106,6 +106,86 @@ class TestRegistryCompleteness:
         )
 
 
+class TestOwnerOnlyDomainsCarryTheScopingProperty:
+    """Every searchable OWNER_ONLY domain must have the property the clause filters.
+
+    ``build_search_visibility_clause`` renders OWNER_ONLY as
+    ``entity.user_uid = $user_uid`` — a *property* predicate. A domain that
+    declares OWNER_ONLY but stores ownership somewhere else (``owner_uid``, or
+    only an ``:OWNS`` edge) gets a predicate that is null for every row, so its
+    search silently returns nothing.
+
+    This became reachable when faceted search stopped anchoring on
+    ``(User)-[:OWNS]->(entity)``: the edge anchor happened to work for such a
+    domain, the property predicate does not. Codex flagged exactly this shape
+    on ``GroupService`` (P2, PR #1079) — correct about the mechanism. Group is
+    NOT searchable (see below), so nothing invokes it; this test is the guard
+    that stops it becoming live silently.
+    """
+
+    # The one domain that legitimately keys on owner_uid. Its exemption is
+    # verified below rather than asserted, so the set cannot quietly grow.
+    _OWNER_UID_EXEMPT = frozenset({EntityType.EXERCISE})
+
+    def test_the_owner_uid_exemption_is_earned_not_declared(self) -> None:
+        """Exercise may key on ``owner_uid`` only because it declares SCOPE_AWARE."""
+        from core.services.exercises.exercise_service import ExerciseService
+
+        assert EntityType.EXERCISE in self._OWNER_UID_EXEMPT
+        assert len(self._OWNER_UID_EXEMPT) == 1, (
+            "the exemption set must not grow silently — each member needs its own "
+            "earned justification, like the SCOPE_AWARE check below"
+        )
+        assert ExerciseService._config.get_search_visibility() is SearchVisibility.SCOPE_AWARE, (
+            "Exercise's exemption below rests on it NOT being OWNER_ONLY"
+        )
+
+    def test_every_searchable_owner_only_domain_has_user_uid(self) -> None:
+        import dataclasses as dc
+
+        from core.models.entity_types import ENTITY_TYPE_CLASS_MAP
+
+        offenders: list[str] = []
+        examined: list[EntityType] = []
+        for entity_type in SearchRouter._SEARCHABLE_DOMAINS:
+            model = ENTITY_TYPE_CLASS_MAP.get(entity_type)
+            if model is None or entity_type in self._OWNER_UID_EXEMPT:
+                continue
+            examined.append(entity_type)
+            fields = {f.name for f in dc.fields(model)}
+            # PUBLIC curriculum carries no owner at all — only the mismatch
+            # (owner present, but under the name the clause does NOT filter)
+            # is a defect.
+            if "user_uid" not in fields and "owner_uid" in fields:
+                offenders.append(f"{entity_type.value} (owner_uid, not user_uid)")
+
+        assert len(examined) == len(SearchRouter._SEARCHABLE_DOMAINS) - len(
+            self._OWNER_UID_EXEMPT
+        ), "every searchable domain must be reachable in ENTITY_TYPE_CLASS_MAP to be checked"
+        assert offenders == [], (
+            "a searchable domain stores ownership in owner_uid but OWNER_ONLY "
+            f"scoping filters user_uid, so its search returns nothing: {offenders}"
+        )
+
+    def test_group_is_not_a_searchable_domain(self) -> None:
+        """The known non-conformer, pinned deliberately rather than left implicit.
+
+        ``GroupService`` declares ``user_ownership_relationship=OWNS`` (deriving
+        OWNER_ONLY) while ``Group`` stores ownership in ``owner_uid`` and has no
+        ``user_uid``. That declaration is only harmless because Group is absent
+        from every search registry and no caller invokes its inherited search —
+        the sole production callers of ``graph_aware_faceted_search`` are inside
+        SearchRouter, which resolves services from ``_SERVICE_REGISTRY``.
+
+        Wiring Group into search without first fixing its ownership declaration
+        will fail here. Fix the declaration, don't delete the test.
+        """
+        registry_values = set(SearchRouter._SERVICE_REGISTRY.values())
+        assert "groups" not in registry_values
+        assert "groups" not in SearchRouter._GRAPH_AWARE_DOMAINS
+        assert NonKuDomain.GROUP not in SearchRouter._SERVICE_REGISTRY
+
+
 class _OwnerOnlySearchStub:
     """A wired, OWNER_ONLY-declaring search service that records every call.
 
