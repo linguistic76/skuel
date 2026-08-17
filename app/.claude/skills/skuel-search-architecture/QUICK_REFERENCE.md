@@ -67,7 +67,7 @@ Build from HTML forms with `SearchRequest.from_form_params(...)` (handles empty-
 |---------|----------|
 | Calling `domain_service.search.search()` from a route | Always go through SearchRouter |
 | `unified_search()` | Doesn't exist — `search_domains()` / `intelligent_search()` |
-| UserEntry search without `user_uid` | Refused (privacy line); excluded from cross-domain sweeps |
+| Any OWNER_ONLY search without `user_uid` | Refused by `SearchRouter.search()` (the clause emits no ownership predicate without a user). UserEntry additionally excluded from cross-domain sweeps |
 | Per-strategy ownership filter | Never — visibility scoping is centralized in `build_search_visibility_clause()` |
 | `_user_ownership_relationship` ClassVar | Removed — use DomainConfig `user_ownership_relationship` |
 | Graph-pattern filters without `user_uid` | `ready_to_learn`, `supports_goals`, etc. need the user's mastery/ownership |
