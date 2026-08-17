@@ -174,7 +174,6 @@ class PsService:
         ai_service: PsAIService | None = None,
         ku_backend: Any | None = None,
         chunking_service: Any | None = None,
-        query_builder: Any | None = None,
         user_service: Any | None = None,
         vector_search_service: Any | None = None,
         embeddings_service: Any | None = None,
@@ -190,7 +189,6 @@ class PsService:
             ai_service: Optional PsAIService for AI features
             ku_backend: KuBackend for substance metric operations (optional)
             chunking_service: Chunking service for RAG (optional)
-            query_builder: QueryBuilder for optimized queries (optional)
             user_service: UserService for UserContext access (optional)
             vector_search_service: Optional for semantic search
             embeddings_service: Optional for embedding generation
@@ -227,7 +225,6 @@ class PsService:
             backend=backend,
             _chunking_service=chunking_service,
             graph_intel=graph_intel,
-            _query_builder=query_builder,
             event_bus=event_bus,
             _executor=executor,
             user_service=user_service,

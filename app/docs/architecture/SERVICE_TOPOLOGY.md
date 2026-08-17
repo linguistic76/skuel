@@ -72,7 +72,7 @@ Infrastructure modules with no root-level facade.
 | `intelligence/` | Shared `_CoreIntelligenceMixin` (mechanism-B `get_with_context`) + analytics helpers |
 | `infrastructure/` | Cross-cutting helpers — `PrerequisiteChecker` (readiness + `build_learning_requirements` lens — see `/docs/patterns/PREREQUISITE_CHECKER_PATTERN.md`), `LearningAlignmentBridge`, `SemanticRelationshipLinker` |
 | `ingestion/` | UnifiedIngestionService |
-| *(no `query/`)* | Query builders are **not** in `core/services/` — they live in `adapters/persistence/neo4j/query/` (`UnifiedQueryBuilder`, `cypher/` `build_*` functions) and `adapters/persistence/neo4j/query_builders/` (`QueryBuilder` + 5 sub-services) |
+| *(no `query/`)* | Query builders are **not** in `core/services/` — they live in `adapters/persistence/neo4j/query/` (`UnifiedQueryBuilder`, `cypher/` `build_*` functions). The sibling `query_builders/` package was deleted 2026-08-17 (dead since 2026-05-12) |
 | `insight/` | Insight analytics |
 | `dsl/` | Activity DSL parser & engine |
 | `lateral_relationships/` | Lateral relationship graph queries |

@@ -189,6 +189,15 @@ _USER_PRINCIPLE_INTEGRATION = (
     "principle_guided_choice_counts/recent_principle_aligned_choices and SKUEL018 "
     "mandates these accessors as the read path; wire a profile/insights consumer"
 )
+_SCHEMA_CHANGE_HANDLERS = (
+    "2026-08-17: extension point of the live opt-in schema-monitoring feature "
+    "(NEO4J_SCHEMA_MONITORING), left without a production consumer when "
+    "AdaptiveOptimizationHandler was deleted alongside the query_builders/ stack "
+    "whose caches were its only job (PR #1081). The detector itself stays live "
+    "(drift detection + logging + migration history); this is its registration "
+    "seam. Wire a real handler (alerting on breaking changes is the obvious one) "
+    "or delete the fan-out chain (_change_handlers/_notify_handlers) with it"
+)
 # Choices dead-code campaign (2026-06): staged choice capabilities kept by
 # deliberate decision — each reason names the wiring that completes it.
 _CHOICES_GRAVITY = (
@@ -558,6 +567,8 @@ PLANNED_METHODS: dict[str, str] = {
     "core/services/user/unified_user_context.py::recent_principle_aligned_choices_or_empty": (
         _USER_PRINCIPLE_INTEGRATION
     ),
+    # --- Schema monitoring: handler registration seam ---
+    "core/services/schema_change_detector.py::add_change_handler": _SCHEMA_CHANGE_HANDLERS,
     # --- Choices: gravity links (inlined from _relationship_mixin into facade) ---
     "core/services/choices_service.py::link_choice_to_habit": _CHOICES_GRAVITY,
     "core/services/choices_service.py::create_semantic_choice_relationship": _CHOICES_GRAVITY,

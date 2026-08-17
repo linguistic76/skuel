@@ -34,9 +34,10 @@ class FacetSet:
     This is the internal representation that drives the actual
     search queries against Neo4j or other backends.
 
-    Used by:
-        - adapters/persistence/neo4j/query_builders/faceted_query_builder.py
-        - adapters/persistence/neo4j/query_builders/query_builder.py
+    Note:
+        The two `query_builders/` consumers this once listed were deleted
+        2026-08-17 (dead stack). Live faceting composes facets in
+        `SearchRouter` / `build_facet_counts`, not through a facet query builder.
     """
 
     domain: Domain | None = None

@@ -1,91 +1,57 @@
 """
-Unified Query Builder - THE Single Entry Point
-==============================================
+Unified Query Builder — the fluent front door to the ``cypher/`` builders
+========================================================================
 
-Fluent API facade over three specialized query backends. This is the
-**consolidation layer** — not one of many query approaches, but the single
-entry point that routes to the right backend internally.
+A thin fluent facade over the ``cypher/`` ``build_*`` functions. It holds
+filter/limit/offset/order state and renders it into a query, so callers
+compose a read declaratively instead of hand-writing Cypher.
 
-**Architecture (intentional layering, not fragmentation):**
+**Architecture:**
 
 ::
 
-    UnifiedQueryBuilder  ← YOU ARE HERE (single entry point)
-    ├── ModelQueryBuilder      → cypher/ build_* functions (CRUD/search)
-    ├── SemanticQueryBuilder   → semantic_queries.py (graph traversal)
-    └── TemplateQueryBuilder   → QueryBuilder service (optimization/templates)
+    UnifiedQueryBuilder  ← YOU ARE HERE
+    └── ModelQueryBuilder  → cypher/ build_* functions (list/search/count)
 
-Each backend handles a different *category* of query:
-
-- ``.for_model(Task)`` — data access (list, search, count, get-by-field)
-- ``.semantic("ku.python_basics")`` — graph traversal (prerequisites, context)
-- ``.template("faceted_search")`` — pre-optimized query templates
-
-**Usage Examples:**
+**Usage:**
 
 ```python
 from adapters.persistence.neo4j.query import UnifiedQueryBuilder
-from core.constants import GraphDepth, QueryLimit
 
-# Simple model queries (routes to the cypher/ build_* functions)
 tasks = await (
-    UnifiedQueryBuilder()
+    UnifiedQueryBuilder(executor)
     .for_model(Task)
     .filter(priority="high", status="active")
+    .order_by("due_date", desc=True)
     .limit(50)
-    .execute()
-)
-
-# Semantic graph traversal (routes to build_semantic_context)
-context = await (
-    UnifiedQueryBuilder()
-    .semantic("ku.python_basics")
-    .traverse(types=[SemanticRelationshipType.REQUIRES_FOUNDATION])
-    .execute()
-) # GraphDepth.DEFAULT is default
-
-# Template-based queries (routes to QueryBuilder templates)
-results = await (
-    UnifiedQueryBuilder()
-    .template("faceted_knowledge_search")
-    .params(domain="TECH", level=2, QueryLimit.LARGE)
     .execute()
 )
 ```
 
-**Benefits:**
-1. Single entry point - no decision matrix needed
-2. Type-safe - Generic[T] provides IDE autocomplete
-3. Discoverable - .for_model(), .semantic(), .template() are obvious
-4. Pure Cypher - works on ALL Neo4j installations (Desktop, Aura, Docker)
-5. Internal routing - automatically picks best strategy
+Live callers reach it through ``UniversalNeo4jBackend.query_builder``
+(``_crud_mixin`` list reads, ``_search_mixin`` filtered search + count).
 
+The template/optimization/validation bridge that once hung off this class was
+deleted with the ``query_builders/`` package it fronted (2026-08-17) — it had
+had no production invocations since 2026-05-12. Text search is served by
+``SearchRouter``'s rungs, not by a builder-level ``.fulltext()``.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import Any, TypeVar
 
 from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node
 from adapters.persistence.neo4j.query.cypher import (
     build_count_query,
     build_list_query,
-    build_prerequisite_chain,
     build_search_query,
-    build_semantic_context,
-    build_semantic_traversal,
 )
 from adapters.persistence.neo4j.query.graph_traversal import build_graph_context_query
-from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
 from core.models.query_types import QueryIntent
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Result
 from core.utils.validation_helpers import validate_field_name
-
-if TYPE_CHECKING:
-    from adapters.persistence.neo4j.query_builders import QueryBuilder
-    from core.infrastructure.database.schema import SchemaContext
 
 T = TypeVar("T")
 logger = get_logger(__name__)
@@ -98,7 +64,7 @@ class QueryResult[T]:
     data: list[T]
     cypher: str
     parameters: dict[str, Any]
-    strategy: str  # "cypher", "cypher_semantic", "template"
+    strategy: str  # "cypher"
     estimated_cost: int | None = None
 
 
@@ -118,8 +84,6 @@ class ModelQueryBuilder[T]:
         self._offset_val: int = 0
         self._order_by_field: str | None = None
         self._order_desc: bool = False
-        self._fulltext_query: str | None = None
-        self._fulltext_index: str | None = None
 
     def filter(self, **filters: Any) -> ModelQueryBuilder[T]:
         """
@@ -163,40 +127,6 @@ class ModelQueryBuilder[T]:
         self._order_desc = desc
         return self
 
-    def fulltext(self, query_text: str, index_name: str | None = None) -> ModelQueryBuilder[T]:
-        """
-        Search using Neo4j full-text index for optimal text search performance.
-
-        Full-text indexes provide:
-        - Case-insensitive search
-        - Token-based matching (words, not substrings)
-        - Relevance scoring
-        - 10-100x faster than CONTAINS for large datasets
-
-        Args:
-            query_text: Text to search for (Lucene query syntax supported)
-            index_name: Optional full-text index name (defaults to model-based name)
-
-        Example:
-            kus = await (builder
-                .for_model(KnowledgeUnit)
-                .fulltext("python async") # Finds KUs with "python" AND "async"
-                .limit(20)
-                .execute())
-
-        Note:
-            Requires full-text index to exist. Create via:
-            db.index.fulltext.createNodeIndex('ku_search', ['Entity'], ['title', 'description', 'tags'])
-        """
-        self._fulltext_query = query_text
-        if index_name:
-            self._fulltext_index = index_name
-        else:
-            # Default index name: {model_name}_fulltext
-            model_name = getattr(self.model, "_neo4j_label", None) or self.model.__name__
-            self._fulltext_index = f"{model_name.lower()}_fulltext"
-        return self
-
     def build(self) -> tuple[str, dict[str, Any]]:
         """
         Build query without executing.
@@ -204,42 +134,8 @@ class ModelQueryBuilder[T]:
         Returns:
             Tuple of (cypher_query, parameters)
         """
-        # Full-text search query (highest priority)
-        if self._fulltext_query:
-            # Build full-text search query
-            query = """
-            CALL db.index.fulltext.queryNodes($index_name, $query_text)
-            YIELD node AS n, score
-            """
-
-            # Add filters if specified
-            if self._filters:
-                filter_conditions = [f"n.{key} = ${key}" for key in self._filters]
-                query += "WHERE " + " AND ".join(filter_conditions) + "\n"
-
-            # Add ordering (by score DESC by default, or custom)
-            if self._order_by_field:
-                direction = "DESC" if self._order_desc else "ASC"
-                query += f"RETURN n, score ORDER BY n.{self._order_by_field} {direction}\n"
-            else:
-                query += "RETURN n, score ORDER BY score DESC\n"
-
-            # Add pagination
-            if self._offset_val > 0:
-                query += f"SKIP {self._offset_val}\n"
-            if self._limit_val:
-                query += f"LIMIT {self._limit_val}\n"
-
-            params = {
-                "index_name": self._fulltext_index,
-                "query_text": self._fulltext_query,
-                **self._filters,
-            }
-
-            return query, params
-
         # Filter-based search
-        elif self._filters:
+        if self._filters:
             # Search query with filters
             query, params = build_search_query(self.model, self._filters, label=self.label)
 
@@ -265,7 +161,7 @@ class ModelQueryBuilder[T]:
 
             return query, params
 
-        # List query (no filters, no full-text)
+        # List query (no filters)
         else:
             query, params = build_list_query(
                 self.model,
@@ -319,207 +215,28 @@ class ModelQueryBuilder[T]:
         return result.value[0]["count"] if result.value else 0
 
 
-class SemanticQueryBuilder:
-    """
-    Fluent builder for semantic relationship queries.
-
-    Routes to build_semantic_context() internally.
-    """
-
-    def __init__(self, uid: str, executor: Any = None) -> None:
-        self.uid = uid
-        self.executor = executor
-        self._semantic_types: list[SemanticRelationshipType] = []
-        self._depth: int = 2
-        self._min_confidence: float = 0.0
-        self._query_type: str = "context"  # context, prerequisites, traversal
-        self._end_uid: str | None = None
-
-    def traverse(self, types: list[SemanticRelationshipType]) -> SemanticQueryBuilder:
-        """Specify semantic relationship types to traverse."""
-        self._semantic_types = types
-        return self
-
-    def depth(self, depth: int) -> SemanticQueryBuilder:
-        """Set maximum traversal depth."""
-        self._depth = depth
-        return self
-
-    def min_confidence(self, confidence: float) -> SemanticQueryBuilder:
-        """Filter relationships by minimum confidence score."""
-        self._min_confidence = confidence
-        return self
-
-    def prerequisites(self) -> SemanticQueryBuilder:
-        """Get prerequisite chain instead of general context."""
-        self._query_type = "prerequisites"
-        return self
-
-    def path_to(self, end_uid: str) -> SemanticQueryBuilder:
-        """Find shortest path to target node."""
-        self._query_type = "traversal"
-        self._end_uid = end_uid
-        return self
-
-    def build(self) -> tuple[str, dict[str, Any]]:
-        """
-        Build query without executing.
-
-        Returns:
-            Tuple of (cypher_query, parameters)
-        """
-        if self._query_type == "prerequisites":
-            return build_prerequisite_chain(
-                node_uid=self.uid, semantic_types=self._semantic_types, depth=self._depth
-            )
-        elif self._query_type == "traversal" and self._end_uid:
-            return build_semantic_traversal(
-                start_uid=self.uid,
-                end_uid=self._end_uid,
-                semantic_types=self._semantic_types,
-                max_depth=self._depth,
-            )
-        else:
-            # Default: semantic context
-            return build_semantic_context(
-                node_uid=self.uid,
-                semantic_types=self._semantic_types,
-                depth=self._depth,
-                min_confidence=self._min_confidence,
-            )
-
-    async def execute(self) -> QueryResult:
-        """Execute semantic query and return results."""
-        if not self.executor:
-            raise ValueError(
-                "Executor is required for execution. Use .build() to get query without executing."
-            )
-
-        query, params = self.build()
-
-        result = await self.executor.execute_query(query, params)
-        if result.is_error:
-            raise ValueError(f"Semantic query failed: {result.expect_error().message}")
-
-        return QueryResult(
-            data=result.value, cypher=query, parameters=params, strategy="cypher_semantic"
-        )
-
-
-# BatchQueryBuilder removed - Pure Cypher migration (October 20, 2025)
-# Use Pure Cypher UNWIND patterns instead of APOC batch operations:
-#
-# UNWIND $nodes AS node_data
-# MERGE (n:Label {uid: node_data.uid})
-# SET n += node_data.properties
-# RETURN count(n) as created_count
-
-
-class TemplateQueryBuilder:
-    """
-    Fluent builder for template-based queries.
-
-    Routes to QueryBuilder.from_template() internally.
-    """
-
-    def __init__(self, template_name: str, query_builder_service=None) -> None:
-        self.template_name = template_name
-        self.query_builder_service = query_builder_service
-        self._params: dict[str, Any] = {}
-
-    def params(self, **params: Any) -> TemplateQueryBuilder:
-        """Set template parameters."""
-        self._params.update(params)
-        return self
-
-    async def execute(self):
-        """Execute template query."""
-        if not self.query_builder_service:
-            raise ValueError(
-                "QueryBuilder service is required for template execution. "
-                "Pass query_builder_service to UnifiedQueryBuilder constructor."
-            )
-
-        result = await self.query_builder_service.from_template(self.template_name, self._params)
-
-        if result.is_error:
-            raise ValueError(f"Template execution failed: {result.error}")
-
-        query_plan = result.value.primary_plan
-
-        return QueryResult(
-            data=[],  # Template execution returns plan, not data
-            cypher=query_plan.cypher,
-            parameters=query_plan.parameters,
-            strategy="template",
-            estimated_cost=query_plan.estimated_cost,
-        )
-
-
 class UnifiedQueryBuilder:
     """
-    THE single entry point for all query building in SKUEL.
-
-    Eliminates confusion by providing fluent API that routes internally.
+    Entry point for fluent query building in SKUEL.
 
     **Pure Cypher architecture - no APOC dependencies.**
-
-    **Phase 1 Features:**
-    - Template discovery via list_templates()
-    - Automatic QueryBuilder initialization
-    - Template validation before execution
-
-    **Phase 2 Improvements:**
-    - Query optimization via optimize_query()
-    - Query validation via validate_query()
-    - Query explanation via explain_query()
-    - Automatic bridge to QueryOptimizer
 
     Usage:
         # Model queries
         await UnifiedQueryBuilder(executor).for_model(Task).filter(status='active').execute()
 
-        # Semantic queries
-        await UnifiedQueryBuilder(executor).semantic("ku.123").traverse(...).execute()
-
-        # Template discovery
-        templates = UnifiedQueryBuilder(executor).list_templates()
-        print(f"Available templates: {list(templates.keys())}")
-
-        # Templates (auto-initialized, validated)
-        await UnifiedQueryBuilder(executor).template("search").params(...).execute()
-
-        # Query optimization (NEW in Phase 2!)
-        result = await UnifiedQueryBuilder(executor).optimize_query(cypher_query)
-
-        # Query validation (NEW in Phase 2!)
-        validation = await UnifiedQueryBuilder(executor).validate_query(cypher_query)
-
-        # Query explanation (NEW in Phase 2!)
-        explanation = UnifiedQueryBuilder(executor).explain_query(cypher_query)
-
         # Graph context
         query = UnifiedQueryBuilder().graph_context("task.123", QueryIntent.HIERARCHICAL)
     """
 
-    def __init__(
-        self,
-        executor: Any = None,
-        query_builder_service: QueryBuilder | None = None,
-        schema_service: SchemaContext | None = None,
-    ) -> None:
+    def __init__(self, executor: Any = None) -> None:
         """
         Initialize unified query builder.
 
         Args:
             executor: QueryExecutor for query execution
-            query_builder_service: Optional QueryBuilder service for template support
-            schema_service: Optional SchemaContext for auto-creating QueryBuilder
         """
         self.executor = executor
-        self.query_builder_service: QueryBuilder | None = query_builder_service
-        self._schema_service = schema_service
-        self._template_library_cache: dict[str, Any] | None = None
 
     def for_model(self, model: type[T], label: str | None = None) -> ModelQueryBuilder[T]:
         """
@@ -540,240 +257,6 @@ class UnifiedQueryBuilder:
                 .execute())
         """
         return ModelQueryBuilder(model, self.executor, label=label)
-
-    def semantic(self, uid: str) -> SemanticQueryBuilder:
-        """
-        Start building semantic relationship query.
-
-        Routes to build_semantic_context() internally.
-
-        Example:
-            context = await (builder
-                .semantic("ku.python_basics")
-                .traverse(types=[SemanticRelationshipType.REQUIRES_FOUNDATION])
-                .min_confidence(0.8)
-                .execute()) # GraphDepth.DEFAULT is default
-        """
-        return SemanticQueryBuilder(uid, self.executor)
-
-    # batch() method removed - Pure Cypher migration (October 20, 2025)
-    # Use Pure Cypher UNWIND patterns for batch operations instead
-
-    def _ensure_query_builder(self) -> QueryBuilder:
-        """
-        Lazy initialization of QueryBuilder if not provided.
-
-        Creates QueryBuilder automatically if schema_service was provided
-        or raises ValueError if initialization fails.
-
-        Returns:
-            QueryBuilder instance (either provided or auto-created)
-
-        Raises:
-            ValueError: If QueryBuilder cannot be initialized
-        """
-        if not self.query_builder_service:
-            # Try to create QueryBuilder with schema_service if available
-            try:
-                from adapters.persistence.neo4j.query_builders import QueryBuilder
-
-                self.query_builder_service = QueryBuilder(self._schema_service)
-                logger.info("Auto-initialized QueryBuilder for template support")
-            except Exception as e:  # skuel-lint: disable=SKUEL017 -- QueryBuilder init may fail for many reasons (import, config, schema)
-                logger.warning(
-                    f"Could not auto-initialize QueryBuilder: {e}. "
-                    "Template functionality will be limited."
-                )
-                raise ValueError(
-                    "QueryBuilder service is required for template execution. "
-                    "Pass query_builder_service or schema_service to UnifiedQueryBuilder constructor."
-                ) from e
-
-        return self.query_builder_service
-
-    def list_templates(self, category: str | None = None) -> dict[str, Any]:
-        """
-        List all available query templates.
-
-        Templates are loaded from QueryBuilder's template library and cached
-        for efficient repeated access.
-
-        Args:
-            category: Optional category filter (e.g., "knowledge", "faceted", "traversal")
-
-        Returns:
-            Dictionary of template_name -> TemplateSpec
-
-        Example:
-            templates = builder.list_templates()
-            print(f"Available: {list(templates.keys())}")
-
-            # Filter by category
-            knowledge_templates = builder.list_templates(category="knowledge")
-        """
-        # Ensure QueryBuilder is initialized
-        qb = self._ensure_query_builder()
-
-        # Get template library (with caching)
-        if self._template_library_cache is None:
-            # Access _template_library directly (contains TemplateSpec objects)
-            # Note: get_template_library() returns a different structure (dict[category -> list])
-            self._template_library_cache = getattr(qb, "_template_library", {}) or {}
-        # Local binding — pyright doesn't narrow self.X attribute access across
-        # statements (the assignment in the if-block doesn't carry over).
-        cache: dict[str, Any] = self._template_library_cache or {}
-
-        # Filter by category if requested
-        if category:
-            return {name: spec for name, spec in cache.items() if spec.category == category}
-
-        return cache
-
-    def template(self, name: str) -> TemplateQueryBuilder:
-        """
-        Start building template-based query with automatic template discovery.
-
-        Routes to QueryBuilder.from_template() internally. QueryBuilder is
-        auto-initialized if not provided during construction.
-
-        Args:
-            name: Template name (use list_templates() to see available templates)
-
-        Returns:
-            TemplateQueryBuilder for fluent API chaining
-
-        Raises:
-            ValueError: If template name not found in template library
-
-        Example:
-            # Discover available templates
-            templates = builder.list_templates()
-            print(f"Available: {list(templates.keys())}")
-
-            # Use template
-            results = await (builder
-                .template("faceted_knowledge_search")
-                .params(domain="TECH", level=2, QueryLimit.LARGE)
-                .execute())
-        """
-        # Ensure QueryBuilder is initialized
-        qb = self._ensure_query_builder()
-
-        # Validate template exists
-        templates = self.list_templates()
-        if name not in templates:
-            available = list(templates.keys())
-            # Show first 10 templates in error message
-            preview = available[:10]
-            more = f" (+{len(available) - 10} more)" if len(available) > 10 else ""
-            raise ValueError(
-                f"Template '{name}' not found. "
-                f"Available templates: {preview}{more}. "
-                f"Use list_templates() to see all templates."
-            )
-
-        return TemplateQueryBuilder(name, qb)
-
-    # ========================================================================
-    # OPTIMIZATION BRIDGE
-    # ========================================================================
-
-    async def optimize_query(
-        self, cypher: str, _context: dict[str, Any] | None = None
-    ) -> Result[Any]:
-        """
-        Optimize an existing Cypher query using index-aware optimization.
-
-        Bridges to QueryOptimizer through QueryBuilder. Auto-initializes
-        QueryBuilder if not provided during construction.
-
-        Args:
-            cypher: Cypher query to optimize
-            _context: Optional context for optimization (reserved for future use)
-
-        Returns:
-            Result containing QueryOptimizationResult with optimized query and plan
-
-        Example:
-            result = await builder.optimize_query(
-                "MATCH (t:Task) WHERE t.status = 'active' RETURN t",
-                context={"node_labels": ["Task"], "properties": ["status"]}
-            )
-
-            if result.is_ok:
-                print(f"Original: {result.value.original_query}")
-                print(f"Optimized: {result.value.optimized_query}")
-                print(f"Explanation: {result.value.explanation}")
-        """
-        qb = self._ensure_query_builder()
-        return await qb.validate_and_optimize(cypher)
-
-    async def validate_query(self, cypher: str, strict_mode: bool = True) -> Result[Any]:
-        """
-        Validate a Cypher query without executing it.
-
-        Bridges to QueryValidator through QueryBuilder. Checks syntax,
-        semantics, and potential performance issues.
-
-        Args:
-            cypher: Cypher query to validate
-            strict_mode: If True, treat warnings as errors
-
-        Returns:
-            Result containing ValidationResult with issues and warnings
-
-        Example:
-            result = await builder.validate_query(
-                "MATCH (t:Task) WHERE t.status = 'active' RETURN t"
-            )
-
-            if result.is_ok:
-                if result.value.is_valid:
-                    print("Query is valid!")
-                else:
-                    for issue in result.value.issues:
-                        print(f"{issue.severity}: {issue.message}")
-        """
-        qb = self._ensure_query_builder()
-        return await qb.validate_only(cypher, strict_mode)
-
-    def explain_query(self, cypher: str) -> str:
-        """
-        Get human-readable explanation of query execution plan.
-
-        Bridges to QueryOptimizer through QueryBuilder. Explains what
-        the query does, which indexes it uses, and potential bottlenecks.
-
-        Args:
-            cypher: Cypher query to explain
-
-        Returns:
-            Human-readable explanation string
-
-        Example:
-            explanation = builder.explain_query(
-                "MATCH (t:Task)-[:APPLIES_KNOWLEDGE]->(ku:Entity) "
-                "WHERE t.status = 'active' RETURN t, ku"
-            )
-            print(explanation)
-            # Output: "This query traverses Task->KnowledgeUnit relationships..."
-        """
-        qb = self._ensure_query_builder()
-
-        # Create a basic QueryPlan for explanation
-        # (In real usage, this would come from build_optimized_query)
-        from adapters.persistence.neo4j.query import IndexStrategy, QueryPlan
-
-        plan = QueryPlan(
-            cypher=cypher,
-            parameters={},
-            strategy=IndexStrategy.NO_INDEX,
-            used_indexes=[],
-            estimated_cost=0,
-            explanation="Basic query without optimization",
-        )
-
-        return qb.get_query_explanation(plan)
 
     def graph_context(self, uid: str, intent: QueryIntent, depth: int = 2) -> str:
         """

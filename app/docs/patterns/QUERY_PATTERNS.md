@@ -18,22 +18,15 @@ This document describes SKUEL's query architecture patterns and best practices.
 For implementation guidance, see:
 - [@neo4j-cypher-patterns](../../.claude/skills/neo4j-cypher-patterns/SKILL.md)
 
-## Three-Tier Query Architecture
+## Two-Tier Query Architecture
 
 SKUEL uses a layered query architecture with clear separation of concerns:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    APPLICATION LAYER                        │
+│                      FACADE LAYER                           │
 │                  UnifiedQueryBuilder                        │
-│        (Single entry point for routes/APIs)                 │
-└─────────────────────────────────────────────────────────────┘
-                            │
-                            ▼
-┌─────────────────────────────────────────────────────────────┐
-│                     SERVICE LAYER                           │
-│                     QueryBuilder                            │
-│        (Optimization, templates, validation)                │
+│    (Fluent read API: filter / order / limit / offset)       │
 └─────────────────────────────────────────────────────────────┘
                             │
                             ▼
@@ -48,15 +41,17 @@ SKUEL uses a layered query architecture with clear separation of concerns:
 
 | Layer | Component | Purpose | Used By |
 |-------|-----------|---------|---------|
-| Application | `UnifiedQueryBuilder` | Single entry point, fluent API | Routes, APIs |
-| Service | `QueryBuilder` | Templates, optimization | Services (advanced use) |
+| Facade | `UnifiedQueryBuilder` | Fluent read API | Backends (via `UniversalNeo4jBackend.query_builder`) |
 | Infrastructure | `query/cypher/` `build_*` functions | Pure Cypher generation | Backends only (below the persistence boundary) |
+
+> A third "service layer" (`QueryBuilder` + optimizer/templates/validator) was deleted
+> 2026-08-17 — built every boot, never invoked in production since 2026-05-12. There is
+> no query template registry and no runtime optimizer.
 
 ### When to Use Each Layer
 
-- **Routes/APIs**: Always use `UnifiedQueryBuilder`
 - **Domain Services**: call a named method on `self.backend` — a service authors neither Cypher (SKUEL021) nor `adapters/` imports (SKUEL022). The backend composes the query from the `query/cypher/` `build_*` functions.
-- **Complex Optimization**: Use `QueryBuilder` for template-based queries
+- **Backends**: `UnifiedQueryBuilder.for_model()` for generic filtered reads; a `build_*` function directly for any other shape.
 
 ## Confidence Filtering
 

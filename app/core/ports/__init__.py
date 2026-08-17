@@ -226,13 +226,11 @@ from .report_protocols import (
 from .search_protocols import (
     # Domain-specific search protocols (November 2025)
     ChoicesSearchOperations,
-    CypherOperations,
     DomainSearchOperations,  # Base: Per-domain search services
     EventsSearchOperations,
     GoalsSearchOperations,
     HabitsSearchOperations,
     PrinciplesSearchOperations,
-    QueryBuilderOperations,
     ScopedChunkRetrievalOperations,
     # Graph-aware search capability protocols (January 2026)
     SupportsGraphAwareSearch,
@@ -323,7 +321,6 @@ __all__ = [
     "CrudOperations",  # Basic CRUD (6 methods)
     # ========== CURRICULUM OPERATION PROTOCOLS (5 - Dec 2025) ==========
     "CurriculumOperations",  # Base protocol for KU, PS, LP, MOC
-    "CypherOperations",
     # ========== TYPE ALIASES (3) ==========
     "Direction",
     "DomainSearchOperations",
@@ -403,7 +400,6 @@ __all__ = [
     "PrinciplesSearchOperations",
     "PrinciplesOperations",
     "PydanticFieldInfo",
-    "QueryBuilderOperations",
     # ========== SHARING PROTOCOL ==========
     "SharingOperations",
     # ========== REPORT PROTOCOLS (6) ==========

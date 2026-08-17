@@ -159,31 +159,6 @@ def get_due_date(task: Any) -> Any:
     return due
 
 
-def get_query_plan_priority(plan: Any, strategy_priority: dict[Any, int]) -> tuple[int, float]:
-    """
-    Get query plan priority for selecting the best execution plan.
-
-    Returns tuple of (strategy_priority, estimated_cost) for sorting query plans.
-    Lower values indicate better plans (faster execution).
-    Used for selecting optimal query plan from multiple alternatives.
-
-    Example:
-        from functools import partial
-        sort_key = partial(get_query_plan_priority, strategy_priority=strategy_map)
-        best_plan = min(plans, key=sort_key)
-
-    Args:
-        plan: QueryPlan object with strategy and estimated_cost attributes,
-        strategy_priority: Dictionary mapping IndexStrategy to priority integers
-
-    Returns:
-        Tuple of (strategy_priority_value, estimated_cost)
-    """
-    strategy_value = strategy_priority.get(plan.strategy, 10)
-    cost = plan.estimated_cost
-    return (strategy_value, cost)
-
-
 def get_sequence(item: dict[str, Any]) -> int:
     """
     Get sequence number from dictionary, defaulting to 0 if None.

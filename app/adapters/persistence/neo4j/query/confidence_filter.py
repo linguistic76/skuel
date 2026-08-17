@@ -3,8 +3,8 @@ Confidence Filter Utilities
 ===========================
 
 Leaf-level infrastructure helper that generates Cypher clause fragments for
-confidence-based filtering. Consumed by the query builders (the query/cypher/
-build_* functions, SemanticQueryBuilder) — not by services directly.
+confidence-based filtering. Consumed by the query/cypher/ build_* functions —
+not by services directly.
 
 Returns raw Cypher strings by design: its job is to standardize the ``coalesce()``
 patterns so that every query builder uses the same confidence semantics. It does

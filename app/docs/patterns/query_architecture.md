@@ -24,18 +24,30 @@ For hands-on implementation:
 
 ---
 
-## Architecture — Intentional Layering, Not Fragmentation
+## Architecture — Two Layers
 
-SKUEL's query infrastructure is a **single facade with specialized backends**, not competing approaches:
+SKUEL's query infrastructure is a **fluent facade over a package of Cypher-building functions**:
 
 ```
-UnifiedQueryBuilder  ← THE single entry point (fluent API)
-├── ModelQueryBuilder      → cypher/ build_* functions (CRUD/search)
-├── SemanticQueryBuilder   → semantic_queries.py (graph traversal)
-└── TemplateQueryBuilder   → QueryBuilder service (optimization/templates)
+UnifiedQueryBuilder  ← fluent facade (filter/limit/offset/order state)
+└── ModelQueryBuilder  → cypher/ build_* functions (list/search/count)
+
+query/cypher/  ← 54 module-level build_* functions, callable directly
 ```
 
-These aren't three ways to do the same thing — they're three categories of query (data access, graph traversal, optimized templates) behind one discoverable API. `UnifiedQueryBuilder` IS the consolidation.
+These are not two ways to do the same thing. The facade renders a *declarative
+read* (filters + pagination + ordering) into Cypher; the `build_*` functions
+cover every shape the facade does not model (semantic traversal, prerequisite
+chains, cross-domain bridges, relationship fragments). Calling a `build_*`
+function directly is the documented path, not a fallback.
+
+> **Deleted 2026-08-17.** The former third layer — `query_builders/`
+> (`QueryBuilder` facade + optimizer, template registry, validator, faceted
+> builder, graph-context builder) and the `SemanticQueryBuilder` /
+> `TemplateQueryBuilder` bridges that fronted it — was removed. It was
+> constructed on every boot but had had **zero production invocations since
+> 2026-05-12**; the domain-backend architecture had starved it. Nothing lost an
+> invoker, because it had none. See PR #1081.
 
 ### Where Search Actually Flows (orientation)
 
@@ -60,24 +72,24 @@ These are consumed by the query builders above, not alternative query paths:
 |---------|---------|--------------------------|
 | `confidence_filter.py` | Cypher clause fragments for confidence filtering | Standardizes `coalesce()` patterns across all builders |
 | `convert_value_for_neo4j()` | Python→Neo4j type conversion (enums, datetimes) | Neo4j driver doesn't auto-serialize; complements Pydantic (HTTP boundary) |
-| `QueryConstraint.to_cypher()` | WHERE clause fragment generation | Adapter-layer model in `adapters/persistence/` — persistence models doing persistence work |
 
 ## Query Infrastructure (October 3, 2025)
 
 ### Core Principle: "Query models are infrastructure, not domain-specific"
 
-**CRITICAL:** Query models were elevated from search domain to infrastructure level at `/adapters/persistence/neo4j/query/`. Boundary types (`QueryIntent`, `IndexStrategy`) live in `/core/models/query_types.py`; search boundary models (`FacetSetRequest`, `SearchQueryRequest`, `SearchResultDTO`) live in `/core/models/search_models.py`.
+**CRITICAL:** Query infrastructure lives at `/adapters/persistence/neo4j/query/`, accessible to all domains. Boundary types (`QueryIntent`, `IndexStrategy`) live in `/core/models/query_types.py`; search boundary models (`FacetSetRequest`, `SearchQueryRequest`, `SearchResultDTO`) live in `/core/models/search_models.py`.
 
 ### Infrastructure Location
 
 ```
 /adapters/persistence/neo4j/query/  # Infrastructure level, accessible to ALL domains
-├── _query_models.py       # Adapter-layer query building models (QueryConstraint, QuerySort, etc.)
 ├── confidence_filter.py   # Cypher clause helpers for confidence-based filtering
-├── cypher_template.py     # Query optimization strategies
+├── cypher_template.py     # QueryOptimizationStrategy enum
+├── graph_traversal.py     # build_graph_context_query (variable-length patterns)
+├── schema_ddl.py          # index/constraint DDL builders
 ├── cypher/                # Cypher query generators (crud, semantic, domain, relationship, intelligence)
 │   └── _helpers.py        # Shared utilities (validate_label, validate_identifier, convert_value_for_neo4j)
-├── unified_query_builder.py  # UnifiedQueryBuilder — THE single entry point
+├── unified_query_builder.py  # UnifiedQueryBuilder — the fluent facade
 ├── __init__.py            # Clean public API
 └── README.md              # Usage documentation
 ```
@@ -86,11 +98,10 @@ These are consumed by the query builders above, not alternative query paths:
 
 ```python
 # ✅ CORRECT - Import from infrastructure
-from core.models.query_types import QueryIntent, IndexStrategy  # Boundary types
+from core.models.query_types import QueryIntent  # Boundary type
 from adapters.persistence.neo4j.query import (
-    UnifiedQueryBuilder,   # THE single entry point
-    QueryBuildRequest,     # Declarative query construction
-    create_search_request, # Helper for common patterns
+    UnifiedQueryBuilder,   # fluent facade
+    build_search_query,    # a cypher/ build_* function
 )
 ```
 
@@ -118,13 +129,16 @@ See [Intent-Based Traversal Pattern](#intent-based-traversal-pattern-december-20
 
 **Knowledge Domain:**
 ```python
-from adapters.persistence.neo4j.query import create_search_request
-from core.models.query_types import QueryIntent
+from adapters.persistence.neo4j.query import build_text_search_query
+from core.models.enums.metadata_enums import SearchVisibility
+from core.models.ku.ku import Ku
 
-request = create_search_request(
-    labels=["Ku"],
-    search_text="quantum mechanics",
-    intent=QueryIntent.PREREQUISITE
+query, params = build_text_search_query(
+    Ku,
+    query="quantum mechanics",
+    search_fields=["title", "description"],
+    visibility=SearchVisibility.PUBLIC,
+    limit=25,
 )
 ```
 
@@ -142,15 +156,12 @@ context = build_graph_context_query(
 
 ## Query Building - Single Source of Truth (October 8, 2025)
 
-### Core Principle: "One facade, specialized backends"
+### Core Principle: "One facade over one function package"
 
-UnifiedQueryBuilder is THE single entry point. It routes internally to three specialized backends:
-
-| Backend | Accessed Via | Purpose | When to Use |
-|---------|-------------|---------|-------------|
-| **ModelQueryBuilder** | `.for_model()` | `query/cypher/` build_* functions (CRUD/search) | Dynamic queries from dataclass introspection |
-| **SemanticQueryBuilder** | `.semantic()` | semantic_queries.py (graph traversal) | Prerequisite chains, semantic context |
-| **TemplateQueryBuilder** | `.template()` | QueryBuilder service (optimization) | Registered templates, performance-critical queries |
+| Entry | Accessed Via | Purpose | When to Use |
+|-------|-------------|---------|-------------|
+| **ModelQueryBuilder** | `UnifiedQueryBuilder.for_model()` | `query/cypher/` build_* functions (list/search/count) | Dynamic reads from dataclass introspection |
+| **`build_*` functions** | direct import from `query/cypher/` | Pure Cypher generation | Everything else — semantic traversal, prerequisite chains, relationship fragments |
 
 ### Cypher Query Generators - Pure Cypher Queries
 
@@ -277,75 +288,23 @@ entities = [from_neo4j_node(record["n"], EntityClass) for record in result.value
 
 Record→model conversion happens below the hexagonal boundary — backends return typed domain models (Tier 6).
 
-### QueryBuilder - Service Layer Facade (Legacy)
+## Two-Layer Query Architecture
 
-**Location:** `/adapters/persistence/neo4j/query_builders/query_builder.py`
-
-**Status:** Legacy - Use UnifiedQueryBuilder for new code
-
-**Architecture:** Facade orchestrating 5 specialized sub-services
-
-QueryBuilder was decomposed from a 1,614-line monolith (November 10, 2025) into a 225-line facade coordinating 5 sub-services:
-
-| Sub-Service | Lines | Purpose |
-|-------------|-------|---------|
-| **QueryOptimizer** | 748 | Index-aware optimization using Neo4j index stats |
-| **QueryTemplateRegistry** | 433 | Template registration and retrieval |
-| **QueryValidator** | 346 | Query validation, NL-to-Cypher conversion |
-| **FacetedQueryBuilder** | 380 | Faceted search query construction |
-| **GraphContextBuilder** | 55 | Graph traversal query generation |
-
-**Location:** `/adapters/persistence/neo4j/query_builders/` (sub-services, alongside the facade)
-
-**When to Use QueryBuilder Directly:**
-
-Use ONLY when:
-1. Implementing new UnifiedQueryBuilder features that need templates
-2. Testing template functionality in isolation
-3. Accessing optimization internals for analysis
-
-**Recommended Usage:**
-
-```python
-# ✅ PREFERRED - Use UnifiedQueryBuilder (auto-initializes QueryBuilder)
-from adapters.persistence.neo4j.query import UnifiedQueryBuilder
-
-templates = UnifiedQueryBuilder(driver).list_templates()
-result = await UnifiedQueryBuilder(driver).template("search").params(...).execute()
-
-# ⚠️ LEGACY - Direct QueryBuilder usage (backward compatibility only)
-from adapters.persistence.neo4j.query_builders import QueryBuilder
-
-qb = QueryBuilder(schema_service)
-templates = qb.get_template_library()
-```
-
-## Three-Layer Query Architecture (November 2025)
-
-**Core Principle:** "Clear separation between user-facing API, orchestration, and utilities"
-
-SKUEL uses a three-layer query architecture with distinct responsibilities:
+**Core Principle:** "Clear separation between the fluent read API and the Cypher utilities"
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│ APPLICATION LAYER: UnifiedQueryBuilder                     │
-│ - User-facing fluent API                                    │
-│ - PREFERRED for all new code                                │
-│ - Method chaining: .for_model().filter().execute()         │
-└─────────────────────────────────────────────────────────────┘
-                            ↓
-┌─────────────────────────────────────────────────────────────┐
-│ SERVICE LAYER: QueryBuilder (Facade)                        │
-│ - Orchestrates 5 specialized sub-services                   │
-│ - Legacy support - backward compatible                      │
-│ - Optimization, templates, validation, faceted search       │
+│ FACADE LAYER: UnifiedQueryBuilder                           │
+│ - Fluent read API                                           │
+│ - Method chaining: .for_model().filter().order_by().build() │
+│ - Reached via UniversalNeo4jBackend.query_builder           │
 └─────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────┐
 │ INFRASTRUCTURE LAYER: query/cypher/ build_* functions       │
 │ - Pure Cypher query utilities (module-level functions)      │
 │ - Model introspection, semantic traversal                   │
-│ - Shared by all layers                                      │
+│ - Called by the facade AND directly by backends             │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -357,7 +316,7 @@ SKUEL uses a three-layer query architecture with distinct responsibilities:
 > importable — `from ...query.cypher import CypherGenerator` raises `ImportError`.
 > Older docs and comments used it as an informal collective label for these functions.
 
-### Layer 1: Application Layer → UnifiedQueryBuilder
+### Layer 1: Facade Layer → UnifiedQueryBuilder
 
 **Location:** `/adapters/persistence/neo4j/query/unified_query_builder.py`
 
@@ -368,97 +327,36 @@ SKUEL uses a three-layer query architecture with distinct responsibilities:
 ```python
 from adapters.persistence.neo4j.query import UnifiedQueryBuilder
 
-# Fluent API for generic CRUD operations
-builder = UnifiedQueryBuilder(driver)
+# Fluent API for generic reads
+builder = UnifiedQueryBuilder(executor)
 tasks = await builder.for_model(Task).filter(priority='high').limit(50).execute()
 
-# Template-based queries
-result = await UnifiedQueryBuilder(driver).template("search").params(
-    labels=["Ku"],
-    search_text="quantum mechanics",
-    filters={'domain': 'TECH'}
-).execute()
+# Build without executing — returns (cypher, params)
+cypher, params = builder.for_model(Task).filter(status='active').build()
 
-# Count queries
-count = await builder.for_model(Task).count(status='completed')
+# Count queries (filters come from .filter(), not from count())
+count = await builder.for_model(Task).filter(status='completed').count()
 ```
 
 **When to use:**
-- **ALL new code** - this is the preferred API
 - Building generic `.list()`, `.find_by()`, `.count()` methods
 - Need fluent API with method chaining
+- **Not** for user-facing search — `.for_model()` emits no ownership predicate;
+  route those through the domain service / `SearchRouter`, which apply the
+  `SearchVisibility` gate
 - Generic CRUD across all domains
 
 **Architecture Note:** UniversalBackend powers ALL domains (Tasks, Events, Habits, Goals, Finance, etc.), making UnifiedQueryBuilder's fluent API widely used.
 
 **Security (March 2026):** `ModelQueryBuilder.order_by()` validates field names via `validate_field_name()` — invalid fields (e.g. injection attempts) are silently ignored with a logged warning.
 
-### Layer 2: Orchestration Layer → QueryBuilder (Facade)
-
-**Location:** `/adapters/persistence/neo4j/query_builders/query_builder.py`
-
-**Purpose:** Orchestration facade coordinating 5 sub-services
-
-**Status:** Legacy - maintained for backward compatibility
-
-```python
-from adapters.persistence.neo4j.query_builders import QueryBuilder
-
-# ⚠️ LEGACY - Only use if absolutely necessary
-qb = QueryBuilder(schema_service)
-
-# Index-aware optimization (delegates to QueryOptimizer)
-result = await qb.build_optimized_query(request)
-
-# Template management (delegates to QueryTemplateRegistry)
-templates = qb.get_template_library()
-
-# Query validation (delegates to QueryValidator)
-validation = await qb.validate_query(query_string)
-```
-
-**When to use:**
-- Implementing new UnifiedQueryBuilder features
-- Testing template/optimization internals
-- Backward compatibility for existing code
-
-**The 5 Sub-Services:**
-
-All five live in `/adapters/persistence/neo4j/query_builders/`, alongside the facade.
-
-1. **QueryOptimizer** (`query_optimizer.py`, 748 lines)
-   - Index-aware query optimization using Neo4j index statistics
-   - Automatic index selection for performance
-   - Query plan analysis and explanation
-
-2. **QueryTemplateRegistry** (`query_template_registry.py`, 433 lines)
-   - Template registration and retrieval
-   - Template library management
-   - Parameterized query templates
-
-3. **QueryValidator** (`query_validator.py`, 346 lines)
-   - Query validation against schema
-   - Natural language to Cypher conversion
-   - Constraint checking
-
-4. **FacetedQueryBuilder** (`faceted_query_builder.py`, 380 lines)
-   - Faceted search query construction
-   - Filter aggregation and counting
-   - Multi-facet combination logic
-   - Generic facet field names validated via `validate_field_name()` (March 2026)
-
-5. **GraphContextBuilder** (`graph_context_builder.py`, 55 lines)
-   - Graph traversal query generation
-   - Relationship-aware context queries
-   - Depth-limited graph exploration
-
-### Layer 3: Infrastructure Layer → Cypher Query Generators
+### Layer 2: Infrastructure Layer → Cypher Query Generators
 
 **Location:** `/adapters/persistence/neo4j/query/cypher/`
 
 **Purpose:** Pure Cypher query utilities — module-level functions, no orchestration, no state
 
-**Used by:** All layers (Application, Service, and direct usage)
+**Used by:** The facade above, and directly by domain backends
 
 ```python
 from adapters.persistence.neo4j.query import (
@@ -495,37 +393,15 @@ query, params = build_prerequisite_chain(
 - Complex graph traversal
 - When you need pure Cypher without orchestration
 
-### Deprecation Path
-
-**Recommended Migration:**
-
-```python
-# ❌ OLD - Direct QueryBuilder usage
-from adapters.persistence.neo4j.query_builders import QueryBuilder
-qb = QueryBuilder(schema_service)
-result = await qb.search(labels=["Ku"], search_text="quantum")
-
-# ✅ NEW - UnifiedQueryBuilder
-from adapters.persistence.neo4j.query import UnifiedQueryBuilder
-result = await UnifiedQueryBuilder(driver).template("search").params(
-    labels=["Ku"],
-    search_text="quantum"
-).execute()
-```
-
-**Backward Compatibility:** QueryBuilder facade maintains the same API as the original monolithic implementation, ensuring zero breaking changes for existing code.
-
 ### Quick Reference Table
 
 | Use Case | Layer | Builder | Example |
 |----------|-------|---------|---------|
-| List tasks by priority | Application | UnifiedQueryBuilder | `builder.for_model(Task).filter(priority='high')` |
-| Count completed tasks | Application | UnifiedQueryBuilder | `builder.for_model(Task).count(status='completed')` |
-| Template-based search | Application | UnifiedQueryBuilder | `builder.template("search").params(...)` |
+| List tasks by priority | Facade | UnifiedQueryBuilder | `builder.for_model(Task).filter(priority='high')` |
+| Count completed tasks | Facade | UnifiedQueryBuilder | `builder.for_model(Task).count()` |
 | Get semantic prerequisites | Infrastructure | `query/cypher/` function | `build_prerequisite_chain(uid, types)` |
 | Cross-domain bridges | Infrastructure | `query/cypher/` function | `build_cross_domain_bridges(domain_a, domain_b, types)` |
-| Template internals | Service | QueryBuilder | `qb.get_template_library()` (legacy) |
-| Index optimization | Service | QueryBuilder | `qb.build_optimized_query()` (legacy) |
+| Text search over a domain | Infrastructure | `query/cypher/` function | `build_text_search_query(Ku, ...)` |
 
 ## Filter Operators
 
@@ -820,8 +696,6 @@ This is the **primary query architecture documentation**. Start here.
 |-----------|----------|
 | UnifiedQueryBuilder (facade) | `/adapters/persistence/neo4j/query/unified_query_builder.py` |
 | Cypher Query Generators | `/adapters/persistence/neo4j/query/cypher/` |
-| Query Models (adapter-layer) | `/adapters/persistence/neo4j/query/_query_models.py` |
-| QueryBuilder (legacy facade) | `/adapters/persistence/neo4j/query_builders/query_builder.py` |
 | GraphIntelligenceService | `/core/services/infrastructure/graph_intelligence_service.py` |
 | QueryIntent enum | `/core/models/query_types.py` |
 

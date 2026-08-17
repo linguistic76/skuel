@@ -144,12 +144,17 @@ RETURN ku.uid,
 
 ## Query Builders (SKUEL Infrastructure)
 
-SKUEL has two query builders for domain services (SKUEL001: no APOC in domain services):
+SKUEL has one query builder plus a package of Cypher functions (SKUEL001: no APOC in domain services):
 
 | Builder | Location | Use Case |
 |---------|----------|----------|
-| **UnifiedQueryBuilder** | `adapters/persistence/neo4j/query/` | Generic CRUD (used by backends) |
+| **UnifiedQueryBuilder** | `adapters/persistence/neo4j/query/` | Generic CRUD reads (used by backends via `UniversalNeo4jBackend.query_builder`) |
 | **`build_*` functions** (module-level, no class) | `adapters/persistence/neo4j/query/cypher/` | Pure Cypher, semantic traversal |
+
+> The sibling `query_builders/` package (`QueryBuilder` + optimizer, template registry,
+> validator, faceted builder, graph-context builder) was **deleted 2026-08-17** — built on
+> every boot, zero production invocations since 2026-05-12. There is no template registry
+> and no runtime query optimizer/validator; don't reach for one.
 
 **SKUEL001 linter rule:** APOC is scoped to `apoc.meta.*` (schema introspection only). Domain services author neither APOC nor Cypher — they call a named backend method, and the backend composes pure Cypher from the `build_*` functions above.
 
@@ -406,7 +411,9 @@ the same "one chokepoint, not N edits" reasoning behind the `TimedDriver` above.
 
 ### 7. Schema-Change Monitoring (opt-in)
 
-`SchemaChangeDetector` (`core/services/schema_change_detector.py`) fingerprints the live Neo4j schema (labels, indexes, constraints, relationship types) and, on drift, invalidates the adapter's lazily-built query-optimization caches (`_index_aware_builder`, `_enhanced_templates`) via the auto-registered `AdaptiveOptimizationHandler`.
+`SchemaChangeDetector` (`core/services/schema_change_detector.py`) fingerprints the live Neo4j schema (labels, indexes, constraints, relationship types) and reports drift — classified changes, breaking-change flags, and migration history.
+
+Its former `AdaptiveOptimizationHandler` (auto-registered, cleared the adapter's `_index_aware_builder` / `_enhanced_templates` caches on drift) was deleted 2026-08-17 with the `query_builders/` stack whose caches were its only job. **The detector's value is now drift detection and logging**, not cache invalidation — there are no query-optimization caches left to invalidate.
 
 It is exposed as an **on-demand** capability on the adapter — `Neo4jAdapter.check_schema_changes()`, `initialize_schema_monitoring()`, `stop_schema_monitoring()` — and is wired into the composition root as an **opt-in background poll**:
 
@@ -418,7 +425,7 @@ NEO4J_SCHEMA_MONITORING_INTERVAL=900    # poll interval (seconds); must be ≥ 1
 
 - **Off by default.** Gated by `config.database.schema_monitoring_enabled`, *not* by `INTELLIGENCE_TIER` — it's plain graph infrastructure (no API calls), so it can run in either tier. Keeping it off by default preserves the CORE-tier "no background workers" guarantee.
 - **Where it's wired.** `services_bootstrap/compose.py` calls `initialize_schema_monitoring()` right after the startup DDL sync (so it baselines against the freshly-synced schema); `shutdown_skuel` calls `stop_schema_monitoring()`. The detector owns its own `asyncio` poll task, which lives on the single loop shared by bootstrap and `server.serve()`.
-- **Non-fatal.** A failed start warns and continues — monitoring is an optimization, never a correctness gate.
+- **Non-fatal.** A failed start warns and continues — monitoring is observability, never a correctness gate.
 - **Interval is validated at the env boundary** (`DatabaseConfig.from_env` rejects values < 1): a non-positive interval is truthy and would make `asyncio.sleep(<=0)` busy-spin Neo4j introspection.
 
 **Rule:** Don't enable it where the schema is static after startup DDL (the common case) — it catches nothing at runtime and adds periodic introspection load. Enable it only where schema genuinely drifts mid-session.

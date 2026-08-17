@@ -6,6 +6,11 @@ Located at `/adapters/persistence/neo4j/query/` — the adapter layer.
 Core-layer types (`QueryIntent`, `IndexStrategy`) live in `/core/models/query_types.py`.
 Search boundary models live in `/core/models/search_models.py`.
 
+Two layers, not three: a fluent facade (`UnifiedQueryBuilder`) over a package of
+Cypher-building functions (`cypher/`). Callers may use either — calling a
+`build_*` function directly is the documented path for shapes the facade does
+not cover, not a fallback.
+
 ## Purpose
 
 Provides Neo4j-first, pure Cypher query capabilities to all domains:
@@ -16,15 +21,12 @@ Provides Neo4j-first, pure Cypher query capabilities to all domains:
 
 ## Key Components
 
-### Query Intent & Strategy
+### Query Intent
 ```python
-from core.models.query_types import QueryIntent, IndexStrategy
+from core.models.query_types import QueryIntent
 
 # Semantic query understanding
 intent = QueryIntent.HIERARCHICAL  # or PREREQUISITE, PRACTICE, etc.
-
-# Neo4j index optimization
-strategy = IndexStrategy.UNIQUE_LOOKUP  # or FULLTEXT_SEARCH, VECTOR_SEARCH
 ```
 
 ### `cypher/` build_* functions (Pure Cypher)
@@ -74,52 +76,28 @@ query, params = build_graph_aware_search_query(
 # → WHERE (target.user_uid = $user_uid) AND (toLower(target.title) CONTAINS ...)
 ```
 
-### UnifiedQueryBuilder (Application Layer)
+### UnifiedQueryBuilder (fluent facade)
+
+Holds filter/limit/offset/order state and renders it through the `cypher/`
+functions. `.build()` returns `(cypher, params)`; `.execute()` also needs an
+executor. Live callers reach it via `UniversalNeo4jBackend.query_builder`.
+
 ```python
 from adapters.persistence.neo4j.query import UnifiedQueryBuilder
 
-# Fluent API for query construction
-builder = UnifiedQueryBuilder()
-query = (
-    builder.for_model(Task)
-    .with_filters({"priority": "high"})
+cypher, params = (
+    UnifiedQueryBuilder()
+    .for_model(Task)
+    .filter(priority="high", status="in_progress")
+    .order_by("due_date", desc=True)
+    .limit(50)
     .build()
 )
 ```
 
-### Query Build Request
-```python
-from adapters.persistence.neo4j.query import QueryBuildRequest, create_search_request
-
-# Declarative query construction
-request = QueryBuildRequest(
-    labels={"Task"},
-    search_text="python api testing",
-    query_intent=QueryIntent.SPECIFIC,
-    limit=25
-)
-
-# Helper for common search patterns
-search_req = create_search_request(
-    labels=["Ku"],
-    search_text="algebra fundamentals",
-    intent=QueryIntent.EXPLORATORY,
-    limit=20
-)
-```
-
-### Query Validation
-```python
-from adapters.persistence.neo4j.query import ValidationResult, QueryElements
-
-# Schema-aware validation
-validation_result = validator.validate_query(cypher, schema_context)
-
-if not validation_result.is_valid:
-    print(validation_result.get_error_summary())
-    for suggestion in validation_result.get_suggestions():
-        print(f"  - {suggestion}")
-```
+> ⚠ `.for_model()` emits **no** ownership predicate — it is a raw shape builder.
+> User-facing reads go through the domain service / `SearchRouter`, which apply
+> the `SearchVisibility` gate. Do not put a user-facing search on it directly.
 
 ## Design Principles
 
@@ -127,20 +105,25 @@ if not validation_result.is_valid:
 2. **Neo4j-First** - Leverages indexes and graph traversal
 3. **Pure Cypher** - No external dependencies (APOC removed October 2025)
 4. **Intent-Based** - Semantic query understanding (not just keyword matching)
-5. **Schema-Aware** - Validates queries against live Neo4j schema
+5. **Reviewed, not generated** - every query is authored and parameterized here;
+   nothing composes Cypher from an LLM or validates it against a live schema at
+   runtime (the schema-aware validator was deleted with `query_builders/`,
+   2026-08-17)
 
 ## Files
 
-- `_query_models.py` - Query building models (imports enums from `core.models.query_types`)
+- `unified_query_builder.py` - `UnifiedQueryBuilder` / `ModelQueryBuilder` fluent facade
 - `cypher/` - pure Cypher query builder functions (`build_*`, module-level)
-- `cypher_template.py` - Query optimization strategies
+- `graph_traversal.py` - `build_graph_context_query` (variable-length patterns)
+- `confidence_filter.py` - confidence-clause fragments
+- `schema_ddl.py` - index/constraint DDL builders
+- `cypher_template.py` - `QueryOptimizationStrategy` enum
 
 ## Query Architecture Layers
 
 | Layer | Component | Purpose |
 |-------|-----------|---------|
-| Application | UnifiedQueryBuilder | Fluent API, default for new code |
-| Service | QueryBuilder | Optimization, templates |
+| Facade | UnifiedQueryBuilder | Fluent API over the builders below |
 | Infrastructure | `cypher/` build_* functions | Pure Cypher generation |
 
 See `/docs/patterns/query_architecture.md` for full documentation.

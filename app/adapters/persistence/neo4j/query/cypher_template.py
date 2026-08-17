@@ -1,18 +1,20 @@
 """
-Cypher Template Models
-=====================
+Cypher Query Optimization Strategy
+==================================
 
-Data models for schema-aware Cypher query templates and their optimization strategies.
+Schema-aware optimization strategies for Cypher query planning.
+
+The template models that used to live here (``CypherQuery``, ``TemplateSpec``,
+``TemplateRecommendation``, ``SearchCriteria``) were deleted with the
+``query_builders/`` package that consumed them (2026-08-17). ``GraphContextNode``
+still annotates its ``optimization_strategy`` field with the enum below, so the
+vocabulary survives its former registry.
 """
 
-__version__ = "1.0"
+__version__ = "2.0"
 
 
-from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
-
-from core.models.type_hints import Neo4jProperties, Neo4jValue
 
 
 class QueryOptimizationStrategy(Enum):
@@ -25,93 +27,4 @@ class QueryOptimizationStrategy(Enum):
     RELATIONSHIP_TRAVERSAL = "relationship_traversal"  # Optimize traversals
 
 
-@dataclass
-class CypherQuery:
-    """
-    Represents a Cypher query with parameters and metadata.
-
-    Enhanced version that includes optimization information and schema context.
-    """
-
-    cypher: str
-    parameters: dict[str, Any] = field(default_factory=dict)
-    optimization_strategy: QueryOptimizationStrategy = QueryOptimizationStrategy.BASIC
-    expected_labels: set[str] = field(default_factory=set)
-    expected_relationships: set[str] = field(default_factory=set)
-    uses_indexes: list[str] = field(default_factory=list)  # Index names used,
-    estimated_cost: int | None = None  # Relative cost estimate,
-    description: str | None = None
-
-
-@dataclass
-class TemplateSpec:
-    """
-    Specification for a query template including optimization rules.
-    """
-
-    name: str
-    description: str
-    base_template: str
-    required_parameters: set[str]
-    optional_parameters: set[str] = field(default_factory=set)
-    # Parameters that are spliced into the query text as {name} placeholders
-    # (labels, relationship types) because Neo4j cannot parameterize them.
-    # Must be a subset of required_parameters; values are validated before
-    # substitution. All other parameters stay $name driver parameters.
-    structural_parameters: set[str] = field(default_factory=set)
-    # Bind values for omitted optional parameters. Optional parameters without
-    # a default bind as NULL (for `$x IS NULL OR ...` filter branches); declare
-    # a default here when NULL is invalid in the slot's Cypher position
-    # (LIMIT, property maps).
-    parameter_defaults: dict[str, Neo4jValue | Neo4jProperties] = field(default_factory=dict)
-    optimization_rules: dict[str, str] = field(
-        default_factory=dict
-    )  # condition -> optimized template,
-    applicable_labels: set[str] = field(default_factory=set)  # Labels this template works with,
-    applicable_relationships: set[str] = field(
-        default_factory=set
-    )  # Relationships this template works with,
-    requires_indexes: set[str] = field(default_factory=set)  # Required index types,
-    estimated_base_cost: int = 1  # Base cost without optimizations
-    category: str = "general"  # Template category for filtering (e.g., "traversal", "search")
-
-
-@dataclass
-class TemplateRecommendation:
-    """
-    Recommendation for which template to use based on schema analysis.
-    """
-
-    template_spec: TemplateSpec
-    confidence_score: float  # 0.0 - 1.0
-    optimization_strategy: QueryOptimizationStrategy
-    reasoning: str
-    available_optimizations: list[str]
-    missing_optimizations: list[str]
-    estimated_performance: str  # "excellent", "good", "fair", "poor"
-
-    @property
-    def is_highly_recommended(self) -> bool:
-        """Check if this template is highly recommended"""
-        return self.confidence_score >= 0.8
-
-    @property
-    def is_optimally_supported(self) -> bool:
-        """Check if all required optimizations are available"""
-        return len(self.missing_optimizations) == 0
-
-
-@dataclass
-class SearchCriteria:
-    """
-    Criteria for searching nodes, used to select optimal templates.
-    """
-
-    labels: set[str] = field(default_factory=set)
-    properties: dict[str, Any] = field(default_factory=dict)
-    relationship_types: set[str] = field(default_factory=set)
-    search_type: str = "exact"  # "exact", "fuzzy", "fulltext", "pattern"
-    limit: int | None = None
-
-    order_by: str | None = None
-    filters: dict[str, Any] = field(default_factory=dict)
+__all__ = ["QueryOptimizationStrategy"]

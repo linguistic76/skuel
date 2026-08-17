@@ -2,7 +2,7 @@
 Search Service Protocols
 =========================
 
-Interfaces for search, query building, and Cypher operations.
+Interfaces for search and search-index operations.
 
 Protocol Categories:
 1. DomainSearchOperations[T] - Universal search protocol for all activity domains
@@ -14,10 +14,8 @@ Protocol Categories:
    - ChoicesSearchOperations - Choices domain search
    - PrinciplesSearchOperations - Principles domain search
 3. ScopedChunkRetrievalOperations - Chunk-level (RAG) retrieval (SearchRouter's ISP slice)
-4. QueryBuilderOperations - Cypher query building
-5. CypherOperations - Query execution
-6. SearchIndexOperations - Index management
-7. Supports* capability protocols - per-call narrowing for SearchRouter dispatch
+4. SearchIndexOperations - Index management
+5. Supports* capability protocols - per-call narrowing for SearchRouter dispatch
 
 - v2.0.0: Added DomainSearchOperations[T] protocol for activity domain search services
 """
@@ -611,42 +609,6 @@ class ScopedChunkRetrievalOperations(Protocol):
         user_uid: UserUID | None = None,
     ) -> Result[list["SemanticSearchChunkResult"]]:
         """Retrieve lesson-BODY passages scoped to the request's facets."""
-        ...
-
-
-@runtime_checkable
-class QueryBuilderOperations(Protocol):
-    """Query building and optimization operations."""
-
-    def build_query(
-        self, pattern: str, filters: Metadata | None = None, return_clause: str | None = None
-    ) -> str:
-        """Build an optimized Cypher query."""
-        ...
-
-    def add_filters(self, base_query: str, filters: Metadata) -> str:
-        """Add filters to an existing query."""
-        ...
-
-    def optimize_query(self, query: str) -> str:
-        """Optimize a Cypher query for performance."""
-        ...
-
-
-@runtime_checkable
-class CypherOperations(Protocol):
-    """Cypher query execution operations."""
-
-    async def execute_query(self, query: str, parameters: Metadata | None = None) -> list[Metadata]:
-        """Execute a Cypher query with parameters."""
-        ...
-
-    async def execute_template(self, template_name: str, parameters: Metadata) -> list[Metadata]:
-        """Execute a named query template."""
-        ...
-
-    def validate_query(self, query: str) -> bool:
-        """Validate Cypher query syntax."""
         ...
 
 

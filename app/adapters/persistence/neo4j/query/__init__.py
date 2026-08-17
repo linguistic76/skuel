@@ -8,15 +8,17 @@ Provides Neo4j-first query capabilities with Pure Cypher as default.
 This is THE single source of truth for query operations across SKUEL.
 All domains consume these infrastructure components.
 
-Architecture — Intentional Layering, Not Fragmentation
--------------------------------------------------------
+Architecture — Two Layers
+--------------------------
 
-The query system is a **single facade with specialized backends**, not competing approaches::
+The query system is a fluent facade over a package of Cypher-building functions::
 
-    UnifiedQueryBuilder  ← THE single entry point (fluent API)
-    ├── ModelQueryBuilder      → cypher/ build_* functions (CRUD/search)
-    ├── SemanticQueryBuilder   → semantic_queries.py (graph traversal)
-    └── TemplateQueryBuilder   → QueryBuilder service (optimization/templates)
+    UnifiedQueryBuilder  ← fluent entry point
+    └── ModelQueryBuilder  → cypher/ build_* functions (list/search/count)
+
+Callers that need a shape the facade does not cover call the ``cypher/``
+``build_*`` functions directly — that is the documented second path, not a
+fallback.
 
 Supporting infrastructure (leaf-level utilities, NOT alternative query paths):
 
@@ -24,17 +26,11 @@ Supporting infrastructure (leaf-level utilities, NOT alternative query paths):
   Consumed by query builders, not by services directly.
 - ``convert_value_for_neo4j()`` — Python→Neo4j type boundary (enums, datetimes).
   Complements Pydantic (HTTP boundary), does NOT duplicate it.
-- ``QueryConstraint.to_cypher()`` — Adapter-layer model that generates Cypher
-  fragments. Lives in ``_query_models.py`` inside ``adapters/persistence/``,
-  not in the domain layer.
 
 Key Components:
 - cypher package: Modular Cypher query building (crud, semantic, domain, relationship, intelligence)
 - QueryIntent: Semantic query understanding
-- IndexStrategy: Neo4j index optimization strategies
-- QueryBuildRequest: Declarative query construction
-- QueryPlan: Optimized query execution plans
-- ValidationResult: Schema-aware query validation
+- QueryOptimizationStrategy: Schema-aware optimization vocabulary
 
 **Pure Cypher Architecture (October 20, 2025)** - No APOC dependencies!
 
@@ -72,33 +68,16 @@ See Documentation:
 # Internal implementation modules (marked with underscore prefix)
 from core.constants import GraphDepth
 
+# Boundary types — canonical location is core.models.query_types. Re-exported here
+# because callers reach the query package for them (previously via _query_models,
+# deleted 2026-08-17); `__all__` promises the name.
+from core.models.query_types import QueryIntent
+
 # Search boundary models — canonical location is core.models.search_models
 from core.models.search_models import FacetSetRequest, SearchQueryRequest, SearchResultDTO
 
 from ._progressive_learning_queries import ProgressiveLearningQueries
 from ._provenance_queries import ProvenanceQueries
-from ._query_models import (
-    IndexRecommendation,
-    # Query strategies and intents
-    IndexStrategy,
-    # Query analysis models
-    PropertyReference,
-    QueryBuildRequest,
-    # Query building models
-    QueryConstraint,
-    QueryElements,
-    QueryIntent,
-    QueryOptimizationResult,
-    QueryPlan,
-    QuerySort,
-    ValidationIssue,
-    ValidationResult,
-    # Helper functions
-    analyze_query_intent,
-    create_filter_request,
-    create_range_request,
-    create_search_request,
-)
 from ._semantic_similarity_queries import SemanticSimilarityQueries
 
 # Confidence filtering utilities (December 2025)
@@ -176,13 +155,7 @@ from .cypher import (
 # it was a 2025 design-notes proposal that shipped as pure Cypher instead.
 # Use Pure Cypher UNWIND patterns for batch operations
 # Use build_graph_context_query() for graph traversal
-from .cypher_template import (
-    CypherQuery,
-    QueryOptimizationStrategy,
-    SearchCriteria,
-    TemplateRecommendation,
-    TemplateSpec,
-)
+from .cypher_template import QueryOptimizationStrategy
 
 # Graph traversal with Pure Cypher
 from .graph_traversal import build_graph_context_query
@@ -195,13 +168,11 @@ from .schema_ddl import (
     build_drop_index_ddl,
 )
 from .unified_query_builder import (
-    # Individual builders (for advanced usage)
+    # Individual builder (for advanced usage)
     ModelQueryBuilder,
     # Result type
     QueryResult,
-    SemanticQueryBuilder,
-    TemplateQueryBuilder,
-    # THE SINGLE ENTRY POINT
+    # THE FLUENT ENTRY POINT
     UnifiedQueryBuilder,
     query,
 )
@@ -212,10 +183,6 @@ __all__ = [
     # ============================================================================
     "CONFIDENCE_DEFAULTS",
     "ConfidenceMode",
-    # ============================================================================
-    # CYPHER TEMPLATES
-    # ============================================================================
-    "CypherQuery",
     "GraphDepth",  # Imported from core.constants for convenience
     # ============================================================================
     # SEARCH BOUNDARY MODELS
@@ -226,34 +193,17 @@ __all__ = [
     # ============================================================================
     # QUERY MODELS & STRATEGIES
     # ============================================================================
-    "IndexRecommendation",
-    "IndexStrategy",
     "ModelQueryBuilder",
     "ProgressiveLearningQueries",
-    "PropertyReference",
     "ProvenanceQueries",
-    "QueryBuildRequest",
-    "QueryConstraint",
-    "QueryElements",
     "QueryIntent",
-    "QueryOptimizationResult",
     "QueryOptimizationStrategy",
-    "QueryPlan",
     "QueryResult",
-    "QuerySort",
-    "SearchCriteria",
-    "SemanticQueryBuilder",
     "SemanticSimilarityQueries",
-    "TemplateQueryBuilder",
-    "TemplateRecommendation",
-    "TemplateSpec",
     # ============================================================================
     # UNIFIED QUERY BUILDER - THE SINGLE ENTRY POINT
     # ============================================================================
     "UnifiedQueryBuilder",
-    "ValidationIssue",
-    "ValidationResult",
-    "analyze_query_intent",
     # Relationship queries
     "build_batch_get_related_with_filters",
     "build_batch_relationship_count",
@@ -325,9 +275,6 @@ __all__ = [
     "convert_value_for_neo4j",
     # Convenience functions
     "count",
-    "create_filter_request",
-    "create_range_request",
-    "create_search_request",
     "get_by",
     "get_filterable_fields",
     "get_supported_operators",

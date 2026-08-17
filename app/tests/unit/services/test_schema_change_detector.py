@@ -8,10 +8,13 @@ was touched (the service imported `core.models.schema_change`, which has never
 existed — the real models live in `core.infrastructure.database.schema_change`),
 so merely importing the adapter method was enough to prove the revival.
 
-The cache-invalidation test also guards the async handler dispatch corrected in
-PR #136: a change report must fan out to the registered
-`AdaptiveOptimizationHandler`, which clears the adapter's lazily-built
-query-optimization caches.
+One test also guards the async handler dispatch corrected in PR #136: a change
+report reached through the adapter seam must fan out to registered handlers,
+sync and async alike.
+
+The former `AdaptiveOptimizationHandler` coverage went with the handler
+(2026-08-17) — it existed only to clear the deleted `query_builders/` caches, so
+the adapter seam now registers no handler of its own.
 """
 
 from datetime import datetime
@@ -25,10 +28,7 @@ from core.infrastructure.database.schema import (
     NodeLabelInfo,
     SchemaContext,
 )
-from core.services.schema_change_detector import (
-    AdaptiveOptimizationHandler,
-    SchemaChangeDetector,
-)
+from core.services.schema_change_detector import SchemaChangeDetector
 from core.utils.result_simplified import Result
 
 
@@ -102,8 +102,10 @@ async def test_adapter_seam_builds_working_detector() -> None:
     detector = adapter.get_schema_change_detector()
 
     assert isinstance(detector, SchemaChangeDetector)
-    # The adaptive handler is auto-registered by the adapter seam.
-    assert len(detector._change_handlers) == 1
+    # No handler is auto-registered: the seam builds a bare detector whose job
+    # is drift detection + logging (the adaptive cache-clearing handler was
+    # deleted with the query_builders/ stack it served).
+    assert detector._change_handlers == []
     # Cached on the adapter — second call returns the same instance.
     assert adapter.get_schema_change_detector() is detector
 
@@ -151,12 +153,12 @@ async def test_check_for_changes_detects_index_addition() -> None:
 
 
 @pytest.mark.asyncio
-async def test_end_to_end_change_invalidates_adapter_optimization_caches() -> None:
-    """Full path: adapter seam → detector → AdaptiveOptimizationHandler.
+async def test_end_to_end_change_reaches_registered_handler() -> None:
+    """Full path: adapter seam → detector → a registered handler.
 
-    A detected schema change must reach the auto-registered handler, which
-    clears the adapter's lazily-built query-optimization caches. This exercises
-    the async handler dispatch (PR #136) end to end.
+    A detected schema change must fan out through `adapter.check_schema_changes()`
+    to handlers registered on the cached detector. This exercises the async
+    handler dispatch (PR #136) end to end through the seam compose.py uses.
     """
     fake = _FakeSchemaService(_make_schema(labels=["Entity"], index_names=["idx_uid"]))
     adapter = _adapter_with_schema(fake)
@@ -165,12 +167,12 @@ async def test_end_to_end_change_invalidates_adapter_optimization_caches() -> No
     detector.enable_persistence = False
     await detector.initialize()
 
-    # Seed the caches the handler is responsible for invalidating. Assign via an
-    # Any alias so the sentinel bypasses the adapter's concrete attribute types —
-    # the test only cares that the attributes exist beforehand and are gone after.
-    seeded: Any = adapter
-    seeded._index_aware_builder = object()
-    seeded._enhanced_templates = object()
+    handled: list[Any] = []
+
+    async def record(event: Any) -> None:
+        handled.append(event)
+
+    detector.add_change_handler(record)
 
     # Migration: enough index churn to force re-optimization (HIGH impact).
     fake.current = _make_schema(
@@ -182,9 +184,7 @@ async def test_end_to_end_change_invalidates_adapter_optimization_caches() -> No
 
     assert report.changes
     assert report.requires_reoptimization
-    # Handler cleared both caches (delattr) — they are gone, not merely None.
-    assert not hasattr(adapter, "_index_aware_builder")
-    assert not hasattr(adapter, "_enhanced_templates")
+    assert len(handled) == 1
 
 
 @pytest.mark.asyncio
@@ -210,15 +210,6 @@ async def test_handler_dispatch_supports_sync_and_async_handlers() -> None:
     await detector.check_for_changes()
 
     assert seen == ["sync", "async"]
-
-
-def test_adaptive_handler_is_constructible_from_adapter() -> None:
-    """AdaptiveOptimizationHandler imports + binds to the adapter (import guard)."""
-    adapter = _adapter_with_schema(
-        _FakeSchemaService(_make_schema(labels=["Entity"], index_names=["idx_uid"]))
-    )
-    handler = AdaptiveOptimizationHandler(adapter)
-    assert handler.adapter is adapter
 
 
 @pytest.mark.asyncio
