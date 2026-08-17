@@ -569,6 +569,66 @@ the plain spelling (`User {uid:`) are disjoint substrings. Grepping one undercou
 
 ---
 
+## `GroupService` Declares `OWNER_ONLY` But `Group` Has No `user_uid`
+
+Surfaced 2026-08-16 by Codex on PR #1079 (the faceted-search convergence). **Not a live bug — a
+design decision owed before Group is ever wired into search.** Left as a guarded trap rather
+than folded into an access-control PR.
+
+`GroupService._config` sets `user_ownership_relationship=RelationshipName.OWNS`
+(`core/services/groups/group_service.py:54`), and `DomainConfig.get_search_visibility()` derives
+`OWNER_ONLY` from any non-None ownership relationship. But `build_search_visibility_clause`
+renders `OWNER_ONLY` as a **property** predicate — `entity.user_uid = $user_uid` — and `Group`
+stores its owner in `owner_uid` with no `user_uid` field at all (`core/models/group/group.py`;
+`GroupService.verify_ownership` overrides the base precisely because "Group uses `owner_uid`
+instead of `Entity.user_uid`"). The predicate would be null for every row, so a Group search
+would silently return nothing.
+
+**Why it is inaccurate today, independent of that arc:** the declaration has always claimed a
+scoping mechanism Group's model cannot support. It was merely *survivable* while faceted search
+anchored on `(User)-[:OWNS]->(entity)`, because Group does carry that edge. #1079 removed the
+anchor, so the mismatch now has no path that tolerates it.
+
+**Why it is harmless:** Group is not a searchable domain. It is absent from
+`_SEARCHABLE_DOMAINS` (12 `EntityType` members — `NonKuDomain.GROUP` cannot be one),
+`_SERVICE_REGISTRY`, and `_GRAPH_AWARE_DOMAINS`; `GROUPS_CONFIG` wires CRUD only; and the sole
+production callers of `graph_aware_faceted_search` are inside `SearchRouter`, which resolves
+services from `_SERVICE_REGISTRY`. Group routes call `get_for_user`, `get_user_groups`,
+`get_members`, `add_member`, `remove_member` — never search.
+
+**The ruling needed** (either, not both):
+1. Give `DomainConfig` a **configurable ownership property** so `OWNER_ONLY` can scope on
+   `owner_uid` — the general fix, and it would also let Exercise's `owner_uid` half stop being a
+   `SCOPE_AWARE` special case.
+2. Give Group a **real visibility declaration** of its own. There is no correct value today:
+   `SCOPE_AWARE` is Exercise-shaped (`scope` + `owner_uid` + group membership) and Group has no
+   `scope` field, so this route means designing a Group visibility, not picking one.
+
+Option 1 is the smaller change if a second `owner_uid`-keyed domain ever wants search; option 2
+is smaller if Group stays the only one. Do not "fix" it by adding a `user_uid` to `Group` — that
+would give the same claim two names, which is the divergence class #1078 spent a PR closing.
+
+**Enable when**: anyone wires Group into search, or a second `owner_uid`-keyed domain wants
+search. The guard fires first either way —
+`tests/unit/models/test_search_router_registry.py::TestOwnerOnlyDomainsCarryTheScopingProperty`
+holds both halves (`test_every_searchable_owner_only_domain_has_user_uid` for the class,
+`test_group_is_not_a_searchable_domain` for Group specifically). Fix the declaration; do not
+delete the test. Recorded also in `docs/architecture/SEARCH_ARCHITECTURE.md` § Ownership Scoping.
+
+**Check it is still latent**: Group must still be in no search registry.
+```bash
+uv run python -c "
+from core.orchestrator.search_router import SearchRouter as R
+print('in _SERVICE_REGISTRY:', 'groups' in set(R._SERVICE_REGISTRY.values()))
+print('in _GRAPH_AWARE_DOMAINS:', 'groups' in R._GRAPH_AWARE_DOMAINS)"
+```
+
+⚠️ The exemption list in that test guards **one** domain (Exercise, verified `SCOPE_AWARE`) and
+asserts its own length. Adding Group to it instead of fixing the declaration converts a tripwire
+into a silently-broken search.
+
+---
+
 ## Review Schedule
 
 Review this document at the **September 2026 quarterly review**. Checklist:
@@ -597,6 +657,7 @@ Review this document at the **September 2026 quarterly review**. Checklist:
 | Drifted `## Related Skills` body sections (3 of 35) | Next `docs/patterns` sweep already touching these files | `uv run python scripts/sync_cross_references.py --all --dry-run` |
 | `:OWNS` writers that skip `user_uid` (staged attendee/gravity surface) | Wiring `add_attendee` or any of the 4 gravity-link methods | Ruling needed on the edge type first — see the section |
 | `User.uid` unindexed | User count past a handful, or a ruling moving ownership reads onto the `:OWNS` edge | `SHOW INDEXES` — no `User(uid)` entry today |
+| `GroupService` OWNER_ONLY vs `Group.owner_uid` | Wiring Group into search, or a 2nd `owner_uid`-keyed domain wanting search | Ruling needed (configurable ownership property **or** a Group visibility) — see the section; guarded by `TestOwnerOnlyDomainsCarryTheScopingProperty` |
 
 **The document is the checklist, the table is a convenience:** a section added to this file
 without a matching row here is still in review scope — walk every `##` section, then the table.
