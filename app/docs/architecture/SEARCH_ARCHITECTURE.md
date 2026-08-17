@@ -582,8 +582,28 @@ that still uses `CONTAINS`. So the rung is live in production, but the browser s
 page is not yet one of its callers — extending it there is part of the D1(b)
 follow-on.
 
-**Why it matters:** the `CONTAINS` path is case-SENSITIVE, so "photosynthesis" misses
-a title reading "Photosynthesis". Lucene matches it and ranks by relevance.
+**Why it matters — and what it does NOT buy** (corrected 2026-08-16; PR #1074 shipped an
+overstated claim here). The rung buys **relevance ranking and vector recall**. It does
+*not* buy case-insensitivity: Strategy 3's fallback is the service-layer
+`SearchOperationsMixin.search` → `text_search_raw` → `build_text_search_query`, whose
+predicate is `toLower(n.{field}) CONTAINS toLower($query)` — already case-insensitive, as
+is `faceted_search_raw`'s. The one case-SENSITIVE predicate is the *backend* method
+`_SearchMixin.search` (`_search_mixin.py:224-227`), reached in production only by
+`PsAiService.search_by_semantic_query`'s embedding-failure fallback. The two `search`
+methods share a name across the service and backend layers — the CLAUDE.md
+"same root word at both layers" trap; check the layer before reasoning about the predicate.
+
+Measured limits of the fulltext half (Neo4j 2026.06.0):
+
+- **It does not stem.** `_create_fulltext_index` emits no `OPTIONS`, so all 14 indexes run
+  Neo4j's default `standard-no-stop-words` analyzer: `run` does not match "Running". An
+  `english` analyzer does stem, but `CREATE ... IF NOT EXISTS` matches on schema as well as
+  name and silently skips an existing index, so switching analyzers needs an explicit
+  DROP + recreate + reindex.
+- **It matches whole tokens, so it loses substring hits.** `photosyn` and `synthesis` each
+  return nothing against a "Photosynthesis explained" title that `CONTAINS` matches. The
+  fallback below covers a fully empty hybrid result — but not a *partial* one: a query with
+  any hybrid hit returns early and never sees the substring matches `CONTAINS` would find.
 
 **Eligibility — all four, belt and braces:**
 
@@ -620,7 +640,11 @@ merged order would fall to iteration order, and the difference between "ranked f
 both halves" and "ranked first by one" — twice the raw score — would be erased.
 
 **Fallback:** ineligible, empty, or failed → `[]`, and Strategy 3 runs the domain's
-`CONTAINS` search unchanged. The rung can never make a working search worse.
+`CONTAINS` search unchanged — so a search that returns nothing from the rung is never
+worse off. The fallback is **all-or-nothing, not per-result**: a *partial* hybrid
+result returns early, so any substring match `CONTAINS` would have found is dropped
+(the `run` / "Running technique" case above). Widening the fallback to fire on thin
+results, not only empty ones, is part of the D1(b) follow-on.
 
 **Match attribution is derived, never assumed.** `hybrid_search` returns
 `HybridSearchHit` (`core/ports/query_types.py`), which reports `matched_vector` /

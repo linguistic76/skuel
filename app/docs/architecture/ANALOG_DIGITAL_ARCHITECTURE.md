@@ -43,7 +43,7 @@ The test suite runs without any API mocking for AI services. Services accept `No
 |--------|-----------|
 | **Curriculum** | Ku, Exercise, PathStep, LearningPath authoring and ingestion |
 | **Activity** | Task, Goal, Habit, Event, Choice, Principle — full CRUD with status transitions |
-| **Search** | Keyword search across the 12 searchable domains — case-sensitive `CONTAINS` (the fulltext indexes are created here but read only by the FULL-tier hybrid rung; CORE-tier fulltext is the D1(b) follow-on) |
+| **Search** | Keyword search across the 12 searchable domains — case-INSENSITIVE `CONTAINS` (the fulltext indexes are created here but read only by the FULL-tier hybrid rung; CORE-tier fulltext is the D1(b) follow-on, and buys relevance ranking, not case-insensitivity) |
 | **User Context** | ~250-field UserContext built from MEGA-QUERY (standard + rich) |
 | **Analytics** | 13 BaseAnalyticsService instances — graph traversal, no AI |
 | **Intelligence** | UserContextIntelligence — daily planning, life path alignment, schedule-aware recommendations |
