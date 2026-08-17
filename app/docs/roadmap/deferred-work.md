@@ -317,7 +317,31 @@ navigate to it — product need, not a data threshold.
 Deferred 2026-08-16 from the fulltext/hybrid wiring arc (D1 ruling: SearchRouter rung now,
 domain-level later). The rung gave Ku/PathStep/LearningPath relevance-ranked hybrid search on
 `/api/search/unified` (FULL tier) — and **only** there. Every other text-search caller,
-including the `/search` browser page, still runs case-sensitive `CONTAINS`.
+including the `/search` browser page, still runs `CONTAINS`.
+
+**What the rung actually buys — corrected 2026-08-16, verified against Neo4j 2026.06.0.**
+PR #1074 claimed the paths it did not reach run *case-sensitive* `CONTAINS`. They do not.
+Both production `CONTAINS` predicates lower-case both sides — `faceted_search_raw`
+(`toLower(entity.{field}) CONTAINS $query_text`, param pre-lowered) and
+`build_text_search_query` behind `text_search_raw`
+(`toLower(n.{field}) CONTAINS toLower($query)`). The single case-SENSITIVE predicate in the
+persistence layer is `_SearchMixin.search` (`_search_mixin.py:224-227`), whose only
+production caller is `PsAiService.search_by_semantic_query`'s embedding-failure fallback —
+it is on neither `/search` nor `/api/search/unified`. So the honest value of moving a
+surface to fulltext is **relevance ranking and vector recall**, NOT case-insensitivity,
+which every surface already has. Two further measured facts bound the case:
+
+- **No stemming.** The 14 shipped indexes carry Neo4j's default `standard-no-stop-words`
+  analyzer (`_create_fulltext_index` emits no `OPTIONS`), so `run` does not match
+  "Running". An `english` analyzer stems, but `CREATE ... IF NOT EXISTS` matches on
+  *schema* as well as name and silently skips an existing index — changing an analyzer
+  needs an explicit DROP + recreate + reindex, not a config edit.
+- **Lucene loses substring matching.** It matches whole tokens: `photosyn` and `synthesis`
+  both return nothing for a "Photosynthesis explained" title that `CONTAINS` matches. Any
+  fulltext-first path must keep a `CONTAINS` fallback, and note the shipped rung only falls
+  through when hybrid is *empty* — so a query with any hybrid hit still loses the substring
+  matches `CONTAINS` would have found.
+
 The follow-on, in rough order of value:
 
 - **The `/search` HTML page.** The shipped rung sits in `_execute_advanced_search`, reached
