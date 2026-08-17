@@ -68,8 +68,11 @@ listing reads by OWNS + `entity_type`, and `ASSESSMENT_OF` is **deleted** — wr
 protocol methods, registry entry (One Path Forward; grep confirms all 18 references are
 contained in the assessment path — no analytics or external consumers).
 *Review refinements (PR 1, Codex):* the assessment write is atomic (node + OWNS +
-SHARES_WITH in one Cypher — the generic `create()` treats OWNS as warning-only, which
-would have made a transient edge failure an invisible report); the read excludes
+SHARES_WITH in one Cypher — the generic `create()` treated OWNS as warning-only, which
+would have made a transient edge failure an invisible report; **superseded 2026-08-16** —
+`_create_node` now writes the OWNS edge in the same statement as the node, so that
+justification no longer applies, though the atomic assessment write stands on its own for
+the SHARES_WITH half); the read excludes
 `visibility='private'` (self-owned journal reflections are the student's own artifacts,
 not received feedback); report cards/detail/preview fall back across the two body
 fields (`content` ↔ `processed_content` — the writers split them per report class);
