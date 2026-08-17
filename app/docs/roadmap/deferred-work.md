@@ -338,9 +338,10 @@ which every surface already has. Two further measured facts bound the case:
   needs an explicit DROP + recreate + reindex, not a config edit.
 - **Lucene loses substring matching.** It matches whole tokens: `photosyn` and `synthesis`
   both return nothing for a "Photosynthesis explained" title that `CONTAINS` matches. Any
-  fulltext-first path must keep a `CONTAINS` fallback, and note the shipped rung only falls
-  through when hybrid is *empty* — so a query with any hybrid hit still loses the substring
-  matches `CONTAINS` would have found.
+  fulltext-first path must therefore keep a `CONTAINS` fallback that fires on **thin**
+  results, not only empty ones — the shipped rung originally short-circuited on any hybrid
+  hit and lost those matches; fixed by `_backfill_with_contains` (2026-08-16), which tops a
+  short rung page up and is the shape any new path should copy.
 
 The follow-on, in rough order of value:
 

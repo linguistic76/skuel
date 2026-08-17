@@ -1894,7 +1894,7 @@ class SearchRouter:
                     search_service, entity_type, request, limit_per_domain
                 )
 
-        # Strategy 3: Text search only — hybrid rung first, CONTAINS fallback
+        # Strategy 3: Text search only — hybrid rung first, CONTAINS backfill
         else:
             items = await self._hybrid_curriculum_search(
                 search_service=search_service,
@@ -1903,14 +1903,24 @@ class SearchRouter:
                 limit=limit_per_domain,
                 query_embedding=query_embedding,
             )
-            if items:
+            # A FULL page from the rung is enough. Anything short of one still
+            # runs CONTAINS, because the two match differently rather than one
+            # being strictly better: Lucene matches whole TOKENS, so a partial
+            # word finds nothing where a substring scan finds the entity
+            # ("photosyn" → "Photosynthesis"; "run" → "Running technique").
+            # Returning early on ANY hybrid hit therefore dropped every
+            # substring-only match the rung happened not to rank — the rung
+            # making a working search worse, which it promised never to do.
+            if items and len(items) >= limit_per_domain:
                 return items
 
             result = await search_service.search(
                 request.query_text or "", limit_per_domain, user_uid=request.user_uid
             )
             if result.is_ok and result.value:
-                items = self._wrap_results(result.value, entity_type)
+                items = self._backfill_with_contains(
+                    items, self._wrap_results(result.value, entity_type), limit_per_domain
+                )
 
         return items
 
@@ -2290,6 +2300,38 @@ class SearchRouter:
                 continue
 
         return filtered
+
+    @staticmethod
+    def _backfill_with_contains(
+        hybrid_items: list[SearchResultItem],
+        contains_items: list[SearchResultItem],
+        limit: int,
+    ) -> list[SearchResultItem]:
+        """Top a short hybrid page up with the substring matches it missed.
+
+        Pure / DB-free. Relevance-ranked hybrid hits keep their order and their
+        lead; CONTAINS hits fill the remaining budget, deduped by ``uid`` so an
+        entity found by both is not listed twice (the hybrid copy wins — it
+        carries the real score and a derived ``match_reason``).
+
+        Backfilled items keep ``relevance_score`` 0.0, which is what a CONTAINS
+        result has always scored. That is deliberate, not an omission: it ranks
+        them below every hybrid hit in the cross-domain merge, so recall is
+        recovered without a substring match outranking a relevance-ranked one.
+
+        An item with a falsy ``uid`` cannot be deduped and is appended as-is —
+        dropping it would lose a result to a degraded node property.
+        """
+        seen = {item.uid for item in hybrid_items if item.uid}
+        merged = list(hybrid_items)
+        for item in contains_items:
+            if len(merged) >= limit:
+                break
+            if item.uid and item.uid in seen:
+                continue
+            seen.add(item.uid)
+            merged.append(item)
+        return merged
 
     def _wrap_results(
         self,
