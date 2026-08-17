@@ -501,6 +501,74 @@ counts in the statistics block, not the length of the printed list — the info 
 
 ---
 
+## `:OWNS` Writers That Skip `user_uid` (the staged attendee/gravity surface)
+
+Surfaced 2026-08-16 while closing the CRUD-door half of the `user_uid property == :OWNS owner`
+invariant. **Not a live bug — a tripwire for whoever wires the staged surface.**
+
+`UnifiedRelationshipService.create_user_relationship` writes the domain's
+`ownership_relationship` (`:OWNS` for every OWNER_ONLY domain) and **never touches the
+`user_uid` property**. Five methods call it, and all five are registered in `PLANNED_METHODS`
+(`scripts/detect_bloat.py`) — zero production callers today:
+
+| Method | File |
+|---|---|
+| `add_attendee` | `core/services/events/_orchestration_mixin.py` |
+| `create_user_event_relationship` | `core/services/events/_orchestration_mixin.py` |
+| `create_user_goal_relationship` | `core/services/goals_service.py` |
+| `create_user_habit_relationship` | `core/services/habits/_orchestration_mixin.py` |
+| `create_user_principle_relationship` | `core/services/principles/_gravity_mixin.py` |
+
+`add_attendee` is the sharp one: it would give an attendee an `:OWNS` edge onto an Event whose
+`user_uid` is the *organiser*. Faceted search anchors on the edge, so the attendee would see
+another user's Event; the property-scoped strategies would not. That is an ownership edge doing
+a *participation* job — `:OWNS` is the wrong relationship for "attends", and the fix when this
+surface is wired is most likely a distinct edge (`ATTENDS`/`PARTICIPATES_IN`), not a second
+ownership writer.
+
+**Enable when**: the attendee surface or any of the four gravity-link methods is wired. Whoever
+does it must decide the relationship *before* the first write — a wrong edge in the graph
+outlives the PR that wrote it.
+
+**Check it is still latent**: each of the five must still have no production caller.
+```bash
+git grep -n "add_attendee\|create_user_goal_relationship\|create_user_habit_relationship\|create_user_principle_relationship\|create_user_event_relationship" -- '*.py' | grep -v '^tests/\|^scripts/'
+```
+
+---
+
+## `User.uid` Has No Index or Constraint
+
+Surfaced 2026-08-16 by the same investigation, measured against the live AuraDB.
+
+`:User` carries exactly two indexes — `User_email_unique` (uniqueness on `email`) and
+`User_pairing_code_hash_idx`. **There is no index or constraint on `User(uid)`**, and
+`neo4j_schema_manager.py`'s auth-index sync never creates one. Meanwhile **290 unique lines** of
+`adapters/persistence/` Cypher do `MATCH (…:User {uid: $…})` — every one a label scan over
+`:User`.
+
+Invisible at 6 users. It is also *why* an `EXPLAIN` of the edge-anchored ownership plan
+(`MATCH (user:User {uid:$uid})-[:OWNS]->(entity)`) shows `NodeByLabelScan user:User` where the
+property-scoped plan gets a `NodeIndexSeek` — so this is a live input to any future ruling that
+would move ownership reads onto the edge.
+
+**Open question, not a mechanical add:** index or *uniqueness constraint*? `uid` reads as an
+identity key (`user_<name>`), so a constraint is likely right and doubles as the index — but it
+will fail to build if any duplicate `uid` exists, and that is a data question to check first.
+
+**Enable when**: user count grows past a handful, or any ruling moves ownership reads onto the
+`:OWNS` edge — whichever comes first. Cheap and independent either way.
+
+```bash
+# check for duplicates before choosing a constraint
+# MATCH (u:User) WITH u.uid AS uid, count(*) AS c WHERE c > 1 RETURN uid, c
+```
+
+⚠️ **Counting trap** if you re-measure the call sites: the f-string spelling (`User {{uid:`) and
+the plain spelling (`User {uid:`) are disjoint substrings. Grepping one undercounts by ~2×.
+
+---
+
 ## Review Schedule
 
 Review this document at the **September 2026 quarterly review**. Checklist:
@@ -527,6 +595,8 @@ Review this document at the **September 2026 quarterly review**. Checklist:
 | Tasks/Events edge-clear on edit (`""` → None) | Next touch of the Tasks/Events edit forms | Ride-along; re-verify the bug still reproduces first |
 | Skill↔doc backlink reconciliation | Docs-taxonomy pass — ruling needed per warning, not a rote edit | `uv run python scripts/validate_cross_references.py --verbose` |
 | Drifted `## Related Skills` body sections (3 of 35) | Next `docs/patterns` sweep already touching these files | `uv run python scripts/sync_cross_references.py --all --dry-run` |
+| `:OWNS` writers that skip `user_uid` (staged attendee/gravity surface) | Wiring `add_attendee` or any of the 4 gravity-link methods | Ruling needed on the edge type first — see the section |
+| `User.uid` unindexed | User count past a handful, or a ruling moving ownership reads onto the `:OWNS` edge | `SHOW INDEXES` — no `User(uid)` entry today |
 
 **The document is the checklist, the table is a convenience:** a section added to this file
 without a matching row here is still in review scope — walk every `##` section, then the table.

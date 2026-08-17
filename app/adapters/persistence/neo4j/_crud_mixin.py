@@ -17,8 +17,7 @@ Provides:
 Requires on concrete class:
     driver, logger, entity_class, label, default_filters, _create_labels,
     query_builder, prometheus_metrics, _track_db_metrics, _default_filter_clause,
-    _default_filter_params, _inject_default_filters, _is_driver_closed,
-    create_user_relationship
+    _default_filter_params, _inject_default_filters, _is_driver_closed
 """
 
 from __future__ import annotations
@@ -30,7 +29,7 @@ from typing import TYPE_CHECKING, Any
 from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node, to_neo4j_node
 from core.models.protocols import DomainModelProtocol
 from core.models.relationship_names import RelationshipName
-from core.models.type_hints import EntityUID, FilterParams, Neo4jProperties, UserUID
+from core.models.type_hints import FilterParams, Neo4jProperties, UserUID
 from core.utils.error_boundary import safe_backend_operation
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.result_simplified import Errors, Result
@@ -65,7 +64,6 @@ class _CrudMixin[T: DomainModelProtocol]:
         _default_filter_params: method
         _inject_default_filters: method
         _is_driver_closed: method
-        create_user_relationship: async method (from _UserEntityMixin)
     """
 
     if TYPE_CHECKING:
@@ -107,14 +105,6 @@ class _CrudMixin[T: DomainModelProtocol]:
 
         async def count(self, **filters: Any) -> Result[int]: ...
 
-        async def create_user_relationship(
-            self,
-            user_uid: UserUID,
-            entity_uid: EntityUID,
-            relationship_type: RelationshipName | None = None,
-            metadata: dict[str, Any] | None = None,
-        ) -> Result[bool]: ...
-
     # ============================================================================
     # UNIVERSAL CRUD - WORKS FOR ANY ENTITY TYPE
     # ============================================================================
@@ -133,10 +123,22 @@ class _CrudMixin[T: DomainModelProtocol]:
 
         Serializes the entity, CREATEs the multi-label node, optionally wraps
         it with a caller-supplied MATCH prefix / extra Cypher (e.g. the
-        SPAWNED_FROM edge), auto-creates the OWNS relationship when the entity
-        carries a user_uid (warning-only on failure), and tracks metrics under
-        ``operation``. Exceptions propagate to the callers'
+        SPAWNED_FROM edge), and — when the entity carries a ``user_uid`` —
+        writes the ``(User)-[:OWNS]->(entity)`` edge in the SAME statement, so
+        node and owner edge commit together or not at all. Metrics are tracked
+        under ``operation``; exceptions propagate to the callers'
         @safe_backend_operation decorators.
+
+        The owner is ``MATCH``ed, so a ``user_uid`` naming a user that does not
+        exist fails the create rather than persisting a node no owner-scoped
+        read can reach. This is what holds the ``user_uid property == :OWNS
+        owner`` invariant on the CRUD door; the ingestion door holds the same
+        invariant in ``build_node_upsert_template``. The halves must not be
+        separable: a property-only node stays visible to property-scoped reads
+        (text search, ``find_by(user_uid=…)``) while vanishing from every
+        :OWNS-traversing read (faceted search, ``get_user_entities``, the GDPR
+        cascade) — which is how a 2026-07 ingest batch left an owner's own
+        Principles absent from ``/search``.
         """
         start_time = time.time()
         node_data = to_neo4j_node(entity)
@@ -144,43 +146,50 @@ class _CrudMixin[T: DomainModelProtocol]:
         # Ensure default_filter properties are set on new nodes (e.g., entity_type)
         node_data.update(self.default_filters)
 
-        # Extract user_uid if present (for auto-relationship creation)
+        # Owner edge — composed into THIS statement rather than a follow-up
+        # query. Edge properties mirror create_user_relationship's defaults so
+        # both write doors store the same shape.
         user_uid = node_data.get("user_uid")
+        owner_match = ""
+        owns_clause = ""
+        owns_params: Neo4jProperties = {}
+        if user_uid:
+            owner_match = "MATCH (owner:User {uid: $owns_owner_uid})"
+            owns_clause = f"""
+        MERGE (owner)-[owns:{RelationshipName.OWNS.value}]->(n)
+        ON CREATE SET
+            owns.created_at = $owns_timestamp,
+            owns.last_accessed = $owns_timestamp,
+            owns.access_count = 0,
+            owns.is_active = true"""
+            owns_params = {
+                "owns_owner_uid": user_uid,
+                "owns_timestamp": datetime.now().isoformat(),
+            }
 
         query = f"""
         {match_clause}
+        {owner_match}
         CREATE (n:{self._create_labels})
         SET n = $props
         {extra_cypher}
+        {owns_clause}
         RETURN n
         """
 
-        record = await self._run_single(query, {"props": node_data, **(params or {})})
+        record = await self._run_single(
+            query, {"props": node_data, **owns_params, **(params or {})}
+        )
 
         if not record:
             # Track error metrics
             self._track_db_metrics(operation, time.time() - start_time, is_error=True)
-            return Result.fail(
-                Errors.database(operation, failure_message or f"Failed to create {self.label}")
-            )
+            default_message = f"Failed to create {self.label}"
+            if user_uid:
+                default_message += f" (owner {user_uid} must be an existing User)"
+            return Result.fail(Errors.database(operation, failure_message or default_message))
 
         created = from_neo4j_node(dict(record["n"]), self.entity_class)
-
-        # Auto-create user relationship if user_uid exists
-        if user_uid:
-            rel_result = await self.create_user_relationship(
-                user_uid=user_uid,
-                entity_uid=EntityUID(created.uid),
-                relationship_type=RelationshipName.OWNS,
-            )
-
-            if rel_result.is_error:
-                self.logger.warning(
-                    f"Created {self.label} {created.uid} but failed to create user relationship: {rel_result.error}"
-                )
-                # Don't fail the entire create operation - entity was created successfully
-            else:
-                self.logger.debug(f"Auto-created OWNS relationship for {self.label} {created.uid}")
 
         # Track metrics
         self._track_db_metrics(operation, time.time() - start_time, is_error=False)
@@ -192,8 +201,10 @@ class _CrudMixin[T: DomainModelProtocol]:
         """
         Create any entity type.
 
-        AUTO-CREATES USER RELATIONSHIP: If entity has user_uid field,
-        automatically creates (User)-[:OWNS]->(Entity) relationship.
+        AUTO-CREATES USER RELATIONSHIP: If entity has a user_uid field, the
+        (User)-[:OWNS]->(Entity) edge is written in the same statement as the
+        node — both or neither. A user_uid naming a non-existent User fails
+        the create; see ``_create_node`` for why the halves are inseparable.
 
         Multi-label CREATE: When base_label is set, creates nodes with
         dual labels: ``(n:Entity:Task)``.
@@ -210,8 +221,9 @@ class _CrudMixin[T: DomainModelProtocol]:
         There is no parallel ``template_uid`` property on the node; the edge
         is THE relationship.
 
-        Like ``create()``, auto-creates ``(User)-[:OWNS]->(entity)`` if the
-        entity carries a ``user_uid`` (warning-only on failure).
+        Like ``create()``, writes ``(User)-[:OWNS]->(entity)`` in the same
+        statement when the entity carries a ``user_uid`` — so node, template
+        edge and owner edge all commit together or not at all.
         """
         return await self._create_node(
             entity,

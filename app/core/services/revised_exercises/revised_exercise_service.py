@@ -185,10 +185,12 @@ class RevisedExerciseService(BaseService):
 
         uid = enriched.uid
 
-        # Create OWNS relationship (teacher → revised_exercise)
-        owns_result = await self.backend.create_owns_relationship(teacher_uid, uid)
-        if owns_result.is_error:
-            self.logger.warning(f"Failed to create OWNS relationship: {owns_result.error}")
+        # The (teacher)-[:OWNS]->(revised_exercise) edge is already written, in the
+        # same statement as the node: RevisedExercise is a UserOwnedEntity and
+        # ``teacher_uid`` IS ``entity.user_uid`` (bound above), so the CRUD door's
+        # owner write covers it. A second create_owns_relationship() call here would
+        # MERGE the identical edge — a redundant round-trip, and a warning-only one
+        # that made the load-bearing write look optional.
 
         # Create RESPONDS_TO_REPORT relationship
         feedback_result = await self.backend.link_to_report(uid, enriched.report_uid)

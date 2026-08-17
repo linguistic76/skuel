@@ -36,7 +36,6 @@ def _make_entity(**overrides: object) -> RevisedExercise:
 def mock_backend():
     backend = AsyncMock()
     backend.verify_teacher_authority = AsyncMock()
-    backend.create_owns_relationship = AsyncMock()
     backend.auto_share_with_student = AsyncMock()
     backend.list_for_student = AsyncMock()
     backend.create = AsyncMock()
@@ -126,7 +125,6 @@ class TestCreateRevisedExerciseAccessControl:
         mock_backend.verify_teacher_authority.return_value = Result.ok(
             [{"submission_uid": "sub_123"}]
         )
-        mock_backend.create_owns_relationship.return_value = Result.ok(True)
         mock_backend.auto_share_with_student.return_value = Result.ok(True)
         mock_backend.get_next_revision_number.return_value = Result.ok(1)
         mock_backend.create.return_value = Result.ok(AsyncMock(uid="re_test_abc"))
@@ -149,7 +147,6 @@ class TestCreateRevisedExerciseAccessControl:
         mock_backend.verify_teacher_authority.return_value = Result.ok(
             [{"submission_uid": "sub_123"}]
         )
-        mock_backend.create_owns_relationship.return_value = Result.ok(True)
         mock_backend.auto_share_with_student.return_value = Result.ok(True)
         mock_backend.get_next_revision_number.return_value = Result.ok(1)
         mock_backend.create.return_value = Result.ok(AsyncMock(uid="re_test_abc"))

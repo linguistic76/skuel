@@ -117,6 +117,24 @@ async def ensure_test_users(neo4j_driver):
         "user_test_learning",
         "user_discovery",
         "user_test_perf",
+        # Per-domain core-operations suites. These became REQUIRED when the CRUD
+        # door started writing the (User)-[:OWNS]->(entity) edge in the same
+        # statement as the node: an entity owned by a user that does not exist
+        # is the exact shape that used to diverge the two OWNER_ONLY read
+        # mechanisms, so `create` now refuses it instead of leaving an orphan.
+        # A new test that creates owned entities must add its uid here — the
+        # failure names the missing owner.
+        "test_user",
+        "user_test_tasks_core",
+        "user_test_goals_core",
+        "user_test_habits_core",
+        "user_test_events_core",
+        "user_test_choices_core",
+        "user_test_principles_core",
+        "user_test_async_embeddings",
+        "user_intent_pipeline",
+        "user_cascade",
+        "user_other",
     ]
 
     async def create_users():

@@ -94,11 +94,16 @@ async def test_create_interaction_direct(
     clean_neo4j,
     interaction_service: InteractionService,
     neo4j_driver,
+    seed_user,
 ) -> None:
     """Layer isolation: InteractionService.create_interaction against real Neo4j."""
     from core.models.enums.entity_enums import EntityType
     from core.models.enums.interaction_enums import InteractionType
     from core.utils.uid_generator import UIDGenerator
+
+    # An Interaction is user-owned, so its owner must exist: the CRUD door
+    # writes the :OWNS edge in the same statement as the node.
+    await seed_user("user_ue_student")
 
     ia = Interaction(
         uid=UIDGenerator.generate_random_uid("ia"),

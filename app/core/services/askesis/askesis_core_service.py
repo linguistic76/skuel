@@ -253,13 +253,19 @@ class AskesisCoreService:
         """
         Delete an Askesis instance.
 
+        ``cascade=True`` because an Askesis is user-owned: it always carries at
+        least the ``(User)-[:OWNS]->(askesis)`` edge, and a non-cascade delete
+        refuses any node that still has relationships. Matches every other
+        owned-entity delete (Choices, Forms, Groups, Tasks, UserEntry) and the
+        route factory's G18 rule.
+
         Args:
             askesis_uid: Askesis UID
 
         Returns:
             Result indicating success
         """
-        result = await self.backend.delete(askesis_uid)
+        result = await self.backend.delete(askesis_uid, cascade=True)
         if result.is_error:
             return Result.fail(result)
 

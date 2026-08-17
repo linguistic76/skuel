@@ -1849,12 +1849,6 @@ class RevisedExerciseBackendOperations(BackendOperations["RevisedExercise"], Pro
         student_uid: str,
     ) -> Result[list[Neo4jProperties]]: ...
 
-    async def create_owns_relationship(
-        self,
-        teacher_uid: str,
-        re_uid: str,
-    ) -> Result[list[Neo4jProperties]]: ...
-
     async def auto_share_with_student(
         self,
         student_uid: str,
