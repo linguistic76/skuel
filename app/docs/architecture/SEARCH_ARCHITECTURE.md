@@ -640,7 +640,11 @@ merged order would fall to iteration order, and the difference between "ranked f
 both halves" and "ranked first by one" — twice the raw score — would be erased.
 
 **Fallback:** ineligible, empty, or failed → `[]`, and Strategy 3 runs the domain's
-`CONTAINS` search unchanged. The rung can never make a working search worse.
+`CONTAINS` search unchanged — so a search that returns nothing from the rung is never
+worse off. The fallback is **all-or-nothing, not per-result**: a *partial* hybrid
+result returns early, so any substring match `CONTAINS` would have found is dropped
+(the `run` / "Running technique" case above). Widening the fallback to fire on thin
+results, not only empty ones, is part of the D1(b) follow-on.
 
 **Match attribution is derived, never assumed.** `hybrid_search` returns
 `HybridSearchHit` (`core/ports/query_types.py`), which reports `matched_vector` /

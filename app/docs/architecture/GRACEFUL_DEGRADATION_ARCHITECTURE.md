@@ -144,6 +144,11 @@ When AI is disabled, no worker exists and ingestion publishes nothing (its `even
 # Every other case — CORE tier, or any other domain:
 #   case-INSENSITIVE CONTAINS (the fulltext indexes exist but have no reader here).
 #   The rung adds relevance ranking and vector recall, NOT case-insensitivity.
+#
+# One exception, off every search surface: the BACKEND _SearchMixin.search is
+# case-SENSITIVE. Its only production caller is PsAiService.search_by_semantic_query's
+# embedding-failure fallback (FULL tier only — .ai is None in CORE), so it is reached
+# by neither /search nor /api/search/unified.
 ```
 
 ## Five Gating Points
