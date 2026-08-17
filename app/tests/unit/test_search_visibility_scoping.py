@@ -45,7 +45,7 @@ from core.models.task.task import Task
 from core.orchestrator.search_router import SearchRouter
 from core.services.domain_config import DomainConfig
 from core.utils.result_simplified import Result
-from tests.helpers.faceted_capture import run_faceted
+from tests.helpers.faceted_capture import CapturedQuery, run_faceted
 
 # ============================================================================
 # 1. Clause builder
@@ -354,7 +354,7 @@ class TestFacetedPathComposesTheClause:
 
     @pytest.mark.asyncio
     async def test_owner_only_emits_the_property_predicate_not_an_owns_match(self) -> None:
-        store: dict[str, Any] = {}
+        store: CapturedQuery = {}
         await run_faceted(
             store,
             user_uid="user_alice",
@@ -383,7 +383,7 @@ class TestFacetedPathComposesTheClause:
         (``graph_aware_faceted_search``); this asserts the structural floor
         underneath it, because that gate is not the only way in.
         """
-        store: dict[str, Any] = {}
+        store: CapturedQuery = {}
         await run_faceted(
             store,
             user_uid=None,
@@ -406,7 +406,7 @@ class TestFacetedPathComposesTheClause:
         WHERE — the primary /api/explore/search catalogue listed draft
         curriculum while search and the listing withheld it.
         """
-        store: dict[str, Any] = {}
+        store: CapturedQuery = {}
         await run_faceted(store, visibility=SearchVisibility.PUBLIC)
 
         assert "publication_state" in store["query"]
@@ -415,7 +415,7 @@ class TestFacetedPathComposesTheClause:
     @pytest.mark.asyncio
     async def test_scope_aware_keeps_its_sharing_fragment(self) -> None:
         """Exercise is unaffected: it keys on ``owner_uid``, not ``user_uid``."""
-        store: dict[str, Any] = {}
+        store: CapturedQuery = {}
         await run_faceted(
             store,
             user_uid="user_alice",
