@@ -10,7 +10,6 @@ from datetime import date
 import pytest
 
 from adapters.persistence.neo4j.query import UnifiedQueryBuilder, query
-from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
 from core.models.task.task import Task as Task
 
 
@@ -110,77 +109,6 @@ class TestModelQueryBuilder:
         assert "ORDER BY" in cypher
 
 
-class TestSemanticQueryBuilder:
-    """Tests for semantic relationship queries."""
-
-    def test_semantic_context_build(self):
-        """Test building semantic context query."""
-        cypher, params = (
-            query()
-            .semantic("ku.python_basics")
-            .traverse(
-                types=[
-                    SemanticRelationshipType.REQUIRES_THEORETICAL_UNDERSTANDING,
-                    SemanticRelationshipType.BUILDS_MENTAL_MODEL,
-                ]
-            )
-            .depth(3)
-            .min_confidence(0.8)
-            .build()
-        )
-
-        assert "MATCH" in cypher
-        assert params.get("uid") == "ku.python_basics"
-        assert params.get("min_confidence") == 0.8
-
-    def test_prerequisites_build(self):
-        """Test building prerequisite chain query."""
-        cypher, params = (
-            query()
-            .semantic("ku.advanced_python")
-            .prerequisites()  # Changes query type
-            .traverse(types=[SemanticRelationshipType.REQUIRES_PRACTICAL_APPLICATION])
-            .depth(5)
-            .build()
-        )
-
-        assert "MATCH" in cypher
-        assert params.get("uid") == "ku.advanced_python"
-        # Prerequisites use different pattern than context
-
-    def test_path_finding_build(self):
-        """Test building shortest path query."""
-        cypher, params = (
-            query()
-            .semantic("ku.python_basics")
-            .path_to("ku.async_programming")
-            .traverse(types=[SemanticRelationshipType.PROVIDES_FOUNDATION_FOR])
-            .depth(5)
-            .build()
-        )
-
-        assert "shortestPath" in cypher or "MATCH" in cypher
-        assert params.get("start_uid") == "ku.python_basics"
-        assert params.get("end_uid") == "ku.async_programming"
-
-    def test_semantic_type_conversion(self):
-        """Semantic types resolve to their coarse RelationshipName edge (roadmap Phase 1).
-
-        `learn:requires_theoretical_understanding` collapses onto REQUIRES_KNOWLEDGE;
-        the precise predicate lives in the `semantic_type` edge property, not the
-        traversal pattern.
-        """
-        cypher, _params = (
-            query()
-            .semantic("test.uid")
-            .traverse(types=[SemanticRelationshipType.REQUIRES_THEORETICAL_UNDERSTANDING])
-            .build()
-        )
-
-        # Should contain the canonical RelationshipName edge, not the semantic URI.
-        assert "REQUIRES_KNOWLEDGE" in cypher
-
-
 # TestBatchQueryBuilder removed - Pure Cypher migration (October 20, 2025)
 # Batch operations now use Pure Cypher UNWIND patterns instead of APOC
 
@@ -196,25 +124,6 @@ class TestUnifiedQueryBuilder:
 
         assert isinstance(builder, ModelQueryBuilder)
         assert builder.model == Task
-
-    def test_semantic_returns_semantic_builder(self):
-        """Test that semantic returns SemanticQueryBuilder."""
-        builder = UnifiedQueryBuilder().semantic("test.uid")
-
-        from adapters.persistence.neo4j.query.unified_query_builder import SemanticQueryBuilder
-
-        assert isinstance(builder, SemanticQueryBuilder)
-        assert builder.uid == "test.uid"
-
-    def test_template_returns_template_builder(self):
-        """Test that template returns TemplateQueryBuilder."""
-        # Use a valid template name that exists in the default templates
-        builder = UnifiedQueryBuilder().template("get_by_uid")
-
-        from adapters.persistence.neo4j.query.unified_query_builder import TemplateQueryBuilder
-
-        assert isinstance(builder, TemplateQueryBuilder)
-        assert builder.template_name == "get_by_uid"
 
     def test_convenience_factory(self):
         """Test convenience factory function."""
@@ -243,24 +152,12 @@ class TestUnifiedQueryBuilder:
 class TestApiClarity:
     """Tests that demonstrate API clarity improvements."""
 
-    def test_no_decision_matrix_needed(self):
-        """Test that API is self-documenting."""
-        # Before: Need to decide between the cypher/ builders and QueryBuilder
-        # After: API tells you what to do
-
+    def test_entry_point_is_self_documenting(self):
+        """for_model() names what it does — no decision matrix needed."""
         builder = UnifiedQueryBuilder()
 
-        # For model queries - obvious
         model_builder = builder.for_model(Task)
         assert model_builder is not None
-
-        # For semantic queries - obvious
-        semantic_builder = builder.semantic("uid")
-        assert semantic_builder is not None
-
-        # For templates - obvious (use a valid template name)
-        template_builder = builder.template("get_by_uid")
-        assert template_builder is not None
 
     def test_type_safety(self):
         """Test that generic types work correctly."""

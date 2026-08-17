@@ -28,8 +28,6 @@ def _create_learning_services(
     activity_knowledge_intelligence: Any = None,
 ) -> dict[str, Any]:
     """Create all learning-related services using 100% dynamic backends."""
-    from adapters.persistence.neo4j.query_builders import QueryBuilder
-    from adapters.persistence.neo4j.schema_service import Neo4jSchemaService
     from core.models.pathways.learning_path import LearningPath
     from core.services.lp_service import LpService  # Intelligence created internally
     from core.services.ps_service import PsService
@@ -89,10 +87,6 @@ def _create_learning_services(
     # NOTE: LpIntelligenceService now created internally by LpService (January 2026)
     # See LpService.__init__ for intelligence creation pattern (unified with other domains)
 
-    # Create query builder
-    schema_service = Neo4jSchemaService(driver)
-    query_builder = QueryBuilder(schema_service)
-
     # Create atomic Ku service (lightweight ontology/reference nodes)
     from core.services.ku_service import KuService
 
@@ -123,7 +117,6 @@ def _create_learning_services(
         # Content and search dependencies
         ku_backend=atomic_ku_backend,
         chunking_service=chunking_service,
-        query_builder=query_builder,  # QueryBuilder is now REQUIRED
         user_service=user_service,  # KU-Activity Integration
         vector_search_service=vector_search_service,  # GenAI vector search
         embeddings_service=embeddings_service,  # EmbeddingClientOperations-backed (ADR-068)

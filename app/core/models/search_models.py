@@ -5,8 +5,7 @@ Search Boundary Models
 Pydantic request models and DTOs for cross-domain search infrastructure.
 
 Previously misplaced in core/models/transcription/ — relocated here
-because these are generic search models used by QueryBuilder, Askesis,
-and FacetedQueryBuilder with zero transcription coupling.
+because these are generic search models with zero transcription coupling.
 """
 
 from dataclasses import dataclass, field

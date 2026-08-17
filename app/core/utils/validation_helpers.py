@@ -36,7 +36,9 @@ if TYPE_CHECKING:
 _SAFE_FIELD_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
 
 # Operators safe to interpolate into Cypher comparison fragments.
-# Must match QueryConstraint.operator values used by query_optimizer + cypher fragment builders.
+# Operators the cypher/ fragment builders may interpolate. Kept as the allowlist
+# any future fragment builder must validate against before interpolating a caller
+# value (the query_optimizer that used to consume it was deleted 2026-08-17).
 _SAFE_CYPHER_OPERATORS = frozenset(
     {
         "=",

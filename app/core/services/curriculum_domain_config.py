@@ -42,7 +42,7 @@ from core.services.ku.ku_search_service import KuSearchService
 from core.services.relationships import UnifiedRelationshipService
 
 if TYPE_CHECKING:
-    from core.ports import EventBusOperations, QueryBuilderOperations
+    from core.ports import EventBusOperations
     from core.services.lp.lp_core_service import LpCoreService
     from core.services.lp.lp_intelligence_service import LpIntelligenceService
     from core.services.lp.lp_progress_service import LpProgressService
@@ -135,7 +135,6 @@ def create_ps_sub_services(
     backend: Any,
     _chunking_service: Any | None,
     graph_intel: Any,
-    _query_builder: "QueryBuilderOperations | None",
     event_bus: "EventBusOperations | None",
     _executor: Any | None = None,
     user_service: Any | None = None,
@@ -149,7 +148,7 @@ def create_ps_sub_services(
     1. UnifiedRelationshipService (backend, config, graph_intel)
     2. PsIntelligenceService (backend, graph_intel, relationships, user_service)
     3. PsCoreService (backend, event_bus)
-    4. PsSearchService (backend, intelligence, query_builder, vector_search, embeddings)
+    4. PsSearchService (backend)
     5. PsGraphService (repo, graph_intel)
     6. PsSemanticService (repo, intelligence)
     7. PsPracticeService (backend, event_bus)

@@ -1,32 +1,26 @@
 """
-Hardening: field-key validation in query optimizer + unified query builder
-==========================================================================
+Hardening: field-key validation in the Cypher-fragment allowlists
+=================================================================
 
 Closes 2026-05-26 security audit item #3 ("field-key validation gaps in
 optimization/builder layers — not exploitable today"). Every value
 interpolated into a Cypher fragment (property name, comparison operator,
-sort direction) now passes through an allowlist before it can reach the
-plan-builders.
+sort direction) passes through an allowlist before it can reach a builder.
 
 Today's callers are all internal and pass trusted values. The audit's
 "not exploitable today" classification holds. These tests guard the latent
-seam — any future caller that hands user input straight to QueryConstraint
-or QuerySort is rejected at `_validate_request`, not interpolated.
+seam — any future caller that hands user input to a fragment builder is
+rejected by the allowlist, not interpolated.
+
+The `QueryOptimizer._validate_request` half of this file went with the
+`query_builders/` package (2026-08-17). The allowlist predicates and
+`ModelQueryBuilder.filter`'s silent-drop policy below are live.
 """
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 
-import pytest
-
-from adapters.persistence.neo4j.query import (
-    QueryBuildRequest,
-    QueryConstraint,
-    QuerySort,
-)
-from adapters.persistence.neo4j.query_builders.query_optimizer import QueryOptimizer
-from core.utils.result_simplified import Result
 from core.utils.validation_helpers import (
     validate_cypher_operator,
     validate_field_name,
@@ -95,96 +89,6 @@ class TestValidateSortDirection:
         assert validate_sort_direction("ASC; DROP TABLE") is False
         assert validate_sort_direction("--") is False
         assert validate_sort_direction("") is False
-
-
-# ----------------------------------------------------------------------------
-# QueryOptimizer._validate_request gate
-# ----------------------------------------------------------------------------
-
-
-def _make_optimizer(node_labels: set[str] | None = None) -> QueryOptimizer:
-    """Build a QueryOptimizer whose schema service returns a schema with the given labels."""
-    schema = MagicMock()
-    schema.node_labels = node_labels or {"Task", "Goal"}
-    schema.constraints = []
-    schema.indexes = []
-
-    schema_service = MagicMock()
-    schema_service.get_schema_context = AsyncMock(return_value=Result.ok(schema))
-    return QueryOptimizer(schema_service)
-
-
-@pytest.mark.asyncio
-async def test_well_formed_request_passes():
-    opt = _make_optimizer()
-    req = QueryBuildRequest(
-        labels={"Task"},
-        constraints=[QueryConstraint(property_name="priority", operator="=", value="high")],
-        sort_by=[QuerySort(property_name="due_date", direction="DESC")],
-    )
-
-    result = await opt.build_optimized_query(req)
-
-    assert not result.is_error, result.expect_error() if result.is_error else ""
-
-
-@pytest.mark.asyncio
-async def test_rejects_unsafe_constraint_property():
-    opt = _make_optimizer()
-    req = QueryBuildRequest(
-        labels={"Task"},
-        constraints=[
-            QueryConstraint(property_name="priority; DROP CONSTRAINT", operator="=", value="x")
-        ],
-    )
-
-    result = await opt.build_optimized_query(req)
-
-    assert result.is_error
-    err = result.expect_error()
-    assert err.details["field"] == "constraint_property"
-
-
-@pytest.mark.asyncio
-async def test_rejects_unknown_constraint_operator():
-    opt = _make_optimizer()
-    req = QueryBuildRequest(
-        labels={"Task"},
-        constraints=[QueryConstraint(property_name="priority", operator="INJECT", value="x")],
-    )
-
-    result = await opt.build_optimized_query(req)
-
-    assert result.is_error
-    assert result.expect_error().details["field"] == "constraint_operator"
-
-
-@pytest.mark.asyncio
-async def test_rejects_unsafe_sort_property():
-    opt = _make_optimizer()
-    req = QueryBuildRequest(
-        labels={"Task"},
-        sort_by=[QuerySort(property_name="due_date; --", direction="ASC")],
-    )
-
-    result = await opt.build_optimized_query(req)
-
-    assert result.is_error
-    assert result.expect_error().details["field"] == "sort_property"
-
-
-@pytest.mark.asyncio
-async def test_rejects_unsafe_sort_direction():
-    opt = _make_optimizer()
-    req = QueryBuildRequest(
-        labels={"Task"},
-        sort_by=[QuerySort(property_name="due_date", direction="ASC; DROP CONSTRAINT")],
-    )
-
-    result = await opt.build_optimized_query(req)
-
-    assert result.is_error
-    assert result.expect_error().details["field"] == "sort_direction"
 
 
 # ----------------------------------------------------------------------------

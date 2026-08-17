@@ -160,20 +160,12 @@ tier (`scripts/detect_bloat.py:512–520`); `get_habit_analytics` itself is not 
 
 ---
 
-## Group D — Neo4j Adapter Stubs
+## Group D — Neo4j Adapter Stubs *(RESOLVED 2026-08-17)*
 
-These are declared on the adapter but have no body beyond a docstring.
-
-| File | Line | Method | Parameter | Notes |
-|------|------|--------|-----------|-------|
-| `adapters/persistence/neo4j_adapter.py` | 209 | `bootstrap_indexes()` | `_force: bool = False` | Docstring (217): "Reserved for future use" |
-
-**Intent not recoverable.** The obvious reading — "skip creation when the indexes already exist" —
-is already the behaviour: every constraint and index statement in the method body carries
-`IF NOT EXISTS` (verified across 209–345; no bare `CREATE`), so the server no-ops on a second run.
-Nothing in the tree states what `_force` was reserved to switch. Delete the parameter or
-re-specify it — do not guess, and do not implement the docstring's literal reading, which the DDL
-already provides.
+`Neo4jAdapter.bootstrap_indexes(_force=...)` was the only row here. **Resolved by deletion:**
+the whole method went with the `query_builders/` decommission (PR #1081) — its DDL had never run
+against AuraDB and it had no production caller. The `_force` parameter whose intent was
+"not recoverable" no longer needs a ruling.
 
 ---
 
