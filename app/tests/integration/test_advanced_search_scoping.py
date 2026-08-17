@@ -17,7 +17,8 @@ Coverage:
   PERSONAL owner-only, ASSIGNED reachable through group membership
   (MEMBER_OF + SHARED_WITH_GROUP) — ADR-038/040 semantics.
 - Faceted single-domain exercise path honors the same matrix (the
-  pre-existing OWNS-only seam hid CURRICULUM exercises entirely).
+  pre-existing OWNS-only seam hid CURRICULUM exercises entirely), and the
+  faceted OWNER_ONLY path is cross-user scoped like the other strategies.
 """
 
 from __future__ import annotations
@@ -236,6 +237,166 @@ async def test_no_user_fails_closed_for_user_owned_domains(
     result = await search_router.advanced_search(request)
     assert result.is_ok, result.expect_error()
     assert result.value.total_count == 0
+
+
+@pytest.mark.asyncio
+async def test_faceted_strategy_is_owner_scoped(
+    clean_neo4j, neo4j_driver, tasks_service, search_router
+) -> None:
+    """The faceted path is owner-scoped like every other strategy.
+
+    It is the last one to get here: OWNER_ONLY used to anchor on
+    ``(User)-[:OWNS]->(entity)`` in ``faceted_search_raw`` rather than compose
+    ``build_search_visibility_clause``, so it was the one strategy whose answer
+    could differ from the rest on a graph where property and edge disagreed.
+    """
+    await _seed_users_and_group(neo4j_driver)
+    created = await _seed_tasks(neo4j_driver, tasks_service)
+
+    # Ungated control: both rows exist and match the text, so a scoped
+    # assertion below can actually fail.
+    async with neo4j_driver.session() as session:
+        result = await session.run(
+            "MATCH (t:Task) WHERE toLower(t.title) CONTAINS 'aurora' RETURN t.uid AS uid"
+        )
+        assert {record["uid"] async for record in result} == {
+            created["owner_task"],
+            created["stranger_task"],
+        }
+
+    request = SearchRequest(query_text="Aurora", entity_types=[EntityType.TASK])
+    faceted = await search_router.faceted_search(request, user_uid=STRANGER)
+    assert faceted.is_ok, faceted.expect_error()
+    uids = {r.get("uid") for r in faceted.value.results}
+    assert created["stranger_task"] in uids  # positive control
+    assert created["owner_task"] not in uids
+
+
+@pytest.mark.asyncio
+async def test_faceted_no_user_fails_closed_for_user_owned_domains(
+    clean_neo4j, neo4j_driver, tasks_service, search_router
+) -> None:
+    """An anonymous faceted call over an OWNER_ONLY domain yields nothing.
+
+    Three independent floors have to hold for this:
+
+    1. ``_graph_aware_domain_search`` admits anonymous callers for PUBLIC
+       domains only;
+    2. ``search()`` refuses an OWNER_ONLY domain with no user, so the
+       cross-domain fallback below it contributes nothing;
+    3. and if a caller ever reaches the backend directly, the emitted
+       ``entity.user_uid = $user_uid`` predicate is null on a null parameter
+       and matches no row (``test_faceted_null_user_fails_closed``).
+
+    Floor 2 was missing: an anonymous single-domain faceted call fell through
+    ``_graph_aware_domain_search`` → ``_simple_domain_search`` (no "tasks"
+    entry) → ``_cross_domain_search`` → the scored text sweep → ``search()``
+    with no uid → no ownership clause → every user's rows. See
+    ``test_anonymous_library_route_request_cannot_read_user_owned_rows`` for
+    the public route that reached it.
+    """
+    await _seed_users_and_group(neo4j_driver)
+    await _seed_tasks(neo4j_driver, tasks_service)
+
+    request = SearchRequest(query_text="Aurora", entity_types=[EntityType.TASK])
+    result = await search_router.faceted_search(request, user_uid=None)
+    assert result.is_ok, result.expect_error()
+    assert result.value.results == []
+
+
+@pytest.mark.asyncio
+async def test_anonymous_library_route_request_cannot_read_user_owned_rows(
+    clean_neo4j, neo4j_driver, tasks_service, search_router
+) -> None:
+    """The reachability half: /api/explore/search builds this request from ?type=.
+
+    ``_library_search_request`` resolves the raw ``type`` query param through
+    ``EntityType.from_string`` with no catalog whitelist, so ``?type=task``
+    yields ``entity_types=[TASK]`` — and that route serves anonymous callers
+    (``user_uid = ... if is_authenticated(request) else None``). Building the
+    request the way the route does keeps this honest about what is reachable
+    rather than asserting on a hand-made SearchRequest.
+
+    ⚠️ This particular shape was ALREADY safe and stays green with the
+    ``search()`` gate removed: the library clamps sort away from RELEVANCE, so
+    the request lands on ``_faceted_sweep``, which has its own anonymous gate.
+    It is kept as a route-shaped floor, not as the leak repro. The reachable
+    leak went through a domain that ``_simple_domain_search`` maps —
+    ``?type=revised_exercise`` — and is pinned without a database in
+    ``test_search_router_registry.py::
+    TestOwnerOnlySearchScopeGate::test_anonymous_faceted_single_domain_never_queries_unscoped``.
+    """
+    from adapters.inbound.explore_ui import _library_search_request
+
+    await _seed_users_and_group(neo4j_driver)
+    created = await _seed_tasks(neo4j_driver, tasks_service)
+
+    request = _library_search_request("Aurora", "task", "", "created_desc", 0)
+    assert EntityType.TASK.value in [str(t) for t in request.entity_types], (
+        "guard the premise: ?type=task must still resolve to the TASK domain, "
+        "otherwise this test stops covering the route it names"
+    )
+
+    result = await search_router.faceted_search(request, user_uid=None)
+    assert result.is_ok, result.expect_error()
+    uids = {r.get("uid") for r in result.value.results}
+    assert created["owner_task"] not in uids
+    assert created["stranger_task"] not in uids
+
+
+@pytest.mark.asyncio
+async def test_faceted_relationship_filter_still_composes_without_the_owner_match(
+    clean_neo4j, neo4j_driver, tasks_service, search_router
+) -> None:
+    """A relationship filter and the ownership predicate coexist in one query.
+
+    The relationship fragments (``ready_to_learn`` and friends) each open with
+    their own ``MATCH (user:User {uid: $user_uid})`` inside an ``EXISTS`` block.
+    While the faceted path anchored on ``(user:User)-[:OWNS]->(entity)`` those
+    were re-binding a variable the outer MATCH had already introduced; now they
+    bind it fresh. Same node either way — but "the Cypher still parses and still
+    scopes" is worth executing rather than reasoning about, since a stray
+    unbound reference would either error or quietly widen the match.
+    """
+    await _seed_users_and_group(neo4j_driver)
+    created = await _seed_tasks(neo4j_driver, tasks_service)
+
+    request = SearchRequest(
+        query_text="Aurora",
+        entity_types=[EntityType.TASK],
+        ready_to_learn=True,
+    )
+    result = await search_router.faceted_search(request, user_uid=STRANGER)
+    assert result.is_ok, result.expect_error()
+
+    uids = {r.get("uid") for r in result.value.results}
+    # Neither task has REQUIRES_KNOWLEDGE edges, so ready_to_learn admits both —
+    # which is what makes this a scoping assertion and not a filter assertion.
+    assert created["stranger_task"] in uids
+    assert created["owner_task"] not in uids
+
+
+@pytest.mark.asyncio
+async def test_owner_only_text_search_refuses_without_a_user(
+    clean_neo4j, neo4j_driver, tasks_service, search_router
+) -> None:
+    """``search()`` is the chokepoint: it refuses rather than returning rows.
+
+    Asserted at the chokepoint itself because every aggregate caller treats a
+    failed domain result as "contributes nothing" — a test that only checked
+    the aggregate would pass against a gate that returned an empty list for
+    the wrong reason.
+    """
+    await _seed_users_and_group(neo4j_driver)
+    created = await _seed_tasks(neo4j_driver, tasks_service)
+
+    unscoped = await search_router.search(EntityType.TASK, "Aurora", 50)
+    assert unscoped.is_error, "an unscoped OWNER_ONLY text search must be refused"
+
+    # Positive control: the same query WITH a user returns that user's row.
+    scoped = await search_router.search(EntityType.TASK, "Aurora", 50, user_uid=OWNER)
+    assert scoped.is_ok, scoped.expect_error()
+    assert {entity.uid for entity in scoped.value} == {created["owner_task"]}
 
 
 # ============================================================================

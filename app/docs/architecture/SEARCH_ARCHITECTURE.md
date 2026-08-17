@@ -326,18 +326,24 @@ SearchRouter.faceted_search(request, user_uid)      ← THE public entry point
 What actually happens when you type **"python"**, set Type to **Tasks**, and
 check **Ready to learn**. The Cypher below is assembled by
 `faceted_search_raw` (`adapters/persistence/neo4j/_search_raw_mixin.py`) from
-three sources — the ownership MATCH (from the domain's `DomainConfig`), the
-text filter (from `search_fields`), and the relationship-filter fragment
-(from `adapters/persistence/neo4j/query/cypher/relationship_filter_fragments.py`,
+three sources — the ownership predicate (from `build_search_visibility_clause`,
+per the domain's `SearchVisibility`), the text filter (from `search_fields`),
+and the relationship-filter fragment (from
+`adapters/persistence/neo4j/query/cypher/relationship_filter_fragments.py`,
 quoted verbatim):
 
 ```cypher
-// 1. Ownership scoping: only YOUR tasks are candidates.
-//    OWNS is the universal ownership edge; $user_uid is a query parameter —
-//    user data is never spliced into the query text.
-MATCH (user:User {uid: $user_uid})-[:OWNS]->(entity:Task)
+// A plain label MATCH — no ownership pattern. Scoping is a WHERE predicate
+// so that one clause builder serves every strategy and every visibility.
+MATCH (entity:Task)
 
 WHERE 1=1
+  // 1. Ownership scoping: only YOUR tasks survive. $user_uid is a query
+  //    parameter — user data is never spliced into the query text. Each
+  //    relationship fragment below binds its OWN (user:User {uid: $user_uid});
+  //    none depends on this predicate having bound one.
+  AND (entity.user_uid = $user_uid)
+
   // 2. Text search over the domain's configured search_fields
   //    (title + description for Tasks). Case-insensitive substring match.
   AND (toLower(entity.title) CONTAINS $query_text

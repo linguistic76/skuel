@@ -541,10 +541,11 @@ class SearchRouter:
             entity_type: Domain to search in
             query: Search query string
             limit: Maximum results to return
-            user_uid: Optional owner scope, applied by the domain service.
-                REQUIRED for USER_ENTRY — entries are private user content
-                (journal periodic notes live in this store), so an unscoped
-                entry search is refused rather than leaking across users.
+            user_uid: Owner scope, applied by the domain service. REQUIRED for
+                every OWNER_ONLY domain — without it there is no ownership
+                predicate to compose, so an unscoped search is refused rather
+                than leaking across users. Optional only for PUBLIC (shared
+                curriculum) and SCOPE_AWARE (floors at CURRICULUM) domains.
 
         Returns:
             Result containing list of domain entities
@@ -555,15 +556,6 @@ class SearchRouter:
                 Errors.validation(
                     field="entity_type",
                     message=f"{entity_type.value} does not support search",
-                )
-            )
-
-        # Privacy line: never run an unscoped UserEntry search
-        if entity_type == EntityType.USER_ENTRY and user_uid is None:
-            return Result.fail(
-                Errors.validation(
-                    field="user_uid",
-                    message="user_entry search requires a user scope",
                 )
             )
 
@@ -589,6 +581,31 @@ class SearchRouter:
                     )
                 )
 
+            # Fail-closed owner gate — THE chokepoint for the text strategy.
+            #
+            # build_search_visibility_clause emits NO ownership predicate for
+            # OWNER_ONLY when there is no user (its docstring names external
+            # surfaces as responsible for the fail-closed skip). This is that
+            # skip. Without it an unscoped call returns EVERY user's rows, and
+            # callers reach here holding a None uid by more than one route:
+            # anonymous /api/explore/search with a user-owned ?type=, and any
+            # internal caller that forgets to forward the scope.
+            #
+            # Refusing (rather than returning empty) keeps the fault visible to
+            # the caller; every aggregate caller — search_domains,
+            # _cross_domain_search, _simple_domain_search — already treats a
+            # failed domain result as "contributes nothing".
+            #
+            # UserEntry used to be special-cased here. It no longer needs to be:
+            # it is OWNER_ONLY like the rest, and the general rule covers it.
+            if user_uid is None and not self._admits_anonymous_search(search_service):
+                return Result.fail(
+                    Errors.validation(
+                        field="user_uid",
+                        message=f"{entity_type.value} search requires a user scope",
+                    )
+                )
+
             # Forward the owner scope unconditionally — the domain's
             # search_visibility declaration (DomainConfig) decides what the
             # uid means: OWNER_ONLY property-scopes, PUBLIC ignores it,
@@ -601,6 +618,27 @@ class SearchRouter:
         except Exception as e:  # safety-net: catch unexpected errors
             self.logger.error(f"Search failed for {entity_type.value} (unexpected): {e}")
             return Result.fail(Errors.database(operation="search", message=str(e)))
+
+    @staticmethod
+    def _admits_anonymous_search(search_service: SupportsTextSearch) -> bool:
+        """Whether this domain may be text-searched with no requesting user.
+
+        Only two declarations survive an anonymous search: PUBLIC (shared
+        curriculum — the whole point of anonymous catalog browse) and
+        SCOPE_AWARE (Exercise, whose clause floors at CURRICULUM without a
+        user). OWNER_ONLY has no predicate to compose and must be refused.
+
+        A service that declares nothing is refused too: default-deny, and a
+        domain that cannot say who may see its rows has no business serving
+        them to an anonymous caller. ``test_search_router_registry`` asserts
+        every searchable domain declares, so this branch stays theoretical.
+        """
+        if not isinstance(search_service, SupportsVisibilityDeclaration):
+            return False
+        return search_service.search_visibility in (
+            SearchVisibility.PUBLIC,
+            SearchVisibility.SCOPE_AWARE,
+        )
 
     def _get_search_service(self, service: "DomainService") -> SupportsTextSearch | None:
         """
@@ -654,9 +692,9 @@ class SearchRouter:
             entity_types: List of domains to search
             query: Search query string
             limit_per_domain: Max results per domain
-            user_uid: Optional owner scope forwarded to each domain search.
-                Without it, USER_ENTRY is refused by search() (privacy line)
-                and simply yields no results here.
+            user_uid: Owner scope forwarded to each domain search. Without it,
+                every OWNER_ONLY domain is refused by search() (fail-closed
+                gate) and simply yields no results here.
 
         Returns:
             UnifiedSearchResult with results grouped by domain
@@ -793,7 +831,7 @@ class SearchRouter:
 
                 # Curriculum or other domains → simple text search
                 if response is None:
-                    response = await self._simple_domain_search(request, domain_str)
+                    response = await self._simple_domain_search(request, domain_str, user_uid)
 
             # Route 2: Cross-domain search (no single domain resolvable)
             if response is None:
@@ -1228,8 +1266,17 @@ class SearchRouter:
         self,
         request: "SearchRequest",
         domain_str: str,
+        user_uid: UserUID | None = None,
     ) -> Result["SearchResponse"] | None:
-        """Simple text search for curriculum and other domains."""
+        """Simple text search for curriculum and other domains.
+
+        ``user_uid`` must be forwarded even though most domains routed here are
+        curriculum: the map below also carries OWNER_ONLY ``revised_exercise``
+        and ``user_entry``. Dropping the scope made those searches unscoped —
+        every teacher's revised exercises to any caller — and, once the
+        fail-closed gate in ``search()`` landed, would have turned an owner's
+        own results into an empty page instead.
+        """
         from datetime import datetime
 
         from core.models.search_request import SearchResponse
@@ -1258,7 +1305,9 @@ class SearchRouter:
         start_time = datetime.now()
 
         # Use SearchRouter.search() which delegates to domain service
-        result = await self.search(entity_type, request.query_text or "", request.limit)
+        result = await self.search(
+            entity_type, request.query_text or "", request.limit, user_uid=user_uid
+        )
 
         if result.is_error:
             self.logger.warning(f"Simple domain search failed: {result.error}")
