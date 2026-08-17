@@ -28,7 +28,7 @@ from core.models.enums import SearchVisibility
 from core.models.enums.entity_enums import EntityType
 from core.models.relationship_names import RelationshipName
 from core.models.search_request import SearchRequest
-from core.orchestrator.search_router import SearchRouter
+from core.orchestrator.search_router import SearchResultItem, SearchRouter
 from core.ports.search_protocols import SupportsVisibilityDeclaration
 from core.services.ku.ku_search_service import KuSearchService
 from core.services.lp.lp_search_service import LpSearchService
@@ -216,8 +216,8 @@ class TestFallback:
         assert [item.uid for item in items] == ["task_1"]
 
     @pytest.mark.anyio
-    async def test_hybrid_hit_short_circuits_contains(self) -> None:
-        """An eligible domain that got results does not also run the CONTAINS query."""
+    async def test_a_full_hybrid_page_short_circuits_contains(self) -> None:
+        """A rung result that already fills the budget does not also run CONTAINS."""
         service = _search_service()
         router = _router(_vector_search())
 
@@ -225,11 +225,139 @@ class TestFallback:
             search_service=service,
             entity_type=EntityType.KU,
             request=SearchRequest(query_text="photosynthesis"),
-            limit_per_domain=10,
+            limit_per_domain=len(HYBRID_ROWS),
         )
 
         service.search.assert_not_awaited()
         assert [item.uid for item in items] == ["ps.alpha", "ps.beta"]
+
+
+class TestContainsBackfill:
+    """A SHORT hybrid page is topped up, because Lucene and CONTAINS miss differently.
+
+    Lucene matches whole tokens, so a partial word ("photosyn") finds nothing
+    where a substring scan finds the entity. Returning early on ANY hybrid hit
+    dropped those matches — the regression this class pins.
+    """
+
+    @pytest.mark.anyio
+    async def test_substring_only_match_survives_a_partial_hybrid_hit(self) -> None:
+        """The regression: a hybrid hit must not hide the substring match beside it."""
+        service = _search_service(
+            contains_rows=[
+                SimpleNamespace(uid="ps.alpha", title="Alpha"),  # already ranked
+                SimpleNamespace(uid="ps.gamma", title="Running technique"),  # Lucene missed
+            ]
+        )
+        router = _router(_vector_search())
+
+        items = await router._execute_advanced_search(
+            search_service=service,
+            entity_type=EntityType.KU,
+            request=SearchRequest(query_text="run"),
+            limit_per_domain=10,
+        )
+
+        service.search.assert_awaited_once()
+        # Hybrid keeps the lead and its order; the substring-only hit is recovered
+        # exactly once — `ps.alpha` came back from both halves.
+        assert [item.uid for item in items] == ["ps.alpha", "ps.beta", "ps.gamma"]
+
+    @pytest.mark.anyio
+    async def test_backfilled_hits_never_outrank_relevance_ranked_ones(self) -> None:
+        """Recall is recovered without a substring match jumping the ranking."""
+        service = _search_service(
+            contains_rows=[SimpleNamespace(uid="ps.gamma", title="Running technique")]
+        )
+        router = _router(_vector_search())
+
+        items = await router._execute_advanced_search(
+            search_service=service,
+            entity_type=EntityType.KU,
+            request=SearchRequest(query_text="run"),
+            limit_per_domain=10,
+        )
+
+        by_uid = {item.uid: item for item in items}
+        assert by_uid["ps.gamma"].relevance_score == 0.0
+        assert by_uid["ps.gamma"].combined_score < by_uid["ps.beta"].combined_score
+
+    @pytest.mark.anyio
+    async def test_backfill_respects_the_per_domain_budget(self) -> None:
+        """The rung's two hits plus one filler is the whole budget — no overflow."""
+        service = _search_service(
+            contains_rows=[
+                SimpleNamespace(uid=f"ps.fill{n}", title=f"Filler {n}") for n in range(5)
+            ]
+        )
+        router = _router(_vector_search())
+
+        items = await router._execute_advanced_search(
+            search_service=service,
+            entity_type=EntityType.KU,
+            request=SearchRequest(query_text="run"),
+            limit_per_domain=3,
+        )
+
+        assert len(items) == 3
+        assert [item.uid for item in items] == ["ps.alpha", "ps.beta", "ps.fill0"]
+
+    @pytest.mark.anyio
+    async def test_an_empty_rung_still_yields_plain_contains_results(self) -> None:
+        """The ineligible/empty path is unchanged — backfill is not a new gate."""
+        service = _search_service(
+            contains_rows=[SimpleNamespace(uid="ps.only", title="Only match")]
+        )
+        router = _router(_vector_search(Result.ok([])))
+
+        items = await router._execute_advanced_search(
+            search_service=service,
+            entity_type=EntityType.KU,
+            request=SearchRequest(query_text="run"),
+            limit_per_domain=10,
+        )
+
+        assert [item.uid for item in items] == ["ps.only"]
+
+    @pytest.mark.anyio
+    async def test_heavy_overlap_still_fills_the_page(self) -> None:
+        """The fetch budget is sufficient without over-fetching for overlap.
+
+        The domain applies its LIMIT before the dedupe, so most of the fetched
+        page can be rows the rung already returned. That cannot starve the
+        backfill: overlaps can never exceed the hybrid count, so at least
+        `limit - len(hybrid)` fresh rows survive — exactly the budget left.
+        Asserted here at the tightest ratio (2 of 3 fetched rows are overlaps).
+        """
+        service = _search_service(
+            contains_rows=[
+                SimpleNamespace(uid="ps.alpha", title="Alpha"),  # overlap
+                SimpleNamespace(uid="ps.beta", title="Beta"),  # overlap
+                SimpleNamespace(uid="ps.gamma", title="Running technique"),
+            ]
+        )
+        router = _router(_vector_search())
+
+        items = await router._execute_advanced_search(
+            search_service=service,
+            entity_type=EntityType.KU,
+            request=SearchRequest(query_text="run"),
+            limit_per_domain=3,
+        )
+
+        assert service.search.await_args is not None
+        assert service.search.await_args.args[1] == 3, "no over-fetch needed"
+        assert [item.uid for item in items] == ["ps.alpha", "ps.beta", "ps.gamma"]
+
+    def test_a_falsy_uid_is_kept_rather_than_deduped_away(self) -> None:
+        """A degraded node property must not cost a result."""
+        merged = SearchRouter._backfill_with_contains(
+            [SearchResultItem(entity={}, entity_type=EntityType.KU, uid="", title="Hybrid")],
+            [SearchResultItem(entity={}, entity_type=EntityType.KU, uid="", title="Contains")],
+            limit=10,
+        )
+
+        assert [item.title for item in merged] == ["Hybrid", "Contains"]
 
 
 class TestResultMapping:

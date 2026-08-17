@@ -639,12 +639,23 @@ domain's best hit exactly 1.0: Ku, PathStep and LearningPath would tie at the to
 merged order would fall to iteration order, and the difference between "ranked first by
 both halves" and "ranked first by one" — twice the raw score — would be erased.
 
-**Fallback:** ineligible, empty, or failed → `[]`, and Strategy 3 runs the domain's
-`CONTAINS` search unchanged — so a search that returns nothing from the rung is never
-worse off. The fallback is **all-or-nothing, not per-result**: a *partial* hybrid
-result returns early, so any substring match `CONTAINS` would have found is dropped
-(the `run` / "Running technique" case above). Widening the fallback to fire on thin
-results, not only empty ones, is part of the D1(b) follow-on.
+**Fallback and backfill:** ineligible, empty, or failed → `[]`, and Strategy 3 runs the
+domain's `CONTAINS` search unchanged.
+
+A *short* rung result is topped up rather than trusted alone. Only a **full page**
+(`len(items) >= limit_per_domain`) short-circuits `CONTAINS`; anything less also runs it
+and merges via `_backfill_with_contains`. This is not belt-and-braces — the two match
+**differently**, so neither is strictly better: Lucene matches whole tokens, so a partial
+word finds nothing where a substring scan finds the entity (`photosyn` → "Photosynthesis";
+`run` → "Running technique"). Returning early on *any* hybrid hit therefore dropped every
+substring-only match the rung happened not to rank, which is the rung making a working
+search worse — the one thing it promised never to do.
+
+Merge order is load-bearing: hybrid hits keep their rank and their lead, `CONTAINS` hits
+fill the remaining budget deduped by `uid` (the hybrid copy wins — it carries the real
+score and a derived `match_reason`). Backfilled items keep `relevance_score` 0.0, exactly
+what a `CONTAINS` result has always scored, so recall is recovered without a substring
+match outranking a relevance-ranked one in the cross-domain merge.
 
 **Match attribution is derived, never assumed.** `hybrid_search` returns
 `HybridSearchHit` (`core/ports/query_types.py`), which reports `matched_vector` /
