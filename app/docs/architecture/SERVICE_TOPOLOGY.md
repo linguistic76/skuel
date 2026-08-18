@@ -140,7 +140,7 @@ from core.services.tasks.tasks_intelligence_service import TasksIntelligenceServ
 ```python
 from core.ports import BackendOperations, TasksOperations
 from core.services.relationships import UnifiedRelationshipService
-from core.services.search.search_router import SearchRouter
+from core.orchestrator.search_router import SearchRouter
 from core.services.sharing import UnifiedSharingService
 ```
 
