@@ -105,7 +105,16 @@ Pinned by `tests/unit/scripts/test_dead_modules.py`.
 **False positive rate:** Low. The scanner handles:
 - Multi-line parenthesized imports (with comment-aware `)` matching)
 - Relative imports (`.foo`, `..bar`) resolved to absolute dotted paths
-- Docstring and comment pseudo-imports that happen to match `from X import`
+
+⚠️ It does **not** exclude docstring and comment pseudo-imports, despite an
+earlier claim here that it did. `collect_imports` regex-scans raw text, so a
+`from x import y` line inside a USAGE example counts as a real reference —
+`core/orchestrator/search_router.py` has exactly that shape. The effect is
+false *negatives*: a module or package reachable only from prose reads as
+alive. Measured cost as of 2026-08-18: three modules
+(`core/utils/list_context_helpers`, `core/utils/service_introspection`,
+`ui/patterns/dual_pane`) have no real importer and are hidden this way.
+Parsing imports from the AST instead of the raw text would close it.
 
 **When a file is flagged:** Review before deleting. Ask:
 1. Is it imported indirectly (dynamic loading, plugin system)?

@@ -309,6 +309,13 @@ def collect_references_by_file(py_files: list[Path]) -> dict[str, set[Path]]:
     pass needs "imported by WHOM", to tell an outside importer from the
     package importing itself. Both `from a.b import c` and `import a.b.c`
     contribute `a.b.c`, so a package is found however its members are reached.
+
+    WARNING: inherits collect_imports' blind spot — imports are matched in raw
+    text, so a `from x import y` inside a docstring USAGE example counts as a
+    real reference (core/orchestrator/search_router.py has that shape). The
+    failure is a false NEGATIVE: something reachable only from prose reads as
+    alive. Measured 2026-08-18, it hides three importerless modules. Closing it
+    means parsing from the AST, a change to both passes (Codex, #1087).
     """
     references: dict[str, set[Path]] = defaultdict(set)
 
