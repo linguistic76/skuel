@@ -75,13 +75,17 @@ class BaseEvent(ABC):
 
     occurred_at: datetime = field(default_factory=datetime.now, kw_only=True)
 
-    def __init_subclass__(cls, **kwargs: Any) -> None:
+    def __init_subclass__(cls, **kwargs: object) -> None:
         """Enforce what ``@abstractmethod`` used to guarantee.
 
         Every event class must state its own ``event_type``; inheriting one
         silently would make two classes share a registry key and let the later
         import win. ``cls.__dict__`` (not ``hasattr``) is the check, because
         the point is *own* declaration, not reachability.
+
+        ``kwargs`` is typed ``object``, not ``Any``: these are class-creation
+        keywords that this hook only forwards to ``super()`` and never reads,
+        so the weakest type that accepts them is the honest one.
         """
         super().__init_subclass__(**kwargs)
         if "event_type" not in cls.__dict__:
