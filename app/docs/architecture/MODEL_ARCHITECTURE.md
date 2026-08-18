@@ -144,7 +144,6 @@ core/models/{domain}/
 | `finance/` | Finance + FinanceDTO + requests | Finance | + Invoice, FinanceIntelligence |
 | `user/` | User + UserDTO + requests | Cross-cutting | + UserLearningIntelligence, ConversationSession |
 | `askesis/` | Askesis + AskesisDTO + requests | Cross-cutting | AI tutor state |
-| `notification/` | Notification | Infrastructure | In-app notifications |
 
 ### Root-Level Files
 

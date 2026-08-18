@@ -3,18 +3,32 @@
 Dead Module Detector
 ====================
 
-Finds Python source files with zero importers in production code.
+Finds Python source files with zero importers in production code, and packages
+with no importer outside themselves.
 
 For every .py file in the project (excluding tests, __init__.py, scripts/):
   - Count imports of it from other production Python files
   - Report files with zero importers as deletion candidates
   - Output: file path, line count, and a hint from the first comment/docstring
 
+Then, for every package (directory with an __init__.py):
+  - Report packages nothing outside their own directory tree imports
+
+Why the second pass exists: __init__.py is excluded from the module subjects
+above but still counted as an importer, so a self-contained orphan package
+looks alive from the inside — its __init__ imports its modules, and that is
+enough to clear every module in it. core/services/search survived that way for
+the repo's entire history (357 lines, never once imported); only the one file
+its own __init__ forgot to re-export was ever flagged. Same shape as #1082's
+break class — a promise outliving its implementation — pointed at packages
+instead of __all__.
+
 Usage:
     uv run python scripts/health/dead_modules.py
     uv run python scripts/health/dead_modules.py --verbose
 """
 
+import ast
 import re
 import sys
 from collections import defaultdict
@@ -109,6 +123,24 @@ def get_production_py_files() -> tuple[list[Path], list[Path]]:
         if path.name != "__init__.py" and not _exclude_from_subjects(path):
             subjects.append(path)
     return sorted(subjects), sorted(all_sources)
+
+
+def get_import_sources_including_tests() -> list[Path]:
+    """
+    Every .py file that can legitimately import first-party code — tests included.
+
+    `get_production_py_files` deliberately ignores tests: a module only tests
+    import is dead *production* code. That judgement does not carry to whole
+    packages, where the same rule would condemn entry points and test-only
+    fixtures. See find_orphan_packages for why.
+    """
+    skip = NEVER_SCAN_DIR_PARTS - {"tests"}
+    sources: list[Path] = []
+    for path in ROOT.rglob("*.py"):
+        if any(part in skip for part in path.relative_to(ROOT).parts):
+            continue
+        sources.append(path)
+    return sorted(sources)
 
 
 def path_to_module(path: Path) -> str:
@@ -270,6 +302,141 @@ def module_is_imported(
     return False
 
 
+def collect_references_by_file(py_files: list[Path]) -> dict[str, set[Path]]:
+    """
+    Map every referenced dotted module → the files that reference it.
+
+    The module-level pass only needs "is this imported at all"; the package
+    pass needs "imported by WHOM", to tell an outside importer from the
+    package importing itself. Both `from a.b import c` and `import a.b.c`
+    contribute `a.b.c`, so a package is found however its members are reached.
+
+    WARNING: inherits collect_imports' blind spot — imports are matched in raw
+    text, so a `from x import y` inside a docstring USAGE example counts as a
+    real reference (core/orchestrator/search_router.py has that shape). The
+    failure is a false NEGATIVE: something reachable only from prose reads as
+    alive. Measured 2026-08-18, it hides three importerless modules. Closing it
+    means parsing from the AST, a change to both passes (Codex, #1087).
+    """
+    references: dict[str, set[Path]] = defaultdict(set)
+
+    for path in py_files:
+        direct, froms = collect_imports([path])
+        for module in direct:
+            references[module].add(path)
+        for module, names in froms.items():
+            references[module].add(path)
+            # `from core.models import notification` reaches core.models.notification
+            for name in names:
+                references[f"{module}.{name}"].add(path)
+
+    return references
+
+
+def package_has_code(pkg_dir: Path) -> bool:
+    """
+    True if the package holds anything that could be dead.
+
+    A package with modules obviously does. A package that is only an
+    ``__init__.py`` still does when that file carries the implementation —
+    core/services/templates defines seven service classes in 230 lines and no
+    module beside it, so skipping every __init__-only package would have made
+    it permanently invisible to the reachability check (Codex, #1087).
+
+    Only a docstring-and-nothing-else initializer is genuinely empty; those are
+    namespace directories (ui/curriculum, ui/study) with nothing to report.
+    Re-exports count as code: a facade nothing imports is exactly the shape
+    this pass exists to surface.
+    """
+    if any(f.name != "__init__.py" for f in pkg_dir.rglob("*.py")):
+        return True
+
+    init = pkg_dir / "__init__.py"
+    try:
+        body = list(ast.parse(init.read_text(encoding="utf-8", errors="ignore")).body)
+    except OSError, SyntaxError:
+        return True  # unreadable or unparseable — assume real, never skip silently
+
+    if body and isinstance(body[0], ast.Expr) and isinstance(body[0].value, ast.Constant):
+        body = body[1:]  # module docstring
+    return any(
+        not (isinstance(node, ast.ImportFrom) and node.module == "__future__") for node in body
+    )
+
+
+def find_orphan_packages(
+    all_sources: list[Path], references: dict[str, set[Path]]
+) -> list[tuple[Path, int, int]]:
+    """
+    Packages that nothing outside their own directory tree imports.
+
+    Returns [(package_dir, module_count, line_count)] sorted by size.
+
+    Three deliberate scoping choices, all load-bearing:
+
+    1. Tests COUNT as importers here, unlike the module pass. A package whose
+       only consumers are tests is exercised, not abandoned, and flagging it
+       produces exactly the false positives the bloat scanner's test-reference
+       gap is known for — `core/models/vectors` is test-covered and not dead,
+       and would surface if tests were ignored. Deleting on that signal would
+       be a mistake.
+    2. Packages holding no code are skipped — see package_has_code. That means
+       a docstring-only namespace directory, NOT every __init__-only package:
+       an __init__.py can be the implementation, and core/services/templates
+       is 230 lines of exactly that.
+    3. Packages holding an ENTRY_POINTS / CONVENTION_LOADED / STAGED_MODULES
+       file are skipped, mirroring the module pass. Those are reached by
+       execution or registration, never by import, so "nobody imports it" says
+       nothing about them — and STAGED_MODULES entries are already reported in
+       their own section ("abandoned != staged" holds at package level too).
+    """
+    packages: list[Path] = []
+    for init in ROOT.rglob("__init__.py"):
+        if _never_scan(init) or _exclude_from_subjects(init):
+            continue
+        pkg_dir = init.parent
+        if pkg_dir == ROOT:
+            continue
+        modules = [f for f in pkg_dir.rglob("*.py") if f.name != "__init__.py"]
+        if not package_has_code(pkg_dir):
+            continue  # namespace directory — nothing here can be dead
+        # Reached by execution or registration rather than by import. The module
+        # pass exempts these files; the package pass must too, or a live CLI
+        # package is "orphaned" the moment nothing imports it. agent/ is the
+        # live case — it currently escapes only because tests import
+        # skuel_vault_agent, not because it is an entry point (Codex, #1087).
+        if any(
+            f.name in ENTRY_POINTS
+            or f.name in CONVENTION_LOADED
+            or f.relative_to(ROOT).as_posix() in STAGED_MODULES
+            for f in [*modules, pkg_dir / "__init__.py"]
+        ):
+            continue
+        packages.append(pkg_dir)
+
+    orphans: list[tuple[Path, int, int]] = []
+    for pkg_dir in sorted(packages):
+        pkg_dotted = ".".join(pkg_dir.relative_to(ROOT).parts)
+        importers: set[Path] = set()
+        for module, files in references.items():
+            if module == pkg_dotted or module.startswith(pkg_dotted + "."):
+                importers |= files
+        # An importer inside the package tree does not make it reachable.
+        outside = {f for f in importers if pkg_dir not in f.parents}
+        if outside:
+            continue
+        py_files = list(pkg_dir.rglob("*.py"))
+        orphans.append((pkg_dir, len(py_files), sum(count_lines(f) for f in py_files)))
+
+    return sorted(orphans, key=_sort_orphan_packages_by_size)
+
+
+def _sort_orphan_packages_by_size(record: tuple[Path, int, int]) -> int:
+    """Sort orphan-package records by descending line count."""
+    _, _, lines = record
+    return -lines
+
+
 def count_lines(path: Path) -> int:
     try:
         return len(path.read_text(encoding="utf-8", errors="ignore").splitlines())
@@ -388,6 +555,28 @@ def main() -> int:
             print(f"  {key}")
         print()
 
+    orphan_packages = find_orphan_packages(
+        all_sources, collect_references_by_file(get_import_sources_including_tests())
+    )
+
+    if orphan_packages:
+        print(
+            f"{Colors.RED}{Colors.BOLD}Orphan Packages — {len(orphan_packages)} packages "
+            f"nothing outside themselves imports:{Colors.RESET}"
+        )
+        print(
+            f"{Colors.YELLOW}Their own __init__.py importing their modules is not "
+            f"reachability.{Colors.RESET}\n"
+        )
+        for pkg, n_files, lines in orphan_packages:
+            rel = pkg.relative_to(ROOT)
+            print(
+                f"  {Colors.RED}●{Colors.RESET} {Colors.BOLD}{rel}/{Colors.RESET}  "
+                f"({n_files} files, {lines} lines)"
+            )
+            print(f"      package: {Colors.CYAN}{'.'.join(rel.parts)}{Colors.RESET}")
+        print()
+
     if dead:
         print(
             f"{Colors.RED}{Colors.BOLD}Dead Modules — {len(dead)} files with zero importers:{Colors.RESET}"
@@ -409,9 +598,9 @@ def main() -> int:
         print(f"\n{Colors.YELLOW}Total: {len(dead)} files{Colors.RESET}")
         return 1
 
-    if stale_staged or vanished_staged:
+    if orphan_packages or stale_staged or vanished_staged:
         return 1
-    print(f"{Colors.GREEN}✓ No dead modules found{Colors.RESET}")
+    print(f"{Colors.GREEN}✓ No dead modules or orphan packages found{Colors.RESET}")
     return 0
 
 

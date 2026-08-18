@@ -40,9 +40,10 @@ feeds the CI gate.
 
 ## The Five Checks
 
-### 1. `dead_modules.py` — Zero-Importer Python Files
+### 1. `dead_modules.py` — Zero-Importer Python Files and Orphan Packages
 
-Scans all production Python files and finds those that are never imported anywhere.
+Scans all production Python files and finds those that are never imported anywhere,
+then scans every package for one nothing outside it imports.
 
 ```
 Dead Module Detector
@@ -70,12 +71,54 @@ Review before deleting — some may be loaded by convention.
 - `scripts/` directory — `scripts/dev/bootstrap.py` loads routes; those imports count
 - Entry points: `main.py`, `services_bootstrap.py`
 
+#### The orphan-package pass
+
+That third exclusion has a cost the module pass cannot see: an `__init__.py` is
+not a subject but *is* an importer, so a self-contained package clears itself.
+Its `__init__` imports its modules, so every module in it has an importer, and
+the package reads as alive from the inside. `core/services/search` survived that
+way for the repo's entire history — 357 lines, never imported by anything, and
+only the one file its `__init__` forgot to re-export was ever flagged (#1086).
+
+The second pass asks a different question: **does anything outside this
+directory tree import it?** Three scoping rules, all deliberate:
+
+- **Tests count as importers here** (unlike the module pass). A package whose
+  only consumers are tests is exercised, not abandoned. Ignoring them condemns
+  `agent/` (an ADR-075 entry point) and `core/models/vectors` (test-covered) —
+  neither is dead, and deleting on that signal is the known bloat-scanner
+  test-reference failure.
+- **Packages holding no code are skipped** — a docstring-only namespace
+  directory (`ui/curriculum`, `ui/study`). This is deliberately *not* "every
+  `__init__`-only package": an `__init__.py` can be the implementation —
+  `core/services/templates` defines seven service classes in 230 lines with no
+  module beside it — and skipping those would make them permanently invisible.
+  Re-export-only facades are checked too: a facade nothing imports is exactly
+  what this pass is for.
+- **Packages holding an entry-point, convention-loaded, or staged module are
+  skipped**, mirroring the module pass — they are reached by execution or
+  registration, never by import, so "nobody imports it" says nothing about
+  them. Without this, `agent/` (the ADR-075 vault-agent CLI) passed only
+  because tests happen to import it; deleting those tests would have reported
+  a live CLI as orphaned and failed the weekly janitor.
+
+Pinned by `tests/unit/scripts/test_dead_modules.py`.
+
 **Output:** File path, line count, first comment/docstring as a hint.
 
 **False positive rate:** Low. The scanner handles:
 - Multi-line parenthesized imports (with comment-aware `)` matching)
 - Relative imports (`.foo`, `..bar`) resolved to absolute dotted paths
-- Docstring and comment pseudo-imports that happen to match `from X import`
+
+⚠️ It does **not** exclude docstring and comment pseudo-imports, despite an
+earlier claim here that it did. `collect_imports` regex-scans raw text, so a
+`from x import y` line inside a USAGE example counts as a real reference —
+`core/orchestrator/search_router.py` has exactly that shape. The effect is
+false *negatives*: a module or package reachable only from prose reads as
+alive. Measured cost as of 2026-08-18: three modules
+(`core/utils/list_context_helpers`, `core/utils/service_introspection`,
+`ui/patterns/dual_pane`) have no real importer and are hidden this way.
+Parsing imports from the AST instead of the raw text would close it.
 
 **When a file is flagged:** Review before deleting. Ask:
 1. Is it imported indirectly (dynamic loading, plugin system)?
@@ -407,6 +450,8 @@ The first four scripts are fast enough to run on every commit if desired (a few 
 
 **`dead_modules.py`:**
 - Dynamic imports (`importlib.import_module("some.module")`) are not detected — those modules will be incorrectly flagged as dead
+- The orphan-package pass is import-graph only: a package reached solely through
+  dynamic loading, or one whose only consumers are docs, will be flagged
 - String-based module loading (plugin systems, `__import__`) is not detected
 - Files imported via environment-specific wiring not in `scripts/dev/bootstrap.py` may appear dead
 
@@ -429,7 +474,7 @@ The first four scripts are fast enough to run on every commit if desired (a few 
 
 ```
 scripts/health/
-├── dead_modules.py                    # Zero-importer Python module detection
+├── dead_modules.py                    # Zero-importer modules + orphan packages
 ├── dead_doc_links.py                  # Markdown link validator
 ├── stale_names.py                     # Deprecated identifier scanner
 ├── markdown_fences.py                 # Shared CommonMark fence walker (links + names)

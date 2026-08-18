@@ -571,7 +571,7 @@ Three automated scripts in `scripts/health/` that prevent drift between refactor
 
 | Script | What it finds | When to run |
 |--------|--------------|-------------|
-| `dead_modules.py` | Python files with zero importers | After a monolith dissolution or service split |
+| `dead_modules.py` | Python files with zero importers, and packages nothing outside themselves imports | After a monolith dissolution or service split |
 | `dead_doc_links.py` | Broken markdown links, backtick paths, bare absolute paths | After any file rename/delete |
 | `stale_names.py` | Old class/method/enum names in doc code blocks | After a rename or deprecation |
 
