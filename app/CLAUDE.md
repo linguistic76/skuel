@@ -264,7 +264,11 @@ Domain backends live in clustered files under `adapters/persistence/neo4j/backen
 
 **Auto-timestamp:** `BaseEvent.occurred_at` defaults to `datetime.now()` via `kw_only` field — never pass it manually. Override only for tests or event replay.
 
-**Publish:** `await publish_event(self.event_bus, TaskCompleted(task_uid=uid, user_uid=user_uid), self.logger)` — import from `core.events.utils`.
+**Publish:** `await publish_event(self.event_bus, TaskCompleted(task_uid=uid, user_uid=user_uid), self.logger)` — import from `core.events` (there is no `core.events.utils`).
+
+**Declaring an event:** `event_type: ClassVar[str] = "{domain}.{action}"` on the class — never a `@property`. It is a fact about the class, which is what lets `EVENT_REGISTRY` be **derived** by comprehension instead of hand-maintained; `BaseEvent.__init_subclass__` rejects a subclass that does not declare its own. A new event module must be imported in `core/events/__init__.py` — a comprehension cannot see what nobody imports, and `tests/unit/test_event_registry_derivation.py` fails if it is not. `list_event_types()` is the live catalog; there is no `ALL_EVENTS` (deleted 2026-08-17, zero consumers).
+
+**See:** `/docs/patterns/event_driven_architecture.md`
 
 ## Data, Persistence & Search
 
