@@ -28,6 +28,7 @@ Usage:
     uv run python scripts/health/dead_modules.py --verbose
 """
 
+import ast
 import re
 import sys
 from collections import defaultdict
@@ -332,6 +333,37 @@ def collect_references_by_file(py_files: list[Path]) -> dict[str, set[Path]]:
     return references
 
 
+def package_has_code(pkg_dir: Path) -> bool:
+    """
+    True if the package holds anything that could be dead.
+
+    A package with modules obviously does. A package that is only an
+    ``__init__.py`` still does when that file carries the implementation —
+    core/services/templates defines seven service classes in 230 lines and no
+    module beside it, so skipping every __init__-only package would have made
+    it permanently invisible to the reachability check (Codex, #1087).
+
+    Only a docstring-and-nothing-else initializer is genuinely empty; those are
+    namespace directories (ui/curriculum, ui/study) with nothing to report.
+    Re-exports count as code: a facade nothing imports is exactly the shape
+    this pass exists to surface.
+    """
+    if any(f.name != "__init__.py" for f in pkg_dir.rglob("*.py")):
+        return True
+
+    init = pkg_dir / "__init__.py"
+    try:
+        body = list(ast.parse(init.read_text(encoding="utf-8", errors="ignore")).body)
+    except OSError, SyntaxError:
+        return True  # unreadable or unparseable — assume real, never skip silently
+
+    if body and isinstance(body[0], ast.Expr) and isinstance(body[0].value, ast.Constant):
+        body = body[1:]  # module docstring
+    return any(
+        not (isinstance(node, ast.ImportFrom) and node.module == "__future__") for node in body
+    )
+
+
 def find_orphan_packages(
     all_sources: list[Path], references: dict[str, set[Path]]
 ) -> list[tuple[Path, int, int]]:
@@ -348,9 +380,10 @@ def find_orphan_packages(
        gap is known for — `core/models/vectors` is test-covered and not dead,
        and would surface if tests were ignored. Deleting on that signal would
        be a mistake.
-    2. Packages whose only .py file is `__init__.py` are skipped. There is no
-       module in them to be dead — an empty namespace directory is a different
-       question (and a different fix) from an orphaned implementation.
+    2. Packages holding no code are skipped — see package_has_code. That means
+       a docstring-only namespace directory, NOT every __init__-only package:
+       an __init__.py can be the implementation, and core/services/templates
+       is 230 lines of exactly that.
     3. Packages holding an ENTRY_POINTS / CONVENTION_LOADED / STAGED_MODULES
        file are skipped, mirroring the module pass. Those are reached by
        execution or registration, never by import, so "nobody imports it" says
@@ -365,8 +398,8 @@ def find_orphan_packages(
         if pkg_dir == ROOT:
             continue
         modules = [f for f in pkg_dir.rglob("*.py") if f.name != "__init__.py"]
-        if not modules:
-            continue  # nothing here can be dead
+        if not package_has_code(pkg_dir):
+            continue  # namespace directory — nothing here can be dead
         # Reached by execution or registration rather than by import. The module
         # pass exempts these files; the package pass must too, or a live CLI
         # package is "orphaned" the moment nothing imports it. agent/ is the
@@ -376,7 +409,7 @@ def find_orphan_packages(
             f.name in ENTRY_POINTS
             or f.name in CONVENTION_LOADED
             or f.relative_to(ROOT).as_posix() in STAGED_MODULES
-            for f in modules
+            for f in [*modules, pkg_dir / "__init__.py"]
         ):
             continue
         packages.append(pkg_dir)

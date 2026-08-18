@@ -77,9 +77,45 @@ class TestOrphanPackages:
 
         assert _orphans(fake_tree) == {"lonely"}
 
-    def test_package_with_only_an_init_is_skipped(self, fake_tree: Path) -> None:
-        """An empty namespace directory has no module that could be dead."""
+    def test_docstring_only_package_is_skipped(self, fake_tree: Path) -> None:
+        """A namespace directory has no code that could be dead."""
         _write(fake_tree / "empty_ns" / "__init__.py", '"""Namespace."""\n')
+
+        assert _orphans(fake_tree) == set()
+
+    def test_package_implemented_entirely_in_its_init_is_checked(self, fake_tree: Path) -> None:
+        """
+        The case Codex caught on #1087: __init__.py can BE the implementation.
+
+        core/services/templates is 230 lines defining seven service classes with
+        no module beside it. Skipping every __init__-only package would make it
+        permanently invisible — its two outside imports could vanish and the
+        check would stay green.
+        """
+        _write(
+            fake_tree / "impl_pkg" / "__init__.py",
+            '"""Real code, no modules."""\n\n\nclass Service:\n    pass\n',
+        )
+
+        assert _orphans(fake_tree) == {"impl_pkg"}
+
+    def test_reexport_only_package_is_checked(self, fake_tree: Path) -> None:
+        """A facade nothing imports is the shape this pass exists to surface."""
+        _write(
+            fake_tree / "facade" / "__init__.py", "from other.thing import T\n\n__all__ = ['T']\n"
+        )
+        _write(fake_tree / "other" / "__init__.py", "")
+        _write(fake_tree / "other" / "thing.py", "class T: ...\n")
+        _write(fake_tree / "app.py", "from other.thing import T\n")
+
+        assert _orphans(fake_tree) == {"facade"}
+
+    def test_future_import_does_not_make_a_namespace_substantive(self, fake_tree: Path) -> None:
+        """`from __future__ import annotations` is boilerplate, not code."""
+        _write(
+            fake_tree / "ns" / "__init__.py",
+            '"""Namespace."""\n\nfrom __future__ import annotations\n',
+        )
 
         assert _orphans(fake_tree) == set()
 

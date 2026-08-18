@@ -88,9 +88,13 @@ directory tree import it?** Three scoping rules, all deliberate:
   `agent/` (an ADR-075 entry point) and `core/models/vectors` (test-covered) —
   neither is dead, and deleting on that signal is the known bloat-scanner
   test-reference failure.
-- **Packages whose only `.py` file is `__init__.py` are skipped.** There is no
-  module in them that could be dead. An empty namespace directory is a
-  different question with a different fix.
+- **Packages holding no code are skipped** — a docstring-only namespace
+  directory (`ui/curriculum`, `ui/study`). This is deliberately *not* "every
+  `__init__`-only package": an `__init__.py` can be the implementation —
+  `core/services/templates` defines seven service classes in 230 lines with no
+  module beside it — and skipping those would make them permanently invisible.
+  Re-export-only facades are checked too: a facade nothing imports is exactly
+  what this pass is for.
 - **Packages holding an entry-point, convention-loaded, or staged module are
   skipped**, mirroring the module pass — they are reached by execution or
   registration, never by import, so "nobody imports it" says nothing about
