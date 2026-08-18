@@ -174,27 +174,28 @@ result = await ku_service.search_by_tags(
 )
 ```
 
-### Centralized Search Field Configuration
+### Where Search Fields Are Configured
 
-Search fields are configured centrally in `core/services/search/config.py`:
+`DomainConfig.search_fields` is the single source of truth — declared on the
+service whose `search()` the caller reaches. Mind which one that is: `SearchRouter`
+routes the **facade**, so a `search_fields` override on a sub-service alone does
+not change routed search (that gap made principles unfindable by `statement`).
 
 ```python
-from core.services.search.config import SEARCH_FIELD_CONFIG, get_search_fields
-from core.models.enums.entity_enums import EntityType
-
-# Get text search fields for an EntityType
-fields = get_search_fields(EntityType.PATH_STEP)  # ('title', 'intent', 'description')
-fields = get_search_fields(EntityType.TASK)  # ('title', 'description')
-
-# Full config includes text_fields, array_fields, filter_fields, order_by
-config = SEARCH_FIELD_CONFIG[EntityType.PATH_STEP]
-# SearchFieldConfig(
-#     text_fields=('title', 'intent', 'description'),
-#     array_fields=(),
-#     filter_fields=('domain', 'status'),
-#     order_by='step_order'
-# )
+_config = create_activity_domain_config(
+    dto_class=PrincipleDTO,
+    model_class=Principle,
+    domain_name="principles",
+    search_fields=("title", "statement", "description"),
+)
 ```
+
+Keyword search has a second surface: the Lucene fulltext indexes in
+`FULLTEXT_INDEX_DEFINITIONS` (`adapters/persistence/neo4j/neo4j_schema_manager.py`),
+read by the SearchRouter hybrid rung for Ku / PathStep / LearningPath only. When
+a domain's `search_fields` change, reconcile that list too — and note it takes a
+DROP + CREATE migration, since `CREATE ... IF NOT EXISTS` will not alter an
+existing index.
 
 ### Unified Search API
 
@@ -202,7 +203,7 @@ For cross-domain search combining all capabilities, use `SearchRouter.advanced_s
 **SearchRequest is THE canonical request model** (One Path Forward, January 2026).
 
 ```python
-from core.models.search import SearchRouter
+from core.orchestrator.search_router import SearchRouter
 from core.models.search_request import SearchRequest
 
 request = SearchRequest(
@@ -553,7 +554,6 @@ class PsService:
 - `/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md` - Domain overview
 - `/core/ports/search_protocols.py` - Protocol definition
 - `/core/services/base_service.py` - BaseService with generic filter methods
-- `/core/services/search/config.py` - Centralized search field configuration
 - `/core/orchestrator/search_router.py` - THE search orchestrator (One Path Forward)
 - `/core/services/goals/goal_search_service.py` - Reference implementation (uses inherited methods)
 - `/core/services/principles/principle_search_service.py` - Example of custom overrides

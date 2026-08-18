@@ -1148,7 +1148,7 @@ Graph Relationships:
 
 1. **New property filter**: Add field to `SearchRequest`, update `to_property_filters()`
 2. **New relationship filter**: Add a bool field + a `RelationshipFilters` field, update `has_relationship_filters()` and `to_relationship_filters()`, then add the Cypher fragment in `relationship_filter_fragments.py` (below the boundary)
-3. **New searchable domain**: Add to `_SEARCHABLE_DOMAINS` and `_SERVICE_REGISTRY`, add a same-named constructor parameter on `SearchRouter` (wired in `compose.py` from the same-named `Services` field — the registry test enforces the chain), add `SearchFieldConfig` in `config.py`. For graph-aware search, also add a `_GRAPH_AWARE_DOMAINS` entry
+3. **New searchable domain**: Add to `_SEARCHABLE_DOMAINS` and `_SERVICE_REGISTRY`, add a same-named constructor parameter on `SearchRouter` (wired in `compose.py` from the same-named `Services` field — the registry test enforces the chain), set `search_fields` on the domain's `DomainConfig`. For graph-aware search, also add a `_GRAPH_AWARE_DOMAINS` entry
 4. **New semantic relationship type**: Add to `relationship_type_weights` in `VectorSearchConfig`
 
 ---
