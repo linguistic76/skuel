@@ -79,10 +79,6 @@ STAGED_MODULES: dict[str, str] = {
         "Firefly III client — built + tested, wired in Phase 2 of "
         "docs/roadmap/finance-billing-migration.md (ADR-052 sidecar)"
     ),
-    "core/events/exercise_events.py": (
-        "ExerciseCreated is registered in detect_bloat.py PLANNED_EVENTS "
-        "(campaign 17) — the event module rides that staging"
-    ),
 }
 
 

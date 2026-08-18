@@ -10,6 +10,7 @@ Event Catalog:
 """
 
 from dataclasses import dataclass
+from typing import ClassVar
 
 from core.events.base import BaseEvent
 from core.models.type_hints import UserUID
@@ -49,9 +50,7 @@ class UserDeleted(BaseEvent):
     # Free-form reason (required by admin UI for hard-delete; optional otherwise).
     reason: str = ""
 
-    @property
-    def event_type(self) -> str:
-        return "user.deleted"
+    event_type: ClassVar[str] = "user.deleted"
 
 
 @dataclass(frozen=True)
@@ -70,6 +69,4 @@ class UserActivityRecorded(BaseEvent):
     activity_type: str  # "viewed_page", "completed_action", "searched", etc.
     activity_context: dict[str, str] | None = None
 
-    @property
-    def event_type(self) -> str:
-        return "user.activity_recorded"
+    event_type: ClassVar[str] = "user.activity_recorded"

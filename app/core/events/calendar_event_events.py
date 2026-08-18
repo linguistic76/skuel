@@ -18,7 +18,7 @@ Date: 2025-10-16
 
 from dataclasses import dataclass
 from datetime import date
-from typing import Any
+from typing import Any, ClassVar
 
 from core.events.base import BaseEvent
 from core.models.type_hints import UserUID
@@ -42,9 +42,7 @@ class CalendarEventCreated(BaseEvent):
     calendar_event_type: str
     metadata: dict[str, Any] | None = None
 
-    @property
-    def event_type(self) -> str:
-        return "calendar_event.created"
+    event_type: ClassVar[str] = "calendar_event.created"
 
 
 @dataclass(frozen=True)
@@ -63,9 +61,7 @@ class CalendarEventUpdated(BaseEvent):
     updated_fields: dict[str, Any]
     metadata: dict[str, Any] | None = None
 
-    @property
-    def event_type(self) -> str:
-        return "calendar_event.updated"
+    event_type: ClassVar[str] = "calendar_event.updated"
 
 
 @dataclass(frozen=True)
@@ -85,9 +81,7 @@ class CalendarEventCompleted(BaseEvent):
     quality_score: int | None
     metadata: dict[str, Any] | None = None
 
-    @property
-    def event_type(self) -> str:
-        return "calendar_event.completed"
+    event_type: ClassVar[str] = "calendar_event.completed"
 
 
 @dataclass(frozen=True)
@@ -106,9 +100,7 @@ class CalendarEventDeleted(BaseEvent):
     title: str
     metadata: dict[str, Any] | None = None
 
-    @property
-    def event_type(self) -> str:
-        return "calendar_event.deleted"
+    event_type: ClassVar[str] = "calendar_event.deleted"
 
 
 @dataclass(frozen=True)
@@ -128,9 +120,7 @@ class CalendarEventRescheduled(BaseEvent):
     new_date: date
     metadata: dict[str, Any] | None = None
 
-    @property
-    def event_type(self) -> str:
-        return "calendar_event.rescheduled"
+    event_type: ClassVar[str] = "calendar_event.rescheduled"
 
 
 @dataclass(frozen=True)
@@ -150,9 +140,7 @@ class EventAttendeeAdded(BaseEvent):
     role: str
     metadata: dict[str, Any] | None = None
 
-    @property
-    def event_type(self) -> str:
-        return "calendar_event.attendee_added"
+    event_type: ClassVar[str] = "calendar_event.attendee_added"
 
 
 @dataclass(frozen=True)
@@ -171,6 +159,4 @@ class EventAttendeeRemoved(BaseEvent):
     removed_by_uid: str
     metadata: dict[str, Any] | None = None
 
-    @property
-    def event_type(self) -> str:
-        return "calendar_event.attendee_removed"
+    event_type: ClassVar[str] = "calendar_event.attendee_removed"

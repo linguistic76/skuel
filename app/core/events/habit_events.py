@@ -19,6 +19,7 @@ Subscribers:
 
 from dataclasses import dataclass
 from datetime import datetime
+from typing import ClassVar
 
 from core.events.base import BaseEvent
 from core.models.type_hints import UserUID
@@ -49,9 +50,7 @@ class HabitCreated(BaseEvent):
     is_goal_related: bool = False
     related_goal_uid: str | None = None
 
-    @property
-    def event_type(self) -> str:
-        return "habit.created"
+    event_type: ClassVar[str] = "habit.created"
 
 
 @dataclass(frozen=True)
@@ -73,9 +72,7 @@ class HabitUpdated(BaseEvent):
     user_uid: UserUID
     updated_fields: list[str]
 
-    @property
-    def event_type(self) -> str:
-        return "habit.updated"
+    event_type: ClassVar[str] = "habit.updated"
 
 
 @dataclass(frozen=True)
@@ -103,9 +100,7 @@ class HabitCompleted(BaseEvent):
     completed_on_time: bool = True
     completed_late: bool = False
 
-    @property
-    def event_type(self) -> str:
-        return "habit.completed"
+    event_type: ClassVar[str] = "habit.completed"
 
 
 @dataclass(frozen=True)
@@ -131,9 +126,7 @@ class HabitStreakBroken(BaseEvent):
     # Context for recovery
     days_since_last_completion: int = 0
 
-    @property
-    def event_type(self) -> str:
-        return "habit.streak_broken"
+    event_type: ClassVar[str] = "habit.streak_broken"
 
 
 @dataclass(frozen=True)
@@ -160,9 +153,7 @@ class HabitMissed(BaseEvent):
     # Pattern context
     consecutive_misses: int = 0
 
-    @property
-    def event_type(self) -> str:
-        return "habit.missed"
+    event_type: ClassVar[str] = "habit.missed"
 
 
 # ============================================================================
@@ -189,9 +180,7 @@ class HabitStreakMilestone(BaseEvent):
     # Milestone type
     milestone_name: str  # "one_week", "one_month", "one_hundred", "one_year"
 
-    @property
-    def event_type(self) -> str:
-        return "habit.streak_milestone"
+    event_type: ClassVar[str] = "habit.streak_milestone"
 
 
 @dataclass(frozen=True)
@@ -216,9 +205,7 @@ class AchievementEarned(BaseEvent):
     streak_length: int = 0  # Streak badges only
     threshold_value: int = 0  # The threshold that was crossed (e.g. 50 completions)
 
-    @property
-    def event_type(self) -> str:
-        return "habit.achievement_earned"
+    event_type: ClassVar[str] = "habit.achievement_earned"
 
 
 # ============================================================================
@@ -255,9 +242,7 @@ class HabitCompletionBulk(BaseEvent):
     new_streak_records: tuple[str, ...] = ()  # UIDs of habits with new records
     milestones_reached: tuple[tuple[str, int], ...] = ()  # (habit_uid, streak_length)
 
-    @property
-    def event_type(self) -> str:
-        return "habits.bulk_completed"
+    event_type: ClassVar[str] = "habits.bulk_completed"
 
     @property
     def count(self) -> int:

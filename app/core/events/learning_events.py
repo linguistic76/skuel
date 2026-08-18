@@ -18,6 +18,7 @@ Subscribers:
 """
 
 from dataclasses import dataclass
+from typing import ClassVar
 
 from core.events.base import BaseEvent
 from core.models.type_hints import UserUID
@@ -53,9 +54,7 @@ class KnowledgeMastered(BaseEvent):
     learning_path_uid: str | None = None
     related_kus_mastered: int = 0
 
-    @property
-    def event_type(self) -> str:
-        return "knowledge.mastered"
+    event_type: ClassVar[str] = "knowledge.mastered"
 
 
 @dataclass(frozen=True)
@@ -78,9 +77,7 @@ class PathStepProgressUpdated(BaseEvent):
     kus_mastered: int
     kus_total: int
 
-    @property
-    def event_type(self) -> str:
-        return "path_step.progress_updated"
+    event_type: ClassVar[str] = "path_step.progress_updated"
 
     @property
     def progress_delta(self) -> float:
@@ -107,9 +104,7 @@ class KnowledgeCreated(BaseEvent):
     created_by_user: str | None = None
     created_from_template: bool = False
 
-    @property
-    def event_type(self) -> str:
-        return "knowledge.created"
+    event_type: ClassVar[str] = "knowledge.created"
 
 
 # ============================================================================
@@ -136,9 +131,7 @@ class LearningPathStarted(BaseEvent):
     estimated_duration_hours: int | None = None
     total_kus: int = 0
 
-    @property
-    def event_type(self) -> str:
-        return "learning_path.started"
+    event_type: ClassVar[str] = "learning_path.started"
 
 
 @dataclass(frozen=True)
@@ -167,9 +160,7 @@ class LearningPathCompleted(BaseEvent):
     kus_mastered: int = 0
     average_mastery_score: float = 0.0
 
-    @property
-    def event_type(self) -> str:
-        return "learning_path.completed"
+    event_type: ClassVar[str] = "learning_path.completed"
 
 
 @dataclass(frozen=True)
@@ -191,9 +182,7 @@ class LearningPathProgressUpdated(BaseEvent):
     kus_completed: int
     kus_total: int
 
-    @property
-    def event_type(self) -> str:
-        return "learning_path.progress_updated"
+    event_type: ClassVar[str] = "learning_path.progress_updated"
 
     @property
     def progress_delta(self) -> float:
@@ -217,9 +206,7 @@ class LearningRecommendationGenerated(BaseEvent):
     recommended_ku_uids: list[str]
     recommendation_reason: str  # "next_in_path", "related_to_interests", "skill_gap"
 
-    @property
-    def event_type(self) -> str:
-        return "learning.recommendation_generated"
+    event_type: ClassVar[str] = "learning.recommendation_generated"
 
 
 # ============================================================================

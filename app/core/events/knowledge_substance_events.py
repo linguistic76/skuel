@@ -23,6 +23,7 @@ Subscribers:
 """
 
 from dataclasses import dataclass
+from typing import ClassVar
 
 from core.events.base import BaseEvent
 from core.models.type_hints import UserUID
@@ -57,9 +58,7 @@ class KnowledgeAppliedInTask(BaseEvent):
     task_title: str | None = None
     task_priority: str | None = None
 
-    @property
-    def event_type(self) -> str:
-        return "knowledge.applied_in_task"
+    event_type: ClassVar[str] = "knowledge.applied_in_task"
 
 
 @dataclass(frozen=True)
@@ -86,9 +85,7 @@ class KnowledgePracticedInEvent(BaseEvent):
     event_title: str | None = None
     duration_minutes: int | None = None
 
-    @property
-    def event_type(self) -> str:
-        return "knowledge.practiced_in_event"
+    event_type: ClassVar[str] = "knowledge.practiced_in_event"
 
 
 @dataclass(frozen=True)
@@ -120,9 +117,7 @@ class KnowledgePracticed(BaseEvent):
     event_uid: str | None = None
     times_practiced: int = 0  # New total practice count
 
-    @property
-    def event_type(self) -> str:
-        return "knowledge.practiced"
+    event_type: ClassVar[str] = "knowledge.practiced"
 
 
 @dataclass(frozen=True)
@@ -152,9 +147,7 @@ class KnowledgeBuiltIntoHabit(BaseEvent):
     habit_title: str | None = None
     frequency: str | None = None  # "daily", "weekly", etc.
 
-    @property
-    def event_type(self) -> str:
-        return "knowledge.built_into_habit"
+    event_type: ClassVar[str] = "knowledge.built_into_habit"
 
 
 @dataclass(frozen=True)
@@ -180,9 +173,7 @@ class KnowledgeReflectedInEntry(BaseEvent):
     entry_uid: str
     user_uid: UserUID
 
-    @property
-    def event_type(self) -> str:
-        return "knowledge.reflected_in_entry"
+    event_type: ClassVar[str] = "knowledge.reflected_in_entry"
 
 
 @dataclass(frozen=True)
@@ -212,9 +203,7 @@ class KnowledgeInformedChoice(BaseEvent):
     choice_title: str | None = None
     choice_outcome: str | None = None  # For tracking effectiveness
 
-    @property
-    def event_type(self) -> str:
-        return "knowledge.informed_choice"
+    event_type: ClassVar[str] = "knowledge.informed_choice"
 
 
 # ============================================================================
@@ -246,9 +235,7 @@ class KnowledgeBulkAppliedInTask(BaseEvent):
     task_title: str | None = None
     task_priority: str | None = None
 
-    @property
-    def event_type(self) -> str:
-        return "knowledge.bulk_applied_in_task"
+    event_type: ClassVar[str] = "knowledge.bulk_applied_in_task"
 
     @property
     def count(self) -> int:
@@ -278,9 +265,7 @@ class KnowledgeBulkBuiltIntoHabit(BaseEvent):
     habit_title: str | None = None
     frequency: str | None = None
 
-    @property
-    def event_type(self) -> str:
-        return "knowledge.bulk_built_into_habit"
+    event_type: ClassVar[str] = "knowledge.bulk_built_into_habit"
 
     @property
     def count(self) -> int:
@@ -309,9 +294,7 @@ class KnowledgeBulkInformedChoice(BaseEvent):
     # Optional context
     choice_title: str | None = None
 
-    @property
-    def event_type(self) -> str:
-        return "knowledge.bulk_informed_choice"
+    event_type: ClassVar[str] = "knowledge.bulk_informed_choice"
 
     @property
     def count(self) -> int:

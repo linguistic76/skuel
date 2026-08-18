@@ -15,7 +15,7 @@ Date: 2025-10-16
 """
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, ClassVar
 
 from core.events.base import BaseEvent
 from core.models.type_hints import UserUID
@@ -39,9 +39,7 @@ class ChoiceCreated(BaseEvent):
     urgency: str
     metadata: dict[str, Any] | None = None
 
-    @property
-    def event_type(self) -> str:
-        return "choice.created"
+    event_type: ClassVar[str] = "choice.created"
 
 
 @dataclass(frozen=True)
@@ -60,9 +58,7 @@ class ChoiceUpdated(BaseEvent):
     updated_fields: dict[str, Any]
     metadata: dict[str, Any] | None = None
 
-    @property
-    def event_type(self) -> str:
-        return "choice.updated"
+    event_type: ClassVar[str] = "choice.updated"
 
 
 @dataclass(frozen=True)
@@ -81,9 +77,7 @@ class ChoiceDeleted(BaseEvent):
     choice_description: str
     metadata: dict[str, Any] | None = None
 
-    @property
-    def event_type(self) -> str:
-        return "choice.deleted"
+    event_type: ClassVar[str] = "choice.deleted"
 
 
 @dataclass(frozen=True)
@@ -103,9 +97,7 @@ class ChoiceMade(BaseEvent):
     confidence: float
     metadata: dict[str, Any] | None = None
 
-    @property
-    def event_type(self) -> str:
-        return "choice.made"
+    event_type: ClassVar[str] = "choice.made"
 
 
 @dataclass(frozen=True)
@@ -125,6 +117,4 @@ class ChoiceOutcomeRecorded(BaseEvent):
     lessons_learned: str | None
     metadata: dict[str, Any] | None = None
 
-    @property
-    def event_type(self) -> str:
-        return "choice.outcome_recorded"
+    event_type: ClassVar[str] = "choice.outcome_recorded"

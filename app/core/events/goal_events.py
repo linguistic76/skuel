@@ -19,6 +19,7 @@ Subscribers:
 
 from dataclasses import dataclass
 from datetime import datetime
+from typing import ClassVar
 
 from core.events.base import BaseEvent
 from core.models.type_hints import UserUID
@@ -49,9 +50,7 @@ class GoalCreated(BaseEvent):
     is_milestone: bool = False
     parent_goal_uid: str | None = None
 
-    @property
-    def event_type(self) -> str:
-        return "goal.created"
+    event_type: ClassVar[str] = "goal.created"
 
 
 @dataclass(frozen=True)
@@ -73,9 +72,7 @@ class GoalUpdated(BaseEvent):
     user_uid: UserUID
     updated_fields: list[str]
 
-    @property
-    def event_type(self) -> str:
-        return "goal.updated"
+    event_type: ClassVar[str] = "goal.updated"
 
 
 @dataclass(frozen=True)
@@ -104,9 +101,7 @@ class GoalAchieved(BaseEvent):
     related_task_count: int = 0
     related_habit_count: int = 0
 
-    @property
-    def event_type(self) -> str:
-        return "goal.achieved"
+    event_type: ClassVar[str] = "goal.achieved"
 
 
 @dataclass(frozen=True)
@@ -130,9 +125,7 @@ class GoalProgressUpdated(BaseEvent):
     triggered_by_habit_completion: bool = False
     triggered_by_manual_update: bool = False
 
-    @property
-    def event_type(self) -> str:
-        return "goal.progress_updated"
+    event_type: ClassVar[str] = "goal.progress_updated"
 
     @property
     def progress_delta(self) -> float:
@@ -164,9 +157,7 @@ class GoalAbandoned(BaseEvent):
     progress_at_abandonment: float = 0.0
     days_active: int = 0
 
-    @property
-    def event_type(self) -> str:
-        return "goal.abandoned"
+    event_type: ClassVar[str] = "goal.abandoned"
 
 
 # ============================================================================
@@ -194,9 +185,7 @@ class GoalRecommendationsGenerated(BaseEvent):
     ]  # List of recommendation dicts with title, description, rationale, confidence
     triggered_by_achievement: bool = False
 
-    @property
-    def event_type(self) -> str:
-        return "goal.recommendations_generated"
+    event_type: ClassVar[str] = "goal.recommendations_generated"
 
     @property
     def recommendation_count(self) -> int:
@@ -223,9 +212,7 @@ class GoalMilestoneReached(BaseEvent):
     user_uid: UserUID
     milestone_percentage: float  # e.g., 0.25, 0.5, 0.75
 
-    @property
-    def event_type(self) -> str:
-        return "goal.milestone_reached"
+    event_type: ClassVar[str] = "goal.milestone_reached"
 
 
 # ============================================================================

@@ -17,6 +17,7 @@ Architecture:
 
 from dataclasses import dataclass
 from datetime import datetime
+from typing import ClassVar
 
 from core.events.base import BaseEvent
 
@@ -36,9 +37,7 @@ class ChunkEmbeddingRequested(BaseEvent):
     chunk_texts: tuple[str, ...]  # Context window for each chunk
     requested_at: datetime
 
-    @property
-    def event_type(self) -> str:
-        return "chunk.embedding_requested"
+    event_type: ClassVar[str] = "chunk.embedding_requested"
 
 
 @dataclass(frozen=True)
@@ -60,6 +59,4 @@ class ReferenceChunkEmbeddingRequested(BaseEvent):
     chunk_texts: tuple[str, ...]  # Context window for each chunk
     requested_at: datetime
 
-    @property
-    def event_type(self) -> str:
-        return "reference_chunk.embedding_requested"
+    event_type: ClassVar[str] = "reference_chunk.embedding_requested"

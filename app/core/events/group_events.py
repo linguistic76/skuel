@@ -8,7 +8,7 @@ See: /docs/decisions/ADR-040-teacher-exercise-workflow.md
 """
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, ClassVar
 
 from core.events.base import BaseEvent
 from core.models.type_hints import UserUID
@@ -28,9 +28,7 @@ class GroupCreated(BaseEvent):
     group_name: str
     metadata: dict[str, Any] | None = None
 
-    @property
-    def event_type(self) -> str:
-        return "group.created"
+    event_type: ClassVar[str] = "group.created"
 
 
 @dataclass(frozen=True)
@@ -48,9 +46,7 @@ class GroupMemberAdded(BaseEvent):
     role: str
     metadata: dict[str, Any] | None = None
 
-    @property
-    def event_type(self) -> str:
-        return "group.member_added"
+    event_type: ClassVar[str] = "group.member_added"
 
 
 @dataclass(frozen=True)
@@ -67,6 +63,4 @@ class GroupMemberRemoved(BaseEvent):
     user_uid: UserUID
     metadata: dict[str, Any] | None = None
 
-    @property
-    def event_type(self) -> str:
-        return "group.member_removed"
+    event_type: ClassVar[str] = "group.member_removed"

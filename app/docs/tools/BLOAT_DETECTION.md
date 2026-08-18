@@ -152,8 +152,13 @@ remembered.
   - Subscribe-loop shape: `for ev in [A, B, C]: bus.subscribe(ev, h)`
     (`services_bootstrap/_event_wiring.py`).
 - **Self-diagnostics:** the universe count prints beside `EVENT_REGISTRY`'s
-  size, and zero resolved publishes/subscriptions triggers a loud "the scanner
-  is probably broken" banner — fail-fast applied to the tool itself.
+  state, and zero resolved publishes/subscriptions triggers a loud "the scanner
+  is probably broken" banner — fail-fast applied to the tool itself. Since
+  2026-08-17 the registry is *derived* from each event's `event_type` ClassVar,
+  so the line reads "derived — no literal to drift" and a **number** reappearing
+  there means a hand-maintained literal came back. Registry completeness itself
+  is a test (`tests/unit/test_event_registry_derivation.py`), not a report
+  finding: the bloat report stays advisory by contract.
 
 ## Method analysis (Vulture + dispatch knowledge)
 

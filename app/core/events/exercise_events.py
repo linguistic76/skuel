@@ -17,7 +17,7 @@ See: /docs/decisions/ADR-040-teacher-exercise-workflow.md
 """
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, ClassVar
 
 from core.events.base import BaseEvent
 
@@ -39,6 +39,4 @@ class ExerciseCreated(BaseEvent):
     due_date: str | None = None  # ISO format date string
     metadata: dict[str, Any] | None = None
 
-    @property
-    def event_type(self) -> str:
-        return "exercise.created"
+    event_type: ClassVar[str] = "exercise.created"

@@ -7,6 +7,7 @@ entry point that replaced the legacy Submission + Journal event streams.
 """
 
 from dataclasses import dataclass
+from typing import ClassVar
 
 from core.events.base import BaseEvent
 from core.models.type_hints import UserUID
@@ -24,9 +25,7 @@ class UserEntryCreated(BaseEvent):
     transforms_of_uid: str | None = None
     file_type: str | None = None
 
-    @property
-    def event_type(self) -> str:
-        return "user_entry.created"
+    event_type: ClassVar[str] = "user_entry.created"
 
 
 @dataclass(frozen=True)
@@ -37,9 +36,7 @@ class UserEntryProcessingStarted(BaseEvent):
     user_uid: UserUID
     pipeline: str
 
-    @property
-    def event_type(self) -> str:
-        return "user_entry.processing_started"
+    event_type: ClassVar[str] = "user_entry.processing_started"
 
 
 @dataclass(frozen=True)
@@ -55,9 +52,7 @@ class UserEntryProcessingCompleted(BaseEvent):
     pipeline: str
     produced_entry_uid: str | None = None
 
-    @property
-    def event_type(self) -> str:
-        return "user_entry.processing_completed"
+    event_type: ClassVar[str] = "user_entry.processing_completed"
 
 
 @dataclass(frozen=True)
@@ -78,6 +73,4 @@ class UserEntryProcessingFailed(BaseEvent):
     error: str
     failed_phase: str | None = None
 
-    @property
-    def event_type(self) -> str:
-        return "user_entry.processing_failed"
+    event_type: ClassVar[str] = "user_entry.processing_failed"

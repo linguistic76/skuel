@@ -15,7 +15,7 @@ FormSubmission events:
 """
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, ClassVar
 
 from core.events.base import BaseEvent
 from core.models.type_hints import UserUID
@@ -35,9 +35,7 @@ class FormTemplateCreated(BaseEvent):
     field_count: int
     metadata: dict[str, Any] | None = None
 
-    @property
-    def event_type(self) -> str:
-        return "form_template.created"
+    event_type: ClassVar[str] = "form_template.created"
 
 
 @dataclass(frozen=True)
@@ -52,9 +50,7 @@ class FormTemplateUpdated(BaseEvent):
     template_uid: str
     metadata: dict[str, Any] | None = None
 
-    @property
-    def event_type(self) -> str:
-        return "form_template.updated"
+    event_type: ClassVar[str] = "form_template.updated"
 
 
 @dataclass(frozen=True)
@@ -69,9 +65,7 @@ class FormTemplateDeleted(BaseEvent):
     template_uid: str
     metadata: dict[str, Any] | None = None
 
-    @property
-    def event_type(self) -> str:
-        return "form_template.deleted"
+    event_type: ClassVar[str] = "form_template.deleted"
 
 
 @dataclass(frozen=True)
@@ -90,9 +84,7 @@ class FormSubmitted(BaseEvent):
     template_uid: str
     metadata: dict[str, Any] | None = None
 
-    @property
-    def event_type(self) -> str:
-        return "form.submitted"
+    event_type: ClassVar[str] = "form.submitted"
 
 
 @dataclass(frozen=True)
@@ -108,6 +100,4 @@ class FormSubmissionDeleted(BaseEvent):
     user_uid: UserUID
     metadata: dict[str, Any] | None = None
 
-    @property
-    def event_type(self) -> str:
-        return "form_submission.deleted"
+    event_type: ClassVar[str] = "form_submission.deleted"
