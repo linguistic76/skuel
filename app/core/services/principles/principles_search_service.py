@@ -69,14 +69,19 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
     # All configuration in one place, using centralized relationship registry
     # See: /docs/decisions/ADR-025-service-consolidation-patterns.md
     # Principles carry their label in ``title`` (Entity base) — there is no
-    # ``name`` property — plus a distinctive ``statement`` and ``why_important``.
+    # ``name`` property — plus a distinctive ``statement``.
+    # ``why_important`` is NOT searchable here and must not be re-added: it is a
+    # request-only field with no model column, folded into ``description`` by
+    # merge_why_important(). build_text_search_query validates search_fields
+    # against the model and skipped it with a warning on every principles
+    # search; its text is reachable through ``description``, which IS searched.
     _config = create_activity_domain_config(
         dto_class=PrincipleDTO,
         model_class=Principle,
         domain_name="principles",
         date_field="created_at",
         completed_statuses=(),  # Principles don't have completion status
-        search_fields=("title", "statement", "description", "why_important"),
+        search_fields=("title", "statement", "description"),
         category_field="principle_category",  # Principles store category as 'principle_category'
     )
 

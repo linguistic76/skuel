@@ -57,23 +57,37 @@ def _validate_similarity(similarity: str) -> None:
 
 
 # Full-text index definitions: label → indexed fields.
-# Fields sourced from SEARCH_FIELD_CONFIG — the single source of truth.
-# Index names derive from NeoLabel.fulltext_index_name — the one naming rule
-# shared with the query side (hybrid search), so creation and lookup cannot
-# drift. Parity with the live-graph names is pinned by
-# tests/unit/test_fulltext_index_naming.py.
+#
+# Fields mirror each domain's DomainConfig.search_fields (the single source of
+# truth for what a domain treats as keyword-searchable). They are NOT derived
+# from it — a fulltext index is a live graph object, so the two are reconciled
+# deliberately, per label, and pinned by tests/unit/test_fulltext_index_naming.py
+# (which also rejects a field that is not a persisted model field).
+#
+# ⚠ Editing a field list here does NOT change the live graph.
+# _create_fulltext_index issues CREATE ... IF NOT EXISTS, which is a no-op when
+# an index of that name already exists — whatever its fields. Changing the
+# fields of an index that already exists requires an explicit DROP + CREATE;
+# see scripts/migrations/rebuild_fulltext_indexes_2026_08.py.
+#
+# Reachability: only Ku / PathStep / LearningPath are ever queried through
+# these indexes — SearchRouter._HYBRID_TEXT_DOMAIN_VALUES gates the hybrid rung
+# to PUBLIC curriculum domains. The other 11 are created at startup but no code
+# path queries them today; they are kept so the keyword surface is uniform if
+# the allowlist widens. Do not read their presence as "this domain has live
+# fulltext search".
 FULLTEXT_INDEX_DEFINITIONS: list[tuple[NeoLabel, list[str]]] = [
     # Activity Domains (6)
     (NeoLabel.TASK, ["title", "description"]),
     (NeoLabel.GOAL, ["title", "description"]),
     (NeoLabel.HABIT, ["title", "description"]),
     (NeoLabel.EVENT, ["title", "description"]),
-    (NeoLabel.CHOICE, ["title", "description", "context"]),
+    (NeoLabel.CHOICE, ["title", "description"]),
     (NeoLabel.PRINCIPLE, ["title", "statement", "description"]),
     # Curriculum Domains (4)
     (NeoLabel.KU, ["title", "description"]),
     (NeoLabel.PATH_STEP, ["title", "intent", "description"]),
-    (NeoLabel.LEARNING_PATH, ["title", "goal", "description"]),
+    (NeoLabel.LEARNING_PATH, ["title", "description"]),
     (NeoLabel.EXERCISE, ["title", "instructions"]),
     # Learning Loop (2)
     (NeoLabel.REVISED_EXERCISE, ["title", "instructions"]),
@@ -679,10 +693,12 @@ class Neo4jSchemaManager(Neo4jSessionRunner):
         no external dependencies. Always created regardless of INTELLIGENCE_TIER.
 
         Full-text indexes enable Lucene-based keyword search with relevance ranking,
-        replacing sequential CONTAINS scans. Field selections align with
-        SEARCH_FIELD_CONFIG in core/services/search/config.py.
+        replacing sequential CONTAINS scans. Field selections mirror each domain's
+        DomainConfig.search_fields — see FULLTEXT_INDEX_DEFINITIONS.
 
-        Idempotent — uses IF NOT EXISTS. Safe to call on every startup.
+        Idempotent — uses IF NOT EXISTS. Safe to call on every startup, and for
+        the same reason powerless to change an index that already exists: a
+        field-list edit needs a DROP + CREATE migration, not a restart.
         """
         results: dict[str, Any] = {"created": [], "failed": []}
 

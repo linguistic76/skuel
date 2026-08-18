@@ -190,12 +190,19 @@ class PrinciplesService(
     # ========================================================================
     # DOMAIN CONFIGURATION (DomainConfig - January 2026)
     # ========================================================================
+    # ``statement`` holds a principle's core text, so keyword search must reach
+    # it: this is the config SearchRouter uses (it routes the FACADE, and the
+    # facade does not shadow BaseService.search), and it was searching only the
+    # Entity-base title/description — a principle was unfindable by its own
+    # statement. Kept identical to PrinciplesSearchService._config and to
+    # principle_fulltext_idx so all three keyword surfaces agree.
     _config = create_activity_domain_config(
         dto_class=PrincipleDTO,
         model_class=Principle,
         domain_name="principles",
         date_field="created_at",
         completed_statuses=(),  # Principles don't have completion status
+        search_fields=("title", "statement", "description"),
         category_field="principle_category",  # Principles store category as 'principle_category'
     )
 
