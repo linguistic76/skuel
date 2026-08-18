@@ -32,7 +32,8 @@ import argparse
 import asyncio
 import sys
 from pathlib import Path
-from typing import Any
+
+from neo4j import AsyncSession
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -44,7 +45,7 @@ from core.utils.logging import get_logger
 logger = get_logger("skuel.migrations.rebuild_fulltext_indexes")
 
 
-async def _live_fulltext_indexes(session: Any) -> dict[str, tuple[str, list[str]]]:
+async def _live_fulltext_indexes(session: AsyncSession) -> dict[str, tuple[str, list[str]]]:
     """Read the live graph's fulltext indexes as {name: (label, properties)}."""
     result = await session.run(
         "SHOW FULLTEXT INDEXES YIELD name, labelsOrTypes, properties "
