@@ -16,7 +16,7 @@ Source these events from here or via ``core.events`` re-exports.
 """
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, ClassVar
 
 from core.events.base import BaseEvent
 
@@ -38,9 +38,7 @@ class ReportSubmitted(BaseEvent):
     report_uid: str
     metadata: dict[str, Any] | None = None
 
-    @property
-    def event_type(self) -> str:
-        return "submission.report_submitted"
+    event_type: ClassVar[str] = "submission.report_submitted"
 
 
 @dataclass(frozen=True)
@@ -63,9 +61,7 @@ class EntryReportGenerated(BaseEvent):
     source: str
     metadata: dict[str, Any] | None = None
 
-    @property
-    def event_type(self) -> str:
-        return "entry_report.generated"
+    event_type: ClassVar[str] = "entry_report.generated"
 
 
 @dataclass(frozen=True)
@@ -82,9 +78,7 @@ class UserEntryApproved(BaseEvent):
     mastered_ku_count: int = 0
     metadata: dict[str, Any] | None = None
 
-    @property
-    def event_type(self) -> str:
-        return "user_entry.approved"
+    event_type: ClassVar[str] = "user_entry.approved"
 
 
 @dataclass(frozen=True)
@@ -101,9 +95,7 @@ class UserEntryRevisionRequested(BaseEvent):
     revision_notes: str | None = None
     metadata: dict[str, Any] | None = None
 
-    @property
-    def event_type(self) -> str:
-        return "user_entry.revision_requested"
+    event_type: ClassVar[str] = "user_entry.revision_requested"
 
 
 @dataclass(frozen=True)
@@ -118,9 +110,7 @@ class RevisedExerciseCreated(BaseEvent):
     revision_number: int
     metadata: dict[str, Any] | None = None
 
-    @property
-    def event_type(self) -> str:
-        return "revised_exercise.created"
+    event_type: ClassVar[str] = "revised_exercise.created"
 
 
 @dataclass(frozen=True)
@@ -140,6 +130,4 @@ class ActivitySnapshotAccessed(BaseEvent):
     admin_uid: str  # Admin who accessed the data
     time_period: str  # Time window reviewed (e.g. "7d")
 
-    @property
-    def event_type(self) -> str:
-        return "activity.snapshot_accessed"
+    event_type: ClassVar[str] = "activity.snapshot_accessed"

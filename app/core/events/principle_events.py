@@ -15,7 +15,7 @@ Date: 2025-10-16
 """
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, ClassVar
 
 from core.events.base import BaseEvent
 from core.models.enums.principle_enums import TriggerType
@@ -40,9 +40,7 @@ class PrincipleCreated(BaseEvent):
     strength: str
     metadata: dict[str, Any] | None = None
 
-    @property
-    def event_type(self) -> str:
-        return "principle.created"
+    event_type: ClassVar[str] = "principle.created"
 
 
 @dataclass(frozen=True)
@@ -61,9 +59,7 @@ class PrincipleUpdated(BaseEvent):
     updated_fields: dict[str, Any]
     metadata: dict[str, Any] | None = None
 
-    @property
-    def event_type(self) -> str:
-        return "principle.updated"
+    event_type: ClassVar[str] = "principle.updated"
 
 
 @dataclass(frozen=True)
@@ -82,9 +78,7 @@ class PrincipleDeleted(BaseEvent):
     principle_label: str
     metadata: dict[str, Any] | None = None
 
-    @property
-    def event_type(self) -> str:
-        return "principle.deleted"
+    event_type: ClassVar[str] = "principle.deleted"
 
 
 @dataclass(frozen=True)
@@ -104,9 +98,7 @@ class PrincipleStrengthChanged(BaseEvent):
     new_strength: str
     metadata: dict[str, Any] | None = None
 
-    @property
-    def event_type(self) -> str:
-        return "principle.strength_changed"
+    event_type: ClassVar[str] = "principle.strength_changed"
 
 
 @dataclass(frozen=True)
@@ -127,9 +119,7 @@ class PrincipleAlignmentAssessed(BaseEvent):
     alignment_score: float
     metadata: dict[str, Any] | None = None
 
-    @property
-    def event_type(self) -> str:
-        return "principle.alignment_assessed"
+    event_type: ClassVar[str] = "principle.alignment_assessed"
 
 
 @dataclass(frozen=True)
@@ -154,9 +144,7 @@ class PrincipleReflectionRecorded(BaseEvent):
     reflection_quality_score: float = 0.0
     metadata: dict[str, Any] | None = None
 
-    @property
-    def event_type(self) -> str:
-        return "principle.reflection_recorded"
+    event_type: ClassVar[str] = "principle.reflection_recorded"
 
 
 @dataclass(frozen=True)
@@ -182,6 +170,4 @@ class PrincipleConflictRevealed(BaseEvent):
     conflict_context: str | None = None  # Description of the conflict
     metadata: dict[str, Any] | None = None
 
-    @property
-    def event_type(self) -> str:
-        return "principle.conflict_revealed"
+    event_type: ClassVar[str] = "principle.conflict_revealed"

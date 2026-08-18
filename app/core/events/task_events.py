@@ -19,6 +19,7 @@ Subscribers:
 """
 
 from dataclasses import dataclass
+from typing import ClassVar
 
 from core.events.base import BaseEvent
 from core.models.type_hints import UserUID
@@ -44,9 +45,7 @@ class TaskCreated(BaseEvent):
     priority: str
     domain: str | None
 
-    @property
-    def event_type(self) -> str:
-        return "task.created"
+    event_type: ClassVar[str] = "task.created"
 
 
 @dataclass(frozen=True)
@@ -71,9 +70,7 @@ class TaskCompleted(BaseEvent):
     completion_time_seconds: int | None = None
     was_overdue: bool = False
 
-    @property
-    def event_type(self) -> str:
-        return "task.completed"
+    event_type: ClassVar[str] = "task.completed"
 
 
 @dataclass(frozen=True)
@@ -94,9 +91,7 @@ class TaskUpdated(BaseEvent):
     priority_changed: bool = False
     due_date_changed: bool = False
 
-    @property
-    def event_type(self) -> str:
-        return "task.updated"
+    event_type: ClassVar[str] = "task.updated"
 
 
 @dataclass(frozen=True)
@@ -115,9 +110,7 @@ class TaskDeleted(BaseEvent):
     # Context for why deleted
     reason: str | None = None  # "completed_elsewhere", "no_longer_needed", etc.
 
-    @property
-    def event_type(self) -> str:
-        return "task.deleted"
+    event_type: ClassVar[str] = "task.deleted"
 
 
 @dataclass(frozen=True)
@@ -143,9 +136,7 @@ class TaskPriorityChanged(BaseEvent):
     # Was this an escalation to urgent?
     escalated_to_urgent: bool = False
 
-    @property
-    def event_type(self) -> str:
-        return "task.priority_changed"
+    event_type: ClassVar[str] = "task.priority_changed"
 
 
 # ============================================================================
@@ -174,9 +165,7 @@ class TasksBulkCompleted(BaseEvent):
         # Set count from task_uids length
         object.__setattr__(self, "count", len(self.task_uids))
 
-    @property
-    def event_type(self) -> str:
-        return "tasks.bulk_completed"
+    event_type: ClassVar[str] = "tasks.bulk_completed"
 
 
 # ============================================================================

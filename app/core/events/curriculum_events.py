@@ -25,6 +25,7 @@ Subscribers:
 """
 
 from dataclasses import dataclass, field
+from typing import ClassVar
 
 from core.events.base import BaseEvent
 from core.models.type_hints import UserUID
@@ -53,9 +54,7 @@ class PathStepCreated(BaseEvent):
     linked_ku_uids: tuple[str, ...] = field(default_factory=tuple)
     sequence_order: int | None = None
 
-    @property
-    def event_type(self) -> str:
-        return "path_step.created"
+    event_type: ClassVar[str] = "path_step.created"
 
 
 @dataclass(frozen=True)
@@ -74,9 +73,7 @@ class PathStepUpdated(BaseEvent):
     updated_fields: tuple[str, ...] = field(default_factory=tuple)
     linked_lp_uid: str | None = None
 
-    @property
-    def event_type(self) -> str:
-        return "path_step.updated"
+    event_type: ClassVar[str] = "path_step.updated"
 
 
 @dataclass(frozen=True)
@@ -95,9 +92,7 @@ class PathStepDeleted(BaseEvent):
     linked_lp_uid: str | None = None
     had_ku_links: bool = False
 
-    @property
-    def event_type(self) -> str:
-        return "path_step.deleted"
+    event_type: ClassVar[str] = "path_step.deleted"
 
 
 @dataclass(frozen=True)
@@ -112,9 +107,7 @@ class PathStepEnrolled(BaseEvent):
     ps_uid: str
     user_uid: UserUID
 
-    @property
-    def event_type(self) -> str:
-        return "path_step.enrolled"
+    event_type: ClassVar[str] = "path_step.enrolled"
 
 
 @dataclass(frozen=True)
@@ -136,9 +129,7 @@ class PathStepCompleted(BaseEvent):
     sequence_order: int | None = None
     completion_score: float = 1.0  # 0.0 to 1.0
 
-    @property
-    def event_type(self) -> str:
-        return "path_step.completed"
+    event_type: ClassVar[str] = "path_step.completed"
 
 
 # ============================================================================

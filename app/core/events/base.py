@@ -12,10 +12,10 @@ Design Principles:
 - Timestamp all events for audit trail
 """
 
-from abc import ABC, abstractmethod
+from abc import ABC
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Protocol
+from typing import Any, ClassVar, Protocol
 
 # ============================================================================
 # BASE EVENT PROTOCOL
@@ -64,13 +64,35 @@ class BaseEvent(ABC):
     All concrete events should inherit from this class.
     """
 
+    # Declared, deliberately unassigned: the event type is a fact about the
+    # CLASS, not the instance, which is what lets ``core.events`` derive
+    # EVENT_REGISTRY by comprehension instead of hand-maintaining it. A bare
+    # ClassVar annotation type-checks ``self.event_type`` below without
+    # creating the attribute, so ``BaseEvent.event_type`` still raises.
+    # ClassVar is excluded from dataclass fields, so frozen-ness, ``fields()``
+    # and ``asdict()`` are all unaffected.
+    event_type: ClassVar[str]
+
     occurred_at: datetime = field(default_factory=datetime.now, kw_only=True)
 
-    @property
-    @abstractmethod
-    def event_type(self) -> str:
-        """Subclasses must define their event type."""
-        pass
+    def __init_subclass__(cls, **kwargs: object) -> None:
+        """Enforce what ``@abstractmethod`` used to guarantee.
+
+        Every event class must state its own ``event_type``; inheriting one
+        silently would make two classes share a registry key and let the later
+        import win. ``cls.__dict__`` (not ``hasattr``) is the check, because
+        the point is *own* declaration, not reachability.
+
+        ``kwargs`` is typed ``object``, not ``Any``: these are class-creation
+        keywords that this hook only forwards to ``super()`` and never reads,
+        so the weakest type that accepts them is the honest one.
+        """
+        super().__init_subclass__(**kwargs)
+        if "event_type" not in cls.__dict__:
+            raise TypeError(
+                f"{cls.__name__} must declare its own "
+                f'event_type: ClassVar[str] = "{{domain}}.{{action}}"'
+            )
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -177,19 +199,18 @@ Creating a New Event Type:
 
 from dataclasses import dataclass
 from datetime import datetime
+from typing import ClassVar
 from core.events.base import BaseEvent
 
 @dataclass(frozen=True)
 class TaskCompleted(BaseEvent):
     '''Published when a task is marked complete.'''
 
+    event_type: ClassVar[str] = "task.completed"
+
     task_uid: str
     user_uid: UserUID
     completion_time_seconds: int | None = None
-
-    @property
-    def event_type(self) -> str:
-        return "task.completed"
 
 # Publishing (occurred_at auto-set to datetime.now()):
 event = TaskCompleted(task_uid="task-123", user_uid="user-456")

@@ -14,6 +14,7 @@ This replaces direct coupling between TranscriptionService and UserEntry process
 """
 
 from dataclasses import dataclass
+from typing import ClassVar
 
 from core.events.base import BaseEvent
 from core.models.type_hints import UserUID
@@ -38,9 +39,7 @@ class TranscriptionCompleted(BaseEvent):
     duration_seconds: float
     word_count: int
 
-    @property
-    def event_type(self) -> str:
-        return "transcription.completed"
+    event_type: ClassVar[str] = "transcription.completed"
 
 
 @dataclass(frozen=True)
@@ -58,9 +57,7 @@ class TranscriptionFailed(BaseEvent):
     error_message: str
     audio_file_path: str
 
-    @property
-    def event_type(self) -> str:
-        return "transcription.failed"
+    event_type: ClassVar[str] = "transcription.failed"
 
 
 @dataclass(frozen=True)
@@ -76,9 +73,7 @@ class TranscriptionCreated(BaseEvent):
     user_uid: UserUID
     audio_file_path: str
 
-    @property
-    def event_type(self) -> str:
-        return "transcription.created"
+    event_type: ClassVar[str] = "transcription.created"
 
 
 __all__ = [

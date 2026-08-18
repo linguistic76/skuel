@@ -11,11 +11,19 @@ All events extend `BaseEvent` (frozen dataclass). `occurred_at` is auto-set to `
 
 ```python
 from dataclasses import dataclass
+from typing import ClassVar
+
 from core.events.base import BaseEvent
 
 @dataclass(frozen=True)
 class TaskCompleted(BaseEvent):
     """Published when a task is marked complete."""
+    # The event type is a fact about the CLASS, not the instance. ClassVar is
+    # excluded from dataclass fields, so this is not a constructor argument —
+    # and it is what lets core/events/__init__.py DERIVE EVENT_REGISTRY instead
+    # of hand-maintaining it.
+    event_type: ClassVar[str] = "task.completed"
+
     # Core identifiers
     task_uid: str
     user_uid: str
@@ -23,11 +31,8 @@ class TaskCompleted(BaseEvent):
     # Optional context
     completion_time_seconds: int | None = None
 
-    @property
-    def event_type(self) -> str:
-        return "task.completed"
-
 # occurred_at is inherited from BaseEvent with default_factory=datetime.now
+# BaseEvent.__init_subclass__ raises if event_type is not declared here.
 ```
 
 ### Publishing Events

@@ -17,6 +17,7 @@ import asyncio
 import contextlib
 from dataclasses import dataclass
 from datetime import datetime
+from typing import ClassVar
 
 import pytest
 
@@ -33,12 +34,10 @@ from core.infrastructure.monitoring import MetricsCache, PrometheusMetrics
 class SampleEvent(BaseEvent):
     """Sample event for metrics cache tests."""
 
+    event_type: ClassVar[str] = "test.event"
+
     user_uid: str
     occurred_at: datetime
-
-    @property
-    def event_type(self) -> str:
-        return "test.event"
 
 
 # ============================================================================

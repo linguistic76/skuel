@@ -15,6 +15,7 @@ Subscribers:
 """
 
 from dataclasses import dataclass
+from typing import ClassVar
 
 from core.events.base import BaseEvent
 from core.models.type_hints import UserUID
@@ -43,6 +44,4 @@ class SearchExecuted(BaseEvent):
     domains: tuple[str, ...] = ()  # requested domain scope; () = cross-domain sweep
     filters_json: str = "{}"  # json.dumps of active property filters
 
-    @property
-    def event_type(self) -> str:
-        return "search.executed"
+    event_type: ClassVar[str] = "search.executed"

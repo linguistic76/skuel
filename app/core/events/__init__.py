@@ -32,33 +32,17 @@ Subscribing:
 Event Catalog:
 -------------
 
-Tasks:
-    TaskCreated, TaskCompleted, TaskUpdated, TaskDeleted, TaskPriorityChanged,
+There is no hand-written catalog here. ``EVENT_REGISTRY`` is derived from the
+imported event classes (see below), so the live answer is::
 
-Goals:
-    GoalCreated, GoalAchieved, GoalProgressUpdated, GoalAbandoned
+    from core.events import list_event_types
 
-Habits:
-    HabitCreated, HabitCompleted, HabitStreakBroken, HabitMissed,
+    list_event_types()  # every {domain}.{action} string, 102 today
 
-Principles:
-    PrincipleCreated, PrincipleUpdated, PrincipleDeleted, PrincipleStrengthChanged, PrincipleAlignmentAssessed
-
-Choices:
-    ChoiceCreated, ChoiceUpdated, ChoiceDeleted, ChoiceMade, ChoiceOutcomeRecorded
-
-Calendar Events:
-    CalendarEventCreated, CalendarEventUpdated, CalendarEventCompleted, CalendarEventDeleted, CalendarEventRescheduled
-
-Forms:
-    FormTemplateCreated, FormTemplateUpdated, FormTemplateDeleted, FormSubmitted, FormSubmissionDeleted
-
-User:
-    UserDeleted,
-
-Learning:
-    KnowledgeMastered, LearningPathStarted, LearningPathCompleted,
-    PathStepProgressUpdated
+Adding an event to a module that this package already imports registers it
+automatically. A NEW event module must be imported here — that is the one gap a
+comprehension cannot close, and tests/unit/test_event_registry_derivation.py
+fails if a defined event never reaches the registry.
 
 References:
 ----------
@@ -66,6 +50,8 @@ References:
 - Quick Reference: /home/mike/skuel/app/core/events/README.md
 - Event Bus: /home/mike/skuel/app/adapters/infrastructure/event_bus.py
 """
+
+from collections.abc import Iterator
 
 # Base classes and protocols
 # Knowledge substance events (tracking real-world application)
@@ -78,6 +64,8 @@ from core.events.calendar_event_events import (
     CalendarEventDeleted,
     CalendarEventRescheduled,
     CalendarEventUpdated,
+    EventAttendeeAdded,
+    EventAttendeeRemoved,
 )
 
 # Choice events
@@ -123,6 +111,9 @@ from core.events.embedding_events import (
     UserEntryEmbeddingRequested,
 )
 
+# Exercise events (ADR-040 — ExerciseCreated is a STAGED hook, see the module docstring)
+from core.events.exercise_events import ExerciseCreated
+
 # Form events
 from core.events.form_events import (
     FormSubmissionDeleted,
@@ -139,11 +130,20 @@ from core.events.goal_events import (
     GoalCreated,
     GoalMilestoneReached,
     GoalProgressUpdated,
+    GoalRecommendationsGenerated,
     GoalUpdated,
+)
+
+# Group events (NonKuDomain.GROUP — ADR-053)
+from core.events.group_events import (
+    GroupCreated,
+    GroupMemberAdded,
+    GroupMemberRemoved,
 )
 
 # Habit events
 from core.events.habit_events import (
+    AchievementEarned,
     HabitCompleted,
     HabitCompletionBulk,
     HabitCreated,
@@ -188,8 +188,10 @@ from core.events.learning_loop_events import (
 # Principle events
 from core.events.principle_events import (
     PrincipleAlignmentAssessed,
+    PrincipleConflictRevealed,
     PrincipleCreated,
     PrincipleDeleted,
+    PrincipleReflectionRecorded,
     PrincipleStrengthChanged,
     PrincipleUpdated,
 )
@@ -229,50 +231,37 @@ from core.events.user_events import (
 )
 
 # Public API
+#
+# Flat and alphabetical, deliberately. The former comment-delimited groupings had
+# drifted into fiction (Calendar split across two blocks, DomainEvent filed under
+# Choices) and cost more than they explained. The live catalog is
+# ``list_event_types()``; a grouping to browse is not this list's job.
+# tests/unit/test_event_registry_derivation.py fails if an event is missing here.
 __all__ = [
-    # Learning loop events
+    "AchievementEarned",
     "ActivitySnapshotAccessed",
-    "EntryReportGenerated",
-    "ReportSubmitted",
-    "RevisedExerciseCreated",
-    "UserEntryApproved",
-    "UserEntryRevisionRequested",
-    # Base
     "BaseEvent",
-    # Calendar Events
     "CalendarEventCompleted",
-    # Chunk embedding events (async background generation for RAG)
-    "ChunkEmbeddingRequested",
-    "ReferenceChunkEmbeddingRequested",
-    # Embedding events (async background generation)
-    "ChoiceEmbeddingRequested",
-    "EmbeddingRequested",
-    "EventEmbeddingRequested",
-    "ExerciseEmbeddingRequested",
-    "GoalEmbeddingRequested",
-    "HabitEmbeddingRequested",
-    "KuEmbeddingRequested",
-    "LearningPathEmbeddingRequested",
-    "PathStepEmbeddingRequested",
-    "PrincipleEmbeddingRequested",
-    "ResourceEmbeddingRequested",
-    "RevisedExerciseEmbeddingRequested",
-    "TaskEmbeddingRequested",
-    "UserEntryEmbeddingRequested",
-    # Calendar Events
     "CalendarEventCreated",
     "CalendarEventDeleted",
     "CalendarEventRescheduled",
     "CalendarEventUpdated",
-    # Choices
     "ChoiceCreated",
     "ChoiceDeleted",
+    "ChoiceEmbeddingRequested",
     "ChoiceMade",
     "ChoiceOutcomeRecorded",
     "ChoiceUpdated",
+    "ChunkEmbeddingRequested",
     "DomainEvent",
+    "EmbeddingRequested",
+    "EntryReportGenerated",
+    "EventAttendeeAdded",
+    "EventAttendeeRemoved",
+    "EventEmbeddingRequested",
     "EventMetadata",
-    # Forms
+    "ExerciseCreated",
+    "ExerciseEmbeddingRequested",
     "FormSubmissionDeleted",
     "FormSubmitted",
     "FormTemplateCreated",
@@ -280,72 +269,80 @@ __all__ = [
     "FormTemplateUpdated",
     "GoalAbandoned",
     "GoalAchieved",
-    # Goals
     "GoalCreated",
+    "GoalEmbeddingRequested",
     "GoalMilestoneReached",
     "GoalProgressUpdated",
+    "GoalRecommendationsGenerated",
     "GoalUpdated",
+    "GroupCreated",
+    "GroupMemberAdded",
+    "GroupMemberRemoved",
     "HabitCompleted",
     "HabitCompletionBulk",
-    # Habits
     "HabitCreated",
+    "HabitEmbeddingRequested",
     "HabitMissed",
     "HabitStreakBroken",
     "HabitStreakMilestone",
     "HabitUpdated",
-    # Knowledge substance events
     "KnowledgeAppliedInTask",
+    "KnowledgeBuiltIntoHabit",
     "KnowledgeBulkAppliedInTask",
     "KnowledgeBulkBuiltIntoHabit",
     "KnowledgeBulkInformedChoice",
-    "KnowledgeBuiltIntoHabit",
     "KnowledgeCreated",
     "KnowledgeInformedChoice",
-    "KnowledgeReflectedInEntry",
-    # Learning
     "KnowledgeMastered",
     "KnowledgePracticed",
     "KnowledgePracticedInEvent",
+    "KnowledgeReflectedInEntry",
+    "KuEmbeddingRequested",
     "LearningPathCompleted",
+    "LearningPathEmbeddingRequested",
     "LearningPathProgressUpdated",
     "LearningPathStarted",
     "LearningRecommendationGenerated",
-    "PathStepProgressUpdated",
-    # Curriculum (PS)
-    # NOTE: MOC events removed January 2026 - MOC is now KU-based
     "PathStepCompleted",
     "PathStepCreated",
     "PathStepDeleted",
+    "PathStepEmbeddingRequested",
     "PathStepEnrolled",
+    "PathStepProgressUpdated",
     "PathStepUpdated",
     "PrincipleAlignmentAssessed",
-    # Principles
+    "PrincipleConflictRevealed",
     "PrincipleCreated",
     "PrincipleDeleted",
+    "PrincipleEmbeddingRequested",
+    "PrincipleReflectionRecorded",
     "PrincipleStrengthChanged",
     "PrincipleUpdated",
-    # Search
+    "ReferenceChunkEmbeddingRequested",
+    "ReportSubmitted",
+    "ResourceEmbeddingRequested",
+    "RevisedExerciseCreated",
+    "RevisedExerciseEmbeddingRequested",
     "SearchExecuted",
     "TaskCompleted",
-    # Tasks
     "TaskCreated",
     "TaskDeleted",
+    "TaskEmbeddingRequested",
     "TaskPriorityChanged",
     "TaskUpdated",
     "TasksBulkCompleted",
-    # Transcription events
     "TranscriptionCompleted",
     "TranscriptionCreated",
     "TranscriptionFailed",
     "UserActivityRecorded",
-    # User
     "UserDeleted",
-    # UserEntry (ADR-054)
+    "UserEntryApproved",
     "UserEntryCreated",
+    "UserEntryEmbeddingRequested",
     "UserEntryProcessingCompleted",
     "UserEntryProcessingFailed",
     "UserEntryProcessingStarted",
-    # Utilities
+    "UserEntryRevisionRequested",
     "publish_event",
 ]
 
@@ -354,119 +351,31 @@ __all__ = [
 # EVENT REGISTRY
 # ============================================================================
 
-# Map event type strings to event classes for deserialization
+
+def _iter_event_classes(root: type[BaseEvent] = BaseEvent) -> Iterator[type[BaseEvent]]:
+    """Every transitive subclass of ``BaseEvent``, depth-first.
+
+    Transitive, not direct: 13 of the per-domain ``*EmbeddingRequested`` events
+    descend from ``EmbeddingRequested``, which is itself a concrete registered
+    event. Intermediate bases are yielded alongside their children, so both the
+    base and its descendants land in the registry.
+    """
+    for subclass in root.__subclasses__():
+        yield subclass
+        yield from _iter_event_classes(subclass)
+
+
+# DERIVED, never hand-maintained. ``event_type`` is a ClassVar (core/events/base.py),
+# so the mapping is a fact about the imported classes rather than a list to keep in
+# sync — the 10-entry drift this replaced (92 listed vs 102 defined, found by
+# ``./dev bloat``) is now unrepresentable.
+#
+# The one thing a comprehension cannot see is a sibling event module this package
+# never imports: that is exactly how exercise_events and group_events drifted out.
+# tests/unit/test_event_registry_derivation.py walks core/events/*.py by AST and
+# fails if any defined event is missing here.
 EVENT_REGISTRY: dict[str, type[BaseEvent]] = {
-    # Learning loop
-    "submission.report_submitted": ReportSubmitted,
-    "entry_report.generated": EntryReportGenerated,
-    "user_entry.approved": UserEntryApproved,
-    "user_entry.revision_requested": UserEntryRevisionRequested,
-    "activity.snapshot_accessed": ActivitySnapshotAccessed,
-    "revised_exercise.created": RevisedExerciseCreated,
-    # Chunk embedding events (async background generation for RAG)
-    "chunk.embedding_requested": ChunkEmbeddingRequested,
-    "reference_chunk.embedding_requested": ReferenceChunkEmbeddingRequested,
-    # Embedding events (async background generation)
-    "embedding.requested": EmbeddingRequested,
-    "task.embedding_requested": TaskEmbeddingRequested,
-    "goal.embedding_requested": GoalEmbeddingRequested,
-    "habit.embedding_requested": HabitEmbeddingRequested,
-    "event.embedding_requested": EventEmbeddingRequested,
-    "choice.embedding_requested": ChoiceEmbeddingRequested,
-    "principle.embedding_requested": PrincipleEmbeddingRequested,
-    "ku.embedding_requested": KuEmbeddingRequested,
-    "resource.embedding_requested": ResourceEmbeddingRequested,
-    "exercise.embedding_requested": ExerciseEmbeddingRequested,
-    "path_step.embedding_requested": PathStepEmbeddingRequested,
-    "learning_path.embedding_requested": LearningPathEmbeddingRequested,
-    "revised_exercise.embedding_requested": RevisedExerciseEmbeddingRequested,
-    "user_entry.embedding_requested": UserEntryEmbeddingRequested,
-    # Tasks
-    "task.created": TaskCreated,
-    "task.completed": TaskCompleted,
-    "task.updated": TaskUpdated,
-    "task.deleted": TaskDeleted,
-    "task.priority_changed": TaskPriorityChanged,
-    "tasks.bulk_completed": TasksBulkCompleted,
-    # Goals
-    "goal.created": GoalCreated,
-    "goal.updated": GoalUpdated,
-    "goal.achieved": GoalAchieved,
-    "goal.progress_updated": GoalProgressUpdated,
-    "goal.abandoned": GoalAbandoned,
-    "goal.milestone_reached": GoalMilestoneReached,
-    # Habits
-    "habit.created": HabitCreated,
-    "habit.updated": HabitUpdated,
-    "habit.completed": HabitCompleted,
-    "habits.bulk_completed": HabitCompletionBulk,
-    "habit.streak_broken": HabitStreakBroken,
-    "habit.missed": HabitMissed,
-    "habit.streak_milestone": HabitStreakMilestone,
-    # User
-    "user.activity_recorded": UserActivityRecorded,
-    "user.deleted": UserDeleted,
-    # Learning
-    "knowledge.mastered": KnowledgeMastered,
-    "knowledge.created": KnowledgeCreated,
-    # Knowledge substance events
-    "knowledge.applied_in_task": KnowledgeAppliedInTask,
-    "knowledge.practiced_in_event": KnowledgePracticedInEvent,
-    "knowledge.practiced": KnowledgePracticed,
-    "knowledge.built_into_habit": KnowledgeBuiltIntoHabit,
-    "knowledge.reflected_in_entry": KnowledgeReflectedInEntry,
-    "knowledge.informed_choice": KnowledgeInformedChoice,
-    "knowledge.bulk_applied_in_task": KnowledgeBulkAppliedInTask,
-    "knowledge.bulk_built_into_habit": KnowledgeBulkBuiltIntoHabit,
-    "knowledge.bulk_informed_choice": KnowledgeBulkInformedChoice,
-    "path_step.progress_updated": PathStepProgressUpdated,
-    "learning_path.started": LearningPathStarted,
-    "learning_path.completed": LearningPathCompleted,
-    "learning_path.progress_updated": LearningPathProgressUpdated,
-    "learning.recommendation_generated": LearningRecommendationGenerated,
-    # Path Steps (PS)
-    "path_step.created": PathStepCreated,
-    "path_step.updated": PathStepUpdated,
-    "path_step.deleted": PathStepDeleted,
-    "path_step.enrolled": PathStepEnrolled,
-    "path_step.completed": PathStepCompleted,
-    # Maps of Content (MOC) - removed January 2026
-    # MOC is now KU-based - use KU events instead
-    # Principles
-    "principle.created": PrincipleCreated,
-    "principle.updated": PrincipleUpdated,
-    "principle.deleted": PrincipleDeleted,
-    "principle.strength_changed": PrincipleStrengthChanged,
-    "principle.alignment_assessed": PrincipleAlignmentAssessed,
-    # Choices
-    "choice.created": ChoiceCreated,
-    "choice.updated": ChoiceUpdated,
-    "choice.deleted": ChoiceDeleted,
-    "choice.made": ChoiceMade,
-    "choice.outcome_recorded": ChoiceOutcomeRecorded,
-    # Calendar Events
-    "calendar_event.created": CalendarEventCreated,
-    "calendar_event.updated": CalendarEventUpdated,
-    "calendar_event.completed": CalendarEventCompleted,
-    "calendar_event.deleted": CalendarEventDeleted,
-    "calendar_event.rescheduled": CalendarEventRescheduled,
-    # Forms
-    "form_template.created": FormTemplateCreated,
-    "form_template.updated": FormTemplateUpdated,
-    "form_template.deleted": FormTemplateDeleted,
-    "form.submitted": FormSubmitted,
-    "form_submission.deleted": FormSubmissionDeleted,
-    # UserEntry (ADR-054)
-    "user_entry.created": UserEntryCreated,
-    "user_entry.processing_started": UserEntryProcessingStarted,
-    "user_entry.processing_completed": UserEntryProcessingCompleted,
-    "user_entry.processing_failed": UserEntryProcessingFailed,
-    # Transcriptions
-    "transcription.created": TranscriptionCreated,
-    "transcription.completed": TranscriptionCompleted,
-    "transcription.failed": TranscriptionFailed,
-    # Search (discovery analytics)
-    "search.executed": SearchExecuted,
+    event_class.event_type: event_class for event_class in _iter_event_classes()
 }
 
 
@@ -541,152 +450,6 @@ def list_event_types() -> list[str]:
         List of event type strings
     """
     return list(EVENT_REGISTRY.keys())
-
-
-# ============================================================================
-# EVENT GROUPS
-# ============================================================================
-
-LEARNING_LOOP_EVENTS = [
-    ReportSubmitted,
-    EntryReportGenerated,
-    UserEntryApproved,
-    ActivitySnapshotAccessed,
-    UserEntryRevisionRequested,
-    RevisedExerciseCreated,
-]
-
-TASK_EVENTS = [
-    TaskCreated,
-    TaskCompleted,
-    TaskUpdated,
-    TaskDeleted,
-    TaskPriorityChanged,
-    TasksBulkCompleted,
-]
-
-GOAL_EVENTS = [
-    GoalCreated,
-    GoalUpdated,
-    GoalAchieved,
-    GoalProgressUpdated,
-    GoalAbandoned,
-    GoalMilestoneReached,
-]
-
-HABIT_EVENTS = [
-    HabitCreated,
-    HabitUpdated,
-    HabitCompleted,
-    HabitCompletionBulk,
-    HabitStreakBroken,
-    HabitMissed,
-    HabitStreakMilestone,
-]
-
-USER_EVENTS = [
-    UserActivityRecorded,
-    UserDeleted,
-]
-
-LEARNING_EVENTS = [
-    KnowledgeMastered,
-    KnowledgeCreated,
-    LearningPathStarted,
-    LearningPathCompleted,
-    LearningPathProgressUpdated,
-    PathStepProgressUpdated,
-    LearningRecommendationGenerated,
-]
-
-KNOWLEDGE_SUBSTANCE_EVENTS = [
-    KnowledgeAppliedInTask,
-    KnowledgePracticedInEvent,
-    KnowledgePracticed,
-    KnowledgeBuiltIntoHabit,
-    KnowledgeReflectedInEntry,
-    KnowledgeInformedChoice,
-    KnowledgeBulkAppliedInTask,
-    KnowledgeBulkBuiltIntoHabit,
-    KnowledgeBulkInformedChoice,
-]
-
-PS_EVENTS = [
-    PathStepCreated,
-    PathStepUpdated,
-    PathStepDeleted,
-    PathStepEnrolled,
-    PathStepCompleted,
-]
-
-
-PRINCIPLE_EVENTS = [
-    PrincipleCreated,
-    PrincipleUpdated,
-    PrincipleDeleted,
-    PrincipleStrengthChanged,
-    PrincipleAlignmentAssessed,
-]
-
-CHOICE_EVENTS = [
-    ChoiceCreated,
-    ChoiceUpdated,
-    ChoiceDeleted,
-    ChoiceMade,
-    ChoiceOutcomeRecorded,
-]
-
-CALENDAR_EVENT_EVENTS = [
-    CalendarEventCreated,
-    CalendarEventUpdated,
-    CalendarEventCompleted,
-    CalendarEventDeleted,
-    CalendarEventRescheduled,
-]
-
-FORM_EVENTS = [
-    FormTemplateCreated,
-    FormTemplateUpdated,
-    FormTemplateDeleted,
-    FormSubmitted,
-    FormSubmissionDeleted,
-]
-
-USER_ENTRY_EVENTS = [
-    UserEntryCreated,
-    UserEntryProcessingStarted,
-    UserEntryProcessingCompleted,
-    UserEntryProcessingFailed,
-]
-
-TRANSCRIPTION_EVENTS = [
-    TranscriptionCreated,
-    TranscriptionCompleted,
-    TranscriptionFailed,
-]
-
-SEARCH_EVENTS = [
-    SearchExecuted,
-]
-
-# All events
-ALL_EVENTS = (
-    LEARNING_LOOP_EVENTS
-    + TASK_EVENTS
-    + GOAL_EVENTS
-    + HABIT_EVENTS
-    + USER_EVENTS
-    + LEARNING_EVENTS
-    + KNOWLEDGE_SUBSTANCE_EVENTS
-    + PS_EVENTS
-    + PRINCIPLE_EVENTS
-    + CHOICE_EVENTS
-    + CALENDAR_EVENT_EVENTS
-    + FORM_EVENTS
-    + USER_ENTRY_EVENTS
-    + TRANSCRIPTION_EVENTS
-    + SEARCH_EVENTS
-)
 
 
 # ============================================================================

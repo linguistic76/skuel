@@ -1043,7 +1043,15 @@ class EventUniverse:
     def registry_size(self) -> int | None:
         """Entry count of EVENT_REGISTRY in core/events/__init__.py (AST, no import).
 
-        Used as a self-diagnostic cross-check; None if the dict moved.
+        Self-diagnostic cross-check against a HAND-WRITTEN registry. Since
+        2026-08-17 the registry is derived by comprehension from the ClassVar
+        ``event_type`` on each class, so there is no literal to count and this
+        returns None — which is the healthy state, not a failure. A number
+        coming back means someone re-introduced a hand-maintained literal, and
+        it should be compared against the universe count beside it.
+
+        Completeness is now a contract, not a report:
+        tests/unit/test_event_registry_derivation.py.
         """
         init_path = EVENTS_PACKAGE / "__init__.py"
         tree = self.codebase.production.get(init_path)
@@ -2218,7 +2226,11 @@ def print_event_report(
 ) -> None:
     print(f"\n{Colors.BOLD}🔔 Events Analysis{Colors.RESET}")
     registry = universe.registry_size()
-    registry_note = f" (EVENT_REGISTRY lists {registry})" if registry is not None else ""
+    registry_note = (
+        f" (EVENT_REGISTRY hand-written, lists {registry})"
+        if registry is not None
+        else " (EVENT_REGISTRY derived — no literal to drift)"
+    )
     print(
         f"  Event universe (transitive BaseEvent subclasses): {len(universe.classes)}{registry_note}"
     )
