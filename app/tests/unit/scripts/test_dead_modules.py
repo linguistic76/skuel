@@ -52,6 +52,17 @@ def fake_tree(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return tmp_path
 
 
+def _dead_modules(root: Path) -> set[str]:
+    """The module pass: subjects with no importer at all."""
+    subjects, all_sources = dm.get_production_py_files()
+    direct, froms = dm.collect_imports(all_sources)
+    return {
+        dm.path_to_module(p)
+        for p in subjects
+        if not dm.module_is_imported(dm.path_to_module(p), direct, froms)
+    }
+
+
 def _orphans(root: Path) -> set[str]:
     sources = dm.get_import_sources_including_tests()
     refs = dm.collect_references_by_file(sources)
@@ -183,3 +194,84 @@ class TestOrphanPackages:
         _write(fake_tree / "lonely" / "config.py", "CONFIG = {}\n")
 
         assert _orphans(fake_tree) == {"lonely"}
+
+
+class TestImportsComeFromTheAST:
+    """
+    Imports are parsed, not pattern-matched — prose is not a reference.
+
+    The regex scanner this replaced matched raw text, so a `from x import y`
+    inside a USAGE docstring counted as a real import. Worst case, a module's
+    OWN docstring example vouched for it: `core/utils/list_context_helpers.py`
+    documented `from core.utils.list_context_helpers import get_entities`, and
+    that self-reference alone kept it off the dead list for the repo's whole
+    history. Three modules hid that way (#1088).
+    """
+
+    def test_a_module_cannot_vouch_for_itself_in_its_own_docstring(self, fake_tree: Path) -> None:
+        """
+        THE bug. All three hidden modules had exactly this shape.
+
+        core/utils/list_context_helpers.py documented
+        `from core.utils.list_context_helpers import get_entities` in its own
+        USAGE block, and nothing else in the tree referenced it. The regex
+        matched that line, so the module was its own importer.
+        """
+        _write(
+            fake_tree / "helpers.py",
+            '"""Usage::\n\n    from helpers import go\n"""\n\n\ndef go(): ...\n',
+        )
+
+        assert "helpers" in _dead_modules(fake_tree)
+
+    def test_a_docstring_example_elsewhere_is_not_an_import(self, fake_tree: Path) -> None:
+        """A USAGE block in another file is prose about a module, not a use of it."""
+        _write(fake_tree / "helpers.py", "def go(): ...\n")
+        _write(fake_tree / "docs_module.py", '"""See::\n\n    from helpers import go\n"""\n')
+
+        assert "helpers" in _dead_modules(fake_tree)
+
+    def test_a_commented_out_import_is_not_an_import(self, fake_tree: Path) -> None:
+        _write(fake_tree / "helpers.py", "def go(): ...\n")
+        _write(fake_tree / "app.py", "x = 1  # from helpers import go\n")
+
+        assert "helpers" in _dead_modules(fake_tree)
+
+    def test_a_real_import_still_counts(self, fake_tree: Path) -> None:
+        """The negative control for the three above."""
+        _write(fake_tree / "helpers.py", "def go(): ...\n")
+        _write(fake_tree / "app.py", "from helpers import go\n")
+
+        assert "helpers" not in _dead_modules(fake_tree)
+
+    def test_multiline_and_aliased_imports_are_parsed(self, fake_tree: Path) -> None:
+        """What the regex needed bespoke bracket-matching for, the parser gets free."""
+        _write(fake_tree / "pkg" / "__init__.py", "")
+        _write(fake_tree / "pkg" / "helpers.py", "def go(): ...\ndef stop(): ...\n")
+        _write(
+            fake_tree / "app.py",
+            "from pkg.helpers import (  # noqa\n    go as _go,\n    stop,\n)\n",
+        )
+
+        assert _orphans(fake_tree) == set()
+
+    def test_relative_imports_resolve_to_absolute_paths(self, fake_tree: Path) -> None:
+        _write(fake_tree / "outer" / "__init__.py", "")
+        _write(fake_tree / "outer" / "app.py", "from .inner.thing import T\n")
+        _write(fake_tree / "outer" / "inner" / "__init__.py", "")
+        _write(fake_tree / "outer" / "inner" / "thing.py", "class T: ...\n")
+        _write(fake_tree / "top.py", "import outer.app\n")
+
+        assert _orphans(fake_tree) == set()
+
+    def test_an_unparseable_file_is_recorded_not_silently_skipped(
+        self, fake_tree: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Silence would be a false positive: its real imports would look dead."""
+        monkeypatch.setattr(dm, "UNPARSEABLE", set())
+        broken = fake_tree / "broken.py"
+        _write(broken, "def oops(:\n")
+
+        dm.collect_imports([broken])
+
+        assert broken in dm.UNPARSEABLE

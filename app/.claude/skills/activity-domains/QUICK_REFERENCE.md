@@ -128,7 +128,7 @@ habits, stats = ctx["entities"], ctx["stats"]
 
 Module-level helpers: **Activity domain stats** (`compute_{domain}_stats` for 6 Activity Domains) now live in `core/utils/activity_stats.py` (April 2026), returning frozen dataclasses; facade wrappers project to dicts. Sort/filter configs remain in facade files: `_{DOMAIN}_SORT_CONFIG` + `_apply_{domain}_sort` (all 11, config-driven via `apply_entity_sort`), `_{DOMAIN}_FILTER_CONFIG` (7 domains, config-driven via `apply_entity_filter`), plus `_apply_task_secondary_filters` (Tasks), `_apply_principle_filters` (Principles multi-dimensional), `_compute_*_metadata` (Tasks/Principles/Goals/Habits). Generics in `core/utils/list_helpers.py`. **Cross-domain reads** go through `CrossDomainQueryService` (`core/services/cross_domain/`) — 9 methods, one Cypher per call, returns frozen typed dataclasses. **UI-layer:** `ActivityList(items, domain, card_fn, connections_map)` in `ui/activities/_shared.py` — generic list renderer used by all 6 `{Domain}List` functions. `FILTER_CONFIGS: dict[str, FilterBarConfig]` in `ui/activities/filter_bar.py` — centralised filter bar configs for all 6 Activity Domains.
 
-**Key files:** `core/services/filtered_context.py` (skeleton), `core/ports/filtered_context_protocols.py` (protocol), `core/ports/query_types.py` (ListContext + BaseStats), `core/utils/list_context_helpers.py` (typed accessors)
+**Key files:** `core/services/filtered_context.py` (skeleton), `core/ports/filtered_context_protocols.py` (protocol), `core/ports/query_types.py` (ListContext + BaseStats)
 
 **See:** `PATTERNS.md` → "Filtered List Queries" section
 

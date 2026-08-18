@@ -76,12 +76,6 @@ SKUEL's Service Registry (Production):
   - Frozen dataclass prevents runtime modification
   - Protocol-typed for zero concrete dependencies
 
-Generic Service Utilities (Production):
-- /core/utils/service_introspection.py - Cross-domain operations using BaseServiceInterface
-  - get_service_capabilities() - Analyze service features generically
-  - get_domain_health_report() - Cross-domain analytics
-  - ServiceRegistry example in docstring - Educational pattern demonstration
-
 See Also:
 - /docs/reference/BASESERVICE_METHOD_INDEX.md - Complete method listing (35-50 methods)
 - /docs/reference/SUB_SERVICE_CATALOG.md - Domain-specific method catalog

@@ -106,19 +106,21 @@ Pinned by `tests/unit/scripts/test_dead_modules.py`.
 
 **Output:** File path, line count, first comment/docstring as a hint.
 
-**False positive rate:** Low. The scanner handles:
-- Multi-line parenthesized imports (with comment-aware `)` matching)
-- Relative imports (`.foo`, `..bar`) resolved to absolute dotted paths
+**How imports are found:** `collect_imports` parses each file with `ast` and
+reads `Import` / `ImportFrom` nodes. Multi-line parenthesized imports, `as`
+aliases, and relative imports (`.foo`, `..bar`, resolved to absolute dotted
+paths) all come out of the parser correctly — no pattern-matching involved.
 
-⚠️ It does **not** exclude docstring and comment pseudo-imports, despite an
-earlier claim here that it did. `collect_imports` regex-scans raw text, so a
-`from x import y` line inside a USAGE example counts as a real reference —
-`core/orchestrator/search_router.py` has exactly that shape. The effect is
-false *negatives*: a module or package reachable only from prose reads as
-alive. Measured cost as of 2026-08-18: three modules
-(`core/utils/list_context_helpers`, `core/utils/service_introspection`,
-`ui/patterns/dual_pane`) have no real importer and are hidden this way.
-Parsing imports from the AST instead of the raw text would close it.
+**An import in prose is not a reference.** This is the point of parsing rather
+than scanning text, and the reason it matters is subtle: the previous regex
+matched `from x import y` anywhere in a file, *including inside the module's own
+docstring*. A module whose USAGE block read `from core.utils.thing import helper`
+therefore vouched for itself and could never be reported dead. Three modules hid
+that way for months and were deleted in #1088.
+
+A file that will not parse is **reported and fails the run** rather than skipped:
+it contributes no imports, so anything only it imports would otherwise be
+misreported as dead — a false positive is worse than a loud complaint.
 
 **When a file is flagged:** Review before deleting. Ask:
 1. Is it imported indirectly (dynamic loading, plugin system)?

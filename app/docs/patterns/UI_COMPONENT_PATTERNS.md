@@ -1359,7 +1359,7 @@ async def get_filtered_context(self, user_uid, status_filter="active", sort_by="
 
 **Metadata**: Tasks returns `projects`/`assignees`; Principles, Goals, Habits return `categories` (derived from domain enums — `PrincipleCategory`, `_GOAL_CATEGORIES`, `HabitCategory`). UI routes consume via `ctx.get("metadata", {}).get("categories", [])`. Standalone create forms that don't call `get_filtered_context()` import the enum directly.
 
-**Typed accessors** (`core/utils/list_context_helpers.py`): `get_entities(ctx, Task)` → `list[Task]`, `get_stats(ctx)`, `get_metadata(ctx)`.
+**Consuming a `ListContext`:** `ctx["entities"]` and `ctx["stats"]` are always present; `metadata` is optional (the TypedDict is `total=False` and `build_filtered_context()` only sets it when a `compute_metadata` callable is passed), so read it as `ctx.get("metadata", {})`. `entities` is typed `list[Any]`, so annotate at the call site to narrow: `tasks: list[Task] = ctx["entities"]`.
 
 **Module-level helpers** (Python-side, in each `*_service.py` facade file):
 - `_compute_{domain}_stats(entities)` — stats from full set (all 11 domains, guaranteed `total` + `active`)

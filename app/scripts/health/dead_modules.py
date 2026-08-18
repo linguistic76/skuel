@@ -29,7 +29,6 @@ Usage:
 """
 
 import ast
-import re
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -96,6 +95,12 @@ STAGED_MODULES: dict[str, str] = {
 }
 
 
+# Files ast.parse could not read. Populated by collect_imports and surfaced by
+# main(): a file we cannot parse contributes no imports, so anything only IT
+# imports would be reported dead. Silence there would be a false positive.
+UNPARSEABLE: set[Path] = set()
+
+
 def _never_scan(path: Path) -> bool:
     """True if this path should be excluded from ALL processing (subjects + scanning)."""
     rel = path.relative_to(ROOT)
@@ -151,13 +156,13 @@ def path_to_module(path: Path) -> str:
     return ".".join(parts)
 
 
-def _resolve_relative_import(dots: str, module_suffix: str, source_file: Path) -> str:
+def _resolve_relative_import(level: int, module: str | None, source_file: Path) -> str:
     """
     Resolve a relative import to its absolute dotted module path.
 
-    dots:          the leading dots (e.g. "." or "..")
-    module_suffix: the part after the dots (e.g. "ls_core_service" or "")
-    source_file:   the file containing the import
+    level:       ast.ImportFrom.level — 1 for `.foo`, 2 for `..foo`
+    module:      the part after the dots (`foo`), or None for `from . import x`
+    source_file: the file containing the import
     """
     rel = source_file.relative_to(ROOT)
     parts = list(rel.parts)
@@ -172,102 +177,62 @@ def _resolve_relative_import(dots: str, module_suffix: str, source_file: Path) -
         package_parts = parts[:-1]  # parent directory = package
 
     # Each additional dot (beyond the first) goes one level further up
-    level = len(dots)
     anchor = package_parts[: len(package_parts) - (level - 1)]
 
-    if module_suffix:
-        anchor = [*list(anchor), module_suffix]
+    if module:
+        anchor = [*list(anchor), module]
 
     return ".".join(anchor)
 
 
-def _parse_names(raw: str) -> list[str]:
-    """Extract identifier names from a comma-separated import list (may contain comments)."""
-    names = []
-    for token in raw.split(","):
-        # Strip inline comments
-        if "#" in token:
-            token = token[: token.index("#")]
-        name = token.split(" as ")[0].strip()
-        if name and re.match(r"^[A-Za-z_]\w*$", name):
-            names.append(name)
-    return names
-
-
-def _resolve_module(from_module: str, source_file: Path) -> str:
-    """Resolve a from-module string (absolute or relative) to its absolute dotted path."""
-    rel_match = re.match(r"^(\.+)([\w.]*)", from_module)
-    if rel_match:
-        return _resolve_relative_import(rel_match.group(1), rel_match.group(2), source_file)
-    return from_module
-
-
 def collect_imports(py_files: list[Path]) -> tuple[set[str], dict[str, set[str]]]:
     """
-    Scan all files and collect import references.
+    Parse each file and collect the modules it actually imports.
 
     Returns:
         direct_imports: set of module paths from `import X.Y.Z`
         from_imports: dict mapping from-module → set of imported names
 
-    Handles:
-      - Single-line:      from core.services.foo import Bar, Baz
-      - Multi-line paren: from core.services.foo import (\\n    Bar,\\n)
-        (with correct bracket matching — comments with parens handled)
-      - Relative:         from .ls_core_service import PsCoreService
+    Parsed from the AST, not matched in raw text, and that is the whole point:
+    an import inside a docstring or comment is prose, not a reference. The
+    regex scanner this replaced counted them, so a module whose own USAGE
+    example read `from core.utils.thing import helper` vouched for itself and
+    could never be reported dead. Three modules were hidden that way — see
+    #1088 (Codex found the class on #1087).
+
+    Everything the regex needed special handling for — multi-line parenthesized
+    imports, comment-embedded parens, `as` aliases, relative imports — the
+    parser gets right for free.
+
+    A file that will not parse is reported by the caller rather than skipped:
+    treating it as importing nothing would mark its real dependencies dead.
     """
     direct_imports: set[str] = set()
     from_imports: dict[str, set[str]] = defaultdict(set)
 
     for path in py_files:
         try:
-            content = path.read_text(encoding="utf-8", errors="ignore")
-        except OSError:
+            tree = ast.parse(path.read_text(encoding="utf-8", errors="ignore"))
+        except OSError, SyntaxError:
+            UNPARSEABLE.add(path)
             continue
 
-        lines = content.splitlines()
-
-        for match in re.finditer(r"^\s*import\s+([\w.]+)", content, re.MULTILINE):
-            direct_imports.add(match.group(1))
-
-        # Process from-imports line by line to handle multi-line parens correctly
-        i = 0
-        while i < len(lines):
-            line = lines[i]
-            # Match: from X import ...
-            m = re.match(r"^\s*from\s+([\w.]+)\s+import\s+(.*)", line)
-            if not m:
-                i += 1
-                continue
-
-            from_module = _resolve_module(m.group(1), path)
-            rest = m.group(2).strip()
-
-            if rest.startswith("("):
-                # Multi-line: accumulate until closing )
-                # Count parens to handle nested ones (e.g. in comments)
-                # We strip inline comments from each line before counting
-                accumulated = rest[1:]  # skip opening (
-                i += 1
-                while i < len(lines):
-                    cur = lines[i]
-                    # Strip inline comment for paren counting only
-                    clean = cur.split("#")[0]
-                    if ")" in clean:
-                        # Take everything up to the first ) in the clean version
-                        close_pos = clean.index(")")
-                        accumulated += "\n" + cur[:close_pos]
-                        break
-                    accumulated += "\n" + cur
-                    i += 1
-                for name in _parse_names(accumulated):
-                    from_imports[from_module].add(name)
-            else:
-                # Single-line (may have trailing comment)
-                for name in _parse_names(rest):
-                    from_imports[from_module].add(name)
-
-            i += 1
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    direct_imports.add(alias.name)
+            elif isinstance(node, ast.ImportFrom):
+                if node.level:
+                    module = _resolve_relative_import(node.level, node.module, path)
+                else:
+                    module = node.module or ""
+                if not module:
+                    continue
+                for alias in node.names:
+                    from_imports[module].add(alias.name)
+                # `from a.b import c` with no names is impossible, but a
+                # star-import still references the module itself.
+                from_imports.setdefault(module, set())
 
     return direct_imports, from_imports
 
@@ -559,6 +524,15 @@ def main() -> int:
         all_sources, collect_references_by_file(get_import_sources_including_tests())
     )
 
+    if UNPARSEABLE:
+        print(
+            f"{Colors.YELLOW}Files that could not be parsed — their imports were NOT "
+            f"counted, so anything only they import may be misreported:{Colors.RESET}"
+        )
+        for path in sorted(UNPARSEABLE):
+            print(f"  {path.relative_to(ROOT)}")
+        print()
+
     if orphan_packages:
         print(
             f"{Colors.RED}{Colors.BOLD}Orphan Packages — {len(orphan_packages)} packages "
@@ -598,7 +572,7 @@ def main() -> int:
         print(f"\n{Colors.YELLOW}Total: {len(dead)} files{Colors.RESET}")
         return 1
 
-    if orphan_packages or stale_staged or vanished_staged:
+    if orphan_packages or stale_staged or vanished_staged or UNPARSEABLE:
         return 1
     print(f"{Colors.GREEN}✓ No dead modules or orphan packages found{Colors.RESET}")
     return 0

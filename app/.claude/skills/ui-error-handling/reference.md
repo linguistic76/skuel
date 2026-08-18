@@ -188,20 +188,18 @@ async def get_filtered_context(
 
 **In the route:**
 ```python
-from core.utils.list_context_helpers import get_entities, get_stats
-
 result = await tasks_service.get_filtered_context(user_uid, status_filter, sort_by)
 if result.is_error:
     return render_error_banner(result)
 ctx = result.value
-tasks = get_entities(ctx, Task)   # list[Task]
-stats = get_stats(ctx)            # dict[str, int | float]
+tasks: list[Task] = ctx["entities"]   # annotate to narrow: entities is list[Any]
+stats = ctx["stats"]                  # dict[str, int | float]
 ```
 
 **Key Features:**
 - **Service owns orchestration** (not route-level helpers)
 - **`ListContext` TypedDict** with `entities`, `stats: dict[str, int | float]`, `metadata`
-- **Type-safe accessors** via `core/utils/list_context_helpers.py`
+- **`ListContext` is a TypedDict** — `entities`/`stats` always present, `metadata` optional (`ctx.get("metadata", {})`); annotate `entities` to narrow it from `list[Any]`
 - **Pure computation callables** passed to generic `build_filtered_context()`
 
 See: `core/services/filtered_context.py`, `core/ports/query_types.py:ListContext`
@@ -547,8 +545,7 @@ async def get_filtered_context(
         sort_by=sort_by,
     )
 
-# Route consumes via type-safe accessors
-from core.utils.list_context_helpers import get_entities, get_stats
+# Route consumes the TypedDict directly
 
 @rt("/tasks")
 async def tasks_dashboard(request):
@@ -558,8 +555,8 @@ async def tasks_dashboard(request):
         return BasePage(render_error_banner(f"Failed: {filtered_result.error}"), ...)
 
     ctx = filtered_result.value
-    tasks = get_entities(ctx, Task)   # list[Task]
-    stats = get_stats(ctx)            # dict[str, int | float]
+    tasks: list[Task] = ctx["entities"]   # annotate to narrow: entities is list[Any]
+    stats = ctx["stats"]                  # dict[str, int | float]
     # ... render views
 ```
 
