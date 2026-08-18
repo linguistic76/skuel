@@ -81,7 +81,7 @@ way for the repo's entire history — 357 lines, never imported by anything, and
 only the one file its `__init__` forgot to re-export was ever flagged (#1086).
 
 The second pass asks a different question: **does anything outside this
-directory tree import it?** Two scoping rules, both deliberate:
+directory tree import it?** Three scoping rules, all deliberate:
 
 - **Tests count as importers here** (unlike the module pass). A package whose
   only consumers are tests is exercised, not abandoned. Ignoring them condemns
@@ -91,6 +91,12 @@ directory tree import it?** Two scoping rules, both deliberate:
 - **Packages whose only `.py` file is `__init__.py` are skipped.** There is no
   module in them that could be dead. An empty namespace directory is a
   different question with a different fix.
+- **Packages holding an entry-point, convention-loaded, or staged module are
+  skipped**, mirroring the module pass — they are reached by execution or
+  registration, never by import, so "nobody imports it" says nothing about
+  them. Without this, `agent/` (the ADR-075 vault-agent CLI) passed only
+  because tests happen to import it; deleting those tests would have reported
+  a live CLI as orphaned and failed the weekly janitor.
 
 Pinned by `tests/unit/scripts/test_dead_modules.py`.
 

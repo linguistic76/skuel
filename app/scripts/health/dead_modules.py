@@ -333,17 +333,22 @@ def find_orphan_packages(
 
     Returns [(package_dir, module_count, line_count)] sorted by size.
 
-    Two deliberate scoping choices, both load-bearing:
+    Three deliberate scoping choices, all load-bearing:
 
     1. Tests COUNT as importers here, unlike the module pass. A package whose
        only consumers are tests is exercised, not abandoned, and flagging it
        produces exactly the false positives the bloat scanner's test-reference
-       gap is known for — `agent/` (an ADR-075 entry point) and
-       `core/models/vectors` (test-covered) both surface if tests are ignored,
-       and neither is dead. Deleting on that signal would be a mistake.
+       gap is known for — `core/models/vectors` is test-covered and not dead,
+       and would surface if tests were ignored. Deleting on that signal would
+       be a mistake.
     2. Packages whose only .py file is `__init__.py` are skipped. There is no
        module in them to be dead — an empty namespace directory is a different
        question (and a different fix) from an orphaned implementation.
+    3. Packages holding an ENTRY_POINTS / CONVENTION_LOADED / STAGED_MODULES
+       file are skipped, mirroring the module pass. Those are reached by
+       execution or registration, never by import, so "nobody imports it" says
+       nothing about them — and STAGED_MODULES entries are already reported in
+       their own section ("abandoned != staged" holds at package level too).
     """
     packages: list[Path] = []
     for init in ROOT.rglob("__init__.py"):
@@ -355,6 +360,18 @@ def find_orphan_packages(
         modules = [f for f in pkg_dir.rglob("*.py") if f.name != "__init__.py"]
         if not modules:
             continue  # nothing here can be dead
+        # Reached by execution or registration rather than by import. The module
+        # pass exempts these files; the package pass must too, or a live CLI
+        # package is "orphaned" the moment nothing imports it. agent/ is the
+        # live case — it currently escapes only because tests import
+        # skuel_vault_agent, not because it is an entry point (Codex, #1087).
+        if any(
+            f.name in ENTRY_POINTS
+            or f.name in CONVENTION_LOADED
+            or f.relative_to(ROOT).as_posix() in STAGED_MODULES
+            for f in modules
+        ):
+            continue
         packages.append(pkg_dir)
 
     orphans: list[tuple[Path, int, int]] = []

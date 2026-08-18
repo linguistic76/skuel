@@ -108,3 +108,42 @@ class TestOrphanPackages:
         _write(fake_tree / "app.py", "from core import leaf\n")
 
         assert _orphans(fake_tree) == set()
+
+    def test_package_holding_an_entry_point_is_not_flagged(self, fake_tree: Path) -> None:
+        """
+        The case Codex caught on #1087: an entry point is reached by execution.
+
+        `agent/` passed before this only because tests happen to import
+        skuel_vault_agent — delete those tests and a live ADR-075 CLI package
+        would have been reported orphaned, failing the weekly janitor.
+        """
+        _write(fake_tree / "cli" / "__init__.py", "")
+        _write(fake_tree / "cli" / "main.py", "def run(): ...\n")
+
+        assert _orphans(fake_tree) == set()
+
+    def test_package_holding_a_convention_loaded_file_is_not_flagged(self, fake_tree: Path) -> None:
+        """conftest.py is discovered by pytest, never imported."""
+        _write(fake_tree / "fixtures_pkg" / "__init__.py", "")
+        _write(fake_tree / "fixtures_pkg" / "conftest.py", "import pytest\n")
+
+        assert _orphans(fake_tree) == set()
+
+    def test_package_holding_a_staged_module_is_not_flagged(
+        self, fake_tree: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Staged work is reported in its own section — "abandoned != staged"."""
+        monkeypatch.setattr(dm, "STAGED_MODULES", {"outbound/client.py": "wired in Phase 2"})
+        _write(fake_tree / "outbound" / "__init__.py", "")
+        _write(fake_tree / "outbound" / "client.py", "class Client: ...\n")
+
+        assert _orphans(fake_tree) == set()
+
+    def test_an_ordinary_orphan_is_still_flagged_alongside_them(self, fake_tree: Path) -> None:
+        """The exemptions must not swallow the signal the pass exists for."""
+        _write(fake_tree / "cli" / "__init__.py", "")
+        _write(fake_tree / "cli" / "main.py", "def run(): ...\n")
+        _write(fake_tree / "lonely" / "__init__.py", "from lonely.config import CONFIG\n")
+        _write(fake_tree / "lonely" / "config.py", "CONFIG = {}\n")
+
+        assert _orphans(fake_tree) == {"lonely"}
