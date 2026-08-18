@@ -715,7 +715,7 @@ All 11 domain facades (6 Activity + 5 Curriculum) implement `get_filtered_contex
 
 **`BaseStats` contract**: Every `_compute_*_stats()` function returns at least `total: int` and `active: int`. Domain-specific keys are additional. Enables generic health checks without domain-specific knowledge.
 
-**Consuming a `ListContext`:** subscript it directly — `ctx["entities"]`, `ctx["stats"]`, `ctx["metadata"]`. It is a TypedDict, so those reads are already type-checked. (A `list_context_helpers` module of accessor functions existed and was documented here for months without a single caller; it was deleted in #1088.)
+**Consuming a `ListContext`:** `ctx["entities"]` and `ctx["stats"]` are always present; `metadata` is optional (the TypedDict is `total=False` and `build_filtered_context()` only sets it when a `compute_metadata` callable is passed), so read it as `ctx.get("metadata", {})`. `entities` is typed `list[Any]`, so annotate at the call site to narrow: `tasks: list[Task] = ctx["entities"]`. (A `list_context_helpers` module wrapped exactly that annotation in `get_entities(ctx, Task)`; it was documented here for months without a single caller and was deleted in #1089.)
 
 **Intelligence integration:** `UserContextIntelligence.filtered_providers` dict maps 11 domain names to `FilteredContextProvider` facades. Wired in `services_bootstrap/_intelligence_hub.py` via `_create_intelligence_hub()`. Consumed by `DailyPlanningMixin._generate_domain_health_warnings()` which queries all 6 Activity domain stats:
 - **Single-domain:** >30 active tasks, no active goals, no habits tracked, 5+ events today, 5+ pending choices, no core principles

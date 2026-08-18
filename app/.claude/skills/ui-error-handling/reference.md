@@ -192,14 +192,14 @@ result = await tasks_service.get_filtered_context(user_uid, status_filter, sort_
 if result.is_error:
     return render_error_banner(result)
 ctx = result.value
-tasks = ctx["entities"]   # list[Task]
-stats = ctx["stats"]      # dict[str, int | float]
+tasks: list[Task] = ctx["entities"]   # annotate to narrow: entities is list[Any]
+stats = ctx["stats"]                  # dict[str, int | float]
 ```
 
 **Key Features:**
 - **Service owns orchestration** (not route-level helpers)
 - **`ListContext` TypedDict** with `entities`, `stats: dict[str, int | float]`, `metadata`
-- **`ListContext` is a TypedDict** — subscript it directly; the reads are type-checked
+- **`ListContext` is a TypedDict** — `entities`/`stats` always present, `metadata` optional (`ctx.get("metadata", {})`); annotate `entities` to narrow it from `list[Any]`
 - **Pure computation callables** passed to generic `build_filtered_context()`
 
 See: `core/services/filtered_context.py`, `core/ports/query_types.py:ListContext`
@@ -555,8 +555,8 @@ async def tasks_dashboard(request):
         return BasePage(render_error_banner(f"Failed: {filtered_result.error}"), ...)
 
     ctx = filtered_result.value
-    tasks = ctx["entities"]   # list[Task]
-    stats = ctx["stats"]      # dict[str, int | float]
+    tasks: list[Task] = ctx["entities"]   # annotate to narrow: entities is list[Any]
+    stats = ctx["stats"]                  # dict[str, int | float]
     # ... render views
 ```
 

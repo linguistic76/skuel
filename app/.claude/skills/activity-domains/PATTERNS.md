@@ -157,7 +157,7 @@ Common params: `user_uid`, `status_filter`, `sort_by`. Concrete facades add doma
 
 **`BaseStats` contract** (`core/ports/query_types.py`): Every `_compute_*_stats()` function returns at least `total: int` and `active: int`. Domain-specific keys (`overdue`, `streaks`, `pending`, `core`, etc.) are additional. Intelligence consumers can rely on `active` for generic health checks without knowing domain-specific keys.
 
-**Consuming a `ListContext`:** subscript it directly — `ctx["entities"]`, `ctx["stats"]`, `ctx["metadata"]`. It is a TypedDict, so the reads are already type-checked.
+**Consuming a `ListContext`:** `ctx["entities"]` and `ctx["stats"]` are always present; `metadata` is optional (the TypedDict is `total=False` and `build_filtered_context()` only sets it when a `compute_metadata` callable is passed), so read it as `ctx.get("metadata", {})`. `entities` is typed `list[Any]`, so annotate at the call site to narrow: `tasks: list[Task] = ctx["entities"]`.
 
 **Module-level helpers** (Python-side):
 - `compute_{domain}_stats(entities)` — **6 Activity Domain stat functions live in `core/utils/activity_stats.py`** (April 2026 consolidation). Each returns a frozen dataclass (e.g. `TaskStats`, `GoalStats`). Facade-level `_compute_{domain}_stats()` wrappers project these into `dict[str, int | float]` for the `ListContext` contract. Curriculum domains retain stats in their respective facade files.
