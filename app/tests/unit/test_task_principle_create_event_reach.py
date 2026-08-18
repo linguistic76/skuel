@@ -58,8 +58,10 @@ would not read as parity. Both are now closed:
     written as edges by the shared create path — see ``test_task_create_edges.py``, which
     also covers the admission guard those request-supplied UIDs needed.
   - Principles: ``create_principle`` merged ``why_important`` into ``description`` while
-    the route converter dropped it. Fixed in ``principle_create_to_pure`` and asserted by
-    ``TestPrincipleDoorsPersistTheSameDescription`` at the bottom of this file.
+    the route converter dropped it. ``why_important`` is now a real ``Principle`` column,
+    so the generic converter carries it like any other field and neither door can splice
+    or drop it — asserted by ``TestPrincipleDoorsPersistWhyImportant`` at the bottom of
+    this file.
 
 What this file still owns is the EVENT half: which door announces what, and in what order.
 
@@ -83,7 +85,7 @@ from core.events.task_events import TaskCreated
 from core.models.enums import Priority
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.principle_enums import PrincipleCategory, PrincipleStrength
-from core.models.principle.principle import Principle, split_why_important
+from core.models.principle.principle import Principle
 from core.models.principle.principle_request import PrincipleCreateRequest
 from core.models.task.task import Task
 from core.models.task.task_request import TaskCreateRequest
@@ -784,47 +786,45 @@ class TestBothDomainsUseTheSharedShape:
 # ============================================================================
 
 
-@pytest.mark.asyncio
-class TestPrincipleDoorsPersistTheSameDescription:
+class TestPrincipleDoorsPersistWhyImportant:
     """``why_important`` must survive BOTH doors, or one request yields two principles.
 
-    ``Principle`` has no ``why_important`` field. ``create_principle`` folds it into
-    ``description`` behind the canonical marker (``merge_why_important``), and
-    ``split_why_important`` is what recovers it — it is read back by the detail view and
-    is one of the four fields Principles search scores over. The route converter dropped
-    it outright, because ``create_to_pure`` filters by EXACT field name, so the motivation
-    the create form collected was lost the moment the request arrived through JSON.
+    History: ``Principle`` had no ``why_important`` column, so ``create_principle``
+    folded the value into ``description`` behind a canonical marker while the route
+    converter — which filters by EXACT field name — dropped it outright. One request
+    produced two different principles.
 
-    Fixed in the CONVERTER, which is the only place it can live: by the time the shared
-    create primitive sees an entity, the description is already built.
+    It is a real column now, which removes the splice AND the divergence in one move:
+    the generic ``create_to_pure`` pass carries it by name, so neither door can invent
+    a description the other doesn't write. These tests keep both halves pinned —
+    the value lands in its own column, and ``description`` is left exactly as authored.
     """
 
-    async def test_request_door_merges_it_into_the_description(
+    @pytest.mark.asyncio
+    async def test_request_door_persists_it_in_its_own_column(
         self, principles_core: PrinciplesCoreService
     ) -> None:
-        """The behaviour the route door had to match — pinned as the reference."""
         result = await principles_core.create_principle(
             make_principle_request(why_important="It keeps blast radius small"), USER_UID
         )
 
         assert result.is_ok, f"create_principle failed: {result.error}"
-        _prose, why = split_why_important(result.value.description)
-        assert why == "It keeps blast radius small"
+        assert result.value.why_important == "It keeps blast radius small"
 
-    def test_route_converter_merges_it_too(self) -> None:
-        """RED before the fix: the converter dropped ``why_important`` entirely."""
+    def test_route_converter_persists_it_too(self) -> None:
+        """RED before the promotion: the converter dropped ``why_important`` entirely."""
         entity = ConversionServiceV2.principle_create_to_pure(
             make_principle_request(why_important="It keeps blast radius small"),
             "principle:door-a",
             user_uid=USER_UID,
         )
 
-        _prose, why = split_why_important(entity.description)
-        assert why == "It keeps blast radius small", (
+        assert entity.why_important == "It keeps blast radius small", (
             "the generated CRUD route's converter dropped why_important, so the two "
-            "principle doors persisted different descriptions from one request"
+            "principle doors persisted different principles from one request"
         )
 
+    @pytest.mark.asyncio
     async def test_both_doors_agree(self, principles_core: PrinciplesCoreService) -> None:
         """Assert AGREEMENT rather than a hand-copied expected string: what matters is
         that one request cannot produce two different principles."""
@@ -836,9 +836,11 @@ class TestPrincipleDoorsPersistTheSameDescription:
         )
 
         assert door_a.description == door_b.value.description
+        assert door_a.why_important == door_b.value.why_important
 
-    def test_the_prose_is_preserved_alongside_it(self) -> None:
-        """A merge, not a replacement — the description the user wrote must survive."""
+    def test_the_description_is_left_alone(self) -> None:
+        """The regression the promotion exists to prevent: no splicing one field's text
+        into another field's column."""
         request = make_principle_request(
             description="Prefer many small reversible changes over one large one",
             why_important="It keeps blast radius small",
@@ -848,14 +850,13 @@ class TestPrincipleDoorsPersistTheSameDescription:
             request, "principle:door-a", user_uid=USER_UID
         )
 
-        prose, _why = split_why_important(entity.description)
-        assert prose == "Prefer many small reversible changes over one large one"
+        assert entity.description == "Prefer many small reversible changes over one large one"
+        assert "It keeps blast radius small" not in (entity.description or "")
 
     def test_a_request_without_it_is_untouched(self) -> None:
-        """No marker appended when there is nothing to append — otherwise every
-        principle's description grows a trailing separator."""
         entity = ConversionServiceV2.principle_create_to_pure(
             make_principle_request(), "principle:door-a", user_uid=USER_UID
         )
 
         assert entity.description == "Prefer many small reversible changes over one large one"
+        assert entity.why_important is None

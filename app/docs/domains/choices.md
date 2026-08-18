@@ -94,7 +94,8 @@ Created via `create_common_sub_services()` factory in facade `__init__` (intelli
 | `domain` | `Domain` | Personal, Business, Health, Finance, Social |
 | `options` | `list[ChoiceOptionDTO]` | Available options (see below) |
 | `selected_option_uid` | `str?` | UID of chosen option |
-| `decision_rationale` | `str?` | Why this option was chosen |
+| `decision_context` | `str?` | The circumstance forcing the decision — authored up front, survives whichever option wins |
+| `decision_rationale` | `str?` | Why this option was chosen — written at decision time by `make_decision` |
 | `decision_criteria` | `list[str]` | Criteria for evaluation |
 | `constraints` | `list[str]` | Constraints to consider |
 | `stakeholders` | `list[str]` | Affected stakeholders |

@@ -222,8 +222,10 @@ def ChoiceDetailView(
     if choice.options:
         options_section = OptionsSection(choice.options, choice.selected_option_uid)
 
-    # Decision section (criteria, constraints, rationale)
+    # Decision section (context, criteria, constraints, rationale)
     decision_items: list[Any] = []
+    if choice.decision_context:
+        decision_items.append(MetadataField("Situation", P(choice.decision_context)))
     if choice.decision_rationale:
         decision_items.append(MetadataField("Rationale", P(choice.decision_rationale)))
     if choice.decision_criteria:

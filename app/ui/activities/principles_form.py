@@ -11,18 +11,16 @@ list-input bug, and structured nested fields belong on the detail page. Cross-do
 links to goals / habits / knowledge are list-typed and assigned via the detail-page
 relationship picker.
 
-Request-model field names match the Principle domain model 1:1, so the edit form
-auto-prefills via ``entity=principle``. The one ``values`` override is for
-``why_important``: it has no dedicated model column and is folded into
-``description`` with a canonical marker — ``split_why_important`` reverses the
-merge for prefill.
+Request-model field names match the Principle domain model 1:1 — ``why_important``
+included, since it became a real column — so the edit form auto-prefills entirely
+via ``entity=principle`` with no ``values`` override.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-from core.models.principle.principle import Principle, split_why_important
+from core.models.principle.principle import Principle
 from core.models.principle.principle_request import PrincipleCreateRequest, PrincipleUpdateRequest
 from ui.patterns.activity_form_helper import render_activity_form
 
@@ -113,12 +111,7 @@ def PrincipleCreateForm() -> Any:
 
 
 def PrincipleEditForm(principle: Principle) -> Any:
-    """Render the Principle edit form prefilled from an existing principle.
-
-    ``why_important`` lives inside ``description`` (no dedicated model field) —
-    split it back out so the field round-trips through edit.
-    """
-    description, why_important = split_why_important(principle.description)
+    """Render the Principle edit form prefilled from an existing principle."""
     return render_activity_form(
         domain_slug="principles",
         entity_name="Principle",
@@ -128,10 +121,6 @@ def PrincipleEditForm(principle: Principle) -> Any:
         labels=_FIELD_LABELS,
         help_texts=_FIELD_HELP,
         entity=principle,
-        values={
-            "description": description,
-            "why_important": why_important,
-        },
     )
 
 

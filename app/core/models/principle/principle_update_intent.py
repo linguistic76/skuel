@@ -12,15 +12,10 @@ field defaults to the shared ``UNSET`` sentinel. ``to_changes()`` returns only t
 set fields — the patch to apply at the backend seam.
 
 Principles have **no edge fields on the update path** (like Goals/Choices, unlike
-Tasks). They also carry two request-only fields that are *not* node columns and are
-therefore deliberately absent here:
-
-- ``why_important`` — folded into ``description`` with a canonical marker (see
-  ``merge_why_important``); ``principles_ui`` re-folds it into the intent's
-  ``description`` using the existing principle as the base. There is no
-  ``why_important`` column, so ``PrincipleUpdateRequest.to_intent()`` drops it.
-- ``decision_criteria`` — present on the request but absent from both ``Principle``
-  and ``PrincipleDTO``; writing it would be a junk node property, so it is dropped.
+Tasks). They carry one request-only field that is *not* a node column and is therefore
+deliberately absent here: ``decision_criteria`` is present on the request but absent
+from both ``Principle`` and ``PrincipleDTO``, so writing it would be a junk node
+property and ``PrincipleUpdateRequest.to_intent()`` drops it.
 
 Beyond the request-settable columns, this intent also models ``status`` — set by the
 dedicated status route (``principles_api`` → ``update_principle(PrincipleUpdateIntent(
@@ -62,6 +57,9 @@ class PrincipleUpdateIntent:
     # --- Philosophical context ----------------------------------------------
     tradition: str | Unset | None = UNSET
     personal_interpretation: str | Unset | None = UNSET
+
+    # --- Personal reflection --------------------------------------------------
+    why_important: str | Unset | None = UNSET
 
     # --- Behavioral expression ----------------------------------------------
     key_behaviors: list[str] | Unset | None = UNSET

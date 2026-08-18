@@ -70,11 +70,15 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
     # See: /docs/decisions/ADR-025-service-consolidation-patterns.md
     # Principles carry their label in ``title`` (Entity base) — there is no
     # ``name`` property — plus a distinctive ``statement``.
-    # ``why_important`` is NOT searchable here and must not be re-added: it is a
-    # request-only field with no model column, folded into ``description`` by
-    # merge_why_important(). build_text_search_query validates search_fields
-    # against the model and skipped it with a warning on every principles
-    # search; its text is reachable through ``description``, which IS searched.
+    # ``why_important`` is a real column since the marker-splice was deleted, but it
+    # is deliberately NOT in this KEYWORD surface: ``Goal.why_important`` (the same
+    # field on the only other domain that has one) is not searched either, and the
+    # three keyword surfaces are kept identical on purpose — this config, the facade's
+    # ``_config`` in principles_service.py, and ``principle_fulltext_idx``. Adding it
+    # here alone would silently break that agreement; adding it to all three needs a
+    # DROP+CREATE (see neo4j_schema_manager.FULLTEXT_INDEX_DEFINITIONS). Its text is
+    # still retrievable SEMANTICALLY — EMBEDDING_FIELD_MAPS[PRINCIPLE] carries it, so
+    # promotion cost the field no reach there.
     _config = create_activity_domain_config(
         dto_class=PrincipleDTO,
         model_class=Principle,

@@ -354,6 +354,8 @@ def PrincipleDetailView(
 
     # Personal reflection
     reflection_items: list[Any] = []
+    if principle.why_important:
+        reflection_items.append(MetadataField("Why This Matters", P(principle.why_important)))
     if principle.origin_story:
         reflection_items.append(MetadataField("Origin Story", P(principle.origin_story)))
     if principle.evolution_notes:

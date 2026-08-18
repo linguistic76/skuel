@@ -109,6 +109,7 @@ Created via `create_common_sub_services()` factory + domain-specific services in
 | `title` | `str` | Principle title |
 | `description` | `str?` | Principle description |
 | `statement` | `str` | Core principle statement |
+| `why_important` | `str?` | Why holding this principle matters |
 | `source` | `str?` | Source/origin of principle |
 | `domain` | `Domain` | TECH, HEALTH, PERSONAL, etc. |
 | `priority` | `Priority` | Core, Important, Supporting |

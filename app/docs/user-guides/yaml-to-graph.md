@@ -483,8 +483,8 @@ Embedding text is built from entity-specific field maps. Each entity type contri
 | Goal | title, description, vision_statement |
 | Habit | name, title, description, cue, reward |
 | Event | title, description, location |
-| Choice | title, description, decision_context, outcome |
-| Principle | title, statement, description |
+| Choice | title, description, decision_context, actual_outcome |
+| Principle | title, statement, description, why_important |
 | Exercise | title, instructions, description |
 | Resource | title, author, content, summary |
 

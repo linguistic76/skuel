@@ -30,7 +30,7 @@ _SECTIONS: dict[str, dict[str, Any]] = {
     "Decision": {
         "icon": "calendar",
         "accent": "amber",
-        "fields": ["decision_deadline"],
+        "fields": ["decision_context", "decision_deadline"],
     },
 }
 
@@ -40,11 +40,14 @@ _FIELD_LABELS: dict[str, str] = {
     "choice_type": "Choice type",
     "domain": "Domain",
     "priority": "Priority",
+    "decision_context": "Situation",
     "decision_deadline": "Decision deadline",
 }
 
 _FIELD_HELP: dict[str, str] = {
     "choice_type": "Single / Multiple / Binary — how this decision is structured.",
+    "decision_context": "What is going on that forces this choice? The circumstance, "
+    "not the reasoning for whichever option you end up picking.",
     "decision_deadline": "When the decision needs to be made by (optional).",
 }
 

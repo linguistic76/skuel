@@ -24,6 +24,7 @@ What this pins:
 
 from __future__ import annotations
 
+import dataclasses
 import html as html_lib
 import re
 from datetime import date, datetime
@@ -46,7 +47,7 @@ from core.models.event.event import Event
 from core.models.goal.goal import Goal
 from core.models.habit.habit import Habit
 from core.models.habit.habit_request import HabitUpdateRequest
-from core.models.principle.principle import WHY_IMPORTANT_MARKER, Principle
+from core.models.principle.principle import Principle
 from core.models.task.task import Task
 from ui.activities.choices_form import ChoiceCreateForm, ChoiceEditForm
 from ui.activities.events_form import EventCreateForm, EventEditForm
@@ -139,6 +140,7 @@ def choice() -> Choice:
         title="Frontend framework",
         description="React vs Solid",
         choice_type=ChoiceType.BINARY,
+        decision_context="The current renderer can't do streaming.",
         priority=Priority.MEDIUM,
         status=EntityStatus.ACTIVE,
         created_at=_now(),
@@ -152,7 +154,8 @@ def principle() -> Principle:
         user_uid="u",
         title="Be honest",
         statement="Always tell the truth",
-        description=f"Foundational virtue.{WHY_IMPORTANT_MARKER}Builds trust over time.",
+        description="Foundational virtue.",
+        why_important="Builds trust over time.",
         principle_category=PrincipleCategory.ETHICAL,
         principle_source=PrincipleSource.PERSONAL,
         strength=PrincipleStrength.CORE,
@@ -409,36 +412,33 @@ class TestEditFormPrefill:
             "stored duration not prefilled"
         )
 
-    def test_principles_edit_splits_why_important(self, principle) -> None:
-        """Description shows prose only; why_important shows the trailing block."""
+    def test_choices_edit_prefills_decision_context(self, choice) -> None:
+        """The promoted column is on the form and prefills from the entity."""
+        html = to_xml(ChoiceEditForm(choice))
+        assert 'name="decision_context"' in html
+        assert "The current renderer can't do streaming." in html_lib.unescape(html)
+
+    def test_principles_edit_prefills_why_important_from_its_own_column(self, principle) -> None:
+        """Both fields prefill straight from the entity — no splice to reverse.
+
+        The form passes no ``values`` override for either: ``why_important`` is a real
+        ``Principle`` column, so ``entity=principle`` fills both textareas by name.
+        """
         html = to_xml(PrincipleEditForm(principle))
+        assert 'name="why_important"' in html
         assert "Foundational virtue." in html
         assert "Builds trust over time." in html
-        # The marker itself should not appear in the rendered description value —
-        # the textarea content is just the prose. (The marker uses literal
-        # newlines that survive to_xml encoding, so checking the URL-encoded
-        # marker substring would be brittle; instead verify both halves render
-        # as distinct values, which split_why_important guarantees.)
 
-    def test_principles_edit_blank_why_when_description_has_no_marker(self, principle) -> None:
-        """A Principle whose description lacks the marker prefills why_important as blank."""
-        plain = type(principle)(
-            uid=principle.uid,
-            user_uid=principle.user_uid,
-            title=principle.title,
-            statement=principle.statement,
-            description="No special suffix here.",
-            principle_category=principle.principle_category,
-            principle_source=principle.principle_source,
-            strength=principle.strength,
-            priority=principle.priority,
-            status=principle.status,
-            created_at=principle.created_at,
+    def test_principles_edit_leaves_why_important_blank_when_unset(self, principle) -> None:
+        """A Principle with no ``why_important`` renders the field empty, not absent."""
+        plain = dataclasses.replace(
+            principle, description="No motivation recorded.", why_important=None
         )
+
         html = to_xml(PrincipleEditForm(plain))
-        assert "No special suffix here." in html
-        # The why_important textarea exists but has no content
+        assert "No motivation recorded." in html
         assert 'name="why_important"' in html
+        assert "Builds trust over time." not in html
 
     def test_tasks_edit_prefills_title(self, task) -> None:
         html = to_xml(TaskEditForm(task))
