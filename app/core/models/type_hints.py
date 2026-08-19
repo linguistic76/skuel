@@ -162,7 +162,6 @@ SortDirection = Literal["asc", "desc"]
 
 # Graph operation types
 GraphOperation = Literal["merge", "create", "match", "delete"]
-EdgeDirection = Literal["outgoing", "incoming", "both"]
 
 
 # ============================================================================
@@ -524,7 +523,6 @@ __all__ = [
     "DateRange",
     "Days",
     "Description",
-    "EdgeDirection",
     "EdgeUID",
     "Email",
     "EntityFilter",
