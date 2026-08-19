@@ -4793,6 +4793,68 @@ class TestSKUEL023AnnotationStrength:
         violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
         assert len(violations) == 1
 
+    def test_flags_class_local_import_alias(self) -> None:
+        """A class-body `from typing import Any as BackendT` binds in class scope.
+
+        Codex, PR #1095. Imports were seeded only from module scope, so a
+        class-local one was invisible; they are ordinary definitions now.
+        """
+        linter = make_linter(["SKUEL023"])
+        content = "class XMixin:\n    from typing import Any as BackendT\n\n    backend: BackendT\n"
+        violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
+        assert len(violations) == 1
+
+    def test_class_alias_shadows_module_alias(self) -> None:
+        """NEGATIVE CONTROL — the second false positive, not a bypass.
+
+        Codex, PR #1095. Unioning module and class scopes meant a class-local
+        `type BackendT = GoodOps` could never undo a module-level
+        `type BackendT = Any`, so a blocking ERROR fired on code mypy resolves
+        correctly. The class map now OVERLAYS the module's.
+        """
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "type BackendT = Any\n"
+            "\n"
+            "\n"
+            "class XMixin:\n"
+            "    type BackendT = GoodOps\n"
+            "\n"
+            "    backend: BackendT\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
+        assert violations == []
+
+    def test_class_alias_shadows_module_import_alias(self) -> None:
+        """Shadowing works against an imported binding, not just an assigned one."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import Any as BackendT\n"
+            "\n"
+            "\n"
+            "class XMixin:\n"
+            "    type BackendT = GoodOps\n"
+            "\n"
+            "    backend: BackendT\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
+        assert violations == []
+
+    def test_class_alias_shadows_clean_module_alias_with_any(self) -> None:
+        """Shadowing cuts both ways: a class rebinding to `Any` must still flag."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "type BackendT = GoodOps\n"
+            "\n"
+            "\n"
+            "class XMixin:\n"
+            "    type BackendT = Any\n"
+            "\n"
+            "    backend: BackendT\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
+        assert len(violations) == 1
+
     def test_sibling_class_alias_does_not_contaminate(self) -> None:
         """NEGATIVE CONTROL: only the DECLARING class's body is added.
 
