@@ -265,12 +265,17 @@ as permission to annotate a facade's backend handle with an adapter class.
 Since August 2026 SKUEL023 also rejects the weaker escapes: any `core/` class that
 *assigns* `self.backend` must name a real protocol there — `Any` and no-annotation-at-all
 both fail, because either one leaves every `self.backend.<method>()` call unchecked just
-as completely as a concrete adapter would. Declaration-only `backend: Any` in a mixin is
-out of scope *for the rule* (the mixin does not own the object; its host does) — but it is
-no longer the convention: the 27 such mixins were swept in August 2026, each retyped
-against its host's protocol or, where it never touched `self.backend`, deleted. Write a new
-one the same way (see SERVICE_DECOMPOSITION_RULE.md § Mixin Class Template); the rule not
-reaching there is not a licence.
+as completely as a concrete adapter would. Declaration-only `backend: Any` in a mixin —
+the shape where the *host* constructs the object — fails the same way and is enforced
+too: the 27 such mixins were swept in August 2026 (each retyped against its host's
+protocol or, where it never touched `self.backend`, deleted), and the rule was extended
+to the declaration form only once they were clean, so it landed with zero suppressions.
+Write a new one the same way (see SERVICE_DECOMPOSITION_RULE.md § Mixin Class Template).
+
+Two escapes remain unenforced, and both are convention rather than rule: a backend handle
+under a *different name* (`ku_backend`, `progress_backend`), and a class that neither
+assigns nor declares `backend` but *inherits* it from a `Base*[Any, ...]` parameterisation.
+Type those against a protocol regardless — the rule not reaching there is not a licence.
 
 **Benefits:**
 - **MyPy-native** - No protocol workaround needed
