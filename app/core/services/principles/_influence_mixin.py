@@ -16,10 +16,12 @@ from typing import TYPE_CHECKING, Any
 from core.models.type_hints import UserUID
 from core.services.intelligence import MetricsCalculator, RecommendationEngine
 from core.utils.decorators import requires_graph_intelligence
+from core.utils.neo4j_props import coerce_float, coerce_int
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from core.models.principle.principle import Principle
+    from core.ports.domain_protocols import PrinciplesOperations
 
 
 class _InfluenceMixin:
@@ -31,7 +33,7 @@ class _InfluenceMixin:
     """
 
     # Populated by PrinciplesIntelligenceService.__init__
-    backend: Any
+    backend: "PrinciplesOperations"
     relationships: Any
     logger: Any
 
@@ -377,9 +379,9 @@ class _InfluenceMixin:
             )
 
         record = result.value
-        total = record.get("total_choices", 0)
-        avg_sat = record.get("avg_satisfaction") or 0.0
-        positive = record.get("positive_outcomes", 0)
+        total = coerce_int(record.get("total_choices"))
+        avg_sat = coerce_float(record.get("avg_satisfaction"))
+        positive = coerce_int(record.get("positive_outcomes"))
 
         if total == 0:
             return Result.ok(

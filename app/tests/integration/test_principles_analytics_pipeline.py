@@ -33,12 +33,13 @@ from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.enums.neo_labels import NeoLabel
 from core.models.principle.principle import Principle
 from core.models.relationship_registry import PRINCIPLES_CONFIG
+from core.ports.domain_protocols import PrinciplesOperations
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.principles._alignment_intelligence_mixin import _AlignmentIntelligenceMixin
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
-from core.utils.result_simplified import Result
 
 PR = "prnctx_"  # uid prefix for this module's fixture graph
+PR_USER = PR + "user"  # every seeded activity node is user-owned (Principle.user_uid is required)
 PR_PRIN = PR + "principle"
 PR_PRIN_BARE = PR + "principle_bare"  # negative control: no cross-domain edges
 PR_GOAL = PR + "goal"  # principle -[GUIDES_GOAL]-> goal (guided_goals)
@@ -57,37 +58,24 @@ def rel_backend(neo4j_driver):
     )
 
 
-class _FakePrincipleBackend:
-    """Minimal backend exposing the single ``.get`` the mixin calls — returns a Principle."""
-
-    def __init__(self, principle: Principle) -> None:
-        self._principle = principle
-
-    async def get(self, _uid: str) -> Result[Principle]:
-        return Result.ok(self._principle)
-
-
 class _PrincipleIntelHarness(_AlignmentIntelligenceMixin, BaseAnalyticsService):
     """Mirrors the real service composition (mixin + BaseAnalyticsService) so the migrated
     method can reach ``_analyze_entity_with_typed_context``. ``graph_intel`` only needs to be
     truthy (the ``@requires_graph_intelligence`` guard is its sole reader)."""
 
-    def __init__(self, backend: _FakePrincipleBackend, relationships: Any) -> None:
+    def __init__(self, backend: PrinciplesOperations, relationships: Any) -> None:
         self.backend = backend
         self.relationships = relationships
         self.graph_intel = object()
 
 
-def _harness(rel_backend, principle_uid: str) -> _PrincipleIntelHarness:
-    principle = Principle(
-        uid=principle_uid,
-        title="Act with integrity",
-        user_uid="prnctx_user",
-    )
+def _harness(rel_backend) -> _PrincipleIntelHarness:
+    """Harness over the REAL backend — every principle these tests analyse is seeded as a
+    real ``:Entity:Principle`` node, so ``.get`` reads the graph rather than a stub."""
     rels: UnifiedRelationshipService[Any, Any, Any] = UnifiedRelationshipService(
         backend=rel_backend, config=PRINCIPLES_CONFIG, graph_intel=None
     )
-    return _PrincipleIntelHarness(_FakePrincipleBackend(principle), rels)
+    return _PrincipleIntelHarness(rel_backend, rels)
 
 
 async def _seed_principle_graph(neo4j_driver) -> None:
@@ -101,9 +89,10 @@ async def _seed_principle_graph(neo4j_driver) -> None:
         ]:
             await s.run(
                 f"CREATE (n:Entity:{label} {{uid:$u, entity_type:$t, title:$u, "
-                f"status:'active', created_at:datetime()}})",
+                f"user_uid:$user, status:'active', created_at:datetime()}})",
                 u=uid,
                 t=etype,
+                user=PR_USER,
             )
         await s.run(
             "CREATE (:Entity {uid:$u, entity_type:'ku', title:$u, created_at:datetime()})", u=PR_KU
@@ -126,7 +115,7 @@ async def _seed_principle_graph(neo4j_driver) -> None:
 async def test_principle_alignment_populates_from_graph(neo4j_driver, rel_backend, clean_neo4j):
     """assess_principle_alignment surfaces seeded goals/choices/habits + rich path-aware metrics."""
     await _seed_principle_graph(neo4j_driver)
-    svc = _harness(rel_backend, PR_PRIN)
+    svc = _harness(rel_backend)
 
     res = await svc.assess_principle_alignment(PR_PRIN, min_confidence=0.7)
     assert res.is_ok, res
@@ -187,10 +176,11 @@ async def test_principle_alignment_empty_when_no_edges(neo4j_driver, rel_backend
     async with neo4j_driver.session() as s:
         await s.run(
             "CREATE (:Entity:Principle {uid:$u, entity_type:'principle', title:$u, "
-            "status:'active', created_at:datetime()})",
+            "user_uid:$user, status:'active', created_at:datetime()})",
             u=PR_PRIN_BARE,
+            user=PR_USER,
         )
-    svc = _harness(rel_backend, PR_PRIN_BARE)
+    svc = _harness(rel_backend)
 
     res = await svc.assess_principle_alignment(PR_PRIN_BARE, min_confidence=0.7)
     assert res.is_ok, res
@@ -226,7 +216,7 @@ async def test_principle_alignment_payload_is_json_serializable(
     cascade_impact, path_aware_context — must already be primitives/dicts.
     """
     await _seed_principle_graph(neo4j_driver)
-    svc = _harness(rel_backend, PR_PRIN)
+    svc = _harness(rel_backend)
 
     res = await svc.assess_principle_alignment(PR_PRIN, min_confidence=0.7)
     assert res.is_ok, res
@@ -256,14 +246,16 @@ async def test_principle_alignment_dedupes_multipath_habit_at_depth2(
     async with neo4j_driver.session() as s:
         await s.run(
             "CREATE (:Entity:Principle {uid:$u, entity_type:'principle', title:$u, "
-            "status:'active', created_at:datetime()})",
+            "user_uid:$user, status:'active', created_at:datetime()})",
             u=dup_prin,
+            user=PR_USER,
         )
         for uid in (dup_mid, dup_habit):
             await s.run(
                 "CREATE (:Entity:Habit {uid:$u, entity_type:'habit', title:$u, "
-                "status:'active', created_at:datetime()})",
+                "user_uid:$user, status:'active', created_at:datetime()})",
                 u=uid,
+                user=PR_USER,
             )
         for a, b in [(dup_prin, dup_habit), (dup_prin, dup_mid), (dup_mid, dup_habit)]:
             await s.run(
@@ -272,7 +264,7 @@ async def test_principle_alignment_dedupes_multipath_habit_at_depth2(
                 a=a,
                 b=b,
             )
-    svc = _harness(rel_backend, dup_prin)
+    svc = _harness(rel_backend)
 
     # Sanity: the raw bucket DOES carry the duplicate (proves dedup is load-bearing).
     assert svc.relationships is not None

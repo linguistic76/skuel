@@ -29,6 +29,7 @@ from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from core.models.principle.principle import Principle
+    from core.ports.domain_protocols import PrinciplesOperations
 
 
 class _CoreIntelligenceMixin(_SharedCoreMixin):
@@ -44,7 +45,7 @@ class _CoreIntelligenceMixin(_SharedCoreMixin):
     """
 
     # Populated by PrinciplesIntelligenceService.__init__
-    backend: Any
+    backend: "PrinciplesOperations"
     logger: Any
 
     # ========================================================================

@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
     from core.models.habit.habit import Habit
     from core.models.habit.habit_request import HabitCreateRequest
+    from core.ports.domain_protocols import HabitsOperations
     from core.services.user import UserContext
 
 
@@ -32,7 +33,7 @@ class _OrchestrationMixin:
     """
 
     # Populated by HabitsService.__init__ / BaseService
-    backend: Any
+    backend: "HabitsOperations"
     core: Any
     completions: Any
     learning: Any

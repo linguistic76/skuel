@@ -29,6 +29,7 @@ from core.utils.type_converters import finite_float
 
 if TYPE_CHECKING:
     from core.models.habit.habit import Habit
+    from core.ports.domain_protocols import GoalsOperations
 
     from .goals_intelligence_service import GoalPrediction, HabitImpactAnalysis
 
@@ -88,7 +89,7 @@ class _PredictiveMixin:
     """
 
     # Populated by GoalsIntelligenceService.__init__
-    backend: Any
+    backend: "GoalsOperations"
     relationships: Any
     habits_service: Any
     logger: Any

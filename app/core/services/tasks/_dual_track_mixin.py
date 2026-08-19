@@ -25,6 +25,8 @@ from core.utils.result_simplified import Result
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
 
+    from core.ports.domain_protocols import TasksOperations
+
 
 class _DualTrackMixin:
     """Dual-track productivity self-assessment for the Tasks domain.
@@ -36,7 +38,7 @@ class _DualTrackMixin:
     """
 
     # Populated by TasksIntelligenceService / BaseAnalyticsService
-    backend: Any
+    backend: "TasksOperations"
     logger: Any
     _dual_track_assessment: Any  # provided by BaseAnalyticsService
 
@@ -151,7 +153,11 @@ class _DualTrackMixin:
 
         if completed_in_window:
             on_time = [
-                t for t in completed_in_window if not t.due_date or t.completion_date <= t.due_date
+                t
+                for t in completed_in_window
+                # completion_date is non-None by construction of completed_in_window
+                if not t.due_date
+                or (t.completion_date is not None and t.completion_date <= t.due_date)
             ]
             on_time_rate = len(on_time) / len(completed_in_window)
             evidence.append(f"On-time completion: {on_time_rate:.0%}")

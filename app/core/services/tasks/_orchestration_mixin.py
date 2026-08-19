@@ -17,7 +17,6 @@ if TYPE_CHECKING:
 class _OrchestrationMixin:
     """Orchestration methods for TasksService."""
 
-    backend: Any
     progress: Any
     relationships: Any
     intelligence: Any

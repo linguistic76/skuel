@@ -21,6 +21,8 @@ if TYPE_CHECKING:
         GetRecurringEventsRequest,
         RecurringInstancesRequest,
     )
+    from core.models.type_hints import EntityUID
+    from core.ports.domain_protocols import EventsOperations
     from core.services.events.events_core_service import EventsCoreService
 
 
@@ -33,12 +35,11 @@ class _SchedulingMixin:
     """
 
     # Populated by EventsService.__init__ / BaseService
-    backend: Any
+    backend: "EventsOperations"
     core: EventsCoreService
     search: Any
     logger: Any
     get_event: Any  # delegation method on EventsService
-    _to_domain_model: Any  # provided by BaseService
 
     async def get_recurring_events(self, request: GetRecurringEventsRequest) -> Result[list[Event]]:
         """
@@ -54,7 +55,7 @@ class _SchedulingMixin:
         """
         return await self.search.get_recurring(request.user_uid, request.limit)
 
-    async def check_conflicts(self, request: CheckConflictsRequest) -> Result[list[str]]:
+    async def check_conflicts(self, request: CheckConflictsRequest) -> Result[list[EntityUID]]:
         """
         Check for scheduling conflicts with other events using typed request.
 
@@ -164,9 +165,8 @@ class _SchedulingMixin:
             )
             dto.recurrence_parent_uid = request.event_uid  # Link to template
 
-            create_result = await self.backend.create(dto.to_dict())
+            create_result = await self.backend.create(EventModel.from_dto(dto))
             if create_result.is_ok:
-                new_event = self._to_domain_model(create_result.value, EventDTO, EventModel)
-                created_events.append(new_event)
+                created_events.append(create_result.value)
 
         return Result.ok(created_events)

@@ -62,6 +62,7 @@ from core.services.tasks._analytics_mixin import _AnalyticsMixin
 from core.services.tasks._dual_track_mixin import _DualTrackMixin
 from core.services.tasks._productivity_mixin import _ProductivityMixin
 from core.services.tasks.task_knowledge_analyzer import TaskKnowledgeAnalyzer
+from core.utils.neo4j_props import coerce_int
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
@@ -358,7 +359,7 @@ class TasksIntelligenceService(
         if state_result.is_ok:
             state = state_result.value
             ratio = state.get("task_duration_ratio")
-            count = int(state.get("task_completion_count") or 0)
+            count = coerce_int(state.get("task_completion_count"))
             learning_state = {
                 "learned_duration_ratio": ratio,
                 "learning_sample_count": count,

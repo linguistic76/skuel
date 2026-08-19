@@ -35,6 +35,8 @@ from core.utils.result_simplified import Result
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
 
+    from core.ports.domain_protocols import ChoicesOperations
+
 
 class _BehavioralSignalsMixin:
     """
@@ -47,7 +49,7 @@ class _BehavioralSignalsMixin:
     """
 
     # Populated by ChoicesIntelligenceService.__init__
-    backend: Any
+    backend: "ChoicesOperations"
     relationships: Any
     insight_store: Any
     logger: Any

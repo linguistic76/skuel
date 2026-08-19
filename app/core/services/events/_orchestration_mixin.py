@@ -11,6 +11,7 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 
 from __future__ import annotations
 
+from datetime import date
 from typing import TYPE_CHECKING, Any
 
 from core.events import publish_event
@@ -28,6 +29,7 @@ if TYPE_CHECKING:
         RemoveAttendeeRequest,
     )
     from core.models.type_hints import UserUID
+    from core.ports.domain_protocols import EventsOperations
     from core.services.events.events_core_service import EventsCoreService
     from core.services.user import UserContext
 
@@ -46,7 +48,7 @@ class _OrchestrationMixin:
     """
 
     # Populated by EventsService.__init__ / BaseService
-    backend: Any
+    backend: "EventsOperations"
     core: EventsCoreService
     relationships: Any
     event_bus: Any
@@ -215,11 +217,11 @@ class _OrchestrationMixin:
         if habit_uid and habit_uid in user_context.active_habit_uids:
             dto.recurrence_pattern = RecurrencePattern.DAILY  # Default
 
-        create_result = await self.backend.create(dto.to_dict())
+        create_result = await self.backend.create(Event.from_dto(dto))
         if create_result.is_error:
             return Result.fail(create_result)
 
-        event = self._to_domain_model(create_result.value, EventDTO, Event)  # type: ignore[attr-defined]
+        event = create_result.value
 
         if habit_uid:
             await self.link_event_to_habit(event.uid, habit_uid)
@@ -230,10 +232,10 @@ class _OrchestrationMixin:
             event_uid=event.uid,
             user_uid=user_context.user_uid,
             title=event.title,
-            event_date=event.event_date,
-            # Event.event_type is str | None. Not a mypy error here only
-            # because the ignore above leaves `event` as Any — same defect as
-            # the three sibling publish sites, fixed the same way.
+            # Event.event_date and .event_type are both optional on the model but
+            # required by the event; fall back the same way the sibling publish
+            # sites in events_core_service / events_habit_integration_service do.
+            event_date=event.event_date or date.today(),
             calendar_event_type=event.event_type or EventType.MEETING,
         )
         await publish_event(self.event_bus, event_obj, self.logger)

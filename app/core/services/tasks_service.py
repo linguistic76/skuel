@@ -23,6 +23,7 @@ from core.models.type_hints import EntityUID, UserUID
 
 if TYPE_CHECKING:
     from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
+    from core.ports.base_protocols import Direction
     from core.ports.domain_protocols import TasksOperations
     from core.ports.infrastructure_protocols import EventBusOperations
     from core.ports.intelligence_protocols import KnowledgeIntelligenceOperations
@@ -942,7 +943,7 @@ class TasksService(
         return Result.ok(neighbors)
 
     async def _hydrate_dependency_neighbors(
-        self, task_uid: str, direction: str, user_uid: UserUID
+        self, task_uid: str, direction: Direction, user_uid: UserUID
     ) -> Result[list[TaskDependencyNeighbor]]:
         """Fetch direct DEPENDS_ON neighbour UIDs in one direction and hydrate them.
 

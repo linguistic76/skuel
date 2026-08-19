@@ -32,7 +32,6 @@ class _DualTrackMixin:
     """
 
     # Populated by GoalsIntelligenceService.__init__
-    backend: Any
     logger: Any
     # Provided by BaseAnalyticsService on the composed service.
     _dual_track_assessment: Any

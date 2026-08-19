@@ -40,7 +40,6 @@ class _CoreIntelligenceMixin(_SharedCoreMixin):
     orchestrator: Any
     graph_intel: Any
     relationships: Any
-    backend: Any
     logger: Any
     # Provided by BaseAnalyticsService via multiple inheritance on the composed service.
     _analyze_entity_with_typed_context: Any

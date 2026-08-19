@@ -38,7 +38,6 @@ class _AnalyticsMixin:
     """
 
     # Populated by GoalsIntelligenceService.__init__
-    backend: Any
     relationships: Any
     progress: Any
     logger: Any

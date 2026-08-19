@@ -17,7 +17,8 @@ from core.services.intelligence import RecommendationEngine
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.models.type_hints import UserUID
+    from core.models.type_hints import FilterParams, UserUID
+    from core.ports.domain_protocols import EventsOperations
     from core.services.cross_domain.cross_domain_query_service import CrossDomainQueryService
 
 
@@ -30,7 +31,7 @@ class _AnalyticsMixin:
     """
 
     # Populated by EventsIntelligenceService.__init__
-    backend: Any
+    backend: "EventsOperations"
     relationships: Any
     cross_domain_query: CrossDomainQueryService | None
     logger: Any
@@ -54,10 +55,10 @@ class _AnalyticsMixin:
 
         end_date = date.today() + timedelta(days=days_ahead)
 
-        filters = {
+        filters: FilterParams = {
             "user_uid": user_uid,
-            "event_date__gte": date.today(),
-            "event_date__lte": end_date,
+            "event_date__gte": date.today().isoformat(),
+            "event_date__lte": end_date.isoformat(),
             "status": "scheduled",
         }
 
