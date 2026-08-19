@@ -4452,6 +4452,68 @@ class TestSKUEL023AnnotationStrength:
         assert len(violations) == 1
         assert "declaration-only" not in violations[0].message
 
+    def test_flags_type_checking_guarded_declaration(self) -> None:
+        """A class-body `if TYPE_CHECKING:` shares class-body scope — so must the rule.
+
+        Codex, PR #1095. Iterating `cls.body` directly saw only the `If` statement,
+        so a mixin could declare `backend: Any` under the guard, call
+        `self.backend.<x>()` freely, and report clean — a silent bypass of a
+        brand-new trigger. A type checker treats the guarded declaration as the
+        attribute's annotation; the rule now traverses compound statements to
+        match.
+        """
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import TYPE_CHECKING, Any\n"
+            "\n"
+            "class SneakyMixin:\n"
+            "    if TYPE_CHECKING:\n"
+            "        backend: Any\n"
+            "\n"
+            "    async def do(self) -> None:\n"
+            "        await self.backend.get('x')\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
+        assert len(violations) == 1
+        assert "SneakyMixin.backend" in violations[0].message
+        assert violations[0].line_number == 5
+
+    def test_guarded_declaration_typed_against_protocol_is_clean(self) -> None:
+        """NEGATIVE CONTROL: traversing the guard must not flag what it finds there."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import TYPE_CHECKING\n"
+            "\n"
+            "class _AnalyticsMixin:\n"
+            "    if TYPE_CHECKING:\n"
+            "        backend: 'ChoicesOperations'\n"
+            "\n"
+            "    async def do(self) -> None:\n"
+            "        await self.backend.get('x')\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/choices/_a.py")
+        assert violations == []
+
+    def test_method_local_backend_annotation_is_not_a_declaration(self) -> None:
+        """The mirror of the nested-class bug: don't over-traverse either.
+
+        Traversing compound statements must stop at every scope boundary, not
+        just at `ClassDef`. A method-local `backend: Any = ...` is a local
+        variable, not a class attribute — crediting it to the class would be the
+        #1092 false positive with functions in place of nested classes.
+        """
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import Any\n"
+            "\n"
+            "class Plain:\n"
+            "    def m(self) -> None:\n"
+            "        backend: Any = build()\n"
+            "        use(backend)\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_service.py")
+        assert violations == []
+
     def test_declaration_only_line_suppression_honored(self) -> None:
         """Suppressible on the declaration line, like every other SKUEL023 site."""
         linter = make_linter(["SKUEL023"])

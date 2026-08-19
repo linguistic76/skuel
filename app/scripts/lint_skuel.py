@@ -4981,24 +4981,38 @@ class SkuelLinter:
 
     @staticmethod
     def _find_class_body_backend_declaration(cls: ast.ClassDef) -> ast.AnnAssign | None:
-        """The class-body ``backend: X`` declaration owned by ``cls``, if any.
+        """The lowest-line ``backend: X`` declaration in ``cls``'s own class-body scope.
 
-        Iterates ``cls.body`` statements directly rather than walking the subtree.
-        A nested ``ClassDef`` is a statement, never an ``AnnAssign``, so an inner
-        class's declaration can never be credited to its outer class — the
-        false-positive shape Codex caught on the assignment side of this rule
-        (#1092), avoided here by construction rather than by a guard.
+        Pruned at every scope boundary — ``FunctionDef``, ``AsyncFunctionDef``,
+        ``ClassDef`` — which is what makes this *class-body scope* rather than
+        "the class subtree". Both exclusions are load-bearing in opposite
+        directions:
+
+        - stopping at nested ``ClassDef`` keeps an inner class's declaration off
+          its outer class (the false positive Codex caught on the assignment side
+          of this rule, #1092);
+        - stopping at functions keeps a method-local ``backend: Any = ...`` from
+          reading as a class attribute, which is the same mistake mirrored.
+
+        It does NOT stop at compound statements, because those share class-body
+        scope: ``if TYPE_CHECKING: backend: Any`` in a class body declares the
+        attribute as far as a type checker is concerned, so the rule must see it
+        too. Iterating ``cls.body`` directly missed exactly that shape and left a
+        silent bypass (Codex, this PR).
+
+        Lowest line number, not traversal order: ``_walk_pruned`` is LIFO, so
+        "first found" would not be stable, and the violation is anchored here.
         """
-        return next(
-            (
-                stmt
-                for stmt in cls.body
-                if isinstance(stmt, ast.AnnAssign)
-                and isinstance(stmt.target, ast.Name)
-                and stmt.target.id == "backend"
-            ),
-            None,
-        )
+        matches = [
+            node
+            for node in SkuelLinter._walk_pruned(
+                cls, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
+            )
+            if isinstance(node, ast.AnnAssign)
+            and isinstance(node.target, ast.Name)
+            and node.target.id == "backend"
+        ]
+        return min(matches, key=lambda n: n.lineno) if matches else None
 
     @staticmethod
     def _resolve_backend_annotation(
@@ -5177,6 +5191,24 @@ class SkuelLinter:
             )
 
     @staticmethod
+    def _walk_pruned(node: ast.AST, stop: tuple[type[ast.AST], ...]) -> Iterator[ast.AST]:
+        """Every node under ``node``, not descending into any node in ``stop``.
+
+        ``ast.walk`` has no pruning, and both SKUEL023 backend lookups need it —
+        for different boundaries. Pruning by node type rather than by enumerating
+        ``body``/``orelse``/``handlers``/``finalbody`` means compound statements
+        (``if``, ``try``, ``with``, ``match``) are traversed without listing their
+        fields, so a new statement form cannot silently open a hole.
+        """
+        stack: list[ast.AST] = list(ast.iter_child_nodes(node))
+        while stack:
+            child = stack.pop()
+            if isinstance(child, stop):
+                continue
+            yield child
+            stack.extend(ast.iter_child_nodes(child))
+
+    @staticmethod
     def _walk_own_body(cls: ast.ClassDef) -> Iterator[ast.AST]:
         """Every node under ``cls`` EXCEPT those inside a nested class.
 
@@ -5186,13 +5218,7 @@ class SkuelLinter:
         then be reported unannotated. A nested class owns its own assignment and
         is visited in its own right by the caller's ClassDef loop.
         """
-        stack: list[ast.AST] = list(ast.iter_child_nodes(cls))
-        while stack:
-            node = stack.pop()
-            if isinstance(node, ast.ClassDef):
-                continue
-            yield node
-            stack.extend(ast.iter_child_nodes(node))
+        return SkuelLinter._walk_pruned(cls, (ast.ClassDef,))
 
     @staticmethod
     def _find_self_backend_assignment(cls: ast.ClassDef) -> ast.Assign | ast.AnnAssign | None:
