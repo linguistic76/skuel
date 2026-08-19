@@ -2,14 +2,14 @@
 PrincipleDTO - Principle-Specific DTO (Tier 2 - Transfer)
 ==========================================================
 
-Extends UserOwnedDTO with 19 principle-specific fields matching the Principle
+Extends UserOwnedDTO with 20 principle-specific fields matching the Principle
 frozen dataclass (Tier 3): statement, classification, philosophy, expressions,
 alignment, conflicts, reflection, and status.
 
 Hierarchy:
     EntityDTO (~18 common fields)
     └── UserOwnedDTO(EntityDTO) +3 fields (user_uid, visibility, priority)
-        └── PrincipleDTO(UserOwnedDTO) +19 principle-specific fields
+        └── PrincipleDTO(UserOwnedDTO) +20 principle-specific fields
 
 See: /docs/patterns/three_tier_type_system.md
 """
@@ -42,14 +42,14 @@ class PrincipleDTO(UserOwnedDTO):
     """
     Mutable DTO for principles (EntityType.PRINCIPLE).
 
-    Extends UserOwnedDTO with 19 principle-specific fields:
+    Extends UserOwnedDTO with 20 principle-specific fields:
     - Statement (1): statement
     - Classification (3): principle_category, principle_source, strength
     - Philosophical (3): tradition, original_source, personal_interpretation
     - Expressions (2): expressions, key_behaviors
     - Alignment (3): current_alignment, alignment_history, last_review_date
     - Conflicts (3): potential_conflicts, conflicting_principles, resolution_strategies
-    - Reflection (2): origin_story, evolution_notes
+    - Reflection (3): why_important, origin_story, evolution_notes
     - Status (2): is_active, adopted_date
     """
 
@@ -99,6 +99,7 @@ class PrincipleDTO(UserOwnedDTO):
     # =========================================================================
     # PERSONAL REFLECTION
     # =========================================================================
+    why_important: str | None = None
     origin_story: str | None = None
     evolution_notes: str | None = None
 
@@ -246,6 +247,7 @@ class PrincipleDTO(UserOwnedDTO):
                 "potential_conflicts",
                 "conflicting_principles",
                 "resolution_strategies",
+                "why_important",
                 "origin_story",
                 "evolution_notes",
                 "is_active",

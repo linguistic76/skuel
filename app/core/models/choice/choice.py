@@ -4,9 +4,9 @@ Choice - Choice Domain Model
 
 Frozen dataclass for choice entities (EntityType.CHOICE).
 
-Inherits common fields from UserOwnedEntity. Adds 14 choice-specific fields:
-- Decision (7): choice_type, options, selected_option_uid, decision_rationale,
-  decision_criteria, constraints, stakeholders
+Inherits common fields from UserOwnedEntity. Adds 15 choice-specific fields:
+- Decision (8): choice_type, options, selected_option_uid, decision_context,
+  decision_rationale, decision_criteria, constraints, stakeholders
 - Decision Timing (2): decision_deadline, decided_at
 - Outcome (3): satisfaction_score, actual_outcome, lessons_learned
 - Choice-Curriculum Integration (2): inspiration_type, expands_possibilities
@@ -40,7 +40,7 @@ class Choice(UserOwnedEntity):
     Inherits common fields from UserOwnedEntity (identity, content, status,
     learning, sharing, substance, meta, embedding).
 
-    Adds 14 choice-specific fields for decision context, timing, outcome
+    Adds 15 choice-specific fields for decision context, timing, outcome
     tracking, and curriculum integration.
     """
 
@@ -63,6 +63,11 @@ class Choice(UserOwnedEntity):
     choice_type: ChoiceType | None = None
     options: tuple[ChoiceOption, ...] = ()
     selected_option_uid: str | None = None
+    # The circumstance the decision is made in — what is going on that forces a
+    # choice. Distinct from ``decision_rationale``, which is the reasoning that
+    # justifies the option finally selected: context is authored up front and
+    # survives whichever way the choice goes, rationale is written at decision time.
+    decision_context: str | None = None
     decision_rationale: str | None = None
     decision_criteria: tuple[str, ...] = ()  # Shared concept with Principle
     constraints: tuple[str, ...] = ()

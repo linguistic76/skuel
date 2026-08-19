@@ -497,7 +497,9 @@ class TestChoiceEmbeddingEvents:
         assert event.entity_type == "choice"
         assert "Career Path Decision" in event.embedding_text
         assert "current company or joining startup" in event.embedding_text
-        # decision_context doesn't exist on Choice model, so not included in embedding text
+        # ``decision_context`` is a real Choice column now, and the CHOICE embedding
+        # field map names it — so the circumstance is part of what gets embedded.
+        assert "Looking for growth opportunities" in event.embedding_text
 
 
 class TestPrincipleEmbeddingEvents:

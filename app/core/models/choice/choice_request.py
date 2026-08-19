@@ -50,6 +50,11 @@ class ChoiceCreateRequest(CreateRequestBase):
     # Decision characteristics
     choice_type: ChoiceType = Field(default=ChoiceType.MULTIPLE, description="Choice type")
     domain: Domain = Field(default=Domain.PERSONAL, description="Domain")
+    decision_context: str | None = Field(
+        default=None,
+        max_length=1000,
+        description="Circumstance forcing the decision (not the rationale for the option chosen)",
+    )
     decision_deadline: datetime | None = Field(default=None, description="Decision deadline")
     decision_criteria: list[str] = Field(default_factory=list, description="Criteria for deciding")
     constraints: list[str] = Field(default_factory=list, description="Constraints")
@@ -81,6 +86,11 @@ class ChoiceUpdateRequest(UpdateRequestBase):
     )
     choice_type: ChoiceType | None = Field(default=None, description="Choice type")
     domain: Domain | None = Field(default=None, description="Domain")
+    decision_context: str | None = Field(
+        default=None,
+        max_length=1000,
+        description="Circumstance forcing the decision (not the rationale for the option chosen)",
+    )
     decision_deadline: datetime | None = Field(default=None, description="Decision deadline")
     decision_criteria: list[str] | None = Field(default=None, description="Criteria for deciding")
     constraints: list[str] | None = Field(default=None, description="Constraints")
@@ -118,6 +128,7 @@ class ChoiceUpdateRequest(UpdateRequestBase):
                 "choice_type", self.choice_type.value if self.choice_type is not None else None
             ),
             domain=when_set("domain", self.domain.value if self.domain is not None else None),
+            decision_context=when_set("decision_context", self.decision_context),
             decision_deadline=when_set("decision_deadline", self.decision_deadline),
             decision_criteria=when_set("decision_criteria", self.decision_criteria),
             constraints=when_set("constraints", self.constraints),

@@ -582,6 +582,19 @@ class ChoicesCoreService(
         )
         await publish_event(self.event_bus, event, self.logger)
 
+        # Post-persist embedding refresh (ADR-074). This path writes ``actual_outcome``,
+        # which EMBEDDING_FIELD_MAPS[CHOICE] now names — without this the stored vector
+        # would stay stale until an unrelated text edit or a manual backfill. Passed
+        # explicitly rather than via ``changed_fields``: the outcome write is exactly the
+        # embeddable change, so there is nothing to filter.
+
+        # Post-persist embedding refresh (ADR-074). This path writes ``actual_outcome``,
+        # which EMBEDDING_FIELD_MAPS[CHOICE] now names — without this the stored vector
+        # would stay stale until an unrelated text edit or a manual backfill. Passed
+        # explicitly rather than via ``changed_fields``: the outcome write is exactly the
+        # embeddable change, so there is nothing to filter.
+        await publish_embedding_requested(self.event_bus, EntityType.CHOICE, choice, self.logger)
+
         return Result.ok(choice)
 
     async def make_decision(

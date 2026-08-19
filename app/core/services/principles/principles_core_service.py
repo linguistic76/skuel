@@ -19,7 +19,7 @@ from core.events import publish_event
 from core.events.embedding_publisher import publish_embedding_requested
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.principle_enums import PrincipleStrength
-from core.models.principle.principle import Principle, get_principle_priority, merge_why_important
+from core.models.principle.principle import Principle, get_principle_priority
 from core.models.principle.principle_dto import PrincipleDTO
 from core.models.principle.principle_request import PrincipleCreateRequest
 from core.models.principle.principle_types import PrincipleExpression
@@ -284,8 +284,6 @@ class PrinciplesCoreService(
 
         from core.utils.uid_generator import UIDGenerator
 
-        body = merge_why_important(request.description, request.why_important)
-
         expressions = tuple(
             PrincipleExpression(context=e.context, behavior=e.behavior, example=e.example)
             for e in request.expressions
@@ -296,13 +294,14 @@ class PrinciplesCoreService(
             user_uid=user_uid,
             title=request.title,
             statement=request.statement,
-            description=body,
+            description=request.description,
             principle_category=request.principle_category,
             principle_source=request.principle_source,
             strength=request.strength,
             tradition=request.tradition,
             original_source=request.original_source,
             personal_interpretation=request.personal_interpretation,
+            why_important=request.why_important,
             origin_story=request.origin_story,
             key_behaviors=tuple(request.key_behaviors),
             expressions=expressions,

@@ -45,10 +45,17 @@ class MockEvent:
 
 @dataclass
 class MockChoice:
+    """Field names mirror the real ``Choice`` columns.
+
+    They did not always: this mock carried an ``outcome`` field matching the
+    EMBEDDING_FIELD_MAPS entry rather than the model, which is how a phantom map
+    entry stayed green here for as long as it did. The column is ``actual_outcome``.
+    """
+
     title: str
     description: str | None = None
     decision_context: str | None = None
-    outcome: str | None = None
+    actual_outcome: str | None = None
 
 
 @dataclass
@@ -56,6 +63,7 @@ class MockPrinciple:
     title: str
     statement: str | None = None
     description: str | None = None
+    why_important: str | None = None
 
 
 @dataclass
@@ -112,7 +120,7 @@ class TestBuildEmbeddingTextFromDict:
             "title": "Career move",
             "description": "Job offer",
             "decision_context": "Current vs new",
-            "outcome": "Accepted",
+            "actual_outcome": "Accepted",
         }
         result = build_embedding_text(EntityType.CHOICE, data)
         assert result == "Career move\nJob offer\nCurrent vs new\nAccepted"
@@ -122,9 +130,10 @@ class TestBuildEmbeddingTextFromDict:
             "title": "Integrity",
             "statement": "Be honest",
             "description": "Always tell truth",
+            "why_important": "Trust compounds",
         }
         result = build_embedding_text(EntityType.PRINCIPLE, data)
-        assert result == "Integrity\nBe honest\nAlways tell truth"
+        assert result == "Integrity\nBe honest\nAlways tell truth\nTrust compounds"
 
     def test_user_entry_embeds_content_body(self):
         # Knowledge entries hold their body in `content`; `processed_content`
@@ -224,17 +233,20 @@ class TestBuildEmbeddingTextFromModel:
             title="Career move",
             description="Job offer",
             decision_context="Current vs new",
-            outcome="Accepted",
+            actual_outcome="Accepted",
         )
         result = build_embedding_text(EntityType.CHOICE, choice)
         assert result == "Career move\nJob offer\nCurrent vs new\nAccepted"
 
     def test_principle_model_with_all_fields(self):
         principle = MockPrinciple(
-            title="Integrity", statement="Be honest", description="Always tell truth"
+            title="Integrity",
+            statement="Be honest",
+            description="Always tell truth",
+            why_important="Trust compounds",
         )
         result = build_embedding_text(EntityType.PRINCIPLE, principle)
-        assert result == "Integrity\nBe honest\nAlways tell truth"
+        assert result == "Integrity\nBe honest\nAlways tell truth\nTrust compounds"
 
     def test_ku_model_with_all_fields_uses_double_newlines(self):
         # PATH_STEP entity vector = frontmatter only; model content is skipped (ADR-074)

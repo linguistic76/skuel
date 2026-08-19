@@ -13,7 +13,6 @@ picker, so no EntityPicker widgets are wired here.
 
 from __future__ import annotations
 
-import dataclasses
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import Div
@@ -25,9 +24,7 @@ from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_form_body
 from core.models.enums.principle_enums import AlignmentLevel
-from core.models.principle.principle import merge_why_important
 from core.models.principle.principle_request import PrincipleCreateRequest, PrincipleUpdateRequest
-from core.models.sentinels import UNSET
 from core.utils.connection_configs import PRINCIPLE_CONNECTION_CONFIG
 from core.utils.entity_filters import filter_principles
 from core.utils.logging import get_logger
@@ -185,15 +182,6 @@ def create_principles_ui_routes(
         # (model_fields_set). Fields the user left blank stay UNSET and are not written, so
         # untouched columns are never clobbered — no ad-hoc "drop None" convention.
         intent = parsed.value.to_intent()
-        # ``why_important`` has no dedicated model column — to_intent() drops it, so re-fold
-        # it into description with the canonical marker here (see merge_why_important), where
-        # the existing principle is available as the base when description isn't itself part
-        # of this update.
-        if parsed.value.why_important:
-            base = intent.description if intent.description is not UNSET else principle.description
-            intent = dataclasses.replace(
-                intent, description=merge_why_important(base, parsed.value.why_important)
-            )
 
         result = await principles_service.update_principle(uid, intent)
         if result.is_error:

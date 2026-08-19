@@ -2,14 +2,14 @@
 ChoiceDTO - Choice-Specific DTO (Tier 2 - Transfer)
 =====================================================
 
-Extends UserOwnedDTO with 14 choice-specific fields matching the Choice
+Extends UserOwnedDTO with 15 choice-specific fields matching the Choice
 frozen dataclass (Tier 3): decision context, timing, outcome tracking,
 and curriculum integration.
 
 Hierarchy:
     EntityDTO (~18 common fields)
     └── UserOwnedDTO(EntityDTO) +3 fields (user_uid, visibility, priority)
-        └── ChoiceDTO(UserOwnedDTO) +14 choice-specific fields
+        └── ChoiceDTO(UserOwnedDTO) +15 choice-specific fields
 
 See: /docs/patterns/three_tier_type_system.md
 """
@@ -37,8 +37,8 @@ class ChoiceDTO(UserOwnedDTO):
     """
     Mutable DTO for choices (EntityType.CHOICE).
 
-    Extends UserOwnedDTO with 14 choice-specific fields:
-    - Decision (7): choice_type, options, selected_option_uid, decision_rationale, decision_criteria, constraints, stakeholders
+    Extends UserOwnedDTO with 15 choice-specific fields:
+    - Decision (8): choice_type, options, selected_option_uid, decision_context, decision_rationale, decision_criteria, constraints, stakeholders
     - Timing (2): decision_deadline, decided_at
     - Outcome (3): satisfaction_score, actual_outcome, lessons_learned
     - Curriculum (2): inspiration_type, expands_possibilities
@@ -53,6 +53,7 @@ class ChoiceDTO(UserOwnedDTO):
     choice_type: ChoiceType | None = None
     options: list[dict[str, Any]] = field(default_factory=list)
     selected_option_uid: str | None = None
+    decision_context: str | None = None
     decision_rationale: str | None = None
     decision_criteria: list[str] = field(default_factory=list)
     constraints: list[str] = field(default_factory=list)
@@ -191,6 +192,7 @@ class ChoiceDTO(UserOwnedDTO):
                 "choice_type",
                 "options",
                 "selected_option_uid",
+                "decision_context",
                 "decision_rationale",
                 "decision_criteria",
                 "constraints",

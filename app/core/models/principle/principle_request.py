@@ -47,8 +47,8 @@ class PrincipleCreateRequest(CreateRequestBase):
 
     Field names mirror the ``Principle`` domain model 1:1 so the form layer
     auto-prefills via ``FormGenerator.from_instance``. The one exception is
-    ``why_important``: it has no dedicated model column and is folded into
-    ``description`` with the canonical marker via ``merge_why_important``.
+    ``decision_criteria``, which has no ``Principle`` column and is dropped by
+    the generic converter.
     """
 
     title: str = Field(min_length=1, max_length=100, description="Principle title")
@@ -136,11 +136,8 @@ class PrincipleUpdateRequest(UpdateRequestBase):
         (principle_category, principle_source, strength, priority) are lowered to their
         string value to match the persistence boundary.
 
-        Two request fields are deliberately **not** carried — neither is a node column:
-        - ``why_important`` is folded into ``description`` (see ``merge_why_important``);
-          ``principles_ui`` re-folds it into the returned intent's ``description``.
-        - ``decision_criteria`` is absent from ``Principle`` / ``PrincipleDTO``, so writing
-          it would be a junk node property.
+        One request field is deliberately **not** carried: ``decision_criteria`` is absent
+        from ``Principle`` / ``PrincipleDTO``, so writing it would be a junk node property.
         """
         set_fields = self.model_fields_set
 
@@ -171,6 +168,7 @@ class PrincipleUpdateRequest(UpdateRequestBase):
             personal_interpretation=when_set(
                 "personal_interpretation", self.personal_interpretation
             ),
+            why_important=when_set("why_important", self.why_important),
             key_behaviors=when_set("key_behaviors", self.key_behaviors),
             priority=when_set(
                 "priority", self.priority.value if self.priority is not None else None

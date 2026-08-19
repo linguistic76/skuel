@@ -65,8 +65,8 @@ Entity (~19 fields: uid, title, entity_type, status, visibility, tags, domain,
 │   ├── Goal ─────────── + goal_type, timeframe, measurement_type, target_date, milestones
 │   ├── Habit ────────── + polarity, habit_category, habit_difficulty, frequency, streak
 │   ├── Event ────────── + event_type, location, start_time, end_time, duration
-│   ├── Choice ───────── + choice_type, options, decision_context, outcome
-│   ├── Principle ────── + principle_category, principle_source, strength, current_alignment
+│   ├── Choice ───────── + choice_type, options, decision_context, decision_rationale, actual_outcome
+│   ├── Principle ────── + principle_category, principle_source, strength, current_alignment, why_important
 │   │
 │   ├── UserEntry ────── + pipeline, modality, file_path, file_size, file_type, processed_content (entity_type=USER_ENTRY — leaf default, mismatch rejected)
 │   ├── EntryReport ── + processed_content, subject_uid, assessment_outcome, report_file_path, report_generated_at (entity_type=ENTRY_REPORT — leaf default, mismatch rejected)

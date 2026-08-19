@@ -195,7 +195,8 @@ class PrinciplesService(
     # facade does not shadow BaseService.search), and it was searching only the
     # Entity-base title/description — a principle was unfindable by its own
     # statement. Kept identical to PrinciplesSearchService._config and to
-    # principle_fulltext_idx so all three keyword surfaces agree.
+    # principle_fulltext_idx so all three keyword surfaces agree — see that
+    # config's comment for why ``why_important`` stays out of all three.
     _config = create_activity_domain_config(
         dto_class=PrincipleDTO,
         model_class=Principle,

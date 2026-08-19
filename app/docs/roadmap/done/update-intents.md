@@ -193,6 +193,9 @@ Shared `UNSET` sentinel: ☑ (Phase 1, `core/models/sentinels.py`) · Base param
   **drops two non-column request fields** (honest junk-write fix, locked by a test): `why_important` (folded
   into `description` via `merge_why_important` — `principles_ui` re-folds it into the intent's `description`
   using the existing principle as the base) and `decision_criteria` (absent from `Principle`/`PrincipleDTO`).
+  **Superseded for `why_important` (2026-08):** it became a real `Principle` column, both splice helpers were
+  deleted, and the intent now carries it like any other node property — only `decision_criteria` is still
+  dropped. The rest of this entry stands as written.
   #3 stragglers annotated `# raw-write:`: the three full-DTO `dto.to_dict()` replaces in
   `_embodiment_mixin` (expression append) + `_alignment_intelligence_mixin` / `principles_alignment_service`
   (alignment-history append). The backend-level `PrinciplesOperations.update_principle` protocol method

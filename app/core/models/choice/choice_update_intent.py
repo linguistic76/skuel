@@ -23,7 +23,9 @@ mirroring ``tasks_api`` / ``events_api``. Decision-finalization and outcome colu
 (``selected_option_uid`` / ``decided_at`` / ``satisfaction_score`` / ``actual_outcome`` /
 ``lessons_learned`` / ``metadata``) are deliberately absent — they flow through the
 ``make_decision`` / ``evaluate_choice_outcome`` raw-write paths (each with its own
-provenance event), not this generic property-update path.
+provenance event), not this generic property-update path. ``decision_context`` IS here:
+it is the circumstance the choice is made in, authored up front and editable at any
+time, unlike ``decision_rationale``, which ``make_decision`` writes once.
 
 See: ADR-066 (Typed Update Intents) — the write-path sibling of ADR-065's
 ``*InferenceResult``; ``docs/roadmap/done/update-intents.md`` for the phased migration.
@@ -56,6 +58,7 @@ class ChoiceUpdateIntent:
     domain: str | Unset | None = UNSET
 
     # --- Decision context ----------------------------------------------------
+    decision_context: str | Unset | None = UNSET
     decision_deadline: datetime | Unset | None = UNSET
     decision_criteria: list[str] | Unset | None = UNSET
     constraints: list[str] | Unset | None = UNSET

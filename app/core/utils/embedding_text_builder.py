@@ -32,8 +32,15 @@ EMBEDDING_FIELD_MAPS: dict[EntityType, tuple[str, ...]] = {
     EntityType.GOAL: ("title", "description", "vision_statement"),
     EntityType.HABIT: ("name", "title", "description", "cue", "reward"),
     EntityType.EVENT: ("title", "description", "location"),
-    EntityType.CHOICE: ("title", "description", "decision_context", "outcome"),
-    EntityType.PRINCIPLE: ("title", "statement", "description"),
+    # CHOICE: "outcome" was a phantom — the column is ``actual_outcome``, so the
+    # map silently contributed nothing for it. ``decision_context`` was equally
+    # phantom until it became a real column; both now name what Choice actually has.
+    EntityType.CHOICE: ("title", "description", "decision_context", "actual_outcome"),
+    # PRINCIPLE includes ``why_important``: before it became a column its text was
+    # spliced into ``description``, so it was already part of what got embedded.
+    # Dropping it from the map on promotion would have quietly shrunk the semantic
+    # surface of every principle.
+    EntityType.PRINCIPLE: ("title", "statement", "description", "why_important"),
     EntityType.REVISED_EXERCISE: ("title", "instructions", "revision_rationale"),
     EntityType.EXERCISE: ("title", "instructions", "description"),
     EntityType.LEARNING_PATH: ("title", "description", "outcomes"),
