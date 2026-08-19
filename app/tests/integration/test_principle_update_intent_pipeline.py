@@ -14,8 +14,8 @@ Verifies the typed ``PrincipleUpdateIntent`` update path end to end against live
 5. The ``Mapping`` funnel (``core.update`` — the ``principles_api`` status route) routes
    through ``update_principle`` and fires ``PrincipleUpdated`` too.
 6. ``PrincipleUpdateRequest.to_intent()`` carries exactly the explicitly-set fields
-   (``model_fields_set``), lowers enums, and DROPS the two non-column request fields
-   (``why_important``, ``decision_criteria``) plus the funnel-only ``status``.
+   (``model_fields_set``), lowers enums, and DROPS the one non-column request field
+   (``decision_criteria``) plus the funnel-only ``status``.
 
 Mirrors ``test_choice_update_intent_pipeline.py`` (the closest reference) for Principles.
 """
@@ -165,8 +165,13 @@ class TestPrincipleUpdateIntentPipeline:
         }
 
     async def test_to_intent_drops_non_column_and_funnel_only_fields(self) -> None:
-        """to_intent() drops ``why_important`` / ``decision_criteria`` (neither is a node
-        column) and never carries ``status`` (no such request field)."""
+        """to_intent() drops ``decision_criteria`` (not a node column) and never carries
+        ``status`` (no such request field), while carrying ``why_important``, which is.
+
+        ``why_important`` used to be dropped here too — it had no column and was spliced
+        into ``description``. It is a real column now, so the assertion it belongs in is
+        the CARRIED one; ``decision_criteria`` is the only survivor of the drop list.
+        """
         request = PrincipleUpdateRequest(
             title="A title",
             why_important="Because integrity compounds",
@@ -177,7 +182,10 @@ class TestPrincipleUpdateIntentPipeline:
 
         assert intent.status is UNSET
         changes = intent.to_changes()
-        assert "why_important" not in changes
         assert "decision_criteria" not in changes
         assert "status" not in changes
-        assert changes == {"title": "A title", "key_behaviors": ["tell the truth"]}
+        assert changes == {
+            "title": "A title",
+            "why_important": "Because integrity compounds",
+            "key_behaviors": ["tell the truth"],
+        }

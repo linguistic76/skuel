@@ -54,6 +54,7 @@ No Neo4j: the backend is stubbed, so what is under test is the service wiring �
 which is exactly where both defects lived.
 """
 
+from datetime import datetime
 from typing import Any
 
 import pytest
@@ -594,3 +595,88 @@ class TestLiveDoorsStillWork:
 
         assert result.is_ok, f"a DSL-ingested choice was rejected: {result.error}"
         assert result.value.choice_type == ChoiceType.BINARY
+
+
+# ============================================================================
+# OUTCOME EVALUATION — the embeddable write that announced nothing
+# ============================================================================
+
+
+class StubOutcomeBackend:
+    """Backend stand-in for ``evaluate_choice_outcome``: get then update.
+
+    ``update`` returns the merged property dict, matching the real backend's
+    ``+=`` partial-update semantics, so the service's ``_to_domain_model`` sees a
+    complete node rather than only the patched keys.
+    """
+
+    def __init__(self, choice: Choice) -> None:
+        self.props: dict[str, Any] = dict(to_neo4j_node(choice))
+
+    async def get(self, uid: str) -> Result[Choice]:
+        return Result.ok(from_neo4j_node(self.props, Choice))
+
+    async def update(self, uid: str, updates: dict[str, Any]) -> Result[dict[str, Any]]:
+        self.props.update(updates)
+        return Result.ok(dict(self.props))
+
+    def __getattr__(self, name: str):
+        async def _unexpected(*args: Any, **kwargs: Any):
+            raise AssertionError(f"backend.{name}() unexpectedly called")
+
+        return _unexpected
+
+
+@pytest.mark.asyncio
+class TestOutcomeEvaluationRefreshesTheEmbedding:
+    """Recording an outcome writes embeddable text, so it must request a re-embed.
+
+    ``actual_outcome`` is named by ``EMBEDDING_FIELD_MAPS[CHOICE]``, and this path
+    persists it through a raw full-DTO replace that published only its own
+    provenance event (``ChoiceOutcomeRecorded``). Without the ADR-074 request the
+    stored vector stays stale until an unrelated text edit or a manual backfill —
+    the outcome would be searchable semantically only by accident.
+    """
+
+    async def test_it_publishes_both_the_provenance_and_the_embedding_event(self) -> None:
+        from core.events.choice_events import ChoiceOutcomeRecorded
+        from core.events.embedding_events import EmbeddingRequested
+        from core.models.choice.choice_request import ChoiceEvaluationRequest
+        from core.models.enums.entity_enums import EntityType
+
+        choice = Choice(
+            uid="choice_outcome",
+            user_uid=USER_UID,
+            title="Pick a primary datastore",
+            description="Choose between the two candidate stores",
+            decided_at=datetime.now(),
+        )
+        bus = InMemoryEventBus(capture_history=True)
+        core = ChoicesCoreService(backend=StubOutcomeBackend(choice), event_bus=bus)
+
+        result = await core.evaluate_choice_outcome(
+            "choice_outcome",
+            ChoiceEvaluationRequest(
+                satisfaction_score=4,
+                actual_outcome="Latency held under budget through the migration",
+                lessons_learned=["measure before switching"],
+            ),
+        )
+
+        assert result.is_ok, f"evaluate_choice_outcome failed: {result.error}"
+        assert result.value.actual_outcome == "Latency held under budget through the migration"
+
+        history = bus.get_event_history()
+        assert any(isinstance(e, ChoiceOutcomeRecorded) for e in history), (
+            "provenance event missing"
+        )
+        embedding_events = [
+            e
+            for e in history
+            if isinstance(e, EmbeddingRequested) and e.entity_type == EntityType.CHOICE
+        ]
+        assert embedding_events, (
+            "no EmbeddingRequested published — the outcome text reached the graph but "
+            "the stored vector would stay stale (ADR-074)"
+        )
+        assert "Latency held under budget" in embedding_events[0].embedding_text
