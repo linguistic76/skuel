@@ -4569,6 +4569,54 @@ class TestSKUEL023AnnotationStrength:
         assert len(violations) == 1
         assert "is typed `Any`" in violations[0].message
 
+    def test_flags_typing_extensions_any_alias(self) -> None:
+        """`from typing_extensions import Any as BackendT`.
+
+        Codex, PR #1095. `typing_extensions.Any` IS `typing.Any` — the module a
+        name is imported from carries no type information, so accepting one
+        spelling and not the other is the same bypass class as accepting one
+        alias and not the other.
+        """
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing_extensions import Any as BackendT\n"
+            "\n"
+            "\n"
+            "class XMixin:\n"
+            "    backend: BackendT\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
+        assert len(violations) == 1
+
+    def test_flags_typing_extensions_typealias_marker(self) -> None:
+        """The PEP 613 marker is the spelling most often taken from typing_extensions."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import Any\n"
+            "from typing_extensions import TypeAlias\n"
+            "\n"
+            "BackendT: TypeAlias = Any\n"
+            "\n"
+            "\n"
+            "class XMixin:\n"
+            "    backend: BackendT\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
+        assert len(violations) == 1
+
+    def test_unrelated_typing_extensions_import_is_clean(self) -> None:
+        """NEGATIVE CONTROL: widening the module set must not widen what counts."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing_extensions import Protocol\n"
+            "\n"
+            "\n"
+            "class XMixin:\n"
+            "    backend: ChoicesOperations\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
+        assert violations == []
+
     def test_flags_module_level_any_realias(self) -> None:
         """A module-level `X = Any` re-export is the same bypass one step removed."""
         linter = make_linter(["SKUEL023"])

@@ -5011,7 +5011,12 @@ class SkuelLinter:
         # Import spellings first, so definition collection does not depend on
         # import order.
         for node in scope:
-            if isinstance(node, ast.ImportFrom) and node.module == "typing":
+            # `typing_extensions.Any` IS `typing.Any` — the module a name is
+            # imported from is not type information, so accepting only one
+            # spelling would be the same bypass class as accepting only one
+            # alias (Codex, #1095). It is importable here transitively even
+            # though nothing in the tree spells it that way today.
+            if isinstance(node, ast.ImportFrom) and node.module in ("typing", "typing_extensions"):
                 for imported in node.names:
                     if not imported.asname:
                         continue
