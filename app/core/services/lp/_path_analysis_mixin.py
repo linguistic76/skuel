@@ -27,6 +27,7 @@ from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from core.models.type_hints import UserUID
+    from core.ports.curriculum_protocols import LpOperations
     from core.ports.query_types import (
         LpBlockerAnalysis,
         LpPathRecommendation,
@@ -82,7 +83,7 @@ class _PathAnalysisMixin:
     """
 
     # Populated by LpIntelligenceService.__init__ / BaseAnalyticsService
-    backend: Any
+    backend: LpOperations
     logger: Any
     ps_intelligence: PsIntelligenceService | None
 
@@ -110,7 +111,7 @@ class _PathAnalysisMixin:
         result = await self.backend.validate_path_prerequisites(path_uid)
 
         if result.is_error:
-            return result
+            return Result.fail(result)
 
         records = result.value or []
         validations = [r["validation"] for r in records]
@@ -164,7 +165,7 @@ class _PathAnalysisMixin:
         result = await self.backend.identify_path_blockers(path_uid, user_uid)
 
         if result.is_error:
-            return result
+            return Result.fail(result)
 
         records = result.value or []
         record = records[0] if records else None
@@ -230,7 +231,7 @@ class _PathAnalysisMixin:
         result = await self.backend.get_optimal_path_recommendations(user_uid, goal_domain)
 
         if result.is_error:
-            return result
+            return Result.fail(result)
 
         records = result.value or []
         record = records[0] if records else None
