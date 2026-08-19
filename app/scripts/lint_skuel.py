@@ -78,6 +78,7 @@ import subprocess
 import sys
 import time
 import tokenize
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -4947,6 +4948,31 @@ class SkuelLinter:
     # =========================================================================
 
     @staticmethod
+    def _collect_any_aliases(tree: ast.Module) -> set[str]:
+        """Local names that mean ``typing.Any`` in this module.
+
+        ``from typing import Any as BackendT`` + ``backend: BackendT`` would
+        otherwise read as a concrete type and pass. Same bypass class the rule's
+        Tier-4 import gate already closes for adapter imports — an alias must not
+        buy an exemption the spelled-out form does not get. ``typing.Any`` written
+        out needs no entry: ``_extract_annotation_refs`` returns ``Any`` as the
+        Attribute chain's tail.
+        """
+        aliases = {"Any"}
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom) and node.module == "typing":
+                aliases.update(a.asname for a in node.names if a.name == "Any" and a.asname)
+            elif isinstance(node, ast.Assign):
+                # Module-level `X = Any` (or `X = typing.Any`) re-export.
+                value = node.value
+                is_any = (isinstance(value, ast.Name) and value.id in aliases) or (
+                    isinstance(value, ast.Attribute) and value.attr == "Any"
+                )
+                if is_any:
+                    aliases.update(t.id for t in node.targets if isinstance(t, ast.Name))
+        return aliases
+
+    @staticmethod
     def _resolve_backend_annotation(
         cls: ast.ClassDef, assign: ast.Assign | ast.AnnAssign
     ) -> ast.expr | None:
@@ -5017,10 +5043,12 @@ class SkuelLinter:
         Verdict on the resolved annotation (see ``_resolve_backend_annotation``
         for how it is found):
         - unresolvable → flag (unannotated)
-        - any extracted name is ``Any`` → flag. Forward-reference strings are
+        - any extracted name means ``Any`` → flag. Forward-reference strings are
           parsed, so ``"Any | None"`` is caught alongside bare ``Any``,
           ``Optional[Any]`` and ``list[Any]`` — the reuse of
           ``_extract_annotation_refs`` is deliberate: one parser, not two.
+          Local aliases count (``from typing import Any as X``); see
+          ``_collect_any_aliases``.
         - otherwise → clean
 
         TypeVars need no exemption branch: ``backend: B`` on a generic base
@@ -5036,6 +5064,8 @@ class SkuelLinter:
         if tree is None or self._is_file_suppressed(content, "SKUEL023"):
             return
 
+        any_aliases = self._collect_any_aliases(tree)
+
         for cls in [n for n in ast.walk(tree) if isinstance(n, ast.ClassDef)]:
             assign = self._find_self_backend_assignment(cls)
             if assign is None:
@@ -5044,7 +5074,9 @@ class SkuelLinter:
             annotation = self._resolve_backend_annotation(cls, assign)
             if annotation is None:
                 verdict = "is unannotated"
-            elif "Any" in [name for _lookup, name in self._extract_annotation_refs(annotation)]:
+            elif any_aliases.intersection(
+                name for _lookup, name in self._extract_annotation_refs(annotation)
+            ):
                 verdict = "is typed `Any`"
             else:
                 continue
@@ -5078,9 +5110,27 @@ class SkuelLinter:
             )
 
     @staticmethod
+    def _walk_own_body(cls: ast.ClassDef) -> Iterator[ast.AST]:
+        """Every node under ``cls`` EXCEPT those inside a nested class.
+
+        ``ast.walk`` descends into nested ``ClassDef`` nodes, which would credit
+        an inner class's ``self.backend = backend`` to its outer class — and the
+        outer class, having no ``__init__`` and no class-body ``backend:``, would
+        then be reported unannotated. A nested class owns its own assignment and
+        is visited in its own right by the caller's ClassDef loop.
+        """
+        stack: list[ast.AST] = list(ast.iter_child_nodes(cls))
+        while stack:
+            node = stack.pop()
+            if isinstance(node, ast.ClassDef):
+                continue
+            yield node
+            stack.extend(ast.iter_child_nodes(node))
+
+    @staticmethod
     def _find_self_backend_assignment(cls: ast.ClassDef) -> ast.Assign | ast.AnnAssign | None:
-        """The first ``self.backend = ...`` / ``self.backend: X = ...`` inside ``cls``."""
-        for node in ast.walk(cls):
+        """The first ``self.backend = ...`` / ``self.backend: X = ...`` owned by ``cls``."""
+        for node in SkuelLinter._walk_own_body(cls):
             if isinstance(node, ast.Assign):
                 for target in node.targets:
                     if (

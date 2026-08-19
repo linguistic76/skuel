@@ -4368,6 +4368,73 @@ class TestSKUEL023AnnotationStrength:
         violations = lint_content(linter, content, file_path="core/services/x_service.py")
         assert violations == []
 
+    def test_flags_aliased_any(self) -> None:
+        """`from typing import Any as BackendT` must not buy an exemption.
+
+        Codex, PR #1092. An alias returns only its local name from
+        _extract_annotation_refs, so a bare `"Any" in names` check passed it and
+        left every self.backend call unchecked — the same bypass class the rule's
+        Tier-4 import gate already closes for adapter imports.
+        """
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import Any as BackendT\n"
+            "\n"
+            "class XService:\n"
+            "    def __init__(self, backend: BackendT) -> None:\n"
+            "        self.backend = backend\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_service.py")
+        assert len(violations) == 1
+        assert "is typed `Any`" in violations[0].message
+
+    def test_flags_module_level_any_realias(self) -> None:
+        """A module-level `X = Any` re-export is the same bypass one step removed."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import Any\n"
+            "\n"
+            "Backendish = Any\n"
+            "\n"
+            "class XService:\n"
+            "    def __init__(self, backend: Backendish) -> None:\n"
+            "        self.backend = backend\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_service.py")
+        assert len(violations) == 1
+
+    def test_nested_class_assignment_not_credited_to_outer(self) -> None:
+        """An inner class's `self.backend` must not be attributed to its outer class.
+
+        Codex, PR #1092. `ast.walk` descends into nested ClassDefs, so the outer
+        class — which has no __init__ and no class-body `backend:` — was reported
+        unannotated, a false positive that would block the quality gate.
+        """
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "class Outer:\n"
+            "    class Inner:\n"
+            "        def __init__(self, backend: FooOps) -> None:\n"
+            "            self.backend = backend\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_service.py")
+        assert violations == []
+
+    def test_nested_class_still_checked_on_its_own(self) -> None:
+        """Skipping nested bodies must not make an inner class unreachable."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import Any\n"
+            "\n"
+            "class Outer:\n"
+            "    class Inner:\n"
+            "        def __init__(self, backend: Any) -> None:\n"
+            "            self.backend = backend\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_service.py")
+        assert len(violations) == 1
+        assert "Inner.backend" in violations[0].message
+
     def test_not_applied_outside_core(self) -> None:
         """The rule is core/-scoped; an adapter typing self.backend as Any is
         outside its remit."""
