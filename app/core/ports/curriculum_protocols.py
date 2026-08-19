@@ -128,7 +128,7 @@ if TYPE_CHECKING:
         SemanticRelationshipType,
         SemanticTriple,
     )
-    from core.models.enums import Domain, SearchVisibility
+    from core.models.enums import Domain
     from core.models.enums.neo_labels import NeoLabel
     from core.models.enums.user_entry_enums import ExerciseScope
     from core.models.exercises.exercise import Exercise
@@ -1848,18 +1848,6 @@ class ExerciseBackendOperations(BackendOperations["Exercise"], Protocol):
         self, ps_uids: list[str]
     ) -> Result[list[Neo4jProperties]]:
         """Exercises anchored to any of the given PathSteps, in one round trip."""
-        ...
-
-    async def get_visible_to_user(
-        self, uid: str, user_uid: UserUID, visibility: SearchVisibility | None
-    ) -> Result[Exercise | None]:
-        """Fetch one exercise only when this user is in its audience.
-
-        Not-found and not-visible are the SAME outcome (``Result.ok(None)``) —
-        see OWNERSHIP_VERIFICATION.md. Every ``UniversalNeo4jBackend`` carries
-        this via the shared CRUD mixin; it is declared here (rather than on
-        ``CrudOperations[T]``) to keep this change contained.
-        """
         ...
 
 

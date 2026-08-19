@@ -477,6 +477,22 @@ class CrudOperations[T: "DomainModelProtocol"](Protocol):
         """Get entity by UID."""
         ...
 
+    async def get_visible_to_user(
+        self, uid: str, user_uid: UserUID, visibility: SearchVisibility | None
+    ) -> ResultType[T | None]:
+        """Fetch one entity by UID only when this user is in its audience.
+
+        Not-found and not-visible are deliberately the SAME outcome
+        (``Result.ok(None)``) — see OWNERSHIP_VERIFICATION.md. Pass the domain's
+        own ``search_visibility`` declaration, never a literal chosen at the call
+        site; a ``PUBLIC`` domain yields no predicate and this read is as open as
+        ``get()``.
+
+        Backend: ``_CrudMixin.get_visible_to_user`` — carried by every
+        ``UniversalNeo4jBackend``.
+        """
+        ...
+
     async def get_many(self, uids: builtins.list[str]) -> ResultType[builtins.list[T | None]]:
         """Get multiple entities by UIDs in a single batched query."""
         ...
@@ -954,6 +970,175 @@ class RelationshipQueryOperations(Protocol):
 
 
 @runtime_checkable
+class OrderedRelationshipOperations(Protocol):
+    """
+    Ordered and hierarchical relationship traversal on edge properties.
+
+    The curriculum shape: edges carry a sequence property, so "the steps of this
+    path" is an ORDER, not a set. Implemented by ``_RelationshipOrderedMixin``,
+    which every ``UniversalNeo4jBackend`` inherits.
+
+    Consumer: ``OrderedRelationshipsMixin`` on ``UnifiedRelationshipService``.
+
+    See: /docs/patterns/MODEL_TO_ADAPTER_DYNAMIC_ARCHITECTURE.md
+    """
+
+    async def get_ordered_related_uids(
+        self,
+        entity_label: NeoLabel,
+        entity_uid: str,
+        relationship_type: str,
+        direction: Direction,
+        order_by_property: str | None = None,
+        order_direction: str = "ASC",
+    ) -> ResultType[builtins.list[str]]:
+        """Related entity UIDs in the order an edge property defines."""
+        ...
+
+    async def get_related_with_metadata(
+        self,
+        entity_label: NeoLabel,
+        entity_uid: str,
+        relationship_type: str,
+        direction: Direction,
+        edge_properties: builtins.list[str] | None = None,
+        order_by_property: str | None = None,
+        order_direction: str = "ASC",
+    ) -> ResultType[builtins.list[dict[str, Any]]]:
+        """Related entities together with the requested properties of the edge reaching them."""
+        ...
+
+    async def reorder_relationships(
+        self,
+        entity_label: NeoLabel,
+        entity_uid: str,
+        relationship_type: str,
+        direction: Direction,
+        target_uid_sequence: builtins.list[str],
+        sequence_property: str = "sequence",
+    ) -> ResultType[int]:
+        """Rewrite the edge sequence property so the targets hold the given order."""
+        ...
+
+    async def create_relationship_with_properties(
+        self,
+        entity_uid: str,
+        target_uid: str,
+        relationship_type: RelationshipName,
+        direction: Direction,
+        edge_properties: dict[str, Any],
+    ) -> ResultType[bool]:
+        """Upsert one edge carrying the given properties (idempotent per endpoint pair)."""
+        ...
+
+    async def get_hierarchical_children_single(
+        self,
+        entity_label: NeoLabel,
+        entity_uid: str,
+        relationship_type: str,
+        direction: Direction,
+        target_label: NeoLabel,
+        order_by_property: str | None = None,
+        order_direction: str = "ASC",
+    ) -> ResultType[builtins.list[dict[str, Any]]]:
+        """One hop of hierarchy, children returned with their edge metadata."""
+        ...
+
+    async def get_hierarchical_children_two_level(
+        self,
+        entity_label: NeoLabel,
+        entity_uid: str,
+        rel_type1: str,
+        dir1: Direction,
+        target_label1: NeoLabel,
+        rel_type2: str,
+        dir2: Direction,
+        target_label2: NeoLabel,
+        order_by_property1: str | None = None,
+        order_direction1: str = "ASC",
+    ) -> ResultType[builtins.list[dict[str, Any]]]:
+        """Two hops of hierarchy in one round trip (the LP -> PS -> KU shape)."""
+        ...
+
+    async def get_hierarchical_children_deep(
+        self,
+        entity_label: NeoLabel,
+        entity_uid: str,
+        match_pattern: str,
+        rel_type_params: dict[str, str],
+        return_parts: builtins.list[str],
+        order_expression: str | None = None,
+    ) -> ResultType[builtins.list[dict[str, Any]]]:
+        """Three or more hops, the shape supplied by the caller rather than by arity."""
+        ...
+
+
+@runtime_checkable
+class BatchRelationshipOperations(Protocol):
+    """
+    N+1 elimination: one query answers a relationship question for many entities.
+
+    Each method takes a LIST of source UIDs and returns a mapping keyed by UID.
+    Implemented by ``_RelationshipCrudMixin``, which every
+    ``UniversalNeo4jBackend`` inherits.
+
+    Consumer: ``BatchOperationsMixin`` on ``UnifiedRelationshipService``.
+    """
+
+    async def batch_has_relationship(
+        self,
+        entity_label: NeoLabel,
+        entity_uids: builtins.list[str],
+        relationship_type: str,
+        direction: Direction,
+    ) -> ResultType[dict[str, bool]]:
+        """Whether each entity has any such relationship (uid -> bool)."""
+        ...
+
+    async def batch_count_related(
+        self,
+        entity_label: NeoLabel,
+        entity_uids: builtins.list[str],
+        relationship_type: str,
+        direction: Direction,
+    ) -> ResultType[dict[str, int]]:
+        """How many entities each one reaches over this relationship (uid -> count)."""
+        ...
+
+    async def batch_get_related_uids(
+        self,
+        entity_label: NeoLabel,
+        entity_uids: builtins.list[str],
+        relationship_type: str,
+        direction: Direction,
+    ) -> ResultType[dict[str, builtins.list[str]]]:
+        """Which entities each one reaches over this relationship (uid -> related uids)."""
+        ...
+
+
+@runtime_checkable
+class UserEntityRelationshipOperations(Protocol):
+    """
+    The ownership edge between a user and an entity.
+
+    Implemented by ``_UserEntityMixin``, which every ``UniversalNeo4jBackend``
+    inherits. See ``project_find_by_user_uid_vs_owns``: the ``:OWNS`` edge and the
+    ``user_uid`` property are two mechanisms held equal by invariant, and this is
+    the edge half.
+    """
+
+    async def create_user_relationship(
+        self,
+        user_uid: UserUID,
+        entity_uid: EntityUID,
+        relationship_type: RelationshipName | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> ResultType[bool]:
+        """Upsert the user->entity edge, defaulting to the domain's ownership relationship."""
+        ...
+
+
+@runtime_checkable
 class GraphTraversalOperations(Protocol):
     """
     Graph traversal operations for path finding and context queries.
@@ -1081,6 +1266,9 @@ class BackendOperations[T: "DomainModelProtocol"](
     RelationshipCrudOperations,
     RelationshipMetadataOperations,
     RelationshipQueryOperations,
+    OrderedRelationshipOperations,
+    BatchRelationshipOperations,
+    UserEntityRelationshipOperations,
     GraphTraversalOperations,
     LowLevelOperations,
     Protocol,
@@ -1091,12 +1279,15 @@ class BackendOperations[T: "DomainModelProtocol"](
     This is THE protocol that UniversalNeo4jBackend implements.
     Domain protocols (TasksOperations, GoalsOperations, etc.) inherit from this.
 
-    Composed from 7 focused sub-protocols (ISP-compliant):
-    - CrudOperations[T]: create, get, get_many, update, delete, list
+    Composed from 10 focused sub-protocols (ISP-compliant):
+    - CrudOperations[T]: create, get, get_visible_to_user, get_many, update, delete, list
     - EntitySearchOperations[T]: search, find_by, count
     - RelationshipCrudOperations: add/delete relationships, batch ops
     - RelationshipMetadataOperations: edge properties
     - RelationshipQueryOperations: count_related, get_related_uids
+    - OrderedRelationshipOperations: ordered/hierarchical traversal on edge properties
+    - BatchRelationshipOperations: one query answers many entities (N+1 elimination)
+    - UserEntityRelationshipOperations: create_user_relationship
     - GraphTraversalOperations: traverse, get_domain_context_raw
     - LowLevelOperations: execute_query, health_check, driver
 
@@ -1290,8 +1481,9 @@ class MaxItemsConstraint(Protocol):
 
 __all__ = [
     # ========== COMPOSED BACKEND PROTOCOL (1 - backward compatible) ==========
-    "BackendOperations",  # Composes all 7 above
-    # ========== COMPOSABLE BACKEND PROTOCOLS (7 - ISP-compliant) ==========
+    "BackendOperations",  # Composes all 10 above
+    # ========== COMPOSABLE BACKEND PROTOCOLS (10 - ISP-compliant) ==========
+    "BatchRelationshipOperations",  # N+1 elimination
     "CrudOperations",  # Basic CRUD
     # Type Aliases (3)
     "Direction",
@@ -1334,6 +1526,7 @@ __all__ = [
     "MaxLenConstraint",
     "MetricsLike",
     "MinLenConstraint",
+    "OrderedRelationshipOperations",  # Ordered/hierarchical traversal
     "PydanticFieldInfo",
     "RelationshipCrudOperations",  # Edge CRUD
     "RelationshipMetadata",
@@ -1341,5 +1534,6 @@ __all__ = [
     "RelationshipQueryOperations",  # Relationship queries
     "Result",
     "StreaksLike",
+    "UserEntityRelationshipOperations",  # User->entity ownership edge
     # Backend Capability Protocols (7 - kept used ones)
 ]
