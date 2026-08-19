@@ -5079,8 +5079,18 @@ class SkuelLinter:
                 if is_alias and node.value is not None and isinstance(node.target, ast.Name):
                     _record(node.target.id, SkuelLinter._annotation_names(node.value))
             elif isinstance(node, ast.TypeAlias) and isinstance(node.name, ast.Name):
-                # `type X = Any` — PEP 695.
-                _record(node.name.id, SkuelLinter._annotation_names(node.value))
+                # `type X = Any` — PEP 695. A generic alias binds its own
+                # parameters, so `type B[T] = T` references T-the-parameter, not
+                # an outer `type T = Any`; recording the raw reference made
+                # `backend: B[GoodOps]` flag on code mypy resolves (Codex,
+                # #1095). Same locally-bound-names-shadow rule as
+                # `_type_parameter_bindings`, applied to the alias itself.
+                own_params = {
+                    param.name
+                    for param in node.type_params
+                    if isinstance(param, ast.TypeVar | ast.ParamSpec | ast.TypeVarTuple)
+                }
+                _record(node.name.id, SkuelLinter._annotation_names(node.value) - own_params)
 
         return definitions, markers
 
@@ -5260,6 +5270,14 @@ class SkuelLinter:
         Only ``Any`` can flag on the declaration branch: a class-body ``backend``
         with no annotation is not a declaration at all (it is a bare ``Name``
         expression), so "is unannotated" is reachable only through assignment.
+
+        **Known limitation, deliberate (Codex, #1095):** a class defined INSIDE
+        a function does not see that function's aliases — resolution spans the
+        module and the class's own body, not an arbitrary enclosing chain.
+        Walking real enclosing scopes means carrying a scope stack through the
+        rule, and the same generality is what produced two false positives here
+        already; a class defined inside a function in ``core/`` is not a shape
+        this codebase has. Fail-open, like the one below.
 
         **Known limitation, deliberate (Codex, #1095):** alias resolution is
         order-INSENSITIVE within a scope, so rebinding a name *after* using it

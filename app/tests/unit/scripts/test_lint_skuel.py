@@ -4804,6 +4804,33 @@ class TestSKUEL023AnnotationStrength:
         violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
         assert len(violations) == 1
 
+    def test_generic_alias_parameter_shadows_outer_alias(self) -> None:
+        """NEGATIVE CONTROL: `type B[T] = T` references its OWN parameter.
+
+        Codex, PR #1095. With a module-level `type T = Any`, recording the raw
+        reference made `backend: B[GoodOps]` flag on code mypy resolves to
+        `GoodOps` — the same locally-bound-names-shadow rule as class type
+        parameters, applied to the alias itself.
+        """
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "type T = Any\n"
+            "type BackendT[T] = T\n"
+            "\n"
+            "\n"
+            "class XMixin:\n"
+            "    backend: BackendT[GoodOps]\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
+        assert violations == []
+
+    def test_generic_alias_that_is_any_still_flags(self) -> None:
+        """Subtracting the alias's own parameters must not excuse a real `Any`."""
+        linter = make_linter(["SKUEL023"])
+        content = "type BackendT[T] = dict[T, Any]\n\n\nclass XMixin:\n    backend: BackendT[str]\n"
+        violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
+        assert len(violations) == 1
+
     def test_class_type_parameter_shadows_module_alias(self) -> None:
         """NEGATIVE CONTROL: a PEP 695 type parameter binds the name, not an alias.
 
