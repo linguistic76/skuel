@@ -326,7 +326,6 @@ class DomainRelationshipConfig:
     entity_label: str
     dto_class: type
     model_class: type
-    backend_get_method: str = "get"
 
     # Ownership (None for shared content like KU)
     ownership_relationship: RelationshipName | None = None
@@ -459,7 +458,6 @@ TASKS_CONFIG = DomainRelationshipConfig(
     entity_label="Entity",
     dto_class=TaskDTO,
     model_class=Task,
-    backend_get_method="get_task",
     ownership_relationship=RelationshipName.HAS_TASK,
     relationships=(
         # Outgoing: Task → Knowledge (with confidence filtering)
@@ -673,7 +671,6 @@ GOALS_CONFIG = DomainRelationshipConfig(
     entity_label="Entity",
     dto_class=GoalDTO,
     model_class=Goal,
-    backend_get_method="get",
     ownership_relationship=RelationshipName.HAS_GOAL,
     relationships=(
         # Outgoing: Goal → Knowledge (with confidence filtering)
@@ -863,7 +860,6 @@ HABITS_CONFIG = DomainRelationshipConfig(
     entity_label="Entity",
     dto_class=HabitDTO,
     model_class=Entity,
-    backend_get_method="get",
     ownership_relationship=RelationshipName.OWNS,
     relationships=(
         # Outgoing: Habit → Other (with context-specific fields)
@@ -1034,7 +1030,6 @@ EVENTS_CONFIG = DomainRelationshipConfig(
     entity_label="Entity",
     dto_class=EventDTO,
     model_class=Entity,
-    backend_get_method="get_event",
     ownership_relationship=RelationshipName.HAS_EVENT,
     relationships=(
         # Outgoing: Event → Other
@@ -1179,7 +1174,6 @@ CHOICES_CONFIG = DomainRelationshipConfig(
     entity_label="Entity",
     dto_class=ChoiceDTO,
     model_class=Entity,
-    backend_get_method="get",
     ownership_relationship=RelationshipName.OWNS,
     relationships=(
         # Outgoing: Choice → Other
@@ -1346,7 +1340,6 @@ PRINCIPLES_CONFIG = DomainRelationshipConfig(
     entity_label="Entity",
     dto_class=PrincipleDTO,
     model_class=Entity,
-    backend_get_method="get",
     ownership_relationship=RelationshipName.OWNS,
     relationships=(
         # Outgoing: Principle → Other
@@ -1501,7 +1494,6 @@ USER_CONFIG = DomainRelationshipConfig(
     entity_label="User",
     dto_class=UserDTO,
     model_class=User,
-    backend_get_method="get",
     ownership_relationship=None,  # User doesn't have ownership
     relationships=(
         # User creates reflections on principles
@@ -1575,7 +1567,6 @@ PRINCIPLE_REFLECTION_CONFIG = DomainRelationshipConfig(
     entity_label="PrincipleReflection",
     dto_class=PrincipleReflectionDTO,
     model_class=PrincipleReflection,
-    backend_get_method="get",
     ownership_relationship=RelationshipName.MADE_REFLECTION,
     relationships=(
         # Outgoing: PrincipleReflection → Principle
@@ -1653,7 +1644,6 @@ KU_CONFIG = DomainRelationshipConfig(
     entity_label="Ku",
     dto_class=KuDTO,
     model_class=Ku,
-    backend_get_method="get",
     ownership_relationship=None,  # Shared content
     is_shared_content=True,
     relationships=(
@@ -1715,7 +1705,6 @@ PS_CONFIG = DomainRelationshipConfig(
     entity_label="Entity",
     dto_class=PathStepDTO,
     model_class=Entity,
-    backend_get_method="get",
     ownership_relationship=None,  # Shared content
     is_shared_content=True,
     relationships=(
@@ -1948,7 +1937,6 @@ LP_CONFIG = DomainRelationshipConfig(
     entity_label="Entity",
     dto_class=LearningPathDTO,
     model_class=Entity,
-    backend_get_method="get",
     ownership_relationship=None,  # Shared content
     is_shared_content=True,
     relationships=(
@@ -2032,7 +2020,6 @@ EXERCISE_CONFIG = DomainRelationshipConfig(
     entity_label="Entity",  # Exercise is a :Entity node with entity_type='exercise'
     dto_class=ExerciseDTO,
     model_class=Entity,
-    backend_get_method="get",
     ownership_relationship=RelationshipName.OWNS,
     is_shared_content=False,  # Exercises are teacher-owned
     relationships=(
@@ -2088,7 +2075,6 @@ REVISED_EXERCISE_CONFIG = DomainRelationshipConfig(
     entity_label="Entity",  # RevisedExercise is a :Entity node
     dto_class=EntityDTO,
     model_class=Entity,
-    backend_get_method="get",
     ownership_relationship=RelationshipName.OWNS,
     is_shared_content=False,  # Teacher-owned, student-targeted
     relationships=(
@@ -2149,7 +2135,6 @@ USER_ENTRY_CONFIG = DomainRelationshipConfig(
     entity_label="UserEntry",
     dto_class=EntityDTO,
     model_class=Entity,
-    backend_get_method="get",
     ownership_relationship=RelationshipName.OWNS,
     is_shared_content=False,
     relationships=(
@@ -2215,7 +2200,6 @@ ENTRY_REPORT_CONFIG = DomainRelationshipConfig(
     entity_label="EntryReport",
     dto_class=EntityDTO,
     model_class=Entity,
-    backend_get_method="get",
     ownership_relationship=RelationshipName.OWNS,
     is_shared_content=False,
     relationships=(
@@ -2256,7 +2240,6 @@ INTERACTION_CONFIG = DomainRelationshipConfig(
     entity_label="Interaction",
     dto_class=EntityDTO,
     model_class=Entity,
-    backend_get_method="get",
     ownership_relationship=RelationshipName.OWNS,
     is_shared_content=False,
     relationships=(

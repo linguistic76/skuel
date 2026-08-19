@@ -28,13 +28,14 @@ from core.infrastructure.relationships.semantic_relationships import (
     SemanticRelationshipType,
 )
 from core.models.enums import Domain
-from core.models.protocols.domain_model_protocol import DTOProtocol
+from core.models.protocols.domain_model_protocol import DomainModelProtocol, DTOProtocol
+from core.ports.base_protocols import BackendOperations
 from core.services.base_service import BaseService
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 
-class SemanticRelationshipLinker[T, DTO: DTOProtocol]:
+class SemanticRelationshipLinker[T: DomainModelProtocol, DTO: DTOProtocol]:
     """
     Generic helper for semantic relationship operations across all domains.
 
@@ -58,7 +59,6 @@ class SemanticRelationshipLinker[T, DTO: DTOProtocol]:
     def __init__(
         self,
         service: BaseService,
-        backend_get_method: str,
         dto_class: type[DTO],
         model_class: type[T],
         domain: Domain,
@@ -69,15 +69,13 @@ class SemanticRelationshipLinker[T, DTO: DTOProtocol]:
 
         Args:
             service: The relationship service (provides backend, BaseService helpers),
-            backend_get_method: Name of backend method to call (e.g., "get_habit", "get_goal"),
             dto_class: DTO class for conversion (e.g., HabitDTO),
             model_class: Domain model class (e.g., Habit),
             domain: Domain enum for categorization (e.g., Domain.HABITS),
             source_tag: Source tag for relationships (e.g., "habits_service_explicit")
         """
         self.service = service
-        self.backend = service.backend
-        self.backend_get_method = backend_get_method
+        self.backend: BackendOperations[T] = service.backend
         self.dto_class = dto_class
         self.model_class = model_class
         self.domain = domain
@@ -147,29 +145,30 @@ class SemanticRelationshipLinker[T, DTO: DTOProtocol]:
             created_at=datetime.now(),
         )
 
-        # Step 2: Create relationship via RELATIONSHIP-FIRST API (fluent interface)
-        # Replaces: backend.create_semantic_relationship()
-        # With: backend.relate().from_node().via().to_node().with_metadata().create()
-        # `via()` supplies the coarse RelationshipName edge type; `semantic_type`
-        # in the metadata preserves the precise namespaced predicate so the
-        # many-to-one to_neo4j_name() collapse loses nothing (roadmap Phase 1).
+        # Step 2: Write the edge. `to_neo4j_name()` supplies the coarse
+        # RelationshipName edge type; `semantic_type` in the properties preserves
+        # the precise namespaced predicate so the many-to-one collapse loses
+        # nothing (roadmap Phase 1).
+        #
+        # add_relationship MERGEs on (from, TYPE, to) and updates properties, so
+        # re-linking the same pair with new confidence/notes revises the edge
+        # instead of forking a second one — the idempotence every other writer in
+        # the codebase already has.
         metadata_props = metadata.to_neo4j_properties()
         metadata_props["semantic_type"] = semantic_type.value
 
-        result = (
-            await self.backend.relate()
-            .from_node(from_uid)
-            .via(semantic_type.to_neo4j_name())
-            .to_node(to_uid)
-            .with_metadata(**metadata_props)
-            .create()
+        result = await self.backend.add_relationship(
+            from_uid=from_uid,
+            to_uid=to_uid,
+            relationship_type=semantic_type.to_neo4j_name(),
+            properties=metadata_props,
         )
 
         if result.is_error:
-            return result
+            return Result.fail(result)
 
-        # Step 3: Construct semantic triple for response (fluent API returns bool, not triple)
-        # We build the triple manually to maintain backward compatibility
+        # Step 3: Construct the semantic triple for the response (the write
+        # returns bool, not a triple).
         self.logger.info(
             f"Created semantic relationship: {from_uid} -[{semantic_type.value}]-> {to_uid}"
         )
@@ -261,7 +260,7 @@ class SemanticRelationshipLinker[T, DTO: DTOProtocol]:
             semantic_type_values=semantic_type_values,
         )
         if result.is_error:
-            return result
+            return Result.fail(result)
 
         entity_uids = result.value
 
@@ -294,18 +293,9 @@ class SemanticRelationshipLinker[T, DTO: DTOProtocol]:
         Returns:
             Result containing domain model object
         """
-        get_method = getattr(self.backend, self.backend_get_method, None)
-        if not get_method:
-            return Result.fail(
-                Errors.system(
-                    message=f"Backend method '{self.backend_get_method}' not found",
-                    operation="fetch_single_entity",
-                )
-            )
-
-        entity_result = await get_method(uid)
+        entity_result = await self.backend.get(uid)
         if entity_result.is_error:
-            return entity_result
+            return Result.fail(entity_result)
 
         if not entity_result.value:
             return Result.fail(Errors.not_found(resource=self.model_class.__name__, identifier=uid))

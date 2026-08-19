@@ -13,7 +13,7 @@ Provides:
 
 Requires on concrete class:
     config, backend, logger, graph_intel, semantic_helper,
-    _domain, _backend_get_method, _context_to_domain_model
+    _domain, _context_to_domain_model
     (set by UnifiedRelationshipService.__init__)
 """
 
@@ -131,7 +131,6 @@ class IntelligenceMixin:
         graph_intel: GraphIntelligenceService (optional)
         semantic_helper: SemanticRelationshipLinker (optional)
         _domain: Domain value
-        _backend_get_method: Backend get method name
         _context_to_domain_model: Conversion method
     """
 
@@ -142,7 +141,6 @@ class IntelligenceMixin:
     graph_intel: Any | None
     semantic_helper: Any | None
     _domain: Any
-    _backend_get_method: str
 
     def _context_to_domain_model(self, data: Any) -> Any:
         """Provided by shell — converts raw data to domain model."""
@@ -294,16 +292,7 @@ class IntelligenceMixin:
         assert self.graph_intel is not None
 
         # Get entity
-        get_method = getattr(self.backend, self._backend_get_method, None)
-        if not get_method:
-            return Result.fail(
-                Errors.system(
-                    message=f"Backend method '{self._backend_get_method}' not found",
-                    operation="get_with_context",
-                )
-            )
-
-        entity_result = await get_method(uid)
+        entity_result = await self.backend.get(uid)
         if entity_result.is_error:
             return Result.fail(entity_result)
 

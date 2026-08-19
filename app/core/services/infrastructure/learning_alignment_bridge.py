@@ -105,7 +105,6 @@ class LearningAlignmentBridge[T, DTO, Request]:
             at each call site.
         """
         self.service = service
-        self.backend = service.backend
         self._backend_get = backend_get
         self._backend_get_user = backend_get_user
 

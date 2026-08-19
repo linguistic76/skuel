@@ -73,7 +73,8 @@ The precondition for everything else: one edge name, one owner. **Shipped.**
   semantic edge; ambiguous → `RELATED_TO`, the coarse bucket). No semantic type can emit
   unregistered vocabulary again, by construction.
 - ✅ **Precision preserved as an edge property**, not lost to the collapse: `build_semantic_merge`
-  (and the linker's fluent `.relate()` path) write `semantic_type: "learn:extends_pattern"`.
+  (and the linker's `add_relationship` path — the fluent `.relate()` builder it used until
+  PR2b, Aug 2026) write `semantic_type: "learn:extends_pattern"`.
   This also disambiguates the two intra-enum collisions and gives Phases 3–4 a real
   substrate. Delete/query-by-type gained a `semantic_type` filter to stay precise.
 - ✅ Drift test: `tests/unit/test_semantic_neo4j_name_drift.py`.
