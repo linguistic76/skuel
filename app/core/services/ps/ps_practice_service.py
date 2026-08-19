@@ -11,7 +11,7 @@ Responsibilities:
 """
 
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from core.events import publish_event
 from core.events.calendar_event_events import CalendarEventCompleted
@@ -19,6 +19,9 @@ from core.events.knowledge_substance_events import KnowledgePracticed
 from core.models.type_hints import UserUID
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
+
+if TYPE_CHECKING:
+    from core.ports.curriculum_protocols import PsOperations
 
 
 class PsPracticeService:
@@ -37,14 +40,14 @@ class PsPracticeService:
 
     def __init__(
         self,
-        backend: "Any | None" = None,
+        backend: "PsOperations",
         event_bus: Any = None,
     ) -> None:
         """
         Initialize knowledge practice service.
 
         Args:
-            backend: Backend operations for path step queries
+            backend: Backend operations for path step queries (REQUIRED — fail-fast)
             event_bus: Optional event bus for publishing events
         """
         self.backend = backend
@@ -78,10 +81,6 @@ class PsPracticeService:
             to prevent event completion from failing if KU update fails.
         """
         try:
-            if not self.backend:
-                self.logger.warning("No backend available for Event→KU practice tracking")
-                return
-
             self.logger.debug(
                 f"Querying for KUs practiced by event {event.event_uid}, user {event.user_uid}"
             )
@@ -142,10 +141,6 @@ class PsPracticeService:
             event_uid: Event that was completed
             occurred_at: When the event was completed
         """
-        if not self.backend:
-            self.logger.warning("No backend available for KU practice tracking")
-            return
-
         # Update KU practice fields directly in Neo4j
         # This is more efficient than fetching, modifying, and saving back
         result = await self.backend.increment_practice_count(ku_uid, occurred_at.isoformat())

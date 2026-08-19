@@ -16,7 +16,7 @@ See: /docs/patterns/MODEL_TO_ADAPTER_DYNAMIC_ARCHITECTURE.md
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from core.models.pathways.learning_path import LearningPath
 from core.models.relationship_names import RelationshipName
@@ -29,6 +29,7 @@ if TYPE_CHECKING:
     import logging
 
     from core.models.type_hints import Neo4jProperties
+    from core.ports.query_types import UserMasteryResult
 
 
 class _AdaptiveMixin:
@@ -134,8 +135,12 @@ class _AdaptiveMixin:
             },
         )
 
-    async def query_user_masteries(self, user_uid: UserUID) -> Result[list[Neo4jProperties]]:
-        """Query all MASTERED relationships with full metadata for a user."""
+    async def query_user_masteries(self, user_uid: UserUID) -> Result[list[UserMasteryResult]]:
+        """Query all MASTERED relationships with full metadata for a user.
+
+        Rows mirror UserMasteryResult one-for-one — the RETURN aliases below are
+        its keys, so the cast is the projection's declaration, not a guess.
+        """
         query = """
         MATCH (u:User {uid: $user_uid})-[m:MASTERED]->(k:Entity)
         RETURN
@@ -156,7 +161,13 @@ class _AdaptiveMixin:
             m.created_at as created_at,
             m.updated_at as updated_at
         """
-        return await self.execute_query(query, {"user_uid": user_uid})
+        result = await self.execute_query(query, {"user_uid": user_uid})
+        if result.is_error:
+            return Result.fail(result)
+        rows: list[UserMasteryResult] = [
+            cast("UserMasteryResult", dict(record)) for record in (result.value or [])
+        ]
+        return Result.ok(rows)
 
     async def query_active_learning_paths(self, user_uid: UserUID) -> Result[list[LearningPath]]:
         """Query user's active/in-progress learning paths as typed models.

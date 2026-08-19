@@ -33,12 +33,13 @@ from core.models.principle.principle_types import (
     PrincipleDecision,
 )
 from core.models.type_hints import EntityUID, UserUID
+from core.ports.domain_protocols import PrinciplesOperations
 from core.services.cross_domain import CrossDomainQueryService
 from core.services.cross_domain.cross_domain_types import PrincipleAlignmentEvidence
 from core.services.intelligence import principle_gap_insights, principle_gap_recommendations
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
 
 logger = get_logger(__name__)
 
@@ -74,6 +75,33 @@ class AlignmentAssessment:
     recommendations: list[str]
 
 
+def _resolution_strategy(principle: Principle) -> str:
+    """The principle's own first authored resolution strategy.
+
+    ``Principle.resolution_strategies`` is the authored tuple for exactly this
+    question. It replaces a ``principle.resolve_conflict(other, context)`` call
+    that no Principle has ever carried — the model has data here, not behaviour.
+    """
+    return principle.resolution_strategies[0] if principle.resolution_strategies else ""
+
+
+def _to_principle_conflict(principle: Principle, other_ref: str) -> PrincipleConflict:
+    """Narrow one authored ``conflicting_principles`` entry into a PrincipleConflict.
+
+    ``conflicting_principles`` holds references to the principles this one pulls
+    against; ``resolution_strategies`` holds how the author resolves them. Both
+    are authored fields, so this is a narrowing rather than an inference.
+    ``priority_in_conflict`` is 1 — from this principle's own point of view,
+    which is whose tuple the reference was authored in.
+    """
+    return PrincipleConflict(
+        conflicting_principle_uid=other_ref,
+        conflict_description=f"{principle.title} conflicts with {other_ref}",
+        resolution_strategy=_resolution_strategy(principle),
+        priority_in_conflict=1,
+    )
+
+
 class PrinciplesAlignmentService:
     """
     Alignment assessment and motivational intelligence.
@@ -87,7 +115,7 @@ class PrinciplesAlignmentService:
 
     def __init__(
         self,
-        backend,
+        backend: PrinciplesOperations,
         cross_domain_query: CrossDomainQueryService,
         event_bus=None,
     ) -> None:
@@ -191,7 +219,7 @@ class PrinciplesAlignmentService:
         # Get user's principles
         principles_result = await self.backend.find_by(user_uid=user_uid)
         if principles_result.is_error:
-            return principles_result
+            return Result.fail(principles_result)
 
         principles = principles_result.value
 
@@ -230,9 +258,9 @@ class PrinciplesAlignmentService:
                 alignment_level=level,
                 alignment_score=score,
                 influence_description=(
-                    f"{principle.label} connected via graph relationships"
+                    f"{principle.title} connected via graph relationships"
                     if connected
-                    else f"{principle.label} has no graph connection"
+                    else f"{principle.title} has no graph connection"
                 ),
                 influence_weight=priority_numeric / 10.0,
             )
@@ -324,20 +352,16 @@ class PrinciplesAlignmentService:
             Result with PrincipleAlignmentAssessmentResult as dict
         """
 
-        from core.models.principle.principle_dto import PrincipleDTO
         from core.models.principle.principle_request import PrincipleAlignmentAssessmentResult
 
         # 1. Get the principle
         principle_result = await self.backend.get(principle_uid)
         if principle_result.is_error:
-            return principle_result
+            return Result.fail(principle_result)
 
-        principle_dict = principle_result.value
-        if isinstance(principle_dict, dict):
-            principle_dto = PrincipleDTO.from_dict(principle_dict)
-            principle = Principle.from_dto(principle_dto)
-        else:
-            principle = principle_dict
+        principle = principle_result.value
+        if principle is None:
+            return Result.fail(Errors.not_found(resource="Principle", identifier=principle_uid))
 
         # 2. Create user's assessment
         user_assessment = UserAlignmentAssessment(
@@ -396,19 +420,18 @@ class PrinciplesAlignmentService:
         self, principle_uid: str, assessment: UserAlignmentAssessment
     ) -> None:
         """Store user's self-assessment in principle's alignment_history."""
-        from core.models.principle.principle_dto import PrincipleDTO
-
         # Get current principle
         principle_result = await self.backend.get(principle_uid)
         if principle_result.is_error:
             self.logger.warning(f"Could not store assessment: {principle_result.error}")
             return
 
-        principle_dict = principle_result.value
-        if isinstance(principle_dict, dict):
-            dto = PrincipleDTO.from_dict(principle_dict)
-        else:
-            dto = principle_dict.to_dto()
+        principle = principle_result.value
+        if principle is None:
+            self.logger.warning(f"Could not store assessment: principle {principle_uid} not found")
+            return
+
+        dto = principle.to_dto()
 
         # Add assessment to history (append pattern — no assess_alignment method on PrincipleDTO)
 
@@ -542,7 +565,7 @@ class PrinciplesAlignmentService:
         # Get principles
         principles_result = await self.backend.find_by(user_uid=user_uid)
         if principles_result.is_error:
-            return principles_result
+            return Result.fail(principles_result)
 
         all_principles = principles_result.value
 
@@ -571,24 +594,33 @@ class PrinciplesAlignmentService:
         habit_alignment = sum(habit_scores) / len(habit_scores) if habit_scores else 0.0
 
         # Identify primary motivators
-        primary_motivators = [f"{p.label}: {p.why_matters}" for p in core_principles[:3]]
+        primary_motivators = [f"{p.title}: {p.why_important}" for p in core_principles[:3]]
 
-        # Identify conflicts
-        conflicts = []
-        for principle in all_principles:
-            conflicts.extend(principle.conflicting_principles)
+        # Identify conflicts from the two authored fields that carry them.
+        conflicts = [
+            _to_principle_conflict(p, other)
+            for p in all_principles
+            for other in p.conflicting_principles
+        ]
 
-        # Generate suggestions
-        goal_suggestions = []
-        habit_suggestions = []
-        for principle in core_principles[:2]:
-            goal_suggestions.extend(principle.generate_aligned_goals())
-            habit_suggestions.extend(principle.generate_aligned_habits())
-
-        # Identify growth opportunities
-        growth_opportunities = []
-        for principle in developing:
-            growth_opportunities.extend(principle.growth_edges)
+        # NOT YET AUTHORED — deliberately empty, not silently dropped.
+        #
+        # These three fields were read from Principle members that have never
+        # existed in this repo (``generate_aligned_goals()``,
+        # ``generate_aligned_habits()``, ``growth_edges``), so every call to this
+        # method raised AttributeError — surfaced as a *database* error by the
+        # decorator above. PR2b makes the profile return the seven fields the
+        # model can actually support rather than inventing semantics for the
+        # other three.
+        #
+        # To fill them, decide what a suggestion IS first: the candidate sources
+        # are ``Principle.expressions`` (PrincipleExpression) and
+        # ``key_behaviors`` for the two suggestion lists, and the DEVELOPING
+        # principles' ``key_behaviors`` for growth opportunities. That is a
+        # pedagogical ruling, not a refactor.
+        goal_suggestions: list[dict] = []
+        habit_suggestions: list[dict] = []
+        growth_opportunities: list[str] = []
 
         profile = MotivationalProfile(
             user_uid=user_uid,
@@ -624,15 +656,15 @@ class PrinciplesAlignmentService:
         # Get user's principles
         principles_result = await self.backend.find_by(user_uid=user_uid)
         if principles_result.is_error:
-            return principles_result
+            return Result.fail(principles_result)
 
         principles = principles_result.value
 
         # Score each option against each principle
-        principle_scores = {}
+        principle_scores: dict[str, dict[str, float]] = {}
 
         for option in options:
-            option_scores = {}
+            option_scores: dict[str, float] = {}
 
             for principle in principles:
                 # Simple scoring based on keyword matching
@@ -659,7 +691,7 @@ class PrinciplesAlignmentService:
 
         # Build recommendation reason
         top_principles = sorted(principles, key=get_principle_priority, reverse=True)[:3]
-        reason = f"This option best aligns with your core principles: {', '.join([p.label for p in top_principles])}"
+        reason = f"This option best aligns with your core principles: {', '.join([p.title for p in top_principles])}"
 
         # Identify conflicts
         conflicts = []
@@ -671,8 +703,8 @@ class PrinciplesAlignmentService:
                     p2_priority = get_principle_priority(p2)
                     conflict = PrincipleConflict(
                         conflicting_principle_uid=p2.uid,
-                        conflict_description=f"{p1.label} vs {p2.label}",
-                        resolution_strategy=p1.resolve_conflict(p2, context),
+                        conflict_description=f"{p1.title} vs {p2.title}",
+                        resolution_strategy=_resolution_strategy(p1),
                         priority_in_conflict=1 if p1_priority > p2_priority else 2,
                     )
                     conflicts.append(conflict)
@@ -788,7 +820,7 @@ class PrinciplesAlignmentService:
             user_uid=user_uid, limit=QueryLimit.COMPREHENSIVE
         )
         if principles_result.is_error:
-            return principles_result
+            return Result.fail(principles_result)
 
         if not principles_result.value:
             return Result.ok(0.0)

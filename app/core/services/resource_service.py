@@ -8,10 +8,9 @@ Resources are admin-curated shared content (ContentOrigin.CURATED, ContentScope.
 See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
 
-from typing import Any
-
 from core.models.resource.resource import Resource
 from core.models.type_hints import Neo4jProperties
+from core.ports.resource_protocols import ResourceBackendOperations
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
@@ -26,10 +25,10 @@ class ResourceService:
     Resources are read-only from the user's perspective (admin-ingested via YAML).
     """
 
-    def __init__(self, backend: Any) -> None:
+    def __init__(self, backend: ResourceBackendOperations) -> None:
         """
         Args:
-            backend: ResourceBackend (UniversalNeo4jBackend[Resource])
+            backend: Resource backend port (ResourceBackend satisfies it)
         """
         self.backend = backend
         logger.info("ResourceService initialized")
