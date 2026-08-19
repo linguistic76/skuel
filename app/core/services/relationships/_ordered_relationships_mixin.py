@@ -22,14 +22,16 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from core.models.type_hints import EntityUID
+from core.ports.base_protocols import BackendOperations
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
+    from core.models.enums.neo_labels import NeoLabel
     from core.models.relationship_registry import DomainRelationshipConfig
 
 
-class OrderedRelationshipsMixin:
+class OrderedRelationshipsMixin[Ops: BackendOperations]:
     """
     Mixin providing ordered relationship and edge metadata methods.
 
@@ -46,7 +48,7 @@ class OrderedRelationshipsMixin:
 
     # Provided by UnifiedRelationshipService.__init__ — declared for mypy
     config: DomainRelationshipConfig
-    backend: Any
+    backend: Ops
     logger: Any
 
     @with_error_handling("get_ordered_related_uids", error_type="database", uid_param="entity_uid")
@@ -234,7 +236,7 @@ class OrderedRelationshipsMixin:
     async def get_hierarchical_children(
         self,
         entity_uid: EntityUID,
-        relationship_chain: list[tuple[str, str]],
+        relationship_chain: list[tuple[str, NeoLabel]],
         max_depth: int = 3,
     ) -> Result[list[dict[str, Any]]]:
         """
@@ -246,7 +248,7 @@ class OrderedRelationshipsMixin:
         Args:
             entity_uid: Root entity UID
             relationship_chain: List of (relationship_key, target_label) tuples
-                Example: [("steps", "Ps"), ("knowledge", "Entity")]
+                Example: [("steps", NeoLabel.PATH_STEP), ("knowledge", NeoLabel.ENTITY)]
             max_depth: Maximum traversal depth (default: 3)
 
         Returns:

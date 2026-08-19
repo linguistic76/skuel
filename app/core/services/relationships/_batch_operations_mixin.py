@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from core.ports.base_protocols import BackendOperations
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
 
@@ -24,7 +25,7 @@ if TYPE_CHECKING:
     from core.models.relationship_registry import DomainRelationshipConfig
 
 
-class BatchOperationsMixin:
+class BatchOperationsMixin[Ops: BackendOperations]:
     """
     Mixin providing batch relationship query methods.
 
@@ -38,7 +39,7 @@ class BatchOperationsMixin:
 
     # Provided by UnifiedRelationshipService.__init__ — declared for mypy
     config: DomainRelationshipConfig
-    backend: Any
+    backend: Ops
     logger: Any
 
     @with_error_handling("batch_has_relationship", error_type="database")

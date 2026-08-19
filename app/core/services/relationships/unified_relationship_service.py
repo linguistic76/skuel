@@ -90,9 +90,9 @@ class UnifiedRelationshipService[
     Model: DomainModelProtocol,
     DtoType: DTOProtocol,
 ](
-    IntelligenceMixin,
-    OrderedRelationshipsMixin,
-    BatchOperationsMixin,
+    IntelligenceMixin[Ops],
+    OrderedRelationshipsMixin[Ops],
+    BatchOperationsMixin[Ops],
     BaseService[Ops, Model],
 ):
     """
