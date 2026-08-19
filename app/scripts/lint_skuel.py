@@ -4964,19 +4964,35 @@ class SkuelLinter:
         buy an exemption the spelled-out form does not get. ``typing.Any`` written
         out needs no entry: ``_extract_annotation_refs`` returns ``Any`` as the
         Attribute chain's tail.
+
+        All three re-export spellings count — the import alias, the statement form
+        ``X = Any``, and PEP 695 ``type X = Any`` (Codex, #1095). The last is the
+        *newest* of the three and so the likeliest to be written next in a 3.14
+        codebase; covering two of three would have been an accident of when each
+        was added, not a decision.
         """
         aliases = {"Any"}
         for node in ast.walk(tree):
             if isinstance(node, ast.ImportFrom) and node.module == "typing":
                 aliases.update(a.asname for a in node.names if a.name == "Any" and a.asname)
-            elif isinstance(node, ast.Assign):
-                # Module-level `X = Any` (or `X = typing.Any`) re-export.
+                continue
+
+            # `X = Any` / `X = typing.Any` (statement form) and `type X = Any`
+            # (PEP 695) are the same re-export one spelling apart.
+            if isinstance(node, ast.Assign):
+                value: ast.expr | None = node.value
+                targets = [t.id for t in node.targets if isinstance(t, ast.Name)]
+            elif isinstance(node, ast.TypeAlias):
                 value = node.value
-                is_any = (isinstance(value, ast.Name) and value.id in aliases) or (
-                    isinstance(value, ast.Attribute) and value.attr == "Any"
-                )
-                if is_any:
-                    aliases.update(t.id for t in node.targets if isinstance(t, ast.Name))
+                targets = [node.name.id] if isinstance(node.name, ast.Name) else []
+            else:
+                continue
+
+            is_any = (isinstance(value, ast.Name) and value.id in aliases) or (
+                isinstance(value, ast.Attribute) and value.attr == "Any"
+            )
+            if is_any:
+                aliases.update(targets)
         return aliases
 
     @staticmethod

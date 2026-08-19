@@ -4584,6 +4584,52 @@ class TestSKUEL023AnnotationStrength:
         violations = lint_content(linter, content, file_path="core/services/x_service.py")
         assert len(violations) == 1
 
+    def test_flags_pep695_type_alias_to_any(self) -> None:
+        """`type BackendT = Any` is the third re-export spelling.
+
+        Codex, PR #1095. `_collect_any_aliases` covered the import alias and the
+        statement form `X = Any` but not PEP 695 — the newest of the three, and
+        so the likeliest to be written next in a 3.14 codebase. This hole
+        predated the declaration trigger: it bypassed the ASSIGNMENT branch too
+        (see the sibling test below).
+        """
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "type BackendT = Any\n"
+            "\n"
+            "\n"
+            "class XMixin:\n"
+            "    backend: BackendT\n"
+            "\n"
+            "    async def do(self) -> None:\n"
+            "        await self.backend.get('x')\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
+        assert len(violations) == 1
+        assert "is typed `Any`" in violations[0].message
+
+    def test_flags_pep695_type_alias_on_assignment_branch(self) -> None:
+        """The same alias must not buy an exemption on the assigner side either."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "type BackendT = Any\n"
+            "\n"
+            "\n"
+            "class XService:\n"
+            "    def __init__(self, backend: BackendT) -> None:\n"
+            "        self.backend = backend\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_service.py")
+        assert len(violations) == 1
+        assert "is typed `Any`" in violations[0].message
+
+    def test_pep695_type_alias_to_protocol_is_clean(self) -> None:
+        """NEGATIVE CONTROL: resolving PEP 695 aliases must not flag real ones."""
+        linter = make_linter(["SKUEL023"])
+        content = "type BackendT = ChoicesOperations\n\n\nclass XMixin:\n    backend: BackendT\n"
+        violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
+        assert violations == []
+
     def test_nested_class_assignment_not_credited_to_outer(self) -> None:
         """An inner class's `self.backend` must not be attributed to its outer class.
 
