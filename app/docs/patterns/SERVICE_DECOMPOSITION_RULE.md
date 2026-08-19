@@ -173,8 +173,14 @@ class _{Theme}Mixin:
     resolves them without runtime cost.
     """
 
-    # Populated by {Domain}Service.__init__ / BaseService
-    backend: Any
+    # Populated by {Domain}Service.__init__ / BaseService.
+    # `backend` takes the HOST's `core/ports` protocol, never `Any` — the mixin does
+    # not own the object, but it does call through it, and `Any` leaves every one of
+    # those calls unchecked. Resolve the host by import, not by class name (four
+    # different `_AnalyticsMixin` classes exist). Scope B, Aug 2026: the 27 remaining
+    # `backend: Any` mixins were retyped or, where they never touched `self.backend`,
+    # deleted outright — declare it only if the mixin actually uses it.
+    backend: {Domain}Operations
     logger: Any
     # ... other attributes used by the mixin methods
 
