@@ -4188,10 +4188,11 @@ class TestSKUEL023:
 
 
 class TestSKUEL023AnnotationStrength:
-    """SKUEL023's second sub-check (PR2b): a core/ class that ASSIGNS self.backend
-    must type it against a core/ports protocol. `Any` and bare-unannotated both
-    defeat the boundary, because either way every self.backend.<method>() call in
-    the class goes unchecked."""
+    """SKUEL023's second sub-check: a core/ class that ASSIGNS self.backend (PR2b,
+    #1092) or only DECLARES a class-body `backend:` (PR-C) must type it against a
+    core/ports protocol. `Any` and bare-unannotated both defeat the boundary,
+    because either way every self.backend.<method>() call in the class goes
+    unchecked."""
 
     def test_flags_any_via_init_param(self) -> None:
         """The dominant real-world form: `def __init__(self, backend: Any)`.
@@ -4337,10 +4338,14 @@ class TestSKUEL023AnnotationStrength:
         violations = lint_content(linter, content, file_path="core/services/base_planning.py")
         assert violations == []
 
-    def test_declaration_only_mixin_does_not_trigger(self) -> None:
-        """Scope A: a mixin that DECLARES `backend: Any` without assigning it is
-        not this rule's business — the host owns the object. Retyping the 27
-        declaration-only mixins is separate follow-on work."""
+    def test_flags_declaration_only_mixin(self) -> None:
+        """A mixin that DECLARES `backend: Any` without assigning it triggers too.
+
+        The host owning the object never made the *mixin's* calls checkable —
+        `self.backend.get('x')` below is unchecked exactly as it would be on an
+        assigner. All 27 such sites were retyped first (#1093, #1094), so this
+        trigger landed on a clean tree with zero suppressions.
+        """
         linter = make_linter(["SKUEL023"])
         content = (
             "from typing import Any\n"
@@ -4353,6 +4358,120 @@ class TestSKUEL023AnnotationStrength:
             "        await self.backend.get('x')\n"
         )
         violations = lint_content(linter, content, file_path="core/services/relationships/_m.py")
+        assert len(violations) == 1
+        assert violations[0].rule_id == "SKUEL023"
+        assert violations[0].severity == Severity.ERROR
+        assert "IntelligenceMixin.backend" in violations[0].message
+        assert "is typed `Any`" in violations[0].message
+        assert "declaration-only" in violations[0].message
+        # Anchored on the declaration, not on the call site that suffers for it.
+        assert violations[0].line_number == 5
+
+    def test_flags_dead_declaration_only_mixin(self) -> None:
+        """A declaration with ZERO self.backend calls flags — fix is deletion.
+
+        8 of the 27 were this shape. Keying on *use* instead would make the same
+        line legal or illegal depending on lines elsewhere, and would stay silent
+        at the moment that matters: when someone later adds the first call to a
+        declaration that predates it.
+        """
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import Any\n"
+            "\n"
+            "class _DualTrackMixin:\n"
+            "    backend: Any\n"
+            "\n"
+            "    def compute(self) -> int:\n"
+            "        return 1\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/goals/_dual_track.py")
+        assert len(violations) == 1
+        assert "delete the line" in violations[0].suggestion
+
+    def test_declaration_only_protocol_is_clean(self) -> None:
+        """NEGATIVE CONTROL: the target state the 27 sites were moved to.
+
+        `backend: 'ChoicesOperations'` — a forward-ref string naming a core/ports
+        protocol — is the live shape of 15 of them and must stay silent.
+        """
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "class _AnalyticsMixin:\n"
+            "    # Provided by ChoicesIntelligenceService.__init__\n"
+            "    backend: 'ChoicesOperations'\n"
+            "\n"
+            "    async def do(self) -> None:\n"
+            "        await self.backend.get('x')\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/choices/_a.py")
+        assert violations == []
+
+    def test_declaration_only_typevar_is_clean(self) -> None:
+        """NEGATIVE CONTROL: the relationship trio declares `backend: Ops` (#1094)."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "class OrderedRelationshipsMixin[Ops: BackendOperations]:\n"
+            "    backend: Ops\n"
+            "\n"
+            "    async def do(self) -> None:\n"
+            "        await self.backend.get('x')\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/relationships/_o.py")
+        assert violations == []
+
+    def test_declaration_only_nested_class_not_credited_to_outer(self) -> None:
+        """The nested-ClassDef bug Codex caught (#1092), on the new trigger.
+
+        `Outer` declares nothing; only `Inner` does. Walking the subtree would
+        report both.
+        """
+        linter = make_linter(["SKUEL023"])
+        content = "from typing import Any\n\nclass Outer:\n    class Inner:\n        backend: Any\n"
+        violations = lint_content(linter, content, file_path="core/services/x_service.py")
+        assert len(violations) == 1
+        assert "Inner.backend" in violations[0].message
+
+    def test_assigner_with_any_declaration_reported_once(self) -> None:
+        """A class that declares AND assigns is one violation, not two.
+
+        The two triggers are mutually exclusive by construction: the declaration
+        branch runs only when no assignment was found.
+        """
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import Any\n"
+            "\n"
+            "class XService:\n"
+            "    backend: Any\n"
+            "\n"
+            "    def __init__(self, backend: SomeOps) -> None:\n"
+            "        self.backend = backend\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_service.py")
+        assert len(violations) == 1
+        assert "declaration-only" not in violations[0].message
+
+    def test_declaration_only_line_suppression_honored(self) -> None:
+        """Suppressible on the declaration line, like every other SKUEL023 site."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import Any\n"
+            "\n"
+            "class XMixin:\n"
+            "    backend: Any  # skuel-lint: disable=SKUEL023 -- test\n"
+            "\n"
+            "    async def do(self) -> None:\n"
+            "        await self.backend.get('x')\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
+        assert violations == []
+
+    def test_declaration_only_not_applied_outside_core(self) -> None:
+        """Core-scoped like the rest of the rule."""
+        linter = make_linter(["SKUEL023"])
+        content = "from typing import Any\n\nclass XMixin:\n    backend: Any\n"
+        violations = lint_content(linter, content, file_path="adapters/persistence/neo4j/x.py")
         assert violations == []
 
     def test_line_suppression_honored(self) -> None:

@@ -16,8 +16,9 @@ ERROR (blocks CI):
   SKUEL020: FastHTML @rt handlers must annotate `request: Request` (not Any)
   SKUEL021: No raw Cypher above the boundary — core/, routes, ui/ (ADR-044)
   SKUEL022: core/ must not import adapters/ (dependency direction, ADR-044)
-  SKUEL023: core/ must type self.backend against a core/ports protocol — not a
-            concrete adapter class, and not Any / bare-unannotated (ADR-044)
+  SKUEL023: core/ must type backend against a core/ports protocol — not a concrete
+            adapter class, and not Any / bare-unannotated, whether the class assigns
+            self.backend or only declares it (ADR-044)
   SKUEL024: No cls= / **kwargs collision in FT helpers (latent TypeError crash)
   SKUEL025: No deleted Activity *UpdatePayload — use the frozen *UpdateIntent (ADR-066)
   SKUEL027: ui/ must not import adapters/ at runtime (ui renders; routes compose)
@@ -645,16 +646,22 @@ no import) are caught via the same path — the parsed Attribute chain's root Na
 
 **Annotation-strength sub-check (PR2b, 2026-08):** the checks above ask *which*
 type an annotation names; this one asks whether it names anything. A ``core/``
-class that ASSIGNS ``self.backend`` must type it against a ``core/ports``
-protocol — ``Any`` and bare-unannotated both defeat the boundary just as
-completely as a concrete adapter, because either way every
-``self.backend.<method>()`` call in the class goes unchecked (the phantom-method
-class). Resolution order: ``self.backend: X = ...`` → class-body ``backend: X``
-→ the matching ``__init__`` parameter's annotation → unannotated. Forward-ref
-strings are parsed, so ``"Any | None"`` is caught with bare ``Any``. TypeVars
-need no exemption (``backend: B`` is not ``Any``). Declaration-only class-body
-``backend: Any`` in a mixin does NOT trigger — the mixin does not own the
-object; its host does.
+class that ASSIGNS ``self.backend`` — or merely DECLARES a class-body
+``backend:`` — must type it against a ``core/ports`` protocol. ``Any`` and
+bare-unannotated defeat the boundary just as completely as a concrete adapter,
+because either way every ``self.backend.<method>()`` call in the class goes
+unchecked (the phantom-method class). Resolution order for an assigner:
+``self.backend: X = ...`` → class-body ``backend: X`` → the matching ``__init__``
+parameter's annotation → unannotated. Forward-ref strings are parsed, so
+``"Any | None"`` is caught with bare ``Any``. TypeVars need no exemption
+(``backend: B`` / ``backend: Ops`` is not ``Any``).
+
+Declaration-only ``backend: Any`` — the mixin shape, where the host constructs
+the object — triggers as of 2026-08 (PR-C). The host owning the object never made
+the mixin's own calls checkable. A *dead* declaration (no ``self.backend`` call
+anywhere in the class) flags too; there the fix is deleting the line. The trigger
+landed only after all 27 such sites were clean, so it went green with zero
+suppressions.
 
 ⚠ A **file-level** ``disable-file=SKUEL023`` silences BOTH sub-checks; line-level
 suppressions are unaffected.
@@ -4973,6 +4980,27 @@ class SkuelLinter:
         return aliases
 
     @staticmethod
+    def _find_class_body_backend_declaration(cls: ast.ClassDef) -> ast.AnnAssign | None:
+        """The class-body ``backend: X`` declaration owned by ``cls``, if any.
+
+        Iterates ``cls.body`` statements directly rather than walking the subtree.
+        A nested ``ClassDef`` is a statement, never an ``AnnAssign``, so an inner
+        class's declaration can never be credited to its outer class — the
+        false-positive shape Codex caught on the assignment side of this rule
+        (#1092), avoided here by construction rather than by a guard.
+        """
+        return next(
+            (
+                stmt
+                for stmt in cls.body
+                if isinstance(stmt, ast.AnnAssign)
+                and isinstance(stmt.target, ast.Name)
+                and stmt.target.id == "backend"
+            ),
+            None,
+        )
+
+    @staticmethod
     def _resolve_backend_annotation(
         cls: ast.ClassDef, assign: ast.Assign | ast.AnnAssign
     ) -> ast.expr | None:
@@ -4990,13 +5018,9 @@ class SkuelLinter:
         if isinstance(assign, ast.AnnAssign):
             return assign.annotation
 
-        for stmt in cls.body:
-            if (
-                isinstance(stmt, ast.AnnAssign)
-                and isinstance(stmt.target, ast.Name)
-                and stmt.target.id == "backend"
-            ):
-                return stmt.annotation
+        declaration = SkuelLinter._find_class_body_backend_declaration(cls)
+        if declaration is not None:
+            return declaration.annotation
 
         if isinstance(assign.value, ast.Name):
             for stmt in cls.body:
@@ -5023,9 +5047,9 @@ class SkuelLinter:
         tree: ast.Module | None,
     ) -> None:
         """
-        SKUEL023 [ERROR]: a ``core/`` class that assigns ``self.backend`` must type it
-        against a ``core/ports`` protocol — ``Any`` and bare-unannotated both defeat
-        the boundary.
+        SKUEL023 [ERROR]: a ``core/`` class that assigns OR declares ``backend`` must
+        type it against a ``core/ports`` protocol — ``Any`` and bare-unannotated both
+        defeat the boundary.
 
         The sibling of the adapter-annotation check above. That one asks *which*
         type the annotation names (protocol, not concrete adapter); this one asks
@@ -5034,11 +5058,29 @@ class SkuelLinter:
         unchecked, so a renamed or deleted backend method reads as green — the
         phantom-method class this codebase has repeatedly found.
 
-        Scope: classes that **assign** ``self.backend`` (``ast.Assign`` or
-        ``ast.AnnAssign`` whose target is ``self.backend``). A declaration-only
-        class-body ``backend: Any`` in a mixin does NOT trigger — the mixin does
-        not own the object; its host does, and retyping those is separate work
-        with its own ``attr-defined`` fallout.
+        Two triggers, one verdict:
+
+        1. **Assignment** — the class owns the object (``ast.Assign`` /
+           ``ast.AnnAssign`` targeting ``self.backend``). Annotation resolved by
+           the precedence in ``_resolve_backend_annotation``.
+        2. **Declaration-only** (PR-C, 2026-08) — a class-body ``backend: X`` with
+           no assignment anywhere in the class: the mixin shape, where the *host*
+           constructs the object. The host owning the object never made the mixin's
+           calls checkable; ``backend: Any`` there costs exactly what it costs on an
+           assigner. Fix: name the host's protocol. This trigger was added only
+           after all 27 such sites were clean (#1093, #1094), so it went green with
+           zero suppressions.
+
+        A dead declaration — ``backend: Any`` in a class with no ``self.backend``
+        call at all — flags too, and the fix is deletion (8 of the 27 were this).
+        Deliberate: keying on use rather than on the declaration would make the same
+        line legal or illegal depending on lines elsewhere, and would stay silent at
+        the moment that actually matters — when someone later adds the first call to
+        a declaration that predates it.
+
+        Only ``Any`` can flag on the declaration branch: a class-body ``backend``
+        with no annotation is not a declaration at all (it is a bare ``Name``
+        expression), so "is unannotated" is reachable only through assignment.
 
         Verdict on the resolved annotation (see ``_resolve_backend_annotation``
         for how it is found):
@@ -5068,10 +5110,18 @@ class SkuelLinter:
 
         for cls in [n for n in ast.walk(tree) if isinstance(n, ast.ClassDef)]:
             assign = self._find_self_backend_assignment(cls)
-            if assign is None:
+            declaration = self._find_class_body_backend_declaration(cls) if assign is None else None
+            if assign is not None:
+                anchor: ast.stmt = assign
+                assigns = True
+                annotation = self._resolve_backend_annotation(cls, assign)
+            elif declaration is not None:
+                anchor = declaration
+                assigns = False
+                annotation = declaration.annotation
+            else:
                 continue
 
-            annotation = self._resolve_backend_annotation(cls, assign)
             if annotation is None:
                 verdict = "is unannotated"
             elif any_aliases.intersection(
@@ -5081,30 +5131,47 @@ class SkuelLinter:
             else:
                 continue
 
-            lineno = assign.lineno
+            lineno = anchor.lineno
             line = lines[lineno - 1] if 0 < lineno <= len(lines) else ""
             if self._is_line_suppressed(line, "SKUEL023"):
                 continue
+
+            if assigns:
+                message = (
+                    f"'{cls.name}.backend' {verdict} — type `self.backend` against a "
+                    f"core/ports protocol (ADR-044); `Any` and bare-unannotated both "
+                    f"defeat the boundary"
+                )
+                suggestion = (
+                    "Declare (or reuse) a `*BackendOperations` protocol in core/ports "
+                    "covering exactly the methods this class calls, and annotate the "
+                    "__init__ parameter with it. Facades are NOT exempt — 'Facade IS "
+                    "the contract' is about the route→service boundary, not "
+                    "self.backend; see CLAUDE.md '## Protocol-Based Architecture'."
+                )
+            else:
+                message = (
+                    f"'{cls.name}.backend' {verdict} — a declaration-only `backend: Any` "
+                    f"leaves every `self.backend.<method>()` in this class unchecked just "
+                    f"as completely as an assigned one (ADR-044)"
+                )
+                suggestion = (
+                    "Name the core/ports protocol this mixin's HOST types its backend "
+                    "against — resolve the host through the importing module, never by "
+                    "bare class name (four different `_AnalyticsMixin` classes exist). "
+                    "If the class never reads `self.backend`, the declaration is dead: "
+                    "delete the line rather than typing it."
+                )
 
             self.result.violations.append(
                 Violation(
                     file_path=rel_path,
                     line_number=lineno,
-                    column=assign.col_offset,
+                    column=anchor.col_offset,
                     severity=Severity.ERROR,
                     rule_id="SKUEL023",
-                    message=(
-                        f"'{cls.name}.backend' {verdict} — type `self.backend` against a "
-                        f"core/ports protocol (ADR-044); `Any` and bare-unannotated both "
-                        f"defeat the boundary"
-                    ),
-                    suggestion=(
-                        "Declare (or reuse) a `*BackendOperations` protocol in core/ports "
-                        "covering exactly the methods this class calls, and annotate the "
-                        "__init__ parameter with it. Facades are NOT exempt — 'Facade IS "
-                        "the contract' is about the route→service boundary, not "
-                        "self.backend; see CLAUDE.md '## Protocol-Based Architecture'."
-                    ),
+                    message=message,
+                    suggestion=suggestion,
                     line_content=line.strip(),
                 )
             )
