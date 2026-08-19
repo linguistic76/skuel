@@ -16,7 +16,8 @@ ERROR (blocks CI):
   SKUEL020: FastHTML @rt handlers must annotate `request: Request` (not Any)
   SKUEL021: No raw Cypher above the boundary — core/, routes, ui/ (ADR-044)
   SKUEL022: core/ must not import adapters/ (dependency direction, ADR-044)
-  SKUEL023: core/ services must type self.backend against a core/ports protocol
+  SKUEL023: core/ must type self.backend against a core/ports protocol — not a
+            concrete adapter class, and not Any / bare-unannotated (ADR-044)
   SKUEL024: No cls= / **kwargs collision in FT helpers (latent TypeError crash)
   SKUEL025: No deleted Activity *UpdatePayload — use the frozen *UpdateIntent (ADR-066)
   SKUEL027: ui/ must not import adapters/ at runtime (ui renders; routes compose)
@@ -77,6 +78,7 @@ import subprocess
 import sys
 import time
 import tokenize
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -640,6 +642,22 @@ root Name so module-style aliases (`import adapters.x as xb` + `backend: xb.XBac
 are caught. Fully-qualified forward-ref strings (`backend: "adapters.x.XBackend"`,
 no import) are caught via the same path — the parsed Attribute chain's root Name is
 `adapters`, which the check treats as an implicit adapter reference.
+
+**Annotation-strength sub-check (PR2b, 2026-08):** the checks above ask *which*
+type an annotation names; this one asks whether it names anything. A ``core/``
+class that ASSIGNS ``self.backend`` must type it against a ``core/ports``
+protocol — ``Any`` and bare-unannotated both defeat the boundary just as
+completely as a concrete adapter, because either way every
+``self.backend.<method>()`` call in the class goes unchecked (the phantom-method
+class). Resolution order: ``self.backend: X = ...`` → class-body ``backend: X``
+→ the matching ``__init__`` parameter's annotation → unannotated. Forward-ref
+strings are parsed, so ``"Any | None"`` is caught with bare ``Any``. TypeVars
+need no exemption (``backend: B`` is not ``Any``). Declaration-only class-body
+``backend: Any`` in a mixin does NOT trigger — the mixin does not own the
+object; its host does.
+
+⚠ A **file-level** ``disable-file=SKUEL023`` silences BOTH sub-checks; line-level
+suppressions are unaffected.
 
 **Import-site rule (primary):** adapter imports in ``core/`` must be the plain
 ``from adapters.<...> import <Name>`` form — no aliasing (``as Y``) and no
@@ -1846,6 +1864,10 @@ class SkuelLinter:
             # Closes the TYPE_CHECKING exemption gap left open by SKUEL022.
             if is_core and not is_test and self._should_run_rule("SKUEL023"):
                 self._check_adapter_type_annotations(file_path, rel_path, content, lines, tree)
+                # Second sub-check: annotation STRENGTH. Deliberately outside the
+                # adapter check's `"adapters" not in content` pre-filter — a class
+                # typing self.backend as Any usually never mentions adapters at all.
+                self._check_backend_annotation_strength(file_path, rel_path, content, lines, tree)
 
             if is_service and not is_test:
                 if self._should_run_rule("SKUEL002"):
@@ -4920,6 +4942,214 @@ class SkuelLinter:
                     line_content=line.strip(),
                 )
             )
+
+    # =========================================================================
+    # SKUEL023 second sub-check: annotation STRENGTH on self.backend
+    # =========================================================================
+
+    @staticmethod
+    def _collect_any_aliases(tree: ast.Module) -> set[str]:
+        """Local names that mean ``typing.Any`` in this module.
+
+        ``from typing import Any as BackendT`` + ``backend: BackendT`` would
+        otherwise read as a concrete type and pass. Same bypass class the rule's
+        Tier-4 import gate already closes for adapter imports — an alias must not
+        buy an exemption the spelled-out form does not get. ``typing.Any`` written
+        out needs no entry: ``_extract_annotation_refs`` returns ``Any`` as the
+        Attribute chain's tail.
+        """
+        aliases = {"Any"}
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom) and node.module == "typing":
+                aliases.update(a.asname for a in node.names if a.name == "Any" and a.asname)
+            elif isinstance(node, ast.Assign):
+                # Module-level `X = Any` (or `X = typing.Any`) re-export.
+                value = node.value
+                is_any = (isinstance(value, ast.Name) and value.id in aliases) or (
+                    isinstance(value, ast.Attribute) and value.attr == "Any"
+                )
+                if is_any:
+                    aliases.update(t.id for t in node.targets if isinstance(t, ast.Name))
+        return aliases
+
+    @staticmethod
+    def _resolve_backend_annotation(
+        cls: ast.ClassDef, assign: ast.Assign | ast.AnnAssign
+    ) -> ast.expr | None:
+        """The annotation governing ``self.backend`` for one class, or None if unannotated.
+
+        Precedence — the middle form is the one a naive attribute-only reader
+        misses, and it is the form most services actually use:
+
+        1. ``self.backend: X = ...``     (AnnAssign on the attribute)
+        2. class-body ``backend: X``     (the BaseService shape)
+        3. RHS is a plain Name matching an ``__init__`` parameter → that param's
+           annotation (``def __init__(self, backend: X): self.backend = backend``)
+        4. nothing → None (``self.backend = service.backend`` lands here)
+        """
+        if isinstance(assign, ast.AnnAssign):
+            return assign.annotation
+
+        for stmt in cls.body:
+            if (
+                isinstance(stmt, ast.AnnAssign)
+                and isinstance(stmt.target, ast.Name)
+                and stmt.target.id == "backend"
+            ):
+                return stmt.annotation
+
+        if isinstance(assign.value, ast.Name):
+            for stmt in cls.body:
+                if not isinstance(stmt, ast.FunctionDef | ast.AsyncFunctionDef):
+                    continue
+                if stmt.name != "__init__":
+                    continue
+                args = [
+                    *stmt.args.posonlyargs,
+                    *stmt.args.args,
+                    *stmt.args.kwonlyargs,
+                ]
+                for arg in args:
+                    if arg.arg == assign.value.id and arg.annotation is not None:
+                        return arg.annotation
+        return None
+
+    def _check_backend_annotation_strength(
+        self,
+        file_path: Path,
+        rel_path: Path,
+        content: str,
+        lines: list[str],
+        tree: ast.Module | None,
+    ) -> None:
+        """
+        SKUEL023 [ERROR]: a ``core/`` class that assigns ``self.backend`` must type it
+        against a ``core/ports`` protocol — ``Any`` and bare-unannotated both defeat
+        the boundary.
+
+        The sibling of the adapter-annotation check above. That one asks *which*
+        type the annotation names (protocol, not concrete adapter); this one asks
+        whether the annotation carries any information at all. Both failures cost
+        the same thing: every ``self.backend.<method>()`` in the class goes
+        unchecked, so a renamed or deleted backend method reads as green — the
+        phantom-method class this codebase has repeatedly found.
+
+        Scope: classes that **assign** ``self.backend`` (``ast.Assign`` or
+        ``ast.AnnAssign`` whose target is ``self.backend``). A declaration-only
+        class-body ``backend: Any`` in a mixin does NOT trigger — the mixin does
+        not own the object; its host does, and retyping those is separate work
+        with its own ``attr-defined`` fallout.
+
+        Verdict on the resolved annotation (see ``_resolve_backend_annotation``
+        for how it is found):
+        - unresolvable → flag (unannotated)
+        - any extracted name means ``Any`` → flag. Forward-reference strings are
+          parsed, so ``"Any | None"`` is caught alongside bare ``Any``,
+          ``Optional[Any]`` and ``list[Any]`` — the reuse of
+          ``_extract_annotation_refs`` is deliberate: one parser, not two.
+          Local aliases count (``from typing import Any as X``); see
+          ``_collect_any_aliases``.
+        - otherwise → clean
+
+        TypeVars need no exemption branch: ``backend: B`` on a generic base
+        (``BaseService[B, T, U]``, the seven mixins in core/services/mixins/,
+        ``BasePlanningService``'s ``BackendT``) extracts the name ``B`` / ``BackendT``,
+        which is not ``Any`` and so is already clean. A name-based exemption list
+        would also have to avoid special-casing the literal ``B``, which is exactly
+        the kind of vacuous branch this codebase deletes.
+
+        Suppress: # skuel-lint: disable=SKUEL023 -- <reason>
+        File-level: # skuel-lint: disable-file=SKUEL023 -- <reason>
+        """
+        if tree is None or self._is_file_suppressed(content, "SKUEL023"):
+            return
+
+        any_aliases = self._collect_any_aliases(tree)
+
+        for cls in [n for n in ast.walk(tree) if isinstance(n, ast.ClassDef)]:
+            assign = self._find_self_backend_assignment(cls)
+            if assign is None:
+                continue
+
+            annotation = self._resolve_backend_annotation(cls, assign)
+            if annotation is None:
+                verdict = "is unannotated"
+            elif any_aliases.intersection(
+                name for _lookup, name in self._extract_annotation_refs(annotation)
+            ):
+                verdict = "is typed `Any`"
+            else:
+                continue
+
+            lineno = assign.lineno
+            line = lines[lineno - 1] if 0 < lineno <= len(lines) else ""
+            if self._is_line_suppressed(line, "SKUEL023"):
+                continue
+
+            self.result.violations.append(
+                Violation(
+                    file_path=rel_path,
+                    line_number=lineno,
+                    column=assign.col_offset,
+                    severity=Severity.ERROR,
+                    rule_id="SKUEL023",
+                    message=(
+                        f"'{cls.name}.backend' {verdict} — type `self.backend` against a "
+                        f"core/ports protocol (ADR-044); `Any` and bare-unannotated both "
+                        f"defeat the boundary"
+                    ),
+                    suggestion=(
+                        "Declare (or reuse) a `*BackendOperations` protocol in core/ports "
+                        "covering exactly the methods this class calls, and annotate the "
+                        "__init__ parameter with it. Facades are NOT exempt — 'Facade IS "
+                        "the contract' is about the route→service boundary, not "
+                        "self.backend; see CLAUDE.md '## Protocol-Based Architecture'."
+                    ),
+                    line_content=line.strip(),
+                )
+            )
+
+    @staticmethod
+    def _walk_own_body(cls: ast.ClassDef) -> Iterator[ast.AST]:
+        """Every node under ``cls`` EXCEPT those inside a nested class.
+
+        ``ast.walk`` descends into nested ``ClassDef`` nodes, which would credit
+        an inner class's ``self.backend = backend`` to its outer class — and the
+        outer class, having no ``__init__`` and no class-body ``backend:``, would
+        then be reported unannotated. A nested class owns its own assignment and
+        is visited in its own right by the caller's ClassDef loop.
+        """
+        stack: list[ast.AST] = list(ast.iter_child_nodes(cls))
+        while stack:
+            node = stack.pop()
+            if isinstance(node, ast.ClassDef):
+                continue
+            yield node
+            stack.extend(ast.iter_child_nodes(node))
+
+    @staticmethod
+    def _find_self_backend_assignment(cls: ast.ClassDef) -> ast.Assign | ast.AnnAssign | None:
+        """The first ``self.backend = ...`` / ``self.backend: X = ...`` owned by ``cls``."""
+        for node in SkuelLinter._walk_own_body(cls):
+            if isinstance(node, ast.Assign):
+                for target in node.targets:
+                    if (
+                        isinstance(target, ast.Attribute)
+                        and target.attr == "backend"
+                        and isinstance(target.value, ast.Name)
+                        and target.value.id == "self"
+                    ):
+                        return node
+            elif isinstance(node, ast.AnnAssign):
+                target = node.target
+                if (
+                    isinstance(target, ast.Attribute)
+                    and target.attr == "backend"
+                    and isinstance(target.value, ast.Name)
+                    and target.value.id == "self"
+                ):
+                    return node
+        return None
 
     # =========================================================================
     def _check_result_fail_expect_error(

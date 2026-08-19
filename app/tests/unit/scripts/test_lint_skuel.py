@@ -155,6 +155,7 @@ def lint_content(
 
     if is_core and not is_test and linter._should_run_rule("SKUEL023"):
         linter._check_adapter_type_annotations(fp, rel, content, lines, tree)
+        linter._check_backend_annotation_strength(fp, rel, content, lines, tree)
 
     if is_ui and not is_test and linter._should_run_rule("SKUEL027"):
         linter._check_ui_imports_adapter(fp, rel, content, lines, tree)
@@ -4184,6 +4185,269 @@ class TestSKUEL023:
         violations = lint_content(linter, content, file_path="core/services/user_service.py")
         assert len(violations) >= 1
         assert all(v.rule_id == "SKUEL023" for v in violations)
+
+
+class TestSKUEL023AnnotationStrength:
+    """SKUEL023's second sub-check (PR2b): a core/ class that ASSIGNS self.backend
+    must type it against a core/ports protocol. `Any` and bare-unannotated both
+    defeat the boundary, because either way every self.backend.<method>() call in
+    the class goes unchecked."""
+
+    def test_flags_any_via_init_param(self) -> None:
+        """The dominant real-world form: `def __init__(self, backend: Any)`.
+
+        An attribute-only reader misses this entirely — the annotation lives on
+        the constructor parameter, not on the assignment.
+        """
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import Any\n"
+            "\n"
+            "class XService:\n"
+            "    def __init__(self, backend: Any) -> None:\n"
+            "        self.backend = backend\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_service.py")
+        assert len(violations) == 1
+        assert violations[0].rule_id == "SKUEL023"
+        assert violations[0].severity == Severity.ERROR
+        assert "is typed `Any`" in violations[0].message
+        assert "XService.backend" in violations[0].message
+
+    def test_flags_any_via_class_body_declaration(self) -> None:
+        """Class-body `backend: Any` governs when the class also assigns it."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import Any\n"
+            "\n"
+            "class XService:\n"
+            "    backend: Any\n"
+            "\n"
+            "    def __init__(self, backend) -> None:\n"
+            "        self.backend = backend\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_service.py")
+        assert len(violations) == 1
+        assert "is typed `Any`" in violations[0].message
+
+    def test_flags_any_via_self_annotation(self) -> None:
+        """`self.backend: Any = backend` — the highest-precedence form."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import Any\n"
+            "\n"
+            "class XService:\n"
+            "    def __init__(self, backend: SomeOps) -> None:\n"
+            "        self.backend: Any = backend\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_service.py")
+        assert len(violations) == 1
+        assert "is typed `Any`" in violations[0].message
+
+    def test_flags_forward_ref_any_union(self) -> None:
+        """`backend: "Any | None"` — the string form PsPracticeService used.
+
+        A string-blind check reads this as an opaque Constant and passes it. The
+        sub-check reuses _extract_annotation_refs, which parses the string.
+        """
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import Any\n"
+            "\n"
+            "class XService:\n"
+            '    def __init__(self, backend: "Any | None" = None) -> None:\n'
+            "        self.backend = backend\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_service.py")
+        assert len(violations) == 1
+        assert "is typed `Any`" in violations[0].message
+
+    def test_flags_optional_any(self) -> None:
+        """Subscripts recurse, so Optional[Any] is caught like bare Any."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import Any, Optional\n"
+            "\n"
+            "class XService:\n"
+            "    def __init__(self, backend: Optional[Any] = None) -> None:\n"
+            "        self.backend = backend\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_service.py")
+        assert len(violations) == 1
+
+    def test_flags_unannotated_param(self) -> None:
+        """A bare `backend` parameter carries no information at all."""
+        linter = make_linter(["SKUEL023"])
+        content = "class XService:\n    def __init__(self, backend) -> None:\n        self.backend = backend\n"
+        violations = lint_content(linter, content, file_path="core/services/x_service.py")
+        assert len(violations) == 1
+        assert "is unannotated" in violations[0].message
+
+    def test_flags_assignment_from_another_object(self) -> None:
+        """`self.backend = service.backend` resolves to nothing — the shape both
+        infrastructure helpers used before PR2b."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "class XHelper:\n"
+            "    def __init__(self, service: BaseService) -> None:\n"
+            "        self.backend = service.backend\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/infrastructure/x.py")
+        assert len(violations) == 1
+        assert "is unannotated" in violations[0].message
+
+    def test_clean_protocol_typed_backend(self) -> None:
+        """The target state: annotated against a core/ports protocol."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from core.ports.curriculum_protocols import PsOperations\n"
+            "\n"
+            "class XService:\n"
+            "    def __init__(self, backend: PsOperations) -> None:\n"
+            "        self.backend = backend\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_service.py")
+        assert violations == []
+
+    def test_pep695_typevar_is_clean(self) -> None:
+        """`backend: B` on a PEP-695 generic is a type variable, not a missing type."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:\n"
+            "    def __init__(self, backend: B) -> None:\n"
+            "        self.backend = backend\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/mixins/search.py")
+        assert violations == []
+
+    def test_differently_named_typevar_is_clean(self) -> None:
+        """BasePlanningService names its parameter BackendT — never special-case `B`."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import TypeVar\n"
+            "\n"
+            'BackendT = TypeVar("BackendT")\n'
+            "\n"
+            "class BasePlanningService:\n"
+            "    backend: BackendT\n"
+            "\n"
+            "    def __init__(self, backend: BackendT) -> None:\n"
+            "        self.backend = backend\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/base_planning.py")
+        assert violations == []
+
+    def test_declaration_only_mixin_does_not_trigger(self) -> None:
+        """Scope A: a mixin that DECLARES `backend: Any` without assigning it is
+        not this rule's business — the host owns the object. Retyping the 27
+        declaration-only mixins is separate follow-on work."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import Any\n"
+            "\n"
+            "class IntelligenceMixin:\n"
+            "    # Provided by UnifiedRelationshipService.__init__\n"
+            "    backend: Any\n"
+            "\n"
+            "    async def do(self) -> None:\n"
+            "        await self.backend.get('x')\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/relationships/_m.py")
+        assert violations == []
+
+    def test_line_suppression_honored(self) -> None:
+        """Suppressible like the rest of SKUEL023."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import Any\n"
+            "\n"
+            "class XService:\n"
+            "    def __init__(self, backend: Any) -> None:\n"
+            "        self.backend = backend  # skuel-lint: disable=SKUEL023 -- test\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_service.py")
+        assert violations == []
+
+    def test_flags_aliased_any(self) -> None:
+        """`from typing import Any as BackendT` must not buy an exemption.
+
+        Codex, PR #1092. An alias returns only its local name from
+        _extract_annotation_refs, so a bare `"Any" in names` check passed it and
+        left every self.backend call unchecked — the same bypass class the rule's
+        Tier-4 import gate already closes for adapter imports.
+        """
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import Any as BackendT\n"
+            "\n"
+            "class XService:\n"
+            "    def __init__(self, backend: BackendT) -> None:\n"
+            "        self.backend = backend\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_service.py")
+        assert len(violations) == 1
+        assert "is typed `Any`" in violations[0].message
+
+    def test_flags_module_level_any_realias(self) -> None:
+        """A module-level `X = Any` re-export is the same bypass one step removed."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import Any\n"
+            "\n"
+            "Backendish = Any\n"
+            "\n"
+            "class XService:\n"
+            "    def __init__(self, backend: Backendish) -> None:\n"
+            "        self.backend = backend\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_service.py")
+        assert len(violations) == 1
+
+    def test_nested_class_assignment_not_credited_to_outer(self) -> None:
+        """An inner class's `self.backend` must not be attributed to its outer class.
+
+        Codex, PR #1092. `ast.walk` descends into nested ClassDefs, so the outer
+        class — which has no __init__ and no class-body `backend:` — was reported
+        unannotated, a false positive that would block the quality gate.
+        """
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "class Outer:\n"
+            "    class Inner:\n"
+            "        def __init__(self, backend: FooOps) -> None:\n"
+            "            self.backend = backend\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_service.py")
+        assert violations == []
+
+    def test_nested_class_still_checked_on_its_own(self) -> None:
+        """Skipping nested bodies must not make an inner class unreachable."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import Any\n"
+            "\n"
+            "class Outer:\n"
+            "    class Inner:\n"
+            "        def __init__(self, backend: Any) -> None:\n"
+            "            self.backend = backend\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_service.py")
+        assert len(violations) == 1
+        assert "Inner.backend" in violations[0].message
+
+    def test_not_applied_outside_core(self) -> None:
+        """The rule is core/-scoped; an adapter typing self.backend as Any is
+        outside its remit."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import Any\n"
+            "\n"
+            "class XBackend:\n"
+            "    def __init__(self, backend: Any) -> None:\n"
+            "        self.backend = backend\n"
+        )
+        violations = lint_content(linter, content, file_path="adapters/persistence/neo4j/x.py")
+        assert violations == []
 
 
 class TestSKUEL024:

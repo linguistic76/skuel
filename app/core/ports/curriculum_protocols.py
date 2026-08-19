@@ -25,14 +25,16 @@ Protocol Hierarchy:
     - PsOperations: Extends CurriculumOperations[PathStep] with PS-specific methods
     - LpOperations: Extends CurriculumOperations[LearningPath] with LP-specific methods
     - ExerciseOperations: Standalone protocol for Exercise instruction templates
+      (ROUTE-facing — the backend-facing half is ExerciseBackendOperations below)
 
-Narrow ``*BackendOperations`` slices (July 2026) — each is what exactly one
+Narrow ``*BackendOperations`` slices (July / August 2026) — each is what exactly one
 service types ``self.backend`` against, so a wide protocol's unrelated methods
 are not advertised at that seam:
     - PsOrganizesBackendOperations   → PsOrganizationService
     - PsProgressBackendOperations    → PsProgressService
     - PsIntelligenceBackendOperations → PsIntelligenceService
     - LpProgressBackendOperations    → LpProgressService (LpOperations inherits it)
+    - ExerciseBackendOperations      → ExerciseService (August 2026)
 ``LpOperations`` inherits its slice, keeping one source for those signatures.
 The PS slices deliberately stand alone: ``PsOperations`` is dual-layer (it types
 both ``PsCoreService.backend`` and the ``PsService`` facade via
@@ -126,7 +128,7 @@ if TYPE_CHECKING:
         SemanticRelationshipType,
         SemanticTriple,
     )
-    from core.models.enums import Domain
+    from core.models.enums import Domain, SearchVisibility
     from core.models.enums.neo_labels import NeoLabel
     from core.models.enums.user_entry_enums import ExerciseScope
     from core.models.exercises.exercise import Exercise
@@ -1750,6 +1752,115 @@ class LpOperations(CurriculumOperations["LearningPath"], LpProgressBackendOperat
 # =============================================================================
 # EXERCISE OPERATIONS
 # =============================================================================
+
+
+class ExerciseBackendOperations(BackendOperations["Exercise"], Protocol):
+    """Backend operations for Exercise — base CRUD plus its graph-specific reads/writes.
+
+    The BACKEND-layer half of the Exercise pair. ``ExerciseOperations`` below is
+    the route-facing half and is NOT interchangeable with it: the two share a
+    root word but sit at different layers, and the route protocol misses 14 of
+    the 19 methods the service actually issues (see CLAUDE.md's "Trap" note in
+    ## Protocol-Based Architecture).
+
+    Deliberately absent: ``get_exercises_with_submission_counts``. It exists on
+    ExerciseBackend but is consumed by ``TeacherReviewService.exercise_backend``
+    and already declared in core/ports/report_protocols.py — advertising it here
+    would widen this seam past what ExerciseService uses (ISP).
+
+    Implementation: ExerciseBackend (backends/exercise_backends.py)
+    Consumer: ExerciseService.__init__
+    """
+
+    # -- Curriculum linkage --------------------------------------------------
+
+    async def link_to_path_step(self, exercise_uid: str, path_step_uid: str) -> Result[bool]:
+        """Anchor a PERSONAL exercise to its PathStep — (PathStep)-[:HAS_EXERCISE]->(Exercise).
+
+        Idempotent (MERGE); the mirror of the ``Exercise.path_step_uid`` property
+        written in the same operation.
+        """
+        ...
+
+    async def link_to_curriculum(self, exercise_uid: str, curriculum_uid: str) -> Result[bool]:
+        """Attach an exercise to a curriculum entity. Idempotent (MERGE)."""
+        ...
+
+    async def unlink_from_curriculum(self, exercise_uid: str, curriculum_uid: str) -> Result[bool]:
+        """Detach an exercise from a curriculum entity; a missing edge is a no-op."""
+        ...
+
+    # -- Ownership -----------------------------------------------------------
+
+    async def create_owns_relationship(
+        self, user_uid: UserUID, exercise_uid: str
+    ) -> Result[list[Neo4jProperties]]:
+        """Record ownership — (User)-[:OWNS]->(Exercise). Idempotent (MERGE)."""
+        ...
+
+    # -- Reads ---------------------------------------------------------------
+
+    async def get_required_knowledge(
+        self, exercise_uid: str
+    ) -> Result[list[RequiredKnowledgeResult]]:
+        """The Kus an exercise declares as prerequisites."""
+        ...
+
+    async def get_user_exercises(self, user_uid: UserUID) -> Result[list[Neo4jProperties]]:
+        """Every exercise a user owns."""
+        ...
+
+    async def get_student_exercises(self, user_uid: UserUID) -> Result[list[Neo4jProperties]]:
+        """The exercises assigned to a student (owned, shared, or group-shared)."""
+        ...
+
+    async def get_student_exercises_with_status(
+        self, user_uid: UserUID, limit: int | None = None
+    ) -> Result[list[Neo4jProperties]]:
+        """A student's exercises, each carrying its submission status."""
+        ...
+
+    async def get_enrolled_ps_exercises_with_status(
+        self, user_uid: UserUID, limit: int | None = None
+    ) -> Result[list[Neo4jProperties]]:
+        """Exercises anchored to the PathSteps a user is enrolled in, with status."""
+        ...
+
+    async def get_ps_exercises_with_status(
+        self, ps_uid: str, user_uid: UserUID
+    ) -> Result[list[Neo4jProperties]]:
+        """One PathStep's exercises with this user's status — the learning-loop fragment."""
+        ...
+
+    async def get_exercises_for_curriculum(
+        self, curriculum_uid: str
+    ) -> Result[list[CurriculumExerciseResult]]:
+        """The exercises attached to one curriculum entity."""
+        ...
+
+    async def get_exercise_for_submission(
+        self, submission_uid: str
+    ) -> Result[Neo4jProperties | None]:
+        """The exercise a UserEntry fulfils; None when the entry has no exercise."""
+        ...
+
+    async def get_exercises_for_path_steps(
+        self, ps_uids: list[str]
+    ) -> Result[list[Neo4jProperties]]:
+        """Exercises anchored to any of the given PathSteps, in one round trip."""
+        ...
+
+    async def get_visible_to_user(
+        self, uid: str, user_uid: UserUID, visibility: SearchVisibility | None
+    ) -> Result[Exercise | None]:
+        """Fetch one exercise only when this user is in its audience.
+
+        Not-found and not-visible are the SAME outcome (``Result.ok(None)``) —
+        see OWNERSHIP_VERIFICATION.md. Every ``UniversalNeo4jBackend`` carries
+        this via the shared CRUD mixin; it is declared here (rather than on
+        ``CrudOperations[T]``) to keep this change contained.
+        """
+        ...
 
 
 @runtime_checkable

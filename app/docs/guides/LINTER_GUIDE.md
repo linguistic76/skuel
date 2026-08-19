@@ -85,7 +85,7 @@ These enforce SKUEL-specific architectural patterns that Ruff cannot catch.
 | **SKUEL020** | `request: Any` on `@rt` handlers | Annotate `request: Request` (AST rule) |
 | **SKUEL021** | Raw Cypher in `core/` | Relocate below the boundary (ADR-044) |
 | **SKUEL022** | `adapters/` imports in `core/` | Depend on a `core/ports` protocol (ADR-044) |
-| **SKUEL023** | `self.backend` typed against adapter class in `core/` | Type against the `core/ports` protocol (ADR-044) |
+| **SKUEL023** | `self.backend` in `core/` typed against an adapter class, `Any`, or nothing at all | Type against the `core/ports` protocol (ADR-044) |
 | **SKUEL024** | `cls=` + `**kwargs` collision in FT helpers | Add explicit `cls: str = ""` and merge |
 | **SKUEL025** | Deleted Activity `*UpdatePayload` names | Use `*UpdateIntent` / `*UpdateRequest.to_intent()` (ADR-066) |
 | **SKUEL027** | Runtime `adapters/` imports in `ui/` | Move shared code inward or pass values in from the route (SKUEL022's ui/ sibling) |

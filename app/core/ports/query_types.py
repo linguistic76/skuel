@@ -3280,10 +3280,12 @@ class UserMasteryResult(TypedDict, total=False):
     mastery_level: str | None
     confidence_score: float | None
     mastery_score: float | None
-    learning_velocity: float | None
+    # A LearningVelocity StrEnum value ("moderate", ...) — the sibling of
+    # mastery_level above, not a number.
+    learning_velocity: str | None
     time_to_mastery_hours: float | None
     review_frequency_days: int | None
-    mastery_evidence: str | None
+    mastery_evidence: list[str] | None
     last_reviewed: str | None
     last_practiced: str | None
     learning_path_context: str | None

@@ -20,7 +20,7 @@ Formerly AssignmentService — renamed to Exercise for domain clarity.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from core.constants import ExerciseTimeEstimate
 from core.models.enums import Domain, SearchVisibility
@@ -31,6 +31,7 @@ from core.models.exercises.exercise import Exercise
 from core.models.exercises.exercise_dto import ExerciseDTO
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
+from core.ports.curriculum_protocols import ExerciseBackendOperations
 from core.ports.query_types import (
     CurriculumExerciseResult,
     ExerciseStatusRow,
@@ -117,7 +118,7 @@ def _apply_exercise_sort(exercises: list[Any], sort_by: str) -> list[Any]:
     return apply_entity_sort(exercises, sort_by, _EXERCISE_SORT_CONFIG, "title")
 
 
-class ExerciseService(BaseService):
+class ExerciseService(BaseService[ExerciseBackendOperations, Exercise]):
     """
     Simple CRUD service for Exercises (instruction templates).
 
@@ -153,12 +154,17 @@ class ExerciseService(BaseService):
         ),
     )
 
-    def __init__(self, backend: Any, sharing_service: Any = None, event_bus: Any = None) -> None:
+    def __init__(
+        self,
+        backend: ExerciseBackendOperations,
+        sharing_service: Any = None,
+        event_bus: Any = None,
+    ) -> None:
         """
         Initialize with backend.
 
         Args:
-            backend: UniversalNeo4jBackend[Exercise] instance - REQUIRED
+            backend: Exercise backend port - REQUIRED (ExerciseBackend satisfies it)
             sharing_service: UnifiedSharingService — wired after bootstrap
                 to avoid a circular construction order between Exercise and
                 sharing services. Required before any ASSIGNED exercise is
@@ -203,7 +209,9 @@ class ExerciseService(BaseService):
 
         # Create OWNS relationship (owner → exercise)
         if entity.owner_uid:
-            owns_result = await self.backend.create_owns_relationship(entity.owner_uid, uid)
+            owns_result = await self.backend.create_owns_relationship(
+                UserUID(entity.owner_uid), uid
+            )
             if owns_result.is_error:
                 self.logger.warning(f"Failed to create OWNS relationship: {owns_result.error}")
 
@@ -376,7 +384,9 @@ class ExerciseService(BaseService):
 
         exercises = []
         for record in result.value or []:
-            props = record["e"]
+            # boundary: neo4j-projection — `RETURN e` is a node map whose values
+            # (enums, tuples, datetimes) exceed Neo4jValue's scalar union
+            props = cast("dict[str, Any]", record["e"])
             try:
                 exercise = Exercise(**props)
                 exercises.append(exercise)
@@ -489,7 +499,9 @@ class ExerciseService(BaseService):
         exercises: list[Exercise] = []
         seen_uids: set[str] = set()
         for record in (assigned_result.value or []) + (enrolled_result.value or []):
-            props = dict(record["exercise"])
+            # boundary: neo4j-projection — `RETURN exercise` is a node map whose
+            # values (enums, tuples, datetimes) exceed Neo4jValue's scalar union
+            props = dict(cast("dict[str, Any]", record["exercise"]))
             if props.get("uid") in seen_uids:
                 continue
             try:

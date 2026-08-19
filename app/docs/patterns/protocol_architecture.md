@@ -262,6 +262,12 @@ to their *callers*. Inside them, `self.backend` still types against a `core/port
 `PsOrganizationService.backend` is `PsOrganizesBackendOperations`. Do not read this section
 as permission to annotate a facade's backend handle with an adapter class.
 
+Since August 2026 SKUEL023 also rejects the weaker escapes: any `core/` class that
+*assigns* `self.backend` must name a real protocol there — `Any` and no-annotation-at-all
+both fail, because either one leaves every `self.backend.<method>()` call unchecked just
+as completely as a concrete adapter would. Declaration-only `backend: Any` in a mixin is
+out of scope (the mixin does not own the object; its host does).
+
 **Benefits:**
 - **MyPy-native** - No protocol workaround needed
 - **2,422 lines removed** - No mixin, no protocol file

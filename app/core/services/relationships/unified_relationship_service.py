@@ -152,13 +152,11 @@ class UnifiedRelationshipService[
         self._domain = config.domain
         self._dto_class = config.dto_class
         self._model_class = config.model_class
-        self._backend_get_method = config.backend_get_method
 
         # Initialize SemanticRelationshipLinker (optional)
         if config.use_semantic_helper:
             self.semantic_helper = SemanticRelationshipLinker[Model, DtoType](
                 service=self,
-                backend_get_method=config.backend_get_method,
                 dto_class=config.dto_class,
                 model_class=config.model_class,
                 domain=config.domain,

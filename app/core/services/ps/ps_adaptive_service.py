@@ -17,7 +17,7 @@ See: /docs/architecture/CURRICULUM_GROUPING_PATTERNS.md
 
 import contextlib
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from core.models.curriculum import Curriculum
 from core.models.enums import LearningLevel, SELCategory
@@ -36,7 +36,11 @@ from core.models.user.user_intelligence import IntelligenceSource, UserLearningI
 from core.utils.decorators import with_error_handling
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
+from core.utils.neo4j_props import coerce_float
 from core.utils.result_simplified import Errors, Result
+
+if TYPE_CHECKING:
+    from core.ports.curriculum_protocols import PsOperations
 
 logger = get_logger("skuel.services.ps.adaptive")
 
@@ -54,7 +58,7 @@ class PsAdaptiveService:
 
     def __init__(
         self,
-        backend: Any,  # PS backend operations
+        backend: "PsOperations",
         user_service: Any = None,
     ) -> None:
         if not backend:
@@ -415,13 +419,13 @@ class PsAdaptiveService:
                 if not ku_uid:
                     continue
 
-                mastery_level_str = record.get("mastery_level", "introduced")
+                mastery_level_str = record.get("mastery_level") or "introduced"
                 try:
                     mastery_level = MasteryLevel(mastery_level_str)
                 except (ValueError, KeyError):  # fmt: skip
                     mastery_level = MasteryLevel.INTRODUCED
 
-                velocity_str = record.get("learning_velocity", "moderate")
+                velocity_str = record.get("learning_velocity") or "moderate"
                 try:
                     learning_velocity = LearningVelocity(velocity_str)
                 except (ValueError, KeyError):  # fmt: skip
@@ -464,12 +468,12 @@ class PsAdaptiveService:
                     knowledge_uid=ku_uid,
                     sel_category=sel_category,
                     mastery_level=mastery_level,
-                    confidence_score=float(record.get("confidence_score", 0.5)),
-                    mastery_score=float(record.get("mastery_score", 0.0)),
+                    confidence_score=coerce_float(record.get("confidence_score"), 0.5),
+                    mastery_score=coerce_float(record.get("mastery_score"), 0.0),
                     learning_velocity=learning_velocity,
                     time_to_mastery_hours=record.get("time_to_mastery_hours"),
                     review_frequency_days=record.get("review_frequency_days"),
-                    mastery_evidence=record.get("mastery_evidence", []),
+                    mastery_evidence=list(record.get("mastery_evidence") or []),
                     last_reviewed=last_reviewed,
                     last_practiced=last_practiced,
                     learning_path_context=record.get("learning_path_context"),
