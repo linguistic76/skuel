@@ -4979,6 +4979,20 @@ class SkuelLinter:
         assignments counts — the fail-closed direction for a suppression-adjacent
         question.
 
+        Collection is **module-scope**: traversed through compound statements, so
+        an alias under ``if TYPE_CHECKING:`` counts, but never into a function or
+        class body. Merging every scope module-wide is not merely over-broad, it
+        produces FALSE POSITIVES — a function-local ``type BackendT = Any``
+        would condemn an unrelated module-level ``BackendT = GoodOps`` and fail
+        the gate on valid code (Codex, #1095). On a blocking ERROR rule a false
+        positive costs more than an exotic missed spelling, and an alias that
+        governs a class-attribute annotation lives at module scope anyway.
+
+        The ``TypeAlias`` marker is itself resolved through its import aliases
+        (``from typing import TypeAlias as TA``), for the same reason ``Any`` is:
+        matching one literal spelling of a name that can be renamed at the import
+        is the bypass class this helper exists to close.
+
         An alias's TARGET is read with ``_extract_annotation_refs`` — the same
         parser the annotation side uses — rather than a hand-rolled
         ``Name``/``Attribute`` test. That is what keeps the two sides honest:
@@ -4989,16 +5003,35 @@ class SkuelLinter:
         ``dict[str, Any]`` resolve identically wherever they appear.
         """
         aliases = {"Any"}
+        markers = {"TypeAlias"}
         definitions: list[tuple[str, set[str]]] = []
+
+        # Module scope only — traversed through compound statements (a
+        # `if TYPE_CHECKING:` alias still counts) but never into a function or
+        # class body. Same scope notion `_find_class_body_backend_declaration`
+        # uses, one level up.
+        module_scope = list(
+            SkuelLinter._walk_pruned(tree, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+        )
 
         def _record(name: str, value: ast.expr) -> None:
             refs = {ref for _lookup, ref in SkuelLinter._extract_annotation_refs(value)}
             definitions.append((name, refs))
 
-        for node in ast.walk(tree):
+        # Pass 1 — import spellings, so pass 2 does not depend on import order.
+        for node in module_scope:
             if isinstance(node, ast.ImportFrom) and node.module == "typing":
-                aliases.update(a.asname for a in node.names if a.name == "Any" and a.asname)
-            elif isinstance(node, ast.Assign):
+                for imported in node.names:
+                    if not imported.asname:
+                        continue
+                    if imported.name == "Any":
+                        aliases.add(imported.asname)
+                    elif imported.name == "TypeAlias":
+                        markers.add(imported.asname)
+
+        # Pass 2 — alias definitions.
+        for node in module_scope:
+            if isinstance(node, ast.Assign):
                 # `X = Any` — the bare statement form.
                 for target in node.targets:
                     if isinstance(target, ast.Name):
@@ -5007,7 +5040,7 @@ class SkuelLinter:
                 # `X: TypeAlias = Any` — PEP 613. An alias only when annotated as
                 # one; `X: SomeType = ...` is an ordinary variable.
                 is_alias = any(
-                    ref == "TypeAlias"
+                    ref in markers
                     for _lookup, ref in SkuelLinter._extract_annotation_refs(node.annotation)
                 )
                 if is_alias and node.value is not None and isinstance(node.target, ast.Name):

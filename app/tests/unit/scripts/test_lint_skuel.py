@@ -4699,6 +4699,69 @@ class TestSKUEL023AnnotationStrength:
         violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
         assert len(violations) == 1
 
+    def test_flags_aliased_typealias_marker(self) -> None:
+        """`from typing import TypeAlias as TA` + `B: TA = Any`.
+
+        Codex, PR #1095. Matching one literal spelling of a name that can be
+        renamed at the import is the exact bypass class this helper exists to
+        close for `Any`; the PEP 613 marker gets the same treatment.
+        """
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import Any, TypeAlias as TA\n"
+            "\n"
+            "BackendT: TA = Any\n"
+            "\n"
+            "\n"
+            "class XMixin:\n"
+            "    backend: BackendT\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
+        assert len(violations) == 1
+
+    def test_function_local_alias_does_not_contaminate_module_scope(self) -> None:
+        """NEGATIVE CONTROL — a FALSE POSITIVE, not a missed bypass.
+
+        Codex, PR #1095. Merging every scope module-wide let a function-local
+        `type BackendT = Any` condemn an unrelated module-level
+        `BackendT = GoodOps`, failing a blocking ERROR rule on valid code. On a
+        gate, a false positive costs more than an exotic missed spelling.
+        """
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "BackendT = GoodOps\n"
+            "\n"
+            "\n"
+            "def helper() -> None:\n"
+            "    type BackendT = Any\n"
+            "    _x: BackendT = None\n"
+            "\n"
+            "\n"
+            "class XMixin:\n"
+            "    backend: BackendT\n"
+            "\n"
+            "    async def do(self) -> None:\n"
+            "        await self.backend.get('x')\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
+        assert violations == []
+
+    def test_module_alias_under_type_checking_still_counts(self) -> None:
+        """Module scope is traversed through compound statements, like class scope."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import TYPE_CHECKING\n"
+            "\n"
+            "if TYPE_CHECKING:\n"
+            "    type BackendT = Any\n"
+            "\n"
+            "\n"
+            "class XMixin:\n"
+            "    backend: BackendT\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
+        assert len(violations) == 1
+
     def test_annotated_non_alias_assignment_is_not_an_alias(self) -> None:
         """NEGATIVE CONTROL: `x: int = 5` is a variable, not a type alias.
 
