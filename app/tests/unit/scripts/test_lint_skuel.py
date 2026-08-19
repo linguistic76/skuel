@@ -4651,6 +4651,72 @@ class TestSKUEL023AnnotationStrength:
         violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
         assert len(violations) == 1
 
+    def test_flags_pep613_annotated_type_alias(self) -> None:
+        """`X: TypeAlias = Any` — PEP 613, the pre-695 explicit spelling.
+
+        Codex, PR #1095. An `AnnAssign`, so neither the `Assign` nor the
+        `TypeAlias` arm saw it.
+        """
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import Any, TypeAlias\n"
+            "\n"
+            "BackendT: TypeAlias = Any\n"
+            "\n"
+            "\n"
+            "class XMixin:\n"
+            "    backend: BackendT\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
+        assert len(violations) == 1
+
+    def test_flags_forward_declared_alias_chain(self) -> None:
+        """`type B = A` BEFORE `type A = Any` — PEP 695 aliases are lazy.
+
+        Codex, PR #1095. A single pass in source order let the file's layout
+        decide whether the rule fired; mypy resolves this either way, so the
+        rule resolves to a fixed point.
+        """
+        linter = make_linter(["SKUEL023"])
+        content = "type B = A\ntype A = Any\n\n\nclass XMixin:\n    backend: B\n"
+        violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
+        assert len(violations) == 1
+
+    def test_flags_mixed_spelling_alias_chain(self) -> None:
+        """All four spellings resolve through one another, in any order."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import TypeAlias\n"
+            "\n"
+            'A = "Any"\n'
+            "B: TypeAlias = A\n"
+            "type C = B\n"
+            "\n"
+            "\n"
+            "class XMixin:\n"
+            "    backend: C\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
+        assert len(violations) == 1
+
+    def test_annotated_non_alias_assignment_is_not_an_alias(self) -> None:
+        """NEGATIVE CONTROL: `x: int = 5` is a variable, not a type alias.
+
+        Only an `AnnAssign` annotated `TypeAlias` may define one — otherwise
+        every annotated module constant would enter alias resolution.
+        """
+        linter = make_linter(["SKUEL023"])
+        content = "x: int = 5\n\n\nclass XMixin:\n    backend: ChoicesOperations\n"
+        violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
+        assert violations == []
+
+    def test_cyclic_alias_terminates(self) -> None:
+        """A self-referential or mutually recursive alias must not hang the fixed point."""
+        linter = make_linter(["SKUEL023"])
+        content = "type A = B\ntype B = A\n\n\nclass XMixin:\n    backend: ChoicesOperations\n"
+        violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
+        assert violations == []
+
     def test_pep695_string_alias_to_protocol_is_clean(self) -> None:
         """NEGATIVE CONTROL: parsing alias strings must not flag real ones."""
         linter = make_linter(["SKUEL023"])

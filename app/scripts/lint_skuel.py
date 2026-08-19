@@ -4965,11 +4965,19 @@ class SkuelLinter:
         out needs no entry: ``_extract_annotation_refs`` returns ``Any`` as the
         Attribute chain's tail.
 
-        All three re-export spellings count — the import alias, the statement form
-        ``X = Any``, and PEP 695 ``type X = Any`` (Codex, #1095). The last is the
-        *newest* of the three and so the likeliest to be written next in a 3.14
-        codebase; covering two of three would have been an accident of when each
-        was added, not a decision.
+        All four re-export spellings count — the import alias, the statement form
+        ``X = Any``, PEP 613 ``X: TypeAlias = Any``, and PEP 695
+        ``type X = Any`` (Codex, #1095). Covering a subset would have been an
+        accident of when each spelling was added, not a decision.
+
+        Resolution is a **fixed point over collected definitions**, not one pass
+        in source order. PEP 695 aliases are lazily evaluated, so
+        ``type A = B`` may legally precede ``type B = Any`` and a type checker
+        resolves it either way; a single ordered pass would let a file's layout
+        decide whether the rule fires. Every definition of a name is recorded
+        (not just the last), so a name that is ``Any`` on any one of its
+        assignments counts — the fail-closed direction for a suppression-adjacent
+        question.
 
         An alias's TARGET is read with ``_extract_annotation_refs`` — the same
         parser the annotation side uses — rather than a hand-rolled
@@ -4981,26 +4989,44 @@ class SkuelLinter:
         ``dict[str, Any]`` resolve identically wherever they appear.
         """
         aliases = {"Any"}
+        definitions: list[tuple[str, set[str]]] = []
+
+        def _record(name: str, value: ast.expr) -> None:
+            refs = {ref for _lookup, ref in SkuelLinter._extract_annotation_refs(value)}
+            definitions.append((name, refs))
+
         for node in ast.walk(tree):
             if isinstance(node, ast.ImportFrom) and node.module == "typing":
                 aliases.update(a.asname for a in node.names if a.name == "Any" and a.asname)
-                continue
+            elif isinstance(node, ast.Assign):
+                # `X = Any` — the bare statement form.
+                for target in node.targets:
+                    if isinstance(target, ast.Name):
+                        _record(target.id, node.value)
+            elif isinstance(node, ast.AnnAssign):
+                # `X: TypeAlias = Any` — PEP 613. An alias only when annotated as
+                # one; `X: SomeType = ...` is an ordinary variable.
+                is_alias = any(
+                    ref == "TypeAlias"
+                    for _lookup, ref in SkuelLinter._extract_annotation_refs(node.annotation)
+                )
+                if is_alias and node.value is not None and isinstance(node.target, ast.Name):
+                    _record(node.target.id, node.value)
+            elif isinstance(node, ast.TypeAlias) and isinstance(node.name, ast.Name):
+                # `type X = Any` — PEP 695.
+                _record(node.name.id, node.value)
 
-            # `X = Any` / `X = typing.Any` (statement form) and `type X = Any`
-            # (PEP 695) are the same re-export one spelling apart.
-            if isinstance(node, ast.Assign):
-                value: ast.expr | None = node.value
-                targets = [t.id for t in node.targets if isinstance(t, ast.Name)]
-            elif isinstance(node, ast.TypeAlias):
-                value = node.value
-                targets = [node.name.id] if isinstance(node.name, ast.Name) else []
-            else:
-                continue
-
-            if value is not None and aliases.intersection(
-                name for _lookup, name in SkuelLinter._extract_annotation_refs(value)
-            ):
-                aliases.update(targets)
+        # Fixed point, not one ordered pass: PEP 695 aliases are lazily
+        # evaluated, so `type A = B` may legally precede `type B = Any` and mypy
+        # resolves it either way. Iterating in source order would let the file's
+        # layout decide whether the rule fires (Codex, #1095).
+        changed = True
+        while changed:
+            changed = False
+            for name, refs in definitions:
+                if name not in aliases and refs & aliases:
+                    aliases.add(name)
+                    changed = True
         return aliases
 
     @staticmethod
