@@ -12,36 +12,40 @@ related_docs:
 
 # BackendOperations Protocol Architecture
 
-*Last updated: 2026-07-26*
+*Last updated: 2026-08-19*
 
 ## Core Principle
 
 **"One path forward, ISP-compliant composition"**
 
-`BackendOperations[T]` is THE full backend protocol for SKUEL. It composes 7 focused sub-protocols following the Interface Segregation Principle (ISP).
+`BackendOperations[T]` is THE full backend protocol for SKUEL. It composes 10 focused sub-protocols following the Interface Segregation Principle (ISP).
 
 ## Protocol Hierarchy
 
 ```
 BackendOperations[T]  ← THE protocol (UniversalNeo4jBackend implements this)
-    ├── CrudOperations[T]              (6 methods)
-    ├── EntitySearchOperations[T]      (3 methods)
-    ├── RelationshipCrudOperations     (6 methods)
-    ├── RelationshipMetadataOperations (3 methods)
-    ├── RelationshipQueryOperations    (3 methods)
-    ├── GraphTraversalOperations       (2 methods)
-    └── LowLevelOperations             (2 methods + driver)
+    ├── CrudOperations[T]                  (7 methods)
+    ├── EntitySearchOperations[T]          (3 methods)
+    ├── RelationshipCrudOperations         (6 methods)
+    ├── RelationshipMetadataOperations     (3 methods)
+    ├── RelationshipQueryOperations        (3 methods)
+    ├── OrderedRelationshipOperations      (7 methods)
+    ├── BatchRelationshipOperations        (3 methods)
+    ├── UserEntityRelationshipOperations   (1 method)
+    ├── GraphTraversalOperations           (2 methods)
+    └── LowLevelOperations                 (2 methods + driver)
 ```
 
 ## Sub-Protocol Details
 
-### CrudOperations[T] (6 methods)
+### CrudOperations[T] (7 methods)
 Core CRUD operations for domain entities. The fundamental operations every backend must support.
 
 ```python
 class CrudOperations[T: DomainModelProtocol](Protocol):
     async def create(self, entity: T) -> Result[T]: ...
     async def get(self, uid: str) -> Result[T | None]: ...
+    async def get_visible_to_user(self, uid: str, user_uid: UserUID, visibility: SearchVisibility | None) -> Result[T | None]: ...
     async def get_many(self, uids: list[str]) -> Result[list[T | None]]: ...
     async def update(self, uid: str, updates: Neo4jProperties) -> Result[T]: ...
     async def delete(self, uid: str, cascade: bool = False) -> Result[bool]: ...
@@ -97,13 +101,49 @@ class RelationshipQueryOperations(Protocol):
     async def count_relationships_batch(self, requests: list[tuple[str, str, str | None]]) -> Result[dict]: ...
 ```
 
+### OrderedRelationshipOperations (7 methods)
+Ordered and hierarchical traversal driven by edge properties — the curriculum shape, where
+"the steps of this path" is an order rather than a set. Implemented by
+`_RelationshipOrderedMixin`; consumed by `OrderedRelationshipsMixin` on
+`UnifiedRelationshipService`.
+
+```python
+class OrderedRelationshipOperations(Protocol):
+    async def get_ordered_related_uids(self, entity_label: NeoLabel, entity_uid: str, relationship_type: str, direction: Direction, order_by_property: str | None = None, order_direction: str = "ASC") -> Result[list[str]]: ...
+    async def get_related_with_metadata(self, ...) -> Result[list[dict[str, Any]]]: ...
+    async def reorder_relationships(self, ..., target_uid_sequence: list[str], sequence_property: str = "sequence") -> Result[int]: ...
+    async def create_relationship_with_properties(self, entity_uid: str, target_uid: str, relationship_type: RelationshipName, direction: Direction, edge_properties: dict[str, Any]) -> Result[bool]: ...
+    async def get_hierarchical_children_single(self, ...) -> Result[list[dict[str, Any]]]: ...
+    async def get_hierarchical_children_two_level(self, ...) -> Result[list[dict[str, Any]]]: ...
+    async def get_hierarchical_children_deep(self, ...) -> Result[list[dict[str, Any]]]: ...
+```
+
+### BatchRelationshipOperations (3 methods)
+N+1 elimination: one query answers a relationship question for many source entities, keyed
+by UID. Implemented by `_RelationshipCrudMixin`; consumed by `BatchOperationsMixin`.
+
+```python
+class BatchRelationshipOperations(Protocol):
+    async def batch_has_relationship(self, entity_label: NeoLabel, entity_uids: list[str], relationship_type: str, direction: Direction) -> Result[dict[str, bool]]: ...
+    async def batch_count_related(self, ...) -> Result[dict[str, int]]: ...
+    async def batch_get_related_uids(self, ...) -> Result[dict[str, list[str]]]: ...
+```
+
+### UserEntityRelationshipOperations (1 method)
+The user→entity ownership edge. Implemented by `_UserEntityMixin`.
+
+```python
+class UserEntityRelationshipOperations(Protocol):
+    async def create_user_relationship(self, user_uid: UserUID, entity_uid: EntityUID, relationship_type: RelationshipName | None = None, metadata: dict[str, Any] | None = None) -> Result[bool]: ...
+```
+
 ### GraphTraversalOperations (2 methods)
 Graph traversal operations for path finding and context queries.
 
 ```python
 class GraphTraversalOperations(Protocol):
     async def traverse(self, start_uid: str, rel_pattern: str, max_depth: int = 3, include_properties: bool = False) -> Any: ...
-    async def get_domain_context_raw(self, entity_uid: EntityUID, entity_label: str, relationship_types: list[str], depth: int = 2, min_confidence: float = 0.7, bidirectional: bool = False) -> Result[list[GraphContextNode]]: ...
+    async def get_domain_context_raw(self, entity_uid: EntityUID, entity_label: NeoLabel, relationship_types: list[str], depth: int = 2, min_confidence: float = 0.7, bidirectional: bool = False) -> Result[list[GraphContextNode]]: ...
 ```
 
 ### LowLevelOperations (2 methods + driver)
@@ -312,7 +352,7 @@ clauses), and mark those with a `# boundary:` comment per the `Any` policy.
 1. **One Path Forward** - `BackendOperations` is THE protocol, no legacy alternatives
 2. **ISP-Compliant** - Services can depend on only the operations they need
 3. **Easier Testing** - Mock only the sub-protocols you use
-4. **Clear Hierarchy** - 7 focused sub-protocols compose into 1 full protocol
+4. **Clear Hierarchy** - 10 focused sub-protocols compose into 1 full protocol
 5. **Type Safety** - Generic type parameter `T` provides compile-time safety
 
 ## Implementation

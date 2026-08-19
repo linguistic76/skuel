@@ -2,7 +2,7 @@
 
 ## Overview
 
-**Architecture:** Extends `BaseAnalyticsService[Any, Lp]` (Facade Pattern)
+**Architecture:** Extends `BaseAnalyticsService[LpOperations, LearningPath]` (Facade Pattern)
 **Location:** `/core/services/lp/lp_intelligence_service.py`
 **Service Name:** `lp.intelligence`
 **Lines:** ~1,342 (facade) + ~2,467 (4 sub-services)

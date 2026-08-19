@@ -49,7 +49,7 @@ Services >~350 lines are decomposed into mixin files in the same package directo
 | **Curriculum (3)** |
 | KU | `KuIntelligenceService` | `_CoreIntelligenceMixin[Ku], BaseAnalyticsService["BackendOperations[Ku]", Ku]` | Knowledge graph analytics + dual-track mastery ADR-030 (`assess_mastery_dual_track`, per-(user, Ku)) |
 | PS | `PsIntelligenceService` | `_CoreIntelligenceMixin[PathStep], BaseAnalyticsService["BackendOperations[PathStep]", PathStep]` | Readiness checks |
-| LP | `LpIntelligenceService` | `_CoreIntelligenceMixin[LearningPath], BaseAnalyticsService[Any, LearningPath]` | Learning state analysis |
+| LP | `LpIntelligenceService` | `_CoreIntelligenceMixin[LearningPath], BaseAnalyticsService[LpOperations, LearningPath]` | Learning state analysis |
 
 **Key pattern:** The second type parameter is the domain's own model — `Task` for tasks, `Habit` for habits, `Ku` for knowledge units, `PathStep` for path steps, `LearningPath` for learning paths. PS, LP, and KU inherit `_CoreIntelligenceMixin[T]` directly (no per-domain mixin wrapper) and get a typed `get_with_context() -> Result[tuple[T, GraphContext]]` for free.
 
