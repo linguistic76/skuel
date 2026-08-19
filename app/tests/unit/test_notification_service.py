@@ -10,6 +10,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from core.models.enums.entity_enums import EntityType
 from core.services.notifications.notification_service import NotificationService
 from core.utils.result_simplified import Result
 
@@ -48,7 +49,7 @@ async def test_create_notification_success(service, mock_backend):
         title="New feedback",
         message="Your teacher provided feedback.",
         source_uid="ku_feedback_xyz",
-        source_type="entry_report",
+        source_type=EntityType.ENTRY_REPORT,
     )
 
     assert not result.is_error
@@ -59,6 +60,8 @@ async def test_create_notification_success(service, mock_backend):
     params = call_args[0][0]
     assert params["user_uid"] == "user_student"
     assert params["notification_type"] == "feedback_received"
+    # Enums reach the wire as their canonical value, never as repr
+    assert params["source_type"] == "entry_report"
 
 
 @pytest.mark.asyncio
@@ -72,7 +75,7 @@ async def test_create_notification_user_not_found(service, mock_backend):
         title="Test",
         message="Test",
         source_uid="ku_test",
-        source_type="test",
+        source_type=EntityType.USER_ENTRY,
     )
 
     assert result.is_error
@@ -152,7 +155,7 @@ async def test_get_notifications(service, mock_backend):
     assert first.title == "New feedback"
     assert first.message == "Your teacher reviewed your work."
     assert first.source_uid == "ku_fb_1"
-    assert first.source_type == "entry_report"
+    assert first.source_type is EntityType.ENTRY_REPORT
     # user_uid comes from the caller — the query already scoped the rows to them
     assert first.user_uid == "user_student"
     assert first.created_at == datetime(2026, 2, 15, 10, 0, 0)
@@ -185,6 +188,29 @@ async def test_get_notifications_unparseable_created_at_falls_back(service, mock
     assert len(result.value) == 1
     assert result.value[0].uid == "notif_bad"
     assert isinstance(result.value[0].created_at, datetime)
+
+
+@pytest.mark.asyncio
+async def test_get_notifications_unknown_source_type_fails(service, mock_backend):
+    """An unresolvable source_type is schema drift — fail, don't guess."""
+    mock_backend.get_notifications.return_value = Result.ok(
+        [
+            {
+                "uid": "notif_drift",
+                "notification_type": "feedback_received",
+                "title": "New feedback",
+                "message": "Your teacher reviewed your work.",
+                "source_uid": "ku_fb_1",
+                "source_type": "not_an_entity_type",
+                "read": False,
+                "created_at": "2026-02-15T10:00:00",
+            },
+        ]
+    )
+
+    result = await service.get_notifications("user_student", limit=20)
+
+    assert result.is_error
 
 
 # ============================================================================

@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING, Protocol
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
+    from core.models.enums.entity_enums import EntityType
     from core.models.type_hints import Neo4jProperties, UserUID
     from core.ports.query_types import NotificationRow
 
@@ -91,7 +92,7 @@ class NotificationOperations(Protocol):
         title: str,
         message: str,
         source_uid: str,
-        source_type: str,
+        source_type: EntityType,
     ) -> Result[str]:
         """Raise a notification for a user; returns the new notification's uid."""
         ...

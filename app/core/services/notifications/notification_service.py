@@ -18,6 +18,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING
 
+from core.models.enums.entity_enums import EntityType
 from core.models.notification import Notification
 from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
@@ -46,7 +47,7 @@ class NotificationService:
         title: str,
         message: str,
         source_uid: str,
-        source_type: str,
+        source_type: EntityType,
     ) -> Result[str]:
         """
         Create a notification and link to user via HAS_NOTIFICATION.
@@ -57,7 +58,7 @@ class NotificationService:
             title: Short display title
             message: Longer description
             source_uid: The entity UID that triggered this
-            source_type: Entity type (e.g., "entry_report")
+            source_type: Kind of entity source_uid points at
 
         Returns:
             Result containing the notification UID
@@ -73,7 +74,7 @@ class NotificationService:
                 "title": title,
                 "message": message,
                 "source_uid": source_uid,
-                "source_type": source_type,
+                "source_type": source_type.value,
                 "now": now,
             },
         )
@@ -125,29 +126,53 @@ class NotificationService:
         if result.is_error:
             return Result.fail(result)
 
-        return Result.ok([self._row_to_notification(row, user_uid) for row in result.value])
+        notifications: list[Notification] = []
+        for row in result.value:
+            built = self._row_to_notification(row, user_uid)
+            if built.is_error:
+                return Result.fail(built)
+            notifications.append(built.value)
 
-    def _row_to_notification(self, row: NotificationRow, user_uid: UserUID) -> Notification:
+        return Result.ok(notifications)
+
+    def _row_to_notification(self, row: NotificationRow, user_uid: UserUID) -> Result[Notification]:
         """Build a Notification from one backend row.
 
         ``user_uid`` comes from the caller rather than the row: the query filters
         on ``n.user_uid = $user_uid``, so every row already belongs to that user
         and returning the column again would be redundant.
 
+        ``source_type`` is stored as the canonical ``EntityType`` value. Only this
+        service writes it, so an unresolvable one is schema drift rather than user
+        data — fail at the read boundary instead of guessing (the page degrades to
+        an empty list, which is visible without being fatal).
+
         ``created_at`` arrives as a Neo4j temporal from the graph and as an ISO
         string from any caller that round-tripped the row through JSON; both are
         normalised here so the model always carries a Python datetime.
         """
-        return Notification(
-            uid=row["uid"],
-            user_uid=user_uid,
-            notification_type=row["notification_type"],
-            title=row["title"],
-            message=row["message"],
-            source_uid=row["source_uid"],
-            source_type=row["source_type"],
-            read=row["read"],
-            created_at=self._coerce_created_at(row),
+        source_type = EntityType.from_string(str(row["source_type"]))
+        if source_type is None:
+            return Result.fail(
+                Errors.database(
+                    "get_notifications",
+                    f"Notification {row['uid']} carries an unknown source_type "
+                    f"{row['source_type']!r}",
+                )
+            )
+
+        return Result.ok(
+            Notification(
+                uid=row["uid"],
+                user_uid=user_uid,
+                notification_type=row["notification_type"],
+                title=row["title"],
+                message=row["message"],
+                source_uid=row["source_uid"],
+                source_type=source_type,
+                read=row["read"],
+                created_at=self._coerce_created_at(row),
+            )
         )
 
     def _coerce_created_at(self, row: NotificationRow) -> datetime:

@@ -27,6 +27,7 @@ from core.events.learning_loop_events import (
     UserEntryApproved,
     UserEntryRevisionRequested,
 )
+from core.models.enums.entity_enums import EntityType
 from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
 
@@ -53,7 +54,7 @@ async def handle_report_submitted(
         title="New feedback on your submission",
         message="Your teacher reviewed your submission and left feedback.",
         source_uid=event.report_uid,
-        source_type="entry_report",
+        source_type=EntityType.ENTRY_REPORT,
     )
 
     if result.is_error:
@@ -92,7 +93,7 @@ async def handle_submission_approved(
         title="Your submission was approved",
         message=message,
         source_uid=event.entity_uid,
-        source_type="user_entry",
+        source_type=EntityType.USER_ENTRY,
     )
 
     if result.is_error:
@@ -132,7 +133,7 @@ async def handle_revision_requested(
         title="Revision requested on your submission",
         message="Your teacher has requested changes to your submission.",
         source_uid=source_uid,
-        source_type="entry_report",
+        source_type=EntityType.ENTRY_REPORT,
     )
 
     if result.is_error:
@@ -169,7 +170,7 @@ async def handle_revised_exercise_created(
         title="Revision instructions are ready",
         message=f"Your teacher created {revision_label} instructions based on your submission feedback.",
         source_uid=event.revised_exercise_uid,
-        source_type="revised_exercise",
+        source_type=EntityType.REVISED_EXERCISE,
     )
 
     if result.is_error:

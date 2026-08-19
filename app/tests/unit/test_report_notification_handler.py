@@ -24,6 +24,7 @@ from core.events.learning_loop_events import (
     UserEntryApproved,
     UserEntryRevisionRequested,
 )
+from core.models.enums.entity_enums import EntityType
 from core.utils.result_simplified import Result
 
 
@@ -59,7 +60,7 @@ async def test_handle_report_submitted_creates_notification(mock_notification_se
         title="New feedback on your submission",
         message="Your teacher reviewed your submission and left feedback.",
         source_uid="ku_feedback_456",
-        source_type="entry_report",
+        source_type=EntityType.ENTRY_REPORT,
     )
 
 
@@ -103,7 +104,7 @@ async def test_handle_submission_approved_creates_notification(mock_notification
         title="Your submission was approved",
         message="Your teacher approved your work on this submission.",
         source_uid="ku_submission_123",
-        source_type="user_entry",
+        source_type=EntityType.USER_ENTRY,
     )
 
 
@@ -165,7 +166,7 @@ async def test_handle_revision_requested_creates_notification(mock_notification_
         title="Revision requested on your submission",
         message="Your teacher has requested changes to your submission.",
         source_uid="ku_feedback_789",
-        source_type="entry_report",
+        source_type=EntityType.ENTRY_REPORT,
     )
 
 
@@ -210,7 +211,7 @@ async def test_handle_revised_exercise_created_creates_notification(mock_notific
         title="Revision instructions are ready",
         message="Your teacher created revision instructions based on your submission feedback.",
         source_uid="re_revision_abc",
-        source_type="revised_exercise",
+        source_type=EntityType.REVISED_EXERCISE,
     )
 
 

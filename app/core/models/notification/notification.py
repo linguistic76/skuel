@@ -14,6 +14,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 
+from core.models.enums.entity_enums import EntityType
 from core.models.type_hints import UserUID
 
 
@@ -31,6 +32,6 @@ class Notification:
     title: str  # Short display title
     message: str  # Longer description
     source_uid: str  # The entity UID that triggered this notification
-    source_type: str  # Entity type (e.g., "entry_report", "user_entry")
+    source_type: EntityType  # Kind of entity source_uid points at
     read: bool = False
     created_at: datetime = field(default_factory=datetime.now)
