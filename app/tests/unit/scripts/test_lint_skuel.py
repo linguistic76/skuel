@@ -4188,10 +4188,11 @@ class TestSKUEL023:
 
 
 class TestSKUEL023AnnotationStrength:
-    """SKUEL023's second sub-check (PR2b): a core/ class that ASSIGNS self.backend
-    must type it against a core/ports protocol. `Any` and bare-unannotated both
-    defeat the boundary, because either way every self.backend.<method>() call in
-    the class goes unchecked."""
+    """SKUEL023's second sub-check: a core/ class that ASSIGNS self.backend (PR2b,
+    #1092) or only DECLARES a class-body `backend:` (PR-C) must type it against a
+    core/ports protocol. `Any` and bare-unannotated both defeat the boundary,
+    because either way every self.backend.<method>() call in the class goes
+    unchecked."""
 
     def test_flags_any_via_init_param(self) -> None:
         """The dominant real-world form: `def __init__(self, backend: Any)`.
@@ -4337,10 +4338,14 @@ class TestSKUEL023AnnotationStrength:
         violations = lint_content(linter, content, file_path="core/services/base_planning.py")
         assert violations == []
 
-    def test_declaration_only_mixin_does_not_trigger(self) -> None:
-        """Scope A: a mixin that DECLARES `backend: Any` without assigning it is
-        not this rule's business — the host owns the object. Retyping the 27
-        declaration-only mixins is separate follow-on work."""
+    def test_flags_declaration_only_mixin(self) -> None:
+        """A mixin that DECLARES `backend: Any` without assigning it triggers too.
+
+        The host owning the object never made the *mixin's* calls checkable —
+        `self.backend.get('x')` below is unchecked exactly as it would be on an
+        assigner. All 27 such sites were retyped first (#1093, #1094), so this
+        trigger landed on a clean tree with zero suppressions.
+        """
         linter = make_linter(["SKUEL023"])
         content = (
             "from typing import Any\n"
@@ -4353,6 +4358,182 @@ class TestSKUEL023AnnotationStrength:
             "        await self.backend.get('x')\n"
         )
         violations = lint_content(linter, content, file_path="core/services/relationships/_m.py")
+        assert len(violations) == 1
+        assert violations[0].rule_id == "SKUEL023"
+        assert violations[0].severity == Severity.ERROR
+        assert "IntelligenceMixin.backend" in violations[0].message
+        assert "is typed `Any`" in violations[0].message
+        assert "declaration-only" in violations[0].message
+        # Anchored on the declaration, not on the call site that suffers for it.
+        assert violations[0].line_number == 5
+
+    def test_flags_dead_declaration_only_mixin(self) -> None:
+        """A declaration with ZERO self.backend calls flags — fix is deletion.
+
+        8 of the 27 were this shape. Keying on *use* instead would make the same
+        line legal or illegal depending on lines elsewhere, and would stay silent
+        at the moment that matters: when someone later adds the first call to a
+        declaration that predates it.
+        """
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import Any\n"
+            "\n"
+            "class _DualTrackMixin:\n"
+            "    backend: Any\n"
+            "\n"
+            "    def compute(self) -> int:\n"
+            "        return 1\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/goals/_dual_track.py")
+        assert len(violations) == 1
+        assert "delete the line" in violations[0].suggestion
+
+    def test_declaration_only_protocol_is_clean(self) -> None:
+        """NEGATIVE CONTROL: the target state the 27 sites were moved to.
+
+        `backend: 'ChoicesOperations'` — a forward-ref string naming a core/ports
+        protocol — is the live shape of 15 of them and must stay silent.
+        """
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "class _AnalyticsMixin:\n"
+            "    # Provided by ChoicesIntelligenceService.__init__\n"
+            "    backend: 'ChoicesOperations'\n"
+            "\n"
+            "    async def do(self) -> None:\n"
+            "        await self.backend.get('x')\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/choices/_a.py")
+        assert violations == []
+
+    def test_declaration_only_typevar_is_clean(self) -> None:
+        """NEGATIVE CONTROL: the relationship trio declares `backend: Ops` (#1094)."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "class OrderedRelationshipsMixin[Ops: BackendOperations]:\n"
+            "    backend: Ops\n"
+            "\n"
+            "    async def do(self) -> None:\n"
+            "        await self.backend.get('x')\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/relationships/_o.py")
+        assert violations == []
+
+    def test_declaration_only_nested_class_not_credited_to_outer(self) -> None:
+        """The nested-ClassDef bug Codex caught (#1092), on the new trigger.
+
+        `Outer` declares nothing; only `Inner` does. Walking the subtree would
+        report both.
+        """
+        linter = make_linter(["SKUEL023"])
+        content = "from typing import Any\n\nclass Outer:\n    class Inner:\n        backend: Any\n"
+        violations = lint_content(linter, content, file_path="core/services/x_service.py")
+        assert len(violations) == 1
+        assert "Inner.backend" in violations[0].message
+
+    def test_assigner_with_any_declaration_reported_once(self) -> None:
+        """A class that declares AND assigns is one violation, not two.
+
+        The two triggers are mutually exclusive by construction: the declaration
+        branch runs only when no assignment was found.
+        """
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import Any\n"
+            "\n"
+            "class XService:\n"
+            "    backend: Any\n"
+            "\n"
+            "    def __init__(self, backend: SomeOps) -> None:\n"
+            "        self.backend = backend\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_service.py")
+        assert len(violations) == 1
+        assert "declaration-only" not in violations[0].message
+
+    def test_flags_type_checking_guarded_declaration(self) -> None:
+        """A class-body `if TYPE_CHECKING:` shares class-body scope — so must the rule.
+
+        Codex, PR #1095. Iterating `cls.body` directly saw only the `If` statement,
+        so a mixin could declare `backend: Any` under the guard, call
+        `self.backend.<x>()` freely, and report clean — a silent bypass of a
+        brand-new trigger. A type checker treats the guarded declaration as the
+        attribute's annotation; the rule now traverses compound statements to
+        match.
+        """
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import TYPE_CHECKING, Any\n"
+            "\n"
+            "class SneakyMixin:\n"
+            "    if TYPE_CHECKING:\n"
+            "        backend: Any\n"
+            "\n"
+            "    async def do(self) -> None:\n"
+            "        await self.backend.get('x')\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
+        assert len(violations) == 1
+        assert "SneakyMixin.backend" in violations[0].message
+        assert violations[0].line_number == 5
+
+    def test_guarded_declaration_typed_against_protocol_is_clean(self) -> None:
+        """NEGATIVE CONTROL: traversing the guard must not flag what it finds there."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import TYPE_CHECKING\n"
+            "\n"
+            "class _AnalyticsMixin:\n"
+            "    if TYPE_CHECKING:\n"
+            "        backend: 'ChoicesOperations'\n"
+            "\n"
+            "    async def do(self) -> None:\n"
+            "        await self.backend.get('x')\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/choices/_a.py")
+        assert violations == []
+
+    def test_method_local_backend_annotation_is_not_a_declaration(self) -> None:
+        """The mirror of the nested-class bug: don't over-traverse either.
+
+        Traversing compound statements must stop at every scope boundary, not
+        just at `ClassDef`. A method-local `backend: Any = ...` is a local
+        variable, not a class attribute — crediting it to the class would be the
+        #1092 false positive with functions in place of nested classes.
+        """
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import Any\n"
+            "\n"
+            "class Plain:\n"
+            "    def m(self) -> None:\n"
+            "        backend: Any = build()\n"
+            "        use(backend)\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_service.py")
+        assert violations == []
+
+    def test_declaration_only_line_suppression_honored(self) -> None:
+        """Suppressible on the declaration line, like every other SKUEL023 site."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import Any\n"
+            "\n"
+            "class XMixin:\n"
+            "    backend: Any  # skuel-lint: disable=SKUEL023 -- test\n"
+            "\n"
+            "    async def do(self) -> None:\n"
+            "        await self.backend.get('x')\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
+        assert violations == []
+
+    def test_declaration_only_not_applied_outside_core(self) -> None:
+        """Core-scoped like the rest of the rule."""
+        linter = make_linter(["SKUEL023"])
+        content = "from typing import Any\n\nclass XMixin:\n    backend: Any\n"
+        violations = lint_content(linter, content, file_path="adapters/persistence/neo4j/x.py")
         assert violations == []
 
     def test_line_suppression_honored(self) -> None:
@@ -4388,6 +4569,54 @@ class TestSKUEL023AnnotationStrength:
         assert len(violations) == 1
         assert "is typed `Any`" in violations[0].message
 
+    def test_flags_typing_extensions_any_alias(self) -> None:
+        """`from typing_extensions import Any as BackendT`.
+
+        Codex, PR #1095. `typing_extensions.Any` IS `typing.Any` — the module a
+        name is imported from carries no type information, so accepting one
+        spelling and not the other is the same bypass class as accepting one
+        alias and not the other.
+        """
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing_extensions import Any as BackendT\n"
+            "\n"
+            "\n"
+            "class XMixin:\n"
+            "    backend: BackendT\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
+        assert len(violations) == 1
+
+    def test_flags_typing_extensions_typealias_marker(self) -> None:
+        """The PEP 613 marker is the spelling most often taken from typing_extensions."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import Any\n"
+            "from typing_extensions import TypeAlias\n"
+            "\n"
+            "BackendT: TypeAlias = Any\n"
+            "\n"
+            "\n"
+            "class XMixin:\n"
+            "    backend: BackendT\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
+        assert len(violations) == 1
+
+    def test_unrelated_typing_extensions_import_is_clean(self) -> None:
+        """NEGATIVE CONTROL: widening the module set must not widen what counts."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing_extensions import Protocol\n"
+            "\n"
+            "\n"
+            "class XMixin:\n"
+            "    backend: ChoicesOperations\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
+        assert violations == []
+
     def test_flags_module_level_any_realias(self) -> None:
         """A module-level `X = Any` re-export is the same bypass one step removed."""
         linter = make_linter(["SKUEL023"])
@@ -4402,6 +4631,392 @@ class TestSKUEL023AnnotationStrength:
         )
         violations = lint_content(linter, content, file_path="core/services/x_service.py")
         assert len(violations) == 1
+
+    def test_flags_pep695_type_alias_to_any(self) -> None:
+        """`type BackendT = Any` is the third re-export spelling.
+
+        Codex, PR #1095. `_collect_any_aliases` covered the import alias and the
+        statement form `X = Any` but not PEP 695 — the newest of the three, and
+        so the likeliest to be written next in a 3.14 codebase. This hole
+        predated the declaration trigger: it bypassed the ASSIGNMENT branch too
+        (see the sibling test below).
+        """
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "type BackendT = Any\n"
+            "\n"
+            "\n"
+            "class XMixin:\n"
+            "    backend: BackendT\n"
+            "\n"
+            "    async def do(self) -> None:\n"
+            "        await self.backend.get('x')\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
+        assert len(violations) == 1
+        assert "is typed `Any`" in violations[0].message
+
+    def test_flags_pep695_type_alias_on_assignment_branch(self) -> None:
+        """The same alias must not buy an exemption on the assigner side either."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "type BackendT = Any\n"
+            "\n"
+            "\n"
+            "class XService:\n"
+            "    def __init__(self, backend: BackendT) -> None:\n"
+            "        self.backend = backend\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_service.py")
+        assert len(violations) == 1
+        assert "is typed `Any`" in violations[0].message
+
+    def test_flags_pep695_string_alias_to_any(self) -> None:
+        """`type BackendT = "Any"` — a forward-ref string inside the alias.
+
+        Codex, PR #1095. `backend: "Any"` was already parsed, but the alias side
+        re-implemented a narrower Name/Attribute test and so missed the string
+        form — an inconsistency between two answers to the same question. Both
+        sides now use `_extract_annotation_refs`, which is what makes them agree.
+        """
+        linter = make_linter(["SKUEL023"])
+        content = 'type BackendT = "Any"\n\n\nclass XMixin:\n    backend: BackendT\n'
+        violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
+        assert len(violations) == 1
+        assert "is typed `Any`" in violations[0].message
+
+    def test_flags_statement_form_string_alias_to_any(self) -> None:
+        """The same string form on the statement-form alias — one parser, both sides."""
+        linter = make_linter(["SKUEL023"])
+        content = 'BackendT = "Any"\n\n\nclass XMixin:\n    backend: BackendT\n'
+        violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
+        assert len(violations) == 1
+
+    def test_flags_alias_to_nested_any(self) -> None:
+        """`type B = dict[str, Any]` resolves like the direct `backend: dict[str, Any]`."""
+        linter = make_linter(["SKUEL023"])
+        content = "type B = dict[str, Any]\n\n\nclass XMixin:\n    backend: B\n"
+        violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
+        assert len(violations) == 1
+
+    def test_flags_pep613_annotated_type_alias(self) -> None:
+        """`X: TypeAlias = Any` — PEP 613, the pre-695 explicit spelling.
+
+        Codex, PR #1095. An `AnnAssign`, so neither the `Assign` nor the
+        `TypeAlias` arm saw it.
+        """
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import Any, TypeAlias\n"
+            "\n"
+            "BackendT: TypeAlias = Any\n"
+            "\n"
+            "\n"
+            "class XMixin:\n"
+            "    backend: BackendT\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
+        assert len(violations) == 1
+
+    def test_flags_forward_declared_alias_chain(self) -> None:
+        """`type B = A` BEFORE `type A = Any` — PEP 695 aliases are lazy.
+
+        Codex, PR #1095. A single pass in source order let the file's layout
+        decide whether the rule fired; mypy resolves this either way, so the
+        rule resolves to a fixed point.
+        """
+        linter = make_linter(["SKUEL023"])
+        content = "type B = A\ntype A = Any\n\n\nclass XMixin:\n    backend: B\n"
+        violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
+        assert len(violations) == 1
+
+    def test_flags_mixed_spelling_alias_chain(self) -> None:
+        """All four spellings resolve through one another, in any order."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import TypeAlias\n"
+            "\n"
+            'A = "Any"\n'
+            "B: TypeAlias = A\n"
+            "type C = B\n"
+            "\n"
+            "\n"
+            "class XMixin:\n"
+            "    backend: C\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
+        assert len(violations) == 1
+
+    def test_flags_aliased_typealias_marker(self) -> None:
+        """`from typing import TypeAlias as TA` + `B: TA = Any`.
+
+        Codex, PR #1095. Matching one literal spelling of a name that can be
+        renamed at the import is the exact bypass class this helper exists to
+        close for `Any`; the PEP 613 marker gets the same treatment.
+        """
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import Any, TypeAlias as TA\n"
+            "\n"
+            "BackendT: TA = Any\n"
+            "\n"
+            "\n"
+            "class XMixin:\n"
+            "    backend: BackendT\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
+        assert len(violations) == 1
+
+    def test_flags_class_local_alias_to_any(self) -> None:
+        """A class's OWN body is an enclosing scope for its annotations.
+
+        Codex, PR #1095. Module scope alone left `class M: type B = Any;
+        backend: B` unflagged.
+        """
+        linter = make_linter(["SKUEL023"])
+        content = "class XMixin:\n    type BackendT = Any\n\n    backend: BackendT\n"
+        violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
+        assert len(violations) == 1
+
+    def test_flags_class_local_pep613_alias(self) -> None:
+        """The same, in the `B: TypeAlias = Any` spelling."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import Any, TypeAlias\n"
+            "\n"
+            "\n"
+            "class XMixin:\n"
+            "    BackendT: TypeAlias = Any\n"
+            "\n"
+            "    backend: BackendT\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
+        assert len(violations) == 1
+
+    def test_flags_class_local_import_alias(self) -> None:
+        """A class-body `from typing import Any as BackendT` binds in class scope.
+
+        Codex, PR #1095. Imports were seeded only from module scope, so a
+        class-local one was invisible; they are ordinary definitions now.
+        """
+        linter = make_linter(["SKUEL023"])
+        content = "class XMixin:\n    from typing import Any as BackendT\n\n    backend: BackendT\n"
+        violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
+        assert len(violations) == 1
+
+    def test_generic_alias_parameter_shadows_outer_alias(self) -> None:
+        """NEGATIVE CONTROL: `type B[T] = T` references its OWN parameter.
+
+        Codex, PR #1095. With a module-level `type T = Any`, recording the raw
+        reference made `backend: B[GoodOps]` flag on code mypy resolves to
+        `GoodOps` — the same locally-bound-names-shadow rule as class type
+        parameters, applied to the alias itself.
+        """
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "type T = Any\n"
+            "type BackendT[T] = T\n"
+            "\n"
+            "\n"
+            "class XMixin:\n"
+            "    backend: BackendT[GoodOps]\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
+        assert violations == []
+
+    def test_generic_alias_that_is_any_still_flags(self) -> None:
+        """Subtracting the alias's own parameters must not excuse a real `Any`."""
+        linter = make_linter(["SKUEL023"])
+        content = "type BackendT[T] = dict[T, Any]\n\n\nclass XMixin:\n    backend: BackendT[str]\n"
+        violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
+        assert len(violations) == 1
+
+    def test_class_type_parameter_shadows_module_alias(self) -> None:
+        """NEGATIVE CONTROL: a PEP 695 type parameter binds the name, not an alias.
+
+        Codex, PR #1095. `class XMixin[BackendT: GoodOps]` shadows a module
+        `type BackendT = Any` throughout the class, and mypy checks the bounded
+        type variable — so flagging it was a blocking ERROR on valid code. The
+        generic-mixin shape itself is live here (`class XMixin[Ops: ...]` with
+        `backend: Ops`, #1094), so the collision is not purely theoretical.
+        """
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "type BackendT = Any\n\n\nclass XMixin[BackendT: GoodOps]:\n    backend: BackendT\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
+        assert violations == []
+
+    def test_method_type_parameter_shadows_module_alias(self) -> None:
+        """The same on a method's own type parameter, governing an __init__ param."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "type T = Any\n"
+            "\n"
+            "\n"
+            "class XService:\n"
+            "    def __init__[T: GoodOps](self, backend: T) -> None:\n"
+            "        self.backend = backend\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_service.py")
+        assert violations == []
+
+    def test_type_parameter_does_not_excuse_a_plain_any(self) -> None:
+        """Shadowing must not become a blanket exemption for generic classes."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import Any\n\n\nclass XMixin[Ops: BackendOperations]:\n    backend: Any\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
+        assert len(violations) == 1
+
+    def test_class_alias_shadows_module_alias(self) -> None:
+        """NEGATIVE CONTROL — the second false positive, not a bypass.
+
+        Codex, PR #1095. Unioning module and class scopes meant a class-local
+        `type BackendT = GoodOps` could never undo a module-level
+        `type BackendT = Any`, so a blocking ERROR fired on code mypy resolves
+        correctly. The class map now OVERLAYS the module's.
+        """
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "type BackendT = Any\n"
+            "\n"
+            "\n"
+            "class XMixin:\n"
+            "    type BackendT = GoodOps\n"
+            "\n"
+            "    backend: BackendT\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
+        assert violations == []
+
+    def test_class_alias_shadows_module_import_alias(self) -> None:
+        """Shadowing works against an imported binding, not just an assigned one."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import Any as BackendT\n"
+            "\n"
+            "\n"
+            "class XMixin:\n"
+            "    type BackendT = GoodOps\n"
+            "\n"
+            "    backend: BackendT\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
+        assert violations == []
+
+    def test_class_alias_shadows_clean_module_alias_with_any(self) -> None:
+        """Shadowing cuts both ways: a class rebinding to `Any` must still flag."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "type BackendT = GoodOps\n"
+            "\n"
+            "\n"
+            "class XMixin:\n"
+            "    type BackendT = Any\n"
+            "\n"
+            "    backend: BackendT\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
+        assert len(violations) == 1
+
+    def test_sibling_class_alias_does_not_contaminate(self) -> None:
+        """NEGATIVE CONTROL: only the DECLARING class's body is added.
+
+        The pairing test for the class-scope fix — adding enclosing scope must
+        not re-open the cross-scope false positive that module-merging caused.
+        Here a sibling class defines `BackendT = Any`, but `XMixin` binds its own
+        `BackendT = GoodOps` and must stay clean.
+        """
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "class Other:\n"
+            "    type BackendT = Any\n"
+            "\n"
+            "\n"
+            "class XMixin:\n"
+            "    BackendT = GoodOps\n"
+            "\n"
+            "    backend: BackendT\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
+        assert violations == []
+
+    def test_function_local_alias_does_not_contaminate_module_scope(self) -> None:
+        """NEGATIVE CONTROL — a FALSE POSITIVE, not a missed bypass.
+
+        Codex, PR #1095. Merging every scope module-wide let a function-local
+        `type BackendT = Any` condemn an unrelated module-level
+        `BackendT = GoodOps`, failing a blocking ERROR rule on valid code. On a
+        gate, a false positive costs more than an exotic missed spelling.
+        """
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "BackendT = GoodOps\n"
+            "\n"
+            "\n"
+            "def helper() -> None:\n"
+            "    type BackendT = Any\n"
+            "    _x: BackendT = None\n"
+            "\n"
+            "\n"
+            "class XMixin:\n"
+            "    backend: BackendT\n"
+            "\n"
+            "    async def do(self) -> None:\n"
+            "        await self.backend.get('x')\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
+        assert violations == []
+
+    def test_module_alias_under_type_checking_still_counts(self) -> None:
+        """Module scope is traversed through compound statements, like class scope."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import TYPE_CHECKING\n"
+            "\n"
+            "if TYPE_CHECKING:\n"
+            "    type BackendT = Any\n"
+            "\n"
+            "\n"
+            "class XMixin:\n"
+            "    backend: BackendT\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
+        assert len(violations) == 1
+
+    def test_annotated_non_alias_assignment_is_not_an_alias(self) -> None:
+        """NEGATIVE CONTROL: `x: int = 5` is a variable, not a type alias.
+
+        Only an `AnnAssign` annotated `TypeAlias` may define one — otherwise
+        every annotated module constant would enter alias resolution.
+        """
+        linter = make_linter(["SKUEL023"])
+        content = "x: int = 5\n\n\nclass XMixin:\n    backend: ChoicesOperations\n"
+        violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
+        assert violations == []
+
+    def test_cyclic_alias_terminates(self) -> None:
+        """A self-referential or mutually recursive alias must not hang the fixed point."""
+        linter = make_linter(["SKUEL023"])
+        content = "type A = B\ntype B = A\n\n\nclass XMixin:\n    backend: ChoicesOperations\n"
+        violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
+        assert violations == []
+
+    def test_pep695_string_alias_to_protocol_is_clean(self) -> None:
+        """NEGATIVE CONTROL: parsing alias strings must not flag real ones."""
+        linter = make_linter(["SKUEL023"])
+        content = 'type B = "ChoicesOperations"\n\n\nclass XMixin:\n    backend: B\n'
+        violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
+        assert violations == []
+
+    def test_pep695_type_alias_to_protocol_is_clean(self) -> None:
+        """NEGATIVE CONTROL: resolving PEP 695 aliases must not flag real ones."""
+        linter = make_linter(["SKUEL023"])
+        content = "type BackendT = ChoicesOperations\n\n\nclass XMixin:\n    backend: BackendT\n"
+        violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
+        assert violations == []
 
     def test_nested_class_assignment_not_credited_to_outer(self) -> None:
         """An inner class's `self.backend` must not be attributed to its outer class.

@@ -16,8 +16,9 @@ ERROR (blocks CI):
   SKUEL020: FastHTML @rt handlers must annotate `request: Request` (not Any)
   SKUEL021: No raw Cypher above the boundary — core/, routes, ui/ (ADR-044)
   SKUEL022: core/ must not import adapters/ (dependency direction, ADR-044)
-  SKUEL023: core/ must type self.backend against a core/ports protocol — not a
-            concrete adapter class, and not Any / bare-unannotated (ADR-044)
+  SKUEL023: core/ must type backend against a core/ports protocol — not a concrete
+            adapter class, and not Any / bare-unannotated, whether the class assigns
+            self.backend or only declares it (ADR-044)
   SKUEL024: No cls= / **kwargs collision in FT helpers (latent TypeError crash)
   SKUEL025: No deleted Activity *UpdatePayload — use the frozen *UpdateIntent (ADR-066)
   SKUEL027: ui/ must not import adapters/ at runtime (ui renders; routes compose)
@@ -645,16 +646,22 @@ no import) are caught via the same path — the parsed Attribute chain's root Na
 
 **Annotation-strength sub-check (PR2b, 2026-08):** the checks above ask *which*
 type an annotation names; this one asks whether it names anything. A ``core/``
-class that ASSIGNS ``self.backend`` must type it against a ``core/ports``
-protocol — ``Any`` and bare-unannotated both defeat the boundary just as
-completely as a concrete adapter, because either way every
-``self.backend.<method>()`` call in the class goes unchecked (the phantom-method
-class). Resolution order: ``self.backend: X = ...`` → class-body ``backend: X``
-→ the matching ``__init__`` parameter's annotation → unannotated. Forward-ref
-strings are parsed, so ``"Any | None"`` is caught with bare ``Any``. TypeVars
-need no exemption (``backend: B`` is not ``Any``). Declaration-only class-body
-``backend: Any`` in a mixin does NOT trigger — the mixin does not own the
-object; its host does.
+class that ASSIGNS ``self.backend`` — or merely DECLARES a class-body
+``backend:`` — must type it against a ``core/ports`` protocol. ``Any`` and
+bare-unannotated defeat the boundary just as completely as a concrete adapter,
+because either way every ``self.backend.<method>()`` call in the class goes
+unchecked (the phantom-method class). Resolution order for an assigner:
+``self.backend: X = ...`` → class-body ``backend: X`` → the matching ``__init__``
+parameter's annotation → unannotated. Forward-ref strings are parsed, so
+``"Any | None"`` is caught with bare ``Any``. TypeVars need no exemption
+(``backend: B`` / ``backend: Ops`` is not ``Any``).
+
+Declaration-only ``backend: Any`` — the mixin shape, where the host constructs
+the object — triggers as of 2026-08 (PR-C). The host owning the object never made
+the mixin's own calls checkable. A *dead* declaration (no ``self.backend`` call
+anywhere in the class) flags too; there the fix is deleting the line. The trigger
+landed only after all 27 such sites were clean, so it went green with zero
+suppressions.
 
 ⚠ A **file-level** ``disable-file=SKUEL023`` silences BOTH sub-checks; line-level
 suppressions are unaffected.
@@ -4948,8 +4955,8 @@ class SkuelLinter:
     # =========================================================================
 
     @staticmethod
-    def _collect_any_aliases(tree: ast.Module) -> set[str]:
-        """Local names that mean ``typing.Any`` in this module.
+    def _collect_any_aliases(tree: ast.Module) -> tuple[dict[str, set[str]], set[str]]:
+        """Module-scope alias definitions, and the ``TypeAlias`` markers in force.
 
         ``from typing import Any as BackendT`` + ``backend: BackendT`` would
         otherwise read as a concrete type and pass. Same bypass class the rule's
@@ -4957,20 +4964,230 @@ class SkuelLinter:
         buy an exemption the spelled-out form does not get. ``typing.Any`` written
         out needs no entry: ``_extract_annotation_refs`` returns ``Any`` as the
         Attribute chain's tail.
+
+        All four re-export spellings count — the import alias, the statement form
+        ``X = Any``, PEP 613 ``X: TypeAlias = Any``, and PEP 695
+        ``type X = Any`` (Codex, #1095). Covering a subset would have been an
+        accident of when each spelling was added, not a decision.
+
+        Resolution is a **fixed point over collected definitions**, not one pass
+        in source order. PEP 695 aliases are lazily evaluated, so
+        ``type A = B`` may legally precede ``type B = Any`` and a type checker
+        resolves it either way; a single ordered pass would let a file's layout
+        decide whether the rule fires. Every definition of a name is recorded
+        (not just the last), so a name that is ``Any`` on any one of its
+        assignments counts — the fail-closed direction for a suppression-adjacent
+        question.
+
+        Collection is **scope-aware, not module-merged**. This helper returns the
+        module scope; the check then re-resolves per class, adding that class's
+        OWN body — the two scopes that can actually govern a class-attribute
+        annotation, and no others. Merging every scope module-wide instead is not
+        merely over-broad, it produces FALSE POSITIVES: a function-local
+        ``type BackendT = Any`` would condemn an unrelated module-level
+        ``BackendT = GoodOps`` and fail the gate on valid code (Codex, #1095).
+        On a blocking ERROR rule a false positive costs more than a missed
+        spelling, which is why the fix is the enclosing scopes specifically
+        rather than a wider net.
+
+        The ``TypeAlias`` marker is itself resolved through its import aliases
+        (``from typing import TypeAlias as TA``), for the same reason ``Any`` is:
+        matching one literal spelling of a name that can be renamed at the import
+        is the bypass class this helper exists to close.
+
+        An alias's TARGET is read with ``_extract_annotation_refs`` — the same
+        parser the annotation side uses — rather than a hand-rolled
+        ``Name``/``Attribute`` test. That is what keeps the two sides honest:
+        ``backend: "Any"`` was already caught while ``type X = "Any"`` was not,
+        a divergence that existed only because the alias side re-implemented a
+        narrower version of the same question (Codex, #1095). One parser, not
+        two — so ``typing.Any``, forward-ref strings, and nested forms like
+        ``dict[str, Any]`` resolve identically wherever they appear.
+        """
+        return SkuelLinter._alias_definitions(SkuelLinter._own_scope_nodes(tree), {"TypeAlias"})
+
+    @staticmethod
+    def _own_scope_nodes(node: ast.AST) -> list[ast.AST]:
+        """Nodes belonging to ``node``'s OWN scope — never a nested one.
+
+        Traversed through compound statements, so a ``if TYPE_CHECKING:`` alias
+        counts, but pruned at every scope boundary. One notion of "own scope",
+        used for a module and for a class body alike.
+        """
+        return list(
+            SkuelLinter._walk_pruned(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+        )
+
+    @staticmethod
+    def _alias_definitions(
+        scope: list[ast.AST], inherited_markers: set[str]
+    ) -> tuple[dict[str, set[str]], set[str]]:
+        """``({alias name -> names it references}, TypeAlias markers)`` for one scope.
+
+        A **dict**, not a list, because that is what lets an inner scope shadow
+        an outer one: the check overlays a class's map on the module's, so a name
+        the class rebinds is REPLACED rather than merged. Unioning the two scopes
+        instead left a class-local ``type BackendT = GoodOps`` unable to undo a
+        module-level ``type BackendT = Any``, failing a blocking rule on valid
+        code (Codex, #1095) — the second false positive this scope model
+        produced, and why it is now shadowing rather than union.
+
+        Within ONE scope, repeated bindings of a name union, so a name that is
+        ``Any`` on any of its assignments counts. Fail-closed is right there;
+        reassignment is a different question from shadowing.
+
+        Imports are definitions here, not a separate seed — ``from typing import
+        Any as X`` binds ``X`` exactly as ``X = Any`` does, and a class must be
+        able to shadow either identically. ``typing_extensions`` counts as
+        ``typing``: the module a name is imported from is not type information,
+        so accepting one spelling would be the same bypass class as accepting
+        one alias.
+
+        Two passes, because an import may follow its use in AST order: markers
+        first, then definitions.
+        """
+        markers = set(inherited_markers)
+        definitions: dict[str, set[str]] = {}
+        typing_modules = ("typing", "typing_extensions")
+
+        def _record(name: str, refs: set[str]) -> None:
+            definitions.setdefault(name, set()).update(refs)
+
+        for node in scope:
+            if isinstance(node, ast.ImportFrom) and node.module in typing_modules:
+                markers.update(
+                    imported.asname
+                    for imported in node.names
+                    if imported.name == "TypeAlias" and imported.asname
+                )
+
+        for node in scope:
+            if isinstance(node, ast.ImportFrom) and node.module in typing_modules:
+                # `from typing import Any as X` — the import alias.
+                for imported in node.names:
+                    if imported.name == "Any" and imported.asname:
+                        _record(imported.asname, {"Any"})
+            elif isinstance(node, ast.Assign):
+                # `X = Any` — the bare statement form.
+                for target in node.targets:
+                    if isinstance(target, ast.Name):
+                        _record(target.id, SkuelLinter._annotation_names(node.value))
+            elif isinstance(node, ast.AnnAssign):
+                # `X: TypeAlias = Any` — PEP 613. An alias only when annotated as
+                # one; `X: SomeType = ...` is an ordinary variable.
+                is_alias = bool(markers & SkuelLinter._annotation_names(node.annotation))
+                if is_alias and node.value is not None and isinstance(node.target, ast.Name):
+                    _record(node.target.id, SkuelLinter._annotation_names(node.value))
+            elif isinstance(node, ast.TypeAlias) and isinstance(node.name, ast.Name):
+                # `type X = Any` — PEP 695. A generic alias binds its own
+                # parameters, so `type B[T] = T` references T-the-parameter, not
+                # an outer `type T = Any`; recording the raw reference made
+                # `backend: B[GoodOps]` flag on code mypy resolves (Codex,
+                # #1095). Same locally-bound-names-shadow rule as
+                # `_type_parameter_bindings`, applied to the alias itself.
+                own_params = {
+                    param.name
+                    for param in node.type_params
+                    if isinstance(param, ast.TypeVar | ast.ParamSpec | ast.TypeVarTuple)
+                }
+                _record(node.name.id, SkuelLinter._annotation_names(node.value) - own_params)
+
+        return definitions, markers
+
+    @staticmethod
+    def _type_parameter_bindings(cls: ast.ClassDef) -> dict[str, set[str]]:
+        """PEP 695 type parameters, as bindings that shadow outer aliases.
+
+        ``class XMixin[BackendT: GoodOps]`` binds ``BackendT`` to a type
+        variable throughout the class, so a module-level ``type BackendT = Any``
+        does not reach the annotation. Without this, that shape reported a
+        blocking ERROR on code mypy accepts (Codex, #1095) — and
+        ``class XMixin[Ops: BackendOperations]`` with ``backend: Ops`` is the
+        live idiom in this codebase, so the collision is not purely theoretical.
+
+        Each binds to the EMPTY set: a type variable is by construction not
+        ``Any``, whatever its bound. Reusing the definition map means shadowing
+        happens through the one mechanism, not a second subtraction step.
+
+        Method type parameters are collected too, and deliberately over-shadow —
+        one method's parameter suppresses the name across the whole class rather
+        than only inside it. That direction is fail-open (a missed spelling, not
+        a false alarm), which is the correct way to be imprecise on a rule that
+        blocks the gate.
+        """
+        owners: list[ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef] = [cls]
+        owners.extend(
+            stmt for stmt in cls.body if isinstance(stmt, ast.FunctionDef | ast.AsyncFunctionDef)
+        )
+        # `ast.type_param` is the abstract base and carries no `name`; the three
+        # concrete forms each do.
+        return {
+            param.name: set()
+            for owner in owners
+            for param in owner.type_params
+            if isinstance(param, ast.TypeVar | ast.ParamSpec | ast.TypeVarTuple)
+        }
+
+    @staticmethod
+    def _annotation_names(expr: ast.expr) -> set[str]:
+        """Every type name referenced in ``expr``, forward-ref strings parsed."""
+        return {name for _lookup, name in SkuelLinter._extract_annotation_refs(expr)}
+
+    @staticmethod
+    def _resolve_any_aliases(definitions: dict[str, set[str]]) -> set[str]:
+        """Every name that reaches ``Any`` through ``definitions``, to a fixed point.
+
+        Not one ordered pass: PEP 695 aliases are lazily evaluated, so
+        ``type A = B`` may legally precede ``type B = Any`` and a type checker
+        resolves it either way. Iterating in source order would let a file's
+        layout decide whether the rule fires (Codex, #1095). Terminates because
+        each round either adds a name from a finite set or stops — a cyclic
+        alias (``type A = B`` / ``type B = A``) simply never reaches ``Any``.
         """
         aliases = {"Any"}
-        for node in ast.walk(tree):
-            if isinstance(node, ast.ImportFrom) and node.module == "typing":
-                aliases.update(a.asname for a in node.names if a.name == "Any" and a.asname)
-            elif isinstance(node, ast.Assign):
-                # Module-level `X = Any` (or `X = typing.Any`) re-export.
-                value = node.value
-                is_any = (isinstance(value, ast.Name) and value.id in aliases) or (
-                    isinstance(value, ast.Attribute) and value.attr == "Any"
-                )
-                if is_any:
-                    aliases.update(t.id for t in node.targets if isinstance(t, ast.Name))
+        changed = True
+        while changed:
+            changed = False
+            for name, refs in definitions.items():
+                if name not in aliases and refs & aliases:
+                    aliases.add(name)
+                    changed = True
         return aliases
+
+    @staticmethod
+    def _find_class_body_backend_declaration(cls: ast.ClassDef) -> ast.AnnAssign | None:
+        """The lowest-line ``backend: X`` declaration in ``cls``'s own class-body scope.
+
+        Pruned at every scope boundary — ``FunctionDef``, ``AsyncFunctionDef``,
+        ``ClassDef`` — which is what makes this *class-body scope* rather than
+        "the class subtree". Both exclusions are load-bearing in opposite
+        directions:
+
+        - stopping at nested ``ClassDef`` keeps an inner class's declaration off
+          its outer class (the false positive Codex caught on the assignment side
+          of this rule, #1092);
+        - stopping at functions keeps a method-local ``backend: Any = ...`` from
+          reading as a class attribute, which is the same mistake mirrored.
+
+        It does NOT stop at compound statements, because those share class-body
+        scope: ``if TYPE_CHECKING: backend: Any`` in a class body declares the
+        attribute as far as a type checker is concerned, so the rule must see it
+        too. Iterating ``cls.body`` directly missed exactly that shape and left a
+        silent bypass (Codex, this PR).
+
+        Lowest line number, not traversal order: ``_walk_pruned`` is LIFO, so
+        "first found" would not be stable, and the violation is anchored here.
+        """
+        matches = [
+            node
+            for node in SkuelLinter._walk_pruned(
+                cls, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
+            )
+            if isinstance(node, ast.AnnAssign)
+            and isinstance(node.target, ast.Name)
+            and node.target.id == "backend"
+        ]
+        return min(matches, key=lambda n: n.lineno) if matches else None
 
     @staticmethod
     def _resolve_backend_annotation(
@@ -4990,13 +5207,9 @@ class SkuelLinter:
         if isinstance(assign, ast.AnnAssign):
             return assign.annotation
 
-        for stmt in cls.body:
-            if (
-                isinstance(stmt, ast.AnnAssign)
-                and isinstance(stmt.target, ast.Name)
-                and stmt.target.id == "backend"
-            ):
-                return stmt.annotation
+        declaration = SkuelLinter._find_class_body_backend_declaration(cls)
+        if declaration is not None:
+            return declaration.annotation
 
         if isinstance(assign.value, ast.Name):
             for stmt in cls.body:
@@ -5023,9 +5236,9 @@ class SkuelLinter:
         tree: ast.Module | None,
     ) -> None:
         """
-        SKUEL023 [ERROR]: a ``core/`` class that assigns ``self.backend`` must type it
-        against a ``core/ports`` protocol — ``Any`` and bare-unannotated both defeat
-        the boundary.
+        SKUEL023 [ERROR]: a ``core/`` class that assigns OR declares ``backend`` must
+        type it against a ``core/ports`` protocol — ``Any`` and bare-unannotated both
+        defeat the boundary.
 
         The sibling of the adapter-annotation check above. That one asks *which*
         type the annotation names (protocol, not concrete adapter); this one asks
@@ -5034,11 +5247,71 @@ class SkuelLinter:
         unchecked, so a renamed or deleted backend method reads as green — the
         phantom-method class this codebase has repeatedly found.
 
-        Scope: classes that **assign** ``self.backend`` (``ast.Assign`` or
-        ``ast.AnnAssign`` whose target is ``self.backend``). A declaration-only
-        class-body ``backend: Any`` in a mixin does NOT trigger — the mixin does
-        not own the object; its host does, and retyping those is separate work
-        with its own ``attr-defined`` fallout.
+        Two triggers, one verdict:
+
+        1. **Assignment** — the class owns the object (``ast.Assign`` /
+           ``ast.AnnAssign`` targeting ``self.backend``). Annotation resolved by
+           the precedence in ``_resolve_backend_annotation``.
+        2. **Declaration-only** (PR-C, 2026-08) — a class-body ``backend: X`` with
+           no assignment anywhere in the class: the mixin shape, where the *host*
+           constructs the object. The host owning the object never made the mixin's
+           calls checkable; ``backend: Any`` there costs exactly what it costs on an
+           assigner. Fix: name the host's protocol. This trigger was added only
+           after all 27 such sites were clean (#1093, #1094), so it went green with
+           zero suppressions.
+
+        A dead declaration — ``backend: Any`` in a class with no ``self.backend``
+        call at all — flags too, and the fix is deletion (8 of the 27 were this).
+        Deliberate: keying on use rather than on the declaration would make the same
+        line legal or illegal depending on lines elsewhere, and would stay silent at
+        the moment that actually matters — when someone later adds the first call to
+        a declaration that predates it.
+
+        Only ``Any`` can flag on the declaration branch: a class-body ``backend``
+        with no annotation is not a declaration at all (it is a bare ``Name``
+        expression), so "is unannotated" is reachable only through assignment.
+
+        **Known limitation, deliberate (Codex, #1095):** a class defined INSIDE
+        a function does not see that function's aliases — resolution spans the
+        module and the class's own body, not an arbitrary enclosing chain.
+        Walking real enclosing scopes means carrying a scope stack through the
+        rule, and the same generality is what produced two false positives here
+        already; a class defined inside a function in ``core/`` is not a shape
+        this codebase has. Fail-open, like the one below.
+
+        **Known limitation, deliberate (Codex, #1095):** alias resolution is
+        order-INSENSITIVE within a scope, so rebinding a name *after* using it
+        (``backend: BackendT`` then, lower in the same class body,
+        ``type BackendT = GoodOps``, shadowing a module-level ``Any``) reads as
+        the later binding and does not flag. Resolving the binding live at each
+        annotation site means tracking definitions positionally — an interpreter,
+        not the AST pattern check this repo's lint rules are ruled to be — and
+        order-insensitivity is load-bearing in the other direction, because PEP
+        695 aliases genuinely are lazy (``type A = B`` may precede
+        ``type B = Any``). This failure is fail-OPEN, a missed spelling rather
+        than a false alarm on valid code, which is the correct direction for the
+        imprecision to run on a rule that blocks the gate.
+
+        **Known limitation, deliberate (Codex, #1095):** the PEP 484 type-comment
+        spelling ``backend = None  # type: Any`` is NOT detected. ``ast.parse``
+        only populates ``type_comment`` under ``type_comments=True``, and this
+        linter shares ONE parse across every AST rule — under that flag a
+        misplaced type comment (``class C:  # type: int``, ``if x:  # type: int``,
+        ``return 1  # type: int``, all of which parse fine today) raises
+        SyntaxError, and the shared handler turns a SyntaxError into
+        ``tree = None``, silently skipping *every* AST rule on that file,
+        SKUEL021 and SKUEL022 included. Closing a zero-instance hole in one
+        sub-check is not worth a fail-open across the rule set.
+
+        The exposure is bounded and measured: zero non-``type: ignore`` type
+        comments exist in ``core/`` + ``adapters/`` + ``ui/``; ruff reports F401
+        on the ``Any`` import the form leaves unused, so it needs a ``noqa`` to
+        survive the gate at all; and the *assignment* branch is already
+        fail-closed on the same spelling (the annotation resolves to nothing →
+        "is unannotated" → flags). What is left is a legacy spelling that only
+        appears on purpose — and an author working around the rule on purpose has
+        a sanctioned, audited one-liner (``# skuel-lint: disable=SKUEL023``). The
+        rule's job is the accident and the drift.
 
         Verdict on the resolved annotation (see ``_resolve_backend_annotation``
         for how it is found):
@@ -5064,50 +5337,105 @@ class SkuelLinter:
         if tree is None or self._is_file_suppressed(content, "SKUEL023"):
             return
 
-        any_aliases = self._collect_any_aliases(tree)
+        module_definitions, module_markers = self._collect_any_aliases(tree)
 
         for cls in [n for n in ast.walk(tree) if isinstance(n, ast.ClassDef)]:
             assign = self._find_self_backend_assignment(cls)
-            if assign is None:
+            declaration = self._find_class_body_backend_declaration(cls) if assign is None else None
+            if assign is not None:
+                anchor: ast.stmt = assign
+                assigns = True
+                annotation = self._resolve_backend_annotation(cls, assign)
+            elif declaration is not None:
+                anchor = declaration
+                assigns = False
+                annotation = declaration.annotation
+            else:
                 continue
 
-            annotation = self._resolve_backend_annotation(cls, assign)
+            # Resolve in the two scopes that can govern a class-attribute
+            # annotation: the module, and the declaring class's own body. The
+            # class OVERLAYS the module, so a class-local rebinding shadows the
+            # module's rather than merging with it (Codex, #1095). Only this
+            # class — a sibling's aliases are not in scope here.
+            class_definitions, _ = self._alias_definitions(
+                self._own_scope_nodes(cls), module_markers
+            )
+            scoped_aliases = self._resolve_any_aliases(
+                {**module_definitions, **class_definitions, **self._type_parameter_bindings(cls)}
+            )
+
             if annotation is None:
                 verdict = "is unannotated"
-            elif any_aliases.intersection(
+            elif scoped_aliases.intersection(
                 name for _lookup, name in self._extract_annotation_refs(annotation)
             ):
                 verdict = "is typed `Any`"
             else:
                 continue
 
-            lineno = assign.lineno
+            lineno = anchor.lineno
             line = lines[lineno - 1] if 0 < lineno <= len(lines) else ""
             if self._is_line_suppressed(line, "SKUEL023"):
                 continue
+
+            if assigns:
+                message = (
+                    f"'{cls.name}.backend' {verdict} — type `self.backend` against a "
+                    f"core/ports protocol (ADR-044); `Any` and bare-unannotated both "
+                    f"defeat the boundary"
+                )
+                suggestion = (
+                    "Declare (or reuse) a `*BackendOperations` protocol in core/ports "
+                    "covering exactly the methods this class calls, and annotate the "
+                    "__init__ parameter with it. Facades are NOT exempt — 'Facade IS "
+                    "the contract' is about the route→service boundary, not "
+                    "self.backend; see CLAUDE.md '## Protocol-Based Architecture'."
+                )
+            else:
+                message = (
+                    f"'{cls.name}.backend' {verdict} — a declaration-only `backend: Any` "
+                    f"leaves every `self.backend.<method>()` in this class unchecked just "
+                    f"as completely as an assigned one (ADR-044)"
+                )
+                suggestion = (
+                    "Name the core/ports protocol this mixin's HOST types its backend "
+                    "against — resolve the host through the importing module, never by "
+                    "bare class name (four different `_AnalyticsMixin` classes exist). "
+                    "If the class never reads `self.backend`, the declaration is dead: "
+                    "delete the line rather than typing it."
+                )
 
             self.result.violations.append(
                 Violation(
                     file_path=rel_path,
                     line_number=lineno,
-                    column=assign.col_offset,
+                    column=anchor.col_offset,
                     severity=Severity.ERROR,
                     rule_id="SKUEL023",
-                    message=(
-                        f"'{cls.name}.backend' {verdict} — type `self.backend` against a "
-                        f"core/ports protocol (ADR-044); `Any` and bare-unannotated both "
-                        f"defeat the boundary"
-                    ),
-                    suggestion=(
-                        "Declare (or reuse) a `*BackendOperations` protocol in core/ports "
-                        "covering exactly the methods this class calls, and annotate the "
-                        "__init__ parameter with it. Facades are NOT exempt — 'Facade IS "
-                        "the contract' is about the route→service boundary, not "
-                        "self.backend; see CLAUDE.md '## Protocol-Based Architecture'."
-                    ),
+                    message=message,
+                    suggestion=suggestion,
                     line_content=line.strip(),
                 )
             )
+
+    @staticmethod
+    def _walk_pruned(node: ast.AST, stop: tuple[type[ast.AST], ...]) -> Iterator[ast.AST]:
+        """Every node under ``node``, not descending into any node in ``stop``.
+
+        ``ast.walk`` has no pruning, and both SKUEL023 backend lookups need it —
+        for different boundaries. Pruning by node type rather than by enumerating
+        ``body``/``orelse``/``handlers``/``finalbody`` means compound statements
+        (``if``, ``try``, ``with``, ``match``) are traversed without listing their
+        fields, so a new statement form cannot silently open a hole.
+        """
+        stack: list[ast.AST] = list(ast.iter_child_nodes(node))
+        while stack:
+            child = stack.pop()
+            if isinstance(child, stop):
+                continue
+            yield child
+            stack.extend(ast.iter_child_nodes(child))
 
     @staticmethod
     def _walk_own_body(cls: ast.ClassDef) -> Iterator[ast.AST]:
@@ -5119,13 +5447,7 @@ class SkuelLinter:
         then be reported unannotated. A nested class owns its own assignment and
         is visited in its own right by the caller's ClassDef loop.
         """
-        stack: list[ast.AST] = list(ast.iter_child_nodes(cls))
-        while stack:
-            node = stack.pop()
-            if isinstance(node, ast.ClassDef):
-                continue
-            yield node
-            stack.extend(ast.iter_child_nodes(node))
+        return SkuelLinter._walk_pruned(cls, (ast.ClassDef,))
 
     @staticmethod
     def _find_self_backend_assignment(cls: ast.ClassDef) -> ast.Assign | ast.AnnAssign | None:
