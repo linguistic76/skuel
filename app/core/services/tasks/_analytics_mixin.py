@@ -25,6 +25,7 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from core.models.type_hints import UserUID
+    from core.ports.domain_protocols import TasksOperations
 
 
 # =============================================================================
@@ -64,7 +65,7 @@ class _AnalyticsMixin:
     """
 
     # Populated by TasksIntelligenceService.__init__
-    backend: Any
+    backend: "TasksOperations"
     logger: Any
 
     async def get_behavioral_insights(

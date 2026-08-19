@@ -25,6 +25,7 @@ from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from core.models.type_hints import UserUID
+    from core.ports.domain_protocols import TasksOperations
 
 
 class _ProductivityMixin:
@@ -39,7 +40,7 @@ class _ProductivityMixin:
     """
 
     # Populated by TasksIntelligenceService.__init__
-    backend: Any
+    backend: "TasksOperations"
     logger: Any
     _knowledge_analyzer: Any
     relationships: Any

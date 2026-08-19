@@ -266,7 +266,11 @@ Since August 2026 SKUEL023 also rejects the weaker escapes: any `core/` class th
 *assigns* `self.backend` must name a real protocol there — `Any` and no-annotation-at-all
 both fail, because either one leaves every `self.backend.<method>()` call unchecked just
 as completely as a concrete adapter would. Declaration-only `backend: Any` in a mixin is
-out of scope (the mixin does not own the object; its host does).
+out of scope *for the rule* (the mixin does not own the object; its host does) — but it is
+no longer the convention: the 27 such mixins were swept in August 2026, each retyped
+against its host's protocol or, where it never touched `self.backend`, deleted. Write a new
+one the same way (see SERVICE_DECOMPOSITION_RULE.md § Mixin Class Template); the rule not
+reaching there is not a licence.
 
 **Benefits:**
 - **MyPy-native** - No protocol workaround needed

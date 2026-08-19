@@ -12,10 +12,13 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 from __future__ import annotations
 
 from dataclasses import asdict
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from core.models.type_hints import UserUID
 from core.utils.result_simplified import Errors, Result
+
+if TYPE_CHECKING:
+    from core.ports.domain_protocols import PrinciplesOperations
 
 
 class _EmbodimentMixin:
@@ -28,7 +31,7 @@ class _EmbodimentMixin:
 
     # Populated by PrinciplesService.__init__
     core: Any
-    backend: Any
+    backend: "PrinciplesOperations"
     relationships: Any
     logger: Any
 

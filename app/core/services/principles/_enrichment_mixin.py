@@ -29,7 +29,6 @@ class _EnrichmentMixin:
     search: Any
     alignment: Any
     intelligence: Any
-    backend: Any
     logger: Any
 
     # ========================================================================

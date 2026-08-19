@@ -22,6 +22,8 @@ from core.utils.result_simplified import Result
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
 
+    from core.ports.domain_protocols import EventsOperations
+
 
 class _BehavioralSignalsMixin:
     """
@@ -35,7 +37,7 @@ class _BehavioralSignalsMixin:
     """
 
     # Populated by EventsIntelligenceService.__init__
-    backend: Any
+    backend: "EventsOperations"
     relationships: Any
     logger: Any
     _dual_track_assessment: Any  # provided by BaseAnalyticsService

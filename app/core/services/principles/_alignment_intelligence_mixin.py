@@ -33,6 +33,7 @@ from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from core.models.principle.principle import Principle
+    from core.ports.domain_protocols import PrinciplesOperations
 
 
 class _AlignmentIntelligenceMixin:
@@ -44,7 +45,7 @@ class _AlignmentIntelligenceMixin:
     """
 
     # Populated by PrinciplesIntelligenceService.__init__
-    backend: Any
+    backend: "PrinciplesOperations"
     relationships: Any
     logger: Any
     # Provided by BaseAnalyticsService via multiple inheritance on the composed service.
@@ -301,6 +302,8 @@ class _AlignmentIntelligenceMixin:
             return Result.fail(principle_result)
 
         principle = principle_result.value
+        if not principle:
+            return Result.fail(Errors.not_found(resource="Principle", identifier=principle_uid))
 
         # Step 2: Calculate date range
         end_date = date.today()

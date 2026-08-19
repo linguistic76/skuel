@@ -20,6 +20,7 @@ from core.utils.result_simplified import Errors, Result
 if TYPE_CHECKING:
     from core.models.goal.goal import Goal
     from core.models.goal.goal_request import GoalCreateRequest
+    from core.ports.domain_protocols import GoalsOperations
     from core.services.goals.goals_core_service import GoalsCoreService
     from core.services.goals_types import GoalFeasibilityAssessment
     from core.services.user import UserContext
@@ -34,7 +35,7 @@ class _OrchestrationMixin:
     """
 
     # Populated by GoalsService.__init__ / BaseService
-    backend: Any
+    backend: "GoalsOperations"
     core: GoalsCoreService
     learning: Any
     relationships: Any
