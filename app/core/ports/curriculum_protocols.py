@@ -27,7 +27,7 @@ Protocol Hierarchy:
     - ExerciseOperations: Standalone protocol for Exercise instruction templates
       (ROUTE-facing — the backend-facing half is ExerciseBackendOperations below)
 
-Narrow ``*BackendOperations`` slices (July–August 2026) — each is what exactly one
+Narrow ``*BackendOperations`` slices (July / August 2026) — each is what exactly one
 service types ``self.backend`` against, so a wide protocol's unrelated methods
 are not advertised at that seam:
     - PsOrganizesBackendOperations   → PsOrganizationService

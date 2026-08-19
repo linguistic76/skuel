@@ -270,6 +270,11 @@ Every such placeholder is registered in `docs/reference/PLACEHOLDER_INDEX.md`.
 - **ANN401 sees only top-level `Any` in a signature.** A nested `dict[str, Any]`,
   `list[Any]` or `Result[Any]` is invisible to it (measured). The ledger counts are a
   floor on the real `Any` debt, and Category B/C judgement below is still human work.
+- **One `Any` is enforced ahead of the ledger: `self.backend` in `core/`.** SKUEL023
+  flags it whatever the tree's ANN401 entry allows, and the forward-ref form
+  (`backend: "Any | None"`) too, which ANN401 does not see at all. The reason it is
+  singled out: the backend handle is the seam every service call crosses, so an `Any`
+  there silently unchecks a whole class rather than one argument.
 - Code reviewers should challenge any new `Any` that is not in a `# boundary:` comment.
 - When refactoring, replace `Any` with the most specific type from this policy.
 - If a new boundary is genuinely needed, add it to this document with an explanation.

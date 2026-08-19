@@ -48,7 +48,7 @@ The unified linter enforces SKUEL architectural patterns with three severity lev
 | **SKUEL020** | `request: Any` on `@rt`/`@app.*` handlers | Annotate `request: Request` (AST rule) |
 | **SKUEL021** | Raw Cypher above the boundary — `core/`, `adapters/inbound/`, `ui/` | Relocate below the boundary (ADR-044) |
 | **SKUEL022** | `adapters/` imports in `core/` | Depend on a `core/ports` protocol; inject the adapter (ADR-044) |
-| **SKUEL023** | `self.backend` typed against an adapter class in `core/` | Type against the `core/ports` protocol (AST rule, ADR-044) |
+| **SKUEL023** | `self.backend` in `core/` typed against an adapter class, **or** typed `Any` / left unannotated | Type against the `core/ports` protocol (AST rule, ADR-044). Two sub-checks: annotation *direction* (not a concrete adapter) and annotation *strength* (not `Any`/absent). Strength fires only on classes that **assign** `self.backend`; declaration-only mixin `backend: Any` is out of scope. A file-level suppression silences both |
 | **SKUEL024** | Hardcoded `cls=` + `**kwargs` splat without a `cls` param | Add explicit `cls: str = ""` and merge (AST rule) |
 | **SKUEL025** | A deleted Activity `*UpdatePayload` name (ADR-066) | Use the domain `*UpdateIntent` / `*UpdateRequest.to_intent()` (AST rule) |
 | **SKUEL027** | Runtime `adapters/` imports in `ui/` | Move shared code inward or pass values in from the route (AST rule, SKUEL022's ui/ sibling) |

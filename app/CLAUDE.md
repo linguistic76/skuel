@@ -202,7 +202,7 @@ The table below is about **how a route refers to the service** — not about wha
 | **Facade** | Tasks, Goals, Habits, Events, Choices, Principles, KU, PS, LP | Concrete class | Facade IS the contract (~50 delegation methods) |
 | **Thin/ISP** | Groups, UserEntry, Sharing, etc. | ISP protocol | Routes use a narrow slice; protocol makes it explicit |
 
-**A facade being concrete to its callers does not license a concrete `self.backend`.** Both tiers type `self.backend` against a `core/ports` protocol; SKUEL023 enforces it **unconditionally** — the facade allowlist that once parked KU/PS/LP and then UserService/UserContextBuilder/InsightStore was emptied and deleted in July 2026. There is no exempt path in `core/`.
+**A facade being concrete to its callers does not license a concrete `self.backend`.** Both tiers type `self.backend` against a `core/ports` protocol — and SKUEL023 now also rejects `Any` / no annotation there, which cost exactly as much type safety as a concrete adapter did. It enforces both **unconditionally** — the facade allowlist that once parked KU/PS/LP and then UserService/UserContextBuilder/InsightStore was emptied and deleted in July 2026. There is no exempt path in `core/`.
 
 **Trap:** same root word at both layers — verify the layer before retyping `self.backend` against an `*Operations` protocol; if service-layer and backend-layer method names diverge, you need a `*BackendOperations` protocol.
 
@@ -592,6 +592,7 @@ Available on all 9 domains (Tasks, Goals, Habits, Events, Choices, Principles, K
 | SKUEL020 | `request: Request` not `request: Any` in handlers (causes FastHTML 400) | ERROR |
 | SKUEL021 | No raw Cypher above the boundary — `core/`, `adapters/inbound/`, `ui/`; all Cypher in `adapters/persistence/neo4j/` (docstring-aware). Composition root (`services_bootstrap/`) is deliberately out of scope — it may ping the driver it built | ERROR |
 | SKUEL022 | No `adapters/` imports in `core/` — `TYPE_CHECKING`-only imports exempt | ERROR |
+| SKUEL023 | `self.backend` in `core/` must name a `core/ports` protocol — not a concrete adapter class (direction), and not `Any`/unannotated (strength). Strength fires on classes that **assign** `self.backend`; declaration-only mixin `backend: Any` is out of scope | ERROR |
 | SKUEL024 | No `cls=` + `**kwargs` collision in FT helpers — fix: `cls=f"...{cls}".strip()` | ERROR |
 | SKUEL025 | No deleted Activity `*UpdatePayload` — use `*UpdateIntent` or `*UpdateRequest.to_intent()` | ERROR |
 | SKUEL026 | No suppression comments that suppress nothing (per-run audit) | WARNING |
