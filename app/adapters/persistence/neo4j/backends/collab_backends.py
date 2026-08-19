@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.enums.pipeline import Pipeline
@@ -22,6 +22,7 @@ if TYPE_CHECKING:
         BlockingChainRow,
         CousinRow,
         LateralRelationshipRow,
+        NotificationRow,
         RelationshipGraphRow,
         SiblingRow,
     )
@@ -735,7 +736,7 @@ class NotificationBackend:
 
     async def create_notification(
         self,
-        params: dict[str, Any],
+        params: Neo4jProperties,
     ) -> Result[list[Neo4jProperties]]:
         """Create a notification node and link to user via HAS_NOTIFICATION."""
         query = """
@@ -766,7 +767,7 @@ class NotificationBackend:
 
     async def get_notifications(
         self, user_uid: UserUID, limit: int, include_read: bool = True
-    ) -> Result[list[Neo4jProperties]]:
+    ) -> Result[list[NotificationRow]]:
         """Get notifications for a user, unread first."""
         read_filter = "" if include_read else "AND n.read = false"
         query = f"""
@@ -783,7 +784,13 @@ class NotificationBackend:
         ORDER BY n.read ASC, n.created_at DESC
         LIMIT $limit
         """
-        return await self.executor.execute_query(query, {"user_uid": user_uid, "limit": limit})
+        result = await self.executor.execute_query(query, {"user_uid": user_uid, "limit": limit})
+        if result.is_error:
+            return Result.fail(result)
+        rows: list[NotificationRow] = [
+            cast("NotificationRow", dict(record)) for record in (result.value or [])
+        ]
+        return Result.ok(rows)
 
     async def mark_read(
         self, notification_uid: str, user_uid: UserUID

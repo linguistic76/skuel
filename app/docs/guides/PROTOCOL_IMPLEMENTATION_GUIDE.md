@@ -332,6 +332,10 @@ async def compose_services(driver) -> Services:
 
 ### Implementing a New Protocol
 
+> The `Alert*` names below are illustrative — no such service exists. For a real,
+> minimal port pair, read `core/ports/notification_protocols.py`
+> (`NotificationBackendOperations` + `NotificationOperations`).
+
 **Step 1**: Define the protocol
 
 ```python
@@ -339,8 +343,8 @@ async def compose_services(driver) -> Services:
 from typing import Protocol
 from core.utils.result_simplified import Result
 
-class NotificationOperations(Protocol):
-    """Protocol for notification operations."""
+class AlertOperations(Protocol):
+    """Protocol for alert operations."""
 
     async def send_notification(
         self,
@@ -359,11 +363,11 @@ class NotificationOperations(Protocol):
 **Step 2**: Implement the backend (duck typing)
 
 ```python
-# File: adapters/persistence/notification_backend.py
+# File: adapters/persistence/alert_backend.py
 from core.utils.result_simplified import Result
 
-class NotificationBackend:
-    """Notification backend implementation."""
+class AlertBackend:
+    """Alert backend implementation."""
 
     async def send_notification(
         self,
@@ -380,25 +384,25 @@ class NotificationBackend:
         # Implementation here
         return Result.ok(5)
 
-# Backend automatically satisfies NotificationOperations protocol!
+# Backend automatically satisfies AlertOperations protocol!
 # No explicit inheritance needed.
 ```
 
 **Step 3**: Use in service
 
 ```python
-# File: core/services/notification_service.py
-from core.ports import NotificationOperations
+# File: core/services/alerts/alert_service.py
+from core.ports.alert_protocols import AlertOperations
 
-class NotificationService:
-    """Notification business logic service."""
+class AlertService:
+    """Alert business logic service."""
 
-    def __init__(self, backend: NotificationOperations):
+    def __init__(self, backend: AlertOperations):
         """Initialize with protocol-based backend."""
         self.backend = backend  # Type-safe!
 
     async def notify_user(self, user_uid: UserUID, message: str) -> Result[None]:
-        """Send notification to user."""
+        """Send an alert to a user."""
         return await self.backend.send_notification(user_uid, message)
 ```
 
@@ -407,12 +411,12 @@ class NotificationService:
 Protocols make testing trivial - just create a simple class that matches the protocol:
 
 ```python
-# Test file: tests/unit/test_notification_service.py
+# Test file: tests/unit/test_alert_service.py
 import pytest
-from core.services.notification_service import NotificationService
+from core.services.alerts.alert_service import AlertService
 from core.utils.result_simplified import Result
 
-class MockNotificationBackend:
+class MockAlertBackend:
     """Mock implementation for testing."""
 
     def __init__(self):
@@ -439,14 +443,14 @@ class MockNotificationBackend:
 @pytest.mark.asyncio
 async def test_notify_user():
     """Test notification sending."""
-    # Create mock backend (automatically satisfies NotificationOperations!)
-    mock_backend = MockNotificationBackend()
+    # Create mock backend (automatically satisfies AlertOperations!)
+    mock_backend = MockAlertBackend()
 
     # Create service with mock
-    service = NotificationService(backend=mock_backend)
+    service = AlertService(backend=mock_backend)
 
     # Call service method
-    result = await service.notify_user("user:123", "Hello!")
+    result = await service.notify_user("user_alice", "Hello!")
 
     # Assert
     assert result.is_ok

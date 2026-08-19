@@ -1077,7 +1077,7 @@ async def compose_services(
         from core.services.notifications.notification_service import NotificationService
 
         notification_backend = NotificationBackend(executor=query_executor)
-        notification_service = NotificationService(executor=notification_backend)
+        notification_service = NotificationService(backend=notification_backend)
         logger.info("✅ NotificationService created")
 
         # Create sharing backend + service (cross-domain, queries :Entity nodes)

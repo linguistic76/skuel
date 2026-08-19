@@ -17,20 +17,29 @@ Event handlers are registered in bootstrap via functools.partial for dependency 
 See: /docs/architecture/LEARNING_LOOP_ARCHITECTURE.md
 """
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from core.events.learning_loop_events import (
     ReportSubmitted,
     RevisedExerciseCreated,
     UserEntryApproved,
     UserEntryRevisionRequested,
 )
+from core.models.enums.entity_enums import EntityType
+from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
+
+if TYPE_CHECKING:
+    from core.ports.notification_protocols import NotificationOperations
 
 logger = get_logger("skuel.events.report_notification_handler")
 
 
 async def handle_report_submitted(
     event: ReportSubmitted,
-    notification_service: object,
+    notification_service: NotificationOperations,
 ) -> None:
     """Create notification when teacher submits written feedback on a user entry."""
     if not event.student_uid:
@@ -39,13 +48,13 @@ async def handle_report_submitted(
         )
         return
 
-    result = await notification_service.create_notification(  # type: ignore[attr-defined]
-        user_uid=event.student_uid,
+    result = await notification_service.create_notification(
+        user_uid=UserUID(event.student_uid),
         notification_type="feedback_received",
         title="New feedback on your submission",
         message="Your teacher reviewed your submission and left feedback.",
         source_uid=event.report_uid,
-        source_type="entry_report",
+        source_type=EntityType.ENTRY_REPORT,
     )
 
     if result.is_error:
@@ -61,7 +70,7 @@ async def handle_report_submitted(
 
 async def handle_submission_approved(
     event: UserEntryApproved,
-    notification_service: object,
+    notification_service: NotificationOperations,
 ) -> None:
     """Create notification when teacher approves a user entry."""
     if not event.student_uid:
@@ -78,13 +87,13 @@ async def handle_submission_approved(
     else:
         message = "Your teacher approved your work on this submission."
 
-    result = await notification_service.create_notification(  # type: ignore[attr-defined]
-        user_uid=event.student_uid,
+    result = await notification_service.create_notification(
+        user_uid=UserUID(event.student_uid),
         notification_type="submission_approved",
         title="Your submission was approved",
         message=message,
         source_uid=event.entity_uid,
-        source_type="user_entry",
+        source_type=EntityType.USER_ENTRY,
     )
 
     if result.is_error:
@@ -102,7 +111,7 @@ async def handle_submission_approved(
 
 async def handle_revision_requested(
     event: UserEntryRevisionRequested,
-    notification_service: object,
+    notification_service: NotificationOperations,
 ) -> None:
     """Create notification when teacher requests revision on a user entry."""
     if not event.student_uid:
@@ -118,13 +127,13 @@ async def handle_revision_requested(
 
     source_uid = report_uid or event.entity_uid
 
-    result = await notification_service.create_notification(  # type: ignore[attr-defined]
-        user_uid=event.student_uid,
+    result = await notification_service.create_notification(
+        user_uid=UserUID(event.student_uid),
         notification_type="revision_requested",
         title="Revision requested on your submission",
         message="Your teacher has requested changes to your submission.",
         source_uid=source_uid,
-        source_type="entry_report",
+        source_type=EntityType.ENTRY_REPORT,
     )
 
     if result.is_error:
@@ -141,7 +150,7 @@ async def handle_revision_requested(
 
 async def handle_revised_exercise_created(
     event: RevisedExerciseCreated,
-    notification_service: object,
+    notification_service: NotificationOperations,
 ) -> None:
     """Create notification when teacher creates revision instructions for a student."""
     if not event.student_uid:
@@ -155,13 +164,13 @@ async def handle_revised_exercise_created(
         f"revision #{event.revision_number}" if event.revision_number > 1 else "revision"
     )
 
-    result = await notification_service.create_notification(  # type: ignore[attr-defined]
-        user_uid=event.student_uid,
+    result = await notification_service.create_notification(
+        user_uid=UserUID(event.student_uid),
         notification_type="revised_exercise_created",
         title="Revision instructions are ready",
         message=f"Your teacher created {revision_label} instructions based on your submission feedback.",
         source_uid=event.revised_exercise_uid,
-        source_type="revised_exercise",
+        source_type=EntityType.REVISED_EXERCISE,
     )
 
     if result.is_error:

@@ -3483,6 +3483,31 @@ class RevisionChainResult(TypedDict):
 
 
 # ============================================================================
+# NOTIFICATION BACKEND RESULT TYPES
+# ============================================================================
+
+
+class NotificationRow(TypedDict):
+    """Return shape for NotificationBackend.get_notifications().
+
+    Mirrors the query's eight ``RETURN n.x as x`` aliases. ``created_at`` is
+    written as ``datetime($now)``, so the driver returns a temporal value the
+    house type system models as ``datetime``; ``str`` is admitted because the
+    ISO form round-trips through the same row shape (see
+    ``NotificationService._row_to_notification``, which normalises both).
+    """
+
+    uid: str
+    notification_type: str
+    title: str
+    message: str
+    source_uid: str
+    source_type: str
+    read: bool
+    created_at: datetime | str | None
+
+
+# ============================================================================
 # PS BACKEND RESULT TYPES
 # ============================================================================
 # TypedDicts for stable Cypher RETURN shapes from PsBackend domain methods.
@@ -4036,6 +4061,8 @@ __all__ = [
     "RequiredKnowledgeResult",
     "CurriculumExerciseResult",
     "RevisionChainResult",
+    # Notification Backend Result Types
+    "NotificationRow",
     # PS Backend Result Types
     "PsDeleteStepRow",
     # PS Intelligence Result Types

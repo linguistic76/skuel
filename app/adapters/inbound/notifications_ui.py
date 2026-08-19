@@ -55,7 +55,7 @@ def create_notifications_ui_routes(
         )
 
         notifications = result.value if not result.is_error else []
-        unread_count = sum(1 for n in notifications if not n.get("read", False))
+        unread_count = sum(1 for n in notifications if not n.read)
 
         header = PageHeader(
             title="Notifications",
@@ -103,7 +103,7 @@ def create_notifications_ui_routes(
 
         # Find the specific notification to re-render
         for n in notifications:
-            if n.get("uid") == notification_uid:
+            if n.uid == notification_uid:
                 return render_notification_card(n)
 
         # If not found, return empty (was deleted)
