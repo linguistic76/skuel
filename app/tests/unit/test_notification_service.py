@@ -5,6 +5,7 @@ Unit Tests for NotificationService
 Tests create, get_unread_count, get_notifications, mark_read, mark_all_read.
 """
 
+from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -28,7 +29,7 @@ def mock_backend():
 @pytest.fixture
 def service(mock_backend):
     """Create NotificationService with mocked backend."""
-    return NotificationService(executor=mock_backend)
+    return NotificationService(backend=mock_backend)
 
 
 # ============================================================================
@@ -111,7 +112,7 @@ async def test_get_unread_count_zero(service, mock_backend):
 
 @pytest.mark.asyncio
 async def test_get_notifications(service, mock_backend):
-    """Should return list of notifications."""
+    """Should map backend rows to Notification models, tolerating both created_at forms."""
     mock_backend.get_notifications.return_value = Result.ok(
         [
             {
@@ -122,6 +123,7 @@ async def test_get_notifications(service, mock_backend):
                 "source_uid": "ku_fb_1",
                 "source_type": "entry_report",
                 "read": False,
+                # ISO string — the form a row takes after a JSON round-trip
                 "created_at": "2026-02-15T10:00:00",
             },
             {
@@ -132,7 +134,8 @@ async def test_get_notifications(service, mock_backend):
                 "source_uid": "ku_fb_2",
                 "source_type": "entry_report",
                 "read": True,
-                "created_at": "2026-02-14T10:00:00",
+                # datetime — what the driver hands back for datetime($now)
+                "created_at": datetime(2026, 2, 14, 10, 0, 0),
             },
         ]
     )
@@ -141,9 +144,47 @@ async def test_get_notifications(service, mock_backend):
 
     assert not result.is_error
     assert len(result.value) == 2
-    assert result.value[0]["uid"] == "notif_1"
-    assert result.value[0]["read"] is False
-    assert result.value[1]["read"] is True
+
+    first, second = result.value
+    assert first.uid == "notif_1"
+    assert first.read is False
+    assert first.notification_type == "feedback_received"
+    assert first.title == "New feedback"
+    assert first.message == "Your teacher reviewed your work."
+    assert first.source_uid == "ku_fb_1"
+    assert first.source_type == "entry_report"
+    # user_uid comes from the caller — the query already scoped the rows to them
+    assert first.user_uid == "user_student"
+    assert first.created_at == datetime(2026, 2, 15, 10, 0, 0)
+
+    assert second.read is True
+    assert second.created_at == datetime(2026, 2, 14, 10, 0, 0)
+
+
+@pytest.mark.asyncio
+async def test_get_notifications_unparseable_created_at_falls_back(service, mock_backend):
+    """An unreadable created_at must not lose the notification."""
+    mock_backend.get_notifications.return_value = Result.ok(
+        [
+            {
+                "uid": "notif_bad",
+                "notification_type": "feedback_received",
+                "title": "New feedback",
+                "message": "Your teacher reviewed your work.",
+                "source_uid": "ku_fb_1",
+                "source_type": "entry_report",
+                "read": False,
+                "created_at": "not-a-timestamp",
+            },
+        ]
+    )
+
+    result = await service.get_notifications("user_student", limit=20)
+
+    assert not result.is_error
+    assert len(result.value) == 1
+    assert result.value[0].uid == "notif_bad"
+    assert isinstance(result.value[0].created_at, datetime)
 
 
 # ============================================================================
