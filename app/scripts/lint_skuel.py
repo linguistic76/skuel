@@ -5096,6 +5096,27 @@ class SkuelLinter:
         with no annotation is not a declaration at all (it is a bare ``Name``
         expression), so "is unannotated" is reachable only through assignment.
 
+        **Known limitation, deliberate (Codex, #1095):** the PEP 484 type-comment
+        spelling ``backend = None  # type: Any`` is NOT detected. ``ast.parse``
+        only populates ``type_comment`` under ``type_comments=True``, and this
+        linter shares ONE parse across every AST rule — under that flag a
+        misplaced type comment (``class C:  # type: int``, ``if x:  # type: int``,
+        ``return 1  # type: int``, all of which parse fine today) raises
+        SyntaxError, and the shared handler turns a SyntaxError into
+        ``tree = None``, silently skipping *every* AST rule on that file,
+        SKUEL021 and SKUEL022 included. Closing a zero-instance hole in one
+        sub-check is not worth a fail-open across the rule set.
+
+        The exposure is bounded and measured: zero non-``type: ignore`` type
+        comments exist in ``core/`` + ``adapters/`` + ``ui/``; ruff reports F401
+        on the ``Any`` import the form leaves unused, so it needs a ``noqa`` to
+        survive the gate at all; and the *assignment* branch is already
+        fail-closed on the same spelling (the annotation resolves to nothing →
+        "is unannotated" → flags). What is left is a legacy spelling that only
+        appears on purpose — and an author working around the rule on purpose has
+        a sanctioned, audited one-liner (``# skuel-lint: disable=SKUEL023``). The
+        rule's job is the accident and the drift.
+
         Verdict on the resolved annotation (see ``_resolve_backend_annotation``
         for how it is found):
         - unresolvable → flag (unannotated)
