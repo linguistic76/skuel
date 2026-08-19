@@ -4623,6 +4623,41 @@ class TestSKUEL023AnnotationStrength:
         assert len(violations) == 1
         assert "is typed `Any`" in violations[0].message
 
+    def test_flags_pep695_string_alias_to_any(self) -> None:
+        """`type BackendT = "Any"` — a forward-ref string inside the alias.
+
+        Codex, PR #1095. `backend: "Any"` was already parsed, but the alias side
+        re-implemented a narrower Name/Attribute test and so missed the string
+        form — an inconsistency between two answers to the same question. Both
+        sides now use `_extract_annotation_refs`, which is what makes them agree.
+        """
+        linter = make_linter(["SKUEL023"])
+        content = 'type BackendT = "Any"\n\n\nclass XMixin:\n    backend: BackendT\n'
+        violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
+        assert len(violations) == 1
+        assert "is typed `Any`" in violations[0].message
+
+    def test_flags_statement_form_string_alias_to_any(self) -> None:
+        """The same string form on the statement-form alias — one parser, both sides."""
+        linter = make_linter(["SKUEL023"])
+        content = 'BackendT = "Any"\n\n\nclass XMixin:\n    backend: BackendT\n'
+        violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
+        assert len(violations) == 1
+
+    def test_flags_alias_to_nested_any(self) -> None:
+        """`type B = dict[str, Any]` resolves like the direct `backend: dict[str, Any]`."""
+        linter = make_linter(["SKUEL023"])
+        content = "type B = dict[str, Any]\n\n\nclass XMixin:\n    backend: B\n"
+        violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
+        assert len(violations) == 1
+
+    def test_pep695_string_alias_to_protocol_is_clean(self) -> None:
+        """NEGATIVE CONTROL: parsing alias strings must not flag real ones."""
+        linter = make_linter(["SKUEL023"])
+        content = 'type B = "ChoicesOperations"\n\n\nclass XMixin:\n    backend: B\n'
+        violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
+        assert violations == []
+
     def test_pep695_type_alias_to_protocol_is_clean(self) -> None:
         """NEGATIVE CONTROL: resolving PEP 695 aliases must not flag real ones."""
         linter = make_linter(["SKUEL023"])

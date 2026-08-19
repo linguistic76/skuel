@@ -4970,6 +4970,15 @@ class SkuelLinter:
         *newest* of the three and so the likeliest to be written next in a 3.14
         codebase; covering two of three would have been an accident of when each
         was added, not a decision.
+
+        An alias's TARGET is read with ``_extract_annotation_refs`` — the same
+        parser the annotation side uses — rather than a hand-rolled
+        ``Name``/``Attribute`` test. That is what keeps the two sides honest:
+        ``backend: "Any"`` was already caught while ``type X = "Any"`` was not,
+        a divergence that existed only because the alias side re-implemented a
+        narrower version of the same question (Codex, #1095). One parser, not
+        two — so ``typing.Any``, forward-ref strings, and nested forms like
+        ``dict[str, Any]`` resolve identically wherever they appear.
         """
         aliases = {"Any"}
         for node in ast.walk(tree):
@@ -4988,10 +4997,9 @@ class SkuelLinter:
             else:
                 continue
 
-            is_any = (isinstance(value, ast.Name) and value.id in aliases) or (
-                isinstance(value, ast.Attribute) and value.attr == "Any"
-            )
-            if is_any:
+            if value is not None and aliases.intersection(
+                name for _lookup, name in SkuelLinter._extract_annotation_refs(value)
+            ):
                 aliases.update(targets)
         return aliases
 
