@@ -47,6 +47,7 @@ from core.models.entity import Entity
 from core.models.entity_dto import EntityDTO
 from core.models.enums import Domain
 from core.models.enums.entity_enums import EntityType
+from core.models.enums.neo_labels import NeoLabel
 from core.models.event.event_dto import EventDTO
 from core.models.exercises.exercise_dto import ExerciseDTO
 from core.models.goal.goal_dto import GoalDTO
@@ -66,6 +67,7 @@ from core.models.relationship_names import RelationshipName
 from core.models.task.task_dto import TaskDTO
 from core.models.user.user import User
 from core.models.user.user_dto import UserDTO
+from core.ports.base_protocols import Direction
 
 # Task and Goal domains unified into Entity model (February 2026)
 Task = Entity
@@ -226,7 +228,7 @@ class UnifiedRelationshipDefinition:
 
     relationship: RelationshipName
     target_label: str
-    direction: str  # "outgoing", "incoming", "both"
+    direction: Direction
     context_field_name: str  # For graph enrichment (e.g., "applied_knowledge")
     method_key: str  # For RelationshipConfig (e.g., "knowledge")
 
@@ -323,7 +325,7 @@ class DomainRelationshipConfig:
 
     # Identity
     domain: Domain
-    entity_label: str
+    entity_label: NeoLabel
     dto_class: type
     model_class: type
 
@@ -455,7 +457,7 @@ def _build_scoring_weights(
 # -----------------------------------------------------------------------------
 TASKS_CONFIG = DomainRelationshipConfig(
     domain=Domain.TASKS,
-    entity_label="Entity",
+    entity_label=NeoLabel.ENTITY,
     dto_class=TaskDTO,
     model_class=Task,
     ownership_relationship=RelationshipName.HAS_TASK,
@@ -668,7 +670,7 @@ TASKS_CONFIG = DomainRelationshipConfig(
 # -----------------------------------------------------------------------------
 GOALS_CONFIG = DomainRelationshipConfig(
     domain=Domain.GOALS,
-    entity_label="Entity",
+    entity_label=NeoLabel.ENTITY,
     dto_class=GoalDTO,
     model_class=Goal,
     ownership_relationship=RelationshipName.HAS_GOAL,
@@ -857,7 +859,7 @@ GOALS_CONFIG = DomainRelationshipConfig(
 # -----------------------------------------------------------------------------
 HABITS_CONFIG = DomainRelationshipConfig(
     domain=Domain.HABITS,
-    entity_label="Entity",
+    entity_label=NeoLabel.ENTITY,
     dto_class=HabitDTO,
     model_class=Entity,
     ownership_relationship=RelationshipName.OWNS,
@@ -1027,7 +1029,7 @@ HABITS_CONFIG = DomainRelationshipConfig(
 # -----------------------------------------------------------------------------
 EVENTS_CONFIG = DomainRelationshipConfig(
     domain=Domain.EVENTS,
-    entity_label="Entity",
+    entity_label=NeoLabel.ENTITY,
     dto_class=EventDTO,
     model_class=Entity,
     ownership_relationship=RelationshipName.HAS_EVENT,
@@ -1171,7 +1173,7 @@ EVENTS_CONFIG = DomainRelationshipConfig(
 # -----------------------------------------------------------------------------
 CHOICES_CONFIG = DomainRelationshipConfig(
     domain=Domain.CHOICES,
-    entity_label="Entity",
+    entity_label=NeoLabel.ENTITY,
     dto_class=ChoiceDTO,
     model_class=Entity,
     ownership_relationship=RelationshipName.OWNS,
@@ -1337,7 +1339,7 @@ CHOICES_CONFIG = DomainRelationshipConfig(
 # -----------------------------------------------------------------------------
 PRINCIPLES_CONFIG = DomainRelationshipConfig(
     domain=Domain.PRINCIPLES,
-    entity_label="Entity",
+    entity_label=NeoLabel.ENTITY,
     dto_class=PrincipleDTO,
     model_class=Entity,
     ownership_relationship=RelationshipName.OWNS,
@@ -1491,7 +1493,7 @@ PRINCIPLES_CONFIG = DomainRelationshipConfig(
 
 USER_CONFIG = DomainRelationshipConfig(
     domain=Domain.SYSTEM,  # User is part of system infrastructure
-    entity_label="User",
+    entity_label=NeoLabel.USER,
     dto_class=UserDTO,
     model_class=User,
     ownership_relationship=None,  # User doesn't have ownership
@@ -1564,7 +1566,7 @@ USER_CONFIG = DomainRelationshipConfig(
 
 PRINCIPLE_REFLECTION_CONFIG = DomainRelationshipConfig(
     domain=Domain.PRINCIPLES,  # Part of Principles domain
-    entity_label="PrincipleReflection",
+    entity_label=NeoLabel.PRINCIPLE_REFLECTION,
     dto_class=PrincipleReflectionDTO,
     model_class=PrincipleReflection,
     ownership_relationship=RelationshipName.MADE_REFLECTION,
@@ -1641,7 +1643,7 @@ PRINCIPLE_REFLECTION_CONFIG = DomainRelationshipConfig(
 # Ku (Atomic Knowledge Unit) — lightweight ontology/reference node
 KU_CONFIG = DomainRelationshipConfig(
     domain=Domain.KNOWLEDGE,
-    entity_label="Ku",
+    entity_label=NeoLabel.KU,
     dto_class=KuDTO,
     model_class=Ku,
     ownership_relationship=None,  # Shared content
@@ -1702,7 +1704,7 @@ KU_CONFIG = DomainRelationshipConfig(
 # 3-level hierarchy: LP -> PS -> Ku
 PS_CONFIG = DomainRelationshipConfig(
     domain=Domain.LEARNING,
-    entity_label="Entity",
+    entity_label=NeoLabel.ENTITY,
     dto_class=PathStepDTO,
     model_class=Entity,
     ownership_relationship=None,  # Shared content
@@ -1934,7 +1936,7 @@ PS_CONFIG = DomainRelationshipConfig(
 # LP (Learning Path) — Entity with entity_type='learning_path'
 LP_CONFIG = DomainRelationshipConfig(
     domain=Domain.LEARNING,
-    entity_label="Entity",
+    entity_label=NeoLabel.ENTITY,
     dto_class=LearningPathDTO,
     model_class=Entity,
     ownership_relationship=None,  # Shared content
@@ -2017,7 +2019,7 @@ LP_CONFIG = DomainRelationshipConfig(
 # -----------------------------------------------------------------------------
 EXERCISE_CONFIG = DomainRelationshipConfig(
     domain=Domain.KNOWLEDGE,  # Curriculum tier
-    entity_label="Entity",  # Exercise is a :Entity node with entity_type='exercise'
+    entity_label=NeoLabel.ENTITY,  # Exercise is a :Entity node with entity_type='exercise'
     dto_class=ExerciseDTO,
     model_class=Entity,
     ownership_relationship=RelationshipName.OWNS,
@@ -2072,7 +2074,7 @@ EXERCISE_CONFIG = DomainRelationshipConfig(
 # -----------------------------------------------------------------------------
 REVISED_EXERCISE_CONFIG = DomainRelationshipConfig(
     domain=Domain.KNOWLEDGE,  # Curriculum tier
-    entity_label="Entity",  # RevisedExercise is a :Entity node
+    entity_label=NeoLabel.ENTITY,  # RevisedExercise is a :Entity node
     dto_class=EntityDTO,
     model_class=Entity,
     ownership_relationship=RelationshipName.OWNS,
@@ -2132,7 +2134,7 @@ REVISED_EXERCISE_CONFIG = DomainRelationshipConfig(
 # -----------------------------------------------------------------------------
 USER_ENTRY_CONFIG = DomainRelationshipConfig(
     domain=Domain.SYSTEM,
-    entity_label="UserEntry",
+    entity_label=NeoLabel.USER_ENTRY,
     dto_class=EntityDTO,
     model_class=Entity,
     ownership_relationship=RelationshipName.OWNS,
@@ -2197,7 +2199,7 @@ USER_ENTRY_CONFIG = DomainRelationshipConfig(
 # -----------------------------------------------------------------------------
 ENTRY_REPORT_CONFIG = DomainRelationshipConfig(
     domain=Domain.SYSTEM,
-    entity_label="EntryReport",
+    entity_label=NeoLabel.ENTRY_REPORT,
     dto_class=EntityDTO,
     model_class=Entity,
     ownership_relationship=RelationshipName.OWNS,
@@ -2237,7 +2239,7 @@ ENTRY_REPORT_CONFIG = DomainRelationshipConfig(
 # -----------------------------------------------------------------------------
 INTERACTION_CONFIG = DomainRelationshipConfig(
     domain=Domain.SYSTEM,
-    entity_label="Interaction",
+    entity_label=NeoLabel.INTERACTION,
     dto_class=EntityDTO,
     model_class=Entity,
     ownership_relationship=RelationshipName.OWNS,
@@ -2739,5 +2741,5 @@ class ValidationRelationshipSpec:
     - target_labels: Valid target node labels (or None for any)
     """
 
-    direction: str
+    direction: Direction
     target_labels: list[str] | None = None

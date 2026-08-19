@@ -22,6 +22,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, TypeVar
 
 from core.models.type_hints import EntityUID, Neo4jProperties
+from core.ports.base_protocols import BackendOperations
 from core.utils.decorators import requires_graph_intelligence, with_error_handling
 from core.utils.result_simplified import Errors, Result
 
@@ -120,7 +121,7 @@ def _filter_matches(
     return (incident_rel_properties or {}).get(rel.filter_property) == rel.filter_value
 
 
-class IntelligenceMixin:
+class IntelligenceMixin[Ops: BackendOperations]:
     """
     Mixin providing graph intelligence, semantic, and cross-domain context methods.
 
@@ -136,7 +137,7 @@ class IntelligenceMixin:
 
     # Provided by UnifiedRelationshipService.__init__ — declared for mypy
     config: DomainRelationshipConfig
-    backend: Any
+    backend: Ops
     logger: Any
     graph_intel: Any | None
     semantic_helper: Any | None

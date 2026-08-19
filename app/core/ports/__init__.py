@@ -7,20 +7,23 @@ ISP-compliant design (refactored November 2025).
 
 Backend Protocol Hierarchy
 --------------------------
-BackendOperations[T] is THE full backend protocol, composed from 7 sub-protocols:
+BackendOperations[T] is THE full backend protocol, composed from 10 sub-protocols:
 
     BackendOperations[T]  ← UniversalNeo4jBackend implements this
-        ├── CrudOperations[T]              (6 methods)
-        ├── EntitySearchOperations[T]      (3 methods)
-        ├── RelationshipCrudOperations     (6 methods)
-        ├── RelationshipMetadataOperations (3 methods)
-        ├── RelationshipQueryOperations    (3 methods)
-        ├── GraphTraversalOperations       (2 methods)
-        └── LowLevelOperations             (2 methods + driver)
+        ├── CrudOperations[T]                  (7 methods)
+        ├── EntitySearchOperations[T]          (3 methods)
+        ├── RelationshipCrudOperations         (6 methods)
+        ├── RelationshipMetadataOperations     (3 methods)
+        ├── RelationshipQueryOperations        (3 methods)
+        ├── OrderedRelationshipOperations      (7 methods)
+        ├── BatchRelationshipOperations        (3 methods)
+        ├── UserEntityRelationshipOperations   (1 method)
+        ├── GraphTraversalOperations           (2 methods)
+        └── LowLevelOperations                 (2 methods + driver)
 
 Protocol Categories
 -------------------
-- Backend protocols: BackendOperations + 7 sub-protocols (ISP-compliant)
+- Backend protocols: BackendOperations + 10 sub-protocols (ISP-compliant)
 - Domain protocols: TasksOperations, GoalsOperations, etc. (inherit from BackendOperations)
 - Curriculum protocols: CurriculumOperations + PsOperations, LpOperations, KuOperations (Nov 2025, Apr 2026)
 - Search protocols: DomainSearchOperations, TasksSearchOperations, etc.
@@ -57,6 +60,7 @@ from .askesis_protocols import (
 from .base_protocols import (
     # Composed Backend Protocol (1 - backward compatible)
     BackendOperations,
+    BatchRelationshipOperations,
     # Composable Backend Protocols (7 - ISP-compliant)
     CrudOperations,
     # Type Aliases and TypedDicts (3)
@@ -100,6 +104,7 @@ from .base_protocols import (
     MaxLenConstraint,
     MetricsLike,
     MinLenConstraint,
+    OrderedRelationshipOperations,
     PydanticFieldInfo,
     # Standalone query execution port (February 2026)
     QueryExecutor,
@@ -109,6 +114,7 @@ from .base_protocols import (
     RelationshipQueryOperations,
     Result,
     StreaksLike,
+    UserEntityRelationshipOperations,
     # Backend Capability Protocols (10)
 )
 
@@ -415,11 +421,14 @@ __all__ = [
     # ========== FORM PROTOCOLS ==========
     "FormTemplateOperations",
     "FormSubmissionOperations",
+    "BatchRelationshipOperations",  # Batch relationship queries (3 methods)
+    "OrderedRelationshipOperations",  # Ordered/hierarchical traversal (7 methods)
     "RelationshipCrudOperations",  # Edge CRUD (6 methods)
     "RelationshipMetadata",
     "RelationshipMetadataOperations",  # Edge properties (3 methods)
     "RelationshipQueryOperations",  # Relationship queries (3 methods)
     "Result",
+    "UserEntityRelationshipOperations",  # User->entity ownership edge (1 method)
     "SchemaOperations",
     "SchemaQueryExecutor",
     "ScopedChunkRetrievalOperations",

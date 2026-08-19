@@ -100,7 +100,7 @@ UnifiedRelationshipService[Ops, Model, DtoType]
 @dataclass(frozen=True)
 class DomainRelationshipConfig:
     domain: Domain
-    entity_label: str
+    entity_label: NeoLabel
     dto_class: type
     model_class: type
     ownership_relationship: RelationshipName | None

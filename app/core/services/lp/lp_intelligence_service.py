@@ -38,6 +38,7 @@ from typing import Any
 from core.models.pathways.learning_path import LearningPath
 from core.models.type_hints import UserUID
 from core.ports.content_protocols import ContentAdapter
+from core.ports.curriculum_protocols import LpOperations
 from core.ports.query_types import (
     LpDomainInsights,
     LpPerformanceAnalytics,
@@ -68,7 +69,7 @@ from core.utils.result_simplified import Errors, Result
 class LpIntelligenceService(
     _CoreIntelligenceMixin[LearningPath],
     _PathAnalysisMixin,
-    BaseAnalyticsService[Any, LearningPath],
+    BaseAnalyticsService[LpOperations, LearningPath],
 ):
     """
     Unified Learning Path Intelligence Service.
@@ -90,7 +91,7 @@ class LpIntelligenceService(
     - Context: Path with full graph context
 
     Architecture:
-    - Extends BaseAnalyticsService[Any, LearningPath] for standardized infrastructure
+    - Extends BaseAnalyticsService[LpOperations, LearningPath] for standardized infrastructure
     - Inherits `get_with_context()` from `_CoreIntelligenceMixin[LearningPath]`
     - Inherits validation/analysis methods from `_PathAnalysisMixin`
     - Delegates state/content ops to 4 focused sub-services
@@ -105,7 +106,7 @@ class LpIntelligenceService(
 
     def __init__(
         self,
-        backend: Any,
+        backend: LpOperations,
         graph_intel: Any | None = None,
         relationship_service: Any | None = None,
         # LP-specific dependencies

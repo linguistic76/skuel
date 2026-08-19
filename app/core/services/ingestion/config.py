@@ -134,7 +134,7 @@ def generate_ingestion_relationship_config(
         rel_entry = RelationshipConfig(
             rel_type=rel.relationship.value,
             target_label=rel.target_label,
-            direction=rel.direction,  # type: ignore[typeddict-item]  # str validated at definition
+            direction=rel.direction,
         )
         if rel.order_by_property:
             rel_entry["order_property"] = rel.order_by_property
