@@ -4719,6 +4719,54 @@ class TestSKUEL023AnnotationStrength:
         violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
         assert len(violations) == 1
 
+    def test_flags_class_local_alias_to_any(self) -> None:
+        """A class's OWN body is an enclosing scope for its annotations.
+
+        Codex, PR #1095. Module scope alone left `class M: type B = Any;
+        backend: B` unflagged.
+        """
+        linter = make_linter(["SKUEL023"])
+        content = "class XMixin:\n    type BackendT = Any\n\n    backend: BackendT\n"
+        violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
+        assert len(violations) == 1
+
+    def test_flags_class_local_pep613_alias(self) -> None:
+        """The same, in the `B: TypeAlias = Any` spelling."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import Any, TypeAlias\n"
+            "\n"
+            "\n"
+            "class XMixin:\n"
+            "    BackendT: TypeAlias = Any\n"
+            "\n"
+            "    backend: BackendT\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
+        assert len(violations) == 1
+
+    def test_sibling_class_alias_does_not_contaminate(self) -> None:
+        """NEGATIVE CONTROL: only the DECLARING class's body is added.
+
+        The pairing test for the class-scope fix — adding enclosing scope must
+        not re-open the cross-scope false positive that module-merging caused.
+        Here a sibling class defines `BackendT = Any`, but `XMixin` binds its own
+        `BackendT = GoodOps` and must stay clean.
+        """
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "class Other:\n"
+            "    type BackendT = Any\n"
+            "\n"
+            "\n"
+            "class XMixin:\n"
+            "    BackendT = GoodOps\n"
+            "\n"
+            "    backend: BackendT\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
+        assert violations == []
+
     def test_function_local_alias_does_not_contaminate_module_scope(self) -> None:
         """NEGATIVE CONTROL — a FALSE POSITIVE, not a missed bypass.
 

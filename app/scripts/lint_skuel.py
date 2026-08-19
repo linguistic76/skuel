@@ -4955,8 +4955,8 @@ class SkuelLinter:
     # =========================================================================
 
     @staticmethod
-    def _collect_any_aliases(tree: ast.Module) -> set[str]:
-        """Local names that mean ``typing.Any`` in this module.
+    def _collect_any_aliases(tree: ast.Module) -> tuple[set[str], set[str]]:
+        """Module-scope names meaning ``typing.Any``, and the ``TypeAlias`` markers.
 
         ``from typing import Any as BackendT`` + ``backend: BackendT`` would
         otherwise read as a concrete type and pass. Same bypass class the rule's
@@ -4979,14 +4979,16 @@ class SkuelLinter:
         assignments counts — the fail-closed direction for a suppression-adjacent
         question.
 
-        Collection is **module-scope**: traversed through compound statements, so
-        an alias under ``if TYPE_CHECKING:`` counts, but never into a function or
-        class body. Merging every scope module-wide is not merely over-broad, it
-        produces FALSE POSITIVES — a function-local ``type BackendT = Any``
-        would condemn an unrelated module-level ``BackendT = GoodOps`` and fail
-        the gate on valid code (Codex, #1095). On a blocking ERROR rule a false
-        positive costs more than an exotic missed spelling, and an alias that
-        governs a class-attribute annotation lives at module scope anyway.
+        Collection is **scope-aware, not module-merged**. This helper returns the
+        module scope; the check then re-resolves per class, adding that class's
+        OWN body — the two scopes that can actually govern a class-attribute
+        annotation, and no others. Merging every scope module-wide instead is not
+        merely over-broad, it produces FALSE POSITIVES: a function-local
+        ``type BackendT = Any`` would condemn an unrelated module-level
+        ``BackendT = GoodOps`` and fail the gate on valid code (Codex, #1095).
+        On a blocking ERROR rule a false positive costs more than a missed
+        spelling, which is why the fix is the enclosing scopes specifically
+        rather than a wider net.
 
         The ``TypeAlias`` marker is itself resolved through its import aliases
         (``from typing import TypeAlias as TA``), for the same reason ``Any`` is:
@@ -5002,24 +5004,13 @@ class SkuelLinter:
         two — so ``typing.Any``, forward-ref strings, and nested forms like
         ``dict[str, Any]`` resolve identically wherever they appear.
         """
+        scope = SkuelLinter._own_scope_nodes(tree)
         aliases = {"Any"}
         markers = {"TypeAlias"}
-        definitions: list[tuple[str, set[str]]] = []
 
-        # Module scope only — traversed through compound statements (a
-        # `if TYPE_CHECKING:` alias still counts) but never into a function or
-        # class body. Same scope notion `_find_class_body_backend_declaration`
-        # uses, one level up.
-        module_scope = list(
-            SkuelLinter._walk_pruned(tree, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
-        )
-
-        def _record(name: str, value: ast.expr) -> None:
-            refs = {ref for _lookup, ref in SkuelLinter._extract_annotation_refs(value)}
-            definitions.append((name, refs))
-
-        # Pass 1 — import spellings, so pass 2 does not depend on import order.
-        for node in module_scope:
+        # Import spellings first, so definition collection does not depend on
+        # import order.
+        for node in scope:
             if isinstance(node, ast.ImportFrom) and node.module == "typing":
                 for imported in node.names:
                     if not imported.asname:
@@ -5029,8 +5020,37 @@ class SkuelLinter:
                     elif imported.name == "TypeAlias":
                         markers.add(imported.asname)
 
-        # Pass 2 — alias definitions.
-        for node in module_scope:
+        resolved = SkuelLinter._resolve_any_aliases(
+            aliases, SkuelLinter._alias_definitions(scope, markers)
+        )
+        return resolved, markers
+
+    @staticmethod
+    def _own_scope_nodes(node: ast.AST) -> list[ast.AST]:
+        """Nodes belonging to ``node``'s OWN scope — never a nested one.
+
+        Traversed through compound statements, so a ``if TYPE_CHECKING:`` alias
+        counts, but pruned at every scope boundary. One notion of "own scope",
+        used for a module and for a class body alike.
+        """
+        return list(
+            SkuelLinter._walk_pruned(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+        )
+
+    @staticmethod
+    def _alias_definitions(scope: list[ast.AST], markers: set[str]) -> list[tuple[str, set[str]]]:
+        """``(alias name, names it references)`` for every alias defined in ``scope``.
+
+        Three definition spellings; the import alias is handled by the caller
+        because it seeds rather than defines.
+        """
+        definitions: list[tuple[str, set[str]]] = []
+
+        def _record(name: str, value: ast.expr) -> None:
+            refs = {ref for _lookup, ref in SkuelLinter._extract_annotation_refs(value)}
+            definitions.append((name, refs))
+
+        for node in scope:
             if isinstance(node, ast.Assign):
                 # `X = Any` — the bare statement form.
                 for target in node.targets:
@@ -5048,11 +5068,20 @@ class SkuelLinter:
             elif isinstance(node, ast.TypeAlias) and isinstance(node.name, ast.Name):
                 # `type X = Any` — PEP 695.
                 _record(node.name.id, node.value)
+        return definitions
 
-        # Fixed point, not one ordered pass: PEP 695 aliases are lazily
-        # evaluated, so `type A = B` may legally precede `type B = Any` and mypy
-        # resolves it either way. Iterating in source order would let the file's
-        # layout decide whether the rule fires (Codex, #1095).
+    @staticmethod
+    def _resolve_any_aliases(seed: set[str], definitions: list[tuple[str, set[str]]]) -> set[str]:
+        """Grow ``seed`` with every alias that reaches ``Any``, to a fixed point.
+
+        Not one ordered pass: PEP 695 aliases are lazily evaluated, so
+        ``type A = B`` may legally precede ``type B = Any`` and a type checker
+        resolves it either way. Iterating in source order would let a file's
+        layout decide whether the rule fires (Codex, #1095). Terminates because
+        each round either adds a name from a finite set or stops — a cyclic
+        alias (``type A = B`` / ``type B = A``) simply never reaches ``Any``.
+        """
+        aliases = set(seed)
         changed = True
         while changed:
             changed = False
@@ -5224,7 +5253,7 @@ class SkuelLinter:
         if tree is None or self._is_file_suppressed(content, "SKUEL023"):
             return
 
-        any_aliases = self._collect_any_aliases(tree)
+        any_aliases, alias_markers = self._collect_any_aliases(tree)
 
         for cls in [n for n in ast.walk(tree) if isinstance(n, ast.ClassDef)]:
             assign = self._find_self_backend_assignment(cls)
@@ -5240,9 +5269,18 @@ class SkuelLinter:
             else:
                 continue
 
+            # The declaring class's OWN body is an enclosing scope for its
+            # annotations, so a class-local `type B = Any` governs `backend: B`
+            # (Codex, #1095). Only this class's body — merging unrelated scopes
+            # is what produced a false positive one round earlier.
+            scoped_aliases = self._resolve_any_aliases(
+                any_aliases,
+                self._alias_definitions(self._own_scope_nodes(cls), alias_markers),
+            )
+
             if annotation is None:
                 verdict = "is unannotated"
-            elif any_aliases.intersection(
+            elif scoped_aliases.intersection(
                 name for _lookup, name in self._extract_annotation_refs(annotation)
             ):
                 verdict = "is typed `Any`"
