@@ -4804,6 +4804,45 @@ class TestSKUEL023AnnotationStrength:
         violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
         assert len(violations) == 1
 
+    def test_class_type_parameter_shadows_module_alias(self) -> None:
+        """NEGATIVE CONTROL: a PEP 695 type parameter binds the name, not an alias.
+
+        Codex, PR #1095. `class XMixin[BackendT: GoodOps]` shadows a module
+        `type BackendT = Any` throughout the class, and mypy checks the bounded
+        type variable — so flagging it was a blocking ERROR on valid code. The
+        generic-mixin shape itself is live here (`class XMixin[Ops: ...]` with
+        `backend: Ops`, #1094), so the collision is not purely theoretical.
+        """
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "type BackendT = Any\n\n\nclass XMixin[BackendT: GoodOps]:\n    backend: BackendT\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
+        assert violations == []
+
+    def test_method_type_parameter_shadows_module_alias(self) -> None:
+        """The same on a method's own type parameter, governing an __init__ param."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "type T = Any\n"
+            "\n"
+            "\n"
+            "class XService:\n"
+            "    def __init__[T: GoodOps](self, backend: T) -> None:\n"
+            "        self.backend = backend\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_service.py")
+        assert violations == []
+
+    def test_type_parameter_does_not_excuse_a_plain_any(self) -> None:
+        """Shadowing must not become a blanket exemption for generic classes."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import Any\n\n\nclass XMixin[Ops: BackendOperations]:\n    backend: Any\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
+        assert len(violations) == 1
+
     def test_class_alias_shadows_module_alias(self) -> None:
         """NEGATIVE CONTROL — the second false positive, not a bypass.
 

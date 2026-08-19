@@ -5085,6 +5085,40 @@ class SkuelLinter:
         return definitions, markers
 
     @staticmethod
+    def _type_parameter_bindings(cls: ast.ClassDef) -> dict[str, set[str]]:
+        """PEP 695 type parameters, as bindings that shadow outer aliases.
+
+        ``class XMixin[BackendT: GoodOps]`` binds ``BackendT`` to a type
+        variable throughout the class, so a module-level ``type BackendT = Any``
+        does not reach the annotation. Without this, that shape reported a
+        blocking ERROR on code mypy accepts (Codex, #1095) — and
+        ``class XMixin[Ops: BackendOperations]`` with ``backend: Ops`` is the
+        live idiom in this codebase, so the collision is not purely theoretical.
+
+        Each binds to the EMPTY set: a type variable is by construction not
+        ``Any``, whatever its bound. Reusing the definition map means shadowing
+        happens through the one mechanism, not a second subtraction step.
+
+        Method type parameters are collected too, and deliberately over-shadow —
+        one method's parameter suppresses the name across the whole class rather
+        than only inside it. That direction is fail-open (a missed spelling, not
+        a false alarm), which is the correct way to be imprecise on a rule that
+        blocks the gate.
+        """
+        owners: list[ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef] = [cls]
+        owners.extend(
+            stmt for stmt in cls.body if isinstance(stmt, ast.FunctionDef | ast.AsyncFunctionDef)
+        )
+        # `ast.type_param` is the abstract base and carries no `name`; the three
+        # concrete forms each do.
+        return {
+            param.name: set()
+            for owner in owners
+            for param in owner.type_params
+            if isinstance(param, ast.TypeVar | ast.ParamSpec | ast.TypeVarTuple)
+        }
+
+    @staticmethod
     def _annotation_names(expr: ast.expr) -> set[str]:
         """Every type name referenced in ``expr``, forward-ref strings parsed."""
         return {name for _lookup, name in SkuelLinter._extract_annotation_refs(expr)}
@@ -5227,6 +5261,19 @@ class SkuelLinter:
         with no annotation is not a declaration at all (it is a bare ``Name``
         expression), so "is unannotated" is reachable only through assignment.
 
+        **Known limitation, deliberate (Codex, #1095):** alias resolution is
+        order-INSENSITIVE within a scope, so rebinding a name *after* using it
+        (``backend: BackendT`` then, lower in the same class body,
+        ``type BackendT = GoodOps``, shadowing a module-level ``Any``) reads as
+        the later binding and does not flag. Resolving the binding live at each
+        annotation site means tracking definitions positionally — an interpreter,
+        not the AST pattern check this repo's lint rules are ruled to be — and
+        order-insensitivity is load-bearing in the other direction, because PEP
+        695 aliases genuinely are lazy (``type A = B`` may precede
+        ``type B = Any``). This failure is fail-OPEN, a missed spelling rather
+        than a false alarm on valid code, which is the correct direction for the
+        imprecision to run on a rule that blocks the gate.
+
         **Known limitation, deliberate (Codex, #1095):** the PEP 484 type-comment
         spelling ``backend = None  # type: Any`` is NOT detected. ``ast.parse``
         only populates ``type_comment`` under ``type_comments=True``, and this
@@ -5296,7 +5343,9 @@ class SkuelLinter:
             class_definitions, _ = self._alias_definitions(
                 self._own_scope_nodes(cls), module_markers
             )
-            scoped_aliases = self._resolve_any_aliases({**module_definitions, **class_definitions})
+            scoped_aliases = self._resolve_any_aliases(
+                {**module_definitions, **class_definitions, **self._type_parameter_bindings(cls)}
+            )
 
             if annotation is None:
                 verdict = "is unannotated"
