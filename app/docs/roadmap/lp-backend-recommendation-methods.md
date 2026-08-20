@@ -1,12 +1,13 @@
 # LP intelligence: two backend methods that were never built
 
-**Status:** OPEN — awaiting Mike's ruling: build (parked) vs delete.
-The prior ruling *build, but not now* (Mike, 2026-08-20) predates the ZPD
-investigation below, which answered the question that ruling deferred and
-found evidence it did not have.
+**Status:** RULED — *build, but not now* (Mike, 2026-08-20; **confirmed
+2026-08-20 after the ZPD investigation below**, with the investigator's
+delete recommendation on the table — build wins). Registered in
+[`deferred-work.md`](deferred-work.md) § LP Recommendation Backend Methods;
+trigger = Mike schedules it.
 **Blocked by:** the stabilize-and-content phase directive. This is feature work.
 **Found by:** Scope C backend-handle typing (#1099)
-**ZPD investigation:** done 2026-08-20 — see § Has ZPD absorbed this?
+**ZPD investigation:** done 2026-08-20 (PR #1103) — see § Has ZPD absorbed this?
 
 ## What is missing
 
@@ -185,3 +186,9 @@ guarding branches that swallow AttributeErrors. The intent survives in this
 doc (moved to `done/`) either way. Mike decides — ZPD absorption alone did
 not turn out to be the discriminator, so the delete-on-absorption authorization
 from the prior ruling does not fire on its own.
+
+**→ Decided (Mike, 2026-08-20): build, but not now.** The recommendation above
+was considered and not taken — the gap is wanted, so the feature stays a
+deferred build, registered in [`deferred-work.md`](deferred-work.md) § LP
+Recommendation Backend Methods. The three handles and their comments remain
+the in-code markers until the build is scheduled.
