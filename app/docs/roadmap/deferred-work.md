@@ -629,6 +629,38 @@ into a silently-broken search.
 
 ---
 
+## LP Recommendation Backend Methods — Ruled *Build, Not Now* (2026-08-20)
+
+**Mike's ruling, made twice and confirmed after investigation:** build the
+state-keyed LP recommendation feature eventually; do not build it now. Recorded
+2026-08-20, re-affirmed the same day after the ZPD-absorption investigation
+(PR #1103) with its evidence on the table — including the investigator's
+on-record recommendation to delete. The ruling is **build wins**.
+
+**What it is:** `find_paths_for_user` and `get_user_progress_summary` — two
+backend methods called by LP intelligence and defined nowhere, whose absence
+makes `LpIntelligenceService.recommend_learning_paths` always return `[]`.
+The capability they would power — ranking whole LearningPaths by *learning
+state* (readiness/mastery) — is done by nothing today: ZPD deliberately stays
+Ku-grain and the live vision-keyed recommender
+(`LifePathVisionService.recommend_learning_paths`) answers path choice by a
+different key.
+
+**The case file is authoritative:**
+[`lp-backend-recommendation-methods.md`](lp-backend-recommendation-methods.md) —
+verdict, evidence, the sharpened build spec (frozen contract, ports, and the
+**consumer requirement**: the current chain terminates in an event with zero
+subscribers, so an honest build includes a UI surface or a real subscriber).
+Until then the three `Any | None` handles in `core/services/lp_intelligence/`
++ `lp/lp_intelligence_service.py` stay as the in-code markers, each commented —
+do not retype them and do not delete the call branches.
+
+**Enable when**: Mike schedules it — product decision, not a data threshold.
+The build is a full feature (backend methods + frozen contract + consumer
+surface), so it waits out the stabilize-and-content phase.
+
+---
+
 ## Review Schedule
 
 Review this document at the **September 2026 quarterly review**. Checklist:
@@ -658,6 +690,7 @@ Review this document at the **September 2026 quarterly review**. Checklist:
 | `:OWNS` writers that skip `user_uid` (staged attendee/gravity surface) | Wiring `add_attendee` or any of the 4 gravity-link methods | Ruling needed on the edge type first — see the section |
 | `User.uid` unindexed | User count past a handful, or a ruling moving ownership reads onto the `:OWNS` edge | `SHOW INDEXES` — no `User(uid)` entry today |
 | `GroupService` OWNER_ONLY vs `Group.owner_uid` | Wiring Group into search, or a 2nd `owner_uid`-keyed domain wanting search | Ruling needed (configurable ownership property **or** a Group visibility) — see the section; guarded by `TestOwnerOnlyDomainsCarryTheScopingProperty` |
+| LP recommendation backend methods (ruled *build, not now* 2026-08-20) | Mike schedules it — full feature: backend methods + frozen contract + consumer surface | Case file `lp-backend-recommendation-methods.md`; the 3 `Any` handles + their comments are the in-code markers |
 
 **The document is the checklist, the table is a convenience:** a section added to this file
 without a matching row here is still in review scope — walk every `##` section, then the table.
