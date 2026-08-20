@@ -134,6 +134,7 @@ class HabitsCompletionService:
         completion_dto = HabitCompletionDTO(
             uid=completion_uid,
             habit_uid=habit_uid,
+            user_uid=user_uid,
             completed_at=completed_at,
             quality=quality,
             duration_actual=duration_actual,
@@ -267,6 +268,7 @@ class HabitsCompletionService:
         completion_dto = HabitCompletionDTO(
             uid=completion_uid,
             habit_uid=habit_uid,
+            user_uid=user_uid,
             completed_at=completed_at,
             quality=None,
             duration_actual=None,
@@ -518,33 +520,30 @@ class HabitsCompletionService:
         start_of_day = datetime.combine(today, datetime.min.time())
         end_of_day = datetime.combine(today, datetime.max.time())
 
-        # Scope through the habits backend — HabitCompletion has no user_uid
-        # field, so filtering completions_backend by user_uid is silently a
-        # no-op. Same reasoning (and same shape) as export_completion_history.
-        habits_result = await self.habits_backend.find_by(
-            user_uid=user_uid, limit=QueryLimit.COMPREHENSIVE
+        completions_result = await self.completions_backend.find_by(
+            user_uid=user_uid,
+            completed_at__gte=start_of_day,
+            completed_at__lte=end_of_day,
+            limit=QueryLimit.COMPREHENSIVE,
         )
-        if habits_result.is_error:
-            return Result.fail(habits_result)
+        if completions_result.is_error:
+            return Result.fail(completions_result)
 
-        # Get habit details and create response
+        # Group by habit — one habit can be completed several times a day
+        by_habit: dict[str, list[HabitCompletion]] = {}
+        for completion in completions_result.value:
+            by_habit.setdefault(completion.habit_uid, []).append(completion)
+
         result: list[dict[str, Any]] = []
-        for habit in habits_result.value:
-            per_habit = await self.completions_backend.find_by(
-                habit_uid=habit.uid,
-                completed_at__gte=start_of_day,
-                completed_at__lte=end_of_day,
-                limit=QueryLimit.COMPREHENSIVE,
-            )
-            if per_habit.is_error:
-                return Result.fail(per_habit)
-            if not per_habit.value:
-                continue  # habit simply not completed today
+        for habit_uid, group in by_habit.items():
+            habit_result = await self.habits_backend.get(habit_uid)
+            if habit_result.is_error:
+                return Result.fail(habit_result)
 
-            completions = sorted(per_habit.value, key=get_completed_at, reverse=True)
+            completions = sorted(group, key=get_completed_at, reverse=True)
             result.append(
                 {
-                    "habit": habit,
+                    "habit": habit_result.value,
                     "completions_today": len(completions),
                     "latest_completion": completions[0],  # Most recent
                     "total_quality_today": sum(c.quality or 0 for c in completions),
@@ -638,16 +637,12 @@ class HabitsCompletionService:
             if habit.is_identity_based():
                 total_identity_votes += habit.identity_votes_cast
 
-        # High-quality completions, scoped through the habits just loaded —
-        # HabitCompletion has no user_uid field, so filtering the completions
-        # backend by user_uid is silently a no-op (see export_completion_history).
-        for habit in habits_result.value:
-            per_habit = await self.completions_backend.find_by(
-                habit_uid=habit.uid, limit=QueryLimit.COMPREHENSIVE
-            )
-            if per_habit.is_error:
-                return Result.fail(per_habit)
-            high_quality_completions += sum(1 for c in per_habit.value if c.is_high_quality())
+        all_completions = await self.completions_backend.find_by(
+            user_uid=user_uid, limit=QueryLimit.COMPREHENSIVE
+        )
+        if all_completions.is_error:
+            return Result.fail(all_completions)
+        high_quality_completions = sum(1 for c in all_completions.value if c.is_high_quality())
 
         # Fetch persisted badges to get earned_at dates
         earned_badge_ids: set[str] = set()
@@ -721,37 +716,19 @@ class HabitsCompletionService:
                 )
             )
 
-        # Scope through the habits backend — HabitCompletion has no user_uid field,
-        # so filtering completions_backend by user_uid is silently a no-op. The
-        # correct path is: fetch the user's habit UIDs (habits_backend IS scoped),
-        # then pull completions only for those UIDs.
-        habits_result = await self.habits_backend.find_by(
-            user_uid=user_uid, limit=QueryLimit.COMPREHENSIVE
-        )
-        if habits_result.is_error:
-            return Result.fail(habits_result)
-
-        habit_uids = [habit.uid for habit in habits_result.value if habit.uid]
-        if not habit_uids:
-            return self._export_csv([]) if format == "csv" else self._export_json([])
-
         date_filters: dict[str, datetime] = {}
         if start_date:
             date_filters["completed_at__gte"] = datetime.combine(start_date, datetime.min.time())
         if end_date:
             date_filters["completed_at__lte"] = datetime.combine(end_date, datetime.max.time())
 
-        completions: list[HabitCompletion] = []
-        for habit_uid in habit_uids:
-            per_habit = await self.completions_backend.find_by(
-                habit_uid=habit_uid, **date_filters, limit=QueryLimit.BULK
-            )
-            if per_habit.is_error:
-                return Result.fail(per_habit)
-            completions.extend(per_habit.value)
+        result = await self.completions_backend.find_by(
+            user_uid=user_uid, **date_filters, limit=QueryLimit.BULK
+        )
+        if result.is_error:
+            return Result.fail(result)
 
-        # Sort by date
-        completions.sort(key=get_completed_at)
+        completions = sorted(result.value, key=get_completed_at)
 
         if format == "csv":
             return self._export_csv(completions)

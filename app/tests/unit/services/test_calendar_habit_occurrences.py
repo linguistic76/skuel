@@ -308,6 +308,7 @@ def _completion(completed_at: datetime) -> HabitCompletion:
     return HabitCompletion(
         uid=f"hc.user_test.habit.test.{int(completed_at.timestamp())}",
         habit_uid="habit.test",
+        user_uid="user_mike",
         completed_at=completed_at,
         created_at=completed_at,
         updated_at=completed_at,
