@@ -661,6 +661,58 @@ surface), so it waits out the stabilize-and-content phase.
 
 ---
 
+## Backend-Typing Follow-on — the Active Queue (3 items)
+
+These three outlived the backend-typing arc (#1090–#1102, closed 2026-08-20)
+because none of them is a retype — each is a decision or a chain. They are
+**active backlog, not trigger-gated deferral**: the standing ruling
+(Mike, 2026-08-20) is that a fresh context takes **ONE** of them, not the set.
+Registered here so the repo carries the list; a fourth sibling — the LP
+recommendation backend methods — was ruled *build, not now* and has its own
+section above.
+
+### A. The `DomainConfig` string chain
+
+`generate_prerequisite_relationships` **has** the `RelationshipName` enums and
+discards them to strings — `[rel.value for rel in
+config.prerequisite_relationship_names]` (`core/models/relationship_registry.py:2519`).
+Three sites hold the downgraded `list[str]` form: the generator's return type
+(`relationship_registry.py:2505`), `_prerequisite_relationships:
+ClassVar[list[str]]` on `BaseService` (`core/services/base_service.py:570`),
+and the mixin's declaration (`core/services/mixins/context_operations_mixin.py:69`).
+PR #1102 made `add_relationship` enum-only and localized the conversion to the
+ONE place a config value becomes an edge type; converting the whole chain is
+the remaining cleanup — bounded, but it touches `domain_config.py` and the
+context mixin's query paths, so **measure before scoping**.
+⚠️ `generate_enables_relationships` (`relationship_registry.py:2536`) is the
+same shape and was never examined — enumerate both before fixing either.
+
+### B. The `PsOperations` layering contradiction
+
+Blocks the last untyped factory param: `create_ps_sub_services(backend=)`
+(`core/services/curriculum_domain_config.py:135`, param `backend: Any` at
+`:154`; Mike ruled "type not annotate"). It cannot be typed until this is
+settled: `PsOperations` is documented as the **service-facing** protocol
+(`core/ports/curriculum_protocols.py:874`), yet 5 sub-services type
+`self.backend` against it — and, measured 2026-08-20,
+`x: PsOperations = PsBackend(...)` probes **clean** while
+`x: PsOperations = PsService(...)` **fails**: the protocol carrying the
+service's shapes is satisfied by the backend and not by the service. Mike's
+leaning (2026-08-20): "PsOperations is the backend protocol" — stated as a
+hypothesis needing investigation, **not** a ruling. The two protocols the
+factory would need are provably un-composable (mypy rejects the
+multiple-inheritance). ⚠️ Same-root-word/two-layer trap — one prior "fix" of
+this divergence had to be reverted; PR #1101 fixed the 5 row-type conflicts
+but deliberately left the layering question open.
+
+### C. The lying `ku_backend` fixture
+
+`tests/integration/test_event_ku_practice_flow.py:61` — a fixture **named**
+`ku_backend` that constructs a `PsBackend` (`NeoLabel.PATH_STEP`, `PathStep`).
+**Ruled: bundle with whatever touches that file next; do not spend a PR on it.**
+
+---
+
 ## Review Schedule
 
 Review this document at the **September 2026 quarterly review**. Checklist:
@@ -691,6 +743,9 @@ Review this document at the **September 2026 quarterly review**. Checklist:
 | `User.uid` unindexed | User count past a handful, or a ruling moving ownership reads onto the `:OWNS` edge | `SHOW INDEXES` — no `User(uid)` entry today |
 | `GroupService` OWNER_ONLY vs `Group.owner_uid` | Wiring Group into search, or a 2nd `owner_uid`-keyed domain wanting search | Ruling needed (configurable ownership property **or** a Group visibility) — see the section; guarded by `TestOwnerOnlyDomainsCarryTheScopingProperty` |
 | LP recommendation backend methods (ruled *build, not now* 2026-08-20) | Mike schedules it — full feature: backend methods + frozen contract + consumer surface | Case file `lp-backend-recommendation-methods.md`; the 3 `Any` handles + their comments are the in-code markers |
+| `DomainConfig` string chain (backend-typing queue A) | Next backlog session — active queue, ONE item per context | `git grep 'rel.value for rel in'` still shows the discard at `relationship_registry.py:2519`; ⚠️ enumerate the enables twin too |
+| `PsOperations` layering contradiction (backend-typing queue B) | Next backlog session — investigation, not a retype | `create_ps_sub_services(backend=)` still `Any`; probe `x: PsOperations = PsBackend(...)` vs `= PsService(...)` before believing any doc |
+| Lying `ku_backend` fixture (backend-typing queue C) | Next touch of `test_event_ku_practice_flow.py` | Ride-along, not standalone — ruled: do not spend a PR |
 
 **The document is the checklist, the table is a convenience:** a section added to this file
 without a matching row here is still in review scope — walk every `##` section, then the table.
