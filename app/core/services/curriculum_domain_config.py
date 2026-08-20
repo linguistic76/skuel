@@ -133,12 +133,24 @@ def create_curriculum_sub_services(
 
 
 def create_ps_sub_services(
-    # boundary: ps-backend-row-drift — CANNOT be typed today. `PsOperations` is the
-    # obvious name, but `x: PsOperations = PsBackend(...)` fails a satisfiability
-    # probe with 5 signature conflicts (row-type drift: the protocol promises
-    # TypedDicts, the adapter returns untyped rows and never casts). Typing it
-    # `PsOperations` would declare something the real object does not satisfy.
-    # Blocked on fixing that drift — tracked separately, NOT on this parameter.
+    # boundary: ps-two-layer-divergence — this parameter CANNOT be typed with a
+    # single protocol, and the reason is a DELIBERATE design decision, not drift.
+    # The 8 sub-services it feeds want mutually incompatible types: 5 want
+    # `PsOperations`, `PsOrganizationService` wants `PsOrganizesBackendOperations`,
+    # `PsIntelligenceService` wants `BackendOperations[PathStep]`. The first two
+    # cannot be composed — measured: mypy rejects
+    # `class X(PsOperations, PsOrganizesBackendOperations, Protocol)` because both
+    # declare `get_organized_children` with different signatures, which
+    # `curriculum_protocols.py` documents as intentional ("Same operations, two
+    # layers — collapsing them would promise `limit` to callers holding a
+    # PsService"). Python has no intersection type, so one object satisfying both
+    # cannot be declared as both.
+    #
+    # ⚠️ The row-type drift that used to be blamed here is FIXED (all 5
+    # `PsOperations` conflicts closed) — it was never what blocked this parameter.
+    # What remains is a real design question: `PsOperations` is documented as the
+    # service-facing protocol, yet 5 sub-services type `self.backend` against it.
+    # Resolving THAT is what would let this parameter be typed.
     backend: Any,
     _chunking_service: Any | None,
     graph_intel: Any,
