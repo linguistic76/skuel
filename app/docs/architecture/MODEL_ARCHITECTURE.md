@@ -225,6 +225,17 @@ Some domains have nested models that aren't top-level entities:
 
 Sub-entities with Neo4j labels (HabitCompletion, Reflection) have their own DTOs and are stored as separate nodes connected via relationships.
 
+⚠️ **A node-backed sub-entity of a user-owned parent must carry `user_uid` itself.**
+Being reachable from an owned parent is not ownership: `_create_node` writes the
+`(User)-[:OWNS]->` edge only for entities carrying a `user_uid`, so a sub-entity
+without one has neither the property nor the edge. Owner-scoped reads then compare
+against null and return **zero rows with no error** — a wrong answer that does not
+look like a failure — and the GDPR cascade cannot reach the node either.
+`HabitCompletion` shipped without it and three separate reads were silently
+returning nothing (fixed 2026-08-20); `PrincipleReflection` has always carried it.
+*(Embedded sub-entities — Milestone, ChoiceOption — are properties of their parent
+node and are outside this rule.)*
+
 ---
 
 ## Intelligence Architecture
