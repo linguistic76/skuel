@@ -4569,6 +4569,74 @@ class TestSKUEL023AnnotationStrength:
         assert len(violations) == 1
         assert "is typed `Any`" in violations[0].message
 
+    def test_nested_scope_any_alias_does_not_leak_module_wide(self) -> None:
+        """NEGATIVE CONTROL: a function-local `X = Any` is not a module alias.
+
+        Codex, PR #1096. A #1092-era defect inherited by the trim: `ast.walk`
+        put a nested binding into the module-wide alias set, so an unrelated
+        class annotating `backend: BackendT` against a real module-level
+        protocol was reported as `Any` — a false positive on a blocking rule.
+
+        This control can fail: `test_flags_module_level_any_realias` below is
+        the same shape with the binding at module scope, and it must still flag.
+        """
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import Any\n"
+            "\n"
+            "BackendT = ChoicesOperations\n"
+            "\n"
+            "\n"
+            "def helper() -> None:\n"
+            "    BackendT = Any\n"
+            "    use(BackendT)\n"
+            "\n"
+            "\n"
+            "class XMixin:\n"
+            "    backend: BackendT\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
+        assert violations == []
+
+    def test_sibling_class_any_alias_does_not_leak(self) -> None:
+        """The same for a class body — also a scope, also not the module's."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import Any\n"
+            "\n"
+            "BackendT = ChoicesOperations\n"
+            "\n"
+            "\n"
+            "class Other:\n"
+            "    BackendT = Any\n"
+            "\n"
+            "\n"
+            "class XMixin:\n"
+            "    backend: BackendT\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
+        assert violations == []
+
+    def test_module_alias_under_type_checking_counts(self) -> None:
+        """Module scope is traversed through compound statements.
+
+        Pruning must stop at scope boundaries, not at every compound statement —
+        otherwise the fix for the leak above would silently drop a real alias.
+        """
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import TYPE_CHECKING, Any\n"
+            "\n"
+            "if TYPE_CHECKING:\n"
+            "    Backendish = Any\n"
+            "\n"
+            "\n"
+            "class XMixin:\n"
+            "    backend: Backendish\n"
+        )
+        violations = lint_content(linter, content, file_path="core/services/x_mixin.py")
+        assert len(violations) == 1
+
     def test_flags_module_level_any_realias(self) -> None:
         """A module-level `X = Any` re-export is the same bypass one step removed."""
         linter = make_linter(["SKUEL023"])

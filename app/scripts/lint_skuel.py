@@ -4965,6 +4965,10 @@ class SkuelLinter:
         out needs no entry: ``_extract_annotation_refs`` returns ``Any`` as the
         Attribute chain's tail.
 
+        Collected at **module scope**: a binding inside a function or class body
+        is not a module alias, and treating it as one produced a false positive
+        (see the inline comment below).
+
         **Deliberately shallow — do not "complete" it (ruled 2026-08-19, Mike).**
         Two spellings, one pass, no scope model. PR #1095 grew this into a scope
         resolver (PEP 613/695 aliases, alias chains to a fixed point,
@@ -4985,7 +4989,17 @@ class SkuelLinter:
         re-opening that trade, not closing a hole nobody left open.
         """
         aliases = {"Any"}
-        for node in ast.walk(tree):
+        # Module scope, not `ast.walk` — traversed through compound statements
+        # (a `if TYPE_CHECKING:` alias counts) but never into a function or class
+        # body. `ast.walk` was the #1092 spelling and carried a false positive
+        # this trim inherited: a function-local or sibling-class `X = Any`
+        # entered the module-wide set and condemned an unrelated class that
+        # annotated `backend: X` against a real module-level protocol (Codex,
+        # #1096). One line, and it reuses the pruning walk the backend lookups
+        # already need — no part of the resolver comes back with it.
+        for node in SkuelLinter._walk_pruned(
+            tree, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
+        ):
             if isinstance(node, ast.ImportFrom) and node.module == "typing":
                 aliases.update(a.asname for a in node.names if a.name == "Any" and a.asname)
             elif isinstance(node, ast.Assign):
