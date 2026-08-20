@@ -43,6 +43,7 @@ if TYPE_CHECKING:
 from core.models.entity import Entity
 from core.models.enums import EntityStatus, Priority
 from core.models.enums.neo_labels import NeoLabel
+from core.ports.base_protocols import BackendOperations
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.intelligence import PatternAnalyzer
 from core.utils.result_simplified import Errors, Result
@@ -58,7 +59,7 @@ def _extract_lowercase_title(entity: Any) -> str:
     return entity.title.lower()
 
 
-class ActivityKnowledgeIntelligenceService(BaseAnalyticsService[Any, Entity]):
+class ActivityKnowledgeIntelligenceService(BaseAnalyticsService[BackendOperations[Entity], Entity]):
     """
     Knowledge intelligence for ANY activity domain entity.
 

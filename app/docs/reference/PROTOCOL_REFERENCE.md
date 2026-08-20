@@ -478,11 +478,17 @@ Two-tier protocols for the general-purpose form system.
 | `FormTemplateOperations` | `form_template_service` | 7 (create, get, list, update, delete, link/unlink path_step) | `form_templates_api.py` |
 | `FormSubmissionOperations` | `form_submission_service` | 5 (submit, get, list_mine, delete, share) | `form_submissions_api.py` |
 
-### Group Protocol (1) — `group_protocols.py`
+### Group Protocols (2) — `group_protocols.py`
 
 | Protocol | Services Field | Methods | Route Consumer |
 |----------|---------------|---------|----------------|
 | `GroupOperations` | `group_service` | 9 (create, get, list_teacher, list_user, update, delete, add/remove member, get_members) | `groups_api.py` |
+| `GroupBackendOperations` | — (typed on `GroupService.backend`) | `BackendOperations[Group]` + create_owns_relationship, get_user_groups, add/remove member, get_members, get_member_count | none — backend layer |
+
+**Layer trap:** the two share a root word but are not interchangeable. `GroupOperations` is
+implemented by `GroupService`; `GroupBackendOperations` is implemented by `GroupBackend`, and
+their membership signatures differ (`add_member` carries `joined_at` only at the backend layer).
+Verify the layer before typing `self.backend` against anything named `Group*Operations`.
 
 **Note:** `TeacherReviewOperations` lives in `report_protocols.py` (Phase 4 Report infrastructure), not `group_protocols.py`.
 
