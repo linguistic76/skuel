@@ -40,7 +40,7 @@ SKUEL uses Python's Protocol typing (PEP 544) for dependency injection without f
 - **19 route-facing ISP protocols** - Services container fields typed
 - **Services dataclass: zero `Any` fields** — all ~72 fields fully typed
 - **~170 typed return types** — protocol methods return specific models/TypedDicts, not `Result[Any]` (March 2026). 0 `Result[Any]` remain in protocols (1 intentional in `base_service_interface.py`). Service-layer `Result[Any]` also narrowed to concrete types
-- **159 TypedDicts** in `query_types.py` — 21 input types + 138 output result types (March 2026)
+- **TypedDicts** in `query_types.py` — 159 as of March 2026 (21 input + 138 output); **220 measured 2026-08-20**. The file grows with every new typed port, so measure rather than quote this line.
 - **Search protocol generics** — all 6 `DomainSearchOperations` extensions parameterized with domain model types (`Goal`, `Event`, etc.), eliminating `# type: ignore[return-value]` in facade delegation
 - **75% code reduction** through generic programming patterns
 - **27+ services** using protocol interfaces exclusively
@@ -89,7 +89,7 @@ core/ports/
 ├── group_protocols.py                 # Group & teaching (2 protocols)
 ├── infrastructure_protocols.py        # EventBus, User (3 ISP + 1 composed), Schema, Ingestion, Closeable (11 protocols)
 ├── intelligence_protocols.py          # Intelligence operations (3 protocols: Knowledge, Domain, Composed)
-├── query_types.py                     # 159 TypedDicts for type-safe inputs + outputs
+├── query_types.py                     # 220 TypedDicts for type-safe inputs + outputs
 ├── search_protocols.py                # Search operations (15 protocols)
 ├── service_protocols.py               # Route-facing services + 2 auth backend slices (14 protocols)
 ├── sharing_protocols.py               # Cross-entity sharing (2 protocols)
