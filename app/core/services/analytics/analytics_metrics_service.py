@@ -32,7 +32,7 @@ Part of the 4-service Analytics architecture:
 import contextlib
 from collections import Counter
 from datetime import date
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from core.constants import QueryLimit
 from core.models.enums import EntityStatus, PrincipleStrength
@@ -45,6 +45,10 @@ from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTI
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_current_substance, get_theme_count
+
+if TYPE_CHECKING:
+    from core.ports.cross_domain_protocols import CrossDomainBackendOperations
+
 
 logger = get_logger(__name__)
 
@@ -73,7 +77,7 @@ class AnalyticsMetricsService:
         content_enrichment=None,
         ku_service=None,
         lp_service=None,
-        cross_domain_backend=None,
+        cross_domain_backend: "CrossDomainBackendOperations | None" = None,
     ) -> None:
         """
         Initialize with domain and layer services.

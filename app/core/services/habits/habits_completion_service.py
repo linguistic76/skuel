@@ -20,9 +20,10 @@ from core.events import publish_event
 from core.models.habit.completion import HabitCompletion
 from core.models.habit.completion_dto import HabitCompletionDTO
 from core.models.habit.habit import Habit
-from core.models.habit.habit_dto import HabitDTO
 from core.models.type_hints import UserUID
+from core.ports.base_protocols import BackendOperations
 from core.ports.domain_protocols import HabitsOperations
+from core.ports.infrastructure_protocols import EventBusOperations
 from core.utils.completion_exporter import export_completions_csv, export_completions_json
 from core.utils.logging import get_logger
 from core.utils.neo4j_props import neo4j_str
@@ -54,9 +55,9 @@ class HabitsCompletionService:
 
     def __init__(
         self,
-        habits_backend,  # UniversalNeo4jBackend[Habit]
-        completions_backend,  # UniversalNeo4jBackend[HabitCompletion]
-        event_bus=None,
+        habits_backend: HabitsOperations,
+        completions_backend: BackendOperations[HabitCompletion],
+        event_bus: EventBusOperations | None = None,
     ) -> None:
         """
         Initialize habits completion service.
@@ -140,12 +141,10 @@ class HabitsCompletionService:
             created_at=now,
             updated_at=now,
         )
-        create_result = await self.completions_backend.create(completion_dto)
-        if create_result.is_error:
-            return create_result
-
-        # Convert to domain model
         completion = HabitCompletion.from_dto(completion_dto)
+        create_result = await self.completions_backend.create(completion)
+        if create_result.is_error:
+            return Result.fail(create_result)
 
         # raw-write: system streak/stat propagation from a habit completion. Bypasses the
         # validated/event-firing service contract (HabitUpdateIntent → update_habit) on
@@ -277,11 +276,10 @@ class HabitsCompletionService:
         )
 
         # Store completion
-        create_result = await self.completions_backend.create(completion_dto)
+        completion = HabitCompletion.from_dto(completion_dto)
+        create_result = await self.completions_backend.create(completion)
         if create_result.is_error:
             return Result.fail(create_result)
-
-        completion = HabitCompletion.from_dto(completion_dto)
 
         # Every threshold the streak crossed — a backfill recompute can jump
         # several tiers at once, and exact-equality would skip the interior
@@ -500,21 +498,10 @@ class HabitsCompletionService:
         # Query completions
         result = await self.completions_backend.find_by(**filters, limit=limit)
         if result.is_error:
-            return result
-
-        # Convert to domain models
-        completions = []
-        for item in result.value:
-            if isinstance(item, dict):
-                dto = HabitCompletionDTO.from_dict(item)
-                completions.append(HabitCompletion.from_dto(dto))
-            elif isinstance(item, HabitCompletionDTO):
-                completions.append(HabitCompletion.from_dto(item))
-            else:
-                completions.append(item)
+            return Result.fail(result)
 
         # Sort by completion date (most recent first)
-        completions.sort(key=get_completed_at, reverse=True)
+        completions = sorted(result.value, key=get_completed_at, reverse=True)
 
         return Result.ok(completions)
 
@@ -531,50 +518,37 @@ class HabitsCompletionService:
         start_of_day = datetime.combine(today, datetime.min.time())
         end_of_day = datetime.combine(today, datetime.max.time())
 
-        # Get user's completions for today
-        completions_result = await self.completions_backend.find_by(
-            user_uid=user_uid,
-            completed_at__gte=start_of_day,
-            completed_at__lte=end_of_day,
-            limit=QueryLimit.COMPREHENSIVE,
+        # Scope through the habits backend — HabitCompletion has no user_uid
+        # field, so filtering completions_backend by user_uid is silently a
+        # no-op. Same reasoning (and same shape) as export_completion_history.
+        habits_result = await self.habits_backend.find_by(
+            user_uid=user_uid, limit=QueryLimit.COMPREHENSIVE
         )
-
-        if completions_result.is_error:
-            return completions_result
-
-        # Group completions by habit
-        habit_completions: dict[str, list[HabitCompletion]] = {}
-        for item in completions_result.value:
-            if isinstance(item, dict):
-                dto = HabitCompletionDTO.from_dict(item)
-                completion = HabitCompletion.from_dto(dto)
-            elif isinstance(item, HabitCompletionDTO):
-                completion = HabitCompletion.from_dto(item)
-            else:
-                completion = item
-
-            habit_uid = completion.habit_uid
-            if habit_uid not in habit_completions:
-                habit_completions[habit_uid] = []
-            habit_completions[habit_uid].append(completion)
+        if habits_result.is_error:
+            return Result.fail(habits_result)
 
         # Get habit details and create response
-        result = []
-        for habit_uid, completions in habit_completions.items():
-            habit_result = await self.habits_backend.get(habit_uid)
-            if habit_result.is_ok:
-                # Backend returns Result[Habit | None] - trust the type system
-                habit = habit_result.value
+        result: list[dict[str, Any]] = []
+        for habit in habits_result.value:
+            per_habit = await self.completions_backend.find_by(
+                habit_uid=habit.uid,
+                completed_at__gte=start_of_day,
+                completed_at__lte=end_of_day,
+                limit=QueryLimit.COMPREHENSIVE,
+            )
+            if per_habit.is_error or not per_habit.value:
+                continue
 
-                result.append(
-                    {
-                        "habit": habit,
-                        "completions_today": len(completions),
-                        "latest_completion": completions[0],  # Most recent
-                        "total_quality_today": sum(c.quality or 0 for c in completions),
-                        "completed": True,
-                    }
-                )
+            completions = sorted(per_habit.value, key=get_completed_at, reverse=True)
+            result.append(
+                {
+                    "habit": habit,
+                    "completions_today": len(completions),
+                    "latest_completion": completions[0],  # Most recent
+                    "total_quality_today": sum(c.quality or 0 for c in completions),
+                    "completed": True,
+                }
+            )
 
         return Result.ok(result)
 
@@ -647,7 +621,7 @@ class HabitsCompletionService:
             user_uid=user_uid, limit=QueryLimit.COMPREHENSIVE
         )
         if habits_result.is_error:
-            return habits_result
+            return Result.fail(habits_result)
 
         # Calculate badge progress
         max_streak = 0
@@ -655,33 +629,23 @@ class HabitsCompletionService:
         total_identity_votes = 0
         high_quality_completions = 0
 
-        for item in habits_result.value:
-            if isinstance(item, dict):
-                habit_dto = HabitDTO.from_dict(item)
-                habit = Habit.from_dto(habit_dto)
-            else:
-                habit = item
-
+        for habit in habits_result.value:
             max_streak = max(max_streak, habit.current_streak)
             total_completions += habit.total_completions
 
             if habit.is_identity_based():
                 total_identity_votes += habit.identity_votes_cast
 
-        # Get user's high-quality completions (last 1000)
-        all_completions_result = await self.completions_backend.find_by(
-            user_uid=user_uid, limit=QueryLimit.COMPREHENSIVE
-        )
-        if all_completions_result.is_ok:
-            for item in all_completions_result.value:
-                if isinstance(item, dict):
-                    dto = HabitCompletionDTO.from_dict(item)
-                    completion = HabitCompletion.from_dto(dto)
-                else:
-                    completion = item
-
-                if completion.is_high_quality():
-                    high_quality_completions += 1
+        # High-quality completions, scoped through the habits just loaded —
+        # HabitCompletion has no user_uid field, so filtering the completions
+        # backend by user_uid is silently a no-op (see export_completion_history).
+        for habit in habits_result.value:
+            per_habit = await self.completions_backend.find_by(
+                habit_uid=habit.uid, limit=QueryLimit.COMPREHENSIVE
+            )
+            if per_habit.is_error:
+                continue
+            high_quality_completions += sum(1 for c in per_habit.value if c.is_high_quality())
 
         # Fetch persisted badges to get earned_at dates
         earned_badge_ids: set[str] = set()
@@ -763,13 +727,9 @@ class HabitsCompletionService:
             user_uid=user_uid, limit=QueryLimit.COMPREHENSIVE
         )
         if habits_result.is_error:
-            return habits_result
+            return Result.fail(habits_result)
 
-        habit_uids = [
-            (item["uid"] if isinstance(item, dict) else item.uid)
-            for item in habits_result.value
-            if (item.get("uid") if isinstance(item, dict) else item.uid)
-        ]
+        habit_uids = [habit.uid for habit in habits_result.value if habit.uid]
         if not habit_uids:
             return self._export_csv([]) if format == "csv" else self._export_json([])
 
@@ -786,11 +746,7 @@ class HabitsCompletionService:
             )
             if per_habit.is_error:
                 continue
-            for item in per_habit.value:
-                if isinstance(item, dict):
-                    completions.append(HabitCompletion.from_dto(HabitCompletionDTO.from_dict(item)))
-                else:
-                    completions.append(item)
+            completions.extend(per_habit.value)
 
         # Sort by date
         completions.sort(key=get_completed_at)

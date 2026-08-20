@@ -67,6 +67,7 @@ if TYPE_CHECKING:
     from core.models.enums.learning_enums import SELCategory
     from core.models.pathways.learning_progress import LearningJourney
     from core.models.pathways.path_step import PathStep
+    from core.ports.curriculum_protocols import KuOperations
     from core.services.ps.ps_intelligence_service import PsIntelligenceService
     from core.services.ps.ps_organization_service import StepNavigation, StepOrganizationView
     from core.services.user import UserContext
@@ -172,7 +173,7 @@ class PsService:
         graph_intel: Any = None,
         event_bus: Any = None,
         ai_service: PsAIService | None = None,
-        ku_backend: Any | None = None,
+        ku_backend: "KuOperations | None" = None,
         chunking_service: Any | None = None,
         user_service: Any | None = None,
         vector_search_service: Any | None = None,
@@ -187,7 +188,7 @@ class PsService:
             graph_intel: GraphIntelligenceService (REQUIRED)
             event_bus: Event bus for domain events (optional)
             ai_service: Optional PsAIService for AI features
-            ku_backend: KuBackend for substance metric operations (optional)
+            ku_backend: Ku backend for substance metric operations (optional)
             chunking_service: Chunking service for RAG (optional)
             user_service: UserService for UserContext access (optional)
             vector_search_service: Optional for semantic search

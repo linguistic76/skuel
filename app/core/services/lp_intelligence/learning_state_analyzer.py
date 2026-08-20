@@ -60,6 +60,12 @@ class LearningStateAnalyzer:
 
     def __init__(
         self,
+        # Deliberately untyped (Scope C, ruled 2026-08-20) — same case as
+        # LearningRecommendationEngine.learning_backend: the only call on this
+        # handle, ``get_user_progress_summary``, is defined nowhere in the repo
+        # (never-wired since the initial commit). UserProgressBackendOperations
+        # does NOT declare it. The AttributeError is swallowed as "Progress
+        # backend unavailable", so _get_progress_summary always returns None.
         progress_backend: Any | None = None,
         embeddings_service: EmbeddingsService | None = None,
     ) -> None:

@@ -88,6 +88,21 @@ class CrossDomainBackendOperations(Protocol):
         self, user_uid: str
     ) -> Result[list[dict[str, Any]]]: ...
 
+    async def get_journal_entries_in_range(
+        self,
+        user_uid: str,
+        start_datetime: str,
+        end_datetime: str,
+    ) -> Result[list[dict[str, Any]]]:
+        """Journal SOURCE entries in a datetime range.
+
+        After ADR-054 these are ``:UserEntry`` with
+        ``pipeline='transcribe_and_structure'``; the LLM-structured child is
+        deliberately excluded. Bounds are ISO-8601 strings, compared against
+        the node's stored temporal value.
+        """
+        ...
+
     async def get_user_knowledge_channels(
         self, user_uid: str, activity_types: list[str]
     ) -> Result[list[UserKnowledgeChannelRow]]:

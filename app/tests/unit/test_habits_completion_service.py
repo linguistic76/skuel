@@ -81,6 +81,18 @@ def sample_habit() -> Habit:
     )
 
 
+def _habit(uid: str) -> Habit:
+    """Minimal owned Habit — the shape ``find_by`` actually returns."""
+    return Habit(
+        uid=uid,
+        user_uid="user_mike",
+        title=f"Habit {uid}",
+        entity_type=EntityType.HABIT,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+    )
+
+
 @pytest.fixture
 def sample_habit_dto(sample_habit):
     """Create sample habit DTO."""
@@ -322,9 +334,7 @@ class TestCompletionQueries:
     ):
         """Test getting completions for a habit."""
         # Setup mock
-        mock_completions_backend.find_by.return_value = Result.ok(
-            [sample_completion.to_dto().to_dict()]
-        )
+        mock_completions_backend.find_by.return_value = Result.ok([sample_completion])
 
         # Query completions
         result = await completion_service.get_completions_for_habit(
@@ -348,11 +358,10 @@ class TestCompletionQueries:
         sample_habit_dto,
     ):
         """Test getting today's completions."""
-        # Setup mocks
-        mock_completions_backend.find_by.return_value = Result.ok(
-            [sample_completion.to_dto().to_dict()]
-        )
-        mock_habits_backend.get.return_value = Result.ok(sample_habit_dto.to_dict())
+        # Setup mocks — completions are reached THROUGH the user's habits;
+        # :HabitCompletion carries no user_uid to filter on.
+        mock_habits_backend.find_by.return_value = Result.ok([Habit.from_dto(sample_habit_dto)])
+        mock_completions_backend.find_by.return_value = Result.ok([sample_completion])
 
         # Query today's completions
         result = await completion_service.get_today_completions(user_uid="user_mike")
@@ -373,11 +382,10 @@ class TestCompletionQueries:
         sample_habit_dto,
     ):
         """Test calculating today's completion count."""
-        # Setup mocks
-        mock_completions_backend.find_by.return_value = Result.ok(
-            [sample_completion.to_dto().to_dict()]
-        )
-        mock_habits_backend.get.return_value = Result.ok(sample_habit_dto.to_dict())
+        # Setup mocks — completions are reached THROUGH the user's habits;
+        # :HabitCompletion carries no user_uid to filter on.
+        mock_habits_backend.find_by.return_value = Result.ok([Habit.from_dto(sample_habit_dto)])
+        mock_completions_backend.find_by.return_value = Result.ok([sample_completion])
 
         # Calculate count
         result = await completion_service.calculate_completed_today_count(user_uid="user_mike")
@@ -385,6 +393,47 @@ class TestCompletionQueries:
         # Verify
         assert result.is_ok
         assert result.value == 1
+
+
+class TestCompletionScoping:
+    """:HabitCompletion carries no user_uid — user scoping must go via Habit."""
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "method",
+        ["get_today_completions", "get_badge_progress", "export_completion_history"],
+    )
+    async def test_completions_are_never_filtered_by_user_uid(
+        self,
+        completion_service,
+        mock_completions_backend,
+        mock_habits_backend,
+        sample_habit_dto,
+        method,
+    ):
+        """A user_uid filter on the completions backend matches zero rows, silently.
+
+        `HabitCompletion` declares no `user_uid` field, so nothing writes that
+        property (and no :OWNS edge is written either — `_create_node` only
+        writes one for entities carrying a user_uid). `find_by(user_uid=...)`
+        therefore compares against null and returns nothing, with no error.
+        Regression guard: every user-scoped read must reach completions through
+        the user's habits.
+        """
+        mock_habits_backend.find_by.return_value = Result.ok([Habit.from_dto(sample_habit_dto)])
+        mock_completions_backend.find_by.return_value = Result.ok([])
+
+        result = await getattr(completion_service, method)(user_uid="user_mike")
+        assert result.is_ok
+
+        assert mock_completions_backend.find_by.await_count > 0, (
+            f"{method} never queried the completions backend"
+        )
+        for call in mock_completions_backend.find_by.await_args_list:
+            assert "user_uid" not in call.kwargs, (
+                f"{method} filtered :HabitCompletion by user_uid — matches zero rows"
+            )
+            assert "habit_uid" in call.kwargs, f"{method} must scope completions by habit_uid"
 
 
 class TestAnalytics:
@@ -406,7 +455,7 @@ class TestAnalytics:
                 created_at=datetime.now(),
                 updated_at=datetime.now(),
             )
-            completions.append(comp.to_dto().to_dict())
+            completions.append(comp)
 
         mock_completions_backend.find_by.return_value = Result.ok(completions)
 
@@ -443,7 +492,7 @@ class TestAnalytics:
             updated_at=datetime.now(),
         )
 
-        mock_habits_backend.find_by.return_value = Result.ok([habit1_dto.to_dict()])
+        mock_habits_backend.find_by.return_value = Result.ok([Habit.from_dto(habit1_dto)])
 
         # Create high-quality completions
         completions = []
@@ -456,7 +505,7 @@ class TestAnalytics:
                 created_at=datetime.now(),
                 updated_at=datetime.now(),
             )
-            completions.append(comp_dto.to_dict())
+            completions.append(HabitCompletion.from_dto(comp_dto))
 
         mock_completions_backend.find_by.return_value = Result.ok(completions)
 
@@ -499,10 +548,10 @@ class TestExport:
                 created_at=datetime.now(),
                 updated_at=datetime.now(),
             )
-            completions.append(comp.to_dto().to_dict())
+            completions.append(comp)
 
         mock_habits_backend.find_by.return_value = Result.ok(
-            [{"uid": f"habit.{i}"} for i in range(3)]
+            [_habit(f"habit.{i}") for i in range(3)]
         )
         mock_completions_backend.find_by.return_value = Result.ok(completions)
 
@@ -536,10 +585,10 @@ class TestExport:
                 created_at=datetime.now(),
                 updated_at=datetime.now(),
             )
-            completions.append(comp.to_dto().to_dict())
+            completions.append(comp)
 
         mock_habits_backend.find_by.return_value = Result.ok(
-            [{"uid": f"habit.{i}"} for i in range(3)]
+            [_habit(f"habit.{i}") for i in range(3)]
         )
         mock_completions_backend.find_by.return_value = Result.ok(completions)
 

@@ -283,9 +283,32 @@ attribute's declared type comes from the base, and an assignment never redeclare
 nothing — four of the five had exactly that shape. Parameterise the base itself. (A
 class-body `backend: SomeOps` in the subclass *does* narrow, and is correctly left alone.)
 
-**One escape remains unenforced**, and it is convention rather than rule: a backend handle
-under a *different name* (`ku_backend`, `progress_backend`). Type it against a protocol
-regardless — the rule not reaching there is not a licence.
+**One escape stays unenforced — deliberately, with a measurement behind it.** A backend
+handle under a *different name* (`ku_backend`, `progress_backend`, `session_backend`) is a
+**convention**, not a rule. Scope C (2026-08-20) swept every such handle in `core/` and then
+ruled against adding a trigger for them:
+
+- The names have no shared structure. `ku_backend` / `progress_backend` are prefixed,
+  `_instance_backends` is plural, `_backend_get` is a prefix on a *Callable*. A `*_backend`
+  suffix trigger misses three of those four shapes; "name contains *backend*" is precisely
+  the over-general matching that produced four false positives in #1095.
+- **Measured on the post-Scope-C tree: 39 attributes in `core/` match "contains backend,
+  not named backend". 38 are annotated. The 39th —
+  `PsEngagementService._instance_backends` — is assigned straight from a constructor call,
+  so mypy infers its type and every call on it is already checked.** An AST-only rule
+  cannot see that: distinguishing "unannotated but inferred" from "unannotated and `Any`"
+  requires type inference, which SKUEL lint rules deliberately refuse to do. So the trigger
+  would fire on fully-checked code, on a blocking gate, with no way to be right.
+- What it would catch is already empty: after Scope C the only untyped handles are three
+  that were **ruled** to stay (the `find_paths_for_user` /
+  `get_user_progress_summary` phantom cluster in `lp_intelligence/`, each carrying its
+  reason in a comment). A rule would demand three suppressions and buy nothing.
+
+The standing preference for this arc is fail-OPEN: on a blocking gate a false positive
+costs more than a missed spelling. SKUEL023's three triggers stay *structural* — they key
+on an attribute literally named `backend` — because that is precise. Type a
+differently-named handle against a protocol anyway; the rule not reaching there is not a
+licence, it is a judgement that a bad rule is worse than none.
 
 **Benefits:**
 - **MyPy-native** - No protocol workaround needed

@@ -37,7 +37,11 @@ from typing import TYPE_CHECKING, Any, Literal
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from core.ports.ingestion_protocols import BulkUpsertOperations, IngestionWriteOperations
+    from core.ports.ingestion_protocols import (
+        BulkUpsertOperations,
+        IngestionBackendOperations,
+        IngestionWriteOperations,
+    )
     from core.services.user_entry.user_entry_processing_service import (
         UserEntryProcessingService,
     )
@@ -136,7 +140,7 @@ class UnifiedIngestionService:
         chunking_service: Any | None = None,
         content_adapter: Any | None = None,
         event_bus: Any | None = None,
-        ingestion_backend: Any | None = None,
+        ingestion_backend: "IngestionBackendOperations | None" = None,
         user_entry_service: UserEntryService | None = None,
         user_service: UserService | None = None,
         user_entry_processor: UserEntryProcessingService | None = None,
@@ -166,7 +170,7 @@ class UnifiedIngestionService:
                        worker. Tier-gated at the composition root: wired only at FULL, ``None``
                        in CORE where the worker isn't running (a publish would be a
                        queue-with-no-listener). Ingestion never embeds inline (ADR-074).
-            ingestion_backend: IngestionBackend for ingestion tracking (optional).
+            ingestion_backend: Backend for ingestion tracking (optional).
             user_entry_service: UserEntryService for routing UserEntry YAMLs through
                                 the same create_entry() pipeline as /submit. Required
                                 when ingesting ``type: user_entry`` files.
