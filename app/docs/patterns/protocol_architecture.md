@@ -77,23 +77,24 @@ core/ports/
 ├── __init__.py                        # Consolidated exports
 ├── askesis_protocols.py               # Askesis cross-cutting intelligence (6 protocols)
 ├── backend_operations_typing.py       # Typed aliases for backend operations
-├── base_protocols.py                  # Backend operations ISP hierarchy (7+ protocols)
+├── base_protocols.py                  # Backend operations ISP hierarchy (42 protocols)
 ├── base_service_interface.py          # BaseService mixin protocols
 ├── content_protocols.py               # Content/media protocols
-├── curriculum_protocols.py            # KU, PS, LP operations (5 protocols: CurriculumOperations, PsOperations, LpOperations, KuOperations, ExerciseOperations)
-├── domain_protocols.py                # Activity domain operations (9 protocols)
+├── curriculum_protocols.py            # KU, PS, LP, Exercise + backend slices (15 protocols)
+├── domain_protocols.py                # Activity domain operations (8 protocols)
 ├── email_protocols.py                 # Email service protocol
 ├── form_protocols.py                  # Form backend + route protocols (4 protocols)
-├── report_protocols.py                # Report stage (5 protocols)
+├── report_protocols.py                # Report stage (15 protocols)
 ├── graph_protocols.py                 # Graph entity protocols
 ├── group_protocols.py                 # Group & teaching (2 protocols)
 ├── infrastructure_protocols.py        # EventBus, User (3 ISP + 1 composed), Schema, Ingestion, Closeable (11 protocols)
 ├── intelligence_protocols.py          # Intelligence operations (3 protocols: Knowledge, Domain, Composed)
 ├── query_types.py                     # 159 TypedDicts for type-safe inputs + outputs
-├── search_protocols.py                # Search operations (8 protocols)
+├── search_protocols.py                # Search operations (15 protocols)
 ├── service_protocols.py               # Route-facing services + 2 auth backend slices (14 protocols)
-├── sharing_protocols.py               # Cross-entity sharing (1 protocol)
-└── submission_protocols.py            # Submission stage (4 protocols)
+├── sharing_protocols.py               # Cross-entity sharing (2 protocols)
+└── user_entry_protocols.py            # UserEntry stage (9 protocols) — replaced
+                                       #   submission_protocols.py (ADR-054)
 ```
 
 ### Protocol Hierarchies
@@ -130,17 +131,21 @@ Note: `*Operations` protocols in `domain_protocols.py` are **backend-level** —
 
 ### Protocol Categories
 
+Counts measured by AST (`ast.ClassDef` with a `Protocol` base), 2026-08-20 — every
+one of these had drifted, several by 3–5×, and one file listed here no longer existed.
+Re-measure rather than increment.
+
 | Category | File | Purpose | Count |
 |----------|------|---------|-------|
 | **Type Checking** | `core/protocols.py` | Attribute checking (replaces hasattr) | 30+ |
-| **Domain Operations** | `domain_protocols.py` | Business logic (Tasks, Goals, etc.) | 9 |
-| **Curriculum** | `curriculum_protocols.py` | KU, PS, LP operations (unified hierarchy) | 5 |
-| **Search** | `search_protocols.py` | Search and query operations | 8 |
+| **Domain Operations** | `domain_protocols.py` | Business logic (Tasks, Goals, etc.) | 8 |
+| **Curriculum** | `curriculum_protocols.py` | KU, PS, LP, Exercise + their backend slices | 15 |
+| **Search** | `search_protocols.py` | Search and query operations | 15 |
 | **Infrastructure** | `infrastructure_protocols.py` | EventBus, User (3 ISP + 1 composed), Ingestion | 11 |
 | **Intelligence** | `intelligence_protocols.py` | Knowledge (shared) + Domain (per-service) + Composed | 3 |
 | **Askesis** | `askesis_protocols.py` | Cross-cutting intelligence + CRUD | 6 |
-| **Submission** | `submission_protocols.py` | Submission CRUD, processing, sharing, search | 4 |
-| **Report** | `report_protocols.py` | Human + AI reports, progress reports, scheduling | 3 |
+| **UserEntry** | `user_entry_protocols.py` | CRUD, lifecycle, assessment, content, organizes (ADR-054 — replaced `submission_protocols.py`) | 9 |
+| **Report** | `report_protocols.py` | Human + AI reports, progress reports, scheduling | 15 |
 | **Forms** | `form_protocols.py` | Backend ops (2) + route-level ISP (2) | 4 |
 | **Groups** | `group_protocols.py` | Group CRUD, teacher review queue | 2 |
 | **Services** | `service_protocols.py` | Calendar, Viz, System, LifePath, Auth, Orchestration, Lateral | 14 |
@@ -441,13 +446,13 @@ class Services:
     transcription: "TranscriptionService | None" = None  # Internal wiring only
 ```
 
-**New Protocol Files (3):**
+**Protocol Files — per-file inventory** (counts AST-measured 2026-08-20):
 
 | File | Protocols | Purpose |
 |------|-----------|---------|
-| `submission_protocols.py` | 3 | SubmissionOperations, SubmissionProcessingOperations, SubmissionSearchOperations |
-| `sharing_protocols.py` | 1 | SharingOperations — entity-agnostic SHARES_WITH + SHARED_WITH_GROUP management |
-| `report_protocols.py` | 7 | EntryReportOperations (AI report + typed reads), AssessmentOperations (a student's received-assessment read — split from EntryReportOperations in PR #128; HUMAN feedback is written by TeacherReviewOperations), ProgressReportOperations, ProgressScheduleOperations, ActivityReportOperations, ReviewQueueOperations, TeacherReviewOperations |
+| `user_entry_protocols.py` | 9 | UserEntryCrud / Lifecycle / Assessment / ReportQuery / Content / Organizes / Processing + the composed `UserEntryOperations`. **Replaced `submission_protocols.py`, which no longer exists** (ADR-054) |
+| `sharing_protocols.py` | 2 | SharingOperations — entity-agnostic SHARES_WITH + SHARED_WITH_GROUP management |
+| `report_protocols.py` | 15 | EntryReportOperations (AI report + typed reads), AssessmentOperations (a student's received-assessment read — split from EntryReportOperations in PR #128; HUMAN feedback is written by TeacherReviewOperations), ProgressReportOperations, ProgressScheduleOperations, ActivityReportOperations, ReviewQueueOperations, TeacherReviewOperations |
 | `form_protocols.py` | 4 | FormTemplateBackendOperations, FormSubmissionBackendOperations (backend-level, import directly from `form_protocols`); FormTemplateOperations, FormSubmissionOperations (route-level, re-exported from `__init__`) |
 | `group_protocols.py` | 2 | GroupBackendOperations (backend-level: CRUD + membership edges, `add_member` carries `joined_at`); GroupOperations (route-level, 9 methods) — same root word, two layers |
 | `service_protocols.py` | 14 | CalendarService, Visualization, System, CrossDomainAnalytics, LifePath+Alignment, GraphAuth, GoalTaskGenerator, HabitEventScheduler, OwnershipVerifier, LateralRelationship (route + backend); plus two backend slices of the SAME SessionBackend — SessionInvalidationOperations (revocation, consumed by UserService) and SessionBackendOperations (sign-in/session/token persistence, consumed by GraphAuthService) |
