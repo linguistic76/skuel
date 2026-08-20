@@ -101,7 +101,7 @@ class User:
     """
 
     # Core identity
-    uid: str
+    uid: UserUID
     title: str  # We'll use title as username for consistency
     description: str = ""
     email: str = ""
@@ -487,7 +487,7 @@ def create_user(
         New User instance
     """
     return User(
-        uid=f"user_{username}",  # Use username as UID for human-readable identifiers
+        uid=UserUID(f"user_{username}"),  # Use username as UID for human-readable identifiers
         title=username,  # Username stored as title (from BaseEntity)
         description=f"User account for {display_name or username}",
         email=email,
@@ -501,7 +501,7 @@ def create_user(
 def create_guest_user(session_id: str) -> User:
     """Create a temporary guest user"""
     return User(
-        uid=f"guest_{session_id}",
+        uid=UserUID(f"guest_{session_id}"),
         title=f"guest_{session_id[:8]}",  # Username as title
         description="Temporary guest user account",
         email="guest@example.com",

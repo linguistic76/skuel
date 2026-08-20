@@ -104,7 +104,7 @@ class DrainableEventBusOperations(Protocol):
 
 @runtime_checkable
 class UserCrudOperations(Protocol):
-    """User identity CRUD. Used by: UserCoreService.
+    """User identity CRUD. Used by: UserCoreService, GraphAuthService.
 
     See: /docs/patterns/BACKEND_OPERATIONS_ISP.md
     """
@@ -119,6 +119,10 @@ class UserCrudOperations(Protocol):
 
     async def get_user_by_username(self, username: str) -> Result["User | None"]:
         """Get user by username."""
+        ...
+
+    async def get_user_by_email(self, email: str) -> Result["User | None"]:
+        """Get user by email address — the sign-in lookup."""
         ...
 
     async def update_user(self, user: "User") -> Result["User"]:

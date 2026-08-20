@@ -13,7 +13,8 @@ Design Philosophy:
 
 See Also:
 - /core/models/auth/ - Auth domain models
-- /adapters/persistence/neo4j/session_backend.py - Session persistence
+- /core/ports/service_protocols.py - SessionBackendOperations protocol
+- /core/ports/infrastructure_protocols.py - UserCrudOperations protocol
 - /core/ports/email_protocols.py - EmailOperations protocol
 - /docs/decisions/graph-native-auth.md - ADR
 """
@@ -27,7 +28,9 @@ from core.models.auth.session import create_session
 from core.models.type_hints import UserUID
 from core.models.user import User, create_user
 from core.ports.email_protocols import EmailOperations
+from core.ports.infrastructure_protocols import UserCrudOperations
 from core.ports.query_types import SignInResult, SignUpResult
+from core.ports.service_protocols import SessionBackendOperations
 from core.utils.exception_types import AUTH_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -44,8 +47,8 @@ class GraphAuthService:
 
     def __init__(
         self,
-        user_backend: Any,  # UserOperations protocol
-        session_backend: Any,  # SessionBackend
+        user_backend: UserCrudOperations,
+        session_backend: SessionBackendOperations,
         email_service: EmailOperations | None = None,  # EMAIL_ENABLED-gated (None when off)
         app_url: str = "http://localhost:8000",
     ) -> None:
@@ -53,8 +56,8 @@ class GraphAuthService:
         Initialize graph auth service.
 
         Args:
-            user_backend: Backend for user operations
-            session_backend: Backend for session operations
+            user_backend: User identity CRUD — the sign-in/sign-up lookups
+            session_backend: Session, auth-event and reset-token persistence
             email_service: Optional email service for password reset emails
             app_url: Base URL for building reset links
         """
@@ -373,7 +376,7 @@ class GraphAuthService:
             self.logger.error(f"Sign out error: {e}")
             return Result.fail(Errors.system(operation="sign_out", message=str(e)))
 
-    async def validate_session_uid(self, session_token: str) -> Result[str | None]:
+    async def validate_session_uid(self, session_token: str) -> Result[UserUID | None]:
         """
         Validate session token and return user UID (optimized - no user fetch).
 
@@ -389,7 +392,7 @@ class GraphAuthService:
         Returns:
             Result containing user_uid if valid, None if invalid/expired
         """
-        result: Result[str | None] = await self.session_backend.validate_session_token(
+        result: Result[UserUID | None] = await self.session_backend.validate_session_token(
             session_token
         )
         return result
@@ -523,7 +526,7 @@ class GraphAuthService:
     async def admin_generate_reset_token(
         self,
         user_uid: UserUID,
-        admin_uid: str,
+        admin_uid: UserUID,
         ip_address: str = "unknown",
         user_agent: str = "unknown",
     ) -> Result[str]:
