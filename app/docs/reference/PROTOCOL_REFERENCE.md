@@ -415,7 +415,7 @@ These protocols replace `Any` types on the `Services` dataclass fields, giving r
 | `report_protocols.py` | 7 protocols | `exercises_api.py`, `progress_report_api.py`, `teaching_api.py` |
 | `form_protocols.py` | 4 protocols | `form_templates_api.py`, `form_submissions_api.py` |
 | `group_protocols.py` | 1 protocol | `groups_api.py` |
-| `service_protocols.py` | 11 protocols | `orchestration_routes.py`, `calendar_api.py`, `visualization_api.py`, `system_api.py`, `lifepath_api.py`, `auth_ui.py`, `admin_api.py`, `lateral_routes.py` |
+| `service_protocols.py` | 14 protocols | `orchestration_routes.py`, `calendar_api.py`, `visualization_api.py`, `system_api.py`, `lifepath_api.py`, `auth_ui.py`, `admin_api.py`, `lateral_routes.py` |
 
 Plus `AskesisCoreOperations` added to existing `askesis_protocols.py`.
 

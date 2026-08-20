@@ -87,11 +87,11 @@ core/ports/
 ├── report_protocols.py                # Report stage (5 protocols)
 ├── graph_protocols.py                 # Graph entity protocols
 ├── group_protocols.py                 # Group & teaching (2 protocols)
-├── infrastructure_protocols.py        # EventBus, User (3 ISP + 1 composed), Schema, Ingestion, Closeable (9 protocols)
+├── infrastructure_protocols.py        # EventBus, User (3 ISP + 1 composed), Schema, Ingestion, Closeable (11 protocols)
 ├── intelligence_protocols.py          # Intelligence operations (3 protocols: Knowledge, Domain, Composed)
 ├── query_types.py                     # 159 TypedDicts for type-safe inputs + outputs
 ├── search_protocols.py                # Search operations (8 protocols)
-├── service_protocols.py               # Route-facing services (10 protocols)
+├── service_protocols.py               # Route-facing services + 2 auth backend slices (14 protocols)
 ├── sharing_protocols.py               # Cross-entity sharing (1 protocol)
 └── submission_protocols.py            # Submission stage (4 protocols)
 ```
@@ -136,14 +136,14 @@ Note: `*Operations` protocols in `domain_protocols.py` are **backend-level** —
 | **Domain Operations** | `domain_protocols.py` | Business logic (Tasks, Goals, etc.) | 9 |
 | **Curriculum** | `curriculum_protocols.py` | KU, PS, LP operations (unified hierarchy) | 5 |
 | **Search** | `search_protocols.py` | Search and query operations | 8 |
-| **Infrastructure** | `infrastructure_protocols.py` | EventBus, User (3 ISP + 1 composed), Ingestion | 9 |
+| **Infrastructure** | `infrastructure_protocols.py` | EventBus, User (3 ISP + 1 composed), Ingestion | 11 |
 | **Intelligence** | `intelligence_protocols.py` | Knowledge (shared) + Domain (per-service) + Composed | 3 |
 | **Askesis** | `askesis_protocols.py` | Cross-cutting intelligence + CRUD | 6 |
 | **Submission** | `submission_protocols.py` | Submission CRUD, processing, sharing, search | 4 |
 | **Report** | `report_protocols.py` | Human + AI reports, progress reports, scheduling | 3 |
 | **Forms** | `form_protocols.py` | Backend ops (2) + route-level ISP (2) | 4 |
 | **Groups** | `group_protocols.py` | Group CRUD, teacher review queue | 2 |
-| **Services** | `service_protocols.py` | Calendar, Viz, System, LifePath, Auth, Orchestration | 9 |
+| **Services** | `service_protocols.py` | Calendar, Viz, System, LifePath, Auth, Orchestration, Lateral | 14 |
 
 ### No "Awareness Slice" Protocols
 
@@ -427,7 +427,7 @@ class Services:
 | `report_protocols.py` | 7 | EntryReportOperations (AI report + typed reads), AssessmentOperations (a student's received-assessment read — split from EntryReportOperations in PR #128; HUMAN feedback is written by TeacherReviewOperations), ProgressReportOperations, ProgressScheduleOperations, ActivityReportOperations, ReviewQueueOperations, TeacherReviewOperations |
 | `form_protocols.py` | 4 | FormTemplateBackendOperations, FormSubmissionBackendOperations (backend-level, import directly from `form_protocols`); FormTemplateOperations, FormSubmissionOperations (route-level, re-exported from `__init__`) |
 | `group_protocols.py` | 2 | GroupBackendOperations (backend-level: CRUD + membership edges, `add_member` carries `joined_at`); GroupOperations (route-level, 9 methods) — same root word, two layers |
-| `service_protocols.py` | 9 | CalendarService, Visualization, System, CrossDomainAnalytics, LifePath+Alignment, GraphAuth, GoalTaskGenerator, HabitEventScheduler |
+| `service_protocols.py` | 14 | CalendarService, Visualization, System, CrossDomainAnalytics, LifePath+Alignment, GraphAuth, GoalTaskGenerator, HabitEventScheduler, OwnershipVerifier, LateralRelationship (route + backend); plus two backend slices of the SAME SessionBackend — SessionInvalidationOperations (revocation, consumed by UserService) and SessionBackendOperations (sign-in/session/token persistence, consumed by GraphAuthService) |
 
 **Added to Existing Files:**
 - `askesis_protocols.py` — `AskesisCoreOperations` (5 methods for CRUD operations)

@@ -499,8 +499,8 @@ SKUEL supports two password reset paths:
 ```python
 # Admin generates token
 token_result = await graph_auth.admin_generate_reset_token(
-    user_uid="user.johndoe",
-    admin_uid="user.admin",
+    user_uid=UserUID("user_johndoe"),
+    admin_uid=UserUID("user_admin"),
     ip_address=admin_ip,
     user_agent=admin_ua
 )
