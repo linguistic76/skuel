@@ -4955,8 +4955,8 @@ class SkuelLinter:
     # =========================================================================
 
     @staticmethod
-    def _collect_any_aliases(tree: ast.Module) -> tuple[dict[str, set[str]], set[str]]:
-        """Module-scope alias definitions, and the ``TypeAlias`` markers in force.
+    def _collect_any_aliases(tree: ast.Module) -> set[str]:
+        """Local names that mean ``typing.Any`` in this module.
 
         ``from typing import Any as BackendT`` + ``backend: BackendT`` would
         otherwise read as a concrete type and pass. Same bypass class the rule's
@@ -4965,193 +4965,37 @@ class SkuelLinter:
         out needs no entry: ``_extract_annotation_refs`` returns ``Any`` as the
         Attribute chain's tail.
 
-        All four re-export spellings count — the import alias, the statement form
-        ``X = Any``, PEP 613 ``X: TypeAlias = Any``, and PEP 695
-        ``type X = Any`` (Codex, #1095). Covering a subset would have been an
-        accident of when each spelling was added, not a decision.
+        **Deliberately shallow — do not "complete" it (ruled 2026-08-19, Mike).**
+        Two spellings, one pass, no scope model. PR #1095 grew this into a scope
+        resolver (PEP 613/695 aliases, alias chains to a fixed point,
+        ``typing_extensions``, module/class scoping with shadowing, type-parameter
+        bindings) and it was trimmed back deliberately. What that cost, measured:
 
-        Resolution is a **fixed point over collected definitions**, not one pass
-        in source order. PEP 695 aliases are lazily evaluated, so
-        ``type A = B`` may legally precede ``type B = Any`` and a type checker
-        resolves it either way; a single ordered pass would let a file's layout
-        decide whether the rule fires. Every definition of a name is recorded
-        (not just the last), so a name that is ``Any`` on any one of its
-        assignments counts — the fail-closed direction for a suppression-adjacent
-        question.
+        - **Zero ``Any`` aliases of ANY spelling exist in ``core/``.** Every
+          spelling the resolver covered had no live site behind it.
+        - Four of the additions were **false positives** — a blocking ERROR on
+          code mypy accepts. On a gate that is worse than a missed spelling, and
+          the generality is what produced them.
 
-        Collection is **scope-aware, not module-merged**. This helper returns the
-        module scope; the check then re-resolves per class, adding that class's
-        OWN body — the two scopes that can actually govern a class-attribute
-        annotation, and no others. Merging every scope module-wide instead is not
-        merely over-broad, it produces FALSE POSITIVES: a function-local
-        ``type BackendT = Any`` would condemn an unrelated module-level
-        ``BackendT = GoodOps`` and fail the gate on valid code (Codex, #1095).
-        On a blocking ERROR rule a false positive costs more than a missed
-        spelling, which is why the fix is the enclosing scopes specifically
-        rather than a wider net.
-
-        The ``TypeAlias`` marker is itself resolved through its import aliases
-        (``from typing import TypeAlias as TA``), for the same reason ``Any`` is:
-        matching one literal spelling of a name that can be renamed at the import
-        is the bypass class this helper exists to close.
-
-        An alias's TARGET is read with ``_extract_annotation_refs`` — the same
-        parser the annotation side uses — rather than a hand-rolled
-        ``Name``/``Attribute`` test. That is what keeps the two sides honest:
-        ``backend: "Any"`` was already caught while ``type X = "Any"`` was not,
-        a divergence that existed only because the alias side re-implemented a
-        narrower version of the same question (Codex, #1095). One parser, not
-        two — so ``typing.Any``, forward-ref strings, and nested forms like
-        ``dict[str, Any]`` resolve identically wherever they appear.
-        """
-        return SkuelLinter._alias_definitions(SkuelLinter._own_scope_nodes(tree), {"TypeAlias"})
-
-    @staticmethod
-    def _own_scope_nodes(node: ast.AST) -> list[ast.AST]:
-        """Nodes belonging to ``node``'s OWN scope — never a nested one.
-
-        Traversed through compound statements, so a ``if TYPE_CHECKING:`` alias
-        counts, but pruned at every scope boundary. One notion of "own scope",
-        used for a module and for a class body alike.
-        """
-        return list(
-            SkuelLinter._walk_pruned(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
-        )
-
-    @staticmethod
-    def _alias_definitions(
-        scope: list[ast.AST], inherited_markers: set[str]
-    ) -> tuple[dict[str, set[str]], set[str]]:
-        """``({alias name -> names it references}, TypeAlias markers)`` for one scope.
-
-        A **dict**, not a list, because that is what lets an inner scope shadow
-        an outer one: the check overlays a class's map on the module's, so a name
-        the class rebinds is REPLACED rather than merged. Unioning the two scopes
-        instead left a class-local ``type BackendT = GoodOps`` unable to undo a
-        module-level ``type BackendT = Any``, failing a blocking rule on valid
-        code (Codex, #1095) — the second false positive this scope model
-        produced, and why it is now shadowing rather than union.
-
-        Within ONE scope, repeated bindings of a name union, so a name that is
-        ``Any`` on any of its assignments counts. Fail-closed is right there;
-        reassignment is a different question from shadowing.
-
-        Imports are definitions here, not a separate seed — ``from typing import
-        Any as X`` binds ``X`` exactly as ``X = Any`` does, and a class must be
-        able to shadow either identically. ``typing_extensions`` counts as
-        ``typing``: the module a name is imported from is not type information,
-        so accepting one spelling would be the same bypass class as accepting
-        one alias.
-
-        Two passes, because an import may follow its use in AST order: markers
-        first, then definitions.
-        """
-        markers = set(inherited_markers)
-        definitions: dict[str, set[str]] = {}
-        typing_modules = ("typing", "typing_extensions")
-
-        def _record(name: str, refs: set[str]) -> None:
-            definitions.setdefault(name, set()).update(refs)
-
-        for node in scope:
-            if isinstance(node, ast.ImportFrom) and node.module in typing_modules:
-                markers.update(
-                    imported.asname
-                    for imported in node.names
-                    if imported.name == "TypeAlias" and imported.asname
-                )
-
-        for node in scope:
-            if isinstance(node, ast.ImportFrom) and node.module in typing_modules:
-                # `from typing import Any as X` — the import alias.
-                for imported in node.names:
-                    if imported.name == "Any" and imported.asname:
-                        _record(imported.asname, {"Any"})
-            elif isinstance(node, ast.Assign):
-                # `X = Any` — the bare statement form.
-                for target in node.targets:
-                    if isinstance(target, ast.Name):
-                        _record(target.id, SkuelLinter._annotation_names(node.value))
-            elif isinstance(node, ast.AnnAssign):
-                # `X: TypeAlias = Any` — PEP 613. An alias only when annotated as
-                # one; `X: SomeType = ...` is an ordinary variable.
-                is_alias = bool(markers & SkuelLinter._annotation_names(node.annotation))
-                if is_alias and node.value is not None and isinstance(node.target, ast.Name):
-                    _record(node.target.id, SkuelLinter._annotation_names(node.value))
-            elif isinstance(node, ast.TypeAlias) and isinstance(node.name, ast.Name):
-                # `type X = Any` — PEP 695. A generic alias binds its own
-                # parameters, so `type B[T] = T` references T-the-parameter, not
-                # an outer `type T = Any`; recording the raw reference made
-                # `backend: B[GoodOps]` flag on code mypy resolves (Codex,
-                # #1095). Same locally-bound-names-shadow rule as
-                # `_type_parameter_bindings`, applied to the alias itself.
-                own_params = {
-                    param.name
-                    for param in node.type_params
-                    if isinstance(param, ast.TypeVar | ast.ParamSpec | ast.TypeVarTuple)
-                }
-                _record(node.name.id, SkuelLinter._annotation_names(node.value) - own_params)
-
-        return definitions, markers
-
-    @staticmethod
-    def _type_parameter_bindings(cls: ast.ClassDef) -> dict[str, set[str]]:
-        """PEP 695 type parameters, as bindings that shadow outer aliases.
-
-        ``class XMixin[BackendT: GoodOps]`` binds ``BackendT`` to a type
-        variable throughout the class, so a module-level ``type BackendT = Any``
-        does not reach the annotation. Without this, that shape reported a
-        blocking ERROR on code mypy accepts (Codex, #1095) — and
-        ``class XMixin[Ops: BackendOperations]`` with ``backend: Ops`` is the
-        live idiom in this codebase, so the collision is not purely theoretical.
-
-        Each binds to the EMPTY set: a type variable is by construction not
-        ``Any``, whatever its bound. Reusing the definition map means shadowing
-        happens through the one mechanism, not a second subtraction step.
-
-        Method type parameters are collected too, and deliberately over-shadow —
-        one method's parameter suppresses the name across the whole class rather
-        than only inside it. That direction is fail-open (a missed spelling, not
-        a false alarm), which is the correct way to be imprecise on a rule that
-        blocks the gate.
-        """
-        owners: list[ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef] = [cls]
-        owners.extend(
-            stmt for stmt in cls.body if isinstance(stmt, ast.FunctionDef | ast.AsyncFunctionDef)
-        )
-        # `ast.type_param` is the abstract base and carries no `name`; the three
-        # concrete forms each do.
-        return {
-            param.name: set()
-            for owner in owners
-            for param in owner.type_params
-            if isinstance(param, ast.TypeVar | ast.ParamSpec | ast.TypeVarTuple)
-        }
-
-    @staticmethod
-    def _annotation_names(expr: ast.expr) -> set[str]:
-        """Every type name referenced in ``expr``, forward-ref strings parsed."""
-        return {name for _lookup, name in SkuelLinter._extract_annotation_refs(expr)}
-
-    @staticmethod
-    def _resolve_any_aliases(definitions: dict[str, set[str]]) -> set[str]:
-        """Every name that reaches ``Any`` through ``definitions``, to a fixed point.
-
-        Not one ordered pass: PEP 695 aliases are lazily evaluated, so
-        ``type A = B`` may legally precede ``type B = Any`` and a type checker
-        resolves it either way. Iterating in source order would let a file's
-        layout decide whether the rule fires (Codex, #1095). Terminates because
-        each round either adds a name from a finite set or stops — a cyclic
-        alias (``type A = B`` / ``type B = A``) simply never reaches ``Any``.
+        So the remaining gaps (a PEP 695 ``type X = Any``, an alias chain, a
+        ``typing_extensions`` import) are **known and accepted**. They are
+        fail-OPEN — a missed spelling, never a false alarm — and
+        ``# skuel-lint: disable=SKUEL023`` is the sanctioned, audited escape for
+        anyone deliberately working around the rule. Adding a spelling here means
+        re-opening that trade, not closing a hole nobody left open.
         """
         aliases = {"Any"}
-        changed = True
-        while changed:
-            changed = False
-            for name, refs in definitions.items():
-                if name not in aliases and refs & aliases:
-                    aliases.add(name)
-                    changed = True
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom) and node.module == "typing":
+                aliases.update(a.asname for a in node.names if a.name == "Any" and a.asname)
+            elif isinstance(node, ast.Assign):
+                # Module-level `X = Any` (or `X = typing.Any`) re-export.
+                value = node.value
+                is_any = (isinstance(value, ast.Name) and value.id in aliases) or (
+                    isinstance(value, ast.Attribute) and value.attr == "Any"
+                )
+                if is_any:
+                    aliases.update(t.id for t in node.targets if isinstance(t, ast.Name))
         return aliases
 
     @staticmethod
@@ -5271,26 +5115,14 @@ class SkuelLinter:
         with no annotation is not a declaration at all (it is a bare ``Name``
         expression), so "is unannotated" is reachable only through assignment.
 
-        **Known limitation, deliberate (Codex, #1095):** a class defined INSIDE
-        a function does not see that function's aliases — resolution spans the
-        module and the class's own body, not an arbitrary enclosing chain.
-        Walking real enclosing scopes means carrying a scope stack through the
-        rule, and the same generality is what produced two false positives here
-        already; a class defined inside a function in ``core/`` is not a shape
-        this codebase has. Fail-open, like the one below.
-
-        **Known limitation, deliberate (Codex, #1095):** alias resolution is
-        order-INSENSITIVE within a scope, so rebinding a name *after* using it
-        (``backend: BackendT`` then, lower in the same class body,
-        ``type BackendT = GoodOps``, shadowing a module-level ``Any``) reads as
-        the later binding and does not flag. Resolving the binding live at each
-        annotation site means tracking definitions positionally — an interpreter,
-        not the AST pattern check this repo's lint rules are ruled to be — and
-        order-insensitivity is load-bearing in the other direction, because PEP
-        695 aliases genuinely are lazy (``type A = B`` may precede
-        ``type B = Any``). This failure is fail-OPEN, a missed spelling rather
-        than a false alarm on valid code, which is the correct direction for the
-        imprecision to run on a rule that blocks the gate.
+        **Known limitation, deliberate (ruled 2026-08-19, Mike):** ``Any``-alias
+        recognition is two spellings deep — an import alias and a module-level
+        ``X = Any`` — so a PEP 613 / PEP 695 alias, an alias chain, or a
+        ``typing_extensions`` import is not seen. #1095 built all of that and it
+        was trimmed back on purpose: zero ``Any`` aliases of any spelling exist
+        in ``core/``, and four of the additions turned out to fire on valid code.
+        See ``_collect_any_aliases`` for the full measurement. Fail-OPEN, like
+        the next one.
 
         **Known limitation, deliberate (Codex, #1095):** the PEP 484 type-comment
         spelling ``backend = None  # type: Any`` is NOT detected. ``ast.parse``
@@ -5337,7 +5169,7 @@ class SkuelLinter:
         if tree is None or self._is_file_suppressed(content, "SKUEL023"):
             return
 
-        module_definitions, module_markers = self._collect_any_aliases(tree)
+        any_aliases = self._collect_any_aliases(tree)
 
         for cls in [n for n in ast.walk(tree) if isinstance(n, ast.ClassDef)]:
             assign = self._find_self_backend_assignment(cls)
@@ -5353,21 +5185,9 @@ class SkuelLinter:
             else:
                 continue
 
-            # Resolve in the two scopes that can govern a class-attribute
-            # annotation: the module, and the declaring class's own body. The
-            # class OVERLAYS the module, so a class-local rebinding shadows the
-            # module's rather than merging with it (Codex, #1095). Only this
-            # class — a sibling's aliases are not in scope here.
-            class_definitions, _ = self._alias_definitions(
-                self._own_scope_nodes(cls), module_markers
-            )
-            scoped_aliases = self._resolve_any_aliases(
-                {**module_definitions, **class_definitions, **self._type_parameter_bindings(cls)}
-            )
-
             if annotation is None:
                 verdict = "is unannotated"
-            elif scoped_aliases.intersection(
+            elif any_aliases.intersection(
                 name for _lookup, name in self._extract_annotation_refs(annotation)
             ):
                 verdict = "is typed `Any`"
