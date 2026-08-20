@@ -35,6 +35,7 @@ from core.models.task.task_dto import TaskDTO
 from core.models.update_contracts import RawChanges
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
+from core.services.relationship_builder import relate
 from core.services.tasks.task_relationships import TaskRelationships
 from core.services.user import UserContext
 from core.services.user.rich_context import (
@@ -382,16 +383,17 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
             Result indicating success
         """
         # Create relationship: (User)-[:COMPLETED_TASK]->(Task)
-        result = await self.backend.add_relationship(
-            from_uid=user_uid,
-            to_uid=task_uid,
-            relationship_type=RelationshipName.COMPLETED_TASK,
-            properties={
-                "duration_minutes": duration_minutes,
-                "quality_score": quality_score,
-                "completion_notes": completion_notes,
-                "completed_at": datetime.now().isoformat(),
-            },
+        result = await (
+            relate(self.backend, user_uid)
+            .via(RelationshipName.COMPLETED_TASK)
+            .to(task_uid)
+            .with_properties(
+                duration_minutes=duration_minutes,
+                quality_score=quality_score,
+                completion_notes=completion_notes,
+                completed_at=datetime.now().isoformat(),
+            )
+            .create()
         )
 
         if result.is_ok:
@@ -558,11 +560,12 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
         if priority_override:
             properties["priority_override"] = priority_override
 
-        result = await self.backend.add_relationship(
-            from_uid=task_uid,
-            to_uid=user_uid,
-            relationship_type=RelationshipName.ASSIGNED_TO,
-            properties=properties,
+        result = await (
+            relate(self.backend, task_uid)
+            .via(RelationshipName.ASSIGNED_TO)
+            .to(user_uid)
+            .with_properties(**properties)
+            .create()
         )
 
         if result.is_ok:

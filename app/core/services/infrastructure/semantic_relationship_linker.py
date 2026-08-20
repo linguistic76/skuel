@@ -31,6 +31,7 @@ from core.models.enums import Domain
 from core.models.protocols.domain_model_protocol import DomainModelProtocol, DTOProtocol
 from core.ports.base_protocols import BackendOperations
 from core.services.base_service import BaseService
+from core.services.relationship_builder import relate
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -157,11 +158,12 @@ class SemanticRelationshipLinker[T: DomainModelProtocol, DTO: DTOProtocol]:
         metadata_props = metadata.to_neo4j_properties()
         metadata_props["semantic_type"] = semantic_type.value
 
-        result = await self.backend.add_relationship(
-            from_uid=from_uid,
-            to_uid=to_uid,
-            relationship_type=semantic_type.to_neo4j_name(),
-            properties=metadata_props,
+        result = await (
+            relate(self.backend, from_uid)
+            .via(semantic_type.to_neo4j_name())
+            .to(to_uid)
+            .with_properties(**metadata_props)
+            .create()
         )
 
         if result.is_error:

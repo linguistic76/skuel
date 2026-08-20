@@ -205,7 +205,7 @@ Core queries, edge metadata, fluent `relate()` entry point:
 - `count_relationships_batch(uids, relationship_type, direction)` → `Result[dict[str, int]]`
 - `get_edge_metadata(uid, relationship_type, direction, target_uid)` → `Result[EdgeMetadata]`
 - `update_edge_metadata(from_uid, to_uid, relationship_type, metadata)` → `Result[bool]`
-- `relate()` → `RelationshipBuilder` (fluent API)
+- `relate(backend, source_uid)` → the typed fluent builder in `core/services/relationship_builder.py` — the ONE caller of `add_relationship` in `core/`
 
 ### `_RelationshipOrderedMixin` (`adapters/persistence/neo4j/_relationship_ordered_mixin.py`)
 

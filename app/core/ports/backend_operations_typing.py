@@ -130,27 +130,35 @@ RelationshipCrudOperations — creating graph edges:
 
     from typing import TYPE_CHECKING
 
+    # Runtime imports — both are USED as values, not just in annotations.
+    from core.models.relationship_names import RelationshipName
+    from core.services.relationship_builder import relate
+
     if TYPE_CHECKING:
         from core.ports import RelationshipCrudOperations
-        from core.models.relationship_names import RelationshipName
 
     class GoalLinkService:
         def __init__(self, backend: "RelationshipCrudOperations") -> None:
             self.backend = backend
 
         async def link_task_to_goal(self, task_uid: str, goal_uid: str) -> None:
-            await self.backend.add_relationship(
-                task_uid, goal_uid, RelationshipName.FULFILLS_GOAL
-            )
+            # Written through the builder — the one caller of add_relationship
+            # in core/. Source and target are set at different call sites in a
+            # forced order, so they cannot be swapped.
+            await relate(self.backend, task_uid).via(
+                RelationshipName.FULFILLS_GOAL
+            ).to(goal_uid).create()
 
 
 RelationshipQueryOperations — counting edges without loading entities:
 
     from typing import TYPE_CHECKING
 
+    # Runtime import — RelationshipName is used as a VALUE below, not an annotation.
+    from core.models.relationship_names import RelationshipName
+
     if TYPE_CHECKING:
         from core.ports import RelationshipQueryOperations
-        from core.models.relationship_names import RelationshipName
 
     class PrerequisiteChecker:
         def __init__(self, backend: "RelationshipQueryOperations") -> None:

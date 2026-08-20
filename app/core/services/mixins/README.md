@@ -123,7 +123,7 @@ Service Layer (Depends on Foundation):
 **Key Methods:**
 
 *Core Relationships:*
-- `add_relationship(from_uid, rel_type, to_uid, properties)` - Create edge
+- `add_relationship(from_uid, rel_type: RelationshipName, to_uid, properties)` - Create edge (delegates to `relate(...)`; the enum is required, there is no string form)
 - `get_relationships(uid, rel_type, direction)` - Get all relationships
 - `traverse(start_uid, rel_patterns, depth)` - Graph traversal
 

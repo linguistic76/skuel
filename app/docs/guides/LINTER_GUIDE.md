@@ -188,7 +188,8 @@ resolution. Both limits are asserted by tests, so a real fix will announce itsel
 by turning those assertions red.
 
 **Coverage boundary (closed 2026-07-29):** CYP012 once guarded **three** of the
-four sites repaired when it was added. `relationship_builders.py` interpolates
+four sites repaired when it was added. `relationship_builders.py` (the adapter-level
+fluent builder, **deleted 2026-08-20**) interpolated
 every structural position (`(from {from_pattern})`, `-[r:{self._relationship_type}]`),
 so the extractor's local heuristic saw no node pattern, rel pattern, property map
 or `$param` and never yielded the query at all — a blind spot upstream of *every*

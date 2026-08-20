@@ -18,7 +18,6 @@ Provides:
     get_edge_metadata: Get typed EdgeMetadata for a relationship
     update_edge_metadata: Update full edge metadata
     increment_traversal_count: Efficient traversal count increment
-    relate: Fluent RelationshipBuilder API
 
 Requires on concrete class:
     driver, logger, label, entity_class, default_filters,
@@ -31,7 +30,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node
-from adapters.persistence.neo4j.relationship_builders import RelationshipBuilder
 from core.models.protocols import DomainModelProtocol
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import FilterParams
@@ -653,22 +651,3 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
     # ============================================================================
     # RELATIONSHIP-FIRST API - FLUENT INTERFACE
     # ============================================================================
-
-    def relate(self) -> RelationshipBuilder:
-        """
-        Create a fluent relationship builder for creating Neo4j relationships.
-
-        This is the relationship-first API - relationships are the primary interface.
-
-        Example:
-            await backend.relate() \\
-                .from_node(task_uid) \\
-                .via("APPLIES_KNOWLEDGE") \\
-                .to_node(ku_uid) \\
-                .with_metadata(ConfidenceLevel.GOOD, evidence="Applied in task") \\
-                .create()
-
-        Returns:
-            RelationshipBuilder instance for method chaining
-        """
-        return RelationshipBuilder(self.driver)

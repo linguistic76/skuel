@@ -605,10 +605,16 @@ class TestRelationshipOperations:
         """Add relationship creates edge in graph."""
         mock_backend.add_relationship.return_value = Result.ok(True)
 
-        result = await service.add_relationship("test_001", "REQUIRES_KNOWLEDGE", "test_002")
+        result = await service.add_relationship(
+            "test_001", RelationshipName.REQUIRES_KNOWLEDGE, "test_002"
+        )
 
         assert result.is_ok
-        mock_backend.add_relationship.assert_called()
+        # The enum reaches the backend unchanged — no string round-trip in between.
+        assert (
+            mock_backend.add_relationship.call_args.kwargs["relationship_type"]
+            is RelationshipName.REQUIRES_KNOWLEDGE
+        )
 
     @pytest.mark.asyncio
     async def test_get_relationships_with_direction(self, service, mock_backend):

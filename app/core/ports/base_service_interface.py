@@ -513,7 +513,7 @@ class RelationshipOperations(Protocol[T]):
     async def add_relationship(
         self,
         from_uid: str,
-        rel_type: str | RelationshipName,
+        rel_type: RelationshipName,
         to_uid: str,
         properties: dict[str, Any] | None = None,
     ) -> Result[bool]:
@@ -522,7 +522,7 @@ class RelationshipOperations(Protocol[T]):
 
         Args:
             from_uid: Source entity UID
-            rel_type: Relationship type (string or RelationshipName enum)
+            rel_type: Relationship type — the enum, never a string
             to_uid: Target entity UID
             properties: Optional relationship properties
 
