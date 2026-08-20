@@ -26,7 +26,7 @@ from adapters.persistence.neo4j.query.cypher import (
 from core.models.enums import EntityStatus, EntityType
 from core.models.enums.principle_enums import AlignmentLevel
 from core.models.relationship_names import RelationshipName
-from core.ports.query_types import SelCategoryRow, UserKnowledgeChannelRow
+from core.ports.query_types import JournalEntryRow, SelCategoryRow, UserKnowledgeChannelRow
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -237,6 +237,33 @@ def _to_user_knowledge_channel_rows(
         }
         for row in records
         if row["activity_uid"]
+    ]
+
+
+def _to_journal_entry_rows(
+    records: list[dict[str, Any]],  # boundary: raw neo4j-driver rows (AsyncResult.data())
+) -> list[JournalEntryRow]:
+    """Project raw rows onto JournalEntryRow (KeyError on alias drift).
+
+    Same contract as ``_to_user_knowledge_channel_rows``: the annotation alone
+    would be an unchecked claim, since nothing statically links a Cypher alias
+    to a TypedDict key. ``metadata`` is a Cypher map literal, so its three keys
+    are always present on the row — null, not absent — and are carried through
+    as-is rather than defaulted, so "no title" stays distinguishable from "".
+    """
+    return [
+        {
+            "uid": str(row["uid"]),
+            "processed_content": str(row["processed_content"] or ""),
+            "metadata": {
+                "title": row["metadata"]["title"],
+                "summary": row["metadata"]["summary"],
+                "themes": row["metadata"]["themes"],
+            },
+            "created_at": str(row["created_at"]),
+        }
+        for row in records
+        if row["uid"]
     ]
 
 
@@ -1296,7 +1323,7 @@ class CrossDomainBackend:
         user_uid: str,
         start_datetime: str,
         end_datetime: str,
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[JournalEntryRow]]:
         """Get journal source entries within a date range.
 
         After ADR-054 the former `:JeInput` nodes are `:UserEntry` with
@@ -1306,8 +1333,8 @@ class CrossDomainBackend:
         the source's `processed_content` (transcript) plus the metadata
         fields the migration preserved on the source node.
         """
-        return await self.executor.execute_query(
-            """
+        return await self.executor.execute(
+            query="""
             MATCH (j:UserEntry {user_uid: $user_uid})
             WHERE j.pipeline = 'transcribe_and_structure'
               AND datetime(j.created_at) >= datetime($start_datetime)
@@ -1318,11 +1345,13 @@ class CrossDomainBackend:
                    j.created_at as created_at
             ORDER BY j.created_at DESC
             """,
-            {
+            params={
                 "user_uid": user_uid,
                 "start_datetime": start_datetime,
                 "end_datetime": end_datetime,
             },
+            processor=_to_journal_entry_rows,
+            operation="get_journal_entries_in_range",
         )
 
 
