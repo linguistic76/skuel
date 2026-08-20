@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 
 from core.models.enums.scheduling_enums import TimeOfDay
+from core.models.type_hints import UserUID
 
 from .completion_dto import HabitCompletionDTO
 
@@ -26,6 +27,12 @@ class HabitCompletion:
     # Identity (required fields first)
     uid: str
     habit_uid: str
+    user_uid: UserUID
+    """The owner. Persisted as a node property AND, via ``_create_node``, as the
+    ``(User)-[:OWNS]->(:HabitCompletion)`` edge — the property==:OWNS invariant
+    every other user-owned entity holds. Without it, user-scoped reads compare
+    against null and return zero rows with no error."""
+
     completed_at: datetime
     created_at: datetime
     updated_at: datetime
@@ -53,6 +60,7 @@ class HabitCompletion:
         return cls(
             uid=dto.uid,
             habit_uid=dto.habit_uid,
+            user_uid=dto.user_uid,
             completed_at=dto.completed_at,
             notes=dto.notes,
             quality=dto.quality,

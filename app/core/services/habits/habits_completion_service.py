@@ -20,7 +20,7 @@ from core.events import publish_event
 from core.models.habit.completion import HabitCompletion
 from core.models.habit.completion_dto import HabitCompletionDTO
 from core.models.habit.habit import Habit
-from core.models.type_hints import UserUID
+from core.models.type_hints import Neo4jValue, UserUID
 from core.ports.base_protocols import BackendOperations
 from core.ports.domain_protocols import HabitsOperations
 from core.ports.infrastructure_protocols import EventBusOperations
@@ -134,6 +134,7 @@ class HabitsCompletionService:
         completion_dto = HabitCompletionDTO(
             uid=completion_uid,
             habit_uid=habit_uid,
+            user_uid=user_uid,
             completed_at=completed_at,
             quality=quality,
             duration_actual=duration_actual,
@@ -267,6 +268,7 @@ class HabitsCompletionService:
         completion_dto = HabitCompletionDTO(
             uid=completion_uid,
             habit_uid=habit_uid,
+            user_uid=user_uid,
             completed_at=completed_at,
             quality=None,
             duration_actual=None,
@@ -505,6 +507,41 @@ class HabitsCompletionService:
 
         return Result.ok(completions)
 
+    async def _all_completions_for_user(
+        self, user_uid: UserUID, **filters: Neo4jValue
+    ) -> Result[list[HabitCompletion]]:
+        """Every completion matching the filters, walked page by page.
+
+        Two things this exists to get right, both learned the hard way:
+
+        A single ``find_by`` caps at its limit and says nothing about it, so a
+        user past that cap silently gets a partial answer — a wrong number that
+        does not look like a failure.
+
+        Paging needs a DETERMINISTIC order. ``find_by`` emits no ``ORDER BY``
+        unless ``sort_by`` is given, and Neo4j guarantees no row order across
+        separate statements, so ``SKIP``/``LIMIT`` pages could overlap and omit
+        rows while still walking every offset. Sorted by ``uid`` — stable and
+        unique. Callers re-sort by whatever they actually display.
+        """
+        out: list[HabitCompletion] = []
+        offset = 0
+        while True:
+            page = await self.completions_backend.find_by(
+                user_uid=user_uid,
+                **filters,
+                limit=QueryLimit.BULK,
+                sort_by="uid",
+                offset=offset,
+            )
+            if page.is_error:
+                return Result.fail(page)
+            out.extend(page.value)
+            if len(page.value) < QueryLimit.BULK:
+                break
+            offset += QueryLimit.BULK
+        return Result.ok(out)
+
     async def get_today_completions(self, user_uid: UserUID) -> Result[list[dict[str, Any]]]:
         """
         Get all habit completions for today for a user.
@@ -518,33 +555,29 @@ class HabitsCompletionService:
         start_of_day = datetime.combine(today, datetime.min.time())
         end_of_day = datetime.combine(today, datetime.max.time())
 
-        # Scope through the habits backend — HabitCompletion has no user_uid
-        # field, so filtering completions_backend by user_uid is silently a
-        # no-op. Same reasoning (and same shape) as export_completion_history.
-        habits_result = await self.habits_backend.find_by(
-            user_uid=user_uid, limit=QueryLimit.COMPREHENSIVE
+        completions_result = await self._all_completions_for_user(
+            user_uid,
+            completed_at__gte=start_of_day,
+            completed_at__lte=end_of_day,
         )
-        if habits_result.is_error:
-            return Result.fail(habits_result)
+        if completions_result.is_error:
+            return Result.fail(completions_result)
 
-        # Get habit details and create response
+        # Group by habit — one habit can be completed several times a day
+        by_habit: dict[str, list[HabitCompletion]] = {}
+        for completion in completions_result.value:
+            by_habit.setdefault(completion.habit_uid, []).append(completion)
+
         result: list[dict[str, Any]] = []
-        for habit in habits_result.value:
-            per_habit = await self.completions_backend.find_by(
-                habit_uid=habit.uid,
-                completed_at__gte=start_of_day,
-                completed_at__lte=end_of_day,
-                limit=QueryLimit.COMPREHENSIVE,
-            )
-            if per_habit.is_error:
-                return Result.fail(per_habit)
-            if not per_habit.value:
-                continue  # habit simply not completed today
+        for habit_uid, group in by_habit.items():
+            habit_result = await self.habits_backend.get(habit_uid)
+            if habit_result.is_error:
+                return Result.fail(habit_result)
 
-            completions = sorted(per_habit.value, key=get_completed_at, reverse=True)
+            completions = sorted(group, key=get_completed_at, reverse=True)
             result.append(
                 {
-                    "habit": habit,
+                    "habit": habit_result.value,
                     "completions_today": len(completions),
                     "latest_completion": completions[0],  # Most recent
                     "total_quality_today": sum(c.quality or 0 for c in completions),
@@ -638,24 +671,22 @@ class HabitsCompletionService:
             if habit.is_identity_based():
                 total_identity_votes += habit.identity_votes_cast
 
-        # High-quality completions, scoped through the habits just loaded —
-        # HabitCompletion has no user_uid field, so filtering the completions
-        # backend by user_uid is silently a no-op (see export_completion_history).
-        for habit in habits_result.value:
-            per_habit = await self.completions_backend.find_by(
-                habit_uid=habit.uid, limit=QueryLimit.COMPREHENSIVE
-            )
-            if per_habit.is_error:
-                return Result.fail(per_habit)
-            high_quality_completions += sum(1 for c in per_habit.value if c.is_high_quality())
+        # Counted in Cypher, not by fetching rows: the quality badge threshold is
+        # 100 and any row limit here silently caps the count below it. This is the
+        # `(user)-[:OWNS]->(:HabitCompletion)` aggregate that the owner field added
+        # in this PR makes correct for the first time.
+        stats_result = await self.habits_backend.get_user_badge_stats(user_uid)
+        if stats_result.is_error:
+            return Result.fail(stats_result)
+        raw_hq = stats_result.value.get("high_quality_completions", 0)
+        high_quality_completions = int(raw_hq) if isinstance(raw_hq, int | float) else 0
 
         # Fetch persisted badges to get earned_at dates
         earned_badge_ids: set[str] = set()
-        if isinstance(self.habits_backend, HabitsOperations):
-            badges_result = await self.habits_backend.get_user_badges(user_uid)
-            if badges_result.is_ok:
-                for badge_record in badges_result.value:
-                    earned_badge_ids.add(neo4j_str(badge_record, "badge_id", ""))
+        badges_result = await self.habits_backend.get_user_badges(user_uid)
+        if badges_result.is_ok:
+            for badge_record in badges_result.value:
+                earned_badge_ids.add(neo4j_str(badge_record, "badge_id", ""))
 
         def _badge_entry(badge_id: str, current: int | float, target: int) -> dict[str, Any]:
             """Build badge progress dict, marking as unlocked if persisted OR threshold met."""
@@ -721,37 +752,17 @@ class HabitsCompletionService:
                 )
             )
 
-        # Scope through the habits backend — HabitCompletion has no user_uid field,
-        # so filtering completions_backend by user_uid is silently a no-op. The
-        # correct path is: fetch the user's habit UIDs (habits_backend IS scoped),
-        # then pull completions only for those UIDs.
-        habits_result = await self.habits_backend.find_by(
-            user_uid=user_uid, limit=QueryLimit.COMPREHENSIVE
-        )
-        if habits_result.is_error:
-            return Result.fail(habits_result)
-
-        habit_uids = [habit.uid for habit in habits_result.value if habit.uid]
-        if not habit_uids:
-            return self._export_csv([]) if format == "csv" else self._export_json([])
-
         date_filters: dict[str, datetime] = {}
         if start_date:
             date_filters["completed_at__gte"] = datetime.combine(start_date, datetime.min.time())
         if end_date:
             date_filters["completed_at__lte"] = datetime.combine(end_date, datetime.max.time())
 
-        completions: list[HabitCompletion] = []
-        for habit_uid in habit_uids:
-            per_habit = await self.completions_backend.find_by(
-                habit_uid=habit_uid, **date_filters, limit=QueryLimit.BULK
-            )
-            if per_habit.is_error:
-                return Result.fail(per_habit)
-            completions.extend(per_habit.value)
+        paged = await self._all_completions_for_user(user_uid, **date_filters)
+        if paged.is_error:
+            return Result.fail(paged)
 
-        # Sort by date
-        completions.sort(key=get_completed_at)
+        completions = sorted(paged.value, key=get_completed_at)
 
         if format == "csv":
             return self._export_csv(completions)

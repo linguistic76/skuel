@@ -42,6 +42,7 @@ def make_completion(
     return HabitCompletion(
         uid="hc.user.mike.habit.test.1.1729000000",
         habit_uid="habit.test.1",
+        user_uid="user_mike",
         completed_at=completed_at,
         notes=notes,
         quality=quality,

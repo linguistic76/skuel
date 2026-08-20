@@ -17,6 +17,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
+from core.constants import QueryLimit
 from core.models.enums import Priority, RecurrencePattern
 from core.models.enums.entity_enums import EntityStatus as HabitStatus
 from core.models.enums.entity_enums import EntityType
@@ -105,6 +106,7 @@ def sample_completion() -> HabitCompletion:
     return HabitCompletion(
         uid="hc.user.mike.habit.test.1.1729000000",
         habit_uid="habit.test.1",
+        user_uid="user_mike",
         completed_at=datetime.now(),
         quality=5,
         duration_actual=35,
@@ -358,9 +360,9 @@ class TestCompletionQueries:
         sample_habit_dto,
     ):
         """Test getting today's completions."""
-        # Setup mocks — completions are reached THROUGH the user's habits;
-        # :HabitCompletion carries no user_uid to filter on.
-        mock_habits_backend.find_by.return_value = Result.ok([Habit.from_dto(sample_habit_dto)])
+        # Setup mocks — completions are user-scoped in ONE query, then each
+        # distinct habit_uid is resolved for the response.
+        mock_habits_backend.get.return_value = Result.ok(Habit.from_dto(sample_habit_dto))
         mock_completions_backend.find_by.return_value = Result.ok([sample_completion])
 
         # Query today's completions
@@ -382,9 +384,9 @@ class TestCompletionQueries:
         sample_habit_dto,
     ):
         """Test calculating today's completion count."""
-        # Setup mocks — completions are reached THROUGH the user's habits;
-        # :HabitCompletion carries no user_uid to filter on.
-        mock_habits_backend.find_by.return_value = Result.ok([Habit.from_dto(sample_habit_dto)])
+        # Setup mocks — completions are user-scoped in ONE query, then each
+        # distinct habit_uid is resolved for the response.
+        mock_habits_backend.get.return_value = Result.ok(Habit.from_dto(sample_habit_dto))
         mock_completions_backend.find_by.return_value = Result.ok([sample_completion])
 
         # Calculate count
@@ -396,14 +398,14 @@ class TestCompletionQueries:
 
 
 class TestCompletionScoping:
-    """:HabitCompletion carries no user_uid — user scoping must go via Habit."""
+    """:HabitCompletion is user-owned — user-scoped reads filter on user_uid."""
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
         "method",
-        ["get_today_completions", "get_badge_progress", "export_completion_history"],
+        ["get_today_completions", "export_completion_history"],
     )
-    async def test_completions_are_never_filtered_by_user_uid(
+    async def test_user_scoped_reads_filter_by_user_uid(
         self,
         completion_service,
         mock_completions_backend,
@@ -411,16 +413,15 @@ class TestCompletionScoping:
         sample_habit_dto,
         method,
     ):
-        """A user_uid filter on the completions backend matches zero rows, silently.
+        """Every user-scoped read must scope the completions query by user_uid.
 
-        `HabitCompletion` declares no `user_uid` field, so nothing writes that
-        property (and no :OWNS edge is written either — `_create_node` only
-        writes one for entities carrying a user_uid). `find_by(user_uid=...)`
-        therefore compares against null and returns nothing, with no error.
-        Regression guard: every user-scoped read must reach completions through
-        the user's habits.
+        `HabitCompletion` carries `user_uid`, so the property is written AND
+        `_create_node` writes the `(User)-[:OWNS]->` edge with it. Before that
+        field existed these reads had to walk the user's habits; that workaround
+        is gone, and reverting to it would reintroduce an N+1 for no reason.
         """
         mock_habits_backend.find_by.return_value = Result.ok([Habit.from_dto(sample_habit_dto)])
+        mock_habits_backend.get.return_value = Result.ok(Habit.from_dto(sample_habit_dto))
         mock_completions_backend.find_by.return_value = Result.ok([])
 
         result = await getattr(completion_service, method)(user_uid="user_mike")
@@ -430,10 +431,137 @@ class TestCompletionScoping:
             f"{method} never queried the completions backend"
         )
         for call in mock_completions_backend.find_by.await_args_list:
-            assert "user_uid" not in call.kwargs, (
-                f"{method} filtered :HabitCompletion by user_uid — matches zero rows"
+            assert call.kwargs.get("user_uid") == "user_mike", (
+                f"{method} must scope :HabitCompletion by user_uid"
             )
-            assert "habit_uid" in call.kwargs, f"{method} must scope completions by habit_uid"
+
+    @pytest.mark.asyncio
+    async def test_export_pages_past_the_first_bulk_limit(
+        self,
+        completion_service,
+        mock_completions_backend,
+        mock_habits_backend,
+        sample_habit_dto,
+        sample_completion,
+    ):
+        """An export must walk every page, not stop at the first.
+
+        The old per-habit loop gave each habit its own BULK limit, so a user with
+        two 600-completion habits exported all 1,200. Collapsing to one
+        user-scoped query collapsed those N limits into one, which would silently
+        truncate a history export at 1,000 with no indication it was partial.
+        """
+        full_page = [sample_completion] * QueryLimit.BULK
+        remainder = [sample_completion] * 7
+        mock_habits_backend.find_by.return_value = Result.ok([Habit.from_dto(sample_habit_dto)])
+        mock_completions_backend.find_by.side_effect = [
+            Result.ok(full_page),
+            Result.ok(remainder),
+        ]
+
+        result = await completion_service.export_completion_history(
+            user_uid="user_mike", format="json"
+        )
+
+        assert result.is_ok
+        assert mock_completions_backend.find_by.await_count == 2, "export stopped after one page"
+        offsets = [c.kwargs.get("offset") for c in mock_completions_backend.find_by.await_args_list]
+        assert offsets == [0, QueryLimit.BULK], f"unexpected paging offsets: {offsets}"
+
+        # Every page must carry a deterministic order. find_by emits no ORDER BY
+        # without sort_by, and Neo4j guarantees no row order across separate
+        # statements — unordered SKIP/LIMIT pages can overlap AND omit rows while
+        # still walking every offset, so the walk alone is not enough.
+        for call in mock_completions_backend.find_by.await_args_list:
+            assert call.kwargs.get("sort_by"), (
+                "paged read has no sort_by — pages may overlap or omit rows"
+            )
+
+    @pytest.mark.asyncio
+    async def test_today_completions_pages_past_the_first_limit(
+        self,
+        completion_service,
+        mock_completions_backend,
+        mock_habits_backend,
+        sample_habit_dto,
+        sample_completion,
+    ):
+        """Today's read must page too — it had the same global-cap regression.
+
+        The per-habit loop gave each habit its own limit; one user-scoped query
+        collapsed those into a single cap, so a user who bulk-completes more
+        habits than the page size would have completed habits silently omitted
+        and `/api/habits/completed-today-count` would underreport.
+        """
+        mock_habits_backend.get.return_value = Result.ok(Habit.from_dto(sample_habit_dto))
+        mock_completions_backend.find_by.side_effect = [
+            Result.ok([sample_completion] * QueryLimit.BULK),
+            Result.ok([sample_completion] * 3),
+        ]
+
+        result = await completion_service.get_today_completions(user_uid="user_mike")
+
+        assert result.is_ok
+        assert mock_completions_backend.find_by.await_count == 2, (
+            "today's completions stopped after one page"
+        )
+
+    @pytest.mark.asyncio
+    async def test_badge_quality_is_counted_in_cypher_not_fetched(
+        self,
+        completion_service,
+        mock_completions_backend,
+        mock_habits_backend,
+        sample_habit_dto,
+    ):
+        """The quality badge count must not come from a limited row fetch.
+
+        The threshold is 100 high-quality completions. Any `find_by(..., limit=N)`
+        caps the count at N before quality is evaluated, so the badge becomes
+        unreachable for a user who has earned it. The count is an owner-scoped
+        Cypher aggregate — the one the :OWNS edge in this PR makes correct.
+        """
+        mock_habits_backend.find_by.return_value = Result.ok([Habit.from_dto(sample_habit_dto)])
+        mock_habits_backend.get_user_badge_stats.return_value = Result.ok(
+            {"high_quality_completions": 250}
+        )
+        mock_completions_backend.find_by.return_value = Result.ok([])
+
+        result = await completion_service.get_badge_progress(user_uid="user_mike")
+
+        assert result.is_ok
+        assert result.value["quality"]["high_quality_count"] == 250, (
+            "quality count came from a row fetch, not the unbounded aggregate"
+        )
+        mock_habits_backend.get_user_badge_stats.assert_awaited_once_with("user_mike")
+
+    @pytest.mark.asyncio
+    async def test_recorded_completion_carries_its_owner(
+        self,
+        completion_service,
+        mock_completions_backend,
+        mock_habits_backend,
+        sample_habit,
+    ):
+        """The owner must reach the node, or no :OWNS edge is written.
+
+        `_create_node` writes `(User)-[:OWNS]->(entity)` only for entities
+        carrying a `user_uid`. A completion persisted without one is reachable
+        by no owner-scoped read and by no GDPR cascade.
+        """
+        mock_habits_backend.get.return_value = Result.ok(sample_habit)
+        mock_completions_backend.find_by.return_value = Result.ok([])
+        mock_completions_backend.create.side_effect = lambda entity: Result.ok(entity)
+        mock_habits_backend.update.return_value = Result.ok(sample_habit)
+
+        result = await completion_service.record_completion(
+            habit_uid=sample_habit.uid, user_uid="user_mike"
+        )
+
+        assert result.is_ok
+        assert result.value.user_uid == "user_mike"
+        persisted = mock_completions_backend.create.await_args.args[0]
+        assert persisted.user_uid == "user_mike", "completion persisted with no owner"
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
@@ -448,14 +576,16 @@ class TestCompletionScoping:
         sample_habit_dto,
         method,
     ):
-        """A failed per-habit read must fail the call, not silently drop that habit.
+        """A failed completions read must fail the call, not return a partial answer.
 
-        These reads loop over the user's habits, so a `continue` on error yields
-        an answer that cannot be told apart from the real one: an export missing
-        a habit's history, or a badge count silently short. That is the same
-        silent-wrong-number class as the user_uid no-op above, one level down.
+        Restored deliberately: these reads used to loop over the user's habits
+        and `continue` past a failed one, which produced an export missing a
+        habit's history or a badge count silently short — indistinguishable from
+        the real answer. The loops are gone, but the contract they violated is
+        the one worth pinning.
         """
         mock_habits_backend.find_by.return_value = Result.ok([Habit.from_dto(sample_habit_dto)])
+        mock_habits_backend.get.return_value = Result.ok(Habit.from_dto(sample_habit_dto))
         mock_completions_backend.find_by.return_value = Result.fail(
             Errors.database("find_by", "transient Neo4j failure")
         )
@@ -477,6 +607,7 @@ class TestAnalytics:
             comp = HabitCompletion(
                 uid=f"hc.user.mike.habit.test.1.{i}",
                 habit_uid="habit.test.1",
+                user_uid="user_mike",
                 completed_at=datetime.now() - timedelta(days=i),
                 quality=4 + (i % 2),  # Alternating 4 and 5
                 duration_actual=30,
@@ -529,6 +660,7 @@ class TestAnalytics:
             comp_dto = HabitCompletionDTO(
                 uid=f"hc.{i}",
                 habit_uid="habit.1",
+                user_uid="user_mike",
                 completed_at=datetime.now() - timedelta(days=i),
                 quality=5,
                 created_at=datetime.now(),
@@ -537,6 +669,11 @@ class TestAnalytics:
             completions.append(HabitCompletion.from_dto(comp_dto))
 
         mock_completions_backend.find_by.return_value = Result.ok(completions)
+        # High-quality count is a Cypher aggregate now, not a row fetch — a row
+        # limit cannot count past itself and the badge threshold is 100.
+        mock_habits_backend.get_user_badge_stats.return_value = Result.ok(
+            {"high_quality_completions": len(completions)}
+        )
 
         # Get badge progress
         result = await completion_service.get_badge_progress(user_uid="user_mike")
@@ -570,6 +707,7 @@ class TestExport:
             comp = HabitCompletion(
                 uid=f"hc.{i}",
                 habit_uid=f"habit.{i}",
+                user_uid="user_mike",
                 completed_at=datetime(2025, 10, i + 1, 10, 0, 0),
                 quality=4,
                 duration_actual=30,
@@ -607,6 +745,7 @@ class TestExport:
             comp = HabitCompletion(
                 uid=f"hc.{i}",
                 habit_uid=f"habit.{i}",
+                user_uid="user_mike",
                 completed_at=datetime(2025, 10, i + 1, 10, 0, 0),
                 quality=4,
                 duration_actual=30,

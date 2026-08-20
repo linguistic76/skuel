@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
+from core.models.type_hints import UserUID
 from core.utils.uid_generator import UIDGenerator
 
 
@@ -27,6 +28,7 @@ class HabitCompletionDTO:
     # Identity
     uid: str
     habit_uid: str
+    user_uid: UserUID
 
     # Completion Details
     completed_at: datetime
@@ -45,6 +47,7 @@ class HabitCompletionDTO:
     def create(
         cls,
         habit_uid: str,
+        user_uid: UserUID,
         completed_at: datetime | None = None,
         notes: str | None = None,
         quality: int | None = None,
@@ -54,6 +57,7 @@ class HabitCompletionDTO:
         return cls(
             uid=UIDGenerator.generate_random_uid("completion"),
             habit_uid=habit_uid,
+            user_uid=user_uid,
             completed_at=completed_at or datetime.now(),
             notes=notes,
             quality=quality,

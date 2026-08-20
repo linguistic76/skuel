@@ -396,15 +396,19 @@ result = await habits_service.completions.record_completion(
 )
 ```
 
-⚠️ **Completions are reached THROUGH the Habit, never by `user_uid`.**
-`HabitCompletion` declares no `user_uid` field, so no such property is written
-and no `(User)-[:OWNS]->(:HabitCompletion)` edge exists either — `_create_node`
-writes that edge only for entities carrying a `user_uid`. A
-`completions_backend.find_by(user_uid=...)` therefore compares against null and
-returns **zero rows with no error**: a silent wrong answer, not a failure. Scope
-user-level reads by fetching the user's habits first and querying
-`habit_uid` — see `get_today_completions` / `get_badge_progress` /
-`export_completion_history`, all three pinned by a regression test.
+**`HabitCompletion` is user-owned.** `user_uid` is a required field, so the
+property is written AND `_create_node` writes the
+`(User)-[:OWNS]->(:HabitCompletion)` edge with it — the property==`:OWNS`
+invariant every other user-owned entity holds. User-scoped reads therefore filter
+`completions_backend.find_by(user_uid=...)` directly, in one query.
+
+⚠️ **History, so the old shape is not reintroduced.** Until 2026-08-20 the field
+did not exist, so neither ownership mechanism did: `find_by(user_uid=...)`
+compared against null and returned **zero rows with no error** — a silent wrong
+answer, not a failure. `get_today_completions` and `get_badge_progress` were
+silently returning 0; `export_completion_history` had been rewritten to walk the
+user's habits instead. That workaround is gone (it was an N+1 standing in for a
+missing field), and a regression test pins all three reads to `user_uid` scoping.
 
 ### Link Habit to Goal
 
