@@ -22,12 +22,11 @@ from core.models.enums import GroupMemberRole
 from core.models.group.group import Group, GroupDTO
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
-from core.ports.base_protocols import BackendOperations
+from core.ports.group_protocols import GroupBackendOperations
 from core.ports.infrastructure_protocols import EventBusOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
 from core.utils.decorators import with_error_handling
-from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import ErrorCategory, Errors, Result
 
@@ -36,7 +35,7 @@ logger = get_logger(__name__)
 MAX_STUDENT_GROUPS = 4
 
 
-class GroupService(BaseService):
+class GroupService(BaseService[GroupBackendOperations, Group]):
     """
     CRUD + membership service for groups.
 
@@ -55,7 +54,7 @@ class GroupService(BaseService):
     )
 
     def __init__(
-        self, backend: BackendOperations[Group], event_bus: EventBusOperations | None = None
+        self, backend: GroupBackendOperations, event_bus: EventBusOperations | None = None
     ) -> None:
         """
         Initialize with backend.
@@ -196,20 +195,7 @@ class GroupService(BaseService):
         Returns:
             Result containing list of groups
         """
-        result = await self.backend.get_user_groups(user_uid, role=role)
-
-        if result.is_error:
-            return Result.fail(result)
-
-        groups = []
-        for props in result.value or []:
-            try:
-                group = Group(**props)
-                groups.append(group)
-            except DATA_CONVERSION_EXCEPTIONS as e:
-                self.logger.warning(f"Failed to deserialize group: {e}")
-
-        return Result.ok(groups)
+        return await self.backend.get_user_groups(user_uid, role=role)
 
     # ========================================================================
     # DOMAIN-SPECIFIC: MEMBERSHIP
