@@ -25,7 +25,7 @@ from core.models.habit.completion_dto import HabitCompletionDTO
 from core.models.habit.habit import Habit as Habit
 from core.models.habit.habit_dto import HabitDTO
 from core.services.habits.habits_completion_service import HabitsCompletionService
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
 
 
 @pytest.fixture
@@ -434,6 +434,35 @@ class TestCompletionScoping:
                 f"{method} filtered :HabitCompletion by user_uid — matches zero rows"
             )
             assert "habit_uid" in call.kwargs, f"{method} must scope completions by habit_uid"
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "method",
+        ["get_today_completions", "get_badge_progress", "export_completion_history"],
+    )
+    async def test_backend_error_propagates_instead_of_partial_result(
+        self,
+        completion_service,
+        mock_completions_backend,
+        mock_habits_backend,
+        sample_habit_dto,
+        method,
+    ):
+        """A failed per-habit read must fail the call, not silently drop that habit.
+
+        These reads loop over the user's habits, so a `continue` on error yields
+        an answer that cannot be told apart from the real one: an export missing
+        a habit's history, or a badge count silently short. That is the same
+        silent-wrong-number class as the user_uid no-op above, one level down.
+        """
+        mock_habits_backend.find_by.return_value = Result.ok([Habit.from_dto(sample_habit_dto)])
+        mock_completions_backend.find_by.return_value = Result.fail(
+            Errors.database("find_by", "transient Neo4j failure")
+        )
+
+        result = await getattr(completion_service, method)(user_uid="user_mike")
+
+        assert result.is_error, f"{method} swallowed a backend error and returned a partial result"
 
 
 class TestAnalytics:

@@ -536,8 +536,10 @@ class HabitsCompletionService:
                 completed_at__lte=end_of_day,
                 limit=QueryLimit.COMPREHENSIVE,
             )
-            if per_habit.is_error or not per_habit.value:
-                continue
+            if per_habit.is_error:
+                return Result.fail(per_habit)
+            if not per_habit.value:
+                continue  # habit simply not completed today
 
             completions = sorted(per_habit.value, key=get_completed_at, reverse=True)
             result.append(
@@ -644,7 +646,7 @@ class HabitsCompletionService:
                 habit_uid=habit.uid, limit=QueryLimit.COMPREHENSIVE
             )
             if per_habit.is_error:
-                continue
+                return Result.fail(per_habit)
             high_quality_completions += sum(1 for c in per_habit.value if c.is_high_quality())
 
         # Fetch persisted badges to get earned_at dates
@@ -745,7 +747,7 @@ class HabitsCompletionService:
                 habit_uid=habit_uid, **date_filters, limit=QueryLimit.BULK
             )
             if per_habit.is_error:
-                continue
+                return Result.fail(per_habit)
             completions.extend(per_habit.value)
 
         # Sort by date
