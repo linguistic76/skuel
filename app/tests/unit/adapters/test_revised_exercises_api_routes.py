@@ -19,7 +19,7 @@ from starlette.testclient import TestClient
 
 from adapters.inbound.revised_exercises_api import create_revised_exercises_api_routes
 from core.models.enums import UserRole
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
 
 _USER_UID = "user_owner"
 _STUDENT_UID = "user_student"
@@ -202,6 +202,25 @@ class TestViewOwnership:
         assert response.status_code == 404
 
     def test_missing_entity_is_404(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """The shape the real service produces: BaseService.get() converts a missing
+        UID into a NOT_FOUND error rather than Result.ok(None)."""
+        harness = _make_harness(monkeypatch)
+        harness.service.get.return_value = Result.fail(
+            Errors.not_found(resource="RevisedExercise", identifier=_RE_UID)
+        )
+
+        response = harness.client.get(f"/api/revised-exercises/view?uid={_RE_UID}")
+
+        assert response.status_code == 404
+
+    def test_none_value_is_404_not_500(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """The shape the declared types say cannot happen — still a 404, not a 500.
+
+        `require_found` is defense in depth here: `RevisedExerciseService.get()` is
+        typed `Result[RevisedExercise]`, so this stub contradicts the contract. If it
+        ever stopped being a contradiction, the route must still refuse rather than
+        dereference None into a 500 (Codex, #1097).
+        """
         harness = _make_harness(monkeypatch)
         harness.service.get.return_value = Result.ok(None)
 

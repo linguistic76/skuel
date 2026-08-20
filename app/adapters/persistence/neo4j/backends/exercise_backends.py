@@ -9,13 +9,14 @@ PathStep is the curriculum anchor, linked via (PathStep)-[:HAS_EXERCISE]->(Exerc
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, cast
+from typing import Any, cast
 
 from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node, to_neo4j_node
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.pipeline import Pipeline
 from core.models.exercises.exercise import Exercise
+from core.models.exercises.revised_exercise import RevisedExercise
 from core.models.relationship_names import RelationshipName
 from core.models.report.entry_report import EntryReport
 from core.models.type_hints import Neo4jProperties, UserUID
@@ -23,11 +24,9 @@ from core.ports.query_types import (
     CurriculumExerciseResult,
     RequiredKnowledgeResult,
     RevisionChainResult,
+    TeacherAuthorityRow,
 )
 from core.utils.result_simplified import Errors, Result
-
-if TYPE_CHECKING:
-    from core.models.exercises.revised_exercise import RevisedExercise
 
 
 def _link_outcome(
@@ -591,7 +590,7 @@ class RevisedExerciseBackend(UniversalNeo4jBackend["RevisedExercise"]):
 
     async def verify_teacher_authority(
         self, teacher_uid: str, report_uid: str, student_uid: str
-    ) -> Result[list[Neo4jProperties]]:
+    ) -> Result[list[TeacherAuthorityRow]]:
         """Verify teacher has review authority over a report.
 
         Checks the graph path (OWNS-based, per ADR-040):
@@ -609,7 +608,7 @@ class RevisedExerciseBackend(UniversalNeo4jBackend["RevisedExercise"]):
         Returns:
             Result containing matching submission records (empty if no authority)
         """
-        return await self.execute_query(
+        result = await self.execute_query(
             """
             MATCH (fb:Entity {uid: $report_uid})-[:REPORT_FOR]->(submission:Entity:UserEntry)
             MATCH (student:User {uid: $student_uid})-[:OWNS]->(submission)
@@ -622,6 +621,12 @@ class RevisedExerciseBackend(UniversalNeo4jBackend["RevisedExercise"]):
                 "student_uid": student_uid,
             },
         )
+        if result.is_error:
+            return Result.fail(result)
+        rows: list[TeacherAuthorityRow] = [
+            cast("TeacherAuthorityRow", dict(record)) for record in (result.value or [])
+        ]
+        return Result.ok(rows)
 
     async def auto_share_with_student(
         self, student_uid: str, re_uid: str, shared_at: str
@@ -656,7 +661,7 @@ class RevisedExerciseBackend(UniversalNeo4jBackend["RevisedExercise"]):
 
     async def list_for_student(
         self, student_uid: str, teacher_uid: str | None = None
-    ) -> Result[list[Neo4jProperties]]:
+    ) -> Result[list[RevisedExercise]]:
         """List revised exercises targeting a specific student.
 
         Args:
@@ -664,7 +669,7 @@ class RevisedExerciseBackend(UniversalNeo4jBackend["RevisedExercise"]):
             teacher_uid: If provided, only return revisions owned by this teacher
 
         Returns:
-            Result containing revised exercise node records
+            Result containing the matching RevisedExercise entities
         """
         if teacher_uid:
             query = f"""
@@ -681,16 +686,60 @@ class RevisedExerciseBackend(UniversalNeo4jBackend["RevisedExercise"]):
             """
             params = {"student_uid": student_uid}
 
-        return await self.execute_query(query, params)
+        return self._to_revised_exercises(await self.execute_query(query, params))
 
-    async def get_by_report_uid(self, report_uid: str) -> Result[list[Neo4jProperties]]:
-        """Look up a RevisedExercise by the report it responds to."""
+    async def get_by_report_uid(self, report_uid: str) -> Result[RevisedExercise | None]:
+        """Look up the RevisedExercise responding to a report, if any."""
         query = """
         MATCH (re:RevisedExercise {report_uid: $report_uid})
         RETURN re
         LIMIT 1
         """
-        return await self.execute_query(query, {"report_uid": report_uid})
+        result = self._to_revised_exercises(
+            await self.execute_query(query, {"report_uid": report_uid})
+        )
+        if result.is_error:
+            return Result.fail(result)
+        entities = result.value or []
+        return Result.ok(entities[0] if entities else None)
+
+    @staticmethod
+    def _to_revised_exercises(
+        # boundary: neo4j-node-row — mirrors execute_query's own
+        # `Result[list[dict[str, Any]]]`. NOT `Neo4jProperties`: that type says the
+        # row's values are scalars, and a `RETURN re` row's value is a graph Node.
+        # Declaring it as scalars is the exact false declaration these two queries
+        # used to carry (it is what made the model rebuild a type error), and it
+        # does not compile here either — `dict(record["re"])` on a scalar union is
+        # an arg-type error. A TypedDict `{re: Node}` names the shape honestly but
+        # buys it with a `cast` at both call sites, since Result and list are each
+        # invariant, so it would trade a checked heterogeneous value for two
+        # unchecked assertions. The `Any` is genuinely heterogeneous; the value is
+        # narrowed one line later by `from_neo4j_node`, which is where the real
+        # contract lives.
+        result: Result[list[dict[str, Any]]],
+    ) -> Result[list[RevisedExercise]]:
+        """Map ``RETURN re`` rows to entities the way every other read does.
+
+        These two domain queries used to hand their raw records to the service,
+        which rebuilt the model by splatting the node into the constructor. That
+        splat rejects any property the dataclass does not declare — and an
+        embedded node carries three (``embedding_version``,
+        ``embedding_text_hash``, ``embedding_source_text``, all written by
+        ``store_entity_embedding``), so a revision dropped out of its own listing
+        once it was embedded. Routing through ``from_neo4j_node`` — the same
+        mapper ``get()`` uses — ignores undeclared properties and rebuilds enums
+        and datetimes, so a domain query and a by-UID read now agree by
+        construction.
+        """
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(
+            [
+                from_neo4j_node(dict(record["re"]), RevisedExercise)
+                for record in (result.value or [])
+            ]
+        )
 
     async def get_revision_chain(
         self, exercise_uid: str, teacher_uid: str, student_uid: str | None = None
@@ -740,6 +789,33 @@ class RevisedExerciseBackend(UniversalNeo4jBackend["RevisedExercise"]):
             cast("RevisionChainResult", dict(record)) for record in (result.value or [])
         ]
         return Result.ok(items)
+
+    async def get_original_exercise_modality(self, exercise_uid: str) -> Result[str | None]:
+        """Read the submission modality the original Exercise expects.
+
+        A RevisedExercise inherits its parent Exercise's modality so the learner
+        is asked for the same kind of artefact on the retry. The combined
+        report+revision write resolves this in one Cypher pass; this is the same
+        read for the two-step service path, which cannot reach an ``:Exercise``
+        through the ``:RevisedExercise``-labelled by-UID read.
+
+        Returns ok(None) when the exercise is absent or carries no modality —
+        the caller keeps whatever the entity already declared.
+        """
+        result = await self.execute_query(
+            """
+            MATCH (ex:Entity {uid: $exercise_uid, entity_type: $exercise_type})
+            RETURN ex.expected_modality AS expected_modality
+            """,
+            {"exercise_uid": exercise_uid, "exercise_type": EntityType.EXERCISE.value},
+        )
+        if result.is_error:
+            return Result.fail(result)
+        records = result.value or []
+        if not records:
+            return Result.ok(None)
+        modality = records[0].get("expected_modality")
+        return Result.ok(str(modality) if modality is not None else None)
 
     async def get_next_revision_number(self, exercise_uid: str, student_uid: str) -> Result[int]:
         """

@@ -156,6 +156,7 @@ def lint_content(
     if is_core and not is_test and linter._should_run_rule("SKUEL023"):
         linter._check_adapter_type_annotations(fp, rel, content, lines, tree)
         linter._check_backend_annotation_strength(fp, rel, content, lines, tree)
+        linter._check_inherited_backend_generic(fp, rel, content, lines, tree)
 
     if is_ui and not is_test and linter._should_run_rule("SKUEL027"):
         linter._check_ui_imports_adapter(fp, rel, content, lines, tree)
@@ -4697,6 +4698,166 @@ class TestSKUEL023AnnotationStrength:
         )
         violations = lint_content(linter, content, file_path="adapters/persistence/neo4j/x.py")
         assert violations == []
+
+
+class TestSKUEL023InheritedBackendGeneric:
+    """SKUEL023's third sub-check: a core/ class that neither assigns nor declares
+    `backend` but INHERITS it from a `Base*` generic parameterised with `Any` (or
+    left bare). Neither of the other two triggers can see this shape, and every
+    self.backend.<method>() call in such a class is unchecked."""
+
+    BASE_IMPORT = "from core.services.base_service import BaseService\n"
+
+    def test_flags_explicit_any_first_argument(self) -> None:
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import Any\n"
+            "from core.services.base_analytics_service import BaseAnalyticsService\n"
+            "\n"
+            "class XService(BaseAnalyticsService[Any, Entity]):\n"
+            "    async def go(self) -> None:\n"
+            "        await self.backend.find_by()\n"
+        )
+        violations = lint_content(linter, content)
+        assert len(violations) == 1
+        assert violations[0].rule_id == "SKUEL023"
+        assert violations[0].severity == Severity.ERROR
+        assert "names `Any` as its backend type parameter" in violations[0].message
+
+    def test_flags_bare_unparameterised_base(self) -> None:
+        """`class X(BaseService)` leaves every parameter implicitly Any — the shape
+        two of the five Scope D services actually had."""
+        linter = make_linter(["SKUEL023"])
+        content = self.BASE_IMPORT + "\nclass XService(BaseService):\n    pass\n"
+        violations = lint_content(linter, content)
+        assert len(violations) == 1
+        assert "unparameterised generic base" in violations[0].message
+
+    def test_flags_forward_ref_any(self) -> None:
+        linter = make_linter(["SKUEL023"])
+        content = self.BASE_IMPORT + '\nclass XService(BaseService["Any", "Task"]):\n    pass\n'
+        violations = lint_content(linter, content)
+        assert len(violations) == 1
+
+    def test_flags_any_import_alias(self) -> None:
+        """`from typing import Any as B` must not buy an exemption."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import Any as B\n"
+            + self.BASE_IMPORT
+            + "\nclass XService(BaseService[B, Task]):\n    pass\n"
+        )
+        violations = lint_content(linter, content)
+        assert len(violations) == 1
+
+    def test_typed_first_argument_is_clean(self) -> None:
+        linter = make_linter(["SKUEL023"])
+        content = (
+            self.BASE_IMPORT + "\nclass XService(BaseService[GroupBackendOperations, Group]):\n"
+            "    pass\n"
+        )
+        assert lint_content(linter, content) == []
+
+    def test_any_nested_inside_a_typed_first_argument_is_clean(self) -> None:
+        """`BackendOperations[Any]` is a typed backend whose MODEL parameter is
+        loose — a different concern. A contains-Any check would report it, which is
+        the over-general matching that produced four false positives in #1095."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import Any\n"
+            + self.BASE_IMPORT
+            + "\nclass XService(BaseService[BackendOperations[Any], Entity]):\n    pass\n"
+        )
+        assert lint_content(linter, content) == []
+
+    def test_any_in_a_later_type_argument_is_clean(self) -> None:
+        """Only the FIRST parameter is the backend on all four tracked bases."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import Any\n"
+            + self.BASE_IMPORT
+            + "\nclass XService(BaseService[GroupBackendOperations, Any]):\n    pass\n"
+        )
+        assert lint_content(linter, content) == []
+
+    def test_class_body_redeclaration_stands_the_trigger_down(self) -> None:
+        """A subclass `backend: SomeOps` DOES narrow the inherited Any (probed against
+        mypy), so its calls are checked and flagging it would be a false positive."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            self.BASE_IMPORT + "\nclass XService(BaseService):\n"
+            "    backend: GroupBackendOperations\n"
+        )
+        assert lint_content(linter, content) == []
+
+    def test_class_body_redeclaration_of_any_reports_once_not_twice(self) -> None:
+        """When the redeclaration is itself Any the DECLARATION trigger owns it — one
+        violation, not one from each trigger."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import Any\n" + self.BASE_IMPORT + "\nclass XService(BaseService):\n"
+            "    backend: Any\n"
+            "\n"
+            "    async def go(self) -> None:\n"
+            "        await self.backend.thing()\n"
+        )
+        violations = lint_content(linter, content)
+        assert len(violations) == 1
+        assert "declaration-only" in violations[0].message
+
+    def test_unrelated_class_of_the_same_name_is_not_matched(self) -> None:
+        """Bases are resolved through the import map, so a same-named class from
+        somewhere else is not mistaken for the real BaseService."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import Any\n"
+            "from third_party.framework import BaseService\n"
+            "\nclass XService(BaseService[Any, Thing]):\n    pass\n"
+        )
+        assert lint_content(linter, content) == []
+
+    def test_base_with_no_import_at_all_is_not_matched(self) -> None:
+        """Fail-OPEN: an unresolvable base is skipped, never guessed at."""
+        linter = make_linter(["SKUEL023"])
+        content = "from typing import Any\n\nclass XService(BaseService[Any, Thing]):\n    pass\n"
+        assert lint_content(linter, content) == []
+
+    def test_indirect_subclass_is_a_documented_miss(self) -> None:
+        """Only the DIRECT base list is read. Following inheritance across modules is
+        the flow analysis these lint rules refuse; this miss is deliberate and
+        fail-OPEN, and is pinned so a future reader knows it was a choice."""
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from core.services.groups.group_service import GroupService\n"
+            "\nclass XService(GroupService):\n"
+            "    async def go(self) -> None:\n"
+            "        await self.backend.thing()\n"
+        )
+        assert lint_content(linter, content) == []
+
+    def test_not_applied_outside_core(self) -> None:
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import Any\n"
+            + self.BASE_IMPORT
+            + "\nclass XService(BaseService[Any, Thing]):\n    pass\n"
+        )
+        assert (
+            lint_content(
+                linter, content, file_path="adapters/persistence/neo4j/x.py", is_service=False
+            )
+            == []
+        )
+
+    def test_line_suppression_is_honored(self) -> None:
+        linter = make_linter(["SKUEL023"])
+        content = (
+            "from typing import Any\n"
+            + self.BASE_IMPORT
+            + "\nclass XService(BaseService[Any, Thing]):  # skuel-lint: disable=SKUEL023 -- why\n"
+            "    pass\n"
+        )
+        assert lint_content(linter, content) == []
 
 
 class TestSKUEL024:

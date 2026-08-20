@@ -292,7 +292,13 @@ async def get_path_step(request: Request, uid: str) -> Result[dict[str, Any]]:
     return Result.ok(entity_to_response(found.value))
 ```
 
-Combines `is_error` check + `value is None` check into one call.
+Combines `is_error` check + `value is None` check into one call. Overloaded for both
+shapes: a backend-style getter returning `Result[T | None]`, and a service-style one
+returning `Result[T]` (`BaseService.get()` converts not-found into an error itself).
+`Result` is invariant, so without the second overload a route fetching through a typed
+service could not call this helper at all. Both arms narrow to `Result[T]`; keep the
+guard on the non-nullable shape too — it is defense in depth, and dropping it turns a
+contract violation into a 500 instead of a 404.
 
 **Note:** For user-owned entities, prefer ownership verification over `require_found` — it combines the fetch + not-found + ownership check in one step. See OWNERSHIP_VERIFICATION.md.
 

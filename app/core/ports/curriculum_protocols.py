@@ -115,6 +115,7 @@ from core.ports.query_types import (
     RevisionChainResult,
     RootOrganizerResult,
     SubstantiationSummaryResult,
+    TeacherAuthorityRow,
     UserMasteryResult,
     UserProgressResult,
 )
@@ -1946,7 +1947,7 @@ class RevisedExerciseBackendOperations(BackendOperations["RevisedExercise"], Pro
         teacher_uid: str,
         report_uid: str,
         student_uid: str,
-    ) -> Result[list[Neo4jProperties]]: ...
+    ) -> Result[list[TeacherAuthorityRow]]: ...
 
     async def auto_share_with_student(
         self,
@@ -1959,9 +1960,11 @@ class RevisedExerciseBackendOperations(BackendOperations["RevisedExercise"], Pro
         self,
         student_uid: str,
         teacher_uid: str | None = None,
-    ) -> Result[list[Neo4jProperties]]: ...
+    ) -> Result[list["RevisedExercise"]]: ...
 
-    async def get_by_report_uid(self, report_uid: str) -> Result[list[Neo4jProperties]]: ...
+    async def get_by_report_uid(self, report_uid: str) -> Result["RevisedExercise | None"]: ...
+
+    async def get_original_exercise_modality(self, exercise_uid: str) -> Result[str | None]: ...
 
     async def get_revision_chain(
         self,

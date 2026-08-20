@@ -272,10 +272,20 @@ protocol or, where it never touched `self.backend`, deleted), and the rule was e
 to the declaration form only once they were clean, so it landed with zero suppressions.
 Write a new one the same way (see SERVICE_DECOMPOSITION_RULE.md § Mixin Class Template).
 
-Two escapes remain unenforced, and both are convention rather than rule: a backend handle
-under a *different name* (`ku_backend`, `progress_backend`), and a class that neither
-assigns nor declares `backend` but *inherits* it from a `Base*[Any, ...]` parameterisation.
-Type those against a protocol regardless — the rule not reaching there is not a licence.
+The inherited form is enforced too, as of August 2026. A class that neither assigns nor
+declares `backend` but *inherits* it from a `Base*[Any, ...]` parameterisation — or from a
+bare `Base*`, which means the same — was invisible to both checks above while every
+`self.backend.<method>()` in it went unchecked. The five such services in `core/` were
+typed first and the third trigger landed after, again with zero suppressions. Note the trap
+it exists to catch: annotating the `__init__` parameter does **not** fix this. The
+attribute's declared type comes from the base, and an assignment never redeclares it, so
+`def __init__(self, backend: SomeOps)` on a bare `BaseService` reads as fixed and checks
+nothing — four of the five had exactly that shape. Parameterise the base itself. (A
+class-body `backend: SomeOps` in the subclass *does* narrow, and is correctly left alone.)
+
+**One escape remains unenforced**, and it is convention rather than rule: a backend handle
+under a *different name* (`ku_backend`, `progress_backend`). Type it against a protocol
+regardless — the rule not reaching there is not a licence.
 
 **Benefits:**
 - **MyPy-native** - No protocol workaround needed
@@ -416,7 +426,7 @@ class Services:
 | `sharing_protocols.py` | 1 | SharingOperations — entity-agnostic SHARES_WITH + SHARED_WITH_GROUP management |
 | `report_protocols.py` | 7 | EntryReportOperations (AI report + typed reads), AssessmentOperations (a student's received-assessment read — split from EntryReportOperations in PR #128; HUMAN feedback is written by TeacherReviewOperations), ProgressReportOperations, ProgressScheduleOperations, ActivityReportOperations, ReviewQueueOperations, TeacherReviewOperations |
 | `form_protocols.py` | 4 | FormTemplateBackendOperations, FormSubmissionBackendOperations (backend-level, import directly from `form_protocols`); FormTemplateOperations, FormSubmissionOperations (route-level, re-exported from `__init__`) |
-| `group_protocols.py` | 1 | GroupOperations (9 methods) |
+| `group_protocols.py` | 2 | GroupBackendOperations (backend-level: CRUD + membership edges, `add_member` carries `joined_at`); GroupOperations (route-level, 9 methods) — same root word, two layers |
 | `service_protocols.py` | 9 | CalendarService, Visualization, System, CrossDomainAnalytics, LifePath+Alignment, GraphAuth, GoalTaskGenerator, HabitEventScheduler |
 
 **Added to Existing Files:**

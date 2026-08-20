@@ -305,7 +305,7 @@ The shared `knowledge_intelligence` wiring is the first production realization o
 **Shared Knowledge Intelligence (singleton):**
 ```
 ActivityKnowledgeIntelligenceService (core/services/knowledge/)
-├─ Extends: BaseAnalyticsService[Any, Entity]
+├─ Extends: BaseAnalyticsService[BackendOperations[Entity], Entity]
 ├─ Backend: UniversalNeo4jBackend[Entity] with NeoLabel.ENTITY
 │   └─ find_by(user_uid=...) matches the denormalized user_uid PROPERTY (not the :OWNS edge)
 │      across all domains (shared entities lack user_uid and naturally filter out). The

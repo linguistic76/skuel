@@ -182,35 +182,15 @@ class TestGetUserGroups:
     @pytest.mark.anyio
     async def test_get_user_groups_returns_groups(self):
         service, backend, _ = _make_service()
-        group_props = {
-            "uid": "group_a",
-            "name": "Group A",
-            "owner_uid": "user_teacher_01",
-        }
-        backend.get_user_groups = AsyncMock(return_value=Result.ok([group_props]))
+        backend.get_user_groups = AsyncMock(
+            return_value=Result.ok([_make_group(uid="group_a", name="Group A")])
+        )
 
         result = await service.get_user_groups("user_stud_01")
 
         assert result.is_ok
         assert len(result.value) == 1
         assert result.value[0].uid == "group_a"
-
-    @pytest.mark.anyio
-    async def test_get_user_groups_skips_malformed(self):
-        service, backend, _ = _make_service()
-        backend.get_user_groups = AsyncMock(
-            return_value=Result.ok(
-                [
-                    {"uid": "group_good", "name": "Good", "owner_uid": "t"},
-                    {"uid": "group_bad", "unknown_field": 1},  # missing name
-                ]
-            )
-        )
-
-        result = await service.get_user_groups("user_stud_01")
-
-        assert result.is_ok
-        assert {g.uid for g in result.value} == {"group_good"}
 
 
 class TestGetUserGroupsRoleFilter:
@@ -264,11 +244,7 @@ class TestStudentGroupCap:
         existing = [_make_group(uid=f"group_{i}") for i in range(4)]  # student already in 4 groups
         service, backend, _ = _make_service()
         backend.get = AsyncMock(return_value=Result.ok(group))
-        backend.get_user_groups = AsyncMock(
-            return_value=Result.ok(
-                [{"uid": g.uid, "name": g.name, "owner_uid": g.owner_uid} for g in existing]
-            )
-        )
+        backend.get_user_groups = AsyncMock(return_value=Result.ok(existing))
         backend.add_member = AsyncMock()
 
         result = await service.add_member(group.uid, "user_stud_01", role="student")
@@ -289,11 +265,7 @@ class TestStudentGroupCap:
         ]
         service, backend, _ = _make_service()
         backend.get = AsyncMock(return_value=Result.ok(group))
-        backend.get_user_groups = AsyncMock(
-            return_value=Result.ok(
-                [{"uid": g.uid, "name": g.name, "owner_uid": g.owner_uid} for g in existing]
-            )
-        )
+        backend.get_user_groups = AsyncMock(return_value=Result.ok(existing))
         backend.add_member = AsyncMock(return_value=Result.ok([{"user_uid": "user_stud_01"}]))
 
         result = await service.add_member(group.uid, "user_stud_01", role="student")
@@ -307,11 +279,7 @@ class TestStudentGroupCap:
         existing = [_make_group(uid=f"group_{i}") for i in range(4)]
         service, backend, _ = _make_service()
         backend.get = AsyncMock(return_value=Result.ok(group))
-        backend.get_user_groups = AsyncMock(
-            return_value=Result.ok(
-                [{"uid": g.uid, "name": g.name, "owner_uid": g.owner_uid} for g in existing]
-            )
-        )
+        backend.get_user_groups = AsyncMock(return_value=Result.ok(existing))
         backend.add_member = AsyncMock(return_value=Result.ok([{"user_uid": "user_teach_01"}]))
 
         result = await service.add_member(group.uid, "user_teach_01", role="teacher")
@@ -326,11 +294,7 @@ class TestStudentGroupCap:
         existing = [_make_group(uid=f"group_{i}") for i in range(3)]
         service, backend, _ = _make_service()
         backend.get = AsyncMock(return_value=Result.ok(group))
-        backend.get_user_groups = AsyncMock(
-            return_value=Result.ok(
-                [{"uid": g.uid, "name": g.name, "owner_uid": g.owner_uid} for g in existing]
-            )
-        )
+        backend.get_user_groups = AsyncMock(return_value=Result.ok(existing))
         backend.add_member = AsyncMock(return_value=Result.ok([{"user_uid": "user_stud_01"}]))
 
         result = await service.add_member(group.uid, "user_stud_01", role="student")

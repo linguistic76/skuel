@@ -4,8 +4,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, cast
 
+from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.enums.pipeline import Pipeline
+from core.models.group.group import Group
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID, Neo4jProperties, UserUID
 from core.utils.result_simplified import Result
@@ -14,7 +16,6 @@ if TYPE_CHECKING:
     from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
     from core.models.exercises.revised_exercise import RevisedExercise  # noqa: F401
     from core.models.forms.form_template import FormTemplate  # noqa: F401
-    from core.models.group.group import Group  # noqa: F401
     from core.models.interaction.interaction import Interaction  # noqa: F401
     from core.models.report_schedule import ReportSchedule  # noqa: F401
     from core.models.resource.resource import Resource  # noqa: F401
@@ -58,7 +59,7 @@ class GroupBackend(UniversalNeo4jBackend["Group"]):
 
     async def get_user_groups(
         self, user_uid: UserUID, role: str | None = None
-    ) -> Result[list[Neo4jProperties]]:
+    ) -> Result[list[Group]]:
         """Get all groups a user is a member of (via MEMBER_OF relationship).
 
         Args:
@@ -82,7 +83,13 @@ class GroupBackend(UniversalNeo4jBackend["Group"]):
         )
         if result.is_error:
             return Result.fail(result)
-        return Result.ok([dict(record["group"]) for record in (result.value or [])])
+        # Mapped here, not at the service: from_neo4j_node is the same mapper get()
+        # uses, so a membership listing and a by-UID read rebuild a Group the same
+        # way — including ignoring properties the dataclass does not declare, which
+        # a constructor splat rejects outright.
+        return Result.ok(
+            [from_neo4j_node(dict(record["group"]), Group) for record in (result.value or [])]
+        )
 
     async def add_member(
         self,

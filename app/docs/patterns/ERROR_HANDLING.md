@@ -285,6 +285,8 @@ exception = result_to_exception(result)  # → Exception (rarely needed)
 # Fetch + null-check guard (/adapters/inbound/result_helpers.py)
 from adapters.inbound.result_helpers import require_found
 return require_found(await service.get(uid), "Entity", uid)  # error check + None→404
+# Overloaded: accepts Result[T | None] (backend-style) and Result[T] (service-style).
+# Keep it on the non-nullable shape too — defense in depth at the boundary.
 ```
 
 ### 3. Error Factory Methods

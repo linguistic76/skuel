@@ -26,6 +26,7 @@ The app works WITHOUT this service. It's an enhancement layer.
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
+from core.models.entity import Entity
 from core.models.type_hints import UserUID
 from core.services.base_ai_service import BaseAIService
 from core.utils.result_simplified import Result
@@ -36,14 +37,27 @@ if TYPE_CHECKING:
         GraphIntelligenceService,
     )
     from core.services.llm_service import LLMService
+    from core.services.user_service import UserService
 
 
-class AskesisAIService(BaseAIService[Any, Any]):
+class AskesisAIService(BaseAIService["UserService", Entity]):
     """
     AI-powered features for Askesis (discipline) domain.
 
     This service is OPTIONAL - the app works without it.
-    Provides enhanced features using LLM and embeddings.
+
+    Backend note (measured 2026-08-19, Scope D): this service makes **zero**
+    ``self.backend`` calls, and ``BaseAIService`` never reads ``self.backend``
+    either — it validates it non-None and stores it. So ``backend`` is
+    ceremonial here: it exists to satisfy the base's fail-fast contract. It is
+    typed as ``UserService`` because that is what ``_wire_ai_services`` actually
+    passes, not as an aspiration. The former ``Any`` carried the comment
+    "# No AskesisOperations protocol yet"; ``UserContextOperations`` does exist, but a satisfiability probe
+    shows ``UserService`` does **not** implement it, so naming it would have
+    been a second untrue declaration. Whether these two should take a real
+    user-state protocol — or ``BaseAIService`` should stop requiring a backend
+    at all — is an open design question, deliberately not decided here.
+        Provides enhanced features using LLM and embeddings.
 
     Features:
     - Behavioral insights with AI-powered pattern recognition
@@ -58,7 +72,7 @@ class AskesisAIService(BaseAIService[Any, Any]):
 
     def __init__(
         self,
-        backend: Any,  # No AskesisOperations protocol yet
+        backend: "UserService",
         llm_service: "LLMService",
         embeddings_service: "EmbeddingsService",
         graph_intel: "GraphIntelligenceService | None" = None,
@@ -69,7 +83,9 @@ class AskesisAIService(BaseAIService[Any, Any]):
         Initialize askesis AI service.
 
         Args:
-            backend: Backend for askesis operations (no protocol yet)
+            backend: UserService, the user-state handle every AI service is
+                given. This service reads nothing off it today — see the class
+                docstring — but BaseAIService requires it (fail-fast).
             llm_service: LLM service for AI insights (REQUIRED)
             embeddings_service: Embeddings service for semantic search (REQUIRED)
             graph_intel: GraphIntelligenceService for graph analytics

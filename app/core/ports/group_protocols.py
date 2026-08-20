@@ -17,12 +17,48 @@ See: /docs/decisions/ADR-040-teacher-exercise-workflow.md
 import builtins
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
-from core.models.type_hints import FilterParams, UserUID
+from core.models.type_hints import FilterParams, Neo4jProperties, UserUID
 from core.models.update_contracts import RawChanges
+from core.ports.base_protocols import BackendOperations
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from core.models.group.group import Group
+
+
+class GroupBackendOperations(BackendOperations["Group"], Protocol):
+    """Backend operations for Group — base CRUD + membership edges.
+
+    Implementation: GroupBackend (backends/collab_backends.py)
+    Consumer: GroupService.__init__
+
+    Distinct from ``GroupOperations`` below, which is the *route-facing* slice
+    implemented by ``GroupService`` itself. Same root word, two layers: the
+    membership methods differ between them (``add_member`` carries ``joined_at``
+    here and does not there), so neither can stand in for the other.
+    """
+
+    async def create_owns_relationship(self, teacher_uid: str, group_uid: str) -> Result[bool]: ...
+
+    async def get_user_groups(
+        self, user_uid: UserUID, role: str | None = None
+    ) -> "Result[builtins.list[Group]]": ...
+
+    async def add_member(
+        self,
+        group_uid: str,
+        user_uid: UserUID,
+        joined_at: str,
+        role: str = "student",
+    ) -> "Result[builtins.list[Neo4jProperties]]": ...
+
+    async def remove_member(
+        self, group_uid: str, user_uid: UserUID
+    ) -> "Result[builtins.list[Neo4jProperties]]": ...
+
+    async def get_members(self, group_uid: str) -> "Result[builtins.list[Neo4jProperties]]": ...
+
+    async def get_member_count(self, group_uid: str) -> Result[int]: ...
 
 
 @runtime_checkable
@@ -38,8 +74,15 @@ class GroupOperations(Protocol):
         """Create a group. Returns Result[Group]."""
         ...
 
-    async def get(self, uid: str) -> "Result[Group | None]":
-        """Get group by UID. Returns Result[Group | None]."""
+    async def get(self, uid: str) -> "Result[Group]":
+        """Get group by UID; a missing UID is a NOT_FOUND error, not a None value.
+
+        Matches ``BaseService.get()``, which converts the backend's
+        ``Result.ok(None)`` into an error precisely so callers need no None
+        check. The former ``Result[Group | None]`` spelling described the
+        *backend* contract one layer down, and typing GroupService's backend
+        generic is what surfaced the mismatch.
+        """
         ...
 
     async def get_for_user(self, uid: str, user_uid: UserUID) -> "Result[Group]":
