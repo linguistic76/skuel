@@ -202,15 +202,27 @@ class TestViewOwnership:
         assert response.status_code == 404
 
     def test_missing_entity_is_404(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        # BaseService.get() converts a missing UID into a NOT_FOUND *error*, never
-        # Result.ok(None) — so that is the shape the route has to turn into a 404.
-        # The former Result.ok(None) stub asserted against a contract the service
-        # does not have; typing the backend generic surfaced the redundant
-        # require_found() wrapper that only that stub exercised.
+        """The shape the real service produces: BaseService.get() converts a missing
+        UID into a NOT_FOUND error rather than Result.ok(None)."""
         harness = _make_harness(monkeypatch)
         harness.service.get.return_value = Result.fail(
             Errors.not_found(resource="RevisedExercise", identifier=_RE_UID)
         )
+
+        response = harness.client.get(f"/api/revised-exercises/view?uid={_RE_UID}")
+
+        assert response.status_code == 404
+
+    def test_none_value_is_404_not_500(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """The shape the declared types say cannot happen — still a 404, not a 500.
+
+        `require_found` is defense in depth here: `RevisedExerciseService.get()` is
+        typed `Result[RevisedExercise]`, so this stub contradicts the contract. If it
+        ever stopped being a contradiction, the route must still refuse rather than
+        dereference None into a 500 (Codex, #1097).
+        """
+        harness = _make_harness(monkeypatch)
+        harness.service.get.return_value = Result.ok(None)
 
         response = harness.client.get(f"/api/revised-exercises/view?uid={_RE_UID}")
 
