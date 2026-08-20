@@ -386,14 +386,25 @@ habit = result.value
 ### Record Completion
 
 ```python
-from datetime import date
+from datetime import datetime
 
-result = await habits_service.record_completion(
+result = await habits_service.completions.record_completion(
     habit_uid=habit.uid,
-    completion_date=date.today(),
+    user_uid=user_uid,          # required — the completion is recorded against the owner
+    completed_at=datetime.now(),
     notes="Finished chapter 5 of Atomic Habits",
 )
 ```
+
+⚠️ **Completions are reached THROUGH the Habit, never by `user_uid`.**
+`HabitCompletion` declares no `user_uid` field, so no such property is written
+and no `(User)-[:OWNS]->(:HabitCompletion)` edge exists either — `_create_node`
+writes that edge only for entities carrying a `user_uid`. A
+`completions_backend.find_by(user_uid=...)` therefore compares against null and
+returns **zero rows with no error**: a silent wrong answer, not a failure. Scope
+user-level reads by fetching the user's habits first and querying
+`habit_uid` — see `get_today_completions` / `get_badge_progress` /
+`export_completion_history`, all three pinned by a regression test.
 
 ### Link Habit to Goal
 
