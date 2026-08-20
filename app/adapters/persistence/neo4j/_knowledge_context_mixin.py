@@ -25,7 +25,14 @@ from adapters.persistence.neo4j.query.cypher import (
     build_publication_clause,
 )
 from core.models.relationship_names import RelationshipName
-from core.models.type_hints import UserUID
+from core.models.type_hints import Neo4jProperties, UserUID
+from core.ports.query_types import (
+    LearningGapResult,
+    LearningRecommendationResult,
+    PrereqMasteryResult,
+    ReadyToLearnResult,
+    ReinforcementCandidateResult,
+)
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
@@ -46,6 +53,132 @@ _KU_LATERAL_REL_TYPES = "|".join(
         | {RelationshipName.DEPENDS_ON.value}
     )
 )
+
+
+def _to_learning_gap_rows(
+    records: list[Neo4jProperties],
+) -> list[LearningGapResult]:
+    """Project raw rows onto LearningGapResult (KeyError on alias drift).
+
+    The annotation alone would be an unchecked claim — nothing statically links
+    a Cypher alias to a TypedDict key, so a renamed RETURN would type-check while
+    the consumer read the missing key as "no gap". Indexing each alias here turns
+    that into a failure at the boundary.
+    """
+    return [
+        {
+            "uid": str(row["uid"]),
+            "title": str(row["title"]),
+            "domain": _opt_str(row["domain"]),
+            "goals_blocked": _as_int(row["goals_blocked"]),
+            "blocking_goal_uids": [str(u) for u in _as_list(row["blocking_goal_uids"])],
+            "prereq_count": _as_int(row["prereq_count"]),
+            "satisfied_prereqs": _as_int(row["satisfied_prereqs"]),
+            "readiness": _as_float(row["readiness"]),
+        }
+        for row in records
+    ]
+
+
+def _to_learning_recommendation_rows(
+    records: list[Neo4jProperties],
+) -> list[LearningRecommendationResult]:
+    """Project raw rows onto LearningRecommendationResult (KeyError on alias drift)."""
+    return [
+        {
+            "uid": str(row["uid"]),
+            "title": str(row["title"]),
+            "summary": _opt_str(row["summary"]),
+            "domain": _opt_str(row["domain"]),
+            "readiness": _as_float(row["readiness"]),
+            "total_prereqs": _as_int(row["total_prereqs"]),
+            "satisfied_prereqs": _as_int(row["satisfied_prereqs"]),
+            "enables_count": _as_int(row["enables_count"]),
+        }
+        for row in records
+    ]
+
+
+def _to_ready_to_learn_rows(
+    records: list[Neo4jProperties],
+) -> list[ReadyToLearnResult]:
+    """Project raw rows onto ReadyToLearnResult (KeyError on alias drift)."""
+    return [
+        {
+            "uid": str(row["uid"]),
+            "title": str(row["title"]),
+            "domain": _opt_str(row["domain"]),
+            "summary": _opt_str(row["summary"]),
+            "readiness": _as_float(row["readiness"]),
+            "total_prereqs": _as_int(row["total_prereqs"]),
+            "satisfied_prereqs": _as_int(row["satisfied_prereqs"]),
+            "prereq_uids": [str(u) for u in _as_list(row["prereq_uids"])],
+            "dependent_count": _as_int(row["dependent_count"]),
+        }
+        for row in records
+    ]
+
+
+def _to_reinforcement_candidate_rows(
+    records: list[Neo4jProperties],
+) -> list[ReinforcementCandidateResult]:
+    """Project raw rows onto ReinforcementCandidateResult (KeyError on alias drift)."""
+    return [
+        {
+            "uid": str(row["uid"]),
+            "title": str(row["title"]),
+            "domain": _opt_str(row["domain"]),
+            "goal_relevance": _as_int(row["goal_relevance"]),
+            "dependent_count": _as_int(row["dependent_count"]),
+        }
+        for row in records
+    ]
+
+
+def _to_prereq_mastery_rows(
+    records: list[Neo4jProperties],
+) -> list[PrereqMasteryResult]:
+    """Project raw rows onto PrereqMasteryResult (KeyError on alias drift).
+
+    Every field is optional here and that is deliberate: the query is an
+    OPTIONAL MATCH under a UNION, so a prerequisite the user has never touched
+    comes back as a row of nulls rather than as no row. Nulls are preserved —
+    "never practised" must stay distinguishable from "practised, scored 0".
+    """
+    return [
+        {
+            "ku_uid": _opt_str(row["ku_uid"]),
+            "score": _opt_float(row["score"]),
+            "confidence": _opt_float(row["confidence"]),
+            "last_practiced": _opt_str(row["last_practiced"]),
+        }
+        for row in records
+    ]
+
+
+def _opt_float(value: object) -> float | None:
+    """Neo4j null stays None — distinct from a real 0.0 score."""
+    return float(value) if isinstance(value, int | float) else None
+
+
+def _opt_str(value: object) -> str | None:
+    """Neo4j null stays None; anything else becomes its string form."""
+    return None if value is None else str(value)
+
+
+def _as_int(value: object) -> int:
+    """Narrow a Neo4j numeric to int; a null count is 0, not a crash."""
+    return int(value) if isinstance(value, int | float) else 0
+
+
+def _as_float(value: object) -> float:
+    """Narrow a Neo4j numeric to float."""
+    return float(value) if isinstance(value, int | float) else 0.0
+
+
+def _as_list(value: object) -> list[object]:
+    """Neo4j collect() yields a list; a null collect is empty."""
+    return value if isinstance(value, list) else []
 
 
 class _KnowledgeContextMixin:
@@ -258,7 +391,7 @@ class _KnowledgeContextMixin:
 
     async def find_ready_to_learn(
         self, mastered_uids: list[str], domain: str | None, limit: int
-    ) -> Result[list[Neo4jProperties]]:
+    ) -> Result[list[ReadyToLearnResult]]:
         """Find KUs the user is ready to learn (prerequisites >= 70% met)."""
         # Discovery — THE "what can I learn next" surface: an unanchored
         # enumeration of everything NOT yet mastered.
@@ -324,7 +457,7 @@ class _KnowledgeContextMixin:
         ORDER BY readiness DESC, dependent_count DESC
         LIMIT $limit
         """
-        return await self.execute_query(
+        result = await self.execute_query(
             query,
             {
                 "mastered_uids": mastered_uids,
@@ -334,10 +467,13 @@ class _KnowledgeContextMixin:
                 **prereq_params,
             },
         )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(_to_ready_to_learn_rows(result.value))
 
     async def find_learning_gaps(
         self, goal_uids: list[str], mastered_uids: list[str], limit: int
-    ) -> Result[list[Neo4jProperties]]:
+    ) -> Result[list[LearningGapResult]]:
         """Find KUs required by goals but not mastered."""
         # Discovery: the caller holds GOALS, and gets back the knowledge those
         # goals require — curriculum it never referenced. Same line as
@@ -377,7 +513,7 @@ class _KnowledgeContextMixin:
         ORDER BY goals_blocked DESC, readiness DESC
         LIMIT $limit
         """
-        return await self.execute_query(
+        result = await self.execute_query(
             query,
             {
                 "goal_uids": goal_uids,
@@ -386,10 +522,13 @@ class _KnowledgeContextMixin:
                 **published_params,
             },
         )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(_to_learning_gap_rows(result.value))
 
     async def find_reinforcement_candidates(
         self, uids: list[str], active_goal_uids: list[str]
-    ) -> Result[list[Neo4jProperties]]:
+    ) -> Result[list[ReinforcementCandidateResult]]:
         """Get KU details + goal relevance for reinforcement candidates."""
         query = """
         UNWIND $uids as uid
@@ -410,7 +549,12 @@ class _KnowledgeContextMixin:
                goal_relevance,
                count(dependent) as dependent_count
         """
-        return await self.execute_query(query, {"uids": uids, "active_goal_uids": active_goal_uids})
+        result = await self.execute_query(
+            query, {"uids": uids, "active_goal_uids": active_goal_uids}
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(_to_reinforcement_candidate_rows(result.value))
 
     async def link_prerequisite(
         self, unit_uid: str, prereq_uid: str, is_mandatory: bool
@@ -443,7 +587,7 @@ class _KnowledgeContextMixin:
 
     async def query_user_mastery_for_prereqs(
         self, user_uid: UserUID, prereq_uids: list[str]
-    ) -> Result[list[Neo4jProperties]]:
+    ) -> Result[list[PrereqMasteryResult]]:
         """Query user MASTERED + IN_PROGRESS state for prerequisite KUs."""
         query = """
         MATCH (u:User {uid: $user_uid})
@@ -462,11 +606,14 @@ class _KnowledgeContextMixin:
                coalesce(ip.difficulty_rating, 0.5) as confidence,
                ip.last_accessed as last_practiced
         """
-        return await self.execute_query(query, {"user_uid": user_uid, "prereq_uids": prereq_uids})
+        result = await self.execute_query(query, {"user_uid": user_uid, "prereq_uids": prereq_uids})
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(_to_prereq_mastery_rows(result.value))
 
     async def find_learning_recommendations(
         self, user_uid: UserUID, domain: str | None, limit: int
-    ) -> Result[list[Neo4jProperties]]:
+    ) -> Result[list[LearningRecommendationResult]]:
         """Find KUs user is ready to learn based on mastery and prerequisites."""
         # Discovery — the KU recommendation surface (sibling of
         # find_ready_to_learn, user-scoped mastery instead of a passed list).
@@ -521,10 +668,13 @@ class _KnowledgeContextMixin:
         ORDER BY readiness DESC, enables_count DESC
         LIMIT $limit
         """
-        return await self.execute_query(
+        result = await self.execute_query(
             query,
             {"user_uid": user_uid, "domain": domain, "limit": limit, **knowledge_params},
         )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(_to_learning_recommendation_rows(result.value))
 
     # ========================================================================
     # RESOURCE CITATION QUERIES (migrated from ContextRetriever)
