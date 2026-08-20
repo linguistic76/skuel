@@ -281,9 +281,18 @@ a facade handed to a collaborator — inheriting a backend slice leaks backend
 signatures to facade holders, and the two layers' signatures can legitimately differ.
 
 `PsOperations` is the live example: it types `PsCoreService.backend` *and*
-`EntityExtractor.knowledge_service` (which receives the `PsService` facade), it is
-satisfied by neither `PsBackend` nor `PsService`, and its ORGANIZES signatures match
-the *service*'s while `_OrganizesMixin`'s match the *backend*'s. So
+`EntityExtractor.knowledge_service` (which receives the `PsService` facade), and its
+ORGANIZES signatures match the *service*'s while `_OrganizesMixin`'s match the
+*backend*'s.
+
+⚠️ **Re-measured 2026-08-20, and the asymmetry is sharper than "satisfied by
+neither" (which this line used to say).** Since the row-type drift was closed,
+`x: PsOperations = PsBackend(...)` probes **clean**, while
+`x: PsOperations = PsService(...)` still **fails**. So the protocol documented as
+carrying the *service*'s shapes is satisfied by the *backend* and not by the
+service. That is the open design question underneath
+`create_ps_sub_services(backend=)`, which cannot be typed until it is settled —
+see the `# boundary: ps-two-layer-divergence` comment there. So
 `PsOrganizesBackendOperations`, `PsProgressBackendOperations` and
 `PsIntelligenceBackendOperations` each stand alone, with signatures lifted from the
 backend rather than from `PsOperations`. Accept the duplicated declaration and write
@@ -340,9 +349,14 @@ Two rules make this real rather than decorative:
   `@with_error_handling`. What the `TypedDict` buys *statically* is every consumer site.
 - **Declare the row type on the protocol *and* the implementation, in the same change.**
   A `TypedDict` on the port with `dict[str, Any]` on the backend makes the port
-  unsatisfiable — that is precisely the shape of several of the return-type conflicts
-  that stop `PsBackend` from satisfying `PsOperations`. Re-run the satisfiability probe
-  after changing either side.
+  unsatisfiable — that was precisely the shape of the five return-type conflicts that
+  used to stop `PsBackend` from satisfying `PsOperations` (`find_learning_gaps`,
+  `find_learning_recommendations`, `find_ready_to_learn`,
+  `find_reinforcement_candidates`, `query_user_mastery_for_prereqs`). **Closed
+  2026-08-20** — each now projects through an alias-indexing processor in
+  `_KnowledgeContextMixin`. Re-run the satisfiability probe after changing either
+  side; mypy prints only two conflicts and truncates the rest, so a clean-looking
+  fix can still leave three behind.
 
 Reserve `dict[str, Any]` for rows that are *genuinely* heterogeneous (variable `RETURN`
 clauses), and mark those with a `# boundary:` comment per the `Any` policy.
