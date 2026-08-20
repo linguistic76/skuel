@@ -19,7 +19,7 @@ from starlette.testclient import TestClient
 
 from adapters.inbound.revised_exercises_api import create_revised_exercises_api_routes
 from core.models.enums import UserRole
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
 
 _USER_UID = "user_owner"
 _STUDENT_UID = "user_student"
@@ -202,8 +202,15 @@ class TestViewOwnership:
         assert response.status_code == 404
 
     def test_missing_entity_is_404(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # BaseService.get() converts a missing UID into a NOT_FOUND *error*, never
+        # Result.ok(None) — so that is the shape the route has to turn into a 404.
+        # The former Result.ok(None) stub asserted against a contract the service
+        # does not have; typing the backend generic surfaced the redundant
+        # require_found() wrapper that only that stub exercised.
         harness = _make_harness(monkeypatch)
-        harness.service.get.return_value = Result.ok(None)
+        harness.service.get.return_value = Result.fail(
+            Errors.not_found(resource="RevisedExercise", identifier=_RE_UID)
+        )
 
         response = harness.client.get(f"/api/revised-exercises/view?uid={_RE_UID}")
 

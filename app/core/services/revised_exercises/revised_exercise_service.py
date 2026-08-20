@@ -27,16 +27,16 @@ from core.events.embedding_publisher import publish_embedding_requested
 from core.events.learning_loop_events import RevisedExerciseCreated
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.neo_labels import NeoLabel
+from core.models.enums.user_entry_enums import SubmissionModality
 from core.models.exercises.revised_exercise import RevisedExercise
 from core.models.exercises.revised_exercise_dto import RevisedExerciseDTO
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID
 from core.ports.curriculum_protocols import RevisedExerciseBackendOperations
-from core.ports.query_types import RevisionChainResult
+from core.ports.query_types import RevisionChainResult, TeacherAuthorityRow
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
 from core.utils.decorators import with_error_handling
-from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -46,7 +46,7 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-class RevisedExerciseService(BaseService):
+class RevisedExerciseService(BaseService[RevisedExerciseBackendOperations, RevisedExercise]):
     """
     CRUD service for RevisedExercises (targeted revision instructions).
 
@@ -145,17 +145,18 @@ class RevisedExerciseService(BaseService):
         if not submission_uid and auth_records:
             submission_uid = auth_records[0].get("submission_uid")
 
-        # Auto-resolve expected_modality from original Exercise
+        # Auto-resolve expected_modality from the original Exercise, so a revision
+        # asks the learner for the same kind of artefact as the exercise it revises
+        # (the combined report+revision write resolves the same field in Cypher).
         expected_modality = entity.expected_modality
-        if not expected_modality and entity.original_exercise_uid:
-            exercise_result = await self.backend.get(entity.original_exercise_uid)
-            if exercise_result.is_ok and exercise_result.value:
-                from core.models.enums.user_entry_enums import SubmissionModality
-
-                raw_modality = exercise_result.value.get("expected_modality")
-                if raw_modality:
-                    with contextlib.suppress(ValueError):
-                        expected_modality = SubmissionModality(raw_modality)
+        if not expected_modality:
+            modality_result = await self.backend.get_original_exercise_modality(
+                original_exercise_uid
+            )
+            raw_modality = modality_result.value if modality_result.is_ok else None
+            if raw_modality:
+                with contextlib.suppress(ValueError):
+                    expected_modality = SubmissionModality(raw_modality)
 
         # Next per-(exercise, student) ordinal — max+1, never a global count
         number_result = await self.backend.get_next_revision_number(
@@ -193,19 +194,19 @@ class RevisedExerciseService(BaseService):
         # that made the load-bearing write look optional.
 
         # Create RESPONDS_TO_REPORT relationship
-        feedback_result = await self.backend.link_to_report(uid, enriched.report_uid)
+        feedback_result = await self.backend.link_to_report(uid, report_uid)
         if feedback_result.is_error:
             self.logger.warning(f"Failed to create RESPONDS_TO_REPORT: {feedback_result.error}")
 
         # Create REVISES_EXERCISE relationship
-        exercise_result = await self.backend.link_to_exercise(uid, enriched.original_exercise_uid)
-        if exercise_result.is_error:
-            self.logger.warning(f"Failed to create REVISES_EXERCISE: {exercise_result.error}")
+        revises_result = await self.backend.link_to_exercise(uid, original_exercise_uid)
+        if revises_result.is_error:
+            self.logger.warning(f"Failed to create REVISES_EXERCISE: {revises_result.error}")
 
         # Auto-share with student so it appears in their "Shared With Me" inbox.
         # Same pattern as assignment auto-sharing (ADR-040).
         share_result = await self.backend.auto_share_with_student(
-            enriched.student_uid, uid, datetime.now().isoformat()
+            student_uid, uid, datetime.now().isoformat()
         )
         if share_result.is_error:
             self.logger.warning(f"Failed to auto-share with student: {share_result.error}")
@@ -254,7 +255,7 @@ class RevisedExerciseService(BaseService):
         teacher_uid: str,
         report_uid: str,
         student_uid: str,
-    ) -> Result[list[dict[str, str]]]:
+    ) -> Result[list[TeacherAuthorityRow]]:
         """Verify the teacher has review authority over the feedback.
 
         Checks the graph path (OWNS-based, per ADR-040):
@@ -296,37 +297,12 @@ class RevisedExerciseService(BaseService):
                 Used by teacher-facing routes to prevent cross-teacher leakage.
                 Omitted for student-facing routes (students see all their own revisions).
         """
-        result = await self.backend.list_for_student(student_uid, teacher_uid)
-        if result.is_error:
-            return Result.fail(result)
-
-        exercises = []
-        for record in result.value or []:
-            props = record["re"]
-            try:
-                exercises.append(RevisedExercise(**props))
-            except DATA_CONVERSION_EXCEPTIONS as exc:
-                self.logger.warning(f"Failed to deserialize revised exercise: {exc}")
-
-        return Result.ok(exercises)
+        return await self.backend.list_for_student(student_uid, teacher_uid)
 
     @with_error_handling("get_by_report_uid", error_type="database")
     async def get_by_report_uid(self, report_uid: str) -> Result[RevisedExercise | None]:
         """Get the RevisedExercise responding to a given report, if any."""
-        result = await self.backend.get_by_report_uid(report_uid)
-        if result.is_error:
-            return Result.fail(result)
-        records = result.value or []
-        if not records:
-            return Result.ok(None)
-        props = records[0]["re"]
-        try:
-            return Result.ok(RevisedExercise(**props))
-        except DATA_CONVERSION_EXCEPTIONS as exc:
-            self.logger.warning(
-                f"Failed to deserialize revised exercise for report {report_uid}: {exc}"
-            )
-            return Result.ok(None)
+        return await self.backend.get_by_report_uid(report_uid)
 
     @with_error_handling("get_revision_chain", error_type="database")
     async def get_revision_chain(
