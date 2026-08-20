@@ -113,6 +113,7 @@ class LpIntelligenceService(
         # Deliberately untyped (Scope C, ruled 2026-08-20): this handle makes no
         # calls of its own — it is forwarded to LearningStateAnalyzer, whose
         # progress_backend is untyped for the phantom-method reason recorded there.
+        # See: /docs/roadmap/lp-backend-recommendation-methods.md
         progress_backend: Any | None = None,
         event_bus: Any | None = None,
         user_service: Any | None = None,

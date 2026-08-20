@@ -69,7 +69,8 @@ class LearningRecommendationEngine:
         # call raises AttributeError, is swallowed below as "Learning backend
         # unavailable", and recommend_learning_paths therefore always returns [].
         # Naming a protocol here turns that into a mypy error whose only honest fix
-        # is to BUILD the backend method, which is a feature decision, not a retype.
+        # is to BUILD the backend method — ruled 'build, but not now' (2026-08-20).
+        # See: /docs/roadmap/lp-backend-recommendation-methods.md
         learning_backend: Any | None = None,
         event_bus: Any | None = None,
         user_service: Any | None = None,

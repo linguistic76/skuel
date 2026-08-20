@@ -66,6 +66,7 @@ class LearningStateAnalyzer:
         # (never-wired since the initial commit). UserProgressBackendOperations
         # does NOT declare it. The AttributeError is swallowed as "Progress
         # backend unavailable", so _get_progress_summary always returns None.
+        # See: /docs/roadmap/lp-backend-recommendation-methods.md
         progress_backend: Any | None = None,
         embeddings_service: EmbeddingsService | None = None,
     ) -> None:
