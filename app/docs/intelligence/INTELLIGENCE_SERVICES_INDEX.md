@@ -674,7 +674,7 @@ uv run python -m pytest tests/integration/intelligence/ -k "test_predict_goal_su
 - ✅ 4 delegation methods provided by `KnowledgeIntelligenceDelegationMixin` (`core/services/mixins/`) — facades inherit it (April 2026, replaced copy-pasted methods)
 - ✅ Skill vocabulary derived from Ku titles/tags in graph (replaces hardcoded programming keywords)
 - Backend: `UniversalNeo4jBackend[Entity]` with `NeoLabel.ENTITY` — queries user-owned activity entities across all domains
-- Type: `BaseAnalyticsService[Any, Entity]`
+- Type: `BaseAnalyticsService[BackendOperations[Entity], Entity]`
 
 **Protocol Alignment (2026-03-21):**
 - ✅ Monolithic `IntelligenceOperations` (11 methods) split into ISP protocols

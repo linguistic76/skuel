@@ -18,7 +18,8 @@ ERROR (blocks CI):
   SKUEL022: core/ must not import adapters/ (dependency direction, ADR-044)
   SKUEL023: core/ must type backend against a core/ports protocol — not a concrete
             adapter class, and not Any / bare-unannotated, whether the class assigns
-            self.backend or only declares it (ADR-044)
+            self.backend, only declares it, or merely inherits it from a
+            Base*[Any, ...] parameterisation (ADR-044)
   SKUEL024: No cls= / **kwargs collision in FT helpers (latent TypeError crash)
   SKUEL025: No deleted Activity *UpdatePayload — use the frozen *UpdateIntent (ADR-066)
   SKUEL027: ui/ must not import adapters/ at runtime (ui renders; routes compose)
@@ -661,6 +662,23 @@ the object — triggers as of 2026-08 (PR-C). The host owning the object never m
 the mixin's own calls checkable. A *dead* declaration (no ``self.backend`` call
 anywhere in the class) flags too; there the fix is deleting the line. The trigger
 landed only after all 27 such sites were clean, so it went green with zero
+suppressions.
+
+**Inherited-generic sub-check (Scope D, 2026-08):** the two checks above both
+need the class to write ``backend`` down somewhere. This one catches the class
+that writes nothing: it inherits ``backend: B`` from ``BaseService`` /
+``BaseAIService`` / ``BaseAnalyticsService`` / ``BasePlanningService`` and
+parameterised that ``B`` as ``Any`` — or left the base bare, which makes every
+parameter ``Any``. Five services in ``core/`` were in this state (23 unchecked
+calls). ⚠ Annotating the ``__init__`` parameter does NOT fix it: the attribute's
+declared type comes from the base and an assignment never redeclares it, so
+``def __init__(self, backend: SomeOps)`` on a bare ``BaseService`` reads as fixed
+and checks nothing (four of the five had exactly that shape). A class-body
+``backend: SomeOps`` in the subclass *does* narrow, and the trigger stands down
+on it — flagging it would be a false positive. Bases are matched through the
+import map, only the FIRST type argument is read, and only an *exact* ``Any``
+counts: ``BackendOperations[Any]`` is a typed backend whose model parameter is
+loose, a different concern. Landed after all five sites were clean — zero
 suppressions.
 
 ⚠ A **file-level** ``disable-file=SKUEL023`` silences BOTH sub-checks; line-level
@@ -1408,6 +1426,18 @@ class SkuelLinter:
         "Driver",
     )
 
+    # SKUEL023 third trigger: the generic bases that declare a `backend` attribute
+    # typed by their FIRST type parameter. Verified against the module each name must
+    # come from — matching a base by bare name is how four different `_AnalyticsMixin`
+    # classes would become one. An unrecognised import path fails OPEN (the class is
+    # simply not inspected), never closed.
+    SKUEL023_BACKEND_GENERIC_BASES: ClassVar[dict[str, str]] = {
+        "BaseService": "core.services.base_service",
+        "BaseAIService": "core.services.base_ai_service",
+        "BaseAnalyticsService": "core.services.base_analytics_service",
+        "BasePlanningService": "core.services.base_planning_service",
+    }
+
     # Field → (strict_accessor, graceful_accessor). Strict raises at standard depth;
     # graceful returns an empty container. Fields with per-key accessors (e.g.
     # get_tasks_for_goal(uid)) also have dict-level strict accessors listed here.
@@ -1875,6 +1905,10 @@ class SkuelLinter:
                 # adapter check's `"adapters" not in content` pre-filter — a class
                 # typing self.backend as Any usually never mentions adapters at all.
                 self._check_backend_annotation_strength(file_path, rel_path, content, lines, tree)
+                # Third sub-check: the backend nobody wrote down — inherited from a
+                # `Base*[Any, ...]` (or bare `Base*`) parameterisation, invisible to
+                # both checks above because the class neither assigns nor declares it.
+                self._check_inherited_backend_generic(file_path, rel_path, content, lines, tree)
 
             if is_service and not is_test:
                 if self._should_run_rule("SKUEL002"):
@@ -5252,6 +5286,191 @@ class SkuelLinter:
                     line_content=line.strip(),
                 )
             )
+
+    # =========================================================================
+    # SKUEL023 third sub-check: backend generic inherited as Any
+    # =========================================================================
+
+    @classmethod
+    def _collect_backend_generic_bases(cls, tree: ast.Module) -> set[str]:
+        """Local names in this module bound to a ``backend``-declaring generic base.
+
+        Only names imported from the module that actually defines them count, so an
+        unrelated class that happens to be called ``BaseService`` cannot be mistaken
+        for the real one. Both runtime and ``if TYPE_CHECKING:`` imports are walked —
+        a base class can only be used at runtime, but reading both costs nothing and
+        removes a shape the reader would otherwise have to reason about.
+
+        Relative imports are resolved by suffix rather than by reconstructing the
+        package path: ``from .base_service import BaseService`` and the absolute form
+        must agree, and no relative import of these four exists in the tree today.
+        """
+        names: set[str] = set()
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ImportFrom) or node.module is None:
+                continue
+            for alias in node.names:
+                expected = cls.SKUEL023_BACKEND_GENERIC_BASES.get(alias.name)
+                if expected is None:
+                    continue
+                if node.module == expected or (
+                    node.level > 0 and expected.endswith(f".{node.module}")
+                ):
+                    names.add(alias.asname or alias.name)
+        return names
+
+    @staticmethod
+    def _backend_generic_argument(
+        base: ast.expr, generic_bases: set[str]
+    ) -> tuple[bool, ast.expr | None]:
+        """Is ``base`` one of the tracked generics, and what is its FIRST type argument?
+
+        Returns ``(matched, first_argument)``. ``first_argument`` is None for the bare
+        form (``class X(BaseService)``), which leaves every parameter implicitly
+        ``Any`` — the same hole as writing it out, and the shape two of the five
+        Scope D services actually had.
+
+        The *first* argument specifically: all four bases put the backend there
+        (``BaseService[B, T, U]``, ``BaseAIService[B, T]``,
+        ``BaseAnalyticsService[B, T]``, ``BasePlanningService[BackendT, EntityT]``).
+        """
+        if isinstance(base, ast.Name):
+            return (base.id in generic_bases, None)
+        if isinstance(base, ast.Subscript) and isinstance(base.value, ast.Name):
+            if base.value.id not in generic_bases:
+                return (False, None)
+            arguments = base.slice.elts if isinstance(base.slice, ast.Tuple) else [base.slice]
+            return (True, arguments[0] if arguments else None)
+        return (False, None)
+
+    def _is_exactly_any(self, expression: ast.expr, any_aliases: set[str]) -> bool:
+        """Does ``expression`` name ``Any`` and nothing else?
+
+        Deliberately *exact*, not "contains ``Any`` somewhere". A first argument of
+        ``BackendOperations[Any]`` is a properly typed backend whose model parameter
+        happens to be loose — a different concern, and one this codebase writes on
+        purpose (``BasePlanningService``'s ``BackendT`` is bounded to exactly that).
+        A contains-check would report it, which is the over-general matching that
+        produced four false positives in #1095. Forward-ref strings and
+        ``typing.Any`` both reduce to a single ``Any`` reference here, so they are
+        covered; ``Optional[Any]`` is not, and that miss is the intended direction.
+        """
+        references = self._extract_annotation_refs(expression)
+        return len(references) == 1 and references[0][1] in any_aliases
+
+    def _check_inherited_backend_generic(
+        self,
+        file_path: Path,
+        rel_path: Path,
+        content: str,
+        lines: list[str],
+        tree: ast.Module | None,
+    ) -> None:
+        """
+        SKUEL023 [ERROR]: a ``core/`` class must not inherit its ``backend`` attribute
+        from a generic base parameterised with ``Any``.
+
+        The third and last trigger, and the one that closes the rule. The first two
+        ask about a ``backend`` the class writes down — assigned, or declared. This
+        one catches the class that writes nothing down at all: it never assigns and
+        never declares ``backend``, it *inherits* ``backend: B`` from
+        ``BaseService`` / ``BaseAIService`` / ``BaseAnalyticsService`` /
+        ``BasePlanningService``, and it parameterised that ``B`` as ``Any`` — or left
+        the base bare, which means the same thing. Every ``self.backend.<method>()``
+        in such a class is unchecked exactly as completely as in the other two shapes,
+        and neither of them could see it. Five services in ``core/`` were in this
+        state (23 unchecked calls); typing them surfaced live defects, including a
+        by-UID read that queried the wrong label and could never match.
+
+        **A typed ``__init__`` parameter is not a fix, and this is the trap.**
+        ``def __init__(self, backend: SomeOps) -> None: self.backend = backend`` on a
+        bare ``BaseService`` reads as fixed and checks nothing: the attribute's
+        declared type comes from the base (``backend: B`` = ``Any``), and an
+        assignment does not redeclare it. Verified by probe — the calls stay
+        unchecked until the base itself is parameterised. Four of the five services
+        had precisely this reassuring shape.
+
+        **A class-body redeclaration IS a fix, and is therefore excluded.** A
+        subclass that writes its own ``backend: SomeOps`` in its class body does
+        narrow the inherited ``Any``, and its calls are checked (probed, same file).
+        Flagging it would be a false positive, so this trigger stands down whenever
+        ``_find_class_body_backend_declaration`` finds one — and if that declaration
+        is itself ``Any``, the declaration trigger already owns it. The two never
+        report the same class twice for the same reason.
+
+        Fix: parameterise the base — ``BaseService[RevisedExerciseBackendOperations,
+        RevisedExercise]`` — reusing an existing ``core/ports`` protocol where one
+        satisfies (probe it; do not assume) and authoring one where none does.
+
+        **Known limitation, deliberate: only the DIRECT base list is read.** A class
+        inheriting from a concrete service that is itself ``Base*[Any, …]``, or from a
+        module-level alias of one, is not flagged. Resolving that means following
+        inheritance across modules, which is the flow analysis this codebase's lint
+        rules refuse. Fail-OPEN, like the rest of SKUEL023: a missed spelling, never
+        a false alarm on valid code.
+
+        Suppress: # skuel-lint: disable=SKUEL023 -- <reason>
+        File-level: # skuel-lint: disable-file=SKUEL023 -- <reason>
+        """
+        if tree is None or self._is_file_suppressed(content, "SKUEL023"):
+            return
+
+        generic_bases = self._collect_backend_generic_bases(tree)
+        if not generic_bases:
+            return
+
+        any_aliases = self._collect_any_aliases(tree)
+
+        for cls in [n for n in ast.walk(tree) if isinstance(n, ast.ClassDef)]:
+            # A class-body `backend:` declaration overrides the inherited parameter,
+            # so the generic no longer governs what the calls are checked against.
+            if self._find_class_body_backend_declaration(cls) is not None:
+                continue
+
+            for base in cls.bases:
+                matched, argument = self._backend_generic_argument(base, generic_bases)
+                if not matched:
+                    continue
+                if argument is None:
+                    verdict = (
+                        "inherits `backend` from an unparameterised generic base, "
+                        "which leaves every type parameter `Any`"
+                    )
+                elif self._is_exactly_any(argument, any_aliases):
+                    verdict = "names `Any` as its backend type parameter"
+                else:
+                    continue
+
+                line = lines[cls.lineno - 1] if 0 < cls.lineno <= len(lines) else ""
+                if self._is_line_suppressed(line, "SKUEL023"):
+                    break
+
+                self.result.violations.append(
+                    Violation(
+                        file_path=rel_path,
+                        line_number=cls.lineno,
+                        column=cls.col_offset,
+                        severity=Severity.ERROR,
+                        rule_id="SKUEL023",
+                        message=(
+                            f"'{cls.name}' {verdict} — every `self.backend.<method>()` "
+                            f"in this class is unchecked (ADR-044)"
+                        ),
+                        suggestion=(
+                            "Parameterise the base with the core/ports protocol this "
+                            "service's backend satisfies, e.g. "
+                            "`BaseService[GroupBackendOperations, Group]`. Annotating "
+                            "the __init__ parameter is NOT enough — the attribute's "
+                            "declared type comes from the base, and an assignment does "
+                            "not redeclare it. Probe satisfiability before naming a "
+                            "protocol (`x: SomeOps = TheBackend(...)` + mypy); verify "
+                            "you are naming the BACKEND layer, not a same-rooted "
+                            "route-facing `*Operations` protocol."
+                        ),
+                        line_content=line.strip(),
+                    )
+                )
+                break
 
     @staticmethod
     def _walk_pruned(node: ast.AST, stop: tuple[type[ast.AST], ...]) -> Iterator[ast.AST]:
