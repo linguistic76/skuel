@@ -20,7 +20,11 @@ if TYPE_CHECKING:
     from datetime import date, datetime
 
     from core.models.query_types import QueryIntent
-    from core.ports.query_types import SelCategoryRow, UserKnowledgeChannelRow
+    from core.ports.query_types import (
+        JournalEntryRow,
+        SelCategoryRow,
+        UserKnowledgeChannelRow,
+    )
 
 
 @runtime_checkable
@@ -87,6 +91,21 @@ class CrossDomainBackendOperations(Protocol):
     async def get_habit_knowledge_reinforcement(
         self, user_uid: str
     ) -> Result[list[dict[str, Any]]]: ...
+
+    async def get_journal_entries_in_range(
+        self,
+        user_uid: str,
+        start_datetime: str,
+        end_datetime: str,
+    ) -> Result[list["JournalEntryRow"]]:
+        """Journal SOURCE entries in a datetime range.
+
+        After ADR-054 these are ``:UserEntry`` with
+        ``pipeline='transcribe_and_structure'``; the LLM-structured child is
+        deliberately excluded. Bounds are ISO-8601 strings, compared against
+        the node's stored temporal value.
+        """
+        ...
 
     async def get_user_knowledge_channels(
         self, user_uid: str, activity_types: list[str]

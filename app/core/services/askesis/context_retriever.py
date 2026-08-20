@@ -45,6 +45,7 @@ from core.models.type_hints import UserUID
 from core.utils.decorators import with_error_handling
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS
 from core.utils.logging import get_logger
+from core.utils.neo4j_props import neo4j_str
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
@@ -53,6 +54,7 @@ if TYPE_CHECKING:
     from core.models.pathways.path_step import PathStep
     from core.models.resource.resource import Resource
     from core.models.search_request import SearchRequest
+    from core.ports.curriculum_protocols import KnowledgeContextOperations, KuOperations
     from core.ports.query_types import RichPathStepItem
     from core.ports.search_protocols import ScopedChunkRetrievalOperations
     from core.services.ps_engagement.engagement import Engagement
@@ -167,8 +169,8 @@ class ContextRetriever:
         principles_service: EntityLookup | None = None,
         lp_service: EntityLookup | None = None,
         # Backends for graph queries (migrated from inline Cypher)
-        ku_backend: Any | None = None,  # boundary: KuBackend
-        ps_backend: Any | None = None,  # boundary: PsBackend
+        ku_backend: KuOperations | None = None,
+        ps_backend: KnowledgeContextOperations | None = None,
         # Engagement service — None falls back to legacy (unengaged) selection.
         # Always wired in production (FULL tier); optional only for unit-test
         # construction without a full engagement-service mock.
@@ -860,18 +862,18 @@ class ContextRetriever:
         edges: list[dict[str, Any]] = []
         seen: dict[tuple[str, str, str], int] = {}
         for record in result.value:
-            source_uid = record.get("source_uid")
-            target_uid = record.get("target_uid")
-            rel_type = record.get("relationship_type")
+            source_uid = neo4j_str(record, "source_uid", "")
+            target_uid = neo4j_str(record, "target_uid", "")
+            rel_type = neo4j_str(record, "relationship_type", "")
             if not source_uid or not target_uid or not rel_type:
                 continue
             edge = {
                 "source_uid": source_uid,
-                "source_title": record.get("source_title") or "",
+                "source_title": neo4j_str(record, "source_title", ""),
                 "target_uid": target_uid,
-                "target_title": record.get("target_title") or "",
+                "target_title": neo4j_str(record, "target_title", ""),
                 "relationship_type": rel_type,
-                "evidence": record.get("evidence") or "",
+                "evidence": neo4j_str(record, "evidence", ""),
             }
             key = self._lateral_edge_key(source_uid, target_uid, rel_type)
             if key in seen:
@@ -1011,9 +1013,11 @@ class ContextRetriever:
             if self.ku_backend:
                 prereq_result = await self.ku_backend.get_unmastered_prerequisites(ku_uid, user_uid)
                 if prereq_result.is_ok and prereq_result.value:
-                    record = prereq_result.value[0] if prereq_result.value else {}
+                    raw_prereqs = prereq_result.value[0].get("prerequisites")
                     prerequisites = [
-                        p for p in record.get("prerequisites", []) if p and p.get("uid")
+                        p
+                        for p in (raw_prereqs if isinstance(raw_prereqs, list) else [])
+                        if isinstance(p, dict) and p.get("uid")
                     ]
 
             # Step 2: Calculate impact (via KuBackend)
@@ -1021,8 +1025,8 @@ class ContextRetriever:
             if self.ku_backend:
                 impact_result = await self.ku_backend.count_dependents(ku_uid)
                 if impact_result.is_ok and impact_result.value:
-                    record = impact_result.value[0] if impact_result.value else {}
-                    unlocks_count = record.get("unlocks_count", 0)
+                    raw_unlocks = impact_result.value[0].get("unlocks_count", 0)
+                    unlocks_count = int(raw_unlocks) if isinstance(raw_unlocks, int | float) else 0
 
             # Step 3: Build gap analysis entry
             gap_analysis.append(

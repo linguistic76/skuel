@@ -36,7 +36,7 @@ related: [ADR-025, ADR-027]
 | **Domain Protocols** | `/core/ports/domain_protocols.py` | Domain service operations |
 | **Curriculum Protocols** | `/core/ports/curriculum_protocols.py` | KU, PS, LP, MOC operations |
 | **Askesis Protocols** | `/core/ports/askesis_protocols.py` | Cross-cutting intelligence + CRUD |
-| **Submission Protocols** | `/core/ports/submission_protocols.py` | Submission CRUD, processing, sharing, search |
+| **UserEntry Protocols** | `/core/ports/user_entry_protocols.py` | UserEntry CRUD, lifecycle, assessment, content, organizes, processing (ADR-054 — replaced the deleted `submission_protocols.py`) |
 | **Report Protocols** | `/core/ports/report_protocols.py` | Human + AI reports, progress reports, scheduling, teacher review |
 | **Form Protocols** | `/core/ports/form_protocols.py` | Form backend ops (2) + route-level ISP (2) |
 | **Group Protocols** | `/core/ports/group_protocols.py` | Group CRUD only |
@@ -410,8 +410,8 @@ These protocols replace `Any` types on the `Services` dataclass fields, giving r
 
 | File | Protocols | Route Consumers |
 |------|-----------|-----------------|
-| `submission_protocols.py` | 3 protocols | `submissions_api.py`, `progress_report_api.py` |
-| `sharing_protocols.py` | 1 protocol | `submissions_sharing_api.py` |
+| `user_entry_protocols.py` | 9 protocols | `user_entry_api.py`, `user_entry_routes.py`, `progress_report_api.py` |
+| `sharing_protocols.py` | 2 protocols | `user_entry_routes.py` (sharing endpoints) |
 | `report_protocols.py` | 7 protocols | `exercises_api.py`, `progress_report_api.py`, `teaching_api.py` |
 | `form_protocols.py` | 4 protocols | `form_templates_api.py`, `form_submissions_api.py` |
 | `group_protocols.py` | 1 protocol | `groups_api.py` |
@@ -419,23 +419,34 @@ These protocols replace `Any` types on the `Services` dataclass fields, giving r
 
 Plus `AskesisCoreOperations` added to existing `askesis_protocols.py`.
 
-### Submission Protocols (3) — `submission_protocols.py`
+### UserEntry Protocols (9) — `user_entry_protocols.py`
 
-Map to the **UserEntry** (submission) stage of the 4-phase educational loop (`Exercise → UserEntry → EntryReport → RevisedExercise`).
+⚠️ **`submission_protocols.py` was DELETED under ADR-054**, along with the
+`submissions_api.py` / `submissions_sharing_api.py` routes this section used to
+name. `UserEntry` (`ue_` prefix) replaced ExerciseSubmission / JeInput / JeOutput.
 
-| Protocol | Services Field | Methods | Route Consumer |
-|----------|---------------|---------|----------------|
-| `SubmissionOperations` | `submissions`, `submissions_core` | list_submissions, get_file_content, get_processed_file_content, update_processed_content, categorize, tags, bulk ops | `submissions_api.py` |
-| `SubmissionProcessingOperations` | `submissions_processor` | 2 (process_submission, reprocess_submission) | `submissions_api.py` |
-| `SubmissionSearchOperations` | `submissions_search` | 4 (search_submissions, get_report_statistics, get_recent_submissions, get_submissions_with_feedback_status) | consumed by `SubmissionsOrchestrator` — no direct route callers |
+Map to the **UserEntry** stage of the 4-phase learning loop
+(`Exercise → UserEntry → EntryReport → RevisedExercise`).
 
-### Sharing Protocol (1) — `sharing_protocols.py`
+| Protocol | Methods | Notes |
+|----------|---------|-------|
+| `UserEntryCrudOperations` | 12 | Entry CRUD |
+| `UserEntryLifecycleOperations` | 4 | Stage transitions |
+| `UserEntryAssessmentOperations` | 12 | Assessment + feedback reads |
+| `UserEntryReportQueryOperations` | 8 | Typed report-side reads |
+| `UserEntryContentOperations` | 8 | File + processed content |
+| `UserEntryOrganizesOperations` | 1 | ORGANIZES edges |
+| `UserEntryOperations` | composed | `BackendOperations['UserEntry']` + the 6 slices above |
+| `UserEntryProcessingOperations` | 2 | Processing / reprocessing |
+| `EntryGroundingBackendOperations` | 4 | Vector grounding (`EntryGroundingService`) |
+
+### Sharing Protocols (2) — `sharing_protocols.py`
 
 Entity-agnostic sharing. `UnifiedSharingService` implements this protocol and works across all EntityTypes.
 
 | Protocol | Services Field | Methods | Route Consumer |
 |----------|---------------|---------|----------------|
-| `SharingOperations` | `sharing` | share, unshare, get_shared_with, get_shared_with_me, set_visibility, check_access, verify_shareable, share_with_group, unshare_from_group, get_groups_shared_with, get_shared_with_me_via_groups (11 methods) | `submissions_sharing_api.py` |
+| `SharingOperations` | `sharing` | share, unshare, get_shared_with, get_shared_with_me, set_visibility, check_access, verify_shareable, share_with_group, unshare_from_group, get_groups_shared_with, get_shared_with_me_via_groups (11 methods) | `user_entry_routes.py` |
 
 ### Report Protocols (8) — `report_protocols.py`
 
@@ -554,13 +565,13 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from core.ports.sharing_protocols import SharingOperations
-    from core.ports.submission_protocols import SubmissionOperations
+    from core.ports.user_entry_protocols import UserEntryOperations
 
-def create_submissions_sharing_api_routes(
+def create_user_entry_sharing_routes(
     _app: Any,
     rt: Any,
     sharing_service: "SharingOperations",
-    core_service: "SubmissionOperations | None" = None,
+    core_service: "UserEntryOperations | None" = None,
 ) -> list[Any]:
     # MyPy verifies .share(), .check_access() etc. exist
     ...
@@ -571,12 +582,11 @@ def create_submissions_sharing_api_routes(
 Every field on the `Services` dataclass is typed — zero `Any` fields remain. Two strategies:
 
 ```python
-# services_bootstrap.py
+# services_bootstrap/_container.py
 @dataclass
 class Services:
-    # Route-facing: ISP protocols (19 fields)
-    reports: SubmissionOperations | None = None          # was ReportsSubmissionOperations
-    report_feedback: EntryReportOperations | None = None    # was ReportsFeedbackOperations
+    # Route-facing: ISP protocols
+    report_feedback: EntryReportOperations | None = None
     calendar: CalendarServiceOperations | None = None
     graph_auth: GraphAuthOperations | None = None
 

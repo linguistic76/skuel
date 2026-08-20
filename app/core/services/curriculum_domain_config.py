@@ -43,6 +43,7 @@ from core.services.relationships import UnifiedRelationshipService
 
 if TYPE_CHECKING:
     from core.ports import EventBusOperations
+    from core.ports.curriculum_protocols import KuOperations, LpOperations
     from core.services.lp.lp_core_service import LpCoreService
     from core.services.lp.lp_intelligence_service import LpIntelligenceService
     from core.services.lp.lp_progress_service import LpProgressService
@@ -84,7 +85,7 @@ class CurriculumCommonSubServices(Generic[T_Intelligence]):
 
 
 def create_curriculum_sub_services(
-    backend: Any,
+    backend: "KuOperations",
     graph_intel: Any,
     event_bus: Any = None,
 ) -> CurriculumCommonSubServices[KuIntelligenceService]:
@@ -132,6 +133,12 @@ def create_curriculum_sub_services(
 
 
 def create_ps_sub_services(
+    # boundary: ps-backend-row-drift — CANNOT be typed today. `PsOperations` is the
+    # obvious name, but `x: PsOperations = PsBackend(...)` fails a satisfiability
+    # probe with 5 signature conflicts (row-type drift: the protocol promises
+    # TypedDicts, the adapter returns untyped rows and never casts). Typing it
+    # `PsOperations` would declare something the real object does not satisfy.
+    # Blocked on fixing that drift — tracked separately, NOT on this parameter.
     backend: Any,
     _chunking_service: Any | None,
     graph_intel: Any,
@@ -261,7 +268,7 @@ class LpSubServices:
 
 
 def create_lp_sub_services(
-    backend: Any,
+    backend: "LpOperations",
     ps_service: "PsService",
     graph_intel: Any,
     event_bus: "EventBusOperations | None" = None,

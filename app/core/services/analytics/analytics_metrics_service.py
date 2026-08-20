@@ -32,7 +32,7 @@ Part of the 4-service Analytics architecture:
 import contextlib
 from collections import Counter
 from datetime import date
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from core.constants import QueryLimit
 from core.models.enums import EntityStatus, PrincipleStrength
@@ -45,6 +45,11 @@ from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTI
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_current_substance, get_theme_count
+
+if TYPE_CHECKING:
+    from core.ports.cross_domain_protocols import CrossDomainBackendOperations
+    from core.ports.query_types import JournalEntryRow
+
 
 logger = get_logger(__name__)
 
@@ -73,7 +78,7 @@ class AnalyticsMetricsService:
         content_enrichment=None,
         ku_service=None,
         lp_service=None,
-        cross_domain_backend=None,
+        cross_domain_backend: "CrossDomainBackendOperations | None" = None,
     ) -> None:
         """
         Initialize with domain and layer services.
@@ -1118,11 +1123,8 @@ class AnalyticsMetricsService:
 
     async def _get_journal_reports(
         self, user_uid: UserUID, start_date: date, end_date: date
-    ) -> list[dict[str, Any]]:
-        """
-        Get journal Report nodes for a user within a date range.
-
-        ADDED (January 2026): Direct query to Report nodes for journal metrics.
+    ) -> list["JournalEntryRow"]:
+        """Journal source entries for a user within a date range.
 
         Args:
             user_uid: User identifier
@@ -1130,7 +1132,9 @@ class AnalyticsMetricsService:
             end_date: End of date range
 
         Returns:
-            List of journal report dictionaries
+            The backend's typed rows, unchanged. The projection (and the
+            alias-drift guard that goes with it) lives in the backend's
+            processor — re-projecting here would be a second copy to drift.
         """
         from datetime import datetime
 
@@ -1152,22 +1156,7 @@ class AnalyticsMetricsService:
                 logger.warning(f"Failed to query journal assignments: {result.error}")
                 return []
 
-            from core.utils.neo4j_props import parse_neo4j_json
-
-            journals = []
-            for record in result.value:
-                metadata = parse_neo4j_json(record["metadata"], default={})
-
-                journals.append(
-                    {
-                        "uid": record["uid"],
-                        "processed_content": record["processed_content"] or "",
-                        "metadata": metadata or {},
-                        "created_at": record["created_at"],
-                    }
-                )
-
-            return journals
+            return result.value
 
         except NEO4J_EXCEPTIONS as e:
             logger.warning(f"Failed to query journal assignments: {e}")

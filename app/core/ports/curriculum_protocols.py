@@ -326,6 +326,35 @@ class KuInteractionOperations(Protocol):
 
 
 @runtime_checkable
+@runtime_checkable
+class KnowledgeContextOperations(Protocol):
+    """PS-oriented knowledge-context reads over a set of source UIDs.
+
+    Service consumer: ContextRetriever (Askesis bundle assembly)
+    Implementation: the ``_KnowledgeContextMixin`` half of ``PsBackend``
+
+    A deliberately narrow slice, not ``PsOperations``: the retriever calls
+    exactly these two reads, and the wider protocol carries row-type drift
+    that has nothing to do with them.
+
+    Note the batch shape — ``get_cited_resources`` here takes a LIST of source
+    UIDs, unlike the single-UID ``KuOperations.get_cited_resources``. The two
+    are separate implementations on purpose; see that method's docstring.
+    """
+
+    async def get_cited_resources(
+        self, source_uids: list[str], limit: int = 20
+    ) -> Result[list[Neo4jProperties]]:
+        """Curated Resources cited by any of the given sources via CITES_RESOURCE."""
+        ...
+
+    async def get_ku_lateral_edges(
+        self, ku_uids: list[str], limit: int = 20
+    ) -> Result[list[Neo4jProperties]]:
+        """Ku↔Ku lateral edges touching any of the given KUs, either endpoint."""
+        ...
+
+
 class KuOperations(BackendOperations["Ku"], Protocol):
     """
     Knowledge Unit (KU) specific operations.

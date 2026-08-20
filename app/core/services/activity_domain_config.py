@@ -43,7 +43,6 @@ Reason: Consolidate repetitive facade initialization (~480 lines reduction)
 from dataclasses import dataclass
 from typing import Any, Generic, Protocol, TypeVar
 
-# Domain configs (direct from registry — no intermediate translation)
 from core.models.relationship_registry import (
     CHOICES_CONFIG,
     EVENTS_CONFIG,
@@ -52,6 +51,9 @@ from core.models.relationship_registry import (
     PRINCIPLES_CONFIG,
     TASKS_CONFIG,
 )
+
+# Domain configs (direct from registry — no intermediate translation)
+from core.ports.base_protocols import BackendOperations
 from core.services.choices import ChoicesCoreService, ChoicesSearchService
 from core.services.choices.choice_event_handler_service import ChoiceEventHandlerService
 from core.services.choices.choices_learning_service import ChoicesLearningService
@@ -261,7 +263,12 @@ _VALID_SKIP_NAMES = frozenset({"core", "search", "relationships"})
 
 def create_common_sub_services(
     domain: str,
-    backend: Any,
+    # boundary: cross-domain-factory — the type ARGUMENT is genuinely
+    # heterogeneous (this one factory builds sub-services for all 6 activity
+    # domains, each with a different entity type). The protocol itself is NOT
+    # Any: method names and arity are checked, and all 6 callers pass a typed
+    # *Operations backend, verified by deliberate break.
+    backend: BackendOperations[Any],
     graph_intel: Any,
     event_bus: Any = None,
     insight_store: Any = None,

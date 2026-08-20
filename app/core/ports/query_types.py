@@ -2015,6 +2015,38 @@ class PsTaughtKuUidRow(TypedDict):
     ku_uid: str
 
 
+class JournalEntryMetadata(TypedDict):
+    """The metadata map projected by get_journal_entries_in_range().
+
+    Built by the query as a Cypher map literal, so the three keys always exist
+    on the row even when the underlying UserEntry left them null.
+    """
+
+    title: str | None
+    summary: str | None
+    themes: list[str] | None
+
+
+class JournalEntryRow(TypedDict):
+    """Row shape for get_journal_entries_in_range() — one row per source entry.
+
+    The audio SOURCE of the journal flow: `:UserEntry` with
+    `pipeline='transcribe_and_structure'`. The LLM-structured child is
+    deliberately excluded, so `processed_content` is the transcript
+    (coalesced with `content`), not the structured output.
+
+    Projected by a processor that indexes each alias, so a renamed RETURN alias
+    raises at the boundary rather than reaching the analytics consumer as a
+    missing key — which reads as "this learner wrote nothing", the same silent
+    zero this area keeps producing.
+    """
+
+    uid: str
+    processed_content: str
+    metadata: JournalEntryMetadata
+    created_at: str
+
+
 class UserKnowledgeChannelRow(TypedDict):
     """Row shape for get_user_knowledge_channels() — one row per activity.
 

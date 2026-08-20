@@ -63,6 +63,13 @@ class LearningRecommendationEngine:
     def __init__(
         self,
         state_analyzer: LearningStateAnalyzer,
+        # Deliberately untyped (Scope C, ruled 2026-08-20). The ONLY call on this
+        # handle is ``find_paths_for_user``, which is defined nowhere in the repo —
+        # never-wired since the initial commit, not orphaned (``git log -S``). The
+        # call raises AttributeError, is swallowed below as "Learning backend
+        # unavailable", and recommend_learning_paths therefore always returns [].
+        # Naming a protocol here turns that into a mypy error whose only honest fix
+        # is to BUILD the backend method, which is a feature decision, not a retype.
         learning_backend: Any | None = None,
         event_bus: Any | None = None,
         user_service: Any | None = None,
