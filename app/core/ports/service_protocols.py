@@ -43,6 +43,9 @@ from core.ports.query_types import (
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
+    from core.models.auth.auth_event import AuthEvent
+    from core.models.auth.password_reset_token import PasswordResetToken
+    from core.models.auth.session import Session
     from core.models.enums import UserRole
     from core.models.event.calendar_models import CalendarData, CalendarItem, CalendarView
     from core.models.event.event_dto import EventDTO
@@ -411,7 +414,7 @@ class GraphAuthOperations(Protocol):
     async def admin_generate_reset_token(
         self,
         user_uid: UserUID,
-        admin_uid: str,
+        admin_uid: UserUID,
         ip_address: str = "unknown",
         user_agent: str = "unknown",
     ) -> Result[str]:
@@ -422,7 +425,7 @@ class GraphAuthOperations(Protocol):
         """Send password reset email. Always returns ok(True) to prevent enumeration."""
         ...
 
-    async def validate_session_uid(self, session_token: str) -> Result[str | None]:
+    async def validate_session_uid(self, session_token: str) -> Result[UserUID | None]:
         """Validate session token and return user UID (fast path, no user fetch)."""
         ...
 
@@ -449,6 +452,76 @@ class SessionInvalidationOperations(Protocol):
 
     async def deactivate_user_and_revoke_sessions(self, user_uid: UserUID) -> Result[int]:
         """Atomically set the user inactive AND revoke every live session."""
+        ...
+
+
+@runtime_checkable
+class SessionBackendOperations(Protocol):
+    """Session, auth-event and reset-token persistence for authentication.
+
+    Service consumer: GraphAuthService
+    Implementation: SessionBackend
+
+    The sign-in half of the auth backend, kept separate from the revocation
+    half (``SessionInvalidationOperations``) because the two have different
+    consumers — this one is the service that mints sessions, that one is the
+    kill switch UserService reaches for on a privilege change.
+
+    Rate limiting is a graph query, not in-memory state: ``is_account_locked``
+    and ``is_ip_rate_limited`` both count recent failed ``AuthEvent`` nodes, so
+    the limit survives a restart and holds across processes.
+
+    See: /docs/patterns/BACKEND_OPERATIONS_ISP.md
+    """
+
+    async def create_session(self, session: "Session") -> Result["Session"]:
+        """Persist a new session."""
+        ...
+
+    async def get_session_by_token(self, session_token: str) -> Result["Session | None"]:
+        """Fetch a session by its token value."""
+        ...
+
+    async def validate_session_token(
+        self, session_token: str, batch_interval_seconds: int = 300
+    ) -> Result[UserUID | None]:
+        """Validate a token and return its user UID, touching ``last_active``.
+
+        ``batch_interval_seconds`` throttles the touch write so a burst of
+        requests on one session does not become a write per request.
+        """
+        ...
+
+    async def invalidate_session(self, session_token: str) -> Result[bool]:
+        """Invalidate one session (sign-out)."""
+        ...
+
+    async def invalidate_all_user_sessions(self, user_uid: UserUID) -> Result[int]:
+        """Invalidate every live session for a user. Returns the count revoked."""
+        ...
+
+    async def log_auth_event(self, event: "AuthEvent") -> Result["AuthEvent"]:
+        """Record an authentication event — the substrate rate limiting counts."""
+        ...
+
+    async def is_account_locked(self, email: str) -> Result[bool]:
+        """Whether failed attempts for this email exceed the lockout threshold."""
+        ...
+
+    async def is_ip_rate_limited(self, ip_address: str) -> Result[bool]:
+        """Whether failed attempts from this IP exceed the per-IP threshold."""
+        ...
+
+    async def create_reset_token(self, token: "PasswordResetToken") -> Result["PasswordResetToken"]:
+        """Persist a password-reset token."""
+        ...
+
+    async def get_reset_token(self, token_value: str) -> Result["PasswordResetToken | None"]:
+        """Fetch a reset token by its value."""
+        ...
+
+    async def mark_reset_token_used(self, token_value: str) -> Result[bool]:
+        """Mark a reset token consumed so it cannot be replayed."""
         ...
 
 

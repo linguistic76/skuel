@@ -94,8 +94,12 @@ def _graph_auth_with_backend_doubles(
     *,
     ip_limited: bool = False,
     account_locked: bool = False,
-) -> tuple[GraphAuthService, MagicMock]:
-    """Build a GraphAuthService whose session_backend reports the given throttle state."""
+) -> tuple[GraphAuthService, MagicMock, MagicMock]:
+    """Build a GraphAuthService whose session_backend reports the given throttle state.
+
+    Returns the two backend doubles alongside the service: assertions read them
+    directly rather than through ``service.<handle>``, which now names a protocol.
+    """
     session_backend = MagicMock()
     session_backend.is_ip_rate_limited = AsyncMock(return_value=Result.ok(ip_limited))
     session_backend.is_account_locked = AsyncMock(return_value=Result.ok(account_locked))
@@ -109,7 +113,7 @@ def _graph_auth_with_backend_doubles(
     service.session_backend = session_backend
     service.user_backend = user_backend
     service.logger = MagicMock()
-    return service, session_backend
+    return service, session_backend, user_backend
 
 
 @pytest.mark.asyncio
@@ -119,7 +123,7 @@ async def test_sign_in_blocked_when_ip_throttled():
     Order matters: blocking before find_by keeps the response indistinguishable
     for valid vs invalid emails from a throttled IP (no user-enumeration channel).
     """
-    service, session_backend = _graph_auth_with_backend_doubles(ip_limited=True)
+    service, session_backend, user_backend = _graph_auth_with_backend_doubles(ip_limited=True)
 
     result = await service.sign_in(
         email="anyone@example.com",
@@ -133,12 +137,12 @@ async def test_sign_in_blocked_when_ip_throttled():
     # Account-locked branch must NOT have been reached
     session_backend.is_account_locked.assert_not_called()
     # And we must NOT have queried for the user (enumeration prevention)
-    service.user_backend.find_by.assert_not_called()
+    user_backend.find_by.assert_not_called()
 
 
 @pytest.mark.asyncio
 async def test_sign_in_proceeds_to_account_check_when_ip_clean():
-    service, session_backend = _graph_auth_with_backend_doubles(ip_limited=False)
+    service, session_backend, _user_backend = _graph_auth_with_backend_doubles(ip_limited=False)
 
     await service.sign_in(
         email="anyone@example.com",
@@ -157,7 +161,7 @@ async def test_sign_in_with_unknown_ip_skips_throttle_check_at_backend_level():
     graph_auth still calls is_ip_rate_limited("unknown"); the backend returns False
     without a DB hit. Encodes the contract.
     """
-    service, session_backend = _graph_auth_with_backend_doubles(ip_limited=False)
+    service, session_backend, _user_backend = _graph_auth_with_backend_doubles(ip_limited=False)
 
     await service.sign_in(
         email="anyone@example.com",

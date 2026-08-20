@@ -196,7 +196,7 @@ class SessionBackend(Neo4jSessionRunner):
     @safe_backend_operation("validate_session_token")
     async def validate_session_token(
         self, session_token: str, batch_interval_seconds: int = 300
-    ) -> Result[str | None]:
+    ) -> Result[UserUID | None]:
         """Validate a session token and touch last_active in ONE round trip.
 
         THE per-request auth query (AuthContextMiddleware runs it for every
@@ -219,7 +219,7 @@ class SessionBackend(Neo4jSessionRunner):
                 touches (default: 300 = 5 minutes)
 
         Returns:
-            Result[str | None]: user_uid if the session is live, None otherwise
+            Result[UserUID | None]: user_uid if the session is live, None otherwise
         """
         token_hash = hash_session_token(session_token)
         query = """
@@ -239,7 +239,7 @@ class SessionBackend(Neo4jSessionRunner):
             query, {"token_hash": token_hash, "interval": batch_interval_seconds}
         )
 
-        return Result.ok(record["user_uid"] if record else None)
+        return Result.ok(UserUID(record["user_uid"]) if record else None)
 
     @safe_backend_operation("invalidate_session")
     async def invalidate_session(self, session_token: str) -> Result[bool]:
