@@ -50,8 +50,8 @@ surviving marker of an intended feature, and deletion was explicitly ruled out.
 
 ## Has ZPD absorbed this? (investigated 2026-08-20)
 
-**Verdict: No — and by design it never will. But coverage of the *function* is
-partial, and the gap is precisely nameable.**
+**Verdict: No — and by design it never will. Coverage of the *function* is
+partial and conditional, and the gap is precisely nameable.**
 
 ZPD never names a LearningPath:
 
@@ -72,11 +72,18 @@ ZPD never names a LearningPath:
 **What IS covered (the partial part):**
 
 - The phantom's only wired trigger — next-path guidance after
-  `LearningPathCompleted` — is functionally served at Ku grain: completing a
-  path moves its Kus into the current zone, and proximal expansion crosses
-  path boundaries via PREREQUISITE_FOR / ENABLES / COMPLEMENTARY_TO edges, so
-  the learner is pulled into adjacent territory (which may belong to other
-  LPs) without any LP ever being named.
+  `LearningPathCompleted` — is *conditionally* served at Ku grain, and the
+  condition matters (measured; Codex finding on PR #1103): ZPD's current zone
+  is built from engagement edges only (Task/UserEntry `APPLIES_KNOWLEDGE`,
+  Habit `REINFORCES_KNOWLEDGE` — `zpd_backend.py`); it reads neither
+  `MASTERED` nor path completion, while LP completion itself is computed from
+  `(User)-[:MASTERED]->(Ku)` (`_lp_progress_mixin.py`). In the normal learning
+  loop the same work that earns mastery also lays engagement edges, and
+  proximal expansion then crosses path boundaries via PREREQUISITE_FOR /
+  ENABLES / COMPLEMENTARY_TO, pulling the learner into adjacent territory
+  without any LP being named. But a learner whose mastered Kus lack activity
+  edges gets no onward pull — coverage is mediated by engagement, not
+  guaranteed by completion.
 - Step-grain, state-keyed recommendation is live and real:
   `UserContextIntelligence.get_optimal_next_path_steps()` (ZPD as primary
   signal) and `LpIntelligenceService.get_recommended_path_steps()`
@@ -118,16 +125,22 @@ squarely parked by the phase directive.
 
 ## What building it means
 
-1. **Contract: neither existing shape survives.** The codebase norm for
-   recommendations is frozen dataclasses (`ContentRecommendation`,
-   `LpRecommendation`, `LpRecommendedStep` are all frozen). The
-   `LP_INTELLIGENCE.md` § "Method 3" **dict** spec loses to that norm, and the
-   caller's mutation (`rec.path.tags`, `rec.relevance_score *= 1.5`,
-   `rec.reason = ...`) contradicts frozenness — the enhancement loop must be
-   rewritten to recompute-and-rebuild (`dataclasses.replace`), not mutate.
-   Build a frozen path-recommendation dataclass with a flat `lp_uid` (no
-   nested mutable `.path`). `get_user_progress_summary` wants whatever
-   `ProgressSummary` is.
+1. **Contract: neither existing shape survives — decided on the core-domain
+   norm, not on local precedent.** ⚠ Measured (Codex finding on PR #1103):
+   the existing recommendation types are NOT uniformly frozen —
+   `LpRecommendation` is `@dataclass(frozen=True)`, but `ContentRecommendation`
+   is a mutable `@dataclass` (`core/services/lp_intelligence/types.py`) and
+   `LpRecommendedStep` is a `TypedDict` (`core/ports/query_types.py`); the
+   engine docstring's "Returns frozen dataclasses for recommendations" is
+   itself fiction. The justification for a frozen contract is the core-domain
+   norm (Type System: frozen dataclasses at the core; `Entity` itself is
+   frozen) plus the one live LP-recommendation precedent (`LpRecommendation`).
+   On that basis the `LP_INTELLIGENCE.md` § "Method 3" **dict** spec loses,
+   and the caller's mutation (`rec.path.tags`, `rec.relevance_score *= 1.5`,
+   `rec.reason = ...`) gets rewritten to recompute-and-rebuild
+   (`dataclasses.replace`), not mutate. Build a frozen path-recommendation
+   dataclass with a flat `lp_uid` (no nested mutable `.path`).
+   `get_user_progress_summary` wants whatever `ProgressSummary` is.
 2. Declare them on the right ports — `find_paths_for_user` on `LpOperations`
    (at runtime `learning_backend` IS the LP backend:
    `LpIntelligenceService.__init__` passes `self.backend`), and
