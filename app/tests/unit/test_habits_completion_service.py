@@ -17,6 +17,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
+from core.constants import QueryLimit
 from core.models.enums import Priority, RecurrencePattern
 from core.models.enums.entity_enums import EntityStatus as HabitStatus
 from core.models.enums.entity_enums import EntityType
@@ -402,7 +403,7 @@ class TestCompletionScoping:
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
         "method",
-        ["get_today_completions", "get_badge_progress", "export_completion_history"],
+        ["get_today_completions", "export_completion_history"],
     )
     async def test_user_scoped_reads_filter_by_user_uid(
         self,
@@ -433,6 +434,68 @@ class TestCompletionScoping:
             assert call.kwargs.get("user_uid") == "user_mike", (
                 f"{method} must scope :HabitCompletion by user_uid"
             )
+
+    @pytest.mark.asyncio
+    async def test_export_pages_past_the_first_bulk_limit(
+        self,
+        completion_service,
+        mock_completions_backend,
+        mock_habits_backend,
+        sample_habit_dto,
+        sample_completion,
+    ):
+        """An export must walk every page, not stop at the first.
+
+        The old per-habit loop gave each habit its own BULK limit, so a user with
+        two 600-completion habits exported all 1,200. Collapsing to one
+        user-scoped query collapsed those N limits into one, which would silently
+        truncate a history export at 1,000 with no indication it was partial.
+        """
+        full_page = [sample_completion] * QueryLimit.BULK
+        remainder = [sample_completion] * 7
+        mock_habits_backend.find_by.return_value = Result.ok([Habit.from_dto(sample_habit_dto)])
+        mock_completions_backend.find_by.side_effect = [
+            Result.ok(full_page),
+            Result.ok(remainder),
+        ]
+
+        result = await completion_service.export_completion_history(
+            user_uid="user_mike", format="json"
+        )
+
+        assert result.is_ok
+        assert mock_completions_backend.find_by.await_count == 2, "export stopped after one page"
+        offsets = [c.kwargs.get("offset") for c in mock_completions_backend.find_by.await_args_list]
+        assert offsets == [0, QueryLimit.BULK], f"unexpected paging offsets: {offsets}"
+
+    @pytest.mark.asyncio
+    async def test_badge_quality_is_counted_in_cypher_not_fetched(
+        self,
+        completion_service,
+        mock_completions_backend,
+        mock_habits_backend,
+        sample_habit_dto,
+    ):
+        """The quality badge count must not come from a limited row fetch.
+
+        The threshold is 100 high-quality completions. Any `find_by(..., limit=N)`
+        caps the count at N before quality is evaluated, so the badge becomes
+        unreachable for a user who has earned it. The count is an owner-scoped
+        Cypher aggregate — the one the :OWNS edge in this PR makes correct.
+        """
+        mock_habits_backend.find_by.return_value = Result.ok([Habit.from_dto(sample_habit_dto)])
+        mock_habits_backend.get_user_badge_stats.return_value = Result.ok(
+            {"high_quality_completions": 250}
+        )
+        mock_completions_backend.find_by.return_value = Result.ok([])
+
+        result = await completion_service.get_badge_progress(user_uid="user_mike")
+
+        assert result.is_ok
+        assert result.value["quality"]["high_quality_count"] == 250, (
+            "quality count came from a row fetch, not the unbounded aggregate"
+        )
+        mock_habits_backend.get_user_badge_stats.assert_awaited_once_with("user_mike")
 
     @pytest.mark.asyncio
     async def test_recorded_completion_carries_its_owner(
@@ -568,6 +631,11 @@ class TestAnalytics:
             completions.append(HabitCompletion.from_dto(comp_dto))
 
         mock_completions_backend.find_by.return_value = Result.ok(completions)
+        # High-quality count is a Cypher aggregate now, not a row fetch — a row
+        # limit cannot count past itself and the badge threshold is 100.
+        mock_habits_backend.get_user_badge_stats.return_value = Result.ok(
+            {"high_quality_completions": len(completions)}
+        )
 
         # Get badge progress
         result = await completion_service.get_badge_progress(user_uid="user_mike")

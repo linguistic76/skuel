@@ -637,20 +637,22 @@ class HabitsCompletionService:
             if habit.is_identity_based():
                 total_identity_votes += habit.identity_votes_cast
 
-        all_completions = await self.completions_backend.find_by(
-            user_uid=user_uid, limit=QueryLimit.COMPREHENSIVE
-        )
-        if all_completions.is_error:
-            return Result.fail(all_completions)
-        high_quality_completions = sum(1 for c in all_completions.value if c.is_high_quality())
+        # Counted in Cypher, not by fetching rows: the quality badge threshold is
+        # 100 and any row limit here silently caps the count below it. This is the
+        # `(user)-[:OWNS]->(:HabitCompletion)` aggregate that the owner field added
+        # in this PR makes correct for the first time.
+        stats_result = await self.habits_backend.get_user_badge_stats(user_uid)
+        if stats_result.is_error:
+            return Result.fail(stats_result)
+        raw_hq = stats_result.value.get("high_quality_completions", 0)
+        high_quality_completions = int(raw_hq) if isinstance(raw_hq, int | float) else 0
 
         # Fetch persisted badges to get earned_at dates
         earned_badge_ids: set[str] = set()
-        if isinstance(self.habits_backend, HabitsOperations):
-            badges_result = await self.habits_backend.get_user_badges(user_uid)
-            if badges_result.is_ok:
-                for badge_record in badges_result.value:
-                    earned_badge_ids.add(neo4j_str(badge_record, "badge_id", ""))
+        badges_result = await self.habits_backend.get_user_badges(user_uid)
+        if badges_result.is_ok:
+            for badge_record in badges_result.value:
+                earned_badge_ids.add(neo4j_str(badge_record, "badge_id", ""))
 
         def _badge_entry(badge_id: str, current: int | float, target: int) -> dict[str, Any]:
             """Build badge progress dict, marking as unlocked if persisted OR threshold met."""
@@ -722,13 +724,26 @@ class HabitsCompletionService:
         if end_date:
             date_filters["completed_at__lte"] = datetime.combine(end_date, datetime.max.time())
 
-        result = await self.completions_backend.find_by(
-            user_uid=user_uid, **date_filters, limit=QueryLimit.BULK
-        )
-        if result.is_error:
-            return Result.fail(result)
+        # Paginated: an export that silently stops at one page is indistinguishable
+        # from a complete history. Collapsing the old per-habit loop into one query
+        # also collapsed N separate limits into one, so the page has to be walked.
+        completions: list[HabitCompletion] = []
+        offset = 0
+        while True:
+            page = await self.completions_backend.find_by(
+                user_uid=user_uid,
+                **date_filters,
+                limit=QueryLimit.BULK,
+                offset=offset,
+            )
+            if page.is_error:
+                return Result.fail(page)
+            completions.extend(page.value)
+            if len(page.value) < QueryLimit.BULK:
+                break
+            offset += QueryLimit.BULK
 
-        completions = sorted(result.value, key=get_completed_at)
+        completions.sort(key=get_completed_at)
 
         if format == "csv":
             return self._export_csv(completions)
