@@ -705,6 +705,18 @@ class RevisedExerciseBackend(UniversalNeo4jBackend["RevisedExercise"]):
 
     @staticmethod
     def _to_revised_exercises(
+        # boundary: neo4j-node-row — mirrors execute_query's own
+        # `Result[list[dict[str, Any]]]`. NOT `Neo4jProperties`: that type says the
+        # row's values are scalars, and a `RETURN re` row's value is a graph Node.
+        # Declaring it as scalars is the exact false declaration these two queries
+        # used to carry (it is what made the model rebuild a type error), and it
+        # does not compile here either — `dict(record["re"])` on a scalar union is
+        # an arg-type error. A TypedDict `{re: Node}` names the shape honestly but
+        # buys it with a `cast` at both call sites, since Result and list are each
+        # invariant, so it would trade a checked heterogeneous value for two
+        # unchecked assertions. The `Any` is genuinely heterogeneous; the value is
+        # narrowed one line later by `from_neo4j_node`, which is where the real
+        # contract lives.
         result: Result[list[dict[str, Any]]],
     ) -> Result[list[RevisedExercise]]:
         """Map ``RETURN re`` rows to entities the way every other read does.
