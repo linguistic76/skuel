@@ -676,14 +676,22 @@ section above.
 `generate_prerequisite_relationships` **has** the `RelationshipName` enums and
 discards them to strings — `[rel.value for rel in
 config.prerequisite_relationship_names]` (`core/models/relationship_registry.py:2519`).
-Three sites hold the downgraded `list[str]` form: the generator's return type
-(`relationship_registry.py:2505`), `_prerequisite_relationships:
-ClassVar[list[str]]` on `BaseService` (`core/services/base_service.py:570`),
-and the mixin's declaration (`core/services/mixins/context_operations_mixin.py:69`).
+**Four** sites hold the downgraded `list[str]` form (Codex on PR #1105 caught
+the fourth after this register first said three — the enumerate-every-site
+lesson, live): the generator's return type (`relationship_registry.py:2505`),
+`_prerequisite_relationships: ClassVar[list[str]]` on `BaseService`
+(`core/services/base_service.py:570`), the context mixin's declaration
+(`core/services/mixins/context_operations_mixin.py:69`), and the relationship
+mixin's declaration (`core/services/mixins/relationship_operations_mixin.py:75`)
+— the last also holds PR #1102's conversion chokepoint,
+`RelationshipName(self._prerequisite_relationships[0])` (~`:319`), which a
+chain conversion would retire. The chain's *sources* are `DomainConfig`'s
+string tuples (`core/services/domain_config.py:385`, `:449`–`:471`).
 PR #1102 made `add_relationship` enum-only and localized the conversion to the
 ONE place a config value becomes an edge type; converting the whole chain is
-the remaining cleanup — bounded, but it touches `domain_config.py` and the
-context mixin's query paths, so **measure before scoping**.
+the remaining cleanup — bounded, but it touches `domain_config.py` and both
+mixins' query paths, so **measure before scoping, and re-run this census at
+scoping time rather than trusting it**.
 ⚠️ `generate_enables_relationships` (`relationship_registry.py:2536`) is the
 same shape and was never examined — enumerate both before fixing either.
 
