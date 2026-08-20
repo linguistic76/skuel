@@ -99,7 +99,7 @@ class RelationshipOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
     async def add_relationship(
         self,
         from_uid: str,
-        rel_type: str | RelationshipName,
+        rel_type: RelationshipName,
         to_uid: str,
         properties: dict[str, Any] | None = None,
     ) -> Result[bool]:
@@ -121,37 +121,18 @@ class RelationshipOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         Returns:
             Result[bool]: True if relationship was created successfully
         """
-        if not all([from_uid, rel_type, to_uid]):
-            return Result.fail(
-                Errors.validation(
-                    message="from_uid, rel_type, and to_uid are required", field="relationship"
-                )
-            )
-
-        # Convert string to RelationshipName if needed
-        if isinstance(rel_type, str):
-            try:
-                relationship_type = RelationshipName[rel_type]
-            except KeyError:
-                # Try with the value directly (supports both "APPLIES_KNOWLEDGE" lookup)
-                try:
-                    relationship_type = RelationshipName(rel_type)
-                except ValueError:
-                    return Result.fail(
-                        Errors.validation(
-                            message=f"Unknown relationship type: {rel_type}",
-                            field="rel_type",
-                        )
-                    )
-        else:
-            relationship_type = rel_type
-
-        # Through the builder, so it is the ONE thing in core/ that calls
-        # backend.add_relationship. This wrapper keeps its string-accepting
-        # signature because it is protocol-declared (base_service_interface.py);
-        # new code should reach for `relate(...)` directly and skip the runtime
-        # conversion above entirely.
-        edge = relate(self.backend, from_uid).via(relationship_type).to(to_uid)
+        # Service-to-service delegation to the builder, which is the ONE thing in
+        # core/ that calls backend.add_relationship. This wrapper exists because a
+        # service must be able to write an edge through ANOTHER service without
+        # being handed its backend (UserEntryProcessingService holds a
+        # UserEntryService, not a backend) — deleting it would push callers into
+        # reaching for `other_service.backend`, which is worse than what it costs.
+        #
+        # The string overload is GONE, and with it the runtime `RelationshipName[...]`
+        # / `RelationshipName(...)` fallback that could fail at call time, plus the
+        # `if not all(...)` guard that only existed to catch an empty rel_type. An
+        # enum cannot be empty and cannot be misspelled.
+        edge = relate(self.backend, from_uid).via(rel_type).to(to_uid)
         if properties:
             edge = edge.with_properties(**properties)
         return await edge.create()
@@ -330,8 +311,22 @@ class RelationshipOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         if validation.is_error:
             return Result.fail(validation)
 
-        # Use first prerequisite relationship type
-        rel_type = self._prerequisite_relationships[0]
+        # `_prerequisite_relationships` is config-derived and still holds strings
+        # (DomainConfig stores them that way). Convert once, here, where a config
+        # value becomes an edge type — rather than leaving a general string door
+        # open on `add_relationship` for every caller.
+        try:
+            rel_type = RelationshipName(self._prerequisite_relationships[0])
+        except ValueError:
+            return Result.fail(
+                Errors.validation(
+                    message=(
+                        "Configured prerequisite relationship "
+                        f"'{self._prerequisite_relationships[0]}' is not a RelationshipName"
+                    ),
+                    field="_prerequisite_relationships",
+                )
+            )
 
         return await self.add_relationship(
             from_uid=entity_uid,
