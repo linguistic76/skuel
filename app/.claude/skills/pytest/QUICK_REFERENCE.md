@@ -106,7 +106,7 @@ async def test_create_roundtrip(tasks_backend, clean_neo4j):
 
 ```python
 from tests.fixtures.service_factories import create_mock_backend, create_mock_driver, create_tasks_service_for_testing
-from tests.helpers.fluent_mocks import create_fluent_relationship_mock, create_fluent_relationship_mock_with_sequence
+from core.services.relationship_builder import relate  # mock backend.add_relationship, not a chain
 
 backend = create_mock_backend({"get": Result.ok(task)})   # AsyncMock CRUD with Result defaults
 service = create_tasks_service_for_testing(backend=backend)

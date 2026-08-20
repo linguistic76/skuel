@@ -42,6 +42,7 @@ from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID
 from core.ports import BackendOperations
 from core.ports.base_protocols import Direction
+from core.services.relationship_builder import relate
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
 
@@ -145,12 +146,15 @@ class RelationshipOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         else:
             relationship_type = rel_type
 
-        return await self.backend.add_relationship(
-            from_uid=from_uid,
-            to_uid=to_uid,
-            relationship_type=relationship_type,
-            properties=properties,
-        )
+        # Through the builder, so it is the ONE thing in core/ that calls
+        # backend.add_relationship. This wrapper keeps its string-accepting
+        # signature because it is protocol-declared (base_service_interface.py);
+        # new code should reach for `relate(...)` directly and skip the runtime
+        # conversion above entirely.
+        edge = relate(self.backend, from_uid).via(relationship_type).to(to_uid)
+        if properties:
+            edge = edge.with_properties(**properties)
+        return await edge.create()
 
     async def get_relationships(
         self,

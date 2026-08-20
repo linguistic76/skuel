@@ -120,37 +120,38 @@ backend.get = AsyncMock(return_value=Result.ok(task))
 result = await service.create(task_data)  # Works!
 ```
 
-## Fluent API Mocking
+## Fluent Relationship Builder — nothing special to mock
 
-SKUEL uses fluent relationship builders. Use helper for chaining:
-
-```python
-from tests.helpers.fluent_mocks import create_fluent_relationship_mock
-
-# Create mock that supports fluent chaining
-backend.relate = create_fluent_relationship_mock()
-
-# Test code can now use fluent API:
-result = await backend.relate() \
-    .from_node("task:123") \
-    .via("REQUIRES_KNOWLEDGE") \
-    .to_node("ku.python.async") \
-    .create()
-
-assert result.is_ok
-```
-
-### Sequential Results
+`core/services/relationship_builder.py` holds no state a test needs to fake: it
+accumulates three values and delegates to `backend.add_relationship`. So mock
+**that**, not the chain.
 
 ```python
-from tests.helpers.fluent_mocks import create_fluent_relationship_mock_with_sequence
+backend.add_relationship = AsyncMock(return_value=Result.ok(True))
 
-backend.relate = create_fluent_relationship_mock_with_sequence([
-    Result.ok(True),   # First call succeeds
-    Result.fail(...),  # Second fails
-    Result.ok(True),   # Third succeeds
-])
+await relate(backend, "task.123").via(
+    RelationshipName.REQUIRES_KNOWLEDGE
+).to("ku.python.async").create()
+
+backend.add_relationship.assert_awaited_once_with(
+    from_uid="task.123",
+    to_uid="ku.python.async",
+    relationship_type=RelationshipName.REQUIRES_KNOWLEDGE,
+    properties=None,
+)
 ```
+
+Sequential results are a plain `side_effect`:
+
+```python
+backend.add_relationship = AsyncMock(side_effect=[Result.ok(True), Result.fail(...)])
+```
+
+⚠️ **The old `tests/helpers/fluent_mocks.py` and `backend.relate()` are DELETED.**
+That was a chain-of-mocks helper for `RelationshipBuilder` in
+`adapters/persistence/neo4j/`, which no service could ever call — it sat below the
+hexagonal boundary and was on no port. It had zero importers, including from the
+one test file written for it.
 
 ## Mocking Event Bus
 
@@ -345,5 +346,4 @@ mock_backend.get.return_value = Result.ok(task)
 ## Key Files
 
 - `/tests/fixtures/service_factories.py` - Mock creation factories
-- `/tests/helpers/fluent_mocks.py` - Fluent API mocking
 - `/core/utils/result_simplified.py` - Result[T] implementation + Errors factory (Errors.not_found, etc.)

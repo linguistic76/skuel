@@ -139,9 +139,12 @@ RelationshipCrudOperations — creating graph edges:
             self.backend = backend
 
         async def link_task_to_goal(self, task_uid: str, goal_uid: str) -> None:
-            await self.backend.add_relationship(
-                task_uid, goal_uid, RelationshipName.FULFILLS_GOAL
-            )
+            # Written through the builder — the one caller of add_relationship
+            # in core/. Source and target sit at different call sites, so they
+            # cannot be swapped; the two adjacent str parameters below could be.
+            await relate(self.backend, task_uid).via(
+                RelationshipName.FULFILLS_GOAL
+            ).to(goal_uid).create()
 
 
 RelationshipQueryOperations — counting edges without loading entities:

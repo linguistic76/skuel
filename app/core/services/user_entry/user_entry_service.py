@@ -55,6 +55,7 @@ from core.models.user_entry.user_entry_request import (
 from core.ports.user_entry_protocols import UserEntryOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
+from core.services.relationship_builder import relate
 from core.services.user_entry.audience_resolver import AudienceResolver, ShareOutcome
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
@@ -325,10 +326,11 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
 
         # 4. Optional TRANSFORMS edge (multi-stage pipelines)
         if request.transforms_of_uid:
-            transforms_result = await self.backend.add_relationship(
-                from_uid=created.uid,
-                to_uid=request.transforms_of_uid,
-                relationship_type=RelationshipName.TRANSFORMS,
+            transforms_result = await (
+                relate(self.backend, created.uid)
+                .via(RelationshipName.TRANSFORMS)
+                .to(request.transforms_of_uid)
+                .create()
             )
             if transforms_result.is_error:
                 self.logger.warning(

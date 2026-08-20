@@ -20,7 +20,6 @@ tests/
 ├── fixtures/
 │   └── service_factories.py    # Mock creation utilities
 ├── helpers/
-│   └── fluent_mocks.py         # Fluent API mocking
 ├── integration/
 │   ├── conftest.py             # TestContainers, backends
 │   └── test_*.py               # Real Neo4j tests

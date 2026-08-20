@@ -190,7 +190,6 @@ class UniversalNeo4jBackend[T: DomainModelProtocol](  # type: ignore[misc]  # Mi
     Architecture:
         - Type Parameter: T must implement DomainModelProtocol (uid, created_at, to_dto, from_dto)
         - Query Building: Uses UnifiedQueryBuilder for all Cypher generation
-        - Relationship API: Fluent RelationshipBuilder for graph operations
         - Error Handling: All methods return Result[T] (never raise exceptions)
 
     Supported Domains:
@@ -265,7 +264,6 @@ class UniversalNeo4jBackend[T: DomainModelProtocol](  # type: ignore[misc]  # Mi
         - DomainModelProtocol: Required interface for all domain models
         - UnifiedQueryBuilder: Query construction and optimization
         - RelationshipRegistry: Valid relationship types per domain
-        - RelationshipBuilder: Fluent API for graph operations
     """
 
     def __init__(
