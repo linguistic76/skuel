@@ -20,7 +20,7 @@ from core.events import publish_event
 from core.models.habit.completion import HabitCompletion
 from core.models.habit.completion_dto import HabitCompletionDTO
 from core.models.habit.habit import Habit
-from core.models.type_hints import UserUID
+from core.models.type_hints import Neo4jValue, UserUID
 from core.ports.base_protocols import BackendOperations
 from core.ports.domain_protocols import HabitsOperations
 from core.ports.infrastructure_protocols import EventBusOperations
@@ -507,6 +507,41 @@ class HabitsCompletionService:
 
         return Result.ok(completions)
 
+    async def _all_completions_for_user(
+        self, user_uid: UserUID, **filters: Neo4jValue
+    ) -> Result[list[HabitCompletion]]:
+        """Every completion matching the filters, walked page by page.
+
+        Two things this exists to get right, both learned the hard way:
+
+        A single ``find_by`` caps at its limit and says nothing about it, so a
+        user past that cap silently gets a partial answer — a wrong number that
+        does not look like a failure.
+
+        Paging needs a DETERMINISTIC order. ``find_by`` emits no ``ORDER BY``
+        unless ``sort_by`` is given, and Neo4j guarantees no row order across
+        separate statements, so ``SKIP``/``LIMIT`` pages could overlap and omit
+        rows while still walking every offset. Sorted by ``uid`` — stable and
+        unique. Callers re-sort by whatever they actually display.
+        """
+        out: list[HabitCompletion] = []
+        offset = 0
+        while True:
+            page = await self.completions_backend.find_by(
+                user_uid=user_uid,
+                **filters,
+                limit=QueryLimit.BULK,
+                sort_by="uid",
+                offset=offset,
+            )
+            if page.is_error:
+                return Result.fail(page)
+            out.extend(page.value)
+            if len(page.value) < QueryLimit.BULK:
+                break
+            offset += QueryLimit.BULK
+        return Result.ok(out)
+
     async def get_today_completions(self, user_uid: UserUID) -> Result[list[dict[str, Any]]]:
         """
         Get all habit completions for today for a user.
@@ -520,11 +555,10 @@ class HabitsCompletionService:
         start_of_day = datetime.combine(today, datetime.min.time())
         end_of_day = datetime.combine(today, datetime.max.time())
 
-        completions_result = await self.completions_backend.find_by(
-            user_uid=user_uid,
+        completions_result = await self._all_completions_for_user(
+            user_uid,
             completed_at__gte=start_of_day,
             completed_at__lte=end_of_day,
-            limit=QueryLimit.COMPREHENSIVE,
         )
         if completions_result.is_error:
             return Result.fail(completions_result)
@@ -724,26 +758,11 @@ class HabitsCompletionService:
         if end_date:
             date_filters["completed_at__lte"] = datetime.combine(end_date, datetime.max.time())
 
-        # Paginated: an export that silently stops at one page is indistinguishable
-        # from a complete history. Collapsing the old per-habit loop into one query
-        # also collapsed N separate limits into one, so the page has to be walked.
-        completions: list[HabitCompletion] = []
-        offset = 0
-        while True:
-            page = await self.completions_backend.find_by(
-                user_uid=user_uid,
-                **date_filters,
-                limit=QueryLimit.BULK,
-                offset=offset,
-            )
-            if page.is_error:
-                return Result.fail(page)
-            completions.extend(page.value)
-            if len(page.value) < QueryLimit.BULK:
-                break
-            offset += QueryLimit.BULK
+        paged = await self._all_completions_for_user(user_uid, **date_filters)
+        if paged.is_error:
+            return Result.fail(paged)
 
-        completions.sort(key=get_completed_at)
+        completions = sorted(paged.value, key=get_completed_at)
 
         if format == "csv":
             return self._export_csv(completions)

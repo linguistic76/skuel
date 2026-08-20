@@ -468,6 +468,44 @@ class TestCompletionScoping:
         offsets = [c.kwargs.get("offset") for c in mock_completions_backend.find_by.await_args_list]
         assert offsets == [0, QueryLimit.BULK], f"unexpected paging offsets: {offsets}"
 
+        # Every page must carry a deterministic order. find_by emits no ORDER BY
+        # without sort_by, and Neo4j guarantees no row order across separate
+        # statements — unordered SKIP/LIMIT pages can overlap AND omit rows while
+        # still walking every offset, so the walk alone is not enough.
+        for call in mock_completions_backend.find_by.await_args_list:
+            assert call.kwargs.get("sort_by"), (
+                "paged read has no sort_by — pages may overlap or omit rows"
+            )
+
+    @pytest.mark.asyncio
+    async def test_today_completions_pages_past_the_first_limit(
+        self,
+        completion_service,
+        mock_completions_backend,
+        mock_habits_backend,
+        sample_habit_dto,
+        sample_completion,
+    ):
+        """Today's read must page too — it had the same global-cap regression.
+
+        The per-habit loop gave each habit its own limit; one user-scoped query
+        collapsed those into a single cap, so a user who bulk-completes more
+        habits than the page size would have completed habits silently omitted
+        and `/api/habits/completed-today-count` would underreport.
+        """
+        mock_habits_backend.get.return_value = Result.ok(Habit.from_dto(sample_habit_dto))
+        mock_completions_backend.find_by.side_effect = [
+            Result.ok([sample_completion] * QueryLimit.BULK),
+            Result.ok([sample_completion] * 3),
+        ]
+
+        result = await completion_service.get_today_completions(user_uid="user_mike")
+
+        assert result.is_ok
+        assert mock_completions_backend.find_by.await_count == 2, (
+            "today's completions stopped after one page"
+        )
+
     @pytest.mark.asyncio
     async def test_badge_quality_is_counted_in_cypher_not_fetched(
         self,
