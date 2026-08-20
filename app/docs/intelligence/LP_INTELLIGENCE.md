@@ -214,6 +214,19 @@ if result.is_ok:
 
 #### Method 3: recommend_learning_paths()
 
+> ⚠️ **NOT IMPLEMENTED — this section is the specification, not a description.**
+> The method exists and is reachable, but it **always returns `Result.ok([])`**.
+> It calls `learning_backend.find_paths_for_user(...)`, which is defined nowhere
+> in the repo and has never been (`git log -S` → the initial commit, no
+> definition ever). The `AttributeError` is swallowed by a handler logging
+> "Learning backend unavailable", so the failure reads as an outage rather than
+> as unbuilt code. Ruled *build, but not now* (2026-08-20) —
+> see `/docs/roadmap/lp-backend-recommendation-methods.md`.
+>
+> The shape below is kept deliberately: it is the closest thing to a contract
+> for the backend method, and whoever builds it should start here. ⚠️ It does
+> **not** match what the caller actually expects — see the roadmap doc.
+
 **Purpose:** Recommend complete learning paths based on user's goals and current knowledge level.
 
 **Signature:**

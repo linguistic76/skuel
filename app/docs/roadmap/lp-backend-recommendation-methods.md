@@ -46,9 +46,16 @@ surviving marker of an intended feature, and deletion was explicitly ruled out.
 
 ## What building it means
 
-1. Decide the contracts. `find_paths_for_user` wants recommendation rows with a
-   `.path` and a mutable `.relevance_score` (the engine re-weights and re-sorts
-   them). `get_user_progress_summary` wants whatever `ProgressSummary` is.
+1. **Reconcile the two contracts that already exist and disagree.**
+   `docs/intelligence/LP_INTELLIGENCE.md` § "Method 3" documents a return shape
+   for this feature — a list of **dicts** with `path_uid`, `title`,
+   `relevance_score`, `estimated_weeks`, `prerequisites_met`, `step_count`,
+   `reason`. The **caller** wants something else: the engine does `rec.path.tags`,
+   `rec.relevance_score *= 1.5` and `rec.reason = ...` — attribute access on an
+   object with a nested `.path`, and a *mutable* relevance score it re-weights
+   before re-sorting. Neither is authoritative yet. Pick one deliberately; do not
+   discover the mismatch halfway through implementing.
+   `get_user_progress_summary` wants whatever `ProgressSummary` is.
 2. Declare them on the right ports — `LpOperations` and
    `UserProgressBackendOperations` respectively. Note the latter currently
    declares 13 methods and none of them is this one.
