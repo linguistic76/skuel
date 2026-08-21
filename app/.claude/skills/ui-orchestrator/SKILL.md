@@ -290,5 +290,5 @@ blocks = [
 ## Related Docs
 
 - [`UI_ORCHESTRATOR_PATTERN.md`](/docs/patterns/UI_ORCHESTRATOR_PATTERN.md) — Pattern definition
-- [`UI_ORCHESTRATION_EXPANSION_PLAN.md`](/docs/roadmap/UI_ORCHESTRATION_EXPANSION_PLAN.md) — Roadmap
+- [`UI_ORCHESTRATION_EXPANSION_PLAN.md`](/docs/roadmap/done/UI_ORCHESTRATION_EXPANSION_PLAN.md) — Roadmap
 - [`DOMAIN_ROUTE_CONFIG_PATTERN.md`](/docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md) — The simpler pattern for single-service CRUD pages

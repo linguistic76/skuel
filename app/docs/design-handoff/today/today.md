@@ -7,7 +7,7 @@
 > state, span-only defer, defer Undo, and no day-lens quick-add). Where the
 > mock and this doc differ, this doc's §3/§5 are current; the day-lens
 > task quick-add is ruled by C6 and the defer protocol by C7 of
-> `docs/roadmap/calendar-act-from-arc.md`.
+> `docs/roadmap/done/calendar-act-from-arc.md`.
 
 ---
 
@@ -134,7 +134,7 @@ Component root: `x-data="today()"` on `<main>`.
 A dual-membership task (overdue AND scheduled on the viewed day) renders one
 card per surface; ALL per-card interaction state is keyed `'source:uid'` so
 acting on one card never touches the other (C7 of
-`docs/roadmap/calendar-act-from-arc.md`).
+`docs/roadmap/done/calendar-act-from-arc.md`).
 
 **Derived:**
 - `fTasks`, `fTriage` — seed tasks/triage minus deferred & completed

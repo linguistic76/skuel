@@ -255,6 +255,13 @@ deployment target).
 
 ---
 
+## 6. CAPTCHA on Sign-Up — open
+
+*(Numbering note, 2026-08-21: this section exists so the body matches the Priority
+table below — the CAPTCHA discussion itself lives in § 2 above, alongside rate
+limiting.)* Trigger unchanged: only if automated sign-up abuse occurs despite the
+invite gate. Verified 2026-08-21: no CAPTCHA/turnstile code anywhere in the tree.
+
 ## 7. HTTP Security Headers Middleware — ✅ DONE (PR #794, 2026-07-24)
 
 Shipped as `SecurityHeadersMiddleware` in `/adapters/inbound/middleware.py`, registered in

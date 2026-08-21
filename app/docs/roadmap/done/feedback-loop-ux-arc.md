@@ -1,6 +1,8 @@
 # Feedback-Loop UX — Design & Choices (Arc 1: fix it, make it legible, thread it)
 
-**Status:** Confirmed — scope picked by the founder 2026-08-01 after workflow elicitation +
+**Status:** COMPLETE — all 4 PRs merged (#902–#905); moved to done/ 2026-08-21 (triage pass
+verified ASSESSMENT_OF retired and /exchange live with all four entry points). Originally
+confirmed — scope picked by the founder 2026-08-01 after workflow elicitation +
 ground-truth verification (live graph + code + authed headless-Chrome pass). Arc 1 covers:
 loop-integrity fixes, feedback legibility, and the exchange thread view. Deferred to a
 follow-up arc: waiting filters (both directions), GradeBook 3→1 collapse, Shared-With-Me

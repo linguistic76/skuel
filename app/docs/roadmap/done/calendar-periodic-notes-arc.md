@@ -7,7 +7,7 @@ verdict, considered and resolved; acceptance verified against live cases per the
 table below. History: the staging gate cleared when the calendar act-from arc
 completed (PRs 1–7 as #913–#917, #919, #920) and the pickup elicitations ran
 2026-08-03 (rulings E1–E4 below). The rulings remain binding on future work.
-**Related:** `docs/roadmap/calendar-act-from-arc.md`, ADR-070 (VaultBridge), ADR-073
+**Related:** `docs/roadmap/done/calendar-act-from-arc.md`, ADR-070 (VaultBridge), ADR-073
 (journals / periodic-note storage), `core/services/user_entry/user_entry_service.py`
 (`ensure_periodic_note`), `core/services/ingestion/user_entry_ingestion.py` (periodic
 UID derivation), `core/services/dsl/activity_extractor.py`, `ui/calendar/components.py`

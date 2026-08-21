@@ -86,8 +86,12 @@ AUTH_EXEMPT: dict[tuple[str, str], str] = {
     ),
 }
 
-# These programmatic clients can't send a CSRF token; migrate them to bearer-token
-# auth and empty this table — see docs/roadmap/programmatic-client-auth-csrf.md.
+# These programmatic clients can't send a CSRF token. The device-pairing entry is
+# permanent by design (sessionless one-time pairing code, ADR-075); any NEW
+# programmatic client takes the bearer-token path instead of an entry here — see
+# docs/roadmap/programmatic-client-auth-csrf.md. test_route_security_audit.py
+# asserts the exact table contents, so adding an entry is a deliberate ruling
+# (update the tripwire in the same change), never a drive-by.
 CSRF_EXEMPT: dict[tuple[str, str], str] = {
     ("device_routes.py", "enroll_device_api"): (
         "programmatic JSON endpoint for the vault agent: no session, no cookies, "

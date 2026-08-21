@@ -2,7 +2,7 @@
 """Converge EntryReport visibility on student ``OWNS``; retire ``ASSESSMENT_OF``.
 
 A ONE-SHOT migration (feedback-loop UX arc, choice C1 — see
-``docs/roadmap/feedback-loop-ux-arc.md``) — no background loop, so the CORE
+``docs/roadmap/done/feedback-loop-ux-arc.md``) — no background loop, so the CORE
 "no background workers" guarantee holds.
 
 ``ASSESSMENT_OF`` was one of two parallel edges meaning "this report is about

@@ -17,7 +17,7 @@ out of C7's scope).
 ``TodayOrchestrator.build_context()`` (``ui/today/orchestrator.py``) renders
 by these functions, and the defer guard (``adapters/inbound/today_routes.py``)
 validates by the SAME function objects — guard and render share one predicate
-so they cannot drift (C7, ``docs/roadmap/calendar-act-from-arc.md``). Never
+so they cannot drift (C7, ``docs/roadmap/done/calendar-act-from-arc.md``). Never
 re-implement these checks inline; import them.
 """
 

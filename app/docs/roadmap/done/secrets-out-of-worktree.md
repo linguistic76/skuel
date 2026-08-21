@@ -105,8 +105,9 @@ Combined effect: if a credential the active tier needs is missing from both the 
 
 ## What's left
 
-> Tracked live in `../deferred-work.md` § Secrets Follow-ups (extracted when this doc moved
-> to `done/` — the list below is the record; the register is the tracker).
+> Disposition 2026-08-21: the live register entry was retired — Mike took both follow-ups
+> into his personal queue (they are small and optional; `../deferred-work.md` § Secrets
+> Follow-ups now records the disposition). The list below remains the record.
 
 Nothing structurally — Stages 1–3 cover the full "no plaintext secrets on disk" goal for a single-developer machine. Open follow-ups, all small and optional:
 

@@ -3,14 +3,18 @@
 **Context**: The route-security sweep (PR #1, commits `c78e3861` → `8ab04eb8`,
 2026-05-20) brought every mutation handler under a CSRF + auth invariant, gated
 by `scripts/audit_route_security.py` (and the `./dev quality` runner + the
-`tests/unit/test_route_security_audit.py` guard). Three handlers could not be
-`@csrf_protected` without breaking their real, non-browser clients, so they sit
-in the script's `CSRF_EXEMPT` table with a reason. This file is the plan to
-retire those exemptions properly.
+`tests/unit/test_route_security_audit.py` guard). Three handlers originally could
+not be `@csrf_protected` without breaking their real, non-browser clients, so they
+sat in the script's `CSRF_EXEMPT` table with a reason. This file is the plan to
+retire such exemptions properly.
 
-**Status**: Deferred — not urgent. The exemptions are safe today (each endpoint
-is admin/teacher/auth-gated and has no browser caller), but per-handler CSRF
-exemptions are an interim shape, not the destination.
+**Status**: Deferred — not urgent. *(Re-verified 2026-08-21: `CSRF_EXEMPT` is down
+to **one** entry — `device_routes.py:enroll_device_api`, kept exempt **by design**
+(sessionless one-time pairing code, ADR-075); GraphQL was folded 2026-07-25 and
+batch-transcribe is now `@csrf_protected`. So the bearer-token scheme below is now
+motivated by future programmatic clients, not by outstanding exemptions — and the
+original "empty the table" acceptance is superseded: the pairing entry is
+intentionally permanent.)*
 
 ---
 
@@ -90,16 +94,26 @@ bearer token (this scheme) rather than carrying a CSRF token.
    authenticated (token vs. cookie).
 3. Make `csrf_protected` (or the middleware) **skip enforcement for token-
    authenticated requests** and require it for cookie-authenticated ones.
-4. Apply `@csrf_protected` to the three endpoints above and update their clients
-   (`scripts/batch_transcribe.py`, the Jupyter workflow) to send a token.
-5. Delete the three `CSRF_EXEMPT` entries. `./dev audit-routes` must stay green
-   (now with 0 CSRF exemptions), and `test_route_security_audit.py` will enforce
-   it.
+4. *(Updated 2026-08-21 — the original three exemptions are already resolved: GraphQL
+   folded, batch-transcribe now `@csrf_protected`.)* When a new programmatic client is
+   wired (Jupyter/ops/CLI), give it a bearer token from day one and keep its endpoint
+   `@csrf_protected` — the token path from step 3 means it never needs a `CSRF_EXEMPT`
+   entry.
+5. **Leave the device-pairing exemption alone** (`device_routes.py:enroll_device_api` —
+   sessionless one-time pairing code, ADR-075; permanent by design; bearer tokens don't
+   apply to a not-yet-enrolled device). `./dev audit-routes` must stay green with
+   `CSRF_EXEMPT` holding exactly that one entry —
+   `test_csrf_exempt_holds_exactly_the_by_design_entries` in
+   `test_route_security_audit.py` asserts the exact table contents.
 
 ## Acceptance
 
-- `./dev audit-routes --list-exempt` shows an **empty** `CSRF_EXEMPT`.
-- The three endpoints reject tokenless **cookie** requests (CSRF enforced) and
+*(Updated 2026-08-21 — the original "empty table" criterion is unreachable by design.)*
+
+- `./dev audit-routes --list-exempt` shows `CSRF_EXEMPT` reduced to the by-design
+  device-pairing entry only (already true today) — and any endpoint migrated to
+  bearer-token auth leaves the table.
+- Migrated endpoints reject tokenless **cookie** requests (CSRF enforced) and
   accept valid **bearer-token** requests.
 - CLI/notebook clients work via token; no session-cookie path to them.
 

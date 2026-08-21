@@ -1,6 +1,9 @@
 # UI Orchestration Expansion Roadmap
 
-**Status:** Active | **Last Updated:** 2026-04-07
+**Status:** COMPLETE — all 10 orchestrators shipped and hardened; moved to done/ 2026-08-21.
+This is the completed inventory of the expansion, kept as the record of what was built and
+why. The pattern itself lives in `docs/patterns/UI_ORCHESTRATOR_PATTERN.md`. | **Last
+Updated:** 2026-08-21
 
 ## The "Dependency Gravity" Problem
 

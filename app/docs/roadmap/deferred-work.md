@@ -49,7 +49,7 @@ recipe was buried outright, One Path Forward ruling, same date):
    the entry-enrichment capability is the fuel arc).
 
 **Enable when** (residue): entry-enrichment ships and engagement edges exist — then
-revisit semantic pool expansion (see [`SEMANTIC_ANALYSIS_ROADMAP.md`](SEMANTIC_ANALYSIS_ROADMAP.md)).
+revisit semantic pool expansion (see [`SEMANTIC_ANALYSIS_ROADMAP.md`](done/SEMANTIC_ANALYSIS_ROADMAP.md)).
 
 ---
 
@@ -395,21 +395,31 @@ need, not a data threshold.
 
 ---
 
-## Secrets Follow-ups — Shred the `secrets.env` Residue; KeyringBackend Tests
+## Secrets Follow-ups — DISPOSITION (2026-08-21)
 
-Extracted 2026-08-07 from [`done/secrets-out-of-worktree.md`](done/secrets-out-of-worktree.md)
-("What's left" — stages 1–3 shipped; both items small and optional, previously tracked
-nowhere live):
+The two items formerly registered here (shred the `secrets.env` residue by moving compose's
+`NEO4J_AUTH`/`NEO4J_PASSWORD` interpolation onto the `with-secrets` wrapper; a dedicated
+`KeyringBackend` round-trip unit test) were **taken into Mike's personal queue** and removed
+from the live tracked register. Both were small and optional. Full text preserved in this
+doc's git history (extracted 2026-08-07 from
+[`done/secrets-out-of-worktree.md`](done/secrets-out-of-worktree.md)).
 
-1. **Move docker-compose's `NEO4J_AUTH`/`NEO4J_PASSWORD` interpolation onto the
-   `with-secrets` wrapper** so the two-line `secrets.env` residue can be shredded entirely —
-   today `${VAR}` substitution in `app/docker-compose.yml` + `infrastructure/docker-compose.yml`
-   still reads it.
-2. **Dedicated `KeyringBackend` round-trip unit test** — currently covered by integration
-   tests + the Stage-3a inline smoke test; cheap insurance, not strictly needed.
+---
 
-**Enable when**: next touch of the compose/secrets surface (item 1 rides along); item 2 any
-time a test-writing pass visits `core/config/credential_store.py`.
+## Content Linting — the two survivors (registered 2026-08-21)
+
+Extracted from the deleted `CONTENT_LINTING.md` (premise largely absorbed by
+`core/services/ingestion/validator.py`, which already validates UID shape, edge-block
+completeness, relationship types, and required fields pre-persist). Two ideas remain
+genuinely uncovered:
+
+1. **NOUS vocabulary check** — nous section names are free-typed; a typo passes silently
+   (verified 2026-08-21: no `NousSection` vocabulary exists in `core/` or `scripts/`).
+2. **Orphan detection** — flag authored content nothing links to, at lint time rather than
+   via the knowledge-health gauge's after-the-fact orphan count.
+
+**Enable when**: content authoring volume makes silent nous typos or orphan drift a lived
+problem — likely alongside a vault-audit pass, as a ride-along on `validator.py`.
 
 ---
 
@@ -1250,7 +1260,7 @@ Review this document at the **September 2026 quarterly review**. Checklist:
 | `filter_property` extension | A consumer wants non-GOALS edge tier buckets | Product need (not a data threshold) |
 | Knowledge Ku↔Ku prerequisites (Option B) | A consumer reads prereq/dependent Ku buckets | Product need (not a data threshold) |
 | Task `dependent_task_uids` | A consumer reads a task's dependents | Product need (not a data threshold) |
-| Secrets follow-ups (shred `secrets.env` residue; KeyringBackend test) | Next touch of the compose/secrets surface | Ride-along, not standalone |
+| Content-linting survivors (NOUS vocabulary check; orphan detection at lint time) | Authoring volume makes silent nous typos / orphan drift a lived problem | Ride-along on `ingestion/validator.py` |
 | Principles `_validate_update` reform or deletion | Next substantive touch of the Principles update path | Ruling needed — see the section's landmine note |
 | EntryReport / ActivityReport search | A teacher workflow wants direct report-content search | Product need (not a data threshold) |
 | Domain-level fulltext-first text search (D1(b)) | A consumer wants relevance-ranked text search beyond `/api/search/unified` curriculum (incl. the `/search` page) | Product need (not a data threshold) |

@@ -195,15 +195,27 @@ Conversation state lives in `core/models/user/conversation.py`:
 This is sufficient for the current phase. Cross-session continuity becomes valuable
 when the curriculum graph has real data and users have consistent conversation histories.
 
-**See:** `docs/roadmap/conversation-neo4j-persistence-deferred.md` for the full Neo4j schema.
+**History:** the original full-schema design is archived at
+`docs/roadmap/done/conversation-neo4j-persistence-deferred.md` — historical evidence only;
+ADR-078 rejected its pedagogical schema.
 
 ---
 
-## 5. Conversation Sessions — Neo4j (Deferred)
+## 5. Conversation Sessions — Neo4j (partially resolved by ADR-078)
 
-See `docs/roadmap/conversation-neo4j-persistence-deferred.md`.
+The **storage substrate shipped** under ADR-078 (`conversation_backend.py`,
+`ConversationSession`/`ConversationTurn`, stored-not-understood) — but it is consumed only
+by the journals discussion path. **Askesis has not adopted it**: turns still live in the
+process-local `ConversationContext` (§4 above).
 
-When implemented, Neo4j persistence enables:
+⚠️ The remaining work is a **fresh Askesis adoption design against ADR-078's thin store**
+— NOT an implementation of the archived schema. That archive
+(`docs/roadmap/done/conversation-neo4j-persistence-deferred.md`) specs a
+`UniversalNeo4jBackend` subclass and `MENTIONS`/`MONITORS`/pedagogical annotations that
+ADR-078 §2 explicitly forbids; its header now says do-not-implement. Treat it as
+historical evidence only.
+
+When Askesis adopts the store, persistence enables:
 - Cross-session continuity ("last week we talked about X — how does that feel now?")
 - Teacher review of session summaries (with student consent)
 - Training signal for GuidanceMode detection
@@ -370,7 +382,7 @@ assistant cannot do this. Askesis can.
 - [LEARNING_LOOP_ARCHITECTURE.md](/docs/architecture/LEARNING_LOOP_ARCHITECTURE.md) — Askesis scaffolds the 4-phase learning loop (Exercise → UserEntry → EntryReport → RevisedExercise; PathStep anchors via HAS_EXERCISE)
 - `docs/architecture/ASKESIS_ARCHITECTURE.md` — service structure (pre-refactor, 2025-11-27)
 - `docs/roadmap/done/zpd-service-architecture.md` — ZPDService design
-- `docs/roadmap/conversation-neo4j-persistence-deferred.md` — Neo4j conversation schema
+- `docs/roadmap/done/conversation-neo4j-persistence-deferred.md` — archived original conversation-schema design (historical; ADR-078 rejected its pedagogical half — see §5)
 - `docs/roadmap/teacher-askesis-interface-deferred.md` — teacher interface design
 - `core/models/submissions/journal_insight.py` — JournalInsight dataclass stub
 - `core/prompts/templates/askesis_stance.md` — shared stance fragment heading BOTH answer branches (ADR-082 D1/D3)

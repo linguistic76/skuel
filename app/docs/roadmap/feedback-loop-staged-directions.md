@@ -6,7 +6,8 @@ at the close of feedback-loop UX arcs 1 (#902–#905) and 2 (#906–#908), which
 these deliberately. The arc contracts record *that* they were deferred; this doc records
 *what was already decided*, *which seams the arcs left ready*, and *what un-stages each
 item* — so a future session (or elicitation) starts from rulings, not from scratch.
-**Related:** `feedback-loop-ux-arc.md`, `feedback-loop-ux-arc2.md`, ADR-040, ADR-054,
+**Related:** `done/feedback-loop-ux-arc.md`, `done/feedback-loop-ux-arc2.md` (both arcs
+complete, archived 2026-08-21), ADR-040, ADR-054,
 `docs/patterns/SHARING_PATTERNS.md`.
 
 Durable rulings quoted below are founder decisions (2026-08-01 elicitations) — do not

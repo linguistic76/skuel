@@ -12,10 +12,12 @@ with persistent conversation histories
 
 ## Prerequisites
 
-This interface cannot be built until:
-1. `ZPDService` exists and computes ZPD assessments (`docs/roadmap/done/zpd-service-architecture.md`)
-2. Conversation sessions are persisted in Neo4j (`docs/roadmap/conversation-neo4j-persistence-deferred.md`)
-3. The Groups domain is actively used (teachers with students in groups)
+*(Status re-verified 2026-08-21; prereq 2 refined after Codex review on #1114.)*
+1. ✅ MET — `ZPDService` exists and computes ZPD assessments (`docs/roadmap/done/zpd-service-architecture.md`)
+2. ◐ PARTIALLY MET — the **storage substrate** shipped (ADR-078: `conversation_backend.py`, `ConversationSession`/`ConversationTurn`), but it is consumed only by the **journals** discussion path. **Askesis itself still holds turns in the process-local `ConversationContext`** (`core/services/askesis/query_processor.py`) — there are no persistent Askesis histories for a teacher to review until Askesis adopts the store, which remains unbuilt. Original design archived at `docs/roadmap/done/conversation-neo4j-persistence-deferred.md`; note ADR-078 deliberately rejected `MONITORS` and the pedagogical annotations, so this interface's write-side needs its own ruling, not a revival of that schema.
+3. ⏳ OPEN — the Groups domain is actively used (teachers with students in groups). A product/usage condition, not a code one.
+
+Two gates remain: Askesis adoption of the ADR-078 store (code) and lived Groups usage (product).
 
 ---
 

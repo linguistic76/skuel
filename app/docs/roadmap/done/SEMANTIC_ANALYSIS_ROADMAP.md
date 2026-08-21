@@ -1,7 +1,7 @@
 ---
 title: Semantic Analysis Roadmap
-updated: 2026-07-10
-status: current
+updated: 2026-08-21
+status: complete
 category: intelligence
 tags: [analysis, intelligence, roadmap, semantic]
 related: []

@@ -18,7 +18,7 @@ Like :SearchEvent's backend, this takes a Neo4jQueryExecutor directly
 entity type's CRUD, so it does not extend UniversalNeo4jBackend.
 
 Protocol: core/ports/curriculum_protocols.py PrereqSuggestionBackendOperations
-See: /docs/roadmap/SEMANTIC_ANALYSIS_ROADMAP.md
+See: /docs/roadmap/done/SEMANTIC_ANALYSIS_ROADMAP.md
 """
 
 from __future__ import annotations

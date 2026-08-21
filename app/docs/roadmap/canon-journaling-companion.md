@@ -11,7 +11,7 @@ future rungs below (auto-summon, Askesis, clickable in-app citations).
 **Core Principle:** *"A curated shelf of books that reasons alongside you as you journal — infused into the companion's voice, always walkable back to the raw."*
 
 This is a **new surface**, split from (not an extension of) the Resources reference-library
-arc (`docs/roadmap/resources-reference-library.md`). See **§ Relationship to the reference
+arc (`docs/roadmap/done/resources-reference-library.md`). See **§ Relationship to the reference
 library** below for why the split matters.
 
 ---
@@ -82,7 +82,7 @@ into curriculum.
 
 This **splits** the arc; it does not extend it.
 
-- `resources-reference-library.md` — **Tier-1 pointing/citations (done, #562/#564/#565/#566)**
+- `done/resources-reference-library.md` — **Tier-1 pointing/citations (done, #562/#564/#565/#566)**
   stays exactly as-is: a Ku/PathStep *cites* a Resource with an optional locator; the Resource
   detail page names its source and shows who cites it. Pointers, no bodies.
 - **This doc** — the canon companion is a *different surface, audience, and access path* that
@@ -147,6 +147,13 @@ This **splits** the arc; it does not extend it.
   reaches `run_compiled`. A multi-file/folder upload takes the batch path
   (`JournalBatchService.run_batch_over_dir`, no canon), so the toggle hides + disables itself there
   rather than submit an ignored flag. Default off — the dial stays explicit.
+- *Dial shape update (2026-08-21):* on the discussion path (`/journals/start`) the dial has
+  since evolved past the single coarse checkbox — the landing panel offers **per-book
+  checkboxes** that scope the draw (`canon_book_uids`, with
+  `summon_canon = bool(canon_book_uids)` derived in `journals_routes.py`) plus a sibling
+  `summon_vault` dial. The upload door (`/journals/upload`) still takes the two coarse
+  booleans as described above. The dial remains explicit on both doors — auto-summon is
+  still the open rung.
 
 ### Future rungs (not scheduled)
 
@@ -158,15 +165,15 @@ This **splits** the arc; it does not extend it.
   `ui/canon/CanonSourcesBlock`. Lights up wherever a PS cites a shelved book —
   growing that overlap is content authoring (the "More books" rung below).
 - **More books** — content authoring only (Phase 1 EPUB→pandoc→clean → Phase 2 ingest).
-- **"What's on the shelf" view** — a read-only surface listing shelved books so you
-  can see the canon and jump to a book/Resource to interact with it. **Confirmed
-  reachable today, unbuilt by choice:** shelf membership is emergent, so one Cypher
-  read exposes it —
-  `MATCH (r:Resource)-[:HAS_REFERENCE_CHUNK]->(c) RETURN r.uid, r.title, count(c)`.
-  That belongs on `Neo4jReferenceChunkAdapter` (keeps the wall) behind a
-  `list_shelved_resources()` port method, surfaced on an admin/canon page and
-  linking to the existing Resource detail (`/explore/resource/{uid}`, Tier-1). No
-  schema change; purely additive when picked up.
+- **"What's on the shelf" view** — ◐ **read half SHIPPED, browse half open** (re-scoped
+  2026-08-21; the read landed under a different name, which is why its own grep missed
+  it): the emergent-shelf read exists as `list_shelved_books()` on
+  `Neo4jReferenceChunkAdapter` (`neo4j_reference_chunk_adapter.py:301`, keeps the wall),
+  exposed via `canon_retrieval_service.py`, and consumed by the per-book picker on the
+  journals landing (`ui/journals/chat_page.py`). **Still open**: the picker renders
+  checkbox labels only — there is no surface where you can browse the shelf and *jump to*
+  a book/Resource (`/explore/resource/{uid}`, Tier-1) to interact with it. That browse
+  page is now trivial (the read exists); purely additive when picked up.
 - **Tune retrieval** — calibrate `CANON_RETRIEVAL_MIN_SCORE` (0.3) / `CANON_RETRIEVAL_LIMIT`
   (4) from real draws. `CanonRetrievalService.retrieve()` now logs each draw
   (count · books · score range · min_score) — that log is the measurement input;
@@ -184,4 +191,4 @@ This **splits** the arc; it does not extend it.
   (`find_similar_chunks_by_text`), `core/orchestrator/search_router.py`
   (`retrieve_scoped_chunks`), `core/services/ingestion/config.py` (chunk configs, the wall).
 - The wall: `services_bootstrap/compose.py` (`excluded_dirs={... "Resources"}`).
-- Reference-library arc this splits from: `docs/roadmap/resources-reference-library.md`.
+- Reference-library arc this splits from: `docs/roadmap/done/resources-reference-library.md`.

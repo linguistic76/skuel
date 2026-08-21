@@ -16,7 +16,7 @@ Matching ``docs/design-handoff/today/today.md`` §5:
 All uid-scoped task routes verify ownership — non-owners get 404 (no UID oracle).
 The defer guard validates against the SAME membership predicates the lens
 renders by (``ui/today/membership.py``) — see C7 in
-``docs/roadmap/calendar-act-from-arc.md``.
+``docs/roadmap/done/calendar-act-from-arc.md``.
 Today is a cross-cutting view; routes are registered via the
 ``create_today_routes`` bootstrap callable, not ``DomainRouteConfig``.
 """

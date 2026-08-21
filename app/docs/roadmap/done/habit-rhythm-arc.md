@@ -5,7 +5,7 @@
 exploration (the door `calendar-periodic-notes-arc.md` E4 deliberately left
 open). Rulings M1–M7 below are founder-settled — do not re-litigate.
 **Related:** `docs/roadmap/done/calendar-periodic-notes-arc.md` (E4, R5),
-`docs/roadmap/calendar-act-from-arc.md` (C3 per-day habit completion;
+`docs/roadmap/done/calendar-act-from-arc.md` (C3 per-day habit completion;
 hourly-grid non-goal), `core/models/habit/habit.py` (scheduling fields),
 `core/models/enums/scheduling_enums.py` (`TimeOfDay`),
 `core/services/calendar_service.py` (`_habit_to_calendar_item`),

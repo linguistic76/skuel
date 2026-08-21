@@ -37,9 +37,11 @@ already exists — by a different mechanism than text2cypher.
 ### The actual gap
 
 Askesis can only answer questions that fit its pre-built retrieval shapes. Note that
-`retrieve_relevant_context` (`context_retriever.py:213-240`) has branches for
-`PREREQUISITE`, `PRACTICE`, `HIERARCHICAL`, and `EXPLORATORY` — but **no branch for
-`AGGREGATION` or `RELATIONSHIP`**. Those intents fall through to bare MEGA-QUERY
+`retrieve_relevant_context` (`context_retriever.py`, ~line 243 as of 2026-08-21) has
+branches for `PREREQUISITE`, `PRACTICE`, `HIERARCHICAL`, and `EXPLORATORY` — but **no
+branch for `AGGREGATION`** (`RELATIONSHIP` has since gained chunk-type routing via
+`_intent_to_chunk_types`, so its half of the gap narrowed; the `AGGREGATION` gap — this
+doc's thesis — is intact). Those intents fall through to bare MEGA-QUERY
 counts + vector chunks. Open-ended ad-hoc analytics —
 *"how many goals did I complete last quarter that were blocked by a habit I dropped?"*
 — get no real graph aggregation today. That is exactly what text2cypher is pitched to
@@ -302,4 +304,3 @@ Try it against a live question before deciding whether the pattern earns its kee
 - `docs/patterns/OWNERSHIP_VERIFICATION.md` — the multi-tenant invariant this design
   must not break
 - `docs/decisions/ADR-043-intelligence-tier-toggle.md` — FULL-tier gating
-- `docs/roadmap/askesis-semantic-intelligence.md` — adjacent Askesis retrieval work

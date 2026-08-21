@@ -3,8 +3,9 @@
 **Status:** CONFIRMED 2026-08-02 (founder ruling: "I want the calendar to be a place that
 I act from") — scoped 2026-08-02 after live-graph verification + full code-path read
 (routes → service → query builder → components). This document is the arc's source of
-truth; each PR runs in a fresh context against it. **PRs 1–5 shipped 2026-08-02
-(#913–#917). C6 ruled at its own elicitation later that day — see C6 and PR table row 6.**
+truth; each PR runs in a fresh context against it. **All 7 PRs shipped — PRs 1–5 on
+2026-08-02 (#913–#917), PR 7/C7 (#919) and PR 6/C6 (#920) shortly after. Arc COMPLETE;
+moved to done/ 2026-08-21 (triage pass verified every acceptance artifact in code).**
 **Related:** `core/services/calendar_service.py`, `adapters/inbound/calendar_ui.py`,
 `ui/calendar/components.py`, `scripts/detect_bloat.py` (`_CALENDAR_EDIT_SURFACE` PLANNED
 tier), the #623 all-chips-visible ruling, the Monday-start ISO-rail ruling (PERMANENT).

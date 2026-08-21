@@ -182,78 +182,23 @@ Either way, **not** a Cypher `WHERE` clause, which SKUEL021 forbids in `core/`.
 
 ---
 
-## Item 2D — Implement `_calculate_alignment_trends()` in `analytics_life_path_service.py`
+## Item 2D — RETIRED 2026-08-21 (target method deleted)
 
-**File:** `core/services/analytics/analytics_life_path_service.py`
-
-**Method:** `_calculate_alignment_trends(user_uid, life_path_uid)` at line 417.
-
-**Current body:** Returns a hardcoded dict with `"direction": "unknown"` and two `None`
-snapshot fields.
-
-**What it needs:**
-
-The method is private and called from `calculate_life_path_alignment()`. The alignment
-score is already computed by the parent method — what's missing is the historical comparison.
-
-**Where the historical data lives:**
-
-SKUEL does not yet persist alignment snapshots as nodes. The approach that works without
-adding new node types is to query the `SERVES_LIFE_PATH` relationship metadata —
-specifically the `created_at` and `score` properties that are set when
-`UnifiedRelationshipService.link_to_life_path()` is called.
-
-**Implementation steps:**
-
-1. **Query time-windowed SERVES_LIFE_PATH scores:**
-   ```cypher
-   MATCH (e:Entity)-[r:SERVES_LIFE_PATH]->(lp:LearningPath {uid: $life_path_uid})
-   MATCH (u:User {uid: $user_uid})-[:OWNS]->(e)
-   RETURN r.score as score, r.created_at as created_at
-   ORDER BY r.created_at DESC
-   ```
-   Add as a named backend method (e.g., `LifePathBackend.get_alignment_trend()`). Services call `self.backend.method_name()` — never inline Cypher.
-
-2. **Bin by time window.** Partition results into `7d`, `30d`, and `90d` buckets:
-   ```python
-   from datetime import datetime, timedelta
-   now = datetime.now()
-   scores_7d = [r["score"] for r in records if r["created_at"] >= now - timedelta(days=7)]
-   scores_30d = [r["score"] for r in records if r["created_at"] >= now - timedelta(days=30)]
-   ```
-
-3. **Compute averages** and trend direction:
-   ```python
-   avg_7d = sum(scores_7d) / len(scores_7d) if scores_7d else None
-   avg_30d = sum(scores_30d) / len(scores_30d) if scores_30d else None
-   direction = "improving" if avg_7d and avg_30d and avg_7d > avg_30d * 1.05 \
-               else "declining" if avg_7d and avg_30d and avg_7d < avg_30d * 0.95 \
-               else "stable"
-   ```
-
-4. **Return the real dict** replacing the stub:
-   ```python
-   return {
-       "user_uid": user_uid,
-       "life_path_uid": life_path_uid,
-       "7_days_ago": round(avg_7d, 2) if avg_7d else None,
-       "30_days_ago": round(avg_30d, 2) if avg_30d else None,
-       "direction": direction,
-   }
-   ```
-
-**Note on data availability:** `SERVES_LIFE_PATH` relationships are created when entities
-are linked. If a user has no linked entities yet, `scores_7d` and `scores_30d` will be
-empty — the method should return `"direction": "unknown"` in that case, same as now.
-The implementation is defensive by default.
+`_calculate_alignment_trends()` was deleted from `analytics_life_path_service.py` by
+`2d8c31d03` (#1034, "score Life Path alignment PER-LEARNER") — the stub this item existed
+to fill no longer exists, so there is nothing to implement. The historical-trend idea
+(time-windowed `SERVES_LIFE_PATH` score comparison) is preserved in git history at this
+doc's pre-2026-08-21 revision if per-learner alignment ever wants a trend axis; that would
+be a new design against the post-#1034 shape, not a revival of the deleted method.
 
 ---
 
 ## Item 2E — Activate `_include_predictions` in `habits_service.py`
 
-**File:** `core/services/habits_service.py`
+**File:** `core/services/habits/_enrichment_mixin.py` *(moved here in the HabitsService
+mixin decomposition — coordinates re-verified 2026-08-21)*
 
-**Method:** `get_habit_analytics(habit_uid, _period, _include_predictions)` at line 818.
+**Method:** `get_habit_analytics(habit_uid, _period, _include_predictions)` at line 39.
 
 **Current state:** Both params are ignored. The method delegates entirely to
 `self.intelligence.analyze_habit_performance(habit_uid)`.
@@ -302,8 +247,6 @@ route at the facade level).
 ## Implementation order recommendation
 
 ```
-2D (alignment trends)           — self-contained, uses existing graph data
-    ↓
 2B (task stub methods)          — depends on LpBackend step queries (already exist)
     ↓
 2A (cross-wire bootstrap)       — activates 2B's implementations end-to-end
@@ -311,7 +254,7 @@ route at the facade level).
 2E (include_predictions)        — requires HabitsAIService method addition (FULL tier only)
 ```
 
-Item 2D has zero dependencies and can be started immediately.
+(2D was retired 2026-08-21 — its target method was deleted by #1034.)
 Item 2E is FULL-tier only and blocked on having enough habit data to make predictions meaningful.
 
 The `period_days` filtering formerly sequenced here as 2C is tracked in

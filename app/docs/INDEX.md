@@ -391,8 +391,6 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | Document | Description |
 |----------|-------------|
 | [Discovery Analytics Implementation Roadmap](roadmap/DISCOVERY_ANALYTICS_ROADMAP.md) | |
-| [Semantic Analysis Implementation Roadmap](roadmap/SEMANTIC_ANALYSIS_ROADMAP.md) | |
-| [Resources/ Reference Library — Ingestion Roadmap](roadmap/resources-reference-library.md) | |
 | [Canon — Book-as-Journaling-Companion](roadmap/canon-journaling-companion.md) | |
 
 ## Features
@@ -402,7 +400,6 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | Document | Description |
 |----------|-------------|
 | **[SEL Adaptive Curriculum](features/SEL_ADAPTIVE_CURRICULUM.md)** | |
-| **[Per-User Bulk Upload](roadmap/obsidian-headless-sync.md)** | |
 
 ## Migrations
 
@@ -440,16 +437,11 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | Document | Description |
 |----------|-------------|
 | [The learning-aligned create verb](roadmap/learning-aligned-create-verb.md) | Ideas preserved from the deleted LearningAlignmentBridge create half: act-on-a-learning-recommendation and LP→calendar schedule, with the primitive/template build surface to use when either becomes a lived need; census of remaining dict-door creates (GoalTaskGenerator, HabitEventScheduler) |
-| [Feedback-Loop UX — Design & Choices (Arc 1)](roadmap/feedback-loop-ux-arc.md) | The teacher↔student exchange made correct, legible, and threaded: C1 report-visibility convergence on student `OWNS` (`ASSESSMENT_OF` deleted), C2 needs-review single source, C3 human report titles, C4 Shared-With-Me context join, C5 `/exchange` thread view |
-| [Feedback-Loop UX — Design & Choices (Arc 2)](roadmap/feedback-loop-ux-arc2.md) | "Where do I stand?" in both directions: C1 GradeBook 3→1 per-exercise lines, C2 student waiting/source chips, C3 teacher Waiting-for-resubmit queue view, C4 Shared-With-Me filters + inbox identity |
 | [BGE Embeddings Migration (ADR-083 Arc 3)](roadmap/bge-embeddings-migration.md) | Cutover from OpenAI to BGE-M3 embeddings: factory swap + `EMBEDDINGS_PROVIDER` env var, `EMBEDDING_VERSION` v3→v4, `HF_API_TOKEN`, batch re-embed; no index rebuild (both 1024-dim); independent of Arc 2 |
 | [Deferred Work](roadmap/deferred-work.md) | Intelligence features and decision points deferred until data/business prerequisites exist |
 | [Security Hardening — Deferred](roadmap/security-hardening-deferred.md) | The security hardening backlog — see its Priority Order table for current status (most items now shipped or closed) |
-| [Conversation Neo4j Persistence — Deferred](roadmap/conversation-neo4j-persistence-deferred.md) | Neo4j schema for persisted conversation sessions and turns; cross-session continuity design |
 | [Teacher-Askesis Interface — Deferred](roadmap/teacher-askesis-interface-deferred.md) | Teacher view/adjust/annotate interface; requires ZPDService + Neo4j persistence first |
-| [Askesis Semantic Intelligence](roadmap/askesis-semantic-intelligence.md) | Deferred enhancements: learning-aware search, PS bundle semantic enrichment, conversation persistence, gap analysis fallback |
 | **[Askesis Tool-Selection Queries — why not text2cypher](roadmap/askesis-tool-selection-queries.md)** | **Why SKUEL does not adopt `langchain-neo4j`'s `text2cypher` (`GraphCypherQAChain`) — multi-tenancy, SKUEL001/021, determinism — plus the design sketch for the safe alternative (LLM picks a vetted tool + typed args; `user_uid` injected server-side). Status: not scheduled. Read before proposing LLM-generated Cypher.** |
-| [Tables — Custom Design](roadmap/tables-custom-design.md) | 3 tables deferred from TableFromDicts migration: hardcoded rows, headerless layout, dynamic columns |
 
 ### Completed (`docs/roadmap/done/`)
 
@@ -458,6 +450,13 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | Document | Completed | Description |
 |----------|-----------|-------------|
 | [ZPDService — Design & Architecture](roadmap/done/zpd-service-architecture.md) | 2026-03 | ZPDService + ZPDBackend architecture: ZPDAssessment, graph traversal, readiness scores, behavioral enrichment — implemented |
+| [Semantic Analysis Implementation Roadmap](roadmap/done/SEMANTIC_ANALYSIS_ROADMAP.md) | 2026-07-10 | All three approved items shipped (#598–#600): concept-cluster chips, admin prereq suggestion queue, ZPD semantic feed; data-gated residue lives in [Deferred Work](roadmap/deferred-work.md) |
+| [Resources/ Reference Library — Ingestion Roadmap](roadmap/done/resources-reference-library.md) | 2026-07 | Tier 1 pointing/citations shipped (#562–#566); Tier 2 superseded by the canon shelf; "point at the raw" graduated into CANON_CITATION_DESIGN.md |
+| [Feedback-Loop UX — Design & Choices (Arc 1)](roadmap/done/feedback-loop-ux-arc.md) | 2026-08-01 | All 4 PRs (#902–#905): report-visibility on student `OWNS` (`ASSESSMENT_OF` deleted), needs-review single source, human report titles, Shared-With-Me context join, `/exchange` thread view |
+| [Feedback-Loop UX — Design & Choices (Arc 2)](roadmap/done/feedback-loop-ux-arc2.md) | 2026-08-02 | All 3 PRs (#906–#908): GradeBook 3→1 per-exercise lines, waiting/source chips, teacher Waiting-for-resubmit queue view, Shared-With-Me filters + inbox identity |
+| [Calendar Act-From Arc](roadmap/done/calendar-act-from-arc.md) | 2026-08-02 | All 7 PRs (#913–#917, #919, #920): truthful month grid, per-day habit completion, modal reschedule, day-lens + quick-add, source-aware defer |
+| [UI Orchestration Expansion](roadmap/done/UI_ORCHESTRATION_EXPANSION_PLAN.md) | 2026-04 | All 10 orchestrators shipped and hardened; the pattern lives in UI_ORCHESTRATOR_PATTERN.md |
+| [Conversation Neo4j Persistence](roadmap/done/conversation-neo4j-persistence-deferred.md) | 2026-07-13 | Resolved by ADR-078: persistence half shipped (stored-not-understood); pedagogical half rejected — do not implement its backend spec |
 | [W-Series Docs/Skills Review](roadmap/done/w-series-docs-skills-review.md) | 2026-05-26 | Docs-only sweep from the W1 implementation thread, 9 files |
 | [Typed Update Intents migration](roadmap/done/update-intents.md) | 2026-06-05 | ADR-066 phased execution: all six Activity Domains on frozen `*UpdateIntent`, base parameterized over `U`, every alternative deleted |
 | [Calendar Periodic-Notes Arc](roadmap/done/calendar-periodic-notes-arc.md) | 2026-08-03 | All four PRs shipped the day the arc was confirmed |

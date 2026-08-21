@@ -1,6 +1,6 @@
 # Resources/ Reference Library — Ingestion Roadmap
 
-**Status:** **Tier 1 (Pointing) = foundational, near-term.** **Tier 2 (Passage-addressable) = PLANNED, no date** — deliberately unforced; it will take clearer shape as the content matures. Cleaning of raw source files is **external to SKUEL.app** (author-side preprocessing, not a codebase feature).
+**Status:** COMPLETE/SUPERSEDED — moved to done/ 2026-08-21. **Tier 1 (Pointing) fully shipped** (#562/#564/#565/#566: `locator` on CITES_RESOURCE, Resource detail page, Ku-detail parity, reciprocal "Cited by"). **Tier 2's machinery shipped for a different surface** — the canon shelf (`:ReferenceChunk` + walled ingest; see `canon-journaling-companion.md`, which rules that Tier-2-as-library-search may simply never be built). The "point at the raw" stance graduated into `docs/architecture/CANON_CITATION_DESIGN.md`. Cleaning of raw source files remains **external to SKUEL.app** (author-side preprocessing, not a codebase feature).
 
 **Core Principle:** *"Point to the raw; don't over-interpret. Let the resources speak for themselves."*
 
@@ -92,9 +92,18 @@ The raw extractions vary in quality, and **clean text is the gate for Tier 2**. 
 1. **Document SKUEL's way** — this file. The "point to the raw" stance justifies the pointing-first design and should graduate toward a first-class principle as it firms up.
 2. **Tier 1 — Pointing:** Resource detail page (the click destination) + `locator` free-string via Edge YAML + Ku-detail citation parity + reciprocal "cited by" on the Resource hub. (Stale registry comment already fixed.)
 3. **Cleaning (external):** author re-extracts EPUB-sourced books with pandoc, delivers clean files. Valuable on its own (clean reading, stable page numbers to cite *into*).
-4. **Tier 2 — Passage-addressable:** PLANNED, no date. Built only if in-app passage retrieval proves genuinely necessary, and only on clean text.
+4. **Tier 2 — Passage-addressable:** ~~PLANNED, no date~~ → **CLOSED as this plan's item
+   (2026-08-21)**. The passage-addressable machinery was built for a different surface —
+   the canon shelf (`:ReferenceChunk` + walled ingest, drawn on by journal discussions,
+   never by library search). See the ruling in `../canon-journaling-companion.md`.
 
 ## Open / not-yet-decided
 
-- Whether Tier 2 is ever built at all — deliberately left open.
+- ~~Whether Tier 2 is ever built at all — deliberately left open.~~ **Resolved 2026-08-21:**
+  Tier-2-as-**library-search** is closed as an item of this plan — the canon arc built the
+  passage machinery for journal grounding instead, and its doc records that a library-search
+  surface "may now simply never be built." If in-app passage *search* is ever genuinely
+  wanted, that is a **new decision against the existing canon machinery**
+  (`CanonRetrievalService` / `Neo4jReferenceChunkAdapter`), owned by the live
+  `../canon-journaling-companion.md` — not a revival of this plan.
 - (Tier-1 locator schema and UI treatment: **decided** 2026-07-08 — see Tier 1 above.)
