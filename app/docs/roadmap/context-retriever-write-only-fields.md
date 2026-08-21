@@ -215,9 +215,20 @@ sound for both permissive (`:Entity`) and strict (`:Event`) targets. Graph now: 
 `event_template_uids` needs an **Event instance** uid; an author following the field name to an
 `EventTemplate` matches nothing. That mistake is currently *impossible to make* — there are **zero
 `:EventTemplate` nodes** — but it becomes live the moment anyone creates one through the PathStep
-template routes. **Decide before that happens:** rename the field to `event_uids` (matches
-behaviour), or retarget the edge at `EventTemplate` (matches the name, and changes semantics).
-Mike's call — it changes how content is authored.
+template routes.
+
+**✅ RULED (Mike, 2026-08-21): rename the vault field to `event_uids`.** The behaviour is proven
+correct — it is the label that lies. Retargeting the edge at `EventTemplate` was the alternative
+and is **rejected**; do not reopen it. Scope, measured before scoping: `yaml_field_path` in
+`relationship_registry.py:1861`, one test (`test_ingestion_edge_and_wiring.py:439`), three
+authoring docs (`CURRICULUM_DEVELOPER_GUIDE.md`, `UNIFIED_INGESTION_GUIDE.md`,
+`yaml-to-graph.md`), a **regenerated** `docs/reference/GRAPH_CONTRACT.yaml` (drift-tested — run
+`scripts/generate_graph_contract.py`, never hand-edit), and the one vault file now using it.
+Clean rename, no alias, no deprecation (One Path Forward).
+
+⚠️ Two things that make it smaller than it looks, both verified: the raw frontmatter key **does
+not persist as a node property**, so no data migration is owed; and it is **not a PathStep model
+field**, despite `yaml-to-graph.md:151` listing it as one — a doc error to fix in the same pass.
 
 **Principles remains untested** (`:Principle`). No name/target mismatch, and the Event result is
 now a proven strict-target precedent, so the risk is low — but untested is untested.
