@@ -3,9 +3,10 @@
 *Live plan. Registered 2026-08-20. Case file for the `deferred-work.md` entry of the same name;
 move to `docs/roadmap/done/` when nothing in it remains open.*
 
-`ContextRetriever` (`core/services/askesis/context_retriever.py`) assigns three `self.*` fields
+`ContextRetriever` (`core/services/askesis/context_retriever.py`) assigned three `self.*` fields
 that nothing reads. Surfaced by the AST sweep in PR #1108 and deliberately left there, because
 they are **not** the case that PR was closing (write-only *deps copies*, all superseded).
+**Case A (`graph_intel`) is now executed — deleted 2026-08-21.** Case B remains open below.
 
 Verified against `main` @ `409aded1d` on 2026-08-20. **Line refs drift and registers lie — re-run
 every census yourself.** The sibling register for the substance-write arc needed **seven** Codex
@@ -28,16 +29,28 @@ removing anything.
 
 ---
 
-## Case A — `graph_intel` (assigned `:185`)
+## Case A — `graph_intel` ✅ EXECUTED 2026-08-21 — superseded, deleted
 
-Zero reads inside the class. Zero reads repo-wide. Yet the constructor still takes it (`:148`),
-the Args docstring still describes it (`:174`), and the class docstring still asserts **"Requires
+Zero reads inside the class. Zero reads repo-wide. Yet the constructor still took it (`:148`),
+the Args docstring still described it (`:174`), and the class docstring still asserted **"Requires
 GraphIntelligenceService for graph queries."**
 
-Working hypothesis, **unconfirmed**: superseded when `ku_backend` / `ps_backend` were injected,
-which the constructor comments describe as *"migrated from inline Cypher"*. If so it is residue,
-and residue gets deleted. Nobody has dated its death — do that with `git log -S`, the way #1107
-dated the dual-layer doctrine to a single commit. **Superseded → delete; never-wired → ask.**
+**The supersession hypothesis is CONFIRMED and dated**: `git log -S` landed on `e4ac7a9ed`
+(2026-03-26, *"refactor: migrate inline Cypher from services to backends"*), whose message names
+the replacement outright — *"ContextRetriever: use backend methods instead of
+graph_intel.execute_query()"* — and whose diff removes every `self.graph_intel` read plus the
+`@requires_graph_intelligence` decorators. **Superseded → delete**, per protocol; no ask needed.
+
+Deleted: the field, the constructor param, both docstring claims, 1 production call site
+(`askesis_service.py`), 18 test sites across 3 files, and the tests' `_make_graph_intel` helper.
+`AskesisDeps.graph_intel` **stays** — `ContextRelevanceEngine` reads it live (the decoy below).
+
+**Rider — `QueryProcessor.graph_intel` was the same residue class and went in the same PR.** The
+AST sweep on it: dead = `{graph_intel}` exactly. Its last read (a None-guard) was deleted in
+`e782e74f1` (*"remove backwards compatibility from Askesis"*). Same treatment: param + field +
+docstring + TYPE_CHECKING import + 1 production site + 2 test sites. It was outside this doc's
+register only because the #1108 sweep ran solely on `ContextRetriever` — sweep the sibling
+classes before assuming a register is complete.
 
 ⚠️ **Same-name decoy, already verified.** `ASKESIS_ARCHITECTURE.md:537` documents
 `self.graph_intel.backend.get_prerequisite_graph(...)` — that is **`ContextRelevanceEngine`'s own

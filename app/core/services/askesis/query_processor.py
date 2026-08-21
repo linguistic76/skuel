@@ -75,7 +75,6 @@ if TYPE_CHECKING:
     from core.services.askesis.response_generator import ResponseGenerator
     from core.services.askesis_citation_service import AskesisCitationService
     from core.services.canon import CanonRetrievalService, CanonSource
-    from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
     from core.services.llm_service import LLMService
     from core.services.user.unified_user_context import UserContext
     from core.services.user_service import UserService
@@ -142,7 +141,6 @@ class QueryProcessor:
         context_retriever: ContextRetriever,
         user_service: UserService,
         llm_service: LLMService,
-        graph_intel: GraphIntelligenceService,
         zpd_service: ZPDOperations,
         citation_service: AskesisCitationService | None = None,
         canon_service: CanonRetrievalService | None = None,
@@ -158,7 +156,6 @@ class QueryProcessor:
             context_retriever: ContextRetriever for context retrieval and PS bundle loading
             user_service: UserService for accessing UserContext
             llm_service: LLMService for natural language generation
-            graph_intel: GraphIntelligenceService for graph intelligence queries
             zpd_service: ZPDService for targeted KU readiness assessment
             citation_service: AskesisCitationService for source and evidence transparency (optional)
             canon_service: CanonRetrievalService for PS-scoped readings grounding
@@ -170,7 +167,6 @@ class QueryProcessor:
         self.context_retriever = context_retriever
         self.user_service = user_service
         self.llm_service = llm_service
-        self.graph_intel = graph_intel
         self.zpd_service = zpd_service
         self.citation_service = citation_service
         self.canon_service = canon_service

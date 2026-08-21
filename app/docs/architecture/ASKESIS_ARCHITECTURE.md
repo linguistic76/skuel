@@ -74,14 +74,17 @@ class AskesisService:
         # Sub-service creation (no circular dependencies - uses pure functions)
         self.state_analyzer = UserStateAnalyzer()
         self.recommendation_engine = ActionRecommendationEngine()
+        self.relevance_engine = ContextRelevanceEngine(graph_intel=deps.graph_intel)
         self.entity_extractor = EntityExtractor(...)
 
-        # ContextRetriever handles graph retrieval + PS bundle loading
+        # ContextRetriever handles graph retrieval + PS bundle loading.
+        # August 2026: its graph_intel param deleted — superseded by
+        # ku_backend/ps_backend (March 2026 Cypher migration).
         self.context_retriever = ContextRetriever(
-            graph_intel=deps.graph_intel,
-            embeddings_service=deps.embeddings_service,
             ps_service=deps.knowledge_service,
-            ku_service=deps.ku_service, ...
+            ku_service=deps.ku_service,
+            ku_backend=deps.ku_backend,
+            ps_backend=deps.ps_backend, ...
         )
 
         # January 2026: QueryProcessor decomposition
