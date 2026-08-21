@@ -67,7 +67,7 @@ if TYPE_CHECKING:
     from core.models.enums.learning_enums import SELCategory
     from core.models.pathways.learning_progress import LearningJourney
     from core.models.pathways.path_step import PathStep
-    from core.ports.curriculum_protocols import KuOperations
+    from core.ports.curriculum_protocols import KuOperations, PsOperations
     from core.services.ps.ps_intelligence_service import PsIntelligenceService
     from core.services.ps.ps_organization_service import StepNavigation, StepOrganizationView
     from core.services.user import UserContext
@@ -168,7 +168,7 @@ class PsService:
 
     def __init__(
         self,
-        backend: Any = None,
+        backend: "PsOperations | None" = None,
         executor: Any = None,
         graph_intel: Any = None,
         event_bus: Any = None,
@@ -183,7 +183,8 @@ class PsService:
         """Initialize facade with sub-services via factory.
 
         Args:
-            backend: PsBackend (REQUIRED)
+            backend: PsOperations port — `PsBackend` at the composition root.
+                REQUIRED; `None` only so the fail-fast raise below can report it.
             executor: Query executor (REQUIRED for persistence)
             graph_intel: GraphIntelligenceService (REQUIRED)
             event_bus: Event bus for domain events (optional)

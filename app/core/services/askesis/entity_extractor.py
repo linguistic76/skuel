@@ -28,8 +28,9 @@ March 2026: Added extract_from_bundle() for PS-scoped Socratic pipeline.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING
 
+from core.services.askesis.types import EntityLookup
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 
@@ -37,21 +38,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
 
     from core.models.askesis.ps_bundle import PsBundle
-    from core.ports import (
-        EventsOperations,
-        GoalsOperations,
-        HabitsOperations,
-        PsOperations,
-        TasksOperations,
-    )
     from core.services.user import UserContext
-
-
-@runtime_checkable
-class _EntityLookup(Protocol):
-    """Minimal protocol for services that can look up an entity by UID."""
-
-    async def get(self, uid: str) -> Any: ...  # boundary: Result[T] varies by domain
 
 
 logger = get_logger(__name__)
@@ -75,27 +62,36 @@ class EntityExtractor:
 
     def __init__(
         self,
-        knowledge_service: PsOperations,
-        tasks_service: TasksOperations,
-        goals_service: GoalsOperations,
-        habits_service: HabitsOperations,
-        events_service: EventsOperations,
+        knowledge_service: EntityLookup,
+        tasks_service: EntityLookup,
+        goals_service: EntityLookup,
+        habits_service: EntityLookup,
+        events_service: EntityLookup,
     ) -> None:
         """
         Initialize entity extractor.
 
+        Every handle is a domain FACADE (``PsService``, ``TasksService``, ...)
+        and this class does exactly one thing with each: ``get(uid)``. So each
+        is typed against that slice. These five used to name the domains'
+        ``*Operations`` ports instead — backend protocols that no facade
+        satisfies (``PsService`` implements 8 of ``PsOperations``' 142 public
+        callables; the other four fail the same probe). Nothing caught it
+        because ``AskesisDeps`` types all five fields ``Any``, so the
+        annotations were never checked against what is injected.
+
         Args:
-            knowledge_service: PsOperations for knowledge entity lookup
-            tasks_service: TasksOperations for task entity lookup
-            goals_service: GoalsOperations for goal entity lookup
-            habits_service: HabitsOperations for habit entity lookup
-            events_service: EventsOperations for event entity lookup
+            knowledge_service: PathStep facade — entity lookup by UID
+            tasks_service: Task facade — entity lookup by UID
+            goals_service: Goal facade — entity lookup by UID
+            habits_service: Habit facade — entity lookup by UID
+            events_service: Event facade — entity lookup by UID
         """
-        self.knowledge_service: PsOperations = knowledge_service
-        self.tasks_service: TasksOperations = tasks_service
-        self.goals_service: GoalsOperations = goals_service
-        self.habits_service: HabitsOperations = habits_service
-        self.events_service: EventsOperations = events_service
+        self.knowledge_service: EntityLookup = knowledge_service
+        self.tasks_service: EntityLookup = tasks_service
+        self.goals_service: EntityLookup = goals_service
+        self.habits_service: EntityLookup = habits_service
+        self.events_service: EntityLookup = events_service
 
         logger.info("EntityExtractor initialized")
 
@@ -235,7 +231,7 @@ class EntityExtractor:
         self,
         query_lower: str,
         uids: Iterable[str],
-        service: _EntityLookup,
+        service: EntityLookup,
     ) -> list[dict[str, str]]:
         """Fetch entities by UID and return those whose title fuzzy-matches the query.
 

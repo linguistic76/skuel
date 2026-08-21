@@ -33,7 +33,7 @@ March 2026: Absorbed former LSContextLoader into ContextRetriever — single ret
 from __future__ import annotations
 
 import asyncio
-from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any
 
 from core.constants import GraphDepth
 from core.models.askesis.ps_bundle import PsBundle
@@ -42,6 +42,7 @@ from core.models.ps_content.content_chunks import ContentChunkType
 from core.models.query_types import QueryIntent
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
+from core.services.askesis.types import EntityLookup, KuLookup
 from core.utils.decorators import with_error_handling
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -59,29 +60,6 @@ if TYPE_CHECKING:
     from core.ports.search_protocols import ScopedChunkRetrievalOperations
     from core.services.ps_engagement.engagement import Engagement
     from core.services.user import UserContext
-
-
-@runtime_checkable
-class EntityLookup(Protocol):
-    """Minimal protocol for services used in PS bundle loading.
-
-    Only requires async get(uid) -> Result[Any]. All BaseService subclasses
-    satisfy this via CrudOperationsMixin.
-    """
-
-    async def get(self, uid: str) -> Result[Any]: ...
-
-
-@runtime_checkable
-class KuLookup(Protocol):
-    """Minimal protocol for the Ku facade in PS bundle loading.
-
-    KuService exposes ``get_ku`` (not the BaseService ``get``), so it needs
-    its own lookup slice — typing it as EntityLookup hid a crash behind the
-    ``Any``-typed deps container until the first real KU fetch.
-    """
-
-    async def get_ku(self, uid: str) -> Result[Any]: ...
 
 
 logger = get_logger(__name__)

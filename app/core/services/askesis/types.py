@@ -2,7 +2,8 @@
 Askesis Services - Shared Type Definitions
 ===========================================
 
-Frozen dataclasses and enums shared across all Askesis sub-services.
+Frozen dataclasses, enums, and lookup protocols shared across all Askesis
+sub-services.
 
 This module was created on 2025-11-05 by refactoring EnhancedAskesisService
 to follow Single Responsibility Principle.
@@ -12,15 +13,19 @@ Architecture:
 - Shared across UserStateAnalyzer, ActionRecommendationEngine, QueryProcessor,
   EntityExtractor, and ContextRetriever
 - Enum types define insight categories, recommendation types, and query intent
+- Lookup protocols (EntityLookup, KuLookup) type the domain-facade handles the
+  sub-services are injected with — August 2026, promoted here from
+  context_retriever.py so EntityExtractor stops duplicating them
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from core.models.type_hints import UserUID
+from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -29,6 +34,41 @@ if TYPE_CHECKING:
     from core.models.enums import Domain, Priority
     from core.models.zpd.zpd_assessment import ZPDAssessment
     from core.services.user.unified_user_context import RichUserContext
+
+# ============================================================================
+# LOOKUP SLICES — what a collaborator needs from a domain service
+# ============================================================================
+# Askesis sub-services are handed domain FACADES (PsService, TasksService, ...)
+# but only ever look entities up by UID. Type those handles against the slice
+# they actually use, never against a domain's ``*Operations`` port: those are
+# backend protocols, no facade satisfies them, and an ``Any``-typed deps
+# container hides the mismatch until runtime. That is not hypothetical —
+# ``EntityExtractor`` carried five such annotations, none satisfiable, for
+# months (see ``core/ports/curriculum_protocols.py`` § PsOperations).
+
+
+@runtime_checkable
+class EntityLookup(Protocol):
+    """Minimal protocol for a domain service used only for UID lookup.
+
+    Only requires ``async get(uid) -> Result[Any]``. All BaseService subclasses
+    satisfy this via CrudOperationsMixin, as do the domain facades.
+    """
+
+    async def get(self, uid: str) -> Result[Any]: ...
+
+
+@runtime_checkable
+class KuLookup(Protocol):
+    """Minimal protocol for the Ku facade — it names its getter differently.
+
+    KuService exposes ``get_ku`` (not the BaseService ``get``), so it needs
+    its own lookup slice — typing it as EntityLookup hid a crash behind the
+    ``Any``-typed deps container until the first real KU fetch.
+    """
+
+    async def get_ku(self, uid: str) -> Result[Any]: ...
+
 
 # ============================================================================
 # ENUMS - INSIGHT & RECOMMENDATION TYPES
