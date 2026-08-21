@@ -16,7 +16,7 @@ was removed and now lives on the file/audio door only. This document is the arc'
 source of truth.
 **Related:** ADR-073 (journals zero-persistence), **ADR-078 (discussion sessions stored but
 never understood — the P2 reconciliation)**, ADR-076 (canon quotation & citation),
-ADR-077 (scoped canon retrieval), `docs/roadmap/conversation-neo4j-persistence-deferred.md`
+ADR-077 (scoped canon retrieval), `docs/roadmap/done/conversation-neo4j-persistence-deferred.md`
 (deferred Askesis conversation storage — reuse candidate).
 
 ---

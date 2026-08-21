@@ -18,9 +18,8 @@ instead of hand-building it on Stripe. The formal decision record is
 | Piece | State |
 |---|---|
 | Firefly III Docker sidecar | ✅ Built (ADR-052 Phase 1) |
-| `adapters/outbound/firefly_client.py` + `FireflyOperations` protocol | ✅ Built + 17 tests, but **unwired** (Phase 2) |
-| `finance_ui.py` `/finance` hub (sidebar, sections, admin-gated) | ✅ Built — but still reads SKUEL's **legacy local Neo4j** finance services, not Firefly |
-| `firefly_expense_service.py` (read-facade that connects the UI to Firefly) | ❌ Not created (Phase 4) |
+| `adapters/outbound/firefly_client.py` + `FireflyOperations` protocol | ✅ Built + 17 tests, but **unwired** (Phase 2; registered as staged in `scripts/health/dead_modules.py`) |
+| ADR-052 Phase 5 demolition | ✅ **Landed** (table destaled 2026-08-21): `finance_ui.py` is 85 lines serving only `/finance/invoices`; `ui/finance/` is down to the invoice module; `core/services/finance/` holds only `finance_invoice_service.py`. Phase 4 was CANCELLED per ADR-052. The one remnant is the WeasyPrint invoice renderer (`adapters/outbound/invoice_renderer.py`), correctly gated on the ChargeKeep invoicing check |
 | **Any** SaaS billing / subscription / Stripe / webhook code | ❌ **Does not exist.** Role upgrades are manual: admin → `admin_api.py` → `user_service.update_role()` |
 
 **Key fact: the subscription side is greenfield.** Phase 3 is not rewiring an existing

@@ -195,13 +195,13 @@ Conversation state lives in `core/models/user/conversation.py`:
 This is sufficient for the current phase. Cross-session continuity becomes valuable
 when the curriculum graph has real data and users have consistent conversation histories.
 
-**See:** `docs/roadmap/conversation-neo4j-persistence-deferred.md` for the full Neo4j schema.
+**See:** `docs/roadmap/done/conversation-neo4j-persistence-deferred.md` for the full Neo4j schema.
 
 ---
 
 ## 5. Conversation Sessions — Neo4j (Deferred)
 
-See `docs/roadmap/conversation-neo4j-persistence-deferred.md`.
+See `docs/roadmap/done/conversation-neo4j-persistence-deferred.md`.
 
 When implemented, Neo4j persistence enables:
 - Cross-session continuity ("last week we talked about X — how does that feel now?")
@@ -370,7 +370,7 @@ assistant cannot do this. Askesis can.
 - [LEARNING_LOOP_ARCHITECTURE.md](/docs/architecture/LEARNING_LOOP_ARCHITECTURE.md) — Askesis scaffolds the 4-phase learning loop (Exercise → UserEntry → EntryReport → RevisedExercise; PathStep anchors via HAS_EXERCISE)
 - `docs/architecture/ASKESIS_ARCHITECTURE.md` — service structure (pre-refactor, 2025-11-27)
 - `docs/roadmap/done/zpd-service-architecture.md` — ZPDService design
-- `docs/roadmap/conversation-neo4j-persistence-deferred.md` — Neo4j conversation schema
+- `docs/roadmap/done/conversation-neo4j-persistence-deferred.md` — Neo4j conversation schema
 - `docs/roadmap/teacher-askesis-interface-deferred.md` — teacher interface design
 - `core/models/submissions/journal_insight.py` — JournalInsight dataclass stub
 - `core/prompts/templates/askesis_stance.md` — shared stance fragment heading BOTH answer branches (ADR-082 D1/D3)

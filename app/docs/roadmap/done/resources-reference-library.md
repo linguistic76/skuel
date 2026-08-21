@@ -1,6 +1,6 @@
 # Resources/ Reference Library — Ingestion Roadmap
 
-**Status:** **Tier 1 (Pointing) = foundational, near-term.** **Tier 2 (Passage-addressable) = PLANNED, no date** — deliberately unforced; it will take clearer shape as the content matures. Cleaning of raw source files is **external to SKUEL.app** (author-side preprocessing, not a codebase feature).
+**Status:** COMPLETE/SUPERSEDED — moved to done/ 2026-08-21. **Tier 1 (Pointing) fully shipped** (#562/#564/#565/#566: `locator` on CITES_RESOURCE, Resource detail page, Ku-detail parity, reciprocal "Cited by"). **Tier 2's machinery shipped for a different surface** — the canon shelf (`:ReferenceChunk` + walled ingest; see `canon-journaling-companion.md`, which rules that Tier-2-as-library-search may simply never be built). The "point at the raw" stance graduated into `docs/architecture/CANON_CITATION_DESIGN.md`. Cleaning of raw source files remains **external to SKUEL.app** (author-side preprocessing, not a codebase feature).
 
 **Core Principle:** *"Point to the raw; don't over-interpret. Let the resources speak for themselves."*
 

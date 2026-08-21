@@ -28,7 +28,7 @@
       // triage card (overdue). ALL per-card interaction state — optimistic
       // hide, selection, focus order, the drawer — is keyed by 'source:uid'
       // so acting on one card never touches the other (C7,
-      // docs/roadmap/calendar-act-from-arc.md). Completion stays uid-keyed
+      // docs/roadmap/done/calendar-act-from-arc.md). Completion stays uid-keyed
       // deliberately: completing is a task-level fact and hides both cards.
       selectedKey: null,     // 'ribbon:<uid>' | 'triage:<uid>'
       openTaskKey: null,

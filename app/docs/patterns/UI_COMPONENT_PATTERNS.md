@@ -765,7 +765,7 @@ TableFromDicts(
 )
 ```
 
-Manual `Table(Thead(...), Tbody(...))` is only needed for non-data-driven layouts (hardcoded rows, dynamic column counts, headerless tables). See `docs/roadmap/tables-custom-design.md` for deferred cases.
+Manual `Table(Thead(...), Tbody(...))` is only needed for non-data-driven layouts (hardcoded rows, dynamic column counts, headerless tables). The one sanctioned case in the tree: `ui/patterns/relationships/alternatives_grid.py` — a transposed comparison grid whose column headers are the entities themselves (one `Th` per alternative), so rows are attributes rather than records and `TableFromDicts`' dict-per-row model cannot express it.
 
 ---
 

@@ -2,7 +2,7 @@
  * Behavior pins for static/js/today.js — the C7 defer contract.
  *
  * Covers the client half of the calendar act-from arc's C7 ruling
- * (docs/roadmap/calendar-act-from-arc.md):
+ * (docs/roadmap/done/calendar-act-from-arc.md):
  *   - (source, uid) keying: a dual-membership task's two cards act
  *     independently (hide, selection, focus order, drawer);
  *   - one transport per defer: a single fetch carrying span + source +

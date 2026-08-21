@@ -72,8 +72,9 @@ Indexes: `search_event_query_idx` (`query_normalized`) and
 
 **Privacy stance:** query text is user-typed search *behavior*, stored with
 `user_uid`. It is never journal content — ADR-073 (journals store zero) is
-untouched. TODO before multi-user launch: define a retention/purge policy for
-search events.
+untouched. ~~TODO before multi-user launch: define a retention/purge policy for
+search events.~~ ✅ Done (ADR-080 H0): `TelemetryRetention.SEARCH_EVENT_DAYS = 90`,
+pruned by `telemetry_retention_backend.py` via `./dev telemetry-retention`.
 
 ### Content-gap read side
 

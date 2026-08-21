@@ -3,10 +3,19 @@
 > "Cross-session memory is what transforms Askesis from a chat interface into a companion
 > that knows you."
 
-**Status:** Deferred — in-memory sessions are sufficient until curriculum graph has real data
-**Trigger condition:** Any user completes 3+ conversation sessions AND requests cross-session
-memory; OR a teacher needs to review conversation history
-**See:** `docs/architecture/ASKESIS_PEDAGOGICAL_ARCHITECTURE.md` — full pedagogical vision
+**Status:** RESOLVED by ADR-078 (2026-08-21 triage) — this design is historical, kept as the
+source ADR-078 adapted. The **persistence half shipped** (PRs #634/#636/#638):
+`adapters/persistence/neo4j/backends/conversation_backend.py`, `ConversationSession`/
+`ConversationTurn` labels, `HAS_SESSION`/`HAS_TURN` edges, retention exclusion for saved
+discussions. The **pedagogical half was REJECTED, not deferred** — ADR-078 deliberately
+dropped `guidance_mode`, `anchor_ku_uid`, `ANCHORED_TO`, `topic_summary`, `ku_refs`,
+`MENTIONS`, `MONITORS` (stored-not-understood).
+⚠️ **Do not implement from this doc.** The Backend Design below specs
+`ConversationBackend(UniversalNeo4jBackend[...])` — the exact shape ADR-078 §2 forbids; the
+shipped backend is a thin session runner precisely to keep discussions out of the universal
+search/embedding path.
+**See:** `docs/decisions/ADR-078-discussion-sessions-stored-not-understood.md` (the ruling),
+`docs/architecture/ASKESIS_PEDAGOGICAL_ARCHITECTURE.md` — full pedagogical vision
 
 ---
 

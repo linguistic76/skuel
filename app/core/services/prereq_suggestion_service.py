@@ -32,7 +32,7 @@ Approve stage:
     when the admin runs the existing content-vault sync.
 
 Backend: PrereqCandidateBackend (read-only).
-See: /docs/roadmap/SEMANTIC_ANALYSIS_ROADMAP.md
+See: /docs/roadmap/done/SEMANTIC_ANALYSIS_ROADMAP.md
 """
 
 from __future__ import annotations

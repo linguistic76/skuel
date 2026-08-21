@@ -4,7 +4,7 @@ updated: 2026-03-28
 status: current
 category: design-principles
 tags: [design, principles, open-source, dependencies, maintenance]
-related: [docs/roadmap/obsidian-headless-sync.md]
+related: []
 ---
 
 # Leverage Maintained Software
@@ -48,5 +48,4 @@ Before building custom:
 
 ## See Also
 
-- `/docs/roadmap/obsidian-headless-sync.md` — detailed rationale
 - `/docs/decisions/ADR-050-pwa-mobile-strategy.md` — PWA over native apps

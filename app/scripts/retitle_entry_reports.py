@@ -2,7 +2,7 @@
 """Retitle legacy machine-titled EntryReports from their subject.
 
 A ONE-SHOT migration (feedback-loop UX arc, choice C3 — see
-``docs/roadmap/feedback-loop-ux-arc.md``) — no background loop, so the CORE
+``docs/roadmap/done/feedback-loop-ux-arc.md``) — no background loop, so the CORE
 "no background workers" guarantee holds.
 
 Report titles used to be hardcoded at creation from raw UIDs

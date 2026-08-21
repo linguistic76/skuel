@@ -12,10 +12,10 @@ with persistent conversation histories
 
 ## Prerequisites
 
-This interface cannot be built until:
-1. `ZPDService` exists and computes ZPD assessments (`docs/roadmap/done/zpd-service-architecture.md`)
-2. Conversation sessions are persisted in Neo4j (`docs/roadmap/conversation-neo4j-persistence-deferred.md`)
-3. The Groups domain is actively used (teachers with students in groups)
+*(Status re-verified 2026-08-21 — the first two have since shipped.)*
+1. ✅ MET — `ZPDService` exists and computes ZPD assessments (`docs/roadmap/done/zpd-service-architecture.md`)
+2. ✅ MET — conversation sessions are persisted in Neo4j (ADR-078, `conversation_backend.py`; the original design is archived at `docs/roadmap/done/conversation-neo4j-persistence-deferred.md`). Note ADR-078 deliberately rejected `MONITORS` and the pedagogical annotations — this interface's write-side needs its own ruling, not a revival of that schema.
+3. ⏳ THE remaining gate — the Groups domain is actively used (teachers with students in groups). A product/usage condition, not a code one.
 
 ---
 
