@@ -165,24 +165,18 @@ class AskesisService:
                 "Askesis cannot synthesize across entity types without it."
             )
 
-        # Store dependencies
-        self.graph_intel = deps.graph_intel
+        # Store the dependencies THIS facade calls. The rest reach their
+        # consumers straight off `deps` in the sub-service construction below —
+        # copying them onto `self` as well built a second, read-only surface
+        # that nothing used. Nine such copies were deleted 2026-08-20
+        # (graph_intel, embeddings_service, knowledge_service, tasks_service,
+        # goals_service, habits_service, events_service, citation_service,
+        # ps_engagement_service). Add a field here only when this class calls it.
         self.user_service = deps.user_service
         self.askesis_core_service = deps.askesis_core_service
         self.llm_service = deps.llm_service
-        self.embeddings_service = deps.embeddings_service
-        self.knowledge_service = deps.knowledge_service
-        self.tasks_service = deps.tasks_service
-        self.goals_service = deps.goals_service
-        self.habits_service = deps.habits_service
-        self.events_service = deps.events_service
-        self.citation_service = deps.citation_service
         # ZPD service — required for guided pipeline (readiness assessment).
         self.zpd_service = deps.zpd_service
-
-        # PS engagement service — required for engagement-aware daily plan
-        # bucketing (ADR-059) and bundle loading via ContextRetriever.
-        self.ps_engagement_service = deps.ps_engagement_service
 
         # 13-domain intelligence factory for comprehensive daily planning
         # (REQUIRED - passed at construction, not post-wired)
