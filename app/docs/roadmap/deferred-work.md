@@ -759,11 +759,121 @@ stopped being `Any`, mypy surfaced `PsService.attach_step_to_path` calling
 `self.repo.get_next_step_sequence(...)` — a method `PsBackend` has always
 implemented and the port had never declared. Now declared (cf. #1094).
 
-### C. The lying `ku_backend` fixture
+### C. The lying `ku_backend` fixture — now has a named vehicle
 
 `tests/integration/test_event_ku_practice_flow.py:61` — a fixture **named**
 `ku_backend` that constructs a `PsBackend` (`NeoLabel.PATH_STEP`, `PathStep`).
-**Ruled: bundle with whatever touches that file next; do not spend a PR on it.**
+Ruled a rider, not a PR. **Its vehicle is now scheduled: the substance-write
+grain arc below.** Riding that one specifically matters — the fixture's name is
+not a local typo, it is the test-side instance of a naming pattern that runs
+through the whole production chain (see the table there). Renaming it under any
+passing sweep would remove the symptom and leave the pattern.
+
+---
+
+## Substance-Write Grain — the `ku_uid` That May Not Be a Ku (SCHEDULED 2026-08-20)
+
+**Active queue, not trigger-gated.** Registered because it was an open defect
+living *only* in an out-of-repo memory file — invisible to CI, worktrees and
+clones — which is precisely what the citation rule exists to prevent. Carries
+item C above as its rider.
+
+Follow-up #2 of the Ku-grain bridge arc (PR #247, 2026-06-06), which fixed the
+**read** path only. Sibling #1 — the Event→Ku edge remap — shipped as #586 and
+touched the item-C test file, which is the precedent for pairing them.
+
+⚠️ **There are TWO independent writers to `times_practiced_in_events`, not one.**
+The first draft of this entry conflated them (caught in review on #1109). They
+fire on different triggers, carry different field names, and only one of them
+even attempts a roll-down:
+
+| # | Trigger → path | Writer | Roll-down? |
+|---|---|---|---|
+| 1 | `CalendarEventCompleted` → `PsPracticeService` (`:146`) | `increment_practice_count` (`_adaptive_mixin.py:72`) — `MATCH (ku:Entity {uid})`, SET, done | **none at all** |
+| 2 | event *created* w/ knowledge → `EventsService` → `KnowledgePracticedInEvent` → `PsService.handle_knowledge_practiced_in_event` | `increment_substance` (`curriculum_backends.py:242`) | present, inert at PathStep grain |
+
+Both `SET` the **same property**. Establish whether an event that is created with
+knowledge *and* later completed is double-counted — that is a distinct question
+from the grain one, and neither writer filters by type.
+
+`KnowledgePracticed` (field **`ku_uid`**, not `knowledge_uid`) belongs to path 1
+and has **zero subscribers** — it is published *after* the counter is already
+incremented, so it is a notification. `KnowledgePracticedInEvent` (field
+`knowledge_uid`) is the one the handler consumes, on path 2.
+
+**Every site is grain-agnostic while named as though it were not** (re-measured
+2026-08-20 @ `372ec722a`):
+
+| Site | Says | Constrains to `:Ku`? |
+|---|---|---|
+| `_adaptive_mixin.py:67` (read) | `->(ku:Entity)`, `RETURN ku.uid AS ku_uid` | **no** |
+| `_adaptive_mixin.py:77` (write, path 1) | `MATCH (ku:Entity {uid: $ku_uid})` | **no** |
+| `ps_service.py:885–951` (8 handlers) | `ku_uid=` / `ku_uids=` | no |
+| `curriculum_backends.py:242` (write, path 2) | `MATCH (ku:Entity {uid: $ku_uid})` | **no** |
+| `test_event_ku_practice_flow.py:61` | fixture `ku_backend` | no (**is** a `PsBackend`) |
+
+⚠️ **The inherited premise is FALSIFIED — do not open this arc looking for
+"broken Ku-level substance."** Five review rounds on #1109 took the entry apart;
+what survives is smaller and differently shaped than the memory that spawned it.
+
+**`Ku` cannot hold substance at all, by design.** `Ku` extends `Entity`, *not*
+`Curriculum` (`core/models/ku/ku.py:38`), so it has no `times_*` fields and no
+`is_well_practiced()`; `KuDTO` drops those properties entirely. The model
+docstring says it outright: *"Kus are lightweight ontology/reference nodes. They
+don't carry full learning metadata (complexity, substance scores)."* So
+"Ku-level substance stays 0" was never a defect — it is the design.
+
+**And the propagation runs the other way from what this entry first said.**
+`OPTIONAL MATCH (ps:PathStep)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku)`
+matches PathSteps that *use* the bound Ku, so it rolls **UP** (Ku → its composing
+PathSteps), not down. Net effect of `increment_substance` (path 2):
+
+| `$ku_uid` names… | primary SET | roll-up | readable counter | **returns** |
+|---|---|---|---|---|
+| `:Ku` **with** composing PathSteps | `ku.times_*` — unreadable | PathSteps credited | ✅ | real count |
+| `:Ku` **orphan** (no `USES_KU` in) | `ku.times_*` — unreadable | none | ❌ **lost** | `ok(0)` |
+| a `:PathStep` | `ps.times_*` — readable | none | ✅ | `ok(0)` |
+
+⚠️ **A real bug the original framing hid: `WHERE ps IS NOT NULL` gates the
+`RETURN`, not just the second `SET`.** It drops the whole row, so with no
+composing PathStep the query emits zero rows and
+`curriculum_backends.py:258` returns **`ok(0)`** — a *success* claiming nothing
+was counted, for a write that already landed. Two of three cases hit it. And the
+orphan row is live, not hypothetical: `KnowledgeHealthService` scores
+`non_orphan_fraction` and flags orphan Kus as an authoring-health signal.
+
+**What actually remains open:**
+
+1. **The `WHERE ps IS NOT NULL` row-filter** (strongest; small Cypher fix, but
+   decide whether an orphan Ku should *credit* something or just report honestly).
+2. **Writer asymmetry.** Path 1 (`increment_practice_count`, `_adaptive_mixin.py:72`)
+   has **no roll-up at all** — a real Ku uid there writes an unreadable property
+   and credits no PathStep.
+3. **Possible double-count.** Both writers `SET` the same property on different
+   triggers. Is an event created-with-knowledge *and* later completed counted twice?
+4. **Naming.** Every site says `ku_*` while PathStep is the readable grain —
+   which is what item C's fixture reflects, and why C rides here.
+5. **Ku nodes accumulate properties nothing reads.** Cosmetic or a cleanup, decide.
+
+⚠️ **Re-probe before designing.** The "all activity→knowledge edges target
+`entity_type='path_step'`, zero target `:Ku`" measurement is from **June 2026,
+on the old local Docker graph** — it predates the AuraDB cutover (2026-08-15).
+If the live edge grain has changed, the fix changes with it. Do not quote that
+number; re-run it.
+
+**Adjacent, same area, decide while in here:** `KnowledgePracticed` has **zero
+subscribers**. `./dev bloat` reports it at the informational tier — *"published
+but no subscriber — fine if fire-and-forget"* — a judgment nobody has made.
+Two endings only: it earns a subscriber, or it goes with its publish site.
+⚠️ `PLANNED_EVENTS` is **not** available — `detect_bloat.py:1497` flags any
+*published* class registered there as `planned-marking-stale`; that tier is for
+events defined but never published. Per the deletion protocol, unwired → **ask**.
+
+**Scope note:** all 8 handlers share the shape, not just the event one — task,
+event, habit, entry, choice, plus 3 batch. Enumerate before fixing any.
+
+Case file: `docs/roadmap/substance-write-grain.md` — the investigation order, the
+re-probe warning, and the design fork that needs Mike's ruling.
 
 ---
 
@@ -799,7 +909,7 @@ Review this document at the **September 2026 quarterly review**. Checklist:
 | LP recommendation backend methods (ruled *build, not now* 2026-08-20) | Mike schedules it — full feature: backend methods + frozen contract + consumer surface | Case file `lp-backend-recommendation-methods.md`; the 3 `Any` handles + their comments are the in-code markers |
 | `DomainConfig` string chain (backend-typing queue A) | Next backlog session — active queue, ONE item per context | `git grep 'rel.value for rel in'` still shows the discard at `relationship_registry.py:2519`; ⚠️ enumerate the enables twin too |
 | `PsOperations` layering contradiction (backend-typing queue B) | Next backlog session — investigation, not a retype | `create_ps_sub_services(backend=)` still `Any`; probe `x: PsOperations = PsBackend(...)` vs `= PsService(...)` before believing any doc |
-| Lying `ku_backend` fixture (backend-typing queue C) | Next touch of `test_event_ku_practice_flow.py` | Ride-along, not standalone — ruled: do not spend a PR |
+| Substance-write grain (carries backend-typing queue C as its rider) | **None — SCHEDULED 2026-08-20, active queue** | Not a triage row: take it, don't re-defer it. Case file `docs/roadmap/substance-write-grain.md`. The item-C row that used to sit here said "next touch of `test_event_ku_practice_flow.py`", which is what kept the rider parked with no vehicle |
 
 **The document is the checklist, the table is a convenience:** a section added to this file
 without a matching row here is still in review scope — walk every `##` section, then the table.
