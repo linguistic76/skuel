@@ -273,34 +273,54 @@ surfacing a design signal, not an annotation chore.
 `LpProgressService` consumes three reads out of `LpOperations`' ~90-method surface, so
 the three were extracted and `LpOperations` inherits the slice.
 
-### When the Broad Protocol Must *Not* Inherit the Slice
+`PsOperations` (August 2026) is now the same move twice over: it inherits
+`PsOrganizesBackendOperations` *and* `PsProgressBackendOperations`, so each set of
+signatures has exactly one source. `PsIntelligenceBackendOperations` still stands
+alone — `PsIntelligenceService` types `self.backend` against
+`BackendOperations[PathStep]` and takes that slice as a **separate handle**, which is
+the other legitimate reason not to inherit: the slice is not part of the same seam.
 
-The inheritance half of the pattern assumes the broad protocol is single-layer. When
-it is **dual-layer** — the same name typing both `self.backend` inside a service *and*
-a facade handed to a collaborator — inheriting a backend slice leaks backend
-signatures to facade holders, and the two layers' signatures can legitimately differ.
+### "Dual-Layer" Is a Claim to Falsify, Not a Reason to Stop
 
-`PsOperations` is the live example: it types `PsCoreService.backend` *and*
-`EntityExtractor.knowledge_service` (which receives the `PsService` facade), and its
-ORGANIZES signatures match the *service*'s while `_OrganizesMixin`'s match the
-*backend*'s.
+This section used to say the opposite. It named `PsOperations` as the live example of
+a **dual-layer** protocol — one typing `self.backend` inside a service *and* a facade
+handed to a collaborator — where inheriting a backend slice would leak backend
+signatures to facade holders. On that basis its three slices were kept separate, the
+duplicated declarations were sanctioned, and `create_ps_sub_services(backend=)` was
+held at `Any` for a month as a blocked design question.
 
-⚠️ **Re-measured 2026-08-20, and the asymmetry is sharper than "satisfied by
-neither" (which this line used to say).** Since the row-type drift was closed,
-`x: PsOperations = PsBackend(...)` probes **clean**, while
-`x: PsOperations = PsService(...)` still **fails**. So the protocol documented as
-carrying the *service*'s shapes is satisfied by the *backend* and not by the
-service. That is the open design question underneath
-`create_ps_sub_services(backend=)`, which cannot be typed until it is settled —
-see the `# boundary: ps-two-layer-divergence` comment there. So
-`PsOrganizesBackendOperations`, `PsProgressBackendOperations` and
-`PsIntelligenceBackendOperations` each stand alone, with signatures lifted from the
-backend rather than from `PsOperations`. Accept the duplicated declaration and write
-the reason at the seam — it is two contracts, not one repeated.
+**The claim was false, and one census would have shown it (2026-08-20).**
+`PsOperations` declares 142 public callables. The `PsService` facade implements **8**
+of them, diverges on 15 more, and is missing **119** — `execute_query`, `find_by`,
+`create_step_node`, `faceted_search_raw`. It is a backend protocol end to end. The
+sole "facade holder", `EntityExtractor.knowledge_service`, called exactly one method
+on it (`get`) and was fed from `AskesisDeps.knowledge_service: Any`, so the annotation
+was never checked. Its four sibling params (`TasksOperations`, `GoalsOperations`,
+`HabitsOperations`, `EventsOperations`) failed the identical probe. All five now type
+against `EntityLookup` (`core/services/askesis/types.py`), and PS is single-layer.
 
-**Rule of thumb:** before making a broad protocol inherit a new slice, grep its
-consumers. Every consumer typing `backend:`/`self.backend` → single-layer, inherit.
-Any consumer receiving a *facade* → dual-layer, keep the slice separate.
+Two traps worth naming, both measured:
+
+- **The composition blocker was the wrong question.** `class X(PsOperations,
+  PsOrganizesBackendOperations, Protocol)` really is rejected — but by the extra
+  optional `limit` param, not the `entity_uid`/`parent_uid` rename (mypy does not
+  enforce protocol parameter names at all under this config, so that divergence was
+  protecting nothing). And composition was never the tool: **inheritance has no
+  conflict, because there is only one definition.**
+- **Typing the laundered handle finds real holes.** The moment
+  `create_ps_sub_services(backend=)` stopped being `Any`, mypy surfaced
+  `PsService.attach_step_to_path` calling `self.repo.get_next_step_sequence(...)` —
+  a method `PsBackend` has always implemented and the port had never declared.
+
+**Rule of thumb (corrected):** before making a broad protocol inherit a new slice,
+grep its consumers *and probe each one*. Every consumer typing `backend:`/
+`self.backend` → single-layer, inherit. A consumer that appears to receive a *facade*
+→ **prove the facade satisfies the protocol before believing it**. If it does not, the
+consumer is mis-typed, not the protocol dual-layer — give that consumer the narrow
+slice it actually uses, or name the facade class concretely. Genuine reasons not to
+inherit remain: the slice belongs to a **different handle** on the same service (the
+`PsIntelligenceBackendOperations` case), or a **different domain's** backend
+implements the same mixin (`UserEntryOrganizesOperations`).
 
 ### Verify Satisfiability, Don't Assume It
 

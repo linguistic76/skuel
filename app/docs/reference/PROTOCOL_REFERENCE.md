@@ -103,6 +103,25 @@ if isinstance(obj, HasUID):
 
 ---
 
+### HasTitle
+**Purpose:** Objects with a readable title — the bound on `EntityLookup[T]`
+
+```python
+@runtime_checkable
+class HasTitle(Protocol):
+    @property
+    def title(self) -> str: ...
+```
+
+⚠️ **Read-only on purpose.** A bare `title: str` declares a *settable* member, and
+no frozen domain dataclass satisfies that — bound that way, every `Entity` subtype
+is rejected with `must be a subtype of "HasTitle"`. The mutable-attribute siblings
+(`HasUID`, `HasSummary`, `HasMetadata`) predate this and would fail the same way if
+used as a type-parameter bound. Declare new attribute protocols read-only unless a
+consumer genuinely assigns.
+
+---
+
 ### HasToDict
 **Purpose:** Objects that can convert to dictionary
 

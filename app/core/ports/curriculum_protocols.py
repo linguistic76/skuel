@@ -35,12 +35,20 @@ are not advertised at that seam:
     - PsIntelligenceBackendOperations → PsIntelligenceService
     - LpProgressBackendOperations    → LpProgressService (LpOperations inherits it)
     - ExerciseBackendOperations      → ExerciseService (August 2026)
-``LpOperations`` inherits its slice, keeping one source for those signatures.
-The PS slices deliberately stand alone: ``PsOperations`` is dual-layer (it types
-both ``PsCoreService.backend`` and the ``PsService`` facade via
-``EntityExtractor.knowledge_service``) and its signatures are the *service*'s,
-not the backend's — inheriting would advertise backend signatures to facade
-holders. See PR #826.
+``LpOperations`` and ``PsOperations`` both inherit their slices, keeping one
+source for those signatures. ``PsIntelligenceBackendOperations`` still stands
+alone — ``PsIntelligenceService`` types ``self.backend`` against
+``BackendOperations[PathStep]`` and takes that slice as a *separate* handle.
+
+``PsOperations`` is a BACKEND protocol, single-layer (2026-08-20). It was
+documented as dual-layer from PR #826 (2026-07-26) until a census falsified
+the premise: it declares ``execute_query``, ``find_by``, ``create_step_node``
+and ~116 other persistence methods, and of its 142 public callables the
+``PsService`` facade carries 8. The one consumer said to hold the facade —
+``EntityExtractor.knowledge_service`` — needed a single method (``get``) and
+was fed through an ``Any``-typed deps container, so the claim was never
+checked. That consumer now types against ``EntityLookup``
+(``core/services/askesis/types.py``).
 
 Protocol Hierarchy
 ------------------
@@ -529,7 +537,8 @@ class PsOrganizesBackendOperations(Protocol):
     MOC is emergent identity: any Entity with outgoing ORGANIZES edges is an
     organizer. This ISP slice is what ``PsOrganizationService`` types
     ``self.backend`` against — deliberately narrow, and deliberately *backend*
-    layer. The service's own ``get_organization_view`` composes these reads with
+    layer. ``PsOperations`` inherits it, so these seven signatures have one
+    source. The service's own ``get_organization_view`` composes these reads with
     ``PsCoreService`` lookups and is NOT a backend operation; declaring it on a
     backend protocol is what made the wider contract unsatisfiable.
 
@@ -574,14 +583,10 @@ class PsProgressBackendOperations(Protocol):
 
     ``PsProgressService`` reacts to ``KnowledgeMastered`` and recomputes PathStep
     progress from these two reads only. Signatures are lifted from ``PsBackend``
-    itself, not from ``PsOperations``.
-
-    Deliberately NOT inherited by ``PsOperations``: that protocol is dual-layer —
-    it types ``PsCoreService.backend`` *and* ``EntityExtractor.knowledge_service``
-    (the ``PsService`` facade) — and is satisfied by neither ``PsBackend`` nor
-    ``PsService``. Making it inherit a backend slice would advertise backend
-    signatures to facade holders; the same reason ``PsOrganizesBackendOperations``
-    above stands alone. See PR #826.
+    itself — which is also where ``PsOperations`` gets them, since it inherits
+    this slice rather than re-declaring it (2026-08-20). Both layers are the
+    backend layer; the "dual-layer" reading this docstring used to carry was
+    measured false. See the ``PsOperations`` class docstring.
     """
 
     async def find_path_steps_for_ku(self, ku_uid: str) -> Result[list[str]]:
@@ -656,17 +661,41 @@ class PsIntelligenceBackendOperations(Protocol):
 
 
 @runtime_checkable
-class PsOperations(CurriculumOperations["PathStep"], Protocol):
+class PsOperations(
+    CurriculumOperations["PathStep"],
+    PsOrganizesBackendOperations,
+    PsProgressBackendOperations,
+    Protocol,
+):
     """
-    PathStep (PS) specific operations.
+    PathStep (PS) persistence operations — the BACKEND layer.
+
+    Despite the ``*Operations`` suffix, this is a backend protocol, not the
+    route-facing kind CLAUDE.md's naming table describes. So are its siblings
+    ``KuOperations`` and ``LpOperations``: all three extend
+    ``CurriculumOperations[T]`` → ``BackendOperations[T]``, and all three are
+    satisfied by their ``*Backend`` adapter and by no service. Renaming the
+    trio to ``*BackendOperations`` is a live naming question, deliberately not
+    taken here (Mike's ruling, 2026-08-20: state the layer, don't rename).
+
+    Type ``self.backend`` against this. Do NOT type a handle that receives the
+    ``PsService`` facade against it — ``PsService`` implements 8 of its 142
+    public callables. A collaborator that only needs to look an entity up wants
+    a narrow slice (see ``EntityLookup`` in ``core/services/askesis/types.py``),
+    and one that needs the facade should say ``PsService`` (facades are
+    concrete to their callers — CLAUDE.md § Protocol-Based Architecture).
 
     Extends CurriculumOperations with PS-specific methods for:
     - Knowledge aggregation (PS aggregates KUs)
     - Practice integration (habits, tasks, events)
     - Path integration (PS can be standalone or part of LP)
 
+    Inherits two narrow backend slices so their signatures have one source:
+    ``PsOrganizesBackendOperations`` (ORGANIZES) and
+    ``PsProgressBackendOperations`` (KU → PathStep progress).
+
     Neo4j: PS nodes are :Entity:PathStep{entity_type='path_step'}
-    UID Format: "ps:{random}" (e.g., "ps:a1b2c3d4")
+    UID Format: "ps.{namespace}.{slug}" (e.g., "ps.python.async-basics")
     """
 
     # =========================================================================
@@ -776,6 +805,17 @@ class PsOperations(CurriculumOperations["PathStep"], Protocol):
         """
         ...
 
+    async def get_next_step_sequence(self, path_uid: str) -> Result[int]:
+        """Next free ``HAS_STEP`` sequence number for a path; 0 when it has none.
+
+        Declared 2026-08-20. ``PsService.attach_step_to_path`` has always called
+        it and ``PsBackend`` has always implemented it — the port never said so,
+        and nothing noticed while the handle was ``Any``.
+
+        Backend: PsBackend.get_next_step_sequence
+        """
+        ...
+
     async def is_standalone(self, uid: str) -> Result[bool]:
         """
         Check if this step exists independently (not part of a path).
@@ -870,41 +910,10 @@ class PsOperations(CurriculumOperations["PathStep"], Protocol):
     # =========================================================================
     # ORGANIZATION (ORGANIZES relationships)
     # =========================================================================
-    # Deliberately NOT inherited from ``PsOrganizesBackendOperations``: these are
-    # the *service-facing* shapes (``PsService.get_organized_children(entity_uid)``),
-    # and they diverge from the backend's (``_OrganizesMixin`` takes
-    # ``parent_uid`` plus an optional ``limit``). Same operations, two layers —
-    # collapsing them would promise ``limit`` to callers holding a ``PsService``.
-    # Type ``self.backend`` against the backend slice; keep this one for consumers
-    # that hold the facade (e.g. ``EntityExtractor.knowledge_service``).
-
-    async def organize(self, parent_uid: str, child_uid: str, order: int = 0) -> Result[bool]:
-        """Create ORGANIZES relationship between two entities."""
-        ...
-
-    async def unorganize(self, parent_uid: str, child_uid: str) -> Result[bool]:
-        """Remove ORGANIZES relationship between two entities."""
-        ...
-
-    async def reorder(self, parent_uid: str, child_uid: str, new_order: int) -> Result[bool]:
-        """Change the order of a child entity within its parent."""
-        ...
-
-    async def is_organizer(self, entity_uid: str) -> Result[bool]:
-        """Check if an entity has organized children."""
-        ...
-
-    async def find_organizers(self, entity_uid: str) -> Result[list[OrganizerResult]]:
-        """Find all parent entities that organize the given entity."""
-        ...
-
-    async def list_root_organizers(self, limit: int = 50) -> Result[list[RootOrganizerResult]]:
-        """List entities that organize others but are not themselves organized."""
-        ...
-
-    async def get_organized_children(self, entity_uid: str) -> Result[list[OrganizerResult]]:
-        """Get direct children organized by ORGANIZES relationship."""
-        ...
+    # Inherited verbatim from ``PsOrganizesBackendOperations`` — one source for
+    # the seven signatures. The ``entity_uid`` / no-``limit`` shapes that used to
+    # be re-declared here were the *facade*'s, kept for a consumer that never
+    # called them; see the class docstring.
 
     # =========================================================================
     # PRACTICE + AI    # =========================================================================
@@ -927,13 +936,15 @@ class PsOperations(CurriculumOperations["PathStep"], Protocol):
 
     # NOTE: find_similar_by_keywords and search_by_keywords removed 2026-08-10
     # along with their _AdaptiveMixin implementations — see the NOTE there for
-    # why. Declaring them here was doubly wrong: this protocol is dual-layer, and
-    # the facade layer never had them. ``PsService`` carries no such delegation
-    # method, so a caller holding ``EntityExtractor.knowledge_service`` would have
-    # hit AttributeError, not a query — a hole mypy could not see because the
-    # facade reaches that seam through ``AskesisDeps.knowledge_service: Any``
-    # (askesis_factory.py passes ``learning_services["ps"]``). Keyword search
-    # for PathStep is SearchRouter → SearchOperationsMixin.faceted_search.
+    # why. The removal stands; the reason recorded here was half wrong and is
+    # corrected: the backend had dropped them, which is the whole argument, since
+    # this is a backend protocol. The rest of the old note reasoned about a
+    # ``PsService`` holder hitting AttributeError through
+    # ``EntityExtractor.knowledge_service`` — that seam was never a facade seam
+    # (see the class docstring), and the ``AskesisDeps.knowledge_service: Any``
+    # laundering it blamed is exactly why the dual-layer claim went unfalsified
+    # for a month. Keyword search for PathStep is SearchRouter →
+    # SearchOperationsMixin.faceted_search.
 
     # =========================================================================
     # APPLICATION DISCOVERY    # =========================================================================
@@ -1126,12 +1137,8 @@ class PsOperations(CurriculumOperations["PathStep"], Protocol):
     # =========================================================================
     # KU COMPLETION PROGRESS (direct USES_KU/CONTAINS_KNOWLEDGE traversal)
     # =========================================================================
-
-    async def get_ku_completion_progress(
-        self, ps_uid: str, user_uid: UserUID
-    ) -> Result[Neo4jProperties]:
-        """Return total and mastered KU counts for PathStep progress."""
-        ...
+    # Inherited from ``PsProgressBackendOperations`` along with
+    # ``find_path_steps_for_ku`` — one source for both signatures.
 
     # =========================================================================
     # CORE CRUD QUERIES (backend-level Cypher)
@@ -1336,7 +1343,7 @@ class LpOperations(CurriculumOperations["LearningPath"], LpProgressBackendOperat
     - Milestone and checkpoint management
 
     Neo4j: LP nodes are :Entity:LearningPath{entity_type='learning_path'}
-    UID Format: "lp:{random}" (e.g., "lp:a1b2c3d4")
+    UID Format: "lp.{namespace}.{slug}" (e.g., "lp.python.async-track")
     """
 
     # =========================================================================

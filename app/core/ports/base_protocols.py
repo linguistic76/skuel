@@ -223,6 +223,20 @@ class HasMetadata(Protocol):
 
 
 @runtime_checkable
+class HasTitle(Protocol):
+    """Protocol for objects with a readable title.
+
+    Read-only on purpose, unlike the mutable-attribute siblings above: a bare
+    ``title: str`` is a *settable* member, which no frozen domain dataclass can
+    satisfy — every `Entity` subtype would be rejected. Declare read-only unless
+    a consumer genuinely assigns.
+    """
+
+    @property
+    def title(self) -> str: ...
+
+
+@runtime_checkable
 class HasSummary(Protocol):
     """Protocol for objects with summary field."""
 

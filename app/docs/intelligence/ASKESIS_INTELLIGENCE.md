@@ -316,7 +316,7 @@ Both methods run the same PS-first pipeline: enrollment gate (an active PathStep
 - `_fetch_path_steps()`, `_fetch_kus()`, `_fetch_entities_by_uid()` - Parallel entity fetching via `asyncio.gather()`
 - `_fetch_cited_resources()` - Resources via `PsBackend.get_cited_resources()`
 
-**PS bundle deps** use `EntityLookup` protocol (async `get(uid) -> Result[Any]`): ps_service, ku_service, habits_service, tasks_service, events_service, principles_service, lp_service.
+**PS bundle deps** use the `EntityLookup[T]` protocol (async `get(uid) -> Result[T]`, `core/services/askesis/types.py`): ps_service, habits_service, tasks_service, events_service, principles_service, lp_service — plus `ku_service`, which needs `KuLookup[T]` because `KuService` names its getter `get_ku`. **Parameterize at every site** (`EntityLookup[Task]`, not bare): `Result` is invariant, so the type parameter is the only way the model survives the round trip, and an unparameterized handle makes `.value.title` unchecked again. These are *lookup slices*, never a domain's `*Operations` port — those are backend protocols no facade satisfies.
 
 **Backend deps** for graph queries: `ku_backend` (KuBackend), `ps_backend` (PsBackend).
 

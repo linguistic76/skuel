@@ -33,7 +33,7 @@ March 2026: Absorbed former LSContextLoader into ContextRetriever — single ret
 from __future__ import annotations
 
 import asyncio
-from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any
 
 from core.constants import GraphDepth
 from core.models.askesis.ps_bundle import PsBundle
@@ -42,6 +42,8 @@ from core.models.ps_content.content_chunks import ContentChunkType
 from core.models.query_types import QueryIntent
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
+from core.ports.base_protocols import HasTitle
+from core.services.askesis.types import EntityLookup, KuLookup
 from core.utils.decorators import with_error_handling
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -49,39 +51,20 @@ from core.utils.neo4j_props import neo4j_str
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
+    from core.models.event.event import Event
+    from core.models.habit.habit import Habit
     from core.models.ku.ku import Ku
     from core.models.pathways.learning_path import LearningPath
     from core.models.pathways.path_step import PathStep
+    from core.models.principle.principle import Principle
     from core.models.resource.resource import Resource
     from core.models.search_request import SearchRequest
+    from core.models.task.task import Task
     from core.ports.curriculum_protocols import KnowledgeContextOperations, KuOperations
     from core.ports.query_types import RichPathStepItem
     from core.ports.search_protocols import ScopedChunkRetrievalOperations
     from core.services.ps_engagement.engagement import Engagement
     from core.services.user import UserContext
-
-
-@runtime_checkable
-class EntityLookup(Protocol):
-    """Minimal protocol for services used in PS bundle loading.
-
-    Only requires async get(uid) -> Result[Any]. All BaseService subclasses
-    satisfy this via CrudOperationsMixin.
-    """
-
-    async def get(self, uid: str) -> Result[Any]: ...
-
-
-@runtime_checkable
-class KuLookup(Protocol):
-    """Minimal protocol for the Ku facade in PS bundle loading.
-
-    KuService exposes ``get_ku`` (not the BaseService ``get``), so it needs
-    its own lookup slice — typing it as EntityLookup hid a crash behind the
-    ``Any``-typed deps container until the first real KU fetch.
-    """
-
-    async def get_ku(self, uid: str) -> Result[Any]: ...
 
 
 logger = get_logger(__name__)
@@ -161,13 +144,13 @@ class ContextRetriever:
         graph_intel: Any,  # boundary: GraphIntelligenceService protocol not yet extracted
         embeddings_service: Any,  # boundary: EmbeddingsService protocol not yet extracted
         # PS bundle dependencies — all required (fail-fast per SKUEL philosophy)
-        ps_service: EntityLookup | None = None,
-        ku_service: KuLookup | None = None,
-        habits_service: EntityLookup | None = None,
-        tasks_service: EntityLookup | None = None,
-        events_service: EntityLookup | None = None,
-        principles_service: EntityLookup | None = None,
-        lp_service: EntityLookup | None = None,
+        ps_service: "EntityLookup[PathStep] | None" = None,
+        ku_service: "KuLookup[Ku] | None" = None,
+        habits_service: "EntityLookup[Habit] | None" = None,
+        tasks_service: "EntityLookup[Task] | None" = None,
+        events_service: "EntityLookup[Event] | None" = None,
+        principles_service: "EntityLookup[Principle] | None" = None,
+        lp_service: "EntityLookup[LearningPath] | None" = None,
         # Backends for graph queries (migrated from inline Cypher)
         ku_backend: KuOperations | None = None,
         ps_backend: KnowledgeContextOperations | None = None,
@@ -766,14 +749,17 @@ class ContextRetriever:
             return result.value
         return None
 
-    async def _fetch_entities_by_uid(
+    async def _fetch_entities_by_uid[T: HasTitle](
         self,
         uid_dicts: list[dict[str, Any]],
-        service: EntityLookup | None,
-    ) -> list[Any]:
+        service: EntityLookup[T] | None,
+    ) -> list[T]:
         """Fetch full entities from a list of {uid, title, ...} dicts.
 
-        Used for habits, tasks, events, principles from graph_context.
+        Used for habits, tasks, events, principles from graph_context. Generic
+        so the caller's model type survives the round trip — the bundle fields
+        this feeds are typed lists, and a ``list[Any]`` return would let a
+        mismatched service populate them unchecked.
         """
         if not service or not uid_dicts:
             return []

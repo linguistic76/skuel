@@ -661,7 +661,7 @@ surface), so it waits out the stabilize-and-content phase.
 
 ---
 
-## Backend-Typing Follow-on — the Active Queue (2 items)
+## Backend-Typing Follow-on — the Active Queue (1 item)
 
 These outlived the backend-typing arc (#1090–#1102, closed 2026-08-20)
 because none of them is a retype — each is a decision or a chain. They are
@@ -706,23 +706,58 @@ chains belong to `prerequisite_chain_with_distance` (base-label match,
 projected rows), which is what PsService's live path uses. Whoever wires the
 PLANNED mixin consumers must pick the read accordingly.
 
-### B. The `PsOperations` layering contradiction
+### B. ✅ CLOSED — The `PsOperations` layering contradiction (2026-08-20)
 
-Blocks the last untyped factory param: `create_ps_sub_services(backend=)`
-(`core/services/curriculum_domain_config.py:135`, param `backend: Any` at
-`:154`; Mike ruled "type not annotate"). It cannot be typed until this is
-settled: `PsOperations` is documented as the **service-facing** protocol
-(`core/ports/curriculum_protocols.py:874`), yet 5 sub-services type
-`self.backend` against it — and, measured 2026-08-20,
-`x: PsOperations = PsBackend(...)` probes **clean** while
-`x: PsOperations = PsService(...)` **fails**: the protocol carrying the
-service's shapes is satisfied by the backend and not by the service. Mike's
-leaning (2026-08-20): "PsOperations is the backend protocol" — stated as a
-hypothesis needing investigation, **not** a ruling. The two protocols the
-factory would need are provably un-composable (mypy rejects the
-multiple-inheritance). ⚠️ Same-root-word/two-layer trap — one prior "fix" of
-this divergence had to be reverted; PR #1101 fixed the 5 row-type conflicts
-but deliberately left the layering question open.
+Mike's hypothesis ("PsOperations is the backend protocol") was **confirmed by
+census**, and the dual-layer doctrine it contradicted turned out to be drifted
+fiction with a single, datable origin.
+
+**Measured.** `PsOperations` declares 142 public callables. `PsBackend`
+satisfies it; `PsService` implements **8**, diverges on 15, and is **missing
+119** — including `execute_query`, `find_by`, `create_step_node`,
+`faceted_search_raw`. Consumer census found **7** annotation sites, not the 5
+this register claimed: six are backend handles (the factory's five plus
+`PsAIService`, built outside it), all satisfied. The seventh —
+`EntityExtractor.knowledge_service`, the "facade holder" the whole doctrine
+rested on — called exactly **one** method (`get`) and arrived via
+`AskesisDeps.knowledge_service: Any`, so its 142-member claim had never been
+type-checked. Its four sibling params (`TasksOperations`, `GoalsOperations`,
+`HabitsOperations`, `EventsOperations`) failed the identical probe: the
+constructor was a uniform five-site instance of the trap, not a PS quirk.
+
+**Provenance.** `git log -S "service-facing"` returns one commit: `862dafea4`
+(PR #826, 2026-07-26). Commit 2 of that PR made `PsOperations` inherit the
+backend slice; commit 3 reverted it on a Codex P1 whose rationale was the
+dual-layer story — while that same commit message's own verification line
+records "`EntityExtractor` never calls the ORGANIZES methods at all". The
+revert accepted a remedy its own measurement falsifies. Every downstream
+statement (the seam comment, the module docstring, `PsProgressBackendOperations`'
+docstring, `BACKEND_OPERATIONS_ISP.md`'s "live example") descends from it.
+
+**The un-composability constraint was real but irrelevant.** Re-verified: the
+multiple-inheritance probe is still rejected — by the extra optional `limit`
+param, *not* the `entity_uid`/`parent_uid` rename (mypy does not enforce
+protocol parameter names at all under this config, so that divergence guarded
+nothing). Composition was never the tool: **inheritance has no conflict,
+because there is only one definition.**
+
+**Executed.** All five `EntityExtractor` params type against `EntityLookup`,
+promoted from `context_retriever.py` into `core/services/askesis/types.py`
+alongside `KuLookup` (deleting the duplicate private `_EntityLookup`).
+`PsOperations` inherits `PsOrganizesBackendOperations` **and**
+`PsProgressBackendOperations` (Mike's ruling: take the progress slice too), so
+both sets of signatures have one source; its 8 duplicate declarations are
+deleted. `create_ps_sub_services(backend=)` **and** `PsService.__init__(backend=)`
+are typed `PsOperations`; the `# boundary: ps-two-layer-divergence` comment is
+gone. Naming: Mike ruled **state the layer, don't rename** — `KuOperations` /
+`PsOperations` / `LpOperations` are all backend protocols wearing the
+route-facing suffix, and renaming only PS would invent a new asymmetry. The
+trio-wide rename stays an open naming question, deliberately untaken.
+
+⚠️ **Typing the laundered handle found a real hole:** the moment the param
+stopped being `Any`, mypy surfaced `PsService.attach_step_to_path` calling
+`self.repo.get_next_step_sequence(...)` — a method `PsBackend` has always
+implemented and the port had never declared. Now declared (cf. #1094).
 
 ### C. The lying `ku_backend` fixture
 
