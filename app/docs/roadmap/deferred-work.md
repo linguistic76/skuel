@@ -771,7 +771,7 @@ passing sweep would remove the symptom and leave the pattern.
 
 ---
 
-## ContextRetriever's Three Write-Only Fields (REGISTERED 2026-08-20 · Case B RULED 2026-08-21)
+## ContextRetriever's Three Write-Only Fields (REGISTERED 2026-08-20 · Case B part-ruled 2026-08-21)
 
 **Active queue.** Surfaced by the AST sweep in PR #1108 and deliberately left
 there — they are not that PR's case (write-only *deps copies*, all superseded).
@@ -879,13 +879,27 @@ the edge exists and the MEGA-QUERY's own `practice_habits` pattern returns it.
 PathStep active for a user. That is user state, not plumbing, and nothing in the
 plumbing is now in doubt.
 
-**Verdict, resolved:** the arc shrinks from *"which of two authoring models
-should the tutor see?"* to **Option A — add events and principles the same way
-habits and tasks already work** (a `graph_context` projection + a
-`_fetch_entities_by_uid` call per channel, plus the
-`total_practice_opportunities` fix). The template path (Way 2) remains entirely
-unused and does not need deciding. ⚠️ `get_practice_events` is still a phantom —
-populate through the projection, never by giving it a caller.
+**Verdict — Option A in shape.** Way 2 (templates + spawn) stays unused and needs
+no decision; the fix shape is a `graph_context` projection + a
+`_fetch_entities_by_uid` call per channel + the `total_practice_opportunities`
+fix. ⚠️ `get_practice_events` is a phantom — populate through the projection,
+never by giving it a caller.
+
+⚠️ **The test does NOT generalize to events — `habit_uids` is the most permissive
+of the six channels.** Target labels in the PathStep activity block differ:
+`habit_uids`/`choice_uids` → `:Entity` (matches anything — the bar the test
+cleared); `task_uids` → `:Task`; `goal_uids` → `:Goal`; `principle_uids` →
+`:Principle`; **`event_template_uids` → `:Event`**.
+
+**Named hazard on the events half:** the field says *template*, the target is the
+*instance* label. `EventTemplate` nodes carry `NeoLabel.EVENT_TEMPLATE`, so an
+author following the field name matches **nothing**; and the live template path
+(`_template_loader.py:64-70`) uses `HAS_EVENT_TEMPLATE` → `EventTemplate`, a
+different edge. **Before closing the events half:** run an event-specific
+authoring test against a real `:Event` uid, **or** resolve the mismatch (rename
+the field to `event_uids`, or retarget the edge at `EventTemplate`) — a naming
+decision with authoring consequences, and Mike's to make. Principles is untested
+but has no mismatch.
 
 ⚠️ Snapshot, not a constant. Re-run before acting if much time has passed.
 
@@ -897,7 +911,7 @@ and **implemented nowhere**; a protocol-routed call falls through
 attribute as present — **a clean `x: PsOperations = PsBackend(...)` probe is a
 direction check, never an implementation check.**
 
-**✅ Verdict settled 2026-08-21 — Option A, finish the wiring** (projection +
+**Verdict 2026-08-21 — Option A in shape; events half NOT yet closed** (projection +
 `_fetch_entities_by_uid` per channel + the `total_*` fix; never a `get_practice_*`
 caller). "Delete both halves" is refuted — the path demonstrably works, see the
 test below. ⚠️ No PLANNED tier exists for *fields* (`./dev bloat` covers

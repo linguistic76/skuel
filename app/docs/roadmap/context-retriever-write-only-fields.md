@@ -160,12 +160,40 @@ own `practice_habits` pattern returns it. **Not run:** a live Askesis session.
 requires that PathStep to be active for a user. That is user state; no part of the plumbing
 remains in doubt.
 
-**Verdict, resolved — take Option A.** The arc is no longer "which of two authoring models should
-the tutor see?" but "add events and principles the way habits and tasks already work": a
-`graph_context` projection per channel, a `_fetch_entities_by_uid` call per channel, and the
-`total_practice_opportunities` fix. Way 2 (templates + spawn) stays entirely unused and needs no
-decision. ⚠️ Populate through the projection — **never** by giving the phantom
-`get_practice_events` a caller.
+**Verdict — Option A in shape, but ⚠️ the test does NOT generalize to events.** The arc is no
+longer "which of two authoring models should the tutor see?": Way 2 (templates + spawn) stays
+entirely unused and needs no decision, and the projection + `_fetch_entities_by_uid` +
+`total_practice_opportunities` shape is right. ⚠️ Populate through the projection — **never** by
+giving the phantom `get_practice_events` a caller.
+
+⚠️ **But `habit_uids` is the most permissive of the six channels, and I generalized from it**
+(caught by Codex on #1112). The PathStep activity block's target labels are not uniform:
+
+| vault field | edge | target label |
+|---|---|---|
+| `habit_uids` | `BUILDS_HABIT` | `:Entity` ← **the one tested** |
+| `choice_uids` | `INFORMS_CHOICE` | `:Entity` |
+| `task_uids` | `ASSIGNS_TASK` | `:Task` |
+| `goal_uids` | `SUPPORTS_GOAL` | `:Goal` |
+| `principle_uids` | `GUIDED_BY_PRINCIPLE` | `:Principle` |
+| **`event_template_uids`** | `SCHEDULES_EVENT` | **`:Event`** |
+
+`:Entity` matches every domain node, so the habit test cleared the lowest bar available. The
+strict targets are untested.
+
+**The events channel carries a specific, named hazard.** Its vault field is
+`event_template_uids` but its target is `:Event` — an *instance* label. `EventTemplate` nodes
+carry `NeoLabel.EVENT_TEMPLATE` (`"EventTemplate"`), so an author following the field name to an
+`EventTemplate` uid **matches nothing**. Meanwhile the live template path
+(`ps_engagement/_template_loader.py:64-70`) uses `HAS_EVENT_TEMPLATE` → `EventTemplate` — a
+different edge entirely.
+
+**So before closing the events half:** run an event-specific authoring test (point
+`event_template_uids` at a real `:Event` uid and confirm the edge lands), **or** resolve the
+field-name/target mismatch — the honest options being rename the field to `event_uids`, or retarget
+the edge at `EventTemplate`. That is a naming decision with authoring consequences and belongs to
+Mike. **Principles is untested too** (`:Principle`), though it has no name/target mismatch and is
+expected to behave like tasks and goals.
 
 ⚠️ **What is still content-gated is the *payoff*, not the path.** One habit edge exists; the other
 five channels have none. Building the projection makes the tutor *capable* of naming events and
@@ -213,7 +241,7 @@ than visible content.
 **`TemplateBundle`** (`EventTemplate` / `PrincipleTemplate`), a different class. They are **not**
 evidence that `PsBundle`'s fields are consumed.
 
-### ✅ The verdict is settled — Option A (2026-08-21)
+### Verdict — Option A in shape (2026-08-21); events half still open
 
 **Finish the wiring**, the way habits and tasks already work: a MEGA-QUERY `graph_context`
 projection per channel, a `_fetch_entities_by_uid` call per channel, and the
