@@ -911,17 +911,19 @@ proven correct, it is the label that lies. **Principles untested** (`:Principle`
 ⚠️ **The two halves are gated on DIFFERENT things — do not lump them as
 "content-gated."** Per `PsBundle` channel, after both tests:
 
-| channel | content | projection | tutor sees it? |
-|---|---|---|---|
-| **habits** | ✅ 1 edge | ✅ exists | **yes, end-to-end today** |
-| **tasks** | none | ✅ exists | needs content only |
-| **events** | ✅ 1 edge | ❌ missing | **CODE-GATED — build first** |
-| **principles** | none | ❌ missing | needs both |
+| channel | content | projection | bundle fetch | tutor sees it? |
+|---|---|---|---|---|
+| **habits** | ✅ 1 edge | ✅ exists | ✅ | **yes, end-to-end today** |
+| **tasks** | none | ✅ exists | ✅ | needs content only |
+| **events** | ✅ 1 edge | ❌ missing | ❌ hardcoded `[]` (`:505`) | **CODE-GATED — build first** |
+| **principles** | none | ❌ missing | ❌ hardcoded `[]` (`:506`) | needs both |
 
-**Events is code-gated, not content-gated**: the edge exists and is queryable;
-only the missing `practice_events` projection keeps it out of the tutor. Adding
-it has an immediate payoff — the ENCOURAGING prompt would name *"Evening
-Check-In — 2 min"* that day. Principles is gated on both and can wait.
+**Events is code-gated, not content-gated** — the edge exists and is queryable.
+⚠️ But it takes **both** halves: `load_ps_bundle` hardcodes `events = []`
+(`context_retriever.py:505`), so the `practice_events` projection *alone* still
+yields an empty bundle. Projection + `_fetch_entities_by_uid` are one change;
+only together do they make the ENCOURAGING prompt name *"Evening Check-In —
+2 min"*. Principles is gated on both code and content, and can wait.
 
 ⚠️ Snapshot, not a constant. Re-run before acting if much time has passed.
 
