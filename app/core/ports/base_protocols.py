@@ -43,6 +43,7 @@ from core.models.type_hints import EntityUID, Neo4jProperties, Neo4jValue, UserU
 if TYPE_CHECKING:
     import builtins
     import logging
+    from collections.abc import Sequence
     from datetime import date, datetime
 
     from core.models.enums import Priority, SearchVisibility
@@ -758,7 +759,7 @@ class EntitySearchOperations[T: "DomainModelProtocol"](Protocol):
     async def prerequisite_traversal(
         self,
         uid: str,
-        relationship_types: builtins.list[str],
+        relationship_types: Sequence[RelationshipName],
         depth: int = 3,
         direction: Direction = "outgoing",
     ) -> ResultType[builtins.list[T]]:
@@ -768,7 +769,7 @@ class EntitySearchOperations[T: "DomainModelProtocol"](Protocol):
     async def prerequisite_chain_with_distance(
         self,
         uid: str,
-        relationship_types: builtins.list[str],
+        relationship_types: Sequence[RelationshipName],
         depth: int = 3,
     ) -> ResultType[builtins.list[PrerequisiteChainRow]]:
         """Traverse the prerequisite chain, returning projected distance-annotated rows.

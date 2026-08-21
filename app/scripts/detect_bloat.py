@@ -389,9 +389,9 @@ _ASKESIS_CONTEXT_ORCHESTRATION = (
 # winners exist: inline None-guard / a standalone conversion fn (itself since deleted in Tier 6)); these
 # three are feature-shaped surfaces with no superseded loser.
 _MIXIN_PREREQUISITE_WRITE = (
-    "config-driven prerequisite-write half staged — the write twin of the LIVE "
-    "get_prerequisites read (PsService curriculum traversal via the domain's "
-    "_prerequisite_relationships config; its inverse get_enables is PLANNED). "
+    "config-driven prerequisite-write half staged — the write twin of the "
+    "get_prerequisites read (the mixin read is DomainConfig-wired; PsService's "
+    "live caller overrides it with its graph service; get_enables is PLANNED). "
     "No superseded loser: add_relationship is the primitive it composes, and the "
     "lateral create_lateral_relationship writes a route-chosen RelationshipName, "
     "not via the domain prereq config; live prereq edges currently come only from "

@@ -2502,7 +2502,7 @@ def generate_graph_enrichment(entity_label: str) -> list[tuple[str, str, str, st
     return [rel.to_graph_enrichment_tuple() for rel in config.relationships]
 
 
-def generate_prerequisite_relationships(entity_label: str) -> list[str]:
+def generate_prerequisite_relationships(entity_label: str) -> list[RelationshipName]:
     """
     Generate prerequisite relationship types for BaseService.
 
@@ -2510,30 +2510,13 @@ def generate_prerequisite_relationships(entity_label: str) -> list[str]:
         entity_label: Neo4j node label
 
     Returns:
-        List of relationship type strings
+        List of RelationshipName enums (empty for labels not in LABEL_CONFIGS)
     """
     config = LABEL_CONFIGS.get(entity_label)
     if not config:
         return []
 
-    return [rel.value for rel in config.prerequisite_relationship_names]
-
-
-def generate_enables_relationships(entity_label: str) -> list[str]:
-    """
-    Generate enables relationship types for BaseService.
-
-    Args:
-        entity_label: Neo4j node label
-
-    Returns:
-        List of relationship type strings
-    """
-    config = LABEL_CONFIGS.get(entity_label)
-    if not config:
-        return []
-
-    return [rel.value for rel in config.enables_relationship_names]
+    return list(config.prerequisite_relationship_names)
 
 
 def get_domain_config(domain: Domain) -> DomainRelationshipConfig | None:

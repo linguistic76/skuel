@@ -675,6 +675,53 @@ class TestPrerequisites:
         assert result.is_ok
 
 
+class ConfiguredPrereqService(BaseService["BackendOperations[MockModel]", MockModel]):
+    """Service whose _config declares prerequisite relationships."""
+
+    _config = DomainConfig(
+        dto_class=MockDTO,
+        model_class=MockModel,
+        prerequisite_relationships=(RelationshipName.REQUIRES_KNOWLEDGE,),
+    )
+    _dto_class = MockDTO
+    _model_class = MockModel
+
+
+class TestPrerequisiteConfigSync:
+    """__init__ must sync prerequisite relationships from DomainConfig.
+
+    Regression guard: the per-class values were removed in Jan 2026 in favor of
+    DomainConfig, but the config→instance sync was missing — every service saw
+    the empty class default and prerequisite traversal silently no-oped.
+    """
+
+    def test_init_syncs_prerequisites_from_config(self):
+        """A configured service carries its DomainConfig relationships."""
+        service = ConfiguredPrereqService(backend=create_mock_backend())
+
+        assert service._prerequisite_relationships == (RelationshipName.REQUIRES_KNOWLEDGE,)
+
+    def test_unconfigured_service_keeps_empty_default(self):
+        """Without _config, the empty class default stands."""
+        service = ConcreteTestService(backend=create_mock_backend())
+
+        assert service._prerequisite_relationships == ()
+
+    @pytest.mark.asyncio
+    async def test_get_prerequisites_traverses_configured_relationships(self):
+        """The traversal receives the configured RelationshipName enums."""
+        backend = create_mock_backend()
+        backend.prerequisite_traversal = AsyncMock(return_value=Result.ok([]))
+        service = ConfiguredPrereqService(backend=backend)
+
+        result = await service.get_prerequisites("test_001", depth=2)
+
+        assert result.is_ok
+        backend.prerequisite_traversal.assert_awaited_once()
+        kwargs = backend.prerequisite_traversal.await_args.kwargs
+        assert kwargs["relationship_types"] == (RelationshipName.REQUIRES_KNOWLEDGE,)
+
+
 # ============================================================================
 # TESTS: List Operations
 # ============================================================================

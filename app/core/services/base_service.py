@@ -125,6 +125,8 @@ from core.utils.result_simplified import Errors, Result
 if TYPE_CHECKING:
     import builtins
 
+    from core.models.relationship_names import RelationshipName
+
 
 # Old-style TypeVars (not PEP 695 inline params) so the update type ``U`` can carry a
 # PEP 696 *default* while the Ruff lint target stays at py312 (inline ``[U: B = D]`` is
@@ -196,15 +198,18 @@ class BaseService(
         self.logger = get_logger(f"skuel.services.{self.service_name}")  # type: ignore[assignment]  # structlog BoundLogger
 
         # Sync DomainConfig values onto the instance so mixins that read
-        # self._dto_class / self._model_class see the configured classes.
-        # Without this, services configured via _config (the modern pattern)
-        # fall through to the None class-level defaults at runtime.
+        # self._dto_class / self._model_class / self._prerequisite_relationships
+        # see the configured values. Without this, services configured via
+        # _config (the modern pattern) fall through to the class-level defaults
+        # at runtime — prerequisite traversal silently no-ops on the empty default.
         config = self._get_config_cls()
         if config is not None:
             if getattr(config, "dto_class", None) is not None:
                 self._dto_class = config.dto_class
             if getattr(config, "model_class", None) is not None:
                 self._model_class = config.model_class
+            if config.prerequisite_relationships:
+                self._prerequisite_relationships = config.prerequisite_relationships
 
         # Log initialization
         self.logger.debug(f"{self.service_name} initialized with BackendOperations backend")
@@ -566,11 +571,9 @@ class BaseService(
     # CURRICULUM/PREREQUISITE CONFIGURATION (January 2026 - Unified)
     # ========================================================================
 
-    # Prerequisite relationship type(s) to follow
-    _prerequisite_relationships: ClassVar[list[str]] = []
-
-    # Enables relationship type(s) - inverse of prerequisites
-    _enables_relationships: ClassVar[list[str]] = []
+    # Prerequisite relationship type(s) to follow. Not ClassVar (like _dto_class):
+    # __init__ syncs the instance attribute from DomainConfig.
+    _prerequisite_relationships: tuple[RelationshipName, ...] = ()
 
     # Content field name - where content is stored
     _content_field: str = "content"

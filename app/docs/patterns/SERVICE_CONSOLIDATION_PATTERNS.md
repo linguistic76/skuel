@@ -157,8 +157,7 @@ _config = create_curriculum_domain_config(
 | `category_field` | `str` | `"category"` | Field for category filtering |
 | `graph_enrichment_patterns` | `tuple[...]` | Auto from registry | Relationship patterns |
 | `user_ownership_relationship` | `str \| None` | `"OWNS"` | Ownership relationship (None for shared) |
-| `prerequisite_relationships` | `tuple[str, ...]` | Auto from registry | Prerequisite relationship types |
-| `enables_relationships` | `tuple[str, ...]` | Auto from registry | Enables relationship types |
+| `prerequisite_relationships` | `tuple[RelationshipName, ...]` | Auto from registry | Prerequisite relationship types (synced onto the service by `BaseService.__init__`) |
 | `content_field` | `str` | `"content"` | Main content field |
 | `mastery_threshold` | `float` | `0.7` | Mastery threshold |
 | `supports_user_progress` | `bool` | `False` | Enable progress tracking |
@@ -388,13 +387,11 @@ class GoalsSearchService(BaseService):
 from core.models.relationship_registry import (
     generate_graph_enrichment,
     generate_prerequisite_relationships,
-    generate_enables_relationships,
 )
 
 # Look up patterns for a domain
 task_patterns = generate_graph_enrichment("Task")
 task_prerequisites = generate_prerequisite_relationships("Task")
-task_enables = generate_enables_relationships("Task")
 
 # Or use helper functions
 patterns = get_graph_enrichment("Task")
@@ -404,13 +401,12 @@ patterns = get_graph_enrichment("Task")
 
 **Location:** `/core/models/relationship_registry.py`
 
-Three generator functions, keyed by entity label:
+Two generator functions, keyed by entity label:
 
 ```python
 from core.models.relationship_registry import (
     generate_graph_enrichment,           # -> list[tuple[str, str, str, str]]
-    generate_prerequisite_relationships, # -> list[str]
-    generate_enables_relationships,      # -> list[str]
+    generate_prerequisite_relationships, # -> list[RelationshipName]
 )
 ```
 

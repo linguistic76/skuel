@@ -112,19 +112,13 @@ class PsSearchService(BaseService[BackendOperations[Ls], Ls]):
 ```python
     # Content field for full-text (default: "content")
     _content_field: str = "description"
-
-    # Prerequisite relationship types (default: [])
-    _prerequisite_relationships: ClassVar[list[str]] = [
-        "REQUIRES_STEP",
-        "REQUIRES_KNOWLEDGE",
-    ]
-
-    # Enables relationship types (default: [])
-    _enables_relationships: ClassVar[list[str]] = [
-        "ENABLES_STEP",
-        "ENABLES_KNOWLEDGE",
-    ]
 ```
+
+Prerequisite relationship types are not authored per class: `DomainConfig
+.prerequisite_relationships` (`tuple[RelationshipName, ...]`) is generated from
+the domain's `prerequisite_relationship_names` declaration in
+`core/models/relationship_registry.py`, and `BaseService.__init__` syncs it
+onto the service instance.
 
 ### Graph Enrichment Configuration
 
@@ -162,8 +156,7 @@ class PsSearchService(BaseService["BackendOperations[Ls]", Ls]):
 
     # Curriculum features (opt-in)
     _content_field: str = "description"
-    _prerequisite_relationships: ClassVar[list[str]] = ["REQUIRES_STEP", "REQUIRES_KNOWLEDGE"]
-    _enables_relationships: ClassVar[list[str]] = ["ENABLES_STEP", "ENABLES_KNOWLEDGE"]
+    # (prerequisite relationships come from DomainConfig / the relationship registry)
 
     # Graph enrichment
     _graph_enrichment_patterns: ClassVar[list[tuple[str, str, str, str]]] = [
@@ -305,8 +298,7 @@ class PsSearchService(CurriculumBaseService[PsOperations, Ls]):
 # CurriculumBaseService DELETED
 
 class PsSearchService(BaseService[BackendOperations[Ls], Ls]):
-    _prerequisite_relationships = ["REQUIRES_STEP", "REQUIRES_KNOWLEDGE"]
-    _enables_relationships = ["ENABLES_STEP"]
+    _config = create_curriculum_domain_config(...)  # prerequisites from the registry
     _user_ownership_relationship = None
 ```
 

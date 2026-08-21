@@ -23,10 +23,12 @@ from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     import builtins
+    from collections.abc import Sequence
 
     from neo4j import AsyncDriver, Record
 
     from core.models.enums.neo_labels import NeoLabel
+    from core.models.relationship_names import RelationshipName
     from core.ports.base_protocols import Direction
 
 
@@ -59,7 +61,7 @@ class _PrereqProgressMixin[T: DomainModelProtocol]:
     async def prerequisite_traversal(
         self,
         uid: str,
-        relationship_types: builtins.list[str],
+        relationship_types: Sequence[RelationshipName],
         depth: int = 3,
         direction: Direction = "outgoing",
     ) -> Result[builtins.list[T]]:
@@ -67,11 +69,12 @@ class _PrereqProgressMixin[T: DomainModelProtocol]:
         Traverse prerequisite relationships and return typed domain models.
 
         Record→model conversion happens here, below the hexagonal boundary —
-        services receive ``entity_class`` instances, never raw records.
+        services receive ``entity_class`` instances, never raw records. This is
+        also where relationship enums become Cypher edge-pattern strings.
 
         Args:
             uid: Entity UID to start from
-            relationship_types: Prerequisite relationship type strings
+            relationship_types: Prerequisite relationship types
             depth: Maximum traversal depth
             direction: "outgoing" for prerequisites, "incoming" for enables
 
@@ -84,7 +87,7 @@ class _PrereqProgressMixin[T: DomainModelProtocol]:
         cypher_query, params = build_prerequisite_traversal_query(
             label=self.label,
             uid=uid,
-            relationship_types=relationship_types,
+            relationship_types=[rel.value for rel in relationship_types],
             depth=depth,
             direction=direction,
         )
@@ -96,7 +99,7 @@ class _PrereqProgressMixin[T: DomainModelProtocol]:
     async def prerequisite_chain_with_distance(
         self,
         uid: str,
-        relationship_types: builtins.list[str],
+        relationship_types: Sequence[RelationshipName],
         depth: int = 3,
     ) -> Result[builtins.list[PrerequisiteChainRow]]:
         """
@@ -117,7 +120,7 @@ class _PrereqProgressMixin[T: DomainModelProtocol]:
 
         Args:
             uid: Entity UID to start from
-            relationship_types: Prerequisite relationship type strings (any may
+            relationship_types: Prerequisite relationship types (any may
                 connect a hop — e.g. REQUIRES_STEP and REQUIRES_KNOWLEDGE)
             depth: Maximum traversal depth (1-10)
 
@@ -130,7 +133,7 @@ class _PrereqProgressMixin[T: DomainModelProtocol]:
         cypher_query, params = build_prerequisite_chain_query(
             label=self.base_label or self.label,
             uid=uid,
-            relationship_types=relationship_types,
+            relationship_types=[rel.value for rel in relationship_types],
             depth=depth,
         )
 

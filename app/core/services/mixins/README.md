@@ -251,7 +251,7 @@ search_fields = service.search_fields  # Reads from cls._config
 | ConversionHelpersMixin | `dto_class`, `model_class` |
 | CrudOperationsMixin | (none - uses validation hooks) |
 | SearchOperationsMixin | `search_fields`, `search_order_by`, `category_field`, `graph_enrichment_patterns`, `search_visibility` |
-| RelationshipOperationsMixin | `prerequisite_relationships`, `enables_relationships` |
+| RelationshipOperationsMixin | `prerequisite_relationships` |
 | TimeQueryMixin | `date_field`, `completed_statuses` |
 | UserProgressMixin | `supports_user_progress`, `mastery_threshold` |
 | ContextOperationsMixin | `content_field`, `prerequisite_relationships` |

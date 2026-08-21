@@ -661,9 +661,9 @@ surface), so it waits out the stabilize-and-content phase.
 
 ---
 
-## Backend-Typing Follow-on — the Active Queue (3 items)
+## Backend-Typing Follow-on — the Active Queue (2 items)
 
-These three outlived the backend-typing arc (#1090–#1102, closed 2026-08-20)
+These outlived the backend-typing arc (#1090–#1102, closed 2026-08-20)
 because none of them is a retype — each is a decision or a chain. They are
 **active backlog, not trigger-gated deferral**: the standing ruling
 (Mike, 2026-08-20) is that a fresh context takes **ONE** of them, not the set.
@@ -671,29 +671,34 @@ Registered here so the repo carries the list; a fourth sibling — the LP
 recommendation backend methods — was ruled *build, not now* and has its own
 section above.
 
-### A. The `DomainConfig` string chain
+### A. ✅ CLOSED — The `DomainConfig` string chain (2026-08-20)
 
-`generate_prerequisite_relationships` **has** the `RelationshipName` enums and
-discards them to strings — `[rel.value for rel in
-config.prerequisite_relationship_names]` (`core/models/relationship_registry.py:2519`).
-**Four** sites hold the downgraded `list[str]` form (Codex on PR #1105 caught
-the fourth after this register first said three — the enumerate-every-site
-lesson, live): the generator's return type (`relationship_registry.py:2505`),
-`_prerequisite_relationships: ClassVar[list[str]]` on `BaseService`
-(`core/services/base_service.py:570`), the context mixin's declaration
-(`core/services/mixins/context_operations_mixin.py:69`), and the relationship
-mixin's declaration (`core/services/mixins/relationship_operations_mixin.py:75`)
-— the last also holds PR #1102's conversion chokepoint,
-`RelationshipName(self._prerequisite_relationships[0])` (~`:319`), which a
-chain conversion would retire. The chain's *sources* are `DomainConfig`'s
-string tuples (`core/services/domain_config.py:385`, `:449`–`:471`).
-PR #1102 made `add_relationship` enum-only and localized the conversion to the
-ONE place a config value becomes an edge type; converting the whole chain is
-the remaining cleanup — bounded, but it touches `domain_config.py` and both
-mixins' query paths, so **measure before scoping, and re-run this census at
-scoping time rather than trusting it**.
-⚠️ `generate_enables_relationships` (`relationship_registry.py:2536`) is the
-same shape and was never examined — enumerate both before fixing either.
+Re-running the census (as this register demanded) **falsified the item's
+premise**: the chain was not merely string-typed — it was **severed**. Commit
+`76d64a0d1` (2026-01-31) deleted the per-class values (e.g. KU's
+`_prerequisite_relationships = [RelationshipName.REQUIRES_KNOWLEDGE.value]`)
+pointing at DomainConfig as successor, but `BaseService.__init__` synced only
+`dto_class`/`model_class` — the relationship tuples were computed at every
+factory call, validated in `__post_init__`, and read by nobody. Every service
+saw the empty default; the mixin's `get_prerequisites`/`get_enables` silently
+returned `[]`, `add_prerequisite` always refused, and PR #1102's conversion
+chokepoint was unreachable. No live path was affected (PsService's caller
+overrides with its graph service; the lateral routes hardcode their enums).
+The enables half was deader still: `_enables_relationships` had zero readers,
+and the ruled `get_enables` design (KEEP, 2026-07-25) walks prerequisite edges
+inward — nothing staged consumed it.
+
+**Mike's rulings (2026-08-20):** reconnect + type the prerequisite chain;
+delete the service-side enables plumbing. Executed: `DomainConfig
+.prerequisite_relationships` is `tuple[RelationshipName, ...]`,
+`BaseService.__init__` syncs it onto the instance (like `_dto_class`), both
+mixins and the `prerequisite_traversal` / `prerequisite_chain_with_distance`
+port+adapter carry enums (`.value` happens once, in the adapter, where enums
+become Cypher edge patterns), the #1102 chokepoint is retired, and
+`generate_enables_relationships` + `DomainConfig.enables_relationships` +
+`_enables_relationships` are deleted (registry-side
+`enables_relationship_names` stays — the graph contract reads it).
+A regression test now pins the `__init__` sync.
 
 ### B. The `PsOperations` layering contradiction
 

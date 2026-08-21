@@ -27,7 +27,7 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any
 
 from core.models.post_processors import apply_processor
 from core.models.protocols import DomainModelProtocol, DTOProtocol
@@ -56,7 +56,7 @@ class ContextOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         _content_field: str - Field containing content
         _dto_class: type[DTOProtocol] - DTO class
         _model_class: type[T] - Domain model class
-        _prerequisite_relationships: list[str] - For basic context queries
+        _prerequisite_relationships: tuple[RelationshipName, ...] - For basic context queries
         get: Method to get entity by UID
     """
 
@@ -66,7 +66,7 @@ class ContextOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
     _content_field: str
     _dto_class: type[DTOProtocol] | None
     _model_class: type[T] | None
-    _prerequisite_relationships: ClassVar[list[str]]
+    _prerequisite_relationships: tuple[RelationshipName, ...]
 
     @property
     @abstractmethod
@@ -198,7 +198,7 @@ class ContextOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         Entities in the registry use the richer registry-driven query generation.
         """
         prereq_rels = (
-            "|".join(self._prerequisite_relationships)
+            "|".join(rel.value for rel in self._prerequisite_relationships)
             if self._prerequisite_relationships
             else RelationshipName.REQUIRES_KNOWLEDGE.value
         )
