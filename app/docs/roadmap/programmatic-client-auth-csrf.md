@@ -94,11 +94,16 @@ bearer token (this scheme) rather than carrying a CSRF token.
    authenticated (token vs. cookie).
 3. Make `csrf_protected` (or the middleware) **skip enforcement for token-
    authenticated requests** and require it for cookie-authenticated ones.
-4. Apply `@csrf_protected` to the three endpoints above and update their clients
-   (`scripts/batch_transcribe.py`, the Jupyter workflow) to send a token.
-5. Delete the three `CSRF_EXEMPT` entries. `./dev audit-routes` must stay green
-   (now with 0 CSRF exemptions), and `test_route_security_audit.py` will enforce
-   it.
+4. *(Updated 2026-08-21 — the original three exemptions are already resolved: GraphQL
+   folded, batch-transcribe now `@csrf_protected`.)* When a new programmatic client is
+   wired (Jupyter/ops/CLI), give it a bearer token from day one and keep its endpoint
+   `@csrf_protected` — the token path from step 3 means it never needs a `CSRF_EXEMPT`
+   entry.
+5. **Leave the device-pairing exemption alone** (`device_routes.py:enroll_device_api` —
+   sessionless one-time pairing code, ADR-075; permanent by design; bearer tokens don't
+   apply to a not-yet-enrolled device). `./dev audit-routes` must stay green with
+   `CSRF_EXEMPT` holding exactly that one entry, and `test_route_security_audit.py`
+   enforces the table.
 
 ## Acceptance
 
