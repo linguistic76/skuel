@@ -830,8 +830,10 @@ number; re-run it.
 **Adjacent, same area, decide while in here:** `KnowledgePracticed` has **zero
 subscribers**. `./dev bloat` reports it at the informational tier — *"published
 but no subscriber — fine if fire-and-forget"* — a judgment nobody has made.
-Either it earns a subscriber, gets registered in `PLANNED_EVENTS` with a reason,
-or it goes. Per the deletion protocol, unwired → **ask**.
+Two endings only: it earns a subscriber, or it goes with its publish site.
+⚠️ `PLANNED_EVENTS` is **not** available — `detect_bloat.py:1497` flags any
+*published* class registered there as `planned-marking-stale`; that tier is for
+events defined but never published. Per the deletion protocol, unwired → **ask**.
 
 **Scope note:** all 8 handlers share the shape, not just the event one — task,
 event, habit, entry, choice, plus 3 batch. Enumerate before fixing any.

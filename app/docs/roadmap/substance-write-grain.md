@@ -87,9 +87,18 @@ Then answer, with measurements, before proposing a fix:
 
 `KnowledgePracticed` (`knowledge.practiced`, published at `ps_practice_service.py:166`, path 1)
 has **zero subscribers**. `./dev bloat` reports it at the informational tier — *"published but no
-subscriber — fine if fire-and-forget"* — which is a judgment call nobody has made. Three honest
-endings: it earns a subscriber, it gets registered in `PLANNED_EVENTS` with a reason, or it goes.
-Per the deletion protocol, unwired → **ask Mike**; do not delete an event on your own authority.
+subscriber — fine if fire-and-forget"* — which is a judgment call nobody has made. Two honest
+endings: **it earns a subscriber, or it goes** (with its publish site). Per the deletion protocol,
+unwired → **ask Mike**; do not delete an event on your own authority.
+
+⚠️ **`PLANNED_EVENTS` is not a third option here, and the tool will say so.**
+`detect_bloat.py:1497` reports any *published* class found in `PLANNED_EVENTS` as
+`planned-marking-stale` — that tier is for events **defined but never published**, i.e.
+structurally dead staged code. `KnowledgePracticed` is published at `ps_practice_service.py:166`,
+so registering it there would immediately be flagged. (An earlier draft of this file proposed
+exactly that; Codex caught it on #1109.) If the decision is "fire-and-forget is fine", it needs
+**no registration at all** — the detector already treats it as informational — only a sentence in
+the event's docstring saying the call was made and by whom.
 
 ⚠️ **Do not read its docstring as design intent without checking.** It names two subscribers —
 *"LearningAnalyticsService (track practice patterns)"* and *"SpacedRepetitionService (schedule
@@ -102,6 +111,12 @@ which is which before citing any of them, and apply the intent-vs-code discrimin
 on the class name distinguishes *never wired* (ask) from *orphaned* (delete). The register entry
 for that discriminator is `docs/roadmap/deferred-work.md`; the arc that established it was
 #1090–#1102.
+
+## Sibling arc, do not conflate
+
+`ContextRetriever` has its own unrelated write-only-field question (`graph_intel`,
+`events_service`, `principles_service`) — different subsystem, different register entry. The only
+thing they share is the AST sweep that found both. Do not merge the threads.
 
 ## The rider (item C)
 
