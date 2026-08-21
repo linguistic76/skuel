@@ -771,6 +771,79 @@ passing sweep would remove the symptom and leave the pattern.
 
 ---
 
+## ContextRetriever's Three Write-Only Fields (REGISTERED 2026-08-20)
+
+**Active queue.** Surfaced by the AST sweep in PR #1108 and deliberately left
+there — they are not that PR's case (write-only *deps copies*, all superseded).
+Registered rather than left in an untracked scratch file, for the same reason the
+arc below was: an open question nothing in the repo records is one nobody can
+find. Case file: `docs/roadmap/context-retriever-write-only-fields.md`.
+
+`ContextRetriever` assigns three `self.*` fields that nothing reads —
+`graph_intel` (`:185`), `events_service` (`:199`), `principles_service` (`:200`).
+**Two cases, probably two verdicts; do not batch them.**
+
+**A. `graph_intel`** — zero reads in-class and repo-wide, yet the constructor
+takes it (`:148`), the Args docstring describes it (`:174`), and the class
+docstring asserts *"Requires GraphIntelligenceService for graph queries."*
+Hypothesis (**unconfirmed**): superseded when `ku_backend`/`ps_backend` were
+injected *"migrated from inline Cypher"*. Date it with `git log -S` before
+deleting. ⚠️ `ASKESIS_ARCHITECTURE.md:537` is a **decoy** — that
+`self.graph_intel` is `ContextRelevanceEngine`'s own live field.
+
+**B. `events_service` + `principles_service`** — **staged, not dead**;
+`load_ps_bundle` says so in code (`events: list[Any] = []  # Event templates not
+yet in graph_context`). `PsBundle.principles`/`.events` exist and are permanently
+empty. The blocker is upstream and is a **query change, not a wiring job**: the
+MEGA-QUERY `graph_context` projection (`user_context_queries.py:889`) emits
+`practice_habits` and `practice_tasks` and no equivalent for the other two.
+⚠️ `total_practice_opportunities` is `size(ps_habits) + size(ps_tasks)` — adding
+channels without updating it makes it silently undercount.
+
+**Both halves already have their building blocks** — a first draft of this entry
+said principles had none, which Codex refuted on #1110. The edges are
+`SCHEDULES_EVENT` (key `practice_events`) and `GUIDED_BY_PRINCIPLE` (key
+`principles`), and `PsIntelligenceBackend.fetch_practice_counts`
+(`ps_intelligence_backend.py:135`) **already traverses all six channels**. What
+is missing is only the `graph_context` projection plus a fetch in
+`load_ps_bundle`. Searching for `practice_principles` finds nothing because that
+is not the key name — a naming miss, not an absence.
+
+⚠️ **"Only a projection and a fetch are missing" is TOO STRONG — there are two
+authoring paths.** Direct edges (`BUILDS_HABIT`/`SCHEDULES_EVENT`/
+`GUIDED_BY_PRINCIPLE`, written from Edge-YAML via `yaml_field_path`) are what the
+MEGA-QUERY projects. The current model is **templates**: `(PS)-[:HAS_EVENT_TEMPLATE]->`
++ `_SpawnOrchestrator` writing `SPAWNED_FROM` / `source_path_step_uid` on
+learner-owned instances — **not projected at all**. A `SCHEDULES_EVENT`
+projection populates only directly-authored PathSteps; template-based ones stay
+empty. Any plan must add the student-scoped spawned-instance traversal or state
+that its payoff covers legacy content only.
+
+The tiebreaker is payoff, not cost. **Events** has a direct consumer: the
+Socratic ENCOURAGING prompt builds its practice list from habits, tasks *and*
+events, so it can never name an event. **Principles** reaches only
+`get_all_titles()` → `intent_classifier.py:291`. Splitting them is available.
+⚠️ **Probe before believing the asymmetry:** every `BUILDS_HABIT`/
+`SCHEDULES_EVENT` occurrence in `core/services/` and `adapters/persistence/` is a
+**read** — no service writes them. Count `(:PathStep)-[:BUILDS_HABIT]->()` vs
+`(:PathStep)-[:HAS_EVENT_TEMPLATE]->()` on AuraDB. If the direct edges are
+near-zero the practice list is empty for everyone, and the asymmetry is illusory.
+
+⚠️ **`get_practice_events` is a PHANTOM — do not plan to "give it a caller."**
+It, `get_practice_habits` and `get_practice_tasks` are declared on `PsOperations`
+and **implemented nowhere**; a protocol-routed call falls through
+`UniversalNeo4jBackend.__getattr__` (CRUD aliases only) and raises
+`AttributeError`. ⚠️ That `__getattr__` returns `Any`, so mypy sees every
+attribute as present — **a clean `x: PsOperations = PsBackend(...)` probe is a
+direction check, never an implementation check.**
+
+**Verdict is Mike's:** finish the wiring · delete both halves · register as
+backlog. ⚠️ No PLANNED tier exists for *fields* (`./dev bloat` covers
+events/methods/templates), which is why an AST sweep found this and the tooling
+did not.
+
+---
+
 ## Substance-Write Grain — the `ku_uid` That May Not Be a Ku (SCHEDULED 2026-08-20)
 
 **Active queue, not trigger-gated.** Registered because it was an open defect
