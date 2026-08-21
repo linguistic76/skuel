@@ -1003,13 +1003,18 @@ that a fix must handle it deliberately.
 | `times_built_into_habits` / `times_practiced_in_events` / `choices_informed_count` | 0 | 0 |
 
 ⚠️⚠️ **GOVERNING CAVEAT — the probe supports BOUNDS, never rates or histories.**
-A **non-zero** counter is sound evidence one way: it proves the handler ran,
-since only `increment_substance` / `increment_practice_count` write these, from
-the substance handlers, with no ingestion/script/migration writer (checked). A
-**zero** proves nothing.
 
-Sound: the **reflection handler has demonstrably executed** (37 Kus + 10
-PathSteps bear its counter).
+A **non-zero** counter is strong but **not conclusive**. The handlers are the only
+code that *names* these fields, but ingestion need not name them: it preserves
+arbitrary frontmatter keys (`preparer.py:229-243`) and bulk-upserts them wholesale
+(`bulk_upsert_backend.py:126-135`), so a vault file carrying
+`times_reflected_in_entries: 37` would set the counter invisibly to any grep of
+`core/services/ingestion/`. Audited 2026-08-21: neither vault carries any of the
+five keys — but the vaults are **not version-controlled**, so a since-edited file
+cannot be excluded. The **reflection handler having executed is well-supported,
+not proven** (37 Kus + 10 PathSteps bear its counter).
+
+A **zero** proves nothing at all.
 
 ⚠️ **Not sound, and corrected:** zero counters do **not** mean the event and
 habit handlers never fired. A zero is equally consistent with a handler that ran

@@ -163,15 +163,26 @@ entity types (not just Ku — an earlier pass checked only Kus):
 | `times_practiced_in_events` | **0** | **0** |
 | `choices_informed_count` | 0 | 0 |
 
-⚠️⚠️ **GOVERNING CAVEAT — this whole probe supports BOUNDS, never rates or histories.** Five
-review rounds on #1111 each caught the same move: turning *"consistent with X"* into *"shows X"*.
-A **non-zero** counter is sound evidence in one direction only — it proves the handler ran, since
-these counters are written solely by `increment_substance` / `increment_practice_count` from the
-substance handlers, with no ingestion, script or migration writer (checked). A **zero** proves
-nothing of the kind. Read every number below as a floor or a ceiling, never as a rate.
+⚠️⚠️ **GOVERNING CAVEAT — this whole probe supports BOUNDS, never rates or histories.** Six review
+rounds on #1111 each caught the same move: turning *"consistent with X"* into *"shows X"*. Treat
+every number below as a floor or a ceiling.
 
-So the sound half: **the reflection handler has demonstrably executed** — 37 Kus and 10 PathSteps
-bear its counter, and only a handler could have put them there.
+**A non-zero counter is strong but NOT conclusive evidence the handler ran.** The handlers
+(`increment_substance` / `increment_practice_count`) are the only code that *names* these fields —
+but ingestion does not need to name them. `prepare_entity_data()` preserves arbitrary frontmatter
+keys (`preparer.py:229-243`), `_dict_to_node()` serialises them (`neo4j_mapper.py:236-302`), and
+bulk upsert persists them wholesale via `n = props` / `n += props`
+(`bulk_upsert_backend.py:126-135`). **So a vault file carrying `times_reflected_in_entries: 37` in
+frontmatter would set that counter with no ingestion code mentioning it** — and a grep over
+`core/services/ingestion/` is structurally blind to that route. (An earlier draft made exactly
+that grep and declared "no ingestion writer".)
+
+Audited 2026-08-21: **neither vault** (`0vault/` content, `skuel/` personal) carries any of the
+five counter keys in any file. ⚠️ But the vaults are **not version-controlled**, so a file that
+carried one and was since edited cannot be ruled out. The reflection handler having executed is
+therefore *well-supported*, not proven.
+
+**A zero proves nothing at all** — see below.
 
 ⚠️ **The unsound half, corrected: zero counters do NOT mean the event and habit handlers never
 fired.** A zero is equally consistent with a handler that ran pre-cutover, that targeted an entity
