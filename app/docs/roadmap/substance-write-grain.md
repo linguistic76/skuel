@@ -139,18 +139,37 @@ The inherited June-2026 claim (*"all ~20 activity→knowledge edges target `path
 | target an **orphaned** Ku (no composing PathStep) | **17** | 9 |
 | target a **composed** Ku | 11 | 8 |
 
-**17 of 28 (61%)** of the live `APPLIES_KNOWLEDGE` edges point at a Ku with no composing PathStep.
-Corpus-wide, 69 of 124 Kus (56%) are orphaned.
+⚠️ **What 17-of-28 (61%) is, and what it is NOT.** It is the **current orphan share of edges** — a
+topology snapshot. It is **not** a write-loss rate and **not** evidence that this handler is hot,
+because (a) `UserEntryProcessingService` publishes only for *newly created* links
+(`:604-619`), so existing edges may predate that publisher entirely, and (b) a Ku orphaned today
+may have been composed when its counter was incremented. **To size the defect properly, correlate
+edge-creation / event history against composition state** — the snapshot cannot do it. What the
+snapshot *does* establish is that the orphan case is common enough in the current topology that
+any fix must handle it deliberately. Corpus-wide, 69 of 124 Kus (56%) are orphaned.
 
-And the counters are moving broadly: **38 Kus carry a non-zero substance counter, 19 of them
-orphaned.** Those 19 hold accumulated substance that the `Ku` model cannot read and that credited
-no PathStep.
+**Counter census — all five metrics, enumerated from `_VALID_SUBSTANCE_METRICS`
+(`ps_service.py:77`), not retyped:**
 
-⚠️ **Two measurement corrections worth copying as method** (both caught on #1111): an earlier
-draft said "9 of 17 (53%) of writes" — that counted **distinct endpoints**, not writes, and the
-edge-weighted figure is different (61%). It also said "1 Ku has a non-zero counter", because the
-query checked only 2 of the 4 counter fields; the real figure is 38. **Count the quantity you are
-about to name, and enumerate every field of a family before reporting a total.**
+| metric | Kus with a non-zero value |
+|---|---|
+| `times_reflected_in_entries` | **37** |
+| `times_applied_in_tasks` | 1 |
+| `times_built_into_habits` | 0 |
+| `times_practiced_in_events` | **0** |
+| `choices_informed_count` | 0 |
+
+38 Kus carry some counter; **19 of them are orphaned**. And note the last rows: **the event
+channel has never incremented a single Ku counter.** That is independent confirmation that the two
+event writers this document opens with are the quiet ones — the reflection channel is doing
+essentially all the work.
+
+⚠️ **Three measurement corrections, worth copying as method** (all caught on #1111): a draft said
+"53% of writes" while counting **distinct endpoints**; said "1 Ku has a counter" while querying
+**2 of 4** fields; then said "the whole family" while querying **4 of 5** — missing
+`choices_informed_count`. **Count the quantity you name. Derive the field list from the code
+(`_VALID_SUBSTANCE_METRICS`) rather than typing it. And distinguish a topology snapshot from an
+execution history.**
 
 ⚠️ A snapshot, not a constant — re-run if much time has passed. The point of the June example is
 that a quoted number decays; this one will too.

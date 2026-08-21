@@ -984,16 +984,27 @@ attributing anything to one service.
 | target a **composed** Ku | 11 | 8 |
 
 **17 of 28 (61%)** of live `APPLIES_KNOWLEDGE` edges point at a Ku with no
-composing PathStep; corpus-wide 69 of 124 Kus (56%) are orphaned. And **38 Kus
-carry a non-zero substance counter, 19 of them orphaned** — accumulated substance
-the `Ku` model cannot read that credited no PathStep.
+composing PathStep; corpus-wide 69 of 124 Kus (56%) are orphaned.
 
-That is the `WHERE ps IS NOT NULL` defect on the majority of the one channel in
-active use — a concrete target, not a hypothesis.
+⚠️ **That is the current orphan share of edges — NOT a write-loss rate.**
+`UserEntryProcessingService` publishes only for *newly created* links, so edges
+may predate the publisher, and a Ku orphaned now may have been composed when its
+counter moved. Sizing the defect needs edge-creation/event history correlated
+with composition state; the snapshot only shows the orphan case is common enough
+that a fix must handle it deliberately.
 
-⚠️ **Method, learned here:** a first draft said "53% of writes" while counting
-**distinct endpoints**, and "1 Ku has a counter" while querying **2 of the 4**
-counter fields. Count the quantity you name; enumerate the whole field family.
+**Counter census, all five metrics** (enumerated from `_VALID_SUBSTANCE_METRICS`,
+`ps_service.py:77`): `times_reflected_in_entries` **37**, `times_applied_in_tasks`
+1, `times_built_into_habits` 0, `times_practiced_in_events` **0**,
+`choices_informed_count` 0. 38 Kus carry some counter, **19 orphaned**.
+⚠️ **The event channel has never incremented a Ku counter** — independent
+confirmation that the event writers are the quiet ones.
+
+⚠️ **Method, learned here the hard way:** drafts said "53% of writes" while
+counting **endpoints**; "1 Ku has a counter" while querying **2 of 4** fields;
+then "the whole family" while querying **4 of 5**. Count the quantity you name,
+derive the field list from the code, and never read a topology snapshot as
+execution history.
 
 ⚠️ Snapshot, not a constant. Re-run before acting if much time has passed.
 
