@@ -69,12 +69,41 @@ emits exactly: `prerequisite_steps`, `practice_habits`, `practice_tasks`,
 ⚠️ `total_practice_opportunities` is `size(ps_habits) + size(ps_tasks)`. Adding channels without
 updating it makes it silently undercount.
 
-### The two halves are asymmetric — in building blocks *and* in payoff
+### Building blocks: BOTH halves already have them (corrected)
 
-| | Registry key | Protocol method | Direct consumer of the bundle field |
+⚠️ An earlier draft of this table claimed principles had *no* registry key and *no* persistence
+support, and implied `get_practice_events` was an implemented-but-uncalled method. **Both claims
+were wrong** — caught by Codex on #1110, and each would have biased the verdict: the first toward
+"principles must be built from scratch" (deletion), the second toward "just add a caller" (which
+crashes). The real edges are `SCHEDULES_EVENT` and `GUIDED_BY_PRINCIPLE`; searching for
+`practice_events` / `practice_principles` found the *registry key names*, not the edges.
+
+| | Edge, registered | Live persistence support | Direct consumer of the bundle field |
 |---|---|---|---|
-| **events** | `practice_events` **registered** (`relationship_registry.py:1431/1860`) | `PsOperations.get_practice_events` **exists** (`curriculum_protocols.py:768`) — ⚠️ **zero callers** | ✅ `response_generator.py:307` |
-| **principles** | none | none | ✗ indirect only |
+| **events** | `SCHEDULES_EVENT`, key `practice_events` | ✅ counted by `fetch_practice_counts` | ✅ `response_generator.py:307` |
+| **principles** | `GUIDED_BY_PRINCIPLE`, key `principles`, `yaml_field_path="principle_uids"` | ✅ counted by `fetch_practice_counts` | ✗ indirect only |
+
+`PsIntelligenceBackend.fetch_practice_counts` (`ps_intelligence_backend.py:135`) **already
+traverses all six channels** — `BUILDS_HABIT`, `ASSIGNS_TASK`, `SCHEDULES_EVENT`, `SUPPORTS_GOAL`,
+`GUIDED_BY_PRINCIPLE`, `INFORMS_CHOICE` — and returns per-domain counts. So the graph data, the
+edges and the vocabulary all exist for both halves. **What is missing is only the `graph_context`
+projection and the corresponding fetch in `load_ps_bundle`.** That makes "finish the wiring" a
+markedly smaller and more symmetric job than the earlier draft implied.
+
+⚠️ **Do not plan to "give `get_practice_events` its caller" — it is a PHANTOM.**
+`PsOperations` declares `get_practice_events` (`:768`), `get_practice_habits` (`:756`) and
+`get_practice_tasks` (`:744`), and **none of the three is implemented anywhere** — the only hit
+for each `def` is the protocol itself. A call routed through the protocol reaches
+`UniversalNeo4jBackend.__getattr__`, which resolves only the four CRUD aliases and otherwise
+**raises `AttributeError`** (`universal_backend.py:449`, fallback at `:474`). Populate the bundle
+through the MEGA-QUERY projection, the way habits and tasks already are.
+
+⚠️ **And note what that implies about protocol probes.** `__getattr__` is typed `-> Any`, so mypy
+treats *every* attribute as present on `UniversalNeo4jBackend` subclasses. A clean
+`x: PsOperations = PsBackend(...)` probe is therefore **not** evidence that the backend implements
+the protocol's methods — three phantoms sit behind that green result. (#1107's ruling does not
+rest on it; its evidence was the `PsService` census. But treat the probe as a direction check
+only, never as an implementation check.)
 
 **Events has a real, learner-visible consumer.** `response_generator._build_guided_practice`
 (ENCOURAGING mode, `askesis_guided_practice` template) builds its practice list from
@@ -94,11 +123,16 @@ evidence that `PsBundle`'s fields are consumed.
 
 ### The verdict here is Mike's
 
-Plausible endings: **finish the wiring** (a MEGA-QUERY projection change plus `total_*` fix, and
-`get_practice_events` finally gets its caller) · **delete both halves** as an abandoned idea ·
-**register as visible backlog** and leave the code. Per the phase directive a feature-shaped
-answer gets *"not now" + a named cost*. The events half has the stronger case — a live consumer
-and its building blocks already registered; principles would be built from scratch.
+Plausible endings: **finish the wiring** (a MEGA-QUERY `graph_context` projection change, the
+`total_practice_opportunities` fix, and a `_fetch_entities_by_uid` call per channel — *not* a new
+`get_practice_*` caller) · **delete both halves** as an abandoned idea · **register as visible
+backlog** and leave the code. Per the phase directive a feature-shaped answer gets *"not now" +
+a named cost*.
+
+Both halves have their edges registered and already counted by `fetch_practice_counts`, so
+neither is built from scratch. The tiebreaker is payoff, not cost: **events** has a direct,
+learner-visible consumer (the ENCOURAGING practice list); **principles** reaches only
+`get_all_titles()` → `intent_classifier.py:291`. Splitting them is available and may be right.
 
 ⚠️ If the ending is "register it": `./dev bloat`'s PLANNED tier covers **events/methods/templates
 only**, so there is no tier for fields — which is exactly why an AST sweep found this and the

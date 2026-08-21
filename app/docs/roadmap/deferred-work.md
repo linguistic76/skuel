@@ -800,25 +800,33 @@ MEGA-QUERY `graph_context` projection (`user_context_queries.py:889`) emits
 ⚠️ `total_practice_opportunities` is `size(ps_habits) + size(ps_tasks)` — adding
 channels without updating it makes it silently undercount.
 
-The halves are asymmetric, in building blocks **and** payoff:
+**Both halves already have their building blocks** — a first draft of this entry
+said principles had none, which Codex refuted on #1110. The edges are
+`SCHEDULES_EVENT` (key `practice_events`) and `GUIDED_BY_PRINCIPLE` (key
+`principles`), and `PsIntelligenceBackend.fetch_practice_counts`
+(`ps_intelligence_backend.py:135`) **already traverses all six channels**. What
+is missing is only the `graph_context` projection plus a fetch in
+`load_ps_bundle`. Searching for `practice_principles` finds nothing because that
+is not the key name — a naming miss, not an absence.
 
-| | Registry key | Protocol method | Direct bundle consumer |
-|---|---|---|---|
-| events | `practice_events` registered | `get_practice_events` exists — ⚠️ zero callers | ✅ `response_generator.py:307` |
-| principles | none | none | ✗ indirect only |
+The tiebreaker is payoff, not cost. **Events** has a direct, learner-visible
+consumer: the Socratic ENCOURAGING prompt builds its practice list from habits,
+tasks *and* events, so it lists the first two and **never an event**.
+**Principles** reaches only `get_all_titles()` → `intent_classifier.py:291`, a
+matching-recall effect. Splitting them is available.
 
-**Events has a learner-visible consequence:** the Socratic ENCOURAGING prompt
-builds its practice list from habits, tasks *and* events — so it lists habits and
-tasks and **never an event**. Principles reaches only `get_all_titles()` →
-`intent_classifier.py:291`, a matching-recall effect. ⚠️ `ps_engagement`'s
-`bundle.events`/`.principles` are a **different class** (`TemplateBundle`), not
-evidence of consumption.
+⚠️ **`get_practice_events` is a PHANTOM — do not plan to "give it a caller."**
+It, `get_practice_habits` and `get_practice_tasks` are declared on `PsOperations`
+and **implemented nowhere**; a protocol-routed call falls through
+`UniversalNeo4jBackend.__getattr__` (CRUD aliases only) and raises
+`AttributeError`. ⚠️ That `__getattr__` returns `Any`, so mypy sees every
+attribute as present — **a clean `x: PsOperations = PsBackend(...)` probe is a
+direction check, never an implementation check.**
 
-**Verdict is Mike's:** finish the wiring (events has the stronger case) · delete
-both halves · register as backlog. ⚠️ No PLANNED tier exists for *fields*
-(`./dev bloat` covers events/methods/templates), which is why an AST sweep found
-this and the tooling did not; `get_practice_events` is a method and could be
-registered in `PLANNED_METHODS`, where it is not today.
+**Verdict is Mike's:** finish the wiring · delete both halves · register as
+backlog. ⚠️ No PLANNED tier exists for *fields* (`./dev bloat` covers
+events/methods/templates), which is why an AST sweep found this and the tooling
+did not.
 
 ---
 
