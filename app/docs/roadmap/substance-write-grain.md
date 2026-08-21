@@ -163,15 +163,22 @@ entity types (not just Ku — an earlier pass checked only Kus):
 | `times_practiced_in_events` | **0** | **0** |
 | `choices_informed_count` | 0 | 0 |
 
-**Why this is execution evidence and the edge counts are not:** these counters are written only by
-`increment_substance` / `increment_practice_count`, reached only from the substance handlers. No
-ingestion path, script or migration writes them (checked). A non-zero value therefore *proves the
-handler ran*.
+⚠️⚠️ **GOVERNING CAVEAT — this whole probe supports BOUNDS, never rates or histories.** Five
+review rounds on #1111 each caught the same move: turning *"consistent with X"* into *"shows X"*.
+A **non-zero** counter is sound evidence in one direction only — it proves the handler ran, since
+these counters are written solely by `increment_substance` / `increment_practice_count` from the
+substance handlers, with no ingestion, script or migration writer (checked). A **zero** proves
+nothing of the kind. Read every number below as a floor or a ceiling, never as a rate.
 
-So, soundly: **the reflection handler has demonstrably executed** (37 Kus + 10 PathSteps bear its
-counter) and **the event and habit handlers have demonstrably never incremented anything, on any
-entity type**. ⚠️ This establishes *past execution*, not current frequency — but it is enough to
-say the two event writers this document opens with have never once fired, and to start elsewhere.
+So the sound half: **the reflection handler has demonstrably executed** — 37 Kus and 10 PathSteps
+bear its counter, and only a handler could have put them there.
+
+⚠️ **The unsound half, corrected: zero counters do NOT mean the event and habit handlers never
+fired.** A zero is equally consistent with a handler that ran pre-cutover, that targeted an entity
+since deleted, or **that executed and whose write matched nothing** — which is *precisely the
+defect this arc investigates*. Using a zero to deprioritise the event writers would be using the
+bug as evidence that the bug did not occur. All that is established: **no surviving node currently
+bears an event or habit counter.** Rank the investigation on something else.
 
 ⚠️ **The 10 PathSteps do NOT prove the roll-up works — a draft claimed they did.**
 `increment_substance` sets the counter on whatever `:Entity` the uid names, so a **PathStep-targeted

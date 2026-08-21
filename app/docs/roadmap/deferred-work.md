@@ -1002,13 +1002,21 @@ that a fix must handle it deliberately.
 | `times_applied_in_tasks` | 1 | 2 |
 | `times_built_into_habits` / `times_practiced_in_events` / `choices_informed_count` | 0 | 0 |
 
-⭐ **This is execution evidence, unlike the edge counts.** These counters are
-written only by `increment_substance` / `increment_practice_count`, reached only
-from the substance handlers — no ingestion, script or migration writes them
-(checked). A non-zero value proves the handler ran. So: the **reflection handler
-has demonstrably executed**, and the **event and habit handlers have never
-incremented anything on any entity type**. (Past execution, not current
-frequency — but enough to start elsewhere than the event writers.)
+⚠️⚠️ **GOVERNING CAVEAT — the probe supports BOUNDS, never rates or histories.**
+A **non-zero** counter is sound evidence one way: it proves the handler ran,
+since only `increment_substance` / `increment_practice_count` write these, from
+the substance handlers, with no ingestion/script/migration writer (checked). A
+**zero** proves nothing.
+
+Sound: the **reflection handler has demonstrably executed** (37 Kus + 10
+PathSteps bear its counter).
+
+⚠️ **Not sound, and corrected:** zero counters do **not** mean the event and
+habit handlers never fired. A zero is equally consistent with a handler that ran
+pre-cutover, targeted a since-deleted entity, or **executed and had its write
+match nothing** — *the very defect this arc investigates*. Deprioritising the
+event writers on a zero would use the bug as proof the bug did not happen. All
+that is established: no surviving node currently bears those counters.
 
 ⚠️ **The 10 PathSteps do NOT prove the roll-up works.** `increment_substance` sets
 the counter on whatever `:Entity` the uid names, so a PathStep-targeted write and
