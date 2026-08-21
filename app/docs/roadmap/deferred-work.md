@@ -699,6 +699,12 @@ become Cypher edge patterns), the #1102 chokepoint is retired, and
 `_enables_relationships` are deleted (registry-side
 `enables_relationship_names` stays — the graph contract reads it).
 A regression test now pins the `__init__` sync.
+Known residue (Codex on the PR, measured): the mixin's typed
+`get_prerequisites` matches the domain label, so a curriculum domain's
+Ku-typed prerequisites are silently excluded from that read — heterogeneous
+chains belong to `prerequisite_chain_with_distance` (base-label match,
+projected rows), which is what PsService's live path uses. Whoever wires the
+PLANNED mixin consumers must pick the read accordingly.
 
 ### B. The `PsOperations` layering contradiction
 
