@@ -968,13 +968,13 @@ register said re-probe rather than quote:
 | `REQUIRES_KNOWLEDGE` goal → path_step | 1 |
 | `APPLIES_KNOWLEDGE` task → path_step | 1 |
 
-**28 of 32 target a real `:Ku`.** The grain flipped. The live channel is
-**UserEntry → Ku**, not the Event paths this entry spends most of its words on —
-so `KnowledgeReflectedInEntry` is the hot handler and the event writers are quiet.
-⚠️ That channel has **two writers** (`UserEntryProcessingService:588-619` and
-`EntryGroundingService:287-314`) — CLAUDE.md's *"two writers, one
-`KnowledgeReflectedInEntry` event"*. Break the 28 down by provenance before
-attributing anything to one service.
+**28 of 32 target a real `:Ku`.** The grain flipped, and **UserEntry → Ku is the
+dominant stored topology** — ⚠️ a statement about what is *stored*, not about
+which handler runs most often; edge counts cannot show frequency. (The execution
+claim below rests on counters, which can.) ⚠️ That channel has **two writers**
+(`UserEntryProcessingService:588-619` and `EntryGroundingService:287-314`) —
+CLAUDE.md's *"two writers, one `KnowledgeReflectedInEntry` event"*. Break the 28
+down by provenance before attributing anything to one service.
 
 **The orphan-Ku bug is live and sized — by edges, not endpoints:**
 
@@ -993,12 +993,26 @@ counter moved. Sizing the defect needs edge-creation/event history correlated
 with composition state; the snapshot only shows the orphan case is common enough
 that a fix must handle it deliberately.
 
-**Counter census, all five metrics** (enumerated from `_VALID_SUBSTANCE_METRICS`,
-`ps_service.py:77`): `times_reflected_in_entries` **37**, `times_applied_in_tasks`
-1, `times_built_into_habits` 0, `times_practiced_in_events` **0**,
-`choices_informed_count` 0. 38 Kus carry some counter, **19 orphaned**.
-⚠️ **The event channel has never incremented a Ku counter** — independent
-confirmation that the event writers are the quiet ones.
+**Counter census — all five metrics, all entity types** (list derived from
+`_VALID_SUBSTANCE_METRICS`, `ps_service.py:77`):
+
+| metric | Ku | PathStep |
+|---|---|---|
+| `times_reflected_in_entries` | **37** | **10** |
+| `times_applied_in_tasks` | 1 | 2 |
+| `times_built_into_habits` / `times_practiced_in_events` / `choices_informed_count` | 0 | 0 |
+
+⭐ **This is execution evidence, unlike the edge counts.** These counters are
+written only by `increment_substance` / `increment_practice_count`, reached only
+from the substance handlers — no ingestion, script or migration writes them
+(checked). A non-zero value proves the handler ran. So: the **reflection handler
+has demonstrably executed**, and the **event and habit handlers have never
+incremented anything on any entity type**. (Past execution, not current
+frequency — but enough to start elsewhere than the event writers.)
+
+The 10 PathSteps also show **the roll-up working** for composed Kus, exactly as
+the path-2 table predicts — the defect is confined to the orphaned half, where
+38 Kus carry a counter and **19 are orphaned**.
 
 ⚠️ **Method, learned here the hard way:** drafts said "53% of writes" while
 counting **endpoints**; "1 Ku has a counter" while querying **2 of 4** fields;

@@ -124,8 +124,10 @@ The inherited June-2026 claim (*"all ~20 activity→knowledge edges target `path
 
 **28 of 32 now target a real `:Ku`.** Two things follow, and both re-shape this arc:
 
-1. **The live channel is UserEntry → Ku**, so `KnowledgeReflectedInEntry` is the hot handler and
-   the two *event* writers this document spends most of its words on are the quiet ones.
+1. **UserEntry → Ku is the dominant stored topology** (28 of 32 edges). ⚠️ That is a statement
+   about what is *stored*, **not** about which handler executes most often — edge counts cannot
+   establish frequency. The execution claim is made below, from counters, which is the evidence
+   that actually supports it.
    ⚠️ **That channel has TWO writers, not one** — `UserEntryProcessingService`
    (`user_entry_processing_service.py:588-619`, explicit `@ku()` refs) and `EntryGroundingService`
    (`entry_grounding_service.py:287-314`, vector grounding). CLAUDE.md says so directly: *"two
@@ -148,21 +150,34 @@ edge-creation / event history against composition state** — the snapshot canno
 snapshot *does* establish is that the orphan case is common enough in the current topology that
 any fix must handle it deliberately. Corpus-wide, 69 of 124 Kus (56%) are orphaned.
 
-**Counter census — all five metrics, enumerated from `_VALID_SUBSTANCE_METRICS`
-(`ps_service.py:77`), not retyped:**
+### Counter census — this IS execution evidence, unlike the edge counts
 
-| metric | Kus with a non-zero value |
-|---|---|
-| `times_reflected_in_entries` | **37** |
-| `times_applied_in_tasks` | 1 |
-| `times_built_into_habits` | 0 |
-| `times_practiced_in_events` | **0** |
-| `choices_informed_count` | 0 |
+All five metrics enumerated from `_VALID_SUBSTANCE_METRICS` (`ps_service.py:77`), across **all**
+entity types (not just Ku — an earlier pass checked only Kus):
 
-38 Kus carry some counter; **19 of them are orphaned**. And note the last rows: **the event
-channel has never incremented a single Ku counter.** That is independent confirmation that the two
-event writers this document opens with are the quiet ones — the reflection channel is doing
-essentially all the work.
+| metric | Ku | PathStep |
+|---|---|---|
+| `times_reflected_in_entries` | **37** | **10** |
+| `times_applied_in_tasks` | 1 | 2 |
+| `times_built_into_habits` | 0 | 0 |
+| `times_practiced_in_events` | **0** | **0** |
+| `choices_informed_count` | 0 | 0 |
+
+**Why this is execution evidence and the edge counts are not:** these counters are written only by
+`increment_substance` / `increment_practice_count`, reached only from the substance handlers. No
+ingestion path, script or migration writes them (checked). A non-zero value therefore *proves the
+handler ran*.
+
+So, soundly: **the reflection handler has demonstrably executed** (37 Kus + 10 PathSteps bear its
+counter) and **the event and habit handlers have demonstrably never incremented anything, on any
+entity type**. ⚠️ This establishes *past execution*, not current frequency — but it is enough to
+say the two event writers this document opens with have never once fired, and to start elsewhere.
+
+**The 10 PathSteps also show the roll-up working**: composed Kus credited their composing
+PathSteps, exactly as the path-2 table predicts. The defect is confined to the orphaned half.
+
+38 Kus carry some counter; **19 of them are orphaned** — accumulated substance the `Ku` model
+cannot read, which credited no PathStep.
 
 ⚠️ **Three measurement corrections, worth copying as method** (all caught on #1111): a draft said
 "53% of writes" while counting **distinct endpoints**; said "1 Ku has a counter" while querying
