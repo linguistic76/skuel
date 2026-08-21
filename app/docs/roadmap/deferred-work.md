@@ -908,6 +908,29 @@ Note `content_scope` and `visibility` are **`None`** on both vault-authored
 nodes while user-created ones carry `visibility=private` — the shared case looks
 unmodelled.
 
+⚠️ **This is the read-side facet of a question three other entries in this file
+already circle** (Mike, 2026-08-21). The root: **ownership is declared in three
+places — the `user_uid` property, the `(User)-[:OWNS]->` edge, and DomainConfig's
+`SearchVisibility` — and enforced in one**, `build_search_visibility_clause`,
+"the one Cypher composition point" (CLAUDE.md § Ownership Scoping). The Askesis
+bundle never reaches it: `context_retriever.py` references neither
+`SearchVisibility` nor that clause, and reads entities directly through
+`service.get()`, bypassing SearchRouter.
+
+| entry | facet of the same root |
+|---|---|
+| § `:OWNS` Writers That Skip `user_uid` | **write-side** — the property and the edge disagree; `add_attendee` would give an attendee `:OWNS` on an organiser's Event |
+| § `GroupService` Declares `OWNER_ONLY`… | **declaration-side** — a scoping claim the model cannot render |
+| § `User.uid` Has No Index or Constraint | its own text calls it "a live input to any future ruling that would move ownership reads onto the edge" |
+| **this P1** | **read-side** — a path that never reaches the composition point at all |
+
+**Ruled 2026-08-21 (Mike): this is significant cross-cutting work and belongs to
+a fresh context, taken with those three entries together rather than as four
+separate fixes.** Whoever takes it should settle the general question — *what
+enforces ownership on a read that does not go through SearchRouter?* — before
+touching any single site. ⚠️ `CrudOperationsMixin.get` (`:135`) is used by every
+domain; changing its signature is a repo-wide change, not a local one.
+
 **Verdict below is SUSPENDED pending that ruling.** The mechanism findings stand;
 the recommendation does not.
 
