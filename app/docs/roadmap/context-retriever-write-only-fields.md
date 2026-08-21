@@ -297,7 +297,7 @@ both authoring tests, the state per `PsBundle` channel is:
 | **habits** | ✅ 1 edge | ✅ exists | ✅ `_fetch_entities_by_uid` | **yes** — end-to-end today |
 | **tasks** | none | ✅ exists | ✅ | needs content only |
 | **events** | ✅ 1 edge | ❌ **missing** | ❌ **hardcoded `[]`** (`:505`) | **CODE-GATED — build this** |
-| **principles** | none | ❌ missing | ❌ hardcoded `[]` (`:506`) | needs both |
+| **principles** | ✅ 1 edge | ❌ **missing** | ❌ **hardcoded `[]`** (`:506`) | **CODE-GATED — same as events** |
 
 **Events is now code-gated, not content-gated** — the edge exists and is queryable. ⚠️ But it takes
 **both** halves of the change, not just the projection: `load_ps_bundle` hardcodes
@@ -305,13 +305,16 @@ both authoring tests, the state per `PsBundle` channel is:
 would still yield an empty bundle. Projection **and** the `_fetch_entities_by_uid` call are one
 change, and only together do they produce the payoff — the ENCOURAGING prompt naming *"Evening
 Check-In — 2 min"* on that PathStep. (An earlier draft promised that from the projection alone,
-contradicting the complete remedy stated further down this file.) **Principles is genuinely gated
-on both code and content** and can wait.
+contradicting the complete remedy stated further down this file.) ⚠️ **Principles is now code-gated too**, not content-gated — the principle test below authored
+`GUIDED_BY_PRINCIPLE`, so it needs exactly what events needs: projection + bundle fetch. Both
+channels are now in the same state; neither is waiting on content.
 
 ⚠️ An earlier draft of this section said "one habit edge exists; the other five channels have
 none" — written *after* the event was authored, and it would have wrongly deferred the very wiring
-this verdict asks for (caught by Codex on #1112). Sequence: **build the events projection first**,
-principles when there is something to project.
+this verdict asks for (caught by Codex on #1112). ⚠️ **And then made the identical mistake one
+round later for principles** — authored the edge, left the table saying it had no content. Both
+channels now have content and both need projection + fetch, so **build them together**; there is
+no sequencing argument left between them.
 
 ⚠️ A snapshot, not a constant. Re-run before acting if much time has passed.
 

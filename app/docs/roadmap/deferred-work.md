@@ -1026,14 +1026,15 @@ proven correct, it is the label that lies. **Principles untested** (`:Principle`
 | **habits** | ✅ 1 edge | ✅ exists | ✅ | **yes, end-to-end today** |
 | **tasks** | none | ✅ exists | ✅ | needs content only |
 | **events** | ✅ 1 edge | ❌ missing | ❌ hardcoded `[]` (`:505`) | **CODE-GATED — build first** |
-| **principles** | none | ❌ missing | ❌ hardcoded `[]` (`:506`) | needs both |
+| **principles** | ✅ 1 edge | ❌ missing | ❌ hardcoded `[]` (`:506`) | **CODE-GATED — same as events** |
 
 **Events is code-gated, not content-gated** — the edge exists and is queryable.
 ⚠️ But it takes **both** halves: `load_ps_bundle` hardcodes `events = []`
 (`context_retriever.py:505`), so the `practice_events` projection *alone* still
 yields an empty bundle. Projection + `_fetch_entities_by_uid` are one change;
 only together do they make the ENCOURAGING prompt name *"Evening Check-In —
-2 min"*. Principles is gated on both code and content, and can wait.
+2 min"*. ⚠️ **Principles is now code-gated too** — the principle test authored `GUIDED_BY_PRINCIPLE`, so
+it needs the same projection + fetch. Both channels are in the same state; neither waits on content.
 
 ⚠️ Snapshot, not a constant. Re-run before acting if much time has passed.
 
