@@ -160,7 +160,47 @@ own `practice_habits` pattern returns it. **Not run:** a live Askesis session.
 requires that PathStep to be active for a user. That is user state; no part of the plumbing
 remains in doubt.
 
-**Verdict — Option A in shape, but ⚠️ the test does NOT generalize to events.** The arc is no
+### 🛑 P1 — OPTION A IS BLOCKED ON AN OWNERSHIP RULING (Codex, #1112, 2026-08-21)
+
+**A shared PathStep pointing at a user-owned activity crosses an ownership boundary.** Verified at
+every link:
+
+| link | verified |
+|---|---|
+| `Habit` / `Event` are `UserOwnedEntity` (OWNER_ONLY domains) | CLAUDE.md § Ownership Verification |
+| vault-authored activities are stamped with the vault owner | `habit.pause-and-name` and `event.evening-check-in` both carry `user_uid=user_admin` **and** a `(user_admin)-[:OWNS]->` edge |
+| the MEGA-QUERY projection has **no owner predicate** | `user_context_queries.py:829` — `OPTIONAL MATCH (ps)-[:BUILDS_HABIT]->(ps_habit:Habit)` |
+| the bundle fetch is **unscoped** | `_fetch_entities_by_uid` → `service.get(uid)` → `CrudOperationsMixin.get` (`:135`) takes **no `user_uid` and performs no ownership check**) |
+| the value reaches a prompt | `response_generator._build_guided_practice` renders `f"Habit: {habit.title}"` |
+
+So when that PathStep is active for **any learner other than the vault owner**, the owner's
+user-owned habit lands in that learner's `PsBundle` and Socratic prompt. Curriculum is SHARED;
+activities are USER_OWNED; a direct edge between them has no scoping anywhere along the path.
+
+⚠️ **This is the first instance in the graph, and this arc's own test created it.** Low
+sensitivity (a curriculum-flavoured habit title, owned by `user_admin`) — but it is the mechanism
+that matters, and building the events projection would multiply it.
+
+**And it reframes the whole Way-1-vs-Way-2 question.** The template + spawn model exists to give
+each learner *their own* instance — which is precisely the boundary a direct edge violates. Way 2
+may be architecturally right after all, rather than dead.
+
+**Open questions this arc must now settle before any code:**
+
+1. Are vault-authored activities meant to be **shared curriculum content** (in which case the
+   `user_uid` + `:OWNS` stamp is the bug) or **the owner's own**? Note `content_scope` and
+   `visibility` are **`None`** on both vault-authored nodes, while user-created ones carry
+   `visibility=private` — suggesting the shared case was never modelled.
+2. If shared: the ingestion stamp, the projection, and `get()` scoping all need a decision.
+3. If per-learner: Way 2 (templates + spawn) is the answer and Option A should not be built.
+
+**Until this is ruled, the verdict below is suspended.** The mechanism findings stand; the
+recommendation does not.
+
+---
+
+**Verdict — Option A in shape, but ⚠️ the test does NOT generalize to events.** ⚠️ **Suspended by
+the P1 above.** The arc is no
 longer "which of two authoring models should the tutor see?": Way 2 (templates + spawn) stays
 entirely unused and needs no decision, and the projection + `_fetch_entities_by_uid` +
 `total_practice_opportunities` shape is right. ⚠️ Populate through the projection — **never** by

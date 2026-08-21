@@ -879,11 +879,42 @@ the edge exists and the MEGA-QUERY's own `practice_habits` pattern returns it.
 PathStep active for a user. That is user state, not plumbing, and nothing in the
 plumbing is now in doubt.
 
-**Verdict — Option A in shape.** Way 2 (templates + spawn) stays unused and needs
-no decision; the fix shape is a `graph_context` projection + a
-`_fetch_entities_by_uid` call per channel + the `total_practice_opportunities`
-fix. ⚠️ `get_practice_events` is a phantom — populate through the projection,
-never by giving it a caller.
+### 🛑 P1 — OPTION A IS BLOCKED ON AN OWNERSHIP RULING (2026-08-21)
+
+**A shared PathStep pointing at a user-owned activity crosses an ownership
+boundary, unscoped end to end.** Verified: `Habit`/`Event` are `UserOwnedEntity`
+(OWNER_ONLY); the vault-authored `habit.pause-and-name` and
+`event.evening-check-in` both carry `user_uid=user_admin` **and** a
+`(user_admin)-[:OWNS]->` edge; the MEGA-QUERY projection has **no owner
+predicate** (`user_context_queries.py:829`); `_fetch_entities_by_uid` calls
+`service.get(uid)` → `CrudOperationsMixin.get` (`:135`), which takes **no
+`user_uid` and performs no ownership check**; and the value is rendered into the
+Socratic prompt by `response_generator._build_guided_practice`.
+
+So with that PathStep active for **any learner but the vault owner**, the owner's
+user-owned habit lands in that learner's bundle and prompt. ⚠️ **This arc's own
+authoring test created the first instance** (low sensitivity — a
+curriculum-flavoured title owned by `user_admin` — but the mechanism is the
+point, and the events projection would multiply it).
+
+⚠️ **It reframes Way 1 vs Way 2.** Template + spawn exists to give each learner
+*their own* instance — exactly the boundary a direct edge violates. Way 2 may be
+architecturally right rather than dead.
+
+**Must be settled before any code:** are vault-authored activities **shared
+curriculum content** (then the `user_uid`/`:OWNS` stamp is the bug) or **the
+owner's own** (then Way 2 is the answer and Option A should not be built)?
+Note `content_scope` and `visibility` are **`None`** on both vault-authored
+nodes while user-created ones carry `visibility=private` — the shared case looks
+unmodelled.
+
+**Verdict below is SUSPENDED pending that ruling.** The mechanism findings stand;
+the recommendation does not.
+
+**Verdict (suspended) — Option A in shape.** Way 2 stays unused; the fix shape is
+a `graph_context` projection + a `_fetch_entities_by_uid` call per channel + the
+`total_practice_opportunities` fix. ⚠️ `get_practice_events` is a phantom —
+populate through the projection, never by giving it a caller.
 
 ⚠️ **The test does NOT generalize to events — `habit_uids` is the most permissive
 of the six channels.** Target labels in the PathStep activity block differ:
