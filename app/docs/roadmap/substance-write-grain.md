@@ -93,8 +93,9 @@ the falsification:
    change — but decide deliberately whether the orphan-Ku case should also *credit* something or
    merely report honestly.
 2. **Writer asymmetry.** Path 1 has **no roll-up at all**, so a real Ku uid there writes an
-   unreadable property and credits no PathStep. Whether it fires depends on the live edge grain —
-   hence the re-probe below.
+   unreadable property and credits no PathStep. ⚠️ The probe below shows real Ku uids *are* now
+   the common case (28 of 32 edges), so this fires — but check whether path 1's trigger
+   (`CalendarEventCompleted`) has any live traffic before ranking it: the hot channel is UserEntry.
 3. **Possible double-count.** Both writers `SET` the same property on different triggers.
 4. **Naming.** Every site says `ku_*` while PathStep is the readable grain — item C's fixture is
    the test-side face of this.
@@ -109,10 +110,118 @@ on whichever node the uid names.
 
 ## Start here, before designing anything
 
-⚠️ **Re-probe the live edge grain.** The claim "all ~20 activity→knowledge edges target
-`entity_type='path_step'`, zero target `:Ku`" is from **June 2026 on the old local Docker graph**
-— it predates the AuraDB cutover (2026-08-15). The daily graph is now AuraDB Free `d2d160c4`. If
-the grain has changed, the fix changes with it. **Do not quote that number; re-run it.**
+### ✅ The probe has been run — 2026-08-21, AuraDB `d2d160c4`
+
+The inherited June-2026 claim (*"all ~20 activity→knowledge edges target `path_step`, zero target
+`:Ku`"*, measured on the old local Docker graph, pre-cutover) is **falsified**:
+
+| Edge | count |
+|---|---|
+| `APPLIES_KNOWLEDGE` **user_entry → ku** | **28** |
+| `REQUIRES_KNOWLEDGE` path_step → path_step | 2 |
+| `REQUIRES_KNOWLEDGE` goal → path_step | 1 |
+| `APPLIES_KNOWLEDGE` task → path_step | 1 |
+
+**28 of 32 now target a real `:Ku`.** Two things follow, and both re-shape this arc:
+
+1. **UserEntry → Ku is the dominant stored topology** (28 of 32 edges). ⚠️ That is a statement
+   about what is *stored*, **not** about which handler executes most often — edge counts cannot
+   establish frequency. The execution claim is made below, from counters, which is the evidence
+   that actually supports it.
+   ⚠️ **That channel has TWO writers, not one** — `UserEntryProcessingService`
+   (`user_entry_processing_service.py:588-619`, explicit `@ku()` refs) and `EntryGroundingService`
+   (`entry_grounding_service.py:287-314`, vector grounding). CLAUDE.md says so directly: *"two
+   writers, one `KnowledgeReflectedInEntry` event"*. They have different idempotency behaviour.
+   Scope the investigation to the channel, and break the 28 down by provenance before attributing
+   anything to one service.
+2. **The orphan-Ku case is live and is the majority case — measured by edges, not endpoints:**
+
+| | edges | distinct Kus |
+|---|---|---|
+| target an **orphaned** Ku (no composing PathStep) | **17** | 9 |
+| target a **composed** Ku | 11 | 8 |
+
+⚠️ **What 17-of-28 (61%) is, and what it is NOT.** It is the **current orphan share of edges** — a
+topology snapshot. It is **not** a write-loss rate and **not** evidence that this handler is hot,
+because (a) `UserEntryProcessingService` publishes only for *newly created* links
+(`:604-619`), so existing edges may predate that publisher entirely, and (b) a Ku orphaned today
+may have been composed when its counter was incremented. **To size the defect properly, correlate
+edge-creation / event history against composition state** — the snapshot cannot do it. What the
+snapshot *does* establish is that the orphan case is common enough in the current topology that
+any fix must handle it deliberately. Corpus-wide, 69 of 124 Kus (56%) are orphaned.
+
+### Counter census — this IS execution evidence, unlike the edge counts
+
+All five metrics enumerated from `_VALID_SUBSTANCE_METRICS` (`ps_service.py:77`), across **all**
+entity types (not just Ku — an earlier pass checked only Kus):
+
+| metric | Ku | PathStep |
+|---|---|---|
+| `times_reflected_in_entries` | **37** | **10** |
+| `times_applied_in_tasks` | 1 | 2 |
+| `times_built_into_habits` | 0 | 0 |
+| `times_practiced_in_events` | **0** | **0** |
+| `choices_informed_count` | 0 | 0 |
+
+⚠️⚠️ **GOVERNING CAVEAT — this whole probe supports BOUNDS, never rates or histories.** Six review
+rounds on #1111 each caught the same move: turning *"consistent with X"* into *"shows X"*. Treat
+every number below as a floor or a ceiling.
+
+**A non-zero counter is strong but NOT conclusive evidence the handler ran.** The handlers
+(`increment_substance` / `increment_practice_count`) are the only code that *names* these fields —
+but ingestion does not need to name them. `prepare_entity_data()` preserves arbitrary frontmatter
+keys (`preparer.py:229-243`), `_dict_to_node()` serialises them (`neo4j_mapper.py:236-302`), and
+bulk upsert persists them wholesale via `n = props` / `n += props`
+(`bulk_upsert_backend.py:126-135`). **So a vault file carrying `times_reflected_in_entries: 37` in
+frontmatter would set that counter with no ingestion code mentioning it** — and a grep over
+`core/services/ingestion/` is structurally blind to that route. (An earlier draft made exactly
+that grep and declared "no ingestion writer".)
+
+Audited 2026-08-21: **neither vault** (`0vault/` content, `skuel/` personal) carries any of the
+five counter keys in any file. ⚠️ But the vaults are **not version-controlled**, so a file that
+carried one and was since edited cannot be ruled out. The reflection handler having executed is
+therefore *well-supported*, not proven.
+
+**A zero proves nothing at all** — see below.
+
+⚠️ **The unsound half, corrected: zero counters do NOT mean the event and habit handlers never
+fired.** A zero is equally consistent with a handler that ran pre-cutover, that targeted an entity
+since deleted, or **that executed and whose write matched nothing** — which is *precisely the
+defect this arc investigates*. Using a zero to deprioritise the event writers would be using the
+bug as evidence that the bug did not occur. All that is established: **no surviving node currently
+bears an event or habit counter.** Rank the investigation on something else.
+
+⚠️ **The 10 PathSteps do NOT prove the roll-up works — a draft claimed they did.**
+`increment_substance` sets the counter on whatever `:Entity` the uid names, so a **PathStep-targeted
+write** and a **Ku→PathStep roll-up** produce byte-identical state. Without event/edge history the
+two are indistinguishable, and this graph *does* contain PathStep-targeted edges
+(`APPLIES_KNOWLEDGE task → path_step`).
+
+The snapshot can still **bound** it. Asking whether each counter-bearing PathStep composes a
+counter-bearing Ku:
+
+| | PathSteps |
+|---|---|
+| composes ≥1 counter-bearing Ku — **consistent with** roll-up | 9 |
+| composes none — **must be** a direct write | **1** |
+
+So at least one is definitely direct, and nine are *consistent with* roll-up without being proof
+of it (a direct write to a PathStep that happens to compose a counter-bearing Ku looks identical).
+**Do not use this to confine the defect to the orphaned half** — that needs the provenance
+correlation, not the topology.
+
+38 Kus carry some counter; **19 of them are orphaned** — accumulated substance the `Ku` model
+cannot read, which credited no PathStep.
+
+⚠️ **Three measurement corrections, worth copying as method** (all caught on #1111): a draft said
+"53% of writes" while counting **distinct endpoints**; said "1 Ku has a counter" while querying
+**2 of 4** fields; then said "the whole family" while querying **4 of 5** — missing
+`choices_informed_count`. **Count the quantity you name. Derive the field list from the code
+(`_VALID_SUBSTANCE_METRICS`) rather than typing it. And distinguish a topology snapshot from an
+execution history.**
+
+⚠️ A snapshot, not a constant — re-run if much time has passed. The point of the June example is
+that a quoted number decays; this one will too.
 
 Then answer, with measurements, before proposing a fix:
 

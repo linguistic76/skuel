@@ -819,15 +819,41 @@ projection populates only directly-authored PathSteps; template-based ones stay
 empty. Any plan must add the student-scoped spawned-instance traversal or state
 that its payoff covers legacy content only.
 
-The tiebreaker is payoff, not cost. **Events** has a direct consumer: the
-Socratic ENCOURAGING prompt builds its practice list from habits, tasks *and*
-events, so it can never name an event. **Principles** reaches only
-`get_all_titles()` → `intent_classifier.py:291`. Splitting them is available.
-⚠️ **Probe before believing the asymmetry:** every `BUILDS_HABIT`/
-`SCHEDULES_EVENT` occurrence in `core/services/` and `adapters/persistence/` is a
-**read** — no service writes them. Count `(:PathStep)-[:BUILDS_HABIT]->()` vs
-`(:PathStep)-[:HAS_EVENT_TEMPLATE]->()` on AuraDB. If the direct edges are
-near-zero the practice list is empty for everyone, and the asymmetry is illusory.
+### ✅ PROBED 2026-08-21 (AuraDB `d2d160c4`) — CONTENT-GATED, do not build yet
+
+Both authoring paths are **completely unused**:
+
+| | count |
+|---|---|
+| `(:PathStep)-[:BUILDS_HABIT\|ASSIGNS_TASK\|SCHEDULES_EVENT\|GUIDED_BY_PRINCIPLE\|…]->()` | **0** |
+| `(:PathStep)-[:HAS_*_TEMPLATE]->()` | **0** |
+| `SPAWNED_FROM` edges | **0** |
+| PathSteps / Kus | 25 / 124 |
+| Tasks / Choices / Events / Habits / Goals / Principles that exist | 91 / 10 / 6 / 5 / 3 / 2 |
+
+And **no vault file has ever declared** `habit_uids`, `task_uids`,
+`event_template_uids`, `principle_uids`, `goal_uids` or `choice_uids`. So this is
+**never authored**, not a broken pipeline — the activities exist, nothing has
+ever been linked to a PathStep either way.
+
+**Consequences for the verdict:**
+
+1. The **"events has a learner-visible consumer, principles does not" asymmetry
+   is illusory.** The Socratic practice list is empty for *everyone* today —
+   `bundle.habits` and `bundle.tasks` are as empty as `bundle.events`. An earlier
+   draft of this entry leaned on that asymmetry; it does not hold.
+2. Options A and B both build machinery that **stays empty until content exists**.
+3. **One Path Forward does not force a choice here** — neither path superseded
+   the other, because neither has ever been used.
+
+**Do this before any code:** author `habit_uids: [...]` on one PathStep in the
+vault, sync, and check whether the tutor picks it up. That proves Way 1
+end-to-end for the cost of one line, and it is content work — which is where the
+current phase points anyway. **If Way 1 works, the arc shrinks to "add the two
+missing channels the same way." If it does not, the bug is in ingestion, not
+here.**
+
+⚠️ Snapshot, not a constant. Re-run before acting if much time has passed.
 
 ⚠️ **`get_practice_events` is a PHANTOM — do not plan to "give it a caller."**
 It, `get_practice_habits` and `get_practice_tasks` are declared on `PsOperations`
@@ -928,11 +954,93 @@ orphan row is live, not hypothetical: `KnowledgeHealthService` scores
    which is what item C's fixture reflects, and why C rides here.
 5. **Ku nodes accumulate properties nothing reads.** Cosmetic or a cleanup, decide.
 
-⚠️ **Re-probe before designing.** The "all activity→knowledge edges target
-`entity_type='path_step'`, zero target `:Ku`" measurement is from **June 2026,
-on the old local Docker graph** — it predates the AuraDB cutover (2026-08-15).
-If the live edge grain has changed, the fix changes with it. Do not quote that
-number; re-run it.
+### ✅ PROBED 2026-08-21 (AuraDB `d2d160c4`) — the June premise is falsified
+
+The inherited claim was *"ALL ~20 activity→knowledge edges target
+`entity_type='path_step'`, ZERO target `:Ku`"* (June 2026, old local Docker
+graph, pre-cutover). **Re-run on the live graph, it is false** — which is why the
+register said re-probe rather than quote:
+
+| Edge | count |
+|---|---|
+| `APPLIES_KNOWLEDGE` **user_entry → ku** | **28** |
+| `REQUIRES_KNOWLEDGE` path_step → path_step | 2 |
+| `REQUIRES_KNOWLEDGE` goal → path_step | 1 |
+| `APPLIES_KNOWLEDGE` task → path_step | 1 |
+
+**28 of 32 target a real `:Ku`.** The grain flipped, and **UserEntry → Ku is the
+dominant stored topology** — ⚠️ a statement about what is *stored*, not about
+which handler runs most often; edge counts cannot show frequency. (The execution
+claim below rests on counters, which can.) ⚠️ That channel has **two writers**
+(`UserEntryProcessingService:588-619` and `EntryGroundingService:287-314`) —
+CLAUDE.md's *"two writers, one `KnowledgeReflectedInEntry` event"*. Break the 28
+down by provenance before attributing anything to one service.
+
+**The orphan-Ku bug is live and sized — by edges, not endpoints:**
+
+| | edges | distinct Kus |
+|---|---|---|
+| target an **orphaned** Ku | **17** | 9 |
+| target a **composed** Ku | 11 | 8 |
+
+**17 of 28 (61%)** of live `APPLIES_KNOWLEDGE` edges point at a Ku with no
+composing PathStep; corpus-wide 69 of 124 Kus (56%) are orphaned.
+
+⚠️ **That is the current orphan share of edges — NOT a write-loss rate.**
+`UserEntryProcessingService` publishes only for *newly created* links, so edges
+may predate the publisher, and a Ku orphaned now may have been composed when its
+counter moved. Sizing the defect needs edge-creation/event history correlated
+with composition state; the snapshot only shows the orphan case is common enough
+that a fix must handle it deliberately.
+
+**Counter census — all five metrics, all entity types** (list derived from
+`_VALID_SUBSTANCE_METRICS`, `ps_service.py:77`):
+
+| metric | Ku | PathStep |
+|---|---|---|
+| `times_reflected_in_entries` | **37** | **10** |
+| `times_applied_in_tasks` | 1 | 2 |
+| `times_built_into_habits` / `times_practiced_in_events` / `choices_informed_count` | 0 | 0 |
+
+⚠️⚠️ **GOVERNING CAVEAT — the probe supports BOUNDS, never rates or histories.**
+
+A **non-zero** counter is strong but **not conclusive**. The handlers are the only
+code that *names* these fields, but ingestion need not name them: it preserves
+arbitrary frontmatter keys (`preparer.py:229-243`) and bulk-upserts them wholesale
+(`bulk_upsert_backend.py:126-135`), so a vault file carrying
+`times_reflected_in_entries: 37` would set the counter invisibly to any grep of
+`core/services/ingestion/`. Audited 2026-08-21: neither vault carries any of the
+five keys — but the vaults are **not version-controlled**, so a since-edited file
+cannot be excluded. The **reflection handler having executed is well-supported,
+not proven** (37 Kus + 10 PathSteps bear its counter).
+
+A **zero** proves nothing at all.
+
+⚠️ **Not sound, and corrected:** zero counters do **not** mean the event and
+habit handlers never fired. A zero is equally consistent with a handler that ran
+pre-cutover, targeted a since-deleted entity, or **executed and had its write
+match nothing** — *the very defect this arc investigates*. Deprioritising the
+event writers on a zero would use the bug as proof the bug did not happen. All
+that is established: no surviving node currently bears those counters.
+
+⚠️ **The 10 PathSteps do NOT prove the roll-up works.** `increment_substance` sets
+the counter on whatever `:Entity` the uid names, so a PathStep-targeted write and
+a Ku→PathStep roll-up leave identical state; only provenance separates them, and
+this graph does contain PathStep-targeted edges. Bounded from the snapshot: **9
+of 10 compose a counter-bearing Ku (consistent with roll-up), 1 composes none and
+must therefore be a direct write.** Consistency is not proof — do not use it to
+confine the defect to the orphaned half.
+
+38 Kus carry a counter, **19 orphaned** — accumulated substance the `Ku` model
+cannot read, which credited no PathStep.
+
+⚠️ **Method, learned here the hard way:** drafts said "53% of writes" while
+counting **endpoints**; "1 Ku has a counter" while querying **2 of 4** fields;
+then "the whole family" while querying **4 of 5**. Count the quantity you name,
+derive the field list from the code, and never read a topology snapshot as
+execution history.
+
+⚠️ Snapshot, not a constant. Re-run before acting if much time has passed.
 
 **Adjacent, same area, decide while in here:** `KnowledgePracticed` has **zero
 subscribers**. `./dev bloat` reports it at the informational tier — *"published

@@ -103,14 +103,42 @@ engagement"). Any plan must either add the **student-scoped spawned-instance tra
 (`source_path_step_uid` / `SPAWNED_FROM`, necessarily user-scoped since instances are
 learner-owned) or state plainly that its payoff covers legacy directly-authored content only.
 
-⚠️ **And check the premise before promising a payoff at all.** Every `BUILDS_HABIT` /
-`SCHEDULES_EVENT` occurrence in `core/services/` and `adapters/persistence/` is a **read**
-(`OPTIONAL MATCH`, `WHERE exists(...)`); no service writes them — they arrive from vault
-ingestion or legacy data. So the "habits and tasks are listed, events never are" asymmetry below
-assumes the direct-edge channels populate **at all**. **Probe the live graph first** (AuraDB
-`d2d160c4`): count `(:PathStep)-[:BUILDS_HABIT]->()` vs `(:PathStep)-[:HAS_EVENT_TEMPLATE]->()`.
-If the direct edges are near-zero, the practice list is empty for everyone and the asymmetry is
-illusory — which changes the verdict completely.
+### ✅ PROBED 2026-08-21 (AuraDB `d2d160c4`) — this arc is CONTENT-GATED. Do not build yet.
+
+Both authoring paths are **completely unused**:
+
+| | count |
+|---|---|
+| `(:PathStep)-[:BUILDS_HABIT\|ASSIGNS_TASK\|SCHEDULES_EVENT\|GUIDED_BY_PRINCIPLE\|SUPPORTS_GOAL\|INFORMS_CHOICE]->()` | **0** |
+| `(:PathStep)-[:HAS_*_TEMPLATE]->()` | **0** |
+| `SPAWNED_FROM` edges | **0** |
+| PathSteps / Kus | 25 / 124 |
+| Tasks / Choices / Events / Habits / Goals / Principles that exist | 91 / 10 / 6 / 5 / 3 / 2 |
+
+And **no vault file has ever declared** `habit_uids`, `task_uids`, `event_template_uids`,
+`principle_uids`, `goal_uids` or `choice_uids`. **Never authored — not a broken pipeline.** The
+activity entities exist; nothing has ever been linked to a PathStep by either route.
+
+**What this overturns, including in this document:**
+
+1. **The events-vs-principles asymmetry is illusory.** The Socratic practice list is empty for
+   *everyone* — `bundle.habits` and `bundle.tasks` are as empty as `bundle.events`, so the
+   ENCOURAGING prompt always renders *"No specific practice activities linked."* The payoff
+   argument built on that asymmetry (below, and in the verdict section) **does not hold**.
+2. **Options A and B both build machinery that stays empty** until content exists.
+3. **One Path Forward does not force a choice** — neither path superseded the other, because
+   neither has ever been used. The "two competing authoring models" framing is premature.
+
+**Do this before writing any code:** author `habit_uids: [...]` on one PathStep in the vault,
+sync, and check whether the tutor picks it up. One line of content proves Way 1 end-to-end. If it
+works, this arc shrinks to "add the two missing channels the same way habits and tasks already
+work". If it does not, the defect is in ingestion and this document is looking in the wrong place.
+
+⚠️ A snapshot, not a constant. Re-run before acting if much time has passed.
+
+*(Retained for context: every `BUILDS_HABIT` / `SCHEDULES_EVENT` occurrence in `core/services/`
+and `adapters/persistence/` is a **read** — `OPTIONAL MATCH`, `WHERE exists(...)`. No service
+writes them; they arrive only from vault ingestion. Which is consistent with the count of zero.)*
 
 ⚠️ **Do not plan to "give `get_practice_events` its caller" — it is a PHANTOM.**
 `PsOperations` declares `get_practice_events` (`:768`), `get_practice_habits` (`:756`) and
@@ -132,11 +160,10 @@ only, never as an implementation check.)
 `bundle.habits`, `bundle.tasks` **and `bundle.events`**, so an always-empty events collection
 means the Socratic prompt can never name an event as practice.
 
-⚠️ **Whether that is a gap a learner actually experiences is contingent on the probe above.** The
-asymmetry only bites if habits and tasks *do* populate. If the direct edges are near-empty on the
-live graph, the practice list falls back to *"No specific practice activities linked."* for
-everyone, the events-vs-principles asymmetry is illusory, and the fix people want is the
-spawned-instance traversal rather than this field. Establish which world you are in first.
+⚠️ **The probe settled this: it is NOT a gap a learner experiences today.** The asymmetry only
+bites if habits and tasks populate, and they do not — all six channels are at zero. Every learner
+already gets *"No specific practice activities linked."* Keep this paragraph as the description of
+what the code *would* do once content exists; do not use it as a reason to build now.
 
 **Principles has only indirect reach.** `PsBundle.get_all_uids()` / `get_all_titles()` include
 both collections; `intent_classifier.py:291` consumes `get_all_titles()`. So empty principles
@@ -157,9 +184,14 @@ backlog** and leave the code. Per the phase directive a feature-shaped answer ge
 a named cost*.
 
 Both halves have their edges registered and already counted by `fetch_practice_counts`, so
-neither is built from scratch. The tiebreaker is payoff, not cost: **events** has a direct,
-learner-visible consumer (the ENCOURAGING practice list); **principles** reaches only
-`get_all_titles()` → `intent_classifier.py:291`. Splitting them is available and may be right.
+neither is built from scratch.
+
+⚠️ **The probe removes the tiebreaker this section used to offer.** It said payoff favoured
+events, because events has a direct consumer (the ENCOURAGING practice list) while principles
+reaches only `get_all_titles()`. Both are true of the *code* and neither matters yet: with all six
+channels at zero, neither half has a payoff today. **The honest recommendation is now: author one
+line of content and re-decide.** Splitting events from principles remains available, but pick the
+split on what you actually author, not on which consumer looks better on paper.
 
 ⚠️ If the ending is "register it": `./dev bloat`'s PLANNED tier covers **events/methods/templates
 only**, so there is no tier for fields — which is exactly why an AST sweep found this and the
