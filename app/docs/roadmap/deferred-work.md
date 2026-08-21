@@ -901,12 +901,27 @@ point, and the events projection would multiply it).
 *their own* instance — exactly the boundary a direct edge violates. Way 2 may be
 architecturally right rather than dead.
 
-**Must be settled before any code:** are vault-authored activities **shared
-curriculum content** (then the `user_uid`/`:OWNS` stamp is the bug) or **the
-owner's own** (then Way 2 is the answer and Option A should not be built)?
-Note `content_scope` and `visibility` are **`None`** on both vault-authored
-nodes while user-created ones carry `visibility=private` — the shared case looks
-unmodelled.
+**✅ RULED (Mike, 2026-08-21) — the vault ROOT decides ownership:**
+
+| vault | meaning |
+|---|---|
+| `/home/mike/0bsidian/0vault` (`INGESTION_PATH`) | **shared curriculum** |
+| `/home/mike/0bsidian/skuel` (`VAULT_ROOT`) | **user-owned** |
+
+So content-vault activities are shared curriculum, and **the `user_uid=user_admin`
++ `:OWNS` stamp on them IS the bug** — not the direct-edge model. Way 2
+(templates) is **not** forced; Option A is architecturally sound after all.
+
+**Cause located:** `UnifiedIngestionService.default_user_uid` falls back to
+`DEFAULT_USER_UID` (`user_admin`, `unified_ingestion_service.py:208`) and stamps
+every user-owned entity type on ingest — with no distinction between the
+content-vault door and the personal-vault door. Consistent with the evidence:
+`content_scope` and `visibility` are **`None`** on both vault-authored nodes
+while user-created ones carry `visibility=private`. The shared case was never
+modelled, exactly as suspected.
+
+That makes the P1 a **known-cause bug rather than an open design question** —
+tractable, and squarely in the ownership group below.
 
 ⚠️ **This is the read-side facet of a question three other entries in this file
 already circle** (Mike, 2026-08-21). The root: **ownership is declared in three

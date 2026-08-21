@@ -185,14 +185,21 @@ that matters, and building the events projection would multiply it.
 each learner *their own* instance — which is precisely the boundary a direct edge violates. Way 2
 may be architecturally right after all, rather than dead.
 
-**Open questions this arc must now settle before any code:**
+**✅ RULED (Mike, 2026-08-21) — the vault ROOT decides ownership.**
+`/home/mike/0bsidian/0vault` (`INGESTION_PATH`) is **shared curriculum**;
+`/home/mike/0bsidian/skuel` (`VAULT_ROOT`) is **user-owned**. So content-vault activities are
+shared curriculum, and **the `user_uid=user_admin` + `:OWNS` stamp on them is the bug** — not the
+direct-edge model. Way 2 is **not** forced; Option A is architecturally sound.
 
-1. Are vault-authored activities meant to be **shared curriculum content** (in which case the
-   `user_uid` + `:OWNS` stamp is the bug) or **the owner's own**? Note `content_scope` and
-   `visibility` are **`None`** on both vault-authored nodes, while user-created ones carry
-   `visibility=private` — suggesting the shared case was never modelled.
-2. If shared: the ingestion stamp, the projection, and `get()` scoping all need a decision.
-3. If per-learner: Way 2 (templates + spawn) is the answer and Option A should not be built.
+**Cause located:** `UnifiedIngestionService.default_user_uid` falls back to `DEFAULT_USER_UID`
+(`user_admin`, `unified_ingestion_service.py:208`) and stamps every user-owned entity type on
+ingest, with no distinction between the content-vault and personal-vault doors. Consistent with
+the evidence: `content_scope` and `visibility` are `None` on both vault-authored nodes while
+user-created ones carry `visibility=private` — the shared case was never modelled.
+
+So the P1 is a **known-cause bug, not an open design question**. What still needs deciding is the
+general one it shares with three sibling entries in `deferred-work.md`: what enforces ownership on
+a read that does not pass through SearchRouter?
 
 **Until this is ruled, the verdict below is suspended.** The mechanism findings stand; the
 recommendation does not.
@@ -270,8 +277,17 @@ Clean rename, no alias, no deprecation (One Path Forward).
 not persist as a node property**, so no data migration is owed; and it is **not a PathStep model
 field**, despite `yaml-to-graph.md:151` listing it as one — a doc error to fix in the same pass.
 
-**Principles remains untested** (`:Principle`). No name/target mismatch, and the Event result is
-now a proven strict-target precedent, so the risk is low — but untested is untested.
+### ✅ PRINCIPLE TEST RUN — 2026-08-21. All three target classes now verified.
+
+Mike asked for the same treatment on principles. `principle_uids:
+[principle.observation-before-action]` added to the same PathStep (*"Noticing Your Patterns"* ↔
+*"Observation Before Action"* — its first learning objective is *"distinguish between experiencing
+a reaction and observing it"*). Ingested single-file; `GUIDED_BY_PRINCIPLE` edge landed against
+the strict `:Principle` target.
+
+**All three target classes are now proven:** `:Entity` (habits), `:Event`, `:Principle`. Graph:
+`BUILDS_HABIT` 1, `SCHEDULES_EVENT` 1, `GUIDED_BY_PRINCIPLE` 1. Nothing about the direct-edge
+mechanism remains untested.
 
 ⚠️ **The two halves are gated on DIFFERENT things — do not lump them as "content-gated."** After
 both authoring tests, the state per `PsBundle` channel is:
