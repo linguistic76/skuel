@@ -1283,16 +1283,20 @@ class CrossDomainBackend:
         updated_at): only the explicit complete paths stamp a completion
         field, while status-route and vault completions leave it unset
         (measured 5/85 on the live graph) — for those, a completed entity's
-        last touch is its completion. toString() normalises the mix of
-        string-stored dates and datetime()-stored mastered_at so the
-        cross-leg ORDER BY compares one type.
+        last touch is its completion. Known skew: updated_at is mutable, so
+        editing a long-completed entity re-dates it here; the durable fix is
+        stamping a completion field on every transition to completed (a
+        write-path change — see deferred-work § ':OWNS' Writers, truth-pass
+        residue). toString() normalises the mix of string-stored dates and
+        datetime()-stored mastered_at so the cross-leg ORDER BY compares
+        one type.
         """
         return await self.executor.execute_query(
             """
             MATCH (u:User {uid: $user_uid})
             CALL {
                 WITH u
-                MATCH (u)-[:OWNS]->(t:Task {status: 'completed'})
+                MATCH (u)-[:OWNS]->(t:Task {status: $completed_status})
                 WITH t, toString(coalesce(t.completion_date, t.updated_at)) AS ts
                 WHERE ts IS NOT NULL
                 RETURN {
@@ -1319,7 +1323,7 @@ class CrossDomainBackend:
                 LIMIT 5
               UNION ALL
                 WITH u
-                MATCH (u)-[:OWNS]->(g:Goal {status: 'completed'})
+                MATCH (u)-[:OWNS]->(g:Goal {status: $completed_status})
                 WITH g, toString(coalesce(g.completion_date, g.achieved_date, g.updated_at)) AS ts
                 WHERE ts IS NOT NULL
                 RETURN {
@@ -1336,7 +1340,7 @@ class CrossDomainBackend:
             ORDER BY activity.timestamp DESC
             LIMIT 20
             """,
-            {"user_uid": user_uid},
+            {"user_uid": user_uid, "completed_status": EntityStatus.COMPLETED.value},
         )
 
     async def get_journal_entries_in_range(

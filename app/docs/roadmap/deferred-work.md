@@ -567,6 +567,14 @@ subqueries, matching `get_users_with_activity_counts` in the same file; pinned b
 shapes — the second layer was found by Codex catching the first fixture inventing
 `completed_at`).
 
+**Truth-pass residue (accepted-not-taken, Codex round 2):** the `updated_at` fallback is a
+*mutable* proxy — editing a long-completed task re-dates its "completion" and can bounce it back
+to the top of recent activities. The durable fix is stamping a completion field on **every**
+transition to completed (today only the explicit complete paths stamp one; the generic status
+route and vault sync don't) — a cross-domain write-path change, out of scope for a read-side
+truth pass. Whoever takes it: stamp at the status-transition chokepoint, then drop `updated_at`
+from the read's coalesce.
+
 **Enable when**: the attendee surface or any of the four gravity-link methods is wired. Whoever
 does it must decide the relationship *before* the first write — a wrong edge in the graph
 outlives the PR that wrote it, and a second `:OWNS` writer is the outcome to refuse. That
