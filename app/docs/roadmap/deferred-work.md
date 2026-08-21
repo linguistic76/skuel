@@ -812,14 +812,39 @@ incremented, so it is a notification. `KnowledgePracticedInEvent` (field
 | `curriculum_backends.py:242` (write, path 2) | `MATCH (ku:Entity {uid: $ku_uid})` | **no** |
 | `test_event_ku_practice_flow.py:61` | fixture `ku_backend` | no (**is** a `PsBackend`) |
 
-**Restate the failure mode — the memory's "increments wrong/no node" is not what
-the Cypher does.** `increment_substance` (path 2) matches on the base `:Entity`
-label, so a PathStep uid *does* match and increments **the PathStep's own**
-counter; the roll-down that follows — `OPTIONAL MATCH (ps:PathStep)-[:USES_KU|
-CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku)` — then finds nothing. So it is not a no-op:
-it is a roll-**down that never happens**, and Ku-level substance stays 0 for any
-channel whose edges are authored at PathStep grain. Path 1 has no roll-down to
-fail, so it lands wholly on whichever node the uid names.
+⚠️ **The inherited premise is FALSIFIED — do not open this arc looking for
+"broken Ku-level substance."** Five review rounds on #1109 took the entry apart;
+what survives is smaller and differently shaped than the memory that spawned it.
+
+**`Ku` cannot hold substance at all, by design.** `Ku` extends `Entity`, *not*
+`Curriculum` (`core/models/ku/ku.py:38`), so it has no `times_*` fields and no
+`is_well_practiced()`; `KuDTO` drops those properties entirely. The model
+docstring says it outright: *"Kus are lightweight ontology/reference nodes. They
+don't carry full learning metadata (complexity, substance scores)."* So
+"Ku-level substance stays 0" was never a defect — it is the design.
+
+**And the propagation runs the other way from what this entry first said.**
+`OPTIONAL MATCH (ps:PathStep)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku)`
+matches PathSteps that *use* the bound Ku, so it rolls **UP** (Ku → its composing
+PathSteps), not down. Net effect of `increment_substance` (path 2):
+
+| `$ku_uid` names… | primary SET | roll-up | readable outcome |
+|---|---|---|---|
+| a real `:Ku` | `ku.times_*` — unreadable (no model field, dropped by DTO) | composing PathSteps credited | **PathStep credited — correct** |
+| a `:PathStep` | `ps.times_*` — readable | finds nothing (nothing `USES_KU` a PathStep) | **that PathStep credited — correct** |
+
+Either way a readable PathStep counter results. Path 2 looks *right*.
+
+**What actually remains open**, and it is worth a thread:
+
+1. **Writer asymmetry.** Path 1 (`increment_practice_count`, `_adaptive_mixin.py:72`)
+   has **no roll-up at all**. Handed a real Ku uid it writes a property nothing
+   can read and credits no PathStep — a silent loss path 2 does not have.
+2. **Possible double-count.** Both writers `SET` the same property on different
+   triggers. Is an event created-with-knowledge *and* later completed counted twice?
+3. **Naming.** Every site says `ku_*` while PathStep is the grain that is actually
+   readable — which is exactly what item C's fixture reflects, and why C rides here.
+4. **Ku nodes accumulate properties nothing reads.** Cosmetic or a cleanup, decide.
 
 ⚠️ **Re-probe before designing.** The "all activity→knowledge edges target
 `entity_type='path_step'`, zero target `:Ku`" measurement is from **June 2026,

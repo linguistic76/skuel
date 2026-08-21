@@ -52,13 +52,44 @@ Every site is grain-agnostic while *named* as if it were Ku-grain:
 | `curriculum_backends.py:242` (write, path 2) | `MATCH (ku:Entity {uid: $ku_uid})` | **no** |
 | `test_event_ku_practice_flow.py:61` | fixture `ku_backend` | no (**is** a `PsBackend`) |
 
-**State the failure mode correctly** — the memory this came from says "increments wrong/no node",
-and that is not what the Cypher does. `increment_substance` (path 2) matches the base `:Entity`
-label, so a PathStep uid *does* match and increments **the PathStep's own** counter. The roll-down
-that follows — `OPTIONAL MATCH (ps:PathStep)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku)` — then
-finds nothing, because a PathStep is not the USES_KU target of another PathStep. Not a no-op: a
-roll-**down that never happens**. Ku-level substance stays 0 for any channel authored at PathStep
-grain, while the PathStep's own counter moves. Path 1 has no roll-down to fail, so it lands wholly
+⚠️ **STOP — the premise this arc inherited is falsified. Read this before designing anything.**
+
+Five Codex rounds on #1109 dismantled the original framing ("the write path leaves Ku-level
+substance at 0"). Two independent reasons it cannot be right:
+
+**1. `Ku` cannot hold substance, by design.** `Ku` extends `Entity`, *not* `Curriculum`
+(`core/models/ku/ku.py:38`) — no `times_*` fields, no `is_well_practiced()`, and `KuDTO` drops
+those properties. Its own docstring: *"Kus are lightweight ontology/reference nodes. They don't
+carry full learning metadata (complexity, substance scores)."* So "Ku-level substance stays 0" is
+the design, not a defect. `ku.is_well_practiced()` would raise `AttributeError`.
+
+**2. The propagation runs UP, not down.** `OPTIONAL MATCH (ps:PathStep)-[:USES_KU|
+CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku)` matches PathSteps that *use* the bound Ku — it credits a Ku's
+**composing PathSteps**. Net effect of path 2:
+
+| `$ku_uid` names… | primary SET | roll-up | readable outcome |
+|---|---|---|---|
+| a real `:Ku` | `ku.times_*` — unreadable | composing PathSteps credited | **PathStep credited — correct** |
+| a `:PathStep` | `ps.times_*` — readable | finds nothing | **that PathStep credited — correct** |
+
+Either way a readable PathStep counter results. **Path 2 appears to work.** Any proposal that
+"fixes" it should first explain what is broken.
+
+**What is actually left** — smaller, and still worth a thread:
+
+1. **Writer asymmetry (the strongest candidate).** Path 1 has **no roll-up at all**. Handed a real
+   Ku uid it writes a property nothing reads and credits no PathStep — a silent loss path 2 does
+   not have. Whether that fires depends on the live edge grain, hence the re-probe below.
+2. **Possible double-count.** Both writers `SET` the same property on different triggers.
+3. **Naming.** Every site says `ku_*` while PathStep is the readable grain — item C's fixture is
+   the test-side face of this, and it may be the *whole* remaining fix.
+4. **Ku nodes accumulate properties nothing reads.** Cosmetic, or a cleanup — decide.
+
+⚠️ **Method note for whoever takes this.** This register was wrong five times in a row while
+being written *from measurements* — direction of a graph pattern, which model owns a field, which
+service reads a counter, which bloat tier accepts a published event, which event carries which
+field name. Every correction came from reading the actual definition rather than the surrounding
+prose. Do that first, for every claim below, including the ones stated confidently. Path 1 has no roll-down to fail, so it lands wholly
 on whichever node the uid names.
 
 ## Start here, before designing anything
@@ -92,10 +123,12 @@ Then answer, with measurements, before proposing a fix:
      `get_substantiation_gaps` (`:374`), `needs_review` (`:389`), `days_until_review_needed`
      (`:400`), `get_substantiation_summary` (`:431`). **This is the arm these writers feed.**
 
-   The observable consequence is therefore model-level and concrete: a counter that lands on the
-   PathStep makes `pathstep.is_well_practiced()` true while `ku.is_well_practiced()` stays false,
-   for the same lived activity. Trace who calls those model methods and on which entity before
-   setting urgency, and decide separately whether a migration is owed for rows already written.
+   ⚠️ Do **not** phrase the observable as "`pathstep.is_well_practiced()` true while
+   `ku.is_well_practiced()` false" — an earlier draft did, and `Ku` has no such method
+   (`AttributeError`). The comparison only exists between `Curriculum` subtypes. The real
+   observable is whether a *given* PathStep's counter moved when the learner's activity should
+   have credited it — which is what the writer-asymmetry question above actually tests. Trace who
+   calls those eight model methods, and on which entity, before setting urgency.
 
 ## Adjacent, decide while you are in here
 
