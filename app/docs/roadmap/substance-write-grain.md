@@ -79,9 +79,23 @@ Then answer, with measurements, before proposing a fix:
    that does not may be defensible — "I practised this lesson" is a real fact. Decide whether the
    bug is the missing roll-down or the misleading parameter name, because those have different
    fixes and only one of them touches Cypher.
-4. **Is any of this observable?** Substance feeds `calculate_user_substance` and ZPD. If the Ku
-   arm has been 0 since the feature shipped, say so plainly — it changes how urgent this is and
-   whether a migration is owed for historical rows.
+4. **Is any of this observable? — and mind which substance system you are in.** There are **two**,
+   and they do not share a data path (this file's first draft named the wrong one; Codex caught it
+   on #1109):
+
+   - **Per-user, channel-map derived** — `PsIntelligenceService.calculate_user_substance` and
+     `zpd_backend`. These read the user-context activity→Ku **channel maps**, *not* the node
+     counters. This is the arm PR #247 fixed at read time. **Not affected by these writers.**
+   - **Per-node, counter derived** — the `times_*` properties themselves, read by `Curriculum`
+     model methods: `_calculate_substance_with_decay` (`core/models/curriculum.py:322`),
+     `is_theoretical_only` (`:359`), `is_well_practiced` (`:363`), `needs_more_practice` (`:367`),
+     `get_substantiation_gaps` (`:374`), `needs_review` (`:389`), `days_until_review_needed`
+     (`:400`), `get_substantiation_summary` (`:431`). **This is the arm these writers feed.**
+
+   The observable consequence is therefore model-level and concrete: a counter that lands on the
+   PathStep makes `pathstep.is_well_practiced()` true while `ku.is_well_practiced()` stays false,
+   for the same lived activity. Trace who calls those model methods and on which entity before
+   setting urgency, and decide separately whether a migration is owed for rows already written.
 
 ## Adjacent, decide while you are in here
 
