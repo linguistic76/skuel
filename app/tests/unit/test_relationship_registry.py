@@ -27,7 +27,6 @@ from core.models.relationship_registry import (
     USER_ENTRY_CONFIG,
     DomainRelationshipConfig,
     UnifiedRelationshipDefinition,
-    generate_enables_relationships,
     generate_graph_enrichment,
     generate_prerequisite_relationships,
     get_config_by_label,
@@ -190,31 +189,35 @@ class TestGeneratePrerequisiteRelationships:
     def test_task_prerequisites(self):
         """Verify Task prerequisite relationships."""
         prereqs = generate_prerequisite_relationships("Task")
-        assert "BLOCKED_BY" in prereqs
-        assert "REQUIRES_TASK" in prereqs
+        assert RelationshipName.BLOCKED_BY in prereqs
+        assert RelationshipName.REQUIRES_TASK in prereqs
 
     def test_goal_prerequisites(self):
         """Verify Goal prerequisite relationships."""
         prereqs = generate_prerequisite_relationships("Goal")
-        assert "REQUIRES_KNOWLEDGE" in prereqs
-        assert "DEPENDS_ON_GOAL" in prereqs
+        assert RelationshipName.REQUIRES_KNOWLEDGE in prereqs
+        assert RelationshipName.DEPENDS_ON_GOAL in prereqs
+
+    def test_unknown_label_returns_empty(self):
+        """Labels outside LABEL_CONFIGS generate no prerequisites."""
+        assert generate_prerequisite_relationships("NotARealLabel") == []
 
 
-class TestGenerateEnablesRelationships:
-    """Test enables relationship generation."""
+class TestEnablesRelationshipNames:
+    """Registry-side enables declarations (consumed by the graph contract)."""
 
     def test_task_enables(self):
-        """Verify Task enables relationships."""
-        enables = generate_enables_relationships("Task")
-        assert "BLOCKS" in enables
-        assert "ENABLES_TASK" in enables
+        """Verify Task enables relationship declarations."""
+        enables = LABEL_CONFIGS["Task"].enables_relationship_names
+        assert RelationshipName.BLOCKS in enables
+        assert RelationshipName.ENABLES_TASK in enables
 
     def test_principle_enables(self):
-        """Verify Principle enables relationships."""
-        enables = generate_enables_relationships("Principle")
-        assert "GUIDES_GOAL" in enables
-        assert "INSPIRES_HABIT" in enables
-        assert "GUIDES_CHOICE" in enables
+        """Verify Principle enables relationship declarations."""
+        enables = LABEL_CONFIGS["Principle"].enables_relationship_names
+        assert RelationshipName.GUIDES_GOAL in enables
+        assert RelationshipName.INSPIRES_HABIT in enables
+        assert RelationshipName.GUIDES_CHOICE in enables
 
 
 class TestDomainRelationshipConfigMethods:
@@ -348,12 +351,12 @@ class TestRegistryIntegration:
         # Activity domains should have generated patterns
         assert len(generate_graph_enrichment("Task")) > 0
         assert len(generate_prerequisite_relationships("Task")) > 0
-        assert len(generate_enables_relationships("Task")) > 0
+        assert len(LABEL_CONFIGS["Task"].enables_relationship_names) > 0
 
         # Curriculum domains should also have generated patterns
         assert len(generate_graph_enrichment("PathStep")) > 0
         assert len(generate_prerequisite_relationships("PathStep")) > 0
-        assert len(generate_enables_relationships("PathStep")) > 0
+        assert len(LABEL_CONFIGS["PathStep"].enables_relationship_names) > 0
 
         # All 9 domains should have enrichment patterns
         all_labels = [

@@ -1172,9 +1172,14 @@ def build_prerequisite_traversal_query(
         "outgoing" if is_outgoing else "incoming", None, f"{rel_pattern}*1..{depth}"
     )
     order = "DESC" if is_outgoing else "ASC"
+    # `WHERE n <> start` guards against a prerequisite cycle (A→B→A) binding the
+    # traversal back to the start node — which would otherwise return the requested
+    # entity as its own prerequisite. (Nothing upstream rejects cycles, so the
+    # query must — same guard as build_prerequisite_chain_query.)
     query = f"""
     MATCH (start:{label} {{uid: $uid}})
     MATCH path = (start){arrow}(n:{label})
+    WHERE n <> start
     WITH DISTINCT n, length(path) as distance
     ORDER BY distance {order}
     RETURN n

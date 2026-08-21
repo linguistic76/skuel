@@ -35,7 +35,7 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any
 
 from core.models.protocols import DomainModelProtocol
 from core.models.relationship_names import RelationshipName
@@ -65,14 +65,15 @@ class RelationshipOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         entity_label: str - Neo4j base-label for Cypher matching (e.g., "Entity", "Ku")
         config_lookup_label: str - LABEL_CONFIGS registry key (e.g., "Task", "PathStep"),
             used for domain-specific error messages and entity_type metadata.
-        _prerequisite_relationships: list[str] - Relationship types for prerequisites
+        _prerequisite_relationships: tuple[RelationshipName, ...] - Relationship
+            types for prerequisites (synced from DomainConfig by BaseService.__init__)
         _validate_prerequisites: Validation hook
     """
 
     # Type hints for attributes that must be provided by composing class
     backend: B
     logger: Logger
-    _prerequisite_relationships: ClassVar[list[str]]
+    _prerequisite_relationships: tuple[RelationshipName, ...]
 
     @property
     @abstractmethod
@@ -198,7 +199,7 @@ class RelationshipOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
     # ========================================================================
     # These methods provide prerequisite/enables/hierarchy traversal for ANY domain.
     # Previously only curriculum domains had these; now all entity types can use them.
-    # Configure via: _prerequisite_relationships, _enables_relationships
+    # Configure via: _prerequisite_relationships (synced from DomainConfig)
 
     @with_error_handling("get_prerequisites", error_type="database", uid_param="uid")
     async def get_prerequisites(self, uid: str, depth: int = 3) -> Result[builtins.list[T]]:
@@ -311,26 +312,9 @@ class RelationshipOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         if validation.is_error:
             return Result.fail(validation)
 
-        # `_prerequisite_relationships` is config-derived and still holds strings
-        # (DomainConfig stores them that way). Convert once, here, where a config
-        # value becomes an edge type — rather than leaving a general string door
-        # open on `add_relationship` for every caller.
-        try:
-            rel_type = RelationshipName(self._prerequisite_relationships[0])
-        except ValueError:
-            return Result.fail(
-                Errors.validation(
-                    message=(
-                        "Configured prerequisite relationship "
-                        f"'{self._prerequisite_relationships[0]}' is not a RelationshipName"
-                    ),
-                    field="_prerequisite_relationships",
-                )
-            )
-
         return await self.add_relationship(
             from_uid=entity_uid,
-            rel_type=rel_type,
+            rel_type=self._prerequisite_relationships[0],
             to_uid=prerequisite_uid,
             properties={"confidence": confidence, "created_at": datetime.now(UTC).isoformat()},
         )

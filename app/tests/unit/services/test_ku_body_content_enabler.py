@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 import pytest
 
 from core.models.enums.entity_enums import EntityType
+from core.models.relationship_names import RelationshipName
 from core.services.ingestion.config import ENTITY_CONFIGS, EntityIngestionConfig
 from core.services.mixins.context_operations_mixin import ContextOperationsMixin
 from core.utils.result_simplified import Errors, Result
@@ -77,7 +78,7 @@ class _Host(ContextOperationsMixin):
     _content_field = "content"
     _dto_class = None
     _model_class = None
-    _prerequisite_relationships: list[str] = []
+    _prerequisite_relationships: tuple[RelationshipName, ...] = ()
 
     def __init__(self, entity: _Entity, backend: _Backend) -> None:
         self._entity = entity

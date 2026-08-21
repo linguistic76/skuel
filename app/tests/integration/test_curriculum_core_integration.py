@@ -878,8 +878,8 @@ class TestPrerequisiteChainWithDistance:
             assert create.is_ok, f"Setup failed: could not create {uid}"
         ku_d = "ku:chain_d"
 
-        step_rel = RelationshipName.REQUIRES_STEP.value
-        know_rel = RelationshipName.REQUIRES_KNOWLEDGE.value
+        step_rel = RelationshipName.REQUIRES_STEP
+        know_rel = RelationshipName.REQUIRES_KNOWLEDGE
         async with neo4j_driver.session() as session:
             # D is created as :Entity:Ku (NOT a PathStep) to prove base-label matching.
             await session.run(
@@ -887,11 +887,11 @@ class TestPrerequisiteChainWithDistance:
                 MATCH (a:Entity {{uid:$a}}), (b:Entity {{uid:$b}}), (c:Entity {{uid:$c}})
                 CREATE (d:Entity:Ku {{uid:$d, title:'Knowledge D', domain:'knowledge',
                                       entity_type:'ku'}})
-                CREATE (a)-[:{step_rel}]->(b)
-                CREATE (a)-[:{know_rel}]->(c)
-                CREATE (b)-[:{know_rel}]->(d)
-                CREATE (c)-[:{know_rel}]->(d)
-                CREATE (a)-[:{know_rel}]->(d)
+                CREATE (a)-[:{step_rel.value}]->(b)
+                CREATE (a)-[:{know_rel.value}]->(c)
+                CREATE (b)-[:{know_rel.value}]->(d)
+                CREATE (c)-[:{know_rel.value}]->(d)
+                CREATE (a)-[:{know_rel.value}]->(d)
                 """,
                 {"a": steps["A"], "b": steps["B"], "c": steps["C"], "d": ku_d},
             )
@@ -925,13 +925,13 @@ class TestPrerequisiteChainWithDistance:
             create = await ps_backend.create(PathStep(uid=uid, title=f"Linear {i}"))
             assert create.is_ok
 
-        know_rel = RelationshipName.REQUIRES_KNOWLEDGE.value
+        know_rel = RelationshipName.REQUIRES_KNOWLEDGE
         async with neo4j_driver.session() as session:
             await session.run(
                 f"""
                 MATCH (a:Entity {{uid:$a}}), (b:Entity {{uid:$b}}), (c:Entity {{uid:$c}})
-                CREATE (a)-[:{know_rel}]->(b)
-                CREATE (b)-[:{know_rel}]->(c)
+                CREATE (a)-[:{know_rel.value}]->(b)
+                CREATE (b)-[:{know_rel.value}]->(c)
                 """,
                 {"a": chain[0], "b": chain[1], "c": chain[2]},
             )
@@ -957,13 +957,13 @@ class TestPrerequisiteChainWithDistance:
             create = await ps_backend.create(PathStep(uid=uid, title=f"Cycle {i}"))
             assert create.is_ok
 
-        know_rel = RelationshipName.REQUIRES_KNOWLEDGE.value
+        know_rel = RelationshipName.REQUIRES_KNOWLEDGE
         async with neo4j_driver.session() as session:
             await session.run(
                 f"""
                 MATCH (a:Entity {{uid:$a}}), (b:Entity {{uid:$b}})
-                CREATE (a)-[:{know_rel}]->(b)
-                CREATE (b)-[:{know_rel}]->(a)
+                CREATE (a)-[:{know_rel.value}]->(b)
+                CREATE (b)-[:{know_rel.value}]->(a)
                 """,
                 {"a": cycle[0], "b": cycle[1]},
             )

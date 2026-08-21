@@ -147,7 +147,7 @@ result = await ku_search.get_prerequisites("ku.advanced-python")
 ```
 
 #### `get_enables(uid: str) -> Result[list[Model]]`
-Get entities this unlocks (via `_enables_relationships`).
+Get entities this unlocks (walks the same `_prerequisite_relationships` edges, incoming).
 
 ```python
 result = await ku_search.get_enables("ku.python-basics")
@@ -179,9 +179,9 @@ class GoalsSearchService(BaseService["GoalsOperations", Goal]):
     # User ownership
     _user_ownership_relationship: ClassVar[str | None] = "OWNS"  # None for shared content
 
-    # Graph traversal
-    _prerequisite_relationships: ClassVar[list[str]] = ["REQUIRES"]
-    _enables_relationships: ClassVar[list[str]] = ["ENABLES"]
+    # Graph traversal: _prerequisite_relationships is NOT authored per class —
+    # BaseService.__init__ syncs it (tuple[RelationshipName, ...]) from
+    # DomainConfig, which generates it from the relationship registry
 
     # Graph enrichment (relationship_type, target_label, context_key, direction)
     _graph_enrichment_patterns: ClassVar[list[tuple]] = [

@@ -210,6 +210,23 @@ class TestCypherBuildersSemantic:
         assert "*1..5" in query
         assert params["uid"] == "ku.advanced_python"
 
+    def test_build_prerequisite_traversal_excludes_start_node(self):
+        """Both directions carry the cycle guard — A→B→A must not return A."""
+        from adapters.persistence.neo4j.query.cypher import build_prerequisite_traversal_query
+        from core.models.enums.neo_labels import NeoLabel
+
+        for direction in ("outgoing", "incoming"):
+            query, params = build_prerequisite_traversal_query(
+                label=NeoLabel.ENTITY,
+                uid="ps.cycle_a",
+                relationship_types=["REQUIRES_KNOWLEDGE"],
+                depth=3,
+                direction=direction,
+            )
+            assert "WHERE n <> start" in query
+            assert "REQUIRES_KNOWLEDGE*1..3" in query
+            assert params["uid"] == "ps.cycle_a"
+
     def test_build_semantic_traversal(self):
         """Test semantic path finding."""
         from unittest.mock import Mock

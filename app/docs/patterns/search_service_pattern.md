@@ -88,7 +88,7 @@ class DomainSearchOperations(Protocol[T]):
 | `get_by_category()` | Filter by category field | Uses DomainConfig `category_field` |
 | `list_categories()` | List unique category values | Uses DomainConfig `category_field` |
 | `get_prerequisites()` | Traverse prerequisite chains | Uses `_prerequisite_relationships` |
-| `get_enables()` | Traverse enables chains | Uses `_enables_relationships` |
+| `get_enables()` | Traverse enables chains | Walks the same `_prerequisite_relationships` edges, incoming |
 
 ### Class Attributes for Configuration
 
@@ -104,14 +104,10 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
     # category_field is DomainConfig-only (the raw _category_field class attribute
     # was deleted 2026-06-10 — it silently bypassed DomainConfig)
 
-    # Prerequisite/enables chains (January 2026)
-    _prerequisite_relationships: ClassVar[list[str]] = [
-        RelationshipName.REQUIRES_KNOWLEDGE.value,
-        RelationshipName.DEPENDS_ON_GOAL.value,
-    ]
-    _enables_relationships: ClassVar[list[str]] = [
-        RelationshipName.ENABLES_GOAL.value,
-    ]
+    # Prerequisite chains are NOT class attributes: BaseService.__init__ syncs
+    # _prerequisite_relationships (tuple[RelationshipName, ...]) from DomainConfig,
+    # which reads the domain's prerequisite_relationship_names declaration in
+    # core/models/relationship_registry.py.
 ```
 
 ### When to Override
@@ -233,8 +229,7 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
     _dto_class = GoalDTO
     _model_class = Goal
     # DomainConfig sets category_field="domain"  # Goals use 'domain' for categorization
-    _prerequisite_relationships = [REQUIRES_KNOWLEDGE, DEPENDS_ON_GOAL]
-    _enables_relationships = [ENABLES_GOAL]
+    # Registry declares prerequisites: REQUIRES_KNOWLEDGE, DEPENDS_ON_GOAL
 
     # Inherited from BaseService: search(), get_by_status(),
     # get_by_category(), list_categories(), get_by_relationship(),
@@ -250,8 +245,7 @@ class GoalsSearchService(BaseService[GoalsOperations, Goal]):
 class HabitSearchService(BaseService[HabitsOperations, Habit]):
     _dto_class = HabitDTO
     _model_class = Habit
-    _prerequisite_relationships = [REQUIRES_PREREQUISITE_HABIT]
-    _enables_relationships = [ENABLES_HABIT]
+    # Registry declares prerequisites: REQUIRES_PREREQUISITE_HABIT
 
     # Inherited from BaseService: search(), get_by_status(),
     # get_by_category(), list_categories(), get_by_relationship(),
@@ -272,8 +266,7 @@ class EventsSearchService(BaseService[EventsOperations, Event]):
     _dto_class = EventDTO
     _model_class = Event
     _search_order_by = "event_date"  # Events ordered by event date
-    _prerequisite_relationships = [REQUIRES_KNOWLEDGE]
-    _enables_relationships = [REINFORCES_HABIT]
+    # Registry declares prerequisites: REQUIRES_KNOWLEDGE
 
     # Inherited from BaseService: search(), get_by_status(),
     # get_by_category(), list_categories(), get_by_relationship(),
@@ -293,8 +286,7 @@ class EventsSearchService(BaseService[EventsOperations, Event]):
 class ChoicesSearchService(BaseService[ChoicesOperations, Choice]):
     _dto_class = ChoiceDTO
     _model_class = Choice
-    _prerequisite_relationships = [REQUIRES_KNOWLEDGE_FOR_DECISION]
-    _enables_relationships = [AFFECTS_GOAL, OPENS_LEARNING_PATH]
+    # Registry declares prerequisites: REQUIRES_KNOWLEDGE_FOR_DECISION
 
     # Inherited from BaseService: search(), get_by_status(),
     # get_by_category(), list_categories(), get_by_relationship(),
@@ -312,8 +304,7 @@ class ChoicesSearchService(BaseService[ChoicesOperations, Choice]):
 class TasksSearchService(BaseService[TasksOperations, Task]):
     _dto_class = TaskDTO
     _model_class = Task
-    _prerequisite_relationships = [BLOCKED_BY, REQUIRES_TASK]
-    _enables_relationships = [BLOCKS, ENABLES_TASK]
+    # Registry declares prerequisites: BLOCKED_BY, REQUIRES_TASK
 
     # Inherited from BaseService: search(), get_by_status(),
     # get_by_category(), list_categories(), get_by_relationship(),
@@ -333,8 +324,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
     _dto_class = PrincipleDTO
     _model_class = Principle
     _search_fields = ["title", "statement", "description"]
-    _prerequisite_relationships = [GROUNDED_IN_KNOWLEDGE]
-    _enables_relationships = [GUIDES_GOAL, GUIDES_CHOICE, INSPIRES_HABIT]
+    # Registry declares prerequisites: GROUNDED_IN_KNOWLEDGE
 
     # OVERRIDES inherited methods (Principles use different data model)
     async def get_by_status(self, status: str, ...) -> ...:  # Converts to is_active boolean

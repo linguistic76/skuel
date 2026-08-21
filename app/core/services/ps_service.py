@@ -466,8 +466,8 @@ class PsService:
         return await self.core.backend.prerequisite_chain_with_distance(
             uid=uid,
             relationship_types=[
-                RelationshipName.REQUIRES_STEP.value,
-                RelationshipName.REQUIRES_KNOWLEDGE.value,
+                RelationshipName.REQUIRES_STEP,
+                RelationshipName.REQUIRES_KNOWLEDGE,
             ],
             depth=safe_depth,
         )
