@@ -771,7 +771,7 @@ passing sweep would remove the symptom and leave the pattern.
 
 ---
 
-## ContextRetriever's Three Write-Only Fields (REGISTERED 2026-08-20)
+## ContextRetriever's Three Write-Only Fields (REGISTERED 2026-08-20 · Case B RULED 2026-08-21)
 
 **Active queue.** Surfaced by the AST sweep in PR #1108 and deliberately left
 there — they are not that PR's case (write-only *deps copies*, all superseded).
@@ -819,9 +819,9 @@ projection populates only directly-authored PathSteps; template-based ones stay
 empty. Any plan must add the student-scoped spawned-instance traversal or state
 that its payoff covers legacy content only.
 
-### ✅ PROBED 2026-08-21 (AuraDB `d2d160c4`) — CONTENT-GATED, do not build yet
+### ✅ PROBED 2026-08-21 (AuraDB `d2d160c4`) — was content-gated; **now resolved, see below**
 
-Both authoring paths are **completely unused**:
+At probe time both authoring paths were **completely unused**:
 
 | | count |
 |---|---|
@@ -846,12 +846,46 @@ ever been linked to a PathStep either way.
 3. **One Path Forward does not force a choice here** — neither path superseded
    the other, because neither has ever been used.
 
-**Do this before any code:** author `habit_uids: [...]` on one PathStep in the
-vault, sync, and check whether the tutor picks it up. That proves Way 1
-end-to-end for the cost of one line, and it is content work — which is where the
-current phase points anyway. **If Way 1 works, the arc shrinks to "add the two
-missing channels the same way." If it does not, the bug is in ingestion, not
-here.**
+### ✅ THE TEST HAS BEEN RUN, 2026-08-21 — **Way 1 works. Option A is the answer.**
+
+The entry above prescribed authoring one `habit_uids:` line and syncing. Done, on
+Mike's instruction. Authored on meaning, not convenience — *"Managing Your
+Reactions"* ↔ *"Pause and Name One Reaction"*:
+
+```yaml
+# 0vault/Ps/Ps_dev/ps_managing-your-reactions.md
+habit_uids:
+  - habit.pause-and-name
+```
+
+Ingested through the **single-file** door (`ingest_file`), deliberately not
+`ingest_directory` — a directory run propagates deletions, which is not a risk
+worth taking on the live graph for a one-file test.
+
+| step | outcome |
+|---|---|
+| ingest | `success: True`, `relationships_created: 1` |
+| edge in graph | `(ps.self-management.managing-your-reactions)-[:BUILDS_HABIT]->(habit.pause-and-name)` ✅ |
+| MEGA-QUERY projection (`user_context_queries.py:829` pattern, run verbatim) | `practice_habits: [{uid: habit.pause-and-name, title: "Pause and Name One Reaction"}]` ✅ |
+
+**So the vault → ingestion → graph → `graph_context` path is intact and
+unbroken.** It had simply never been used. The counts above become
+`BUILDS_HABIT` **1**, everything else still 0.
+
+⚠️ **Precisely what is proven, and what is not.** Proven by direct observation:
+the edge exists and the MEGA-QUERY's own `practice_habits` pattern returns it.
+**Not** run: a live Askesis session end-to-end — `load_ps_bundle` is user-scoped
+(it walks `active_path_steps_rich`), so seeing it in the tutor needs that
+PathStep active for a user. That is user state, not plumbing, and nothing in the
+plumbing is now in doubt.
+
+**Verdict, resolved:** the arc shrinks from *"which of two authoring models
+should the tutor see?"* to **Option A — add events and principles the same way
+habits and tasks already work** (a `graph_context` projection + a
+`_fetch_entities_by_uid` call per channel, plus the
+`total_practice_opportunities` fix). The template path (Way 2) remains entirely
+unused and does not need deciding. ⚠️ `get_practice_events` is still a phantom —
+populate through the projection, never by giving it a caller.
 
 ⚠️ Snapshot, not a constant. Re-run before acting if much time has passed.
 
@@ -863,8 +897,10 @@ and **implemented nowhere**; a protocol-routed call falls through
 attribute as present — **a clean `x: PsOperations = PsBackend(...)` probe is a
 direction check, never an implementation check.**
 
-**Verdict is Mike's:** finish the wiring · delete both halves · register as
-backlog. ⚠️ No PLANNED tier exists for *fields* (`./dev bloat` covers
+**✅ Verdict settled 2026-08-21 — Option A, finish the wiring** (projection +
+`_fetch_entities_by_uid` per channel + the `total_*` fix; never a `get_practice_*`
+caller). "Delete both halves" is refuted — the path demonstrably works, see the
+test below. ⚠️ No PLANNED tier exists for *fields* (`./dev bloat` covers
 events/methods/templates), which is why an AST sweep found this and the tooling
 did not.
 

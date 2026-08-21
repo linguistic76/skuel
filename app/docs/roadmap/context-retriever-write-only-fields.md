@@ -103,9 +103,9 @@ engagement"). Any plan must either add the **student-scoped spawned-instance tra
 (`source_path_step_uid` / `SPAWNED_FROM`, necessarily user-scoped since instances are
 learner-owned) or state plainly that its payoff covers legacy directly-authored content only.
 
-### ✅ PROBED 2026-08-21 (AuraDB `d2d160c4`) — this arc is CONTENT-GATED. Do not build yet.
+### ✅ PROBED 2026-08-21 (AuraDB `d2d160c4`) — was content-gated; **resolved below**
 
-Both authoring paths are **completely unused**:
+At probe time both authoring paths were **completely unused**:
 
 | | count |
 |---|---|
@@ -129,10 +129,48 @@ activity entities exist; nothing has ever been linked to a PathStep by either ro
 3. **One Path Forward does not force a choice** — neither path superseded the other, because
    neither has ever been used. The "two competing authoring models" framing is premature.
 
-**Do this before writing any code:** author `habit_uids: [...]` on one PathStep in the vault,
-sync, and check whether the tutor picks it up. One line of content proves Way 1 end-to-end. If it
-works, this arc shrinks to "add the two missing channels the same way habits and tasks already
-work". If it does not, the defect is in ingestion and this document is looking in the wrong place.
+### ✅ THE TEST HAS BEEN RUN — 2026-08-21. **Way 1 works. This arc is now Option A.**
+
+The paragraph above prescribed one authored line; it was run on Mike's instruction. Paired on
+meaning rather than convenience — *"Managing Your Reactions"* ↔ *"Pause and Name One Reaction"*:
+
+```yaml
+# 0vault/Ps/Ps_dev/ps_managing-your-reactions.md
+habit_uids:
+  - habit.pause-and-name
+```
+
+Ingested through the **single-file** door (`UnifiedIngestionService.ingest_file`), deliberately
+**not** `ingest_directory` — a directory run propagates deletions, and that is not a risk worth
+taking on the live graph to test one line.
+
+| step | outcome |
+|---|---|
+| ingest | `success: True`, `relationships_created: 1` |
+| edge in graph | `(ps.self-management.managing-your-reactions)-[:BUILDS_HABIT]->(habit.pause-and-name)` ✅ |
+| MEGA-QUERY projection — `user_context_queries.py:829` pattern run verbatim | `practice_habits: [{uid: habit.pause-and-name, title: "Pause and Name One Reaction"}]` ✅ |
+
+**The vault → ingestion → graph → `graph_context` path is intact.** It had simply never been
+exercised. The table above becomes `BUILDS_HABIT` **1**; every other channel is still 0.
+
+⚠️ **Exactly what is proven, and what is not** — stated in the discipline this document's
+governing caveat demands. **Proven by direct observation:** the edge exists, and the MEGA-QUERY's
+own `practice_habits` pattern returns it. **Not run:** a live Askesis session.
+`load_ps_bundle` is user-scoped (it walks `active_path_steps_rich`), so observing it in the tutor
+requires that PathStep to be active for a user. That is user state; no part of the plumbing
+remains in doubt.
+
+**Verdict, resolved — take Option A.** The arc is no longer "which of two authoring models should
+the tutor see?" but "add events and principles the way habits and tasks already work": a
+`graph_context` projection per channel, a `_fetch_entities_by_uid` call per channel, and the
+`total_practice_opportunities` fix. Way 2 (templates + spawn) stays entirely unused and needs no
+decision. ⚠️ Populate through the projection — **never** by giving the phantom
+`get_practice_events` a caller.
+
+⚠️ **What is still content-gated is the *payoff*, not the path.** One habit edge exists; the other
+five channels have none. Building the projection makes the tutor *capable* of naming events and
+principles — it will still say *"No specific practice activities linked."* until those are
+authored too. Sequence accordingly: the code is small, the content is the long pole.
 
 ⚠️ A snapshot, not a constant. Re-run before acting if much time has passed.
 
@@ -175,23 +213,25 @@ than visible content.
 **`TemplateBundle`** (`EventTemplate` / `PrincipleTemplate`), a different class. They are **not**
 evidence that `PsBundle`'s fields are consumed.
 
-### The verdict here is Mike's
+### ✅ The verdict is settled — Option A (2026-08-21)
 
-Plausible endings: **finish the wiring** (a MEGA-QUERY `graph_context` projection change, the
-`total_practice_opportunities` fix, and a `_fetch_entities_by_uid` call per channel — *not* a new
-`get_practice_*` caller) · **delete both halves** as an abandoned idea · **register as visible
-backlog** and leave the code. Per the phase directive a feature-shaped answer gets *"not now" +
-a named cost*.
+**Finish the wiring**, the way habits and tasks already work: a MEGA-QUERY `graph_context`
+projection per channel, a `_fetch_entities_by_uid` call per channel, and the
+`total_practice_opportunities` fix. ⚠️ *Not* a new `get_practice_*` caller — those are phantoms.
+
+The other endings are closed. **Delete both halves** is refuted: the path demonstrably works, and
+the fields are the injected half of a route that now has a live edge through it. **Two competing
+authoring models** was never the situation: Way 2 (templates + spawn) has zero edges and zero
+spawned instances, so nothing superseded anything.
 
 Both halves have their edges registered and already counted by `fetch_practice_counts`, so
 neither is built from scratch.
 
-⚠️ **The probe removes the tiebreaker this section used to offer.** It said payoff favoured
-events, because events has a direct consumer (the ENCOURAGING practice list) while principles
-reaches only `get_all_titles()`. Both are true of the *code* and neither matters yet: with all six
-channels at zero, neither half has a payoff today. **The honest recommendation is now: author one
-line of content and re-decide.** Splitting events from principles remains available, but pick the
-split on what you actually author, not on which consumer looks better on paper.
+⚠️ **Do not re-litigate the events-vs-principles tiebreaker on consumer strength.** An early draft
+argued payoff favoured events (a direct ENCOURAGING-prompt consumer) over principles (only
+`get_all_titles()`). That is true of the *code* and was never the deciding factor — with the
+channels near-empty, payoff follows **what gets authored**. Split them if you like, but split on
+content, not on which consumer reads better on paper.
 
 ⚠️ If the ending is "register it": `./dev bloat`'s PLANNED tier covers **events/methods/templates
 only**, so there is no tier for fields — which is exactly why an AST sweep found this and the
