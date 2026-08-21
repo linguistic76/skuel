@@ -82,6 +82,11 @@ When Ku or PathStep models are constructed from Neo4j (`from_neo4j_node()`), the
 | **Ku** | Primary — event handlers write directly | `KuBackend.increment_substance()` |
 | **PathStep** | Propagated — fan-out from connected Kus | Same Cypher query, traverses USES_KU/CONTAINS_KNOWLEDGE/TRAINS_KU |
 
+**Grain is agnostic by ruling (2026-08-21):** the `knowledge_uid` a substance
+event carries may name a Ku **or** a PathStep — the write lands on whatever it
+names ("I practised this lesson" is a real fact), and only a named Ku fans out.
+See `docs/roadmap/deferred-work.md` § Substance-Write Grain — ARC CLOSED.
+
 ---
 
 ## Confidence: Admin-Assessed Content Certainty
@@ -280,7 +285,7 @@ await publish_event(self.event_bus, event, self.logger)
 class PsService:
     async def handle_knowledge_applied_in_task(self, event):
         await self.increment_substance_metric(
-            ku_uid=event.knowledge_uid,
+            knowledge_uid=event.knowledge_uid,
             metric='times_applied_in_tasks',
             timestamp_field='last_applied_date',
             timestamp=event.occurred_at
@@ -290,19 +295,26 @@ class PsService:
 ### KuBackend Fan-Out
 
 ```cypher
--- Atomically updates the Ku node AND connected PathStep nodes
-MATCH (ku:Entity {uid: $ku_uid})
-SET ku.times_applied_in_tasks = COALESCE(ku.times_applied_in_tasks, 0) + 1,
-    ku.last_applied_date = datetime($timestamp),
-    ku._substance_cache_timestamp = NULL
-WITH ku
-OPTIONAL MATCH (ps:PathStep)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku)
-WITH ku, ps WHERE ps IS NOT NULL
-SET ps.times_applied_in_tasks = COALESCE(ps.times_applied_in_tasks, 0) + 1,
-    ps.last_applied_date = datetime($timestamp),
-    ps._substance_cache_timestamp = NULL
-RETURN ku.times_applied_in_tasks as new_count
+-- Atomically updates the named node AND, when it is a Ku, its composing PathSteps
+MATCH (k:Entity {uid: $knowledge_uid})
+SET k.times_applied_in_tasks = COALESCE(k.times_applied_in_tasks, 0) + 1,
+    k.last_applied_date = datetime($timestamp),
+    k._substance_cache_timestamp = NULL
+WITH k
+OPTIONAL MATCH (ps:PathStep)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(k)
+WITH k, collect(DISTINCT ps) AS steps
+FOREACH (p IN steps |
+    SET p.times_applied_in_tasks = COALESCE(p.times_applied_in_tasks, 0) + 1,
+        p.last_applied_date = datetime($timestamp),
+        p._substance_cache_timestamp = NULL)
+RETURN k.times_applied_in_tasks as new_count
 ```
+
+The `collect(DISTINCT ps)` + `FOREACH` shape matters: it guarantees the
+`RETURN` emits whenever the primary write landed (a former
+`WHERE ps IS NOT NULL` row-filter reported `ok(0)` for landed orphan-Ku and
+PathStep-targeted writes), and it credits a composing PathStep once even when
+two edge types connect the pair.
 
 ### Benefits
 

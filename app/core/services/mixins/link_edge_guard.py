@@ -49,8 +49,8 @@ EdgeTuple = tuple[str, str, str, Neo4jProperties | None]
 
 # What a "knowledge" link list may point at: the ATOM only. Both Goals'
 # ``required_knowledge_uids`` and Habits' ``linked_knowledge_uids`` document themselves as
-# KnowledgeUnit UIDs, and the substance pipeline is Ku-centric by construction —
-# ``KuBackend.increment_substance`` takes a ku_uid, credits it, and fans OUT to the
+# KnowledgeUnit UIDs, and the substance pipeline fans out from the atom —
+# ``KuBackend.increment_substance`` credits whatever uid it names, and fans OUT to the
 # PathSteps composing it. It has no inverse, so a PathStep UID would credit the PathStep
 # and leave every atom it teaches untouched, while the context reader (which DOES expand a
 # PathStep through ``TRAINS_KU|USES_KU``) reported those atoms as reinforced. Writing

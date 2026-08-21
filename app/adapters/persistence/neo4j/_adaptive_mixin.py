@@ -55,31 +55,43 @@ class _AdaptiveMixin:
     # ========================================================================
 
     async def find_kus_practiced_by_event(self, event_uid: str) -> Result[list[Neo4jProperties]]:
-        """Find KU UIDs practiced by a completed event via APPLIES_KNOWLEDGE.
+        """Find knowledge UIDs practiced by a completed event via APPLIES_KNOWLEDGE.
 
-        APPLIES_KNOWLEDGE is THE Event→Ku edge — the one EVENTS_CONFIG
-        registers, Edge-YAML ingestion writes (``connections.applies_knowledge``),
-        and ``create_study_session`` MERGEs. The former read matched a
-        writer-less "PRACTICES" edge no code path ever wrote (2026-07-10
-        audit), so every event completion silently found zero KUs to practice.
+        APPLIES_KNOWLEDGE is THE Event→knowledge edge — the one EVENTS_CONFIG
+        registers and Edge-YAML ingestion writes (``connections.applies_knowledge``);
+        the former third writer, ``create_study_session``, left the tree. The
+        target may be a Ku or a PathStep (grain-agnostic by ruling 2026-08-21).
+        The former read matched a writer-less "PRACTICES" edge no code path
+        ever wrote (2026-07-10 audit), so every event completion silently
+        found zero KUs to practice.
         """
         query = f"""
-        MATCH (event:Event {{uid: $event_uid}})-[:{RelationshipName.APPLIES_KNOWLEDGE.value}]->(ku:Entity)
-        RETURN DISTINCT ku.uid as ku_uid
+        MATCH (event:Event {{uid: $event_uid}})-[:{RelationshipName.APPLIES_KNOWLEDGE.value}]->(k:Entity)
+        RETURN DISTINCT k.uid as knowledge_uid
         """
         return await self.execute_query(query, {"event_uid": event_uid})
 
     async def increment_practice_count(
-        self, ku_uid: str, occurred_at: str
+        self, knowledge_uid: str, occurred_at: str
     ) -> Result[list[Neo4jProperties]]:
-        """Increment practice count and update last_practiced_date on a KU."""
-        query = """
-        MATCH (ku:Entity {uid: $ku_uid})
-        SET ku.times_practiced_in_events = COALESCE(ku.times_practiced_in_events, 0) + 1,
-            ku.last_practiced_date = datetime($occurred_at)
-        RETURN ku.times_practiced_in_events as new_count
+        """Increment practice count and update last_practiced_date on one knowledge entity.
+
+        Grain-agnostic: the uid may name a Ku or a PathStep — the write lands
+        on whatever it names, with no roll-up to composing PathSteps (unlike
+        ``KuBackend.increment_substance``, the event-creation writer of the
+        same property — the two fire on different triggers and do not
+        coordinate, so knowledge both named at event creation and edge-linked
+        at completion is counted by each).
         """
-        return await self.execute_query(query, {"ku_uid": ku_uid, "occurred_at": occurred_at})
+        query = """
+        MATCH (k:Entity {uid: $knowledge_uid})
+        SET k.times_practiced_in_events = COALESCE(k.times_practiced_in_events, 0) + 1,
+            k.last_practiced_date = datetime($occurred_at)
+        RETURN k.times_practiced_in_events as new_count
+        """
+        return await self.execute_query(
+            query, {"knowledge_uid": knowledge_uid, "occurred_at": occurred_at}
+        )
 
     # NOTE: find_similar_by_keywords and search_by_keywords removed 2026-08-10,
     # with their PsOperations declarations. Both were LessonSearchService reads.

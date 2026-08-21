@@ -204,27 +204,38 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
 
     async def batch_increment_substance(
         self,
-        ku_uids: list[str],
+        knowledge_uids: list[str],
         metric: str,
         timestamp_field: str,
         timestamp_str: str,
     ) -> Result[int]:
-        """Atomically increment a substance metric for multiple KUs and connected PathSteps."""
-        query = f"""
-        UNWIND $ku_uids AS ku_uid
-        MATCH (ku:Entity {{uid: ku_uid}})
-        SET ku.{metric} = COALESCE(ku.{metric}, 0) + 1,
-            ku.{timestamp_field} = datetime($timestamp),
-            ku._substance_cache_timestamp = NULL
-        WITH ku
-        OPTIONAL MATCH (ps:PathStep)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU|TRAINS_KU]->(ku)
-        WITH ps WHERE ps IS NOT NULL
-        SET ps.{metric} = COALESCE(ps.{metric}, 0) + 1,
-            ps.{timestamp_field} = datetime($timestamp),
-            ps._substance_cache_timestamp = NULL
-        RETURN count(ps) as updated_count
+        """Atomically increment a substance metric for multiple knowledge entities.
+
+        Grain-agnostic by ruling (2026-08-21): each uid may name a Ku, a
+        PathStep, or any Entity — the increment lands on whatever it names.
+        Composing PathSteps (``USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU`` into a
+        named Ku) are credited once each per named entity, regardless of how
+        many of those edge types connect the pair. Returns the number of
+        PathStep credits written; uids that match no node contribute nothing.
         """
-        result = await self.execute_query(query, {"ku_uids": ku_uids, "timestamp": timestamp_str})
+        query = f"""
+        UNWIND $knowledge_uids AS knowledge_uid
+        MATCH (k:Entity {{uid: knowledge_uid}})
+        SET k.{metric} = COALESCE(k.{metric}, 0) + 1,
+            k.{timestamp_field} = datetime($timestamp),
+            k._substance_cache_timestamp = NULL
+        WITH k
+        OPTIONAL MATCH (ps:PathStep)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(k)
+        WITH k, collect(DISTINCT ps) AS steps
+        FOREACH (p IN steps |
+            SET p.{metric} = COALESCE(p.{metric}, 0) + 1,
+                p.{timestamp_field} = datetime($timestamp),
+                p._substance_cache_timestamp = NULL)
+        RETURN sum(size(steps)) as updated_count
+        """
+        result = await self.execute_query(
+            query, {"knowledge_uids": knowledge_uids, "timestamp": timestamp_str}
+        )
         if result.is_error:
             return Result.fail(result)
         records = result.value or []
@@ -232,26 +243,39 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
 
     async def increment_substance(
         self,
-        ku_uid: str,
+        knowledge_uid: str,
         metric: str,
         timestamp_field: str,
         timestamp_str: str,
     ) -> Result[int]:
-        """Atomically increment a substance metric for a single KU and connected PathSteps."""
-        query = f"""
-        MATCH (ku:Entity {{uid: $ku_uid}})
-        SET ku.{metric} = COALESCE(ku.{metric}, 0) + 1,
-            ku.{timestamp_field} = datetime($timestamp),
-            ku._substance_cache_timestamp = NULL
-        WITH ku
-        OPTIONAL MATCH (ps:PathStep)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU|TRAINS_KU]->(ku)
-        WITH ku, ps WHERE ps IS NOT NULL
-        SET ps.{metric} = COALESCE(ps.{metric}, 0) + 1,
-            ps.{timestamp_field} = datetime($timestamp),
-            ps._substance_cache_timestamp = NULL
-        RETURN ku.{metric} as new_count
+        """Atomically increment a substance metric for one knowledge entity.
+
+        Grain-agnostic by ruling (2026-08-21): the uid may name a Ku, a
+        PathStep, or any Entity — the increment lands on whatever it names,
+        and any PathSteps composing a named Ku are each credited once. The
+        ``collect``/``FOREACH`` shape guarantees the RETURN emits whenever the
+        primary write landed — the former ``WHERE ps IS NOT NULL`` row-filter
+        dropped the row for orphan-Ku and PathStep-targeted writes, reporting
+        ``ok(0)`` for an increment that had already been written. ``ok(0)``
+        now means exactly one thing: the uid matched no node (true no-op).
         """
-        result = await self.execute_query(query, {"ku_uid": ku_uid, "timestamp": timestamp_str})
+        query = f"""
+        MATCH (k:Entity {{uid: $knowledge_uid}})
+        SET k.{metric} = COALESCE(k.{metric}, 0) + 1,
+            k.{timestamp_field} = datetime($timestamp),
+            k._substance_cache_timestamp = NULL
+        WITH k
+        OPTIONAL MATCH (ps:PathStep)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(k)
+        WITH k, collect(DISTINCT ps) AS steps
+        FOREACH (p IN steps |
+            SET p.{metric} = COALESCE(p.{metric}, 0) + 1,
+                p.{timestamp_field} = datetime($timestamp),
+                p._substance_cache_timestamp = NULL)
+        RETURN k.{metric} as new_count
+        """
+        result = await self.execute_query(
+            query, {"knowledge_uid": knowledge_uid, "timestamp": timestamp_str}
+        )
         if result.is_error:
             return Result.fail(result)
         records = result.value or []

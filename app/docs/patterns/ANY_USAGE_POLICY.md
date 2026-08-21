@@ -134,7 +134,7 @@ validator: Validator[Habit]  # = Callable[[Habit], list[str]]
 | `CrossDomainInsightsData`, `CrossDomainInsightItem` | `UserContext` field | `cross_domain_insights` |
 | `NextActionResult`, `AtRiskHabitsResult`, `AdaptiveLearningPathResult`, `FutureContextStateResult`, `ContextHealthResult` | `ContextAwareOperations` | `get_next_action`, `get_at_risk_habits`, `get_adaptive_learning_path`, `predict_future_context_state`, `get_context_health` |
 | `GraphInfluenceItem`, `RelationshipSummaryResult` | `GraphEntity` | `get_upstream_influences`, `get_downstream_impacts`, `get_relationship_summary` |
-| `SubstantiationSummaryResult`, `PsKnowledgeSummaryResult`, `PsPracticeSummaryResult`, `UserProgressResult` | `CurriculumOperations`, `PsOperations` | `get_substantiation_summary`, `get_knowledge_summary`, `get_practice_summary`, `get_user_progress` |
+| `PsKnowledgeSummaryResult`, `PsPracticeSummaryResult`, `UserProgressResult` | `CurriculumOperations`, `PsOperations` | `get_knowledge_summary`, `get_practice_summary`, `get_user_progress` |
 
 **Phase 5 — Route handler returns:** All 27 `*_api.py` route files narrowed from `Result[Any]` to specific types (267 → 2). The 2 remaining are intentional `# boundary:` annotations for FastHTML FT components without type stubs. Cross-type error propagation sites fixed using `Result.fail(result)` instead of bare `return result`.
 
