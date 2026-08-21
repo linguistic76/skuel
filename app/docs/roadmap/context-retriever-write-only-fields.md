@@ -233,8 +233,11 @@ giving the phantom `get_practice_events` a caller.
 | `principle_uids` | `GUIDED_BY_PRINCIPLE` | `:Principle` |
 | **`event_template_uids`** | `SCHEDULES_EVENT` | **`:Event`** |
 
-`:Entity` matches every domain node, so the habit test cleared the lowest bar available. The
-strict targets are untested.
+`:Entity` matches every domain node, so the habit test cleared the lowest bar available. ⚠️ *At
+the time this table was written* the strict targets were untested — **both have since been tested
+and pass** (`:Event` and `:Principle`, below). `:Task` and `:Goal` remain untested, and no longer
+matter for this arc: `PsBundle` has no goals or choices field, so only habits, tasks, events and
+principles are in scope, and tasks share the already-working `practice_tasks` projection.
 
 **The events channel carries a specific, named hazard.** Its vault field is
 `event_template_uids` but its target is `:Event` — an *instance* label. `EventTemplate` nodes

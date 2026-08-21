@@ -1055,9 +1055,14 @@ matches nothing (and `_template_loader.py:64-70` uses a different edge,
 nodes exist — but live the moment one is created via the PathStep template
 routes. **Decide before then:** rename the field to `event_uids` (matches
 behaviour) or retarget the edge at `EventTemplate` (matches the name, changes
-semantics). **✅ Mike ruled 2026-08-21: rename to `event_uids`** — the behaviour is
-proven correct, it is the label that lies. **Principles untested** (`:Principle`)
-— no mismatch, and Events is now a strict-target precedent, so low risk.
+semantics). **⏸️ Mike first ruled *rename to `event_uids`*, then HELD it** once the
+type-system finding landed (if the answer is Templates, the label was right and
+the target is wrong). See the hold and its resume condition above.
+
+**✅ Principles is TESTED** — `principle_uids` → `GUIDED_BY_PRINCIPLE` landed
+against the strict `:Principle` target (2026-08-21). All three target classes are
+proven: `:Entity` (habits), `:Event`, `:Principle`. Nothing about the direct-edge
+mechanism remains untested.
 
 ⚠️ **The two halves are gated on DIFFERENT things — do not lump them as
 "content-gated."** Per `PsBundle` channel, after both tests:
