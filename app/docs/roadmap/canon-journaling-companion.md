@@ -165,13 +165,15 @@ This **splits** the arc; it does not extend it.
   `ui/canon/CanonSourcesBlock`. Lights up wherever a PS cites a shelved book —
   growing that overlap is content authoring (the "More books" rung below).
 - **More books** — content authoring only (Phase 1 EPUB→pandoc→clean → Phase 2 ingest).
-- **"What's on the shelf" view** — ✅ **SHIPPED** (rung struck 2026-08-21; it landed
-  under a different name, which is why its own grep missed it): the emergent-shelf read
-  exists as `list_shelved_books()` on `Neo4jReferenceChunkAdapter`
-  (`neo4j_reference_chunk_adapter.py:301`, keeps the wall), exposed via
-  `canon_retrieval_service.py`, and surfaced as the per-book picker on the journals
-  landing (`ui/journals/chat_page.py`). An admin/canon page linking to Resource detail
-  remains possible but is no longer the gap this rung described.
+- **"What's on the shelf" view** — ◐ **read half SHIPPED, browse half open** (re-scoped
+  2026-08-21; the read landed under a different name, which is why its own grep missed
+  it): the emergent-shelf read exists as `list_shelved_books()` on
+  `Neo4jReferenceChunkAdapter` (`neo4j_reference_chunk_adapter.py:301`, keeps the wall),
+  exposed via `canon_retrieval_service.py`, and consumed by the per-book picker on the
+  journals landing (`ui/journals/chat_page.py`). **Still open**: the picker renders
+  checkbox labels only — there is no surface where you can browse the shelf and *jump to*
+  a book/Resource (`/explore/resource/{uid}`, Tier-1) to interact with it. That browse
+  page is now trivial (the read exists); purely additive when picked up.
 - **Tune retrieval** — calibrate `CANON_RETRIEVAL_MIN_SCORE` (0.3) / `CANON_RETRIEVAL_LIMIT`
   (4) from real draws. `CanonRetrievalService.retrieve()` now logs each draw
   (count · books · score range · min_score) — that log is the measurement input;

@@ -17,7 +17,9 @@ source of truth.
 **Related:** ADR-073 (journals zero-persistence), **ADR-078 (discussion sessions stored but
 never understood — the P2 reconciliation)**, ADR-076 (canon quotation & citation),
 ADR-077 (scoped canon retrieval), `docs/roadmap/done/conversation-neo4j-persistence-deferred.md`
-(deferred Askesis conversation storage — reuse candidate).
+(the original Askesis storage design this arc adapted — **historical evidence only**, not a
+reuse candidate: ADR-078 rejected its `UniversalNeo4jBackend` shape and pedagogical schema;
+its header says do-not-implement).
 
 ---
 
