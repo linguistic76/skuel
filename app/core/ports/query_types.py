@@ -1845,36 +1845,10 @@ class RelationshipSummaryResult(TypedDict, total=False):
 # ============================================================================
 
 
-class SubstantiationBreakdownDomain(TypedDict):
-    """Per-domain substantiation breakdown (tasks, events, habits, entries, choices)."""
-
-    count: int
-    progress: float
-    max_score: float
-
-
-class SubstantiationReviewStatus(TypedDict):
-    """Review timing within SubstantiationSummaryResult."""
-
-    needs_review: bool
-    days_until_review: int | None
-
-
-class SubstantiationSummaryResult(TypedDict, total=False):
-    """Return shape for CurriculumOperations.get_substantiation_summary().
-
-    Detailed breakdown of how a KU is substantiated through lived experience:
-    tasks applied, events practiced, habits built, reflective entries, and choices.
-    """
-
-    substance_score: float
-    breakdown: dict[str, SubstantiationBreakdownDomain]
-    gaps: list[str]
-    review_status: SubstantiationReviewStatus
-    recommendations: list[dict[str, str]]  # boundary: {type, message, impact}
-    status_message: str
-    is_theoretical_only: bool
-    is_well_practiced: bool
+# NOTE: SubstantiationSummaryResult (+ its two nested TypedDicts) deleted
+# 2026-08-21 — return shape for a protocol method no backend ever implemented
+# (get_substantiation_summary, removed the same day). The lived-substance
+# breakdown itself is Curriculum.get_substantiation_summary(), staged model-side.
 
 
 class PsKnowledgeSummaryResult(TypedDict):

@@ -16,10 +16,14 @@ Event Catalog:
 - knowledge.reflected_in_entry - UserEntry reflects on knowledge (ADR-069)
 - knowledge.informed_choice - Choice informed by knowledge
 
-Subscribers:
-- PsService (increment substance metrics)
-- LearningAnalyticsService (track application patterns)
-- SpacedRepetitionService (schedule reviews)
+Subscriber: PsService (increment substance metrics) — wired in
+services_bootstrap/_event_wiring.py. Former docstrings here also named
+LearningAnalyticsService and SpacedRepetitionService as subscribers; neither
+class has ever existed (measured 2026-08-20) — de-fictioned 2026-08-21.
+
+Grain: every ``knowledge_uid`` may name a Ku or a PathStep (grain-agnostic by
+ruling 2026-08-21); the handler credits whatever the uid names and fans out to
+composing PathSteps.
 """
 
 from dataclasses import dataclass
@@ -43,7 +47,6 @@ class KnowledgeAppliedInTask(BaseEvent):
 
     Subscribers:
     - PsService (increment substance metric)
-    - LearningAnalyticsService (track application patterns)
 
     Published by:
     - TasksService (when task created with applies_knowledge_uids)
@@ -71,10 +74,10 @@ class KnowledgePracticedInEvent(BaseEvent):
 
     Subscribers:
     - PsService (increment substance metric)
-    - SpacedRepetitionService (track practice frequency)
 
     Published by:
-    - EventsService (when event created with practices_knowledge_uid)
+    - EventsService (when event created with practices_knowledge_uids —
+      published only; the request door writes no APPLIES_KNOWLEDGE edge)
     """
 
     knowledge_uid: str
@@ -91,25 +94,24 @@ class KnowledgePracticedInEvent(BaseEvent):
 @dataclass(frozen=True)
 class KnowledgePracticed(BaseEvent):
     """
-    Published when knowledge is practiced (generic practice event).
+    Published after a practice count was incremented (notification, not mechanism).
 
-    This is a generic practice tracking event used for event-driven
-    practice count updates from various sources (event completion,
-    study sessions, etc.).
+    Fired by the event-completion path AFTER ``increment_practice_count`` has
+    already written ``times_practiced_in_events`` — a subscriber cannot affect
+    the counter.
 
-    Increments: times_practiced_in_events
-    Updates: last_practiced_date
-
-    Subscribers:
-    - LearningAnalyticsService (track practice patterns)
-    - SpacedRepetitionService (schedule reviews)
+    Subscribers: none today. Ruled 2026-08-21 (Mike): the event stays and is to
+    EARN a subscriber — the review-scheduling consumer named in
+    ``docs/roadmap/deferred-work.md`` § KnowledgePracticed Subscriber — rather
+    than be deleted as fire-and-forget. Former docstrings named
+    LearningAnalyticsService and SpacedRepetitionService here; neither class
+    has ever existed.
 
     Published by:
     - PsPracticeService (when CalendarEventCompleted)
-    - Study session tracking
     """
 
-    ku_uid: str
+    knowledge_uid: str
     user_uid: UserUID
 
     # Context information
@@ -133,7 +135,6 @@ class KnowledgeBuiltIntoHabit(BaseEvent):
 
     Subscribers:
     - PsService (increment substance metric)
-    - LearningAnalyticsService (track habit formation patterns)
 
     Published by:
     - HabitsService (when habit created with builds_on_knowledge_uids)
@@ -164,9 +165,10 @@ class KnowledgeReflectedInEntry(BaseEvent):
     Subscribers:
     - PsService (increment substance metric)
 
-    Published by:
+    Published by (two writers, one event — see CLAUDE.md § Knowledge Substance):
     - UserEntryProcessingService (EXTRACT_ACTIVITIES pipeline, after each
-      ``(entry)-[:APPLIES_KNOWLEDGE]->(ku)`` edge write — ADR-069)
+      NEW ``(entry)-[:APPLIES_KNOWLEDGE]->(ku)`` edge write — ADR-069)
+    - EntryGroundingService (vector grounding, after each NEW inferred edge)
     """
 
     knowledge_uid: str
@@ -189,10 +191,9 @@ class KnowledgeInformedChoice(BaseEvent):
 
     Subscribers:
     - PsService (increment substance metric)
-    - LearningAnalyticsService (track decision-making patterns)
 
     Published by:
-    - ChoiceService (when choice created with informed_by_knowledge_uids)
+    - ChoicesService (when choice created with informed_by_knowledge_uids)
     """
 
     knowledge_uid: str
@@ -221,7 +222,6 @@ class KnowledgeBulkAppliedInTask(BaseEvent):
 
     Subscribers:
     - PsService (batch increment substance metrics)
-    - LearningAnalyticsService (batch track application patterns)
 
     Published by:
     - TasksService (when task created with applies_knowledge_uids)
@@ -251,7 +251,6 @@ class KnowledgeBulkBuiltIntoHabit(BaseEvent):
 
     Subscribers:
     - PsService (batch increment substance metrics)
-    - LearningAnalyticsService (batch track habit formation patterns)
 
     Published by:
     - HabitsService (when habit created with builds_on_knowledge_uids)
@@ -281,7 +280,6 @@ class KnowledgeBulkInformedChoice(BaseEvent):
 
     Subscribers:
     - PsService (batch increment substance metrics)
-    - LearningAnalyticsService (batch track decision-making patterns)
 
     Published by:
     - ChoicesService (when choice created with informed_by_knowledge_uids)

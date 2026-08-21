@@ -98,26 +98,26 @@ class PsPracticeService:
             records = result.value or []
 
             self.logger.debug(f"Found {len(records)} KUs practiced by event: {records}")
-            ku_uids = [record["ku_uid"] for record in records]
+            knowledge_uids = [record["knowledge_uid"] for record in records]
 
-            if not ku_uids:
+            if not knowledge_uids:
                 self.logger.debug(f"Event {event.event_uid} practices no KUs")
                 return
 
-            # Update each practiced KU
-            for ku_uid in ku_uids:
+            # Update each practiced knowledge entity
+            for knowledge_uid in knowledge_uids:
                 try:
                     await self._update_ku_practice_count(
-                        ku_uid=ku_uid,
+                        knowledge_uid=knowledge_uid,
                         user_uid=event.user_uid,
                         event_uid=event.event_uid,
                         occurred_at=event.occurred_at,
                     )
                 except NEO4J_EXCEPTIONS as e:
                     # Best-effort: Don't let one KU failure block others
-                    self.logger.error(f"Failed to update KU {ku_uid} practice count: {e}")
+                    self.logger.error(f"Failed to update KU {knowledge_uid} practice count: {e}")
                 except Exception as e:  # safety-net: catch unexpected errors
-                    self.logger.error(f"Failed to update KU {ku_uid} practice count: {e}")
+                    self.logger.error(f"Failed to update KU {knowledge_uid} practice count: {e}")
 
         except NEO4J_EXCEPTIONS as e:
             # Best-effort: Log error but don't raise (prevent event completion failure)
@@ -126,45 +126,47 @@ class PsPracticeService:
             self.logger.error(f"Error handling event_completed event: {e}")
 
     async def _update_ku_practice_count(
-        self, ku_uid: str, user_uid: UserUID, event_uid: str, occurred_at: datetime
+        self, knowledge_uid: str, user_uid: UserUID, event_uid: str, occurred_at: datetime
     ) -> None:
         """
-        Internal helper to update a single KU's practice count.
+        Internal helper to update a single knowledge entity's practice count.
 
         Updates:
         - times_practiced_in_events (increment by 1)
         - last_practiced_date (set to occurred_at)
 
         Args:
-            ku_uid: Knowledge unit to update
+            knowledge_uid: Knowledge entity (Ku or PathStep) to update
             user_uid: User who completed the event
             event_uid: Event that was completed
             occurred_at: When the event was completed
         """
-        # Update KU practice fields directly in Neo4j
+        # Update practice fields directly in Neo4j
         # This is more efficient than fetching, modifying, and saving back
-        result = await self.backend.increment_practice_count(ku_uid, occurred_at.isoformat())
+        result = await self.backend.increment_practice_count(knowledge_uid, occurred_at.isoformat())
 
         if result.is_error:
-            self.logger.warning(f"Failed to update KU {ku_uid} practice count: {result.error}")
+            self.logger.warning(
+                f"Failed to update KU {knowledge_uid} practice count: {result.error}"
+            )
             return
 
         records = result.value or []
 
         if not records:
-            self.logger.warning(f"KU {ku_uid} not found during practice update")
+            self.logger.warning(f"KU {knowledge_uid} not found during practice update")
             return
 
         new_count = records[0].get("new_count", 0)
 
         self.logger.info(
-            f"Updated KU {ku_uid} practice count: now {new_count} practices "
+            f"Updated KU {knowledge_uid} practice count: now {new_count} practices "
             f"(event {event_uid}, user {user_uid})"
         )
 
         # Publish KnowledgePracticed event
         practice_event = KnowledgePracticed(
-            ku_uid=ku_uid,
+            knowledge_uid=knowledge_uid,
             user_uid=user_uid,
             occurred_at=occurred_at,
             practice_context="event_completion",

@@ -329,7 +329,7 @@ class KuService:
         - Consistent error handling across all event handlers
         """
         await self.increment_substance_metric(
-            ku_uid=event.knowledge_uid,
+            knowledge_uid=event.knowledge_uid,
             metric="times_applied_in_tasks",
             timestamp_field="last_applied_date",
             timestamp=event.occurred_at,

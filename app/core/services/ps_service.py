@@ -885,7 +885,7 @@ class PsService:
     @safe_event_handler("knowledge.applied_in_task")
     async def handle_knowledge_applied_in_task(self, event: Any) -> None:
         await self.increment_substance_metric(
-            ku_uid=event.knowledge_uid,
+            knowledge_uid=event.knowledge_uid,
             metric="times_applied_in_tasks",
             timestamp_field="last_applied_date",
             timestamp=event.occurred_at,
@@ -894,7 +894,7 @@ class PsService:
     @safe_event_handler("knowledge.practiced_in_event")
     async def handle_knowledge_practiced_in_event(self, event: Any) -> None:
         await self.increment_substance_metric(
-            ku_uid=event.knowledge_uid,
+            knowledge_uid=event.knowledge_uid,
             metric="times_practiced_in_events",
             timestamp_field="last_practiced_date",
             timestamp=event.occurred_at,
@@ -903,7 +903,7 @@ class PsService:
     @safe_event_handler("knowledge.built_into_habit")
     async def handle_knowledge_built_into_habit(self, event: Any) -> None:
         await self.increment_substance_metric(
-            ku_uid=event.knowledge_uid,
+            knowledge_uid=event.knowledge_uid,
             metric="times_built_into_habits",
             timestamp_field="last_built_into_habit_date",
             timestamp=event.occurred_at,
@@ -912,7 +912,7 @@ class PsService:
     @safe_event_handler("knowledge.reflected_in_entry")
     async def handle_knowledge_reflected_in_entry(self, event: Any) -> None:
         await self.increment_substance_metric(
-            ku_uid=event.knowledge_uid,
+            knowledge_uid=event.knowledge_uid,
             metric="times_reflected_in_entries",
             timestamp_field="last_reflected_date",
             timestamp=event.occurred_at,
@@ -921,7 +921,7 @@ class PsService:
     @safe_event_handler("knowledge.informed_choice")
     async def handle_knowledge_informed_choice(self, event: Any) -> None:
         await self.increment_substance_metric(
-            ku_uid=event.knowledge_uid,
+            knowledge_uid=event.knowledge_uid,
             metric="choices_informed_count",
             timestamp_field="last_choice_informed_date",
             timestamp=event.occurred_at,
@@ -930,7 +930,7 @@ class PsService:
     @safe_event_handler("knowledge.bulk_applied_in_task")
     async def handle_knowledge_bulk_applied_in_task(self, event: Any) -> None:
         await self.batch_increment_substance_metric(
-            ku_uids=event.knowledge_uids,
+            knowledge_uids=event.knowledge_uids,
             metric="times_applied_in_tasks",
             timestamp_field="last_applied_date",
             timestamp=event.occurred_at,
@@ -939,7 +939,7 @@ class PsService:
     @safe_event_handler("knowledge.bulk_built_into_habit")
     async def handle_knowledge_bulk_built_into_habit(self, event: Any) -> None:
         await self.batch_increment_substance_metric(
-            ku_uids=event.knowledge_uids,
+            knowledge_uids=event.knowledge_uids,
             metric="times_built_into_habits",
             timestamp_field="last_built_into_habit_date",
             timestamp=event.occurred_at,
@@ -948,17 +948,21 @@ class PsService:
     @safe_event_handler("knowledge.bulk_informed_choice")
     async def handle_knowledge_bulk_informed_choice(self, event: Any) -> None:
         await self.batch_increment_substance_metric(
-            ku_uids=event.knowledge_uids,
+            knowledge_uids=event.knowledge_uids,
             metric="choices_informed_count",
             timestamp_field="last_choice_informed_date",
             timestamp=event.occurred_at,
         )
 
     async def batch_increment_substance_metric(  # skuel-lint: disable=SKUEL005 -- fire-and-forget metric increment from event paths; invalid input logged and dropped by design
-        self, ku_uids: tuple[str, ...], metric: str, timestamp_field: str, timestamp: Any
+        self, knowledge_uids: tuple[str, ...], metric: str, timestamp_field: str, timestamp: Any
     ) -> None:
-        """Atomically increment a substance metric for multiple entities."""
-        if not ku_uids:
+        """Atomically increment a substance metric for multiple knowledge entities.
+
+        Grain-agnostic: each uid may name a Ku or a PathStep (ruling
+        2026-08-21). Backend: KuBackend.batch_increment_substance.
+        """
+        if not knowledge_uids:
             return
         if metric not in _VALID_SUBSTANCE_METRICS:
             self.logger.error(f"Invalid substance metric rejected: {metric}")
@@ -971,7 +975,7 @@ class PsService:
             return
         timestamp_str = timestamp.isoformat() if isinstance(timestamp, datetime) else str(timestamp)
         result = await self.ku_backend.batch_increment_substance(
-            ku_uids=list(ku_uids),
+            knowledge_uids=list(knowledge_uids),
             metric=metric,
             timestamp_field=timestamp_field,
             timestamp_str=timestamp_str,
@@ -980,9 +984,13 @@ class PsService:
             self.logger.error(f"Failed batch substance increment: {result.error}")
 
     async def increment_substance_metric(
-        self, ku_uid: str, metric: str, timestamp_field: str, timestamp: Any
+        self, knowledge_uid: str, metric: str, timestamp_field: str, timestamp: Any
     ) -> None:
-        """Atomically increment a substance metric in Neo4j."""
+        """Atomically increment a substance metric for one knowledge entity.
+
+        Grain-agnostic: the uid may name a Ku or a PathStep (ruling
+        2026-08-21). Backend: KuBackend.increment_substance.
+        """
         if metric not in _VALID_SUBSTANCE_METRICS:
             self.logger.error(f"Invalid substance metric rejected: {metric}")
             return
@@ -994,13 +1002,13 @@ class PsService:
             return
         timestamp_str = timestamp.isoformat() if isinstance(timestamp, datetime) else str(timestamp)
         result = await self.ku_backend.increment_substance(
-            ku_uid=ku_uid,
+            knowledge_uid=knowledge_uid,
             metric=metric,
             timestamp_field=timestamp_field,
             timestamp_str=timestamp_str,
         )
         if result.is_error:
-            self.logger.error(f"Failed substance increment for {ku_uid}: {result.error}")
+            self.logger.error(f"Failed substance increment for {knowledge_uid}: {result.error}")
 
     # ============================================================================
     # TEMPLATE & UTILITY OPERATIONS

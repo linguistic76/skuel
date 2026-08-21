@@ -122,7 +122,6 @@ from core.ports.query_types import (
     RequiredKnowledgeResult,
     RevisionChainResult,
     RootOrganizerResult,
-    SubstantiationSummaryResult,
     TeacherAuthorityRow,
     UserMasteryResult,
     UserProgressResult,
@@ -431,22 +430,30 @@ class KuOperations(BackendOperations["Ku"], Protocol):
 
     async def batch_increment_substance(
         self,
-        ku_uids: list[str],
+        knowledge_uids: list[str],
         metric: str,
         timestamp_field: str,
         timestamp_str: str,
     ) -> Result[int]:
-        """Atomically increment a substance metric for multiple KUs and connected PathSteps."""
+        """Atomically increment a substance metric for multiple knowledge entities.
+
+        Grain-agnostic: each uid may name a Ku, a PathStep, or any Entity;
+        PathSteps composing a named Ku are credited once each.
+        """
         ...
 
     async def increment_substance(
         self,
-        ku_uid: str,
+        knowledge_uid: str,
         metric: str,
         timestamp_field: str,
         timestamp_str: str,
     ) -> Result[int]:
-        """Atomically increment a substance metric for a single KU and connected PathSteps."""
+        """Atomically increment a substance metric for one knowledge entity.
+
+        Grain-agnostic: the uid may name a Ku, a PathStep, or any Entity;
+        PathSteps composing a named Ku are credited once each.
+        """
         ...
 
     # =========================================================================
@@ -885,16 +892,12 @@ class PsOperations(
         """Get related PathSteps filtered by domain."""
         ...
 
-    # =========================================================================
-    # SUBSTANCE TRACKING    # =========================================================================
-
-    async def get_substance_score(self, uid: str) -> Result[float]:
-        """Get the substance score for a PathStep (0.0-1.0)."""
-        ...
-
-    async def get_substantiation_summary(self, uid: str) -> Result[SubstantiationSummaryResult]:
-        """Get detailed substantiation breakdown."""
-        ...
+    # NOTE: get_substance_score / get_substantiation_summary were deleted
+    # 2026-08-21 (substance-write-grain arc) — declared here since the initial
+    # commit, implemented by no backend, called by nobody; the universal
+    # backend's __getattr__ laundered the structural gap. Node-counter reads
+    # belong to the staged Curriculum model methods (see deferred-work.md
+    # § Per-Node Substance Counters), not to this port.
 
     # =========================================================================
     # CURRICULUM INTEGRATION    # =========================================================================
@@ -920,12 +923,12 @@ class PsOperations(
 
     async def find_kus_practiced_by_event(
         self, event_uid: str
-    ) -> Result[list[dict[str, Any]]]:  # boundary: returns {ku_uid}
-        """Find KU UIDs practiced by a completed event via PRACTICES relationship."""
+    ) -> Result[list[dict[str, Any]]]:  # boundary: returns {knowledge_uid}
+        """Find knowledge UIDs practiced by a completed event via APPLIES_KNOWLEDGE."""
         ...
 
     async def increment_practice_count(
-        self, ku_uid: str, occurred_at: str
+        self, knowledge_uid: str, occurred_at: str
     ) -> Result[list[dict[str, Any]]]:  # boundary: returns {new_count}
         """Increment practice count and update last_practiced_date."""
         ...

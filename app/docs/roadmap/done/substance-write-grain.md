@@ -1,8 +1,15 @@
 # Substance-Write Grain — the `ku_uid` That May Not Be a Ku
 
-*Live plan. Scheduled 2026-08-20. Case file for the register entry in
-`deferred-work.md` § Substance-Write Grain; move to `docs/roadmap/done/` when nothing
-in it remains open.*
+*✅ ARC CLOSED 2026-08-21 — executed with item C riding, as scheduled. Nothing
+below remains open: the two threads the arc surfaced graduated to their own
+register sections (`deferred-work.md` § KnowledgePracticed Subscriber and
+§ Per-Node Substance Counters). The closure record — re-run census results,
+Mike's three rulings (grain-agnostic rename to `knowledge_uid`;
+`KnowledgePracticed` earns a subscriber; the unread counter arm stays staged),
+and the shipped `collect(DISTINCT ps)`/`FOREACH` Cypher fix — lives in
+`deferred-work.md` § Substance-Write Grain — ARC CLOSED. The text below is the
+investigation order as it stood when the arc was taken, kept for its method
+record (five falsified premises, and how each was caught).*
 
 Take the **Substance-Write Grain** item from `docs/roadmap/deferred-work.md`
 (§ "the `ku_uid` That May Not Be a Ku", scheduled 2026-08-20). It carries item C of the
