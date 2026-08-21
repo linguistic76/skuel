@@ -69,6 +69,15 @@ def test_no_stale_exemptions() -> None:
     assert not stale, f"exemptions for handlers that no longer exist: {stale}"
 
 
+def test_csrf_exempt_holds_exactly_the_by_design_entries() -> None:
+    # Device-pairing enrollment is the SOLE sanctioned CSRF exemption — kept
+    # exempt by design (sessionless one-time pairing code, ADR-075). A new
+    # programmatic endpoint takes the bearer-token path instead
+    # (docs/roadmap/programmatic-client-auth-csrf.md); adding an entry here
+    # without that ruling converts an interim escape hatch back into the norm.
+    assert set(CSRF_EXEMPT) == {("device_routes.py", "enroll_device_api")}
+
+
 # ── POST shadowing-collision guard ───────────────────────────────────────────
 # FastHTML's @rt(path) with no methods= registers BOTH GET and POST; Starlette
 # matches the first-registered route, so a page handler declared first as bare

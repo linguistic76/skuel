@@ -102,8 +102,9 @@ bearer token (this scheme) rather than carrying a CSRF token.
 5. **Leave the device-pairing exemption alone** (`device_routes.py:enroll_device_api` —
    sessionless one-time pairing code, ADR-075; permanent by design; bearer tokens don't
    apply to a not-yet-enrolled device). `./dev audit-routes` must stay green with
-   `CSRF_EXEMPT` holding exactly that one entry, and `test_route_security_audit.py`
-   enforces the table.
+   `CSRF_EXEMPT` holding exactly that one entry —
+   `test_csrf_exempt_holds_exactly_the_by_design_entries` in
+   `test_route_security_audit.py` asserts the exact table contents.
 
 ## Acceptance
 
