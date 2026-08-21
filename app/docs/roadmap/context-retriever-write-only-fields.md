@@ -272,9 +272,15 @@ sound for both permissive (`:Entity`) and strict (`:Event`) targets. Graph now: 
 `:EventTemplate` nodes** — but it becomes live the moment anyone creates one through the PathStep
 template routes.
 
-**✅ RULED (Mike, 2026-08-21): rename the vault field to `event_uids`.** The behaviour is proven
-correct — it is the label that lies. Retargeting the edge at `EventTemplate` was the alternative
-and is **rejected**; do not reopen it. Scope, measured before scoping: `yaml_field_path` in
+**⏸️ RENAME HELD (Mike, 2026-08-21). Do not execute it yet.**
+
+Mike first ruled *rename to `event_uids`*, on the framing "the behaviour is proven correct — it is
+the label that lies", with retargeting the edge at `EventTemplate` rejected. **He then held it**
+once the type-system finding landed: if the answer is Templates, the label was right all along and
+the **target** is wrong — the option that ruling rejected. Renaming now would move toward a model
+the arc may be leaving. **Resume only after the template-vs-activity question is settled.**
+
+Scope, if it is resumed — measured before scoping: `yaml_field_path` in
 `relationship_registry.py:1861`, one test (`test_ingestion_edge_and_wiring.py:439`), three
 authoring docs (`CURRICULUM_DEVELOPER_GUIDE.md`, `UNIFIED_INGESTION_GUIDE.md`,
 `yaml-to-graph.md`), a **regenerated** `docs/reference/GRAPH_CONTRACT.yaml` (drift-tested — run

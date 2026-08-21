@@ -974,6 +974,32 @@ the vault without authoring a user-owned entity. **That is the design question
 for the fresh context** — bigger than the four ownership entries, and upstream of
 them.
 
+**The question, in plain terms** (the first framing was too abstract to answer —
+Mike said so, fairly). *When you write a lesson in the vault and want to say
+"practise this by doing X", what should X be?*
+
+| | X is a **Template** | X is an **Activity** (today's fields) |
+|---|---|---|
+| what it means | a curriculum-owned *pattern* — "a 2-min evening check-in". On engagement the app spawns **the learner's own copy** | the lesson points at **one real Habit/Event** that belongs to somebody |
+| ownership | shared → shared; no boundary crossed | shared → user-owned; **every learner sees the author's item** (the P1) |
+| type system | `*Template` is `content_origin=curriculum`, `requires_user_uid=False` ✅ | activities are `user_created`, `requires_user_uid=True` ✗ |
+| works today? | **no** — templates are not vault-ingestible at all | yes, and that is how the P1 arose |
+
+**Mike's leaning (2026-08-21): make Templates vault-ingestible** — *"Templates are
+a basic part of this app and must be easy to use and understand."* ⚠️ Recorded as
+a **leaning, not a ruling**: Mike said the question as first put to him was
+unclear, so the fresh context should re-put it using the table above and confirm
+before building. The leaning is well-aligned — templates are already the app's
+stated model (CLAUDE.md: *"Activity Templates — PS-owned, spawn instances on
+engagement"*) — but it implies real work: a new vault ingestion path for six
+template types.
+
+**✅ Ruled firmly (Mike, 2026-08-21): HOLD the `event_template_uids` → `event_uids`
+rename** until this is settled. That rename was ruled on the framing "the
+behaviour is right, the label lies". If the answer is Templates, the label was
+right and the **target** is wrong — the option that ruling rejected. Do not
+rename toward a model we may be leaving.
+
 ⚠️ Not established, and worth checking before acting: whether the direct-edge
 channels were *intended* for something else (a teacher linking a PathStep to a
 real personal habit as an exemplar), which would make them correct-but-misused
