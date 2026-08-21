@@ -511,11 +511,14 @@ The `delete()` method's `cascade` parameter controls how entities with relations
 When you create an entity with a `user_uid`, the backend **automatically creates a user-entity relationship**:
 
 ```
-(User)-[:HAS_TASK]->(Task)
-(User)-[:HAS_GOAL]->(Goal)
-(User)-[:HAS_EVENT]->(Event)
+(User)-[:OWNS]->(Task)
+(User)-[:OWNS]->(Goal)
+(User)-[:OWNS]->(Event)
 ...
 ```
+
+(One universal `:OWNS` edge — the per-domain `HAS_TASK`/`HAS_GOAL`/`HAS_EVENT` names exist in
+`RelationshipName` but no write door creates them.)
 
 Neo4j correctly refuses to delete nodes that have existing relationships. This enforces referential integrity.
 
