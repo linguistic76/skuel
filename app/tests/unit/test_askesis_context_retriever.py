@@ -97,7 +97,6 @@ class TestLoadLsBundlePartialFailure:
 
         retriever = ContextRetriever(
             graph_intel=_make_graph_intel(),
-            embeddings_service=MagicMock(),
             ps_service=_ok_service(ku),
             ku_service=MagicMock(get=AsyncMock()),  # no KU UIDs to fetch
             habits_service=_ok_service(habit),
@@ -127,7 +126,6 @@ class TestLoadLsBundlePartialFailure:
 
         retriever = ContextRetriever(
             graph_intel=_make_graph_intel(),
-            embeddings_service=MagicMock(),
             ps_service=_failing_service("ps service down"),
             ku_service=MagicMock(get=AsyncMock()),
             habits_service=_ok_service(habit),
@@ -156,7 +154,6 @@ class TestLoadLsBundlePartialFailure:
 
         retriever = ContextRetriever(
             graph_intel=_make_graph_intel(),
-            embeddings_service=MagicMock(),
             ps_service=_ok_service(ku),
             ku_service=MagicMock(get=AsyncMock()),
             habits_service=_ok_service(habit),
@@ -180,7 +177,6 @@ class TestLoadLsBundlePartialFailure:
         """Every fetch crashes — bundle contains only the PS entity itself."""
         retriever = ContextRetriever(
             graph_intel=_make_graph_intel(),
-            embeddings_service=MagicMock(),
             ps_service=_failing_service("lessons down"),
             ku_service=_failing_service("kus down"),
             habits_service=_failing_service("habits down"),
@@ -207,7 +203,6 @@ class TestLoadLsBundlePartialFailure:
         """No active PS in context → Result.fail(not_found)."""
         retriever = ContextRetriever(
             graph_intel=_make_graph_intel(),
-            embeddings_service=MagicMock(),
             ps_service=MagicMock(),
             ku_service=MagicMock(),
             habits_service=MagicMock(),
@@ -232,7 +227,6 @@ class TestLoadLsBundlePartialFailure:
 
         retriever = ContextRetriever(
             graph_intel=_make_graph_intel(),
-            embeddings_service=MagicMock(),
             ps_service=_ok_service(ku),
             ku_service=MagicMock(get=AsyncMock()),
             habits_service=_failing_service("habits timeout"),
@@ -272,7 +266,6 @@ class TestLoadLsBundlePartialFailure:
 
         retriever = ContextRetriever(
             graph_intel=_make_graph_intel(),
-            embeddings_service=MagicMock(),
             ps_service=_ok_service(ku),
             ku_service=MagicMock(get=AsyncMock()),
             habits_service=MagicMock(get=AsyncMock()),
@@ -300,7 +293,6 @@ class TestLoadLsBundlePartialFailure:
 
         retriever = ContextRetriever(
             graph_intel=_make_graph_intel(),
-            embeddings_service=MagicMock(),
             ps_service=_ok_service(ku),
             ku_service=MagicMock(get=AsyncMock()),
             habits_service=MagicMock(get=AsyncMock()),
@@ -387,7 +379,6 @@ class TestFetchKusEdgeDerived:
     def _retriever(self, ku_service: Any) -> ContextRetriever:
         return ContextRetriever(
             graph_intel=_make_graph_intel(),
-            embeddings_service=MagicMock(),
             ps_service=MagicMock(),
             ku_service=ku_service,
             habits_service=MagicMock(),
@@ -484,7 +475,6 @@ class TestFetchRelatedPathStepsTypeFilter:
         ps_service = MagicMock(get=AsyncMock(side_effect=_get))
         retriever = ContextRetriever(
             graph_intel=_make_graph_intel(),
-            embeddings_service=MagicMock(),
             ps_service=ps_service,
             ku_service=MagicMock(),
             habits_service=MagicMock(),
@@ -513,7 +503,6 @@ def _make_context_retriever_with_router(router: Any) -> ContextRetriever:
     """Build a minimal ContextRetriever with a post-wired search_router."""
     retriever = ContextRetriever(
         graph_intel=_make_graph_intel(),
-        embeddings_service=MagicMock(),
         ps_service=MagicMock(),
         ku_service=MagicMock(),
         habits_service=MagicMock(),

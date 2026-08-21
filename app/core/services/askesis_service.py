@@ -197,7 +197,6 @@ class AskesisService:
 
         self.context_retriever = ContextRetriever(
             graph_intel=deps.graph_intel,
-            embeddings_service=deps.embeddings_service,
             # search_router is post-wired in compose (built after Askesis)
             # PS bundle dependencies
             ps_service=deps.knowledge_service,
