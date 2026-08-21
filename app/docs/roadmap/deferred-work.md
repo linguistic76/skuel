@@ -923,6 +923,47 @@ modelled, exactly as suspected.
 That makes the P1 a **known-cause bug rather than an open design question** —
 tractable, and squarely in the ownership group below.
 
+### 🔑 But the type system already answers this, and its answer is TEMPLATES
+
+Measured 2026-08-21 via `EntityType.<T>.content_origin()`:
+
+| entity | `content_origin` |
+|---|---|
+| `Habit` / `Event` / `Principle` | **`user_created`** |
+| `HabitTemplate` / `EventTemplate` / `PrincipleTemplate` | **`curriculum`** |
+
+So **"a shared curriculum Habit" is not representable — by design.** The
+curriculum-side representation of an activity *is* the Template (CLAUDE.md's
+tier B). Combined with Mike's ruling that `0vault` is shared curriculum, it
+follows that **content-vault activity files are authoring the wrong entity
+type**: they should be `HabitTemplate` / `EventTemplate` / `PrincipleTemplate`,
+not `Habit` / `Event` / `Principle`.
+
+Which reframes the P1's root cause once more: the direct-edge channels point
+**curriculum at user-owned instances** — that is the boundary violation — while
+the template channels (`HAS_HABIT_TEMPLATE` → `HabitTemplate`) point curriculum
+at curriculum and violate nothing. ⚠️ **Way 2 may be right after all**, for a
+type-system reason rather than the ownership one.
+
+⚠️ **And here is the actual gap: neither path is currently usable.**
+
+- The **correct** entity type (Template) is **not vault-ingestible** — no
+  reference to any `*Template` class exists under `core/services/ingestion/`
+  (verified). It can only be created through the PathStep template routes in the
+  app.
+- The **authorable** entity type (Activity, via `habit_uids` etc.) is
+  user-created and crosses the ownership boundary.
+
+So a content author cannot currently express "this lesson has this practice" in
+the vault without authoring a user-owned entity. **That is the design question
+for the fresh context** — bigger than the four ownership entries, and upstream of
+them.
+
+⚠️ Not established, and worth checking before acting: whether the direct-edge
+channels were *intended* for something else (a teacher linking a PathStep to a
+real personal habit as an exemplar), which would make them correct-but-misused
+rather than wrong.
+
 ⚠️ **This is the read-side facet of a question three other entries in this file
 already circle** (Mike, 2026-08-21). The root: **ownership is declared in three
 places — the `user_uid` property, the `(User)-[:OWNS]->` edge, and DomainConfig's
