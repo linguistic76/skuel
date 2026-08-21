@@ -124,16 +124,33 @@ The inherited June-2026 claim (*"all ~20 activity→knowledge edges target `path
 
 **28 of 32 now target a real `:Ku`.** Two things follow, and both re-shape this arc:
 
-1. **The live substance channel is `EntryGroundingService` (UserEntry → Ku)** — so
-   `KnowledgeReflectedInEntry` is the hot handler. The two *event* writers this document spends
-   most of its words on are the quiet ones. Re-weight the investigation accordingly.
-2. **The orphan-Ku case is live, and it is the majority case.** 69 of 124 Kus (56%) have no
-   composing PathStep. Of the 17 Kus actually receiving substance writes, **9 are orphaned** and 8
-   composed. Nodes with a non-zero counter today: 1 Ku, 2 PathSteps.
+1. **The live channel is UserEntry → Ku**, so `KnowledgeReflectedInEntry` is the hot handler and
+   the two *event* writers this document spends most of its words on are the quiet ones.
+   ⚠️ **That channel has TWO writers, not one** — `UserEntryProcessingService`
+   (`user_entry_processing_service.py:588-619`, explicit `@ku()` refs) and `EntryGroundingService`
+   (`entry_grounding_service.py:287-314`, vector grounding). CLAUDE.md says so directly: *"two
+   writers, one `KnowledgeReflectedInEntry` event"*. They have different idempotency behaviour.
+   Scope the investigation to the channel, and break the 28 down by provenance before attributing
+   anything to one service.
+2. **The orphan-Ku case is live and is the majority case — measured by edges, not endpoints:**
 
-So **9 of 17 (53%)** of substance writes hitting Kus set a property `Ku` cannot read, credit no
-PathStep, and return `ok(0)`. Item 1 above is not a hypothesis — it is losing more than half of
-the only channel in active use. Start there.
+| | edges | distinct Kus |
+|---|---|---|
+| target an **orphaned** Ku (no composing PathStep) | **17** | 9 |
+| target a **composed** Ku | 11 | 8 |
+
+**17 of 28 (61%)** of the live `APPLIES_KNOWLEDGE` edges point at a Ku with no composing PathStep.
+Corpus-wide, 69 of 124 Kus (56%) are orphaned.
+
+And the counters are moving broadly: **38 Kus carry a non-zero substance counter, 19 of them
+orphaned.** Those 19 hold accumulated substance that the `Ku` model cannot read and that credited
+no PathStep.
+
+⚠️ **Two measurement corrections worth copying as method** (both caught on #1111): an earlier
+draft said "9 of 17 (53%) of writes" — that counted **distinct endpoints**, not writes, and the
+edge-weighted figure is different (61%). It also said "1 Ku has a non-zero counter", because the
+query checked only 2 of the 4 counter fields; the real figure is 38. **Count the quantity you are
+about to name, and enumerate every field of a family before reporting a total.**
 
 ⚠️ A snapshot, not a constant — re-run if much time has passed. The point of the June example is
 that a quoted number decays; this one will too.

@@ -968,21 +968,32 @@ register said re-probe rather than quote:
 | `REQUIRES_KNOWLEDGE` goal → path_step | 1 |
 | `APPLIES_KNOWLEDGE` task → path_step | 1 |
 
-**28 of 32 target a real `:Ku`.** The grain flipped. The live substance channel is
-**`EntryGroundingService` (UserEntry → Ku)**, not the Event paths this entry
-spends most of its words on — so `KnowledgeReflectedInEntry` is the hot handler
-and the two event writers are the quiet ones. Re-scope accordingly.
+**28 of 32 target a real `:Ku`.** The grain flipped. The live channel is
+**UserEntry → Ku**, not the Event paths this entry spends most of its words on —
+so `KnowledgeReflectedInEntry` is the hot handler and the event writers are quiet.
+⚠️ That channel has **two writers** (`UserEntryProcessingService:588-619` and
+`EntryGroundingService:287-314`) — CLAUDE.md's *"two writers, one
+`KnowledgeReflectedInEntry` event"*. Break the 28 down by provenance before
+attributing anything to one service.
 
-**The orphan-Ku bug is live and sized:**
+**The orphan-Ku bug is live and sized — by edges, not endpoints:**
 
-- **69 of 124 Kus (56%)** have no composing PathStep.
-- Of the **17** Kus actually receiving substance writes, **9 are orphaned**, 8 composed.
-- Nodes with a non-zero counter today: 1 Ku, 2 PathSteps.
+| | edges | distinct Kus |
+|---|---|---|
+| target an **orphaned** Ku | **17** | 9 |
+| target a **composed** Ku | 11 | 8 |
 
-So **9 of 17 (53%)** of the substance writes landing on Kus today set a property
-the `Ku` model cannot read, credit **no** PathStep, and return `ok(0)`. That is
-the `WHERE ps IS NOT NULL` defect losing more than half of the one channel in
+**17 of 28 (61%)** of live `APPLIES_KNOWLEDGE` edges point at a Ku with no
+composing PathStep; corpus-wide 69 of 124 Kus (56%) are orphaned. And **38 Kus
+carry a non-zero substance counter, 19 of them orphaned** — accumulated substance
+the `Ku` model cannot read that credited no PathStep.
+
+That is the `WHERE ps IS NOT NULL` defect on the majority of the one channel in
 active use — a concrete target, not a hypothesis.
+
+⚠️ **Method, learned here:** a first draft said "53% of writes" while counting
+**distinct endpoints**, and "1 Ku has a counter" while querying **2 of the 4**
+counter fields. Count the quantity you name; enumerate the whole field family.
 
 ⚠️ Snapshot, not a constant. Re-run before acting if much time has passed.
 
