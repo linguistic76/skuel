@@ -173,8 +173,24 @@ counter) and **the event and habit handlers have demonstrably never incremented 
 entity type**. ⚠️ This establishes *past execution*, not current frequency — but it is enough to
 say the two event writers this document opens with have never once fired, and to start elsewhere.
 
-**The 10 PathSteps also show the roll-up working**: composed Kus credited their composing
-PathSteps, exactly as the path-2 table predicts. The defect is confined to the orphaned half.
+⚠️ **The 10 PathSteps do NOT prove the roll-up works — a draft claimed they did.**
+`increment_substance` sets the counter on whatever `:Entity` the uid names, so a **PathStep-targeted
+write** and a **Ku→PathStep roll-up** produce byte-identical state. Without event/edge history the
+two are indistinguishable, and this graph *does* contain PathStep-targeted edges
+(`APPLIES_KNOWLEDGE task → path_step`).
+
+The snapshot can still **bound** it. Asking whether each counter-bearing PathStep composes a
+counter-bearing Ku:
+
+| | PathSteps |
+|---|---|
+| composes ≥1 counter-bearing Ku — **consistent with** roll-up | 9 |
+| composes none — **must be** a direct write | **1** |
+
+So at least one is definitely direct, and nine are *consistent with* roll-up without being proof
+of it (a direct write to a PathStep that happens to compose a counter-bearing Ku looks identical).
+**Do not use this to confine the defect to the orphaned half** — that needs the provenance
+correlation, not the topology.
 
 38 Kus carry some counter; **19 of them are orphaned** — accumulated substance the `Ku` model
 cannot read, which credited no PathStep.

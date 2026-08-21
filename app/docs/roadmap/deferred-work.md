@@ -1010,9 +1010,16 @@ has demonstrably executed**, and the **event and habit handlers have never
 incremented anything on any entity type**. (Past execution, not current
 frequency — but enough to start elsewhere than the event writers.)
 
-The 10 PathSteps also show **the roll-up working** for composed Kus, exactly as
-the path-2 table predicts — the defect is confined to the orphaned half, where
-38 Kus carry a counter and **19 are orphaned**.
+⚠️ **The 10 PathSteps do NOT prove the roll-up works.** `increment_substance` sets
+the counter on whatever `:Entity` the uid names, so a PathStep-targeted write and
+a Ku→PathStep roll-up leave identical state; only provenance separates them, and
+this graph does contain PathStep-targeted edges. Bounded from the snapshot: **9
+of 10 compose a counter-bearing Ku (consistent with roll-up), 1 composes none and
+must therefore be a direct write.** Consistency is not proof — do not use it to
+confine the defect to the orphaned half.
+
+38 Kus carry a counter, **19 orphaned** — accumulated substance the `Ku` model
+cannot read, which credited no PathStep.
 
 ⚠️ **Method, learned here the hard way:** drafts said "53% of writes" while
 counting **endpoints**; "1 Ku has a counter" while querying **2 of 4** fields;
