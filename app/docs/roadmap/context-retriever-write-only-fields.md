@@ -103,9 +103,9 @@ engagement"). Any plan must either add the **student-scoped spawned-instance tra
 (`source_path_step_uid` / `SPAWNED_FROM`, necessarily user-scoped since instances are
 learner-owned) or state plainly that its payoff covers legacy directly-authored content only.
 
-### ✅ PROBED 2026-08-21 (AuraDB `d2d160c4`) — this arc is CONTENT-GATED. Do not build yet.
+### ✅ PROBED 2026-08-21 (AuraDB `d2d160c4`) — was content-gated; **resolved below**
 
-Both authoring paths are **completely unused**:
+At probe time both authoring paths were **completely unused**:
 
 | | count |
 |---|---|
@@ -129,10 +129,231 @@ activity entities exist; nothing has ever been linked to a PathStep by either ro
 3. **One Path Forward does not force a choice** — neither path superseded the other, because
    neither has ever been used. The "two competing authoring models" framing is premature.
 
-**Do this before writing any code:** author `habit_uids: [...]` on one PathStep in the vault,
-sync, and check whether the tutor picks it up. One line of content proves Way 1 end-to-end. If it
-works, this arc shrinks to "add the two missing channels the same way habits and tasks already
-work". If it does not, the defect is in ingestion and this document is looking in the wrong place.
+### ✅ THE TEST HAS BEEN RUN — 2026-08-21. **Way 1 works. This arc is now Option A.**
+
+The paragraph above prescribed one authored line; it was run on Mike's instruction. Paired on
+meaning rather than convenience — *"Managing Your Reactions"* ↔ *"Pause and Name One Reaction"*:
+
+```yaml
+# 0vault/Ps/Ps_dev/ps_managing-your-reactions.md
+habit_uids:
+  - habit.pause-and-name
+```
+
+Ingested through the **single-file** door (`UnifiedIngestionService.ingest_file`), deliberately
+**not** `ingest_directory` — a directory run propagates deletions, and that is not a risk worth
+taking on the live graph to test one line.
+
+| step | outcome |
+|---|---|
+| ingest | `success: True`, `relationships_created: 1` |
+| edge in graph | `(ps.self-management.managing-your-reactions)-[:BUILDS_HABIT]->(habit.pause-and-name)` ✅ |
+| MEGA-QUERY projection — `user_context_queries.py:829` pattern run verbatim | `practice_habits: [{uid: habit.pause-and-name, title: "Pause and Name One Reaction"}]` ✅ |
+
+**The vault → ingestion → graph → `graph_context` path is intact.** It had simply never been
+exercised. The table above becomes `BUILDS_HABIT` **1**; every other channel is still 0.
+
+⚠️ **Exactly what is proven, and what is not** — stated in the discipline this document's
+governing caveat demands. **Proven by direct observation:** the edge exists, and the MEGA-QUERY's
+own `practice_habits` pattern returns it. **Not run:** a live Askesis session.
+`load_ps_bundle` is user-scoped (it walks `active_path_steps_rich`), so observing it in the tutor
+requires that PathStep to be active for a user. That is user state; no part of the plumbing
+remains in doubt.
+
+### 🛑 P1 — OPTION A IS BLOCKED ON AN OWNERSHIP RULING (Codex, #1112, 2026-08-21)
+
+**A shared PathStep pointing at a user-owned activity crosses an ownership boundary.** Verified at
+every link:
+
+| link | verified |
+|---|---|
+| `Habit` / `Event` are `UserOwnedEntity` (OWNER_ONLY domains) | CLAUDE.md § Ownership Verification |
+| vault-authored activities are stamped with the vault owner | `habit.pause-and-name` and `event.evening-check-in` both carry `user_uid=user_admin` **and** a `(user_admin)-[:OWNS]->` edge |
+| the MEGA-QUERY projection has **no owner predicate** | `user_context_queries.py:829` — `OPTIONAL MATCH (ps)-[:BUILDS_HABIT]->(ps_habit:Habit)` |
+| the bundle fetch is **unscoped** | `_fetch_entities_by_uid` → `service.get(uid)` → `CrudOperationsMixin.get` (`:135`) takes **no `user_uid` and performs no ownership check**) |
+| the value reaches a prompt | `response_generator._build_guided_practice` renders `f"Habit: {habit.title}"` |
+
+So when that PathStep is active for **any learner other than the vault owner**, the owner's
+user-owned habit lands in that learner's `PsBundle` and Socratic prompt. Curriculum is SHARED;
+activities are USER_OWNED; a direct edge between them has no scoping anywhere along the path.
+
+⚠️ **This is the first instance in the graph, and this arc's own test created it.** Low
+sensitivity (a curriculum-flavoured habit title, owned by `user_admin`) — but it is the mechanism
+that matters, and building the events projection would multiply it.
+
+**And it reframes the whole Way-1-vs-Way-2 question.** The template + spawn model exists to give
+each learner *their own* instance — which is precisely the boundary a direct edge violates. Way 2
+may be architecturally right after all, rather than dead.
+
+**✅ RULED (Mike, 2026-08-21) — the vault ROOT decides ownership.**
+`/home/mike/0bsidian/0vault` (`INGESTION_PATH`) is **shared curriculum**;
+`/home/mike/0bsidian/skuel` (`VAULT_ROOT`) is **user-owned**. So content-vault activities are
+shared curriculum, and **the `user_uid=user_admin` + `:OWNS` stamp on them is the bug** — not the
+direct-edge model. Way 2 is **not** forced; Option A is architecturally sound.
+
+⚠️ **Cause — an earlier draft blamed `default_user_uid`, and that is WRONG** (Codex, #1112).
+Production installs a `VaultRegistry` (`compose.py:1433-1455`) and `_resolve_owner`
+(`unified_ingestion_service.py:351-371`) resolves content-vault paths to the content descriptor's
+**acts-as owner**. The two vault doors are already distinguished; changing `DEFAULT_USER_UID`
+would change nothing.
+
+**The ingestion layer already does the right thing** — its docstring: *"Only `requires_user_uid`
+entity types actually persist this owner; SHARED curriculum drops it."* Measured: `HABIT` /
+`EVENT` / `PRINCIPLE` → `requires_user_uid=True`; `HABIT_TEMPLATE` / `EVENT_TEMPLATE` /
+`PATH_STEP` → `False`. The owner is persisted **because the entity type demands it**, not because
+a default leaked. **The actionable cause is the type choice** — a USER_CREATED activity type
+authored where a curriculum template is required, which is the finding below reached from the
+other direction.
+
+So the P1 is a **known-cause bug, not an open design question**. What still needs deciding is the
+general one it shares with three sibling entries in `deferred-work.md`: what enforces ownership on
+a read that does not pass through SearchRouter?
+
+**Until this is ruled, the verdict below is suspended.** The mechanism findings stand; the
+recommendation does not.
+
+---
+
+**Verdict — Option A in shape, but ⚠️ the test does NOT generalize to events.** ⚠️ **Suspended by
+the P1 above.** The arc is no
+longer "which of two authoring models should the tutor see?": Way 2 (templates + spawn) stays
+entirely unused and needs no decision, and the projection + `_fetch_entities_by_uid` +
+`total_practice_opportunities` shape is right. ⚠️ Populate through the projection — **never** by
+giving the phantom `get_practice_events` a caller.
+
+⚠️ **But `habit_uids` is the most permissive of the six channels, and I generalized from it**
+(caught by Codex on #1112). The PathStep activity block's target labels are not uniform:
+
+| vault field | edge | target label |
+|---|---|---|
+| `habit_uids` | `BUILDS_HABIT` | `:Entity` ← **the one tested** |
+| `choice_uids` | `INFORMS_CHOICE` | `:Entity` |
+| `task_uids` | `ASSIGNS_TASK` | `:Task` |
+| `goal_uids` | `SUPPORTS_GOAL` | `:Goal` |
+| `principle_uids` | `GUIDED_BY_PRINCIPLE` | `:Principle` |
+| **`event_template_uids`** | `SCHEDULES_EVENT` | **`:Event`** |
+
+`:Entity` matches every domain node, so the habit test cleared the lowest bar available. ⚠️ *At
+the time this table was written* the strict targets were untested — **both have since been tested
+and pass** (`:Event` and `:Principle`, below). `:Task` and `:Goal` remain untested, and no longer
+matter for this arc: `PsBundle` has no goals or choices field, so only habits, tasks, events and
+principles are in scope, and tasks share the already-working `practice_tasks` projection.
+
+**The events channel carries a specific, named hazard.** Its vault field is
+`event_template_uids` but its target is `:Event` — an *instance* label. `EventTemplate` nodes
+carry `NeoLabel.EVENT_TEMPLATE` (`"EventTemplate"`), so an author following the field name to an
+`EventTemplate` uid **matches nothing**. Meanwhile the live template path
+(`ps_engagement/_template_loader.py:64-70`) uses `HAS_EVENT_TEMPLATE` → `EventTemplate` — a
+different edge entirely.
+
+### ✅ EVENT TEST RUN — 2026-08-21. The strict-target channel works too.
+
+Run on Mike's instruction, on the one vault-authored event (the other five `:Event` nodes are a
+user's real calendar, not curriculum). Paired on meaning again — *"Noticing Your Patterns"*
+(objective: *"practice the 'pause and name' technique for real-time self-observation"*) ↔ a daily
+2-minute evening reflection:
+
+```yaml
+# 0vault/Ps/Ps_dev/ps_noticing-patterns.md
+event_template_uids:
+  - event.evening-check-in
+```
+
+| step | outcome |
+|---|---|
+| ingest (`ingest_file`) | `success: True`, `relationships_created: 1` |
+| edge in graph | `(ps.self-reflection.noticing-patterns)-[:SCHEDULES_EVENT]->(event.evening-check-in)` ✅ |
+| `practice_events` projection (`OPTIONAL MATCH (ps)-[:SCHEDULES_EVENT]->(ev:Event)`) | `[{uid: event.evening-check-in, title: "Evening Check-In — 2 min"}]` ✅ |
+
+**So the strict `:Event` target works when pointed at an Event instance** — the mechanism is
+sound for both permissive (`:Entity`) and strict (`:Event`) targets. Graph now: `BUILDS_HABIT` 1,
+`SCHEDULES_EVENT` 1.
+
+⚠️ **The hazard is confirmed as purely a NAMING hazard, and it survives the test.**
+`event_template_uids` needs an **Event instance** uid; an author following the field name to an
+`EventTemplate` matches nothing. That mistake is currently *impossible to make* — there are **zero
+`:EventTemplate` nodes** — but it becomes live the moment anyone creates one through the PathStep
+template routes.
+
+**⏸️ RENAME HELD (Mike, 2026-08-21). Do not execute it yet.**
+
+Mike first ruled *rename to `event_uids`*, on the framing "the behaviour is proven correct — it is
+the label that lies", with retargeting the edge at `EventTemplate` rejected. **He then held it**
+once the type-system finding landed: if the answer is Templates, the label was right all along and
+the **target** is wrong — the option that ruling rejected. Renaming now would move toward a model
+the arc may be leaving. **Resume only after the template-vs-activity question is settled.**
+
+Scope, if it is resumed — measured before scoping: `yaml_field_path` in
+`relationship_registry.py:1861`, one test (`test_ingestion_edge_and_wiring.py:439`), three
+authoring docs (`CURRICULUM_DEVELOPER_GUIDE.md`, `UNIFIED_INGESTION_GUIDE.md`,
+`yaml-to-graph.md`), a **regenerated** `docs/reference/GRAPH_CONTRACT.yaml` (drift-tested — run
+`scripts/generate_graph_contract.py`, never hand-edit), and the one vault file now using it.
+Clean rename, no alias, no deprecation (One Path Forward).
+
+⚠️ Two things that make it smaller than it looks, both verified: the raw frontmatter key **does
+not persist as a node property**, so no data migration is owed; and it is **not a PathStep model
+field**, despite `yaml-to-graph.md:151` listing it as one — a doc error to fix in the same pass.
+
+### ✅ PRINCIPLE TEST RUN — 2026-08-21. All three target classes now verified.
+
+Mike asked for the same treatment on principles. `principle_uids:
+[principle.observation-before-action]` added to the same PathStep (*"Noticing Your Patterns"* ↔
+*"Observation Before Action"* — its first learning objective is *"distinguish between experiencing
+a reaction and observing it"*). Ingested single-file; `GUIDED_BY_PRINCIPLE` edge landed against
+the strict `:Principle` target.
+
+**All three target classes are now proven for the correct-type case:** `:Entity` (habits),
+`:Event`, `:Principle`. Graph: `BUILDS_HABIT` 1, `SCHEDULES_EVENT` 1, `GUIDED_BY_PRINCIPLE` 1.
+
+⚠️ **But "nothing remains untested" was wrong — the WRONG-type case is open, and habits is the
+one channel exposed to it** (Codex, #1112). Writer and reader disagree only there:
+
+| channel | writer accepts | reader requires | |
+|---|---|---|---|
+| `BUILDS_HABIT` | **`:Entity`** — any entity at all | **`:Habit`** (`user_context_queries.py:829`) | ⚠️ **mismatch** |
+| `ASSIGNS_TASK` | `:Task` | `:Task` (`:843`) | agree |
+| `SCHEDULES_EVENT` | `:Event` | *(no reader yet)* | — |
+| `GUIDED_BY_PRINCIPLE` | `:Principle` | *(no reader yet)* | — |
+
+So `habit_uids: [task.something]` — a typo or a wrong-type paste — **creates a `BUILDS_HABIT`
+edge and is then silently ignored by the projection.** The pre-ingestion validator cannot catch
+it either: it validates against the declared target, `:Entity`, which matches everything. That is
+the SKUEL030 class (a name that matches zero rows instead of erroring), and it makes the
+*permissive* channel the **riskiest to author**, not the safest — the opposite of how the habit
+test was first framed.
+
+**Not tested here deliberately:** a wrong-type authoring test would put a junk edge in the live
+graph, and the code reading is decisive without it. **Fix option for whoever takes this:** change
+`BUILDS_HABIT`'s declared target from `Entity` to `Habit` so writer and reader agree and the
+validator can reject. ⚠️ Check first whether the permissive target was deliberate — habits are the
+one channel where a PathStep might legitimately point at something broader.
+
+⚠️ **The two halves are gated on DIFFERENT things — do not lump them as "content-gated."** After
+both authoring tests, the state per `PsBundle` channel is:
+
+| channel | content authored | `graph_context` projection | `load_ps_bundle` fetch | tutor sees it? |
+|---|---|---|---|---|
+| **habits** | ✅ 1 edge | ✅ exists | ✅ `_fetch_entities_by_uid` | **yes** — end-to-end today |
+| **tasks** | none | ✅ exists | ✅ | needs content only |
+| **events** | ✅ 1 edge | ❌ **missing** | ❌ **hardcoded `[]`** (`:505`) | **CODE-GATED — build this** |
+| **principles** | ✅ 1 edge | ❌ **missing** | ❌ **hardcoded `[]`** (`:506`) | **CODE-GATED — same as events** |
+
+**Events is now code-gated, not content-gated** — the edge exists and is queryable. ⚠️ But it takes
+**both** halves of the change, not just the projection: `load_ps_bundle` hardcodes
+`events: list[Any] = []` at `context_retriever.py:505`, so a `practice_events` projection alone
+would still yield an empty bundle. Projection **and** the `_fetch_entities_by_uid` call are one
+change, and only together do they produce the payoff — the ENCOURAGING prompt naming *"Evening
+Check-In — 2 min"* on that PathStep. (An earlier draft promised that from the projection alone,
+contradicting the complete remedy stated further down this file.) ⚠️ **Principles is now code-gated too**, not content-gated — the principle test below authored
+`GUIDED_BY_PRINCIPLE`, so it needs exactly what events needs: projection + bundle fetch. Both
+channels are now in the same state; neither is waiting on content.
+
+⚠️ An earlier draft of this section said "one habit edge exists; the other five channels have
+none" — written *after* the event was authored, and it would have wrongly deferred the very wiring
+this verdict asks for (caught by Codex on #1112). ⚠️ **And then made the identical mistake one
+round later for principles** — authored the edge, left the table saying it had no content. Both
+channels now have content and both need projection + fetch, so **build them together**; there is
+no sequencing argument left between them.
 
 ⚠️ A snapshot, not a constant. Re-run before acting if much time has passed.
 
@@ -175,23 +396,25 @@ than visible content.
 **`TemplateBundle`** (`EventTemplate` / `PrincipleTemplate`), a different class. They are **not**
 evidence that `PsBundle`'s fields are consumed.
 
-### The verdict here is Mike's
+### Verdict — Option A in shape (2026-08-21); events half still open
 
-Plausible endings: **finish the wiring** (a MEGA-QUERY `graph_context` projection change, the
-`total_practice_opportunities` fix, and a `_fetch_entities_by_uid` call per channel — *not* a new
-`get_practice_*` caller) · **delete both halves** as an abandoned idea · **register as visible
-backlog** and leave the code. Per the phase directive a feature-shaped answer gets *"not now" +
-a named cost*.
+**Finish the wiring**, the way habits and tasks already work: a MEGA-QUERY `graph_context`
+projection per channel, a `_fetch_entities_by_uid` call per channel, and the
+`total_practice_opportunities` fix. ⚠️ *Not* a new `get_practice_*` caller — those are phantoms.
+
+The other endings are closed. **Delete both halves** is refuted: the path demonstrably works, and
+the fields are the injected half of a route that now has a live edge through it. **Two competing
+authoring models** was never the situation: Way 2 (templates + spawn) has zero edges and zero
+spawned instances, so nothing superseded anything.
 
 Both halves have their edges registered and already counted by `fetch_practice_counts`, so
 neither is built from scratch.
 
-⚠️ **The probe removes the tiebreaker this section used to offer.** It said payoff favoured
-events, because events has a direct consumer (the ENCOURAGING practice list) while principles
-reaches only `get_all_titles()`. Both are true of the *code* and neither matters yet: with all six
-channels at zero, neither half has a payoff today. **The honest recommendation is now: author one
-line of content and re-decide.** Splitting events from principles remains available, but pick the
-split on what you actually author, not on which consumer looks better on paper.
+⚠️ **Do not re-litigate the events-vs-principles tiebreaker on consumer strength.** An early draft
+argued payoff favoured events (a direct ENCOURAGING-prompt consumer) over principles (only
+`get_all_titles()`). That is true of the *code* and was never the deciding factor — with the
+channels near-empty, payoff follows **what gets authored**. Split them if you like, but split on
+content, not on which consumer reads better on paper.
 
 ⚠️ If the ending is "register it": `./dev bloat`'s PLANNED tier covers **events/methods/templates
 only**, so there is no tier for fields — which is exactly why an AST sweep found this and the
