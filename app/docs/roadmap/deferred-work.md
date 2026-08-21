@@ -809,11 +809,25 @@ is missing is only the `graph_context` projection plus a fetch in
 `load_ps_bundle`. Searching for `practice_principles` finds nothing because that
 is not the key name — a naming miss, not an absence.
 
-The tiebreaker is payoff, not cost. **Events** has a direct, learner-visible
-consumer: the Socratic ENCOURAGING prompt builds its practice list from habits,
-tasks *and* events, so it lists the first two and **never an event**.
-**Principles** reaches only `get_all_titles()` → `intent_classifier.py:291`, a
-matching-recall effect. Splitting them is available.
+⚠️ **"Only a projection and a fetch are missing" is TOO STRONG — there are two
+authoring paths.** Direct edges (`BUILDS_HABIT`/`SCHEDULES_EVENT`/
+`GUIDED_BY_PRINCIPLE`, written from Edge-YAML via `yaml_field_path`) are what the
+MEGA-QUERY projects. The current model is **templates**: `(PS)-[:HAS_EVENT_TEMPLATE]->`
++ `_SpawnOrchestrator` writing `SPAWNED_FROM` / `source_path_step_uid` on
+learner-owned instances — **not projected at all**. A `SCHEDULES_EVENT`
+projection populates only directly-authored PathSteps; template-based ones stay
+empty. Any plan must add the student-scoped spawned-instance traversal or state
+that its payoff covers legacy content only.
+
+The tiebreaker is payoff, not cost. **Events** has a direct consumer: the
+Socratic ENCOURAGING prompt builds its practice list from habits, tasks *and*
+events, so it can never name an event. **Principles** reaches only
+`get_all_titles()` → `intent_classifier.py:291`. Splitting them is available.
+⚠️ **Probe before believing the asymmetry:** every `BUILDS_HABIT`/
+`SCHEDULES_EVENT` occurrence in `core/services/` and `adapters/persistence/` is a
+**read** — no service writes them. Count `(:PathStep)-[:BUILDS_HABIT]->()` vs
+`(:PathStep)-[:HAS_EVENT_TEMPLATE]->()` on AuraDB. If the direct edges are
+near-zero the practice list is empty for everyone, and the asymmetry is illusory.
 
 ⚠️ **`get_practice_events` is a PHANTOM — do not plan to "give it a caller."**
 It, `get_practice_habits` and `get_practice_tasks` are declared on `PsOperations`

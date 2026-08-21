@@ -85,10 +85,32 @@ crashes). The real edges are `SCHEDULES_EVENT` and `GUIDED_BY_PRINCIPLE`; search
 
 `PsIntelligenceBackend.fetch_practice_counts` (`ps_intelligence_backend.py:135`) **already
 traverses all six channels** — `BUILDS_HABIT`, `ASSIGNS_TASK`, `SCHEDULES_EVENT`, `SUPPORTS_GOAL`,
-`GUIDED_BY_PRINCIPLE`, `INFORMS_CHOICE` — and returns per-domain counts. So the graph data, the
-edges and the vocabulary all exist for both halves. **What is missing is only the `graph_context`
-projection and the corresponding fetch in `load_ps_bundle`.** That makes "finish the wiring" a
-markedly smaller and more symmetric job than the earlier draft implied.
+`GUIDED_BY_PRINCIPLE`, `INFORMS_CHOICE` — and returns per-domain counts. So the edges and the
+vocabulary exist for both halves.
+
+⚠️ **But "only a projection and a fetch are missing" is TOO STRONG — there are two authoring
+paths, and the direct edges are only one of them** (Codex, #1110). Corrected:
+
+| Path | How the PS reaches an activity | Projected today? |
+|---|---|---|
+| **Vault-authored** | direct edge — `BUILDS_HABIT` / `SCHEDULES_EVENT` / `GUIDED_BY_PRINCIPLE`, written from Edge-YAML via `yaml_field_path` (`habit_uids`, `principle_uids`, …) | habits + tasks only |
+| **Template + spawn** | `(PS)-[:HAS_EVENT_TEMPLATE\|HAS_PRINCIPLE_TEMPLATE]->(*Template)`, then `_SpawnOrchestrator` writes `(instance)-[:SPAWNED_FROM]->(template)` + `source_path_step_uid` on the learner-owned instance | **no** |
+
+A `SCHEDULES_EVENT` projection therefore populates the bundle **only for
+directly-authored PathSteps** and returns empty for template-based ones — which
+`CLAUDE.md` calls the current model ("Activity Templates — PS-owned, spawn instances on
+engagement"). Any plan must either add the **student-scoped spawned-instance traversal**
+(`source_path_step_uid` / `SPAWNED_FROM`, necessarily user-scoped since instances are
+learner-owned) or state plainly that its payoff covers legacy directly-authored content only.
+
+⚠️ **And check the premise before promising a payoff at all.** Every `BUILDS_HABIT` /
+`SCHEDULES_EVENT` occurrence in `core/services/` and `adapters/persistence/` is a **read**
+(`OPTIONAL MATCH`, `WHERE exists(...)`); no service writes them — they arrive from vault
+ingestion or legacy data. So the "habits and tasks are listed, events never are" asymmetry below
+assumes the direct-edge channels populate **at all**. **Probe the live graph first** (AuraDB
+`d2d160c4`): count `(:PathStep)-[:BUILDS_HABIT]->()` vs `(:PathStep)-[:HAS_EVENT_TEMPLATE]->()`.
+If the direct edges are near-zero, the practice list is empty for everyone and the asymmetry is
+illusory — which changes the verdict completely.
 
 ⚠️ **Do not plan to "give `get_practice_events` its caller" — it is a PHANTOM.**
 `PsOperations` declares `get_practice_events` (`:768`), `get_practice_habits` (`:756`) and
@@ -107,9 +129,14 @@ only, never as an implementation check.)
 
 **Events has a real, learner-visible consumer.** `response_generator._build_guided_practice`
 (ENCOURAGING mode, `askesis_guided_practice` template) builds its practice list from
-`bundle.habits`, `bundle.tasks` **and `bundle.events`**. Because events is always empty, the
-Socratic prompt lists habits and tasks as practice and **never an event** — a real gap a learner
-experiences, not just an unfilled field.
+`bundle.habits`, `bundle.tasks` **and `bundle.events`**, so an always-empty events collection
+means the Socratic prompt can never name an event as practice.
+
+⚠️ **Whether that is a gap a learner actually experiences is contingent on the probe above.** The
+asymmetry only bites if habits and tasks *do* populate. If the direct edges are near-empty on the
+live graph, the practice list falls back to *"No specific practice activities linked."* for
+everyone, the events-vs-principles asymmetry is illusory, and the fix people want is the
+spawned-instance traversal rather than this field. Establish which world you are in first.
 
 **Principles has only indirect reach.** `PsBundle.get_all_uids()` / `get_all_titles()` include
 both collections; `intent_classifier.py:291` consumes `get_all_titles()`. So empty principles
