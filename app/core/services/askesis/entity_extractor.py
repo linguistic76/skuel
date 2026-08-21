@@ -30,6 +30,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from core.ports.base_protocols import HasTitle
 from core.services.askesis.types import EntityLookup
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -38,6 +39,11 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
 
     from core.models.askesis.ps_bundle import PsBundle
+    from core.models.event.event import Event
+    from core.models.goal.goal import Goal
+    from core.models.habit.habit import Habit
+    from core.models.pathways.path_step import PathStep
+    from core.models.task.task import Task
     from core.services.user import UserContext
 
 
@@ -62,11 +68,11 @@ class EntityExtractor:
 
     def __init__(
         self,
-        knowledge_service: EntityLookup,
-        tasks_service: EntityLookup,
-        goals_service: EntityLookup,
-        habits_service: EntityLookup,
-        events_service: EntityLookup,
+        knowledge_service: EntityLookup[PathStep],
+        tasks_service: EntityLookup[Task],
+        goals_service: EntityLookup[Goal],
+        habits_service: EntityLookup[Habit],
+        events_service: EntityLookup[Event],
     ) -> None:
         """
         Initialize entity extractor.
@@ -87,11 +93,11 @@ class EntityExtractor:
             habits_service: Habit facade — entity lookup by UID
             events_service: Event facade — entity lookup by UID
         """
-        self.knowledge_service: EntityLookup = knowledge_service
-        self.tasks_service: EntityLookup = tasks_service
-        self.goals_service: EntityLookup = goals_service
-        self.habits_service: EntityLookup = habits_service
-        self.events_service: EntityLookup = events_service
+        self.knowledge_service: EntityLookup[PathStep] = knowledge_service
+        self.tasks_service: EntityLookup[Task] = tasks_service
+        self.goals_service: EntityLookup[Goal] = goals_service
+        self.habits_service: EntityLookup[Habit] = habits_service
+        self.events_service: EntityLookup[Event] = events_service
 
         logger.info("EntityExtractor initialized")
 
@@ -227,11 +233,11 @@ class EntityExtractor:
     # PRIVATE - ENTITY EXTRACTION (GENERIC)
     # ========================================================================
 
-    async def _extract_matching_entities(
+    async def _extract_matching_entities[T: HasTitle](
         self,
         query_lower: str,
         uids: Iterable[str],
-        service: EntityLookup,
+        service: EntityLookup[T],
     ) -> list[dict[str, str]]:
         """Fetch entities by UID and return those whose title fuzzy-matches the query.
 

@@ -25,6 +25,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from core.models.type_hints import UserUID
+from core.ports.base_protocols import HasTitle
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -48,26 +49,35 @@ if TYPE_CHECKING:
 
 
 @runtime_checkable
-class EntityLookup(Protocol):
+class EntityLookup[T: HasTitle](Protocol):
     """Minimal protocol for a domain service used only for UID lookup.
 
-    Only requires ``async get(uid) -> Result[Any]``. All BaseService subclasses
+    Only requires ``async get(uid) -> Result[T]``. All BaseService subclasses
     satisfy this via CrudOperationsMixin, as do the domain facades.
+
+    **Parameterize it at every call site** — ``EntityLookup[Task]``, not a bare
+    ``EntityLookup``. An unparameterized slice returns ``Result[Any]``, and
+    ``.value.title`` is then unchecked, which reintroduces at the *result* the
+    same laundering this slice exists to remove at the *handle*. ``Result`` is
+    invariant (measured), so a single common return type is not available —
+    the type parameter is the only honest way to carry the model through.
+    ``HasTitle`` is the bound because that is what the consumers read.
     """
 
-    async def get(self, uid: str) -> Result[Any]: ...
+    async def get(self, uid: str) -> Result[T]: ...
 
 
 @runtime_checkable
-class KuLookup(Protocol):
+class KuLookup[T](Protocol):
     """Minimal protocol for the Ku facade — it names its getter differently.
 
     KuService exposes ``get_ku`` (not the BaseService ``get``), so it needs
     its own lookup slice — typing it as EntityLookup hid a crash behind the
-    ``Any``-typed deps container until the first real KU fetch.
+    ``Any``-typed deps container until the first real KU fetch. Unbound: its
+    consumers keep whole models, they do not read a common field.
     """
 
-    async def get_ku(self, uid: str) -> Result[Any]: ...
+    async def get_ku(self, uid: str) -> Result[T]: ...
 
 
 # ============================================================================
