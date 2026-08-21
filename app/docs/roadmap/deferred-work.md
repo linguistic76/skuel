@@ -891,15 +891,22 @@ of the six channels.** Target labels in the PathStep activity block differ:
 cleared); `task_uids` → `:Task`; `goal_uids` → `:Goal`; `principle_uids` →
 `:Principle`; **`event_template_uids` → `:Event`**.
 
-**Named hazard on the events half:** the field says *template*, the target is the
-*instance* label. `EventTemplate` nodes carry `NeoLabel.EVENT_TEMPLATE`, so an
-author following the field name matches **nothing**; and the live template path
-(`_template_loader.py:64-70`) uses `HAS_EVENT_TEMPLATE` → `EventTemplate`, a
-different edge. **Before closing the events half:** run an event-specific
-authoring test against a real `:Event` uid, **or** resolve the mismatch (rename
-the field to `event_uids`, or retarget the edge at `EventTemplate`) — a naming
-decision with authoring consequences, and Mike's to make. Principles is untested
-but has no mismatch.
+**✅ Event test run 2026-08-21 — the strict target works.** `event_template_uids:
+[event.evening-check-in]` on `ps.self-reflection.noticing-patterns` →
+`SCHEDULES_EVENT` edge landed, and a `practice_events` projection returns it. So
+the mechanism is sound for **both** permissive (`:Entity`) and strict (`:Event`)
+targets. Graph now: `BUILDS_HABIT` 1, `SCHEDULES_EVENT` 1.
+
+⚠️ **The hazard survives as a pure NAMING hazard.** `event_template_uids` needs an
+**Event instance** uid; an author following the field name to an `EventTemplate`
+matches nothing (and `_template_loader.py:64-70` uses a different edge,
+`HAS_EVENT_TEMPLATE`). Currently *impossible to hit* — zero `:EventTemplate`
+nodes exist — but live the moment one is created via the PathStep template
+routes. **Decide before then:** rename the field to `event_uids` (matches
+behaviour) or retarget the edge at `EventTemplate` (matches the name, changes
+semantics). Mike's call; it changes how content is authored. **Principles
+untested** (`:Principle`) — no mismatch, and Events is now a strict-target
+precedent, so low risk.
 
 ⚠️ Snapshot, not a constant. Re-run before acting if much time has passed.
 

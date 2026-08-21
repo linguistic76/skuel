@@ -188,12 +188,39 @@ carry `NeoLabel.EVENT_TEMPLATE` (`"EventTemplate"`), so an author following the 
 (`ps_engagement/_template_loader.py:64-70`) uses `HAS_EVENT_TEMPLATE` → `EventTemplate` — a
 different edge entirely.
 
-**So before closing the events half:** run an event-specific authoring test (point
-`event_template_uids` at a real `:Event` uid and confirm the edge lands), **or** resolve the
-field-name/target mismatch — the honest options being rename the field to `event_uids`, or retarget
-the edge at `EventTemplate`. That is a naming decision with authoring consequences and belongs to
-Mike. **Principles is untested too** (`:Principle`), though it has no name/target mismatch and is
-expected to behave like tasks and goals.
+### ✅ EVENT TEST RUN — 2026-08-21. The strict-target channel works too.
+
+Run on Mike's instruction, on the one vault-authored event (the other five `:Event` nodes are a
+user's real calendar, not curriculum). Paired on meaning again — *"Noticing Your Patterns"*
+(objective: *"practice the 'pause and name' technique for real-time self-observation"*) ↔ a daily
+2-minute evening reflection:
+
+```yaml
+# 0vault/Ps/Ps_dev/ps_noticing-patterns.md
+event_template_uids:
+  - event.evening-check-in
+```
+
+| step | outcome |
+|---|---|
+| ingest (`ingest_file`) | `success: True`, `relationships_created: 1` |
+| edge in graph | `(ps.self-reflection.noticing-patterns)-[:SCHEDULES_EVENT]->(event.evening-check-in)` ✅ |
+| `practice_events` projection (`OPTIONAL MATCH (ps)-[:SCHEDULES_EVENT]->(ev:Event)`) | `[{uid: event.evening-check-in, title: "Evening Check-In — 2 min"}]` ✅ |
+
+**So the strict `:Event` target works when pointed at an Event instance** — the mechanism is
+sound for both permissive (`:Entity`) and strict (`:Event`) targets. Graph now: `BUILDS_HABIT` 1,
+`SCHEDULES_EVENT` 1.
+
+⚠️ **The hazard is confirmed as purely a NAMING hazard, and it survives the test.**
+`event_template_uids` needs an **Event instance** uid; an author following the field name to an
+`EventTemplate` matches nothing. That mistake is currently *impossible to make* — there are **zero
+`:EventTemplate` nodes** — but it becomes live the moment anyone creates one through the PathStep
+template routes. **Decide before that happens:** rename the field to `event_uids` (matches
+behaviour), or retarget the edge at `EventTemplate` (matches the name, and changes semantics).
+Mike's call — it changes how content is authored.
+
+**Principles remains untested** (`:Principle`). No name/target mismatch, and the Event result is
+now a proven strict-target precedent, so the risk is low — but untested is untested.
 
 ⚠️ **What is still content-gated is the *payoff*, not the path.** One habit edge exists; the other
 five channels have none. Building the projection makes the tutor *capable* of naming events and
