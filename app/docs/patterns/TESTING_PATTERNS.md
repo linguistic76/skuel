@@ -31,7 +31,7 @@ For implementation guidance, see:
 Activity Domain entities have auto-created user relationships. Without `cascade=True`, cleanup fails:
 
 ```python
-# ❌ FAILS - Entity has HAS_TASK relationship
+# ❌ FAILS - Entity has OWNS relationship
 await tasks_backend.delete("task_test_001")
 # Error: "Cannot delete Task 'task_test_001' - has existing relationships"
 ```
@@ -89,12 +89,12 @@ for uid in entity_uids:
 
 | Domain | cascade=True Required | Reason |
 |--------|----------------------|--------|
-| **Tasks** | ✅ Yes | HAS_TASK auto-created |
-| **Goals** | ✅ Yes | HAS_GOAL auto-created |
-| **Habits** | ✅ Yes | HAS_HABIT auto-created |
-| **Events** | ✅ Yes | HAS_EVENT auto-created |
-| **Choices** | ✅ Yes | HAS_CHOICE auto-created |
-| **Principles** | ✅ Yes | HAS_PRINCIPLE auto-created |
+| **Tasks** | ✅ Yes | OWNS auto-created |
+| **Goals** | ✅ Yes | OWNS auto-created |
+| **Habits** | ✅ Yes | OWNS auto-created |
+| **Events** | ✅ Yes | OWNS auto-created |
+| **Choices** | ✅ Yes | OWNS auto-created |
+| **Principles** | ✅ Yes | OWNS auto-created |
 | **KU** | ❌ No* | No ownership relationship |
 | **PS** | ❌ No* | No ownership relationship |
 | **LP** | ❌ No* | No ownership relationship |
@@ -392,7 +392,7 @@ def test_<feature>_<scenario>():
 
 # Examples
 def test_task_creation_with_user_relationship():
-    """Test that creating a task auto-creates HAS_TASK relationship."""
+    """Test that creating a task auto-creates the OWNS relationship."""
     pass
 
 def test_cascade_delete_removes_relationships():

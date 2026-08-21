@@ -514,31 +514,58 @@ counts in the statistics block, not the length of the printed list — the info 
 ## `:OWNS` Writers That Skip `user_uid` (the staged attendee/gravity surface)
 
 Surfaced 2026-08-16 while closing the CRUD-door half of the `user_uid property == :OWNS owner`
-invariant. **Not a live bug — a tripwire for whoever wires the staged surface.**
+invariant; **facts re-verified 2026-08-21 against the code and the live AuraDB graph** — the
+original text mis-stated which edge gets written, which inverted its threat analysis. Corrected
+below. **Not a live bug — a tripwire for whoever wires the staged surface.**
 
-`UnifiedRelationshipService.create_user_relationship` writes the domain's
-`ownership_relationship` (`:OWNS` for every OWNER_ONLY domain) and **never touches the
-`user_uid` property**. Five methods call it, and all five are registered in `PLANNED_METHODS`
-(`scripts/detect_bloat.py`) — zero production callers today:
+`UnifiedRelationshipService.create_user_relationship` writes the **registry's**
+`ownership_relationship` (`core/models/relationship_registry.py` — per-domain, NOT `:OWNS`
+across the board) and **never touches the `user_uid` property**. Five methods call it, and all
+five are registered in `PLANNED_METHODS` (`scripts/detect_bloat.py`) — zero production callers
+today:
 
-| Method | File |
-|---|---|
-| `add_attendee` | `core/services/events/_orchestration_mixin.py` |
-| `create_user_event_relationship` | `core/services/events/_orchestration_mixin.py` |
-| `create_user_goal_relationship` | `core/services/goals_service.py` |
-| `create_user_habit_relationship` | `core/services/habits/_orchestration_mixin.py` |
-| `create_user_principle_relationship` | `core/services/principles/_gravity_mixin.py` |
+| Method | File | Edge it would write |
+|---|---|---|
+| `add_attendee` | `core/services/events/_orchestration_mixin.py` | `HAS_EVENT` |
+| `create_user_event_relationship` | `core/services/events/_orchestration_mixin.py` | `HAS_EVENT` |
+| `create_user_goal_relationship` | `core/services/goals_service.py` | `HAS_GOAL` |
+| `create_user_habit_relationship` | `core/services/habits/_orchestration_mixin.py` | `OWNS` |
+| `create_user_principle_relationship` | `core/services/principles/_gravity_mixin.py` | `OWNS` |
 
-`add_attendee` is the sharp one: it would give an attendee an `:OWNS` edge onto an Event whose
-`user_uid` is the *organiser*. Faceted search anchors on the edge, so the attendee would see
-another user's Event; the property-scoped strategies would not. That is an ownership edge doing
-a *participation* job — `:OWNS` is the wrong relationship for "attends", and the fix when this
-surface is wired is most likely a distinct edge (`ATTENDS`/`PARTICIPATES_IN`), not a second
-ownership writer.
+**The sharp ones are the Habits and Principles writers, not `add_attendee`.** Their registry
+edge IS `:OWNS`, and every edge-anchored ownership read traverses `:OWNS` — faceted search
+hard-anchors `(User)-[:OWNS]->` in `faceted_search_raw`, and `get_user_entities` + the GDPR
+cascade do the same. An adoption-flavored call (`strength="core"`, `commitment_level=…`) with a
+non-owner `user_uid` — which is what "a user adopts a principle" implies — would surface another
+user's Habit/Principle in that user's faceted search and cascade, while the property-scoped
+strategies (`build_search_visibility_clause` OWNER_ONLY = `n.user_uid = $user_uid`) disagree.
+
+`add_attendee` is internally coherent instead: it writes `HAS_EVENT`, `remove_attendee` deletes
+`HAS_EVENT`, `get_event_attendees` reads incoming `HAS_EVENT` — a self-consistent participation
+triple that no ownership read ever traverses. Its remaining sin is naming: an ownership-named
+edge doing a participation job (`RelationshipName.ATTENDS` exists, used by nothing). Similarly
+`create_user_goal_relationship` → `HAS_GOAL`: written by nothing else, read by nothing (its only
+readers were two dead legs in `get_recent_activities` — see below).
+
+**Live-graph ground truth (2026-08-21, AuraDB `d2d160c4`):** 199 `:OWNS` edges;
+`HAS_TASK`/`HAS_GOAL`/`HAS_EVENT`/`ATTENDS` do not exist as relationship types in the database
+at all. Note the generated `GRAPH_CONTRACT.yaml` still *documents* the three `HAS_*` edges in an
+"ownership" role because `generate_graph_contract.py` publishes the registry field — contract
+fiction until a ruling reconciles the registry with the `:OWNS` invariant.
+
+**Fixed 2026-08-21 (ride-along truth pass):** `cross_domain_backend.get_recent_activities`
+(the profile-hub stats path via `UserStatsAggregator`) traversed `(u)-[:HAS_TASK]->` /
+`(u)-[:HAS_GOAL]->` — so its completed-task and completed-goal legs had returned zero real rows
+since the initial commit, while the `OPTIONAL MATCH` + `collect({map})` shape emitted one
+phantom all-null activity per empty leg. Rewritten onto `:OWNS` with per-leg recency +
+phantom-free subqueries, matching `get_users_with_activity_counts` in the same file; pinned by
+`tests/integration/cross_domain/test_recent_activities.py`.
 
 **Enable when**: the attendee surface or any of the four gravity-link methods is wired. Whoever
 does it must decide the relationship *before* the first write — a wrong edge in the graph
-outlives the PR that wrote it.
+outlives the PR that wrote it, and a second `:OWNS` writer is the outcome to refuse. That
+decision belongs to the cross-cutting ownership bundle (Mike, 2026-08-21 — see the facet table
+under the Askesis read-side P1 entry), not to a drive-by wiring PR.
 
 **Check it is still latent**: each of the five must still have no production caller.
 ```bash
@@ -1029,7 +1056,7 @@ bundle never reaches it: `context_retriever.py` references neither
 
 | entry | facet of the same root |
 |---|---|
-| § `:OWNS` Writers That Skip `user_uid` | **write-side** — the property and the edge disagree; `add_attendee` would give an attendee `:OWNS` on an organiser's Event |
+| § `:OWNS` Writers That Skip `user_uid` | **write-side** — the property and the edge disagree; the Habits/Principles writers would put a second `:OWNS` on a non-owner (faceted-visible), while the Events/Goals writers would write `HAS_EVENT`/`HAS_GOAL` edges no ownership read traverses |
 | § `GroupService` Declares `OWNER_ONLY`… | **declaration-side** — a scoping claim the model cannot render |
 | § `User.uid` Has No Index or Constraint | its own text calls it "a live input to any future ruling that would move ownership reads onto the edge" |
 | **this P1** | **read-side** — a path that never reaches the composition point at all |

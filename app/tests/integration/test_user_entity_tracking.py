@@ -99,7 +99,7 @@ async def test_task_relationship_auto_creation(tasks_backend, test_user_uid, cre
         updated_at=datetime.now(),
     )
 
-    # Create task - should auto-create (User)-[:HAS_TASK]->(Task)
+    # Create task - should auto-create (User)-[:OWNS]->(Task)
     result = await tasks_backend.create(task)
     assert result.is_ok, f"Task creation failed: {result.error}"
 
@@ -112,7 +112,7 @@ async def test_task_relationship_auto_creation(tasks_backend, test_user_uid, cre
     assert total_count == 1, "Total count should be 1"
     assert tasks[0].uid == "task_test_001"
 
-    # Cleanup (cascade=True to remove auto-created HAS_TASK relationship)
+    # Cleanup (cascade=True to remove auto-created OWNS relationship)
     result = await tasks_backend.delete("task_test_001", cascade=True)
     assert result.is_ok, "Cleanup failed: Could not delete task"
 
@@ -621,7 +621,7 @@ async def test_relationship_access_tracking(tasks_backend, test_user_uid, create
     )
     assert result.is_ok
 
-    # Cleanup (cascade=True to remove auto-created HAS_TASK relationship)
+    # Cleanup (cascade=True to remove auto-created OWNS relationship)
     result = await tasks_backend.delete("task_access_001", cascade=True)
     assert result.is_ok, "Cleanup failed: Could not delete task"
 

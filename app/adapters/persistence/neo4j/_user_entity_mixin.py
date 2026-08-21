@@ -216,8 +216,8 @@ class _UserEntityMixin[T: DomainModelProtocol]:
 
         Args:
             user_uid: User UID,
-            relationship_type: Optional relationship type filter (e.g., "HAS_TASK")
-                              If None, uses default "HAS_{LABEL}" pattern
+            relationship_type: Optional relationship type filter.
+                              If None, defaults to OWNS (the edge both write doors create)
             filters: Optional filters on entity properties (status, priority, etc.),
             limit: Max results,
             offset: Pagination offset,
