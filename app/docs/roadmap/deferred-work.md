@@ -904,9 +904,24 @@ matches nothing (and `_template_loader.py:64-70` uses a different edge,
 nodes exist — but live the moment one is created via the PathStep template
 routes. **Decide before then:** rename the field to `event_uids` (matches
 behaviour) or retarget the edge at `EventTemplate` (matches the name, changes
-semantics). Mike's call; it changes how content is authored. **Principles
-untested** (`:Principle`) — no mismatch, and Events is now a strict-target
-precedent, so low risk.
+semantics). **✅ Mike ruled 2026-08-21: rename to `event_uids`** — the behaviour is
+proven correct, it is the label that lies. **Principles untested** (`:Principle`)
+— no mismatch, and Events is now a strict-target precedent, so low risk.
+
+⚠️ **The two halves are gated on DIFFERENT things — do not lump them as
+"content-gated."** Per `PsBundle` channel, after both tests:
+
+| channel | content | projection | tutor sees it? |
+|---|---|---|---|
+| **habits** | ✅ 1 edge | ✅ exists | **yes, end-to-end today** |
+| **tasks** | none | ✅ exists | needs content only |
+| **events** | ✅ 1 edge | ❌ missing | **CODE-GATED — build first** |
+| **principles** | none | ❌ missing | needs both |
+
+**Events is code-gated, not content-gated**: the edge exists and is queryable;
+only the missing `practice_events` projection keeps it out of the tutor. Adding
+it has an immediate payoff — the ENCOURAGING prompt would name *"Evening
+Check-In — 2 min"* that day. Principles is gated on both and can wait.
 
 ⚠️ Snapshot, not a constant. Re-run before acting if much time has passed.
 

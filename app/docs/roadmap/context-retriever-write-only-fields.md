@@ -222,10 +222,26 @@ Mike's call — it changes how content is authored.
 **Principles remains untested** (`:Principle`). No name/target mismatch, and the Event result is
 now a proven strict-target precedent, so the risk is low — but untested is untested.
 
-⚠️ **What is still content-gated is the *payoff*, not the path.** One habit edge exists; the other
-five channels have none. Building the projection makes the tutor *capable* of naming events and
-principles — it will still say *"No specific practice activities linked."* until those are
-authored too. Sequence accordingly: the code is small, the content is the long pole.
+⚠️ **The two halves are gated on DIFFERENT things — do not lump them as "content-gated."** After
+both authoring tests, the state per `PsBundle` channel is:
+
+| channel | content authored | `graph_context` projection | tutor sees it? |
+|---|---|---|---|
+| **habits** | ✅ 1 edge | ✅ exists | **yes** — end-to-end today |
+| **tasks** | none | ✅ exists | needs content only |
+| **events** | ✅ 1 edge | ❌ **missing** | **CODE-GATED — build this** |
+| **principles** | none | ❌ missing | needs both |
+
+**Events is now code-gated, not content-gated**: the edge exists and is queryable, and the only
+thing keeping it out of the tutor is that `practice_events` was never added to `graph_context`.
+Adding that projection has an **immediate, observable payoff** — the ENCOURAGING prompt would name
+*"Evening Check-In — 2 min"* on that PathStep the same day. **Principles is genuinely gated on
+both** and can wait for content.
+
+⚠️ An earlier draft of this section said "one habit edge exists; the other five channels have
+none" — written *after* the event was authored, and it would have wrongly deferred the very wiring
+this verdict asks for (caught by Codex on #1112). Sequence: **build the events projection first**,
+principles when there is something to project.
 
 ⚠️ A snapshot, not a constant. Re-run before acting if much time has passed.
 
