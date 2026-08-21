@@ -771,6 +771,57 @@ passing sweep would remove the symptom and leave the pattern.
 
 ---
 
+## ContextRetriever's Three Write-Only Fields (REGISTERED 2026-08-20)
+
+**Active queue.** Surfaced by the AST sweep in PR #1108 and deliberately left
+there — they are not that PR's case (write-only *deps copies*, all superseded).
+Registered rather than left in an untracked scratch file, for the same reason the
+arc below was: an open question nothing in the repo records is one nobody can
+find. Case file: `docs/roadmap/context-retriever-write-only-fields.md`.
+
+`ContextRetriever` assigns three `self.*` fields that nothing reads —
+`graph_intel` (`:185`), `events_service` (`:199`), `principles_service` (`:200`).
+**Two cases, probably two verdicts; do not batch them.**
+
+**A. `graph_intel`** — zero reads in-class and repo-wide, yet the constructor
+takes it (`:148`), the Args docstring describes it (`:174`), and the class
+docstring asserts *"Requires GraphIntelligenceService for graph queries."*
+Hypothesis (**unconfirmed**): superseded when `ku_backend`/`ps_backend` were
+injected *"migrated from inline Cypher"*. Date it with `git log -S` before
+deleting. ⚠️ `ASKESIS_ARCHITECTURE.md:537` is a **decoy** — that
+`self.graph_intel` is `ContextRelevanceEngine`'s own live field.
+
+**B. `events_service` + `principles_service`** — **staged, not dead**;
+`load_ps_bundle` says so in code (`events: list[Any] = []  # Event templates not
+yet in graph_context`). `PsBundle.principles`/`.events` exist and are permanently
+empty. The blocker is upstream and is a **query change, not a wiring job**: the
+MEGA-QUERY `graph_context` projection (`user_context_queries.py:889`) emits
+`practice_habits` and `practice_tasks` and no equivalent for the other two.
+⚠️ `total_practice_opportunities` is `size(ps_habits) + size(ps_tasks)` — adding
+channels without updating it makes it silently undercount.
+
+The halves are asymmetric, in building blocks **and** payoff:
+
+| | Registry key | Protocol method | Direct bundle consumer |
+|---|---|---|---|
+| events | `practice_events` registered | `get_practice_events` exists — ⚠️ zero callers | ✅ `response_generator.py:307` |
+| principles | none | none | ✗ indirect only |
+
+**Events has a learner-visible consequence:** the Socratic ENCOURAGING prompt
+builds its practice list from habits, tasks *and* events — so it lists habits and
+tasks and **never an event**. Principles reaches only `get_all_titles()` →
+`intent_classifier.py:291`, a matching-recall effect. ⚠️ `ps_engagement`'s
+`bundle.events`/`.principles` are a **different class** (`TemplateBundle`), not
+evidence of consumption.
+
+**Verdict is Mike's:** finish the wiring (events has the stronger case) · delete
+both halves · register as backlog. ⚠️ No PLANNED tier exists for *fields*
+(`./dev bloat` covers events/methods/templates), which is why an AST sweep found
+this and the tooling did not; `get_practice_events` is a method and could be
+registered in `PLANNED_METHODS`, where it is not today.
+
+---
+
 ## Substance-Write Grain — the `ku_uid` That May Not Be a Ku (SCHEDULED 2026-08-20)
 
 **Active queue, not trigger-gated.** Registered because it was an open defect
