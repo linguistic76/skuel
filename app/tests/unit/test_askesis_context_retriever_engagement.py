@@ -68,7 +68,6 @@ def _engagement_service(engagements_by_ps: dict[str, Engagement | None]) -> Magi
 def _retriever(engagement_service: Any | None) -> ContextRetriever:
     return ContextRetriever(
         graph_intel=MagicMock(),
-        embeddings_service=MagicMock(),
         ps_engagement_service=engagement_service,
     )
 

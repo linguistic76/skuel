@@ -42,26 +42,31 @@ async def test_askesis_service_wiring(skuel_app):
     # Verify askesis has all RAG dependencies
     askesis = services.askesis
 
-    # dependencies (RAG Orchestration)
-    assert hasattr(askesis, "user_service"), "Askesis missing user_service (Phase 1: UserContext)"
-    assert hasattr(askesis, "llm_service"), "Askesis missing llm_service (Phase 1: LLM generation)"
+    # Assert each dependency on the object that CALLS it, not on whatever object
+    # happens to hold a reference. This used to check `askesis.embeddings_service`
+    # / `askesis.knowledge_service` — copies AskesisService never read, so the
+    # assertions passed whether or not the code that uses them was wired, and the
+    # dead copies survived only because this test named them.
+    #
+    # ⚠️ Anchoring to a *different* unread copy is the same bug. `ContextRetriever`
+    # also merely stored `embeddings_service` (chunk retrieval goes through
+    # `search_router` since July 2026); that field and its constructor param are
+    # now deleted. The real caller of `create_embedding()` is IntentClassifier.
 
-    # dependencies (Semantic Search)
-    assert hasattr(askesis, "embeddings_service"), (
-        "Askesis missing embeddings_service (Phase 2: Semantic search)"
-    )
-    assert hasattr(askesis, "knowledge_service"), (
-        "Askesis missing knowledge_service (Phase 2.5: Entity extraction)"
-    )
-
-    # Verify dependencies are not None (actually wired)
+    # dependencies (RAG Orchestration) — called by the facade itself
     assert askesis.user_service is not None, "user_service is None (not wired in bootstrap)"
     assert askesis.llm_service is not None, "llm_service is None (not wired in bootstrap)"
-    assert askesis.embeddings_service is not None, (
-        "embeddings_service is None (not wired in bootstrap)"
+
+    # dependencies (Semantic Search) — IntentClassifier.create_embedding()
+    assert askesis.intent_classifier is not None, "intent_classifier is None (Phase 2)"
+    assert askesis.intent_classifier.embeddings_service is not None, (
+        "embeddings_service is None on IntentClassifier (Phase 2: Semantic search)"
     )
-    assert askesis.knowledge_service is not None, (
-        "knowledge_service is None (not wired in bootstrap)"
+
+    # dependencies (Entity extraction) — EntityExtractor.get(uid)
+    assert askesis.entity_extractor is not None, "entity_extractor is None (Phase 2.5)"
+    assert askesis.entity_extractor.knowledge_service is not None, (
+        "knowledge_service is None on EntityExtractor (Phase 2.5: Entity extraction)"
     )
 
     # Verify RAG method exists
@@ -71,8 +76,14 @@ async def test_askesis_service_wiring(skuel_app):
     print("✅ Askesis RAG wiring verified:")
     print(f"   - user_service: {type(askesis.user_service).__name__}")
     print(f"   - llm_service: {type(askesis.llm_service).__name__}")
-    print(f"   - embeddings_service: {type(askesis.embeddings_service).__name__}")
-    print(f"   - knowledge_service: {type(askesis.knowledge_service).__name__}")
+    print(
+        "   - embeddings_service: "
+        f"{type(askesis.intent_classifier.embeddings_service).__name__} (on IntentClassifier)"
+    )
+    print(
+        "   - knowledge_service: "
+        f"{type(askesis.entity_extractor.knowledge_service).__name__} (on EntityExtractor)"
+    )
     print("   - answer_user_question: Available")
 
 

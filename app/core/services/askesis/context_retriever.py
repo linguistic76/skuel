@@ -23,11 +23,14 @@ This service is part of the refactored AskesisService architecture:
 
 Architecture:
 - Requires GraphIntelligenceService for graph intelligence queries (optional)
-- Requires EmbeddingsService for semantic search (optional)
 - Uses UserContext for user state
 - Loads PS bundles for the Socratic pipeline
 
 March 2026: Absorbed former LSContextLoader into ContextRetriever — single retrieval service.
+August 2026: `embeddings_service` param deleted — stored, never read. Semantic
+retrieval left this class in July 2026 when chunk retrieval moved to SearchRouter;
+the parameter outlived it and an integration test was briefly re-anchored to the
+dead field. The embeddings caller is IntentClassifier.
 """
 
 from __future__ import annotations
@@ -137,12 +140,12 @@ class ContextRetriever:
     March 2026: Both services required — no graceful degradation.
     March 2026: Absorbed LSContextLoader — all retrieval in one service.
     July 2026: Chunk retrieval routed through SearchRouter (PR2 — Scoped Ask).
+    August 2026: `embeddings_service` deleted — July's reroute made it dead.
     """
 
     def __init__(
         self,
         graph_intel: Any,  # boundary: GraphIntelligenceService protocol not yet extracted
-        embeddings_service: Any,  # boundary: EmbeddingsService protocol not yet extracted
         # PS bundle dependencies — all required (fail-fast per SKUEL philosophy)
         ps_service: "EntityLookup[PathStep] | None" = None,
         ku_service: "KuLookup[Ku] | None" = None,
@@ -169,7 +172,6 @@ class ContextRetriever:
 
         Args:
             graph_intel: GraphIntelligenceService for graph intelligence queries
-            embeddings_service: EmbeddingsService for semantic search
             ps_service: For fetching full PathStep content (PS bundle)
             ku_service: For fetching full Ku objects from trains_ku_uids (PS bundle)
             habits_service: For fetching full Habit objects from graph_context (PS bundle)
@@ -181,7 +183,6 @@ class ContextRetriever:
             ps_backend: PsBackend for learning context and resource queries
         """
         self.graph_intel = graph_intel
-        self.embeddings_service = embeddings_service
 
         # SearchRouter — THE single path for external chunk (RAG) retrieval.
         # Post-wired in compose after the router is built (it is constructed
