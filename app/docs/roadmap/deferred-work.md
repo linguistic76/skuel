@@ -759,11 +759,67 @@ stopped being `Any`, mypy surfaced `PsService.attach_step_to_path` calling
 `self.repo.get_next_step_sequence(...)` — a method `PsBackend` has always
 implemented and the port had never declared. Now declared (cf. #1094).
 
-### C. The lying `ku_backend` fixture
+### C. The lying `ku_backend` fixture — now has a named vehicle
 
 `tests/integration/test_event_ku_practice_flow.py:61` — a fixture **named**
 `ku_backend` that constructs a `PsBackend` (`NeoLabel.PATH_STEP`, `PathStep`).
-**Ruled: bundle with whatever touches that file next; do not spend a PR on it.**
+Ruled a rider, not a PR. **Its vehicle is now scheduled: the substance-write
+grain arc below.** Riding that one specifically matters — the fixture's name is
+not a local typo, it is the test-side instance of a naming pattern that runs
+through the whole production chain (see the table there). Renaming it under any
+passing sweep would remove the symptom and leave the pattern.
+
+---
+
+## Substance-Write Grain — the `ku_uid` That May Not Be a Ku (SCHEDULED 2026-08-20)
+
+**Active queue, not trigger-gated.** Registered because it was an open defect
+living *only* in an out-of-repo memory file — invisible to CI, worktrees and
+clones — which is precisely what the citation rule exists to prevent. Carries
+item C above as its rider.
+
+Follow-up #2 of the Ku-grain bridge arc (PR #247, 2026-06-06), which fixed the
+**read** path only. Sibling #1 — the Event→Ku edge remap — shipped as #586 and
+touched the item-C test file, which is the precedent for pairing them.
+
+**The chain is grain-agnostic and named as though it were not** (re-measured
+2026-08-20 @ `372ec722a`):
+
+| Site | Says | Constrains to `:Ku`? |
+|---|---|---|
+| `_adaptive_mixin.py:67` | `->(ku:Entity)`, `RETURN ku.uid AS ku_uid` | **no** |
+| `KnowledgePracticed.knowledge_uid` | knowledge | no |
+| `ps_service.py:885–951` (8 handlers) | `ku_uid=` / `ku_uids=` | no |
+| `curriculum_backends.py:242` | `MATCH (ku:Entity {uid: $ku_uid})` | **no** |
+| `test_event_ku_practice_flow.py:61` | fixture `ku_backend` | no (**is** a `PsBackend`) |
+
+**Restate the failure mode — the memory's "increments wrong/no node" is not what
+the Cypher does.** `increment_substance` matches on the base `:Entity` label, so
+a PathStep uid *does* match and increments **the PathStep's own** counter; the
+roll-down that follows — `OPTIONAL MATCH (ps:PathStep)-[:USES_KU|
+CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku)` — then finds nothing. So it is not a no-op:
+it is a roll-**down that never happens**, and Ku-level substance stays 0 for any
+channel whose edges are authored at PathStep grain.
+
+⚠️ **Re-probe before designing.** The "all activity→knowledge edges target
+`entity_type='path_step'`, zero target `:Ku`" measurement is from **June 2026,
+on the old local Docker graph** — it predates the AuraDB cutover (2026-08-15).
+If the live edge grain has changed, the fix changes with it. Do not quote that
+number; re-run it.
+
+**Adjacent, same area, decide while in here:** `KnowledgePracticed`
+(`knowledge.practiced`, published `ps_practice_service.py:166`) has **zero
+subscribers**. `./dev bloat` reports it at the informational tier — *"published
+but no subscriber — fine if fire-and-forget"* — a judgment nobody has made. Note
+`PsPracticeService` increments the counter itself, so the event is a
+notification, not the mechanism. Either it earns a subscriber, gets registered in
+`PLANNED_EVENTS`, or goes.
+
+**Scope note:** all 8 handlers share the shape, not just the event one — task,
+event, habit, entry, choice, plus 3 batch. Enumerate before fixing any.
+
+Case file: `docs/roadmap/substance-write-grain.md` — the investigation order, the
+re-probe warning, and the design fork that needs Mike's ruling.
 
 ---
 
