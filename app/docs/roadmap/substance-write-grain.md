@@ -67,23 +67,38 @@ the design, not a defect. `ku.is_well_practiced()` would raise `AttributeError`.
 CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku)` matches PathSteps that *use* the bound Ku — it credits a Ku's
 **composing PathSteps**. Net effect of path 2:
 
-| `$ku_uid` names… | primary SET | roll-up | readable outcome |
-|---|---|---|---|
-| a real `:Ku` | `ku.times_*` — unreadable | composing PathSteps credited | **PathStep credited — correct** |
-| a `:PathStep` | `ps.times_*` — readable | finds nothing | **that PathStep credited — correct** |
+| `$ku_uid` names… | primary SET | roll-up | readable counter | **returns** |
+|---|---|---|---|---|
+| `:Ku` **with** composing PathSteps | `ku.times_*` — unreadable | PathSteps credited | ✅ | real count |
+| `:Ku` **orphan** (no `USES_KU` in) | `ku.times_*` — unreadable | none | ❌ **lost** | `ok(0)` |
+| a `:PathStep` | `ps.times_*` — readable | none (nothing `USES_KU` a PathStep) | ✅ | `ok(0)` |
 
-Either way a readable PathStep counter results. **Path 2 appears to work.** Any proposal that
-"fixes" it should first explain what is broken.
+⚠️ **`WHERE ps IS NOT NULL` gates the `RETURN`, not just the second `SET`** — and that is the
+strongest defect in this arc. The clause drops the whole row, so when no composing PathStep exists
+the query emits **zero rows**, and `Result.ok(records[0][...] if records else 0)`
+(`curriculum_backends.py:258`) reports **`ok(0)`** — a *success* claiming nothing was counted, for
+a write that already landed. Two of the three cases hit it, including the PathStep case that is
+otherwise correct. Callers cannot distinguish "incremented, unreportable" from "no-op".
 
-**What is actually left** — smaller, and still worth a thread:
+⚠️ **The orphan row is not hypothetical.** Orphan Kus are a first-class tracked population —
+`KnowledgeHealthService` scores `non_orphan_fraction` and flags them as an authoring-health signal
+— so this is a live loss path, not a corner case. (Found by Codex on the 6th review round of
+#1109, after an earlier draft of this table concluded "path 2 works". It does not.)
 
-1. **Writer asymmetry (the strongest candidate).** Path 1 has **no roll-up at all**. Handed a real
-   Ku uid it writes a property nothing reads and credits no PathStep — a silent loss path 2 does
-   not have. Whether that fires depends on the live edge grain, hence the re-probe below.
-2. **Possible double-count.** Both writers `SET` the same property on different triggers.
-3. **Naming.** Every site says `ku_*` while PathStep is the readable grain — item C's fixture is
-   the test-side face of this, and it may be the *whole* remaining fix.
-4. **Ku nodes accumulate properties nothing reads.** Cosmetic, or a cleanup — decide.
+**What is actually left** — different from the inherited framing, and larger than it looked after
+the falsification:
+
+1. **The `WHERE ps IS NOT NULL` row-filter (strongest, and a real bug).** It gates the `RETURN`,
+   so two of three cases report `ok(0)` for a write that landed. Fixing it is a small Cypher
+   change — but decide deliberately whether the orphan-Ku case should also *credit* something or
+   merely report honestly.
+2. **Writer asymmetry.** Path 1 has **no roll-up at all**, so a real Ku uid there writes an
+   unreadable property and credits no PathStep. Whether it fires depends on the live edge grain —
+   hence the re-probe below.
+3. **Possible double-count.** Both writers `SET` the same property on different triggers.
+4. **Naming.** Every site says `ku_*` while PathStep is the readable grain — item C's fixture is
+   the test-side face of this.
+5. **Ku nodes accumulate properties nothing reads.** Cosmetic, or a cleanup — decide.
 
 ⚠️ **Method note for whoever takes this.** This register was wrong five times in a row while
 being written *from measurements* — direction of a graph pattern, which model owns a field, which

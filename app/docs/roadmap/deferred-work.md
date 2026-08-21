@@ -828,23 +828,32 @@ don't carry full learning metadata (complexity, substance scores)."* So
 matches PathSteps that *use* the bound Ku, so it rolls **UP** (Ku → its composing
 PathSteps), not down. Net effect of `increment_substance` (path 2):
 
-| `$ku_uid` names… | primary SET | roll-up | readable outcome |
-|---|---|---|---|
-| a real `:Ku` | `ku.times_*` — unreadable (no model field, dropped by DTO) | composing PathSteps credited | **PathStep credited — correct** |
-| a `:PathStep` | `ps.times_*` — readable | finds nothing (nothing `USES_KU` a PathStep) | **that PathStep credited — correct** |
+| `$ku_uid` names… | primary SET | roll-up | readable counter | **returns** |
+|---|---|---|---|---|
+| `:Ku` **with** composing PathSteps | `ku.times_*` — unreadable | PathSteps credited | ✅ | real count |
+| `:Ku` **orphan** (no `USES_KU` in) | `ku.times_*` — unreadable | none | ❌ **lost** | `ok(0)` |
+| a `:PathStep` | `ps.times_*` — readable | none | ✅ | `ok(0)` |
 
-Either way a readable PathStep counter results. Path 2 looks *right*.
+⚠️ **A real bug the original framing hid: `WHERE ps IS NOT NULL` gates the
+`RETURN`, not just the second `SET`.** It drops the whole row, so with no
+composing PathStep the query emits zero rows and
+`curriculum_backends.py:258` returns **`ok(0)`** — a *success* claiming nothing
+was counted, for a write that already landed. Two of three cases hit it. And the
+orphan row is live, not hypothetical: `KnowledgeHealthService` scores
+`non_orphan_fraction` and flags orphan Kus as an authoring-health signal.
 
-**What actually remains open**, and it is worth a thread:
+**What actually remains open:**
 
-1. **Writer asymmetry.** Path 1 (`increment_practice_count`, `_adaptive_mixin.py:72`)
-   has **no roll-up at all**. Handed a real Ku uid it writes a property nothing
-   can read and credits no PathStep — a silent loss path 2 does not have.
-2. **Possible double-count.** Both writers `SET` the same property on different
+1. **The `WHERE ps IS NOT NULL` row-filter** (strongest; small Cypher fix, but
+   decide whether an orphan Ku should *credit* something or just report honestly).
+2. **Writer asymmetry.** Path 1 (`increment_practice_count`, `_adaptive_mixin.py:72`)
+   has **no roll-up at all** — a real Ku uid there writes an unreadable property
+   and credits no PathStep.
+3. **Possible double-count.** Both writers `SET` the same property on different
    triggers. Is an event created-with-knowledge *and* later completed counted twice?
-3. **Naming.** Every site says `ku_*` while PathStep is the grain that is actually
-   readable — which is exactly what item C's fixture reflects, and why C rides here.
-4. **Ku nodes accumulate properties nothing reads.** Cosmetic or a cleanup, decide.
+4. **Naming.** Every site says `ku_*` while PathStep is the readable grain —
+   which is what item C's fixture reflects, and why C rides here.
+5. **Ku nodes accumulate properties nothing reads.** Cosmetic or a cleanup, decide.
 
 ⚠️ **Re-probe before designing.** The "all activity→knowledge edges target
 `entity_type='path_step'`, zero target `:Ku`" measurement is from **June 2026,
