@@ -554,12 +554,18 @@ at all. Note the generated `GRAPH_CONTRACT.yaml` still *documents* the three `HA
 fiction until a ruling reconciles the registry with the `:OWNS` invariant.
 
 **Fixed 2026-08-21 (ride-along truth pass):** `cross_domain_backend.get_recent_activities`
-(the profile-hub stats path via `UserStatsAggregator`) traversed `(u)-[:HAS_TASK]->` /
-`(u)-[:HAS_GOAL]->` — so its completed-task and completed-goal legs had returned zero real rows
-since the initial commit, while the `OPTIONAL MATCH` + `collect({map})` shape emitted one
-phantom all-null activity per empty leg. Rewritten onto `:OWNS` with per-leg recency +
-phantom-free subqueries, matching `get_users_with_activity_counts` in the same file; pinned by
-`tests/integration/cross_domain/test_recent_activities.py`.
+(the profile-hub stats path via `UserStatsAggregator`) was dead twice over — it traversed
+`(u)-[:HAS_TASK]->` / `(u)-[:HAS_GOAL]->`, AND it gated on `completed_at`, a property no
+Task/Goal writer stamps (explicit completion writes `completion_date`/`achieved_date`;
+status-route and vault completions stamp only `updated_at` — 80/85 of live completed Tasks
+carry no completion field at all). So its completed-task and completed-goal legs had returned
+zero real rows since the initial commit, while the `OPTIONAL MATCH` + `collect({map})` shape
+emitted one phantom all-null activity per empty leg. Rewritten onto `:OWNS` +
+`coalesce(completion_date[, achieved_date], updated_at)` with per-leg recency + phantom-free
+subqueries, matching `get_users_with_activity_counts` in the same file; pinned by
+`tests/integration/cross_domain/test_recent_activities.py` (fixture seeds the real writer
+shapes — the second layer was found by Codex catching the first fixture inventing
+`completed_at`).
 
 **Enable when**: the attendee surface or any of the four gravity-link methods is wired. Whoever
 does it must decide the relationship *before* the first write — a wrong edge in the graph

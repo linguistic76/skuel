@@ -1278,6 +1278,14 @@ class CrossDomainBackend:
         contribute nothing — plain MATCH inside the subquery, because the
         previous OPTIONAL MATCH + collect({map}) shape emitted a phantom
         all-null activity row per empty leg.
+
+        Completion time is coalesce(completion_date [/ achieved_date],
+        updated_at): only the explicit complete paths stamp a completion
+        field, while status-route and vault completions leave it unset
+        (measured 5/85 on the live graph) — for those, a completed entity's
+        last touch is its completion. toString() normalises the mix of
+        string-stored dates and datetime()-stored mastered_at so the
+        cross-leg ORDER BY compares one type.
         """
         return await self.executor.execute_query(
             """
@@ -1285,15 +1293,16 @@ class CrossDomainBackend:
             CALL {
                 WITH u
                 MATCH (u)-[:OWNS]->(t:Task {status: 'completed'})
-                WHERE t.completed_at IS NOT NULL
+                WITH t, toString(coalesce(t.completion_date, t.updated_at)) AS ts
+                WHERE ts IS NOT NULL
                 RETURN {
                     type: 'task',
                     action: 'completed',
                     entity_uid: t.uid,
                     entity_title: t.title,
-                    timestamp: t.completed_at
+                    timestamp: ts
                 } AS activity
-                ORDER BY t.completed_at DESC
+                ORDER BY ts DESC
                 LIMIT 5
               UNION ALL
                 WITH u
@@ -1304,22 +1313,23 @@ class CrossDomainBackend:
                     action: 'mastered',
                     entity_uid: ku.uid,
                     entity_title: ku.title,
-                    timestamp: m.mastered_at
+                    timestamp: toString(m.mastered_at)
                 } AS activity
                 ORDER BY m.mastered_at DESC
                 LIMIT 5
               UNION ALL
                 WITH u
                 MATCH (u)-[:OWNS]->(g:Goal {status: 'completed'})
-                WHERE g.completed_at IS NOT NULL
+                WITH g, toString(coalesce(g.completion_date, g.achieved_date, g.updated_at)) AS ts
+                WHERE ts IS NOT NULL
                 RETURN {
                     type: 'goal',
                     action: 'completed',
                     entity_uid: g.uid,
                     entity_title: g.title,
-                    timestamp: g.completed_at
+                    timestamp: ts
                 } AS activity
-                ORDER BY g.completed_at DESC
+                ORDER BY ts DESC
                 LIMIT 5
             }
             RETURN activity
