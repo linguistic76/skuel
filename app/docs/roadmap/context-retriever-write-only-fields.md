@@ -302,9 +302,31 @@ Mike asked for the same treatment on principles. `principle_uids:
 a reaction and observing it"*). Ingested single-file; `GUIDED_BY_PRINCIPLE` edge landed against
 the strict `:Principle` target.
 
-**All three target classes are now proven:** `:Entity` (habits), `:Event`, `:Principle`. Graph:
-`BUILDS_HABIT` 1, `SCHEDULES_EVENT` 1, `GUIDED_BY_PRINCIPLE` 1. Nothing about the direct-edge
-mechanism remains untested.
+**All three target classes are now proven for the correct-type case:** `:Entity` (habits),
+`:Event`, `:Principle`. Graph: `BUILDS_HABIT` 1, `SCHEDULES_EVENT` 1, `GUIDED_BY_PRINCIPLE` 1.
+
+⚠️ **But "nothing remains untested" was wrong — the WRONG-type case is open, and habits is the
+one channel exposed to it** (Codex, #1112). Writer and reader disagree only there:
+
+| channel | writer accepts | reader requires | |
+|---|---|---|---|
+| `BUILDS_HABIT` | **`:Entity`** — any entity at all | **`:Habit`** (`user_context_queries.py:829`) | ⚠️ **mismatch** |
+| `ASSIGNS_TASK` | `:Task` | `:Task` (`:843`) | agree |
+| `SCHEDULES_EVENT` | `:Event` | *(no reader yet)* | — |
+| `GUIDED_BY_PRINCIPLE` | `:Principle` | *(no reader yet)* | — |
+
+So `habit_uids: [task.something]` — a typo or a wrong-type paste — **creates a `BUILDS_HABIT`
+edge and is then silently ignored by the projection.** The pre-ingestion validator cannot catch
+it either: it validates against the declared target, `:Entity`, which matches everything. That is
+the SKUEL030 class (a name that matches zero rows instead of erroring), and it makes the
+*permissive* channel the **riskiest to author**, not the safest — the opposite of how the habit
+test was first framed.
+
+**Not tested here deliberately:** a wrong-type authoring test would put a junk edge in the live
+graph, and the code reading is decisive without it. **Fix option for whoever takes this:** change
+`BUILDS_HABIT`'s declared target from `Entity` to `Habit` so writer and reader agree and the
+validator can reject. ⚠️ Check first whether the permissive target was deliberate — habits are the
+one channel where a PathStep might legitimately point at something broader.
 
 ⚠️ **The two halves are gated on DIFFERENT things — do not lump them as "content-gated."** After
 both authoring tests, the state per `PsBundle` channel is:

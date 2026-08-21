@@ -1061,8 +1061,17 @@ the target is wrong). See the hold and its resume condition above.
 
 **✅ Principles is TESTED** — `principle_uids` → `GUIDED_BY_PRINCIPLE` landed
 against the strict `:Principle` target (2026-08-21). All three target classes are
-proven: `:Entity` (habits), `:Event`, `:Principle`. Nothing about the direct-edge
-mechanism remains untested.
+proven **for the correct-type case**: `:Entity` (habits), `:Event`, `:Principle`.
+
+⚠️ **The WRONG-type case is open, and habits is the one channel exposed to it.**
+`BUILDS_HABIT` declares target **`:Entity`** (accepts anything) while the reader
+requires **`:Habit`** (`user_context_queries.py:829`) — the only writer/reader
+disagreement of the four. So `habit_uids: [task.something]` creates an edge that
+the projection **silently ignores**, and the pre-ingestion validator cannot catch
+it because it validates against `:Entity`. SKUEL030 class. That makes the
+permissive channel the **riskiest to author**, not the safest. Fix option: declare
+`BUILDS_HABIT`'s target as `Habit` — but check first whether permissive was
+deliberate.
 
 ⚠️ **The two halves are gated on DIFFERENT things — do not lump them as
 "content-gated."** Per `PsBundle` channel, after both tests:
