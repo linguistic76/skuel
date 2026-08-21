@@ -819,15 +819,41 @@ projection populates only directly-authored PathSteps; template-based ones stay
 empty. Any plan must add the student-scoped spawned-instance traversal or state
 that its payoff covers legacy content only.
 
-The tiebreaker is payoff, not cost. **Events** has a direct consumer: the
-Socratic ENCOURAGING prompt builds its practice list from habits, tasks *and*
-events, so it can never name an event. **Principles** reaches only
-`get_all_titles()` → `intent_classifier.py:291`. Splitting them is available.
-⚠️ **Probe before believing the asymmetry:** every `BUILDS_HABIT`/
-`SCHEDULES_EVENT` occurrence in `core/services/` and `adapters/persistence/` is a
-**read** — no service writes them. Count `(:PathStep)-[:BUILDS_HABIT]->()` vs
-`(:PathStep)-[:HAS_EVENT_TEMPLATE]->()` on AuraDB. If the direct edges are
-near-zero the practice list is empty for everyone, and the asymmetry is illusory.
+### ✅ PROBED 2026-08-21 (AuraDB `d2d160c4`) — CONTENT-GATED, do not build yet
+
+Both authoring paths are **completely unused**:
+
+| | count |
+|---|---|
+| `(:PathStep)-[:BUILDS_HABIT\|ASSIGNS_TASK\|SCHEDULES_EVENT\|GUIDED_BY_PRINCIPLE\|…]->()` | **0** |
+| `(:PathStep)-[:HAS_*_TEMPLATE]->()` | **0** |
+| `SPAWNED_FROM` edges | **0** |
+| PathSteps / Kus | 25 / 124 |
+| Tasks / Choices / Events / Habits / Goals / Principles that exist | 91 / 10 / 6 / 5 / 3 / 2 |
+
+And **no vault file has ever declared** `habit_uids`, `task_uids`,
+`event_template_uids`, `principle_uids`, `goal_uids` or `choice_uids`. So this is
+**never authored**, not a broken pipeline — the activities exist, nothing has
+ever been linked to a PathStep either way.
+
+**Consequences for the verdict:**
+
+1. The **"events has a learner-visible consumer, principles does not" asymmetry
+   is illusory.** The Socratic practice list is empty for *everyone* today —
+   `bundle.habits` and `bundle.tasks` are as empty as `bundle.events`. An earlier
+   draft of this entry leaned on that asymmetry; it does not hold.
+2. Options A and B both build machinery that **stays empty until content exists**.
+3. **One Path Forward does not force a choice here** — neither path superseded
+   the other, because neither has ever been used.
+
+**Do this before any code:** author `habit_uids: [...]` on one PathStep in the
+vault, sync, and check whether the tutor picks it up. That proves Way 1
+end-to-end for the cost of one line, and it is content work — which is where the
+current phase points anyway. **If Way 1 works, the arc shrinks to "add the two
+missing channels the same way." If it does not, the bug is in ingestion, not
+here.**
+
+⚠️ Snapshot, not a constant. Re-run before acting if much time has passed.
 
 ⚠️ **`get_practice_events` is a PHANTOM — do not plan to "give it a caller."**
 It, `get_practice_habits` and `get_practice_tasks` are declared on `PsOperations`
@@ -928,11 +954,37 @@ orphan row is live, not hypothetical: `KnowledgeHealthService` scores
    which is what item C's fixture reflects, and why C rides here.
 5. **Ku nodes accumulate properties nothing reads.** Cosmetic or a cleanup, decide.
 
-⚠️ **Re-probe before designing.** The "all activity→knowledge edges target
-`entity_type='path_step'`, zero target `:Ku`" measurement is from **June 2026,
-on the old local Docker graph** — it predates the AuraDB cutover (2026-08-15).
-If the live edge grain has changed, the fix changes with it. Do not quote that
-number; re-run it.
+### ✅ PROBED 2026-08-21 (AuraDB `d2d160c4`) — the June premise is falsified
+
+The inherited claim was *"ALL ~20 activity→knowledge edges target
+`entity_type='path_step'`, ZERO target `:Ku`"* (June 2026, old local Docker
+graph, pre-cutover). **Re-run on the live graph, it is false** — which is why the
+register said re-probe rather than quote:
+
+| Edge | count |
+|---|---|
+| `APPLIES_KNOWLEDGE` **user_entry → ku** | **28** |
+| `REQUIRES_KNOWLEDGE` path_step → path_step | 2 |
+| `REQUIRES_KNOWLEDGE` goal → path_step | 1 |
+| `APPLIES_KNOWLEDGE` task → path_step | 1 |
+
+**28 of 32 target a real `:Ku`.** The grain flipped. The live substance channel is
+**`EntryGroundingService` (UserEntry → Ku)**, not the Event paths this entry
+spends most of its words on — so `KnowledgeReflectedInEntry` is the hot handler
+and the two event writers are the quiet ones. Re-scope accordingly.
+
+**The orphan-Ku bug is live and sized:**
+
+- **69 of 124 Kus (56%)** have no composing PathStep.
+- Of the **17** Kus actually receiving substance writes, **9 are orphaned**, 8 composed.
+- Nodes with a non-zero counter today: 1 Ku, 2 PathSteps.
+
+So **9 of 17 (53%)** of the substance writes landing on Kus today set a property
+the `Ku` model cannot read, credit **no** PathStep, and return `ok(0)`. That is
+the `WHERE ps IS NOT NULL` defect losing more than half of the one channel in
+active use — a concrete target, not a hypothesis.
+
+⚠️ Snapshot, not a constant. Re-run before acting if much time has passed.
 
 **Adjacent, same area, decide while in here:** `KnowledgePracticed` has **zero
 subscribers**. `./dev bloat` reports it at the informational tier — *"published

@@ -93,8 +93,9 @@ the falsification:
    change — but decide deliberately whether the orphan-Ku case should also *credit* something or
    merely report honestly.
 2. **Writer asymmetry.** Path 1 has **no roll-up at all**, so a real Ku uid there writes an
-   unreadable property and credits no PathStep. Whether it fires depends on the live edge grain —
-   hence the re-probe below.
+   unreadable property and credits no PathStep. ⚠️ The probe below shows real Ku uids *are* now
+   the common case (28 of 32 edges), so this fires — but check whether path 1's trigger
+   (`CalendarEventCompleted`) has any live traffic before ranking it: the hot channel is UserEntry.
 3. **Possible double-count.** Both writers `SET` the same property on different triggers.
 4. **Naming.** Every site says `ku_*` while PathStep is the readable grain — item C's fixture is
    the test-side face of this.
@@ -109,10 +110,33 @@ on whichever node the uid names.
 
 ## Start here, before designing anything
 
-⚠️ **Re-probe the live edge grain.** The claim "all ~20 activity→knowledge edges target
-`entity_type='path_step'`, zero target `:Ku`" is from **June 2026 on the old local Docker graph**
-— it predates the AuraDB cutover (2026-08-15). The daily graph is now AuraDB Free `d2d160c4`. If
-the grain has changed, the fix changes with it. **Do not quote that number; re-run it.**
+### ✅ The probe has been run — 2026-08-21, AuraDB `d2d160c4`
+
+The inherited June-2026 claim (*"all ~20 activity→knowledge edges target `path_step`, zero target
+`:Ku`"*, measured on the old local Docker graph, pre-cutover) is **falsified**:
+
+| Edge | count |
+|---|---|
+| `APPLIES_KNOWLEDGE` **user_entry → ku** | **28** |
+| `REQUIRES_KNOWLEDGE` path_step → path_step | 2 |
+| `REQUIRES_KNOWLEDGE` goal → path_step | 1 |
+| `APPLIES_KNOWLEDGE` task → path_step | 1 |
+
+**28 of 32 now target a real `:Ku`.** Two things follow, and both re-shape this arc:
+
+1. **The live substance channel is `EntryGroundingService` (UserEntry → Ku)** — so
+   `KnowledgeReflectedInEntry` is the hot handler. The two *event* writers this document spends
+   most of its words on are the quiet ones. Re-weight the investigation accordingly.
+2. **The orphan-Ku case is live, and it is the majority case.** 69 of 124 Kus (56%) have no
+   composing PathStep. Of the 17 Kus actually receiving substance writes, **9 are orphaned** and 8
+   composed. Nodes with a non-zero counter today: 1 Ku, 2 PathSteps.
+
+So **9 of 17 (53%)** of substance writes hitting Kus set a property `Ku` cannot read, credit no
+PathStep, and return `ok(0)`. Item 1 above is not a hypothesis — it is losing more than half of
+the only channel in active use. Start there.
+
+⚠️ A snapshot, not a constant — re-run if much time has passed. The point of the June example is
+that a quoted number decays; this one will too.
 
 Then answer, with measurements, before proposing a fix:
 
