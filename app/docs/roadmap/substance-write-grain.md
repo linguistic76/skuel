@@ -206,8 +206,11 @@ Ku), the fixture follows that conclusion.
 ## Workflow
 
 State worktree + branch at the start. Branch from updated `origin/main`. `./dev quality` **and**
-`pytest tests/unit` before push; run the integration file directly too, since that is the one this
-arc changes. Pre-push is BOTH `./dev format` and `ruff check --select I --fix`. Summon Codex after
+`uv run pytest tests/unit` before push; run the integration file directly too (`uv run pytest
+tests/integration/test_event_ku_practice_flow.py`), since that is the one this arc changes.
+Pre-push is BOTH `./dev format` and `uv run ruff check --select I --fix`. **Every tool call goes
+through `uv run` or `./dev`** — bare `pytest`/`ruff` are not on PATH on the dev machine, and where
+they are, they resolve outside the locked environment. Summon Codex after
 the **final** push (`scripts/request_codex_review.sh <PR#>`), verify the reviewed SHA equals HEAD,
 address or reject findings **with the measurement**, then merge per standing authorization once
 the gates are green. Close item C and this section in `deferred-work.md` in the same PR.
