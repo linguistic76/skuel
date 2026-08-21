@@ -191,11 +191,19 @@ may be architecturally right after all, rather than dead.
 shared curriculum, and **the `user_uid=user_admin` + `:OWNS` stamp on them is the bug** — not the
 direct-edge model. Way 2 is **not** forced; Option A is architecturally sound.
 
-**Cause located:** `UnifiedIngestionService.default_user_uid` falls back to `DEFAULT_USER_UID`
-(`user_admin`, `unified_ingestion_service.py:208`) and stamps every user-owned entity type on
-ingest, with no distinction between the content-vault and personal-vault doors. Consistent with
-the evidence: `content_scope` and `visibility` are `None` on both vault-authored nodes while
-user-created ones carry `visibility=private` — the shared case was never modelled.
+⚠️ **Cause — an earlier draft blamed `default_user_uid`, and that is WRONG** (Codex, #1112).
+Production installs a `VaultRegistry` (`compose.py:1433-1455`) and `_resolve_owner`
+(`unified_ingestion_service.py:351-371`) resolves content-vault paths to the content descriptor's
+**acts-as owner**. The two vault doors are already distinguished; changing `DEFAULT_USER_UID`
+would change nothing.
+
+**The ingestion layer already does the right thing** — its docstring: *"Only `requires_user_uid`
+entity types actually persist this owner; SHARED curriculum drops it."* Measured: `HABIT` /
+`EVENT` / `PRINCIPLE` → `requires_user_uid=True`; `HABIT_TEMPLATE` / `EVENT_TEMPLATE` /
+`PATH_STEP` → `False`. The owner is persisted **because the entity type demands it**, not because
+a default leaked. **The actionable cause is the type choice** — a USER_CREATED activity type
+authored where a curriculum template is required, which is the finding below reached from the
+other direction.
 
 So the P1 is a **known-cause bug, not an open design question**. What still needs deciding is the
 general one it shares with three sibling entries in `deferred-work.md`: what enforces ownership on

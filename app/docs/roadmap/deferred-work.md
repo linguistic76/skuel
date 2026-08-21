@@ -912,13 +912,28 @@ So content-vault activities are shared curriculum, and **the `user_uid=user_admi
 + `:OWNS` stamp on them IS the bug** — not the direct-edge model. Way 2
 (templates) is **not** forced; Option A is architecturally sound after all.
 
-**Cause located:** `UnifiedIngestionService.default_user_uid` falls back to
-`DEFAULT_USER_UID` (`user_admin`, `unified_ingestion_service.py:208`) and stamps
-every user-owned entity type on ingest — with no distinction between the
-content-vault door and the personal-vault door. Consistent with the evidence:
-`content_scope` and `visibility` are **`None`** on both vault-authored nodes
-while user-created ones carry `visibility=private`. The shared case was never
-modelled, exactly as suspected.
+⚠️ **Cause — a first draft of this entry got it WRONG, and the wrong version
+would have sent the follow-up at an ineffective fix** (Codex, #1112). It blamed
+`default_user_uid` falling back to `DEFAULT_USER_UID`. **That is not what decides
+the owner in production.** `compose.py:1433-1455` installs a `VaultRegistry`, and
+`_resolve_owner` (`unified_ingestion_service.py:351-371`) resolves content-vault
+paths to the **content descriptor's acts-as owner** before preparation. The two
+vault doors are *already* distinguished; changing `DEFAULT_USER_UID` would change
+nothing.
+
+**The ingestion layer already does the right thing.** `_resolve_owner`'s docstring:
+*"Only `requires_user_uid` entity types actually persist this owner; **SHARED
+curriculum drops it**."* Measured:
+
+| type | `requires_user_uid` |
+|---|---|
+| `HABIT` / `EVENT` / `PRINCIPLE` | **True** |
+| `HABIT_TEMPLATE` / `EVENT_TEMPLATE` / `PATH_STEP` | **False** |
+
+So the owner is persisted **because the entity type demands it** — not because a
+default leaked. **The actionable cause is the type choice: a USER_CREATED
+activity type is being authored where a curriculum template is required.** Which
+is exactly the finding below, arrived at from the other direction.
 
 That makes the P1 a **known-cause bug rather than an open design question** —
 tractable, and squarely in the ownership group below.
