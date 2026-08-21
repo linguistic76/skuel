@@ -21,23 +21,45 @@ This is follow-up #2 of the Ku-grain bridge arc (PR #247, 2026-06-06). #247 fixe
 path — the MEGA-QUERY and ZPD roll-up now compose PathStep→Ku at read time. The **write** path
 was left, and is still open.
 
-The whole chain is grain-agnostic while being *named* as if it were Ku-grain:
+⚠️ **Start by internalising that there are TWO writers to
+`times_practiced_in_events`, not one.** This document's first draft conflated
+them and Codex caught it on #1109 — the mistake is recorded because it is the
+easiest one to repeat here. They fire on different triggers, carry different
+field names, and only one attempts a roll-down:
+
+| # | Trigger → path | Writer | Roll-down? |
+|---|---|---|---|
+| 1 | `CalendarEventCompleted` → `PsPracticeService` (`:146`) | `increment_practice_count` (`_adaptive_mixin.py:72`) — `MATCH (ku:Entity {uid})`, SET, done | **none at all** |
+| 2 | event *created* w/ knowledge → `EventsService` → `KnowledgePracticedInEvent` → `PsService.handle_knowledge_practiced_in_event` | `increment_substance` (`curriculum_backends.py:242`) | present, inert at PathStep grain |
+
+Both `SET` the **same property**. So a third question joins the list: is an event
+that is created with knowledge *and* later completed **double-counted**? That is
+independent of grain, and neither writer filters by type.
+
+`KnowledgePracticed` (field **`ku_uid`**, not `knowledge_uid`) belongs to path 1
+and is published *after* its counter is already incremented — a notification, not
+the mechanism. `KnowledgePracticedInEvent` (field `knowledge_uid`) is the one the
+`PsService` handler consumes, on path 2. **`test_event_ku_practice_flow.py`
+covers path 1.**
+
+Every site is grain-agnostic while *named* as if it were Ku-grain:
 
 | Site | Says | Constrains to `:Ku`? |
 |---|---|---|
-| `_adaptive_mixin.py:67` | `->(ku:Entity)`, `RETURN ku.uid AS ku_uid` | **no** |
-| `KnowledgePracticed.knowledge_uid` | knowledge | no |
+| `_adaptive_mixin.py:67` (read) | `->(ku:Entity)`, `RETURN ku.uid AS ku_uid` | **no** |
+| `_adaptive_mixin.py:77` (write, path 1) | `MATCH (ku:Entity {uid: $ku_uid})` | **no** |
 | `ps_service.py:885–951` (8 handlers) | `ku_uid=` / `ku_uids=` | no |
-| `curriculum_backends.py:242` | `MATCH (ku:Entity {uid: $ku_uid})` | **no** |
+| `curriculum_backends.py:242` (write, path 2) | `MATCH (ku:Entity {uid: $ku_uid})` | **no** |
 | `test_event_ku_practice_flow.py:61` | fixture `ku_backend` | no (**is** a `PsBackend`) |
 
 **State the failure mode correctly** — the memory this came from says "increments wrong/no node",
-and that is not what the Cypher does. `increment_substance` matches the base `:Entity` label, so a
-PathStep uid *does* match and increments **the PathStep's own** counter. The roll-down that
-follows — `OPTIONAL MATCH (ps:PathStep)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku)` — then
+and that is not what the Cypher does. `increment_substance` (path 2) matches the base `:Entity`
+label, so a PathStep uid *does* match and increments **the PathStep's own** counter. The roll-down
+that follows — `OPTIONAL MATCH (ps:PathStep)-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku)` — then
 finds nothing, because a PathStep is not the USES_KU target of another PathStep. Not a no-op: a
 roll-**down that never happens**. Ku-level substance stays 0 for any channel authored at PathStep
-grain, while the PathStep's own counter moves.
+grain, while the PathStep's own counter moves. Path 1 has no roll-down to fail, so it lands wholly
+on whichever node the uid names.
 
 ## Start here, before designing anything
 
@@ -63,13 +85,23 @@ Then answer, with measurements, before proposing a fix:
 
 ## Adjacent, decide while you are in here
 
-`KnowledgePracticed` (`knowledge.practiced`, published at `ps_practice_service.py:166`) has
-**zero subscribers**. `./dev bloat` reports it at the informational tier — *"published but no
-subscriber — fine if fire-and-forget"* — which is a judgment call nobody has made. Note
-`PsPracticeService` increments the practice counter itself, so this event is a notification, not
-the mechanism. Three honest endings: it earns a subscriber, it gets registered in `PLANNED_EVENTS`
-with a reason, or it goes. Per the deletion protocol, unwired → **ask Mike**; do not delete an
-event on your own authority.
+`KnowledgePracticed` (`knowledge.practiced`, published at `ps_practice_service.py:166`, path 1)
+has **zero subscribers**. `./dev bloat` reports it at the informational tier — *"published but no
+subscriber — fine if fire-and-forget"* — which is a judgment call nobody has made. Three honest
+endings: it earns a subscriber, it gets registered in `PLANNED_EVENTS` with a reason, or it goes.
+Per the deletion protocol, unwired → **ask Mike**; do not delete an event on your own authority.
+
+⚠️ **Do not read its docstring as design intent without checking.** It names two subscribers —
+*"LearningAnalyticsService (track practice patterns)"* and *"SpacedRepetitionService (schedule
+reviews)"* — and **neither class exists anywhere in the codebase**; the only file mentioning
+either is `knowledge_substance_events.py` itself, 11 times across its docstrings
+(`LearningAnalyticsService` ×7, `SpacedRepetitionService` ×2 among the "Subscribers:" lists).
+Measured 2026-08-20. So the "Subscribers:" blocks in that file are aspirational in part and
+accurate in part — `PsService` (×8), `TasksService` (×3), `HabitsService` (×2) are real. Sort
+which is which before citing any of them, and apply the intent-vs-code discriminator: `git log -S`
+on the class name distinguishes *never wired* (ask) from *orphaned* (delete). The register entry
+for that discriminator is `docs/roadmap/deferred-work.md`; the arc that established it was
+#1090–#1102.
 
 ## The rider (item C)
 

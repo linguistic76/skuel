@@ -782,24 +782,44 @@ Follow-up #2 of the Ku-grain bridge arc (PR #247, 2026-06-06), which fixed the
 **read** path only. Sibling #1 — the Event→Ku edge remap — shipped as #586 and
 touched the item-C test file, which is the precedent for pairing them.
 
-**The chain is grain-agnostic and named as though it were not** (re-measured
+⚠️ **There are TWO independent writers to `times_practiced_in_events`, not one.**
+The first draft of this entry conflated them (caught in review on #1109). They
+fire on different triggers, carry different field names, and only one of them
+even attempts a roll-down:
+
+| # | Trigger → path | Writer | Roll-down? |
+|---|---|---|---|
+| 1 | `CalendarEventCompleted` → `PsPracticeService` (`:146`) | `increment_practice_count` (`_adaptive_mixin.py:72`) — `MATCH (ku:Entity {uid})`, SET, done | **none at all** |
+| 2 | event *created* w/ knowledge → `EventsService` → `KnowledgePracticedInEvent` → `PsService.handle_knowledge_practiced_in_event` | `increment_substance` (`curriculum_backends.py:242`) | present, inert at PathStep grain |
+
+Both `SET` the **same property**. Establish whether an event that is created with
+knowledge *and* later completed is double-counted — that is a distinct question
+from the grain one, and neither writer filters by type.
+
+`KnowledgePracticed` (field **`ku_uid`**, not `knowledge_uid`) belongs to path 1
+and has **zero subscribers** — it is published *after* the counter is already
+incremented, so it is a notification. `KnowledgePracticedInEvent` (field
+`knowledge_uid`) is the one the handler consumes, on path 2.
+
+**Every site is grain-agnostic while named as though it were not** (re-measured
 2026-08-20 @ `372ec722a`):
 
 | Site | Says | Constrains to `:Ku`? |
 |---|---|---|
-| `_adaptive_mixin.py:67` | `->(ku:Entity)`, `RETURN ku.uid AS ku_uid` | **no** |
-| `KnowledgePracticed.knowledge_uid` | knowledge | no |
+| `_adaptive_mixin.py:67` (read) | `->(ku:Entity)`, `RETURN ku.uid AS ku_uid` | **no** |
+| `_adaptive_mixin.py:77` (write, path 1) | `MATCH (ku:Entity {uid: $ku_uid})` | **no** |
 | `ps_service.py:885–951` (8 handlers) | `ku_uid=` / `ku_uids=` | no |
-| `curriculum_backends.py:242` | `MATCH (ku:Entity {uid: $ku_uid})` | **no** |
+| `curriculum_backends.py:242` (write, path 2) | `MATCH (ku:Entity {uid: $ku_uid})` | **no** |
 | `test_event_ku_practice_flow.py:61` | fixture `ku_backend` | no (**is** a `PsBackend`) |
 
 **Restate the failure mode — the memory's "increments wrong/no node" is not what
-the Cypher does.** `increment_substance` matches on the base `:Entity` label, so
-a PathStep uid *does* match and increments **the PathStep's own** counter; the
-roll-down that follows — `OPTIONAL MATCH (ps:PathStep)-[:USES_KU|
+the Cypher does.** `increment_substance` (path 2) matches on the base `:Entity`
+label, so a PathStep uid *does* match and increments **the PathStep's own**
+counter; the roll-down that follows — `OPTIONAL MATCH (ps:PathStep)-[:USES_KU|
 CONTAINS_KNOWLEDGE|TRAINS_KU]->(ku)` — then finds nothing. So it is not a no-op:
 it is a roll-**down that never happens**, and Ku-level substance stays 0 for any
-channel whose edges are authored at PathStep grain.
+channel whose edges are authored at PathStep grain. Path 1 has no roll-down to
+fail, so it lands wholly on whichever node the uid names.
 
 ⚠️ **Re-probe before designing.** The "all activity→knowledge edges target
 `entity_type='path_step'`, zero target `:Ku`" measurement is from **June 2026,
@@ -807,13 +827,11 @@ on the old local Docker graph** — it predates the AuraDB cutover (2026-08-15).
 If the live edge grain has changed, the fix changes with it. Do not quote that
 number; re-run it.
 
-**Adjacent, same area, decide while in here:** `KnowledgePracticed`
-(`knowledge.practiced`, published `ps_practice_service.py:166`) has **zero
+**Adjacent, same area, decide while in here:** `KnowledgePracticed` has **zero
 subscribers**. `./dev bloat` reports it at the informational tier — *"published
-but no subscriber — fine if fire-and-forget"* — a judgment nobody has made. Note
-`PsPracticeService` increments the counter itself, so the event is a
-notification, not the mechanism. Either it earns a subscriber, gets registered in
-`PLANNED_EVENTS`, or goes.
+but no subscriber — fine if fire-and-forget"* — a judgment nobody has made.
+Either it earns a subscriber, gets registered in `PLANNED_EVENTS` with a reason,
+or it goes. Per the deletion protocol, unwired → **ask**.
 
 **Scope note:** all 8 handlers share the shape, not just the event one — task,
 event, habit, entry, choice, plus 3 batch. Enumerate before fixing any.
@@ -855,7 +873,7 @@ Review this document at the **September 2026 quarterly review**. Checklist:
 | LP recommendation backend methods (ruled *build, not now* 2026-08-20) | Mike schedules it — full feature: backend methods + frozen contract + consumer surface | Case file `lp-backend-recommendation-methods.md`; the 3 `Any` handles + their comments are the in-code markers |
 | `DomainConfig` string chain (backend-typing queue A) | Next backlog session — active queue, ONE item per context | `git grep 'rel.value for rel in'` still shows the discard at `relationship_registry.py:2519`; ⚠️ enumerate the enables twin too |
 | `PsOperations` layering contradiction (backend-typing queue B) | Next backlog session — investigation, not a retype | `create_ps_sub_services(backend=)` still `Any`; probe `x: PsOperations = PsBackend(...)` vs `= PsService(...)` before believing any doc |
-| Lying `ku_backend` fixture (backend-typing queue C) | Next touch of `test_event_ku_practice_flow.py` | Ride-along, not standalone — ruled: do not spend a PR |
+| Substance-write grain (carries backend-typing queue C as its rider) | **None — SCHEDULED 2026-08-20, active queue** | Not a triage row: take it, don't re-defer it. Case file `docs/roadmap/substance-write-grain.md`. The item-C row that used to sit here said "next touch of `test_event_ku_practice_flow.py`", which is what kept the rider parked with no vehicle |
 
 **The document is the checklist, the table is a convenience:** a section added to this file
 without a matching row here is still in review scope — walk every `##` section, then the table.
