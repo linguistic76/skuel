@@ -14,16 +14,6 @@ from core.services.askesis.context_retriever import ContextRetriever
 from core.utils.result_simplified import Errors, Result
 
 
-def _make_graph_intel(resource_records: list[dict[str, Any]] | None = None) -> MagicMock:
-    """Build a mock graph_intel.
-
-    By default, execute_query returns empty results (no cited resources).
-    """
-    gi = MagicMock()
-    gi.execute_query = AsyncMock(return_value=Result.ok(resource_records or []))
-    return gi
-
-
 def _make_user_context(
     active_ls_data: dict[str, Any] | None = None,
 ) -> MagicMock:
@@ -96,7 +86,6 @@ class TestLoadLsBundlePartialFailure:
         lp = _make_entity("lp:test", "Test LP")
 
         retriever = ContextRetriever(
-            graph_intel=_make_graph_intel(),
             ps_service=_ok_service(ku),
             ku_service=MagicMock(get=AsyncMock()),  # no KU UIDs to fetch
             habits_service=_ok_service(habit),
@@ -125,7 +114,6 @@ class TestLoadLsBundlePartialFailure:
         lp = _make_entity("lp:test", "Test LP")
 
         retriever = ContextRetriever(
-            graph_intel=_make_graph_intel(),
             ps_service=_failing_service("ps service down"),
             ku_service=MagicMock(get=AsyncMock()),
             habits_service=_ok_service(habit),
@@ -153,7 +141,6 @@ class TestLoadLsBundlePartialFailure:
         task = _make_entity("task_1", "Test Task")
 
         retriever = ContextRetriever(
-            graph_intel=_make_graph_intel(),
             ps_service=_ok_service(ku),
             ku_service=MagicMock(get=AsyncMock()),
             habits_service=_ok_service(habit),
@@ -176,7 +163,6 @@ class TestLoadLsBundlePartialFailure:
     async def test_all_fetches_raise_minimal_bundle(self) -> None:
         """Every fetch crashes — bundle contains only the PS entity itself."""
         retriever = ContextRetriever(
-            graph_intel=_make_graph_intel(),
             ps_service=_failing_service("lessons down"),
             ku_service=_failing_service("kus down"),
             habits_service=_failing_service("habits down"),
@@ -202,7 +188,6 @@ class TestLoadLsBundlePartialFailure:
     async def test_no_active_ls_returns_not_found(self) -> None:
         """No active PS in context → Result.fail(not_found)."""
         retriever = ContextRetriever(
-            graph_intel=_make_graph_intel(),
             ps_service=MagicMock(),
             ku_service=MagicMock(),
             habits_service=MagicMock(),
@@ -226,7 +211,6 @@ class TestLoadLsBundlePartialFailure:
         lp = _make_entity("lp:test", "Test LP")
 
         retriever = ContextRetriever(
-            graph_intel=_make_graph_intel(),
             ps_service=_ok_service(ku),
             ku_service=MagicMock(get=AsyncMock()),
             habits_service=_failing_service("habits timeout"),
@@ -265,7 +249,6 @@ class TestLoadLsBundlePartialFailure:
         lesson_backend.get_cited_resources = AsyncMock(return_value=Result.ok([resource_record]))
 
         retriever = ContextRetriever(
-            graph_intel=_make_graph_intel(),
             ps_service=_ok_service(ku),
             ku_service=MagicMock(get=AsyncMock()),
             habits_service=MagicMock(get=AsyncMock()),
@@ -292,7 +275,6 @@ class TestLoadLsBundlePartialFailure:
         lp = _make_entity("lp:test", "Test LP")
 
         retriever = ContextRetriever(
-            graph_intel=_make_graph_intel(),
             ps_service=_ok_service(ku),
             ku_service=MagicMock(get=AsyncMock()),
             habits_service=MagicMock(get=AsyncMock()),
@@ -378,7 +360,6 @@ class TestFetchKusEdgeDerived:
 
     def _retriever(self, ku_service: Any) -> ContextRetriever:
         return ContextRetriever(
-            graph_intel=_make_graph_intel(),
             ps_service=MagicMock(),
             ku_service=ku_service,
             habits_service=MagicMock(),
@@ -474,7 +455,6 @@ class TestFetchRelatedPathStepsTypeFilter:
 
         ps_service = MagicMock(get=AsyncMock(side_effect=_get))
         retriever = ContextRetriever(
-            graph_intel=_make_graph_intel(),
             ps_service=ps_service,
             ku_service=MagicMock(),
             habits_service=MagicMock(),
@@ -502,7 +482,6 @@ class TestFetchRelatedPathStepsTypeFilter:
 def _make_context_retriever_with_router(router: Any) -> ContextRetriever:
     """Build a minimal ContextRetriever with a post-wired search_router."""
     retriever = ContextRetriever(
-        graph_intel=_make_graph_intel(),
         ps_service=MagicMock(),
         ku_service=MagicMock(),
         habits_service=MagicMock(),

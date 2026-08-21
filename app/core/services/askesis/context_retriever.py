@@ -131,7 +131,6 @@ class ContextRetriever:
     - Load PS bundles for Socratic tutoring
 
     Architecture:
-    - Requires GraphIntelligenceService for graph queries
     - Chunk (RAG) retrieval flows through SearchRouter.retrieve_scoped_chunks —
       the single path for external search access, so a facet scope narrows Ask's
       passages exactly as it narrows Find's cards.
@@ -141,11 +140,12 @@ class ContextRetriever:
     March 2026: Absorbed LSContextLoader — all retrieval in one service.
     July 2026: Chunk retrieval routed through SearchRouter (PR2 — Scoped Ask).
     August 2026: `embeddings_service` deleted — July's reroute made it dead.
+    August 2026: `graph_intel` deleted — superseded by ku_backend/ps_backend
+    when the March 2026 Cypher migration (e4ac7a9ed) removed its last read.
     """
 
     def __init__(
         self,
-        graph_intel: Any,  # boundary: GraphIntelligenceService protocol not yet extracted
         # PS bundle dependencies — all required (fail-fast per SKUEL philosophy)
         ps_service: "EntityLookup[PathStep] | None" = None,
         ku_service: "KuLookup[Ku] | None" = None,
@@ -171,7 +171,6 @@ class ContextRetriever:
         debug than a clear construction-time error.
 
         Args:
-            graph_intel: GraphIntelligenceService for graph intelligence queries
             ps_service: For fetching full PathStep content (PS bundle)
             ku_service: For fetching full Ku objects from trains_ku_uids (PS bundle)
             habits_service: For fetching full Habit objects from graph_context (PS bundle)
@@ -182,8 +181,6 @@ class ContextRetriever:
             ku_backend: KuBackend for prerequisite/dependency queries
             ps_backend: PsBackend for learning context and resource queries
         """
-        self.graph_intel = graph_intel
-
         # SearchRouter — THE single path for external chunk (RAG) retrieval.
         # Post-wired in compose after the router is built (it is constructed
         # after Askesis in bootstrap), never a constructor param. Typed against

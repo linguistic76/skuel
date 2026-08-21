@@ -74,7 +74,6 @@ def _make_processor(user_context: MagicMock) -> tuple[QueryProcessor, MagicMock]
         context_retriever=context_retriever,
         user_service=user_service,
         llm_service=llm_service,
-        graph_intel=MagicMock(),
         zpd_service=MagicMock(),
     )
     return processor, llm_service

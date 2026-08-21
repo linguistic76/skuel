@@ -113,7 +113,6 @@ def _make_processor(
         context_retriever=context_retriever,
         user_service=user_service,
         llm_service=llm_service,
-        graph_intel=MagicMock(),
         zpd_service=MagicMock(),
         canon_service=canon_service,
     )

@@ -33,7 +33,6 @@ def _make_retriever(edge_records: list[dict[str, Any]] | None = None) -> Context
     ps_backend.get_ku_lateral_edges = AsyncMock(return_value=Result.ok(edge_records or []))
     ps_backend.get_cited_resources = AsyncMock(return_value=Result.ok([]))
     return ContextRetriever(
-        graph_intel=MagicMock(),
         ps_backend=ps_backend,
     )
 
@@ -165,7 +164,7 @@ class TestFetchKuLateralEdges:
     async def test_empty_ku_uids_short_circuits_without_backend_call(self) -> None:
         ps_backend = MagicMock()
         ps_backend.get_ku_lateral_edges = AsyncMock(return_value=Result.ok([_edge_record()]))
-        retriever = ContextRetriever(graph_intel=MagicMock(), ps_backend=ps_backend)
+        retriever = ContextRetriever(ps_backend=ps_backend)
 
         edges = await retriever._fetch_ku_lateral_edges([])
 
@@ -174,7 +173,7 @@ class TestFetchKuLateralEdges:
 
     @pytest.mark.anyio
     async def test_no_backend_returns_empty(self) -> None:
-        retriever = ContextRetriever(graph_intel=MagicMock(), ps_backend=None)
+        retriever = ContextRetriever(ps_backend=None)
 
         assert await retriever._fetch_ku_lateral_edges(["ku.x"]) == []
 
@@ -184,7 +183,7 @@ class TestFetchKuLateralEdges:
         ps_backend.get_ku_lateral_edges = AsyncMock(
             return_value=Result.fail(Errors.database("lateral edges", "boom"))
         )
-        retriever = ContextRetriever(graph_intel=MagicMock(), ps_backend=ps_backend)
+        retriever = ContextRetriever(ps_backend=ps_backend)
 
         assert await retriever._fetch_ku_lateral_edges(["ku.x"]) == []
 
