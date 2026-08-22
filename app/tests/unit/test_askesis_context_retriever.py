@@ -54,23 +54,32 @@ def _make_entity(uid: str, title: str) -> MagicMock:
 
 
 def _ok_service(entity: Any) -> MagicMock:
-    """Service whose get() returns Result.ok(entity)."""
+    """Service whose reads return Result.ok(entity).
+
+    Carries BOTH read doors: ``get`` (curriculum handles — EntityLookup) and
+    ``get_visible_to_user`` (activity handles — VisibleEntityLookup, ADR-085 G1).
+    """
     svc = MagicMock()
     svc.get = AsyncMock(return_value=Result.ok(entity))
+    svc.get_visible_to_user = AsyncMock(return_value=Result.ok(entity))
     return svc
 
 
 def _failing_service(error_msg: str = "boom") -> MagicMock:
-    """Service whose get() raises an exception."""
+    """Service whose reads raise an exception."""
     svc = MagicMock()
     svc.get = AsyncMock(side_effect=RuntimeError(error_msg))
+    svc.get_visible_to_user = AsyncMock(side_effect=RuntimeError(error_msg))
     return svc
 
 
 def _not_found_service() -> MagicMock:
-    """Service whose get() returns Result.fail (not_found)."""
+    """Service whose reads return Result.fail (not_found)."""
     svc = MagicMock()
     svc.get = AsyncMock(return_value=Result.fail(Errors.not_found("entity", "test_uid")))
+    svc.get_visible_to_user = AsyncMock(
+        return_value=Result.fail(Errors.not_found("entity", "test_uid"))
+    )
     return svc
 
 
@@ -292,6 +301,73 @@ class TestLoadLsBundlePartialFailure:
         bundle = result.value
         assert len(bundle.resources) == 0  # Graceful degradation
         assert len(bundle.related_steps) == 1  # Other fetches unaffected
+
+
+class TestBundleActivityAudience:
+    """ADR-085 G1 pin — activity fetches go through get_visible_to_user.
+
+    The Askesis read-side P1: a shared PathStep's graph_context can name
+    another user's Habit/Task (the vault-authored habit that surfaced it).
+    The bundle fetch must read activities through THE audience-aware by-UID
+    chokepoint with the requesting user threaded down — never bare get().
+    """
+
+    @pytest.mark.anyio
+    async def test_activity_fetches_thread_user_through_chokepoint(self) -> None:
+        habit = _make_entity("habit_1", "Test Habit")
+        task = _make_entity("task_1", "Test Task")
+        lp = _make_entity("lp:test", "Test LP")
+        ku = _make_entity("ku_lesson_1", "Test KU")
+
+        habits_service = _ok_service(habit)
+        tasks_service = _ok_service(task)
+
+        retriever = ContextRetriever(
+            ps_service=_ok_service(ku),
+            ku_service=MagicMock(get=AsyncMock()),
+            habits_service=habits_service,
+            tasks_service=tasks_service,
+            events_service=MagicMock(),
+            principles_service=MagicMock(),
+            lp_service=_ok_service(lp),
+        )
+
+        result = await retriever.load_ps_bundle("user_1", _make_user_context())
+
+        assert result.is_ok
+        habits_service.get_visible_to_user.assert_awaited_once_with("habit_1", "user_1")
+        tasks_service.get_visible_to_user.assert_awaited_once_with("task_1", "user_1")
+        # The unscoped door is NOT used for activity handles.
+        habits_service.get.assert_not_awaited()
+        tasks_service.get.assert_not_awaited()
+
+    @pytest.mark.anyio
+    async def test_out_of_audience_activity_drops_out_of_bundle(self) -> None:
+        """A foreign-owned habit resolves not-found and silently drops out.
+
+        get_visible_to_user makes not-found and not-yours the SAME outcome,
+        so the bundle simply omits the entity — no error, no leak.
+        """
+        task = _make_entity("task_1", "Test Task")
+        lp = _make_entity("lp:test", "Test LP")
+        ku = _make_entity("ku_lesson_1", "Test KU")
+
+        retriever = ContextRetriever(
+            ps_service=_ok_service(ku),
+            ku_service=MagicMock(get=AsyncMock()),
+            habits_service=_not_found_service(),  # audience refusal == not found
+            tasks_service=_ok_service(task),
+            events_service=MagicMock(),
+            principles_service=MagicMock(),
+            lp_service=_ok_service(lp),
+        )
+
+        result = await retriever.load_ps_bundle("user_1", _make_user_context())
+
+        assert result.is_ok
+        bundle = result.value
+        assert len(bundle.habits) == 0  # withheld — not the requester's
+        assert len(bundle.tasks) == 1  # own task still present
 
 
 class TestRelationshipNameCitesResource:

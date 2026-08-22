@@ -231,6 +231,17 @@ SURFACES: tuple[Surface, ...] = (
         "Ranks the KU corpus by hub score — discovery over everything.",
     ),
     Surface(
+        "adapters.persistence.neo4j.backends.collab_backends",
+        "LateralRelationshipBackend.get_relationships",
+        Disposition.CONTAINMENT,
+        "The held anchor's OWN lateral edges ride along with it — a by-anchor "
+        "relationship read, not a discovery listing. Composes "
+        "build_search_visibility_clause for the AUDIENCE half only (ADR-085 "
+        "G4: owned targets are withheld from everyone but their owner) with "
+        "apply_publication_gate=False — a draft neighbour of a held entity "
+        "stays reachable, matching the by-UID carve-out.",
+    ),
+    Surface(
         "adapters.persistence.neo4j.backends.curriculum_backends",
         "<module>:_KNOWLEDGE_HEALTH_PARAMS",
         Disposition.REPORTS_DRAFTS,
@@ -349,6 +360,15 @@ SURFACES: tuple[Surface, ...] = (
     ),
     Surface(
         "adapters.persistence.neo4j.query.cypher.crud_queries",
+        "build_array_contains_query",
+        Disposition.GATED,
+        "Single-value array search over the corpus — the sibling of "
+        "build_array_any_match_query, given the same clause composition by "
+        "ADR-085 G5. Same builder residual: string out, not rows; covered by "
+        "tests/unit/test_search_visibility_scoping.py.",
+    ),
+    Surface(
+        "adapters.persistence.neo4j.query.cypher.crud_queries",
         "build_distinct_values_query",
         Disposition.GATED,
         "Facet vocabulary for filter dropdowns — a draft's values must not "
@@ -361,6 +381,16 @@ SURFACES: tuple[Surface, ...] = (
         Disposition.GATED,
         "Graph-traversal search strategy; gates the TARGET of the traversal, "
         "which is curriculum the caller never named.",
+    ),
+    Surface(
+        "adapters.persistence.neo4j.query.cypher.crud_queries",
+        "build_relationship_traversal_query",
+        Disposition.GATED,
+        "Relationship-traversal read behind get_by_relationship — targets are "
+        "entities the caller never named, scoped by ADR-085 G3 through "
+        "build_search_visibility_clause (audience + publication for the "
+        "curriculum-facing declarations). Builder residual: string out, not "
+        "rows; covered by tests/unit/test_search_visibility_scoping.py.",
     ),
     Surface(
         "adapters.persistence.neo4j.query.cypher.crud_queries",

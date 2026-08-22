@@ -265,11 +265,19 @@ class LateralRelationshipService:
         """
         Get all lateral relationships for an entity.
 
+        The anchor is gated by ``_verify_entity_access``; the returned TARGETS
+        are additionally filtered to the caller's audience in the backend query
+        (ADR-085 G4) — ownerless curriculum plus the caller's own entities.
+        With ``user_uid=None`` only ownerless targets are returned.
+
         Args:
             entity_uid: Entity UID
             relationship_types: Filter by specific types (None = all types)
             direction: Relationship direction to query
             include_metadata: Include relationship properties in results
+            user_uid: Requesting user — gates the anchor (with domain_service)
+                and scopes the returned targets
+            domain_service: Domain service with verify_ownership() (None = shared content)
 
         Returns:
             Result with list of relationships
@@ -289,6 +297,7 @@ class LateralRelationshipService:
             entity_uid=entity_uid,
             type_filter=type_filter,
             pattern=direction,
+            user_uid=user_uid,
         )
 
         if result.is_error:
@@ -337,10 +346,14 @@ class LateralRelationshipService:
             # Query explicit SIBLING relationships. get_siblings is a `# boundary`
             # method whose two branches return different shapes, so flatten the
             # typed relationship rows back to plain dicts for the union return.
+            # user_uid rides along so target audience scoping (ADR-085 G4)
+            # sees the caller, not an anonymous read.
             explicit = await self.get_lateral_relationships(
                 entity_uid,
                 relationship_types=[RelationshipName.SIBLING],
                 direction="both",
+                user_uid=user_uid,
+                domain_service=domain_service,
             )
             if explicit.is_error:
                 return Result.fail(explicit)
@@ -791,8 +804,10 @@ class LateralRelationshipService:
 
         Ownership is verified on the center entity only — the traversal itself is
         not owner-filtered, so a neighbour reached from an owned center is
-        returned regardless of who owns it. That is the same reach the
-        ``get_lateral_relationships``-backed reads already have.
+        returned regardless of who owns it. NOTE: ``get_lateral_relationships``
+        now filters its returned targets by the caller's audience (ADR-085 G4);
+        this graph traversal keeps its wider reach — the census scoped G4 to the
+        relationship read, and the multi-hop audience question is not ruled here.
 
         Args:
             entity_uid: Center entity UID

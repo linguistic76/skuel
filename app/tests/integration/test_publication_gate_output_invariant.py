@@ -609,6 +609,8 @@ UNMEASURABLE: dict[tuple[str, str], str] = {
     (CRUD_QUERIES, "build_text_search_query"): _BUILDER_RESIDUAL,
     (CRUD_QUERIES, "build_graph_aware_search_query"): _BUILDER_RESIDUAL,
     (CRUD_QUERIES, "build_array_any_match_query"): _BUILDER_RESIDUAL,
+    (CRUD_QUERIES, "build_array_contains_query"): _BUILDER_RESIDUAL,
+    (CRUD_QUERIES, "build_relationship_traversal_query"): _BUILDER_RESIDUAL,
     (CRUD_QUERIES, "build_distinct_values_query"): _BUILDER_RESIDUAL,
     ("adapters.persistence.neo4j._semantic_mixin", "_SemanticMixin.query_foundational_knowledge"): (
         "ranks by a cached hub_score written by compute_hub_scores; the fixture "

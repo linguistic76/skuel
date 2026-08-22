@@ -261,7 +261,9 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
         return Result.ok(principles)
 
     @with_error_handling("get_for_goal", error_type="database")
-    async def get_for_goal(self, goal_uid: str, limit: int = 10) -> Result[list[Principle]]:
+    async def get_for_goal(
+        self, goal_uid: str, limit: int = 10, user_uid: UserUID | None = None
+    ) -> Result[list[Principle]]:
         """
         Get principles that guide a specific goal.
 
@@ -270,6 +272,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
         Args:
             goal_uid: Goal UID
             limit: Maximum results to return
+            user_uid: Requesting user — targets scoped per search_visibility (ADR-085 G3)
 
         Returns:
             Result containing principles guiding this goal
@@ -278,10 +281,13 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
             related_uid=goal_uid,
             relationship_type=RelationshipName.GUIDES_GOAL,
             direction="incoming",
+            user_uid=user_uid,
         )
 
     @with_error_handling("get_for_habit", error_type="database")
-    async def get_for_habit(self, habit_uid: str, limit: int = 10) -> Result[list[Principle]]:
+    async def get_for_habit(
+        self, habit_uid: str, limit: int = 10, user_uid: UserUID | None = None
+    ) -> Result[list[Principle]]:
         """
         Get principles aligned with a specific habit.
 
@@ -290,6 +296,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
         Args:
             habit_uid: Habit UID
             limit: Maximum results to return
+            user_uid: Requesting user — targets scoped per search_visibility (ADR-085 G3)
 
         Returns:
             Result containing principles aligned with this habit
@@ -298,6 +305,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
             related_uid=habit_uid,
             relationship_type=RelationshipName.ALIGNED_WITH_PRINCIPLE,
             direction="outgoing",
+            user_uid=user_uid,
         )
 
     @with_error_handling("get_active", error_type="database")

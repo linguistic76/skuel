@@ -900,7 +900,13 @@ the edge exists and the MEGA-QUERY's own `practice_habits` pattern returns it.
 PathStep active for a user. That is user state, not plumbing, and nothing in the
 plumbing is now in doubt.
 
-### 🛑 P1 — OPTION A IS BLOCKED ON AN OWNERSHIP RULING (2026-08-21)
+### ✅ P1 — RESOLVED BY THE OWNERSHIP BUNDLE (ADR-085, PR-3, 2026-08-21); was: OPTION A BLOCKED ON AN OWNERSHIP RULING
+
+> Status: the cross-user disclosure mechanism described below is CLOSED — see
+> the un-suspended verdict at the end of this entry. The findings below are the
+> 2026-08-21 investigation record (file:lines as of that date); the open
+> remainder is the templates-vs-activities authoring question and the
+> events/principles projection completion (Askesis arc).
 
 **A shared PathStep pointing at a user-owned activity crosses an ownership
 boundary, unscoped end to end.** Verified: `Habit`/`Event` are `UserOwnedEntity`
@@ -1040,7 +1046,7 @@ bundle never reaches it: `context_retriever.py` references neither
 | § `:OWNS` Writers That Skip `user_uid` | **write-side** — ✅ RESOLVED (ADR-086 + PR-2 residue collapse: paper channel deleted, attendee triple retargeted onto consent-carrying `ATTENDS`) |
 | § `GroupService` Declares `OWNER_ONLY`… | **declaration-side** — a scoping claim the model cannot render |
 | § `User.uid` Has No Index or Constraint | its own text calls it "a live input to any future ruling that would move ownership reads onto the edge" |
-| **this P1** | **read-side** — a path that never reaches the composition point at all |
+| **this P1** | **read-side** — ✅ RESOLVED (ADR-085 G1+G2, bundle PR-3: `_fetch_entities_by_uid` reads through `get_visible_to_user`, and the MEGA-QUERY habit/task projections carry `user_uid = user.uid`) |
 
 **Ruled 2026-08-21 (Mike): this is significant cross-cutting work and belongs to
 a fresh context, taken with those three entries together rather than as four
@@ -1049,13 +1055,25 @@ enforces ownership on a read that does not go through SearchRouter?* — before
 touching any single site. ⚠️ `CrudOperationsMixin.get` (`:135`) is used by every
 domain; changing its signature is a repo-wide change, not a local one.
 
-**Verdict below is SUSPENDED pending that ruling.** The mechanism findings stand;
-the recommendation does not.
+**✅ That ruling landed — ADR-085 (the read-enforcement contract, bundle PR-1),
+and the mechanism is CLOSED (bundle PR-3, 2026-08-21):** two chokepoints, one
+floor; `get_visible_to_user` promoted to THE audience-aware by-UID read (now a
+`BaseService` method); bare `get()` stays unscoped with §3 legality rules —
+`CrudOperationsMixin.get`'s signature was indeed left alone. This entry's two
+disclosure paths are both shut: `_fetch_entities_by_uid` threads `user_uid` and
+reads through `get_visible_to_user` (G1), and the MEGA-QUERY `practice_habits`/
+`practice_tasks` projections re-tie to the anchored user (G2) — the vault-stamped
+`user_admin` habit no longer reaches another learner's bundle OR their rich
+context. The verdict below is therefore UN-SUSPENDED.
 
-**Verdict (suspended) — Option A in shape.** Way 2 stays unused; the fix shape is
+**Verdict — Option A in shape.** Way 2 stays unused; the fix shape is
 a `graph_context` projection + a `_fetch_entities_by_uid` call per channel + the
 `total_practice_opportunities` fix. ⚠️ `get_practice_events` is a phantom —
-populate through the projection, never by giving it a caller.
+populate through the projection, never by giving it a caller. The
+events/principles projection completion (the code-gated halves below) stays with
+the **Askesis arc**, not the ownership bundle — new channels inherit the G1/G2
+scoping by construction (the fetch helper requires `user_uid`; a new projection
+copies the owner-predicate shape).
 
 ⚠️ **The test does NOT generalize to events — `habit_uids` is the most permissive
 of the six channels.** Target labels in the PathStep activity block differ:

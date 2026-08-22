@@ -432,6 +432,7 @@ class SearchOperations(Protocol[T]):
         related_uid: str,
         relationship_type: RelationshipName,
         direction: Direction = "outgoing",
+        user_uid: UserUID | None = None,
     ) -> Result[list[T]]:
         """
         Get entities connected via graph relationship.
@@ -440,6 +441,8 @@ class SearchOperations(Protocol[T]):
             related_uid: UID of the related entity (source node)
             relationship_type: Type-safe RelationshipName enum
             direction: "outgoing", "incoming", or "both" (default "outgoing")
+            user_uid: Requesting user — traversal targets are scoped per the
+                domain's search_visibility declaration (ADR-085 G3)
 
         Returns:
             Result containing related entities

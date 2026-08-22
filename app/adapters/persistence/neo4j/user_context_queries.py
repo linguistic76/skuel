@@ -826,8 +826,12 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      enrolled_path_uids, paths_rich,
      ps, collect(DISTINCT {uid: prereq_step.uid, title: prereq_step.title, completed: prereq_step.completed}) as ps_prereq_steps
 
+// Owner predicate re-ties the projection to the anchored user (ADR-085 §4/G2):
+// a PathStep is shared curriculum, so BUILDS_HABIT can point at ANY user's
+// Habit — without `ps_habit.user_uid = user.uid` the anchor-escape hands one
+// learner another user's habit (the shape the exercise projections below use).
 OPTIONAL MATCH (ps)-[:BUILDS_HABIT]->(ps_habit:Habit)
-WHERE ps IS NOT NULL
+WHERE ps IS NOT NULL AND ps_habit.user_uid = user.uid
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
@@ -840,8 +844,9 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      ps, ps_prereq_steps,
      collect(DISTINCT {uid: ps_habit.uid, title: ps_habit.title}) as ps_habits
 
+// Same anchor re-tie as ps_habit above (ADR-085 G2): Tasks are OWNER_ONLY.
 OPTIONAL MATCH (ps)-[:ASSIGNS_TASK]->(ps_task:Task)
-WHERE ps IS NOT NULL
+WHERE ps IS NOT NULL AND ps_task.user_uid = user.uid
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,

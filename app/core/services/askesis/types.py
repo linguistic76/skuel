@@ -68,6 +68,27 @@ class EntityLookup[T: HasTitle](Protocol):
 
 
 @runtime_checkable
+class VisibleEntityLookup[T: HasTitle](Protocol):
+    """Lookup slice for domains read ON BEHALF OF a user (ADR-085 §2).
+
+    Requires only ``get_visible_to_user(uid, user_uid)`` — THE audience-aware
+    by-UID read. BaseService provides it (delegating to the backend's
+    visibility-clause composition), so every domain facade satisfies this
+    slice. Used for the PS bundle's activity handles (habits, tasks, events,
+    principles): those are OWNER_ONLY domains, and a bare ``get(uid)`` on a
+    graph-context UID would hand one user another user's entity (the Askesis
+    read-side P1, ADR-085 §5 G1). Curriculum handles keep ``EntityLookup`` —
+    PUBLIC domains compose no predicate, so ``get()`` is already their
+    audience-correct read (ADR-085 §3).
+
+    Same parameterization rule as ``EntityLookup`` — bind ``T`` at every
+    call site.
+    """
+
+    async def get_visible_to_user(self, uid: str, user_uid: UserUID) -> Result[T]: ...
+
+
+@runtime_checkable
 class KuLookup[T](Protocol):
     """Minimal protocol for the Ku facade — it names its getter differently.
 

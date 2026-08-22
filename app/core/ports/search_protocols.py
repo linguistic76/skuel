@@ -190,6 +190,7 @@ class DomainSearchOperations(Protocol[T]):
         related_uid: str,
         relationship_type: RelationshipName,
         direction: Direction = "outgoing",
+        user_uid: UserUID | None = None,
     ) -> Result[list[T]]:
         """
         Get entities connected via graph relationship.
@@ -198,6 +199,8 @@ class DomainSearchOperations(Protocol[T]):
             related_uid: UID of the related entity
             relationship_type: Type-safe RelationshipName enum (e.g., RelationshipName.FULFILLS_GOAL)
             direction: "outgoing", "incoming", or "both" (typed as Direction literal)
+            user_uid: Requesting user — traversal targets are scoped per the
+                domain's search_visibility declaration (ADR-085 G3)
 
         Returns:
             Result containing related entities
@@ -546,12 +549,16 @@ class PrinciplesSearchOperations(DomainSearchOperations["Principle"], Protocol):
         """Get principles by category."""
         ...
 
-    async def get_for_habit(self, habit_uid: str, limit: int = 10) -> Result[list["Principle"]]:
-        """Get principles relevant to a habit."""
+    async def get_for_habit(
+        self, habit_uid: str, limit: int = 10, user_uid: UserUID | None = None
+    ) -> Result[list["Principle"]]:
+        """Get principles relevant to a habit, scoped to the requesting user (ADR-085 G3)."""
         ...
 
-    async def get_for_goal(self, goal_uid: str, limit: int = 10) -> Result[list["Principle"]]:
-        """Get principles guiding a goal."""
+    async def get_for_goal(
+        self, goal_uid: str, limit: int = 10, user_uid: UserUID | None = None
+    ) -> Result[list["Principle"]]:
+        """Get principles guiding a goal, scoped to the requesting user (ADR-085 G3)."""
         ...
 
     async def list_user_categories(self, user_uid: UserUID) -> Result[list[str]]:

@@ -208,10 +208,26 @@ def mock_router() -> MockRouter:
     return MockRouter()
 
 
+class AllowAllOwnership:
+    """Permissive OwnershipVerifier — every uid is owned.
+
+    USER_OWNED without an ownership_service is now a construction error
+    (ADR-085 fail-fast conversion), so generic route-behavior fixtures carry
+    this stand-in; ownership-refusal tests use MockOwnershipService below.
+    """
+
+    async def verify_ownership(self, uid: str, user_uid: str) -> Result:
+        return Result.ok(MockGoal(uid=uid, title=f"Goal {uid}"))
+
+
 @pytest.fixture
 def intelligence_factory(mock_service) -> IntelligenceRouteFactory:
     """Fixture providing intelligence route factory."""
-    return IntelligenceRouteFactory(intelligence_service=mock_service, domain_name="goals")
+    return IntelligenceRouteFactory(
+        intelligence_service=mock_service,
+        domain_name="goals",
+        ownership_service=AllowAllOwnership(),
+    )
 
 
 # ============================================================================
@@ -234,6 +250,7 @@ def test_factory_custom_base_path(mock_service):
         intelligence_service=mock_service,
         domain_name="tasks",
         base_path="/api/v2/tasks/intelligence",
+        ownership_service=AllowAllOwnership(),
     )
     assert factory.base_path == "/api/v2/tasks/intelligence"
 
@@ -246,10 +263,37 @@ def test_factory_feature_flags(mock_service):
         enable_analytics=True,
         enable_context=False,
         enable_insights=True,
+        ownership_service=AllowAllOwnership(),
     )
     assert factory.enable_analytics is True
     assert factory.enable_context is False
     assert factory.enable_insights is True
+
+
+def test_factory_user_owned_without_ownership_service_raises(mock_service):
+    """USER_OWNED without an ownership_service is a construction-time error.
+
+    Pin of the ADR-085 fail-fast conversion: the factory used to log a
+    warning and then SILENTLY SKIP the ownership checks on its
+    context/insights routes — a wiring bug surfacing as a cross-user read.
+    """
+    with pytest.raises(ValueError, match=r"requires\s+an ownership_service"):
+        IntelligenceRouteFactory(
+            intelligence_service=mock_service,
+            domain_name="goals",
+            scope=ContentScope.USER_OWNED,
+        )
+
+
+def test_factory_shared_scope_needs_no_ownership_service(mock_service):
+    """SHARED content constructs without an ownership service (no checks to skip)."""
+    factory = IntelligenceRouteFactory(
+        intelligence_service=mock_service,
+        domain_name="knowledge",
+        scope=ContentScope.SHARED,
+    )
+    assert factory.verify_ownership is False
+    assert factory.ownership_service is None
 
 
 # ============================================================================
@@ -275,6 +319,7 @@ def test_register_routes_selective_features(mock_service, mock_router):
         enable_analytics=True,
         enable_context=False,
         enable_insights=True,
+        ownership_service=AllowAllOwnership(),
     )
 
     factory.register_routes(_app=None, rt=mock_router)

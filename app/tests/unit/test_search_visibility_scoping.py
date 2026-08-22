@@ -32,7 +32,9 @@ import pytest
 from adapters.persistence.neo4j.query.cypher import build_search_visibility_clause
 from adapters.persistence.neo4j.query.cypher.crud_queries import (
     build_array_any_match_query,
+    build_array_contains_query,
     build_graph_aware_search_query,
+    build_relationship_traversal_query,
     build_text_search_query,
 )
 from core.models.dto_helpers import parse_enum_field
@@ -319,6 +321,75 @@ class TestQueryBuilderComposition:
         )
         assert "(n.user_uid = $user_uid) AND ANY(" in cypher
         assert params["user_uid"] == "user_a"
+
+    def test_relationship_traversal_scopes_target_alias(self) -> None:
+        """ADR-085 G3 pin — traversal targets carry the owner predicate.
+
+        get_by_relationship feeds domain reads (events/principles get_for_*);
+        without this clause a traversal from a shared anchor returned every
+        user's rows.
+        """
+        cypher, params = build_relationship_traversal_query(
+            source_uid="goal_1",
+            relationship_type=RelationshipName.SUPPORTS_GOAL.value,
+            target_label=NeoLabel.EVENT,
+            direction="incoming",
+            visibility=SearchVisibility.OWNER_ONLY,
+            user_uid="user_a",
+        )
+        assert "WHERE (target.user_uid = $user_uid)" in cypher
+        assert params["user_uid"] == "user_a"
+
+    def test_relationship_traversal_owner_only_fails_closed_without_user(self) -> None:
+        """OWNER_ONLY + no user → the predicate is STILL emitted, $user_uid bound to None.
+
+        Codex P1 on #1120: deriving has_user from `user_uid is not None` dropped
+        the ownership predicate exactly when it was needed — get_by_relationship
+        has no upstream SearchRouter refusal, so the null-predicate fail-closed
+        convention is the only floor. A null $user_uid matches nothing.
+        """
+        cypher, params = build_relationship_traversal_query(
+            source_uid="goal_1",
+            relationship_type=RelationshipName.SUPPORTS_GOAL.value,
+            target_label=NeoLabel.EVENT,
+            visibility=SearchVisibility.OWNER_ONLY,
+        )
+        assert "WHERE (target.user_uid = $user_uid)" in cypher
+        assert "user_uid" in params and params["user_uid"] is None
+
+    def test_relationship_traversal_no_declaration_scopes_by_default(self) -> None:
+        """No declaration → the clause's OWNER_ONLY fallback engages (scoping-by-default)."""
+        cypher, params = build_relationship_traversal_query(
+            source_uid="goal_1",
+            relationship_type=RelationshipName.SUPPORTS_GOAL.value,
+            target_label=NeoLabel.EVENT,
+            user_uid="user_a",
+        )
+        assert "WHERE (target.user_uid = $user_uid)" in cypher
+        assert params["user_uid"] == "user_a"
+
+    def test_array_contains_scopes_and_parenthesizes(self) -> None:
+        """ADR-085 G5 pin — the shape sibling build_array_any_match_query has."""
+        cypher, params = build_array_contains_query(
+            label=NeoLabel.TASK,
+            field="tags",
+            value="alpha",
+            visibility=SearchVisibility.OWNER_ONLY,
+            user_uid="user_a",
+        )
+        assert "(n.user_uid = $user_uid) AND (ANY(" in cypher
+        assert params["user_uid"] == "user_a"
+
+    def test_array_contains_owner_only_fails_closed_without_user(self) -> None:
+        """OWNER_ONLY + no user → predicate emitted, $user_uid bound to None (Codex P1 #1120)."""
+        cypher, params = build_array_contains_query(
+            label=NeoLabel.TASK,
+            field="tags",
+            value="alpha",
+            visibility=SearchVisibility.OWNER_ONLY,
+        )
+        assert "(n.user_uid = $user_uid) AND (ANY(" in cypher
+        assert "user_uid" in params and params["user_uid"] is None
 
     def test_scope_aware_without_user_still_filters_to_curriculum(self) -> None:
         cypher, params = build_text_search_query(

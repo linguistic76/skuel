@@ -246,19 +246,18 @@ class EventsSearchService(BaseService["EventsOperations", Event]):
         Returns:
             Result containing events supporting the goal
         """
+        # Ownership scoping rides in the traversal query itself (ADR-085 G3) —
+        # the former Python post-filter is gone with it.
         events_result = await self.get_by_relationship(
             related_uid=goal_uid,
             relationship_type=RelationshipName.SUPPORTS_GOAL,
             direction="incoming",
+            user_uid=user_uid,
         )
         if events_result.is_error:
             return events_result
 
         events = events_result.value
-
-        # Filter by user if specified
-        if user_uid:
-            events = [e for e in events if e.user_uid == user_uid]
 
         self.logger.debug(f"Found {len(events)} events supporting goal {goal_uid}")
         return Result.ok(events)
@@ -339,19 +338,18 @@ class EventsSearchService(BaseService["EventsOperations", Event]):
         Returns:
             Result containing events reinforcing the habit
         """
+        # Ownership scoping rides in the traversal query itself (ADR-085 G3) —
+        # the former Python post-filter is gone with it.
         events_result = await self.get_by_relationship(
             related_uid=habit_uid,
             relationship_type=RelationshipName.REINFORCES_HABIT,
             direction="incoming",
+            user_uid=user_uid,
         )
         if events_result.is_error:
             return events_result
 
         events = events_result.value
-
-        # Filter by user if specified
-        if user_uid:
-            events = [e for e in events if e.user_uid == user_uid]
 
         self.logger.debug(f"Found {len(events)} events reinforcing habit {habit_uid}")
         return Result.ok(events)

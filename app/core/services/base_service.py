@@ -102,12 +102,12 @@ See Also:
 from __future__ import annotations
 
 from functools import cached_property
-from typing import TYPE_CHECKING, Any, ClassVar, Generic, TypeVar
+from typing import TYPE_CHECKING, Any, ClassVar, Generic, TypeVar, cast
 
 # Import protocols for type constraints and runtime validation
 from core.models.enums import SearchVisibility
 from core.models.protocols import DomainModelProtocol, DTOProtocol
-from core.models.type_hints import EntityUID
+from core.models.type_hints import EntityUID, UserUID
 from core.models.update_contracts import RawChanges, SupportsToChanges
 from core.ports import BackendOperations
 from core.services.mixins import (
@@ -612,6 +612,49 @@ class BaseService(
             Result.ok(None) if valid, Result.fail() if validation fails
         """
         return Result.ok(None)
+
+    # ========================================================================
+    # AUDIENCE-AWARE BY-UID READ (ADR-085)
+    # ========================================================================
+
+    async def get_visible_to_user(self, uid: str, user_uid: UserUID) -> Result[T]:
+        """
+        Get an entity by UID only if this user is in its audience.
+
+        THE audience-aware service-to-service by-UID read (ADR-085 §2): the
+        domain's own ``search_visibility`` declaration decides the scoping, so
+        a direct read and a search of the same domain agree by construction.
+        A PUBLIC domain (curriculum) composes no predicate and this read is
+        deliberately as open as ``get()``; an OWNER_ONLY domain returns only
+        the requesting user's own entity.
+
+        Not-found and not-visible are the SAME outcome (a NotFound error) —
+        the 404-equivalent refusal of OWNERSHIP_VERIFICATION.md, preserved
+        below the route layer.
+
+        Backend: ``UniversalNeo4jBackend.get_visible_to_user``
+
+        Args:
+            uid: Entity UID to read.
+            user_uid: The requesting user, referenced by the audience predicate.
+
+        Returns:
+            Result[T]: the entity when visible; NotFound error when absent or
+            out of audience.
+        """
+        if not uid:
+            return Result.fail(Errors.validation(message="UID is required", field="uid"))
+        if not user_uid:
+            return Result.fail(Errors.validation(message="user_uid is required", field="user_uid"))
+
+        result = await self.backend.get_visible_to_user(uid, user_uid, self.search_visibility)
+
+        # Not-found and not-visible converge on the same NotFound (backend
+        # returns Result.ok(None) for both) — mirrors get()'s conversion.
+        if result.is_ok and result.value is None:
+            return Result.fail(Errors.not_found(f"Entity {uid} not found"))
+
+        return cast("Result[T]", result)
 
     # ========================================================================
     # STATUS AND PROGRESS TRACKING

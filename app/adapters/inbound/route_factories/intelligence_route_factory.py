@@ -236,11 +236,17 @@ class IntelligenceRouteFactory:
         self.verify_ownership = scope == ContentScope.USER_OWNED
         self.ownership_service = ownership_service
 
-        # Warn if ownership verification is enabled but no service provided
+        # Fail-fast (ADR-085, adjacent to the gap census): USER_OWNED without
+        # an ownership service used to WARN and then silently skip the
+        # ownership checks on the context/insights routes — a wiring bug
+        # surfacing as a cross-user read. A misconfigured factory now refuses
+        # to construct (fail-fast dependency philosophy).
         if self.verify_ownership and self.ownership_service is None:
-            logger.warning(
-                f"IntelligenceRouteFactory for {domain_name}: scope=USER_OWNED but "
-                f"no ownership_service provided. Context/insights routes will skip ownership checks."
+            raise ValueError(
+                f"IntelligenceRouteFactory for {domain_name}: scope=USER_OWNED requires "
+                f"an ownership_service — without it the context/insights routes cannot "
+                f"verify ownership. Pass ownership_service, or declare "
+                f"scope=ContentScope.SHARED for shared content."
             )
 
         logger.info(f"IntelligenceRouteFactory initialized for {domain_name} (scope={scope.value})")
@@ -314,7 +320,10 @@ class IntelligenceRouteFactory:
             """Get entity with full graph context"""
             user_uid = require_authenticated_user(request)
 
-            # Verify ownership (returns 404 to prevent UID enumeration)
+            # Verify ownership (returns 404 to prevent UID enumeration).
+            # verify_ownership=True implies ownership_service is present —
+            # the constructor fails fast otherwise (the second conjunct only
+            # narrows the Optional for typing; it can no longer silently skip).
             if factory.verify_ownership and factory.ownership_service:
                 ownership_error = await verify_entity_ownership(
                     factory.ownership_service, uid, user_uid, factory.domain
@@ -367,7 +376,10 @@ class IntelligenceRouteFactory:
             """Get domain-specific insights for entity"""
             user_uid = require_authenticated_user(request)
 
-            # Verify ownership (returns 404 to prevent UID enumeration)
+            # Verify ownership (returns 404 to prevent UID enumeration).
+            # verify_ownership=True implies ownership_service is present —
+            # the constructor fails fast otherwise (the second conjunct only
+            # narrows the Optional for typing; it can no longer silently skip).
             if factory.verify_ownership and factory.ownership_service:
                 ownership_error = await verify_entity_ownership(
                     factory.ownership_service, uid, user_uid, factory.domain

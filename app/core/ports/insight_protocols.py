@@ -58,9 +58,9 @@ class InsightBackendOperations(Protocol):
         ...
 
     async def get(
-        self, uid: str
+        self, uid: str, user_uid: str
     ) -> Result[list[dict[str, Any]]]:  # boundary: {i} — whole :Insight node
-        """Get a single insight by UID."""
+        """Get a single insight by UID, only when owned by the requesting user (ADR-085 G6)."""
         ...
 
     async def get_active_insights(

@@ -21,7 +21,7 @@ from core.models.entity_requests import SmartDismissRequest
 from core.models.insight_request import BulkInsightUidsRequest, SnoozeInsightRequest
 from core.ports.query_types import ChartJsConfig
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import Result
 from ui.insights.insight_card import DismissedInsightMessage
 
 logger = get_logger("skuel.routes.insights.api")
@@ -286,21 +286,17 @@ def create_insights_api_routes(
         """
         user_uid = require_authenticated_user(request)
 
-        # Get insight by UID
-        result = await insight_store.get_insight_by_uid(uid)
+        # Owner-scoped read (ADR-085 G6): the store's MATCH carries the owner
+        # predicate, so a foreign UID is a NotFound here — the former route-side
+        # ownership comparison was exactly the ad-hoc audience check ADR-085 §4
+        # retires (correct logic, wrong home).
+        result = await insight_store.get_insight_by_uid(uid, user_uid)
 
         if result.is_error:
             logger.error(f"Failed to retrieve insight details for {uid}: {result.error}")
             return Result.fail(result)
 
         insight = result.value
-
-        # Verify ownership (insight belongs to requesting user)
-        if insight.user_uid != user_uid:
-            logger.warning(
-                f"User {user_uid} attempted to access insight {uid} owned by {insight.user_uid}"
-            )
-            return Result.fail(Errors.not_found(f"Insight {uid} not found"))
 
         # Convert to dictionary with full details
         insight_data = {

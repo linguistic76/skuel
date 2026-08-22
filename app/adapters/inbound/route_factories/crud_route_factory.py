@@ -211,7 +211,11 @@ class CRUDRouteFactory[T]:
             base_path: Custom base path (default: /api/{domain_name}),
             enable_search: Enable search route (default: False),
             uid_prefix: Custom UID prefix (default: {domain_name}),
-            search_handler: Custom search handler (default: None),
+            search_handler: Custom search handler (default: None). Contract:
+                          ``async (query, limit, offset, user_uid) -> Result`` —
+                          the route authenticates USER_OWNED callers and passes
+                          the requesting user (None for SHARED anonymous browse);
+                          the handler owns the audience scoping (ADR-085 G7).
             scope: Content ownership model (default: ContentScope.USER_OWNED).
                   - ContentScope.USER_OWNED: User-specific content with ownership verification
                   - ContentScope.SHARED: Public/shared content (KU, PS, LP)
@@ -710,6 +714,12 @@ class CRUDRouteFactory[T]:
             - limit: Max results (default: 50)
             - offset: Pagination offset (default: 0)
 
+        Ownership (ADR-085 G7): USER_OWNED domains authenticate the caller and
+        the handler receives ``user_uid``; SHARED domains pass ``user_uid=None``
+        for anonymous browse. The ``search_handler`` contract is therefore
+        ``(query, limit, offset, user_uid) -> Result`` — the handler owns the
+        scoping (route through SearchRouter or a visibility-composed search).
+
         Response: List of matching entities
         """
         if not self.search_handler:
@@ -718,6 +728,7 @@ class CRUDRouteFactory[T]:
 
         search_handler = self.search_handler
         domain = self.domain
+        verify_ownership = self.verify_ownership
         factory = self  # Capture self for nested function
 
         async def search(
@@ -734,16 +745,23 @@ class CRUDRouteFactory[T]:
 
             # FastHTML extracts query params via type hints
 
+            # USER_OWNED: the caller must be authenticated and the handler is
+            # handed the requesting user; SHARED: anonymous browse (the
+            # handler's visibility declaration decides what None may see).
+            user_uid = require_authenticated_user(request) if verify_ownership else None
+
             # Validation
             if not query.strip():
                 return Result.fail(
                     Errors.validation("query parameter cannot be empty", field="query", value=query)
                 )
 
-            # Call custom search handler
-            result = await search_handler(query=query, limit=limit, offset=offset)
+            # Call custom search handler with the requesting user (ADR-085 G7)
+            result = await search_handler(
+                query=query, limit=limit, offset=offset, user_uid=user_uid
+            )
 
-            logger.debug(f"Searched {domain}: query='{query}', limit={limit}")
+            logger.debug(f"Searched {domain}: query='{query}', limit={limit}, user={user_uid}")
             return cast("Result[Any]", result)
 
         # Apply instrumentation if metrics enabled, then register route
