@@ -20,7 +20,7 @@ Three layers, matching how the stamp actually reaches the graph:
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from unittest.mock import AsyncMock, Mock
 
 import pytest
@@ -521,6 +521,18 @@ class TestTaskCreateRequestCompletionDefault:
 
         with pytest.raises(ValidationError, match="completion_date requires"):
             TaskCreateRequest(title="t", completion_date=date(2026, 8, 15))
+
+    def test_future_completion_date_is_refused(self):
+        # A future completion is semantically impossible and would pin itself
+        # atop completion-date-ordered reads — Codex P2 on #1123.
+        from pydantic import ValidationError
+
+        with pytest.raises(ValidationError, match="cannot be in the future"):
+            TaskCreateRequest(
+                title="t",
+                status=EntityStatus.COMPLETED,
+                completion_date=date.today() + timedelta(days=1),
+            )
 
     def test_supplied_date_is_kept(self):
         request = TaskCreateRequest(

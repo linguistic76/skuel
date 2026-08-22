@@ -132,6 +132,10 @@ class TaskCreateRequest(CreateRequestBase):
         if self.status == EntityStatus.COMPLETED:
             if self.completion_date is None:
                 self.completion_date = date.today()
+            elif self.completion_date > date.today():
+                # A future completion is semantically impossible and would pin
+                # itself atop completion-date-ordered reads.
+                raise ValueError("completion_date cannot be in the future")
         elif self.completion_date is not None:
             raise ValueError("completion_date requires status=completed")
         return self
