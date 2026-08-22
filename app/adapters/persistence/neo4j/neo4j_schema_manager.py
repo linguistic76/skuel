@@ -487,6 +487,8 @@ class Neo4jSchemaManager(Neo4jSessionRunner):
           stored — every lookup hashes the cookie token first, and the
           per-request validation in AuthContextMiddleware makes this hot)
         - Unique constraint on User(email) for email uniqueness
+        - Unique constraint on User(uid) — identity invariant + the seek index
+          every edge-anchored ownership read needs (ADR-086)
         - Unique constraint on Device(pubkey) — WS handshake auth lookup (ADR-075)
         - Index on User(pairing_code_hash) — enrollment redemption lookup (ADR-075)
 
@@ -524,6 +526,19 @@ class Neo4jSchemaManager(Neo4jSessionRunner):
             results["created"].append("User_email_unique")
         else:
             results["failed"].append("User_email_unique")
+
+        # User uid uniqueness (ADR-086 / ownership bundle): every ownership
+        # read anchors on (u:User {uid: $user_uid}) — MEGA-QUERY, the
+        # get_user_entities list path, the GDPR cascade, the SCOPE_AWARE
+        # disjuncts — yet uid carried no index, so each anchor was a
+        # NodeByLabelScan. The constraint doubles as the seek index and pins
+        # the identity invariant every :OWNS write door assumes (measured
+        # live 2026-08-21: 6 users, zero duplicate uids — builds cleanly).
+        user_uid_result = await self._create_unique_constraint(NeoLabel.USER, "uid")
+        if user_uid_result.is_ok:
+            results["created"].append("User_uid_unique")
+        else:
+            results["failed"].append("User_uid_unique")
 
         # Device pubkey uniqueness (ADR-075 B2, Kody #529): the WS handshake
         # authenticates by pubkey lookup — duplicate rows would make auth

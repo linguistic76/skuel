@@ -312,6 +312,7 @@ class _CrudMixin[T: DomainModelProtocol]:
         uid: str,
         user_uid: UserUID,
         visibility: SearchVisibility | None,
+        ownership_property: str = "user_uid",
     ) -> Result[T | None]:
         """
         Get an entity by UID only if this user is in its audience.
@@ -344,6 +345,8 @@ class _CrudMixin[T: DomainModelProtocol]:
             uid: Entity UID to read.
             user_uid: The requesting user, referenced by the predicate.
             visibility: The domain's SearchVisibility declaration.
+            ownership_property: The domain's declared ownership property
+                (DomainConfig.ownership_property) for the OWNER_ONLY clause.
 
         Returns:
             Result[T | None]: the entity when visible, None when absent or
@@ -352,7 +355,11 @@ class _CrudMixin[T: DomainModelProtocol]:
         from adapters.persistence.neo4j.query.cypher import build_search_visibility_clause
 
         visibility_scope = build_search_visibility_clause(
-            visibility, entity_alias="n", has_user=True, apply_publication_gate=False
+            visibility,
+            entity_alias="n",
+            has_user=True,
+            apply_publication_gate=False,
+            ownership_property=ownership_property,
         )
         extra_where, scope_params = visibility_scope or ("", {})
         params: Neo4jProperties = {"user_uid": user_uid, **scope_params}

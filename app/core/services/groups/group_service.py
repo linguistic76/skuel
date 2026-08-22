@@ -51,6 +51,11 @@ class GroupService(BaseService[GroupBackendOperations, Group]):
         search_fields=("name", "description"),
         search_order_by="created_at",
         user_ownership_relationship=RelationshipName.OWNS,
+        # Group stores ownership as owner_uid (not the Entity-wide user_uid) —
+        # the declared property is what the OWNER_ONLY visibility clause
+        # filters, so inherited search scopes correctly if Group is ever
+        # wired into a search registry (ADR-086; Codex P2 on #1079).
+        ownership_property="owner_uid",
     )
 
     def __init__(

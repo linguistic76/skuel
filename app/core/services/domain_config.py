@@ -102,6 +102,8 @@ class DomainConfig:
         category_field: Field for category filtering (default: "category")
         graph_enrichment_patterns: Relationship patterns for graph context
         user_ownership_relationship: Relationship type for ownership (None for shared)
+        ownership_property: Node property the OWNER_ONLY clause filters on
+            (default "user_uid"; Group declares "owner_uid")
         prerequisite_relationships: RelationshipName enums for prerequisite traversal
         supports_user_progress: Whether domain supports mastery tracking
 
@@ -168,6 +170,16 @@ class DomainConfig:
     # only when the derivation is wrong (Exercise: SCOPE_AWARE).
     search_visibility: SearchVisibility | None = None
 
+    # The node property the OWNER_ONLY visibility clause filters on
+    # (``n.{ownership_property} = $user_uid`` — ADR-086 / ownership bundle).
+    # Nearly every user-owned domain denormalizes ownership as ``user_uid``;
+    # Group is the one domain that stores it as ``owner_uid``. Declared here so
+    # the clause renders the property the domain actually writes — a wrong
+    # declaration is a predicate that is null for every row (search silently
+    # returns nothing). Validated as a Python identifier at construction;
+    # ``build_search_visibility_clause`` re-validates before interpolation.
+    ownership_property: str = "user_uid"
+
     # Temporal queries (get_upcoming / get_overdue / get_active)
     temporal_exclude_statuses: tuple[str, ...] = (
         "completed",
@@ -195,6 +207,15 @@ class DomainConfig:
             raise ValueError(
                 f"DomainConfig for {self.get_entity_label()}: search_fields cannot be empty. "
                 f"Provide at least one field for text search."
+            )
+
+        # Validate: ownership_property is interpolated into Cypher (as an
+        # identifier, never a value) by build_search_visibility_clause — a
+        # non-identifier here can only be a typo or an injection attempt.
+        if not self.ownership_property.isidentifier():
+            raise ValueError(
+                f"DomainConfig for {self.get_entity_label()}: ownership_property "
+                f"{self.ownership_property!r} is not a valid identifier."
             )
 
         # Validate: "all" is reserved in status_filters (always means no constraint)

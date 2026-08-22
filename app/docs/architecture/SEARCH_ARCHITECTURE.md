@@ -123,7 +123,7 @@ genuinely instance-scoped domains declare it explicitly.
 | Value | Domains | Semantics |
 |-------|---------|-----------|
 | `PUBLIC` | PS, LP, KU | No filter — shared curriculum content |
-| `OWNER_ONLY` | Activities, UserEntry, RevisedExercise | Property scope `n.user_uid = $user_uid` — **every** strategy, faceted included (see the convergence note below) |
+| `OWNER_ONLY` | Activities, UserEntry, RevisedExercise | Property scope `n.{ownership_property} = $user_uid` on the domain's declared `DomainConfig.ownership_property` (default `user_uid`; Group declares `owner_uid` — ADR-086) — **every** strategy, faceted included (see the convergence note below) |
 | `SCOPE_AWARE` | Exercise | `scope = 'curriculum'` always visible; owned scopes (PERSONAL/ASSIGNED/ASSESSMENT) visible via `:OWNS`, `:SHARES_WITH`, or group membership (`:MEMBER_OF` + `:SHARED_WITH_GROUP`) — ADR-038/040 semantics. A student finds their group's assigned exercise by search; a stranger never sees someone's PERSONAL template |
 
 **Composition point:** `build_search_visibility_clause()`
@@ -146,29 +146,33 @@ only strategy that read the `:OWNS` **edge** rather than the denormalized
 but the split was real, and the edge is the half that actually went missing in
 production: a 2026-07 ingest batch stamped `user_uid` with no edge and an
 owner's own Principles vanished from `/search`. Converging on the property also
-buys the only index-seek plan (`NodeIndexSeek RANGE INDEX entity:Task(user_uid)`
-vs. a `:User` label scan + expand — every OWNER_ONLY label carries a `user_uid`
-RANGE index; `User.uid` has none).
+bought the only index-seek plan at the time (`NodeIndexSeek RANGE INDEX
+entity:Task(user_uid)` vs. a `:User` label scan + expand — every OWNER_ONLY
+label carries a `user_uid` RANGE index; `User.uid` had none until the ADR-086
+uniqueness constraint landed with the arc's final PR).
 
 The invariant is unchanged and still enforced on both write doors — the `:OWNS`
 edge remains the ownership signal for cascade deletes, sharing, and the adapter
 Cypher that traverses it. What changed is that **search scoping no longer
 depends on it.**
 
-⚠️ **An `OWNER_ONLY` domain must store its owner in `user_uid`.** The clause
-renders that visibility as a *property* predicate, so a domain declaring
-`OWNER_ONLY` while keying on `owner_uid` (or on the `:OWNS` edge alone) gets a
-predicate that is null for every row — its search silently returns nothing.
-The edge anchor happened to tolerate that shape; the property predicate does
-not. `GroupService` is exactly this: it declares `user_ownership_relationship=OWNS`
-(deriving `OWNER_ONLY`) while `Group` carries `owner_uid` and no `user_uid`.
-It is harmless only because **Group is not a searchable domain** — absent from
-`_SEARCHABLE_DOMAINS`, `_SERVICE_REGISTRY` and `_GRAPH_AWARE_DOMAINS`, and the
-only production callers of `graph_aware_faceted_search` are inside SearchRouter,
-which resolves services from that registry. Wiring Group into search requires
-fixing its ownership declaration first; guarded by
-`test_search_router_registry.py::TestOwnerOnlyDomainsCarryTheScopingProperty`
-(found by Codex on PR #1079).
+⚠️ **An `OWNER_ONLY` domain must declare the property it actually writes.** The
+clause renders that visibility as a *property* predicate on
+`DomainConfig.ownership_property` (default `"user_uid"`), so a declaration
+pointing at a field the domain does not store is a predicate that is null for
+every row — its search silently returns nothing. The property name is
+identifier-validated twice (at DomainConfig construction and again at the
+composition point) because it is interpolated as a Cypher identifier — it comes
+from a frozen declaration, never from user input. `GroupService` is the one
+non-default declaration: `Group` stores ownership in `owner_uid` and carries no
+`user_uid`, so its config declares `ownership_property="owner_uid"` (ADR-086;
+the fix for Codex P2 on #1079). Group remains deliberately absent from
+`_SEARCHABLE_DOMAINS`, `_SERVICE_REGISTRY` and `_GRAPH_AWARE_DOMAINS` — wiring
+it into search is a product decision, not a side effect — but its declaration
+now scopes correctly if that day comes. Guarded by
+`test_search_router_registry.py::TestOwnerOnlyDomainsCarryTheScopingProperty`,
+which asserts every searchable OWNER_ONLY domain's declared property exists on
+its model.
 
 ⚠️ **`faceted_search_raw` passes `has_user=True` unconditionally, on purpose.**
 `build_search_visibility_clause(OWNER_ONLY, has_user=False)` emits **no

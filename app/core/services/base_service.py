@@ -509,6 +509,25 @@ class BaseService(
         return config.get_search_visibility()
 
     @cached_property
+    def ownership_property(self) -> str:
+        """
+        Get the node property the OWNER_ONLY visibility clause filters on.
+
+        Rides with ``search_visibility`` into every clause composition
+        (``DomainConfig.ownership_property``, default ``"user_uid"``) so the
+        emitted predicate names the property the domain actually writes —
+        Group declares ``"owner_uid"`` (ADR-086).
+
+        Returns:
+            Property name ("user_uid" when no DomainConfig exists — matches
+            the fail-closed OWNER_ONLY default above).
+        """
+        config = self._get_config_cls()
+        if config is None:
+            return "user_uid"
+        return str(config.ownership_property)
+
+    @cached_property
     def entity_type_value(self) -> str:
         """
         Get THE EntityType value this domain configures, from DomainConfig.
@@ -647,7 +666,9 @@ class BaseService(
         if not user_uid:
             return Result.fail(Errors.validation(message="user_uid is required", field="user_uid"))
 
-        result = await self.backend.get_visible_to_user(uid, user_uid, self.search_visibility)
+        result = await self.backend.get_visible_to_user(
+            uid, user_uid, self.search_visibility, self.ownership_property
+        )
 
         # Not-found and not-visible converge on the same NotFound (backend
         # returns Result.ok(None) for both) — mirrors get()'s conversion.
