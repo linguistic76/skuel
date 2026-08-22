@@ -444,7 +444,9 @@ Auth: `require_authenticated_user(request) -> UserUID` (from `adapters.inbound.a
 - `verify_entity_ownership(service, uid, user_uid, domain)` — API routes. Returns error `Result` or `None`.
 - `require_owned_entity(service, uid, user_uid, entity_name)` — UI routes. Returns `(entity, None)` or `(None, Response)`.
 
-**See:** `/docs/patterns/OWNERSHIP_VERIFICATION.md`
+**Read enforcement (ADR-085):** two chokepoints only — `build_search_visibility_clause()` (search strategies + `get_visible_to_user` by-UID reads) or route-mediated `verify_ownership`; bare `get()` is internal mechanics only (post-verification / system reads / PUBLIC domains); never add a third mechanism. The ownership edge is universal `:OWNS` with the `user_uid == :OWNS` owner invariant; Events attendance = staged `ATTENDS` design (ADR-086).
+
+**See:** `/docs/patterns/OWNERSHIP_VERIFICATION.md`, `/docs/decisions/ADR-085-ownership-read-enforcement-contract.md`, `/docs/decisions/ADR-086-universal-owns-and-attends-attendance.md`
 
 ### Error Handling
 

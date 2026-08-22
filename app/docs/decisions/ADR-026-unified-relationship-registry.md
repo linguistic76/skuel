@@ -1,10 +1,10 @@
 ---
 title: ADR-026: Unified Relationship Registry
-updated: 2026-02-07
-status: accepted (evolved)
+updated: 2026-08-21
+status: accepted (evolved; ownership declaration superseded by ADR-086)
 category: decisions
 tags: [adr, decisions, relationships, consolidation, single-source-of-truth]
-related: [ADR-017-relationship-service-unification.md, ADR-025-service-consolidation-patterns.md]
+related: [ADR-017-relationship-service-unification.md, ADR-025-service-consolidation-patterns.md, ADR-086-universal-owns-and-attends-attendance.md]
 ---
 
 # ADR-026: Unified Relationship Registry
@@ -16,6 +16,16 @@ related: [ADR-017-relationship-service-unification.md, ADR-025-service-consolida
 **February 2026 Evolution:** The intermediate `RelationshipConfig`/`domain_configs.py` translation layer described in this ADR has been removed. All consumers now use `DomainRelationshipConfig` directly from `relationship_registry.py`. The `generate_relationship_config()` and `generate_relationship_config_by_label()` functions were deleted. Named configs (e.g., `TASKS_CONFIG`, `KU_CONFIG`) are imported directly from the registry. ~395 lines of translation ceremony removed.
 
 **April 2026 Evolution — entity_label / config_lookup_label split:** The service-layer `DomainConfig` previously carried one `entity_label` attribute doing two jobs (Neo4j base-label + `LABEL_CONFIGS` registry key), papered over by a `LABEL_CONFIGS["Entity"] → PS_CONFIG` backward-compat alias that silently routed Activity Domains to PathStep's relationship patterns. The two jobs are now split: `entity_label` is the Neo4j base-label for multi-label Cypher matching (`"Entity"` or `"Ku"`), `config_lookup_label` is the registry key (defaults to `model_class.__name__`). The `"Entity"` alias was deleted; factories (`create_activity_domain_config`, `create_curriculum_domain_config`) raise `ValueError` if a `config_lookup_label` is missing from `LABEL_CONFIGS`. The registry-level `DomainRelationshipConfig.entity_label` field has been normalized to `"Entity"` for all six Activity Domain entries — callers that used to read it as a domain-discrimination key should use the dict key or `config_lookup_label` instead. **See [ADR-056: Service-Layer Label Split](ADR-056-service-layer-label-split.md) for the full decision record.** In-repo quick reference: `.claude/skills/activity-domains/SKILL.md` § "Two labels, two jobs".
+
+**August 2026 Evolution — ownership declaration superseded:** The per-domain
+`ownership_relationship: RelationshipName | None` field on `DomainRelationshipConfig` is
+superseded by **[ADR-086](ADR-086-universal-owns-and-attends-attendance.md)**: ownership is
+universally `(User)-[:OWNS]->(entity)`, and the per-domain `HAS_TASK`/`HAS_GOAL`/… family it
+declared was paper — zero such edges ever reached the live graph. The field, the paper enum
+members, and their sole consumers (`UnifiedRelationshipService.create_user_relationship`/
+`delete_user_relationship` + the gravity writers) are deleted by the ownership-bundle arc's
+residue-collapse PR. Everything else in this ADR (the unified relationship definitions,
+generators, lateral specs, ingestion derivation) remains authoritative.
 
 **Decision Type:** ☑ Pattern/Practice
 
