@@ -94,7 +94,13 @@ class TestCompleteGoalWriter:
         service.update_goal = update_goal  # type: ignore[method-assign]
         return service, update_goal
 
-    async def test_defaults_achieved_date_to_today(self):
+    async def test_default_date_defers_to_the_transition_gate(self):
+        # No caller-supplied date → the intent carries no achieved_date; the
+        # transition-gated helper at update_goal stamps today. An explicit
+        # default here would bypass the gate and re-date on a re-posted
+        # complete (Codex P1, PR-2.5).
+        from core.models.sentinels import UNSET
+
         service, update_goal = self._service()
 
         result = await service.complete_goal("goal_x")
@@ -103,7 +109,7 @@ class TestCompleteGoalWriter:
         intent = update_goal.call_args.args[1]
         assert intent.status == EntityStatus.COMPLETED.value
         assert intent.progress_percentage == 100.0
-        assert intent.achieved_date == date.today()
+        assert intent.achieved_date is UNSET
 
     async def test_explicit_iso_date_is_parsed(self):
         service, update_goal = self._service()

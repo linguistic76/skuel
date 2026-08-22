@@ -164,8 +164,12 @@ class GoalsCoreService(
         Validate goal updates with business rules.
 
         Business Rules:
-        1. Achievement state immutability: Cannot modify achieved goals
-        2. Target date validation: If updating dates, target must be after start
+        1. Target date validation: If updating dates, target must be after start
+
+        Completed goals are editable like completed tasks (achievement-state
+        immutability dropped by ruling, 2026-08-22): reopen is a legal transition,
+        and the completion-stamp helper at ``update_goal`` clears/re-stamps
+        ``achieved_date`` on transitions out of / into COMPLETED.
 
         Note: Goal abandonment protection (checking for active tasks) is handled
         in the update() method since it requires async relationship queries.
@@ -179,18 +183,7 @@ class GoalsCoreService(
         """
         changes = updates.to_changes()
 
-        # Business Rule 1: Achievement state immutability
-        # Achieved goals are historical records - modifying them corrupts progress tracking
-        if current.status == EntityStatus.COMPLETED:
-            return Result.fail(
-                Errors.validation(
-                    message="Cannot modify achieved goals - they are historical records",
-                    field="status",
-                    value=current.status.value,
-                )
-            )
-
-        # Business Rule 2: Target date validation (if both dates present)
+        # Business Rule 1: Target date validation (if both dates present)
         # Check if we're updating either date field
         if "target_date" in changes or "start_date" in changes:
             # Determine new values (use updated value if present, else current)
@@ -581,7 +574,9 @@ class GoalsCoreService(
         intent's ``to_changes()`` is written wholesale — there is nothing to split off.
         Status transitions are validated against the Goal lifecycle and completion
         stamping (``achieved_date``) is applied here — the domain's one update
-        chokepoint (``core.services.completion_stamp``).
+        chokepoint (``core.services.completion_stamp``). Reopening (COMPLETED → a
+        non-terminal status) additionally resets ``progress_percentage`` to 0.0
+        unless the update carries its own figure.
 
         Args:
             uid: Goal UID
@@ -615,7 +610,8 @@ class GoalsCoreService(
 
             # Status-target validation + completion stamping (transition-gated). The
             # stamp rides the intent so ``super().update`` writes it in the same patch;
-            # explicit paths (``complete_goal`` sets ``achieved_date``) keep authority.
+            # an intent already carrying ``achieved_date`` (``complete_goal`` with an
+            # explicit date) keeps authority.
             stamp = completion_transition_patch(
                 EntityType.GOAL, old_goal.status if old_goal else None, changes
             )
@@ -623,6 +619,24 @@ class GoalsCoreService(
                 return Result.fail(stamp)
             if stamp.value:
                 intent = dataclasses.replace(intent, **stamp.value)
+
+            # Reopening (COMPLETED → a non-terminal status) also resets the
+            # 100% progress ``complete_goal`` wrote, unless the caller supplies
+            # its own figure. Terminal targets (archive/cancel/fail) keep it as
+            # a historical record; on a reopened goal it would read as "already
+            # done" to progress consumers and instantly re-achieve on the next
+            # contribution increment.
+            if (
+                old_goal is not None
+                and old_goal.status == EntityStatus.COMPLETED
+                and "progress_percentage" not in changes
+            ):
+                raw_target = changes["status"]
+                target = (
+                    raw_target if isinstance(raw_target, EntityStatus) else EntityStatus(raw_target)
+                )
+                if not target.is_terminal():
+                    intent = dataclasses.replace(intent, progress_percentage=0.0)
 
         result: Result[Goal] = await super().update(uid, intent)
         if result.is_error:
@@ -733,18 +747,25 @@ class GoalsCoreService(
         Returns:
             Result containing True if goal was paused
         """
-        # Store pause metadata
         metadata_updates = {"pause_reason": reason}
         if until_date:
             metadata_updates["paused_until"] = until_date
 
-        result = await self.update_goal(uid, GoalUpdateIntent(status=EntityStatus.PAUSED.value))
-        if result.is_ok and metadata_updates:
-            # Update metadata separately
-            goal = result.value
-            goal.metadata.update(metadata_updates)
-            await self.update_goal(uid, GoalUpdateIntent(metadata=goal.metadata))
+        # One write carrying status + merged pause metadata, so both share one
+        # Result (a second, discarded metadata write reported success even when
+        # the metadata never persisted). A failed pre-read fails the pause for
+        # the same reason — never a silent metadata-less success. The frozen
+        # model's metadata is a read-only view — merge into a fresh dict.
+        intent = GoalUpdateIntent(status=EntityStatus.PAUSED.value)
+        goal_result = await self.get(uid)
+        if goal_result.is_error:
+            return Result.fail(goal_result)
+        if goal_result.value:
+            intent = dataclasses.replace(
+                intent, metadata={**goal_result.value.metadata, **metadata_updates}
+            )
 
+        result = await self.update_goal(uid, intent)
         return Result.ok(True) if result.is_ok else Result.fail(result)
 
     async def complete_goal(
@@ -756,7 +777,11 @@ class GoalsCoreService(
         Args:
             uid: Goal UID
             completion_notes: Optional completion notes
-            achieved_date: Optional achievement date (ISO format), defaults to today
+            achieved_date: Optional achievement date (ISO format). When omitted, the
+                completion-stamp helper at ``update_goal`` stamps today — transition-
+                gated, so re-completing an already-completed goal (e.g. a re-posted
+                status route call) keeps its original ``achieved_date``. An explicit
+                date always wins (deliberate re-dating stays possible).
 
         Returns:
             Result containing True if goal was completed
@@ -764,16 +789,22 @@ class GoalsCoreService(
         intent = GoalUpdateIntent(
             status=EntityStatus.COMPLETED.value,
             progress_percentage=100.0,
-            achieved_date=(date.fromisoformat(achieved_date) if achieved_date else date.today()),
         )
+        if achieved_date:
+            intent = dataclasses.replace(intent, achieved_date=date.fromisoformat(achieved_date))
 
         if completion_notes:
-            # Get current goal to update metadata
+            # Get current goal to update metadata (merge — the frozen model's
+            # metadata is a read-only view). A failed pre-read fails the call:
+            # never report a complete whose notes silently didn't persist.
             goal_result = await self.get(uid)
-            if goal_result.is_ok and goal_result.value:
+            if goal_result.is_error:
+                return Result.fail(goal_result)
+            if goal_result.value:
                 goal = goal_result.value
-                goal.metadata["completion_notes"] = completion_notes
-                intent = dataclasses.replace(intent, metadata=goal.metadata)
+                intent = dataclasses.replace(
+                    intent, metadata={**goal.metadata, "completion_notes": completion_notes}
+                )
 
         result = await self.update_goal(uid, intent)
         return Result.ok(True) if result.is_ok else Result.fail(result)
@@ -791,13 +822,22 @@ class GoalsCoreService(
         """
         intent = GoalUpdateIntent(status=EntityStatus.ARCHIVED.value)
 
-        # Get current goal to update metadata
+        # Get current goal to update metadata (merge — the frozen model's
+        # metadata is a read-only view). A failed pre-read fails the archive:
+        # never report an archive whose reason silently didn't persist.
         goal_result = await self.get(uid)
-        if goal_result.is_ok and goal_result.value:
+        if goal_result.is_error:
+            return Result.fail(goal_result)
+        if goal_result.value:
             goal = goal_result.value
-            goal.metadata["archive_reason"] = reason
-            goal.metadata["archived_at"] = datetime.now().isoformat()
-            intent = dataclasses.replace(intent, metadata=goal.metadata)
+            intent = dataclasses.replace(
+                intent,
+                metadata={
+                    **goal.metadata,
+                    "archive_reason": reason,
+                    "archived_at": datetime.now().isoformat(),
+                },
+            )
 
         result = await self.update_goal(uid, intent)
         return Result.ok(True) if result.is_ok else Result.fail(result)

@@ -235,15 +235,129 @@ class TestGoalsChokepoint:
         assert result.is_ok
         assert _written_changes(backend)["achieved_date"] == date.today()
 
-    async def test_updates_on_an_achieved_goal_are_refused_before_the_write(self):
-        # Goals' pre-existing achievement-immutability rule (`_validate_update`)
-        # refuses ANY update on a COMPLETED goal, so both the re-post and the
-        # reopen die before the write: no re-dating, and no R1 clear either —
-        # reopening an achieved goal is not a legal Goal transition.
+    async def test_reposting_completed_does_not_restamp(self):
+        # Achievement immutability dropped (ruled 2026-08-22): completed goals
+        # are editable like completed tasks, and the transition gate carries the
+        # no-re-dating guarantee instead of the old blanket refusal.
         service, backend = self._service(EntityStatus.COMPLETED)
-        for target in ("completed", "active"):
-            result = await service.update_goal("goal_1", GoalUpdateIntent(status=target))
-            assert result.is_error
+        result = await service.update_goal("goal_1", GoalUpdateIntent(status="completed"))
+        assert result.is_ok
+        assert "achieved_date" not in _written_changes(backend)
+
+    async def test_reopen_clears_the_stamp(self):
+        service, backend = self._service(EntityStatus.COMPLETED)
+        result = await service.update_goal("goal_1", GoalUpdateIntent(status="active"))
+        assert result.is_ok
+        assert _written_changes(backend)["achieved_date"] is None
+
+    async def test_reopen_resets_progress_percentage(self):
+        # Codex round 3: without the reset a reopened goal stays a "100%
+        # complete" ACTIVE goal — misread by progress consumers, and instantly
+        # re-achieved by the next contribution increment.
+        service, backend = self._service(EntityStatus.COMPLETED)
+        result = await service.update_goal("goal_1", GoalUpdateIntent(status="active"))
+        assert result.is_ok
+        assert _written_changes(backend)["progress_percentage"] == 0.0
+
+    async def test_reopen_caller_progress_keeps_authority(self):
+        service, backend = self._service(EntityStatus.COMPLETED)
+        intent = GoalUpdateIntent(status="active", progress_percentage=42.0)
+        result = await service.update_goal("goal_1", intent)
+        assert result.is_ok
+        assert _written_changes(backend)["progress_percentage"] == 42.0
+
+    async def test_activate_goal_reopens_a_completed_goal(self):
+        # The live reopen door: POST /api/goals/{uid}/status → set_status →
+        # activate_goal. The old rule killed this before the write.
+        service, backend = self._service(EntityStatus.COMPLETED)
+        result = await service.activate_goal("goal_1")
+        assert result.is_ok
+        changes = _written_changes(backend)
+        assert changes["status"] == EntityStatus.ACTIVE.value
+        assert changes["achieved_date"] is None
+        assert changes["progress_percentage"] == 0.0
+
+    async def test_archive_goal_archives_a_completed_goal(self):
+        # A terminal target is not a reopen: the historical 100% progress
+        # stays (only the stamp obeys the non-null-exactly-when-completed
+        # invariant).
+        service, backend = self._service(EntityStatus.COMPLETED)
+        result = await service.archive_goal("goal_1")
+        assert result.is_ok
+        changes = _written_changes(backend)
+        assert changes["status"] == EntityStatus.ARCHIVED.value
+        assert "progress_percentage" not in changes
+
+    async def test_cancel_transition_on_a_completed_goal_reaches_the_write(self):
+        # The facade's cancel_goal delegates here after its active-tasks guard
+        # (which is status-agnostic and unrelated to the deleted rule).
+        service, backend = self._service(EntityStatus.COMPLETED)
+        result = await service.update_goal("goal_1", GoalUpdateIntent(status="cancelled"))
+        assert result.is_ok
+        assert _written_changes(backend)["status"] == EntityStatus.CANCELLED.value
+        assert _written_changes(backend)["achieved_date"] is None
+
+    async def test_complete_goal_transition_stamps_today(self):
+        # complete_goal's default path carries no achieved_date — the stamp
+        # comes from the transition gate at the chokepoint.
+        service, backend = self._service(EntityStatus.ACTIVE)
+        result = await service.complete_goal("goal_1")
+        assert result.is_ok
+        assert _written_changes(backend)["achieved_date"] == date.today()
+
+    async def test_complete_goal_on_an_already_completed_goal_does_not_redate(self):
+        # Codex P1: set_status("completed") on an already-completed goal
+        # dispatches here; with the immutability rule gone, a re-posted
+        # complete must keep the original achieved_date.
+        service, backend = self._service(EntityStatus.COMPLETED)
+        result = await service.complete_goal("goal_1")
+        assert result.is_ok
+        assert "achieved_date" not in _written_changes(backend)
+
+    async def test_pause_goal_single_write_carries_status_and_metadata(self):
+        # Codex P2: pause metadata rides the status write, so one Result
+        # answers for both (no discarded second write).
+        service, backend = self._service(EntityStatus.ACTIVE)
+        result = await service.pause_goal("goal_1", reason="resting")
+        assert result.is_ok
+        assert backend.update.await_count == 1
+        changes = _written_changes(backend)
+        assert changes["status"] == EntityStatus.PAUSED.value
+        assert changes["metadata"]["pause_reason"] == "resting"
+
+    def _flaky_pre_read_service(self):
+        # Pre-read fails transiently, any later read would succeed — the
+        # scenario where a swallowed pre-read error becomes a silent
+        # metadata-less "success" (Codex round 2).
+        from core.services.goals.goals_core_service import GoalsCoreService
+        from core.utils.result_simplified import Errors
+
+        current = Goal(uid="goal_1", user_uid=USER, title="g", status=EntityStatus.ACTIVE)
+        backend = _mock_backend(current, current)
+        backend.get = AsyncMock(
+            side_effect=[
+                Result.fail(Errors.database("get", "transient read failure")),
+                Result.ok(current),
+            ]
+        )
+        return GoalsCoreService(backend=backend), backend
+
+    async def test_pause_goal_failed_pre_read_fails_the_pause(self):
+        service, backend = self._flaky_pre_read_service()
+        result = await service.pause_goal("goal_1", reason="resting")
+        assert result.is_error
+        backend.update.assert_not_awaited()
+
+    async def test_archive_goal_failed_pre_read_fails_the_archive(self):
+        service, backend = self._flaky_pre_read_service()
+        result = await service.archive_goal("goal_1")
+        assert result.is_error
+        backend.update.assert_not_awaited()
+
+    async def test_complete_goal_failed_notes_pre_read_fails_the_complete(self):
+        service, backend = self._flaky_pre_read_service()
+        result = await service.complete_goal("goal_1", completion_notes="done")
+        assert result.is_error
         backend.update.assert_not_awaited()
 
     async def test_explicit_achieved_date_keeps_authority(self):

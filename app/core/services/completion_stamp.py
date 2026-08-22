@@ -18,9 +18,11 @@ Every intent-based Activity update funnels through one per-domain core method
 
 The gate is the *transition*, not the presence of the status key: re-posting
 ``status=completed`` on an already-completed entity must not re-date it. An
-update that already carries the domain's completion field keeps authority —
-explicit complete paths (``complete_goal``, ``complete_task_with_cascade``) set
-their own stamp and the helper injects nothing.
+update that already carries the domain's completion field keeps authority — a
+caller-supplied date (``complete_goal(achieved_date=…)``) or an explicit
+complete flow (``complete_task_with_cascade``) sets its own stamp and the
+helper injects nothing. Default-dated ``complete_goal`` carries no field and
+defers to the gate here, so a retried complete never re-dates.
 
 Bypass paths are handled elsewhere by design: ingestion never auto-stamps (the
 file is the source of truth for its own dates), and the DSL ``[x]`` create door
