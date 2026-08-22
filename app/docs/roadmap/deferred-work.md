@@ -581,6 +581,27 @@ outlives the PR that wrote it, and a second `:OWNS` writer is the outcome to ref
 decision belongs to the cross-cutting ownership bundle (Mike, 2026-08-21 — see the facet table
 under the Askesis read-side P1 entry), not to a drive-by wiring PR.
 
+**✅ Ruled (Mike, 2026-08-21) — the semantic half of that decision:** *"the attendee owns their
+attendance, not the event."* Attendance is a first-class relation belonging to the ATTENDEE —
+their data, deleted with them — never a second ownership writer onto the event. Two anchors this
+sets for the bundle: (1) the ownership essence stays **uniform** across the activity domains — a
+user's ownership of Task/Goal/Habit/Choice/Principle is foundational and must be unambiguous in
+the model (`HAS_TASK`-style names were shorthand for that essence, not a demand for per-domain
+ownership edges); (2) Events is the unique domain — its fundamental user↔event relation is
+attendance, with the organizer/creator treatment a secondary refinement. Still open for the
+bundle thread, in the facet ruling's order: the enforcement question first (what enforces
+ownership on a read that bypasses SearchRouter), ADR-ratifying universal `:OWNS` and collapsing
+the paper-only `HAS_*` ownership residue, the attendance edge's mechanics (name — `ATTENDS`
+exists in `RelationshipName`, used by nothing; whether the creator auto-attends; Events'
+visibility becoming attendee-aware, which `user_uid`-property scoping alone cannot express),
+the **actor/authorization + consent rule for attendance mutations** (the staged
+`AddAttendeeRequest`/`RemoveAttendeeRequest` carry no actor and `_OrchestrationMixin` checks
+nothing — `add_attendee` even stamps `added_by_uid` with the *target's* uid; who may add/remove
+whom — attendee self-management vs organizer managing others — and whether being added requires
+the target's consent must be ruled alongside the edge, since "you own your attendance" implies
+no one else writes it without your say), and one parked hard question by name: an event whose
+organizer is deleted but which has living attendees.
+
 **Check it is still latent**: each of the five must still have no production caller.
 ```bash
 git grep -n "add_attendee\|create_user_goal_relationship\|create_user_habit_relationship\|create_user_principle_relationship\|create_user_event_relationship" -- '*.py' | grep -v '^tests/\|^scripts/'
