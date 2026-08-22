@@ -733,11 +733,14 @@ class GoalsCoreService(
 
         # One write carrying status + merged pause metadata, so both share one
         # Result (a second, discarded metadata write reported success even when
-        # the metadata never persisted). The frozen model's metadata is a
-        # read-only view — merge into a fresh dict.
+        # the metadata never persisted). A failed pre-read fails the pause for
+        # the same reason — never a silent metadata-less success. The frozen
+        # model's metadata is a read-only view — merge into a fresh dict.
         intent = GoalUpdateIntent(status=EntityStatus.PAUSED.value)
         goal_result = await self.get(uid)
-        if goal_result.is_ok and goal_result.value:
+        if goal_result.is_error:
+            return Result.fail(goal_result)
+        if goal_result.value:
             intent = dataclasses.replace(
                 intent, metadata={**goal_result.value.metadata, **metadata_updates}
             )
@@ -772,9 +775,12 @@ class GoalsCoreService(
 
         if completion_notes:
             # Get current goal to update metadata (merge — the frozen model's
-            # metadata is a read-only view)
+            # metadata is a read-only view). A failed pre-read fails the call:
+            # never report a complete whose notes silently didn't persist.
             goal_result = await self.get(uid)
-            if goal_result.is_ok and goal_result.value:
+            if goal_result.is_error:
+                return Result.fail(goal_result)
+            if goal_result.value:
                 goal = goal_result.value
                 intent = dataclasses.replace(
                     intent, metadata={**goal.metadata, "completion_notes": completion_notes}
@@ -797,9 +803,12 @@ class GoalsCoreService(
         intent = GoalUpdateIntent(status=EntityStatus.ARCHIVED.value)
 
         # Get current goal to update metadata (merge — the frozen model's
-        # metadata is a read-only view)
+        # metadata is a read-only view). A failed pre-read fails the archive:
+        # never report an archive whose reason silently didn't persist.
         goal_result = await self.get(uid)
-        if goal_result.is_ok and goal_result.value:
+        if goal_result.is_error:
+            return Result.fail(goal_result)
+        if goal_result.value:
             goal = goal_result.value
             intent = dataclasses.replace(
                 intent,

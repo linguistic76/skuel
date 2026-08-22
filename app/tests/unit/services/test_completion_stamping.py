@@ -303,6 +303,41 @@ class TestGoalsChokepoint:
         assert changes["status"] == EntityStatus.PAUSED.value
         assert changes["metadata"]["pause_reason"] == "resting"
 
+    def _flaky_pre_read_service(self):
+        # Pre-read fails transiently, any later read would succeed — the
+        # scenario where a swallowed pre-read error becomes a silent
+        # metadata-less "success" (Codex round 2).
+        from core.services.goals.goals_core_service import GoalsCoreService
+        from core.utils.result_simplified import Errors
+
+        current = Goal(uid="goal_1", user_uid=USER, title="g", status=EntityStatus.ACTIVE)
+        backend = _mock_backend(current, current)
+        backend.get = AsyncMock(
+            side_effect=[
+                Result.fail(Errors.database("get", "transient read failure")),
+                Result.ok(current),
+            ]
+        )
+        return GoalsCoreService(backend=backend), backend
+
+    async def test_pause_goal_failed_pre_read_fails_the_pause(self):
+        service, backend = self._flaky_pre_read_service()
+        result = await service.pause_goal("goal_1", reason="resting")
+        assert result.is_error
+        backend.update.assert_not_awaited()
+
+    async def test_archive_goal_failed_pre_read_fails_the_archive(self):
+        service, backend = self._flaky_pre_read_service()
+        result = await service.archive_goal("goal_1")
+        assert result.is_error
+        backend.update.assert_not_awaited()
+
+    async def test_complete_goal_failed_notes_pre_read_fails_the_complete(self):
+        service, backend = self._flaky_pre_read_service()
+        result = await service.complete_goal("goal_1", completion_notes="done")
+        assert result.is_error
+        backend.update.assert_not_awaited()
+
     async def test_explicit_achieved_date_keeps_authority(self):
         # complete_goal's path: the intent already carries achieved_date.
         service, backend = self._service(EntityStatus.ACTIVE)
