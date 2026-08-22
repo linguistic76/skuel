@@ -30,7 +30,7 @@ Secondary entities are graph-connected nodes that capture user engagement with a
 | Secondary Entity | Primary Entity | Service | Relationship Pattern |
 |------------------|----------------|---------|---------------------|
 | `HabitCompletion` | `Habit` | `HabitsCompletionService` | `(User)-[:COMPLETED]->(HabitCompletion)-[:COMPLETION_OF]->(Habit)` |
-| `PrincipleReflection` | `Principle` | `PrinciplesReflectionService` | `(User)-[:MADE_REFLECTION]->(PrincipleReflection)-[:REFLECTS_ON]->(Principle)` |
+| `PrincipleReflection` | `Principle` | `PrinciplesReflectionService` | `(User)-[:OWNS]->(PrincipleReflection)-[:REFLECTS_ON]->(Principle)` |
 
 ---
 
@@ -61,7 +61,7 @@ Use a secondary entity when:
 Secondary entities form a chain: **User → Secondary → Primary**
 
 ```
-(User)-[:MADE_REFLECTION]->(PrincipleReflection)-[:REFLECTS_ON]->(Principle)
+(User)-[:OWNS]->(PrincipleReflection)-[:REFLECTS_ON]->(Principle)
                                    |
                                    +-[:TRIGGERED_BY]->(Goal|Habit|Event|Choice)
                                    |

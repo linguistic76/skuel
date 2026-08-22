@@ -353,7 +353,7 @@ MATCH (t:Task {uid: $task_uid})
 RETURN t
 ```
 
-**Note:** The OWNS relationship is the universal ownership pattern. Per-domain variants (HAS_TASK, HAS_GOAL, etc.) exist in RelationshipName but backends neither write nor query them — always use OWNS.
+**Note:** The OWNS relationship is THE universal ownership edge (ADR-086). The former per-domain variants (HAS_TASK, HAS_GOAL, etc.) were paper-only and were deleted from RelationshipName — always use OWNS. Events attendance is the separate consent-carrying ATTENDS edge, not ownership.
 
 ### 6. Per-Query Server-Side Timeout (TimedDriver)
 
