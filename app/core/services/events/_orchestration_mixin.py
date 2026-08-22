@@ -16,11 +16,11 @@ from typing import TYPE_CHECKING, Any
 
 from core.events import publish_event
 from core.events.calendar_event_events import EventAttendeeAdded, EventAttendeeRemoved
-from core.models.enums import EventType, RecurrencePattern
+from core.models.enums import AttendanceStatus, EventType, RecurrencePattern
 from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
 from core.models.relationship_names import RelationshipName
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from core.models.event.event_request import (
@@ -59,17 +59,6 @@ class _OrchestrationMixin:
     # GRAPH RELATIONSHIPS — Cross-domain linking
     # ========================================================================
 
-    async def create_user_event_relationship(
-        self, user_uid: UserUID, event_uid: str, participation_type: str = "scheduled"
-    ) -> Result[bool]:
-        """Create User→Event relationship in graph."""
-        properties = (
-            {"participation_type": participation_type}
-            if participation_type != "scheduled"
-            else None
-        )
-        return await self.relationships.create_user_relationship(user_uid, event_uid, properties)
-
     async def link_event_to_goal(
         self, event_uid: str, goal_uid: str, contribution_weight: float = 1.0
     ) -> Result[bool]:
@@ -94,94 +83,155 @@ class _OrchestrationMixin:
         return Result.ok(result.value > 0)
 
     # ========================================================================
-    # ATTENDEE MANAGEMENT
+    # ATTENDEE MANAGEMENT — (User)-[:ATTENDS]->(Event), ADR-086 (staged)
     # ========================================================================
+    # STAGED: no route reaches this triple yet (PLANNED_METHODS). The actor is
+    # always resolved by the caller from the auth layer (current_user) — never
+    # from the request body. Wiring-PR obligations recorded in ADR-086: the
+    # self-add eligibility gate ("open to the actor" events), max_attendees
+    # enforcement, a role enum, and the soft-delete ghost-attendee filter.
 
     async def get_event_attendees(self, event_uid: str) -> Result[list[str]]:
         """Get attendee user UIDs for an event.
 
-        Attendees are users joined via ``(User)-[:HAS_EVENT]->(Event)`` — the same edge
-        ``add_attendee``/``remove_attendee`` create and delete. Read it as an *incoming*
-        ``HAS_EVENT`` traversal on the backend. (The previous ``get_related_uids("attendees",
-        event_uid)`` used a config method_key that does not exist, so it always failed
-        validation and returned nothing — the write path and read path had diverged.)
+        Attendees hold a ``(User)-[:ATTENDS]->(Event)`` edge — read as an
+        *incoming* ``ATTENDS`` traversal on the backend. Returns attendees in
+        every consent status; status-aware reads and the live-user ghost filter
+        are wiring obligations (ADR-086).
         """
         return await self.backend.get_related_uids(
-            event_uid, RelationshipName.HAS_EVENT, direction="incoming"
+            event_uid, RelationshipName.ATTENDS, direction="incoming"
         )
 
-    async def add_attendee(self, request: AddAttendeeRequest) -> Result[bool]:
+    async def add_attendee(self, request: AddAttendeeRequest, actor_uid: UserUID) -> Result[bool]:
         """
-        Add an attendee to an event using typed request.
+        Add an attendee to an event — the consent-aware attendance write.
+
+        The ADR-086 state machine decides what the write may say:
+        - actor == target (self-add): writes ``accepted`` — self-add IS the
+          attendee's consent, and it also accepts the actor's own pending
+          invite (the target is the only actor who transitions status).
+        - actor == event owner (organizer): creates ``invited`` — an organizer
+          can never write acceptance for someone else; re-inviting an existing
+          attendance changes nothing.
+        - anyone else: refused (Forbidden).
 
         Args:
-            request: AddAttendeeRequest containing:
-                - event_uid: UID of the event
-                - user_uid: UID of the user to add as attendee
-                - role: Attendee role (attendee, organizer, speaker)
-                - send_notification: Whether to notify the attendee
+            request: target ``user_uid`` + ``event_uid`` + ``role`` +
+                ``send_notification`` (the target, never the actor).
+            actor_uid: The acting user, from the auth layer.
 
         Returns:
-            Result with success status
+            Result[bool] — success of the attendance write.
         """
-        properties = {"participation_type": request.role} if request.role != "scheduled" else None
-        result = await self.relationships.create_user_relationship(
-            user_uid=request.user_uid,
-            entity_uid=request.event_uid,
-            properties=properties,
-        )
+        event_result = await self.core.get(request.event_uid)
+        if event_result.is_error:
+            return Result.fail(event_result)
+        event = event_result.value
+        if event is None:
+            return Result.fail(Errors.not_found("event", request.event_uid))
 
-        if request.send_notification and result.is_ok:
-            event_result = await self.core.get(request.event_uid)
-            event_title = (
-                event_result.value.title if event_result.is_ok and event_result.value else "Event"
+        if actor_uid == request.user_uid:
+            # Self-add is the attendee's own consent. Eligibility gate (whether
+            # this event is open to the actor) is a wiring obligation — see the
+            # section comment.
+            status = AttendanceStatus.ACCEPTED
+            set_status_on_match = True
+        elif event.user_uid == actor_uid:
+            status = AttendanceStatus.INVITED
+            set_status_on_match = False
+        else:
+            return Result.fail(
+                Errors.forbidden(
+                    f"add attendee to event {request.event_uid}",
+                    reason="only the event owner may invite, and only the target user may self-add",
+                )
             )
 
+        result = await self.backend.add_attendee(
+            event_uid=request.event_uid,
+            attendee_uid=request.user_uid,
+            actor_uid=actor_uid,
+            role=request.role,
+            status=status.value,
+            set_status_on_match=set_status_on_match,
+        )
+        if result.is_error:
+            return Result.fail(result)
+
+        if request.send_notification:
             notification_event = EventAttendeeAdded(
                 event_uid=request.event_uid,
-                event_title=event_title,
+                event_title=event.title,
                 attendee_uid=request.user_uid,
-                added_by_uid=request.user_uid,
+                added_by_uid=actor_uid,
                 role=request.role,
             )
             await publish_event(self.event_bus, notification_event, self.logger)
 
-        return result
+        return Result.ok(True)
 
-    async def remove_attendee(self, request: RemoveAttendeeRequest) -> Result[bool]:
+    async def remove_attendee(
+        self, request: RemoveAttendeeRequest, actor_uid: UserUID
+    ) -> Result[bool]:
         """
-        Remove an attendee from an event using typed request.
+        Remove an attendee from an event — consent-aware (ADR-086).
+
+        - actor == target: may always remove their own attendance, whatever its
+          status.
+        - actor == event owner (organizer): may only revoke a still-``invited``
+          attendance — an accepted attendance is the attendee's to keep.
+        - anyone else: refused (Forbidden).
 
         Args:
-            request: RemoveAttendeeRequest containing:
-                - event_uid: UID of the event
-                - user_uid: UID of the user to remove
-                - send_notification: Whether to notify the attendee
+            request: target ``user_uid`` + ``event_uid`` + ``send_notification``.
+            actor_uid: The acting user, from the auth layer.
 
         Returns:
-            Result with success status
+            Result[bool] — True when an attendance was removed; False when
+            nothing matched (absent, or the organizer's revoke met a
+            non-invited attendance).
         """
-        event_title = "Event"
-        if request.send_notification:
-            event_result = await self.core.get(request.event_uid)
-            if event_result.is_ok and event_result.value:
-                event_title = event_result.value.title
+        event_result = await self.core.get(request.event_uid)
+        if event_result.is_error:
+            return Result.fail(event_result)
+        event = event_result.value
+        if event is None:
+            return Result.fail(Errors.not_found("event", request.event_uid))
 
-        result = await self.relationships.delete_user_relationship(
-            user_uid=request.user_uid,
-            entity_uid=request.event_uid,
+        if actor_uid == request.user_uid:
+            only_if_status: str | None = None
+        elif event.user_uid == actor_uid:
+            only_if_status = AttendanceStatus.INVITED.value
+        else:
+            return Result.fail(
+                Errors.forbidden(
+                    f"remove attendee from event {request.event_uid}",
+                    reason=(
+                        "only the target user may leave, and the event owner "
+                        "may only revoke a pending invite"
+                    ),
+                )
+            )
+
+        result = await self.backend.remove_attendee(
+            event_uid=request.event_uid,
+            attendee_uid=request.user_uid,
+            only_if_status=only_if_status,
         )
+        if result.is_error:
+            return Result.fail(result)
 
-        if request.send_notification and result.is_ok:
+        if result.value and request.send_notification:
             notification_event = EventAttendeeRemoved(
                 event_uid=request.event_uid,
-                event_title=event_title,
+                event_title=event.title,
                 attendee_uid=request.user_uid,
-                removed_by_uid=request.user_uid,
+                removed_by_uid=actor_uid,
             )
             await publish_event(self.event_bus, notification_event, self.logger)
 
-        return result
+        return Result.ok(result.value)
 
     # ========================================================================
     # CONTEXT-AWARE CREATION

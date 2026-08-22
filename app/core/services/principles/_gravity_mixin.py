@@ -13,7 +13,6 @@ from __future__ import annotations
 
 from typing import Any, ClassVar
 
-from core.models.type_hints import UserUID
 from core.utils.result_simplified import Errors, Result
 
 
@@ -40,25 +39,6 @@ class _GravityMixin:
         "principle": "supporting_principles",
         "choice": "guided_choices",
     }
-
-    # ========================================================================
-    # USER-PRINCIPLE RELATIONSHIP
-    # ========================================================================
-
-    async def create_user_principle_relationship(
-        self,
-        user_uid: UserUID,
-        principle_uid: str,
-        strength: str = "core",
-        adoption_date: str | None = None,
-    ) -> Result[bool]:
-        """Create User→Principle relationship in graph."""
-        properties: dict[str, str] = {"strength": strength}
-        if adoption_date:
-            properties["adoption_date"] = adoption_date
-        return await self.relationships.create_user_relationship(
-            user_uid, principle_uid, properties if properties else None
-        )
 
     async def link_principle_to_knowledge(
         self, principle_uid: str, knowledge_uid: str, relevance: str = "fundamental"

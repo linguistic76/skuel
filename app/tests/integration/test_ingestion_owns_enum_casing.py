@@ -104,7 +104,7 @@ async def test_batch_door_writes_owns_edge_for_activity(
     assert len(edges) == 1, "ingested activity must carry exactly one :OWNS edge"
     assert edges[0]["owner"] == OWNER_UID
     props = edges[0]["props"]
-    # Edge props mirror the CRUD path's create_user_relationship defaults
+    # Edge props mirror the CRUD create door's :OWNS edge defaults (ADR-086)
     assert props["access_count"] == 0
     assert props["is_active"] is True
     assert isinstance(props["created_at"], str)

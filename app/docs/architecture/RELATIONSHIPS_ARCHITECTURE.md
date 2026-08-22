@@ -103,7 +103,6 @@ class DomainRelationshipConfig:
     entity_label: NeoLabel
     dto_class: type
     model_class: type
-    ownership_relationship: RelationshipName | None
     relationships: tuple[UnifiedRelationshipDefinition, ...] = ()
     prerequisite_relationship_names: tuple[RelationshipName, ...] = ()
     enables_relationship_names: tuple[RelationshipName, ...] = ()
@@ -136,7 +135,7 @@ class DomainRelationshipConfig:
 | Event | 5 | `HAS_SUBEVENT`, `SUBEVENT_OF`, `CONFLICTS_WITH`, `FUNDS_EVENT`, `ATTENDS` |
 | Principle | 9 | `HAS_SUBPRINCIPLE`, `SUBPRINCIPLE_OF`, `SUPPORTS_PRINCIPLE`, `GUIDES_GOAL`, `GUIDES_CHOICE`, `REFLECTS_ON`, `REVEALS_CONFLICT` |
 | Choice | 8 | `HAS_SUBCHOICE`, `SUBCHOICE_OF`, `ALIGNED_WITH_PRINCIPLE`, `CONFLICTS_WITH_PRINCIPLE`, `AFFECTS_GOAL`, `INFORMS_CHOICE` |
-| User / Ownership | 12 | `OWNS`, `MEMBER_OF`, `SHARES_WITH`, `SHARED_WITH_GROUP`, `ULTIMATE_PATH` |
+| User / Ownership | 5 | `OWNS` (THE universal ownership edge, ADR-086), `MEMBER_OF`, `SHARES_WITH`, `SHARED_WITH_GROUP`, `ULTIMATE_PATH` |
 | Curriculum | 5 | `ORGANIZES`, `REQUIRES_PREREQUISITE`, `HAS_NARROWER`, `HAS_BROADER` |
 | Life Path | 3 | `SERVES_LIFE_PATH`, `ULTIMATE_PATH`, `ALIGNMENT_SNAPSHOT` |
 | Exercise / Group | 3 | `FOR_GROUP`, `FULFILLS_EXERCISE`, `ASSIGNED_TO` |
@@ -189,7 +188,6 @@ Creation, deletion, validation:
 - `delete_relationship(from_uid, to_uid, relationship_type)` → `Result[bool]`
 - `delete_relationships_batch(relationships_list)` → `Result[int]`
 - `create_relationships_batch(relationships_list)` → `Result[int]`
-- `create_user_relationship(user_uid, entity_uid, properties)` → `Result[bool]`
 - `has_relationship(uid, relationship_type, direction)` → `Result[bool]`
 - `count_related(uid, relationship_type, direction)` → `Result[int]`
 

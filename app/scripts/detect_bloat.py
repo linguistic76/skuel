@@ -151,20 +151,20 @@ _PRINCIPLES_ASSESS = (
     "alignment_history, which the detail page already renders; wire an assess "
     "route/UI (dual-track check-ins live separately in dual_track_checkins)"
 )
-_PRINCIPLES_GRAVITY = (
-    "goal/habit/Ku/choice link surface staged; wire link routes/UI or fold into relationship routes"
-)
 _PRINCIPLES_INSIGHTS = (
     "principle analytics/AI insight surface staged; wire an insights UI or Askesis consumer"
 )
 # Events dead-code campaign (2026-06): staged event capabilities kept by
 # deliberate decision — each reason names the wiring that completes it.
 _EVENTS_ATTENDEES = (
-    "attendee surface staged (uid-based add/remove/list over (User)-[:HAS_EVENT]->(Event)); "
-    "wire attendee routes/UI on the event detail page"
+    "attendee surface staged, retargeted onto the ADR-086 attendance design "
+    "((User)-[:ATTENDS {joined_at, role, added_by, status}]->(Event), invite->accept consent "
+    "state machine, actor from the auth layer); wire attendee routes/UI on the event detail "
+    "page (wiring obligations recorded in ADR-086: self-add eligibility gate, OWNER_OR_ATTENDEE "
+    "visibility, creator auto-attend, ghost filter, max_attendees, role enum)"
 )
 _EVENTS_ORCHESTRATION = (
-    "goal/Ku/user link + context-aware create surface staged; create_event_with_context is "
+    "goal/Ku link + context-aware create surface staged; create_event_with_context is "
     "the ONLY knowledge-practice-at-create writer (KnowledgePracticedInEvent); wire link "
     "routes/UI or fold into relationship routes"
 )
@@ -216,7 +216,7 @@ _CHOICES_OUTCOME = (
 # Goals dead-code campaign (2026-06): staged goal capabilities kept by
 # deliberate decision — each reason names the wiring that completes it.
 _GOALS_GRAVITY = (
-    "user/Ku/principle link surface staged (link_goal_to_habit is the LIVE essentiality "
+    "Ku/principle link surface staged (link_goal_to_habit is the LIVE essentiality "
     "write path); wire link routes/UI or fold into relationship routes"
 )
 _GOALS_SCHED_CREATE = (
@@ -494,9 +494,6 @@ PLANNED_METHODS: dict[str, str] = {
         _HABITS_ORCHESTRATION
     ),
     "core/services/habits/_orchestration_mixin.py::create_with_goal_links": (_HABITS_ORCHESTRATION),
-    "core/services/habits/_orchestration_mixin.py::create_user_habit_relationship": (
-        _HABITS_ORCHESTRATION
-    ),
     "core/services/habits/_orchestration_mixin.py::get_skills_developed_by_habits": (
         _HABITS_ORCHESTRATION
     ),
@@ -523,10 +520,6 @@ PLANNED_METHODS: dict[str, str] = {
     "core/services/principles/principles_alignment_service.py::assess_with_user_input": (
         _PRINCIPLES_ASSESS
     ),
-    # --- Principles: gravity / cross-domain link surface ---
-    "core/services/principles/_gravity_mixin.py::create_user_principle_relationship": (
-        _PRINCIPLES_GRAVITY
-    ),
     # --- Principles: analytics / AI insights ---
     "core/services/principles/_enrichment_mixin.py::get_analytics_summary": (_PRINCIPLES_INSIGHTS),
     # --- Events: attendee surface ---
@@ -534,9 +527,6 @@ PLANNED_METHODS: dict[str, str] = {
     "core/services/events/_orchestration_mixin.py::add_attendee": _EVENTS_ATTENDEES,
     "core/services/events/_orchestration_mixin.py::remove_attendee": _EVENTS_ATTENDEES,
     # --- Events: cross-domain link / context-aware create ---
-    "core/services/events/_orchestration_mixin.py::create_user_event_relationship": (
-        _EVENTS_ORCHESTRATION
-    ),
     "core/services/events/_orchestration_mixin.py::link_event_to_knowledge": (
         _EVENTS_ORCHESTRATION
     ),
@@ -582,7 +572,6 @@ PLANNED_METHODS: dict[str, str] = {
     # --- Choices: outcome evaluation write path ---
     "core/services/choices/choices_core_service.py::evaluate_choice_outcome": _CHOICES_OUTCOME,
     # --- Goals: gravity links (inlined from _relationship_mixin into facade) ---
-    "core/services/goals_service.py::create_user_goal_relationship": _GOALS_GRAVITY,
     "core/services/goals_service.py::create_semantic_goal_relationship": _GOALS_GRAVITY,
     "core/services/goals_service.py::unlink_goal_from_habit": _GOALS_GRAVITY,
     # --- Goals: analytics/AI insight surface ---

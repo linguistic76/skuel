@@ -140,15 +140,6 @@ class _OrchestrationMixin:
     # GRAPH RELATIONSHIPS - Delegate to UnifiedRelationshipService
     # ========================================================================
 
-    async def create_user_habit_relationship(
-        self, user_uid: UserUID, habit_uid: str, commitment_level: str = "active"
-    ) -> Result[bool]:
-        """Create User→Habit relationship in graph."""
-        properties = (
-            {"commitment_level": commitment_level} if commitment_level != "active" else None
-        )
-        return await self.relationships.create_user_relationship(user_uid, habit_uid, properties)
-
     async def link_habit_to_knowledge(
         self,
         habit_uid: str,

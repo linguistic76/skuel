@@ -61,8 +61,8 @@ METHOD INDEX (by mixin)
 -----------------------
 
 _crud_mixin.py:
-    create, get, get_many, get_content, update, delete, list,
-    create_user_relationship
+    create, get, get_many, get_content, update, delete, list
+    (create composes the (User)-[:OWNS]-> owner edge into the same statement)
 
 _search_mixin.py:
     search, find_by, find_by_date_range, count, health_check,
@@ -96,8 +96,7 @@ _traversal_mixin.py:
     add_relationship, get_relationships, traverse, find_path
 
 _user_entity_mixin.py:
-    create_user_relationship, get_user_entities, count_user_entities,
-    update_relationship_access, delete_user_relationship
+    get_user_entities, count_user_entities, update_relationship_access
 
 ARCHITECTURAL BOUNDARY
 ----------------------

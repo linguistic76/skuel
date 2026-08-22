@@ -218,8 +218,8 @@ def gather_relationship_contracts() -> tuple[
     Also returns the per-config edge list (first-touch order), recorded in the
     SAME walk that builds the occurrences: the label-side ``relationships`` list
     and the relationship-side ``config:`` occurrences must be two projections of
-    one enumeration, or role-only edges (prerequisite/enables/ownership names
-    with no definition, e.g. TASKS_CONFIG's REQUIRES_TASK) appear in one section
+    one enumeration, or role-only edges (prerequisite/enables names with no
+    definition, e.g. TASKS_CONFIG's REQUIRES_TASK) appear in one section
     and not the other.
     """
     contracts: dict[str, dict[str, ContractOccurrence]] = {}
@@ -237,8 +237,6 @@ def gather_relationship_contracts() -> tuple[
         for definition in _config_definitions(config):
             entry = occurrence(definition.relationship.value, config_key)
             entry["definitions"].append(_definition_entry(definition))
-        if config.ownership_relationship is not None:
-            occurrence(config.ownership_relationship.value, config_key)["roles"].append("ownership")
         for role, names in (
             ("prerequisite", config.prerequisite_relationship_names),
             ("enables", config.enables_relationship_names),
@@ -371,8 +369,6 @@ def _render_label(
         return
     lines.append("    contract:")
     lines.append(f"      domain: {_scalar(config.domain.value)}")
-    if config.ownership_relationship is not None:
-        lines.append(f"      ownership: {config.ownership_relationship.value}")
     if config.is_shared_content:
         lines.append("      shared_content: true")
     if edges:

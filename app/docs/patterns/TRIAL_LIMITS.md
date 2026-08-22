@@ -111,7 +111,7 @@ Each entity type has a dedicated Cypher query:
 
 ```python
 # Task count (excludes archived)
-MATCH (u:User {uid: $uid})-[:HAS_TASK]->(t:Task)
+MATCH (u:User {uid: $uid})-[:OWNS]->(t:Task)
 WHERE t.status <> 'archived'
 RETURN count(t) as count
 

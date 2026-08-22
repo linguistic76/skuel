@@ -162,7 +162,6 @@ class DomainRelationshipConfig:
     domain: Domain                    # e.g., Domain.TASKS
     entity_label: str                 # Neo4j label, e.g., "Task"
     relationships: tuple[UnifiedRelationshipDefinition, ...]  # All relationships
-    ownership_relationship: RelationshipName | None = None
     is_shared_content: bool = False
     scoring_weights: dict[str, float] = ...
     intent_mappings: dict[str, QueryIntent] = ...
@@ -448,15 +447,15 @@ Each Activity/Curriculum facade exposes domain-named wrappers (`link_task_to_goa
 guarded by `tests/unit/test_cross_domain_link_keys.py`; the real-Neo4j round-trips live in
 `tests/integration/test_relationship_link_roundtrip.py`.
 
-### User→Entity ownership edges — `create_user_relationship`
+### User→Entity ownership edges — deliberately NOT here
 
-`create_user_relationship(user_uid, entity_uid, properties)` writes the domain's
-registry-defined ownership edge (`config.ownership_relationship` — `HAS_TASK`, `HAS_EVENT`,
-`OWNS`, …). It routes straight through the backend's **generic**
-`create_user_relationship(relationship_type=<RelationshipName>, metadata=…)` (defined on
-every domain backend via `_user_entity_mixin`) — the ownership relationship is a
-registry-validated `RelationshipName`, so there is **no dynamic dispatch and no
-stringly-typed key**.
+There is no user→entity ownership writer on this service. The former
+`create_user_relationship`/`delete_user_relationship` pair wrote the registry's paper
+per-domain ownership edges (`HAS_TASK`, `HAS_EVENT`, …) — zero such edges were ever in the
+graph — and was deleted with that family and the registry's `ownership_relationship` field
+(ADR-086). `(User)-[:OWNS]->` is THE universal ownership edge, written only by the four
+doors ADR-086 names (CRUD create, ingestion bulk upsert, UserEntry, hand-written
+`owner_uid`-domain backends).
 
 > **No `RelationshipCreator` helper.** This method used to delegate to a generic
 > `RelationshipCreator` infrastructure helper whose `create_relationship(backend_method=…)`

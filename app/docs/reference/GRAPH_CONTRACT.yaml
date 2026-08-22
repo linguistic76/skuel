@@ -29,7 +29,7 @@ meta:
     contract: core/models/relationship_registry.py
     findings: scripts/lint_skuel.py::SkuelLinter.SKUEL030_BASELINE
   coverage:
-    relationships: {total: 180, with_contract: 97}
+    relationships: {total: 172, with_contract: 89}
     labels: {total: 61, with_contract: 16}
   legacy_label_config_aliases: [Lesson, Ls, Lp]
 
@@ -495,15 +495,6 @@ relationships:
       - config: PrincipleReflection
         definitions:
           - {direction: outgoing, target: Principle, context_field: conflicting_principles, method: conflicts}
-  MADE_REFLECTION:
-    contract:
-      - config: User
-        definitions:
-          - {direction: outgoing, target: PrincipleReflection, context_field: reflections, method: reflections}
-      - config: PrincipleReflection
-        roles: [ownership]
-        definitions:
-          - {direction: incoming, target: User, context_field: creator, method: user}
   HAS_REFLECTION:
     contract: null
   HAS_SUBCHOICE:
@@ -570,68 +561,9 @@ relationships:
         definitions:
           - {direction: incoming, target: Event, context_field: triggering_events, method: triggering_events, fields: [uid, title, start_time]}
   OWNS:
-    contract:
-      - config: Habit
-        roles: [ownership]
-      - config: Choice
-        roles: [ownership]
-      - config: Principle
-        roles: [ownership]
-      - config: Exercise
-        roles: [ownership]
-      - config: RevisedExercise
-        roles: [ownership]
-      - config: UserEntry
-        roles: [ownership]
-      - config: EntryReport
-        roles: [ownership]
-      - config: Interaction
-        roles: [ownership]
-  REQUESTED:
+    traits: [ownership]
     contract: null
-  HAS_TASK:
-    traits: [ownership]
-    contract:
-      - config: Task
-        roles: [ownership]
-      - config: User
-        definitions:
-          - {direction: outgoing, target: Task, context_field: tasks, method: tasks}
-  HAS_EVENT:
-    traits: [ownership]
-    contract:
-      - config: Event
-        roles: [ownership]
-      - config: User
-        definitions:
-          - {direction: outgoing, target: Event, context_field: events, method: events}
-  HAS_HABIT:
-    traits: [ownership]
-    contract:
-      - config: User
-        definitions:
-          - {direction: outgoing, target: Entity, context_field: habits, method: habits}
-  HAS_GOAL:
-    traits: [ownership]
-    contract:
-      - config: Goal
-        roles: [ownership]
-      - config: User
-        definitions:
-          - {direction: outgoing, target: Goal, context_field: goals, method: goals}
-  HAS_PRINCIPLE:
-    traits: [ownership]
-    contract:
-      - config: User
-        definitions:
-          - {direction: outgoing, target: Principle, context_field: principles, method: principles}
-  HAS_CHOICE:
-    traits: [ownership]
-    contract:
-      - config: User
-        definitions:
-          - {direction: outgoing, target: Entity, context_field: choices, method: choices}
-  HAS_KU:
+  REQUESTED:
     contract: null
   HAS_TASK_TEMPLATE:
     contract: null
@@ -994,7 +926,6 @@ labels:
     entity_types: [task]
     contract:
       domain: tasks
-      ownership: HAS_TASK
       relationships:
         - APPLIES_KNOWLEDGE
         - REQUIRES_KNOWLEDGE
@@ -1012,7 +943,6 @@ labels:
         - EXECUTES_TASK
         - IMPLEMENTS_CHOICE
         - SERVES_LIFE_PATH
-        - HAS_TASK
         - REQUIRES_TASK
         - BLOCKS
       semantic_types: ["learn:requires_theoretical_understanding", "learn:builds_mental_model", "learn:provides_practical_application"]
@@ -1020,7 +950,6 @@ labels:
     entity_types: [goal]
     contract:
       domain: goals
-      ownership: HAS_GOAL
       relationships:
         - REQUIRES_KNOWLEDGE
         - GUIDED_BY_PRINCIPLE
@@ -1032,7 +961,6 @@ labels:
         - FULFILLS_GOAL
         - GUIDES_GOAL
         - SERVES_LIFE_PATH
-        - HAS_GOAL
         - DEPENDS_ON_GOAL
         - ENABLES_GOAL
       semantic_types: ["learn:requires_theoretical_understanding", "learn:requires_practical_application", "task:contributes_to_goal", "task:enables_achievement"]
@@ -1040,7 +968,6 @@ labels:
     entity_types: [habit]
     contract:
       domain: habits
-      ownership: OWNS
       relationships:
         - REINFORCES_KNOWLEDGE
         - EMBODIES_PRINCIPLE
@@ -1053,13 +980,11 @@ labels:
         - SERVES_LIFE_PATH
         - INFORMS_CHOICE
         - IMPACTS_HABIT
-        - OWNS
       semantic_types: ["learn:reinforces_knowledge", "learn:provides_practical_application", "skill:develops_skill"]
   Event:
     entity_types: [event]
     contract:
       domain: events
-      ownership: HAS_EVENT
       relationships:
         - APPLIES_KNOWLEDGE
         - CONTRIBUTES_TO_GOAL
@@ -1072,14 +997,12 @@ labels:
         - TRIGGERS_CHOICE
         - SCHEDULES_EVENT
         - DEMONSTRATES_PRINCIPLE
-        - HAS_EVENT
         - REQUIRES_KNOWLEDGE
       semantic_types: ["learn:provides_practical_application", "learn:deepens_understanding"]
   Choice:
     entity_types: [choice]
     contract:
       domain: choices
-      ownership: OWNS
       relationships:
         - INFORMED_BY_KNOWLEDGE
         - REQUIRES_KNOWLEDGE_FOR_DECISION
@@ -1094,13 +1017,11 @@ labels:
         - INFORMS_CHOICE
         - SCHEDULES_EVENT
         - TRIGGERS_CHOICE
-        - OWNS
       semantic_types: ["learn:informed_by_knowledge", "learn:requires_theoretical_understanding"]
   Principle:
     entity_types: [principle]
     contract:
       domain: principles
-      ownership: OWNS
       relationships:
         - GROUNDED_IN_KNOWLEDGE
         - GUIDES_GOAL
@@ -1114,7 +1035,6 @@ labels:
         - DEMONSTRATES_PRINCIPLE
         - PRACTICED_AT_EVENT
         - SERVES_LIFE_PATH
-        - OWNS
       semantic_types: ["learn:builds_on_foundation", "learn:requires_theoretical_understanding"]
   TaskTemplate:
     entity_types: [task_template]
@@ -1197,43 +1117,35 @@ labels:
     entity_types: [entry_report]
     contract:
       domain: system
-      ownership: OWNS
       relationships:
         - REPORT_FOR
         - RESPONDS_TO_REPORT
-        - OWNS
   UserEntry:
     entity_types: [user_entry]
     contract:
       domain: system
-      ownership: OWNS
       relationships:
         - TRANSFORMS
         - FULFILLS_EXERCISE
         - APPLIES_KNOWLEDGE
         - REPORT_FOR
-        - OWNS
   Exercise:
     entity_types: [exercise]
     contract:
       domain: knowledge
-      ownership: OWNS
       relationships:
         - REQUIRES_KNOWLEDGE
         - SHARED_WITH_GROUP
         - FULFILLS_EXERCISE
-        - OWNS
       semantic_types: ["learn:requires_theoretical_understanding", "learn:provides_practical_application"]
   RevisedExercise:
     entity_types: [revised_exercise]
     contract:
       domain: knowledge
-      ownership: OWNS
       relationships:
         - RESPONDS_TO_REPORT
         - REVISES_EXERCISE
         - FULFILLS_REVISED_EXERCISE
-        - OWNS
       semantic_types: ["learn:requires_theoretical_understanding", "learn:provides_practical_application"]
   FormTemplate:
     entity_types: [form_template]
@@ -1245,12 +1157,10 @@ labels:
     entity_types: [interaction]
     contract:
       domain: system
-      ownership: OWNS
       relationships:
         - RECORDS
         - INTERACTION_DURING
         - INTERACTION_WITHIN
-        - OWNS
   LifePath:
     entity_types: [life_path]
     contract: null
@@ -1259,12 +1169,10 @@ labels:
   PrincipleReflection:
     contract:
       domain: principles
-      ownership: MADE_REFLECTION
       relationships:
         - REFLECTS_ON
         - TRIGGERED_BY
         - REVEALS_CONFLICT
-        - MADE_REFLECTION
   Invoice:
     contract: null
   Group:
@@ -1322,14 +1230,6 @@ labels:
   User:
     contract:
       domain: system
-      relationships:
-        - MADE_REFLECTION
-        - HAS_TASK
-        - HAS_GOAL
-        - HAS_HABIT
-        - HAS_EVENT
-        - HAS_CHOICE
-        - HAS_PRINCIPLE
   UserProgress:
     contract: null
   EmbeddingVector:

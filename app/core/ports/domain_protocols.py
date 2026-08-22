@@ -397,6 +397,38 @@ class EventsOperations(
         """
         ...
 
+    async def add_attendee(
+        self,
+        event_uid: str,
+        attendee_uid: UserUID,
+        actor_uid: UserUID,
+        role: str,
+        status: str,
+        set_status_on_match: bool = False,
+    ) -> Result[str]:
+        """Upsert one user's attendance of an event (ADR-086, staged).
+
+        Idempotent — a repeated add never rewrites when the attendance began.
+        ``set_status_on_match`` additionally applies ``status`` to an existing
+        attendance (the target user consenting to their own invite). Returns
+        the attendance status after the write.
+        """
+        ...
+
+    async def remove_attendee(
+        self,
+        event_uid: str,
+        attendee_uid: UserUID,
+        only_if_status: str | None = None,
+    ) -> Result[bool]:
+        """Remove one user's attendance of an event (ADR-086, staged).
+
+        ``only_if_status`` guards the removal to attendances in that status
+        (the organizer's revoke-pending-invite path). Returns whether an
+        attendance was removed.
+        """
+        ...
+
     # NOTE: get_related_uids() and count_related() inherited from GraphRelationshipOperations
 
     async def get_events_in_range(

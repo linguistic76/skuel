@@ -18,7 +18,7 @@ related_docs:
 
 **"One path forward, ISP-compliant composition"**
 
-`BackendOperations[T]` is THE full backend protocol for SKUEL. It composes 10 focused sub-protocols following the Interface Segregation Principle (ISP).
+`BackendOperations[T]` is THE full backend protocol for SKUEL. It composes 9 focused sub-protocols following the Interface Segregation Principle (ISP).
 
 ## Protocol Hierarchy
 
@@ -31,7 +31,6 @@ BackendOperations[T]  ← THE protocol (UniversalNeo4jBackend implements this)
     ├── RelationshipQueryOperations        (3 methods)
     ├── OrderedRelationshipOperations      (7 methods)
     ├── BatchRelationshipOperations        (3 methods)
-    ├── UserEntityRelationshipOperations   (1 method)
     ├── GraphTraversalOperations           (2 methods)
     └── LowLevelOperations                 (2 methods + driver)
 ```
@@ -127,14 +126,6 @@ class BatchRelationshipOperations(Protocol):
     async def batch_has_relationship(self, entity_label: NeoLabel, entity_uids: list[str], relationship_type: str, direction: Direction) -> Result[dict[str, bool]]: ...
     async def batch_count_related(self, ...) -> Result[dict[str, int]]: ...
     async def batch_get_related_uids(self, ...) -> Result[dict[str, list[str]]]: ...
-```
-
-### UserEntityRelationshipOperations (1 method)
-The user→entity ownership edge. Implemented by `_UserEntityMixin`.
-
-```python
-class UserEntityRelationshipOperations(Protocol):
-    async def create_user_relationship(self, user_uid: UserUID, entity_uid: EntityUID, relationship_type: RelationshipName | None = None, metadata: dict[str, Any] | None = None) -> Result[bool]: ...
 ```
 
 ### GraphTraversalOperations (2 methods)
@@ -386,7 +377,7 @@ clauses), and mark those with a `# boundary:` comment per the `Any` policy.
 1. **One Path Forward** - `BackendOperations` is THE protocol, no legacy alternatives
 2. **ISP-Compliant** - Services can depend on only the operations they need
 3. **Easier Testing** - Mock only the sub-protocols you use
-4. **Clear Hierarchy** - 10 focused sub-protocols compose into 1 full protocol
+4. **Clear Hierarchy** - 9 focused sub-protocols compose into 1 full protocol
 5. **Type Safety** - Generic type parameter `T` provides compile-time safety
 
 ## Implementation
@@ -429,7 +420,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol](
 | `_relationship_query_mixin.py` | `RelationshipMetadata*`, `RelationshipQuery*` | `get_related_entities`, `get_related_uids`, `get_relationship_metadata`, `get_edge_metadata`, `relate()`, batch queries |
 | `_relationship_ordered_mixin.py` | Ordered/hierarchical queries | `get_ordered_related_uids`, `get_related_with_metadata`, `reorder_relationships`, `create_relationship_with_properties`, `get_hierarchical_children_{single,two_level,deep}`, lateral-getter wrappers (`get_prerequisites`, `get_enables`, `get_related`, `get_children`, `get_parent`, `get_depends_on`, `get_blocks`) |
 | `_relationship_crud_mixin.py` | `RelationshipCrud*` | `create_relationship`, `delete_relationship`, `has_relationship`, `count_related`, `create_relationships_batch`, `_build_direction_pattern`, helpers |
-| `_user_entity_mixin.py` | Generic user-entity ops | `create_user_relationship`, `get_user_entities`*, `count_user_entities`*, `update_relationship_access`, `delete_user_relationship` |
+| `_user_entity_mixin.py` | Generic user-entity ops | `get_user_entities`*, `count_user_entities`*, `update_relationship_access` |
 | `_traversal_mixin.py` | `GraphTraversalOperations` | `add_relationship`, `get_relationships`, `traverse`, `find_path` |
 
 \* **Security hardened (March 2026):** Methods marked with `*` validate interpolated field names via `validate_field_name()` from `core/utils/validation_helpers.py` to prevent Cypher injection. Invalid field names are rejected with a logged warning and safe fallback values. Domain backends additionally use `_validate_rel_name()` (rejects non-`[A-Z0-9_]` characters in relationship names) and `_ALLOWED_ORDER_BY` (whitelist for ORDER BY fields) to prevent injection in domain-specific Cypher queries.
@@ -440,10 +431,6 @@ class UniversalNeo4jBackend[T: DomainModelProtocol](
 ```python
 # In _crud_mixin.py — declares stubs for methods it calls from other mixins
 if TYPE_CHECKING:
-    async def create_user_relationship(  # from _UserEntityMixin
-        self, user_uid: UserUID, entity_uid: EntityUID, ...
-    ) -> Result[bool]: ...
-
     def _track_db_metrics(self, op: str, dur: float, is_error: bool = False) -> None: ...
     def _default_filter_clause(self, node_var: str = "n") -> str: ...
 ```
@@ -517,8 +504,8 @@ When you create an entity with a `user_uid`, the backend **automatically creates
 ...
 ```
 
-(One universal `:OWNS` edge — the per-domain `HAS_TASK`/`HAS_GOAL`/`HAS_EVENT` names exist in
-`RelationshipName` but no write door creates them.)
+(One universal `:OWNS` edge — ADR-086; the former per-domain `HAS_TASK`/`HAS_GOAL`/`HAS_EVENT`
+names were paper-only and were deleted from `RelationshipName`.)
 
 Neo4j correctly refuses to delete nodes that have existing relationships. This enforces referential integrity.
 

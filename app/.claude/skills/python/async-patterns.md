@@ -186,7 +186,7 @@ async def stream_tasks(user_uid: UserUID) -> AsyncIterator[Task]:
     """Stream tasks without loading all into memory"""
     async with self.driver.session() as session:
         result = await session.run(
-            "MATCH (u:User {uid: $uid})-[:HAS_TASK]->(t:Task) RETURN t",
+            "MATCH (u:User {uid: $uid})-[:OWNS]->(t:Task) RETURN t",
             uid=user_uid
         )
         async for record in result:

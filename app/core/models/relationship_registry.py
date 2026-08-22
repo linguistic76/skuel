@@ -329,8 +329,11 @@ class DomainRelationshipConfig:
     dto_class: type
     model_class: type
 
-    # Ownership (None for shared content like KU)
-    ownership_relationship: RelationshipName | None = None
+    # NOTE: ownership is NOT declared here. (User)-[:OWNS]-> is THE universal
+    # ownership edge (ADR-086); the per-domain `ownership_relationship` field and
+    # its HAS_*/MADE_REFLECTION values were paper-only and were deleted with their
+    # write channel. Search-visibility ownership lives on the service-layer
+    # DomainConfig (`user_ownership_relationship`) — a different field.
 
     # All relationships - THE SINGLE SOURCE
     relationships: tuple[UnifiedRelationshipDefinition, ...] = ()
@@ -460,7 +463,6 @@ TASKS_CONFIG = DomainRelationshipConfig(
     entity_label=NeoLabel.ENTITY,
     dto_class=TaskDTO,
     model_class=Task,
-    ownership_relationship=RelationshipName.HAS_TASK,
     relationships=(
         # Outgoing: Task → Knowledge (with confidence filtering)
         UnifiedRelationshipDefinition(
@@ -673,7 +675,6 @@ GOALS_CONFIG = DomainRelationshipConfig(
     entity_label=NeoLabel.ENTITY,
     dto_class=GoalDTO,
     model_class=Goal,
-    ownership_relationship=RelationshipName.HAS_GOAL,
     relationships=(
         # Outgoing: Goal → Knowledge (with confidence filtering)
         UnifiedRelationshipDefinition(
@@ -862,7 +863,6 @@ HABITS_CONFIG = DomainRelationshipConfig(
     entity_label=NeoLabel.ENTITY,
     dto_class=HabitDTO,
     model_class=Entity,
-    ownership_relationship=RelationshipName.OWNS,
     relationships=(
         # Outgoing: Habit → Other (with context-specific fields)
         UnifiedRelationshipDefinition(
@@ -1032,7 +1032,6 @@ EVENTS_CONFIG = DomainRelationshipConfig(
     entity_label=NeoLabel.ENTITY,
     dto_class=EventDTO,
     model_class=Entity,
-    ownership_relationship=RelationshipName.HAS_EVENT,
     relationships=(
         # Outgoing: Event → Other
         UnifiedRelationshipDefinition(
@@ -1176,7 +1175,6 @@ CHOICES_CONFIG = DomainRelationshipConfig(
     entity_label=NeoLabel.ENTITY,
     dto_class=ChoiceDTO,
     model_class=Entity,
-    ownership_relationship=RelationshipName.OWNS,
     relationships=(
         # Outgoing: Choice → Other
         UnifiedRelationshipDefinition(
@@ -1342,7 +1340,6 @@ PRINCIPLES_CONFIG = DomainRelationshipConfig(
     entity_label=NeoLabel.ENTITY,
     dto_class=PrincipleDTO,
     model_class=Entity,
-    ownership_relationship=RelationshipName.OWNS,
     relationships=(
         # Outgoing: Principle → Other
         UnifiedRelationshipDefinition(
@@ -1486,9 +1483,12 @@ PRINCIPLES_CONFIG = DomainRelationshipConfig(
 )
 
 # -----------------------------------------------------------------------------
-# USER (Identity Layer - Minimal Config for Relationship Validation)
-# User is the identity layer, not a domain entity. This minimal config
-# enables validation of User -> Entity relationships like MADE_REFLECTION.
+# USER (Identity Layer - Minimal Config)
+# User is the identity layer, not a domain entity. Its former MADE_REFLECTION +
+# HAS_* relationship definitions were the paper ownership family — zero edges
+# ever written — deleted with the field (ADR-086). User->entity ownership is the
+# universal (User)-[:OWNS]-> edge, written by the four doors named in the ADR,
+# not declared here.
 # -----------------------------------------------------------------------------
 
 USER_CONFIG = DomainRelationshipConfig(
@@ -1496,60 +1496,7 @@ USER_CONFIG = DomainRelationshipConfig(
     entity_label=NeoLabel.USER,
     dto_class=UserDTO,
     model_class=User,
-    ownership_relationship=None,  # User doesn't have ownership
-    relationships=(
-        # User creates reflections on principles
-        UnifiedRelationshipDefinition(
-            RelationshipName.MADE_REFLECTION,
-            "PrincipleReflection",
-            "outgoing",
-            "reflections",
-            "reflections",
-        ),
-        # User owns Activity Domain entities (HAS_*)
-        UnifiedRelationshipDefinition(
-            RelationshipName.HAS_TASK,
-            "Task",
-            "outgoing",
-            "tasks",
-            "tasks",
-        ),
-        UnifiedRelationshipDefinition(
-            RelationshipName.HAS_GOAL,
-            "Goal",
-            "outgoing",
-            "goals",
-            "goals",
-        ),
-        UnifiedRelationshipDefinition(
-            RelationshipName.HAS_HABIT,
-            "Entity",
-            "outgoing",
-            "habits",
-            "habits",
-        ),
-        UnifiedRelationshipDefinition(
-            RelationshipName.HAS_EVENT,
-            "Event",
-            "outgoing",
-            "events",
-            "events",
-        ),
-        UnifiedRelationshipDefinition(
-            RelationshipName.HAS_CHOICE,
-            "Entity",
-            "outgoing",
-            "choices",
-            "choices",
-        ),
-        UnifiedRelationshipDefinition(
-            RelationshipName.HAS_PRINCIPLE,
-            "Principle",
-            "outgoing",
-            "principles",
-            "principles",
-        ),
-    ),
+    relationships=(),
     prerequisite_relationship_names=(),
     enables_relationship_names=(),
     bidirectional_relationships=(),
@@ -1569,7 +1516,6 @@ PRINCIPLE_REFLECTION_CONFIG = DomainRelationshipConfig(
     entity_label=NeoLabel.PRINCIPLE_REFLECTION,
     dto_class=PrincipleReflectionDTO,
     model_class=PrincipleReflection,
-    ownership_relationship=RelationshipName.MADE_REFLECTION,
     relationships=(
         # Outgoing: PrincipleReflection → Principle
         UnifiedRelationshipDefinition(
@@ -1616,14 +1562,9 @@ PRINCIPLE_REFLECTION_CONFIG = DomainRelationshipConfig(
             "conflicting_principles",
             "conflicts",
         ),
-        # Incoming: User → PrincipleReflection
-        UnifiedRelationshipDefinition(
-            RelationshipName.MADE_REFLECTION,
-            "User",
-            "incoming",
-            "creator",
-            "user",
-        ),
+        # NOTE: the former incoming (User)-[:MADE_REFLECTION]-> "creator" definition
+        # was deleted with the paper ownership family (ADR-086) — the reflecting
+        # user is the reflection's owner via the universal :OWNS edge + user_uid.
     ),
     prerequisite_relationship_names=(),
     enables_relationship_names=(),
@@ -1646,7 +1587,6 @@ KU_CONFIG = DomainRelationshipConfig(
     entity_label=NeoLabel.KU,
     dto_class=KuDTO,
     model_class=Ku,
-    ownership_relationship=None,  # Shared content
     is_shared_content=True,
     relationships=(
         # Incoming: PathSteps that compose this atomic Ku
@@ -1707,7 +1647,6 @@ PS_CONFIG = DomainRelationshipConfig(
     entity_label=NeoLabel.ENTITY,
     dto_class=PathStepDTO,
     model_class=Entity,
-    ownership_relationship=None,  # Shared content
     is_shared_content=True,
     relationships=(
         # === Knowledge composition (from former LESSON_CONFIG) ===
@@ -1939,7 +1878,6 @@ LP_CONFIG = DomainRelationshipConfig(
     entity_label=NeoLabel.ENTITY,
     dto_class=LearningPathDTO,
     model_class=Entity,
-    ownership_relationship=None,  # Shared content
     is_shared_content=True,
     relationships=(
         # Outgoing: Lp → Other (PS is now also :Entity)
@@ -2022,7 +1960,6 @@ EXERCISE_CONFIG = DomainRelationshipConfig(
     entity_label=NeoLabel.ENTITY,  # Exercise is a :Entity node with entity_type='exercise'
     dto_class=ExerciseDTO,
     model_class=Entity,
-    ownership_relationship=RelationshipName.OWNS,
     is_shared_content=False,  # Exercises are teacher-owned
     relationships=(
         # Outgoing: Exercise → Curriculum (what knowledge this exercise requires)
@@ -2077,7 +2014,6 @@ REVISED_EXERCISE_CONFIG = DomainRelationshipConfig(
     entity_label=NeoLabel.ENTITY,  # RevisedExercise is a :Entity node
     dto_class=EntityDTO,
     model_class=Entity,
-    ownership_relationship=RelationshipName.OWNS,
     is_shared_content=False,  # Teacher-owned, student-targeted
     relationships=(
         # Outgoing: RevisedExercise → EntryReport (what feedback it addresses)
@@ -2137,7 +2073,6 @@ USER_ENTRY_CONFIG = DomainRelationshipConfig(
     entity_label=NeoLabel.USER_ENTRY,
     dto_class=EntityDTO,
     model_class=Entity,
-    ownership_relationship=RelationshipName.OWNS,
     is_shared_content=False,
     relationships=(
         # Outgoing: UserEntry → UserEntry (multi-stage pipelines, e.g. journal
@@ -2192,7 +2127,7 @@ USER_ENTRY_CONFIG = DomainRelationshipConfig(
 # The report evaluates one UserEntry (REPORT_FOR, created in the same
 # transaction as the report node); revisions answer the report
 # (RESPONDS_TO_REPORT). The student the report is about is its OWNER
-# (ownership_relationship below) — there is no separate targeting edge.
+# (universal (User)-[:OWNS]-> edge + user_uid) — there is no separate targeting edge.
 # Registered 2026-07 (learning-loop contract review): these edges were written
 # and read in backend Cypher but invisible to the declarative layer, so
 # enrichment/context queries could not project the report side of the loop.
@@ -2202,7 +2137,6 @@ ENTRY_REPORT_CONFIG = DomainRelationshipConfig(
     entity_label=NeoLabel.ENTRY_REPORT,
     dto_class=EntityDTO,
     model_class=Entity,
-    ownership_relationship=RelationshipName.OWNS,
     is_shared_content=False,
     relationships=(
         # Outgoing: EntryReport → UserEntry (the artifact this report evaluates)
@@ -2242,7 +2176,6 @@ INTERACTION_CONFIG = DomainRelationshipConfig(
     entity_label=NeoLabel.INTERACTION,
     dto_class=EntityDTO,
     model_class=Entity,
-    ownership_relationship=RelationshipName.OWNS,
     is_shared_content=False,
     relationships=(
         # Outgoing: Interaction → UserEntry (the artifact this event recorded)

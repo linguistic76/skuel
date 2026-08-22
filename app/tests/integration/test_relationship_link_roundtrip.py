@@ -37,6 +37,7 @@ from core.models.enums import (
 )
 from core.models.enums.choice_enums import ChoiceType
 from core.models.enums.entity_enums import EntityType
+from core.models.enums.event_enums import AttendanceStatus
 from core.models.enums.habit_enums import HabitCategory
 from core.models.enums.principle_enums import PrincipleCategory
 from core.models.event.event import Event
@@ -45,7 +46,7 @@ from core.models.goal.goal import Goal
 from core.models.habit.habit import Habit
 from core.models.principle.principle import Principle
 from core.models.relationship_names import RelationshipName
-from core.models.relationship_registry import HABITS_CONFIG, TASKS_CONFIG
+from core.models.relationship_registry import HABITS_CONFIG
 from core.models.task.task import Task
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
 
@@ -273,12 +274,28 @@ class TestRelationshipLinkRoundTrip:
         assert [r["type"] for r in edges.value] == ["IMPACTS_HABIT"]
         assert edges.value[0]["target_uid"] == "habit:link_choice_target"
 
-    async def test_get_event_attendees_round_trips_has_event_edges(self, services, clean_neo4j):
-        """add_attendee writes (User)-[:HAS_EVENT]->(Event); get_event_attendees reads it back.
+    async def _read_attends_edge(self, neo4j_driver, user_uid: str, event_uid: str):
+        """Raw read of the (User)-[:ATTENDS]->(Event) edge props (None when absent)."""
+        async with neo4j_driver.session() as session:
+            result = await session.run(
+                "MATCH (u:User {uid: $user_uid})-[r:ATTENDS]->(e:Entity {uid: $event_uid}) "
+                "RETURN properties(r) AS props",
+                user_uid=user_uid,
+                event_uid=event_uid,
+            )
+            record = await result.single()
+            return dict(record["props"]) if record else None
 
-        Pre-fix the read used `get_related_uids("attendees", ...)` — a config method_key
-        that does not exist — so it always returned empty while `add_attendee` wrote a real
-        HAS_EVENT edge: the read and write paths had silently diverged.
+    async def test_attends_round_trip_consent_state_machine(
+        self, services, neo4j_driver, clean_neo4j
+    ):
+        """The ADR-086 attendance triple: ATTENDS edge shape + consent semantics.
+
+        (Retargeted from the former HAS_EVENT participation triple — the paper
+        ownership channel deleted by the ownership-bundle arc.) Covers: organizer
+        invite writes `invited` with the ACTOR as added_by; a stranger is refused;
+        the organizer cannot revoke an accepted attendance; the target may always
+        remove their own.
         """
         event = Event(
             uid="event:attendee_rt",
@@ -292,27 +309,79 @@ class TestRelationshipLinkRoundTrip:
         )
         assert (await services.events.backend.create(event)).is_ok
 
+        # Organizer (event owner) invites the target → status "invited", actor stamped.
         added = await services.events.add_attendee(
             AddAttendeeRequest(
                 event_uid="event:attendee_rt",
                 user_uid="user_test_456",
                 send_notification=False,
-            )
+            ),
+            actor_uid="user_test",
         )
         assert added.is_ok, f"add_attendee failed: {added}"
+
+        props = await self._read_attends_edge(neo4j_driver, "user_test_456", "event:attendee_rt")
+        assert props is not None, "organizer invite must write an ATTENDS edge"
+        assert props["status"] == AttendanceStatus.INVITED.value
+        assert props["added_by"] == "user_test"  # the ACTOR, not the target
+        assert props["role"] == "attendee"
+        assert props["joined_at"] is not None
 
         attendees = await services.events.get_event_attendees("event:attendee_rt")
         assert attendees.is_ok, f"get_event_attendees failed: {attendees}"
         assert "user_test_456" in attendees.value
 
+        # A stranger (neither owner nor target) is refused.
+        stranger_add = await services.events.add_attendee(
+            AddAttendeeRequest(
+                event_uid="event:attendee_rt",
+                user_uid="user_test_456",
+                send_notification=False,
+            ),
+            actor_uid="user_test_123",
+        )
+        assert stranger_add.is_error, "a non-owner, non-target actor must be refused"
+
+        # Target self-adds → accepts their own pending invite (only the target transitions).
+        accepted = await services.events.add_attendee(
+            AddAttendeeRequest(
+                event_uid="event:attendee_rt",
+                user_uid="user_test_456",
+                send_notification=False,
+            ),
+            actor_uid="user_test_456",
+        )
+        assert accepted.is_ok, f"self-add (accept) failed: {accepted}"
+        props = await self._read_attends_edge(neo4j_driver, "user_test_456", "event:attendee_rt")
+        assert props is not None
+        assert props["status"] == AttendanceStatus.ACCEPTED.value
+        assert props["added_by"] == "user_test"  # ON CREATE only — never rewritten
+
+        # Organizer may NOT revoke an accepted attendance (only a pending invite).
+        organizer_remove = await services.events.remove_attendee(
+            RemoveAttendeeRequest(
+                event_uid="event:attendee_rt",
+                user_uid="user_test_456",
+                send_notification=False,
+            ),
+            actor_uid="user_test",
+        )
+        assert organizer_remove.is_ok
+        assert organizer_remove.value is False, "accepted attendance is the attendee's to keep"
+        still = await services.events.get_event_attendees("event:attendee_rt")
+        assert still.is_ok and "user_test_456" in still.value
+
+        # The target may always remove their own attendance.
         removed = await services.events.remove_attendee(
             RemoveAttendeeRequest(
                 event_uid="event:attendee_rt",
                 user_uid="user_test_456",
                 send_notification=False,
-            )
+            ),
+            actor_uid="user_test_456",
         )
         assert removed.is_ok
+        assert removed.value is True
         after = await services.events.get_event_attendees("event:attendee_rt")
         assert after.is_ok
         assert "user_test_456" not in after.value
@@ -387,33 +456,3 @@ class TestRelationshipLinkRoundTrip:
         habits_read = await rels.get_related_uids("inspired_habits", "principle:align_rt")
         assert habits_read.is_ok, f"inspired_habits read failed: {habits_read}"
         assert habits_read.value == ["habit:align_rt"]
-
-    async def test_create_user_relationship_writes_registry_ownership_edge(
-        self, services, clean_neo4j
-    ):
-        """`create_user_relationship` writes a (User)-[:<ownership>]->(Entity) edge for the
-        domain's registry ownership relationship — read back through the 3-arg backend signature.
-
-        This is the sole live method of the former `RelationshipCreator` helper, now inlined
-        into `UnifiedRelationshipService`. It routes through the backend's generic
-        `create_user_relationship(relationship_type=<RelationshipName>, metadata=...)` —
-        no dynamic `create_user_{domain}_relationship` dispatch (the #197/#205 phantom class).
-        TASKS_CONFIG.ownership_relationship is HAS_TASK while `create()` auto-writes OWNS, so
-        the incoming-HAS_TASK read isolates the edge written by the explicit path under test.
-        """
-        await self._make_task(services, "task:user_rel_rt")
-
-        rels = services.tasks.relationships
-        ownership = TASKS_CONFIG.ownership_relationship  # HAS_TASK
-        assert ownership is not None
-
-        created = await rels.create_user_relationship(
-            "user_test_456", "task:user_rel_rt", {"participation_type": "co_owner"}
-        )
-        assert created.is_ok, f"create_user_relationship failed: {created}"
-
-        owners = await services.tasks.backend.get_related_uids(
-            "task:user_rel_rt", ownership, direction="incoming"
-        )
-        assert owners.is_ok, f"ownership read failed: {owners}"
-        assert "user_test_456" in owners.value

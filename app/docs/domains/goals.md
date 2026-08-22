@@ -81,7 +81,7 @@ class GoalsService(
 |-------|------|---------|
 | `_OrchestrationMixin` | `_orchestration_mixin.py` | `create_goal_with_context`, `generate_tasks_for_goal`, `assess_goal_feasibility` |
 
-Graph relationship methods (`create_user_goal_relationship`, `link_goal_to_habit/knowledge/principle`, `unlink_goal_from_habit`, `create_semantic_goal_relationship`, `find_goals_requiring_knowledge`) are inline on `GoalsService` directly — inlined June 2026 per the decomposition floor rule.
+Graph relationship methods (`link_goal_to_habit/knowledge/principle`, `unlink_goal_from_habit`, `create_semantic_goal_relationship`, `find_goals_requiring_knowledge`) are inline on `GoalsService` directly — inlined June 2026 per the decomposition floor rule.
 
 **Sub-services:**
 | Service | Purpose |

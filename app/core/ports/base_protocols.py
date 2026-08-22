@@ -7,7 +7,7 @@ ISP-compliant architecture (refactored November 2025).
 
 Protocol Hierarchy
 ------------------
-BackendOperations[T] is THE full backend protocol, composed from 7 sub-protocols:
+BackendOperations[T] is THE full backend protocol, composed from 9 sub-protocols:
 
     BackendOperations[T]  ← UniversalNeo4jBackend implements this
         ├── CrudOperations[T]              (6 methods: create, get, get_many, update, delete, list)
@@ -15,6 +15,8 @@ BackendOperations[T] is THE full backend protocol, composed from 7 sub-protocols
         ├── RelationshipCrudOperations     (6 methods: add/delete relationships, batch ops)
         ├── RelationshipMetadataOperations (3 methods: get/update edge properties)
         ├── RelationshipQueryOperations    (3 methods: count_related, get_related_uids, batch)
+        ├── OrderedRelationshipOperations  (ordered/hierarchical traversal on edge properties)
+        ├── BatchRelationshipOperations    (one query answers many entities)
         ├── GraphTraversalOperations       (2 methods: traverse, get_domain_context_raw)
         └── LowLevelOperations             (2 methods + driver: execute_query, health_check)
 
@@ -1132,28 +1134,6 @@ class BatchRelationshipOperations(Protocol):
 
 
 @runtime_checkable
-class UserEntityRelationshipOperations(Protocol):
-    """
-    The ownership edge between a user and an entity.
-
-    Implemented by ``_UserEntityMixin``, which every ``UniversalNeo4jBackend``
-    inherits. See ``project_find_by_user_uid_vs_owns``: the ``:OWNS`` edge and the
-    ``user_uid`` property are two mechanisms held equal by invariant, and this is
-    the edge half.
-    """
-
-    async def create_user_relationship(
-        self,
-        user_uid: UserUID,
-        entity_uid: EntityUID,
-        relationship_type: RelationshipName | None = None,
-        metadata: dict[str, Any] | None = None,
-    ) -> ResultType[bool]:
-        """Upsert the user->entity edge, defaulting to the domain's ownership relationship."""
-        ...
-
-
-@runtime_checkable
 class GraphTraversalOperations(Protocol):
     """
     Graph traversal operations for path finding and context queries.
@@ -1283,7 +1263,6 @@ class BackendOperations[T: "DomainModelProtocol"](
     RelationshipQueryOperations,
     OrderedRelationshipOperations,
     BatchRelationshipOperations,
-    UserEntityRelationshipOperations,
     GraphTraversalOperations,
     LowLevelOperations,
     Protocol,
@@ -1294,7 +1273,7 @@ class BackendOperations[T: "DomainModelProtocol"](
     This is THE protocol that UniversalNeo4jBackend implements.
     Domain protocols (TasksOperations, GoalsOperations, etc.) inherit from this.
 
-    Composed from 10 focused sub-protocols (ISP-compliant):
+    Composed from 9 focused sub-protocols (ISP-compliant):
     - CrudOperations[T]: create, get, get_visible_to_user, get_many, update, delete, list
     - EntitySearchOperations[T]: search, find_by, count
     - RelationshipCrudOperations: add/delete relationships, batch ops
@@ -1302,7 +1281,6 @@ class BackendOperations[T: "DomainModelProtocol"](
     - RelationshipQueryOperations: count_related, get_related_uids
     - OrderedRelationshipOperations: ordered/hierarchical traversal on edge properties
     - BatchRelationshipOperations: one query answers many entities (N+1 elimination)
-    - UserEntityRelationshipOperations: create_user_relationship
     - GraphTraversalOperations: traverse, get_domain_context_raw
     - LowLevelOperations: execute_query, health_check, driver
 
@@ -1549,6 +1527,5 @@ __all__ = [
     "RelationshipQueryOperations",  # Relationship queries
     "Result",
     "StreaksLike",
-    "UserEntityRelationshipOperations",  # User->entity ownership edge
     # Backend Capability Protocols (7 - kept used ones)
 ]

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import TYPE_CHECKING, Any, cast
 
 from adapters.persistence.neo4j._hierarchy_mixin import HierarchyConfig, _HierarchyMixin
@@ -898,6 +899,7 @@ class EventsBackend(_HierarchyMixin, UniversalNeo4jBackend[Event]):
     - get_stats_for_user(uid)    → event count stats (total/scheduled/today)
     - get_goal_links_for_events(…)    → batch map event_uid → contributed goal_uid
     - get_habit_links_for_events(…)   → batch map event_uid → reinforced habit_uid
+    - add_attendee/remove_attendee    → (User)-[:ATTENDS]->(Event) pair (ADR-086, staged)
     """
 
     _hierarchy_config = HierarchyConfig(
@@ -1144,6 +1146,97 @@ class EventsBackend(_HierarchyMixin, UniversalNeo4jBackend[Event]):
         return await _edge_map_multi(
             self, "event", RelationshipName.CONTRIBUTES_TO_GOAL.value, event_uids
         )
+
+    # ------------------------------------------------------------------
+    # Attendance (ADR-086) — the dedicated (User)-[:ATTENDS]->(Event) pair.
+    # STAGED: no route reaches the service triple that calls these yet.
+    # ------------------------------------------------------------------
+
+    async def add_attendee(
+        self,
+        event_uid: str,
+        attendee_uid: UserUID,
+        actor_uid: UserUID,
+        role: str,
+        status: str,
+        set_status_on_match: bool = False,
+    ) -> Result[str]:
+        """Upsert the ``(User)-[:ATTENDS]->(Event)`` edge (idempotent MERGE).
+
+        The GroupBackend.add_member shape applied to attendance (ADR-086):
+        ``joined_at``/``added_by``/``role``/``status`` are set ``ON CREATE`` only —
+        re-adding never rewrites ``joined_at`` (it records when the edge was first
+        created, i.e. the invite or self-add moment). ``set_status_on_match=True``
+        additionally transitions an *existing* edge's ``status`` — the target user
+        accepting their own attendance (the only actor allowed to transition; the
+        service layer enforces the consent state machine before calling this).
+
+        Returns the edge's status after the write.
+        """
+        on_match_clause = "ON MATCH SET r.status = $status" if set_status_on_match else ""
+        query = f"""
+        MATCH (u:User {{uid: $attendee_uid}})
+        MATCH (e:{self.label} {{uid: $event_uid}})
+        MERGE (u)-[r:{RelationshipName.ATTENDS.value}]->(e)
+        ON CREATE SET r.joined_at = datetime($now),
+                      r.added_by = $actor_uid,
+                      r.role = $role,
+                      r.status = $status
+        {on_match_clause}
+        RETURN r.status AS status
+        """
+        result = await self.execute_query(
+            query,
+            {
+                "attendee_uid": attendee_uid,
+                "event_uid": event_uid,
+                "actor_uid": actor_uid,
+                "role": role,
+                "status": status,
+                "now": datetime.now().isoformat(),
+            },
+        )
+        if result.is_error:
+            return Result.fail(result)
+        if not result.value:
+            return Result.fail(
+                Errors.not_found(
+                    "attendance",
+                    f"User {attendee_uid} or event {event_uid} not found",
+                )
+            )
+        return Result.ok(str(result.value[0]["status"]))
+
+    async def remove_attendee(
+        self,
+        event_uid: str,
+        attendee_uid: UserUID,
+        only_if_status: str | None = None,
+    ) -> Result[bool]:
+        """Delete the ``(User)-[:ATTENDS]->(Event)`` edge.
+
+        With ``only_if_status`` the delete is guarded to edges in that status —
+        the organizer's revoke path may only remove a still-``invited`` edge
+        (ADR-086); the target's own removal passes ``None`` (any status).
+
+        Returns whether an edge was deleted (``False`` when absent or guarded out).
+        """
+        status_clause = "WHERE r.status = $only_if_status" if only_if_status else ""
+        query = f"""
+        MATCH (u:User {{uid: $attendee_uid}})-[r:{RelationshipName.ATTENDS.value}]->(e:{self.label} {{uid: $event_uid}})
+        {status_clause}
+        DELETE r
+        RETURN count(r) AS deleted
+        """
+        params: dict[str, object] = {"attendee_uid": attendee_uid, "event_uid": event_uid}
+        if only_if_status:
+            params["only_if_status"] = only_if_status
+        result = await self.execute_query(query, params)
+        if result.is_error:
+            return Result.fail(result)
+        row = result.value[0] if result.value else {}
+        deleted = int(row.get("deleted", 0) or 0) if isinstance(row, dict) else 0
+        return Result.ok(deleted > 0)
 
 
 class ChoicesBackend(_HierarchyMixin, UniversalNeo4jBackend[Choice]):
