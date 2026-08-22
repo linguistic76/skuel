@@ -6,7 +6,8 @@ Pins the ownership edge AND the completion properties the query reads. The
 pre-2026-08-21 query walked ``(u)-[:HAS_TASK]->`` / ``(u)-[:HAS_GOAL]->`` —
 relationship types no write door creates (both write doors create ``:OWNS``)
 — and gated on ``completed_at``, a property no Task/Goal writer stamps
-(explicit completion writes ``completion_date`` / ``achieved_date``;
+(explicit completion writes Task ``completion_date`` / Goal ``achieved_date``,
+with ``completion_date`` on a Goal being the legacy pre-migration alias;
 status-route and vault completions stamp only ``updated_at`` — the dominant
 shape on the live graph, 80/85). So the completed-task and completed-goal
 legs always returned zero real rows, while the ``OPTIONAL MATCH`` +
@@ -41,8 +42,10 @@ async def graph(neo4j_driver, clean_neo4j):
     - day 0: task completed via status route / vault sync — updated_at only
     - day 1: task completed via the explicit complete path — completion_date
       (string date), with a much older updated_at to prove coalesce prefers it
-    - day 2: goal auto-completed at 100% progress — achieved_date only
-    - day 3: goal completed via complete_goal — completion_date
+    - day 2: goal completed via complete_goal / auto-achieve — achieved_date
+    - day 3: goal completed pre-migration — legacy completion_date alias
+      (no current writer stamps it; migrate_activity_completion_aliases.py
+      retires it, and the read keeps the fallback until that rerun lands)
     - day 4: Ku mastered — MASTERED.mastered_at stored as datetime()
     Plus active entities (excluded) and a second user's completed task (scoping).
     """
@@ -72,7 +75,7 @@ async def graph(neo4j_driver, clean_neo4j):
                 achieved_date: $d2_date, updated_at: $d6_dt
             })
             CREATE (u)-[:OWNS]->(:Goal:Entity {
-                uid: 'goal_explicit_ra', title: 'Close the arc', entity_type: 'goal',
+                uid: 'goal_legacy_ra', title: 'Close the arc', entity_type: 'goal',
                 user_uid: $user_uid, status: 'completed',
                 completion_date: $d3_date, updated_at: $d6_dt
             })
@@ -132,7 +135,7 @@ class TestGetRecentActivities:
         assert by_uid["task_status_ra"]["type"] == "task"  # updated_at fallback
         assert by_uid["task_explicit_ra"]["type"] == "task"  # completion_date
         assert by_uid["goal_achieved_ra"]["type"] == "goal"  # achieved_date
-        assert by_uid["goal_explicit_ra"]["type"] == "goal"  # completion_date
+        assert by_uid["goal_legacy_ra"]["type"] == "goal"  # legacy completion_date
         assert by_uid["ku_done_ra"]["type"] == "knowledge"  # datetime() edge
         assert by_uid["ku_done_ra"]["action"] == "mastered"
         assert all(a["action"] == "completed" for a in activities if a["type"] in ("task", "goal"))
@@ -143,7 +146,7 @@ class TestGetRecentActivities:
             "task_status_ra",
             "task_explicit_ra",
             "goal_achieved_ra",
-            "goal_explicit_ra",
+            "goal_legacy_ra",
             "ku_done_ra",
         ]
 

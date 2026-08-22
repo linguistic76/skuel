@@ -12,7 +12,11 @@ query reads back:
   writer populated. The deleted context-first converter was the only code
   that ever surfaced the value, via a read-side alias.
 * ``GoalsProgressService`` completion paths wrote ``completion_date`` —
-  the canonical Goal/GoalDTO field is ``achieved_date``.
+  the canonical Goal/GoalDTO field is ``achieved_date``. So did
+  ``GoalsCoreService.complete_goal`` (via the legacy
+  ``GoalUpdateIntent.completion_date`` field) until the completion-stamping
+  arc renamed the intent field on 2026-08-22 — re-run this script after
+  that fix merges to retire the alias rows it kept writing.
 
 The writers now persist the canonical names; this script moves the value
 on nodes written before the fix:

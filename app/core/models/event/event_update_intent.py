@@ -25,8 +25,10 @@ that construct the intent directly with merged metadata updates.
 
 Deliberately **absent**: ``practices_knowledge_uids`` / ``executes_tasks`` (on
 ``EventUpdateRequest`` but neither node columns nor handled edges on the update path — the
-create path drops them too) and ``notes`` / ``quality_score`` / ``completed_at`` (not Event
-columns). Carrying them would write junk node properties.
+create path drops them too) and ``notes`` / ``quality_score`` (not Event columns).
+Carrying them would write junk node properties. ``completed_at`` IS here — the canonical
+Event completion stamp (completion-stamping arc, 2026-08-22), a real column on
+``Event``/``EventDTO``.
 
 See: ADR-066 (Typed Update Intents) — the write-path sibling of ADR-065's
 ``*InferenceResult``; ``docs/roadmap/done/update-intents.md`` for the phased migration.
@@ -40,7 +42,7 @@ from typing import TYPE_CHECKING, Any
 from core.models.sentinels import UNSET, Unset
 
 if TYPE_CHECKING:
-    from datetime import date, time
+    from datetime import date, datetime, time
 
 
 @dataclass(frozen=True)
@@ -68,6 +70,10 @@ class EventUpdateIntent:
 
     # --- Reminders -----------------------------------------------------------
     reminder_minutes: int | Unset | None = UNSET
+
+    # --- Lifecycle -----------------------------------------------------------
+    # When the event transitioned into COMPLETED; explicit None = clear (reopen).
+    completed_at: datetime | Unset | None = UNSET
 
     # --- Quality / learning --------------------------------------------------
     habit_completion_quality: int | Unset | None = UNSET

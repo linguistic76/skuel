@@ -2,14 +2,14 @@
 ChoiceDTO - Choice-Specific DTO (Tier 2 - Transfer)
 =====================================================
 
-Extends UserOwnedDTO with 15 choice-specific fields matching the Choice
-frozen dataclass (Tier 3): decision context, timing, outcome tracking,
-and curriculum integration.
+Extends UserOwnedDTO with 16 choice-specific fields matching the Choice
+frozen dataclass (Tier 3): decision context, timing, lifecycle, outcome
+tracking, and curriculum integration.
 
 Hierarchy:
     EntityDTO (~18 common fields)
     └── UserOwnedDTO(EntityDTO) +3 fields (user_uid, visibility, priority)
-        └── ChoiceDTO(UserOwnedDTO) +15 choice-specific fields
+        └── ChoiceDTO(UserOwnedDTO) +16 choice-specific fields
 
 See: /docs/patterns/three_tier_type_system.md
 """
@@ -37,9 +37,10 @@ class ChoiceDTO(UserOwnedDTO):
     """
     Mutable DTO for choices (EntityType.CHOICE).
 
-    Extends UserOwnedDTO with 15 choice-specific fields:
+    Extends UserOwnedDTO with 16 choice-specific fields:
     - Decision (8): choice_type, options, selected_option_uid, decision_context, decision_rationale, decision_criteria, constraints, stakeholders
     - Timing (2): decision_deadline, decided_at
+    - Lifecycle (1): completed_at
     - Outcome (3): satisfaction_score, actual_outcome, lessons_learned
     - Curriculum (2): inspiration_type, expands_possibilities
     """
@@ -64,6 +65,12 @@ class ChoiceDTO(UserOwnedDTO):
     # =========================================================================
     decision_deadline: datetime | None = None
     decided_at: datetime | None = None
+
+    # =========================================================================
+    # LIFECYCLE
+    # =========================================================================
+    # When the choice transitioned into COMPLETED; cleared on reopen.
+    completed_at: datetime | None = None
 
     # =========================================================================
     # OUTCOME
@@ -127,7 +134,13 @@ class ChoiceDTO(UserOwnedDTO):
         return dto_to_dict(
             self,
             enum_fields=["entity_type", "status", "domain", "visibility", "choice_type"],
-            datetime_fields=["created_at", "updated_at", "decision_deadline", "decided_at"],
+            datetime_fields=[
+                "created_at",
+                "updated_at",
+                "decision_deadline",
+                "decided_at",
+                "completed_at",
+            ],
         )
 
     @classmethod
@@ -151,6 +164,7 @@ class ChoiceDTO(UserOwnedDTO):
                 "updated_at",
                 "decision_deadline",
                 "decided_at",
+                "completed_at",
             ],
             list_fields=[
                 "tags",
@@ -199,6 +213,7 @@ class ChoiceDTO(UserOwnedDTO):
                 "stakeholders",
                 "decision_deadline",
                 "decided_at",
+                "completed_at",
                 "satisfaction_score",
                 "actual_outcome",
                 "lessons_learned",

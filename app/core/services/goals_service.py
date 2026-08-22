@@ -269,9 +269,9 @@ class GoalsService(
         return await self.core.pause_goal(uid, reason, until_date)
 
     async def complete_goal(
-        self, uid: str, completion_notes: str = "", completion_date: str | None = None
+        self, uid: str, completion_notes: str = "", achieved_date: str | None = None
     ) -> Result[bool]:
-        return await self.core.complete_goal(uid, completion_notes, completion_date)
+        return await self.core.complete_goal(uid, completion_notes, achieved_date)
 
     async def archive_goal(self, uid: str, reason: str = "Archived") -> Result[bool]:
         return await self.core.archive_goal(uid, reason)
@@ -280,7 +280,7 @@ class GoalsService(
         """Apply a status transition and return the refreshed goal.
 
         Why: ``activate_goal`` / ``complete_goal`` / ``archive_goal`` each carry
-        different side effects (progress_percentage, completion_date, archive
+        different side effects (progress_percentage, achieved_date, archive
         metadata). Centralising the dispatch here keeps transition semantics in
         the domain service so every caller — route, CLI, future batch job —
         applies them uniformly.

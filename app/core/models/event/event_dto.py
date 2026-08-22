@@ -2,14 +2,14 @@
 EventDTO - Event-Specific DTO (Tier 2 - Transfer)
 ===================================================
 
-Extends UserOwnedDTO with 26 event-specific fields matching the Event
-frozen dataclass (Tier 3): scheduling, logistics, recurrence, reminders,
-attendees, cross-domain links, milestones, and quality tracking.
+Extends UserOwnedDTO with 27 event-specific fields matching the Event
+frozen dataclass (Tier 3): scheduling, logistics, lifecycle, recurrence,
+reminders, attendees, cross-domain links, milestones, and quality tracking.
 
 Hierarchy:
     EntityDTO (~18 common fields)
     └── UserOwnedDTO(EntityDTO) +3 fields (user_uid, visibility, priority)
-        └── EventDTO(UserOwnedDTO) +26 event-specific fields
+        └── EventDTO(UserOwnedDTO) +27 event-specific fields
 
 See: /docs/patterns/three_tier_type_system.md
 """
@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING, Any
 from core.models.type_hints import UserUID
 
 if TYPE_CHECKING:
-    from datetime import date, time
+    from datetime import date, datetime, time
 
 from core.models.enum_field_registry import enum_fields_for
 from core.models.enums.activity_enums import EngagementState
@@ -37,9 +37,10 @@ class EventDTO(UserOwnedDTO):
     """
     Mutable DTO for events (EntityType.EVENT).
 
-    Extends UserOwnedDTO with 26 event-specific fields:
+    Extends UserOwnedDTO with 27 event-specific fields:
     - Scheduling (4): event_date, start_time, end_time, duration_minutes
     - Logistics (4): event_type, location, is_online, meeting_url
+    - Lifecycle (1): completed_at
     - Recurrence (3): recurrence_pattern, recurrence_end_date, recurrence_parent_uid
     - Reminders (2): reminder_minutes, reminder_sent
     - Attendees (2): attendee_emails, max_attendees
@@ -66,6 +67,12 @@ class EventDTO(UserOwnedDTO):
     location: str | None = None
     is_online: bool = False
     meeting_url: str | None = None
+
+    # =========================================================================
+    # LIFECYCLE
+    # =========================================================================
+    # When the event transitioned into COMPLETED; cleared on reopen.
+    completed_at: datetime | None = None
 
     # =========================================================================
     # RECURRENCE
@@ -160,7 +167,7 @@ class EventDTO(UserOwnedDTO):
                 "recurrence_pattern",
             ],
             date_fields=["event_date", "recurrence_end_date"],
-            datetime_fields=["created_at", "updated_at"],
+            datetime_fields=["created_at", "updated_at", "completed_at"],
             time_fields=["start_time", "end_time"],
         )
 
@@ -181,7 +188,7 @@ class EventDTO(UserOwnedDTO):
                 "engagement_state",
             ),
             date_fields=["event_date", "recurrence_end_date"],
-            datetime_fields=["created_at", "updated_at"],
+            datetime_fields=["created_at", "updated_at", "completed_at"],
             time_fields=["start_time", "end_time"],
             list_fields=["tags", "attendee_emails"],
             dict_fields=["metadata"],
@@ -221,6 +228,7 @@ class EventDTO(UserOwnedDTO):
                 "location",
                 "is_online",
                 "meeting_url",
+                "completed_at",
                 "recurrence_pattern",
                 "recurrence_end_date",
                 "recurrence_parent_uid",

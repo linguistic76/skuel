@@ -4,10 +4,11 @@ Choice - Choice Domain Model
 
 Frozen dataclass for choice entities (EntityType.CHOICE).
 
-Inherits common fields from UserOwnedEntity. Adds 15 choice-specific fields:
+Inherits common fields from UserOwnedEntity. Adds 16 choice-specific fields:
 - Decision (8): choice_type, options, selected_option_uid, decision_context,
   decision_rationale, decision_criteria, constraints, stakeholders
 - Decision Timing (2): decision_deadline, decided_at
+- Lifecycle (1): completed_at
 - Outcome (3): satisfaction_score, actual_outcome, lessons_learned
 - Choice-Curriculum Integration (2): inspiration_type, expands_possibilities
 
@@ -40,8 +41,8 @@ class Choice(UserOwnedEntity):
     Inherits common fields from UserOwnedEntity (identity, content, status,
     learning, sharing, substance, meta, embedding).
 
-    Adds 15 choice-specific fields for decision context, timing, outcome
-    tracking, and curriculum integration.
+    Adds 16 choice-specific fields for decision context, timing, lifecycle,
+    outcome tracking, and curriculum integration.
     """
 
     # Honest leaf identity (G6): defaults to its own type; __post_init__
@@ -78,6 +79,16 @@ class Choice(UserOwnedEntity):
     # =========================================================================
     decision_deadline: datetime | None = None
     decided_at: datetime | None = None
+
+    # =========================================================================
+    # LIFECYCLE
+    # =========================================================================
+    # When the choice transitioned into COMPLETED (completion-stamping arc,
+    # 2026-08-22); None while never completed, cleared again on reopen.
+    # Distinct from decided_at — deciding picks an option, completing closes
+    # the whole choice (a decided choice may stay open through outcome
+    # evaluation).
+    completed_at: datetime | None = None
 
     # =========================================================================
     # OUTCOME

@@ -95,6 +95,10 @@ class ChoiceUpdateRequest(UpdateRequestBase):
     decision_criteria: list[str] | None = Field(default=None, description="Criteria for deciding")
     constraints: list[str] | None = Field(default=None, description="Constraints")
     stakeholders: list[str] | None = Field(default=None, description="Stakeholders")
+    completed_at: datetime | None = Field(
+        default=None,
+        description="When the choice was completed (explicit stamp; None clears it on reopen)",
+    )
     priority: Priority | None = Field(default=None, description="Choice priority")
     tags: list[str] | None = Field(default=None, description="Tags")
 
@@ -133,6 +137,7 @@ class ChoiceUpdateRequest(UpdateRequestBase):
             decision_criteria=when_set("decision_criteria", self.decision_criteria),
             constraints=when_set("constraints", self.constraints),
             stakeholders=when_set("stakeholders", self.stakeholders),
+            completed_at=when_set("completed_at", self.completed_at),
             priority=when_set(
                 "priority", self.priority.value if self.priority is not None else None
             ),
