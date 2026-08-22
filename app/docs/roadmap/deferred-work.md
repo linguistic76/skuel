@@ -542,16 +542,54 @@ engagement) — a semantic that is *not* ownership. If SKUEL wants it later, it 
 its own named edge with its own design, never by resurrecting the `HAS_*` family
 (ADR-086 § 2).
 
-### Still open — completion stamping (truth-pass residue, 2026-08-21)
+### Completion stamping — ✅ RESOLVED (completion-stamping arc, 2026-08-22)
 
-Context: `cross_domain_backend.get_recent_activities` was rewritten onto `:OWNS` +
-`coalesce(completion_date[, achieved_date], updated_at)` (#1116). The `updated_at`
-fallback is a *mutable* proxy — editing a long-completed task re-dates its "completion"
-and can bounce it back to the top of recent activities. The durable fix is stamping a
-completion field on **every** transition to completed (today only the explicit complete
-paths stamp one; the generic status route and vault sync don't) — a cross-domain
-write-path change. Whoever takes it: stamp at the status-transition chokepoint, then drop
-`updated_at` from the read's coalesce.
+The residue: `get_recent_activities` read `coalesce(completion_date[, achieved_date],
+updated_at)` (#1116), and `updated_at` is a *mutable* proxy — editing a long-completed task
+re-dated its "completion" and bounced it to the top. Only the explicit complete paths
+stamped anything (measured 5/85 on the live graph).
+
+Closed by a four-PR arc: canonical fields per domain (#1122), the shared transition helper
+wired at all six `update_<domain>` chokepoints plus `EntityType.valid_statuses()`
+enforcement (#1123), Goals reopen alignment (#1124), and the read + vault + backfill pass
+(this PR). What the fix is, in one line: **every transition into COMPLETED stamps the
+domain's canonical field, every transition out clears it, and nothing downstream reads
+`updated_at` as a completion any more.**
+
+- **Read** (`cross_domain_backend.get_recent_activities`): the stamp alone — Task
+  `completion_date`, Goal `achieved_date`. The legacy Goal `completion_date` leg died with
+  it. A completed row carrying no stamp is **excluded, not approximated** (truth over
+  coverage — an absent row is honest, a wrong date is not).
+- **Vault outbound** (`vault_reconciler`): the Obsidian `✅ date` comes from
+  `task.completion_date`, falling back to today only for pre-stamp history. It used to come
+  from `updated_at`, which rewrote the user's own file every time a long-done task was edited.
+- **History**, frozen once: `scripts/backfill_activity_completion_stamps.py` sets
+  `field = updated_at` where a completed node has no stamp. **Applied to the live graph
+  2026-08-22** (AuraDB `d2d160c4`, measured first): 85 completed Tasks, 5 already stamped,
+  80 frozen, 0 unstampable; zero completed Goals/Habits/Events/Choices, so Task was the only
+  label with anything to do. Verified post-apply — 85/85 stamped, all `STRING` (writers
+  persist ISO strings via `to_neo4j_node`; a native Neo4j DATE would read back fine and still
+  be the wrong shape). `migrate_activity_completion_aliases.py` reran to a clean no-op:
+  zero legacy `completion_date` rows, as PR-1's rerun already found.
+- **`complete_task_with_cascade`** now gates its own stamp on the same transition rule
+  (surfaced by Codex on #1124). It writes through the *generic* CRUD update, so the
+  chokepoint helper never sees it — the stamp was unconditional, and two live callers
+  re-enter behind an ownership check only (`POST /today/tasks/{uid}/complete`,
+  `UserContextService.complete_task_with_context`), so a retry re-dated the completion and
+  would now propagate into the vault `✅`.
+
+⚠️ **Named while fixing the stamp, not fixed: `complete_task_with_cascade` is not idempotent
+beyond the date.** A repeat call still re-publishes `TaskCompleted` and re-runs the whole
+cascade — goal progress bumped again, habit reinforced again, knowledge mastery +0.1 again,
+dependent tasks re-triggered. Same bug class, materially bigger scope, and the fix needs a
+ruling first: should a repeat complete be a no-op that returns the task, or should the
+cascade genuinely re-run? Both live callers can produce one (double-click, HTMX retry, an
+offline PWA queue replay). Not scoped into the arc.
+
+Also unchanged by ruling (R4): vault **inbound** `[x]`-completion propagation. CLAUDE.md and
+ADR-070 say a checked line propagates back to SKUEL; it does not — dedup Guard 2
+(`activity_extractor.py:983-985`) skips an already-extracted line. Its own thread, after the
+`git log -S` discriminator (docs-hold-vision protocol).
 
 ---
 

@@ -33,12 +33,13 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from datetime import date, datetime
+from types import MappingProxyType
 from typing import Any
 
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.utils.result_simplified import Errors, Result
 
-__all__ = ["completion_transition_patch", "is_completion_transition"]
+__all__ = ["COMPLETION_FIELDS", "completion_transition_patch", "is_completion_transition"]
 
 # Per-domain canonical completion field + stamp value factory. Task and Goal
 # stamp calendar dates (matching their established writers); the datetime
@@ -52,6 +53,16 @@ _STAMP_SPECS: dict[EntityType, tuple[str, Callable[[], date | datetime]]] = {
     EntityType.EVENT: ("completed_at", datetime.now),
     EntityType.CHOICE: ("completed_at", datetime.now),
 }
+
+#: Which node property each Activity domain stamps on completion — the same
+#: mapping the chokepoints write, published so out-of-process consumers (the
+#: one-shot backfill in ``scripts/backfill_activity_completion_stamps.py``)
+#: cannot drift from it. A domain absent here does not record a completion
+#: moment; Principle is absent because COMPLETED is not one of its valid
+#: statuses.
+COMPLETION_FIELDS: Mapping[EntityType, str] = MappingProxyType(
+    {entity_type: field for entity_type, (field, _) in _STAMP_SPECS.items()}
+)
 
 
 def _coerce_status(value: EntityStatus | str | None) -> EntityStatus | None:

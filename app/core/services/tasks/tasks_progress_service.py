@@ -34,6 +34,7 @@ from core.models.task.task import Task
 from core.models.task.task_dto import TaskDTO
 from core.models.update_contracts import RawChanges
 from core.services.base_service import BaseService
+from core.services.completion_stamp import is_completion_transition
 from core.services.domain_config import create_activity_domain_config
 from core.services.relationship_builder import relate
 from core.services.tasks.task_relationships import TaskRelationships
@@ -291,12 +292,20 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
             )
 
         # Update task to completed via the service contract (ADR-066 #2→#1): partial
-        # updates go through self.update, not a raw self.backend.update.
+        # updates go through self.update, not a raw self.backend.update. That is
+        # the generic CRUD update, which does not run the six-chokepoint stamp —
+        # this explicit complete path carries its own, and gates it on the same
+        # rule the chokepoint uses so a retry never re-dates a completion.
+        # Reachable, not hypothetical: POST /today/tasks/{uid}/complete and
+        # UserContextService.complete_task_with_context both re-enter here behind
+        # an ownership check only. ``task`` is the pre-update read from the top of
+        # this method — the gate costs no extra query.
         updates: Neo4jProperties = {
             "status": EntityStatus.COMPLETED.value,
-            "completion_date": date.today().isoformat(),
             "actual_minutes": actual_minutes,
         }
+        if is_completion_transition(task.status, updates):
+            updates["completion_date"] = date.today().isoformat()
 
         update_result = await self.update(task_uid, RawChanges(updates))
         if update_result.is_error:

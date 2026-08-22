@@ -101,7 +101,10 @@ Lossless round-trip between graph and markdown is **impossible**. Logseq DB conf
 
 For **checkbox status** (the primary round-trip case):
 - The `✅ YYYY-MM-DD` done-date IS the timestamp.
-- SKUEL stores `completed_at` on the Task (or infers from the `✅` token).
+- SKUEL stores `completion_date` on the Task — stamped on every transition into
+  COMPLETED (completion-stamping arc, 2026-08-22) — or parses it from the `✅` token on
+  the DSL `[x]` create door. Outbound writes derive the `✅` from that field, never from
+  the mutable `updated_at`.
 - On sync: the side with the **later** completion timestamp wins.
 - Practical reality: concurrent completion (both sides check it off within the same sync window) has identical semantic intent — either "winning" value is correct. LWW is sufficient.
 

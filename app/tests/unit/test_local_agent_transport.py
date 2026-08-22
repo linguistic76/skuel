@@ -429,7 +429,7 @@ class TestOutboundRoundTrip:
     async def test_mark_done_round_trips_to_the_device_vault(
         self, rig: TransportRig, source_vault: Path, mirror_root: Path
     ) -> None:
-        from datetime import datetime
+        from datetime import date, datetime
 
         from core.models.enums.entity_enums import EntityStatus
 
@@ -444,10 +444,15 @@ class TestOutboundRoundTrip:
         rig.user_entry.get_extracted_entities = AsyncMock(
             return_value=Result.ok([{"entity_uid": "task_water_plants", "vault_id": "sk_ab12cd"}])
         )
+        # Mirrors a real completed task: the ✅ date comes from the completion
+        # stamp, and updated_at is deliberately later so a regression to the old
+        # mutable-proxy reader would write 2026-08-20 and fail below.
         rig.tasks.get_task = AsyncMock(
             return_value=Result.ok(
                 SimpleNamespace(
-                    status=EntityStatus.COMPLETED, updated_at=datetime(2026, 7, 6, 12, 0)
+                    status=EntityStatus.COMPLETED,
+                    completion_date=date(2026, 7, 6),
+                    updated_at=datetime(2026, 8, 20, 12, 0),
                 )
             )
         )
