@@ -72,8 +72,10 @@ Reads on behalf of a user pass exactly one of two enforcement chokepoints (found
 
 Bare `get()` stays unscoped and is legal only as internal mechanics — post-verification,
 system reads not made on behalf of a user, or structurally `PUBLIC` domains (ADR-085 §3 has
-the precise rules). **Nothing may add a third enforcement mechanism**: a hand-rolled
-ownership check is a defect even when its logic is correct. The ownership edge itself is
+the precise rules). **Nothing may add a third audience-policy mechanism**: a hand-rolled
+audience check is a defect even when its logic is correct. (Self-anchored reads of the
+requesting user's own subgraph — the user-context queries — decide no audience question and
+are defined precisely in ADR-085 §4.) The ownership edge itself is
 universally `(User)-[:OWNS]->(entity)` —
 [ADR-086](../decisions/ADR-086-universal-owns-and-attends-attendance.md) ratifies the write
 doors and their `user_uid == :OWNS` owner invariant, and specifies the staged `ATTENDS`

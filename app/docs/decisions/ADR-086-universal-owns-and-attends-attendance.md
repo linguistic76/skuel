@@ -58,7 +58,11 @@ edge for every user-owned entity. The **four write doors** (file:line as of 2026
    composed into the same statement as the node CREATE; the owner is `MATCH`ed, so a
    `user_uid` naming a non-existent User aborts the whole write.
 2. **Ingestion bulk upsert** — `bulk_upsert_backend.py:99-108`: `MERGE` plus a stale-owner
-   guard that deletes any previous owner's edge — single-owner invariant.
+   guard that deletes any previous owner's edge — single-owner invariant. Deliberately
+   **no-stub**: the owner is `MATCH`ed inside a row-preserving unit `CALL` subquery *after*
+   the node (with its `user_uid` property) has persisted, so an unknown owner silently
+   yields a property-only node rather than aborting the row (the door's docstring records
+   this as a choice, mirroring relationship-target semantics).
 3. **UserEntry** — `_user_entry_crud_mixin.py:128-129`: strictest door — `WHERE n.user_uid =
    owner.uid` guards the MERGE against an ownership race.
 4. **Hand-written domain writers** — Exercise (`backends/exercise_backends.py:253-269`,
@@ -66,18 +70,31 @@ edge for every user-owned entity. The **four write doors** (file:line as of 2026
    write fails), Group (`backends/collab_backends.py:51`), FormSubmission
    (`backends/forms_backends.py:561`).
 
-**The invariant:** wherever both exist, `user_uid` property `== :OWNS` owner. Doors 1–3
-enforce it structurally (same statement / guarded MERGE); door 4 is the known warn-only soft
-spot (documented in OWNERSHIP_VERIFICATION.md § Entity Requirements). `owner_uid` domains
-(Exercise, Group) carry edge + `owner_uid` property instead of `user_uid`.
+**The invariant:** wherever both exist, `user_uid` property `== :OWNS` owner — ratified as
+the contract every door owes, with honest enforcement grades: doors 1 and 3 enforce it
+**structurally** (same statement / guarded MERGE — the write aborts rather than splitting
+the halves); doors 2 and 4 are the known **soft spots** — ingestion's deliberate no-stub
+skip can leave a property-only node (and a null `user_uid` on re-ingest skips the
+stale-owner guard, leaving a prior owner's edge beside a nulled property), and Exercise's
+edge write is warn-only (documented in OWNERSHIP_VERIFICATION.md § Entity Requirements).
+The invariant is repaired from the other side by the June-2026 migration + the single-owner
+guard, and watched by `tests/integration/test_owner_only_ownership_invariant.py`. Hardening
+the two soft doors (fail loudly vs. document-and-watch) is **open work, recorded here** —
+not assumed away. `owner_uid` domains (Exercise, Group) carry edge + `owner_uid` property
+instead of `user_uid`.
 
 **Sanctioned consequence — property-scoped reads are sound.** The standing ruling that
 `find_by(user_uid=…)` and other property predicates are legitimate (distinct from `:OWNS`
-traversal, by ruling) rests on this invariant: search scopes by property (the August 2026
-faceted convergence, SEARCH_ARCHITECTURE § Ownership Scoping), while the edge remains the
-signal for cascade deletes, sharing checks, and the adapter Cypher that traverses it
-(MEGA-QUERY/CONSOLIDATED anchors `user_context_queries.py:94/:1294`, `get_user_entities`
-`_user_entity_mixin.py:270`, GDPR cascade `user_backend.py:444`, one SCOPE_AWARE disjunct).
+traversal, by ruling) rests on the invariant *as contract plus the failure directions of its
+soft spots*, not on a claim of universal structural enforcement: a property-only node
+(unknown-owner ingest) stores a `user_uid` naming a **nonexistent** user, so no live
+requester's property-scoped read can match it — the defect orphans data rather than
+disclosing it — while the stale-edge case is visible only to the *former* owner and only via
+edge-traversing reads. Search scopes by property (the August 2026 faceted convergence,
+SEARCH_ARCHITECTURE § Ownership Scoping), while the edge remains the signal for cascade
+deletes, sharing checks, and the adapter Cypher that traverses it (MEGA-QUERY/CONSOLIDATED
+anchors `user_context_queries.py:94/:1294`, `get_user_entities` `_user_entity_mixin.py:270`,
+GDPR cascade `user_backend.py:444`, one SCOPE_AWARE disjunct).
 
 ### 2. The paper residue collapses
 
@@ -136,13 +153,24 @@ it and stays registered as staged work in the bloat detector's PLANNED tier.
 
 | Actor | May do |
 |---|---|
-| User adding themself | Create with `status: accepted` (self-add is consent) |
+| User adding themself | Write `status: accepted` — self-add is the *attendee's* consent, never `invited` |
 | Organizer (event owner) | Create with `status: invited` — **only** `invited`; an organizer can never write acceptance for someone else. May revoke (delete) a still-`invited` edge |
 | The target user | The only actor who transitions `status` (`invited → accepted / declined`); may always delete their own `ATTENDS` edge, whatever its status |
 
 The **actor is always resolved from the auth layer** (`current_user`), never from the request
 body — `AddAttendeeRequest`/`RemoveAttendeeRequest` carry the *target*, not the actor.
 `added_by` records the acting user at create.
+
+**Eligibility precondition (wiring obligation — found in review):** self-add is consent from
+the attendee's side, *not* authorization from the event's side. Unconditional self-add plus
+`OWNER_OR_ATTENDEE` would let any authenticated user who obtains an event UID join and then
+read a private event — a direct bypass of the read contract. So on a private event, self-add
+is only the `invited → accepted` transition on an edge the organizer already created; a
+direct create-as-`accepted` self-add requires an event that is open to the actor. Whether
+SKUEL has open/public events at all, and what "open to the actor" means (a visibility field,
+group scope, …), is decided at wiring — until then the only self-add path is accepting an
+existing invite. The state-machine rule stands unchanged: whenever self-add is permitted,
+what it writes is `accepted`.
 
 **Creator auto-attends:** event creation writes `:OWNS` + the creator's own
 `ATTENDS {status: accepted}` edge — the organizer is an attendee of their own event. Wired

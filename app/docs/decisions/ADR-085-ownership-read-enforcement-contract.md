@@ -58,7 +58,9 @@ chokepoints:
 
 This is the **floor**, not a ceiling: a read that passes neither chokepoint and returns
 user-owned data to a user-facing caller is a defect, even when today's callers happen to be
-safe.
+safe. (One shape is deliberately outside the chokepoints because it decides no audience
+question: self-anchored reads of the requesting user's own subgraph — defined precisely in
+§4.)
 
 ### 2. `get_visible_to_user` is THE audience-aware by-UID read
 
@@ -99,11 +101,22 @@ definition, one of the gaps in §5 — the fix is routing through a chokepoint (
 
 ### 4. No third mechanism — ever
 
-Nothing may add a third enforcement mechanism. New read surfaces compose
+Nothing may add a third **audience-policy** mechanism. New read surfaces compose
 `build_search_visibility_clause()` or call `verify_ownership`/`get_visible_to_user`. A
-hand-rolled ownership `WHERE` fragment or an ad-hoc "is this yours?" check is a defect **even
-when its logic is correct** — the entire value of the contract is that audience policy has two
+hand-rolled audience predicate or an ad-hoc "is this yours?" check is a defect **even when
+its logic is correct** — the entire value of the contract is that audience policy has two
 auditable homes, and drift between copies is how the census gaps appeared in the first place.
+
+**Self-anchored reads are not a third mechanism.** The user-context queries
+(`user_context_queries.py` — MEGA-QUERY/CONSOLIDATED) anchor on the requesting user's own
+node and traverse that user's subgraph; they decide no audience question, so there is no
+policy to centralize. Their obligation is different: **every projection must stay tied to
+the anchor** (`user.uid`). A nested projection that escapes the anchor is a scoping bug
+*within* a self-anchored read — G2 below is exactly this — and its fix re-ties the
+projection to the anchored user (the shape the sibling projections already use), restoring
+the anchor rather than adding a predicate home. A *new* read surface may be self-anchored
+only when it reads exclusively the requesting user's own data; the moment it can return
+another user's rows it is an audience read and belongs to a chokepoint.
 
 (The one existing composition-adjacent rule stands unchanged: `has_user=True` is fail-closed
 convention everywhere the clause composes — deriving `has_user` from `user_uid is not None`
@@ -117,7 +130,7 @@ each closure gets a pinning test whose fixtures mirror writer shapes.
 | # | Gap | Where | Shape |
 |---|---|---|---|
 | G1 | Askesis bundle fetch (the P1) | `core/services/askesis/context_retriever.py:431` has `user_uid` in frame; `_fetch_entities_by_uid` (`:750-775`) calls bare `service.get(uid)` per uid | Thread `user_uid` down; replace with `get_visible_to_user` (curriculum stays visible via PUBLIC, activities scope OWNER_ONLY) |
-| G2 | MEGA-QUERY nested projections | `adapters/persistence/neo4j/user_context_queries.py:829` (and sibling prereq projections `:816/:827`) project PS-linked Habits with no owner predicate — vs `:1104`/`:1134` which carry `user_uid = user.uid` | Add the owner predicate the sibling projections already use |
+| G2 | MEGA-QUERY nested projections | `adapters/persistence/neo4j/user_context_queries.py:829` (and sibling prereq projections `:816/:827`) project PS-linked Habits with no owner predicate — vs `:1104`/`:1134` which carry `user_uid = user.uid` | Re-tie the projection to the anchored user (`user_uid = user.uid`, the sibling shape) — an anchor-escape fix inside a self-anchored read (§4), not a new predicate home |
 | G3 | Relationship traversal | `_search_raw_mixin.py:116` `relationship_traversal_raw` and `core/services/mixins/search_operations_mixin.py:312` `get_by_relationship` take no `user_uid`/visibility | Add `user_uid` + visibility composition; update events/principles search-service callers |
 | G4 | Lateral targets | `core/services/lateral_relationships/lateral_relationship_service.py:256` returns targets unfiltered (anchor check exists at `:412`) | Filter returned targets by the caller's audience |
 | G5 | `build_array_contains_query` | `crud_queries.py:678` lacks the visibility/user params its sibling `build_array_any_match_query` (`:737`) has; caller `search_array_field` is dormant | Add the params; resolve the dormant caller's staged status explicitly |
