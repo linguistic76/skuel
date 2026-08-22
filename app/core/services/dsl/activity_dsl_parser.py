@@ -121,6 +121,7 @@ class ParsedActivityLine:
         contexts: List of EntityType/NonKuDomain values from @context() tag (type-safe)
         when: Optional datetime from @when() tag
         scheduled_date: Optional scheduled date from the obsidian-tasks ⏳ marker
+        completion_date: Optional done date from the obsidian-tasks ✅ marker
         duration_minutes: Optional duration in minutes from @duration() tag
         repeat_pattern: Optional repeat configuration from @repeat() tag
         priority: Optional priority 1-5 from @priority() tag
@@ -171,6 +172,7 @@ class ParsedActivityLine:
     # rather than reading late-night intent into a bare date.
     when_has_clock_time: bool = False
     scheduled_date: date | None = None  # obsidian-tasks ⏳ scheduled date
+    completion_date: date | None = None  # obsidian-tasks ✅ done date (checked lines)
     duration_minutes: int | None = None  # @duration(90m)
     repeat_pattern: dict[str, Any] | None = None  # @repeat(daily)
 

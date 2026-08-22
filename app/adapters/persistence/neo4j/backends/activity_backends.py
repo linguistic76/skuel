@@ -621,7 +621,6 @@ class TasksBackend(_HierarchyMixin, UniversalNeo4jBackend[Task]):
     - _HierarchyMixin: subtask hierarchy (get children/parent/hierarchy, create/remove, cycle detection)
     - get_task(uid)              → get_or_fail() wrapper (NotFound as error)
     - get_stats_for_user(…)      → task count stats (total/completed/overdue)
-    - auto_complete_parent_if_ready(…) → auto-complete parent when all subtasks done
     - calculate_parent_progress(…) → weighted subtask completion percentage
     """
 
@@ -721,49 +720,6 @@ class TasksBackend(_HierarchyMixin, UniversalNeo4jBackend[Task]):
         if result.is_error:
             return Result.fail(result)
         return Result.ok(cast("TaskStats", result.value))
-
-    async def auto_complete_parent_if_ready(self, completed_task_uid: str) -> Result[list[str]]:
-        """Auto-complete parent task if all its subtasks are completed.
-
-        Returns list of parent UIDs that were auto-completed (0 or 1 element).
-        The service layer handles recursive grandparent checking.
-        """
-        query = f"""
-        MATCH (completed:Entity {{uid: $task_uid}})
-        MATCH (parent:Entity)-[:{RelationshipName.HAS_SUBTASK.value}]->(completed)
-
-        // Get all subtasks of this parent
-        MATCH (parent)-[:{RelationshipName.HAS_SUBTASK.value}]->(sibling:Entity)
-
-        // Check if all siblings are complete
-        WITH parent,
-             count(sibling) as total_subtasks,
-             count(CASE WHEN sibling.status = 'completed' THEN 1 END) as completed_subtasks
-
-        WHERE total_subtasks = completed_subtasks
-          AND parent.status <> 'completed'  // Don't update if already complete
-
-        // Auto-complete parent
-        SET parent.status = 'completed',
-            parent.completed_at = datetime(),
-            parent.auto_completed = true
-
-        RETURN parent.uid as parent_uid
-        """
-
-        result = await self.execute_query(query, {"task_uid": completed_task_uid})
-
-        if result.is_error:
-            return Result.fail(result)
-
-        parent_uids = []
-        if result.value:
-            for record in result.value:
-                parent_uids.append(record["parent_uid"])
-                self.logger.info(
-                    f"Auto-completed parent task: {record['parent_uid']} (all subtasks complete)"
-                )
-        return Result.ok(parent_uids)
 
     async def get_assigned_tasks(
         self,

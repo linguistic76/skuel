@@ -56,7 +56,7 @@ class CommonQueryRouteFactory:
     - Goal/habit filter queries (auth + ownership verification)
     - Status filter queries (auth required)
 
-    Security aligned with CRUDRouteFactory and StatusRouteFactory patterns.
+    Security aligned with the CRUDRouteFactory patterns.
     """
 
     def __init__(

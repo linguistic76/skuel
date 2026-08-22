@@ -353,7 +353,7 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 
 ### EventsService
 
-**Facade-specific public methods:** 54
+**Facade-specific public methods:** 52
 
 | Method | Async |
 |--------|-------|
@@ -362,8 +362,6 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 | `analyze_learning_patterns()` | ✅ |
 | `analyze_upcoming_events()` | ✅ |
 | `check_conflicts()` | ✅ |
-| `complete_event_with_cascade()` | ✅ |
-| `complete_event_with_quality()` | ✅ |
 | `count_events()` | ✅ |
 | `create()` | ✅ |
 | `create_event()` | ✅ |

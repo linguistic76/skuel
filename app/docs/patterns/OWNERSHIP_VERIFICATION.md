@@ -159,61 +159,13 @@ crud_factory = CRUDRouteFactory(
 )
 ```
 
-### StatusRouteFactory
+### Inline status updates (create_activity_field_api_routes)
 
-For status change operations (activate, pause, complete, archive), use StatusRouteFactory:
-
-```python
-from adapters.inbound.route_factories import StatusRouteFactory, StatusTransition
-from core.models.enums import ContentScope
-
-status_factory = StatusRouteFactory(
-    service=goals_service,
-    domain_name="goals",
-    transitions={
-        "activate": StatusTransition(
-            target_status="active",
-            method_name="activate_goal",
-        ),
-        "pause": StatusTransition(
-            target_status="paused",
-            requires_body=True,
-            body_fields=["reason", "until_date"],
-            method_name="pause_goal",
-        ),
-        "complete": StatusTransition(
-            target_status="completed",
-            requires_body=True,
-            body_fields=["notes", "date"],
-            method_name="complete_goal",
-        ),
-    },
-    scope=ContentScope.USER_OWNED,  # Default - enforces ownership
-)
-status_factory.register_routes(app, rt)
-```
-
-**For services using typed request objects** (like HabitsService), use `request_builder`:
-
-```python
-status_factory = StatusRouteFactory(
-    service=habits_service,
-    domain_name="habits",
-    transitions={
-        "pause": StatusTransition(
-            target_status="paused",
-            requires_body=True,
-            body_fields=["reason", "until_date"],
-            request_builder=lambda uid, fields: PauseHabitRequest(
-                habit_uid=uid,
-                reason=fields.get("reason", "Paused"),
-                until_date=fields.get("until_date"),
-            ),
-            method_name="pause_habit",
-        ),
-    },
-)
-```
+Status changes ride the inline field-update factory: ``POST /api/{domain}/{uid}/status``
+authenticates, verifies ownership via ``verify_entity_ownership`` (404 for non-owned),
+then applies the domain's typed-intent update (``update_task(uid,
+TaskUpdateIntent(status=...))``), where status-target validity and completion
+stamping are enforced at the service seam.
 
 ### OwnershipRouteFactory
 

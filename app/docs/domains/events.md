@@ -74,9 +74,6 @@ class EventsService(BaseService[EventsOperations, Event]):
     async def get_event(self, *args: Any, **kwargs: Any) -> Any:
         return await self.core.get_event(*args, **kwargs)
 
-    async def complete_event_with_cascade(self, *args: Any, **kwargs: Any) -> Any:
-        return await self.progress.complete_event_with_cascade(*args, **kwargs)
-
     async def optimize_recurring_schedule(self, *args: Any, **kwargs: Any) -> Any:
         return await self.scheduling.optimize_recurring_schedule(*args, **kwargs)
 
@@ -229,11 +226,11 @@ On CREATE, `reinforces_habit_uid` is the edge's INPUT: it rides on the `Event`, 
 
 ## Progress Service (January 2026)
 
-`EventsProgressService` handles progress tracking and completion:
+`EventsProgressService` handles progress metrics (event completion itself goes
+through `update_event`, which stamps `completed_at` on the transition):
 
 | Method | Description |
 |--------|-------------|
-| `complete_event_with_cascade(event_uid, user_context)` | Complete with cascade updates |
 | `get_attendance_rate(user_uid, period_days)` | Attendance rate metrics |
 | `get_quality_trends(user_uid, period_days)` | Quality score trends |
 | `get_goal_contribution_metrics(user_uid)` | Goal contribution analysis |

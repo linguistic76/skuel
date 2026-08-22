@@ -15,6 +15,7 @@ Responsibilities:
 
 from __future__ import annotations
 
+import dataclasses
 from datetime import date
 from operator import attrgetter
 from typing import TYPE_CHECKING, Any
@@ -40,6 +41,7 @@ from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
 from core.ports.query_types import EventStats
 from core.services.base_service import BaseService
+from core.services.completion_stamp import completion_transition_patch, is_completion_transition
 from core.services.domain_config import create_activity_domain_config
 from core.services.mixins.hierarchy_read_mixin import HierarchyReadMixin
 from core.services.mixins.link_edge_guard import LinkEdge, keep_permitted_link_edges
@@ -538,7 +540,9 @@ class EventsCoreService(
 
         The facade (``EventsService.update_event``) splits the two edge fields off the
         intent before calling this, so ``intent.to_changes()`` here carries only node
-        properties.
+        properties. Status transitions are validated against the Event lifecycle and
+        completion stamping (``completed_at``) is applied here — the domain's one
+        update chokepoint (``core.services.completion_stamp``).
 
         Args:
             uid: Event UID
@@ -566,6 +570,15 @@ class EventsCoreService(
                 old_event_date = current_result.value.event_date
                 old_status = current_result.value.status
 
+        if "status" in changes:
+            # Status-target validation + completion stamping (transition-gated). The
+            # stamp rides the intent so ``super().update`` writes it in the same patch.
+            stamp = completion_transition_patch(EntityType.EVENT, old_status, changes)
+            if stamp.is_error:
+                return Result.fail(stamp)
+            if stamp.value:
+                intent = dataclasses.replace(intent, **stamp.value)
+
         result = await super().update(uid, intent)
         if result.is_error:
             return result
@@ -574,11 +587,7 @@ class EventsCoreService(
 
         domain_event: BaseEvent
         # Priority 1: Status changed to COMPLETED (state transition only).
-        if (
-            "status" in changes
-            and changes["status"] == EntityStatus.COMPLETED.value
-            and old_status != EntityStatus.COMPLETED
-        ):
+        if is_completion_transition(old_status, changes):
             domain_event = CalendarEventCompleted(
                 event_uid=event.uid,
                 user_uid=event.user_uid,

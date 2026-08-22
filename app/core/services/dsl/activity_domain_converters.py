@@ -125,6 +125,9 @@ def activity_to_task_request(activity: ParsedActivityLine) -> Result[ConversionR
             "duration_minutes": activity.duration_minutes or 30,
             "priority": priority,
             "status": EntityStatus.DRAFT if not activity.is_checked else EntityStatus.COMPLETED,
+            # Checked lines carry their obsidian-tasks ✅ date; the request model
+            # defaults a dateless COMPLETED create to today.
+            "completion_date": activity.completion_date,
             "recurrence_pattern": recurrence,
             # Knowledge connections
             "applies_knowledge_uids": activity.get_linked_knowledge(),

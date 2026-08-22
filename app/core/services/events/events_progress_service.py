@@ -2,7 +2,7 @@
 Events Progress Service - Progress Tracking and Completion
 ==========================================================
 
-Handles event completion, attendance tracking, and quality metrics.
+Handles event attendance tracking and quality metrics.
 
 **Responsibilities:**
 - Track event attendance/completion rates
@@ -16,10 +16,9 @@ Events are calendar-based (not goal-based like tasks), so progress tracking
 focuses on attendance and quality rather than goal contribution.
 """
 
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from typing import TYPE_CHECKING, Any
 
-from core.events import CalendarEventCompleted, publish_event
 from core.models.enums import EntityStatus
 from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
@@ -27,10 +26,8 @@ from core.models.type_hints import UserUID
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.events._habit_links import enrich_events_with_habit_links
-from core.services.user import UserContext
-from core.services.user.rich_context import get_model_from_rich_context
 from core.utils.decorators import with_error_handling
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from core.ports.domain_protocols import EventsOperations
@@ -38,7 +35,7 @@ if TYPE_CHECKING:
 
 class EventsProgressService(BaseService["EventsOperations", Event]):
     """
-    Progress tracking and completion for events.
+    Progress tracking for events (read-only metrics).
 
     Tracks:
     - Attendance rates (completed vs. scheduled events)
@@ -78,96 +75,6 @@ class EventsProgressService(BaseService["EventsOperations", Event]):
         """
         super().__init__(backend, "events.progress")
         self.event_bus = event_bus
-
-    # ========================================================================
-    # CONTEXT-FIRST HELPERS
-    # ========================================================================
-
-    def _get_event_from_rich_context(
-        self, event_uid: str, user_context: UserContext
-    ) -> Event | None:
-        """Try to get Entity from UserContext.entities_rich["events"]."""
-        return get_model_from_rich_context(user_context, "events", event_uid, EventDTO, Event)
-
-    # ========================================================================
-    # EVENT COMPLETION
-    # ========================================================================
-
-    @with_error_handling(
-        "complete_event_with_cascade", error_type="database", uid_param="event_uid"
-    )
-    async def complete_event_with_cascade(
-        self,
-        event_uid: str,
-        user_context: UserContext,
-        quality_score: int | None = None,
-        notes: str | None = None,
-    ) -> Result[Event]:
-        """
-        Complete an event and cascade updates through the system.
-
-        This method:
-        1. Marks event as complete
-        2. Updates quality score if provided (for habit events)
-        3. Publishes CalendarEventCompleted event for cascade effects
-
-        Context-First: Tries rich context before Neo4j query.
-
-        Args:
-            event_uid: Event UID
-            user_context: User context for cascade effects
-            quality_score: Optional quality rating (1-5) for habit events
-            notes: Optional completion notes
-
-        Returns:
-            Result containing completed event
-        """
-        # CONTEXT-FIRST: Try rich context
-        event = self._get_event_from_rich_context(event_uid, user_context)
-
-        if event is None:
-            event_result = await self.backend.get(event_uid)
-            if event_result.is_error:
-                return Result.fail(event_result)
-            if not event_result.value:
-                return Result.fail(Errors.not_found(resource="Event", identifier=event_uid))
-            event = self._to_domain_model(event_result.value, EventDTO, Event)
-            self.logger.debug(f"Event {event_uid} fetched from Neo4j")
-        else:
-            self.logger.debug(f"Event {event_uid} found in rich context")
-
-        # Build updates
-        updates: dict[str, Any] = {
-            "status": EntityStatus.COMPLETED.value,
-            "completed_at": datetime.now().isoformat(),
-        }
-        if quality_score is not None:
-            updates["habit_completion_quality"] = quality_score
-        if notes:
-            updates["notes"] = notes
-
-        # raw-write: habit-completion-with-cascade writes directly to the backend,
-        # bypassing the validated/event-firing contract (EventUpdateIntent → update_event)
-        # on purpose — this path publishes its OWN CalendarEventCompleted below carrying the
-        # quality_score, which the generic update_event deliberately omits (None). Routing
-        # through the contract would double-fire CalendarEventCompleted.
-        update_result = await self.backend.update(event_uid, updates)
-        if update_result.is_error:
-            return Result.fail(update_result)
-
-        # Publish CalendarEventCompleted event
-        domain_event = CalendarEventCompleted(
-            event_uid=event_uid,
-            user_uid=user_context.user_uid,
-            completion_date=event.event_date or date.today(),
-            quality_score=quality_score,
-        )
-        await publish_event(self.event_bus, domain_event, self.logger)
-
-        self.logger.info(f"Completed event {event_uid}: quality={quality_score}")
-
-        completed_event = self._to_domain_model(update_result.value, EventDTO, Event)
-        return Result.ok(completed_event)
 
     # ========================================================================
     # ATTENDANCE TRACKING

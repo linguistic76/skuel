@@ -195,8 +195,8 @@ DomainRouteConfig operates at the **file level** — it wires which factories ru
 ```
 tasks_routes.py          ← DomainRouteConfig (file-level wiring)
   └── tasks_api.py       ← create_tasks_api_routes()
-        ├── CRUDRouteFactory     ← endpoint-level: create, get, list, update, delete
-        └── StatusRouteFactory   ← endpoint-level: activate, complete, archive
+        ├── CRUDRouteFactory                  ← endpoint-level: create, get, list, update, delete
+        └── create_activity_field_api_routes  ← endpoint-level: inline status/priority updates
 ```
 
-DomainRouteConfig and CRUDRouteFactory/StatusRouteFactory are not alternatives — they operate at different layers and are used together.
+DomainRouteConfig and the endpoint-level factories (CRUDRouteFactory, create_activity_field_api_routes) are not alternatives — they operate at different layers and are used together.

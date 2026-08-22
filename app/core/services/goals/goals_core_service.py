@@ -44,6 +44,7 @@ from core.models.goal.goal_update_intent import GoalUpdateIntent
 from core.ports.domain_protocols import GoalsOperations
 from core.ports.query_types import GoalStats
 from core.services.base_service import BaseService
+from core.services.completion_stamp import completion_transition_patch, is_completion_transition
 from core.services.domain_config import create_activity_domain_config
 from core.services.mixins.hierarchy_read_mixin import HierarchyReadMixin
 from core.services.mixins.link_edge_guard import (
@@ -578,6 +579,9 @@ class GoalsCoreService(
         inherited CRUD ``update`` (BaseService → ``_validate_update`` → ``backend.update``),
         then publishes domain events. Goals carry no edge fields on the update path, so the
         intent's ``to_changes()`` is written wholesale — there is nothing to split off.
+        Status transitions are validated against the Goal lifecycle and completion
+        stamping (``achieved_date``) is applied here — the domain's one update
+        chokepoint (``core.services.completion_stamp``).
 
         Args:
             uid: Goal UID
@@ -606,6 +610,17 @@ class GoalsCoreService(
             if current_result.is_ok:
                 old_goal = current_result.value
 
+            # Status-target validation + completion stamping (transition-gated). The
+            # stamp rides the intent so ``super().update`` writes it in the same patch;
+            # explicit paths (``complete_goal`` sets ``achieved_date``) keep authority.
+            stamp = completion_transition_patch(
+                EntityType.GOAL, old_goal.status if old_goal else None, changes
+            )
+            if stamp.is_error:
+                return Result.fail(stamp)
+            if stamp.value:
+                intent = dataclasses.replace(intent, **stamp.value)
+
         result: Result[Goal] = await super().update(uid, intent)
         if result.is_error:
             return result
@@ -620,24 +635,19 @@ class GoalsCoreService(
         )
 
         # GoalAchieved: status transitioned into COMPLETED.
-        if "status" in changes and old_goal is not None:
-            old_status = get_enum_value(old_goal.status)  # Handle both enum and string
-            if (
-                changes["status"] == EntityStatus.COMPLETED.value
-                and old_status != EntityStatus.COMPLETED.value
-            ):
-                actual_duration_days = (
-                    (datetime.now() - goal.created_at).days if goal.created_at else None
-                )
-                await publish_event(
-                    self.event_bus,
-                    GoalAchieved(
-                        goal_uid=goal.uid,
-                        user_uid=goal.user_uid,
-                        actual_duration_days=actual_duration_days,
-                    ),
-                    self.logger,
-                )
+        if old_goal is not None and is_completion_transition(old_goal.status, changes):
+            actual_duration_days = (
+                (datetime.now() - goal.created_at).days if goal.created_at else None
+            )
+            await publish_event(
+                self.event_bus,
+                GoalAchieved(
+                    goal_uid=goal.uid,
+                    user_uid=goal.user_uid,
+                    actual_duration_days=actual_duration_days,
+                ),
+                self.logger,
+            )
 
         # Post-persist embedding refresh (ADR-074) — only when a text field changed
         await publish_embedding_requested(

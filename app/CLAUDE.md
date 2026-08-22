@@ -483,7 +483,7 @@ POST (Create) → 201, GET/PUT/DELETE → 200, POST (Action) → 200
 | Factory | Purpose |
 |---------|---------|
 | CRUDRouteFactory | Standard CRUD |
-| StatusRouteFactory | Status changes |
+| create_activity_field_api_routes | Inline field updates incl. status (`POST /api/{domain}/{uid}/{field}`) |
 | OwnershipRouteFactory | Ownership-verified domain routes (GET/POST with ownership checks) |
 | CommonQueryRouteFactory | Query patterns |
 | AnalyticsRouteFactory | Analytics |

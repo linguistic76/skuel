@@ -187,7 +187,7 @@ __all__ = ["create_tasks_routes"]
 - `CommonQueryRouteFactory` — filter by status, domain, goal, habit
 - `IntelligenceRouteFactory` — context, recommendations
 
-**What stays in `api_factory`:** `OwnershipRouteFactory` (domain-specific ownership routes), `StatusRouteFactory` (transitions), `AnalyticsRouteFactory`, and manual routes with custom logic.
+**What stays in `api_factory`:** `OwnershipRouteFactory` (domain-specific ownership routes), `create_activity_field_api_routes` (inline status/priority updates), `AnalyticsRouteFactory`, and manual routes with custom logic.
 
 **What `ui_factory` does (inside `create_{domain}_ui_routes`):**
 - Creates an `ActivityUIConfig` dataclass (~50 lines) with domain-specific callbacks and components
@@ -500,7 +500,7 @@ Don't refactor `register_domain_routes()` without preserving both null guards (a
 
 **Patterns:**
 - [DOMAIN_ROUTE_CONFIG_PATTERN.md](/docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md) — Canonical pattern doc: all 10 examples, migration guide, troubleshooting (1,043 lines)
-- [ROUTE_FACTORIES.md](/docs/patterns/ROUTE_FACTORIES.md) — Endpoint-level factories (CRUDRouteFactory, StatusRouteFactory) that are called *inside* the factories wired by DomainRouteConfig
+- [ROUTE_FACTORIES.md](/docs/patterns/ROUTE_FACTORIES.md) — Endpoint-level factories (CRUDRouteFactory, create_activity_field_api_routes) that are called *inside* the factories wired by DomainRouteConfig
 - [FASTHTML_ROUTE_REGISTRATION.md](/docs/patterns/FASTHTML_ROUTE_REGISTRATION.md) — Why routes register via decorator side effects (the reason factories return `[]`)
 
 **Migration:**

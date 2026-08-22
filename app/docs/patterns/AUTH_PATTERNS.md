@@ -655,7 +655,7 @@ Quick reference for auth behavior across all route factories in `/adapters/inbou
 |---------|--------------|---------------|--------------|----------|
 | **CRUDRouteFactory** (user-owned) | Always for create; configurable for read | `scope=ContentScope.USER_OWNED` | Optional | Tasks, Goals, Habits, Events, Choices, Principles |
 | **CRUDRouteFactory** (shared) | Create only | `scope=ContentScope.SHARED` | Optional | KU, LP, MOC (public read) |
-| **StatusRouteFactory** | Always | Always USER_OWNED | No | activate, pause, complete, archive |
+| **create_activity_field_api_routes** | Always | Always USER_OWNED | No | inline status/priority card updates |
 | **CommonQueryRouteFactory** (mine) | Always | Implied via user_uid | No | by-status, by-category, user queries |
 | **CommonQueryRouteFactory** (admin) | Always | No | ADMIN required | Query any user's data |
 | **IntelligenceRouteFactory** | Always | No (read-only) | No | analytics, recommendations, patterns |

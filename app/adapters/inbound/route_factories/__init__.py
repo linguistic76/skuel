@@ -14,7 +14,6 @@ Philosophy:
 
 Factories:
 - CRUDRouteFactory: Standard CRUD operations (create, get, update, delete, list)
-- StatusRouteFactory: Status change operations (activate, pause, complete, archive)
 - CommonQueryRouteFactory: Common query patterns (by user, by status, by category)
 - IntelligenceRouteFactory: AI/intelligence endpoints (analytics, recommendations)
 - OwnershipRouteFactory: Ownership-verified domain-specific routes
@@ -75,11 +74,6 @@ from adapters.inbound.route_factories.route_helpers import (
     split_csv,
     verify_entity_ownership,
 )
-from adapters.inbound.route_factories.status_route_factory import (
-    StatusOperations,
-    StatusRouteFactory,
-    StatusTransition,
-)
 
 __all__ = [
     # Activity Domain HTMX inline field-update endpoint factory
@@ -127,8 +121,4 @@ __all__ = [
     "require_owned_entity",
     "split_csv",
     "verify_entity_ownership",
-    # Status route factory (December 2025)
-    "StatusOperations",
-    "StatusRouteFactory",
-    "StatusTransition",
 ]

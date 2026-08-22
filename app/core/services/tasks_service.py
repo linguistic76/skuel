@@ -791,9 +791,10 @@ class TasksService(
         quality_score: int | None = None,
     ) -> Result[Task]:
         """
-        Complete a task (StatusRouteFactory compatible).
+        Complete a task without a user_context.
 
-        Simplified version without user_context for route factory pattern.
+        Simplified entry point: the cascade derives the owning user from the
+        task itself (see ``complete_task_with_cascade``).
         """
         return await self.progress.complete_task_with_cascade(
             uid, user_context=None, actual_minutes=actual_minutes, quality_score=quality_score

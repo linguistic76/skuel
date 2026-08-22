@@ -106,7 +106,7 @@ Factories generate routes from configuration. The handler code lives inside the 
 | Factory | What It Generates | File |
 |---------|-------------------|------|
 | CRUDRouteFactory | create, get, update, delete, list | `crud_route_factory.py` |
-| StatusRouteFactory | activate, pause, complete, archive | `status_route_factory.py` |
+| create_activity_field_api_routes | inline status/priority updates | `activity_field_api_factory.py` |
 | CommonQueryRouteFactory | by-status, by-category, active, recent | `query_route_factory.py` |
 | IntelligenceRouteFactory | context, analytics, insights | `intelligence_route_factory.py` |
 | AnalyticsRouteFactory | Custom analytics endpoints | `analytics_route_factory.py` |
@@ -168,7 +168,7 @@ bootstrap.py
     │       ├── tasks_api.py → @rt() + @boundary_handler() handlers
     │       │       │
     │       │       ├── CRUDRouteFactory.register_routes()
-    │       │       ├── StatusRouteFactory.register_routes()
+    │       │       ├── create_activity_field_api_routes()
     │       │       ├── CommonQueryRouteFactory.register_routes()
     │       │       ├── IntelligenceRouteFactory.register_routes()
     │       │       └── Hand-written domain routes

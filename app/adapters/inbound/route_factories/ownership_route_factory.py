@@ -168,7 +168,6 @@ class OwnershipRouteFactory:
     - Automatic authentication requirement
     - Automatic ownership verification (returns 404 for non-owned entities)
     - Configurable call patterns (GET passthrough, GET with params, POST with model)
-    - Follows StatusRouteFactory architecture
 
     Example::
 

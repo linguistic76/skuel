@@ -179,10 +179,9 @@ dynamically-dispatched method vocabulary, collected structurally:
 
 | Collector | Covers |
 |-----------|--------|
-| Literal method kwargs (`method_name=` / `*_method`) | `StatusTransition`, hierarchy route factory |
+| Literal method kwargs (`method_name=` / `*_method`) | hierarchy route factory, `AIRouteSpec`-style specs |
 | Positional method args (`POSITIONAL_METHOD_ARGS`) | `AIRouteSpec` — `method_name` is field index 4, passed positionally in `ai_routes.py`'s route table |
 | Query-route template expansion per literal `domain_name=` | `get_user_{d}`, `find_{d}`, `get_{d}_for_goal/habit` (hyphenated domains also expand underscored) |
-| `StatusRouteFactory` transitions × `domain_singular` | `{action}_{singular}` names |
 | Relationship-registry cross product | `entity_label` × outgoing/incoming dict keys → `get_{label}_{suffix}` |
 | String-literal demotion tier | any finding whose name appears as a used identifier-shaped string constant (docstring-aware) → demoted to UNVERIFIED, never suppressed |
 | Operation-label inertness (`LABEL_CALL_FIRST_ARG` / `LABEL_KWARGS`) | strings naming an operation for error messages / metrics (`with_error_handling(...)`, `track_query_metrics(...)`, `operation=`) are NOT dispatch evidence and never demote — a method's own error label must not shield it from a dead finding |

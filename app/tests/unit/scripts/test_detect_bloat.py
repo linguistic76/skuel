@@ -615,7 +615,7 @@ def test_literal_method_kwarg_marks_live():
     dispatch = dispatch_for(
         {
             "adapters/inbound/x_routes.py": (
-                "t = StatusTransition(target_status='active', method_name='activate_goal')\n"
+                "t = RouteSpec(target_status='active', method_name='activate_goal')\n"
                 "h = HierarchyRouteFactory(get_children_method='get_steps')\n"
             )
         }
@@ -641,21 +641,6 @@ def test_hyphenated_domain_expands_underscored_variant():
         {"adapters/inbound/x_routes.py": ("cfg = DomainRouteConfig(domain_name='path-steps')\n")}
     )
     assert "get_user_path_steps" in dispatch.live
-
-
-def test_status_factory_transitions_expand():
-    dispatch = dispatch_for(
-        {
-            "adapters/inbound/x_routes.py": (
-                "f = StatusRouteFactory(\n"
-                "    domain_singular='goal',\n"
-                "    transitions={'activate': t1, 'pause': t2},\n"
-                ")\n"
-            )
-        }
-    )
-    assert "activate_goal" in dispatch.live
-    assert "pause_goal" in dispatch.live
 
 
 def test_relationship_registry_cross_product():

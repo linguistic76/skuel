@@ -253,8 +253,7 @@ class TestSubtaskEdgeRoundTrip:
         ``parent_uid`` is request input and the hierarchy backend matches on UID and label
         alone. The victim's context rebuild starts from the tasks they OWN and traverses
         HAS_SUBTASK without filtering the child's owner, so this edge would inject the
-        attacker's task into the victim's cached context — and
-        ``auto_complete_parent_if_ready`` would let it hold their parent task open.
+        attacker's task into the victim's cached context.
 
         Through ``create_task``, NOT the route door: the route door wrote no HAS_SUBTASK
         edge at all before this change, so a route-door version of this test would have

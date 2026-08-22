@@ -64,7 +64,7 @@ __all__ = ["create_tasks_routes"]
 - `IntelligenceRouteFactory` (context, recommendations)
 
 **What remains in `api_factory` (`tasks_api.py`):**
-- `StatusRouteFactory` (runtime closures for complete, archive, etc.)
+- `create_activity_field_api_routes` (inline status/priority card updates)
 - `AnalyticsRouteFactory` (custom analytics handlers)
 - Manual domain-specific routes
 

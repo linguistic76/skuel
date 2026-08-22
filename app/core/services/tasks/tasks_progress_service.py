@@ -240,7 +240,7 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
             self.logger.debug(f"Task {task_uid} found in rich context (no Neo4j query needed)")
 
         # Owning user: from context when available, else from the task itself
-        # (the simplified StatusRouteFactory path passes user_context=None).
+        # (the simplified facade ``complete_task`` entry passes user_context=None).
         user_uid = user_context.user_uid if user_context is not None else task.user_uid
 
         # CONTEXT-FIRST: Try to get relationships from rich context

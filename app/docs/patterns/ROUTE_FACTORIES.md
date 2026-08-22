@@ -27,7 +27,6 @@ SKUEL uses **route factories** to eliminate boilerplate in API route definitions
 | Factory | Purpose | Routes Generated |
 |---------|---------|------------------|
 | **CRUDRouteFactory** | Standard CRUD operations | create, get, update, delete, list |
-| **StatusRouteFactory** | Status change operations | activate, pause, complete, archive, etc. |
 | **CommonQueryRouteFactory** | Common query patterns | by-status, by-category, active, recent |
 | **AnalyticsRouteFactory** | Analytics endpoints | domain-specific analytics |
 | **IntelligenceRouteFactory** | Intelligence endpoints | context, analytics, insights |
@@ -122,122 +121,9 @@ frozen `*UpdateIntent`; otherwise (curriculum, forms, groups, templates) it fall
 so the shared base materializes it once at `backend.update(uid, updates.to_changes())`. No
 domain wiring is needed beyond pointing `update_schema` at the request model.
 
-## StatusRouteFactory
-
-Generates status change routes with automatic ownership verification.
-
-### Usage (Simple Pattern)
-
-For services using `(uid, **kwargs)` method signature:
-
-```python
-from adapters.inbound.route_factories import StatusRouteFactory, StatusTransition
-
-status_factory = StatusRouteFactory(
-    service=goals_service,
-    domain_name="goals",
-    transitions={
-        "activate": StatusTransition(
-            target_status="active",
-            method_name="activate_goal",
-        ),
-        "pause": StatusTransition(
-            target_status="paused",
-            requires_body=True,
-            body_fields=["reason", "until_date"],
-            method_name="pause_goal",
-        ),
-        "complete": StatusTransition(
-            target_status="completed",
-            requires_body=True,
-            body_fields=["notes", "date"],
-            method_name="complete_goal",
-        ),
-        "archive": StatusTransition(
-            target_status="archived",
-            requires_body=True,
-            body_fields=["reason"],
-            method_name="archive_goal",
-        ),
-    },
-)
-status_factory.register_routes(app, rt)
-```
-
-### Usage (Typed Request Pattern)
-
-For services using typed request objects (like HabitsService):
-
-```python
-from core.models.habit.habit_request import PauseHabitRequest, ResumeHabitRequest
-
-status_factory = StatusRouteFactory(
-    service=habits_service,
-    domain_name="habits",
-    transitions={
-        "pause": StatusTransition(
-            target_status="paused",
-            requires_body=True,
-            body_fields=["reason", "until_date"],
-            request_builder=lambda uid, fields: PauseHabitRequest(
-                habit_uid=uid,
-                reason=fields.get("reason", "Paused"),
-                until_date=fields.get("until_date"),
-            ),
-            method_name="pause_habit",
-        ),
-        "resume": StatusTransition(
-            target_status="active",
-            request_builder=lambda uid, fields: ResumeHabitRequest(habit_uid=uid),
-            method_name="resume_habit",
-        ),
-    },
-)
-```
-
-### Usage (Tasks - January 2026)
-
-Tasks uses StatusRouteFactory for complete/uncomplete operations:
-
-```python
-status_factory = StatusRouteFactory(
-    service=tasks_service,
-    domain_name="tasks",
-    transitions={
-        "complete": StatusTransition(
-            target_status="completed",
-            requires_body=True,
-            body_fields=["actual_minutes", "quality_score"],
-            method_name="complete_task",
-        ),
-    },
-)
-status_factory.register_routes(app, rt)
-```
-
-### Generated Routes
-
-| Method | Path | Operation |
-|--------|------|-----------|
-| POST | `/api/{domain}/{action}?uid=...` | Status change |
-
-Example: `POST /api/goals/pause?uid=goal.daily-exercise`
-
-### StatusTransition Parameters
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `target_status` | str | required | Status value to set |
-| `requires_body` | bool | False | Whether route expects JSON body |
-| `body_fields` | list[str] | [] | Fields to extract from body |
-| `method_name` | str | `{action}_{domain}` | Service method to call |
-| `request_builder` | Callable | None | Function to build typed request object |
-| `validate` | Callable | None | Optional validation function |
-| `success_status` | int | 200 | HTTP status on success |
-
 ## OwnershipRouteFactory
 
-Generates ownership-verified routes for domain-specific operations that don't fit CRUD, Status, or Query patterns. Follows the same architecture as StatusRouteFactory.
+Generates ownership-verified routes for domain-specific operations that don't fit CRUD or Query patterns.
 
 ### Usage
 
@@ -493,7 +379,7 @@ When `scope=ContentScope.USER_OWNED` and `ownership_service` is provided:
 
 **Use Factories:**
 - Standard CRUD operations → CRUDRouteFactory
-- Status change patterns → StatusRouteFactory
+- Inline card field updates (status, priority) → create_activity_field_api_routes
 - Common query patterns → CommonQueryRouteFactory
 - Ownership-verified GET/POST with simple service calls → OwnershipRouteFactory
 
@@ -508,7 +394,6 @@ When `scope=ContentScope.USER_OWNED` and `ownership_service` is provided:
 | File | Purpose |
 |------|---------|
 | `/adapters/inbound/route_factories/crud_route_factory.py` | CRUDRouteFactory |
-| `/adapters/inbound/route_factories/status_route_factory.py` | StatusRouteFactory |
 | `/adapters/inbound/route_factories/ownership_route_factory.py` | OwnershipRouteFactory |
 | `/adapters/inbound/route_factories/query_route_factory.py` | CommonQueryRouteFactory |
 | `/adapters/inbound/route_factories/analytics_route_factory.py` | AnalyticsRouteFactory |
