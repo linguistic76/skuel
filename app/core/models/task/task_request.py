@@ -52,7 +52,8 @@ class TaskCreateRequest(CreateRequestBase):
         description=(
             "Completion date when creating an already-completed task "
             "(e.g. a checked [x] line from a historical note); defaults to today "
-            "when status is COMPLETED and no date is supplied"
+            "when status is COMPLETED and no date is supplied, refused on any "
+            "other status"
         ),
     )
 
@@ -124,10 +125,15 @@ class TaskCreateRequest(CreateRequestBase):
 
         Creation into COMPLETED is the degenerate completion transition; leaving
         the stamp null here would recreate the mutable ``updated_at`` proxy the
-        completion-stamping pass removed.
+        completion-stamping pass removed. The inverse is refused: a completion
+        date on a non-completed create would break the field's invariant
+        (non-null exactly when the task is completed).
         """
-        if self.status == EntityStatus.COMPLETED and self.completion_date is None:
-            self.completion_date = date.today()
+        if self.status == EntityStatus.COMPLETED:
+            if self.completion_date is None:
+                self.completion_date = date.today()
+        elif self.completion_date is not None:
+            raise ValueError("completion_date requires status=completed")
         return self
 
 

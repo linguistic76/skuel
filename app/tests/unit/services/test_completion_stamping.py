@@ -375,22 +375,39 @@ class TestPrinciplesChokepoint:
 
 @pytest.mark.asyncio
 class TestCompleteTasksBulk:
-    async def test_bulk_complete_stamps_completion_date(self):
+    async def test_bulk_complete_stamps_only_the_transitioning_rows(self):
+        # A bulk list may contain already-completed tasks (retry, mixed
+        # selection) — their original completion_date must survive (Codex P2 on
+        # #1123: unconditional stamping is the re-dating bug in miniature).
         from core.services.tasks.tasks_core_service import TasksCoreService
 
-        backend = Mock()
-        backend.update = AsyncMock(
-            return_value=Result.ok(Task(uid="task_1", user_uid=USER, title="t"))
+        active = Task(uid="task_active", user_uid=USER, title="t", status=EntityStatus.ACTIVE)
+        done = Task(
+            uid="task_done",
+            user_uid=USER,
+            title="t",
+            status=EntityStatus.COMPLETED,
+            completion_date=date(2026, 8, 1),
         )
+
+        async def get_by_uid(uid):
+            return Result.ok(done if uid == "task_done" else active)
+
+        backend = Mock()
+        backend.get = AsyncMock(side_effect=get_by_uid)
+        backend.update = AsyncMock(return_value=Result.ok(active))
         service = TasksCoreService(backend=backend)
 
-        result = await service.complete_tasks_bulk(["task_1", "task_2"], USER)
+        result = await service.complete_tasks_bulk(["task_active", "task_done"], USER)
 
         assert result.is_ok
-        for call in backend.update.await_args_list:
-            (_uid, updates) = call.args
-            assert updates["status"] == EntityStatus.COMPLETED.value
-            assert updates["completion_date"] == date.today().isoformat()
+        assert result.value == 2
+        written = {call.args[0]: call.args[1] for call in backend.update.await_args_list}
+        assert written["task_active"]["status"] == EntityStatus.COMPLETED.value
+        assert written["task_active"]["completion_date"] == date.today()
+        assert "completion_date" not in written["task_done"], (
+            "bulk-completing an already-completed task re-dated its completion"
+        )
 
 
 class TestDslDoneDateParse:
@@ -464,6 +481,14 @@ class TestTaskCreateRequestCompletionDefault:
     def test_completed_create_defaults_to_today(self):
         request = TaskCreateRequest(title="t", status=EntityStatus.COMPLETED)
         assert request.completion_date == date.today()
+
+    def test_completion_date_on_a_non_completed_create_is_refused(self):
+        # A DRAFT task carrying a completion stamp would break the field's
+        # invariant (non-null exactly when completed) — Codex P2 on #1123.
+        from pydantic import ValidationError
+
+        with pytest.raises(ValidationError, match="completion_date requires"):
+            TaskCreateRequest(title="t", completion_date=date(2026, 8, 15))
 
     def test_supplied_date_is_kept(self):
         request = TaskCreateRequest(

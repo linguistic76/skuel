@@ -798,15 +798,25 @@ class TasksCoreService(
         # validated/event-firing service contract (TaskUpdateIntent → update_task) on
         # purpose — it is a system batch write, and TasksBulkCompleted is published once
         # below rather than per-row. A plain dict literal is the honest type here.
-        # The completion stamp rides along (bulk-complete IS the transition; mirrors
-        # complete_task_with_cascade's writer shape).
-        updates: dict[str, Any] = {
-            "status": EntityStatus.COMPLETED.value,
-            "completion_date": date.today().isoformat(),
-        }
         completed_count = 0
 
         for task_uid in task_uids:
+            # Transition-gate the stamp per row via the shared helper: a bulk list
+            # may contain already-completed tasks (retry, mixed selection) whose
+            # original completion_date must survive — unconditional stamping is the
+            # re-dating bug this arc removes.
+            old_task = None
+            current_result = await self.backend.get(task_uid)
+            if current_result.is_ok and current_result.value:
+                old_task = self._to_domain_model(current_result.value, TaskDTO, Task)
+
+            updates: dict[str, Any] = {"status": EntityStatus.COMPLETED.value}
+            stamp = completion_transition_patch(
+                EntityType.TASK, old_task.status if old_task else None, updates
+            )
+            if stamp.is_ok:
+                updates.update(stamp.value)
+
             result = await self.backend.update(task_uid, updates)
             if result.is_ok:
                 completed_count += 1
