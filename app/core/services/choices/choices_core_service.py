@@ -476,11 +476,11 @@ class ChoicesCoreService(
 
         if "status" in changes:
             current_result = await self.get(choice_uid)
-            old_status = (
-                current_result.value.status
-                if current_result.is_ok and current_result.value
-                else None
-            )
+            if current_result.is_error:
+                # Fail fast: the stamp is transition-gated on the prior status; a
+                # failed read must not be read as "not completed" (re-dating risk).
+                return Result.fail(current_result)
+            old_status = current_result.value.status if current_result.value else None
             # Status-target validation + completion stamping (transition-gated). The
             # stamp rides the intent so ``super().update`` writes it in the same patch.
             stamp = completion_transition_patch(EntityType.CHOICE, old_status, changes)

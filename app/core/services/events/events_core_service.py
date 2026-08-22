@@ -566,6 +566,10 @@ class EventsCoreService(
         old_status = None
         if "status" in changes or "event_date" in changes:
             current_result = await self.get(uid)
+            if current_result.is_error and "status" in changes:
+                # Fail fast: the stamp is transition-gated on the prior status; a
+                # failed read must not be read as "not completed" (re-dating risk).
+                return Result.fail(current_result)
             if current_result.is_ok and current_result.value:
                 old_event_date = current_result.value.event_date
                 old_status = current_result.value.status

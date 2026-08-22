@@ -734,6 +734,11 @@ class TasksCoreService(
         old_task = None
         if "priority" in changes or "status" in changes:
             old_result = await self.backend.get(task_uid)
+            if old_result.is_error and "status" in changes:
+                # Fail fast: the stamp is transition-gated on the prior status, and a
+                # failed read must not be read as "not completed" — a transient error
+                # plus a completed re-post would re-date the original stamp.
+                return Result.fail(old_result)
             if old_result.is_ok and old_result.value:
                 old_task = self._to_domain_model(old_result.value, TaskDTO, Task)
 
@@ -804,10 +809,13 @@ class TasksCoreService(
             # Transition-gate the stamp per row via the shared helper: a bulk list
             # may contain already-completed tasks (retry, mixed selection) whose
             # original completion_date must survive — unconditional stamping is the
-            # re-dating bug this arc removes.
-            old_task = None
+            # re-dating bug this arc removes. A row whose state cannot be read is
+            # skipped (not counted): a failed read must not pass as "not completed".
             current_result = await self.backend.get(task_uid)
-            if current_result.is_ok and current_result.value:
+            if current_result.is_error:
+                continue
+            old_task = None
+            if current_result.value:
                 old_task = self._to_domain_model(current_result.value, TaskDTO, Task)
 
             updates: dict[str, Any] = {"status": EntityStatus.COMPLETED.value}

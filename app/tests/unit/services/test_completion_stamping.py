@@ -205,6 +205,19 @@ class TestTasksChokepoint:
         assert result.is_error
         backend.update.assert_not_awaited()
 
+    async def test_failed_old_status_read_fails_the_update(self):
+        # A transient read failure must not be read as "not completed" — that
+        # plus a completed re-post would re-date the original stamp (Codex P2).
+        from core.utils.result_simplified import Errors
+
+        service, backend = self._service(EntityStatus.COMPLETED)
+        backend.get = AsyncMock(
+            return_value=Result.fail(Errors.database("get", "transient read failure"))
+        )
+        result = await service.update_task("task_1", TaskUpdateIntent(status="completed"))
+        assert result.is_error
+        backend.update.assert_not_awaited()
+
 
 @pytest.mark.asyncio
 class TestGoalsChokepoint:
@@ -408,6 +421,25 @@ class TestCompleteTasksBulk:
         assert "completion_date" not in written["task_done"], (
             "bulk-completing an already-completed task re-dated its completion"
         )
+
+    async def test_bulk_complete_skips_rows_whose_state_cannot_be_read(self):
+        # A failed per-row read must not pass as "not completed" — the row is
+        # skipped (not flipped, not counted) rather than risk re-dating.
+        from core.services.tasks.tasks_core_service import TasksCoreService
+        from core.utils.result_simplified import Errors
+
+        backend = Mock()
+        backend.get = AsyncMock(
+            return_value=Result.fail(Errors.database("get", "transient read failure"))
+        )
+        backend.update = AsyncMock()
+        service = TasksCoreService(backend=backend)
+
+        result = await service.complete_tasks_bulk(["task_1"], USER)
+
+        assert result.is_ok
+        assert result.value == 0
+        backend.update.assert_not_awaited()
 
 
 class TestDslDoneDateParse:

@@ -607,8 +607,11 @@ class GoalsCoreService(
         old_goal: Goal | None = None
         if "status" in changes:
             current_result = await self.get(uid)
-            if current_result.is_ok:
-                old_goal = current_result.value
+            if current_result.is_error:
+                # Fail fast: the stamp is transition-gated on the prior status; a
+                # failed read must not be read as "not completed" (re-dating risk).
+                return Result.fail(current_result)
+            old_goal = current_result.value
 
             # Status-target validation + completion stamping (transition-gated). The
             # stamp rides the intent so ``super().update`` writes it in the same patch;

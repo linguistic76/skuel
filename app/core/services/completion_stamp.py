@@ -96,9 +96,11 @@ def completion_transition_patch(
 
     Args:
         entity_type: The Activity domain being updated.
-        old_status: The entity's status before this update (``None`` when the
-            caller could not resolve it — treated as "not completed", which
-            stamps; a nonexistent entity fails at the write anyway).
+        old_status: The entity's status before this update. ``None`` means "no
+            prior state" (entity not found — the write then fails with
+            not-found) and is treated as "not completed". Callers propagate
+            read *errors* instead of passing ``None`` for them: a failed read
+            must never be mistaken for "not completed" (re-dating risk).
         changes: The materialized update patch (``intent.to_changes()``). Never
             mutated.
 
