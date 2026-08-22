@@ -164,8 +164,12 @@ class GoalsCoreService(
         Validate goal updates with business rules.
 
         Business Rules:
-        1. Achievement state immutability: Cannot modify achieved goals
-        2. Target date validation: If updating dates, target must be after start
+        1. Target date validation: If updating dates, target must be after start
+
+        Completed goals are editable like completed tasks (achievement-state
+        immutability dropped by ruling, 2026-08-22): reopen is a legal transition,
+        and the completion-stamp helper at ``update_goal`` clears/re-stamps
+        ``achieved_date`` on transitions out of / into COMPLETED.
 
         Note: Goal abandonment protection (checking for active tasks) is handled
         in the update() method since it requires async relationship queries.
@@ -179,18 +183,7 @@ class GoalsCoreService(
         """
         changes = updates.to_changes()
 
-        # Business Rule 1: Achievement state immutability
-        # Achieved goals are historical records - modifying them corrupts progress tracking
-        if current.status == EntityStatus.COMPLETED:
-            return Result.fail(
-                Errors.validation(
-                    message="Cannot modify achieved goals - they are historical records",
-                    field="status",
-                    value=current.status.value,
-                )
-            )
-
-        # Business Rule 2: Target date validation (if both dates present)
+        # Business Rule 1: Target date validation (if both dates present)
         # Check if we're updating either date field
         if "target_date" in changes or "start_date" in changes:
             # Determine new values (use updated value if present, else current)
@@ -740,10 +733,13 @@ class GoalsCoreService(
 
         result = await self.update_goal(uid, GoalUpdateIntent(status=EntityStatus.PAUSED.value))
         if result.is_ok and metadata_updates:
-            # Update metadata separately
+            # Update metadata separately. Entity.metadata is a read-only
+            # MappingProxyType on the frozen model — merge into a fresh dict
+            # (also what the persistence mapper JSON-serializes; a proxy isn't a dict).
             goal = result.value
-            goal.metadata.update(metadata_updates)
-            await self.update_goal(uid, GoalUpdateIntent(metadata=goal.metadata))
+            await self.update_goal(
+                uid, GoalUpdateIntent(metadata={**goal.metadata, **metadata_updates})
+            )
 
         return Result.ok(True) if result.is_ok else Result.fail(result)
 
@@ -768,12 +764,14 @@ class GoalsCoreService(
         )
 
         if completion_notes:
-            # Get current goal to update metadata
+            # Get current goal to update metadata (merge — the frozen model's
+            # metadata is a read-only view)
             goal_result = await self.get(uid)
             if goal_result.is_ok and goal_result.value:
                 goal = goal_result.value
-                goal.metadata["completion_notes"] = completion_notes
-                intent = dataclasses.replace(intent, metadata=goal.metadata)
+                intent = dataclasses.replace(
+                    intent, metadata={**goal.metadata, "completion_notes": completion_notes}
+                )
 
         result = await self.update_goal(uid, intent)
         return Result.ok(True) if result.is_ok else Result.fail(result)
@@ -791,13 +789,19 @@ class GoalsCoreService(
         """
         intent = GoalUpdateIntent(status=EntityStatus.ARCHIVED.value)
 
-        # Get current goal to update metadata
+        # Get current goal to update metadata (merge — the frozen model's
+        # metadata is a read-only view)
         goal_result = await self.get(uid)
         if goal_result.is_ok and goal_result.value:
             goal = goal_result.value
-            goal.metadata["archive_reason"] = reason
-            goal.metadata["archived_at"] = datetime.now().isoformat()
-            intent = dataclasses.replace(intent, metadata=goal.metadata)
+            intent = dataclasses.replace(
+                intent,
+                metadata={
+                    **goal.metadata,
+                    "archive_reason": reason,
+                    "archived_at": datetime.now().isoformat(),
+                },
+            )
 
         result = await self.update_goal(uid, intent)
         return Result.ok(True) if result.is_ok else Result.fail(result)

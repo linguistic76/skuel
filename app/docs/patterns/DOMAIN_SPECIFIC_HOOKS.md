@@ -398,7 +398,7 @@ class FormTemplateService(BaseService[FormTemplateBackendOperations, FormTemplat
 | Service | `_validate_create()` | `_validate_update()` |
 |---------|----------------------|----------------------|
 | **ChoicesCoreService** | A supplied option set holds ≥ 2; BINARY carries exactly 2; STRATEGIC needs a 50+ char description. Options are OPTIONAL at creation — see `docs/domains/choices.md` | Decision immutability in ACTIVE/COMPLETED; option-count floor |
-| **GoalsCoreService** | `target_date` must not PRECEDE `start_date` (equal is legal — matches the request model's `allow_equal=True`) | Achievement-state immutability; date ordering |
+| **GoalsCoreService** | `target_date` must not PRECEDE `start_date` (equal is legal — matches the request model's `allow_equal=True`) | Date ordering *(achievement-state immutability deleted 2026-08 by ruling — completed goals are editable like completed tasks; reopen clears `achieved_date` via the completion-stamp helper)* |
 | **HabitsCoreService** | DAILY habits cannot target > 7 days/week | Streak preservation on archive (bypassable via the transient `force_archive`); frequency consistency |
 | **EventsCoreService** | Duration sanity, 5–720 minutes | Past-event immutability (notes/tags/quality_score exempt); duration sanity |
 | **TasksCoreService** | *(none — deleted; the rule contradicted the DSL and GoalTaskGenerator)* | Terminal-state protection; overdue-priority protection |

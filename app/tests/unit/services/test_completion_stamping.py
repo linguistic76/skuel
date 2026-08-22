@@ -235,16 +235,45 @@ class TestGoalsChokepoint:
         assert result.is_ok
         assert _written_changes(backend)["achieved_date"] == date.today()
 
-    async def test_updates_on_an_achieved_goal_are_refused_before_the_write(self):
-        # Goals' pre-existing achievement-immutability rule (`_validate_update`)
-        # refuses ANY update on a COMPLETED goal, so both the re-post and the
-        # reopen die before the write: no re-dating, and no R1 clear either —
-        # reopening an achieved goal is not a legal Goal transition.
+    async def test_reposting_completed_does_not_restamp(self):
+        # Achievement immutability dropped (ruled 2026-08-22): completed goals
+        # are editable like completed tasks, and the transition gate carries the
+        # no-re-dating guarantee instead of the old blanket refusal.
         service, backend = self._service(EntityStatus.COMPLETED)
-        for target in ("completed", "active"):
-            result = await service.update_goal("goal_1", GoalUpdateIntent(status=target))
-            assert result.is_error
-        backend.update.assert_not_awaited()
+        result = await service.update_goal("goal_1", GoalUpdateIntent(status="completed"))
+        assert result.is_ok
+        assert "achieved_date" not in _written_changes(backend)
+
+    async def test_reopen_clears_the_stamp(self):
+        service, backend = self._service(EntityStatus.COMPLETED)
+        result = await service.update_goal("goal_1", GoalUpdateIntent(status="active"))
+        assert result.is_ok
+        assert _written_changes(backend)["achieved_date"] is None
+
+    async def test_activate_goal_reopens_a_completed_goal(self):
+        # The live reopen door: POST /api/goals/{uid}/status → set_status →
+        # activate_goal. The old rule killed this before the write.
+        service, backend = self._service(EntityStatus.COMPLETED)
+        result = await service.activate_goal("goal_1")
+        assert result.is_ok
+        changes = _written_changes(backend)
+        assert changes["status"] == EntityStatus.ACTIVE.value
+        assert changes["achieved_date"] is None
+
+    async def test_archive_goal_archives_a_completed_goal(self):
+        service, backend = self._service(EntityStatus.COMPLETED)
+        result = await service.archive_goal("goal_1")
+        assert result.is_ok
+        assert _written_changes(backend)["status"] == EntityStatus.ARCHIVED.value
+
+    async def test_cancel_transition_on_a_completed_goal_reaches_the_write(self):
+        # The facade's cancel_goal delegates here after its active-tasks guard
+        # (which is status-agnostic and unrelated to the deleted rule).
+        service, backend = self._service(EntityStatus.COMPLETED)
+        result = await service.update_goal("goal_1", GoalUpdateIntent(status="cancelled"))
+        assert result.is_ok
+        assert _written_changes(backend)["status"] == EntityStatus.CANCELLED.value
+        assert _written_changes(backend)["achieved_date"] is None
 
     async def test_explicit_achieved_date_keeps_authority(self):
         # complete_goal's path: the intent already carries achieved_date.
