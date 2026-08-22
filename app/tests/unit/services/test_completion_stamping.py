@@ -664,3 +664,62 @@ class TestTaskCreateRequestCompletionDefault:
         )
         task = Task.from_request(request, user_uid=USER)
         assert task.completion_date == date(2026, 8, 15)
+
+
+# ============================================================================
+# 4. THE EXPLICIT COMPLETE PATH (PR-3)
+# ============================================================================
+
+
+@pytest.mark.asyncio
+class TestCompleteTaskWithCascade:
+    """``complete_task_with_cascade`` gates its own stamp on the same transition.
+
+    It writes through the *generic* CRUD update, so the six-chokepoint helper
+    never sees this path — the stamp is the method's own, and used to be
+    unconditional. Two live callers re-enter it behind an ownership check only
+    (``POST /today/tasks/{uid}/complete`` and
+    ``UserContextService.complete_task_with_context``), so a repeat call is
+    reachable; with the vault ``✅`` now reading ``completion_date``, a re-date
+    would propagate into the user's own files.
+    """
+
+    @staticmethod
+    def _service_over(task: Task):
+        from core.services.tasks.tasks_progress_service import TasksProgressService
+
+        stored = task.to_dto().to_dict()
+        backend = Mock()
+        backend.get = AsyncMock(return_value=Result.ok(stored))
+        backend.update = AsyncMock(return_value=Result.ok(stored))
+        backend.get_related_uids = AsyncMock(return_value=Result.ok([]))
+        return TasksProgressService(backend=backend), backend
+
+    async def test_completing_an_active_task_stamps_today(self):
+        task = Task(uid="task_a", user_uid=USER, title="t", status=EntityStatus.ACTIVE)
+        service, backend = self._service_over(task)
+
+        result = await service.complete_task_with_cascade("task_a", user_context=None)
+
+        assert result.is_ok
+        written = backend.update.await_args.args[1]
+        assert written["status"] == EntityStatus.COMPLETED.value
+        assert written["completion_date"] == date.today().isoformat()
+
+    async def test_re_completing_does_not_re_date_the_completion(self):
+        task = Task(
+            uid="task_b",
+            user_uid=USER,
+            title="t",
+            status=EntityStatus.COMPLETED,
+            completion_date=date(2026, 4, 2),
+        )
+        service, backend = self._service_over(task)
+
+        result = await service.complete_task_with_cascade("task_b", user_context=None)
+
+        assert result.is_ok
+        written = backend.update.await_args.args[1]
+        assert "completion_date" not in written, (
+            "re-completing an already-completed task re-dated its completion"
+        )

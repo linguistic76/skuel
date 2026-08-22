@@ -742,9 +742,14 @@ class VaultReconciler:
                     continue
                 task = task_result.value
                 if task.status == EntityStatus.COMPLETED:
+                    # The obsidian-tasks ✅ date is the completion, so it reads
+                    # the stamp — not the mutable updated_at, which would rewrite
+                    # the vault line every time a long-done task is edited. Only
+                    # a completion that predates the stamp (and the one-shot
+                    # backfill) has none; today is the honest floor for those.
                     done_date = (
-                        task.updated_at.strftime("%Y-%m-%d")
-                        if task.updated_at
+                        task.completion_date.isoformat()
+                        if task.completion_date
                         else date.today().isoformat()
                     )
                     updates.append(

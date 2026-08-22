@@ -1279,17 +1279,16 @@ class CrossDomainBackend:
         previous OPTIONAL MATCH + collect({map}) shape emitted a phantom
         all-null activity row per empty leg.
 
-        Completion time is coalesce(canonical completion field, updated_at):
-        Task = completion_date; Goal = achieved_date, falling back to the
-        legacy completion_date alias still carried by pre-migration nodes
-        (migrate_activity_completion_aliases.py retires it). Only the
-        explicit complete paths stamp a completion field, while status-route
-        and vault completions leave it unset (measured 5/85 on the live
-        graph) — for those, a completed entity's last touch is its
-        completion. Known skew: updated_at is mutable, so editing a
-        long-completed entity re-dates it here; the durable fix is stamping
-        a completion field on every transition to completed (a write-path
-        change — see deferred-work § ':OWNS' Writers, truth-pass residue).
+        Completion time is the domain's canonical stamp and nothing else:
+        Task = completion_date, Goal = achieved_date. Every transition into
+        completed stamps one (``core/services/completion_stamp.py``, wired at
+        the six update chokepoints), and history was frozen once by
+        ``scripts/backfill_activity_completion_stamps.py``. A completed row
+        that still carries no stamp is **excluded**, not approximated: the
+        former ``updated_at`` fallback was mutable, so editing a
+        long-completed entity re-dated its completion and bounced it to the
+        top here. An absent row is honest; a wrong date is not.
+
         toString() normalises the mix of string-stored dates and
         datetime()-stored mastered_at so the cross-leg ORDER BY compares
         one type.
@@ -1300,7 +1299,7 @@ class CrossDomainBackend:
             CALL {
                 WITH u
                 MATCH (u)-[:OWNS]->(t:Task {status: $completed_status})
-                WITH t, toString(coalesce(t.completion_date, t.updated_at)) AS ts
+                WITH t, toString(t.completion_date) AS ts
                 WHERE ts IS NOT NULL
                 RETURN {
                     type: 'task',
@@ -1327,7 +1326,7 @@ class CrossDomainBackend:
               UNION ALL
                 WITH u
                 MATCH (u)-[:OWNS]->(g:Goal {status: $completed_status})
-                WITH g, toString(coalesce(g.achieved_date, g.completion_date, g.updated_at)) AS ts
+                WITH g, toString(g.achieved_date) AS ts
                 WHERE ts IS NOT NULL
                 RETURN {
                     type: 'goal',
