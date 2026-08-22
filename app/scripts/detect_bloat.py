@@ -1694,35 +1694,14 @@ class DispatchKnowledge:
                     self._domains.setdefault(literal, site)
                 elif literal is not None and kw.arg == "entity_label":
                     self._entity_labels.add(literal)
-                elif kw.arg in ("outgoing_relationships", "incoming_relationships"):
+                elif kw.arg in ("outgoing_relationships", "incoming_relationships") and isinstance(
+                    value, ast.Dict
+                ):
                     # Dict KEYS are relationship method suffixes
                     # (relationship_registry.py -> get_{label}_{suffix}).
-                    if isinstance(value, ast.Dict):
-                        for key in value.keys:
-                            if isinstance(key, ast.Constant) and isinstance(key.value, str):
-                                self._relationship_suffixes.add(key.value)
-                elif kw.arg == "transitions" and callee == "StatusRouteFactory":
-                    # transitions={action: StatusTransition(...)} ->
-                    # f"{action}_{domain_singular}" (status_route_factory.py).
-                    singular = self._literal_kwarg(node, "domain_singular")
-                    if singular is not None and isinstance(value, ast.Dict):
-                        for key in value.keys:
-                            if isinstance(key, ast.Constant) and isinstance(key.value, str):
-                                self.live.setdefault(
-                                    f"{key.value}_{singular}",
-                                    f"status route template at {site}",
-                                )
-
-    @staticmethod
-    def _literal_kwarg(node: ast.Call, name: str) -> str | None:
-        for kw in node.keywords:
-            if (
-                kw.arg == name
-                and isinstance(kw.value, ast.Constant)
-                and isinstance(kw.value.value, str)
-            ):
-                return kw.value.value
-        return None
+                    for key in value.keys:
+                        if isinstance(key, ast.Constant) and isinstance(key.value, str):
+                            self._relationship_suffixes.add(key.value)
 
     def _expand_templates(self) -> None:
         # Query-route templates per registered domain. Hyphenated domain names

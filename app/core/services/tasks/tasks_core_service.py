@@ -40,6 +40,7 @@ from core.models.task.task_request import TaskCreateRequest
 from core.models.task.task_update_intent import TaskUpdateIntent
 from core.ports.query_types import ParentProgressResult, TaskStats
 from core.services.base_service import BaseService
+from core.services.completion_stamp import completion_transition_patch
 from core.services.domain_config import create_activity_domain_config
 from core.services.mixins.hierarchy_read_mixin import HierarchyReadMixin
 from core.services.mixins.link_edge_guard import (
@@ -316,8 +317,7 @@ class TasksCoreService(
         the edge — so a subtask created through ``POST /api/tasks/create`` had no parent in
         the property AND no parent in the graph, invisible to every hierarchy reader
         (``get_subtasks`` / ``get_parent_task`` / ``get_task_hierarchy`` via
-        ``get_children_raw``, the user-context MEGA-QUERY's HAS_SUBTASK collection, and the
-        completion propagation in ``check_and_complete_parent``).
+        ``get_children_raw``, and the user-context MEGA-QUERY's HAS_SUBTASK collection).
 
         OWNERSHIP: the parent must belong to the same user. ``parent_uid`` is
         attacker-controlled request input and ``create_hierarchy_relationship`` matches on
@@ -325,8 +325,7 @@ class TasksCoreService(
         a new task at ANOTHER user's task and have the edge written. The victim's context
         rebuild starts from the tasks they OWN and traverses HAS_SUBTASK without filtering
         the child's owner, so the attacker's task would surface in the victim's cached
-        context, and ``auto_complete_parent_if_ready`` would let it hold their parent task
-        open. The pre-existing door onto this same write, ``POST /api/tasks/add-child``,
+        context. The pre-existing door onto this same write, ``POST /api/tasks/add-child``,
         verifies BOTH endpoints (``_register_add_child_route`` loops over parent and child);
         creation must not be a way around that. Goals' sibling
         ``_write_hierarchy_edge`` makes the same check for the same reason (Codex, #965) —
@@ -713,6 +712,9 @@ class TasksCoreService(
         The intent is materialized to a partial patch exactly once, at the single
         ``backend.update`` seam. Relationship-typed fields (habit / knowledge edges)
         are split off by the facade and never reach this method as properties.
+        Status transitions are validated against the Task lifecycle and completion
+        stamping (``completion_date``) is applied here — the domain's one update
+        chokepoint (``core.services.completion_stamp``).
 
         Args:
             task_uid: Task UID,
@@ -727,12 +729,26 @@ class TasksCoreService(
         # bump into the event. The event reports what the update meant to change.
         updated_fields = list(changes.keys())
 
-        # Get old task for priority change detection
+        # Fetch the prior task when a transition needs old-vs-new (priority change
+        # event, completion-stamp gating).
         old_task = None
-        if "priority" in changes:
+        if "priority" in changes or "status" in changes:
             old_result = await self.backend.get(task_uid)
-            if old_result.is_ok:
+            if old_result.is_error and "status" in changes:
+                # Fail fast: the stamp is transition-gated on the prior status, and a
+                # failed read must not be read as "not completed" — a transient error
+                # plus a completed re-post would re-date the original stamp.
+                return Result.fail(old_result)
+            if old_result.is_ok and old_result.value:
                 old_task = self._to_domain_model(old_result.value, TaskDTO, Task)
+
+        # Status-target validation + completion stamping (transition-gated).
+        stamp = completion_transition_patch(
+            EntityType.TASK, old_task.status if old_task else None, changes
+        )
+        if stamp.is_error:
+            return Result.fail(stamp)
+        changes.update(stamp.value)
 
         update_result = await self.backend.update(task_uid, changes)
         if update_result.is_error:
@@ -787,10 +803,28 @@ class TasksCoreService(
         # validated/event-firing service contract (TaskUpdateIntent → update_task) on
         # purpose — it is a system batch write, and TasksBulkCompleted is published once
         # below rather than per-row. A plain dict literal is the honest type here.
-        updates: dict[str, Any] = {"status": EntityStatus.COMPLETED.value}
         completed_count = 0
 
         for task_uid in task_uids:
+            # Transition-gate the stamp per row via the shared helper: a bulk list
+            # may contain already-completed tasks (retry, mixed selection) whose
+            # original completion_date must survive — unconditional stamping is the
+            # re-dating bug this arc removes. A row whose state cannot be read is
+            # skipped (not counted): a failed read must not pass as "not completed".
+            current_result = await self.backend.get(task_uid)
+            if current_result.is_error:
+                continue
+            old_task = None
+            if current_result.value:
+                old_task = self._to_domain_model(current_result.value, TaskDTO, Task)
+
+            updates: dict[str, Any] = {"status": EntityStatus.COMPLETED.value}
+            stamp = completion_transition_patch(
+                EntityType.TASK, old_task.status if old_task else None, updates
+            )
+            if stamp.is_ok:
+                updates.update(stamp.value)
+
             result = await self.backend.update(task_uid, updates)
             if result.is_ok:
                 completed_count += 1
@@ -870,29 +904,6 @@ class TasksCoreService(
 
     # get_for_user_filtered: inherited from SearchOperationsMixin, driven by
     # the status_filters map in _config above.
-
-    # ========================================================================
-    # COMPLETION PROPAGATION (2026-01-30 - Auto-Complete Parents)
-    # Cypher delegated to TasksBackend (2026-03-24)
-    # ========================================================================
-
-    async def check_and_complete_parent(self, completed_task_uid: str) -> Result[list[str]]:
-        """Check if parent task should auto-complete after child completes.
-
-        Recursively checks grandparents too.
-        """
-        auto_completed_uids: list[str] = []
-
-        result = await self.backend.auto_complete_parent_if_ready(completed_task_uid)
-        if not result.is_error and result.value:
-            for parent_uid in result.value:
-                auto_completed_uids.append(parent_uid)
-                # Recursively check grandparent
-                grandparent_result = await self.check_and_complete_parent(parent_uid)
-                if grandparent_result.is_ok:
-                    auto_completed_uids.extend(grandparent_result.value)
-
-        return Result.ok(auto_completed_uids)
 
     async def calculate_parent_progress(self, parent_uid: str) -> Result[ParentProgressResult]:
         """Calculate parent task progress based on weighted subtask completion."""

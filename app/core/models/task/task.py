@@ -314,6 +314,7 @@ class Task(UserOwnedEntity):
             status=request.status,
             due_date=request.due_date,
             scheduled_date=request.scheduled_date,
+            completion_date=request.completion_date,
             duration_minutes=request.duration_minutes,
             project=request.project,
             assignee=request.assignee,

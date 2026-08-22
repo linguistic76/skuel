@@ -185,7 +185,7 @@ class TasksOperations(
         actual_minutes: int | None = None,
         quality_score: int | None = None,
     ) -> Result[Task]:
-        """Complete a task (StatusRouteFactory compatible)."""
+        """Complete a task without a user_context (cascade derives the owner)."""
         ...
 
     async def get_user_assigned_tasks(self, user_uid: UserUID) -> Result[list[Task]]:
@@ -303,12 +303,6 @@ class TasksOperations(
 
     async def get_stats_for_user(self, user_uid: UserUID) -> Result[TaskStats]:
         """Count task stats: total, completed, overdue."""
-        ...
-
-    async def auto_complete_parent_if_ready(
-        self, completed_task_uid: str
-    ) -> Result[builtins.list[str]]:
-        """Auto-complete parent task if all subtasks are completed."""
         ...
 
     async def calculate_parent_progress(self, parent_uid: str) -> Result[ParentProgressResult]:

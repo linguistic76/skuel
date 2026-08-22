@@ -17,9 +17,9 @@ WHAT WAS DROPPED (measured 2026-08-05, both doors, before this change)
     the graph. But nothing on the route path wrote the edge either: only ``create_task``
     called ``create_subtask_relationship``. So a subtask created through
     ``POST /api/tasks/create`` had no parent in the property AND no parent in the graph.
-    It was invisible to ``get_subtasks`` / ``get_parent_task`` / ``get_task_hierarchy``,
-    to the user-context MEGA-QUERY's HAS_SUBTASK collection, and to the completion
-    propagation in ``check_and_complete_parent`` — a subtask with no parent at all.
+    It was invisible to ``get_subtasks`` / ``get_parent_task`` / ``get_task_hierarchy``
+    and to the user-context MEGA-QUERY's HAS_SUBTASK collection — a subtask with no
+    parent at all.
 
 ``reinforces_habit_uid``
     The exact inverse: the converter set it and the mapper did NOT skip it, so it
@@ -421,8 +421,7 @@ class TestTaskHierarchyEdgeChecksOwnership:
     Without this check a caller could point a new task at ANOTHER user's task: the
     victim's context rebuild starts from the tasks they own and traverses HAS_SUBTASK
     without filtering the child's owner, so the attacker's task would surface in the
-    victim's cached context and could hold their parent open in
-    ``auto_complete_parent_if_ready``.
+    victim's cached context.
     """
 
     async def test_refuses_a_parent_owned_by_another_user(

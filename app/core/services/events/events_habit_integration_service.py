@@ -32,7 +32,7 @@ from core.services.user import UserContext
 from core.services.user.rich_context import rich_entity_to_model
 from core.utils.dto_converters import to_domain_model
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import Result
 from core.utils.timestamp_helpers import parse_date_value
 
 if TYPE_CHECKING:
@@ -64,7 +64,7 @@ class EventsHabitIntegrationService:
 
     Handles event operations related to habit reinforcement:
     - Getting events for specific habits
-    - Completing events with habit quality tracking
+    - Marking habit events as missed
     - Creating recurring events for habits
     - Managing habit-event relationships
     """
@@ -385,81 +385,6 @@ class EventsHabitIntegrationService:
         habit_events = [event for event in events_list if event.reinforces_habit_uid]
 
         return Result.ok(habit_events)
-
-    # ========================================================================
-    # HABIT-AWARE EVENT COMPLETION
-    # ========================================================================
-
-    async def complete_event_with_quality(
-        self,
-        event_uid: str,
-        user_context: UserContext,
-        quality_score: int = 4,
-        completion_date: date | None = None,
-    ) -> Result[Event]:
-        """
-        Complete an event and track habit quality if it reinforces a habit.
-
-        Args:
-            event_uid: UID of the event,
-            user_context: User context,
-            quality_score: Quality rating (1-5),
-            completion_date: Date completed (defaults to today)
-
-        Returns:
-            Result containing updated event
-        """
-        # Get the event
-        result = await self.backend.get(event_uid)
-        if result.is_error:
-            return Result.fail(result)
-
-        if not result.value:
-            return Result.fail(Errors.not_found(resource="Event", identifier=event_uid))
-
-        # Update event
-        updates: Neo4jProperties = {
-            "status": "completed",
-            "completed_at": (completion_date or date.today()).isoformat(),
-            "quality_score": quality_score,
-        }
-
-        # raw-write: complete-habit-with-quality writes directly to the backend, bypassing
-        # the validated/event-firing contract (EventUpdateIntent → update_event) on purpose
-        # — this path publishes its OWN CalendarEventCompleted below carrying the
-        # quality_score, which the generic update_event deliberately omits (None). Routing
-        # through the contract would double-fire CalendarEventCompleted.
-        update_result = await self.backend.update(event_uid, updates)
-        if update_result.is_error:
-            return Result.fail(update_result)
-
-        # Publish CalendarEventCompleted event (event-driven architecture)
-        from core.events import CalendarEventCompleted
-
-        event_obj = CalendarEventCompleted(
-            event_uid=event_uid,
-            user_uid=user_context.user_uid,
-            completion_date=completion_date or date.today(),
-            quality_score=quality_score,
-        )
-        await publish_event(self.event_bus, event_obj, self.logger)
-
-        # If event reinforces a habit (REINFORCES_HABIT edge), cascade effects
-        # happen via the published CalendarEventCompleted event → habit service.
-        habit_links = await self.backend.get_habit_links_for_events([event_uid])
-        linked_habit = habit_links.value.get(event_uid) if habit_links.is_ok else None
-        if linked_habit:
-            self.logger.info(
-                f"Event {event_uid} reinforces habit {linked_habit}, quality={quality_score}"
-            )
-
-        # Fetch and return updated event
-        updated_result = await self.backend.get(event_uid)
-        if updated_result.is_error:
-            return Result.fail(updated_result)
-
-        updated_event = to_domain_model(updated_result.value, EventDTO, Event)
-        return Result.ok(updated_event)
 
     async def miss_habit_event(
         self, event_uid: str, user_context: UserContext, reason: str | None = None

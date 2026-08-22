@@ -7,6 +7,7 @@ Handles basic CRUD operations for choices.
 
 from __future__ import annotations
 
+import dataclasses
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, cast
 
@@ -28,6 +29,7 @@ from core.models.relationship_names import RelationshipName
 from core.models.type_hints import Neo4jProperties, UserUID
 from core.ports.query_types import ChoiceStats
 from core.services.base_service import BaseService
+from core.services.completion_stamp import completion_transition_patch
 from core.services.conversion_service import ConversionServiceV2
 from core.services.domain_config import create_activity_domain_config
 from core.services.mixins.hierarchy_read_mixin import HierarchyReadMixin
@@ -447,6 +449,9 @@ class ChoicesCoreService(
         inherited CRUD ``update`` (BaseService → ``_validate_update`` → ``backend.update``),
         then publishes ``ChoiceUpdated``. Choices carry no edge fields on the update path,
         so the intent's ``to_changes()`` is written wholesale — there is nothing to split off.
+        Status transitions are validated against the Choice lifecycle and completion
+        stamping (``completed_at``) is applied here — the domain's one update
+        chokepoint (``core.services.completion_stamp``).
 
         Unlike the prior implementation (which wrote ``backend.update`` directly and skipped
         validation), this keeps ``super().update`` so ``_validate_update`` — decision
@@ -468,6 +473,21 @@ class ChoicesCoreService(
         # Snapshot the intended fields now: the backend stamps updated_at in place, so
         # reading the dict after the write would leak that bump into the event payload.
         updated_fields = dict(changes)
+
+        if "status" in changes:
+            current_result = await self.get(choice_uid)
+            if current_result.is_error:
+                # Fail fast: the stamp is transition-gated on the prior status; a
+                # failed read must not be read as "not completed" (re-dating risk).
+                return Result.fail(current_result)
+            old_status = current_result.value.status if current_result.value else None
+            # Status-target validation + completion stamping (transition-gated). The
+            # stamp rides the intent so ``super().update`` writes it in the same patch.
+            stamp = completion_transition_patch(EntityType.CHOICE, old_status, changes)
+            if stamp.is_error:
+                return Result.fail(stamp)
+            if stamp.value:
+                intent = dataclasses.replace(intent, **stamp.value)
 
         result: Result[Choice] = await super().update(choice_uid, intent)
         if result.is_error:

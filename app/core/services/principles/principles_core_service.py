@@ -28,6 +28,7 @@ from core.models.type_hints import UserUID
 from core.ports.domain_protocols import PrinciplesOperations
 from core.ports.query_types import PrincipleStats
 from core.services.base_service import BaseService
+from core.services.completion_stamp import completion_transition_patch
 from core.services.domain_config import create_activity_domain_config
 from core.services.mixins.hierarchy_read_mixin import HierarchyReadMixin
 from core.utils.decorators import with_error_handling
@@ -328,7 +329,10 @@ class PrinciplesCoreService(
 
         Materializes the intent to a partial patch once, writes it at the single
         ``backend.update`` seam, then publishes ``PrincipleUpdated`` (and
-        ``PrincipleStrengthChanged`` if strength changed).
+        ``PrincipleStrengthChanged`` if strength changed). Status targets are
+        validated against the Principle lifecycle at this seam
+        (``core.services.completion_stamp``) — COMPLETED is not a Principle status
+        and is refused; Principles carry no completion field.
 
         Backend-direct (like ``TasksCoreService.update_task``), **not** ``super().update``:
         Principles' inherited ``_validate_update`` is stale — its rules reference fields
@@ -371,6 +375,14 @@ class PrinciplesCoreService(
         # Snapshot the intended fields now: the backend stamps updated_at in place, so
         # reading the dict after the write would leak that bump into the event payload.
         updated_fields = dict(changes)
+
+        # Status-target validation: COMPLETED (or any status outside the Principle
+        # lifecycle) is refused at this seam — previously the status route wrote it
+        # unchecked. Principles carry no completion field, so the patch is empty.
+        stamp = completion_transition_patch(EntityType.PRINCIPLE, existing.status, changes)
+        if stamp.is_error:
+            return Result.fail(stamp)
+        changes.update(stamp.value)
 
         result = await self.backend.update(principle_uid, changes)
         if result.is_error:

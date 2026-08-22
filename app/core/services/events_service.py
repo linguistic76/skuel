@@ -429,17 +429,6 @@ class EventsService(
     ) -> Result[list[Event]]:
         return await self.habits.get_at_risk_habit_events(user_context, risk_threshold_days)
 
-    async def complete_event_with_quality(
-        self,
-        event_uid: str,
-        user_context: UserContext,
-        quality_score: int = 4,
-        completion_date: date | None = None,
-    ) -> Result[Event]:
-        return await self.habits.complete_event_with_quality(
-            event_uid, user_context, quality_score, completion_date
-        )
-
     async def miss_habit_event(
         self, event_uid: str, user_context: UserContext, reason: str | None = None
     ) -> Result[Event]:
@@ -535,17 +524,6 @@ class EventsService(
         return await self.intelligence.analyze_learning_patterns(user_uid, timeframe_days)
 
     # Progress delegations
-    async def complete_event_with_cascade(
-        self,
-        event_uid: str,
-        user_context: UserContext,
-        quality_score: int | None = None,
-        notes: str | None = None,
-    ) -> Result[Event]:
-        return await self.progress.complete_event_with_cascade(
-            event_uid, user_context, quality_score, notes
-        )
-
     async def get_attendance_rate(
         self, user_uid: UserUID, period_days: int = 30
     ) -> Result[dict[str, Any]]:
@@ -684,8 +662,7 @@ class EventsService(
     # The following methods are auto-generated from _delegations specification:
     # - Core CRUD: get_event, get_user_events, find_events, count_events, get_user_items_in_range
     # - Habits: get_events_for_habit, get_habit_reinforcement_events, get_at_risk_habit_events,
-    # complete_event_with_quality, miss_habit_event, create_recurring_events_for_habit,
-    # get_next_habit_events
+    # miss_habit_event, create_recurring_events_for_habit, get_next_habit_events
     # - Learning: get_learning_events, suggest_spaced_repetition_events
     # - Search: get_calendar_events, get_upcoming, get_overdue,
     # get_active, get_events_in_range

@@ -47,6 +47,15 @@ class TaskCreateRequest(CreateRequestBase):
     # Priority and status
     priority: Priority = Field(default=Priority.MEDIUM, description="Task priority")
     status: EntityStatus = Field(default=EntityStatus.DRAFT, description="Initial status")
+    completion_date: date | None = Field(
+        default=None,
+        description=(
+            "Completion date when creating an already-completed task "
+            "(e.g. a checked [x] line from a historical note); defaults to today "
+            "when status is COMPLETED and no date is supplied, refused on any "
+            "other status"
+        ),
+    )
 
     # Organization
     project: str | None = Field(default=None, description="Associated project")
@@ -108,6 +117,27 @@ class TaskCreateRequest(CreateRequestBase):
         """Due date must not be before scheduled date."""
         if self.due_date and self.scheduled_date and self.due_date < self.scheduled_date:
             raise ValueError("Due date cannot be before scheduled date")
+        return self
+
+    @model_validator(mode="after")
+    def default_completion_date_when_completed(self) -> "TaskCreateRequest":
+        """A task born COMPLETED carries a completion date — today unless supplied.
+
+        Creation into COMPLETED is the degenerate completion transition; leaving
+        the stamp null here would recreate the mutable ``updated_at`` proxy the
+        completion-stamping pass removed. The inverse is refused: a completion
+        date on a non-completed create would break the field's invariant
+        (non-null exactly when the task is completed).
+        """
+        if self.status == EntityStatus.COMPLETED:
+            if self.completion_date is None:
+                self.completion_date = date.today()
+            elif self.completion_date > date.today():
+                # A future completion is semantically impossible and would pin
+                # itself atop completion-date-ordered reads.
+                raise ValueError("completion_date cannot be in the future")
+        elif self.completion_date is not None:
+            raise ValueError("completion_date requires status=completed")
         return self
 
 

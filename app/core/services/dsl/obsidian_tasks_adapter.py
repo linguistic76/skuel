@@ -16,13 +16,15 @@ converter → facade create path.
 **Obsidian-Tasks emoji handled** (https://publish.obsidian.md/tasks/):
 - ``📅 YYYY-MM-DD`` → due date (``when`` → ``due_date``)
 - ``⏳ YYYY-MM-DD`` → scheduled date (``scheduled_date``)
+- ``✅ YYYY-MM-DD`` → completion date (``completion_date``, checked lines only —
+  the converter falls back to today when a checked line carries no done date)
 - Priority: ``🔺``/``⏫`` → 1 (highest/high), ``🔼`` → 2, none → 3,
   ``🔽`` → 4, ``⏬`` → 5
 - ``#tag`` → ``extra_tags`` (plus ``period:{entry_kind}`` when supplied)
 
-Other obsidian-tasks markers (``🛫`` start, ``✅`` done, the created-date
-marker, ``🔁`` recurrence) are stripped from the description but not yet
-mapped to fields — recurrence/round-trip are deferred follow-ons.
+Other obsidian-tasks markers (``🛫`` start, the created-date marker, ``🔁``
+recurrence) are stripped from the description but not yet mapped to fields —
+recurrence/round-trip are deferred follow-ons.
 
 The stored ``raw_line`` is checkbox-normalized to ``- [ ]`` (the ``[x]``/``[X]``
 state is captured separately in ``is_checked``) so the per-line dedup hash
@@ -53,6 +55,7 @@ _VS = r"️?"
 
 _DUE_RE = re.compile(rf"📅{_VS}\s*(\d{{4}}-\d{{2}}-\d{{2}})")
 _SCHEDULED_RE = re.compile(rf"⏳{_VS}\s*(\d{{4}}-\d{{2}}-\d{{2}})")
+_DONE_RE = re.compile(rf"✅{_VS}\s*(\d{{4}}-\d{{2}}-\d{{2}})")
 
 
 # Description cleanup: drop date-emoji+date pairs, drop standalone markers, drop
@@ -119,6 +122,12 @@ def obsidian_task_line_to_parsed(
     scheduled_match = _SCHEDULED_RE.search(line)
     scheduled_date = _parse_iso_date(scheduled_match.group(1)) if scheduled_match else None
 
+    # ✅ done date — meaningful only on a checked line (a stray ✅ on an unchecked
+    # line is stripped from the description like any other marker but carries no
+    # completion claim).
+    done_match = _DONE_RE.search(line) if is_checked else None
+    completion_date = _parse_iso_date(done_match.group(1)) if done_match else None
+
     # Priority — first recognized emoji wins; default 3 (medium).
     priority = 3
     for emoji, value in _PRIORITY_BY_EMOJI.items():
@@ -166,6 +175,7 @@ def obsidian_task_line_to_parsed(
         contexts=[EntityType.TASK],
         when=when,
         scheduled_date=scheduled_date,
+        completion_date=completion_date,
         priority=priority,
         extra_tags=extra_tags,
         source_file=source_file,

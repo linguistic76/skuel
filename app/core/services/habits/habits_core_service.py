@@ -29,6 +29,7 @@ from core.models.type_hints import UserUID
 from core.ports.domain_protocols import HabitsOperations
 from core.ports.query_types import HabitStats
 from core.services.base_service import BaseService
+from core.services.completion_stamp import completion_transition_patch
 from core.services.domain_config import create_activity_domain_config
 from core.services.mixins.hierarchy_read_mixin import HierarchyReadMixin
 from core.services.mixins.link_edge_guard import (
@@ -562,6 +563,9 @@ class HabitsCoreService(
         rules: streak preservation on archive, DAILY-frequency consistency), writes the
         patch, then publishes ``HabitUpdated``. Habits carry no edge fields on the update
         path, so the intent's ``to_changes()`` is written wholesale.
+        Status transitions are validated against the Habit lifecycle and completion
+        stamping (lifecycle ``completed_at``) is applied here — the domain's one update
+        chokepoint (``core.services.completion_stamp``).
 
         Design note (ADR-066 trace-and-deviate, mirrors Principles' documented case):
         unlike Goals/Choices, ``update_habit`` does **not** route through ``super().update()``.
@@ -604,6 +608,14 @@ class HabitsCoreService(
         validation = self._validate_habit_update(current, changes, force_archive=force_archive)
         if validation.is_error:
             return Result.fail(validation)
+
+        # Status-target validation + completion stamping (transition-gated) — the
+        # lifecycle ``completed_at``, distinct from occurrence completions
+        # (HabitCompletion nodes, owned by the completions sub-service).
+        stamp = completion_transition_patch(EntityType.HABIT, current.status, changes)
+        if stamp.is_error:
+            return Result.fail(stamp)
+        changes.update(stamp.value)
 
         result: Result[Habit] = await self.backend.update(uid, dict(changes))
         if result.is_error:

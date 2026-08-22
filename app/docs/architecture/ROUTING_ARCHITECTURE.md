@@ -449,7 +449,7 @@ def create_tasks_routes(
 - `IntelligenceRouteFactory` instantiation (→ config)
 
 **What remains in `tasks_api.py`:**
-- `StatusRouteFactory` (runtime closures)
+- `create_activity_field_api_routes` (inline field updates: status, priority)
 - `AnalyticsRouteFactory` (custom handlers)
 
 ### Benefits
@@ -475,7 +475,7 @@ SKUEL uses specialized factories to generate common endpoint patterns. All facto
 | Factory | Purpose | Endpoints Generated | ContentScope |
 |---------|---------|---------------------|--------------|
 | **CRUDRouteFactory** | Standard CRUD operations | create, get, update, delete, list | USER_OWNED (default) / SHARED |
-| **StatusRouteFactory** | Status transitions with validation | complete, uncomplete, archive, etc. | USER_OWNED (default) / SHARED |
+| **create_activity_field_api_routes** | Inline field updates (status, priority) | `POST /api/{domain}/{uid}/{field}` | USER_OWNED |
 | **CommonQueryRouteFactory** | Cross-domain query patterns | mine, by-status, goal, habit filters | USER_OWNED (default) / SHARED |
 | **IntelligenceRouteFactory** | Analytics and insights | context, analytics, insights | USER_OWNED (default) / SHARED |
 | **AnalyticsRouteFactory** | Custom analytics handlers | performance, behavioral, etc. | USER_OWNED only |
@@ -502,14 +502,14 @@ CRUDRouteFactory(
 
 ### Tasks API: Complete Factory Example
 
-The following shows all 5 factories in a single API file:
+The following shows four of the factories in a single API file (the fifth,
+`create_activity_field_api_routes`, is shown under Factory Overview above):
 
 ```python
 # File: /adapters/inbound/tasks_api.py
 
 from adapters.inbound.route_factories import (
     CRUDRouteFactory,
-    StatusRouteFactory,
     CommonQueryRouteFactory,
     IntelligenceRouteFactory,
 )
@@ -523,7 +523,7 @@ def create_tasks_api_routes(
     goals_service=None,
     habits_service=None
 ):
-    """Create task API routes using 5 factory patterns."""
+    """Create task API routes using 4 factory patterns."""
 
     # 1. CRUD FACTORY - Standard operations
     crud_factory = CRUDRouteFactory(
@@ -542,26 +542,7 @@ def create_tasks_api_routes(
     #   POST /api/tasks/delete?uid=...
     #   GET  /api/tasks/list
 
-    # 2. STATUS FACTORY - Status transitions with body validation
-    status_factory = StatusRouteFactory(
-        service=tasks_service,
-        domain_name="tasks",
-        transitions={
-            "complete": StatusTransition(
-                target_status="completed",
-                requires_body=True,
-                body_fields=["actual_minutes", "quality_score"],
-                method_name="complete_task",
-            ),
-        },
-        scope=ContentScope.USER_OWNED,
-    )
-    status_factory.register_routes(app, rt)
-    # Generates:
-    #   POST /api/tasks/complete?uid=...
-    #   POST /api/tasks/uncomplete?uid=...
-
-    # 3. COMMON QUERY FACTORY - Cross-domain filters
+    # 2. COMMON QUERY FACTORY - Cross-domain filters
     query_factory = CommonQueryRouteFactory(
         service=tasks_service,
         domain_name="tasks",
@@ -580,7 +561,7 @@ def create_tasks_api_routes(
     #   GET /api/tasks/habit?habit_uid=...
     #   GET /api/tasks/by-status?status=...
 
-    # 4. INTELLIGENCE FACTORY - Analytics endpoints
+    # 3. INTELLIGENCE FACTORY - Analytics endpoints
     intelligence_factory = IntelligenceRouteFactory(
         intelligence_service=tasks_service.intelligence,
         domain_name="tasks",
@@ -593,7 +574,7 @@ def create_tasks_api_routes(
     #   GET /api/tasks/analytics?period_days=30
     #   GET /api/tasks/insights?uid=...
 
-    # 5. ANALYTICS FACTORY - Custom handlers
+    # 4. ANALYTICS FACTORY - Custom handlers
     async def handle_performance(service, params):
         period_days = parse_int_query_param(params, "period_days", 30, minimum=1, maximum=365)
         user_uid = params.get("_user_uid", "")
@@ -885,7 +866,7 @@ SKUEL implements ownership verification to ensure users can only access entities
 
 ### Route Implementation Pattern
 
-**Factory-Generated Routes:** CRUDRouteFactory and StatusRouteFactory automatically verify ownership when `scope=ContentScope.USER_OWNED` (default for user-owned domains).
+**Factory-Generated Routes:** CRUDRouteFactory automatically verifies ownership when `scope=ContentScope.USER_OWNED` (default for user-owned domains).
 
 **Factory Examples:**
 

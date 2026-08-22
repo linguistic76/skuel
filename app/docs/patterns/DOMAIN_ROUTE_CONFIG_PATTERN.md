@@ -56,7 +56,7 @@ class DomainRouteConfig:
 
 **Why:** These three factories have purely static parameters across all Activity Domains. Moving them to config eliminates ~80-120 lines of boilerplate per domain.
 
-**What Stays in api_factory:** Factories with runtime closures (StatusRouteFactory, AnalyticsRouteFactory) and all manual domain-specific routes remain in api_factory.
+**What Stays in api_factory:** Factories with runtime closures (create_activity_field_api_routes, AnalyticsRouteFactory) and all manual domain-specific routes remain in api_factory.
 
 #### Sub-Config Dataclasses
 
@@ -311,10 +311,9 @@ __all__ = ["create_{domain}_routes"]
 - ContentScope import (unless needed by Status/Analytics factories)
 
 **What remains in api_factory:**
-- StatusRouteFactory (if domain has status transitions)
+- create_activity_field_api_routes (inline status/priority card updates)
 - AnalyticsRouteFactory (if domain has custom analytics)
 - All manual domain-specific routes
-- Module-level request builders (for StatusRouteFactory)
 
 **Placeholders to replace:**
 - `{domain}` → Domain name in lowercase (e.g., "tasks", "goals")
@@ -935,7 +934,7 @@ def create_advanced_routes(app, rt, services, _sync_service=None):
 |---------|-------|---------|
 | DomainRouteConfig | File-level | Wires entire domain (API + UI routes) |
 | CRUDRouteFactory | Endpoint-level | Creates CRUD endpoints for single entity |
-| StatusRouteFactory | Endpoint-level | Creates status transition endpoints |
+| create_activity_field_api_routes | Endpoint-level | Creates inline field-update endpoints (status, priority) |
 | AnalyticsRouteFactory | Endpoint-level | Creates analytics endpoints |
 
 **Usage together:**
@@ -951,11 +950,8 @@ def create_tasks_api_routes(app, rt, tasks_service, user_service, goals_service,
         ...
     ).create_routes())
 
-    # Use StatusRouteFactory for status changes
-    routes.extend(StatusRouteFactory(
-        service=tasks_service.core,
-        ...
-    ).create_routes())
+    # Inline field updates (status, priority) via the field-api factory
+    routes.extend(create_activity_field_api_routes(rt, ActivityFieldApiConfig(...)))
 
     return routes
 
@@ -1301,7 +1297,7 @@ Zero runtime overhead - routes are registered once at application startup.
 - `create_activity_domain_route_config()` convenience function
 - ~80-120 lines removed per domain (Tasks: 264 → 145 lines)
 - Schema imports moved to *_routes.py
-- StatusRouteFactory, AnalyticsRouteFactory, manual routes stay in api_factory
+- Field-api factory routes, AnalyticsRouteFactory, manual routes stay in api_factory
 - 16 comprehensive tests added
 - Zero regressions detected
 
