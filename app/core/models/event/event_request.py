@@ -300,21 +300,32 @@ class GetRecurringEventsRequest(BaseModel):
 
 
 class AddAttendeeRequest(BaseModel):
-    """Request for adding an attendee to an event."""
+    """Request for adding an attendee to an event (ADR-086).
+
+    Carries the TARGET user only — the acting user is never in the body; the
+    service takes it as an ``actor_uid`` parameter resolved from the auth layer
+    (``current_user``). The consent status is decided by the service's state
+    machine, never supplied by the caller.
+    """
 
     event_uid: str = Field(description="UID of the event")
-    user_uid: UserUID = Field(description="UID of the user to add as attendee")
+    user_uid: UserUID = Field(description="UID of the TARGET user to add as attendee")
     role: str = Field(
-        default="attendee", description="Attendee role (attendee, organizer, speaker)"
+        default="attendee",
+        description="Attendee role (free string until the wiring PR's role enum — ADR-086)",
     )
     send_notification: bool = Field(default=True, description="Whether to notify the attendee")
 
 
 class RemoveAttendeeRequest(BaseModel):
-    """Request for removing an attendee from an event."""
+    """Request for removing an attendee from an event (ADR-086).
+
+    Carries the TARGET user only — the acting user is never in the body; the
+    service takes it as an ``actor_uid`` parameter resolved from the auth layer.
+    """
 
     event_uid: str = Field(description="UID of the event")
-    user_uid: UserUID = Field(description="UID of the user to remove")
+    user_uid: UserUID = Field(description="UID of the TARGET user to remove")
     send_notification: bool = Field(default=True, description="Whether to notify the attendee")
 
 

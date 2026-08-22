@@ -511,101 +511,47 @@ counts in the statistics block, not the length of the printed list — the info 
 
 ---
 
-## `:OWNS` Writers That Skip `user_uid` (the staged attendee/gravity surface)
+## `:OWNS` Writers That Skip `user_uid` — ✅ RESOLVED (ownership bundle PR-2, 2026-08-21)
 
-Surfaced 2026-08-16 while closing the CRUD-door half of the `user_uid property == :OWNS owner`
-invariant; **facts re-verified 2026-08-21 against the code and the live AuraDB graph** — the
-original text mis-stated which edge gets written, which inverted its threat analysis. Corrected
-below. **Not a live bug — a tripwire for whoever wires the staged surface.**
+The write-side facet of the ownership bundle, closed by ADR-086 + the residue collapse
+(arc contract PR-2). Deleted outright: the registry `ownership_relationship` field and its
+paper `HAS_*`/`MADE_REFLECTION` enum family (zero such edges ever existed in the graph),
+`UnifiedRelationshipService.create_user_relationship`/`delete_user_relationship`, the
+backend generic pair in `_user_entity_mixin.py` (the one interpolation that could write a
+`HAS_*` edge), and the four gravity writers
+(`create_user_goal/habit/principle/event_relationship`). `is_ownership_relationship()` now
+traits `OWNS` alone, and the regenerated `GRAPH_CONTRACT.yaml` stopped documenting
+never-written edges as "ownership".
 
-`UnifiedRelationshipService.create_user_relationship` writes the **registry's**
-`ownership_relationship` (`core/models/relationship_registry.py` — per-domain, NOT `:OWNS`
-across the board) and **never touches the `user_uid` property**. Five methods call it, and all
-five are registered in `PLANNED_METHODS` (`scripts/detect_bloat.py`) — zero production callers
-today:
+The attendee triple (`add_attendee`/`remove_attendee`/`get_event_attendees`) survived,
+retargeted onto the designed `(User)-[:ATTENDS {joined_at, role, added_by, status}]->(Event)`
+shape with the invite→accept consent state machine (actor always a service parameter from
+the auth layer, never the request body) — still STAGED in `PLANNED_METHODS`; the wiring
+obligations (self-add eligibility gate, `OWNER_OR_ATTENDEE` visibility, creator
+auto-attend, ghost filter, `max_attendees`, role enum) are recorded in ADR-086.
 
-| Method | File | Edge it would write |
-|---|---|---|
-| `add_attendee` | `core/services/events/_orchestration_mixin.py` | `HAS_EVENT` |
-| `create_user_event_relationship` | `core/services/events/_orchestration_mixin.py` | `HAS_EVENT` |
-| `create_user_goal_relationship` | `core/services/goals_service.py` | `HAS_GOAL` |
-| `create_user_habit_relationship` | `core/services/habits/_orchestration_mixin.py` | `OWNS` |
-| `create_user_principle_relationship` | `core/services/principles/_gravity_mixin.py` | `OWNS` |
+**Correction recorded while retiring:** the original section claimed faceted search
+"hard-anchors `(User)-[:OWNS]->`" — stale since #1079: `faceted_search_raw` is
+property-scoped and fail-closed (`has_user=True`). Today's `:OWNS` readers are the
+MEGA-QUERY/CONSOLIDATED anchors (`user_context_queries.py`), `get_user_entities`, the GDPR
+cascade, and one SCOPE_AWARE disjunct.
 
-**The sharp ones are the Habits and Principles writers, not `add_attendee`.** Their registry
-edge IS `:OWNS`, and every edge-anchored ownership read traverses `:OWNS` — faceted search
-hard-anchors `(User)-[:OWNS]->` in `faceted_search_raw`, and `get_user_entities` + the GDPR
-cascade do the same. An adoption-flavored call (`strength="core"`, `commitment_level=…`) with a
-non-owner `user_uid` — which is what "a user adopts a principle" implies — would surface another
-user's Habit/Principle in that user's faceted search and cascade, while the property-scoped
-strategies (`build_search_visibility_clause` OWNER_ONLY = `n.user_uid = $user_uid`) disagree.
+**Deferred design note — adoption/gravity (recorded, unscheduled):** the deleted gravity
+writers expressed "this user has pulled this entity into their orbit" (adoption,
+engagement) — a semantic that is *not* ownership. If SKUEL wants it later, it returns as
+its own named edge with its own design, never by resurrecting the `HAS_*` family
+(ADR-086 § 2).
 
-`add_attendee` is internally coherent instead: it writes `HAS_EVENT`, `remove_attendee` deletes
-`HAS_EVENT`, `get_event_attendees` reads incoming `HAS_EVENT` — a self-consistent participation
-triple that no ownership read ever traverses. Its remaining sin is naming: an ownership-named
-edge doing a participation job (`RelationshipName.ATTENDS` exists, used by nothing). Similarly
-`create_user_goal_relationship` → `HAS_GOAL`: written by nothing else, read by nothing (its only
-readers were two dead legs in `get_recent_activities` — see below).
+### Still open — completion stamping (truth-pass residue, 2026-08-21)
 
-**Live-graph ground truth (2026-08-21, AuraDB `d2d160c4`):** 199 `:OWNS` edges;
-`HAS_TASK`/`HAS_GOAL`/`HAS_EVENT`/`ATTENDS` do not exist as relationship types in the database
-at all. Note the generated `GRAPH_CONTRACT.yaml` still *documents* the three `HAS_*` edges in an
-"ownership" role because `generate_graph_contract.py` publishes the registry field — contract
-fiction until a ruling reconciles the registry with the `:OWNS` invariant.
-
-**Fixed 2026-08-21 (ride-along truth pass):** `cross_domain_backend.get_recent_activities`
-(the profile-hub stats path via `UserStatsAggregator`) was dead twice over — it traversed
-`(u)-[:HAS_TASK]->` / `(u)-[:HAS_GOAL]->`, AND it gated on `completed_at`, a property no
-Task/Goal writer stamps (explicit completion writes `completion_date`/`achieved_date`;
-status-route and vault completions stamp only `updated_at` — 80/85 of live completed Tasks
-carry no completion field at all). So its completed-task and completed-goal legs had returned
-zero real rows since the initial commit, while the `OPTIONAL MATCH` + `collect({map})` shape
-emitted one phantom all-null activity per empty leg. Rewritten onto `:OWNS` +
-`coalesce(completion_date[, achieved_date], updated_at)` with per-leg recency + phantom-free
-subqueries, matching `get_users_with_activity_counts` in the same file; pinned by
-`tests/integration/cross_domain/test_recent_activities.py` (fixture seeds the real writer
-shapes — the second layer was found by Codex catching the first fixture inventing
-`completed_at`).
-
-**Truth-pass residue (accepted-not-taken, Codex round 2):** the `updated_at` fallback is a
-*mutable* proxy — editing a long-completed task re-dates its "completion" and can bounce it back
-to the top of recent activities. The durable fix is stamping a completion field on **every**
-transition to completed (today only the explicit complete paths stamp one; the generic status
-route and vault sync don't) — a cross-domain write-path change, out of scope for a read-side
-truth pass. Whoever takes it: stamp at the status-transition chokepoint, then drop `updated_at`
-from the read's coalesce.
-
-**Enable when**: the attendee surface or any of the four gravity-link methods is wired. Whoever
-does it must decide the relationship *before* the first write — a wrong edge in the graph
-outlives the PR that wrote it, and a second `:OWNS` writer is the outcome to refuse. That
-decision belongs to the cross-cutting ownership bundle (Mike, 2026-08-21 — see the facet table
-under the Askesis read-side P1 entry), not to a drive-by wiring PR.
-
-**✅ Ruled (Mike, 2026-08-21) — the semantic half of that decision:** *"the attendee owns their
-attendance, not the event."* Attendance is a first-class relation belonging to the ATTENDEE —
-their data, deleted with them — never a second ownership writer onto the event. Two anchors this
-sets for the bundle: (1) the ownership essence stays **uniform** across the activity domains — a
-user's ownership of Task/Goal/Habit/Choice/Principle is foundational and must be unambiguous in
-the model (`HAS_TASK`-style names were shorthand for that essence, not a demand for per-domain
-ownership edges); (2) Events is the unique domain — its fundamental user↔event relation is
-attendance, with the organizer/creator treatment a secondary refinement. Still open for the
-bundle thread, in the facet ruling's order: the enforcement question first (what enforces
-ownership on a read that bypasses SearchRouter), ADR-ratifying universal `:OWNS` and collapsing
-the paper-only `HAS_*` ownership residue, the attendance edge's mechanics (name — `ATTENDS`
-exists in `RelationshipName`, used by nothing; whether the creator auto-attends; Events'
-visibility becoming attendee-aware, which `user_uid`-property scoping alone cannot express),
-the **actor/authorization + consent rule for attendance mutations** (the staged
-`AddAttendeeRequest`/`RemoveAttendeeRequest` carry no actor and `_OrchestrationMixin` checks
-nothing — `add_attendee` even stamps `added_by_uid` with the *target's* uid; who may add/remove
-whom — attendee self-management vs organizer managing others — and whether being added requires
-the target's consent must be ruled alongside the edge, since "you own your attendance" implies
-no one else writes it without your say), and one parked hard question by name: an event whose
-organizer is deleted but which has living attendees.
-
-**Check it is still latent**: each of the five must still have no production caller.
-```bash
-git grep -n "add_attendee\|create_user_goal_relationship\|create_user_habit_relationship\|create_user_principle_relationship\|create_user_event_relationship" -- '*.py' | grep -v '^tests/\|^scripts/'
-```
+Context: `cross_domain_backend.get_recent_activities` was rewritten onto `:OWNS` +
+`coalesce(completion_date[, achieved_date], updated_at)` (#1116). The `updated_at`
+fallback is a *mutable* proxy — editing a long-completed task re-dates its "completion"
+and can bounce it back to the top of recent activities. The durable fix is stamping a
+completion field on **every** transition to completed (today only the explicit complete
+paths stamp one; the generic status route and vault sync don't) — a cross-domain
+write-path change. Whoever takes it: stamp at the status-transition chokepoint, then drop
+`updated_at` from the read's coalesce.
 
 ---
 
@@ -1091,7 +1037,7 @@ bundle never reaches it: `context_retriever.py` references neither
 
 | entry | facet of the same root |
 |---|---|
-| § `:OWNS` Writers That Skip `user_uid` | **write-side** — the property and the edge disagree; the Habits/Principles writers would put a second `:OWNS` on a non-owner (faceted-visible), while the Events/Goals writers would write `HAS_EVENT`/`HAS_GOAL` edges no ownership read traverses |
+| § `:OWNS` Writers That Skip `user_uid` | **write-side** — ✅ RESOLVED (ADR-086 + PR-2 residue collapse: paper channel deleted, attendee triple retargeted onto consent-carrying `ATTENDS`) |
 | § `GroupService` Declares `OWNER_ONLY`… | **declaration-side** — a scoping claim the model cannot render |
 | § `User.uid` Has No Index or Constraint | its own text calls it "a live input to any future ruling that would move ownership reads onto the edge" |
 | **this P1** | **read-side** — a path that never reaches the composition point at all |
@@ -1334,7 +1280,7 @@ Review this document at the **September 2026 quarterly review**. Checklist:
 | Tasks/Events edge-clear on edit (`""` → None) | Next touch of the Tasks/Events edit forms | Ride-along; re-verify the bug still reproduces first |
 | Skill↔doc backlink reconciliation | Docs-taxonomy pass — ruling needed per warning, not a rote edit | `uv run python scripts/validate_cross_references.py --verbose` |
 | Drifted `## Related Skills` body sections (3 of 35) | Next `docs/patterns` sweep already touching these files | `uv run python scripts/sync_cross_references.py --all --dry-run` |
-| `:OWNS` writers that skip `user_uid` (staged attendee/gravity surface) | Wiring `add_attendee` or any of the 4 gravity-link methods | Ruling needed on the edge type first — see the section |
+| Completion stamping at the status-transition chokepoint (truth-pass residue) | Next touch of the status-transition write path, or recent-activities ordering visibly lies | See § `:OWNS` Writers (RESOLVED) — residue subsection |
 | `User.uid` unindexed | User count past a handful, or a ruling moving ownership reads onto the `:OWNS` edge | `SHOW INDEXES` — no `User(uid)` entry today |
 | `GroupService` OWNER_ONLY vs `Group.owner_uid` | Wiring Group into search, or a 2nd `owner_uid`-keyed domain wanting search | Ruling needed (configurable ownership property **or** a Group visibility) — see the section; guarded by `TestOwnerOnlyDomainsCarryTheScopingProperty` |
 | LP recommendation backend methods (ruled *build, not now* 2026-08-20) | Mike schedules it — full feature: backend methods + frozen contract + consumer surface | Case file `lp-backend-recommendation-methods.md`; the 3 `Any` handles + their comments are the in-code markers |

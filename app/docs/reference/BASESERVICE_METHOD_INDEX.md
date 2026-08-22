@@ -203,7 +203,7 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 
 ### GoalsService
 
-**Facade-specific public methods:** 60
+**Facade-specific public methods:** 59
 
 | Method | Async |
 |--------|-------|
@@ -225,7 +225,6 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 | `create_goal_with_scheduling_context()` | ✅ |
 | `create_semantic_goal_relationship()` | ✅ |
 | `create_subgoal_relationship()` | ✅ |
-| `create_user_goal_relationship()` | ✅ |
 | `find_goals_requiring_knowledge()` | ✅ |
 | `generate_tasks_for_goal()` | ✅ |
 | `get_achievable_goals_for_user()` | ✅ |
@@ -272,7 +271,7 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 
 ### HabitsService
 
-**Facade-specific public methods:** 74
+**Facade-specific public methods:** 73
 
 | Method | Async |
 |--------|-------|
@@ -291,7 +290,6 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 | `create_habit_with_scheduling_context()` | ✅ |
 | `create_semantic_skill_relationship()` | ✅ |
 | `create_subhabit_relationship()` | ✅ |
-| `create_user_habit_relationship()` | ✅ |
 | `create_with_goal_links()` | ✅ |
 | `delete_habit_reminder()` | ✅ |
 | `find_habits_developing_knowledge()` | ✅ |
@@ -355,7 +353,7 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 
 ### EventsService
 
-**Facade-specific public methods:** 55
+**Facade-specific public methods:** 54
 
 | Method | Async |
 |--------|-------|
@@ -374,7 +372,6 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 | `create_recurring_events_for_habit()` | ✅ |
 | `create_recurring_instances()` | ✅ |
 | `create_subevent_relationship()` | ✅ |
-| `create_user_event_relationship()` | ✅ |
 | `find_events()` | ✅ |
 | `get_active()` | ✅ |
 | `get_at_risk_habit_events()` | ✅ |
@@ -470,7 +467,7 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 
 ### PrinciplesService
 
-**Facade-specific public methods:** 51
+**Facade-specific public methods:** 50
 
 | Method | Async |
 |--------|-------|
@@ -486,7 +483,6 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 | `create_principle_expression()` | ✅ |
 | `create_principle_link()` | ✅ |
 | `create_subprinciple_relationship()` | ✅ |
-| `create_user_principle_relationship()` | ✅ |
 | `frame_principle_practice_with_learning()` | ✅ |
 | `get_active()` | ✅ |
 | `get_aligned_principles_for_user()` | ✅ |

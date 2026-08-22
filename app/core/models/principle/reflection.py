@@ -33,9 +33,11 @@ class PrincipleReflection:
 
     Graph Relationships (stored as Neo4j edges):
     - (Reflection)-[:REFLECTS_ON]->(Principle)
-    - (User)-[:MADE_REFLECTION]->(Reflection)
     - (Reflection)-[:TRIGGERED_BY]->(Goal|Habit|Event|Choice)
     - (Reflection)-[:REVEALS_CONFLICT]->(Principle)
+
+    The reflecting user is the reflection's owner (universal :OWNS + user_uid,
+    ADR-086) — the former MADE_REFLECTION edge was paper-only and was deleted.
     """
 
     # Identity (required fields first)

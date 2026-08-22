@@ -28,3 +28,18 @@ class EventType(StrEnum):
     SOCIAL = "social"
     LEARNING = "learning"
     HEALTH = "health"
+
+
+class AttendanceStatus(StrEnum):
+    """
+    Consent state on the ``(User)-[:ATTENDS]->(Event)`` edge (ADR-086).
+
+    The invite→accept state machine: an organizer may only ever create
+    ``INVITED``; the target user is the only actor who transitions the status
+    (``invited → accepted / declined``); a self-add writes ``ACCEPTED`` because
+    it IS the attendee's consent. Lowercase values per package convention.
+    """
+
+    INVITED = "invited"
+    ACCEPTED = "accepted"
+    DECLINED = "declined"

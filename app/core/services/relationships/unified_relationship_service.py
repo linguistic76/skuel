@@ -63,7 +63,6 @@ from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.models.type_hints import UserUID
     from core.services.user.unified_user_context import UserContext
 
 # Type variables
@@ -330,75 +329,11 @@ class UnifiedRelationshipService[
     # =========================================================================
     # RELATIONSHIP CREATION
     # =========================================================================
-
-    async def create_user_relationship(
-        self,
-        user_uid: UserUID,
-        entity_uid: EntityUID,
-        properties: dict[str, Any] | None = None,
-    ) -> Result[bool]:
-        """
-        Create User→Entity relationship in graph.
-
-        Args:
-            user_uid: User UID
-            entity_uid: Entity UID
-            properties: Optional relationship properties
-
-        Returns:
-            Result[bool] indicating success
-        """
-        ownership_relationship = self.config.ownership_relationship
-        if not ownership_relationship:
-            return Result.fail(
-                Errors.validation(
-                    f"No ownership relationship defined for {self.config.entity_label}"
-                )
-            )
-
-        # Route through the backend's generic create_user_relationship (defined on every
-        # domain backend via _user_entity_mixin), which honors both the relationship type
-        # and the edge metadata. The ownership relationship is a registry-validated
-        # RelationshipName — no dynamic dispatch, no stringly-typed key (see #197/#205).
-        result: Result[bool] = await self.backend.create_user_relationship(
-            user_uid=user_uid,
-            entity_uid=entity_uid,
-            relationship_type=ownership_relationship,
-            metadata=properties,
-        )
-        if result.is_ok:
-            self.logger.info(
-                f"Created {ownership_relationship.value} relationship: {user_uid} → {entity_uid}"
-            )
-        return result
-
-    async def delete_user_relationship(
-        self,
-        user_uid: UserUID,
-        entity_uid: EntityUID,
-    ) -> Result[bool]:
-        """
-        Delete User→Entity relationship in graph.
-
-        Args:
-            user_uid: User UID
-            entity_uid: Entity UID
-
-        Returns:
-            Result[bool] indicating success
-        """
-        if not self.config.ownership_relationship:
-            return Result.fail(
-                Errors.validation(
-                    f"No ownership relationship defined for {self.config.entity_label}"
-                )
-            )
-
-        return await self.backend.delete_relationship(
-            from_uid=user_uid,
-            to_uid=entity_uid,
-            relationship_type=self.config.ownership_relationship,
-        )
+    # NOTE: there is deliberately NO user→entity ownership writer here. The
+    # former create_user_relationship/delete_user_relationship pair wrote the
+    # registry's paper per-domain ownership edges (HAS_TASK, …) and was deleted
+    # with that family (ADR-086) — :OWNS enters the graph only through the four
+    # write doors the ADR names.
 
     async def create_relationship(
         self,

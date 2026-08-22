@@ -143,7 +143,7 @@ async def test_event_relationship_auto_creation(events_backend, test_user_uid, c
     assert len(entities) == 1
     assert entities[0].uid == "event_test_001"
 
-    # Cleanup (cascade=True to remove auto-created HAS_EVENT relationship)
+    # Cleanup (cascade=True to remove auto-created OWNS relationship)
     result = await events_backend.delete("event_test_001", cascade=True)
     assert result.is_ok, "Cleanup failed: Could not delete event"
 
@@ -174,7 +174,7 @@ async def test_habit_relationship_auto_creation(habits_backend, test_user_uid, c
     entities, _total_count = user_habits.value
     assert len(entities) == 1
 
-    # Cleanup (cascade=True to remove auto-created HAS_HABIT relationship)
+    # Cleanup (cascade=True to remove auto-created OWNS relationship)
     result = await habits_backend.delete("habit_test_001", cascade=True)
     assert result.is_ok, "Cleanup failed: Could not delete habit"
 
@@ -204,7 +204,7 @@ async def test_goal_relationship_auto_creation(goals_backend, test_user_uid, cre
     entities, _total_count = user_goals.value
     assert len(entities) == 1
 
-    # Cleanup (cascade=True to remove auto-created HAS_GOAL relationship)
+    # Cleanup (cascade=True to remove auto-created OWNS relationship)
     result = await goals_backend.delete("goal_test_001", cascade=True)
     assert result.is_ok, "Cleanup failed: Could not delete goal"
 
@@ -293,7 +293,7 @@ async def test_user_isolation_tasks(
     assert len(entities) == 1
     assert entities[0].uid == "task_user2_001"
 
-    # Cleanup (cascade=True to remove auto-created HAS_TASK relationships)
+    # Cleanup (cascade=True to remove auto-created OWNS relationships)
     result = await tasks_backend.delete("task_user1_001", cascade=True)
     assert result.is_ok, "Cleanup failed: Could not delete task_user1_001"
     result = await tasks_backend.delete("task_user2_001", cascade=True)
@@ -566,7 +566,7 @@ async def test_performance_large_dataset(tasks_backend, test_user_uid, create_te
     # Performance assertion (should be < 1 second for 100 entities)
     assert query_time < 1.0, f"Query took {query_time:.3f}s (should be < 1s)"
 
-    # Cleanup (cascade=True to remove auto-created HAS_TASK relationships)
+    # Cleanup (cascade=True to remove auto-created OWNS relationships)
     for uid in task_uids:
         result = await tasks_backend.delete(uid, cascade=True)
         assert result.is_ok, f"Cleanup failed: Could not delete {uid}"
@@ -626,49 +626,6 @@ async def test_relationship_access_tracking(tasks_backend, test_user_uid, create
     assert result.is_ok, "Cleanup failed: Could not delete task"
 
 
-@pytest.mark.asyncio
-async def test_delete_user_relationship(tasks_backend, test_user_uid, create_test_users):
-    """Test deleting user-entity relationship."""
-    # Create task
-    task = Task(
-        uid="task_delete_rel",
-        user_uid=test_user_uid,
-        title="Delete Relationship Test",
-        status=EntityStatus.DRAFT,
-        priority=Priority.MEDIUM,
-        created_at=datetime.now(),
-        updated_at=datetime.now(),
-    )
-    create_result = await tasks_backend.create(task)
-    assert create_result.is_ok, "Setup failed: Could not create task"
-
-    # Verify relationship exists
-    user_tasks = await tasks_backend.get_user_entities(user_uid=test_user_uid)
-    # Unpack pagination tuple
-    entities, _total_count = user_tasks.value
-    assert len(entities) == 1
-
-    # Delete relationship (not entity)
-    delete_result = await tasks_backend.delete_user_relationship(
-        user_uid=test_user_uid, entity_uid="task_delete_rel"
-    )
-    assert delete_result.is_ok
-
-    # Verify relationship deleted
-    user_tasks_after = await tasks_backend.get_user_entities(user_uid=test_user_uid)
-    # Unpack pagination tuple
-    entities, _total_count = user_tasks_after.value
-    assert len(entities) == 0
-
-    # Entity should still exist
-    entity_result = await tasks_backend.get("task_delete_rel")
-    assert entity_result.is_ok
-
-    # Cleanup (relationship was deleted above, but cascade=True for safety)
-    result = await tasks_backend.delete("task_delete_rel", cascade=True)
-    assert result.is_ok, "Cleanup failed: Could not delete task"
-
-
 # ============================================================================
 # SUMMARY STATS
 # ============================================================================
@@ -679,28 +636,15 @@ def test_summary():
     Test Suite Summary
     ==================
 
-    Tests (Backend): 7 tests
-    - Auto-relationship creation for all domains
-    - Entity counting via relationships
-    - Relationship access tracking
-    - Relationship deletion
+    Tests (Backend): auto-:OWNS creation for all domains, entity counting via
+    relationships, relationship access tracking.
+    Tests (UserService): stats aggregation structure, cross-domain analytics.
+    User Isolation Tests: single-domain + cross-domain isolation.
+    Performance Tests: large dataset query performance.
+    Edge Cases: entity without user_uid, relationship access tracking.
 
-    Tests (UserService): 2 tests
-    - Stats aggregation structure
-    - Cross-domain analytics
-
-    User Isolation Tests: 2 tests
-    - Single domain isolation
-    - Cross-domain isolation
-
-    Performance Tests: 1 test
-    - Large dataset query performance
-
-    Edge Cases: 3 tests
-    - Entity without user_uid
-    - Relationship access tracking
-    - Relationship deletion
-
-    Total: 15 comprehensive tests
+    (The former delete_user_relationship test left with its subject — the
+    backend generic user-relationship pair was deleted by ADR-086's residue
+    collapse; :OWNS removal happens via entity delete cascade / GDPR paths.)
     """
     pass

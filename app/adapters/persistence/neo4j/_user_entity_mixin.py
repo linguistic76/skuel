@@ -5,12 +5,15 @@ User Entity Mixin
 Generic user-entity relationship tracking for all UniversalNeo4jBackend instances.
 
 Provides:
-    create_user_relationship: Create (User)-[rel]->(Entity) edge
     get_user_entities: Get user's entities via relationship traversal
     list_by_user: Flat (unpaginated) user-entity list
     count_user_entities: Count user's entities
     update_relationship_access: Increment access_count + last_accessed
-    delete_user_relationship: Remove user-entity relationship
+
+NOTE: the former generic create_user_relationship/delete_user_relationship pair
+(the one interpolation that could write a paper HAS_* edge) was deleted with the
+per-domain ownership family (ADR-086) — :OWNS is written only by the four doors
+the ADR names.
 
 Requires on concrete class:
     driver, logger, label, entity_class, _inject_default_filters
@@ -42,8 +45,9 @@ class _UserEntityMixin[T: DomainModelProtocol]:
     """
     Generic user-entity relationship tracking for all entity backends.
 
-    Provides the 5 core user-entity relationship methods that belong on
-    every UniversalNeo4jBackend[T] instance, regardless of domain.
+    Provides the core user-entity relationship reads (plus access-metadata
+    upkeep) that belong on every UniversalNeo4jBackend[T] instance,
+    regardless of domain.
 
     Requires on concrete class:
         driver: AsyncDriver
@@ -87,13 +91,9 @@ class _UserEntityMixin[T: DomainModelProtocol]:
     # ============================================================================
     # USER-ENTITY RELATIONSHIP TRACKING (October 16, 2025)
     # ============================================================================
-    # Complete User Tracking Across All Domains
-    #
-    # These methods enable tracking of user-entity relationships for ALL domains:
-    # tasks, events, habits, goals, choices, principles, journals, finance, etc.
-    #
-    # Auto-creates (User)-[:HAS_X]->(Entity) when entities are created with user_uid.
-    # Provides query methods for user-specific entity filtering and statistics.
+    # Query methods for user-specific entity filtering and statistics across ALL
+    # domains, traversing the universal (User)-[:OWNS]->(Entity) edge that the
+    # create doors write (ADR-086).
 
     def _build_user_entity_filters(
         self,
@@ -122,80 +122,6 @@ class _UserEntityMixin[T: DomainModelProtocol]:
 
         where_clause = f"WHERE {' AND '.join(filter_clauses)}" if filter_clauses else ""
         return where_clause, params
-
-    @safe_backend_operation("create_user_relationship")
-    async def create_user_relationship(
-        self,
-        user_uid: UserUID,
-        entity_uid: EntityUID,
-        relationship_type: RelationshipName | None = None,
-        metadata: dict[str, Any] | None = None,
-    ) -> Result[bool]:
-        """
-        Create user-entity relationship.
-
-        This method is called automatically when entities are created with user_uid.
-        Can also be called manually to create additional relationship types.
-
-        Args:
-            user_uid: User UID,
-            entity_uid: Entity UID,
-            relationship_type: Neo4j relationship type. Defaults to OWNS.
-            metadata: Optional edge properties (created_at, last_accessed, priority, etc.)
-
-        Returns:
-            Result[bool] indicating success
-
-        Example:
-            # Automatically called by create() when entity has user_uid
-            await backend.create_user_relationship(
-                user_uid="user_123",
-                entity_uid="task_456",
-                relationship_type=RelationshipName.OWNS,
-                metadata={"priority": "high", "created_at": datetime.now().isoformat()}
-            )
-        """
-        # Default relationship type: OWNS (domain-first architecture). The
-        # RelationshipName type is the injection-safety guarantee — no runtime
-        # validation needed before the interpolation below.
-        if relationship_type is None:
-            relationship_type = RelationshipName.OWNS
-
-        # Default metadata
-        default_metadata = {
-            "created_at": datetime.now().isoformat(),
-            "last_accessed": datetime.now().isoformat(),
-            "access_count": 0,
-            "is_active": True,
-        }
-
-        # Merge with provided metadata
-        props = {**default_metadata, **(metadata or {})}
-
-        query = f"""
-        MATCH (u:User {{uid: $user_uid}})
-        MATCH (e:{self.label} {{uid: $entity_uid}})
-        MERGE (u)-[r:{relationship_type}]->(e)
-        SET r = $props
-        RETURN r
-        """
-
-        record = await self._run_single(
-            query, {"user_uid": user_uid, "entity_uid": entity_uid, "props": props}
-        )
-
-        if not record:
-            return Result.fail(
-                Errors.database(
-                    "create_user_relationship",
-                    f"Failed to create relationship: User {user_uid} or {self.label} {entity_uid} not found",
-                )
-            )
-
-        self.logger.info(
-            f"Created user relationship: {user_uid} --[{relationship_type}]-> {entity_uid}"
-        )
-        return Result.ok(True)
 
     @safe_backend_operation("get_user_entities")
     async def get_user_entities(
@@ -414,54 +340,3 @@ class _UserEntityMixin[T: DomainModelProtocol]:
             f"Updated access for {user_uid} -> {entity_uid} (count: {record['count']})"
         )
         return Result.ok(True)
-
-    @safe_backend_operation("delete_user_relationship")
-    async def delete_user_relationship(
-        self,
-        user_uid: UserUID,
-        entity_uid: EntityUID,
-        relationship_type: RelationshipName | None = None,
-    ) -> Result[bool]:
-        """
-        Delete user-entity relationship.
-
-        Use this when transferring entity ownership or removing user access.
-
-        Args:
-            user_uid: User UID,
-            entity_uid: Entity UID,
-            relationship_type: Optional relationship type
-
-        Returns:
-            Result[bool] indicating success
-
-        Example:
-            # Remove user's access to a shared goal
-            await backend.delete_user_relationship(
-                user_uid="user_123",
-                entity_uid="goal_456"
-            )
-        """
-        # Default relationship type: OWNS; the RelationshipName type is the
-        # injection-safety guarantee (no runtime validation needed).
-        if relationship_type is None:
-            relationship_type = RelationshipName.OWNS
-
-        query = f"""
-        MATCH (u:User {{uid: $user_uid}})-[r:{relationship_type}]->(e:{self.label} {{uid: $entity_uid}})
-        DELETE r
-        RETURN count(r) as deleted
-        """
-
-        record = await self._run_single(query, {"user_uid": user_uid, "entity_uid": entity_uid})
-
-        deleted = (record and record["deleted"] > 0) if record else False
-
-        if deleted:
-            self.logger.info(
-                f"Deleted user relationship: {user_uid} --[{relationship_type}]-> {entity_uid}"
-            )
-        else:
-            self.logger.warning(f"No relationship found to delete: {user_uid} -> {entity_uid}")
-
-        return Result.ok(deleted)

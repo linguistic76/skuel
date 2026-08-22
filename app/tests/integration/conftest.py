@@ -357,42 +357,30 @@ async def test_user(neo4j_driver):
 
 @pytest_asyncio.fixture
 async def create_test_users(neo4j_driver):
-    """Create test user nodes in Neo4j for user-entity tracking tests."""
+    """Ensure the user_test_123/user_test_456 User nodes exist (idempotent MERGE).
+
+    Deliberately NO per-test teardown: these two uids are also owned by the
+    session-scoped ``ensure_test_users`` fixture, and a function-scoped
+    DETACH DELETE here destroyed them for every later test in the session —
+    an order-dependent failure (surfaced 2026-08-21 by the ownership-bundle
+    PR-2 run: ``test_reingest_removes_stale_owner_edge`` found user_test_123
+    gone whenever a tracking test had run first). Session-end cleanup in
+    ``ensure_test_users`` deletes them once, at the right time.
+    """
     from datetime import datetime
 
     async with neo4j_driver.session() as session:
-        await session.run(
-            """
-            MERGE (u:User {uid: $user_uid})
-            ON CREATE SET u.title = $user_uid,
-                          u.created_at = datetime($created_at)
-            RETURN u
-            """,
-            user_uid="user_test_123",
-            created_at=datetime.now().isoformat(),
-        )
-        await session.run(
-            """
-            MERGE (u:User {uid: $user_uid})
-            ON CREATE SET u.title = $user_uid,
-                          u.created_at = datetime($created_at)
-            RETURN u
-            """,
-            user_uid="user_test_456",
-            created_at=datetime.now().isoformat(),
-        )
-
-    yield
-
-    # Cleanup after test
-    async with neo4j_driver.session() as session:
-        await session.run(
-            """
-            MATCH (u:User)
-            WHERE u.uid IN ['user_test_123', 'user_test_456']
-            DETACH DELETE u
-            """
-        )
+        for user_uid in ("user_test_123", "user_test_456"):
+            await session.run(
+                """
+                MERGE (u:User {uid: $user_uid})
+                ON CREATE SET u.title = $user_uid,
+                              u.created_at = datetime($created_at)
+                RETURN u
+                """,
+                user_uid=user_uid,
+                created_at=datetime.now().isoformat(),
+            )
 
 
 @pytest_asyncio.fixture(scope="session", loop_scope="session")

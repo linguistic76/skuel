@@ -19,7 +19,7 @@ The universal ownership edge and the sharing model (ADR-038).
 | `ENROLLED_IN` | User | LearningPath | LP enrollment (`enrolled_at`, `status` — `'completed'` marks completion) |
 | `PURSUING_GOAL` | User | Goal | Active goal pursuit (enum member; no current writer — search filters use OWNS + goal status) |
 
-> `HAS_TASK`, `HAS_EVENT`, `HAS_GOAL`, `HAS_HABIT`, `HAS_PRINCIPLE`, `HAS_CHOICE`, `HAS_KU` also exist in the enum as per-domain ownership members, but **backends write and query `OWNS`** — don't use the per-domain variants in new Cypher.
+> The former per-domain ownership members (`HAS_TASK`, `HAS_EVENT`, `HAS_GOAL`, `HAS_HABIT`, `HAS_PRINCIPLE`, `HAS_CHOICE`, `HAS_KU`, `MADE_REFLECTION`) were paper-only and were **deleted from the enum** (ADR-086) — `OWNS` is the only ownership edge; `is_ownership_relationship()` is True for `OWNS` alone. Events attendance is `ATTENDS` (consent-carrying, ADR-086), not ownership.
 
 ## Curriculum Structure & Composition
 
@@ -254,7 +254,7 @@ is_valid = RelationshipName.is_valid("REQUIRES_KNOWLEDGE")  # True
 rel = RelationshipName.REQUIRES_KNOWLEDGE
 rel.is_knowledge_relationship()  # True
 rel.is_blocking_relationship()   # False
-rel.is_ownership_relationship()  # False
+rel.is_ownership_relationship()  # False (True only for RelationshipName.OWNS — ADR-086)
 rel.is_learning_progress_relationship()  # False
 ```
 

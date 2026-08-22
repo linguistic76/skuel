@@ -147,8 +147,8 @@ class _CrudMixin[T: DomainModelProtocol]:
         node_data.update(self.default_filters)
 
         # Owner edge — composed into THIS statement rather than a follow-up
-        # query. Edge properties mirror create_user_relationship's defaults so
-        # both write doors store the same shape.
+        # query. Edge properties (created_at/last_accessed/access_count/is_active)
+        # are the shared :OWNS edge shape every write door stores (ADR-086).
         user_uid = node_data.get("user_uid")
         owner_match = ""
         owns_clause = ""

@@ -196,7 +196,6 @@ class RelationshipName(StrEnum):
     REFLECTS_ON = "REFLECTS_ON"  # (reflection)-[:REFLECTS_ON]->(principle)
     TRIGGERED_BY = "TRIGGERED_BY"  # (reflection)-[:TRIGGERED_BY]->(goal|habit|event|choice)
     REVEALS_CONFLICT = "REVEALS_CONFLICT"  # (reflection)-[:REVEALS_CONFLICT]->(principle)
-    MADE_REFLECTION = "MADE_REFLECTION"  # (user)-[:MADE_REFLECTION]->(reflection)
     HAS_REFLECTION = "HAS_REFLECTION"  # (principle)-[:HAS_REFLECTION]->(reflection)
 
     # Parent-Child Composition
@@ -220,15 +219,12 @@ class RelationshipName(StrEnum):
     # USER/OWNERSHIP RELATIONSHIPS
     # User-to-entity ownership and progress
     # =========================================================================
-    OWNS = "OWNS"  # (user)-[:OWNS]->(entity) - Universal ownership relationship
+    # (user)-[:OWNS]->(entity) — THE universal ownership edge (ADR-086). The former
+    # per-domain HAS_TASK/HAS_EVENT/HAS_GOAL/HAS_HABIT/HAS_PRINCIPLE/HAS_CHOICE/HAS_KU
+    # family (and MADE_REFLECTION) was paper-only — zero edges ever written — and was
+    # deleted with its write channel in the ownership-bundle arc. Never resurrect it.
+    OWNS = "OWNS"
     REQUESTED = "REQUESTED"  # (user)-[:REQUESTED]->(ReviewRequest) - Review request
-    HAS_TASK = "HAS_TASK"
-    HAS_EVENT = "HAS_EVENT"
-    HAS_HABIT = "HAS_HABIT"
-    HAS_GOAL = "HAS_GOAL"
-    HAS_PRINCIPLE = "HAS_PRINCIPLE"
-    HAS_CHOICE = "HAS_CHOICE"
-    HAS_KU = "HAS_KU"  # Unified ownership for Entity-migrated activity domains
 
     # =========================================================================
     # ACTIVITY TEMPLATE RELATIONSHIPS
@@ -554,16 +550,8 @@ class RelationshipName(StrEnum):
         return self in blocking_types
 
     def is_ownership_relationship(self) -> bool:
-        """Check if this is a user ownership relationship."""
-        ownership_types = {
-            self.HAS_TASK,
-            self.HAS_EVENT,
-            self.HAS_HABIT,
-            self.HAS_GOAL,
-            self.HAS_PRINCIPLE,
-            self.HAS_CHOICE,
-        }
-        return self in ownership_types
+        """Check if this is THE user ownership relationship (universal ``OWNS``, ADR-086)."""
+        return self is self.OWNS
 
     def is_evidence_relationship(self) -> bool:
         """Check if this is an evidence relationship between knowledge units."""

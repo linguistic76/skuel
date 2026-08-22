@@ -17,7 +17,6 @@ BackendOperations[T] is THE full backend protocol, composed from 10 sub-protocol
         ├── RelationshipQueryOperations        (3 methods)
         ├── OrderedRelationshipOperations      (7 methods)
         ├── BatchRelationshipOperations        (3 methods)
-        ├── UserEntityRelationshipOperations   (1 method)
         ├── GraphTraversalOperations           (2 methods)
         └── LowLevelOperations                 (2 methods + driver)
 
@@ -114,7 +113,6 @@ from .base_protocols import (
     RelationshipQueryOperations,
     Result,
     StreaksLike,
-    UserEntityRelationshipOperations,
     # Backend Capability Protocols (10)
 )
 
@@ -428,7 +426,6 @@ __all__ = [
     "RelationshipMetadataOperations",  # Edge properties (3 methods)
     "RelationshipQueryOperations",  # Relationship queries (3 methods)
     "Result",
-    "UserEntityRelationshipOperations",  # User->entity ownership edge (1 method)
     "SchemaOperations",
     "SchemaQueryExecutor",
     "ScopedChunkRetrievalOperations",

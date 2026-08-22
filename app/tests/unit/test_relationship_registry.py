@@ -98,7 +98,7 @@ class TestEntryReportConfig:
     def test_entry_report_has_loop_relationships(self):
         """Verify the report edges of the learning loop are declared.
 
-        The student a report is about is its OWNER (ownership_relationship),
+        The student a report is about is its OWNER (universal :OWNS + user_uid),
         not a separate targeting edge — ASSESSMENT_OF was deleted in the C1
         report-visibility convergence (feedback-loop UX arc).
         """
@@ -275,7 +275,6 @@ class TestCurriculumDomains:
         config = get_config_by_label("PathStep")
         assert config is not None
         assert config.is_shared_content is True
-        assert config.ownership_relationship is None
 
     def test_ls_has_knowledge_relationships(self):
         """Verify PS config has knowledge and step relationships (activity wiring moved to Lessons)."""

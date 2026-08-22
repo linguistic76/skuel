@@ -86,7 +86,7 @@ def build_node_upsert_template(
     if base_label == "Entity":
         owns_clause = """
 // Owner edge — user_uid property implies :OWNS, single owner (edge props
-// mirror the CRUD path's create_user_relationship shape; timestamps are
+// mirror the CRUD create door's :OWNS edge shape — ADR-086; timestamps are
 // Python-side ISO strings, matching the existing OWNS edge storage format).
 // The stale-owner DELETE enforces the single-owner invariant on re-ingest:
 // when the resolved owner changes (or an out-of-band edge exists), the

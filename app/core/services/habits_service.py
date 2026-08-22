@@ -11,7 +11,7 @@ Architecture: Shell delegates to 3 facade mixins in the habits/ package:
   _enrichment_mixin.py    — get_habit_analytics, get_habits_summary_analytics, get_habit_trends,
                              get_enriched_learning/curriculum/prerequisite_metadata
   _orchestration_mixin.py — complete_with_goal_impacts, create_with_goal_links,
-                             create_user_habit_relationship, link_habit_to_knowledge/principle,
+                             link_habit_to_knowledge/principle,
                              get_skills_developed_by_habits, create_semantic_skill_relationship,
                              find_habits_developing_knowledge, create_habit_with_context
 
@@ -173,7 +173,7 @@ class HabitsService(
     - _EnrichmentMixin: get_habit_analytics, get_habits_summary_analytics, get_habit_trends,
       get_enriched_learning/curriculum/prerequisite_metadata
     - _OrchestrationMixin: complete_with_goal_impacts, create_with_goal_links,
-      create_user_habit_relationship, link_habit_to_knowledge/principle,
+      link_habit_to_knowledge/principle,
       get_skills_developed_by_habits, create_habit_with_context, etc.
     """
 

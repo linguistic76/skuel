@@ -643,15 +643,6 @@ class GoalsService(
     # GRAPH RELATIONSHIPS
     # ========================================================================
 
-    async def create_user_goal_relationship(
-        self, user_uid: UserUID, goal_uid: str, role: str = "owner"
-    ) -> Result[bool]:
-        """Create User->Goal relationship in graph."""
-        properties = {"role": role} if role != "owner" else None
-        return await self.relationships.create_user_relationship(
-            user_uid, EntityUID(goal_uid), properties
-        )
-
     async def link_goal_to_habit(
         self,
         goal_uid: str,
