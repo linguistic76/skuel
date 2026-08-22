@@ -250,6 +250,22 @@ class TestGoalsChokepoint:
         assert result.is_ok
         assert _written_changes(backend)["achieved_date"] is None
 
+    async def test_reopen_resets_progress_percentage(self):
+        # Codex round 3: without the reset a reopened goal stays a "100%
+        # complete" ACTIVE goal — misread by progress consumers, and instantly
+        # re-achieved by the next contribution increment.
+        service, backend = self._service(EntityStatus.COMPLETED)
+        result = await service.update_goal("goal_1", GoalUpdateIntent(status="active"))
+        assert result.is_ok
+        assert _written_changes(backend)["progress_percentage"] == 0.0
+
+    async def test_reopen_caller_progress_keeps_authority(self):
+        service, backend = self._service(EntityStatus.COMPLETED)
+        intent = GoalUpdateIntent(status="active", progress_percentage=42.0)
+        result = await service.update_goal("goal_1", intent)
+        assert result.is_ok
+        assert _written_changes(backend)["progress_percentage"] == 42.0
+
     async def test_activate_goal_reopens_a_completed_goal(self):
         # The live reopen door: POST /api/goals/{uid}/status → set_status →
         # activate_goal. The old rule killed this before the write.
@@ -259,12 +275,18 @@ class TestGoalsChokepoint:
         changes = _written_changes(backend)
         assert changes["status"] == EntityStatus.ACTIVE.value
         assert changes["achieved_date"] is None
+        assert changes["progress_percentage"] == 0.0
 
     async def test_archive_goal_archives_a_completed_goal(self):
+        # A terminal target is not a reopen: the historical 100% progress
+        # stays (only the stamp obeys the non-null-exactly-when-completed
+        # invariant).
         service, backend = self._service(EntityStatus.COMPLETED)
         result = await service.archive_goal("goal_1")
         assert result.is_ok
-        assert _written_changes(backend)["status"] == EntityStatus.ARCHIVED.value
+        changes = _written_changes(backend)
+        assert changes["status"] == EntityStatus.ARCHIVED.value
+        assert "progress_percentage" not in changes
 
     async def test_cancel_transition_on_a_completed_goal_reaches_the_write(self):
         # The facade's cancel_goal delegates here after its active-tasks guard

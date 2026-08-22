@@ -574,7 +574,9 @@ class GoalsCoreService(
         intent's ``to_changes()`` is written wholesale — there is nothing to split off.
         Status transitions are validated against the Goal lifecycle and completion
         stamping (``achieved_date``) is applied here — the domain's one update
-        chokepoint (``core.services.completion_stamp``).
+        chokepoint (``core.services.completion_stamp``). Reopening (COMPLETED → a
+        non-terminal status) additionally resets ``progress_percentage`` to 0.0
+        unless the update carries its own figure.
 
         Args:
             uid: Goal UID
@@ -617,6 +619,24 @@ class GoalsCoreService(
                 return Result.fail(stamp)
             if stamp.value:
                 intent = dataclasses.replace(intent, **stamp.value)
+
+            # Reopening (COMPLETED → a non-terminal status) also resets the
+            # 100% progress ``complete_goal`` wrote, unless the caller supplies
+            # its own figure. Terminal targets (archive/cancel/fail) keep it as
+            # a historical record; on a reopened goal it would read as "already
+            # done" to progress consumers and instantly re-achieve on the next
+            # contribution increment.
+            if (
+                old_goal is not None
+                and old_goal.status == EntityStatus.COMPLETED
+                and "progress_percentage" not in changes
+            ):
+                raw_target = changes["status"]
+                target = (
+                    raw_target if isinstance(raw_target, EntityStatus) else EntityStatus(raw_target)
+                )
+                if not target.is_terminal():
+                    intent = dataclasses.replace(intent, progress_percentage=0.0)
 
         result: Result[Goal] = await super().update(uid, intent)
         if result.is_error:
