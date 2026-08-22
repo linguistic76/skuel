@@ -432,14 +432,14 @@ class PrinciplesService(
         return await self.search.get_active(user_uid, limit)
 
     async def get_principles_for_goal(
-        self, goal_uid: str, limit: int = 10
+        self, goal_uid: str, limit: int = 10, user_uid: UserUID | None = None
     ) -> Result[list[Principle]]:
-        return await self.search.get_for_goal(goal_uid, limit)
+        return await self.search.get_for_goal(goal_uid, limit, user_uid=user_uid)
 
     async def get_principles_for_habit(
-        self, habit_uid: str, limit: int = 10
+        self, habit_uid: str, limit: int = 10, user_uid: UserUID | None = None
     ) -> Result[list[Principle]]:
-        return await self.search.get_for_habit(habit_uid, limit)
+        return await self.search.get_for_habit(habit_uid, limit, user_uid=user_uid)
 
     # Planning delegations
     async def get_principles_needing_attention_for_user(

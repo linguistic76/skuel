@@ -119,6 +119,9 @@ class _SearchRawMixin[T: DomainModelProtocol]:
         relationship_type: str,
         target_label: NeoLabel,
         direction: Direction = "outgoing",
+        *,
+        user_uid: UserUID | None = None,
+        visibility: SearchVisibility | None = None,
     ) -> Result[builtins.list[dict[str, Any]]]:
         """
         Traverse a graph relationship and return raw target node dicts.
@@ -128,6 +131,10 @@ class _SearchRawMixin[T: DomainModelProtocol]:
             relationship_type: Relationship type string
             target_label: Neo4j label of target nodes
             direction: Traversal direction
+            user_uid: Requesting user for the visibility clause
+            visibility: Domain search-visibility declaration
+                (build_search_visibility_clause composes the WHERE fragment
+                on the traversal targets — ADR-085 G3)
 
         Returns:
             Result[list[dict]]: Raw node property dicts for related entities
@@ -139,6 +146,8 @@ class _SearchRawMixin[T: DomainModelProtocol]:
             relationship_type=relationship_type,
             target_label=target_label,
             direction=direction,
+            visibility=visibility,
+            user_uid=user_uid,
         )
 
         data = await self._run_records(cypher_query, params)
@@ -252,6 +261,8 @@ class _SearchRawMixin[T: DomainModelProtocol]:
         limit: int = 50,
         order_by: str = "created_at",
         order_desc: bool = True,
+        user_uid: UserUID | None = None,
+        visibility: SearchVisibility | None = None,
     ) -> Result[builtins.list[dict[str, Any]]]:
         """
         Search array field for a single value (case-insensitive contains).
@@ -262,6 +273,9 @@ class _SearchRawMixin[T: DomainModelProtocol]:
             limit: Maximum results
             order_by: Sort field
             order_desc: Sort descending
+            user_uid: Requesting user for the visibility clause
+            visibility: Domain search-visibility declaration (ADR-085 G5 —
+                the shape its sibling array_any_match_raw already has)
 
         Returns:
             Result[list[dict]]: Raw node property dicts
@@ -275,6 +289,8 @@ class _SearchRawMixin[T: DomainModelProtocol]:
             limit=limit,
             order_by=order_by,
             order_desc=order_desc,
+            visibility=visibility,
+            user_uid=user_uid,
         )
 
         data = await self._run_records(cypher_query, params)

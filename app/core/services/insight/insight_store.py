@@ -158,17 +158,22 @@ class InsightStore:
                 )
             )
 
-    async def get_insight_by_uid(self, uid: str) -> Result[PersistedInsight]:
-        """Get a single insight by UID.
+    async def get_insight_by_uid(self, uid: str, user_uid: UserUID) -> Result[PersistedInsight]:
+        """Get a single insight by UID, only when owned by the requesting user.
+
+        Owner-scoped in the backend MATCH (ADR-085 G6 — the sibling
+        ``get_insights_for_entity`` shape): not-found and not-yours are the
+        same NotFound, so a UID's existence never leaks.
 
         Args:
             uid: Insight UID
+            user_uid: Requesting user — must own the insight
 
         Returns:
             Result with the insight or not-found error
         """
         try:
-            result = await self.backend.get(uid)
+            result = await self.backend.get(uid, user_uid)
 
             if result.is_error:
                 return Result.fail(

@@ -46,7 +46,7 @@ from core.models.query_types import QueryIntent
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
 from core.ports.base_protocols import HasTitle
-from core.services.askesis.types import EntityLookup, KuLookup
+from core.services.askesis.types import EntityLookup, KuLookup, VisibleEntityLookup
 from core.utils.decorators import with_error_handling
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -149,10 +149,12 @@ class ContextRetriever:
         # PS bundle dependencies — all required (fail-fast per SKUEL philosophy)
         ps_service: "EntityLookup[PathStep] | None" = None,
         ku_service: "KuLookup[Ku] | None" = None,
-        habits_service: "EntityLookup[Habit] | None" = None,
-        tasks_service: "EntityLookup[Task] | None" = None,
-        events_service: "EntityLookup[Event] | None" = None,
-        principles_service: "EntityLookup[Principle] | None" = None,
+        # Activity handles are the audience-aware slice: OWNER_ONLY domains
+        # must be read through get_visible_to_user (ADR-085 G1), never bare get.
+        habits_service: "VisibleEntityLookup[Habit] | None" = None,
+        tasks_service: "VisibleEntityLookup[Task] | None" = None,
+        events_service: "VisibleEntityLookup[Event] | None" = None,
+        principles_service: "VisibleEntityLookup[Principle] | None" = None,
         lp_service: "EntityLookup[LearningPath] | None" = None,
         # Backends for graph queries (migrated from inline Cypher)
         ku_backend: KuOperations | None = None,
@@ -472,10 +474,10 @@ class ContextRetriever:
         kus_coro = self._fetch_kus(graph_context)
         lp_coro = self._fetch_learning_path(graph_context)
         habits_coro = self._fetch_entities_by_uid(
-            graph_context.get("practice_habits", []), self.habits_service
+            graph_context.get("practice_habits", []), self.habits_service, user_uid
         )
         tasks_coro = self._fetch_entities_by_uid(
-            graph_context.get("practice_tasks", []), self.tasks_service
+            graph_context.get("practice_tasks", []), self.tasks_service, user_uid
         )
 
         raw_results = await asyncio.gather(
@@ -750,7 +752,8 @@ class ContextRetriever:
     async def _fetch_entities_by_uid[T: HasTitle](
         self,
         uid_dicts: list[dict[str, Any]],
-        service: EntityLookup[T] | None,
+        service: VisibleEntityLookup[T] | None,
+        user_uid: UserUID,
     ) -> list[T]:
         """Fetch full entities from a list of {uid, title, ...} dicts.
 
@@ -758,6 +761,12 @@ class ContextRetriever:
         so the caller's model type survives the round trip — the bundle fields
         this feeds are typed lists, and a ``list[Any]`` return would let a
         mismatched service populate them unchecked.
+
+        Reads through ``get_visible_to_user`` — THE audience-aware by-UID
+        chokepoint (ADR-085 §2). These are OWNER_ONLY activity domains, and a
+        shared PathStep's graph_context can name another user's entity (the
+        vault-authored habit that surfaced the P1); an out-of-audience UID now
+        resolves to not-found and simply drops out of the bundle.
         """
         if not service or not uid_dicts:
             return []
@@ -770,7 +779,9 @@ class ContextRetriever:
         if not uids:
             return []
 
-        results = await asyncio.gather(*(service.get(uid) for uid in uids))
+        results = await asyncio.gather(
+            *(service.get_visible_to_user(uid, user_uid) for uid in uids)
+        )
 
         return [result.value for result in results if result.is_ok and result.value]
 

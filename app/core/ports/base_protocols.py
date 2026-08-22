@@ -633,8 +633,15 @@ class EntitySearchOperations[T: "DomainModelProtocol"](Protocol):
         relationship_type: str,
         target_label: NeoLabel,
         direction: Direction = "outgoing",
+        *,
+        user_uid: UserUID | None = None,
+        visibility: SearchVisibility | None = None,
     ) -> ResultType[builtins.list[dict[str, Any]]]:
-        """Traverse a graph relationship and return raw target node dicts."""
+        """Traverse a graph relationship and return raw target node dicts.
+
+        Targets are scoped to the requesting user's audience via the domain's
+        visibility declaration (ADR-085 G3).
+        """
         ...
 
     async def graph_aware_search_raw(
@@ -677,8 +684,10 @@ class EntitySearchOperations[T: "DomainModelProtocol"](Protocol):
         limit: int = 50,
         order_by: str = "created_at",
         order_desc: bool = True,
+        user_uid: UserUID | None = None,
+        visibility: SearchVisibility | None = None,
     ) -> ResultType[builtins.list[dict[str, Any]]]:
-        """Search array field for a single value."""
+        """Search array field for a single value, scoped to the user's audience (ADR-085 G5)."""
         ...
 
     async def distinct_values_raw(

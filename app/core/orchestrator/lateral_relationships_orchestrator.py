@@ -143,13 +143,17 @@ class LateralRelationshipsOrchestrator:
             domain_service: Activity Domain service for ownership verification.
                 None for curriculum domains (shared, no ownership check).
         """
+        # user_uid ALWAYS rides along: target audience scoping (ADR-085 G4)
+        # needs the caller even on curriculum anchors, where domain_service is
+        # None (no anchor ownership check) but the caller's own linked
+        # activities must still be visible to them and nobody else's are.
         get_kwargs: dict[str, Any] = {
             "entity_uid": uid,
             "relationship_types": [relationship_type],
             "direction": direction,
+            "user_uid": user_uid,
         }
         if domain_service is not None:
-            get_kwargs["user_uid"] = user_uid
             get_kwargs["domain_service"] = domain_service
 
         result = await self._lateral.get_lateral_relationships(**get_kwargs)

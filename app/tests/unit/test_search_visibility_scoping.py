@@ -32,7 +32,9 @@ import pytest
 from adapters.persistence.neo4j.query.cypher import build_search_visibility_clause
 from adapters.persistence.neo4j.query.cypher.crud_queries import (
     build_array_any_match_query,
+    build_array_contains_query,
     build_graph_aware_search_query,
+    build_relationship_traversal_query,
     build_text_search_query,
 )
 from core.models.dto_helpers import parse_enum_field
@@ -318,6 +320,46 @@ class TestQueryBuilderComposition:
             user_uid="user_a",
         )
         assert "(n.user_uid = $user_uid) AND ANY(" in cypher
+        assert params["user_uid"] == "user_a"
+
+    def test_relationship_traversal_scopes_target_alias(self) -> None:
+        """ADR-085 G3 pin — traversal targets carry the owner predicate.
+
+        get_by_relationship feeds domain reads (events/principles get_for_*);
+        without this clause a traversal from a shared anchor returned every
+        user's rows.
+        """
+        cypher, params = build_relationship_traversal_query(
+            source_uid="goal_1",
+            relationship_type=RelationshipName.SUPPORTS_GOAL.value,
+            target_label=NeoLabel.EVENT,
+            direction="incoming",
+            visibility=SearchVisibility.OWNER_ONLY,
+            user_uid="user_a",
+        )
+        assert "WHERE (target.user_uid = $user_uid)" in cypher
+        assert params["user_uid"] == "user_a"
+
+    def test_relationship_traversal_without_visibility_keeps_internal_semantics(self) -> None:
+        """No declaration + no user → no clause (internal mechanics unchanged)."""
+        cypher, params = build_relationship_traversal_query(
+            source_uid="goal_1",
+            relationship_type=RelationshipName.SUPPORTS_GOAL.value,
+            target_label=NeoLabel.EVENT,
+        )
+        assert "WHERE" not in cypher
+        assert "user_uid" not in params
+
+    def test_array_contains_scopes_and_parenthesizes(self) -> None:
+        """ADR-085 G5 pin — the shape sibling build_array_any_match_query has."""
+        cypher, params = build_array_contains_query(
+            label=NeoLabel.TASK,
+            field="tags",
+            value="alpha",
+            visibility=SearchVisibility.OWNER_ONLY,
+            user_uid="user_a",
+        )
+        assert "(n.user_uid = $user_uid) AND (ANY(" in cypher
         assert params["user_uid"] == "user_a"
 
     def test_scope_aware_without_user_still_filters_to_curriculum(self) -> None:

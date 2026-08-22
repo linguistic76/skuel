@@ -320,6 +320,45 @@ class TestCRUDOperations:
 # ============================================================================
 
 
+class TestGetVisibleToUser:
+    """ADR-085 §2 pin — THE audience-aware service-to-service by-UID read.
+
+    BaseService.get_visible_to_user delegates to the backend chokepoint with
+    the domain's OWN search_visibility declaration — never a literal chosen at
+    the call site — and converges absent and out-of-audience on NotFound.
+    """
+
+    @pytest.mark.asyncio
+    async def test_forwards_domain_declaration_to_backend(self, service, mock_backend):
+        entity = Mock()
+        mock_backend.get_visible_to_user = AsyncMock(return_value=Result.ok(entity))
+
+        result = await service.get_visible_to_user("test_001", "user_001")
+
+        assert result.is_ok
+        # No DomainConfig on ConcreteTestService → fail-closed OWNER_ONLY,
+        # and THAT declaration is what reaches the backend.
+        assert service.search_visibility is SearchVisibility.OWNER_ONLY
+        mock_backend.get_visible_to_user.assert_awaited_once_with(
+            "test_001", "user_001", SearchVisibility.OWNER_ONLY
+        )
+
+    @pytest.mark.asyncio
+    async def test_not_visible_is_not_found(self, service, mock_backend):
+        """Backend None (absent OR out of audience) → the same NotFound."""
+        mock_backend.get_visible_to_user = AsyncMock(return_value=Result.ok(None))
+
+        result = await service.get_visible_to_user("test_001", "user_001")
+
+        assert result.is_error
+        assert "NOT_FOUND" in result.error.code
+
+    @pytest.mark.asyncio
+    async def test_requires_uid_and_user(self, service):
+        assert (await service.get_visible_to_user("", "user_001")).is_error
+        assert (await service.get_visible_to_user("test_001", "")).is_error
+
+
 class TestOwnershipVerification:
     """Test ownership verification for multi-tenant security."""
 

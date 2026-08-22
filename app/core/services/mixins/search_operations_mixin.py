@@ -314,6 +314,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         related_uid: str,
         relationship_type: RelationshipName,
         direction: Direction = "outgoing",
+        user_uid: UserUID | None = None,
     ) -> Result[builtins.list[T]]:
         """
         Get entities connected via graph relationship.
@@ -325,6 +326,8 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
             related_uid: UID of the related entity (source node)
             relationship_type: Type-safe RelationshipName enum
             direction: "outgoing", "incoming", or "both" (default "outgoing")
+            user_uid: Requesting user — traversal targets are scoped per the
+                domain's search_visibility declaration (ADR-085 G3)
 
         Returns:
             Result containing related entities
@@ -344,6 +347,8 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
             relationship_type=relationship_type.value,
             target_label=NeoLabel(self.config_lookup_label),
             direction=direction,
+            user_uid=user_uid,
+            visibility=self.search_visibility,
         )
         if result.is_error:
             return Result.fail(result)
@@ -484,14 +489,20 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         field: str,
         value: str,
         limit: int = 50,
+        user_uid: UserUID | None = None,
     ) -> Result[builtins.list[T]]:
         """
         Search any array field for a value (generic array search).
+
+        Staged (PLANNED) — no production caller yet; kept aligned with its
+        live sibling search_by_tags so wiring it cannot bypass the domain's
+        visibility scoping (ADR-085 G5).
 
         Args:
             field: Name of the array field to search (e.g., "tags", "categories")
             value: Value to search for (case-insensitive contains)
             limit: Maximum results (default 50)
+            user_uid: Requesting user — scoped per the domain's search_visibility
 
         Returns:
             Result containing entities where array field contains value
@@ -512,6 +523,8 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
             limit=limit,
             order_by=self.search_order_by,
             order_desc=True,
+            user_uid=user_uid,
+            visibility=self.search_visibility,
         )
         if result.is_error:
             return Result.fail(result)

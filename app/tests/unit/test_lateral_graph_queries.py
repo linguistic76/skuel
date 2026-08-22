@@ -491,3 +491,75 @@ class TestOwnershipGate:
 
         assert not result.is_error
         refusing_service.verify_ownership.assert_not_awaited()
+
+
+# ============================================================================
+# TARGET AUDIENCE SCOPING (ADR-085 G4)
+# ============================================================================
+
+
+class TestLateralTargetAudience:
+    """ADR-085 G4 pins — returned targets are filtered to the caller's audience.
+
+    The anchor check (``_verify_entity_access``) gates the entity the caller
+    asked about; these pins cover the OTHER end: a lateral edge can join an
+    owned entity to ANY node, so the backend query itself must withhold
+    targets outside the caller's audience.
+    """
+
+    @pytest.mark.asyncio
+    async def test_service_threads_user_to_backend(self, lateral_service, mock_backend):
+        """get_lateral_relationships hands the requesting user to the query."""
+        mock_backend.get_relationships = AsyncMock(return_value=Result.ok([]))
+
+        result = await lateral_service.get_lateral_relationships("task_1", user_uid="user_a")
+
+        assert not result.is_error
+        kwargs = mock_backend.get_relationships.await_args.kwargs
+        assert kwargs["user_uid"] == "user_a"
+
+    @pytest.mark.asyncio
+    async def test_backend_query_carries_the_audience_filter(self):
+        """The Cypher withholds owned targets that are not the caller's.
+
+        The owner half comes from build_search_visibility_clause (OWNER_ONLY
+        on the ``related`` alias) — one composition point, not a hand-rolled
+        predicate; the IS NULL disjunct keeps ownerless curriculum visible.
+        """
+        from adapters.persistence.neo4j.backends.collab_backends import (
+            LateralRelationshipBackend,
+        )
+
+        executor = MagicMock()
+        executor.execute_query = AsyncMock(return_value=Result.ok([]))
+        backend = LateralRelationshipBackend(executor=executor)
+
+        result = await backend.get_relationships("task_1", "BLOCKS", "both", user_uid="user_a")
+
+        assert not result.is_error
+        query, params = executor.execute_query.await_args.args
+        assert "(related.user_uid IS NULL OR (related.user_uid = $user_uid))" in query
+        assert params["user_uid"] == "user_a"
+
+    @pytest.mark.asyncio
+    async def test_backend_no_user_fails_closed_to_ownerless_targets(self):
+        """Null $user_uid: the owner predicate matches nothing — owned targets drop.
+
+        has_user=True fail-closed convention: the predicate is always emitted,
+        and a null parameter is a null predicate, so an anonymous read keeps
+        only ownerless (curriculum) targets rather than leaking everyone's.
+        """
+        from adapters.persistence.neo4j.backends.collab_backends import (
+            LateralRelationshipBackend,
+        )
+
+        executor = MagicMock()
+        executor.execute_query = AsyncMock(return_value=Result.ok([]))
+        backend = LateralRelationshipBackend(executor=executor)
+
+        result = await backend.get_relationships("task_1", "BLOCKS", "both")
+
+        assert not result.is_error
+        query, params = executor.execute_query.await_args.args
+        assert "related.user_uid IS NULL" in query
+        assert params["user_uid"] is None

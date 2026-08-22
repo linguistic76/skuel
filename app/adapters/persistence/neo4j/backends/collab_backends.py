@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
+from core.models.enums import SearchVisibility
 from core.models.enums.pipeline import Pipeline
 from core.models.group.group import Group
 from core.models.relationship_names import RelationshipName
@@ -396,14 +397,28 @@ class LateralRelationshipBackend:
         entity_uid: EntityUID,
         type_filter: str,
         pattern: str,
+        user_uid: UserUID | None = None,
     ) -> Result[list[LateralRelationshipRow]]:
-        """Get lateral relationships for an entity.
+        """Get lateral relationships for an entity, targets scoped to the caller's audience.
+
+        The anchor's reachability is the service's ownership gate; this filter
+        covers the OTHER end (ADR-085 G4): a lateral edge can join an owned
+        entity to ANY node, so the returned targets must themselves be in the
+        caller's audience. Targets are heterogeneous (activities + curriculum),
+        so the audience is: ownerless content (curriculum — carries no
+        ``user_uid`` claim) plus the caller's own entities, the latter composed
+        through ``build_search_visibility_clause`` (OWNER_ONLY on the target
+        alias) rather than a hand-rolled predicate. With no user, only
+        ownerless targets survive — fail-closed.
 
         Args:
             entity_uid: Entity UID
             type_filter: Pipe-separated relationship types (e.g. "BLOCKS|PREREQUISITE_FOR")
             pattern: Direction pattern — one of "outgoing", "incoming", "both"
+            user_uid: Requesting user; None keeps only ownerless targets
         """
+        from adapters.persistence.neo4j.query.cypher import build_search_visibility_clause
+
         if pattern == "outgoing":
             match_pattern = f"(entity)-[r:{type_filter}]->(related)"
         elif pattern == "incoming":
@@ -411,10 +426,25 @@ class LateralRelationshipBackend:
         else:
             match_pattern = f"(entity)-[r:{type_filter}]-(related)"
 
+        # OWNER_ONLY fragment on the target alias — the one Cypher composition
+        # point for ownership (no publication gate: this is a by-anchor read of
+        # existing edges, not a discovery listing). has_user=True is the
+        # fail-closed convention: on a null $user_uid the emitted predicate
+        # matches nothing, so owned targets drop out rather than leak.
+        owner_scope = build_search_visibility_clause(
+            SearchVisibility.OWNER_ONLY,
+            entity_alias="related",
+            has_user=True,
+            apply_publication_gate=False,
+        )
+        owner_clause, owner_params = owner_scope if owner_scope else ("false", {})
+        audience_filter = f"(related.user_uid IS NULL OR {owner_clause})"
+
         result = await self.executor.execute_query(
             f"""
             MATCH {match_pattern}
             WHERE entity.uid = $entity_uid
+              AND {audience_filter}
             RETURN
                 type(r) as relationship_type,
                 related.uid as related_uid,
@@ -426,7 +456,7 @@ class LateralRelationshipBackend:
                 END as direction
             ORDER BY relationship_type, related_title
             """,
-            {"entity_uid": entity_uid},
+            {"entity_uid": entity_uid, "user_uid": user_uid, **owner_params},
         )
         if result.is_error:
             return Result.fail(result)

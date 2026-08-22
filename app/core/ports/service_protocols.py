@@ -726,6 +726,7 @@ class LateralRelationshipBackendOperations(Protocol):
         entity_uid: EntityUID,
         type_filter: str,
         pattern: str,
+        user_uid: UserUID | None = None,
     ) -> Result[list[LateralRelationshipRow]]: ...
 
     async def get_siblings(self, entity_uid: EntityUID) -> Result[list[SiblingRow]]: ...

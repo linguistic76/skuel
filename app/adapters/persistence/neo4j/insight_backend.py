@@ -75,14 +75,19 @@ class InsightBackend:
             params,
         )
 
-    async def get(self, uid: str) -> Result[list[dict[str, Any]]]:
-        """Get a single insight by UID."""
+    async def get(self, uid: str, user_uid: str) -> Result[list[dict[str, Any]]]:
+        """Get a single insight by UID, only when owned by the requesting user.
+
+        Owner-scoped in the MATCH itself (ADR-085 G6 — the shape
+        ``get_insights_for_entity`` already uses): a foreign UID matches zero
+        rows, so not-found and not-yours are indistinguishable.
+        """
         return await self._executor.execute_query(
             """
-            MATCH (i:Insight {uid: $uid})
+            MATCH (i:Insight {uid: $uid, user_uid: $user_uid})
             RETURN i
             """,
-            {"uid": uid},
+            {"uid": uid, "user_uid": user_uid},
         )
 
     async def get_active_insights(

@@ -496,6 +496,8 @@ def build_relationship_traversal_query(
     target_label: NeoLabel,
     direction: str = "outgoing",
     limit: int = 100,
+    visibility: SearchVisibility | None = None,
+    user_uid: UserUID | None = None,
 ) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Build single-query relationship traversal returning full target entities.
@@ -508,6 +510,11 @@ def build_relationship_traversal_query(
         target_label: Neo4j label of target entities (e.g., "Task", "Goal")
         direction: "outgoing", "incoming", or "both" (default "outgoing")
         limit: Maximum results (default 100)
+        visibility: Domain search-visibility declaration; composed into the
+            WHERE clause via build_search_visibility_clause() (ADR-085 G3 —
+            traversal targets are scoped to their audience like every other
+            search strategy)
+        user_uid: Requesting user for the visibility clause
 
     Returns:
         Tuple of (cypher_query, parameters)
@@ -533,13 +540,30 @@ def build_relationship_traversal_query(
     arrow = direction_clause(direction, None, relationship_type)
     pattern = f"(source {{uid: $source_uid}}){arrow}(target:{target_label})"
 
+    params: dict[str, Neo4jValue] = {"source_uid": source_uid, "limit": limit}
+    where_line = ""
+    visibility_scope = build_search_visibility_clause(
+        visibility, entity_alias="target", has_user=user_uid is not None
+    )
+    if visibility_scope:
+        visibility_clause, visibility_params = visibility_scope
+        where_line = f"WHERE {visibility_clause}"
+        params.update(visibility_params)
+        # Only bind $user_uid when the clause actually references it: a PUBLIC
+        # domain now returns the publication gate (which does not), and passing
+        # the caller's identity into a query that never uses it is a needless
+        # leak of who is asking.
+        if user_uid is not None and "$user_uid" in visibility_clause:
+            params["user_uid"] = user_uid
+
     cypher = f"""
     MATCH {pattern}
+    {where_line}
     RETURN target
     LIMIT $limit
     """
 
-    return cypher, {"source_uid": source_uid, "limit": limit}
+    return cypher, params
 
 
 def build_graph_aware_search_query(
@@ -682,6 +706,8 @@ def build_array_contains_query(
     limit: int = 50,
     order_by: str | None = "created_at",
     order_desc: bool = True,
+    visibility: SearchVisibility | None = None,
+    user_uid: UserUID | None = None,
 ) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Build query to find entities where array field contains a value.
@@ -696,6 +722,10 @@ def build_array_contains_query(
         limit: Maximum results (default 50)
         order_by: Field to sort by (default "created_at")
         order_desc: Sort descending (default True)
+        visibility: Domain search-visibility declaration; composed into the
+            WHERE clause via build_search_visibility_clause() (ADR-085 G5 —
+            the shape its sibling build_array_any_match_query already has)
+        user_uid: Requesting user for the visibility clause
 
     Returns:
         Tuple of (cypher_query, parameters)
@@ -722,16 +752,34 @@ def build_array_contains_query(
         direction = "DESC" if order_desc else "ASC"
         order_clause = f"ORDER BY n.{order_by} {direction}"
 
-    # Case-insensitive array contains using ANY()
+    # Case-insensitive array contains using ANY(). Parenthesized so the
+    # visibility clause can be ANDed safely.
+    match_where = f"(ANY(item IN n.{field} WHERE toLower(item) CONTAINS toLower($value)))"
+
+    params: dict[str, Neo4jValue] = {"value": value, "limit": limit}
+    visibility_scope = build_search_visibility_clause(
+        visibility, entity_alias="n", has_user=user_uid is not None
+    )
+    if visibility_scope:
+        visibility_clause, visibility_params = visibility_scope
+        match_where = f"{visibility_clause} AND {match_where}"
+        params.update(visibility_params)
+        # Only bind $user_uid when the clause actually references it: a PUBLIC
+        # domain now returns the publication gate (which does not), and passing
+        # the caller's identity into a query that never uses it is a needless
+        # leak of who is asking.
+        if user_uid is not None and "$user_uid" in visibility_clause:
+            params["user_uid"] = user_uid
+
     cypher = f"""
     MATCH (n:{label})
-    WHERE ANY(item IN n.{field} WHERE toLower(item) CONTAINS toLower($value))
+    WHERE {match_where}
     RETURN n
     {order_clause}
     LIMIT $limit
     """
 
-    return cypher, {"value": value, "limit": limit}
+    return cypher, params
 
 
 def build_array_any_match_query(

@@ -50,9 +50,13 @@ def _make_harness(
     store.smart_dismiss = AsyncMock(return_value=Result.ok({"dismissed": 1}))
     store.get_active_insights = AsyncMock(return_value=Result.ok([]))
     store.get_insight_stats = AsyncMock(return_value=Result.ok({"total": 0}))
-    foreign_insight = MagicMock()
-    foreign_insight.user_uid = "user_other"
-    store.get_insight_by_uid = AsyncMock(return_value=Result.ok(foreign_insight))
+    # The store's read is owner-scoped (ADR-085 G6): a foreign uid is a
+    # NotFound from the store itself — the route no longer compares owners.
+    from core.utils.result_simplified import Errors
+
+    store.get_insight_by_uid = AsyncMock(
+        return_value=Result.fail(Errors.not_found(resource="Insight", identifier=_INSIGHT_UID))
+    )
 
     if authenticated:
         monkeypatch.setattr("adapters.inbound.insights_api.require_authenticated_user", _fake_auth)
@@ -157,14 +161,45 @@ class TestBulkActions:
 
 class TestDetailsOwnership:
     def test_foreign_insight_is_404(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        # The store returns an insight owned by another user — the route must
-        # 404 without leaking any fields.
+        # ADR-085 G6: the store's read is owner-scoped, so a foreign uid IS a
+        # NotFound (the harness default mirrors that refusal). The route must
+        # 404 without leaking any fields — and must have passed the requesting
+        # user into the store, which is where the audience decision now lives.
         harness = _make_harness(monkeypatch)
 
         response = harness.client.get(f"/api/insights/{_INSIGHT_UID}/details")
 
         assert response.status_code == 404
         assert "user_other" not in response.text
+        harness.store.get_insight_by_uid.assert_awaited_once_with(_INSIGHT_UID, _USER_UID)
+
+    def test_owned_insight_details_round_trip(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """The owner's read succeeds and the store received (uid, user_uid)."""
+        from datetime import datetime
+        from types import SimpleNamespace
+
+        harness = _make_harness(monkeypatch)
+        owned = SimpleNamespace(
+            uid=_INSIGHT_UID,
+            user_uid=_USER_UID,
+            title="Pattern spotted",
+            description="Morning sessions correlate with completions",
+            insight_type=SimpleNamespace(value="pattern"),
+            domain="habits",
+            impact=SimpleNamespace(value="medium"),
+            confidence=0.8,
+            entity_uid="habit_1",
+            recommended_actions=[],
+            supporting_data={},
+            created_at=datetime(2026, 8, 21, 12, 0, 0),
+        )
+        harness.store.get_insight_by_uid = AsyncMock(return_value=Result.ok(owned))
+
+        response = harness.client.get(f"/api/insights/{_INSIGHT_UID}/details")
+
+        assert response.status_code == 200
+        assert response.json()["uid"] == _INSIGHT_UID
+        harness.store.get_insight_by_uid.assert_awaited_once_with(_INSIGHT_UID, _USER_UID)
 
 
 class TestSnooze:
