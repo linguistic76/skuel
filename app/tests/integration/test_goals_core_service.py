@@ -211,6 +211,43 @@ class TestGoalsCoreOperations:
         assert fetch.is_ok
         assert fetch.value.status == EntityStatus.PAUSED
 
+    async def test_complete_goal_stamps_achieved_date_never_the_legacy_alias(
+        self, goals_core, user_uid, neo4j_driver
+    ):
+        """``complete_goal`` persists the canonical ``achieved_date`` node property.
+
+        Pins the writer STORAGE shape (#1116): an ISO ``YYYY-MM-DD`` string on
+        the node, under the canonical name — never the legacy ``completion_date``
+        alias that split writers from readers before the completion-stamping arc
+        (``migrate_activity_completion_aliases.py`` retires the old rows).
+        """
+        from datetime import date
+
+        goal = self._goal("goal_complete_stamp", user_uid)
+        created = await goals_core.create(goal)
+        assert created.is_ok, created.expect_error()
+
+        done = await goals_core.complete_goal("goal_complete_stamp")
+        assert done.is_ok, done.expect_error()
+
+        async with neo4j_driver.session() as s:
+            record = await (
+                await s.run(
+                    "MATCH (g:Entity {uid: $uid}) "
+                    "RETURN g.status AS status, g.achieved_date AS achieved_date, "
+                    "g.completion_date AS completion_date",
+                    uid="goal_complete_stamp",
+                )
+            ).single()
+        assert record["status"] == EntityStatus.COMPLETED.value
+        assert record["achieved_date"] == date.today().isoformat()
+        assert isinstance(record["achieved_date"], str)
+        assert record["completion_date"] is None
+
+        fetch = await goals_core.get("goal_complete_stamp")
+        assert fetch.is_ok
+        assert fetch.value.achieved_date == date.today()
+
     # =========================================================================
     # GOAL ENUM FIELDS (2 tests)
     # =========================================================================

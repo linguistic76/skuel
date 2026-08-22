@@ -110,6 +110,10 @@ class EventUpdateRequest(BaseModel):
     priority: Priority | None = None
     status: EntityStatus | None = None
     reminder_minutes: int | None = Field(default=None, ge=0, le=10080)
+    completed_at: datetime | None = Field(
+        default=None,
+        description="When the event was completed (explicit stamp; None clears it on reopen)",
+    )
 
     # Learning Integration Updates (OPTIONAL)
     reinforces_habit_uid: str | None = None
@@ -164,6 +168,7 @@ class EventUpdateRequest(BaseModel):
             is_online=when_set("is_online", self.is_online),
             meeting_url=when_set("meeting_url", self.meeting_url),
             reminder_minutes=when_set("reminder_minutes", self.reminder_minutes),
+            completed_at=when_set("completed_at", self.completed_at),
             habit_completion_quality=when_set(
                 "habit_completion_quality", self.habit_completion_quality
             ),

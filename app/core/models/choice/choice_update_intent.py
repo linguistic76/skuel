@@ -19,7 +19,9 @@ so there is nothing to split off here.
 
 Beyond the request-settable columns, this intent also models ``status`` — set by the
 dedicated status route (``choices_api`` → ``update_choice(ChoiceUpdateIntent(status=...))``),
-mirroring ``tasks_api`` / ``events_api``. Decision-finalization and outcome columns
+mirroring ``tasks_api`` / ``events_api`` — and ``completed_at``, the canonical Choice
+completion stamp (completion-stamping arc, 2026-08-22; distinct from ``decided_at``,
+which marks the decision, not the closure). Decision-finalization and outcome columns
 (``selected_option_uid`` / ``decided_at`` / ``satisfaction_score`` / ``actual_outcome`` /
 ``lessons_learned`` / ``metadata``) are deliberately absent — they flow through the
 ``make_decision`` / ``evaluate_choice_outcome`` raw-write paths (each with its own
@@ -63,6 +65,10 @@ class ChoiceUpdateIntent:
     decision_criteria: list[str] | Unset | None = UNSET
     constraints: list[str] | Unset | None = UNSET
     stakeholders: list[str] | Unset | None = UNSET
+
+    # --- Lifecycle -----------------------------------------------------------
+    # When the choice transitioned into COMPLETED; explicit None = clear (reopen).
+    completed_at: datetime | Unset | None = UNSET
 
     # --- Status / priority / tags --------------------------------------------
     status: str | Unset | None = UNSET

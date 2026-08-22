@@ -19,7 +19,7 @@ create path, never written as node columns — so they are deliberately absent h
 
 Beyond the request-settable columns, this intent also models the columns the
 service-internal status transitions write (``status`` / ``progress_percentage`` /
-``completion_date`` / ``metadata`` via ``complete_goal`` / ``pause_goal`` / ``archive_goal``),
+``achieved_date`` / ``metadata`` via ``complete_goal`` / ``pause_goal`` / ``archive_goal``),
 which construct this intent directly.
 
 See: ADR-066 (Typed Update Intents) — the write-path sibling of ADR-065's
@@ -63,7 +63,7 @@ class GoalUpdateIntent:
     # --- Timeline ------------------------------------------------------------
     start_date: date | Unset | None = UNSET
     target_date: date | Unset | None = UNSET
-    completion_date: date | Unset | None = UNSET
+    achieved_date: date | Unset | None = UNSET
 
     # --- Progress ------------------------------------------------------------
     progress_percentage: float | Unset | None = UNSET
@@ -94,7 +94,7 @@ class GoalUpdateIntent:
         changes = {
             f.name: value for f in fields(self) if (value := getattr(self, f.name)) is not UNSET
         }
-        return coerce_date_fields(changes, "start_date", "target_date", "completion_date")
+        return coerce_date_fields(changes, "start_date", "target_date", "achieved_date")
 
 
 __all__ = ["GoalUpdateIntent"]

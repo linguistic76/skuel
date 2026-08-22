@@ -735,7 +735,7 @@ class GoalsCoreService(
         return Result.ok(True) if result.is_ok else Result.fail(result)
 
     async def complete_goal(
-        self, uid: str, completion_notes: str = "", completion_date: str | None = None
+        self, uid: str, completion_notes: str = "", achieved_date: str | None = None
     ) -> Result[bool]:
         """
         Mark a goal as completed.
@@ -743,7 +743,7 @@ class GoalsCoreService(
         Args:
             uid: Goal UID
             completion_notes: Optional completion notes
-            completion_date: Optional completion date (ISO format), defaults to today
+            achieved_date: Optional achievement date (ISO format), defaults to today
 
         Returns:
             Result containing True if goal was completed
@@ -751,9 +751,7 @@ class GoalsCoreService(
         intent = GoalUpdateIntent(
             status=EntityStatus.COMPLETED.value,
             progress_percentage=100.0,
-            completion_date=(
-                date.fromisoformat(completion_date) if completion_date else date.today()
-            ),
+            achieved_date=(date.fromisoformat(achieved_date) if achieved_date else date.today()),
         )
 
         if completion_notes:

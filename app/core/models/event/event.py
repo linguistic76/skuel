@@ -4,9 +4,10 @@ Event - Event Domain Model
 
 Frozen dataclass for event entities (EntityType.EVENT).
 
-Inherits common fields from UserOwnedEntity. Adds 26 event-specific fields:
+Inherits common fields from UserOwnedEntity. Adds 27 event-specific fields:
 - Scheduling (4): event_date, start_time, end_time, duration_minutes
 - Event Logistics (4): event_type, location, is_online, meeting_url
+- Lifecycle (1): completed_at
 - Recurrence (3): recurrence_pattern, recurrence_end_date, recurrence_parent_uid
 - Reminders (2): reminder_minutes, reminder_sent
 - Attendees (2): attendee_emails, max_attendees
@@ -44,8 +45,9 @@ class Event(UserOwnedEntity):
     Inherits common fields from UserOwnedEntity (identity, content, status,
     learning, sharing, substance, meta, embedding).
 
-    Adds 26 event-specific fields for scheduling, logistics, attendees,
-    recurrence, reminders, cross-domain links, milestones, and quality tracking.
+    Adds 27 event-specific fields for scheduling, logistics, lifecycle,
+    attendees, recurrence, reminders, cross-domain links, milestones, and
+    quality tracking.
     """
 
     # Honest leaf identity (G6): defaults to its own type; __post_init__
@@ -76,6 +78,15 @@ class Event(UserOwnedEntity):
     location: str | None = None
     is_online: bool = False
     meeting_url: str | None = None
+
+    # =========================================================================
+    # LIFECYCLE
+    # =========================================================================
+    # When the event transitioned into COMPLETED (completion-stamping arc,
+    # 2026-08-22); None while never completed, cleared again on reopen. The
+    # canonical Event completion field — recent-activity/analytics readers
+    # consult it instead of the mutable updated_at.
+    completed_at: datetime | None = None
 
     # =========================================================================
     # RECURRENCE
