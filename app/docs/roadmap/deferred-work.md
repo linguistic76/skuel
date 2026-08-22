@@ -593,9 +593,14 @@ bundle thread, in the facet ruling's order: the enforcement question first (what
 ownership on a read that bypasses SearchRouter), ADR-ratifying universal `:OWNS` and collapsing
 the paper-only `HAS_*` ownership residue, the attendance edge's mechanics (name — `ATTENDS`
 exists in `RelationshipName`, used by nothing; whether the creator auto-attends; Events'
-visibility becoming attendee-aware, which `user_uid`-property scoping alone cannot express), and
-one parked hard question by name: an event whose organizer is deleted but which has living
-attendees.
+visibility becoming attendee-aware, which `user_uid`-property scoping alone cannot express),
+the **actor/authorization + consent rule for attendance mutations** (the staged
+`AddAttendeeRequest`/`RemoveAttendeeRequest` carry no actor and `_OrchestrationMixin` checks
+nothing — `add_attendee` even stamps `added_by_uid` with the *target's* uid; who may add/remove
+whom — attendee self-management vs organizer managing others — and whether being added requires
+the target's consent must be ruled alongside the edge, since "you own your attendance" implies
+no one else writes it without your say), and one parked hard question by name: an event whose
+organizer is deleted but which has living attendees.
 
 **Check it is still latent**: each of the five must still have no production caller.
 ```bash
