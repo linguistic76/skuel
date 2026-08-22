@@ -336,11 +336,13 @@ class TestGetVisibleToUser:
         result = await service.get_visible_to_user("test_001", "user_001")
 
         assert result.is_ok
-        # No DomainConfig on ConcreteTestService → fail-closed OWNER_ONLY,
-        # and THAT declaration is what reaches the backend.
+        # No DomainConfig on ConcreteTestService → fail-closed OWNER_ONLY on
+        # the default "user_uid" property, and THOSE declarations are what
+        # reach the backend.
         assert service.search_visibility is SearchVisibility.OWNER_ONLY
+        assert service.ownership_property == "user_uid"
         mock_backend.get_visible_to_user.assert_awaited_once_with(
-            "test_001", "user_001", SearchVisibility.OWNER_ONLY
+            "test_001", "user_001", SearchVisibility.OWNER_ONLY, "user_uid"
         )
 
     @pytest.mark.asyncio

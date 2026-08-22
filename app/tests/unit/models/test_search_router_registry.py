@@ -15,6 +15,7 @@ guards monkeypatch the router's internals.
 
 import dataclasses
 import inspect
+from typing import Any
 
 import pytest
 
@@ -110,22 +111,63 @@ class TestOwnerOnlyDomainsCarryTheScopingProperty:
     """Every searchable OWNER_ONLY domain must have the property the clause filters.
 
     ``build_search_visibility_clause`` renders OWNER_ONLY as
-    ``entity.user_uid = $user_uid`` — a *property* predicate. A domain that
-    declares OWNER_ONLY but stores ownership somewhere else (``owner_uid``, or
-    only an ``:OWNS`` edge) gets a predicate that is null for every row, so its
-    search silently returns nothing.
+    ``entity.{ownership_property} = $user_uid`` — a *property* predicate on the
+    domain's ``DomainConfig.ownership_property`` declaration (default
+    ``user_uid``; Group declares ``owner_uid`` — ADR-086). A domain whose
+    declared property does not exist on its model gets a predicate that is
+    null for every row, so its search silently returns nothing.
 
     This became reachable when faceted search stopped anchoring on
     ``(User)-[:OWNS]->(entity)``: the edge anchor happened to work for such a
     domain, the property predicate does not. Codex flagged exactly this shape
-    on ``GroupService`` (P2, PR #1079) — correct about the mechanism. Group is
-    NOT searchable (see below), so nothing invokes it; this test is the guard
-    that stops it becoming live silently.
+    on ``GroupService`` (P2, PR #1079) — correct about the mechanism, and the
+    ``ownership_property`` declaration is the fix. This test is the guard
+    that keeps every declaration pointing at a real model field.
     """
 
-    # The one domain that legitimately keys on owner_uid. Its exemption is
-    # verified below rather than asserted, so the set cannot quietly grow.
+    # The one domain that legitimately keys on owner_uid WITHOUT declaring it
+    # via ownership_property: Exercise's owned half rides inside SCOPE_AWARE,
+    # whose composition hardcodes the owner_uid claim + :OWNS edge dual read.
+    # Its exemption is verified below rather than asserted, so the set cannot
+    # quietly grow.
     _OWNER_UID_EXEMPT = frozenset({EntityType.EXERCISE})
+
+    # THE config that governs each searchable domain's search scoping — the
+    # class whose ``search_visibility`` / ``ownership_property`` properties
+    # feed the search mixin. Facades and their search sub-services build
+    # their configs from the same factory, so one entry per domain suffices;
+    # Ku/PS/LP facades carry no _config, so their search services stand in.
+    @staticmethod
+    def _search_config_services() -> dict[EntityType, Any]:
+        from core.services.choices_service import ChoicesService
+        from core.services.events_service import EventsService
+        from core.services.exercises.exercise_service import ExerciseService
+        from core.services.goals_service import GoalsService
+        from core.services.habits_service import HabitsService
+        from core.services.ku.ku_search_service import KuSearchService
+        from core.services.lp.lp_search_service import LpSearchService
+        from core.services.principles_service import PrinciplesService
+        from core.services.ps.ps_search_service import PsSearchService
+        from core.services.revised_exercises.revised_exercise_service import (
+            RevisedExerciseService,
+        )
+        from core.services.tasks_service import TasksService
+        from core.services.user_entry.user_entry_service import UserEntryService
+
+        return {
+            EntityType.TASK: TasksService,
+            EntityType.GOAL: GoalsService,
+            EntityType.HABIT: HabitsService,
+            EntityType.EVENT: EventsService,
+            EntityType.CHOICE: ChoicesService,
+            EntityType.PRINCIPLE: PrinciplesService,
+            EntityType.KU: KuSearchService,
+            EntityType.PATH_STEP: PsSearchService,
+            EntityType.LEARNING_PATH: LpSearchService,
+            EntityType.EXERCISE: ExerciseService,
+            EntityType.REVISED_EXERCISE: RevisedExerciseService,
+            EntityType.USER_ENTRY: UserEntryService,
+        }
 
     def test_the_owner_uid_exemption_is_earned_not_declared(self) -> None:
         """Exercise may key on ``owner_uid`` only because it declares SCOPE_AWARE."""
@@ -140,45 +182,79 @@ class TestOwnerOnlyDomainsCarryTheScopingProperty:
             "Exercise's exemption below rests on it NOT being OWNER_ONLY"
         )
 
-    def test_every_searchable_owner_only_domain_has_user_uid(self) -> None:
+    def test_every_searchable_owner_only_domain_declares_a_real_property(self) -> None:
+        """The declared ownership_property must exist on the domain's model.
+
+        Tightened from the earlier user_uid/owner_uid heuristic (ownership
+        bundle PR-4): the clause now renders whatever the domain DECLARES, so
+        the guard asserts the declaration itself — for every searchable
+        OWNER_ONLY domain, ``DomainConfig.ownership_property`` names a real
+        field on ``model_class``. A declaration pointing at a phantom field is
+        a search that silently returns nothing for every user.
+        """
         import dataclasses as dc
 
-        from core.models.entity_types import ENTITY_TYPE_CLASS_MAP
+        service_by_type = self._search_config_services()
+        missing = sorted(
+            et.value for et in SearchRouter._SEARCHABLE_DOMAINS if et not in service_by_type
+        )
+        assert not missing, (
+            f"searchable domains missing from the config-service map: {missing} — "
+            "extend _search_config_services so their declarations stay guarded"
+        )
 
         offenders: list[str] = []
         examined: list[EntityType] = []
         for entity_type in SearchRouter._SEARCHABLE_DOMAINS:
-            model = ENTITY_TYPE_CLASS_MAP.get(entity_type)
-            if model is None or entity_type in self._OWNER_UID_EXEMPT:
+            if entity_type in self._OWNER_UID_EXEMPT:
+                continue
+            config = service_by_type[entity_type]._config
+            if config.get_search_visibility() is not SearchVisibility.OWNER_ONLY:
+                # PUBLIC curriculum carries no owner — the OWNER_ONLY clause
+                # never composes for it, so there is no declaration to check.
                 continue
             examined.append(entity_type)
-            fields = {f.name for f in dc.fields(model)}
-            # PUBLIC curriculum carries no owner at all — only the mismatch
-            # (owner present, but under the name the clause does NOT filter)
-            # is a defect.
-            if "user_uid" not in fields and "owner_uid" in fields:
-                offenders.append(f"{entity_type.value} (owner_uid, not user_uid)")
+            fields = {f.name for f in dc.fields(config.model_class)}
+            if config.ownership_property not in fields:
+                offenders.append(
+                    f"{entity_type.value} declares ownership_property="
+                    f"{config.ownership_property!r} but {config.model_class.__name__} "
+                    f"has no such field"
+                )
 
-        assert len(examined) == len(SearchRouter._SEARCHABLE_DOMAINS) - len(
-            self._OWNER_UID_EXEMPT
-        ), "every searchable domain must be reachable in ENTITY_TYPE_CLASS_MAP to be checked"
+        assert examined, "no OWNER_ONLY domain examined — the guard is not guarding"
         assert offenders == [], (
-            "a searchable domain stores ownership in owner_uid but OWNER_ONLY "
-            f"scoping filters user_uid, so its search returns nothing: {offenders}"
+            "a searchable OWNER_ONLY domain declares an ownership_property its "
+            f"model does not carry, so its search returns nothing: {offenders}"
         )
 
+    def test_group_declares_the_property_it_actually_writes(self) -> None:
+        """Group's declaration is coherent: owner_uid, and the model carries it.
+
+        Group stores ownership as ``owner_uid`` (not the Entity-wide
+        ``user_uid``), so its config declares ``ownership_property="owner_uid"``
+        — the OWNER_ONLY clause renders the property Group actually writes
+        (ADR-086; the fix for Codex P2 on #1079).
+        """
+        import dataclasses as dc
+
+        from core.models.group.group import Group
+        from core.services.groups.group_service import GroupService
+
+        config = GroupService._config
+        assert config.get_search_visibility() is SearchVisibility.OWNER_ONLY
+        assert config.ownership_property == "owner_uid"
+        assert "owner_uid" in {f.name for f in dc.fields(Group)}
+
     def test_group_is_not_a_searchable_domain(self) -> None:
-        """The known non-conformer, pinned deliberately rather than left implicit.
+        """Group's absence from search stays a deliberate pin, not an accident.
 
-        ``GroupService`` declares ``user_ownership_relationship=OWNS`` (deriving
-        OWNER_ONLY) while ``Group`` stores ownership in ``owner_uid`` and has no
-        ``user_uid``. That declaration is only harmless because Group is absent
-        from every search registry and no caller invokes its inherited search —
-        the sole production callers of ``graph_aware_faceted_search`` are inside
-        SearchRouter, which resolves services from ``_SERVICE_REGISTRY``.
-
-        Wiring Group into search without first fixing its ownership declaration
-        will fail here. Fix the declaration, don't delete the test.
+        ``GroupService`` now declares ``ownership_property="owner_uid"``
+        (verified above), so its inherited search would scope correctly — but
+        Group remains absent from every search registry, and wiring it in is
+        a product decision, not a side effect. This pin makes that wiring an
+        explicit act: whoever adds Group to a registry must also extend
+        ``_search_config_services`` above, keeping the declaration guarded.
         """
         registry_values = set(SearchRouter._SERVICE_REGISTRY.values())
         assert "groups" not in registry_values

@@ -495,7 +495,11 @@ class CrudOperations[T: "DomainModelProtocol"](Protocol):
         ...
 
     async def get_visible_to_user(
-        self, uid: str, user_uid: UserUID, visibility: SearchVisibility | None
+        self,
+        uid: str,
+        user_uid: UserUID,
+        visibility: SearchVisibility | None,
+        ownership_property: str = "user_uid",
     ) -> ResultType[T | None]:
         """Fetch one entity by UID only when this user is in its audience.
 
@@ -623,6 +627,7 @@ class EntitySearchOperations[T: "DomainModelProtocol"](Protocol):
         order_desc: bool = True,
         user_uid: UserUID | None = None,
         visibility: SearchVisibility | None = None,
+        ownership_property: str = "user_uid",
     ) -> ResultType[builtins.list[dict[str, Any]]]:
         """Text search across specified fields, returning raw dicts."""
         ...
@@ -636,6 +641,7 @@ class EntitySearchOperations[T: "DomainModelProtocol"](Protocol):
         *,
         user_uid: UserUID | None = None,
         visibility: SearchVisibility | None = None,
+        ownership_property: str = "user_uid",
     ) -> ResultType[builtins.list[dict[str, Any]]]:
         """Traverse a graph relationship and return raw target node dicts.
 
@@ -657,6 +663,7 @@ class EntitySearchOperations[T: "DomainModelProtocol"](Protocol):
         order_desc: bool = True,
         user_uid: UserUID | None = None,
         visibility: SearchVisibility | None = None,
+        ownership_property: str = "user_uid",
     ) -> ResultType[builtins.list[dict[str, Any]]]:
         """Combined text search + relationship traversal in one query."""
         ...
@@ -672,6 +679,7 @@ class EntitySearchOperations[T: "DomainModelProtocol"](Protocol):
         order_desc: bool = True,
         user_uid: UserUID | None = None,
         visibility: SearchVisibility | None = None,
+        ownership_property: str = "user_uid",
     ) -> ResultType[builtins.list[dict[str, Any]]]:
         """Search array field for ANY/ALL of the given values."""
         ...
@@ -686,6 +694,7 @@ class EntitySearchOperations[T: "DomainModelProtocol"](Protocol):
         order_desc: bool = True,
         user_uid: UserUID | None = None,
         visibility: SearchVisibility | None = None,
+        ownership_property: str = "user_uid",
     ) -> ResultType[builtins.list[dict[str, Any]]]:
         """Search array field for a single value, scoped to the user's audience (ADR-085 G5)."""
         ...
@@ -715,6 +724,7 @@ class EntitySearchOperations[T: "DomainModelProtocol"](Protocol):
         limit: int = 50,
         offset: int = 0,
         visibility: SearchVisibility | None = None,
+        ownership_property: str = "user_uid",
     ) -> ResultType[builtins.list[dict[str, Any]]]:
         """Graph-aware faceted search with ownership, filters, and enrichment.
 

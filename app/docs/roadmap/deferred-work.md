@@ -555,95 +555,45 @@ write-path change. Whoever takes it: stamp at the status-transition chokepoint, 
 
 ---
 
-## `User.uid` Has No Index or Constraint
+## `User.uid` Has No Index or Constraint — ✅ RESOLVED (ownership bundle PR-4, 2026-08-21)
 
-Surfaced 2026-08-16 by the same investigation, measured against the live AuraDB.
+Closed by ADR-086 §4. The open question ("index or *uniqueness constraint*?") resolved to a
+**uniqueness constraint** — `uid` is the identity key (`user_<name>`) and the constraint
+doubles as the seek index. `sync_auth_indexes` (`neo4j_schema_manager.py`) now creates
+`User_uid_unique` as startup DDL, idempotent per boot (`IF NOT EXISTS`).
 
-`:User` carries exactly two indexes — `User_email_unique` (uniqueness on `email`) and
-`User_pairing_code_hash_idx`. **There is no index or constraint on `User(uid)`**, and
-`neo4j_schema_manager.py`'s auth-index sync never creates one. Meanwhile **290 unique lines** of
-`adapters/persistence/` Cypher do `MATCH (…:User {uid: $…})` — every one a label scan over
-`:User`.
+**Applied to the live graph 2026-08-21** (re-measured first: 6 users, zero duplicate `uid`s,
+zero null `uid`s — built cleanly) by running the real `sync_auth_indexes` path against AuraDB
+`d2d160c4`. Verified post-apply: `EXPLAIN MATCH (u:User {uid:$uid})-[:OWNS]->(e:Entity)` now
+plans `NodeUniqueIndexSeek [UNIQUE u:User(uid)]` where it was `NodeByLabelScan` — the ~290
+`MATCH (:User {uid: $…})` adapter call sites all inherit the seek.
 
-Invisible at 6 users. It is also *why* an `EXPLAIN` of the edge-anchored ownership plan
-(`MATCH (user:User {uid:$uid})-[:OWNS]->(entity)`) shows `NodeByLabelScan user:User` where the
-property-scoped plan gets a `NodeIndexSeek` — so this is a live input to any future ruling that
-would move ownership reads onto the edge.
-
-**Open question, not a mechanical add:** index or *uniqueness constraint*? `uid` reads as an
-identity key (`user_<name>`), so a constraint is likely right and doubles as the index — but it
-will fail to build if any duplicate `uid` exists, and that is a data question to check first.
-
-**Enable when**: user count grows past a handful, or any ruling moves ownership reads onto the
-`:OWNS` edge — whichever comes first. Cheap and independent either way.
-
-```bash
-# check for duplicates before choosing a constraint
-# MATCH (u:User) WITH u.uid AS uid, count(*) AS c WHERE c > 1 RETURN uid, c
-```
-
-⚠️ **Counting trap** if you re-measure the call sites: the f-string spelling (`User {{uid:`) and
-the plain spelling (`User {uid:`) are disjoint substrings. Grepping one undercounts by ~2×.
+⚠️ **Counting trap** preserved for anyone re-measuring those call sites: the f-string spelling
+(`User {{uid:`) and the plain spelling (`User {uid:`) are disjoint substrings. Grepping one
+undercounts by ~2×.
 
 ---
 
-## `GroupService` Declares `OWNER_ONLY` But `Group` Has No `user_uid`
+## `GroupService` Declares `OWNER_ONLY` But `Group` Has No `user_uid` — ✅ RESOLVED (ownership bundle PR-4, 2026-08-21)
 
-Surfaced 2026-08-16 by Codex on PR #1079 (the faceted-search convergence). **Not a live bug — a
-design decision owed before Group is ever wired into search.** Left as a guarded trap rather
-than folded into an access-control PR.
+Surfaced 2026-08-16 by Codex on PR #1079; closed by the ruling's **option 1** (ADR-086, arc
+contract ruling 7): `DomainConfig` gained a **configurable ownership property** —
+`ownership_property` (default `"user_uid"`, identifier-validated at construction and again at
+the composition point) — and the `OWNER_ONLY` branch of `build_search_visibility_clause` now
+renders `n.{ownership_property} = $user_uid`. The declaration threads from DomainConfig through
+the service search mixin and `get_visible_to_user` into every strategy builder, riding with
+`search_visibility`. `GroupService._config` declares `ownership_property="owner_uid"` — the
+scoping claim its model can finally render.
 
-`GroupService._config` sets `user_ownership_relationship=RelationshipName.OWNS`
-(`core/services/groups/group_service.py:54`), and `DomainConfig.get_search_visibility()` derives
-`OWNER_ONLY` from any non-None ownership relationship. But `build_search_visibility_clause`
-renders `OWNER_ONLY` as a **property** predicate — `entity.user_uid = $user_uid` — and `Group`
-stores its owner in `owner_uid` with no `user_uid` field at all (`core/models/group/group.py`;
-`GroupService.verify_ownership` overrides the base precisely because "Group uses `owner_uid`
-instead of `Entity.user_uid`"). The predicate would be null for every row, so a Group search
-would silently return nothing.
-
-**Why it is inaccurate today, independent of that arc:** the declaration has always claimed a
-scoping mechanism Group's model cannot support. It was merely *survivable* while faceted search
-anchored on `(User)-[:OWNS]->(entity)`, because Group does carry that edge. #1079 removed the
-anchor, so the mismatch now has no path that tolerates it.
-
-**Why it is harmless:** Group is not a searchable domain. It is absent from
-`_SEARCHABLE_DOMAINS` (12 `EntityType` members — `NonKuDomain.GROUP` cannot be one),
-`_SERVICE_REGISTRY`, and `_GRAPH_AWARE_DOMAINS`; `GROUPS_CONFIG` wires CRUD only; and the sole
-production callers of `graph_aware_faceted_search` are inside `SearchRouter`, which resolves
-services from `_SERVICE_REGISTRY`. Group routes call `get_for_user`, `get_user_groups`,
-`get_members`, `add_member`, `remove_member` — never search.
-
-**The ruling needed** (either, not both):
-1. Give `DomainConfig` a **configurable ownership property** so `OWNER_ONLY` can scope on
-   `owner_uid` — the general fix, and it would also let Exercise's `owner_uid` half stop being a
-   `SCOPE_AWARE` special case.
-2. Give Group a **real visibility declaration** of its own. There is no correct value today:
-   `SCOPE_AWARE` is Exercise-shaped (`scope` + `owner_uid` + group membership) and Group has no
-   `scope` field, so this route means designing a Group visibility, not picking one.
-
-Option 1 is the smaller change if a second `owner_uid`-keyed domain ever wants search; option 2
-is smaller if Group stays the only one. Do not "fix" it by adding a `user_uid` to `Group` — that
-would give the same claim two names, which is the divergence class #1078 spent a PR closing.
-
-**Enable when**: anyone wires Group into search, or a second `owner_uid`-keyed domain wants
-search. The guard fires first either way —
-`tests/unit/models/test_search_router_registry.py::TestOwnerOnlyDomainsCarryTheScopingProperty`
-holds both halves (`test_every_searchable_owner_only_domain_has_user_uid` for the class,
-`test_group_is_not_a_searchable_domain` for Group specifically). Fix the declaration; do not
-delete the test. Recorded also in `docs/architecture/SEARCH_ARCHITECTURE.md` § Ownership Scoping.
-
-**Check it is still latent**: Group must still be in no search registry.
-```bash
-uv run python -c "
-from core.orchestrator.search_router import SearchRouter as R
-print('in _SERVICE_REGISTRY:', 'groups' in set(R._SERVICE_REGISTRY.values()))
-print('in _GRAPH_AWARE_DOMAINS:', 'groups' in R._GRAPH_AWARE_DOMAINS)"
-```
-
-⚠️ The exemption list in that test guards **one** domain (Exercise, verified `SCOPE_AWARE`) and
-asserts its own length. Adding Group to it instead of fixing the declaration converts a tripwire
-into a silently-broken search.
+What did NOT change, deliberately: Group stays absent from every search registry (wiring it in
+remains a product decision — `test_group_is_not_a_searchable_domain` still pins it); no
+`user_uid` was added to `Group` (the two-names-for-one-claim divergence #1078 closed);
+Exercise's `owner_uid` half stays inside `SCOPE_AWARE` (its exemption is still earned by that
+declaration, and the exemption set still asserts its own length — do not add Group to it). The
+guard was tightened per the contract:
+`TestOwnerOnlyDomainsCarryTheScopingProperty::test_every_searchable_owner_only_domain_declares_a_real_property`
+now asserts every searchable OWNER_ONLY domain's **declared** property exists on its model.
+Doc truth-up rode along in `docs/architecture/SEARCH_ARCHITECTURE.md` § Ownership Scoping.
 
 ---
 
@@ -1044,8 +994,8 @@ bundle never reaches it: `context_retriever.py` references neither
 | entry | facet of the same root |
 |---|---|
 | § `:OWNS` Writers That Skip `user_uid` | **write-side** — ✅ RESOLVED (ADR-086 + PR-2 residue collapse: paper channel deleted, attendee triple retargeted onto consent-carrying `ATTENDS`) |
-| § `GroupService` Declares `OWNER_ONLY`… | **declaration-side** — a scoping claim the model cannot render |
-| § `User.uid` Has No Index or Constraint | its own text calls it "a live input to any future ruling that would move ownership reads onto the edge" |
+| § `GroupService` Declares `OWNER_ONLY`… | **declaration-side** — ✅ RESOLVED (bundle PR-4: `DomainConfig.ownership_property`, Group declares `owner_uid`, guard test tightened to the declaration) |
+| § `User.uid` Has No Index or Constraint | **index-side** — ✅ RESOLVED (bundle PR-4: `User_uid_unique` uniqueness constraint via startup DDL, applied live + `NodeUniqueIndexSeek` confirmed) |
 | **this P1** | **read-side** — ✅ RESOLVED (ADR-085 G1+G2, bundle PR-3: `_fetch_entities_by_uid` reads through `get_visible_to_user`, and the MEGA-QUERY habit/task projections carry `user_uid = user.uid`) |
 
 **Ruled 2026-08-21 (Mike): this is significant cross-cutting work and belongs to
@@ -1299,8 +1249,6 @@ Review this document at the **September 2026 quarterly review**. Checklist:
 | Skill↔doc backlink reconciliation | Docs-taxonomy pass — ruling needed per warning, not a rote edit | `uv run python scripts/validate_cross_references.py --verbose` |
 | Drifted `## Related Skills` body sections (3 of 35) | Next `docs/patterns` sweep already touching these files | `uv run python scripts/sync_cross_references.py --all --dry-run` |
 | Completion stamping at the status-transition chokepoint (truth-pass residue) | Next touch of the status-transition write path, or recent-activities ordering visibly lies | See § `:OWNS` Writers (RESOLVED) — residue subsection |
-| `User.uid` unindexed | User count past a handful, or a ruling moving ownership reads onto the `:OWNS` edge | `SHOW INDEXES` — no `User(uid)` entry today |
-| `GroupService` OWNER_ONLY vs `Group.owner_uid` | Wiring Group into search, or a 2nd `owner_uid`-keyed domain wanting search | Ruling needed (configurable ownership property **or** a Group visibility) — see the section; guarded by `TestOwnerOnlyDomainsCarryTheScopingProperty` |
 | LP recommendation backend methods (ruled *build, not now* 2026-08-20) | Mike schedules it — full feature: backend methods + frozen contract + consumer surface | Case file `lp-backend-recommendation-methods.md`; the 3 `Any` handles + their comments are the in-code markers |
 | `KnowledgePracticed` subscriber (ruled "earns a subscriber" 2026-08-21) | A review-scheduling / spaced-repetition surface is scheduled | `git grep -l "subscribe(KnowledgePracticed"` — empty until wired; see the section |
 | Per-node substance counters — the unread arm (ruled "keep staged" 2026-08-21) | A substantiation UI/surface is scheduled | `git grep -n "get_substantiation_gaps\|is_well_practiced" -- "ui/" "adapters/inbound/"` — empty until wired; see the section (incl. the retroactive-credit question) |

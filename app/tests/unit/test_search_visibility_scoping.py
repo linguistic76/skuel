@@ -45,6 +45,7 @@ from core.models.relationship_names import RelationshipName
 from core.models.search_request import SearchRequest
 from core.models.task.task import Task
 from core.orchestrator.search_router import SearchRouter
+from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
 from core.utils.result_simplified import Result
 from tests.helpers.faceted_capture import CapturedQuery, run_faceted
@@ -241,6 +242,32 @@ class TestVisibilityClause:
         with pytest.raises(ValueError):
             build_search_visibility_clause(
                 SearchVisibility.OWNER_ONLY, entity_alias="n) MATCH (m", has_user=True
+            )
+
+    def test_owner_only_renders_the_declared_ownership_property(self) -> None:
+        """Group's shape (ADR-086): OWNER_ONLY filters what the domain declares.
+
+        Group stores ownership as ``owner_uid``; the default ``user_uid``
+        predicate would be null for every Group row (search silently empty).
+        """
+        clause, params = build_search_visibility_clause(
+            SearchVisibility.OWNER_ONLY, has_user=True, ownership_property="owner_uid"
+        )
+        assert clause == "(n.owner_uid = $user_uid)"
+        assert params == {}
+
+    def test_ownership_property_is_identifier_validated(self) -> None:
+        """The property name is interpolated — a non-identifier raises, never renders.
+
+        The value comes from a frozen DomainConfig declaration (itself
+        identifier-validated at construction); this is the defense at the
+        composition point for any future caller that is not.
+        """
+        with pytest.raises(ValueError):
+            build_search_visibility_clause(
+                SearchVisibility.OWNER_ONLY,
+                has_user=True,
+                ownership_property="user_uid = $user_uid OR 1=1 --",
             )
 
 
@@ -469,6 +496,22 @@ class TestFacetedPathComposesTheClause:
         assert store["params"]["user_uid"] is None
 
     @pytest.mark.asyncio
+    async def test_owner_only_scopes_on_the_declared_property(self) -> None:
+        """A domain declaring ``owner_uid`` (Group — ADR-086) gets its own predicate."""
+        store: CapturedQuery = {}
+        await run_faceted(
+            store,
+            user_uid="user_teacher",
+            label=NeoLabel.GROUP,
+            visibility=SearchVisibility.OWNER_ONLY,
+            ownership_property="owner_uid",
+        )
+
+        query = store["query"]
+        assert "(entity.owner_uid = $user_uid)" in query
+        assert "entity.user_uid" not in query
+
+    @pytest.mark.asyncio
     async def test_public_still_carries_the_publication_gate(self) -> None:
         """Codex #1006 P1, re-asserted behaviourally.
 
@@ -541,6 +584,72 @@ class TestDomainConfigDerivation:
         assert PsSearchService._config.get_search_visibility() is SearchVisibility.PUBLIC
         assert TasksSearchService._config.get_search_visibility() is SearchVisibility.OWNER_ONLY
         assert UserEntryService._config.get_search_visibility() is SearchVisibility.OWNER_ONLY
+
+    def test_ownership_property_defaults_to_user_uid(self) -> None:
+        config = DomainConfig(dto_class=_FakeDTO, model_class=Task)
+        assert config.ownership_property == "user_uid"
+
+    def test_ownership_property_must_be_an_identifier(self) -> None:
+        """Fail-fast at declaration time: the value is interpolated into Cypher
+        (as an identifier), so a non-identifier can only be a typo or an
+        injection attempt — refuse it before any query composes."""
+        with pytest.raises(ValueError):
+            DomainConfig(
+                dto_class=_FakeDTO, model_class=Task, ownership_property="owner-uid OR 1=1"
+            )
+
+    def test_group_declares_owner_uid(self) -> None:
+        from core.services.groups.group_service import GroupService
+
+        assert GroupService._config.ownership_property == "owner_uid"
+
+
+class _OwnerUidDeclaringService(BaseService[Any, Task]):
+    """A domain declaring ownership_property="owner_uid" (Group's shape)."""
+
+    _config = DomainConfig(
+        dto_class=_FakeDTO,
+        model_class=Task,
+        ownership_property="owner_uid",
+    )
+
+
+class TestOwnershipPropertyThreading:
+    """The service layer forwards its declaration to the backend (the caller side).
+
+    Wiring tests assert the CALLER (#1108): the clause tests above prove the
+    backend renders a declared property, but nothing there proves a service
+    actually passes its declaration. Drop ``ownership_property=self.
+    ownership_property`` from a mixin call site and every clause test stays
+    green — this class is what fails.
+    """
+
+    def _service(self) -> tuple[_OwnerUidDeclaringService, MagicMock]:
+        backend = MagicMock()
+        backend.text_search_raw = AsyncMock(return_value=Result.ok([]))
+        backend.array_any_match_raw = AsyncMock(return_value=Result.ok([]))
+        backend.get_visible_to_user = AsyncMock(return_value=Result.ok(None))
+        service = _OwnerUidDeclaringService(backend=backend)
+        return service, backend
+
+    @pytest.mark.asyncio
+    async def test_text_search_forwards_the_declaration(self) -> None:
+        service, backend = self._service()
+        await service.search("anything", user_uid="user_a")
+        assert backend.text_search_raw.call_args.kwargs["ownership_property"] == "owner_uid"
+
+    @pytest.mark.asyncio
+    async def test_tag_search_forwards_the_declaration(self) -> None:
+        service, backend = self._service()
+        await service.search_by_tags(["tag"], user_uid="user_a")
+        assert backend.array_any_match_raw.call_args.kwargs["ownership_property"] == "owner_uid"
+
+    @pytest.mark.asyncio
+    async def test_by_uid_read_forwards_the_declaration(self) -> None:
+        service, backend = self._service()
+        await service.get_visible_to_user("uid_1", "user_a")
+        args = backend.get_visible_to_user.call_args.args
+        assert args[3] == "owner_uid"
 
 
 # ============================================================================

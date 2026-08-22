@@ -267,6 +267,7 @@ def build_search_visibility_clause(
     entity_alias: str = "n",
     has_user: bool,
     apply_publication_gate: bool = True,
+    ownership_property: str = "user_uid",
 ) -> tuple[str, dict[str, str]] | None:
     """
     Build the WHERE fragment that scopes search results to their audience.
@@ -293,16 +294,21 @@ def build_search_visibility_clause(
             scoped query unless the domain explicitly declares PUBLIC).
         PUBLIC: shared content — no ownership clause, but the publication
             predicate still applies (a draft PathStep has no audience yet).
-        OWNER_ONLY: property scope on ``user_uid``. ⚠ Without a user this
-            applies NO clause — external surfaces (SearchRouter) are
-            responsible for not exposing unscoped user-owned searches
-            (fail-closed skip); internal callers keep today's semantics.
-            A caller holding a ``user_uid`` that may be None must therefore
-            pass ``has_user=True`` anyway and let the emitted predicate do
-            the work: ``entity.user_uid = $user_uid`` on a null parameter is
-            a null predicate and matches nothing. Deriving ``has_user`` from
-            ``user_uid is not None`` inverts that into a cross-user
-            disclosure — it drops the predicate exactly when it is needed.
+        OWNER_ONLY: property scope on the domain's declared
+            ``ownership_property`` (``DomainConfig.ownership_property``,
+            default ``user_uid``; Group declares ``owner_uid`` — ADR-086).
+            The property name is identifier-validated before interpolation —
+            it comes from a frozen declaration, never from user input.
+            ⚠ Without a user this applies NO clause — external surfaces
+            (SearchRouter) are responsible for not exposing unscoped
+            user-owned searches (fail-closed skip); internal callers keep
+            today's semantics. A caller holding a ``user_uid`` that may be
+            None must therefore pass ``has_user=True`` anyway and let the
+            emitted predicate do the work: ``entity.user_uid = $user_uid``
+            on a null parameter is a null predicate and matches nothing.
+            Deriving ``has_user`` from ``user_uid is not None`` inverts that
+            into a cross-user disclosure — it drops the predicate exactly
+            when it is needed.
         SCOPE_AWARE: CURRICULUM-scope entities are always visible; owned
             scopes require the ``owner_uid`` claim, :OWNS, :SHARES_WITH, or
             group membership (:MEMBER_OF + :SHARED_WITH_GROUP). Without a
@@ -346,7 +352,8 @@ def build_search_visibility_clause(
     if visibility is SearchVisibility.OWNER_ONLY:
         if not has_user:
             return None
-        return f"({alias}.user_uid = $user_uid)", {}
+        _validate_identifier(ownership_property, context="ownership property")
+        return f"({alias}.{ownership_property} = $user_uid)", {}
 
     # SCOPE_AWARE — the scope value rides as a parameter (SKUEL021: only
     # identifiers that Cypher cannot parameterize, like relationship types
@@ -393,6 +400,7 @@ def build_text_search_query(
     order_desc: bool = True,
     visibility: SearchVisibility | None = None,
     user_uid: UserUID | None = None,
+    ownership_property: str = "user_uid",
 ) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Build text search query across multiple fields with OR semantics.
@@ -411,6 +419,8 @@ def build_text_search_query(
         visibility: Domain search-visibility declaration; composed into the
             WHERE clause via build_search_visibility_clause()
         user_uid: Requesting user for the visibility clause
+        ownership_property: The domain's declared ownership property for the
+            OWNER_ONLY clause (DomainConfig.ownership_property)
 
     Returns:
         Tuple of (cypher_query, parameters)
@@ -458,7 +468,10 @@ def build_text_search_query(
 
     params: dict[str, Neo4jValue] = {"query": query, "limit": limit}
     visibility_scope = build_search_visibility_clause(
-        visibility, entity_alias="n", has_user=user_uid is not None
+        visibility,
+        entity_alias="n",
+        has_user=user_uid is not None,
+        ownership_property=ownership_property,
     )
     if visibility_scope:
         visibility_clause, visibility_params = visibility_scope
@@ -498,6 +511,7 @@ def build_relationship_traversal_query(
     limit: int = 100,
     visibility: SearchVisibility | None = None,
     user_uid: UserUID | None = None,
+    ownership_property: str = "user_uid",
 ) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Build single-query relationship traversal returning full target entities.
@@ -515,6 +529,8 @@ def build_relationship_traversal_query(
             traversal targets are scoped to their audience like every other
             search strategy)
         user_uid: Requesting user for the visibility clause
+        ownership_property: The domain's declared ownership property for the
+            OWNER_ONLY clause (DomainConfig.ownership_property)
 
     Returns:
         Tuple of (cypher_query, parameters)
@@ -549,7 +565,7 @@ def build_relationship_traversal_query(
     # null predicate and matches nothing — fail-closed, not unscoped
     # (Codex P1 on #1120; same convention as faceted_search_raw).
     visibility_scope = build_search_visibility_clause(
-        visibility, entity_alias="target", has_user=True
+        visibility, entity_alias="target", has_user=True, ownership_property=ownership_property
     )
     if visibility_scope:
         visibility_clause, visibility_params = visibility_scope
@@ -583,6 +599,7 @@ def build_graph_aware_search_query(
     order_desc: bool = True,
     visibility: SearchVisibility | None = None,
     user_uid: UserUID | None = None,
+    ownership_property: str = "user_uid",
 ) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Build graph-aware search: text search + relationship traversal in ONE query.
@@ -670,7 +687,10 @@ def build_graph_aware_search_query(
 
     params: dict[str, Neo4jValue] = {"source_uid": source_uid, "query": query, "limit": limit}
     visibility_scope = build_search_visibility_clause(
-        visibility, entity_alias="target", has_user=user_uid is not None
+        visibility,
+        entity_alias="target",
+        has_user=user_uid is not None,
+        ownership_property=ownership_property,
     )
     if visibility_scope:
         visibility_clause, visibility_params = visibility_scope
@@ -712,6 +732,7 @@ def build_array_contains_query(
     order_desc: bool = True,
     visibility: SearchVisibility | None = None,
     user_uid: UserUID | None = None,
+    ownership_property: str = "user_uid",
 ) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Build query to find entities where array field contains a value.
@@ -767,7 +788,9 @@ def build_array_contains_query(
     # OWNER_ONLY must always emit its predicate: on a null $user_uid it is a
     # null predicate and matches nothing — fail-closed, not unscoped
     # (Codex P1 on #1120; same convention as faceted_search_raw).
-    visibility_scope = build_search_visibility_clause(visibility, entity_alias="n", has_user=True)
+    visibility_scope = build_search_visibility_clause(
+        visibility, entity_alias="n", has_user=True, ownership_property=ownership_property
+    )
     if visibility_scope:
         visibility_clause, visibility_params = visibility_scope
         match_where = f"{visibility_clause} AND {match_where}"
@@ -798,6 +821,7 @@ def build_array_any_match_query(
     order_desc: bool = True,
     visibility: SearchVisibility | None = None,
     user_uid: UserUID | None = None,
+    ownership_property: str = "user_uid",
 ) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Build query to find entities matching any/all values in array field.
@@ -856,7 +880,10 @@ def build_array_any_match_query(
     result_values: list[str | int | float] = list(values)
     params: dict[str, Neo4jValue] = {"values": result_values, "limit": limit}
     visibility_scope = build_search_visibility_clause(
-        visibility, entity_alias="n", has_user=user_uid is not None
+        visibility,
+        entity_alias="n",
+        has_user=user_uid is not None,
+        ownership_property=ownership_property,
     )
     if visibility_scope:
         visibility_clause, visibility_params = visibility_scope

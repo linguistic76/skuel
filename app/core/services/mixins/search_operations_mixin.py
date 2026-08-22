@@ -77,6 +77,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         search_order_by: str - Default sort field (DomainConfig-resolved property)
         category_field: str - Field for categorization (DomainConfig-resolved property)
         search_visibility: SearchVisibility - Scoping declaration (DomainConfig-resolved property)
+        ownership_property: str - OWNER_ONLY scoping property (DomainConfig-resolved property)
         _dto_class: type[DTOProtocol] - DTO class
         _model_class: type[T] - Domain model class
         _graph_enrichment_patterns: tuple - Graph enrichment config
@@ -154,6 +155,17 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
 
         THE scoping input for every search strategy. See
         ``DomainConfig.get_search_visibility()`` for the derivation.
+        """
+        ...
+
+    @property
+    @abstractmethod
+    def ownership_property(self) -> str:
+        """DomainConfig-resolved ownership property — provided by composing class.
+
+        Rides with ``search_visibility`` into every backend search call so the
+        OWNER_ONLY clause filters the property the domain actually writes
+        (default ``"user_uid"``; Group declares ``"owner_uid"`` — ADR-086).
         """
         ...
 
@@ -299,6 +311,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
             order_desc=True,
             user_uid=user_uid,
             visibility=self.search_visibility,
+            ownership_property=self.ownership_property,
         )
         if result.is_error:
             return Result.fail(result)
@@ -349,6 +362,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
             direction=direction,
             user_uid=user_uid,
             visibility=self.search_visibility,
+            ownership_property=self.ownership_property,
         )
         if result.is_error:
             return Result.fail(result)
@@ -412,6 +426,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
             order_desc=True,
             user_uid=user_uid,
             visibility=self.search_visibility,
+            ownership_property=self.ownership_property,
         )
         if result.is_error:
             return Result.fail(result)
@@ -471,6 +486,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
             order_desc=True,
             user_uid=user_uid,
             visibility=self.search_visibility,
+            ownership_property=self.ownership_property,
         )
         if result.is_error:
             return Result.fail(result)
@@ -525,6 +541,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
             order_desc=True,
             user_uid=user_uid,
             visibility=self.search_visibility,
+            ownership_property=self.ownership_property,
         )
         if result.is_error:
             return Result.fail(result)
@@ -614,6 +631,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
             limit=limit,
             offset=request.offset,
             visibility=visibility,
+            ownership_property=self.ownership_property,
         )
         if result.is_error:
             return Result.fail(result)

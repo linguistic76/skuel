@@ -75,6 +75,7 @@ class _SearchRawMixin[T: DomainModelProtocol]:
         order_desc: bool = True,
         user_uid: UserUID | None = None,
         visibility: SearchVisibility | None = None,
+        ownership_property: str = "user_uid",
     ) -> Result[builtins.list[dict[str, Any]]]:
         """
         Text search across specified fields, returning raw dicts.
@@ -91,6 +92,8 @@ class _SearchRawMixin[T: DomainModelProtocol]:
             user_uid: Requesting user for the visibility clause
             visibility: Domain search-visibility declaration
                 (build_search_visibility_clause composes the WHERE fragment)
+            ownership_property: The domain's declared ownership property
+                (DomainConfig.ownership_property) for the OWNER_ONLY clause
 
         Returns:
             Result[list[dict]]: Raw node property dicts
@@ -107,6 +110,7 @@ class _SearchRawMixin[T: DomainModelProtocol]:
             order_desc=order_desc,
             visibility=visibility,
             user_uid=user_uid,
+            ownership_property=ownership_property,
         )
 
         data = await self._run_records(cypher_query, params)
@@ -122,6 +126,7 @@ class _SearchRawMixin[T: DomainModelProtocol]:
         *,
         user_uid: UserUID | None = None,
         visibility: SearchVisibility | None = None,
+        ownership_property: str = "user_uid",
     ) -> Result[builtins.list[dict[str, Any]]]:
         """
         Traverse a graph relationship and return raw target node dicts.
@@ -135,6 +140,8 @@ class _SearchRawMixin[T: DomainModelProtocol]:
             visibility: Domain search-visibility declaration
                 (build_search_visibility_clause composes the WHERE fragment
                 on the traversal targets — ADR-085 G3)
+            ownership_property: The domain's declared ownership property
+                (DomainConfig.ownership_property) for the OWNER_ONLY clause
 
         Returns:
             Result[list[dict]]: Raw node property dicts for related entities
@@ -148,6 +155,7 @@ class _SearchRawMixin[T: DomainModelProtocol]:
             direction=direction,
             visibility=visibility,
             user_uid=user_uid,
+            ownership_property=ownership_property,
         )
 
         data = await self._run_records(cypher_query, params)
@@ -167,6 +175,7 @@ class _SearchRawMixin[T: DomainModelProtocol]:
         order_desc: bool = True,
         user_uid: UserUID | None = None,
         visibility: SearchVisibility | None = None,
+        ownership_property: str = "user_uid",
     ) -> Result[builtins.list[dict[str, Any]]]:
         """
         Combined text search + relationship traversal in one query.
@@ -182,6 +191,8 @@ class _SearchRawMixin[T: DomainModelProtocol]:
             order_desc: Sort descending
             user_uid: Requesting user for the visibility clause
             visibility: Domain search-visibility declaration
+            ownership_property: The domain's declared ownership property
+                (DomainConfig.ownership_property) for the OWNER_ONLY clause
 
         Returns:
             Result[list[dict]]: Raw node property dicts
@@ -201,6 +212,7 @@ class _SearchRawMixin[T: DomainModelProtocol]:
             order_desc=order_desc,
             visibility=visibility,
             user_uid=user_uid,
+            ownership_property=ownership_property,
         )
 
         data = await self._run_records(cypher_query, params)
@@ -218,6 +230,7 @@ class _SearchRawMixin[T: DomainModelProtocol]:
         order_desc: bool = True,
         user_uid: UserUID | None = None,
         visibility: SearchVisibility | None = None,
+        ownership_property: str = "user_uid",
     ) -> Result[builtins.list[dict[str, Any]]]:
         """
         Search array field for ANY/ALL of the given values.
@@ -231,6 +244,8 @@ class _SearchRawMixin[T: DomainModelProtocol]:
             order_desc: Sort descending
             user_uid: Requesting user for the visibility clause
             visibility: Domain search-visibility declaration
+            ownership_property: The domain's declared ownership property
+                (DomainConfig.ownership_property) for the OWNER_ONLY clause
 
         Returns:
             Result[list[dict]]: Raw node property dicts
@@ -247,6 +262,7 @@ class _SearchRawMixin[T: DomainModelProtocol]:
             order_desc=order_desc,
             visibility=visibility,
             user_uid=user_uid,
+            ownership_property=ownership_property,
         )
 
         data = await self._run_records(cypher_query, params)
@@ -263,6 +279,7 @@ class _SearchRawMixin[T: DomainModelProtocol]:
         order_desc: bool = True,
         user_uid: UserUID | None = None,
         visibility: SearchVisibility | None = None,
+        ownership_property: str = "user_uid",
     ) -> Result[builtins.list[dict[str, Any]]]:
         """
         Search array field for a single value (case-insensitive contains).
@@ -276,6 +293,8 @@ class _SearchRawMixin[T: DomainModelProtocol]:
             user_uid: Requesting user for the visibility clause
             visibility: Domain search-visibility declaration (ADR-085 G5 —
                 the shape its sibling array_any_match_raw already has)
+            ownership_property: The domain's declared ownership property
+                (DomainConfig.ownership_property) for the OWNER_ONLY clause
 
         Returns:
             Result[list[dict]]: Raw node property dicts
@@ -291,6 +310,7 @@ class _SearchRawMixin[T: DomainModelProtocol]:
             order_desc=order_desc,
             visibility=visibility,
             user_uid=user_uid,
+            ownership_property=ownership_property,
         )
 
         data = await self._run_records(cypher_query, params)
@@ -342,6 +362,7 @@ class _SearchRawMixin[T: DomainModelProtocol]:
         limit: int = 50,
         offset: int = 0,
         visibility: SearchVisibility | None = None,
+        ownership_property: str = "user_uid",
     ) -> Result[builtins.list[dict[str, Any]]]:
         """
         Graph-aware faceted search combining ownership, filters, text,
@@ -368,6 +389,8 @@ class _SearchRawMixin[T: DomainModelProtocol]:
             visibility: The domain's scoping declaration. Every value composes
                 its scope through ``build_search_visibility_clause`` — this
                 path carries no ownership predicate of its own
+            ownership_property: The domain's declared ownership property
+                (DomainConfig.ownership_property) for the OWNER_ONLY clause
 
         Returns:
             Result[list[dict]]: Records with entity data and enrichment collections
@@ -406,7 +429,7 @@ class _SearchRawMixin[T: DomainModelProtocol]:
         # listing withheld it (Codex #1006).
         where_clauses = ["1=1"]
         visibility_scope = build_search_visibility_clause(
-            visibility, entity_alias="entity", has_user=True
+            visibility, entity_alias="entity", has_user=True, ownership_property=ownership_property
         )
         if visibility_scope:
             scope_clause, scope_params = visibility_scope
