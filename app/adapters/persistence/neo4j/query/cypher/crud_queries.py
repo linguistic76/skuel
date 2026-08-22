@@ -542,18 +542,22 @@ def build_relationship_traversal_query(
 
     params: dict[str, Neo4jValue] = {"source_uid": source_uid, "limit": limit}
     where_line = ""
+    # ⚠ has_user=True is deliberate and load-bearing — do NOT derive it from
+    # `user_uid is not None`. This builder feeds get_by_relationship, which has
+    # NO upstream fail-closed refusal (unlike the SearchRouter strategies), so
+    # OWNER_ONLY must always emit its predicate: on a null $user_uid it is a
+    # null predicate and matches nothing — fail-closed, not unscoped
+    # (Codex P1 on #1120; same convention as faceted_search_raw).
     visibility_scope = build_search_visibility_clause(
-        visibility, entity_alias="target", has_user=user_uid is not None
+        visibility, entity_alias="target", has_user=True
     )
     if visibility_scope:
         visibility_clause, visibility_params = visibility_scope
         where_line = f"WHERE {visibility_clause}"
         params.update(visibility_params)
-        # Only bind $user_uid when the clause actually references it: a PUBLIC
-        # domain now returns the publication gate (which does not), and passing
-        # the caller's identity into a query that never uses it is a needless
-        # leak of who is asking.
-        if user_uid is not None and "$user_uid" in visibility_clause:
+        # Bind $user_uid whenever the clause references it — even when None,
+        # so the emitted predicate can fail closed rather than error unbound.
+        if "$user_uid" in visibility_clause:
             params["user_uid"] = user_uid
 
     cypher = f"""
@@ -757,18 +761,20 @@ def build_array_contains_query(
     match_where = f"(ANY(item IN n.{field} WHERE toLower(item) CONTAINS toLower($value)))"
 
     params: dict[str, Neo4jValue] = {"value": value, "limit": limit}
-    visibility_scope = build_search_visibility_clause(
-        visibility, entity_alias="n", has_user=user_uid is not None
-    )
+    # ⚠ has_user=True is deliberate and load-bearing — do NOT derive it from
+    # `user_uid is not None`. This builder feeds search_array_field, which has
+    # NO upstream fail-closed refusal (unlike the SearchRouter strategies), so
+    # OWNER_ONLY must always emit its predicate: on a null $user_uid it is a
+    # null predicate and matches nothing — fail-closed, not unscoped
+    # (Codex P1 on #1120; same convention as faceted_search_raw).
+    visibility_scope = build_search_visibility_clause(visibility, entity_alias="n", has_user=True)
     if visibility_scope:
         visibility_clause, visibility_params = visibility_scope
         match_where = f"{visibility_clause} AND {match_where}"
         params.update(visibility_params)
-        # Only bind $user_uid when the clause actually references it: a PUBLIC
-        # domain now returns the publication gate (which does not), and passing
-        # the caller's identity into a query that never uses it is a needless
-        # leak of who is asking.
-        if user_uid is not None and "$user_uid" in visibility_clause:
+        # Bind $user_uid whenever the clause references it — even when None,
+        # so the emitted predicate can fail closed rather than error unbound.
+        if "$user_uid" in visibility_clause:
             params["user_uid"] = user_uid
 
     cypher = f"""
