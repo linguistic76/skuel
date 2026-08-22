@@ -608,7 +608,8 @@ class GoalsCoreService(
 
             # Status-target validation + completion stamping (transition-gated). The
             # stamp rides the intent so ``super().update`` writes it in the same patch;
-            # explicit paths (``complete_goal`` sets ``achieved_date``) keep authority.
+            # an intent already carrying ``achieved_date`` (``complete_goal`` with an
+            # explicit date) keeps authority.
             stamp = completion_transition_patch(
                 EntityType.GOAL, old_goal.status if old_goal else None, changes
             )
@@ -726,21 +727,22 @@ class GoalsCoreService(
         Returns:
             Result containing True if goal was paused
         """
-        # Store pause metadata
         metadata_updates = {"pause_reason": reason}
         if until_date:
             metadata_updates["paused_until"] = until_date
 
-        result = await self.update_goal(uid, GoalUpdateIntent(status=EntityStatus.PAUSED.value))
-        if result.is_ok and metadata_updates:
-            # Update metadata separately. Entity.metadata is a read-only
-            # MappingProxyType on the frozen model — merge into a fresh dict
-            # (also what the persistence mapper JSON-serializes; a proxy isn't a dict).
-            goal = result.value
-            await self.update_goal(
-                uid, GoalUpdateIntent(metadata={**goal.metadata, **metadata_updates})
+        # One write carrying status + merged pause metadata, so both share one
+        # Result (a second, discarded metadata write reported success even when
+        # the metadata never persisted). The frozen model's metadata is a
+        # read-only view — merge into a fresh dict.
+        intent = GoalUpdateIntent(status=EntityStatus.PAUSED.value)
+        goal_result = await self.get(uid)
+        if goal_result.is_ok and goal_result.value:
+            intent = dataclasses.replace(
+                intent, metadata={**goal_result.value.metadata, **metadata_updates}
             )
 
+        result = await self.update_goal(uid, intent)
         return Result.ok(True) if result.is_ok else Result.fail(result)
 
     async def complete_goal(
@@ -752,7 +754,11 @@ class GoalsCoreService(
         Args:
             uid: Goal UID
             completion_notes: Optional completion notes
-            achieved_date: Optional achievement date (ISO format), defaults to today
+            achieved_date: Optional achievement date (ISO format). When omitted, the
+                completion-stamp helper at ``update_goal`` stamps today — transition-
+                gated, so re-completing an already-completed goal (e.g. a re-posted
+                status route call) keeps its original ``achieved_date``. An explicit
+                date always wins (deliberate re-dating stays possible).
 
         Returns:
             Result containing True if goal was completed
@@ -760,8 +766,9 @@ class GoalsCoreService(
         intent = GoalUpdateIntent(
             status=EntityStatus.COMPLETED.value,
             progress_percentage=100.0,
-            achieved_date=(date.fromisoformat(achieved_date) if achieved_date else date.today()),
         )
+        if achieved_date:
+            intent = dataclasses.replace(intent, achieved_date=date.fromisoformat(achieved_date))
 
         if completion_notes:
             # Get current goal to update metadata (merge — the frozen model's

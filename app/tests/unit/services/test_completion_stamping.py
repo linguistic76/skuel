@@ -275,6 +275,34 @@ class TestGoalsChokepoint:
         assert _written_changes(backend)["status"] == EntityStatus.CANCELLED.value
         assert _written_changes(backend)["achieved_date"] is None
 
+    async def test_complete_goal_transition_stamps_today(self):
+        # complete_goal's default path carries no achieved_date — the stamp
+        # comes from the transition gate at the chokepoint.
+        service, backend = self._service(EntityStatus.ACTIVE)
+        result = await service.complete_goal("goal_1")
+        assert result.is_ok
+        assert _written_changes(backend)["achieved_date"] == date.today()
+
+    async def test_complete_goal_on_an_already_completed_goal_does_not_redate(self):
+        # Codex P1: set_status("completed") on an already-completed goal
+        # dispatches here; with the immutability rule gone, a re-posted
+        # complete must keep the original achieved_date.
+        service, backend = self._service(EntityStatus.COMPLETED)
+        result = await service.complete_goal("goal_1")
+        assert result.is_ok
+        assert "achieved_date" not in _written_changes(backend)
+
+    async def test_pause_goal_single_write_carries_status_and_metadata(self):
+        # Codex P2: pause metadata rides the status write, so one Result
+        # answers for both (no discarded second write).
+        service, backend = self._service(EntityStatus.ACTIVE)
+        result = await service.pause_goal("goal_1", reason="resting")
+        assert result.is_ok
+        assert backend.update.await_count == 1
+        changes = _written_changes(backend)
+        assert changes["status"] == EntityStatus.PAUSED.value
+        assert changes["metadata"]["pause_reason"] == "resting"
+
     async def test_explicit_achieved_date_keeps_authority(self):
         # complete_goal's path: the intent already carries achieved_date.
         service, backend = self._service(EntityStatus.ACTIVE)
