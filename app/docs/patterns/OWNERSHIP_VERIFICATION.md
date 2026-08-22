@@ -1,16 +1,18 @@
 ---
 title: Ownership Verification Pattern
-updated: '2026-03-29'
+updated: '2026-08-21'
 category: patterns
 related_skills:
 - activity-domains
 - curriculum-domains
 - security
-related_docs: []
+related_docs:
+- ../decisions/ADR-085-ownership-read-enforcement-contract.md
+- ../decisions/ADR-086-universal-owns-and-attends-attendance.md
 ---
 # Ownership Verification Pattern
 
-*Last updated: 2026-03-29*
+*Last updated: 2026-08-21*
 
 ## Quick Start
 
@@ -53,6 +55,29 @@ SKUEL implements multi-tenant security through **ownership verification** - ensu
 > "Return 'not found' for entities the user doesn't own - never reveal that a UID exists."
 
 This design prevents information leakage. An attacker can't determine if a UID exists or if they simply don't have access.
+
+## The Two-Chokepoint Contract (ADR-085)
+
+Reads on behalf of a user pass exactly one of two enforcement chokepoints (founder-ratified
+2026-08-21 — [ADR-085](../decisions/ADR-085-ownership-read-enforcement-contract.md)):
+
+1. **The visibility clause** — `build_search_visibility_clause()` composes the audience
+   predicate from the domain's `SearchVisibility` declaration. It serves every SearchRouter
+   strategy AND audience-aware by-UID reads via
+   `UniversalNeo4jBackend.get_visible_to_user(uid, user_uid, visibility)` — THE canonical
+   service-to-service by-UID read. Not-found and not-visible are both `Result.ok(None)`,
+   preserving this document's 404 semantics below the route layer.
+2. **`verify_ownership`** — route-mediated access: the route verifies, then acts (the
+   patterns in the rest of this document).
+
+Bare `get()` stays unscoped and is legal only as internal mechanics — post-verification,
+system reads not made on behalf of a user, or structurally `PUBLIC` domains (ADR-085 §3 has
+the precise rules). **Nothing may add a third enforcement mechanism**: a hand-rolled
+ownership check is a defect even when its logic is correct. The ownership edge itself is
+universally `(User)-[:OWNS]->(entity)` —
+[ADR-086](../decisions/ADR-086-universal-owns-and-attends-attendance.md) ratifies the write
+doors and their `user_uid == :OWNS` owner invariant, and specifies the staged `ATTENDS`
+attendance design for Events.
 
 ## Architecture
 
@@ -637,6 +662,8 @@ async def test_ownership_prevents_cross_user_access():
 
 ## See Also
 
+- `/docs/decisions/ADR-085-ownership-read-enforcement-contract.md` - The two-chokepoint read contract + gap census
+- `/docs/decisions/ADR-086-universal-owns-and-attends-attendance.md` - Universal `:OWNS` ratification + `ATTENDS` attendance design
 - `/core/services/base_service.py` - Ownership methods
 - `/core/auth/session.py` - `with_ownership` decorator
 - `/adapters/inbound/route_factories/crud_route_factory.py` - Factory implementation

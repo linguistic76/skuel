@@ -103,6 +103,17 @@ _SEARCHABLE_DOMAINS: frozenset[EntityType] = frozenset({
 **Core Principle:** "One scoping mechanism for every strategy — the domain declares
 its visibility, the persistence layer composes the Cypher."
 
+This mechanism is chokepoint A of the ownership read-enforcement contract
+([ADR-085](../decisions/ADR-085-ownership-read-enforcement-contract.md), ratified
+2026-08-21): every read on behalf of a user passes either this clause (search
+strategies + `get_visible_to_user` by-UID reads) or route-mediated
+`verify_ownership` — and nothing may add a third enforcement mechanism. The
+write-side invariant the property predicate rests on (`user_uid` property ==
+`:OWNS` owner at every write door) is ratified in
+[ADR-086](../decisions/ADR-086-universal-owns-and-attends-attendance.md), which
+also specifies the future `OWNER_OR_ATTENDEE` visibility member for Events
+attendance (implemented only when the attendee surface wires).
+
 `DomainConfig.search_visibility` (`core/models/enums/metadata_enums.py`) is THE
 scoping declaration for text, tags, graph-traversal, and faceted search alike.
 `DomainConfig.get_search_visibility()` derives it when unset — an ownership
