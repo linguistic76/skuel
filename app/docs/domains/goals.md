@@ -281,11 +281,18 @@ The Goals domain publishes domain events for cross-service communication:
 | Event | Trigger | Data |
 |-------|---------|------|
 | `GoalCreated` | Goal created | `goal_uid`, `user_uid`, `title` |
-| `GoalAchieved` | Goal marked complete | `goal_uid`, `user_uid`, `achieved_at` |
+| `GoalAchieved` | Goal marked complete | `goal_uid`, `user_uid`, `actual_duration_days`, `completed_ahead_of_schedule` |
 | `GoalProgressUpdated` | Progress changed | `goal_uid`, `user_uid`, `old_progress`, `new_progress` |
 | `GoalAbandoned` | Goal abandoned | `goal_uid`, `user_uid`, `reason` |
 
 **Event handling:** Other services subscribe to these events (e.g., UserContext invalidation, task updates).
+
+**`GoalAchieved` fires on the transition, never on the state.** Every publish site gates on the
+goal *becoming* achieved (`new_progress >= 100 and old_progress < 100`, or the equivalent
+milestone check), and writes `achieved_date` under the same gate. Publishing on the state alone
+would both move the recorded achievement date to today on any later write — a mutable completion
+stamp — and duplicate the PRINCIPLE_ALIGNMENT insight `GoalEventHandlerService` appends per event.
+There is no `is_repeat` flag on this event: the transition gate is the whole mechanism.
 
 ## UI Routes
 
