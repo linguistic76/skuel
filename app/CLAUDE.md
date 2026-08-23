@@ -468,9 +468,9 @@ Auth: `require_authenticated_user(request) -> UserUID` (from `adapters.inbound.a
 **Core Principle:** "Validate at boundaries, fail fast with clear errors"
 
 - **Query Parameters (GET):** Shared helpers in `route_helpers.py` (`parse_bool_query_param`, `parse_date_query_param`, `parse_csv_query_param`, `parse_pagination_params`, etc.)
-- **JSON Bodies (POST):** Pydantic request models (auto-validated)
+- **JSON Bodies (POST):** Pydantic request models — either `parse_json_body(request, Model)` inside the handler, or `body: Model` in the signature (FastHTML binds it during parameter extraction, *before* the handler and `@boundary_handler` run, so `install_request_validation_guard` is what converts a rejected model; ⚠ never annotate an auto-bound body field as a `Literal` — FastHTML calls the annotation to coerce and `Literal(...)` raises `TypeError`, which no guard converts)
 - **Request Model Location:** `core/models/{domain}/{domain}_request.py`
-- **Error Codes:** Query params → 400 Bad Request, JSON bodies → 422 Unprocessable Entity
+- **Error Codes:** both invalid query params and invalid JSON bodies → **400** (`ErrorCategory.VALIDATION`); 422 is `BUSINESS`, a rule violation, not a malformed input
 
 **See:** `/docs/patterns/API_VALIDATION_PATTERNS.md`
 

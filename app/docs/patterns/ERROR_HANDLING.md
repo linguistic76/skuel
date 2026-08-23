@@ -152,7 +152,7 @@ async def create_journal_route(request):
     # parse_json_body handles JSON parsing + ValidationError → Result
     parsed = await parse_json_body(request, JournalCreateRequest)
     if parsed.is_error:
-        return parsed  # 422 with validation details
+        return parsed  # 400 with validation details (VALIDATION category, per the table above)
 
     # Service returns Result
     result = await journal_service.create_journal(parsed.value)

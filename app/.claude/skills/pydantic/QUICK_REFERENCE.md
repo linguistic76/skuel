@@ -103,8 +103,10 @@ def to_intent(self) -> TaskUpdateIntent:
 `_get_status_for_error` in `adapters/inbound/boundary.py` maps error categories: **VALIDATION → 400**, BUSINESS → 422, NOT_FOUND → 404. So:
 
 - **Query params (GET)** → 400 (strict `route_helpers` parsers return `Errors.validation` Results).
-- **JSON bodies auto-bound by FastHTML** (`body: SomeRequest` handler param) → **422** straight from Pydantic — no manual re-validation in the handler.
 - **JSON bodies via `parse_json_body`** → `Errors.validation` Result → 400 through `boundary_handler`.
+- **JSON bodies auto-bound by FastHTML** (`body: SomeRequest` handler param) → also **400**, via `install_request_validation_guard`. Both binding styles agree. The guard is required, not decorative: FastHTML constructs the model during parameter extraction, *before* the handler and its `@boundary_handler` wrapper run, so the `ValidationError` escapes every route-level guard and was surfacing as a **500** until an app-level handler caught it (sibling of `install_malformed_json_guard` for malformed JSON; both wired in bootstrap's `_create_web_app`).
+
+⚠ **Never annotate an auto-bound body field as a `Literal`.** FastHTML coerces each incoming value by *calling* the annotation, and `Literal(...)` raises `TypeError: Cannot instantiate typing.Literal` — not a `ValidationError`, so no guard converts it and the request 500s. Use an enum, a validated `str`, or bind via `parse_json_body`.
 
 ---
 
