@@ -21,12 +21,12 @@ carry the pattern these now copy; their gates are pinned elsewhere.
 from __future__ import annotations
 
 from datetime import date
-from typing import Any
 from unittest.mock import AsyncMock, Mock
 
 import pytest
 
 from core.events.goal_events import GoalAchieved
+from core.models.enums import EntityStatus
 from core.models.enums.goal_enums import MeasurementType
 from core.models.goal.goal import Goal
 from core.models.goal.milestone import Milestone
@@ -87,8 +87,13 @@ def _service(
     return service, backend, bus
 
 
-def _patch(backend: Mock) -> dict[str, Any]:
-    """The single update patch handed to the backend."""
+def _patch(backend: Mock) -> dict[str, object]:
+    """The single update patch handed to the backend.
+
+    ``object`` rather than ``Any``: the patch is genuinely heterogeneous
+    (float, date, EntityStatus, list[Milestone]) but every assertion below is
+    an equality or membership check, so nothing needs the escape hatch.
+    """
     assert backend.update_goal.await_count == 1, "expected exactly one write"
     return dict(backend.update_goal.await_args.args[1])
 
@@ -97,11 +102,17 @@ def _achieved(bus: _RecordingBus) -> list[object]:
     return [e for e in bus.events if isinstance(e, GoalAchieved)]
 
 
-def _milestone_goal(*, completed: tuple[bool, ...], achieved_date: date | None) -> Goal:
+def _milestone_goal(
+    *,
+    completed: tuple[bool, ...],
+    achieved_date: date | None,
+    status: EntityStatus = EntityStatus.ACTIVE,
+) -> Goal:
     return Goal(
         uid=_GOAL,
         user_uid=_USER,
         title="Ship the thing",
+        status=status,
         measurement_type=MeasurementType.MILESTONE,
         milestones=tuple(
             Milestone(
@@ -130,9 +141,32 @@ class TestCompleteMilestone:
         assert updates["status"] is not None
         assert len(_achieved(bus)) == 1
 
+    async def test_a_reopened_goal_can_be_achieved_again(self):
+        """The case that rules out a milestone-flag proxy for "already achieved".
+
+        Reopening clears ``achieved_date`` and resets ``progress_percentage``
+        (``GoalsCoreService.update_goal``) but leaves the milestone flags set —
+        so "every milestone done" stays true forever after the first
+        achievement. Gating on it would make a reopened goal unachievable.
+        """
+        goal = _milestone_goal(
+            completed=(True, True), achieved_date=None, status=EntityStatus.ACTIVE
+        )
+        service, backend, bus = _service(goal)
+
+        result = await service.complete_milestone(_GOAL, 1, Mock(user_uid=_USER))
+
+        assert result.is_ok
+        assert _patch(backend)["achieved_date"] == date.today()
+        assert len(_achieved(bus)) == 1
+
     async def test_an_already_achieved_goal_is_not_re_stamped(self):
         """Re-completing a milestone of a finished goal must not move its achievement date."""
-        goal = _milestone_goal(completed=(True, True), achieved_date=_ORIGINAL_ACHIEVED)
+        goal = _milestone_goal(
+            completed=(True, True),
+            achieved_date=_ORIGINAL_ACHIEVED,
+            status=EntityStatus.COMPLETED,
+        )
         service, backend, bus = _service(goal)
 
         result = await service.complete_milestone(_GOAL, 1, Mock(user_uid=_USER))

@@ -286,7 +286,16 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
                 )
             )
 
-        was_already_achieved = all(m.is_completed for m in goal.milestones)
+        # "Already achieved" is the goal's own completion status, NOT "every
+        # milestone is flagged done". The two diverge after a reopen: the stamp
+        # helper at GoalsCoreService.update_goal clears achieved_date and resets
+        # progress_percentage on COMPLETED → a non-terminal status, but leaves
+        # the milestone flags alone. A milestone-flag proxy would therefore stay
+        # true forever and a genuine re-achievement would never stamp or publish
+        # again. Status is the same signal is_completion_transition reads at the
+        # goals update chokepoint, and `==` (not `.is_terminal()`) survives a
+        # node whose status string is not a known enum member.
+        was_already_achieved = goal.status == EntityStatus.COMPLETED
 
         # Update milestone (Milestone is a frozen dataclass)
         from dataclasses import replace
