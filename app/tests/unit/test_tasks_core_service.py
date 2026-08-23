@@ -424,6 +424,190 @@ async def test_update_task_not_found(core_service, mock_backend):
 
 
 # ============================================================================
+# UPDATE VALIDATION TESTS (overdue-priority protection)
+# ============================================================================
+#
+# The rule lives on ``TasksCoreService._validate_update`` but is NOT reached
+# through the inherited CRUD hook: the facade routes ``update`` /
+# ``update_for_user`` to ``update_task``, which calls the hook explicitly. These
+# tests therefore all drive ``update_task`` — the live path — and assert the
+# write did or did not happen, not that the hook returned something.
+
+_YESTERDAY = date.today() - timedelta(days=1)
+_TOMORROW = date.today() + timedelta(days=1)
+
+
+def _stored_task(
+    *,
+    priority: str | None,
+    due_date: date | None,
+    status: str = EntityStatus.ACTIVE.value,
+) -> dict[str, Any]:
+    """A prior-state row as ``backend.get`` returns it (dict, not a model)."""
+    return TaskDTO(
+        uid="task:123",
+        user_uid="user_demo",
+        title="Test Task",
+        priority=priority,
+        status=status,
+        due_date=due_date,
+    ).to_dict()
+
+
+@pytest.mark.asyncio
+async def test_update_task_refuses_priority_decrease_on_overdue_task(core_service, mock_backend):
+    """The live path enforces the rule: an overdue task's priority cannot be lowered."""
+    mock_backend.get.return_value = Result.ok(
+        _stored_task(priority=Priority.HIGH.value, due_date=_YESTERDAY)
+    )
+
+    result = await core_service.update_task(
+        "task:123", TaskUpdateIntent(priority=Priority.LOW.value)
+    )
+
+    assert result.is_error
+    assert "Cannot decrease priority of overdue tasks" in result.expect_error().message
+    mock_backend.update.assert_not_called()  # validation runs BEFORE the write
+
+
+@pytest.mark.asyncio
+async def test_update_task_refuses_priority_clear_on_overdue_task(core_service, mock_backend):
+    """Clearing the priority is measured as MEDIUM, not skipped — it cannot duck the rule."""
+    mock_backend.get.return_value = Result.ok(
+        _stored_task(priority=Priority.CRITICAL.value, due_date=_YESTERDAY)
+    )
+
+    result = await core_service.update_task("task:123", TaskUpdateIntent(priority=None))
+
+    assert result.is_error
+    mock_backend.update.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_update_task_allows_priority_decrease_when_not_overdue(core_service, mock_backend):
+    """Lowering the priority of a task that is not overdue is ordinary re-planning."""
+    mock_backend.get.return_value = Result.ok(
+        _stored_task(priority=Priority.HIGH.value, due_date=_TOMORROW)
+    )
+    mock_backend.update.return_value = Result.ok(
+        _stored_task(priority=Priority.LOW.value, due_date=_TOMORROW)
+    )
+
+    result = await core_service.update_task(
+        "task:123", TaskUpdateIntent(priority=Priority.LOW.value)
+    )
+
+    assert result.is_ok
+    mock_backend.update.assert_called_once_with("task:123", {"priority": Priority.LOW.value})
+
+
+@pytest.mark.asyncio
+async def test_update_task_allows_priority_increase_on_overdue_task(core_service, mock_backend):
+    """The rule is one-directional — raising an overdue task's priority is the point."""
+    mock_backend.get.return_value = Result.ok(
+        _stored_task(priority=Priority.LOW.value, due_date=_YESTERDAY)
+    )
+    mock_backend.update.return_value = Result.ok(
+        _stored_task(priority=Priority.CRITICAL.value, due_date=_YESTERDAY)
+    )
+
+    result = await core_service.update_task(
+        "task:123", TaskUpdateIntent(priority=Priority.CRITICAL.value)
+    )
+
+    assert result.is_ok
+    mock_backend.update.assert_called_once_with("task:123", {"priority": Priority.CRITICAL.value})
+
+
+@pytest.mark.asyncio
+async def test_update_task_allows_priority_decrease_on_completed_past_due_task(
+    core_service, mock_backend
+):
+    """``Task.is_overdue()`` excludes completed tasks — a finished task is not overdue.
+
+    Guards the deliberate narrowing: with terminal-state protection deleted, a raw
+    ``due_date < today`` predicate would have invented a NEW prohibition on past-due
+    completed tasks that the deleted rule had merely made unreachable.
+    """
+    mock_backend.get.return_value = Result.ok(
+        _stored_task(
+            priority=Priority.HIGH.value,
+            due_date=_YESTERDAY,
+            status=EntityStatus.COMPLETED.value,
+        )
+    )
+    mock_backend.update.return_value = Result.ok(
+        _stored_task(
+            priority=Priority.LOW.value,
+            due_date=_YESTERDAY,
+            status=EntityStatus.COMPLETED.value,
+        )
+    )
+
+    result = await core_service.update_task(
+        "task:123", TaskUpdateIntent(priority=Priority.LOW.value)
+    )
+
+    assert result.is_ok
+    mock_backend.update.assert_called_once_with("task:123", {"priority": Priority.LOW.value})
+
+
+@pytest.mark.asyncio
+async def test_update_task_reopens_a_completed_task(core_service, mock_backend):
+    """Terminal is not frozen: no rule refuses a change to a completed task.
+
+    The deleted terminal-state rule would have blocked exactly this — the status
+    re-post that reopens a just-completed task.
+    """
+    mock_backend.get.return_value = Result.ok(
+        _stored_task(
+            priority=Priority.HIGH.value, due_date=_TOMORROW, status=EntityStatus.COMPLETED.value
+        )
+    )
+    mock_backend.update.return_value = Result.ok(
+        _stored_task(
+            priority=Priority.HIGH.value, due_date=_TOMORROW, status=EntityStatus.ACTIVE.value
+        )
+    )
+
+    result = await core_service.update_task(
+        "task:123", TaskUpdateIntent(status=EntityStatus.ACTIVE.value)
+    )
+
+    assert result.is_ok
+    written = mock_backend.update.call_args.args[1]
+    assert written["status"] == EntityStatus.ACTIVE.value
+    assert written["completion_date"] is None  # reopen clears the stamp
+
+
+@pytest.mark.asyncio
+async def test_update_task_without_priority_change_skips_the_rule(core_service, mock_backend):
+    """A non-priority update on an overdue task is unaffected — and reads nothing."""
+    mock_backend.update.return_value = Result.ok(
+        _stored_task(priority=Priority.HIGH.value, due_date=_YESTERDAY)
+    )
+
+    result = await core_service.update_task("task:123", TaskUpdateIntent(title="Updated Title"))
+
+    assert result.is_ok
+    mock_backend.get.assert_not_called()  # no prior state needed, so none is fetched
+    mock_backend.update.assert_called_once_with("task:123", {"title": "Updated Title"})
+
+
+@pytest.mark.asyncio
+async def test_update_task_fails_fast_when_the_prior_read_fails(core_service, mock_backend):
+    """A failed prior read is never silently read as 'no rule applies'."""
+    mock_backend.get.return_value = Result.fail(Errors.database("get", "connection lost"))
+
+    result = await core_service.update_task(
+        "task:123", TaskUpdateIntent(priority=Priority.LOW.value)
+    )
+
+    assert result.is_error
+    mock_backend.update.assert_not_called()
+
+
+# ============================================================================
 # DELETE TASK TESTS
 # ============================================================================
 

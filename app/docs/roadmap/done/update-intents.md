@@ -152,8 +152,10 @@ Shared `UNSET` sentinel: ☑ (Phase 1, `core/models/sentinels.py`) · Base param
   `choices_service.core.update(...)`, drilling into the core so `self._validate_update` resolves to the
   real implementation. (The pre-change UI-edit and generic-CRUD-factory paths went through the facade's
   inherited *no-op* `_validate_update` — identical to Tasks, whose same-named `TasksCoreService.
-  _validate_update` is dead because every live caller hits the facade no-op or `update_task`'s direct
-  backend write.) Routing the facade's `update` / `update_for_user` through the core funnel now means
+  _validate_update` was, at the time, dead: every live caller hit the facade no-op or `update_task`'s
+  direct backend write. *(Wired 2026-08-23 — `update_task` now calls it explicitly, and its
+  terminal-state rule was deleted rather than wired; see the cascade-idempotency arc.)*) Routing the
+  facade's `update` / `update_for_user` through the core funnel now means
   **all three paths validate** — a behavior gain, not just preservation.
   `ChoiceUpdateIntent` (node-property columns only; `ChoiceUpdateRequest` carries no
   edge fields, so nothing to drop — the create-only `informed_by_knowledge_uids` edge lives on
@@ -276,6 +278,9 @@ Shared `UNSET` sentinel: ☑ (Phase 1, `core/models/sentinels.py`) · Base param
     the documented bespoke explicit-validate path — `force_archive` cannot ride the intent (backend
     does `SET n += $updates`, no key filter → it would persist as a junk column). Do **not** silently
     wire on Tasks'/Principles' dead/stale `_validate_update` hooks (Principles' Rule 4 is unsatisfiable).
+    *(Tasks' hook was later wired deliberately, 2026-08-23, under a ruling that first deleted its
+    terminal-state rule — the Habits-style explicit call from `update_task`. Principles' stays stale;
+    its reform is still tracked in `docs/roadmap/deferred-work.md`.)*
   - Verify: `./dev quality` (MyPy 0, Pyright 0) + the **six live pipeline tests** on Docker Neo4j
     (behavior must not change; Habits' force_archive cases are the canary). Tick col 5 for the six
     activity rows.

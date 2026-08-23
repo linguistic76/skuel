@@ -203,16 +203,17 @@ def test_due_state_task_modal_also_offers_reschedule() -> None:
 
 
 def test_terminal_task_modal_offers_no_reschedule() -> None:
-    """TasksCoreService._validate_update refuses every change to a terminal
-    task — the modal must not offer a form that is guaranteed to fail."""
+    """A finished task has no work left to move, so the modal offers no
+    reschedule form. A UI judgement, not a service refusal — ``update_task``
+    would accept the date change (Tasks has no terminal-state rule)."""
     for status in ("cancelled", "failed", "archived", "completed"):
         html = to_xml(create_item_details_modal(_task_item(status=status)))
         assert "/reschedule" not in html, f"terminal status {status} must hide the form"
 
 
 def test_unknown_task_status_still_offers_reschedule() -> None:
-    """A missing/unknown status counts as actionable — the service policy is
-    the backstop, and its refusal message renders in the form."""
+    """A missing/unknown status counts as actionable — the reschedule route's
+    own guards stay the backstop, and their refusal renders in the form."""
     html = to_xml(create_item_details_modal(_task_item(status="")))
     assert 'hx-post="/cal/item/task-task_1/reschedule"' in html
 

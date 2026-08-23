@@ -10,6 +10,8 @@ Verifies the typed ``TaskUpdateIntent`` update path end to end against live Neo4
 3. A status transition expressed as an intent persists and fires ``TaskUpdated``.
 4. ``TaskUpdateRequest.to_intent()`` carries exactly the explicitly-set fields
    (``model_fields_set``) — absent fields stay ``UNSET`` and are not written.
+5. The domain rule (``_validate_update`` — overdue-priority protection) runs on that
+   path and refuses before the write, since ``update_task`` invokes it explicitly.
 
 These guard the reference implementation the other five Activity Domains copy.
 """
@@ -105,6 +107,55 @@ class TestTaskUpdateIntentPipeline:
         updated_events = [e for e in event_bus.get_event_history() if isinstance(e, TaskUpdated)]
         assert updated_events, "status transition must fire TaskUpdated"
         assert "status" in updated_events[-1].updated_fields
+
+    async def test_overdue_priority_rule_refuses_the_write(self, core_service) -> None:
+        """The domain rule runs on the live path and nothing reaches Neo4j.
+
+        ``update_task`` calls ``_validate_update`` explicitly — the facade routes the
+        generic CRUD here, so the inherited hook never fires for Tasks. Before this was
+        wired the rule had no production caller at all.
+        """
+        overdue = Task(
+            uid="task.intent_pipeline_overdue",
+            user_uid="user_intent_pipeline",
+            title="Overdue task",
+            due_date=date.today() - timedelta(days=3),
+            priority=Priority.HIGH,
+            status=EntityStatus.ACTIVE,
+        )
+        seeded = await core_service.create(overdue)
+        assert seeded.is_ok
+
+        refused = await core_service.update_task(
+            overdue.uid, TaskUpdateIntent(priority=Priority.LOW.value)
+        )
+        assert refused.is_error
+        assert "Cannot decrease priority of overdue tasks" in refused.expect_error().message
+
+        # The stored row is untouched — validation ran before the write.
+        fetched = await core_service.get_task(overdue.uid)
+        assert fetched.is_ok
+        assert fetched.value.priority == Priority.HIGH
+
+        # Raising it is still allowed on the same overdue task.
+        raised = await core_service.update_task(
+            overdue.uid, TaskUpdateIntent(priority=Priority.CRITICAL.value)
+        )
+        assert raised.is_ok
+        assert raised.value.priority == Priority.CRITICAL
+
+    async def test_priority_decrease_allowed_when_not_overdue(
+        self, core_service, seeded_task
+    ) -> None:
+        """The rule is scoped to overdue tasks — ordinary re-planning is untouched."""
+        result = await core_service.update_task(
+            seeded_task.uid, TaskUpdateIntent(priority=Priority.LOW.value)
+        )
+        assert result.is_ok
+
+        fetched = await core_service.get_task(seeded_task.uid)
+        assert fetched.is_ok
+        assert fetched.value.priority == Priority.LOW
 
     async def test_to_intent_carries_only_explicit_fields(self) -> None:
         """to_intent() reflects model_fields_set: provided → set, absent → UNSET."""
