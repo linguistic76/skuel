@@ -578,13 +578,36 @@ domain's canonical field, every transition out clears it, and nothing downstream
   `UserContextService.complete_task_with_context`), so a retry re-dated the completion and
   would now propagate into the vault `✅`.
 
-⚠️ **Named while fixing the stamp, not fixed: `complete_task_with_cascade` is not idempotent
-beyond the date.** A repeat call still re-publishes `TaskCompleted` and re-runs the whole
-cascade — goal progress bumped again, habit reinforced again, knowledge mastery +0.1 again,
-dependent tasks re-triggered. Same bug class, materially bigger scope, and the fix needs a
-ruling first: should a repeat complete be a no-op that returns the task, or should the
-cascade genuinely re-run? Both live callers can produce one (double-click, HTMX retry, an
-offline PWA queue replay). Not scoped into the arc.
+✅ **RESOLVED by the cascade-idempotency arc (#1126–#1136, 2026-08-23).** Ruled: **the cascade
+genuinely re-runs**, and the subscribers were made safe to repeat — a repeat complete stays a
+real complete, so the repair path is preserved.
+
+Two things this entry got wrong, kept here because the corrections are the useful part:
+
+- **Three of the four listed effects were not real.** "Goal progress bumped again, habit
+  reinforced again, knowledge mastery +0.1 again" described `logger.debug("Would …")` **stubs**
+  (`_update_goal_progress`, `_reinforce_habit`, `_update_knowledge_mastery`). The fourth,
+  "dependent tasks re-triggered", **was real** — `_trigger_task` wrote `{"status": "scheduled"}`
+  through the generic CRUD with no read first, so it could reopen an already-completed dependent
+  while leaving its `completion_date` set. Latent only because the graph has 0
+  `TRIGGERS_ON_COMPLETION` edges, and it fired on a **first** completion too, not just a repeat.
+  Fixed in #1128. What else actually re-ran: the `ProductivityAnalytics` counter, a duplicate
+  `PersistedInsight` (**two** append sites, not one), the Prometheus counter, and the
+  duration-calibration EMA.
+- **The "offline PWA queue replay" vector does not exist** — `static/service-worker.js` has no
+  background-sync or POST queue. The real vector was three deterministic clicks: complete → Undo →
+  complete, because Today's Undo un-hid the card client-side without posting anything.
+
+The mechanism is one signal, `TaskCompleted.is_repeat`, with the contract on the event class:
+handlers that **recompute** ignore it; handlers that **count or append** skip on a repeat. A later
+refinement (#1134) sharpened it further — the flag gates what **accumulates** (appends, stamps),
+never what **derives**. See `core/events/task_events.py` for the authoritative statement.
+
+Still open, named by the arc rather than fixed by it: a **conditional-write primitive for
+status-guarded transitions**, serving all six Activity chokepoints. Codex flagged the underlying
+read-then-write race five times across the arc (#1127, #1128, #1131, #1133, #1136) and each
+rejection was scoped, not dismissive — the window is the one the completion stamps already carry
+(#1123), so closing it closes both.
 
 Also unchanged by ruling (R4): vault **inbound** `[x]`-completion propagation. CLAUDE.md and
 ADR-070 say a checked line propagates back to SKUEL; it does not — dedup Guard 2
