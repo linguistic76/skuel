@@ -19,7 +19,9 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
-from core.models.enums import EntityStatus, Priority
+from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node
+from core.models.enums import EntityStatus, EntityType, Priority
+from core.models.relationship_names import RelationshipName
 from core.models.task.task import Task as Task
 from core.models.task.task_dto import TaskDTO
 from core.services.tasks.tasks_progress_service import TasksProgressService
@@ -775,6 +777,179 @@ async def test_complete_task_updates_knowledge_mastery(
     # Verify
     assert result.is_ok
     # In real implementation, _update_knowledge_mastery would be called for each knowledge UID
+
+
+# ----------------------------------------------------------------------------
+# _trigger_task: the cascade schedules dependents, it never reopens finished ones
+# ----------------------------------------------------------------------------
+#
+# Latent on the live graph today (0 TRIGGERS_ON_COMPLETION edges), so these tests
+# carry the whole proof.
+
+_TASK_STATUSES = EntityType.TASK.valid_statuses()
+
+#: Derived from the enum, never typed out: the service decides the skip with
+#: ``EntityStatus.is_terminal()``, and an inline ``== COMPLETED`` literal would
+#: pass the completed case while failing cancelled and failed.
+_TERMINAL_DEPENDENT_STATUSES = [s for s in EntityStatus if s in _TASK_STATUSES and s.is_terminal()]
+_LIVE_DEPENDENT_STATUSES = [s for s in EntityStatus if s in _TASK_STATUSES and not s.is_terminal()]
+
+
+def _task(uid: str, status: EntityStatus, **fields: Any) -> Task:
+    """Build a Task the way a backend read does — status as the enum."""
+    return Task.from_dto(
+        TaskDTO(
+            uid=uid,
+            user_uid="user_demo",
+            title=f"Task {uid}",
+            priority=Priority.MEDIUM.value,
+            status=status,
+            created_at=datetime.now(),
+            **fields,
+        )
+    )
+
+
+class _FakeTaskGraph:
+    """A node store with Neo4j write semantics that hands back domain models.
+
+    Two fidelity points the plain dict-returning fixture above does not carry,
+    both load-bearing here:
+
+    * ``UniversalNeo4jBackend.get``/``update`` return ``from_neo4j_node`` domain
+      models, not property dicts — and ``_trigger_task`` reads ``Task.status``
+      straight off the Result of ``self.get`` (which casts rather than converts).
+    * ``SET n += $updates`` REMOVES a property set to null and leaves untouched
+      keys alone — the invariant under test is about a property surviving (or
+      not surviving) a write.
+    """
+
+    def __init__(self, *tasks: Task) -> None:
+        self.nodes: dict[str, dict[str, Any]] = {t.uid: t.to_dto().to_dict() for t in tasks}
+        self.writes: list[tuple[str, dict[str, Any]]] = []
+
+    def snapshot(self, uid: str) -> dict[str, Any]:
+        """The stored properties of one node, detached from the store."""
+        return dict(self.nodes[uid])
+
+    async def get(self, uid: str) -> Result[Task | None]:
+        node = self.nodes.get(uid)
+        return Result.ok(from_neo4j_node(dict(node), Task) if node is not None else None)
+
+    async def update(self, uid: str, changes: dict[str, Any]) -> Result[Task]:
+        self.writes.append((uid, dict(changes)))
+        node = self.nodes[uid]
+        for key, value in changes.items():
+            if value is None:
+                node.pop(key, None)
+            else:
+                node[key] = value
+        return Result.ok(from_neo4j_node(dict(node), Task))
+
+
+def _wire_trigger_cascade(mock_backend: Any, dependent: Task) -> tuple[Task, _FakeTaskGraph]:
+    """Wire an upstream task that TRIGGERS_ON_COMPLETION the given dependent."""
+    upstream = _task("task:upstream", EntityStatus.ACTIVE)
+    graph = _FakeTaskGraph(upstream, dependent)
+    mock_backend.get = AsyncMock(side_effect=graph.get)
+    mock_backend.update = AsyncMock(side_effect=graph.update)
+
+    async def _related(
+        uid: str, relationship: Any, direction: str = "outgoing"
+    ) -> Result[list[str]]:
+        if uid == upstream.uid and relationship == RelationshipName.TRIGGERS_ON_COMPLETION:
+            return Result.ok([dependent.uid])
+        return Result.ok([])
+
+    mock_backend.get_related_uids = AsyncMock(side_effect=_related)
+    return upstream, graph
+
+
+@pytest.mark.asyncio
+async def test_trigger_task_leaves_completed_dependent_and_its_stamp_untouched(
+    progress_service, mock_backend, user_context
+):
+    """A completed dependent keeps BOTH its status and its ``completion_date``.
+
+    The cascade writes through the generic CRUD, which does not run the
+    six-chokepoint completion stamping, so a blind ``status=scheduled`` would
+    move a completed dependent out of COMPLETED while leaving the stamp behind —
+    breaking the invariant that ``completion_date`` is non-null exactly when the
+    task is completed. This fires on a FIRST completion of the upstream task, so
+    ``TaskCompleted.is_repeat`` does not cover it.
+    """
+    dependent = _task("task:dependent", EntityStatus.COMPLETED, completion_date=date(2026, 8, 1))
+    upstream, graph = _wire_trigger_cascade(mock_backend, dependent)
+    before = graph.snapshot(dependent.uid)
+
+    result = await progress_service.complete_task_with_cascade(upstream.uid, user_context)
+
+    assert result.is_ok
+    assert [uid for uid, _ in graph.writes] == [upstream.uid], "the dependent must not be written"
+    assert graph.snapshot(dependent.uid) == before
+    assert graph.nodes[dependent.uid]["status"] == EntityStatus.COMPLETED.value
+    assert graph.nodes[dependent.uid]["completion_date"] == before["completion_date"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "terminal",
+    _TERMINAL_DEPENDENT_STATUSES,
+    ids=[s.value for s in _TERMINAL_DEPENDENT_STATUSES],
+)
+async def test_trigger_task_skips_every_terminal_dependent(
+    progress_service, mock_backend, user_context, terminal
+):
+    """The gate is ``is_terminal()``, not a COMPLETED literal.
+
+    Cancelled and failed dependents are equally not this cascade's to resurrect,
+    and keying on the enum's own predicate means a new terminal status is honored
+    without editing the service.
+    """
+    dependent = _task("task:dependent", terminal)
+    upstream, graph = _wire_trigger_cascade(mock_backend, dependent)
+
+    result = await progress_service.complete_task_with_cascade(upstream.uid, user_context)
+
+    assert result.is_ok
+    assert [uid for uid, _ in graph.writes] == [upstream.uid]
+    assert graph.nodes[dependent.uid]["status"] == terminal.value
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "live",
+    _LIVE_DEPENDENT_STATUSES,
+    ids=[s.value for s in _LIVE_DEPENDENT_STATUSES],
+)
+async def test_trigger_task_still_schedules_non_terminal_dependent(
+    progress_service, mock_backend, user_context, live
+):
+    """The cascade still does its job — nothing but a terminal state is skipped."""
+    dependent = _task("task:dependent", live)
+    upstream, graph = _wire_trigger_cascade(mock_backend, dependent)
+
+    result = await progress_service.complete_task_with_cascade(upstream.uid, user_context)
+
+    assert result.is_ok
+    dependent_writes = [changes for uid, changes in graph.writes if uid == dependent.uid]
+    assert dependent_writes == [{"status": EntityStatus.SCHEDULED.value}]
+    assert graph.nodes[dependent.uid]["status"] == EntityStatus.SCHEDULED.value
+
+
+@pytest.mark.asyncio
+async def test_trigger_task_survives_a_dangling_dependent_edge(
+    progress_service, mock_backend, user_context
+):
+    """A TRIGGERS_ON_COMPLETION edge pointing at nothing fails the read, not the cascade."""
+    dependent = _task("task:dependent", EntityStatus.ACTIVE)
+    upstream, graph = _wire_trigger_cascade(mock_backend, dependent)
+    del graph.nodes[dependent.uid]
+
+    result = await progress_service.complete_task_with_cascade(upstream.uid, user_context)
+
+    assert result.is_ok
+    assert [uid for uid, _ in graph.writes] == [upstream.uid]
 
 
 # ============================================================================
