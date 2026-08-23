@@ -252,13 +252,26 @@ The Tasks domain publishes domain events for cross-service communication:
 | `TaskUpdated` | Task modified | `task_uid`, `user_uid`, `updated_fields` |
 | `TaskDeleted` | Task removed | `task_uid`, `user_uid`, `reason` |
 | `TaskPriorityChanged` | Priority changed | `task_uid`, `user_uid`, `old_priority`, `new_priority` |
+| `TasksBulkCompleted` | Batch completion | `task_uids` (rows actually written), `user_uid`, `count` |
 
 **Event handling:** Other services subscribe to these events (e.g., UserContext invalidation, goal progress updates).
 
+**Every door to COMPLETED publishes `TaskCompleted`.** Three publishers, one contract:
+`complete_task_with_cascade` (the explicit-complete doors), the status chokepoint
+`update_task` (`POST /api/tasks/{uid}/status`), and a per-row fan-out from
+`complete_tasks_bulk`. The last two are transition-gated, so they publish exactly when the
+write moved the task INTO completed and stay silent otherwise.
+
+**`TasksBulkCompleted` is published alongside the per-row events, not instead of them** — it
+carries the shape of the *batch* (size, time of day) for pattern classification. A consumer
+that merely counts completions must read the per-row `TaskCompleted`, or it double-counts a
+bulk call.
+
 **`TaskCompleted.is_repeat`:** completing an already-completed task is legal and the cascade
 deliberately re-runs on it (the repair path). Subscribers that **recompute** state ignore the
-flag; subscribers that **count** or **append** skip when it is true. See the `TaskCompleted`
-docstring in `core/events/task_events.py` for the full contract.
+flag; subscribers that **count** or **append** skip when it is true. Only the explicit-complete
+cascade ever sets it — the transition-gated publishers cannot be reached by a repeat. See the
+`TaskCompleted` docstring in `core/events/task_events.py` for the full contract.
 
 ## UI Routes
 
