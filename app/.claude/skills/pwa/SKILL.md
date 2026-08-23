@@ -63,6 +63,14 @@ const PRECACHE_URLS = [
 1. Add the path to `PRECACHE_URLS` in `static/service-worker.js`
 2. Bump `CACHE_VERSION` (e.g., `'skuel-v1'` → `'skuel-v2'`)
 
+### Changing any `/static/` file — bump `CACHE_VERSION`
+
+`cacheFirst()` caches **every** `/static/` response, not just `PRECACHE_URLS`
+entries. So editing any file served under `/static/` — page-local bundles like
+`today.js` and the generated `output.css` included — requires bumping
+`CACHE_VERSION` in the same change, or installed clients keep serving the stale
+asset indefinitely. PRECACHE_URLS membership is not the trigger.
+
 ### Forcing cache refresh on deploy
 
 Change `CACHE_VERSION` in `static/service-worker.js`. The `activate` handler automatically deletes old caches.
