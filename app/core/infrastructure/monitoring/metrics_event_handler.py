@@ -22,7 +22,7 @@ from core.events.choice_events import ChoiceCreated
 from core.events.goal_events import GoalCreated
 from core.events.habit_events import HabitCompleted, HabitCreated
 from core.events.principle_events import PrincipleCreated
-from core.events.task_events import TaskCompleted, TaskCreated, TasksBulkCompleted
+from core.events.task_events import TaskCompleted, TaskCreated
 from core.ports.infrastructure_protocols import EventBusOperations
 from core.utils.logging import get_logger
 
@@ -90,7 +90,11 @@ class MetricsEventHandler:
     def _subscribe_to_completion_events(self) -> None:
         """Subscribe to entity completion events."""
         self.event_bus.subscribe(TaskCompleted, self._on_task_completed)
-        self.event_bus.subscribe(TasksBulkCompleted, self._on_tasks_bulk_completed)
+        # No TasksBulkCompleted subscription: complete_tasks_bulk now fans out one
+        # TaskCompleted per transitioning row, so counting the batch event too
+        # would double-count every bulk completion. The per-row events are also
+        # the more accurate source — they exclude rows that were already
+        # completed, which the batch count included.
         self.event_bus.subscribe(HabitCompleted, self._on_habit_completed)
         # Note: GoalAchieved event not found, will use GoalProgressUpdated
         # Note: EventCompleted not found (events don't have completion status typically)
@@ -161,13 +165,6 @@ class MetricsEventHandler:
         if event.is_repeat:
             return
         self.prometheus_metrics.domains.entities_completed.labels(entity_type="task").inc()
-
-    def _on_tasks_bulk_completed(self, event: TasksBulkCompleted) -> None:
-        """Track bulk task completion."""
-        # Increment by number of tasks completed
-        task_uids = getattr(event, "task_uids", None)
-        count = len(task_uids) if task_uids else 1
-        self.prometheus_metrics.domains.entities_completed.labels(entity_type="task").inc(count)
 
     def _on_habit_completed(self, event: HabitCompleted) -> None:
         """Track habit completion."""

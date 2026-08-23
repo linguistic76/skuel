@@ -289,15 +289,20 @@ def test_prometheus_skips_a_repeat() -> None:
     counter.inc.assert_not_called()
 
 
-def test_bulk_completion_counter_is_unchanged() -> None:
-    """Bulk publishes its own event and is untouched by this seam."""
-    handler, counter = _metrics_handler()
+def test_bulk_completion_is_counted_per_row_not_per_batch() -> None:
+    """PR-4 inverts what PR-2 pinned here.
 
-    handler._on_tasks_bulk_completed(
-        TasksBulkCompleted(user_uid=_USER, task_uids=["t1", "t2"], count=2)
-    )
+    ``complete_tasks_bulk`` now fans out one ``TaskCompleted`` per transitioning
+    row, so the metrics handler no longer subscribes to ``TasksBulkCompleted`` —
+    counting both would double every bulk completion, and the batch count
+    included rows that were already completed.
+    """
+    handler, _ = _metrics_handler()
+    bus = handler.event_bus
 
-    counter.inc.assert_called_once_with(2)
+    subscribed = {call.args[0] for call in bus.subscribe.call_args_list}
+    assert TaskCompleted in subscribed
+    assert TasksBulkCompleted not in subscribed
 
 
 # ---------------------------------------------------------------------------

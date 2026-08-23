@@ -240,8 +240,9 @@ _TASKS_ASSIGNMENT = (
     "route/UI; wire assign/queue routes (teacher→student shape) or delete the surface"
 )
 _TASKS_BULK = (
-    "bulk completion staged — sole publisher of TasksBulkCompleted, whose subscribers "
-    "(metrics + task event handler) are live; wire a multi-select complete route/UI"
+    "bulk completion staged — sole publisher of TasksBulkCompleted, whose subscriber "
+    "(task event handler batch-pattern classification) is live, and fans out per-row "
+    "TaskCompleted for the transitioning rows; wire a multi-select complete route/UI"
 )
 _TASKS_INSIGHTS = (
     "task analytics/AI insight surface staged; wire an insights UI or Askesis consumer"

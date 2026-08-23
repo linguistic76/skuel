@@ -209,7 +209,10 @@ await event_bus.publish(TaskCreated(task_uid=uid, user_uid=user_uid))
   `PrincipleCreated`, `TranscriptionCreated`, `KnowledgeCreated` (→ `ku`), `PathStepCreated` (→ `ps`),
   `LearningPathStarted` (→ `lp`), `UserEntryCreated` (journals are UserEntry per ADR-054 —
   no separate `journal` series)
-- **Completion**: `TaskCompleted`, `TasksBulkCompleted`, `HabitCompleted`
+- **Completion**: `TaskCompleted` (skips a repeat complete — a monotonic counter has no
+  un-increment), `HabitCompleted`. `TasksBulkCompleted` is deliberately NOT tracked:
+  `complete_tasks_bulk` fans out one `TaskCompleted` per transitioning row, so counting the
+  batch event too would double every bulk completion.
 
 ### Adding Metrics for New Events
 

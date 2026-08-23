@@ -84,6 +84,12 @@ class TaskCompleted(BaseEvent):
     reason the contract names appending separately from counting: it recomputes
     the alignment from the graph on every complete, then appends a
     ``PersistedInsight`` only when this is not a repeat.
+
+    **Only the explicit-complete cascade ever sets ``is_repeat=True``.** The
+    other two publishers are transition-gated, so a repeat cannot reach them:
+    the status chokepoint (``update_task``) and the per-row fan-out from
+    ``complete_tasks_bulk`` publish exactly when the write moved the task INTO
+    completed, and stay silent otherwise.
     """
 
     task_uid: str
@@ -177,12 +183,19 @@ class TasksBulkCompleted(BaseEvent):
     """
     Published when multiple tasks are completed in a batch operation.
 
-    More efficient than publishing N individual TaskCompleted events.
+    Published **alongside** the per-row ``TaskCompleted`` events, not instead of
+    them. Every door to COMPLETED cascades (ruled 2026-08-22), so
+    ``complete_tasks_bulk`` fans out one ``TaskCompleted`` for each row that
+    actually transitioned — the efficiency argument for a batch-only event lost
+    to the cascade being the point. What this event still carries is the thing
+    per-row events cannot express: the shape of the *batch* (how many tasks, at
+    what time of day), which the handler classifies into a completion pattern.
+
+    A consumer that merely counts completions must read the per-row events, not
+    this one, or it double-counts a bulk call.
 
     Subscribers:
     - TaskEventHandlerService (batch pattern classification)
-    - UserService (single context invalidation)
-    - GoalAnalyticsService (batch goal progress update)
     """
 
     task_uids: list[str]
