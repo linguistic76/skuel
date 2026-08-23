@@ -9,9 +9,9 @@ Uses shared validators from validation_rules.py for DRY compliance.
 """
 
 from datetime import datetime
-from typing import Any, Literal
+from typing import Any, Final
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from core.models.enums import Priority, RecurrencePattern, TimeOfDay
 from core.models.enums.entity_enums import EntityStatus
@@ -429,8 +429,9 @@ class BulkCompleteHabitsRequest(BaseModel):
     habit_uids: list[str] = Field(description="UIDs of habits to mark complete", min_length=1)
 
 
-# Type literal for context-aware quality validation
-ContextualQualityLiteral = Literal["poor", "fair", "good", "excellent"]
+#: The accepted context-aware quality ratings. A plain tuple checked by a validator,
+#: NOT a ``Literal`` annotation — see ``ContextualHabitCompletionRequest.quality``.
+CONTEXTUAL_QUALITY_VALUES: Final = ("poor", "fair", "good", "excellent")
 
 
 class ContextualHabitCompletionRequest(BaseModel):
@@ -444,14 +445,35 @@ class ContextualHabitCompletionRequest(BaseModel):
         environmental_factors: Optional environmental context (location, time, mood, etc.)
     """
 
-    quality: ContextualQualityLiteral = Field(
+    quality: str = Field(
         default="good",
-        description="Quality rating of the habit completion",
+        description=f"Quality rating of the habit completion ({', '.join(CONTEXTUAL_QUALITY_VALUES)})",
     )
     environmental_factors: dict[str, Any] = Field(
         default_factory=dict,
         description="Environmental context (location, time_of_day, mood, obstacles, etc.)",
     )
+
+    @field_validator("quality")
+    @classmethod
+    def validate_quality(cls, value: str) -> str:
+        """Reject an unknown quality rating as a validation error, not a ``TypeError``.
+
+        This field is bound by FastHTML as ``body: ContextualHabitCompletionRequest``,
+        and FastHTML coerces each incoming value by **calling** the annotation. A
+        ``Literal`` annotation — which this used to be — raises
+        ``TypeError: Cannot instantiate typing.Literal``, which is not a
+        ``ValidationError``, so ``install_request_validation_guard`` never sees it and
+        the request 500s on ordinary bad input. ``str`` is callable, so the coercion
+        succeeds and the check lands here, where a ``ValueError`` becomes a Pydantic
+        ``ValidationError`` and the guard renders it as a 400.
+
+        An enum annotation would not fix it: FastHTML would call ``Enum("bad")``, which
+        raises ``ValueError`` outside the model and is equally unconverted.
+        """
+        if value not in CONTEXTUAL_QUALITY_VALUES:
+            raise ValueError(f"quality must be one of: {', '.join(CONTEXTUAL_QUALITY_VALUES)}")
+        return value
 
     model_config = ConfigDict(
         json_schema_extra={
