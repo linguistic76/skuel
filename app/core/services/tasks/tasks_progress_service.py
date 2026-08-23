@@ -645,10 +645,11 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
         # The gate is ``is_terminal()``, not COMPLETED alone: FAILED / CANCELLED /
         # ARCHIVED dependents are equally not this cascade's to resurrect, and
         # keying on the enum's own predicate means a new terminal status is honored
-        # here without an edit. That also restores parity with the domain's own
-        # terminal-state protection — ``TasksCoreService._validate_update`` Business
-        # Rule 1 refuses any update to a terminal task, but it hangs off the intent
-        # chokepoint, which this generic-CRUD write does not pass through.
+        # here without an edit. This read is the ONLY terminal-state protection on
+        # the cascade path: this service declares no ``_validate_update``, and the
+        # domain's declared rule (``TasksCoreService._validate_update`` Business
+        # Rule 1) hangs off a different service's generic CRUD — not off anything
+        # this write passes through.
         current = await self.get(task_uid)
         if current.is_error:
             self.logger.warning(f"Failed to trigger task {task_uid}: {current.expect_error()}")
