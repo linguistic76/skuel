@@ -584,10 +584,16 @@ real complete, so the repair path is preserved.
 
 Two things this entry got wrong, kept here because the corrections are the useful part:
 
-- **The effect list was wrong.** "Goal progress bumped again, habit reinforced again, knowledge
-  mastery +0.1 again, dependent tasks re-triggered" described `logger.debug("Would …")` **stubs**.
-  What actually re-ran was: the `ProductivityAnalytics` counter, a duplicate `PersistedInsight`
-  (two append sites, not one), the Prometheus counter, and the duration-calibration EMA.
+- **Three of the four listed effects were not real.** "Goal progress bumped again, habit
+  reinforced again, knowledge mastery +0.1 again" described `logger.debug("Would …")` **stubs**
+  (`_update_goal_progress`, `_reinforce_habit`, `_update_knowledge_mastery`). The fourth,
+  "dependent tasks re-triggered", **was real** — `_trigger_task` wrote `{"status": "scheduled"}`
+  through the generic CRUD with no read first, so it could reopen an already-completed dependent
+  while leaving its `completion_date` set. Latent only because the graph has 0
+  `TRIGGERS_ON_COMPLETION` edges, and it fired on a **first** completion too, not just a repeat.
+  Fixed in #1128. What else actually re-ran: the `ProductivityAnalytics` counter, a duplicate
+  `PersistedInsight` (**two** append sites, not one), the Prometheus counter, and the
+  duration-calibration EMA.
 - **The "offline PWA queue replay" vector does not exist** — `static/service-worker.js` has no
   background-sync or POST queue. The real vector was three deterministic clicks: complete → Undo →
   complete, because Today's Undo un-hid the card client-side without posting anything.
