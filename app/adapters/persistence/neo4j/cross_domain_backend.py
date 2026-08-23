@@ -354,13 +354,15 @@ RETURN pid AS principle_uid,
        count(hc) AS completion_count
 """
 
-# THE definition of "currently completed" behind ProductivityAnalytics.tasks_completed,
-# interpolated into BOTH the per-user recompute (the live TaskCompleted / TaskReopened
-# path) and the all-users drift survey the one-shot reconciliation reads. One fragment,
-# so the number the instrument reports can never disagree with the number the app
-# writes. Binds against an already-matched `u` (a :User) and yields `t`; ownership is
-# the universal :OWNS edge (ADR-086), not the user_uid property the invariant pairs it
-# with.
+# THE definition of "currently completed" for a user's tasks, interpolated into all
+# three queries that need one: the per-user recompute behind
+# ProductivityAnalytics.tasks_completed (the live TaskCompleted / TaskReopened path),
+# the all-users drift survey the one-shot reconciliation reads, and the trailing-window
+# count behind completion_velocity (which narrows it with a completion_date bound). One
+# fragment, so the number the instrument reports, the number the app writes, and the
+# number the rate is computed from can never disagree. Binds against an already-matched
+# `u` (a :User) and yields `t`; ownership is the universal :OWNS edge (ADR-086), not the
+# user_uid property the invariant pairs it with.
 _COMPLETED_TASKS_OF_USER = (
     f"OPTIONAL MATCH (u)-[:{RelationshipName.OWNS.value}]->(t:Task {{status: $completed_status}})"
 )
