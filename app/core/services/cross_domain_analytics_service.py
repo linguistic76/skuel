@@ -523,6 +523,20 @@ class CrossDomainAnalyticsService:
         Completed tasks carrying no ``completion_date`` are excluded rather than
         assumed recent.
 
+        **The two counts come from different sources, and that is visible.**
+        ``tasks_completed`` is served from the ``ProductivityAnalytics`` node,
+        maintained by the ``TaskCompleted`` / ``TaskReopened`` handlers;
+        ``tasks_completed_in_window`` is counted live. Read from one graph state
+        the window is a subset of the total, so ``tasks_completed_in_window >
+        tasks_completed`` is arithmetically impossible — and when it appears, it
+        is a **legible staleness signal**, not a defect in the rate. It means
+        the node is behind the graph: a legacy tally, a create/delete that fired
+        no event, or the vault door, which writes no node at all. The remedy is
+        the reconciliation instrument (``./dev reconcile-productivity``); the
+        contradiction is the symptom that the pass is due. The stale reading
+        pre-dates the window — before it, such a user simply read zeros for
+        everything, which is the same wrongness with nothing to notice it by.
+
         Args:
             user_uid: UID of the user
 

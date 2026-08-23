@@ -312,6 +312,18 @@ class TestCompletionVelocityWindow:
         The old read required the node with a mandatory MATCH, so this user got
         a flat 0.0 — the same confident zero the reconciliation instrument
         exists to correct, here on the read side.
+
+        **This is also the shape where the payload contradicts itself**, and it
+        is pinned deliberately rather than tolerated silently: six completions
+        inside the window against an event-maintained cumulative count of zero.
+        Read from one graph state the window is a subset of the total, so that
+        pair is impossible — which makes it a legible signal that the stored
+        count is behind the graph, remedied by ``./dev reconcile-productivity``.
+        The staleness is not new here; before the window this user read zeros
+        for everything, which is the same wrongness with nothing to notice it
+        by. Deriving the total live would remove the contradiction and orphan
+        the stored field along with the instrument that maintains it — a One
+        Path Forward decision, not a read-path patch (Codex P2 on #1136).
         """
         result = await service.get_productivity_metrics(VAULT)
 
@@ -319,6 +331,8 @@ class TestCompletionVelocityWindow:
         assert result.value["completion_velocity"] == pytest.approx(_velocity_for(6))
         assert result.value["tasks_completed"] == 0, "no node — cumulative figures are absent"
         assert result.value["last_completion_at"] is None
+        # The impossible relation, asserted as the diagnostic it is.
+        assert result.value["tasks_completed_in_window"] > result.value["tasks_completed"]
 
     async def test_a_user_with_nothing_at_all_reports_zeros(self, service, seeded):
         """No node, no tasks — not even a ``:User`` row.

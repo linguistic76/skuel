@@ -118,6 +118,12 @@ def register_analytics_routes(app, services):
         ``completion_velocity`` is a rate over a fixed recent window, not a
         lifetime average, so the window and its numerator are served alongside
         it: a bare tasks/week figure cannot be interpreted without them.
+
+        ``tasks_completed`` is the event-maintained cumulative count while
+        ``tasks_completed_in_window`` is counted live, so the second exceeding
+        the first is impossible from one graph state and means the stored count
+        is stale — run ``./dev reconcile-productivity``. See
+        ``CrossDomainAnalyticsService.get_productivity_metrics``.
         """
         user_uid = require_authenticated_user(request)
 
