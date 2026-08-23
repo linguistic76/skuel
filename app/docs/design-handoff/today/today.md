@@ -87,7 +87,7 @@ class Task:
     label:         str
     meta:          str                  # short gloss: "draft · needs your decision"
     priority:      Literal["high", "medium", "low"]
-    status:        str                  # canonical EntityStatus value ("scheduled")
+    status:        str                  # status Undo restores to; "" = no Undo
     est_min:       int
     due_label:     str                  # "Today", "Tonight", "Overdue · 2d"
     pinned:        bool                 # Today-scoped pin (:PINNED_TODAY edge)
@@ -194,8 +194,10 @@ and shows a flash toast *immediately*. Complete posts via `htmx.ajax` and keeps
 an Undo — a **real reopen**, not a local revert: it POSTs the status the card
 held before the complete back through `POST /api/tasks/{id}/status`, which also
 clears `completion_date` at the completion-stamp chokepoint. Undo is offered
-only when that prior status is known, since without it the client could un-hide
-the card but not reopen the task. Defer posts exactly ONE `fetch` carrying
+only when the card carries a **restorable** prior status — the orchestrator
+blanks any value the chokepoint would refuse (and `completed` itself), so the
+client never posts a write that fails while the card un-hides anyway. Defer
+posts exactly ONE `fetch` carrying
 `span` + `source` + `view_date`; the flash offers **no Undo** (the mutation is
 already posted — a local revert would lie). On ANY non-2xx the client restores
 the hidden card and shows the server's message; the server moves the field(s)

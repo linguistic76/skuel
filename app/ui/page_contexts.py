@@ -211,12 +211,17 @@ class TaskView(TypedDict):
     tasks are rendered pinned-first; triage stays severity-ordered, so
     ``pinned`` is carried through but does not reorder triage.
 
-    ``status`` is the task's status as the card was rendered — the canonical
+    ``status`` is the status Undo may restore the card to — the canonical
     ``EntityStatus`` value, not a display label. It is carried so Undo can
     truthfully reopen a just-completed task by POSTing the PRIOR status back
     through ``POST /api/tasks/{uid}/status``; without it the client could only
     un-hide the card while the graph stayed completed (the same dishonesty
-    ``deferTask`` refuses to offer).
+    ``deferTask`` refuses to offer). It is ``""`` when there is no restorable
+    status — a stored value the completion chokepoint would refuse, or
+    ``completed`` itself — and the client offers no Undo for such a card rather
+    than posting a write that fails while the card un-hides anyway. The
+    orchestrator owns that decision (``_restorable_status``) so the enum stays
+    the authority instead of being re-listed in JS.
     """
 
     id: str

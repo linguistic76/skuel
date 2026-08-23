@@ -137,16 +137,36 @@ def test_task_to_view_carries_the_canonical_status_value() -> None:
     assert view["status"] in {s.value for s in EntityType.TASK.valid_statuses()}
 
 
-def test_task_to_view_status_survives_an_unrecognized_stored_value() -> None:
-    """``from_neo4j_node`` leaves an unknown status on the model as a raw str.
+def test_task_to_view_blanks_an_unrecognized_stored_status() -> None:
+    """A status the completion chokepoint would refuse is NOT offered to Undo.
 
-    The view stringifies rather than assuming the enum, so a corrupt node
-    renders instead of raising while the page is built.
+    ``from_neo4j_node`` leaves an unknown status on the model as a raw str
+    (correction #13). Posting it back would fail ``completion_transition_patch``
+    while the client had already un-hidden the card — the exact lie this field
+    exists to prevent — so the view emits ``""`` and the card offers no Undo.
+    The page still renders; the value is dropped, not raised on.
     """
     today = date(2026, 4, 22)
     t = _fake_task(uid="t-odd")
     t.status = "wat"  # type: ignore[assignment]
-    assert _task_to_view(t, lifepath_id="lp-mike", today=today)["status"] == "wat"
+    assert _task_to_view(t, lifepath_id="lp-mike", today=today)["status"] == ""
+
+
+def test_task_to_view_blanks_completed_because_restoring_it_undoes_nothing() -> None:
+    """``completed`` is a legal Task status but not a restorable one.
+
+    The status route would accept the re-post and change nothing (not a
+    transition), leaving the card un-hidden over a still-completed task. Today's
+    membership predicate already keeps completed tasks off the lens, so this is
+    a guard on an unreachable state — the same shape as PR-3's terminal check.
+    """
+    today = date(2026, 4, 22)
+    view = _task_to_view(
+        _fake_task(uid="t-done", status=EntityStatus.COMPLETED),
+        lifepath_id="lp-mike",
+        today=today,
+    )
+    assert view["status"] == ""
 
 
 def test_task_to_triage_carries_status_through_from_the_base_view() -> None:

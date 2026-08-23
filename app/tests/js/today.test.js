@@ -274,16 +274,23 @@ describe('undo truthfulness', () => {
     expect(c._lastAction).toBeNull();
   });
 
-  it('offers no undo when the card carries no status to restore', () => {
-    // Defensive: without a prior status the client could un-hide the card but
-    // not reopen the task — the exact lie deferTask refuses to offer.
-    c.seed.tasks.push({ id: 't-bare', label: 'No status', lifepath_id: 'lp-1',
-      est_min: 5, pinned: false });
+  // The orchestrator emits status: '' when the stored value is not one the
+  // completion chokepoint would accept (a corrupt status, or 'completed'
+  // itself). The client must read that as "no Undo" rather than posting a
+  // write that fails while the card un-hides anyway (Codex #1133 P2).
+  it.each([
+    ['an empty restorable status', ''],
+    ['no status key at all', undefined],
+  ])('offers no undo given %s', (_label, status) => {
+    c.seed.tasks.push({ id: 't-bare', label: 'Unrestorable', lifepath_id: 'lp-1',
+      est_min: 5, status, pinned: false });
     c.completeTask('t-bare');
     expect(c.flash.action).toBeNull();
     expect(c._lastAction).toBeNull();
     htmxAjax.mockClear(); // drop the complete POST; assert only the reopen
     c.undoFlash();
     expect(htmxAjax).not.toHaveBeenCalled();
+    // The complete still happened, so the card stays hidden.
+    expect(c.completed.has('t-bare')).toBe(true);
   });
 });
