@@ -61,7 +61,9 @@ def _make_harness(
                 "tasks_completed": 7,
                 "first_completion_at": None,
                 "last_completion_at": None,
-                "completion_velocity": 1.75,
+                "velocity_window_days": 30,
+                "tasks_completed_in_window": 5,
+                "completion_velocity": 1.17,
             }
         )
     )
@@ -122,7 +124,7 @@ class TestLearningVelocity:
 
 
 class TestProductivity:
-    def test_response_shape_with_no_completions(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_response_shape(self, monkeypatch: pytest.MonkeyPatch) -> None:
         harness = _make_harness(monkeypatch)
 
         response = harness.client.get("/api/analytics/productivity")
@@ -132,6 +134,25 @@ class TestProductivity:
         assert payload["tasks_completed"] == 7
         assert payload["first_completion_at"] is None
         harness.analytics.get_productivity_metrics.assert_awaited_once_with(_USER_UID)
+
+    def test_the_velocity_window_is_served_with_the_rate(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A tasks/week figure is uninterpretable without the window it spans.
+
+        ``completion_velocity`` is a rate over a fixed trailing window, not a
+        lifetime average, and the cumulative ``tasks_completed`` beside it is a
+        different quantity entirely — 7 completed overall, 5 of them recent,
+        1.17 per week. Serving the rate alone invited exactly the confusion the
+        old first→last denominator hid behind.
+        """
+        harness = _make_harness(monkeypatch)
+
+        payload = harness.client.get("/api/analytics/productivity").json()
+
+        assert payload["velocity_window_days"] == 30
+        assert payload["tasks_completed_in_window"] == 5
+        assert payload["completion_velocity"] == 1.17
 
 
 class TestDashboard:

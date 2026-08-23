@@ -15,6 +15,7 @@ and the entire codebase updates.
 Last updated: 2026-01-24
 """
 
+from datetime import date, timedelta
 from typing import Final
 
 from core.models.type_hints import UserUID
@@ -471,6 +472,51 @@ class AnalysisPeriod:
     DAYS_30: Final = "30_days"
     DAYS_90: Final = "90_days"
     DAYS_180: Final = "180_days"
+
+
+# ============================================================================
+# COMPLETION VELOCITY WINDOW (cross_domain_analytics_service.py)
+# ============================================================================
+
+
+class CompletionVelocityWindow:
+    """The fixed trailing window behind ``completion_velocity``.
+
+    Used by: CrossDomainAnalyticsService.get_productivity_metrics()
+
+    ``completion_velocity`` is a **rate over a fixed recent window**, not a
+    lifetime average. It answers "how fast is this user completing tasks *now*",
+    which is the only question a velocity figure is ever asked. The number it
+    replaced divided the lifetime completion count by the span from the user's
+    first-ever completion to their most recent one — a denominator that can only
+    grow, so the metric could only decay, and that degenerated at both edges: a
+    span of zero (one completion, or several on one day) read as either 0.0 or a
+    full week's rate extrapolated from no elapsed time at all.
+
+    **The window is inclusive of today and exactly :attr:`DAYS` calendar days
+    long**, so :attr:`WEEKS` is an exact divisor rather than an approximation.
+    :meth:`start_date` and :attr:`WEEKS` are defined together here precisely so
+    the counted span and the divisor cannot drift apart.
+    """
+
+    #: Length of the trailing window, in calendar days ending today (inclusive).
+    #: 30 days is long enough to survive a quiet week without reading as a
+    #: collapse, and short enough that a change in behaviour shows up inside a
+    #: month.
+    DAYS: Final = 30
+
+    #: The divisor that turns the window's completion count into tasks/week.
+    WEEKS: Final = DAYS / 7
+
+    @staticmethod
+    def start_date(today: date) -> date:
+        """First day **inside** the window, given today's date.
+
+        Inclusive on both ends: with ``DAYS = 30`` the window covers
+        ``today - 29 … today``, which is thirty distinct calendar days. A
+        completion dated exactly ``DAYS`` days ago falls just outside.
+        """
+        return today - timedelta(days=CompletionVelocityWindow.DAYS - 1)
 
 
 # ============================================================================
