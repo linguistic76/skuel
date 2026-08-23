@@ -26,7 +26,12 @@ from adapters.persistence.neo4j.query.cypher import (
 from core.models.enums import EntityStatus, EntityType
 from core.models.enums.principle_enums import AlignmentLevel
 from core.models.relationship_names import RelationshipName
-from core.ports.query_types import JournalEntryRow, SelCategoryRow, UserKnowledgeChannelRow
+from core.ports.query_types import (
+    JournalEntryRow,
+    ProductivityDriftRow,
+    SelCategoryRow,
+    UserKnowledgeChannelRow,
+)
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -267,6 +272,31 @@ def _to_journal_entry_rows(
     ]
 
 
+def _to_productivity_drift_rows(
+    records: list[dict[str, Any]],  # boundary: raw neo4j-driver rows (AsyncResult.data())
+) -> list[ProductivityDriftRow]:
+    """Project raw rows onto ProductivityDriftRow (KeyError on alias drift).
+
+    Same contract as the projectors above: nothing statically links a Cypher
+    alias to a TypedDict key, so a renamed RETURN would type-check while the
+    reconciliation read the missing key as "nothing drifted" — the confident
+    zero this area keeps producing, here on a pass whose whole job is to notice
+    disagreement.
+
+    ``stored`` is carried through as ``None`` rather than defaulted: an absent
+    ``ProductivityAnalytics`` node is not a stored count of 0, and flattening
+    the two would silence the vault ``- [x]`` door's signature exactly.
+    """
+    return [
+        {
+            "user_uid": str(row["user_uid"]),
+            "stored": None if row["stored"] is None else int(row["stored"]),
+            "actual": int(row["actual"]),
+        }
+        for row in records
+    ]
+
+
 _CHOICE_PRINCIPLE_ADHERENCE_QUERY = f"""
 MATCH (u:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(c:Entity {{entity_type: 'choice'}})
 WHERE datetime(c.created_at) >= datetime() - duration({{days: $period_days}})
@@ -481,7 +511,7 @@ class CrossDomainBackend:
             },
         )
 
-    async def survey_productivity_analytics_drift(self) -> Result[list[dict[str, Any]]]:
+    async def survey_productivity_analytics_drift(self) -> Result[list[ProductivityDriftRow]]:
         """Every user's stored ``tasks_completed`` beside the count the graph implies.
 
         READ-ONLY, and the *only* new query the reconciliation instrument needs:
@@ -508,12 +538,10 @@ class CrossDomainBackend:
         nothing to record, and ``get_productivity_metrics`` already reads 0 for
         an absent node.
 
-        Returns one row per in-scope user: ``user_uid``, ``actual`` (the count
-        the graph implies) and ``stored`` (what the node holds — ``null`` when
-        no node exists yet).
+        Returns one :class:`ProductivityDriftRow` per in-scope user.
         """
-        return await self.executor.execute_query(
-            """
+        return await self.executor.execute(
+            query="""
             MATCH (u:User)
             """
             + _COMPLETED_TASKS_OF_USER
@@ -525,7 +553,9 @@ class CrossDomainBackend:
             RETURN user_uid, actual, analytics.tasks_completed AS stored
             ORDER BY user_uid
             """,
-            {"completed_status": EntityStatus.COMPLETED.value},
+            params={"completed_status": EntityStatus.COMPLETED.value},
+            processor=_to_productivity_drift_rows,
+            operation="survey_productivity_analytics_drift",
         )
 
     async def upsert_habit_analytics(

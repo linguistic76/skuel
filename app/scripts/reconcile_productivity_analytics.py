@@ -52,50 +52,30 @@ from __future__ import annotations
 import argparse
 import asyncio
 import sys
-from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend
+    from core.ports.query_types import ProductivityDriftRow
 
 
-@dataclass(frozen=True)
-class Drift:
-    """One user whose stored count disagrees with the graph.
-
-    ``stored`` is ``None`` when the user has completed tasks but no
-    ``ProductivityAnalytics`` node yet — the shape the vault ``- [x]`` door
-    leaves behind, since it publishes no event to create one.
-    """
-
-    user_uid: str
-    stored: int | None
-    actual: int
-
-
-async def find_drift(backend: CrossDomainBackend) -> Result[tuple[int, list[Drift]]]:
+async def find_drift(backend: CrossDomainBackend) -> Result[tuple[int, list[ProductivityDriftRow]]]:
     """Survey the graph read-only: ``(users_in_scope, drifted)``.
 
-    A missing node counts as drift whenever the user has completed tasks, so the
-    pass creates it; ``stored == actual`` is left alone, which is what makes the
-    second run a no-op.
+    The backend hands back typed rows that already keep ``stored=None`` (no
+    node at all) distinct from ``stored=0`` (a node saying zero), so the filter
+    is a plain disagreement test: a missing node drifts whenever the user has
+    completed tasks, and ``stored == actual`` is left alone — which is what
+    makes the second run a no-op.
     """
     survey = await backend.survey_productivity_analytics_drift()
     if survey.is_error:
         return Result.fail(survey)
 
     rows = survey.value or []
-    drifted: list[Drift] = []
-    for row in rows:
-        # A stored value is None only when the node is absent. Coercing it to 0
-        # would hide exactly the case this pass exists to create.
-        raw = row["stored"]
-        stored = None if raw is None else int(raw)
-        actual = int(row["actual"])
-        if stored != actual:
-            drifted.append(Drift(user_uid=str(row["user_uid"]), stored=stored, actual=actual))
+    drifted = [row for row in rows if row["stored"] != row["actual"]]
     return Result.ok((len(rows), drifted))
 
 
@@ -117,10 +97,10 @@ async def reconcile(backend: CrossDomainBackend, *, dry_run: bool) -> int:
         # count is recomputed inside this statement, so the value written is
         # never the one the survey read.
         result = await backend.recompute_productivity_analytics(
-            user_uid=drift.user_uid, occurred_at=None
+            user_uid=drift["user_uid"], occurred_at=None
         )
         if result.is_error:
-            failed.append((drift.user_uid, str(result.expect_error())))
+            failed.append((drift["user_uid"], str(result.expect_error())))
 
     _print_report(in_scope=in_scope, drifted=drifted, failed=failed, dry_run=False)
 
@@ -135,7 +115,7 @@ async def reconcile(backend: CrossDomainBackend, *, dry_run: bool) -> int:
     if remaining:
         print(
             f"\nFAILED: {len(remaining)} user(s) still drift after the write "
-            f"({', '.join(d.user_uid for d in remaining[:10])}). Re-run to converge.",
+            f"({', '.join(d['user_uid'] for d in remaining[:10])}). Re-run to converge.",
             file=sys.stderr,
         )
         return 1
@@ -146,7 +126,7 @@ async def reconcile(backend: CrossDomainBackend, *, dry_run: bool) -> int:
 def _print_report(
     *,
     in_scope: int,
-    drifted: list[Drift],
+    drifted: list[ProductivityDriftRow],
     failed: list[tuple[str, str]],
     dry_run: bool,
 ) -> None:
@@ -168,8 +148,10 @@ def _print_report(
 
     print(f"\n  {'user':<28} {'stored':>8}     {'actual':>8}")
     for drift in drifted:
-        stored = "unset" if drift.stored is None else f"{drift.stored:,}"
-        print(f"  {drift.user_uid:<28} {stored:>8}  →  {drift.actual:>8,}")
+        # "unset" is not "0": no node at all is a different state from a node
+        # recording zero completions, and the operator has to be able to see it.
+        stored = "unset" if drift["stored"] is None else f"{drift['stored']:,}"
+        print(f"  {drift['user_uid']:<28} {stored:>8}  →  {drift['actual']:>8,}")
 
     if failed:
         print(f"\n  FAILED ({len(failed)}):")

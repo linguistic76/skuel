@@ -226,7 +226,7 @@ class TestProductivityAnalyticsReconciliation:
 
         # And it did not consume the drift it reported.
         surveyed = await reconciler.find_drift(seeded)
-        assert {d.user_uid for d in surveyed.value[1]} == {LEGACY, ZERO, VAULT}
+        assert {d["user_uid"] for d in surveyed.value[1]} == {LEGACY, ZERO, VAULT}
 
     async def test_the_completion_stamps_survive_a_reconcile(self, neo4j_driver, seeded):
         """A reconciliation is not a completion moment.
@@ -251,5 +251,5 @@ class TestProductivityAnalyticsReconciliation:
         in_scope, drifted = surveyed.value
 
         assert in_scope == 3, "IDLE has neither a node nor a task — out of scope"
-        by_user = {d.user_uid: (d.stored, d.actual) for d in drifted}
+        by_user = {d["user_uid"]: (d["stored"], d["actual"]) for d in drifted}
         assert by_user == {LEGACY: (9, 2), ZERO: (9, 0), VAULT: (None, 3)}

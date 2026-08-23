@@ -14,6 +14,10 @@ without any Cypher running, and each is the whole point of the instrument:
    the velocity denominator to make a bookkeeping run look tidy.
 4. **A user with zero completed tasks is corrected, not skipped.** The stale
    node holding a legacy tally is exactly the row whose true count is often 0.
+5. **The survey's row shape.** Nothing statically links a Cypher ``RETURN``
+   alias to a ``TypedDict`` key, so the backend's projector indexes each one —
+   a renamed alias must raise at the boundary rather than reach the pass as a
+   missing key and read as "nothing drifted".
 
 The Cypher — the scan set especially — is exercised against a real graph in
 ``tests/integration/test_reconcile_productivity_analytics.py``. These run on
@@ -34,15 +38,19 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
 
 import reconcile_productivity_analytics as reconciler  # type: ignore[import-not-found]
 
+from adapters.persistence.neo4j.cross_domain_backend import _to_productivity_drift_rows
+from core.ports.query_types import ProductivityDriftRow
 from core.utils.result_simplified import Result
 
 
-def _row(user_uid: str, stored: int | None, actual: int) -> dict[str, Any]:
-    """One survey row, in the shape the backend query returns."""
+def _row(user_uid: str, stored: int | None, actual: int) -> ProductivityDriftRow:
+    """One survey row, in the shape the backend's projector returns."""
     return {"user_uid": user_uid, "stored": stored, "actual": actual}
 
 
-def _backend(rows: list[dict[str, Any]], *, after: list[dict[str, Any]] | None = None) -> Any:
+def _backend(
+    rows: list[ProductivityDriftRow], *, after: list[ProductivityDriftRow] | None = None
+) -> Any:
     """A faithful fake of the two backend methods the pass uses.
 
     ``after`` is the survey the post-write verification sees; it defaults to a
@@ -55,7 +63,7 @@ def _backend(rows: list[dict[str, Any]], *, after: list[dict[str, Any]] | None =
     return backend
 
 
-def _converged(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _converged(rows: list[ProductivityDriftRow]) -> list[ProductivityDriftRow]:
     """The same users, with every stored value now equal to the graph's count."""
     return [_row(row["user_uid"], row["actual"], row["actual"]) for row in rows]
 
@@ -149,7 +157,7 @@ async def test_a_missing_node_counts_as_drift() -> None:
 
     assert surveyed.is_ok
     _, drifted = surveyed.value
-    assert drifted == [reconciler.Drift(user_uid="user_vault", stored=None, actual=12)]
+    assert drifted == [{"user_uid": "user_vault", "stored": None, "actual": 12}]
 
 
 @pytest.mark.asyncio
@@ -184,3 +192,45 @@ async def test_drift_surviving_the_write_exits_nonzero() -> None:
     backend = _backend(rows, after=rows)
 
     assert await reconciler.reconcile(backend, dry_run=False) == 1
+
+
+# ============================================================================
+# THE SURVEY'S ROW SHAPE — what stops a renamed alias reaching the pass
+# ============================================================================
+
+
+def test_the_projector_indexes_every_alias() -> None:
+    """The whole shape, read off a raw driver row."""
+    assert _to_productivity_drift_rows([{"user_uid": "user_mike", "stored": 9, "actual": 85}]) == [
+        {"user_uid": "user_mike", "stored": 9, "actual": 85}
+    ]
+
+
+@pytest.mark.parametrize("renamed", ["user_uid", "stored", "actual"])
+def test_a_renamed_return_alias_raises_at_the_boundary(renamed: str) -> None:
+    """The failure the ``TypedDict`` annotation alone cannot catch.
+
+    Nothing statically links a Cypher alias to a key, so a renamed ``RETURN``
+    would type-check while the pass read the missing key. On ``stored`` or
+    ``actual`` that reads as agreement and the pass reports a confident
+    "nothing drifted" — silence from the one instrument built to notice.
+    """
+    row = {"user_uid": "user_mike", "stored": 9, "actual": 85}
+    row[f"{renamed}_renamed"] = row.pop(renamed)
+
+    with pytest.raises(KeyError, match=renamed):
+        _to_productivity_drift_rows([row])
+
+
+def test_an_absent_node_stays_none_rather_than_zero() -> None:
+    """``stored=None`` (no node) and ``stored=0`` (a node saying zero) are
+    different states, and only the first is the vault door's signature."""
+    rows = _to_productivity_drift_rows(
+        [
+            {"user_uid": "user_vault", "stored": None, "actual": 12},
+            {"user_uid": "user_zero", "stored": 0, "actual": 0},
+        ]
+    )
+
+    assert rows[0]["stored"] is None
+    assert rows[1]["stored"] == 0
