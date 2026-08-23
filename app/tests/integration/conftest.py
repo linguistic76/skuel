@@ -145,6 +145,11 @@ async def ensure_test_users(neo4j_driver):
         "user_reconcile_zero",
         "user_reconcile_vault",
         "user_reconcile_idle",
+        # completion_velocity's trailing window counts (:User)-[:OWNS]->(:Task)
+        # rows by completion_date, so each window shape needs a real owner.
+        "user_velocity_window",
+        "user_velocity_stale",
+        "user_velocity_vault",
     ]
 
     async def create_users():

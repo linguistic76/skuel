@@ -21,7 +21,7 @@ rather than a fake:
 3. **``--dry-run``.** Reports without touching the graph.
 4. **The completion stamps.** A reconciliation is not a completion, so
    ``first_completion_at`` / ``last_completion_at`` must come out untouched —
-   they are the velocity denominator's endpoints.
+   they record when the user first and most recently completed something.
 
 The DB-free contract (which users are written, that ``occurred_at`` is always
 ``None``) is pinned in ``tests/unit/scripts/test_reconcile_productivity_analytics.py``
@@ -171,7 +171,9 @@ class TestProductivityAnalyticsReconciliation:
         assert record is not None
         assert record["count"] == 3
         # Nothing is known about *when* those completions happened, and the pass
-        # refuses to invent it — an unstamped node reads velocity 0.0 honestly.
+        # refuses to invent it. The velocity these tasks contribute comes from
+        # their own `completion_date` stamps, not from these node-level ones, so
+        # leaving them null costs the report nothing it could honestly have.
         assert record["first"] is None
         assert record["last"] is None
 
@@ -231,9 +233,9 @@ class TestProductivityAnalyticsReconciliation:
     async def test_the_completion_stamps_survive_a_reconcile(self, neo4j_driver, seeded):
         """A reconciliation is not a completion moment.
 
-        ``last_completion_at`` is the endpoint of the velocity denominator in
-        ``get_productivity_metrics``; moving it here would stretch the window on
-        every maintenance run while looking like bookkeeping.
+        ``last_completion_at`` records when the user most recently completed
+        something; moving it here would make every maintenance run look like a
+        burst of work while looking like bookkeeping.
         """
         before = await _analytics(neo4j_driver, LEGACY)
 
