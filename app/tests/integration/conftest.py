@@ -139,6 +139,12 @@ async def ensure_test_users(neo4j_driver):
         # recomputed by traversing (:User)-[:OWNS]->(:Task), so these tests
         # need a real owner to hang seeded tasks off.
         "user_analytics_test",
+        # ProductivityAnalytics reconciliation: the pass scans (:User) nodes and
+        # counts (:User)-[:OWNS]->(:Task), so each drift shape needs a real owner.
+        "user_reconcile_legacy",
+        "user_reconcile_zero",
+        "user_reconcile_vault",
+        "user_reconcile_idle",
     ]
 
     async def create_users():

@@ -324,6 +324,17 @@ RETURN pid AS principle_uid,
        count(hc) AS completion_count
 """
 
+# THE definition of "currently completed" behind ProductivityAnalytics.tasks_completed,
+# interpolated into BOTH the per-user recompute (the live TaskCompleted / TaskReopened
+# path) and the all-users drift survey the one-shot reconciliation reads. One fragment,
+# so the number the instrument reports can never disagree with the number the app
+# writes. Binds against an already-matched `u` (a :User) and yields `t`; ownership is
+# the universal :OWNS edge (ADR-086), not the user_uid property the invariant pairs it
+# with.
+_COMPLETED_TASKS_OF_USER = (
+    f"OPTIONAL MATCH (u)-[:{RelationshipName.OWNS.value}]->(t:Task {{status: $completed_status}})"
+)
+
 # Local aliases for enum / status tuples used within this backend's queries.
 # (FULL_ALIGNMENT_CONNECTION_COUNT moved to core.constants.CrossDomainImpactScore —
 # a magic number belongs in core, not re-exported up across the boundary; SKUEL022.)
@@ -425,6 +436,10 @@ class CrossDomainBackend:
     ) -> Result[list[dict[str, Any]]]:
         """Recompute the user's ProductivityAnalytics from the graph.
 
+        Also THE write path of the one-shot reconciliation instrument
+        (``./dev reconcile-productivity``), which calls it with
+        ``occurred_at=None`` — a reconciliation is not a completion.
+
         ``tasks_completed`` is **derived, not tallied**: it is the number of the
         user's tasks currently in ``completed``, read fresh and ``SET`` on every
         call. That makes it idempotent under the arc's repeat-complete contract
@@ -447,7 +462,9 @@ class CrossDomainBackend:
             MERGE (analytics:ProductivityAnalytics {user_uid: $user_uid})
             WITH analytics
             OPTIONAL MATCH (u:User {uid: $user_uid})
-            OPTIONAL MATCH (u)-[:OWNS]->(t:Task {status: $completed_status})
+            """
+            + _COMPLETED_TASKS_OF_USER
+            + """
             WITH analytics, count(t) AS completed
             SET analytics.tasks_completed = completed
             WITH analytics
@@ -462,6 +479,53 @@ class CrossDomainBackend:
                 "occurred_at": occurred_at,
                 "completed_status": EntityStatus.COMPLETED.value,
             },
+        )
+
+    async def survey_productivity_analytics_drift(self) -> Result[list[dict[str, Any]]]:
+        """Every user's stored ``tasks_completed`` beside the count the graph implies.
+
+        READ-ONLY, and the *only* new query the reconciliation instrument needs:
+        the write half reuses :meth:`recompute_productivity_analytics` unchanged,
+        so the value ever written is still counted inside the write itself. This
+        survey never decides a value — it decides which users are worth a write,
+        and reports the drift a ``--dry-run`` has to show without touching the
+        graph.
+
+        Why a per-user-batch sibling exists at all: a dry run must count without
+        writing, which the atomic count-and-``SET`` above cannot do. Both share
+        ``_COMPLETED_TASKS_OF_USER`` so the two can never disagree about what
+        "currently completed" means.
+
+        **Scan set** — a user is in scope when they already have a
+        ``ProductivityAnalytics`` node **or** currently own at least one
+        completed task. The first arm is what stops a stale node from being
+        skipped when its true count has fallen to zero (a naive
+        ``MATCH ... (:Task {status: 'completed'})`` grouping returns no row for
+        that user and leaves the stale number in place forever); the second
+        catches a user whose completions arrived through a door that publishes
+        no event at all, such as the vault ``- [x]`` bulk upsert. A user with
+        neither is outside it deliberately: they have nothing recorded and
+        nothing to record, and ``get_productivity_metrics`` already reads 0 for
+        an absent node.
+
+        Returns one row per in-scope user: ``user_uid``, ``actual`` (the count
+        the graph implies) and ``stored`` (what the node holds — ``null`` when
+        no node exists yet).
+        """
+        return await self.executor.execute_query(
+            """
+            MATCH (u:User)
+            """
+            + _COMPLETED_TASKS_OF_USER
+            + """
+            WITH u, count(t) AS actual
+            OPTIONAL MATCH (analytics:ProductivityAnalytics {user_uid: u.uid})
+            WITH u.uid AS user_uid, actual, analytics
+            WHERE analytics IS NOT NULL OR actual > 0
+            RETURN user_uid, actual, analytics.tasks_completed AS stored
+            ORDER BY user_uid
+            """,
+            {"completed_status": EntityStatus.COMPLETED.value},
         )
 
     async def upsert_habit_analytics(
