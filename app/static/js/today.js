@@ -40,6 +40,9 @@
       // { type: 'complete', id, status } — `status` is the status the card
       // carried BEFORE the complete, and is what undo posts back to reopen.
       _lastAction: null,
+      // The in-flight complete POST. undoFlash chains the reopen onto it so the
+      // two writes cannot land out of order (see undoFlash).
+      _completePending: null,
 
       cardKey(source, id) { return source + ':' + id; },
       keySource(key) { return key ? key.slice(0, key.indexOf(':')) : null; },
@@ -261,7 +264,16 @@
         this.completed.add(id);
         this._lastAction = prevStatus ? { type: 'complete', id, status: prevStatus } : null;
         this.showFlash(`Completed "${(t && t.label) || id}"`, prevStatus ? 'undo' : null);
-        if (window.htmx) window.htmx.ajax('POST', `/today/tasks/${id}/complete`, { swap: 'none' });
+        // Keep the in-flight complete so undoFlash can queue the reopen BEHIND
+        // it. Settled-not-successful is the right hook: if the complete failed
+        // the task is not completed, and posting the prior status is a harmless
+        // no-op in the safe direction.
+        this._completePending = window.htmx
+          ? Promise.resolve(
+              window.htmx.ajax('POST', `/today/tasks/${id}/complete`, { swap: 'none' }),
+            ).catch(() => undefined)
+          : Promise.resolve();
+        return this._completePending;
       },
       // Defer speaks the day it was asked from (C7): the POST carries the
       // lens day (seed.today_iso) and the card's surface, and the server
@@ -321,20 +333,28 @@
       // fragment it returns, since Alpine already owns this row's rendering.
       // Reopening also clears `completion_date` at that chokepoint, so the
       // stamp stays non-null exactly when the task is completed.
+      //
+      // ORDERING: the flash appears immediately, so Undo is routinely clicked
+      // while the complete POST is still in flight. That complete is the SLOWER
+      // request — complete_task_with_cascade reads the task (and relationships)
+      // before its write, while the reopen is one get + one update — so an
+      // independent reopen can land FIRST and then be overwritten by the
+      // complete, leaving the task completed under a card that already reads
+      // "not done". So the reopen is queued behind the complete settling rather
+      // than raced against it (Codex #1133 P1).
       undoFlash() {
         const a = this._lastAction;
-        if (!a) { this.flash = null; return; }
-        if (a.type === 'complete') {
-          this.completed.delete(a.id);
-          if (window.htmx) {
-            window.htmx.ajax('POST', `/api/tasks/${a.id}/status`, {
-              swap: 'none',
-              values: { status: a.status },
-            });
-          }
-        }
         this._lastAction = null;
         this.flash = null;
+        if (!a || a.type !== 'complete') return Promise.resolve();
+        this.completed.delete(a.id);
+        if (!window.htmx) return Promise.resolve();
+        return (this._completePending || Promise.resolve()).then(() =>
+          window.htmx.ajax('POST', `/api/tasks/${a.id}/status`, {
+            swap: 'none',
+            values: { status: a.status },
+          }),
+        );
       },
     };
   }

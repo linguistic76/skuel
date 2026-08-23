@@ -211,7 +211,7 @@ describe('quick-add input does not hijack single-key actions (C6)', () => {
 describe('undo truthfulness', () => {
   it('undoFlash no longer resurrects deferred cards', async () => {
     await c.deferTask('ribbon', 't-work', '1d');
-    c.undoFlash();
+    await c.undoFlash();
     // The defer already posted — local state must NOT pretend otherwise.
     expect(c.deferred['ribbon:t-work']).toBe('1d');
     expect(c.fTasks.map((t) => t.id)).not.toContain('t-work');
@@ -220,15 +220,15 @@ describe('undo truthfulness', () => {
   it('a defer is still un-undoable: undoFlash posts nothing for it', async () => {
     await c.deferTask('ribbon', 't-work', '1d');
     expect(c._lastAction).toBeNull();
-    c.undoFlash();
+    await c.undoFlash();
     expect(htmxAjax).not.toHaveBeenCalled();
     expect(c.flash).toBeNull();
   });
 
-  it('complete keeps its undo path', () => {
+  it('complete keeps its undo path', async () => {
     c.completeTask('t-work');
     expect(c.flash.action).toBe('undo');
-    c.undoFlash();
+    await c.undoFlash();
     expect(c.completed.has('t-work')).toBe(false);
   });
 
@@ -240,10 +240,10 @@ describe('undo truthfulness', () => {
     expect(c._lastAction.status).toBe('blocked');
   });
 
-  it('undo POSTs the prior status to the live status chokepoint', () => {
+  it('undo POSTs the prior status to the live status chokepoint', async () => {
     c.completeTask('t-work');
     htmxAjax.mockClear(); // drop the complete POST; assert only the reopen
-    c.undoFlash();
+    await c.undoFlash();
 
     expect(htmxAjax).toHaveBeenCalledTimes(1);
     const [verb, path, ctx] = htmxAjax.mock.calls[0];
@@ -256,22 +256,60 @@ describe('undo truthfulness', () => {
     expect(ctx.swap).toBe('none');
   });
 
-  it('undo still clears the optimistic completed set (both cards return)', () => {
+  it('undo still clears the optimistic completed set (both cards return)', async () => {
     c.completeTask('t-dual');
     expect(c.completed.has('t-dual')).toBe(true);
-    c.undoFlash();
+    await c.undoFlash();
     expect(c.completed.has('t-dual')).toBe(false);
     expect(c.fTasks.map((t) => t.id)).toContain('t-dual');
     expect(c.fTriage.map((t) => t.id)).toContain('t-dual');
   });
 
-  it('undo consumes the action: a second click posts nothing', () => {
+  it('undo consumes the action: a second click posts nothing', async () => {
     c.completeTask('t-work');
-    c.undoFlash();
+    await c.undoFlash();
     htmxAjax.mockClear();
-    c.undoFlash();
+    await c.undoFlash();
     expect(htmxAjax).not.toHaveBeenCalled();
     expect(c._lastAction).toBeNull();
+  });
+
+  // The flash appears immediately, so Undo is routinely clicked while the
+  // complete POST is still in flight. The complete is the SLOWER request
+  // (complete_task_with_cascade reads before it writes; the reopen is one
+  // get + one update), so an independent reopen could land first and then be
+  // overwritten — leaving the task completed under a card reading "not done".
+  it('queues the reopen behind the in-flight complete (Codex #1133 P1)', async () => {
+    let finishComplete;
+    htmxAjax.mockImplementationOnce(
+      () => new Promise((resolve) => { finishComplete = resolve; }),
+    );
+
+    c.completeTask('t-work');
+    expect(htmxAjax).toHaveBeenCalledTimes(1); // the complete, still in flight
+
+    const undone = c.undoFlash();
+    await Promise.resolve();
+    await Promise.resolve();
+    // Still only the complete — the reopen must NOT have been raced against it.
+    expect(htmxAjax).toHaveBeenCalledTimes(1);
+    // The card is already visible again; only the write is deferred.
+    expect(c.completed.has('t-work')).toBe(false);
+
+    finishComplete();
+    await undone;
+    expect(htmxAjax).toHaveBeenCalledTimes(2);
+    expect(htmxAjax.mock.calls[1][1]).toBe('/api/tasks/t-work/status');
+  });
+
+  it('still reopens when the complete request itself failed', async () => {
+    // A failed complete means the task is not completed, so posting the prior
+    // status is a no-op in the safe direction — never a swallowed Undo.
+    htmxAjax.mockImplementationOnce(() => Promise.reject(new Error('network down')));
+    c.completeTask('t-work');
+    await c.undoFlash();
+    expect(htmxAjax).toHaveBeenCalledTimes(2);
+    expect(htmxAjax.mock.calls[1][1]).toBe('/api/tasks/t-work/status');
   });
 
   // The orchestrator emits status: '' when the stored value is not one the
@@ -281,14 +319,14 @@ describe('undo truthfulness', () => {
   it.each([
     ['an empty restorable status', ''],
     ['no status key at all', undefined],
-  ])('offers no undo given %s', (_label, status) => {
+  ])('offers no undo given %s', async (_label, status) => {
     c.seed.tasks.push({ id: 't-bare', label: 'Unrestorable', lifepath_id: 'lp-1',
       est_min: 5, status, pinned: false });
     c.completeTask('t-bare');
     expect(c.flash.action).toBeNull();
     expect(c._lastAction).toBeNull();
     htmxAjax.mockClear(); // drop the complete POST; assert only the reopen
-    c.undoFlash();
+    await c.undoFlash();
     expect(htmxAjax).not.toHaveBeenCalled();
     // The complete still happened, so the card stays hidden.
     expect(c.completed.has('t-bare')).toBe(true);
