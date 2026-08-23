@@ -192,6 +192,72 @@ class TestCompleteMilestone:
         assert _achieved(bus) == []
 
 
+class TestMilestoneOwnStamp:
+    """The milestone's own ``achieved_date``, one level below the goal's.
+
+    ``Milestone.achieved_date`` is documented as "when actually achieved", so it is
+    the same kind of stamp as the goal-level one and follows the same rule: it
+    records the FIRST completion and never moves. The goal-level gate above does
+    not cover it — re-completing a milestone of a still-unachieved goal writes no
+    goal stamp at all, yet used to move that milestone's own date to today.
+    """
+
+    @staticmethod
+    def _milestones(backend: Mock) -> list[Milestone]:
+        milestones = _patch(backend)["milestones"]
+        assert isinstance(milestones, list)
+        return milestones
+
+    async def test_recompleting_a_milestone_keeps_its_original_date(self):
+        """The defect: milestone 0 is already done, and completing it again moved its date."""
+        goal = _milestone_goal(completed=(True, False, False), achieved_date=None)
+        service, backend, bus = _service(goal)
+
+        result = await service.complete_milestone(_GOAL, 0, Mock(user_uid=_USER))
+
+        assert result.is_ok
+        milestone = self._milestones(backend)[0]
+        assert milestone.is_completed is True, "is_completed is idempotent, not gated"
+        assert milestone.achieved_date == _ORIGINAL_ACHIEVED
+        # Nothing fires at the goal level here — which is why the goal-level gate
+        # cannot stand in for this one.
+        assert _achieved(bus) == []
+
+    async def test_a_first_completion_still_stamps_today(self):
+        goal = _milestone_goal(completed=(True, False, False), achieved_date=None)
+        service, backend, _ = _service(goal)
+
+        result = await service.complete_milestone(_GOAL, 1, Mock(user_uid=_USER))
+
+        assert result.is_ok
+        milestone = self._milestones(backend)[1]
+        assert milestone.is_completed is True
+        assert milestone.achieved_date == date.today()
+
+    async def test_a_completed_milestone_with_no_date_is_not_backfilled(self):
+        """A repeat is not a transition, so there is no moment here to record.
+
+        Matches the task stamp gate (#1125), which likewise leaves a null stamp
+        null on a repeat rather than inventing a date.
+        """
+        goal = Goal(
+            uid=_GOAL,
+            user_uid=_USER,
+            title="Ship the thing",
+            measurement_type=MeasurementType.MILESTONE,
+            milestones=(
+                Milestone(uid="m0", title="Milestone 0", is_completed=True, achieved_date=None),
+                Milestone(uid="m1", title="Milestone 1"),
+            ),
+        )
+        service, backend, _ = _service(goal)
+
+        result = await service.complete_milestone(_GOAL, 0, Mock(user_uid=_USER))
+
+        assert result.is_ok
+        assert self._milestones(backend)[0].achieved_date is None
+
+
 def _habit_goal(*, progress: float, achieved_date: date | None) -> Goal:
     return Goal(
         uid=_GOAL,
