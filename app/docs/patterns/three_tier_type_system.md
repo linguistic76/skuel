@@ -271,7 +271,7 @@ class ContextualTaskCompletionRequest(RequestBase):
 # core/models/habit/habit_request.py
 class ContextualHabitCompletionRequest(BaseModel):
     """Request model for completing a habit with quality tracking."""
-    quality: Literal["poor", "fair", "good", "excellent"] = Field(default="good")
+    quality: str = Field(default="good")  # + field_validator; NEVER Literal (see below)
     environmental_factors: dict[str, Any] = Field(default_factory=dict)
 
 # core/models/goal/goal_request.py
