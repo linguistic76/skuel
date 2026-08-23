@@ -24,6 +24,7 @@ from core.models.enums import EntityStatus, EntityType, Priority
 from core.models.relationship_names import RelationshipName
 from core.models.task.task import Task as Task
 from core.models.task.task_dto import TaskDTO
+from core.models.type_hints import Neo4jProperties
 from core.services.tasks.tasks_progress_service import TasksProgressService
 from core.services.user import UserContext
 from core.utils.result_simplified import Errors, Result
@@ -796,7 +797,12 @@ _LIVE_DEPENDENT_STATUSES = [s for s in EntityStatus if s in _TASK_STATUSES and n
 
 
 def _task(uid: str, status: EntityStatus, **fields: Any) -> Task:
-    """Build a Task the way a backend read does — status as the enum."""
+    """Build a Task the way a backend read does — status as the enum.
+
+    ``**fields`` is forwarded verbatim to ``TaskDTO``, whose ~40 optional fields
+    span dates, ints, strings and enums — genuinely heterogeneous, which is the
+    one thing ``Any`` is for.
+    """  # boundary: dto-kwargs
     return Task.from_dto(
         TaskDTO(
             uid=uid,
@@ -825,10 +831,10 @@ class _FakeTaskGraph:
     """
 
     def __init__(self, *tasks: Task) -> None:
-        self.nodes: dict[str, dict[str, Any]] = {t.uid: t.to_dto().to_dict() for t in tasks}
-        self.writes: list[tuple[str, dict[str, Any]]] = []
+        self.nodes: dict[str, Neo4jProperties] = {t.uid: t.to_dto().to_dict() for t in tasks}
+        self.writes: list[tuple[str, Neo4jProperties]] = []
 
-    def snapshot(self, uid: str) -> dict[str, Any]:
+    def snapshot(self, uid: str) -> Neo4jProperties:
         """The stored properties of one node, detached from the store."""
         return dict(self.nodes[uid])
 
@@ -836,7 +842,7 @@ class _FakeTaskGraph:
         node = self.nodes.get(uid)
         return Result.ok(from_neo4j_node(dict(node), Task) if node is not None else None)
 
-    async def update(self, uid: str, changes: dict[str, Any]) -> Result[Task]:
+    async def update(self, uid: str, changes: Neo4jProperties) -> Result[Task]:
         self.writes.append((uid, dict(changes)))
         node = self.nodes[uid]
         for key, value in changes.items():
@@ -847,7 +853,7 @@ class _FakeTaskGraph:
         return Result.ok(from_neo4j_node(dict(node), Task))
 
 
-def _wire_trigger_cascade(mock_backend: Any, dependent: Task) -> tuple[Task, _FakeTaskGraph]:
+def _wire_trigger_cascade(mock_backend: Mock, dependent: Task) -> tuple[Task, _FakeTaskGraph]:
     """Wire an upstream task that TRIGGERS_ON_COMPLETION the given dependent."""
     upstream = _task("task:upstream", EntityStatus.ACTIVE)
     graph = _FakeTaskGraph(upstream, dependent)
@@ -855,7 +861,7 @@ def _wire_trigger_cascade(mock_backend: Any, dependent: Task) -> tuple[Task, _Fa
     mock_backend.update = AsyncMock(side_effect=graph.update)
 
     async def _related(
-        uid: str, relationship: Any, direction: str = "outgoing"
+        uid: str, relationship: RelationshipName, direction: str = "outgoing"
     ) -> Result[list[str]]:
         if uid == upstream.uid and relationship == RelationshipName.TRIGGERS_ON_COMPLETION:
             return Result.ok([dependent.uid])
