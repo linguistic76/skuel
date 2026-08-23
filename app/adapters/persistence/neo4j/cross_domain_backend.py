@@ -354,13 +354,15 @@ RETURN pid AS principle_uid,
        count(hc) AS completion_count
 """
 
-# THE definition of "currently completed" behind ProductivityAnalytics.tasks_completed,
-# interpolated into BOTH the per-user recompute (the live TaskCompleted / TaskReopened
-# path) and the all-users drift survey the one-shot reconciliation reads. One fragment,
-# so the number the instrument reports can never disagree with the number the app
-# writes. Binds against an already-matched `u` (a :User) and yields `t`; ownership is
-# the universal :OWNS edge (ADR-086), not the user_uid property the invariant pairs it
-# with.
+# THE definition of "currently completed" for a user's tasks, interpolated into all
+# three queries that need one: the per-user recompute behind
+# ProductivityAnalytics.tasks_completed (the live TaskCompleted / TaskReopened path),
+# the all-users drift survey the one-shot reconciliation reads, and the trailing-window
+# count behind completion_velocity (which narrows it with a completion_date bound). One
+# fragment, so the number the instrument reports, the number the app writes, and the
+# number the rate is computed from can never disagree. Binds against an already-matched
+# `u` (a :User) and yields `t`; ownership is the universal :OWNS edge (ADR-086), not the
+# user_uid property the invariant pairs it with.
 _COMPLETED_TASKS_OF_USER = (
     f"OPTIONAL MATCH (u)-[:{RelationshipName.OWNS.value}]->(t:Task {{status: $completed_status}})"
 )
@@ -482,10 +484,9 @@ class CrossDomainBackend:
 
         ``occurred_at`` carries the completion moment and is ``None`` on the
         reopen path: a reopen is not a completion, so it recomputes the count
-        and leaves both stamps exactly where they are. ``last_completion_at`` is
-        the endpoint of the velocity denominator
-        (``CrossDomainAnalyticsService.get_productivity_metrics``), so moving it
-        on a non-completion would silently stretch the window.
+        and leaves both stamps exactly where they are. The two stamps mean
+        exactly what they say — when this user first completed something, and
+        when they most recently did — and a reopen is neither.
         """
         return await self.executor.execute_query(
             """
@@ -663,14 +664,61 @@ class CrossDomainBackend:
     # NOTE: get_financial_goal_with_expenses removed (ADR-052 Phase 5) — native
     # expense module demolished; no Expense nodes link to goals.
 
-    async def get_productivity_analytics(self, user_uid: str) -> Result[list[dict[str, Any]]]:
-        """Get ProductivityAnalytics node for task completion metrics."""
+    async def get_productivity_analytics(
+        self, user_uid: str, window_start: str
+    ) -> Result[list[dict[str, Any]]]:
+        """The stored ProductivityAnalytics node plus the trailing-window count.
+
+        Two things in one row because they are read together and only together:
+        ``analytics`` carries the running figures the completion handlers
+        maintain (``tasks_completed`` and the two completion stamps), and
+        ``completed_in_window`` is counted live from the graph — the numerator of
+        ``completion_velocity`` (``CrossDomainAnalyticsService.get_productivity_metrics``).
+
+        **The count is derived, so it does not depend on the node existing.**
+        Every match here is OPTIONAL and the aggregation always yields exactly
+        one row, so a user whose completions arrived through a door that writes
+        no analytics node — the vault ``- [x]`` bulk upsert — still gets a real
+        velocity instead of the confident 0.0 a mandatory MATCH produced.
+
+        ``window_start`` is an ISO ``YYYY-MM-DD`` date; the window is inclusive
+        of it (``CompletionVelocityWindow.start_date``). Membership is the task's
+        canonical completion stamp and nothing else: ``Task.completion_date``,
+        written at the six update chokepoints
+        (``core/services/completion_stamp.py``) and frozen for history by
+        ``scripts/backfill_activity_completion_stamps.py``. A completed task
+        carrying no stamp is **excluded** rather than assumed recent — the same
+        judgement ``get_recent_activities`` makes, for the same reason: an absent
+        row is honest, an invented date is not.
+
+        ``toString()`` normalises the stamp before comparing. It is stored as an
+        ISO date **string** on every row of the live graph (the mapper
+        ``isoformat()``s the ``date`` the stamp helper produces), and zero-padded
+        ISO dates order correctly as strings — but the writer, not this reader,
+        decides the storage type, and ``toString()`` costs nothing and keeps a
+        temporal-typed value comparing correctly instead of silently matching
+        nothing. Same normalisation, same rationale as
+        ``get_recent_activities``.
+
+        The "completed" half of the predicate is ``_COMPLETED_TASKS_OF_USER``
+        verbatim, shared with the recompute and the drift survey so all three can
+        never disagree about what counts as completed.
+        """
         return await self.executor.execute_query(
             """
-            MATCH (analytics:ProductivityAnalytics {user_uid: $user_uid})
-            RETURN analytics
+            OPTIONAL MATCH (analytics:ProductivityAnalytics {user_uid: $user_uid})
+            OPTIONAL MATCH (u:User {uid: $user_uid})
+            """
+            + _COMPLETED_TASKS_OF_USER
+            + """
+            WHERE toString(t.completion_date) >= $window_start
+            RETURN analytics, count(t) AS completed_in_window
             """,
-            {"user_uid": user_uid},
+            {
+                "user_uid": user_uid,
+                "window_start": window_start,
+                "completed_status": EntityStatus.COMPLETED.value,
+            },
         )
 
     async def get_habit_analytics(self, user_uid: str) -> Result[list[dict[str, Any]]]:

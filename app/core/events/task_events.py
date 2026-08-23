@@ -91,9 +91,10 @@ class TaskCompleted(BaseEvent):
       of the user's currently-COMPLETED tasks — on every complete, repeat
       included, because a recompute converges. But it reads the flag to decide
       whether a new *completion moment* occurred: a repeat carries a fresh
-      ``occurred_at`` while nothing transitioned, and recording that as a
-      completion would stretch the velocity window without raising the
-      numerator. So the count is ungated and the timestamps are gated.
+      ``occurred_at`` while nothing transitioned, and stamping that onto
+      ``last_completion_at`` would move "when did this user most recently
+      complete something" forward on a click that completed nothing. So the
+      count is ungated and the timestamps are gated.
 
     The pattern behind both: ``is_repeat`` gates the part of a handler that
     **accumulates** (an append, a stamp), never the part that **derives**.
@@ -137,8 +138,8 @@ class TaskReopened(BaseEvent):
     it records no completion moment and must leave completion timestamps where
     they are. ``CrossDomainAnalyticsService.handle_task_reopened`` recomputes
     ``ProductivityAnalytics.tasks_completed`` and deliberately does not touch
-    ``last_completion_at`` — that stamp is the endpoint of the velocity
-    denominator, and stretching it on a non-completion would distort the metric.
+    ``last_completion_at`` — that stamp records when the user most recently
+    completed something, and a reopen is the opposite of that.
 
     Subscribers:
     - CrossDomainAnalyticsService (recompute ProductivityAnalytics.tasks_completed)

@@ -70,7 +70,18 @@ class CrossDomainBackendOperations(Protocol):
         self, user_uid: str, start_date: str
     ) -> Result[list[dict[str, Any]]]: ...
 
-    async def get_productivity_analytics(self, user_uid: str) -> Result[list[dict[str, Any]]]: ...
+    async def get_productivity_analytics(
+        self, user_uid: str, window_start: str
+    ) -> Result[list[dict[str, Any]]]:
+        """The stored ProductivityAnalytics node plus the trailing-window count.
+
+        ``window_start`` is an inclusive ISO ``YYYY-MM-DD`` date bound; the row
+        carries ``completed_in_window``, the numerator of
+        ``completion_velocity``. Always exactly one row — ``analytics`` is
+        ``None`` when the user has no node, and the derived count stands on its
+        own.
+        """
+        ...
 
     async def get_habit_analytics(self, user_uid: str) -> Result[list[dict[str, Any]]]: ...
 

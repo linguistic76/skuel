@@ -284,9 +284,16 @@ only rise: `ProductivityAnalytics.tasks_completed` counts the user's tasks curre
 `completed`, which is what let its skip-on-repeat gate come off the count.
 
 **Neither a reopen nor a repeat complete is a completion moment.** Both leave
-`first_completion_at` / `last_completion_at` untouched, because `last_completion_at` is the
-endpoint of the velocity denominator in `get_productivity_metrics` — moving it without raising
-the numerator silently lowers reported velocity.
+`first_completion_at` / `last_completion_at` untouched: those stamps record when the user first
+completed something and when they most recently did, and neither a reopen nor a re-post of
+`completed` on an already-completed task is either.
+
+**`completion_velocity` is a rate over a fixed trailing window** — tasks whose
+`completion_date` falls inside the last `CompletionVelocityWindow.DAYS` calendar days, divided
+by that window in weeks. It does not read the two stamps at all. It formerly divided the
+lifetime count by the first→last span, a denominator that could only grow (so the metric could
+only decay) and that collapsed to zero for a user with a single completion. A user with no
+completions in the window reports `0.0`; the cumulative figures beside it are unaffected.
 
 ## Update Validation
 
