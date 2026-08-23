@@ -343,6 +343,60 @@ async def test_completion_date_gate_still_holds_without_minutes(
 
 
 @pytest.mark.asyncio
+async def test_is_repeat_is_the_inverse_of_the_stamp_gate(mock_backend, user_context):
+    """One transition evaluation feeds both the stamp and ``TaskCompleted.is_repeat``.
+
+    A first complete is a transition: it stamps ``completion_date`` and publishes
+    ``is_repeat=False``. Re-posting the complete on an already-completed task is
+    not a transition: no re-stamp, and ``is_repeat=True`` so the counting
+    subscribers can decline to count it twice. The cascade and the write run
+    either way — a repeat complete stays a real complete (the repair path).
+    """
+    published: list[Any] = []
+
+    class _Bus:
+        async def publish_async(self, event: Any) -> None:
+            published.append(event)
+
+    service = TasksProgressService(backend=mock_backend, event_bus=_Bus())
+    active = Task.from_dto(
+        TaskDTO(
+            uid="task:repeat",
+            user_uid="user_demo",
+            title="Repeat Task",
+            priority=Priority.MEDIUM.value,
+            status=EntityStatus.ACTIVE.value,
+            created_at=datetime.now(),
+        )
+    )
+    mock_backend.get.return_value = Result.ok(active.to_dto().to_dict())
+    mock_backend.update.return_value = Result.ok(
+        {"uid": "task:repeat", "user_uid": "user_demo", "title": "Repeat Task"}
+    )
+
+    first = await service.complete_task_with_cascade("task:repeat", user_context)
+
+    assert first.is_ok
+    assert _patch_sent_to_backend(mock_backend)["completion_date"] == date.today().isoformat()
+    assert published[-1].is_repeat is False
+
+    already = active.to_dto()
+    already.status = EntityStatus.COMPLETED
+    mock_backend.get.return_value = Result.ok(already.to_dict())
+    mock_backend.update.reset_mock()
+
+    repeat = await service.complete_task_with_cascade("task:repeat", user_context)
+
+    assert repeat.is_ok
+    # The write still happens — the cascade is deliberately re-run as a repair path.
+    patch_sent = _patch_sent_to_backend(mock_backend)
+    assert patch_sent["status"] == EntityStatus.COMPLETED.value
+    assert "completion_date" not in patch_sent
+    assert published[-1].is_repeat is True
+    assert len(published) == 2
+
+
+@pytest.mark.asyncio
 async def test_complete_task_not_found(progress_service, mock_backend, user_context):
     """Test completion when task doesn't exist."""
     # Setup

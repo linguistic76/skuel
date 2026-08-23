@@ -140,6 +140,13 @@ class TaskEventHandlerService:
         2. Detects overdue completion patterns
         3. Checks principle alignment for completed task
 
+        Steps 1 and 2 are **counting/appending** work and are skipped on a
+        repeat complete (``event.is_repeat``): the EMA would fold the same
+        sample in twice and bump ``task_completion_count``, and the overdue
+        insight would be appended again under a fresh per-second UID. Steps 3
+        and 4 recompute state from the graph, so they run every time — that is
+        the repair path. See :class:`TaskCompleted` for the contract.
+
         Args:
             event: TaskCompleted event with completion context
 
@@ -148,7 +155,8 @@ class TaskEventHandlerService:
         """
         try:
             # 1. Duration calibration (migrated from intelligence service)
-            await self._calibrate_duration(event)
+            if not event.is_repeat:
+                await self._calibrate_duration(event)
 
             # 2. Overdue pattern detection
             if event.was_overdue:
@@ -162,7 +170,7 @@ class TaskEventHandlerService:
                 )
 
                 # Persist overdue completion insight
-                if self.insight_store:
+                if self.insight_store and not event.is_repeat:
                     insight = PersistedInsight(
                         uid=PersistedInsight.generate_uid(
                             InsightType.COMPLETION_PATTERN, EntityUID(event.task_uid)

@@ -25,6 +25,7 @@ from core.events import (
     # native expense module demolished; only the invoice module survives.
     KnowledgeMastered,
     LearningPathCompleted,
+    TaskCompleted,
 )
 from core.models.type_hints import UserUID
 from core.utils.decorators import with_error_handling
@@ -209,7 +210,7 @@ class CrossDomainAnalyticsService:
     # EVENT HANDLERS - Activity Domain Tracking
     # ========================================================================
 
-    async def handle_task_completed(self, event: Any) -> Result[None]:
+    async def handle_task_completed(self, event: TaskCompleted) -> Result[None]:
         """
         Track task completions for productivity analytics.
 
@@ -217,7 +218,20 @@ class CrossDomainAnalyticsService:
         - Task completion velocity (tasks per week)
         - Priority distribution patterns
         - Completion time trends
+
+        Counting work, so it declines a repeat complete: the upsert is an
+        ``ON MATCH SET tasks_completed = tasks_completed + 1``, which has no
+        way to tell a re-post from a second task. See :class:`TaskCompleted`
+        for the contract. ``_upsert_counter_analytics`` below is deliberately
+        NOT gated — it is shared with habits and events, whose completions are
+        legitimately repeatable.
         """
+        if event.is_repeat:
+            self.logger.debug(
+                f"Skipping productivity analytics for repeat completion: {event.task_uid}"
+            )
+            return Result.ok(None)
+
         try:
             result = await self.backend.upsert_productivity_analytics(
                 user_uid=event.user_uid,

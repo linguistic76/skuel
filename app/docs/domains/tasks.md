@@ -241,13 +241,18 @@ The Tasks domain publishes domain events for cross-service communication:
 
 | Event | Trigger | Data |
 |-------|---------|------|
-| `TaskCreated` | Task created | `task_uid`, `user_uid`, `title` |
-| `TaskCompleted` | Task marked complete | `task_uid`, `user_uid`, `completion_date` |
-| `TaskUpdated` | Task modified | `task_uid`, `user_uid`, `changed_fields` |
-| `TaskDeleted` | Task removed | `task_uid`, `user_uid` |
-| `TaskPriorityChanged` | Priority changed | `task_uid`, `old_priority`, `new_priority` |
+| `TaskCreated` | Task created | `task_uid`, `user_uid`, `title`, `priority`, `domain` |
+| `TaskCompleted` | Task marked complete | `task_uid`, `user_uid`, `completion_time_seconds`, `was_overdue`, `is_repeat` |
+| `TaskUpdated` | Task modified | `task_uid`, `user_uid`, `updated_fields` |
+| `TaskDeleted` | Task removed | `task_uid`, `user_uid`, `reason` |
+| `TaskPriorityChanged` | Priority changed | `task_uid`, `user_uid`, `old_priority`, `new_priority` |
 
 **Event handling:** Other services subscribe to these events (e.g., UserContext invalidation, goal progress updates).
+
+**`TaskCompleted.is_repeat`:** completing an already-completed task is legal and the cascade
+deliberately re-runs on it (the repair path). Subscribers that **recompute** state ignore the
+flag; subscribers that **count** or **append** skip when it is true. See the `TaskCompleted`
+docstring in `core/events/task_events.py` for the full contract.
 
 ## UI Routes
 

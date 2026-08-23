@@ -310,7 +310,11 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
         updates: Neo4jProperties = {"status": EntityStatus.COMPLETED.value}
         if actual_minutes is not None:
             updates["actual_minutes"] = actual_minutes
-        if is_completion_transition(task.status, updates):
+        # One evaluation, two consumers: the stamp gate below and
+        # ``TaskCompleted.is_repeat`` at the end of this method must agree on
+        # what counts as completing, so the transition is decided once here.
+        is_transition = is_completion_transition(task.status, updates)
+        if is_transition:
             updates["completion_date"] = date.today().isoformat()
 
         update_result = await self.update(task_uid, RawChanges(updates))
@@ -366,11 +370,16 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
         # legal reported duration (``ge=0`` at the boundary) and is written to
         # the node above, so a falsy check would store 0 while telling every
         # subscriber the duration was never reported.
+        # ``is_repeat`` is the inverse of the stamp gate: the cascade above ran
+        # in full either way (a repeat complete stays a real complete, so the
+        # repair path survives), and this flag is what lets the counting
+        # subscribers decline to count it twice. See TaskCompleted's docstring.
         event = TaskCompleted(
             task_uid=task_uid,
             user_uid=user_uid,
             completion_time_seconds=actual_minutes * 60 if actual_minutes is not None else None,
             was_overdue=task.due_date < date.today() if task.due_date else False,
+            is_repeat=not is_transition,
         )
         await publish_event(self.event_bus, event, self.logger)
 
