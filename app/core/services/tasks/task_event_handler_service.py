@@ -143,9 +143,11 @@ class TaskEventHandlerService:
         Steps 1 and 2 are **counting/appending** work and are skipped on a
         repeat complete (``event.is_repeat``): the EMA would fold the same
         sample in twice and bump ``task_completion_count``, and the overdue
-        insight would be appended again under a fresh per-second UID. Steps 3
-        and 4 recompute state from the graph, so they run every time — that is
-        the repair path. See :class:`TaskCompleted` for the contract.
+        insight would be appended again under a fresh per-second UID. Step 4
+        recomputes from the graph and runs every time — that is the repair
+        path. Step 3 is **split**: it recomputes the alignment (runs every
+        time) and then appends an insight (skipped on a repeat, same reason as
+        step 2). See :class:`TaskCompleted` for the contract.
 
         Args:
             event: TaskCompleted event with completion context
@@ -390,6 +392,12 @@ class TaskEventHandlerService:
         """Check if completed task is aligned with any principles.
 
         Generates cross-domain insight when task contributes to principle alignment.
+
+        Two halves with different idempotency shapes. The alignment read
+        recomputes from the graph and runs on every complete, repeat included —
+        that is the repair path. The insight append does not: it is gated on
+        ``event.is_repeat`` like the overdue insight in the caller. See the
+        contract on :class:`TaskCompleted`.
         """
         if not self.relationships:
             return
@@ -411,17 +419,21 @@ class TaskEventHandlerService:
                 },
             )
 
-            # Persist principle alignment insight
-            await persist_principle_alignment_insight(
-                self.insight_store,
-                self.logger,
-                user_uid=event.user_uid,
-                entity_uid=EntityUID(event.task_uid),
-                domain="tasks",
-                title="Task Aligned with Principles",
-                description=f"Completed task contributes to {len(principle_uids)} principle(s).",
-                principle_uids=principle_uids,
-            )
+            # Persist principle alignment insight — the APPEND half, gated. The
+            # UID from PersistedInsight.generate_uid embeds a per-second
+            # timestamp, so a repeat lands a second row describing the same
+            # alignment rather than updating the first.
+            if not event.is_repeat:
+                await persist_principle_alignment_insight(
+                    self.insight_store,
+                    self.logger,
+                    user_uid=event.user_uid,
+                    entity_uid=EntityUID(event.task_uid),
+                    domain="tasks",
+                    title="Task Aligned with Principles",
+                    description=f"Completed task contributes to {len(principle_uids)} principle(s).",
+                    principle_uids=principle_uids,
+                )
 
     async def _detect_priority_inflation(self, event: TaskPriorityChanged) -> None:
         """Detect if user has too many high/critical priority tasks.

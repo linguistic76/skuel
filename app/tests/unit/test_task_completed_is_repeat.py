@@ -22,6 +22,11 @@ split across five services:
     5. GoalsProgressService      recomputes progress from count_linked_tasks
     6. PsEngagementService       auto-complete filtered on state='engaged'
 
+  Both at once — the reason the contract names appending separately
+    7. TaskEventHandlerService   principle alignment: the graph read recomputes
+                                 and runs every time, the PersistedInsight
+                                 append is gated
+
 The publisher half (``is_repeat`` is the inverse of the completion-stamp gate)
 lives in ``tests/unit/test_tasks_progress_service.py``.
 """
@@ -156,20 +161,44 @@ async def test_overdue_insight_skips_a_repeat() -> None:
 
 @pytest.mark.asyncio
 async def test_recompute_shaped_handlers_still_run_on_a_repeat() -> None:
-    """Principle alignment and knowledge generation are the repair path.
+    """The alignment graph read and knowledge generation are the repair path.
 
-    Ruled deliberately: neither reads ``is_repeat``. Note that principle
-    alignment *does* append a PersistedInsight of its own, so it duplicates on a
-    repeat the same way the overdue insight would have — pinned here so the
-    behaviour is a recorded decision rather than an oversight.
+    Neither reads ``is_repeat``: they recompute from the graph, so re-running
+    them converges rather than accumulating. Only the append inside the
+    alignment step is gated — see the pair of tests below.
     """
-    service, _, relationships, insight_store, ku_generation = _event_handler()
+    service, _, relationships, _, ku_generation = _event_handler()
 
     await service.handle_task_completed(_event(is_repeat=True))
 
     relationships.get_related_uids.assert_awaited()
     ku_generation.extract_knowledge_from_completed_tasks.assert_awaited()
+
+
+@pytest.mark.asyncio
+async def test_alignment_insight_is_appended_on_a_first_complete() -> None:
+    """Baseline: the alignment insight is persisted when the completion is new."""
+    service, _, _, insight_store, _ = _event_handler()
+
+    await service.handle_task_completed(_event(is_repeat=False))
+
     assert len(_insights_of(insight_store, InsightType.PRINCIPLE_ALIGNMENT)) == 1
+
+
+@pytest.mark.asyncio
+async def test_alignment_insight_skips_a_repeat_but_the_read_still_runs() -> None:
+    """The half of step 3 that appends is gated; the half that recomputes is not.
+
+    ``PersistedInsight.generate_uid`` embeds a per-second timestamp, so an
+    ungated repeat lands a second row describing the same alignment — the same
+    duplicate the overdue insight is gated against.
+    """
+    service, _, relationships, insight_store, _ = _event_handler()
+
+    await service.handle_task_completed(_event(is_repeat=True))
+
+    relationships.get_related_uids.assert_awaited()
+    assert _insights_of(insight_store, InsightType.PRINCIPLE_ALIGNMENT) == []
 
 
 # ---------------------------------------------------------------------------
