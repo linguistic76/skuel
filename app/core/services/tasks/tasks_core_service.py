@@ -27,7 +27,7 @@ from core.models.type_hints import UserUID
 if TYPE_CHECKING:
     from core.ports.domain_protocols import TasksOperations
 
-from core.events import TaskCreated, TaskDeleted, TaskUpdated, publish_event
+from core.events import TaskCompleted, TaskCreated, TaskDeleted, TaskUpdated, publish_event
 from core.events.embedding_publisher import publish_embedding_requested
 from core.models.enums import EntityStatus, Priority
 from core.models.enums.entity_enums import EntityType
@@ -40,7 +40,7 @@ from core.models.task.task_request import TaskCreateRequest
 from core.models.task.task_update_intent import TaskUpdateIntent
 from core.ports.query_types import ParentProgressResult, TaskStats
 from core.services.base_service import BaseService
-from core.services.completion_stamp import completion_transition_patch
+from core.services.completion_stamp import completion_transition_patch, is_completion_transition
 from core.services.domain_config import create_activity_domain_config
 from core.services.mixins.hierarchy_read_mixin import HierarchyReadMixin
 from core.services.mixins.link_edge_guard import (
@@ -714,7 +714,10 @@ class TasksCoreService(
         are split off by the facade and never reach this method as properties.
         Status transitions are validated against the Task lifecycle and completion
         stamping (``completion_date``) is applied here — the domain's one update
-        chokepoint (``core.services.completion_stamp``).
+        chokepoint (``core.services.completion_stamp``). A transition INTO
+        completed also publishes ``TaskCompleted`` (always ``is_repeat=False`` —
+        the gate is the transition), so completing a task from the status
+        control runs the same cascade as the explicit-complete doors.
 
         Args:
             task_uid: Task UID,
@@ -743,9 +746,13 @@ class TasksCoreService(
                 old_task = self._to_domain_model(old_result.value, TaskDTO, Task)
 
         # Status-target validation + completion stamping (transition-gated).
-        stamp = completion_transition_patch(
-            EntityType.TASK, old_task.status if old_task else None, changes
-        )
+        # The transition is decided ONCE, before the write, and feeds two
+        # consumers: the stamp below and the TaskCompleted publish at the end of
+        # this method. Deciding it here also keeps it honest — ``changes`` is
+        # mutated by the stamp merge and again by the backend (updated_at).
+        old_status = old_task.status if old_task else None
+        is_transition = is_completion_transition(old_status, changes)
+        stamp = completion_transition_patch(EntityType.TASK, old_status, changes)
         if stamp.is_error:
             return Result.fail(stamp)
         changes.update(stamp.value)
@@ -764,6 +771,32 @@ class TasksCoreService(
             updated_fields=updated_fields,
         )
         await publish_event(self.event_bus, event, self.logger)
+
+        # Publish TaskCompleted when this update is a genuine transition INTO
+        # completed. The status chokepoint (POST /api/tasks/{uid}/status) is a
+        # real completion door and used to publish TaskUpdated only, so every
+        # TaskCompleted subscriber — goal progress, PS engagement auto-complete,
+        # duration calibration, analytics, context invalidation — was silently
+        # skipped for tasks completed from a status control.
+        #
+        # ``is_repeat`` is always False here: the gate IS the transition, so a
+        # re-post of ``completed`` never reaches this publish (unlike the
+        # explicit-complete doors, which deliberately re-run their cascade as a
+        # repair path and report the repeat). See TaskCompleted's docstring.
+        #
+        # Zero extra queries: ``old_task`` was already fetched for the stamp
+        # gate, and the post-write ``task`` carries due_date/actual_minutes.
+        if is_transition:
+            completed_event = TaskCompleted(
+                task_uid=task.uid,
+                user_uid=task.user_uid,
+                completion_time_seconds=(
+                    task.actual_minutes * 60 if task.actual_minutes is not None else None
+                ),
+                was_overdue=task.due_date < date.today() if task.due_date else False,
+                is_repeat=False,
+            )
+            await publish_event(self.event_bus, completed_event, self.logger)
 
         # Publish TaskPriorityChanged event if priority changed
         if "priority" in changes and old_task and old_task.priority != task.priority:
@@ -792,6 +825,9 @@ class TasksCoreService(
         """
         Complete multiple tasks in a batch operation.
 
+        Publishes ``TaskCompleted`` per row for the rows that actually
+        transitioned, plus one ``TasksBulkCompleted`` for the batch.
+
         Args:
             task_uids: List of task UIDs to complete
             user_uid: User UID (for event publishing)
@@ -801,9 +837,17 @@ class TasksCoreService(
         """
         # raw-write: deliberate backend-boundary bulk status flip. This bypasses the
         # validated/event-firing service contract (TaskUpdateIntent → update_task) on
-        # purpose — it is a system batch write, and TasksBulkCompleted is published once
-        # below rather than per-row. A plain dict literal is the honest type here.
-        completed_count = 0
+        # purpose — it is a system batch write. A plain dict literal is the honest
+        # type here.
+        #
+        # It does NOT bypass the cascade: every door to COMPLETED cascades, so the
+        # rows that genuinely transition fan out one TaskCompleted each (ruled
+        # 2026-08-22). TasksBulkCompleted stays alongside them because its handler
+        # classifies the *batch* (size + time of day), which per-row events cannot
+        # express. Rows that were already completed publish nothing — not a repeat
+        # flag: a bulk call is not a repair path, and a re-post is not a completion.
+        written_uids: list[str] = []
+        completion_events: list[TaskCompleted] = []
 
         for task_uid in task_uids:
             # Transition-gate the stamp per row via the shared helper: a bulk list
@@ -819,27 +863,55 @@ class TasksCoreService(
                 old_task = self._to_domain_model(current_result.value, TaskDTO, Task)
 
             updates: dict[str, Any] = {"status": EntityStatus.COMPLETED.value}
-            stamp = completion_transition_patch(
-                EntityType.TASK, old_task.status if old_task else None, updates
-            )
+            old_status = old_task.status if old_task else None
+            is_transition = is_completion_transition(old_status, updates)
+            stamp = completion_transition_patch(EntityType.TASK, old_status, updates)
             if stamp.is_ok:
                 updates.update(stamp.value)
 
             result = await self.backend.update(task_uid, updates)
             if result.is_ok:
-                completed_count += 1
+                written_uids.append(task_uid)
+                if is_transition:
+                    # The pre-update read is the only source for these two: the
+                    # bulk write touches status + stamp only, so old_task still
+                    # describes the row's due_date / actual_minutes.
+                    completion_events.append(
+                        TaskCompleted(
+                            task_uid=task_uid,
+                            user_uid=user_uid,
+                            completion_time_seconds=(
+                                old_task.actual_minutes * 60
+                                if old_task is not None and old_task.actual_minutes is not None
+                                else None
+                            ),
+                            was_overdue=(
+                                old_task.due_date < date.today()
+                                if old_task is not None and old_task.due_date
+                                else False
+                            ),
+                            is_repeat=False,
+                        )
+                    )
 
-        # Publish TasksBulkCompleted event
-        if completed_count > 0:
+        # Fan out after every write lands, so a subscriber never reads the graph
+        # mid-batch.
+        for completion_event in completion_events:
+            await publish_event(self.event_bus, completion_event, self.logger)
+
+        # Publish TasksBulkCompleted event. The uids are the rows that were
+        # actually written — the former ``task_uids[:completed_count]`` slice
+        # named the wrong rows whenever a row in the middle was skipped.
+        if written_uids:
             from core.events import TasksBulkCompleted
 
             event = TasksBulkCompleted(
-                task_uids=task_uids[:completed_count],
+                task_uids=written_uids,
                 user_uid=user_uid,
             )
             await publish_event(self.event_bus, event, self.logger)
 
-        return Result.ok(completed_count)
+        return Result.ok(len(written_uids))
 
     # ========================================================================
     # DELETE OPERATIONS
