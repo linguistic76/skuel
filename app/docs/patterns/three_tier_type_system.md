@@ -299,12 +299,17 @@ async def complete_task(
     - Field types (str, int, etc.)
     - Field constraints (ge/le, max_length, Literal enums)
 
-    ⚠ A body bound this way is validated during FastHTML's parameter
-    extraction, BEFORE the handler runs, and nothing converts the resulting
-    ``ValidationError`` into a 4xx — it currently surfaces as a 500. Only
-    ``parse_json_body`` (which catches it and returns ``Errors.validation``)
-    gives you the documented 4xx. Same seam that
-    ``boundary.malformed_json_handler`` closes for ``JSONDecodeError``.
+    A body bound this way is validated during FastHTML's parameter
+    extraction, BEFORE the handler and its ``@boundary_handler`` wrapper run.
+    ``boundary.install_request_validation_guard`` (wired at bootstrap) maps the
+    resulting ``ValidationError`` to the same ``Errors.validation`` 400 that
+    ``parse_json_body`` returns; without it the client is told 500 for
+    ordinary bad input.
+
+    ⚠ Do NOT annotate an auto-bound body field as a ``Literal`` — FastHTML
+    coerces each value by calling the annotation, and ``Literal(...)`` raises
+    ``TypeError``, which no validation guard converts. Use an enum or a
+    validated ``str``, or bind via ``parse_json_body``.
     """
     return await service.complete_task_with_context(
         task_uid=task_uid,

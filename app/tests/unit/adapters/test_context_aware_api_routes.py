@@ -14,9 +14,9 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fasthtml.common import fast_app
-from pydantic import ValidationError
 from starlette.testclient import TestClient
 
+from adapters.inbound.boundary import install_request_validation_guard
 from adapters.inbound.context_aware_api import create_context_aware_api_routes
 from adapters.inbound.csrf import CSRF_COOKIE_NAME, CSRF_HEADER_NAME, mint_token
 from core.models.task.task import Task
@@ -42,9 +42,13 @@ def _make_harness(
     authenticated: bool = True,
 ) -> _Harness:
     app, rt = fast_app(pico=False, default_hdrs=False)
+    # Bootstrap wires this on the real app; the harness must too, or a rejected
+    # body model escapes as a raw ValidationError instead of the 400 clients see.
+    install_request_validation_guard(app)
 
     service = MagicMock()
     service.get_context_dashboard = AsyncMock(return_value=Result.ok({"widgets": []}))
+    service.complete_habit_with_context = AsyncMock(return_value=Result.ok({"ok": True}))
     service.get_context_summary = AsyncMock(return_value=Result.ok({"insights": []}))
     service.get_next_action = AsyncMock(return_value=Result.ok({"action": "rest"}))
     service.complete_task_with_context = AsyncMock(
@@ -190,26 +194,41 @@ class TestTaskCompletion:
     ) -> None:
         """``ge=0`` is enforced at the boundary — the only new rejection.
 
-        The refusal happens during FastHTML's parameter binding, i.e. BEFORE the
-        handler body runs, so the service is never reached. Note what is pinned
-        here and what is not: the ``ValidationError`` is asserted, the HTTP
-        status is not. FastHTML pre-parses the JSON body during parameter
-        extraction and nothing converts a Pydantic ``ValidationError`` into a
-        4xx, so it currently surfaces as a 500 for *every* body model in the
-        app — a pre-existing framework-seam gap, the exact sibling of the one
-        ``boundary.malformed_json_handler`` closes for ``JSONDecodeError``.
-        Asserting 422 here would fail; asserting 500 would pin the gap as
-        correct. Neither belongs to this change.
+        The refusal happens during FastHTML's parameter binding, i.e. BEFORE
+        the handler body runs, so the service is never reached. The 400 comes
+        from ``install_request_validation_guard``: without it a rejected body
+        model escapes as a raw ``ValidationError`` and the client is told 500
+        for ordinary bad input (see ``test_request_validation_guard.py``).
         """
         harness = _make_harness(monkeypatch)
 
-        with pytest.raises(ValidationError):
-            _post_json(
-                harness.client,
-                f"/api/context/task/complete?task_uid={_TASK_UID}",
-                {"context": {"time_invested_minutes": -5}},
-            )
+        response = _post_json(
+            harness.client,
+            f"/api/context/task/complete?task_uid={_TASK_UID}",
+            {"context": {"time_invested_minutes": -5}},
+        )
 
+        assert response.status_code == 400
+        assert response.json()["category"] == "validation"
+        harness.context.complete_task_with_context.assert_not_awaited()
+
+    def test_over_length_reflection_is_also_400(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """The guard is not about the new field — this constraint predates it.
+
+        ``reflection``'s ``max_length=2000`` is untouched by the typed-context
+        change and has always failed at this same binding seam, returning 500.
+        Pinning it here records that the 500 was a live property of the
+        endpoint rather than something the ``ge=0`` constraint introduced.
+        """
+        harness = _make_harness(monkeypatch)
+
+        response = _post_json(
+            harness.client,
+            f"/api/context/task/complete?task_uid={_TASK_UID}",
+            {"reflection": "x" * 3000},
+        )
+
+        assert response.status_code == 400
         harness.context.complete_task_with_context.assert_not_awaited()
 
 

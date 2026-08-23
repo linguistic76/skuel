@@ -48,6 +48,24 @@ SKUEL validates all external input at API boundaries to prevent 500 errors from 
 
 **Query param helpers live in** `adapters/inbound/route_factories/route_helpers.py` (re-exported from `adapters.inbound.route_factories`). **Body parsing helpers** (`parse_json_body`, `parse_form_body`) live in `adapters/inbound/form_helpers.py`.
 
+### Two ways a JSON body reaches a route — and the guards behind them
+
+| Binding | How | Validation failure becomes |
+|---|---|---|
+| `parse_json_body(request, Model)` | explicit, inside the handler | `Errors.validation` → **400** (the helper catches it) |
+| `body: Model` in the signature | FastHTML constructs the model during parameter extraction, **before** the handler and its `@boundary_handler` wrapper run | `Errors.validation` → **400**, via `install_request_validation_guard` |
+
+Both end at the same 400. The auto-bound form needs an app-level guard because
+the exception escapes past every route-level guard — the same seam
+`install_malformed_json_guard` closes for a malformed (unparseable) body. Both
+are wired once in bootstrap's `_create_web_app`; without them the client is
+told **500** for ordinary bad input.
+
+⚠ **Do not use a `Literal` annotation on an auto-bound body field.** FastHTML
+coerces each incoming value by calling the annotation, and `Literal(...)` raises
+`TypeError` — which is not a `ValidationError` and no guard converts it. Use an
+enum, a validated `str`, or `parse_json_body`.
+
 **Example:**
 ```python
 from adapters.inbound.route_factories import (

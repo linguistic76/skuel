@@ -23,6 +23,7 @@ from types import MappingProxyType
 from typing import Any, ParamSpec
 
 from fasthtml.common import FT, Div, to_xml
+from pydantic import ValidationError
 from pydantic_core import to_jsonable_python
 from starlette.exceptions import HTTPException
 from starlette.requests import Request
@@ -308,6 +309,40 @@ def malformed_json_handler(request: Request, exc: Exception) -> Response:
 def install_malformed_json_guard(app: FastHTMLApp) -> None:
     """Register the malformed-JSON → 400 handler on a FastHTML/Starlette app."""
     app.add_exception_handler(JSONDecodeError, malformed_json_handler)
+
+
+def request_validation_handler(request: Request, exc: Exception) -> Response:
+    """Map a body-binding Pydantic ``ValidationError`` to a 400 validation response.
+
+    The sibling of :func:`malformed_json_handler`, for the next failure along
+    the same seam: a route that annotates its body as a Pydantic model
+    (``body: SomeRequest``) has that model constructed by FastHTML during
+    parameter extraction, BEFORE the handler and its ``@boundary_handler``
+    wrapper run. A field constraint rejecting the input therefore escaped as a
+    raw ``ValidationError`` and surfaced as a 500 — the app telling the client
+    "server bug" about ordinary bad input. Routes that bind via
+    ``parse_json_body`` already return ``Errors.validation`` (400) for the same
+    input; this makes the auto-bound form agree with them.
+
+    Only requests that declared a JSON content type are converted. A
+    ``ValidationError`` raised anywhere else — constructing a model inside
+    service code on a non-JSON request — is a genuine server bug and is
+    re-raised to keep its 500. (A ``ValidationError`` raised *inside* a
+    decorated handler never reaches here at all: ``boundary_handler`` catches
+    it first.)
+
+    Register via ``install_request_validation_guard(app)`` (wired once at
+    bootstrap in ``_create_web_app``).
+    """
+    content_type = request.headers.get("content-type", "")
+    if not content_type.lower().startswith("application/json"):
+        raise exc
+    return result_to_response(Result.fail(Errors.validation(str(exc), field="body")))
+
+
+def install_request_validation_guard(app: FastHTMLApp) -> None:
+    """Register the body-validation → 400 handler on a FastHTML/Starlette app."""
+    app.add_exception_handler(ValidationError, request_validation_handler)
 
 
 def _get_status_for_error(error: ErrorContext) -> int:

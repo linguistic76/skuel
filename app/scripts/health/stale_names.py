@@ -446,8 +446,8 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         (66, "ProfileLayout"): Allow(_ui_comp),
     },
     "docs/patterns/three_tier_type_system.md": {
-        (944, "KuType"): Allow(_three_tier),
-        (945, "KuStatus"): Allow(_three_tier),
+        (949, "KuType"): Allow(_three_tier),
+        (950, "KuStatus"): Allow(_three_tier),
     },
     "docs/user-guides/documentation-freshness.md": {
         (127, "KuTaskCreateRequest"): Allow(_freshness),
