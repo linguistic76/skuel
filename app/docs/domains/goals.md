@@ -297,6 +297,14 @@ would both move the recorded achievement date to today on any later write — a 
 stamp — and duplicate the PRINCIPLE_ALIGNMENT insight `GoalEventHandlerService` appends per event.
 There is no `is_repeat` flag on this event: the transition gate is the whole mechanism.
 
+**The same rule applies one level down, to each milestone's own `achieved_date`.** It is
+documented as "when actually achieved", so it records the milestone's *first* completion and
+never moves; re-completing an already-completed milestone leaves it alone. `is_completed` needs
+no gate — it is already idempotent. The goal-level gate above does not cover this: re-completing
+a milestone of a still-unachieved goal writes no goal stamp at all, yet would move the
+milestone's. A completed milestone whose date is already null stays null — a repeat is not a
+transition, so there is no moment to record, matching the task stamp gate (#1125).
+
 ## UI Routes
 
 Goals has an active read-focused UI at `/goals` with filtering and progress display.
