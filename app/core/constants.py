@@ -552,6 +552,14 @@ class HabitConsistencyWindow:
     either window must be retunable without silently moving the other. They
     agree on 30 days today; that agreement is a coincidence of two judgements,
     not a shared constant.
+
+    Thirty days is also the horizon
+    ``HabitsProgressService._calculate_consistency_from_completions`` already
+    reads habit consistency over, so the app measures one behaviour against one
+    span. The two are not the same number and must not be conflated: that one
+    is **per habit**, an adherence *ratio* against the habit's own expected
+    frequency clamped to 1.0, while this one is **per user**, a *rate* in
+    completions per week across every habit they keep.
     """
 
     #: Length of the trailing window, in calendar days ending today (inclusive).
