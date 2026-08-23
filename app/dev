@@ -167,6 +167,15 @@ case "$1" in
     uv run python scripts/telemetry_retention.py "${@:2}"
     ;;
 
+  reconcile-productivity)
+    # One-shot: recomputes the DERIVED ProductivityAnalytics.tasks_completed for
+    # every user. Covers the drift no event can reach — legacy tallies, tasks
+    # created already-completed or deleted while completed, and the vault `- [x]`
+    # door, which publishes no task events at all.
+    echo -e "${GREEN}Reconciling ProductivityAnalytics.tasks_completed with the graph...${NC}" >&2
+    uv run python scripts/reconcile_productivity_analytics.py "${@:2}"
+    ;;
+
   backfill-form-audience)
     echo -e "${GREEN}Backfilling FormSubmission default audience...${NC}" >&2
     uv run python scripts/backfill_form_submission_audience.py "${@:2}"
@@ -340,6 +349,7 @@ case "$1" in
     echo "  ./dev knowledge-health - Knowledge-subgraph structural-health report (ADR-080; --json)"
     echo "  ./dev embed-backfill - Fill missing embeddings (embedding-NULL nodes; needs OPENAI_API_KEY)"
     echo "  ./dev telemetry-retention - Prune unbounded-growth telemetry (ADR-080 H0; --dry-run | --days N)"
+    echo "  ./dev reconcile-productivity - Recompute ProductivityAnalytics.tasks_completed for every user (--dry-run)"
     echo "  ./dev backfill-form-audience - Share pre-gate FormSubmissions with their submitter's groups (--dry-run first; --confirm to write)"
     echo "  ./dev css            - Watch and rebuild CSS on changes"
     echo "  ./dev css-build      - Build CSS once"

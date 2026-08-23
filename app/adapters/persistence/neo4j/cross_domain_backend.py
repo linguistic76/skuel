@@ -26,7 +26,12 @@ from adapters.persistence.neo4j.query.cypher import (
 from core.models.enums import EntityStatus, EntityType
 from core.models.enums.principle_enums import AlignmentLevel
 from core.models.relationship_names import RelationshipName
-from core.ports.query_types import JournalEntryRow, SelCategoryRow, UserKnowledgeChannelRow
+from core.ports.query_types import (
+    JournalEntryRow,
+    ProductivityDriftRow,
+    SelCategoryRow,
+    UserKnowledgeChannelRow,
+)
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -267,6 +272,31 @@ def _to_journal_entry_rows(
     ]
 
 
+def _to_productivity_drift_rows(
+    records: list[dict[str, Any]],  # boundary: raw neo4j-driver rows (AsyncResult.data())
+) -> list[ProductivityDriftRow]:
+    """Project raw rows onto ProductivityDriftRow (KeyError on alias drift).
+
+    Same contract as the projectors above: nothing statically links a Cypher
+    alias to a TypedDict key, so a renamed RETURN would type-check while the
+    reconciliation read the missing key as "nothing drifted" — the confident
+    zero this area keeps producing, here on a pass whose whole job is to notice
+    disagreement.
+
+    ``stored`` is carried through as ``None`` rather than defaulted: an absent
+    ``ProductivityAnalytics`` node is not a stored count of 0, and flattening
+    the two would silence the vault ``- [x]`` door's signature exactly.
+    """
+    return [
+        {
+            "user_uid": str(row["user_uid"]),
+            "stored": None if row["stored"] is None else int(row["stored"]),
+            "actual": int(row["actual"]),
+        }
+        for row in records
+    ]
+
+
 _CHOICE_PRINCIPLE_ADHERENCE_QUERY = f"""
 MATCH (u:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(c:Entity {{entity_type: 'choice'}})
 WHERE datetime(c.created_at) >= datetime() - duration({{days: $period_days}})
@@ -323,6 +353,17 @@ RETURN pid AS principle_uid,
        size(habit_uids) AS habit_count,
        count(hc) AS completion_count
 """
+
+# THE definition of "currently completed" behind ProductivityAnalytics.tasks_completed,
+# interpolated into BOTH the per-user recompute (the live TaskCompleted / TaskReopened
+# path) and the all-users drift survey the one-shot reconciliation reads. One fragment,
+# so the number the instrument reports can never disagree with the number the app
+# writes. Binds against an already-matched `u` (a :User) and yields `t`; ownership is
+# the universal :OWNS edge (ADR-086), not the user_uid property the invariant pairs it
+# with.
+_COMPLETED_TASKS_OF_USER = (
+    f"OPTIONAL MATCH (u)-[:{RelationshipName.OWNS.value}]->(t:Task {{status: $completed_status}})"
+)
 
 # Local aliases for enum / status tuples used within this backend's queries.
 # (FULL_ALIGNMENT_CONNECTION_COUNT moved to core.constants.CrossDomainImpactScore —
@@ -425,6 +466,10 @@ class CrossDomainBackend:
     ) -> Result[list[dict[str, Any]]]:
         """Recompute the user's ProductivityAnalytics from the graph.
 
+        Also THE write path of the one-shot reconciliation instrument
+        (``./dev reconcile-productivity``), which calls it with
+        ``occurred_at=None`` — a reconciliation is not a completion.
+
         ``tasks_completed`` is **derived, not tallied**: it is the number of the
         user's tasks currently in ``completed``, read fresh and ``SET`` on every
         call. That makes it idempotent under the arc's repeat-complete contract
@@ -447,7 +492,9 @@ class CrossDomainBackend:
             MERGE (analytics:ProductivityAnalytics {user_uid: $user_uid})
             WITH analytics
             OPTIONAL MATCH (u:User {uid: $user_uid})
-            OPTIONAL MATCH (u)-[:OWNS]->(t:Task {status: $completed_status})
+            """
+            + _COMPLETED_TASKS_OF_USER
+            + """
             WITH analytics, count(t) AS completed
             SET analytics.tasks_completed = completed
             WITH analytics
@@ -462,6 +509,53 @@ class CrossDomainBackend:
                 "occurred_at": occurred_at,
                 "completed_status": EntityStatus.COMPLETED.value,
             },
+        )
+
+    async def survey_productivity_analytics_drift(self) -> Result[list[ProductivityDriftRow]]:
+        """Every user's stored ``tasks_completed`` beside the count the graph implies.
+
+        READ-ONLY, and the *only* new query the reconciliation instrument needs:
+        the write half reuses :meth:`recompute_productivity_analytics` unchanged,
+        so the value ever written is still counted inside the write itself. This
+        survey never decides a value — it decides which users are worth a write,
+        and reports the drift a ``--dry-run`` has to show without touching the
+        graph.
+
+        Why a per-user-batch sibling exists at all: a dry run must count without
+        writing, which the atomic count-and-``SET`` above cannot do. Both share
+        ``_COMPLETED_TASKS_OF_USER`` so the two can never disagree about what
+        "currently completed" means.
+
+        **Scan set** — a user is in scope when they already have a
+        ``ProductivityAnalytics`` node **or** currently own at least one
+        completed task. The first arm is what stops a stale node from being
+        skipped when its true count has fallen to zero (a naive
+        ``MATCH ... (:Task {status: 'completed'})`` grouping returns no row for
+        that user and leaves the stale number in place forever); the second
+        catches a user whose completions arrived through a door that publishes
+        no event at all, such as the vault ``- [x]`` bulk upsert. A user with
+        neither is outside it deliberately: they have nothing recorded and
+        nothing to record, and ``get_productivity_metrics`` already reads 0 for
+        an absent node.
+
+        Returns one :class:`ProductivityDriftRow` per in-scope user.
+        """
+        return await self.executor.execute(
+            query="""
+            MATCH (u:User)
+            """
+            + _COMPLETED_TASKS_OF_USER
+            + """
+            WITH u, count(t) AS actual
+            OPTIONAL MATCH (analytics:ProductivityAnalytics {user_uid: u.uid})
+            WITH u.uid AS user_uid, actual, analytics
+            WHERE analytics IS NOT NULL OR actual > 0
+            RETURN user_uid, actual, analytics.tasks_completed AS stored
+            ORDER BY user_uid
+            """,
+            params={"completed_status": EntityStatus.COMPLETED.value},
+            processor=_to_productivity_drift_rows,
+            operation="survey_productivity_analytics_drift",
         )
 
     async def upsert_habit_analytics(

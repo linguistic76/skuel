@@ -3310,6 +3310,26 @@ class SelCategoryRow(TypedDict):
     sel_category: str
 
 
+class ProductivityDriftRow(TypedDict):
+    """Return shape for survey_productivity_analytics_drift() — one in-scope user.
+
+    ``actual`` is the count the graph implies (tasks the user currently owns in
+    ``completed``); ``stored`` is what ``ProductivityAnalytics.tasks_completed``
+    holds, and is ``None`` — never 0 — when no node exists yet. That distinction
+    is load-bearing: coercing an absent node to 0 reads as agreement with a user
+    who has no completed tasks, and the reconciliation would write nothing for
+    exactly the door (the vault ``- [x]`` bulk upsert) that creates no node.
+
+    Projected by a processor that indexes each alias, so a renamed RETURN alias
+    raises at the boundary instead of reaching the reconciliation as a missing
+    key — which would read as "nothing drifted" and report a confident zero.
+    """
+
+    user_uid: str
+    stored: int | None
+    actual: int
+
+
 class PrereqMasteryResult(TypedDict, total=False):
     """Return shape for query_user_mastery_for_prereqs()."""
 
