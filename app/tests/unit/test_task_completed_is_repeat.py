@@ -18,11 +18,16 @@ split across five services:
                                  the one that cannot be fixed anywhere else)
 
   Recomputing — must keep running on a repeat, and land on the same state
-    4. CrossDomainAnalyticsService  ProductivityAnalytics.tasks_completed, counted
-                                 from the graph (PR-6 moved it off the increment,
-                                 so its gate came off with it)
-    5. GoalsProgressService      recomputes progress from count_linked_tasks
-    6. PsEngagementService       auto-complete filtered on state='engaged'
+    4. GoalsProgressService      recomputes progress from count_linked_tasks
+    5. PsEngagementService       auto-complete filtered on state='engaged'
+
+  Both at once — the count derives, the stamps accumulate
+    6. CrossDomainAnalyticsService  ProductivityAnalytics.tasks_completed is
+                                 counted from the graph on every complete
+                                 (PR-6 moved it off the increment), but
+                                 first/last_completion_at are gated: a repeat
+                                 carries a fresh occurred_at with nothing
+                                 transitioned
 
   Both at once — the reason the contract names appending separately
     7. TaskEventHandlerService   principle alignment: the graph read recomputes
@@ -284,11 +289,11 @@ async def test_productivity_analytics_recomputes_on_a_first_complete() -> None:
 async def test_productivity_analytics_recomputes_on_a_repeat_too() -> None:
     """PR-6 inverts what PR-2 pinned here.
 
-    The handler used to skip a repeat because ``ON MATCH SET tasks_completed =
-    tasks_completed + 1`` could not tell a re-post from a second task. It now
-    counts the user's currently-COMPLETED tasks from the graph, which *can*, so
-    under the contract (recompute handlers ignore ``is_repeat``) the gate came
-    off — and re-running it converges instead of inflating.
+    The handler used to skip a repeat entirely because ``ON MATCH SET
+    tasks_completed = tasks_completed + 1`` could not tell a re-post from a
+    second task. It now counts the user's currently-COMPLETED tasks from the
+    graph, which *can*, so the count is rebuilt on every complete and converges
+    instead of inflating.
     """
     service, backend = _analytics_service()
 
@@ -297,8 +302,30 @@ async def test_productivity_analytics_recomputes_on_a_repeat_too() -> None:
 
     assert first.is_ok and repeat.is_ok
     assert backend.recompute_productivity_analytics.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_a_repeat_complete_records_no_completion_moment() -> None:
+    """``is_repeat`` did not disappear from this handler — it changed job.
+
+    It no longer decides whether to do the work; it decides whether a new
+    *completion moment* occurred. The explicit-complete cascade re-runs on an
+    already-completed task and publishes a **fresh** ``occurred_at`` with
+    nothing transitioned, so stamping it would stretch the velocity window
+    without raising the numerator — every repair click quietly lowering the
+    reported velocity (Codex #1134 P2). Same invariant as the reopen path.
+    """
+    service, backend = _analytics_service()
+
+    await service.handle_task_completed(_event(is_repeat=False))
+    await service.handle_task_completed(_event(is_repeat=True))
+
     calls = backend.recompute_productivity_analytics.await_args_list
-    assert calls[0].kwargs == calls[1].kwargs, "a repeat must ask for the same recompute"
+    assert calls[0].kwargs["occurred_at"] == "2026-08-22T12:00:00", (
+        "a genuine completion must still advance last_completion_at"
+    )
+    assert calls[1].kwargs["occurred_at"] is None, "a repeat is not a completion moment"
+    assert calls[1].kwargs["user_uid"] == _USER, "but the count is still recomputed for the user"
 
 
 @pytest.mark.asyncio

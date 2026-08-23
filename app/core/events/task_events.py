@@ -74,19 +74,29 @@ class TaskCompleted(BaseEvent):
         **append** skip when ``is_repeat`` is true.
 
     Recompute-shaped subscribers (goal progress, PS engagement auto-complete,
-    knowledge generation, context invalidation, and — since it started counting
-    the user's currently-COMPLETED tasks from the graph rather than
-    incrementing — ``ProductivityAnalytics.tasks_completed``) therefore read
-    nothing from this flag. The counting/appending ones do:
-    duration-calibration EMA and its sample counter, the overdue
-    ``PersistedInsight`` append, and the Prometheus ``entities_completed{task}``
-    counter — the last of which cannot be fixed any other way, since a
-    monotonic counter has no un-increment.
+    knowledge generation, context invalidation) therefore read nothing from this
+    flag. The counting/appending ones do: duration-calibration EMA and its
+    sample counter, the overdue ``PersistedInsight`` append, and the Prometheus
+    ``entities_completed{task}`` counter — the last of which cannot be fixed any
+    other way, since a monotonic counter has no un-increment.
 
-    The principle-alignment check is **split across both halves** and is the
-    reason the contract names appending separately from counting: it recomputes
-    the alignment from the graph on every complete, then appends a
-    ``PersistedInsight`` only when this is not a repeat.
+    Two subscribers are **split across both halves**, and they are the reason
+    the contract names appending separately from counting rather than treating
+    the flag as a simple do-it/skip-it switch:
+
+    - **Principle alignment** recomputes the alignment from the graph on every
+      complete, then appends a ``PersistedInsight`` only when this is not a
+      repeat.
+    - **``ProductivityAnalytics``** recomputes ``tasks_completed`` — the count
+      of the user's currently-COMPLETED tasks — on every complete, repeat
+      included, because a recompute converges. But it reads the flag to decide
+      whether a new *completion moment* occurred: a repeat carries a fresh
+      ``occurred_at`` while nothing transitioned, and recording that as a
+      completion would stretch the velocity window without raising the
+      numerator. So the count is ungated and the timestamps are gated.
+
+    The pattern behind both: ``is_repeat`` gates the part of a handler that
+    **accumulates** (an append, a stamp), never the part that **derives**.
 
     **Only the explicit-complete cascade ever sets ``is_repeat=True``.** The
     other two publishers are transition-gated, so a repeat cannot reach them:

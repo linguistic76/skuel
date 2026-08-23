@@ -269,18 +269,24 @@ that merely counts completions must read the per-row `TaskCompleted`, or it doub
 bulk call.
 
 **`TaskCompleted.is_repeat`:** completing an already-completed task is legal and the cascade
-deliberately re-runs on it (the repair path). Subscribers that **recompute** state ignore the
-flag; subscribers that **count** or **append** skip when it is true. Only the explicit-complete
-cascade ever sets it — the transition-gated publishers cannot be reached by a repeat. See the
-`TaskCompleted` docstring in `core/events/task_events.py` for the full contract.
+deliberately re-runs on it (the repair path). The flag gates the part of a handler that
+**accumulates** (an append, a stamp), never the part that **derives**. So a subscriber may read
+it for one half of its work and ignore it for the other — principle alignment recomputes on
+every complete but appends its insight only on a first, and `ProductivityAnalytics` recomputes
+its count on every complete but records a completion *moment* only on a first. Only the
+explicit-complete cascade ever sets it — the transition-gated publishers cannot be reached by a
+repeat. See the `TaskCompleted` docstring in `core/events/task_events.py` for the full contract.
 
 **`TaskReopened` is the mirror**, published from `update_task` alone on a transition OUT of
 completed (Today's Undo posts the prior status through that chokepoint). It exists so a
 subscriber can hold "tasks completed" as a *recomputed* number rather than a tally that can
 only rise: `ProductivityAnalytics.tasks_completed` counts the user's tasks currently in
-`completed`, which is why its `is_repeat` gate could come off. A reopen is **not** a
-completion — it records no completion moment and leaves `first_completion_at` /
-`last_completion_at` untouched, since the latter is the endpoint of the velocity denominator.
+`completed`, which is what let its skip-on-repeat gate come off the count.
+
+**Neither a reopen nor a repeat complete is a completion moment.** Both leave
+`first_completion_at` / `last_completion_at` untouched, because `last_completion_at` is the
+endpoint of the velocity denominator in `get_productivity_metrics` — moving it without raising
+the numerator silently lowers reported velocity.
 
 ## Update Validation
 

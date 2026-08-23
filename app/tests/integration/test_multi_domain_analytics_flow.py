@@ -201,6 +201,45 @@ class TestMultiDomainAnalyticsFlow:
         record = await _productivity(neo4j_driver, test_user_uid)
         assert record["count"] == 1
 
+    async def test_a_repeat_complete_does_not_move_the_completion_stamps(
+        self, analytics_service, neo4j_driver, test_user_uid
+    ):
+        """A repeat is not a completion moment either (Codex #1134 P2).
+
+        The explicit-complete cascade re-runs on an already-completed task and
+        publishes a *fresh* ``occurred_at`` with ``is_repeat=True``. Recording
+        that as a completion would stretch the velocity denominator without
+        raising the numerator, so every repair click would quietly lower the
+        reported velocity. Same invariant as the reopen path, different trigger.
+        """
+        await _seed_task(neo4j_driver, test_user_uid, "task.once", EntityStatus.COMPLETED)
+        assert (
+            await analytics_service.handle_task_completed(
+                TaskCompleted(
+                    task_uid="task.once",
+                    user_uid=test_user_uid,
+                    occurred_at=datetime(2026, 8, 1, 9, 0),
+                )
+            )
+        ).is_ok
+        before = await _productivity(neo4j_driver, test_user_uid)
+
+        assert (
+            await analytics_service.handle_task_completed(
+                TaskCompleted(
+                    task_uid="task.once",
+                    user_uid=test_user_uid,
+                    occurred_at=datetime(2026, 8, 20, 9, 0),
+                    is_repeat=True,
+                )
+            )
+        ).is_ok
+
+        after = await _productivity(neo4j_driver, test_user_uid)
+        assert after["count"] == before["count"] == 1
+        assert after["last"] == before["last"], "a repeat complete is not a completion moment"
+        assert after["first"] == before["first"]
+
     async def test_a_reopen_lowers_the_count_without_moving_the_stamps(
         self, analytics_service, neo4j_driver, test_user_uid
     ):

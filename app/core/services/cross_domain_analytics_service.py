@@ -257,20 +257,29 @@ class CrossDomainAnalyticsService:
         - Priority distribution patterns
         - Completion time trends
 
-        Recompute work, so it ignores ``is_repeat`` and runs on every complete
-        — that is the repair path, and re-running it converges rather than
-        accumulating. ``tasks_completed`` is the count of the user's tasks
+        Recompute work, so the count is rebuilt on **every** complete, repeat
+        included — that is the repair path, and re-running it converges rather
+        than accumulating. ``tasks_completed`` is the count of the user's tasks
         currently in ``completed``, read fresh from the graph; the increment it
         replaced could not tell a re-post from a second task, which is what the
-        gate here used to stand in for. See :class:`TaskCompleted` for the
-        contract.
+        old skip-on-repeat gate stood in for.
 
-        The completion moment is passed through, so this call advances
-        ``last_completion_at``. The reopen handler below deliberately does not.
+        **``is_repeat`` does not disappear from this handler — it changes job.**
+        It no longer decides *whether to do the work*; it decides *whether a new
+        completion moment occurred*. The count recomputes either way; only the
+        stamps are gated. A repeat is the explicit-complete cascade re-running
+        on an already-completed task, and it carries a fresh ``occurred_at``
+        even though nothing transitioned — recording that as a completion would
+        stretch the velocity window in :meth:`get_productivity_metrics` without
+        raising the numerator, so every repair click would quietly lower the
+        reported velocity. Same invariant as the reopen path
+        (:meth:`handle_task_reopened`), reached through the other door.
+
+        See :class:`TaskCompleted` for the contract.
         """
         recomputed = await self._recompute_productivity(
             event.user_uid,
-            occurred_at=event.occurred_at.isoformat(),
+            occurred_at=None if event.is_repeat else event.occurred_at.isoformat(),
             operation="handle_task_completed",
         )
         if recomputed.is_ok:
