@@ -12,10 +12,11 @@ Responsibilities:
 - Progress cascade effects
 """
 
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from operator import attrgetter
 from typing import Any
 
+from core.constants import HabitConsistencyWindow
 from core.events import HabitCompleted, HabitStreakBroken, HabitStreakMilestone, publish_event
 from core.models.enums import RecurrencePattern as HabitFrequency
 from core.models.habit.completion import HabitCompletion
@@ -234,8 +235,16 @@ class HabitsProgressService:
         # Persisted as success_rate — the canonical Habit/HabitDTO field every
         # reader consumes (a legacy consistency_30d property was write-only:
         # scripts/migrate_activity_completion_aliases.py renames old nodes).
+        # Anchored at TODAY, not at ``completion_date``. ``success_rate`` is a
+        # current property of the habit, so the window it is measured over must
+        # end at the present regardless of which day this call records. Every
+        # production caller reaches here with today (the facade's
+        # ``completion_date`` parameter has no live user), so this changes no
+        # reading today — it closes the trap: anchoring at the completed day
+        # would persist an as-of-then number, stale for a backfill and
+        # not-yet-true for a future occurrence.
         consistency = self._calculate_consistency_from_completions(
-            habit, existing_completions, completion_date
+            habit, existing_completions, date.today()
         )
         updates["success_rate"] = consistency
 
@@ -456,25 +465,52 @@ class HabitsProgressService:
     def _calculate_consistency_from_completions(
         self, habit: Habit, completions: list[HabitCompletion], as_of_date: date
     ) -> float:
-        """
-        Calculate 30-day consistency score from HabitCompletion records.
+        """Adherence over the trailing consistency window, anchored at ``as_of_date``.
+
+        The habit's completions inside the window divided by the number its own
+        frequency expects there, clamped to 1.0 — a *ratio*, not the
+        completions-per-week *rate*
+        ``CrossDomainAnalyticsService.get_habit_consistency`` reports over the
+        same span. Both read :class:`HabitConsistencyWindow`, so "the last thirty
+        days" means one thing wherever the app says it.
+
+        **Bounded at both ends.** Completing a *future* habit occurrence is
+        legitimate behaviour — the calendar's day-scoped complete door admits any
+        genuine occurrence day and ``TrackHabitRequest`` takes any ISO date — so
+        a lower-bound-only filter counted work that has not happened yet toward
+        present adherence, and went on counting it every day until its date
+        arrived. A window that ends where the anchor does is what makes the
+        numerator answer the same question the denominator asks.
+
+        The span and ``expected`` now derive from one constant, and they have to:
+        ``expected`` is a count of days (or of weekly targets scaled to them), so
+        a window even one day wider lets the numerator outgrow what the
+        denominator asks for. It was a day wider — ``as_of_date - 30`` with
+        ``>=`` spans thirty-*one* days against an expectation of thirty.
+
+        ⚠️ The anchor decides the window, so a caller passing anything other than
+        today gets an as-of-*then* reading. That is right for analysis and wrong
+        to persist: see the note at the ``success_rate`` write in
+        :meth:`complete_habit_with_quality`.
 
         GRAPH-NATIVE: Completions fetched from graph, not from habit.completion_history.
         """
         if not completions:
             return 0.0
 
-        # Count completions in last 30 days
-        thirty_days_ago = as_of_date - timedelta(days=30)
-        recent_completions = [c for c in completions if c.completed_at.date() >= thirty_days_ago]
+        window_start = HabitConsistencyWindow.start_date(as_of_date)
+        window_end = HabitConsistencyWindow.end_date(as_of_date)
+        recent_completions = [
+            c for c in completions if window_start <= c.completed_at.date() <= window_end
+        ]
 
-        # Calculate expected completions based on frequency
-        expected = 30  # Daily
+        # Expected completions across the window, per the habit's own frequency.
+        expected = HabitConsistencyWindow.DAYS  # Daily
         if habit.recurrence_pattern == HabitFrequency.WEEKLY:
-            expected = 4
+            expected = HabitConsistencyWindow.DAYS // 7
         elif habit.recurrence_pattern == HabitFrequency.CUSTOM:
-            # Use target_days_per_week for custom frequency
-            expected = ((habit.target_days_per_week or 0) * 30) // 7  # Scale to month
+            # Use target_days_per_week for custom frequency, scaled to the window
+            expected = ((habit.target_days_per_week or 0) * HabitConsistencyWindow.DAYS) // 7
 
         if expected == 0:
             return 0.0
