@@ -131,6 +131,12 @@ Also handles: duration calibration (EMA on User node), cascade impact analysis, 
 | `contributes_to_goal` | `CONTRIBUTES_TO_GOAL` | Goal | Goals this contributes to |
 | `fulfills_goal` | `FULFILLS_GOAL` | Goal | Goals this fulfills |
 
+**`TRIGGERS_ON_COMPLETION` schedules, it never reopens.** The completion cascade
+(`TasksProgressService._trigger_task`) moves a dependent to `scheduled` only when that
+dependent is not already in a terminal state (`EntityStatus.is_terminal()`). Reopening a
+completed dependent through this path would strip its status while leaving `completion_date`
+set, breaking the invariant that the stamp is non-null exactly when the task is completed.
+
 ### Incoming (Other → Task)
 
 | Key | Relationship | Source | Description |
