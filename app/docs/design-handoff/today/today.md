@@ -87,8 +87,10 @@ class Task:
     label:         str
     meta:          str                  # short gloss: "draft · needs your decision"
     priority:      Literal["high", "medium", "low"]
+    status:        str                  # status Undo restores to; "" = no Undo
     est_min:       int
     due_label:     str                  # "Today", "Tonight", "Overdue · 2d"
+    pinned:        bool                 # Today-scoped pin (:PINNED_TODAY edge)
 
 @dataclass
 class TriageItem(Task):
@@ -127,7 +129,10 @@ Component root: `x-data="today()"` on `<main>`.
   flashTimer:    number | null,
   deferred:      { [cardKey]: '1d' | '1w' },  // optimistic hide, PER CARD (C7)
   completed:     Set<string>,                 // optimistic; uid-keyed (task-level fact)
-  _lastAction:   { type: 'complete', id } | null,  // undo is complete-only (C7)
+  // Undo is complete-only (C7). `status` is the status the card held BEFORE
+  // the complete — undo posts it back to reopen, so the revert is real.
+  _lastAction:   { type: 'complete', id, status } | null,
+  _completePending: Promise | null,  // in-flight complete; undo chains onto it
 }
 ```
 
@@ -179,14 +184,24 @@ HTML has `hx-post` / `hx-get` bindings colocated with each trigger.
 | Complete task (drawer button, `x`, drag)  | `POST /today/tasks/{id}/complete`                  | —             | `204` or new ribbon fragment |
 | Quick-add task (day-lens form, C6)        | `POST /today/tasks/quick-add`                      | `title` + `view_date=YYYY-MM-DD` | `HX-Redirect` to the day's lens; `400` on a past/blank/invalid request (creates `scheduled_date`-only, no `due_date`) |
 | Defer task (drawer button, `d`/`⇧D`, drag)| `POST /today/tasks/{id}/defer`                     | `span=1d\|1w` + `source=ribbon\|triage` + `view_date=YYYY-MM-DD` | `204`; `400` + message on any refused move (C7 guards) |
+| Undo a complete (flash toast)             | `POST /api/tasks/{id}/status`                      | `status=<the card's prior status>` | `TaskCard` fragment, discarded (`swap: 'none'`); reopening clears `completion_date` |
 | Wake dormant LifePath                     | `POST /today/lifepaths/{id}/wake`                  | —             | `outerHTML` swap → active ribbon |
 | Star / pin task (drawer)                  | `POST /today/tasks/{id}/star`                      | —             | `204`                |
 | Server-rendered drawer body               | `GET  /today/tasks/{id}/drawer`                    | —             | HTML fragment into `#drawer-body` |
 | Full surface SSR                          | `GET  /today`                                      | —             | full page            |
 
 **Optimistic UI contract (C7):** the client mutates `deferred` / `completed`
-and shows a flash toast *immediately*. Complete posts via `htmx.ajax` and
-keeps an Undo (local-state revert). Defer posts exactly ONE `fetch` carrying
+and shows a flash toast *immediately*. Complete posts via `htmx.ajax` and keeps
+an Undo — a **real reopen**, not a local revert: it POSTs the status the card
+held before the complete back through `POST /api/tasks/{id}/status`, which also
+clears `completion_date` at the completion-stamp chokepoint. Undo is offered
+only when the card carries a **restorable** prior status — the orchestrator
+blanks any value the chokepoint would refuse (and `completed` itself), so the
+client never posts a write that fails while the card un-hides anyway. The
+reopen is **queued behind the in-flight complete**, never raced against it: the
+complete is the slower request (it reads before it writes), so an independent
+reopen could land first and be overwritten, leaving the task completed under a
+card that already reads "not done". Defer posts exactly ONE `fetch` carrying
 `span` + `source` + `view_date`; the flash offers **no Undo** (the mutation is
 already posted — a local revert would lie). On ANY non-2xx the client restores
 the hidden card and shows the server's message; the server moves the field(s)

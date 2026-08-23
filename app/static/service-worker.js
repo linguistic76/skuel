@@ -5,6 +5,10 @@
  * cache-first for static assets (CSS, JS, vendor libs).
  */
 
+// Bumped v7 -> v8 for today.js: Today's Undo now POSTs the prior status to
+// reopen the task instead of only un-hiding the card. today.js is a page-local
+// bundle (not precached), but cacheFirst() caches it like any other /static/
+// asset, so PWA clients would keep serving the lying version indefinitely.
 // Bumped v6 -> v7 for the Tailwind v3 -> v4 migration: output.css is not in
 // PRECACHE_URLS but cacheFirst() below caches every /static/ fetch into
 // STATIC_CACHE, so the regenerated output.css at the same URL needs a version
@@ -18,12 +22,15 @@
 // names, so any client that had registered the service worker drops the stale
 // skuel.js on the next activation and re-precaches the fixed file.
 // CRITICAL: this cache-first strategy hides ALL app-asset (JS/CSS) updates
-// between version bumps — EVERY change to a PRECACHE_URLS file must bump
-// CACHE_VERSION here, or clients keep serving the stale asset indefinitely.
+// between version bumps — EVERY change to a file served under /static/ must
+// bump CACHE_VERSION here, or clients keep serving the stale asset
+// indefinitely. PRECACHE_URLS membership is NOT the trigger: cacheFirst()
+// below caches every /static/ response, so page-local bundles that were never
+// precached (output.css, today.js) go stale exactly the same way.
 // (The SW now registers correctly via the dedicated /service-worker.js route in
 // adapters/inbound/pwa_routes.py — the former catch-all 404 shadowing is fixed;
 // TECHNICAL_DEBT.md item 11's cache-invalidation half remains this manual bump.)
-const CACHE_VERSION = 'skuel-v7';
+const CACHE_VERSION = 'skuel-v8';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 

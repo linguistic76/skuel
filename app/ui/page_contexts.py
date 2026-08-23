@@ -210,6 +210,18 @@ class TaskView(TypedDict):
     ``pinned`` is the Today-scoped pin (see ``:PINNED_TODAY`` edge). Ribbon
     tasks are rendered pinned-first; triage stays severity-ordered, so
     ``pinned`` is carried through but does not reorder triage.
+
+    ``status`` is the status Undo may restore the card to — the canonical
+    ``EntityStatus`` value, not a display label. It is carried so Undo can
+    truthfully reopen a just-completed task by POSTing the PRIOR status back
+    through ``POST /api/tasks/{uid}/status``; without it the client could only
+    un-hide the card while the graph stayed completed (the same dishonesty
+    ``deferTask`` refuses to offer). It is ``""`` when there is no restorable
+    status — a stored value the completion chokepoint would refuse, or
+    ``completed`` itself — and the client offers no Undo for such a card rather
+    than posting a write that fails while the card un-hides anyway. The
+    orchestrator owns that decision (``_restorable_status``) so the enum stays
+    the authority instead of being re-listed in JS.
     """
 
     id: str
@@ -219,6 +231,7 @@ class TaskView(TypedDict):
     label: str
     meta: str  # short gloss: "draft · needs your decision"
     priority: str  # "high" | "medium" | "low"
+    status: str  # canonical EntityStatus value, e.g. "scheduled" | "active"
     est_min: int
     due_label: str  # "Today", "Tonight", "Overdue · 2d"
     pinned: bool

@@ -9,6 +9,10 @@
  *     view_date, with rollback + server message on ANY non-2xx;
  *   - no Undo for defers (the removed control only cleared local state
  *     while the persisted date stayed moved); complete keeps its undo.
+ *
+ * Also pins the cascade-idempotency arc's PR-5 ruling: complete's Undo is a
+ * REAL reopen — it POSTs the card's prior status back through the live status
+ * chokepoint — not a client-side un-hide over a graph that stays completed.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { loadToday } from './helpers/load-today.js';
@@ -22,19 +26,23 @@ function seed() {
     now_hhmm: '09:00',
     stats: { nodes: 0, committed_min: 0, done: 0 },
     // t-dual is overdue AND on today's ribbon — one card per surface.
+    // `status` mirrors what ui/today/orchestrator.py::_task_to_view emits: the
+    // canonical EntityStatus value, which Undo posts back to reopen.
     triage: [
       { id: 't-dual', label: 'Dual card', lifepath_id: 'lp-1', est_min: 10,
-        reason: 'Overdue · 7d', severity: 'overdue', pinned: false },
+        status: 'active', reason: 'Overdue · 7d', severity: 'overdue', pinned: false },
       { id: 't-late', label: 'Late only', lifepath_id: 'lp-1', est_min: 15,
-        reason: 'Overdue · 2d', severity: 'overdue', pinned: false },
+        status: 'blocked', reason: 'Overdue · 2d', severity: 'overdue', pinned: false },
     ],
     lifepaths: [{ id: 'lp-1', label: 'Path', blurb: null, color: '', dormant: false,
       last_touched: null }],
     principles: [],
     goals: [],
     tasks: [
-      { id: 't-dual', label: 'Dual card', lifepath_id: 'lp-1', est_min: 10, pinned: false },
-      { id: 't-work', label: 'Work only', lifepath_id: 'lp-1', est_min: 20, pinned: false },
+      { id: 't-dual', label: 'Dual card', lifepath_id: 'lp-1', est_min: 10,
+        status: 'active', pinned: false },
+      { id: 't-work', label: 'Work only', lifepath_id: 'lp-1', est_min: 20,
+        status: 'scheduled', pinned: false },
     ],
     rituals: [],
     kinds: {},
@@ -51,15 +59,21 @@ function errorResponse(status, body) {
 }
 
 let c;
+let htmxAjax;
 
 beforeEach(() => {
   global.fetch = vi.fn().mockResolvedValue(okResponse());
+  // completeTask and undoFlash both go through htmx.ajax (the global
+  // htmx:configRequest hook in skuel.js attaches the CSRF header there).
+  htmxAjax = vi.fn();
+  window.htmx = { ajax: htmxAjax };
   c = loadToday(seed());
 });
 
 afterEach(() => {
   vi.restoreAllMocks();
   delete global.fetch;
+  delete window.htmx;
 });
 
 describe('(source, uid) card keying', () => {
@@ -197,16 +211,124 @@ describe('quick-add input does not hijack single-key actions (C6)', () => {
 describe('undo truthfulness', () => {
   it('undoFlash no longer resurrects deferred cards', async () => {
     await c.deferTask('ribbon', 't-work', '1d');
-    c.undoFlash();
+    await c.undoFlash();
     // The defer already posted — local state must NOT pretend otherwise.
     expect(c.deferred['ribbon:t-work']).toBe('1d');
     expect(c.fTasks.map((t) => t.id)).not.toContain('t-work');
   });
 
-  it('complete keeps its undo path', () => {
+  it('a defer is still un-undoable: undoFlash posts nothing for it', async () => {
+    await c.deferTask('ribbon', 't-work', '1d');
+    expect(c._lastAction).toBeNull();
+    await c.undoFlash();
+    expect(htmxAjax).not.toHaveBeenCalled();
+    expect(c.flash).toBeNull();
+  });
+
+  it('complete keeps its undo path', async () => {
     c.completeTask('t-work');
     expect(c.flash.action).toBe('undo');
-    c.undoFlash();
+    await c.undoFlash();
     expect(c.completed.has('t-work')).toBe(false);
+  });
+
+  it('_lastAction carries the status the card held before the complete', () => {
+    c.completeTask('t-work');
+    expect(c._lastAction).toEqual({ type: 'complete', id: 't-work', status: 'scheduled' });
+    // The triage variant of a dual-membership task carries its own status.
+    c.completeTask('t-late');
+    expect(c._lastAction.status).toBe('blocked');
+  });
+
+  it('undo POSTs the prior status to the live status chokepoint', async () => {
+    c.completeTask('t-work');
+    htmxAjax.mockClear(); // drop the complete POST; assert only the reopen
+    await c.undoFlash();
+
+    expect(htmxAjax).toHaveBeenCalledTimes(1);
+    const [verb, path, ctx] = htmxAjax.mock.calls[0];
+    expect(verb).toBe('POST');
+    expect(path).toBe('/api/tasks/t-work/status');
+    // The route reads form["status"]; htmx encodes `values` as the form body.
+    expect(ctx.values).toEqual({ status: 'scheduled' });
+    // The route answers with a TaskCard fragment — Alpine owns this row, so
+    // the response is discarded rather than swapped anywhere.
+    expect(ctx.swap).toBe('none');
+  });
+
+  it('undo still clears the optimistic completed set (both cards return)', async () => {
+    c.completeTask('t-dual');
+    expect(c.completed.has('t-dual')).toBe(true);
+    await c.undoFlash();
+    expect(c.completed.has('t-dual')).toBe(false);
+    expect(c.fTasks.map((t) => t.id)).toContain('t-dual');
+    expect(c.fTriage.map((t) => t.id)).toContain('t-dual');
+  });
+
+  it('undo consumes the action: a second click posts nothing', async () => {
+    c.completeTask('t-work');
+    await c.undoFlash();
+    htmxAjax.mockClear();
+    await c.undoFlash();
+    expect(htmxAjax).not.toHaveBeenCalled();
+    expect(c._lastAction).toBeNull();
+  });
+
+  // The flash appears immediately, so Undo is routinely clicked while the
+  // complete POST is still in flight. The complete is the SLOWER request
+  // (complete_task_with_cascade reads before it writes; the reopen is one
+  // get + one update), so an independent reopen could land first and then be
+  // overwritten — leaving the task completed under a card reading "not done".
+  it('queues the reopen behind the in-flight complete (Codex #1133 P1)', async () => {
+    let finishComplete;
+    htmxAjax.mockImplementationOnce(
+      () => new Promise((resolve) => { finishComplete = resolve; }),
+    );
+
+    c.completeTask('t-work');
+    expect(htmxAjax).toHaveBeenCalledTimes(1); // the complete, still in flight
+
+    const undone = c.undoFlash();
+    await Promise.resolve();
+    await Promise.resolve();
+    // Still only the complete — the reopen must NOT have been raced against it.
+    expect(htmxAjax).toHaveBeenCalledTimes(1);
+    // The card is already visible again; only the write is deferred.
+    expect(c.completed.has('t-work')).toBe(false);
+
+    finishComplete();
+    await undone;
+    expect(htmxAjax).toHaveBeenCalledTimes(2);
+    expect(htmxAjax.mock.calls[1][1]).toBe('/api/tasks/t-work/status');
+  });
+
+  it('still reopens when the complete request itself failed', async () => {
+    // A failed complete means the task is not completed, so posting the prior
+    // status is a no-op in the safe direction — never a swallowed Undo.
+    htmxAjax.mockImplementationOnce(() => Promise.reject(new Error('network down')));
+    c.completeTask('t-work');
+    await c.undoFlash();
+    expect(htmxAjax).toHaveBeenCalledTimes(2);
+    expect(htmxAjax.mock.calls[1][1]).toBe('/api/tasks/t-work/status');
+  });
+
+  // The orchestrator emits status: '' when the stored value is not one the
+  // completion chokepoint would accept (a corrupt status, or 'completed'
+  // itself). The client must read that as "no Undo" rather than posting a
+  // write that fails while the card un-hides anyway (Codex #1133 P2).
+  it.each([
+    ['an empty restorable status', ''],
+    ['no status key at all', undefined],
+  ])('offers no undo given %s', async (_label, status) => {
+    c.seed.tasks.push({ id: 't-bare', label: 'Unrestorable', lifepath_id: 'lp-1',
+      est_min: 5, status, pinned: false });
+    c.completeTask('t-bare');
+    expect(c.flash.action).toBeNull();
+    expect(c._lastAction).toBeNull();
+    htmxAjax.mockClear(); // drop the complete POST; assert only the reopen
+    await c.undoFlash();
+    expect(htmxAjax).not.toHaveBeenCalled();
+    // The complete still happened, so the card stays hidden.
+    expect(c.completed.has('t-bare')).toBe(true);
   });
 });

@@ -95,6 +95,13 @@ In addition to the service worker's `/offline.html` fallback for uncached naviga
 
 Change `CACHE_VERSION` in `service-worker.js`. The `activate` event handler deletes all caches that don't match the current version names.
 
+**When a bump is mandatory, not optional:** `cacheFirst()` caches *every*
+`/static/` response, not just `PRECACHE_URLS` entries. So **any** change to a
+file served under `/static/` — including page-local bundles that were never
+precached (`output.css`, `today.js`) — must bump `CACHE_VERSION` in the same
+change, or installed clients keep serving the stale asset indefinitely.
+PRECACHE_URLS membership is not the trigger.
+
 ## Web App Manifest
 
 **File:** `/static/manifest.json`

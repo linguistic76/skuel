@@ -15,7 +15,7 @@ import asyncio
 from datetime import UTC, date, datetime, timedelta
 from typing import TYPE_CHECKING
 
-from core.models.enums import EntityStatus, Priority, TimeOfDay
+from core.models.enums import EntityStatus, EntityType, Priority, TimeOfDay
 from core.models.type_hints import EntityUID, UserUID
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
@@ -360,6 +360,31 @@ class TodayOrchestrator:
 # ============================================================================
 
 
+#: The statuses Today's Undo may restore a task to. Derived from the enum, never
+#: re-listed in JS: the client treats an empty ``status`` as "no Undo", so the
+#: authority on what is restorable stays in Python. COMPLETED is excluded because
+#: restoring it would undo nothing — the card would un-hide over a task the graph
+#: still has completed, which is the very lie this field exists to prevent.
+_RESTORABLE_TASK_STATUSES: frozenset[str] = frozenset(
+    status.value
+    for status in EntityType.TASK.valid_statuses()
+    if status is not EntityStatus.COMPLETED
+)
+
+
+def _restorable_status(raw: object) -> str:
+    """Return the status Undo may post back, or ``""`` when there is none.
+
+    ``from_neo4j_node`` leaves an unrecognized stored status on the model as a
+    raw ``str`` (with a warning) despite the declared type, and the completion
+    chokepoint refuses any non-canonical status target. Offering Undo for such a
+    card would un-hide it while the refused write left the task completed — so
+    an unrestorable status is emitted as ``""`` and the card offers no Undo.
+    """
+    value = str(raw)
+    return value if value in _RESTORABLE_TASK_STATUSES else ""
+
+
 def _task_view_pinned_first(view: TaskView) -> bool:
     # Sort key: ``False`` sorts before ``True``, so negate to put pinned first.
     return not view["pinned"]
@@ -374,6 +399,10 @@ def _task_to_view(task: Task, *, lifepath_id: str, today: date, pinned: bool = F
         "label": task.title,
         "meta": task.description[:80] if task.description else "",
         "priority": _priority_label(task.priority),
+        # Canonical status value, carried so Undo can post the PRIOR status back
+        # to reopen (see TaskView). Empty when the stored status is not one the
+        # chokepoint would accept, which is what makes the card offer no Undo.
+        "status": _restorable_status(task.status),
         "est_min": int(task.duration_minutes or 0),
         "due_label": _due_label(task.due_date, today),
         "pinned": pinned,
