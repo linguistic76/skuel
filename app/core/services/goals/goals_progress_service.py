@@ -301,8 +301,22 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         from dataclasses import replace
 
         updated_milestones = list(goal.milestones)
+        target_milestone = updated_milestones[milestone_index]
+        # The milestone stamp records when this milestone was FIRST completed —
+        # ``achieved_date`` is documented as "when actually achieved". Completing an
+        # already-completed milestone is a legal, reachable call, and stamping it
+        # unconditionally moved that date to today on every such call: the same
+        # mutable-completion-stamp defect the goal-level gate below fixes, one level
+        # down. ``is_completed`` needs no gate — it is already idempotent (True → True).
+        # An already-completed milestone whose date is null stays null: a repeat is not
+        # a transition, so there is no moment here to record. That matches the task
+        # stamp gate (#1125), which likewise never backfills on a repeat.
         updated_milestones[milestone_index] = replace(
-            updated_milestones[milestone_index], is_completed=True, achieved_date=date.today()
+            target_milestone,
+            is_completed=True,
+            achieved_date=(
+                target_milestone.achieved_date if target_milestone.is_completed else date.today()
+            ),
         )
 
         # Calculate new progress
