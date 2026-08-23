@@ -16,6 +16,7 @@ import pytest
 from fasthtml.common import fast_app
 from starlette.testclient import TestClient
 
+from adapters.inbound.boundary import install_request_validation_guard
 from adapters.inbound.context_aware_api import create_context_aware_api_routes
 from adapters.inbound.csrf import CSRF_COOKIE_NAME, CSRF_HEADER_NAME, mint_token
 from core.models.task.task import Task
@@ -41,9 +42,13 @@ def _make_harness(
     authenticated: bool = True,
 ) -> _Harness:
     app, rt = fast_app(pico=False, default_hdrs=False)
+    # Bootstrap wires this on the real app; the harness must too, or a rejected
+    # body model escapes as a raw ValidationError instead of the 400 clients see.
+    install_request_validation_guard(app)
 
     service = MagicMock()
     service.get_context_dashboard = AsyncMock(return_value=Result.ok({"widgets": []}))
+    service.complete_habit_with_context = AsyncMock(return_value=Result.ok({"ok": True}))
     service.get_context_summary = AsyncMock(return_value=Result.ok({"insights": []}))
     service.get_next_action = AsyncMock(return_value=Result.ok({"action": "rest"}))
     service.complete_task_with_context = AsyncMock(
@@ -113,7 +118,43 @@ class TestDashboard:
 
 
 class TestTaskCompletion:
+    """The context body is a typed sub-model, destructured at the boundary."""
+
     def test_complete_forwards_exact_kwargs(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        harness = _make_harness(monkeypatch)
+
+        response = _post_json(
+            harness.client,
+            f"/api/context/task/complete?task_uid={_TASK_UID}",
+            {
+                "context": {
+                    "time_invested_minutes": 120,
+                    "knowledge_applied": ["ku.python", "ku.async-patterns"],
+                    "quality": "great",
+                },
+                "reflection": "went well",
+            },
+        )
+
+        assert response.status_code == 200
+        harness.context.complete_task_with_context.assert_awaited_once_with(
+            task_uid=_TASK_UID,
+            user_uid=_USER_UID,
+            time_invested_minutes=120,
+            knowledge_applied=["ku.python", "ku.async-patterns"],
+            quality="great",
+            reflection_notes="went well",
+        )
+
+    def test_unknown_keys_ignored_and_absent_fields_default(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """No ``extra="forbid"``: unknown keys stay ignored, absent ones default.
+
+        An absent ``time_invested_minutes`` forwards ``None`` — which the
+        completion cascade turns into "omit the property" rather than a null
+        that would erase a previously recorded value.
+        """
         harness = _make_harness(monkeypatch)
 
         response = _post_json(
@@ -126,9 +167,69 @@ class TestTaskCompletion:
         harness.context.complete_task_with_context.assert_awaited_once_with(
             task_uid=_TASK_UID,
             user_uid=_USER_UID,
-            completion_context={"energy": "high"},
+            time_invested_minutes=None,
+            knowledge_applied=[],
+            quality="good",
             reflection_notes="went well",
         )
+
+    def test_string_minutes_still_coerced(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Pydantic v2 lax mode keeps coercing ``"120"`` → ``120``."""
+        harness = _make_harness(monkeypatch)
+
+        response = _post_json(
+            harness.client,
+            f"/api/context/task/complete?task_uid={_TASK_UID}",
+            {"context": {"time_invested_minutes": "120"}},
+        )
+
+        assert response.status_code == 200
+        assert (
+            harness.context.complete_task_with_context.await_args.kwargs["time_invested_minutes"]
+            == 120
+        )
+
+    def test_negative_minutes_refused_before_the_service(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """``ge=0`` is enforced at the boundary — the only new rejection.
+
+        The refusal happens during FastHTML's parameter binding, i.e. BEFORE
+        the handler body runs, so the service is never reached. The 400 comes
+        from ``install_request_validation_guard``: without it a rejected body
+        model escapes as a raw ``ValidationError`` and the client is told 500
+        for ordinary bad input (see ``test_request_validation_guard.py``).
+        """
+        harness = _make_harness(monkeypatch)
+
+        response = _post_json(
+            harness.client,
+            f"/api/context/task/complete?task_uid={_TASK_UID}",
+            {"context": {"time_invested_minutes": -5}},
+        )
+
+        assert response.status_code == 400
+        assert response.json()["category"] == "validation"
+        harness.context.complete_task_with_context.assert_not_awaited()
+
+    def test_over_length_reflection_is_also_400(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """The guard is not about the new field — this constraint predates it.
+
+        ``reflection``'s ``max_length=2000`` is untouched by the typed-context
+        change and has always failed at this same binding seam, returning 500.
+        Pinning it here records that the 500 was a live property of the
+        endpoint rather than something the ``ge=0`` constraint introduced.
+        """
+        harness = _make_harness(monkeypatch)
+
+        response = _post_json(
+            harness.client,
+            f"/api/context/task/complete?task_uid={_TASK_UID}",
+            {"reflection": "x" * 3000},
+        )
+
+        assert response.status_code == 400
+        harness.context.complete_task_with_context.assert_not_awaited()
 
 
 class TestAnalyticsReads:

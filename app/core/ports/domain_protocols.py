@@ -1049,10 +1049,12 @@ class UserContextOperations(Protocol):
         self,
         task_uid: str,
         user_uid: UserUID,
-        completion_context: dict[str, Any] | None = None,
+        time_invested_minutes: int | None = None,
+        knowledge_applied: list[str] | None = None,
+        quality: str = "good",
         reflection_notes: str = "",
     ) -> Result[Task]:
-        """Complete task with context awareness."""
+        """Complete task with context awareness (context arrives destructured)."""
         ...
 
     async def create_tasks_from_goal_context(

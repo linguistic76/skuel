@@ -48,6 +48,24 @@ SKUEL validates all external input at API boundaries to prevent 500 errors from 
 
 **Query param helpers live in** `adapters/inbound/route_factories/route_helpers.py` (re-exported from `adapters.inbound.route_factories`). **Body parsing helpers** (`parse_json_body`, `parse_form_body`) live in `adapters/inbound/form_helpers.py`.
 
+### Two ways a JSON body reaches a route — and the guards behind them
+
+| Binding | How | Validation failure becomes |
+|---|---|---|
+| `parse_json_body(request, Model)` | explicit, inside the handler | `Errors.validation` → **400** (the helper catches it) |
+| `body: Model` in the signature | FastHTML constructs the model during parameter extraction, **before** the handler and its `@boundary_handler` wrapper run | `Errors.validation` → **400**, via `install_request_validation_guard` |
+
+Both end at the same 400. The auto-bound form needs an app-level guard because
+the exception escapes past every route-level guard — the same seam
+`install_malformed_json_guard` closes for a malformed (unparseable) body. Both
+are wired once in bootstrap's `_create_web_app`; without them the client is
+told **500** for ordinary bad input.
+
+⚠ **Do not use a `Literal` annotation on an auto-bound body field.** FastHTML
+coerces each incoming value by calling the annotation, and `Literal(...)` raises
+`TypeError` — which is not a `ValidationError` and no guard converts it. Use an
+enum, a validated `str`, or `parse_json_body`.
+
 **Example:**
 ```python
 from adapters.inbound.route_factories import (
@@ -99,14 +117,22 @@ async def get_dashboard(request: Request) -> Result[Any]:
 ```python
 # core/models/task/task_request.py (context-aware models live in domain request files)
 
-from typing import Any
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import ConfigDict, Field
 
-class ContextualTaskCompletionRequest(BaseModel):
+from core.models.request_base import RequestBase
+
+class TaskCompletionContext(RequestBase):
+    """Context data accompanying a context-aware task completion."""
+
+    knowledge_applied: list[str] = Field(default_factory=list)
+    time_invested_minutes: int | None = Field(default=None, ge=0)
+    quality: str = Field(default="good")
+
+class ContextualTaskCompletionRequest(RequestBase):
     """Request model for completing a task with context awareness."""
 
-    context: dict[str, Any] = Field(
-        default_factory=dict,
+    context: TaskCompletionContext = Field(
+        default_factory=TaskCompletionContext,
         description="Context data (knowledge_applied, time_invested_minutes, quality)"
     )
     reflection: str = Field(
@@ -128,6 +154,12 @@ class ContextualTaskCompletionRequest(BaseModel):
     )
 ```
 
+**A nested sub-model, not a `dict[str, Any]`.** A bag of documented keys is not
+genuinely heterogeneous — it is a type nobody wrote down. Typing it moves the
+`ge=0` constraint to the boundary and lets the service take explicit params
+instead of `.get()`-ing keys Pydantic just proved exist (see
+[ANY_USAGE_POLICY.md](ANY_USAGE_POLICY.md)).
+
 **Usage in Routes:**
 ```python
 from adapters.inbound.form_helpers import parse_json_body
@@ -143,7 +175,11 @@ async def complete_task(request: Request, task_uid: str) -> Result[Any]:
 
     return await service.complete_task_with_context(
         task_uid=task_uid,
-        completion_context=req.context,  # Type-safe access
+        # Destructure at the boundary: Pydantic is done, the service takes
+        # plain typed params.
+        time_invested_minutes=req.context.time_invested_minutes,
+        knowledge_applied=req.context.knowledge_applied,
+        quality=req.context.quality,
         reflection_notes=req.reflection,
     )
 ```
@@ -507,11 +543,14 @@ API Request → Pydantic Model → DTO → Domain Model → Core Logic
 **Flow Example:**
 ```python
 # Tier 1: External (API boundary)
-class TaskCompletionRequest(BaseModel):  # Validates structure
-    context: dict[str, Any] = Field(default_factory=dict)
+class TaskCompletionContext(RequestBase):  # Validates structure
+    time_invested_minutes: int | None = Field(default=None, ge=0)
+
+class TaskCompletionRequest(RequestBase):
+    context: TaskCompletionContext = Field(default_factory=TaskCompletionContext)
     reflection: str = Field(default="")
 
-# Route parses JSON → constructs model → calls service
+# Route parses JSON → constructs model → destructures → calls service
 @rt("/api/context/task/complete", methods=["POST"])
 async def complete_task(request: Request) -> Result[Any]:
     result = await parse_json_body(request, TaskCompletionRequest)
@@ -519,14 +558,14 @@ async def complete_task(request: Request) -> Result[Any]:
         return result
     req = result.value
     return await service.complete_task_with_context(
-        completion_context=req.context,  # Type-safe access
+        time_invested_minutes=req.context.time_invested_minutes,
         reflection_notes=req.reflection,
     )
 
-# Service layer uses DTOs (Tier 2)
+# Service layer takes plain typed params — the Pydantic model stops at the edge
 async def complete_task_with_context(
     self,
-    completion_context: dict[str, Any],
+    time_invested_minutes: int | None,
     reflection_notes: str,
 ) -> Result[Task]:  # Returns domain model (Tier 3)
     # Business logic...
@@ -759,9 +798,9 @@ if time_window_result.is_error:
 ### Optional JSON Fields with Defaults
 
 ```python
-class TaskCompletionRequest(BaseModel):
-    # Optional dict (defaults to empty)
-    context: dict[str, Any] = Field(default_factory=dict)
+class TaskCompletionRequest(RequestBase):
+    # Optional sub-model (defaults to an all-defaults instance)
+    context: TaskCompletionContext = Field(default_factory=TaskCompletionContext)
 
     # Optional string (defaults to empty string)
     reflection: str = Field(default="")
@@ -811,7 +850,7 @@ async def complete_task(request: Request, task_uid: str) -> Result[Any]:
 
     return await service.complete_task_with_context(
         task_uid=task_uid,
-        completion_context=req.context,
+        time_invested_minutes=req.context.time_invested_minutes,
         reflection_notes=req.reflection,
     )
 ```
@@ -880,20 +919,19 @@ def test_task_completion_request_valid():
         context={"knowledge_applied": ["ku.python"]},
         reflection="Great experience"
     )
-    assert req.context["knowledge_applied"] == ["ku.python"]
+    assert req.context.knowledge_applied == ["ku.python"]
 
 def test_task_completion_request_invalid():
-    try:
-        ContextualTaskCompletionRequest(context="string")  # Should be dict
-        assert False, "Should raise ValidationError"
-    except ValidationError as e:
-        assert "context" in str(e)
+    with pytest.raises(ValidationError, match="greater than or equal to 0"):
+        ContextualTaskCompletionRequest(context={"time_invested_minutes": -1})
 
 def test_task_completion_request_defaults():
     req = ContextualTaskCompletionRequest()
-    assert req.context == {}
+    assert req.context.time_invested_minutes is None
     assert req.reflection == ""
 ```
+
+Live counterpart: `tests/unit/models/test_task_completion_context.py`.
 
 ---
 

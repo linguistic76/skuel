@@ -26,7 +26,10 @@ from fasthtml.common import StaticFiles, fast_app
 from starlette.middleware import Middleware
 
 from adapters.inbound.auth.context_middleware import AuthContextMiddleware
-from adapters.inbound.boundary import install_malformed_json_guard
+from adapters.inbound.boundary import (
+    install_malformed_json_guard,
+    install_request_validation_guard,
+)
 from adapters.inbound.csrf import CSRFMiddleware
 from adapters.inbound.middleware import (
     RequestIDMiddleware,
@@ -508,6 +511,11 @@ def _create_web_app(
     # extraction — before any route guard runs — so without this chokepoint
     # they surface as 500s instead of a validation 400.
     install_malformed_json_guard(app)
+
+    # Same seam, next failure along: a well-formed body that a route's Pydantic
+    # body model rejects is also constructed during parameter extraction, so a
+    # field constraint would otherwise report ordinary bad input as a 500.
+    install_request_validation_guard(app)
 
     # Auth context — enforces the graph session per request (revoked sessions
     # force re-login) and mirrors session auth flags into a ContextVar so page

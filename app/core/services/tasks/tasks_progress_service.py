@@ -300,10 +300,16 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
         # UserContextService.complete_task_with_context both re-enter here behind
         # an ownership check only. ``task`` is the pre-update read from the top of
         # this method — the gate costs no extra query.
-        updates: Neo4jProperties = {
-            "status": EntityStatus.COMPLETED.value,
-            "actual_minutes": actual_minutes,
-        }
+        # ``actual_minutes`` is included ONLY when supplied. A null in the patch
+        # reaches ``SET n += $updates`` unfiltered (RawChanges does not filter,
+        # and ``_dict_to_node`` preserves None deliberately so the reopen path
+        # can clear a stamp), and Neo4j REMOVES a property set to null — so an
+        # unsupplied optional would erase a previously-recorded value on every
+        # complete. ``quality_score`` needs no such guard: it is never written
+        # to the node, only fed to the habit reinforcement and the event.
+        updates: Neo4jProperties = {"status": EntityStatus.COMPLETED.value}
+        if actual_minutes is not None:
+            updates["actual_minutes"] = actual_minutes
         if is_completion_transition(task.status, updates):
             updates["completion_date"] = date.today().isoformat()
 
@@ -356,11 +362,14 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
             len(applies_knowledge_uids),
         )
 
-        # Publish TaskCompleted event
+        # Publish TaskCompleted event. ``is not None``, not truthiness: 0 is a
+        # legal reported duration (``ge=0`` at the boundary) and is written to
+        # the node above, so a falsy check would store 0 while telling every
+        # subscriber the duration was never reported.
         event = TaskCompleted(
             task_uid=task_uid,
             user_uid=user_uid,
-            completion_time_seconds=actual_minutes * 60 if actual_minutes else None,
+            completion_time_seconds=actual_minutes * 60 if actual_minutes is not None else None,
             was_overdue=task.due_date < date.today() if task.due_date else False,
         )
         await publish_event(self.event_bus, event, self.logger)

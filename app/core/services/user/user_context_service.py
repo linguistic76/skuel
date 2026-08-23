@@ -471,21 +471,29 @@ class UserContextService:
         self,
         task_uid: str,
         user_uid: UserUID,
-        completion_context: dict[str, Any] | None = None,
+        time_invested_minutes: int | None = None,
+        knowledge_applied: list[str] | None = None,
+        quality: str = "good",
         reflection_notes: str = "",
     ) -> Result[Task]:
         """
         Complete task with context awareness.
 
-        Completes task and updates context based on:
-        - Knowledge applied during completion
-        - Time invested
-        - Quality/difficulty assessment
-        - Learning insights
+        Takes the completion context as explicit typed params rather than a
+        ``dict[str, Any]``: the route destructures the validated
+        ``TaskCompletionContext`` sub-model at the boundary, keeping Pydantic at
+        the edges and pure Python at the core.
+
+        ``time_invested_minutes`` is recorded on the task as ``actual_minutes``.
+        ``knowledge_applied`` and ``quality`` are accepted and logged but not yet
+        acted on — see the TODO below for why each is deferred.
 
         Args:
             task_uid: Task identifier
-            completion_context: Context data (knowledge applied, time, quality, etc.)
+            user_uid: Owner of the task (ownership is verified, 404 on mismatch)
+            time_invested_minutes: Actual minutes spent; ``None`` records nothing
+            knowledge_applied: Ku UIDs applied during completion (not yet wired)
+            quality: Subjective completion quality (not yet wired)
             reflection_notes: Optional reflection on completion
 
         Returns:
@@ -512,29 +520,31 @@ class UserContextService:
         if task.user_uid != user_uid:
             return Result.fail(Errors.not_found(resource="Task", identifier=task_uid))
 
-        # Extract context data
-        completion_context = completion_context or {}
-        knowledge_applied = completion_context.get("knowledge_applied", [])
-        time_invested_minutes = completion_context.get("time_invested_minutes", 0)
-        quality_rating = completion_context.get("quality", "good")
-
-        # Complete the task (basic completion)
-        complete_result = await self.tasks_service.complete_task(task_uid)
+        # Complete the task, recording the time investment as actual_minutes.
+        # None is passed through unchanged: the cascade omits the field from the
+        # patch rather than writing a null, so an unreported completion leaves
+        # any previously-recorded value intact.
+        complete_result = await self.tasks_service.complete_task(
+            task_uid, actual_minutes=time_invested_minutes
+        )
         if complete_result.is_error:
             return Result.fail(complete_result)
 
-        # TODO(deferred): Record context-aware completion data
-        # - Update knowledge application tracking
-        # - Record time investment
+        # TODO(deferred): Record the remaining context-aware completion data.
+        # - knowledge_applied → APPLIES_KNOWLEDGE edges + KnowledgeAppliedInTask
+        #   substance events. That is a feature, not a repair; not scoped here.
+        # - quality is a string ("good"), while complete_task's quality_score is
+        #   an int 1-5 that feeds only the _reinforce_habit logging stub. Wiring
+        #   it would mean inventing a string->int mapping into a stub.
         # - Update learning progress
         # - Trigger context cache invalidation
 
         logger.info(
             f"Task {task_uid} completed with context",
             extra={
-                "knowledge_applied": knowledge_applied,
+                "knowledge_applied": knowledge_applied or [],
                 "time_invested": time_invested_minutes,
-                "quality": quality_rating,
+                "quality": quality,
                 "reflection": reflection_notes,
             },
         )

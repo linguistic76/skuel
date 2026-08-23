@@ -257,9 +257,15 @@ core/models/{domain}/              # Pydantic request models (Tier 1)
 
 ```python
 # core/models/task/task_request.py
-class ContextualTaskCompletionRequest(BaseModel):
+class TaskCompletionContext(RequestBase):
+    """Typed sub-model — three documented keys, not a heterogeneous bag."""
+    knowledge_applied: list[str] = Field(default_factory=list)
+    time_invested_minutes: int | None = Field(default=None, ge=0)
+    quality: str = Field(default="good")
+
+class ContextualTaskCompletionRequest(RequestBase):
     """Request model for completing a task with context awareness."""
-    context: dict[str, Any] = Field(default_factory=dict)
+    context: TaskCompletionContext = Field(default_factory=TaskCompletionContext)
     reflection: str = Field(default="", max_length=2000)
 
 # core/models/habit/habit_request.py
@@ -291,12 +297,27 @@ async def complete_task(
     Pydantic validates:
     - JSON structure (dict vs string)
     - Field types (str, int, etc.)
-    - Field constraints (max_length, Literal enums)
-    - Returns 422 on validation failure
+    - Field constraints (ge/le, max_length, Literal enums)
+
+    A body bound this way is validated during FastHTML's parameter
+    extraction, BEFORE the handler and its ``@boundary_handler`` wrapper run.
+    ``boundary.install_request_validation_guard`` (wired at bootstrap) maps the
+    resulting ``ValidationError`` to the same ``Errors.validation`` 400 that
+    ``parse_json_body`` returns; without it the client is told 500 for
+    ordinary bad input.
+
+    ⚠ Do NOT annotate an auto-bound body field as a ``Literal`` — FastHTML
+    coerces each value by calling the annotation, and ``Literal(...)`` raises
+    ``TypeError``, which no validation guard converts. Use an enum or a
+    validated ``str``, or bind via ``parse_json_body``.
     """
     return await service.complete_task_with_context(
         task_uid=task_uid,
-        completion_context=body.context,  # Type-safe access
+        # Destructure at the boundary — Pydantic stops here (Tier 1), the
+        # service takes plain typed params.
+        time_invested_minutes=body.context.time_invested_minutes,
+        knowledge_applied=body.context.knowledge_applied,
+        quality=body.context.quality,
         reflection_notes=body.reflection,
     )
 ```
@@ -330,8 +351,10 @@ class HabitRequest(BaseModel):
 
 **Optional Fields with Defaults:**
 ```python
-class TaskRequest(BaseModel):
-    context: dict[str, Any] = Field(default_factory=dict)  # Empty dict
+class TaskRequest(RequestBase):
+    context: TaskCompletionContext = Field(
+        default_factory=TaskCompletionContext
+    )  # All-defaults sub-model
     reflection: str = Field(default="")  # Empty string
     notes: str | None = Field(default=None)  # Nullable
 ```

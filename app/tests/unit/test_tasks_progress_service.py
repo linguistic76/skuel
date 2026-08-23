@@ -188,6 +188,160 @@ async def test_complete_task_cascade_effects(
     assert result.is_ok
 
 
+# ----------------------------------------------------------------------------
+# actual_minutes: the completion patch must not erase what it was not told
+# ----------------------------------------------------------------------------
+
+
+def _patch_sent_to_backend(mock_backend) -> dict[str, Any]:
+    """The materialized patch handed to ``backend.update`` by the cascade."""
+    assert mock_backend.update.await_args is not None, "cascade never wrote"
+    return mock_backend.update.await_args.args[1]
+
+
+@pytest.mark.asyncio
+async def test_complete_without_minutes_omits_actual_minutes(
+    progress_service, mock_backend, user_context
+):
+    """An unsupplied ``actual_minutes`` must not appear in the patch at all.
+
+    ``SET n += $updates`` REMOVES a property set to null, so a null in the patch
+    would erase a value the task already carries on every completion.
+    """
+    recorded = Task.from_dto(
+        TaskDTO(
+            uid="task:recorded",
+            user_uid="user_demo",
+            title="Recorded Task",
+            priority=Priority.MEDIUM.value,
+            status=EntityStatus.ACTIVE.value,
+            actual_minutes=45,
+            created_at=datetime.now(),
+        )
+    )
+    mock_backend.get.return_value = Result.ok(recorded.to_dto().to_dict())
+    completed_dto = recorded.to_dto()
+    completed_dto.status = EntityStatus.COMPLETED
+    mock_backend.update.return_value = Result.ok(completed_dto.to_dict())
+
+    result = await progress_service.complete_task_with_cascade("task:recorded", user_context)
+
+    assert result.is_ok
+    patch = _patch_sent_to_backend(mock_backend)
+    assert "actual_minutes" not in patch
+    assert patch["status"] == EntityStatus.COMPLETED.value
+    # The stored value survives the completion untouched.
+    assert result.value.actual_minutes == 45
+
+
+@pytest.mark.asyncio
+async def test_complete_with_minutes_writes_them(progress_service, mock_backend, user_context):
+    """An explicit ``actual_minutes`` is still written."""
+    mock_backend.get.return_value = Result.ok(
+        Task.from_dto(
+            TaskDTO(
+                uid="task:timed",
+                user_uid="user_demo",
+                title="Timed Task",
+                priority=Priority.MEDIUM.value,
+                status=EntityStatus.ACTIVE.value,
+                created_at=datetime.now(),
+            )
+        )
+        .to_dto()
+        .to_dict()
+    )
+    mock_backend.update.return_value = Result.ok(
+        {"uid": "task:timed", "user_uid": "user_demo", "title": "Timed Task"}
+    )
+
+    result = await progress_service.complete_task_with_cascade(
+        "task:timed", user_context, actual_minutes=90
+    )
+
+    assert result.is_ok
+    assert _patch_sent_to_backend(mock_backend)["actual_minutes"] == 90
+
+
+@pytest.mark.asyncio
+async def test_zero_minutes_is_stored_and_reported_not_dropped(
+    progress_service, mock_backend, user_context
+):
+    """0 is a reported duration, not a missing one — node and event must agree.
+
+    ``ge=0`` makes 0 a legal value at the boundary, and the patch guard is
+    ``is not None``, so 0 reaches the node. A truthiness check when building
+    ``TaskCompleted`` would have stored 0 while telling subscribers the
+    duration was never reported.
+    """
+    published: list[Any] = []
+
+    class _Bus:
+        async def publish_async(self, event: Any) -> None:
+            published.append(event)
+
+    service = TasksProgressService(backend=mock_backend, event_bus=_Bus())
+    zero = Task.from_dto(
+        TaskDTO(
+            uid="task:zero",
+            user_uid="user_demo",
+            title="Zero Task",
+            priority=Priority.MEDIUM.value,
+            status=EntityStatus.ACTIVE.value,
+            created_at=datetime.now(),
+        )
+    )
+    mock_backend.get.return_value = Result.ok(zero.to_dto().to_dict())
+    mock_backend.update.return_value = Result.ok(
+        {"uid": "task:zero", "user_uid": "user_demo", "title": "Zero Task"}
+    )
+
+    result = await service.complete_task_with_cascade("task:zero", user_context, actual_minutes=0)
+
+    assert result.is_ok
+    assert _patch_sent_to_backend(mock_backend)["actual_minutes"] == 0
+    assert published[-1].completion_time_seconds == 0
+
+
+@pytest.mark.asyncio
+async def test_completion_date_gate_still_holds_without_minutes(
+    progress_service, mock_backend, user_context
+):
+    """#1125's transition gate is unchanged by the omitted-minutes patch.
+
+    A first completion stamps ``completion_date``; re-posting the complete on an
+    already-completed task is not a transition and must not re-date it.
+    """
+    active = Task.from_dto(
+        TaskDTO(
+            uid="task:gate",
+            user_uid="user_demo",
+            title="Gate Task",
+            priority=Priority.MEDIUM.value,
+            status=EntityStatus.ACTIVE.value,
+            created_at=datetime.now(),
+        )
+    )
+    mock_backend.get.return_value = Result.ok(active.to_dto().to_dict())
+    mock_backend.update.return_value = Result.ok(
+        {"uid": "task:gate", "user_uid": "user_demo", "title": "Gate Task"}
+    )
+
+    first = await progress_service.complete_task_with_cascade("task:gate", user_context)
+    assert first.is_ok
+    assert _patch_sent_to_backend(mock_backend)["completion_date"] == date.today().isoformat()
+
+    already = active.to_dto()
+    already.status = EntityStatus.COMPLETED
+    mock_backend.get.return_value = Result.ok(already.to_dict())
+    mock_backend.update.reset_mock()
+
+    repeat = await progress_service.complete_task_with_cascade("task:gate", user_context)
+
+    assert repeat.is_ok
+    assert "completion_date" not in _patch_sent_to_backend(mock_backend)
+
+
 @pytest.mark.asyncio
 async def test_complete_task_not_found(progress_service, mock_backend, user_context):
     """Test completion when task doesn't exist."""
