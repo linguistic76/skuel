@@ -131,10 +131,14 @@ def create_context_aware_api_routes(
             Result containing completed task
         """
         user_uid = require_authenticated_user(request)
+        # Destructure at the boundary: Pydantic validated the three context
+        # fields, so the service takes them as typed params instead of a dict.
         return await context_service.complete_task_with_context(
             task_uid=task_uid,
             user_uid=user_uid,
-            completion_context=body.context,
+            time_invested_minutes=body.context.time_invested_minutes,
+            knowledge_applied=body.context.knowledge_applied,
+            quality=body.context.quality,
             reflection_notes=body.reflection,
         )
 

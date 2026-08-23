@@ -12,7 +12,7 @@ Uses:
 from datetime import date, datetime
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator, model_validator
+from pydantic import ConfigDict, Field, ValidationInfo, field_validator, model_validator
 
 from core.models.enums import EntityStatus, Priority, RecurrencePattern
 from core.models.request_base import (
@@ -329,7 +329,34 @@ class TaskStatusUpdateRequest(RequestBase):
         return v
 
 
-class ContextualTaskCompletionRequest(BaseModel):
+class TaskCompletionContext(RequestBase):
+    """
+    Context data accompanying a context-aware task completion.
+
+    Not a heterogeneous bag: exactly three documented keys, which previously
+    lived only in a ``json_schema_extra`` example on an untyped
+    ``dict[str, Any]`` — so ``time_invested_minutes`` reached the service
+    completely unvalidated. Typing them puts the ``ge=0`` constraint at the
+    boundary where it belongs and lets the service take explicit params instead
+    of ``.get()``-ing keys.
+
+    ``time_invested_minutes`` mirrors ``TaskCreateRequest.actual_minutes``'s
+    constraint and is written to ``Task.actual_minutes`` on completion.
+    ``knowledge_applied`` and ``quality`` are validated but deliberately not yet
+    consumed (see ``UserContextService.complete_task_with_context``).
+    """
+
+    knowledge_applied: list[str] = Field(
+        default_factory=list,
+        description="Ku UIDs applied while completing the task",
+    )
+    time_invested_minutes: int | None = Field(
+        default=None, ge=0, description="Actual time spent, in minutes"
+    )
+    quality: str = Field(default="good", description="Subjective completion quality")
+
+
+class ContextualTaskCompletionRequest(RequestBase):
     """
     Request model for completing a task with context awareness.
 
@@ -340,8 +367,8 @@ class ContextualTaskCompletionRequest(BaseModel):
         reflection: Optional reflection notes on the completion experience
     """
 
-    context: dict[str, Any] = Field(
-        default_factory=dict,
+    context: TaskCompletionContext = Field(
+        default_factory=TaskCompletionContext,
         description="Context data (knowledge_applied, time_invested_minutes, quality)",
     )
     reflection: str = Field(

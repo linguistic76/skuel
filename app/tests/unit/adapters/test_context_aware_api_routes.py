@@ -14,6 +14,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fasthtml.common import fast_app
+from pydantic import ValidationError
 from starlette.testclient import TestClient
 
 from adapters.inbound.context_aware_api import create_context_aware_api_routes
@@ -113,7 +114,43 @@ class TestDashboard:
 
 
 class TestTaskCompletion:
+    """The context body is a typed sub-model, destructured at the boundary."""
+
     def test_complete_forwards_exact_kwargs(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        harness = _make_harness(monkeypatch)
+
+        response = _post_json(
+            harness.client,
+            f"/api/context/task/complete?task_uid={_TASK_UID}",
+            {
+                "context": {
+                    "time_invested_minutes": 120,
+                    "knowledge_applied": ["ku.python", "ku.async-patterns"],
+                    "quality": "great",
+                },
+                "reflection": "went well",
+            },
+        )
+
+        assert response.status_code == 200
+        harness.context.complete_task_with_context.assert_awaited_once_with(
+            task_uid=_TASK_UID,
+            user_uid=_USER_UID,
+            time_invested_minutes=120,
+            knowledge_applied=["ku.python", "ku.async-patterns"],
+            quality="great",
+            reflection_notes="went well",
+        )
+
+    def test_unknown_keys_ignored_and_absent_fields_default(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """No ``extra="forbid"``: unknown keys stay ignored, absent ones default.
+
+        An absent ``time_invested_minutes`` forwards ``None`` — which the
+        completion cascade turns into "omit the property" rather than a null
+        that would erase a previously recorded value.
+        """
         harness = _make_harness(monkeypatch)
 
         response = _post_json(
@@ -126,9 +163,54 @@ class TestTaskCompletion:
         harness.context.complete_task_with_context.assert_awaited_once_with(
             task_uid=_TASK_UID,
             user_uid=_USER_UID,
-            completion_context={"energy": "high"},
+            time_invested_minutes=None,
+            knowledge_applied=[],
+            quality="good",
             reflection_notes="went well",
         )
+
+    def test_string_minutes_still_coerced(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Pydantic v2 lax mode keeps coercing ``"120"`` → ``120``."""
+        harness = _make_harness(monkeypatch)
+
+        response = _post_json(
+            harness.client,
+            f"/api/context/task/complete?task_uid={_TASK_UID}",
+            {"context": {"time_invested_minutes": "120"}},
+        )
+
+        assert response.status_code == 200
+        assert (
+            harness.context.complete_task_with_context.await_args.kwargs["time_invested_minutes"]
+            == 120
+        )
+
+    def test_negative_minutes_refused_before_the_service(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """``ge=0`` is enforced at the boundary — the only new rejection.
+
+        The refusal happens during FastHTML's parameter binding, i.e. BEFORE the
+        handler body runs, so the service is never reached. Note what is pinned
+        here and what is not: the ``ValidationError`` is asserted, the HTTP
+        status is not. FastHTML pre-parses the JSON body during parameter
+        extraction and nothing converts a Pydantic ``ValidationError`` into a
+        4xx, so it currently surfaces as a 500 for *every* body model in the
+        app — a pre-existing framework-seam gap, the exact sibling of the one
+        ``boundary.malformed_json_handler`` closes for ``JSONDecodeError``.
+        Asserting 422 here would fail; asserting 500 would pin the gap as
+        correct. Neither belongs to this change.
+        """
+        harness = _make_harness(monkeypatch)
+
+        with pytest.raises(ValidationError):
+            _post_json(
+                harness.client,
+                f"/api/context/task/complete?task_uid={_TASK_UID}",
+                {"context": {"time_invested_minutes": -5}},
+            )
+
+        harness.context.complete_task_with_context.assert_not_awaited()
 
 
 class TestAnalyticsReads:

@@ -300,10 +300,16 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
         # UserContextService.complete_task_with_context both re-enter here behind
         # an ownership check only. ``task`` is the pre-update read from the top of
         # this method — the gate costs no extra query.
-        updates: Neo4jProperties = {
-            "status": EntityStatus.COMPLETED.value,
-            "actual_minutes": actual_minutes,
-        }
+        # ``actual_minutes`` is included ONLY when supplied. A null in the patch
+        # reaches ``SET n += $updates`` unfiltered (RawChanges does not filter,
+        # and ``_dict_to_node`` preserves None deliberately so the reopen path
+        # can clear a stamp), and Neo4j REMOVES a property set to null — so an
+        # unsupplied optional would erase a previously-recorded value on every
+        # complete. ``quality_score`` needs no such guard: it is never written
+        # to the node, only fed to the habit reinforcement and the event.
+        updates: Neo4jProperties = {"status": EntityStatus.COMPLETED.value}
+        if actual_minutes is not None:
+            updates["actual_minutes"] = actual_minutes
         if is_completion_transition(task.status, updates):
             updates["completion_date"] = date.today().isoformat()
 

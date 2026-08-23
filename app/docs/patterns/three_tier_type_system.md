@@ -257,9 +257,15 @@ core/models/{domain}/              # Pydantic request models (Tier 1)
 
 ```python
 # core/models/task/task_request.py
-class ContextualTaskCompletionRequest(BaseModel):
+class TaskCompletionContext(RequestBase):
+    """Typed sub-model — three documented keys, not a heterogeneous bag."""
+    knowledge_applied: list[str] = Field(default_factory=list)
+    time_invested_minutes: int | None = Field(default=None, ge=0)
+    quality: str = Field(default="good")
+
+class ContextualTaskCompletionRequest(RequestBase):
     """Request model for completing a task with context awareness."""
-    context: dict[str, Any] = Field(default_factory=dict)
+    context: TaskCompletionContext = Field(default_factory=TaskCompletionContext)
     reflection: str = Field(default="", max_length=2000)
 
 # core/models/habit/habit_request.py
@@ -291,12 +297,22 @@ async def complete_task(
     Pydantic validates:
     - JSON structure (dict vs string)
     - Field types (str, int, etc.)
-    - Field constraints (max_length, Literal enums)
-    - Returns 422 on validation failure
+    - Field constraints (ge/le, max_length, Literal enums)
+
+    ⚠ A body bound this way is validated during FastHTML's parameter
+    extraction, BEFORE the handler runs, and nothing converts the resulting
+    ``ValidationError`` into a 4xx — it currently surfaces as a 500. Only
+    ``parse_json_body`` (which catches it and returns ``Errors.validation``)
+    gives you the documented 4xx. Same seam that
+    ``boundary.malformed_json_handler`` closes for ``JSONDecodeError``.
     """
     return await service.complete_task_with_context(
         task_uid=task_uid,
-        completion_context=body.context,  # Type-safe access
+        # Destructure at the boundary — Pydantic stops here (Tier 1), the
+        # service takes plain typed params.
+        time_invested_minutes=body.context.time_invested_minutes,
+        knowledge_applied=body.context.knowledge_applied,
+        quality=body.context.quality,
         reflection_notes=body.reflection,
     )
 ```
@@ -330,8 +346,10 @@ class HabitRequest(BaseModel):
 
 **Optional Fields with Defaults:**
 ```python
-class TaskRequest(BaseModel):
-    context: dict[str, Any] = Field(default_factory=dict)  # Empty dict
+class TaskRequest(RequestBase):
+    context: TaskCompletionContext = Field(
+        default_factory=TaskCompletionContext
+    )  # All-defaults sub-model
     reflection: str = Field(default="")  # Empty string
     notes: str | None = Field(default=None)  # Nullable
 ```
