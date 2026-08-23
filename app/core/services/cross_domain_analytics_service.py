@@ -506,9 +506,13 @@ class CrossDomainAnalyticsService:
 
         **``completion_velocity`` is a rate over a fixed trailing window** —
         tasks stamped ``completion_date`` within the last
-        ``CompletionVelocityWindow.DAYS`` calendar days, divided by that window
-        in weeks. It answers "how fast is this user completing tasks *now*",
-        and it is the only figure here that is not cumulative.
+        ``CompletionVelocityWindow.DAYS`` calendar days *ending today*, divided
+        by that window in weeks. It answers "how fast is this user completing
+        tasks *now*", and it is the only figure here that is not cumulative.
+        Both ends are bounded: a trailing window ends where the present does, so
+        a future-dated completion stamp — which the task update door does not
+        refuse — is outside it until its date arrives rather than counted in
+        every window from now until then.
 
         It used to be the lifetime completion count divided by the span from the
         user's first-ever completion to their most recent one. That denominator
@@ -560,10 +564,12 @@ class CrossDomainAnalyticsService:
             - tasks_completed_in_window: The velocity numerator
             - completion_velocity: Tasks per week over that window
         """
-        window_start = CompletionVelocityWindow.start_date(date.today())
+        today = date.today()
 
         result = await self.backend.get_productivity_analytics(
-            user_uid=user_uid, window_start=window_start.isoformat()
+            user_uid=user_uid,
+            window_start=CompletionVelocityWindow.start_date(today).isoformat(),
+            window_end=CompletionVelocityWindow.end_date(today).isoformat(),
         )
         if result.is_error:
             return Result.fail(result)
@@ -613,6 +619,13 @@ class CrossDomainAnalyticsService:
           reach the score, because the records exist even where the tally does
           not.
 
+        The window is bounded at both ends. A trailing window ends where the
+        present does, so a future-stamped completion — reachable, since
+        ``TrackHabitRequest`` accepts any ISO date and the calendar's day-scoped
+        complete door bounds ``on_date`` to occurrence days but not to today —
+        is outside it until its date arrives rather than inflating the score
+        every day until then.
+
         ``total_completions`` and the two stamps are still served beside it,
         unchanged: they are the cumulative record, and the rate is not. They
         come from the analytics node, so they remain blind to the bulk door;
@@ -631,10 +644,12 @@ class CrossDomainAnalyticsService:
             - completions_in_window: The consistency numerator
             - consistency_score: Completions per week over that window
         """
-        window_start = HabitConsistencyWindow.start_date(date.today())
+        today = date.today()
 
         result = await self.backend.get_habit_analytics(
-            user_uid=user_uid, window_start=window_start.isoformat()
+            user_uid=user_uid,
+            window_start=HabitConsistencyWindow.start_date(today).isoformat(),
+            window_end=HabitConsistencyWindow.end_date(today).isoformat(),
         )
         if result.is_error:
             return Result.fail(result)

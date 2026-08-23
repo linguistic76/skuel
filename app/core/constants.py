@@ -495,8 +495,8 @@ class CompletionVelocityWindow:
 
     **The window is inclusive of today and exactly :attr:`DAYS` calendar days
     long**, so :attr:`WEEKS` is an exact divisor rather than an approximation.
-    :meth:`start_date` and :attr:`WEEKS` are defined together here precisely so
-    the counted span and the divisor cannot drift apart.
+    :meth:`start_date`, :meth:`end_date` and :attr:`WEEKS` are defined together
+    here precisely so the counted span and the divisor cannot drift apart.
     """
 
     #: Length of the trailing window, in calendar days ending today (inclusive).
@@ -517,6 +517,25 @@ class CompletionVelocityWindow:
         completion dated exactly ``DAYS`` days ago falls just outside.
         """
         return today - timedelta(days=CompletionVelocityWindow.DAYS - 1)
+
+    @staticmethod
+    def end_date(today: date) -> date:
+        """Last day **inside** the window: today.
+
+        A *trailing* window ends where the present does, so a completion stamped
+        with a future date is outside it — for as long as that date is still in
+        the future, and no longer.
+
+        Trivial today, and defined here anyway, because a window needs both ends
+        stated in one place: the divisor is a constant, so a bound that drifts
+        from :meth:`start_date` silently changes what :attr:`WEEKS` divides.
+        The upper bound is load-bearing rather than decorative — nothing refuses
+        a future ``completion_date`` on the task *update* door
+        (``TaskCreateRequest`` refuses one; ``TaskUpdateRequest`` does not), and
+        a lower-bound-only predicate would count such a stamp in every window
+        from now until the date arrives.
+        """
+        return today
 
 
 # ============================================================================
@@ -543,8 +562,8 @@ class HabitConsistencyWindow:
 
     **The window is inclusive of today and exactly :attr:`DAYS` calendar days
     long**, so :attr:`WEEKS` is an exact divisor rather than an approximation.
-    :meth:`start_date` and :attr:`WEEKS` are defined together here precisely so
-    the counted span and the divisor cannot drift apart.
+    :meth:`start_date`, :meth:`end_date` and :attr:`WEEKS` are defined together
+    here precisely so the counted span and the divisor cannot drift apart.
 
     Deliberately its own class rather than a reuse of
     :class:`CompletionVelocityWindow`: the two measure different behaviour on
@@ -579,6 +598,24 @@ class HabitConsistencyWindow:
         completion dated exactly ``DAYS`` days ago falls just outside.
         """
         return today - timedelta(days=HabitConsistencyWindow.DAYS - 1)
+
+    @staticmethod
+    def end_date(today: date) -> date:
+        """Last day **inside** the window: today.
+
+        A *trailing* window ends where the present does, so a completion stamped
+        with a future date is outside it — for as long as that date is still in
+        the future, and no longer.
+
+        Trivial today, and defined here anyway, for the reason given on
+        :meth:`CompletionVelocityWindow.end_date`. It is load-bearing here too:
+        ``TrackHabitRequest`` accepts any ISO date with no upper bound, and the
+        calendar's day-scoped complete door bounds ``on_date`` to genuine
+        occurrence days without bounding it at today, so a future-stamped
+        ``:HabitCompletion`` is reachable and would otherwise inflate the score
+        every day until its date arrived.
+        """
+        return today
 
 
 # ============================================================================

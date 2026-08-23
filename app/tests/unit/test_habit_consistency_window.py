@@ -46,11 +46,13 @@ class _FakeBackend:
         self._completions_in_window = completions_in_window
         self._analytics = analytics
         self.window_start: str | None = None
+        self.window_end: str | None = None
 
     async def get_habit_analytics(
-        self, user_uid: str, window_start: str
+        self, user_uid: str, window_start: str, window_end: str
     ) -> Result[list[dict[str, Any]]]:
         self.window_start = window_start
+        self.window_end = window_end
         return Result.ok(
             [{"analytics": self._analytics, "completions_in_window": self._completions_in_window}]
         )
@@ -191,6 +193,25 @@ async def test_the_query_is_bound_to_the_trailing_window_not_to_stored_history()
     assert backend.window_start == expected.isoformat()
 
 
+@pytest.mark.asyncio
+async def test_the_window_is_bounded_at_today_so_a_future_stamp_cannot_inflate_it():
+    """A trailing window ends where the present does.
+
+    Nothing refuses a future ``completed_at``: ``TrackHabitRequest`` takes any
+    ISO date, and the calendar's day-scoped complete door bounds ``on_date`` to
+    genuine occurrence days without bounding it at today. Without an upper bound
+    a record stamped next year would count in *every* window between now and
+    then — a score inflated permanently and silently, since nothing about the
+    reading looks wrong. Both ends come from the window class so they cannot
+    drift from the constant divisor between them.
+    """
+    backend = _FakeBackend(completions_in_window=3)
+
+    await _service(backend).get_habit_consistency(USER)
+
+    assert backend.window_end == date.today().isoformat()
+
+
 def test_the_window_is_exactly_days_calendar_days_inclusive_of_today():
     """``start_date`` and ``WEEKS`` describe the same span, or the rate is wrong.
 
@@ -254,7 +275,7 @@ async def test_a_read_that_returns_nothing_at_all_reports_zeros():
 
     class _EmptyBackend:
         async def get_habit_analytics(
-            self, user_uid: str, window_start: str
+            self, user_uid: str, window_start: str, window_end: str
         ) -> Result[list[dict[str, Any]]]:
             return Result.ok([])
 

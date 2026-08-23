@@ -19,13 +19,19 @@ What has to hold here:
    a completion at 23:59 on the boundary day is inside it.
 3. **Ownership.** Scoped by the universal ``:OWNS`` edge (ADR-086), so another
    user's completions cannot leak into the score.
-4. **The timestamp's storage type.** It is an ISO datetime **string** on every
+4. **The upper bound.** A trailing window ends where the present does. Nothing
+   refuses a future ``completed_at`` — ``TrackHabitRequest`` takes any ISO date,
+   and the calendar's day-scoped complete door bounds ``on_date`` to genuine
+   occurrence days but not to today — so a lower-bound-only predicate counted
+   such a record in every window between now and its date, inflating the score
+   permanently and silently.
+5. **The timestamp's storage type.** It is an ISO datetime **string** on every
    live row (the mapper ``isoformat()``s the ``datetime`` the DTO carries), but
    the writer decides the storage type, not this reader. The normalisation is
    what keeps a temporally-typed value comparing correctly instead of silently
    matching nothing, which would read as "this user was less consistent", never
    as an error.
-5. **No analytics node required.** The count is derived, so the bulk-logging
+6. **No analytics node required.** The count is derived, so the bulk-logging
    door — ``HabitCompletionBulk``, an event no analytics handler subscribes to —
    still yields a real score instead of a confident 0.0.
 """
@@ -45,6 +51,7 @@ BULK = "user_consistency_bulk"
 
 TODAY = date.today()
 FIRST_DAY_IN = HabitConsistencyWindow.start_date(TODAY)
+LAST_DAY_IN = HabitConsistencyWindow.end_date(TODAY)
 LAST_DAY_OUT = TODAY - timedelta(days=HabitConsistencyWindow.DAYS)
 
 
@@ -162,6 +169,10 @@ class TestHabitConsistencyWindow:
         )
         # A record with no timestamp at all — excluded, not assumed recent.
         await _seed_completion(neo4j_driver, WINDOW, "hc.out_unstamped", completed_at=None)
+        # Stamped in the future — outside a *trailing* window until its day comes.
+        await _seed_completion(
+            neo4j_driver, WINDOW, "hc.out_future", completed_at=_at(TODAY + timedelta(days=1))
+        )
 
         # STALE: a real year of history, nothing inside the window.
         await _seed_analytics(neo4j_driver, STALE, 365)
@@ -186,10 +197,12 @@ class TestHabitConsistencyWindow:
     # ====================================================================
 
     async def test_only_completions_inside_the_window_are_counted(self, seeded):
-        """Four of the user's seven records fall inside; three are excluded, each
-        for its own reason (too old, exactly DAYS old, unstamped)."""
+        """Four of the user's eight records fall inside; four are excluded, each
+        for its own reason (too old, exactly DAYS old, unstamped, future)."""
         result = await seeded.get_habit_analytics(
-            user_uid=WINDOW, window_start=FIRST_DAY_IN.isoformat()
+            user_uid=WINDOW,
+            window_start=FIRST_DAY_IN.isoformat(),
+            window_end=LAST_DAY_IN.isoformat(),
         )
 
         assert result.is_ok
@@ -214,7 +227,39 @@ class TestHabitConsistencyWindow:
         )
 
         result = await backend.get_habit_analytics(
-            user_uid=WINDOW, window_start=FIRST_DAY_IN.isoformat()
+            user_uid=WINDOW,
+            window_start=FIRST_DAY_IN.isoformat(),
+            window_end=LAST_DAY_IN.isoformat(),
+        )
+
+        assert result.is_ok
+        assert result.value[0]["completions_in_window"] == 1
+
+    async def test_a_future_stamped_completion_is_outside_the_trailing_window(
+        self, neo4j_driver, backend
+    ):
+        """The upper bound, isolated so the two rows are the whole answer.
+
+        Nothing refuses a future ``completed_at``: ``TrackHabitRequest`` takes
+        any ISO date, and the calendar's day-scoped complete door bounds
+        ``on_date`` to genuine occurrence days without bounding it at today. A
+        lower-bound-only predicate counted such a record in *every* window
+        between now and its date — a score inflated permanently, and silently,
+        because nothing about the number looks wrong. Today's row is seeded
+        beside it so this discriminates the bound rather than merely counting.
+        """
+        await _seed_completion(neo4j_driver, WINDOW, "hc.bound_today", completed_at=_at(TODAY))
+        await _seed_completion(
+            neo4j_driver,
+            WINDOW,
+            "hc.bound_tomorrow",
+            completed_at=_at(TODAY + timedelta(days=1)),
+        )
+
+        result = await backend.get_habit_analytics(
+            user_uid=WINDOW,
+            window_start=FIRST_DAY_IN.isoformat(),
+            window_end=LAST_DAY_IN.isoformat(),
         )
 
         assert result.is_ok
@@ -236,7 +281,9 @@ class TestHabitConsistencyWindow:
         )
 
         result = await backend.get_habit_analytics(
-            user_uid=WINDOW, window_start=FIRST_DAY_IN.isoformat()
+            user_uid=WINDOW,
+            window_start=FIRST_DAY_IN.isoformat(),
+            window_end=LAST_DAY_IN.isoformat(),
         )
 
         assert result.is_ok
@@ -275,7 +322,9 @@ class TestHabitConsistencyWindow:
         assert created.is_ok, "the writer refused the record; the rest proves nothing"
 
         result = await backend.get_habit_analytics(
-            user_uid=WINDOW, window_start=FIRST_DAY_IN.isoformat()
+            user_uid=WINDOW,
+            window_start=FIRST_DAY_IN.isoformat(),
+            window_end=LAST_DAY_IN.isoformat(),
         )
 
         assert result.is_ok
@@ -289,10 +338,14 @@ class TestHabitConsistencyWindow:
         both.
         """
         window = await seeded.get_habit_analytics(
-            user_uid=WINDOW, window_start=FIRST_DAY_IN.isoformat()
+            user_uid=WINDOW,
+            window_start=FIRST_DAY_IN.isoformat(),
+            window_end=LAST_DAY_IN.isoformat(),
         )
         bulk = await seeded.get_habit_analytics(
-            user_uid=BULK, window_start=FIRST_DAY_IN.isoformat()
+            user_uid=BULK,
+            window_start=FIRST_DAY_IN.isoformat(),
+            window_end=LAST_DAY_IN.isoformat(),
         )
 
         assert window.value[0]["completions_in_window"] == 4
