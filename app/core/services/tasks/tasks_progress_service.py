@@ -628,7 +628,40 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
         self.logger.debug("Would increase knowledge %s mastery by %.2f", knowledge_uid, increment)
 
     async def _trigger_task(self, task_uid: str) -> None:
-        """Trigger a dependent task."""
+        """Schedule a dependent task, unless that task has already finished.
+
+        A TRIGGERS_ON_COMPLETION dependent that is already in a terminal state is
+        left exactly as it is — this cascade unblocks work, it never reopens work
+        that is done.
+        """
+        # Read before write. This write goes through the GENERIC CRUD, which does
+        # not run the six-chokepoint completion stamping, so a blind
+        # ``status=scheduled`` on an already-COMPLETED dependent would move it out
+        # of COMPLETED while LEAVING ``completion_date`` set — breaking the
+        # invariant that the stamp is non-null exactly when the task is completed
+        # (completion-stamping arc, #1122-#1125). This fires on a FIRST completion
+        # of the upstream task, not only on a repeat, so ``TaskCompleted.is_repeat``
+        # does not cover it.
+        # The gate is ``is_terminal()``, not COMPLETED alone: FAILED / CANCELLED /
+        # ARCHIVED dependents are equally not this cascade's to resurrect, and
+        # keying on the enum's own predicate means a new terminal status is honored
+        # here without an edit. This read is the ONLY terminal-state protection on
+        # the cascade path: this service declares no ``_validate_update``, and the
+        # domain's declared rule (``TasksCoreService._validate_update`` Business
+        # Rule 1) hangs off a different service's generic CRUD — not off anything
+        # this write passes through.
+        current = await self.get(task_uid)
+        if current.is_error:
+            self.logger.warning(f"Failed to trigger task {task_uid}: {current.expect_error()}")
+            return
+
+        status = current.value.status
+        if status.is_terminal():
+            self.logger.debug(
+                "Skipped triggering task %s: already terminal (%s)", task_uid, status.value
+            )
+            return
+
         # Unblock the triggered task via the service contract (ADR-066 #2→#1). self.update
         # returns a Result (backend errors are captured, not raised), so branch on it.
         result = await self.update(task_uid, RawChanges({"status": EntityStatus.SCHEDULED.value}))
