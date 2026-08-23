@@ -74,7 +74,9 @@ def _make_harness(
                 "total_completions": 3,
                 "first_completion_at": None,
                 "last_completion_at": None,
-                "consistency_score": 0.5,
+                "consistency_window_days": 30,
+                "completions_in_window": 2,
+                "consistency_score": 0.47,
             }
         )
     )

@@ -150,6 +150,12 @@ async def ensure_test_users(neo4j_driver):
         "user_velocity_window",
         "user_velocity_stale",
         "user_velocity_vault",
+        # consistency_score's trailing window counts
+        # (:User)-[:OWNS]->(:HabitCompletion) rows by completed_at, so each
+        # window shape needs a real owner.
+        "user_consistency_window",
+        "user_consistency_stale",
+        "user_consistency_bulk",
     ]
 
     async def create_users():

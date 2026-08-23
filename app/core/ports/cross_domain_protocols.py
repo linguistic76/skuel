@@ -83,7 +83,18 @@ class CrossDomainBackendOperations(Protocol):
         """
         ...
 
-    async def get_habit_analytics(self, user_uid: str) -> Result[list[dict[str, Any]]]: ...
+    async def get_habit_analytics(
+        self, user_uid: str, window_start: str
+    ) -> Result[list[dict[str, Any]]]:
+        """The stored HabitAnalytics node plus the trailing-window completion count.
+
+        ``window_start`` is an inclusive ISO ``YYYY-MM-DD`` date bound; the row
+        carries ``completions_in_window``, the numerator of
+        ``consistency_score``. Always exactly one row — ``analytics`` is
+        ``None`` when the user has no node, and the derived count stands on its
+        own (the bulk-logging door writes completion records but no node).
+        """
+        ...
 
     # ================================================================
     # CROSS-DOMAIN QUERIES — Multi-domain graph reads

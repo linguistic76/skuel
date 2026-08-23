@@ -721,14 +721,55 @@ class CrossDomainBackend:
             },
         )
 
-    async def get_habit_analytics(self, user_uid: str) -> Result[list[dict[str, Any]]]:
-        """Get HabitAnalytics node for habit consistency metrics."""
+    async def get_habit_analytics(
+        self, user_uid: str, window_start: str
+    ) -> Result[list[dict[str, Any]]]:
+        """The stored HabitAnalytics node plus the trailing-window completion count.
+
+        Two things in one row because they are read together and only together:
+        ``analytics`` carries the running figures the ``HabitCompleted`` handler
+        maintains (``total_completions`` and the two completion stamps), and
+        ``completions_in_window`` is counted live from the graph — the numerator
+        of ``consistency_score``
+        (``CrossDomainAnalyticsService.get_habit_consistency``).
+
+        **The count is derived, so it does not depend on the node existing.**
+        Every match here is OPTIONAL and the aggregation always yields exactly
+        one row, so a user whose completions arrived through a door that writes
+        no analytics node still gets a real consistency score instead of the
+        confident 0.0 a mandatory MATCH produced. That is not hypothetical for
+        habits: ``HabitCompletionBulk`` — the multi-day bulk logging door — has
+        no analytics subscriber at all, so its completions exist as
+        ``:HabitCompletion`` nodes the tally has never seen. Counting the nodes
+        rather than reading the tally is what brings them into the metric.
+
+        ``window_start`` is an ISO ``YYYY-MM-DD`` date; the window is inclusive
+        of it (``HabitConsistencyWindow.start_date``). Membership is the
+        completion record's own ``completed_at``, truncated to its calendar day
+        so the comparison means what the window means.
+
+        ``date(left(toString(...), 10))`` normalises before comparing, the same
+        shape ``_EVENT_IMPACT_BATCH_QUERY`` uses and for the same reason: the
+        writer decides the storage type, not this reader. ``completed_at`` is an
+        ISO datetime **string** on every live row (the mapper ``isoformat()``s
+        the ``datetime`` the DTO carries), but a temporally-typed value has to
+        keep comparing correctly rather than silently matching nothing — which
+        would read as "this user was less consistent", never as an error. Going
+        through ``date()`` on both sides also keeps the two operands the same
+        temporal type, which a raw datetime bound would not guarantee.
+
+        Ownership is the universal ``(:User)-[:OWNS]->`` edge (ADR-086), so one
+        user's completions cannot reach another's score.
+        """
         return await self.executor.execute_query(
-            """
-            MATCH (analytics:HabitAnalytics {user_uid: $user_uid})
-            RETURN analytics
+            f"""
+            OPTIONAL MATCH (analytics:HabitAnalytics {{user_uid: $user_uid}})
+            OPTIONAL MATCH (u:User {{uid: $user_uid}})
+            OPTIONAL MATCH (u)-[:{RelationshipName.OWNS.value}]->(hc:HabitCompletion)
+            WHERE date(left(toString(hc.completed_at), 10)) >= date($window_start)
+            RETURN analytics, count(hc) AS completions_in_window
             """,
-            {"user_uid": user_uid},
+            {"user_uid": user_uid, "window_start": window_start},
         )
 
     # ====================================================================

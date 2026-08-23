@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
-from core.constants import CompletionVelocityWindow
+from core.constants import CompletionVelocityWindow, HabitConsistencyWindow
 from core.events import (
     GoalCreated,
     # NOTE: JournalCreated REMOVED (February 2026) - Journal merged into Reports
@@ -311,12 +311,20 @@ class CrossDomainAnalyticsService:
 
     async def handle_habit_completed(self, event: Any) -> Result[None]:
         """
-        Track habit completions for consistency analytics.
+        Track a habit completion on the user's cumulative HabitAnalytics node.
 
-        Builds:
-        - Habit consistency scores
-        - Streak patterns across habits
-        - Category-based habit tracking
+        Maintains exactly three figures — ``total_completions`` (a running
+        tally, incremented once per event), ``first_completion_at`` and
+        ``last_completion_at``. A tally is the correct shape here: a habit
+        completed fifty times genuinely has fifty completions and there is no
+        "currently completed" set to recount, which is precisely why habits
+        stayed on the incrementing helper when tasks left it.
+
+        It is a cumulative record, not the consistency metric.
+        ``get_habit_consistency`` counts ``:HabitCompletion`` records over a
+        trailing window instead, so this node's blindness to the bulk-logging
+        door (``HabitCompletionBulk`` has no subscriber) costs the cumulative
+        figures but not the score.
         """
         try:
             result = await self.backend.upsert_habit_analytics(
@@ -590,55 +598,66 @@ class CrossDomainAnalyticsService:
         """
         Get habit consistency analytics.
 
-        Queries HabitAnalytics nodes created by handle_habit_completed event handler.
+        ``consistency_score`` is a rate over a fixed trailing window
+        (:class:`HabitConsistencyWindow`), counted from the user's
+        ``:HabitCompletion`` records rather than read off the cumulative tally
+        the ``HabitCompleted`` handler maintains. Two consequences, both
+        deliberate:
+
+        - The score cannot degenerate. The lifetime span it used to divide by
+          was zero for a user with one completion (or several on one day) and
+          only grew afterwards, so the metric read 0.0, then a fabricated
+          7.0/week, then decayed for as long as the user kept going.
+        - Completions logged through the bulk door — which publishes
+          ``HabitCompletionBulk``, an event no analytics handler subscribes to —
+          reach the score, because the records exist even where the tally does
+          not.
+
+        ``total_completions`` and the two stamps are still served beside it,
+        unchanged: they are the cumulative record, and the rate is not. They
+        come from the analytics node, so they remain blind to the bulk door;
+        ``completions_in_window`` exceeding ``total_completions`` is that
+        blindness made visible rather than a contradiction to reconcile.
 
         Args:
             user_uid: UID of the user
 
         Returns:
             Result containing habit consistency metrics dict with:
-            - total_completions: Total habit completions
+            - total_completions: Cumulative habit completions the tally has seen
             - first_completion_at: First completion timestamp
             - last_completion_at: Last completion timestamp
-            - consistency_score: Completions per week
+            - consistency_window_days: Length of the trailing window
+            - completions_in_window: The consistency numerator
+            - consistency_score: Completions per week over that window
         """
-        result = await self.backend.get_habit_analytics(user_uid=user_uid)
+        window_start = HabitConsistencyWindow.start_date(date.today())
+
+        result = await self.backend.get_habit_analytics(
+            user_uid=user_uid, window_start=window_start.isoformat()
+        )
         if result.is_error:
             return Result.fail(result)
 
         records = result.value or []
-        record = records[0] if records else None
+        # The query aggregates, so it yields exactly one row for any user; the
+        # empty guard is for a read that came back with nothing at all.
+        record = records[0] if records else {}
+        # `analytics` is null for a user with no node — the derived count below
+        # stands on its own, so that is a real reading, not a missing one.
+        analytics = record.get("analytics") or {}
+        completions_in_window = int(record.get("completions_in_window") or 0)
 
-        if not record:
-            return Result.ok(
-                {
-                    "user_uid": user_uid,
-                    "total_completions": 0,
-                    "first_completion_at": None,
-                    "last_completion_at": None,
-                    "consistency_score": 0.0,
-                }
-            )
-
-        analytics = record["analytics"]
-        total_completions = analytics.get("total_completions", 0)
-
-        # Calculate consistency score (completions per week)
-        first_at = analytics.get("first_completion_at")
-        last_at = analytics.get("last_completion_at")
-
-        consistency = 0.0
-        if first_at and last_at:
-            days_active = (last_at - first_at).days or 1
-            weeks_active = days_active / 7
-            consistency = total_completions / weeks_active if weeks_active > 0 else 0.0
+        consistency = completions_in_window / HabitConsistencyWindow.WEEKS
 
         return Result.ok(
             {
                 "user_uid": user_uid,
-                "total_completions": total_completions,
-                "first_completion_at": first_at,
-                "last_completion_at": last_at,
+                "total_completions": analytics.get("total_completions", 0),
+                "first_completion_at": analytics.get("first_completion_at"),
+                "last_completion_at": analytics.get("last_completion_at"),
+                "consistency_window_days": HabitConsistencyWindow.DAYS,
+                "completions_in_window": completions_in_window,
                 "consistency_score": round(consistency, 2),
             }
         )
