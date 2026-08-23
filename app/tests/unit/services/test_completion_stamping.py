@@ -2,10 +2,10 @@
 
 Three layers, matching how the stamp actually reaches the graph:
 
-1. **The helper** (``completion_transition_patch`` / ``is_completion_transition``)
-   — transition gating, R1 reopen-clear, explicit-field authority, and the
-   status-target legality check that turns ``EntityType.valid_statuses()`` from
-   documentation into enforcement.
+1. **The helper** (``completion_transition_patch`` / ``is_completion_transition``
+   / ``is_reopen_transition``) — transition gating both ways, R1 reopen-clear,
+   explicit-field authority, and the status-target legality check that turns
+   ``EntityType.valid_statuses()`` from documentation into enforcement.
 2. **The six chokepoints** — wiring tests assert the CALLER: each real
    ``update_<domain>`` core method is driven with a typed intent against a
    mocked backend, and the assertion is on what ``backend.update`` received.
@@ -39,7 +39,11 @@ from core.models.principle.principle_update_intent import PrincipleUpdateIntent
 from core.models.task.task import Task
 from core.models.task.task_request import TaskCreateRequest
 from core.models.task.task_update_intent import TaskUpdateIntent
-from core.services.completion_stamp import completion_transition_patch, is_completion_transition
+from core.services.completion_stamp import (
+    completion_transition_patch,
+    is_completion_transition,
+    is_reopen_transition,
+)
 from core.utils.result_simplified import Result
 
 USER = "user_stamp"
@@ -151,6 +155,37 @@ class TestIsCompletionTransition:
         assert not is_completion_transition(EntityStatus.COMPLETED, {"status": "completed"})
         assert not is_completion_transition(EntityStatus.ACTIVE, {"status": "paused"})
         assert not is_completion_transition(EntityStatus.ACTIVE, {"title": "x"})
+
+
+class TestIsReopenTransition:
+    """The mirror gate — what publishes ``TaskReopened`` (PR-6 of the arc)."""
+
+    def test_true_only_on_the_transition_out(self):
+        assert is_reopen_transition(EntityStatus.COMPLETED, {"status": "active"})
+        assert is_reopen_transition("completed", {"status": "scheduled"})
+        assert not is_reopen_transition(EntityStatus.COMPLETED, {"status": "completed"})
+        assert not is_reopen_transition(EntityStatus.ACTIVE, {"status": "paused"})
+        assert not is_reopen_transition(EntityStatus.COMPLETED, {"title": "x"})
+        assert not is_reopen_transition(None, {"status": "active"})
+
+    def test_an_unrecognized_target_is_not_a_reopen(self):
+        """It is a validation failure in ``completion_transition_patch``, and the
+        two must agree — otherwise a garbage status would publish a reopen that
+        the write itself refuses."""
+        assert not is_reopen_transition(EntityStatus.COMPLETED, {"status": "not_a_status"})
+
+    def test_the_gate_agrees_with_the_stamp_clear(self):
+        """Whenever this says reopen, the patch clears the stamp, and vice versa.
+
+        Swept over every legal Task status so a new enum member cannot split the
+        two apart unnoticed.
+        """
+        for old in (EntityStatus.COMPLETED, EntityStatus.ACTIVE):
+            for new in sorted(s.value for s in EntityType.TASK.valid_statuses()):
+                patch = completion_transition_patch(EntityType.TASK, old, {"status": new})
+                assert patch.is_ok
+                clears = patch.value.get("completion_date", "absent") is None
+                assert clears is is_reopen_transition(old, {"status": new})
 
 
 # ============================================================================

@@ -27,7 +27,14 @@ from core.models.type_hints import UserUID
 if TYPE_CHECKING:
     from core.ports.domain_protocols import TasksOperations
 
-from core.events import TaskCompleted, TaskCreated, TaskDeleted, TaskUpdated, publish_event
+from core.events import (
+    TaskCompleted,
+    TaskCreated,
+    TaskDeleted,
+    TaskReopened,
+    TaskUpdated,
+    publish_event,
+)
 from core.events.embedding_publisher import publish_embedding_requested
 from core.models.enums import EntityStatus, Priority
 from core.models.enums.entity_enums import EntityType
@@ -40,7 +47,11 @@ from core.models.task.task_request import TaskCreateRequest
 from core.models.task.task_update_intent import TaskUpdateIntent
 from core.ports.query_types import ParentProgressResult, TaskStats
 from core.services.base_service import BaseService
-from core.services.completion_stamp import completion_transition_patch, is_completion_transition
+from core.services.completion_stamp import (
+    completion_transition_patch,
+    is_completion_transition,
+    is_reopen_transition,
+)
 from core.services.domain_config import create_activity_domain_config
 from core.services.mixins.hierarchy_read_mixin import HierarchyReadMixin
 from core.services.mixins.link_edge_guard import (
@@ -732,7 +743,8 @@ class TasksCoreService(
         chokepoint (``core.services.completion_stamp``). A transition INTO
         completed also publishes ``TaskCompleted`` (always ``is_repeat=False`` —
         the gate is the transition), so completing a task from the status
-        control runs the same cascade as the explicit-complete doors.
+        control runs the same cascade as the explicit-complete doors, and the
+        mirror transition OUT of completed publishes ``TaskReopened``.
 
         Args:
             task_uid: Task UID,
@@ -779,6 +791,7 @@ class TasksCoreService(
         # mutated by the stamp merge and again by the backend (updated_at).
         old_status = old_task.status if old_task else None
         is_transition = is_completion_transition(old_status, changes)
+        is_reopen = is_reopen_transition(old_status, changes)
         stamp = completion_transition_patch(EntityType.TASK, old_status, changes)
         if stamp.is_error:
             return Result.fail(stamp)
@@ -824,6 +837,20 @@ class TasksCoreService(
                 is_repeat=False,
             )
             await publish_event(self.event_bus, completed_event, self.logger)
+
+        # Publish TaskReopened on the mirror transition — OUT of completed.
+        # This chokepoint is the only door that reopens a task (Today's Undo
+        # posts the prior status through it), and without a signal here the
+        # productivity counter could only ever go up: a complete → Undo →
+        # complete sequence is two genuine transitions INTO completed, so an
+        # increment would count one task twice. The subscriber recomputes the
+        # count from the graph instead, and this is what tells it to.
+        if is_reopen:
+            await publish_event(
+                self.event_bus,
+                TaskReopened(task_uid=task.uid, user_uid=task.user_uid),
+                self.logger,
+            )
 
         # Publish TaskPriorityChanged event if priority changed
         if "priority" in changes and old_task and old_task.priority != task.priority:

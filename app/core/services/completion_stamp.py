@@ -39,7 +39,12 @@ from typing import Any
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.utils.result_simplified import Errors, Result
 
-__all__ = ["COMPLETION_FIELDS", "completion_transition_patch", "is_completion_transition"]
+__all__ = [
+    "COMPLETION_FIELDS",
+    "completion_transition_patch",
+    "is_completion_transition",
+    "is_reopen_transition",
+]
 
 # Per-domain canonical completion field + stamp value factory. Task and Goal
 # stamp calendar dates (matching their established writers); the datetime
@@ -97,6 +102,29 @@ def is_completion_transition(
     return (
         new_status is EntityStatus.COMPLETED
         and _coerce_status(old_status) is not EntityStatus.COMPLETED
+    )
+
+
+def is_reopen_transition(old_status: EntityStatus | str | None, changes: Mapping[str, Any]) -> bool:
+    """True when this update moves the entity OUT of ``COMPLETED``.
+
+    The mirror of :func:`is_completion_transition`, and gated the same way: an
+    update that leaves an already-open entity open is not a reopen. It agrees
+    exactly with the branch of :func:`completion_transition_patch` that clears
+    the stamp, including the requirement that the *new* status be a canonical
+    ``EntityStatus`` value — an unrecognized status is a validation failure
+    there, never a reopen here.
+
+    Used by ``TasksCoreService.update_task`` to publish ``TaskReopened``, so the
+    event and the stamp clear agree on what counts as reopening.
+    """
+    if "status" not in changes:
+        return False
+    new_status = _coerce_status(changes["status"])
+    return (
+        new_status is not None
+        and new_status is not EntityStatus.COMPLETED
+        and _coerce_status(old_status) is EntityStatus.COMPLETED
     )
 
 

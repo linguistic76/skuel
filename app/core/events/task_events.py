@@ -7,6 +7,7 @@ Events published by TasksService for task lifecycle operations.
 Event Catalog:
 - task.created - Task created
 - task.completed - Task marked complete
+- task.reopened - Task moved back OUT of completed
 - task.updated - Task properties changed
 - task.deleted - Task deleted
 - task.priority_changed - Task priority changed (high-priority event)
@@ -73,17 +74,29 @@ class TaskCompleted(BaseEvent):
         **append** skip when ``is_repeat`` is true.
 
     Recompute-shaped subscribers (goal progress, PS engagement auto-complete,
-    knowledge generation, context invalidation) therefore read nothing from
-    this flag. The counting/appending ones do: duration-calibration EMA and its
-    sample counter, the overdue ``PersistedInsight`` append, the
-    ``ProductivityAnalytics.tasks_completed`` increment, and the Prometheus
-    ``entities_completed{task}`` counter — the last of which cannot be fixed
-    any other way, since a monotonic counter has no un-increment.
+    knowledge generation, context invalidation) therefore read nothing from this
+    flag. The counting/appending ones do: duration-calibration EMA and its
+    sample counter, the overdue ``PersistedInsight`` append, and the Prometheus
+    ``entities_completed{task}`` counter — the last of which cannot be fixed any
+    other way, since a monotonic counter has no un-increment.
 
-    The principle-alignment check is **split across both halves** and is the
-    reason the contract names appending separately from counting: it recomputes
-    the alignment from the graph on every complete, then appends a
-    ``PersistedInsight`` only when this is not a repeat.
+    Two subscribers are **split across both halves**, and they are the reason
+    the contract names appending separately from counting rather than treating
+    the flag as a simple do-it/skip-it switch:
+
+    - **Principle alignment** recomputes the alignment from the graph on every
+      complete, then appends a ``PersistedInsight`` only when this is not a
+      repeat.
+    - **``ProductivityAnalytics``** recomputes ``tasks_completed`` — the count
+      of the user's currently-COMPLETED tasks — on every complete, repeat
+      included, because a recompute converges. But it reads the flag to decide
+      whether a new *completion moment* occurred: a repeat carries a fresh
+      ``occurred_at`` while nothing transitioned, and recording that as a
+      completion would stretch the velocity window without raising the
+      numerator. So the count is ungated and the timestamps are gated.
+
+    The pattern behind both: ``is_repeat`` gates the part of a handler that
+    **accumulates** (an append, a stamp), never the part that **derives**.
 
     **Only the explicit-complete cascade ever sets ``is_repeat=True``.** The
     other two publishers are transition-gated, so a repeat cannot reach them:
@@ -105,6 +118,39 @@ class TaskCompleted(BaseEvent):
     is_repeat: bool = False
 
     event_type: ClassVar[str] = "task.completed"
+
+
+@dataclass(frozen=True)
+class TaskReopened(BaseEvent):
+    """
+    Published when a task moves back OUT of ``completed``.
+
+    The mirror of :class:`TaskCompleted`, and the reason a subscriber can hold
+    "how many tasks has this user completed" as a *recomputed* number instead of
+    a running tally: without a reopen signal, the only safe counter is one that
+    never goes down. Published from the single update chokepoint
+    (``TasksCoreService.update_task``) on a genuine transition — re-posting a
+    non-completed status on an already-open task publishes nothing, exactly as
+    the completion side is transition-gated.
+
+    A reopen is **not** a completion, so a subscriber must not treat it as one:
+    it records no completion moment and must leave completion timestamps where
+    they are. ``CrossDomainAnalyticsService.handle_task_reopened`` recomputes
+    ``ProductivityAnalytics.tasks_completed`` and deliberately does not touch
+    ``last_completion_at`` — that stamp is the endpoint of the velocity
+    denominator, and stretching it on a non-completion would distort the metric.
+
+    Subscribers:
+    - CrossDomainAnalyticsService (recompute ProductivityAnalytics.tasks_completed)
+
+    Context invalidation is already covered: the same ``update_task`` call
+    publishes ``TaskUpdated``, which is subscribed for exactly that.
+    """
+
+    task_uid: str
+    user_uid: UserUID
+
+    event_type: ClassVar[str] = "task.reopened"
 
 
 @dataclass(frozen=True)

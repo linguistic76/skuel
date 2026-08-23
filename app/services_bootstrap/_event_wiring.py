@@ -74,6 +74,7 @@ def _wire_event_subscribers(
         TaskCreated,
         TaskDeleted,
         TaskPriorityChanged,
+        TaskReopened,
         TasksBulkCompleted,
         TaskUpdated,
     )
@@ -415,6 +416,9 @@ def _wire_event_subscribers(
     # Multi-domain analytics → Track activity across all domains
     cross_domain_analytics_service = advanced["cross_domain_analytics"]
     event_bus.subscribe(TaskCompleted, cross_domain_analytics_service.handle_task_completed)
+    # ProductivityAnalytics.tasks_completed is recomputed, not tallied, so it has
+    # to hear about a reopen too — otherwise the count could only ever rise.
+    event_bus.subscribe(TaskReopened, cross_domain_analytics_service.handle_task_reopened)
     event_bus.subscribe(HabitCompleted, cross_domain_analytics_service.handle_habit_completed)
     event_bus.subscribe(
         CalendarEventCompleted, cross_domain_analytics_service.handle_event_completed
@@ -428,8 +432,8 @@ def _wire_event_subscribers(
     # NOTE: ExpenseCreated/ExpensePaid subscriptions REMOVED (ADR-052 Phase 5) —
     # native expense module demolished.
     logger.info(
-        "✅ CrossDomainAnalyticsService subscribed to 6 event types "
-        "(Tasks, Habits, Events, Goals, Knowledge, Paths)"
+        "✅ CrossDomainAnalyticsService subscribed to 7 event types "
+        "(Tasks completed + reopened, Habits, Events, Goals, Knowledge, Paths)"
     )
 
     # Milestone achievements → Automatic report generation
