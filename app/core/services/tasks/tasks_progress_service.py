@@ -362,11 +362,14 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
             len(applies_knowledge_uids),
         )
 
-        # Publish TaskCompleted event
+        # Publish TaskCompleted event. ``is not None``, not truthiness: 0 is a
+        # legal reported duration (``ge=0`` at the boundary) and is written to
+        # the node above, so a falsy check would store 0 while telling every
+        # subscriber the duration was never reported.
         event = TaskCompleted(
             task_uid=task_uid,
             user_uid=user_uid,
-            completion_time_seconds=actual_minutes * 60 if actual_minutes else None,
+            completion_time_seconds=actual_minutes * 60 if actual_minutes is not None else None,
             was_overdue=task.due_date < date.today() if task.due_date else False,
         )
         await publish_event(self.event_bus, event, self.logger)
