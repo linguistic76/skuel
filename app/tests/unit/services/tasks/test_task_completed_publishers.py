@@ -1,4 +1,10 @@
-"""Every door to COMPLETED publishes ``TaskCompleted`` (PR-4 of the arc).
+"""The completion-transition publishes at the Task write doors.
+
+Every door to COMPLETED publishes ``TaskCompleted`` (PR-4 of the arc), and the
+status chokepoint also publishes the mirror ``TaskReopened`` on a transition
+back OUT (PR-6) — the signal that lets a subscriber hold "tasks completed" as a
+recomputed number instead of a counter that can only rise.
+
 
 Before this pass only the explicit-complete cascade did. The status chokepoint
 (``POST /api/tasks/{uid}/status`` → ``update_task``) published ``TaskUpdated``
@@ -25,7 +31,7 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from core.events.task_events import TaskCompleted, TasksBulkCompleted
+from core.events.task_events import TaskCompleted, TaskReopened, TasksBulkCompleted
 from core.models.enums.entity_enums import EntityStatus
 from core.models.task.task import Task
 from core.models.task.task_update_intent import TaskUpdateIntent
@@ -166,7 +172,7 @@ class TestUpdateTaskPublishesTaskCompleted:
         assert result.is_ok
         assert bus.of(TaskCompleted) == []
 
-    async def test_a_reopen_publishes_nothing(self) -> None:
+    async def test_a_reopen_publishes_no_completion(self) -> None:
         current = Task(uid="task_1", user_uid=USER, title="t", status=EntityStatus.COMPLETED)
         updated = Task(uid="task_1", user_uid=USER, title="t", status=EntityStatus.ACTIVE)
         service, bus, _ = _core_service(current, updated)
@@ -186,6 +192,113 @@ class TestUpdateTaskPublishesTaskCompleted:
 
         assert result.is_error
         assert bus.of(TaskCompleted) == []
+
+
+# ---------------------------------------------------------------------------
+# 1b. The mirror transition — update_task publishes TaskReopened (PR-6)
+# ---------------------------------------------------------------------------
+
+
+def test_task_reopened_reaches_the_derived_event_registry() -> None:
+    """``EVENT_REGISTRY`` is derived by comprehension over imported subclasses,
+    so a new module that ``core/events/__init__.py`` never imports is invisible.
+    ``TaskReopened`` lives beside ``TaskCompleted``, but assert the outcome, not
+    the file it happens to sit in."""
+    from core.events import EVENT_REGISTRY
+
+    assert EVENT_REGISTRY[TaskReopened.event_type] is TaskReopened
+    assert TaskReopened.event_type == "task.reopened"
+
+
+@pytest.mark.asyncio
+class TestUpdateTaskPublishesTaskReopened:
+    async def test_a_genuine_reopen_publishes_exactly_one_event(self) -> None:
+        current = Task(uid="task_1", user_uid=USER, title="t", status=EntityStatus.COMPLETED)
+        updated = Task(uid="task_1", user_uid=USER, title="t", status=EntityStatus.ACTIVE)
+        service, bus, _ = _core_service(current, updated)
+
+        result = await service.update_task("task_1", TaskUpdateIntent(status="active"))
+
+        assert result.is_ok
+        reopened = bus.of(TaskReopened)
+        assert len(reopened) == 1
+        assert reopened[0].task_uid == "task_1"
+        assert reopened[0].user_uid == USER
+
+    async def test_a_completion_publishes_no_reopen(self) -> None:
+        """The two gates are mutually exclusive — one write is never both."""
+        current = Task(uid="task_1", user_uid=USER, title="t", status=EntityStatus.ACTIVE)
+        updated = Task(uid="task_1", user_uid=USER, title="t", status=EntityStatus.COMPLETED)
+        service, bus, _ = _core_service(current, updated)
+
+        result = await service.update_task("task_1", TaskUpdateIntent(status="completed"))
+
+        assert result.is_ok
+        assert len(bus.of(TaskCompleted)) == 1
+        assert bus.of(TaskReopened) == []
+
+    async def test_a_lateral_write_on_an_open_task_publishes_no_reopen(self) -> None:
+        """Transition-gated in both directions: leaving an open task open is not
+        a reopen, so a status control that never touched ``completed`` is silent."""
+        current = Task(uid="task_1", user_uid=USER, title="t", status=EntityStatus.ACTIVE)
+        updated = Task(uid="task_1", user_uid=USER, title="t", status=EntityStatus.PAUSED)
+        service, bus, _ = _core_service(current, updated)
+
+        result = await service.update_task("task_1", TaskUpdateIntent(status="paused"))
+
+        assert result.is_ok
+        assert bus.of(TaskReopened) == []
+
+    async def test_a_non_status_write_publishes_no_reopen(self) -> None:
+        current = Task(uid="task_1", user_uid=USER, title="t", status=EntityStatus.COMPLETED)
+        updated = Task(uid="task_1", user_uid=USER, title="new", status=EntityStatus.COMPLETED)
+        service, bus, _ = _core_service(current, updated)
+
+        result = await service.update_task("task_1", TaskUpdateIntent(title="new"))
+
+        assert result.is_ok
+        assert bus.of(TaskReopened) == []
+
+    async def test_a_failed_write_publishes_no_reopen(self) -> None:
+        current = Task(uid="task_1", user_uid=USER, title="t", status=EntityStatus.COMPLETED)
+        updated = Task(uid="task_1", user_uid=USER, title="t", status=EntityStatus.ACTIVE)
+        service, bus, backend = _core_service(current, updated)
+        backend.update = AsyncMock(return_value=Result.fail(Errors.database("update", "boom")))
+
+        result = await service.update_task("task_1", TaskUpdateIntent(status="active"))
+
+        assert result.is_error
+        assert bus.of(TaskReopened) == []
+
+    async def test_undo_after_a_complete_is_one_completion_then_one_reopen(self) -> None:
+        """The Today's Undo sequence PR-6 exists for: PR-5 made Undo post the
+        prior status through this chokepoint, so complete → Undo → complete is
+        two real transitions INTO completed. The counter subscriber can only
+        stay honest across that because the reopen in the middle is announced."""
+        open_task = Task(uid="task_1", user_uid=USER, title="t", status=EntityStatus.ACTIVE)
+        done_task = Task(uid="task_1", user_uid=USER, title="t", status=EntityStatus.COMPLETED)
+
+        backend = Mock()
+        bus = _RecordingBus()
+        service = TasksCoreService(backend=backend, event_bus=bus)
+
+        # complete
+        backend.get = AsyncMock(return_value=Result.ok(open_task))
+        backend.update = AsyncMock(return_value=Result.ok(done_task))
+        assert (await service.update_task("task_1", TaskUpdateIntent(status="completed"))).is_ok
+
+        # Undo → reopen
+        backend.get = AsyncMock(return_value=Result.ok(done_task))
+        backend.update = AsyncMock(return_value=Result.ok(open_task))
+        assert (await service.update_task("task_1", TaskUpdateIntent(status="active"))).is_ok
+
+        # complete again
+        backend.get = AsyncMock(return_value=Result.ok(open_task))
+        backend.update = AsyncMock(return_value=Result.ok(done_task))
+        assert (await service.update_task("task_1", TaskUpdateIntent(status="completed"))).is_ok
+
+        assert len(bus.of(TaskCompleted)) == 2
+        assert len(bus.of(TaskReopened)) == 1
 
 
 # ---------------------------------------------------------------------------

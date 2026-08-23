@@ -397,9 +397,15 @@ class CrossDomainBackend:
         """
         Upsert a per-user counter-analytics node (init-to-1 / increment).
 
-        THE shared body of the productivity/habit/event analytics upserts —
-        they differ only in node label and property names, all of which are
-        backend-internal literals (injection-safe).
+        THE shared body of the habit/event analytics upserts — they differ only
+        in node label and property names, all of which are backend-internal
+        literals (injection-safe).
+
+        A running tally is the *correct* shape for both remaining callers: a
+        habit completed fifty times genuinely has fifty completions, and there
+        is no "currently completed" set to count. Tasks moved off this helper
+        onto :meth:`recompute_productivity_analytics` precisely because they do
+        have one, and a task can be reopened.
         """
         return await self.executor.execute_query(
             f"""
@@ -414,17 +420,48 @@ class CrossDomainBackend:
             {"user_uid": user_uid, "occurred_at": occurred_at},
         )
 
-    async def upsert_productivity_analytics(
-        self, user_uid: str, occurred_at: str
+    async def recompute_productivity_analytics(
+        self, user_uid: str, occurred_at: str | None
     ) -> Result[list[dict[str, Any]]]:
-        """Upsert ProductivityAnalytics node for task completion tracking."""
-        return await self._upsert_counter_analytics(
-            "ProductivityAnalytics",
-            "tasks_completed",
-            "first_completion_at",
-            "last_completion_at",
-            user_uid,
-            occurred_at,
+        """Recompute the user's ProductivityAnalytics from the graph.
+
+        ``tasks_completed`` is **derived, not tallied**: it is the number of the
+        user's tasks currently in ``completed``, read fresh and ``SET`` on every
+        call. That makes it idempotent under the arc's repeat-complete contract
+        and — unlike an increment — able to go *down* when a task is reopened,
+        which is why the tasks caller left the shared incrementing helper.
+
+        Ownership is the universal ``(:User)-[:OWNS]->`` edge (ADR-086), the
+        same traversal every other per-user analytic in this backend uses, not
+        the ``user_uid`` property the invariant pairs it with.
+
+        ``occurred_at`` carries the completion moment and is ``None`` on the
+        reopen path: a reopen is not a completion, so it recomputes the count
+        and leaves both stamps exactly where they are. ``last_completion_at`` is
+        the endpoint of the velocity denominator
+        (``CrossDomainAnalyticsService.get_productivity_metrics``), so moving it
+        on a non-completion would silently stretch the window.
+        """
+        return await self.executor.execute_query(
+            """
+            MERGE (analytics:ProductivityAnalytics {user_uid: $user_uid})
+            WITH analytics
+            OPTIONAL MATCH (u:User {uid: $user_uid})
+            OPTIONAL MATCH (u)-[:OWNS]->(t:Task {status: $completed_status})
+            WITH analytics, count(t) AS completed
+            SET analytics.tasks_completed = completed
+            WITH analytics
+            WHERE $occurred_at IS NOT NULL
+            SET analytics.first_completion_at = coalesce(
+                    analytics.first_completion_at, datetime($occurred_at)
+                ),
+                analytics.last_completion_at = datetime($occurred_at)
+            """,
+            {
+                "user_uid": user_uid,
+                "occurred_at": occurred_at,
+                "completed_status": EntityStatus.COMPLETED.value,
+            },
         )
 
     async def upsert_habit_analytics(

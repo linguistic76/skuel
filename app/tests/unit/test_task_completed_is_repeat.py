@@ -14,11 +14,13 @@ split across five services:
   Counting / appending — must no-op on a repeat
     1. TaskEventHandlerService   duration-calibration EMA + task_completion_count
     2. TaskEventHandlerService   overdue PersistedInsight append
-    3. CrossDomainAnalyticsService  ProductivityAnalytics.tasks_completed + 1
-    4. MetricsEventHandler       Prometheus entities_completed{task} (monotonic —
+    3. MetricsEventHandler       Prometheus entities_completed{task} (monotonic —
                                  the one that cannot be fixed anywhere else)
 
   Recomputing — must keep running on a repeat, and land on the same state
+    4. CrossDomainAnalyticsService  ProductivityAnalytics.tasks_completed, counted
+                                 from the graph (PR-6 moved it off the increment,
+                                 so its gate came off with it)
     5. GoalsProgressService      recomputes progress from count_linked_tasks
     6. PsEngagementService       auto-complete filtered on state='engaged'
 
@@ -40,7 +42,7 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from core.events.task_events import TaskCompleted, TasksBulkCompleted
+from core.events.task_events import TaskCompleted, TaskReopened, TasksBulkCompleted
 from core.models.enums.goal_enums import MeasurementType
 from core.models.goal.goal import Goal
 from core.models.insight.persisted_insight import InsightType
@@ -202,58 +204,7 @@ async def test_alignment_insight_skips_a_repeat_but_the_read_still_runs() -> Non
 
 
 # ---------------------------------------------------------------------------
-# 3. CrossDomainAnalyticsService — ProductivityAnalytics counter
-# ---------------------------------------------------------------------------
-
-
-def _analytics_service() -> tuple[CrossDomainAnalyticsService, Mock]:
-    backend = Mock()
-    backend.upsert_productivity_analytics = AsyncMock(return_value=Result.ok([]))
-    backend.upsert_habit_analytics = AsyncMock(return_value=Result.ok([]))
-    return CrossDomainAnalyticsService(backend=backend), backend
-
-
-@pytest.mark.asyncio
-async def test_productivity_analytics_counts_a_first_complete() -> None:
-    service, backend = _analytics_service()
-
-    result = await service.handle_task_completed(_event(is_repeat=False))
-
-    assert result.is_ok
-    backend.upsert_productivity_analytics.assert_awaited_once()
-
-
-@pytest.mark.asyncio
-async def test_productivity_analytics_skips_a_repeat() -> None:
-    """``ON MATCH SET tasks_completed = tasks_completed + 1`` cannot tell a
-    re-post from a second task, so the gate has to be here."""
-    service, backend = _analytics_service()
-
-    result = await service.handle_task_completed(_event(is_repeat=True))
-
-    assert result.is_ok
-    backend.upsert_productivity_analytics.assert_not_awaited()
-
-
-@pytest.mark.asyncio
-async def test_habit_counter_is_untouched_by_the_task_gate() -> None:
-    """The shared ``_upsert_counter_analytics`` body is deliberately NOT gated —
-    habit completions are legitimately repeatable."""
-    service, backend = _analytics_service()
-
-    habit_event = Mock()
-    habit_event.user_uid = _USER
-    habit_event.habit_uid = "habit_daily"
-    habit_event.occurred_at = datetime(2026, 8, 22, 12, 0)
-
-    result = await service.handle_habit_completed(habit_event)
-
-    assert result.is_ok
-    backend.upsert_habit_analytics.assert_awaited_once()
-
-
-# ---------------------------------------------------------------------------
-# 4. MetricsEventHandler — the monotonic Prometheus counter
+# 3. MetricsEventHandler — the monotonic Prometheus counter
 # ---------------------------------------------------------------------------
 
 
@@ -303,6 +254,85 @@ def test_bulk_completion_is_counted_per_row_not_per_batch() -> None:
     subscribed = {call.args[0] for call in bus.subscribe.call_args_list}
     assert TaskCompleted in subscribed
     assert TasksBulkCompleted not in subscribed
+
+
+# ---------------------------------------------------------------------------
+# 4. CrossDomainAnalyticsService — recomputes tasks_completed from the graph
+# ---------------------------------------------------------------------------
+
+
+def _analytics_service() -> tuple[CrossDomainAnalyticsService, Mock]:
+    backend = Mock()
+    backend.recompute_productivity_analytics = AsyncMock(return_value=Result.ok([]))
+    backend.upsert_habit_analytics = AsyncMock(return_value=Result.ok([]))
+    return CrossDomainAnalyticsService(backend=backend), backend
+
+
+@pytest.mark.asyncio
+async def test_productivity_analytics_recomputes_on_a_first_complete() -> None:
+    service, backend = _analytics_service()
+
+    result = await service.handle_task_completed(_event(is_repeat=False))
+
+    assert result.is_ok
+    backend.recompute_productivity_analytics.assert_awaited_once_with(
+        user_uid=_USER, occurred_at="2026-08-22T12:00:00"
+    )
+
+
+@pytest.mark.asyncio
+async def test_productivity_analytics_recomputes_on_a_repeat_too() -> None:
+    """PR-6 inverts what PR-2 pinned here.
+
+    The handler used to skip a repeat because ``ON MATCH SET tasks_completed =
+    tasks_completed + 1`` could not tell a re-post from a second task. It now
+    counts the user's currently-COMPLETED tasks from the graph, which *can*, so
+    under the contract (recompute handlers ignore ``is_repeat``) the gate came
+    off — and re-running it converges instead of inflating.
+    """
+    service, backend = _analytics_service()
+
+    first = await service.handle_task_completed(_event(is_repeat=False))
+    repeat = await service.handle_task_completed(_event(is_repeat=True))
+
+    assert first.is_ok and repeat.is_ok
+    assert backend.recompute_productivity_analytics.await_count == 2
+    calls = backend.recompute_productivity_analytics.await_args_list
+    assert calls[0].kwargs == calls[1].kwargs, "a repeat must ask for the same recompute"
+
+
+@pytest.mark.asyncio
+async def test_a_reopen_recomputes_without_moving_the_completion_stamps() -> None:
+    """``occurred_at=None`` is the whole signal: a reopen is not a completion, so
+    the backend recomputes the count and leaves ``last_completion_at`` — the
+    endpoint of the velocity denominator — exactly where it was."""
+    service, backend = _analytics_service()
+
+    result = await service.handle_task_reopened(TaskReopened(task_uid=_TASK, user_uid=_USER))
+
+    assert result.is_ok
+    backend.recompute_productivity_analytics.assert_awaited_once_with(
+        user_uid=_USER, occurred_at=None
+    )
+
+
+@pytest.mark.asyncio
+async def test_habit_counter_still_increments_through_the_shared_helper() -> None:
+    """``_upsert_counter_analytics`` is deliberately untouched by PR-6 — habits
+    and events have no "currently completed" set to count, and a habit completed
+    fifty times genuinely has fifty completions."""
+    service, backend = _analytics_service()
+
+    habit_event = Mock()
+    habit_event.user_uid = _USER
+    habit_event.habit_uid = "habit_daily"
+    habit_event.occurred_at = datetime(2026, 8, 22, 12, 0)
+
+    result = await service.handle_habit_completed(habit_event)
+
+    assert result.is_ok
+    backend.upsert_habit_analytics.assert_awaited_once()
+    backend.recompute_productivity_analytics.assert_not_awaited()
 
 
 # ---------------------------------------------------------------------------

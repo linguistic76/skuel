@@ -205,6 +205,7 @@ from core.events.task_events import (
     TaskCreated,
     TaskDeleted,
     TaskPriorityChanged,
+    TaskReopened,
     TasksBulkCompleted,
     TaskUpdated,
 )
@@ -329,6 +330,7 @@ __all__ = [
     "TaskDeleted",
     "TaskEmbeddingRequested",
     "TaskPriorityChanged",
+    "TaskReopened",
     "TaskUpdated",
     "TasksBulkCompleted",
     "TranscriptionCompleted",

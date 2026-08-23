@@ -26,6 +26,7 @@ from core.events import (
     KnowledgeMastered,
     LearningPathCompleted,
     TaskCompleted,
+    TaskReopened,
 )
 from core.models.type_hints import UserUID
 from core.utils.decorators import with_error_handling
@@ -210,55 +211,93 @@ class CrossDomainAnalyticsService:
     # EVENT HANDLERS - Activity Domain Tracking
     # ========================================================================
 
+    async def _recompute_productivity(
+        self, user_uid: UserUID, occurred_at: str | None, operation: str
+    ) -> Result[None]:
+        """Shared body of the two productivity handlers.
+
+        ``occurred_at`` is the completion moment, or ``None`` when the trigger
+        was not a completion (a reopen) — see
+        :meth:`CrossDomainBackend.recompute_productivity_analytics`.
+        """
+        try:
+            result = await self.backend.recompute_productivity_analytics(
+                user_uid=user_uid,
+                occurred_at=occurred_at,
+            )
+            if result.is_error:
+                self.logger.error(f"Error recomputing productivity analytics: {result.error}")
+            return Result.ok(None)
+
+        except NEO4J_EXCEPTIONS as e:
+            self.logger.error(f"Database error recomputing productivity analytics: {e}")
+            return Result.fail(
+                Errors.database(
+                    message=f"Failed to recompute productivity analytics: {e!s}",
+                    operation=operation,
+                )
+            )
+        except Exception as e:  # safety-net: catch unexpected errors
+            self.logger.error(
+                f"Unexpected error recomputing productivity analytics: {type(e).__name__}: {e}"
+            )
+            return Result.fail(
+                Errors.system(
+                    message=f"Failed to recompute productivity analytics: {e!s}",
+                    operation=operation,
+                )
+            )
+
     async def handle_task_completed(self, event: TaskCompleted) -> Result[None]:
         """
-        Track task completions for productivity analytics.
+        Recompute productivity analytics after a task completion.
 
         Builds:
         - Task completion velocity (tasks per week)
         - Priority distribution patterns
         - Completion time trends
 
-        Counting work, so it declines a repeat complete: the upsert is an
-        ``ON MATCH SET tasks_completed = tasks_completed + 1``, which has no
-        way to tell a re-post from a second task. See :class:`TaskCompleted`
-        for the contract. ``_upsert_counter_analytics`` below is deliberately
-        NOT gated — it is shared with habits and events, whose completions are
-        legitimately repeatable.
+        Recompute work, so it ignores ``is_repeat`` and runs on every complete
+        — that is the repair path, and re-running it converges rather than
+        accumulating. ``tasks_completed`` is the count of the user's tasks
+        currently in ``completed``, read fresh from the graph; the increment it
+        replaced could not tell a re-post from a second task, which is what the
+        gate here used to stand in for. See :class:`TaskCompleted` for the
+        contract.
+
+        The completion moment is passed through, so this call advances
+        ``last_completion_at``. The reopen handler below deliberately does not.
         """
-        if event.is_repeat:
-            self.logger.debug(
-                f"Skipping productivity analytics for repeat completion: {event.task_uid}"
-            )
-            return Result.ok(None)
+        recomputed = await self._recompute_productivity(
+            event.user_uid,
+            occurred_at=event.occurred_at.isoformat(),
+            operation="handle_task_completed",
+        )
+        if recomputed.is_ok:
+            self.logger.debug(f"Recomputed productivity analytics for task: {event.task_uid}")
+        return recomputed
 
-        try:
-            result = await self.backend.upsert_productivity_analytics(
-                user_uid=event.user_uid,
-                occurred_at=event.occurred_at.isoformat(),
-            )
-            if result.is_error:
-                self.logger.error(f"Error tracking task completion: {result.error}")
+    async def handle_task_reopened(self, event: TaskReopened) -> Result[None]:
+        """
+        Recompute productivity analytics after a task is reopened.
 
-            self.logger.debug(f"Tracked task completion for analytics: {event.task_uid}")
-            return Result.ok(None)
+        The counter has to be able to fall: once Today's Undo genuinely reopens
+        a task, ``complete → Undo → complete`` is two real transitions into
+        completed, and a tally would count one task's work twice.
 
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Database error tracking task completion: {e}")
-            return Result.fail(
-                Errors.database(
-                    message=f"Failed to track task completion: {e!s}",
-                    operation="handle_task_completed",
-                )
-            )
-        except Exception as e:  # safety-net: catch unexpected errors
-            self.logger.error(f"Unexpected error tracking task completion: {type(e).__name__}: {e}")
-            return Result.fail(
-                Errors.system(
-                    message=f"Failed to track task completion: {e!s}",
-                    operation="handle_task_completed",
-                )
-            )
+        No timestamp is passed. A reopen is not a completion, so
+        ``last_completion_at`` — the endpoint of the velocity denominator in
+        :meth:`get_productivity_metrics` — must not move, and
+        ``first_completion_at`` keeps whatever it already had.
+        """
+        recomputed = await self._recompute_productivity(
+            event.user_uid,
+            occurred_at=None,
+            operation="handle_task_reopened",
+        )
+        if recomputed.is_ok:
+            self.logger.debug(f"Recomputed productivity analytics for reopen: {event.task_uid}")
+        return recomputed
 
     async def handle_habit_completed(self, event: Any) -> Result[None]:
         """
@@ -443,17 +482,23 @@ class CrossDomainAnalyticsService:
         """
         Get productivity analytics from task completions.
 
-        Queries ProductivityAnalytics nodes created by handle_task_completed event handler.
+        Queries the ProductivityAnalytics node maintained by the
+        ``handle_task_completed`` / ``handle_task_reopened`` handlers.
 
         Args:
             user_uid: UID of the user
 
         Returns:
             Result containing productivity metrics dict with:
-            - tasks_completed: Total count
+            - tasks_completed: Tasks currently in COMPLETED (recomputed from the
+              graph on every completion and reopen — not a lifetime tally of
+              completion *events*, so completing the same task twice after a
+              reopen counts once)
             - first_completion_at: First completion timestamp
             - last_completion_at: Last completion timestamp
-            - completion_velocity: Tasks per week
+            - completion_velocity: Tasks per week, over the span between those
+              two stamps. Both are moved only by completions, so a reopen
+              lowers the numerator without stretching the denominator.
         """
         result = await self.backend.get_productivity_analytics(user_uid=user_uid)
         if result.is_error:

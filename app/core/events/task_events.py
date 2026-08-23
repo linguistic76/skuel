@@ -7,6 +7,7 @@ Events published by TasksService for task lifecycle operations.
 Event Catalog:
 - task.created - Task created
 - task.completed - Task marked complete
+- task.reopened - Task moved back OUT of completed
 - task.updated - Task properties changed
 - task.deleted - Task deleted
 - task.priority_changed - Task priority changed (high-priority event)
@@ -73,12 +74,14 @@ class TaskCompleted(BaseEvent):
         **append** skip when ``is_repeat`` is true.
 
     Recompute-shaped subscribers (goal progress, PS engagement auto-complete,
-    knowledge generation, context invalidation) therefore read nothing from
-    this flag. The counting/appending ones do: duration-calibration EMA and its
-    sample counter, the overdue ``PersistedInsight`` append, the
-    ``ProductivityAnalytics.tasks_completed`` increment, and the Prometheus
-    ``entities_completed{task}`` counter — the last of which cannot be fixed
-    any other way, since a monotonic counter has no un-increment.
+    knowledge generation, context invalidation, and — since it started counting
+    the user's currently-COMPLETED tasks from the graph rather than
+    incrementing — ``ProductivityAnalytics.tasks_completed``) therefore read
+    nothing from this flag. The counting/appending ones do:
+    duration-calibration EMA and its sample counter, the overdue
+    ``PersistedInsight`` append, and the Prometheus ``entities_completed{task}``
+    counter — the last of which cannot be fixed any other way, since a
+    monotonic counter has no un-increment.
 
     The principle-alignment check is **split across both halves** and is the
     reason the contract names appending separately from counting: it recomputes
@@ -105,6 +108,39 @@ class TaskCompleted(BaseEvent):
     is_repeat: bool = False
 
     event_type: ClassVar[str] = "task.completed"
+
+
+@dataclass(frozen=True)
+class TaskReopened(BaseEvent):
+    """
+    Published when a task moves back OUT of ``completed``.
+
+    The mirror of :class:`TaskCompleted`, and the reason a subscriber can hold
+    "how many tasks has this user completed" as a *recomputed* number instead of
+    a running tally: without a reopen signal, the only safe counter is one that
+    never goes down. Published from the single update chokepoint
+    (``TasksCoreService.update_task``) on a genuine transition — re-posting a
+    non-completed status on an already-open task publishes nothing, exactly as
+    the completion side is transition-gated.
+
+    A reopen is **not** a completion, so a subscriber must not treat it as one:
+    it records no completion moment and must leave completion timestamps where
+    they are. ``CrossDomainAnalyticsService.handle_task_reopened`` recomputes
+    ``ProductivityAnalytics.tasks_completed`` and deliberately does not touch
+    ``last_completion_at`` — that stamp is the endpoint of the velocity
+    denominator, and stretching it on a non-completion would distort the metric.
+
+    Subscribers:
+    - CrossDomainAnalyticsService (recompute ProductivityAnalytics.tasks_completed)
+
+    Context invalidation is already covered: the same ``update_task`` call
+    publishes ``TaskUpdated``, which is subscribed for exactly that.
+    """
+
+    task_uid: str
+    user_uid: UserUID
+
+    event_type: ClassVar[str] = "task.reopened"
 
 
 @dataclass(frozen=True)

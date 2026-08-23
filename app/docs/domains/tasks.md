@@ -249,6 +249,7 @@ The Tasks domain publishes domain events for cross-service communication:
 |-------|---------|------|
 | `TaskCreated` | Task created | `task_uid`, `user_uid`, `title`, `priority`, `domain` |
 | `TaskCompleted` | Task marked complete | `task_uid`, `user_uid`, `completion_time_seconds`, `was_overdue`, `is_repeat` |
+| `TaskReopened` | Task moved back OUT of completed | `task_uid`, `user_uid` |
 | `TaskUpdated` | Task modified | `task_uid`, `user_uid`, `updated_fields` |
 | `TaskDeleted` | Task removed | `task_uid`, `user_uid`, `reason` |
 | `TaskPriorityChanged` | Priority changed | `task_uid`, `user_uid`, `old_priority`, `new_priority` |
@@ -272,6 +273,14 @@ deliberately re-runs on it (the repair path). Subscribers that **recompute** sta
 flag; subscribers that **count** or **append** skip when it is true. Only the explicit-complete
 cascade ever sets it — the transition-gated publishers cannot be reached by a repeat. See the
 `TaskCompleted` docstring in `core/events/task_events.py` for the full contract.
+
+**`TaskReopened` is the mirror**, published from `update_task` alone on a transition OUT of
+completed (Today's Undo posts the prior status through that chokepoint). It exists so a
+subscriber can hold "tasks completed" as a *recomputed* number rather than a tally that can
+only rise: `ProductivityAnalytics.tasks_completed` counts the user's tasks currently in
+`completed`, which is why its `is_repeat` gate could come off. A reopen is **not** a
+completion — it records no completion moment and leaves `first_completion_at` /
+`last_completion_at` untouched, since the latter is the endpoint of the velocity denominator.
 
 ## Update Validation
 

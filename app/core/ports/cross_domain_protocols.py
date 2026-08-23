@@ -46,9 +46,17 @@ class CrossDomainBackendOperations(Protocol):
 
     async def increment_paths_completed(self, user_uid: str) -> Result[list[dict[str, Any]]]: ...
 
-    async def upsert_productivity_analytics(
-        self, user_uid: str, occurred_at: str
-    ) -> Result[list[dict[str, Any]]]: ...
+    async def recompute_productivity_analytics(
+        self, user_uid: str, occurred_at: str | None
+    ) -> Result[list[dict[str, Any]]]:
+        """Recompute ``tasks_completed`` from the user's currently-completed tasks.
+
+        Derived, not tallied — idempotent under a repeat complete and able to
+        fall when a task is reopened. ``occurred_at`` is ``None`` on the reopen
+        path, which recomputes the count and leaves both completion stamps
+        untouched (a reopen is not a completion).
+        """
+        ...
 
     async def upsert_habit_analytics(
         self, user_uid: str, occurred_at: str

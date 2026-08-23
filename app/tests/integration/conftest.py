@@ -135,6 +135,10 @@ async def ensure_test_users(neo4j_driver):
         "user_intent_pipeline",
         "user_cascade",
         "user_other",
+        # Cross-domain analytics: ProductivityAnalytics.tasks_completed is
+        # recomputed by traversing (:User)-[:OWNS]->(:Task), so these tests
+        # need a real owner to hang seeded tasks off.
+        "user_analytics_test",
     ]
 
     async def create_users():
