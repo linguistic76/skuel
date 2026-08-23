@@ -273,6 +273,26 @@ flag; subscribers that **count** or **append** skip when it is true. Only the ex
 cascade ever sets it — the transition-gated publishers cannot be reached by a repeat. See the
 `TaskCompleted` docstring in `core/events/task_events.py` for the full contract.
 
+## Update Validation
+
+Tasks carries **one** update business rule: the priority of an **overdue** task cannot be
+lowered (`TasksCoreService._validate_update`). Raising it, or lowering it on a task that is
+not overdue, is ordinary re-planning. "Overdue" is `Task.is_overdue()` — past `due_date` and
+not completed.
+
+`update_task` invokes the hook **explicitly**, the way `HabitsCoreService.update_habit` does.
+The facade overrides `update` / `update_for_user` and routes both to `update_task`, so the
+inherited CRUD hook never fires for Tasks — which is why this rule was dead code until
+2026-08-23 (cascade-idempotency arc, correction #14).
+
+**Terminal ≠ frozen.** A second rule refusing *every* change to a
+completed/cancelled/archived task was declared here and never had a caller; it was deleted
+rather than wired. Wiring it would have refused the repeat completion the cascade treats as a
+repair path, refused the status re-post that reopens a task, and resurrected for Tasks the
+achievement immutability deliberately removed for Goals (#1124). The one terminal-state gate
+Tasks has is the completion cascade's own read in `TasksProgressService._trigger_task`, which
+declines to *reopen* a finished dependent.
+
 ## UI Routes
 
 Tasks has an active read-focused UI at `/tasks` with HTMX status toggle, priority/status filtering, and knowledge connections.

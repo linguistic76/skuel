@@ -804,10 +804,12 @@ def _is_terminal_task(item: CalendarItem) -> bool:
     archived/completed).
 
     Reads the ``status`` value ``_task_to_calendar_item`` stamps into
-    ``metadata``. TasksCoreService._validate_update refuses every change to a
-    terminal task, so terminal chips must not offer actions that are
-    guaranteed to fail. A missing/unknown status counts as actionable — the
-    service policy is the backstop.
+    ``metadata``. A finished task has no work left to move, so terminal chips
+    offer no reschedule form — a UI judgement, not a service refusal: the
+    reschedule POST goes through ``update_task``, which accepts date changes on
+    a terminal task (Tasks has no terminal-state rule — one was declared but
+    never wired, and was deleted in the cascade-idempotency arc). A
+    missing/unknown status counts as actionable.
     """
     raw_status = str(item.metadata.get("status", ""))
     try:
@@ -968,11 +970,13 @@ def create_item_details_modal(item: Any) -> Div:
     # Reschedule — tasks move by date (overdue tasks included: moving them
     # forward is the point), events by date + start time (duration preserved
     # in-service). Habits recur; they never get this form. Two states get no
-    # form because their domain services refuse every date change, so
-    # offering it would guarantee failure (the service policies stay the
-    # backstop for hand-crafted posts): terminal tasks
-    # (TasksCoreService._validate_update) and past events — immutable
-    # historical records (EventsCoreService._validate_update).
+    # form, for different reasons: past events because the events service
+    # refuses every date change (immutable historical records —
+    # EventsCoreService._validate_update, the service policy staying the
+    # backstop for hand-crafted posts), and terminal tasks because a finished
+    # task has no work left to move — that one is a UI judgement, not a
+    # service refusal (Tasks has no terminal-state rule; see
+    # ``_is_terminal_task``).
     resched_form = None
     if item.item_type == CalendarItemType.TASK and not _is_terminal_task(item):
         resched_form = reschedule_form(

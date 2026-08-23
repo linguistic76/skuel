@@ -201,7 +201,7 @@ Return result
 
 `_validate_update()` can enforce valid state transitions by inspecting both current state and proposed changes.
 
-**Example**: Tasks service prevents modification of completed/archived tasks
+**Example**: Tasks service refuses to lower the priority of an overdue task
 
 The hook receives the typed update value `U` (ADR-066) — an Activity Domain `*UpdateIntent`
 for the six activity domains, `RawChanges` otherwise. Read its materialized patch via
@@ -209,39 +209,39 @@ for the six activity domains, `RawChanges` otherwise. Read its materialized patc
 
 ```python
 def _validate_update(self, current: Task, updates: TaskUpdateIntent) -> Result[None]:
-    """Validate task updates with business rules."""
+    """Validate task updates with the domain's one business rule."""
     changes = updates.to_changes()  # only the explicitly-set fields
 
-    # Business Rule 1: Terminal state protection
-    # Prevent modification of tasks in terminal states (preserves historical accuracy)
-    if current.status.is_terminal():
+    # Overdue-priority protection: lowering the priority of an overdue task
+    # sweeps a missed deadline under the rug instead of facing it.
+    if "priority" not in changes or not current.is_overdue():
+        return Result.ok(None)
+
+    new_priority = Priority.from_value(changes["priority"])  # None/unknown → MEDIUM
+    if new_priority.to_numeric() < Priority.from_value(current.priority).to_numeric():
         return Result.fail(
             Errors.validation(
-                message="Cannot modify task in terminal state",
-                field="status",
-                value=current.status.value,
+                message="Cannot decrease priority of overdue tasks",
+                field="priority",
+                value=changes["priority"],
             )
         )
-
-    # Business Rule 2: Overdue task protection
-    # Cannot decrease priority of overdue tasks
-    if "priority" in changes and current.is_overdue():
-        new_priority = changes["priority"]
-        if new_priority.to_numeric() < current.priority.to_numeric():
-            return Result.fail(
-                Errors.validation(
-                    message="Cannot decrease priority of overdue task",
-                    field="priority",
-                    value=new_priority,
-                )
-            )
 
     return Result.ok(None)
 ```
 
-> The live reference for this shape is `EventsCoreService._validate_update(current, updates: EventUpdateIntent)`.
-> Tasks itself routes updates through `update_task` (backend-direct), so its `_validate_update`
-> is illustrative — see `docs/roadmap/done/update-intents.md` for which domains run the hook live.
+> The live reference for this shape is `EventsCoreService._validate_update(current, updates: EventUpdateIntent)`,
+> which the inherited CRUD invokes. Tasks reaches the same hook a different way: its facade
+> routes `update` / `update_for_user` to `update_task`, so `update_task` calls
+> `_validate_update` explicitly (the Habits precedent). See
+> `docs/roadmap/done/update-intents.md` for which domains run the hook through the base.
+>
+> **A terminal-state rule used to sit above this one** — "cannot modify a
+> completed/cancelled/archived task" — and was deleted, not wired, when the hook was made
+> live (2026-08). It had never had a caller, and wiring it would have refused the repeat
+> completion the cascade treats as a repair path, refused the status re-post that reopens a
+> task, and resurrected for Tasks the achievement immutability deliberately removed for
+> Goals. *Terminal ≠ frozen* in SKUEL: a finished activity stays editable.
 
 ### 4. **Clean Separation of Concerns**
 
@@ -401,7 +401,7 @@ class FormTemplateService(BaseService[FormTemplateBackendOperations, FormTemplat
 | **GoalsCoreService** | `target_date` must not PRECEDE `start_date` (equal is legal — matches the request model's `allow_equal=True`) | Date ordering *(achievement-state immutability deleted 2026-08 by ruling — completed goals are editable like completed tasks; reopen clears `achieved_date` via the completion-stamp helper)* |
 | **HabitsCoreService** | DAILY habits cannot target > 7 days/week | Streak preservation on archive (bypassable via the transient `force_archive`); frequency consistency |
 | **EventsCoreService** | Duration sanity, 5–720 minutes | Past-event immutability (notes/tags/quality_score exempt); duration sanity |
-| **TasksCoreService** | *(none — deleted; the rule contradicted the DSL and GoalTaskGenerator)* | Terminal-state protection; overdue-priority protection |
+| **TasksCoreService** | *(none — deleted; the rule contradicted the DSL and GoalTaskGenerator)* | Overdue-priority protection, invoked explicitly by `update_task` (the facade routes the generic CRUD there) *(terminal-state protection deleted 2026-08 by ruling — it had no caller, and refusing every change to a finished task would refuse the repair-path repeat complete and the reopen)* |
 | **PrinciplesCoreService** | *(none — deleted; the length floors were stricter than the request model)* | Declared, but `update_principle` is backend-direct and does not invoke it |
 
 **Scope note on the three surviving creation rules.** Each guards the ENTITY and each sits
@@ -494,6 +494,7 @@ Illustrative only — `TasksCoreService` deliberately declares **no** creation h
 
 ```python
 from core.services.base_service import BaseService
+from core.models.enums import Priority
 from core.models.task.task import Task
 from datetime import date
 
@@ -517,19 +518,10 @@ class TasksCoreService(BaseService[TasksOperations, Task]):
         """Validate task updates."""
         changes = updates.to_changes()  # only the explicitly-set fields
 
-        # Business rule: Cannot modify completed tasks
-        if current.status == EntityStatus.COMPLETED:
-            return Result.fail(
-                Errors.validation(
-                    message="Cannot modify completed tasks",
-                    field="status"
-                )
-            )
-
         # Business rule: Cannot decrease priority of overdue tasks
         if "priority" in changes and current.is_overdue():
-            new_priority = changes["priority"]
-            if new_priority.to_numeric() < current.priority.to_numeric():
+            new_priority = Priority.from_value(changes["priority"])
+            if new_priority.to_numeric() < Priority.from_value(current.priority).to_numeric():
                 return Result.fail(
                     Errors.validation(
                         message="Cannot decrease priority of overdue tasks",

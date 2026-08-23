@@ -130,46 +130,58 @@ class TasksCoreService(
 
     def _validate_update(self, current: Task, updates: TaskUpdateIntent) -> Result[None]:
         """
-        Validate task updates with business rules.
+        Validate task updates with the domain's one business rule.
 
-        Business Rules:
-        1. Terminal state protection: Cannot modify completed/cancelled/archived tasks
-        2. Overdue task protection: Cannot decrease priority of overdue tasks
+        Business Rule — overdue-priority protection: the priority of an overdue task
+        cannot be lowered. Lowering it sweeps a missed deadline under the rug instead
+        of facing it; raising it, or lowering it on a task that is not overdue, is
+        ordinary re-planning and is allowed.
+
+        ``update_task`` calls this explicitly — it is NOT reached through the inherited
+        CRUD hook, because the facade overrides ``update`` / ``update_for_user`` and
+        routes both to ``update_task``. That is why the hook had no production caller at
+        all until it was wired here (cascade-idempotency arc, correction #14). The
+        override is kept so the rule still applies if the generic CRUD is ever entered
+        directly. Same shape as Habits (``update_habit`` → ``_validate_habit_update``).
+
+        A second rule — terminal-state protection, refusing *every* change to a
+        completed/cancelled/archived task — lived here unreachable and was DELETED
+        rather than wired: it would have refused the repeat completion the cascade
+        treats as a repair path, refused the status re-post that reopens a task, and
+        resurrected for Tasks the achievement immutability #1124 deliberately removed
+        for Goals. The only terminal-state gate Tasks has is the cascade's own read in
+        ``TasksProgressService._trigger_task``.
 
         Args:
             current: Current task state
             updates: Typed ``TaskUpdateIntent`` of proposed changes
 
         Returns:
-            None if valid, Result.fail() with validation error if invalid
+            Result.ok(None) if valid, Result.fail() with a validation error if not
         """
         changes = updates.to_changes()
-        # Business Rule 1: Terminal state protection
-        # Prevent modification of tasks in terminal states (preserves historical accuracy)
-        if current.status.is_terminal():
+        # ``Task.is_overdue()`` is the domain's own definition of overdue and excludes
+        # completed tasks. That matters now that terminal tasks are editable: a raw
+        # ``due_date < today`` here would invent a NEW prohibition on past-due completed
+        # tasks, which the deleted terminal rule had merely made unreachable.
+        if "priority" not in changes or not current.is_overdue():
+            return Result.ok(None)
+
+        # ``Priority.from_value`` normalizes None/unknown to MEDIUM. The intent allows
+        # ``priority=None`` (an explicit clear), so a bare ``Priority(...)`` would raise
+        # here — and a cleared priority is still measured (as MEDIUM) rather than
+        # skipped, so clearing cannot be used to duck the rule.
+        new_priority = Priority.from_value(changes["priority"])
+        if new_priority.to_numeric() < Priority.from_value(current.priority).to_numeric():
             return Result.fail(
                 Errors.validation(
-                    message=f"Cannot modify tasks in {current.status.value} state",
-                    field="status",
-                    value=current.status.value,
+                    message="Cannot decrease priority of overdue tasks",
+                    field="priority",
+                    value=changes["priority"],
                 )
             )
 
-        # Business Rule 2: Overdue task priority protection
-        # Cannot decrease priority of overdue tasks (prevents "sweeping under rug")
-        if "priority" in changes and current.due_date and current.due_date < date.today():
-            new_priority = Priority(changes["priority"])
-            current_numeric = Priority(current.priority).to_numeric() if current.priority else 2
-            if new_priority.to_numeric() < current_numeric:
-                return Result.fail(
-                    Errors.validation(
-                        message="Cannot decrease priority of overdue tasks",
-                        field="priority",
-                        value=new_priority.value,
-                    )
-                )
-
-        return Result.ok(None)  # All validations passed
+        return Result.ok(None)
 
     # ========================================================================
     # READ OPERATIONS WITH GRAPH CONTEXT
@@ -709,9 +721,12 @@ class TasksCoreService(
         """
         Update a task's node properties (ADR-066 typed update contract).
 
-        The intent is materialized to a partial patch exactly once, at the single
-        ``backend.update`` seam. Relationship-typed fields (habit / knowledge edges)
-        are split off by the facade and never reach this method as properties.
+        The intent is materialized to a partial patch and written exactly once, at the
+        single ``backend.update`` seam. Relationship-typed fields (habit / knowledge
+        edges) are split off by the facade and never reach this method as properties.
+        The domain rule (``_validate_update`` — overdue-priority protection) runs here,
+        explicitly: the facade routes the generic CRUD to this method, so the inherited
+        hook never fires for Tasks (cascade-idempotency arc, correction #14).
         Status transitions are validated against the Task lifecycle and completion
         stamping (``completion_date``) is applied here — the domain's one update
         chokepoint (``core.services.completion_stamp``). A transition INTO
@@ -733,17 +748,29 @@ class TasksCoreService(
         updated_fields = list(changes.keys())
 
         # Fetch the prior task when a transition needs old-vs-new (priority change
-        # event, completion-stamp gating).
+        # event, completion-stamp gating, overdue-priority validation).
         old_task = None
         if "priority" in changes or "status" in changes:
             old_result = await self.backend.get(task_uid)
-            if old_result.is_error and "status" in changes:
-                # Fail fast: the stamp is transition-gated on the prior status, and a
-                # failed read must not be read as "not completed" — a transient error
-                # plus a completed re-post would re-date the original stamp.
+            if old_result.is_error:
+                # Fail fast: both consumers of this read are gated on the PRIOR state,
+                # and a failed read must not be silently read as "no rule applies".
+                # The stamp is transition-gated on the prior status (a transient error
+                # plus a completed re-post would re-date the original stamp), and the
+                # overdue-priority rule below is gated on the prior priority/due_date.
                 return Result.fail(old_result)
-            if old_result.is_ok and old_result.value:
+            if old_result.value:
                 old_task = self._to_domain_model(old_result.value, TaskDTO, Task)
+
+        # Domain validation BEFORE the write. Called explicitly because the facade
+        # routes ``update`` / ``update_for_user`` to this method, so the inherited CRUD
+        # hook that would otherwise run it is unreachable for Tasks — the reason its one
+        # rule was dead until now (cascade-idempotency arc, correction #14). Only a
+        # priority change can fail it, and ``old_task`` is in hand for exactly that case.
+        if old_task is not None:
+            validation = self._validate_update(old_task, intent)
+            if validation.is_error:
+                return Result.fail(validation)
 
         # Status-target validation + completion stamping (transition-gated).
         # The transition is decided ONCE, before the write, and feeds two
