@@ -288,8 +288,11 @@ The Goals domain publishes domain events for cross-service communication:
 **Event handling:** Other services subscribe to these events (e.g., UserContext invalidation, task updates).
 
 **`GoalAchieved` fires on the transition, never on the state.** Every publish site gates on the
-goal *becoming* achieved (`new_progress >= 100 and old_progress < 100`, or the equivalent
-milestone check), and writes `achieved_date` under the same gate. Publishing on the state alone
+goal *becoming* achieved — `new_progress >= 100 and old_progress < 100` for the progress writers,
+`status != COMPLETED` for the milestone writer — and writes `achieved_date` under the same gate.
+Note the milestone writer reads *status*, not "every milestone is flagged done": reopening clears
+`achieved_date` and resets progress but leaves the milestone flags set, so a flag-based gate would
+make a reopened goal unachievable. Publishing on the state alone
 would both move the recorded achievement date to today on any later write — a mutable completion
 stamp — and duplicate the PRINCIPLE_ALIGNMENT insight `GoalEventHandlerService` appends per event.
 There is no `is_repeat` flag on this event: the transition gate is the whole mechanism.
