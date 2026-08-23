@@ -147,6 +147,14 @@ usage data shows `/home` traffic has fallen off.
 - `POST /today/tasks/{id}/star` — toggle priority pin, 204
 - `POST /today/lifepaths/{id}/wake` — clear dormant flag, returns ribbon fragment
 
+One mutation Today does NOT own: the flash toast's **Undo** reopens a
+just-completed task through the shared status chokepoint
+`POST /api/tasks/{id}/status`, posting the status the card carried before the
+complete (`TaskView.status`). Reusing the live, CSRF-protected,
+ownership-checked route keeps Undo a real reopen — the chokepoint also clears
+`completion_date` — instead of a local un-hide over a graph that stays
+completed. No Today-specific endpoint was added for it.
+
 Every task-scoped route enforces ownership via `verify_entity_ownership`
 (the API-style helper from `route_factories.route_helpers` — returns an
 error `Result` for HTMX fragments/204s; the UI-style `require_owned_entity`

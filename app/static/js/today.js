@@ -36,7 +36,10 @@
       flashTimer: null,
       deferred: {},          // cardKey -> '1d' | '1w' (optimistic hide, per card)
       completed: new Set(),  // uids
-      _lastAction: null,     // for undo (complete only — defer has no truthful undo)
+      // For undo (complete only — defer has no truthful undo).
+      // { type: 'complete', id, status } — `status` is the status the card
+      // carried BEFORE the complete, and is what undo posts back to reopen.
+      _lastAction: null,
 
       cardKey(source, id) { return source + ':' + id; },
       keySource(key) { return key ? key.slice(0, key.indexOf(':')) : null; },
@@ -248,11 +251,16 @@
         });
       },
 
+      // Undo carries the PRIOR status so it can truthfully reopen the task
+      // (see undoFlash). It is offered only when that status is known — a card
+      // with no seeded status could be un-hidden but not reopened, which is the
+      // exact lie deferTask refuses to offer.
       completeTask(id) {
         const t = this.taskBy('ribbon', id) || this.taskBy('triage', id);
+        const prevStatus = (t && t.status) || null;
         this.completed.add(id);
-        this._lastAction = { type: 'complete', id };
-        this.showFlash(`Completed "${(t && t.label) || id}"`, 'undo');
+        this._lastAction = prevStatus ? { type: 'complete', id, status: prevStatus } : null;
+        this.showFlash(`Completed "${(t && t.label) || id}"`, prevStatus ? 'undo' : null);
         if (window.htmx) window.htmx.ajax('POST', `/today/tasks/${id}/complete`, { swap: 'none' });
       },
       // Defer speaks the day it was asked from (C7): the POST carries the
@@ -304,10 +312,27 @@
         clearTimeout(this.flashTimer);
         this.flashTimer = setTimeout(() => this.flash = null, 4200);
       },
+      // Undo POSTS the reopen; it does not merely un-hide the card. The
+      // complete already persisted, so clearing local state alone would leave
+      // the card reading "not done" over a graph that has it completed —
+      // deferTask's comment above names that class of lie exactly.
+      // The prior status goes back through the live status chokepoint
+      // (CSRF-protected, ownership-checked); `swap: 'none'` discards the card
+      // fragment it returns, since Alpine already owns this row's rendering.
+      // Reopening also clears `completion_date` at that chokepoint, so the
+      // stamp stays non-null exactly when the task is completed.
       undoFlash() {
         const a = this._lastAction;
         if (!a) { this.flash = null; return; }
-        if (a.type === 'complete') this.completed.delete(a.id);
+        if (a.type === 'complete') {
+          this.completed.delete(a.id);
+          if (window.htmx) {
+            window.htmx.ajax('POST', `/api/tasks/${a.id}/status`, {
+              swap: 'none',
+              values: { status: a.status },
+            });
+          }
+        }
         this._lastAction = null;
         this.flash = null;
       },

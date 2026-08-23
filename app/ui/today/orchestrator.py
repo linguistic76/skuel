@@ -374,6 +374,11 @@ def _task_to_view(task: Task, *, lifepath_id: str, today: date, pinned: bool = F
         "label": task.title,
         "meta": task.description[:80] if task.description else "",
         "priority": _priority_label(task.priority),
+        # Canonical status value, carried so Undo can post the PRIOR status back
+        # to reopen (see TaskView). ``str()`` is right for both shapes the model
+        # can hold: EntityStatus is a StrEnum, and an unrecognized stored status
+        # is left on the model as a raw str by ``from_neo4j_node``.
+        "status": str(task.status),
         "est_min": int(task.duration_minutes or 0),
         "due_label": _due_label(task.due_date, today),
         "pinned": pinned,

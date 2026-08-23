@@ -11,7 +11,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from core.models.enums import EntityStatus, Priority, TimeOfDay
+from core.models.enums import EntityStatus, EntityType, Priority, TimeOfDay
 from core.utils.result_simplified import Result
 from ui.today.orchestrator import (
     TodayOrchestrator,
@@ -115,8 +115,48 @@ def test_task_to_view_produces_flat_shape() -> None:
     assert view["lifepath_id"] == "lp-mike"
     assert view["goal_id"] == "g-ship"
     assert view["priority"] == "high"
+    assert view["status"] == "active"
     assert view["est_min"] == 45
     assert view["due_label"] == "Today"
+
+
+def test_task_to_view_carries_the_canonical_status_value() -> None:
+    """Today's Undo POSTs this value back to reopen a just-completed task.
+
+    ``POST /api/tasks/{uid}/status`` reads it as a canonical ``EntityStatus``
+    value, so the view must emit the value ("scheduled") and never a display
+    label ("Scheduled") — the emission rule at the machine channel.
+    """
+    today = date(2026, 4, 22)
+    view = _task_to_view(
+        _fake_task(uid="t-plan", status=EntityStatus.SCHEDULED),
+        lifepath_id="lp-mike",
+        today=today,
+    )
+    assert view["status"] == "scheduled"
+    assert view["status"] in {s.value for s in EntityType.TASK.valid_statuses()}
+
+
+def test_task_to_view_status_survives_an_unrecognized_stored_value() -> None:
+    """``from_neo4j_node`` leaves an unknown status on the model as a raw str.
+
+    The view stringifies rather than assuming the enum, so a corrupt node
+    renders instead of raising while the page is built.
+    """
+    today = date(2026, 4, 22)
+    t = _fake_task(uid="t-odd")
+    t.status = "wat"  # type: ignore[assignment]
+    assert _task_to_view(t, lifepath_id="lp-mike", today=today)["status"] == "wat"
+
+
+def test_task_to_triage_carries_status_through_from_the_base_view() -> None:
+    today = date(2026, 4, 22)
+    view = _task_to_triage(
+        _fake_task(uid="t-stuck", status=EntityStatus.BLOCKED, due_date=today - timedelta(days=1)),
+        lifepath_id="lp-mike",
+        today=today,
+    )
+    assert view["status"] == "blocked"
 
 
 def test_task_to_triage_adds_severity_and_reason() -> None:

@@ -9,6 +9,10 @@
  *     view_date, with rollback + server message on ANY non-2xx;
  *   - no Undo for defers (the removed control only cleared local state
  *     while the persisted date stayed moved); complete keeps its undo.
+ *
+ * Also pins the cascade-idempotency arc's PR-5 ruling: complete's Undo is a
+ * REAL reopen — it POSTs the card's prior status back through the live status
+ * chokepoint — not a client-side un-hide over a graph that stays completed.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { loadToday } from './helpers/load-today.js';
@@ -22,19 +26,23 @@ function seed() {
     now_hhmm: '09:00',
     stats: { nodes: 0, committed_min: 0, done: 0 },
     // t-dual is overdue AND on today's ribbon — one card per surface.
+    // `status` mirrors what ui/today/orchestrator.py::_task_to_view emits: the
+    // canonical EntityStatus value, which Undo posts back to reopen.
     triage: [
       { id: 't-dual', label: 'Dual card', lifepath_id: 'lp-1', est_min: 10,
-        reason: 'Overdue · 7d', severity: 'overdue', pinned: false },
+        status: 'active', reason: 'Overdue · 7d', severity: 'overdue', pinned: false },
       { id: 't-late', label: 'Late only', lifepath_id: 'lp-1', est_min: 15,
-        reason: 'Overdue · 2d', severity: 'overdue', pinned: false },
+        status: 'blocked', reason: 'Overdue · 2d', severity: 'overdue', pinned: false },
     ],
     lifepaths: [{ id: 'lp-1', label: 'Path', blurb: null, color: '', dormant: false,
       last_touched: null }],
     principles: [],
     goals: [],
     tasks: [
-      { id: 't-dual', label: 'Dual card', lifepath_id: 'lp-1', est_min: 10, pinned: false },
-      { id: 't-work', label: 'Work only', lifepath_id: 'lp-1', est_min: 20, pinned: false },
+      { id: 't-dual', label: 'Dual card', lifepath_id: 'lp-1', est_min: 10,
+        status: 'active', pinned: false },
+      { id: 't-work', label: 'Work only', lifepath_id: 'lp-1', est_min: 20,
+        status: 'scheduled', pinned: false },
     ],
     rituals: [],
     kinds: {},
@@ -51,15 +59,21 @@ function errorResponse(status, body) {
 }
 
 let c;
+let htmxAjax;
 
 beforeEach(() => {
   global.fetch = vi.fn().mockResolvedValue(okResponse());
+  // completeTask and undoFlash both go through htmx.ajax (the global
+  // htmx:configRequest hook in skuel.js attaches the CSRF header there).
+  htmxAjax = vi.fn();
+  window.htmx = { ajax: htmxAjax };
   c = loadToday(seed());
 });
 
 afterEach(() => {
   vi.restoreAllMocks();
   delete global.fetch;
+  delete window.htmx;
 });
 
 describe('(source, uid) card keying', () => {
@@ -203,10 +217,73 @@ describe('undo truthfulness', () => {
     expect(c.fTasks.map((t) => t.id)).not.toContain('t-work');
   });
 
+  it('a defer is still un-undoable: undoFlash posts nothing for it', async () => {
+    await c.deferTask('ribbon', 't-work', '1d');
+    expect(c._lastAction).toBeNull();
+    c.undoFlash();
+    expect(htmxAjax).not.toHaveBeenCalled();
+    expect(c.flash).toBeNull();
+  });
+
   it('complete keeps its undo path', () => {
     c.completeTask('t-work');
     expect(c.flash.action).toBe('undo');
     c.undoFlash();
     expect(c.completed.has('t-work')).toBe(false);
+  });
+
+  it('_lastAction carries the status the card held before the complete', () => {
+    c.completeTask('t-work');
+    expect(c._lastAction).toEqual({ type: 'complete', id: 't-work', status: 'scheduled' });
+    // The triage variant of a dual-membership task carries its own status.
+    c.completeTask('t-late');
+    expect(c._lastAction.status).toBe('blocked');
+  });
+
+  it('undo POSTs the prior status to the live status chokepoint', () => {
+    c.completeTask('t-work');
+    htmxAjax.mockClear(); // drop the complete POST; assert only the reopen
+    c.undoFlash();
+
+    expect(htmxAjax).toHaveBeenCalledTimes(1);
+    const [verb, path, ctx] = htmxAjax.mock.calls[0];
+    expect(verb).toBe('POST');
+    expect(path).toBe('/api/tasks/t-work/status');
+    // The route reads form["status"]; htmx encodes `values` as the form body.
+    expect(ctx.values).toEqual({ status: 'scheduled' });
+    // The route answers with a TaskCard fragment — Alpine owns this row, so
+    // the response is discarded rather than swapped anywhere.
+    expect(ctx.swap).toBe('none');
+  });
+
+  it('undo still clears the optimistic completed set (both cards return)', () => {
+    c.completeTask('t-dual');
+    expect(c.completed.has('t-dual')).toBe(true);
+    c.undoFlash();
+    expect(c.completed.has('t-dual')).toBe(false);
+    expect(c.fTasks.map((t) => t.id)).toContain('t-dual');
+    expect(c.fTriage.map((t) => t.id)).toContain('t-dual');
+  });
+
+  it('undo consumes the action: a second click posts nothing', () => {
+    c.completeTask('t-work');
+    c.undoFlash();
+    htmxAjax.mockClear();
+    c.undoFlash();
+    expect(htmxAjax).not.toHaveBeenCalled();
+    expect(c._lastAction).toBeNull();
+  });
+
+  it('offers no undo when the card carries no status to restore', () => {
+    // Defensive: without a prior status the client could un-hide the card but
+    // not reopen the task — the exact lie deferTask refuses to offer.
+    c.seed.tasks.push({ id: 't-bare', label: 'No status', lifepath_id: 'lp-1',
+      est_min: 5, pinned: false });
+    c.completeTask('t-bare');
+    expect(c.flash.action).toBeNull();
+    expect(c._lastAction).toBeNull();
+    htmxAjax.mockClear(); // drop the complete POST; assert only the reopen
+    c.undoFlash();
+    expect(htmxAjax).not.toHaveBeenCalled();
   });
 });
