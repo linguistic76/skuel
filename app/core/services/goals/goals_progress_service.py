@@ -286,6 +286,17 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
                 )
             )
 
+        # "Already achieved" is the goal's own completion status, NOT "every
+        # milestone is flagged done". The two diverge after a reopen: the stamp
+        # helper at GoalsCoreService.update_goal clears achieved_date and resets
+        # progress_percentage on COMPLETED → a non-terminal status, but leaves
+        # the milestone flags alone. A milestone-flag proxy would therefore stay
+        # true forever and a genuine re-achievement would never stamp or publish
+        # again. Status is the same signal is_completion_transition reads at the
+        # goals update chokepoint, and `==` (not `.is_terminal()`) survives a
+        # node whose status string is not a known enum member.
+        was_already_achieved = goal.status == EntityStatus.COMPLETED
+
         # Update milestone (Milestone is a frozen dataclass)
         from dataclasses import replace
 
@@ -298,6 +309,15 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         completed_count = sum(1 for m in updated_milestones if m.is_completed)
         new_progress = (completed_count / len(updated_milestones)) * 100
 
+        # Achievement is the TRANSITION into "every milestone done", not the state.
+        # Re-completing a milestone of an already-achieved goal is a legal,
+        # reachable call, and the count alone would re-stamp achieved_date to
+        # today and re-publish GoalAchieved on each one — a mutable completion
+        # stamp. Same shape as the gate in _update_goal_from_task_completion.
+        # One local, read by both the write and the publish below, so the two
+        # cannot drift apart.
+        goal_achieved_now = completed_count == len(updated_milestones) and not was_already_achieved
+
         # Update goal
         updates: dict[str, Any] = {
             "milestones": updated_milestones,
@@ -305,8 +325,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             "current_value": completed_count,
         }
 
-        # Check if goal is complete
-        if completed_count == len(updated_milestones):
+        if goal_achieved_now:
             updates["status"] = EntityStatus.COMPLETED
             updates["achieved_date"] = date.today()
 
@@ -331,8 +350,10 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         )
         await publish_event(self.event_bus, milestone_event, self.logger)
 
-        # Publish GoalAchieved event if goal is complete
-        if completed_count == len(updated_milestones):
+        # Publish GoalAchieved only on the transition — GoalEventHandlerService
+        # appends a PRINCIPLE_ALIGNMENT PersistedInsight per event, under a UID
+        # carrying a per-second timestamp, so a re-publish duplicates the row.
+        if goal_achieved_now:
             achieved_event = GoalAchieved(
                 goal_uid=goal_uid,
                 user_uid=user_context.user_uid,
@@ -399,14 +420,21 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
 
         if habit_result.habit_count > 0:
             new_progress = habit_result.contribution * 100
+            old_progress = goal.progress_percentage or 0.0
 
             # current_value is untouched: the contribution is normalized against
             # STREAK_NORMALIZATION_DAYS, not against this goal's target_value, so
             # there is no measurement in target_value's unit to record here.
             updates: dict[str, Any] = {"progress_percentage": new_progress}
 
-            # Check if goal is achieved
-            if new_progress >= 100:
+            # Check if goal is achieved — on the TRANSITION, matching the gate in
+            # _update_goal_from_habit_completion. `>= 100` alone re-stamps
+            # achieved_date on every later streak report once the streak has
+            # reached its normalization window (30 -> 31 days is 100% both
+            # times), moving the recorded achievement to today. One local, read
+            # by both the write and the publish below, so they cannot drift.
+            goal_achieved_now = new_progress >= 100 and old_progress < 100
+            if goal_achieved_now:
                 updates["status"] = EntityStatus.COMPLETED
                 updates["achieved_date"] = date.today()
 
@@ -429,8 +457,10 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             )
             await publish_event(self.event_bus, progress_event, self.logger)
 
-            # Publish GoalAchieved event if goal reached 100%
-            if new_progress >= 100:
+            # Publish GoalAchieved only on the transition — GoalEventHandlerService
+            # appends a PRINCIPLE_ALIGNMENT PersistedInsight per event, under a UID
+            # carrying a per-second timestamp, so a re-publish duplicates the row.
+            if goal_achieved_now:
                 achieved_event = GoalAchieved(
                     goal_uid=goal_uid,
                     user_uid=goal.user_uid,

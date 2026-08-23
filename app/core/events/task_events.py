@@ -73,12 +73,17 @@ class TaskCompleted(BaseEvent):
         **append** skip when ``is_repeat`` is true.
 
     Recompute-shaped subscribers (goal progress, PS engagement auto-complete,
-    principle alignment, knowledge generation, context invalidation) therefore
-    read nothing from this flag. The counting ones do: duration-calibration EMA
-    and its sample counter, the overdue ``PersistedInsight`` append, the
+    knowledge generation, context invalidation) therefore read nothing from
+    this flag. The counting/appending ones do: duration-calibration EMA and its
+    sample counter, the overdue ``PersistedInsight`` append, the
     ``ProductivityAnalytics.tasks_completed`` increment, and the Prometheus
     ``entities_completed{task}`` counter — the last of which cannot be fixed
     any other way, since a monotonic counter has no un-increment.
+
+    The principle-alignment check is **split across both halves** and is the
+    reason the contract names appending separately from counting: it recomputes
+    the alignment from the graph on every complete, then appends a
+    ``PersistedInsight`` only when this is not a repeat.
     """
 
     task_uid: str
