@@ -61,6 +61,24 @@ class TaskCompleted(BaseEvent):
     - UserService (invalidate user context)
     - GoalAnalyticsService (update goal progress)
     - AnalyticsEngine (track completion patterns)
+
+    **The idempotency contract.** Completing an already-completed task is a
+    legal, reachable action (both explicit-complete doors sit behind an
+    ownership check with no already-completed guard), and the cascade
+    deliberately re-runs on it so it stays a repair path. ``is_repeat`` is the
+    single seam that makes the re-run safe:
+
+        Handlers that **recompute** state ignore ``is_repeat`` and do their
+        work every time — that is the repair path. Handlers that **count** or
+        **append** skip when ``is_repeat`` is true.
+
+    Recompute-shaped subscribers (goal progress, PS engagement auto-complete,
+    principle alignment, knowledge generation, context invalidation) therefore
+    read nothing from this flag. The counting ones do: duration-calibration EMA
+    and its sample counter, the overdue ``PersistedInsight`` append, the
+    ``ProductivityAnalytics.tasks_completed`` increment, and the Prometheus
+    ``entities_completed{task}`` counter — the last of which cannot be fixed
+    any other way, since a monotonic counter has no un-increment.
     """
 
     task_uid: str
@@ -69,6 +87,11 @@ class TaskCompleted(BaseEvent):
     # Optional context for analytics
     completion_time_seconds: int | None = None
     was_overdue: bool = False
+
+    #: True when the task was already COMPLETED before this complete — i.e. the
+    #: publisher's write was not a transition into COMPLETED. See the contract
+    #: in the class docstring.
+    is_repeat: bool = False
 
     event_type: ClassVar[str] = "task.completed"
 
