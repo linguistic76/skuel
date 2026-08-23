@@ -38,9 +38,9 @@ rather than given a stale count, and the next run picks them up.
 **It does not invent completion moments.** ``first_completion_at`` and
 ``last_completion_at`` are completion stamps and a reconciliation is not a
 completion, so the write passes ``occurred_at=None`` and leaves both exactly
-where they are. ``last_completion_at`` is the endpoint of the velocity
-denominator; moving it here would silently distort a metric to make a
-bookkeeping run look tidy.
+where they are. ``last_completion_at`` records when the user most recently
+completed something; moving it here would make a maintenance run look like a
+burst of work.
 
 Usage:
     uv run scripts/reconcile_productivity_analytics.py --dry-run   # report, write nothing

@@ -109,10 +109,15 @@ def register_analytics_routes(app, services):
 
         Returns:
             ProductivityAnalytics with:
-            - tasks_completed (total count)
+            - tasks_completed (tasks currently in COMPLETED)
             - first_completion_at
             - last_completion_at
-            - completion_velocity (tasks per week)
+            - velocity_window_days / tasks_completed_in_window
+            - completion_velocity (tasks per week over that trailing window)
+
+        ``completion_velocity`` is a rate over a fixed recent window, not a
+        lifetime average, so the window and its numerator are served alongside
+        it: a bare tasks/week figure cannot be interpreted without them.
         """
         user_uid = require_authenticated_user(request)
 
@@ -130,6 +135,8 @@ def register_analytics_routes(app, services):
                     "tasks_completed": metrics["tasks_completed"],
                     "first_completion_at": first_at.isoformat() if first_at else None,
                     "last_completion_at": last_at.isoformat() if last_at else None,
+                    "velocity_window_days": metrics["velocity_window_days"],
+                    "tasks_completed_in_window": metrics["tasks_completed_in_window"],
                     "completion_velocity": metrics["completion_velocity"],
                     "generated_at": datetime.now().isoformat(),
                 }

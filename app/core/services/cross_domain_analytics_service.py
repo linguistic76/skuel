@@ -14,9 +14,10 @@ All analytics are built by subscribing to existing events - no service changes n
 
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
+from core.constants import CompletionVelocityWindow
 from core.events import (
     GoalCreated,
     # NOTE: JournalCreated REMOVED (February 2026) - Journal merged into Reports
@@ -269,10 +270,10 @@ class CrossDomainAnalyticsService:
         completion moment occurred*. The count recomputes either way; only the
         stamps are gated. A repeat is the explicit-complete cascade re-running
         on an already-completed task, and it carries a fresh ``occurred_at``
-        even though nothing transitioned — recording that as a completion would
-        stretch the velocity window in :meth:`get_productivity_metrics` without
-        raising the numerator, so every repair click would quietly lower the
-        reported velocity. Same invariant as the reopen path
+        even though nothing transitioned — writing that to
+        ``last_completion_at`` would report a completion moment that never
+        happened, moving the user's "most recently completed something" forward
+        on a click that completed nothing. Same invariant as the reopen path
         (:meth:`handle_task_reopened`), reached through the other door.
 
         See :class:`TaskCompleted` for the contract.
@@ -295,9 +296,9 @@ class CrossDomainAnalyticsService:
         completed, and a tally would count one task's work twice.
 
         No timestamp is passed. A reopen is not a completion, so
-        ``last_completion_at`` — the endpoint of the velocity denominator in
-        :meth:`get_productivity_metrics` — must not move, and
-        ``first_completion_at`` keeps whatever it already had.
+        ``last_completion_at`` — "when did this user most recently complete
+        something" — must not move, and ``first_completion_at`` keeps whatever
+        it already had.
         """
         recomputed = await self._recompute_productivity(
             event.user_uid,
@@ -491,8 +492,36 @@ class CrossDomainAnalyticsService:
         """
         Get productivity analytics from task completions.
 
-        Queries the ProductivityAnalytics node maintained by the
-        ``handle_task_completed`` / ``handle_task_reopened`` handlers.
+        Reads the ProductivityAnalytics node maintained by the
+        ``handle_task_completed`` / ``handle_task_reopened`` handlers, together
+        with a live count of the completions inside the velocity window.
+
+        **``completion_velocity`` is a rate over a fixed trailing window** —
+        tasks stamped ``completion_date`` within the last
+        ``CompletionVelocityWindow.DAYS`` calendar days, divided by that window
+        in weeks. It answers "how fast is this user completing tasks *now*",
+        and it is the only figure here that is not cumulative.
+
+        It used to be the lifetime completion count divided by the span from the
+        user's first-ever completion to their most recent one. That denominator
+        only ever grows, so the metric could only decay, and it degenerated at
+        both edges: with a single completion the span is zero, which read as
+        0.0 before the stamps were both written and as a full week's rate after.
+        Neither number was wrong about the data — the denominator was wrong
+        about the question. Fixed-window arithmetic has no degenerate case: the
+        divisor is a constant, and an empty window is honestly 0.0.
+
+        A user with **no completions in the window reports 0.0**, whatever their
+        lifetime history says. That is the intended reading: velocity is a
+        current rate, and someone who has completed nothing this month is
+        completing nothing per week. Their cumulative figures are still right
+        beside it, unchanged.
+
+        The count is derived from the graph, so it does not require the
+        analytics node to exist — a user whose completions arrived through the
+        vault ``- [x]`` door (which writes no node) still gets a real velocity.
+        Completed tasks carrying no ``completion_date`` are excluded rather than
+        assumed recent.
 
         Args:
             user_uid: UID of the user
@@ -504,48 +533,38 @@ class CrossDomainAnalyticsService:
               completion *events*, so completing the same task twice after a
               reopen counts once)
             - first_completion_at: First completion timestamp
-            - last_completion_at: Last completion timestamp
-            - completion_velocity: Tasks per week, over the span between those
-              two stamps. Both are moved only by completions, so a reopen
-              lowers the numerator without stretching the denominator.
+            - last_completion_at: Most recent completion timestamp
+            - velocity_window_days: Length of the trailing window
+            - tasks_completed_in_window: The velocity numerator
+            - completion_velocity: Tasks per week over that window
         """
-        result = await self.backend.get_productivity_analytics(user_uid=user_uid)
+        window_start = CompletionVelocityWindow.start_date(date.today())
+
+        result = await self.backend.get_productivity_analytics(
+            user_uid=user_uid, window_start=window_start.isoformat()
+        )
         if result.is_error:
             return Result.fail(result)
 
         records = result.value or []
-        record = records[0] if records else None
+        # The query aggregates, so it yields exactly one row for any user; the
+        # empty guard is for a read that came back with nothing at all.
+        record = records[0] if records else {}
+        # `analytics` is null for a user with no node — the derived count below
+        # stands on its own, so that is a real reading, not a missing one.
+        analytics = record.get("analytics") or {}
+        completed_in_window = int(record.get("completed_in_window") or 0)
 
-        if not record:
-            return Result.ok(
-                {
-                    "user_uid": user_uid,
-                    "tasks_completed": 0,
-                    "first_completion_at": None,
-                    "last_completion_at": None,
-                    "completion_velocity": 0.0,
-                }
-            )
-
-        analytics = record["analytics"]
-        tasks_completed = analytics.get("tasks_completed", 0)
-
-        # Calculate velocity (tasks per week)
-        first_at = analytics.get("first_completion_at")
-        last_at = analytics.get("last_completion_at")
-
-        velocity = 0.0
-        if first_at and last_at:
-            days_active = (last_at - first_at).days or 1
-            weeks_active = days_active / 7
-            velocity = tasks_completed / weeks_active if weeks_active > 0 else 0.0
+        velocity = completed_in_window / CompletionVelocityWindow.WEEKS
 
         return Result.ok(
             {
                 "user_uid": user_uid,
-                "tasks_completed": tasks_completed,
-                "first_completion_at": first_at,
-                "last_completion_at": last_at,
+                "tasks_completed": analytics.get("tasks_completed", 0),
+                "first_completion_at": analytics.get("first_completion_at"),
+                "last_completion_at": analytics.get("last_completion_at"),
+                "velocity_window_days": CompletionVelocityWindow.DAYS,
+                "tasks_completed_in_window": completed_in_window,
                 "completion_velocity": round(velocity, 2),
             }
         )
