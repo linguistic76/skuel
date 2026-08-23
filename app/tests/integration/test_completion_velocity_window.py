@@ -18,13 +18,19 @@ What has to hold here:
    that is no longer completed is excluded too.
 3. **Ownership.** Scoped by the universal ``:OWNS`` edge (ADR-086), so another
    user's completions cannot leak into the rate.
-4. **The stamp's storage type.** It is an ISO date **string** on every row of
-   the live graph, and zero-padded ISO dates order correctly as strings — but
-   the writer decides the storage type, not this reader. ``toString()`` is what
-   keeps a temporal-typed stamp comparing correctly instead of silently
-   matching nothing, which would read as "this user completed less", never as
-   an error.
-5. **No analytics node required.** The count is derived, so the vault ``- [x]``
+4. **The upper bound.** A trailing window ends where the present does.
+   ``TaskCreateRequest`` refuses a future ``completion_date``;
+   ``TaskUpdateRequest`` does not, so the stamp is reachable — and a
+   lower-bound-only predicate counted such a task in every window between now
+   and its date, inflating the velocity permanently and silently.
+5. **The stamp's storage type.** It is an ISO date **string** on every row of
+   the live graph — but the writer decides the storage type, not this reader,
+   so the reader truncates to the calendar day on both sides. A bare
+   ``toString()`` survives that for the lower bound and quietly fails for the
+   upper one: a datetime-typed stamp stringifies with a time component, which
+   sorts *after* the bare end date and drops a row that belongs inside. Either
+   failure would read as "this user completed less", never as an error.
+6. **No analytics node required.** The count is derived, so the vault ``- [x]``
    door — which writes no ``ProductivityAnalytics`` node at all — still yields a
    real velocity instead of a confident 0.0.
 """
@@ -45,6 +51,7 @@ VAULT = "user_velocity_vault"
 
 TODAY = date.today()
 FIRST_DAY_IN = CompletionVelocityWindow.start_date(TODAY)
+LAST_DAY_IN = CompletionVelocityWindow.end_date(TODAY)
 LAST_DAY_OUT = TODAY - timedelta(days=CompletionVelocityWindow.DAYS)
 
 
@@ -174,6 +181,13 @@ class TestCompletionVelocityWindow:
             status=EntityStatus.ACTIVE,
             completion_date=TODAY.isoformat(),
         )
+        # Stamped in the future — outside a *trailing* window until its day comes.
+        await _seed_task(
+            neo4j_driver,
+            WINDOW,
+            "task.out_future",
+            completion_date=(TODAY + timedelta(days=1)).isoformat(),
+        )
         # STALE: real lifetime history, nothing inside the window.
         await _seed_analytics(neo4j_driver, STALE, 85)
         for offset in (31, 90, 400):
@@ -200,10 +214,12 @@ class TestCompletionVelocityWindow:
     # ====================================================================
 
     async def test_only_stamped_completed_tasks_inside_the_window_are_counted(self, seeded):
-        """Four of the user's nine tasks fall inside; five are excluded, each for
-        its own reason (too old, exactly DAYS old, unstamped, reopened)."""
+        """Four of the user's ten tasks fall inside; six are excluded, each for
+        its own reason (too old, exactly DAYS old, unstamped, reopened, future)."""
         result = await seeded.get_productivity_analytics(
-            user_uid=WINDOW, window_start=FIRST_DAY_IN.isoformat()
+            user_uid=WINDOW,
+            window_start=FIRST_DAY_IN.isoformat(),
+            window_end=LAST_DAY_IN.isoformat(),
         )
 
         assert result.is_ok
@@ -226,7 +242,42 @@ class TestCompletionVelocityWindow:
         )
 
         result = await backend.get_productivity_analytics(
-            user_uid=WINDOW, window_start=FIRST_DAY_IN.isoformat()
+            user_uid=WINDOW,
+            window_start=FIRST_DAY_IN.isoformat(),
+            window_end=LAST_DAY_IN.isoformat(),
+        )
+
+        assert result.is_ok
+        assert result.value[0]["completed_in_window"] == 1
+
+    async def test_a_future_stamped_completion_is_outside_the_trailing_window(
+        self, neo4j_driver, backend
+    ):
+        """The upper bound, isolated so the two rows are the whole answer.
+
+        ``TaskCreateRequest`` refuses a future ``completion_date`` — "a future
+        completion is semantically impossible and would pin itself atop
+        completion-date-ordered reads" — but ``TaskUpdateRequest`` carries no
+        such guard, so the stamp is reachable. A lower-bound-only predicate
+        counted such a task in *every* window between now and its date: a
+        velocity inflated permanently, and silently, because nothing about the
+        number looks wrong. Today's row is seeded beside it so this
+        discriminates the bound rather than merely counting.
+        """
+        await _seed_task(
+            neo4j_driver, WINDOW, "task.bound_today", completion_date=TODAY.isoformat()
+        )
+        await _seed_task(
+            neo4j_driver,
+            WINDOW,
+            "task.bound_tomorrow",
+            completion_date=(TODAY + timedelta(days=1)).isoformat(),
+        )
+
+        result = await backend.get_productivity_analytics(
+            user_uid=WINDOW,
+            window_start=FIRST_DAY_IN.isoformat(),
+            window_end=LAST_DAY_IN.isoformat(),
         )
 
         assert result.is_ok
@@ -248,7 +299,9 @@ class TestCompletionVelocityWindow:
         )
 
         result = await backend.get_productivity_analytics(
-            user_uid=WINDOW, window_start=FIRST_DAY_IN.isoformat()
+            user_uid=WINDOW,
+            window_start=FIRST_DAY_IN.isoformat(),
+            window_end=LAST_DAY_IN.isoformat(),
         )
 
         assert result.is_ok
@@ -262,10 +315,14 @@ class TestCompletionVelocityWindow:
         both.
         """
         window = await seeded.get_productivity_analytics(
-            user_uid=WINDOW, window_start=FIRST_DAY_IN.isoformat()
+            user_uid=WINDOW,
+            window_start=FIRST_DAY_IN.isoformat(),
+            window_end=LAST_DAY_IN.isoformat(),
         )
         vault = await seeded.get_productivity_analytics(
-            user_uid=VAULT, window_start=FIRST_DAY_IN.isoformat()
+            user_uid=VAULT,
+            window_start=FIRST_DAY_IN.isoformat(),
+            window_end=LAST_DAY_IN.isoformat(),
         )
 
         assert window.value[0]["completed_in_window"] == 4

@@ -495,8 +495,8 @@ class CompletionVelocityWindow:
 
     **The window is inclusive of today and exactly :attr:`DAYS` calendar days
     long**, so :attr:`WEEKS` is an exact divisor rather than an approximation.
-    :meth:`start_date` and :attr:`WEEKS` are defined together here precisely so
-    the counted span and the divisor cannot drift apart.
+    :meth:`start_date`, :meth:`end_date` and :attr:`WEEKS` are defined together
+    here precisely so the counted span and the divisor cannot drift apart.
     """
 
     #: Length of the trailing window, in calendar days ending today (inclusive).
@@ -517,6 +517,105 @@ class CompletionVelocityWindow:
         completion dated exactly ``DAYS`` days ago falls just outside.
         """
         return today - timedelta(days=CompletionVelocityWindow.DAYS - 1)
+
+    @staticmethod
+    def end_date(today: date) -> date:
+        """Last day **inside** the window: today.
+
+        A *trailing* window ends where the present does, so a completion stamped
+        with a future date is outside it — for as long as that date is still in
+        the future, and no longer.
+
+        Trivial today, and defined here anyway, because a window needs both ends
+        stated in one place: the divisor is a constant, so a bound that drifts
+        from :meth:`start_date` silently changes what :attr:`WEEKS` divides.
+        The upper bound is load-bearing rather than decorative — nothing refuses
+        a future ``completion_date`` on the task *update* door
+        (``TaskCreateRequest`` refuses one; ``TaskUpdateRequest`` does not), and
+        a lower-bound-only predicate would count such a stamp in every window
+        from now until the date arrives.
+        """
+        return today
+
+
+# ============================================================================
+# HABIT CONSISTENCY WINDOW (cross_domain_analytics_service.py)
+# ============================================================================
+
+
+class HabitConsistencyWindow:
+    """The fixed trailing window behind ``consistency_score``.
+
+    Used by: CrossDomainAnalyticsService.get_habit_consistency()
+
+    Same shape, same reasoning, and the same repair as
+    :class:`CompletionVelocityWindow`. ``consistency_score`` is a **rate over a
+    fixed recent window**, not a lifetime average: it answers "how consistently
+    is this user keeping their habits *now*". The number it replaced divided the
+    lifetime completion tally by the span between the user's first-ever habit
+    completion and their most recent one, and degenerated at three edges — a
+    single completion left ``last_completion_at`` unwritten (the tally upsert
+    only stamps it ``ON MATCH``) and read **0.0**; several completions on one
+    day extrapolated a full week's rate from a zero-length span; and a user who
+    stopped kept a plausible non-zero score forever, because a denominator that
+    can only grow makes a metric that can only decay.
+
+    **The window is inclusive of today and exactly :attr:`DAYS` calendar days
+    long**, so :attr:`WEEKS` is an exact divisor rather than an approximation.
+    :meth:`start_date`, :meth:`end_date` and :attr:`WEEKS` are defined together
+    here precisely so the counted span and the divisor cannot drift apart.
+
+    Deliberately its own class rather than a reuse of
+    :class:`CompletionVelocityWindow`: the two measure different behaviour on
+    different cadences (habits are daily by construction, tasks are lumpy), so
+    either window must be retunable without silently moving the other. They
+    agree on 30 days today; that agreement is a coincidence of two judgements,
+    not a shared constant.
+
+    Thirty days is also the horizon
+    ``HabitsProgressService._calculate_consistency_from_completions`` already
+    reads habit consistency over, so the app measures one behaviour against one
+    span. The two are not the same number and must not be conflated: that one
+    is **per habit**, an adherence *ratio* against the habit's own expected
+    frequency clamped to 1.0, while this one is **per user**, a *rate* in
+    completions per week across every habit they keep.
+    """
+
+    #: Length of the trailing window, in calendar days ending today (inclusive).
+    #: 30 days spans enough of a habit's cadence to distinguish "kept" from
+    #: "lapsed" without letting a single missed week read as a collapse.
+    DAYS: Final = 30
+
+    #: The divisor that turns the window's completion count into completions/week.
+    WEEKS: Final = DAYS / 7
+
+    @staticmethod
+    def start_date(today: date) -> date:
+        """First day **inside** the window, given today's date.
+
+        Inclusive on both ends: with ``DAYS = 30`` the window covers
+        ``today - 29 … today``, which is thirty distinct calendar days. A
+        completion dated exactly ``DAYS`` days ago falls just outside.
+        """
+        return today - timedelta(days=HabitConsistencyWindow.DAYS - 1)
+
+    @staticmethod
+    def end_date(today: date) -> date:
+        """Last day **inside** the window: today.
+
+        A *trailing* window ends where the present does, so a completion stamped
+        with a future date is outside it — for as long as that date is still in
+        the future, and no longer.
+
+        Trivial today, and defined here anyway, for the reason given on
+        :meth:`CompletionVelocityWindow.end_date`. It is load-bearing here too:
+        ``TrackHabitRequest`` accepts any ISO date with no upper bound, and the
+        calendar's day-scoped complete door bounds ``on_date`` to genuine
+        occurrence days without bounding it at today, so a future-stamped
+        ``:HabitCompletion`` is reachable and would otherwise inflate the score
+        every day until its date arrived.
+        """
+        return today
 
 
 # ============================================================================

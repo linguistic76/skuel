@@ -665,7 +665,7 @@ class CrossDomainBackend:
     # expense module demolished; no Expense nodes link to goals.
 
     async def get_productivity_analytics(
-        self, user_uid: str, window_start: str
+        self, user_uid: str, window_start: str, window_end: str
     ) -> Result[list[dict[str, Any]]]:
         """The stored ProductivityAnalytics node plus the trailing-window count.
 
@@ -681,8 +681,14 @@ class CrossDomainBackend:
         no analytics node — the vault ``- [x]`` bulk upsert — still gets a real
         velocity instead of the confident 0.0 a mandatory MATCH produced.
 
-        ``window_start`` is an ISO ``YYYY-MM-DD`` date; the window is inclusive
-        of it (``CompletionVelocityWindow.start_date``). Membership is the task's
+        ``window_start`` and ``window_end`` are ISO ``YYYY-MM-DD`` dates and the
+        window is inclusive of both (``CompletionVelocityWindow.start_date`` /
+        ``.end_date``). The upper bound is not decoration: nothing refuses a
+        future ``completion_date`` on the task update door
+        (``TaskCreateRequest`` refuses one, ``TaskUpdateRequest`` does not), and
+        a lower-bound-only predicate counts such a stamp in *every* window from
+        now until its date arrives — a permanent inflation, silently. A trailing
+        window ends where the present does. Membership is the task's
         canonical completion stamp and nothing else: ``Task.completion_date``,
         written at the six update chokepoints
         (``core/services/completion_stamp.py``) and frozen for history by
@@ -691,14 +697,17 @@ class CrossDomainBackend:
         judgement ``get_recent_activities`` makes, for the same reason: an absent
         row is honest, an invented date is not.
 
-        ``toString()`` normalises the stamp before comparing. It is stored as an
-        ISO date **string** on every row of the live graph (the mapper
-        ``isoformat()``s the ``date`` the stamp helper produces), and zero-padded
-        ISO dates order correctly as strings — but the writer, not this reader,
-        decides the storage type, and ``toString()`` costs nothing and keeps a
-        temporal-typed value comparing correctly instead of silently matching
-        nothing. Same normalisation, same rationale as
-        ``get_recent_activities``.
+        ``date(left(toString(...), 10))`` normalises the stamp before comparing,
+        the same shape ``_EVENT_IMPACT_BATCH_QUERY`` and ``get_habit_analytics``
+        use. The stamp is an ISO date **string** on every row of the live graph
+        (the mapper ``isoformat()``s the ``date`` the stamp helper produces) —
+        but the writer, not this reader, decides the storage type. A bare
+        ``toString()`` comparison survives that for the *lower* bound, where
+        zero-padded ISO orders correctly, and quietly fails for the upper one: a
+        datetime-typed stamp stringifies with a time component, which sorts
+        *after* the bare end date and drops a row that belongs inside. Truncating
+        to the calendar day on both sides removes the asymmetry and matches what
+        the window actually means.
 
         The "completed" half of the predicate is ``_COMPLETED_TASKS_OF_USER``
         verbatim, shared with the recompute and the drift survey so all three can
@@ -711,24 +720,74 @@ class CrossDomainBackend:
             """
             + _COMPLETED_TASKS_OF_USER
             + """
-            WHERE toString(t.completion_date) >= $window_start
+            WHERE date(left(toString(t.completion_date), 10)) >= date($window_start)
+              AND date(left(toString(t.completion_date), 10)) <= date($window_end)
             RETURN analytics, count(t) AS completed_in_window
             """,
             {
                 "user_uid": user_uid,
                 "window_start": window_start,
+                "window_end": window_end,
                 "completed_status": EntityStatus.COMPLETED.value,
             },
         )
 
-    async def get_habit_analytics(self, user_uid: str) -> Result[list[dict[str, Any]]]:
-        """Get HabitAnalytics node for habit consistency metrics."""
+    async def get_habit_analytics(
+        self, user_uid: str, window_start: str, window_end: str
+    ) -> Result[list[dict[str, Any]]]:
+        """The stored HabitAnalytics node plus the trailing-window completion count.
+
+        Two things in one row because they are read together and only together:
+        ``analytics`` carries the running figures the ``HabitCompleted`` handler
+        maintains (``total_completions`` and the two completion stamps), and
+        ``completions_in_window`` is counted live from the graph — the numerator
+        of ``consistency_score``
+        (``CrossDomainAnalyticsService.get_habit_consistency``).
+
+        **The count is derived, so it does not depend on the node existing.**
+        Every match here is OPTIONAL and the aggregation always yields exactly
+        one row, so a user whose completions arrived through a door that writes
+        no analytics node still gets a real consistency score instead of the
+        confident 0.0 a mandatory MATCH produced. That is not hypothetical for
+        habits: ``HabitCompletionBulk`` — the multi-day bulk logging door — has
+        no analytics subscriber at all, so its completions exist as
+        ``:HabitCompletion`` nodes the tally has never seen. Counting the nodes
+        rather than reading the tally is what brings them into the metric.
+
+        ``window_start`` and ``window_end`` are ISO ``YYYY-MM-DD`` dates and the
+        window is inclusive of both (``HabitConsistencyWindow.start_date`` /
+        ``.end_date``). Membership is the completion record's own
+        ``completed_at``, truncated to its calendar day so the comparison means
+        what the window means. The upper bound is load-bearing:
+        ``TrackHabitRequest`` accepts any ISO date with no upper bound and the
+        calendar's day-scoped complete door bounds ``on_date`` to genuine
+        occurrence days without bounding it at today, so a future-stamped record
+        is reachable — and a lower-bound-only predicate would count it in every
+        window from now until its date arrived.
+
+        ``date(left(toString(...), 10))`` normalises before comparing, the same
+        shape ``_EVENT_IMPACT_BATCH_QUERY`` uses and for the same reason: the
+        writer decides the storage type, not this reader. ``completed_at`` is an
+        ISO datetime **string** on every live row (the mapper ``isoformat()``s
+        the ``datetime`` the DTO carries), but a temporally-typed value has to
+        keep comparing correctly rather than silently matching nothing — which
+        would read as "this user was less consistent", never as an error. Going
+        through ``date()`` on both sides also keeps the two operands the same
+        temporal type, which a raw datetime bound would not guarantee.
+
+        Ownership is the universal ``(:User)-[:OWNS]->`` edge (ADR-086), so one
+        user's completions cannot reach another's score.
+        """
         return await self.executor.execute_query(
-            """
-            MATCH (analytics:HabitAnalytics {user_uid: $user_uid})
-            RETURN analytics
+            f"""
+            OPTIONAL MATCH (analytics:HabitAnalytics {{user_uid: $user_uid}})
+            OPTIONAL MATCH (u:User {{uid: $user_uid}})
+            OPTIONAL MATCH (u)-[:{RelationshipName.OWNS.value}]->(hc:HabitCompletion)
+            WHERE date(left(toString(hc.completed_at), 10)) >= date($window_start)
+              AND date(left(toString(hc.completed_at), 10)) <= date($window_end)
+            RETURN analytics, count(hc) AS completions_in_window
             """,
-            {"user_uid": user_uid},
+            {"user_uid": user_uid, "window_start": window_start, "window_end": window_end},
         )
 
     # ====================================================================

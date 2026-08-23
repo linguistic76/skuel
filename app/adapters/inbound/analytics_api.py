@@ -165,10 +165,23 @@ def register_analytics_routes(app, services):
 
         Returns:
             HabitAnalytics with:
-            - total_completions
+            - total_completions (cumulative, event-maintained)
             - first_completion_at
             - last_completion_at
-            - consistency_score
+            - consistency_window_days / completions_in_window
+            - consistency_score (completions per week over that trailing window)
+
+        ``consistency_score`` is a rate over a fixed recent window, not a
+        lifetime average, so the window and its numerator are served alongside
+        it: a bare completions/week figure cannot be interpreted without them.
+
+        ``total_completions`` is the event-maintained cumulative count while
+        ``completions_in_window`` is counted live from the completion records,
+        so the second exceeding the first means the tally missed completions —
+        the bulk-logging door (``HabitCompletionBulk``) publishes an event no
+        analytics handler subscribes to. The score is unaffected; only the
+        cumulative figures are behind. See
+        ``CrossDomainAnalyticsService.get_habit_consistency``.
         """
         user_uid = require_authenticated_user(request)
 
@@ -186,6 +199,8 @@ def register_analytics_routes(app, services):
                     "total_completions": metrics["total_completions"],
                     "first_completion_at": first_at.isoformat() if first_at else None,
                     "last_completion_at": last_at.isoformat() if last_at else None,
+                    "consistency_window_days": metrics["consistency_window_days"],
+                    "completions_in_window": metrics["completions_in_window"],
                     "consistency_score": metrics["consistency_score"],
                     "generated_at": datetime.now().isoformat(),
                 }

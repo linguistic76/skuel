@@ -71,19 +71,34 @@ class CrossDomainBackendOperations(Protocol):
     ) -> Result[list[dict[str, Any]]]: ...
 
     async def get_productivity_analytics(
-        self, user_uid: str, window_start: str
+        self, user_uid: str, window_start: str, window_end: str
     ) -> Result[list[dict[str, Any]]]:
         """The stored ProductivityAnalytics node plus the trailing-window count.
 
-        ``window_start`` is an inclusive ISO ``YYYY-MM-DD`` date bound; the row
-        carries ``completed_in_window``, the numerator of
-        ``completion_velocity``. Always exactly one row — ``analytics`` is
-        ``None`` when the user has no node, and the derived count stands on its
-        own.
+        ``window_start`` and ``window_end`` are inclusive ISO ``YYYY-MM-DD``
+        date bounds; the row carries ``completed_in_window``, the numerator of
+        ``completion_velocity``. A trailing window ends where the present does,
+        so a future-stamped completion is outside it rather than counted in
+        every window until its date arrives. Always exactly one row —
+        ``analytics`` is ``None`` when the user has no node, and the derived
+        count stands on its own.
         """
         ...
 
-    async def get_habit_analytics(self, user_uid: str) -> Result[list[dict[str, Any]]]: ...
+    async def get_habit_analytics(
+        self, user_uid: str, window_start: str, window_end: str
+    ) -> Result[list[dict[str, Any]]]:
+        """The stored HabitAnalytics node plus the trailing-window completion count.
+
+        ``window_start`` and ``window_end`` are inclusive ISO ``YYYY-MM-DD``
+        date bounds; the row carries ``completions_in_window``, the numerator of
+        ``consistency_score``. A trailing window ends where the present does, so
+        a future-stamped completion is outside it rather than counted in every
+        window until its date arrives. Always exactly one row — ``analytics`` is
+        ``None`` when the user has no node, and the derived count stands on its
+        own (the bulk-logging door writes completion records but no node).
+        """
+        ...
 
     # ================================================================
     # CROSS-DOMAIN QUERIES — Multi-domain graph reads
