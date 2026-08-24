@@ -423,10 +423,17 @@ Some reflections on the day...
         """Guard 2b. SKUEL's own ``[x]`` + ``✅ date`` write-back moves a line's
         hash (the ✅ date is a discriminator, kept in the digest), so Guard 2
         misses it and Guard 4 ignores the now-terminal twin — the line's 🆔,
-        already on this entry's EXTRACTED_FROM edge, is what says "mine". A
-        sibling line carrying a 🆔 the entry has never seen is a new task."""
-        from core.services.dsl.activity_extractor import normalized_line_hash
+        already on this entry's EXTRACTED_FROM edge, is what says "mine". The
+        edge's stale digest is retired BEFORE any line is checked against it,
+        so a same-text unchecked sibling in the same ingest (placed FIRST here)
+        is a new task, as is a line carrying a 🆔 the entry has never seen."""
+        from core.services.dsl.activity_extractor import (
+            ExtractedByVaultId,
+            normalized_line_hash,
+        )
 
+        original = "- [ ] Water the plants"  # what the edge was extracted from
+        mine = "- [x] Water the plants 🆔 sk_mine01 ✅ 2026-08-17"  # after the write-back
         entry = UserEntry(
             uid="ue_ident",
             title="Identity",
@@ -440,7 +447,8 @@ Some reflections on the day...
             # Plain obsidian-tasks checkbox lines — the shape the vault holds
             # and the only parser pass that reads the 🆔 off a line.
             processed_content=(
-                "- [x] Water the plants 🆔 sk_mine01 ✅ 2026-08-17\n"
+                f"{original}\n"  # the new sibling, same text as the ORIGINAL line
+                f"{mine}\n"
                 "- [x] Water the plants 🆔 sk_other2 ✅ 2026-08-19\n"
             ),
         )
@@ -448,18 +456,22 @@ Some reflections on the day...
         result = await extractor.extract_and_create(
             entry,
             "user_mike",
-            existing_line_hashes=frozenset(),  # the hash moved: nothing matches
-            existing_vault_ids={"sk_mine01": "task_mine"},
+            existing_line_hashes=frozenset({normalized_line_hash(original)}),  # stale
+            existing_vault_ids={
+                "sk_mine01": ExtractedByVaultId("task_mine", normalized_line_hash(original))
+            },
         )
 
         assert result.is_ok
         extraction = result.value
         assert extraction.lines_skipped_existing == 1
-        assert extraction.tasks_created == 1
-        assert [vault_id for _uid, _hash, vault_id in extraction.created_links] == ["sk_other2"]
+        assert extraction.tasks_created == 2, extraction.to_dict()
+        assert [vault_id for _uid, _hash, vault_id in extraction.created_links] == [
+            None,
+            "sk_other2",
+        ]
         # The matched edge's change signal moves with the line: a stale digest
         # would swallow the next same-text line the user adds.
-        mine = "- [x] Water the plants 🆔 sk_mine01 ✅ 2026-08-17"
         assert extraction.refreshed_links == [
             ("task_mine", normalized_line_hash(mine), "sk_mine01")
         ]

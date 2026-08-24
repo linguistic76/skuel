@@ -48,6 +48,7 @@ from core.models.user_entry.user_entry import UserEntry
 from core.models.user_entry.user_entry_request import UserEntryCreateRequest
 from core.services.dsl.activity_extractor import (
     USER_OWNED_DEDUP_LABELS,
+    ExtractedByVaultId,
     normalized_line_hash,
     semantic_dedup_key,
 )
@@ -514,8 +515,11 @@ class UserEntryProcessingService:
         existing_line_hashes = frozenset(
             line_hash for row in extracted_rows if (line_hash := row.get("source_line_hash"))
         )
-        existing_vault_ids: dict[str, str] = {
-            vault_id: row["entity_uid"]
+        existing_vault_ids: dict[str, ExtractedByVaultId] = {
+            vault_id: ExtractedByVaultId(
+                entity_uid=row["entity_uid"],
+                source_line_hash=row.get("source_line_hash") or "",
+            )
             for row in extracted_rows
             if (vault_id := row.get("vault_id")) and row.get("entity_uid")
         }

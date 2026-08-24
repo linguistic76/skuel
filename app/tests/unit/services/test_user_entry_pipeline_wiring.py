@@ -21,6 +21,7 @@ from core.models.relationship_names import RelationshipName
 from core.models.user_entry.user_entry import UserEntry
 from core.ports.output_generator_protocols import OutputInstruction
 from core.services.dsl import ActivityExtractionResult, DSLTransformResult
+from core.services.dsl.activity_extractor import ExtractedByVaultId
 from core.services.user_entry.user_entry_processing_service import (
     UserEntryProcessingService,
 )
@@ -817,7 +818,9 @@ class TestExtractActivities:
         kwargs = extractor.extract_and_create.await_args.kwargs
         assert kwargs["existing_line_hashes"] == frozenset({"abc", "stale"})
         # Guard 2b: the 🆔s already on this entry's edges ride the same read.
-        assert kwargs["existing_vault_ids"] == {"sk_mine01": "task_written_back"}
+        assert kwargs["existing_vault_ids"] == {
+            "sk_mine01": ExtractedByVaultId("task_written_back", "stale")
+        }
         # Guard 3 (R3): the semantic map is built from the same read —
         # normalized title keyed by node label; the title-less row is skipped.
         assert kwargs["existing_extracted"] == {

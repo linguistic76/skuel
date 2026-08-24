@@ -195,7 +195,10 @@ extractor docstring's idempotency claim is rewritten to describe this mechanism.
 > the line's own, so its `source_line_hash` is refreshed to the current digest
 > (through the same batch edge MERGE as new links; `vault_id` and `extracted_at`
 > untouched). Left stale, it swallowed the next same-text `- [ ] …` line the user
-> added. The inputs of guards 2, 2b and 3 come off one provenance read.
+> added — so the stale digest is also retired from the exact-match set in a
+> pre-pass, before any line is checked against it, which covers the sibling that
+> arrives in the *same* ingest as the write-back. The inputs of guards 2, 2b and 3
+> come off one provenance read.
 
 ### 1.4 Un-reserving the substance channel + the ZPD 4th signal
 

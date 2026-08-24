@@ -16,8 +16,10 @@ COMPLETED copy of it on the following sync.
 
 The fix reads the 🆔 as identity at ingest (Guard 2b): a line whose 🆔
 already carries an ``EXTRACTED_FROM`` edge to the entry is already extracted,
-whatever its hash says. The digest is unchanged, so no stored hash moved and
-the agent protocol did not change.
+whatever its hash says — and, because that edge is the line's own, its hash
+is refreshed to the current digest (the stale one retired from the exact-match
+set before any line is checked against it). The digest itself is unchanged,
+so no stored hash moved and the agent protocol did not change.
 
 This file drives the REAL loop against the container and a real vault
 directory — the reconciler, the smart-mode ingest door, the extraction
@@ -30,7 +32,13 @@ filesystem bridge — never a re-implementation of any guard:
    ✅ date`` (the #1123 create door) is recognised on the next re-ingest.
 3. **The ✅ date stays a discriminator.** A second same-title completed
    occurrence added a sync later becomes its own task — the shape a
-   hash-blinding fix silently swallowed (Codex P1 on #1143).
+   hash-blinding fix silently swallowed (Codex P1 on #1143, round 2).
+4. **The edge's change signal moves with the line.** After the write-back, a
+   fresh ``- [ ] Gym`` the user adds next week is a new task — it would have
+   hashed into the edge's original unchecked digest (round 3).
+5. **…even in the same ingest as the write-back.** The sibling appended before
+   the write-back is re-ingested, placed above it, is a new task — the stale
+   digest is retired before any line is checked against it (round 4).
 
 The unit-level contracts — which tokens the digest normalises, and Guard 2b
 at the extractor — are pinned DB-free in
@@ -271,6 +279,35 @@ class TestDoneDateWriteBackRoundTrip:
         await rig.sync()
         tasks = await rig.owned_tasks()
         assert len(tasks) == 2, f"the new unchecked occurrence was swallowed: {tasks}"
+        assert sorted(status for _, status in tasks) == sorted(
+            [EntityStatus.COMPLETED.value, EntityStatus.DRAFT.value]
+        )
+
+    async def test_a_sibling_added_before_the_write_back_re_ingests_is_still_extracted(
+        self, rig: Rig
+    ) -> None:
+        """The same-ingest ordering (Codex P1, round 4): the user appends the next
+        ``- [ ] Gym`` after SKUEL wrote ``[x]`` + ``✅`` into the old one but
+        before that write-back has been re-ingested. Both lines arrive in ONE
+        ingest whose exact-match set still holds the old unchecked digest; the
+        stale digest must be retired before any line is checked against it, or
+        the sibling is dropped and smart-mode checkpoints the file."""
+        rig.note.write_text(FRONTMATTER + "- [ ] Gym\n", encoding="utf-8")
+        await rig.sync()
+        ((task_uid, _),) = await rig.owned_tasks()
+        await _complete_in_skuel(rig, task_uid)
+        await rig.sync()  # 🆔 re-ingest + [x] ✅ write-back — NOT re-ingested yet
+        written = rig.note.read_text(encoding="utf-8")
+        assert "- [x] Gym" in written, written
+
+        # The sibling goes ABOVE the written-back line: retirement must not
+        # depend on the completed line being seen first.
+        rig.note.write_text(
+            written.replace("- [x] Gym", "- [ ] Gym\n- [x] Gym", 1), encoding="utf-8"
+        )
+        await rig.sync()
+        tasks = await rig.owned_tasks()
+        assert len(tasks) == 2, f"the sibling in the same ingest was swallowed: {tasks}"
         assert sorted(status for _, status in tasks) == sorted(
             [EntityStatus.COMPLETED.value, EntityStatus.DRAFT.value]
         )
