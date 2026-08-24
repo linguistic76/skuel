@@ -84,7 +84,9 @@ async def _props(
         return dict(record["n"]) if record else {}
 
 
-def _assert_invariants(props: dict[str, Any]) -> None:
+def _assert_invariants(
+    props: dict[str, Any],  # boundary: raw stored node properties, as read back above
+) -> None:
     status = EntityStatus(props["status"])
     assert (props.get("achieved_date") is not None) is (status is EntityStatus.COMPLETED), (
         f"stamp invariant broken: status={props.get('status')}, "

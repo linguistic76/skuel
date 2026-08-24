@@ -111,7 +111,9 @@ def _service(
     return service, recorder, bus
 
 
-def _patch(recorder: StatusGuardedWriteRecorder[Goal]) -> dict[str, Any]:
+def _patch(
+    recorder: StatusGuardedWriteRecorder[Goal],
+) -> dict[str, Any]:  # boundary: pre-serialization patch
     """What the write would actually have merged — base patch plus whichever conditional
     patch the prior selected.
 
@@ -119,8 +121,8 @@ def _patch(recorder: StatusGuardedWriteRecorder[Goal]) -> dict[str, Any]:
     ``patch_if_prior_not_in`` now, so "did this write stamp?" is a question about the
     guard AND the prior together, which is exactly what the Cypher answers.
 
-    ``Any`` (# boundary:) because the patch is genuinely heterogeneous — float, date,
-    ``list[Milestone]`` — but every assertion below is an equality or membership check.
+    The patch is genuinely heterogeneous — float, date, ``list[Milestone]`` — but every
+    assertion below is an equality or membership check.
     """
     assert len(recorder.calls) == 1, "expected exactly one write"
     return recorder.merged_patch()

@@ -115,12 +115,13 @@ def _rig(
     return service, recorder, bus
 
 
-def _merged(recorder: StatusGuardedWriteRecorder[Goal]) -> dict[str, Any]:
+def _merged(
+    recorder: StatusGuardedWriteRecorder[Goal],
+) -> dict[str, Any]:  # boundary: pre-serialization patch
     """What the write actually merged for the prior it saw — the Cypher's CASE arms.
 
-    ``Any`` (# boundary:) because the pre-serialization patch is genuinely heterogeneous
-    (float, ``date``, ``list[Milestone]``); every assertion here is a membership or
-    equality check.
+    The patch is genuinely heterogeneous (float, ``date``, ``list[Milestone]``); every
+    assertion here is a membership or equality check, so nothing needs a narrower type.
     """
     assert len(recorder.calls) == 1, "expected exactly one write"
     return recorder.merged_patch()
@@ -322,6 +323,8 @@ class TestUpdateGoalFromTaskCompletion:
     """``_update_goal_from_task_completion`` — the ``TaskCompleted`` propagation."""
 
     @staticmethod
+    # boundary: ``count_linked_tasks``'s own row shape — a mixed int/float count map the
+    # backend returns untyped; this mirrors it rather than narrowing past the real contract.
     def _tally(total: int, completed: int) -> Result[dict[str, Any]]:
         return Result.ok({"total_tasks": total, "completed_tasks": completed})
 
@@ -394,6 +397,7 @@ class TestUpdateGoalFromHabitCompletion:
     """``_update_goal_from_habit_completion`` — the ``HabitCompleted`` propagation."""
 
     @staticmethod
+    # boundary: ``count_linked_habits_avg_streak``'s own row shape — see the sibling above.
     def _tally(total: int, avg_streak: float) -> Result[dict[str, Any]]:
         return Result.ok({"total_habits": total, "avg_streak": avg_streak})
 
