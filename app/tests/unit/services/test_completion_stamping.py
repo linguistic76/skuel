@@ -1,4 +1,4 @@
-"""Completion stamping at the six Activity update chokepoints (PR-2 of the arc).
+"""Completion stamping at the six Activity update chokepoints (ADR-087 arc).
 
 Three layers, matching how the stamp actually reaches the graph:
 
@@ -8,12 +8,19 @@ Three layers, matching how the stamp actually reaches the graph:
    ``EntityType.valid_statuses()`` from documentation into enforcement.
 2. **The six chokepoints** — wiring tests assert the CALLER: each real
    ``update_<domain>`` core method is driven with a typed intent against a
-   mocked backend, and the assertion is on what ``backend.update`` received.
+   mocked backend. Five of them (Task, Goal, Habit, Event, Choice) state their
+   rules as write-time CONDITIONS since ADR-087, so the assertion is on the
+   ``StatusWriteGuard`` the service built — and, via the recorder, on what that
+   guard would actually merge for a given prior. Principle still resolves its
+   (legality-only) check in Python and is asserted on ``backend.update``.
    Posting ``status=completed`` lands a stamp; re-posting doesn't re-date;
    reopening clears; Principle's illegal ``completed`` is refused at the seam.
+   Each domain also has a test that its ``_validate_update`` rules still FIRE:
+   moving these chokepoints off ``CrudOperationsMixin.update`` took the hook off
+   the path, so the explicit call is now the only thing keeping them alive.
    (Route → facade-intent wiring is pinned separately in
    ``tests/unit/adapters/test_*_api_routes.py``.)
-3. **The bypass doors fixed in this pass** — ``complete_tasks_bulk`` stamps per
+3. **The bypass doors** — ``complete_tasks_bulk`` stamps per
    row (its gate is a write-time condition since ADR-087, like the Tasks
    chokepoint's); the DSL ``[x]`` create door parses the obsidian-tasks ``✅ date``
    into ``completion_date`` (falling back to today via the create-request default).
@@ -22,10 +29,14 @@ Three layers, matching how the stamp actually reaches the graph:
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta
+from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, Mock
 
 import pytest
 
+from core.events.base import BaseEvent
+from core.events.calendar_event_events import CalendarEventCompleted
+from core.events.goal_events import GoalAchieved
 from core.models.choice.choice import Choice
 from core.models.choice.choice_update_intent import ChoiceUpdateIntent
 from core.models.enums.entity_enums import EntityStatus, EntityType
@@ -46,9 +57,36 @@ from core.services.completion_stamp import (
     is_reopen_transition,
 )
 from core.utils.result_simplified import Result
-from tests.helpers.status_guarded_backend import guarded_backend, guarded_rows_backend
+from tests.helpers.status_guarded_backend import (
+    StatusGuardedWriteRecorder,
+    guarded_backend,
+    guarded_rows_backend,
+)
+
+if TYPE_CHECKING:
+    from core.services.choices.choices_core_service import ChoicesCoreService
+    from core.services.events.events_core_service import EventsCoreService
+    from core.services.goals.goals_core_service import GoalsCoreService
+    from core.services.habits.habits_core_service import HabitsCoreService
 
 USER = "user_stamp"
+
+
+class _CapturingBus:
+    """Records what a chokepoint publishes; ``publish_async`` is the whole contract.
+
+    ``of`` narrows to the subtype asked for, so a test that reads a field off the
+    result is type-checked against the event it actually selected.
+    """
+
+    def __init__(self) -> None:
+        self.events: list[BaseEvent] = []
+
+    async def publish_async(self, event: BaseEvent) -> None:
+        self.events.append(event)
+
+    def of[E: BaseEvent](self, event_type: type[E]) -> list[E]:
+        return [event for event in self.events if isinstance(event, event_type)]
 
 
 # ============================================================================
@@ -301,191 +339,425 @@ class TestTasksChokepoint:
 
 @pytest.mark.asyncio
 class TestGoalsChokepoint:
-    def _service(self, current_status: EntityStatus):
+    """Goals states its stamp rules — and the reopen progress reset — as write-time
+    CONDITIONS (ADR-087 PR-3). Both condition on the same prior ("was it completed?"),
+    so they merge into one patch the write picks or declines as a unit.
+    """
+
+    def _service(
+        self, current_status: EntityStatus, **current_fields: Any
+    ) -> tuple[GoalsCoreService, Mock, StatusGuardedWriteRecorder[Goal]]:
         from core.services.goals.goals_core_service import GoalsCoreService
 
-        current = Goal(uid="goal_1", user_uid=USER, title="g", status=current_status)
+        current = Goal(
+            uid="goal_1", user_uid=USER, title="g", status=current_status, **current_fields
+        )
         updated = Goal(uid="goal_1", user_uid=USER, title="g", status=EntityStatus.COMPLETED)
-        backend = _mock_backend(current, updated)
-        return GoalsCoreService(backend=backend), backend
+        backend, recorder = guarded_backend(current, updated)
+        return GoalsCoreService(backend=backend), backend, recorder
 
     async def test_completing_stamps_achieved_date(self):
-        service, backend = self._service(EntityStatus.ACTIVE)
+        service, _backend, recorder = self._service(EntityStatus.ACTIVE)
         result = await service.update_goal("goal_1", GoalUpdateIntent(status="completed"))
         assert result.is_ok
-        assert _written_changes(backend)["achieved_date"] == date.today()
+        assert recorder.last_guard.patch_if_prior_not_in == (
+            frozenset({"completed"}),
+            {"achieved_date": date.today()},
+        )
+        assert recorder.merged_patch()["achieved_date"] == date.today()
 
     async def test_reposting_completed_does_not_restamp(self):
         # Achievement immutability dropped (ruled 2026-08-22): completed goals
         # are editable like completed tasks, and the transition gate carries the
         # no-re-dating guarantee instead of the old blanket refusal.
-        service, backend = self._service(EntityStatus.COMPLETED)
+        service, _backend, recorder = self._service(EntityStatus.COMPLETED)
         result = await service.update_goal("goal_1", GoalUpdateIntent(status="completed"))
         assert result.is_ok
-        assert "achieved_date" not in _written_changes(backend)
+        assert "achieved_date" not in recorder.merged_patch()
 
     async def test_reopen_clears_the_stamp(self):
-        service, backend = self._service(EntityStatus.COMPLETED)
+        service, _backend, recorder = self._service(EntityStatus.COMPLETED)
         result = await service.update_goal("goal_1", GoalUpdateIntent(status="active"))
         assert result.is_ok
-        assert _written_changes(backend)["achieved_date"] is None
+        assert recorder.merged_patch()["achieved_date"] is None
 
     async def test_reopen_resets_progress_percentage(self):
-        # Codex round 3: without the reset a reopened goal stays a "100%
-        # complete" ACTIVE goal — misread by progress consumers, and instantly
-        # re-achieved by the next contribution increment.
-        service, backend = self._service(EntityStatus.COMPLETED)
+        # Without the reset a reopened goal stays a "100% complete" ACTIVE goal —
+        # misread by progress consumers, and instantly re-achieved by the next
+        # contribution increment. The reset rides the SAME prior-conditional patch
+        # as the stamp clear, so an open goal is never zeroed by it.
+        service, _backend, recorder = self._service(EntityStatus.COMPLETED)
         result = await service.update_goal("goal_1", GoalUpdateIntent(status="active"))
         assert result.is_ok
-        assert _written_changes(backend)["progress_percentage"] == 0.0
+        assert recorder.last_guard.patch_if_prior_in == (
+            frozenset({"completed"}),
+            {"achieved_date": None, "progress_percentage": 0.0},
+        )
+        assert recorder.merged_patch()["progress_percentage"] == 0.0
+
+    async def test_an_open_goal_is_not_zeroed_by_the_reopen_reset(self):
+        """The reset is conditional, not unconditional: a lateral move between two
+        open statuses must leave progress alone. Only the write knows the prior, so
+        this is a property of the condition, not of the caller."""
+        service, _backend, recorder = self._service(EntityStatus.PAUSED)
+        result = await service.update_goal("goal_1", GoalUpdateIntent(status="active"))
+        assert result.is_ok
+        assert "progress_percentage" not in recorder.merged_patch()
 
     async def test_reopen_caller_progress_keeps_authority(self):
-        service, backend = self._service(EntityStatus.COMPLETED)
+        service, _backend, recorder = self._service(EntityStatus.COMPLETED)
         intent = GoalUpdateIntent(status="active", progress_percentage=42.0)
         result = await service.update_goal("goal_1", intent)
         assert result.is_ok
-        assert _written_changes(backend)["progress_percentage"] == 42.0
+        assert recorder.merged_patch()["progress_percentage"] == 42.0
+
+    async def test_a_reopen_carrying_its_own_stamp_still_resets_progress(self):
+        """The trap in the migration. An intent that supplies ``achieved_date`` keeps
+        authority over the STAMP, which makes ``status_transition_guard`` return a guard
+        with NO patches at all — so a reset that merely EXTENDED the existing reopen
+        patch would silently vanish for exactly these intents. The authority rule is
+        about the stamp field; it says nothing about progress."""
+        service, _backend, recorder = self._service(EntityStatus.COMPLETED)
+        intent = GoalUpdateIntent(status="active", achieved_date=date(2026, 1, 1))
+        result = await service.update_goal("goal_1", intent)
+        assert result.is_ok
+        assert recorder.last_guard.patch_if_prior_in == (
+            frozenset({"completed"}),
+            {"progress_percentage": 0.0},
+        )
+        merged = recorder.merged_patch()
+        assert merged["progress_percentage"] == 0.0
+        assert merged["achieved_date"] == date(2026, 1, 1), "the caller's stamp kept authority"
 
     async def test_activate_goal_reopens_a_completed_goal(self):
         # The live reopen door: POST /api/goals/{uid}/status → set_status →
-        # activate_goal. The old rule killed this before the write.
-        service, backend = self._service(EntityStatus.COMPLETED)
+        # activate_goal.
+        service, _backend, recorder = self._service(EntityStatus.COMPLETED)
         result = await service.activate_goal("goal_1")
         assert result.is_ok
-        changes = _written_changes(backend)
-        assert changes["status"] == EntityStatus.ACTIVE.value
-        assert changes["achieved_date"] is None
-        assert changes["progress_percentage"] == 0.0
+        merged = recorder.merged_patch()
+        assert merged["status"] == EntityStatus.ACTIVE.value
+        assert merged["achieved_date"] is None
+        assert merged["progress_percentage"] == 0.0
 
     async def test_archive_goal_archives_a_completed_goal(self):
         # A terminal target is not a reopen: the historical 100% progress
         # stays (only the stamp obeys the non-null-exactly-when-completed
         # invariant).
-        service, backend = self._service(EntityStatus.COMPLETED)
+        service, _backend, recorder = self._service(EntityStatus.COMPLETED)
         result = await service.archive_goal("goal_1")
         assert result.is_ok
-        changes = _written_changes(backend)
-        assert changes["status"] == EntityStatus.ARCHIVED.value
-        assert "progress_percentage" not in changes
+        merged = recorder.merged_patch()
+        assert merged["status"] == EntityStatus.ARCHIVED.value
+        assert "progress_percentage" not in merged
 
     async def test_cancel_transition_on_a_completed_goal_reaches_the_write(self):
         # The facade's cancel_goal delegates here after its active-tasks guard
-        # (which is status-agnostic and unrelated to the deleted rule).
-        service, backend = self._service(EntityStatus.COMPLETED)
+        # (which is status-agnostic).
+        service, _backend, recorder = self._service(EntityStatus.COMPLETED)
         result = await service.update_goal("goal_1", GoalUpdateIntent(status="cancelled"))
         assert result.is_ok
-        assert _written_changes(backend)["status"] == EntityStatus.CANCELLED.value
-        assert _written_changes(backend)["achieved_date"] is None
+        merged = recorder.merged_patch()
+        assert merged["status"] == EntityStatus.CANCELLED.value
+        assert merged["achieved_date"] is None
 
     async def test_complete_goal_transition_stamps_today(self):
         # complete_goal's default path carries no achieved_date — the stamp
-        # comes from the transition gate at the chokepoint.
-        service, backend = self._service(EntityStatus.ACTIVE)
+        # comes from the transition condition at the chokepoint.
+        service, _backend, recorder = self._service(EntityStatus.ACTIVE)
         result = await service.complete_goal("goal_1")
         assert result.is_ok
-        assert _written_changes(backend)["achieved_date"] == date.today()
+        assert recorder.merged_patch()["achieved_date"] == date.today()
 
     async def test_complete_goal_on_an_already_completed_goal_does_not_redate(self):
-        # Codex P1: set_status("completed") on an already-completed goal
-        # dispatches here; with the immutability rule gone, a re-posted
-        # complete must keep the original achieved_date.
-        service, backend = self._service(EntityStatus.COMPLETED)
+        # set_status("completed") on an already-completed goal dispatches here;
+        # with the immutability rule gone, a re-posted complete must keep the
+        # original achieved_date.
+        service, _backend, recorder = self._service(EntityStatus.COMPLETED)
         result = await service.complete_goal("goal_1")
         assert result.is_ok
-        assert "achieved_date" not in _written_changes(backend)
+        assert "achieved_date" not in recorder.merged_patch()
 
     async def test_pause_goal_single_write_carries_status_and_metadata(self):
-        # Codex P2: pause metadata rides the status write, so one Result
-        # answers for both (no discarded second write).
-        service, backend = self._service(EntityStatus.ACTIVE)
+        # Pause metadata rides the status write, so one Result answers for both
+        # (no discarded second write).
+        service, backend, recorder = self._service(EntityStatus.ACTIVE)
         result = await service.pause_goal("goal_1", reason="resting")
         assert result.is_ok
-        assert backend.update.await_count == 1
-        changes = _written_changes(backend)
-        assert changes["status"] == EntityStatus.PAUSED.value
-        assert changes["metadata"]["pause_reason"] == "resting"
+        assert backend.update_with_status_guard.await_count == 1
+        merged = recorder.merged_patch()
+        assert merged["status"] == EntityStatus.PAUSED.value
+        assert merged["metadata"]["pause_reason"] == "resting"
 
-    def _flaky_pre_read_service(self):
+    def _flaky_pre_read_service(
+        self,
+    ) -> tuple[GoalsCoreService, Mock, StatusGuardedWriteRecorder[Goal]]:
         # Pre-read fails transiently, any later read would succeed — the
         # scenario where a swallowed pre-read error becomes a silent
-        # metadata-less "success" (Codex round 2).
+        # metadata-less "success".
         from core.services.goals.goals_core_service import GoalsCoreService
         from core.utils.result_simplified import Errors
 
         current = Goal(uid="goal_1", user_uid=USER, title="g", status=EntityStatus.ACTIVE)
-        backend = _mock_backend(current, current)
+        backend, recorder = guarded_backend(current, current)
         backend.get = AsyncMock(
             side_effect=[
                 Result.fail(Errors.database("get", "transient read failure")),
                 Result.ok(current),
             ]
         )
-        return GoalsCoreService(backend=backend), backend
+        return GoalsCoreService(backend=backend), backend, recorder
 
     async def test_pause_goal_failed_pre_read_fails_the_pause(self):
-        service, backend = self._flaky_pre_read_service()
+        service, backend, _recorder = self._flaky_pre_read_service()
         result = await service.pause_goal("goal_1", reason="resting")
         assert result.is_error
-        backend.update.assert_not_awaited()
+        backend.update_with_status_guard.assert_not_awaited()
 
     async def test_archive_goal_failed_pre_read_fails_the_archive(self):
-        service, backend = self._flaky_pre_read_service()
+        service, backend, _recorder = self._flaky_pre_read_service()
         result = await service.archive_goal("goal_1")
         assert result.is_error
-        backend.update.assert_not_awaited()
+        backend.update_with_status_guard.assert_not_awaited()
 
     async def test_complete_goal_failed_notes_pre_read_fails_the_complete(self):
-        service, backend = self._flaky_pre_read_service()
+        service, backend, _recorder = self._flaky_pre_read_service()
         result = await service.complete_goal("goal_1", completion_notes="done")
         assert result.is_error
-        backend.update.assert_not_awaited()
+        backend.update_with_status_guard.assert_not_awaited()
 
     async def test_explicit_achieved_date_keeps_authority(self):
         # complete_goal's path: the intent already carries achieved_date.
-        service, backend = self._service(EntityStatus.ACTIVE)
+        service, _backend, recorder = self._service(EntityStatus.ACTIVE)
         intent = GoalUpdateIntent(status="completed", achieved_date=date(2026, 8, 1))
         result = await service.update_goal("goal_1", intent)
         assert result.is_ok
-        assert _written_changes(backend)["achieved_date"] == date(2026, 8, 1)
+        assert recorder.last_guard.has_patches() is False
+        assert recorder.merged_patch()["achieved_date"] == date(2026, 8, 1)
+
+    async def test_a_status_write_no_longer_pre_reads_at_all(self):
+        """The read whose failure used to be able to re-date a stamp is GONE for a
+        status-only update: the prior rides back on the write."""
+        service, backend, _recorder = self._service(EntityStatus.COMPLETED)
+        result = await service.update_goal("goal_1", GoalUpdateIntent(status="completed"))
+        assert result.is_ok
+        backend.get.assert_not_awaited()
+
+    async def test_the_date_rule_still_fires_and_still_refuses(self):
+        """``_validate_update`` is now called explicitly. The facade routes the generic
+        CRUD here, so the inherited hook that used to run it is unreachable — dropping
+        the explicit call would kill this rule silently."""
+        service, backend, _recorder = self._service(
+            EntityStatus.ACTIVE, start_date=date(2026, 6, 1)
+        )
+        result = await service.update_goal("goal_1", GoalUpdateIntent(target_date=date(2026, 5, 1)))
+        assert result.is_error
+        assert "after start date" in result.expect_error().message
+        backend.update_with_status_guard.assert_not_awaited()
+
+    async def test_the_date_rule_reads_the_goal_it_is_gated_on(self):
+        """The rule falls back to the STORED dates when the update supplies only one,
+        so the read is gated on the date fields — not, as it once was, on ``status``."""
+        service, backend, _recorder = self._service(
+            EntityStatus.ACTIVE, start_date=date(2026, 1, 1)
+        )
+        result = await service.update_goal("goal_1", GoalUpdateIntent(target_date=date(2026, 9, 1)))
+        assert result.is_ok
+        backend.get.assert_awaited_once()
+
+    async def test_a_failed_date_read_still_fails_the_update(self):
+        """A transient failure on the advisory read must not be read as "no rule
+        applies"."""
+        from core.utils.result_simplified import Errors
+
+        service, backend, _recorder = self._service(EntityStatus.ACTIVE)
+        backend.get = AsyncMock(
+            return_value=Result.fail(Errors.database("get", "transient read failure"))
+        )
+        result = await service.update_goal("goal_1", GoalUpdateIntent(target_date=date(2026, 9, 1)))
+        assert result.is_error
+        backend.update_with_status_guard.assert_not_awaited()
+
+    @pytest.mark.parametrize(
+        ("write_prior", "expect_achieved"),
+        [(EntityStatus.ACTIVE, True), (EntityStatus.COMPLETED, False)],
+    )
+    async def test_goal_achieved_follows_the_write_not_a_read(
+        self, write_prior: EntityStatus, expect_achieved: bool
+    ) -> None:
+        """The verdict is sourced from the status the WRITE captured, in both
+        directions. A fake driven by ``backend.get`` could only ever agree with the
+        read — which is precisely the coupling the primitive removed."""
+        from core.services.goals.goals_core_service import GoalsCoreService
+
+        bus = _CapturingBus()
+        current = Goal(uid="goal_1", user_uid=USER, title="g", status=write_prior)
+        updated = Goal(uid="goal_1", user_uid=USER, title="g", status=EntityStatus.COMPLETED)
+        backend, _recorder = guarded_backend(current, updated)
+        service = GoalsCoreService(backend=backend, event_bus=bus)
+
+        result = await service.update_goal("goal_1", GoalUpdateIntent(status="completed"))
+        assert result.is_ok
+        assert bool(bus.of(GoalAchieved)) is expect_achieved
 
 
 @pytest.mark.asyncio
 class TestHabitsChokepoint:
-    def _service(self, current_status: EntityStatus):
+    def _service(
+        self, current_status: EntityStatus, **current_fields: Any
+    ) -> tuple[HabitsCoreService, Mock, StatusGuardedWriteRecorder[Habit]]:
         from core.services.habits.habits_core_service import HabitsCoreService
 
-        current = Habit(uid="habit_1", user_uid=USER, title="h", status=current_status)
+        current = Habit(
+            uid="habit_1", user_uid=USER, title="h", status=current_status, **current_fields
+        )
         updated = Habit(uid="habit_1", user_uid=USER, title="h", status=EntityStatus.COMPLETED)
-        backend = _mock_backend(current, updated)
-        return HabitsCoreService(backend=backend), backend
+        backend, recorder = guarded_backend(current, updated)
+        return HabitsCoreService(backend=backend), backend, recorder
 
     async def test_completing_stamps_completed_at(self):
-        service, backend = self._service(EntityStatus.ACTIVE)
+        service, _backend, recorder = self._service(EntityStatus.ACTIVE)
         result = await service.update_habit("habit_1", HabitUpdateIntent(status="completed"))
         assert result.is_ok
-        assert isinstance(_written_changes(backend)["completed_at"], datetime)
+        statuses, patch = recorder.last_guard.patch_if_prior_not_in
+        assert statuses == frozenset({"completed"})
+        assert isinstance(patch["completed_at"], datetime)
+        assert isinstance(recorder.merged_patch()["completed_at"], datetime)
 
     async def test_reposting_completed_does_not_restamp(self):
-        service, backend = self._service(EntityStatus.COMPLETED)
+        service, _backend, recorder = self._service(EntityStatus.COMPLETED)
         result = await service.update_habit("habit_1", HabitUpdateIntent(status="completed"))
         assert result.is_ok
-        assert "completed_at" not in _written_changes(backend)
+        assert "completed_at" not in recorder.merged_patch()
 
     async def test_reopen_clears_the_stamp(self):
-        service, backend = self._service(EntityStatus.COMPLETED)
+        service, _backend, recorder = self._service(EntityStatus.COMPLETED)
         result = await service.update_habit("habit_1", HabitUpdateIntent(status="active"))
         assert result.is_ok
-        assert _written_changes(backend)["completed_at"] is None
+        assert recorder.merged_patch()["completed_at"] is None
+
+    async def test_the_streak_rule_still_fires_and_still_refuses(self):
+        """Habits was already Shape A — its explicit ``_validate_habit_update`` call
+        survives the write swap, and so does the transient ``force_archive`` bypass."""
+        service, backend, _recorder = self._service(EntityStatus.ACTIVE, current_streak=9)
+        result = await service.update_habit("habit_1", HabitUpdateIntent(status="archived"))
+        assert result.is_error
+        assert "9-day streak" in result.expect_error().message
+        backend.update_with_status_guard.assert_not_awaited()
+
+    async def test_force_archive_still_bypasses_the_streak_rule(self):
+        service, _backend, recorder = self._service(EntityStatus.ACTIVE, current_streak=9)
+        result = await service.update_habit(
+            "habit_1", HabitUpdateIntent(status="archived"), force_archive=True
+        )
+        assert result.is_ok
+        assert recorder.last_updates["status"] == EntityStatus.ARCHIVED.value
+        assert "force_archive" not in recorder.last_updates, (
+            "the transient directive must never reach the write"
+        )
 
 
 @pytest.mark.asyncio
 class TestEventsChokepoint:
-    def _service(self, current_status: EntityStatus):
+    def _service(
+        self, current_status: EntityStatus, event_date: date | None = None
+    ) -> tuple[EventsCoreService, Mock, StatusGuardedWriteRecorder[Event]]:
         from core.services.events.events_core_service import EventsCoreService
 
-        # Today's event: past-event immutability must not gate the transition.
+        # Today's event by default: past-event immutability must not gate the transition.
         current = Event(
-            uid="event_1", user_uid=USER, title="e", status=current_status, event_date=date.today()
+            uid="event_1",
+            user_uid=USER,
+            title="e",
+            status=current_status,
+            event_date=event_date or date.today(),
+        )
+        updated = Event(
+            uid="event_1",
+            user_uid=USER,
+            title="e",
+            status=EntityStatus.COMPLETED,
+            event_date=event_date or date.today(),
+        )
+        backend, recorder = guarded_backend(current, updated)
+        return EventsCoreService(backend=backend), backend, recorder
+
+    async def test_completing_stamps_completed_at(self):
+        service, _backend, recorder = self._service(EntityStatus.ACTIVE)
+        result = await service.update_event("event_1", EventUpdateIntent(status="completed"))
+        assert result.is_ok
+        statuses, patch = recorder.last_guard.patch_if_prior_not_in
+        assert statuses == frozenset({"completed"})
+        assert isinstance(patch["completed_at"], datetime)
+        assert isinstance(recorder.merged_patch()["completed_at"], datetime)
+
+    async def test_reposting_completed_does_not_restamp(self):
+        service, _backend, recorder = self._service(EntityStatus.COMPLETED)
+        result = await service.update_event("event_1", EventUpdateIntent(status="completed"))
+        assert result.is_ok
+        assert "completed_at" not in recorder.merged_patch()
+
+    async def test_reopen_clears_the_stamp(self):
+        service, _backend, recorder = self._service(EntityStatus.COMPLETED)
+        result = await service.update_event("event_1", EventUpdateIntent(status="active"))
+        assert result.is_ok
+        assert recorder.merged_patch()["completed_at"] is None
+
+    async def test_past_event_immutability_still_fires_and_still_refuses(self):
+        """Events' rule reads ``current.event_date`` and applies to EVERY field of
+        EVERY update, which is why this chokepoint's advisory read is unconditional.
+        Drop the explicit ``_validate_update`` call and the rule dies silently."""
+        service, backend, _recorder = self._service(
+            EntityStatus.ACTIVE, event_date=date.today() - timedelta(days=3)
+        )
+        result = await service.update_event("event_1", EventUpdateIntent(title="rewritten"))
+        assert result.is_error
+        assert "Cannot modify past events" in result.expect_error().message
+        backend.update_with_status_guard.assert_not_awaited()
+
+    async def test_the_retrospective_exception_still_reaches_the_write(self):
+        """The rule's escape hatch: notes / tags / quality_score may still be added to a
+        past event. ``tags`` is the one of the three ``EventUpdateIntent`` can carry —
+        the other two, and the duration rule's ``duration_minutes``, are fields the intent
+        has no member for, so this door cannot reach them (the same intent-vs-validator
+        drift already registered for Principles; out of this PR's scope)."""
+        service, _backend, recorder = self._service(
+            EntityStatus.ACTIVE, event_date=date.today() - timedelta(days=3)
+        )
+        result = await service.update_event("event_1", EventUpdateIntent(tags=["afterthought"]))
+        assert result.is_ok
+        assert recorder.last_updates["tags"] == ["afterthought"]
+
+    async def test_a_non_status_update_still_reads_for_the_rule(self):
+        """Unlike Tasks and Goals, Events cannot narrow its read: a title-only update
+        is exactly what past-event immutability exists to refuse."""
+        service, backend, _recorder = self._service(EntityStatus.ACTIVE)
+        result = await service.update_event("event_1", EventUpdateIntent(title="renamed"))
+        assert result.is_ok
+        backend.get.assert_awaited_once()
+
+    @pytest.mark.parametrize(
+        ("write_prior", "expect_completed_event"),
+        [(EntityStatus.ACTIVE, True), (EntityStatus.COMPLETED, False)],
+    )
+    async def test_the_completion_event_follows_the_write_not_the_read(
+        self, write_prior: EntityStatus, expect_completed_event: bool
+    ) -> None:
+        """The advisory read says ACTIVE either way; the WRITE's prior is what decides.
+        Sourcing the verdict from the read would announce a completion another writer
+        already made."""
+        from core.services.events.events_core_service import EventsCoreService
+
+        bus = _CapturingBus()
+        read_shape = Event(
+            uid="event_1",
+            user_uid=USER,
+            title="e",
+            status=EntityStatus.ACTIVE,
+            event_date=date.today(),
+        )
+        write_prior_shape = Event(
+            uid="event_1", user_uid=USER, title="e", status=write_prior, event_date=date.today()
         )
         updated = Event(
             uid="event_1",
@@ -494,52 +766,80 @@ class TestEventsChokepoint:
             status=EntityStatus.COMPLETED,
             event_date=date.today(),
         )
-        backend = _mock_backend(current, updated)
-        return EventsCoreService(backend=backend), backend
+        backend, _recorder = guarded_backend(write_prior_shape, updated)
+        backend.get = AsyncMock(return_value=Result.ok(read_shape))
+        service = EventsCoreService(backend=backend, event_bus=bus)
 
-    async def test_completing_stamps_completed_at(self):
-        service, backend = self._service(EntityStatus.ACTIVE)
         result = await service.update_event("event_1", EventUpdateIntent(status="completed"))
         assert result.is_ok
-        assert isinstance(_written_changes(backend)["completed_at"], datetime)
-
-    async def test_reposting_completed_does_not_restamp(self):
-        service, backend = self._service(EntityStatus.COMPLETED)
-        result = await service.update_event("event_1", EventUpdateIntent(status="completed"))
-        assert result.is_ok
-        assert "completed_at" not in _written_changes(backend)
-
-    async def test_reopen_clears_the_stamp(self):
-        service, backend = self._service(EntityStatus.COMPLETED)
-        result = await service.update_event("event_1", EventUpdateIntent(status="active"))
-        assert result.is_ok
-        assert _written_changes(backend)["completed_at"] is None
+        assert bool(bus.of(CalendarEventCompleted)) is expect_completed_event
 
 
 @pytest.mark.asyncio
 class TestChoicesChokepoint:
-    def _service(self, current_status: EntityStatus):
+    def _service(
+        self, current_status: EntityStatus
+    ) -> tuple[ChoicesCoreService, Mock, StatusGuardedWriteRecorder[Choice]]:
         from core.services.choices.choices_core_service import ChoicesCoreService
 
-        # DRAFT current: decision immutability blocks status changes on
+        # DRAFT current: decision immutability blocks critical-field changes on
         # ACTIVE/COMPLETED choices, so the completable state is DRAFT.
         current = Choice(uid="choice_1", user_uid=USER, title="c", status=current_status)
         updated = Choice(uid="choice_1", user_uid=USER, title="c", status=EntityStatus.COMPLETED)
-        backend = _mock_backend(current, updated)
-        return ChoicesCoreService(backend=backend), backend
+        backend, recorder = guarded_backend(current, updated)
+        return ChoicesCoreService(backend=backend), backend, recorder
 
     async def test_completing_stamps_completed_at(self):
-        service, backend = self._service(EntityStatus.DRAFT)
+        service, _backend, recorder = self._service(EntityStatus.DRAFT)
         result = await service.update_choice("choice_1", ChoiceUpdateIntent(status="completed"))
         assert result.is_ok
-        assert isinstance(_written_changes(backend)["completed_at"], datetime)
+        statuses, patch = recorder.last_guard.patch_if_prior_not_in
+        assert statuses == frozenset({"completed"})
+        assert isinstance(patch["completed_at"], datetime)
+        assert isinstance(recorder.merged_patch()["completed_at"], datetime)
 
     async def test_illegal_status_is_refused_before_the_write(self):
         # PAUSED is canonical but outside Choice's lifecycle.
-        service, backend = self._service(EntityStatus.DRAFT)
+        service, backend, _recorder = self._service(EntityStatus.DRAFT)
         result = await service.update_choice("choice_1", ChoiceUpdateIntent(status="paused"))
         assert result.is_error
-        backend.update.assert_not_awaited()
+        backend.update_with_status_guard.assert_not_awaited()
+
+    async def test_decision_immutability_still_fires_and_still_refuses(self):
+        """The pre-read half of the rule: dropping the explicit ``_validate_update``
+        call would kill it silently, because the facade routes the generic CRUD here."""
+        service, backend, _recorder = self._service(EntityStatus.ACTIVE)
+        result = await service.update_choice("choice_1", ChoiceUpdateIntent(status="completed"))
+        assert result.is_error
+        assert "Decisions are historical records" in result.expect_error().message
+        backend.update_with_status_guard.assert_not_awaited()
+
+    async def test_a_non_critical_edit_of_a_decided_choice_still_writes(self):
+        service, _backend, recorder = self._service(EntityStatus.ACTIVE)
+        result = await service.update_choice(
+            "choice_1", ChoiceUpdateIntent(description="hindsight")
+        )
+        assert result.is_ok
+        assert recorder.last_guard.refuse_if_prior_in == frozenset(), (
+            "an edit that touches no decision field must not be gated on the prior"
+        )
+        assert recorder.last_updates["description"] == "hindsight"
+
+    async def test_the_write_refuses_a_choice_decided_after_the_read(self):
+        """The race the guard closes, and the reason the rule is asked twice.
+        ``make_decision`` moves a DRAFT choice to ACTIVE with a raw write that never
+        passes through this chokepoint — so the pre-read can say DRAFT while the write
+        finds a decided choice. The refusal comes from the LOCKED prior."""
+        service, backend, recorder = self._service(EntityStatus.ACTIVE)
+        backend.get = AsyncMock(
+            return_value=Result.ok(
+                Choice(uid="choice_1", user_uid=USER, title="c", status=EntityStatus.DRAFT)
+            )
+        )
+        result = await service.update_choice("choice_1", ChoiceUpdateIntent(status="completed"))
+        assert result.is_error
+        assert "Decisions are historical records" in result.expect_error().message
+        assert recorder.last_guard.refuse_if_prior_in == frozenset({"active", "completed"})
 
 
 @pytest.mark.asyncio

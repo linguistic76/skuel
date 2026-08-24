@@ -100,11 +100,26 @@ How it flows:
   allowed only for full-DTO replaces and timestamp/system bumps — each marked `# raw-write:`.
   A partial field update that bypasses *both* the intent and the `RawChanges` service contract
   (i.e. straight to `backend.update`) is a defect.
+- **A write that carries `status` goes through `backend.update_with_status_guard(uid,
+  changes, guard)`, never `super().update` or `backend.update`** (ADR-087). Build the guard
+  with `status_transition_guard(EntityType.X, changes)`; the write evaluates it against the
+  status the node holds under its lock and hands the prior back, so transition verdicts come
+  from `outcome.prior_status`, not from a status read beforehand. The five stamping domains
+  (Task, Goal, Habit, Event, Choice) are all on it; **Principles is the one exception** — its
+  gate is target-only legality, prior-independent, so there is no race to close (ADR-087
+  § Scope).
+- ⚠ **Leaving `CrudOperationsMixin.update` takes `_validate_update` off the path.** The
+  facades route the generic CRUD to the per-domain method, so the inherited hook is the
+  only thing that was running the domain rules — a backend-direct write must call
+  `self._validate_update(current, intent)` itself, or every rule dies silently while the
+  tests still pass. Each Activity domain has a test pinning that its rules still refuse.
 
 Per-domain deviations: **Habits** keeps `update_habit(uid, intent, *, force_archive=False)`
 (the transient `force_archive` directive can't ride the intent — it would persist as a junk
 column); **Tasks/Events** split edge-typed fields off the intent before the property write.
-See [ADR-066](/docs/decisions/ADR-066-typed-update-intents.md) and `docs/roadmap/done/update-intents.md`.
+See [ADR-066](/docs/decisions/ADR-066-typed-update-intents.md),
+[ADR-087](/docs/decisions/ADR-087-status-guarded-conditional-writes.md) and
+`docs/roadmap/done/update-intents.md`.
 
 ## UI Pattern
 

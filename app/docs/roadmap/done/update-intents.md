@@ -17,6 +17,17 @@ ADR-066 is fully implemented.
 **Pattern owner:** [ADR-066 — Typed Update Intents](../../decisions/ADR-066-typed-update-intents.md)
 **Doctrine:** [functional-direction.md](../functional-direction.md), [three_tier_type_system.md](../../patterns/three_tier_type_system.md)
 
+> ⚠ **The write SEAM moved after this arc closed; the intent contract did not.**
+> [ADR-087](../../decisions/ADR-087-status-guarded-conditional-writes.md) (2026-08-24) routes
+> every Activity update chokepoint through `backend.update_with_status_guard` instead of
+> `super().update` / `backend.update`, so the per-phase notes below describing which domains
+> "keep `super().update()`" are a record of what June 2026 landed, not of today's shape. What
+> is unchanged: the intent is still the contract, `to_changes()` is still materialized exactly
+> once, and the domain rules still run — but `_validate_update` is now called explicitly by
+> each chokepoint, because leaving `CrudOperationsMixin.update` took the hook off the path.
+> (Each call is gated on what that domain's rules actually read: unconditional for Events and
+> Choices, on the date fields for Goals, whose one rule is a no-op without them.)
+
 ## Context
 
 ADR-066 replaces the unsound, decorative `*UpdatePayload` TypedDicts with frozen `*UpdateIntent`

@@ -4,8 +4,9 @@ Completion stamping — the shared status-transition helper for Activity updates
 
 Every intent-based Activity update funnels through one per-domain core method
 (``update_task`` … ``update_principle``). Each of those six chokepoints applies the
-rules here at its write — Tasks as a write-time guard (:func:`status_transition_guard`),
-the other five still via :func:`completion_transition_patch` — so that:
+rules here at its write — the five stamping domains (Task, Goal, Habit, Event, Choice)
+as a write-time guard (:func:`status_transition_guard`), Principle still via
+:func:`completion_transition_patch`, for its legality check alone — so that:
 
 1. **The status target is legal for the type** — ``EntityType.valid_statuses()``
    is enforced at the seam instead of being documentation (e.g. a Principle can
@@ -31,14 +32,24 @@ Bypass paths are handled elsewhere by design: ingestion never auto-stamps (the
 file is the source of truth for its own dates), and the DSL ``[x]`` create door
 parses the obsidian-tasks ``✅ date`` into ``completion_date`` at conversion.
 
+**Why every ``changes`` parameter below is ``Mapping[str, Any]``** (the ``# boundary:``
+each one carries, stated once here rather than five times): ``changes`` is a materialized
+update patch — an Activity ``*UpdateIntent.to_changes()`` — and it is genuinely
+heterogeneous. It is specifically NOT ``Neo4jProperties``: ``GoalUpdateIntent.milestones``
+is a ``list[dict[str, Any]]`` and ``.metadata`` a bare ``dict``, neither of which is a
+``Neo4jValue``, so naming that type would claim a contract the callers do not meet.
+Nothing here reads an arbitrary value out of it: ``status`` is read and immediately
+narrowed by :func:`_coerce_status`, and every other use is a key-membership test.
+
 **Two forms of the same rules, during the ADR-087 migration.**
 :func:`completion_transition_patch` decides the patch in Python from a status the
 caller read *before* the write; :func:`status_transition_guard` packages the same
 decision as a :class:`StatusWriteGuard` the write statement evaluates against the
 prior it reads *under the node's write-lock*, which is what makes the verdict exact
 when two writers race. Both enforce the same legality check and the same authority
-rule, and each chokepoint uses exactly one of them at any time. The Python-side form
-retires when its last caller migrates (ADR-087 PR-4).
+rule, and each chokepoint uses exactly one of them at any time. Every stamping domain
+is now on the guard; the Python-side form survives only for Principle's legality check
+and for the goal-progress writers PR-4 migrates, and retires with them.
 """
 
 from __future__ import annotations
@@ -101,7 +112,10 @@ def _coerce_status(value: EntityStatus | str | None) -> EntityStatus | None:
 
 
 def is_completion_transition(
-    old_status: EntityStatus | str | None, changes: Mapping[str, Any]
+    old_status: EntityStatus | str | None,
+    # boundary: a materialized update patch (see the module note) — only ``status``'s
+    # VALUE is read, and ``_coerce_status`` narrows it; every other use is a key test.
+    changes: Mapping[str, Any],
 ) -> bool:
     """True when this update moves the entity INTO ``COMPLETED``.
 
@@ -119,7 +133,12 @@ def is_completion_transition(
     )
 
 
-def is_reopen_transition(old_status: EntityStatus | str | None, changes: Mapping[str, Any]) -> bool:
+def is_reopen_transition(
+    old_status: EntityStatus | str | None,
+    # boundary: a materialized update patch (see the module note) — only ``status``'s
+    # VALUE is read, and ``_coerce_status`` narrows it; every other use is a key test.
+    changes: Mapping[str, Any],
+) -> bool:
     """True when this update moves the entity OUT of ``COMPLETED``.
 
     The mirror of :func:`is_completion_transition`, and gated the same way: an
@@ -143,7 +162,10 @@ def is_reopen_transition(old_status: EntityStatus | str | None, changes: Mapping
 
 
 def _stamp_target(
-    entity_type: EntityType, changes: Mapping[str, Any]
+    entity_type: EntityType,
+    # boundary: a materialized update patch (see the module note) — only ``status``'s
+    # VALUE is read, and ``_coerce_status`` narrows it; every other use is a key test.
+    changes: Mapping[str, Any],
 ) -> Result[tuple[EntityStatus, str, Callable[[], date | datetime]] | None]:
     """Validate the status target and resolve the stamp spec this update would use.
 
@@ -195,7 +217,10 @@ def _stamp_target(
 
 
 def status_transition_guard(
-    entity_type: EntityType, changes: Mapping[str, Any]
+    entity_type: EntityType,
+    # boundary: a materialized update patch (see the module note) — only ``status``'s
+    # VALUE is read, and ``_coerce_status`` narrows it; every other use is a key test.
+    changes: Mapping[str, Any],
 ) -> Result[StatusWriteGuard]:
     """Package this update's completion-stamp rules as a write-time guard (ADR-087).
 
@@ -242,23 +267,29 @@ def status_transition_guard(
 def completion_transition_patch(
     entity_type: EntityType,
     old_status: EntityStatus | str | None,
+    # boundary: a materialized update patch (see the module note) — only ``status``'s
+    # VALUE is read, and ``_coerce_status`` narrows it; every other use is a key test.
     changes: Mapping[str, Any],
 ) -> Result[dict[str, Any]]:
     """Validate the status target and derive the completion-stamp patch.
 
     ⚠ **Being retired (ADR-087).** This is the read-then-write form: it needs a prior
     the caller read *before* the write, outside any lock, so two concurrent writers can
-    both act on the same status. :func:`status_transition_guard` is the successor.
-    Tasks have all moved (PR-1 ``update_task``; PR-2 ``complete_task_with_cascade``,
-    ``_trigger_task``, ``complete_tasks_bulk``). The five remaining callers:
+    both act on the same status. :func:`status_transition_guard` is the successor. Every
+    Activity update chokepoint has moved (PR-1 ``update_task``; PR-2
+    ``complete_task_with_cascade``, ``_trigger_task``, ``complete_tasks_bulk``; PR-3
+    ``update_goal`` / ``update_event`` / ``update_choice`` / ``update_habit``). ONE
+    caller remains:
 
-    - ``update_goal`` / ``update_event`` / ``update_choice`` / ``update_habit`` (PR-3),
-      plus the four goal-progress writers PR-4 migrates off their own blind writes;
     - ``update_principle`` — which calls this for the **legality check alone** (Principle
       has no ``_STAMP_SPECS`` entry, so the patch is always empty) and is deliberately
       NOT migrating: its gate is target-only and prior-independent, so there is no race
       to close. PR-4 must give it a legality-only successor — :func:`_stamp_target` is
       already that shape — before deleting this function.
+
+    PR-4 also migrates the four ``goals_progress_service`` writers, which today decide
+    completion from a pre-read and then blind-write; they never called this function, so
+    they do not appear above.
 
     Each site holds exactly ONE path at any moment. Do not add a caller. Both forms
     share :func:`_stamp_target`, so the rules cannot drift meanwhile.

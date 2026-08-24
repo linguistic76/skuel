@@ -18,11 +18,12 @@ Responsibilities:
 """
 
 import dataclasses
+from collections.abc import Mapping
 from datetime import date, datetime
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING, Any, Final
 
 from core.models.relationship_names import RelationshipName
-from core.models.type_hints import UserUID
+from core.models.type_hints import Neo4jProperties, UserUID
 
 if TYPE_CHECKING:
     from core.models.goal.goal_request import GoalCreateRequest
@@ -41,10 +42,11 @@ from core.models.enums.neo_labels import NeoLabel
 from core.models.goal.goal import Goal
 from core.models.goal.goal_dto import GoalDTO
 from core.models.goal.goal_update_intent import GoalUpdateIntent
+from core.models.update_contracts import StatusWriteGuard
 from core.ports.domain_protocols import GoalsOperations
 from core.ports.query_types import GoalStats
 from core.services.base_service import BaseService
-from core.services.completion_stamp import completion_transition_patch, is_completion_transition
+from core.services.completion_stamp import is_completion_transition, status_transition_guard
 from core.services.domain_config import create_activity_domain_config
 from core.services.mixins.hierarchy_read_mixin import HierarchyReadMixin
 from core.services.mixins.link_edge_guard import (
@@ -64,6 +66,59 @@ from core.utils.uid_generator import UIDGenerator
 # GoalCreateRequest.progress_weight's own default so the two doors agree on every request
 # that leaves it unset; test_goal_habit_create_edges.py asserts that agreement.
 DEFAULT_PROGRESS_WEIGHT: Final = 1.0
+
+
+#: The one prior status the reopen reset and the completion stamp both condition on.
+_COMPLETED_ONLY: Final = frozenset({EntityStatus.COMPLETED.value})
+
+
+def _with_reopen_progress_reset(
+    guard: StatusWriteGuard,
+    # boundary: a materialized update patch (``GoalUpdateIntent.to_changes()``) — genuinely
+    # heterogeneous, and NOT ``Neo4jProperties``: ``milestones`` is a ``list[dict[str, Any]]``
+    # and ``metadata`` a bare ``dict``, neither a ``Neo4jValue``. Naming that type here would
+    # claim a contract the callers do not meet. Only ``status``'s value is read (and it is
+    # narrowed to ``EntityStatus`` on the next line); ``progress_percentage`` is a key test,
+    # and what this helper WRITES is typed (``reset`` below).
+    changes: Mapping[str, Any],
+) -> StatusWriteGuard:
+    """Add the reopen progress reset to a Goal's status guard (ADR-087).
+
+    Reopening (COMPLETED -> a non-terminal status) also resets the 100% progress
+    ``complete_goal`` wrote, unless the caller supplies its own figure. Terminal targets
+    (archive / cancel / fail) keep it as a historical record; on a *reopened* goal it
+    would read as "already done" to progress consumers and instantly re-achieve on the
+    next contribution increment.
+
+    "The prior was COMPLETED" is a fact only the write knows, so the reset rides the
+    guard's prior-conditional patch rather than the base patch — the same condition the
+    stamp clear already uses, which is why they merge into one patch.
+
+    ⚠ The guard can arrive with NO patches at all: an update that carries its own
+    ``achieved_date`` keeps authority over the STAMP, which says nothing about progress.
+    So the reopen patch is CONSTRUCTED here when absent, not merely extended — extending
+    only what exists would silently drop the reset on exactly the ``complete_goal``-style
+    intents that set a date by hand.
+
+    Args:
+        guard: The stamp guard from ``status_transition_guard`` — already legality-
+            checked, which is what lets the target below be coerced without a guard.
+        changes: The materialized update patch. Never mutated.
+
+    Returns:
+        The guard, with the reset merged into its prior-in patch when it applies.
+    """
+    if "status" not in changes or "progress_percentage" in changes:
+        return guard
+
+    raw_target = changes["status"]
+    target = raw_target if isinstance(raw_target, EntityStatus) else EntityStatus(raw_target)
+    if target.is_terminal():
+        return guard
+
+    statuses, patch = guard.patch_if_prior_in or (_COMPLETED_ONLY, {})
+    reset: Neo4jProperties = {**patch, "progress_percentage": 0.0}
+    return dataclasses.replace(guard, patch_if_prior_in=(statuses, reset))
 
 
 class GoalsCoreService(
@@ -568,15 +623,23 @@ class GoalsCoreService(
     async def update_goal(self, uid: str, intent: GoalUpdateIntent) -> Result[Goal]:
         """Update a goal's node properties (ADR-066 typed update contract).
 
-        Materializes the intent to a partial patch once, validated and written through the
-        inherited CRUD ``update`` (BaseService → ``_validate_update`` → ``backend.update``),
-        then publishes domain events. Goals carry no edge fields on the update path, so the
-        intent's ``to_changes()`` is written wholesale — there is nothing to split off.
-        Status transitions are validated against the Goal lifecycle and completion
-        stamping (``achieved_date``) is applied here — the domain's one update
-        chokepoint (``core.services.completion_stamp``). Reopening (COMPLETED → a
-        non-terminal status) additionally resets ``progress_percentage`` to 0.0
-        unless the update carries its own figure.
+        Materializes the intent to a partial patch and writes it exactly once, at the
+        single ``backend.update_with_status_guard`` seam. Goals carry no edge fields on
+        the update path, so the intent's ``to_changes()`` is written wholesale — there is
+        nothing to split off. The domain rule (``_validate_update`` — target-after-start
+        dates) runs here, explicitly: the facade routes the generic CRUD to this method,
+        so the inherited hook never fires for Goals. Status transitions are validated
+        against the Goal lifecycle and completion stamping (``achieved_date``) is applied
+        here — the domain's one update chokepoint
+        (``core.services.completion_stamp``). Reopening (COMPLETED → a non-terminal
+        status) additionally resets ``progress_percentage`` to 0.0 unless the update
+        carries its own figure.
+
+        Both the stamp and that reset are conditions the WRITE evaluates against the
+        status the node holds under its lock, not against a status read beforehand
+        (ADR-087) — so two writers racing a complete against a reopen cannot both act on
+        the same prior, and ``achieved_date`` stays non-null exactly when the goal is
+        completed.
 
         Args:
             uid: Goal UID
@@ -598,51 +661,47 @@ class GoalsCoreService(
         # reading changes.keys() after the write would leak that bump into the event.
         updated_fields = list(changes.keys())
 
-        # Fetch the prior goal only when a status transition needs old-vs-new comparison.
+        # Advisory pre-read — for the one rule ``_validate_update`` still holds
+        # (target-after-start), which falls back to the goal's STORED dates when the
+        # update supplies only one of them. Gated on exactly the fields that rule reads,
+        # so a status-only update reads nothing before writing: its verdicts come from
+        # the write itself now.
         old_goal: Goal | None = None
-        if "status" in changes:
+        if "target_date" in changes or "start_date" in changes:
             current_result = await self.get(uid)
             if current_result.is_error:
-                # Fail fast: the stamp is transition-gated on the prior status; a
-                # failed read must not be read as "not completed" (re-dating risk).
+                # Fail fast: a failed read must not be silently read as "no rule
+                # applies" — the date rule is gated on the goal's stored dates.
                 return Result.fail(current_result)
             old_goal = current_result.value
 
-            # Status-target validation + completion stamping (transition-gated). The
-            # stamp rides the intent so ``super().update`` writes it in the same patch;
-            # an intent already carrying ``achieved_date`` (``complete_goal`` with an
-            # explicit date) keeps authority.
-            stamp = completion_transition_patch(
-                EntityType.GOAL, old_goal.status if old_goal else None, changes
-            )
-            if stamp.is_error:
-                return Result.fail(stamp)
-            if stamp.value:
-                intent = dataclasses.replace(intent, **stamp.value)
+        # Domain validation BEFORE the write. Called explicitly because the facade routes
+        # ``update`` / ``update_for_user`` to this method, so the inherited CRUD hook that
+        # would otherwise run it is unreachable for Goals — the same trap that left the
+        # Tasks rule dead until the cascade-idempotency arc found it (correction #14).
+        if old_goal is not None:
+            validation = self._validate_update(old_goal, intent)
+            if validation.is_error:
+                return Result.fail(validation)
 
-            # Reopening (COMPLETED → a non-terminal status) also resets the
-            # 100% progress ``complete_goal`` wrote, unless the caller supplies
-            # its own figure. Terminal targets (archive/cancel/fail) keep it as
-            # a historical record; on a reopened goal it would read as "already
-            # done" to progress consumers and instantly re-achieve on the next
-            # contribution increment.
-            if (
-                old_goal is not None
-                and old_goal.status == EntityStatus.COMPLETED
-                and "progress_percentage" not in changes
-            ):
-                raw_target = changes["status"]
-                target = (
-                    raw_target if isinstance(raw_target, EntityStatus) else EntityStatus(raw_target)
-                )
-                if not target.is_terminal():
-                    intent = dataclasses.replace(intent, progress_percentage=0.0)
+        # Status-target validation, completion stamping and the reopen progress reset,
+        # all expressed as conditions the WRITE evaluates against the prior it reads
+        # under the node's lock (ADR-087). The refusal on an illegal status target is the
+        # same one the Python-side helper made; what changed is that the stamp and the
+        # reset are no longer decided from a status a concurrent writer may have moved.
+        guard_result = status_transition_guard(EntityType.GOAL, changes)
+        if guard_result.is_error:
+            return Result.fail(guard_result)
+        guard = _with_reopen_progress_reset(guard_result.value, changes)
 
-        result: Result[Goal] = await super().update(uid, intent)
-        if result.is_error:
-            return result
+        update_result = await self.backend.update_with_status_guard(uid, changes, guard)
+        if update_result.is_error:
+            return Result.fail(update_result)
 
-        goal: Goal = result.value
+        # This guard refuses nothing (``refuse_if_prior_in`` is empty), so the write
+        # always applied; only the prior it returned is news.
+        outcome = update_result.value
+        goal: Goal = outcome.entity
 
         # GoalUpdated: always fired (cache invalidation contract).
         await publish_event(
@@ -651,8 +710,9 @@ class GoalsCoreService(
             self.logger,
         )
 
-        # GoalAchieved: status transitioned into COMPLETED.
-        if old_goal is not None and is_completion_transition(old_goal.status, changes):
+        # GoalAchieved: status transitioned into COMPLETED — decided from the status the
+        # write saw, so a goal another writer completed first is not announced twice.
+        if is_completion_transition(outcome.prior_status, changes):
             actual_duration_days = (
                 (datetime.now() - goal.created_at).days if goal.created_at else None
             )
@@ -671,7 +731,7 @@ class GoalsCoreService(
             self.event_bus, EntityType.GOAL, goal, self.logger, changed_fields=updated_fields
         )
 
-        return result
+        return Result.ok(goal)
 
     async def delete(self, uid: str, cascade: bool = False) -> Result[bool]:
         """

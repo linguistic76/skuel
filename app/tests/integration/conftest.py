@@ -170,6 +170,9 @@ async def ensure_test_users(neo4j_driver):
         # The three-click sequence (complete → Undo → complete) driven through the
         # real Task services — its tasks are owned like any other.
         "user_three_click",
+        # The Goal complete → reopen → complete cycle (ADR-087 PR-3): the stamp clear
+        # and the progress reset ride one write-time condition, proven on real goals.
+        "user_goal_cycle",
     ]
 
     async def create_users():

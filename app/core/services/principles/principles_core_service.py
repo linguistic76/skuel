@@ -334,6 +334,17 @@ class PrinciplesCoreService(
         (``core.services.completion_stamp``) — COMPLETED is not a Principle status
         and is refused; Principles carry no completion field.
 
+        **Deliberately NOT on the ADR-087 status-guarded write** (ruled 2026-08-24), the
+        one Activity chokepoint that is not. The guarded primitive exists to make a
+        verdict that depends on the PRIOR status exact under concurrency; this seam's
+        only status rule is that the TARGET is legal for the type, which is decided
+        before any read and cannot go stale. There is no race here to close, so routing
+        it through the primitive would be uniformity for its own sake. It calls
+        ``completion_transition_patch`` for that legality check alone — the patch is
+        always empty, Principle having no completion field — which is why retiring that
+        function (ADR-087 PR-4) owes this site a legality-only successor rather than a
+        migration. See ADR-087 § Scope.
+
         Backend-direct (like ``TasksCoreService.update_task``), **not** ``super().update``:
         Principles' inherited ``_validate_update`` is stale — its rules reference fields
         that no longer match the schema (``label``/``category`` are not columns; the
