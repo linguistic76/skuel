@@ -190,8 +190,12 @@ extractor docstring's idempotency claim is rewritten to describe this mechanism.
 > `tests/integration/test_vault_done_date_hash_roundtrip.py`). The hash itself is
 > unchanged — blinding it to the `✅` token was tried first and swallowed a second
 > same-title completed occurrence added a sync later, so the date stays inside the
-> digest as a discriminator. Same discipline as guard 3: skip, never mutate, never
-> touch provenance. The inputs of guards 2, 2b and 3 come off one provenance read.
+> digest as a discriminator. Like guard 3 it skips and never mutates the entity —
+> but unlike guards 3/4, whose matched edge belongs to *another* line, a 2b edge is
+> the line's own, so its `source_line_hash` is refreshed to the current digest
+> (through the same batch edge MERGE as new links; `vault_id` and `extracted_at`
+> untouched). Left stale, it swallowed the next same-text `- [ ] …` line the user
+> added. The inputs of guards 2, 2b and 3 come off one provenance read.
 
 ### 1.4 Un-reserving the substance channel + the ZPD 4th signal
 
