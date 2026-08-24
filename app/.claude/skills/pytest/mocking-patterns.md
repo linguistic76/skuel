@@ -293,7 +293,7 @@ from unittest.mock import call
 
 mock_backend.assert_has_calls([
     call.get("task:1"),
-    call.update("task:1", {"status": "completed"}),
+    call.update("task:1", {"title": "Revised title"}),
 ])
 ```
 

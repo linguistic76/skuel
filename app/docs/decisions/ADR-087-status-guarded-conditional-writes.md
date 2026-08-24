@@ -161,7 +161,10 @@ Deliberately **out**, by name:
   arc.
 - **Principles' own chokepoint.** Its gate is target-only legality (`valid_statuses`),
   which is prior-INdependent, so no read-then-write race exists there. Migrating it would
-  be uniformity theater.
+  be uniformity theater. It does still *call* `completion_transition_patch`, for that
+  legality check alone (Principle has no completion field, so the patch is always empty) —
+  so retiring the Python-side form means giving Principles a legality-only successor
+  (`_stamp_target` already is one), not simply deleting the function.
 - **ADR-030's check-in store** stays exactly as it is.
 
 ## Alternatives rejected
