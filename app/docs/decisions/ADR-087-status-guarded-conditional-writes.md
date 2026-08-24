@@ -16,7 +16,7 @@ related_skills: [neo4j-cypher-patterns, activity-domains, result-pattern]
 **Arc:** Conditional-write primitive (successor to cascade-idempotency #1126–#1136).
 **Migration:** complete. Shipped in #1145 (primitive + protocol + `update_task`), #1147
 (the Task completion doors), #1148 (the client-side ordering tail), #1149 (Goals / Events
-/ Choices / Habits chokepoints) and PR-4 (the goal-progress writers, the raw status
+/ Choices / Habits chokepoints) and #1150 (the goal-progress writers, the raw status
 writers, and the deletion of the read-then-write form). Every status-bearing write in
 `core/services/` now goes through `update_with_status_guard`; there is no second path.
 **Related:** ADR-030 (node-lock sentinel, at-most-once execution), ADR-066 (typed update
