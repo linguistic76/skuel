@@ -603,16 +603,20 @@ handlers that **recompute** ignore it; handlers that **count or append** skip on
 refinement (#1134) sharpened it further — the flag gates what **accumulates** (appends, stamps),
 never what **derives**. See `core/events/task_events.py` for the authoritative statement.
 
-Still open, named by the arc rather than fixed by it: a **conditional-write primitive for
-status-guarded transitions**, serving all six Activity chokepoints. Codex flagged the underlying
-read-then-write race five times across the arc (#1127, #1128, #1131, #1133, #1136) and each
-rejection was scoped, not dismissive — the window is the one the completion stamps already carry
-(#1123), so closing it closes both.
+Named by the arc and since **ruled (2026-08-23): its own 4-PR arc is next** — a
+**conditional-write primitive for status-guarded transitions** serving all six Activity
+chokepoints. Codex flagged the underlying read-then-write race five times across the arc (#1127,
+#1128, #1131, #1133, #1136) and each rejection was scoped, not dismissive — the window is the one
+the completion stamps already carry (#1123), so closing it closes both. The residue PRs that
+preceded the arc are merged: #1139/#1140 (habit windows bounded both ends), #1142
+(`tasks_completed` derived at read; the reconcile instrument retired — never resurrect), #1143
+(the 🆔 is identity at ingest — Guard 2b).
 
-Also unchanged by ruling (R4): vault **inbound** `[x]`-completion propagation. CLAUDE.md and
-ADR-070 say a checked line propagates back to SKUEL; it does not — dedup Guard 2
-(`activity_extractor.py:983-985`) skips an already-extracted line. Its own thread, after the
-`git log -S` discriminator (docs-hold-vision protocol).
+R4 — vault **inbound** `[x]`-completion propagation — is ✅ dispositioned (ruled 2026-08-23;
+docs corrected 2026-08-24): the `git log -S` discriminator ran, verdict **never wired**, the docs
+now state the outbound-only truth (CLAUDE.md § Obsidian VaultBridge, ADR-070 status annotation,
+both user guides), and the build is parked with a trigger and design sketch — see § R4 Vault
+Inbound Propagation — Parked Build.
 
 ---
 
@@ -1283,6 +1287,200 @@ orphan-Ku substance back-fills on composition or starts at zero.
 
 ---
 
+## R4 Vault Inbound Propagation — Parked Build (REGISTERED 2026-08-24, ruled 2026-08-23)
+
+**Never-wired verdict, then a parking ruling.** The `git log --all -S` discriminator ran with
+multiple probes: the reconciler's inbound half has been `ingest_directory`-only since its first
+commit (`b7a1bb3fe`); the only deleted artifact (`find_line_by_vault_id`) was same-day
+scaffolding; the CLAUDE.md "completions propagate back" claim landed two days AFTER the
+outbound-only code (`5cb1eec12`). The prose was vision, not history. Mike ruled (2026-08-23,
+cascade-residue disposition): make the docs honest now — done 2026-08-24 (CLAUDE.md § Obsidian
+VaultBridge, ADR-070 status annotation, both user guides) — and park the build here.
+
+**Design sketch, for the day it is scheduled:**
+
+- The `vault_id → entity` lookup the build needs already EXISTS: Guard 2b (#1143) builds
+  `existing_vault_ids` per entry in `UserEntryProcessingService` from the same `EXTRACTED_FROM`
+  provenance read that feeds Guards 2/3 (`ExtractedByVaultId` in
+  `core/services/dsl/activity_extractor.py` carries `entity_uid` + the stored line hash).
+- The build is a **status-reconciliation branch beside the extraction guards**: when a 🆔
+  line is skipped as already-extracted, compare the PARSED LINE against the ENTITY'S STATE and
+  reconcile — covering check (`[x]` + `✅` → complete the task), uncheck (`[ ]` → reopen), and
+  edits (title/date changes). ADR-070 Decision 3's LWW-on-`✅` policy is the written conflict
+  rule; it has never had a mechanism.
+- ⭐ **The change signal must be parsed-line vs entity STATE, never a hash inequality.** The
+  hash cannot say WHAT changed — and Guard 2b deliberately REFRESHES the edge hash on every
+  moved 🆔 line, so hash inequality is transient by design. This was Codex round-5 P1 on
+  #1143, rejected as exactly this parked feature
+  (<https://github.com/linguistic76/skuel/pull/1143#issuecomment-5390505718>); the refresh
+  forecloses nothing.
+- The two historical guard-miss shapes the branch must not regress: Guard 2 misses when the
+  hash moved (that miss becomes the reconciliation trigger), and Guard 4 filters to ACTIVE
+  twins by design, so it can never catch a completed task.
+
+**Trigger:** Mike schedules it — product decision, not a data threshold.
+**Named cost while parked:** vault-side checks, unchecks, and edits of 🆔 lines silently do
+not propagate — an edited 🆔 line is skipped + rehashed (#1143's deliberate behaviour: no
+duplicate, no update). Tracked tasks must be completed and edited in SKUEL.
+
+---
+
+## Vault Task Door Publishes No Task Events (REGISTERED 2026-08-24)
+
+The direct `type: task` frontmatter ingestion path persists through
+`UnifiedIngestionService` → `BulkUpsertBackend.upsert_with_relationships`
+(`adapters/persistence/neo4j/bulk_upsert_backend.py`) — no event bus anywhere in that chain. A
+task that arrives completed (or is completed by a later re-ingest of its file) through that door
+publishes no `TaskCompleted`, so nothing event-driven runs for it — concretely, the
+`ProductivityAnalytics.first/last_completion_at` stamps never move: this is the residual root of
+the `last_completion_at` staleness that survives #1142 (which derives the COUNT at read but kept
+the stamps stored). Don't overstate the gap: checkbox/DSL **extraction**-created tasks go through
+the activity services and DO cascade — only the frontmatter bulk-upsert door is silent.
+
+**Trigger:** the R4 build (its reconciliation branch needs the same event honesty) or the next
+vault-door touch.
+**Named cost:** completion stamps drift stale for vault-frontmatter-authored completions; any
+reader of first/last completion stamps under-reports that door's activity.
+
+---
+
+## Phantom-🆔 on a No-Op Injection (REGISTERED 2026-08-24 — own PR)
+
+`VaultReconciler._process_entry_outbound` mints a `vault_id`, queues the line injection, and
+after a **file-level** successful `write_task_updates` persists EVERY minted pair via
+`update_extracted_vault_id`. But `WriteResult` (`core/ports/vault_bridge_protocol.py`) carries
+only `success`/`new_sha256` — `apply_task_updates` computes a per-update `changed` and discards
+it into a file-level OR, so file-level success is TAKEN AS proof that every queued injection
+landed, with nothing enforcing it. **No currently-known production trigger** (corrected by the
+Codex review on #1144): the two windows once thought live are closed — a line edited before the
+snapshot fails the queue-time `_find_line_by_hash` lookup (nothing queued), and an edit after
+the snapshot fails the whole-file SHA guard on BOTH transports (`success=False`, nothing
+persisted). The registration is the structural fragility: any future batch shape in which one
+update no-ops inside a successful write silently creates a 🆔 in Neo4j that the file never
+received — and no later sync can locate the line by it, so the completion write-back for that
+task silently never happens. Detection probe: a 🆔 on an `EXTRACTED_FROM` edge absent from
+its file.
+
+**Fix shape (own PR):** per-update outcomes on `WriteResult` across BOTH transports + the
+`skuel-vault-agent` — a wire-protocol change, so it bumps `PROTOCOL_VERSION` on both sides (the
+#1143 rule: a digest or wire change is a protocol change).
+**Trigger:** next vault-agent protocol touch, or an observed 🆔 in Neo4j absent from its file.
+**Named cost:** silently unsynced completions for any line whose injection missed.
+
+---
+
+## Line Deletions Leave `EXTRACTED_FROM` Edges (REGISTERED 2026-08-24)
+
+Deletion propagation is FILE-level (entity file deleted → entity deleted). Deleting a task LINE
+from a note that still exists leaves the `EXTRACTED_FROM` edge (and its hash) behind. Observed
+live in the #1143 read-only census (2026-08-23): 5 🆔-bearing edges point into
+`Weekly/2026-W28.md`, whose file holds no checkbox line at all; edge ids in that PR's thread.
+(The same census's other 43 hash-orphan edges are bridge/DSL prose entities that never had a
+physical line — expected, and any fix must leave those alone.)
+
+**Candidate fix:** retire the edge (or blank its hash) when a sync finds the line gone from its
+file — scoped to edges that ever had a physical line (`vault_id`-bearing).
+**Trigger:** the R4 build (a reconciliation branch needs honest provenance) or the next
+reconciler touch.
+**Named cost:** dead provenance rows feed the extraction guards' read on every future sync of
+the entry, forever.
+
+---
+
+## Habit Streak Counters — Lost-Update Race + Future-Day Credit (REGISTERED 2026-08-24)
+
+Two named defects in the same write family, deliberately scoped OUT of the conditional-write arc
+(numeric counters, not status transitions — a different bug class):
+
+1. **Lost update.** Both streak writers are read-then-write: the inline CALCULATE STREAK block
+   in `habits_progress_service.py` (`complete_habit_with_quality`) and `_calculate_new_streak`
+   in `habits_completion_service.py` read `current_streak`/`last_completed`, compute in Python,
+   and write back (`total_completions` rides the same shape). Two concurrent completions can
+   drop an increment.
+2. **Future-day credit — ruling needed on semantics.** Completing a FUTURE habit occurrence is
+   legitimate by ruling (2026-08-23): the write doors carry no upper bound and must not gain
+   one. But both writers advance `last_completed` to the completed day and increment on
+   `days_since == 1`, so completing tomorrow, then the day after — in one sitting — grows
+   `current_streak` without bound and freezes the inflation into `best_streak` permanently (for
+   a daily habit with no recurrence end, every future day is an occurrence day). Not a
+   mechanical fix: it is a question of what `current_streak` MEANS. Candidate: consecutive
+   completed days ending at *today*, with future completions stored and shown but not advancing
+   the streak until their day arrives. The provenance-bearing
+   `HabitStreakBroken`/`HabitStreakMilestone` events publish whatever number the writer
+   computed, so milestones inherit the inflation.
+
+**Trigger:** next substantive touch of the streak write path, or a lived wrong-streak report.
+**Named cost:** inflated or lost streaks and milestones; `best_streak` never heals.
+
+---
+
+## Unwired `HabitCompletion` Model Methods — Wrong the Day They're Wired (REGISTERED 2026-08-24)
+
+Four methods on `core/models/habit/completion.py` have ZERO production consumers —
+`was_completed_today`, `days_since_completion`, `is_streak_eligible`,
+`contributes_to_consistency`. `git grep` finds only `tests/unit/models/test_habit_completion.py`
+(the `days_since_completion` hit in `habit_event_handler_service.py` is an unrelated same-named
+parameter). Under the future-completion ruling (2026-08-23) each would be wrong the day anyone
+wires it: `days_since_completion` returns a NEGATIVE for a future completion;
+`is_streak_eligible`'s recency gate (`days_since_completion() > 1`) never fires for a future
+completion (negative days), so it OVER-accepts — the completion passes straight to the
+quality/duplicate-day checks; `was_completed_today` is false for it; `contributes_to_consistency("weekly")`'s
+`week_start <= d <= today` excludes a future day inside the current week.
+
+⚠️ **Wiring caveat:** a never-called method's edge cases were never tested — wiring one CHANGES
+its meaning from staged prose to live rule. Wiring is a semantics decision (what a
+not-yet-happened completion means for that reader), not a hookup; audit each against the ruling
+first. `./dev bloat` does not cover model methods — this section is the visibility.
+
+**Trigger:** a consumer wants one of these, or the next Habits model touch (then: wire
+corrected, or delete — never-wired → ask, per the docs-hold-vision discriminator).
+**Named cost:** dormant wrong logic that looks ready-made.
+
+---
+
+## `find_by` Datetime String-Binding — Three Habit Sites (REGISTERED 2026-08-24 — one PR)
+
+#1140 established the bug class (Pattern 10b / Key Rule 18b in
+`.claude/skills/neo4j-cypher-patterns/PATTERNS.md`): `find_by(field__gte/__lte=<datetime>)` is a
+Cypher range predicate whose bound is stringified by `convert_value_for_neo4j`, so a
+natively-typed stored value falls outside every range — silently. #1140 fixed only the
+consistency score's own fetch; three pre-existing sites remain, all in
+`core/services/habits/habits_completion_service.py` and each ⚠-marked in the
+`get_completions_for_habit` docstring:
+
+- `get_completions_for_habit(start_date/end_date)` — feeds the streak backfill
+  (`_completed_days_window`) and the calendar day read;
+- `get_today_completions` via `_all_completions` (`completed_at__gte/__lte`);
+- `export_completion_history` (CSV/JSON export, same range).
+
+**Fix as ONE PR:** a normalized range query on a backend method —
+`date(left(toString(x), 10)) >= date($iso)` on both sides (Codex's original suggestion on
+#1140), replacing all three `find_by` reads.
+**Trigger:** next touch of any of the three reads, or a second `completed_at` writer shape
+appears (today's single writer persists ISO strings, so the hazard is latent, not live).
+**Named cost:** a natively-typed `completed_at` row vanishes from streak backfill, calendar day
+reads, today view, and exports — a confident wrong answer, not an error.
+
+---
+
+## `TaskUpdateRequest` Future `completion_date` — Create/Update Asymmetry (REGISTERED 2026-08-24 — ruling needed)
+
+`TaskCreateRequest` refuses a future `completion_date` ("semantically impossible and would pin
+itself atop completion-date-ordered reads" — `core/models/task/task_request.py`,
+`default_completion_date_when_completed`); `TaskUpdateRequest.to_intent()` passes one straight
+through as a patch. The 2026-08-23 future-completion ruling was about HABITS — future habit
+occurrences are legitimate — and does not extend to Tasks; the create-vs-update asymmetry inside
+Tasks is UNRULED. The decision (Mike's): refuse future on update too (symmetry with create), or
+allow on both and bound the readers (the habits precedent). The two windowed readers are already
+bounded either way (#1139/#1142).
+
+**Trigger:** ruling — take it to Mike on the next touch of `task_request.py`'s validators; do
+not rule it in passing.
+**Named cost:** until ruled, an update can plant the future-dated stamp the create door exists
+to refuse, pinning itself atop completion-date-ordered reads.
+
+---
+
 ## Review Schedule
 
 Review this document at the **September 2026 quarterly review**. Checklist:
@@ -1313,6 +1511,14 @@ Review this document at the **September 2026 quarterly review**. Checklist:
 | LP recommendation backend methods (ruled *build, not now* 2026-08-20) | Mike schedules it — full feature: backend methods + frozen contract + consumer surface | Case file `lp-backend-recommendation-methods.md`; the 3 `Any` handles + their comments are the in-code markers |
 | `KnowledgePracticed` subscriber (ruled "earns a subscriber" 2026-08-21) | A review-scheduling / spaced-repetition surface is scheduled | `git grep -l "subscribe(KnowledgePracticed"` — empty until wired; see the section |
 | Per-node substance counters — the unread arm (ruled "keep staged" 2026-08-21) | A substantiation UI/surface is scheduled | `git grep -n "get_substantiation_gaps\|is_well_practiced" -- "ui/" "adapters/inbound/"` — empty until wired; see the section (incl. the retroactive-credit question) |
+| R4 vault inbound propagation — parked build | Mike schedules it (product decision) | See the section — sketch + the #1143 r5 rejection; parsed-line vs entity state, never hash |
+| Vault task door publishes no task events | R4 build or next vault-door touch | `git grep -n "event_bus" adapters/persistence/neo4j/bulk_upsert_backend.py` — empty until wired |
+| Phantom-🆔 on a no-op injection | Next vault-agent protocol touch, or a 🆔 in Neo4j absent from its file | `WriteResult` still carries no per-update outcomes (`core/ports/vault_bridge_protocol.py`) |
+| Line deletions leave `EXTRACTED_FROM` edges | R4 build or next reconciler touch | Census shape in the section; re-probe the W28 edges before building |
+| Habit streak counters (lost-update + future-day credit) | Next touch of the streak write path, or a lived wrong-streak report | Ruling needed on `current_streak` semantics — see the section |
+| Unwired `HabitCompletion` model methods | A consumer wants one, or next Habits model touch | `git grep -n "is_streak_eligible\|was_completed_today" -- core/services/ adapters/ ui/` — empty until wired |
+| `find_by` datetime string-binding (3 habit sites) | Next touch of any of the three reads, or a second `completed_at` writer | One PR: normalized range on a backend method (Pattern 10b / Key Rule 18b) |
+| `TaskUpdateRequest` future `completion_date` asymmetry | Next touch of `task_request.py` validators | Ruling needed — see the section; don't rule in passing |
 
 **The document is the checklist, the table is a convenience:** a section added to this file
 without a matching row here is still in review scope — walk every `##` section, then the table.

@@ -403,7 +403,7 @@ See the [YAML Authoring Guide](/docs/guides/YAML_AUTHORING_GUIDE.md) for a full 
 The VaultBridge creates a live connection between your Obsidian vault and SKUEL. It works in both directions:
 
 - **Obsidian → SKUEL:** Your periodic notes are read, journal entries are created, and activity lines with `@context()` tags are extracted into your graph.
-- **SKUEL → Obsidian:** Tasks that already exist in SKUEL (created via the app, via YAML upload, or extracted from a previous note) are written into your daily notes with a permanent ID. When you mark them complete in Obsidian, that completion propagates back to SKUEL on the next sync.
+- **SKUEL → Obsidian:** Tasks that already exist in SKUEL (created via the app, via YAML upload, or extracted from a previous note) are written into your daily notes with a permanent ID. Completion flows this direction only: complete the task in SKUEL and the next sync writes `[x]` + `✅ date` into your note — checking it off in Obsidian does not propagate back.
 
 ### Task IDs: the link between the two worlds
 
@@ -415,15 +415,15 @@ When SKUEL writes a task back into your Obsidian vault, it appends a short ID to
 
 The `🆔 sk_XXXXXX` token is the permanent join key. It's compatible with the **obsidian-tasks plugin**. SKUEL is responsible for minting these IDs — you don't need to type them yourself. Once the ID is there, SKUEL can always match that line to the right task, even if you edit the title or move the note.
 
-### Completing a task in Obsidian
+### Completing a task: do it in SKUEL
 
-When you check off a task in Obsidian, mark it with the obsidian-tasks done syntax:
+Completion is outbound-only. For a task line that carries a `🆔` (one SKUEL wrote out or has already extracted), checking the box in Obsidian does **not** update SKUEL — the sync deliberately skips lines it already tracks, so the check stays local to your note. Complete the task in SKUEL instead; the next sync marks the line done in your note with the obsidian-tasks done syntax:
 
 ```
 - [x] Write Chapter 3 — Habits ✅ 2026-06-24 🆔 sk_a7c2f1
 ```
 
-The `✅ YYYY-MM-DD` token is the date you completed it. The obsidian-tasks plugin can insert this automatically when you check the box. The next time you sync, SKUEL reads this token and marks the task as completed in your graph — including logging the completion timestamp.
+The `✅ YYYY-MM-DD` token is the completion date, written by SKUEL from the task's completion stamp. One exception runs inbound: a checkbox line you author *already checked*, before it has a `🆔`, is ingested on first sync as a completed task carrying the `✅` date.
 
 ### Running a sync at /submissions/sync
 
@@ -440,12 +440,12 @@ The VaultBridge follows a clear rule about which side is the source of truth for
 | Field | Who controls it |
 |-------|----------------|
 | Task title and description | Obsidian (you edit in your notes) |
-| Checkbox status (done/not done) | Both — whichever is more recent wins |
+| Checkbox status (done/not done) | SKUEL, completed-direction only — completing in SKUEL writes `[x]` + `✅` to your note; there is no outbound un-check (reopening in SKUEL leaves the note checked), and a vault-side check of a 🆔 line is not read back |
 | Due dates, priority, tags | Obsidian |
 | `🆔` ID | SKUEL (minted and written once) |
 | History, relationships, ZPD scores | SKUEL only |
 
-If you mark something done in both places before syncing, SKUEL uses the later completion date.
+The Obsidian-owned rows apply when a line is **first extracted**. Once a line carries a `🆔`, later vault-side edits to it (title, dates, checkbox) are skipped by the sync — if you check off a 🆔 line in Obsidian, SKUEL's status is unaffected. Make changes in SKUEL — the sync writes completions outbound (`[x]` + `✅`), though it does not un-check a line when you reopen a task (outbound un-check is a deferred capability).
 
 ---
 
