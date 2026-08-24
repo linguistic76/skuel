@@ -24,7 +24,6 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import Any
 
 # scripts/ has no __init__.py — add it to sys.path for import
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
@@ -43,8 +42,8 @@ def _row(
     has_retired_count: bool = False,
     first_day: str | None = None,
     last_day: str | None = None,
-) -> dict[str, Any]:
-    """One census row, in the shape the RETURN aliases produce."""
+) -> backfill.CensusRow:
+    """One census row, in the shape ``_to_census_row`` projects from the RETURN aliases."""
     return {
         "user_uid": user_uid,
         "has_node": has_node,

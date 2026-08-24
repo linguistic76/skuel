@@ -57,8 +57,9 @@ from __future__ import annotations
 import argparse
 import asyncio
 import sys
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypedDict
 
 from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.neo_labels import NeoLabel
@@ -145,6 +146,42 @@ RETURN count(a) AS n
 """
 
 
+class CensusRow(TypedDict):
+    """One ``CENSUS_QUERY`` row, keyed by its RETURN aliases.
+
+    ``first_day`` / ``last_day`` are the ``YYYY-MM-DD`` projections of the
+    user's earliest and latest stamped completed task, or ``None`` when they
+    own none — which is how a node with null stamps reads as unfillable.
+    """
+
+    user_uid: str
+    has_node: bool
+    has_first: bool
+    has_last: bool
+    has_retired_count: bool
+    first_day: str | None
+    last_day: str | None
+
+
+def _to_census_row(record: Mapping[str, Any]) -> CensusRow:  # boundary: raw neo4j-driver record
+    """Project a driver record onto CensusRow (KeyError on alias drift).
+
+    Nothing statically links a Cypher alias to a TypedDict key, so a renamed
+    RETURN would type-check while the census read a missing key as "nothing to
+    do" — a confident no-op on a pass whose job is to notice gaps. Indexing
+    each alias turns that into a loud failure before anything is written.
+    """
+    return {
+        "user_uid": str(record["user_uid"]),
+        "has_node": bool(record["has_node"]),
+        "has_first": bool(record["has_first"]),
+        "has_last": bool(record["has_last"]),
+        "has_retired_count": bool(record["has_retired_count"]),
+        "first_day": None if record["first_day"] is None else str(record["first_day"]),
+        "last_day": None if record["last_day"] is None else str(record["last_day"]),
+    }
+
+
 @dataclass(frozen=True)
 class StampPlan:
     """What the write would do for one census row — pure, so it is testable DB-free.
@@ -162,19 +199,19 @@ class StampPlan:
     drops_retired_count: bool
 
     @classmethod
-    def from_row(cls, row: dict[str, Any]) -> StampPlan:  # boundary: raw neo4j-driver row
-        has_node = bool(row["has_node"])
+    def from_row(cls, row: CensusRow) -> StampPlan:
+        has_node = row["has_node"]
         first_day = row["first_day"]
         last_day = row["last_day"]
         first_missing = not row["has_first"]
         last_missing = not row["has_last"]
         return cls(
-            user_uid=str(row["user_uid"]),
+            user_uid=row["user_uid"],
             has_node=has_node,
-            fill_first=str(first_day) if first_missing and first_day is not None else None,
-            fill_last=str(last_day) if last_missing and last_day is not None else None,
+            fill_first=first_day if first_missing and first_day is not None else None,
+            fill_last=last_day if last_missing and last_day is not None else None,
             unfillable=has_node and (first_missing or last_missing) and first_day is None,
-            drops_retired_count=bool(row["has_retired_count"]),
+            drops_retired_count=row["has_retired_count"],
         )
 
     @property
@@ -189,7 +226,7 @@ class StampPlan:
 async def census(driver: AsyncDriver) -> tuple[list[StampPlan], int]:
     """Read-only survey: ``(one plan per in-scope user, nodes carrying the retired count)``."""
     records, _, _ = await driver.execute_query(CENSUS_QUERY, completed=COMPLETED)
-    plans = [StampPlan.from_row(dict(record)) for record in records]
+    plans = [StampPlan.from_row(_to_census_row(record)) for record in records]
     retired, _, _ = await driver.execute_query(RETIRED_COUNT_QUERY)
     return plans, int(retired[0]["n"]) if retired else 0
 
