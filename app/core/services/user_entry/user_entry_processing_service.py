@@ -514,9 +514,11 @@ class UserEntryProcessingService:
         existing_line_hashes = frozenset(
             line_hash for row in extracted_rows if (line_hash := row.get("source_line_hash"))
         )
-        existing_vault_ids = frozenset(
-            vault_id for row in extracted_rows if (vault_id := row.get("vault_id"))
-        )
+        existing_vault_ids: dict[str, str] = {
+            vault_id: row["entity_uid"]
+            for row in extracted_rows
+            if (vault_id := row.get("vault_id")) and row.get("entity_uid")
+        }
         existing_extracted: dict[tuple[str, str], str] = {}
         for row in extracted_rows:
             # Node label is the never-sniff-compliant type source; :Entity is
@@ -585,9 +587,13 @@ class UserEntryProcessingService:
         extraction = extract_result.value
 
         # --- Provenance edges ---------------------------------------------------
-        if extraction.created_links:
+        # New edges for what was created, plus the hash refresh for lines Guard
+        # 2b recognised by 🆔 after their text moved — the same MERGE, on the
+        # line's own edge, same vault_id, extracted_at untouched (ON CREATE).
+        provenance_links = [*extraction.created_links, *extraction.refreshed_links]
+        if provenance_links:
             links_result = await self.entry_service.create_extracted_from_links(
-                entry.uid, extraction.created_links
+                entry.uid, provenance_links
             )
             if links_result.is_error:
                 return await self._fail(entry, links_result.expect_error(), phase="persist_links")

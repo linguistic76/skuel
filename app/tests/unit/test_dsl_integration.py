@@ -425,6 +425,8 @@ Some reflections on the day...
         misses it and Guard 4 ignores the now-terminal twin — the line's 🆔,
         already on this entry's EXTRACTED_FROM edge, is what says "mine". A
         sibling line carrying a 🆔 the entry has never seen is a new task."""
+        from core.services.dsl.activity_extractor import normalized_line_hash
+
         entry = UserEntry(
             uid="ue_ident",
             title="Identity",
@@ -447,7 +449,7 @@ Some reflections on the day...
             entry,
             "user_mike",
             existing_line_hashes=frozenset(),  # the hash moved: nothing matches
-            existing_vault_ids=frozenset({"sk_mine01"}),
+            existing_vault_ids={"sk_mine01": "task_mine"},
         )
 
         assert result.is_ok
@@ -455,6 +457,13 @@ Some reflections on the day...
         assert extraction.lines_skipped_existing == 1
         assert extraction.tasks_created == 1
         assert [vault_id for _uid, _hash, vault_id in extraction.created_links] == ["sk_other2"]
+        # The matched edge's change signal moves with the line: a stale digest
+        # would swallow the next same-text line the user adds.
+        mine = "- [x] Water the plants 🆔 sk_mine01 ✅ 2026-08-17"
+        assert extraction.refreshed_links == [
+            ("task_mine", normalized_line_hash(mine), "sk_mine01")
+        ]
+        assert extraction.to_dict()["lines_rehashed"] == 1
 
     @pytest.mark.asyncio
     async def test_bridge_generated_lines_never_tag_warn(self, extractor):

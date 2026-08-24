@@ -250,6 +250,31 @@ class TestDoneDateWriteBackRoundTrip:
         await rig.sync()
         assert await rig.owned_tasks() == tasks
 
+    async def test_a_new_unchecked_occurrence_after_the_write_back_is_still_extracted(
+        self, rig: Rig
+    ) -> None:
+        """After SKUEL writes ``[x]`` + ``✅`` into ``- [ ] Gym``, the edge's
+        change signal must move with the line. If it kept the ORIGINAL unchecked
+        digest, a fresh ``- [ ] Gym`` the user adds next week would hash into it
+        and Guard 2 would drop the new task silently (Codex P1, round 3)."""
+        rig.note.write_text(FRONTMATTER + "- [ ] Gym\n", encoding="utf-8")
+        await rig.sync()
+        ((task_uid, _),) = await rig.owned_tasks()
+        await _complete_in_skuel(rig, task_uid)
+        await rig.sync()  # 🆔 re-ingest + [x] ✅ write-back
+        await rig.sync()  # the write-back re-ingests; Guard 2b recognises the line
+        assert len(await rig.owned_tasks()) == 1
+        written = rig.note.read_text(encoding="utf-8")
+        assert "- [x] Gym" in written and "✅ " in written, written
+
+        rig.note.write_text(written + "- [ ] Gym\n", encoding="utf-8")
+        await rig.sync()
+        tasks = await rig.owned_tasks()
+        assert len(tasks) == 2, f"the new unchecked occurrence was swallowed: {tasks}"
+        assert sorted(status for _, status in tasks) == sorted(
+            [EntityStatus.COMPLETED.value, EntityStatus.DRAFT.value]
+        )
+
     async def test_a_second_completed_occurrence_added_later_is_still_extracted(
         self, rig: Rig
     ) -> None:
