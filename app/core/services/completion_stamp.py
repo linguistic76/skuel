@@ -5,8 +5,8 @@ Completion stamping — the shared status-transition helper for Activity updates
 Every intent-based Activity update funnels through one per-domain core method
 (``update_task`` … ``update_principle``). Each of those six chokepoints applies the
 rules here at its write — the five stamping domains (Task, Goal, Habit, Event, Choice)
-as a write-time guard (:func:`status_transition_guard`), Principle still via
-:func:`completion_transition_patch`, for its legality check alone — so that:
+through a write-time guard (:func:`status_transition_guard`), Principle through
+:func:`validate_status_target`, having nothing to stamp — so that:
 
 1. **The status target is legal for the type** — ``EntityType.valid_statuses()``
    is enforced at the seam instead of being documentation (e.g. a Principle can
@@ -41,15 +41,21 @@ is a ``list[dict[str, Any]]`` and ``.metadata`` a bare ``dict``, neither of whic
 Nothing here reads an arbitrary value out of it: ``status`` is read and immediately
 narrowed by :func:`_coerce_status`, and every other use is a key-membership test.
 
-**Two forms of the same rules, during the ADR-087 migration.**
-:func:`completion_transition_patch` decides the patch in Python from a status the
-caller read *before* the write; :func:`status_transition_guard` packages the same
-decision as a :class:`StatusWriteGuard` the write statement evaluates against the
-prior it reads *under the node's write-lock*, which is what makes the verdict exact
-when two writers race. Both enforce the same legality check and the same authority
-rule, and each chokepoint uses exactly one of them at any time. Every stamping domain
-is now on the guard; the Python-side form survives only for Principle's legality check
-and for the goal-progress writers PR-4 migrates, and retires with them.
+**The rules are conditions of the write, not decisions taken before it (ADR-087).**
+:func:`status_transition_guard` packages them as a :class:`StatusWriteGuard` the write
+statement evaluates against the prior status it reads *under the node's write-lock*,
+and returns that prior so the caller derives its transition verdicts
+(:func:`is_completion_transition` / :func:`is_reopen_transition`) from the same status
+the stamp was decided on. The read-then-write predecessor —
+``completion_transition_patch``, which chose one patch from a status the caller read
+beforehand, outside any lock, so two concurrent writers could both act on it — was
+deleted when the last caller left (ADR-087 PR-4). Do not reintroduce a Python-side
+form: a status read before the write is stale by the time it is written.
+
+The goal-progress writers in ``GoalsProgressService`` build their achievement patch
+themselves (they derive completion from a progress recompute, not from a status target
+a caller supplied), but they express it the same way — a ``patch_if_prior_not_in``
+whose verdict comes back from the write.
 """
 
 from __future__ import annotations
@@ -65,10 +71,10 @@ from core.utils.result_simplified import Errors, Result
 
 __all__ = [
     "COMPLETION_FIELDS",
-    "completion_transition_patch",
     "is_completion_transition",
     "is_reopen_transition",
     "status_transition_guard",
+    "validate_status_target",
 ]
 
 # Per-domain canonical completion field + stamp value factory. Task and Goal
@@ -143,10 +149,10 @@ def is_reopen_transition(
 
     The mirror of :func:`is_completion_transition`, and gated the same way: an
     update that leaves an already-open entity open is not a reopen. It agrees
-    exactly with the branch of :func:`completion_transition_patch` that clears
-    the stamp, including the requirement that the *new* status be a canonical
-    ``EntityStatus`` value — an unrecognized status is a validation failure
-    there, never a reopen here.
+    exactly with the guard's stamp-clearing patch
+    (:func:`status_transition_guard`'s ``patch_if_prior_in``), including the
+    requirement that the *new* status be a canonical ``EntityStatus`` value — an
+    unrecognized status is a validation failure there, never a reopen here.
 
     Used by ``TasksCoreService.update_task`` to publish ``TaskReopened``, so the
     event and the stamp clear agree on what counts as reopening.
@@ -169,9 +175,9 @@ def _stamp_target(
 ) -> Result[tuple[EntityStatus, str, Callable[[], date | datetime]] | None]:
     """Validate the status target and resolve the stamp spec this update would use.
 
-    The shared front half of :func:`completion_transition_patch` and
-    :func:`status_transition_guard`, so the legality check and the authority rule
-    cannot drift between the read-then-write form and the write-time form.
+    The shared front half of :func:`status_transition_guard` and
+    :func:`validate_status_target`, so the legality check cannot drift between the
+    domains that stamp and the one that only validates.
 
     Returns:
         ``Result.ok(None)`` when nothing should be stamped — no status key, a domain
@@ -216,6 +222,38 @@ def _stamp_target(
     return Result.ok((new_status, field_name, stamp_factory))
 
 
+def validate_status_target(
+    entity_type: EntityType,
+    # boundary: a materialized update patch (see the module note) — only ``status``'s
+    # VALUE is read, and ``_coerce_status`` narrows it; every other use is a key test.
+    changes: Mapping[str, Any],
+) -> Result[None]:
+    """Refuse a status target that is not legal for this entity type.
+
+    The legality half of the rules above, on its own, for the one Activity chokepoint
+    that has nothing to stamp: ``update_principle``. Principle has no ``_STAMP_SPECS``
+    entry — COMPLETED is not one of its valid statuses — so there is no completion field
+    to set or clear and no prior-dependent decision to make, which is why that seam is
+    deliberately NOT on the guarded write (ADR-087 § Scope). What it does still need is
+    the check that a status it is handed belongs to the Principle lifecycle at all.
+
+    An update with no ``status`` key passes: there is no target to judge.
+
+    Args:
+        entity_type: The Activity domain being updated.
+        changes: The materialized update patch (``intent.to_changes()``). Never mutated.
+
+    Returns:
+        ``Result.ok(None)`` when the target is legal (or absent), ``Result.fail``
+        (validation) when it is not a canonical ``EntityStatus`` value or not valid for
+        this type — the same refusal :func:`status_transition_guard` makes.
+    """
+    target = _stamp_target(entity_type, changes)
+    if target.is_error:
+        return Result.fail(target)
+    return Result.ok(None)
+
+
 def status_transition_guard(
     entity_type: EntityType,
     # boundary: a materialized update patch (see the module note) — only ``status``'s
@@ -224,11 +262,10 @@ def status_transition_guard(
 ) -> Result[StatusWriteGuard]:
     """Package this update's completion-stamp rules as a write-time guard (ADR-087).
 
-    The write-time successor of :func:`completion_transition_patch`. It enforces the
-    same legality check and the same authority rule, but because the prior status is
-    unknown until the write takes the node's lock it cannot choose a patch — it states
-    the condition under which each patch applies and lets the write statement pick at
-    most one:
+    Because the prior status is unknown until the write takes the node's lock, this
+    cannot choose a patch — it enforces the legality check and the authority rule, then
+    states the condition under which each patch applies and lets the write statement
+    pick at most one:
 
     - target ``COMPLETED`` → stamp the field unless the prior was already
       ``COMPLETED`` (so a re-post never re-dates);
@@ -247,7 +284,7 @@ def status_transition_guard(
 
     Returns:
         ``Result.ok`` with the guard, or ``Result.fail`` (validation) on an illegal
-        status target — the same refusal :func:`completion_transition_patch` makes.
+        status target — the same refusal :func:`validate_status_target` makes.
     """
     target = _stamp_target(entity_type, changes)
     if target.is_error:
@@ -262,65 +299,3 @@ def status_transition_guard(
             StatusWriteGuard(patch_if_prior_not_in=(completed, {field_name: stamp_factory()}))
         )
     return Result.ok(StatusWriteGuard(patch_if_prior_in=(completed, {field_name: None})))
-
-
-def completion_transition_patch(
-    entity_type: EntityType,
-    old_status: EntityStatus | str | None,
-    # boundary: a materialized update patch (see the module note) — only ``status``'s
-    # VALUE is read, and ``_coerce_status`` narrows it; every other use is a key test.
-    changes: Mapping[str, Any],
-) -> Result[dict[str, Any]]:
-    """Validate the status target and derive the completion-stamp patch.
-
-    ⚠ **Being retired (ADR-087).** This is the read-then-write form: it needs a prior
-    the caller read *before* the write, outside any lock, so two concurrent writers can
-    both act on the same status. :func:`status_transition_guard` is the successor. Every
-    Activity update chokepoint has moved (PR-1 ``update_task``; PR-2
-    ``complete_task_with_cascade``, ``_trigger_task``, ``complete_tasks_bulk``; PR-3
-    ``update_goal`` / ``update_event`` / ``update_choice`` / ``update_habit``). ONE
-    caller remains:
-
-    - ``update_principle`` — which calls this for the **legality check alone** (Principle
-      has no ``_STAMP_SPECS`` entry, so the patch is always empty) and is deliberately
-      NOT migrating: its gate is target-only and prior-independent, so there is no race
-      to close. PR-4 must give it a legality-only successor — :func:`_stamp_target` is
-      already that shape — before deleting this function.
-
-    PR-4 also migrates the four ``goals_progress_service`` writers, which today decide
-    completion from a pre-read and then blind-write; they never called this function, so
-    they do not appear above.
-
-    Each site holds exactly ONE path at any moment. Do not add a caller. Both forms
-    share :func:`_stamp_target`, so the rules cannot drift meanwhile.
-
-    Args:
-        entity_type: The Activity domain being updated.
-        old_status: The entity's status before this update. ``None`` means "no
-            prior state" (entity not found — the write then fails with
-            not-found) and is treated as "not completed". Callers propagate
-            read *errors* instead of passing ``None`` for them: a failed read
-            must never be mistaken for "not completed" (re-dating risk).
-        changes: The materialized update patch (``intent.to_changes()``). Never
-            mutated.
-
-    Returns:
-        ``Result.ok`` with a patch to merge into the write — ``{field: stamp}``
-        on a transition into COMPLETED, ``{field: None}`` on a transition out
-        (the null clears the node property), ``{}`` otherwise — or
-        ``Result.fail`` (validation) when the intended status is not a
-        canonical ``EntityStatus`` value or is not valid for this entity type.
-    """
-    target = _stamp_target(entity_type, changes)
-    if target.is_error:
-        return Result.fail(target)
-    if target.value is None:
-        return Result.ok({})
-
-    new_status, field_name, stamp_factory = target.value
-    old = _coerce_status(old_status)
-    if new_status is EntityStatus.COMPLETED and old is not EntityStatus.COMPLETED:
-        return Result.ok({field_name: stamp_factory()})
-    if old is EntityStatus.COMPLETED and new_status is not EntityStatus.COMPLETED:
-        return Result.ok({field_name: None})
-    return Result.ok({})

@@ -97,17 +97,28 @@ How it flows:
   `*UpdateIntent` is the contract for the **public** facade/route update, not every call in the
   domain.
 - **`backend.update(uid, dict)` directly** is the persistence seam (always a dict) and is
-  allowed only for full-DTO replaces and timestamp/system bumps — each marked `# raw-write:`.
-  A partial field update that bypasses *both* the intent and the `RawChanges` service contract
-  (i.e. straight to `backend.update`) is a defect.
+  allowed only for full-DTO replaces and timestamp/system bumps that carry **no `status`** —
+  each marked `# raw-write:`. A partial field update that bypasses *both* the intent and the
+  `RawChanges` service contract (i.e. straight to `backend.update`) is a defect.
 - **A write that carries `status` goes through `backend.update_with_status_guard(uid,
   changes, guard)`, never `super().update` or `backend.update`** (ADR-087). Build the guard
   with `status_transition_guard(EntityType.X, changes)`; the write evaluates it against the
   status the node holds under its lock and hands the prior back, so transition verdicts come
   from `outcome.prior_status`, not from a status read beforehand. The five stamping domains
   (Task, Goal, Habit, Event, Choice) are all on it; **Principles is the one exception** — its
-  gate is target-only legality, prior-independent, so there is no race to close (ADR-087
-  § Scope).
+  gate is target-only legality, prior-independent, so there is no race to close, and it
+  calls `validate_status_target(EntityType.PRINCIPLE, changes)` for that check alone
+  (ADR-087 § Scope).
+- ⚠ **A `# raw-write:` is not an exemption from the guard.** A writer that sets a status
+  outside its domain chokepoint (`make_decision`, `miss_habit_event`,
+  `unblock_task_if_ready`, the four `GoalsProgressService` progress writers) keeps its raw
+  shape — each publishes an event with provenance the generic contract cannot express — but
+  it still writes through the primitive. Either `status_transition_guard` (which returns the
+  reopen clear, so a completed entity's stamp is cleared rather than stranded on an open
+  one) or `StatusWriteGuard(refuse_if_prior_in=<terminal values>)` where the write must not
+  resurrect finished work. A writer that derives completion from its own recompute rather
+  than a caller's target puts only the "…and not already completed" half in the guard, as
+  `patch_if_prior_not_in`.
 - ⚠ **Leaving `CrudOperationsMixin.update` takes `_validate_update` off the path.** The
   facades route the generic CRUD to the per-domain method, so the inherited hook is the
   only thing that was running the domain rules — a backend-direct write must call

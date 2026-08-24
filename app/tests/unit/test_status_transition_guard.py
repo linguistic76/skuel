@@ -1,17 +1,23 @@
-"""``status_transition_guard`` — the write-time form of the completion-stamp rules.
+"""``status_transition_guard`` — the completion-stamp rules as conditions of the write.
 
-The Python-side ``completion_transition_patch`` picks ONE patch using a prior the
-caller read before the write. The guard cannot: the prior is unknown until the write
-takes the node's lock. So it states the CONDITION under which each patch applies and
-lets the write choose (ADR-087).
+The prior status is unknown until the write takes the node's lock, so the guard cannot
+pick a patch: it states the CONDITION under which each patch applies and lets the write
+choose (ADR-087). Its read-then-write predecessor, ``completion_transition_patch``,
+picked one patch from a status the caller read beforehand and was deleted when its last
+caller left (PR-4) — which is why the sweep below no longer compares two forms.
 
-Two things must hold, and this file pins both:
+Three things must hold, and this file pins all three:
 
-1. **The two forms agree.** Same legality refusals, same authority rule, and for every
-   (prior, target) pair the guard's condition selects exactly the patch the Python-side
-   helper would have returned. Swept over the whole status matrix, so a new
-   ``EntityStatus`` member cannot split them apart unnoticed.
-2. **``is_repeat`` is exact by construction.** With the prior coming back from the
+1. **The guard's conditions mean what the domain's verdict helpers mean.** For every
+   (prior, target) pair, the patch the guard selects is a stamp exactly when
+   ``is_completion_transition`` says so and a clear exactly when ``is_reopen_transition``
+   says so. That is the agreement that matters now: the write and the event it triggers
+   must not be able to disagree about what completing is. Swept over the whole status
+   matrix, so a new ``EntityStatus`` member cannot split them apart unnoticed.
+2. **The legality check is one rule with two entry points.** ``status_transition_guard``
+   (the five stamping domains) and ``validate_status_target`` (Principle, which has
+   nothing to stamp) refuse exactly the same targets.
+3. **``is_repeat`` is exact by construction.** With the prior coming back from the
    write, ``is_repeat = not is_completion_transition(prior, changes)`` — no second
    definition of what completing means, anywhere.
 
@@ -30,10 +36,10 @@ from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.update_contracts import StatusWriteGuard
 from core.services.completion_stamp import (
     COMPLETION_FIELDS,
-    completion_transition_patch,
     is_completion_transition,
     is_reopen_transition,
     status_transition_guard,
+    validate_status_target,
 )
 
 _COMPLETED = frozenset({EntityStatus.COMPLETED.value})
@@ -90,6 +96,15 @@ class TestGuardBuilder:
         assert guard.is_ok
         assert guard.value.has_patches() is False
 
+    def test_the_authority_rule_holds_on_the_reopen_direction_too(self) -> None:
+        """A caller that supplies the field while REOPENING keeps it just the same —
+        otherwise the clear would silently discard a date the caller meant to write."""
+        guard = status_transition_guard(
+            EntityType.TASK, {"status": "active", "completion_date": date(2026, 1, 1)}
+        )
+        assert guard.is_ok
+        assert guard.value.has_patches() is False
+
     def test_a_domain_with_no_completion_field_gets_no_patches(self) -> None:
         """Principle records no completion moment — and cannot be completed at all."""
         guard = status_transition_guard(EntityType.PRINCIPLE, {"status": "active"})
@@ -116,6 +131,13 @@ class TestGuardBuilder:
         assert guard.is_error
         assert "Invalid status value" in guard.expect_error().message
 
+    def test_an_explicit_null_status_is_refused(self) -> None:
+        """A present ``status`` key means a target was intended; ``None`` is not one.
+        Distinct from the no-key case above, which passes with no patches."""
+        guard = status_transition_guard(EntityType.TASK, {"status": None})
+        assert guard.is_error
+        assert "Invalid status value" in guard.expect_error().message
+
     def test_a_status_illegal_for_the_type_is_refused(self) -> None:
         """``completed`` is not a valid Principle status — enforcement, not documentation."""
         guard = status_transition_guard(EntityType.PRINCIPLE, {"status": "completed"})
@@ -124,18 +146,22 @@ class TestGuardBuilder:
 
 
 # ---------------------------------------------------------------------------
-# 2. The two forms agree, across the whole matrix
+# 2. The guard agrees with the verdict helpers, across the whole matrix
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.parametrize("entity_type", _STAMPING_TYPES)
-def test_the_guard_selects_what_the_python_helper_would_have_returned(
+def test_the_guard_stamps_exactly_when_the_verdict_helpers_say_so(
     entity_type: EntityType,
 ) -> None:
     """Swept over every legal (prior, target) pair for every stamping domain.
 
-    The stamp VALUE is generated at build time in both forms, so compare which FIELD
-    is written and whether it is a clear — that is the whole semantic difference.
+    The condition the WRITE evaluates and the condition the SERVICE evaluates to publish
+    its completion event are two expressions of one rule, and they are written in two
+    different places — the guard's set membership, and ``is_completion_transition`` on
+    the prior the write hands back. This sweep is what makes them one rule in fact: a
+    stamp lands exactly on a completion transition, a clear exactly on a reopen, and
+    nothing is written on any other pair.
     """
     legal = sorted(s.value for s in entity_type.valid_statuses())
     field = COMPLETION_FIELDS[entity_type]
@@ -144,17 +170,23 @@ def test_the_guard_selects_what_the_python_helper_would_have_returned(
         for target in legal:
             changes = {"status": target}
             guard = status_transition_guard(entity_type, changes)
-            patch = completion_transition_patch(entity_type, prior, changes)
-            assert guard.is_ok and patch.is_ok
+            assert guard.is_ok
 
             selected = _select(guard.value, prior)
-            assert (field in selected) is (field in patch.value), (prior, target)
-            if field in selected:
-                assert (selected[field] is None) is (patch.value[field] is None)
+            stamped = field in selected and selected[field] is not None
+            cleared = field in selected and selected[field] is None
+
+            assert stamped is is_completion_transition(prior, changes), (prior, target)
+            assert cleared is is_reopen_transition(prior, changes), (prior, target)
 
 
 @pytest.mark.parametrize("entity_type", _STAMPING_TYPES)
-def test_both_forms_refuse_the_same_targets(entity_type: EntityType) -> None:
+def test_the_two_legality_entry_points_refuse_the_same_targets(
+    entity_type: EntityType,
+) -> None:
+    """One rule, two doors: the stamping domains reach it through the guard builder,
+    Principle through ``validate_status_target``. They share ``_stamp_target``, and this
+    is what says so — including that the legality-only door refuses nothing extra."""
     illegal = [
         *sorted(s.value for s in EntityStatus if s not in entity_type.valid_statuses()),
         "not-a-status",
@@ -162,7 +194,36 @@ def test_both_forms_refuse_the_same_targets(entity_type: EntityType) -> None:
     for target in illegal:
         changes = {"status": target}
         assert status_transition_guard(entity_type, changes).is_error
-        assert completion_transition_patch(entity_type, None, changes).is_error
+        assert validate_status_target(entity_type, changes).is_error
+
+    for target in sorted(s.value for s in entity_type.valid_statuses()):
+        assert validate_status_target(entity_type, {"status": target}).is_ok
+
+
+class TestValidateStatusTarget:
+    """The legality-only door, for the chokepoint with nothing to stamp."""
+
+    def test_an_illegal_principle_status_is_refused(self) -> None:
+        result = validate_status_target(EntityType.PRINCIPLE, {"status": "completed"})
+        assert result.is_error
+        assert "not valid for principle" in result.expect_error().message
+
+    def test_an_unrecognized_status_is_refused(self) -> None:
+        result = validate_status_target(EntityType.PRINCIPLE, {"status": "not-a-status"})
+        assert result.is_error
+        assert "Invalid status value" in result.expect_error().message
+
+    def test_a_legal_principle_status_passes(self) -> None:
+        assert validate_status_target(EntityType.PRINCIPLE, {"status": "active"}).is_ok
+
+    def test_an_update_with_no_status_key_passes(self) -> None:
+        """There is no target to judge — a title edit is not a status change."""
+        assert validate_status_target(EntityType.PRINCIPLE, {"title": "renamed"}).is_ok
+
+    def test_it_carries_no_stamp_for_a_stamping_domain_either(self) -> None:
+        """It answers legality and nothing else — the caller that wants a stamp asks
+        ``status_transition_guard``. A Task completion passing here writes no date."""
+        assert validate_status_target(EntityType.TASK, {"status": "completed"}).value is None
 
 
 # ---------------------------------------------------------------------------

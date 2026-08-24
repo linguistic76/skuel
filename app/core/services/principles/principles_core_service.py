@@ -28,7 +28,7 @@ from core.models.type_hints import UserUID
 from core.ports.domain_protocols import PrinciplesOperations
 from core.ports.query_types import PrincipleStats
 from core.services.base_service import BaseService
-from core.services.completion_stamp import completion_transition_patch
+from core.services.completion_stamp import validate_status_target
 from core.services.domain_config import create_activity_domain_config
 from core.services.mixins.hierarchy_read_mixin import HierarchyReadMixin
 from core.utils.decorators import with_error_handling
@@ -339,11 +339,11 @@ class PrinciplesCoreService(
         verdict that depends on the PRIOR status exact under concurrency; this seam's
         only status rule is that the TARGET is legal for the type, which is decided
         before any read and cannot go stale. There is no race here to close, so routing
-        it through the primitive would be uniformity for its own sake. It calls
-        ``completion_transition_patch`` for that legality check alone — the patch is
-        always empty, Principle having no completion field — which is why retiring that
-        function (ADR-087 PR-4) owes this site a legality-only successor rather than a
-        migration. See ADR-087 § Scope.
+        it through the primitive would be uniformity for its own sake. So it calls
+        ``validate_status_target`` — the legality-only half of the completion-stamp
+        rules, and all this seam has ever used: retiring the read-then-write form
+        (ADR-087 PR-4) gave this site that successor rather than a migration.
+        See ADR-087 § Scope.
 
         Backend-direct (like ``TasksCoreService.update_task``), **not** ``super().update``:
         Principles' inherited ``_validate_update`` is stale — its rules reference fields
@@ -389,11 +389,11 @@ class PrinciplesCoreService(
 
         # Status-target validation: COMPLETED (or any status outside the Principle
         # lifecycle) is refused at this seam — previously the status route wrote it
-        # unchecked. Principles carry no completion field, so the patch is empty.
-        stamp = completion_transition_patch(EntityType.PRINCIPLE, existing.status, changes)
-        if stamp.is_error:
-            return Result.fail(stamp)
-        changes.update(stamp.value)
+        # unchecked. Legality is the whole of it: Principles carry no completion field,
+        # so there is nothing to stamp or clear (see the docstring).
+        legality = validate_status_target(EntityType.PRINCIPLE, changes)
+        if legality.is_error:
+            return Result.fail(legality)
 
         result = await self.backend.update(principle_uid, changes)
         if result.is_error:

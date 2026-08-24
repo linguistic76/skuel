@@ -13,18 +13,21 @@ Responsibilities:
 """
 
 from datetime import date, datetime, timedelta
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Final
 
 from core.events import GoalAchieved, GoalMilestoneReached, GoalProgressUpdated, publish_event
 from core.events.task_events import TaskCompleted
 from core.models.enums import Domain, EntityStatus
+from core.models.enums.entity_enums import EntityType
 from core.models.enums.goal_enums import MeasurementType
 from core.models.goal.goal import Goal
 from core.models.goal.goal_dto import GoalDTO
 from core.models.graph_context import GraphContext
-from core.models.type_hints import UserUID
+from core.models.type_hints import Neo4jProperties, UserUID
+from core.models.update_contracts import StatusWriteGuard
 from core.ports.domain_protocols import GoalsOperations
 from core.services.base_service import BaseService
+from core.services.completion_stamp import COMPLETION_FIELDS, is_completion_transition
 from core.services.domain_config import create_activity_domain_config
 from core.services.goals.goal_relationships import GoalRelationships
 from core.services.infrastructure import ProgressCalculator
@@ -40,6 +43,59 @@ from core.utils.result_simplified import Errors, Result
 
 # Type alias for rich goal data from UserContext
 RichGoalData = dict[str, Any]
+
+#: The one prior status every achievement condition in this file tests. The guard's sets
+#: hold canonical ``EntityStatus`` **values** (strings), matching how status is stored —
+#: an enum member would never match the prior the write hands back.
+_COMPLETED_ONLY: Final = frozenset({EntityStatus.COMPLETED.value})
+
+#: Goal's canonical completion field, taken from the shared mapping the update chokepoint
+#: and the backfill script also read, so this file cannot drift from them on the name.
+_ACHIEVED_FIELD: Final = COMPLETION_FIELDS[EntityType.GOAL]
+
+
+def _achievement_write(target_achieved: bool) -> tuple[StatusWriteGuard, Neo4jProperties]:
+    """Package "this recompute achieves the goal" as a condition of the write (ADR-087).
+
+    Each progress writer below derives its own achievement TARGET in Python — "every
+    milestone is done now", "progress reached 100" — and that half stays a pre-read,
+    because it is a statement about the NEW state. The other half of the old
+    ``goal_achieved_now`` local, *"…and it was not already achieved"*, is a fact only the
+    write knows: it depends on the status the node holds at write time, which a
+    concurrent writer can move between this call's read and its write. So it becomes the
+    guard's condition — the status/stamp pair merges only when the prior was not already
+    COMPLETED. Re-completing a milestone of a finished goal therefore cannot re-date
+    ``achieved_date``, and neither can a race.
+
+    The patch rides ``patch_if_prior_not_in`` rather than the base updates so that an
+    already-achieved goal is written NO ``status`` key either — the recompute still lands
+    (progress, tally, milestone flags), the completion pair does not.
+
+    The patch is returned alongside the guard so the caller derives its ``GoalAchieved``
+    verdict from the same pure helper the update chokepoints use
+    (:func:`is_completion_transition`) instead of restating the condition in a second
+    place. Against the empty patch that helper is False, so the not-achieved branch needs
+    no separate test.
+
+    Args:
+        target_achieved: Whether this recompute's own derivation says the goal is now
+            achieved.
+
+    Returns:
+        ``(guard, patch)`` — the guard to hand the write, and the patch it would merge on
+        a prior that is not already COMPLETED. Both are empty/inert when the target is
+        not achieved.
+    """
+    if not target_achieved:
+        return StatusWriteGuard(), {}
+    # ``date.today()`` matches _STAMP_SPECS[GOAL]'s factory in ``completion_stamp`` —
+    # Goal stamps a calendar date, as ``GoalsCoreService.update_goal`` does.
+    patch: Neo4jProperties = {
+        "status": EntityStatus.COMPLETED.value,
+        _ACHIEVED_FIELD: date.today(),
+    }
+    return StatusWriteGuard(patch_if_prior_not_in=(_COMPLETED_ONLY, patch)), patch
+
 
 if TYPE_CHECKING:
     from core.events.habit_events import HabitCompleted
@@ -286,17 +342,6 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
                 )
             )
 
-        # "Already achieved" is the goal's own completion status, NOT "every
-        # milestone is flagged done". The two diverge after a reopen: the stamp
-        # helper at GoalsCoreService.update_goal clears achieved_date and resets
-        # progress_percentage on COMPLETED → a non-terminal status, but leaves
-        # the milestone flags alone. A milestone-flag proxy would therefore stay
-        # true forever and a genuine re-achievement would never stamp or publish
-        # again. Status is the same signal is_completion_transition reads at the
-        # goals update chokepoint, and `==` (not `.is_terminal()`) survives a
-        # node whose status string is not a known enum member.
-        was_already_achieved = goal.status == EntityStatus.COMPLETED
-
         # Update milestone (Milestone is a frozen dataclass)
         from dataclasses import replace
 
@@ -324,13 +369,19 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         new_progress = (completed_count / len(updated_milestones)) * 100
 
         # Achievement is the TRANSITION into "every milestone done", not the state.
-        # Re-completing a milestone of an already-achieved goal is a legal,
-        # reachable call, and the count alone would re-stamp achieved_date to
-        # today and re-publish GoalAchieved on each one — a mutable completion
-        # stamp. Same shape as the gate in _update_goal_from_task_completion.
-        # One local, read by both the write and the publish below, so the two
-        # cannot drift apart.
-        goal_achieved_now = completed_count == len(updated_milestones) and not was_already_achieved
+        # Re-completing a milestone of an already-achieved goal is a legal, reachable
+        # call, and the count alone would re-stamp achieved_date to today and re-publish
+        # GoalAchieved on each one — a mutable completion stamp.
+        #
+        # Only the TARGET half is decided here. "Already achieved" is the goal's own
+        # completion STATUS, not "every milestone is flagged done": the two diverge after
+        # a reopen, which clears achieved_date and resets progress_percentage
+        # (GoalsCoreService.update_goal) but leaves the milestone flags alone, so a
+        # milestone-flag proxy would stay true forever and a genuine re-achievement would
+        # never stamp or publish again. That status half now belongs to the write, which
+        # reads it under the node's lock (ADR-087) instead of from the `goal` fetched
+        # above — the same signal, read at the moment it is acted on.
+        target_achieved = completed_count == len(updated_milestones)
 
         # Update goal
         updates: dict[str, Any] = {
@@ -338,19 +389,20 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             "progress_percentage": new_progress,
             "current_value": completed_count,
         }
+        guard, achievement = _achievement_write(target_achieved)
 
-        if goal_achieved_now:
-            updates["status"] = EntityStatus.COMPLETED
-            updates["achieved_date"] = date.today()
-
-        update_result = await self.backend.update_goal(goal_uid, dict(updates))
+        update_result = await self.backend.update_with_status_guard(goal_uid, updates, guard)
         if update_result.is_error:
             return Result.fail(update_result)
 
         # Context invalidation happens via GoalMilestoneReached/GoalAchieved events (event-driven architecture)
         # Event handlers in bootstrap will call user_service.invalidate_context()
 
-        updated_goal = to_domain_model(update_result.value, GoalDTO, Goal)
+        # This guard refuses nothing, so the write always applied; the prior it returned
+        # is what decides the achievement below.
+        outcome = update_result.value
+        updated_goal = outcome.entity
+        goal_achieved_now = is_completion_transition(outcome.prior_status, achievement)
 
         self.logger.info(f"Completed milestone {milestone_index} for goal {goal_uid}")
 
@@ -443,20 +495,22 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
 
             # Check if goal is achieved — on the TRANSITION, matching the gate in
             # _update_goal_from_habit_completion. `>= 100` alone re-stamps
-            # achieved_date on every later streak report once the streak has
-            # reached its normalization window (30 -> 31 days is 100% both
-            # times), moving the recorded achievement to today. One local, read
-            # by both the write and the publish below, so they cannot drift.
-            goal_achieved_now = new_progress >= 100 and old_progress < 100
-            if goal_achieved_now:
-                updates["status"] = EntityStatus.COMPLETED
-                updates["achieved_date"] = date.today()
+            # achieved_date on every later streak report once the streak has reached its
+            # normalization window (30 -> 31 days is 100% both times), moving the
+            # recorded achievement to today. The percentage crossing is this recompute's
+            # TARGET derivation and stays here; whether the goal was ALREADY completed is
+            # the write's to decide, under the node's lock (ADR-087).
+            target_achieved = new_progress >= 100 and old_progress < 100
+            guard, achievement = _achievement_write(target_achieved)
 
-            update_result = await self.backend.update_goal(goal_uid, dict(updates))
+            update_result = await self.backend.update_with_status_guard(goal_uid, updates, guard)
             if update_result.is_error:
                 return Result.fail(update_result)
 
-            updated_goal = to_domain_model(update_result.value, GoalDTO, Goal)
+            # This guard refuses nothing, so the write always applied.
+            outcome = update_result.value
+            updated_goal = outcome.entity
+            goal_achieved_now = is_completion_transition(outcome.prior_status, achievement)
 
             self.logger.info(
                 f"Updated goal {goal_uid} progress from habit {habit_uid} to {new_progress:.1f}%"
@@ -1069,15 +1123,19 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         # below. `>= 100` alone re-stamps achieved_date on every write once a goal is
         # complete, which the percentage-only guard used to make unreachable; a
         # tally-only write (5/5 -> 10/10, both 100%) now reaches it and would move the
-        # recorded achievement to today.
-        if new_progress >= 100 and old_progress < 100:
-            updates["status"] = EntityStatus.COMPLETED.value
-            updates["achieved_date"] = date.today()
+        # recorded achievement to today. The percentage crossing is this recompute's
+        # TARGET derivation and stays here; whether the goal was ALREADY completed is the
+        # write's to decide, under the node's lock (ADR-087).
+        target_achieved = new_progress >= 100 and old_progress < 100
+        guard, achievement = _achievement_write(target_achieved)
 
-        update_result = await self.backend.update(goal_uid, updates)
+        update_result = await self.backend.update_with_status_guard(goal_uid, updates, guard)
         if update_result.is_error:
             self.logger.error(f"Failed to update goal {goal_uid}: {update_result.error}")
             return
+
+        # This guard refuses nothing, so the write always applied.
+        goal_achieved_now = is_completion_transition(update_result.value.prior_status, achievement)
 
         self.logger.info(
             f"Updated goal {goal_uid}: {old_progress:.1f}% → {new_progress:.1f}% "
@@ -1102,8 +1160,9 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             )
             await publish_event(self.event_bus, progress_event, self.logger)
 
-        # If goal was achieved, publish GoalAchieved event
-        if new_progress >= 100 and old_progress < 100:
+        # If goal was achieved, publish GoalAchieved event — decided from the status the
+        # write saw, so a goal another writer completed first is not announced twice.
+        if goal_achieved_now:
             achieved_event = GoalAchieved(
                 goal_uid=goal_uid,
                 user_uid=user_uid,
@@ -1262,15 +1321,20 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
 
         # Check if goal is achieved — on the TRANSITION, matching the GoalAchieved gate
         # below. `>= 100` alone re-stamps achieved_date on every later write, which a
-        # measurement-only write (streak 30 -> 31, both 100%) now reaches.
-        if new_progress >= 100 and old_progress < 100:
-            updates["status"] = EntityStatus.COMPLETED.value
-            updates["achieved_date"] = date.today()
+        # measurement-only write (streak 30 -> 31, both 100%) now reaches. The percentage
+        # crossing is this recompute's TARGET derivation and stays here; whether the goal
+        # was ALREADY completed is the write's to decide, under the node's lock
+        # (ADR-087).
+        target_achieved = new_progress >= 100 and old_progress < 100
+        guard, achievement = _achievement_write(target_achieved)
 
-        update_result = await self.backend.update(goal_uid, updates)
+        update_result = await self.backend.update_with_status_guard(goal_uid, updates, guard)
         if update_result.is_error:
             self.logger.error(f"Failed to update goal {goal_uid}: {update_result.error}")
             return
+
+        # This guard refuses nothing, so the write always applied.
+        goal_achieved_now = is_completion_transition(update_result.value.prior_status, achievement)
 
         self.logger.info(
             f"Updated goal {goal_uid}: {old_progress:.1f}% → {new_progress:.1f}% "
@@ -1291,8 +1355,9 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             )
             await publish_event(self.event_bus, progress_event, self.logger)
 
-        # If goal was achieved, publish GoalAchieved event
-        if new_progress >= 100 and old_progress < 100:
+        # If goal was achieved, publish GoalAchieved event — decided from the status the
+        # write saw, so a goal another writer completed first is not announced twice.
+        if goal_achieved_now:
             achieved_event = GoalAchieved(
                 goal_uid=goal_uid,
                 user_uid=user_uid,

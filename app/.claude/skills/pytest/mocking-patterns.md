@@ -64,8 +64,16 @@ recorder.merged_patch()    # what the write would merge for THIS prior
 
 `guarded_rows_backend(rows)` is the multi-row form (per-row loops such as bulk completion),
 and `echoing_guarded_write(backend)` adapts fixtures that configure `get`/`update` return
-values. ⚠ `StatusWriteGuard` is not hashable (its patch holds a dict) — assert guard
-identity, never set membership. See `tests/unit/services/test_completion_stamping.py`.
+values. `resolve_merged_patch(prior, updates, guard)` resolves a guard by hand — the
+Cypher's CASE arms in one place, so no test re-implements them. ⚠ `StatusWriteGuard` is not
+hashable (its patch holds a dict) — assert guard identity, never set membership.
+
+⚠ **A fake driven by `backend.get` cannot test a transition verdict.** It answers the guard
+from whatever the read returned, which is exactly the coupling ADR-087 removed — such a test
+passes against the pre-ADR code too. Seed the write-time prior SEPARATELY from the read
+(`guarded_backend(stored, read)`) so the two disagree, which is what a race produces. See
+`tests/unit/services/goals/test_goal_progress_status_guard.py` and
+`tests/unit/services/test_completion_stamping.py`.
 
 ### create_mock_driver()
 

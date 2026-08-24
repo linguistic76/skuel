@@ -716,6 +716,59 @@ async def test_unblock_task_if_ready_success(progress_service, mock_backend):
 
 
 @pytest.mark.asyncio
+async def test_unblock_refuses_to_resurrect_a_finished_task(progress_service, mock_backend):
+    """A COMPLETED task is not unblocked, and its ``completion_date`` is not stranded.
+
+    Unblocking writes ``status=scheduled`` with no domain rule of its own behind it, so
+    before ADR-087 PR-4 a task that finished while its prerequisites were being checked
+    would have been dragged back out of COMPLETED with its stamp left behind — breaking
+    the invariant that the stamp is non-null exactly when the task is completed. The
+    terminal set is a ``refuse_if_prior_in`` on the write, so it is decided against the
+    status the node holds, not the one the prerequisite check saw.
+    """
+    finished_task = Task.from_dto(
+        TaskDTO(
+            uid="task:finished",
+            user_uid="user_demo",
+            title="Finished Task",
+            priority=Priority.HIGH.value,
+            status=EntityStatus.COMPLETED.value,
+            completion_date=date(2026, 4, 2),
+            created_at=datetime.now(),
+        )
+    )
+    mock_backend.get.return_value = Result.ok(finished_task.to_dto().to_dict())
+    mock_backend.update.return_value = Result.ok(finished_task.to_dto().to_dict())
+
+    with patch.object(
+        progress_service,
+        "check_prerequisites",
+        return_value=Result.ok(
+            {"can_start": True, "missing_knowledge": [], "incomplete_tasks": []}
+        ),
+    ):
+        context = UserContext(
+            user_uid="user_123",
+            username="test_user",
+            prerequisites_completed=set(),
+            completed_task_uids=set(),
+        )
+
+        result = await progress_service.unblock_task_if_ready("task:finished", context)
+
+    assert result.is_ok
+    assert result.value is None, "a finished task was reported as freshly unblocked"
+
+    _uid, _updates, guard = mock_backend.update_with_status_guard.await_args.args
+    assert EntityStatus.COMPLETED.value in guard.refuse_if_prior_in
+    # Every terminal status, not COMPLETED alone — cancelled / failed / archived tasks
+    # are equally not this door's to resurrect.
+    assert guard.refuse_if_prior_in == frozenset(
+        status.value for status in EntityStatus if status.is_terminal()
+    )
+
+
+@pytest.mark.asyncio
 async def test_unblock_task_still_blocked(progress_service, mock_backend, blocked_task):
     """Test unblocking when task is still blocked."""
     # Setup
