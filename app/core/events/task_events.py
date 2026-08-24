@@ -139,12 +139,20 @@ class TaskReopened(BaseEvent):
     hold ``tasks_completed`` as a recomputed number that can fall; that count
     is now derived at read from the tasks currently in ``completed``, so a
     reopen lowers it without anyone having to hear about it. The event stays
-    published as the chokepoint's statement of the transition — the
-    conditional-write arc derives its verdict from the returned prior status —
-    and is free for a future subscriber to take.
+    published as the chokepoint's statement of the transition — ADR-087 derives
+    that verdict from the status the write itself returned, so the transition is
+    detected exactly — and is free for a future subscriber to take.
 
     Context invalidation is already covered: the same ``update_task`` call
     publishes ``TaskUpdated``, which is subscribed for exactly that.
+
+    ⚠ **Kept by decision, not by oversight — do not delete it in a bloat sweep.**
+    Whether a reopen should un-check its Obsidian line (it does not today: checkbox
+    authority is completed-direction only), whether this event is the trigger if so,
+    and whether to delete it if not, are three coupled choices scheduled for a ruling.
+    The case file is ``docs/roadmap/deferred-work.md`` § "``TaskReopened`` Has Zero
+    Subscribers, and a Reopen Has No Vault Surface". ``./dev bloat`` reports this as
+    INFO (published, never subscribed), which is not a ``--check`` failure.
     """
 
     task_uid: str

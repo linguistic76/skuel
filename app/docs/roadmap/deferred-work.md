@@ -1481,6 +1481,63 @@ to refuse, pinning itself atop completion-date-ordered reads.
 
 ---
 
+## `TaskReopened` Has Zero Subscribers, and a Reopen Has No Vault Surface (REGISTERED 2026-08-24 — scheduled by Mike)
+
+Two halves of one question — *what should a reopen actually do?* — carried unresolved through
+three arcs (completion-stamping, cascade-idempotency, conditional-write). Mike scheduled a
+resolution 2026-08-24; this section is the case file.
+
+**Half A — the event is published and nobody listens.** `TaskReopened`
+(`core/events/task_events.py`) fires from the one update chokepoint
+(`TasksCoreService.update_task`) on a genuine transition out of `completed`. It was introduced
+so `ProductivityAnalytics` could hold `tasks_completed` as a number that can *fall*; #1142
+derived that count at read instead, which made its only subscriber (`handle_task_reopened`) a
+no-op, and the handler + subscription were deleted. The event and its publisher were KEPT
+deliberately: ADR-087 derives the reopen verdict from the write's returned prior, so the
+transition is now detected *exactly*, and the event is the chokepoint's honest statement of it.
+`./dev bloat` reports it as `i` (published, never subscribed) — INFO, not a `--check` failure,
+and it is NOT in `PLANNED_EVENTS`. Context invalidation is already covered by the `TaskUpdated`
+the same call publishes.
+
+**Half B — reopening in SKUEL leaves the Obsidian note checked.** Checkbox authority is
+completed-direction ONLY (Codex #1144 P2, verified): `TaskLineUpdate` has no un-check operation,
+`_process_entry_outbound` queues `mark_done` only for COMPLETED tasks, and ADR-070 itself defers
+outbound-undone. So a task reopened in the app keeps its `- [x] … ✅ date` line in the vault, and
+the ✅ date is a completion that has been withdrawn. Inbound propagation is separately parked
+(§ R4), so the vault cannot correct itself either.
+
+**The decision (Mike's), stated as three coupled choices:**
+
+1. **Does a reopen un-check the vault line?** Building it means a new `TaskLineUpdate` operation
+   (un-check + strip the `✅ date`), an outbound queue branch for the reopen transition, and a
+   `PROTOCOL_VERSION` bump if the agent's line-writing changes — see § Phantom-🆔 for the
+   `WriteResult` shape problem any new write operation inherits. It also reopens ADR-070's
+   deliberate outbound-undone deferral, which should be amended rather than silently overridden.
+2. **If yes, is `TaskReopened` the trigger?** That is the natural subscriber, and it would end
+   Half A by giving the event the consumer it was kept for. The alternative is doing it inline in
+   the chokepoint beside the publish, which keeps the vault write synchronous with the status
+   write but couples the chokepoint to the vault transport.
+3. **If no — delete the event or keep it published?** One Path Forward says delete what nothing
+   uses; the counter-argument is that it is a *transition fact* the chokepoint now establishes
+   exactly and cheaply, and deleting it would have to be undone by choice 1 later. Keeping it
+   needs a `PLANNED_EVENTS` registration so the bloat detector stops calling it INFO-unsubscribed;
+   deleting it means removing the publisher, the event class, its `core/events/__init__.py`
+   export, and the `test_task_completed_publishers.py` registry assertion.
+
+**Trigger:** Mike schedules it (this section IS that scheduling — it is a ruling, not a data
+threshold). Take choice 1 first; 2 and 3 follow from it.
+
+**Named cost until resolved:** a task reopened in the app stays checked in the vault with a stale
+✅ date, and the next person to read `TaskReopened` finds an event with no consumers and no
+`PLANNED_EVENTS` entry — the exact shape that reads as dead code to a deletion sweep. ⚠️ Do NOT
+delete it in a bloat pass without this ruling; it is kept by decision, and the decision is here.
+
+**Verify before acting:** `git grep -n "subscribe(TaskReopened\|TaskReopened)" -- core/ adapters/`
+(empty until Half A is answered) · `git grep -n "mark_done\|TaskLineUpdate" -- core/ports/vault_bridge_protocol.py`
+(no un-check operation until Half B is built).
+
+---
+
 ## Review Schedule
 
 Review this document at the **September 2026 quarterly review**. Checklist:
@@ -1517,6 +1574,7 @@ Review this document at the **September 2026 quarterly review**. Checklist:
 | Line deletions leave `EXTRACTED_FROM` edges | R4 build or next reconciler touch | Census shape in the section; re-probe the W28 edges before building |
 | Habit streak counters (lost-update + future-day credit) | Next touch of the streak write path, or a lived wrong-streak report | Ruling needed on `current_streak` semantics — see the section |
 | Unwired `HabitCompletion` model methods | A consumer wants one, or next Habits model touch | `git grep -n "is_streak_eligible\|was_completed_today" -- core/services/ adapters/ ui/` — empty until wired |
+| `TaskReopened` zero subscribers + no vault surface for a reopen | Mike scheduled it 2026-08-24 — a ruling (3 coupled choices), not a data threshold | See the section; ⚠️ do NOT delete the event in a bloat pass without it |
 | `find_by` datetime string-binding (3 habit sites) | Next touch of any of the three reads, or a second `completed_at` writer | One PR: normalized range on a backend method (Pattern 10b / Key Rule 18b) |
 | `TaskUpdateRequest` future `completion_date` asymmetry | Next touch of `task_request.py` validators | Ruling needed — see the section; don't rule in passing |
 
