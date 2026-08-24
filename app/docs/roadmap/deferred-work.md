@@ -1515,8 +1515,17 @@ the ✅ date is a completion that has been withdrawn. Inbound propagation is sep
    deliberate outbound-undone deferral, which should be amended rather than silently overridden.
 2. **If yes, is `TaskReopened` the trigger?** That is the natural subscriber, and it would end
    Half A by giving the event the consumer it was kept for. The alternative is doing it inline in
-   the chokepoint beside the publish, which keeps the vault write synchronous with the status
-   write but couples the chokepoint to the vault transport.
+   the chokepoint beside the publish. ⚠️ **The difference is NOT timing.** `publish_event` awaits
+   `InMemoryEventBus.publish_async`, which awaits every async handler through `asyncio.gather`
+   (`adapters/infrastructure/event_bus.py`) — so a subscriber is just as synchronous with the
+   request as an inline call, and neither is backgrounded unless deliberately made so (the
+   embedding worker is the precedent, and it is FULL-tier). The real trade is **error isolation
+   and coupling**: that gather uses `return_exceptions=True`, so a failing vault write in a
+   subscriber is swallowed and the task update still succeeds — right if the vault is a
+   best-effort mirror, wrong if a silent divergence between graph and note is worse than a failed
+   update. Inline hands the chokepoint the failure as a `Result` it can act on, at the cost of
+   injecting the vault transport into `TasksCoreService`. Decide which failure mode you want
+   before deciding where the code lives.
 3. **If no — delete the event or keep it published?** One Path Forward says delete what nothing
    uses; the counter-argument is that it is a *transition fact* the chokepoint now establishes
    exactly and cheaply, and deleting it would have to be undone by choice 1 later. Deleting it
