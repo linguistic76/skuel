@@ -73,7 +73,14 @@ _COMPLETED_ONLY: Final = frozenset({EntityStatus.COMPLETED.value})
 
 
 def _with_reopen_progress_reset(
-    guard: StatusWriteGuard, changes: Mapping[str, Any]
+    guard: StatusWriteGuard,
+    # boundary: a materialized update patch (``GoalUpdateIntent.to_changes()``) — genuinely
+    # heterogeneous, and NOT ``Neo4jProperties``: ``milestones`` is a ``list[dict[str, Any]]``
+    # and ``metadata`` a bare ``dict``, neither a ``Neo4jValue``. Naming that type here would
+    # claim a contract the callers do not meet. Only ``status``'s value is read (and it is
+    # narrowed to ``EntityStatus`` on the next line); ``progress_percentage`` is a key test,
+    # and what this helper WRITES is typed (``reset`` below).
+    changes: Mapping[str, Any],
 ) -> StatusWriteGuard:
     """Add the reopen progress reset to a Goal's status guard (ADR-087).
 

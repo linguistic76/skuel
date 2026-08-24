@@ -32,6 +32,15 @@ Bypass paths are handled elsewhere by design: ingestion never auto-stamps (the
 file is the source of truth for its own dates), and the DSL ``[x]`` create door
 parses the obsidian-tasks ``✅ date`` into ``completion_date`` at conversion.
 
+**Why every ``changes`` parameter below is ``Mapping[str, Any]``** (the ``# boundary:``
+each one carries, stated once here rather than five times): ``changes`` is a materialized
+update patch — an Activity ``*UpdateIntent.to_changes()`` — and it is genuinely
+heterogeneous. It is specifically NOT ``Neo4jProperties``: ``GoalUpdateIntent.milestones``
+is a ``list[dict[str, Any]]`` and ``.metadata`` a bare ``dict``, neither of which is a
+``Neo4jValue``, so naming that type would claim a contract the callers do not meet.
+Nothing here reads an arbitrary value out of it: ``status`` is read and immediately
+narrowed by :func:`_coerce_status`, and every other use is a key-membership test.
+
 **Two forms of the same rules, during the ADR-087 migration.**
 :func:`completion_transition_patch` decides the patch in Python from a status the
 caller read *before* the write; :func:`status_transition_guard` packages the same
@@ -103,7 +112,10 @@ def _coerce_status(value: EntityStatus | str | None) -> EntityStatus | None:
 
 
 def is_completion_transition(
-    old_status: EntityStatus | str | None, changes: Mapping[str, Any]
+    old_status: EntityStatus | str | None,
+    # boundary: a materialized update patch (see the module note) — only ``status``'s
+    # VALUE is read, and ``_coerce_status`` narrows it; every other use is a key test.
+    changes: Mapping[str, Any],
 ) -> bool:
     """True when this update moves the entity INTO ``COMPLETED``.
 
@@ -121,7 +133,12 @@ def is_completion_transition(
     )
 
 
-def is_reopen_transition(old_status: EntityStatus | str | None, changes: Mapping[str, Any]) -> bool:
+def is_reopen_transition(
+    old_status: EntityStatus | str | None,
+    # boundary: a materialized update patch (see the module note) — only ``status``'s
+    # VALUE is read, and ``_coerce_status`` narrows it; every other use is a key test.
+    changes: Mapping[str, Any],
+) -> bool:
     """True when this update moves the entity OUT of ``COMPLETED``.
 
     The mirror of :func:`is_completion_transition`, and gated the same way: an
@@ -145,7 +162,10 @@ def is_reopen_transition(old_status: EntityStatus | str | None, changes: Mapping
 
 
 def _stamp_target(
-    entity_type: EntityType, changes: Mapping[str, Any]
+    entity_type: EntityType,
+    # boundary: a materialized update patch (see the module note) — only ``status``'s
+    # VALUE is read, and ``_coerce_status`` narrows it; every other use is a key test.
+    changes: Mapping[str, Any],
 ) -> Result[tuple[EntityStatus, str, Callable[[], date | datetime]] | None]:
     """Validate the status target and resolve the stamp spec this update would use.
 
@@ -197,7 +217,10 @@ def _stamp_target(
 
 
 def status_transition_guard(
-    entity_type: EntityType, changes: Mapping[str, Any]
+    entity_type: EntityType,
+    # boundary: a materialized update patch (see the module note) — only ``status``'s
+    # VALUE is read, and ``_coerce_status`` narrows it; every other use is a key test.
+    changes: Mapping[str, Any],
 ) -> Result[StatusWriteGuard]:
     """Package this update's completion-stamp rules as a write-time guard (ADR-087).
 
@@ -244,6 +267,8 @@ def status_transition_guard(
 def completion_transition_patch(
     entity_type: EntityType,
     old_status: EntityStatus | str | None,
+    # boundary: a materialized update patch (see the module note) — only ``status``'s
+    # VALUE is read, and ``_coerce_status`` narrows it; every other use is a key test.
     changes: Mapping[str, Any],
 ) -> Result[dict[str, Any]]:
     """Validate the status target and derive the completion-stamp patch.

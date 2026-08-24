@@ -61,7 +61,12 @@ _DECIDED_STATUSES: Final = frozenset({EntityStatus.ACTIVE.value, EntityStatus.CO
 
 
 def _decision_immutability_error(
-    prior_status: str | None, changes: Mapping[str, Any]
+    prior_status: str | None,
+    # boundary: a materialized update patch (``ChoiceUpdateIntent.to_changes()``) — genuinely
+    # heterogeneous, and NOT ``Neo4jProperties`` (an intent patch can carry a bare ``dict`` or
+    # a ``list[dict]``, neither a ``Neo4jValue``). Only the patch's KEY SET is read here,
+    # never a value, so no narrower type would buy this helper anything.
+    changes: Mapping[str, Any],
 ) -> ErrorContext:
     """The refusal Business Rule 1 produces — one message, wherever the rule is asked.
 
@@ -79,7 +84,12 @@ def _decision_immutability_error(
 
 
 def _decision_immutability_check(
-    prior_status: str | None, changes: Mapping[str, Any]
+    prior_status: str | None,
+    # boundary: a materialized update patch (``ChoiceUpdateIntent.to_changes()``) — genuinely
+    # heterogeneous, and NOT ``Neo4jProperties`` (an intent patch can carry a bare ``dict`` or
+    # a ``list[dict]``, neither a ``Neo4jValue``). Only the patch's KEY SET is read here,
+    # never a value, so no narrower type would buy this helper anything.
+    changes: Mapping[str, Any],
 ) -> Result[None]:
     """Business Rule 1: a decided choice's decision fields are a historical record.
 
@@ -105,7 +115,12 @@ def _decision_immutability_check(
 
 
 def _with_decision_immutability(
-    guard: StatusWriteGuard, changes: Mapping[str, Any]
+    guard: StatusWriteGuard,
+    # boundary: a materialized update patch (``ChoiceUpdateIntent.to_changes()``) — genuinely
+    # heterogeneous, and NOT ``Neo4jProperties`` (an intent patch can carry a bare ``dict`` or
+    # a ``list[dict]``, neither a ``Neo4jValue``). Only the patch's KEY SET is read here,
+    # never a value, so no narrower type would buy this helper anything.
+    changes: Mapping[str, Any],
 ) -> StatusWriteGuard:
     """Make decision immutability a condition of the write itself (ADR-087).
 
