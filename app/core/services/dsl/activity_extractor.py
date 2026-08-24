@@ -41,6 +41,7 @@ Wired as the `Pipeline.EXTRACT_ACTIVITIES` branch of
 `UserEntryProcessingService.process()` (ADR-069 Decision 1).
 """
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
@@ -184,6 +185,22 @@ def _candidate_title(label: str, description: str) -> str:
 # ============================================================================
 
 
+@dataclass(frozen=True)
+class ExtractedByVaultId:
+    """One ``EXTRACTED_FROM`` edge this entry already holds for a 🆔 — the Guard 2b input.
+
+    ``entity_uid`` is the node the line resolved to (the refresh target);
+    ``source_line_hash`` is the digest the edge stores, which is retired from
+    the exact-match set the moment the line's text has moved. A 🆔 normally has
+    exactly one edge per entry; the duplicate-creation bug this guard closes
+    left some with two (the original task and its copy), so the input carries
+    every edge for the 🆔 and the guard treats them all as the line's own.
+    """
+
+    entity_uid: str
+    source_line_hash: str
+
+
 @dataclass
 class ActivityExtractionResult:
     """
@@ -284,6 +301,13 @@ class ActivityExtractionResult:
     # input to the EXTRACTED_FROM batch edge write. vault_id is the obsidian-tasks
     # 🆔 join key (ADR-070); None for @context() DSL lines.
     created_links: list[tuple[str, str, str | None]] = field(default_factory=list)
+    # (entity_uid, source_line_hash, vault_id) triples for lines Guard 2b
+    # recognised by 🆔 whose text moved since extraction (SKUEL's own [x] + ✅
+    # write-back above all). The edge is that line's own, so its change signal
+    # is refreshed to the current digest — a stale hash would otherwise swallow
+    # the next same-text line the user adds (Codex P1 on #1143, round 3).
+    # Written through the same batch edge write as created_links.
+    refreshed_links: list[tuple[str, str, str]] = field(default_factory=list)
     # Deduped Ku UIDs referenced via @ku()/linked-knowledge tags on any parsed
     # line (including dedup-skipped ones) — APPLIES_KNOWLEDGE candidates.
     referenced_ku_uids: list[str] = field(default_factory=list)
@@ -408,6 +432,7 @@ class ActivityExtractionResult:
             ],
             "referenced_ku_uids": self.referenced_ku_uids,
             "lines_skipped_existing": self.lines_skipped_existing,
+            "lines_rehashed": len(self.refreshed_links),
             "lines_merged_existing": self.lines_merged_existing,
             "lines_merged_cross_entry": self.lines_merged_cross_entry,
             # ================================================================
@@ -531,6 +556,7 @@ class ActivityExtractorService:
         bridge_line_hashes: frozenset[str] = frozenset(),
         existing_extracted: dict[tuple[str, str], str] | None = None,
         user_owned_semantic: dict[tuple[str, str], str] | None = None,
+        existing_vault_ids: Mapping[str, tuple[ExtractedByVaultId, ...]] | None = None,
     ) -> Result[ActivityExtractionResult]:
         """
         Extract Activity Lines from a UserEntry and create corresponding entities.
@@ -559,6 +585,19 @@ class ActivityExtractorService:
                 entries (Guard 4, cross-entry/F4). Any matching line merges
                 instead of creating — a note re-process must not resurrect
                 nodes the F4 dedup cleanup deleted.
+            existing_vault_ids: 🆔 ``vault_id`` → every
+                :class:`ExtractedByVaultId` edge already EXTRACTED_FROM this
+                entry under that 🆔 (Guard 2b, identity). A line
+                whose 🆔 is among them is already extracted whatever its hash
+                says — SKUEL's own outbound write-back (``[x]`` + ``✅ date``)
+                and a user's later edit both change the hash of a line SKUEL
+                already owns, and ADR-070 makes the 🆔 the identity, not the
+                hash. The matched edge's hash is refreshed to the line's
+                current digest (``refreshed_links``) so it keeps working as a
+                change signal — and the stale digest is retired from
+                ``existing_line_hashes`` BEFORE any line is checked against
+                it, so a same-text sibling arriving in the same ingest as the
+                write-back is not read as the old line.
 
         Returns:
             Result containing ActivityExtractionResult with counts, UIDs,
@@ -572,6 +611,8 @@ class ActivityExtractorService:
             existing_extracted = {}
         if user_owned_semantic is None:
             user_owned_semantic = {}
+        if existing_vault_ids is None:
+            existing_vault_ids = {}
 
         content = (
             content_override
@@ -672,6 +713,40 @@ class ActivityExtractorService:
             (self.lifepath_service, EntityType.LIFE_PATH),
         ]
         routable = {ctx for svc, ctx in service_routes if svc is not None}
+
+        # Guard 2b pre-pass — every line this entry already extracted (its 🆔
+        # is on an edge) whose text has moved since (SKUEL's own [x] + ✅
+        # write-back above all) gets its edges' stale digests RETIRED from the
+        # exact-match set and queued for a REFRESH to the current digest:
+        #   - retire first, before any domain loop and before the warning gate,
+        #     so a new same-text sibling in the SAME ingest (the user appended
+        #     the next ``- [ ] Gym`` before the write-back was re-ingested)
+        #     cannot hash into the stale digest and be dropped by Guard 2 —
+        #     with smart-mode then checkpointing the file; line order cannot
+        #     matter here;
+        #   - refresh here, not in the domain loop, because a 🆔 may hold more
+        #     than one edge (the original task and the copy this guard's bug
+        #     once made) and the one already at the current digest makes
+        #     Guard 2 skip the line before the identity branch ever runs — the
+        #     stale sibling edge must still be refreshed. The edges are this
+        #     line's own (identity proven by 🆔), so the write is the line's
+        #     change signal moving with it, not a clobber (cf. Guards 3/4).
+        retired_digests: set[str] = set()
+        for activity in parsed.activities:
+            if activity.vault_id is None:
+                continue
+            edges = existing_vault_ids.get(activity.vault_id)
+            if not edges:
+                continue
+            current_hash = normalized_line_hash(activity.raw_line or activity.description)
+            for edge in edges:
+                if edge.source_line_hash != current_hash:
+                    retired_digests.add(edge.source_line_hash)
+                    extraction.refreshed_links.append(
+                        (edge.entity_uid, current_hash, activity.vault_id)
+                    )
+        existing_line_hashes = existing_line_hashes - retired_digests
+
         for activity in parsed.activities:
             # Dropped tag values (parser-collected): the entity is still
             # created, but the user must see which written values were lost.
@@ -686,7 +761,9 @@ class ActivityExtractorService:
             # sync is correct.)
             line_hash = normalized_line_hash(activity.raw_line) if activity.raw_line else None
             is_bridge_line = line_hash is not None and line_hash in bridge_line_hashes
-            already_extracted = line_hash is not None and line_hash in existing_line_hashes
+            already_extracted = (line_hash is not None and line_hash in existing_line_hashes) or (
+                activity.vault_id is not None and activity.vault_id in existing_vault_ids
+            )
             if not is_bridge_line and not already_extracted:
                 for tag_warning in activity.tag_warnings:
                     extraction.tag_warnings.append(f"'{activity.description[:40]}': {tag_warning}")
@@ -731,6 +808,7 @@ class ActivityExtractorService:
                 bridge_line_hashes,
                 existing_extracted,
                 user_owned_semantic,
+                existing_vault_ids,
             )
             extraction.tasks_created += created
             extraction.created_task_uids.extend(uids)
@@ -746,6 +824,7 @@ class ActivityExtractorService:
                 bridge_line_hashes,
                 existing_extracted,
                 user_owned_semantic,
+                existing_vault_ids,
             )
             extraction.habits_created += created
             extraction.created_habit_uids.extend(uids)
@@ -761,6 +840,7 @@ class ActivityExtractorService:
                 bridge_line_hashes,
                 existing_extracted,
                 user_owned_semantic,
+                existing_vault_ids,
             )
             extraction.goals_created += created
             extraction.created_goal_uids.extend(uids)
@@ -776,6 +856,7 @@ class ActivityExtractorService:
                 bridge_line_hashes,
                 existing_extracted,
                 user_owned_semantic,
+                existing_vault_ids,
             )
             extraction.events_created += created
             extraction.created_event_uids.extend(uids)
@@ -791,6 +872,7 @@ class ActivityExtractorService:
                 bridge_line_hashes,
                 existing_extracted,
                 user_owned_semantic,
+                existing_vault_ids,
             )
             extraction.principles_created += created
             extraction.created_principle_uids.extend(uids)
@@ -806,6 +888,7 @@ class ActivityExtractorService:
                 bridge_line_hashes,
                 existing_extracted,
                 user_owned_semantic,
+                existing_vault_ids,
             )
             extraction.choices_created += created
             extraction.created_choice_uids.extend(uids)
@@ -821,6 +904,7 @@ class ActivityExtractorService:
                 bridge_line_hashes,
                 existing_extracted,
                 user_owned_semantic,
+                existing_vault_ids,
             )
             extraction.finances_created += created
             extraction.created_finance_uids.extend(uids)
@@ -846,6 +930,7 @@ class ActivityExtractorService:
                     bridge_line_hashes,
                     existing_extracted,
                     user_owned_semantic,
+                    existing_vault_ids,
                 )
                 extraction.kus_created += created
                 extraction.created_ku_uids.extend(uids)
@@ -864,6 +949,7 @@ class ActivityExtractorService:
                     bridge_line_hashes,
                     existing_extracted,
                     user_owned_semantic,
+                    existing_vault_ids,
                 )
                 extraction.path_steps_created += created
                 extraction.created_ps_uids.extend(uids)
@@ -882,6 +968,7 @@ class ActivityExtractorService:
                     bridge_line_hashes,
                     existing_extracted,
                     user_owned_semantic,
+                    existing_vault_ids,
                 )
                 extraction.learning_paths_created += created
                 extraction.created_lp_uids.extend(uids)
@@ -901,6 +988,7 @@ class ActivityExtractorService:
                 bridge_line_hashes,
                 existing_extracted,
                 user_owned_semantic,
+                existing_vault_ids,
             )
             extraction.calendar_items_created += created
             extraction.created_calendar_uids.extend(uids)
@@ -920,6 +1008,7 @@ class ActivityExtractorService:
                 bridge_line_hashes,
                 existing_extracted,
                 user_owned_semantic,
+                existing_vault_ids,
             )
             extraction.lifepath_items_created += created
             extraction.created_lifepath_uids.extend(uids)
@@ -929,7 +1018,8 @@ class ActivityExtractorService:
         self.logger.info(
             f"Extraction complete for {entry.uid}: "
             f"created {extraction.total_created} entities, "
-            f"skipped {extraction.lines_skipped_existing} already-extracted lines, "
+            f"skipped {extraction.lines_skipped_existing} already-extracted lines "
+            f"({len(extraction.refreshed_links)} rehashed by 🆔), "
             f"merged {extraction.lines_merged_existing} semantic duplicates, "
             f"merged {extraction.lines_merged_cross_entry} cross-entry twins "
             f"({len(extraction.creation_errors)} errors)"
@@ -952,11 +1042,17 @@ class ActivityExtractorService:
         bridge_line_hashes: frozenset[str] = frozenset(),
         existing_extracted: dict[tuple[str, str], str] | None = None,
         user_owned_semantic: dict[tuple[str, str], str] | None = None,
+        existing_vault_ids: Mapping[str, tuple[ExtractedByVaultId, ...]] | None = None,
     ) -> tuple[int, list[str]]:
         """Run one domain's create loop with dedup guards and provenance capture.
 
         Guard 2 (exact): lines whose normalized hash already carries an
-        EXTRACTED_FROM edge are skipped. Guard 3 (semantic, R3): bridge-
+        EXTRACTED_FROM edge are skipped. Guard 2b (identity): so are lines
+        whose 🆔 already carries one to this entry — the hash is ADR-070's
+        change signal and the 🆔 its identity, so a line SKUEL already owns
+        is recognised even after its hash moved (SKUEL's own ``[x]`` + ``✅``
+        write-back above all; a just-completed task is terminal, so Guard 4
+        cannot catch it). Guard 3 (semantic, R3): bridge-
         generated lines whose (node label, normalized title) matches an entity
         already extracted from this entry MERGE — the line resolves to the
         existing uid, no new node is created and the existing provenance edge
@@ -975,6 +1071,8 @@ class ActivityExtractorService:
             existing_extracted = {}
         if user_owned_semantic is None:
             user_owned_semantic = {}
+        if existing_vault_ids is None:
+            existing_vault_ids = {}
         node_label = _NODE_LABEL_BY_EXTRACTOR_LABEL.get(label)
         created = 0
         uids: list[str] = []
@@ -982,6 +1080,18 @@ class ActivityExtractorService:
             line_hash = normalized_line_hash(activity.raw_line or activity.description)
             if line_hash in existing_line_hashes:
                 extraction.lines_skipped_existing += 1
+                continue
+            if activity.vault_id is not None and activity.vault_id in existing_vault_ids:
+                # Guard 2b: this entry already extracted the line that carries
+                # this 🆔; only its text moved since (SKUEL's own done-date
+                # write-back, or a user edit that inbound sync does not yet
+                # propagate). Never a new node. The edge's stale digest was
+                # retired, and its refresh queued, in the pre-pass above.
+                extraction.lines_skipped_existing += 1
+                self.logger.debug(
+                    f"Identity dedup: {label} '{activity.description[:40]}' "
+                    f"already extracted as 🆔 {activity.vault_id}"
+                )
                 continue
 
             key: tuple[str, str] | None = None

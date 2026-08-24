@@ -21,6 +21,7 @@ from core.models.relationship_names import RelationshipName
 from core.models.user_entry.user_entry import UserEntry
 from core.ports.output_generator_protocols import OutputInstruction
 from core.services.dsl import ActivityExtractionResult, DSLTransformResult
+from core.services.dsl.activity_extractor import ExtractedByVaultId
 from core.services.user_entry.user_entry_processing_service import (
     UserEntryProcessingService,
 )
@@ -418,6 +419,7 @@ def _extraction_result(
     entry_uid: str,
     *,
     created_links: list[tuple[str, str, str | None]] | None = None,
+    refreshed_links: list[tuple[str, str, str]] | None = None,
     created_ku_uids: list[str] | None = None,
     referenced_ku_uids: list[str] | None = None,
 ) -> ActivityExtractionResult:
@@ -425,6 +427,7 @@ def _extraction_result(
         entry_uid=entry_uid,
         user_uid="user_1",
         created_links=created_links or [],
+        refreshed_links=refreshed_links or [],
         created_ku_uids=created_ku_uids or [],
         referenced_ku_uids=referenced_ku_uids or [],
     )
@@ -480,6 +483,36 @@ class TestExtractActivities:
         assert updates["metadata"]["activity_extraction"]["status"] == "completed"
         assert updates["status"] == EntityStatus.COMPLETED.value
         assert "processing_error" not in updates
+
+    @pytest.mark.asyncio
+    async def test_guard_2b_hash_refresh_rides_the_provenance_write(self):
+        """A line Guard 2b recognised by 🆔 after its text moved hands back a
+        refreshed (uid, hash, vault_id) triple; it is written through the same
+        batch edge MERGE as the created links — its own edge, same vault_id."""
+        entry = _make_entry(Pipeline.EXTRACT_ACTIVITIES, content="- [x] Gym 🆔 sk_a1 ✅ 2026-08-17")
+        svc = _extract_entry_service(entry)
+
+        extractor = MagicMock()
+        extractor.extract_and_create = AsyncMock(
+            return_value=Result.ok(
+                _extraction_result(
+                    entry.uid,
+                    created_links=[("task:new", "hash_new", "sk_b2")],
+                    refreshed_links=[("task:gym", "hash_after_writeback", "sk_a1")],
+                )
+            )
+        )
+
+        dispatcher = _make_dispatcher(entry_service=svc)
+        dispatcher.activity_extractor = extractor
+        dispatcher.user_service = _teacher_user_service()
+        result = await dispatcher.process(entry)
+
+        assert result.is_ok
+        svc.create_extracted_from_links.assert_awaited_once_with(
+            entry.uid,
+            [("task:new", "hash_new", "sk_b2"), ("task:gym", "hash_after_writeback", "sk_a1")],
+        )
 
     @pytest.mark.asyncio
     async def test_bridge_failure_degrades_to_parser_only(self):
@@ -760,6 +793,15 @@ class TestExtractActivities:
                         "source_line_hash": "",
                         "vault_id": None,
                     },
+                    {
+                        # Written back by SKUEL since extraction: the hash moved,
+                        # the 🆔 is the identity (Guard 2b).
+                        "entity_uid": "task_written_back",
+                        "title": "Water the plants",
+                        "labels": ["Entity", "Task"],
+                        "source_line_hash": "stale",
+                        "vault_id": "sk_mine01",
+                    },
                 ]
             )
         )
@@ -774,10 +816,17 @@ class TestExtractActivities:
 
         assert result.is_ok
         kwargs = extractor.extract_and_create.await_args.kwargs
-        assert kwargs["existing_line_hashes"] == frozenset({"abc"})
+        assert kwargs["existing_line_hashes"] == frozenset({"abc", "stale"})
+        # Guard 2b: the 🆔s already on this entry's edges ride the same read.
+        assert kwargs["existing_vault_ids"] == {
+            "sk_mine01": (ExtractedByVaultId("task_written_back", "stale"),)
+        }
         # Guard 3 (R3): the semantic map is built from the same read —
         # normalized title keyed by node label; the title-less row is skipped.
-        assert kwargs["existing_extracted"] == {("Task", "prior task"): "task_prior"}
+        assert kwargs["existing_extracted"] == {
+            ("Task", "prior task"): "task_prior",
+            ("Task", "water the plants"): "task_written_back",
+        }
 
     @pytest.mark.asyncio
     async def test_user_owned_twins_are_read_and_threaded(self):

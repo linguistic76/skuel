@@ -38,6 +38,14 @@ if TYPE_CHECKING:
 #     dependency chain so the PEP 723 agent can share it)
 #
 # A divergence here silently injects IDs into the wrong lines — keep it here.
+#
+# The digest is also part of the local_agent WIRE PROTOCOL (ADR-075): the agent
+# reproduces the server's ``source_line_hash`` ON THE DEVICE to find the line
+# to inject into, so any change to what this digest ignores is a protocol
+# change — bump ``PROTOCOL_VERSION`` on both sides (``device_routes.py`` and
+# the agent, parity contract-tested) so a stale agent refuses at handshake
+# instead of silently missing its target while the reconciler persists the
+# minted 🆔. No compatibility shim: the user updates the agent by pulling.
 
 VAULT_ID_RE = re.compile(r"🆔️?\s*([\w-]{1,20})")
 """Matches the obsidian-tasks 🆔 ID token (ADR-070 Decision 1).
@@ -52,6 +60,14 @@ def normalize_vault_line_hash(line: str) -> str:
     Normalizes the checkbox prefix to ``- [ ] ``, strips the 🆔 token so
     the hash is stable across ID injection, then sha256s the
     whitespace-collapsed result.
+
+    The ``✅ YYYY-MM-DD`` done-date is deliberately KEPT in the digest: it is
+    the only thing that tells two same-title completed occurrences in one
+    note apart (a weekly note logging the same task on two days), and
+    stripping it swallowed the second one. SKUEL's own ``[x]`` + ``✅``
+    write-back therefore DOES move a line's hash — that line is recognised
+    by its 🆔 instead (extraction Guard 2b; ADR-070: the hash is the change
+    signal, the 🆔 the identity), never by blinding the digest to more tokens.
     """
     line = re.sub(r"^[-*]\s*\[[xX]\]\s*", "- [ ] ", line)
     line = re.sub(r"^[-*]\s*\[\s*\]\s*", "- [ ] ", line)

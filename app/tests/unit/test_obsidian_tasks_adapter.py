@@ -223,6 +223,30 @@ class TestVaultIdInjectionHashStability:
         after = "- [ ] move furniture📅 2026-06-17 ⏫  🆔 sk_3uhmts"
         assert normalized_line_hash(before) == normalized_line_hash(after)
 
+    def test_done_date_stays_a_discriminator(self):
+        """Two same-title completed occurrences in one note differ only by their
+        ✅ dates (and, once injected, their 🆔s). The digest must keep telling
+        them apart — stripping the ✅ swallowed the second one (Codex P1 on
+        #1143). SKUEL's own ``[x]`` + ``✅`` write-back therefore DOES move a
+        line's hash; that line is recognised by its 🆔 (Guard 2b), not here."""
+        from core.services.dsl.activity_extractor import normalized_line_hash
+
+        monday = "- [x] Gym 🆔 sk_aaa111 ✅ 2026-08-17"
+        wednesday = "- [x] Gym 🆔 sk_bbb222 ✅ 2026-08-19"
+        assert normalized_line_hash(monday) != normalized_line_hash(wednesday)
+
+        before_writeback = "- [ ] move furniture📅 2026-06-17 ⏫  🆔 sk_3uhmts"
+        after_writeback = "- [x] move furniture📅 2026-06-17 ⏫  🆔 sk_3uhmts ✅ 2026-08-23"
+        assert normalized_line_hash(after_writeback) != normalized_line_hash(before_writeback)
+
+    def test_a_due_date_edit_reads_as_a_change(self):
+        """The digest is ADR-070's change signal: a 📅 edit must move it."""
+        from core.services.dsl.activity_extractor import normalized_line_hash
+
+        line = "- [ ] move furniture 📅 2026-06-17 🆔 sk_3uhmts"
+        rescheduled = "- [ ] move furniture 📅 2026-06-18 🆔 sk_3uhmts"
+        assert normalized_line_hash(rescheduled) != normalized_line_hash(line)
+
     def test_extractor_hash_matches_protocol_hash(self):
         """normalized_line_hash delegates to normalize_vault_line_hash — both
         must produce the same digest so reconciler and extractor agree."""

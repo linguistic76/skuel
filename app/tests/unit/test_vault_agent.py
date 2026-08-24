@@ -454,7 +454,9 @@ class TestHandshake:
         private_key = Ed25519PrivateKey.generate()
         connection = FakeConnection(
             [
-                json.dumps({"type": "challenge", "nonce": "abc123", "protocol": 1}),
+                json.dumps(
+                    {"type": "challenge", "nonce": "abc123", "protocol": agent.PROTOCOL_VERSION}
+                ),
                 json.dumps({"type": "session", "ok": True, "user_uid": "user_mike"}),
             ]
         )
@@ -469,7 +471,11 @@ class TestHandshake:
 
     def test_protocol_mismatch_is_fatal(self) -> None:
         connection = FakeConnection(
-            [json.dumps({"type": "challenge", "nonce": "abc123", "protocol": 2})]
+            [
+                json.dumps(
+                    {"type": "challenge", "nonce": "abc123", "protocol": agent.PROTOCOL_VERSION + 1}
+                )
+            ]
         )
         with pytest.raises(AgentError, match="Protocol mismatch"):
             self._run(connection)
@@ -477,7 +483,9 @@ class TestHandshake:
     def test_session_refusal_is_fatal(self) -> None:
         connection = FakeConnection(
             [
-                json.dumps({"type": "challenge", "nonce": "abc123", "protocol": 1}),
+                json.dumps(
+                    {"type": "challenge", "nonce": "abc123", "protocol": agent.PROTOCOL_VERSION}
+                ),
                 json.dumps({"type": "session", "ok": False, "error": "device_not_enrolled"}),
             ]
         )

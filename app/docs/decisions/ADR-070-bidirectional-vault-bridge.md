@@ -64,6 +64,8 @@ Evidence: three primary sources confirm `🆔` stores an `id` field (e.g. `- [ ]
 
 **Implementation consequence:** `EXTRACTED_FROM {vault_id, extracted_at, source_line_hash}` — `vault_id` is the stable join key; `source_line_hash` detects whether the line changed since last sync.
 
+> **Amendment (2026-08-23, cascade-residue PR-C):** the 🆔 is now read as identity at *ingest* too. Extraction Guard 2 (`source_line_hash` dedup) gained an identity form — Guard 2b: a line whose 🆔 already carries an `EXTRACTED_FROM` edge to the entry is already extracted, whatever its hash says. Without it, SKUEL's own outbound write-back (`[x]` + `✅ date`) moved the line's hash, Guard 2 missed on the next sync, Guard 4 (ACTIVE twins only, by design) could not catch a just-completed task, and the primary personal-data path re-created every task it marked done (reproduced end-to-end in `tests/integration/test_vault_done_date_hash_roundtrip.py`). The digest itself is unchanged — the `✅` date stays inside it deliberately, as the only discriminator between two same-title completed occurrences in one note — so no stored hash moved and the agent protocol did not change.
+
 ---
 
 ### Decision 2 — Field Authority Table

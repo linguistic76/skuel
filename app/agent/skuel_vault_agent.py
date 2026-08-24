@@ -82,6 +82,11 @@ AGENT_VERSION = "0.2.0"  # 0.2.0: je_pro served (ADR-073 amendment)
 
 # Must match adapters/inbound/device_routes.py PROTOCOL_VERSION — the agent
 # hard-fails on mismatch (ADR-075 Consequences: version skew is a real category).
+# The shared line-hash digest (core/ports/vault_bridge_protocol.py) is part of
+# this protocol: the server sends ``source_line_hash`` values the agent must
+# reproduce on the device to find the line to inject into, so a change to what
+# the digest ignores is a protocol change — bump here AND on the server, never
+# one side.
 PROTOCOL_VERSION = 1
 
 # Must equal core.auth.device_signature.AGENT_SIGNATURE_DOMAIN. Duplicated here

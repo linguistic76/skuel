@@ -417,6 +417,75 @@ Some reflections on the day...
         assert extraction.tag_warnings == []  # and the warning is gated with it
 
     @pytest.mark.asyncio
+    async def test_a_line_whose_vault_id_is_already_extracted_is_skipped_by_identity(
+        self, extractor
+    ):
+        """Guard 2b. SKUEL's own ``[x]`` + ``✅ date`` write-back moves a line's
+        hash (the ✅ date is a discriminator, kept in the digest), so Guard 2
+        misses it and Guard 4 ignores the now-terminal twin — the line's 🆔,
+        already on this entry's EXTRACTED_FROM edge, is what says "mine". The
+        edge's stale digest is retired BEFORE any line is checked against it,
+        so a same-text unchecked sibling in the same ingest (placed FIRST here)
+        is a new task, as is a line carrying a 🆔 the entry has never seen. A
+        🆔 that holds TWO edges — the original task and the copy the bug once
+        made — is treated as one line: every stale edge retired and refreshed,
+        an edge already at the current digest left alone."""
+        from core.services.dsl.activity_extractor import (
+            ExtractedByVaultId,
+            normalized_line_hash,
+        )
+
+        original = "- [ ] Water the plants"  # what the edge was extracted from
+        mine = "- [x] Water the plants 🆔 sk_mine01 ✅ 2026-08-17"  # after the write-back
+        entry = UserEntry(
+            uid="ue_ident",
+            title="Identity",
+            user_uid="user_mike",
+            entity_type=EntityType.USER_ENTRY,
+            status=EntityStatus.COMPLETED,
+            pipeline=Pipeline.NONE,
+            original_filename="ident.md",
+            file_path="/tmp/ident.md",
+            file_type="text/plain",
+            # Plain obsidian-tasks checkbox lines — the shape the vault holds
+            # and the only parser pass that reads the 🆔 off a line.
+            processed_content=(
+                f"{original}\n"  # the new sibling, same text as the ORIGINAL line
+                f"{mine}\n"
+                "- [x] Water the plants 🆔 sk_other2 ✅ 2026-08-19\n"
+            ),
+        )
+
+        result = await extractor.extract_and_create(
+            entry,
+            "user_mike",
+            existing_line_hashes=frozenset(
+                {normalized_line_hash(original), normalized_line_hash(mine)}
+            ),
+            existing_vault_ids={
+                "sk_mine01": (
+                    ExtractedByVaultId("task_mine", normalized_line_hash(original)),  # stale
+                    ExtractedByVaultId("task_copy", normalized_line_hash(mine)),  # current
+                )
+            },
+        )
+
+        assert result.is_ok
+        extraction = result.value
+        assert extraction.lines_skipped_existing == 1
+        assert extraction.tasks_created == 2, extraction.to_dict()
+        assert [vault_id for _uid, _hash, vault_id in extraction.created_links] == [
+            None,
+            "sk_other2",
+        ]
+        # The matched edge's change signal moves with the line: a stale digest
+        # would swallow the next same-text line the user adds.
+        assert extraction.refreshed_links == [
+            ("task_mine", normalized_line_hash(mine), "sk_mine01")
+        ], "only the stale edge is refreshed; the copy's edge is already current"
+        assert extraction.to_dict()["lines_rehashed"] == 1
+
+    @pytest.mark.asyncio
     async def test_bridge_generated_lines_never_tag_warn(self, extractor):
         """Bridge lines carry deliberately loose tags — not the user's values to fix."""
         from core.services.dsl.activity_extractor import normalized_line_hash

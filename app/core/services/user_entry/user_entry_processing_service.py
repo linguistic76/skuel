@@ -48,6 +48,7 @@ from core.models.user_entry.user_entry import UserEntry
 from core.models.user_entry.user_entry_request import UserEntryCreateRequest
 from core.services.dsl.activity_extractor import (
     USER_OWNED_DEDUP_LABELS,
+    ExtractedByVaultId,
     normalized_line_hash,
     semantic_dedup_key,
 )
@@ -499,11 +500,14 @@ class UserEntryProcessingService:
                         normalized_line_hash(line) for line in bridge_result.value.activity_lines
                     )
 
-        # --- Existing-extraction read (guard 2 + guard 3 inputs) --------------
+        # --- Existing-extraction read (guard 2 / 2b / 3 inputs) ---------------
         # Read on every run, not only under force: if a prior run wrote edges
         # but died before the metadata write, the next run must still dedup.
-        # One query feeds both guards: exact line hashes (Guard 2) and the
-        # semantic (node label, normalized title) → uid map (Guard 3, R3).
+        # One query feeds three guards: exact line hashes (Guard 2), the 🆔s
+        # already on this entry's edges (Guard 2b, identity — a line SKUEL has
+        # written ``[x]`` + ``✅`` into no longer hashes to its edge, but its 🆔
+        # still names it, ADR-070), and the semantic (node label, normalized
+        # title) → uid map (Guard 3, R3).
         extracted_result = await self.entry_service.get_extracted_entities(entry.uid)
         if extracted_result.is_error:
             return await self._fail(entry, extracted_result.expect_error(), phase="read_provenance")
@@ -511,6 +515,21 @@ class UserEntryProcessingService:
         existing_line_hashes = frozenset(
             line_hash for row in extracted_rows if (line_hash := row.get("source_line_hash"))
         )
+        # Every edge per 🆔, not one: the duplicate-creation bug Guard 2b closes
+        # left some 🆔s with two (the original task and its copy), and all of
+        # them are the line's own — retired and refreshed together.
+        edges_by_vault_id: dict[str, list[ExtractedByVaultId]] = {}
+        for row in extracted_rows:
+            if (vault_id := row.get("vault_id")) and row.get("entity_uid"):
+                edges_by_vault_id.setdefault(vault_id, []).append(
+                    ExtractedByVaultId(
+                        entity_uid=row["entity_uid"],
+                        source_line_hash=row.get("source_line_hash") or "",
+                    )
+                )
+        existing_vault_ids = {
+            vault_id: tuple(edges) for vault_id, edges in edges_by_vault_id.items()
+        }
         existing_extracted: dict[tuple[str, str], str] = {}
         for row in extracted_rows:
             # Node label is the never-sniff-compliant type source; :Entity is
@@ -572,15 +591,20 @@ class UserEntryProcessingService:
             bridge_line_hashes=bridge_line_hashes,
             existing_extracted=existing_extracted,
             user_owned_semantic=user_owned_semantic,
+            existing_vault_ids=existing_vault_ids,
         )
         if extract_result.is_error:
             return await self._fail(entry, extract_result.expect_error(), phase="extract")
         extraction = extract_result.value
 
         # --- Provenance edges ---------------------------------------------------
-        if extraction.created_links:
+        # New edges for what was created, plus the hash refresh for lines Guard
+        # 2b recognised by 🆔 after their text moved — the same MERGE, on the
+        # line's own edge, same vault_id, extracted_at untouched (ON CREATE).
+        provenance_links = [*extraction.created_links, *extraction.refreshed_links]
+        if provenance_links:
             links_result = await self.entry_service.create_extracted_from_links(
-                entry.uid, extraction.created_links
+                entry.uid, provenance_links
             )
             if links_result.is_error:
                 return await self._fail(entry, links_result.expect_error(), phase="persist_links")

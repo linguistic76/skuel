@@ -60,6 +60,9 @@ def _reconciler(task: Task) -> tuple[VaultReconciler, Mock]:
     user_entry.get_extracted_entities = AsyncMock(
         return_value=Result.ok([{"entity_uid": TASK_UID, "vault_id": VAULT_ID}])
     )
+    # Reached only when a bridge reports a new content hash (the real adapter
+    # does; the Mock bridge above does not).
+    user_entry.update_entry = AsyncMock(return_value=Result.ok(Mock()))
 
     tasks = Mock()
     tasks.get_task = AsyncMock(return_value=Result.ok(task))
@@ -137,6 +140,56 @@ async def test_unstamped_completion_falls_back_to_today(tmp_path: Path) -> None:
     )
 
     assert await _written_done_date(task, tmp_path) == date.today().isoformat()
+
+
+async def test_the_written_back_line_keeps_its_identity(tmp_path: Path) -> None:
+    """What the outbound pass writes — ``[x]`` + ``✅ date`` — moves the line's
+    hash (the ✅ date is a discriminator, deliberately inside the digest), so
+    the next sync's Guard 2 will miss it. The line is recognised by its 🆔
+    instead (Guard 2b) — which is only possible if the write-back leaves the
+    🆔 intact and the parser still reads it off the written line. Real
+    adapter, real mutation (the end-to-end twin lives in
+    tests/integration/test_vault_done_date_hash_roundtrip.py).
+    """
+    from adapters.vault.filesystem_adapter import FilesystemVaultAdapter
+    from core.ports.vault_bridge_protocol import normalize_vault_line_hash
+    from core.services.dsl.obsidian_tasks_adapter import obsidian_task_line_to_parsed
+
+    note = tmp_path / "daily.md"
+    note.write_text(NOTE, encoding="utf-8")
+    original_line = NOTE.splitlines()[-1]
+
+    task = Task(
+        uid=TASK_UID,
+        user_uid=OWNER,
+        title="Ship the fix",
+        status=EntityStatus.COMPLETED,
+        completion_date=date(2026, 4, 2),
+    )
+    reconciler, _mock_bridge = _reconciler(task)
+    descriptor = VaultDescriptor(
+        kind=VaultKind.PERSONAL,
+        root=tmp_path,
+        owner_uid=UserUID(OWNER),
+        allowlist=SyncAllowlist(governed_root=tmp_path.resolve(), allowed_dirs=frozenset()),
+        bridge=FilesystemVaultAdapter(allowed_root=tmp_path),
+        supports_task_round_trip=True,
+    )
+    entry = Mock()
+    entry.uid = ENTRY_UID
+    entry.metadata = {}
+    stats = VaultSyncStats()
+
+    await reconciler._process_entry_outbound(descriptor, entry, str(note), stats)
+
+    assert stats.tasks_marked_done == 1 and not stats.errors, stats
+    written_line = note.read_text(encoding="utf-8").splitlines()[-1]
+    assert written_line.startswith("- [x]") and "✅ 2026-04-02" in written_line, written_line
+    # The hash moved — by design — so identity has to come from the 🆔.
+    assert normalize_vault_line_hash(written_line) != normalize_vault_line_hash(original_line)
+    parsed = obsidian_task_line_to_parsed(written_line)
+    assert parsed is not None and parsed.vault_id == VAULT_ID
+    assert parsed.is_checked and parsed.completion_date == date(2026, 4, 2)
 
 
 async def test_incomplete_task_is_never_marked_done(tmp_path: Path) -> None:
