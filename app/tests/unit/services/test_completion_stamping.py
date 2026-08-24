@@ -620,7 +620,11 @@ class TestCompleteTasksBulk:
         # the read is gone, so the write's own not-found is the same protection.
         from core.services.tasks.tasks_core_service import TasksCoreService
 
-        backend, store = guarded_rows_backend({"task_1": None})
+        # Annotated: an all-``None`` map carries no row for the generic to infer from,
+        # and a generic FUNCTION is not subscriptable at runtime (PEP 695) — so the
+        # binding has to come through the argument's own type.
+        rows: dict[str, Task | None] = {"task_1": None}
+        backend, store = guarded_rows_backend(rows)
         service = TasksCoreService(backend=backend)
 
         result = await service.complete_tasks_bulk(["task_1"], USER)

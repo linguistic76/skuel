@@ -17,12 +17,12 @@ node in the state the events describe.
 from __future__ import annotations
 
 from datetime import date
-from typing import Any
 
 import pytest
 import pytest_asyncio
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
+from core.events.base import BaseEvent
 from core.events.task_events import TaskCompleted, TaskReopened
 from core.models.enums import EntityStatus
 from core.models.task.task import Task
@@ -34,15 +34,20 @@ USER = "user_three_click"
 
 
 class _CapturingBus:
-    """Records what the doors publish; ``publish_async`` is the whole contract."""
+    """Records what the doors publish; ``publish_async`` is the whole contract.
+
+    Everything a door publishes is a ``BaseEvent``, and ``of`` narrows to the subtype
+    asked for — so a test that reads ``.is_repeat`` off the result is type-checked
+    against the event it actually selected.
+    """
 
     def __init__(self) -> None:
-        self.events: list[Any] = []
+        self.events: list[BaseEvent] = []
 
-    async def publish_async(self, event: Any) -> None:
+    async def publish_async(self, event: BaseEvent) -> None:
         self.events.append(event)
 
-    def of(self, event_type: type) -> list[Any]:
+    def of[E: BaseEvent](self, event_type: type[E]) -> list[E]:
         return [event for event in self.events if isinstance(event, event_type)]
 
 

@@ -31,6 +31,7 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
+from core.events.base import BaseEvent
 from core.events.task_events import TaskCompleted, TaskReopened, TasksBulkCompleted
 from core.models.enums.entity_enums import EntityStatus
 from core.models.task.task import Task
@@ -48,15 +49,19 @@ USER = "user_pr4"
 
 
 class _RecordingBus:
-    """Captures published events; ``publish_async`` is the whole contract."""
+    """Captures published events; ``publish_async`` is the whole contract.
+
+    ``of`` narrows to the subtype asked for, so a test reading ``.is_repeat`` off the
+    result is checked against the event it selected rather than against ``Any``.
+    """
 
     def __init__(self) -> None:
-        self.events: list[Any] = []
+        self.events: list[BaseEvent] = []
 
-    async def publish_async(self, event: Any) -> None:
+    async def publish_async(self, event: BaseEvent) -> None:
         self.events.append(event)
 
-    def of(self, event_type: type) -> list[Any]:
+    def of[E: BaseEvent](self, event_type: type[E]) -> list[E]:
         return [event for event in self.events if isinstance(event, event_type)]
 
 

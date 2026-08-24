@@ -20,6 +20,8 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 
 from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node, to_neo4j_node
+from core.events.base import BaseEvent
+from core.events.task_events import TaskCompleted
 from core.models.enums import EntityStatus, EntityType, Priority
 from core.models.relationship_names import RelationshipName
 from core.models.task.task import Task as Task
@@ -297,10 +299,10 @@ async def test_zero_minutes_is_stored_and_reported_not_dropped(
     ``TaskCompleted`` would have stored 0 while telling subscribers the
     duration was never reported.
     """
-    published: list[Any] = []
+    published: list[BaseEvent] = []
 
     class _Bus:
-        async def publish_async(self, event: Any) -> None:
+        async def publish_async(self, event: BaseEvent) -> None:
             published.append(event)
 
     service = TasksProgressService(backend=mock_backend, event_bus=_Bus())
@@ -323,7 +325,9 @@ async def test_zero_minutes_is_stored_and_reported_not_dropped(
 
     assert result.is_ok
     assert _patch_sent_to_backend(mock_backend)["actual_minutes"] == 0
-    assert published[-1].completion_time_seconds == 0
+    event = published[-1]
+    assert isinstance(event, TaskCompleted)
+    assert event.completion_time_seconds == 0
 
 
 @pytest.mark.asyncio
@@ -375,10 +379,10 @@ async def test_is_repeat_is_the_inverse_of_the_stamp_gate(mock_backend, user_con
     subscribers can decline to count it twice. The cascade and the write run
     either way — a repeat complete stays a real complete (the repair path).
     """
-    published: list[Any] = []
+    published: list[BaseEvent] = []
 
     class _Bus:
-        async def publish_async(self, event: Any) -> None:
+        async def publish_async(self, event: BaseEvent) -> None:
             published.append(event)
 
     service = TasksProgressService(backend=mock_backend, event_bus=_Bus())
@@ -401,7 +405,9 @@ async def test_is_repeat_is_the_inverse_of_the_stamp_gate(mock_backend, user_con
 
     assert first.is_ok
     assert _patch_sent_to_backend(mock_backend)["completion_date"] == date.today()
-    assert published[-1].is_repeat is False
+    first_event = published[-1]
+    assert isinstance(first_event, TaskCompleted)
+    assert first_event.is_repeat is False
 
     already = active.to_dto()
     already.status = EntityStatus.COMPLETED
@@ -415,11 +421,13 @@ async def test_is_repeat_is_the_inverse_of_the_stamp_gate(mock_backend, user_con
     patch_sent = _patch_sent_to_backend(mock_backend)
     assert patch_sent["status"] == EntityStatus.COMPLETED.value
     assert "completion_date" not in patch_sent
-    assert published[-1].is_repeat is True
+    repeat_event = published[-1]
+    assert isinstance(repeat_event, TaskCompleted)
+    assert repeat_event.is_repeat is True
     assert len(published) == 2
 
 
-def _outcome_with_prior(prior: str | None, entity: Any) -> AsyncMock:
+def _outcome_with_prior(prior: str | None, entity: dict[str, Any]) -> AsyncMock:
     """A guarded write that reports a chosen prior, whatever any read says.
 
     The point of ADR-087 is that the verdict comes from the status the WRITE saw
@@ -444,10 +452,10 @@ async def test_cascade_is_repeat_follows_the_write_not_the_context_read(mock_bac
     behind by the time the write lands. The write reports COMPLETED, so this is a
     repeat, and the counting subscribers must be told so.
     """
-    published: list[Any] = []
+    published: list[BaseEvent] = []
 
     class _Bus:
-        async def publish_async(self, event: Any) -> None:
+        async def publish_async(self, event: BaseEvent) -> None:
             published.append(event)
 
     stale = _task("task:stale", EntityStatus.ACTIVE)
@@ -460,7 +468,9 @@ async def test_cascade_is_repeat_follows_the_write_not_the_context_read(mock_bac
     result = await service.complete_task_with_cascade("task:stale", user_context)
 
     assert result.is_ok
-    assert published[-1].is_repeat is True
+    event = published[-1]
+    assert isinstance(event, TaskCompleted)
+    assert event.is_repeat is True
 
 
 @pytest.mark.asyncio
@@ -470,10 +480,10 @@ async def test_cascade_is_repeat_is_false_when_the_write_saw_an_open_task(
     """And the mirror: a read that says "already completed" must not suppress a
     completion the write actually made. Both directions matter — the old shape
     could get either one wrong."""
-    published: list[Any] = []
+    published: list[BaseEvent] = []
 
     class _Bus:
-        async def publish_async(self, event: Any) -> None:
+        async def publish_async(self, event: BaseEvent) -> None:
             published.append(event)
 
     stale = _task("task:stale", EntityStatus.COMPLETED, completion_date=date(2026, 8, 1))
@@ -486,7 +496,9 @@ async def test_cascade_is_repeat_is_false_when_the_write_saw_an_open_task(
     result = await service.complete_task_with_cascade("task:stale", user_context)
 
     assert result.is_ok
-    assert published[-1].is_repeat is False
+    event = published[-1]
+    assert isinstance(event, TaskCompleted)
+    assert event.is_repeat is False
 
 
 @pytest.mark.asyncio
