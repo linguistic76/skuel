@@ -27,7 +27,6 @@ from core.events import (
     KnowledgeMastered,
     LearningPathCompleted,
     TaskCompleted,
-    TaskReopened,
 )
 from core.models.type_hints import UserUID
 from core.utils.decorators import with_error_handling
@@ -212,102 +211,67 @@ class CrossDomainAnalyticsService:
     # EVENT HANDLERS - Activity Domain Tracking
     # ========================================================================
 
-    async def _recompute_productivity(
-        self, user_uid: UserUID, occurred_at: str | None, operation: str
-    ) -> Result[None]:
-        """Shared body of the two productivity handlers.
+    async def handle_task_completed(self, event: TaskCompleted) -> Result[None]:
+        """Record the completion moment on the user's ProductivityAnalytics node.
 
-        ``occurred_at`` is the completion moment, or ``None`` when the trigger
-        was not a completion (a reopen) — see
-        :meth:`CrossDomainBackend.recompute_productivity_analytics`.
+        The node carries exactly two figures — ``first_completion_at`` and
+        ``last_completion_at`` — and this handler is their only writer.
+        ``tasks_completed`` is not maintained here or anywhere: it is derived
+        at read from the tasks the user currently owns in ``completed``
+        (:meth:`get_productivity_metrics`), so a completion that arrives
+        through a door that publishes no task event — the vault ``- [x]`` bulk
+        upsert — is counted the moment it exists, and a reopen lowers the
+        count without anyone having to hear about it.
+
+        **``is_repeat`` gates the whole handler, because the whole handler
+        accumulates.** The arc's contract is that the flag gates what
+        *accumulates* (an append, a stamp) and never what *derives*; with the
+        count derived at read there is nothing left here that derives. A
+        repeat is the explicit-complete cascade re-running on an
+        already-completed task, and it carries a fresh ``occurred_at`` even
+        though nothing transitioned — writing that to ``last_completion_at``
+        would report a completion moment that never happened, moving "when did
+        this user most recently complete something" forward on a click that
+        completed nothing. A reopen never reaches this service at all
+        (``TaskReopened`` has no analytics subscriber now that no count is
+        stored) and would have nothing to write if it did: it is the opposite
+        of a completion.
+
+        See :class:`TaskCompleted` for the contract.
         """
+        if event.is_repeat:
+            self.logger.debug(f"Repeat complete records no completion moment: {event.task_uid}")
+            return Result.ok(None)
+
         try:
-            result = await self.backend.recompute_productivity_analytics(
-                user_uid=user_uid,
-                occurred_at=occurred_at,
+            result = await self.backend.stamp_productivity_completion(
+                user_uid=event.user_uid,
+                occurred_at=event.occurred_at.isoformat(),
             )
             if result.is_error:
-                self.logger.error(f"Error recomputing productivity analytics: {result.error}")
+                self.logger.error(f"Error stamping productivity completion: {result.error}")
+            else:
+                self.logger.debug(f"Stamped productivity completion for task: {event.task_uid}")
             return Result.ok(None)
 
         except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Database error recomputing productivity analytics: {e}")
+            self.logger.error(f"Database error stamping productivity completion: {e}")
             return Result.fail(
                 Errors.database(
-                    message=f"Failed to recompute productivity analytics: {e!s}",
-                    operation=operation,
+                    message=f"Failed to stamp productivity completion: {e!s}",
+                    operation="handle_task_completed",
                 )
             )
         except Exception as e:  # safety-net: catch unexpected errors
             self.logger.error(
-                f"Unexpected error recomputing productivity analytics: {type(e).__name__}: {e}"
+                f"Unexpected error stamping productivity completion: {type(e).__name__}: {e}"
             )
             return Result.fail(
                 Errors.system(
-                    message=f"Failed to recompute productivity analytics: {e!s}",
-                    operation=operation,
+                    message=f"Failed to stamp productivity completion: {e!s}",
+                    operation="handle_task_completed",
                 )
             )
-
-    async def handle_task_completed(self, event: TaskCompleted) -> Result[None]:
-        """
-        Recompute productivity analytics after a task completion.
-
-        Builds:
-        - Task completion velocity (tasks per week)
-        - Priority distribution patterns
-        - Completion time trends
-
-        Recompute work, so the count is rebuilt on **every** complete, repeat
-        included — that is the repair path, and re-running it converges rather
-        than accumulating. ``tasks_completed`` is the count of the user's tasks
-        currently in ``completed``, read fresh from the graph; the increment it
-        replaced could not tell a re-post from a second task, which is what the
-        old skip-on-repeat gate stood in for.
-
-        **``is_repeat`` does not disappear from this handler — it changes job.**
-        It no longer decides *whether to do the work*; it decides *whether a new
-        completion moment occurred*. The count recomputes either way; only the
-        stamps are gated. A repeat is the explicit-complete cascade re-running
-        on an already-completed task, and it carries a fresh ``occurred_at``
-        even though nothing transitioned — writing that to
-        ``last_completion_at`` would report a completion moment that never
-        happened, moving the user's "most recently completed something" forward
-        on a click that completed nothing. Same invariant as the reopen path
-        (:meth:`handle_task_reopened`), reached through the other door.
-
-        See :class:`TaskCompleted` for the contract.
-        """
-        recomputed = await self._recompute_productivity(
-            event.user_uid,
-            occurred_at=None if event.is_repeat else event.occurred_at.isoformat(),
-            operation="handle_task_completed",
-        )
-        if recomputed.is_ok:
-            self.logger.debug(f"Recomputed productivity analytics for task: {event.task_uid}")
-        return recomputed
-
-    async def handle_task_reopened(self, event: TaskReopened) -> Result[None]:
-        """
-        Recompute productivity analytics after a task is reopened.
-
-        The counter has to be able to fall: once Today's Undo genuinely reopens
-        a task, ``complete → Undo → complete`` is two real transitions into
-        completed, and a tally would count one task's work twice.
-
-        No timestamp is passed. A reopen is not a completion, so
-        ``last_completion_at`` — "when did this user most recently complete
-        something" — must not move, and ``first_completion_at`` keeps whatever
-        it already had.
-        """
-        recomputed = await self._recompute_productivity(
-            event.user_uid,
-            occurred_at=None,
-            operation="handle_task_reopened",
-        )
-        if recomputed.is_ok:
-            self.logger.debug(f"Recomputed productivity analytics for reopen: {event.task_uid}")
-        return recomputed
 
     async def handle_habit_completed(self, event: Any) -> Result[None]:
         """
@@ -500,9 +464,9 @@ class CrossDomainAnalyticsService:
         """
         Get productivity analytics from task completions.
 
-        Reads the ProductivityAnalytics node maintained by the
-        ``handle_task_completed`` / ``handle_task_reopened`` handlers, together
-        with a live count of the completions inside the velocity window.
+        Reads the two completion stamps off the ProductivityAnalytics node
+        (written by ``handle_task_completed``) together with both counts,
+        derived live from the graph in the same read.
 
         **``completion_velocity`` is a rate over a fixed trailing window** —
         tasks stamped ``completion_date`` within the last
@@ -529,35 +493,34 @@ class CrossDomainAnalyticsService:
         completing nothing per week. Their cumulative figures are still right
         beside it, unchanged.
 
-        The count is derived from the graph, so it does not require the
-        analytics node to exist — a user whose completions arrived through the
-        vault ``- [x]`` door (which writes no node) still gets a real velocity.
-        Completed tasks carrying no ``completion_date`` are excluded rather than
-        assumed recent.
+        **Both counts are derived from one graph read.** ``tasks_completed``
+        is every task the user currently owns in ``completed`` and
+        ``tasks_completed_in_window`` is the subset whose ``completion_date``
+        falls inside the window, counted by the same traversal — so the window
+        is a subset of the total by construction and the payload cannot
+        contradict itself. The total used to be a stored figure the event
+        handlers maintained, and it drifted from the graph through every door
+        that publishes no task event (a task created already completed, a
+        completed task deleted, the vault ``- [x]`` upsert above all); the
+        stored field, its reconciliation instrument and the contradiction they
+        produced together are gone. Neither count needs the analytics node to
+        exist. A completed task carrying no ``completion_date`` is in the total
+        but excluded from the window rather than assumed recent.
 
-        **The two counts come from different sources, and that is visible.**
-        ``tasks_completed`` is served from the ``ProductivityAnalytics`` node,
-        maintained by the ``TaskCompleted`` / ``TaskReopened`` handlers;
-        ``tasks_completed_in_window`` is counted live. Read from one graph state
-        the window is a subset of the total, so ``tasks_completed_in_window >
-        tasks_completed`` is arithmetically impossible — and when it appears, it
-        is a **legible staleness signal**, not a defect in the rate. It means
-        the node is behind the graph: a legacy tally, a create/delete that fired
-        no event, or the vault door, which writes no node at all. The remedy is
-        the reconciliation instrument (``./dev reconcile-productivity``); the
-        contradiction is the symptom that the pass is due. The stale reading
-        pre-dates the window — before it, such a user simply read zeros for
-        everything, which is the same wrongness with nothing to notice it by.
+        Only the two stamps come from the node, and only the ``TaskCompleted``
+        handler writes them, so a user whose completions all arrived through
+        the vault door has real counts and ``None`` stamps — honest, and
+        history is filled once by ``./dev backfill-productivity-stamps``.
 
         Args:
             user_uid: UID of the user
 
         Returns:
             Result containing productivity metrics dict with:
-            - tasks_completed: Tasks currently in COMPLETED (recomputed from the
-              graph on every completion and reopen — not a lifetime tally of
-              completion *events*, so completing the same task twice after a
-              reopen counts once)
+            - tasks_completed: Tasks currently in COMPLETED, derived at read
+              (not a lifetime tally of completion *events*: completing the same
+              task twice after a reopen counts once, a reopened task counts
+              zero)
             - first_completion_at: First completion timestamp
             - last_completion_at: Most recent completion timestamp
             - velocity_window_days: Length of the trailing window
@@ -577,18 +540,20 @@ class CrossDomainAnalyticsService:
         records = result.value or []
         # The query aggregates, so it yields exactly one row for any user; the
         # empty guard is for a read that came back with nothing at all.
-        record = records[0] if records else {}
-        # `analytics` is null for a user with no node — the derived count below
-        # stands on its own, so that is a real reading, not a missing one.
-        analytics = record.get("analytics") or {}
-        completed_in_window = int(record.get("completed_in_window") or 0)
+        record = records[0] if records else None
+        # `analytics` is null for a user with no node — both counts stand on
+        # their own, so that is a real reading with absent stamps, not a
+        # missing one.
+        analytics = (record["analytics"] if record else None) or {}
+        tasks_completed = record["tasks_completed"] if record else 0
+        completed_in_window = record["completed_in_window"] if record else 0
 
         velocity = completed_in_window / CompletionVelocityWindow.WEEKS
 
         return Result.ok(
             {
                 "user_uid": user_uid,
-                "tasks_completed": analytics.get("tasks_completed", 0),
+                "tasks_completed": tasks_completed,
                 "first_completion_at": analytics.get("first_completion_at"),
                 "last_completion_at": analytics.get("last_completion_at"),
                 "velocity_window_days": CompletionVelocityWindow.DAYS,
@@ -657,11 +622,11 @@ class CrossDomainAnalyticsService:
         records = result.value or []
         # The query aggregates, so it yields exactly one row for any user; the
         # empty guard is for a read that came back with nothing at all.
-        record = records[0] if records else {}
+        record = records[0] if records else None
         # `analytics` is null for a user with no node — the derived count below
         # stands on its own, so that is a real reading, not a missing one.
-        analytics = record.get("analytics") or {}
-        completions_in_window = int(record.get("completions_in_window") or 0)
+        analytics = (record["analytics"] if record else None) or {}
+        completions_in_window = record["completions_in_window"] if record else 0
 
         consistency = completions_in_window / HabitConsistencyWindow.WEEKS
 

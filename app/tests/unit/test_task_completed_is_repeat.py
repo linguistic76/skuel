@@ -21,13 +21,12 @@ split across five services:
     4. GoalsProgressService      recomputes progress from count_linked_tasks
     5. PsEngagementService       auto-complete filtered on state='engaged'
 
-  Both at once — the count derives, the stamps accumulate
-    6. CrossDomainAnalyticsService  ProductivityAnalytics.tasks_completed is
-                                 counted from the graph on every complete
-                                 (PR-6 moved it off the increment), but
-                                 first/last_completion_at are gated: a repeat
-                                 carries a fresh occurred_at with nothing
-                                 transitioned
+  Accumulating only — gated whole
+    6. CrossDomainAnalyticsService  ProductivityAnalytics holds only
+                                 first/last_completion_at now (the count is
+                                 derived at read, so nothing here derives);
+                                 a repeat carries a fresh occurred_at with
+                                 nothing transitioned and must stamp nothing
 
   Both at once — the reason the contract names appending separately
     7. TaskEventHandlerService   principle alignment: the graph read recomputes
@@ -47,7 +46,7 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from core.events.task_events import TaskCompleted, TaskReopened, TasksBulkCompleted
+from core.events.task_events import TaskCompleted, TasksBulkCompleted
 from core.models.enums.goal_enums import MeasurementType
 from core.models.goal.goal import Goal
 from core.models.insight.persisted_insight import InsightType
@@ -262,38 +261,40 @@ def test_bulk_completion_is_counted_per_row_not_per_batch() -> None:
 
 
 # ---------------------------------------------------------------------------
-# 4. CrossDomainAnalyticsService — recomputes tasks_completed from the graph
+# 4. CrossDomainAnalyticsService — stamps the completion moment, gated whole
 # ---------------------------------------------------------------------------
 
 
 def _analytics_service() -> tuple[CrossDomainAnalyticsService, Mock]:
     backend = Mock()
-    backend.recompute_productivity_analytics = AsyncMock(return_value=Result.ok([]))
+    backend.stamp_productivity_completion = AsyncMock(return_value=Result.ok([]))
     backend.upsert_habit_analytics = AsyncMock(return_value=Result.ok([]))
     return CrossDomainAnalyticsService(backend=backend), backend
 
 
 @pytest.mark.asyncio
-async def test_productivity_analytics_recomputes_on_a_first_complete() -> None:
+async def test_a_first_complete_records_the_completion_moment() -> None:
     service, backend = _analytics_service()
 
     result = await service.handle_task_completed(_event(is_repeat=False))
 
     assert result.is_ok
-    backend.recompute_productivity_analytics.assert_awaited_once_with(
+    backend.stamp_productivity_completion.assert_awaited_once_with(
         user_uid=_USER, occurred_at="2026-08-22T12:00:00"
     )
 
 
 @pytest.mark.asyncio
-async def test_productivity_analytics_recomputes_on_a_repeat_too() -> None:
-    """PR-6 inverts what PR-2 pinned here.
+async def test_a_repeat_complete_records_no_completion_moment() -> None:
+    """The handler is gated whole, because the whole handler accumulates.
 
-    The handler used to skip a repeat entirely because ``ON MATCH SET
-    tasks_completed = tasks_completed + 1`` could not tell a re-post from a
-    second task. It now counts the user's currently-COMPLETED tasks from the
-    graph, which *can*, so the count is rebuilt on every complete and converges
-    instead of inflating.
+    PR-6 had it recompute ``tasks_completed`` on every complete and gate only
+    the stamps. The count is derived at read now, so nothing here derives and
+    ``is_repeat`` gates the one thing left. The explicit-complete cascade
+    re-runs on an already-completed task and publishes a **fresh**
+    ``occurred_at`` with nothing transitioned — stamping it would move "when
+    did this user most recently complete something" forward on a click that
+    completed nothing (Codex #1134 P2).
     """
     service, backend = _analytics_service()
 
@@ -301,53 +302,27 @@ async def test_productivity_analytics_recomputes_on_a_repeat_too() -> None:
     repeat = await service.handle_task_completed(_event(is_repeat=True))
 
     assert first.is_ok and repeat.is_ok
-    assert backend.recompute_productivity_analytics.await_count == 2
-
-
-@pytest.mark.asyncio
-async def test_a_repeat_complete_records_no_completion_moment() -> None:
-    """``is_repeat`` did not disappear from this handler — it changed job.
-
-    It no longer decides whether to do the work; it decides whether a new
-    *completion moment* occurred. The explicit-complete cascade re-runs on an
-    already-completed task and publishes a **fresh** ``occurred_at`` with
-    nothing transitioned, so stamping it would stretch the velocity window
-    without raising the numerator — every repair click quietly lowering the
-    reported velocity (Codex #1134 P2). Same invariant as the reopen path.
-    """
-    service, backend = _analytics_service()
-
-    await service.handle_task_completed(_event(is_repeat=False))
-    await service.handle_task_completed(_event(is_repeat=True))
-
-    calls = backend.recompute_productivity_analytics.await_args_list
-    assert calls[0].kwargs["occurred_at"] == "2026-08-22T12:00:00", (
-        "a genuine completion must still advance last_completion_at"
+    backend.stamp_productivity_completion.assert_awaited_once_with(
+        user_uid=_USER, occurred_at="2026-08-22T12:00:00"
     )
-    assert calls[1].kwargs["occurred_at"] is None, "a repeat is not a completion moment"
-    assert calls[1].kwargs["user_uid"] == _USER, "but the count is still recomputed for the user"
 
 
 @pytest.mark.asyncio
-async def test_a_reopen_recomputes_without_moving_the_completion_stamps() -> None:
-    """``occurred_at=None`` is the whole signal: a reopen is not a completion, so
-    the backend recomputes the count and leaves ``last_completion_at`` — the
-    endpoint of the velocity denominator — exactly where it was."""
+async def test_a_repeat_alone_touches_the_backend_not_at_all() -> None:
+    """No count to recompute means no reason to reach the graph on a repeat."""
     service, backend = _analytics_service()
 
-    result = await service.handle_task_reopened(TaskReopened(task_uid=_TASK, user_uid=_USER))
+    result = await service.handle_task_completed(_event(is_repeat=True))
 
     assert result.is_ok
-    backend.recompute_productivity_analytics.assert_awaited_once_with(
-        user_uid=_USER, occurred_at=None
-    )
+    backend.stamp_productivity_completion.assert_not_awaited()
 
 
 @pytest.mark.asyncio
 async def test_habit_counter_still_increments_through_the_shared_helper() -> None:
-    """``_upsert_counter_analytics`` is deliberately untouched by PR-6 — habits
-    and events have no "currently completed" set to count, and a habit completed
-    fifty times genuinely has fifty completions."""
+    """``_upsert_counter_analytics`` is deliberately untouched — habits and
+    events have no "currently completed" set to derive a total from, and a habit
+    completed fifty times genuinely has fifty completions."""
     service, backend = _analytics_service()
 
     habit_event = Mock()
@@ -359,7 +334,7 @@ async def test_habit_counter_still_increments_through_the_shared_helper() -> Non
 
     assert result.is_ok
     backend.upsert_habit_analytics.assert_awaited_once()
-    backend.recompute_productivity_analytics.assert_not_awaited()
+    backend.stamp_productivity_completion.assert_not_awaited()
 
 
 # ---------------------------------------------------------------------------

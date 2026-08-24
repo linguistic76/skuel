@@ -119,10 +119,13 @@ def register_analytics_routes(app, services):
         lifetime average, so the window and its numerator are served alongside
         it: a bare tasks/week figure cannot be interpreted without them.
 
-        ``tasks_completed`` is the event-maintained cumulative count while
-        ``tasks_completed_in_window`` is counted live, so the second exceeding
-        the first is impossible from one graph state and means the stored count
-        is stale — run ``./dev reconcile-productivity``. See
+        ``tasks_completed`` and ``tasks_completed_in_window`` are both derived
+        from the graph on one read — the tasks the user currently owns in
+        COMPLETED, and the subset stamped inside the window — so the window is
+        a subset of the total by construction. Only the two stamps come from
+        the analytics node; a user whose completions all arrived through a
+        door that publishes no task event (the vault ``- [x]`` upsert) has
+        real counts and ``null`` stamps. See
         ``CrossDomainAnalyticsService.get_productivity_metrics``.
         """
         user_uid = require_authenticated_user(request)

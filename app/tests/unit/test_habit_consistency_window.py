@@ -28,6 +28,7 @@ from typing import Any
 import pytest
 
 from core.constants import HabitConsistencyWindow
+from core.ports.query_types import HabitAnalyticsRow
 from core.services.cross_domain_analytics_service import CrossDomainAnalyticsService
 from core.utils.result_simplified import Result
 
@@ -50,7 +51,7 @@ class _FakeBackend:
 
     async def get_habit_analytics(
         self, user_uid: str, window_start: str, window_end: str
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[HabitAnalyticsRow]]:
         self.window_start = window_start
         self.window_end = window_end
         return Result.ok(
@@ -276,7 +277,7 @@ async def test_a_read_that_returns_nothing_at_all_reports_zeros():
     class _EmptyBackend:
         async def get_habit_analytics(
             self, user_uid: str, window_start: str, window_end: str
-        ) -> Result[list[dict[str, Any]]]:
+        ) -> Result[list[HabitAnalyticsRow]]:
             return Result.ok([])
 
     service = CrossDomainAnalyticsService(_EmptyBackend())  # type: ignore[arg-type]  # test double

@@ -21,7 +21,9 @@ if TYPE_CHECKING:
 
     from core.models.query_types import QueryIntent
     from core.ports.query_types import (
+        HabitAnalyticsRow,
         JournalEntryRow,
+        ProductivityAnalyticsRow,
         SelCategoryRow,
         UserKnowledgeChannelRow,
     )
@@ -46,15 +48,16 @@ class CrossDomainBackendOperations(Protocol):
 
     async def increment_paths_completed(self, user_uid: str) -> Result[list[dict[str, Any]]]: ...
 
-    async def recompute_productivity_analytics(
-        self, user_uid: str, occurred_at: str | None
+    async def stamp_productivity_completion(
+        self, user_uid: str, occurred_at: str
     ) -> Result[list[dict[str, Any]]]:
-        """Recompute ``tasks_completed`` from the user's currently-completed tasks.
+        """Record a genuine task-completion moment on the user's ProductivityAnalytics node.
 
-        Derived, not tallied — idempotent under a repeat complete and able to
-        fall when a task is reopened. ``occurred_at`` is ``None`` on the reopen
-        path, which recomputes the count and leaves both completion stamps
-        untouched (a reopen is not a completion).
+        The node holds only ``first_completion_at`` (written once, never moved)
+        and ``last_completion_at`` (advanced to every moment). No count lives
+        there — ``tasks_completed`` is derived at read by
+        :meth:`get_productivity_analytics` — so a reopen or a repeat complete,
+        neither of which is a completion moment, must not call this at all.
         """
         ...
 
@@ -72,22 +75,25 @@ class CrossDomainBackendOperations(Protocol):
 
     async def get_productivity_analytics(
         self, user_uid: str, window_start: str, window_end: str
-    ) -> Result[list[dict[str, Any]]]:
-        """The stored ProductivityAnalytics node plus the trailing-window count.
+    ) -> Result[list[ProductivityAnalyticsRow]]:
+        """The user's completion stamps plus both task-completion counts, in one row.
 
         ``window_start`` and ``window_end`` are inclusive ISO ``YYYY-MM-DD``
-        date bounds; the row carries ``completed_in_window``, the numerator of
-        ``completion_velocity``. A trailing window ends where the present does,
+        date bounds. The row carries ``tasks_completed`` — every task the user
+        currently owns in ``completed`` — and ``completed_in_window``, the
+        subset inside the window and the numerator of ``completion_velocity``;
+        both derived from one traversal, so the window is a subset of the
+        total by construction. A trailing window ends where the present does,
         so a future-stamped completion is outside it rather than counted in
         every window until its date arrives. Always exactly one row —
-        ``analytics`` is ``None`` when the user has no node, and the derived
-        count stands on its own.
+        ``analytics`` (the two stamps) is ``None`` when the user has no node,
+        and the counts stand on their own.
         """
         ...
 
     async def get_habit_analytics(
         self, user_uid: str, window_start: str, window_end: str
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[HabitAnalyticsRow]]:
         """The stored HabitAnalytics node plus the trailing-window completion count.
 
         ``window_start`` and ``window_end`` are inclusive ISO ``YYYY-MM-DD``

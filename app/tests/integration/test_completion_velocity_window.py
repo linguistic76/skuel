@@ -1,9 +1,10 @@
-"""``completion_velocity``'s trailing window, against a real graph.
+"""``completion_velocity``'s trailing window and the derived total, against a real graph.
 
-The window is a Cypher predicate over ``Task.completion_date``, so everything
-load-bearing about it — which rows fall inside, what the edges do, and how the
-stamp's storage type is compared — is proven against the container rather than a
-fake. The arithmetic that consumes the count, and the meaning of an empty
+The window is a Cypher predicate over ``Task.completion_date`` and the total is
+a Cypher count over the same traversal, so everything load-bearing about them —
+which rows fall inside, what the edges do, how the stamp's storage type is
+compared, and what the total includes — is proven against the container rather
+than a fake. The arithmetic that consumes the counts, and the meaning of an empty
 window, are pinned DB-free in ``tests/unit/test_completion_velocity_window.py``
 so they run on every CI job; this file is path-filtered.
 
@@ -13,26 +14,31 @@ What has to hold here:
    *inside*. A completion on that exact day counts; one a single day older does
    not. An off-by-one is invisible in the reported number and silently skews
    every velocity in the app.
-2. **Membership is the canonical stamp, and only it.** A completed task with no
-   ``completion_date`` is excluded rather than assumed recent; a *stamped* task
-   that is no longer completed is excluded too.
-3. **Ownership.** Scoped by the universal ``:OWNS`` edge (ADR-086), so another
-   user's completions cannot leak into the rate.
-4. **The upper bound.** A trailing window ends where the present does.
+2. **Window membership is the canonical stamp, and only it.** A completed task
+   with no ``completion_date`` is excluded from the window rather than assumed
+   recent; a *stamped* task that is no longer completed is excluded too.
+3. **The total is every task currently in COMPLETED** — stamped or not,
+   windowed or not, future-dated or not — and never a property read off the
+   analytics node. A reopened task is not in it. Both counts come from one
+   traversal, so the window is a subset of the total by construction.
+4. **Ownership.** Scoped by the universal ``:OWNS`` edge (ADR-086), so another
+   user's completions cannot leak into either count.
+5. **The upper bound.** A trailing window ends where the present does.
    ``TaskCreateRequest`` refuses a future ``completion_date``;
    ``TaskUpdateRequest`` does not, so the stamp is reachable — and a
    lower-bound-only predicate counted such a task in every window between now
    and its date, inflating the velocity permanently and silently.
-5. **The stamp's storage type.** It is an ISO date **string** on every row of
+6. **The stamp's storage type.** It is an ISO date **string** on every row of
    the live graph — but the writer decides the storage type, not this reader,
    so the reader truncates to the calendar day on both sides. A bare
    ``toString()`` survives that for the lower bound and quietly fails for the
    upper one: a datetime-typed stamp stringifies with a time component, which
    sorts *after* the bare end date and drops a row that belongs inside. Either
    failure would read as "this user completed less", never as an error.
-6. **No analytics node required.** The count is derived, so the vault ``- [x]``
-   door — which writes no ``ProductivityAnalytics`` node at all — still yields a
-   real velocity instead of a confident 0.0.
+7. **No analytics node required.** Both counts are derived, so the vault
+   ``- [x]`` door — which writes no ``ProductivityAnalytics`` node at all —
+   still yields real counts instead of a confident 0.0, with honestly absent
+   stamps.
 """
 
 from __future__ import annotations
@@ -68,7 +74,7 @@ async def _seed_task(
     completion_date: str | None = None,
     temporal_stamp: bool = False,
 ) -> None:
-    """Own a Task off the user — the shape the window counts (ADR-086).
+    """Own a Task off the user — the shape both counts traverse (ADR-086).
 
     ``temporal_stamp`` writes the stamp as a native Neo4j ``date()`` instead of
     the ISO string every live writer produces, to prove the reader survives a
@@ -102,18 +108,22 @@ async def _seed_task(
         await result.consume()
 
 
-async def _seed_analytics(neo4j_driver, user_uid: str, tasks_completed: int) -> None:
-    """A node carrying lifetime figures — the numbers the rate no longer reads."""
+async def _seed_analytics(neo4j_driver, user_uid: str, *, legacy_count: int | None = None) -> None:
+    """A node carrying the two stamps — and, for ``legacy_count``, the retired
+    ``tasks_completed`` property a pre-derivation node still holds until the
+    backfill drops it. The reader must never consult it."""
     async with neo4j_driver.session() as session:
         result = await session.run(
             """
             MERGE (a:ProductivityAnalytics {user_uid: $user_uid})
-            SET a.tasks_completed = $tasks_completed,
-                a.first_completion_at = datetime('2026-01-05T09:00:00'),
+            SET a.first_completion_at = datetime('2026-01-05T09:00:00'),
                 a.last_completion_at = datetime('2026-06-11T17:30:00')
+            WITH a
+            WHERE $legacy_count IS NOT NULL
+            SET a.tasks_completed = $legacy_count
             """,
             user_uid=user_uid,
-            tasks_completed=tasks_completed,
+            legacy_count=legacy_count,
         )
         await result.consume()
 
@@ -121,7 +131,7 @@ async def _seed_analytics(neo4j_driver, user_uid: str, tasks_completed: int) -> 
 @pytest.mark.asyncio
 @pytest.mark.integration
 class TestCompletionVelocityWindow:
-    """The trailing window, exercised against the Neo4j testcontainer."""
+    """The trailing window and the derived total, exercised against the Neo4j testcontainer."""
 
     @pytest_asyncio.fixture
     async def backend(self, neo4j_driver, clean_neo4j):
@@ -138,9 +148,10 @@ class TestCompletionVelocityWindow:
 
     @pytest_asyncio.fixture
     async def seeded(self, neo4j_driver, backend):
-        """One user per shape the window has to discriminate."""
-        # WINDOW: four rows that count and five that must not.
-        await _seed_analytics(neo4j_driver, WINDOW, 400)
+        """One user per shape the two counts have to discriminate."""
+        # WINDOW: four rows inside the window, four completed rows outside it,
+        # one reopened row in neither count. Total 8, window 4.
+        await _seed_analytics(neo4j_driver, WINDOW)
         await _seed_task(neo4j_driver, WINDOW, "task.win_today", completion_date=TODAY.isoformat())
         await _seed_task(
             neo4j_driver,
@@ -170,10 +181,11 @@ class TestCompletionVelocityWindow:
             "task.out_ancient",
             completion_date=(TODAY - timedelta(days=200)).isoformat(),
         )
-        # Completed but never stamped — excluded, not assumed recent.
+        # Completed but never stamped — in the total, excluded from the window
+        # rather than assumed recent.
         await _seed_task(neo4j_driver, WINDOW, "task.out_unstamped", completion_date=None)
         # Stamped but reopened — the stamp clear is the writer's job; even if one
-        # lingered, a task that is not completed is not a completion.
+        # lingered, a task that is not completed is not a completion, in either count.
         await _seed_task(
             neo4j_driver,
             WINDOW,
@@ -181,15 +193,18 @@ class TestCompletionVelocityWindow:
             status=EntityStatus.ACTIVE,
             completion_date=TODAY.isoformat(),
         )
-        # Stamped in the future — outside a *trailing* window until its day comes.
+        # Stamped in the future — completed, so in the total; outside a *trailing*
+        # window until its day comes.
         await _seed_task(
             neo4j_driver,
             WINDOW,
             "task.out_future",
             completion_date=(TODAY + timedelta(days=1)).isoformat(),
         )
-        # STALE: real lifetime history, nothing inside the window.
-        await _seed_analytics(neo4j_driver, STALE, 85)
+        # STALE: real history, nothing inside the window — and a legacy node still
+        # carrying the retired count (85) that disagrees with the graph (3): the
+        # live-graph shape the derivation replaced.
+        await _seed_analytics(neo4j_driver, STALE, legacy_count=85)
         for offset in (31, 90, 400):
             await _seed_task(
                 neo4j_driver,
@@ -214,7 +229,7 @@ class TestCompletionVelocityWindow:
     # ====================================================================
 
     async def test_only_stamped_completed_tasks_inside_the_window_are_counted(self, seeded):
-        """Four of the user's ten tasks fall inside; six are excluded, each for
+        """Four of the user's nine tasks fall inside; five are excluded, each for
         its own reason (too old, exactly DAYS old, unstamped, reopened, future)."""
         result = await seeded.get_productivity_analytics(
             user_uid=WINDOW,
@@ -249,6 +264,7 @@ class TestCompletionVelocityWindow:
 
         assert result.is_ok
         assert result.value[0]["completed_in_window"] == 1
+        assert result.value[0]["tasks_completed"] == 2, "both are completed; only one is recent"
 
     async def test_a_future_stamped_completion_is_outside_the_trailing_window(
         self, neo4j_driver, backend
@@ -307,12 +323,77 @@ class TestCompletionVelocityWindow:
         assert result.is_ok
         assert result.value[0]["completed_in_window"] == 1
 
+    # ====================================================================
+    # THE DERIVED TOTAL
+    # ====================================================================
+
+    async def test_the_total_counts_every_currently_completed_task_stamped_or_not(
+        self, neo4j_driver, backend
+    ):
+        """Isolated: one row per way a completed task can sit outside the window.
+
+        The total answers "how many tasks are completed", not "how many recent
+        completions carry a stamp": unstamped, ancient and future-dated rows are
+        all completed and all count. The reopened row is the one that does not —
+        it is not completed, whatever stamp it still carries. The window inside
+        the same read is exactly one of the four.
+        """
+        await _seed_task(neo4j_driver, WINDOW, "task.t_recent", completion_date=TODAY.isoformat())
+        await _seed_task(neo4j_driver, WINDOW, "task.t_unstamped", completion_date=None)
+        await _seed_task(
+            neo4j_driver,
+            WINDOW,
+            "task.t_ancient",
+            completion_date=(TODAY - timedelta(days=365)).isoformat(),
+        )
+        await _seed_task(
+            neo4j_driver,
+            WINDOW,
+            "task.t_future",
+            completion_date=(TODAY + timedelta(days=3)).isoformat(),
+        )
+        await _seed_task(
+            neo4j_driver,
+            WINDOW,
+            "task.t_reopened",
+            status=EntityStatus.ACTIVE,
+            completion_date=TODAY.isoformat(),
+        )
+
+        result = await backend.get_productivity_analytics(
+            user_uid=WINDOW,
+            window_start=FIRST_DAY_IN.isoformat(),
+            window_end=LAST_DAY_IN.isoformat(),
+        )
+
+        assert result.is_ok
+        assert result.value[0]["tasks_completed"] == 4
+        assert result.value[0]["completed_in_window"] == 1
+
+    async def test_the_total_is_derived_from_the_graph_not_read_off_the_node(self, seeded):
+        """STALE's node still carries the retired ``tasks_completed = 85``; the
+        graph holds three completed tasks. Serving 85 would be the drift the
+        derivation exists to end, reported under the new meaning."""
+        result = await seeded.get_productivity_analytics(
+            user_uid=STALE,
+            window_start=FIRST_DAY_IN.isoformat(),
+            window_end=LAST_DAY_IN.isoformat(),
+        )
+
+        assert result.is_ok
+        assert result.value[0]["tasks_completed"] == 3
+        assert result.value[0]["completed_in_window"] == 0
+        analytics = result.value[0]["analytics"]
+        assert analytics is not None and analytics["tasks_completed"] == 85, (
+            "positive control: the legacy property is on the node and was read back"
+        )
+
     async def test_another_users_completions_do_not_leak(self, seeded):
-        """Scoped by the ``:OWNS`` edge, not by label.
+        """Scoped by the ``:OWNS`` edge, not by label — in both counts.
 
         VAULT owns six completions inside the same window as WINDOW's four. Each
-        user must see only their own — a label-scoped count would report ten for
-        both.
+        user must see only their own — a label-scoped count would report ten
+        in the window and fourteen in total for both.
         """
         window = await seeded.get_productivity_analytics(
             user_uid=WINDOW,
@@ -326,70 +407,65 @@ class TestCompletionVelocityWindow:
         )
 
         assert window.value[0]["completed_in_window"] == 4
+        assert window.value[0]["tasks_completed"] == 8
         assert vault.value[0]["completed_in_window"] == 6
+        assert vault.value[0]["tasks_completed"] == 6
 
     # ====================================================================
     # THE RATE, END TO END
     # ====================================================================
 
     async def test_a_steady_rate_reports_tasks_per_week(self, service, seeded):
-        """Four completions in a 30-day window ≈ 0.93 tasks/week.
+        """Four completions in a 30-day window ≈ 0.93 tasks/week, beside a total of 8.
 
-        The stored lifetime count is 400 across a five-month span. Under the
-        first→last denominator that pair *was* the metric, so if either still
-        reached the arithmetic this could not pass.
+        The stamps span five months. Under the first→last denominator that pair
+        *was* the metric, so if either still reached the arithmetic this could
+        not pass.
         """
         result = await service.get_productivity_metrics(WINDOW)
 
         assert result.is_ok
         assert result.value["completion_velocity"] == pytest.approx(_velocity_for(4))
         assert result.value["tasks_completed_in_window"] == 4
+        assert result.value["tasks_completed"] == 8
         assert result.value["velocity_window_days"] == CompletionVelocityWindow.DAYS
 
     async def test_a_user_whose_completions_are_all_older_reports_zero(self, service, seeded):
-        """The case the redesign is for: 85 lifetime completions, none this month.
+        """The case the redesign is for: real history, none of it this month.
 
         The old arithmetic served a plausible non-zero rate for work that had
-        stopped. The cumulative figures are still reported beside the 0.0 — the
-        history is not erased, it just is not the rate.
+        stopped. The total is reported beside the 0.0 — derived (3), not the
+        legacy 85 the node still carries — and the stamps come from the node.
         """
         result = await service.get_productivity_metrics(STALE)
 
         assert result.is_ok
         assert result.value["completion_velocity"] == 0.0
         assert result.value["tasks_completed_in_window"] == 0
-        assert result.value["tasks_completed"] == 85, "positive control: the node was read"
-        assert result.value["first_completion_at"] is not None
+        assert result.value["tasks_completed"] == 3, "derived — never the node's retired 85"
+        assert result.value["first_completion_at"] is not None, "positive control: node read"
 
-    async def test_completions_with_no_analytics_node_still_report_a_real_velocity(
+    async def test_completions_with_no_analytics_node_still_report_real_counts(
         self, service, seeded
     ):
-        """The vault ``- [x]`` door writes no node, and the rate does not need one.
+        """The vault ``- [x]`` door writes no node, and neither count needs one.
 
         The old read required the node with a mandatory MATCH, so this user got
-        a flat 0.0 — the same confident zero the reconciliation instrument
-        exists to correct, here on the read side.
-
-        **This is also the shape where the payload contradicts itself**, and it
-        is pinned deliberately rather than tolerated silently: six completions
-        inside the window against an event-maintained cumulative count of zero.
-        Read from one graph state the window is a subset of the total, so that
-        pair is impossible — which makes it a legible signal that the stored
-        count is behind the graph, remedied by ``./dev reconcile-productivity``.
-        The staleness is not new here; before the window this user read zeros
-        for everything, which is the same wrongness with nothing to notice it
-        by. Deriving the total live would remove the contradiction and orphan
-        the stored field along with the instrument that maintains it — a One
-        Path Forward decision, not a read-path patch (Codex P2 on #1136).
+        a flat 0.0 and — once the window was derived but the total was not — a
+        payload that contradicted itself: six inside the window against a
+        "total" of zero. Both counts come from the same traversal now, so the
+        window is a subset of the total by construction. Only the stamps are
+        absent, and honestly: no event ever recorded a completion moment for
+        this user. ``./dev backfill-productivity-stamps`` fills history once.
         """
         result = await service.get_productivity_metrics(VAULT)
 
         assert result.is_ok
         assert result.value["completion_velocity"] == pytest.approx(_velocity_for(6))
-        assert result.value["tasks_completed"] == 0, "no node — cumulative figures are absent"
+        assert result.value["tasks_completed"] == 6
+        assert result.value["tasks_completed_in_window"] == 6
+        assert result.value["first_completion_at"] is None, "no node — no stamps"
         assert result.value["last_completion_at"] is None
-        # The impossible relation, asserted as the diagnostic it is.
-        assert result.value["tasks_completed_in_window"] > result.value["tasks_completed"]
 
     async def test_a_user_with_nothing_at_all_reports_zeros(self, service, seeded):
         """No node, no tasks — not even a ``:User`` row.

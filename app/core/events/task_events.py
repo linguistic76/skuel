@@ -87,14 +87,14 @@ class TaskCompleted(BaseEvent):
     - **Principle alignment** recomputes the alignment from the graph on every
       complete, then appends a ``PersistedInsight`` only when this is not a
       repeat.
-    - **``ProductivityAnalytics``** recomputes ``tasks_completed`` — the count
-      of the user's currently-COMPLETED tasks — on every complete, repeat
-      included, because a recompute converges. But it reads the flag to decide
-      whether a new *completion moment* occurred: a repeat carries a fresh
-      ``occurred_at`` while nothing transitioned, and stamping that onto
-      ``last_completion_at`` would move "when did this user most recently
-      complete something" forward on a click that completed nothing. So the
-      count is ungated and the timestamps are gated.
+    - **``ProductivityAnalytics``** used to be the second: it recomputed
+      ``tasks_completed`` on every complete and gated only the stamps. The
+      count is now derived at read (``get_productivity_analytics``), so the
+      handler has nothing left that derives and the flag gates it whole — a
+      repeat carries a fresh ``occurred_at`` while nothing transitioned, and
+      stamping that onto ``last_completion_at`` would move "when did this user
+      most recently complete something" forward on a click that completed
+      nothing.
 
     The pattern behind both: ``is_repeat`` gates the part of a handler that
     **accumulates** (an append, a stamp), never the part that **derives**.
@@ -126,23 +126,22 @@ class TaskReopened(BaseEvent):
     """
     Published when a task moves back OUT of ``completed``.
 
-    The mirror of :class:`TaskCompleted`, and the reason a subscriber can hold
-    "how many tasks has this user completed" as a *recomputed* number instead of
-    a running tally: without a reopen signal, the only safe counter is one that
-    never goes down. Published from the single update chokepoint
-    (``TasksCoreService.update_task``) on a genuine transition — re-posting a
-    non-completed status on an already-open task publishes nothing, exactly as
-    the completion side is transition-gated.
+    The mirror of :class:`TaskCompleted`. Published from the single update
+    chokepoint (``TasksCoreService.update_task``) on a genuine transition —
+    re-posting a non-completed status on an already-open task publishes
+    nothing, exactly as the completion side is transition-gated.
 
     A reopen is **not** a completion, so a subscriber must not treat it as one:
     it records no completion moment and must leave completion timestamps where
-    they are. ``CrossDomainAnalyticsService.handle_task_reopened`` recomputes
-    ``ProductivityAnalytics.tasks_completed`` and deliberately does not touch
-    ``last_completion_at`` — that stamp records when the user most recently
-    completed something, and a reopen is the opposite of that.
+    they are.
 
-    Subscribers:
-    - CrossDomainAnalyticsService (recompute ProductivityAnalytics.tasks_completed)
+    Subscribers: **none.** It was introduced so ``ProductivityAnalytics`` could
+    hold ``tasks_completed`` as a recomputed number that can fall; that count
+    is now derived at read from the tasks currently in ``completed``, so a
+    reopen lowers it without anyone having to hear about it. The event stays
+    published as the chokepoint's statement of the transition — the
+    conditional-write arc derives its verdict from the returned prior status —
+    and is free for a future subscriber to take.
 
     Context invalidation is already covered: the same ``update_task`` call
     publishes ``TaskUpdated``, which is subscribed for exactly that.

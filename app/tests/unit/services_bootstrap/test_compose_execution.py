@@ -92,7 +92,6 @@ def _expected_handler_counts(full_tier: bool) -> dict[type, int]:
         TaskCreated,
         TaskDeleted,
         TaskPriorityChanged,
-        TaskReopened,
         TasksBulkCompleted,
         TaskUpdated,
     )
@@ -133,7 +132,8 @@ def _expected_handler_counts(full_tier: bool) -> dict[type, int]:
         TaskUpdated: 1,
         TaskDeleted: 1,
         TaskPriorityChanged: 2,
-        TaskReopened: 1,  # x-domain analytics recomputes tasks_completed
+        # TaskReopened: published by update_task, no subscriber — tasks_completed is
+        # derived at read, so nothing needs to hear about a reopen.
         TasksBulkCompleted: 1,
         # Goals
         GoalCreated: 2,
