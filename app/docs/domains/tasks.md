@@ -286,7 +286,15 @@ that publishes no task event (the vault `- [x]` upsert) is counted the moment it
 **`TaskReopened` is the mirror**, published from `update_task` alone on a transition OUT of
 completed (Today's Undo posts the prior status through that chokepoint). It has no subscriber:
 it existed so a stored count could fall, and a derived count falls on its own. It stays published
-as the chokepoint's statement of the transition.
+as the chokepoint's statement of the transition — one ADR-087 now detects exactly, from the status
+the write itself returned rather than from a lock-free read beforehand.
+
+⚠ **Open, and scheduled.** Reopening in SKUEL leaves the Obsidian note checked — checkbox
+authority is completed-direction only — so the `✅ date` survives a completion that was
+withdrawn. Whether a reopen should un-check that line, whether `TaskReopened` is the trigger if
+so, and whether to delete the event if not, are three coupled choices awaiting a ruling. Case
+file: `docs/roadmap/deferred-work.md` § "`TaskReopened` Has Zero Subscribers, and a Reopen Has No
+Vault Surface". The event is kept **by decision** — do not delete it in a bloat sweep.
 
 **Neither a reopen nor a repeat complete is a completion moment.** Both leave
 `first_completion_at` / `last_completion_at` untouched: those stamps record when the user first
