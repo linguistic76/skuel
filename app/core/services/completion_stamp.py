@@ -243,6 +243,14 @@ def completion_transition_patch(
 ) -> Result[dict[str, Any]]:
     """Validate the status target and derive the completion-stamp patch.
 
+    ⚠ **Being retired (ADR-087).** This is the read-then-write form: it needs a prior
+    the caller read *before* the write, outside any lock, so two concurrent writers can
+    both act on the same status. :func:`status_transition_guard` is the successor. The
+    four remaining callers — Goals, Events, Choices, Habits (PR-3) and the four
+    goal-progress writers (PR-4) — migrate site by site, each holding exactly ONE path
+    at any moment; this function is DELETED when the last one moves. Do not add a
+    caller. Both forms share :func:`_stamp_target`, so the rules cannot drift meanwhile.
+
     Args:
         entity_type: The Activity domain being updated.
         old_status: The entity's status before this update. ``None`` means "no

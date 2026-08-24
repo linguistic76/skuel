@@ -568,7 +568,17 @@ class _CrudMixin[T: DomainModelProtocol]:
 
     @safe_backend_operation("update_with_status_guard")
     async def update_with_status_guard(
-        self, uid: str, updates: dict[str, Any], guard: StatusWriteGuard
+        self,
+        uid: str,
+        # boundary: pre-serialization patch — genuinely heterogeneous, and NOT
+        # Neo4jProperties. Callers hand this `intent.to_changes()`, which can carry a
+        # `list[dict]` (GoalUpdateIntent.milestones), a bare `dict`
+        # (GoalUpdateIntent.metadata), or an enum — none of them Neo4jValue members.
+        # `to_neo4j_node` below is what turns them into storable properties; declaring
+        # the parameter Neo4jProperties would claim a contract the callers do not meet
+        # and this method does not require. Same shape as `update` above, deliberately.
+        updates: dict[str, Any],
+        guard: StatusWriteGuard,
     ) -> Result[StatusGuardedOutcome[T]]:
         """Update an entity with its guard evaluated at write time, under the node's lock.
 
