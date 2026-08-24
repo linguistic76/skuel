@@ -1523,9 +1523,22 @@ the ✅ date is a completion that has been withdrawn. Inbound propagation is sep
    and coupling**: that gather uses `return_exceptions=True`, so a failing vault write in a
    subscriber is swallowed and the task update still succeeds — right if the vault is a
    best-effort mirror, wrong if a silent divergence between graph and note is worse than a failed
-   update. Inline hands the chokepoint the failure as a `Result` it can act on, at the cost of
-   injecting the vault transport into `TasksCoreService`. Decide which failure mode you want
-   before deciding where the code lives.
+   update. Inline instead couples `TasksCoreService` to the vault transport.
+
+   ⚠️ **But neither placement gives you a retry, and that is the real constraint.** The graph
+   write has already committed before either can run: `is_reopen` is only knowable *after*
+   `update_with_status_guard` returns the prior. So an inline failure returning `Result.fail`
+   reports a failed request over a task that IS reopened — and re-issuing the request writes
+   nothing, because the prior is now non-completed and the retry is no longer a genuine
+   transition. The subscriber arm loses it the same way, silently. **A reopen transition is a
+   one-shot fact, consumed by the write that produced it.** Anything built here therefore needs
+   either a durable outbox/retry, or — better, and the shape this document already prefers
+   elsewhere — to drive the vault write from **STATE**, not from the event: "this task is not
+   completed and its line is still checked" is a predicate that can be re-evaluated at any time
+   and is idempotent, which is the same reason R4's change signal must be parsed-line vs entity
+   state rather than a hash inequality (see § R4). That points at choice 2 being the wrong axis:
+   the durable answer may be a reconciliation pass, with `TaskReopened` at most a *hint* that one
+   is worth running now.
 3. **If no — delete the event or keep it published?** One Path Forward says delete what nothing
    uses; the counter-argument is that it is a *transition fact* the chokepoint now establishes
    exactly and cheaply, and deleting it would have to be undone by choice 1 later. Deleting it
