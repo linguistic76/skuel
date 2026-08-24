@@ -426,7 +426,10 @@ Some reflections on the day...
         already on this entry's EXTRACTED_FROM edge, is what says "mine". The
         edge's stale digest is retired BEFORE any line is checked against it,
         so a same-text unchecked sibling in the same ingest (placed FIRST here)
-        is a new task, as is a line carrying a 🆔 the entry has never seen."""
+        is a new task, as is a line carrying a 🆔 the entry has never seen. A
+        🆔 that holds TWO edges — the original task and the copy the bug once
+        made — is treated as one line: every stale edge retired and refreshed,
+        an edge already at the current digest left alone."""
         from core.services.dsl.activity_extractor import (
             ExtractedByVaultId,
             normalized_line_hash,
@@ -456,9 +459,14 @@ Some reflections on the day...
         result = await extractor.extract_and_create(
             entry,
             "user_mike",
-            existing_line_hashes=frozenset({normalized_line_hash(original)}),  # stale
+            existing_line_hashes=frozenset(
+                {normalized_line_hash(original), normalized_line_hash(mine)}
+            ),
             existing_vault_ids={
-                "sk_mine01": ExtractedByVaultId("task_mine", normalized_line_hash(original))
+                "sk_mine01": (
+                    ExtractedByVaultId("task_mine", normalized_line_hash(original)),  # stale
+                    ExtractedByVaultId("task_copy", normalized_line_hash(mine)),  # current
+                )
             },
         )
 
@@ -474,7 +482,7 @@ Some reflections on the day...
         # would swallow the next same-text line the user adds.
         assert extraction.refreshed_links == [
             ("task_mine", normalized_line_hash(mine), "sk_mine01")
-        ]
+        ], "only the stale edge is refreshed; the copy's edge is already current"
         assert extraction.to_dict()["lines_rehashed"] == 1
 
     @pytest.mark.asyncio

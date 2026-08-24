@@ -187,11 +187,14 @@ def _candidate_title(label: str, description: str) -> str:
 
 @dataclass(frozen=True)
 class ExtractedByVaultId:
-    """What this entry already holds for one 🆔 — the Guard 2b input.
+    """One ``EXTRACTED_FROM`` edge this entry already holds for a 🆔 — the Guard 2b input.
 
     ``entity_uid`` is the node the line resolved to (the refresh target);
-    ``source_line_hash`` is the digest its ``EXTRACTED_FROM`` edge stores, which
-    is retired from the exact-match set the moment the line's text has moved.
+    ``source_line_hash`` is the digest the edge stores, which is retired from
+    the exact-match set the moment the line's text has moved. A 🆔 normally has
+    exactly one edge per entry; the duplicate-creation bug this guard closes
+    left some with two (the original task and its copy), so the input carries
+    every edge for the 🆔 and the guard treats them all as the line's own.
     """
 
     entity_uid: str
@@ -553,7 +556,7 @@ class ActivityExtractorService:
         bridge_line_hashes: frozenset[str] = frozenset(),
         existing_extracted: dict[tuple[str, str], str] | None = None,
         user_owned_semantic: dict[tuple[str, str], str] | None = None,
-        existing_vault_ids: Mapping[str, ExtractedByVaultId] | None = None,
+        existing_vault_ids: Mapping[str, tuple[ExtractedByVaultId, ...]] | None = None,
     ) -> Result[ActivityExtractionResult]:
         """
         Extract Activity Lines from a UserEntry and create corresponding entities.
@@ -582,9 +585,9 @@ class ActivityExtractorService:
                 entries (Guard 4, cross-entry/F4). Any matching line merges
                 instead of creating — a note re-process must not resurrect
                 nodes the F4 dedup cleanup deleted.
-            existing_vault_ids: 🆔 ``vault_id`` → :class:`ExtractedByVaultId`
-                for the edges already EXTRACTED_FROM this entry (Guard 2b,
-                identity). A line
+            existing_vault_ids: 🆔 ``vault_id`` → every
+                :class:`ExtractedByVaultId` edge already EXTRACTED_FROM this
+                entry under that 🆔 (Guard 2b, identity). A line
                 whose 🆔 is among them is already extracted whatever its hash
                 says — SKUEL's own outbound write-back (``[x]`` + ``✅ date``)
                 and a user's later edit both change the hash of a line SKUEL
@@ -711,23 +714,37 @@ class ActivityExtractorService:
         ]
         routable = {ctx for svc, ctx in service_routes if svc is not None}
 
-        # Guard 2b pre-pass — retire moved lines' stale digests FIRST. A line
-        # this entry already extracted (its 🆔 is on an edge) whose text has
-        # moved since (SKUEL's own [x] + ✅ write-back above all) still has its
-        # OLD digest in existing_line_hashes. Until the refresh below is
-        # persisted, a new same-text sibling in the SAME ingest — the user
-        # appended the next ``- [ ] Gym`` before the write-back was re-ingested
-        # — would hash into that stale digest and Guard 2 would drop it, and
-        # smart-mode would then checkpoint the file. Done before any domain loop
-        # (and before the warning gate) so it cannot depend on line order.
-        retired_digests = {
-            edge.source_line_hash
-            for activity in parsed.activities
-            if activity.vault_id is not None
-            and (edge := existing_vault_ids.get(activity.vault_id)) is not None
-            and normalized_line_hash(activity.raw_line or activity.description)
-            != edge.source_line_hash
-        }
+        # Guard 2b pre-pass — every line this entry already extracted (its 🆔
+        # is on an edge) whose text has moved since (SKUEL's own [x] + ✅
+        # write-back above all) gets its edges' stale digests RETIRED from the
+        # exact-match set and queued for a REFRESH to the current digest:
+        #   - retire first, before any domain loop and before the warning gate,
+        #     so a new same-text sibling in the SAME ingest (the user appended
+        #     the next ``- [ ] Gym`` before the write-back was re-ingested)
+        #     cannot hash into the stale digest and be dropped by Guard 2 —
+        #     with smart-mode then checkpointing the file; line order cannot
+        #     matter here;
+        #   - refresh here, not in the domain loop, because a 🆔 may hold more
+        #     than one edge (the original task and the copy this guard's bug
+        #     once made) and the one already at the current digest makes
+        #     Guard 2 skip the line before the identity branch ever runs — the
+        #     stale sibling edge must still be refreshed. The edges are this
+        #     line's own (identity proven by 🆔), so the write is the line's
+        #     change signal moving with it, not a clobber (cf. Guards 3/4).
+        retired_digests: set[str] = set()
+        for activity in parsed.activities:
+            if activity.vault_id is None:
+                continue
+            edges = existing_vault_ids.get(activity.vault_id)
+            if not edges:
+                continue
+            current_hash = normalized_line_hash(activity.raw_line or activity.description)
+            for edge in edges:
+                if edge.source_line_hash != current_hash:
+                    retired_digests.add(edge.source_line_hash)
+                    extraction.refreshed_links.append(
+                        (edge.entity_uid, current_hash, activity.vault_id)
+                    )
         existing_line_hashes = existing_line_hashes - retired_digests
 
         for activity in parsed.activities:
@@ -1025,7 +1042,7 @@ class ActivityExtractorService:
         bridge_line_hashes: frozenset[str] = frozenset(),
         existing_extracted: dict[tuple[str, str], str] | None = None,
         user_owned_semantic: dict[tuple[str, str], str] | None = None,
-        existing_vault_ids: Mapping[str, ExtractedByVaultId] | None = None,
+        existing_vault_ids: Mapping[str, tuple[ExtractedByVaultId, ...]] | None = None,
     ) -> tuple[int, list[str]]:
         """Run one domain's create loop with dedup guards and provenance capture.
 
@@ -1068,21 +1085,12 @@ class ActivityExtractorService:
                 # Guard 2b: this entry already extracted the line that carries
                 # this 🆔; only its text moved since (SKUEL's own done-date
                 # write-back, or a user edit that inbound sync does not yet
-                # propagate). Never a new node. Unlike Guards 3/4 the edge IS
-                # this line's own, so its change signal moves with the line:
-                # left at the old digest it would swallow the next same-text
-                # line the user adds (Guard 2 would read it as this one).
+                # propagate). Never a new node. The edge's stale digest was
+                # retired, and its refresh queued, in the pre-pass above.
                 extraction.lines_skipped_existing += 1
-                extraction.refreshed_links.append(
-                    (
-                        existing_vault_ids[activity.vault_id].entity_uid,
-                        line_hash,
-                        activity.vault_id,
-                    )
-                )
                 self.logger.debug(
                     f"Identity dedup: {label} '{activity.description[:40]}' "
-                    f"already extracted as 🆔 {activity.vault_id} — hash refreshed"
+                    f"already extracted as 🆔 {activity.vault_id}"
                 )
                 continue
 

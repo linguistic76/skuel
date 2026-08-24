@@ -39,6 +39,10 @@ filesystem bridge — never a re-implementation of any guard:
 5. **…even in the same ingest as the write-back.** The sibling appended before
    the write-back is re-ingested, placed above it, is a new task — the stale
    digest is retired before any line is checked against it (round 4).
+6. **…and after the done line is gone.** The user clears the completed line
+   from the note and writes a fresh ``- [ ] Gym``: nothing is left in the file
+   to retire the old digest in memory, so it has to have been *persisted* on
+   the edge by the earlier re-ingest (the refresh is what this pins).
 
 The unit-level contracts — which tokens the digest normalises, and Guard 2b
 at the extractor — are pinned DB-free in
@@ -308,6 +312,29 @@ class TestDoneDateWriteBackRoundTrip:
         await rig.sync()
         tasks = await rig.owned_tasks()
         assert len(tasks) == 2, f"the sibling in the same ingest was swallowed: {tasks}"
+        assert sorted(status for _, status in tasks) == sorted(
+            [EntityStatus.COMPLETED.value, EntityStatus.DRAFT.value]
+        )
+
+    async def test_a_fresh_occurrence_after_the_done_line_is_removed_is_still_extracted(
+        self, rig: Rig
+    ) -> None:
+        """The persisted refresh. Once the write-back has been re-ingested, the
+        edge must hold the written-back line's digest, not the original one:
+        when the user later clears the done line and writes a fresh ``- [ ]
+        Gym``, no 🆔 line remains to retire the stale digest in memory."""
+        rig.note.write_text(FRONTMATTER + "- [ ] Gym\n", encoding="utf-8")
+        await rig.sync()
+        ((task_uid, _),) = await rig.owned_tasks()
+        await _complete_in_skuel(rig, task_uid)
+        await rig.sync()  # 🆔 re-ingest + [x] ✅ write-back
+        await rig.sync()  # the write-back re-ingests: the edge's hash is refreshed
+        assert len(await rig.owned_tasks()) == 1
+
+        rig.note.write_text(FRONTMATTER + "- [ ] Gym\n", encoding="utf-8")  # done line cleared
+        await rig.sync()
+        tasks = await rig.owned_tasks()
+        assert len(tasks) == 2, f"the fresh occurrence was read as the cleared line: {tasks}"
         assert sorted(status for _, status in tasks) == sorted(
             [EntityStatus.COMPLETED.value, EntityStatus.DRAFT.value]
         )

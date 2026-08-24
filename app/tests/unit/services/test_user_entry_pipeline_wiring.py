@@ -819,7 +819,7 @@ class TestExtractActivities:
         assert kwargs["existing_line_hashes"] == frozenset({"abc", "stale"})
         # Guard 2b: the 🆔s already on this entry's edges ride the same read.
         assert kwargs["existing_vault_ids"] == {
-            "sk_mine01": ExtractedByVaultId("task_written_back", "stale")
+            "sk_mine01": (ExtractedByVaultId("task_written_back", "stale"),)
         }
         # Guard 3 (R3): the semantic map is built from the same read —
         # normalized title keyed by node label; the title-less row is skipped.

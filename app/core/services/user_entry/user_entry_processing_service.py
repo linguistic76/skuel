@@ -515,13 +515,20 @@ class UserEntryProcessingService:
         existing_line_hashes = frozenset(
             line_hash for row in extracted_rows if (line_hash := row.get("source_line_hash"))
         )
-        existing_vault_ids: dict[str, ExtractedByVaultId] = {
-            vault_id: ExtractedByVaultId(
-                entity_uid=row["entity_uid"],
-                source_line_hash=row.get("source_line_hash") or "",
-            )
-            for row in extracted_rows
-            if (vault_id := row.get("vault_id")) and row.get("entity_uid")
+        # Every edge per 🆔, not one: the duplicate-creation bug Guard 2b closes
+        # left some 🆔s with two (the original task and its copy), and all of
+        # them are the line's own — retired and refreshed together.
+        edges_by_vault_id: dict[str, list[ExtractedByVaultId]] = {}
+        for row in extracted_rows:
+            if (vault_id := row.get("vault_id")) and row.get("entity_uid"):
+                edges_by_vault_id.setdefault(vault_id, []).append(
+                    ExtractedByVaultId(
+                        entity_uid=row["entity_uid"],
+                        source_line_hash=row.get("source_line_hash") or "",
+                    )
+                )
+        existing_vault_ids = {
+            vault_id: tuple(edges) for vault_id, edges in edges_by_vault_id.items()
         }
         existing_extracted: dict[tuple[str, str], str] = {}
         for row in extracted_rows:
