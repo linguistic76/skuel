@@ -136,6 +136,9 @@ Also handles: duration calibration (EMA on User node), cascade impact analysis, 
 dependent is not already in a terminal state (`EntityStatus.is_terminal()`). Reopening a
 completed dependent through this path would strip its status while leaving `completion_date`
 set, breaking the invariant that the stamp is non-null exactly when the task is completed.
+Since ADR-087 the check is a condition the *write* evaluates
+(`StatusWriteGuard(refuse_if_prior_in=TERMINAL)`), not a status read beforehand — a
+dependent being completed concurrently is exactly what a read-then-write gate misses.
 
 ### Incoming (Other → Task)
 
@@ -325,8 +328,8 @@ completed/cancelled/archived task was declared here and never had a caller; it w
 rather than wired. Wiring it would have refused the repeat completion the cascade treats as a
 repair path, refused the status re-post that reopens a task, and resurrected for Tasks the
 achievement immutability deliberately removed for Goals (#1124). The one terminal-state gate
-Tasks has is the completion cascade's own read in `TasksProgressService._trigger_task`, which
-declines to *reopen* a finished dependent.
+Tasks has is the completion cascade's own guard in `TasksProgressService._trigger_task`, which
+declines to *reopen* a finished dependent — evaluated inside the write (ADR-087).
 
 ## UI Routes
 

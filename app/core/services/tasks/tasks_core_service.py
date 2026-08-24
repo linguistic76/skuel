@@ -22,7 +22,7 @@ import dataclasses
 from datetime import date
 from typing import TYPE_CHECKING, Any, Final
 
-from core.models.type_hints import UserUID
+from core.models.type_hints import Neo4jProperties, UserUID
 
 if TYPE_CHECKING:
     from core.ports.domain_protocols import TasksOperations
@@ -48,7 +48,6 @@ from core.models.task.task_update_intent import TaskUpdateIntent
 from core.ports.query_types import ParentProgressResult, TaskStats
 from core.services.base_service import BaseService
 from core.services.completion_stamp import (
-    completion_transition_patch,
     is_completion_transition,
     is_reopen_transition,
     status_transition_guard,
@@ -890,7 +889,11 @@ class TasksCoreService(
         Complete multiple tasks in a batch operation.
 
         Publishes ``TaskCompleted`` per row for the rows that actually
-        transitioned, plus one ``TasksBulkCompleted`` for the batch.
+        transitioned, plus one ``TasksBulkCompleted`` for the batch. "Actually
+        transitioned" is decided by each row's own write, from the status it
+        captured under that node's lock (ADR-087) — so a row completed by another
+        writer between this call's start and its write is reported as the re-post
+        it is, not as a completion this batch made.
 
         Args:
             task_uids: List of task UIDs to complete
@@ -901,8 +904,8 @@ class TasksCoreService(
         """
         # raw-write: deliberate backend-boundary bulk status flip. This bypasses the
         # validated/event-firing service contract (TaskUpdateIntent → update_task) on
-        # purpose — it is a system batch write. A plain dict literal is the honest
-        # type here.
+        # purpose — it is a system batch write, so it names the patch it sends rather
+        # than materializing an intent for it.
         #
         # It does NOT bypass the cascade: every door to COMPLETED cascades, so the
         # rows that genuinely transition fan out one TaskCompleted each (ruled
@@ -913,50 +916,49 @@ class TasksCoreService(
         written_uids: list[str] = []
         completion_events: list[TaskCompleted] = []
 
+        # Every row gets the same patch and therefore the same guard, so both are
+        # built once: the stamp conditions are a property of the TARGET status, which
+        # is constant across the batch, and one build means one date for the batch
+        # rather than a per-row ``date.today()`` that could straddle midnight. An
+        # illegal target would fail identically for every row, so it fails the call.
+        updates: Neo4jProperties = {"status": EntityStatus.COMPLETED.value}
+        guard = status_transition_guard(EntityType.TASK, updates)
+        if guard.is_error:
+            return Result.fail(guard)
+
         for task_uid in task_uids:
-            # Transition-gate the stamp per row via the shared helper: a bulk list
-            # may contain already-completed tasks (retry, mixed selection) whose
-            # original completion_date must survive — unconditional stamping is the
-            # re-dating bug this arc removes. A row whose state cannot be read is
-            # skipped (not counted): a failed read must not pass as "not completed".
-            current_result = await self.backend.get(task_uid)
-            if current_result.is_error:
+            # The transition gate is evaluated by the WRITE, against the status it
+            # captures under the node's lock (ADR-087) — a bulk list may contain
+            # already-completed tasks (retry, mixed selection) whose original
+            # completion_date must survive, and the pre-read this loop used to do
+            # could be stale by the time the write landed. A row that cannot be
+            # written — not found, or a transient failure — is skipped and not
+            # counted, exactly as an unreadable row was.
+            result = await self.backend.update_with_status_guard(task_uid, updates, guard.value)
+            if result.is_error:
                 continue
-            old_task = None
-            if current_result.value:
-                old_task = self._to_domain_model(current_result.value, TaskDTO, Task)
 
-            updates: dict[str, Any] = {"status": EntityStatus.COMPLETED.value}
-            old_status = old_task.status if old_task else None
-            is_transition = is_completion_transition(old_status, updates)
-            stamp = completion_transition_patch(EntityType.TASK, old_status, updates)
-            if stamp.is_ok:
-                updates.update(stamp.value)
+            # The guard refuses nothing, so a row that was written is a row that
+            # applied; ``outcome.entity`` is the post-write node, and the patch
+            # touches status + stamp only, so it still carries this row's
+            # due_date / actual_minutes.
+            outcome = result.value
+            written_uids.append(task_uid)
+            if not is_completion_transition(outcome.prior_status, updates):
+                continue
 
-            result = await self.backend.update(task_uid, updates)
-            if result.is_ok:
-                written_uids.append(task_uid)
-                if is_transition:
-                    # The pre-update read is the only source for these two: the
-                    # bulk write touches status + stamp only, so old_task still
-                    # describes the row's due_date / actual_minutes.
-                    completion_events.append(
-                        TaskCompleted(
-                            task_uid=task_uid,
-                            user_uid=user_uid,
-                            completion_time_seconds=(
-                                old_task.actual_minutes * 60
-                                if old_task is not None and old_task.actual_minutes is not None
-                                else None
-                            ),
-                            was_overdue=(
-                                old_task.due_date < date.today()
-                                if old_task is not None and old_task.due_date
-                                else False
-                            ),
-                            is_repeat=False,
-                        )
-                    )
+            task = self._to_domain_model(outcome.entity, TaskDTO, Task)
+            completion_events.append(
+                TaskCompleted(
+                    task_uid=task_uid,
+                    user_uid=user_uid,
+                    completion_time_seconds=(
+                        task.actual_minutes * 60 if task.actual_minutes is not None else None
+                    ),
+                    was_overdue=(task.due_date < date.today() if task.due_date else False),
+                    is_repeat=False,
+                )
+            )
 
         # Fan out after every write lands, so a subscriber never reads the graph
         # mid-batch.

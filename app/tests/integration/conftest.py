@@ -167,6 +167,9 @@ async def ensure_test_users(neo4j_driver):
         # The status-guarded write primitive (ADR-087): its branch matrix and its
         # concurrency proof create real owned Tasks and race writers against them.
         "user_status_guard",
+        # The three-click sequence (complete → Undo → complete) driven through the
+        # real Task services — its tasks are owned like any other.
+        "user_three_click",
     ]
 
     async def create_users():
