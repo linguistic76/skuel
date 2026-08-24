@@ -483,6 +483,43 @@ CASE WHEN date(datetime(h.last_completed)) < date() THEN 0 ELSE 1 END
 
 **Real-world:** PRs #199 (date fields), #202 (`created_at` mixed column), #203 (`next_due_at`/`last_generated_at`/`expires_at`/`completed_at`/`last_completed`). Guards: `tests/integration/test_date_range_string_coercion.py`, `test_created_at_window_coercion.py`, `test_timestamp_field_coercion_residual.py`.
 
+### 10b: The same trap through `find_by` — where you never write Cypher at all
+
+Everything above assumes you are *writing* a query, so you can see the operands. The
+easiest way to hit this trap is through `find_by`, where you write only Python:
+
+```python
+# Looks like a plain Python filter. It is a Cypher range predicate.
+await backend.find_by(habit_uid=uid, completed_at__gte=window_start, completed_at__lte=window_end)
+```
+
+`convert_value_for_neo4j` (`query/cypher/_helpers.py`) turns a `date`/`datetime` bound into
+an **ISO string** on the way to the driver. So this is `string OP stored_field`, and Key
+Rule #17 applies with nothing on screen to remind you: rows whose field is a *native*
+temporal are dropped — silently, from a call that reads like it filters in Python.
+
+`find_by` cannot coerce the stored side (it emits `field OP $param`, no room for
+`datetime(...)`), so there are only three honest options:
+
+| Situation | Do this |
+|---|---|
+| The column is string-only **by writer enumeration** | Keep the kwargs filter; name the writer in a comment, because the *next* writer is what breaks it |
+| The column is or may be mixed | Fetch **without** a temporal predicate and filter in Python — the mapper has already normalised both forms to `datetime`, so the comparison is type-tolerant by construction |
+| You need the predicate in the database (volume) | Give the backend a real method with `date(left(toString(x), 10))` — Pattern 10 proper |
+
+Dropping the predicate means dropping the row cap with it: page (`sort_by="uid"` — a plain
+string on every row, so the ordering that makes paging deterministic cannot itself be
+skewed by the split), never a bare `limit`, or you have swapped a silent type bug for a
+silent truncation bug.
+
+⚠️ The same applies to `sort_by` on a temporal column: mixed types sort by **type before
+value**, so a cap truncates one type band rather than the oldest rows.
+
+**Real-world:** PR #1140. Guard: `tests/integration/test_habit_completion_temporal_split.py`
+seeds two completions on the same instant differing only in storage type and asserts the
+bounded `find_by` returns one — pinning the mechanism, so if Neo4j's cross-type comparison
+ever changes, the test says so.
+
 ---
 
 ## Key Rules
@@ -505,6 +542,7 @@ CASE WHEN date(datetime(h.last_completed)) < date() THEN 0 ELSE 1 END
 16. **Sanitize text-search inputs before CONTAINS** — `toLower(s.processed_content) CONTAINS toLower($query)` with `query=""` is caught by `if not query:`, but `"   "` and `"a"` sail through and scan every row. Strip and require `len(query.strip()) >= 2` before building the Cypher. Short-circuit to `Result.ok([])` when below threshold.
 17. **Match ISO-string date bounds to the storage invariant** — SKUEL stores `created_at` as naive-local via `datetime.now().isoformat()` with no tz suffix. Date-boundary queries must build bounds the same way: `datetime.combine(target_date, time.min).isoformat()`. Mixing a naive stored value with a tz-aware bound string (`"...+00:00"` or `"...Z"`) is silently broken at day boundaries — string comparison sorts `"2026-04-05T00:00:00"` differently from `"2026-04-05T00:00:00+00:00"`. Document the invariant at the top of any service that builds ISO-string bounds; if the storage format ever changes, every boundary construction must move in lockstep.
 18. **Coerce string-stored temporals before comparing to `date()`/`datetime()`** — the flip side of #17: when a query compares a stored temporal against a Cypher temporal value (not another string), `string OP date()/datetime()` evaluates to `null` and the row is silently dropped. Wrap the stored field: `datetime(n.created_at) >= datetime($w)`. `datetime()` is universally safe (parses both string shapes, no-op on natives); `date()` ERRORS on a datetime string, so use `date(datetime(field))` for a datetime field compared to a date. The WRITER decides the type — DTO `.isoformat()` → string (coerce); Cypher `= datetime()` → native (leave). **See Pattern 10.**
+18b. **`find_by(field__gte=<datetime>)` is a Cypher range predicate, not a Python filter** — the bound is stringified by `convert_value_for_neo4j`, so Key Rule #17 applies to a call with no Cypher in sight. `find_by` cannot coerce the stored side; on a possibly-mixed column, fetch unbounded (paged, `sort_by="uid"`) and window in Python. **See Pattern 10b.**
 
 ## Where Does Cypher Live?
 
