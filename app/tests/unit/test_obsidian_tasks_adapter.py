@@ -223,23 +223,24 @@ class TestVaultIdInjectionHashStability:
         after = "- [ ] move furniture📅 2026-06-17 ⏫  🆔 sk_3uhmts"
         assert normalized_line_hash(before) == normalized_line_hash(after)
 
-    def test_normalized_line_hash_stable_after_done_date_writeback(self):
-        """The outbound mark-done — ``[x]`` flip + ``✅ date`` — is SKUEL's own
-        edit and must not change the line's identity: Guard 4 ignores terminal
-        twins by design, so a just-completed task has no other guard and the
-        next sync re-created it (reproduced end-to-end in
-        tests/integration/test_vault_done_date_hash_roundtrip.py)."""
+    def test_done_date_stays_a_discriminator(self):
+        """Two same-title completed occurrences in one note differ only by their
+        ✅ dates (and, once injected, their 🆔s). The digest must keep telling
+        them apart — stripping the ✅ swallowed the second one (Codex P1 on
+        #1143). SKUEL's own ``[x]`` + ``✅`` write-back therefore DOES move a
+        line's hash; that line is recognised by its 🆔 (Guard 2b), not here."""
         from core.services.dsl.activity_extractor import normalized_line_hash
 
-        before = "- [ ] move furniture📅 2026-06-17 ⏫  🆔 sk_3uhmts"
-        after = "- [x] move furniture📅 2026-06-17 ⏫  🆔 sk_3uhmts ✅ 2026-08-23"
-        with_selector = "- [x] move furniture📅 2026-06-17 ⏫  🆔 sk_3uhmts ✅️ 2026-08-23"
-        assert normalized_line_hash(after) == normalized_line_hash(before)
-        assert normalized_line_hash(with_selector) == normalized_line_hash(before)
+        monday = "- [x] Gym 🆔 sk_aaa111 ✅ 2026-08-17"
+        wednesday = "- [x] Gym 🆔 sk_bbb222 ✅ 2026-08-19"
+        assert normalized_line_hash(monday) != normalized_line_hash(wednesday)
 
-    def test_only_skuel_written_tokens_are_normalised_away(self):
-        """A 📅 due-date edit is the user's change and must still read as one —
-        the digest is a change signal for everything SKUEL did not write."""
+        before_writeback = "- [ ] move furniture📅 2026-06-17 ⏫  🆔 sk_3uhmts"
+        after_writeback = "- [x] move furniture📅 2026-06-17 ⏫  🆔 sk_3uhmts ✅ 2026-08-23"
+        assert normalized_line_hash(after_writeback) != normalized_line_hash(before_writeback)
+
+    def test_a_due_date_edit_reads_as_a_change(self):
+        """The digest is ADR-070's change signal: a 📅 edit must move it."""
         from core.services.dsl.activity_extractor import normalized_line_hash
 
         line = "- [ ] move furniture 📅 2026-06-17 🆔 sk_3uhmts"

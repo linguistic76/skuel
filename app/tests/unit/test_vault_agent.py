@@ -480,17 +480,6 @@ class TestHandshake:
         with pytest.raises(AgentError, match="Protocol mismatch"):
             self._run(connection)
 
-    def test_the_pre_done_date_strip_protocol_is_refused(self) -> None:
-        """Protocol v1 digested a task line WITH its ``✅`` token; this agent does
-        not. Mirrored (a v1 agent against this server) the v1 side would silently
-        find no line to inject into while the server persisted the minted 🆔 —
-        so the retired contract is refused at handshake, never negotiated."""
-        connection = FakeConnection(
-            [json.dumps({"type": "challenge", "nonce": "abc123", "protocol": 1})]
-        )
-        with pytest.raises(AgentError, match="Update the agent"):
-            self._run(connection)
-
     def test_session_refusal_is_fatal(self) -> None:
         connection = FakeConnection(
             [

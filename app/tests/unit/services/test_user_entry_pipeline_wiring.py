@@ -760,6 +760,15 @@ class TestExtractActivities:
                         "source_line_hash": "",
                         "vault_id": None,
                     },
+                    {
+                        # Written back by SKUEL since extraction: the hash moved,
+                        # the 🆔 is the identity (Guard 2b).
+                        "entity_uid": "task_written_back",
+                        "title": "Water the plants",
+                        "labels": ["Entity", "Task"],
+                        "source_line_hash": "stale",
+                        "vault_id": "sk_mine01",
+                    },
                 ]
             )
         )
@@ -774,10 +783,15 @@ class TestExtractActivities:
 
         assert result.is_ok
         kwargs = extractor.extract_and_create.await_args.kwargs
-        assert kwargs["existing_line_hashes"] == frozenset({"abc"})
+        assert kwargs["existing_line_hashes"] == frozenset({"abc", "stale"})
+        # Guard 2b: the 🆔s already on this entry's edges ride the same read.
+        assert kwargs["existing_vault_ids"] == frozenset({"sk_mine01"})
         # Guard 3 (R3): the semantic map is built from the same read —
         # normalized title keyed by node label; the title-less row is skipped.
-        assert kwargs["existing_extracted"] == {("Task", "prior task"): "task_prior"}
+        assert kwargs["existing_extracted"] == {
+            ("Task", "prior task"): "task_prior",
+            ("Task", "water the plants"): "task_written_back",
+        }
 
     @pytest.mark.asyncio
     async def test_user_owned_twins_are_read_and_threaded(self):

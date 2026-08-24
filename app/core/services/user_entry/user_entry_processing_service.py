@@ -499,17 +499,23 @@ class UserEntryProcessingService:
                         normalized_line_hash(line) for line in bridge_result.value.activity_lines
                     )
 
-        # --- Existing-extraction read (guard 2 + guard 3 inputs) --------------
+        # --- Existing-extraction read (guard 2 / 2b / 3 inputs) ---------------
         # Read on every run, not only under force: if a prior run wrote edges
         # but died before the metadata write, the next run must still dedup.
-        # One query feeds both guards: exact line hashes (Guard 2) and the
-        # semantic (node label, normalized title) → uid map (Guard 3, R3).
+        # One query feeds three guards: exact line hashes (Guard 2), the 🆔s
+        # already on this entry's edges (Guard 2b, identity — a line SKUEL has
+        # written ``[x]`` + ``✅`` into no longer hashes to its edge, but its 🆔
+        # still names it, ADR-070), and the semantic (node label, normalized
+        # title) → uid map (Guard 3, R3).
         extracted_result = await self.entry_service.get_extracted_entities(entry.uid)
         if extracted_result.is_error:
             return await self._fail(entry, extracted_result.expect_error(), phase="read_provenance")
         extracted_rows = extracted_result.value or []
         existing_line_hashes = frozenset(
             line_hash for row in extracted_rows if (line_hash := row.get("source_line_hash"))
+        )
+        existing_vault_ids = frozenset(
+            vault_id for row in extracted_rows if (vault_id := row.get("vault_id"))
         )
         existing_extracted: dict[tuple[str, str], str] = {}
         for row in extracted_rows:
@@ -572,6 +578,7 @@ class UserEntryProcessingService:
             bridge_line_hashes=bridge_line_hashes,
             existing_extracted=existing_extracted,
             user_owned_semantic=user_owned_semantic,
+            existing_vault_ids=existing_vault_ids,
         )
         if extract_result.is_error:
             return await self._fail(entry, extract_result.expect_error(), phase="extract")

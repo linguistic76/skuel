@@ -143,15 +143,17 @@ async def test_unstamped_completion_falls_back_to_today(tmp_path: Path) -> None:
 
 
 async def test_the_written_back_line_keeps_its_identity(tmp_path: Path) -> None:
-    """What the outbound pass writes — ``[x]`` + ``✅ date`` — must hash to what
-    it read. Otherwise the next sync's Guard 2 treats SKUEL's own write-back as
-    a new line and re-creates the task it just marked done; Guard 4 ignores
-    terminal twins by design, so nothing else stands in the way. Real adapter,
-    real mutation, real digest (the end-to-end twin lives in
+    """What the outbound pass writes — ``[x]`` + ``✅ date`` — moves the line's
+    hash (the ✅ date is a discriminator, deliberately inside the digest), so
+    the next sync's Guard 2 will miss it. The line is recognised by its 🆔
+    instead (Guard 2b) — which is only possible if the write-back leaves the
+    🆔 intact and the parser still reads it off the written line. Real
+    adapter, real mutation (the end-to-end twin lives in
     tests/integration/test_vault_done_date_hash_roundtrip.py).
     """
     from adapters.vault.filesystem_adapter import FilesystemVaultAdapter
     from core.ports.vault_bridge_protocol import normalize_vault_line_hash
+    from core.services.dsl.obsidian_tasks_adapter import obsidian_task_line_to_parsed
 
     note = tmp_path / "daily.md"
     note.write_text(NOTE, encoding="utf-8")
@@ -183,7 +185,11 @@ async def test_the_written_back_line_keeps_its_identity(tmp_path: Path) -> None:
     assert stats.tasks_marked_done == 1 and not stats.errors, stats
     written_line = note.read_text(encoding="utf-8").splitlines()[-1]
     assert written_line.startswith("- [x]") and "✅ 2026-04-02" in written_line, written_line
-    assert normalize_vault_line_hash(written_line) == normalize_vault_line_hash(original_line)
+    # The hash moved — by design — so identity has to come from the 🆔.
+    assert normalize_vault_line_hash(written_line) != normalize_vault_line_hash(original_line)
+    parsed = obsidian_task_line_to_parsed(written_line)
+    assert parsed is not None and parsed.vault_id == VAULT_ID
+    assert parsed.is_checked and parsed.completion_date == date(2026, 4, 2)
 
 
 async def test_incomplete_task_is_never_marked_done(tmp_path: Path) -> None:

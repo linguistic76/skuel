@@ -73,12 +73,9 @@ HANDSHAKE_TIMEOUT_S = 30.0
 # contract-tested in tests/unit/test_vault_agent.py). The shared line-hash
 # digest (core/ports/vault_bridge_protocol.py) is part of this protocol — the
 # agent must reproduce the server's ``source_line_hash`` on the device — so a
-# digest change is a protocol change:
-#   v1: initial (ADR-075).
-#   v2: the digest strips the ✅ done-date token (2026-08-23); a v1 agent would
-#       silently miss its injection target while the server persisted the
-#       minted 🆔 — refusing at handshake is the honest failure.
-PROTOCOL_VERSION = 2
+# change to what the digest ignores is a protocol change: bump here AND in the
+# agent, never one side.
+PROTOCOL_VERSION = 1
 
 # Application close code for a failed handshake (4003 = unauthorized, app-level convention).
 _CLOSE_UNAUTHORIZED = 4003

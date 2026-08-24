@@ -417,6 +417,46 @@ Some reflections on the day...
         assert extraction.tag_warnings == []  # and the warning is gated with it
 
     @pytest.mark.asyncio
+    async def test_a_line_whose_vault_id_is_already_extracted_is_skipped_by_identity(
+        self, extractor
+    ):
+        """Guard 2b. SKUEL's own ``[x]`` + ``✅ date`` write-back moves a line's
+        hash (the ✅ date is a discriminator, kept in the digest), so Guard 2
+        misses it and Guard 4 ignores the now-terminal twin — the line's 🆔,
+        already on this entry's EXTRACTED_FROM edge, is what says "mine". A
+        sibling line carrying a 🆔 the entry has never seen is a new task."""
+        entry = UserEntry(
+            uid="ue_ident",
+            title="Identity",
+            user_uid="user_mike",
+            entity_type=EntityType.USER_ENTRY,
+            status=EntityStatus.COMPLETED,
+            pipeline=Pipeline.NONE,
+            original_filename="ident.md",
+            file_path="/tmp/ident.md",
+            file_type="text/plain",
+            # Plain obsidian-tasks checkbox lines — the shape the vault holds
+            # and the only parser pass that reads the 🆔 off a line.
+            processed_content=(
+                "- [x] Water the plants 🆔 sk_mine01 ✅ 2026-08-17\n"
+                "- [x] Water the plants 🆔 sk_other2 ✅ 2026-08-19\n"
+            ),
+        )
+
+        result = await extractor.extract_and_create(
+            entry,
+            "user_mike",
+            existing_line_hashes=frozenset(),  # the hash moved: nothing matches
+            existing_vault_ids=frozenset({"sk_mine01"}),
+        )
+
+        assert result.is_ok
+        extraction = result.value
+        assert extraction.lines_skipped_existing == 1
+        assert extraction.tasks_created == 1
+        assert [vault_id for _uid, _hash, vault_id in extraction.created_links] == ["sk_other2"]
+
+    @pytest.mark.asyncio
     async def test_bridge_generated_lines_never_tag_warn(self, extractor):
         """Bridge lines carry deliberately loose tags — not the user's values to fix."""
         from core.services.dsl.activity_extractor import normalized_line_hash

@@ -4,42 +4,42 @@ The vault round-trip (ADR-070) is a loop: a ``- [ ]`` line in a periodic note
 is extracted into a Task; SKUEL injects ``🆔 sk_…`` into the line; when the
 task is completed in SKUEL, the outbound pass rewrites the line as ``- [x] …
 🆔 sk_… ✅ YYYY-MM-DD``. Every one of those edits changes the file, and every
-file change is re-ingested on the next sync. Re-ingestion is idempotent only
-through the line-hash guard (Guard 2, ``EXTRACTED_FROM.source_line_hash``),
-whose whole job is to recognise a line SKUEL has already extracted — so the
-hash has to be stable across every edit SKUEL itself makes. It was stable
-across ``[x]`` and 🆔. It was not stable across ``✅``: the done-date token
-changed the digest, Guard 2 missed, and Guard 4 (the semantic twin guard)
-could not catch it either because it deliberately ignores terminal twins —
-the task had just been COMPLETED. Net effect on the primary personal-data
-path: completing a task in SKUEL produced a second COMPLETED copy of it on
-the following sync.
+file change is re-ingested on the next sync (the ingest door passes
+``force=True``, so the completed-run guard never blocks). Re-ingestion is
+idempotent only through the extraction guards. Guard 2 (``source_line_hash``)
+is stable across ``[x]`` and 🆔 but not across ``✅`` — and it must not be:
+the ✅ date is the only thing that tells two same-title completed occurrences
+in one note apart. Guard 4 (the semantic twin guard) ignores terminal twins
+by design, so a just-completed task had no guard at all. Net effect on the
+primary personal-data path: completing a task in SKUEL produced a second
+COMPLETED copy of it on the following sync.
+
+The fix reads the 🆔 as identity at ingest (Guard 2b): a line whose 🆔
+already carries an ``EXTRACTED_FROM`` edge to the entry is already extracted,
+whatever its hash says. The digest is unchanged, so no stored hash moved and
+the agent protocol did not change.
 
 This file drives the REAL loop against the container and a real vault
 directory — the reconciler, the smart-mode ingest door, the extraction
-pipeline with both graph-read guards, the real Tasks service, and the
+pipeline with all three graph-read guards, the real Tasks service, and the
 filesystem bridge — never a re-implementation of any guard:
 
 1. **The repro.** Extract → complete in SKUEL → sync writes ``✅`` → sync
    again → exactly one task. (Two, both COMPLETED, before the fix.)
 2. **The already-checked door still works.** A line ingested as ``- [x] …
-   ✅ date`` (the #1123 create door) stores a hash the next re-ingest
-   recognises.
-3. **The stored-hash migration is load-bearing.** A hash written by the
-   pre-fix normalisation — with the ``✅`` token inside the digest, exactly
-   what every already-checked extraction on the live graph carries — is
-   orphaned by the fix on its own: the next re-ingest of that file would
-   duplicate the task. ``scripts/rehash_vault_line_hashes.py`` recomputes
-   it; after the migration the same sync is a no-op.
+   ✅ date`` (the #1123 create door) is recognised on the next re-ingest.
+3. **The ✅ date stays a discriminator.** A second same-title completed
+   occurrence added a sync later becomes its own task — the shape a
+   hash-blinding fix silently swallowed (Codex P1 on #1143).
 
-The unit-level contract (which tokens the normalisation strips) is pinned
-DB-free in ``tests/unit/test_obsidian_tasks_adapter.py``; this file is
-path-filtered.
+The unit-level contracts — which tokens the digest normalises, and Guard 2b
+at the extractor — are pinned DB-free in
+``tests/unit/test_obsidian_tasks_adapter.py`` and
+``tests/unit/test_dsl_integration.py``; this file is path-filtered.
 """
 
 from __future__ import annotations
 
-import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -47,11 +47,6 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 import pytest_asyncio
-
-# scripts/ has no __init__.py — add it to sys.path for import
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
-
-import rehash_vault_line_hashes as rehash  # type: ignore[import-not-found]
 
 from adapters.persistence.neo4j.backends.sharing_backend import SharingBackend
 from adapters.persistence.neo4j.backends.user_entry_backend import UserEntryBackend
@@ -79,7 +74,7 @@ NOTE = "periodic_notes/2026-08-23.md"
 TITLE = "Water the plants"
 
 # A daily periodic note: the deterministic ``ue:daily:…`` uid makes every
-# re-sync upsert the same UserEntry, which is what puts Guard 2 on the path.
+# re-sync upsert the same UserEntry, which is what puts the guards on the path.
 FRONTMATTER = (
     "---\n"
     "type: user_entry\n"
@@ -111,7 +106,7 @@ class Rig:
         return stats
 
     async def owned_tasks(self) -> list[tuple[str, str]]:
-        """``(uid, status)`` of every Task the owner holds — the vault has one line."""
+        """``(uid, status)`` of every Task the owner holds."""
         async with self.driver.session() as session:
             result = await session.run(
                 """
@@ -123,30 +118,6 @@ class Rig:
             )
             return [(row["uid"], row["status"]) async for row in result]
 
-    async def stored_hash(self, task_uid: str) -> str | None:
-        async with self.driver.session() as session:
-            result = await session.run(
-                """
-                MATCH (t:Task {uid: $uid})-[r:EXTRACTED_FROM]->(:UserEntry)
-                RETURN r.source_line_hash AS h
-                """,
-                uid=task_uid,
-            )
-            record = await result.single()
-            return record["h"] if record else None
-
-    async def overwrite_stored_hash(self, task_uid: str, line_hash: str) -> None:
-        async with self.driver.session() as session:
-            result = await session.run(
-                """
-                MATCH (t:Task {uid: $uid})-[r:EXTRACTED_FROM]->(:UserEntry)
-                SET r.source_line_hash = $h
-                """,
-                uid=task_uid,
-                h=line_hash,
-            )
-            await result.consume()
-
 
 @pytest_asyncio.fixture
 async def rig(neo4j_driver, clean_neo4j, tasks_service, tmp_path: Path) -> Rig:
@@ -154,7 +125,7 @@ async def rig(neo4j_driver, clean_neo4j, tasks_service, tmp_path: Path) -> Rig:
 
     Everything on the loop is real: ``VaultReconciler`` → smart-mode
     ``ingest_directory`` (tracker-backed, so an edited file re-ingests) →
-    ``UserEntryService`` → ``UserEntryProcessingService`` (both graph-read
+    ``UserEntryService`` → ``UserEntryProcessingService`` (all three graph-read
     guards) → ``ActivityExtractorService`` → the real ``TasksCoreService`` →
     the outbound pass through ``FilesystemVaultAdapter``. The only double is
     the user lookup: a ``User`` who has granted vault-write consent, so the
@@ -253,8 +224,8 @@ class TestDoneDateWriteBackRoundTrip:
         assert "✅ " in line, line
         assert len(await rig.owned_tasks()) == 1
 
-        # Sync 3: the ✅ edit re-ingests. The hash must still recognise the
-        # line — nothing but SKUEL's own write-back changed it.
+        # Sync 3: the ✅ edit re-ingests. The hash has moved (by design); the
+        # 🆔 on the entry's own edge is what says the line is already SKUEL's.
         await rig.sync()
         tasks = await rig.owned_tasks()
         assert tasks == [(task_uid, EntityStatus.COMPLETED.value)], (
@@ -279,38 +250,23 @@ class TestDoneDateWriteBackRoundTrip:
         await rig.sync()
         assert await rig.owned_tasks() == tasks
 
-    async def test_the_migration_reconnects_a_pre_fix_hash_before_the_next_sync(
+    async def test_a_second_completed_occurrence_added_later_is_still_extracted(
         self, rig: Rig
     ) -> None:
-        """A stored hash that has the ``✅`` inside its digest is what the live
-        graph carries for every already-checked extraction. Left alone, the
-        fixed normalisation no longer recognises it and the next re-ingest
-        duplicates the task — the fix would trigger the bug it fixes. The
-        migration recomputes it from the vault line; the sync after that is
-        a no-op."""
-        line = f"- [x] {TITLE} ✅ 2026-08-20"
-        rig.note.write_text(FRONTMATTER + line + "\n", encoding="utf-8")
+        """Two independently authored completed occurrences of the same task in
+        one note — a weekly note logging ``Gym`` on Monday and again on Wednesday
+        — differ only by their ✅ dates (and, once injected, their 🆔s). The
+        second one, added after the first has synced, must still become its
+        own task: the ✅ date is the user's discriminator, and recognising
+        SKUEL's own write-back must not cost it (Codex P1 on #1143)."""
+        rig.note.write_text(FRONTMATTER + "- [x] Gym ✅ 2026-08-17\n", encoding="utf-8")
         await rig.sync()
-        (task_uid, _) = (await rig.owned_tasks())[0]
+        assert len(await rig.owned_tasks()) == 1
 
-        # The pre-fix digest of the very line the file holds (🆔 included now).
-        injected_line = rig.note.read_text(encoding="utf-8").splitlines()[-1]
-        legacy = rehash.legacy_normalize_vault_line_hash(injected_line)
-        current = await rig.stored_hash(task_uid)
-        assert current is not None and current != legacy, "the fix did not change this digest"
-        await rig.overwrite_stored_hash(task_uid, legacy)
-
-        # Census: exactly this row is classified as a rewrite, nothing written.
-        plans = await rehash.census(rig.driver)
-        mine = [p for p in plans if p.entity_uid == task_uid]
-        assert [p.outcome for p in mine] == [rehash.Outcome.REWRITE], mine
-        assert await rig.stored_hash(task_uid) == legacy
-
-        assert await rehash.run_rehash(rig.driver, confirm=True) == 0
-        assert await rig.stored_hash(task_uid) == current
-
-        # The next re-ingest of the file recognises the line again.
-        rig.note.write_text(FRONTMATTER + line + "\n\nLater.\n", encoding="utf-8")
+        rig.note.write_text(
+            rig.note.read_text(encoding="utf-8") + "- [x] Gym ✅ 2026-08-19\n", encoding="utf-8"
+        )
         await rig.sync()
         tasks = await rig.owned_tasks()
-        assert tasks == [(task_uid, EntityStatus.COMPLETED.value)], tasks
+        assert len(tasks) == 2, f"the second completed occurrence was swallowed: {tasks}"
+        assert {status for _, status in tasks} == {EntityStatus.COMPLETED.value}

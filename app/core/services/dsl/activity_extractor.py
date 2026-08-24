@@ -531,6 +531,7 @@ class ActivityExtractorService:
         bridge_line_hashes: frozenset[str] = frozenset(),
         existing_extracted: dict[tuple[str, str], str] | None = None,
         user_owned_semantic: dict[tuple[str, str], str] | None = None,
+        existing_vault_ids: frozenset[str] = frozenset(),
     ) -> Result[ActivityExtractionResult]:
         """
         Extract Activity Lines from a UserEntry and create corresponding entities.
@@ -559,6 +560,13 @@ class ActivityExtractorService:
                 entries (Guard 4, cross-entry/F4). Any matching line merges
                 instead of creating — a note re-process must not resurrect
                 nodes the F4 dedup cleanup deleted.
+            existing_vault_ids: 🆔 ``vault_id`` values already carrying an
+                EXTRACTED_FROM edge to this entry (Guard 2b, identity). A line
+                whose 🆔 is among them is already extracted whatever its hash
+                says — SKUEL's own outbound write-back (``[x]`` + ``✅ date``)
+                and a user's later edit both change the hash of a line SKUEL
+                already owns, and ADR-070 makes the 🆔 the identity, not the
+                hash.
 
         Returns:
             Result containing ActivityExtractionResult with counts, UIDs,
@@ -686,7 +694,9 @@ class ActivityExtractorService:
             # sync is correct.)
             line_hash = normalized_line_hash(activity.raw_line) if activity.raw_line else None
             is_bridge_line = line_hash is not None and line_hash in bridge_line_hashes
-            already_extracted = line_hash is not None and line_hash in existing_line_hashes
+            already_extracted = (line_hash is not None and line_hash in existing_line_hashes) or (
+                activity.vault_id is not None and activity.vault_id in existing_vault_ids
+            )
             if not is_bridge_line and not already_extracted:
                 for tag_warning in activity.tag_warnings:
                     extraction.tag_warnings.append(f"'{activity.description[:40]}': {tag_warning}")
@@ -731,6 +741,7 @@ class ActivityExtractorService:
                 bridge_line_hashes,
                 existing_extracted,
                 user_owned_semantic,
+                existing_vault_ids,
             )
             extraction.tasks_created += created
             extraction.created_task_uids.extend(uids)
@@ -746,6 +757,7 @@ class ActivityExtractorService:
                 bridge_line_hashes,
                 existing_extracted,
                 user_owned_semantic,
+                existing_vault_ids,
             )
             extraction.habits_created += created
             extraction.created_habit_uids.extend(uids)
@@ -761,6 +773,7 @@ class ActivityExtractorService:
                 bridge_line_hashes,
                 existing_extracted,
                 user_owned_semantic,
+                existing_vault_ids,
             )
             extraction.goals_created += created
             extraction.created_goal_uids.extend(uids)
@@ -776,6 +789,7 @@ class ActivityExtractorService:
                 bridge_line_hashes,
                 existing_extracted,
                 user_owned_semantic,
+                existing_vault_ids,
             )
             extraction.events_created += created
             extraction.created_event_uids.extend(uids)
@@ -791,6 +805,7 @@ class ActivityExtractorService:
                 bridge_line_hashes,
                 existing_extracted,
                 user_owned_semantic,
+                existing_vault_ids,
             )
             extraction.principles_created += created
             extraction.created_principle_uids.extend(uids)
@@ -806,6 +821,7 @@ class ActivityExtractorService:
                 bridge_line_hashes,
                 existing_extracted,
                 user_owned_semantic,
+                existing_vault_ids,
             )
             extraction.choices_created += created
             extraction.created_choice_uids.extend(uids)
@@ -821,6 +837,7 @@ class ActivityExtractorService:
                 bridge_line_hashes,
                 existing_extracted,
                 user_owned_semantic,
+                existing_vault_ids,
             )
             extraction.finances_created += created
             extraction.created_finance_uids.extend(uids)
@@ -846,6 +863,7 @@ class ActivityExtractorService:
                     bridge_line_hashes,
                     existing_extracted,
                     user_owned_semantic,
+                    existing_vault_ids,
                 )
                 extraction.kus_created += created
                 extraction.created_ku_uids.extend(uids)
@@ -864,6 +882,7 @@ class ActivityExtractorService:
                     bridge_line_hashes,
                     existing_extracted,
                     user_owned_semantic,
+                    existing_vault_ids,
                 )
                 extraction.path_steps_created += created
                 extraction.created_ps_uids.extend(uids)
@@ -882,6 +901,7 @@ class ActivityExtractorService:
                     bridge_line_hashes,
                     existing_extracted,
                     user_owned_semantic,
+                    existing_vault_ids,
                 )
                 extraction.learning_paths_created += created
                 extraction.created_lp_uids.extend(uids)
@@ -901,6 +921,7 @@ class ActivityExtractorService:
                 bridge_line_hashes,
                 existing_extracted,
                 user_owned_semantic,
+                existing_vault_ids,
             )
             extraction.calendar_items_created += created
             extraction.created_calendar_uids.extend(uids)
@@ -920,6 +941,7 @@ class ActivityExtractorService:
                 bridge_line_hashes,
                 existing_extracted,
                 user_owned_semantic,
+                existing_vault_ids,
             )
             extraction.lifepath_items_created += created
             extraction.created_lifepath_uids.extend(uids)
@@ -952,11 +974,17 @@ class ActivityExtractorService:
         bridge_line_hashes: frozenset[str] = frozenset(),
         existing_extracted: dict[tuple[str, str], str] | None = None,
         user_owned_semantic: dict[tuple[str, str], str] | None = None,
+        existing_vault_ids: frozenset[str] = frozenset(),
     ) -> tuple[int, list[str]]:
         """Run one domain's create loop with dedup guards and provenance capture.
 
         Guard 2 (exact): lines whose normalized hash already carries an
-        EXTRACTED_FROM edge are skipped. Guard 3 (semantic, R3): bridge-
+        EXTRACTED_FROM edge are skipped. Guard 2b (identity): so are lines
+        whose 🆔 already carries one to this entry — the hash is ADR-070's
+        change signal and the 🆔 its identity, so a line SKUEL already owns
+        is recognised even after its hash moved (SKUEL's own ``[x]`` + ``✅``
+        write-back above all; a just-completed task is terminal, so Guard 4
+        cannot catch it). Guard 3 (semantic, R3): bridge-
         generated lines whose (node label, normalized title) matches an entity
         already extracted from this entry MERGE — the line resolves to the
         existing uid, no new node is created and the existing provenance edge
@@ -982,6 +1010,18 @@ class ActivityExtractorService:
             line_hash = normalized_line_hash(activity.raw_line or activity.description)
             if line_hash in existing_line_hashes:
                 extraction.lines_skipped_existing += 1
+                continue
+            if activity.vault_id is not None and activity.vault_id in existing_vault_ids:
+                # Guard 2b: this entry already extracted the line that carries
+                # this 🆔; only its text moved since (SKUEL's own done-date
+                # write-back, or a user edit that inbound sync does not yet
+                # propagate). Never a new node — and, like Guards 3/4, never a
+                # provenance write: the edge is this line's own and stays as is.
+                extraction.lines_skipped_existing += 1
+                self.logger.debug(
+                    f"Identity dedup: {label} '{activity.description[:40]}' "
+                    f"already extracted as 🆔 {activity.vault_id}"
+                )
                 continue
 
             key: tuple[str, str] | None = None
