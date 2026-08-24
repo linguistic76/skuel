@@ -164,6 +164,9 @@ async def ensure_test_users(neo4j_driver):
         # The vault ✅ write-back round trip: the real sync ingests a temp
         # vault as this owner and the extracted Tasks hang off it via :OWNS.
         "user_vault_done_hash",
+        # The status-guarded write primitive (ADR-087): its branch matrix and its
+        # concurrency proof create real owned Tasks and race writers against them.
+        "user_status_guard",
     ]
 
     async def create_users():

@@ -601,24 +601,17 @@ class TestGetForUserFiltered:
 
 
 # ============================================================================
-# TESTS: Status/Progress Management
+# TESTS: Progress Management
 # ============================================================================
 
 
-class TestStatusManagement:
-    """Test status and progress operations."""
+class TestProgressManagement:
+    """Test the generic progress write.
 
-    @pytest.mark.asyncio
-    async def test_update_status_valid_transition(self, service, mock_backend):
-        """Update status changes entity status."""
-        mock_backend.get.return_value = Result.ok(
-            {"uid": "test_001", "title": "Test", "description": "Desc", "status": "active"}
-        )
-        mock_backend.update.return_value = Result.ok({"uid": "test_001"})
-
-        result = await service.update_status("test_001", "completed")
-
-        assert result.is_ok
+    Status has no generic write: ``update_status`` was deleted with ADR-087 (it had
+    zero production callers, and a status write now goes through the domain's own
+    chokepoint so its guard is evaluated at write time).
+    """
 
     @pytest.mark.asyncio
     async def test_update_progress_valid_range(self, service, mock_backend):

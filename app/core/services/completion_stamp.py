@@ -27,6 +27,15 @@ defers to the gate here, so a retried complete never re-dates.
 Bypass paths are handled elsewhere by design: ingestion never auto-stamps (the
 file is the source of truth for its own dates), and the DSL ``[x]`` create door
 parses the obsidian-tasks ``✅ date`` into ``completion_date`` at conversion.
+
+**Two forms of the same rules, during the ADR-087 migration.**
+:func:`completion_transition_patch` decides the patch in Python from a status the
+caller read *before* the write; :func:`status_transition_guard` packages the same
+decision as a :class:`StatusWriteGuard` the write statement evaluates against the
+prior it reads *under the node's write-lock*, which is what makes the verdict exact
+when two writers race. Both enforce the same legality check and the same authority
+rule, and each chokepoint uses exactly one of them at any time. The Python-side form
+retires when its last caller migrates (ADR-087 PR-4).
 """
 
 from __future__ import annotations
@@ -37,6 +46,7 @@ from types import MappingProxyType
 from typing import Any
 
 from core.models.enums.entity_enums import EntityStatus, EntityType
+from core.models.update_contracts import StatusWriteGuard
 from core.utils.result_simplified import Errors, Result
 
 __all__ = [
@@ -44,6 +54,7 @@ __all__ = [
     "completion_transition_patch",
     "is_completion_transition",
     "is_reopen_transition",
+    "status_transition_guard",
 ]
 
 # Per-domain canonical completion field + stamp value factory. Task and Goal
@@ -128,32 +139,24 @@ def is_reopen_transition(old_status: EntityStatus | str | None, changes: Mapping
     )
 
 
-def completion_transition_patch(
-    entity_type: EntityType,
-    old_status: EntityStatus | str | None,
-    changes: Mapping[str, Any],
-) -> Result[dict[str, Any]]:
-    """Validate the status target and derive the completion-stamp patch.
+def _stamp_target(
+    entity_type: EntityType, changes: Mapping[str, Any]
+) -> Result[tuple[EntityStatus, str, Callable[[], date | datetime]] | None]:
+    """Validate the status target and resolve the stamp spec this update would use.
 
-    Args:
-        entity_type: The Activity domain being updated.
-        old_status: The entity's status before this update. ``None`` means "no
-            prior state" (entity not found — the write then fails with
-            not-found) and is treated as "not completed". Callers propagate
-            read *errors* instead of passing ``None`` for them: a failed read
-            must never be mistaken for "not completed" (re-dating risk).
-        changes: The materialized update patch (``intent.to_changes()``). Never
-            mutated.
+    The shared front half of :func:`completion_transition_patch` and
+    :func:`status_transition_guard`, so the legality check and the authority rule
+    cannot drift between the read-then-write form and the write-time form.
 
     Returns:
-        ``Result.ok`` with a patch to merge into the write — ``{field: stamp}``
-        on a transition into COMPLETED, ``{field: None}`` on a transition out
-        (the null clears the node property), ``{}`` otherwise — or
-        ``Result.fail`` (validation) when the intended status is not a
-        canonical ``EntityStatus`` value or is not valid for this entity type.
+        ``Result.ok(None)`` when nothing should be stamped — no status key, a domain
+        with no completion field (Principle), or an update that already carries the
+        field and therefore keeps authority over its own stamp. ``Result.ok((target,
+        field, factory))` otherwise. ``Result.fail`` (validation) when the intended
+        status is not a canonical ``EntityStatus`` or is not valid for this type.
     """
     if "status" not in changes:
-        return Result.ok({})
+        return Result.ok(None)
 
     raw_status = changes["status"]
     new_status = _coerce_status(raw_status)
@@ -180,13 +183,98 @@ def completion_transition_patch(
 
     spec = _STAMP_SPECS.get(entity_type)
     if spec is None:
-        return Result.ok({})
+        return Result.ok(None)
     field_name, stamp_factory = spec
-
     if field_name in changes:
         # Explicit complete/reopen paths keep authority over their own stamp.
+        return Result.ok(None)
+    return Result.ok((new_status, field_name, stamp_factory))
+
+
+def status_transition_guard(
+    entity_type: EntityType, changes: Mapping[str, Any]
+) -> Result[StatusWriteGuard]:
+    """Package this update's completion-stamp rules as a write-time guard (ADR-087).
+
+    The write-time successor of :func:`completion_transition_patch`. It enforces the
+    same legality check and the same authority rule, but because the prior status is
+    unknown until the write takes the node's lock it cannot choose a patch — it states
+    the condition under which each patch applies and lets the write statement pick at
+    most one:
+
+    - target ``COMPLETED`` → stamp the field unless the prior was already
+      ``COMPLETED`` (so a re-post never re-dates);
+    - any other valid target → clear the field if the prior WAS ``COMPLETED``
+      (the reopen);
+    - no status key, a domain with no completion field, or an update that supplies
+      the field itself → a guard with no patches (an ordinary write that still
+      returns its prior).
+
+    Only the caller knows the target, so the guard never needs to tell the backend
+    what ``completed`` means — every condition is set-membership of the prior.
+
+    Args:
+        entity_type: The Activity domain being updated.
+        changes: The materialized update patch (``intent.to_changes()``). Never mutated.
+
+    Returns:
+        ``Result.ok`` with the guard, or ``Result.fail`` (validation) on an illegal
+        status target — the same refusal :func:`completion_transition_patch` makes.
+    """
+    target = _stamp_target(entity_type, changes)
+    if target.is_error:
+        return Result.fail(target)
+    if target.value is None:
+        return Result.ok(StatusWriteGuard())
+
+    new_status, field_name, stamp_factory = target.value
+    completed = frozenset({EntityStatus.COMPLETED.value})
+    if new_status is EntityStatus.COMPLETED:
+        return Result.ok(
+            StatusWriteGuard(patch_if_prior_not_in=(completed, {field_name: stamp_factory()}))
+        )
+    return Result.ok(StatusWriteGuard(patch_if_prior_in=(completed, {field_name: None})))
+
+
+def completion_transition_patch(
+    entity_type: EntityType,
+    old_status: EntityStatus | str | None,
+    changes: Mapping[str, Any],
+) -> Result[dict[str, Any]]:
+    """Validate the status target and derive the completion-stamp patch.
+
+    ⚠ **Being retired (ADR-087).** This is the read-then-write form: it needs a prior
+    the caller read *before* the write, outside any lock, so two concurrent writers can
+    both act on the same status. :func:`status_transition_guard` is the successor. The
+    four remaining callers — Goals, Events, Choices, Habits (PR-3) and the four
+    goal-progress writers (PR-4) — migrate site by site, each holding exactly ONE path
+    at any moment; this function is DELETED when the last one moves. Do not add a
+    caller. Both forms share :func:`_stamp_target`, so the rules cannot drift meanwhile.
+
+    Args:
+        entity_type: The Activity domain being updated.
+        old_status: The entity's status before this update. ``None`` means "no
+            prior state" (entity not found — the write then fails with
+            not-found) and is treated as "not completed". Callers propagate
+            read *errors* instead of passing ``None`` for them: a failed read
+            must never be mistaken for "not completed" (re-dating risk).
+        changes: The materialized update patch (``intent.to_changes()``). Never
+            mutated.
+
+    Returns:
+        ``Result.ok`` with a patch to merge into the write — ``{field: stamp}``
+        on a transition into COMPLETED, ``{field: None}`` on a transition out
+        (the null clears the node property), ``{}`` otherwise — or
+        ``Result.fail`` (validation) when the intended status is not a
+        canonical ``EntityStatus`` value or is not valid for this entity type.
+    """
+    target = _stamp_target(entity_type, changes)
+    if target.is_error:
+        return Result.fail(target)
+    if target.value is None:
         return Result.ok({})
 
+    new_status, field_name, stamp_factory = target.value
     old = _coerce_status(old_status)
     if new_status is EntityStatus.COMPLETED and old is not EntityStatus.COMPLETED:
         return Result.ok({field_name: stamp_factory()})

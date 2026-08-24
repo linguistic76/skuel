@@ -15,7 +15,7 @@ This service handles:
 
 from datetime import date, datetime, timedelta
 from typing import Any
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import ANY, AsyncMock, Mock
 
 import pytest
 
@@ -27,6 +27,7 @@ from core.models.task.task_request import TaskCreateRequest
 from core.models.task.task_update_intent import TaskUpdateIntent
 from core.services.tasks.tasks_core_service import TasksCoreService
 from core.utils.result_simplified import Errors, Result
+from tests.helpers.status_guarded_backend import echoing_guarded_write
 
 # ============================================================================
 # FIXTURES
@@ -52,6 +53,10 @@ def mock_backend() -> Any:
     backend.create = AsyncMock(return_value=Result.ok({}))
     backend.get = AsyncMock(return_value=Result.ok(None))
     backend.update = AsyncMock(return_value=Result.ok({}))
+    # ADR-087: the status chokepoint writes through the guarded primitive. This
+    # answers it from the same ``get``/``update`` return values the tests configure,
+    # so the prior it reports and the entity it returns stay consistent with them.
+    backend.update_with_status_guard = echoing_guarded_write(backend)
     backend.delete = AsyncMock(return_value=Result.ok(True))
     backend.list = AsyncMock(return_value=Result.ok(([], 0)))  # Returns (items, count) tuple
 
@@ -404,10 +409,12 @@ async def test_update_task_success(core_service, mock_backend, sample_task_dto):
     task = result.value
     assert task.title == "Updated Title"
     assert task.priority == Priority.LOW
-    # The intent is materialized to a partial patch at the single backend.update seam.
-    mock_backend.update.assert_called_once_with(
-        "task:123", {"title": "Updated Title", "priority": Priority.LOW.value}
-    )
+    # The intent is materialized to a partial patch at the single write seam. No
+    # status key, so the guard carries no conditional patches (ADR-087).
+    (uid, changes, guard) = mock_backend.update_with_status_guard.call_args.args
+    assert uid == "task:123"
+    assert changes == {"title": "Updated Title", "priority": Priority.LOW.value}
+    assert guard.has_patches() is False
 
 
 @pytest.mark.asyncio
@@ -480,7 +487,7 @@ async def test_update_task_refuses_priority_clear_on_overdue_task(core_service, 
     result = await core_service.update_task("task:123", TaskUpdateIntent(priority=None))
 
     assert result.is_error
-    mock_backend.update.assert_not_called()
+    mock_backend.update_with_status_guard.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -498,7 +505,9 @@ async def test_update_task_allows_priority_decrease_when_not_overdue(core_servic
     )
 
     assert result.is_ok
-    mock_backend.update.assert_called_once_with("task:123", {"priority": Priority.LOW.value})
+    mock_backend.update_with_status_guard.assert_called_once_with(
+        "task:123", {"priority": Priority.LOW.value}, ANY
+    )
 
 
 @pytest.mark.asyncio
@@ -516,7 +525,9 @@ async def test_update_task_allows_priority_increase_on_overdue_task(core_service
     )
 
     assert result.is_ok
-    mock_backend.update.assert_called_once_with("task:123", {"priority": Priority.CRITICAL.value})
+    mock_backend.update_with_status_guard.assert_called_once_with(
+        "task:123", {"priority": Priority.CRITICAL.value}, ANY
+    )
 
 
 @pytest.mark.asyncio
@@ -549,7 +560,9 @@ async def test_update_task_allows_priority_decrease_on_completed_past_due_task(
     )
 
     assert result.is_ok
-    mock_backend.update.assert_called_once_with("task:123", {"priority": Priority.LOW.value})
+    mock_backend.update_with_status_guard.assert_called_once_with(
+        "task:123", {"priority": Priority.LOW.value}, ANY
+    )
 
 
 @pytest.mark.asyncio
@@ -575,9 +588,11 @@ async def test_update_task_reopens_a_completed_task(core_service, mock_backend):
     )
 
     assert result.is_ok
-    written = mock_backend.update.call_args.args[1]
+    (_uid, written, guard) = mock_backend.update_with_status_guard.call_args.args
     assert written["status"] == EntityStatus.ACTIVE.value
-    assert written["completion_date"] is None  # reopen clears the stamp
+    # The reopen clear is now a CONDITION the write evaluates against the prior it
+    # captures under the node lock, not a value resolved from a read beforehand.
+    assert guard.patch_if_prior_in == (frozenset({"completed"}), {"completion_date": None})
 
 
 @pytest.mark.asyncio
@@ -591,7 +606,9 @@ async def test_update_task_without_priority_change_skips_the_rule(core_service, 
 
     assert result.is_ok
     mock_backend.get.assert_not_called()  # no prior state needed, so none is fetched
-    mock_backend.update.assert_called_once_with("task:123", {"title": "Updated Title"})
+    mock_backend.update_with_status_guard.assert_called_once_with(
+        "task:123", {"title": "Updated Title"}, ANY
+    )
 
 
 @pytest.mark.asyncio
@@ -604,7 +621,7 @@ async def test_update_task_fails_fast_when_the_prior_read_fails(core_service, mo
     )
 
     assert result.is_error
-    mock_backend.update.assert_not_called()
+    mock_backend.update_with_status_guard.assert_not_called()
 
 
 # ============================================================================

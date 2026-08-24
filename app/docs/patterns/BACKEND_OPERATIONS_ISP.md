@@ -24,7 +24,7 @@ related_docs:
 
 ```
 BackendOperations[T]  ← THE protocol (UniversalNeo4jBackend implements this)
-    ├── CrudOperations[T]                  (7 methods)
+    ├── CrudOperations[T]                  (8 methods)
     ├── EntitySearchOperations[T]          (3 methods)
     ├── RelationshipCrudOperations         (6 methods)
     ├── RelationshipMetadataOperations     (3 methods)
@@ -37,8 +37,14 @@ BackendOperations[T]  ← THE protocol (UniversalNeo4jBackend implements this)
 
 ## Sub-Protocol Details
 
-### CrudOperations[T] (7 methods)
+### CrudOperations[T] (8 methods)
 Core CRUD operations for domain entities. The fundamental operations every backend must support.
+
+``update_with_status_guard`` is ``update``'s write-side peer (ADR-087): the statement
+captures the node's prior status under its write-lock, applies the guard's
+prior-conditional patches, and returns that prior, so a caller derives its transition
+verdicts from what the write actually saw rather than from an earlier, lock-free read.
+It is the one way a status-bearing write is done.
 
 ```python
 class CrudOperations[T: DomainModelProtocol](Protocol):
@@ -47,6 +53,7 @@ class CrudOperations[T: DomainModelProtocol](Protocol):
     async def get_visible_to_user(self, uid: str, user_uid: UserUID, visibility: SearchVisibility | None) -> Result[T | None]: ...
     async def get_many(self, uids: list[str]) -> Result[list[T | None]]: ...
     async def update(self, uid: str, updates: Neo4jProperties) -> Result[T]: ...
+    async def update_with_status_guard(self, uid: str, updates: Neo4jProperties, guard: StatusWriteGuard) -> Result[StatusGuardedOutcome[T]]: ...
     async def delete(self, uid: str, cascade: bool = False) -> Result[bool]: ...
     async def list(self, limit: int = 100, offset: int = 0, filters: FilterParams | None = None, ...) -> Result[tuple[list[T], int]]: ...
 ```

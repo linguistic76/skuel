@@ -178,15 +178,17 @@ async def test_update_task_status(tasks_service, sample_task):
     assert created.is_ok
     task_uid = created.value.uid
 
-    # Act
-    result = await tasks_service.update_status(
+    # Act — the domain's one update path, with a typed intent (ADR-066). There is no
+    # generic status write: the status chokepoint owns the guard its write is evaluated
+    # against (ADR-087), so `BaseService.update_status` was deleted.
+    result = await tasks_service.update_task(
         task_uid,
-        ActivityStatus.COMPLETED
+        TaskUpdateIntent(status=EntityStatus.COMPLETED.value),
     )
 
     # Assert
     assert result.is_ok
-    assert result.value.status == ActivityStatus.COMPLETED
+    assert result.value.status == EntityStatus.COMPLETED
 ```
 
 ## Integration Test Pattern

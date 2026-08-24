@@ -51,6 +51,7 @@ from core.services.completion_stamp import (
     completion_transition_patch,
     is_completion_transition,
     is_reopen_transition,
+    status_transition_guard,
 )
 from core.services.domain_config import create_activity_domain_config
 from core.services.mixins.hierarchy_read_mixin import HierarchyReadMixin
@@ -746,6 +747,14 @@ class TasksCoreService(
         control runs the same cascade as the explicit-complete doors, and the
         mirror transition OUT of completed publishes ``TaskReopened``.
 
+        Both verdicts are derived from the status the WRITE observed under the node's
+        lock, not from a status read beforehand (ADR-087). That closes the vector this
+        door is most exposed to: Today's Undo posts its reopen through here while the
+        complete may still be in flight, and under the old read-then-write shape a
+        complete serialized after a reopen could see a stale "already completed" prior
+        and write ``status=completed`` with no stamp — breaking the invariant that the
+        stamp is non-null exactly when the task is completed.
+
         Args:
             task_uid: Task UID,
             intent: Typed ``TaskUpdateIntent`` — only its set fields are written
@@ -754,22 +763,20 @@ class TasksCoreService(
             Result containing updated Task
         """
         changes = intent.to_changes()
-        # Capture the intended fields now: the backend mutates its argument in place
-        # (stamps updated_at), so reading changes.keys() after the call would leak that
-        # bump into the event. The event reports what the update meant to change.
+        # The event reports what the update meant to change, so name the intended fields
+        # rather than anything the write adds (the backend stamps updated_at onto its own
+        # copy of the patch, and the completion stamp now rides the guard, not ``changes``).
         updated_fields = list(changes.keys())
 
-        # Fetch the prior task when a transition needs old-vs-new (priority change
-        # event, completion-stamp gating, overdue-priority validation).
+        # Advisory pre-read — for the overdue-priority rule and the priority-change event
+        # only. The status verdicts used to need it too; they now come from the write
+        # itself, so a status-only update reads nothing before writing.
         old_task = None
-        if "priority" in changes or "status" in changes:
+        if "priority" in changes:
             old_result = await self.backend.get(task_uid)
             if old_result.is_error:
-                # Fail fast: both consumers of this read are gated on the PRIOR state,
-                # and a failed read must not be silently read as "no rule applies".
-                # The stamp is transition-gated on the prior status (a transient error
-                # plus a completed re-post would re-date the original stamp), and the
-                # overdue-priority rule below is gated on the prior priority/due_date.
+                # Fail fast: a failed read must not be silently read as "no rule applies"
+                # — the overdue-priority rule below is gated on the prior priority/due_date.
                 return Result.fail(old_result)
             if old_result.value:
                 old_task = self._to_domain_model(old_result.value, TaskDTO, Task)
@@ -784,25 +791,28 @@ class TasksCoreService(
             if validation.is_error:
                 return Result.fail(validation)
 
-        # Status-target validation + completion stamping (transition-gated).
-        # The transition is decided ONCE, before the write, and feeds two
-        # consumers: the stamp below and the TaskCompleted publish at the end of
-        # this method. Deciding it here also keeps it honest — ``changes`` is
-        # mutated by the stamp merge and again by the backend (updated_at).
-        old_status = old_task.status if old_task else None
-        is_transition = is_completion_transition(old_status, changes)
-        is_reopen = is_reopen_transition(old_status, changes)
-        stamp = completion_transition_patch(EntityType.TASK, old_status, changes)
-        if stamp.is_error:
-            return Result.fail(stamp)
-        changes.update(stamp.value)
+        # Status-target validation + completion stamping, expressed as conditions the
+        # WRITE evaluates against the prior it reads under the node's lock (ADR-087).
+        # The refusal on an illegal status target is the same one the Python-side helper
+        # made; what changed is that the stamp decision is no longer taken from a status
+        # a concurrent writer may already have moved.
+        guard = status_transition_guard(EntityType.TASK, changes)
+        if guard.is_error:
+            return Result.fail(guard)
 
-        update_result = await self.backend.update(task_uid, changes)
+        update_result = await self.backend.update_with_status_guard(task_uid, changes, guard.value)
         if update_result.is_error:
             return Result.fail(update_result)
 
-        # Convert updated result to Task
-        task = self._to_domain_model(update_result.value, TaskDTO, Task)
+        # This guard refuses nothing (``refuse_if_prior_in`` is empty), so the write
+        # always applied; only the prior it returned is news.
+        outcome = update_result.value
+        task = self._to_domain_model(outcome.entity, TaskDTO, Task)
+
+        # The verdicts, from the status the write actually saw. The same two pure helpers
+        # as before — only their ``old_status`` argument is now exact.
+        is_transition = is_completion_transition(outcome.prior_status, changes)
+        is_reopen = is_reopen_transition(outcome.prior_status, changes)
 
         # Publish TaskUpdated event
         event = TaskUpdated(
@@ -824,8 +834,8 @@ class TasksCoreService(
         # explicit-complete doors, which deliberately re-run their cascade as a
         # repair path and report the repeat). See TaskCompleted's docstring.
         #
-        # Zero extra queries: ``old_task`` was already fetched for the stamp
-        # gate, and the post-write ``task`` carries due_date/actual_minutes.
+        # Zero extra queries: the prior comes back from the write itself, and the
+        # post-write ``task`` carries due_date/actual_minutes.
         if is_transition:
             completed_event = TaskCompleted(
                 task_uid=task.uid,

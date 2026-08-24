@@ -123,8 +123,6 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    import builtins
-
     from core.models.relationship_names import RelationshipName
 
 
@@ -707,37 +705,6 @@ class BaseService(
         # is the domain `update_<x>(intent)` path; this universal helper writes a single
         # column directly (U is the subclass's narrowed intent type — not constructible here).
         return await self.backend.update(uid, {"progress": progress})
-
-    async def update_status(
-        self,
-        uid: str,
-        new_status: Any,
-        allowed_transitions: dict[Any, builtins.list[Any]] | None = None,
-    ) -> Result[T]:
-        """Update entity status with optional transition validation."""
-        if not uid:
-            return Result.fail(Errors.validation(message="UID is required", field="uid"))
-
-        # Get current entity if transition validation needed
-        if allowed_transitions:
-            current_result = await self.get(uid)
-            if current_result.is_error:
-                return Result.fail(current_result)
-
-            current_status = getattr(current_result.value, "status", None)
-            if current_status and current_status != new_status:
-                allowed = allowed_transitions.get(current_status, [])
-                if new_status not in allowed:
-                    allowed_str = ", ".join(str(s) for s in allowed)
-                    return Result.fail(
-                        Errors.business(
-                            rule="status_transition",
-                            message=f"Cannot transition from {current_status} to {new_status}. Allowed: {allowed_str}",
-                        )
-                    )
-
-        # raw-write: generic system field bump (see update_progress).
-        return await self.backend.update(uid, {"status": new_status})
 
     # -------------------------------------------------------------------------
     # Test-covered health API — no production caller yet (PLANNED)

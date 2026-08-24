@@ -45,6 +45,7 @@ from core.services.completion_stamp import (
     is_reopen_transition,
 )
 from core.utils.result_simplified import Result
+from tests.helpers.status_guarded_backend import guarded_backend
 
 USER = "user_stamp"
 
@@ -208,50 +209,93 @@ def _written_changes(backend) -> dict:
 
 @pytest.mark.asyncio
 class TestTasksChokepoint:
+    """Tasks states its stamp rules as write-time CONDITIONS now (ADR-087).
+
+    The other five chokepoints below still resolve the patch in Python from a prior
+    read beforehand; Tasks hands the condition to the write, which evaluates it
+    against the status it captures under the node's lock. So the assertions here are
+    on the guard the service built — plus, via the recorder, on what that guard would
+    actually merge. That the database honours the condition is pinned against a real
+    Neo4j in ``tests/integration/test_status_guarded_update.py``.
+    """
+
     def _service(self, current_status: EntityStatus):
         from core.services.tasks.tasks_core_service import TasksCoreService
 
         current = Task(uid="task_1", user_uid=USER, title="t", status=current_status)
         updated = Task(uid="task_1", user_uid=USER, title="t", status=EntityStatus.COMPLETED)
-        backend = _mock_backend(current, updated)
-        return TasksCoreService(backend=backend), backend
+        backend, recorder = guarded_backend(current, updated)
+        return TasksCoreService(backend=backend), backend, recorder
 
     async def test_completing_stamps_completion_date(self):
-        service, backend = self._service(EntityStatus.ACTIVE)
+        service, _backend, recorder = self._service(EntityStatus.ACTIVE)
         result = await service.update_task("task_1", TaskUpdateIntent(status="completed"))
         assert result.is_ok
-        assert _written_changes(backend)["completion_date"] == date.today()
+        # The stamp is offered CONDITIONALLY — only if the prior was not already
+        # completed. That condition is what stops a re-post re-dating.
+        assert recorder.last_guard.patch_if_prior_not_in == (
+            frozenset({"completed"}),
+            {"completion_date": date.today()},
+        )
+        assert recorder.merged_patch()["completion_date"] == date.today()
 
     async def test_reposting_completed_does_not_restamp(self):
-        service, backend = self._service(EntityStatus.COMPLETED)
+        service, _backend, recorder = self._service(EntityStatus.COMPLETED)
         result = await service.update_task("task_1", TaskUpdateIntent(status="completed"))
         assert result.is_ok
-        assert "completion_date" not in _written_changes(backend)
+        # Same guard as above — the prior is what declines it.
+        assert "completion_date" not in recorder.merged_patch()
 
     async def test_reopen_clears_the_stamp(self):
-        service, backend = self._service(EntityStatus.COMPLETED)
+        service, _backend, recorder = self._service(EntityStatus.COMPLETED)
         result = await service.update_task("task_1", TaskUpdateIntent(status="active"))
         assert result.is_ok
-        assert _written_changes(backend)["completion_date"] is None
+        assert recorder.last_guard.patch_if_prior_in == (
+            frozenset({"completed"}),
+            {"completion_date": None},
+        )
+        assert recorder.merged_patch()["completion_date"] is None
+
+    async def test_a_caller_supplied_stamp_keeps_authority(self):
+        """An update that carries the field itself gets no patches at all — the
+        same authority rule the Python-side helper enforces."""
+        service, _backend, recorder = self._service(EntityStatus.ACTIVE)
+        explicit = date(2026, 1, 1)
+        result = await service.update_task(
+            "task_1", TaskUpdateIntent(status="completed", completion_date=explicit)
+        )
+        assert result.is_ok
+        assert recorder.last_guard.has_patches() is False
+        assert recorder.merged_patch()["completion_date"] == explicit
 
     async def test_illegal_status_is_refused_before_the_write(self):
-        service, backend = self._service(EntityStatus.ACTIVE)
+        service, backend, _recorder = self._service(EntityStatus.ACTIVE)
         result = await service.update_task("task_1", TaskUpdateIntent(status="archived"))
         assert result.is_error
-        backend.update.assert_not_awaited()
+        backend.update_with_status_guard.assert_not_awaited()
 
-    async def test_failed_old_status_read_fails_the_update(self):
-        # A transient read failure must not be read as "not completed" — that
-        # plus a completed re-post would re-date the original stamp (Codex P2).
+    async def test_a_status_write_no_longer_pre_reads_at_all(self):
+        """The read whose failure used to be able to re-date a stamp is GONE: the
+        prior now rides back on the write. What was defended by failing fast on a
+        transient read error is defended by construction (ADR-087)."""
+        service, backend, recorder = self._service(EntityStatus.COMPLETED)
+        result = await service.update_task("task_1", TaskUpdateIntent(status="completed"))
+        assert result.is_ok
+        backend.get.assert_not_awaited()
+        assert recorder.calls[-1][2].has_patches() is True
+
+    async def test_a_failed_priority_read_still_fails_the_update(self):
+        """The advisory read survives for the overdue-priority rule, and a
+        transient failure there must not be read as "no rule applies"."""
         from core.utils.result_simplified import Errors
 
-        service, backend = self._service(EntityStatus.COMPLETED)
+        service, backend, _recorder = self._service(EntityStatus.ACTIVE)
         backend.get = AsyncMock(
             return_value=Result.fail(Errors.database("get", "transient read failure"))
         )
-        result = await service.update_task("task_1", TaskUpdateIntent(status="completed"))
+        result = await service.update_task("task_1", TaskUpdateIntent(priority="high"))
         assert result.is_error
-        backend.update.assert_not_awaited()
+        backend.update_with_status_guard.assert_not_awaited()
 
 
 @pytest.mark.asyncio

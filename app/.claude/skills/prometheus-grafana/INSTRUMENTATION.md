@@ -612,17 +612,39 @@ except Exception as e:
 
 ### Pattern: Conditional Increment
 
+A Prometheus counter only goes up, so "did the write succeed?" is the wrong gate for
+`entities_completed` — re-posting `completed` on an already-completed task succeeds and
+would count the same task twice. Gate on the **transition**, and take the prior from the
+write itself (ADR-087) rather than from a read beforehand, which two concurrent writers
+can both observe:
+
 ```python
 async def complete_task(self, uid: str) -> Result[Task]:
-    result = await self.backend.update_status(uid, "completed")
+    changes = {"status": EntityStatus.COMPLETED.value}
+    guard = status_transition_guard(EntityType.TASK, changes)
+    if guard.is_error:
+        return Result.fail(guard)
 
-    if result.is_ok and self.prometheus_metrics:
+    result = await self.backend.update_with_status_guard(uid, changes, guard.value)
+    if result.is_error:
+        return Result.fail(result)
+    outcome = result.value
+
+    # The prior came back from the write, under the node's lock — so this is a genuine
+    # first completion, not a repeat some other writer already counted.
+    if is_completion_transition(outcome.prior_status, changes) and self.prometheus_metrics:
         self.prometheus_metrics.domains.entities_completed.labels(
             entity_type="task"
         ).inc()
 
-    return result
+    return Result.ok(outcome.entity)
 ```
+
+⚠ Never instrument a status change by writing the status directly
+(`backend.update(uid, {"status": ...})`). That skips completion stamping and the
+`TaskCompleted` / `TaskReopened` publishes, and it is the read-then-write shape ADR-087
+removed. A domain service should call its own chokepoint (`update_task`) and instrument
+around it; the shape above is what a chokepoint itself looks like.
 
 ### Pattern: Gauge for Current State
 

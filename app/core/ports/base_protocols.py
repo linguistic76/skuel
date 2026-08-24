@@ -10,7 +10,8 @@ Protocol Hierarchy
 BackendOperations[T] is THE full backend protocol, composed from 9 sub-protocols:
 
     BackendOperations[T]  ← UniversalNeo4jBackend implements this
-        ├── CrudOperations[T]              (6 methods: create, get, get_many, update, delete, list)
+        ├── CrudOperations[T]              (create, get, get_many, update,
+        │                                   update_with_status_guard, delete, list)
         ├── EntitySearchOperations[T]      (3 methods: search, find_by, count)
         ├── RelationshipCrudOperations     (6 methods: add/delete relationships, batch ops)
         ├── RelationshipMetadataOperations (3 methods: get/update edge properties)
@@ -54,6 +55,7 @@ if TYPE_CHECKING:
     from core.models.relationship_filters import RelationshipFilters
     from core.models.relationship_names import RelationshipName
     from core.models.type_hints import FilterParams
+    from core.models.update_contracts import StatusGuardedOutcome, StatusWriteGuard
     from core.ports.query_types import (
         PrerequisiteChainRow,
         RelationshipRow,
@@ -520,6 +522,25 @@ class CrudOperations[T: "DomainModelProtocol"](Protocol):
 
     async def update(self, uid: str, updates: Neo4jProperties) -> ResultType[T]:
         """Update an existing entity."""
+        ...
+
+    async def update_with_status_guard(
+        self, uid: str, updates: Neo4jProperties, guard: StatusWriteGuard
+    ) -> ResultType[StatusGuardedOutcome[T]]:
+        """Update an entity with the guard evaluated at write time, under the node lock.
+
+        The write-side peer of :meth:`update` and the one way a status-bearing write is
+        done (ADR-087): the statement captures the node's prior status under its
+        write-lock, applies the guard's prior-conditional patches, and returns that
+        prior so the caller derives its transition verdicts exactly rather than from a
+        read another writer may already have invalidated.
+
+        Guarded out (prior in ``guard.refuse_if_prior_in``) is ``Result.ok`` with
+        ``applied=False`` and an untouched node; not-found is the error.
+
+        Backend: ``_CrudMixin.update_with_status_guard`` — carried by every
+        ``UniversalNeo4jBackend``.
+        """
         ...
 
     async def delete(self, uid: str, cascade: bool = False) -> ResultType[bool]:
