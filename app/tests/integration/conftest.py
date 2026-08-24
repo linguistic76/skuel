@@ -135,16 +135,18 @@ async def ensure_test_users(neo4j_driver):
         "user_intent_pipeline",
         "user_cascade",
         "user_other",
-        # Cross-domain analytics: ProductivityAnalytics.tasks_completed is
-        # recomputed by traversing (:User)-[:OWNS]->(:Task), so these tests
-        # need a real owner to hang seeded tasks off.
+        # Cross-domain analytics flow: the event handlers hang their analytics
+        # nodes off this user.
         "user_analytics_test",
-        # ProductivityAnalytics reconciliation: the pass scans (:User) nodes and
-        # counts (:User)-[:OWNS]->(:Task), so each drift shape needs a real owner.
-        "user_reconcile_legacy",
-        "user_reconcile_zero",
-        "user_reconcile_vault",
-        "user_reconcile_idle",
+        # ProductivityAnalytics stamp backfill: the pass scans (:User) nodes and
+        # reads (:User)-[:OWNS]->(:Task) completion history, so each stamp
+        # shape needs a real owner.
+        "user_stampfill_vault",
+        "user_stampfill_legacy",
+        "user_stampfill_first_only",
+        "user_stampfill_last_only",
+        "user_stampfill_idle",
+        "user_stampfill_native",
         # completion_velocity's trailing window counts (:User)-[:OWNS]->(:Task)
         # rows by completion_date, so each window shape needs a real owner.
         "user_velocity_window",

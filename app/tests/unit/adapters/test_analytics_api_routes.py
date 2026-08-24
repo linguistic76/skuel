@@ -143,8 +143,8 @@ class TestProductivity:
         """A tasks/week figure is uninterpretable without the window it spans.
 
         ``completion_velocity`` is a rate over a fixed trailing window, not a
-        lifetime average, and the cumulative ``tasks_completed`` beside it is a
-        different quantity entirely — 7 completed overall, 5 of them recent,
+        lifetime average, and the derived ``tasks_completed`` beside it is a
+        different quantity entirely — 7 currently completed, 5 of them recent,
         1.17 per week. Serving the rate alone invited exactly the confusion the
         old first→last denominator hid behind.
         """

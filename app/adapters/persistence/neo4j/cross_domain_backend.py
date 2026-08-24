@@ -27,8 +27,9 @@ from core.models.enums import EntityStatus, EntityType
 from core.models.enums.principle_enums import AlignmentLevel
 from core.models.relationship_names import RelationshipName
 from core.ports.query_types import (
+    HabitAnalyticsRow,
     JournalEntryRow,
-    ProductivityDriftRow,
+    ProductivityAnalyticsRow,
     SelCategoryRow,
     UserKnowledgeChannelRow,
 )
@@ -272,26 +273,45 @@ def _to_journal_entry_rows(
     ]
 
 
-def _to_productivity_drift_rows(
+def _to_productivity_analytics_rows(
     records: list[dict[str, Any]],  # boundary: raw neo4j-driver rows (AsyncResult.data())
-) -> list[ProductivityDriftRow]:
-    """Project raw rows onto ProductivityDriftRow (KeyError on alias drift).
+) -> list[ProductivityAnalyticsRow]:
+    """Project raw rows onto ProductivityAnalyticsRow (KeyError on alias drift).
 
     Same contract as the projectors above: nothing statically links a Cypher
     alias to a TypedDict key, so a renamed RETURN would type-check while the
-    reconciliation read the missing key as "nothing drifted" — the confident
-    zero this area keeps producing, here on a pass whose whole job is to notice
-    disagreement.
+    rate read the missing key as 0 — a confident zero velocity, never an error.
 
-    ``stored`` is carried through as ``None`` rather than defaulted: an absent
-    ``ProductivityAnalytics`` node is not a stored count of 0, and flattening
-    the two would silence the vault ``- [x]`` door's signature exactly.
+    ``analytics`` arrives from ``AsyncResult.data()`` already flattened to the
+    node's property map (or ``None`` for a user with no node); copying it into
+    a plain ``dict`` makes the declared ``Neo4jProperties | None`` what the
+    caller actually holds rather than a driver type wearing that annotation.
     """
     return [
         {
-            "user_uid": str(row["user_uid"]),
-            "stored": None if row["stored"] is None else int(row["stored"]),
-            "actual": int(row["actual"]),
+            "analytics": None if row["analytics"] is None else dict(row["analytics"]),
+            "tasks_completed": int(row["tasks_completed"]),
+            "completed_in_window": int(row["completed_in_window"]),
+        }
+        for row in records
+    ]
+
+
+def _to_habit_analytics_rows(
+    records: list[dict[str, Any]],  # boundary: raw neo4j-driver rows (AsyncResult.data())
+) -> list[HabitAnalyticsRow]:
+    """Project raw rows onto HabitAnalyticsRow (KeyError on alias drift).
+
+    The sibling of ``_to_productivity_analytics_rows`` — and deliberately a
+    *different* row type. The two reads name their numerators differently
+    (``completed_in_window`` vs ``completions_in_window``), and a shared
+    ``dict[str, Any]`` let a caller read the wrong one as a silent 0; two
+    TypedDicts make that a type error.
+    """
+    return [
+        {
+            "analytics": None if row["analytics"] is None else dict(row["analytics"]),
+            "completions_in_window": int(row["completions_in_window"]),
         }
         for row in records
     ]
@@ -353,19 +373,6 @@ RETURN pid AS principle_uid,
        size(habit_uids) AS habit_count,
        count(hc) AS completion_count
 """
-
-# THE definition of "currently completed" for a user's tasks, interpolated into all
-# three queries that need one: the per-user recompute behind
-# ProductivityAnalytics.tasks_completed (the live TaskCompleted / TaskReopened path),
-# the all-users drift survey the one-shot reconciliation reads, and the trailing-window
-# count behind completion_velocity (which narrows it with a completion_date bound). One
-# fragment, so the number the instrument reports, the number the app writes, and the
-# number the rate is computed from can never disagree. Binds against an already-matched
-# `u` (a :User) and yields `t`; ownership is the universal :OWNS edge (ADR-086), not the
-# user_uid property the invariant pairs it with.
-_COMPLETED_TASKS_OF_USER = (
-    f"OPTIONAL MATCH (u)-[:{RelationshipName.OWNS.value}]->(t:Task {{status: $completed_status}})"
-)
 
 # Local aliases for enum / status tuples used within this backend's queries.
 # (FULL_ALIGNMENT_CONNECTION_COUNT moved to core.constants.CrossDomainImpactScore —
@@ -446,9 +453,10 @@ class CrossDomainBackend:
 
         A running tally is the *correct* shape for both remaining callers: a
         habit completed fifty times genuinely has fifty completions, and there
-        is no "currently completed" set to count. Tasks moved off this helper
-        onto :meth:`recompute_productivity_analytics` precisely because they do
-        have one, and a task can be reopened.
+        is no "currently completed" set to count. Tasks left this helper
+        precisely because they do have one, and a task can be reopened: their
+        count is derived at read (:meth:`get_productivity_analytics`) and the
+        node keeps only the two stamps (:meth:`stamp_productivity_completion`).
         """
         return await self.executor.execute_query(
             f"""
@@ -463,100 +471,33 @@ class CrossDomainBackend:
             {"user_uid": user_uid, "occurred_at": occurred_at},
         )
 
-    async def recompute_productivity_analytics(
-        self, user_uid: str, occurred_at: str | None
+    async def stamp_productivity_completion(
+        self, user_uid: str, occurred_at: str
     ) -> Result[list[dict[str, Any]]]:
-        """Recompute the user's ProductivityAnalytics from the graph.
+        """Record a genuine task-completion moment on the user's ProductivityAnalytics node.
 
-        Also THE write path of the one-shot reconciliation instrument
-        (``./dev reconcile-productivity``), which calls it with
-        ``occurred_at=None`` — a reconciliation is not a completion.
+        The node holds exactly two figures — ``first_completion_at`` and
+        ``last_completion_at`` — and this is their only writer. ``first`` is
+        written once and never moved (``coalesce``); ``last`` advances to every
+        completion moment. Idempotent per moment: re-running with the same
+        ``occurred_at`` lands on the same state.
 
-        ``tasks_completed`` is **derived, not tallied**: it is the number of the
-        user's tasks currently in ``completed``, read fresh and ``SET`` on every
-        call. That makes it idempotent under the arc's repeat-complete contract
-        and — unlike an increment — able to go *down* when a task is reopened,
-        which is why the tasks caller left the shared incrementing helper.
-
-        Ownership is the universal ``(:User)-[:OWNS]->`` edge (ADR-086), the
-        same traversal every other per-user analytic in this backend uses, not
-        the ``user_uid`` property the invariant pairs it with.
-
-        ``occurred_at`` carries the completion moment and is ``None`` on the
-        reopen path: a reopen is not a completion, so it recomputes the count
-        and leaves both stamps exactly where they are. The two stamps mean
-        exactly what they say — when this user first completed something, and
-        when they most recently did — and a reopen is neither.
+        Nothing else lives on the node. ``tasks_completed`` is **derived at
+        read** (:meth:`get_productivity_analytics`) from the tasks the user
+        currently owns in ``completed``, so there is no count to maintain here
+        and nothing for a reopen or a repeat complete to touch: neither is a
+        completion moment, and neither reaches this method — the handler gates
+        them (``CrossDomainAnalyticsService.handle_task_completed``).
         """
         return await self.executor.execute_query(
             """
             MERGE (analytics:ProductivityAnalytics {user_uid: $user_uid})
-            WITH analytics
-            OPTIONAL MATCH (u:User {uid: $user_uid})
-            """
-            + _COMPLETED_TASKS_OF_USER
-            + """
-            WITH analytics, count(t) AS completed
-            SET analytics.tasks_completed = completed
-            WITH analytics
-            WHERE $occurred_at IS NOT NULL
             SET analytics.first_completion_at = coalesce(
                     analytics.first_completion_at, datetime($occurred_at)
                 ),
                 analytics.last_completion_at = datetime($occurred_at)
             """,
-            {
-                "user_uid": user_uid,
-                "occurred_at": occurred_at,
-                "completed_status": EntityStatus.COMPLETED.value,
-            },
-        )
-
-    async def survey_productivity_analytics_drift(self) -> Result[list[ProductivityDriftRow]]:
-        """Every user's stored ``tasks_completed`` beside the count the graph implies.
-
-        READ-ONLY, and the *only* new query the reconciliation instrument needs:
-        the write half reuses :meth:`recompute_productivity_analytics` unchanged,
-        so the value ever written is still counted inside the write itself. This
-        survey never decides a value — it decides which users are worth a write,
-        and reports the drift a ``--dry-run`` has to show without touching the
-        graph.
-
-        Why a per-user-batch sibling exists at all: a dry run must count without
-        writing, which the atomic count-and-``SET`` above cannot do. Both share
-        ``_COMPLETED_TASKS_OF_USER`` so the two can never disagree about what
-        "currently completed" means.
-
-        **Scan set** — a user is in scope when they already have a
-        ``ProductivityAnalytics`` node **or** currently own at least one
-        completed task. The first arm is what stops a stale node from being
-        skipped when its true count has fallen to zero (a naive
-        ``MATCH ... (:Task {status: 'completed'})`` grouping returns no row for
-        that user and leaves the stale number in place forever); the second
-        catches a user whose completions arrived through a door that publishes
-        no event at all, such as the vault ``- [x]`` bulk upsert. A user with
-        neither is outside it deliberately: they have nothing recorded and
-        nothing to record, and ``get_productivity_metrics`` already reads 0 for
-        an absent node.
-
-        Returns one :class:`ProductivityDriftRow` per in-scope user.
-        """
-        return await self.executor.execute(
-            query="""
-            MATCH (u:User)
-            """
-            + _COMPLETED_TASKS_OF_USER
-            + """
-            WITH u, count(t) AS actual
-            OPTIONAL MATCH (analytics:ProductivityAnalytics {user_uid: u.uid})
-            WITH u.uid AS user_uid, actual, analytics
-            WHERE analytics IS NOT NULL OR actual > 0
-            RETURN user_uid, actual, analytics.tasks_completed AS stored
-            ORDER BY user_uid
-            """,
-            params={"completed_status": EntityStatus.COMPLETED.value},
-            processor=_to_productivity_drift_rows,
-            operation="survey_productivity_analytics_drift",
+            {"user_uid": user_uid, "occurred_at": occurred_at},
         )
 
     async def upsert_habit_analytics(
@@ -666,20 +607,34 @@ class CrossDomainBackend:
 
     async def get_productivity_analytics(
         self, user_uid: str, window_start: str, window_end: str
-    ) -> Result[list[dict[str, Any]]]:
-        """The stored ProductivityAnalytics node plus the trailing-window count.
+    ) -> Result[list[ProductivityAnalyticsRow]]:
+        """The user's completion stamps plus both task-completion counts, in one row.
 
-        Two things in one row because they are read together and only together:
-        ``analytics`` carries the running figures the completion handlers
-        maintain (``tasks_completed`` and the two completion stamps), and
-        ``completed_in_window`` is counted live from the graph — the numerator of
-        ``completion_velocity`` (``CrossDomainAnalyticsService.get_productivity_metrics``).
+        Three things in one row because they are read together and only
+        together: ``analytics`` carries the two completion stamps the
+        ``TaskCompleted`` handler maintains (``first_completion_at`` /
+        ``last_completion_at``), ``tasks_completed`` is every task the user
+        currently owns in ``completed``, and ``completed_in_window`` is the
+        subset of those whose completion stamp falls inside the window — the
+        numerator of ``completion_velocity``
+        (``CrossDomainAnalyticsService.get_productivity_metrics``).
 
-        **The count is derived, so it does not depend on the node existing.**
-        Every match here is OPTIONAL and the aggregation always yields exactly
-        one row, so a user whose completions arrived through a door that writes
-        no analytics node — the vault ``- [x]`` bulk upsert — still gets a real
-        velocity instead of the confident 0.0 a mandatory MATCH produced.
+        **Both counts are derived from the same traversal, so the window is a
+        subset of the total by construction.** The total used to be a stored
+        figure the event handlers maintained, and it drifted from the graph
+        through every door that publishes no task event — a task created
+        already completed, a completed task deleted, and above all the vault
+        ``- [x]`` bulk upsert — so the stored number and the live window count
+        could contradict each other on one read (stored 9, actual 85 on the
+        live graph, 2026-08-23). Counting both here removes the stored field,
+        its reconciliation instrument, and the contradiction in one move. A
+        reopen lowers the total without anyone having to hear about it.
+
+        **Neither count depends on the node existing.** Every match here is
+        OPTIONAL and the aggregation always yields exactly one row, so a user
+        whose completions arrived through a door that writes no analytics node
+        still gets real counts instead of the confident 0.0 a mandatory MATCH
+        produced; only the stamps are absent for them, and honestly so.
 
         ``window_start`` and ``window_end`` are ISO ``YYYY-MM-DD`` dates and the
         window is inclusive of both (``CompletionVelocityWindow.start_date`` /
@@ -688,14 +643,15 @@ class CrossDomainBackend:
         (``TaskCreateRequest`` refuses one, ``TaskUpdateRequest`` does not), and
         a lower-bound-only predicate counts such a stamp in *every* window from
         now until its date arrives — a permanent inflation, silently. A trailing
-        window ends where the present does. Membership is the task's
+        window ends where the present does. Window membership is the task's
         canonical completion stamp and nothing else: ``Task.completion_date``,
         written at the six update chokepoints
         (``core/services/completion_stamp.py``) and frozen for history by
         ``scripts/backfill_activity_completion_stamps.py``. A completed task
-        carrying no stamp is **excluded** rather than assumed recent — the same
-        judgement ``get_recent_activities`` makes, for the same reason: an absent
-        row is honest, an invented date is not.
+        carrying no stamp is in the total (it *is* completed) but **excluded
+        from the window** rather than assumed recent — the same judgement
+        ``get_recent_activities`` makes, for the same reason: an absent row is
+        honest, an invented date is not.
 
         ``date(left(toString(...), 10))`` normalises the stamp before comparing,
         the same shape ``_EVENT_IMPACT_BATCH_QUERY`` and ``get_habit_analytics``
@@ -709,32 +665,35 @@ class CrossDomainBackend:
         to the calendar day on both sides removes the asymmetry and matches what
         the window actually means.
 
-        The "completed" half of the predicate is ``_COMPLETED_TASKS_OF_USER``
-        verbatim, shared with the recompute and the drift survey so all three can
-        never disagree about what counts as completed.
+        Ownership is the universal ``(:User)-[:OWNS]->`` edge (ADR-086), the
+        same traversal every other per-user analytic in this backend uses, not
+        the ``user_uid`` property the invariant pairs it with.
         """
-        return await self.executor.execute_query(
-            """
-            OPTIONAL MATCH (analytics:ProductivityAnalytics {user_uid: $user_uid})
-            OPTIONAL MATCH (u:User {uid: $user_uid})
-            """
-            + _COMPLETED_TASKS_OF_USER
-            + """
-            WHERE date(left(toString(t.completion_date), 10)) >= date($window_start)
-              AND date(left(toString(t.completion_date), 10)) <= date($window_end)
-            RETURN analytics, count(t) AS completed_in_window
+        return await self.executor.execute(
+            query=f"""
+            OPTIONAL MATCH (analytics:ProductivityAnalytics {{user_uid: $user_uid}})
+            OPTIONAL MATCH (u:User {{uid: $user_uid}})
+            OPTIONAL MATCH (u)-[:{RelationshipName.OWNS.value}]->(t:Task {{status: $completed_status}})
+            WITH analytics, t, date(left(toString(t.completion_date), 10)) AS completed_on
+            RETURN analytics,
+                   count(t) AS tasks_completed,
+                   count(CASE WHEN completed_on >= date($window_start)
+                               AND completed_on <= date($window_end) THEN 1 END)
+                       AS completed_in_window
             """,
-            {
+            params={
                 "user_uid": user_uid,
                 "window_start": window_start,
                 "window_end": window_end,
                 "completed_status": EntityStatus.COMPLETED.value,
             },
+            processor=_to_productivity_analytics_rows,
+            operation="get_productivity_analytics",
         )
 
     async def get_habit_analytics(
         self, user_uid: str, window_start: str, window_end: str
-    ) -> Result[list[dict[str, Any]]]:
+    ) -> Result[list[HabitAnalyticsRow]]:
         """The stored HabitAnalytics node plus the trailing-window completion count.
 
         Two things in one row because they are read together and only together:
@@ -778,8 +737,8 @@ class CrossDomainBackend:
         Ownership is the universal ``(:User)-[:OWNS]->`` edge (ADR-086), so one
         user's completions cannot reach another's score.
         """
-        return await self.executor.execute_query(
-            f"""
+        return await self.executor.execute(
+            query=f"""
             OPTIONAL MATCH (analytics:HabitAnalytics {{user_uid: $user_uid}})
             OPTIONAL MATCH (u:User {{uid: $user_uid}})
             OPTIONAL MATCH (u)-[:{RelationshipName.OWNS.value}]->(hc:HabitCompletion)
@@ -787,7 +746,9 @@ class CrossDomainBackend:
               AND date(left(toString(hc.completed_at), 10)) <= date($window_end)
             RETURN analytics, count(hc) AS completions_in_window
             """,
-            {"user_uid": user_uid, "window_start": window_start, "window_end": window_end},
+            params={"user_uid": user_uid, "window_start": window_start, "window_end": window_end},
+            processor=_to_habit_analytics_rows,
+            operation="get_habit_analytics",
         )
 
     # ====================================================================

@@ -3310,24 +3310,47 @@ class SelCategoryRow(TypedDict):
     sel_category: str
 
 
-class ProductivityDriftRow(TypedDict):
-    """Return shape for survey_productivity_analytics_drift() — one in-scope user.
+class ProductivityAnalyticsRow(TypedDict):
+    """Return shape for get_productivity_analytics() — always exactly one row.
 
-    ``actual`` is the count the graph implies (tasks the user currently owns in
-    ``completed``); ``stored`` is what ``ProductivityAnalytics.tasks_completed``
-    holds, and is ``None`` — never 0 — when no node exists yet. That distinction
-    is load-bearing: coercing an absent node to 0 reads as agreement with a user
-    who has no completed tasks, and the reconciliation would write nothing for
-    exactly the door (the vault ``- [x]`` bulk upsert) that creates no node.
+    ``analytics`` is the user's ``ProductivityAnalytics`` node as a plain
+    property map — it carries only the two completion stamps
+    (``first_completion_at`` / ``last_completion_at``) — or ``None`` when the
+    user has no node. Both counts are derived from the graph on the same read
+    and stand on their own: ``tasks_completed`` is every task the user
+    currently owns in ``completed``; ``completed_in_window`` is the subset
+    whose ``completion_date`` falls inside the inclusive window the read was
+    bound to — the numerator of ``completion_velocity``. Same traversal, so
+    the window is a subset of the total by construction.
+
+    The count key is deliberately NOT the habit sibling's
+    ``completions_in_window`` (:class:`HabitAnalyticsRow`): the two rows name
+    their numerators differently, and typing them separately is what turns
+    reading the wrong one from a silent 0 into a type error.
 
     Projected by a processor that indexes each alias, so a renamed RETURN alias
-    raises at the boundary instead of reaching the reconciliation as a missing
-    key — which would read as "nothing drifted" and report a confident zero.
+    raises at the boundary instead of reaching the rate as a missing key.
     """
 
-    user_uid: str
-    stored: int | None
-    actual: int
+    analytics: Neo4jProperties | None
+    tasks_completed: int
+    completed_in_window: int
+
+
+class HabitAnalyticsRow(TypedDict):
+    """Return shape for get_habit_analytics() — always exactly one row.
+
+    ``analytics`` is the user's ``HabitAnalytics`` node as a plain property map
+    (the ``total_completions`` tally plus its two stamps) or ``None`` when the
+    user has no node; ``completions_in_window`` is counted from the user's
+    ``:HabitCompletion`` records inside the inclusive window — the numerator of
+    ``consistency_score`` — and stands on its own. Unlike its productivity
+    sibling the tally stays stored: a habit has no "currently completed" set
+    to derive a total from.
+    """
+
+    analytics: Neo4jProperties | None
+    completions_in_window: int
 
 
 class PrereqMasteryResult(TypedDict, total=False):

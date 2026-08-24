@@ -74,7 +74,6 @@ def _wire_event_subscribers(
         TaskCreated,
         TaskDeleted,
         TaskPriorityChanged,
-        TaskReopened,
         TasksBulkCompleted,
         TaskUpdated,
     )
@@ -415,10 +414,12 @@ def _wire_event_subscribers(
 
     # Multi-domain analytics → Track activity across all domains
     cross_domain_analytics_service = advanced["cross_domain_analytics"]
+    # Stamps the completion moment only. ProductivityAnalytics holds no count —
+    # tasks_completed is derived at read — so there is nothing for it to hear
+    # about on a reopen; TaskReopened is published (a transition fact the
+    # conditional-write arc derives from the prior status) and has no
+    # analytics subscriber.
     event_bus.subscribe(TaskCompleted, cross_domain_analytics_service.handle_task_completed)
-    # ProductivityAnalytics.tasks_completed is recomputed, not tallied, so it has
-    # to hear about a reopen too — otherwise the count could only ever rise.
-    event_bus.subscribe(TaskReopened, cross_domain_analytics_service.handle_task_reopened)
     event_bus.subscribe(HabitCompleted, cross_domain_analytics_service.handle_habit_completed)
     event_bus.subscribe(
         CalendarEventCompleted, cross_domain_analytics_service.handle_event_completed

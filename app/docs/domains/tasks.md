@@ -272,16 +272,21 @@ bulk call.
 deliberately re-runs on it (the repair path). The flag gates the part of a handler that
 **accumulates** (an append, a stamp), never the part that **derives**. So a subscriber may read
 it for one half of its work and ignore it for the other — principle alignment recomputes on
-every complete but appends its insight only on a first, and `ProductivityAnalytics` recomputes
-its count on every complete but records a completion *moment* only on a first. Only the
+every complete but appends its insight only on a first, and `ProductivityAnalytics` — whose
+handler now only records the completion *moment* — skips a repeat entirely. Only the
 explicit-complete cascade ever sets it — the transition-gated publishers cannot be reached by a
 repeat. See the `TaskCompleted` docstring in `core/events/task_events.py` for the full contract.
 
+**`tasks_completed` is derived at read, not stored.** `GET /api/analytics/productivity` counts
+the user's tasks currently in `completed` on the same traversal that counts the velocity window,
+so the window is a subset of the total by construction and a completion arriving through a door
+that publishes no task event (the vault `- [x]` upsert) is counted the moment it exists. The
+`ProductivityAnalytics` node holds only `first_completion_at` / `last_completion_at`.
+
 **`TaskReopened` is the mirror**, published from `update_task` alone on a transition OUT of
-completed (Today's Undo posts the prior status through that chokepoint). It exists so a
-subscriber can hold "tasks completed" as a *recomputed* number rather than a tally that can
-only rise: `ProductivityAnalytics.tasks_completed` counts the user's tasks currently in
-`completed`, which is what let its skip-on-repeat gate come off the count.
+completed (Today's Undo posts the prior status through that chokepoint). It has no subscriber:
+it existed so a stored count could fall, and a derived count falls on its own. It stays published
+as the chokepoint's statement of the transition.
 
 **Neither a reopen nor a repeat complete is a completion moment.** Both leave
 `first_completion_at` / `last_completion_at` untouched: those stamps record when the user first
