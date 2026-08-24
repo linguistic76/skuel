@@ -22,12 +22,20 @@ It had no direct tests at all, and two defects that a test would have caught:
 
 3. **The sample it filtered was arbitrary.** ``find_by`` caps at its limit and
    says nothing about having done so, and emits no ``ORDER BY`` unless asked, so
-   the unbounded fetch behind both callers returned an arbitrary hundred of the
-   habit's completions. Past a hundred records — a daily habit kept four months,
-   or one carrying a run of legitimate future pre-completions — the window's own
-   rows can be absent from that page entirely, and filtering it computes
-   adherence from the wrong sample. Fixing which rows *count* is worth nothing if
-   the rows are never fetched, so the window is pushed into the query.
+   the fetch behind both callers returned an arbitrary hundred of the habit's
+   completions. Past a hundred records — a daily habit kept four months, or one
+   carrying a run of legitimate future pre-completions — the window's own rows
+   can be absent from that page entirely, and filtering it computes adherence
+   from the wrong sample. Fixing which rows *count* is worth nothing if the rows
+   are never fetched, so the fetch pages instead of capping.
+
+   It pages **without** a date predicate, which is the non-obvious half.
+   ``find_by`` binds a ``datetime`` bound as an ISO string, so pushing the window
+   into the query would drop any ``completed_at`` stored as a native Neo4j
+   temporal — Neo4j orders across types before it compares values, so such a row
+   satisfies neither end of the range and vanishes from a query that looks
+   correct. Windowing in Python is type-tolerant by construction: the mapper has
+   normalised both storage forms to ``datetime`` before the filter runs.
 
 The scoring method is synchronous and pure — it reads the habit, the completion
 list and the anchor, and touches no backend and no clock — so those tests run
@@ -232,37 +240,56 @@ def test_no_completions_at_all_reports_zero(service):
 
 
 class _RecordingCompletions:
-    """Records the range ``get_completions_for_habit`` was asked for."""
+    """Records which fetch the scoring path reached for, and with what."""
 
-    def __init__(self) -> None:
-        self.calls: list[dict] = []
+    def __init__(self, rows: list[HabitCompletion] | None = None) -> None:
+        self.paged_calls: list[dict] = []
+        self.ranged_calls: list[dict] = []
+        self._rows = rows or []
+
+    async def get_all_completions_for_habit(self, habit_uid: str):
+        self.paged_calls.append({"habit_uid": habit_uid})
+        return Result.ok(self._rows)
 
     async def get_completions_for_habit(self, **kwargs):
-        self.calls.append(kwargs)
-        return Result.ok([])
+        self.ranged_calls.append(kwargs)
+        return Result.ok(self._rows)
 
 
 @pytest.mark.asyncio
-async def test_the_fetch_asks_the_query_for_the_window_not_for_everything(service):
+async def test_the_fetch_pages_the_whole_history_instead_of_taking_a_capped_page(service):
     """The finding, stated as the assertion that used to be impossible.
 
-    The old fetch asked for ``start_date=None, end_date=None, limit=100`` and
-    filtered the result in Python. ``find_by`` truncates at the limit without
+    The old fetch asked ``get_completions_for_habit(start_date=None,
+    end_date=None, limit=100)``. ``find_by`` truncates at the limit without
     saying so and emits no ``ORDER BY`` unless asked, so that page was an
     arbitrary hundred rows — and a habit past a hundred completions could have
-    every in-window row missing from it. Both bounds now reach the query, so the
-    cap can only truncate rows that were going to count.
+    every in-window row missing from it.
     """
     recorder = _RecordingCompletions()
     service.completions = recorder
 
-    await service._consistency_window_completions("habit.test.1", ANCHOR)
+    await service._completion_history("habit.test.1")
 
-    assert len(recorder.calls) == 1
-    asked = recorder.calls[0]
-    assert asked["start_date"] == HabitConsistencyWindow.start_date(ANCHOR)
-    assert asked["end_date"] == HabitConsistencyWindow.end_date(ANCHOR)
-    assert asked["start_date"] is not None and asked["end_date"] is not None
+    assert recorder.paged_calls == [{"habit_uid": "habit.test.1"}]
+
+
+@pytest.mark.asyncio
+async def test_no_date_bound_reaches_the_query(service):
+    """The non-obvious half: the window must NOT be pushed into Cypher.
+
+    ``find_by`` binds a ``datetime`` bound as an ISO string, so a range predicate
+    drops any ``completed_at`` stored as a native Neo4j temporal — it satisfies
+    neither end, and the row vanishes from a query that looks correct. This
+    pins that the ranged fetch is not the one this path uses; the window is
+    applied in Python, after the mapper has normalised both storage forms.
+    """
+    recorder = _RecordingCompletions()
+    service.completions = recorder
+
+    await service._completion_history("habit.test.1")
+
+    assert recorder.ranged_calls == [], "a date-bounded query would drop temporal rows"
 
 
 @pytest.mark.asyncio
@@ -270,9 +297,9 @@ async def test_a_failed_read_reports_no_completions_rather_than_raising(service)
     """Degrades to the reading a habit with no completions gets: 0.0."""
 
     class _FailingCompletions:
-        async def get_completions_for_habit(self, **kwargs):
+        async def get_all_completions_for_habit(self, habit_uid: str):
             return Result.fail(Errors.database("read", "graph unavailable"))
 
     service.completions = _FailingCompletions()
 
-    assert await service._consistency_window_completions("habit.test.1", ANCHOR) == []
+    assert await service._completion_history("habit.test.1") == []

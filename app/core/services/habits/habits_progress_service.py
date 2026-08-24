@@ -195,9 +195,9 @@ class HabitsProgressService:
         # ALWAYS QUERY: Completion history (not in context - mutable data)
         # ====================================================================
 
-        # Scoped to the consistency window, which is all the one consumer below
-        # needs — the streak arithmetic reads habit.last_completed, not this list.
-        existing_completions = await self._consistency_window_completions(habit_uid, date.today())
+        # Only the adherence score below consumes this — the streak arithmetic
+        # reads habit.last_completed, not this list.
+        existing_completions = await self._completion_history(habit_uid)
 
         # ====================================================================
         # CALCULATE STREAK
@@ -405,17 +405,16 @@ class HabitsProgressService:
             )
 
         # ALWAYS QUERY: Completions (mutable data, not in context)
-        completions = await self._consistency_window_completions(habit_uid, date.today())
+        completions = await self._completion_history(habit_uid)
 
         # Calculate various consistency metrics
         consistency_30d = self._calculate_consistency_from_completions(
             habit, completions, date.today()
         )
 
-        # Quality trend over the same window, so every figure in this analysis
-        # describes one period. The list is most-recent-first, so the ten most
-        # recent are the HEAD — this took the TAIL, which is the ten OLDEST, off
-        # a page that was itself in no guaranteed order.
+        # The list is most-recent-first, so the ten most recent are the HEAD —
+        # this took the TAIL, which is the ten OLDEST, off a page that was itself
+        # in no guaranteed order.
         recent_quality = 0.0
         if completions:
             recent_completions = completions[:10]
@@ -569,21 +568,27 @@ class HabitsProgressService:
     # PRIVATE HELPER METHODS
     # ========================================================================
 
-    async def _consistency_window_completions(
-        self, habit_uid: str, as_of_date: date
-    ) -> list[HabitCompletion]:
-        """This habit's completions inside the consistency window ending at ``as_of_date``.
+    async def _completion_history(self, habit_uid: str) -> list[HabitCompletion]:
+        """This habit's full completion history, for the scoring below to window.
 
-        Bounded in the QUERY, not after it. ``find_by`` caps at its limit and
-        says nothing about having done so, so an unbounded fetch of a habit with
-        more completions than the cap returns only part of its history — and a
-        habit kept daily for four months, or one carrying a run of legitimate
-        future pre-completions, can have the window's own rows fall outside that
-        part. Filtering afterwards then computes adherence from the wrong sample
-        and persists it: a confident wrong ``success_rate``, never an error.
-        Pushing both bounds into the query means the cap can only truncate rows
-        that were going to count, and a thirty-day window cannot realistically
-        reach it.
+        Paged, not capped, and carrying **no date predicate** — both deliberate,
+        and both about reads that look correct while being wrong.
+
+        ``find_by`` caps at its limit and says nothing about having done so, and
+        emits no ``ORDER BY`` unless asked, so the single capped read this
+        replaces returned an arbitrary hundred rows. A habit past a hundred
+        completions — a daily one kept four months — could have every in-window
+        row missing from that page, and the adherence computed from it is
+        persisted as ``success_rate``.
+
+        Pushing the window into the query fixes the sample and breaks the types:
+        ``find_by`` binds a ``datetime`` bound as an ISO **string**
+        (``convert_value_for_neo4j``), so a ``completed_at`` stored as a native
+        Neo4j temporal satisfies neither end of the range — Neo4j orders across
+        types before it compares values — and the row silently vanishes.
+        Windowing in Python instead is type-tolerant by construction: the mapper
+        has already normalised both storage forms to ``datetime`` by the time
+        :meth:`_calculate_consistency_from_completions` compares anything.
 
         GRAPH-NATIVE: Completion history is stored as separate HabitCompletion
         nodes, not as a serialized list on the Habit model.
@@ -592,11 +597,7 @@ class HabitsProgressService:
         with the Result they no longer have to unpack: adherence over no known
         completions is 0.0, the same reading a habit with none at all gets.
         """
-        result = await self.completions.get_completions_for_habit(
-            habit_uid=habit_uid,
-            start_date=HabitConsistencyWindow.start_date(as_of_date),
-            end_date=HabitConsistencyWindow.end_date(as_of_date),
-        )
+        result = await self.completions.get_all_completions_for_habit(habit_uid)
         return result.value if result.is_ok else []
 
     def _update_goals_from_habit(
