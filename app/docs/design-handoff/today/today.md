@@ -132,7 +132,10 @@ Component root: `x-data="today()"` on `<main>`.
   // Undo is complete-only (C7). `status` is the status the card held BEFORE
   // the complete — undo posts it back to reopen, so the revert is real.
   _lastAction:   { type: 'complete', id, status } | null,
-  _completePending: Promise | null,  // in-flight complete; undo chains onto it
+  // taskId -> the in-flight write for THAT task. Writes to one task are
+  // serialized in click order (complete → undo's reopen → re-complete); writes
+  // to different tasks stay parallel.
+  _pendingWrites: { [taskId]: Promise },
 }
 ```
 
@@ -197,11 +200,15 @@ held before the complete back through `POST /api/tasks/{id}/status`, which also
 clears `completion_date` at the completion-stamp chokepoint. Undo is offered
 only when the card carries a **restorable** prior status — the orchestrator
 blanks any value the chokepoint would refuse (and `completed` itself), so the
-client never posts a write that fails while the card un-hides anyway. The
-reopen is **queued behind the in-flight complete**, never raced against it: the
-complete is the slower request (it reads before it writes), so an independent
-reopen could land first and be overwritten, leaving the task completed under a
-card that already reads "not done". Defer posts exactly ONE `fetch` carrying
+client never posts a write that fails while the card un-hides anyway. Writes to
+one task are **queued in click order**, never raced: complete → the Undo reopen
+→ a re-complete each wait for the one before. The complete is the slower request
+(`complete_task_with_cascade` reads the task and its relationships for the
+cascade fan-out before its write, while a status-only reopen reads nothing —
+ADR-087), so an unqueued opposing write could land first and be overwritten,
+leaving the task completed under a card that already reads "not done". The queue
+is keyed **per task**: one shared promise would also chain every other task's
+complete behind the previous one's cascade. Defer posts exactly ONE `fetch` carrying
 `span` + `source` + `view_date`; the flash offers **no Undo** (the mutation is
 already posted — a local revert would lie). On ANY non-2xx the client restores
 the hidden card and shows the server's message; the server moves the field(s)

@@ -302,6 +302,70 @@ describe('undo truthfulness', () => {
     expect(htmxAjax.mock.calls[1][1]).toBe('/api/tasks/t-work/status');
   });
 
+  // The mirror of the test above, and the half that was missing: undoFlash
+  // chained the reopen behind the complete, but nothing chained a SUBSEQUENT
+  // complete behind the in-flight reopen. `completed.delete(id)` un-hides the
+  // card at once, so complete → Undo → complete-again is reachable in a second,
+  // and the third write used to be fired while the reopen was still in flight.
+  it('queues a re-complete behind the in-flight reopen', async () => {
+    let finishReopen;
+    // 1st call = the complete (resolves immediately); 2nd = the reopen, held open.
+    htmxAjax.mockImplementationOnce(() => Promise.resolve());
+    htmxAjax.mockImplementationOnce(
+      () => new Promise((resolve) => { finishReopen = resolve; }),
+    );
+
+    c.completeTask('t-work');
+    const undone = c.undoFlash();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(htmxAjax).toHaveBeenCalledTimes(2); // complete + the in-flight reopen
+
+    c.completeTask('t-work');
+    await Promise.resolve();
+    await Promise.resolve();
+    // Still two — the re-complete must NOT have been raced against the reopen.
+    expect(htmxAjax).toHaveBeenCalledTimes(2);
+    // The card is hidden again already; only the write is deferred.
+    expect(c.completed.has('t-work')).toBe(true);
+
+    finishReopen();
+    await undone;
+    await Promise.resolve();
+    expect(htmxAjax).toHaveBeenCalledTimes(3);
+    expect(htmxAjax.mock.calls[2][1]).toBe('/today/tasks/t-work/complete');
+  });
+
+  // Ordering is per TASK, not global. One shared promise would order these
+  // correctly too — and chain every complete behind the previous task's slow
+  // cascade, turning parallel writes into a serial queue.
+  it('does not chain a different task behind an in-flight write', async () => {
+    let finishFirst;
+    htmxAjax.mockImplementationOnce(
+      () => new Promise((resolve) => { finishFirst = resolve; }),
+    );
+
+    c.completeTask('t-work');
+    expect(htmxAjax).toHaveBeenCalledTimes(1); // still in flight
+
+    c.completeTask('t-late');
+    await Promise.resolve();
+    await Promise.resolve();
+    // The second task's write went out immediately — it waits on nothing.
+    expect(htmxAjax).toHaveBeenCalledTimes(2);
+    expect(htmxAjax.mock.calls[1][1]).toBe('/today/tasks/t-late/complete');
+
+    finishFirst();
+  });
+
+  // The queue must not accumulate a settled promise for every card ever
+  // touched: this component lives for the whole page session.
+  it('forgets a task once its last write settles', async () => {
+    await c.completeTask('t-work');
+    await Promise.resolve();
+    expect(Object.keys(c._pendingWrites)).toEqual([]);
+  });
+
   it('still reopens when the complete request itself failed', async () => {
     // A failed complete means the task is not completed, so posting the prior
     // status is a no-op in the safe direction — never a swallowed Undo.

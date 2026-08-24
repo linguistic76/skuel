@@ -40,9 +40,41 @@
       // { type: 'complete', id, status } — `status` is the status the card
       // carried BEFORE the complete, and is what undo posts back to reopen.
       _lastAction: null,
-      // The in-flight complete POST. undoFlash chains the reopen onto it so the
-      // two writes cannot land out of order (see undoFlash).
-      _completePending: null,
+      // taskId -> the in-flight write for THAT task. Writes to one task are
+      // serialized in click order (see _queueWrite); writes to different tasks
+      // stay parallel.
+      _pendingWrites: {},
+
+      // Serialize the writes for ONE task, and only that task. Undo posts a
+      // reopen that directly opposes a complete which may still be in flight,
+      // so the two must land in click order — but a single shared promise would
+      // also chain every OTHER task's complete behind the previous one's slow
+      // cascade, turning parallel writes into a serial queue. Keying by task id
+      // is what makes "ordered" and "parallel" both true.
+      //
+      // ``send`` runs when the previous write for this task SETTLES, not when it
+      // succeeds: a failed complete means the task is not completed, so posting
+      // the prior status is a harmless no-op in the safe direction, and a
+      // rejection must never strand the next write. The stored link swallows for
+      // the same reason.
+      _queueWrite(id, send) {
+        const previous = this._pendingWrites[id];
+        // Fire IMMEDIATELY when nothing is in flight for this task. Routing the
+        // first write through a resolved promise would delay every write by a
+        // microtask for no benefit — only a write that has something to wait for
+        // waits.
+        const pending = (previous ? previous.then(send, send) : Promise.resolve(send()))
+          .catch(() => undefined);
+        this._pendingWrites[id] = pending;
+        // Drop the entry once this is the last write for the task, so the map
+        // does not accumulate a settled promise for every card ever touched.
+        // The identity check is what makes this safe: if another write was
+        // queued while this one was in flight, the map already holds THAT link.
+        pending.then(() => {
+          if (this._pendingWrites[id] === pending) delete this._pendingWrites[id];
+        });
+        return pending;
+      },
 
       cardKey(source, id) { return source + ':' + id; },
       keySource(key) { return key ? key.slice(0, key.indexOf(':')) : null; },
@@ -264,16 +296,12 @@
         this.completed.add(id);
         this._lastAction = prevStatus ? { type: 'complete', id, status: prevStatus } : null;
         this.showFlash(`Completed "${(t && t.label) || id}"`, prevStatus ? 'undo' : null);
-        // Keep the in-flight complete so undoFlash can queue the reopen BEHIND
-        // it. Settled-not-successful is the right hook: if the complete failed
-        // the task is not completed, and posting the prior status is a harmless
-        // no-op in the safe direction.
-        this._completePending = window.htmx
-          ? Promise.resolve(
-              window.htmx.ajax('POST', `/today/tasks/${id}/complete`, { swap: 'none' }),
-            ).catch(() => undefined)
-          : Promise.resolve();
-        return this._completePending;
+        if (!window.htmx) return Promise.resolve();
+        // Queued, not fired: a re-complete after Undo has to wait for that
+        // reopen, exactly as the reopen waits for the complete before it.
+        return this._queueWrite(id, () =>
+          window.htmx.ajax('POST', `/today/tasks/${id}/complete`, { swap: 'none' }),
+        );
       },
       // Defer speaks the day it was asked from (C7): the POST carries the
       // lens day (seed.today_iso) and the card's surface, and the server
@@ -335,22 +363,32 @@
       // stamp stays non-null exactly when the task is completed.
       //
       // ORDERING: the flash appears immediately, so Undo is routinely clicked
-      // while the complete POST is still in flight. That complete is the SLOWER
-      // request — complete_task_with_cascade reads the task (and relationships)
-      // before its write, while the reopen is one update — so an independent
-      // reopen can land FIRST and then be overwritten by the complete, leaving
-      // the task completed under a card that already reads "not done". So the
-      // reopen is queued behind the complete settling rather than raced against
-      // it (Codex #1133 P1).
+      // while the complete POST is still in flight, and the two requests oppose
+      // each other. Both doors are settled now (ADR-087 PR-1 + PR-2) and they are
+      // NOT symmetric:
       //
-      // The server side is now atomically guarded (ADR-087): each write captures
-      // the status it overwrites under the node's lock, so whichever order the
-      // two requests land in, each one's completion/reopen verdict — and the
-      // completion stamp that follows from it — is exact. That fixes the VERDICT,
-      // not the ORDER: two opposing HTTP requests can still arrive in either
-      // sequence, and a reopen that lands before an in-flight complete leaves the
-      // task completed under a card reading "not done". This queue remains the
-      // only thing that orders them, so it stays.
+      //   complete → POST /today/tasks/{uid}/complete → complete_task_with_cascade,
+      //       which reads the task and its relationships for the cascade fan-out
+      //       before its one guarded write;
+      //   reopen   → POST /api/tasks/{uid}/status → update_task, which for a
+      //       status-only change reads NOTHING — one guarded write.
+      //
+      // So the complete is the slower request, by a wider margin than before. An
+      // unqueued reopen can land FIRST and then be overwritten by the complete,
+      // leaving the task completed under a card that already reads "not done"
+      // (Codex #1133 P1).
+      //
+      // The server fixes the VERDICT, not the ORDER. Each write captures the
+      // status it overwrites under the node's lock, so whichever sequence the
+      // requests arrive in, every completion/reopen verdict — and the completion
+      // stamp that follows from it — is exact, and the stamp stays non-null
+      // exactly when the task is completed. What no server-side guard can decide
+      // is which of two opposing requests the user MEANT to win. That is what
+      // this queue is for, and why it stays.
+      //
+      // It is keyed PER TASK: only writes to the same task need ordering, and a
+      // single shared promise would chain every task's complete behind the
+      // previous one's cascade. See _queueWrite.
       undoFlash() {
         const a = this._lastAction;
         this._lastAction = null;
@@ -358,7 +396,7 @@
         if (!a || a.type !== 'complete') return Promise.resolve();
         this.completed.delete(a.id);
         if (!window.htmx) return Promise.resolve();
-        return (this._completePending || Promise.resolve()).then(() =>
+        return this._queueWrite(a.id, () =>
           window.htmx.ajax('POST', `/api/tasks/${a.id}/status`, {
             swap: 'none',
             values: { status: a.status },

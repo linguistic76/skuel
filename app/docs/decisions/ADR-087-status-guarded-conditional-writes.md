@@ -140,11 +140,16 @@ two to four such writers. The lock is the mechanism; the `CASE` merges alone are
   (the write-time form) coexist during the migration, sharing one validated front half
   (`_stamp_target`) so the legality check and the authority rule cannot drift. The
   Python-side form retires when its last caller migrates.
-- **`today.js`'s request queue stays.** The primitive makes each write's verdict exact
-  under any interleaving; it cannot ORDER two opposing HTTP requests. A reopen that lands
-  before an in-flight complete still leaves the task completed under a card reading "not
-  done" — the #1133 P1 hazard the queue exists to prevent. Verdict correctness and request
-  ordering are different problems and need different mechanisms.
+- **`today.js`'s request queue stays**, and was completed rather than retired. The
+  primitive makes each write's verdict exact under any interleaving; it cannot ORDER two
+  opposing HTTP requests, and no server-side guard can decide which of two the user MEANT
+  to win. A reopen that lands before an in-flight complete still leaves the task completed
+  under a card reading "not done" — the #1133 P1 hazard the queue exists to prevent.
+  Verdict correctness and request ordering are different problems needing different
+  mechanisms. The queue was also one-directional — it chained the reopen behind the
+  complete, but not a *re-complete* behind the reopen — and is now keyed per task
+  (`_pendingWrites`), which orders opposing writes to one task without serializing
+  different tasks behind each other's cascades.
 
 ## Scope
 
