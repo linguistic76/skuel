@@ -28,13 +28,13 @@ if TYPE_CHECKING:
     from core.ports.domain_protocols import TasksOperations
 
 from core.events import TaskCompleted, publish_event
-from core.models.enums import EntityStatus
+from core.models.enums import EntityStatus, EntityType
 from core.models.relationship_names import RelationshipName
 from core.models.task.task import Task
 from core.models.task.task_dto import TaskDTO
-from core.models.update_contracts import RawChanges
+from core.models.update_contracts import RawChanges, StatusWriteGuard
 from core.services.base_service import BaseService
-from core.services.completion_stamp import is_completion_transition
+from core.services.completion_stamp import is_completion_transition, status_transition_guard
 from core.services.domain_config import create_activity_domain_config
 from core.services.relationship_builder import relate
 from core.services.tasks.task_relationships import TaskRelationships
@@ -49,6 +49,11 @@ from core.utils.result_simplified import Result
 
 # Type alias for rich task data from UserContext
 RichTaskData = dict[str, Any]
+
+#: The statuses ``_trigger_task`` refuses to write over, as stored values. Derived
+#: from the enum's own predicate so a new terminal status is honored without an
+#: edit here — the guard compares against the status string on the node.
+_TERMINAL_STATUS_VALUES = frozenset(status.value for status in EntityStatus if status.is_terminal())
 
 
 class TasksProgressService(BaseService["TasksOperations", Task]):
@@ -215,6 +220,13 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
         - Only falls back to Neo4j queries if not in context
         - Reduces from 4 queries to 1 when context is available
 
+        That context read feeds the cascade's fan-out (goal link, contribution,
+        knowledge check) — it no longer decides whether this is a first completion.
+        The write states the completion-stamp rules as conditions and evaluates them
+        against the status it captures under the node's lock (ADR-087), so the stamp
+        and ``TaskCompleted.is_repeat`` are exact even when a second complete, or
+        Today's Undo, is racing this one.
+
         Args:
             task_uid: Task UID,
             user_context: User context for cascade effects; None skips the
@@ -291,35 +303,50 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
                 f"Context-first: Task {task_uid} completion used rich context (saved queries)"
             )
 
-        # Update task to completed via the service contract (ADR-066 #2→#1): partial
-        # updates go through self.update, not a raw self.backend.update. That is
-        # the generic CRUD update, which does not run the six-chokepoint stamp —
-        # this explicit complete path carries its own, and gates it on the same
-        # rule the chokepoint uses so a retry never re-dates a completion.
-        # Reachable, not hypothetical: POST /today/tasks/{uid}/complete and
+        # Write the completion through the status-guarded primitive (ADR-087).
+        # ``actual_minutes`` is included ONLY when supplied: a null in the patch
+        # reaches ``SET n += $updates`` unfiltered (``_dict_to_node`` preserves
+        # None deliberately so the reopen path can clear a stamp) and Neo4j
+        # REMOVES a property set to null — so an unsupplied optional would erase
+        # a previously-recorded value on every complete. ``quality_score`` needs
+        # no such guard: it is never written to the node, only fed to the habit
+        # reinforcement and the event.
+        #
+        # The completion stamp is no longer chosen here from ``task.status``.
+        # ``task`` above is a CONTEXT read — often served from
+        # ``user_context.entities_rich`` without touching the graph at all — so a
+        # verdict taken from it could be arbitrarily stale, and even the Neo4j
+        # fallback reads outside any lock. The guard states the condition and the
+        # write evaluates it against the status it captures under the node's
+        # lock. Reachable, not hypothetical: POST /today/tasks/{uid}/complete and
         # UserContextService.complete_task_with_context both re-enter here behind
-        # an ownership check only. ``task`` is the pre-update read from the top of
-        # this method — the gate costs no extra query.
-        # ``actual_minutes`` is included ONLY when supplied. A null in the patch
-        # reaches ``SET n += $updates`` unfiltered (RawChanges does not filter,
-        # and ``_dict_to_node`` preserves None deliberately so the reopen path
-        # can clear a stamp), and Neo4j REMOVES a property set to null — so an
-        # unsupplied optional would erase a previously-recorded value on every
-        # complete. ``quality_score`` needs no such guard: it is never written
-        # to the node, only fed to the habit reinforcement and the event.
+        # an ownership check only, and Today's Undo posts a reopen through the
+        # status chokepoint while a complete may still be in flight.
+        #
+        # The write no longer goes through ``self.update`` (the generic CRUD), and
+        # that costs no validation: this service inherits the NO-OP
+        # ``_validate_update`` hook — Tasks' one rule lives on ``TasksCoreService``,
+        # which this service does not inherit, and that rule is priority-only, so it
+        # is vacuous for a status/minutes patch either way. What the move drops is
+        # the mixin's pre-write re-read of a task this method already holds.
         updates: Neo4jProperties = {"status": EntityStatus.COMPLETED.value}
         if actual_minutes is not None:
             updates["actual_minutes"] = actual_minutes
-        # One evaluation, two consumers: the stamp gate below and
-        # ``TaskCompleted.is_repeat`` at the end of this method must agree on
-        # what counts as completing, so the transition is decided once here.
-        is_transition = is_completion_transition(task.status, updates)
-        if is_transition:
-            updates["completion_date"] = date.today().isoformat()
 
-        update_result = await self.update(task_uid, RawChanges(updates))
+        guard = status_transition_guard(EntityType.TASK, updates)
+        if guard.is_error:
+            return Result.fail(guard)
+
+        update_result = await self.backend.update_with_status_guard(task_uid, updates, guard.value)
         if update_result.is_error:
             return Result.fail(update_result)
+
+        # The guard refuses nothing (``refuse_if_prior_in`` is empty), so the write
+        # always applied; the prior it returned is what is news. One evaluation, two
+        # consumers: the stamp the guard offered and ``TaskCompleted.is_repeat`` below
+        # must agree on what counts as completing, and both now read the same prior.
+        outcome = update_result.value
+        is_transition = is_completion_transition(outcome.prior_status, updates)
 
         # CASCADE EFFECTS
 
@@ -356,7 +383,7 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
         # Event handlers in bootstrap will call user_service.invalidate_context()
 
         # Return updated task
-        completed_task = self._to_domain_model(update_result.value, TaskDTO, Task)
+        completed_task = self._to_domain_model(outcome.entity, TaskDTO, Task)
 
         self.logger.info(
             "Completed task %s with cascading effects: goal=%s, habits=%d, knowledge=%d",
@@ -370,10 +397,13 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
         # legal reported duration (``ge=0`` at the boundary) and is written to
         # the node above, so a falsy check would store 0 while telling every
         # subscriber the duration was never reported.
-        # ``is_repeat`` is the inverse of the stamp gate: the cascade above ran
-        # in full either way (a repeat complete stays a real complete, so the
-        # repair path survives), and this flag is what lets the counting
-        # subscribers decline to count it twice. See TaskCompleted's docstring.
+        # ``is_repeat`` is the inverse of the stamp gate, and exact by
+        # construction: both read the status the WRITE observed under the node's
+        # lock, so two racing completes can no longer both report a first one.
+        # The cascade above ran in full either way (a repeat complete stays a
+        # real complete, so the repair path survives), and this flag is what lets
+        # the counting subscribers decline to count it twice. See TaskCompleted's
+        # docstring.
         event = TaskCompleted(
             task_uid=task_uid,
             user_uid=user_uid,
@@ -634,42 +664,47 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
         left exactly as it is — this cascade unblocks work, it never reopens work
         that is done.
         """
-        # Read before write. This write goes through the GENERIC CRUD, which does
-        # not run the six-chokepoint completion stamping, so a blind
-        # ``status=scheduled`` on an already-COMPLETED dependent would move it out
-        # of COMPLETED while LEAVING ``completion_date`` set — breaking the
-        # invariant that the stamp is non-null exactly when the task is completed
-        # (completion-stamping arc, #1122-#1125). This fires on a FIRST completion
-        # of the upstream task, not only on a repeat, so ``TaskCompleted.is_repeat``
-        # does not cover it.
+        # The terminal check is a CONDITION ON THE WRITE, not a read before it
+        # (ADR-087). A blind ``status=scheduled`` on an already-COMPLETED dependent
+        # would move it out of COMPLETED while LEAVING ``completion_date`` set —
+        # breaking the invariant that the stamp is non-null exactly when the task
+        # is completed (completion-stamping arc, #1122-#1125). This fires on a
+        # FIRST completion of the upstream task, not only on a repeat, so
+        # ``TaskCompleted.is_repeat`` does not cover it; and a dependent being
+        # completed concurrently is exactly the case a read-then-write gate misses,
+        # because the status it read is already stale by the time it writes.
         # The gate is ``is_terminal()``, not COMPLETED alone: FAILED / CANCELLED /
         # ARCHIVED dependents are equally not this cascade's to resurrect, and
         # keying on the enum's own predicate means a new terminal status is honored
-        # here without an edit. This read is the ONLY terminal-state protection
-        # anywhere in Tasks: this service declares no ``_validate_update``, and the
-        # domain's own hook (``TasksCoreService._validate_update``) carries a single
-        # rule about overdue priority — its terminal-state rule was deleted, never
-        # having had a caller, because refusing every change to a finished task would
-        # also refuse the repeat complete and the reopen.
-        current = await self.get(task_uid)
-        if current.is_error:
-            self.logger.warning(f"Failed to trigger task {task_uid}: {current.expect_error()}")
+        # here without an edit. It is the ONLY terminal-state protection anywhere in
+        # Tasks: this service declares no ``_validate_update``, and the domain's own
+        # hook (``TasksCoreService._validate_update``) carries a single rule about
+        # overdue priority — its terminal-state rule was deleted, never having had a
+        # caller, because refusing every change to a finished task would also refuse
+        # the repeat complete and the reopen.
+        # No stamp guard is wanted here: the only prior a reopen clear would apply
+        # to is COMPLETED, which this guard refuses outright.
+        result = await self.backend.update_with_status_guard(
+            task_uid,
+            {"status": EntityStatus.SCHEDULED.value},
+            StatusWriteGuard(refuse_if_prior_in=_TERMINAL_STATUS_VALUES),
+        )
+        if result.is_error:
+            # Includes the not-found case — a TRIGGERS_ON_COMPLETION edge pointing
+            # at nothing fails this write, never the cascade around it.
+            self.logger.warning(f"Failed to trigger task {task_uid}: {result.expect_error()}")
             return
 
-        status = current.value.status
-        if status.is_terminal():
+        outcome = result.value
+        if not outcome.applied:
             self.logger.debug(
-                "Skipped triggering task %s: already terminal (%s)", task_uid, status.value
+                "Skipped triggering task %s: already terminal (%s)",
+                task_uid,
+                outcome.prior_status,
             )
             return
 
-        # Unblock the triggered task via the service contract (ADR-066 #2→#1). self.update
-        # returns a Result (backend errors are captured, not raised), so branch on it.
-        result = await self.update(task_uid, RawChanges({"status": EntityStatus.SCHEDULED.value}))
-        if result.is_error:
-            self.logger.warning(f"Failed to trigger task {task_uid}: {result.expect_error()}")
-        else:
-            self.logger.debug(f"Triggered task {task_uid}")
+        self.logger.debug(f"Triggered task {task_uid}")
 
     def _unlock_knowledge(self, knowledge_uid: str, user_uid: UserUID) -> None:
         """Unlock knowledge for a user."""

@@ -13,9 +13,10 @@ Three layers, matching how the stamp actually reaches the graph:
    reopening clears; Principle's illegal ``completed`` is refused at the seam.
    (Route → facade-intent wiring is pinned separately in
    ``tests/unit/adapters/test_*_api_routes.py``.)
-3. **The bypass doors fixed in this pass** — ``complete_tasks_bulk`` stamps in
-   place; the DSL ``[x]`` create door parses the obsidian-tasks ``✅ date`` into
-   ``completion_date`` (falling back to today via the create-request default).
+3. **The bypass doors fixed in this pass** — ``complete_tasks_bulk`` stamps per
+   row (its gate is a write-time condition since ADR-087, like the Tasks
+   chokepoint's); the DSL ``[x]`` create door parses the obsidian-tasks ``✅ date``
+   into ``completion_date`` (falling back to today via the create-request default).
 """
 
 from __future__ import annotations
@@ -45,7 +46,7 @@ from core.services.completion_stamp import (
     is_reopen_transition,
 )
 from core.utils.result_simplified import Result
-from tests.helpers.status_guarded_backend import guarded_backend
+from tests.helpers.status_guarded_backend import guarded_backend, guarded_rows_backend
 
 USER = "user_stamp"
 
@@ -584,7 +585,9 @@ class TestCompleteTasksBulk:
     async def test_bulk_complete_stamps_only_the_transitioning_rows(self):
         # A bulk list may contain already-completed tasks (retry, mixed
         # selection) — their original completion_date must survive (Codex P2 on
-        # #1123: unconditional stamping is the re-dating bug in miniature).
+        # #1123: unconditional stamping is the re-dating bug in miniature). Since
+        # ADR-087 the row's OWN write decides that, from the status it captured
+        # under that node's lock, so the assertion is on the patch each row merged.
         from core.services.tasks.tasks_core_service import TasksCoreService
 
         active = Task(uid="task_active", user_uid=USER, title="t", status=EntityStatus.ACTIVE)
@@ -595,44 +598,36 @@ class TestCompleteTasksBulk:
             status=EntityStatus.COMPLETED,
             completion_date=date(2026, 8, 1),
         )
-
-        async def get_by_uid(uid):
-            return Result.ok(done if uid == "task_done" else active)
-
-        backend = Mock()
-        backend.get = AsyncMock(side_effect=get_by_uid)
-        backend.update = AsyncMock(return_value=Result.ok(active))
+        backend, store = guarded_rows_backend({"task_active": active, "task_done": done})
         service = TasksCoreService(backend=backend)
 
         result = await service.complete_tasks_bulk(["task_active", "task_done"], USER)
 
         assert result.is_ok
         assert result.value == 2
-        written = {call.args[0]: call.args[1] for call in backend.update.await_args_list}
-        assert written["task_active"]["status"] == EntityStatus.COMPLETED.value
-        assert written["task_active"]["completion_date"] == date.today()
-        assert "completion_date" not in written["task_done"], (
+        assert store.merged["task_active"]["status"] == EntityStatus.COMPLETED.value
+        assert store.merged["task_active"]["completion_date"] == date.today()
+        assert "completion_date" not in store.merged["task_done"], (
             "bulk-completing an already-completed task re-dated its completion"
         )
+        # One guard for the whole batch, offering the stamp CONDITIONALLY — the
+        # per-row priors are what accept or decline it.
+        assert all(guard is store.calls[0][2] for _uid, _updates, guard in store.calls)
 
-    async def test_bulk_complete_skips_rows_whose_state_cannot_be_read(self):
-        # A failed per-row read must not pass as "not completed" — the row is
-        # skipped (not flipped, not counted) rather than risk re-dating.
+    async def test_bulk_complete_skips_rows_that_cannot_be_written(self):
+        # A row the write cannot find is skipped (not counted) rather than counted
+        # as a completion nothing made. Before ADR-087 this was a failed pre-READ;
+        # the read is gone, so the write's own not-found is the same protection.
         from core.services.tasks.tasks_core_service import TasksCoreService
-        from core.utils.result_simplified import Errors
 
-        backend = Mock()
-        backend.get = AsyncMock(
-            return_value=Result.fail(Errors.database("get", "transient read failure"))
-        )
-        backend.update = AsyncMock()
+        backend, store = guarded_rows_backend({"task_1": None})
         service = TasksCoreService(backend=backend)
 
         result = await service.complete_tasks_bulk(["task_1"], USER)
 
         assert result.is_ok
         assert result.value == 0
-        backend.update.assert_not_awaited()
+        assert store.merged == {}
 
 
 class TestDslDoneDateParse:
@@ -768,22 +763,26 @@ class TestCompleteTaskWithCascade:
         from core.services.tasks.tasks_progress_service import TasksProgressService
 
         stored = task.to_dto().to_dict()
-        backend = Mock()
-        backend.get = AsyncMock(return_value=Result.ok(stored))
-        backend.update = AsyncMock(return_value=Result.ok(stored))
+        backend, recorder = guarded_backend(stored, stored)
         backend.get_related_uids = AsyncMock(return_value=Result.ok([]))
-        return TasksProgressService(backend=backend), backend
+        return TasksProgressService(backend=backend), recorder
 
     async def test_completing_an_active_task_stamps_today(self):
         task = Task(uid="task_a", user_uid=USER, title="t", status=EntityStatus.ACTIVE)
-        service, backend = self._service_over(task)
+        service, recorder = self._service_over(task)
 
         result = await service.complete_task_with_cascade("task_a", user_context=None)
 
         assert result.is_ok
-        written = backend.update.await_args.args[1]
-        assert written["status"] == EntityStatus.COMPLETED.value
-        assert written["completion_date"] == date.today().isoformat()
+        # The stamp is OFFERED, conditionally on the prior not already being
+        # completed — the door no longer picks it from a status it read first.
+        assert recorder.last_guard.patch_if_prior_not_in == (
+            frozenset({"completed"}),
+            {"completion_date": date.today()},
+        )
+        merged = recorder.merged_patch()
+        assert merged["status"] == EntityStatus.COMPLETED.value
+        assert merged["completion_date"] == date.today()
 
     async def test_re_completing_does_not_re_date_the_completion(self):
         task = Task(
@@ -793,12 +792,15 @@ class TestCompleteTaskWithCascade:
             status=EntityStatus.COMPLETED,
             completion_date=date(2026, 4, 2),
         )
-        service, backend = self._service_over(task)
+        service, recorder = self._service_over(task)
 
         result = await service.complete_task_with_cascade("task_b", user_context=None)
 
         assert result.is_ok
-        written = backend.update.await_args.args[1]
-        assert "completion_date" not in written, (
+        # Same guard as above — the prior is what declines it. The write still
+        # happens: a repeat complete stays a real complete (the repair path).
+        merged = recorder.merged_patch()
+        assert merged["status"] == EntityStatus.COMPLETED.value
+        assert "completion_date" not in merged, (
             "re-completing an already-completed task re-dated its completion"
         )

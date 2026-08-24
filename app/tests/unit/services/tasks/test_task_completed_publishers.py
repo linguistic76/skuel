@@ -35,9 +35,14 @@ from core.events.task_events import TaskCompleted, TaskReopened, TasksBulkComple
 from core.models.enums.entity_enums import EntityStatus
 from core.models.task.task import Task
 from core.models.task.task_update_intent import TaskUpdateIntent
+from core.models.update_contracts import StatusGuardedOutcome
 from core.services.tasks.tasks_core_service import TasksCoreService
 from core.utils.result_simplified import Errors, Result
-from tests.helpers.status_guarded_backend import StatusGuardedWriteRecorder, guarded_backend
+from tests.helpers.status_guarded_backend import (
+    StatusGuardedWriteRecorder,
+    guarded_backend,
+    guarded_rows_backend,
+)
 
 USER = "user_pr4"
 
@@ -310,20 +315,12 @@ class TestUpdateTaskPublishesTaskReopened:
 
 
 def _bulk_service(rows: dict[str, Task | None]) -> tuple[TasksCoreService, _RecordingBus, Mock]:
-    """``rows`` maps uid → the stored task, or ``None`` for a row whose read fails."""
+    """``rows`` maps uid → the stored task, or ``None`` for a row the write cannot find.
 
-    async def get_by_uid(uid: str) -> Result[Any]:
-        task = rows.get(uid)
-        if task is None:
-            return Result.fail(Errors.database("get", "transient read failure"))
-        return Result.ok(task)
-
-    async def update_by_uid(uid: str, changes: dict[str, Any]) -> Result[Any]:
-        return Result.ok(rows[uid])
-
-    backend = Mock()
-    backend.get = AsyncMock(side_effect=get_by_uid)
-    backend.update = AsyncMock(side_effect=update_by_uid)
+    Each row's guarded write is answered from that row's own status, which is where
+    the per-row verdict now comes from (ADR-087) — the loop no longer pre-reads.
+    """
+    backend, _store = guarded_rows_backend(rows)
     bus = _RecordingBus()
     return TasksCoreService(backend=backend, event_bus=bus), bus, backend
 
@@ -378,9 +375,9 @@ class TestCompleteTasksBulkFansOut:
         assert batch[0].task_uids == ["task_a", "task_b"]
         assert batch[0].count == 2
 
-    async def test_an_unreadable_row_publishes_nothing_and_is_not_named(self) -> None:
-        """A failed read is skipped, and the batch event names the rows actually
-        written — a slice of the input would name the wrong ones."""
+    async def test_an_unwritable_row_publishes_nothing_and_is_not_named(self) -> None:
+        """A row the write cannot find is skipped, and the batch event names the rows
+        actually written — a slice of the input would name the wrong ones."""
         rows: dict[str, Task | None] = {
             "task_bad": None,
             "task_good": Task(
@@ -415,6 +412,56 @@ class TestCompleteTasksBulkFansOut:
         assert len(bus.of(TasksBulkCompleted)) == 1
 
 
+@pytest.mark.asyncio
+class TestBulkVerdictsComeFromTheWrite:
+    """Each row's verdict is the prior its OWN write captured under that node's lock.
+
+    Stubbing that prior directly is the only way to state it: a fake driven by a
+    per-row read can only agree with the read, which is the coupling ADR-087 removed.
+    """
+
+    @staticmethod
+    def _service(priors: dict[str, str | None]) -> tuple[TasksCoreService, _RecordingBus]:
+        rows = {
+            uid: Task(uid=uid, user_uid=USER, title="t", status=EntityStatus.ACTIVE)
+            for uid in priors
+        }
+
+        def guarded(uid: str, updates: dict[str, Any], guard: Any) -> Result[Any]:
+            return Result.ok(
+                StatusGuardedOutcome(applied=True, prior_status=priors[uid], entity=rows[uid])
+            )
+
+        backend = Mock()
+        backend.update_with_status_guard = AsyncMock(side_effect=guarded)
+        bus = _RecordingBus()
+        return TasksCoreService(backend=backend, event_bus=bus), bus
+
+    async def test_a_row_another_writer_already_completed_publishes_nothing(self) -> None:
+        """The row is still written (and still counted in the batch — the write
+        applied), but it made no completion, so no ``TaskCompleted`` goes out."""
+        service, bus = self._service({"task_raced": EntityStatus.COMPLETED.value})
+
+        result = await service.complete_tasks_bulk(["task_raced"], USER)
+
+        assert result.is_ok
+        assert result.value == 1
+        assert bus.of(TaskCompleted) == []
+        assert bus.of(TasksBulkCompleted)[0].task_uids == ["task_raced"]
+
+    async def test_a_row_reopened_under_the_batch_publishes_its_completion(self) -> None:
+        """The mirror: a row whose stored status looked completed when the batch was
+        assembled, but which the write found open, is a real completion."""
+        service, bus = self._service({"task_reopened": EntityStatus.ACTIVE.value})
+
+        result = await service.complete_tasks_bulk(["task_reopened"], USER)
+
+        assert result.is_ok
+        completed = bus.of(TaskCompleted)
+        assert [event.task_uid for event in completed] == ["task_reopened"]
+        assert completed[0].is_repeat is False
+
+
 # ---------------------------------------------------------------------------
 # 3. No double-publish: the explicit-complete cascade never re-enters update_task
 # ---------------------------------------------------------------------------
@@ -422,16 +469,14 @@ class TestCompleteTasksBulkFansOut:
 
 @pytest.mark.asyncio
 async def test_the_cascade_path_still_publishes_exactly_one_task_completed() -> None:
-    """``complete_task_with_cascade`` writes through the *generic* CRUD
-    (``self.update``), not ``update_task``, so PR-4's chokepoint publish cannot
-    double up with the cascade's own."""
+    """``complete_task_with_cascade`` writes straight through the status-guarded
+    primitive, not ``update_task``, so PR-4's chokepoint publish cannot double up
+    with the cascade's own."""
     from core.services.tasks.tasks_progress_service import TasksProgressService
 
     task = Task(uid="task_c", user_uid=USER, title="t", status=EntityStatus.ACTIVE)
     stored = task.to_dto().to_dict()
-    backend = Mock()
-    backend.get = AsyncMock(return_value=Result.ok(stored))
-    backend.update = AsyncMock(return_value=Result.ok(stored))
+    backend, _recorder = guarded_backend(stored, stored)
     backend.get_related_uids = AsyncMock(return_value=Result.ok([]))
     bus = _RecordingBus()
     service = TasksProgressService(backend=backend, event_bus=bus)

@@ -12,15 +12,21 @@ deliberately does NOT model is the mechanism that makes the real thing correct �
 node write-lock. Concurrency and the storage shapes the merge produces are pinned
 against a real Neo4j in ``tests/integration/test_status_guarded_update.py``; this
 harness answers "did the service ask for the right thing, and read the answer right".
+
+Three shapes, one guard evaluation (:func:`resolve_merged_patch`): ``guarded_backend``
+for one node, ``echoing_guarded_write`` for fixtures that configure ``get``/``update``
+return values, and ``guarded_rows_backend`` for the per-row loops that write several
+nodes in one call.
 """
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any
 from unittest.mock import AsyncMock, Mock
 
 from core.models.update_contracts import StatusGuardedOutcome, StatusWriteGuard
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
 
 
 def prior_status_of(entity: Any) -> str | None:
@@ -37,6 +43,30 @@ def prior_status_of(entity: Any) -> str | None:
         return None
     value = getattr(status, "value", status)
     return value if isinstance(value, str) else None
+
+
+def resolve_merged_patch(
+    prior: str | None, updates: Mapping[str, Any], guard: StatusWriteGuard
+) -> dict[str, Any]:
+    """What the write would actually merge for this prior — the Cypher's CASE arms.
+
+    Base patch first, then whichever conditional patch the prior selects; an empty
+    map when the guard refuses, because a refused write leaves the node
+    byte-identical. One implementation, so every fake below resolves a guard the
+    same way.
+    """
+    if prior in guard.refuse_if_prior_in:
+        return {}
+    merged = dict(updates)
+    if guard.patch_if_prior_in is not None:
+        statuses, patch = guard.patch_if_prior_in
+        if prior in statuses:
+            merged.update(patch)
+    if guard.patch_if_prior_not_in is not None:
+        statuses, patch = guard.patch_if_prior_not_in
+        if prior not in statuses:
+            merged.update(patch)
+    return merged
 
 
 class StatusGuardedWriteRecorder:
@@ -69,19 +99,7 @@ class StatusGuardedWriteRecorder:
         conditional patch the prior selected. The resolved view, for tests that
         care about the outcome rather than the condition."""
         _uid, updates, guard = self.calls[-1]
-        prior = self._prior_status()
-        merged = dict(updates)
-        if prior in guard.refuse_if_prior_in:
-            return {}
-        if guard.patch_if_prior_in is not None:
-            statuses, patch = guard.patch_if_prior_in
-            if prior in statuses:
-                merged.update(patch)
-        if guard.patch_if_prior_not_in is not None:
-            statuses, patch = guard.patch_if_prior_not_in
-            if prior not in statuses:
-                merged.update(patch)
-        return merged
+        return resolve_merged_patch(self._prior_status(), updates, guard)
 
     def _prior_status(self) -> str | None:
         return prior_status_of(self._current)
@@ -148,3 +166,59 @@ def echoing_guarded_write(backend: Mock) -> AsyncMock:
         )
 
     return AsyncMock(side_effect=_call)
+
+
+class GuardedRowStore:
+    """The multi-row form: a uid → stored-entity map the guarded write is answered from.
+
+    What ``guarded_backend`` is for one node, this is for the per-row loops (bulk
+    completion). Each call resolves the guard against THAT row's own status and
+    records the patch the write would have merged for it, which is what a per-row
+    assertion is about. A uid mapped to ``None`` is a row the write cannot find, and
+    fails as the real statement does — no row matched.
+
+    The stored entity is handed back as ``outcome.entity``. That is a faithful stand-in
+    for the post-write node wherever the caller reads fields the patch does not touch
+    (``due_date`` / ``actual_minutes`` for the completion event); it deliberately does
+    not re-materialize the row, since these are frozen models.
+    """
+
+    def __init__(self, rows: Mapping[str, Any]) -> None:
+        self.rows = dict(rows)
+        #: Every ``(uid, updates, guard)`` asked for, in order.
+        self.calls: list[tuple[str, dict[str, Any], StatusWriteGuard]] = []
+        #: uid → the patch that row's write merged. Absent for a row that was refused
+        #: or not found.
+        self.merged: dict[str, dict[str, Any]] = {}
+
+    def __call__(
+        self, uid: str, updates: dict[str, Any], guard: StatusWriteGuard
+    ) -> Result[StatusGuardedOutcome[Any]]:
+        # Sync on purpose — see StatusGuardedWriteRecorder.__call__.
+        self.calls.append((uid, dict(updates), guard))
+        stored = self.rows.get(uid)
+        if stored is None:
+            return Result.fail(Errors.not_found("resource", f"Entity {uid} not found"))
+        prior = prior_status_of(stored)
+        applied = prior not in guard.refuse_if_prior_in
+        if applied:
+            self.merged[uid] = resolve_merged_patch(prior, updates, guard)
+        return Result.ok(StatusGuardedOutcome(applied=applied, prior_status=prior, entity=stored))
+
+
+def guarded_rows_backend(rows: Mapping[str, Any]) -> tuple[Mock, GuardedRowStore]:
+    """A backend mock over several rows, whose ``update_with_status_guard`` is a
+    :class:`GuardedRowStore`. ``get`` answers from the same map, so a test that still
+    needs a read gets an answer consistent with the write."""
+    store = GuardedRowStore(rows)
+
+    async def _get(uid: str) -> Result[Any]:
+        stored = store.rows.get(uid)
+        if stored is None:
+            return Result.fail(Errors.not_found("resource", f"Entity {uid} not found"))
+        return Result.ok(stored)
+
+    backend = Mock()
+    backend.get = AsyncMock(side_effect=_get)
+    backend.update_with_status_guard = AsyncMock(side_effect=store)
+    return backend, store

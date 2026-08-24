@@ -3,8 +3,9 @@ Completion stamping — the shared status-transition helper for Activity updates
 ==============================================================================
 
 Every intent-based Activity update funnels through one per-domain core method
-(``update_task`` … ``update_principle``). Each of those six chokepoints calls
-:func:`completion_transition_patch` before its write so that:
+(``update_task`` … ``update_principle``). Each of those six chokepoints applies the
+rules here at its write — Tasks as a write-time guard (:func:`status_transition_guard`),
+the other five still via :func:`completion_transition_patch` — so that:
 
 1. **The status target is legal for the type** — ``EntityType.valid_statuses()``
    is enforced at the seam instead of being documentation (e.g. a Principle can
@@ -19,10 +20,12 @@ Every intent-based Activity update funnels through one per-domain core method
 The gate is the *transition*, not the presence of the status key: re-posting
 ``status=completed`` on an already-completed entity must not re-date it. An
 update that already carries the domain's completion field keeps authority — a
-caller-supplied date (``complete_goal(achieved_date=…)``) or an explicit
-complete flow (``complete_task_with_cascade``) sets its own stamp and the
-helper injects nothing. Default-dated ``complete_goal`` carries no field and
-defers to the gate here, so a retried complete never re-dates.
+caller-supplied date (``complete_goal(achieved_date=…)``) sets its own stamp and
+nothing is injected. Default-dated ``complete_goal`` carries no field and defers
+to the gate here, so a retried complete never re-dates. The explicit-complete
+flows do the same: ``complete_task_with_cascade`` stopped stamping for itself
+when it moved onto the guard (ADR-087 PR-2), so its repeat-complete protection is
+the write's condition rather than a date it computed from a prior read.
 
 Bypass paths are handled elsewhere by design: ingestion never auto-stamps (the
 file is the source of truth for its own dates), and the DSL ``[x]`` create door
@@ -245,11 +248,20 @@ def completion_transition_patch(
 
     ⚠ **Being retired (ADR-087).** This is the read-then-write form: it needs a prior
     the caller read *before* the write, outside any lock, so two concurrent writers can
-    both act on the same status. :func:`status_transition_guard` is the successor. The
-    four remaining callers — Goals, Events, Choices, Habits (PR-3) and the four
-    goal-progress writers (PR-4) — migrate site by site, each holding exactly ONE path
-    at any moment; this function is DELETED when the last one moves. Do not add a
-    caller. Both forms share :func:`_stamp_target`, so the rules cannot drift meanwhile.
+    both act on the same status. :func:`status_transition_guard` is the successor.
+    Tasks have all moved (PR-1 ``update_task``; PR-2 ``complete_task_with_cascade``,
+    ``_trigger_task``, ``complete_tasks_bulk``). The five remaining callers:
+
+    - ``update_goal`` / ``update_event`` / ``update_choice`` / ``update_habit`` (PR-3),
+      plus the four goal-progress writers PR-4 migrates off their own blind writes;
+    - ``update_principle`` — which calls this for the **legality check alone** (Principle
+      has no ``_STAMP_SPECS`` entry, so the patch is always empty) and is deliberately
+      NOT migrating: its gate is target-only and prior-independent, so there is no race
+      to close. PR-4 must give it a legality-only successor — :func:`_stamp_target` is
+      already that shape — before deleting this function.
+
+    Each site holds exactly ONE path at any moment. Do not add a caller. Both forms
+    share :func:`_stamp_target`, so the rules cannot drift meanwhile.
 
     Args:
         entity_type: The Activity domain being updated.

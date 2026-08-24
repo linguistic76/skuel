@@ -19,15 +19,21 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
-from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node
+from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node, to_neo4j_node
 from core.models.enums import EntityStatus, EntityType, Priority
 from core.models.relationship_names import RelationshipName
 from core.models.task.task import Task as Task
 from core.models.task.task_dto import TaskDTO
 from core.models.type_hints import Neo4jProperties
+from core.models.update_contracts import StatusGuardedOutcome, StatusWriteGuard
 from core.services.tasks.tasks_progress_service import TasksProgressService
 from core.services.user import UserContext
 from core.utils.result_simplified import Errors, Result
+from tests.helpers.status_guarded_backend import (
+    echoing_guarded_write,
+    prior_status_of,
+    resolve_merged_patch,
+)
 
 # ============================================================================
 # FIXTURES
@@ -52,6 +58,9 @@ def mock_backend() -> Any:
 
     backend.get = AsyncMock(return_value=Result.ok(default_task_dict))
     backend.update = AsyncMock()
+    # The completion doors write through the ADR-087 primitive, answered here from
+    # whatever ``get``/``update`` are currently configured to return (see the helper).
+    backend.update_with_status_guard = echoing_guarded_write(backend)
     backend.find_by = AsyncMock(return_value=Result.ok([]))
     # Default: No relationships found (empty lists)
     backend.get_related_uids = AsyncMock(return_value=Result.ok([]))
@@ -197,9 +206,20 @@ async def test_complete_task_cascade_effects(
 
 
 def _patch_sent_to_backend(mock_backend) -> dict[str, Any]:
-    """The materialized patch handed to ``backend.update`` by the cascade."""
-    assert mock_backend.update.await_args is not None, "cascade never wrote"
-    return mock_backend.update.await_args.args[1]
+    """What the cascade's guarded write would actually have merged.
+
+    The stamp is no longer a key the service puts in the patch — it is a condition
+    the write evaluates (ADR-087), so the patch under test is the resolved one:
+    base patch plus whichever conditional patch the prior selects. Pre-serialization,
+    so a stamp is still a ``date`` here; its ISO storage shape is pinned against a
+    real Neo4j in ``tests/integration/test_status_guarded_update.py``.
+    """
+    call = mock_backend.update_with_status_guard.await_args
+    assert call is not None, "cascade never wrote"
+    _uid, updates, guard = call.args
+    read = mock_backend.get.return_value
+    prior = prior_status_of(read.value) if read is not None and read.is_ok else None
+    return resolve_merged_patch(prior, updates, guard)
 
 
 @pytest.mark.asyncio
@@ -332,12 +352,12 @@ async def test_completion_date_gate_still_holds_without_minutes(
 
     first = await progress_service.complete_task_with_cascade("task:gate", user_context)
     assert first.is_ok
-    assert _patch_sent_to_backend(mock_backend)["completion_date"] == date.today().isoformat()
+    assert _patch_sent_to_backend(mock_backend)["completion_date"] == date.today()
 
     already = active.to_dto()
     already.status = EntityStatus.COMPLETED
     mock_backend.get.return_value = Result.ok(already.to_dict())
-    mock_backend.update.reset_mock()
+    mock_backend.update_with_status_guard.reset_mock()
 
     repeat = await progress_service.complete_task_with_cascade("task:gate", user_context)
 
@@ -380,13 +400,13 @@ async def test_is_repeat_is_the_inverse_of_the_stamp_gate(mock_backend, user_con
     first = await service.complete_task_with_cascade("task:repeat", user_context)
 
     assert first.is_ok
-    assert _patch_sent_to_backend(mock_backend)["completion_date"] == date.today().isoformat()
+    assert _patch_sent_to_backend(mock_backend)["completion_date"] == date.today()
     assert published[-1].is_repeat is False
 
     already = active.to_dto()
     already.status = EntityStatus.COMPLETED
     mock_backend.get.return_value = Result.ok(already.to_dict())
-    mock_backend.update.reset_mock()
+    mock_backend.update_with_status_guard.reset_mock()
 
     repeat = await service.complete_task_with_cascade("task:repeat", user_context)
 
@@ -397,6 +417,99 @@ async def test_is_repeat_is_the_inverse_of_the_stamp_gate(mock_backend, user_con
     assert "completion_date" not in patch_sent
     assert published[-1].is_repeat is True
     assert len(published) == 2
+
+
+def _outcome_with_prior(prior: str | None, entity: Any) -> AsyncMock:
+    """A guarded write that reports a chosen prior, whatever any read says.
+
+    The point of ADR-087 is that the verdict comes from the status the WRITE saw
+    under the node's lock. Stubbing that prior directly is the only way to say so
+    in a unit test: a fake driven by ``backend.get`` can only ever agree with the
+    read, which is exactly the coupling the primitive removed.
+    """
+    return AsyncMock(
+        return_value=Result.ok(
+            StatusGuardedOutcome(applied=True, prior_status=prior, entity=entity)
+        )
+    )
+
+
+@pytest.mark.asyncio
+async def test_cascade_is_repeat_follows_the_write_not_the_context_read(mock_backend, user_context):
+    """A stale "not completed" read must not report a first completion.
+
+    This is the three-click vector at the cascade door: Today's Undo posts a reopen
+    while a complete is in flight, so the status this method read — often served
+    from ``entities_rich`` without touching the graph at all — can be two writes
+    behind by the time the write lands. The write reports COMPLETED, so this is a
+    repeat, and the counting subscribers must be told so.
+    """
+    published: list[Any] = []
+
+    class _Bus:
+        async def publish_async(self, event: Any) -> None:
+            published.append(event)
+
+    stale = _task("task:stale", EntityStatus.ACTIVE)
+    mock_backend.get = AsyncMock(return_value=Result.ok(stale.to_dto().to_dict()))
+    mock_backend.update_with_status_guard = _outcome_with_prior(
+        EntityStatus.COMPLETED.value, stale.to_dto().to_dict()
+    )
+    service = TasksProgressService(backend=mock_backend, event_bus=_Bus())
+
+    result = await service.complete_task_with_cascade("task:stale", user_context)
+
+    assert result.is_ok
+    assert published[-1].is_repeat is True
+
+
+@pytest.mark.asyncio
+async def test_cascade_is_repeat_is_false_when_the_write_saw_an_open_task(
+    mock_backend, user_context
+):
+    """And the mirror: a read that says "already completed" must not suppress a
+    completion the write actually made. Both directions matter — the old shape
+    could get either one wrong."""
+    published: list[Any] = []
+
+    class _Bus:
+        async def publish_async(self, event: Any) -> None:
+            published.append(event)
+
+    stale = _task("task:stale", EntityStatus.COMPLETED, completion_date=date(2026, 8, 1))
+    mock_backend.get = AsyncMock(return_value=Result.ok(stale.to_dto().to_dict()))
+    mock_backend.update_with_status_guard = _outcome_with_prior(
+        EntityStatus.ACTIVE.value, stale.to_dto().to_dict()
+    )
+    service = TasksProgressService(backend=mock_backend, event_bus=_Bus())
+
+    result = await service.complete_task_with_cascade("task:stale", user_context)
+
+    assert result.is_ok
+    assert published[-1].is_repeat is False
+
+
+@pytest.mark.asyncio
+async def test_the_cascade_never_supplies_the_stamp_itself(
+    progress_service, mock_backend, user_context
+):
+    """``completion_date`` must reach the write as a CONDITION, never as a key in
+    the patch. A caller-supplied stamp field takes authority and disables the
+    guard's patches entirely (``_stamp_target``), so a door that kept stamping for
+    itself would silently opt out of the very protection it asked for."""
+    active = _task("task:no_self_stamp", EntityStatus.ACTIVE)
+    mock_backend.get.return_value = Result.ok(active.to_dto().to_dict())
+    mock_backend.update.return_value = Result.ok(active.to_dto().to_dict())
+
+    result = await progress_service.complete_task_with_cascade("task:no_self_stamp", user_context)
+
+    assert result.is_ok
+    _uid, updates, guard = mock_backend.update_with_status_guard.await_args.args
+    assert "completion_date" not in updates
+    assert guard.patch_if_prior_not_in == (
+        frozenset({EntityStatus.COMPLETED.value}),
+        {"completion_date": date.today()},
+    )
 
 
 @pytest.mark.asyncio
@@ -819,20 +932,27 @@ def _task(uid: str, status: EntityStatus, **fields: Any) -> Task:
 class _FakeTaskGraph:
     """A node store with Neo4j write semantics that hands back domain models.
 
-    Two fidelity points the plain dict-returning fixture above does not carry,
-    both load-bearing here:
+    Three fidelity points the plain dict-returning fixture above does not carry,
+    all load-bearing here:
 
-    * ``UniversalNeo4jBackend.get``/``update`` return ``from_neo4j_node`` domain
-      models, not property dicts — and ``_trigger_task`` reads ``Task.status``
-      straight off the Result of ``self.get`` (which casts rather than converts).
+    * ``UniversalNeo4jBackend.get`` returns a ``from_neo4j_node`` domain model, not
+      a property dict, and ``update_with_status_guard`` returns one inside its
+      outcome.
     * ``SET n += $updates`` REMOVES a property set to null and leaves untouched
       keys alone — the invariant under test is about a property surviving (or
-      not surviving) a write.
+      not surviving) a write. The payload is serialized on the way in, as the real
+      method does, so a stamp lands as the ISO string every writer stores.
+    * The terminal skip is now the WRITE's refusal, so the store evaluates the
+      guard the way the Cypher does and records only the writes that applied.
     """
 
     def __init__(self, *tasks: Task) -> None:
         self.nodes: dict[str, Neo4jProperties] = {t.uid: t.to_dto().to_dict() for t in tasks}
+        #: The writes that actually mutated a node — a refused guard records nothing,
+        #: because a refused write leaves the node byte-identical.
         self.writes: list[tuple[str, Neo4jProperties]] = []
+        #: Every guarded write attempted, applied or not.
+        self.attempts: list[str] = []
 
     def snapshot(self, uid: str) -> Neo4jProperties:
         """The stored properties of one node, detached from the store."""
@@ -842,15 +962,30 @@ class _FakeTaskGraph:
         node = self.nodes.get(uid)
         return Result.ok(from_neo4j_node(dict(node), Task) if node is not None else None)
 
-    async def update(self, uid: str, changes: Neo4jProperties) -> Result[Task]:
-        self.writes.append((uid, dict(changes)))
-        node = self.nodes[uid]
-        for key, value in changes.items():
-            if value is None:
-                node.pop(key, None)
-            else:
-                node[key] = value
-        return Result.ok(from_neo4j_node(dict(node), Task))
+    async def update_with_status_guard(
+        self, uid: str, updates: Neo4jProperties, guard: StatusWriteGuard
+    ) -> Result[StatusGuardedOutcome[Task]]:
+        self.attempts.append(uid)
+        node = self.nodes.get(uid)
+        if node is None:
+            return Result.fail(Errors.not_found("resource", f"Entity {uid} not found"))
+        prior = prior_status_of(node)
+        applied = prior not in guard.refuse_if_prior_in
+        if applied:
+            merged = to_neo4j_node(resolve_merged_patch(prior, updates, guard))
+            self.writes.append((uid, dict(merged)))
+            for key, value in merged.items():
+                if value is None:
+                    node.pop(key, None)
+                else:
+                    node[key] = value
+        return Result.ok(
+            StatusGuardedOutcome(
+                applied=applied,
+                prior_status=prior,
+                entity=from_neo4j_node(dict(node), Task),
+            )
+        )
 
 
 def _wire_trigger_cascade(mock_backend: Mock, dependent: Task) -> tuple[Task, _FakeTaskGraph]:
@@ -858,7 +993,7 @@ def _wire_trigger_cascade(mock_backend: Mock, dependent: Task) -> tuple[Task, _F
     upstream = _task("task:upstream", EntityStatus.ACTIVE)
     graph = _FakeTaskGraph(upstream, dependent)
     mock_backend.get = AsyncMock(side_effect=graph.get)
-    mock_backend.update = AsyncMock(side_effect=graph.update)
+    mock_backend.update_with_status_guard = AsyncMock(side_effect=graph.update_with_status_guard)
 
     async def _related(
         uid: str, relationship: RelationshipName, direction: str = "outgoing"
@@ -941,6 +1076,40 @@ async def test_trigger_task_still_schedules_non_terminal_dependent(
     dependent_writes = [changes for uid, changes in graph.writes if uid == dependent.uid]
     assert dependent_writes == [{"status": EntityStatus.SCHEDULED.value}]
     assert graph.nodes[dependent.uid]["status"] == EntityStatus.SCHEDULED.value
+
+
+@pytest.mark.asyncio
+async def test_trigger_task_asks_the_write_to_refuse_every_terminal_status(
+    progress_service, mock_backend, user_context
+):
+    """The skip is a CONDITION the write evaluates, not a status read beforehand.
+
+    A dependent completed concurrently is exactly what a read-then-write gate
+    misses, so assert the guard itself: every terminal status of the enum, and no
+    stamp patches (the only prior a reopen clear could apply to is COMPLETED, which
+    this guard refuses outright).
+    """
+    dependent = _task("task:dependent", EntityStatus.ACTIVE)
+    upstream, _graph = _wire_trigger_cascade(mock_backend, dependent)
+
+    result = await progress_service.complete_task_with_cascade(upstream.uid, user_context)
+
+    assert result.is_ok
+    dependent_calls = [
+        call
+        for call in mock_backend.update_with_status_guard.await_args_list
+        if call.args[0] == dependent.uid
+    ]
+    assert len(dependent_calls) == 1
+    guard = dependent_calls[0].args[2]
+    # The enum's whole terminal set, not the Task-valid subset: keying on
+    # ``is_terminal()`` alone means a new terminal status is honored without an edit
+    # here, and refusing one a Task can never hold costs nothing.
+    assert guard.refuse_if_prior_in == frozenset(
+        status.value for status in EntityStatus if status.is_terminal()
+    )
+    assert set(guard.refuse_if_prior_in) >= {s.value for s in _TERMINAL_DEPENDENT_STATUSES}
+    assert guard.has_patches() is False
 
 
 @pytest.mark.asyncio
