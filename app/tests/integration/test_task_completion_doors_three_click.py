@@ -17,9 +17,11 @@ node in the state the events describe.
 from __future__ import annotations
 
 from datetime import date
+from typing import Any
 
 import pytest
 import pytest_asyncio
+from neo4j import AsyncDriver
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.events.base import BaseEvent
@@ -54,7 +56,9 @@ class _CapturingBus:
 @pytest.mark.asyncio
 class TestThreeClickSequence:
     @pytest_asyncio.fixture
-    async def rig(self, neo4j_driver, clean_neo4j):
+    async def rig(
+        self, neo4j_driver: AsyncDriver, clean_neo4j: None
+    ) -> tuple[TasksProgressService, TasksCoreService, UniversalNeo4jBackend[Task], _CapturingBus]:
         """The two real services over one real backend, sharing one bus.
 
         Sharing the bus is the point: the sequence crosses two doors, and the
@@ -71,13 +75,15 @@ class TestThreeClickSequence:
             bus,
         )
 
-    async def _props(self, neo4j_driver, uid: str) -> dict:
+    async def _props(
+        self, neo4j_driver: AsyncDriver, uid: str
+    ) -> dict[str, Any]:  # boundary: raw stored node properties
         async with neo4j_driver.session() as session:
             result = await session.run("MATCH (n:Entity {uid: $uid}) RETURN n", uid=uid)
             record = await result.single()
             return dict(record["n"]) if record else {}
 
-    async def _seed(self, backend, uid: str) -> str:
+    async def _seed(self, backend: UniversalNeo4jBackend[Task], uid: str) -> str:
         created = await backend.create(
             Task(uid=uid, user_uid=USER, title="three click", status=EntityStatus.ACTIVE)
         )

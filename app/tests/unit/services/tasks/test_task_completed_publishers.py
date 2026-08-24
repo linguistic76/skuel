@@ -36,7 +36,7 @@ from core.events.task_events import TaskCompleted, TaskReopened, TasksBulkComple
 from core.models.enums.entity_enums import EntityStatus
 from core.models.task.task import Task
 from core.models.task.task_update_intent import TaskUpdateIntent
-from core.models.update_contracts import StatusGuardedOutcome
+from core.models.update_contracts import StatusGuardedOutcome, StatusWriteGuard
 from core.services.tasks.tasks_core_service import TasksCoreService
 from core.utils.result_simplified import Errors, Result
 from tests.helpers.status_guarded_backend import (
@@ -432,7 +432,11 @@ class TestBulkVerdictsComeFromTheWrite:
             for uid in priors
         }
 
-        def guarded(uid: str, updates: dict[str, Any], guard: Any) -> Result[Any]:
+        def guarded(
+            uid: str,
+            updates: dict[str, Any],  # boundary: pre-serialization patch
+            guard: StatusWriteGuard,
+        ) -> Result[StatusGuardedOutcome[Task]]:
             return Result.ok(
                 StatusGuardedOutcome(applied=True, prior_status=priors[uid], entity=rows[uid])
             )
