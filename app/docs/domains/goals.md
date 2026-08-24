@@ -287,15 +287,30 @@ The Goals domain publishes domain events for cross-service communication:
 
 **Event handling:** Other services subscribe to these events (e.g., UserContext invalidation, task updates).
 
-**`GoalAchieved` fires on the transition, never on the state.** Every publish site gates on the
-goal *becoming* achieved — `new_progress >= 100 and old_progress < 100` for the progress writers,
-`status != COMPLETED` for the milestone writer — and writes `achieved_date` under the same gate.
-Note the milestone writer reads *status*, not "every milestone is flagged done": reopening clears
-`achieved_date` and resets progress but leaves the milestone flags set, so a flag-based gate would
-make a reopened goal unachievable. Publishing on the state alone
-would both move the recorded achievement date to today on any later write — a mutable completion
-stamp — and duplicate the PRINCIPLE_ALIGNMENT insight `GoalEventHandlerService` appends per event.
-There is no `is_repeat` flag on this event: the transition gate is the whole mechanism.
+**`GoalAchieved` fires on the transition, never on the state — and since ADR-087 the transition
+is decided BY the write.** Publishing on the state alone would both move the recorded achievement
+date to today on any later write (a mutable completion stamp) and duplicate the
+PRINCIPLE_ALIGNMENT insight `GoalEventHandlerService` appends per event. There is no `is_repeat`
+flag on this event: the transition gate is the whole mechanism.
+
+Where that gate lives differs by door, and the split is the point:
+
+- The **chokepoint** (`GoalsCoreService.update_goal`) is handed a status target, so
+  `status_transition_guard` packages the stamp as a `patch_if_prior_not_in` and the verdict comes
+  from `is_completion_transition(outcome.prior_status, changes)`.
+- The **four progress writers** (`complete_milestone`, `update_goal_from_habit_progress`,
+  `_update_goal_from_task_completion`, `_update_goal_from_habit_completion`) are handed no target
+  — they derive one. That derivation stays in Python (`new_progress >= 100 and old_progress < 100`
+  for the three progress writers, "every milestone is done" for the milestone writer), because it
+  is a statement about the NEW state. Only the *"…and it was not already achieved"* half rides the
+  guard, as a `patch_if_prior_not_in` carrying the status/stamp **pair**. So an already-completed
+  goal is written no `status` key either — the recompute still lands, the completion pair does not.
+
+⚠ The milestone writer's "already achieved" input is the goal's **status**, not "every milestone
+is flagged done": reopening clears `achieved_date` and resets progress but leaves the milestone
+flags set, so a flag-based gate would make a reopened goal unachievable. What ADR-087 changed is
+only *where that status is read* — under the node's write-lock, at the moment it is acted on,
+rather than from a pre-read a concurrent writer may already have invalidated.
 
 **The same rule applies one level down, to each milestone's own `achieved_date`.** It is
 documented as "when actually achieved", so it records the milestone's *first* completion and
