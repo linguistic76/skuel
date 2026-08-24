@@ -156,6 +156,9 @@ async def ensure_test_users(neo4j_driver):
         "user_consistency_window",
         "user_consistency_stale",
         "user_consistency_bulk",
+        # The HabitCompletion native/string completed_at split — seeded rows hang
+        # off a real owner via :OWNS, like every other completion.
+        "user_temporal_split",
     ]
 
     async def create_users():
