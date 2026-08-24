@@ -337,11 +337,20 @@
       // ORDERING: the flash appears immediately, so Undo is routinely clicked
       // while the complete POST is still in flight. That complete is the SLOWER
       // request — complete_task_with_cascade reads the task (and relationships)
-      // before its write, while the reopen is one get + one update — so an
-      // independent reopen can land FIRST and then be overwritten by the
-      // complete, leaving the task completed under a card that already reads
-      // "not done". So the reopen is queued behind the complete settling rather
-      // than raced against it (Codex #1133 P1).
+      // before its write, while the reopen is one update — so an independent
+      // reopen can land FIRST and then be overwritten by the complete, leaving
+      // the task completed under a card that already reads "not done". So the
+      // reopen is queued behind the complete settling rather than raced against
+      // it (Codex #1133 P1).
+      //
+      // The server side is now atomically guarded (ADR-087): each write captures
+      // the status it overwrites under the node's lock, so whichever order the
+      // two requests land in, each one's completion/reopen verdict — and the
+      // completion stamp that follows from it — is exact. That fixes the VERDICT,
+      // not the ORDER: two opposing HTTP requests can still arrive in either
+      // sequence, and a reopen that lands before an in-flight complete leaves the
+      // task completed under a card reading "not done". This queue remains the
+      // only thing that orders them, so it stays.
       undoFlash() {
         const a = this._lastAction;
         this._lastAction = null;

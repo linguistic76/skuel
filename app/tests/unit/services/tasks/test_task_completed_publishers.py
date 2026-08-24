@@ -37,6 +37,7 @@ from core.models.task.task import Task
 from core.models.task.task_update_intent import TaskUpdateIntent
 from core.services.tasks.tasks_core_service import TasksCoreService
 from core.utils.result_simplified import Errors, Result
+from tests.helpers.status_guarded_backend import StatusGuardedWriteRecorder, guarded_backend
 
 USER = "user_pr4"
 
@@ -54,15 +55,17 @@ class _RecordingBus:
         return [event for event in self.events if isinstance(event, event_type)]
 
 
-def _core_service(current: Task, updated: Task) -> tuple[TasksCoreService, _RecordingBus, Mock]:
-    """A faithful fake: ``get``/``update`` return domain models, as the real
-    backend does after ``from_neo4j_node`` (correction #12 — the shared
-    ``mock_backend`` fixture returns raw dicts, which is not the writer shape)."""
-    backend = Mock()
-    backend.get = AsyncMock(return_value=Result.ok(current))
-    backend.update = AsyncMock(return_value=Result.ok(updated))
+def _core_service(
+    current: Task, updated: Task
+) -> tuple[TasksCoreService, _RecordingBus, Mock, StatusGuardedWriteRecorder]:
+    """A faithful fake: reads return domain models, as the real backend does after
+    ``from_neo4j_node`` (correction #12 — the shared ``mock_backend`` fixture returns
+    raw dicts, which is not the writer shape), and the guarded write answers with the
+    prior it would have read under the lock (ADR-087). The verdicts under test are
+    derived from THAT prior now, not from ``backend.get``."""
+    backend, recorder = guarded_backend(current, updated)
     bus = _RecordingBus()
-    return TasksCoreService(backend=backend, event_bus=bus), bus, backend
+    return TasksCoreService(backend=backend, event_bus=bus), bus, backend, recorder
 
 
 # ---------------------------------------------------------------------------
@@ -75,7 +78,7 @@ class TestUpdateTaskPublishesTaskCompleted:
     async def test_a_genuine_transition_publishes_exactly_one_event(self) -> None:
         current = Task(uid="task_1", user_uid=USER, title="t", status=EntityStatus.ACTIVE)
         updated = Task(uid="task_1", user_uid=USER, title="t", status=EntityStatus.COMPLETED)
-        service, bus, _ = _core_service(current, updated)
+        service, bus, _, _ = _core_service(current, updated)
 
         result = await service.update_task("task_1", TaskUpdateIntent(status="completed"))
 
@@ -106,7 +109,7 @@ class TestUpdateTaskPublishesTaskCompleted:
             due_date=yesterday,
             actual_minutes=45,
         )
-        service, bus, backend = _core_service(current, updated)
+        service, bus, backend, _recorder = _core_service(current, updated)
 
         result = await service.update_task("task_1", TaskUpdateIntent(status="completed"))
 
@@ -114,7 +117,9 @@ class TestUpdateTaskPublishesTaskCompleted:
         event = bus.of(TaskCompleted)[0]
         assert event.was_overdue is True
         assert event.completion_time_seconds == 45 * 60
-        assert backend.get.await_count == 1, "the event cost an extra read"
+        # Stronger than before: a status-only update now reads NOTHING up front —
+        # the prior rides back on the write itself (ADR-087).
+        backend.get.assert_not_awaited()
 
     async def test_a_zero_duration_is_reported_not_dropped(self) -> None:
         """``is not None``, not truthiness — 0 is a legal reported duration."""
@@ -132,7 +137,7 @@ class TestUpdateTaskPublishesTaskCompleted:
             status=EntityStatus.COMPLETED,
             actual_minutes=0,
         )
-        service, bus, _ = _core_service(current, updated)
+        service, bus, _, _ = _core_service(current, updated)
 
         result = await service.update_task("task_1", TaskUpdateIntent(status="completed"))
 
@@ -144,7 +149,7 @@ class TestUpdateTaskPublishesTaskCompleted:
         which is why this door never needs ``is_repeat=True``."""
         current = Task(uid="task_1", user_uid=USER, title="t", status=EntityStatus.COMPLETED)
         updated = Task(uid="task_1", user_uid=USER, title="t", status=EntityStatus.COMPLETED)
-        service, bus, _ = _core_service(current, updated)
+        service, bus, _, _ = _core_service(current, updated)
 
         result = await service.update_task("task_1", TaskUpdateIntent(status="completed"))
 
@@ -154,7 +159,7 @@ class TestUpdateTaskPublishesTaskCompleted:
     async def test_a_non_status_write_publishes_nothing(self) -> None:
         current = Task(uid="task_1", user_uid=USER, title="t", status=EntityStatus.ACTIVE)
         updated = Task(uid="task_1", user_uid=USER, title="new", status=EntityStatus.ACTIVE)
-        service, bus, backend = _core_service(current, updated)
+        service, bus, backend, _recorder = _core_service(current, updated)
 
         result = await service.update_task("task_1", TaskUpdateIntent(title="new"))
 
@@ -165,7 +170,7 @@ class TestUpdateTaskPublishesTaskCompleted:
     async def test_a_lateral_status_write_publishes_nothing(self) -> None:
         current = Task(uid="task_1", user_uid=USER, title="t", status=EntityStatus.ACTIVE)
         updated = Task(uid="task_1", user_uid=USER, title="t", status=EntityStatus.PAUSED)
-        service, bus, _ = _core_service(current, updated)
+        service, bus, _, _ = _core_service(current, updated)
 
         result = await service.update_task("task_1", TaskUpdateIntent(status="paused"))
 
@@ -175,7 +180,7 @@ class TestUpdateTaskPublishesTaskCompleted:
     async def test_a_reopen_publishes_no_completion(self) -> None:
         current = Task(uid="task_1", user_uid=USER, title="t", status=EntityStatus.COMPLETED)
         updated = Task(uid="task_1", user_uid=USER, title="t", status=EntityStatus.ACTIVE)
-        service, bus, _ = _core_service(current, updated)
+        service, bus, _, _ = _core_service(current, updated)
 
         result = await service.update_task("task_1", TaskUpdateIntent(status="active"))
 
@@ -185,8 +190,10 @@ class TestUpdateTaskPublishesTaskCompleted:
     async def test_a_failed_write_publishes_nothing(self) -> None:
         current = Task(uid="task_1", user_uid=USER, title="t", status=EntityStatus.ACTIVE)
         updated = Task(uid="task_1", user_uid=USER, title="t", status=EntityStatus.COMPLETED)
-        service, bus, backend = _core_service(current, updated)
-        backend.update = AsyncMock(return_value=Result.fail(Errors.database("update", "boom")))
+        service, bus, backend, _recorder = _core_service(current, updated)
+        backend.update_with_status_guard = AsyncMock(
+            return_value=Result.fail(Errors.database("update_with_status_guard", "boom"))
+        )
 
         result = await service.update_task("task_1", TaskUpdateIntent(status="completed"))
 
@@ -215,7 +222,7 @@ class TestUpdateTaskPublishesTaskReopened:
     async def test_a_genuine_reopen_publishes_exactly_one_event(self) -> None:
         current = Task(uid="task_1", user_uid=USER, title="t", status=EntityStatus.COMPLETED)
         updated = Task(uid="task_1", user_uid=USER, title="t", status=EntityStatus.ACTIVE)
-        service, bus, _ = _core_service(current, updated)
+        service, bus, _, _ = _core_service(current, updated)
 
         result = await service.update_task("task_1", TaskUpdateIntent(status="active"))
 
@@ -229,7 +236,7 @@ class TestUpdateTaskPublishesTaskReopened:
         """The two gates are mutually exclusive — one write is never both."""
         current = Task(uid="task_1", user_uid=USER, title="t", status=EntityStatus.ACTIVE)
         updated = Task(uid="task_1", user_uid=USER, title="t", status=EntityStatus.COMPLETED)
-        service, bus, _ = _core_service(current, updated)
+        service, bus, _, _ = _core_service(current, updated)
 
         result = await service.update_task("task_1", TaskUpdateIntent(status="completed"))
 
@@ -242,7 +249,7 @@ class TestUpdateTaskPublishesTaskReopened:
         a reopen, so a status control that never touched ``completed`` is silent."""
         current = Task(uid="task_1", user_uid=USER, title="t", status=EntityStatus.ACTIVE)
         updated = Task(uid="task_1", user_uid=USER, title="t", status=EntityStatus.PAUSED)
-        service, bus, _ = _core_service(current, updated)
+        service, bus, _, _ = _core_service(current, updated)
 
         result = await service.update_task("task_1", TaskUpdateIntent(status="paused"))
 
@@ -252,7 +259,7 @@ class TestUpdateTaskPublishesTaskReopened:
     async def test_a_non_status_write_publishes_no_reopen(self) -> None:
         current = Task(uid="task_1", user_uid=USER, title="t", status=EntityStatus.COMPLETED)
         updated = Task(uid="task_1", user_uid=USER, title="new", status=EntityStatus.COMPLETED)
-        service, bus, _ = _core_service(current, updated)
+        service, bus, _, _ = _core_service(current, updated)
 
         result = await service.update_task("task_1", TaskUpdateIntent(title="new"))
 
@@ -262,8 +269,10 @@ class TestUpdateTaskPublishesTaskReopened:
     async def test_a_failed_write_publishes_no_reopen(self) -> None:
         current = Task(uid="task_1", user_uid=USER, title="t", status=EntityStatus.COMPLETED)
         updated = Task(uid="task_1", user_uid=USER, title="t", status=EntityStatus.ACTIVE)
-        service, bus, backend = _core_service(current, updated)
-        backend.update = AsyncMock(return_value=Result.fail(Errors.database("update", "boom")))
+        service, bus, backend, _recorder = _core_service(current, updated)
+        backend.update_with_status_guard = AsyncMock(
+            return_value=Result.fail(Errors.database("update_with_status_guard", "boom"))
+        )
 
         result = await service.update_task("task_1", TaskUpdateIntent(status="active"))
 
@@ -278,23 +287,17 @@ class TestUpdateTaskPublishesTaskReopened:
         open_task = Task(uid="task_1", user_uid=USER, title="t", status=EntityStatus.ACTIVE)
         done_task = Task(uid="task_1", user_uid=USER, title="t", status=EntityStatus.COMPLETED)
 
-        backend = Mock()
-        bus = _RecordingBus()
-        service = TasksCoreService(backend=backend, event_bus=bus)
+        service, bus, _backend, recorder = _core_service(open_task, done_task)
 
         # complete
-        backend.get = AsyncMock(return_value=Result.ok(open_task))
-        backend.update = AsyncMock(return_value=Result.ok(done_task))
         assert (await service.update_task("task_1", TaskUpdateIntent(status="completed"))).is_ok
 
         # Undo → reopen
-        backend.get = AsyncMock(return_value=Result.ok(done_task))
-        backend.update = AsyncMock(return_value=Result.ok(open_task))
+        recorder.set_state(done_task, open_task)
         assert (await service.update_task("task_1", TaskUpdateIntent(status="active"))).is_ok
 
         # complete again
-        backend.get = AsyncMock(return_value=Result.ok(open_task))
-        backend.update = AsyncMock(return_value=Result.ok(done_task))
+        recorder.set_state(open_task, done_task)
         assert (await service.update_task("task_1", TaskUpdateIntent(status="completed"))).is_ok
 
         assert len(bus.of(TaskCompleted)) == 2

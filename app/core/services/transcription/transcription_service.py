@@ -10,15 +10,16 @@ ARCHITECTURE DECISION (December 2025):
 Replaces the over-engineered 997-line TranscriptionService + 846-line
 AudioTranscriptionServiceV2 with a focused ~300-line service.
 
-8 Core Methods:
+9 Core Methods:
 1. create() - Create transcription record
 2. get() - Get transcription by UID
-3. process() - Send to Deepgram and update
-4. retry() - Retry failed transcription
-5. list() - List transcriptions with filters
-6. search() - Search by transcript text
-7. delete() - Delete transcription
-8. update_status() - Update processing status
+3. verify_ownership() - Fetch by UID, refusing a non-owner
+4. process() - Send to Deepgram and update
+5. retry() - Retry failed transcription
+6. list() - List transcriptions with filters
+7. get_by_status() - List by processing status
+8. search() - Search by transcript text
+9. delete() - Delete transcription
 
 Everything else is inherited from BackendOperations or handled via events.
 """

@@ -11,6 +11,8 @@ Provides:
     get_or_fail: Get entity by UID, not-found as error Result
     get_many: Batch entity retrieval (N+1 prevention)
     update: Partial update with updated_at timestamp
+    update_with_status_guard: Partial update whose conditions are evaluated at write
+        time against the node's prior status, under its write-lock (ADR-087)
     delete: Delete with optional cascade (DETACH DELETE)
     list: List entities with filters, pagination, sorting
 
@@ -25,11 +27,13 @@ from __future__ import annotations
 import time
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
+from uuid import uuid4
 
 from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node, to_neo4j_node
 from core.models.protocols import DomainModelProtocol
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import FilterParams, Neo4jProperties, UserUID
+from core.models.update_contracts import StatusGuardedOutcome, StatusWriteGuard
 from core.utils.error_boundary import safe_backend_operation
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.result_simplified import Errors, Result
@@ -48,7 +52,8 @@ if TYPE_CHECKING:
 
 class _CrudMixin[T: DomainModelProtocol]:
     """
-    CrudOperations[T] — create, get, get_visible_to_user, get_many, update, delete, list.
+    CrudOperations[T] — create, get, get_visible_to_user, get_many, update,
+    update_with_status_guard, delete, list.
 
     Requires on concrete class:
         driver: AsyncDriver
@@ -560,6 +565,157 @@ class _CrudMixin[T: DomainModelProtocol]:
         self._track_db_metrics("update", time.time() - start_time, is_error=False)
 
         return Result.ok(updated)
+
+    @safe_backend_operation("update_with_status_guard")
+    async def update_with_status_guard(
+        self, uid: str, updates: dict[str, Any], guard: StatusWriteGuard
+    ) -> Result[StatusGuardedOutcome[T]]:
+        """Update an entity with its guard evaluated at write time, under the node's lock.
+
+        The write-side peer of :meth:`update`, and the ONE way a status-bearing write is
+        done (ADR-087). ``update`` writes a patch a caller already decided on; this
+        captures the node's status *inside* the write statement — after taking the node's
+        write-lock — chooses ``guard``'s conditional patches from that prior, and returns
+        the prior so the caller can derive its transition verdicts exactly. The read that
+        used to decide those verdicts happened before the write and outside any lock, so
+        two concurrent writers could both conclude "I completed this".
+
+        Contract:
+            - **Not found** (no row matched, same default-filter semantics as ``update``)
+              → ``Result.fail(not_found)``. Guard evaluation happens after the MATCH, so
+              a returned row proves existence and no row proves absence — one query leg
+              distinguishes them.
+            - **Guarded out** (prior in ``guard.refuse_if_prior_in``) → ``Result.ok`` with
+              ``applied=False`` and the node byte-identical, ``updated_at`` included.
+              Callers branch on it; it is an outcome, never an error.
+            - ``updated_at`` is stamped Python-side into ``updates`` (as ``update`` does),
+              so it rides the same conditional merge and only lands when the write applies.
+            - All three payloads pass through ``to_neo4j_node``, so storage shapes match
+              every other write (dates/datetimes → ISO strings) and a ``None`` survives to
+              ``SET n += {field: null}``, which REMOVES the property — the reopen clear.
+
+        Args:
+            uid: UID of the entity to update.
+            updates: The unconditional partial patch (may be empty iff ``guard`` carries
+                a conditional patch).
+            guard: The prior-status conditions. A default ``StatusWriteGuard()`` makes
+                this exactly ``update`` plus a returned prior.
+
+        Returns:
+            ``Result[StatusGuardedOutcome[T]]`` — ``applied``, ``prior_status`` (read
+            under the lock; ``None`` when the property is absent), and ``entity``.
+        """
+        start_time = time.time()
+
+        if not updates and not guard.has_patches():
+            self._track_db_metrics(
+                "update_with_status_guard", time.time() - start_time, is_error=True
+            )
+            return Result.fail(
+                Errors.validation("No updates or conditional patches provided", field="updates")
+            )
+
+        updates = dict(updates)
+        updates["updated_at"] = datetime.now().isoformat()
+
+        # Prevent overwriting default_filter properties (e.g. entity_type) — mirrors update().
+        for k in self.default_filters:
+            updates.pop(k, None)
+
+        # Serialize exactly as update() does. Skipping this would let a caller's raw
+        # ``date``/enum/collection reach the driver and persist in a DIFFERENT shape
+        # than every other writer stores (a native Date instead of an ISO string) —
+        # the writer decides the storage type, so both write paths must decide alike.
+        updates = to_neo4j_node(updates)
+
+        patch_in_statuses, patch_in = self._guard_patch(guard.patch_if_prior_in)
+        patch_not_in_statuses, patch_not_in = self._guard_patch(guard.patch_if_prior_not_in)
+
+        df_clause = self._default_filter_clause()
+        where_line = f"WHERE {df_clause}" if df_clause else ""
+
+        # Lock BEFORE the read. MATCH takes no write-lock, so a plain read — or a
+        # `WHERE n.status = $x` compare-and-set — lets two concurrent writers observe
+        # the same prior. This first SET acquires the node's exclusive write-lock
+        # (ADR-030's sentinel mechanism, single-statement form) and every clause below
+        # runs under it; the sentinel is removed in the same statement, so it never
+        # lingers. Measured: 4 concurrent completes on one node, 40 trials — exactly one
+        # writer saw a non-completed prior every time, versus 39/40 trials producing 2-4
+        # such writers without the lock. A unique token per call (rather than a constant)
+        # keeps this a genuine property write no same-value optimization can elide.
+        #
+        # One statement in an auto-commit tx suffices because — unlike ADR-030's JSON
+        # append — the conditional merge is fully Cypher-expressible, so no Python runs
+        # between the read and the write. `_run_single` gives at-most-once execution (no
+        # managed retry): a rare transient surfaces as a Result.fail the caller
+        # propagates, never a silent re-run whose returned prior misreports the verdict.
+        query = f"""
+        MATCH (n:{self.label} {{uid: $uid}})
+        {where_line}
+        SET n.`_sg_lock` = $lock_token
+        WITH n, n.status AS prior
+        REMOVE n.`_sg_lock`
+        WITH n, prior, coalesce(prior, '') AS prior_key
+        WITH n, prior, prior_key, (NOT prior_key IN $refuse_statuses) AS applied
+        SET n += CASE WHEN applied THEN $updates ELSE {{}} END
+        SET n += CASE WHEN applied AND prior_key IN $patch_in_statuses THEN $patch_in ELSE {{}} END
+        SET n += CASE
+            WHEN applied AND NOT prior_key IN $patch_not_in_statuses THEN $patch_not_in ELSE {{}}
+        END
+        RETURN n AS node, prior AS prior, applied AS applied
+        """
+
+        params: dict[str, Any] = {
+            "uid": uid,
+            "lock_token": uuid4().hex,
+            "updates": updates,
+            # `x IN []` is false and `NOT x IN []` is true, so an unused knob is a no-op:
+            # the first patch never fires, the second merges an empty map.
+            "refuse_statuses": sorted(guard.refuse_if_prior_in),
+            "patch_in_statuses": patch_in_statuses,
+            "patch_in": patch_in,
+            "patch_not_in_statuses": patch_not_in_statuses,
+            "patch_not_in": patch_not_in,
+        }
+        params.update(self._default_filter_params())
+
+        record = await self._run_single(query, params)
+
+        if not record:
+            self._track_db_metrics(
+                "update_with_status_guard", time.time() - start_time, is_error=True
+            )
+            return Result.fail(Errors.not_found("resource", f"{self.label} {uid} not found"))
+
+        # Status is written as a string everywhere (the mapper emits `EntityStatus.value`);
+        # anything else is treated as absent, which is what `_coerce_status` would do with
+        # it at the service anyway.
+        raw_prior = record["prior"]
+        entity = from_neo4j_node(dict(record["node"]), self.entity_class)
+
+        self._track_db_metrics("update_with_status_guard", time.time() - start_time, is_error=False)
+
+        return Result.ok(
+            StatusGuardedOutcome(
+                applied=bool(record["applied"]),
+                prior_status=raw_prior if isinstance(raw_prior, str) else None,
+                entity=entity,
+            )
+        )
+
+    @staticmethod
+    def _guard_patch(
+        conditional: tuple[frozenset[str], Neo4jProperties] | None,
+    ) -> tuple[builtins.list[str], dict[str, Any]]:
+        """Split a guard's conditional patch into its (statuses, serialized patch) params.
+
+        ``None`` yields the no-op pair — an empty status list (so the membership test
+        decides nothing) and an empty map (so the merge writes nothing).
+        """
+        if conditional is None:
+            return [], {}
+        statuses, patch = conditional
+        return sorted(statuses), to_neo4j_node(dict(patch))
 
     @safe_backend_operation("atomic_append_dual_track_checkin")
     async def atomic_append_dual_track_checkin(
