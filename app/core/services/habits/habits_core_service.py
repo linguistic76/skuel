@@ -29,7 +29,7 @@ from core.models.type_hints import UserUID
 from core.ports.domain_protocols import HabitsOperations
 from core.ports.query_types import HabitStats
 from core.services.base_service import BaseService
-from core.services.completion_stamp import completion_transition_patch
+from core.services.completion_stamp import status_transition_guard
 from core.services.domain_config import create_activity_domain_config
 from core.services.mixins.hierarchy_read_mixin import HierarchyReadMixin
 from core.services.mixins.link_edge_guard import (
@@ -565,18 +565,24 @@ class HabitsCoreService(
         path, so the intent's ``to_changes()`` is written wholesale.
         Status transitions are validated against the Habit lifecycle and completion
         stamping (lifecycle ``completed_at``) is applied here — the domain's one update
-        chokepoint (``core.services.completion_stamp``).
+        chokepoint (``core.services.completion_stamp``) — as a condition the WRITE
+        evaluates against the status the node holds under its lock, not against the read
+        above (ADR-087). The read stays because ``_validate_habit_update`` needs it; only
+        the stamp stopped depending on it.
 
-        Design note (ADR-066 trace-and-deviate, mirrors Principles' documented case):
-        unlike Goals/Choices, ``update_habit`` does **not** route through ``super().update()``.
-        Habits' ``_validate_update`` reads a transient ``force_archive`` directive that bypasses
-        the streak-preservation rule. The shared base passes the *same* mapping to
-        ``_validate_update`` and ``backend.update`` (``SET n += $updates``, no key filtering), so
-        carrying ``force_archive`` through ``super().update()`` would persist it as a junk node
-        column. Instead we validate explicitly here — with the flag visible to validation only —
-        then write the clean column patch backend-direct. Validation still runs on every path
-        (all callers funnel through here), and the previously-unwired ``force_archive`` escape
-        hatch its own error message advertises now works honestly.
+        Design note (ADR-066 trace-and-deviate): ``update_habit`` does **not** route
+        through ``super().update()``. Habits' ``_validate_update`` reads a transient
+        ``force_archive`` directive that bypasses the streak-preservation rule. The shared
+        base passes the *same* mapping to ``_validate_update`` and ``backend.update``
+        (``SET n += $updates``, no key filtering), so carrying ``force_archive`` through
+        ``super().update()`` would persist it as a junk node column. Instead we validate
+        explicitly here — with the flag visible to validation only — then write the clean
+        column patch backend-direct. Validation still runs on every path (all callers
+        funnel through here), and the previously-unwired ``force_archive`` escape hatch
+        its own error message advertises now works honestly. Habits reached this shape
+        first; ADR-087 PR-3 brought Goals, Events and Choices to it too, for a different
+        reason (the guarded write is not on the shared base's path either), so the
+        explicit-validation call is now what every Activity chokepoint does.
 
         Args:
             uid: Habit UID
@@ -612,16 +618,19 @@ class HabitsCoreService(
         # Status-target validation + completion stamping (transition-gated) — the
         # lifecycle ``completed_at``, distinct from occurrence completions
         # (HabitCompletion nodes, owned by the completions sub-service).
-        stamp = completion_transition_patch(EntityType.HABIT, current.status, changes)
-        if stamp.is_error:
-            return Result.fail(stamp)
-        changes.update(stamp.value)
+        guard_result = status_transition_guard(EntityType.HABIT, changes)
+        if guard_result.is_error:
+            return Result.fail(guard_result)
 
-        result: Result[Habit] = await self.backend.update(uid, dict(changes))
-        if result.is_error:
-            return result
+        update_result = await self.backend.update_with_status_guard(
+            uid, dict(changes), guard_result.value
+        )
+        if update_result.is_error:
+            return Result.fail(update_result)
 
-        habit = result.value
+        # This guard refuses nothing (``refuse_if_prior_in`` is empty), so the write
+        # always applied.
+        habit = update_result.value.entity
         await publish_event(
             self.event_bus,
             HabitUpdated(
@@ -635,7 +644,7 @@ class HabitsCoreService(
             self.event_bus, EntityType.HABIT, habit, self.logger, changed_fields=updated_fields
         )
 
-        return result
+        return Result.ok(habit)
 
     async def delete(self, uid: str, cascade: bool = False) -> Result[bool]:
         """

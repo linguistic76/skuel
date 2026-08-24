@@ -140,6 +140,28 @@ two to four such writers. The lock is the mechanism; the `CASE` merges alone are
   (the write-time form) coexist during the migration, sharing one validated front half
   (`_stamp_target`) so the legality check and the authority rule cannot drift. The
   Python-side form retires when its last caller migrates.
+- **Two domain rules migrated whole, not just the stamps.** A rule whose verdict depends
+  on the prior status is the same staleness class this ADR closes, so where the rule's
+  other half is caller-side knowledge it moves into the guard:
+  - Goals' **reopen progress reset** rides the guard's prior-conditional patch alongside
+    the stamp clear, because both condition on "was it COMPLETED?". Note the stamp patch
+    is *absent* when the caller supplies its own `achieved_date` (the authority rule is
+    about the stamp field, and says nothing about progress), so the reset constructs that
+    patch when needed rather than merely extending it.
+  - Choices' **decision immutability** becomes a `refuse_if_prior_in`. Which fields an
+    update touches is known before the write, so only the prior-status half is left for
+    the write to decide. It is still checked against the advisory pre-read as a fast
+    path — that check can only ever be stale in the harmless direction, since no door
+    moves a choice back out of a decided status, while the direction that matters is
+    real: `make_decision` moves a DRAFT choice to ACTIVE with a raw write that never
+    passes through the chokepoint.
+- **Moving a chokepoint backend-direct takes `_validate_update` off the path.** The
+  facades route the generic CRUD to these methods, so the inherited
+  `CrudOperationsMixin.update` hook is the *only* thing that was running the domain rules
+  — and it stops running once the write leaves the mixin. Every migrated chokepoint calls
+  the hook explicitly, and each has a test pinning that its rules still fire and still
+  refuse. This is the "correction #14" class: a rule that has no caller fails silently and
+  looks like it passed.
 - **`today.js`'s request queue stays**, and was completed rather than retired. The
   primitive makes each write's verdict exact under any interleaving; it cannot ORDER two
   opposing HTTP requests, and no server-side guard can decide which of two the user MEANT
@@ -169,7 +191,14 @@ Deliberately **out**, by name:
   be uniformity theater. It does still *call* `completion_transition_patch`, for that
   legality check alone (Principle has no completion field, so the patch is always empty) —
   so retiring the Python-side form means giving Principles a legality-only successor
-  (`_stamp_target` already is one), not simply deleting the function.
+  (`_stamp_target` already is one), not simply deleting the function. Confirmed by MCF,
+  2026-08-24; the reason is stated at the site so a future reader meets it there rather
+  than reading the exception as an oversight.
+- **`ChoicesCoreService.make_decision`'s raw status write.** It moves a choice to ACTIVE
+  outside the chokepoint, which is what makes Choices' decision-immutability race real —
+  but it is a decision-finalization writer with its own event provenance, not a status
+  chokepoint, and DRAFT → ACTIVE is not a completion transition. Registered for the PR-4
+  straggler sweep alongside `TasksProgressService.unblock_task_if_ready`.
 - **ADR-030's check-in store** stays exactly as it is.
 
 ## Alternatives rejected

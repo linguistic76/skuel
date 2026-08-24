@@ -15,7 +15,6 @@ Responsibilities:
 
 from __future__ import annotations
 
-import dataclasses
 from datetime import date
 from operator import attrgetter
 from typing import TYPE_CHECKING, Any
@@ -41,7 +40,7 @@ from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
 from core.ports.query_types import EventStats
 from core.services.base_service import BaseService
-from core.services.completion_stamp import completion_transition_patch, is_completion_transition
+from core.services.completion_stamp import is_completion_transition, status_transition_guard
 from core.services.domain_config import create_activity_domain_config
 from core.services.mixins.hierarchy_read_mixin import HierarchyReadMixin
 from core.services.mixins.link_edge_guard import LinkEdge, keep_permitted_link_edges
@@ -532,17 +531,25 @@ class EventsCoreService(
     async def update_event(self, uid: str, intent: EventUpdateIntent) -> Result[Event]:
         """Update a calendar event's node properties (ADR-066 typed update contract).
 
-        Materializes the intent to a partial patch once, validated and written through the
-        inherited CRUD ``update`` (BaseService → ``_validate_update`` → ``backend.update``),
-        then publishes the appropriate calendar event. This is Shape B: ``super().update``
-        is kept (not a direct ``backend.update``) so ``_validate_update`` (past-event
-        immutability, duration bounds) still runs.
+        Materializes the intent to a partial patch and writes it exactly once, at the
+        single ``backend.update_with_status_guard`` seam, then publishes the appropriate
+        calendar event. The domain rules (``_validate_update`` — past-event immutability,
+        duration bounds) run here, explicitly: the facade routes the generic CRUD to this
+        method, so the inherited hook never fires for Events.
+
+        Events is the one chokepoint whose advisory pre-read is UNCONDITIONAL. Past-event
+        immutability reads ``current.event_date`` and applies to every field of every
+        update, so there is no narrower gate to put it behind — unlike Tasks, which reads
+        only for a priority change. The same read supplies the old date the reschedule
+        event reports.
 
         The facade (``EventsService.update_event``) splits the two edge fields off the
         intent before calling this, so ``intent.to_changes()`` here carries only node
         properties. Status transitions are validated against the Event lifecycle and
         completion stamping (``completed_at``) is applied here — the domain's one
-        update chokepoint (``core.services.completion_stamp``).
+        update chokepoint (``core.services.completion_stamp``) — as a condition the WRITE
+        evaluates against the status the node holds under its lock, not against the
+        advisory read above (ADR-087).
 
         Args:
             uid: Event UID
@@ -561,37 +568,43 @@ class EventsCoreService(
         # reading changes.keys() after the write would leak that bump into the event.
         updated_fields: dict[str, Any] = dict(changes)
 
-        # Fetch the prior event only when a status / date transition needs old-vs-new.
-        old_event_date = None
-        old_status = None
-        if "status" in changes or "event_date" in changes:
-            current_result = await self.get(uid)
-            if current_result.is_error and "status" in changes:
-                # Fail fast: the stamp is transition-gated on the prior status; a
-                # failed read must not be read as "not completed" (re-dating risk).
-                return Result.fail(current_result)
-            if current_result.is_ok and current_result.value:
-                old_event_date = current_result.value.event_date
-                old_status = current_result.value.status
+        # Advisory pre-read — unconditional, because past-event immutability applies to
+        # every field of every update (see the docstring). It also carries the old date
+        # the reschedule event reports.
+        current_result = await self.get(uid)
+        if current_result.is_error:
+            return Result.fail(current_result)
+        old_event = current_result.value
+        old_event_date = old_event.event_date
 
-        if "status" in changes:
-            # Status-target validation + completion stamping (transition-gated). The
-            # stamp rides the intent so ``super().update`` writes it in the same patch.
-            stamp = completion_transition_patch(EntityType.EVENT, old_status, changes)
-            if stamp.is_error:
-                return Result.fail(stamp)
-            if stamp.value:
-                intent = dataclasses.replace(intent, **stamp.value)
+        # Domain validation BEFORE the write. Called explicitly because the facade routes
+        # ``update`` / ``update_for_user`` to this method, so the inherited CRUD hook that
+        # would otherwise run it is unreachable for Events — dropping this call is how a
+        # live domain rule dies silently (cascade-idempotency arc, correction #14).
+        validation = self._validate_update(old_event, intent)
+        if validation.is_error:
+            return Result.fail(validation)
 
-        result = await super().update(uid, intent)
-        if result.is_error:
-            return result
+        # Status-target validation + completion stamping, expressed as conditions the
+        # WRITE evaluates against the prior it reads under the node's lock (ADR-087).
+        guard_result = status_transition_guard(EntityType.EVENT, changes)
+        if guard_result.is_error:
+            return Result.fail(guard_result)
 
-        event = result.value
+        update_result = await self.backend.update_with_status_guard(
+            uid, changes, guard_result.value
+        )
+        if update_result.is_error:
+            return Result.fail(update_result)
+
+        # This guard refuses nothing (``refuse_if_prior_in`` is empty), so the write
+        # always applied; only the prior it returned is news.
+        outcome = update_result.value
+        event = outcome.entity
 
         domain_event: BaseEvent
         # Priority 1: Status changed to COMPLETED (state transition only).
-        if is_completion_transition(old_status, changes):
+        if is_completion_transition(outcome.prior_status, changes):
             domain_event = CalendarEventCompleted(
                 event_uid=event.uid,
                 user_uid=event.user_uid,
@@ -623,7 +636,7 @@ class EventsCoreService(
             self.event_bus, EntityType.EVENT, event, self.logger, changed_fields=updated_fields
         )
 
-        return result
+        return Result.ok(event)
 
     async def delete(self, uid: str, cascade: bool = False) -> Result[bool]:
         """

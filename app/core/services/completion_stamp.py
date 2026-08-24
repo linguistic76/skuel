@@ -4,8 +4,9 @@ Completion stamping — the shared status-transition helper for Activity updates
 
 Every intent-based Activity update funnels through one per-domain core method
 (``update_task`` … ``update_principle``). Each of those six chokepoints applies the
-rules here at its write — Tasks as a write-time guard (:func:`status_transition_guard`),
-the other five still via :func:`completion_transition_patch` — so that:
+rules here at its write — the five stamping domains (Task, Goal, Habit, Event, Choice)
+as a write-time guard (:func:`status_transition_guard`), Principle still via
+:func:`completion_transition_patch`, for its legality check alone — so that:
 
 1. **The status target is legal for the type** — ``EntityType.valid_statuses()``
    is enforced at the seam instead of being documentation (e.g. a Principle can
@@ -37,8 +38,9 @@ caller read *before* the write; :func:`status_transition_guard` packages the sam
 decision as a :class:`StatusWriteGuard` the write statement evaluates against the
 prior it reads *under the node's write-lock*, which is what makes the verdict exact
 when two writers race. Both enforce the same legality check and the same authority
-rule, and each chokepoint uses exactly one of them at any time. The Python-side form
-retires when its last caller migrates (ADR-087 PR-4).
+rule, and each chokepoint uses exactly one of them at any time. Every stamping domain
+is now on the guard; the Python-side form survives only for Principle's legality check
+and for the goal-progress writers PR-4 migrates, and retires with them.
 """
 
 from __future__ import annotations
@@ -248,17 +250,21 @@ def completion_transition_patch(
 
     ⚠ **Being retired (ADR-087).** This is the read-then-write form: it needs a prior
     the caller read *before* the write, outside any lock, so two concurrent writers can
-    both act on the same status. :func:`status_transition_guard` is the successor.
-    Tasks have all moved (PR-1 ``update_task``; PR-2 ``complete_task_with_cascade``,
-    ``_trigger_task``, ``complete_tasks_bulk``). The five remaining callers:
+    both act on the same status. :func:`status_transition_guard` is the successor. Every
+    Activity update chokepoint has moved (PR-1 ``update_task``; PR-2
+    ``complete_task_with_cascade``, ``_trigger_task``, ``complete_tasks_bulk``; PR-3
+    ``update_goal`` / ``update_event`` / ``update_choice`` / ``update_habit``). ONE
+    caller remains:
 
-    - ``update_goal`` / ``update_event`` / ``update_choice`` / ``update_habit`` (PR-3),
-      plus the four goal-progress writers PR-4 migrates off their own blind writes;
     - ``update_principle`` — which calls this for the **legality check alone** (Principle
       has no ``_STAMP_SPECS`` entry, so the patch is always empty) and is deliberately
       NOT migrating: its gate is target-only and prior-independent, so there is no race
       to close. PR-4 must give it a legality-only successor — :func:`_stamp_target` is
       already that shape — before deleting this function.
+
+    PR-4 also migrates the four ``goals_progress_service`` writers, which today decide
+    completion from a pre-read and then blind-write; they never called this function, so
+    they do not appear above.
 
     Each site holds exactly ONE path at any moment. Do not add a caller. Both forms
     share :func:`_stamp_target`, so the rules cannot drift meanwhile.

@@ -8,8 +8,9 @@ Handles basic CRUD operations for choices.
 from __future__ import annotations
 
 import dataclasses
+from collections.abc import Mapping
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, Final, cast
 
 from core.events import publish_event
 from core.events.choice_events import (
@@ -27,16 +28,18 @@ from core.models.enums.choice_enums import ChoiceType
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import Neo4jProperties, UserUID
+from core.models.update_contracts import StatusWriteGuard
 from core.ports.query_types import ChoiceStats
 from core.services.base_service import BaseService
-from core.services.completion_stamp import completion_transition_patch
+from core.services.completion_stamp import status_transition_guard
 from core.services.conversion_service import ConversionServiceV2
 from core.services.domain_config import create_activity_domain_config
 from core.services.mixins.hierarchy_read_mixin import HierarchyReadMixin
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import ErrorContext, Errors, Result
 from core.utils.sort_functions import make_attribute_sort_key
+from core.utils.type_converters import get_enum_value
 from core.utils.uid_generator import UIDGenerator
 
 if TYPE_CHECKING:
@@ -45,6 +48,84 @@ if TYPE_CHECKING:
         ChoiceEvaluationRequest,
     )
     from core.ports.domain_protocols import ChoicesOperations
+
+
+#: Once a choice is decided, these are the fields that ARE the decision. Everything
+#: else (notes, metadata, title) stays editable on a historical record.
+_DECISION_CRITICAL_FIELDS: Final = frozenset(
+    {"options", "choice_type", "status", "selected_option"}
+)
+
+#: The prior statuses that mean "this choice has been decided".
+_DECIDED_STATUSES: Final = frozenset({EntityStatus.ACTIVE.value, EntityStatus.COMPLETED.value})
+
+
+def _decision_immutability_error(
+    prior_status: str | None, changes: Mapping[str, Any]
+) -> ErrorContext:
+    """The refusal Business Rule 1 produces — one message, wherever the rule is asked.
+
+    Args:
+        prior_status: The choice's status before the write, canonical value or ``None``.
+        changes: The materialized update patch. Never mutated.
+    """
+    changed_critical = _DECISION_CRITICAL_FIELDS & set(changes)
+    return Errors.validation(
+        message=f"Cannot modify {', '.join(sorted(changed_critical))} in {prior_status} state. "
+        f"Decisions are historical records. Create a new choice to reconsider.",
+        field="status",
+        value=prior_status,
+    )
+
+
+def _decision_immutability_check(
+    prior_status: str | None, changes: Mapping[str, Any]
+) -> Result[None]:
+    """Business Rule 1: a decided choice's decision fields are a historical record.
+
+    Asked twice about the same write: once by ``_validate_update`` against the advisory
+    pre-read (the fast path), and once by the write itself, against the prior it captured
+    under the node's lock — which is the authoritative answer (ADR-087) and closes the
+    race with ``make_decision``, a raw writer that moves a DRAFT choice to ACTIVE without
+    passing through this chokepoint.
+
+    Args:
+        prior_status: The choice's status before the write, canonical value or ``None``.
+        changes: The materialized update patch. Never mutated.
+
+    Returns:
+        ``Result.ok(None)`` when the write is permitted, ``Result.fail`` (validation)
+        naming the critical fields it tried to change.
+    """
+    if prior_status not in _DECIDED_STATUSES:
+        return Result.ok(None)
+    if not (_DECISION_CRITICAL_FIELDS & set(changes)):
+        return Result.ok(None)
+    return Result.fail(_decision_immutability_error(prior_status, changes))
+
+
+def _with_decision_immutability(
+    guard: StatusWriteGuard, changes: Mapping[str, Any]
+) -> StatusWriteGuard:
+    """Make decision immutability a condition of the write itself (ADR-087).
+
+    Which fields this update changes is caller-side knowledge, so the field-conditional
+    half of the rule resolves here and only the prior-status half is left for the write:
+    when a critical field is in play, refuse if the prior is a decided status. That is
+    exactly a ``refuse_if_prior_in`` set, so the rule migrates whole rather than staying
+    a pre-read verdict a concurrent ``make_decision`` can invalidate.
+
+    Args:
+        guard: The stamp guard from ``status_transition_guard``.
+        changes: The materialized update patch. Never mutated.
+
+    Returns:
+        The guard, with the decided statuses added to its refuse set when this update
+        touches the decision.
+    """
+    if not (_DECISION_CRITICAL_FIELDS & set(changes)):
+        return guard
+    return dataclasses.replace(guard, refuse_if_prior_in=_DECIDED_STATUSES)
 
 
 class ChoicesCoreService(
@@ -169,7 +250,9 @@ class ChoicesCoreService(
 
         Business Rules:
         1. Decision immutability: Cannot modify critical fields in DECIDED or EVALUATED states
-           (decisions are historical records - can only add notes or update metadata)
+           (decisions are historical records - can only add notes or update metadata).
+           Shared with the write-time guard via ``_decision_immutability_check`` — here it
+           answers from the advisory pre-read, at the write from the locked prior.
         2. Option count: If updating options, must maintain minimum of 2
 
         Args:
@@ -179,26 +262,12 @@ class ChoicesCoreService(
         Returns:
             None if valid, Result.fail() with validation error if invalid
         """
-        from core.utils.result_simplified import Errors
-
         changes = updates.to_changes()
-        # Business Rule 1: Decision immutability for critical fields
-        # Once a choice is decided/evaluated, it's a historical decision point
-        # Allow updates to notes/metadata, but not to the decision itself
-        if current.status in [EntityStatus.ACTIVE, EntityStatus.COMPLETED]:
-            # Critical fields that cannot be changed after decision
-            critical_fields = {"options", "choice_type", "status", "selected_option"}
-            changed_critical = set(changes.keys()) & critical_fields
 
-            if changed_critical:
-                return Result.fail(
-                    Errors.validation(
-                        message=f"Cannot modify {', '.join(changed_critical)} in {current.status.value} state. "
-                        f"Decisions are historical records. Create a new choice to reconsider.",
-                        field="status",
-                        value=current.status.value,
-                    )
-                )
+        # Business Rule 1: Decision immutability for critical fields
+        decided = _decision_immutability_check(get_enum_value(current.status), changes)
+        if decided.is_error:
+            return decided
 
         # Business Rule 2: Option count validation
         if "options" in changes and (not changes["options"] or len(changes["options"]) < 2):
@@ -445,18 +514,25 @@ class ChoicesCoreService(
     async def update_choice(self, choice_uid: str, intent: ChoiceUpdateIntent) -> Result[Choice]:
         """Update a choice's node properties (ADR-066 typed update contract).
 
-        Materializes the intent to a partial patch once, validated and written through the
-        inherited CRUD ``update`` (BaseService → ``_validate_update`` → ``backend.update``),
-        then publishes ``ChoiceUpdated``. Choices carry no edge fields on the update path,
-        so the intent's ``to_changes()`` is written wholesale — there is nothing to split off.
-        Status transitions are validated against the Choice lifecycle and completion
-        stamping (``completed_at``) is applied here — the domain's one update
-        chokepoint (``core.services.completion_stamp``).
+        Materializes the intent to a partial patch and writes it exactly once, at the
+        single ``backend.update_with_status_guard`` seam, then publishes ``ChoiceUpdated``.
+        Choices carry no edge fields on the update path, so the intent's ``to_changes()``
+        is written wholesale — there is nothing to split off. The domain rules
+        (``_validate_update`` — decision immutability, option-count floor) run here,
+        explicitly: the facade routes the generic CRUD to this method, so the inherited
+        hook never fires for Choices. Status transitions are validated against the Choice
+        lifecycle and completion stamping (``completed_at``) is applied here — the
+        domain's one update chokepoint (``core.services.completion_stamp``).
 
-        Unlike the prior implementation (which wrote ``backend.update`` directly and skipped
-        validation), this keeps ``super().update`` so ``_validate_update`` — decision
-        immutability for DECIDED/EVALUATED choices, option-count floor — runs on every
-        property update.
+        Decision immutability is enforced TWICE, deliberately (ADR-087). The pre-read
+        answer is the fast path and produces the ordinary refusal; the authoritative
+        answer is a ``refuse_if_prior_in`` the write evaluates against the status it holds
+        under the node's lock. That second one is what closes a real race:
+        ``make_decision`` moves a DRAFT choice to ACTIVE with a raw write that never
+        passes through here, so an edit that read DRAFT could otherwise rewrite a decision
+        made a millisecond later. The pre-read can only ever be stale in the harmless
+        direction — no door moves a choice back OUT of a decided status, so a prior that
+        reads decided cannot become undecided.
 
         Args:
             choice_uid: UID of the choice
@@ -474,26 +550,40 @@ class ChoicesCoreService(
         # reading the dict after the write would leak that bump into the event payload.
         updated_fields = dict(changes)
 
-        if "status" in changes:
-            current_result = await self.get(choice_uid)
-            if current_result.is_error:
-                # Fail fast: the stamp is transition-gated on the prior status; a
-                # failed read must not be read as "not completed" (re-dating risk).
-                return Result.fail(current_result)
-            old_status = current_result.value.status if current_result.value else None
-            # Status-target validation + completion stamping (transition-gated). The
-            # stamp rides the intent so ``super().update`` writes it in the same patch.
-            stamp = completion_transition_patch(EntityType.CHOICE, old_status, changes)
-            if stamp.is_error:
-                return Result.fail(stamp)
-            if stamp.value:
-                intent = dataclasses.replace(intent, **stamp.value)
+        # Advisory pre-read — unconditional, because decision immutability reads
+        # ``current.status`` and fires for any critical-field change (see the docstring).
+        current_result = await self.get(choice_uid)
+        if current_result.is_error:
+            return Result.fail(current_result)
 
-        result: Result[Choice] = await super().update(choice_uid, intent)
-        if result.is_error:
-            return result
+        # Domain validation BEFORE the write. Called explicitly because the facade routes
+        # ``update`` / ``update_for_user`` to this method, so the inherited CRUD hook that
+        # would otherwise run it is unreachable for Choices — dropping this call is how a
+        # live domain rule dies silently (cascade-idempotency arc, correction #14).
+        validation = self._validate_update(current_result.value, intent)
+        if validation.is_error:
+            return Result.fail(validation)
 
-        choice = result.value
+        # Status-target validation + completion stamping + decision immutability, all
+        # expressed as conditions the WRITE evaluates against the prior it reads under the
+        # node's lock (ADR-087).
+        guard_result = status_transition_guard(EntityType.CHOICE, changes)
+        if guard_result.is_error:
+            return Result.fail(guard_result)
+        guard = _with_decision_immutability(guard_result.value, changes)
+
+        update_result = await self.backend.update_with_status_guard(choice_uid, changes, guard)
+        if update_result.is_error:
+            return Result.fail(update_result)
+
+        outcome = update_result.value
+        if not outcome.applied:
+            # The guard's refuse set IS this rule's prior-status half, so a refused write
+            # means the choice was decided between the pre-read and the write. Same rule,
+            # same message — sourced from the status the write actually saw.
+            return Result.fail(_decision_immutability_error(outcome.prior_status, changes))
+
+        choice = outcome.entity
 
         if updated_fields:
             event = ChoiceUpdated(

@@ -439,6 +439,13 @@ the rules onto the intent (making both paths validate identically), or delete th
 the create-rules precedent in the same file (#963 — length bounds belong to the request
 model). Either way the two-path behavioral split ends.
 
+**Same class, found 2026-08-24 (ADR-087 PR-3), in Events**: `EventsCoreService._validate_update`
+Rule 2 keys on `duration_minutes`, and two of the three fields its past-event exception allows
+(`notes`, `quality_score`) are likewise absent from `EventUpdateIntent` — so this door cannot
+reach them at all. Rule 1 and the `tags` exception ARE live and are now pinned by tests. Smaller
+than the Principles case (nothing here is *unsatisfiable*, just unreachable), and the same
+ruling settles both: reform the rules onto the intent, or delete what the intent cannot carry.
+
 **Enable when**: next substantive touch of the Principles update path — do not let a new
 caller reach the base `update` contract before this is resolved.
 
