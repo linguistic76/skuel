@@ -195,8 +195,9 @@ class HabitsProgressService:
         # ALWAYS QUERY: Completion history (not in context - mutable data)
         # ====================================================================
 
-        completions_result = await self._get_habit_completions(habit_uid)
-        existing_completions = completions_result.value if completions_result.is_ok else []
+        # Scoped to the consistency window, which is all the one consumer below
+        # needs — the streak arithmetic reads habit.last_completed, not this list.
+        existing_completions = await self._consistency_window_completions(habit_uid, date.today())
 
         # ====================================================================
         # CALCULATE STREAK
@@ -404,18 +405,20 @@ class HabitsProgressService:
             )
 
         # ALWAYS QUERY: Completions (mutable data, not in context)
-        completions_result = await self._get_habit_completions(habit_uid)
-        completions = completions_result.value if completions_result.is_ok else []
+        completions = await self._consistency_window_completions(habit_uid, date.today())
 
         # Calculate various consistency metrics
         consistency_30d = self._calculate_consistency_from_completions(
             habit, completions, date.today()
         )
 
-        # Get quality trend from recent completions
+        # Quality trend over the same window, so every figure in this analysis
+        # describes one period. The list is most-recent-first, so the ten most
+        # recent are the HEAD — this took the TAIL, which is the ten OLDEST, off
+        # a page that was itself in no guaranteed order.
         recent_quality = 0.0
         if completions:
-            recent_completions = completions[-10:]  # Last 10 completions
+            recent_completions = completions[:10]
             quality_scores = [c.quality for c in recent_completions if c.quality is not None]
             if quality_scores:
                 recent_quality = sum(quality_scores) / len(quality_scores)
@@ -566,28 +569,35 @@ class HabitsProgressService:
     # PRIVATE HELPER METHODS
     # ========================================================================
 
-    async def _get_habit_completions(
-        self, habit_uid: str, limit: int = 100
-    ) -> Result[list[HabitCompletion]]:
+    async def _consistency_window_completions(
+        self, habit_uid: str, as_of_date: date
+    ) -> list[HabitCompletion]:
+        """This habit's completions inside the consistency window ending at ``as_of_date``.
+
+        Bounded in the QUERY, not after it. ``find_by`` caps at its limit and
+        says nothing about having done so, so an unbounded fetch of a habit with
+        more completions than the cap returns only part of its history — and a
+        habit kept daily for four months, or one carrying a run of legitimate
+        future pre-completions, can have the window's own rows fall outside that
+        part. Filtering afterwards then computes adherence from the wrong sample
+        and persists it: a confident wrong ``success_rate``, never an error.
+        Pushing both bounds into the query means the cap can only truncate rows
+        that were going to count, and a thirty-day window cannot realistically
+        reach it.
+
+        GRAPH-NATIVE: Completion history is stored as separate HabitCompletion
+        nodes, not as a serialized list on the Habit model.
+
+        A failed read degrades to an empty list, which is what both callers did
+        with the Result they no longer have to unpack: adherence over no known
+        completions is 0.0, the same reading a habit with none at all gets.
         """
-        Fetch HabitCompletion records for a habit from graph.
-
-        GRAPH-NATIVE: Completion history is stored as separate HabitCompletion nodes,
-        not as a serialized list on the Habit model.
-
-        Args:
-            habit_uid: UID of habit to fetch completions for
-            limit: Max number of completions to fetch (default 100)
-
-        Returns:
-            Result[list[HabitCompletion]] with completions sorted by date (most recent first)
-        """
-        return await self.completions.get_completions_for_habit(
+        result = await self.completions.get_completions_for_habit(
             habit_uid=habit_uid,
-            start_date=None,  # All completions
-            end_date=None,
-            limit=limit,
+            start_date=HabitConsistencyWindow.start_date(as_of_date),
+            end_date=HabitConsistencyWindow.end_date(as_of_date),
         )
+        return result.value if result.is_ok else []
 
     def _update_goals_from_habit(
         self,

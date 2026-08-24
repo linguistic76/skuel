@@ -20,9 +20,19 @@ It had no direct tests at all, and two defects that a test would have caught:
    more than the denominator asks for. Invisible under the ``min(1.0, …)`` clamp
    for a well-kept habit, and a quiet over-report for every partially-kept one.
 
-The method is synchronous and pure — it reads the habit, the completion list and
-the anchor, and touches no backend and no clock — so these run mock-free against
-sentinel dependencies.
+3. **The sample it filtered was arbitrary.** ``find_by`` caps at its limit and
+   says nothing about having done so, and emits no ``ORDER BY`` unless asked, so
+   the unbounded fetch behind both callers returned an arbitrary hundred of the
+   habit's completions. Past a hundred records — a daily habit kept four months,
+   or one carrying a run of legitimate future pre-completions — the window's own
+   rows can be absent from that page entirely, and filtering it computes
+   adherence from the wrong sample. Fixing which rows *count* is worth nothing if
+   the rows are never fetched, so the window is pushed into the query.
+
+The scoring method is synchronous and pure — it reads the habit, the completion
+list and the anchor, and touches no backend and no clock — so those tests run
+mock-free against sentinel dependencies. The fetch tests use a recording stub to
+assert what the query was asked for.
 """
 
 from __future__ import annotations
@@ -38,6 +48,7 @@ from core.models.enums.entity_enums import EntityType
 from core.models.habit.completion import HabitCompletion
 from core.models.habit.habit import Habit
 from core.services.habits.habits_progress_service import HabitsProgressService
+from core.utils.result_simplified import Errors, Result
 
 ANCHOR = date(2026, 8, 23)
 FIRST_DAY_IN = HabitConsistencyWindow.start_date(ANCHOR)
@@ -213,3 +224,55 @@ def test_a_custom_habit_with_no_target_reports_zero_rather_than_dividing_by_it(s
 
 def test_no_completions_at_all_reports_zero(service):
     assert service._calculate_consistency_from_completions(_habit(), [], ANCHOR) == 0.0
+
+
+# ============================================================================
+# THE FETCH — bounded in the QUERY, not after it
+# ============================================================================
+
+
+class _RecordingCompletions:
+    """Records the range ``get_completions_for_habit`` was asked for."""
+
+    def __init__(self) -> None:
+        self.calls: list[dict] = []
+
+    async def get_completions_for_habit(self, **kwargs):
+        self.calls.append(kwargs)
+        return Result.ok([])
+
+
+@pytest.mark.asyncio
+async def test_the_fetch_asks_the_query_for_the_window_not_for_everything(service):
+    """The finding, stated as the assertion that used to be impossible.
+
+    The old fetch asked for ``start_date=None, end_date=None, limit=100`` and
+    filtered the result in Python. ``find_by`` truncates at the limit without
+    saying so and emits no ``ORDER BY`` unless asked, so that page was an
+    arbitrary hundred rows — and a habit past a hundred completions could have
+    every in-window row missing from it. Both bounds now reach the query, so the
+    cap can only truncate rows that were going to count.
+    """
+    recorder = _RecordingCompletions()
+    service.completions = recorder
+
+    await service._consistency_window_completions("habit.test.1", ANCHOR)
+
+    assert len(recorder.calls) == 1
+    asked = recorder.calls[0]
+    assert asked["start_date"] == HabitConsistencyWindow.start_date(ANCHOR)
+    assert asked["end_date"] == HabitConsistencyWindow.end_date(ANCHOR)
+    assert asked["start_date"] is not None and asked["end_date"] is not None
+
+
+@pytest.mark.asyncio
+async def test_a_failed_read_reports_no_completions_rather_than_raising(service):
+    """Degrades to the reading a habit with no completions gets: 0.0."""
+
+    class _FailingCompletions:
+        async def get_completions_for_habit(self, **kwargs):
+            return Result.fail(Errors.database("read", "graph unavailable"))
+
+    service.completions = _FailingCompletions()
+
+    assert await service._consistency_window_completions("habit.test.1", ANCHOR) == []

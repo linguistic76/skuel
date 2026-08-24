@@ -487,7 +487,23 @@ class HabitsCompletionService:
         end_date: date | None = None,
         limit: int = 100,
     ) -> Result[list[HabitCompletion]]:
-        """Get all completions for a habit within date range."""
+        """A habit's completions within the date range, most recent first.
+
+        ``limit`` caps the result and says nothing about having done so, so the
+        query orders **in the database**: without an ``ORDER BY`` Neo4j
+        guarantees no row order, and the cap would truncate an arbitrary set —
+        a habit with more completions than the cap could return a page missing
+        the very rows the caller asked about, which reads as a confident wrong
+        answer rather than a failure. Ordering server-side makes the truncation
+        deterministic and keeps the most recent rows, the end every caller here
+        cares about. Callers that need completeness rather than recency should
+        bound the range (the cap then only truncates rows that were going to
+        count) or page, as ``_all_completions_for_user`` does.
+
+        The Python re-sort survives that because it decides the FINAL order
+        across the native/string ``completed_at`` split, which a single Cypher
+        ``ORDER BY`` cannot: mixed temporal types sort by type before value.
+        """
         self.logger.debug(f"Getting completions for habit {habit_uid}")
 
         # Build filters
@@ -497,8 +513,11 @@ class HabitsCompletionService:
         if end_date:
             filters["completed_at__lte"] = datetime.combine(end_date, datetime.max.time())
 
-        # Query completions
-        result = await self.completions_backend.find_by(**filters, limit=limit)
+        # Query completions — ordered server-side so the limit truncates the
+        # oldest rows rather than an arbitrary set.
+        result = await self.completions_backend.find_by(
+            **filters, limit=limit, sort_by="completed_at", sort_order="desc"
+        )
         if result.is_error:
             return Result.fail(result)
 
