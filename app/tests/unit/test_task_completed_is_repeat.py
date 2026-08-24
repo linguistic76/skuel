@@ -57,6 +57,10 @@ from core.services.ps_engagement._auto_completion_handler import _AutoCompletion
 from core.services.ps_engagement.ps_engagement_service import PsEngagementService
 from core.services.tasks.task_event_handler_service import TaskEventHandlerService
 from core.utils.result_simplified import Result
+from tests.helpers.status_guarded_backend import (
+    StatusGuardedWriteRecorder,
+    guarded_backend,
+)
 
 _USER = "user_repeat"
 _TASK = "task_repeat_abc"
@@ -350,7 +354,7 @@ class _RecordingBus:
         self._sink.append(event)
 
 
-def _goals_service() -> tuple[GoalsProgressService, Mock]:
+def _goals_service() -> tuple[GoalsProgressService, StatusGuardedWriteRecorder[Goal]]:
     goal = Goal(
         uid="goal_repeat",
         user_uid=_USER,
@@ -360,34 +364,38 @@ def _goals_service() -> tuple[GoalsProgressService, Mock]:
         current_value=0.0,
         progress_percentage=0.0,
     )
-    backend = Mock()
-    backend.get = AsyncMock(return_value=Result.ok(goal))
-    backend.update = AsyncMock(return_value=Result.ok({}))
+    # The progress writer goes through the ADR-087 primitive, so ``backend.update`` is a
+    # seam it no longer calls — mocking that would assert nothing while passing.
+    backend, recorder = guarded_backend(goal, goal)
     backend.find_linked_goals_for_task = AsyncMock(return_value=Result.ok(["goal_repeat"]))
     backend.count_linked_tasks = AsyncMock(
         return_value=Result.ok({"total_tasks": 5, "completed_tasks": 2})
     )
     service = GoalsProgressService(backend=backend, event_bus=_RecordingBus([]))
-    return service, backend
+    return service, recorder
 
 
 @pytest.mark.asyncio
 async def test_goal_progress_recomputes_on_a_repeat_and_lands_identically() -> None:
     """Progress is derived from ``count_linked_tasks``, never incremented, so
     running it again is the repair path and converges on the same numbers."""
-    service, backend = _goals_service()
+    service, recorder = _goals_service()
 
     await service.handle_task_completed(_event(is_repeat=False))
-    assert backend.update.await_count == 1
-    first_patch = dict(backend.update.await_args.args[1])
+    assert len(recorder.calls) == 1
+    first_patch = recorder.merged_patch()
 
     await service.handle_task_completed(_event(is_repeat=True))
-    assert backend.update.await_count == 2, "recompute handlers must run on a repeat"
-    second_patch = dict(backend.update.await_args.args[1])
+    assert len(recorder.calls) == 2, "recompute handlers must run on a repeat"
+    second_patch = recorder.merged_patch()
 
     assert second_patch["progress_percentage"] == first_patch["progress_percentage"] == 40.0
     assert second_patch["current_value"] == first_patch["current_value"] == 2.0
     assert second_patch["target_value"] == first_patch["target_value"] == 5.0
+    # 2 of 5 is not an achievement either time, so neither write carries the completion
+    # pair — ``is_repeat`` gates what accumulates, and there is nothing here to accumulate.
+    assert "achieved_date" not in second_patch
+    assert "status" not in second_patch
 
 
 # ---------------------------------------------------------------------------

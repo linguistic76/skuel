@@ -2,17 +2,19 @@
 
 Three layers, matching how the stamp actually reaches the graph:
 
-1. **The helper** (``completion_transition_patch`` / ``is_completion_transition``
-   / ``is_reopen_transition``) — transition gating both ways, R1 reopen-clear,
-   explicit-field authority, and the status-target legality check that turns
-   ``EntityType.valid_statuses()`` from documentation into enforcement.
+1. **The verdict helpers** (``is_completion_transition`` / ``is_reopen_transition``) —
+   transition gating both ways, against the prior the write hands back. The builder that
+   turns those rules into a ``StatusWriteGuard``, and the status-target legality check
+   that turns ``EntityType.valid_statuses()`` from documentation into enforcement, are
+   pinned in ``tests/unit/test_status_transition_guard.py``.
 2. **The six chokepoints** — wiring tests assert the CALLER: each real
    ``update_<domain>`` core method is driven with a typed intent against a
    mocked backend. Five of them (Task, Goal, Habit, Event, Choice) state their
    rules as write-time CONDITIONS since ADR-087, so the assertion is on the
    ``StatusWriteGuard`` the service built — and, via the recorder, on what that
-   guard would actually merge for a given prior. Principle still resolves its
-   (legality-only) check in Python and is asserted on ``backend.update``.
+   guard would actually merge for a given prior. Principle resolves its legality-only
+   check in Python — ``validate_status_target``, the one rule that seam has — and is
+   asserted on ``backend.update``.
    Posting ``status=completed`` lands a stamp; re-posting doesn't re-date;
    reopening clears; Principle's illegal ``completed`` is refused at the seam.
    Each domain also has a test that its ``_validate_update`` rules still FIRE:
@@ -52,15 +54,16 @@ from core.models.task.task import Task
 from core.models.task.task_request import TaskCreateRequest
 from core.models.task.task_update_intent import TaskUpdateIntent
 from core.services.completion_stamp import (
-    completion_transition_patch,
     is_completion_transition,
     is_reopen_transition,
+    status_transition_guard,
 )
 from core.utils.result_simplified import Result
 from tests.helpers.status_guarded_backend import (
     StatusGuardedWriteRecorder,
     guarded_backend,
     guarded_rows_backend,
+    resolve_merged_patch,
 )
 
 if TYPE_CHECKING:
@@ -90,102 +93,8 @@ class _CapturingBus:
 
 
 # ============================================================================
-# 1. THE HELPER
+# 1. THE VERDICT HELPERS
 # ============================================================================
-
-
-class TestCompletionTransitionPatch:
-    def test_no_status_in_changes_is_a_no_op(self):
-        result = completion_transition_patch(EntityType.TASK, EntityStatus.ACTIVE, {"title": "x"})
-        assert result.is_ok
-        assert result.value == {}
-
-    @pytest.mark.parametrize(
-        ("entity_type", "field", "value_type"),
-        [
-            (EntityType.TASK, "completion_date", date),
-            (EntityType.GOAL, "achieved_date", date),
-            (EntityType.HABIT, "completed_at", datetime),
-            (EntityType.EVENT, "completed_at", datetime),
-            (EntityType.CHOICE, "completed_at", datetime),
-        ],
-    )
-    def test_transition_into_completed_stamps_the_domain_field(
-        self, entity_type, field, value_type
-    ):
-        result = completion_transition_patch(
-            entity_type, EntityStatus.ACTIVE, {"status": "completed"}
-        )
-        assert result.is_ok
-        assert set(result.value) == {field}
-        assert type(result.value[field]) is value_type  # date, not datetime, for Task/Goal
-
-    def test_reposting_completed_does_not_restamp(self):
-        result = completion_transition_patch(
-            EntityType.TASK, EntityStatus.COMPLETED, {"status": "completed"}
-        )
-        assert result.is_ok
-        assert result.value == {}, "re-posting completed on a completed entity re-dated it"
-
-    def test_reopen_clears_the_stamp(self):
-        result = completion_transition_patch(
-            EntityType.GOAL, EntityStatus.COMPLETED, {"status": "active"}
-        )
-        assert result.is_ok
-        assert result.value == {"achieved_date": None}
-
-    def test_explicit_completion_field_keeps_authority_on_complete(self):
-        changes = {"status": "completed", "achieved_date": date(2026, 8, 1)}
-        result = completion_transition_patch(EntityType.GOAL, EntityStatus.ACTIVE, changes)
-        assert result.is_ok
-        assert result.value == {}, "helper overrode an explicit complete path's own stamp"
-
-    def test_explicit_completion_field_keeps_authority_on_reopen(self):
-        changes = {"status": "active", "completion_date": date(2026, 8, 1)}
-        result = completion_transition_patch(EntityType.TASK, EntityStatus.COMPLETED, changes)
-        assert result.is_ok
-        assert result.value == {}
-
-    def test_unknown_old_status_is_treated_as_not_completed(self):
-        result = completion_transition_patch(EntityType.TASK, None, {"status": "completed"})
-        assert result.is_ok
-        assert "completion_date" in result.value
-
-    def test_lateral_transition_between_non_completed_statuses_is_a_no_op(self):
-        result = completion_transition_patch(
-            EntityType.TASK, EntityStatus.ACTIVE, {"status": "paused"}
-        )
-        assert result.is_ok
-        assert result.value == {}
-
-    def test_garbage_status_is_refused(self):
-        result = completion_transition_patch(
-            EntityType.TASK, EntityStatus.ACTIVE, {"status": "in_progress"}
-        )
-        assert result.is_error
-
-    def test_none_status_is_refused(self):
-        result = completion_transition_patch(EntityType.TASK, EntityStatus.ACTIVE, {"status": None})
-        assert result.is_error
-
-    def test_status_outside_the_types_lifecycle_is_refused(self):
-        # COMPLETED is a canonical EntityStatus but not a valid Principle status.
-        result = completion_transition_patch(
-            EntityType.PRINCIPLE, EntityStatus.ACTIVE, {"status": "completed"}
-        )
-        assert result.is_error
-        # ARCHIVED is not in Task's valid set either.
-        result = completion_transition_patch(
-            EntityType.TASK, EntityStatus.ACTIVE, {"status": "archived"}
-        )
-        assert result.is_error
-
-    def test_principle_legal_status_passes_with_no_stamp(self):
-        result = completion_transition_patch(
-            EntityType.PRINCIPLE, EntityStatus.ACTIVE, {"status": "archived"}
-        )
-        assert result.is_ok
-        assert result.value == {}
 
 
 class TestIsCompletionTransition:
@@ -209,23 +118,27 @@ class TestIsReopenTransition:
         assert not is_reopen_transition(None, {"status": "active"})
 
     def test_an_unrecognized_target_is_not_a_reopen(self):
-        """It is a validation failure in ``completion_transition_patch``, and the
-        two must agree — otherwise a garbage status would publish a reopen that
-        the write itself refuses."""
+        """It is a validation failure in ``status_transition_guard``, and the two must
+        agree — otherwise a garbage status would publish a reopen that the write itself
+        refuses."""
         assert not is_reopen_transition(EntityStatus.COMPLETED, {"status": "not_a_status"})
+        assert status_transition_guard(EntityType.TASK, {"status": "not_a_status"}).is_error
 
     def test_the_gate_agrees_with_the_stamp_clear(self):
-        """Whenever this says reopen, the patch clears the stamp, and vice versa.
+        """Whenever this says reopen, the write clears the stamp, and vice versa.
 
-        Swept over every legal Task status so a new enum member cannot split the
-        two apart unnoticed.
+        Swept over every legal Task status so a new enum member cannot split the two
+        apart unnoticed. The clear is resolved from the GUARD the same way the Cypher
+        resolves it, so this compares the two things that actually ship.
         """
-        for old in (EntityStatus.COMPLETED, EntityStatus.ACTIVE):
-            for new in sorted(s.value for s in EntityType.TASK.valid_statuses()):
-                patch = completion_transition_patch(EntityType.TASK, old, {"status": new})
-                assert patch.is_ok
-                clears = patch.value.get("completion_date", "absent") is None
-                assert clears is is_reopen_transition(old, {"status": new})
+        for old_status in (EntityStatus.COMPLETED, EntityStatus.ACTIVE):
+            for new_status in sorted(s.value for s in EntityType.TASK.valid_statuses()):
+                changes = {"status": new_status}
+                guard = status_transition_guard(EntityType.TASK, changes)
+                assert guard.is_ok
+                merged = resolve_merged_patch(old_status.value, {}, guard.value)
+                clears = merged.get("completion_date", "absent") is None
+                assert clears is is_reopen_transition(old_status, changes)
 
 
 # ============================================================================
@@ -932,6 +845,103 @@ class TestCompleteTasksBulk:
         assert result.is_ok
         assert result.value == 0
         assert store.merged == {}
+
+
+class TestRawStatusWritersOutsideTheChokepoints:
+    """Two writers that set a status without going through their domain's chokepoint.
+
+    Both are deliberate raw writes — each publishes its own domain event with provenance
+    the generic update contract cannot express — and neither is a completion transition,
+    so neither needs a stamp. What they DO need is the other direction: a choice or event
+    that is already COMPLETED carries ``completed_at``, and writing a non-completed status
+    over it would strand the stamp on an open entity, breaking the invariant that it is
+    non-null exactly when the entity is completed.
+
+    ``status_transition_guard`` reads the target out of the patch they already build and
+    hands back exactly that reopen clear, so both keep the invariant with the shared rule
+    rather than a local copy — and against the status the node holds under its lock, not
+    one read beforehand (ADR-087 PR-4).
+    """
+
+    async def test_make_decision_clears_a_completed_choices_stamp(self):
+        from core.services.choices.choices_core_service import ChoicesCoreService
+
+        done = Choice(
+            uid="choice_1",
+            user_uid=USER,
+            title="c",
+            status=EntityStatus.COMPLETED,
+            completed_at=datetime(2026, 4, 2, 9, 0),
+        )
+        active = Choice(uid="choice_1", user_uid=USER, title="c", status=EntityStatus.ACTIVE)
+        backend, recorder = guarded_backend(done, active)
+        service = ChoicesCoreService(backend=backend)
+
+        result = await service.make_decision("choice_1", "option_a")
+
+        assert result.is_ok
+        merged = recorder.merged_patch()
+        assert merged["status"] == EntityStatus.ACTIVE.value
+        assert merged["completed_at"] is None, (
+            "deciding a completed choice left its completed_at behind"
+        )
+
+    async def test_make_decision_on_an_open_choice_writes_no_stamp_field(self):
+        """The mirror: the clear is CONDITIONAL on the prior, so an ordinary DRAFT →
+        ACTIVE decision must not write a null over a field that was never set."""
+        from core.services.choices.choices_core_service import ChoicesCoreService
+
+        draft = Choice(uid="choice_1", user_uid=USER, title="c", status=EntityStatus.DRAFT)
+        active = Choice(uid="choice_1", user_uid=USER, title="c", status=EntityStatus.ACTIVE)
+        backend, recorder = guarded_backend(draft, active)
+        service = ChoicesCoreService(backend=backend)
+
+        result = await service.make_decision("choice_1", "option_a", confidence=0.8)
+
+        assert result.is_ok
+        assert "completed_at" not in recorder.merged_patch()
+        assert recorder.last_updates["selected_option_uid"] == "option_a"
+
+    async def test_miss_habit_event_clears_a_completed_events_stamp(self):
+        from core.services.events.events_habit_integration_service import (
+            EventsHabitIntegrationService,
+        )
+
+        done = Event(
+            uid="event_1",
+            user_uid=USER,
+            title="e",
+            status=EntityStatus.COMPLETED,
+            completed_at=datetime(2026, 4, 2, 9, 0),
+        )
+        cancelled = Event(uid="event_1", user_uid=USER, title="e", status=EntityStatus.CANCELLED)
+        backend, recorder = guarded_backend(done, cancelled)
+        service = EventsHabitIntegrationService(backend=backend)
+
+        result = await service.miss_habit_event("event_1", Mock(user_uid=USER), reason="ill")
+
+        assert result.is_ok
+        merged = recorder.merged_patch()
+        assert merged["status"] == EntityStatus.CANCELLED.value
+        assert merged["completed_at"] is None, (
+            "missing a completed event left its completed_at behind"
+        )
+
+    async def test_miss_habit_event_on_a_scheduled_event_writes_no_stamp_field(self):
+        from core.services.events.events_habit_integration_service import (
+            EventsHabitIntegrationService,
+        )
+
+        scheduled = Event(uid="event_1", user_uid=USER, title="e", status=EntityStatus.SCHEDULED)
+        cancelled = Event(uid="event_1", user_uid=USER, title="e", status=EntityStatus.CANCELLED)
+        backend, recorder = guarded_backend(scheduled, cancelled)
+        service = EventsHabitIntegrationService(backend=backend)
+
+        result = await service.miss_habit_event("event_1", Mock(user_uid=USER))
+
+        assert result.is_ok
+        assert "completed_at" not in recorder.merged_patch()
+        assert recorder.last_updates["notes"] == "Missed"
 
 
 class TestDslDoneDateParse:

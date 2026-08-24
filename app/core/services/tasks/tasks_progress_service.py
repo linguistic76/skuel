@@ -32,7 +32,7 @@ from core.models.enums import EntityStatus, EntityType
 from core.models.relationship_names import RelationshipName
 from core.models.task.task import Task
 from core.models.task.task_dto import TaskDTO
-from core.models.update_contracts import RawChanges, StatusWriteGuard
+from core.models.update_contracts import StatusWriteGuard
 from core.services.base_service import BaseService
 from core.services.completion_stamp import is_completion_transition, status_transition_guard
 from core.services.domain_config import create_activity_domain_config
@@ -570,14 +570,33 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
             return Result.fail(prereq_result)
 
         if prereq_result.value["can_start"]:
-            # Unblock the task via the service contract (ADR-066 #2→#1)
-            update_result = await self.update(
-                task_uid, RawChanges({"status": EntityStatus.SCHEDULED.value})
+            # Same terminal gate as ``_trigger_task``, and for the same reason: a blind
+            # ``status=scheduled`` on an already-COMPLETED task would move it out of
+            # COMPLETED while LEAVING ``completion_date`` set, breaking the invariant
+            # that the stamp is non-null exactly when the task is completed. Unblocking
+            # frees work that is waiting; it never resurrects work that is finished.
+            # A CONDITION ON THE WRITE, not a read before it (ADR-087) — the task can be
+            # completed between the prerequisite check above and this write.
+            update_result = await self.backend.update_with_status_guard(
+                task_uid,
+                {"status": EntityStatus.SCHEDULED.value},
+                StatusWriteGuard(refuse_if_prior_in=_TERMINAL_STATUS_VALUES),
             )
             if update_result.is_error:
                 return Result.fail(update_result)
 
-            unblocked_task = self._to_domain_model(update_result.value, TaskDTO, Task)
+            outcome = update_result.value
+            if not outcome.applied:
+                # A finished task is not "unblocked" — it is nothing this call has left
+                # to do, which is the same answer as "still blocked": no task returned.
+                self.logger.debug(
+                    "Skipped unblocking task %s: already terminal (%s)",
+                    task_uid,
+                    outcome.prior_status,
+                )
+                return Result.ok(None)
+
+            unblocked_task = self._to_domain_model(outcome.entity, TaskDTO, Task)
 
             self.logger.info(f"Unblocked task {task_uid}")
             return Result.ok(unblocked_task)

@@ -14,6 +14,11 @@ related_skills: [neo4j-cypher-patterns, activity-domains, result-pattern]
 **Date:** 2026-08-24
 **Deciders:** MCF
 **Arc:** Conditional-write primitive (successor to cascade-idempotency #1126–#1136).
+**Migration:** complete. Shipped in #1145 (primitive + protocol + `update_task`), #1147
+(the Task completion doors), #1148 (the client-side ordering tail), #1149 (Goals / Events
+/ Choices / Habits chokepoints) and PR-4 (the goal-progress writers, the raw status
+writers, and the deletion of the read-then-write form). Every status-bearing write in
+`core/services/` now goes through `update_with_status_guard`; there is no second path.
 **Related:** ADR-030 (node-lock sentinel, at-most-once execution), ADR-066 (typed update
 intents), ADR-044 (Neo4j as a committed choice), `core/services/completion_stamp.py`.
 
@@ -136,10 +141,22 @@ two to four such writers. The lock is the mechanism; the `CASE` merges alone are
   read. The generic mixin stays the non-status seam and is untouched.
 - `BaseService.update_status` is **deleted** — zero production callers, and a status write
   now belongs to the domain chokepoint that owns its guard.
-- `completion_transition_patch` (the read-then-write form) and `status_transition_guard`
-  (the write-time form) coexist during the migration, sharing one validated front half
-  (`_stamp_target`) so the legality check and the authority rule cannot drift. The
-  Python-side form retires when its last caller migrates.
+- `completion_transition_patch` (the read-then-write form) is **deleted**. It and
+  `status_transition_guard` coexisted through the migration, sharing one validated front
+  half (`_stamp_target`) so the legality check and the authority rule could not drift
+  while sites moved one at a time; the Python-side form went with its last caller (PR-4).
+  What survives that split is `validate_status_target` — the legality check on its own,
+  for the one chokepoint (Principle) that has nothing to stamp. There is now no way to
+  decide a status transition from a status read before the write.
+- **A raw status writer is not exempt.** Four writers set a status outside their domain's
+  chokepoint — the three goal-progress writers plus `complete_milestone`, which derive
+  completion from a progress recompute rather than from a caller's status target — and
+  three more (`unblock_task_if_ready`, `make_decision`, `miss_habit_event`) which write a
+  non-completion status directly. All seven now write through the primitive. The progress
+  writers keep their target derivation in Python (a statement about the NEW state) and put
+  only the "…and not already completed" half in the guard; the other three carry either a
+  terminal refuse-set or the shared reopen clear, so none of them can strand a completion
+  stamp on a non-completed entity.
 - **Two domain rules migrated whole, not just the stamps.** A rule whose verdict depends
   on the prior status is the same staleness class this ADR closes, so where the rule's
   other half is caller-side knowledge it moves into the guard:
@@ -188,17 +205,18 @@ Deliberately **out**, by name:
   arc.
 - **Principles' own chokepoint.** Its gate is target-only legality (`valid_statuses`),
   which is prior-INdependent, so no read-then-write race exists there. Migrating it would
-  be uniformity theater. It does still *call* `completion_transition_patch`, for that
-  legality check alone (Principle has no completion field, so the patch is always empty) —
-  so retiring the Python-side form means giving Principles a legality-only successor
-  (`_stamp_target` already is one), not simply deleting the function. Confirmed by MCF,
-  2026-08-24; the reason is stated at the site so a future reader meets it there rather
-  than reading the exception as an oversight.
-- **`ChoicesCoreService.make_decision`'s raw status write.** It moves a choice to ACTIVE
-  outside the chokepoint, which is what makes Choices' decision-immutability race real —
-  but it is a decision-finalization writer with its own event provenance, not a status
-  chokepoint, and DRAFT → ACTIVE is not a completion transition. Registered for the PR-4
-  straggler sweep alongside `TasksProgressService.unblock_task_if_ready`.
+  be uniformity theater. It calls `validate_status_target` for that legality check alone —
+  the successor PR-4 extracted when it deleted the read-then-write form, since Principle
+  has no completion field and never had a patch to apply. Confirmed by MCF, 2026-08-24;
+  the reason is stated at the site so a future reader meets it there rather than reading
+  the exception as an oversight.
+- **The three raw writers keep their raw shape.** `make_decision`, `miss_habit_event` and
+  `unblock_task_if_ready` were NOT routed through their domain chokepoints — each exists
+  precisely because it publishes an event with provenance the generic update contract
+  cannot express. They were routed through the *primitive* instead (PR-4), which is the
+  narrower change: they gain the write-time stamp guarantee without inheriting a
+  chokepoint's validation and events. `make_decision` remains the concurrent writer that
+  makes Choices' decision-immutability refuse-set load-bearing.
 - **ADR-030's check-in store** stays exactly as it is.
 
 ## Alternatives rejected

@@ -610,14 +610,22 @@ handlers that **recompute** ignore it; handlers that **count or append** skip on
 refinement (#1134) sharpened it further — the flag gates what **accumulates** (appends, stamps),
 never what **derives**. See `core/events/task_events.py` for the authoritative statement.
 
-Named by the arc and since **ruled (2026-08-23): its own 4-PR arc is next** — a
-**conditional-write primitive for status-guarded transitions** serving all six Activity
-chokepoints. Codex flagged the underlying read-then-write race five times across the arc (#1127,
-#1128, #1131, #1133, #1136) and each rejection was scoped, not dismissive — the window is the one
-the completion stamps already carry (#1123), so closing it closes both. The residue PRs that
-preceded the arc are merged: #1139/#1140 (habit windows bounded both ends), #1142
-(`tasks_completed` derived at read; the reconcile instrument retired — never resurrect), #1143
-(the 🆔 is identity at ingest — Guard 2b).
+✅ **The successor arc is CLOSED too — ADR-087, the conditional-write primitive
+(#1145 / #1147 / #1148 / #1149 + its final PR, 2026-08-24).** Codex flagged the underlying
+read-then-write race five times across the cascade arc (#1127, #1128, #1131, #1133, #1136) and
+each rejection was scoped, not dismissive — the window was the one the completion stamps
+already carry (#1123), so closing it closed both. Every status-bearing write in `core/services/`
+now goes through `backend.update_with_status_guard`, which takes the node's write-lock BEFORE
+reading the prior and hands that prior back; `is_repeat` is exact by construction, and
+`completion_transition_patch` (the read-then-write form) is deleted — there is no second path.
+The five stamping domains plus seven raw status writers migrated; Principles is the one
+deliberate exception (target-only legality, prior-independent, so no race) and calls
+`validate_status_target` for that check alone. See ADR-087 § Consequences / § Scope, and
+CLAUDE.md § Status-Guarded Writes.
+
+The residue PRs that preceded the arc are merged: #1139/#1140 (habit windows bounded both
+ends), #1142 (`tasks_completed` derived at read; the reconcile instrument retired — never
+resurrect), #1143 (the 🆔 is identity at ingest — Guard 2b).
 
 R4 — vault **inbound** `[x]`-completion propagation — is ✅ dispositioned (ruled 2026-08-23;
 docs corrected 2026-08-24): the `git log -S` discriminator ran, verdict **never wired**, the docs

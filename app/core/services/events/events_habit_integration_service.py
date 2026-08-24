@@ -23,10 +23,12 @@ from typing import TYPE_CHECKING, Any, cast
 
 from core.events import publish_event
 from core.models.enums import EventType, RecurrencePattern
+from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import FilterParams, Neo4jProperties
+from core.services.completion_stamp import status_transition_guard
 from core.services.events._habit_links import enrich_events_with_habit_links
 from core.services.user import UserContext
 from core.services.user.rich_context import rich_entity_to_model
@@ -401,7 +403,7 @@ class EventsHabitIntegrationService:
             Result containing updated event
         """
         updates: Neo4jProperties = {
-            "status": "cancelled",
+            "status": EntityStatus.CANCELLED.value,
             "notes": f"Missed: {reason}" if reason else "Missed",
         }
 
@@ -410,7 +412,19 @@ class EventsHabitIntegrationService:
         # this path publishes its OWN CalendarEventUpdated below with the miss provenance
         # (status=cancelled + notes). Routing through the contract would double-fire
         # CalendarEventUpdated, and `notes` is not an Event column the intent carries.
-        result = await self.backend.update(event_uid, updates)
+        #
+        # Status-guarded even so (ADR-087): marking an already-COMPLETED event missed
+        # would otherwise write ``status=cancelled`` over a live ``completed_at``,
+        # stranding the stamp on a non-completed event.
+        # ``status_transition_guard`` reads the CANCELLED target out of the patch above
+        # and returns exactly the reopen clear for it, so this raw write keeps the stamp
+        # invariant with the shared rule rather than a local one — and against the status
+        # the node holds under its lock, not one read beforehand.
+        guard_result = status_transition_guard(EntityType.EVENT, updates)
+        if guard_result.is_error:
+            return Result.fail(guard_result)
+
+        result = await self.backend.update_with_status_guard(event_uid, updates, guard_result.value)
         if result.is_error:
             return Result.fail(result)
 

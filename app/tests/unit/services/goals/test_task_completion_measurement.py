@@ -20,6 +20,10 @@ from core.models.enums.goal_enums import MeasurementType
 from core.models.goal.goal import Goal
 from core.services.goals.goals_progress_service import GoalsProgressService
 from core.utils.result_simplified import Result
+from tests.helpers.status_guarded_backend import (
+    StatusGuardedWriteRecorder,
+    guarded_backend,
+)
 
 _USER = "user_task_measurement"
 
@@ -50,11 +54,15 @@ def _goal(measurement_type: MeasurementType, **overrides: object) -> Goal:
 
 def _service(
     goal: Goal, *, total_tasks: int, completed_tasks: int
-) -> tuple[GoalsProgressService, Mock]:
-    """A progress service whose backend reports a fixed linked-task tally."""
-    backend = Mock()
-    backend.get = AsyncMock(return_value=Result.ok(goal))
-    backend.update = AsyncMock(return_value=Result.ok({}))
+) -> tuple[GoalsProgressService, StatusGuardedWriteRecorder[Goal]]:
+    """A progress service whose backend reports a fixed linked-task tally.
+
+    The write goes through the status-guarded primitive (ADR-087), so the assertions
+    below read the RESOLVED patch — base fields plus whichever conditional patch the
+    goal's own status selects. For every case in this file the two are the same thing:
+    the achievement pair is the only conditional part, and these are measurement tests.
+    """
+    backend, recorder = guarded_backend(goal, goal)
     backend.count_linked_tasks = AsyncMock(
         return_value=Result.ok({"total_tasks": total_tasks, "completed_tasks": completed_tasks})
     )
@@ -64,14 +72,16 @@ def _service(
     service.logger = Mock()
     service.event_bus = None
     service.relationships = None
-    return service, backend
+    return service, recorder
 
 
-async def _written(goal: Goal, *, total_tasks: int, completed_tasks: int) -> dict:
-    service, backend = _service(goal, total_tasks=total_tasks, completed_tasks=completed_tasks)
+async def _written(
+    goal: Goal, *, total_tasks: int, completed_tasks: int
+) -> dict[str, Any]:  # boundary: pre-serialization patch
+    service, recorder = _service(goal, total_tasks=total_tasks, completed_tasks=completed_tasks)
     await service._update_goal_from_task_completion(goal.uid, _USER)
-    assert backend.update.await_count == 1, "expected exactly one write"
-    return backend.update.await_args.args[1]
+    assert len(recorder.calls) == 1, "expected exactly one write"
+    return recorder.merged_patch()
 
 
 class TestTaskBasedGoalOwnsItsMeasurement:
@@ -125,11 +135,11 @@ class TestTaskBasedGoalOwnsItsMeasurement:
             target_value=5.0,
             progress_percentage=20.0,
         )
-        service, backend = _service(goal, total_tasks=5, completed_tasks=1)
+        service, recorder = _service(goal, total_tasks=5, completed_tasks=1)
 
         await service._update_goal_from_task_completion(goal.uid, _USER)
 
-        assert backend.update.await_count == 0
+        assert recorder.calls == []
 
     async def test_a_tally_only_write_publishes_no_progress_event(self):
         """``handle_goal_progress_updated`` reads a near-zero delta on a positive goal
@@ -143,13 +153,13 @@ class TestTaskBasedGoalOwnsItsMeasurement:
             target_value=5.0,
             progress_percentage=20.0,
         )
-        service, backend = _service(goal, total_tasks=10, completed_tasks=2)
+        service, recorder = _service(goal, total_tasks=10, completed_tasks=2)
         published: list[object] = []
         service.event_bus = _RecordingBus(published)
 
         await service._update_goal_from_task_completion(goal.uid, _USER)
 
-        assert backend.update.await_count == 1, "the tally repair itself must still happen"
+        assert len(recorder.calls) == 1, "the tally repair itself must still happen"
         assert published == []
 
     async def test_a_real_progress_change_still_publishes(self):
@@ -194,11 +204,11 @@ class TestTaskBasedGoalOwnsItsMeasurement:
         assert ratio * 100 == pytest.approx(updates["progress_percentage"])
 
 
-def _habit_service(goal: Goal, *, total_habits: int, avg_streak: float) -> tuple[Any, Mock]:
+def _habit_service(
+    goal: Goal, *, total_habits: int, avg_streak: float
+) -> tuple[GoalsProgressService, StatusGuardedWriteRecorder[Goal]]:
     """The habit sibling of ``_service`` — same writer shape, different tally source."""
-    backend = Mock()
-    backend.get = AsyncMock(return_value=Result.ok(goal))
-    backend.update = AsyncMock(return_value=Result.ok({}))
+    backend, recorder = guarded_backend(goal, goal)
     backend.count_linked_habits_avg_streak = AsyncMock(
         return_value=Result.ok({"total_habits": total_habits, "avg_streak": avg_streak})
     )
@@ -208,7 +218,7 @@ def _habit_service(goal: Goal, *, total_habits: int, avg_streak: float) -> tuple
     service.logger = Mock()
     service.event_bus = None
     service.relationships = None
-    return service, backend
+    return service, recorder
 
 
 class TestHabitGoalMeasurementKeepsUpdatingPastTarget:
@@ -225,12 +235,12 @@ class TestHabitGoalMeasurementKeepsUpdatingPastTarget:
             current_value=30.0,
             progress_percentage=100.0,
         )
-        service, backend = _habit_service(goal, total_habits=1, avg_streak=31.0)
+        service, recorder = _habit_service(goal, total_habits=1, avg_streak=31.0)
 
         await service._update_goal_from_habit_completion(goal.uid, _USER, 31)
 
-        assert backend.update.await_count == 1
-        assert backend.update.await_args.args[1]["current_value"] == 31.0
+        assert len(recorder.calls) == 1
+        assert recorder.merged_patch()["current_value"] == 31.0
 
     async def test_it_does_not_restamp_achieved_date(self):
         goal = _goal(
@@ -239,11 +249,11 @@ class TestHabitGoalMeasurementKeepsUpdatingPastTarget:
             current_value=30.0,
             progress_percentage=100.0,
         )
-        service, backend = _habit_service(goal, total_habits=1, avg_streak=31.0)
+        service, recorder = _habit_service(goal, total_habits=1, avg_streak=31.0)
 
         await service._update_goal_from_habit_completion(goal.uid, _USER, 31)
 
-        updates = backend.update.await_args.args[1]
+        updates = recorder.merged_patch()
         assert "achieved_date" not in updates
         assert "status" not in updates
 
@@ -254,7 +264,7 @@ class TestHabitGoalMeasurementKeepsUpdatingPastTarget:
             current_value=30.0,
             progress_percentage=100.0,
         )
-        service, _ = _habit_service(goal, total_habits=1, avg_streak=31.0)
+        service, _recorder = _habit_service(goal, total_habits=1, avg_streak=31.0)
         published: list[object] = []
         service.event_bus = _RecordingBus(published)
 
@@ -269,11 +279,11 @@ class TestHabitGoalMeasurementKeepsUpdatingPastTarget:
             current_value=30.0,
             progress_percentage=100.0,
         )
-        service, backend = _habit_service(goal, total_habits=1, avg_streak=30.0)
+        service, recorder = _habit_service(goal, total_habits=1, avg_streak=30.0)
 
         await service._update_goal_from_habit_completion(goal.uid, _USER, 30)
 
-        assert backend.update.await_count == 0
+        assert recorder.calls == []
 
 
 class TestMixedGoalMeasurementIsNotTouched:

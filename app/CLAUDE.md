@@ -302,6 +302,19 @@ Request Processing:
 HTTP → FastHTML Route → Pydantic → Service → Domain → Repository → Neo4j
 ```
 
+### Status-Guarded Writes (ADR-087)
+
+**Core Principle:** "A status transition is decided BY the write, never before it"
+
+Every status-bearing write in `core/services/` goes through `backend.update_with_status_guard(uid, updates, guard)` — one primitive on `_CrudMixin`, declared on `CrudOperations[T]`. The statement takes the node's write-lock BEFORE reading the prior status, applies the guard's prior-conditional patches, and **returns the prior**; services derive every verdict (`is_completion_transition` / `is_reopen_transition` / `is_repeat = not is_transition`) from that returned prior. There is no second path: `completion_transition_patch` (the read-then-write form) was deleted at the arc's end.
+
+- **Build the guard, don't hand-write one:** `status_transition_guard(EntityType.X, changes)` in `core/services/completion_stamp.py` packages the legality check + stamp/clear conditions. `validate_status_target()` is the legality half alone — for Principle, which has no completion field and is deliberately NOT on the guard (its gate is target-only, so no race exists).
+- **A raw writer is not exempt.** A write that sets a status outside its domain chokepoint still goes through the primitive — either with `status_transition_guard` (so a completed entity's stamp is cleared, not stranded) or a `refuse_if_prior_in` terminal set. Blind `backend.update({"status": ...})` is the bug this ADR removes.
+- ⚠ **Leaving `CrudOperationsMixin.update` takes `_validate_update` off the path** — call the domain hook explicitly, gated on the fields that hook actually reads. A rule with no caller fails silently and looks like it passed.
+- ⚠ **A same-day re-date is invisible to a same-day test** (Task/Goal stamp `date.today()`): backdate the stored stamp in the graph between the two writes.
+
+**See:** `/docs/decisions/ADR-087-status-guarded-conditional-writes.md`
+
 ### Search & Query Architecture
 
 **Core Principle:** "SearchRouter is THE single path for all external search access"

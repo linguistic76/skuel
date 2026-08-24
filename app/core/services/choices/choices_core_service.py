@@ -755,11 +755,28 @@ class ChoicesCoreService(
             "status": EntityStatus.ACTIVE.value,
         }
 
-        result = await self.backend.update(choice_uid, updates)
-        if result.is_error:
-            return result
+        # Status-guarded like the chokepoint, for the one rule that reaches this raw
+        # write: DRAFT → ACTIVE is not a completion transition, so there is nothing here
+        # to stamp — but a choice that is already COMPLETED carries ``completed_at``, and
+        # writing ``status=active`` over it would strand that stamp on a non-completed
+        # choice. ``status_transition_guard`` reads the ACTIVE target out of the patch
+        # above and returns exactly the reopen clear for it, so this seam keeps the
+        # stamp invariant with the shared rule rather than a local one. It also refuses
+        # an illegal status target, which is free here (ACTIVE always is) and stays true
+        # if this literal ever changes. The prior it clears against is read under the
+        # node's lock (ADR-087), so a concurrent complete cannot slip past it.
+        guard_result = status_transition_guard(EntityType.CHOICE, updates)
+        if guard_result.is_error:
+            return Result.fail(guard_result)
 
-        choice = self._to_domain_model(result.value, ChoiceDTO, Choice)
+        result = await self.backend.update_with_status_guard(
+            choice_uid, updates, guard_result.value
+        )
+        if result.is_error:
+            return Result.fail(result)
+
+        # This guard refuses nothing, so the write always applied.
+        choice = self._to_domain_model(result.value.entity, ChoiceDTO, Choice)
 
         # Publish ChoiceMade event
         from core.events import ChoiceMade
