@@ -1349,11 +1349,17 @@ reader of first/last completion stamps under-reports that door's activity.
 `VaultReconciler._process_entry_outbound` mints a `vault_id`, queues the line injection, and
 after a **file-level** successful `write_task_updates` persists EVERY minted pair via
 `update_extracted_vault_id`. But `WriteResult` (`core/ports/vault_bridge_protocol.py`) carries
-only `success`/`new_sha256` — the per-line `apply_inject_id` helper knows when a line no longer
-matched (`modified=False` for that update) and that outcome never crosses back to the caller. A
-missed injection (line edited since the snapshot, or a skewed `local_agent`) therefore leaves a
-🆔 in Neo4j that the file never received — no later sync can locate the line by it, so the
-completion write-back for that task silently never happens.
+only `success`/`new_sha256` — `apply_task_updates` computes a per-update `changed` and discards
+it into a file-level OR, so file-level success is TAKEN AS proof that every queued injection
+landed, with nothing enforcing it. **No currently-known production trigger** (corrected by the
+Codex review on #1144): the two windows once thought live are closed — a line edited before the
+snapshot fails the queue-time `_find_line_by_hash` lookup (nothing queued), and an edit after
+the snapshot fails the whole-file SHA guard on BOTH transports (`success=False`, nothing
+persisted). The registration is the structural fragility: any future batch shape in which one
+update no-ops inside a successful write silently creates a 🆔 in Neo4j that the file never
+received — and no later sync can locate the line by it, so the completion write-back for that
+task silently never happens. Detection probe: a 🆔 on an `EXTRACTED_FROM` edge absent from
+its file.
 
 **Fix shape (own PR):** per-update outcomes on `WriteResult` across BOTH transports + the
 `skuel-vault-agent` — a wire-protocol change, so it bumps `PROTOCOL_VERSION` on both sides (the
@@ -1416,8 +1422,9 @@ Four methods on `core/models/habit/completion.py` have ZERO production consumers
 (the `days_since_completion` hit in `habit_event_handler_service.py` is an unrelated same-named
 parameter). Under the future-completion ruling (2026-08-23) each would be wrong the day anyone
 wires it: `days_since_completion` returns a NEGATIVE for a future completion;
-`is_streak_eligible`'s recency gate (`days_since_completion() > 1`) rejects a future completion
-outright; `was_completed_today` is false for it; `contributes_to_consistency("weekly")`'s
+`is_streak_eligible`'s recency gate (`days_since_completion() > 1`) never fires for a future
+completion (negative days), so it OVER-accepts — the completion passes straight to the
+quality/duplicate-day checks; `was_completed_today` is false for it; `contributes_to_consistency("weekly")`'s
 `week_start <= d <= today` excludes a future day inside the current week.
 
 ⚠️ **Wiring caveat:** a never-called method's edge cases were never tested — wiring one CHANGES

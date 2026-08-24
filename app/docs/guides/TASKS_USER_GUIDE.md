@@ -251,7 +251,7 @@ The `✅ YYYY-MM-DD` token is written by SKUEL so the obsidian-tasks plugin reco
 | Knowledge connections | SKUEL | SKUEL only |
 | ZPD scores | SKUEL | SKUEL only |
 
-The vault→SKUEL rows apply when a line is **first extracted**. Once a line carries a `🆔`, later vault-side edits to it (title, dates, checkbox) are deliberately skipped by the sync — inbound propagation of edits is a parked build. Edit tracked tasks in SKUEL.
+The vault→SKUEL rows apply when a line is **first extracted**. Once a line carries a `🆔`, later vault-side edits to it (title, dates, checkbox) are deliberately skipped by the sync — inbound propagation of edits is a parked build. Edit tracked tasks in SKUEL (completions sync outbound; reopening a task does not un-check the note — outbound un-check is deferred).
 
 **First-run notice:** The first time you sync, SKUEL will explain that it needs to inject `🆔 sk_<6>` IDs into your task lines. Approve once; subsequent syncs proceed silently.
 
