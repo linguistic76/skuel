@@ -38,6 +38,16 @@ if TYPE_CHECKING:
 #     dependency chain so the PEP 723 agent can share it)
 #
 # A divergence here silently injects IDs into the wrong lines — keep it here.
+#
+# Version skew (local_agent transport only, ADR-075): the agent applies the
+# line mutations ON THE DEVICE with the copy of this module in the checkout it
+# runs from, so a device that has not pulled since a normalization change
+# digests a line differently from the server and the server's injection
+# request finds no target there. No compatibility shim (One Path Forward): the
+# user updates the agent by pulling. ``AGENT_VERSION`` in
+# ``agent/skuel_vault_agent.py`` records each contract change so the server's
+# honesty panel (``describe_wall``) can show the skew. The filesystem transport
+# applies the mutations server-side and cannot skew.
 
 VAULT_ID_RE = re.compile(r"🆔️?\s*([\w-]{1,20})")
 """Matches the obsidian-tasks 🆔 ID token (ADR-070 Decision 1).
@@ -45,17 +55,30 @@ VAULT_ID_RE = re.compile(r"🆔️?\s*([\w-]{1,20})")
 The optional ``️`` is a Unicode variation selector some editors append.
 """
 
+# Done-date token: ✅ YYYY-MM-DD (same optional variation selector as 🆔).
+# Part of the identity contract here AND the mark-done mutation below — one
+# definition, so what the write-back appends is exactly what the digest ignores.
+_DONE_DATE_RE = re.compile(r"✅️?\s*\d{4}-\d{2}-\d{2}")
+
 
 def normalize_vault_line_hash(line: str) -> str:
     """Stable hash for a vault task line used as ``source_line_hash`` on EXTRACTED_FROM edges.
 
-    Normalizes the checkbox prefix to ``- [ ] ``, strips the 🆔 token so
-    the hash is stable across ID injection, then sha256s the
-    whitespace-collapsed result.
+    Line identity must survive every edit SKUEL itself makes to the line —
+    otherwise the next sync re-ingests SKUEL's own write-back as a new line
+    and extraction Guard 2 creates the task a second time (Guard 4 ignores
+    terminal twins by design, so a just-completed task has no other guard).
+    The digest therefore normalizes the checkbox prefix to ``- [ ] `` (the
+    ``[x]`` flip), strips the 🆔 token (ID injection) and the ``✅ YYYY-MM-DD``
+    done-date token (the mark-done write-back), then sha256s the
+    whitespace-collapsed result. Everything else on the line — title, 📅 due
+    date, tags — is the user's, and an edit to it IS a change (ADR-070: the
+    hash is a change signal; the 🆔 is the identity).
     """
     line = re.sub(r"^[-*]\s*\[[xX]\]\s*", "- [ ] ", line)
     line = re.sub(r"^[-*]\s*\[\s*\]\s*", "- [ ] ", line)
     line = VAULT_ID_RE.sub("", line)
+    line = _DONE_DATE_RE.sub("", line)
     return hashlib.sha256(" ".join(line.split()).encode("utf-8")).hexdigest()
 
 
@@ -239,11 +262,10 @@ class VaultSyncStats:
 # (ADR-075 B3, device-local) apply the exact same mutations, so 🆔 injection
 # and done-toggling behave byte-identically wherever the vault lives.
 
-# Checkbox detection
+# Checkbox detection (the done-date token, ``_DONE_DATE_RE``, is defined with
+# the identity contract above — the mutation and the digest share it).
 _UNCHECKED_RE = re.compile(r"^([-*]\s*\[)\s*(\])")
 _CHECKED_RE = re.compile(r"^[-*]\s*\[[xX]\]")
-# Done-date token: ✅ YYYY-MM-DD
-_DONE_DATE_RE = re.compile(r"✅️?\s*\d{4}-\d{2}-\d{2}")
 
 
 def apply_mark_done(lines: list[str], vault_id: str, done_date: str) -> tuple[list[str], bool]:

@@ -223,6 +223,29 @@ class TestVaultIdInjectionHashStability:
         after = "- [ ] move furniture📅 2026-06-17 ⏫  🆔 sk_3uhmts"
         assert normalized_line_hash(before) == normalized_line_hash(after)
 
+    def test_normalized_line_hash_stable_after_done_date_writeback(self):
+        """The outbound mark-done — ``[x]`` flip + ``✅ date`` — is SKUEL's own
+        edit and must not change the line's identity: Guard 4 ignores terminal
+        twins by design, so a just-completed task has no other guard and the
+        next sync re-created it (reproduced end-to-end in
+        tests/integration/test_vault_done_date_hash_roundtrip.py)."""
+        from core.services.dsl.activity_extractor import normalized_line_hash
+
+        before = "- [ ] move furniture📅 2026-06-17 ⏫  🆔 sk_3uhmts"
+        after = "- [x] move furniture📅 2026-06-17 ⏫  🆔 sk_3uhmts ✅ 2026-08-23"
+        with_selector = "- [x] move furniture📅 2026-06-17 ⏫  🆔 sk_3uhmts ✅️ 2026-08-23"
+        assert normalized_line_hash(after) == normalized_line_hash(before)
+        assert normalized_line_hash(with_selector) == normalized_line_hash(before)
+
+    def test_only_skuel_written_tokens_are_normalised_away(self):
+        """A 📅 due-date edit is the user's change and must still read as one —
+        the digest is a change signal for everything SKUEL did not write."""
+        from core.services.dsl.activity_extractor import normalized_line_hash
+
+        line = "- [ ] move furniture 📅 2026-06-17 🆔 sk_3uhmts"
+        rescheduled = "- [ ] move furniture 📅 2026-06-18 🆔 sk_3uhmts"
+        assert normalized_line_hash(rescheduled) != normalized_line_hash(line)
+
     def test_extractor_hash_matches_protocol_hash(self):
         """normalized_line_hash delegates to normalize_vault_line_hash — both
         must produce the same digest so reconciler and extractor agree."""

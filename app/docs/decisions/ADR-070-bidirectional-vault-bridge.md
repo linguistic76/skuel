@@ -64,6 +64,8 @@ Evidence: three primary sources confirm `🆔` stores an `id` field (e.g. `- [ ]
 
 **Implementation consequence:** `EXTRACTED_FROM {vault_id, extracted_at, source_line_hash}` — `vault_id` is the stable join key; `source_line_hash` detects whether the line changed since last sync.
 
+> **Amendment (2026-08-23, cascade-residue PR-C):** the digest behind `source_line_hash` (`normalize_vault_line_hash`, the contract shared with the vault agent) now also ignores the `✅ YYYY-MM-DD` done-date token, exactly as it already ignored the checkbox state and the 🆔 token — SKUEL's own outbound write-back must never read as a line change. It did: marking a task done in the vault changed the digest, extraction Guard 2 missed on the next sync, Guard 4 (ACTIVE twins only, by design) could not catch a just-completed task, and the primary personal-data path re-created every task it marked done (reproduced end-to-end in `tests/integration/test_vault_done_date_hash_roundtrip.py`). Hashes stored before the change for already-checked lines carry the token inside the digest and are reconnected once by `./dev rehash-vault-line-hashes` (census by default, `--confirm` to write). Everything the user writes — title, 📅 due date, tags — still reads as a change: the hash stays the change signal, the 🆔 the identity.
+
 ---
 
 ### Decision 2 — Field Authority Table

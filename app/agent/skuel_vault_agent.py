@@ -78,7 +78,11 @@ from core.ports.vault_bridge_protocol import (  # noqa: E402
     apply_task_updates,
 )
 
-AGENT_VERSION = "0.2.0"  # 0.2.0: je_pro served (ADR-073 amendment)
+# 0.2.0: je_pro served (ADR-073 amendment)
+# 0.2.1: shared line-hash contract strips the ✅ done-date token — an agent
+#        still on 0.2.0 digests ✅-bearing lines differently from the server and
+#        cannot inject IDs into them; update by pulling (no compatibility shim).
+AGENT_VERSION = "0.2.1"
 
 # Must match adapters/inbound/device_routes.py PROTOCOL_VERSION — the agent
 # hard-fails on mismatch (ADR-075 Consequences: version skew is a real category).
