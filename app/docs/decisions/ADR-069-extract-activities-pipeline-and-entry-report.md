@@ -180,6 +180,19 @@ extractor docstring's idempotency claim is rewritten to describe this mechanism.
 > entity's original `EXTRACTED_FROM` edge is left untouched. User-typed lines
 > keep the exact guard-2 semantics decided here.
 
+> **Addendum (2026-08-23, cascade-residue PR-C, #1143):** guard 2 gained an
+> **identity form — guard 2b**: a line whose `🆔` (`vault_id`, ADR-070's durable
+> join key) already carries an `EXTRACTED_FROM` edge to this entry is already
+> extracted, whatever its hash says. Needed because SKUEL's own outbound
+> write-back (`[x]` + `✅ date`, ADR-070) moves a line's hash: guard 2 missed on
+> the next sync, the cross-entry twin guard ignores terminal twins by design, and
+> the just-completed task was created a second time (reproduced end-to-end in
+> `tests/integration/test_vault_done_date_hash_roundtrip.py`). The hash itself is
+> unchanged — blinding it to the `✅` token was tried first and swallowed a second
+> same-title completed occurrence added a sync later, so the date stays inside the
+> digest as a discriminator. Same discipline as guard 3: skip, never mutate, never
+> touch provenance. The inputs of guards 2, 2b and 3 come off one provenance read.
+
 ### 1.4 Un-reserving the substance channel + the ZPD 4th signal
 
 The contract is **one edge**: when extraction resolves a Ku reference (a
