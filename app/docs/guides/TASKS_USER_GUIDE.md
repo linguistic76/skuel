@@ -236,20 +236,22 @@ If you complete a task in SKUEL and then sync your vault, SKUEL writes the compl
 
 The `✅ YYYY-MM-DD` token is written by SKUEL so the obsidian-tasks plugin recognizes the completion date.
 
-**If you complete it in Obsidian first** (by checking the box), the next sync reads the `[x]` and marks the SKUEL Task as completed.
+**Completing it in Obsidian does not sync back.** Checking the box on a line that already carries a `🆔` does NOT mark the SKUEL Task completed — completion sync is outbound-only, and the sync deliberately skips lines it already tracks (the duplicate-task guard). Complete the task in SKUEL and the next sync writes the `✅` into your note. (A checkbox line you author *already checked*, before it has a `🆔`, is different: its first ingest creates the task in SKUEL as completed, with the `✅` date.)
 
 **Field authority** — who owns what:
 
 | Field | Edited in | Syncs to |
 |-------|-----------|---------|
 | Title | Obsidian | → SKUEL (vault wins) |
-| Checkbox done | Either | Both (bidirectional) |
+| Checkbox done | SKUEL | → Obsidian (outbound only; a vault-side check of a 🆔 line is not read back) |
 | Due date (📅) | Obsidian | → SKUEL |
 | Priority (🔺⏫) | Obsidian | → SKUEL |
 | Tags (#hashtag) | Obsidian | → SKUEL (becomes `Task.tags`) |
 | Goal link, habit link | SKUEL | SKUEL only (not in Obsidian) |
 | Knowledge connections | SKUEL | SKUEL only |
 | ZPD scores | SKUEL | SKUEL only |
+
+The vault→SKUEL rows apply when a line is **first extracted**. Once a line carries a `🆔`, later vault-side edits to it (title, dates, checkbox) are deliberately skipped by the sync — inbound propagation of edits is a parked build. Edit tracked tasks in SKUEL.
 
 **First-run notice:** The first time you sync, SKUEL will explain that it needs to inject `🆔 sk_<6>` IDs into your task lines. Approve once; subsequent syncs proceed silently.
 

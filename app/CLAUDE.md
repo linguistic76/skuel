@@ -349,7 +349,7 @@ One-way pipeline: Markdown/YAML → Neo4j; most EntityTypes are file-ingestible.
 
 **Core Principle:** "Obsidian is the personal knowledge layer; SKUEL is the structured backbone"
 
-Bidirectional sync between a user's personal Obsidian vault and SKUEL. Tasks written to Obsidian as `- [ ] task title 🆔 sk_<6>`; completions (`[x]` + `✅ date`) propagate back to SKUEL. The `🆔 sk_<6>` suffix is the join key — never strip it.
+Bidirectional sync between a user's personal Obsidian vault and SKUEL. Tasks written to Obsidian as `- [ ] task title 🆔 sk_<6>`; task completion is **outbound-only** — SKUEL writes `[x]` + `✅ date` into the vault, and a vault-side check/uncheck/edit of a 🆔 line does NOT propagate back (extraction Guard 2b skips it; inbound propagation is designed in ADR-070 but parked — `docs/roadmap/deferred-work.md` § R4). The `🆔 sk_<6>` suffix is the join key — never strip it.
 
 - `VAULT_ROOT` — the PRIMARY personal vault (`/home/mike/0bsidian/skuel/`), distinct from `INGESTION_PATH` (content vault `0vault/`)
 - **Per-user roots:** `VAULT_ROOT` is owner-bound (`SKUEL_PERSONAL_VAULT_OWNER`, defaults to the `SKUEL_DEFAULT_USER_UID` chain); any other user resolves to `{SKUEL_USER_VAULTS_ROOT}/{user_uid}/` or gets a clear not-found — no code path serves one user another user's vault

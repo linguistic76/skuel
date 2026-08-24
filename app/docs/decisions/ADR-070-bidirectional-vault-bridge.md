@@ -12,6 +12,18 @@ related_skills: []
 
 **Status:** Accepted — implemented in PR-3 (#319)
 
+> **Status annotation (2026-08-24, cascade-residue PR-D):** implementation is **outbound-only for
+> task state** — the INBOUND half of Model D (vault `[x]`/`[ ]` edits propagating to the SKUEL
+> task) was never built. Decision 2's `[x]` and `✅` rows say "bidirectional" and Decision 3's LWW
+> policy resolves conflicts for it: both describe design intent with no mechanism behind them — no
+> status-reconciliation branch exists beside the extraction guards, which `continue` past an
+> already-extracted line unconditionally (Decision 1's 2026-08-23 amendment, Guard 2b, makes that
+> skip *deliberate* for any 🆔 line whose hash moved). Resolved Design Questions § 2's claim that
+> inbound reopen "works for free" is false for the same reason. Ruled 2026-08-23 (cascade-residue
+> disposition, #1139–#1143): docs corrected to the outbound truth; the build is parked with
+> trigger + design sketch in `docs/roadmap/deferred-work.md` § "R4 Vault Inbound Propagation —
+> Parked Build".
+
 **Date:** 2026-06-16
 
 **Decision Type:** ⬜ Pattern/Practice  ⬜ Infrastructure  ✅ Architecture
