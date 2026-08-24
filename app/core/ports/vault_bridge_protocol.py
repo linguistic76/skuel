@@ -42,12 +42,14 @@ if TYPE_CHECKING:
 # Version skew (local_agent transport only, ADR-075): the agent applies the
 # line mutations ON THE DEVICE with the copy of this module in the checkout it
 # runs from, so a device that has not pulled since a normalization change
-# digests a line differently from the server and the server's injection
-# request finds no target there. No compatibility shim (One Path Forward): the
-# user updates the agent by pulling. ``AGENT_VERSION`` in
-# ``agent/skuel_vault_agent.py`` records each contract change so the server's
-# honesty panel (``describe_wall``) can show the skew. The filesystem transport
-# applies the mutations server-side and cannot skew.
+# digests a line differently from the server, the server's injection request
+# finds no target there, and the reconciler would persist the minted 🆔 anyway.
+# That is why the digest is part of the wire PROTOCOL: a change here bumps
+# ``PROTOCOL_VERSION`` on BOTH sides (``adapters/inbound/device_routes.py`` and
+# ``agent/skuel_vault_agent.py``, parity contract-tested) so a stale agent
+# refuses at handshake with "Update the agent" instead of silently diverging.
+# No compatibility shim (One Path Forward): the user pulls. The filesystem
+# transport applies the mutations server-side and cannot skew.
 
 VAULT_ID_RE = re.compile(r"🆔️?\s*([\w-]{1,20})")
 """Matches the obsidian-tasks 🆔 ID token (ADR-070 Decision 1).

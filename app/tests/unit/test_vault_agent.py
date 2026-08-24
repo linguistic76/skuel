@@ -454,7 +454,9 @@ class TestHandshake:
         private_key = Ed25519PrivateKey.generate()
         connection = FakeConnection(
             [
-                json.dumps({"type": "challenge", "nonce": "abc123", "protocol": 1}),
+                json.dumps(
+                    {"type": "challenge", "nonce": "abc123", "protocol": agent.PROTOCOL_VERSION}
+                ),
                 json.dumps({"type": "session", "ok": True, "user_uid": "user_mike"}),
             ]
         )
@@ -469,15 +471,32 @@ class TestHandshake:
 
     def test_protocol_mismatch_is_fatal(self) -> None:
         connection = FakeConnection(
-            [json.dumps({"type": "challenge", "nonce": "abc123", "protocol": 2})]
+            [
+                json.dumps(
+                    {"type": "challenge", "nonce": "abc123", "protocol": agent.PROTOCOL_VERSION + 1}
+                )
+            ]
         )
         with pytest.raises(AgentError, match="Protocol mismatch"):
+            self._run(connection)
+
+    def test_the_pre_done_date_strip_protocol_is_refused(self) -> None:
+        """Protocol v1 digested a task line WITH its ``✅`` token; this agent does
+        not. Mirrored (a v1 agent against this server) the v1 side would silently
+        find no line to inject into while the server persisted the minted 🆔 —
+        so the retired contract is refused at handshake, never negotiated."""
+        connection = FakeConnection(
+            [json.dumps({"type": "challenge", "nonce": "abc123", "protocol": 1})]
+        )
+        with pytest.raises(AgentError, match="Update the agent"):
             self._run(connection)
 
     def test_session_refusal_is_fatal(self) -> None:
         connection = FakeConnection(
             [
-                json.dumps({"type": "challenge", "nonce": "abc123", "protocol": 1}),
+                json.dumps(
+                    {"type": "challenge", "nonce": "abc123", "protocol": agent.PROTOCOL_VERSION}
+                ),
                 json.dumps({"type": "session", "ok": False, "error": "device_not_enrolled"}),
             ]
         )

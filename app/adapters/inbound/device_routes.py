@@ -69,7 +69,16 @@ logger = get_logger("skuel.routes.devices")
 
 # Agent must answer the challenge within this window or the socket closes.
 HANDSHAKE_TIMEOUT_S = 30.0
-PROTOCOL_VERSION = 1
+# Declared in the challenge frame; the agent hard-fails on mismatch (parity is
+# contract-tested in tests/unit/test_vault_agent.py). The shared line-hash
+# digest (core/ports/vault_bridge_protocol.py) is part of this protocol — the
+# agent must reproduce the server's ``source_line_hash`` on the device — so a
+# digest change is a protocol change:
+#   v1: initial (ADR-075).
+#   v2: the digest strips the ✅ done-date token (2026-08-23); a v1 agent would
+#       silently miss its injection target while the server persisted the
+#       minted 🆔 — refusing at handshake is the honest failure.
+PROTOCOL_VERSION = 2
 
 # Application close code for a failed handshake (4003 = unauthorized, app-level convention).
 _CLOSE_UNAUTHORIZED = 4003

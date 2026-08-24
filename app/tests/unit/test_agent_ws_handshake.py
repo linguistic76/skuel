@@ -27,7 +27,7 @@ from adapters.inbound.agent_channel_registry import (
     AgentChannelRegistry,
     AgentSession,
 )
-from adapters.inbound.device_routes import handle_agent_ws
+from adapters.inbound.device_routes import PROTOCOL_VERSION, handle_agent_ws
 from core.auth.device_signature import (
     AGENT_SIGNATURE_DOMAIN,
     build_signed_payload,
@@ -236,7 +236,7 @@ class TestHandshake:
         await handle_agent_ws(ws, user_service, registry)  # type: ignore[arg-type]
 
         assert ws.sent[0]["type"] == "challenge"
-        assert ws.sent[0]["protocol"] == 1
+        assert ws.sent[0]["protocol"] == PROTOCOL_VERSION
         assert ws.session_frame == {"type": "session", "ok": True, "user_uid": "user_mike"}
         user_service.touch_device.assert_awaited_once_with("device_ab12cd34")
         # Registered while alive; unregistered after disconnect.

@@ -109,7 +109,7 @@ Notes for operators:
 |---------|---------|
 | `pairing code invalid, expired, or already used` | Codes are single-use with a 10-minute TTL — generate a fresh one. |
 | `Server refused this device (device_not_enrolled)` | The device was revoked or never enrolled — re-enroll. |
-| `Protocol mismatch` | Agent and server speak different protocol versions — update the agent (v1 hard-fails on mismatch by design). |
+| `Protocol mismatch` | Agent and server speak different protocol versions — update the agent by pulling the repo on the device (the agent hard-fails on mismatch by design; no compatibility path). The shared line-hash digest is part of the protocol, so a digest change bumps it — v2 (2026-08-23) strips the `✅` done-date token. |
 | `Refusing to use … permissions are too open` | `chmod 600 ~/.config/skuel-agent/device.key` (same posture as OpenSSH). |
 | `rate-limited` | The server caps handshakes per IP; wait a minute. |
 | `Refusing non-HTTPS server URL …` | Off localhost the agent requires `https://` — plaintext would expose the pairing code and vault content. |
