@@ -1519,18 +1519,24 @@ the ✅ date is a completion that has been withdrawn. Inbound propagation is sep
    write but couples the chokepoint to the vault transport.
 3. **If no — delete the event or keep it published?** One Path Forward says delete what nothing
    uses; the counter-argument is that it is a *transition fact* the chokepoint now establishes
-   exactly and cheaply, and deleting it would have to be undone by choice 1 later. Keeping it
-   needs a `PLANNED_EVENTS` registration so the bloat detector stops calling it INFO-unsubscribed;
-   deleting it means removing the publisher, the event class, its `core/events/__init__.py`
-   export, and the `test_task_completed_publishers.py` registry assertion.
+   exactly and cheaply, and deleting it would have to be undone by choice 1 later. Deleting it
+   means removing the publisher, the event class, its `core/events/__init__.py` export, and the
+   `test_task_completed_publishers.py` registry assertion. ⚠️ **Keeping it needs no registry
+   entry, and `PLANNED_EVENTS` is NOT the vehicle** — same trap as § KnowledgePracticed:
+   `analyze_events` takes the `publish_live` branch first and `continue`s, so a published class
+   in `PLANNED_EVENTS` earns a SECOND INFO (`planned-marking-stale`, "remove from
+   PLANNED_EVENTS") on top of `event-never-subscribed`, and the PLANNED tier below is never
+   reached. The keep arm is simply: leave it at INFO — not a `--check` failure — and let the ⚠
+   marker on the event's docstring carry the decision.
 
 **Trigger:** Mike schedules it (this section IS that scheduling — it is a ruling, not a data
 threshold). Take choice 1 first; 2 and 3 follow from it.
 
 **Named cost until resolved:** a task reopened in the app stays checked in the vault with a stale
 ✅ date, and the next person to read `TaskReopened` finds an event with no consumers and no
-`PLANNED_EVENTS` entry — the exact shape that reads as dead code to a deletion sweep. ⚠️ Do NOT
-delete it in a bloat pass without this ruling; it is kept by decision, and the decision is here.
+subscribers — the exact shape that reads as dead code to a deletion sweep. ⚠️ Do NOT delete it in
+a bloat pass without this ruling; it is kept by decision, the decision is here, and the ⚠ marker
+on its docstring is what a sweep should meet first.
 
 **Verify before acting:** `git grep -n "subscribe(TaskReopened\|TaskReopened)" -- core/ adapters/`
 (empty until Half A is answered) · `git grep -n "mark_done\|TaskLineUpdate" -- core/ports/vault_bridge_protocol.py`

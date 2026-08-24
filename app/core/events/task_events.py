@@ -152,7 +152,10 @@ class TaskReopened(BaseEvent):
     and whether to delete it if not, are three coupled choices scheduled for a ruling.
     The case file is ``docs/roadmap/deferred-work.md`` § "``TaskReopened`` Has Zero
     Subscribers, and a Reopen Has No Vault Surface". ``./dev bloat`` reports this as
-    INFO (published, never subscribed), which is not a ``--check`` failure.
+    INFO (published, never subscribed), which is not a ``--check`` failure — and
+    ``PLANNED_EVENTS`` is NOT the way to silence it: ``analyze_events`` branches on
+    ``publish_live`` first, so a published class listed there earns a second INFO
+    telling you to remove the entry.
     """
 
     task_uid: str
