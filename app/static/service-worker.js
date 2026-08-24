@@ -5,6 +5,9 @@
  * cache-first for static assets (CSS, JS, vendor libs).
  */
 
+// Bumped v8 -> v9 for today.js: the write queue is now keyed per task, so a
+// re-complete after Undo waits for that reopen instead of racing it. A client
+// serving the v8 bundle would keep firing the unqueued third write.
 // Bumped v7 -> v8 for today.js: Today's Undo now POSTs the prior status to
 // reopen the task instead of only un-hiding the card. today.js is a page-local
 // bundle (not precached), but cacheFirst() caches it like any other /static/
@@ -30,7 +33,7 @@
 // (The SW now registers correctly via the dedicated /service-worker.js route in
 // adapters/inbound/pwa_routes.py — the former catch-all 404 shadowing is fixed;
 // TECHNICAL_DEBT.md item 11's cache-invalidation half remains this manual bump.)
-const CACHE_VERSION = 'skuel-v8';
+const CACHE_VERSION = 'skuel-v9';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 
