@@ -614,7 +614,7 @@ except Exception as e:
 
 ```python
 async def complete_task(self, uid: str) -> Result[Task]:
-    result = await self.backend.update_status(uid, "completed")
+    result = await self.backend.update(uid, {"status": "completed"})
 
     if result.is_ok and self.prometheus_metrics:
         self.prometheus_metrics.domains.entities_completed.labels(
