@@ -45,6 +45,28 @@ backend.list_by_user   # AsyncMock
 backend.find_by        # AsyncMock
 ```
 
+⚠ **A status-bearing write does NOT go through `backend.update`** (ADR-087) — the Activity
+update chokepoints call `backend.update_with_status_guard(uid, changes, guard)`, which
+`create_mock_backend` does not provide. Mocking `update` for one of those tests asserts
+nothing while passing. Use the shared fake instead, which evaluates the guard the way the
+Cypher does and records what the service asked for:
+
+```python
+from tests.helpers.status_guarded_backend import guarded_backend
+
+backend, recorder = guarded_backend(current_entity, updated_entity)
+service = GoalsCoreService(backend=backend)
+await service.update_goal("goal_1", GoalUpdateIntent(status="completed"))
+
+recorder.last_guard        # the StatusWriteGuard the service built
+recorder.merged_patch()    # what the write would merge for THIS prior
+```
+
+`guarded_rows_backend(rows)` is the multi-row form (per-row loops such as bulk completion),
+and `echoing_guarded_write(backend)` adapts fixtures that configure `get`/`update` return
+values. ⚠ `StatusWriteGuard` is not hashable (its patch holds a dict) — assert guard
+identity, never set membership. See `tests/unit/services/test_completion_stamping.py`.
+
 ### create_mock_driver()
 
 ```python
