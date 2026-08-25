@@ -309,15 +309,15 @@ class VaultSyncStats:
 # Checkbox detection
 _UNCHECKED_RE = re.compile(r"^([-*]\s*\[)\s*(\])")
 _CHECKED_RE = re.compile(r"^[-*]\s*\[[xX]\]")
-# Done-date token: ✅ YYYY-MM-DD
-_DONE_DATE_RE = re.compile(r"✅️?\s*\d{4}-\d{2}-\d{2}")
+# Done-date token: ✅ YYYY-MM-DD, as the LAST thing on the line.
+#
 # The exact shape ``apply_mark_done`` appends: ``f"{stripped} ✅ {done_date}{eol}"``
 # — a single separating space, the token, then END OF LINE. Both halves matter:
 #
-#   * the SPACE, because stripping the bare ``_DONE_DATE_RE`` match leaves it
-#     behind and the un-checked line is no longer byte-identical to what it was
-#     before completion (a whitespace bug that survives every assertion that is
-#     not byte-exact);
+#   * the SPACE, because stripping the bare token leaves it behind and the
+#     un-checked line is no longer byte-identical to what it was before
+#     completion (a whitespace bug that survives every assertion that is not
+#     byte-exact);
 #   * the ANCHOR, because a ``✅ date`` anywhere else on the line belongs to the
 #     USER. ``apply_mark_done`` appends nothing when the line already carries a
 #     token, so a non-trailing one was never SKUEL's to remove — an unanchored
@@ -342,10 +342,15 @@ def _carries_skuel_done_marker(line: str) -> bool:
       something the USER checked in Obsidian — and a vault-side check does not
       reach SKUEL (extraction Guard 2b; inbound parked, deferred-work § R4), so
       reverting it silently erases a deliberate edit SKUEL cannot even read.
-    * **Not "anywhere".** ``apply_mark_done`` appends nothing when the line
-      already carries a token, so a ``✅ date`` sitting inside the task's own
-      text was never SKUEL's — it is prose the user wrote (*"Compare ✅ 2025-01-01
-      vs now"*). Only a TRAILING token can be the one SKUEL appended.
+    * **Not "anywhere".** ``apply_mark_done`` appends its token at the END, so a
+      ``✅ date`` sitting inside the task's own text was never SKUEL's — it is
+      prose the user wrote (*"Compare ✅ 2025-01-01 vs now"*). Only a TRAILING
+      token can be the one SKUEL appended.
+
+    ``apply_mark_done`` uses this SAME predicate for both its idempotency check
+    and its append condition, which is what guarantees the two directions
+    compose: SKUEL never changes a checkbox without leaving the marker that
+    reverses it, and never reverses a checkbox it did not mark.
 
     So the un-check takes back only what SKUEL wrote. It is not an opinion about
     who owns the checkbox; it is the narrower and defensible claim that a
@@ -362,10 +367,18 @@ def _carries_skuel_done_marker(line: str) -> bool:
 def apply_mark_done(lines: list[str], vault_id: str, done_date: str) -> tuple[list[str], bool]:
     """Toggle the line with ``🆔 vault_id`` from ``[ ]`` to ``[x]`` and append ``✅ date``.
 
-    Idempotent only when BOTH the checkbox is already ``[x]`` AND the ``✅ date`` token is
-    present.  An already-checked line that is missing the done-date (e.g. checked directly
-    in Obsidian without the tasks plugin) still receives the token so SKUEL and the vault
-    stay in sync.
+    Idempotent only when BOTH the checkbox is already ``[x]`` AND a TRAILING
+    ``✅ date`` token is present.  An already-checked line that is missing that
+    token (e.g. checked directly in Obsidian without the tasks plugin) still
+    receives it so SKUEL and the vault stay in sync.
+
+    ⚠ **Both tests are TRAILING, and that is what keeps every flip reversible.**
+    They once matched a ``✅ date`` anywhere on the line, so a task whose own
+    text held one (*"Compare ✅ 2025-01-01 vs now"*) was flipped to ``[x]`` with
+    the marker suppressed — SKUEL changed the checkbox and left no evidence it
+    had. ``apply_mark_undone`` keys on the trailing marker, so that ``[x]`` was
+    stuck checked forever. This function's contract is therefore: **never change
+    a checkbox without leaving the trailing marker that reverses it.**
     """
     for i, line in enumerate(lines):
         m = VAULT_ID_RE.search(line)
@@ -375,16 +388,18 @@ def apply_mark_done(lines: list[str], vault_id: str, done_date: str) -> tuple[li
         if not checked and not _UNCHECKED_RE.match(line):
             return lines, False
 
-        # True no-op: already checked AND already has a done-date
-        if checked and _DONE_DATE_RE.search(line):
+        # True no-op: already checked AND already carries the trailing marker.
+        if checked and _carries_skuel_done_marker(line):
             return lines, False
 
         # Flip checkbox if needed
         if not checked:
             line = re.sub(r"^([-*]\s*)\[\s*\]", r"\1[x]", line)
 
-        # Append ✅ date if still absent
-        if not _DONE_DATE_RE.search(line):
+        # Append the trailing ✅ date if it is not already the last token. A
+        # date inside the task's own text does NOT count — suppressing the
+        # marker over it is exactly what made the flip irreversible.
+        if not _carries_skuel_done_marker(line):
             stripped = line.rstrip("\n")
             eol = line[len(stripped) :]
             line = f"{stripped} ✅ {done_date}{eol}"

@@ -34,6 +34,9 @@ LINE_SHAPES = [
     pytest.param(f"- [ ] 🆔 {VAULT_ID} Ship the fix 📅 2026-01-01\n", id="id-before-other-tokens"),
     pytest.param(f"- [ ] Ship 🆔 {VAULT_ID} 📅 2026-01-01 ⏫\n", id="id-among-other-tokens"),
     pytest.param(f"- [ ] Ship the fix 🆔️ {VAULT_ID}\n", id="variation-selector-on-id"),
+    pytest.param(
+        f"- [ ] Compare ✅ 2025-01-01 vs now 🆔 {VAULT_ID}\n", id="done-date-inside-the-prose"
+    ),
 ]
 
 
@@ -141,15 +144,54 @@ def test_absent_vault_id_changes_nothing() -> None:
 def test_a_done_date_inside_the_task_text_is_the_users_prose_and_is_untouched() -> None:
     """⚠ Codex #1152 round 2: only a TRAILING ✅ date can be SKUEL's.
 
-    ``apply_mark_done`` appends nothing when the line already carries a token,
-    so a ``✅ date`` sitting in the middle of the task's own text was never
-    SKUEL's to remove. An unanchored strip deleted user-authored words out of
-    the description.
+    ``apply_mark_done`` appends its marker at the END, so a ``✅ date`` sitting
+    in the middle of the task's own text was never SKUEL's to remove. An
+    unanchored strip deleted user-authored words out of the description.
+
+    Such a CHECKED line can no longer be produced by ``apply_mark_done`` (round
+    3 made it always leave its trailing marker), so this guards the hand-authored
+    case and a line whose marker the user deleted.
     """
     line = f"- [x] Compare ✅ 2025-01-01 vs now 🆔 {VAULT_ID}\n"
     lines, changed = apply_mark_undone([line], VAULT_ID)
     assert changed is False
     assert lines == [line]
+
+
+def test_mark_done_never_flips_a_checkbox_without_leaving_the_marker_that_reverses_it() -> None:
+    """⚠ Codex #1152 round 3 — the composition contract of the two directions.
+
+    Both of ``apply_mark_done``'s tests once matched a ``✅ date`` ANYWHERE, so a
+    task whose own text held one was flipped to ``[x]`` with the marker
+    suppressed: SKUEL changed the checkbox and left no evidence it had, and the
+    trailing-keyed un-check could never flip it back. **Stuck checked, forever.**
+    """
+    original = f"- [ ] Compare ✅ 2025-01-01 vs now 🆔 {VAULT_ID}\n"
+
+    done, done_changed = apply_mark_done([original], VAULT_ID, "2026-08-20")
+    assert done_changed is True
+    assert done == [f"- [x] Compare ✅ 2025-01-01 vs now 🆔 {VAULT_ID} ✅ 2026-08-20\n"]
+
+    # Still idempotent — the second pass sees its own trailing marker.
+    again, again_changed = apply_mark_done(list(done), VAULT_ID, "2026-08-20")
+    assert again_changed is False and again == done
+
+    # And reversible, with the user's prose date intact.
+    back, undone_changed = apply_mark_undone(list(done), VAULT_ID)
+    assert undone_changed is True
+    assert back == [original]
+
+
+def test_an_already_checked_line_whose_prose_holds_a_date_still_gets_its_marker() -> None:
+    """The documented "checked in Obsidian without the plugin" case, which the
+    anywhere-matching idempotency guard silently skipped when the task text
+    happened to contain a date.
+    """
+    done, changed = apply_mark_done(
+        [f"- [x] Compare ✅ 2025-01-01 vs now 🆔 {VAULT_ID}\n"], VAULT_ID, "2026-08-20"
+    )
+    assert changed is True
+    assert done == [f"- [x] Compare ✅ 2025-01-01 vs now 🆔 {VAULT_ID} ✅ 2026-08-20\n"]
 
 
 def test_only_the_trailing_token_is_removed_when_the_text_holds_another() -> None:
