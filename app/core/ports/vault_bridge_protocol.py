@@ -46,6 +46,12 @@ if TYPE_CHECKING:
 # the agent, parity contract-tested) so a stale agent refuses at handshake
 # instead of silently missing its target while the reconciler persists the
 # minted 🆔. No compatibility shim: the user updates the agent by pulling.
+#
+# So is the shape of the write-result frame: ``WriteResult.updates_applied``
+# (protocol v2) is the per-update outcome the agent must report back, and it
+# reads fail-closed — an agent that cannot report it would leave every 🆔
+# injection unpersisted rather than guess. The handshake mismatch is what
+# stops that from ever being reached.
 
 VAULT_ID_RE = re.compile(r"🆔️?\s*([\w-]{1,20})")
 """Matches the obsidian-tasks 🆔 ID token (ADR-070 Decision 1).
@@ -116,11 +122,35 @@ class TaskLineUpdate:
 
 @dataclass
 class WriteResult:
-    """Outcome of a vault write operation."""
+    """Outcome of a vault write operation — file-level AND per-update.
+
+    ``success`` is file-level: the write was applied (or no line needed
+    changing) and the stale-read guard held. It does NOT say every queued
+    update found its target — an update whose ``vault_id`` or
+    ``source_line_hash`` matches no line in the file is a silent no-op INSIDE
+    a successful write.
+
+    ``updates_applied`` closes that gap: index ``i`` is whether ``updates[i]``
+    actually changed a line, positionally parallel to the batch handed to
+    ``write_task_updates``. A caller that persists per-update state (the
+    reconciler minting a 🆔 onto an ``EXTRACTED_FROM`` edge) must gate on this
+    tuple, never on ``success`` alone — persisting a 🆔 the file never received
+    strands the task: no later sync can find its line, so its completion
+    write-back silently never happens (deferred-work § Phantom-🆔).
+
+    It is empty on every failure path and reads fail-CLOSED through
+    ``was_applied``: unreported is "did not land", so a transport that cannot
+    report outcomes withholds the persist rather than guessing it landed.
+    """
 
     success: bool
     new_sha256: str | None = None
     error: str | None = None
+    updates_applied: tuple[bool, ...] = ()
+
+    def was_applied(self, index: int) -> bool:
+        """Whether the update at ``index`` changed a line (False when unreported)."""
+        return index < len(self.updates_applied) and self.updates_applied[index]
 
 
 @dataclass(frozen=True)
@@ -321,14 +351,22 @@ def apply_inject_id(
     return lines, False
 
 
-def apply_task_updates(content: str, updates: list[TaskLineUpdate]) -> tuple[str, bool]:
+def apply_task_updates(content: str, updates: list[TaskLineUpdate]) -> tuple[str, tuple[bool, ...]]:
     """Apply a batch of task-line updates to note content; pure — no I/O.
 
-    Returns ``(new_content, modified)``.  Both transports wrap this with the
-    same SHA-256 stale-read guard and atomic temp-file + ``rename()`` write.
+    Returns ``(new_content, applied)`` where ``applied`` is POSITIONALLY
+    parallel to ``updates``: each element is whether that one update changed a
+    line. The per-update outcome is the return value, never OR-ed away — a
+    file-level "something changed" cannot tell a caller WHICH update landed,
+    and an update that matched no line is a silent no-op inside an otherwise
+    successful write (``WriteResult.updates_applied``, deferred-work
+    § Phantom-🆔). Callers needing the file-level answer take ``any(applied)``.
+
+    Both transports wrap this with the same SHA-256 stale-read guard and
+    atomic temp-file + ``rename()`` write.
     """
     lines = content.splitlines(keepends=True)
-    modified = False
+    applied: list[bool] = []
     for update in updates:
         if update.mark_done:
             lines, changed = apply_mark_done(lines, update.vault_id, update.done_date or "")
@@ -336,9 +374,8 @@ def apply_task_updates(content: str, updates: list[TaskLineUpdate]) -> tuple[str
             lines, changed = apply_inject_id(lines, update.vault_id, update.source_line_hash)
         else:
             changed = False
-        if changed:
-            modified = True
-    return "".join(lines), modified
+        applied.append(changed)
+    return "".join(lines), tuple(applied)
 
 
 # ============================================================================
@@ -372,6 +409,10 @@ class VaultBridgePort(Protocol):
 
         Writes are atomic (POSIX ``rename()``); the file is either fully
         replaced or untouched.
+
+        The returned ``WriteResult`` carries ``updates_applied`` positionally
+        parallel to ``updates`` — a caller persisting per-update state gates on
+        that, not on file-level ``success``.
         """
         ...
 

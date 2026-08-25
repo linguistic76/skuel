@@ -1359,28 +1359,36 @@ reader of first/last completion stamps under-reports that door's activity.
 
 ---
 
-## Phantom-🆔 on a No-Op Injection (REGISTERED 2026-08-24 — own PR)
+## Phantom-🆔 on a No-Op Injection — ✅ RESOLVED (reopen-vault-surface arc PR-1, 2026-08-24)
 
-`VaultReconciler._process_entry_outbound` mints a `vault_id`, queues the line injection, and
-after a **file-level** successful `write_task_updates` persists EVERY minted pair via
-`update_extracted_vault_id`. But `WriteResult` (`core/ports/vault_bridge_protocol.py`) carries
-only `success`/`new_sha256` — `apply_task_updates` computes a per-update `changed` and discards
-it into a file-level OR, so file-level success is TAKEN AS proof that every queued injection
-landed, with nothing enforcing it. **No currently-known production trigger** (corrected by the
-Codex review on #1144): the two windows once thought live are closed — a line edited before the
-snapshot fails the queue-time `_find_line_by_hash` lookup (nothing queued), and an edit after
-the snapshot fails the whole-file SHA guard on BOTH transports (`success=False`, nothing
-persisted). The registration is the structural fragility: any future batch shape in which one
-update no-ops inside a successful write silently creates a 🆔 in Neo4j that the file never
-received — and no later sync can locate the line by it, so the completion write-back for that
-task silently never happens. Detection probe: a 🆔 on an `EXTRACTED_FROM` edge absent from
-its file.
+`VaultReconciler._process_entry_outbound` minted a `vault_id`, queued the line injection, and
+after a **file-level** successful `write_task_updates` persisted EVERY minted pair via
+`update_extracted_vault_id`. `WriteResult` carried only `success`/`new_sha256` —
+`apply_task_updates` computed a per-update `changed` and discarded it into a file-level OR — so
+file-level success was TAKEN AS proof that every queued injection landed, with nothing enforcing
+it. No production trigger was ever known (corrected by the Codex review on #1144: both windows
+once thought live are closed by the queue-time hash lookup and the whole-file SHA guard); the
+registration was the structural fragility, and the arc that adds a third write operation
+(`mark_undone`) is exactly the touch that would have inherited it.
 
-**Fix shape (own PR):** per-update outcomes on `WriteResult` across BOTH transports + the
-`skuel-vault-agent` — a wire-protocol change, so it bumps `PROTOCOL_VERSION` on both sides (the
-#1143 rule: a digest or wire change is a protocol change).
-**Trigger:** next vault-agent protocol touch, or an observed 🆔 in Neo4j absent from its file.
-**Named cost:** silently unsynced completions for any line whose injection missed.
+Closed by the arc's PR-1: `apply_task_updates` **returns** its per-update outcomes instead of
+OR-ing them away, `WriteResult.updates_applied` carries them positionally parallel to the batch
+across BOTH transports and the `skuel-vault-agent`, and the reconciler persists each minted 🆔
+only when THAT injection reports applied. `WriteResult.was_applied` reads fail-CLOSED — an
+unreported outcome is "did not land" — and withholding the persist is self-healing: the edge
+keeps no `vault_id`, so the next sync re-mints and retries, and the sync reports a warning
+instead of "complete". `stats.ids_injected` moved with it: it counts injections that reached the
+file, not injections that were queued.
+
+Wire-protocol change, so `PROTOCOL_VERSION` went **1 → 2** on both sides in one commit (parity
+contract-tested in `tests/unit/test_vault_agent.py`; RED-checked by a one-sided bump). No agent
+release was cut for it — PR-2 bumps to v3 and ONE release follows, so users pull once.
+
+**Residue (display honesty, not integrity, and deliberately not changed here):**
+`stats.tasks_marked_done` is still counted at QUEUE time, so a repeat sync of an unchanged vault
+reports every completed 🆔-bearing task as "marked done" again. Unlike the 🆔 persist, nothing
+durable is written on a wrong count. PR-2 adds `tasks_marked_undone` beside it — that is the
+touch where the pair's counting semantics should be settled together, not one of them alone.
 
 ---
 
@@ -1525,8 +1533,9 @@ the ✅ date is a completion that has been withdrawn. Inbound propagation is sep
 
 1. **Does a reopen un-check the vault line?** Building it means a new `TaskLineUpdate` operation
    (un-check + strip the `✅ date`), an outbound queue branch for the reopen transition, and a
-   `PROTOCOL_VERSION` bump if the agent's line-writing changes — see § Phantom-🆔 for the
-   `WriteResult` shape problem any new write operation inherits. It also reopens ADR-070's
+   `PROTOCOL_VERSION` bump if the agent's line-writing changes. The `WriteResult` shape problem
+   such an operation would have inherited is closed (§ Phantom-🆔, resolved by the arc's PR-1):
+   a new write operation now reports its own per-update outcome. It also reopens ADR-070's
    deliberate outbound-undone deferral, which should be amended rather than silently overridden.
 2. **If yes, is `TaskReopened` the trigger?** That is the natural subscriber, and it would end
    Half A by giving the event the consumer it was kept for. The alternative is doing it inline in
@@ -1613,7 +1622,7 @@ Review this document at the **September 2026 quarterly review**. Checklist:
 | Per-node substance counters — the unread arm (ruled "keep staged" 2026-08-21) | A substantiation UI/surface is scheduled | `git grep -n "get_substantiation_gaps\|is_well_practiced" -- "ui/" "adapters/inbound/"` — empty until wired; see the section (incl. the retroactive-credit question) |
 | R4 vault inbound propagation — parked build | Mike schedules it (product decision) | See the section — sketch + the #1143 r5 rejection; parsed-line vs entity state, never hash |
 | Vault task door publishes no task events | R4 build or next vault-door touch | `git grep -n "event_bus" adapters/persistence/neo4j/bulk_upsert_backend.py` — empty until wired |
-| Phantom-🆔 on a no-op injection | Next vault-agent protocol touch, or a 🆔 in Neo4j absent from its file | `WriteResult` still carries no per-update outcomes (`core/ports/vault_bridge_protocol.py`) |
+| Outbound sync stats: `tasks_marked_done` counted at queue time, not at what landed | Next touch of the outbound stat pair (the sibling `tasks_marked_undone` lands beside it) | See § Phantom-🆔 (RESOLVED) — residue paragraph |
 | Line deletions leave `EXTRACTED_FROM` edges | R4 build or next reconciler touch | Census shape in the section; re-probe the W28 edges before building |
 | Habit streak counters (lost-update + future-day credit) | Next touch of the streak write path, or a lived wrong-streak report | Ruling needed on `current_streak` semantics — see the section |
 | Unwired `HabitCompletion` model methods | A consumer wants one, or next Habits model touch | `git grep -n "is_streak_eligible\|was_completed_today" -- core/services/ adapters/ ui/` — empty until wired |

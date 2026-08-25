@@ -249,7 +249,11 @@ class TestWriteTaskUpdates:
         )
         response = handler.handle({"id": 44, "op": "write_task_updates", "params": params})
         new_content = (vault / "periodic_notes" / "2026-07-06.md").read_text()
-        assert response["result"] == {"success": True, "new_sha256": _sha(new_content)}
+        assert response["result"] == {
+            "success": True,
+            "new_sha256": _sha(new_content),
+            "updates_applied": [True],
+        }
         assert "- [x] review ADR draft 🆔 sk_x1c9q2 ✅ 2026-07-06" in new_content
 
     def test_inject_id_targets_the_hashed_line(self, vault: Path, handler: VaultRPCHandler) -> None:
@@ -293,8 +297,30 @@ class TestWriteTaskUpdates:
         assert second["result"] == {
             "success": True,
             "new_sha256": first["result"]["new_sha256"],
+            # The re-apply is a per-update no-op, and says so — a file-level
+            # "success" alone could not tell the server that (protocol v2).
+            "updates_applied": [False],
         }
         assert (vault / "periodic_notes" / "2026-07-06.md").read_text() == after_first
+
+    def test_per_update_outcomes_separate_the_hit_from_the_miss(
+        self, vault: Path, handler: VaultRPCHandler
+    ) -> None:
+        """A batch where one update lands and one matches no line reports BOTH.
+
+        The file-level answer is "success" either way; only ``updates_applied``
+        tells the server which 🆔 it may persist (deferred-work § Phantom-🆔).
+        """
+        params = self._params(
+            vault,
+            [
+                {"vault_id": "sk_nomatch", "mark_done": True, "done_date": "2026-07-06"},
+                {"vault_id": "sk_x1c9q2", "mark_done": True, "done_date": "2026-07-06"},
+            ],
+        )
+        response = handler.handle({"id": 44, "op": "write_task_updates", "params": params})
+        assert response["result"]["success"] is True
+        assert response["result"]["updates_applied"] == [False, True]
 
     def test_write_outside_the_wall_refused(self, vault: Path, handler: VaultRPCHandler) -> None:
         response = handler.handle(

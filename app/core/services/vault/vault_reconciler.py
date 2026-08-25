@@ -133,6 +133,21 @@ class VaultSyncPreview:
     refusal_warning: str | None = None
 
 
+@dataclass(frozen=True)
+class _PendingInjection:
+    """One 🆔 to persist onto its ``EXTRACTED_FROM`` edge after the file write.
+
+    ``update_index`` points at the queued ``TaskLineUpdate`` whose OWN outcome
+    decides whether the 🆔 may be persisted (``WriteResult.was_applied``).
+    ``None`` marks the recovery case — the vault line already carried the 🆔,
+    so nothing was queued and there is no write to gate on.
+    """
+
+    entity_uid: str
+    vault_id: str
+    update_index: int | None
+
+
 def _mint_vault_id() -> str:
     """Mint a 6-character base-36 vault ID with ``sk_`` prefix (ADR-070 Decision 1)."""
     return "sk_" + "".join(secrets.choice(_BASE36) for _ in range(6))
@@ -666,7 +681,12 @@ class VaultReconciler:
         vault_file_path: str,
         stats: VaultSyncStats,
     ) -> None:
-        """Process one UserEntry: inject IDs for new tasks, mark done for completed."""
+        """Process one UserEntry: inject IDs for new tasks, mark done for completed.
+
+        A minted 🆔 is persisted onto its ``EXTRACTED_FROM`` edge only when the
+        write reports THAT injection as applied — never on file-level success
+        alone (deferred-work § Phantom-🆔).
+        """
         owner = descriptor.owner_uid
         rels_result = await self._user_entry.get_extracted_entities(entry.uid)
         if rels_result.is_error:
@@ -692,7 +712,7 @@ class VaultReconciler:
             return
 
         updates: list[TaskLineUpdate] = []
-        inject_pairs: list[tuple[str, str]] = []  # (entity_uid, new_vault_id)
+        injections: list[_PendingInjection] = []
 
         for rel in rels:
             entity_uid = rel.get("entity_uid", "")
@@ -723,7 +743,13 @@ class VaultReconciler:
                     # Recovery: vault already has this ID; sync it to Neo4j without
                     # touching the file.  Prevents a new mint from permanently
                     # diverging Neo4j from the vault after a partial-write failure.
-                    inject_pairs.append((entity_uid, existing_id_match.group(1)))
+                    injections.append(
+                        _PendingInjection(
+                            entity_uid=entity_uid,
+                            vault_id=existing_id_match.group(1),
+                            update_index=None,
+                        )
+                    )
                 else:
                     new_vault_id = _mint_vault_id()
                     updates.append(
@@ -733,8 +759,13 @@ class VaultReconciler:
                             source_line_hash=line_hash,
                         )
                     )
-                    inject_pairs.append((entity_uid, new_vault_id))
-                    stats.ids_injected += 1
+                    injections.append(
+                        _PendingInjection(
+                            entity_uid=entity_uid,
+                            vault_id=new_vault_id,
+                            update_index=len(updates) - 1,
+                        )
+                    )
             else:
                 # Has 🆔 — check if COMPLETED in SKUEL
                 task_result = await self._tasks.get_task(entity_uid)
@@ -780,14 +811,36 @@ class VaultReconciler:
             )
             return
 
-        # Update EXTRACTED_FROM edges with injected vault_ids
-        for entity_uid, new_vault_id in inject_pairs:
+        # Persist injected 🆔s onto their EXTRACTED_FROM edges — each gated on
+        # ITS OWN update landing, never on file-level success. An update that
+        # matched no line is a no-op inside a successful write; persisting its
+        # 🆔 would strand the task with an id its file never received, and no
+        # later sync could find the line to write its completion back
+        # (deferred-work § Phantom-🆔). Withholding it is self-healing: the
+        # edge keeps no vault_id, so the next sync re-mints and retries.
+        for pending in injections:
+            if pending.update_index is not None:
+                if not write_result.was_applied(pending.update_index):
+                    logger.warning(
+                        "🆔 injection no-oped for %s in %s — %s not persisted",
+                        pending.entity_uid,
+                        vault_file_path,
+                        pending.vault_id,
+                    )
+                    stats.warnings.append(
+                        f"🆔 injection found no line for {pending.entity_uid} in "
+                        f"{display_path(vault_file_path, descriptor.root)} — "
+                        "not persisted, retried next sync"
+                    )
+                    continue
+                stats.ids_injected += 1
             upd_result = await self._user_entry.update_extracted_vault_id(
-                entry.uid, entity_uid, new_vault_id
+                entry.uid, pending.entity_uid, pending.vault_id
             )
             if upd_result.is_error:
                 stats.errors.append(
-                    f"update_extracted_vault_id failed ({entity_uid}): {upd_result.expect_error()}"
+                    f"update_extracted_vault_id failed ({pending.entity_uid}): "
+                    f"{upd_result.expect_error()}"
                 )
 
         # Update vault_sync_hash on UserEntry metadata

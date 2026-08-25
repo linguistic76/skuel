@@ -143,7 +143,8 @@ class LocalAgentVaultAdapter:
 
         The agent applies the SAME pure mutations, SHA-256 stale-read guard,
         and atomic temp-file + ``rename()`` mechanics as Stage 1 — the wire
-        carries the ``TaskLineUpdate`` shapes verbatim.
+        carries the ``TaskLineUpdate`` shapes verbatim and the per-update
+        outcomes back (``updates_applied``, protocol v2).
         """
         try:
             relative = self._to_relative(path)
@@ -172,10 +173,18 @@ class LocalAgentVaultAdapter:
         payload = result.value
         new_sha256 = payload.get("new_sha256")
         error = payload.get("error")
+        raw_applied = payload.get("updates_applied")
+        # Fail-closed: a frame without per-update outcomes (or a short one)
+        # reads as "did not land" through ``WriteResult.was_applied``, so a
+        # malformed reply withholds the caller's persist instead of forging it.
+        updates_applied = (
+            tuple(bool(flag) for flag in raw_applied) if isinstance(raw_applied, list) else ()
+        )
         return WriteResult(
             success=bool(payload.get("success")),
             new_sha256=new_sha256 if isinstance(new_sha256, str) else None,
             error=error if isinstance(error, str) else None,
+            updates_applied=updates_applied,
         )
 
     async def list_vault_notes(

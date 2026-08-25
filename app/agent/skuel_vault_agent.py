@@ -86,8 +86,9 @@ AGENT_VERSION = "0.2.0"  # 0.2.0: je_pro served (ADR-073 amendment)
 # this protocol: the server sends ``source_line_hash`` values the agent must
 # reproduce on the device to find the line to inject into, so a change to what
 # the digest ignores is a protocol change — bump here AND on the server, never
-# one side.
-PROTOCOL_VERSION = 1
+# one side. So is the write-result frame's shape: v2 added ``updates_applied``
+# (one bool per update, in order), which the server reads fail-closed.
+PROTOCOL_VERSION = 2
 
 # Must equal core.auth.device_signature.AGENT_SIGNATURE_DOMAIN. Duplicated here
 # (and contract-tested in tests/unit/test_vault_agent.py) because importing
@@ -466,6 +467,11 @@ class VaultRPCHandler:
         guard, atomic temp-file + ``rename()``. Write-level failures mirror
         ``WriteResult`` (``success: false`` + ``error``); only wall/param
         refusals become error frames.
+
+        A successful reply carries ``updates_applied`` — one bool per update,
+        in the order received (protocol v2). The server gates per-update state
+        on it: file-level success is not proof that a given update found its
+        line.
         """
         relative_path = self._require_str(params, "relative_path")
         expected_sha256 = self._require_str(params, "expected_sha256")
@@ -491,9 +497,13 @@ class VaultRPCHandler:
                 ),
             }
 
-        new_content, modified = apply_task_updates(content, updates)
-        if not modified:
-            return {"success": True, "new_sha256": current_sha256}
+        new_content, applied = apply_task_updates(content, updates)
+        if not any(applied):
+            return {
+                "success": True,
+                "new_sha256": current_sha256,
+                "updates_applied": list(applied),
+            }
 
         new_sha256 = hashlib.sha256(new_content.encode("utf-8")).hexdigest()
         try:
@@ -508,7 +518,11 @@ class VaultRPCHandler:
                 raise
         except OSError as exc:
             return {"success": False, "error": self._scrub(f"write failed: {exc}")}
-        return {"success": True, "new_sha256": new_sha256}
+        return {
+            "success": True,
+            "new_sha256": new_sha256,
+            "updates_applied": list(applied),
+        }
 
     @staticmethod
     def _parse_updates(params: dict[str, Any]) -> list[TaskLineUpdate]:

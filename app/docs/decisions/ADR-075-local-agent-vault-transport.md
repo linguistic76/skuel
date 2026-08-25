@@ -238,7 +238,10 @@ protocol no-op:
 `write_task_updates` — the outbound half of the round-trip, carrying the same
 `TaskLineUpdate` shapes and the same `expected_sha256` stale-read guard the port already
 defines; the agent applies them with the same atomic temp-file + `rename()` mechanics as
-`FilesystemVaultAdapter`:
+`FilesystemVaultAdapter`. The reply carries `updates_applied` — one bool per update, in the
+order received (protocol v2): `success` says the file was written, not that a given update
+found its line, and the server gates per-update state (persisting a minted 🆔) on the
+per-update answer:
 
 ```jsonc
 → {"id": 44, "op": "write_task_updates", "params": {
@@ -250,7 +253,8 @@ defines; the agent applies them with the same atomic temp-file + `rename()` mech
         "source_line_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"}
      ]}}
 ← {"id": 44, "ok": true, "result": {"success": true,
-     "new_sha256": "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9"}}
+     "new_sha256": "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9",
+     "updates_applied": [true, false]}}
 ```
 
 Error frame (uniform for all ops; codes are enum-stable, messages contain relative paths
