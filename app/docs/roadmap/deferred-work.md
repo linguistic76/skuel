@@ -489,7 +489,7 @@ under one label, none of them BM25:
 | Request shape | What "Relevance" does |
 |---|---|
 | **Single domain** (a Type choice, or a facet resolving to one domain) | `RELEVANCE.get_sort_field()` returns `None` → the backend falls back to the domain's `search_order_by DESC`. Here it IS "Recently Updated" for Ku/PS/LP, "Newest First" for the Activity Domains, event-date for Events — two dropdown entries, one behaviour. |
-| **Cross-domain, pure text, no facets** (the default landing shape) | `wants_faceted` is False → `search_domains`, the scored sweep, capped at `limit//6` per domain. A real distinct behaviour — a *score*, just not a text-relevance score. |
+| **Cross-domain, pure text, no facets** (the default landing shape) | `wants_faceted` is False → `search_domains` (capped at `limit//6` per domain), then a sort by `combined_score` — which is **0.0 for every row**: `_wrap_results` sets neither `relevance_score` nor `priority_score`, and both default to `0.0`. The sort is stable, so it is a **no-op** that preserves domain-iteration order, each domain's block still internally `search_order_by DESC`. It is called "the scored sweep" in the code comments; nothing scores it on this path. |
 | **Cross-domain with any facet/tag/relationship filter** | `_faceted_sweep`, then `zip_longest` **round-robin interleave** across domains — not ordering by anything. |
 
 ⚠️ Do not restate this as a flat "Relevance means recency" — that is true only of the
@@ -506,8 +506,10 @@ visible.
 **Dependency order** (the reason this is ruled but not built):
 
 1. This facet redesign — decides which domains `/search` must rank at all.
-2. Then D1(b), re-scoped to the six Activity Domains + Ku, which requires the OWNER_ONLY
-   ownership ruling (edge vs property) called out in that section.
+2. Then D1(b), re-scoped to the six Activity Domains + Ku. Its remaining work is
+   threading `user_uid` + the domain's `SearchVisibility` into the fulltext Cypher —
+   **not** an ownership ruling: the edge-vs-property question that section once named as
+   a prerequisite is closed (see its ⚠️ note). Do not treat it as a blocker.
 
 Building (2) first ranks domains that are leaving the page.
 
