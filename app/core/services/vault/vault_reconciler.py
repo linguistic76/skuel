@@ -44,7 +44,6 @@ from core.ports.vault_bridge_protocol import (
     VAULT_ID_RE,
     TaskLineUpdate,
     VaultSyncStats,
-    WriteResult,
     normalize_vault_line_hash,
 )
 from core.services.ingestion.config import collect_files
@@ -796,30 +795,33 @@ class VaultReconciler:
         if not updates and not injections:
             return
 
-        # A recovery needs NO write — the file already carries its 🆔 — and it
-        # must still be persisted. Gating the whole tail on ``updates`` made the
-        # recovery arm unreachable in its own defining case (nothing else queued
-        # for this entry), so the divergence it exists to heal was permanent.
-        write_result: WriteResult | None = None
-        if updates:
-            write_result = await descriptor.bridge.write_task_updates(
-                user_uid=owner,
-                path=vault_file_path,
-                updates=updates,
-                expected_sha256=snapshot.sha256,
+        # Every pass goes through the write door, INCLUDING one with nothing to
+        # write. A recovery needs no mutation — the file already carries its 🆔
+        # — but it adopts an id read from the snapshot, and both transports run
+        # the SHA-256 stale-read guard on an EMPTY batch without touching the
+        # file. So the empty call is the validation: without it a concurrent
+        # edit that removed the 🆔 between ``read_note`` and here would be
+        # persisted as a phantom, the state this whole change closes.
+        # (Gating the tail on ``updates`` had also made the recovery arm
+        # unreachable in its own defining case — the healing pass has nothing
+        # left to write — so the divergence it exists to heal was permanent.)
+        write_result = await descriptor.bridge.write_task_updates(
+            user_uid=owner,
+            path=vault_file_path,
+            updates=updates,
+            expected_sha256=snapshot.sha256,
+        )
+        if not write_result.success:
+            logger.error(
+                "write_task_updates failed for %s: %s", vault_file_path, write_result.error
             )
-            if not write_result.success:
-                logger.error(
-                    "write_task_updates failed for %s: %s", vault_file_path, write_result.error
-                )
-                stats.errors.append(
-                    "write_task_updates failed for "
-                    f"{display_path(vault_file_path, descriptor.root)}: "
-                    f"{strip_root_prefix(str(write_result.error), descriptor.root)}"
-                )
-                # The snapshot the recovery 🆔s were read from is stale by
-                # definition here — nothing from this pass is trustworthy.
-                return
+            stats.errors.append(
+                f"write_task_updates failed for {display_path(vault_file_path, descriptor.root)}: "
+                f"{strip_root_prefix(str(write_result.error), descriptor.root)}"
+            )
+            # The snapshot every recovery 🆔 was read from is stale by
+            # definition here — nothing from this pass is trustworthy.
+            return
 
         # Persist injected 🆔s onto their EXTRACTED_FROM edges — each gated on
         # ITS OWN update landing, never on file-level success. An update that
@@ -830,10 +832,10 @@ class VaultReconciler:
         # permanent: the edge keeps no vault_id, so the next sync either
         # re-mints (the line still has no 🆔) or adopts the 🆔 the file already
         # carries (the recovery arm above) — which is exactly why that arm has
-        # to run on a pass with nothing to write.
+        # to run, and to be guarded, on a pass with nothing to write.
         for pending in injections:
             if pending.update_index is not None:
-                if write_result is None or not write_result.was_applied(pending.update_index):
+                if not write_result.was_applied(pending.update_index):
                     logger.warning(
                         "🆔 injection no-oped for %s in %s — %s not persisted",
                         pending.entity_uid,
@@ -857,7 +859,7 @@ class VaultReconciler:
                 )
 
         # Update vault_sync_hash on UserEntry metadata
-        if write_result is not None and write_result.new_sha256:
+        if write_result.new_sha256:
             new_meta = dict(entry.metadata or {})
             new_meta["vault_sync_hash"] = write_result.new_sha256
             update_req = UserEntryUpdateRequest(metadata=new_meta)

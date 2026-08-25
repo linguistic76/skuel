@@ -601,6 +601,33 @@ class TestAdapterEdges:
         assert "🆔 sk_hit222" in device_line and "sk_miss11" not in device_line
 
     @pytest.mark.asyncio
+    async def test_an_empty_batch_is_guard_only_on_the_wire(
+        self, source_vault: Path, mirror_root: Path
+    ) -> None:
+        """The agent answers an empty batch with the guard and no mutation.
+
+        The reconciler uses that as "re-validate the snapshot" when a pass has
+        nothing to write but a recovery 🆔 to persist.
+        """
+        registry = AgentChannelRegistry()
+        _connect_agent(source_vault, registry)
+        adapter = LocalAgentVaultAdapter(registry=registry, mirror_root=mirror_root)
+        snapshot = await adapter.read_note(str(OWNER), NOTE_PATH)
+
+        ok = await adapter.write_task_updates(
+            user_uid=str(OWNER), path=NOTE_PATH, updates=[], expected_sha256=snapshot.sha256
+        )
+        assert ok.success is True and ok.new_sha256 == snapshot.sha256
+
+        (source_vault / NOTE_PATH).write_text("- [ ] edited by the user\n")
+        stale = await adapter.write_task_updates(
+            user_uid=str(OWNER), path=NOTE_PATH, updates=[], expected_sha256=snapshot.sha256
+        )
+        assert stale.success is False
+        assert "Stale-read guard" in str(stale.error)
+        assert (source_vault / NOTE_PATH).read_text() == "- [ ] edited by the user\n"
+
+    @pytest.mark.asyncio
     async def test_a_frame_without_outcomes_reads_fail_closed(
         self, source_vault: Path, mirror_root: Path
     ) -> None:

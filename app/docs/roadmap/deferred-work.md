@@ -1381,12 +1381,15 @@ removes). A withheld persist leaves a warning on the sync rather than "complete"
 `stats.ids_injected` moved with it: it counts injections that reached the file, not injections
 that were queued.
 
-**Withholding is recoverable only because the recovery arm now runs.** The arm that adopts a 🆔
-the file already carries (its stated purpose: heal a partial-write failure) sat behind
-`if not updates: return`, so in its own defining case — the healing pass has nothing to write —
-it never ran, and the divergence was permanent. That early return is now conditioned on there
-being neither writes nor pending adoptions, and the write RPC is issued only when there is
-something to write. Pre-existing, found by the Codex review on the PR that made it matter.
+**Withholding is recoverable only because the recovery arm now runs — guarded.** The arm that
+adopts a 🆔 the file already carries (its stated purpose: heal a partial-write failure) sat
+behind `if not updates: return`, so in its own defining case — the healing pass has nothing to
+write — it never ran, and the divergence was permanent. That early return is now conditioned on
+there being neither writes nor pending adoptions, and such a pass still goes through the write
+door with an **empty batch**: both transports answer an empty batch with the SHA-256 stale-read
+guard and no file mutation, so the adopted id is re-validated against the snapshot it was read
+from instead of being persisted blind. Both pre-existing, found by the Codex review on the PR
+that made them matter.
 
 Wire-protocol change, so `PROTOCOL_VERSION` went **1 → 2** on both sides in one commit (parity
 contract-tested in `tests/unit/test_vault_agent.py`; RED-checked by a one-sided bump). No agent

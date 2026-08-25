@@ -92,9 +92,6 @@ async def _run(
     return stats, bridge, user_entry
 
 
-_UNUSED = WriteResult(success=False, error="the bridge must not be called at all")
-
-
 def _rel(entity_uid: str, line: str) -> dict[str, str | None]:
     return {
         "entity_uid": entity_uid,
@@ -203,9 +200,15 @@ async def test_a_recovery_with_nothing_to_write_still_reaches_neo4j(
     persist on a non-empty write batch made the divergence permanent: no later
     sync could ever locate the line by an id it never learned.
     """
-    stats, bridge, user_entry = await _run([_rel("task_tagged", TAGGED_LINE)], _UNUSED, tmp_path)
+    stats, bridge, user_entry = await _run(
+        [_rel("task_tagged", TAGGED_LINE)],
+        WriteResult(success=True, updates_applied=()),
+        tmp_path,
+    )
 
-    bridge.write_task_updates.assert_not_awaited()  # and no pointless write RPC
+    # The pass still goes through the write door — with an EMPTY batch, which
+    # both transports answer with the stale-read guard and no file mutation.
+    assert bridge.write_task_updates.await_args.kwargs["updates"] == []
     user_entry.update_extracted_vault_id.assert_awaited_once()
     assert user_entry.update_extracted_vault_id.await_args.args[1:] == (
         "task_tagged",
@@ -213,6 +216,24 @@ async def test_a_recovery_with_nothing_to_write_still_reaches_neo4j(
     )
     assert stats.ids_injected == 0  # adopted from the file, not injected into it
     assert stats.is_clean
+
+
+async def test_a_recovery_only_pass_is_still_stale_read_guarded(tmp_path: Path) -> None:
+    """The 🆔 is read from the snapshot, so the snapshot must still be valid.
+
+    Skipping the write door on a recovery-only pass would persist an id a
+    concurrent edit had already removed from the line — the phantom state, via
+    the guard's own blind spot.
+    """
+    stats, bridge, user_entry = await _run(
+        [_rel("task_tagged", TAGGED_LINE)],
+        WriteResult(success=False, error="Stale-read guard: file changed since last sync"),
+        tmp_path,
+    )
+
+    assert bridge.write_task_updates.await_args.kwargs["expected_sha256"]
+    user_entry.update_extracted_vault_id.assert_not_awaited()
+    assert any("Stale-read guard" in e for e in stats.errors)
 
 
 async def test_a_file_level_write_failure_persists_nothing(tmp_path: Path) -> None:
@@ -268,3 +289,34 @@ async def test_the_filesystem_transport_reports_the_hit_and_the_miss_positionall
     assert write.was_applied(1) and not write.was_applied(0)
     written = note.read_text(encoding="utf-8")
     assert "🆔 sk_hit222" in written and "sk_miss11" not in written
+
+
+async def test_an_empty_batch_is_guard_only_and_touches_no_file(tmp_path: Path) -> None:
+    """The contract a recovery-only pass leans on, pinned on the real adapter.
+
+    An empty batch must run the stale-read guard and mutate nothing — that is
+    what makes it usable as "re-validate the snapshot I read this 🆔 from".
+    """
+    from adapters.vault.filesystem_adapter import FilesystemVaultAdapter
+
+    note = tmp_path / "daily.md"
+    note.write_text(NOTE, encoding="utf-8")
+    adapter = FilesystemVaultAdapter(allowed_root=tmp_path)
+    snapshot = await adapter.read_note(OWNER, "daily.md")
+
+    unchanged = await adapter.write_task_updates(
+        user_uid=OWNER, path="daily.md", updates=[], expected_sha256=snapshot.sha256
+    )
+    assert unchanged.success is True
+    assert unchanged.new_sha256 == snapshot.sha256
+    assert unchanged.updates_applied == ()
+
+    note.write_text(NOTE.replace(" 🆔 sk_zz9zz9", ""), encoding="utf-8")  # a concurrent edit
+    after_edit = note.read_text(encoding="utf-8")
+
+    stale = await adapter.write_task_updates(
+        user_uid=OWNER, path="daily.md", updates=[], expected_sha256=snapshot.sha256
+    )
+    assert stale.success is False
+    assert "Stale-read guard" in str(stale.error)
+    assert note.read_text(encoding="utf-8") == after_edit  # nothing written, either way
