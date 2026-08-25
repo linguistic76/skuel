@@ -210,6 +210,20 @@ def test_nested_markup_inside_image_alt_is_rendered() -> None:
     assert len(dh.find_duplicates(content)) == 1
 
 
+def test_canonically_equivalent_unicode_is_one_heading() -> None:
+    """Precomposed ``Café`` and decomposed ``Cafe`` + U+0301 render identically.
+
+    ``casefold()`` does not normalise, so without an NFC pass the two compare unequal
+    and the duplicate is missed. Copy/paste across sources is how the two spellings end
+    up in one document (Codex, #1154).
+    """
+    precomposed = "Caf\u00e9"
+    decomposed = "Cafe\u0301"
+    assert precomposed != decomposed, "the two source spellings really do differ"
+    content = f"# D\n\n## {precomposed}\n\na\n\n## {decomposed}\n\nb\n"
+    assert len(dh.find_duplicates(content)) == 1
+
+
 def test_headings_that_render_to_nothing_never_match() -> None:
     """The generalising guard behind the image fix.
 

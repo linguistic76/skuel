@@ -58,6 +58,7 @@ Pinned by ``tests/unit/scripts/test_duplicate_headings.py``.
 from __future__ import annotations
 
 import sys
+import unicodedata
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -122,11 +123,17 @@ def _rendered_text(inline: Token) -> str:
     concerned, which is exactly what this scanner is asked to notice.
 
     Internal whitespace is collapsed the way HTML collapses it, so ``## Quick Start``
-    and ``## Quick  Start`` are one heading (and share one anchor).
+    and ``## Quick  Start`` are one heading (and share one anchor), and the result is
+    NFC-normalised so canonically equivalent spellings compare equal.
     """
-    if not inline.children:
-        return " ".join(inline.content.split())
-    return " ".join(_visible_text(inline.children).split())
+    raw = inline.content if not inline.children else _visible_text(inline.children)
+    # NFC last, so every downstream use — the comparison key, the parent scope key and
+    # the reported title — shares one spelling. `casefold()` does not normalise, so
+    # precomposed `Café` and decomposed `Cafe\u0301` render identically and compare
+    # unequal without this; copy/paste across sources is how the two forms meet
+    # (Codex, #1154). Canonically equivalent strings ARE the same text by Unicode's
+    # own definition, so this can only find duplicates, never invent them.
+    return unicodedata.normalize("NFC", " ".join(raw.split()))
 
 
 def _visible_text(tokens: "Sequence[Token] | None") -> str:
