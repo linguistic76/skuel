@@ -319,16 +319,25 @@ _DONE_DATE_RE = re.compile(r"✅️?\s*\d{4}-\d{2}-\d{2}")
 _DONE_DATE_STRIP_RE = re.compile(r"[ \t]?✅️?\s*\d{4}-\d{2}-\d{2}")
 
 
-def _line_is_marked_done(line: str) -> bool:
-    """Whether a vault task line carries ANY done marking — checkbox or ``✅ date``.
+def _carries_skuel_done_marker(line: str) -> bool:
+    """Whether this line carries the ``✅ date`` token — SKUEL's own completion write.
 
-    Two-part by design, mirroring ``apply_mark_done``'s own two-part
-    idempotency: a line checked in Obsidian without the tasks plugin has no
-    ✅ date, and a line manually un-checked in Obsidian can still carry a stale
-    ✅ date. Either half alone means there is something for ``apply_mark_undone``
-    to remove.
+    ⚠ **The discriminator for the un-check, and it is deliberately NOT "is the
+    box checked".** ``apply_mark_done`` ALWAYS appends a ``✅ date`` (its last
+    act, unconditional once the box is checked), so SKUEL never authors a
+    ``[x]`` without one. A dateless ``[x]`` on a 🆔 line is therefore
+    *definitionally* something the USER checked in Obsidian — and since a
+    vault-side check does not reach SKUEL (extraction Guard 2b; inbound is
+    parked, deferred-work § R4), reverting it would silently erase a deliberate
+    edit SKUEL cannot even read, on the sync right after they made it.
+
+    So the un-check takes back only what SKUEL wrote. It is not an opinion
+    about who owns the checkbox; it is the narrower and defensible claim that a
+    withdrawn completion must not leave SKUEL's own completion token behind.
+    A dateless ``[x]`` stays, diverging visibly — which is the pre-existing
+    state § R4 exists to close, not a new one this creates.
     """
-    return bool(_CHECKED_RE.match(line)) or bool(_DONE_DATE_RE.search(line))
+    return bool(_DONE_DATE_RE.search(line))
 
 
 def apply_mark_done(lines: list[str], vault_id: str, done_date: str) -> tuple[list[str], bool]:
@@ -375,12 +384,17 @@ def apply_mark_undone(lines: list[str], vault_id: str) -> tuple[list[str], bool]
     token, so a complete → reopen round-trip restores the ORIGINAL line
     byte-for-byte.
 
-    Both halves are independent: an Obsidian-checked line with no ✅ date is
-    un-checked, and a manually un-checked line with a stale ✅ date has the
-    token stripped. A line with neither is a true no-op (``changed=False``),
-    as is a ``vault_id`` that matches no line in the file — the caller
-    distinguishes the two through ``WriteResult.updates_applied`` plus its own
-    queue-time gate, never from this return value alone.
+    ⚠ Gated on the ``✅ date`` token, NOT on the checkbox — see
+    ``_carries_skuel_done_marker``. A dateless ``[x]`` is a user's own Obsidian
+    check that SKUEL never wrote and cannot read back, and it is left alone. A
+    manually un-checked line still carrying a stale ✅ date DOES have the token
+    stripped: that token is SKUEL's, and it records a completion that was
+    withdrawn.
+
+    A line with no ✅ date is a no-op (``changed=False``), as is a ``vault_id``
+    that matches no line in the file — the caller distinguishes the two through
+    ``WriteResult.updates_applied`` plus its own queue-time gate, never from
+    this return value alone.
     """
     for i, line in enumerate(lines):
         m = VAULT_ID_RE.search(line)
@@ -390,7 +404,7 @@ def apply_mark_undone(lines: list[str], vault_id: str) -> tuple[list[str], bool]
         # guard in ``apply_mark_done``; nothing here may edit prose.
         if not _CHECKED_RE.match(line) and not _UNCHECKED_RE.match(line):
             return lines, False
-        if not _line_is_marked_done(line):
+        if not _carries_skuel_done_marker(line):
             return lines, False
 
         updated = re.sub(r"^([-*]\s*)\[[xX]\]", r"\1[ ]", line, count=1)

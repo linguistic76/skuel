@@ -238,7 +238,7 @@ The `✅ YYYY-MM-DD` token is written by SKUEL so the obsidian-tasks plugin reco
 
 **Completing it in Obsidian does not sync back.** Checking the box on a line that already carries a `🆔` does NOT mark the SKUEL Task completed — checkbox sync is outbound-only, and the sync deliberately skips lines it already tracks (the duplicate-task guard). Complete the task in SKUEL and the next sync writes the `✅` into your note. (A checkbox line you author *already checked*, before it has a `🆔`, is different: its first ingest creates the task in SKUEL as completed, with the `✅` date.)
 
-**Re-opening it in SKUEL does sync out.** If you re-open a completed task, the next sync un-checks its line and removes the `✅` date — restoring the line to exactly what it was before you completed it. Your note never keeps a completion you withdrew. (Un-checking the box in Obsidian yourself still does not re-open the SKUEL task; that direction is not built.)
+**Re-opening it in SKUEL does sync out.** If you re-open a completed task, the next sync un-checks its line and removes the `✅` date — restoring the line to exactly what it was before you completed it. Your note never keeps a completion you withdrew. SKUEL only ever takes back **its own** write: a box you ticked yourself in Obsidian (no `✅` date on the line) is left exactly as you left it. (Ticking or un-ticking a `🆔` line yourself still does not change the task in SKUEL; that direction is not built.)
 
 **Field authority** — who owns what:
 

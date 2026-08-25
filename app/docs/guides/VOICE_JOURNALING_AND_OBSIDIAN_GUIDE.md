@@ -440,12 +440,12 @@ The VaultBridge follows a clear rule about which side is the source of truth for
 | Field | Who controls it |
 |-------|----------------|
 | Task title and description | Obsidian (you edit in your notes) |
-| Checkbox status (done/not done) | SKUEL, both directions outbound — completing in SKUEL writes `[x]` + `✅` to your note, and re-opening it un-checks the line and removes the `✅` date, restoring the line exactly as it was. A vault-side check or un-check of a 🆔 line is still not read back |
+| Checkbox status (done/not done) | SKUEL, both directions outbound — completing in SKUEL writes `[x]` + `✅` to your note, and re-opening it removes them again, restoring the line exactly as it was. It only takes back its OWN write: a box you tick yourself (no `✅` date) is left alone. A vault-side check or un-check of a 🆔 line is still not read back |
 | Due dates, priority, tags | Obsidian |
 | `🆔` ID | SKUEL (minted and written once) |
 | History, relationships, ZPD scores | SKUEL only |
 
-The Obsidian-owned rows apply when a line is **first extracted**. Once a line carries a `🆔`, later vault-side edits to it (title, dates, checkbox) are skipped by the sync — if you check off a 🆔 line in Obsidian, SKUEL's status is unaffected. Make changes in SKUEL — the sync writes checkbox state outbound in both directions: a completion adds `[x]` + `✅`, and re-opening the task takes them back off.
+The Obsidian-owned rows apply when a line is **first extracted**. Once a line carries a `🆔`, later vault-side edits to it (title, dates, checkbox) are skipped by the sync — if you check off a 🆔 line in Obsidian, SKUEL's status is unaffected. Make changes in SKUEL — the sync writes checkbox state outbound in both directions: a completion adds `[x]` + `✅`, and re-opening the task takes them back off. A box you ticked yourself is never un-ticked for you.
 
 ---
 

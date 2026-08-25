@@ -132,17 +132,30 @@ async def test_reopened_task_with_a_checked_line_queues_exactly_one_uncheck(
     assert not stats.warnings and not stats.errors, stats
 
 
-async def test_a_checked_line_without_a_done_date_is_still_unchecked(tmp_path: Path) -> None:
-    """Checked in Obsidian without the tasks plugin — the gate is two-part."""
+async def test_a_users_own_obsidian_check_is_never_reverted(tmp_path: Path) -> None:
+    """⚠ Codex #1152 P2: the un-check takes back only what SKUEL wrote.
+
+    A dateless ``[x]`` on a 🆔 line cannot have come from SKUEL —
+    ``apply_mark_done`` always appends a ``✅ date``. It is the user checking
+    the box in Obsidian, which does not reach SKUEL (Guard 2b; inbound parked,
+    § R4). Reverting it would silently erase that edit on the very next sync.
+    The line stays checked and the divergence stays VISIBLE, which is the
+    pre-existing state § R4 exists to close.
+    """
     stats, bridge = await _run(_open_task(), f"- [x] Ship the fix 🆔 {VAULT_ID}\n", tmp_path)
 
-    updates = bridge.write_task_updates.await_args.kwargs["updates"]
-    assert len(updates) == 1 and updates[0].mark_undone is True
-    assert stats.tasks_marked_undone == 1
+    bridge.write_task_updates.assert_not_awaited()
+    assert stats.tasks_marked_undone == 0
+    assert not stats.warnings and not stats.errors, stats
 
 
 async def test_a_stale_done_date_on_an_open_box_is_still_stripped(tmp_path: Path) -> None:
-    """The gate's other half: manually un-checked, ✅ date left behind."""
+    """The ✅ token is SKUEL's, so a withdrawn completion must not leave it.
+
+    The user opened the box themselves but the date stayed. SKUEL is not
+    reverting their edit here — it is removing its OWN record of a completion
+    that no longer holds.
+    """
     stats, bridge = await _run(
         _open_task(), f"- [ ] Ship the fix 🆔 {VAULT_ID} ✅ 2026-08-20\n", tmp_path
     )

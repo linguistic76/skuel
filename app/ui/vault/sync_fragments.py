@@ -123,6 +123,13 @@ def consent_form(
     Consent covers BOTH directions of the sync (read + write) — nothing is
     ingested before the user accepts here. The folder list comes from the live
     allowlist (``VaultReconciler.describe``), never hardcoded prose.
+
+    ⚠ **The write disclosure must enumerate every mutation the sync performs**,
+    including the reopen un-check, and it must say what the un-check will NOT
+    touch. "SKUEL only takes back what it wrote" is the actual contract
+    (``_carries_skuel_done_marker``), and a user deciding whether to let an app
+    edit their notes is entitled to it. Adding a write operation without
+    updating this copy makes the consent cover something it never described.
     ``post_to``/``button_label`` keep the requested action honest: consent
     reached from Preview continues into a PREVIEW, never a real sync
     (Kody #527).
@@ -135,9 +142,13 @@ def consent_form(
                 *_read_scope_phrase(description),
                 ". It will also write ",
                 Span("🆔 sk_XXXXXX", cls="font-mono text-sm"),
-                " IDs back into your task lines and mark completed tasks with ",
+                " IDs back into your task lines, mark completed tasks with ",
                 Span("[x] ✅ date", cls="font-mono text-sm"),
-                ". Nothing is read or written until you allow it.",
+                ", and remove that same ",
+                Span("[x] ✅ date", cls="font-mono text-sm"),
+                " again if you re-open the task in SKUEL. It only ever takes"
+                " back what it wrote — a box you tick yourself in Obsidian is"
+                " left alone. Nothing is read or written until you allow it.",
                 cls="text-base-content/70 mb-4",
             ),
             Form(

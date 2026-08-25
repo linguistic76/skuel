@@ -79,16 +79,26 @@ def test_already_unchecked_dateless_line_is_a_no_op() -> None:
     assert lines == [line]
 
 
-def test_checked_line_without_a_done_date_is_unchecked() -> None:
-    """Checked in Obsidian without the tasks plugin — no ✅ token to strip."""
-    lines, changed = apply_mark_undone([f"- [x] Ship the fix 🆔 {VAULT_ID}\n"], VAULT_ID)
-    assert changed is True
-    assert lines == [f"- [ ] Ship the fix 🆔 {VAULT_ID}\n"]
+def test_a_dateless_checked_line_is_the_users_own_check_and_is_left_alone() -> None:
+    """⚠ The un-check takes back only what SKUEL wrote (Codex #1152 P2).
+
+    ``apply_mark_done`` ALWAYS appends a ``✅ date``, so SKUEL never authors a
+    dateless ``[x]``. One on a 🆔 line is therefore the user checking the box in
+    Obsidian — and a vault-side check does not reach SKUEL (Guard 2b; inbound
+    parked, § R4), so reverting it would silently erase a deliberate edit on the
+    very next sync, an edit SKUEL cannot even read.
+    """
+    line = f"- [x] Ship the fix 🆔 {VAULT_ID}\n"
+    lines, changed = apply_mark_undone([line], VAULT_ID)
+    assert changed is False
+    assert lines == [line]
 
 
 def test_uppercase_checkbox_is_unchecked_too() -> None:
     """``[X]`` is a checked box to ``_CHECKED_RE``; the flip must handle it."""
-    lines, changed = apply_mark_undone([f"- [X] Ship the fix 🆔 {VAULT_ID}\n"], VAULT_ID)
+    lines, changed = apply_mark_undone(
+        [f"- [X] Ship the fix 🆔 {VAULT_ID} ✅ 2026-08-20\n"], VAULT_ID
+    )
     assert changed is True
     assert lines == [f"- [ ] Ship the fix 🆔 {VAULT_ID}\n"]
 
@@ -168,8 +178,12 @@ def test_only_the_matching_line_moves() -> None:
 class TestNeedsMarkUndone:
     """The queue-time cost gate — it answers by running the mutation itself."""
 
-    def test_true_for_a_checked_line(self) -> None:
-        assert needs_mark_undone(f"- [x] Ship 🆔 {VAULT_ID}\n", VAULT_ID) is True
+    def test_true_for_a_checked_line_carrying_the_done_date(self) -> None:
+        assert needs_mark_undone(f"- [x] Ship 🆔 {VAULT_ID} ✅ 2026-08-20\n", VAULT_ID) is True
+
+    def test_false_for_a_dateless_checked_line(self) -> None:
+        """The user's own Obsidian check — never queued, so never reverted."""
+        assert needs_mark_undone(f"- [x] Ship 🆔 {VAULT_ID}\n", VAULT_ID) is False
 
     def test_true_for_an_unchecked_line_with_a_stale_done_date(self) -> None:
         assert needs_mark_undone(f"- [ ] Ship 🆔 {VAULT_ID} ✅ 2026-08-20\n", VAULT_ID) is True
@@ -191,7 +205,7 @@ class TestNeedsMarkUndone:
         """The gate cannot drift from the write — it IS the write, run dry."""
         for content in (
             f"- [ ] open 🆔 {VAULT_ID}\n",
-            f"- [x] checked 🆔 {VAULT_ID}\n",
+            f"- [x] checked-dateless 🆔 {VAULT_ID}\n",
             f"- [x] checked+dated 🆔 {VAULT_ID} ✅ 2026-08-20\n",
             f"- [ ] dated-only 🆔 {VAULT_ID} ✅ 2026-08-20\n",
             f"prose 🆔 {VAULT_ID} ✅ 2026-08-20\n",

@@ -858,8 +858,15 @@ class VaultReconciler:
                     # so the graph write has already committed and a failed
                     # vault write has no retry — re-issuing writes nothing,
                     # because the prior is no longer ``completed``. "Not
-                    # completed AND its line is still marked done" is instead
-                    # re-evaluable on every sync and idempotent.
+                    # completed AND its line still carries SKUEL's own ✅ date"
+                    # is instead re-evaluable on every sync and idempotent.
+                    #
+                    # ⚠ The ✅ date, not the checkbox, is the discriminator: it
+                    # is the token SKUEL wrote, so this only ever takes back
+                    # SKUEL's own completion. A dateless [x] is a box the USER
+                    # ticked in Obsidian — unreadable to SKUEL (Guard 2b,
+                    # inbound parked § R4) and left alone rather than silently
+                    # reverted on the next sync.
                     #
                     # The gate is what keeps this arm cheap: without it the
                     # batch would be non-empty for nearly every file holding
