@@ -210,6 +210,22 @@ def test_nested_markup_inside_image_alt_is_rendered() -> None:
     assert len(dh.find_duplicates(content)) == 1
 
 
+def test_non_breaking_space_is_not_collapsed() -> None:
+    """HTML collapses ASCII whitespace only — U+00A0 survives, so it must key apart.
+
+    ``str.split()`` folds every Unicode space, so `## A&nbsp;B` and `## A B` would have
+    keyed alike and been reported on a valid document — a false positive (Codex, #1154).
+    """
+    content = "# D\n\n## A\u00a0B\n\na\n\n## A B\n\nb\n"
+    assert dh.find_duplicates(content) == []
+
+
+def test_ascii_whitespace_is_still_collapsed() -> None:
+    """The narrowing must not undo the collapse it was narrowing — tabs included."""
+    content = "# D\n\n## Quick\tStart\n\na\n\n## Quick  Start\n\nb\n"
+    assert len(dh.find_duplicates(content)) == 1
+
+
 def test_canonically_equivalent_unicode_is_one_heading() -> None:
     """Precomposed ``Café`` and decomposed ``Cafe`` + U+0301 render identically.
 

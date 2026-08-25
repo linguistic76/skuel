@@ -133,7 +133,24 @@ Only scans code blocks (fenced ` ``` ` and inline backticks), not prose. Prose m
 
 **Maintenance:** Update `scripts/health/stale_names.py` whenever you rename or delete a significant class, method, enum, or module. Run `./dev health-names --list` to see all rules.
 
-### Check 4: Cross-References (`health-xref`)
+### Check 4: Duplicate Headings (`health-headings`)
+
+Finds headings repeated at the same level under the same parent — a superseded section
+that outlived its replacement.
+
+```
+  docs/reference/SUB_SERVICE_CATALOG.md
+    L443   'EventHandlerService' repeats L291 under Sub-Service Catalog › Domain-Specific
+```
+
+`git grep` does not cover this: the duplicate is found by *position*, not by string, so
+grepping the title returns both copies and looks correct. Only a repeat under the **same
+parent** counts — `### Tests` under each of five sections is good structure, not a defect.
+
+**Scope:** `docs/` + `.claude/skills/`, excluding `docs/design-principles/` (pasted
+transcripts, where a repeated `## next` is faithful capture).
+
+### Check 5: Cross-References (`health-xref`)
 
 Validates bidirectional consistency between skills and documentation, and detects stale skills.
 
@@ -214,10 +231,11 @@ uv run python scripts/docs_freshness.py --stale   # mtime-based staleness
 
 | Command | What It Does |
 |---------|-------------|
-| `./dev health` | Run all 4 health checks |
+| `./dev health` | Run every health check except `health-mypy` |
 | `./dev health-modules` | Find orphaned Python files |
 | `./dev health-links` | Find broken doc links |
 | `./dev health-names` | Find stale identifiers in doc code blocks |
+| `./dev health-headings` | Find repeated headings under one parent |
 | `./dev health-xref` | Validate skill↔doc cross-references |
 | `./dev docs-check` | Run post-commit docs hook manually |
 

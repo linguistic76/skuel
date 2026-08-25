@@ -57,6 +57,7 @@ Pinned by ``tests/unit/scripts/test_duplicate_headings.py``.
 
 from __future__ import annotations
 
+import re
 import sys
 import unicodedata
 from collections.abc import Sequence
@@ -87,6 +88,9 @@ FREEFORM_DIRS = [
 ]
 
 _PARSER = MarkdownIt("commonmark")
+
+# The whitespace HTML collapses — ASCII only. U+00A0 and friends are preserved.
+_HTML_SPACE = re.compile(r"[ \t\n\r\f]+")
 
 
 def _is_freeform(path: Path) -> bool:
@@ -127,13 +131,18 @@ def _rendered_text(inline: Token) -> str:
     NFC-normalised so canonically equivalent spellings compare equal.
     """
     raw = inline.content if not inline.children else _visible_text(inline.children)
+    # ``str.split()`` is WRONG here: it folds every Unicode space, including U+00A0,
+    # which HTML does NOT collapse — so `## A&nbsp;B` and `## A B` would key alike and
+    # be reported as a duplicate on a valid document (Codex, #1154). Only the five
+    # characters HTML actually collapses are folded.
+    #
     # NFC last, so every downstream use — the comparison key, the parent scope key and
     # the reported title — shares one spelling. `casefold()` does not normalise, so
     # precomposed `Café` and decomposed `Cafe\u0301` render identically and compare
     # unequal without this; copy/paste across sources is how the two forms meet
     # (Codex, #1154). Canonically equivalent strings ARE the same text by Unicode's
     # own definition, so this can only find duplicates, never invent them.
-    return unicodedata.normalize("NFC", " ".join(raw.split()))
+    return unicodedata.normalize("NFC", _HTML_SPACE.sub(" ", raw).strip(" \t\n\r\f"))
 
 
 def _visible_text(tokens: "Sequence[Token] | None") -> str:
