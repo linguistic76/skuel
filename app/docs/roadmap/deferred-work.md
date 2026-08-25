@@ -463,21 +463,28 @@ sub-topic, learning level) plus Load-more pagination that actually works. The cu
 half of `/search` is a second, worse copy of it. This item is therefore directive item 2
 (remove the unnecessary), not feature building — with one genuine addition, below.
 
-**Ride-along that is NOT optional: LearningPath must join the library catalog.**
+**Ride-along the redesign creates: LearningPath loses its last browser door.**
 `_library_search_request` (`adapters/inbound/explore_ui.py`) scopes the catalog to
-`[EntityType.KU, EntityType.PATH_STEP]`. Remove LP from `/search` without adding it there
-and LP becomes findable by text **nowhere**. It is part of the same change — the library
-page's own subtitle already promises more than the catalog delivers once LP has no other
-home.
+`[EntityType.KU, EntityType.PATH_STEP]`, so once `/search` drops LP, no browser surface
+finds one by typing. This is **not data loss** — `POST /api/search/unified` still reaches
+it (`advanced_search`'s `_SEARCHABLE_DOMAINS` includes `LEARNING_PATH`, backed by
+`LpSearchService`) — it is a product choice about whether a person can find a LearningPath
+by typing, given that JSON endpoint has no UI and zero recorded usage.
 
-⚠️ **It is NOT "one list literal" — the card renderer must move too.** `_library_cards`
-(`ui/explore/cards.py`) branches on `is_ku` and sends **everything else** to a hard-coded
-"Path Step" pill and `/explore/ps/{uid}`. Add LPs to the catalog without touching it and
-every LearningPath renders as a mislabeled Path Step card with a dead detail link
-(LPs live at `/lp/{uid}`). The fix is available rather than new: `entity_detail_href`
-(`ui/patterns/entity_links.py`) already maps `learning_path` → `/lp`, so adopt the shared
-helper instead of extending the two-way branch to three. Card pill likewise needs a real
-per-type value. (Caught by Codex on #1153.)
+Default expectation is that LP joins the library catalog in the same change; the
+alternative is an explicit ruling that **LPs are navigated, not searched** (defensible
+with 2 of them). What is not acceptable is neither — dropping it from `/search` and
+leaving the gap unnamed. If it does join:
+
+- ⚠️ **It is not "one list literal" — the card renderer must move too.** `_library_cards`
+  (`ui/explore/cards.py`) branches on `is_ku` and sends **everything else** to a
+  hard-coded "Path Step" pill and `/explore/ps/{uid}`, so every LP would render as a
+  mislabeled Path Step card with a dead detail link (LPs live at `/lp/{uid}`). The fix is
+  available rather than new: `entity_detail_href` (`ui/patterns/entity_links.py`) already
+  maps `learning_path` → `/lp`, so adopt the shared helper instead of widening a two-way
+  branch to three. The pill likewise needs a real per-type value.
+- The library's subtitle — "Explore all knowledge units and path steps" — matches its
+  catalog exactly today, so it changes with the catalog.
 
 **Rulings that were decisions, not defaults** — each was posed and answered:
 
@@ -503,7 +510,7 @@ under one label, none of them BM25:
 | Request shape | What "Relevance" does |
 |---|---|
 | **Single domain** (a Type choice, or a facet resolving to one domain) | `RELEVANCE.get_sort_field()` returns `None` → the backend falls back to the domain's `search_order_by DESC`. Here it IS "Recently Updated" for Ku/PS/LP, "Newest First" for the Activity Domains, event-date for Events — two dropdown entries, one behaviour. |
-| **Cross-domain, pure text, no facets** (the default landing shape) | `wants_faceted` is False → `search_domains` (capped at `limit//6` per domain), then a sort by `combined_score` — which is **0.0 for every row**: `_wrap_results` sets neither `relevance_score` nor `priority_score`, and both default to `0.0`. The sort is stable, so it is a **no-op** that preserves domain-iteration order, each domain's block still internally `search_order_by DESC`. It is called "the scored sweep" in the code comments; nothing scores it on this path. |
+| **Cross-domain, pure text, no facets** (the default landing shape) | `wants_faceted` is False → `search_domains` (`max(5, limit//6)` per domain — **5** at the default page size of 20, not 3), then a sort by `combined_score` — which is **0.0 for every row**: `_wrap_results` sets neither `relevance_score` nor `priority_score`, and both default to `0.0`. The sort is stable, so it is a **no-op** that preserves domain-iteration order, each domain's block still internally `search_order_by DESC`. It is called "the scored sweep" in the code comments; nothing scores it on this path. |
 | **Cross-domain with any facet/tag/relationship filter** | `_faceted_sweep`, then `zip_longest` **round-robin interleave** across domains — not ordering by anything. |
 
 ⚠️ Do not restate this as a flat "Relevance means recency" — that is true only of the
