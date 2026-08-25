@@ -406,8 +406,8 @@ since it cannot be backfilled. (Raised by Codex on #1153.)
 So **the surface the shipped rung serves has never been used in production**, and the two
 faceted surfaces together have had ~8 real queries. Corpus at the same date:
 121 Ku · 25 PathStep · 2 LearningPath · 14 Exercise · 77 Task · 62 UserEntry. Relevance
-ordering over ≤20 `CONTAINS` hits drawn from 121 nodes is a marginal difference, not a
-fix.
+ordering over ≤20 `CONTAINS` hits drawn from a 121-node Ku corpus is a marginal
+difference, not a fix.
 
 **The valuable half has since INVERTED — do not scope from the bullet list above.** The
 `/search` facet redesign ruled 2026-08-25 (its own section below) removes PathStep and
@@ -456,12 +456,16 @@ knowledge behind it*:
 | PathStep, LearningPath | Type dropdown rows | **removed — from the dropdown AND from the results** |
 | "My Entries" (UserEntry) | a Type dropdown row | **stays** |
 
-**Why removing curriculum costs nothing: it is a duplicate surface, not a capability.**
+**Why removing PathStep costs nothing: it is a duplicate surface, not a capability.**
 `/explore/library` is billed as "Explore all knowledge units and path steps", runs the same
 `SearchRouter.faceted_search` path, and carries the richer facet set (tags, NOUS,
-sub-topic, learning level) plus Load-more pagination that actually works. The curriculum
-half of `/search` is a second, worse copy of it. This item is therefore directive item 2
-(remove the unnecessary), not feature building — with one genuine addition, below.
+sub-topic, learning level) plus Load-more pagination that actually works. The PathStep half
+of `/search` is a second, worse copy of it, so this item is directive item 2 (remove the
+unnecessary), not feature building.
+
+⚠️ **That argument covers PathStep, NOT LearningPath** — the library catalog carries Ku and
+PathStep only, so LP is the one removal with a real consequence. It gets its own paragraph
+below; do not let the "duplicate surface" framing carry over to it.
 
 **Ride-along the redesign creates: LearningPath loses its last browser door.**
 `_library_search_request` (`adapters/inbound/explore_ui.py`) scopes the catalog to
@@ -1843,7 +1847,7 @@ Review this document at the **September 2026 quarterly review**. Checklist:
 | Principles `_validate_update` reform or deletion | Next substantive touch of the Principles update path | Ruling needed — see the section's landmine note |
 | EntryReport / ActivityReport search | A teacher workflow wants direct report-content search | Product need (not a data threshold) |
 | Domain-level fulltext-first text search (D1(b)) — ruled DEFERRED **twice** (2026-08-16, 2026-08-25) | A consumer wants relevance ranking for the domains remaining on `/search` after the facet redesign (6 Activity Domains + Ku; UserEntry needs a ruling) — ⚠️ scope INVERTED, do not scope from the bullet list; the OWNER_ONLY edge-vs-property "ruling needed" is STALE — already closed, do not re-open | Product need (not a data threshold); read the section's two rulings first |
-| `/search` facet redesign (ruled *build, not now* 2026-08-25) | Mike schedules it — product decision (what `/search` is for) | See the section: Activity Domains facet, PS/LP out of results, LP joins the library catalog (not optional), Nous keeps its name, Relevance fiction left standing on purpose |
+| `/search` facet redesign (ruled *build, not now* 2026-08-25) | Mike schedules it — product decision (what `/search` is for) | See the section — do not scope from this row: Activity Domains facet, PS/LP out of results, LP joins the library catalog **or** gets an explicit "navigated, not searched" ruling (the gap must not be left unnamed), Nous keeps its name, Relevance fiction left standing on purpose, UserEntry scope needs a ruling |
 | ZPD snapshot history & trend analysis | A ZPD-over-time consumer exists | Product need + `MATCH (h:ZPDHistory) RETURN count(h)` for accrual |
 | Habit rows in the weekly-note panel | Lived weekly-review use wants the backward look | Product need (not a data threshold) |
 | Non-positive-duration follow-ups (habit `0m` on `/today` / proposes `15`) | Next touch of either surface | Ride-along, not standalone |
