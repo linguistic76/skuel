@@ -311,33 +311,52 @@ _UNCHECKED_RE = re.compile(r"^([-*]\s*\[)\s*(\])")
 _CHECKED_RE = re.compile(r"^[-*]\s*\[[xX]\]")
 # Done-date token: ✅ YYYY-MM-DD
 _DONE_DATE_RE = re.compile(r"✅️?\s*\d{4}-\d{2}-\d{2}")
-# The same token PLUS the single separating space ``apply_mark_done`` wrote in
-# front of it (``f"{stripped} ✅ {done_date}{eol}"``). Stripping the bare
-# ``_DONE_DATE_RE`` match instead leaves that space behind, so an un-checked
-# line is no longer byte-identical to what it was before completion — a
-# whitespace bug that survives every assertion that is not byte-exact.
-_DONE_DATE_STRIP_RE = re.compile(r"[ \t]?✅️?\s*\d{4}-\d{2}-\d{2}")
+# The exact shape ``apply_mark_done`` appends: ``f"{stripped} ✅ {done_date}{eol}"``
+# — a single separating space, the token, then END OF LINE. Both halves matter:
+#
+#   * the SPACE, because stripping the bare ``_DONE_DATE_RE`` match leaves it
+#     behind and the un-checked line is no longer byte-identical to what it was
+#     before completion (a whitespace bug that survives every assertion that is
+#     not byte-exact);
+#   * the ANCHOR, because a ``✅ date`` anywhere else on the line belongs to the
+#     USER. ``apply_mark_done`` appends nothing when the line already carries a
+#     token, so a non-trailing one was never SKUEL's to remove — an unanchored
+#     substitution deleted user-authored text out of the middle of the task
+#     description (Codex #1152 round 2).
+#
+# Matched against the line with its EOL removed, so ``\Z`` means "end of the
+# line's content" and cannot be satisfied before a newline.
+_TRAILING_DONE_DATE_RE = re.compile(r"[ \t]?✅️?\s*\d{4}-\d{2}-\d{2}\Z")
 
 
 def _carries_skuel_done_marker(line: str) -> bool:
-    """Whether this line carries the ``✅ date`` token — SKUEL's own completion write.
+    """Whether this line ends with a ``✅ date`` — the shape ``apply_mark_done`` writes.
 
-    ⚠ **The discriminator for the un-check, and it is deliberately NOT "is the
-    box checked".** ``apply_mark_done`` ALWAYS appends a ``✅ date`` (its last
-    act, unconditional once the box is checked), so SKUEL never authors a
-    ``[x]`` without one. A dateless ``[x]`` on a 🆔 line is therefore
-    *definitionally* something the USER checked in Obsidian — and since a
-    vault-side check does not reach SKUEL (extraction Guard 2b; inbound is
-    parked, deferred-work § R4), reverting it would silently erase a deliberate
-    edit SKUEL cannot even read, on the sync right after they made it.
+    ⚠ **The discriminator for the un-check, and it is deliberately NEITHER
+    "is the box checked" NOR "is a ✅ date present anywhere".** Both wider
+    readings destroy user-authored state:
 
-    So the un-check takes back only what SKUEL wrote. It is not an opinion
-    about who owns the checkbox; it is the narrower and defensible claim that a
+    * **Not the checkbox.** ``apply_mark_done`` ALWAYS appends a ``✅ date`` (its
+      last act, unconditional once the box is checked), so SKUEL never authors a
+      ``[x]`` without one. A dateless ``[x]`` on a 🆔 line is *definitionally*
+      something the USER checked in Obsidian — and a vault-side check does not
+      reach SKUEL (extraction Guard 2b; inbound parked, deferred-work § R4), so
+      reverting it silently erases a deliberate edit SKUEL cannot even read.
+    * **Not "anywhere".** ``apply_mark_done`` appends nothing when the line
+      already carries a token, so a ``✅ date`` sitting inside the task's own
+      text was never SKUEL's — it is prose the user wrote (*"Compare ✅ 2025-01-01
+      vs now"*). Only a TRAILING token can be the one SKUEL appended.
+
+    So the un-check takes back only what SKUEL wrote. It is not an opinion about
+    who owns the checkbox; it is the narrower and defensible claim that a
     withdrawn completion must not leave SKUEL's own completion token behind.
-    A dateless ``[x]`` stays, diverging visibly — which is the pre-existing
-    state § R4 exists to close, not a new one this creates.
+    Anything else stays, diverging visibly — the pre-existing state § R4 exists
+    to close, not a new one this creates.
+
+    It shares ``_TRAILING_DONE_DATE_RE`` with the removal below, so detection and
+    removal cannot disagree and leave a line half-reverted.
     """
-    return bool(_DONE_DATE_RE.search(line))
+    return bool(_TRAILING_DONE_DATE_RE.search(line.rstrip("\n")))
 
 
 def apply_mark_done(lines: list[str], vault_id: str, done_date: str) -> tuple[list[str], bool]:
@@ -384,12 +403,12 @@ def apply_mark_undone(lines: list[str], vault_id: str) -> tuple[list[str], bool]
     token, so a complete → reopen round-trip restores the ORIGINAL line
     byte-for-byte.
 
-    ⚠ Gated on the ``✅ date`` token, NOT on the checkbox — see
-    ``_carries_skuel_done_marker``. A dateless ``[x]`` is a user's own Obsidian
-    check that SKUEL never wrote and cannot read back, and it is left alone. A
-    manually un-checked line still carrying a stale ✅ date DOES have the token
-    stripped: that token is SKUEL's, and it records a completion that was
-    withdrawn.
+    ⚠ Gated on a TRAILING ``✅ date`` token, not on the checkbox and not on a
+    token anywhere — see ``_carries_skuel_done_marker``. A dateless ``[x]`` is a
+    user's own Obsidian check, and a ``✅ date`` inside the task's text is the
+    user's prose; neither is touched. A manually un-checked line still ending in
+    a stale ✅ date DOES have that token stripped: it is SKUEL's, and it records
+    a completion that was withdrawn.
 
     A line with no ✅ date is a no-op (``changed=False``), as is a ``vault_id``
     that matches no line in the file — the caller distinguishes the two through
@@ -407,9 +426,15 @@ def apply_mark_undone(lines: list[str], vault_id: str) -> tuple[list[str], bool]
         if not _carries_skuel_done_marker(line):
             return lines, False
 
-        updated = re.sub(r"^([-*]\s*)\[[xX]\]", r"\1[ ]", line, count=1)
-        updated = _DONE_DATE_STRIP_RE.sub("", updated)
-        lines[i] = updated
+        # Split the EOL off so the trailing-token anchor means "end of the
+        # line's content", then put it back byte-for-byte.
+        stripped = line.rstrip("\n")
+        eol = line[len(stripped) :]
+        # Both substitutions are anchored (``^`` / ``\Z``, no MULTILINE), so each
+        # can match at most once — no ``count=`` needed, same as apply_mark_done.
+        updated = re.sub(r"^([-*]\s*)\[[xX]\]", r"\1[ ]", stripped)
+        updated = _TRAILING_DONE_DATE_RE.sub("", updated)
+        lines[i] = updated + eol
         return lines, True
     return lines, False
 

@@ -138,6 +138,42 @@ def test_absent_vault_id_changes_nothing() -> None:
     assert result == lines
 
 
+def test_a_done_date_inside_the_task_text_is_the_users_prose_and_is_untouched() -> None:
+    """⚠ Codex #1152 round 2: only a TRAILING ✅ date can be SKUEL's.
+
+    ``apply_mark_done`` appends nothing when the line already carries a token,
+    so a ``✅ date`` sitting in the middle of the task's own text was never
+    SKUEL's to remove. An unanchored strip deleted user-authored words out of
+    the description.
+    """
+    line = f"- [x] Compare ✅ 2025-01-01 vs now 🆔 {VAULT_ID}\n"
+    lines, changed = apply_mark_undone([line], VAULT_ID)
+    assert changed is False
+    assert lines == [line]
+
+
+def test_only_the_trailing_token_is_removed_when_the_text_holds_another() -> None:
+    """SKUEL's own trailing marker goes; the user's mid-line date stays."""
+    lines, changed = apply_mark_undone(
+        [f"- [x] Compare ✅ 2025-01-01 vs now 🆔 {VAULT_ID} ✅ 2026-08-20\n"], VAULT_ID
+    )
+    assert changed is True
+    assert lines == [f"- [ ] Compare ✅ 2025-01-01 vs now 🆔 {VAULT_ID}\n"]
+
+
+def test_text_appended_after_skuels_token_leaves_the_line_alone() -> None:
+    """The user edited past SKUEL's marker, so it is no longer trailing.
+
+    Conservative on purpose: SKUEL cannot cleanly reverse a line the user has
+    written past, and leaving it diverging VISIBLY is the same stance as the
+    dateless ``[x]`` above — never a silent edit of their text.
+    """
+    line = f"- [x] Ship 🆔 {VAULT_ID} ✅ 2026-08-20 #shipped\n"
+    lines, changed = apply_mark_undone([line], VAULT_ID)
+    assert changed is False
+    assert lines == [line]
+
+
 def test_a_non_checkbox_line_carrying_the_id_is_never_edited() -> None:
     """Prose is not a task line — the same guard ``apply_mark_done`` holds."""
     line = f"Notes about 🆔 {VAULT_ID} — completed ✅ 2026-08-20 last week\n"
@@ -209,6 +245,9 @@ class TestNeedsMarkUndone:
             f"- [x] checked+dated 🆔 {VAULT_ID} ✅ 2026-08-20\n",
             f"- [ ] dated-only 🆔 {VAULT_ID} ✅ 2026-08-20\n",
             f"prose 🆔 {VAULT_ID} ✅ 2026-08-20\n",
+            f"- [x] Compare ✅ 2025-01-01 vs now 🆔 {VAULT_ID}\n",
+            f"- [x] Compare ✅ 2025-01-01 vs now 🆔 {VAULT_ID} ✅ 2026-08-20\n",
+            f"- [x] Ship 🆔 {VAULT_ID} ✅ 2026-08-20 #shipped\n",
             "- [x] other 🆔 sk_zzzzzz ✅ 2026-08-20\n",
         ):
             _lines, changed = apply_mark_undone(content.splitlines(keepends=True), VAULT_ID)

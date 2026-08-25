@@ -381,7 +381,14 @@ class TestWriteTaskUpdates:
         ],
     )
     def test_operation_flags_must_be_real_booleans(
-        self, vault: Path, handler: VaultRPCHandler, flag: str, extra: dict[str, Any]
+        self,
+        vault: Path,
+        handler: VaultRPCHandler,
+        flag: str,
+        # boundary: JSON-RPC frame fragment — heterogeneous by protocol (str
+        # vault_id, bool flags, str|None dates), and this test deliberately puts
+        # a WRONG-typed value in one slot, which a typed shape would forbid.
+        extra: dict[str, Any],
     ) -> None:
         """``bool("false")`` is True — a truthy read would pick an operation
         the server never asked for (the inbound twin of the same rule on
@@ -407,6 +414,8 @@ class TestWriteTaskUpdates:
             extra = {"source_line_hash": normalize_vault_line_hash("- [ ] plain task, no id\n")}
 
         before = note.read_text()
+        # boundary: the malformed frame under test — the "false" STRING is the
+        # subject of the assertion, so this cannot be a typed update shape.
         update: dict[str, Any] = {"vault_id": "sk_x1c9q2", flag: "false", **extra}
         response = handler.handle(
             {"id": 4, "op": "write_task_updates", "params": self._params(vault, [update])}
