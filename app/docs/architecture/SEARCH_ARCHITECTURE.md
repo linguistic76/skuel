@@ -689,9 +689,11 @@ Measured limits of the fulltext half (Neo4j 2026.06.0):
   name and silently skips an existing index, so switching analyzers needs an explicit
   DROP + recreate + reindex.
 - **It matches whole tokens, so it loses substring hits.** `photosyn` and `synthesis` each
-  return nothing against a "Photosynthesis explained" title that `CONTAINS` matches. The
-  fallback below covers a fully empty hybrid result — but not a *partial* one: a query with
-  any hybrid hit returns early and never sees the substring matches `CONTAINS` would find.
+  return nothing against a "Photosynthesis explained" title that `CONTAINS` matches. This is
+  why the fallback below fires on a *thin* result and not only an empty one — the early
+  return on any hybrid hit, which dropped exactly these matches, was closed by
+  `_backfill_with_contains` (#1077). Any NEW fulltext path must copy that shape rather than
+  re-derive an empty-only fallback.
 
 **Eligibility — all four, belt and braces:**
 

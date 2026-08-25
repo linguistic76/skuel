@@ -283,9 +283,12 @@ Each item should be concrete and actionable, not generic."""
     ) -> Result[list[PathStep]]:
         """Search path steps by semantic meaning using embeddings.
 
-        Two-tier:
-        - FULL: uses embedding similarity across all PathSteps
-        - CORE: falls back to keyword search via backend.search()
+        FULL tier only — this is the `.ai` sub-service, which is `None` in CORE, so
+        no CORE caller reaches here. The keyword fallback below is an
+        EMBEDDING-FAILURE fallback within FULL (the similarity call errored), not a
+        tier fallback; it is also the one production caller of the backend's
+        case-SENSITIVE `_SearchMixin.search`, which is on neither `/search` nor
+        `/api/search/unified`.
 
         Args:
             query_text: Natural language query
@@ -311,7 +314,7 @@ Each item should be concrete and actionable, not generic."""
 
         similarity_result = await self._semantic_search(query_text, candidates, limit * 2)
         if similarity_result.is_error:
-            # CORE fallback: keyword search
+            # Embedding-failure fallback (NOT a tier fallback — see the docstring)
             search_result = await self.backend.search(query_text, limit=limit)
             if search_result.is_error:
                 return Result.fail(search_result)
