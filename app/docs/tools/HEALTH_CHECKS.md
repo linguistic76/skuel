@@ -420,7 +420,10 @@ skipped.
 two costumes — the shape where a replacement reformats its title and the superseded
 section survives underneath. It is also an anchor collision: GitHub derives anchors from
 rendered text, so both resolve to `#setup`, and two headings colliding there are the same
-section as far as any link is concerned. Links and code spans collapse the same way.
+section as far as any link is concerned. Links, code spans and image alt text all
+collapse to their displayed characters; a heading that renders to **nothing** is skipped
+rather than compared — an empty key cannot identify a section, and it is where an
+unrecognised inline token would otherwise turn into a false positive.
 
 **Headings come from the CommonMark parser, never a regex** — the sibling
 `markdown_fences.py` documents what hand-rolled Markdown scanning costs.
