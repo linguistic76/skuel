@@ -558,7 +558,7 @@ Suggests how to apply this path step across activity domains. Returns categorize
 Suggests prerequisite steps (what to learn first) and next steps (natural progressions). Each item includes a title and reason. Uses JSON prompts for reliable structured output.
 
 **`search_by_semantic_query(query_text, limit=20, min_score=0.5)`** → `Result[list[PathStep]]`
-Two-tier semantic search: FULL tier uses embedding similarity across all PathSteps; CORE tier falls back to keyword search.
+Embedding similarity across all PathSteps. **FULL tier only** — this is a `.ai` sub-service method, and `.ai` is `None` in CORE, so no CORE caller reaches it. Its keyword fallback fires when the similarity call *errors*, not when the tier is CORE.
 
 **`explain_step(ps_uid, target_level="standard")`** → `Result[str]`
 AI explanation at a specific level. `target_level` values: `beginner` (no assumed knowledge), `intermediate` (assumes familiarity), `advanced` (in-depth, connects to broader concepts), `standard` (default), `brief` (2-3 sentences), `detailed` (comprehensive with examples).
