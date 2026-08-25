@@ -143,8 +143,9 @@ class LocalAgentVaultAdapter:
 
         The agent applies the SAME pure mutations, SHA-256 stale-read guard,
         and atomic temp-file + ``rename()`` mechanics as Stage 1 — the wire
-        carries the ``TaskLineUpdate`` shapes verbatim and the per-update
-        outcomes back (``updates_applied``, protocol v2).
+        carries the ``TaskLineUpdate`` shapes verbatim (including ``mark_undone``,
+        protocol v3) and the per-update outcomes back (``updates_applied``,
+        protocol v2).
         """
         try:
             relative = self._to_relative(path)
@@ -161,6 +162,7 @@ class LocalAgentVaultAdapter:
                         "vault_id": update.vault_id,
                         "mark_done": update.mark_done,
                         "done_date": update.done_date,
+                        "mark_undone": update.mark_undone,
                         "inject_vault_id": update.inject_vault_id,
                         "source_line_hash": update.source_line_hash,
                     }

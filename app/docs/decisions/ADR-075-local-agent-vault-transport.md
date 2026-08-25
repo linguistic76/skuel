@@ -240,8 +240,16 @@ protocol no-op:
 defines; the agent applies them with the same atomic temp-file + `rename()` mechanics as
 `FilesystemVaultAdapter`. The reply carries `updates_applied` — one bool per update, in the
 order received (protocol v2): `success` says the file was written, not that a given update
-found its line, and the server gates per-update state (persisting a minted 🆔) on the
-per-update answer:
+found its line, and the server gates per-update state (persisting a minted 🆔) and every
+outbound stat counter on the per-update answer.
+
+Three operations, exactly one per update: `mark_done` (check + append `✅ date`),
+`mark_undone` (protocol v3 — the reopen's un-check: uncheck + strip the `✅ date`, byte-exact
+reverse), and `inject_vault_id`. Every flag is read as a REAL JSON boolean (`is True`), never
+coerced — `bool("false")` is True, and a truthy read would let a malformed frame pick an
+operation the server never asked for. An agent that does not know an operation builds an update
+with no flag set and would silently apply nothing while answering `success: true`, which is why
+adding one bumps `PROTOCOL_VERSION` on both sides and the handshake hard-fails on mismatch:
 
 ```jsonc
 → {"id": 44, "op": "write_task_updates", "params": {
@@ -249,12 +257,13 @@ per-update answer:
      "expected_sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
      "updates": [
        {"vault_id": "sk_x1c9q2", "mark_done": true, "done_date": "2026-07-05"},
+       {"vault_id": "sk_q7w2e5", "mark_undone": true},
        {"vault_id": "sk_m3k8p1", "inject_vault_id": true,
         "source_line_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"}
      ]}}
 ← {"id": 44, "ok": true, "result": {"success": true,
      "new_sha256": "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9",
-     "updates_applied": [true, false]}}
+     "updates_applied": [true, true, false]}}
 ```
 
 Error frame (uniform for all ops; codes are enum-stable, messages contain relative paths

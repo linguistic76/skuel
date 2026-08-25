@@ -417,7 +417,7 @@ The `🆔 sk_XXXXXX` token is the permanent join key. It's compatible with the *
 
 ### Completing a task: do it in SKUEL
 
-Completion is outbound-only. For a task line that carries a `🆔` (one SKUEL wrote out or has already extracted), checking the box in Obsidian does **not** update SKUEL — the sync deliberately skips lines it already tracks, so the check stays local to your note. Complete the task in SKUEL instead; the next sync marks the line done in your note with the obsidian-tasks done syntax:
+Checkbox state is outbound-only. For a task line that carries a `🆔` (one SKUEL wrote out or has already extracted), checking the box in Obsidian does **not** update SKUEL — the sync deliberately skips lines it already tracks, so the check stays local to your note. Complete the task in SKUEL instead; the next sync marks the line done in your note with the obsidian-tasks done syntax:
 
 ```
 - [x] Write Chapter 3 — Habits ✅ 2026-06-24 🆔 sk_a7c2f1
@@ -440,12 +440,12 @@ The VaultBridge follows a clear rule about which side is the source of truth for
 | Field | Who controls it |
 |-------|----------------|
 | Task title and description | Obsidian (you edit in your notes) |
-| Checkbox status (done/not done) | SKUEL, completed-direction only — completing in SKUEL writes `[x]` + `✅` to your note; there is no outbound un-check (reopening in SKUEL leaves the note checked), and a vault-side check of a 🆔 line is not read back |
+| Checkbox status (done/not done) | SKUEL, both directions outbound — completing in SKUEL writes `[x]` + `✅` to your note, and re-opening it un-checks the line and removes the `✅` date, restoring the line exactly as it was. A vault-side check or un-check of a 🆔 line is still not read back |
 | Due dates, priority, tags | Obsidian |
 | `🆔` ID | SKUEL (minted and written once) |
 | History, relationships, ZPD scores | SKUEL only |
 
-The Obsidian-owned rows apply when a line is **first extracted**. Once a line carries a `🆔`, later vault-side edits to it (title, dates, checkbox) are skipped by the sync — if you check off a 🆔 line in Obsidian, SKUEL's status is unaffected. Make changes in SKUEL — the sync writes completions outbound (`[x]` + `✅`), though it does not un-check a line when you reopen a task (outbound un-check is a deferred capability).
+The Obsidian-owned rows apply when a line is **first extracted**. Once a line carries a `🆔`, later vault-side edits to it (title, dates, checkbox) are skipped by the sync — if you check off a 🆔 line in Obsidian, SKUEL's status is unaffected. Make changes in SKUEL — the sync writes checkbox state outbound in both directions: a completion adds `[x]` + `✅`, and re-opening the task takes them back off.
 
 ---
 

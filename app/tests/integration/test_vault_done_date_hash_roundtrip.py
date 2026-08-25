@@ -43,6 +43,11 @@ filesystem bridge — never a re-implementation of any guard:
    from the note and writes a fresh ``- [ ] Gym``: nothing is left in the file
    to retire the old digest in memory, so it has to have been *persisted* on
    the edge by the earlier re-ingest (the refresh is what this pins).
+7. **The write-back reverses.** Reopening the task in SKUEL un-checks its line
+   and strips the ✅ date, restoring the pre-completion bytes exactly — and the
+   sync after that writes nothing at all (ADR-070 Resolved Design Question 2,
+   amended 2026-08-24). ⚠️ Outbound only: a vault-side check or un-check still
+   does not reach SKUEL (deferred-work § R4).
 
 The unit-level contracts — which tokens the digest normalises, and Guard 2b
 at the extractor — are pinned DB-free in
@@ -205,6 +210,72 @@ async def _complete_in_skuel(rig: Rig, task_uid: str) -> None:
         task_uid, TaskUpdateRequest(status=EntityStatus.COMPLETED).to_intent()
     )
     assert done.is_ok, done
+
+
+async def _reopen_in_skuel(rig: Rig, task_uid: str) -> None:
+    """The same status-control door, back out of ``completed`` (ADR-087).
+
+    The guarded write returns the prior status, so the reopen is detected
+    exactly — and consumed by the write that produced it. Nothing here
+    subscribes to ``TaskReopened``: the vault surface below is driven by the
+    outbound pass's STATE predicate instead, which is why it survives this
+    call returning and can be re-evaluated on any later sync.
+    """
+    reopened = await rig.tasks.update_task(
+        task_uid, TaskUpdateRequest(status=EntityStatus.ACTIVE).to_intent()
+    )
+    assert reopened.is_ok, reopened
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+class TestReopenUnchecksTheVaultLine:
+    """A task reopened in SKUEL gets its vault line back, byte for byte."""
+
+    async def test_complete_then_reopen_restores_the_line_and_the_next_sync_is_quiet(
+        self, rig: Rig
+    ) -> None:
+        rig.note.write_text(FRONTMATTER + f"- [ ] {TITLE}\n", encoding="utf-8")
+
+        # Sync 1: the line becomes a Task and receives its 🆔.
+        first = await rig.sync()
+        assert first.ids_injected == 1, first
+        tasks = await rig.owned_tasks()
+        assert len(tasks) == 1, tasks
+        (task_uid, _status) = tasks[0]
+        # The line as it stands with its 🆔 — the exact bytes the reopen must
+        # restore. Captured AFTER injection so the 🆔 is part of the baseline.
+        injected = rig.note.read_text(encoding="utf-8")
+        assert "🆔 sk_" in injected
+
+        # Sync 2: completed in SKUEL → the outbound pass checks it and stamps ✅.
+        await _complete_in_skuel(rig, task_uid)
+        second = await rig.sync()
+        assert second.tasks_marked_done == 1, second
+        assert second.tasks_marked_undone == 0, second
+        done_line = rig.note.read_text(encoding="utf-8").splitlines()[-1]
+        assert done_line.startswith("- [x]") and "✅ " in done_line, done_line
+
+        # Sync 3: reopened in SKUEL → the line goes back to exactly what it was.
+        await _reopen_in_skuel(rig, task_uid)
+        third = await rig.sync()
+        assert third.tasks_marked_undone == 1, third
+        assert third.tasks_marked_done == 0, third
+        assert rig.note.read_text(encoding="utf-8") == injected, (
+            "the reopen must restore the pre-completion line byte-for-byte"
+        )
+
+        # Sync 4: nothing left to do. The gate is what makes this quiet — an
+        # ungated un-check arm would queue one for this still-open task on
+        # every sync forever, and issue a write RPC per file to apply nothing.
+        fourth = await rig.sync()
+        assert fourth.tasks_marked_undone == 0, fourth
+        assert fourth.tasks_marked_done == 0, fourth
+        assert not fourth.warnings, fourth
+        assert rig.note.read_text(encoding="utf-8") == injected
+
+        # And the loop did not fork the task along the way.
+        assert await rig.owned_tasks() == [(task_uid, EntityStatus.ACTIVE.value)]
 
 
 @pytest.mark.asyncio

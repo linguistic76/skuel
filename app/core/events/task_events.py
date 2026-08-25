@@ -135,27 +135,40 @@ class TaskReopened(BaseEvent):
     it records no completion moment and must leave completion timestamps where
     they are.
 
-    Subscribers: **none.** It was introduced so ``ProductivityAnalytics`` could
-    hold ``tasks_completed`` as a recomputed number that can fall; that count
-    is now derived at read from the tasks currently in ``completed``, so a
+    Subscribers: **none, by ruling** (2026-08-24 — see below, not an accident
+    of nobody having gotten to it). It was introduced so ``ProductivityAnalytics``
+    could hold ``tasks_completed`` as a recomputed number that can fall; that
+    count is now derived at read from the tasks currently in ``completed``, so a
     reopen lowers it without anyone having to hear about it. The event stays
-    published as the chokepoint's statement of the transition — ADR-087 derives
-    that verdict from the status the write itself returned, so the transition is
-    detected exactly — and is free for a future subscriber to take.
+    published as the chokepoint's exact statement of the transition — ADR-087
+    derives that verdict from the status the write itself returned.
 
     Context invalidation is already covered: the same ``update_task`` call
     publishes ``TaskUpdated``, which is subscribed for exactly that.
 
     ⚠ **Kept by decision, not by oversight — do not delete it in a bloat sweep.**
-    Whether a reopen should un-check its Obsidian line (it does not today: checkbox
-    authority is completed-direction only), whether this event is the trigger if so,
-    and whether to delete it if not, are three coupled choices scheduled for a ruling.
-    The case file is ``docs/roadmap/deferred-work.md`` § "``TaskReopened`` Has Zero
-    Subscribers, and a Reopen Has No Vault Surface". ``./dev bloat`` reports this as
-    INFO (published, never subscribed), which is not a ``--check`` failure — and
-    ``PLANNED_EVENTS`` is NOT the way to silence it: ``analyze_events`` branches on
-    ``publish_live`` first, so a published class listed there earns a second INFO
-    telling you to remove the entry.
+    Three coupled choices were open here; all three were RULED 2026-08-24 and the
+    case file is closed:
+
+    1. A reopen DOES un-check its Obsidian line and strip the ``✅`` date
+       (ADR-070 Resolved Design Question 2, amended).
+    2. This event is **not** the trigger. The outbound sync pass's STATE
+       predicate is — "not completed AND the line is still marked done". A
+       reopen is only knowable *after* ``update_with_status_guard`` returns the
+       prior (ADR-087), so the graph write has already committed and a failed
+       vault write would have no retry: re-issuing writes nothing, because the
+       prior is no longer ``completed``. A one-shot transition needs a state
+       predicate, not an event. And once state is the authority the event has no
+       verb left — a completion also only reaches the vault on the next
+       human-initiated sync, so a subscriber would buy nothing but an asymmetric
+       eagerness and a second live path to one outcome.
+    3. Kept published, deliberately **unsubscribed**.
+
+    ``./dev bloat`` reporting this as INFO (published, never subscribed) is the
+    RULED END STATE, not a regression — INFO is not a ``--check`` failure. And
+    ``PLANNED_EVENTS`` is NOT the way to silence it: ``analyze_events`` branches
+    on ``publish_live`` first, so a published class listed there earns a SECOND
+    INFO telling you to remove the entry.
     """
 
     task_uid: str

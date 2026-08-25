@@ -1414,11 +1414,24 @@ Wire-protocol change, so `PROTOCOL_VERSION` went **1 → 2** on both sides in on
 contract-tested in `tests/unit/test_vault_agent.py`; RED-checked by a one-sided bump). No agent
 release was cut for it — PR-2 bumps to v3 and ONE release follows, so users pull once.
 
-**Residue (display honesty, not integrity, and deliberately not changed here):**
-`stats.tasks_marked_done` is still counted at QUEUE time, so a repeat sync of an unchanged vault
-reports every completed 🆔-bearing task as "marked done" again. Unlike the 🆔 persist, nothing
-durable is written on a wrong count. PR-2 adds `tasks_marked_undone` beside it — that is the
-touch where the pair's counting semantics should be settled together, not one of them alone.
+**Residue SETTLED in PR-2 (2026-08-24) — the whole outbound stat trio now counts what LANDED.**
+`stats.tasks_marked_done` was counted at QUEUE time, so a repeat sync of an unchanged vault
+reported every completed 🆔-bearing task as "marked done" again. When `tasks_marked_undone`
+landed beside it the pair was settled together, in the direction `ids_injected` had already
+moved in this section: each counter is gated on its own `WriteResult.updates_applied` slot.
+"N tasks marked done in vault" now means "N lines this sync actually changed", and a repeat sync
+of an unchanged vault reports zeros — which is the truth.
+
+Fail-closed follows from `was_applied`: a transport reporting no outcomes under-counts rather
+than guessing. That costs a display number and never durable state, which is why the same
+fail-closed read that WITHHOLDS a 🆔 persist may simply under-report here. ⚠️ Fixtures that
+mocked a bridge returning a bare `WriteResult(success=True)` were modelling a transport no real
+adapter is — they now report outcomes (`tests/unit/services/vault/test_reconciler_done_date.py`).
+
+⚠️ **Only the un-check warns on a `False` outcome.** A `mark_done` no-op is ORDINARY — `[x] ✅`
+is the steady state of every completed task. A `mark_undone` no-op is not: its arm is gated on
+running the mutation against the very snapshot the write is guarded by (`needs_mark_undone`), so
+a successful write that changed nothing means the file moved underneath the batch.
 
 ---
 
@@ -1534,89 +1547,99 @@ to refuse, pinning itself atop completion-date-ordered reads.
 
 ---
 
-## `TaskReopened` Has Zero Subscribers, and a Reopen Has No Vault Surface (REGISTERED 2026-08-24 — scheduled by Mike)
+## `TaskReopened` Has Zero Subscribers, and a Reopen Has No Vault Surface (RESOLVED 2026-08-24)
 
 Two halves of one question — *what should a reopen actually do?* — carried unresolved through
-three arcs (completion-stamping, cascade-idempotency, conditional-write). Mike scheduled a
-resolution 2026-08-24; this section is the case file.
+three arcs (completion-stamping, cascade-idempotency, conditional-write). Mike ruled it
+2026-08-24; **Half B by the build, Half A by ruling.** Kept as the case file because the ruling
+is the interesting part, and because a future bloat sweep will meet `TaskReopened` again.
 
-**Half A — the event is published and nobody listens.** `TaskReopened`
-(`core/events/task_events.py`) fires from the one update chokepoint
-(`TasksCoreService.update_task`) on a genuine transition out of `completed`. It was introduced
-so `ProductivityAnalytics` could hold `tasks_completed` as a number that can *fall*; #1142
-derived that count at read instead, which made its only subscriber (`handle_task_reopened`) a
-no-op, and the handler + subscription were deleted. The event and its publisher were KEPT
-deliberately: ADR-087 derives the reopen verdict from the write's returned prior, so the
-transition is now detected *exactly*, and the event is the chokepoint's honest statement of it.
-`./dev bloat` reports it as `i` (published, never subscribed) — INFO, not a `--check` failure,
-and it is NOT in `PLANNED_EVENTS`. Context invalidation is already covered by the `TaskUpdated`
-the same call publishes.
+**Half B — RESOLVED BY BUILD.** A reopen now un-checks its Obsidian line and strips the `✅`
+date (`apply_mark_undone`, `TaskLineUpdate.mark_undone`, the outbound `else` arm), byte-exact
+reverse of the completion write. ADR-070's deliberate outbound-undone deferral was **amended,
+not silently overridden** — three sites (field-authority row, the three-write-operations list,
+Resolved Design Question 2 + a changelog row). Wire-protocol change: `PROTOCOL_VERSION` 2 → 3
+on both sides in one commit.
 
-**Half B — reopening in SKUEL leaves the Obsidian note checked.** Checkbox authority is
-completed-direction ONLY (Codex #1144 P2, verified): `TaskLineUpdate` has no un-check operation,
-`_process_entry_outbound` queues `mark_done` only for COMPLETED tasks, and ADR-070 itself defers
-outbound-undone. So a task reopened in the app keeps its `- [x] … ✅ date` line in the vault, and
-the ✅ date is a completion that has been withdrawn. Inbound propagation is separately parked
-(§ R4), so the vault cannot correct itself either.
+**Half A — RESOLVED BY RULING: the event stays published and gets NO subscriber.**
 
-**The decision (Mike's), stated as three coupled choices:**
+⭐ **Why STATE is the authority, not the event.** `is_reopen` is only knowable *after*
+`update_with_status_guard` returns the prior (ADR-087), so the graph write has already committed
+before any consumer could run. A failed vault write has **no retry**: re-issuing the request
+writes nothing, because the prior is now non-completed and it is no longer a transition. **A
+reopen transition is a one-shot fact, consumed by the write that produced it.** So the vault
+write is driven by a predicate — "this task is not completed AND its line is still marked done"
+— which is re-evaluable at any time and idempotent. See
+`feedback_one_shot_transition_needs_state_not_event`.
 
-1. **Does a reopen un-check the vault line?** Building it means a new `TaskLineUpdate` operation
-   (un-check + strip the `✅ date`), an outbound queue branch for the reopen transition, and a
-   `PROTOCOL_VERSION` bump if the agent's line-writing changes. The `WriteResult` shape problem
-   such an operation would have inherited is closed (§ Phantom-🆔, resolved by the arc's PR-1):
-   a new write operation now reports its own per-update outcome. It also reopens ADR-070's
-   deliberate outbound-undone deferral, which should be amended rather than silently overridden.
-2. **If yes, is `TaskReopened` the trigger?** That is the natural subscriber, and it would end
-   Half A by giving the event the consumer it was kept for. The alternative is doing it inline in
-   the chokepoint beside the publish. ⚠️ **The difference is NOT timing.** `publish_event` awaits
-   `InMemoryEventBus.publish_async`, which awaits every async handler through `asyncio.gather`
-   (`adapters/infrastructure/event_bus.py`) — so a subscriber is just as synchronous with the
-   request as an inline call, and neither is backgrounded unless deliberately made so (the
-   embedding worker is the precedent, and it is FULL-tier). The real trade is **error isolation
-   and coupling**: that gather uses `return_exceptions=True`, so a failing vault write in a
-   subscriber is swallowed and the task update still succeeds — right if the vault is a
-   best-effort mirror, wrong if a silent divergence between graph and note is worse than a failed
-   update. Inline instead couples `TasksCoreService` to the vault transport.
+⭐ **And once state is the authority, the event has no verb left.** The outbound pass already
+evaluates that predicate on every sync, so the un-check lands with zero event involvement. What
+a subscriber would add is *only* lower latency — and **there is no latency asymmetry to correct**:
+a task COMPLETION also only reaches the vault on the next human-initiated sync (`VaultReconciler.sync`
+has exactly two callers — `vault_routes.py` and `scripts/vault_bridge_sync.py`). A subscriber
+would make a reopen's vault write *more eager than the completion it reverses*, and add a second
+live path to "the vault line matches the task's state" — the shape ADR-070 Decision 9 Ruling 1
+rejects.
 
-   ⚠️ **But neither placement gives you a retry, and that is the real constraint.** The graph
-   write has already committed before either can run: `is_reopen` is only knowable *after*
-   `update_with_status_guard` returns the prior. So an inline failure returning `Result.fail`
-   reports a failed request over a task that IS reopened — and re-issuing the request writes
-   nothing, because the prior is now non-completed and the retry is no longer a genuine
-   transition. The subscriber arm loses it the same way, silently. **A reopen transition is a
-   one-shot fact, consumed by the write that produced it.** Anything built here therefore needs
-   either a durable outbox/retry, or — better, and the shape this document already prefers
-   elsewhere — to drive the vault write from **STATE**, not from the event: "this task is not
-   completed and its line is still checked" is a predicate that can be re-evaluated at any time
-   and is idempotent, which is the same reason R4's change signal must be parsed-line vs entity
-   state rather than a hash inequality (see § R4). That points at choice 2 being the wrong axis:
-   the durable answer may be a reconciliation pass, with `TaskReopened` at most a *hint* that one
-   is worth running now.
-3. **If no — delete the event or keep it published?** One Path Forward says delete what nothing
-   uses; the counter-argument is that it is a *transition fact* the chokepoint now establishes
-   exactly and cheaply, and deleting it would have to be undone by choice 1 later. Deleting it
-   means removing the publisher, the event class, its `core/events/__init__.py` export, and the
-   `test_task_completed_publishers.py` registry assertion. ⚠️ **Keeping it needs no registry
-   entry, and `PLANNED_EVENTS` is NOT the vehicle** — same trap as § KnowledgePracticed:
-   `analyze_events` takes the `publish_live` branch first and `continue`s, so a published class
-   in `PLANNED_EVENTS` earns a SECOND INFO (`planned-marking-stale`, "remove from
-   PLANNED_EVENTS") on top of `event-never-subscribed`, and the PLANNED tier below is never
-   reached. The keep arm is simply: leave it at INFO — not a `--check` failure — and let the ⚠
-   marker on the event's docstring carry the decision.
+**Three premises that were investigated and FALSIFIED — do not re-derive them:**
 
-**Trigger:** Mike schedules it (this section IS that scheduling — it is a ruling, not a data
-threshold). Take choice 1 first; 2 and 3 follow from it.
+- ❌ *"CORE tier runs no background workers."* The guarantee is **AI-scoped**.
+  `GRACEFUL_DEGRADATION_ARCHITECTURE.md` says *"No **AI** background workers spin up"* and then
+  documents one that does: the hourly `ProgressReportWorker` (graph analytics only) IS a CORE-tier
+  Analog worker. ADR-043 makes no no-workers claim, and the bus plus all ~45 subscriptions in
+  `services_bootstrap/_event_wiring.py` are wired unconditionally in CORE.
+- ❌ *"A subscriber is a background write in all but name."* `publish_event` awaits
+  `InMemoryEventBus.publish_async`, which awaits handlers through `asyncio.gather`. A subscriber
+  is exactly as synchronous with the request as an inline call.
+- ❌ *"A filesystem write from a subscriber would be unprecedented."*
+  `AnalyticsService.handle_goal_achieved` → `_save_report` → `filepath.write_text(...)`.
 
-**Named cost until resolved:** a task reopened in the app stays checked in the vault with a stale
-✅ date, and the next person to read `TaskReopened` finds an event with no consumers and no
-subscribers — the exact shape that reads as dead code to a deletion sweep. ⚠️ Do NOT delete it in
-a bloat pass without this ruling; it is kept by decision, the decision is here, and the ⚠ marker
-on its docstring is what a sweep should meet first.
+**⚠️ `./dev bloat` reporting `i TaskReopened` (published, never subscribed) is the RULED END
+STATE**, not a regression — INFO is not a `--check` failure. And `PLANNED_EVENTS` is **NOT** the
+way to silence it: `analyze_events` branches on `publish_live` first, so a published class listed
+there earns a SECOND INFO (`planned-marking-stale`) and the PLANNED tier below is never reached.
+The ⚠ marker on the event's own docstring carries the decision, and it is what a sweep meets first.
 
-**Verify before acting:** `git grep -n "subscribe(TaskReopened\|TaskReopened)" -- core/ adapters/`
-(empty until Half A is answered) · `git grep -n "mark_done\|TaskLineUpdate" -- core/ports/vault_bridge_protocol.py`
-(no un-check operation until Half B is built).
+⭐ **The transferable lesson:** an event-shaped *"prompt"* still needs a recipient that can act on
+it. When the only actor able to act is the human, the event has no verb — and "what exactly does
+the subscriber do?" is not a detail to fill in later, it is the design failing out loud.
+
+**Still open, and separately registered:** the want behind "mark the owner's vault dirty" is real
+but bigger than a reopen — see § "Vault Has Un-Synced Changes" Signal below. Inbound propagation
+(a vault-side check/uncheck reaching SKUEL) stays parked in § R4.
+
+---
+
+## "Vault Has Un-Synced Changes" Signal (REGISTERED 2026-08-24 — Mike schedules it)
+
+The honest version of the dirty flag the reopen arc once proposed. A reopen now reaches the vault
+on the next sync, but *the user is not told a sync is worth running*. The naive fix — light a flag
+when a task is reopened — **tells a half-truth**: a completion, a minted 🆔 and a newly-extracted
+task all leave the vault equally out of date, and a flag lit only by reopens would advertise the
+rarest of the four while staying dark for the common ones. Whatever is built must cover all of
+them, or it is worse than nothing.
+
+**What exists to build on:**
+
+- **No last-sync state is persisted anywhere today.** `/submissions/sync` is stateless on load
+  (`adapters/inbound/vault_routes.py`) — the page cannot say "last synced 3 days ago" because
+  nothing records it. That is the first thing any signal needs, and it does not exist yet.
+- `UserPreferences.vault_write_consent` (`core/models/user/user.py`) is the **shape precedent**
+  for a durable per-user vault flag.
+- `:Notification` nodes (`core/services/notifications/notification_service.py`) are the existing
+  durable per-user channel, already driven by four subscribers in
+  `services_bootstrap/_event_wiring.py` — the one place a "your vault is behind" signal could live
+  without inventing a mechanism.
+
+**⚠️ The trap this replaces:** *"`TaskReopened` requests a sync"* was under-specified, and
+investigating "what does the subscriber concretely DO?" is what dissolved it. Do not build a
+signal without naming its verb and its actor first.
+
+**Trigger:** Mike schedules it — a product decision about what the user should be told, not a
+data threshold.
+**Named cost until built:** the vault silently drifts from the graph between human-initiated
+syncs, and nothing on any surface says so.
+
 
 ---
 
@@ -1652,11 +1675,10 @@ Review this document at the **September 2026 quarterly review**. Checklist:
 | Per-node substance counters — the unread arm (ruled "keep staged" 2026-08-21) | A substantiation UI/surface is scheduled | `git grep -n "get_substantiation_gaps\|is_well_practiced" -- "ui/" "adapters/inbound/"` — empty until wired; see the section (incl. the retroactive-credit question) |
 | R4 vault inbound propagation — parked build | Mike schedules it (product decision) | See the section — sketch + the #1143 r5 rejection; parsed-line vs entity state, never hash |
 | Vault task door publishes no task events | R4 build or next vault-door touch | `git grep -n "event_bus" adapters/persistence/neo4j/bulk_upsert_backend.py` — empty until wired |
-| Outbound sync stats: `tasks_marked_done` counted at queue time, not at what landed | Next touch of the outbound stat pair (the sibling `tasks_marked_undone` lands beside it) | See § Phantom-🆔 (RESOLVED) — residue paragraph |
 | Line deletions leave `EXTRACTED_FROM` edges | R4 build or next reconciler touch | Census shape in the section; re-probe the W28 edges before building |
 | Habit streak counters (lost-update + future-day credit) | Next touch of the streak write path, or a lived wrong-streak report | Ruling needed on `current_streak` semantics — see the section |
 | Unwired `HabitCompletion` model methods | A consumer wants one, or next Habits model touch | `git grep -n "is_streak_eligible\|was_completed_today" -- core/services/ adapters/ ui/` — empty until wired |
-| `TaskReopened` zero subscribers + no vault surface for a reopen | Mike scheduled it 2026-08-24 — a ruling (3 coupled choices), not a data threshold | See the section; ⚠️ do NOT delete the event in a bloat pass without it |
+| "Vault has un-synced changes" signal | Mike schedules it — product decision (what the user is told), not a data threshold | See the section; ⚠️ must cover completions + 🆔 injections + new tasks, NOT reopens alone — no last-sync state is persisted today |
 | `find_by` datetime string-binding (3 habit sites) | Next touch of any of the three reads, or a second `completed_at` writer | One PR: normalized range on a backend method (Pattern 10b / Key Rule 18b) |
 | `TaskUpdateRequest` future `completion_date` asymmetry | Next touch of `task_request.py` validators | Ruling needed — see the section; don't rule in passing |
 

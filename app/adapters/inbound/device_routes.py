@@ -76,8 +76,11 @@ HANDSHAKE_TIMEOUT_S = 30.0
 # change to what the digest ignores is a protocol change: bump here AND in the
 # agent, never one side. So is the write-result frame's shape: v2 added
 # ``updates_applied`` (one bool per update, in order), which the server reads
-# fail-closed.
-PROTOCOL_VERSION = 2
+# fail-closed. So is the set of operations a ``TaskLineUpdate`` can carry: v3
+# added ``mark_undone`` (the reopen un-check) — a v2 agent would parse an update
+# with no operation set, apply nothing, and answer success, so the handshake
+# refusal is what keeps that silent divergence from ever happening.
+PROTOCOL_VERSION = 3
 
 # Application close code for a failed handshake (4003 = unauthorized, app-level convention).
 _CLOSE_UNAUTHORIZED = 4003

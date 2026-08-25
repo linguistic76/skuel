@@ -322,6 +322,99 @@ class TestWriteTaskUpdates:
         assert response["result"]["success"] is True
         assert response["result"]["updates_applied"] == [False, True]
 
+    def test_mark_undone_unchecks_the_line_and_strips_the_done_date(
+        self, vault: Path, handler: VaultRPCHandler
+    ) -> None:
+        """Protocol v3's operation, applied ON THE DEVICE — byte-exact reverse.
+
+        The agent shares ``apply_task_updates`` with the server precisely so
+        the un-check behaves identically wherever the vault lives.
+        """
+        before = (vault / "periodic_notes" / "2026-07-06.md").read_text()
+        done = handler.handle(
+            {
+                "id": 1,
+                "op": "write_task_updates",
+                "params": self._params(
+                    vault,
+                    [{"vault_id": "sk_x1c9q2", "mark_done": True, "done_date": "2026-07-06"}],
+                ),
+            }
+        )
+        assert done["result"]["updates_applied"] == [True]
+
+        undone = handler.handle(
+            {
+                "id": 2,
+                "op": "write_task_updates",
+                "params": self._params(vault, [{"vault_id": "sk_x1c9q2", "mark_undone": True}]),
+            }
+        )
+        assert undone["result"]["updates_applied"] == [True]
+        assert (vault / "periodic_notes" / "2026-07-06.md").read_text() == before
+
+    def test_mark_undone_on_an_open_line_is_a_reported_noop(
+        self, vault: Path, handler: VaultRPCHandler
+    ) -> None:
+        """Nothing to undo — and the agent says so per-update, not just file-level."""
+        before = (vault / "periodic_notes" / "2026-07-06.md").read_text()
+        response = handler.handle(
+            {
+                "id": 3,
+                "op": "write_task_updates",
+                "params": self._params(vault, [{"vault_id": "sk_x1c9q2", "mark_undone": True}]),
+            }
+        )
+        assert response["result"]["success"] is True
+        assert response["result"]["updates_applied"] == [False]
+        assert (vault / "periodic_notes" / "2026-07-06.md").read_text() == before
+
+    @pytest.mark.parametrize(
+        ("flag", "extra"),
+        [
+            # Each flag is aimed at a line state where COERCING it would
+            # actually mutate the file — a truthy-string test against a line
+            # the operation would no-op on anyway proves nothing.
+            ("mark_done", {"done_date": "2026-07-06"}),  # the line is open → would be checked
+            ("mark_undone", {}),  # the line is done by then → would be un-checked
+            ("inject_vault_id", {"source_line_hash": None}),  # id-less line → would be injected
+        ],
+    )
+    def test_operation_flags_must_be_real_booleans(
+        self, vault: Path, handler: VaultRPCHandler, flag: str, extra: dict[str, Any]
+    ) -> None:
+        """``bool("false")`` is True — a truthy read would pick an operation
+        the server never asked for (the inbound twin of the same rule on
+        ``updates_applied``). Every flag is compared to ``True``.
+        """
+        note = vault / "periodic_notes" / "2026-07-06.md"
+        if flag == "mark_undone":
+            # Put the target line in a done state first, so a coerced
+            # ``mark_undone`` would have something to strip.
+            handler.handle(
+                {
+                    "id": 40,
+                    "op": "write_task_updates",
+                    "params": self._params(
+                        vault,
+                        [{"vault_id": "sk_x1c9q2", "mark_done": True, "done_date": "2026-07-06"}],
+                    ),
+                }
+            )
+            assert note.read_text().startswith("- [x]")
+
+        if flag == "inject_vault_id":
+            extra = {"source_line_hash": normalize_vault_line_hash("- [ ] plain task, no id\n")}
+
+        before = note.read_text()
+        update: dict[str, Any] = {"vault_id": "sk_x1c9q2", flag: "false", **extra}
+        response = handler.handle(
+            {"id": 4, "op": "write_task_updates", "params": self._params(vault, [update])}
+        )
+
+        assert response["result"]["updates_applied"] == [False], flag
+        assert note.read_text() == before, flag
+
     def test_write_outside_the_wall_refused(self, vault: Path, handler: VaultRPCHandler) -> None:
         response = handler.handle(
             {
