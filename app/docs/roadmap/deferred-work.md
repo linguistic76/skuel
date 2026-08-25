@@ -1375,10 +1375,18 @@ Closed by the arc's PR-1: `apply_task_updates` **returns** its per-update outcom
 OR-ing them away, `WriteResult.updates_applied` carries them positionally parallel to the batch
 across BOTH transports and the `skuel-vault-agent`, and the reconciler persists each minted 🆔
 only when THAT injection reports applied. `WriteResult.was_applied` reads fail-CLOSED — an
-unreported outcome is "did not land" — and withholding the persist is self-healing: the edge
-keeps no `vault_id`, so the next sync re-mints and retries, and the sync reports a warning
-instead of "complete". `stats.ids_injected` moved with it: it counts injections that reached the
-file, not injections that were queued.
+unreported outcome is "did not land" — and only a real JSON boolean counts as a confirmation
+(`bool("false")` is `True`, so coercing the wire would have forged exactly the confirmation this
+removes). A withheld persist leaves a warning on the sync rather than "complete".
+`stats.ids_injected` moved with it: it counts injections that reached the file, not injections
+that were queued.
+
+**Withholding is recoverable only because the recovery arm now runs.** The arm that adopts a 🆔
+the file already carries (its stated purpose: heal a partial-write failure) sat behind
+`if not updates: return`, so in its own defining case — the healing pass has nothing to write —
+it never ran, and the divergence was permanent. That early return is now conditioned on there
+being neither writes nor pending adoptions, and the write RPC is issued only when there is
+something to write. Pre-existing, found by the Codex review on the PR that made it matter.
 
 Wire-protocol change, so `PROTOCOL_VERSION` went **1 → 2** on both sides in one commit (parity
 contract-tested in `tests/unit/test_vault_agent.py`; RED-checked by a one-sided bump). No agent

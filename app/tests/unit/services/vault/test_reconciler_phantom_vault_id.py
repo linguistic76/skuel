@@ -92,6 +92,9 @@ async def _run(
     return stats, bridge, user_entry
 
 
+_UNUSED = WriteResult(success=False, error="the bridge must not be called at all")
+
+
 def _rel(entity_uid: str, line: str) -> dict[str, str | None]:
     return {
         "entity_uid": entity_uid,
@@ -187,6 +190,42 @@ async def test_recovery_of_an_id_already_in_the_file_needs_no_write_to_gate_on(
     assert persisted["task_ship"] == queued[0].vault_id
     # The recovery is not an injection into the file, so it is not counted.
     assert stats.ids_injected == 1
+
+
+async def test_a_recovery_with_nothing_to_write_still_reaches_neo4j(
+    tmp_path: Path,
+) -> None:
+    """The recovery arm's DEFINING case: the file has the 🆔, Neo4j does not.
+
+    It is reached after a partial-write failure — the id landed in the file and
+    the edge update did not (a transient DB error, or an outcome the transport
+    could not report). Nothing needs writing on the healing pass, so gating the
+    persist on a non-empty write batch made the divergence permanent: no later
+    sync could ever locate the line by an id it never learned.
+    """
+    stats, bridge, user_entry = await _run([_rel("task_tagged", TAGGED_LINE)], _UNUSED, tmp_path)
+
+    bridge.write_task_updates.assert_not_awaited()  # and no pointless write RPC
+    user_entry.update_extracted_vault_id.assert_awaited_once()
+    assert user_entry.update_extracted_vault_id.await_args.args[1:] == (
+        "task_tagged",
+        "sk_zz9zz9",
+    )
+    assert stats.ids_injected == 0  # adopted from the file, not injected into it
+    assert stats.is_clean
+
+
+async def test_a_file_level_write_failure_persists_nothing(tmp_path: Path) -> None:
+    """A stale snapshot makes even its recovery 🆔s untrustworthy."""
+    stats, _bridge, user_entry = await _run(
+        [_rel("task_tagged", TAGGED_LINE), _rel("task_ship", FIRST_LINE)],
+        WriteResult(success=False, error="Stale-read guard: file changed since last sync"),
+        tmp_path,
+    )
+
+    user_entry.update_extracted_vault_id.assert_not_awaited()
+    assert stats.ids_injected == 0
+    assert any("write_task_updates failed" in e for e in stats.errors)
 
 
 async def test_the_filesystem_transport_reports_the_hit_and_the_miss_positionally(

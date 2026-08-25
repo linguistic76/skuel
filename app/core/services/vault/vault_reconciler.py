@@ -44,6 +44,7 @@ from core.ports.vault_bridge_protocol import (
     VAULT_ID_RE,
     TaskLineUpdate,
     VaultSyncStats,
+    WriteResult,
     normalize_vault_line_hash,
 )
 from core.services.ingestion.config import collect_files
@@ -792,35 +793,47 @@ class VaultReconciler:
                     )
                     stats.tasks_marked_done += 1
 
-        if not updates:
+        if not updates and not injections:
             return
 
-        write_result = await descriptor.bridge.write_task_updates(
-            user_uid=owner,
-            path=vault_file_path,
-            updates=updates,
-            expected_sha256=snapshot.sha256,
-        )
-        if not write_result.success:
-            logger.error(
-                "write_task_updates failed for %s: %s", vault_file_path, write_result.error
+        # A recovery needs NO write — the file already carries its 🆔 — and it
+        # must still be persisted. Gating the whole tail on ``updates`` made the
+        # recovery arm unreachable in its own defining case (nothing else queued
+        # for this entry), so the divergence it exists to heal was permanent.
+        write_result: WriteResult | None = None
+        if updates:
+            write_result = await descriptor.bridge.write_task_updates(
+                user_uid=owner,
+                path=vault_file_path,
+                updates=updates,
+                expected_sha256=snapshot.sha256,
             )
-            stats.errors.append(
-                f"write_task_updates failed for {display_path(vault_file_path, descriptor.root)}: "
-                f"{strip_root_prefix(str(write_result.error), descriptor.root)}"
-            )
-            return
+            if not write_result.success:
+                logger.error(
+                    "write_task_updates failed for %s: %s", vault_file_path, write_result.error
+                )
+                stats.errors.append(
+                    "write_task_updates failed for "
+                    f"{display_path(vault_file_path, descriptor.root)}: "
+                    f"{strip_root_prefix(str(write_result.error), descriptor.root)}"
+                )
+                # The snapshot the recovery 🆔s were read from is stale by
+                # definition here — nothing from this pass is trustworthy.
+                return
 
         # Persist injected 🆔s onto their EXTRACTED_FROM edges — each gated on
         # ITS OWN update landing, never on file-level success. An update that
         # matched no line is a no-op inside a successful write; persisting its
         # 🆔 would strand the task with an id its file never received, and no
         # later sync could find the line to write its completion back
-        # (deferred-work § Phantom-🆔). Withholding it is self-healing: the
-        # edge keeps no vault_id, so the next sync re-mints and retries.
+        # (deferred-work § Phantom-🆔). Withholding is recoverable, never
+        # permanent: the edge keeps no vault_id, so the next sync either
+        # re-mints (the line still has no 🆔) or adopts the 🆔 the file already
+        # carries (the recovery arm above) — which is exactly why that arm has
+        # to run on a pass with nothing to write.
         for pending in injections:
             if pending.update_index is not None:
-                if not write_result.was_applied(pending.update_index):
+                if write_result is None or not write_result.was_applied(pending.update_index):
                     logger.warning(
                         "🆔 injection no-oped for %s in %s — %s not persisted",
                         pending.entity_uid,
@@ -844,7 +857,7 @@ class VaultReconciler:
                 )
 
         # Update vault_sync_hash on UserEntry metadata
-        if write_result.new_sha256:
+        if write_result is not None and write_result.new_sha256:
             new_meta = dict(entry.metadata or {})
             new_meta["vault_sync_hash"] = write_result.new_sha256
             update_req = UserEntryUpdateRequest(metadata=new_meta)
