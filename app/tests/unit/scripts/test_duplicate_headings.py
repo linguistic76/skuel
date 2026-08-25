@@ -132,6 +132,40 @@ def test_trailing_atx_closers_do_not_change_the_text() -> None:
 
 
 # ============================================================================
+# COMPARISON TEXT — what a reader sees, not what the source says
+# ============================================================================
+
+
+def test_inline_markup_does_not_hide_a_duplicate() -> None:
+    """``## Setup`` and ``## **Setup**`` are the same section wearing two costumes.
+
+    THE realistic shape: a replacement reformats its title and the superseded section
+    survives underneath. Comparing ``inline.content`` (raw source) would miss it. It is
+    also an anchor collision — GitHub renders both to ``#setup``.
+    """
+    content = "# D\n\n## Setup\n\nold\n\n## **Setup**\n\nnew\n"
+    found = dh.find_duplicates(content)
+    assert len(found) == 1
+    assert found[0][0] == "Setup", "the REPORTED text is the rendered form"
+
+
+def test_a_linked_heading_matches_its_plain_twin() -> None:
+    content = "# D\n\n## [Setup](http://x)\n\na\n\n## Setup\n\nb\n"
+    assert len(dh.find_duplicates(content)) == 1
+
+
+def test_code_span_matches_its_plain_twin() -> None:
+    """``## `foo()` `` and ``## foo()`` also share the anchor ``#foo``."""
+    content = "# D\n\n## `foo()`\n\na\n\n## foo()\n\nb\n"
+    assert len(dh.find_duplicates(content)) == 1
+
+
+def test_rendered_text_strips_markup_but_keeps_content() -> None:
+    content = "# D\n\n## **Bold** and `code`\n"
+    assert dh.extract_headings(content)[1] == (3, 2, "Bold and code")
+
+
+# ============================================================================
 # SCOPE — the freeform carve-out must stay visible, not silent
 # ============================================================================
 

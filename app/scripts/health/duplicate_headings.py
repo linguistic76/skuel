@@ -100,6 +100,30 @@ def get_md_files() -> tuple[list[Path], int]:
     return scanned, skipped
 
 
+def _rendered_text(inline: object) -> str:
+    """Heading text as a READER sees it, with inline markup removed.
+
+    ``inline.content`` is the raw source, so ``## Setup`` and ``## **Setup**`` compare
+    unequal there and the duplicate goes unreported — a realistic shape when a
+    replacement reformats its title and the superseded section survives underneath.
+    Walking the parsed children instead collapses ``**bold**``, ``[links](url)`` and
+    ``` `code` ``` to their displayed text.
+
+    This is not merely cosmetic: GitHub derives anchors from the rendered text, so
+    ``## Setup`` and ``## **Setup**`` both resolve to ``#setup``. Two headings that
+    collide in the anchor namespace ARE the same section as far as any link is
+    concerned, which is exactly what this scanner is asked to notice.
+    """
+    children = getattr(inline, "children", None)
+    if not children:
+        return str(getattr(inline, "content", "")).strip()
+    # ``text`` and ``code_inline`` carry the visible characters; ``*_open``/``*_close``
+    # markup tokens carry an empty ``content`` and drop out on their own.
+    return "".join(
+        child.content for child in children if child.type in ("text", "code_inline")
+    ).strip()
+
+
 def extract_headings(content: str) -> list[tuple[int, int, str]]:
     """
     Every top-level heading as ``(line, depth, text)``, 1-based lines.
@@ -115,7 +139,8 @@ def extract_headings(content: str) -> list[tuple[int, int, str]]:
             continue
         if not token.markup.startswith("#"):  # setext — see module docstring
             continue
-        text = tokens[index + 1].content.strip() if index + 1 < len(tokens) else ""
+        inline = tokens[index + 1] if index + 1 < len(tokens) else None
+        text = _rendered_text(inline) if inline is not None else ""
         line = (token.map[0] + 1) if token.map else 0
         headings.append((line, int(token.tag[1:]), text))
     return headings
