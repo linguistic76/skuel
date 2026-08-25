@@ -58,9 +58,11 @@ Pinned by ``tests/unit/scripts/test_duplicate_headings.py``.
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from pathlib import Path
 
 from markdown_it import MarkdownIt
+from markdown_it.token import Token
 
 sys.path.insert(0, str(Path(__file__).parent))
 
@@ -105,7 +107,7 @@ def get_md_files() -> tuple[list[Path], int]:
     return scanned, skipped
 
 
-def _rendered_text(inline: object) -> str:
+def _rendered_text(inline: Token) -> str:
     """Heading text as a READER sees it, with inline markup removed.
 
     ``inline.content`` is the raw source, so ``## Setup`` and ``## **Setup**`` compare
@@ -118,22 +120,38 @@ def _rendered_text(inline: object) -> str:
     ``## Setup`` and ``## **Setup**`` both resolve to ``#setup``. Two headings that
     collide in the anchor namespace ARE the same section as far as any link is
     concerned, which is exactly what this scanner is asked to notice.
+
+    Internal whitespace is collapsed the way HTML collapses it, so ``## Quick Start``
+    and ``## Quick  Start`` are one heading (and share one anchor).
     """
-    children = getattr(inline, "children", None)
-    if not children:
-        return str(getattr(inline, "content", "")).strip()
+    if not inline.children:
+        return " ".join(inline.content.split())
+    return " ".join(_visible_text(inline.children).split())
+
+
+def _visible_text(tokens: "Sequence[Token] | None") -> str:
+    """Concatenate the displayed characters of an inline token list, recursively.
+
+    ``image`` needs the recursion: its ``content`` is the RAW alt source, so
+    ``![**Setup**](a.png)`` yields ``**Setup**`` there while its ``children`` carry the
+    rendered ``Setup``. Comparing the raw form would miss a duplicate against a plain
+    ``![Setup](b.png)`` — and this check promises rendered-text comparison, so the alt
+    text has to be rendered too (Codex, #1154). Falls back to ``content`` for an image
+    with no children, which is how an empty alt arrives.
+    """
+    parts: list[str] = []
+    for token in tokens or []:
+        if token.type == "image":
+            parts.append(_visible_text(token.children) or token.content)
+        elif token.type in ("text", "code_inline"):
+            parts.append(token.content)
+    return "".join(parts)
     # ``text``, ``code_inline`` and ``image`` (whose ``content`` IS its alt text) carry
     # the visible characters; ``*_open``/``*_close`` markup tokens carry an empty
     # ``content`` and drop out on their own. Omitting ``image`` collapsed
     # ``## ![Alpha](a.png)`` and ``## ![Beta](b.png)`` to two empty strings and reported
     # them as duplicates — a FALSE POSITIVE on a valid document, the one failure mode
     # this scanner's design says it must not have (Codex, #1154).
-    joined = "".join(
-        child.content for child in children if child.type in ("text", "code_inline", "image")
-    )
-    # Collapse internal whitespace: HTML renders `## Quick Start` and `## Quick  Start`
-    # (or a tab) identically, and both anchor to `#quick-start`.
-    return " ".join(joined.split())
 
 
 def extract_headings(content: str) -> list[tuple[int, int, str]]:

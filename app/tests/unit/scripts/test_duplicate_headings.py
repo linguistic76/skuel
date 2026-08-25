@@ -198,6 +198,18 @@ def test_images_sharing_alt_text_are_still_duplicates() -> None:
     assert len(dh.find_duplicates(content)) == 1
 
 
+def test_nested_markup_inside_image_alt_is_rendered() -> None:
+    """An image's ``content`` is the RAW alt source; its children carry the rendered form.
+
+    ``## ![**Setup**](a.png)`` and ``## ![Setup](b.png)`` display the same title, so the
+    duplicate must be found — the flat walker compared ``**Setup**`` against ``Setup``
+    and missed it, contradicting this check's rendered-text promise (Codex, #1154).
+    """
+    content = "# D\n\n## ![**Setup**](a.png)\n\na\n\n## ![Setup](b.png)\n\nb\n"
+    assert [h[2] for h in dh.extract_headings(content)] == ["D", "Setup", "Setup"]
+    assert len(dh.find_duplicates(content)) == 1
+
+
 def test_headings_that_render_to_nothing_never_match() -> None:
     """The generalising guard behind the image fix.
 

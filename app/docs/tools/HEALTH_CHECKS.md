@@ -15,24 +15,30 @@ related: [AUTOMATIC_DOCS_CHECK.md, BLOAT_DETECTION.md]
 
 ## Overview
 
-Five automated checks that prevent codebase drift — the kind that accumulates silently between refactors: orphaned files, broken doc links, stale names in documentation examples, skill↔doc cross-reference inconsistencies, and mypy suppressions that have stopped suppressing anything.
+Automated checks that prevent codebase drift — the kind that accumulates silently between refactors: orphaned files, broken doc links, stale names in documentation examples, duplicated document sections, skill↔doc cross-reference inconsistencies, and mypy suppressions that have stopped suppressing anything.
 
 ```bash
 ./dev health              # run every check except health-mypy
 ./dev health-modules      # dead Python modules only
 ./dev health-links        # broken doc links only
 ./dev health-names        # stale identifiers in docs only
+./dev health-headings     # repeated headings under one parent only
 ./dev health-xref         # cross-reference + staleness only
 ./dev health-mypy         # dead mypy suppressions only (~80s — NOT in ./dev health)
 ```
 
-All five exit non-zero when issues are found, so they can be used in CI —
-and all five now ARE: the first four run weekly via
+Every check exits non-zero when issues are found, so they can be used in CI —
+and all of them now ARE: everything in `./dev health` runs weekly via
 `.github/workflows/weekly-janitor.yml` (Mondays 06:30 UTC, together with the
 full bloat report), which maintains an always-open status issue and fails
 its run on findings; `health-mypy` has its own weekly workflow
 (`mypy-suppressions.yml`, Mondays 06:00 UTC). Both are advisory — neither
 feeds the CI gate.
+
+> The per-check sections below are the inventory. This overview deliberately carries no
+> count and no roster: it went stale the moment a sixth check landed, and
+> `duplicate_headings.py` exists precisely because a summary that restates a fact
+> outlives the fact.
 
 **`health-mypy` is deliberately outside `./dev health`.** The others are file scans that finish in seconds; the mypy audit needs one full type-check run per suppression it verifies. Bolting ~80s onto the aggregate target is how a health target stops being run at all — so it gets its own entry point and a weekly CI schedule instead.
 
