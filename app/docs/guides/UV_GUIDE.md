@@ -60,7 +60,7 @@ The `./dev` script is the primary interface for development commands. Every comm
 | `./dev quality` | `uv run python scripts/run_quality_checks.py` |
 | `./dev test` | `uv run python scripts/run_tests.py comprehensive` |
 | `./dev test-quick` | `uv run python scripts/run_tests.py quick` |
-| `./dev health` | `uv run python scripts/health/dead_modules.py` + 3 more |
+| `./dev health` | `uv run python scripts/health/dead_modules.py` and the other health scripts |
 
 **Prefer `./dev` commands** — they handle error formatting and provide consistent output. Use raw `uv run` when you need options the wrapper doesn't expose.
 

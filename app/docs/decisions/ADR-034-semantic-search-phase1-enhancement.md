@@ -269,7 +269,7 @@ learning_state_boost_not_started: float = 0.15
 
 ---
 
-## Implementation
+## Implementation References
 
 **Related Skills:**
 - [@skuel-search-architecture](../../.claude/skills/skuel-search-architecture/SKILL.md) - Unified search architecture and SearchRouter

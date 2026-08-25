@@ -1,6 +1,6 @@
 name: Weekly Janitor
 
-# Runs the rot detectors on a clock: the four `./dev health` checks plus the
+# Runs the rot detectors on a clock: every `./dev health` check plus the
 # full bloat report (`scripts/detect_bloat.py`, no --check). Until this
 # workflow, both ran ONLY on manual invocation — a rot detector that relies on
 # human memory contradicts its own purpose.
@@ -151,6 +151,7 @@ jobs:
           for check in dead_modules:scripts/health/dead_modules.py \
                        dead_doc_links:scripts/health/dead_doc_links.py \
                        stale_names:scripts/health/stale_names.py \
+                       duplicate_headings:scripts/health/duplicate_headings.py \
                        cross_references:scripts/validate_cross_references.py; do
             name="${check%%:*}"
             script="${check#*:}"

@@ -324,6 +324,20 @@ All 6 Activity Domain event handlers and the Learning Loop handler accept an opt
 - `handle_task_priority_changed()` - Categorization, cascade impact, inflation detection
 - `handle_tasks_bulk_completed()` - Batch pattern classification
 
+**Key Methods (Goals):**
+- `handle_goal_achieved()` - Recommendations, duration calibration, principle alignment
+- `handle_goal_abandoned()` - Abandonment classification, structured logging
+- `handle_goal_progress_updated()` - Stall detection, milestone proximity, trigger logging
+
+**Key Methods (Events):**
+- `handle_event_completed()` - Attendance time-of-day tracking, goal alignment
+- `handle_event_rescheduled()` - Rescheduling pattern detection (rare/occasional/chronic)
+- `handle_event_created()` - Scheduling density monitoring, overcommitment warnings
+
+**Key Methods (Choices):**
+- `handle_choice_outcome_recorded()` - Outcome quality analysis, principle alignment correlation
+- `handle_choice_made()` - Decision pattern tracking, confidence analysis, insight persistence
+
 **Key Methods (Learning Loop):**
 - `handle_submission_created()` - Iteration counting and classification
 - `handle_report_submitted()` - Feedback turnaround EMA calibration and anomaly detection
@@ -437,34 +451,6 @@ result = await service.get_submissions_for_path_step(user_uid, ps_uid)
 - Looking up which events reinforce a habit (returns UIDs, not Event objects)
 - Generating event scheduling suggestions from habit recurrence patterns
 - Cross-domain habit-event integration
-
----
-
-### EventHandlerService
-
-**Domains:** Tasks, Goals, Habits, Events, Choices, Principles
-**Files:** `task_event_handler_service.py`, `goal_event_handler_service.py`, `habit_event_handler_service.py`, `event_event_handler_service.py`, `choice_event_handler_service.py`, `principle_event_handler_service.py`
-
-**Responsibility:** Event-driven reactive handlers (fire-and-forget)
-
-**Key Methods (Goals):**
-- `handle_goal_achieved()` - Recommendations, duration calibration, principle alignment
-- `handle_goal_abandoned()` - Abandonment classification, structured logging
-- `handle_goal_progress_updated()` - Stall detection, milestone proximity, trigger logging
-
-**Key Methods (Events):**
-- `handle_event_completed()` - Attendance time-of-day tracking, goal alignment
-- `handle_event_rescheduled()` - Rescheduling pattern detection (rare/occasional/chronic)
-- `handle_event_created()` - Scheduling density monitoring, overcommitment warnings
-
-**Key Methods (Choices):**
-- `handle_choice_outcome_recorded()` - Outcome quality analysis, principle alignment correlation
-- `handle_choice_made()` - Decision pattern tracking, confidence analysis, insight persistence
-
-**When to use:**
-- Reacting to domain events
-- Cross-domain insight generation
-- Pattern detection and analytics logging
 
 ---
 
