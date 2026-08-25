@@ -32,6 +32,9 @@ container-handling bugs in one review). The parser gets fenced ``## not-a-headin
 samples and list/blockquote nesting right for free. Two deliberate narrowings of what
 it returns:
 
+- **Headings carrying inline HTML never match** (they still occupy the outline). The
+  walker cannot know what a raw tag renders to, and guessing produces false positives —
+  ``## A<br>B`` collapsed to ``AB`` and collided with ``## AB``.
 - **Blockquoted headings are skipped** — quoted material is someone else's outline, not
   this document's. Detected by tracking ``blockquote_open``/``blockquote_close`` depth,
   NOT by ``token.level > 0``: the parser raises ``level`` for every container, so the
@@ -130,6 +133,15 @@ def _rendered_text(inline: Token) -> str:
     and ``## Quick  Start`` are one heading (and share one anchor), and the result is
     NFC-normalised so canonically equivalent spellings compare equal.
     """
+    if _contains_inline_html(inline.children):
+        # Conservative: a heading carrying inline HTML never matches (it still occupies
+        # the outline via the empty-text path below). `_visible_text` drops html_inline
+        # tokens, so `## A<br>B` collapsed to `AB` and collided with `## AB` — a false
+        # positive on a valid document (Codex, #1154). The alternative is modelling what
+        # each tag contributes (`<br>` a break, `<span>` nothing, `<img>` its alt...),
+        # and getting any one of them wrong is another false positive. Excluding them
+        # can only cause a MISS, which is the acceptable direction.
+        return ""
     raw = inline.content if not inline.children else _visible_text(inline.children)
     # ``str.split()`` is WRONG here: it folds every Unicode space, including U+00A0,
     # which HTML does NOT collapse — so `## A&nbsp;B` and `## A B` would key alike and
@@ -143,6 +155,16 @@ def _rendered_text(inline: Token) -> str:
     # (Codex, #1154). Canonically equivalent strings ARE the same text by Unicode's
     # own definition, so this can only find duplicates, never invent them.
     return unicodedata.normalize("NFC", _HTML_SPACE.sub(" ", raw).strip(" \t\n\r\f"))
+
+
+def _contains_inline_html(tokens: "Sequence[Token] | None") -> bool:
+    """True when any token in the tree is raw inline HTML."""
+    for token in tokens or []:
+        if token.type == "html_inline":
+            return True
+        if token.children and _contains_inline_html(token.children):
+            return True
+    return False
 
 
 def _visible_text(tokens: "Sequence[Token] | None") -> str:

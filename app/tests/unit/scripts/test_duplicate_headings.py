@@ -210,6 +210,33 @@ def test_nested_markup_inside_image_alt_is_rendered() -> None:
     assert len(dh.find_duplicates(content)) == 1
 
 
+def test_inline_html_heading_does_not_collide_with_its_stripped_twin() -> None:
+    """THE false positive: `_visible_text` drops html_inline, so `## A<br>B` → `AB`.
+
+    That collided with a real `## AB` and would have redded the gate on a valid
+    document (Codex, #1154). HTML-bearing headings are conservatively excluded from
+    matching rather than guessing what each tag renders to.
+    """
+    content = "# D\n\n## A<br>B\n\na\n\n## AB\n\nb\n"
+    assert dh.find_duplicates(content) == []
+
+
+def test_two_identical_html_headings_are_a_documented_miss() -> None:
+    """The accepted cost of conservative exclusion, pinned so it is a choice not a bug.
+
+    Modelling tag semantics would catch this, and would risk a false positive on every
+    tag modelled wrong. A miss is the acceptable direction for an always-on gate.
+    """
+    content = "# D\n\n## A<br>B\n\na\n\n## A<br>B\n\nb\n"
+    assert dh.find_duplicates(content) == []
+
+
+def test_html_headings_still_scope_their_children() -> None:
+    """Excluded from MATCHING, not from the outline — same rule as empty headings."""
+    content = "# D\n\n### A<br>B\n\n#### Setup\n\na\n\n### C<br>D\n\n#### Setup\n\nb\n"
+    assert dh.find_duplicates(content) == []
+
+
 def test_non_breaking_space_is_not_collapsed() -> None:
     """HTML collapses ASCII whitespace only — U+00A0 survives, so it must key apart.
 

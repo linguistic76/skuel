@@ -416,6 +416,12 @@ back into false positives:
   in the tree; they are a template artifact, not an authored section. (They are also a real
   minor rendering bug in `ADR-TEMPLATE.md` and `ADR-010`, for whoever fixes that template.)
 - **Blockquoted headings are ignored** — quoted material is someone else's outline.
+- **Headings carrying inline HTML never match** (they still scope their children). The
+  walker cannot know what a raw tag renders to: `## A<br>B` collapsed to `AB` and
+  collided with a real `## AB`. Modelling each tag's contribution would risk a false
+  positive per tag modelled wrong, so they are excluded — the cost is a missed
+  duplicate between two identical HTML-bearing headings, which is the acceptable
+  direction for an always-on gate.
 
 **Scope:** `docs/` + `.claude/skills/`, excluding `docs/design-principles/` — that tier
 holds pasted transcripts and raw working notes where a repeated `## next` is faithful
