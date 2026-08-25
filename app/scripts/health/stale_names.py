@@ -453,8 +453,11 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         (950, "KuStatus"): Allow(_three_tier),
     },
     "docs/user-guides/documentation-freshness.md": {
-        (127, "KuTaskCreateRequest"): Allow(_freshness),
-        (128, "ProfileLayout"): Allow(_freshness),
+        # 127/128 → 128/129: the health-command list above them gained a
+        # `health-headings` line (2026-08-25). Anchors re-derived from the
+        # scanner's report, never by adding the diff's line delta.
+        (128, "KuTaskCreateRequest"): Allow(_freshness),
+        (129, "ProfileLayout"): Allow(_freshness),
     },
 }
 

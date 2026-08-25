@@ -89,7 +89,7 @@ For the full step-by-step workflows — library upgrades, pattern deprecation, s
 
 | Purpose | Location |
 |---------|----------|
-| Health check scripts | `scripts/health/` (`dead_modules.py`, `dead_doc_links.py`, `stale_names.py`) |
+| Health check scripts | `scripts/health/` (`dead_modules.py`, `dead_doc_links.py`, `stale_names.py`, `duplicate_headings.py`) |
 | Health check docs | `docs/tools/HEALTH_CHECKS.md` |
 | Skills metadata | `.claude/skills/skills_metadata.yaml` |
 | Post-commit doc check | `.claude/hooks/post-commit-docs.sh` (Claude Code PostToolUse hook) |
@@ -103,11 +103,12 @@ For the full step-by-step workflows — library upgrades, pattern deprecation, s
 
 ```bash
 # Health checks (run after any refactor/rename)
-./dev health              # all four checks (modules, links, names, xref)
+./dev health              # every check below
 ./dev health-modules      # orphaned Python modules
 ./dev health-links        # broken doc links
 ./dev health-names        # stale identifiers in doc code blocks
 ./dev health-names --list # print full RENAMED/DELETED tables
+./dev health-headings     # repeated headings under one parent
 
 # Cross-reference validation
 uv run python scripts/validate_cross_references.py

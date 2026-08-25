@@ -560,13 +560,14 @@ $ git pull
 
 ### Health Check Scripts (./dev health)
 
-Three automated scripts in `scripts/health/` that prevent drift between refactors, doc links, and terminology. These are the automated counterpart to the manual verification steps in Part 2b.
+Automated scripts in `scripts/health/` that prevent drift between refactors, doc links, terminology, and document structure. These are the automated counterpart to the manual verification steps in Part 2b.
 
 ```bash
-./dev health              # run all three checks (exit non-zero if any issues)
+./dev health              # run every check (exit non-zero if any issues)
 ./dev health-modules      # dead Python modules only
 ./dev health-links        # broken doc links only
 ./dev health-names        # stale identifiers in doc code blocks only
+./dev health-headings     # repeated headings under one parent only
 ```
 
 | Script | What it finds | When to run |
@@ -574,6 +575,7 @@ Three automated scripts in `scripts/health/` that prevent drift between refactor
 | `dead_modules.py` | Python files with zero importers, and packages nothing outside themselves imports | After a monolith dissolution or service split |
 | `dead_doc_links.py` | Broken markdown links, backtick paths, bare absolute paths | After any file rename/delete |
 | `stale_names.py` | Old class/method/enum names in doc code blocks | After a rename or deprecation |
+| `duplicate_headings.py` | Repeated headings at the same level under the same parent — a superseded section outliving its replacement | After rewriting or reorganising a long document |
 
 **`dead_doc_links.py`** is the fastest way to confirm INDEX.md is clean after pruning docs. It specifically calls out INDEX.md violations:
 

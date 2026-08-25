@@ -108,7 +108,7 @@ jobs:
         working-directory: app
         run: uv sync --frozen --no-install-project
 
-      # The four health checks are exactly what `./dev health` runs (same
+      # The health checks are exactly what `./dev health` runs (same
       # scripts, same flags — no flags); the bloat report is `./dev bloat`.
       # Everything is captured with `|| rc=$?` rather than a pipeline: Actions
       # runs this under `bash -eo pipefail`, and piping would hand the step's
@@ -197,8 +197,8 @@ jobs:
           # digest covers everything the reader sees.
           {
             if [ -z "$failed" ]; then
-              echo "**All four codebase health checks passed**"
-              echo "(\`dead_modules\`, \`dead_doc_links\`, \`stale_names\`, \`cross_references\` —"
+              echo "**All codebase health checks passed**"
+              echo "(\`dead_modules\`, \`dead_doc_links\`, \`stale_names\`, \`duplicate_headings\`, \`cross_references\` —"
               echo "the same checks \`./dev health\` runs)."
             else
               echo "**Failing sections:** \`${failed# }\`"

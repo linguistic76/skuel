@@ -24,7 +24,7 @@ Commit lands
 
 Any time
     │
-    ├─ ./dev health          → 4 automated checks
+    ├─ ./dev health          → the automated drift checks
     └─ ./dev health-xref     → cross-reference + staleness
 ```
 
@@ -83,17 +83,18 @@ A skill is flagged when either:
 **Location:** `scripts/health/` + `scripts/validate_cross_references.py`
 **Trigger:** Manual — run anytime, especially after refactors
 
-Four checks that catch different kinds of drift:
+Each check catches a different kind of drift:
 
 ```bash
-./dev health              # all four checks
+./dev health              # every check below
 ./dev health-modules      # dead Python modules only
 ./dev health-links        # broken doc links only
 ./dev health-names        # stale identifiers in docs only
+./dev health-headings     # repeated headings under one parent only
 ./dev health-xref         # cross-reference + staleness only
 ```
 
-All four exit non-zero when issues are found (CI-compatible).
+Each exits non-zero when issues are found (CI-compatible).
 
 ### Check 1: Dead Modules (`health-modules`)
 

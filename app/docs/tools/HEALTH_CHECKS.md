@@ -18,7 +18,7 @@ related: [AUTOMATIC_DOCS_CHECK.md, BLOAT_DETECTION.md]
 Five automated checks that prevent codebase drift — the kind that accumulates silently between refactors: orphaned files, broken doc links, stale names in documentation examples, skill↔doc cross-reference inconsistencies, and mypy suppressions that have stopped suppressing anything.
 
 ```bash
-./dev health              # run the first four checks
+./dev health              # run every check except health-mypy
 ./dev health-modules      # dead Python modules only
 ./dev health-links        # broken doc links only
 ./dev health-names        # stale identifiers in docs only
@@ -34,7 +34,7 @@ its run on findings; `health-mypy` has its own weekly workflow
 (`mypy-suppressions.yml`, Mondays 06:00 UTC). Both are advisory — neither
 feeds the CI gate.
 
-**`health-mypy` is deliberately outside `./dev health`.** The first four are file scans that finish in seconds; the mypy audit needs one full type-check run per suppression it verifies. Bolting ~80s onto the aggregate target is how a health target stops being run at all — so it gets its own entry point and a weekly CI schedule instead.
+**`health-mypy` is deliberately outside `./dev health`.** The others are file scans that finish in seconds; the mypy audit needs one full type-check run per suppression it verifies. Bolting ~80s onto the aggregate target is how a health target stops being run at all — so it gets its own entry point and a weekly CI schedule instead.
 
 ---
 
