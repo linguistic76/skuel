@@ -421,9 +421,12 @@ two costumes — the shape where a replacement reformats its title and the super
 section survives underneath. It is also an anchor collision: GitHub derives anchors from
 rendered text, so both resolve to `#setup`, and two headings colliding there are the same
 section as far as any link is concerned. Links, code spans and image alt text all
-collapse to their displayed characters; a heading that renders to **nothing** is skipped
-rather than compared — an empty key cannot identify a section, and it is where an
-unrecognised inline token would otherwise turn into a false positive.
+collapse to their displayed characters, and internal whitespace is collapsed the way HTML
+collapses it (`## Quick Start` and `## Quick  Start` are one heading). A heading that
+renders to **nothing** never matches — an empty key cannot identify a section, and it is
+where an unrecognised inline token would otherwise turn into a false positive — but it
+still occupies the outline, so two untitled image headings each holding a `#### Setup`
+keep those subsections in separate scopes.
 
 **Headings come from the CommonMark parser, never a regex** — the sibling
 `markdown_fences.py` documents what hand-rolled Markdown scanning costs.
