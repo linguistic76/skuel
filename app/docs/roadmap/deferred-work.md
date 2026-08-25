@@ -1391,6 +1391,15 @@ guard and no file mutation, so the adopted id is re-validated against the snapsh
 from instead of being persisted blind. Both pre-existing, found by the Codex review on the PR
 that made them matter.
 
+**Hash lookups are injective across an entry.** Two identical task lines in one note share a
+`source_line_hash` (the digest is content-based and 🆔-blind by design), and `_find_line_by_hash`
+returned the first match, so both of their entities got the SAME line: a recovery copied the
+first line's 🆔 onto the second entity's edge, and that task's completion write-back would then
+check the wrong line. A line whose 🆔 an edge in the entry already owns is now excluded before
+the loop, and every line a lookup takes is excluded afterwards. Also pre-existing — reachable
+before only through a mixed batch, and reachable on any recovery once the arm above started
+running.
+
 Wire-protocol change, so `PROTOCOL_VERSION` went **1 → 2** on both sides in one commit (parity
 contract-tested in `tests/unit/test_vault_agent.py`; RED-checked by a one-sided bump). No agent
 release was cut for it — PR-2 bumps to v3 and ONE release follows, so users pull once.

@@ -291,6 +291,119 @@ async def test_the_filesystem_transport_reports_the_hit_and_the_miss_positionall
     assert "🆔 sk_hit222" in written and "sk_miss11" not in written
 
 
+async def test_two_identical_lines_never_share_one_id_on_recovery(tmp_path: Path) -> None:
+    """Two identical task lines share a ``source_line_hash`` — 🆔-blind by design.
+
+    A first-match lookup hands the SAME line to both of their entities, so the
+    edge whose persist failed adopts the OTHER edge's 🆔 and its completion
+    write-back then checks the wrong line. The lookup has to be injective: a
+    line an edge in this entry already owns is not available to another.
+    """
+    duplicate = "- [ ] Call mum\n"
+    note = "# Daily\n\n- [ ] Call mum 🆔 sk_aaa111\n- [ ] Call mum 🆔 sk_bbb222\n"
+    rels: list[dict[str, str | None]] = [
+        # Persisted last sync…
+        {
+            "entity_uid": "task_call_1",
+            "vault_id": "sk_aaa111",
+            "source_line_hash": normalize_vault_line_hash(duplicate),
+        },
+        # …and this one's persist failed, so it looks itself up by hash.
+        {
+            "entity_uid": "task_call_2",
+            "vault_id": None,
+            "source_line_hash": normalize_vault_line_hash(duplicate),
+        },
+    ]
+
+    reconciler, bridge, user_entry = _reconciler(rels, WriteResult(success=True))
+    bridge.read_note = AsyncMock(return_value=NoteSnapshot.from_content("daily.md", note))
+    # The owning edge's task is not completed, so it queues nothing of its own.
+    reconciler._tasks.get_task = AsyncMock(return_value=Result.ok(None))
+    entry = Mock()
+    entry.uid = ENTRY_UID
+    entry.metadata = {}
+    stats = VaultSyncStats()
+
+    await reconciler._process_entry_outbound(
+        _descriptor(tmp_path, bridge), entry, str(tmp_path / "daily.md"), stats
+    )
+
+    user_entry.update_extracted_vault_id.assert_awaited_once()
+    adopted = user_entry.update_extracted_vault_id.await_args.args
+    assert adopted[1] == "task_call_2"
+    assert adopted[2] == "sk_bbb222", "adopted the line already owned by task_call_1"
+
+
+async def test_two_recoveries_on_identical_lines_adopt_distinct_ids(tmp_path: Path) -> None:
+    """Both writes landed, BOTH persists failed — nothing pre-claims either line.
+
+    Only claiming each line as the pass takes it keeps the two adoptions apart;
+    otherwise both edges walk away with the first line's 🆔.
+    """
+    duplicate = "- [ ] Call mum\n"
+    note = "# Daily\n\n- [ ] Call mum 🆔 sk_aaa111\n- [ ] Call mum 🆔 sk_bbb222\n"
+    rels: list[dict[str, str | None]] = [
+        {
+            "entity_uid": f"task_call_{n}",
+            "vault_id": None,
+            "source_line_hash": normalize_vault_line_hash(duplicate),
+        }
+        for n in (1, 2)
+    ]
+
+    reconciler, bridge, user_entry = _reconciler(rels, WriteResult(success=True))
+    bridge.read_note = AsyncMock(return_value=NoteSnapshot.from_content("daily.md", note))
+    entry = Mock()
+    entry.uid = ENTRY_UID
+    entry.metadata = {}
+    stats = VaultSyncStats()
+
+    await reconciler._process_entry_outbound(
+        _descriptor(tmp_path, bridge), entry, str(tmp_path / "daily.md"), stats
+    )
+
+    persisted = {
+        call.args[1]: call.args[2] for call in user_entry.update_extracted_vault_id.await_args_list
+    }
+    assert persisted == {"task_call_1": "sk_aaa111", "task_call_2": "sk_bbb222"}
+
+
+async def test_two_identical_id_less_lines_get_distinct_ids(tmp_path: Path) -> None:
+    """The same injectivity, one step earlier: two mints, two lines, no overlap."""
+    duplicate = "- [ ] Call mum\n"
+    note = f"# Daily\n\n{duplicate}{duplicate}"
+    rels: list[dict[str, str | None]] = [
+        {
+            "entity_uid": f"task_call_{n}",
+            "vault_id": None,
+            "source_line_hash": normalize_vault_line_hash(duplicate),
+        }
+        for n in (1, 2)
+    ]
+
+    reconciler, bridge, user_entry = _reconciler(
+        rels, WriteResult(success=True, updates_applied=(True, True))
+    )
+    bridge.read_note = AsyncMock(return_value=NoteSnapshot.from_content("daily.md", note))
+    entry = Mock()
+    entry.uid = ENTRY_UID
+    entry.metadata = {}
+    stats = VaultSyncStats()
+
+    await reconciler._process_entry_outbound(
+        _descriptor(tmp_path, bridge), entry, str(tmp_path / "daily.md"), stats
+    )
+
+    queued = bridge.write_task_updates.await_args.kwargs["updates"]
+    assert len({update.vault_id for update in queued}) == 2
+    persisted = {
+        call.args[1]: call.args[2] for call in user_entry.update_extracted_vault_id.await_args_list
+    }
+    assert len(set(persisted.values())) == 2, persisted
+    assert stats.ids_injected == 2
+
+
 async def test_an_empty_batch_is_guard_only_and_touches_no_file(tmp_path: Path) -> None:
     """The contract a recovery-only pass leans on, pinned on the real adapter.
 

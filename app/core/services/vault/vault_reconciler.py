@@ -153,9 +153,19 @@ def _mint_vault_id() -> str:
     return "sk_" + "".join(secrets.choice(_BASE36) for _ in range(6))
 
 
-def _find_line_by_hash(content: str, target_hash: str) -> int | None:
-    """Return 0-based index of the checkbox line whose normalized hash matches."""
+def _find_line_by_hash(content: str, target_hash: str, claimed: set[int]) -> int | None:
+    """Return 0-based index of the first UNCLAIMED checkbox line matching the hash.
+
+    ``claimed`` holds line indices already spoken for by another entity in the
+    same pass. Two identical task lines in one note share a
+    ``source_line_hash`` — the digest is content-based and 🆔-blind by design —
+    so a bare first-match lookup hands the SAME line to both of their entities:
+    they mint duplicate ids, or a recovery copies the first line's 🆔 onto the
+    second entity's edge and its completion write-back lands on the wrong line.
+    """
     for i, line in enumerate(content.splitlines()):
+        if i in claimed:
+            continue
         if _UNCHECKED_RE.match(line) or _CHECKED_RE.match(line):
             if normalize_vault_line_hash(line) == target_hash:
                 return i
@@ -713,6 +723,16 @@ class VaultReconciler:
 
         updates: list[TaskLineUpdate] = []
         injections: list[_PendingInjection] = []
+        # Hash lookups must be INJECTIVE across this entry (see
+        # ``_find_line_by_hash``): a line whose 🆔 one of these edges already
+        # owns is off the table before the loop starts, and every line a lookup
+        # takes is off it afterwards.
+        owned_ids = {rel.get("vault_id") for rel in rels if rel.get("vault_id")}
+        claimed_lines = {
+            i
+            for i, line in enumerate(snapshot.content.splitlines())
+            if (owner_match := VAULT_ID_RE.search(line)) and owner_match.group(1) in owned_ids
+        }
 
         for rel in rels:
             entity_uid = rel.get("entity_uid", "")
@@ -724,7 +744,7 @@ class VaultReconciler:
                 # (possible if a previous sync wrote the file but the DB update failed).
                 if not line_hash:
                     continue
-                line_idx = _find_line_by_hash(snapshot.content, line_hash)
+                line_idx = _find_line_by_hash(snapshot.content, line_hash, claimed_lines)
                 if line_idx is None:
                     # Entity was extracted from non-checkbox content (LLM bridge
                     # augmentation, DSL prose, or Markwhen blocks).  Those lines
@@ -737,6 +757,7 @@ class VaultReconciler:
                         vault_file_path,
                     )
                     continue
+                claimed_lines.add(line_idx)
                 found_line = snapshot.content.splitlines()[line_idx]
                 existing_id_match = VAULT_ID_RE.search(found_line)
                 if existing_id_match:

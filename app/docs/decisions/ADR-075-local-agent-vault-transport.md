@@ -158,7 +158,7 @@ reconciler drives sync (human-initiated, ADR-070 Decision 9) and the agent is th
 
 ```jsonc
 // 1. server → agent, immediately on WS accept:
-{"type": "challenge", "nonce": "kQ9f2c…-b64url-32-bytes", "protocol": 1}
+{"type": "challenge", "nonce": "kQ9f2c…-b64url-32-bytes", "protocol": 2}
 
 // 2. agent → server — signature is Ed25519 over the byte string
 //    "skuel-vault-agent-v1" || nonce  (domain-separation prefix prevents
