@@ -133,6 +133,18 @@ class VaultSyncPreview:
     refusal_warning: str | None = None
 
 
+def _rel_visit_order(
+    rel: dict[str, Any],  # boundary: EXTRACTED_FROM row — heterogeneous by protocol
+) -> str:
+    """Stable visit order for one entry's ``EXTRACTED_FROM`` rows.
+
+    The backend read is unordered; the reconciler correlates edges to vault
+    lines while walking these, so the walk needs an order that does not depend
+    on Neo4j traversal.
+    """
+    return str(rel.get("entity_uid", ""))
+
+
 @dataclass(frozen=True)
 class _PendingInjection:
     """One 🆔 to persist onto its ``EXTRACTED_FROM`` edge after the file write.
@@ -708,6 +720,17 @@ class VaultReconciler:
         rels = rels_result.value or []
         if not rels:
             return
+        # The backend read carries no ORDER BY, so give the pass a stable order
+        # of its own: which edge is visited first otherwise decides which line a
+        # recovery adopts. This makes the outcome REPRODUCIBLE — it does not
+        # recover a "true" edge→line mapping for byte-identical lines, because
+        # none is recorded and none exists: the digest is position-free and
+        # 🆔-blind by design (ADR-070 Decision 1), so two identical lines carry
+        # the same text and the same state, and which one an entity adopts is
+        # arbitrary and unobservable. A line that diverges from its twin also
+        # diverges in the digest (the ✅ date is deliberately inside it) and
+        # stops matching, which is the discriminator the design does have.
+        rels.sort(key=_rel_visit_order)
 
         try:
             snapshot = await descriptor.bridge.read_note(owner, vault_file_path)

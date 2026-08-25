@@ -1400,6 +1400,16 @@ the loop, and every line a lookup takes is excluded afterwards. Also pre-existin
 before only through a mixed batch, and reachable on any recovery once the arm above started
 running.
 
+**Stated limitation, not a defect:** for byte-identical lines, WHICH of them an entity adopts is
+arbitrary. No edge→line mapping is recorded and none exists to recover — the digest is
+position-free and 🆔-blind by design, so two identical lines carry the same text and the same
+state, and the choice is unobservable. A line that diverges from its twin also diverges in the
+digest (the ✅ date is deliberately inside it) and stops matching, which is the discriminator
+the design does have. What was fixed is the part that IS in the reconciler's control: the
+backend read carries no `ORDER BY`, so the pass now sorts its rows and the outcome is at least
+reproducible. Do not "fix" this further with a positional discriminator — line positions move
+under exactly the edits the content-hash design exists to tolerate.
+
 Wire-protocol change, so `PROTOCOL_VERSION` went **1 → 2** on both sides in one commit (parity
 contract-tested in `tests/unit/test_vault_agent.py`; RED-checked by a one-sided bump). No agent
 release was cut for it — PR-2 bumps to v3 and ONE release follows, so users pull once.

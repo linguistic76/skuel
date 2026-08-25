@@ -366,6 +366,41 @@ async def test_two_recoveries_on_identical_lines_adopt_distinct_ids(tmp_path: Pa
     persisted = {
         call.args[1]: call.args[2] for call in user_entry.update_extracted_vault_id.await_args_list
     }
+    # Distinct is the guarantee. WHICH identical line each entity adopts is
+    # arbitrary — the two lines are indistinguishable by construction — but the
+    # pass sorts its rows, so the answer is at least reproducible; the backend
+    # read carries no ORDER BY.
+    assert persisted == {"task_call_1": "sk_aaa111", "task_call_2": "sk_bbb222"}
+
+
+async def test_the_visit_order_does_not_depend_on_the_backend_read_order(
+    tmp_path: Path,
+) -> None:
+    """The same rows in the reverse order adopt the same ids."""
+    duplicate = "- [ ] Call mum\n"
+    note = "# Daily\n\n- [ ] Call mum 🆔 sk_aaa111\n- [ ] Call mum 🆔 sk_bbb222\n"
+    rels: list[dict[str, str | None]] = [
+        {
+            "entity_uid": f"task_call_{n}",
+            "vault_id": None,
+            "source_line_hash": normalize_vault_line_hash(duplicate),
+        }
+        for n in (2, 1)  # reversed relative to the test above
+    ]
+
+    reconciler, bridge, user_entry = _reconciler(rels, WriteResult(success=True))
+    bridge.read_note = AsyncMock(return_value=NoteSnapshot.from_content("daily.md", note))
+    entry = Mock()
+    entry.uid = ENTRY_UID
+    entry.metadata = {}
+
+    await reconciler._process_entry_outbound(
+        _descriptor(tmp_path, bridge), entry, str(tmp_path / "daily.md"), VaultSyncStats()
+    )
+
+    persisted = {
+        call.args[1]: call.args[2] for call in user_entry.update_extracted_vault_id.await_args_list
+    }
     assert persisted == {"task_call_1": "sk_aaa111", "task_call_2": "sk_bbb222"}
 
 
