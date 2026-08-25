@@ -416,6 +416,12 @@ holds pasted transcripts and raw working notes where a repeated `## next` is fai
 capture. The exclusion is by scope, not suppression: the run prints how many files it
 skipped.
 
+**Comparison is on RENDERED text**, so `## Setup` and `## **Setup**` are one heading in
+two costumes — the shape where a replacement reformats its title and the superseded
+section survives underneath. It is also an anchor collision: GitHub derives anchors from
+rendered text, so both resolve to `#setup`, and two headings colliding there are the same
+section as far as any link is concerned. Links and code spans collapse the same way.
+
 **Headings come from the CommonMark parser, never a regex** — the sibling
 `markdown_fences.py` documents what hand-rolled Markdown scanning costs.
 
