@@ -32,8 +32,13 @@ container-handling bugs in one review). The parser gets fenced ``## not-a-headin
 samples and list/blockquote nesting right for free. Two deliberate narrowings of what
 it returns:
 
-- **Blockquoted headings are skipped** (``token.level > 0``) — quoted material is
-  someone else's outline, not this document's.
+- **Blockquoted headings are skipped** — quoted material is someone else's outline, not
+  this document's. Detected by tracking ``blockquote_open``/``blockquote_close`` depth,
+  NOT by ``token.level > 0``: the parser raises ``level`` for every container, so the
+  cheap test also discarded headings nested in a LIST — two ``## Setup`` subsections
+  inside one numbered procedure would have gone unreported. The corpus contains no such
+  heading today, which is exactly why the cheap test looked equivalent; corpus-relative
+  agreement is not correctness (the lesson ``markdown_fences`` was written to record).
 - **ATX (``##``) only; setext underlines are ignored.** Not a shortcut — a measured
   choice. The corpus contains ZERO intentional setext headings, and enabling them
   reported six phantom ones: an unfilled ADR template writes ``**Pros:**`` above an
@@ -134,8 +139,15 @@ def extract_headings(content: str) -> list[tuple[int, int, str]]:
     """
     tokens = _PARSER.parse(content)
     headings: list[tuple[int, int, str]] = []
+    quote_depth = 0
     for index, token in enumerate(tokens):
-        if token.type != "heading_open" or token.level > 0:
+        if token.type == "blockquote_open":
+            quote_depth += 1
+            continue
+        if token.type == "blockquote_close":
+            quote_depth -= 1
+            continue
+        if token.type != "heading_open" or quote_depth > 0:
             continue
         if not token.markup.startswith("#"):  # setext — see module docstring
             continue

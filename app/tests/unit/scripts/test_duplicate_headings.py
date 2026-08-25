@@ -114,6 +114,25 @@ def test_blockquoted_headings_are_ignored() -> None:
     assert dh.find_duplicates(content) == []
 
 
+def test_list_nested_headings_are_not_ignored() -> None:
+    """Only QUOTED headings are out of scope — list-nested ones are this doc's own.
+
+    The parser raises ``level`` for every container, so a ``token.level > 0`` test
+    discards list-nested headings too. Two ``## Setup`` subsections inside one numbered
+    procedure are a real duplicate. Zero such headings exist in the corpus today, which
+    is precisely why the cheap test looked equivalent (Codex, #1154).
+    """
+    content = "# D\n\n1. Step one\n\n   ## Setup\n\n   a\n\n2. Step two\n\n   ## Setup\n\n   b\n"
+    assert [h[2] for h in dh.extract_headings(content)] == ["D", "Setup", "Setup"]
+    assert len(dh.find_duplicates(content)) == 1
+
+
+def test_a_quoted_heading_does_not_suppress_later_real_ones() -> None:
+    """Depth must come back DOWN — a close that never decrements blinds the rest."""
+    content = "# D\n\n> ## Quoted\n\n## Real\n\na\n\n## Real\n\nb\n"
+    assert len(dh.find_duplicates(content)) == 1
+
+
 def test_headings_inside_code_fences_are_ignored() -> None:
     """A ``## sample`` in a fenced block is content, not structure.
 
