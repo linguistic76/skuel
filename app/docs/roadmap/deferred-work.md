@@ -432,8 +432,10 @@ on #1153, where this section first restated the stale fact.)
 
 **Enable when** (unchanged in kind, sharpened in target): a consumer wants relevance-ranked
 text search for the domains that remain on `/search` after the facet redesign — the six
-Activity Domains and Ku, **plus an open ruling on UserEntry** (kept on the surface, but
-D5 recommended excluding it from fulltext — see the facet section). Product need, not a
+Activity Domains and Ku, **plus whatever the facet section's open rulings leave standing**
+(UserEntry — kept on the surface, though D5 recommended excluding it from fulltext; and
+Exercise/RevisedExercise). The rule, not the list, is the contract: every domain visible on
+`/search` is either in D1(b)'s scope or has Relevance disabled for it. Product need, not a
 data threshold.
 
 ---
@@ -506,8 +508,10 @@ leaving the gap unnamed. If it does join:
    Ku and PathStep (112 Ku vault files carry it; 14 of 28 Ps files do), so the facet returns
    PS rows today. The two halves of the original proposal were load-bearing on each other.
 
-**Two consequences the design does not state — both would bite at implementation.**
-(Raised by Codex on #1153; verified against the code.)
+**Consequences the design does not state — each would bite at implementation.**
+(Raised by Codex across #1153's review rounds; every one verified against the code.
+Deliberately un-numbered in the heading: this list grew three times, and a count in a
+heading is one more summary to go stale.)
 
 1. **The facet vocabularies must follow the result scope, or the facets lie.** This is a
    requirement, not a choice — it follows from the ruling already made.
@@ -531,6 +535,32 @@ leaving the gap unnamed. If it does join:
    to the new facet so the results become filterable, or (ii) exclude both from the sweep so
    the results match the facet. Do not leave it to the implementer; either way the sweep
    allowlist becomes explicit rather than "whatever `_SEARCHABLE_DOMAINS` happens to hold".
+
+3. **Removing the Ku *option* strands four knowledge filters.** `static/js/skuel.js`'s
+   `FILTER_MAP` reveals SEL Category, Learning Level, Content Type and Educational Level
+   only when `entityType == 'ku'`, and `showContextFilters` requires `entityType !== ''`.
+   Selecting a Nous topic does **not** set `entityType`. So the moment Ku stops being a Type
+   choice and becomes "reachable through the Nous facet", those four controls become
+   unreachable — silently, with no error and nothing removed from the markup. The contract
+   must say which: make them visible in the new knowledge mode, or rule their removal. ⚠️
+   `FILTER_MAP` is a **third site encoding the type vocabulary** (after
+   `_ENTITY_TYPE_OPTIONS` and the sweep allowlist) and carries `path_step`/`learning_path`/
+   `user_entry` entries of its own — it changes with them or it drifts.
+
+4. **If Exercise is surfaced (option (i) above), RevisedExercise still is not.** `/search`
+   takes ONE `entity_type`, and `SearchRequest.from_form_params` converts it to a
+   one-element list (`parsed_entity_types = [et]`). So an `exercise` option filters to
+   `EXERCISE` alone while `REVISED_EXERCISE` keeps floating in the unfiltered sweep —
+   option (i) solves half the problem it was written for. Either give RevisedExercise its
+   own option, or define grouped-filter handling (one control → several enum values), which
+   the single-value contract does not support today.
+
+5. **D1(b)'s scope must be conditional on ruling 2, not a hard-coded list.** A scope fixed
+   at "the six Activity Domains + Ku" silently omits Exercise if Exercise is ruled onto the
+   surface — it would inherit the same fake Relevance label, the exact gap already named for
+   UserEntry. So the contract is a **rule, not a list**: every domain visible on `/search`
+   is either in D1(b)'s scope or has Relevance disabled for it. The three scope statements
+   in this file were rewritten to say that rather than enumerate.
 
 **Known fiction this redesign does NOT repair — deliberately left standing.** `/search`'s
 sort dropdown offers **"Relevance"**, it is the DEFAULT, and no path behind it ranks by
@@ -557,8 +587,8 @@ visible.
 **Dependency order** (the reason this is ruled but not built):
 
 1. This facet redesign — decides which domains `/search` must rank at all.
-2. Then D1(b), re-scoped to the six Activity Domains + Ku (+ the open UserEntry ruling
-   above). Its remaining work is
+2. Then D1(b), scoped to whatever step 1 leaves on the surface — the six Activity Domains
+   and Ku for certain, plus the open UserEntry and Exercise rulings. Its remaining work is
    threading `user_uid` + the domain's `SearchVisibility` into the fulltext Cypher —
    **not** an ownership ruling: the edge-vs-property question that section once named as
    a prerequisite is closed (see its ⚠️ note). Do not treat it as a blocker.
@@ -1872,7 +1902,7 @@ Review this document at the **September 2026 quarterly review**. Checklist:
 | Content-linting survivors (NOUS vocabulary check; orphan detection at lint time) | Authoring volume makes silent nous typos / orphan drift a lived problem | Ride-along on `ingestion/validator.py` |
 | Principles `_validate_update` reform or deletion | Next substantive touch of the Principles update path | Ruling needed — see the section's landmine note |
 | EntryReport / ActivityReport search | A teacher workflow wants direct report-content search | Product need (not a data threshold) |
-| Domain-level fulltext-first text search (D1(b)) — ruled DEFERRED **twice** (2026-08-16, 2026-08-25) | A consumer wants relevance ranking for the domains remaining on `/search` after the facet redesign (6 Activity Domains + Ku; UserEntry needs a ruling) — ⚠️ scope INVERTED, do not scope from the bullet list; the OWNER_ONLY edge-vs-property "ruling needed" is STALE — already closed, do not re-open | Product need (not a data threshold); read the section's two rulings first |
+| Domain-level fulltext-first text search (D1(b)) — ruled DEFERRED **twice** (2026-08-16, 2026-08-25) | A consumer wants relevance ranking for the domains remaining on `/search` after the facet redesign (6 Activity Domains + Ku, plus whatever the open rulings leave visible) — ⚠️ scope INVERTED, do not scope from the bullet list; the OWNER_ONLY edge-vs-property "ruling needed" is STALE — already closed, do not re-open | Product need (not a data threshold); read the section's two rulings first |
 | `/search` facet redesign (ruled *build, not now* 2026-08-25) | Mike schedules it — product decision (what `/search` is for) | See the section — do not scope from this row: Activity Domains facet, PS/LP out of results, LP joins the library catalog **or** gets an explicit "navigated, not searched" ruling (the gap must not be left unnamed), Nous keeps its name, Relevance fiction left standing on purpose; **two rulings still needed** — UserEntry scope, and Exercise/RevisedExercise (already unfilterable hidden results today) |
 | ZPD snapshot history & trend analysis | A ZPD-over-time consumer exists | Product need + `MATCH (h:ZPDHistory) RETURN count(h)` for accrual |
 | Habit rows in the weekly-note panel | Lived weekly-review use wants the backward look | Product need (not a data threshold) |
