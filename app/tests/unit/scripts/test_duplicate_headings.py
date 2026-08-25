@@ -198,16 +198,47 @@ def test_images_sharing_alt_text_are_still_duplicates() -> None:
     assert len(dh.find_duplicates(content)) == 1
 
 
-def test_headings_that_render_to_nothing_are_skipped() -> None:
+def test_headings_that_render_to_nothing_never_match() -> None:
     """The generalising guard behind the image fix.
 
     Any inline token type the walker does not know collapses to "", so without this
     every unknown type is a latent FALSE POSITIVE rather than a miss. Two alt-less
     images are not "the same section" in any sense worth reporting.
+
+    Note the contract: extraction KEEPS them (they occupy the outline), matching skips
+    them — see the sibling test below for why the first half matters.
     """
     content = "# D\n\n## ![](a.png)\n\na\n\n## ![](b.png)\n\nb\n"
-    assert [h[2] for h in dh.extract_headings(content)] == ["D"]
+    assert [h[2] for h in dh.extract_headings(content)] == ["D", "", ""]
     assert dh.find_duplicates(content) == []
+
+
+def test_empty_headings_still_scope_their_children() -> None:
+    """A guard against a false positive must not CREATE one.
+
+    Dropping empty headings from the outline re-parents their children onto the nearest
+    non-empty ancestor, so two `#### Setup` subsections under two different image
+    headings collapse into one scope and get reported. Each empty heading therefore
+    occupies the path under a key unique to its own line (Codex, #1154).
+    """
+    content = "# D\n\n### ![](one.png)\n\n#### Setup\n\na\n\n### ![](two.png)\n\n#### Setup\n\nb\n"
+    assert dh.find_duplicates(content) == []
+
+    # ...and a REAL duplicate under one empty parent is still caught.
+    same_parent = "# D\n\n### ![](one.png)\n\n#### Setup\n\na\n\n#### Setup\n\nb\n"
+    found = dh.find_duplicates(same_parent)
+    assert len(found) == 1
+    assert found[0][3] == ("D", "(untitled)"), "an empty parent displays as (untitled)"
+
+
+def test_internal_whitespace_is_collapsed() -> None:
+    """`## Quick Start` and `## Quick  Start` render identically and share an anchor.
+
+    HTML collapses whitespace runs, so raw-source comparison missed the duplicate.
+    """
+    content = "# D\n\n## Quick Start\n\na\n\n## Quick  Start\n\nb\n"
+    assert len(dh.find_duplicates(content)) == 1
+    assert dh.extract_headings(content)[2][2] == "Quick Start", "reported text is normalised"
 
 
 def test_rendered_text_strips_markup_but_keeps_content() -> None:

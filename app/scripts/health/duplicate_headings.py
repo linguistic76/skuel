@@ -128,9 +128,12 @@ def _rendered_text(inline: object) -> str:
     # ``## ![Alpha](a.png)`` and ``## ![Beta](b.png)`` to two empty strings and reported
     # them as duplicates — a FALSE POSITIVE on a valid document, the one failure mode
     # this scanner's design says it must not have (Codex, #1154).
-    return "".join(
+    joined = "".join(
         child.content for child in children if child.type in ("text", "code_inline", "image")
-    ).strip()
+    )
+    # Collapse internal whitespace: HTML renders `## Quick Start` and `## Quick  Start`
+    # (or a tab) identically, and both anchor to `#quick-start`.
+    return " ".join(joined.split())
 
 
 def extract_headings(content: str) -> list[tuple[int, int, str]]:
@@ -157,13 +160,6 @@ def extract_headings(content: str) -> list[tuple[int, int, str]]:
             continue
         inline = tokens[index + 1] if index + 1 < len(tokens) else None
         text = _rendered_text(inline) if inline is not None else ""
-        if not text:
-            # A heading that renders to nothing cannot identify a section, and two of
-            # them are not "the same section" in any sense worth reporting. This is the
-            # generalising guard for the image class above: any inline token type this
-            # walker does not know collapses to "", so without it EVERY unknown type is
-            # a latent false positive rather than a miss.
-            continue
         line = (token.map[0] + 1) if token.map else 0
         headings.append((line, int(token.tag[1:]), text))
     return headings
@@ -177,20 +173,39 @@ def find_duplicates(content: str) -> list[tuple[str, int, int, tuple[str, ...]]]
     is case-insensitive: ``## Next`` and ``## next`` under one parent are the same
     section wearing two spellings, and anchor links cannot tell them apart either.
     """
-    path: list[tuple[int, str]] = []
+    # Each entry is (depth, scope_key, display_title); the two diverge for headings
+    # that render to nothing — see the guard below.
+    path: list[tuple[int, str, str]] = []
     seen: dict[tuple[tuple[str, ...], int, str], int] = {}
     duplicates: list[tuple[str, int, int, tuple[str, ...]]] = []
 
     for line, depth, text in extract_headings(content):
         while path and path[-1][0] >= depth:
             path.pop()
-        parents = tuple(title for _, title in path)
+
+        if not text:
+            # A heading that renders to nothing cannot identify a section, so it never
+            # MATCHES: every inline token type this walker does not know collapses to
+            # "", and without this each unknown type would be a latent false positive
+            # rather than a harmless miss.
+            #
+            # It must still OCCUPY the outline, with a key unique to this occurrence.
+            # Dropping it re-parents its children onto the nearest non-empty ancestor,
+            # so `### ![](one.png)` and `### ![](two.png)` — each holding a
+            # `#### Setup` — would collapse into one scope and report those subsections
+            # as duplicates: a false positive created by the guard against a false
+            # positive (Codex, #1154).
+            path.append((depth, f"\x00untitled@{line}", ""))
+            continue
+
+        parents = tuple(scope for _, scope, _ in path)
         key = (parents, depth, text.casefold())
         if key in seen:
-            duplicates.append((text, seen[key], line, parents))
+            display = tuple(title or "(untitled)" for _, _, title in path)
+            duplicates.append((text, seen[key], line, display))
         else:
             seen[key] = line
-        path.append((depth, text))
+        path.append((depth, text.casefold(), text))
 
     return duplicates
 
