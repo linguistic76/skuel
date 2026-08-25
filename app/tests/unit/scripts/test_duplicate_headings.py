@@ -80,6 +80,24 @@ def test_case_differences_still_count_as_duplicates() -> None:
     assert len(dh.find_duplicates(content)) == 1
 
 
+def test_same_named_parents_at_different_depths_are_different_scopes() -> None:
+    """THE false positive: the scope key flattened `## A` and `# A` to the same ("A",).
+
+    Two `### X` children then collided although their parents sit at different outline
+    levels — a valid document with skipped heading levels would have redded the gate
+    (Codex, #1154). Depth is part of the scope, not just the title.
+    """
+    content = "## A\n\n### X\n\na\n\n# A\n\n### X\n\nb\n"
+    assert dh.find_duplicates(content) == []
+
+
+def test_same_named_parents_at_the_same_depth_still_collide() -> None:
+    """The narrowing must not disable the rule: identical outlines are duplicates."""
+    content = "## A\n\n### X\n\na\n\n## A\n\n### X\n\nb\n"
+    found = {f[0] for f in dh.find_duplicates(content)}
+    assert found == {"A", "X"}
+
+
 def test_a_reopened_parent_scope_does_not_leak() -> None:
     """Popping the heading path must restore the OUTER scope, not clear it.
 

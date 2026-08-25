@@ -319,7 +319,7 @@ case "$1" in
     echo "  ./dev health-modules - Find Python files with zero importers"
     echo "  ./dev health-links   - Find broken links in docs/ and .claude/skills/"
     echo "  ./dev health-names   - Find stale/deprecated identifiers in doc code blocks"
-    echo "  ./dev health-headings- Find repeated headings under one parent in docs"
+    echo "  ./dev health-headings - Find repeated headings under one parent in docs"
     echo "  ./dev health-xref    - Validate skill↔doc cross-references and staleness"
     echo "  ./dev health-mypy    - Find mypy suppressions that suppress nothing (~80s, not in health)"
     echo ""

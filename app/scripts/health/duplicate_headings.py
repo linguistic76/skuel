@@ -232,7 +232,7 @@ def find_duplicates(content: str) -> list[tuple[str, int, int, tuple[str, ...]]]
     # Each entry is (depth, scope_key, display_title); the two diverge for headings
     # that render to nothing — see the guard below.
     path: list[tuple[int, str, str]] = []
-    seen: dict[tuple[tuple[str, ...], int, str], int] = {}
+    seen: dict[tuple[tuple[tuple[int, str], ...], int, str], int] = {}
     duplicates: list[tuple[str, int, int, tuple[str, ...]]] = []
 
     for line, depth, text in extract_headings(content):
@@ -254,7 +254,12 @@ def find_duplicates(content: str) -> list[tuple[str, int, int, tuple[str, ...]]]
             path.append((depth, f"\x00untitled@{line}", ""))
             continue
 
-        parents = tuple(scope for _, scope, _ in path)
+        # Depth is part of the scope, not just the title: `## A / ### X` and
+        # `# A / ### X` both flattened to ("A",), so the second X was reported as a
+        # duplicate of the first even though its parent sits at a different outline
+        # level. A valid document with skipped heading levels could red the gate
+        # (Codex, #1154).
+        parents = tuple((pdepth, scope) for pdepth, scope, _ in path)
         key = (parents, depth, text.casefold())
         if key in seen:
             display = tuple(title or "(untitled)" for _, _, title in path)
