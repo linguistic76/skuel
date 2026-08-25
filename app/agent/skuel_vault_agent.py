@@ -535,12 +535,17 @@ class VaultRPCHandler:
                 raise RPCError("invalid_params", "each update needs a string 'vault_id'")
             done_date = raw.get("done_date")
             source_line_hash = raw.get("source_line_hash")
+            # The operation flags must be REAL booleans, never merely truthy:
+            # ``bool("false")`` is True, so coercion would let a malformed frame
+            # pick an operation the server did not ask for (the outbound twin of
+            # the same rule on ``updates_applied``, Codex #1151). An absent flag
+            # is False either way.
             updates.append(
                 TaskLineUpdate(
                     vault_id=raw["vault_id"],
-                    mark_done=bool(raw.get("mark_done", False)),
+                    mark_done=raw.get("mark_done") is True,
                     done_date=done_date if isinstance(done_date, str) else None,
-                    inject_vault_id=bool(raw.get("inject_vault_id", False)),
+                    inject_vault_id=raw.get("inject_vault_id") is True,
                     source_line_hash=(
                         source_line_hash if isinstance(source_line_hash, str) else None
                     ),

@@ -638,6 +638,92 @@ class TestAdapterEdges:
         assert write.was_applied(0) is False
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "malformed",
+        [
+            pytest.param(["false"], id="truthy-string-false"),
+            pytest.param([1], id="json-number"),
+            pytest.param([True, "true"], id="partially-typed"),
+            pytest.param("true", id="not-a-list"),
+        ],
+    )
+    async def test_a_non_boolean_outcome_is_never_read_as_confirmation(
+        self, source_vault: Path, mirror_root: Path, malformed: Any
+    ) -> None:
+        """``bool("false")`` is True — coercion would forge the confirmation.
+
+        A malformed frame must not be able to re-create the phantom-🆔 these
+        outcomes exist to report away, so only a real JSON boolean counts and a
+        partially-typed list is discarded whole (its positions are not
+        trustworthy either).
+        """
+        registry = AgentChannelRegistry()
+        harness = _connect_agent(source_vault, registry)
+        adapter = LocalAgentVaultAdapter(registry=registry, mirror_root=mirror_root)
+        snapshot = await adapter.read_note(str(OWNER), NOTE_PATH)
+
+        real_handle = harness.websocket.handle_frame
+
+        def lying_handle(frame: dict[str, Any]) -> dict[str, Any]:
+            response = real_handle(frame)
+            if frame.get("op") == "write_task_updates" and response.get("ok"):
+                response["result"]["updates_applied"] = malformed
+            return response
+
+        harness.websocket.handle_frame = lying_handle
+
+        write = await adapter.write_task_updates(
+            user_uid=str(OWNER),
+            path=NOTE_PATH,
+            updates=[
+                TaskLineUpdate(
+                    vault_id="sk_hit222",
+                    inject_vault_id=True,
+                    source_line_hash=normalize_vault_line_hash(TASK_LINE),
+                )
+            ],
+            expected_sha256=snapshot.sha256,
+        )
+
+        assert write.updates_applied == ()
+        assert write.was_applied(0) is False
+
+    @pytest.mark.asyncio
+    async def test_a_non_boolean_success_is_never_read_as_success(
+        self, source_vault: Path, mirror_root: Path
+    ) -> None:
+        """The other half of the same frame: truthy is not the same as True."""
+        registry = AgentChannelRegistry()
+        harness = _connect_agent(source_vault, registry)
+        adapter = LocalAgentVaultAdapter(registry=registry, mirror_root=mirror_root)
+        snapshot = await adapter.read_note(str(OWNER), NOTE_PATH)
+
+        real_handle = harness.websocket.handle_frame
+
+        def lying_handle(frame: dict[str, Any]) -> dict[str, Any]:
+            response = real_handle(frame)
+            if frame.get("op") == "write_task_updates" and response.get("ok"):
+                response["result"]["success"] = "false"
+            return response
+
+        harness.websocket.handle_frame = lying_handle
+
+        write = await adapter.write_task_updates(
+            user_uid=str(OWNER),
+            path=NOTE_PATH,
+            updates=[
+                TaskLineUpdate(
+                    vault_id="sk_hit222",
+                    inject_vault_id=True,
+                    source_line_hash=normalize_vault_line_hash(TASK_LINE),
+                )
+            ],
+            expected_sha256=snapshot.sha256,
+        )
+
+        assert write.success is False
+
+    @pytest.mark.asyncio
     async def test_list_vault_notes_returns_vault_relative_paths(
         self, source_vault: Path, mirror_root: Path
     ) -> None:

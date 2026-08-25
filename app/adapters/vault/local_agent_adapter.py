@@ -174,14 +174,19 @@ class LocalAgentVaultAdapter:
         new_sha256 = payload.get("new_sha256")
         error = payload.get("error")
         raw_applied = payload.get("updates_applied")
-        # Fail-closed: a frame without per-update outcomes (or a short one)
-        # reads as "did not land" through ``WriteResult.was_applied``, so a
-        # malformed reply withholds the caller's persist instead of forging it.
-        updates_applied = (
-            tuple(bool(flag) for flag in raw_applied) if isinstance(raw_applied, list) else ()
-        )
+        # Fail-closed, and only a REAL JSON boolean counts as confirmation.
+        # ``bool(flag)`` would read the string "false" as True and hand the
+        # reconciler a confirmation the agent never gave — re-creating the exact
+        # phantom-🆔 these outcomes exist to report away (Codex #1151). A list
+        # carrying any non-boolean is discarded WHOLE: a partially-typed reply
+        # is not a trustworthy POSITIONAL answer, and the caller then reads
+        # every update as unapplied through ``was_applied``. Same reason
+        # ``success`` must be the literal ``True``, not merely truthy.
+        updates_applied: tuple[bool, ...] = ()
+        if isinstance(raw_applied, list) and all(isinstance(flag, bool) for flag in raw_applied):
+            updates_applied = tuple(raw_applied)
         return WriteResult(
-            success=bool(payload.get("success")),
+            success=payload.get("success") is True,
             new_sha256=new_sha256 if isinstance(new_sha256, str) else None,
             error=error if isinstance(error, str) else None,
             updates_applied=updates_applied,
