@@ -179,6 +179,37 @@ def test_code_span_matches_its_plain_twin() -> None:
     assert len(dh.find_duplicates(content)) == 1
 
 
+def test_distinct_image_headings_are_not_duplicates() -> None:
+    """THE false-positive shape: an ``image`` child's ``content`` IS its alt text.
+
+    Omitting it collapsed ``## ![Alpha](a.png)`` and ``## ![Beta](b.png)`` to two empty
+    strings, reported as a duplicate — reddening `./dev health` and the weekly janitor
+    on a valid document. A false positive in an always-on gate is the one failure this
+    scanner's design says it must not have (Codex, #1154).
+    """
+    content = "# D\n\n## ![Alpha](a.png)\n\na\n\n## ![Beta](b.png)\n\nb\n"
+    assert [h[2] for h in dh.extract_headings(content)] == ["D", "Alpha", "Beta"]
+    assert dh.find_duplicates(content) == []
+
+
+def test_images_sharing_alt_text_are_still_duplicates() -> None:
+    """Alt text is the displayed text, so equal alts are equal headings."""
+    content = "# D\n\n## ![Same](a.png)\n\na\n\n## ![Same](b.png)\n\nb\n"
+    assert len(dh.find_duplicates(content)) == 1
+
+
+def test_headings_that_render_to_nothing_are_skipped() -> None:
+    """The generalising guard behind the image fix.
+
+    Any inline token type the walker does not know collapses to "", so without this
+    every unknown type is a latent FALSE POSITIVE rather than a miss. Two alt-less
+    images are not "the same section" in any sense worth reporting.
+    """
+    content = "# D\n\n## ![](a.png)\n\na\n\n## ![](b.png)\n\nb\n"
+    assert [h[2] for h in dh.extract_headings(content)] == ["D"]
+    assert dh.find_duplicates(content) == []
+
+
 def test_rendered_text_strips_markup_but_keeps_content() -> None:
     content = "# D\n\n## **Bold** and `code`\n"
     assert dh.extract_headings(content)[1] == (3, 2, "Bold and code")

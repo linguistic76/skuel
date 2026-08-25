@@ -122,10 +122,14 @@ def _rendered_text(inline: object) -> str:
     children = getattr(inline, "children", None)
     if not children:
         return str(getattr(inline, "content", "")).strip()
-    # ``text`` and ``code_inline`` carry the visible characters; ``*_open``/``*_close``
-    # markup tokens carry an empty ``content`` and drop out on their own.
+    # ``text``, ``code_inline`` and ``image`` (whose ``content`` IS its alt text) carry
+    # the visible characters; ``*_open``/``*_close`` markup tokens carry an empty
+    # ``content`` and drop out on their own. Omitting ``image`` collapsed
+    # ``## ![Alpha](a.png)`` and ``## ![Beta](b.png)`` to two empty strings and reported
+    # them as duplicates — a FALSE POSITIVE on a valid document, the one failure mode
+    # this scanner's design says it must not have (Codex, #1154).
     return "".join(
-        child.content for child in children if child.type in ("text", "code_inline")
+        child.content for child in children if child.type in ("text", "code_inline", "image")
     ).strip()
 
 
@@ -153,6 +157,13 @@ def extract_headings(content: str) -> list[tuple[int, int, str]]:
             continue
         inline = tokens[index + 1] if index + 1 < len(tokens) else None
         text = _rendered_text(inline) if inline is not None else ""
+        if not text:
+            # A heading that renders to nothing cannot identify a section, and two of
+            # them are not "the same section" in any sense worth reporting. This is the
+            # generalising guard for the image class above: any inline token type this
+            # walker does not know collapses to "", so without it EVERY unknown type is
+            # a latent false positive rather than a miss.
+            continue
         line = (token.map[0] + 1) if token.map else 0
         headings.append((line, int(token.tag[1:]), text))
     return headings
