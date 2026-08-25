@@ -52,7 +52,7 @@ Advisory by default (exit 0). `--check` **is** wired into `./dev quality`
 once the recorded false-positive audit passed (PR #272). Staged work belongs
 in the PLANNED tiers, which never fail `--check`. The full advisory report
 also runs on a clock: `.github/workflows/weekly-janitor.yml` (Mondays 06:30
-UTC) runs it alongside the four `./dev health` checks and renders the
+UTC) runs it alongside the `./dev health` checks and renders the
 PLANNED-tier aging plus any WARNING findings into an always-open status
 issue — a rot detector that relies on human memory contradicts its own
 purpose.

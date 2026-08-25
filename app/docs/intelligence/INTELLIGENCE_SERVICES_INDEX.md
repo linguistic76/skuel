@@ -74,9 +74,11 @@ Of these, **11 extend `BaseAnalyticsService`** (6 Activity + 3 Curriculum + shar
 
 **KnowledgeHealthService** (`core/services/analytics/knowledge_health_service.py`, ADR-080 Horizon 1) is a **corpus-level** `BaseAnalyticsService` — it *does* extend the base (no AI, CORE-tier safe), but unlike the 9 per-domain services it reports on the **whole knowledge subgraph** (Ku / PathStep / LearningPath / Exercise) rather than one entity type, and takes no `user_uid`. It consumes raw structural facts from `KnowledgeHealthBackend` (`adapters/persistence/neo4j/backends/curriculum_backends.py`) and derives coverage ratios, a composite **GDS-readiness score**, and human-readable **authoring-guidance flags** (orphan Kus, near-empty prerequisite DAG, missing ORGANIZES/MOC hierarchy). Surfaced via the `AnalyticsService` facade (`analyze_knowledge_subgraph_health()`), admin `/admin/knowledge-health`, `./dev knowledge-health [--json]`, and 6 knowledge-scoped Prometheus gauges (fed by the existing 5-min graph-health poller — no new worker). **A corpus/authoring gauge deliberately excludes user-generated data** (learner-state telemetry edges, PERSONAL/ASSIGNED/ASSESSMENT exercises) and matches knowledge nodes by `entity_type`, not domain label, so user activity never inflates the structural signal.
 
-## Quick Start
+## Related Skills
 
-**Skills:** [@base-analytics-service](../../.claude/skills/base-analytics-service/SKILL.md), [@base-ai-service](../../.claude/skills/base-ai-service/SKILL.md)
+For implementation guidance, see:
+- [@base-analytics-service](../../.claude/skills/base-analytics-service/SKILL.md)
+- [@base-ai-service](../../.claude/skills/base-ai-service/SKILL.md)
 
 ## One Path Forward (ADR-029)
 

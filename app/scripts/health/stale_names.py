@@ -377,7 +377,10 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         (357, "ActivityReviewService"): Allow(_askesis_intel),
     },
     "docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md": {
-        (503, "AnalyticsEngine"): Allow(_intel_index),
+        # 503 → 505: the "## Quick Start" stub above it became "## Related Skills"
+        # in the repo's 3-line form (2026-08-25). Anchor re-derived from the
+        # scanner's own report, never by adding the diff's line delta.
+        (505, "AnalyticsEngine"): Allow(_intel_index),
     },
     "docs/migrations/ACTIVITY_UI_CODE_QUALITY_IMPROVEMENTS_2026-01-24.md": {
         (279, "KuStatus"): Allow(_m_actui),
@@ -450,8 +453,11 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         (950, "KuStatus"): Allow(_three_tier),
     },
     "docs/user-guides/documentation-freshness.md": {
-        (127, "KuTaskCreateRequest"): Allow(_freshness),
-        (128, "ProfileLayout"): Allow(_freshness),
+        # 127/128 → 128/129: the health-command list above them gained a
+        # `health-headings` line (2026-08-25). Anchors re-derived from the
+        # scanner's report, never by adding the diff's line delta.
+        (128, "KuTaskCreateRequest"): Allow(_freshness),
+        (129, "ProfileLayout"): Allow(_freshness),
     },
 }
 

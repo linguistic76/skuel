@@ -15,30 +15,36 @@ related: [AUTOMATIC_DOCS_CHECK.md, BLOAT_DETECTION.md]
 
 ## Overview
 
-Five automated checks that prevent codebase drift — the kind that accumulates silently between refactors: orphaned files, broken doc links, stale names in documentation examples, skill↔doc cross-reference inconsistencies, and mypy suppressions that have stopped suppressing anything.
+Automated checks that prevent codebase drift — the kind that accumulates silently between refactors: orphaned files, broken doc links, stale names in documentation examples, duplicated document sections, skill↔doc cross-reference inconsistencies, and mypy suppressions that have stopped suppressing anything.
 
 ```bash
-./dev health              # run the first four checks
+./dev health              # run every check except health-mypy
 ./dev health-modules      # dead Python modules only
 ./dev health-links        # broken doc links only
 ./dev health-names        # stale identifiers in docs only
+./dev health-headings     # repeated headings under one parent only
 ./dev health-xref         # cross-reference + staleness only
 ./dev health-mypy         # dead mypy suppressions only (~80s — NOT in ./dev health)
 ```
 
-All five exit non-zero when issues are found, so they can be used in CI —
-and all five now ARE: the first four run weekly via
+Every check exits non-zero when issues are found, so they can be used in CI —
+and all of them now ARE: everything in `./dev health` runs weekly via
 `.github/workflows/weekly-janitor.yml` (Mondays 06:30 UTC, together with the
 full bloat report), which maintains an always-open status issue and fails
 its run on findings; `health-mypy` has its own weekly workflow
 (`mypy-suppressions.yml`, Mondays 06:00 UTC). Both are advisory — neither
 feeds the CI gate.
 
-**`health-mypy` is deliberately outside `./dev health`.** The first four are file scans that finish in seconds; the mypy audit needs one full type-check run per suppression it verifies. Bolting ~80s onto the aggregate target is how a health target stops being run at all — so it gets its own entry point and a weekly CI schedule instead.
+> The per-check sections below are the inventory. This overview deliberately carries no
+> count and no roster: it went stale the moment a sixth check landed, and
+> `duplicate_headings.py` exists precisely because a summary that restates a fact
+> outlives the fact.
+
+**`health-mypy` is deliberately outside `./dev health`.** The others are file scans that finish in seconds; the mypy audit needs one full type-check run per suppression it verifies. Bolting ~80s onto the aggregate target is how a health target stops being run at all — so it gets its own entry point and a weekly CI schedule instead.
 
 ---
 
-## The Five Checks
+## The Checks
 
 ### 1. `dead_modules.py` — Zero-Importer Python Files and Orphan Packages
 
@@ -378,6 +384,70 @@ Exit 1 is load-bearing: the scheduled workflow opens an issue on it asserting de
 
 ---
 
+### 6. `duplicate_headings.py` — Repeated Headings Under One Parent
+
+**What it finds:** two headings with the same text, at the same level, under the same
+parent — the shape a superseded section leaves when it outlives its replacement.
+
+**Why `git grep` does not cover it:** the duplicate is found by *position*, not by string.
+Grepping the heading text returns both copies and looks correct; you have to notice there
+are two, in a file long enough that nobody scrolls it end to end. PR #1153 shipped two
+`## PR-5` sections that way, and a stale `### EventHandlerService` catalog entry had been
+sitting in `SUB_SERVICE_CATALOG.md` describing six domains where the live one described
+seven.
+
+**The scoping rule is the whole design.** Measured over the authored corpus:
+
+| Rule | Hits |
+|---|---|
+| same text anywhere in the file | 137 — unusable |
+| same text + same level + **same parent** | 3 — this rule |
+
+The 134-hit difference is legitimate structure: `### Tests` under each of five PR sections
+is good writing, not a defect. Only a repeat under the same parent means two headings claim
+to be the same section of the same outline.
+
+**Two deliberate narrowings**, each pinned by a test so a later reader does not "fix" them
+back into false positives:
+
+- **Setext headings are ignored.** An unfilled ADR template writes `**Pros:**` above an
+  empty `-` bullet, and CommonMark reads a lone `-` after a paragraph as a setext underline
+  rather than a list item — so the bold label renders as an `<h2>`. Six such phantoms exist
+  in the tree; they are a template artifact, not an authored section. (They are also a real
+  minor rendering bug in `ADR-TEMPLATE.md` and `ADR-010`, for whoever fixes that template.)
+- **Blockquoted headings are ignored** — quoted material is someone else's outline.
+- **Headings carrying inline HTML never match** (they still scope their children). The
+  walker cannot know what a raw tag renders to: `## A<br>B` collapsed to `AB` and
+  collided with a real `## AB`. Modelling each tag's contribution would risk a false
+  positive per tag modelled wrong, so they are excluded — the cost is a missed
+  duplicate between two identical HTML-bearing headings, which is the acceptable
+  direction for an always-on gate.
+
+**Scope:** `docs/` + `.claude/skills/`, excluding `docs/design-principles/` — that tier
+holds pasted transcripts and raw working notes where a repeated `## next` is faithful
+capture. The exclusion is by scope, not suppression: the run prints how many files it
+skipped.
+
+**Comparison is on RENDERED text**, so `## Setup` and `## **Setup**` are one heading in
+two costumes — the shape where a replacement reformats its title and the superseded
+section survives underneath. It is also an anchor collision: GitHub derives anchors from
+rendered text, so both resolve to `#setup`, and two headings colliding there are the same
+section as far as any link is concerned. Links, code spans and image alt text all
+collapse to their displayed characters; internal whitespace is collapsed the way HTML
+collapses it (`## Quick Start` and `## Quick  Start` are one heading); and the result is
+NFC-normalised, so precomposed `Café` and its decomposed twin are one heading too. A heading that
+renders to **nothing** never matches — an empty key cannot identify a section, and it is
+where an unrecognised inline token would otherwise turn into a false positive — but it
+still occupies the outline, so two untitled image headings each holding a `#### Setup`
+keep those subsections in separate scopes.
+
+**Headings come from the CommonMark parser, never a regex** — the sibling
+`markdown_fences.py` documents what hand-rolled Markdown scanning costs.
+
+**Run:** `./dev health-headings`
+
+---
+
 ## Maintaining `stale_names.py`
 
 This script is only as useful as its RENAMED/DELETED tables. **Update it whenever you rename or delete something significant.**
@@ -444,7 +514,7 @@ Once a rename has been fully applied to ALL code and docs and the scanner report
 | Monthly maintenance | Catch slow drift |
 | Before cutting a release | Ensure docs are accurate |
 
-The first four scripts are fast enough to run on every commit if desired (a few seconds each); since 2026-08 they run weekly regardless via `.github/workflows/weekly-janitor.yml`, so drift no longer waits for someone to remember. `mypy_suppressions.py` runs a full type check per suppression, so it has its own weekly CI schedule (`.github/workflows/mypy-suppressions.yml`) and is worth running locally when editing `[tool.mypy]` config.
+The `./dev health` scripts are fast enough to run on every commit if desired (a few seconds each); since 2026-08 they run weekly regardless via `.github/workflows/weekly-janitor.yml`, so drift no longer waits for someone to remember. `mypy_suppressions.py` runs a full type check per suppression, so it has its own weekly CI schedule (`.github/workflows/mypy-suppressions.yml`) and is worth running locally when editing `[tool.mypy]` config.
 
 ---
 
@@ -479,13 +549,14 @@ scripts/health/
 ├── dead_modules.py                    # Zero-importer modules + orphan packages
 ├── dead_doc_links.py                  # Markdown link validator
 ├── stale_names.py                     # Deprecated identifier scanner
+├── duplicate_headings.py              # Repeated headings under one parent
 ├── markdown_fences.py                 # Shared CommonMark fence walker (links + names)
 └── mypy_suppressions.py               # Dead mypy suppression auditor
 scripts/validate_cross_references.py   # Skill↔doc cross-reference validator
 ```
 
 **Related:**
-- `./dev health` — runs the first four
+- `./dev health` — runs every check above except `mypy_suppressions.py` (weekly CI)
 - `./dev bloat` — separate check for unused events/methods (different scope) — see [BLOAT_DETECTION.md](BLOAT_DETECTION.md)
 - `docs/tools/AUTOMATIC_DOCS_CHECK.md` — post-commit hook for doc freshness
 - `docs/user-guides/documentation-freshness.md` — unified user guide
