@@ -402,13 +402,21 @@ fix.
 LearningPath from that surface entirely. The shipped rung covers exactly
 Ku/PathStep/LearningPath — two of the three are leaving — while the six Activity Domains
 being promoted to the primary facet are all `OWNER_ONLY`, i.e. the half this section
-split off as harder: it needs `user_uid` threaded into the fulltext Cypher, and it runs
-into the two paths defining OWNER_ONLY differently (`faceted_search_raw` matches the
-`(:User)-[:OWNS]->` **edge**; `build_search_visibility_clause` matches the `user_uid`
-**property** — a probe against nodes with a partial dual-write returned a symmetric
-difference, each path finding rows the other missed). Reconciling those two is a
-**ruling**, not an implementation detail. Anything built for curriculum relevance before the facet redesign
-lands would rank domains that are leaving the page.
+split off as harder: it needs `user_uid` threaded into the fulltext Cypher. Anything
+built for curriculum relevance before the facet redesign lands would rank domains that
+are leaving the page.
+
+⚠️ **The OWNER_ONLY half is CHEAPER than the 2026-08-16 investigation assumed — its
+blocking finding is stale.** That investigation recorded a symmetric difference between
+two ownership mechanisms (`faceted_search_raw` anchoring `MATCH (:User)-[:OWNS]->(entity)`
+vs `build_search_visibility_clause` matching the `user_uid` property) and called
+reconciling them a required ruling. **The ownership-bundle work closed it**:
+`faceted_search_raw` no longer reads the `:OWNS` edge — it passes `visibility` to
+`build_search_visibility_clause` like every other strategy, and
+`test_search_visibility_scoping.py::test_owner_only_emits_the_property_predicate_not_an_owns_match`
+pins that the anchor MATCH is gone (`":User" not in query`). One mechanism, one
+composition point. Do **not** re-open that ruling — it was already made. (Caught by Codex
+on #1153, where this section first restated the stale fact.)
 
 **Enable when** (unchanged in kind, sharpened in target): a consumer wants relevance-ranked
 text search for the domains that remain on `/search` after the facet redesign — the six
@@ -444,10 +452,18 @@ half of `/search` is a second, worse copy of it. This item is therefore directiv
 **Ride-along that is NOT optional: LearningPath must join the library catalog.**
 `_library_search_request` (`adapters/inbound/explore_ui.py`) scopes the catalog to
 `[EntityType.KU, EntityType.PATH_STEP]`. Remove LP from `/search` without adding it there
-and LP becomes findable by text **nowhere**. Cheap today (2 LPs in the graph) and cheap to
-do (one list literal + the type dropdown's options), but it is part of the same change —
-the library page's own subtitle already promises more than the catalog delivers once LP
-has no other home.
+and LP becomes findable by text **nowhere**. It is part of the same change — the library
+page's own subtitle already promises more than the catalog delivers once LP has no other
+home.
+
+⚠️ **It is NOT "one list literal" — the card renderer must move too.** `_library_cards`
+(`ui/explore/cards.py`) branches on `is_ku` and sends **everything else** to a hard-coded
+"Path Step" pill and `/explore/ps/{uid}`. Add LPs to the catalog without touching it and
+every LearningPath renders as a mislabeled Path Step card with a dead detail link
+(LPs live at `/lp/{uid}`). The fix is available rather than new: `entity_detail_href`
+(`ui/patterns/entity_links.py`) already maps `learning_path` → `/lp`, so adopt the shared
+helper instead of extending the two-way branch to three. Card pill likewise needs a real
+per-type value. (Caught by Codex on #1153.)
 
 **Rulings that were decisions, not defaults** — each was posed and answered:
 
@@ -466,11 +482,20 @@ has no other home.
    PS rows today. The two halves of the original proposal were load-bearing on each other.
 
 **Known fiction this redesign does NOT repair — deliberately left standing.** `/search`'s
-sort dropdown offers **"Relevance"**, and it is the DEFAULT, but
-`SearchSortOrder.RELEVANCE.get_sort_field()` returns `None` and the backend falls back to
-the domain's `search_order_by DESC`. So "Relevance" IS "Recently Updated" for Ku/PS/LP,
-"Newest First" for the Activity Domains, and event-date order for Events — two dropdown
-entries, one behaviour. `ui/explore/cards.py` already excludes RELEVANCE from the library's
+sort dropdown offers **"Relevance"**, it is the DEFAULT, and no path behind it ranks by
+text relevance. What it actually does depends on the request shape — three behaviours
+under one label, none of them BM25:
+
+| Request shape | What "Relevance" does |
+|---|---|
+| **Single domain** (a Type choice, or a facet resolving to one domain) | `RELEVANCE.get_sort_field()` returns `None` → the backend falls back to the domain's `search_order_by DESC`. Here it IS "Recently Updated" for Ku/PS/LP, "Newest First" for the Activity Domains, event-date for Events — two dropdown entries, one behaviour. |
+| **Cross-domain, pure text, no facets** (the default landing shape) | `wants_faceted` is False → `search_domains`, the scored sweep, capped at `limit//6` per domain. A real distinct behaviour — a *score*, just not a text-relevance score. |
+| **Cross-domain with any facet/tag/relationship filter** | `_faceted_sweep`, then `zip_longest` **round-robin interleave** across domains — not ordering by anything. |
+
+⚠️ Do not restate this as a flat "Relevance means recency" — that is true only of the
+single-domain row, and #1153 shipped that overstatement before Codex corrected it. The
+defect is that one label covers three behaviours and advertises a fourth.
+`ui/explore/cards.py` already excludes RELEVANCE from the library's
 sorts *deliberately*, for a different reason (it bypasses the pageable sweep), so `/search`
 is the inconsistent surface. This is the same class the July 2026 pass deleted ("no fake
 options") — but it is **left in place on purpose**: Mike's intent is to make the label
@@ -1783,7 +1808,7 @@ Review this document at the **September 2026 quarterly review**. Checklist:
 | Content-linting survivors (NOUS vocabulary check; orphan detection at lint time) | Authoring volume makes silent nous typos / orphan drift a lived problem | Ride-along on `ingestion/validator.py` |
 | Principles `_validate_update` reform or deletion | Next substantive touch of the Principles update path | Ruling needed — see the section's landmine note |
 | EntryReport / ActivityReport search | A teacher workflow wants direct report-content search | Product need (not a data threshold) |
-| Domain-level fulltext-first text search (D1(b)) — ruled DEFERRED **twice** (2026-08-16, 2026-08-25) | A consumer wants relevance ranking for the domains remaining on `/search` after the facet redesign (6 Activity Domains + Ku) — ⚠️ scope INVERTED, do not scope from the bullet list; needs the OWNER_ONLY edge-vs-property ruling | Product need (not a data threshold); read the section's two rulings first |
+| Domain-level fulltext-first text search (D1(b)) — ruled DEFERRED **twice** (2026-08-16, 2026-08-25) | A consumer wants relevance ranking for the domains remaining on `/search` after the facet redesign (6 Activity Domains + Ku) — ⚠️ scope INVERTED, do not scope from the bullet list; the OWNER_ONLY edge-vs-property "ruling needed" is STALE — already closed, do not re-open | Product need (not a data threshold); read the section's two rulings first |
 | `/search` facet redesign (ruled *build, not now* 2026-08-25) | Mike schedules it — product decision (what `/search` is for) | See the section: Activity Domains facet, PS/LP out of results, LP joins the library catalog (not optional), Nous keeps its name, Relevance fiction left standing on purpose |
 | ZPD snapshot history & trend analysis | A ZPD-over-time consumer exists | Product need + `MATCH (h:ZPDHistory) RETURN count(h)` for accrual |
 | Habit rows in the weekly-note panel | Lived weekly-review use wants the backward look | Product need (not a data threshold) |
