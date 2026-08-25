@@ -174,11 +174,25 @@ class TestSyncStatsFragment:
 
     def test_untouched_counts_render_nothing(self):
         xml = to_xml(sync_stats_fragment(asdict(VaultSyncStats(entries_ingested=1))))
-        # The always-on line proves the fragment rendered — without it the two
+        # The always-on line proves the fragment rendered — without it the
         # absence assertions below would also hold for an empty string.
         assert '<span class="font-semibold">1</span> notes ingested' in xml
         assert "relationships" not in xml
         assert "removed" not in xml
+        assert "re-opened" not in xml
+
+    def test_reopened_tasks_render_beside_the_done_count(self):
+        """The reopen's vault surface reaches the user through this line.
+
+        Conditional like the edge/deletion counts, and never confusable with
+        the always-shown done count — a sync that un-checked three lines and
+        one that checked three lines say opposite things about the vault.
+        """
+        xml = to_xml(
+            sync_stats_fragment(asdict(VaultSyncStats(tasks_marked_done=2, tasks_marked_undone=3)))
+        )
+        assert '<span class="font-semibold">2</span> tasks marked done in vault' in xml
+        assert '<span class="font-semibold">3</span> tasks re-opened in vault' in xml
 
 
 class TestRetrievabilityHonesty:

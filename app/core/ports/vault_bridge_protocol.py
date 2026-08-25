@@ -52,6 +52,12 @@ if TYPE_CHECKING:
 # reads fail-closed — an agent that cannot report it would leave every 🆔
 # injection unpersisted rather than guess. The handshake mismatch is what
 # stops that from ever being reached.
+#
+# So is the SET of operations ``TaskLineUpdate`` can carry: v3 added
+# ``mark_undone``. A stale agent parses only the flags it knows, so it would
+# build an update with NO operation set, apply nothing, and answer
+# ``success: True`` — the server would believe the un-check landed. The
+# handshake refusal is what turns that silent divergence into a loud one.
 
 VAULT_ID_RE = re.compile(r"🆔️?\s*([\w-]{1,20})")
 """Matches the obsidian-tasks 🆔 ID token (ADR-070 Decision 1).
@@ -104,18 +110,23 @@ class NoteSnapshot:
 class TaskLineUpdate:
     """An outbound write operation targeting one task line in a vault file.
 
-    Exactly one of ``mark_done`` / ``inject_vault_id`` must be set.
+    Exactly one of ``mark_done`` / ``mark_undone`` / ``inject_vault_id`` must
+    be set.
 
     For ``inject_vault_id=True``, ``source_line_hash`` is the normalized
     sha-256 of the target line (obsidian-tasks adapter hash, 🆔-stripped) so
     the adapter can find the right line when multiple tasks need injection.
 
-    For ``mark_done=True``, ``vault_id`` is the locator (line already has 🆔).
+    For ``mark_done=True`` and ``mark_undone=True``, ``vault_id`` is the
+    locator (line already has 🆔). ``mark_undone`` is the reverse of
+    ``mark_done`` — un-check plus strip the ``✅ date`` — and carries no
+    ``done_date``: there is no date to write, only one to remove.
     """
 
     vault_id: str
     mark_done: bool = False
     done_date: str | None = None  # YYYY-MM-DD when mark_done=True
+    mark_undone: bool = False  # Un-check + strip ``✅ date`` (the reopen surface)
     inject_vault_id: bool = False  # Write ``🆔 <vault_id>`` to an ID-less line
     source_line_hash: str | None = None  # Required when inject_vault_id=True
 
@@ -210,8 +221,18 @@ class VaultSyncStats:
     """
 
     entries_ingested: int = 0
+    # The three outbound write counters count what LANDED in the file, not what
+    # was queued: each is gated on its own ``WriteResult.updates_applied`` slot
+    # (ADR-070; the pair's semantics were settled together 2026-08-24). A
+    # queued write that matched no line, or one the file already satisfied, is
+    # a no-op inside a successful write — counting it would tell the user their
+    # vault changed when it did not, and a repeat sync of an unchanged vault
+    # would re-report every completed task forever. Fail-closed follows from
+    # ``was_applied``: a transport that reports no outcomes under-counts rather
+    # than guessing, which costs a display number and never durable state.
     ids_injected: int = 0
     tasks_marked_done: int = 0
+    tasks_marked_undone: int = 0
     # Inbound ingestion outcome (carried from IngestionStats/IncrementalStats)
     files_failed: int = 0
     files_walled: int = 0
@@ -288,17 +309,76 @@ class VaultSyncStats:
 # Checkbox detection
 _UNCHECKED_RE = re.compile(r"^([-*]\s*\[)\s*(\])")
 _CHECKED_RE = re.compile(r"^[-*]\s*\[[xX]\]")
-# Done-date token: ✅ YYYY-MM-DD
-_DONE_DATE_RE = re.compile(r"✅️?\s*\d{4}-\d{2}-\d{2}")
+# Done-date token: ✅ YYYY-MM-DD, as the LAST thing on the line.
+#
+# The exact shape ``apply_mark_done`` appends: ``f"{stripped} ✅ {done_date}{eol}"``
+# — a single separating space, the token, then END OF LINE. Both halves matter:
+#
+#   * the SPACE, because stripping the bare token leaves it behind and the
+#     un-checked line is no longer byte-identical to what it was before
+#     completion (a whitespace bug that survives every assertion that is not
+#     byte-exact);
+#   * the ANCHOR, because a ``✅ date`` anywhere else on the line belongs to the
+#     USER. ``apply_mark_done`` appends nothing when the line already carries a
+#     token, so a non-trailing one was never SKUEL's to remove — an unanchored
+#     substitution deleted user-authored text out of the middle of the task
+#     description (Codex #1152 round 2).
+#
+# Matched against the line with its EOL removed, so ``\Z`` means "end of the
+# line's content" and cannot be satisfied before a newline.
+_TRAILING_DONE_DATE_RE = re.compile(r"[ \t]?✅️?\s*\d{4}-\d{2}-\d{2}\Z")
+
+
+def _carries_skuel_done_marker(line: str) -> bool:
+    """Whether this line ends with a ``✅ date`` — the shape ``apply_mark_done`` writes.
+
+    ⚠ **The discriminator for the un-check, and it is deliberately NEITHER
+    "is the box checked" NOR "is a ✅ date present anywhere".** Both wider
+    readings destroy user-authored state:
+
+    * **Not the checkbox.** ``apply_mark_done`` ALWAYS appends a ``✅ date`` (its
+      last act, unconditional once the box is checked), so SKUEL never authors a
+      ``[x]`` without one. A dateless ``[x]`` on a 🆔 line is *definitionally*
+      something the USER checked in Obsidian — and a vault-side check does not
+      reach SKUEL (extraction Guard 2b; inbound parked, deferred-work § R4), so
+      reverting it silently erases a deliberate edit SKUEL cannot even read.
+    * **Not "anywhere".** ``apply_mark_done`` appends its token at the END, so a
+      ``✅ date`` sitting inside the task's own text was never SKUEL's — it is
+      prose the user wrote (*"Compare ✅ 2025-01-01 vs now"*). Only a TRAILING
+      token can be the one SKUEL appended.
+
+    ``apply_mark_done`` uses this SAME predicate for both its idempotency check
+    and its append condition, which is what guarantees the two directions
+    compose: SKUEL never changes a checkbox without leaving the marker that
+    reverses it, and never reverses a checkbox it did not mark.
+
+    So the un-check takes back only what SKUEL wrote. It is not an opinion about
+    who owns the checkbox; it is the narrower and defensible claim that a
+    withdrawn completion must not leave SKUEL's own completion token behind.
+    Anything else stays, diverging visibly — the pre-existing state § R4 exists
+    to close, not a new one this creates.
+
+    It shares ``_TRAILING_DONE_DATE_RE`` with the removal below, so detection and
+    removal cannot disagree and leave a line half-reverted.
+    """
+    return bool(_TRAILING_DONE_DATE_RE.search(line.rstrip("\n")))
 
 
 def apply_mark_done(lines: list[str], vault_id: str, done_date: str) -> tuple[list[str], bool]:
     """Toggle the line with ``🆔 vault_id`` from ``[ ]`` to ``[x]`` and append ``✅ date``.
 
-    Idempotent only when BOTH the checkbox is already ``[x]`` AND the ``✅ date`` token is
-    present.  An already-checked line that is missing the done-date (e.g. checked directly
-    in Obsidian without the tasks plugin) still receives the token so SKUEL and the vault
-    stay in sync.
+    Idempotent only when BOTH the checkbox is already ``[x]`` AND a TRAILING
+    ``✅ date`` token is present.  An already-checked line that is missing that
+    token (e.g. checked directly in Obsidian without the tasks plugin) still
+    receives it so SKUEL and the vault stay in sync.
+
+    ⚠ **Both tests are TRAILING, and that is what keeps every flip reversible.**
+    They once matched a ``✅ date`` anywhere on the line, so a task whose own
+    text held one (*"Compare ✅ 2025-01-01 vs now"*) was flipped to ``[x]`` with
+    the marker suppressed — SKUEL changed the checkbox and left no evidence it
+    had. ``apply_mark_undone`` keys on the trailing marker, so that ``[x]`` was
+    stuck checked forever. This function's contract is therefore: **never change
+    a checkbox without leaving the trailing marker that reverses it.**
     """
     for i, line in enumerate(lines):
         m = VAULT_ID_RE.search(line)
@@ -308,16 +388,18 @@ def apply_mark_done(lines: list[str], vault_id: str, done_date: str) -> tuple[li
         if not checked and not _UNCHECKED_RE.match(line):
             return lines, False
 
-        # True no-op: already checked AND already has a done-date
-        if checked and _DONE_DATE_RE.search(line):
+        # True no-op: already checked AND already carries the trailing marker.
+        if checked and _carries_skuel_done_marker(line):
             return lines, False
 
         # Flip checkbox if needed
         if not checked:
             line = re.sub(r"^([-*]\s*)\[\s*\]", r"\1[x]", line)
 
-        # Append ✅ date if still absent
-        if not _DONE_DATE_RE.search(line):
+        # Append the trailing ✅ date if it is not already the last token. A
+        # date inside the task's own text does NOT count — suppressing the
+        # marker over it is exactly what made the flip irreversible.
+        if not _carries_skuel_done_marker(line):
             stripped = line.rstrip("\n")
             eol = line[len(stripped) :]
             line = f"{stripped} ✅ {done_date}{eol}"
@@ -325,6 +407,72 @@ def apply_mark_done(lines: list[str], vault_id: str, done_date: str) -> tuple[li
         lines[i] = line
         return lines, True
     return lines, False
+
+
+def apply_mark_undone(lines: list[str], vault_id: str) -> tuple[list[str], bool]:
+    """Reverse ``apply_mark_done``: un-check the ``🆔 vault_id`` line and strip its ``✅ date``.
+
+    The vault surface of a reopen (ADR-070 Resolved Design Question 2,
+    amended 2026-08-24). Byte-exact reverse of ``apply_mark_done`` — the
+    separating space that function wrote in front of the ✅ token goes with the
+    token, so a complete → reopen round-trip restores the ORIGINAL line
+    byte-for-byte.
+
+    ⚠ Gated on a TRAILING ``✅ date`` token, not on the checkbox and not on a
+    token anywhere — see ``_carries_skuel_done_marker``. A dateless ``[x]`` is a
+    user's own Obsidian check, and a ``✅ date`` inside the task's text is the
+    user's prose; neither is touched. A manually un-checked line still ending in
+    a stale ✅ date DOES have that token stripped: it is SKUEL's, and it records
+    a completion that was withdrawn.
+
+    A line with no ✅ date is a no-op (``changed=False``), as is a ``vault_id``
+    that matches no line in the file — the caller distinguishes the two through
+    ``WriteResult.updates_applied`` plus its own queue-time gate, never from
+    this return value alone.
+    """
+    for i, line in enumerate(lines):
+        m = VAULT_ID_RE.search(line)
+        if not m or m.group(1) != vault_id:
+            continue
+        # A 🆔 on a non-checkbox line is not a task line — mirrors the same
+        # guard in ``apply_mark_done``; nothing here may edit prose.
+        if not _CHECKED_RE.match(line) and not _UNCHECKED_RE.match(line):
+            return lines, False
+        if not _carries_skuel_done_marker(line):
+            return lines, False
+
+        # Split the EOL off so the trailing-token anchor means "end of the
+        # line's content", then put it back byte-for-byte.
+        stripped = line.rstrip("\n")
+        eol = line[len(stripped) :]
+        # Both substitutions are anchored (``^`` / ``\Z``, no MULTILINE), so each
+        # can match at most once — no ``count=`` needed, same as apply_mark_done.
+        updated = re.sub(r"^([-*]\s*)\[[xX]\]", r"\1[ ]", stripped)
+        updated = _TRAILING_DONE_DATE_RE.sub("", updated)
+        lines[i] = updated + eol
+        return lines, True
+    return lines, False
+
+
+def needs_mark_undone(content: str, vault_id: str) -> bool:
+    """Would ``apply_mark_undone`` change this file? The outbound queue's cost gate.
+
+    Correctness never needs this — ``apply_mark_undone`` is already a no-op on
+    a line with nothing to undo. COST does: ``VaultReconciler`` calls the write
+    door whenever its batch is non-empty, so an ungated un-check arm would make
+    the batch non-empty for nearly every file that holds tasks and issue a
+    write RPC per file on every sync — a network round-trip each, on the
+    ``local_agent`` transport.
+
+    It answers by RUNNING the mutation against a throwaway copy of the lines
+    rather than re-stating its conditions, so the gate cannot drift from what
+    the write would actually do. That is what makes a queued un-check reporting
+    ``updates_applied=False`` a real divergence (a concurrent edit between the
+    snapshot and the write) worth warning about, rather than an ordinary no-op.
+    ``content`` is not mutated.
+    """
+    _lines, changed = apply_mark_undone(content.splitlines(keepends=True), vault_id)
+    return changed
 
 
 def apply_inject_id(
@@ -370,6 +518,8 @@ def apply_task_updates(content: str, updates: list[TaskLineUpdate]) -> tuple[str
     for update in updates:
         if update.mark_done:
             lines, changed = apply_mark_done(lines, update.vault_id, update.done_date or "")
+        elif update.mark_undone:
+            lines, changed = apply_mark_undone(lines, update.vault_id)
         elif update.inject_vault_id:
             lines, changed = apply_inject_id(lines, update.vault_id, update.source_line_hash)
         else:

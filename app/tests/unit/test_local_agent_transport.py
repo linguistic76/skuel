@@ -601,6 +601,46 @@ class TestAdapterEdges:
         assert "🆔 sk_hit222" in device_line and "sk_miss11" not in device_line
 
     @pytest.mark.asyncio
+    async def test_mark_undone_crosses_the_wire_and_reverses_on_the_device(
+        self, source_vault: Path, mirror_root: Path
+    ) -> None:
+        """Protocol v3's operation, end to end over the local_agent transport.
+
+        The adapter serializes ``mark_undone``; the agent parses it strictly
+        and applies the SAME pure mutation on the device. Without the
+        serialization the agent would receive an update with no operation set
+        and answer success having changed nothing — which is the exact silent
+        divergence the version bump exists to prevent, and why it is pinned
+        here rather than only at the pure-function level.
+        """
+        registry = AgentChannelRegistry()
+        _connect_agent(source_vault, registry)
+        adapter = LocalAgentVaultAdapter(registry=registry, mirror_root=mirror_root)
+
+        (source_vault / NOTE_PATH).write_text("- [ ] water the plants 🆔 sk_ab12cd\n")
+        original = (source_vault / NOTE_PATH).read_text()
+
+        snapshot = await adapter.read_note(str(OWNER), NOTE_PATH)
+        done = await adapter.write_task_updates(
+            user_uid=str(OWNER),
+            path=NOTE_PATH,
+            updates=[TaskLineUpdate(vault_id="sk_ab12cd", mark_done=True, done_date="2026-08-20")],
+            expected_sha256=snapshot.sha256,
+        )
+        assert done.success is True and done.updates_applied == (True,)
+        assert (source_vault / NOTE_PATH).read_text().startswith("- [x]")
+
+        snapshot = await adapter.read_note(str(OWNER), NOTE_PATH)
+        undone = await adapter.write_task_updates(
+            user_uid=str(OWNER),
+            path=NOTE_PATH,
+            updates=[TaskLineUpdate(vault_id="sk_ab12cd", mark_undone=True)],
+            expected_sha256=snapshot.sha256,
+        )
+        assert undone.success is True and undone.updates_applied == (True,)
+        assert (source_vault / NOTE_PATH).read_text() == original
+
+    @pytest.mark.asyncio
     async def test_an_empty_batch_is_guard_only_on_the_wire(
         self, source_vault: Path, mirror_root: Path
     ) -> None:

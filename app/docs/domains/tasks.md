@@ -292,12 +292,14 @@ it existed so a stored count could fall, and a derived count falls on its own. I
 as the chokepoint's statement of the transition — one ADR-087 now detects exactly, from the status
 the write itself returned rather than from a lock-free read beforehand.
 
-⚠ **Open, and scheduled.** Reopening in SKUEL leaves the Obsidian note checked — checkbox
-authority is completed-direction only — so the `✅ date` survives a completion that was
-withdrawn. Whether a reopen should un-check that line, whether `TaskReopened` is the trigger if
-so, and whether to delete the event if not, are three coupled choices awaiting a ruling. Case
-file: `docs/roadmap/deferred-work.md` § "`TaskReopened` Has Zero Subscribers, and a Reopen Has No
-Vault Surface". The event is kept **by decision** — do not delete it in a bloat sweep.
+✅ **RESOLVED 2026-08-24.** Reopening in SKUEL now un-checks the Obsidian line and strips the
+`✅ date` — checkbox authority runs both directions outbound (ADR-070 Resolved Design Question 2,
+amended). ⚠ The trigger is **not** this event: it is the outbound sync pass's STATE predicate
+("not completed AND the line is still marked done"), because a reopen is only knowable after the
+guarded write returns the prior, so it is a one-shot fact with no retry. The event is kept
+published and deliberately **unsubscribed** — do not delete it in a bloat sweep, and do not give
+it a subscriber. Case file (resolved): `docs/roadmap/deferred-work.md` § "`TaskReopened` Has Zero
+Subscribers, and a Reopen Has No Vault Surface".
 
 **Neither a reopen nor a repeat complete is a completion moment.** Both leave
 `first_completion_at` / `last_completion_at` untouched: those stamps record when the user first

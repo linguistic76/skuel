@@ -78,7 +78,7 @@ from core.ports.vault_bridge_protocol import (  # noqa: E402
     apply_task_updates,
 )
 
-AGENT_VERSION = "0.2.0"  # 0.2.0: je_pro served (ADR-073 amendment)
+AGENT_VERSION = "0.3.0"  # 0.3.0: protocol v3 — per-update outcomes + the reopen un-check
 
 # Must match adapters/inbound/device_routes.py PROTOCOL_VERSION — the agent
 # hard-fails on mismatch (ADR-075 Consequences: version skew is a real category).
@@ -87,8 +87,12 @@ AGENT_VERSION = "0.2.0"  # 0.2.0: je_pro served (ADR-073 amendment)
 # reproduce on the device to find the line to inject into, so a change to what
 # the digest ignores is a protocol change — bump here AND on the server, never
 # one side. So is the write-result frame's shape: v2 added ``updates_applied``
-# (one bool per update, in order), which the server reads fail-closed.
-PROTOCOL_VERSION = 2
+# (one bool per update, in order), which the server reads fail-closed. So is the
+# set of operations an update can carry: v3 added ``mark_undone`` (the reopen
+# un-check) — a v2 agent would parse an update with no operation set, apply
+# nothing, and report success, so the handshake refusal is what keeps that
+# silent divergence from ever happening.
+PROTOCOL_VERSION = 3
 
 # Must equal core.auth.device_signature.AGENT_SIGNATURE_DOMAIN. Duplicated here
 # (and contract-tested in tests/unit/test_vault_agent.py) because importing
@@ -545,6 +549,7 @@ class VaultRPCHandler:
                     vault_id=raw["vault_id"],
                     mark_done=raw.get("mark_done") is True,
                     done_date=done_date if isinstance(done_date, str) else None,
+                    mark_undone=raw.get("mark_undone") is True,
                     inject_vault_id=raw.get("inject_vault_id") is True,
                     source_line_hash=(
                         source_line_hash if isinstance(source_line_hash, str) else None

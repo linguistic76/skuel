@@ -23,6 +23,12 @@ related_skills: []
 > disposition, #1139–#1143): docs corrected to the outbound truth; the build is parked with
 > trigger + design sketch in `docs/roadmap/deferred-work.md` § "R4 Vault Inbound Propagation —
 > Parked Build".
+>
+> **Amended 2026-08-24 (reopen-vault-surface arc):** the OUTBOUND half is now complete in both
+> directions of task state — a reopen un-checks the line and strips the `✅` date (Resolved
+> Design Question 2, amended below). That does not soften the annotation above: inbound is still
+> unbuilt, so "bidirectional" in Decision 2's `[x]`/`✅` rows remains design intent for the
+> vault→SKUEL direction alone.
 
 **Date:** 2026-06-16
 
@@ -88,7 +94,7 @@ Lossless round-trip between graph and markdown is **impossible**. Logseq DB conf
 |-------|--------------------|--------------|-|
 | Task title / description | Markdown | vault→SKUEL | User edits title in Obsidian |
 | Checkbox status done (`[x]`) | **Both** (merge) | bidirectional | Core round-trip: done in either → both done |
-| Checkbox status undone (`[ ]`) | Markdown | vault→SKUEL only | SKUEL→vault undone write deferred (v1 out of scope) |
+| Checkbox status undone (`[ ]`) | **SKUEL, for its own writes** | SKUEL→vault | Amended 2026-08-24: re-opening in SKUEL un-checks the line and strips the `✅` date it wrote. Gated on a TRAILING `✅` token, so a dateless `[x]` the USER ticked, and a `✅ date` inside their own task text, are both left alone. The vault→SKUEL direction was never built (see the status annotation) |
 | Due date (📅) | Markdown | vault→SKUEL | User sets in Obsidian |
 | Scheduled date (⏳) | Markdown | vault→SKUEL | User sets in Obsidian |
 | Start date (🛫) | Markdown | vault→SKUEL | User sets in Obsidian |
@@ -138,9 +144,9 @@ For **title/description** (both sides edited):
 POSIX `rename()` is atomic on local filesystems — the target is either fully replaced or untouched. No partial write is ever visible to Obsidian. This is the canonical safe-write pattern (python-atomicwrites, POSIX standard).
 
 Three outbound write operations the VaultWriter performs:
-1. **Status round-trip**: toggle `- [ ]` → `- [x]` AND append `✅ YYYY-MM-DD` inline on the same line. (Critical: the plugin only appends the done-date when IT toggles; an external raw `[x]` write does NOT trigger the plugin's date-append. SKUEL must write the `✅` itself.)
+1. **Status round-trip**: toggle `- [ ]` → `- [x]` AND append `✅ YYYY-MM-DD` as the LAST token on the line. (Trailing is load-bearing, not cosmetic: operation 3 reverses this write by that trailing marker, so a completion that failed to leave one — as it did when its own idempotency tests matched a `✅ date` anywhere, e.g. inside the task's own text — flipped a checkbox nothing could flip back. Amended 2026-08-24.) (Critical: the plugin only appends the done-date when IT toggles; an external raw `[x]` write does NOT trigger the plugin's date-append. SKUEL must write the `✅` itself.)
 2. **ID injection**: append `🆔 <id>` to a task line that has no ID token. Idempotent: skip if `🆔` already present.
-3. **Undone round-trip** (future): strip `[x]` → `[ ]` and strip `✅ YYYY-MM-DD` token.
+3. **Undone round-trip** (built 2026-08-24, amending Resolved Design Question 2): strip `[x]` → `[ ]` and strip the `✅ YYYY-MM-DD` token. Byte-exact reverse of operation 1 — the separating space operation 1 wrote in front of `✅` goes with the token, so a complete → reopen round-trip restores the line's original bytes. Driven by STATE, not by the `TaskReopened` event: the outbound pass queues it when a task is not `completed` and its line still carries the `✅` token, which is idempotent and re-evaluable on any sync. ⚠️ **A TRAILING `✅ date` is the trigger — not the checkbox, and not a token anywhere on the line.** Operation 1 always appends one at the END and — since 2026-08-24 — **keys its own two `✅` tests on the trailing marker too**, so it never changes a checkbox without leaving the marker that reverses it. That is what makes the two directions compose: SKUEL never authors a dateless `[x]` (one on a 🆔 line is the user's own Obsidian check, which does not reach SKUEL — Guard 2b), and a `✅ date` inside the task's own text is the user's prose (*"Compare ✅ 2025-01-01 vs now"*), never SKUEL's. Both wider readings destroy user-authored state: matching the checkbox reverts the user's own check, matching a token anywhere deletes words out of the description — and, on the completion side, suppresses the marker and leaves the `[x]` stuck forever. The un-check takes back only what SKUEL wrote.
 
 **Change detection guard (stale-read prevention):**
 Before writing, re-read the file and compute SHA-256. If it differs from the `vault_sync_hash` stored on the `UserEntry` Neo4j node (the hash at last successful sync), the file changed concurrently — abort the write and queue for re-sync. This handles Syncthing/iCloud delivery racing the write window. Hash is updated in the same Neo4j write as the task status update.
@@ -260,10 +266,14 @@ Fail-closed posture is unchanged: unset → doorway folders only; a newly-create
 
 **1. Trigger scope:** Support BOTH — sync all changed notes (full vault incremental) AND sync a single note (single-file path). The API supports both from day one; the UX design (button placement, picker, confirmation) is deferred to a dedicated UX pass. Prior art: the existing ingestion system already distinguishes `ingest_file` (single) vs `ingest_directory` (vault-wide incremental) — the VaultBridge inherits the same duality.
 
-**2. Undone round-trip (SKUEL→Obsidian `- [ ]` write):** Explicitly **OUT OF SCOPE for v1.** Re-opening a completed task is not a current workflow and re-introducing it does not justify the complexity. Deferral is safe because:
-- The INBOUND direction (Obsidian edit `- [ ]` → SKUEL re-opens task) works for free — vault wins on checkbox in the field-authority table, so if a user manually unchecks in Obsidian, the next sync picks it up.
-- The OUTBOUND direction (SKUEL marks not-done → writes `- [ ]` to vault) is the deferred capability; it does not create an architectural inconsistency, only a UX gap.
-- The field-authority table reflects this: checkbox status is "Both (merge)" for done, "deferred" for undone.
+**2. Undone round-trip (SKUEL→Obsidian `- [ ]` write):** Originally **OUT OF SCOPE for v1** — *"re-opening a completed task is not a current workflow and re-introducing it does not justify the complexity."* The deferral rested on three claims, and it was **AMENDED 2026-08-24** because two of them turned out to be false:
+- ~~The INBOUND direction (Obsidian edit `- [ ]` → SKUEL re-opens task) works for free~~ — **false, and it is what made the deferral unsafe.** No status-reconciliation branch was ever built beside the extraction guards, and Guard 2b deliberately skips any already-🆔'd line (see the status annotation at the top of this ADR). So the vault could not correct itself either: a task re-opened in SKUEL kept its `- [x] … ✅ date` line indefinitely, with a ✅ date recording a completion that had been withdrawn.
+- ~~It is only a UX gap, not an architectural inconsistency~~ — a stale `✅ date` in the user's own files is a **wrong record**, not a missing feature. The vault is the source of truth for personal data (ADR-070's own premise); SKUEL writing a completion into it and then never withdrawing it is the app falsifying that record.
+- The complexity claim held, and was paid down first: the un-check inherits `WriteResult.updates_applied` (protocol v2), so it reports its own per-update outcome instead of hiding a miss inside a file-level success.
+
+**The amendment (Mike, 2026-08-24), stated as built:** a reopen DOES un-check its vault line and strip the `✅` date — **but only the lines SKUEL itself completed.** A **trailing** `✅ date` token is the discriminator, not the checkbox: the done write always appends one at the end, so a dateless `[x]` on a 🆔 line is definitionally the user's own Obsidian check — and because it appends at the END, a `✅ date` inside the task's own text was never SKUEL's either. The done write keys on the same trailing predicate, so every checkbox SKUEL changes carries the marker that reverses it. Since a vault-side check does not reach SKUEL (Guard 2b, inbound parked), reverting it would silently erase a deliberate edit SKUEL cannot even read, on the sync right after they made it. So the operation is the narrow, defensible claim — *a withdrawn completion must not leave SKUEL's own completion token behind* — not a claim of ownership over the checkbox. A dateless `[x]` stays, diverging visibly, which is the pre-existing state § R4 exists to close. The trigger is the outbound pass's **state predicate** — "this task is not `completed` AND its line is still marked done" — not the `TaskReopened` event, which stays published and deliberately unsubscribed. `is_reopen` is only knowable after the guarded write returns the prior status (ADR-087), so the graph write has already committed before any consumer could run and a failed vault write would have **no retry**: re-issuing writes nothing, because the prior is no longer `completed`. A one-shot transition needs a state predicate, not an event. The field-authority table row for undone moves from "deferred" to SKUEL-authoritative.
+
+⚠️ **This is outbound-only and must not be read as bidirectional.** A vault-side check or un-check of a 🆔 line still does NOT reach SKUEL; that half is parked with a design sketch in `docs/roadmap/deferred-work.md` § "R4 Vault Inbound Propagation — Parked Build".
 
 **3. Hash database location:** Neo4j. Stored as `vault_sync_hash` on the `UserEntry` node — no extra state file alongside the vault.
 
@@ -364,3 +374,4 @@ Fail-closed posture is unchanged: unset → doorway folders only; a newly-create
 | 2026-07-01 | Claude Code | Decision 7 — access rights as the single axis; ingest owner resolved descriptor-by-path at the mechanism (surface-independent); chunk/embed documented out of scope | 0.3 |
 | 2026-07-01 | Claude Code | Decision 8 — sync allowlist stays code-defined; operator-configurability deferred to a per-user vault-local marker (hosting-gated); global env/file rejected (shadow + wrong shape). Closes PR #482 open question. | 0.4 |
 | 2026-07-01 | Mike + Claude Code | Decision 9 — ingestion is human-initiated per event (1a); raw `/api/ingest/directory` deleted, content-vault sync unified onto the reconciler via new admin `POST /api/vault/sync/content` (resolves review A1); continuous watcher + provisioner deleted, all unattended scheduling out of scope, enforcing Alternative E (resolves review A2). | 0.5 |
+| 2026-08-24 | Mike + Claude Code | **Resolved Design Question 2 AMENDED** — the undone round-trip is BUILT: a reopen un-checks its vault line and strips the `✅` date, byte-exact reverse of the done write, gated on a TRAILING `✅` token so it only ever takes back SKUEL's OWN write (a dateless `[x]` the user ticked, and a `✅ date` in their own task text, are both left alone). Two of the deferral's three premises were false (inbound does not "work for free"; a stale `✅` date is a wrong record, not a UX gap). Driven by the outbound pass's state predicate, not by `TaskReopened` (which stays published and deliberately unsubscribed). Field-authority row for undone moves to SKUEL. Wire-protocol change: `PROTOCOL_VERSION` 2 → 3. ⚠️ Outbound only — inbound propagation stays parked (deferred-work § R4). | 0.6 |

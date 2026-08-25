@@ -44,6 +44,7 @@ from core.ports.vault_bridge_protocol import (
     VAULT_ID_RE,
     TaskLineUpdate,
     VaultSyncStats,
+    needs_mark_undone,
     normalize_vault_line_hash,
 )
 from core.services.ingestion.config import collect_files
@@ -663,7 +664,7 @@ class VaultReconciler:
     # =========================================================================
 
     async def _run_outbound(self, descriptor: VaultDescriptor, stats: VaultSyncStats) -> None:
-        """Inject IDs and write done-status for all of the owner's vault entries."""
+        """Inject IDs and reconcile each 🆔 line's done-state for the owner's vault entries."""
         owner = descriptor.owner_uid
         page_size = 500
         offset = 0
@@ -703,11 +704,20 @@ class VaultReconciler:
         vault_file_path: str,
         stats: VaultSyncStats,
     ) -> None:
-        """Process one UserEntry: inject IDs for new tasks, mark done for completed.
+        """Process one UserEntry: inject IDs for new tasks, sync each 🆔 line's done state.
+
+        Checkbox authority runs BOTH directions outbound: a COMPLETED task's
+        line is checked and stamped ``✅ date``, and a task that is no longer
+        completed has its line un-checked and the stale ✅ date stripped. Both
+        arms are driven by STATE — the task's current status against the line's
+        current shape — so each is idempotent and re-evaluable on any sync
+        (⚠ inbound is still parked, deferred-work § R4: a vault-side edit of a
+        🆔 line does not reach SKUEL).
 
         A minted 🆔 is persisted onto its ``EXTRACTED_FROM`` edge only when the
         write reports THAT injection as applied — never on file-level success
-        alone (deferred-work § Phantom-🆔).
+        alone (deferred-work § Phantom-🆔). The two task-line counters are
+        settled the same way, from what landed.
         """
         owner = descriptor.owner_uid
         rels_result = await self._user_entry.get_extracted_entities(entry.uid)
@@ -746,6 +756,11 @@ class VaultReconciler:
 
         updates: list[TaskLineUpdate] = []
         injections: list[_PendingInjection] = []
+        # Outbound write counters are settled AFTER the write, from each
+        # update's own outcome — never at queue time. ``(entity_uid, index)``
+        # for the un-checks because theirs is the one that can also warn.
+        queued_dones: list[int] = []
+        queued_undones: list[tuple[str, int]] = []
         # Hash lookups must be INJECTIVE across this entry (see
         # ``_find_line_by_hash``): a line whose 🆔 one of these edges already
         # owns is off the table before the loop starts, and every line a lookup
@@ -834,7 +849,30 @@ class VaultReconciler:
                             done_date=done_date,
                         )
                     )
-                    stats.tasks_marked_done += 1
+                    queued_dones.append(len(updates) - 1)
+                elif needs_mark_undone(snapshot.content, vault_id):
+                    # The vault surface of a reopen (ADR-070 Resolved Design
+                    # Question 2, amended 2026-08-24). STATE, not the
+                    # ``TaskReopened`` event, is the trigger: ``is_reopen`` is
+                    # only knowable after the guarded write returns the prior,
+                    # so the graph write has already committed and a failed
+                    # vault write has no retry — re-issuing writes nothing,
+                    # because the prior is no longer ``completed``. "Not
+                    # completed AND its line still carries SKUEL's own ✅ date"
+                    # is instead re-evaluable on every sync and idempotent.
+                    #
+                    # ⚠ The ✅ date, not the checkbox, is the discriminator: it
+                    # is the token SKUEL wrote, so this only ever takes back
+                    # SKUEL's own completion. A dateless [x] is a box the USER
+                    # ticked in Obsidian — unreadable to SKUEL (Guard 2b,
+                    # inbound parked § R4) and left alone rather than silently
+                    # reverted on the next sync.
+                    #
+                    # The gate is what keeps this arm cheap: without it the
+                    # batch would be non-empty for nearly every file holding
+                    # tasks, and every sync would issue a write RPC per file.
+                    updates.append(TaskLineUpdate(vault_id=vault_id, mark_undone=True))
+                    queued_undones.append((entity_uid, len(updates) - 1))
 
         if not updates and not injections:
             return
@@ -866,6 +904,35 @@ class VaultReconciler:
             # The snapshot every recovery 🆔 was read from is stale by
             # definition here — nothing from this pass is trustworthy.
             return
+
+        # The two task-line counters are settled here, from what LANDED — the
+        # same standard the 🆔 persist below holds, and the same standard
+        # ``stats.ids_injected`` moved to. A queued write that the file already
+        # satisfied changed nothing, so counting it at queue time told the user
+        # their vault moved when it did not: every repeat sync of an unchanged
+        # vault re-reported every completed task as "marked done" again.
+        #
+        # Only the un-check warns on a False outcome. A ``mark_done`` no-op is
+        # ORDINARY — the line is already `[x] ✅`, which is the steady state of
+        # every completed task. A ``mark_undone`` no-op is not: its arm is
+        # gated on the mutation itself against this very snapshot, so a write
+        # that succeeded and still changed nothing means the file moved
+        # underneath the batch. Recoverable, never durable — the state
+        # predicate re-evaluates the whole thing on the next sync.
+        stats.tasks_marked_done += sum(1 for i in queued_dones if write_result.was_applied(i))
+        for undone_uid, undone_index in queued_undones:
+            if not write_result.was_applied(undone_index):
+                logger.warning(
+                    "reopen un-check no-oped for %s in %s — line no longer marked done",
+                    undone_uid,
+                    vault_file_path,
+                )
+                stats.warnings.append(
+                    f"reopen un-check found no marked-done line for {undone_uid} in "
+                    f"{display_path(vault_file_path, descriptor.root)} — retried next sync"
+                )
+                continue
+            stats.tasks_marked_undone += 1
 
         # Persist injected 🆔s onto their EXTRACTED_FROM edges — each gated on
         # ITS OWN update landing, never on file-level success. An update that

@@ -54,7 +54,13 @@ def _reconciler(task: Task) -> tuple[VaultReconciler, Mock]:
     """A reconciler whose only extracted entity is ``task``, already 🆔-tagged."""
     bridge = Mock()
     bridge.read_note = AsyncMock(return_value=NoteSnapshot.from_content("daily.md", NOTE))
-    bridge.write_task_updates = AsyncMock(return_value=WriteResult(success=True))
+    # A real transport answers with one outcome per queued update (protocol
+    # v2). The outbound counters are settled from those, so a bridge that
+    # reported none would under-count by design (fail-closed) — this fixture
+    # mirrors the writers, it does not paper over them.
+    bridge.write_task_updates = AsyncMock(
+        return_value=WriteResult(success=True, updates_applied=(True,))
+    )
 
     user_entry = Mock()
     user_entry.get_extracted_entities = AsyncMock(

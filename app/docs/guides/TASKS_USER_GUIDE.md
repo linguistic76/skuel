@@ -236,7 +236,9 @@ If you complete a task in SKUEL and then sync your vault, SKUEL writes the compl
 
 The `✅ YYYY-MM-DD` token is written by SKUEL so the obsidian-tasks plugin recognizes the completion date.
 
-**Completing it in Obsidian does not sync back.** Checking the box on a line that already carries a `🆔` does NOT mark the SKUEL Task completed — completion sync is outbound-only, and the sync deliberately skips lines it already tracks (the duplicate-task guard). Complete the task in SKUEL and the next sync writes the `✅` into your note. (A checkbox line you author *already checked*, before it has a `🆔`, is different: its first ingest creates the task in SKUEL as completed, with the `✅` date.)
+**Completing it in Obsidian does not sync back.** Checking the box on a line that already carries a `🆔` does NOT mark the SKUEL Task completed — checkbox sync is outbound-only, and the sync deliberately skips lines it already tracks (the duplicate-task guard). Complete the task in SKUEL and the next sync writes the `✅` into your note. (A checkbox line you author *already checked*, before it has a `🆔`, is different: its first ingest creates the task in SKUEL as completed, with the `✅` date.)
+
+**Re-opening it in SKUEL does sync out.** If you re-open a completed task, the next sync un-checks its line and removes the `✅` date — restoring the line to exactly what it was before you completed it. Your note never keeps a completion you withdrew. SKUEL only ever takes back **its own** write: a box you ticked yourself in Obsidian (no `✅` date on the line) is left exactly as you left it. (Ticking or un-ticking a `🆔` line yourself still does not change the task in SKUEL; that direction is not built.)
 
 **Field authority** — who owns what:
 
@@ -251,7 +253,7 @@ The `✅ YYYY-MM-DD` token is written by SKUEL so the obsidian-tasks plugin reco
 | Knowledge connections | SKUEL | SKUEL only |
 | ZPD scores | SKUEL | SKUEL only |
 
-The vault→SKUEL rows apply when a line is **first extracted**. Once a line carries a `🆔`, later vault-side edits to it (title, dates, checkbox) are deliberately skipped by the sync — inbound propagation of edits is a parked build. Edit tracked tasks in SKUEL (completions sync outbound; reopening a task does not un-check the note — outbound un-check is deferred).
+The vault→SKUEL rows apply when a line is **first extracted**. Once a line carries a `🆔`, later vault-side edits to it (title, dates, checkbox) are deliberately skipped by the sync — inbound propagation of edits is a parked build. Edit tracked tasks in SKUEL — checkbox state syncs outbound in both directions: a completion writes `[x]` + `✅`, and re-opening the task removes them again.
 
 **First-run notice:** The first time you sync, SKUEL will explain that it needs to inject `🆔 sk_<6>` IDs into your task lines. Approve once; subsequent syncs proceed silently.
 

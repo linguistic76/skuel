@@ -123,6 +123,13 @@ def consent_form(
     Consent covers BOTH directions of the sync (read + write) — nothing is
     ingested before the user accepts here. The folder list comes from the live
     allowlist (``VaultReconciler.describe``), never hardcoded prose.
+
+    ⚠ **The write disclosure must enumerate every mutation the sync performs**,
+    including the reopen un-check, and it must say what the un-check will NOT
+    touch. "SKUEL only takes back what it wrote" is the actual contract
+    (``_carries_skuel_done_marker``), and a user deciding whether to let an app
+    edit their notes is entitled to it. Adding a write operation without
+    updating this copy makes the consent cover something it never described.
     ``post_to``/``button_label`` keep the requested action honest: consent
     reached from Preview continues into a PREVIEW, never a real sync
     (Kody #527).
@@ -135,9 +142,13 @@ def consent_form(
                 *_read_scope_phrase(description),
                 ". It will also write ",
                 Span("🆔 sk_XXXXXX", cls="font-mono text-sm"),
-                " IDs back into your task lines and mark completed tasks with ",
+                " IDs back into your task lines, mark completed tasks with ",
                 Span("[x] ✅ date", cls="font-mono text-sm"),
-                ". Nothing is read or written until you allow it.",
+                ", and remove that same ",
+                Span("[x] ✅ date", cls="font-mono text-sm"),
+                " again if you re-open the task in SKUEL. It only ever takes"
+                " back what it wrote — a box you tick yourself in Obsidian is"
+                " left alone. Nothing is read or written until you allow it.",
                 cls="text-base-content/70 mb-4",
             ),
             Form(
@@ -174,14 +185,18 @@ def sync_stats_fragment(stats_dict: dict[str, Any]) -> Div:
     warning or error. ``coverage_probe_failed`` is deliberately not rendered —
     an optional probe's outage is not a sync problem.
 
-    Edge YAMLs and deleted files report only when they happened. Entities and
-    edges create no ``entries_ingested`` movement between them, so without these
-    lines a sync that wrote five relationships and removed a note read exactly
-    like one that did nothing at all.
+    Edge YAMLs, deleted files and re-opened tasks report only when they
+    happened. Entities and edges create no ``entries_ingested`` movement
+    between them, so without these lines a sync that wrote five relationships
+    and removed a note read exactly like one that did nothing at all.
+
+    Every count here is what LANDED in the vault, not what the sync queued — a
+    repeat sync of an unchanged vault reports zeros, which is the truth.
     """
     ingested = stats_dict.get("entries_ingested", 0)
     injected = stats_dict.get("ids_injected", 0)
     done = stats_dict.get("tasks_marked_done", 0)
+    undone = stats_dict.get("tasks_marked_undone", 0)
     failed = stats_dict.get("files_failed", 0)
     walled = stats_dict.get("files_walled", 0)
     unsupported = stats_dict.get("files_unsupported", 0)
@@ -199,6 +214,16 @@ def sync_stats_fragment(stats_dict: dict[str, Any]) -> Div:
         Li(Span(f"{injected}", cls="font-semibold"), " task IDs injected into vault"),
         Li(Span(f"{done}", cls="font-semibold"), " tasks marked done in vault"),
     ]
+    if undone:
+        # Only when it happened: reopening a task is rare, and a standing
+        # "0 tasks re-opened" line beside the three always-shown counters would
+        # read as a surface the user is expected to act on.
+        items.append(
+            Li(
+                Span(f"{undone}", cls="font-semibold"),
+                " tasks re-opened in vault (un-checked)",
+            )
+        )
     if moved:
         items.append(
             Li(
