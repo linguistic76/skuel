@@ -506,6 +506,32 @@ leaving the gap unnamed. If it does join:
    Ku and PathStep (112 Ku vault files carry it; 14 of 28 Ps files do), so the facet returns
    PS rows today. The two halves of the original proposal were load-bearing on each other.
 
+**Two consequences the design does not state — both would bite at implementation.**
+(Raised by Codex on #1153; verified against the code.)
+
+1. **The facet vocabularies must follow the result scope, or the facets lie.** This is a
+   requirement, not a choice — it follows from the ruling already made.
+   `SearchRouter.nous_subtopic_map()` / `list_nous_subtopics()` derive from `:Ku` **+
+   `:PathStep`** (the method's own docstring calls out "a corpus whose sub-topics live only
+   on PathSteps"), and `list_tags()` is likewise distinct Ku + PathStep tags. Leave them
+   merged on a Ku-only result surface and `/search` offers sub-topics and tags that can
+   never match anything — a facet guaranteed to return zero, which is the SAME defect class
+   as the Relevance label this section is careful about. So: `/search` needs a **Ku-only**
+   vocabulary; `/explore/library` keeps the **merged** one, because its catalog really does
+   carry both. One vocabulary source, two scopes — do not fork the method, parameterise it.
+
+2. **Exercise and RevisedExercise are already hidden result types — rule them.** ⚠️ This is
+   PRE-EXISTING, not created by the redesign, which is why it is easy to miss: the
+   unfiltered sweep covers every `_SEARCHABLE_DOMAINS` member except UserEntry (excluded by
+   name for privacy), and that set includes `EXERCISE` and `REVISED_EXERCISE` — **neither of
+   which appears in the Type dropdown's ten choices**. So `/search` returns Exercises today
+   that no facet can filter to or away. The redesign removes PathStep and LearningPath and
+   says nothing about these two, so an implementer would either keep unfilterable results or
+   drop a live capability by accident. **Mike rules which**: (i) surface them — add Exercise
+   to the new facet so the results become filterable, or (ii) exclude both from the sweep so
+   the results match the facet. Do not leave it to the implementer; either way the sweep
+   allowlist becomes explicit rather than "whatever `_SEARCHABLE_DOMAINS` happens to hold".
+
 **Known fiction this redesign does NOT repair — deliberately left standing.** `/search`'s
 sort dropdown offers **"Relevance"**, it is the DEFAULT, and no path behind it ranks by
 text relevance. What it actually does depends on the request shape — three behaviours
@@ -1847,7 +1873,7 @@ Review this document at the **September 2026 quarterly review**. Checklist:
 | Principles `_validate_update` reform or deletion | Next substantive touch of the Principles update path | Ruling needed — see the section's landmine note |
 | EntryReport / ActivityReport search | A teacher workflow wants direct report-content search | Product need (not a data threshold) |
 | Domain-level fulltext-first text search (D1(b)) — ruled DEFERRED **twice** (2026-08-16, 2026-08-25) | A consumer wants relevance ranking for the domains remaining on `/search` after the facet redesign (6 Activity Domains + Ku; UserEntry needs a ruling) — ⚠️ scope INVERTED, do not scope from the bullet list; the OWNER_ONLY edge-vs-property "ruling needed" is STALE — already closed, do not re-open | Product need (not a data threshold); read the section's two rulings first |
-| `/search` facet redesign (ruled *build, not now* 2026-08-25) | Mike schedules it — product decision (what `/search` is for) | See the section — do not scope from this row: Activity Domains facet, PS/LP out of results, LP joins the library catalog **or** gets an explicit "navigated, not searched" ruling (the gap must not be left unnamed), Nous keeps its name, Relevance fiction left standing on purpose, UserEntry scope needs a ruling |
+| `/search` facet redesign (ruled *build, not now* 2026-08-25) | Mike schedules it — product decision (what `/search` is for) | See the section — do not scope from this row: Activity Domains facet, PS/LP out of results, LP joins the library catalog **or** gets an explicit "navigated, not searched" ruling (the gap must not be left unnamed), Nous keeps its name, Relevance fiction left standing on purpose; **two rulings still needed** — UserEntry scope, and Exercise/RevisedExercise (already unfilterable hidden results today) |
 | ZPD snapshot history & trend analysis | A ZPD-over-time consumer exists | Product need + `MATCH (h:ZPDHistory) RETURN count(h)` for accrual |
 | Habit rows in the weekly-note panel | Lived weekly-review use wants the backward look | Product need (not a data threshold) |
 | Non-positive-duration follow-ups (habit `0m` on `/today` / proposes `15`) | Next touch of either surface | Ride-along, not standalone |
