@@ -391,8 +391,20 @@ so this is a census and not a sample):
 | Genuine human queries (rest are July test probes `a`, `x`, `zzz_no_such_thing_xyz`) | **~8** — `breath` ×6, `body` ×2 |
 | Most recent search of any kind | **2026-07-22** |
 
-So **the surface the shipped rung serves has never been used in production**, and the
-surface that is used has had ~8 real queries in its lifetime. Corpus at the same date:
+⚠️ **`faceted` is TWO surfaces, and the telemetry cannot separate them.** Both
+`search_routes.py` (`/search`) and `explore_ui.py` (`/explore` + `/explore/library`) call
+`faceted_search()` without overriding `entry_point="faceted"`, so every row above is one
+or the other. The `domains` stamp does not discriminate either: it is populated only when
+`_resolve_single_domain` finds a SINGLE domain, and the library always sends
+`[KU, PATH_STEP]` (two) while `/search` defaults to All Types — so both emit `domains=[]`.
+All 8 genuine queries carry `domains=[]`, `filters=None`, i.e. an unfiltered text box on
+one of the two. **Do not attribute the 8 to `/search` specifically.** A distinct
+`entry_point` for the library calls is a one-argument fix if surface-level attribution
+ever matters — and it would have to land BEFORE any post-redesign usage comparison,
+since it cannot be backfilled. (Raised by Codex on #1153.)
+
+So **the surface the shipped rung serves has never been used in production**, and the two
+faceted surfaces together have had ~8 real queries. Corpus at the same date:
 121 Ku · 25 PathStep · 2 LearningPath · 14 Exercise · 77 Task · 62 UserEntry. Relevance
 ordering over ≤20 `CONTAINS` hits drawn from 121 nodes is a marginal difference, not a
 fix.
@@ -420,7 +432,9 @@ on #1153, where this section first restated the stale fact.)
 
 **Enable when** (unchanged in kind, sharpened in target): a consumer wants relevance-ranked
 text search for the domains that remain on `/search` after the facet redesign — the six
-Activity Domains and Ku. Product need, not a data threshold.
+Activity Domains and Ku, **plus an open ruling on UserEntry** (kept on the surface, but
+D5 recommended excluding it from fulltext — see the facet section). Product need, not a
+data threshold.
 
 ---
 
@@ -506,16 +520,27 @@ visible.
 **Dependency order** (the reason this is ruled but not built):
 
 1. This facet redesign — decides which domains `/search` must rank at all.
-2. Then D1(b), re-scoped to the six Activity Domains + Ku. Its remaining work is
+2. Then D1(b), re-scoped to the six Activity Domains + Ku (+ the open UserEntry ruling
+   above). Its remaining work is
    threading `user_uid` + the domain's `SearchVisibility` into the fulltext Cypher —
    **not** an ownership ruling: the edge-vs-property question that section once named as
    a prerequisite is closed (see its ⚠️ note). Do not treat it as a blocker.
 
 Building (2) first ranks domains that are leaving the page.
 
+**Open when D1(b) is scheduled — a ruling this section does NOT make.** "My Entries" stays
+on the surface, so UserEntry inherits the fake Relevance label too (its
+`search_order_by` is `created_at`). But the 2026-08-16 investigation's D5 recommended
+*excluding* UserEntry from any fulltext path on the merits — recall matters more than
+ordering when searching your own writing, and Lucene's substring loss bites hardest there
+("that entry where I mentioned photosyn…"), on top of it being a privacy line. Those two
+pull opposite ways and the tension is real: **either UserEntry joins D1(b)'s scope, or the
+Relevance option is disabled for it specifically.** Mike rules it when the work is
+scheduled; do not resolve it in passing. (Raised by Codex on #1153.)
+
 **Enable when**: Mike schedules it — product decision (what `/search` is *for*), not a data
 threshold. The usage census in the D1(b) section is the honest backdrop: ~8 genuine
-queries in the surface's lifetime, most recent 2026-07-22.
+queries across the two `faceted` surfaces, most recent 2026-07-22.
 
 ---
 
@@ -1810,7 +1835,7 @@ Review this document at the **September 2026 quarterly review**. Checklist:
 | Content-linting survivors (NOUS vocabulary check; orphan detection at lint time) | Authoring volume makes silent nous typos / orphan drift a lived problem | Ride-along on `ingestion/validator.py` |
 | Principles `_validate_update` reform or deletion | Next substantive touch of the Principles update path | Ruling needed — see the section's landmine note |
 | EntryReport / ActivityReport search | A teacher workflow wants direct report-content search | Product need (not a data threshold) |
-| Domain-level fulltext-first text search (D1(b)) — ruled DEFERRED **twice** (2026-08-16, 2026-08-25) | A consumer wants relevance ranking for the domains remaining on `/search` after the facet redesign (6 Activity Domains + Ku) — ⚠️ scope INVERTED, do not scope from the bullet list; the OWNER_ONLY edge-vs-property "ruling needed" is STALE — already closed, do not re-open | Product need (not a data threshold); read the section's two rulings first |
+| Domain-level fulltext-first text search (D1(b)) — ruled DEFERRED **twice** (2026-08-16, 2026-08-25) | A consumer wants relevance ranking for the domains remaining on `/search` after the facet redesign (6 Activity Domains + Ku; UserEntry needs a ruling) — ⚠️ scope INVERTED, do not scope from the bullet list; the OWNER_ONLY edge-vs-property "ruling needed" is STALE — already closed, do not re-open | Product need (not a data threshold); read the section's two rulings first |
 | `/search` facet redesign (ruled *build, not now* 2026-08-25) | Mike schedules it — product decision (what `/search` is for) | See the section: Activity Domains facet, PS/LP out of results, LP joins the library catalog (not optional), Nous keeps its name, Relevance fiction left standing on purpose |
 | ZPD snapshot history & trend analysis | A ZPD-over-time consumer exists | Product need + `MATCH (h:ZPDHistory) RETURN count(h)` for accrual |
 | Habit rows in the weekly-note panel | Lived weekly-review use wants the backward look | Product need (not a data threshold) |
