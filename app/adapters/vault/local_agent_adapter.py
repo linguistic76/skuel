@@ -143,7 +143,8 @@ class LocalAgentVaultAdapter:
 
         The agent applies the SAME pure mutations, SHA-256 stale-read guard,
         and atomic temp-file + ``rename()`` mechanics as Stage 1 — the wire
-        carries the ``TaskLineUpdate`` shapes verbatim.
+        carries the ``TaskLineUpdate`` shapes verbatim and the per-update
+        outcomes back (``updates_applied``, protocol v2).
         """
         try:
             relative = self._to_relative(path)
@@ -172,10 +173,23 @@ class LocalAgentVaultAdapter:
         payload = result.value
         new_sha256 = payload.get("new_sha256")
         error = payload.get("error")
+        raw_applied = payload.get("updates_applied")
+        # Fail-closed, and only a REAL JSON boolean counts as confirmation.
+        # ``bool(flag)`` would read the string "false" as True and hand the
+        # reconciler a confirmation the agent never gave — re-creating the exact
+        # phantom-🆔 these outcomes exist to report away (Codex #1151). A list
+        # carrying any non-boolean is discarded WHOLE: a partially-typed reply
+        # is not a trustworthy POSITIONAL answer, and the caller then reads
+        # every update as unapplied through ``was_applied``. Same reason
+        # ``success`` must be the literal ``True``, not merely truthy.
+        updates_applied: tuple[bool, ...] = ()
+        if isinstance(raw_applied, list) and all(isinstance(flag, bool) for flag in raw_applied):
+            updates_applied = tuple(raw_applied)
         return WriteResult(
-            success=bool(payload.get("success")),
+            success=payload.get("success") is True,
             new_sha256=new_sha256 if isinstance(new_sha256, str) else None,
             error=error if isinstance(error, str) else None,
+            updates_applied=updates_applied,
         )
 
     async def list_vault_notes(

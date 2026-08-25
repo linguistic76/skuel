@@ -133,14 +133,51 @@ class VaultSyncPreview:
     refusal_warning: str | None = None
 
 
+def _rel_visit_order(
+    rel: dict[str, Any],  # boundary: EXTRACTED_FROM row — heterogeneous by protocol
+) -> str:
+    """Stable visit order for one entry's ``EXTRACTED_FROM`` rows.
+
+    The backend read is unordered; the reconciler correlates edges to vault
+    lines while walking these, so the walk needs an order that does not depend
+    on Neo4j traversal.
+    """
+    return str(rel.get("entity_uid", ""))
+
+
+@dataclass(frozen=True)
+class _PendingInjection:
+    """One 🆔 to persist onto its ``EXTRACTED_FROM`` edge after the file write.
+
+    ``update_index`` points at the queued ``TaskLineUpdate`` whose OWN outcome
+    decides whether the 🆔 may be persisted (``WriteResult.was_applied``).
+    ``None`` marks the recovery case — the vault line already carried the 🆔,
+    so nothing was queued and there is no write to gate on.
+    """
+
+    entity_uid: str
+    vault_id: str
+    update_index: int | None
+
+
 def _mint_vault_id() -> str:
     """Mint a 6-character base-36 vault ID with ``sk_`` prefix (ADR-070 Decision 1)."""
     return "sk_" + "".join(secrets.choice(_BASE36) for _ in range(6))
 
 
-def _find_line_by_hash(content: str, target_hash: str) -> int | None:
-    """Return 0-based index of the checkbox line whose normalized hash matches."""
+def _find_line_by_hash(content: str, target_hash: str, claimed: set[int]) -> int | None:
+    """Return 0-based index of the first UNCLAIMED checkbox line matching the hash.
+
+    ``claimed`` holds line indices already spoken for by another entity in the
+    same pass. Two identical task lines in one note share a
+    ``source_line_hash`` — the digest is content-based and 🆔-blind by design —
+    so a bare first-match lookup hands the SAME line to both of their entities:
+    they mint duplicate ids, or a recovery copies the first line's 🆔 onto the
+    second entity's edge and its completion write-back lands on the wrong line.
+    """
     for i, line in enumerate(content.splitlines()):
+        if i in claimed:
+            continue
         if _UNCHECKED_RE.match(line) or _CHECKED_RE.match(line):
             if normalize_vault_line_hash(line) == target_hash:
                 return i
@@ -666,7 +703,12 @@ class VaultReconciler:
         vault_file_path: str,
         stats: VaultSyncStats,
     ) -> None:
-        """Process one UserEntry: inject IDs for new tasks, mark done for completed."""
+        """Process one UserEntry: inject IDs for new tasks, mark done for completed.
+
+        A minted 🆔 is persisted onto its ``EXTRACTED_FROM`` edge only when the
+        write reports THAT injection as applied — never on file-level success
+        alone (deferred-work § Phantom-🆔).
+        """
         owner = descriptor.owner_uid
         rels_result = await self._user_entry.get_extracted_entities(entry.uid)
         if rels_result.is_error:
@@ -678,6 +720,17 @@ class VaultReconciler:
         rels = rels_result.value or []
         if not rels:
             return
+        # The backend read carries no ORDER BY, so give the pass a stable order
+        # of its own: which edge is visited first otherwise decides which line a
+        # recovery adopts. This makes the outcome REPRODUCIBLE — it does not
+        # recover a "true" edge→line mapping for byte-identical lines, because
+        # none is recorded and none exists: the digest is position-free and
+        # 🆔-blind by design (ADR-070 Decision 1), so two identical lines carry
+        # the same text and the same state, and which one an entity adopts is
+        # arbitrary and unobservable. A line that diverges from its twin also
+        # diverges in the digest (the ✅ date is deliberately inside it) and
+        # stops matching, which is the discriminator the design does have.
+        rels.sort(key=_rel_visit_order)
 
         try:
             snapshot = await descriptor.bridge.read_note(owner, vault_file_path)
@@ -692,7 +745,17 @@ class VaultReconciler:
             return
 
         updates: list[TaskLineUpdate] = []
-        inject_pairs: list[tuple[str, str]] = []  # (entity_uid, new_vault_id)
+        injections: list[_PendingInjection] = []
+        # Hash lookups must be INJECTIVE across this entry (see
+        # ``_find_line_by_hash``): a line whose 🆔 one of these edges already
+        # owns is off the table before the loop starts, and every line a lookup
+        # takes is off it afterwards.
+        owned_ids = {rel.get("vault_id") for rel in rels if rel.get("vault_id")}
+        claimed_lines = {
+            i
+            for i, line in enumerate(snapshot.content.splitlines())
+            if (owner_match := VAULT_ID_RE.search(line)) and owner_match.group(1) in owned_ids
+        }
 
         for rel in rels:
             entity_uid = rel.get("entity_uid", "")
@@ -704,7 +767,7 @@ class VaultReconciler:
                 # (possible if a previous sync wrote the file but the DB update failed).
                 if not line_hash:
                     continue
-                line_idx = _find_line_by_hash(snapshot.content, line_hash)
+                line_idx = _find_line_by_hash(snapshot.content, line_hash, claimed_lines)
                 if line_idx is None:
                     # Entity was extracted from non-checkbox content (LLM bridge
                     # augmentation, DSL prose, or Markwhen blocks).  Those lines
@@ -717,13 +780,20 @@ class VaultReconciler:
                         vault_file_path,
                     )
                     continue
+                claimed_lines.add(line_idx)
                 found_line = snapshot.content.splitlines()[line_idx]
                 existing_id_match = VAULT_ID_RE.search(found_line)
                 if existing_id_match:
                     # Recovery: vault already has this ID; sync it to Neo4j without
                     # touching the file.  Prevents a new mint from permanently
                     # diverging Neo4j from the vault after a partial-write failure.
-                    inject_pairs.append((entity_uid, existing_id_match.group(1)))
+                    injections.append(
+                        _PendingInjection(
+                            entity_uid=entity_uid,
+                            vault_id=existing_id_match.group(1),
+                            update_index=None,
+                        )
+                    )
                 else:
                     new_vault_id = _mint_vault_id()
                     updates.append(
@@ -733,8 +803,13 @@ class VaultReconciler:
                             source_line_hash=line_hash,
                         )
                     )
-                    inject_pairs.append((entity_uid, new_vault_id))
-                    stats.ids_injected += 1
+                    injections.append(
+                        _PendingInjection(
+                            entity_uid=entity_uid,
+                            vault_id=new_vault_id,
+                            update_index=len(updates) - 1,
+                        )
+                    )
             else:
                 # Has 🆔 — check if COMPLETED in SKUEL
                 task_result = await self._tasks.get_task(entity_uid)
@@ -761,9 +836,19 @@ class VaultReconciler:
                     )
                     stats.tasks_marked_done += 1
 
-        if not updates:
+        if not updates and not injections:
             return
 
+        # Every pass goes through the write door, INCLUDING one with nothing to
+        # write. A recovery needs no mutation — the file already carries its 🆔
+        # — but it adopts an id read from the snapshot, and both transports run
+        # the SHA-256 stale-read guard on an EMPTY batch without touching the
+        # file. So the empty call is the validation: without it a concurrent
+        # edit that removed the 🆔 between ``read_note`` and here would be
+        # persisted as a phantom, the state this whole change closes.
+        # (Gating the tail on ``updates`` had also made the recovery arm
+        # unreachable in its own defining case — the healing pass has nothing
+        # left to write — so the divergence it exists to heal was permanent.)
         write_result = await descriptor.bridge.write_task_updates(
             user_uid=owner,
             path=vault_file_path,
@@ -778,16 +863,43 @@ class VaultReconciler:
                 f"write_task_updates failed for {display_path(vault_file_path, descriptor.root)}: "
                 f"{strip_root_prefix(str(write_result.error), descriptor.root)}"
             )
+            # The snapshot every recovery 🆔 was read from is stale by
+            # definition here — nothing from this pass is trustworthy.
             return
 
-        # Update EXTRACTED_FROM edges with injected vault_ids
-        for entity_uid, new_vault_id in inject_pairs:
+        # Persist injected 🆔s onto their EXTRACTED_FROM edges — each gated on
+        # ITS OWN update landing, never on file-level success. An update that
+        # matched no line is a no-op inside a successful write; persisting its
+        # 🆔 would strand the task with an id its file never received, and no
+        # later sync could find the line to write its completion back
+        # (deferred-work § Phantom-🆔). Withholding is recoverable, never
+        # permanent: the edge keeps no vault_id, so the next sync either
+        # re-mints (the line still has no 🆔) or adopts the 🆔 the file already
+        # carries (the recovery arm above) — which is exactly why that arm has
+        # to run, and to be guarded, on a pass with nothing to write.
+        for pending in injections:
+            if pending.update_index is not None:
+                if not write_result.was_applied(pending.update_index):
+                    logger.warning(
+                        "🆔 injection no-oped for %s in %s — %s not persisted",
+                        pending.entity_uid,
+                        vault_file_path,
+                        pending.vault_id,
+                    )
+                    stats.warnings.append(
+                        f"🆔 injection found no line for {pending.entity_uid} in "
+                        f"{display_path(vault_file_path, descriptor.root)} — "
+                        "not persisted, retried next sync"
+                    )
+                    continue
+                stats.ids_injected += 1
             upd_result = await self._user_entry.update_extracted_vault_id(
-                entry.uid, entity_uid, new_vault_id
+                entry.uid, pending.entity_uid, pending.vault_id
             )
             if upd_result.is_error:
                 stats.errors.append(
-                    f"update_extracted_vault_id failed ({entity_uid}): {upd_result.expect_error()}"
+                    f"update_extracted_vault_id failed ({pending.entity_uid}): "
+                    f"{upd_result.expect_error()}"
                 )
 
         # Update vault_sync_hash on UserEntry metadata

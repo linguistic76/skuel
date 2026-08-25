@@ -561,6 +561,196 @@ class TestAdapterEdges:
         assert any("changed mid-sync" in w or NOTE_PATH in w for w in result.value.warnings)
 
     @pytest.mark.asyncio
+    async def test_per_update_outcomes_cross_the_wire(
+        self, source_vault: Path, mirror_root: Path
+    ) -> None:
+        """Protocol v2: the agent's per-update ``changed`` reaches the server.
+
+        A batch whose first update matches no line and whose second lands is a
+        file-level success either way — ``updates_applied`` is the only thing
+        that tells the reconciler which 🆔 it may persist (deferred-work
+        § Phantom-🆔). Real agent handler, real frames.
+        """
+        (source_vault / NOTE_PATH).write_text(TASK_LINE)
+        registry = AgentChannelRegistry()
+        _connect_agent(source_vault, registry)
+        adapter = LocalAgentVaultAdapter(registry=registry, mirror_root=mirror_root)
+        snapshot = await adapter.read_note(str(OWNER), NOTE_PATH)
+
+        write = await adapter.write_task_updates(
+            user_uid=str(OWNER),
+            path=NOTE_PATH,
+            updates=[
+                TaskLineUpdate(
+                    vault_id="sk_miss11",
+                    inject_vault_id=True,
+                    source_line_hash=normalize_vault_line_hash("- [ ] not in this file\n"),
+                ),
+                TaskLineUpdate(
+                    vault_id="sk_hit222",
+                    inject_vault_id=True,
+                    source_line_hash=normalize_vault_line_hash(TASK_LINE),
+                ),
+            ],
+            expected_sha256=snapshot.sha256,
+        )
+
+        assert write.success is True
+        assert write.updates_applied == (False, True)
+        device_line = (source_vault / NOTE_PATH).read_text()
+        assert "🆔 sk_hit222" in device_line and "sk_miss11" not in device_line
+
+    @pytest.mark.asyncio
+    async def test_an_empty_batch_is_guard_only_on_the_wire(
+        self, source_vault: Path, mirror_root: Path
+    ) -> None:
+        """The agent answers an empty batch with the guard and no mutation.
+
+        The reconciler uses that as "re-validate the snapshot" when a pass has
+        nothing to write but a recovery 🆔 to persist.
+        """
+        registry = AgentChannelRegistry()
+        _connect_agent(source_vault, registry)
+        adapter = LocalAgentVaultAdapter(registry=registry, mirror_root=mirror_root)
+        snapshot = await adapter.read_note(str(OWNER), NOTE_PATH)
+
+        ok = await adapter.write_task_updates(
+            user_uid=str(OWNER), path=NOTE_PATH, updates=[], expected_sha256=snapshot.sha256
+        )
+        assert ok.success is True and ok.new_sha256 == snapshot.sha256
+
+        (source_vault / NOTE_PATH).write_text("- [ ] edited by the user\n")
+        stale = await adapter.write_task_updates(
+            user_uid=str(OWNER), path=NOTE_PATH, updates=[], expected_sha256=snapshot.sha256
+        )
+        assert stale.success is False
+        assert "Stale-read guard" in str(stale.error)
+        assert (source_vault / NOTE_PATH).read_text() == "- [ ] edited by the user\n"
+
+    @pytest.mark.asyncio
+    async def test_a_frame_without_outcomes_reads_fail_closed(
+        self, source_vault: Path, mirror_root: Path
+    ) -> None:
+        """A reply that drops ``updates_applied`` must not read as "it landed"."""
+        registry = AgentChannelRegistry()
+        harness = _connect_agent(source_vault, registry)
+        adapter = LocalAgentVaultAdapter(registry=registry, mirror_root=mirror_root)
+        snapshot = await adapter.read_note(str(OWNER), NOTE_PATH)
+
+        real_handle = harness.websocket.handle_frame
+
+        def stripping_handle(frame: dict[str, Any]) -> dict[str, Any]:
+            response = real_handle(frame)
+            if frame.get("op") == "write_task_updates" and response.get("ok"):
+                response["result"].pop("updates_applied", None)
+            return response
+
+        harness.websocket.handle_frame = stripping_handle
+
+        write = await adapter.write_task_updates(
+            user_uid=str(OWNER),
+            path=NOTE_PATH,
+            updates=[
+                TaskLineUpdate(
+                    vault_id="sk_hit222",
+                    inject_vault_id=True,
+                    source_line_hash=normalize_vault_line_hash(TASK_LINE),
+                )
+            ],
+            expected_sha256=snapshot.sha256,
+        )
+
+        assert write.success is True  # the file-level answer is unchanged…
+        assert write.updates_applied == ()  # …and nothing is asserted per update
+        assert write.was_applied(0) is False
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "malformed",
+        [
+            pytest.param(["false"], id="truthy-string-false"),
+            pytest.param([1], id="json-number"),
+            pytest.param([True, "true"], id="partially-typed"),
+            pytest.param("true", id="not-a-list"),
+        ],
+    )
+    async def test_a_non_boolean_outcome_is_never_read_as_confirmation(
+        self, source_vault: Path, mirror_root: Path, malformed: Any
+    ) -> None:
+        """``bool("false")`` is True — coercion would forge the confirmation.
+
+        A malformed frame must not be able to re-create the phantom-🆔 these
+        outcomes exist to report away, so only a real JSON boolean counts and a
+        partially-typed list is discarded whole (its positions are not
+        trustworthy either).
+        """
+        registry = AgentChannelRegistry()
+        harness = _connect_agent(source_vault, registry)
+        adapter = LocalAgentVaultAdapter(registry=registry, mirror_root=mirror_root)
+        snapshot = await adapter.read_note(str(OWNER), NOTE_PATH)
+
+        real_handle = harness.websocket.handle_frame
+
+        def lying_handle(frame: dict[str, Any]) -> dict[str, Any]:
+            response = real_handle(frame)
+            if frame.get("op") == "write_task_updates" and response.get("ok"):
+                response["result"]["updates_applied"] = malformed
+            return response
+
+        harness.websocket.handle_frame = lying_handle
+
+        write = await adapter.write_task_updates(
+            user_uid=str(OWNER),
+            path=NOTE_PATH,
+            updates=[
+                TaskLineUpdate(
+                    vault_id="sk_hit222",
+                    inject_vault_id=True,
+                    source_line_hash=normalize_vault_line_hash(TASK_LINE),
+                )
+            ],
+            expected_sha256=snapshot.sha256,
+        )
+
+        assert write.updates_applied == ()
+        assert write.was_applied(0) is False
+
+    @pytest.mark.asyncio
+    async def test_a_non_boolean_success_is_never_read_as_success(
+        self, source_vault: Path, mirror_root: Path
+    ) -> None:
+        """The other half of the same frame: truthy is not the same as True."""
+        registry = AgentChannelRegistry()
+        harness = _connect_agent(source_vault, registry)
+        adapter = LocalAgentVaultAdapter(registry=registry, mirror_root=mirror_root)
+        snapshot = await adapter.read_note(str(OWNER), NOTE_PATH)
+
+        real_handle = harness.websocket.handle_frame
+
+        def lying_handle(frame: dict[str, Any]) -> dict[str, Any]:
+            response = real_handle(frame)
+            if frame.get("op") == "write_task_updates" and response.get("ok"):
+                response["result"]["success"] = "false"
+            return response
+
+        harness.websocket.handle_frame = lying_handle
+
+        write = await adapter.write_task_updates(
+            user_uid=str(OWNER),
+            path=NOTE_PATH,
+            updates=[
+                TaskLineUpdate(
+                    vault_id="sk_hit222",
+                    inject_vault_id=True,
+                    source_line_hash=normalize_vault_line_hash(TASK_LINE),
+                )
+            ],
+            expected_sha256=snapshot.sha256,
+        )
+
+        assert write.success is False
+
+    @pytest.mark.asyncio
     async def test_list_vault_notes_returns_vault_relative_paths(
         self, source_vault: Path, mirror_root: Path
     ) -> None:

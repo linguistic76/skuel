@@ -86,6 +86,10 @@ class FilesystemVaultAdapter:
 
         Stale-read guard: re-reads file, checks SHA-256 against
         ``expected_sha256``; aborts if they differ.
+
+        Reports ``updates_applied`` positionally parallel to ``updates`` — an
+        update that matched no line is a no-op the caller must be able to see
+        inside an otherwise successful write.
         """
         p = self._resolve(path)
         try:
@@ -104,9 +108,9 @@ class FilesystemVaultAdapter:
                 ),
             )
 
-        new_content, modified = apply_task_updates(content, updates)
-        if not modified:
-            return WriteResult(success=True, new_sha256=current_sha256)
+        new_content, applied = apply_task_updates(content, updates)
+        if not any(applied):
+            return WriteResult(success=True, new_sha256=current_sha256, updates_applied=applied)
 
         new_sha256 = hashlib.sha256(new_content.encode("utf-8")).hexdigest()
 
@@ -125,8 +129,8 @@ class FilesystemVaultAdapter:
         except OSError as exc:
             return WriteResult(success=False, error=str(exc))
 
-        logger.info(f"VaultWriter: wrote {len(updates)} update(s) to {p}")
-        return WriteResult(success=True, new_sha256=new_sha256)
+        logger.info(f"VaultWriter: wrote {sum(applied)}/{len(updates)} update(s) to {p}")
+        return WriteResult(success=True, new_sha256=new_sha256, updates_applied=applied)
 
     async def list_vault_notes(  # skuel-lint: disable=SKUEL029 -- VaultBridgePort protocol: local_agent transport sibling does real I/O
         self, user_uid: str, vault_path: str, pattern: str = "**/*.md"

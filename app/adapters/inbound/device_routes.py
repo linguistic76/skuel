@@ -74,8 +74,10 @@ HANDSHAKE_TIMEOUT_S = 30.0
 # digest (core/ports/vault_bridge_protocol.py) is part of this protocol — the
 # agent must reproduce the server's ``source_line_hash`` on the device — so a
 # change to what the digest ignores is a protocol change: bump here AND in the
-# agent, never one side.
-PROTOCOL_VERSION = 1
+# agent, never one side. So is the write-result frame's shape: v2 added
+# ``updates_applied`` (one bool per update, in order), which the server reads
+# fail-closed.
+PROTOCOL_VERSION = 2
 
 # Application close code for a failed handshake (4003 = unauthorized, app-level convention).
 _CLOSE_UNAUTHORIZED = 4003

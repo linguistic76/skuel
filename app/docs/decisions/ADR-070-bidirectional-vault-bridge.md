@@ -167,7 +167,7 @@ adapters/vault/local_agent_adapter.py     ← Stage 2+: secure agent channel (cl
 
 The `VaultBridgePort` exposes:
 - `read_note(user_uid, path) → NoteSnapshot`
-- `write_task_update(user_uid, path, vault_id, update) → WriteResult`
+- `write_task_updates(user_uid, path, updates, expected_sha256) → WriteResult`
 - `list_changed_since(user_uid, since_hash) → list[ChangedNote]`
 
 **Per-user from day one.** The port takes `user_uid` on every call — even though today only one user exists (Mike), the abstraction is multi-tenant. No global `INGESTION_PATH` is threaded through the port.
