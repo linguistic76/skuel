@@ -67,14 +67,23 @@ def create_askesis_ui_routes(
         vault carries `nous_subtopic:` data, so the sub-topic selector renders
         nothing (mechanism ships ahead of content).
 
-        **Askesis keeps the MERGED scope — ruled, not inherited.** `/search`
-        narrowed its own vocabulary to the curriculum domains it returns (Ku
-        alone), but this scope is not a result filter: it scopes the
-        `:ContentChunk` passages the answer is grounded in, and lesson bodies
-        live on PathSteps (`_retrieve_scoped_chunks` cites the PathStep a
-        passage came from). Narrowing here would hide the sub-topics whose
-        passages Askesis actually reads. See: docs/roadmap/deferred-work.md
-        § "`/search` Facet Redesign".
+        **Askesis is NOT a search result set, so it takes the WIDEST honest
+        vocabulary — ruled 2026-08-26.** `/search` narrowed its own to the
+        curriculum domains it returns (Ku alone); that is a fact about a page
+        that lists things, and it does not travel here. Askesis reaches
+        everything about the user, bounded by scopes the user opens and closes
+        themselves — this selector is one of those boundaries, which is why it
+        renders as a visible, clearable chip rather than an implicit filter.
+        Code must never narrow it on the user's behalf, and never to match what
+        some other surface happens to show.
+
+        Concretely, narrowing here would also be wrong on its own terms: the
+        scope selects the `:ContentChunk` passages an answer is grounded in,
+        and lesson bodies live on PathSteps (`_retrieve_scoped_chunks` cites
+        the PathStep a passage came from), so a Ku-only vocabulary would hide
+        the sub-topics whose passages Askesis actually reads.
+
+        See: docs/roadmap/deferred-work.md § "`/search` Facet Redesign".
         """
         if search_router is None:
             return {}

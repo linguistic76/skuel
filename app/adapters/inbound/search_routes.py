@@ -185,10 +185,20 @@ def create_search_api_routes(
         if subtopics_result.is_ok and subtopics_result.value:
             nous_subtopics = subtopics_result.value
 
-        # Tag vocabulary (Ku + PathStep distinct tags) for the Tags facet —
-        # graph-derived like the NOUS vocabularies; fails soft to no control.
+        # Tag vocabulary for the Tags facet. `tags` is an Entity base field and
+        # the facet becomes a WHERE clause on EVERY swept domain, so the scope
+        # is the page's FULL result set (SEARCH_PAGE_ENTITY_TYPES), not the
+        # curriculum subset the NOUS vocabularies use — otherwise six of the
+        # seven domains in the results contribute nothing to their own dropdown
+        # and nobody can filter by a tag on their own Tasks.
+        #
+        # The caller is passed because the Activity Domains are OWNER_ONLY:
+        # SearchRouter counts their tags for THIS user alone and skips them
+        # entirely without a user_uid. Curriculum stays corpus-wide.
+        # Ruled 2026-08-26; see docs/roadmap/deferred-work.md § "`/search`
+        # Facet Redesign".
         all_tags: list[str] = []
-        tags_result = await search_router.list_tags()
+        tags_result = await search_router.list_tags(SEARCH_PAGE_ENTITY_TYPES, user_uid)
         if tags_result.is_ok and tags_result.value:
             all_tags = tags_result.value
 

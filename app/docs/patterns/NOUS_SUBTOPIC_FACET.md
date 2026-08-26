@@ -38,8 +38,10 @@ scope on the curriculum corpus.
   `_nous_subtopic_pairs`, forwarded by both wrappers; default `CURRICULUM_FACET_DOMAINS`
   = the merged `:Ku` + `:PathStep` vocabulary). A surface that does not RETURN a domain
   must not offer that domain's pairs — the option could never match. `/explore/library`
-  and the Askesis composer keep the merged default (the library's catalog carries both;
-  Askesis scopes `:ContentChunk` passages, and lesson bodies live on PathSteps).
+  and the Askesis composer keep the merged default — the library's catalog carries both, and
+  Askesis is not a search surface at all (it reaches everything about the user, bounded by
+  scopes the USER opens and closes; never narrow one of its vocabularies to match what some
+  page lists — ruled 2026-08-26).
   `/search` passes `SEARCH_PAGE_FACET_DOMAINS` — derived as the intersection of the
   merged pair with `SEARCH_PAGE_ENTITY_TYPES`, so the facet scope cannot drift from the
   result scope; today that is `:Ku` alone. ⚠ A surface must pass the SAME scope to both

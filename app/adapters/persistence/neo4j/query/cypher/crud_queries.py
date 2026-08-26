@@ -1111,7 +1111,11 @@ def build_distinct_values_query(
     published, published_params = build_publication_clause("n")
     params.update(published_params)
 
-    if user_uid:
+    # `is not None`, never truthiness: an empty-string uid must produce NO rows,
+    # not silently fall through to the corpus-wide branch. This query is a
+    # multi-tenant scope key — the failure direction has to be "shows nothing",
+    # never "shows everyone" (the OWNER_ONLY tag vocabulary reaches this).
+    if user_uid is not None:
         query = f"""
         MATCH (n:{label})
         WHERE n.user_uid = $user_uid AND n.{field} IS NOT NULL AND {published}

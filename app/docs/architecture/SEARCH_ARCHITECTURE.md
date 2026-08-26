@@ -143,6 +143,33 @@ genuinely instance-scoped domains declare it explicitly.
 | `OWNER_ONLY` | Activities, UserEntry, RevisedExercise | Property scope `n.{ownership_property} = $user_uid` on the domain's declared `DomainConfig.ownership_property` (default `user_uid`; Group declares `owner_uid` — ADR-086) — **every** strategy, faceted included (see the convergence note below) |
 | `SCOPE_AWARE` | Exercise | `scope = 'curriculum'` always visible; owned scopes (PERSONAL/ASSIGNED/ASSESSMENT) visible via `:OWNS`, `:SHARES_WITH`, or group membership (`:MEMBER_OF` + `:SHARED_WITH_GROUP`) — ADR-038/040 semantics. A student finds their group's assigned exercise by search; a stranger never sees someone's PERSONAL template |
 
+### Facet vocabularies scope by the same DECLARATION, through a different builder
+
+⚠️ **Not a third enforcement mechanism, and worth understanding why not.** The tag
+vocabulary (`SearchRouter.tag_frequencies` → `SearchOperationsMixin.tag_frequencies` →
+`distinct_values_raw`) returns distinct *strings*, not entity rows, and reaches the graph
+through `build_distinct_values_query` rather than `build_search_visibility_clause`. It is
+still governed by the SAME `SearchVisibility` declaration in the table above — the router
+reads it per domain and decides the scope:
+
+| Declaration | Vocabulary scope |
+|---|---|
+| `PUBLIC` | counted corpus-wide |
+| `OWNER_ONLY` | counted for the caller ALONE; **skipped entirely without a `user_uid`** |
+| `SCOPE_AWARE` | **skipped** — its scope lives in `:OWNS`/`:SHARES_WITH`/group edges, which a property filter cannot express. Refusing beats answering wrongly |
+
+Two properties keep this inside ADR-085's spirit rather than beside it: the decision input
+is the same declaration (never a second notion of ownership), and **every failure direction
+is closed** — an unrecognised or unscopable domain contributes nothing, so the vocabulary
+shrinks rather than leaking. `build_search_visibility_clause`'s own docstring assigns that
+fail-closed skip to `SearchRouter`, which is exactly where it lives.
+
+⚠️ The one real divergence: `build_distinct_values_query` scopes on `user_uid`
+specifically, while the shared clause honours `DomainConfig.ownership_property`. A domain
+declaring another property (Group: `owner_uid` — ADR-086) is therefore **refused** by the
+router rather than filtered on a property it does not write. Every domain reachable today
+declares the default, so this is an assertion rather than an assumption.
+
 **Composition point:** `build_search_visibility_clause()`
 (`adapters/persistence/neo4j/query/cypher/crud_queries.py`) — the single
 WHERE-fragment builder consumed by `build_text_search_query`,

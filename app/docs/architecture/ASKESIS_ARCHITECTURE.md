@@ -479,7 +479,15 @@ It routes through **SearchRouter — THE single path for external chunk (RAG)
 retrieval**; `self.search_router` is post-wired in compose (typed against the
 `ScopedChunkRetrievalOperations` ISP slice), so the retriever never holds
 `Neo4jVectorSearchService` directly. A facet `scope` narrows the passages to a
-topic, which is how Find and Ask share one facet→scope path:
+topic, which is how Find and Ask share one facet→scope *path*.
+
+⚠️ **Shared path, unrelated scopes.** Ask is not Find with a different renderer:
+Askesis reaches everything about the user, bounded by scopes the USER opens and
+closes, while a search surface reaches what it lists. So a facet VOCABULARY is
+never derived from a search surface's result set — `/search` scopes its NOUS
+sub-topics to the domains it returns, and the Askesis composer keeps the widest
+honest vocabulary (ruled 2026-08-26; see `docs/roadmap/deferred-work.md`
+§ "`/search` Facet Redesign").
 
 ```python
 async def _find_similar_chunks(

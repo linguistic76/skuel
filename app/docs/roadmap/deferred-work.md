@@ -461,7 +461,7 @@ aggregates them over the curriculum domains it returns (Ku alone), `/explore/lib
 `/askesis` keep the merged Ku + PathStep vocabulary (consequence 1 below, PR #1158).
 **Still to come:** the **tag** half of consequence 1, which is a different problem than the
 section originally stated and is gated on a ruling (see *The tag vocabulary is inverted*
-below) — until it lands, 16 PathStep-only tags are selectable on `/search` and guaranteed
+below) — until it lands, 9 PathStep-only tags are selectable on `/search` and guaranteed
 to return zero; and the close-out that marks this section ✅ RESOLVED.
 
 **The design.** `/search` becomes one surface with one job — *your lived activity, plus the
@@ -639,7 +639,23 @@ heading is one more summary to go stale.)
    | NOUS topics | 11 | 0 | none — and the topic facet was ALREADY Ku-only |
    | NOUS sub-topics (flat / the render gate) | 33 | 0 | none today |
    | NOUS (topic, sub-topic) PAIRS (the options) | 81 | **3** | 3 dead options removed |
-   | Tags | 188 | **16** | unchanged — see the tag ruling below |
+   | Tags | 181 | **9** | unchanged — see the tag ruling below |
+
+   ⚠️ **These are counts from the READ PATH, not from the graph — and the two disagree.**
+   A first pass measured the tag rows with hand-written Cypher and got 188 distinct / 16
+   PathStep-only. Both are true of the nodes and both are the WRONG NUMBERS for this table,
+   because the vocabulary is not a raw node scan: `build_distinct_values_query` composes
+   `build_publication_clause`, and 10 of the 25 PathSteps are `publication_state='draft'`.
+   Seven of those "16 dead options" were never offered at all. **Measure a facet by driving
+   the method that builds it** — a raw query omits every predicate the production path
+   composes, and the error is silent because the raw number looks perfectly plausible.
+
+   ⚠️ The sharper half: that same raw pass got the sub-topic rows RIGHT, because
+   `_nous_subtopic_pairs_query` gates on publication too and no draft PathStep happens to
+   carry a unique pair. So the raw method agreed with the read path on one row and disagreed
+   on another, **and nothing in the raw numbers distinguished the two**. Agreement with a
+   hand-written query is not evidence; only driving the method is. The corrected rows here
+   were all re-measured through the composed `SearchRouter`.
 
    So the sub-topic fix is a **real, visible** removal, not correctness-by-construction: the
    pairs `(body, attention)`, `(body, habits)` and `(self-awareness, breath)` were offered
@@ -648,14 +664,24 @@ heading is one more summary to go stale.)
    disagree: every sub-topic *word* appears on some Ku, but three *pairings* are
    PathStep-only. A per-vocabulary count is not a per-facet count.
 
-   **✅ RULED 2026-08-26: `/askesis` stays MERGED.** It reads the same
-   `nous_subtopic_map()`, and it was checked rather than assumed: that scope does not filter
-   a result list, it scopes the `:ContentChunk` passages the answer is grounded in, and
-   lesson bodies live on PathSteps (`ContextRetriever._retrieve_scoped_chunks` cites the
-   PathStep a passage came from). Narrowing it would hide the sub-topics whose passages
-   Askesis actually reads. Narrowing `/search` is safe for the `?nous=&nous_subtopic=`
-   handoff between them, because Ku-only ⊆ merged — but the comment asserting the two
-   dropdowns offer *exactly* the same pairs was falsified and has been corrected.
+   **✅ RULED 2026-08-26 (Mike): `/askesis` is not a search surface, so it takes the WIDEST
+   honest vocabulary — it stays MERGED.** In his words: *"Askesis is not the /search result
+   set, it is different than that. Askesis has access to everything about the user with some
+   transparent and adjustable boundaries."* The general rule, which outranks this one facet:
+   **never derive an Askesis scope from what a page lists.** A facet on the Askesis composer
+   is a user-adjustable boundary on total access — so it must be *transparent* (the visible,
+   clearable scope chip is load-bearing, not decoration) and *adjustable* (the user opens and
+   closes it; code never narrows it for them). Default any future Askesis vocabulary to the
+   widest honest one.
+
+   The narrow justification holds too, and was checked rather than assumed: that scope does
+   not filter a result list, it scopes the `:ContentChunk` passages the answer is grounded
+   in, and lesson bodies live on PathSteps (`ContextRetriever._retrieve_scoped_chunks` cites
+   the PathStep a passage came from), so a Ku-only vocabulary would hide the sub-topics whose
+   passages Askesis actually reads. Narrowing `/search` is safe for the
+   `?nous=&nous_subtopic=` handoff between them, because Ku-only ⊆ merged — but the comment
+   asserting the two dropdowns offer *exactly* the same pairs was falsified and has been
+   corrected.
 
    ⚠️ **Pre-existing asymmetry this rung NAMES rather than inherits silently:**
    `/explore/library` offers **Ku-only NOUS topics** (`list_nous_topics` → `KuService` → the
@@ -747,7 +773,7 @@ heading is one more summary to go stale.)
 
 **⚠️ The tag vocabulary is INVERTED — the same shape as D1(b)'s recorded inversion, and it
 needs a ruling before it is built.** Consequence 1 above frames the tag defect as "the
-merged vocabulary offers tags that can never match", which is true of the 16 PathStep-only
+merged vocabulary offers tags that can never match", which is true of the 9 PathStep-only
 tags. But `/search` is **not a Ku-only surface** — it is the 6 Activity Domains + Ku,
 `tags` is an `Entity` base field carried by all 25 types, and the tag facet becomes a WHERE
 clause on *every* swept domain. So the larger defect is the opposite one: **six of the
@@ -756,7 +782,7 @@ by a tag on their own Tasks.
 
 Measured 2026-08-26: activity entities carry **22 distinct tags across 68 taggings**, of
 which **11 are absent from the dropdown** entirely (the other 11 appear only because some
-Ku happens to carry the same word). Against 16 dead curriculum options.
+Ku happens to carry the same word). Against 9 dead curriculum options.
 
 - **Widening is wiring, not new code.** `tag_frequencies` lives on `SearchOperationsMixin`,
   so every domain already has it; `SearchRouter.tag_frequencies` simply only asks Ku and PS.
@@ -774,7 +800,7 @@ Ku happens to carry the same word). Against 16 dead curriculum options.
   (a) **widen to the page scope**, with per-user scoping for the OWNER_ONLY half — the
       dropdown then mixes a public curriculum vocabulary with the caller's own tags, and
       the junk above is visible until the vault/tags are cleaned;
-  (b) **leave the facet curriculum-only** and scope it to Ku like the sub-topics — 16 dead
+  (b) **leave the facet curriculum-only** and scope it to Ku like the sub-topics — 9 dead
       options go away, the six activity domains stay unfilterable by tag, and the control
       is honestly labelled as a knowledge facet;
   (c) leave it merged and say so — the status quo, which is the only option that fixes

@@ -72,6 +72,7 @@ from core.ports.search_protocols import (
     SupportsGraphAwareSearch,
     SupportsGraphTraversalSearch,
     SupportsTagSearch,
+    SupportsTagVocabulary,
     SupportsTextSearch,
     SupportsVisibilityDeclaration,
 )
@@ -153,6 +154,13 @@ logger = get_logger(__name__)
 #
 # See: docs/roadmap/deferred-work.md § "`/search` Facet Redesign" consequence 1.
 CURRICULUM_FACET_DOMAINS: tuple[EntityType, ...] = (EntityType.KU, EntityType.PATH_STEP)
+
+# The ownership property `build_distinct_values_query` scopes on. The facet
+# vocabularies reach the graph through that builder rather than through
+# `build_search_visibility_clause`, so they cannot honour a domain that
+# declares a different one — the router refuses such a domain rather than
+# scoping the wrong property (ADR-086).
+_TAG_SCOPE_PROPERTY = "user_uid"
 
 
 def _sweep_sort_key(sort_field: str) -> "Callable[[dict[str, Any]], str]":
@@ -492,25 +500,85 @@ class SearchRouter:
             mapping.setdefault(pair["nous"], set()).add(pair["subtopic"])
         return Result.ok({nous: sorted(subs) for nous, subs in mapping.items()})
 
-    async def tag_frequencies(self) -> Result["list[TagFrequency]"]:
-        """Tag vocabulary across the shared curriculum catalog, most-used first.
+    async def tag_frequencies(
+        self,
+        scope: "Sequence[EntityType]" = CURRICULUM_FACET_DOMAINS,
+        user_uid: UserUID | None = None,
+    ) -> Result["list[TagFrequency]"]:
+        """Tag vocabulary across the domains in `scope`, most-used first.
 
-        Powers the frequency-ranked /explore/library tag chips. Same
-        cross-domain aggregation point as the NOUS vocabulary: each domain's
-        search sub-service counts its OWN tags (``tag_frequencies`` →
-        ``distinct_values_raw("tags")``), the merge — summing counts for tags
-        both domains carry — lives here. Ordered by count descending, ties
-        alphabetical; fails soft per domain (a missing service or an errored
-        call contributes nothing rather than failing the vocabulary).
+        Powers the frequency-ranked /explore/library tag chips and the /search
+        tags facet. The cross-domain aggregation point: each domain's search
+        sub-service counts its OWN tags (``tag_frequencies`` →
+        ``distinct_values_raw("tags")``), and the merge — summing counts for a
+        tag several domains carry — lives here. Ordered by count descending,
+        ties alphabetical; fails soft per domain (a missing service or an
+        errored call contributes nothing rather than failing the vocabulary).
+
+        `tags` is an Entity base field, so this is NOT curriculum-only: a
+        surface whose results include the Activity Domains passes them here,
+        or six of its result domains contribute nothing to its own dropdown.
+
+        **Ownership is enforced HERE, per domain, and it fails CLOSED.** Each
+        domain's `SearchVisibility` declaration decides its scope:
+
+        - PUBLIC (curriculum) — counted corpus-wide, `user_uid=None`.
+        - OWNER_ONLY (Activities) — counted for `user_uid` ALONE. Without one
+          the domain is SKIPPED, never counted unscoped: an unscoped read would
+          list every user's tag names, which is a cross-tenant leak, not a
+          wider vocabulary.
+        - Anything else (SCOPE_AWARE, or a service that declares nothing) is
+          skipped too. SCOPE_AWARE scope lives in `:OWNS`/`:SHARES_WITH`/group
+          edges, and the `user_uid` PROPERTY filter behind this call cannot
+          express it — it would silently drop shared rows and misreport the
+          rest. Refusing beats answering wrongly.
+
+        ⚠ Counts from a PUBLIC domain are corpus-wide while an OWNER_ONLY
+        domain's are one user's, so the merged ranking mixes two populations.
+        That only reaches a caller who ranks by count (the library chips, which
+        stay curriculum-only); `list_tags` re-sorts alphabetically.
         """
         counts: dict[str, int] = {}
-        for entity_type, service in (
-            (EntityType.KU, self._ku),
-            (EntityType.PATH_STEP, self._ps),
-        ):
+        for entity_type in scope:
+            service = self.get_service(entity_type)
             if service is None:
                 continue
-            result = await service.search.tag_frequencies()
+            search_service = self._get_search_service(service)
+            if not isinstance(search_service, SupportsTagVocabulary):
+                self.logger.warning(
+                    f"tag_frequencies skipped {entity_type}: no scoped tag vocabulary"
+                )
+                continue
+
+            visibility = search_service.search_visibility
+            if visibility is SearchVisibility.PUBLIC:
+                scoped_to: UserUID | None = None
+            elif visibility is SearchVisibility.OWNER_ONLY:
+                if user_uid is None:
+                    self.logger.warning(
+                        f"tag_frequencies skipped {entity_type}: OWNER_ONLY needs a user_uid"
+                    )
+                    continue
+                # The vocabulary query scopes on `user_uid` specifically, while
+                # a domain may declare another ownership property (Group uses
+                # `owner_uid` — ADR-086). Scoping the wrong property would
+                # silently return that domain's tags for nobody, so refuse
+                # instead of guessing. Every domain reachable today declares
+                # the default; this keeps that an assertion, not an assumption.
+                if search_service.ownership_property != _TAG_SCOPE_PROPERTY:
+                    self.logger.warning(
+                        f"tag_frequencies skipped {entity_type}: scopes on "
+                        f"{search_service.ownership_property}, not {_TAG_SCOPE_PROPERTY}"
+                    )
+                    continue
+                scoped_to = user_uid
+            else:
+                self.logger.warning(
+                    f"tag_frequencies skipped {entity_type}: {visibility} is not property-scopable"
+                )
+                continue
+
+            result = await search_service.tag_frequencies(user_uid=scoped_to)
             if result.is_error:
                 self.logger.warning(f"tag_frequencies failed for {entity_type}: {result.error}")
                 continue
@@ -526,13 +594,19 @@ class SearchRouter:
         ]
         return Result.ok(ordered)
 
-    async def list_tags(self) -> Result[list[str]]:
+    async def list_tags(
+        self,
+        scope: "Sequence[EntityType]" = CURRICULUM_FACET_DOMAINS,
+        user_uid: UserUID | None = None,
+    ) -> Result[list[str]]:
         """Flat alphabetical tag vocabulary — the /search tags-filter shape.
 
-        Derived from ``tag_frequencies`` (one aggregation path); dropdowns
+        Derived from ``tag_frequencies`` (one aggregation path), so it inherits
+        that method's per-domain ownership rules unchanged — including the
+        fail-closed skip of an OWNER_ONLY domain with no `user_uid`. Dropdowns
         scan alphabetically, so the counts are dropped and the order re-sorted.
         """
-        result = await self.tag_frequencies()
+        result = await self.tag_frequencies(scope, user_uid)
         if result.is_error:
             return Result.fail(result)
         return Result.ok(sorted(item["tag"] for item in result.value))
