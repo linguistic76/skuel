@@ -668,13 +668,19 @@
         // ---------------------------------------------------------------------
         /**
          * Search filter bar component.
-         * Manages entity type selection and dynamic filter visibility.
+         * Manages the two scope facets and dynamic filter visibility.
+         *
+         * /search has TWO scope controls and they are mutually exclusive:
+         * **Type** (the 6 Activity Domains) and **Nous** (the topic vocabulary,
+         * which is how Ku is reached). Choosing either disables the other — see
+         * `isKnowledgeMode` for why their intersection is empty by construction.
          *
          * @returns {Object} Alpine.js component
          * @property {string} entityType - Currently selected entity type
+         * @property {string} nousTopic - Currently selected NOUS topic
          * @property {boolean} showAdvanced - Advanced filter panel visibility
          * @property {Object} entityTypeFilters - Filter groups by entity type
-         * @property {Object} entityTypeLabels - Display labels for entity types
+         * @property {boolean} isKnowledgeMode - Computed: a NOUS topic is chosen
          * @property {boolean} showContextFilters - Computed: show context filters row
          * @property {string} contextFilterLabel - Computed: label for filter section
          * @property {boolean} hasActiveFilters - Computed: has any active filters
@@ -687,6 +693,7 @@
         Alpine.data('searchFilters', function() {
             return {
                 entityType: '',
+                nousTopic: '',
                 showAdvanced: false,
 
                 // Layout state (horizontal bar + mobile drawer)
@@ -705,17 +712,15 @@
                 // both the /search results (SEARCH_PAGE_ENTITY_TYPES, PR #1155)
                 // and the Type dropdown, so no selection can reach them.
                 //
-                // 'ku' is KEPT DELIBERATELY — the one place the three vocabulary
-                // sites diverge, for one PR. It is NOT keeping the four knowledge
-                // filters (sel_category, learning_level, content_type,
-                // educational_level) alive: nothing can set entityType to 'ku'
-                // once Ku leaves the dropdown, so they are unreachable either way
-                // until the next PR re-homes them onto a Nous-driven knowledge
-                // mode. What this entry keeps is the MAPPING that PR's predicate
-                // is built from — which four groups are the knowledge ones — and
-                // Ku is still a live result type, so the key names something real.
-                // See deferred-work.md § "/search Facet Redesign": this is a
-                // filter-GROUP map, not the dropdown vocabulary.
+                // 'ku' is here WITHOUT being a dropdown option — the one place
+                // the three vocabulary sites diverge, and it is deliberate.
+                // Nothing sets entityType to 'ku' (the x-model select has no
+                // such option); this entry is the MAPPING knowledge mode is
+                // built from — which four groups are the knowledge ones — read
+                // through `knowledgeFilterGroups`. Ku is still a live result
+                // type, so the key names something real. See deferred-work.md
+                // § "/search Facet Redesign": this is a filter-GROUP map, not
+                // the dropdown vocabulary.
                 entityTypeFilters: {
                     'task': ['common', 'status', 'priority'],
                     'goal': ['common', 'status', 'priority'],
@@ -726,9 +731,36 @@
                     'ku': ['knowledge', 'sel_category', 'learning_level', 'content_type', 'educational_level']
                 },
 
+                // Computed: a NOUS topic is chosen, so the surface is scoped to
+                // knowledge. This is a DESCRIPTION OF THE QUERY, not a UI fiction:
+                // `nous` is an array property that only curriculum nodes carry, and
+                // the faceted sweep turns it into a WHERE clause on EVERY swept
+                // domain (`_search_raw_mixin`: `$filter_nous IN entity.nous`). A
+                // Task has no `nous`, so the predicate drops it — selecting a topic
+                // narrows the result set to Ku by itself, which is exactly why Ku
+                // needs no Type option.
+                //
+                // The same fact makes Type + Nous EMPTY BY CONSTRUCTION for all six
+                // types: that combination is a facet guaranteed to return zero, the
+                // defect class this arc refuses elsewhere. So the two scope controls
+                // are mutually exclusive, enforced in the markup by disabling the
+                // other one (ui/search/components.py) — a disabled select is not
+                // serialized by hx-include, so the unused scope is not merely blank,
+                // it is absent from the request.
+                get isKnowledgeMode() {
+                    return this.nousTopic !== '';
+                },
+
+                // Which filter groups knowledge mode reveals. Read from the 'ku'
+                // entry above rather than a second list of group names — that
+                // entry IS the "which four groups are the knowledge ones" mapping.
+                get knowledgeFilterGroups() {
+                    return this.entityTypeFilters['ku'] || [];
+                },
+
                 // Computed: should show context filters row
                 get showContextFilters() {
-                    return this.entityType !== '';
+                    return this.entityType !== '' || this.isKnowledgeMode;
                 },
 
                 // Computed: label for context filter section. DERIVED from the
@@ -737,7 +769,7 @@
                 // learning_path after both left the surface, which is exactly
                 // the drift a fourth vocabulary site invites.
                 get contextFilterLabel() {
-                    if (!this.entityType) return 'Filters';
+                    if (!this.showContextFilters) return 'Filters';
                     return this.isFilterVisible('knowledge') ? 'Knowledge Filters' : 'Activity Filters';
                 },
 
@@ -761,7 +793,13 @@
                     this.filterCount = count;
                 },
 
+                // Knowledge mode is checked FIRST and the two branches never
+                // overlap — the controls are mutually exclusive, so at most one
+                // scope is set at a time.
                 isFilterVisible: function(group) {
+                    if (this.isKnowledgeMode) {
+                        return this.knowledgeFilterGroups.indexOf(group) !== -1;
+                    }
                     if (!this.entityType) return false;
                     var filters = this.entityTypeFilters[this.entityType] || [];
                     return filters.indexOf(group) !== -1;
@@ -827,6 +865,12 @@
 
                 clearAllFilters: function() {
                     this.entityType = '';
+                    // Both scope controls reset. The loop below writes select
+                    // VALUES, which does not notify x-model (no event is
+                    // dispatched per control), so each modelled control must be
+                    // reset in state here too or knowledge mode would survive
+                    // its own Clear All.
+                    this.nousTopic = '';
                     this.showAdvanced = false;
 
                     // Reset all select elements
@@ -850,7 +894,15 @@
                     // the disabled "Choose a Nous first" gate — without it the old
                     // scoped sub-topic options would survive Clear all, enabled,
                     // with no parent topic (Codex #642).
-                    var nousSelect = document.querySelector('[name="nous"]');
+                    //
+                    // `:not([disabled])` because the two scope controls are
+                    // mutually exclusive: with a Type selected the NOUS select
+                    // is disabled, and htmx omits disabled elements from a
+                    // request (`shouldInclude`). Falling back to the Type
+                    // select there costs nothing — a disabled NOUS means no
+                    // topic was chosen, so the sub-topic column is already in
+                    // its "Choose a Nous first" state with nothing to reset.
+                    var nousSelect = document.querySelector('[name="nous"]:not([disabled])');
                     var trigger = nousSelect || document.querySelector('[name="entity_type"]');
                     if (trigger) {
                         trigger.dispatchEvent(new Event('change', { bubbles: true }));

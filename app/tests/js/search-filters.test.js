@@ -7,10 +7,18 @@
  *
  * The map's keys are canonical EntityType values, per the emission rule. They
  * mirror the Type dropdown in ui/search/components.py with ONE deliberate
- * divergence: 'ku' is kept as the staging point for the Nous-driven knowledge
- * mode (see the comment on entityTypeFilters). The cross-language drift check
- * lives in tests/unit/test_search_page_scope.py, which reads both sites; these
+ * divergence: 'ku' is not a dropdown option — it is the mapping KNOWLEDGE MODE
+ * reads to learn which four groups are the knowledge ones (see the comment on
+ * entityTypeFilters). The cross-language drift check lives in
+ * tests/unit/test_search_page_scope.py, which reads both sites; these
  * assertions cover the component's behaviour.
+ *
+ * Knowledge mode is driven by the NOUS topic, NOT by an entity type: nothing
+ * writes entityType = 'ku' any more, so a test that reaches the knowledge
+ * facets by assigning it would pass while testing a path no user can take.
+ * The mutual exclusion of the two scope controls lives in the MARKUP
+ * (x-bind:disabled), so it is pinned in test_search_page_scope.py § 7 — this
+ * file asserts the state machine those bindings read.
  *
  * ⚠️ This file previously asserted 'path_step' and 'user_entry' behaviour and
  * would have stayed GREEN after they were removed — nothing here reads the real
@@ -40,11 +48,33 @@ describe('facet visibility', () => {
     expect(component.isFilterVisible('sel_category')).toBe(false);
   });
 
-  it('maps ku to the knowledge facets it still stages for knowledge mode', () => {
+  it('reveals the four knowledge facets from a NOUS topic, not a type', () => {
     const component = skuel.make('searchFilters');
-    component.entityType = 'ku';
-    expect(component.isFilterVisible('sel_category')).toBe(true);
+    component.nousTopic = 'body';
+
+    expect(component.isKnowledgeMode).toBe(true);
+    ['sel_category', 'learning_level', 'content_type', 'educational_level'].forEach((group) => {
+      expect(component.isFilterVisible(group)).toBe(true);
+    });
+    // The activity columns stay hidden — a Ku carries none of them.
     expect(component.isFilterVisible('priority')).toBe(false);
+    expect(component.isFilterVisible('status')).toBe(false);
+  });
+
+  it('reads the knowledge groups from the ku map entry, not a second list', () => {
+    const component = skuel.make('searchFilters');
+
+    expect(component.knowledgeFilterGroups).toEqual(component.entityTypeFilters.ku);
+  });
+
+  it('leaves the four knowledge facets hidden while no NOUS topic is chosen', () => {
+    // The regression PR #1156 knowingly shipped for one PR: Ku left the Type
+    // dropdown, so nothing revealed these until knowledge mode existed.
+    const component = skuel.make('searchFilters');
+    component.entityType = 'task';
+
+    expect(component.isKnowledgeMode).toBe(false);
+    expect(component.isFilterVisible('sel_category')).toBe(false);
   });
 
   it('reveals nothing for a type the page no longer offers', () => {
@@ -60,11 +90,25 @@ describe('facet visibility', () => {
     });
   });
 
-  it('offers exactly the six Activity Domains plus the ku staging key', () => {
+  it('offers exactly the six Activity Domains plus the ku knowledge-mode key', () => {
     const component = skuel.make('searchFilters');
     expect(Object.keys(component.entityTypeFilters).sort()).toEqual(
       ['choice', 'event', 'goal', 'habit', 'ku', 'principle', 'task'],
     );
+  });
+});
+
+describe('the context-filter row', () => {
+  it('opens for either scope facet and stays shut for neither', () => {
+    const component = skuel.make('searchFilters');
+    expect(component.showContextFilters).toBe(false);
+
+    component.entityType = 'habit';
+    expect(component.showContextFilters).toBe(true);
+
+    component.entityType = '';
+    component.nousTopic = 'body';
+    expect(component.showContextFilters).toBe(true);
   });
 });
 
@@ -74,8 +118,9 @@ describe('labels', () => {
     // names — the list it replaced still named path_step after that type left.
     const component = skuel.make('searchFilters');
     expect(component.contextFilterLabel).toBe('Filters');
-    component.entityType = 'ku';
+    component.nousTopic = 'body';
     expect(component.contextFilterLabel).toBe('Knowledge Filters');
+    component.nousTopic = '';
     component.entityType = 'habit';
     expect(component.contextFilterLabel).toBe('Activity Filters');
   });
@@ -103,6 +148,62 @@ describe('labels', () => {
     expect(component.getFilterLabel('entity_type', 'ku')).toBe('ku');
     expect(component.getFilterLabel('entity_type', 'unknown')).toBe('unknown');
     expect(component.getFilterLabel('status', 'active')).toBe('active');
+  });
+});
+
+describe('clearAllFilters', () => {
+  function mountFilters() {
+    document.body.innerHTML = `
+      <div class="search-container">
+        <select name="entity_type"><option value="task" selected>Tasks</option></select>
+        <select name="nous" disabled><option value="" selected>All Nous</option></select>
+      </div>`;
+  }
+
+  it('resets the NOUS topic too, so knowledge mode cannot survive it', () => {
+    // The value loop writes select values directly and dispatches no per-control
+    // event, so x-model never hears it — every modelled control must be reset in
+    // state explicitly or Clear All leaves the page in a mode nothing shows.
+    const component = skuel.make('searchFilters');
+    mountFilters();
+    component.entityType = 'task';
+    component.nousTopic = 'body';
+
+    component.clearAllFilters();
+
+    expect(component.nousTopic).toBe('');
+    expect(component.isKnowledgeMode).toBe(false);
+    expect(component.showContextFilters).toBe(false);
+  });
+
+  it('re-fires the search from an ENABLED control when NOUS is disabled', () => {
+    // With a Type selected the NOUS select is disabled, and htmx omits disabled
+    // elements from a request — so the trigger falls back to the Type select
+    // rather than dispatching into a control the request would skip.
+    const component = skuel.make('searchFilters');
+    mountFilters();
+    const fired = [];
+    document.querySelectorAll('select').forEach((select) => {
+      select.addEventListener('change', () => fired.push(select.name));
+    });
+
+    component.clearAllFilters();
+
+    expect(fired).toEqual(['entity_type']);
+  });
+
+  it('prefers the NOUS select while it is enabled', () => {
+    const component = skuel.make('searchFilters');
+    mountFilters();
+    document.querySelector('[name="nous"]').removeAttribute('disabled');
+    const fired = [];
+    document.querySelectorAll('select').forEach((select) => {
+      select.addEventListener('change', () => fired.push(select.name));
+    });
+
+    component.clearAllFilters();
+
+    expect(fired).toEqual(['nous']);
   });
 });
 
