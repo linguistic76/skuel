@@ -560,6 +560,18 @@ leaving the gap unnamed. If it does join:
    spec, which is the only ordering guarantee available when both listeners sit on the
    target. (Raised by Codex on #1157.)
 
+   ⚠️ **A SERVER-owned dependent control has its own window, and it is longer.** The
+   sub-topic column is re-rendered by an HTMX swap (`/search/subtopics`), so it stays
+   enabled with its old value until that separate request returns — and every OTHER
+   control's `hx-include` names it. Clearing Nous and picking a Type before the swap landed
+   sent `nous_subtopic` into an activity search: a curriculum-only facet, guaranteed zero.
+   Reproduced in a browser by letting the swap never land. `adoptScope` therefore clears
+   and disables it on ANY scope change — a *new* topic orphans the old sub-topic just as
+   surely as clearing one does — and the swap replaces the element outright, so those
+   writes only have to hold the window shut. **The lesson generalises: a control whose
+   state arrives asynchronously is stale from the moment its input changes, not from the
+   moment its response lands.** (Raised by Codex on #1157, second round.)
+
    ⚠️ **Alpine's `x-model` listener and htmx's `change` trigger are NOT ordered** — measured
    in a headless browser, not assumed: the request that ENTERS a mode is serialized before
    the other control is disabled, so choosing a Nous topic sends `entity_type=` (blank), and

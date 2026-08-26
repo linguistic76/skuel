@@ -157,6 +157,7 @@ describe('adoptScope (capture phase)', () => {
       <div class="search-container">
         <select name="entity_type"><option value="task" selected>Tasks</option></select>
         <select name="nous"><option value="body" selected>Body</option></select>
+        <select name="nous_subtopic"><option value="nervous-system" selected>NS</option></select>
         <div class="context-filters">
           <select name="status"><option value="completed" selected>Completed</option></select>
           <select name="sel_category"><option value="self_awareness" selected>SA</option></select>
@@ -206,6 +207,28 @@ describe('adoptScope (capture phase)', () => {
     expect(document.querySelector('[name="status"]').disabled).toBe(true);
   });
 
+  it.each([
+    ['clearing the topic', 'nous', ''],
+    ['switching to another topic', 'nous', 'mind'],
+    ['adopting an activity scope', 'entity_type', 'task'],
+  ])('invalidates the dependent sub-topic when %s', (_label, control, value) => {
+    // The sub-topic column is SERVER-owned: /search/subtopics re-renders it, and
+    // that swap is a separate in-flight request. Until it lands the old value is
+    // still enabled and every other control's hx-include names it — so a slow
+    // connection would send a curriculum-only facet into an activity search.
+    // A new topic orphans the old sub-topic just as surely as clearing one does.
+    const component = skuel.make('searchFilters');
+    component.$root = mountScopeAndContext();
+    component.nousTopic = 'body';
+    document.querySelector('[name="' + control + '"]').value = value;
+
+    component.adoptScope(change(control));
+
+    const subtopic = document.querySelector('[name="nous_subtopic"]');
+    expect(subtopic.disabled).toBe(true);
+    expect(subtopic.value).toBe('');
+  });
+
   it('ignores a change on any control that is not a scope facet', () => {
     // EVERY control's change passes through the panel's capture listener, so
     // the handler must key on the two scope facets and touch nothing otherwise.
@@ -222,6 +245,7 @@ describe('adoptScope (capture phase)', () => {
 
     expect(component.entityType).toBe('');
     expect(document.querySelector('[name="status"]').disabled).toBe(false);
+    expect(document.querySelector('[name="nous_subtopic"]').value).toBe('nervous-system');
   });
 });
 

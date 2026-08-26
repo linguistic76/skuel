@@ -831,6 +831,22 @@
                     this.$root.querySelectorAll('.context-filters select').forEach(function(sel) {
                         sel.disabled = !self.isFilterVisible(sel.name);
                     });
+
+                    // The dependent sub-topic column is SERVER-owned — an HTMX
+                    // swap re-renders it gated on the chosen topic — and that
+                    // swap is a separate in-flight request. Until it lands the
+                    // old sub-topic is still enabled, and every OTHER control's
+                    // hx-include names it, so clearing Nous and immediately
+                    // typing a query would send a curriculum-only facet into an
+                    // activity search. Any scope change invalidates it: a new
+                    // topic orphans the old sub-topic just as surely as clearing
+                    // one does. The swap replaces this element outright, so
+                    // these writes only have to hold the window shut.
+                    var subtopic = this.$root.querySelector('[name="nous_subtopic"]');
+                    if (subtopic) {
+                        subtopic.value = '';
+                        subtopic.disabled = true;
+                    }
                 },
 
                 isFilterVisible: function(group) {
