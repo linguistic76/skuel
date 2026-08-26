@@ -28,12 +28,25 @@ scope on the curriculum corpus.
 - **Cross-domain merge in the service layer.** Both `:Ku` and `:PathStep` author
   `nous_subtopic` independently, so a PathStep can contribute a pair no Ku carries. Each
   domain backend yields only its OWN label's pairs (`KuBackend`/`PsBackend.nous_subtopic_pairs`,
-  scoped `:Ku` / `:PathStep`); `SearchRouter.nous_subtopic_map` +
-  `SearchRouter.list_nous_subtopics` merge them. Aggregation lives in the service
-  (SearchRouter is THE cross-domain search service), never in a single-domain backend.
-  The flat list and the map share this one source, so they can't disagree — the flat
-  list stays a superset of every scoped map, and the /search column renders whenever the
-  map has any entry (even a PathStep-only sub-topic corpus).
+  scoped `:Ku` / `:PathStep`); `SearchRouter._nous_subtopic_pairs` merges them, and
+  `nous_subtopic_map` + `list_nous_subtopics` both derive from that one merge.
+  Aggregation lives in the service (SearchRouter is THE cross-domain search service),
+  never in a single-domain backend. The flat list and the map share this one source, so
+  they can't disagree — the flat list stays a superset of every map built at the SAME
+  scope, and the column renders whenever that map has an entry.
+- **The merge is SCOPED to the calling surface's result set** (`scope` on
+  `_nous_subtopic_pairs`, forwarded by both wrappers; default `CURRICULUM_FACET_DOMAINS`
+  = the merged `:Ku` + `:PathStep` vocabulary). A surface that does not RETURN a domain
+  must not offer that domain's pairs — the option could never match. `/explore/library`
+  and the Askesis composer keep the merged default (the library's catalog carries both;
+  Askesis scopes `:ContentChunk` passages, and lesson bodies live on PathSteps).
+  `/search` passes `SEARCH_PAGE_FACET_DOMAINS` — derived as the intersection of the
+  merged pair with `SEARCH_PAGE_ENTITY_TYPES`, so the facet scope cannot drift from the
+  result scope; today that is `:Ku` alone. ⚠ A surface must pass the SAME scope to both
+  wrappers: the flat list gates whether the column exists, the map supplies its options,
+  and a mismatch renders a column with nothing to offer (gate wider) or hides one whose
+  map has entries (gate narrower). See `docs/roadmap/deferred-work.md` § "`/search` Facet
+  Redesign" consequence 1.
 - **Fail-soft:** with no authored data the vocabulary is empty, so the search `<select>`
   (`ui/search/components.py::_render_nous_subtopic_select`) and the Askesis scope
   selector (`ui/askesis/chat.py`) render nothing rather than an empty control. A failing
