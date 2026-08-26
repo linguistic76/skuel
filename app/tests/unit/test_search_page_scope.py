@@ -18,10 +18,18 @@ The type vocabulary lives in THREE sites — `SEARCH_PAGE_ENTITY_TYPES` here,
 `_ENTITY_TYPE_OPTIONS` (`ui/search/components.py`) and `entityTypeFilters`
 (`static/js/skuel.js`) — and each is derived from the scope rather than typed
 out again, so a fourth type cannot arrive in one site alone.
+
+Section 7 covers the third rung: knowledge mode. The four knowledge context
+filters lost their only door when Ku left the Type dropdown; the NOUS facet is
+the new one, and the two scope facets are mutually exclusive because their
+intersection is empty by construction. Both halves live in the MARKUP the
+Alpine component reads, so they are pinned here rather than in
+`tests/js/search-filters.test.js`, which sees no server-rendered HTML.
 """
 
 from __future__ import annotations
 
+import html
 import re
 from pathlib import Path
 from types import SimpleNamespace
@@ -44,7 +52,12 @@ from core.models.search_request import FacetCount, SearchRequest, SearchResponse
 from core.orchestrator.search_router import SearchRouter
 from core.utils.result_simplified import Result
 from ui.explore.cards import LIBRARY_DEFAULT_SORT
-from ui.search.components import _ENTITY_TYPE_OPTIONS, _render_domain_breakdown
+from ui.search.components import (
+    _ENTITY_TYPE_OPTIONS,
+    _render_context_filters,
+    _render_domain_breakdown,
+    _render_filter_panel,
+)
 
 # The types /search must never return. DERIVED from the router's searchable set
 # minus the page scope rather than typed out, so promoting a new domain to
@@ -382,17 +395,26 @@ SKUEL_JS = APP_ROOT / "static" / "js" / "skuel.js"
 # The `entityTypeFilters: { ... }` object literal, then its quoted keys. Read
 # from the real file: a hand-copied list here would be a FOURTH vocabulary site.
 _JS_MAP_RE = re.compile(r"entityTypeFilters:\s*\{(.*?)\n\s*\},", re.DOTALL)
-_JS_KEY_RE = re.compile(r"['\"](\w+)['\"]\s*:")
+_JS_KEY_RE = re.compile(r"['\"]([\w-]+)['\"]")
+_JS_ENTRY_RE = re.compile(r"['\"](\w+)['\"]\s*:\s*\[([^\]]*)\]")
+
+
+def _entity_type_filter_map() -> dict[str, list[str]]:
+    """searchFilters.entityTypeFilters, read out of skuel.js."""
+    source = re.sub(r"^\s*//.*$", "", SKUEL_JS.read_text(encoding="utf-8"), flags=re.MULTILINE)
+    body = _JS_MAP_RE.search(source)
+    assert body is not None, "entityTypeFilters literal not found in skuel.js"
+    mapping = {
+        key: _JS_KEY_RE.findall(groups) for key, groups in _JS_ENTRY_RE.findall(body.group(1))
+    }
+    assert mapping, "entityTypeFilters parsed to no keys — the regex has drifted"
+    assert all(mapping.values()), "an entityTypeFilters entry parsed to no groups"
+    return mapping
 
 
 def _entity_type_filter_keys() -> set[str]:
     """The keys of searchFilters.entityTypeFilters, read out of skuel.js."""
-    source = re.sub(r"^\s*//.*$", "", SKUEL_JS.read_text(encoding="utf-8"), flags=re.MULTILINE)
-    body = _JS_MAP_RE.search(source)
-    assert body is not None, "entityTypeFilters literal not found in skuel.js"
-    keys = set(_JS_KEY_RE.findall(body.group(1)))
-    assert keys, "entityTypeFilters parsed to no keys — the regex has drifted"
-    return keys
+    return set(_entity_type_filter_map())
 
 
 DROPDOWN_VALUES = [value for value, _ in _ENTITY_TYPE_OPTIONS if value]
@@ -462,3 +484,155 @@ class TestResultBreakdownChips:
 
         assert "setEntityType('ku')" not in markup
         assert "Ku 3" in markup
+
+
+# ============================================================================
+# 7. Knowledge mode — the NOUS facet is the door the Type dropdown closed
+# ============================================================================
+
+# Markers, not controls: no context column is named either (skuel.js says so —
+# these tests are what make that comment checkable).
+_FILTER_GROUP_MARKERS = {"common", "knowledge"}
+
+_SELECT_RE = re.compile(r'<select\b[^>]*\bname="(\w+)"[^>]*>')
+_VISIBILITY_GROUP_RE = re.compile(r"isFilterVisible\('(\w+)'\)")
+_TITLE_RE = re.compile(r"""x-bind:title=(?P<q>["'])(?P<expr>.*?)(?P=q)""", re.DOTALL)
+
+
+def _filter_panel_markup() -> str:
+    """The rendered /search filter panel, exactly as it is served."""
+    _, _, panel = _render_filter_panel(["body"], ["nervous-system"], ["breath"])
+    return to_xml(panel)
+
+
+def _select_tag(markup: str, name: str) -> str:
+    """The opening ``<select name="...">`` tag, with its attributes."""
+    for tag in _SELECT_RE.finditer(markup):
+        if tag.group(1) == name:
+            return tag.group(0)
+    raise AssertionError(f'no <select name="{name}"> in the filter panel')
+
+
+def _title_expression(select_tag: str) -> str:
+    """The Alpine expression behind ``x-bind:title`` on one control.
+
+    Decoded: FastHTML picks the attribute delimiter from the value, so an
+    expression carrying both quote styles comes back with ``&#39;`` in it —
+    the browser hands Alpine the decoded form, which is what to assert on.
+    """
+    match = _TITLE_RE.search(select_tag)
+    assert match is not None, f"no x-bind:title on {select_tag[:60]}…"
+    return html.unescape(match.group("expr"))
+
+
+def _rendered_visibility_groups() -> set[str]:
+    """Every group name the Tier 2 context row keys a column to."""
+    groups = set(_VISIBILITY_GROUP_RE.findall(to_xml(_render_context_filters())))
+    assert groups, "no isFilterVisible() columns rendered — the regex has drifted"
+    return groups
+
+
+def _js_groups(*keys: str) -> set[str]:
+    """Filter groups the JS map names for the given entity types, markers dropped."""
+    mapping = _entity_type_filter_map()
+    named = {group for key in keys for group in mapping[key]}
+    return named - _FILTER_GROUP_MARKERS
+
+
+class TestKnowledgeMode:
+    """The NOUS facet drives the four knowledge filters, since Ku left the dropdown."""
+
+    def test_the_nous_select_is_bound_to_the_component(self) -> None:
+        # Without x-model the component never learns a topic was chosen, and
+        # knowledge mode is a getter over state nothing writes.
+        assert 'x-model="nousTopic"' in _select_tag(_filter_panel_markup(), "nous")
+
+    def test_the_knowledge_columns_are_exactly_the_groups_the_ku_entry_names(self) -> None:
+        # Derived from skuel.js, not typed out: the 'ku' entry IS the mapping
+        # knowledge mode reads, so a group added on one side alone fails here.
+        knowledge_groups = _js_groups(EntityType.KU.value)
+
+        assert knowledge_groups <= _rendered_visibility_groups()
+        assert knowledge_groups == {
+            "sel_category",
+            "learning_level",
+            "content_type",
+            "educational_level",
+        }
+
+    def test_every_context_column_is_named_by_the_js_map_and_vice_versa(self) -> None:
+        # The server renders the columns; the JS map decides which are visible.
+        # A column named by neither side is dead markup; a group named only in
+        # JS reveals nothing. Both are silent failures, so pin the equality.
+        assert _rendered_visibility_groups() == _js_groups(*_entity_type_filter_map())
+
+    def test_the_marker_groups_name_no_column(self) -> None:
+        assert not _rendered_visibility_groups() & _FILTER_GROUP_MARKERS
+
+
+class TestOutOfScopeContextFilters:
+    """A hidden context filter must not ride the request (Codex, #1157)."""
+
+    def test_every_context_column_is_disabled_while_it_is_hidden(self) -> None:
+        # `hx-include` names every filter on the page, so hiding a control with
+        # x-show alone leaves it submitting. Same predicate for both, so the two
+        # cannot disagree: shown == enabled.
+        markup = to_xml(_render_context_filters())
+
+        for group in _rendered_visibility_groups():
+            assert f"x-bind:disabled=\"!isFilterVisible('{group}')\"" in markup
+
+    def test_the_panel_adopts_a_scope_change_in_the_capture_phase(self) -> None:
+        # Capture beats the changed control's own htmx listener by spec; the
+        # bubble-phase tally then counts what the request will actually carry.
+        # Bubble-only would serialize the vacated scope's filters one last time.
+        markup = _filter_panel_markup()
+
+        assert 'x-on:change.capture="adoptScope($event)"' in markup
+        assert 'x-on:change="updateFilterCount()"' in markup
+
+
+class TestMutuallyExclusiveScopeFacets:
+    """Type and Nous cannot both be set: their intersection is empty by construction."""
+
+    def test_a_chosen_nous_topic_disables_the_type_control(self) -> None:
+        assert 'x-bind:disabled="isKnowledgeMode"' in _select_tag(
+            _filter_panel_markup(), "entity_type"
+        )
+
+    def test_a_chosen_type_disables_the_nous_control(self) -> None:
+        assert "x-bind:disabled=\"entityType !== ''\"" in _select_tag(
+            _filter_panel_markup(), "nous"
+        )
+
+    def test_each_disabled_control_says_which_one_to_clear(self) -> None:
+        # A greyed control with no explanation is the silent dead end this arc
+        # refuses elsewhere; the hint only exists while the control is disabled
+        # (Alpine removes an attribute bound to false).
+        markup = _filter_panel_markup()
+
+        type_title = _select_tag(markup, "entity_type")
+        assert "x-bind:title=" in type_title
+        assert "All Nous" in type_title
+
+        nous_title = _select_tag(markup, "nous")
+        assert "x-bind:title=" in nous_title
+        assert "All Types" in nous_title
+
+    def test_the_hint_is_absent_while_the_control_is_usable(self) -> None:
+        # `false`, not `''` — Alpine REMOVES an attribute bound to false, so an
+        # enabled select carries no title at all rather than an empty one.
+        markup = _filter_panel_markup()
+
+        for name in ("entity_type", "nous"):
+            hint = _title_expression(_select_tag(markup, name))
+            assert hint.endswith(" : false"), hint
+
+    def test_the_two_scope_facets_still_include_each_other(self) -> None:
+        # hx-include keeps naming both — the exclusion is `disabled` (htmx skips
+        # disabled elements), not a narrowed include set, so nothing has to stay
+        # in sync when the other control is re-enabled.
+        markup = _filter_panel_markup()
+
+        assert "[name='nous']" in _select_tag(markup, "entity_type")
+        assert "[name='entity_type']" in _select_tag(markup, "nous")

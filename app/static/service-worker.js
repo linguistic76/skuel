@@ -5,6 +5,14 @@
  * cache-first for static assets (CSS, JS, vendor libs).
  */
 
+// Bumped v10 -> v11 for skuel.js: searchFilters now tracks the NOUS topic and
+// drives a knowledge mode from it, which is what makes the four knowledge
+// context filters reachable again after the Type dropdown lost its Ku option.
+// A client serving the v10 bundle would pair the new markup (the Nous select's
+// x-model / x-bind:disabled, the panel's x-on:change.capture) with a component
+// that has neither `nousTopic` nor `adoptScope` — an Alpine expression error, a
+// Type control disabled by nothing, and every context filter (plus a stale
+// sub-topic) still riding requests it no longer belongs to.
 // Bumped v9 -> v10 for skuel.js: the /search Type dropdown is now the 6 Activity
 // Domains, and searchFilters' entityTypeFilters map dropped path_step,
 // learning_path and user_entry to match. A client serving the v9 bundle would
@@ -37,7 +45,7 @@
 // (The SW now registers correctly via the dedicated /service-worker.js route in
 // adapters/inbound/pwa_routes.py — the former catch-all 404 shadowing is fixed;
 // TECHNICAL_DEBT.md item 11's cache-invalidation half remains this manual bump.)
-const CACHE_VERSION = 'skuel-v10';
+const CACHE_VERSION = 'skuel-v11';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 

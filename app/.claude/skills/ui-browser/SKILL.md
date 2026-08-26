@@ -88,6 +88,30 @@ HTMX extends HTML by giving every element access to the full HTTP protocol.
 <button hx-post="/action" hx-vals="js:{timestamp: Date.now()}">Action</button>
 ```
 
+⚠️ **`x-show` hides a control; it does not withhold it.** An `hx-include` that
+names a field keeps sending it while Alpine has it hidden, so a filter the user
+cannot see still narrows (or empties) every result set. htmx skips **disabled**
+elements, so drive both from ONE predicate — hidden and withheld stay in step:
+
+```python
+_filter_select(name, options, attrs={"x-bind:disabled": f"!isFilterVisible('{name}')"})
+# ... on the same wrapper: x_show=f"isFilterVisible('{name}')"
+```
+
+Disable rather than clear when the value should come back with its scope; clear
+only when it should not. And note the binding lands **one request late**: Alpine
+flushes effects a frame after the synchronous `change` handlers, so the request
+that triggers the switch still carries the old value. When that matters, apply
+the same predicate imperatively from an `x-on:change.capture` handler on a
+common ancestor — capture beats the changed control's own htmx listener by spec,
+which is the only ordering guarantee when both listeners sit on the target.
+
+A **dependent** control that another request re-renders (the classic
+parent-select → child-select swap) has the same problem on a longer clock: it is
+stale from the moment its INPUT changes, not from the moment its response lands,
+and every other control keeps including it meanwhile. Invalidate it where the
+parent changes rather than waiting for the swap.
+
 ### 3. HTTP Verbs
 
 ```html
@@ -206,7 +230,7 @@ Named Alpine components live in a `/static/js/` bundle, never inline in a templa
 
 | Component | Purpose | Key State |
 |-----------|---------|-----------|
-| `searchFilters()` | Search filter bar (nous/subtopic faucets, Ask href) | `entityType`, `showAdvanced` |
+| `searchFilters()` | Search filter bar — two mutually exclusive scope facets (Type / Nous), subtopic faucet, Ask href | `entityType`, `nousTopic`, `showAdvanced` |
 | `calendarLegend` | Calendar legend type filters (toggle hide/show + hover spotlight, localStorage) | `hidden`, `spotlight` |
 | `collapsible(initial)` | Expand/collapse | `expanded` |
 | `chartVis(url, type)` | Chart.js | `chart`, `loading`, `error` |

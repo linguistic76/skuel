@@ -259,15 +259,22 @@ invariant and the two read surfaces over it).
    by `build_search_visibility_clause()`
 4. Returns results sorted by the domain's `search_order_by`
 
-**UI Mapping:** the Type dropdown alone — the **6 Activity Domains**, since the
-facet redesign — or Type + its per-type context filters (status, priority,
-frequency, event type, urgency, strength). ⚠️ The four *knowledge* context
-filters (SEL category, learning level, content type, educational level) are NOT
-reachable from this control: they were revealed only by the removed "Knowledge
-Units" option, and the Nous-driven knowledge mode that re-homes them is the
-facet redesign's next rung. Until it lands they are rendered but unreachable —
-an accepted one-PR cost, recorded in `docs/roadmap/deferred-work.md`
-§ "`/search` Facet Redesign" consequence 3.
+**UI Mapping:** `/search` carries **two scope facets**, and they are mutually
+exclusive. **Type** — the **6 Activity Domains**, since the facet redesign —
+optionally with its per-type context filters (status, priority, frequency, event
+type, urgency, strength). **Nous** — the topic vocabulary, which puts the page in
+*knowledge mode* and reveals the four knowledge context filters (SEL category,
+learning level, content type, educational level). Nous is how Ku is reached now
+that it has no Type option.
+
+⚠️ The exclusivity is a property of the query, not a UI preference: `nous` is an
+array property only curriculum nodes carry, and the faceted sweep applies it as a
+WHERE clause to *every* swept domain, so `Type=Task, Nous=body` returns zero rows
+by construction. The markup enforces it by disabling whichever control is not in
+use (`x-bind:disabled`); htmx omits disabled elements from a request, so the
+unused scope is absent rather than blank. See `ui/search/components.py`
+§ *Mutually exclusive scope facets* and `searchFilters.isKnowledgeMode` in
+`static/js/skuel.js`.
 
 ```python
 request = SearchRequest(

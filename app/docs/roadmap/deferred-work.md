@@ -450,15 +450,15 @@ INVERTED").
 
 **Built so far:** the result scope — `/search` returns the 6 Activity Domains + Ku and
 nothing else (`SEARCH_PAGE_ENTITY_TYPES` / `scope_to_search_page` in
-`adapters/inbound/search_routes.py`, PR #1155) — and the primary facet control: the Type
+`adapters/inbound/search_routes.py`, PR #1155); the primary facet control: the Type
 dropdown is the 6 Activity Domains, `entityTypeFilters` in `static/js/skuel.js` dropped
 `path_step`/`learning_path`/`user_entry`, and the three vocabulary sites now derive from
-each other in `tests/unit/test_search_page_scope.py` (PR #1156). **Still to come:** the
-Nous-driven knowledge mode — which is what makes the four knowledge filters reachable
-again (consequence 3 below; they are unreachable in the meantime, ruled and costed there)
-— Ku-only facet vocabularies (consequence 1 below — until it lands, a PathStep-only tag or
-sub-topic is selectable on `/search` and guaranteed to return zero), and the close-out that
-marks this section ✅ RESOLVED.
+each other in `tests/unit/test_search_page_scope.py` (PR #1156); and **knowledge mode** —
+the Nous facet drives the four knowledge filters, closing the one-PR gap consequence 3
+costed, and the two scope facets are ruled mutually exclusive (see *Type + Nous* below,
+PR #1157). **Still to come:** Ku-only facet vocabularies (consequence 1 below — until it
+lands, a PathStep-only tag or sub-topic is selectable on `/search` and guaranteed to
+return zero), and the close-out that marks this section ✅ RESOLVED.
 
 **The design.** `/search` becomes one surface with one job — *your lived activity, plus the
 knowledge behind it*:
@@ -524,7 +524,63 @@ leaving the gap unnamed. If it does join:
    ever across both `faceted` surfaces). Building the profile-side search is the follow-on
    this ruling owes; when Reports gains a search box, the **EntryReport / ActivityReport
    Search** section above has had its trigger fired and is scoped with it.
-3. **The Nous facet keeps its name.** "Nous → Ku" was considered and rejected: NOUS is the
+3. **Type + Nous are MUTUALLY EXCLUSIVE — ✅ RULED 2026-08-25, built in PR #1157.** The
+   design gave `/search` two scope facets and did not say what setting both means. It
+   means nothing: `nous` is an array property only curriculum nodes carry, and the faceted
+   sweep applies every property filter as a WHERE clause to *every* swept domain
+   (`_search_raw_mixin`: `$filter_nous IN entity.nous`), so `Type=Task, Nous=body` returns
+   zero rows **by construction, for all six types** — the same "facet guaranteed to return
+   zero" class consequence 1 refuses. The ruling is to make the impossible state
+   unreachable rather than to let it return an empty page: whichever control is not in use
+   is `disabled`, with a `title` naming the one to clear. htmx omits disabled elements from
+   a request (`shouldInclude`), so the unused scope is **absent** from the query string
+   rather than sent blank.
+
+   ⚠️ **The same fact is why knowledge mode is honest rather than cosmetic**: a Nous topic
+   narrows the result set to Ku on its own, which is what makes "Ku is reached through the
+   Nous facet" true of the query and not just of the UI.
+
+   ⚠️ **Two scopes made a pre-existing leak load-bearing: a HIDDEN context filter was still
+   submitted.** `hx-include` names every filter on the page, and `x-show` only hides, so a
+   `sel_category` chosen in knowledge mode stayed live after the user switched to
+   `Type=Task` — a WHERE clause on a property Tasks do not carry, i.e. guaranteed zero.
+   (The `Type → All Types` half of this predates the redesign; the cross-scope half is new,
+   and worse, because it cannot match rather than merely narrowing.) ✅ Fixed in PR #1157
+   with the same mechanism: a context column is `disabled` exactly while it is hidden, one
+   predicate for both. **Disabled, not cleared** — returning to that scope restores the
+   filter visibly instead of silently discarding what the user chose; `updateFilterCount`
+   skips disabled controls so the badge counts only what the request carries.
+
+   ⚠️ **The declarative binding alone is one request too late.** Alpine's effects flush a
+   frame after the synchronous change handlers, so the request that CLEARS a scope still
+   carried that scope's filters — measured, and it made the results stay knowledge-only
+   after the knowledge scope was gone. `searchFilters.adoptScope`, bound
+   `x-on:change.capture` on the panel, applies the same predicate imperatively for that one
+   event: the capture phase on an ancestor beats the changed control's own htmx listener by
+   spec, which is the only ordering guarantee available when both listeners sit on the
+   target. (Raised by Codex on #1157.)
+
+   ⚠️ **A SERVER-owned dependent control has its own window, and it is longer.** The
+   sub-topic column is re-rendered by an HTMX swap (`/search/subtopics`), so it stays
+   enabled with its old value until that separate request returns — and every OTHER
+   control's `hx-include` names it. Clearing Nous and picking a Type before the swap landed
+   sent `nous_subtopic` into an activity search: a curriculum-only facet, guaranteed zero.
+   Reproduced in a browser by letting the swap never land. `adoptScope` therefore clears
+   and disables it on ANY scope change — a *new* topic orphans the old sub-topic just as
+   surely as clearing one does — and the swap replaces the element outright, so those
+   writes only have to hold the window shut. **The lesson generalises: a control whose
+   state arrives asynchronously is stale from the moment its input changes, not from the
+   moment its response lands.** (Raised by Codex on #1157, second round.)
+
+   ⚠️ **Alpine's `x-model` listener and htmx's `change` trigger are NOT ordered** — measured
+   in a headless browser, not assumed: the request that ENTERS a mode is serialized before
+   the other control is disabled, so choosing a Nous topic sends `entity_type=` (blank), and
+   only the next request omits it. Harmless, because a mode is only ever entered from the
+   both-empty state (`search_page` seeds no filter values) and blank is dropped at
+   `from_form_params`. What `disabled` prevents is the control that could carry a
+   CONFLICTING value ever being reachable — it was disabled by the PREVIOUS interaction.
+
+4. **The Nous facet keeps its name.** "Nous → Ku" was considered and rejected: NOUS is the
    official *grouping* of Kus (the magazine metaphor; `Heading: H3` anchors), a vault-derived
    vocabulary — not an entity-type label, which is what the rename would make it. ⚠️ The
    rename would ALSO have been false while PathStep remained: `nous` is a property on **both**
@@ -560,16 +616,26 @@ heading is one more summary to go stale.)
    `scope_to_search_page` in `adapters/inbound/search_routes.py`, stated at the `/search`
    entry point so `/explore` and `/explore/library` keep the shared sweep default.
 
-3. **Removing the Ku *option* strands four knowledge filters — ✅ RULED, and it HAPPENED
-   in PR #1156.** `static/js/skuel.js`'s `entityTypeFilters` (the map this section once
-   called `FILTER_MAP`) reveals SEL Category, Learning Level, Content Type and Educational
-   Level only when `entityType == 'ku'`, and `showContextFilters` requires
-   `entityType !== ''`. Selecting a Nous topic does **not** set `entityType`. So the moment
+3. **Removing the Ku *option* stranded four knowledge filters — ✅ CLOSED in PR #1157;
+   it HAPPENED in PR #1156 exactly as costed.** `static/js/skuel.js`'s `entityTypeFilters`
+   (the map this section once called `FILTER_MAP`) revealed SEL Category, Learning Level,
+   Content Type and Educational Level only when `entityType == 'ku'`, and `showContextFilters` requires
+   `entityType !== ''`. Selecting a Nous topic did **not** set `entityType`. So the moment
    Ku stopped being a Type choice, those four controls became unreachable — silently, with
-   no error and nothing removed from the markup. **R3 is the ruling: make them visible in
-   the new knowledge mode, do not remove them.** That mode is the next rung, so the four
-   are unreachable for exactly one PR — an accepted, named cost on a surface with ~8
-   genuine queries ever, not an oversight.
+   no error and nothing removed from the markup. **R3 was the ruling: make them visible in
+   the new knowledge mode, do not remove them.** The four were unreachable for exactly one
+   PR — an accepted, named cost on a surface with ~8 genuine queries ever, not an
+   oversight. PR #1157 closed it: `searchFilters` now tracks the Nous topic (`nousTopic`,
+   `x-model` on the Nous select, mirroring the Type select), `isKnowledgeMode` is true
+   while one is chosen, `showContextFilters` opens for **either** scope facet, and
+   `isFilterVisible` reveals the knowledge groups from the `'ku'` map entry.
+
+   ⚠️ **Verified in a real browser, not only in unit tests** — and the harness matters:
+   `x-show` flips `display` inside a `requestAnimationFrame` callback, so a headless run
+   with `--virtual-time-budget` (which starves rAF) reads every transition ONE INTERACTION
+   STALE. That first run reported the knowledge columns hidden in knowledge mode and
+   visible in activity mode — the exact opposite of the truth, and green-looking enough to
+   act on. Drop the virtual clock and let the page report over the wire instead.
 
    ⚠️ **The tempting mitigation does not work, and was checked rather than assumed.**
    Keeping the `'ku'` key in `entityTypeFilters` does NOT keep those filters reachable:
@@ -579,7 +645,12 @@ heading is one more summary to go stale.)
    kept anyway, for the reason that survives inspection: it is the MAPPING the knowledge-
    mode predicate is built from (which four groups are the knowledge ones), and Ku is
    still a live result type, so the key names something real. That is the one deliberate
-   divergence between the three vocabulary sites, and it is one PR long.
+   divergence between the three vocabulary sites, and it is now PERMANENT: `'ku'` is a
+   filter-group entry, never a dropdown value, read through
+   `searchFilters.knowledgeFilterGroups`. `tests/unit/test_search_page_scope.py` § 7 makes
+   that checkable in both directions — every group the JS map names renders a context
+   column, and every rendered column is named by the map — so the four knowledge columns
+   and the `'ku'` entry cannot drift apart.
 
    ⚠️ `entityTypeFilters` is a **third site encoding the type vocabulary** (after
    `_ENTITY_TYPE_OPTIONS` and the sweep allowlist). PR #1156 stopped that from being a
@@ -1955,7 +2026,7 @@ Review this document at the **September 2026 quarterly review**. Checklist:
 | Principles `_validate_update` reform or deletion | Next substantive touch of the Principles update path | Ruling needed — see the section's landmine note |
 | EntryReport / ActivityReport search | A teacher workflow wants direct report-content search | Product need (not a data threshold) |
 | Domain-level fulltext-first text search (D1(b)) — ruled DEFERRED **twice** (2026-08-16, 2026-08-25) | A consumer wants relevance ranking for the domains remaining on `/search` after the facet redesign — the 6 Activity Domains + Ku, which is now the whole surface | ⚠️ scope INVERTED, do not scope from the bullet list; the OWNER_ONLY edge-vs-property "ruling needed" is STALE — already closed, do not re-open. Product need (not a data threshold); read the section's two rulings first |
-| `/search` facet redesign — ruled 2026-08-25, **being built** (result scope + primary facet control landed, PRs #1155/#1156) | Already scheduled; this row stays only until the section is marked ✅ RESOLVED | Read the section — do not scope from this row. Every ruling it once listed as needed is now made and recorded there |
+| `/search` facet redesign — ruled 2026-08-25, **being built** (result scope, primary facet control and knowledge mode landed, PRs #1155/#1156/#1157) | Already scheduled; this row stays only until the section is marked ✅ RESOLVED | Read the section — do not scope from this row. Every ruling it once listed as needed is now made and recorded there |
 | ZPD snapshot history & trend analysis | A ZPD-over-time consumer exists | Product need + `MATCH (h:ZPDHistory) RETURN count(h)` for accrual |
 | Habit rows in the weekly-note panel | Lived weekly-review use wants the backward look | Product need (not a data threshold) |
 | Non-positive-duration follow-ups (habit `0m` on `/today` / proposes `15`) | Next touch of either surface | Ride-along, not standalone |

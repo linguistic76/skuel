@@ -17,6 +17,7 @@ toggle, active-filter count, Ask href) and static/css/search.css (layout hooks:
 Keep class names and ``name=`` attributes in sync with both.
 """
 
+import json
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any
 
@@ -222,6 +223,7 @@ def _filter_select(
     options: list[tuple[str, str]],
     *,
     exclude: tuple[str, ...] | None = None,
+    attrs: dict[str, Any] | None = None,  # boundary: fasthtml-elements
     **extra: Any,
 ) -> Any:
     """One faceted-search dropdown: changing it re-runs /search/results.
@@ -229,6 +231,11 @@ def _filter_select(
     HTMX serializes the triggering control itself, so ``hx-include`` carries
     every OTHER filter (``exclude`` defaults to the control's own name — pass a
     wider tuple to also drop dependents, e.g. nous drops nous_subtopic).
+
+    ``attrs`` carries hyphenated attributes (``x-bind:disabled``) that cannot be
+    spelled as keywords; a bare ``**{...}`` would instead be read as a candidate
+    for ``exclude``, and ``Select``'s own typed keywords (``disabled: bool``)
+    reject a narrower value type — hence the FastHTML-boundary ``Any``.
     """
     return Select(
         *[Option(label, value=value) for value, label in options],
@@ -238,6 +245,7 @@ def _filter_select(
         hx_trigger="change",
         hx_target="#search-results",
         hx_include=_get_hx_include(*(exclude if exclude is not None else (name,))),
+        **(attrs or {}),
         **extra,
     )
 
@@ -405,6 +413,10 @@ def _render_filter_panel(
         cls="search-filters",
         **{
             ":class": "{ 'is-open': filtersOpen }",
+            # Capture phase: adoptScope must land before the changed control's
+            # OWN htmx listener serializes the request, and before the
+            # bubble-phase tally below. See searchFilters.adoptScope.
+            "x-on:change.capture": "adoptScope($event)",
             "x-on:change": "updateFilterCount()",
             "x-on:htmx:after-swap": "updateFilterCount()",
         },
@@ -446,16 +458,88 @@ _ENTITY_TYPE_OPTIONS = [
 ]
 
 
+# ---------------------------------------------------------------------------
+# Mutually exclusive scope facets
+# ---------------------------------------------------------------------------
+_TYPE_SELECTED = "entityType !== ''"
+_TYPE_DISABLED_HINT = (
+    "Nous searches knowledge, which carries no activity type — "
+    "set Nous to “All Nous” to filter by type"
+)
+_NOUS_DISABLED_HINT = (
+    "A type filter searches your activity, which carries no Nous — "
+    "set Type to “All Types” to filter by Nous"
+)
+
+# `/search` carries TWO scope facets and only one may be active at a time.
+#
+# Type narrows to an Activity Domain; Nous narrows to a knowledge topic. Their
+# INTERSECTION IS EMPTY BY CONSTRUCTION, not by data: `nous` is an array property
+# only curriculum nodes carry, and the faceted sweep applies it as a WHERE clause
+# to every swept domain, so `Type=Task, Nous=body` can only ever return zero rows
+# — a facet guaranteed to return nothing, the defect class the redesign refuses
+# elsewhere (deferred-work.md § "`/search` Facet Redesign", consequence 1).
+#
+# The mechanism is `disabled`, not clearing the other control, because it makes
+# the impossible state UNREACHABLE rather than merely corrected: htmx omits
+# disabled elements from a request (`shouldInclude`), so the unused scope is
+# absent from the query string rather than sent blank. Same idiom as the
+# sub-topic column's "Choose a Nous first" gate.
+#
+# ⚠️ Alpine's x-model listener and htmx's change trigger are NOT ordered, and
+# the request that ENTERS a mode is serialized before the other control is
+# disabled — measured in a headless browser, not assumed: choosing a NOUS topic
+# sends `entity_type=` (blank, still enabled), and only the next request omits
+# it. That is harmless by construction, because a mode is only ever entered from
+# the both-empty state (`search_page` seeds no filter values), and blank is
+# dropped at `SearchRequest.from_form_params`. What the disabled attribute
+# prevents is the control that could carry a CONFLICTING value ever being
+# reachable — it was disabled by the PREVIOUS interaction, with a full frame to
+# settle.
+
+
+def _hint_when(condition: str, hint: str) -> str:
+    """An Alpine expression yielding ``hint`` while ``condition`` holds, else nothing.
+
+    ``false`` rather than ``''``: Alpine REMOVES an attribute bound to
+    false/null (``x-bind`` → ``removeAttribute``), so the enabled control carries
+    no empty ``title``. ``json.dumps`` renders the hint as a JS string literal so
+    an apostrophe in the copy cannot terminate it.
+    """
+    return f"{condition} ? {json.dumps(hint, ensure_ascii=False)} : false"
+
+
 def _render_entity_type_select() -> Any:
-    """Entity Type dropdown for the primary filter row."""
-    return _filter_select("entity_type", _ENTITY_TYPE_OPTIONS, x_model="entityType")
+    """Entity Type dropdown for the primary filter row.
+
+    Disabled in knowledge mode (a NOUS topic is chosen) — see the
+    *Mutually exclusive scope facets* comment above.
+    """
+    return _filter_select(
+        "entity_type",
+        _ENTITY_TYPE_OPTIONS,
+        x_model="entityType",
+        attrs={
+            "x-bind:disabled": "isKnowledgeMode",
+            "x-bind:title": _hint_when("isKnowledgeMode", _TYPE_DISABLED_HINT),
+        },
+    )
 
 
 def _render_nous_select(nous_topics: list[str]) -> Any:
-    """NOUS topic dropdown for Tier 1 filter bar.
+    """NOUS topic dropdown for Tier 1 filter bar — and `/search`'s door to Ku.
 
     Options are DERIVED from the graph (KuService.list_nous_topics), never
     hardcoded — the facet cannot drift from the vault vocabulary.
+
+    Choosing a topic puts the page in KNOWLEDGE MODE: it is a scope, not a hint.
+    Only curriculum nodes carry a `nous` property, so the facet's own WHERE
+    clause narrows the result set to Ku — which is why Ku left the Type dropdown
+    and is reached here instead, and why the four knowledge context filters
+    (SEL Category, Learning Level, Content Type, Educational Level) become
+    visible from this control rather than from a type choice
+    (`searchFilters.isKnowledgeMode` in static/js/skuel.js). Disabled while a
+    Type is selected — see the *Mutually exclusive scope facets* comment block.
 
     Changing NOUS fires TWO concurrent HTMX requests: this select re-runs
     ``/search/results`` AND the dependent sub-topic column re-fetches
@@ -465,7 +549,16 @@ def _render_nous_select(nous_topics: list[str]) -> Any:
     rather than carry a now-orphaned sub-topic value while the column resets.
     """
     options = [("", "All Nous")] + [(topic, topic.title()) for topic in nous_topics]
-    return _filter_select("nous", options, exclude=("nous", "nous_subtopic"))
+    return _filter_select(
+        "nous",
+        options,
+        exclude=("nous", "nous_subtopic"),
+        x_model="nousTopic",
+        attrs={
+            "x-bind:disabled": _TYPE_SELECTED,
+            "x-bind:title": _hint_when(_TYPE_SELECTED, _NOUS_DISABLED_HINT),
+        },
+    )
 
 
 NOUS_SUBTOPIC_COLUMN_ID = "nous-subtopic-column"
@@ -656,10 +749,20 @@ def _educational_level_options() -> list[tuple[str, str]]:
 
 
 def _context_field(name: str, label_text: str, options: list[tuple[str, str]]) -> Div:
-    """One Tier 2 context filter: label + select, visible per Alpine filter group."""
+    """One Tier 2 context filter: label + select, visible per Alpine filter group.
+
+    Disabled whenever it is hidden, and for the same reason the scope facets
+    disable each other: ``hx-include`` names every filter on the page, so a
+    control the user cannot see still rides every request. Hidden-but-live is
+    how a `sel_category` chosen in knowledge mode ends up as a WHERE clause on a
+    Task search — guaranteed zero rows, the defect class this surface refuses.
+    htmx omits disabled elements, so hiding and withholding stay in step. The
+    value is KEPT, not cleared: returning to that scope restores the filter
+    visibly, rather than silently dropping what the user chose. (Codex, #1157.)
+    """
     return Div(
         Label(label_text, fr=name, cls="block py-0.5"),
-        _filter_select(name, options),
+        _filter_select(name, options, attrs={"x-bind:disabled": f"!isFilterVisible('{name}')"}),
         cls="space-y-2 min-w-[140px]",
         x_show=f"isFilterVisible('{name}')",
         **{"x-transition": True},
@@ -668,10 +771,13 @@ def _context_field(name: str, label_text: str, options: list[tuple[str, str]]) -
 
 def _render_context_filters() -> Div:
     """
-    Render Tier 2: Context filters based on entity type selection.
+    Render Tier 2: Context filters, keyed to whichever scope facet is active.
 
-    Shows different filters depending on whether Activity or Curriculum domain
-    (Alpine ``isFilterVisible`` keys each column to the selected entity type).
+    Alpine ``isFilterVisible`` reveals each column: the activity columns from a
+    Type choice, the four knowledge columns from a NOUS topic (knowledge mode).
+    The two are mutually exclusive (see the *Mutually exclusive scope facets*
+    comment block), so at most one group is ever on screen, and the header names
+    (``contextFilterLabel``).
     """
     fields = [
         # Common Filters (Activity domains)
