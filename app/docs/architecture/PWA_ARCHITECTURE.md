@@ -67,9 +67,12 @@ Browser / Installed PWA
 ### Cache Names
 
 ```javascript
-const CACHE_VERSION = 'skuel-v1';       // Bump to bust all caches on deploy
-const STATIC_CACHE = 'skuel-v1-static'; // Pre-cached + static assets
-const RUNTIME_CACHE = 'skuel-v1-runtime'; // Network-first cached responses
+// One constant to bump; the other two DERIVE from it. The live value is in
+// static/service-worker.js — deliberately not repeated here, since a version
+// transcribed into a doc goes stale on the next bump.
+const CACHE_VERSION = 'skuel-vN';                    // Bump to bust all caches
+const STATIC_CACHE = `${CACHE_VERSION}-static`;      // Pre-cached + static assets
+const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;    // Network-first responses
 ```
 
 ### Pre-cached Assets

@@ -83,9 +83,9 @@ requested AND user-scoped — an explicit `entity_types` filter routes through t
 OWNS-scoped `graph_aware_faceted_search()` path, and a multi-type filter sweeps it
 owner-scoped (`search_domains` threads `user_uid`; each domain's `SearchVisibility`
 declaration decides what the uid means — see next section). ⚠️ The `/search` page
-is no longer such a caller: UserEntry is off its result scope (below), so the
-"My Entries" dropdown option no longer reaches entries and is removed with the
-rest of the facet redesign.
+is no longer such a caller: UserEntry is off its result scope (below), and the
+"My Entries" dropdown option is gone with it — entries are searched where they
+live, on the profile hub, once that search is built.
 
 ```python
 _SEARCHABLE_DOMAINS: frozenset[EntityType] = frozenset({
@@ -259,8 +259,15 @@ invariant and the two read surfaces over it).
    by `build_search_visibility_clause()`
 4. Returns results sorted by the domain's `search_order_by`
 
-**UI Mapping:** the Type dropdown alone, or Type + the per-type context
-filters (status, priority, SEL category, learning level, ...)
+**UI Mapping:** the Type dropdown alone — the **6 Activity Domains**, since the
+facet redesign — or Type + its per-type context filters (status, priority,
+frequency, event type, urgency, strength). ⚠️ The four *knowledge* context
+filters (SEL category, learning level, content type, educational level) are NOT
+reachable from this control: they were revealed only by the removed "Knowledge
+Units" option, and the Nous-driven knowledge mode that re-homes them is the
+facet redesign's next rung. Until it lands they are rendered but unreachable —
+an accepted one-PR cost, recorded in `docs/roadmap/deferred-work.md`
+§ "`/search` Facet Redesign" consequence 3.
 
 ```python
 request = SearchRequest(

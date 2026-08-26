@@ -29,6 +29,7 @@ if TYPE_CHECKING:
 from core.models.enums import (
     ContentType,
     EducationalLevel,
+    EntityType,
     EventType,
     LearningLevel,
     SELCategory,
@@ -412,24 +413,36 @@ def _render_filter_panel(
     return mobile_trigger, backdrop, panel
 
 
-# Type dropdown vocabulary — CANONICAL EntityType values as wire values, per
-# the emission rule (ENUM_ARCHITECTURE § Canonical Values vs Aliases): aliases
-# like "ps" stay valid INPUT (EntityType.from_string resolves them, so old
-# bookmarks keep working), but the system itself emits canonical values only.
-# That makes these compare 1:1 against the results' _domain stamps in
-# _render_domain_breakdown — no translation layer.
+# Type dropdown vocabulary — the 6 Activity Domains, and nothing else.
+#
+# The facet redesign (deferred-work.md § "`/search` Facet Redesign") makes this
+# ONE surface with ONE job: your lived activity, plus the knowledge behind it.
+# Ku is still a live result type — `SEARCH_PAGE_ENTITY_TYPES` in
+# adapters/inbound/search_routes.py scopes the RESULTS to these six plus Ku —
+# but it is reached through the **Nous** facet, not through this dropdown.
+# PathStep, LearningPath and UserEntry left the results in PR #1155; this is the
+# matching half, so the dropdown can no longer offer a type the page refuses.
+#
+# Values are canonical `EntityType` values, per the emission rule
+# (ENUM_ARCHITECTURE § Canonical Values vs Aliases): aliases like "ps" stay valid
+# INPUT (EntityType.from_string resolves them, so old bookmarks keep working),
+# but the system itself emits canonical values only. Taking them from the enum
+# rather than typing them makes that true by construction, and makes them
+# compare 1:1 against the results' `_domain` stamps in _render_domain_breakdown
+# — no translation layer.
+#
+# ⚠️ This is one of three sites encoding the type vocabulary; the other two are
+# `SEARCH_PAGE_ENTITY_TYPES` (the result scope) and `entityTypeFilters` in
+# static/js/skuel.js (the facet-group map). tests/unit/test_search_page_scope.py
+# derives each from the others so they cannot drift apart silently.
 _ENTITY_TYPE_OPTIONS = [
     ("", "All Types"),
-    ("ku", "Knowledge Units"),
-    ("path_step", "Path Steps"),
-    ("learning_path", "Learning Paths"),
-    ("task", "Tasks"),
-    ("goal", "Goals"),
-    ("habit", "Habits"),
-    ("event", "Events"),
-    ("choice", "Choices"),
-    ("principle", "Principles"),
-    ("user_entry", "My Entries"),
+    (EntityType.TASK.value, "Tasks"),
+    (EntityType.GOAL.value, "Goals"),
+    (EntityType.HABIT.value, "Habits"),
+    (EntityType.EVENT.value, "Events"),
+    (EntityType.CHOICE.value, "Choices"),
+    (EntityType.PRINCIPLE.value, "Principles"),
 ]
 
 
@@ -888,6 +901,15 @@ def _render_domain_breakdown(response: SearchResponse) -> Any | None:
     # an unknown value to the <select> would CLEAR it (reset to "All Types")
     # instead of narrowing. Stamps and option values both speak canonical
     # EntityType values, so membership is a direct check.
+    #
+    # ⚠️ Accepted consequence of the facet redesign: **the "Ku" chip is no longer
+    # clickable.** Ku is still a live result type but left the Type dropdown, so
+    # it falls to the plain Badge below and reports its count without narrowing.
+    # That is the honest rendering, not a regression to repair here — the chip
+    # can only set the control the dropdown owns, and "narrow to Ku" is not the
+    # same act as choosing a Nous topic, which is Ku's door now. Derived FROM
+    # _ENTITY_TYPE_OPTIONS on purpose: hard-coding the tokens would make this a
+    # fourth vocabulary site.
     dropdown_tokens = {value for value, _ in _ENTITY_TYPE_OPTIONS if value}
 
     def _chip(fc: FacetCount) -> Any:

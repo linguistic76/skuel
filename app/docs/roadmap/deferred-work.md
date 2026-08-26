@@ -450,10 +450,15 @@ INVERTED").
 
 **Built so far:** the result scope — `/search` returns the 6 Activity Domains + Ku and
 nothing else (`SEARCH_PAGE_ENTITY_TYPES` / `scope_to_search_page` in
-`adapters/inbound/search_routes.py`, PR #1155). **Still to come:** the Type dropdown and
-its JS vocabulary, the Nous-driven knowledge mode, Ku-only facet vocabularies (consequence
-1 below — until it lands, a PathStep-only tag or sub-topic is selectable on `/search` and
-guaranteed to return zero), and the close-out that marks this section ✅ RESOLVED.
+`adapters/inbound/search_routes.py`, PR #1155) — and the primary facet control: the Type
+dropdown is the 6 Activity Domains, `entityTypeFilters` in `static/js/skuel.js` dropped
+`path_step`/`learning_path`/`user_entry`, and the three vocabulary sites now derive from
+each other in `tests/unit/test_search_page_scope.py` (PR #1156). **Still to come:** the
+Nous-driven knowledge mode — which is what makes the four knowledge filters reachable
+again (consequence 3 below; they are unreachable in the meantime, ruled and costed there)
+— Ku-only facet vocabularies (consequence 1 below — until it lands, a PathStep-only tag or
+sub-topic is selectable on `/search` and guaranteed to return zero), and the close-out that
+marks this section ✅ RESOLVED.
 
 **The design.** `/search` becomes one surface with one job — *your lived activity, plus the
 knowledge behind it*:
@@ -555,16 +560,43 @@ heading is one more summary to go stale.)
    `scope_to_search_page` in `adapters/inbound/search_routes.py`, stated at the `/search`
    entry point so `/explore` and `/explore/library` keep the shared sweep default.
 
-3. **Removing the Ku *option* strands four knowledge filters.** `static/js/skuel.js`'s
-   `FILTER_MAP` reveals SEL Category, Learning Level, Content Type and Educational Level
-   only when `entityType == 'ku'`, and `showContextFilters` requires `entityType !== ''`.
-   Selecting a Nous topic does **not** set `entityType`. So the moment Ku stops being a Type
-   choice and becomes "reachable through the Nous facet", those four controls become
-   unreachable — silently, with no error and nothing removed from the markup. The contract
-   must say which: make them visible in the new knowledge mode, or rule their removal. ⚠️
-   `FILTER_MAP` is a **third site encoding the type vocabulary** (after
-   `_ENTITY_TYPE_OPTIONS` and the sweep allowlist) and carries `path_step`/`learning_path`/
-   `user_entry` entries of its own — it changes with them or it drifts.
+3. **Removing the Ku *option* strands four knowledge filters — ✅ RULED, and it HAPPENED
+   in PR #1156.** `static/js/skuel.js`'s `entityTypeFilters` (the map this section once
+   called `FILTER_MAP`) reveals SEL Category, Learning Level, Content Type and Educational
+   Level only when `entityType == 'ku'`, and `showContextFilters` requires
+   `entityType !== ''`. Selecting a Nous topic does **not** set `entityType`. So the moment
+   Ku stopped being a Type choice, those four controls became unreachable — silently, with
+   no error and nothing removed from the markup. **R3 is the ruling: make them visible in
+   the new knowledge mode, do not remove them.** That mode is the next rung, so the four
+   are unreachable for exactly one PR — an accepted, named cost on a surface with ~8
+   genuine queries ever, not an oversight.
+
+   ⚠️ **The tempting mitigation does not work, and was checked rather than assumed.**
+   Keeping the `'ku'` key in `entityTypeFilters` does NOT keep those filters reachable:
+   after the option is gone, *nothing writes `entityType = 'ku'`* — the `x-model` select
+   has no such option, `clearFilter`/`clearAllFilters` only write `''`, and the result
+   chip that calls `setEntityType` is itself gated on the dropdown vocabulary. The key was
+   kept anyway, for the reason that survives inspection: it is the MAPPING the knowledge-
+   mode predicate is built from (which four groups are the knowledge ones), and Ku is
+   still a live result type, so the key names something real. That is the one deliberate
+   divergence between the three vocabulary sites, and it is one PR long.
+
+   ⚠️ `entityTypeFilters` is a **third site encoding the type vocabulary** (after
+   `_ENTITY_TYPE_OPTIONS` and the sweep allowlist). PR #1156 stopped that from being a
+   memory exercise: `tests/unit/test_search_page_scope.py` § 6 reads the JS map out of
+   `skuel.js` and the options out of `ui/search/components.py` and derives both from
+   `SEARCH_PAGE_ENTITY_TYPES`, so a type arriving in one site alone fails. `'common'` and
+   `'knowledge'` in that map are MARKERS (no control is named either) — the knowledge/
+   activity label now derives from the `'knowledge'` marker instead of a fourth list of
+   type names, which had gone stale with `path_step` still in it.
+
+   ⚠️ **Accepted consequence of the same removal: the "Ku" result-breakdown chip no longer
+   narrows.** `_render_domain_breakdown` derives its clickable set FROM
+   `_ENTITY_TYPE_OPTIONS` (correctly — hard-coding would be a fourth site), so Ku falls to
+   a plain Badge that reports its count. This is the honest rendering: a chip can only set
+   the control the dropdown owns, assigning an absent value would CLEAR the select, and
+   "narrow to Ku" is not the same act as choosing a Nous topic. Pinned in
+   `TestResultBreakdownChips`.
 
 4. **MOOT since option (ii) was ruled — kept because it re-arms if Exercise ever returns.**
    It read: if Exercise is *surfaced*, RevisedExercise still is not. `/search` takes ONE
@@ -1923,7 +1955,7 @@ Review this document at the **September 2026 quarterly review**. Checklist:
 | Principles `_validate_update` reform or deletion | Next substantive touch of the Principles update path | Ruling needed — see the section's landmine note |
 | EntryReport / ActivityReport search | A teacher workflow wants direct report-content search | Product need (not a data threshold) |
 | Domain-level fulltext-first text search (D1(b)) — ruled DEFERRED **twice** (2026-08-16, 2026-08-25) | A consumer wants relevance ranking for the domains remaining on `/search` after the facet redesign — the 6 Activity Domains + Ku, which is now the whole surface | ⚠️ scope INVERTED, do not scope from the bullet list; the OWNER_ONLY edge-vs-property "ruling needed" is STALE — already closed, do not re-open. Product need (not a data threshold); read the section's two rulings first |
-| `/search` facet redesign — ruled 2026-08-25, **being built** (result scope landed, PR #1155) | Already scheduled; this row stays only until the section is marked ✅ RESOLVED | Read the section — do not scope from this row. Every ruling it once listed as needed is now made and recorded there |
+| `/search` facet redesign — ruled 2026-08-25, **being built** (result scope + primary facet control landed, PRs #1155/#1156) | Already scheduled; this row stays only until the section is marked ✅ RESOLVED | Read the section — do not scope from this row. Every ruling it once listed as needed is now made and recorded there |
 | ZPD snapshot history & trend analysis | A ZPD-over-time consumer exists | Product need + `MATCH (h:ZPDHistory) RETURN count(h)` for accrual |
 | Habit rows in the weekly-note panel | Lived weekly-review use wants the backward look | Product need (not a data threshold) |
 | Non-positive-duration follow-ups (habit `0m` on `/today` / proposes `15`) | Next touch of either surface | Ride-along, not standalone |
