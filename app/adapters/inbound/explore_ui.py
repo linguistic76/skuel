@@ -398,6 +398,15 @@ def create_explore_ui_routes(
 
         # NOUS topic vocabulary (graph-derived, unscoped) feeds the dropdown;
         # the sub-topic list is a render GATE only (empty → no cascade column).
+        #
+        # ⚠ Pre-existing asymmetry, named rather than inherited silently: the
+        # TOPIC vocabulary is :Ku-only (`list_nous_topics` → KuService), while
+        # the sub-topic vocabulary below is the merged :Ku + :PathStep one this
+        # catalog carries. A topic authored only on PathSteps is therefore
+        # missing from this dropdown today. Harmless while every authored topic
+        # appears on some Ku; it predates the /search facet redesign (which
+        # scoped /search's sub-topics to Ku, leaving this surface merged) and
+        # is not what that arc set out to fix.
         topics_result = await orchestrator.list_nous_topics()
         nous_topics = topics_result.value if topics_result.is_ok and topics_result.value else []
         subtopics_result = await search_router.list_nous_subtopics()

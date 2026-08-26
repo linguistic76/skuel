@@ -19,6 +19,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from fasthtml.common import to_xml
 
+from core.models.enums.entity_enums import EntityType
 from core.models.ku.ku import Ku
 from core.models.ku.ku_dto import KuDTO
 from core.models.search_request import SearchRequest
@@ -340,6 +341,79 @@ class TestSearchRouterNousSubtopicMerge:
         assert result.is_ok
         assert result.value == ["breath", "movement"]
 
+    # --- Ku-only scope (the /search surface) ------------------------------
+    #
+    # The two tests above are the NEGATIVE CONTROL for these: the merged
+    # default must keep folding the PathStep contribution in, because
+    # /explore/library really does carry both labels. These pin the other
+    # scope — /search returns Ku and not PathStep (PR #1155), so a pair only a
+    # PathStep carries is a facet option guaranteed to return zero.
+
+    @pytest.mark.asyncio
+    async def test_map_scoped_to_ku_drops_pathstep_only_pairs(self) -> None:
+        # Same corpus as test_map_merges_ku_and_pathstep_pairs — only the scope
+        # differs, so the diff between the two IS the PathStep contribution.
+        router = self._router(
+            ku_pairs=[
+                {"nous": "body", "subtopic": "breath"},
+                {"nous": "body", "subtopic": "movement"},
+                {"nous": "investment", "subtopic": "compounding"},
+            ],
+            ps_pairs=[
+                {"nous": "body", "subtopic": "attention"},  # PathStep-only pair
+                {"nous": "body", "subtopic": "breath"},  # dup across domains
+            ],
+        )
+
+        result = await router.nous_subtopic_map((EntityType.KU,))
+
+        assert result.is_ok
+        # "attention" is gone; the shared "breath" survives on its Ku authoring.
+        assert result.value == {
+            "body": ["breath", "movement"],
+            "investment": ["compounding"],
+        }
+
+    @pytest.mark.asyncio
+    async def test_flat_list_scoped_to_ku_drops_pathstep_only_subtopics(self) -> None:
+        router = self._router(
+            ku_pairs=[{"nous": "self-awareness", "subtopic": "breath"}],
+            ps_pairs=[
+                {"nous": "body", "subtopic": "movement"},  # PathStep-only sub-topic
+                {"nous": "body", "subtopic": "breath"},
+            ],
+        )
+
+        merged = await router.list_nous_subtopics()
+        ku_only = await router.list_nous_subtopics((EntityType.KU,))
+
+        assert merged.value == ["breath", "movement"]  # /explore/library, unchanged
+        assert ku_only.value == ["breath"]  # /search
+
+    @pytest.mark.asyncio
+    async def test_gate_stays_a_superset_of_the_map_at_the_same_scope(self) -> None:
+        # The flat list gates whether the sub-topic COLUMN renders; the map
+        # supplies its OPTIONS. Scope them together or they disagree — a wider
+        # gate renders a column with nothing to offer, a narrower one hides a
+        # column whose map has entries. Both derive from `_nous_subtopic_pairs`,
+        # so this holds by construction; the test pins the construction.
+        #
+        # The corpus is deliberately PathStep-ONLY: it is the shape where the
+        # two scopes disagree on emptiness, so a gate that ignored its scope
+        # would render a column with nothing behind it.
+        router = self._router(
+            ku_pairs=[],
+            ps_pairs=[{"nous": "body", "subtopic": "posture"}],
+        )
+
+        for scope in ((EntityType.KU,), (EntityType.KU, EntityType.PATH_STEP)):
+            gate = await router.list_nous_subtopics(scope)
+            mapped = await router.nous_subtopic_map(scope)
+            offered = {sub for subs in mapped.value.values() for sub in subs}
+
+            assert offered <= set(gate.value), f"gate is not a superset at {scope}"
+            assert bool(gate.value) == bool(offered), f"gate/options disagree at {scope}"
+
     @pytest.mark.asyncio
     async def test_domain_failure_fails_soft(self) -> None:
         # An errored/missing domain contributes nothing rather than failing the
@@ -351,8 +425,6 @@ class TestSearchRouterNousSubtopicMerge:
             ps_pairs=[],
         )
         # Make the PS contribution error out.
-        from core.models.enums.entity_enums import EntityType
-
         ps = router.get_service(EntityType.PATH_STEP)
         ps.nous_subtopic_pairs = AsyncMock(
             return_value=Result.fail(

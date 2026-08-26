@@ -19,6 +19,13 @@ The type vocabulary lives in THREE sites — `SEARCH_PAGE_ENTITY_TYPES` here,
 (`static/js/skuel.js`) — and each is derived from the scope rather than typed
 out again, so a fourth type cannot arrive in one site alone.
 
+Section 8 covers the fourth rung: the facet vocabularies. They must follow the
+result scope or the facets lie — a NOUS sub-topic authored only on a PathStep is
+offerable on `/search` but unreachable there. The scope is DERIVED from
+`SEARCH_PAGE_ENTITY_TYPES`, and the negative control is again
+`/explore/library`, which keeps the merged Ku + PathStep vocabulary its catalog
+really carries (pinned in `tests/unit/test_nous_subtopic.py`).
+
 Section 7 covers the third rung: knowledge mode. The four knowledge context
 filters lost their only door when Ku left the Type dropdown; the NOUS facet is
 the new one, and the two scope facets are mutually exclusive because their
@@ -42,6 +49,7 @@ from fasthtml.common import to_xml
 from adapters.inbound.explore_ui import _library_search_request
 from adapters.inbound.search_routes import (
     SEARCH_PAGE_ENTITY_TYPES,
+    SEARCH_PAGE_FACET_DOMAINS,
     create_search_api_routes,
     scope_to_search_page,
 )
@@ -49,7 +57,7 @@ from core.models.enums import SearchVisibility
 from core.models.enums.entity_enums import EntityType
 from core.models.search.filter_enums import SearchSortOrder
 from core.models.search_request import FacetCount, SearchRequest, SearchResponse
-from core.orchestrator.search_router import SearchRouter
+from core.orchestrator.search_router import CURRICULUM_FACET_DOMAINS, SearchRouter
 from core.utils.result_simplified import Result
 from ui.explore.cards import LIBRARY_DEFAULT_SORT
 from ui.search.components import (
@@ -636,3 +644,81 @@ class TestMutuallyExclusiveScopeFacets:
 
         assert "[name='nous']" in _select_tag(markup, "entity_type")
         assert "[name='entity_type']" in _select_tag(markup, "nous")
+
+
+# ============================================================================
+# 8. The facet vocabularies — derived from the scope, applied at BOTH doors
+# ============================================================================
+
+
+class TestFacetVocabularyScope:
+    def test_facet_scope_is_derived_from_the_result_scope(self) -> None:
+        # Not a fourth vocabulary site: whichever curriculum domains the page
+        # RETURNS are exactly the ones its vocabularies aggregate, so the two
+        # cannot drift.
+        derived = tuple(
+            entity_type
+            for entity_type in CURRICULUM_FACET_DOMAINS
+            if entity_type in SEARCH_PAGE_ENTITY_TYPES
+        )
+
+        assert derived == SEARCH_PAGE_FACET_DOMAINS
+
+    def test_the_facet_scope_is_ku_only_today(self) -> None:
+        assert SEARCH_PAGE_FACET_DOMAINS == (EntityType.KU,)
+        assert EntityType.PATH_STEP not in SEARCH_PAGE_FACET_DOMAINS
+
+    def test_no_facet_domain_is_out_of_the_result_scope(self) -> None:
+        # The property that keeps the derivation honest if either list moves.
+        assert set(SEARCH_PAGE_FACET_DOMAINS) <= set(SEARCH_PAGE_ENTITY_TYPES)
+
+
+class TestFacetVocabularyWiring:
+    """Both doors onto the sub-topic control pass the SAME scope.
+
+    The flat list (``search_page``) only gates whether the column renders; the
+    OPTIONS come from ``/search/subtopics``. Scoping one alone leaves a
+    PathStep-only sub-topic selectable — the exact defect this rung closes.
+    """
+
+    @staticmethod
+    def _handlers_and_router() -> tuple[dict[tuple[str, str], Any], MagicMock]:
+        registry = _RouteRegistry()
+        search_router = MagicMock()
+        search_router.list_nous_subtopics = AsyncMock(return_value=Result.ok(["breath"]))
+        search_router.nous_subtopic_map = AsyncMock(return_value=Result.ok({"body": ["breath"]}))
+        search_router.list_tags = AsyncMock(return_value=Result.ok([]))
+        ku_service = MagicMock()
+        ku_service.list_nous_topics = AsyncMock(return_value=Result.ok(["body"]))
+        create_search_api_routes(
+            app=MagicMock(), rt=registry, search_router=search_router, ku_service=ku_service
+        )
+        return registry.handlers, search_router
+
+    @staticmethod
+    def _authenticated_request(path: str) -> SimpleNamespace:
+        return SimpleNamespace(
+            method="GET",
+            session={"user_uid": "user_caller"},
+            url=SimpleNamespace(path=path),
+            headers={},
+            query_params={},
+        )
+
+    @pytest.mark.asyncio
+    async def test_the_render_gate_is_fetched_at_the_page_scope(self) -> None:
+        handlers, search_router = self._handlers_and_router()
+
+        await handlers[("/search", "GET")](self._authenticated_request("/search"))
+
+        assert search_router.list_nous_subtopics.await_args.args == (SEARCH_PAGE_FACET_DOMAINS,)
+
+    @pytest.mark.asyncio
+    async def test_the_options_are_fetched_at_the_page_scope(self) -> None:
+        handlers, search_router = self._handlers_and_router()
+
+        await handlers[("/search/subtopics", "GET")](
+            self._authenticated_request("/search/subtopics"), nous="body"
+        )
+
+        assert search_router.nous_subtopic_map.await_args.args == (SEARCH_PAGE_FACET_DOMAINS,)

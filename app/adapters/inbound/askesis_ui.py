@@ -66,6 +66,15 @@ def create_askesis_ui_routes(
         topic's sub-topics. Fails soft the same way as topics. Empty until the
         vault carries `nous_subtopic:` data, so the sub-topic selector renders
         nothing (mechanism ships ahead of content).
+
+        **Askesis keeps the MERGED scope — ruled, not inherited.** `/search`
+        narrowed its own vocabulary to the curriculum domains it returns (Ku
+        alone), but this scope is not a result filter: it scopes the
+        `:ContentChunk` passages the answer is grounded in, and lesson bodies
+        live on PathSteps (`_retrieve_scoped_chunks` cites the PathStep a
+        passage came from). Narrowing here would hide the sub-topics whose
+        passages Askesis actually reads. See: docs/roadmap/deferred-work.md
+        § "`/search` Facet Redesign".
         """
         if search_router is None:
             return {}
@@ -93,8 +102,9 @@ def create_askesis_ui_routes(
         # constraining every answer with no way to see or clear it (Codex #546).
         # Validation is DEPENDENT, mirroring the selector: the sub-topic must
         # co-occur with the seeded nous on ≥1 entity (a pair no content carries
-        # is dropped). A valid /search handoff always passes — its dropdown
-        # offers exactly these pairs; only crafted or stale values are dropped.
+        # is dropped). A valid /search handoff always passes — its dropdown now
+        # offers a Ku-only SUBSET of these merged pairs, so anything it can send
+        # is in this map; only crafted or stale values are dropped.
         nous = request.query_params.get("nous", "")
         if nous not in nous_topics:
             nous = ""
