@@ -206,7 +206,7 @@ Named Alpine components live in a `/static/js/` bundle, never inline in a templa
 
 | Component | Purpose | Key State |
 |-----------|---------|-----------|
-| `searchFilters()` | Search filter bar (nous/subtopic faucets, Ask href) | `entityType`, `showAdvanced` |
+| `searchFilters()` | Search filter bar — two mutually exclusive scope facets (Type / Nous), subtopic faucet, Ask href | `entityType`, `nousTopic`, `showAdvanced` |
 | `calendarLegend` | Calendar legend type filters (toggle hide/show + hover spotlight, localStorage) | `hidden`, `spotlight` |
 | `collapsible(initial)` | Expand/collapse | `expanded` |
 | `chartVis(url, type)` | Chart.js | `chart`, `loading`, `error` |

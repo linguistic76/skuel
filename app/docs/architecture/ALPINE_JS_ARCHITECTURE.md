@@ -167,19 +167,29 @@ whose table is machine-checked against the registry.
 Drives the `/search` facet bar: a horizontal filter bar on desktop (with a
 "More filters" disclosure) that becomes an off-canvas drawer on mobile.
 
+The page has **two scope facets** and only one may be set at a time — Type (an
+Activity Domain) and Nous (a knowledge topic). Their intersection is empty by
+construction, so the markup disables whichever is not in use; see
+[SEARCH_ARCHITECTURE.md § UI Mapping](SEARCH_ARCHITECTURE.md).
+
 **State:**
-- `entityType`: string - Current entity type (drives context-filter visibility)
+- `entityType`: string - Current entity type (activity scope)
+- `nousTopic`: string - Current NOUS topic (knowledge scope)
 - `filtersOpen`: boolean - Mobile: off-canvas filter drawer open?
 - `moreFilters`: boolean - Desktop: advanced facets revealed?
 - `isDesktop`: boolean - ≥1024px, set from `matchMedia` in `init()`
 - `filterCount`: number - Active facets, shown on the mobile trigger badge
 
 **Computed (getters):**
-- `showContextFilters` / `contextFilterLabel` - Tier 2 (entity-type) filters
+- `isKnowledgeMode` - a NOUS topic is chosen; drives the four knowledge filters
+- `knowledgeFilterGroups` - which groups those are, read from the `'ku'` entry of
+  `entityTypeFilters` (the map, not the dropdown vocabulary — Ku has no Type option)
+- `showContextFilters` / `contextFilterLabel` - Tier 2 filters, for **either** scope
 - `hasActiveFilters` - any facet or entity type active
 
 **Methods:**
-- `isFilterVisible(group)` - Check if a Tier 2 filter group should show
+- `isFilterVisible(group)` - Check if a Tier 2 filter group should show, keyed to
+  whichever scope facet is set
 - `updateFilterCount()` - Re-tally active facets (bound to `x-on:change`)
 - `askHref()` - Build the scoped `/askesis?...` URL from live facet inputs
 - `clearFilter(name)` / `clearAllFilters()` - Reset one / all facets
