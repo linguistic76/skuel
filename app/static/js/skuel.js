@@ -695,10 +695,27 @@
                 isDesktop: true,      // ≥1024px — set from matchMedia in init()
                 filterCount: 0,       // active facets, shown on the mobile trigger badge
 
-                // Entity type to filter group mapping — keys mirror the Type
-                // dropdown values in ui/search/components.py
-                // (_render_entity_type_select): canonical EntityType values,
-                // per the emission rule (aliases like 'ps' are input-only).
+                // Entity type to filter group mapping. Values are canonical
+                // EntityType values, per the emission rule (aliases like 'ps'
+                // are input-only). 'common' and 'knowledge' are MARKERS — no
+                // control is named either; every other entry is a field name
+                // that isFilterVisible() reveals.
+                //
+                // path_step / learning_path / user_entry are gone: they left
+                // both the /search results (SEARCH_PAGE_ENTITY_TYPES, PR #1155)
+                // and the Type dropdown, so no selection can reach them.
+                //
+                // 'ku' is KEPT DELIBERATELY — the one place the three vocabulary
+                // sites diverge, for one PR. It is NOT keeping the four knowledge
+                // filters (sel_category, learning_level, content_type,
+                // educational_level) alive: nothing can set entityType to 'ku'
+                // once Ku leaves the dropdown, so they are unreachable either way
+                // until the next PR re-homes them onto a Nous-driven knowledge
+                // mode. What this entry keeps is the MAPPING that PR's predicate
+                // is built from — which four groups are the knowledge ones — and
+                // Ku is still a live result type, so the key names something real.
+                // See deferred-work.md § "/search Facet Redesign": this is a
+                // filter-GROUP map, not the dropdown vocabulary.
                 entityTypeFilters: {
                     'task': ['common', 'status', 'priority'],
                     'goal': ['common', 'status', 'priority'],
@@ -706,10 +723,7 @@
                     'event': ['common', 'status', 'priority', 'event_type'],
                     'choice': ['common', 'status', 'urgency'],
                     'principle': ['common', 'status', 'strength'],
-                    'ku': ['knowledge', 'sel_category', 'learning_level', 'content_type', 'educational_level'],
-                    'path_step': ['knowledge', 'sel_category', 'learning_level'],
-                    'learning_path': ['knowledge', 'sel_category', 'learning_level'],
-                    'user_entry': []
+                    'ku': ['knowledge', 'sel_category', 'learning_level', 'content_type', 'educational_level']
                 },
 
                 // Computed: should show context filters row
@@ -717,11 +731,14 @@
                     return this.entityType !== '';
                 },
 
-                // Computed: label for context filter section
+                // Computed: label for context filter section. DERIVED from the
+                // 'knowledge' marker group above rather than a second list of
+                // type names — the list it replaced still named path_step and
+                // learning_path after both left the surface, which is exactly
+                // the drift a fourth vocabulary site invites.
                 get contextFilterLabel() {
                     if (!this.entityType) return 'Filters';
-                    var isKnowledge = ['ku', 'path_step', 'learning_path'].indexOf(this.entityType) !== -1;
-                    return isKnowledge ? 'Knowledge Filters' : 'Activity Filters';
+                    return this.isFilterVisible('knowledge') ? 'Knowledge Filters' : 'Activity Filters';
                 },
 
                 // Computed: has any active filters

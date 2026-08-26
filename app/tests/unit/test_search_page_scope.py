@@ -12,15 +12,24 @@ or UserEntry that no facet on the page can filter to or away.
 
 The negative control is `/explore/library`, which shares `faceted_search` and
 must keep its merged Ku + PathStep catalog — including the lesson-body half.
+
+Section 6 covers the second rung: the Type dropdown and its JS facet-group map.
+The type vocabulary lives in THREE sites — `SEARCH_PAGE_ENTITY_TYPES` here,
+`_ENTITY_TYPE_OPTIONS` (`ui/search/components.py`) and `entityTypeFilters`
+(`static/js/skuel.js`) — and each is derived from the scope rather than typed
+out again, so a fourth type cannot arrive in one site alone.
 """
 
 from __future__ import annotations
 
+import re
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from fasthtml.common import to_xml
 
 from adapters.inbound.explore_ui import _library_search_request
 from adapters.inbound.search_routes import (
@@ -31,10 +40,11 @@ from adapters.inbound.search_routes import (
 from core.models.enums import SearchVisibility
 from core.models.enums.entity_enums import EntityType
 from core.models.search.filter_enums import SearchSortOrder
-from core.models.search_request import SearchRequest, SearchResponse
+from core.models.search_request import FacetCount, SearchRequest, SearchResponse
 from core.orchestrator.search_router import SearchRouter
 from core.utils.result_simplified import Result
 from ui.explore.cards import LIBRARY_DEFAULT_SORT
+from ui.search.components import _ENTITY_TYPE_OPTIONS, _render_domain_breakdown
 
 # The types /search must never return. DERIVED from the router's searchable set
 # minus the page scope rather than typed out, so promoting a new domain to
@@ -360,3 +370,95 @@ class TestRouteWiring:
         await handler(self._authenticated_request(), query="")
 
         search_router.faceted_search.assert_not_awaited()
+
+
+# ============================================================================
+# 6. The dropdown vocabulary — the other two sites, derived from this one
+# ============================================================================
+
+APP_ROOT = Path(__file__).resolve().parents[2]
+SKUEL_JS = APP_ROOT / "static" / "js" / "skuel.js"
+
+# The `entityTypeFilters: { ... }` object literal, then its quoted keys. Read
+# from the real file: a hand-copied list here would be a FOURTH vocabulary site.
+_JS_MAP_RE = re.compile(r"entityTypeFilters:\s*\{(.*?)\n\s*\},", re.DOTALL)
+_JS_KEY_RE = re.compile(r"['\"](\w+)['\"]\s*:")
+
+
+def _entity_type_filter_keys() -> set[str]:
+    """The keys of searchFilters.entityTypeFilters, read out of skuel.js."""
+    source = re.sub(r"^\s*//.*$", "", SKUEL_JS.read_text(encoding="utf-8"), flags=re.MULTILINE)
+    body = _JS_MAP_RE.search(source)
+    assert body is not None, "entityTypeFilters literal not found in skuel.js"
+    keys = set(_JS_KEY_RE.findall(body.group(1)))
+    assert keys, "entityTypeFilters parsed to no keys — the regex has drifted"
+    return keys
+
+
+DROPDOWN_VALUES = [value for value, _ in _ENTITY_TYPE_OPTIONS if value]
+
+
+class TestDropdownVocabulary:
+    def test_dropdown_is_the_scope_minus_ku(self) -> None:
+        # Ku stays a live RESULT type (it is in SEARCH_PAGE_ENTITY_TYPES) but
+        # leaves the Type dropdown — it is reached through the Nous facet.
+        assert set(DROPDOWN_VALUES) == {
+            entity_type.value for entity_type in SEARCH_PAGE_ENTITY_TYPES
+        } - {EntityType.KU.value}
+
+    def test_dropdown_offers_no_type_the_page_refuses(self) -> None:
+        # The failure this pins is the one PR-1 left open: an option whose value
+        # the route drops, so choosing it silently returns the whole page scope.
+        assert not set(DROPDOWN_VALUES) & {excluded.value for excluded in EXCLUDED_TYPES}
+
+    def test_dropdown_keeps_an_all_types_option_first(self) -> None:
+        assert _ENTITY_TYPE_OPTIONS[0][0] == ""
+
+    def test_dropdown_values_are_canonical_entity_types(self) -> None:
+        for value in DROPDOWN_VALUES:
+            parsed = EntityType.from_string(value)
+            assert parsed is not None and parsed.value == value
+
+    def test_js_facet_map_is_the_dropdown_plus_the_ku_staging_key(self) -> None:
+        # The ONE deliberate divergence between the three sites, and it is one
+        # PR long: 'ku' is the only thing making the four knowledge filters
+        # reachable, and the next PR re-homes them onto a Nous-driven knowledge
+        # mode. Deleting it with the option would strand them meanwhile.
+        assert _entity_type_filter_keys() == set(DROPDOWN_VALUES) | {EntityType.KU.value}
+
+    def test_js_facet_map_names_no_type_off_the_page(self) -> None:
+        assert not _entity_type_filter_keys() & {excluded.value for excluded in EXCLUDED_TYPES}
+
+
+class TestResultBreakdownChips:
+    """The chips derive from _ENTITY_TYPE_OPTIONS, so the dropdown trim reaches them."""
+
+    @staticmethod
+    def _breakdown(*domains: str) -> str:
+        response = SearchResponse(results=[], total=0, limit=20, offset=0)
+        response.facet_counts = {
+            "entity_type": [
+                FacetCount(
+                    facet_type="entity_type",
+                    facet_value=domain,
+                    count=3,
+                    display_name=domain.replace("_", " ").title(),
+                )
+                for domain in domains
+            ]
+        }
+        return to_xml(_render_domain_breakdown(response))
+
+    def test_an_activity_chip_still_narrows_the_type_filter(self) -> None:
+        markup = self._breakdown(EntityType.TASK.value, EntityType.KU.value)
+
+        assert "setEntityType('task')" in markup
+
+    def test_the_ku_chip_is_a_plain_count_not_a_control(self) -> None:
+        # Accepted consequence, not a regression: Ku left the dropdown, and a
+        # chip can only set the control the dropdown owns. Assigning an absent
+        # value would CLEAR the select — worse than not being clickable.
+        markup = self._breakdown(EntityType.TASK.value, EntityType.KU.value)
+
+        assert "setEntityType('ku')" not in markup
+        assert "Ku 3" in markup

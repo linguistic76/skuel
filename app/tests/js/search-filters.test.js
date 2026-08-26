@@ -1,10 +1,21 @@
 /**
  * searchFilters Alpine component pins for static/js/skuel.js.
  *
- * Pins the per-entity-type facet visibility map (keys mirror the Type
- * dropdown in ui/search/components.py — canonical EntityType values only,
- * per the emission rule), the badge labels, the active-facet counter, and
- * the scoped-Ask URL builder ($root-based — the $el regression is pinned).
+ * Pins the per-entity-type facet visibility map, the badge labels, the
+ * active-facet counter, and the scoped-Ask URL builder ($root-based — the $el
+ * regression is pinned).
+ *
+ * The map's keys are canonical EntityType values, per the emission rule. They
+ * mirror the Type dropdown in ui/search/components.py with ONE deliberate
+ * divergence: 'ku' is kept as the staging point for the Nous-driven knowledge
+ * mode (see the comment on entityTypeFilters). The cross-language drift check
+ * lives in tests/unit/test_search_page_scope.py, which reads both sites; these
+ * assertions cover the component's behaviour.
+ *
+ * ⚠️ This file previously asserted 'path_step' and 'user_entry' behaviour and
+ * would have stayed GREEN after they were removed — nothing here reads the real
+ * dropdown, so a deleted key just falls through `|| []`. A passing vitest run is
+ * not evidence the vocabulary is current.
  */
 import { beforeEach, describe, expect, it } from 'vitest';
 import { loadSkuel } from './helpers/load-skuel.js';
@@ -29,27 +40,49 @@ describe('facet visibility', () => {
     expect(component.isFilterVisible('sel_category')).toBe(false);
   });
 
-  it('maps knowledge types to knowledge facets', () => {
+  it('maps ku to the knowledge facets it still stages for knowledge mode', () => {
     const component = skuel.make('searchFilters');
     component.entityType = 'ku';
     expect(component.isFilterVisible('sel_category')).toBe(true);
     expect(component.isFilterVisible('priority')).toBe(false);
   });
 
-  it('user_entry has no facet groups', () => {
+  it('reveals nothing for a type the page no longer offers', () => {
+    // path_step, learning_path and user_entry left both the results and the
+    // dropdown. isFilterVisible falls through `|| []`, so the failure mode is
+    // silence — assert it rather than assume it.
     const component = skuel.make('searchFilters');
-    component.entityType = 'user_entry';
-    expect(component.isFilterVisible('common')).toBe(false);
+    ['path_step', 'learning_path', 'user_entry'].forEach((removed) => {
+      component.entityType = removed;
+      expect(component.isFilterVisible('common')).toBe(false);
+      expect(component.isFilterVisible('sel_category')).toBe(false);
+      expect(component.isFilterVisible('knowledge')).toBe(false);
+    });
+  });
+
+  it('offers exactly the six Activity Domains plus the ku staging key', () => {
+    const component = skuel.make('searchFilters');
+    expect(Object.keys(component.entityTypeFilters).sort()).toEqual(
+      ['choice', 'event', 'goal', 'habit', 'ku', 'principle', 'task'],
+    );
   });
 });
 
 describe('labels', () => {
   it('contextFilterLabel distinguishes knowledge from activity', () => {
+    // Derived from the 'knowledge' marker group, not a second list of type
+    // names — the list it replaced still named path_step after that type left.
     const component = skuel.make('searchFilters');
     expect(component.contextFilterLabel).toBe('Filters');
-    component.entityType = 'path_step';
+    component.entityType = 'ku';
     expect(component.contextFilterLabel).toBe('Knowledge Filters');
     component.entityType = 'habit';
+    expect(component.contextFilterLabel).toBe('Activity Filters');
+  });
+
+  it('contextFilterLabel does not call a removed type knowledge', () => {
+    const component = skuel.make('searchFilters');
+    component.entityType = 'path_step';
     expect(component.contextFilterLabel).toBe('Activity Filters');
   });
 
@@ -61,10 +94,13 @@ describe('labels', () => {
     root.innerHTML = `
       <select name="entity_type">
         <option value="">All Types</option>
-        <option value="ku">Knowledge Units</option>
+        <option value="task">Tasks</option>
       </select>`;
     component.$root = root;
-    expect(component.getFilterLabel('entity_type', 'ku')).toBe('Knowledge Units');
+    expect(component.getFilterLabel('entity_type', 'task')).toBe('Tasks');
+    // 'ku' is a live result type but no longer a dropdown option, so it has no
+    // badge text to read — the same fallback any unknown value takes.
+    expect(component.getFilterLabel('entity_type', 'ku')).toBe('ku');
     expect(component.getFilterLabel('entity_type', 'unknown')).toBe('unknown');
     expect(component.getFilterLabel('status', 'active')).toBe('active');
   });

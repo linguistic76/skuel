@@ -5,6 +5,10 @@
  * cache-first for static assets (CSS, JS, vendor libs).
  */
 
+// Bumped v9 -> v10 for skuel.js: the /search Type dropdown is now the 6 Activity
+// Domains, and searchFilters' entityTypeFilters map dropped path_step,
+// learning_path and user_entry to match. A client serving the v9 bundle would
+// keep revealing knowledge facets for types the page no longer returns.
 // Bumped v8 -> v9 for today.js: the write queue is now keyed per task, so a
 // re-complete after Undo waits for that reopen instead of racing it. A client
 // serving the v8 bundle would keep firing the unqueued third write.
@@ -33,7 +37,7 @@
 // (The SW now registers correctly via the dedicated /service-worker.js route in
 // adapters/inbound/pwa_routes.py — the former catch-all 404 shadowing is fixed;
 // TECHNICAL_DEBT.md item 11's cache-invalidation half remains this manual bump.)
-const CACHE_VERSION = 'skuel-v9';
+const CACHE_VERSION = 'skuel-v10';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 

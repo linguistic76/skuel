@@ -276,28 +276,36 @@ class TestSearchResultsEnrichmentUI:
         )
         html = to_xml(render_search_results(multi))
         assert "setEntityType('task')" in html
-        assert "setEntityType('ku')" in html
+        # Ku left the Type dropdown with the facet redesign, so its chip reports
+        # a count without narrowing — assigning an absent option value to the
+        # <select> would CLEAR it. The count itself still renders.
+        assert "setEntityType('ku')" not in html
+        assert "Ku 1" in html
         assert "Task 1" in html
 
     def test_breakdown_chip_emits_canonical_entity_type_values(self) -> None:
-        # Emission rule: the Type dropdown's option values ARE canonical
-        # EntityType values ('path_step'), matching the _domain stamps 1:1 —
-        # chips pass the stamp straight through, no alias translation layer.
-        # (Aliases like 'ps' remain valid INPUT via EntityType.from_string.)
+        # Emission rule: chips pass the `_domain` stamp straight through, with no
+        # alias translation layer (the `_DOMAIN_TO_TYPE_OPTION` shim was deleted
+        # when the dropdown moved to canonical wire values). That holds on BOTH
+        # paths now that the dropdown is narrower than the stamp vocabulary: a
+        # stamp with an option narrows the filter, one without renders a plain
+        # count — and neither ever emits the alias ('ps', 'lp').
         from core.models.search_request import build_facet_counts
         from ui.search.components import render_search_results
 
         results = [
-            {"uid": "1", "title": "A", "_domain": "path_step"},
-            {"uid": "2", "title": "B", "_domain": "learning_path"},
+            {"uid": "1", "title": "A", "_domain": "task"},
+            {"uid": "2", "title": "B", "_domain": "path_step"},
         ]
         html = to_xml(
             render_search_results(
                 _response(results=results, total=2, facet_counts=build_facet_counts(results))
             )
         )
-        assert "setEntityType('path_step')" in html
-        assert "setEntityType('learning_path')" in html
+        assert "setEntityType('task')" in html
+        assert "setEntityType('path_step')" not in html
+        assert "setEntityType('ps')" not in html
+        assert "Path Step 1" in html
         assert "setEntityType('ps')" not in html
 
     def test_breakdown_chip_without_dropdown_option_is_inert(self) -> None:
