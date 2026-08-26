@@ -37,7 +37,8 @@ Offline    ──→  /offline.html (self-contained fallback)
 ### Key Constants
 
 ```javascript
-const CACHE_VERSION = 'skuel-v1';   // Bump to bust all caches on deploy
+// The live value is in static/service-worker.js; bump this one, the other two derive.
+const CACHE_VERSION = 'skuel-vN';   // Bump to bust all caches on deploy
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 ```
@@ -61,7 +62,7 @@ const PRECACHE_URLS = [
 ### Adding a new static asset to offline cache
 
 1. Add the path to `PRECACHE_URLS` in `static/service-worker.js`
-2. Bump `CACHE_VERSION` (e.g., `'skuel-v1'` → `'skuel-v2'`)
+2. Bump `CACHE_VERSION` (e.g., `'skuel-v9'` → `'skuel-v10'`) — read the current value from the file, never from this page
 
 ### Changing any `/static/` file — bump `CACHE_VERSION`
 
