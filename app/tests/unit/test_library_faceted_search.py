@@ -303,8 +303,10 @@ class _TagSearchSub:
         self,
         frequencies: Any,
         visibility: SearchVisibility = SearchVisibility.PUBLIC,
+        ownership_property: str = "user_uid",
     ) -> None:
         self.search_visibility = visibility
+        self.ownership_property = ownership_property
         self._frequencies = frequencies
         self.scopes_received: list[Any] = []
 
@@ -325,8 +327,9 @@ class _TagDomain:
         self,
         frequencies: Any,
         visibility: SearchVisibility = SearchVisibility.PUBLIC,
+        ownership_property: str = "user_uid",
     ) -> None:
-        self.search = _TagSearchSub(frequencies, visibility)
+        self.search = _TagSearchSub(frequencies, visibility, ownership_property)
 
 
 class TestTagVocabulary:
@@ -525,6 +528,20 @@ class TestTagVocabularyScope:
 
         assert result.value == ["breath"]
         assert exercises.search.scopes_received == []
+
+    @pytest.mark.asyncio
+    async def test_a_domain_scoping_another_property_is_refused(self) -> None:
+        # The vocabulary query scopes on `user_uid` specifically. A domain that
+        # declares a different ownership property (Group: `owner_uid`, ADR-086)
+        # would be filtered on a property it does not write — returning its
+        # tags for nobody, silently. Refuse rather than guess.
+        odd = _TagDomain({"secret": 1}, SearchVisibility.OWNER_ONLY, "owner_uid")
+        router = SearchRouter(ku=_TagDomain({"breath": 1}), tasks=odd)
+
+        result = await router.list_tags((EntityType.KU, EntityType.TASK), "user_alice")
+
+        assert result.value == ["breath"]
+        assert odd.search.scopes_received == []
 
     @pytest.mark.asyncio
     async def test_the_library_default_never_reaches_an_activity_domain(self) -> None:

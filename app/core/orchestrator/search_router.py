@@ -155,6 +155,13 @@ logger = get_logger(__name__)
 # See: docs/roadmap/deferred-work.md § "`/search` Facet Redesign" consequence 1.
 CURRICULUM_FACET_DOMAINS: tuple[EntityType, ...] = (EntityType.KU, EntityType.PATH_STEP)
 
+# The ownership property `build_distinct_values_query` scopes on. The facet
+# vocabularies reach the graph through that builder rather than through
+# `build_search_visibility_clause`, so they cannot honour a domain that
+# declares a different one — the router refuses such a domain rather than
+# scoping the wrong property (ADR-086).
+_TAG_SCOPE_PROPERTY = "user_uid"
+
 
 def _sweep_sort_key(sort_field: str) -> "Callable[[dict[str, Any]], str]":
     """Sort-key factory for cross-domain merges on a shared entity field.
@@ -550,6 +557,18 @@ class SearchRouter:
                 if user_uid is None:
                     self.logger.warning(
                         f"tag_frequencies skipped {entity_type}: OWNER_ONLY needs a user_uid"
+                    )
+                    continue
+                # The vocabulary query scopes on `user_uid` specifically, while
+                # a domain may declare another ownership property (Group uses
+                # `owner_uid` — ADR-086). Scoping the wrong property would
+                # silently return that domain's tags for nobody, so refuse
+                # instead of guessing. Every domain reachable today declares
+                # the default; this keeps that an assertion, not an assumption.
+                if search_service.ownership_property != _TAG_SCOPE_PROPERTY:
+                    self.logger.warning(
+                        f"tag_frequencies skipped {entity_type}: scopes on "
+                        f"{search_service.ownership_property}, not {_TAG_SCOPE_PROPERTY}"
                     )
                     continue
                 scoped_to = user_uid

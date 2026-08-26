@@ -721,6 +721,11 @@ class SupportsTagVocabulary(Protocol):
         """The domain's declared visibility (DomainConfig-resolved)."""
         ...
 
+    @property
+    def ownership_property(self) -> str:
+        """The node property an OWNER_ONLY scope filters on (ADR-086)."""
+        ...
+
     async def tag_frequencies(self, user_uid: UserUID | None = None) -> Result[dict[str, int]]:
         """Distinct tags on this domain's entities → usage count, owner-scoped."""
         ...
