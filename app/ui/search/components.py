@@ -86,10 +86,12 @@ def render_search_page_with_navbar(
         nous_topics: NOUS topic vocabulary derived from the graph
             (route fetches via KuService.list_nous_topics)
         nous_subtopics: NOUS sub-topic vocabulary (2nd level) derived from the
-            graph (route fetches via SearchRouter.list_nous_subtopics). Render
-            gate only — the control starts disabled until a NOUS topic is
-            chosen. Empty until the vault carries `nous_subtopic:` data — the
-            control fails soft to nothing on an empty list.
+            graph (route fetches via SearchRouter.list_nous_subtopics, scoped to
+            the curriculum domains this page returns). Render gate only — the
+            control starts disabled until a NOUS topic is chosen, and its
+            options arrive from /search/subtopics at the SAME scope. Empty until
+            the vault carries `nous_subtopic:` data — the control fails soft to
+            nothing on an empty list.
         all_tags: Tag vocabulary derived from the graph (route fetches via
             SearchRouter.list_tags — Ku + PathStep distinct tags). Fails soft
             to no Tags control on an empty list.
@@ -598,11 +600,13 @@ def render_nous_subtopic_inner(
 def _render_nous_subtopic_select(nous_subtopics: list[str]) -> Any | None:
     """NOUS sub-topic column (2nd taxonomy level), dependent on the NOUS topic.
 
-    DERIVED from the graph (KuService.list_nous_subtopics / nous_subtopic_map),
-    never hardcoded. ``nous_subtopics`` (the flat vocabulary) acts purely as the
-    render GATE here: with no authored `nous_subtopic` data at all the column
-    renders NOTHING (no orphan control) — the mechanism ships ahead of the vault
-    content. The initial control itself is the DISABLED "Choose a Nous first"
+    DERIVED from the graph (SearchRouter.list_nous_subtopics / nous_subtopic_map,
+    both scoped to the curriculum domains /search returns), never hardcoded.
+    ``nous_subtopics`` (the flat vocabulary) acts purely as the render GATE here:
+    with no authored `nous_subtopic` data in scope the column renders NOTHING (no
+    orphan control) — the mechanism ships ahead of the vault content. The gate and
+    the options must share a scope, or the column appears with nothing to offer
+    (gate wider) or hides a map that has entries (gate narrower). The initial control itself is the DISABLED "Choose a Nous first"
     state, never the flat cross-topic list — sub-topics only mean something
     inside their parent NOUS topic.
 

@@ -35,6 +35,7 @@ from core.config.intelligence_tier import IntelligenceTier
 from core.models.enums.entity_enums import EntityType, NonKuDomain
 from core.models.relationship_names import RelationshipName
 from core.models.search_request import SearchRequest
+from core.orchestrator.search_router import CURRICULUM_FACET_DOMAINS
 from core.services.intelligence_tier_service import get_user_intelligence_tier
 from core.utils.result_simplified import Errors, Result
 from ui.search.components import (
@@ -77,6 +78,24 @@ SEARCH_PAGE_ENTITY_TYPES: tuple[EntityType, ...] = (
     EntityType.CHOICE,
     EntityType.PRINCIPLE,
     EntityType.KU,
+)
+
+
+# The facet vocabularies follow the result scope, or the facets lie: a NOUS
+# sub-topic authored only on a PathStep is offerable here but unreachable, which
+# is a facet option guaranteed to return zero — the same defect class as the
+# Relevance label this redesign is careful about.
+#
+# DERIVED from the result scope above rather than restated, so the facet scope
+# cannot drift from it: whichever curriculum domains `/search` returns are
+# exactly the ones its vocabularies aggregate. Today that is Ku alone.
+# `/explore/library` keeps the merged default, because its catalog carries both.
+#
+# See: docs/roadmap/deferred-work.md § "`/search` Facet Redesign" consequence 1.
+SEARCH_PAGE_FACET_DOMAINS: tuple[EntityType, ...] = tuple(
+    entity_type
+    for entity_type in CURRICULUM_FACET_DOMAINS
+    if entity_type in SEARCH_PAGE_ENTITY_TYPES
 )
 
 
@@ -151,15 +170,18 @@ def create_search_api_routes(
             if topics_result.is_ok and topics_result.value:
                 nous_topics = topics_result.value
 
-        # NOUS sub-topic (2nd taxonomy level) vocabulary spans BOTH :Ku and
-        # :PathStep — SearchRouter merges each curriculum domain's own-label
-        # pairs (cross-domain aggregation stays in the service, not a backend).
+        # NOUS sub-topic (2nd taxonomy level) vocabulary, scoped to the
+        # curriculum domains THIS page returns (SEARCH_PAGE_FACET_DOMAINS — Ku
+        # alone today). SearchRouter aggregates each domain's own-label pairs;
+        # `/explore/library` asks the same method for the merged Ku + PathStep
+        # vocabulary its catalog carries.
         # Render GATE only: the control starts disabled ("Choose a Nous first")
-        # and scopes via /search/subtopics once a topic is picked. Empty until
-        # the vault carries `nous_subtopic:` data, so the faucet fails soft to
-        # no control (mechanism ships ahead of content).
+        # and scopes via /search/subtopics once a topic is picked — which asks
+        # for the SAME scope, keeping this flat list a superset of that map.
+        # Empty until the vault carries `nous_subtopic:` data, so the facet
+        # fails soft to no control (mechanism ships ahead of content).
         nous_subtopics: list[str] = []
-        subtopics_result = await search_router.list_nous_subtopics()
+        subtopics_result = await search_router.list_nous_subtopics(SEARCH_PAGE_FACET_DOMAINS)
         if subtopics_result.is_ok and subtopics_result.value:
             nous_subtopics = subtopics_result.value
 
@@ -188,12 +210,18 @@ def create_search_api_routes(
         Powers the dependent nous→sub-topic dropdown: when the NOUS select
         changes it fires ``change from:[name='nous']`` at the sub-topic column,
         which fetches this fragment. With a topic selected, only the sub-topics
-        that CO-OCCUR with it on ≥1 entity (graph-derived co-occurrence map —
-        the taxonomy never leaves the vault, and every offered pair has at
-        least one match); with no ``nous`` (the "All Nous" option) the control
+        that CO-OCCUR with it on ≥1 entity **within this page's result scope**
+        (graph-derived co-occurrence map — the taxonomy never leaves the vault,
+        and every offered pair has at least one match HERE, not merely somewhere
+        in the catalog); with no ``nous`` (the "All Nous" option) the control
         resets to its disabled "Choose a Nous first" state — sub-topics narrow
         within a chosen topic, so a flat cross-topic list is never offered.
         Fail-soft: an unknown topic yields a disabled "All Sub-topics".
+
+        This is where the sub-topic OPTIONS come from; ``search_page``'s flat
+        list only gates whether the column exists. Both pass
+        ``SEARCH_PAGE_FACET_DOMAINS`` — scoping one alone would let the gate and
+        the options disagree.
         """
         require_authenticated_user(request)
 
@@ -201,7 +229,7 @@ def create_search_api_routes(
             return render_nous_subtopic_inner([], nous_selected=False)
 
         subtopics: list[str] = []
-        map_result = await search_router.nous_subtopic_map()
+        map_result = await search_router.nous_subtopic_map(SEARCH_PAGE_FACET_DOMAINS)
         if map_result.is_ok and map_result.value:
             subtopics = map_result.value.get(nous, [])
 

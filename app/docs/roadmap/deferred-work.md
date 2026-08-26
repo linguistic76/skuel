@@ -456,9 +456,13 @@ dropdown is the 6 Activity Domains, `entityTypeFilters` in `static/js/skuel.js` 
 each other in `tests/unit/test_search_page_scope.py` (PR #1156); and **knowledge mode** —
 the Nous facet drives the four knowledge filters, closing the one-PR gap consequence 3
 costed, and the two scope facets are ruled mutually exclusive (see *Type + Nous* below,
-PR #1157). **Still to come:** Ku-only facet vocabularies (consequence 1 below — until it
-lands, a PathStep-only tag or sub-topic is selectable on `/search` and guaranteed to
-return zero), and the close-out that marks this section ✅ RESOLVED.
+PR #1157); and the **NOUS sub-topic** half of the facet vocabularies — `/search` now
+aggregates them over the curriculum domains it returns (Ku alone), `/explore/library` and
+`/askesis` keep the merged Ku + PathStep vocabulary (consequence 1 below, PR #1158).
+**Still to come:** the **tag** half of consequence 1, which is a different problem than the
+section originally stated and is gated on a ruling (see *The tag vocabulary is inverted*
+below) — until it lands, 16 PathStep-only tags are selectable on `/search` and guaranteed
+to return zero; and the close-out that marks this section ✅ RESOLVED.
 
 **The design.** `/search` becomes one surface with one job — *your lived activity, plus the
 knowledge behind it*:
@@ -603,6 +607,63 @@ heading is one more summary to go stale.)
    vocabulary; `/explore/library` keeps the **merged** one, because its catalog really does
    carry both. One vocabulary source, two scopes — do not fork the method, parameterise it.
 
+   **✅ The NOUS sub-topic half is BUILT (PR #1158). The tag half is not, and it is a
+   different problem — see below.**
+
+   ⚠️ **Parameterise the AGGREGATION point, not the public wrappers.** There are two
+   merges, not three methods: `list_tags()` derives from `tag_frequencies()`, and
+   `nous_subtopic_map()` *and* `list_nous_subtopics()` both derive from
+   `_nous_subtopic_pairs()`. `scope` lives on the private merge and the wrappers forward it,
+   so a scoped map and a scoped flat list cannot drift apart. Default = the merged
+   `CURRICULUM_FACET_DOMAINS`, so every existing caller is untouched (constraint: `/explore`
+   and `/explore/library` must not change behaviour).
+
+   ⚠️ **`/search` has TWO doors onto the sub-topic control, and scoping one is worse than
+   scoping neither.** `search_page` fetches the flat list, which is a **render GATE only** —
+   it decides whether the column exists. The OPTIONS come from `/search/subtopics`
+   (`nous_subtopic_map`). Scope only the page and a PathStep-only sub-topic stays
+   *selectable*; scope only the endpoint and the gate can render a column with nothing
+   behind it. Both pass `SEARCH_PAGE_FACET_DOMAINS`, and the flat list stays a superset of
+   every map built at the same scope (pinned in `tests/unit/test_nous_subtopic.py`).
+
+   ⚠️ **The facet scope is DERIVED, not a fourth site.** `SEARCH_PAGE_FACET_DOMAINS` is
+   `CURRICULUM_FACET_DOMAINS ∩ SEARCH_PAGE_ENTITY_TYPES` — whichever curriculum domains the
+   page returns are exactly the ones its vocabularies aggregate, so the facet scope cannot
+   drift from the result scope. Today it evaluates to `(EntityType.KU,)`.
+
+   **Measured on the live graph 2026-08-26** (the "guaranteed to return zero" claim deserves
+   a number rather than a remembered one; corpus: 121 Ku, 25 PathStep):
+
+   | Vocabulary | Distinct (merged) | PathStep-ONLY | Effect on `/search` |
+   |---|---|---|---|
+   | NOUS topics | 11 | 0 | none — and the topic facet was ALREADY Ku-only |
+   | NOUS sub-topics (flat / the render gate) | 33 | 0 | none today |
+   | NOUS (topic, sub-topic) PAIRS (the options) | 81 | **3** | 3 dead options removed |
+   | Tags | 188 | **16** | unchanged — see the tag ruling below |
+
+   So the sub-topic fix is a **real, visible** removal, not correctness-by-construction: the
+   pairs `(body, attention)`, `(body, habits)` and `(self-awareness, breath)` were offered
+   and returned nothing. The gate and the topic dropdown do not change today — the scoping
+   is what keeps them honest as the vault grows. ⚠️ Note the flat-list row and the pair row
+   disagree: every sub-topic *word* appears on some Ku, but three *pairings* are
+   PathStep-only. A per-vocabulary count is not a per-facet count.
+
+   **✅ RULED 2026-08-26: `/askesis` stays MERGED.** It reads the same
+   `nous_subtopic_map()`, and it was checked rather than assumed: that scope does not filter
+   a result list, it scopes the `:ContentChunk` passages the answer is grounded in, and
+   lesson bodies live on PathSteps (`ContextRetriever._retrieve_scoped_chunks` cites the
+   PathStep a passage came from). Narrowing it would hide the sub-topics whose passages
+   Askesis actually reads. Narrowing `/search` is safe for the `?nous=&nous_subtopic=`
+   handoff between them, because Ku-only ⊆ merged — but the comment asserting the two
+   dropdowns offer *exactly* the same pairs was falsified and has been corrected.
+
+   ⚠️ **Pre-existing asymmetry this rung NAMES rather than inherits silently:**
+   `/explore/library` offers **Ku-only NOUS topics** (`list_nous_topics` → `KuService` → the
+   `:Ku` label) beside **merged Ku + PathStep sub-topics**. A topic authored only on
+   PathSteps would be missing from its dropdown. Harmless today (0 of 11), it predates this
+   arc, and it is not what the arc set out to fix — recorded at the call site in
+   `adapters/inbound/explore_ui.py` so it is found by whoever changes that vocabulary.
+
 2. **Exercise and RevisedExercise are already hidden result types — rule them.** ⚠️ This is
    PRE-EXISTING, not created by the redesign, which is why it is easy to miss: the
    unfiltered sweep covers every `_SEARCHABLE_DOMAINS` member except UserEntry (excluded by
@@ -683,6 +744,44 @@ heading is one more summary to go stale.)
    UserEntry. So the contract is a **rule, not a list**: every domain visible on `/search`
    is either in D1(b)'s scope or has Relevance disabled for it. The three scope statements
    in this file were rewritten to say that rather than enumerate.
+
+**⚠️ The tag vocabulary is INVERTED — the same shape as D1(b)'s recorded inversion, and it
+needs a ruling before it is built.** Consequence 1 above frames the tag defect as "the
+merged vocabulary offers tags that can never match", which is true of the 16 PathStep-only
+tags. But `/search` is **not a Ku-only surface** — it is the 6 Activity Domains + Ku,
+`tags` is an `Entity` base field carried by all 25 types, and the tag facet becomes a WHERE
+clause on *every* swept domain. So the larger defect is the opposite one: **six of the
+seven domains in the results contribute nothing to the dropdown.** A person cannot filter
+by a tag on their own Tasks.
+
+Measured 2026-08-26: activity entities carry **22 distinct tags across 68 taggings**, of
+which **11 are absent from the dropdown** entirely (the other 11 appear only because some
+Ku happens to carry the same word). Against 16 dead curriculum options.
+
+- **Widening is wiring, not new code.** `tag_frequencies` lives on `SearchOperationsMixin`,
+  so every domain already has it; `SearchRouter.tag_frequencies` simply only asks Ku and PS.
+- ⛔ **But the gate is PRIVACY.** `tag_frequencies` calls
+  `distinct_values_raw("tags", user_uid=None)` — deliberately unscoped, correct for PUBLIC
+  curriculum and a **cross-user leak** for the OWNER_ONLY activity domains: it would list
+  every user's tag names. (Two users carry activity tags on the live graph today, so the
+  leak is real, not hypothetical.) `distinct_values_raw` already accepts `user_uid`, so the
+  mechanism exists and only the ruling does not.
+- **Data quality is part of the cost, not a separate issue.** The activity tags include
+  `Dr`, `period:daily` and `period:weekly` — machine and typo tags that a widened dropdown
+  would put in front of every user.
+
+**The ruling Mike owes**, one of:
+  (a) **widen to the page scope**, with per-user scoping for the OWNER_ONLY half — the
+      dropdown then mixes a public curriculum vocabulary with the caller's own tags, and
+      the junk above is visible until the vault/tags are cleaned;
+  (b) **leave the facet curriculum-only** and scope it to Ku like the sub-topics — 16 dead
+      options go away, the six activity domains stay unfilterable by tag, and the control
+      is honestly labelled as a knowledge facet;
+  (c) leave it merged and say so — the status quo, which is the only option that fixes
+      nothing.
+
+Until then the tag facet is unchanged, and consequence 1's "Ku-only vocabulary" is
+**half-executed by design**, not half-forgotten.
 
 **Known fiction this redesign does NOT repair — deliberately left standing.** `/search`'s
 sort dropdown offers **"Relevance"**, it is the DEFAULT, and no path behind it ranks by
@@ -2026,7 +2125,7 @@ Review this document at the **September 2026 quarterly review**. Checklist:
 | Principles `_validate_update` reform or deletion | Next substantive touch of the Principles update path | Ruling needed — see the section's landmine note |
 | EntryReport / ActivityReport search | A teacher workflow wants direct report-content search | Product need (not a data threshold) |
 | Domain-level fulltext-first text search (D1(b)) — ruled DEFERRED **twice** (2026-08-16, 2026-08-25) | A consumer wants relevance ranking for the domains remaining on `/search` after the facet redesign — the 6 Activity Domains + Ku, which is now the whole surface | ⚠️ scope INVERTED, do not scope from the bullet list; the OWNER_ONLY edge-vs-property "ruling needed" is STALE — already closed, do not re-open. Product need (not a data threshold); read the section's two rulings first |
-| `/search` facet redesign — ruled 2026-08-25, **being built** (result scope, primary facet control and knowledge mode landed, PRs #1155/#1156/#1157) | Already scheduled; this row stays only until the section is marked ✅ RESOLVED | Read the section — do not scope from this row. Every ruling it once listed as needed is now made and recorded there |
+| `/search` facet redesign — ruled 2026-08-25, **being built** (result scope, primary facet control, knowledge mode and the NOUS sub-topic vocabularies landed, PRs #1155/#1156/#1157/#1158) | Already scheduled; this row stays only until the section is marked ✅ RESOLVED | Read the section — do not scope from this row. ⚠️ ONE ruling is open again and it is Mike's: the **tag** vocabulary, which the section shows is inverted (six result domains contribute nothing to the dropdown) and gated on a cross-user privacy question |
 | ZPD snapshot history & trend analysis | A ZPD-over-time consumer exists | Product need + `MATCH (h:ZPDHistory) RETURN count(h)` for accrual |
 | Habit rows in the weekly-note panel | Lived weekly-review use wants the backward look | Product need (not a data threshold) |
 | Non-positive-duration follow-ups (habit `0m` on `/today` / proposes `15`) | Next touch of either surface | Ride-along, not standalone |

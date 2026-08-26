@@ -137,6 +137,24 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
+# =============================================================================
+# FACET VOCABULARY SCOPE
+# =============================================================================
+
+# The two curriculum domains that author the facet vocabularies (`nous`,
+# `nous_subtopic`, `tags`). This is the DEFAULT scope — the merged catalog
+# `/explore/library` really carries.
+#
+# A caller narrows it when its RESULT set is narrower than the catalog:
+# `/search` returns Ku but not PathStep (PR #1155), so a sub-topic authored
+# only on a PathStep is a facet option guaranteed to return zero — the same
+# defect class the redesign refuses elsewhere. One aggregation point, two
+# scopes: parameterised, never forked.
+#
+# See: docs/roadmap/deferred-work.md § "`/search` Facet Redesign" consequence 1.
+CURRICULUM_FACET_DOMAINS: tuple[EntityType, ...] = (EntityType.KU, EntityType.PATH_STEP)
+
+
 def _sweep_sort_key(sort_field: str) -> "Callable[[dict[str, Any]], str]":
     """Sort-key factory for cross-domain merges on a shared entity field.
 
@@ -416,7 +434,9 @@ class SearchRouter:
 
         return service
 
-    async def _nous_subtopic_pairs(self) -> "list[NousSubtopicPair]":
+    async def _nous_subtopic_pairs(
+        self, scope: "Sequence[EntityType]" = CURRICULUM_FACET_DOMAINS
+    ) -> "list[NousSubtopicPair]":
         """Gather (nous, nous_subtopic) co-occurrence pairs across curriculum domains.
 
         The cross-domain aggregation point (SearchRouter is THE cross-domain
@@ -424,7 +444,15 @@ class SearchRouter:
         to its OWN label (`KuBackend`/`PsBackend.nous_subtopic_pairs`) — the merge
         lives here in the service layer, never in a single-domain backend. Both
         Ku and PathStep author `nous_subtopic` independently, so a PathStep can
-        contribute a pair no Ku carries; folding both keeps the facet complete.
+        contribute a pair no Ku carries; folding both keeps the facet complete
+        for a surface that returns both.
+
+        `scope` narrows WHICH domains contribute, for a surface whose result set
+        is narrower than the catalog (`/search` is Ku-only). It is the sole
+        aggregation point for both the map and the flat list, so scoping here
+        keeps them derived from the same pairs and cannot drift. A domain named
+        in `scope` that this router does not carry contributes nothing — the same
+        fail-soft as a missing service.
 
         Fails soft per domain: a missing service or an errored call contributes
         nothing rather than failing the whole vocabulary.
@@ -434,7 +462,7 @@ class SearchRouter:
             (EntityType.KU, self._ku),
             (EntityType.PATH_STEP, self._ps),
         ):
-            if service is None:
+            if service is None or entity_type not in scope:
                 continue
             result = await service.nous_subtopic_pairs()
             if result.is_error:
@@ -443,16 +471,24 @@ class SearchRouter:
             pairs.extend(result.value or [])
         return pairs
 
-    async def nous_subtopic_map(self) -> Result[dict[str, list[str]]]:
+    async def nous_subtopic_map(
+        self, scope: "Sequence[EntityType]" = CURRICULUM_FACET_DOMAINS
+    ) -> Result[dict[str, list[str]]]:
         """Map each NOUS topic to the sub-topics authored alongside it.
 
-        Powers the dependent /search dropdown (pick a NOUS topic → its sub-topics).
-        Derived from the graph across `:Ku` + `:PathStep` (never hardcoded — the
-        taxonomy stays in the vault, content boundary). Sub-topics per topic are
-        deduped + sorted. Fail-soft/empty until `nous_subtopic:` data is authored.
+        Powers the dependent sub-topic dropdown (pick a NOUS topic → its
+        sub-topics) on both `/search` and `/explore/library`. Derived from the
+        graph (never hardcoded — the taxonomy stays in the vault, content
+        boundary). Sub-topics per topic are deduped + sorted. Fail-soft/empty
+        until `nous_subtopic:` data is authored.
+
+        `scope` defaults to the merged catalog; a Ku-only caller passes
+        `(EntityType.KU,)` so it never offers a pair only a PathStep carries.
+        Pair the same scope with `list_nous_subtopics` — that flat list is the
+        render GATE for this map's column.
         """
         mapping: dict[str, set[str]] = {}
-        for pair in await self._nous_subtopic_pairs():
+        for pair in await self._nous_subtopic_pairs(scope):
             mapping.setdefault(pair["nous"], set()).add(pair["subtopic"])
         return Result.ok({nous: sorted(subs) for nous, subs in mapping.items()})
 
@@ -501,16 +537,22 @@ class SearchRouter:
             return Result.fail(result)
         return Result.ok(sorted(item["tag"] for item in result.value))
 
-    async def list_nous_subtopics(self) -> Result[list[str]]:
+    async def list_nous_subtopics(
+        self, scope: "Sequence[EntityType]" = CURRICULUM_FACET_DOMAINS
+    ) -> Result[list[str]]:
         """Flat NOUS sub-topic vocabulary — every distinct sub-topic, deduped + sorted.
 
-        Same `:Ku` + `:PathStep` source as `nous_subtopic_map`, flattened. Sharing
-        the source keeps the flat list (which gates whether the /search sub-topic
-        column renders) a superset of every scoped map, so the column — and its
-        dependent HTMX target — renders whenever the map has any entry, even in a
-        corpus whose sub-topics live only on PathSteps. Fail-soft/empty.
+        Same source as `nous_subtopic_map`, flattened. Sharing the source keeps
+        the flat list (which gates whether the sub-topic column renders at all) a
+        superset of every per-topic map built at the SAME scope, so the column —
+        and its dependent HTMX target — renders whenever that map has any entry,
+        even in a corpus whose sub-topics live only on PathSteps. Fail-soft/empty.
+
+        ⚠ `scope` must match the scope its surface passes to `nous_subtopic_map`,
+        or gate and options disagree: a wider gate renders a column with nothing
+        to offer, a narrower one hides a column whose map has entries.
         """
-        subtopics = {pair["subtopic"] for pair in await self._nous_subtopic_pairs()}
+        subtopics = {pair["subtopic"] for pair in await self._nous_subtopic_pairs(scope)}
         return Result.ok(sorted(subtopics))
 
     def supports_search(self, entity_type: EntityType | NonKuDomain) -> bool:
