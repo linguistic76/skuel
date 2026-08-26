@@ -195,7 +195,9 @@ construction, so the markup disables whichever is not in use; see
 - `adoptScope(event)` - Bound `x-on:change.capture` on the panel. Applies that
   predicate imperatively for the current event, because Alpine's effects flush a
   frame after the synchronous change handlers — capture phase on an ancestor is
-  the only way to land before the changed control's own htmx listener
+  the only way to land before the changed control's own htmx listener. Also
+  invalidates the server-owned sub-topic column, which its own HTMX swap would
+  not clear until that separate request returned
 - `updateFilterCount()` - Re-tally active facets (bound to `x-on:change`, bubble
   phase, so it counts what the request will carry)
 - `askHref()` - Build the scoped `/askesis?...` URL from live facet inputs

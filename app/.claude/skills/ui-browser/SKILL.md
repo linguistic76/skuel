@@ -106,6 +106,12 @@ the same predicate imperatively from an `x-on:change.capture` handler on a
 common ancestor — capture beats the changed control's own htmx listener by spec,
 which is the only ordering guarantee when both listeners sit on the target.
 
+A **dependent** control that another request re-renders (the classic
+parent-select → child-select swap) has the same problem on a longer clock: it is
+stale from the moment its INPUT changes, not from the moment its response lands,
+and every other control keeps including it meanwhile. Invalidate it where the
+parent changes rather than waiting for the swap.
+
 ### 3. HTTP Verbs
 
 ```html
