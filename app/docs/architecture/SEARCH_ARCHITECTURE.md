@@ -79,10 +79,13 @@ what `_get_search_service` resolves.
 periodic notes live in this store), so `SearchRouter.search(USER_ENTRY, ...)` REQUIRES
 `user_uid` (refused otherwise). UserEntry is excluded from the default "All Types"
 sweep and from `advanced_search` aggregation; it participates only when explicitly
-requested AND user-scoped — the `/search` "My Entries" filter routes through the
-OWNS-scoped `graph_aware_faceted_search()` path, and a multi-type `entity_types`
-filter sweeps it owner-scoped (`search_domains` threads `user_uid`; each domain's
-`SearchVisibility` declaration decides what the uid means — see next section).
+requested AND user-scoped — an explicit `entity_types` filter routes through the
+OWNS-scoped `graph_aware_faceted_search()` path, and a multi-type filter sweeps it
+owner-scoped (`search_domains` threads `user_uid`; each domain's `SearchVisibility`
+declaration decides what the uid means — see next section). ⚠️ The `/search` page
+is no longer such a caller: UserEntry is off its result scope (below), so the
+"My Entries" dropdown option no longer reaches entries and is removed with the
+rest of the facet redesign.
 
 ```python
 _SEARCHABLE_DOMAINS: frozenset[EntityType] = frozenset({
@@ -95,6 +98,20 @@ _SEARCHABLE_DOMAINS: frozenset[EntityType] = frozenset({
     EntityType.EXERCISE, EntityType.REVISED_EXERCISE, EntityType.USER_ENTRY,
 })
 ```
+
+**`_SEARCHABLE_DOMAINS` is what the ROUTER can search, not what a surface does.**
+The `/search` page searches a narrower set — the **6 Activity Domains + Ku** —
+declared at its own entry point as `SEARCH_PAGE_ENTITY_TYPES` /
+`scope_to_search_page` (`adapters/inbound/search_routes.py`), never as an edit to
+the router's sweep default. PathStep and LearningPath are off the page (the
+`/explore/library` catalog carries Ku + PathStep with richer facets; LPs are
+navigated from `/learning-paths`), and so are Exercise, RevisedExercise and
+UserEntry. The scope narrows the REQUEST, not just the dropdown, because a
+filter-only removal would leave an unfiltered search still returning rows no
+facet could reach. `/explore` and `/explore/library` share `faceted_search` and
+are untouched by it — they send their own `entity_types`.
+
+**See:** `docs/roadmap/deferred-work.md` § "`/search` Facet Redesign".
 
 ---
 
@@ -571,7 +588,10 @@ checkbox is on — folds in lesson-BODY hits:
 
 Gated on the **raw** `enable_semantic_boost` flag (not `has_semantic_boost()`, which
 also requires `context_uids`). Scope: a single Ku/PS domain search adds that type's
-bodies; a cross-domain (Type=All) search adds both.
+bodies; a cross-domain search adds the bodies of the curriculum domains **in the
+request's own entity-type scope** — both for a Ku+PathStep request, Ku only on
+`/search`, and none at all (no vector call) for a sweep carrying neither. A domain
+excluded from the frontmatter results must not re-enter through the Digital layer.
 
 **Tier discipline (ADR-043):** Digital-layer enhancement. `INTELLIGENCE_TIER=core` has
 no vector service — the augmentation **fails soft** (skips silently, never raises), so

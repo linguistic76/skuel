@@ -55,6 +55,60 @@ logger = get_logger("skuel.routes.search")
 
 
 # ============================================================================
+# /search RESULT SCOPE
+# ============================================================================
+
+# What `/search` searches: the 6 Activity Domains + Ku — your lived activity,
+# plus the knowledge behind it. Excluded deliberately: PATH_STEP and
+# LEARNING_PATH (the /explore/library catalog carries Ku + PathStep with richer
+# facets; LPs are navigated from /learning-paths, not searched), and EXERCISE /
+# REVISED_EXERCISE / USER_ENTRY (learning output, whose home is the profile hub).
+#
+# The scope lives HERE, at the entry point, and not in SearchRouter's shared
+# sweep default: /explore and /explore/library share `faceted_search` and must
+# keep the merged Ku + PathStep catalog untouched.
+#
+# See: docs/roadmap/deferred-work.md § "`/search` Facet Redesign".
+SEARCH_PAGE_ENTITY_TYPES: tuple[EntityType, ...] = (
+    EntityType.TASK,
+    EntityType.GOAL,
+    EntityType.HABIT,
+    EntityType.EVENT,
+    EntityType.CHOICE,
+    EntityType.PRINCIPLE,
+    EntityType.KU,
+)
+
+
+def scope_to_search_page(request: SearchRequest) -> SearchRequest:
+    """Narrow a `/search` request to the domains the page actually offers.
+
+    Without this an unfiltered page inherits SearchRouter's cross-domain sweep
+    default — every searchable domain except UserEntry — so Exercises,
+    RevisedExercises, PathSteps and LearningPaths come back as results that no
+    facet on the page can filter to or away. Removal is from the RESULTS, not
+    just the filter, which is why this narrows the request rather than only the
+    dropdown.
+
+    An entity type outside the scope narrows the page to nothing, so it is
+    dropped and the full scope applies — the same way the form boundary already
+    treats an unrecognized one (`SearchRequest.from_form_params` parses it to no
+    filter at all).
+
+    Emits canonical `EntityType` values: `entity_types` is a machine channel,
+    and `use_enum_values=True` means a validated request carries value strings.
+    """
+    in_scope = [entity_type.value for entity_type in SEARCH_PAGE_ENTITY_TYPES]
+    allowed = frozenset(in_scope)
+    requested = [
+        parsed.value
+        for raw in request.entity_types
+        if (parsed := EntityType.from_string(str(raw))) is not None and parsed.value in allowed
+    ]
+    return request.model_copy(update={"entity_types": requested or in_scope})
+
+
+# ============================================================================
 # API FACTORY
 # ============================================================================
 
@@ -255,6 +309,12 @@ def create_search_api_routes(
         # branch lives on the built request, not on the raw query string.
         if not search_request.has_any_criteria():
             return render_empty_search_prompt()
+
+        # Narrow to what /search searches (6 Activity Domains + Ku) BEFORE the
+        # router runs, and after has_any_criteria() — the scope defines the
+        # result set, it is not a filter the user chose, so it must not turn the
+        # blank initial state into a search.
+        search_request = scope_to_search_page(search_request)
 
         # Execute search via SearchRouter (One Path Forward)
         # SearchRouter.faceted_search handles strategy selection internally

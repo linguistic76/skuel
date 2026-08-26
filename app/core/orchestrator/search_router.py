@@ -1016,6 +1016,10 @@ class SearchRouter:
         to the best-scoring chunk per parent, and appends the PARENT as a normal
         result card (never a raw chunk) — deduped against parents already present.
 
+        Parent cards obey the request's ENTITY-TYPE scope as well: a sweep
+        narrowed to Ku admits Ku bodies only, so a curriculum domain excluded
+        from the frontmatter results cannot re-enter through the Digital layer.
+
         Fails SOFT and NEVER raises: no vector service (CORE tier), no query, or
         a search error all return ``response`` unchanged so /search stays fully
         functional without the Digital layer.
@@ -1023,9 +1027,22 @@ class SearchRouter:
         Backend: VectorSearchBackend.semantic_search_chunks (via
         Neo4jVectorSearchService.find_similar_chunks_by_text).
         """
-        # Scope: single Ku/PS domain → that type only; cross-domain → both.
+        # Scope: single Ku/PS domain → that type only; cross-domain → the
+        # request's OWN entity-type scope, intersected with the two body-chunk
+        # domains. A sweep the caller narrowed (the /search result scope, or an
+        # explicit [KU, TASK]) must not fold in lesson bodies from a curriculum
+        # domain it excluded — the frontmatter results above are already scoped
+        # that way, and this is the Digital-layer half of the same result set.
+        body_values = frozenset(self._BODY_CHUNK_DOMAIN_VALUE.values())
         if domain_str is None:
-            target_values = frozenset(self._BODY_CHUNK_DOMAIN_VALUE.values())
+            requested = {
+                parsed.value
+                for raw in request.entity_types
+                if (parsed := self._parse_entity_type(raw)) is not None
+            }
+            target_values = body_values & requested if requested else body_values
+            if not target_values:
+                return response  # sweep excludes both curriculum domains
         elif domain_str in self._BODY_CHUNK_DOMAIN_VALUE:
             target_values = frozenset({self._BODY_CHUNK_DOMAIN_VALUE[domain_str]})
         else:
