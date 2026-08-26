@@ -781,10 +781,16 @@
                 // Count active facets: non-empty selects (Sort's 'relevance' default
                 // excluded) + checked checkboxes, scoped to the filter panel. Driven
                 // by x-on:change on .search-filters, so it re-tallies as controls move.
+                //
+                // Disabled selects are skipped: a control out of the active scope
+                // keeps its value (so returning to that scope restores it) but is
+                // withheld from the request, and a badge counting a facet that does
+                // not narrow anything is the same lie as submitting it.
                 updateFilterCount: function() {
                     var root = this.$root;
                     var count = 0;
                     root.querySelectorAll('.search-filters select').forEach(function(sel) {
+                        if (sel.disabled) return;
                         if (sel.value && sel.value !== 'relevance') count++;
                     });
                     root.querySelectorAll('.search-filters input[type="checkbox"]').forEach(function(cb) {
@@ -796,6 +802,37 @@
                 // Knowledge mode is checked FIRST and the two branches never
                 // overlap — the controls are mutually exclusive, so at most one
                 // scope is set at a time.
+                // Adopt a scope change BEFORE htmx serializes the request.
+                //
+                // Capture phase on the panel runs, by spec, before any listener
+                // on the <select> itself — the only ordering guarantee available
+                // here. Alpine's x-model listener and htmx's hx-trigger listener
+                // are both on the target and register in whatever order the
+                // bundles load, and Alpine's reactive effects flush a frame later
+                // either way. Without this the request that CLEARS a scope still
+                // carries that scope's own context filters: measured in a browser,
+                // setting Nous back to "All Nous" sent sel_category one more time,
+                // so the results stayed knowledge-only after the knowledge scope
+                // was gone. The bubble-phase updateFilterCount() runs after this,
+                // so the badge counts the same truth.
+                //
+                // Same predicate as the x-bind:disabled on each column — applied
+                // imperatively for THIS event, declaratively from the next frame.
+                adoptScope: function(event) {
+                    var target = event.target;
+                    if (target.name === 'entity_type') {
+                        this.entityType = target.value;
+                    } else if (target.name === 'nous') {
+                        this.nousTopic = target.value;
+                    } else {
+                        return;
+                    }
+                    var self = this;
+                    this.$root.querySelectorAll('.context-filters select').forEach(function(sel) {
+                        sel.disabled = !self.isFilterVisible(sel.name);
+                    });
+                },
+
                 isFilterVisible: function(group) {
                     if (this.isKnowledgeMode) {
                         return this.knowledgeFilterGroups.indexOf(group) !== -1;

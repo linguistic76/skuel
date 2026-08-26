@@ -151,6 +151,80 @@ describe('labels', () => {
   });
 });
 
+describe('adoptScope (capture phase)', () => {
+  function mountScopeAndContext() {
+    document.body.innerHTML = `
+      <div class="search-container">
+        <select name="entity_type"><option value="task" selected>Tasks</option></select>
+        <select name="nous"><option value="body" selected>Body</option></select>
+        <div class="context-filters">
+          <select name="status"><option value="completed" selected>Completed</option></select>
+          <select name="sel_category"><option value="self_awareness" selected>SA</option></select>
+        </div>
+      </div>`;
+    return document.querySelector('.search-container');
+  }
+
+  function change(name) {
+    return { target: document.querySelector('[name="' + name + '"]') };
+  }
+
+  it('disables the columns the new scope does not own, synchronously', () => {
+    // Synchronously: htmx serializes in its own change listener on the target,
+    // and Alpine's reactive x-bind:disabled flushes a frame later — too late.
+    const component = skuel.make('searchFilters');
+    component.$root = mountScopeAndContext();
+    component.nousTopic = 'body';
+
+    document.querySelector('[name="nous"]').value = '';
+    component.adoptScope(change('nous'));
+
+    expect(component.nousTopic).toBe('');
+    expect(document.querySelector('[name="sel_category"]').disabled).toBe(true);
+    expect(document.querySelector('[name="status"]').disabled).toBe(true);
+  });
+
+  it('enables exactly the columns the new scope owns', () => {
+    const component = skuel.make('searchFilters');
+    component.$root = mountScopeAndContext();
+
+    component.adoptScope(change('entity_type'));
+
+    expect(component.entityType).toBe('task');
+    expect(document.querySelector('[name="status"]').disabled).toBe(false);
+    expect(document.querySelector('[name="sel_category"]').disabled).toBe(true);
+  });
+
+  it('reveals the knowledge columns when a NOUS topic arrives', () => {
+    const component = skuel.make('searchFilters');
+    component.$root = mountScopeAndContext();
+    document.querySelector('[name="entity_type"]').value = '';
+
+    component.adoptScope(change('nous'));
+
+    expect(document.querySelector('[name="sel_category"]').disabled).toBe(false);
+    expect(document.querySelector('[name="status"]').disabled).toBe(true);
+  });
+
+  it('ignores a change on any control that is not a scope facet', () => {
+    // EVERY control's change passes through the panel's capture listener, so
+    // the handler must key on the two scope facets and touch nothing otherwise.
+    // Pinned from a state only this handler could "correct": no scope is set,
+    // yet status is enabled. A scope change would disable it; a status change
+    // must leave it exactly as it found it.
+    const component = skuel.make('searchFilters');
+    component.$root = mountScopeAndContext();
+    component.entityType = '';
+    component.nousTopic = '';
+    document.querySelector('[name="status"]').disabled = false;
+
+    component.adoptScope(change('status'));
+
+    expect(component.entityType).toBe('');
+    expect(document.querySelector('[name="status"]').disabled).toBe(false);
+  });
+});
+
 describe('clearAllFilters', () => {
   function mountFilters() {
     document.body.innerHTML = `
@@ -225,6 +299,24 @@ describe('updateFilterCount', () => {
 
     // 1 non-default select + 1 checked checkbox; '' and 'relevance' excluded.
     expect(component.filterCount).toBe(2);
+  });
+
+  it('skips a disabled select — it keeps its value but rides no request', () => {
+    // An out-of-scope context filter is disabled, not cleared, so returning to
+    // that scope restores it visibly. Counting it would advertise a facet that
+    // htmx withholds — the same lie as submitting it.
+    const component = skuel.make('searchFilters');
+    const root = document.createElement('div');
+    root.innerHTML = `
+      <div class="search-filters">
+        <select><option value="active" selected>active</option></select>
+        <select disabled><option value="self_awareness" selected>SA</option></select>
+      </div>`;
+    component.$root = root;
+
+    component.updateFilterCount();
+
+    expect(component.filterCount).toBe(1);
   });
 });
 

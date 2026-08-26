@@ -540,6 +540,26 @@ leaving the gap unnamed. If it does join:
    narrows the result set to Ku on its own, which is what makes "Ku is reached through the
    Nous facet" true of the query and not just of the UI.
 
+   ⚠️ **Two scopes made a pre-existing leak load-bearing: a HIDDEN context filter was still
+   submitted.** `hx-include` names every filter on the page, and `x-show` only hides, so a
+   `sel_category` chosen in knowledge mode stayed live after the user switched to
+   `Type=Task` — a WHERE clause on a property Tasks do not carry, i.e. guaranteed zero.
+   (The `Type → All Types` half of this predates the redesign; the cross-scope half is new,
+   and worse, because it cannot match rather than merely narrowing.) ✅ Fixed in PR #1157
+   with the same mechanism: a context column is `disabled` exactly while it is hidden, one
+   predicate for both. **Disabled, not cleared** — returning to that scope restores the
+   filter visibly instead of silently discarding what the user chose; `updateFilterCount`
+   skips disabled controls so the badge counts only what the request carries.
+
+   ⚠️ **The declarative binding alone is one request too late.** Alpine's effects flush a
+   frame after the synchronous change handlers, so the request that CLEARS a scope still
+   carried that scope's filters — measured, and it made the results stay knowledge-only
+   after the knowledge scope was gone. `searchFilters.adoptScope`, bound
+   `x-on:change.capture` on the panel, applies the same predicate imperatively for that one
+   event: the capture phase on an ancestor beats the changed control's own htmx listener by
+   spec, which is the only ordering guarantee available when both listeners sit on the
+   target. (Raised by Codex on #1157.)
+
    ⚠️ **Alpine's `x-model` listener and htmx's `change` trigger are NOT ordered** — measured
    in a headless browser, not assumed: the request that ENTERS a mode is serialized before
    the other control is disabled, so choosing a Nous topic sends `entity_type=` (blank), and

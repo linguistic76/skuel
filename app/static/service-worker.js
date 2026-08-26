@@ -9,8 +9,10 @@
 // drives a knowledge mode from it, which is what makes the four knowledge
 // context filters reachable again after the Type dropdown lost its Ku option.
 // A client serving the v10 bundle would pair the new markup (the Nous select's
-// x-model / x-bind:disabled) with a component that has no nousTopic property —
-// an Alpine expression error, and a Type control disabled by nothing.
+// x-model / x-bind:disabled, the panel's x-on:change.capture) with a component
+// that has neither `nousTopic` nor `adoptScope` — an Alpine expression error, a
+// Type control disabled by nothing, and every context filter still riding
+// requests it no longer belongs to.
 // Bumped v9 -> v10 for skuel.js: the /search Type dropdown is now the 6 Activity
 // Domains, and searchFilters' entityTypeFilters map dropped path_step,
 // learning_path and user_entry to match. A client serving the v9 bundle would

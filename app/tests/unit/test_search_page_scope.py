@@ -570,6 +570,28 @@ class TestKnowledgeMode:
         assert not _rendered_visibility_groups() & _FILTER_GROUP_MARKERS
 
 
+class TestOutOfScopeContextFilters:
+    """A hidden context filter must not ride the request (Codex, #1157)."""
+
+    def test_every_context_column_is_disabled_while_it_is_hidden(self) -> None:
+        # `hx-include` names every filter on the page, so hiding a control with
+        # x-show alone leaves it submitting. Same predicate for both, so the two
+        # cannot disagree: shown == enabled.
+        markup = to_xml(_render_context_filters())
+
+        for group in _rendered_visibility_groups():
+            assert f"x-bind:disabled=\"!isFilterVisible('{group}')\"" in markup
+
+    def test_the_panel_adopts_a_scope_change_in_the_capture_phase(self) -> None:
+        # Capture beats the changed control's own htmx listener by spec; the
+        # bubble-phase tally then counts what the request will actually carry.
+        # Bubble-only would serialize the vacated scope's filters one last time.
+        markup = _filter_panel_markup()
+
+        assert 'x-on:change.capture="adoptScope($event)"' in markup
+        assert 'x-on:change="updateFilterCount()"' in markup
+
+
 class TestMutuallyExclusiveScopeFacets:
     """Type and Nous cannot both be set: their intersection is empty by construction."""
 

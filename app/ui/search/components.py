@@ -413,6 +413,10 @@ def _render_filter_panel(
         cls="search-filters",
         **{
             ":class": "{ 'is-open': filtersOpen }",
+            # Capture phase: adoptScope must land before the changed control's
+            # OWN htmx listener serializes the request, and before the
+            # bubble-phase tally below. See searchFilters.adoptScope.
+            "x-on:change.capture": "adoptScope($event)",
             "x-on:change": "updateFilterCount()",
             "x-on:htmx:after-swap": "updateFilterCount()",
         },
@@ -745,10 +749,20 @@ def _educational_level_options() -> list[tuple[str, str]]:
 
 
 def _context_field(name: str, label_text: str, options: list[tuple[str, str]]) -> Div:
-    """One Tier 2 context filter: label + select, visible per Alpine filter group."""
+    """One Tier 2 context filter: label + select, visible per Alpine filter group.
+
+    Disabled whenever it is hidden, and for the same reason the scope facets
+    disable each other: ``hx-include`` names every filter on the page, so a
+    control the user cannot see still rides every request. Hidden-but-live is
+    how a `sel_category` chosen in knowledge mode ends up as a WHERE clause on a
+    Task search — guaranteed zero rows, the defect class this surface refuses.
+    htmx omits disabled elements, so hiding and withholding stay in step. The
+    value is KEPT, not cleared: returning to that scope restores the filter
+    visibly, rather than silently dropping what the user chose. (Codex, #1157.)
+    """
     return Div(
         Label(label_text, fr=name, cls="block py-0.5"),
-        _filter_select(name, options),
+        _filter_select(name, options, attrs={"x-bind:disabled": f"!isFilterVisible('{name}')"}),
         cls="space-y-2 min-w-[140px]",
         x_show=f"isFilterVisible('{name}')",
         **{"x-transition": True},
