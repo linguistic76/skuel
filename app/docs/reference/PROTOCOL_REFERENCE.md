@@ -761,6 +761,7 @@ Quick reference for common hasattr() patterns:
 | `hasattr(svc, 'graph_aware_faceted_search')` | `isinstance(svc, SupportsGraphAwareSearch)` | `core.ports.search_protocols` |
 | `hasattr(svc, 'search_by_tags')` | `isinstance(svc, SupportsTagSearch)` | `core.ports.search_protocols` |
 | `hasattr(svc, 'search_visibility')` | `isinstance(svc, SupportsVisibilityDeclaration)` | `core.ports.search_protocols` |
+| `hasattr(svc, 'tag_frequencies')` | `isinstance(svc, SupportsTagVocabulary)` — narrows the visibility declaration AND the counts together, so a caller cannot read an OWNER_ONLY domain's tags without learning it must scope them | `core.ports.search_protocols` |
 | `hasattr(field_info, 'metadata')` | `isinstance(field_info, PydanticFieldInfo)` | `core.ports` |
 | `hasattr(constraint, 'min_length')` | `isinstance(constraint, MinLenConstraint)` | `core.ports` |
 | `hasattr(pydantic_model, 'field')` | Just access `model.field` (always defined) | N/A |
