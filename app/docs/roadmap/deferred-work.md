@@ -648,14 +648,24 @@ heading is one more summary to go stale.)
    disagree: every sub-topic *word* appears on some Ku, but three *pairings* are
    PathStep-only. A per-vocabulary count is not a per-facet count.
 
-   **✅ RULED 2026-08-26: `/askesis` stays MERGED.** It reads the same
-   `nous_subtopic_map()`, and it was checked rather than assumed: that scope does not filter
-   a result list, it scopes the `:ContentChunk` passages the answer is grounded in, and
-   lesson bodies live on PathSteps (`ContextRetriever._retrieve_scoped_chunks` cites the
-   PathStep a passage came from). Narrowing it would hide the sub-topics whose passages
-   Askesis actually reads. Narrowing `/search` is safe for the `?nous=&nous_subtopic=`
-   handoff between them, because Ku-only ⊆ merged — but the comment asserting the two
-   dropdowns offer *exactly* the same pairs was falsified and has been corrected.
+   **✅ RULED 2026-08-26 (Mike): `/askesis` is not a search surface, so it takes the WIDEST
+   honest vocabulary — it stays MERGED.** In his words: *"Askesis is not the /search result
+   set, it is different than that. Askesis has access to everything about the user with some
+   transparent and adjustable boundaries."* The general rule, which outranks this one facet:
+   **never derive an Askesis scope from what a page lists.** A facet on the Askesis composer
+   is a user-adjustable boundary on total access — so it must be *transparent* (the visible,
+   clearable scope chip is load-bearing, not decoration) and *adjustable* (the user opens and
+   closes it; code never narrows it for them). Default any future Askesis vocabulary to the
+   widest honest one.
+
+   The narrow justification holds too, and was checked rather than assumed: that scope does
+   not filter a result list, it scopes the `:ContentChunk` passages the answer is grounded
+   in, and lesson bodies live on PathSteps (`ContextRetriever._retrieve_scoped_chunks` cites
+   the PathStep a passage came from), so a Ku-only vocabulary would hide the sub-topics whose
+   passages Askesis actually reads. Narrowing `/search` is safe for the
+   `?nous=&nous_subtopic=` handoff between them, because Ku-only ⊆ merged — but the comment
+   asserting the two dropdowns offer *exactly* the same pairs was falsified and has been
+   corrected.
 
    ⚠️ **Pre-existing asymmetry this rung NAMES rather than inherits silently:**
    `/explore/library` offers **Ku-only NOUS topics** (`list_nous_topics` → `KuService` → the
