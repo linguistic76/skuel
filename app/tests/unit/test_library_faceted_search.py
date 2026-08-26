@@ -33,6 +33,7 @@ from core.models.enums import SearchVisibility
 from core.models.enums.entity_enums import EntityType
 from core.models.search.filter_enums import SearchSortOrder
 from core.models.search_request import SearchRequest
+from core.models.type_hints import UserUID
 from core.orchestrator.search_router import SearchRouter
 from core.utils.result_simplified import Result
 from tests.helpers.faceted_capture import CapturedQuery, run_faceted
@@ -287,6 +288,10 @@ class TestSweepMergeAndPagination:
 # ============================================================================
 
 
+# What a domain's tag_frequencies returns: tag → occurrence count.
+TagCounts = dict[str, int]
+
+
 class _TagSearchSub:
     """Stand-in for a domain's SEARCH SUB-SERVICE, shaped like the real one.
 
@@ -301,19 +306,28 @@ class _TagSearchSub:
 
     def __init__(
         self,
-        frequencies: Any,
+        frequencies: TagCounts | Result[TagCounts],
         visibility: SearchVisibility = SearchVisibility.PUBLIC,
         ownership_property: str = "user_uid",
     ) -> None:
         self.search_visibility = visibility
         self.ownership_property = ownership_property
         self._frequencies = frequencies
-        self.scopes_received: list[Any] = []
+        # Every scope this double was ASKED for, in order — the privacy
+        # assertion reads this, not just the tags handed back.
+        self.scopes_received: list[UserUID | None] = []
 
-    async def search(self, *_args: Any, **_kwargs: Any) -> Result[list[Any]]:
+    async def search(
+        self,
+        query: str,
+        limit: int = 50,
+        user_uid: UserUID | None = None,
+        # boundary: mirrors SupportsTextSearch.search verbatim, whose own
+        # element type is the cross-domain union no static T can name.
+    ) -> Result[list[Any]]:
         return Result.ok([])
 
-    async def tag_frequencies(self, user_uid: Any = None) -> Result[dict[str, int]]:
+    async def tag_frequencies(self, user_uid: UserUID | None = None) -> Result[TagCounts]:
         self.scopes_received.append(user_uid)
         if isinstance(self._frequencies, Result):
             return self._frequencies
@@ -325,7 +339,7 @@ class _TagDomain:
 
     def __init__(
         self,
-        frequencies: Any,
+        frequencies: TagCounts | Result[TagCounts],
         visibility: SearchVisibility = SearchVisibility.PUBLIC,
         ownership_property: str = "user_uid",
     ) -> None:
@@ -479,7 +493,7 @@ class TestTagVocabularyScope:
     """
 
     @staticmethod
-    def _router() -> tuple[Any, Any, Any]:
+    def _router() -> tuple[SearchRouter, _TagDomain, _TagDomain]:
         ku = _TagDomain({"breath": 4}, SearchVisibility.PUBLIC)
         tasks = _TagDomain({"errand": 2}, SearchVisibility.OWNER_ONLY)
         return SearchRouter(ku=ku, tasks=tasks), ku, tasks
