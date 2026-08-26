@@ -189,8 +189,15 @@ construction, so the markup disables whichever is not in use; see
 
 **Methods:**
 - `isFilterVisible(group)` - Check if a Tier 2 filter group should show, keyed to
-  whichever scope facet is set
-- `updateFilterCount()` - Re-tally active facets (bound to `x-on:change`)
+  whichever scope facet is set. Also drives each column's `x-bind:disabled`: htmx
+  omits disabled elements, so a hidden filter is withheld rather than silently
+  narrowing every request
+- `adoptScope(event)` - Bound `x-on:change.capture` on the panel. Applies that
+  predicate imperatively for the current event, because Alpine's effects flush a
+  frame after the synchronous change handlers — capture phase on an ancestor is
+  the only way to land before the changed control's own htmx listener
+- `updateFilterCount()` - Re-tally active facets (bound to `x-on:change`, bubble
+  phase, so it counts what the request will carry)
 - `askHref()` - Build the scoped `/askesis?...` URL from live facet inputs
 - `clearFilter(name)` / `clearAllFilters()` - Reset one / all facets
 
