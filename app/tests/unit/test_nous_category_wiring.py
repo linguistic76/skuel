@@ -71,6 +71,17 @@ class TestDistinctValuesArrayAware:
         assert "publication_state" in cypher
         assert "user_uid" not in cypher
 
+    def test_an_empty_uid_scopes_to_nothing_rather_than_to_everyone(self):
+        # The failure direction of a multi-tenant scope key must be "shows
+        # nothing", never "shows everyone". A truthiness test would send an
+        # empty uid down the UNSCOPED branch and hand back every user's tag
+        # names — the OWNER_ONLY tag vocabulary reaches this builder, and its
+        # sibling below only proves the NON-empty case.
+        cypher, params = build_distinct_values_query(label=NeoLabel.TASK, field="tags", user_uid="")
+
+        assert "n.user_uid = $user_uid" in cypher
+        assert params["user_uid"] == ""
+
     def test_user_scope_preserved(self):
         cypher, params = build_distinct_values_query(
             label=NeoLabel.TASK, field="priority", user_uid="user_mike"

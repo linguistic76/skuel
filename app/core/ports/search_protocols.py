@@ -703,6 +703,30 @@ class SupportsVisibilityDeclaration(Protocol):
 
 
 @runtime_checkable
+class SupportsTagVocabulary(Protocol):
+    """
+    Protocol for search services that can supply a scoped tag vocabulary.
+
+    The narrow slice `SearchRouter.tag_frequencies` needs, and deliberately
+    BOTH halves in one protocol: the counts are unsafe to read without the
+    visibility declaration that says how to scope them. Narrowing to a
+    capability that returned tags alone would let a caller read an OWNER_ONLY
+    domain's tags corpus-wide and never learn it had to pass a user.
+
+    Use isinstance(...) to narrow before either read (SKUEL011 — no hasattr).
+    """
+
+    @property
+    def search_visibility(self) -> SearchVisibility:
+        """The domain's declared visibility (DomainConfig-resolved)."""
+        ...
+
+    async def tag_frequencies(self, user_uid: UserUID | None = None) -> Result[dict[str, int]]:
+        """Distinct tags on this domain's entities → usage count, owner-scoped."""
+        ...
+
+
+@runtime_checkable
 class SupportsGraphAwareSearch(Protocol):
     """
     Protocol for search services with graph-aware faceted search capability.

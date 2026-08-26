@@ -835,7 +835,7 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         return Result.ok(categories)
 
     @with_error_handling("tag_frequencies", error_type="database")
-    async def tag_frequencies(self) -> Result[dict[str, int]]:
+    async def tag_frequencies(self, user_uid: UserUID | None = None) -> Result[dict[str, int]]:
         """
         Map each distinct tag on this domain's entities to its usage count.
 
@@ -843,12 +843,19 @@ class SearchOperationsMixin[B: BackendOperations, T: DomainModelProtocol]:
         Mirrors ``list_all_categories`` on the universal ``tags`` array field,
         but keeps the per-tag counts so consumers can rank by usage.
 
+        ``user_uid`` scopes the vocabulary to one owner — REQUIRED for an
+        OWNER_ONLY domain, where an unscoped count would list every user's tag
+        names. ``None`` means corpus-wide and is correct ONLY for a PUBLIC
+        domain (shared curriculum). This method does not police that itself:
+        the caller declares the scope, and ``SearchRouter.tag_frequencies`` is
+        the chokepoint that refuses an unscoped OWNER_ONLY read.
+
         Backend: ``distinct_values_raw`` UNWINDs array properties, so each
         distinct tag comes back as its own row with an occurrence ``count``.
         """
         result = await self.backend.distinct_values_raw(
             "tags",
-            user_uid=None,
+            user_uid=user_uid,
         )
         if result.is_error:
             return Result.fail(result)

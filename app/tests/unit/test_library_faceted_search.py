@@ -287,13 +287,53 @@ class TestSweepMergeAndPagination:
 # ============================================================================
 
 
+class _TagSearchSub:
+    """Stand-in for a domain's SEARCH SUB-SERVICE, shaped like the real one.
+
+    `SearchRouter._get_search_service` rejects a bare MagicMock on purpose: it
+    requires `.search` to be a non-callable attribute holding the sub-service
+    (a MagicMock's `.search` is itself callable, so it reads as a method). The
+    tag vocabulary then narrows that sub-service to `SupportsTagVocabulary`, so
+    the double must carry BOTH halves the router reads — the visibility
+    declaration and the counts — or the fixture would pass while the real
+    wiring could not.
+    """
+
+    def __init__(
+        self,
+        frequencies: Any,
+        visibility: SearchVisibility = SearchVisibility.PUBLIC,
+    ) -> None:
+        self.search_visibility = visibility
+        self._frequencies = frequencies
+        self.scopes_received: list[Any] = []
+
+    async def search(self, *_args: Any, **_kwargs: Any) -> Result[list[Any]]:
+        return Result.ok([])
+
+    async def tag_frequencies(self, user_uid: Any = None) -> Result[dict[str, int]]:
+        self.scopes_received.append(user_uid)
+        if isinstance(self._frequencies, Result):
+            return self._frequencies
+        return Result.ok(self._frequencies)
+
+
+class _TagDomain:
+    """A domain facade double whose `.search` is the sub-service, not a method."""
+
+    def __init__(
+        self,
+        frequencies: Any,
+        visibility: SearchVisibility = SearchVisibility.PUBLIC,
+    ) -> None:
+        self.search = _TagSearchSub(frequencies, visibility)
+
+
 class TestTagVocabulary:
     @pytest.mark.asyncio
     async def test_frequencies_sum_across_domains_most_used_first(self) -> None:
-        ku = MagicMock()
-        ku.search.tag_frequencies = AsyncMock(return_value=Result.ok({"yoga": 2, "mind": 1}))
-        ps = MagicMock()
-        ps.search.tag_frequencies = AsyncMock(return_value=Result.ok({"yoga": 3, "attention": 1}))
+        ku = _TagDomain({"yoga": 2, "mind": 1})
+        ps = _TagDomain({"yoga": 3, "attention": 1})
         router = SearchRouter(ku=ku, ps=ps)
 
         result = await router.tag_frequencies()
@@ -307,10 +347,8 @@ class TestTagVocabulary:
 
     @pytest.mark.asyncio
     async def test_frequency_ties_break_alphabetically(self) -> None:
-        ku = MagicMock()
-        ku.search.tag_frequencies = AsyncMock(return_value=Result.ok({"zen": 1, "action": 1}))
-        ps = MagicMock()
-        ps.search.tag_frequencies = AsyncMock(return_value=Result.ok({}))
+        ku = _TagDomain({"zen": 1, "action": 1})
+        ps = _TagDomain({})
         router = SearchRouter(ku=ku, ps=ps)
 
         result = await router.tag_frequencies()
@@ -319,10 +357,8 @@ class TestTagVocabulary:
 
     @pytest.mark.asyncio
     async def test_list_tags_derives_alphabetical_unique(self) -> None:
-        ku = MagicMock()
-        ku.search.tag_frequencies = AsyncMock(return_value=Result.ok({"yoga": 2, "mind": 1}))
-        ps = MagicMock()
-        ps.search.tag_frequencies = AsyncMock(return_value=Result.ok({"yoga": 9, "attention": 1}))
+        ku = _TagDomain({"yoga": 2, "mind": 1})
+        ps = _TagDomain({"yoga": 9, "attention": 1})
         router = SearchRouter(ku=ku, ps=ps)
 
         result = await router.list_tags()
@@ -332,10 +368,8 @@ class TestTagVocabulary:
 
     @pytest.mark.asyncio
     async def test_fails_soft_per_domain(self) -> None:
-        ku = MagicMock()
-        ku.search.tag_frequencies = AsyncMock(return_value=Result.fail(MagicMock(is_error=True)))
-        ps = MagicMock()
-        ps.search.tag_frequencies = AsyncMock(return_value=Result.ok({"attention": 1}))
+        ku = _TagDomain(Result.fail(MagicMock(is_error=True)))
+        ps = _TagDomain({"attention": 1})
         router = SearchRouter(ku=ku, ps=ps)
 
         result = await router.list_tags()
@@ -424,3 +458,81 @@ class TestLibraryCards:
     def test_short_page_has_no_sentinel(self) -> None:
         cards = _library_cards(self._records(3), set(), {}, offset=0)
         assert len(cards) == 3
+
+
+# ============================================================================
+# 5b. Tag vocabulary — scope widening and per-domain ownership (PR-4b)
+# ============================================================================
+
+
+class TestTagVocabularyScope:
+    """`tags` is an Entity base field, so the vocabulary follows the SURFACE's
+    result set — not the curriculum catalog. Ownership is enforced per domain
+    and fails CLOSED: an OWNER_ONLY domain is skipped rather than counted
+    unscoped, because an unscoped count lists every user's tag names.
+
+    The negative control is `TestTagVocabulary` above: the default scope must
+    stay curriculum-only and unscoped, because /explore/library is anonymous.
+    """
+
+    @staticmethod
+    def _router() -> tuple[Any, Any, Any]:
+        ku = _TagDomain({"breath": 4}, SearchVisibility.PUBLIC)
+        tasks = _TagDomain({"errand": 2}, SearchVisibility.OWNER_ONLY)
+        return SearchRouter(ku=ku, tasks=tasks), ku, tasks
+
+    @pytest.mark.asyncio
+    async def test_activity_tags_join_the_vocabulary_at_page_scope(self) -> None:
+        router, _ku, _tasks = self._router()
+
+        result = await router.list_tags((EntityType.KU, EntityType.TASK), "user_alice")
+
+        assert result.value == ["breath", "errand"]
+
+    @pytest.mark.asyncio
+    async def test_owner_only_domain_is_skipped_without_a_user(self) -> None:
+        # Fail CLOSED. Counting it unscoped would hand every caller the whole
+        # tenant's tag names, which is a leak, not a wider vocabulary.
+        router, _ku, tasks = self._router()
+
+        result = await router.list_tags((EntityType.KU, EntityType.TASK))
+
+        assert result.value == ["breath"]
+        assert tasks.search.scopes_received == []
+
+    @pytest.mark.asyncio
+    async def test_each_domain_is_asked_at_its_own_declared_scope(self) -> None:
+        # THE privacy assertion: PUBLIC curriculum is counted corpus-wide
+        # (None), the OWNER_ONLY domain for the caller ALONE. Asserting the
+        # returned tags alone would pass even if the activity domain had been
+        # queried unscoped and merely happened to hold one user's data.
+        router, ku, tasks = self._router()
+
+        await router.list_tags((EntityType.KU, EntityType.TASK), "user_alice")
+
+        assert ku.search.scopes_received == [None]
+        assert tasks.search.scopes_received == ["user_alice"]
+
+    @pytest.mark.asyncio
+    async def test_scope_aware_domain_is_skipped_rather_than_property_scoped(self) -> None:
+        # SCOPE_AWARE scope lives in :OWNS / :SHARES_WITH / group edges, which
+        # a `user_uid` property filter cannot express — it would silently drop
+        # shared rows and misreport the rest. Refusing beats answering wrongly.
+        exercises = _TagDomain({"drill": 1}, SearchVisibility.SCOPE_AWARE)
+        router = SearchRouter(ku=_TagDomain({"breath": 1}), exercises=exercises)
+
+        result = await router.list_tags((EntityType.KU, EntityType.EXERCISE), "user_alice")
+
+        assert result.value == ["breath"]
+        assert exercises.search.scopes_received == []
+
+    @pytest.mark.asyncio
+    async def test_the_library_default_never_reaches_an_activity_domain(self) -> None:
+        # /explore/library is ANONYMOUS. The default scope must stay the
+        # curriculum pair, asked corpus-wide, with no user in play.
+        router, ku, tasks = self._router()
+
+        await router.list_tags()
+
+        assert ku.search.scopes_received == [None]
+        assert tasks.search.scopes_received == []
