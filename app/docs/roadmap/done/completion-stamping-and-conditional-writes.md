@@ -16,7 +16,7 @@ now has its own record.
 **Nothing below remains open.** The contract lives in
 [ADR-087](../../decisions/ADR-087-status-guarded-conditional-writes.md) and CLAUDE.md
 § Status-Guarded Writes, which are the authority and stay live. One neighbour is still
-parked by ruling: vault **inbound** `[x]` propagation — `deferred-work.md` § R4 Vault
+parked by ruling: vault **inbound** `[x]` propagation — `../deferred-work.md` § R4 Vault
 Inbound Propagation.
 
 ## The defect that opened it
@@ -110,5 +110,5 @@ Vault **inbound** `[x]`-completion propagation was dispositioned alongside this 
 (ruled 2026-08-23, docs corrected 2026-08-24): the `git log -S` discriminator ran, verdict
 **never wired**, the docs now state the outbound-only truth (CLAUDE.md § Obsidian
 VaultBridge, ADR-070's status annotation, both user guides), and the build is parked with a
-trigger and a design sketch — `deferred-work.md` § R4 Vault Inbound Propagation — Parked
+trigger and a design sketch — `../deferred-work.md` § R4 Vault Inbound Propagation — Parked
 Build.

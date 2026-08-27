@@ -85,7 +85,7 @@ When Ku or PathStep models are constructed from Neo4j (`from_neo4j_node()`), the
 **Grain is agnostic by ruling (2026-08-21):** the `knowledge_uid` a substance
 event carries may name a Ku **or** a PathStep — the write lands on whatever it
 names ("I practised this lesson" is a real fact), and only a named Ku fans out.
-See `docs/roadmap/deferred-work.md` § Substance-Write Grain — ARC CLOSED.
+See `docs/roadmap/done/substance-write-grain.md` § The closure record.
 
 ---
 

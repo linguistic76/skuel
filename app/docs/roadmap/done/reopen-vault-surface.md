@@ -12,14 +12,14 @@ tags: [roadmap, vault, obsidian, tasks, events, done]
 reopen a vault surface, and closed the write-outcome fragility that the third write
 operation would otherwise have inherited.
 
-**Nothing below remains open.** Two neighbours stay live in `deferred-work.md` and are
+**Nothing below remains open.** Two neighbours stay live in `../deferred-work.md` and are
 *not* part of this record: § "Vault Has Un-Synced Changes" Signal (the honest version of
 the dirty flag this arc once proposed) and § R4 Vault Inbound Propagation — Parked Build.
 
 ⚠️ **Both headings below are cited by name from code** — `core/ports/vault_bridge_protocol.py`,
 `core/services/vault/vault_reconciler.py`, and three test modules point at
 `§ Phantom-🆔`; `docs/domains/tasks.md` points at the `TaskReopened` heading. The headings are
-kept verbatim from the retired `deferred-work.md` sections so those citations resolve. **Do
+kept verbatim from the retired `../deferred-work.md` sections so those citations resolve. **Do
 not rename them** — and note the cross-reference validator does not read code comments, so a
 rename fails silently.
 
@@ -155,7 +155,7 @@ The ⚠ marker on the event's own docstring carries the decision, and it is what
 it. When the only actor able to act is the human, the event has no verb — and "what exactly does
 the subscriber do?" is not a detail to fill in later, it is the design failing out loud.
 
-**Still open, and separately registered** — both live in `deferred-work.md`, not here: the
+**Still open, and separately registered** — both live in `../deferred-work.md`, not here: the
 want behind "mark the owner's vault dirty" is real but bigger than a reopen (§ "Vault Has
 Un-Synced Changes" Signal), and inbound propagation — a vault-side check/uncheck reaching
 SKUEL — stays parked (§ R4 Vault Inbound Propagation — Parked Build).

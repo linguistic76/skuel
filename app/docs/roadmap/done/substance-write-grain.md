@@ -1,15 +1,78 @@
 # Substance-Write Grain — the `ku_uid` That May Not Be a Ku
 
-*✅ ARC CLOSED 2026-08-21 — executed with item C riding, as scheduled. Nothing
-below remains open: the two threads the arc surfaced graduated to their own
-register sections (`deferred-work.md` § KnowledgePracticed Subscriber and
-§ Per-Node Substance Counters). The closure record — re-run census results,
-Mike's three rulings (grain-agnostic rename to `knowledge_uid`;
-`KnowledgePracticed` earns a subscriber; the unread counter arm stays staged),
-and the shipped `collect(DISTINCT ps)`/`FOREACH` Cypher fix — lives in
-`deferred-work.md` § Substance-Write Grain — ARC CLOSED. The text below is the
-investigation order as it stood when the arc was taken, kept for its method
-record (five falsified premises, and how each was caught).*
+*✅ ARC CLOSED 2026-08-21 — executed with item C riding, as scheduled. Nothing here
+remains open: the two threads the arc surfaced graduated to their own live sections
+(`../deferred-work.md` § KnowledgePracticed Subscriber and § Per-Node Substance Counters).*
+
+**This document holds both halves.** The closure record comes first — re-run census
+results, Mike's three rulings, and the shipped Cypher fix. The investigation order as it
+stood when the arc was taken follows it, kept for its method record (five falsified
+premises, and how each was caught). Until 2026-08-26 the closure half lived in
+`../deferred-work.md` and this file held only the investigation half, each naming the other;
+a closed arc's closure record does not belong in the live queue, so they were reunited.
+
+---
+
+## ✅ The closure record (2026-08-21)
+
+Scheduled 2026-08-20, executed 2026-08-21 with item C riding as planned. The
+investigation record that produced it — falsified premises, probe method — is the
+second half of this document. The two questions the arc *opened* stay live in
+`../deferred-work.md` (§ KnowledgePracticed Subscriber, § Per-Node Substance Counters).
+
+**The census was re-run** (code @ `d57b3bf96`, graph = AuraDB `d2d160c4`,
+2026-08-21) and confirmed the register's numbers, adding three findings it had
+asked for:
+
+1. **Provenance of the 28 user_entry→ku edges:** ALL 28 carry `inferred: true`
+   — every surviving edge came from `EntryGroundingService` (vector grounding,
+   `:Ku`-label-constrained Cypher), zero from the `@ku()` extraction door. The
+   dominant channel is Ku-grain **by construction**.
+2. **The task channel shows a clean roll-up signature:** `ku.mindfulness.breath`
+   = 10 with both composing PathSteps = 10 each (consistent-with, not proof).
+3. **Path 1 is a dead channel today:** ZERO `(event)-[:APPLIES_KNOWLEDGE]->()`
+   edges exist; `times_practiced_in_events` = 0 everywhere; the docstring's
+   third edge writer (`create_study_session`) no longer exists. The
+   **double-count is latent, never fired** — creation publishes without writing
+   an edge, completion reads only edges; they overlap only if the same
+   knowledge is named in both places. Ruled: documented in both writers'
+   docstrings, no guard machinery for a dead channel.
+
+**Mike's rulings (2026-08-21):**
+
+1. **Grain-agnostic, rename** — the substance counter grain is *whatever the
+   uid names* (Ku or PathStep; "I practised this lesson" is a real fact).
+   Executed: `ku_uid`→`knowledge_uid` on `KuBackend.increment_substance` /
+   `batch_increment_substance` + their `KuOperations` declarations,
+   `PsService.increment_substance_metric` / `batch_increment_substance_metric`,
+   `_AdaptiveMixin.increment_practice_count` + `find_kus_practiced_by_event`'s
+   return alias, `KnowledgePracticed.knowledge_uid`, and the item-C fixture.
+2. **`KnowledgePracticed` earns a subscriber** (not deleted, not blessed as
+   fire-and-forget) — see `../deferred-work.md` § KnowledgePracticed Subscriber.
+3. **The unread counter arm stays staged, registered** — see `../deferred-work.md`
+   § Per-Node Substance Counters. The two phantom protocol declarations
+   (`PsOperations.get_substance_score` / `get_substantiation_summary` — no
+   implementation, no caller, laundered by `UniversalNeo4jBackend.__getattr__`)
+   are DELETED with their `SubstantiationSummaryResult` TypedDict family.
+
+**The Cypher fix (unconditional, shipped):** both writers now
+`collect(DISTINCT ps)` + `FOREACH`, so the `RETURN` emits whenever the primary
+write lands — the former `WHERE ps IS NOT NULL` row-filter reported `ok(0)`
+for landed orphan-Ku and PathStep-targeted writes (the majority live case: 17
+of 28 edges target orphan Kus). `ok(0)` now means exactly one thing: the uid
+matched no node. Same restructure kills the dual-edge double-credit (a
+PathStep composing one Ku via two edge types was credited twice) and the
+duplicated `TRAINS_KU|TRAINS_KU` token. Pinned by
+`TestIncrementSubstanceGrain` in the item-C test file (seed-and-match, per the
+#586 precedent).
+
+⚠️ Never-resurrect: the `WHERE ps IS NOT NULL` row-gating shape, and the
+fictional subscribers (`LearningAnalyticsService`, `SpacedRepetitionService`)
+that were de-fictioned out of `knowledge_substance_events.py` docstrings.
+
+---
+
+## The investigation order, as it was taken
 
 Take the **Substance-Write Grain** item from `docs/roadmap/deferred-work.md`
 (§ "the `ku_uid` That May Not Be a Ku", scheduled 2026-08-20). It carries item C of the
@@ -329,6 +392,6 @@ through `uv run` or `./dev`** — bare `pytest`/`ruff` are not on PATH on the de
 they are, they resolve outside the locked environment. Summon Codex after
 the **final** push (`scripts/request_codex_review.sh <PR#>`), verify the reviewed SHA equals HEAD,
 address or reject findings **with the measurement**, then merge per standing authorization once
-the gates are green. Close item C and this section in `deferred-work.md` in the same PR.
+the gates are green. Close item C and this section in `../deferred-work.md` in the same PR.
 
 Ask if certainty is below the threshold to decide.

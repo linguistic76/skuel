@@ -13,10 +13,10 @@ week after #1116 found the `HAS_*` legs of `get_recent_activities` had matched n
 the initial commit.
 
 **Nothing below remains open.** The one thing the bundle left staged — the `ATTENDS`
-attendance surface — is a live section of its own: `deferred-work.md` §
+attendance surface — is a live section of its own: `../deferred-work.md` §
 "Event Attendance Wiring (`ATTENDS`) — Staged Build", with its obligations recorded in
 ADR-086 § 3 and § Follow-ups. This document is the closure record for the three
-`deferred-work.md` sections the bundle retired, and is self-contained.
+`../deferred-work.md` sections the bundle retired, and is self-contained.
 
 The contract itself lives in the two ADRs, which are the authority and stay live:
 [ADR-085](../../decisions/ADR-085-ownership-read-enforcement-contract.md) (read

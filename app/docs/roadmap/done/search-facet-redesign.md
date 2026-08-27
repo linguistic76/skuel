@@ -13,7 +13,7 @@ trace of both search surfaces; built and closed the same week in six PRs.
 
 **Nothing below remains open.** The one obligation the arc created — the profile-side
 search that replaces what it stripped — is a live section of its own:
-`deferred-work.md` § "Profile-Side Search for UserEntry, Exercise and RevisedExercise".
+`../deferred-work.md` § "Profile-Side Search for UserEntry, Exercise and RevisedExercise".
 This document is the closure record and is self-contained; it defers to nothing.
 
 `/search` is now one surface with one job — *your lived activity, plus the knowledge
@@ -140,5 +140,5 @@ vault tags are cleaned. A data-quality item, not a facet defect.
 
 The **"Relevance"** fiction — three behaviours under one label, none of them BM25. Not
 relabelled, not removed: Mike's intent is to make the label *true* rather than tidy it
-away. It moved with its owner to `deferred-work.md` § "Domain-level fulltext-first text
+away. It moved with its owner to `../deferred-work.md` § "Domain-level fulltext-first text
 search (D1(b) follow-on)", the live section that would make it true.
