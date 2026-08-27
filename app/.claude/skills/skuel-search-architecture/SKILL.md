@@ -229,6 +229,7 @@ Vector indexes are only created when `INTELLIGENCE_TIER=full` (embeddings enable
 4. **12 searchable domains** — 6 Activity + 3 Curriculum (Ku, PS, LP) + 3 Learning Loop; MOC is not an EntityType
 5. **UserEntry search requires `user_uid`** — refused unscoped; excluded from cross-domain sweeps (privacy line)
 6. **Every strategy is visibility-scoped** — `build_search_visibility_clause()` is THE single Cypher composition point (text/tags/graph/faceted); never add a per-strategy ownership filter. See SEARCH_ARCHITECTURE § Ownership Scoping
+6b. ⚠️ **A facet's VOCABULARY is scoped by the same declaration through a different builder** — `SearchRouter.tag_frequencies` returns distinct *strings*, not entity rows, so it reaches the graph via `build_distinct_values_query` and the router applies each domain's `SearchVisibility` itself: PUBLIC counted corpus-wide, OWNER_ONLY counted for the caller alone and **skipped entirely without a `user_uid`**, SCOPE_AWARE skipped (its scope lives in edges a property filter cannot express). That is not a second ownership mechanism — same declaration, closed failure direction — but do not assume rule 6 covers it. See SEARCH_ARCHITECTURE § Ownership Scoping → *Facet vocabularies*
 7. **Full-text indexes are always created** — regardless of INTELLIGENCE_TIER; vector indexes are FULL-only
 
 ## UserContext and Search

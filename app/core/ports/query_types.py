@@ -646,13 +646,18 @@ class CapacityWarnings(TypedDict, total=False):
 
 
 class TagFrequency(TypedDict):
-    """One tag of the curriculum vocabulary with its usage count.
+    """One tag of a search surface's vocabulary with its usage count.
 
     The typed record `SearchRouter.tag_frequencies` emits after merging the
-    per-domain `tag_frequencies` counts (Ku + PathStep), ordered most-used
-    first. Powers the frequency-ranked /explore/library tag chips; the
-    alphabetical /search dropdown derives from the same list via
-    `SearchRouter.list_tags`.
+    per-domain `tag_frequencies` counts across the scope it was ASKED for,
+    ordered most-used first. Powers the frequency-ranked /explore/library tag
+    chips (the merged curriculum pair, corpus-wide); the alphabetical /search
+    dropdown derives from the same list via `SearchRouter.list_tags`, at that
+    page's full result scope and per-user scoped for its OWNER_ONLY domains.
+
+    ⚠ A PUBLIC domain's count is corpus-wide while an OWNER_ONLY domain's is
+    one user's, so a mixed-scope merge ranks two populations together — see
+    `SearchRouter.tag_frequencies`.
     """
 
     tag: str
