@@ -20,6 +20,7 @@ from cleanup_duplicate_vault_tasks import (  # type: ignore[import-not-found]
     TaskRow,
     VaultTaskLine,
     classify,
+    delete_blocker,
     entry_for_file,
     plan_repairs,
     scan_vault_task_lines,
@@ -213,6 +214,14 @@ def test_select_confirmed_intersects_and_refuses_unproposed():
 
 def test_select_confirmed_with_nothing_confirmed_deletes_nothing():
     assert select_confirmed(["task_a"], []) == ([], [])
+
+
+def test_delete_blocker_reflects_live_state_at_delete_time():
+    """A confirmed uid is re-checked right before its delete (Codex r6): only the census shape passes."""
+    assert delete_blocker("completed", False) is None
+    assert delete_blocker("active", False) == "status is now 'active', not completed"
+    assert delete_blocker("completed", True) == "now carries an EXTRACTED_FROM edge"
+    assert delete_blocker(None, None) == "no longer exists"
 
 
 # --- Repairs -----------------------------------------------------------------

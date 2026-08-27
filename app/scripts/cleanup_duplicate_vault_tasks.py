@@ -46,7 +46,12 @@ Edges").
 
 Dry-run by default: prints every set and the exact ``--confirm`` invocation,
 changes nothing. Deletions go through ``TasksService.delete_task`` (cascade +
-``TaskDeleted``); repairs through ``UserEntryService.create_extracted_from_links``.
+``TaskDeleted``); repairs through ``UserEntryService.create_extracted_from_links``
+and count only when the edge actually landed (``ok(0)`` = the pair vanished).
+Each confirmed uid is re-validated against the live graph immediately before
+its delete (still COMPLETED, still edge-less) and skipped otherwise — a narrow
+window, not a lock: run ``--apply`` while nothing else is writing tasks
+(Codex #1165 r6).
 
 Usage:
     uv run python scripts/cleanup_duplicate_vault_tasks.py --user user_x
@@ -491,6 +496,39 @@ async def _fetch_owned_vault_ids(driver: _ReadDriver, user_uid: str) -> dict[str
     return dict(owned)
 
 
+def delete_blocker(status: str | None, has_edge: bool | None) -> str | None:
+    """Why a confirmed uid may no longer be deleted — ``None`` when it still qualifies.
+
+    The two proposal predicates a live writer can flip between the census and
+    the delete: a reopened task is no longer completed; a sync that ran in
+    between may have given it provenance (the very thing that makes it the
+    line's task). A missing row means the task is already gone.
+    """
+    if status is None:
+        return "no longer exists"
+    if status != EntityStatus.COMPLETED.value:
+        return f"status is now {status!r}, not completed"
+    if has_edge:
+        return "now carries an EXTRACTED_FROM edge"
+    return None
+
+
+async def _revalidate(driver: _ReadDriver, user_uid: str, uid: str) -> str | None:
+    """Live re-check of one confirmed uid right before its delete (see ``delete_blocker``)."""
+    result = await driver.execute_query(
+        """
+        MATCH (t:Task {uid: $uid, user_uid: $user_uid})
+        RETURN t.status AS status, EXISTS { (t)-[:EXTRACTED_FROM]->() } AS has_edge
+        """,
+        uid=uid,
+        user_uid=user_uid,
+    )
+    if not result.records:
+        return delete_blocker(None, None)
+    row = result.records[0]
+    return delete_blocker(str(row["status"] or ""), bool(row["has_edge"]))
+
+
 # ---------------------------------------------------------------------------
 # Report
 # ---------------------------------------------------------------------------
@@ -672,6 +710,14 @@ async def main() -> int:
             if outcome.is_error:
                 print(f"  FAILED repair {repair.phantom.line.vault_id}: {outcome.expect_error()}")
                 continue
+            if outcome.value != 1:
+                # MERGE matched no (task, entry) pair — one of them vanished
+                # since the census. Nothing was written; say so, don't count it.
+                print(
+                    f"  FAILED repair {repair.phantom.line.vault_id}: no edge written "
+                    f"({outcome.value} pair(s) matched — task or entry gone since the census)"
+                )
+                continue
             repaired += 1
             print(
                 f"  repaired {repair.phantom.line.vault_id}: {repair.task.uid} "
@@ -679,7 +725,13 @@ async def main() -> int:
             )
 
         deleted = 0
+        skipped = 0
         for uid in to_delete:
+            blocker = await _revalidate(driver, str(user_uid), uid)
+            if blocker is not None:
+                skipped += 1
+                print(f"  SKIPPED {uid}: {blocker} — changed since the census, re-run the dry-run")
+                continue
             deletion = await services.tasks.delete_task(uid)
             if deletion.is_error:
                 print(f"  FAILED delete {uid}: {deletion.expect_error()}")
@@ -689,7 +741,7 @@ async def main() -> int:
 
         print(
             f"\n[APPLIED] {repaired}/{len(repairs)} repair(s), {deleted}/{len(to_delete)} "
-            "deletion(s). Everything not confirmed is untouched."
+            f"deletion(s), {skipped} skipped. Everything not confirmed is untouched."
         )
         return 0 if (repaired == len(repairs) and deleted == len(to_delete)) else 1
     finally:
