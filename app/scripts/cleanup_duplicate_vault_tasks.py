@@ -311,17 +311,19 @@ def select_confirmed(proposed: list[str], confirmed: list[str]) -> tuple[list[st
     return to_delete, refused
 
 
-def entry_for_file(lines: list[VaultTaskLine], owned: dict[str, str]) -> dict[str, str | None]:
+def entry_for_file(lines: list[VaultTaskLine], owned: dict[str, set[str]]) -> dict[str, str | None]:
     """``file → entry_uid`` from the owned 🆔s the file's lines carry.
 
     Periodic entries carry no ``vault_file_path``; the ids on their edges are
-    the only honest file↔entry link. A file whose owned ids point at more than
-    one entry resolves to ``None`` (ambiguous) — as does a file with no owned id.
+    the only honest file↔entry link. ``owned`` keeps EVERY entry an id's edges
+    reach (an id with edges into two entries is itself ambiguous — Codex #1165
+    r4), and a file whose owned ids reach more than one entry resolves to
+    ``None`` — as does a file with no owned id.
     """
     seen: dict[str, set[str]] = defaultdict(set)
     for line in lines:
         if line.vault_id and line.vault_id in owned:
-            seen[line.file].add(owned[line.vault_id])
+            seen[line.file] |= owned[line.vault_id]
     return {
         file: next(iter(entries)) if len(entries) == 1 else None for file, entries in seen.items()
     }
@@ -456,8 +458,12 @@ async def _fetch_tasks(driver: _ReadDriver, user_uid: str) -> list[TaskRow]:
     ]
 
 
-async def _fetch_owned_vault_ids(driver: _ReadDriver, user_uid: str) -> dict[str, str]:
-    """``vault_id → entry_uid`` for every 🆔 an EXTRACTED_FROM edge into this user's entries carries."""
+async def _fetch_owned_vault_ids(driver: _ReadDriver, user_uid: str) -> dict[str, set[str]]:
+    """``vault_id → {entry_uid, …}`` for every 🆔 an EXTRACTED_FROM edge into this user's entries carries.
+
+    Every entry per id, not one: the rows carry no ordering, so keeping "the"
+    entry would pick an arbitrary one for an id that reaches two.
+    """
     result = await driver.execute_query(
         """
         MATCH ()-[r:EXTRACTED_FROM]->(ue:UserEntry {user_uid: $user_uid})
@@ -466,7 +472,10 @@ async def _fetch_owned_vault_ids(driver: _ReadDriver, user_uid: str) -> dict[str
         """,
         user_uid=user_uid,
     )
-    return {str(r["vault_id"]): str(r["entry_uid"]) for r in result.records}
+    owned: dict[str, set[str]] = defaultdict(set)
+    for r in result.records:
+        owned[str(r["vault_id"])].add(str(r["entry_uid"]))
+    return dict(owned)
 
 
 # ---------------------------------------------------------------------------

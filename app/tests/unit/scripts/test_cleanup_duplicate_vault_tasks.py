@@ -226,7 +226,7 @@ def test_entry_for_file_uses_other_owned_ids_and_refuses_ambiguity():
         _line("a", vault_id="sk_aaaaaa", file="mixed.md", no=1),
         _line("b", vault_id="sk_bbbbbb", file="mixed.md", no=2),
     ]
-    owned = {"sk_1hmd4h": "ue:daily:u:2026-06-29", "sk_aaaaaa": "ue:x", "sk_bbbbbb": "ue:y"}
+    owned = {"sk_1hmd4h": {"ue:daily:u:2026-06-29"}, "sk_aaaaaa": {"ue:x"}, "sk_bbbbbb": {"ue:y"}}
     resolved = entry_for_file(lines, owned)
     assert resolved["periodic_notes/Daily/2026-06-29.md"] == "ue:daily:u:2026-06-29"
     assert resolved["mixed.md"] is None  # two entries → ambiguous
@@ -249,7 +249,7 @@ def test_plan_repairs_builds_the_door_shaped_link_and_refuses_the_rest():
         ),
         _line("move furniture", vault_id="sk_3uhmts", file="periodic_notes/Daily/2026-06-17.md"),
     ]
-    owned = {"sk_1hmd4h": "ue:daily:u:2026-06-29"}
+    owned = {"sk_1hmd4h": {"ue:daily:u:2026-06-29"}}
     c = classify([owner, mover], lines, set(owned))
     repairs, problems = plan_repairs(
         c, ["sk_bcd7if", "sk_3uhmts", "sk_1hmd4h"], entry_for_file(lines, owned)
@@ -275,7 +275,7 @@ def test_plan_repairs_refuses_an_id_copied_onto_two_lines():
         _line("Vacuum", vault_id="sk_copied", no=30),
         _line("Vacuum", vault_id="sk_copied", file="periodic_notes/Weekly/2026-W29.md", no=31),
     ]
-    owned = {"sk_anchor": "ue:daily:u:2026-06-29"}
+    owned = {"sk_anchor": {"ue:daily:u:2026-06-29"}}
     c = classify([owner], lines, set(owned))
     assert [p.line.vault_id for p in c.phantom_ids] == ["sk_copied", "sk_copied"]
 
@@ -284,6 +284,22 @@ def test_plan_repairs_refuses_an_id_copied_onto_two_lines():
     assert repairs == []
     assert len(problems) == 1 and "2 vault lines carry this id" in problems[0]
     assert "2026-06-29.md:30" in problems[0] and "2026-W29.md:31" in problems[0]
+
+
+def test_an_anchor_id_reaching_two_entries_makes_the_file_ambiguous():
+    """One 🆔 with edges into two entries cannot anchor a file — refuse, never pick one (Codex r4)."""
+    owner = _task("task_o", "Physio", created="2026-06-28T12:43:04")
+    lines = [
+        _line("anchor", vault_id="sk_anchor"),
+        _line("Physio", vault_id="sk_phantom", no=20),
+    ]
+    owned = {"sk_anchor": {"ue:daily:u:2026-06-29", "ue:daily:u:2026-06-30"}}
+
+    assert entry_for_file(lines, owned) == {"periodic_notes/Daily/2026-06-29.md": None}
+    c = classify([owner], lines, set(owned))
+    repairs, problems = plan_repairs(c, ["sk_phantom"], entry_for_file(lines, owned))
+    assert repairs == []
+    assert len(problems) == 1 and "no single entry" in problems[0]
 
 
 # --- Vault scan ---------------------------------------------------------------
