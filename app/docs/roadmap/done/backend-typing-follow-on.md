@@ -14,10 +14,10 @@ These three outlived the backend-typing arc (#1090–#1102, closed 2026-08-20) b
 of them was a retype — each was a decision or a chain. The standing ruling (Mike,
 2026-08-20) was that a fresh context takes **ONE** of them, not the set, and that is how
 they closed: **A** (#1106) and **B** (#1107) on 2026-08-20, **C** on 2026-08-21 riding the
-substance-write-grain arc (#1113) — see `done/substance-write-grain.md`.
+substance-write-grain arc (#1113) — see `substance-write-grain.md`.
 
 A fourth sibling — the LP recommendation backend methods — was ruled *build, not now* and
-stays live in `deferred-work.md` § LP Recommendation Backend Methods.
+stays live in `../deferred-work.md` § LP Recommendation Backend Methods.
 
 **This record exists for the residue notes and never-resurrect rulings each item carries**,
 not as a status report. Nothing below remains open.

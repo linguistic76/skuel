@@ -2,13 +2,13 @@
 
 *✅ ARC CLOSED 2026-08-21 — executed with item C riding, as scheduled. Nothing here
 remains open: the two threads the arc surfaced graduated to their own live sections
-(`deferred-work.md` § KnowledgePracticed Subscriber and § Per-Node Substance Counters).*
+(`../deferred-work.md` § KnowledgePracticed Subscriber and § Per-Node Substance Counters).*
 
 **This document holds both halves.** The closure record comes first — re-run census
 results, Mike's three rulings, and the shipped Cypher fix. The investigation order as it
 stood when the arc was taken follows it, kept for its method record (five falsified
 premises, and how each was caught). Until 2026-08-26 the closure half lived in
-`deferred-work.md` and this file held only the investigation half, each naming the other;
+`../deferred-work.md` and this file held only the investigation half, each naming the other;
 a closed arc's closure record does not belong in the live queue, so they were reunited.
 
 ---
@@ -18,7 +18,7 @@ a closed arc's closure record does not belong in the live queue, so they were re
 Scheduled 2026-08-20, executed 2026-08-21 with item C riding as planned. The
 investigation record that produced it — falsified premises, probe method — is the
 second half of this document. The two questions the arc *opened* stay live in
-`deferred-work.md` (§ KnowledgePracticed Subscriber, § Per-Node Substance Counters).
+`../deferred-work.md` (§ KnowledgePracticed Subscriber, § Per-Node Substance Counters).
 
 **The census was re-run** (code @ `d57b3bf96`, graph = AuraDB `d2d160c4`,
 2026-08-21) and confirmed the register's numbers, adding three findings it had
@@ -48,8 +48,8 @@ asked for:
    `_AdaptiveMixin.increment_practice_count` + `find_kus_practiced_by_event`'s
    return alias, `KnowledgePracticed.knowledge_uid`, and the item-C fixture.
 2. **`KnowledgePracticed` earns a subscriber** (not deleted, not blessed as
-   fire-and-forget) — see `deferred-work.md` § KnowledgePracticed Subscriber.
-3. **The unread counter arm stays staged, registered** — see `deferred-work.md`
+   fire-and-forget) — see `../deferred-work.md` § KnowledgePracticed Subscriber.
+3. **The unread counter arm stays staged, registered** — see `../deferred-work.md`
    § Per-Node Substance Counters. The two phantom protocol declarations
    (`PsOperations.get_substance_score` / `get_substantiation_summary` — no
    implementation, no caller, laundered by `UniversalNeo4jBackend.__getattr__`)
@@ -392,6 +392,6 @@ through `uv run` or `./dev`** — bare `pytest`/`ruff` are not on PATH on the de
 they are, they resolve outside the locked environment. Summon Codex after
 the **final** push (`scripts/request_codex_review.sh <PR#>`), verify the reviewed SHA equals HEAD,
 address or reject findings **with the measurement**, then merge per standing authorization once
-the gates are green. Close item C and this section in `deferred-work.md` in the same PR.
+the gates are green. Close item C and this section in `../deferred-work.md` in the same PR.
 
 Ask if certainty is below the threshold to decide.
