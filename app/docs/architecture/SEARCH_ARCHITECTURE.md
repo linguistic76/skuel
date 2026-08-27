@@ -303,6 +303,11 @@ unused scope is absent rather than blank. See `ui/search/components.py`
 § *Mutually exclusive scope facets* and `searchFilters.isKnowledgeMode` in
 `static/js/skuel.js`.
 
+The **Tags** facet is not a scope facet and does not participate in that exclusivity:
+`tags` is an `Entity` base field, so it filters every swept domain and its vocabulary spans
+the page's whole result set, scoped per-user for the OWNER_ONLY half — see § Ownership
+Scoping → *Facet vocabularies*.
+
 ```python
 request = SearchRequest(
     query_text="meditation",
@@ -1169,36 +1174,25 @@ Used by `_is_habit_due_in_window()`, `_is_habit_overdue()`, and `get_user_due_to
 
 ## UI Integration
 
-The search sidebar maps directly to `SearchRequest`:
+The `/search` filter panel maps directly onto `SearchRequest` — every control's `name` IS
+the field it sets, which is what lets `ALL_FILTER_NAMES` (`ui/search/components.py`) drive
+`hx-include` without a translation layer. The panel's own layers:
 
-```
-Sidebar Section          →  SearchRequest Field       →  Search Mode
-─────────────────────────────────────────────────────────────────────
-Properties:
-  Domain dropdown        →  domain                    →  Simple
-  SEL Category           →  sel_category              →  Simple
-  Learning Level         →  learning_level            →  Simple
-  Content Type           →  content_type              →  Simple
+| Layer | Controls | Mapped to | Section that describes it |
+|---|---|---|---|
+| Primary | Type · Nous · Sub-topic · Sort | `entity_type` · `nous` · `nous_subtopic` · `sort_order` | § UI Mapping under *Simple Search* — the two scope facets and why they are mutually exclusive |
+| Advanced — Learning Progress | Not Yet Viewed · In Progress · Ready to Review | `not_yet_viewed` · `viewed_not_mastered` · `ready_to_review` | § Learning Progress Filters |
+| Advanced — Graph Relationships | 8 checkboxes | `ready_to_learn`, `builds_on_mastered`, … | § UI Mapping under *Graph-Aware Search* |
+| Advanced — Semantic Search | Semantic boost · Learning-aware · Prefer new content | `enable_semantic_boost` · `enable_learning_aware` · `prefer_unmastered` | § Body-Chunk Semantic Layer, § Semantic Search |
+| Advanced — Tags | Tag facet | `tags` | § Ownership Scoping → *Facet vocabularies* (its vocabulary spans every domain the page returns, per-user scoped) |
+| Advanced — Context (Tier 2) | Per-scope: status · priority · frequency · event type · urgency · strength, and in knowledge mode SEL category · learning level · content type · educational level | same-named fields | § UI Mapping under *Simple Search* |
 
-NOUS Topics:
-  Topic dropdown         →  nous                      →  Simple
-  Source dropdown        →  source                    →  Simple
-
-Learning Progress:
-  Not Yet Viewed         →  not_yet_viewed            →  Graph-Aware
-  In Progress            →  viewed_not_mastered       →  Graph-Aware
-  Ready to Review        →  ready_to_review           →  Graph-Aware
-
-Graph Relationships:
-  Ready to Learn         →  ready_to_learn            →  Graph-Aware
-  Builds on Mastered     →  builds_on_mastered        →  Graph-Aware
-  In Active Path         →  in_active_path            →  Graph-Aware
-  Supports Goals         →  supports_goals            →  Graph-Aware
-  Builds on Habits       →  builds_on_habits          →  Graph-Aware
-  Applied Recently       →  applied_in_tasks          →  Graph-Aware
-  Aligned with Principles→  aligned_with_principles   →  Graph-Aware
-  Next Logical Step      →  next_logical_step         →  Graph-Aware
-```
+⚠️ **`ui/search/components.py` is the authority, not this table.** The three sites encoding
+the type vocabulary (`_ENTITY_TYPE_OPTIONS`, `entityTypeFilters` in `static/js/skuel.js`,
+and the sweep allowlist) derive from each other in `tests/unit/test_search_page_scope.py`;
+a fourth hand-maintained list here is a copy that goes stale, which is exactly what
+happened to the sidebar map this replaced — it named a "Domain" and a "Source" dropdown the
+panel does not carry, and missed the sub-topic, tag and educational-level controls it does.
 
 ---
 

@@ -93,8 +93,10 @@ def render_search_page_with_navbar(
             the vault carries `nous_subtopic:` data — the control fails soft to
             nothing on an empty list.
         all_tags: Tag vocabulary derived from the graph (route fetches via
-            SearchRouter.list_tags — Ku + PathStep distinct tags). Fails soft
-            to no Tags control on an empty list.
+            SearchRouter.list_tags at the page's FULL result scope — `tags` is
+            an Entity base field, so the facet filters every swept domain and
+            its vocabulary spans all of them, per-user scoped for the
+            OWNER_ONLY half). Fails soft to no Tags control on an empty list.
         ask_enabled: FULL-tier gate for the "Ask" button (hands the query +
             nous facet to scoped Askesis). Hidden in CORE tier.
 
