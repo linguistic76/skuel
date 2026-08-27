@@ -431,7 +431,7 @@ def _render_filter_panel(
 
 # Type dropdown vocabulary — the 6 Activity Domains, and nothing else.
 #
-# The facet redesign (deferred-work.md § "`/search` Facet Redesign") makes this
+# The facet redesign (docs/roadmap/done/search-facet-redesign.md) makes this
 # ONE surface with ONE job: your lived activity, plus the knowledge behind it.
 # Ku is still a live result type — `SEARCH_PAGE_ENTITY_TYPES` in
 # adapters/inbound/search_routes.py scopes the RESULTS to these six plus Ku —
@@ -482,7 +482,7 @@ _NOUS_DISABLED_HINT = (
 # only curriculum nodes carry, and the faceted sweep applies it as a WHERE clause
 # to every swept domain, so `Type=Task, Nous=body` can only ever return zero rows
 # — a facet guaranteed to return nothing, the defect class the redesign refuses
-# elsewhere (deferred-work.md § "`/search` Facet Redesign", consequence 1).
+# elsewhere (docs/roadmap/done/search-facet-redesign.md).
 #
 # The mechanism is `disabled`, not clearing the other control, because it makes
 # the impossible state UNREACHABLE rather than merely corrected: htmx omits

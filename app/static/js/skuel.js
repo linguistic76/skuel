@@ -719,7 +719,7 @@
                 // built from — which four groups are the knowledge ones — read
                 // through `knowledgeFilterGroups`. Ku is still a live result
                 // type, so the key names something real. See deferred-work.md
-                // § "/search Facet Redesign": this is a filter-GROUP map, not
+                // done/search-facet-redesign.md: this is a filter-GROUP map, not
                 // the dropdown vocabulary.
                 entityTypeFilters: {
                     'task': ['common', 'status', 'priority'],

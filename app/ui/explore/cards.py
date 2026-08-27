@@ -51,12 +51,33 @@ def render_explore_card(
             learning_level) arrive as their stored string values.
         learning_state: Learning state label (e.g., "Studying", "In Progress").
         is_pinned: Whether the entity is bookmarked/pinned.
+
+    ⚠ The ``is_ku`` branch below is TWO-WAY and treats "not Ku" as "PathStep".
+    That is exactly true of today's catalog and silently wrong for any third
+    type — see the comment at the branch before widening the library scope.
     """
     uid = str(item.get("uid", ""))
     title = item.get("title") or uid
     is_ku = item.get("_domain") == EntityType.KU.value
 
-    # Type pill
+    # Type pill.
+    #
+    # ⚠ TWO-WAY BY DESIGN, AND A TRAP IF THE CATALOG WIDENS. `_library_search_request`
+    # (adapters/inbound/explore_ui.py) scopes /explore/library to [KU, PATH_STEP], so
+    # "not Ku" IS PathStep here. Add a third type to that scope and every row of it
+    # renders as a mislabelled "Path Step" card with a dead detail link — LearningPaths
+    # live at /lp/{uid}, not /explore/ps/{uid}, and nothing would fail loudly.
+    #
+    # The fix is available rather than new: `entity_detail_href`
+    # (ui/patterns/entity_links.py) already maps every entity_type to its route
+    # (learning_path -> /lp). Adopt that shared helper instead of widening this branch
+    # to three, and give the pill a real per-type value. The library's subtitle
+    # ("Explore all knowledge units and path steps") tracks the catalog too.
+    #
+    # Why this is a live trap and not history: LearningPath was ruled OFF /search as
+    # "navigated, not searched" rather than moved into this catalog, and that ruling is
+    # explicitly reversible if the corpus grows.
+    # See: docs/roadmap/done/search-facet-redesign.md § the one trap kept.
     if is_ku:
         pill = Badge("Ku", variant=BadgeT.accent, size=Size.sm, cls="shrink-0")
         detail_href = f"/explore/ku/{uid}"

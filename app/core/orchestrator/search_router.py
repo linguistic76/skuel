@@ -152,7 +152,7 @@ logger = get_logger(__name__)
 # defect class the redesign refuses elsewhere. One aggregation point, two
 # scopes: parameterised, never forked.
 #
-# See: docs/roadmap/deferred-work.md § "`/search` Facet Redesign" consequence 1.
+# See: docs/roadmap/done/search-facet-redesign.md — a facet's scope follows the domains it filters.
 CURRICULUM_FACET_DOMAINS: tuple[EntityType, ...] = (EntityType.KU, EntityType.PATH_STEP)
 
 # The ownership property `build_distinct_values_query` scopes on. The facet

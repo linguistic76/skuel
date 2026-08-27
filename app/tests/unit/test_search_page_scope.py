@@ -2,11 +2,11 @@
 `/search` result scope — the 6 Activity Domains + Ku
 =====================================================
 
-The facet redesign's first rung (`docs/roadmap/deferred-work.md` §
-"`/search` Facet Redesign"): the page states which domains it searches instead
-of inheriting SearchRouter's cross-domain sweep default (every searchable
-domain except UserEntry). Ruling 1 of that section — **removal is from the
-RESULTS, not just the filter** — is what these tests pin: an unfiltered
+The facet redesign's first rung (`docs/roadmap/done/search-facet-redesign.md`):
+the page states which domains it searches instead of inheriting SearchRouter's
+cross-domain sweep default (every searchable domain except UserEntry). Ruling 1
+of that arc — **removal is from the RESULTS, not just the filter** — is what
+these tests pin: an unfiltered
 `/search` must not return a PathStep, LearningPath, Exercise, RevisedExercise
 or UserEntry that no facet on the page can filter to or away.
 

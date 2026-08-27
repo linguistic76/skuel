@@ -232,6 +232,40 @@ Vector indexes are only created when `INTELLIGENCE_TIER=full` (embeddings enable
 6b. ⚠️ **A facet's VOCABULARY is scoped by the same declaration through a different builder** — `SearchRouter.tag_frequencies` returns distinct *strings*, not entity rows, so it reaches the graph via `build_distinct_values_query` and the router applies each domain's `SearchVisibility` itself: PUBLIC counted corpus-wide, OWNER_ONLY counted for the caller alone and **skipped entirely without a `user_uid`**, SCOPE_AWARE skipped (its scope lives in edges a property filter cannot express). That is not a second ownership mechanism — same declaration, closed failure direction — but do not assume rule 6 covers it. See SEARCH_ARCHITECTURE § Ownership Scoping → *Facet vocabularies*
 7. **Full-text indexes are always created** — regardless of INTELLIGENCE_TIER; vector indexes are FULL-only
 
+## Measuring a Facet Vocabulary
+
+⚠️ **Measure a facet by DRIVING the method that builds it — never with hand-written Cypher.**
+A facet's options are not a raw node scan: `build_distinct_values_query` composes
+`build_publication_clause`, so a draft PathStep's tags were never offered. A raw query omits
+every predicate the production path composes, and the error is **silent** because the raw
+number looks perfectly plausible.
+
+Measured cost of learning this (`/search` facet redesign, #1158): a raw pass published
+**188 distinct / 16 PathStep-only** tags. Both numbers are true of the nodes and both are
+wrong for the facet — 10 of 25 PathSteps are `publication_state='draft'`, so the true
+figures are **181 / 9** and seven "dead options" had never been offered at all.
+
+⚠️ **The sharper half: agreement with a raw query is not evidence.** That same raw pass got
+the NOUS sub-topic rows RIGHT, because `_nous_subtopic_pairs_query` gates on publication too
+and no draft happened to carry a unique pair. It agreed on one row and disagreed on another
+**with nothing in the numbers to distinguish them**. Only driving the method is evidence.
+
+**How:** compose services in a scratch script and call the real method
+(`SearchRouter.list_tags(scope, user_uid)`, `nous_subtopic_map(scope)`), passing the same
+scope the surface passes. ⚠️ The local MCP Cypher tool points at the **stopped** Docker
+sandbox, not AuraDB — it cannot see the live graph at all.
+
+```python
+os.environ["INTELLIGENCE_TIER"] = "core"          # pure analytics, no API keys
+adapter = Neo4jAdapter(); await adapter.connect()
+composed = await compose_services(adapter, InMemoryEventBus())
+tags = await composed.value.search_router.list_tags(SEARCH_PAGE_ENTITY_TYPES, user_uid)
+```
+
+⚠️ **A per-vocabulary count is not a per-facet count** — every sub-topic *word* may appear on
+some Ku while three *pairings* are PathStep-only. Count the thing the control actually
+offers. And treat any published figure as a dated snapshot: re-measure, never re-quote.
+
 ## UserContext and Search
 
 SearchRouter and BaseService search services are independent of UserContext. They run their own domain queries and do not consume MEGA_QUERY or CONSOLIDATED_QUERY output. If you need to personalize or enrich search results with user state, the right approach is:
