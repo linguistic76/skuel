@@ -242,6 +242,23 @@ def test_entry_for_file_uses_other_owned_ids_and_refuses_ambiguity():
     assert "periodic_notes/Daily/2026-06-17.md" not in resolved  # no owned id at all
 
 
+def test_an_owned_anchor_id_copied_into_two_files_anchors_neither():
+    """An owned 🆔 on lines in two files would resolve both to one entry — it anchors nothing (Codex r7)."""
+    owner = _task("task_o", "Physio", created="2026-06-28T12:43:04")
+    lines = [
+        _line("anchor", vault_id="sk_copied"),
+        _line("anchor", vault_id="sk_copied", file="periodic_notes/Daily/2026-06-30.md"),
+        _line("Physio", vault_id="sk_phantom", file="periodic_notes/Daily/2026-06-30.md", no=20),
+    ]
+    owned = {"sk_copied": {"ue:daily:u:2026-06-29"}}
+
+    assert entry_for_file(lines, owned) == {}
+    c = classify([owner], lines, set(owned))
+    repairs, problems = plan_repairs(c, ["sk_phantom"], entry_for_file(lines, owned))
+    assert repairs == []
+    assert len(problems) == 1 and "no single entry" in problems[0]
+
+
 def test_plan_repairs_builds_the_door_shaped_link_and_refuses_the_rest():
     owner = _task("task_091092e1", "Physio therapist look 4 - yes", created="2026-06-28T12:43:04")
     # The 06-17 line's task exists, but its entry is gone — no other owned 🆔 in that file.

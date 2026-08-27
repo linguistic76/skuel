@@ -325,9 +325,16 @@ def entry_for_file(lines: list[VaultTaskLine], owned: dict[str, set[str]]) -> di
     r4), and a file whose owned ids reach more than one entry resolves to
     ``None`` — as does a file with no owned id.
     """
+    # An owned id copied onto lines in two files anchors NEITHER (Codex #1165
+    # r7): it would resolve both files to one entry and let a phantom in the
+    # second file be repaired onto the first file's entry.
+    lines_per_id: dict[str, int] = defaultdict(int)
+    for line in lines:
+        if line.vault_id:
+            lines_per_id[line.vault_id] += 1
     seen: dict[str, set[str]] = defaultdict(set)
     for line in lines:
-        if line.vault_id and line.vault_id in owned:
+        if line.vault_id and line.vault_id in owned and lines_per_id[line.vault_id] == 1:
             seen[line.file] |= owned[line.vault_id]
     return {
         file: next(iter(entries)) if len(entries) == 1 else None for file, entries in seen.items()
