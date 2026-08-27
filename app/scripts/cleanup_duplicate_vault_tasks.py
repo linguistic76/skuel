@@ -338,12 +338,18 @@ def plan_repairs(
 
     A 🆔 copied onto two vault lines is ambiguous: repairing either line would
     write provenance the other then inherits (ownership is checked globally),
-    so the id is refused outright (Codex #1165 r3).
+    so the id is refused outright (Codex #1165 r3). The mirror case is refused
+    too: a task that is the sole candidate for TWO phantom lines (same title,
+    different ids) has no knowable line — repairing one would attribute it
+    arbitrarily, repairing both would write it twice (Codex #1165 r5).
     """
     lines_by_id: dict[str, list[PhantomId]] = defaultdict(list)
+    lines_per_task: dict[str, int] = defaultdict(int)
     for phantom in classification.phantom_ids:
         if phantom.line.vault_id:
             lines_by_id[phantom.line.vault_id].append(phantom)
+        for owner in phantom.likely_owners:
+            lines_per_task[owner.uid] += 1
     repairs: list[Repair] = []
     problems: list[str] = []
     for vault_id in repair_ids:
@@ -364,6 +370,13 @@ def plan_repairs(
                 f"title at {phantom.line.where} — need exactly one"
             )
             continue
+        task = phantom.likely_owners[0]
+        if lines_per_task[task.uid] > 1:
+            problems.append(
+                f"{vault_id}: {task.uid} is the sole candidate for "
+                f"{lines_per_task[task.uid]} phantom lines — its line is not knowable"
+            )
+            continue
         entry_uid = file_entry.get(phantom.line.file)
         if entry_uid is None:
             problems.append(
@@ -371,7 +384,7 @@ def plan_repairs(
                 "(no other owned 🆔 in the file) — re-sync the file first"
             )
             continue
-        repairs.append(Repair(phantom=phantom, task=phantom.likely_owners[0], entry_uid=entry_uid))
+        repairs.append(Repair(phantom=phantom, task=task, entry_uid=entry_uid))
     return repairs, problems
 
 

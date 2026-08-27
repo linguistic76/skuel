@@ -302,6 +302,27 @@ def test_an_anchor_id_reaching_two_entries_makes_the_file_ambiguous():
     assert len(problems) == 1 and "no single entry" in problems[0]
 
 
+def test_a_task_that_is_the_candidate_for_two_phantom_lines_is_never_repaired():
+    """Same title on two phantom lines with different ids: which line is the task's? Refuse (Codex r5)."""
+    owner = _task("task_o", "Physio", created="2026-06-28T12:43:04")
+    lines = [
+        _line("anchor", vault_id="sk_anchor"),
+        _line("Physio", vault_id="sk_first", no=20),
+        _line("Physio", vault_id="sk_second", no=21),
+    ]
+    owned = {"sk_anchor": {"ue:daily:u:2026-06-29"}}
+    c = classify([owner], lines, set(owned))
+    assert [p.line.vault_id for p in c.phantom_ids] == ["sk_first", "sk_second"]
+
+    # Even a single requested id is refused — the task's line is not knowable.
+    repairs, problems = plan_repairs(c, ["sk_first"], entry_for_file(lines, owned))
+    assert repairs == []
+    assert len(problems) == 1 and "task_o" in problems[0] and "2 phantom lines" in problems[0]
+
+    repairs, problems = plan_repairs(c, ["sk_first", "sk_second"], entry_for_file(lines, owned))
+    assert repairs == [] and len(problems) == 2
+
+
 # --- Vault scan ---------------------------------------------------------------
 
 
