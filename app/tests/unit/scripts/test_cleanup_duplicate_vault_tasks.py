@@ -289,18 +289,26 @@ def test_scan_reads_only_extract_activities_files_outside_staging(tmp_path: Path
     (tmp_path / "je_out" / "staged.md").write_text(
         "---\npipeline: extract_activities\n---\n- [ ] walled off\n", encoding="utf-8"
     )
+    # Ingestion's collector does NOT skip dot-directories (pathlib ``**`` matches
+    # them), so a note there is a real task source and must be in the census too
+    # — otherwise its task would read as "no vault line" and be proposed (Codex r2).
+    hidden = tmp_path / "periodic_notes" / ".drafts"
+    hidden.mkdir()
+    (hidden / "2026-07-01.md").write_text(
+        "---\npipeline: extract_activities\n---\n- [ ] hidden but ingested\n", encoding="utf-8"
+    )
 
     lines = scan_vault_task_lines(tmp_path, allowlist=None)
 
-    assert [(ln.line_no, ln.title, ln.vault_id, ln.is_checked) for ln in lines] == [
-        (5, "Call Joffe office apt", "sk_1hmd4h", True),
-        (6, "🏁 schedule trip to Van", "sk_er8cqr", False),
-        (8, "Physio therapist look 4 - yes", None, False),
+    assert [(ln.file, ln.line_no, ln.title, ln.vault_id, ln.is_checked) for ln in lines] == [
+        ("periodic_notes/.drafts/2026-07-01.md", 4, "hidden but ingested", None, False),
+        ("periodic_notes/Daily/2026-06-29.md", 5, "Call Joffe office apt", "sk_1hmd4h", True),
+        ("periodic_notes/Daily/2026-06-29.md", 6, "🏁 schedule trip to Van", "sk_er8cqr", False),
+        ("periodic_notes/Daily/2026-06-29.md", 8, "Physio therapist look 4 - yes", None, False),
     ]
-    assert {ln.file for ln in lines} == {"periodic_notes/Daily/2026-06-29.md"}
     # The raw line is the door's normalized form: checkbox canonicalised, 🆔 stripped —
     # so a hash of it matches what Guard 2 stores on the edge.
-    assert lines[0].raw_line == "- [ ] Call Joffe office apt ✅ 2026-07-16"
-    assert normalized_line_hash(lines[0].raw_line) == normalized_line_hash(
+    assert lines[1].raw_line == "- [ ] Call Joffe office apt ✅ 2026-07-16"
+    assert normalized_line_hash(lines[1].raw_line) == normalized_line_hash(
         "- [x] Call Joffe office apt 🆔 sk_1hmd4h ✅ 2026-07-16"
     )

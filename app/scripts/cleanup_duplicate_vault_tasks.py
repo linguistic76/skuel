@@ -72,9 +72,10 @@ from neo4j import EagerResult
 
 from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.pipeline import Pipeline
+from core.models.relationship_names import RelationshipName
 from core.services.dsl.activity_extractor import normalized_activity_title, normalized_line_hash
 from core.services.dsl.obsidian_tasks_adapter import obsidian_task_line_to_parsed
-from core.services.ingestion.config import SyncAllowlist, is_ingestible_path
+from core.services.ingestion.config import SyncAllowlist, collect_files
 from core.utils.frontmatter import parse_frontmatter
 
 
@@ -365,18 +366,16 @@ def plan_repairs(
 def scan_vault_task_lines(root: Path, allowlist: SyncAllowlist | None) -> list[VaultTaskLine]:
     """Every checkbox line the extraction door would see under ``root``.
 
-    Same eligibility as ingestion (``is_ingestible_path``: staging floor +
-    allowlist + je_pro consent), then only ``pipeline: extract_activities``
-    files — the one pipeline whose checkbox lines become Tasks. Lines are
-    parsed by the door's own adapter so titles compare the way they were
-    minted and hashes digest the way Guard 2 digests them.
+    The file set IS ingestion's: ``collect_files`` (the same collector the
+    reconciler's ingest runs — staging floor, allowlist, je_pro consent, and
+    NO extra hidden-directory rule, since pathlib's ``**`` glob does not skip
+    dot-directories either; Codex #1165 r2). Then only ``pipeline:
+    extract_activities`` files — the one pipeline whose checkbox lines become
+    Tasks. Lines are parsed by the door's own adapter so titles compare the
+    way they were minted and hashes digest the way Guard 2 digests them.
     """
     found: list[VaultTaskLine] = []
-    for path in sorted(root.rglob("*.md")):
-        if any(part.startswith(".") for part in path.relative_to(root).parts):
-            continue
-        if not is_ingestible_path(path, allowlist):
-            continue
+    for path in sorted(collect_files(root, "*.md", allowlist)):
         try:
             text = path.read_text(encoding="utf-8")
         except UnicodeDecodeError:
@@ -417,13 +416,16 @@ async def _fetch_tasks(driver: _ReadDriver, user_uid: str) -> list[TaskRow]:
         OPTIONAL MATCH (t)-[r:EXTRACTED_FROM]->(:UserEntry)
         WITH t, collect(r.vault_id) AS vault_ids, count(r) AS edge_count
         OPTIONAL MATCH (t)-[o]-()
-        WHERE NOT type(o) IN ['OWNS', 'EXTRACTED_FROM']
+        WHERE NOT type(o) IN $provenance_types
         RETURN t.uid AS uid, t.title AS title, t.status AS status,
                toString(t.created_at) AS created_at,
                vault_ids, edge_count, count(o) AS other_rel_count
         ORDER BY created_at
         """,
         user_uid=user_uid,
+        # The two edges every vault task carries by construction; anything else
+        # is a relationship the human should see before confirming a deletion.
+        provenance_types=[RelationshipName.OWNS.value, RelationshipName.EXTRACTED_FROM.value],
     )
     return [
         TaskRow(
