@@ -460,8 +460,11 @@ since INVERTED").
 | #1159 | **The tag vocabulary** — widened to the page's FULL result set, per-user scoped for the OWNER_ONLY half (the tag ruling below). |
 
 **The one obligation this arc created, and where it lives:** ruling 2 and consequence 2
-strip UserEntry and Exercise off this page *before* the profile-side search that replaces
-them exists. Mike sequenced it strip-first-build-after, so the gap is accepted rather than
+strip **UserEntry, Exercise AND RevisedExercise** off this page *before* the profile-side
+search that replaces them exists. All three, not two — RevisedExercise is a distinct
+searchable domain and consequence 2 sends it to the profile hub with Exercise, so a
+follow-up scoped to two of them would leave revision artifacts with no browser search at
+all. Mike sequenced it strip-first-build-after, so the gap is accepted rather than
 overlooked — it keeps its own Review Schedule row after this section closed.
 
 **The design.**
@@ -2199,7 +2202,7 @@ Review this document at the **September 2026 quarterly review**. Checklist:
 | Principles `_validate_update` reform or deletion | Next substantive touch of the Principles update path | Ruling needed — see the section's landmine note |
 | EntryReport / ActivityReport search | A teacher workflow wants direct report-content search | Product need (not a data threshold) |
 | Domain-level fulltext-first text search (D1(b)) — ruled DEFERRED **twice** (2026-08-16, 2026-08-25) | A consumer wants relevance ranking for the domains remaining on `/search` after the facet redesign (shipped #1155–#1159) — the 6 Activity Domains + Ku, which is now the whole surface | ⚠️ scope INVERTED, do not scope from the bullet list; the OWNER_ONLY edge-vs-property "ruling needed" is STALE — already closed, do not re-open. Product need (not a data threshold); read the section's two rulings first |
-| Profile-side search for UserEntry and Exercise (the `/search` facet redesign's one open obligation) | Mike schedules it — the strip landed first by his sequencing (#1155), so the trigger is the build half, not a data threshold | See § `/search` Facet Redesign (RESOLVED) — ruling 2 + consequence 2. When Reports gains a search box, the EntryReport / ActivityReport row above has fired too |
+| Profile-side search for UserEntry, Exercise **and RevisedExercise** (the `/search` facet redesign's one open obligation) | Mike schedules it — the strip landed first by his sequencing (#1155), so the trigger is the build half, not a data threshold | ⚠️ all THREE domains, not two: consequence 2 sends RevisedExercise to the profile hub with Exercise, so a two-domain build leaves revision artifacts unsearchable. See § `/search` Facet Redesign (RESOLVED) — ruling 2 + consequence 2. When Reports gains a search box, the EntryReport / ActivityReport row above has fired too |
 | ZPD snapshot history & trend analysis | A ZPD-over-time consumer exists | Product need + `MATCH (h:ZPDHistory) RETURN count(h)` for accrual |
 | Habit rows in the weekly-note panel | Lived weekly-review use wants the backward look | Product need (not a data threshold) |
 | Non-positive-duration follow-ups (habit `0m` on `/today` / proposes `15`) | Next touch of either surface | Ride-along, not standalone |

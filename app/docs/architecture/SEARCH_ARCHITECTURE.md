@@ -1174,25 +1174,36 @@ Used by `_is_habit_due_in_window()`, `_is_habit_overdue()`, and `get_user_due_to
 
 ## UI Integration
 
-The `/search` filter panel maps directly onto `SearchRequest` — every control's `name` IS
-the field it sets, which is what lets `ALL_FILTER_NAMES` (`ui/search/components.py`) drive
-`hx-include` without a translation layer. The panel's own layers:
+⚠️ **There IS a translation layer, and it is `SearchRequest.from_form_params()`** — do not
+read a control's `name` as a `SearchRequest` field. Each control's `name` matches a
+**keyword of `from_form_params`**, which is what lets `ALL_FILTER_NAMES`
+(`ui/search/components.py`) drive `hx-include` and lets `/search/results` forward the form
+verbatim. That classmethod owns every coercion — empty-string→`None`, checkbox
+string→`bool`, string→enum, and the **renames**. Add a filter by extending it, never by
+adding a `SearchRequest` field named after the control.
 
-| Layer | Controls | Mapped to | Section that describes it |
+The renames are the trap: `query` → `query_text`, `entity_type` (one string) →
+`entity_types` (a parsed one-element list — see consequence 4 in deferred-work § "`/search`
+Facet Redesign" for what that single-value contract costs a grouped facet), `tags` (a CSV
+string) → `tags_contain` (a list), and `frequency`/`event_type`/`urgency`/`strength` →
+entries in the `extended_facets` dict rather than fields of their own.
+
+| Layer | Controls | Form param → what it becomes | Section that describes it |
 |---|---|---|---|
-| Primary | Type · Nous · Sub-topic · Sort | `entity_type` · `nous` · `nous_subtopic` · `sort_order` | § UI Mapping under *Simple Search* — the two scope facets and why they are mutually exclusive |
-| Advanced — Learning Progress | Not Yet Viewed · In Progress · Ready to Review | `not_yet_viewed` · `viewed_not_mastered` · `ready_to_review` | § Learning Progress Filters |
-| Advanced — Graph Relationships | 8 checkboxes | `ready_to_learn`, `builds_on_mastered`, … | § UI Mapping under *Graph-Aware Search* |
-| Advanced — Semantic Search | Semantic boost · Learning-aware · Prefer new content | `enable_semantic_boost` · `enable_learning_aware` · `prefer_unmastered` | § Body-Chunk Semantic Layer, § Semantic Search |
-| Advanced — Tags | Tag facet | `tags` | § Ownership Scoping → *Facet vocabularies* (its vocabulary spans every domain the page returns, per-user scoped) |
-| Advanced — Context (Tier 2) | Per-scope: status · priority · frequency · event type · urgency · strength, and in knowledge mode SEL category · learning level · content type · educational level | same-named fields | § UI Mapping under *Simple Search* |
+| Primary | Type · Nous · Sub-topic · Sort | `entity_type`→`entity_types` · `nous` · `nous_subtopic` · `sort_order`→`SearchSortOrder` | § UI Mapping under *Simple Search* — the two scope facets and why they are mutually exclusive |
+| Advanced — Learning Progress | Not Yet Viewed · In Progress · Ready to Review | `not_yet_viewed` · `viewed_not_mastered` · `ready_to_review`, checkbox strings → bools | § Learning Progress Filters |
+| Advanced — Graph Relationships | 8 checkboxes | `ready_to_learn`, `builds_on_mastered`, … → bools | § UI Mapping under *Graph-Aware Search* |
+| Advanced — Semantic Search | Semantic boost · Learning-aware · Prefer new content | `enable_semantic_boost` · `enable_learning_aware` · `prefer_unmastered` → bools | § Body-Chunk Semantic Layer, § Semantic Search |
+| Advanced — Tags | Tag facet | `tags` (CSV) → `tags_contain` (list) | § Ownership Scoping → *Facet vocabularies* (its vocabulary spans every domain the page returns, per-user scoped) |
+| Advanced — Context (Tier 2) | status · priority, and per-type frequency · event type · urgency · strength; in knowledge mode SEL category · learning level · content type · educational level | `status`/`priority` and the four knowledge ones → same-named enum fields; the four domain-specific ones → `extended_facets` | § UI Mapping under *Simple Search* |
 
-⚠️ **`ui/search/components.py` is the authority, not this table.** The three sites encoding
-the type vocabulary (`_ENTITY_TYPE_OPTIONS`, `entityTypeFilters` in `static/js/skuel.js`,
-and the sweep allowlist) derive from each other in `tests/unit/test_search_page_scope.py`;
-a fourth hand-maintained list here is a copy that goes stale, which is exactly what
-happened to the sidebar map this replaced — it named a "Domain" and a "Source" dropdown the
-panel does not carry, and missed the sub-topic, tag and educational-level controls it does.
+⚠️ **`ui/search/components.py` and `from_form_params` are the authority, not this table.**
+The three sites encoding the type vocabulary (`_ENTITY_TYPE_OPTIONS`, `entityTypeFilters`
+in `static/js/skuel.js`, and the sweep allowlist) derive from each other in
+`tests/unit/test_search_page_scope.py`; a fourth hand-maintained list here is a copy that
+goes stale, which is exactly what happened to the sidebar map this replaced — it named a
+"Domain" and a "Source" dropdown the panel does not carry, and missed the sub-topic, tag
+and educational-level controls it does.
 
 ---
 
