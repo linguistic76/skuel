@@ -716,7 +716,7 @@ class VaultReconciler:
 
         A minted 🆔 is persisted onto its ``EXTRACTED_FROM`` edge only when the
         write reports THAT injection as applied — never on file-level success
-        alone (deferred-work § Phantom-🆔). The two task-line counters are
+        alone (done/reopen-vault-surface.md § Phantom-🆔). The two task-line counters are
         settled the same way, from what landed.
         """
         owner = descriptor.owner_uid
@@ -939,7 +939,7 @@ class VaultReconciler:
         # matched no line is a no-op inside a successful write; persisting its
         # 🆔 would strand the task with an id its file never received, and no
         # later sync could find the line to write its completion back
-        # (deferred-work § Phantom-🆔). Withholding is recoverable, never
+        # (done/reopen-vault-surface.md § Phantom-🆔). Withholding is recoverable, never
         # permanent: the edge keeps no vault_id, so the next sync either
         # re-mints (the line still has no 🆔) or adopts the 🆔 the file already
         # carries (the recovery arm above) — which is exactly why that arm has

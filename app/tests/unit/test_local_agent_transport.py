@@ -568,8 +568,8 @@ class TestAdapterEdges:
 
         A batch whose first update matches no line and whose second lands is a
         file-level success either way — ``updates_applied`` is the only thing
-        that tells the reconciler which 🆔 it may persist (deferred-work
-        § Phantom-🆔). Real agent handler, real frames.
+        that tells the reconciler which 🆔 it may persist
+        (done/reopen-vault-surface.md § Phantom-🆔). Real agent handler, real frames.
         """
         (source_vault / NOTE_PATH).write_text(TASK_LINE)
         registry = AgentChannelRegistry()
