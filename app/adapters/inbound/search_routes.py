@@ -69,7 +69,7 @@ logger = get_logger("skuel.routes.search")
 # sweep default: /explore and /explore/library share `faceted_search` and must
 # keep the merged Ku + PathStep catalog untouched.
 #
-# See: docs/roadmap/deferred-work.md § "`/search` Facet Redesign".
+# See: docs/roadmap/done/search-facet-redesign.md.
 SEARCH_PAGE_ENTITY_TYPES: tuple[EntityType, ...] = (
     EntityType.TASK,
     EntityType.GOAL,
@@ -91,7 +91,7 @@ SEARCH_PAGE_ENTITY_TYPES: tuple[EntityType, ...] = (
 # exactly the ones its vocabularies aggregate. Today that is Ku alone.
 # `/explore/library` keeps the merged default, because its catalog carries both.
 #
-# See: docs/roadmap/deferred-work.md § "`/search` Facet Redesign" consequence 1.
+# See: docs/roadmap/done/search-facet-redesign.md — a facet's scope follows the domains it filters.
 SEARCH_PAGE_FACET_DOMAINS: tuple[EntityType, ...] = tuple(
     entity_type
     for entity_type in CURRICULUM_FACET_DOMAINS
@@ -195,8 +195,8 @@ def create_search_api_routes(
         # The caller is passed because the Activity Domains are OWNER_ONLY:
         # SearchRouter counts their tags for THIS user alone and skips them
         # entirely without a user_uid. Curriculum stays corpus-wide.
-        # Ruled 2026-08-26; see docs/roadmap/deferred-work.md § "`/search`
-        # Facet Redesign".
+        # Ruled 2026-08-26; see docs/roadmap/done/search-facet-redesign.md
+        # (ruling 6).
         all_tags: list[str] = []
         tags_result = await search_router.list_tags(SEARCH_PAGE_ENTITY_TYPES, user_uid)
         if tags_result.is_ok and tags_result.value:

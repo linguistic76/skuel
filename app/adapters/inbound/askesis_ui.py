@@ -83,7 +83,7 @@ def create_askesis_ui_routes(
         the PathStep a passage came from), so a Ku-only vocabulary would hide
         the sub-topics whose passages Askesis actually reads.
 
-        See: docs/roadmap/deferred-work.md § "`/search` Facet Redesign".
+        See: docs/roadmap/done/search-facet-redesign.md (ruling 7).
         """
         if search_router is None:
             return {}

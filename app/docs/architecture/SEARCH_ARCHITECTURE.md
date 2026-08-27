@@ -111,7 +111,8 @@ filter-only removal would leave an unfiltered search still returning rows no
 facet could reach. `/explore` and `/explore/library` share `faceted_search` and
 are untouched by it — they send their own `entity_types`.
 
-**See:** `docs/roadmap/deferred-work.md` § "`/search` Facet Redesign".
+**See:** [`docs/roadmap/done/search-facet-redesign.md`](../roadmap/done/search-facet-redesign.md)
+— the closure record for the arc that set this scope.
 
 ---
 

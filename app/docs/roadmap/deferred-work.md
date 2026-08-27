@@ -410,8 +410,9 @@ ordering over ≤20 `CONTAINS` hits drawn from a 121-node Ku corpus is a margina
 difference, not a fix.
 
 **The valuable half has INVERTED — do not scope from the bullet list above.** The
-`/search` facet redesign (its own section below) removed PathStep and LearningPath from
-that surface entirely; it shipped 2026-08-26 in #1155–#1159. The shipped rung covers
+`/search` facet redesign ([`done/search-facet-redesign.md`](done/search-facet-redesign.md))
+removed PathStep and LearningPath from that surface entirely; it shipped 2026-08-26 in
+#1155–#1160. The shipped rung covers
 exactly Ku/PathStep/LearningPath — two of the three are now gone from the page — while the
 six Activity Domains promoted to the primary facet are all `OWNER_ONLY`, i.e. the half this
 section split off as harder: it needs `user_uid` threaded into the fulltext Cypher.
@@ -430,433 +431,13 @@ pins that the anchor MATCH is gone (`":User" not in query`). One mechanism, one
 composition point. Do **not** re-open that ruling — it was already made. (Caught by Codex
 on #1153, where this section first restated the stale fact.)
 
-**Enable when** (unchanged in kind, sharpened in target): a consumer wants relevance-ranked
-text search for the domains that remain on `/search` after the facet redesign — **the six
-Activity Domains and Ku**, which since #1155 is the whole surface: UserEntry, Exercise and
-RevisedExercise were ruled off it (facet section, ruling 2 and consequence 2). The
-rule, not the list, is the contract: every domain visible on `/search` is either in D1(b)'s
-scope or has Relevance disabled for it — so a domain re-added to the page re-opens this,
-and the same rule applies to whatever profile-side surface those three land on. Product
-need, not a data threshold.
+### The "Relevance" label is this section's lever — a known fiction, left standing
 
----
-
-## `/search` Facet Redesign — ✅ RESOLVED (facet-redesign arc, #1155–#1159, 2026-08-26)
-
-Mike's design, ruled in full on 2026-08-25 after a code trace of both search surfaces, and
-built the same week. `/search` is now one surface with one job — *your lived activity, plus
-the knowledge behind it*. The shape below was the contract the build followed; it also
-changed what the D1(b) section above is worth (see that section's "the valuable half has
-since INVERTED").
-
-**What shipped, in order:**
-
-| PR | What landed |
-|---|---|
-| #1155 | **The result scope** — `/search` returns the 6 Activity Domains + Ku and nothing else (`SEARCH_PAGE_ENTITY_TYPES` / `scope_to_search_page`, `adapters/inbound/search_routes.py`). Declared at the page's own entry point, so `/explore` and `/explore/library` keep the shared sweep default. |
-| #1156 | **The primary facet control** — the Type dropdown is the 6 Activity Domains; `entityTypeFilters` (`static/js/skuel.js`) dropped `path_step`/`learning_path`/`user_entry`; the three vocabulary sites now derive from each other (`tests/unit/test_search_page_scope.py`). |
-| #1157 | **Knowledge mode** — the Nous facet drives the four knowledge filters, closing the one-PR gap consequence 3 costed, and the two scope facets are mutually exclusive (ruling 3). |
-| #1158 | **The NOUS sub-topic vocabulary** — `/search` aggregates it over the curriculum domains it returns (Ku alone); `/explore/library` and `/askesis` keep the merged Ku + PathStep one (consequence 1). |
-| #1159 | **The tag vocabulary** — widened to the page's FULL result set, per-user scoped for the OWNER_ONLY half (the tag ruling below). |
-
-**The one obligation this arc created, and where it lives:** ruling 2 and consequence 2
-strip **UserEntry, Exercise AND RevisedExercise** off this page *before* the profile-side
-search that replaces them exists. All three, not two — RevisedExercise is a distinct
-searchable domain and consequence 2 sends it to the profile hub with Exercise, so a
-follow-up scoped to two of them would leave revision artifacts with no browser search at
-all. Mike sequenced it strip-first-build-after, so the gap is accepted rather than
-overlooked — it keeps its own Review Schedule row after this section closed.
-
-**The design.**
-
-| Control | Before | Shipped |
-|---|---|---|
-| Primary scope facet | "Type" — 10 entity types, curriculum and activity mixed flat | **Activity Domains** — Task, Goal, Habit, Event, Choice, Principle |
-| Knowledge facet | "Nous" + dependent sub-topic column | **unchanged, keeps the name "Nous"** |
-| Ku | a "Knowledge Units" row in the Type dropdown | reached through the Nous facet |
-| PathStep, LearningPath | Type dropdown rows | **removed — from the dropdown AND from the results** |
-| "My Entries" (UserEntry) | a Type dropdown row | **removed — dropdown AND results** (reversed 2026-08-25, see ruling 2) |
-| Exercise, RevisedExercise | swept, filterable by nothing | **removed from the sweep** (ruled 2026-08-25, see consequence 2) |
-
-**Why removing PathStep costs nothing: it is a duplicate surface, not a capability.**
-`/explore/library` is billed as "Explore all knowledge units and path steps", runs the same
-`SearchRouter.faceted_search` path, and carries the richer facet set (tags, NOUS,
-sub-topic, learning level) plus Load-more pagination that actually works. The PathStep half
-of `/search` is a second, worse copy of it, so this item is directive item 2 (remove the
-unnecessary), not feature building.
-
-⚠️ **That argument covers PathStep, NOT LearningPath** — the library catalog carries Ku and
-PathStep only, so LP is the one removal with a real consequence. It gets its own paragraph
-below; do not let the "duplicate surface" framing carry over to it.
-
-**✅ RULED — LearningPaths are NAVIGATED, not searched (D-LP, taken with #1155).** The
-ride-along this redesign created was that LP loses its last browser door:
-`_library_search_request` (`adapters/inbound/explore_ui.py`) scopes the catalog to
-`[EntityType.KU, EntityType.PATH_STEP]`, so once `/search` dropped LP no browser surface
-finds one by typing. The section posed two acceptable answers — LP joins the library
-catalog, or an explicit ruling — and one unacceptable one: dropping it and leaving the gap
-unnamed. Mike took the ruling. It is recorded here because a ruling left implicit in a
-merged PR reads later as unassessed work.
-
-**The accepted consequence, stated so nobody re-derives it as a bug:** no browser surface
-finds a LearningPath by typing. What makes that coherent rather than a hole is that LP is
-reached by *navigation* — `/learning-paths` (`learning_paths_ui.py`, whose cards link to
-`/lp/{uid}`), `/pathways/browse` (`pathways_ui.py`, which lists every path), and the
-`/lp/{uid}` detail page itself. And it is **not data loss**: `POST /api/search/unified`
-still reaches LP for programmatic callers
-(`advanced_search`'s `_SEARCHABLE_DOMAINS` includes `LEARNING_PATH`, backed by
-`LpSearchService`), though that endpoint has no UI and zero recorded usage. Defensible at 2
-LearningPaths; if the corpus ever grows enough that people hunt for one by name, the
-alternative is still open — which is why the trap below is kept rather than deleted.
-
-⚠️ **MOOT, KEPT — it re-arms the moment LP joins the library catalog.** Adding LP there is
-**not "one list literal"; the card renderer must move too.** `render_explore_card`
-(`ui/explore/cards.py`, reached from `_library_cards` in `adapters/inbound/explore_ui.py`)
-branches on `is_ku` and sends **everything else** to a hard-coded "Path Step" pill and
-`/explore/ps/{uid}`, so every LP would render as a mislabelled Path Step card with a dead
-detail link (LPs live at `/lp/{uid}`). The fix is available rather than new:
-`entity_detail_href` (`ui/patterns/entity_links.py`) already maps `learning_path` → `/lp`,
-so adopt the shared helper instead of widening a two-way branch to three; the pill likewise
-needs a real per-type value. The library's subtitle — "Explore all knowledge units and path
-steps" — matches its catalog exactly today, so it changes with the catalog.
-
-**Rulings that were decisions, not defaults** — each was posed and answered:
-
-1. **Removal is from the results, not just the filter.** A filter-only removal would leave
-   an unfiltered search still returning PathSteps the user can no longer filter to.
-2. **"My Entries" goes to the profile hub — REVERSED 2026-08-25.** The original ruling was
-   that it stays, on the ground that it is the ONLY UserEntry text search in the
-   application (`user_entry_ui.py`, `user_entry_routes.py` and `user_entry_api.py` contain
-   zero search references, and the journals sidebar's search is conversation sessions, not
-   entries). That fact is unchanged and still the cost. Mike reversed the conclusion:
-   entries are lived *output*, and they are searched where they live — the profile hub
-   (`/profile`: Activities · Curriculum · Submissions · Reports) — not in global `/search`.
-   ⚠️ **That search does not exist yet**: the Submissions tab is four link buttons,
-   `/submissions/history` renders an unfiltered list, and the Reports tab is collapsible
-   card sections. So this is a removal PLUS a build, and Mike sequenced it **strip first,
-   build after** — the gap is accepted, not overlooked (62 entries, ~8 genuine searches
-   ever across both `faceted` surfaces). Building the profile-side search is the follow-on
-   this ruling owes, and it is the Review Schedule row this section left behind when it
-   closed; when Reports gains a search box, the **EntryReport / ActivityReport Search**
-   section above has had its trigger fired and is scoped with it.
-3. **Type + Nous are MUTUALLY EXCLUSIVE — ✅ RULED 2026-08-25, built in PR #1157.** The
-   design gave `/search` two scope facets and did not say what setting both means. It
-   means nothing: `nous` is an array property only curriculum nodes carry, and the faceted
-   sweep applies every property filter as a WHERE clause to *every* swept domain
-   (`_search_raw_mixin`: `$filter_nous IN entity.nous`), so `Type=Task, Nous=body` returns
-   zero rows **by construction, for all six types** — the same "facet guaranteed to return
-   zero" class consequence 1 refuses. The ruling is to make the impossible state
-   unreachable rather than to let it return an empty page: whichever control is not in use
-   is `disabled`, with a `title` naming the one to clear. htmx omits disabled elements from
-   a request (`shouldInclude`), so the unused scope is **absent** from the query string
-   rather than sent blank.
-
-   ⚠️ **The same fact is why knowledge mode is honest rather than cosmetic**: a Nous topic
-   narrows the result set to Ku on its own, which is what makes "Ku is reached through the
-   Nous facet" true of the query and not just of the UI.
-
-   ⚠️ **Two scopes made a pre-existing leak load-bearing: a HIDDEN context filter was still
-   submitted.** `hx-include` names every filter on the page, and `x-show` only hides, so a
-   `sel_category` chosen in knowledge mode stayed live after the user switched to
-   `Type=Task` — a WHERE clause on a property Tasks do not carry, i.e. guaranteed zero.
-   (The `Type → All Types` half of this predates the redesign; the cross-scope half is new,
-   and worse, because it cannot match rather than merely narrowing.) ✅ Fixed in PR #1157
-   with the same mechanism: a context column is `disabled` exactly while it is hidden, one
-   predicate for both. **Disabled, not cleared** — returning to that scope restores the
-   filter visibly instead of silently discarding what the user chose; `updateFilterCount`
-   skips disabled controls so the badge counts only what the request carries.
-
-   ⚠️ **The declarative binding alone is one request too late.** Alpine's effects flush a
-   frame after the synchronous change handlers, so the request that CLEARS a scope still
-   carried that scope's filters — measured, and it made the results stay knowledge-only
-   after the knowledge scope was gone. `searchFilters.adoptScope`, bound
-   `x-on:change.capture` on the panel, applies the same predicate imperatively for that one
-   event: the capture phase on an ancestor beats the changed control's own htmx listener by
-   spec, which is the only ordering guarantee available when both listeners sit on the
-   target. (Raised by Codex on #1157.)
-
-   ⚠️ **A SERVER-owned dependent control has its own window, and it is longer.** The
-   sub-topic column is re-rendered by an HTMX swap (`/search/subtopics`), so it stays
-   enabled with its old value until that separate request returns — and every OTHER
-   control's `hx-include` names it. Clearing Nous and picking a Type before the swap landed
-   sent `nous_subtopic` into an activity search: a curriculum-only facet, guaranteed zero.
-   Reproduced in a browser by letting the swap never land. `adoptScope` therefore clears
-   and disables it on ANY scope change — a *new* topic orphans the old sub-topic just as
-   surely as clearing one does — and the swap replaces the element outright, so those
-   writes only have to hold the window shut. **The lesson generalises: a control whose
-   state arrives asynchronously is stale from the moment its input changes, not from the
-   moment its response lands.** (Raised by Codex on #1157, second round.)
-
-   ⚠️ **Alpine's `x-model` listener and htmx's `change` trigger are NOT ordered** — measured
-   in a headless browser, not assumed: the request that ENTERS a mode is serialized before
-   the other control is disabled, so choosing a Nous topic sends `entity_type=` (blank), and
-   only the next request omits it. Harmless, because a mode is only ever entered from the
-   both-empty state (`search_page` seeds no filter values) and blank is dropped at
-   `from_form_params`. What `disabled` prevents is the control that could carry a
-   CONFLICTING value ever being reachable — it was disabled by the PREVIOUS interaction.
-
-4. **The Nous facet keeps its name.** "Nous → Ku" was considered and rejected: NOUS is the
-   official *grouping* of Kus (the magazine metaphor; `Heading: H3` anchors), a vault-derived
-   vocabulary — not an entity-type label, which is what the rename would make it. ⚠️ The
-   rename would ALSO have been false while PathStep remained: `nous` is a property on **both**
-   Ku and PathStep (112 Ku vault files carry it; 14 of 28 Ps files do), so the facet returns
-   PS rows today. The two halves of the original proposal were load-bearing on each other.
-
-**Consequences the design does not state — each would bite at implementation.**
-(Raised by Codex across #1153's review rounds; every one verified against the code.
-Deliberately un-numbered in the heading: this list grew three times, and a count in a
-heading is one more summary to go stale.)
-
-1. **The facet vocabularies must follow the result scope, or the facets lie.** This is a
-   requirement, not a choice — it follows from the ruling already made.
-   `SearchRouter.nous_subtopic_map()` / `list_nous_subtopics()` derive from `:Ku` **+
-   `:PathStep`** (the method's own docstring calls out "a corpus whose sub-topics live only
-   on PathSteps"), and `list_tags()` is likewise distinct Ku + PathStep tags. Leave them
-   merged on a Ku-only result surface and `/search` offers sub-topics and tags that can
-   never match anything — a facet guaranteed to return zero, which is the SAME defect class
-   as the Relevance label this section is careful about. So: each `/search` vocabulary must
-   follow **its own facet's** result scope, while `/explore/library` keeps the **merged**
-   one, because its catalog really does carry both. One vocabulary source, several scopes —
-   do not fork the method, parameterise it. (The section originally wrote that scope as
-   "Ku-only" for both vocabularies. That is right for the NOUS ones and wrong for tags —
-   see the ✅ note next.)
-
-   **✅ BOTH halves are BUILT — the NOUS sub-topic one in #1158, the tag one in #1159.**
-   The tag half went the OPPOSITE way, because `/search` is not a Ku-only surface; that is
-   the one place this section's own framing was wrong. See the tag ruling below.
-
-   ⚠️ **Parameterise the AGGREGATION point, not the public wrappers.** There are two
-   merges, not three methods: `list_tags()` derives from `tag_frequencies()`, and
-   `nous_subtopic_map()` *and* `list_nous_subtopics()` both derive from
-   `_nous_subtopic_pairs()`. `scope` lives on the private merge and the wrappers forward it,
-   so a scoped map and a scoped flat list cannot drift apart. Default = the merged
-   `CURRICULUM_FACET_DOMAINS`, so every existing caller is untouched (constraint: `/explore`
-   and `/explore/library` must not change behaviour).
-
-   ⚠️ **`/search` has TWO doors onto the sub-topic control, and scoping one is worse than
-   scoping neither.** `search_page` fetches the flat list, which is a **render GATE only** —
-   it decides whether the column exists. The OPTIONS come from `/search/subtopics`
-   (`nous_subtopic_map`). Scope only the page and a PathStep-only sub-topic stays
-   *selectable*; scope only the endpoint and the gate can render a column with nothing
-   behind it. Both pass `SEARCH_PAGE_FACET_DOMAINS`, and the flat list stays a superset of
-   every map built at the same scope (pinned in `tests/unit/test_nous_subtopic.py`).
-
-   ⚠️ **The facet scope is DERIVED, not a fourth site.** `SEARCH_PAGE_FACET_DOMAINS` is
-   `CURRICULUM_FACET_DOMAINS ∩ SEARCH_PAGE_ENTITY_TYPES` — whichever curriculum domains the
-   page returns are exactly the ones its vocabularies aggregate, so the facet scope cannot
-   drift from the result scope. Today it evaluates to `(EntityType.KU,)`.
-
-   **Measured on the live graph 2026-08-26, and re-verified through the composed router
-   after the arc merged** (the "guaranteed to return zero" claim deserves a number rather
-   than a remembered one; corpus: 121 Ku, 25 PathStep):
-
-   | Vocabulary | Distinct (merged) | PathStep-ONLY | Effect on `/search` |
-   |---|---|---|---|
-   | NOUS topics | 11 | 0 | none — and the topic facet was ALREADY Ku-only |
-   | NOUS sub-topics (flat / the render gate) | 33 | 0 | none today |
-   | NOUS (topic, sub-topic) PAIRS (the options) | 81 | **3** | 3 dead options removed |
-   | Tags | 181 | **9** | the 9 left, and the six Activity Domains' own tags joined — the scope went the other way, see the tag ruling below |
-
-   ⚠️ **These are counts from the READ PATH, not from the graph — and the two disagree.**
-   A first pass measured the tag rows with hand-written Cypher and got 188 distinct / 16
-   PathStep-only. Both are true of the nodes and both are the WRONG NUMBERS for this table,
-   because the vocabulary is not a raw node scan: `build_distinct_values_query` composes
-   `build_publication_clause`, and 10 of the 25 PathSteps are `publication_state='draft'`.
-   Seven of those "16 dead options" were never offered at all. **Measure a facet by driving
-   the method that builds it** — a raw query omits every predicate the production path
-   composes, and the error is silent because the raw number looks perfectly plausible.
-
-   ⚠️ The sharper half: that same raw pass got the sub-topic rows RIGHT, because
-   `_nous_subtopic_pairs_query` gates on publication too and no draft PathStep happens to
-   carry a unique pair. So the raw method agreed with the read path on one row and disagreed
-   on another, **and nothing in the raw numbers distinguished the two**. Agreement with a
-   hand-written query is not evidence; only driving the method is. The corrected rows here
-   were all re-measured through the composed `SearchRouter`.
-
-   So the sub-topic fix is a **real, visible** removal, not correctness-by-construction: the
-   pairs `(body, attention)`, `(body, habits)` and `(self-awareness, breath)` were offered
-   and returned nothing. The gate and the topic dropdown do not change today — the scoping
-   is what keeps them honest as the vault grows. ⚠️ Note the flat-list row and the pair row
-   disagree: every sub-topic *word* appears on some Ku, but three *pairings* are
-   PathStep-only. A per-vocabulary count is not a per-facet count.
-
-   **✅ RULED 2026-08-26 (Mike): `/askesis` is not a search surface, so it takes the WIDEST
-   honest vocabulary — it stays MERGED.** In his words: *"Askesis is not the /search result
-   set, it is different than that. Askesis has access to everything about the user with some
-   transparent and adjustable boundaries."* The general rule, which outranks this one facet:
-   **never derive an Askesis scope from what a page lists.** A facet on the Askesis composer
-   is a user-adjustable boundary on total access — so it must be *transparent* (the visible,
-   clearable scope chip is load-bearing, not decoration) and *adjustable* (the user opens and
-   closes it; code never narrows it for them). Default any future Askesis vocabulary to the
-   widest honest one.
-
-   The narrow justification holds too, and was checked rather than assumed: that scope does
-   not filter a result list, it scopes the `:ContentChunk` passages the answer is grounded
-   in, and lesson bodies live on PathSteps (`ContextRetriever._retrieve_scoped_chunks` cites
-   the PathStep a passage came from), so a Ku-only vocabulary would hide the sub-topics whose
-   passages Askesis actually reads. Narrowing `/search` is safe for the
-   `?nous=&nous_subtopic=` handoff between them, because Ku-only ⊆ merged — but the comment
-   asserting the two dropdowns offer *exactly* the same pairs was falsified and has been
-   corrected.
-
-   ⚠️ **Pre-existing asymmetry this rung NAMES rather than inherits silently:**
-   `/explore/library` offers **Ku-only NOUS topics** (`list_nous_topics` → `KuService` → the
-   `:Ku` label) beside **merged Ku + PathStep sub-topics**. A topic authored only on
-   PathSteps would be missing from its dropdown. Harmless today (0 of 11), it predates this
-   arc, and it is not what the arc set out to fix — recorded at the call site in
-   `adapters/inbound/explore_ui.py` so it is found by whoever changes that vocabulary.
-
-2. **Exercise and RevisedExercise are already hidden result types — rule them.** ⚠️ This is
-   PRE-EXISTING, not created by the redesign, which is why it is easy to miss: the
-   unfiltered sweep covers every `_SEARCHABLE_DOMAINS` member except UserEntry (excluded by
-   name for privacy), and that set includes `EXERCISE` and `REVISED_EXERCISE` — **neither of
-   which appears in the Type dropdown's ten choices**. So `/search` returned Exercises that
-   no facet could filter to or away. **✅ RULED 2026-08-25: option (ii)** — both are excluded
-   from the sweep, and they follow UserEntry to the profile hub (Exercise search today
-   happens ONLY through this unfiltered sweep, so that is the same removal-plus-build the
-   ruling above accepts). The sweep allowlist is now explicit rather than "whatever
-   `_SEARCHABLE_DOMAINS` happens to hold": `SEARCH_PAGE_ENTITY_TYPES` /
-   `scope_to_search_page` in `adapters/inbound/search_routes.py`, stated at the `/search`
-   entry point so `/explore` and `/explore/library` keep the shared sweep default.
-
-3. **Removing the Ku *option* stranded four knowledge filters — ✅ CLOSED in PR #1157;
-   it HAPPENED in PR #1156 exactly as costed.** `static/js/skuel.js`'s `entityTypeFilters`
-   (the map this section once called `FILTER_MAP`) revealed SEL Category, Learning Level,
-   Content Type and Educational Level only when `entityType == 'ku'`, and `showContextFilters` requires
-   `entityType !== ''`. Selecting a Nous topic did **not** set `entityType`. So the moment
-   Ku stopped being a Type choice, those four controls became unreachable — silently, with
-   no error and nothing removed from the markup. **R3 was the ruling: make them visible in
-   the new knowledge mode, do not remove them.** The four were unreachable for exactly one
-   PR — an accepted, named cost on a surface with ~8 genuine queries ever, not an
-   oversight. PR #1157 closed it: `searchFilters` now tracks the Nous topic (`nousTopic`,
-   `x-model` on the Nous select, mirroring the Type select), `isKnowledgeMode` is true
-   while one is chosen, `showContextFilters` opens for **either** scope facet, and
-   `isFilterVisible` reveals the knowledge groups from the `'ku'` map entry.
-
-   ⚠️ **Verified in a real browser, not only in unit tests** — and the harness matters:
-   `x-show` flips `display` inside a `requestAnimationFrame` callback, so a headless run
-   with `--virtual-time-budget` (which starves rAF) reads every transition ONE INTERACTION
-   STALE. That first run reported the knowledge columns hidden in knowledge mode and
-   visible in activity mode — the exact opposite of the truth, and green-looking enough to
-   act on. Drop the virtual clock and let the page report over the wire instead.
-
-   ⚠️ **The tempting mitigation does not work, and was checked rather than assumed.**
-   Keeping the `'ku'` key in `entityTypeFilters` does NOT keep those filters reachable:
-   after the option is gone, *nothing writes `entityType = 'ku'`* — the `x-model` select
-   has no such option, `clearFilter`/`clearAllFilters` only write `''`, and the result
-   chip that calls `setEntityType` is itself gated on the dropdown vocabulary. The key was
-   kept anyway, for the reason that survives inspection: it is the MAPPING the knowledge-
-   mode predicate is built from (which four groups are the knowledge ones), and Ku is
-   still a live result type, so the key names something real. That is the one deliberate
-   divergence between the three vocabulary sites, and it is now PERMANENT: `'ku'` is a
-   filter-group entry, never a dropdown value, read through
-   `searchFilters.knowledgeFilterGroups`. `tests/unit/test_search_page_scope.py` § 7 makes
-   that checkable in both directions — every group the JS map names renders a context
-   column, and every rendered column is named by the map — so the four knowledge columns
-   and the `'ku'` entry cannot drift apart.
-
-   ⚠️ `entityTypeFilters` is a **third site encoding the type vocabulary** (after
-   `_ENTITY_TYPE_OPTIONS` and the sweep allowlist). PR #1156 stopped that from being a
-   memory exercise: `tests/unit/test_search_page_scope.py` § 6 reads the JS map out of
-   `skuel.js` and the options out of `ui/search/components.py` and derives both from
-   `SEARCH_PAGE_ENTITY_TYPES`, so a type arriving in one site alone fails. `'common'` and
-   `'knowledge'` in that map are MARKERS (no control is named either) — the knowledge/
-   activity label now derives from the `'knowledge'` marker instead of a fourth list of
-   type names, which had gone stale with `path_step` still in it.
-
-   ⚠️ **Accepted consequence of the same removal: the "Ku" result-breakdown chip no longer
-   narrows.** `_render_domain_breakdown` derives its clickable set FROM
-   `_ENTITY_TYPE_OPTIONS` (correctly — hard-coding would be a fourth site), so Ku falls to
-   a plain Badge that reports its count. This is the honest rendering: a chip can only set
-   the control the dropdown owns, assigning an absent value would CLEAR the select, and
-   "narrow to Ku" is not the same act as choosing a Nous topic. Pinned in
-   `TestResultBreakdownChips`.
-
-4. **MOOT since option (ii) was ruled — kept because it re-arms if Exercise ever returns.**
-   It read: if Exercise is *surfaced*, RevisedExercise still is not. `/search` takes ONE
-   `entity_type`, and `SearchRequest.from_form_params` converts it to a one-element list
-   (`parsed_entity_types = [et]`), so an `exercise` option would filter to `EXERCISE` alone
-   while `REVISED_EXERCISE` kept floating in the unfiltered sweep — option (i) solved half
-   the problem it was written for. Any future one-control-→-several-enum-values facet
-   (grouped filtering) hits the same single-value contract.
-
-5. **D1(b)'s scope must be conditional on ruling 2, not a hard-coded list.** A scope fixed
-   at "the six Activity Domains + Ku" silently omits Exercise if Exercise is ruled onto the
-   surface — it would inherit the same fake Relevance label, the exact gap already named for
-   UserEntry. So the contract is a **rule, not a list**: every domain visible on `/search`
-   is either in D1(b)'s scope or has Relevance disabled for it. The three scope statements
-   in this file were rewritten to say that rather than enumerate.
-
-**✅ RULED 2026-08-26 (Mike): option (a) — the tag facet covers every domain `/search`
-returns, per-user scoped. Built in #1159.** The tag defect was INVERTED relative to how
-consequence 1 framed it, the same shape as D1(b)'s recorded inversion. Consequence 1 says
-"the merged vocabulary offers tags that can never match", which is true of the 9
-PathStep-only tags. But `/search` is **not a Ku-only surface** — it is the 6 Activity
-Domains + Ku, `tags` is an `Entity` base field carried by all 25 types, and the tag facet
-becomes a WHERE clause on *every* swept domain. So the larger defect was the opposite one:
-**six of the seven domains in the results contributed nothing to their own dropdown.** A
-person could not filter by a tag on their own Tasks. Both halves close at once — PathStep
-leaves the scope, the six Activity Domains enter it — which is why the tag scope is
-`SEARCH_PAGE_ENTITY_TYPES` and NOT the `SEARCH_PAGE_FACET_DOMAINS` the NOUS vocabularies
-take. **A facet's scope follows the domains it filters, and `tags` filters all seven.**
-
-**The gate was PRIVACY, and it is now enforced in `SearchRouter.tag_frequencies` — per
-domain, from each domain's own `SearchVisibility` declaration, failing CLOSED:**
-
-- **PUBLIC** (curriculum) — counted corpus-wide.
-- **OWNER_ONLY** (Activities) — counted for the caller ALONE, and **skipped entirely
-  without a `user_uid`**. An unscoped read would list every user's tag names: a cross-user
-  leak, not a wider vocabulary. (Two users carry activity tags on the live graph, so it was
-  never hypothetical.)
-- **SCOPE_AWARE** — skipped rather than property-scoped: its scope lives in
-  `:OWNS`/`:SHARES_WITH`/group edges, which the `user_uid` property filter behind this call
-  cannot express. Refusing beats answering wrongly.
-
-`SupportsTagVocabulary` (`core/ports/search_protocols.py`) is the ISP slice the router
-narrows to, and it deliberately carries BOTH halves — the counts are unsafe to read without
-the declaration that says how to scope them. The mechanism is documented at ADR-085's
-chokepoint in `SEARCH_ARCHITECTURE.md` § Ownership Scoping: **same declaration, different
-builder**, so this is not a third enforcement mechanism.
-
-⚠️ **A latent fail-OPEN was found on the way and fixed with it.**
-`build_distinct_values_query` tested `if user_uid:`, so an empty-string uid fell through to
-the corpus-wide branch. Now `is not None`. The failure direction of a multi-tenant scope key
-must be "shows nothing", never "shows everyone".
-
-⚠️ **The router REFUSES a tag-vocabulary domain that scopes on another ownership property.**
-`build_distinct_values_query` scopes on `user_uid` specifically, while
-`build_search_visibility_clause` honours `DomainConfig.ownership_property` (Group declares
-`owner_uid` — ADR-086). Such a domain would have been filtered on a property it does not
-write: its tags returned for nobody, silently. Every domain reachable today declares the
-default, so this stays an assertion rather than an assumption. (Codex, #1159.)
-
-**Re-measured through the composed router 2026-08-26, after the merge**, at every scope the
-surfaces actually pass — not from the graph, per the lesson two paragraphs up:
-
-| Caller | Tags offered |
-|---|---|
-| `/explore/library` — merged curriculum, corpus-wide, anonymous | **181** (unchanged by the arc) |
-| `/search`, anonymous | **172** — Ku alone; all six Activity Domains skipped, and the 9 PathStep-only tags gone |
-| `/search`, `user_linguistic76` | **175** — the same 172 plus 3 of their own |
-| `/search`, `user_admin` | **182** — the same 172 plus 10 of their own |
-
-The two tag-carrying users' additions are disjoint: neither sees the other's. The 9 options
-that left are `body-awareness`, `compounding`, `growth-mindset`, `mind-wandering`,
-`perspective-taking`, `posture`, `practical`, `storytelling`, `strengths`.
-
-**The predicted cost arrived exactly as costed, and was accepted rather than overlooked.**
-Option (a) was ruled knowing the activity tags include machine and typo tags:
-`user_linguistic76`'s three additions are `Dr`, `period:daily` and `period:weekly`. Each is
-visible to that one user until the vault/tags are cleaned — a data-quality item, not a facet
-defect, and it does not reach anyone else's dropdown.
-
-`/explore/library` is untouched: its default scope stays the merged curriculum pair, asked
-corpus-wide with no user, which is what keeps it anonymous-safe.
-
-**Known fiction this redesign does NOT repair — deliberately left standing.** `/search`'s
-sort dropdown offers **"Relevance"**, it is the DEFAULT, and no path behind it ranks by
-text relevance. What it actually does depends on the request shape — three behaviours
-under one label, none of them BM25:
+Inherited from the `/search` facet redesign, which deliberately did NOT repair it
+([`done/search-facet-redesign.md`](done/search-facet-redesign.md)) and left it with the
+section that would make it true. `/search`'s sort dropdown offers **"Relevance"**, it is
+the DEFAULT, and no path behind it ranks by text relevance. What it actually does depends
+on the request shape — three behaviours under one label, none of them BM25:
 
 | Request shape | What "Relevance" does |
 |---|---|
@@ -871,42 +452,62 @@ defect is that one label covers three behaviours and advertises a fourth.
 sorts *deliberately*, for a different reason (it bypasses the pageable sweep), so `/search`
 is the inconsistent surface. This is the same class the July 2026 pass deleted ("no fake
 options") — but it is **left in place on purpose**: Mike's intent is to make the label
-true (D1(b), scoped to the domains that remain) rather than to relabel it away. Do not
-"tidy" it in a passing PR; that would spend the one lever that makes the ranking work
-visible.
+true — that is the work below, scoped to the domains that remain — rather than to relabel
+it away. Do not "tidy" it in a passing PR; that would spend the one lever that makes the
+ranking work visible.
 
-**Dependency order — discharged.**
+**Enable when** (unchanged in kind, sharpened in target): a consumer wants relevance-ranked
+text search for the domains that remain on `/search` after the facet redesign — **the six
+Activity Domains and Ku**, which since #1155 is the whole surface: UserEntry, Exercise and
+RevisedExercise were ruled off it (see `done/search-facet-redesign.md` ruling 2). The
+rule, not the list, is the contract: every domain visible on `/search` is either in D1(b)'s
+scope or has Relevance disabled for it — so a domain re-added to the page re-opens this,
+and the same rule applies to whatever profile-side surface those three land on. Product
+need, not a data threshold.
 
-1. This facet redesign — decided which domains `/search` must rank at all. ✅ #1155–#1159.
-2. Then D1(b), scoped to whatever step 1 left on the surface: **the six Activity Domains
-   and Ku, which is now the whole page** (UserEntry and Exercise were ruled off it, ruling
-   2 and consequence 2). Its remaining work is threading `user_uid` + the domain's
-   `SearchVisibility` into the fulltext Cypher — **not** an ownership ruling: the
-   edge-vs-property question that section once named as a prerequisite is closed (see its
-   ⚠️ note). Do not treat it as a blocker.
+---
 
-The whole point of the order was that building (2) first would have ranked domains that
-were leaving the page. That risk is gone. D1(b) stays deferred on its own merits — no named
-consumer, ~8 genuine queries ever — never on this section any more.
+## Profile-Side Search for UserEntry, Exercise and RevisedExercise (REGISTERED 2026-08-26)
 
-**Open when a UserEntry search surface is built — this section does NOT rule it, and it is
-no longer a `/search` question.** It was posed while "My Entries" still stood on `/search`,
-where UserEntry would inherit the fake Relevance label (its `search_order_by` is
+The one obligation the `/search` facet redesign created. Closure record for the arc itself:
+[`done/search-facet-redesign.md`](done/search-facet-redesign.md) (#1155–#1160) — read it
+before scoping this; do not re-derive its rulings.
+
+That arc took **UserEntry, Exercise AND RevisedExercise** off `/search` — from the results,
+not just the dropdown — on the ground that entries and exercises are lived *output*, and
+are searched where they live: the profile hub (`/profile`: Activities · Curriculum ·
+Submissions · Reports). Mike sequenced it **strip first, build after**, so the gap is
+accepted rather than overlooked. This section is the build half.
+
+⚠️ **All THREE domains, not two.** RevisedExercise is a distinct searchable domain and the
+arc sent it to the profile hub alongside Exercise; a build scoped to two would leave
+revision artifacts with no browser search at all. (Codex caught the two-name version of
+this very row on #1160.)
+
+⚠️ **That search does not exist yet, in any form.** The Submissions tab is four link
+buttons, `/submissions/history` renders an unfiltered list, and the Reports tab is
+collapsible card sections. `user_entry_ui.py`, `user_entry_routes.py` and
+`user_entry_api.py` contain zero search references, and the journals sidebar's search is
+conversation sessions, not entries. Exercise search happened ONLY through the old
+unfiltered `/search` sweep. Accepted cost while the gap stands: 62 entries, ~8 genuine
+searches ever across both `faceted` surfaces.
+
+**The ranking question travels with the entries — it is answered here, not in D1(b).**
+UserEntry would have inherited `/search`'s fake Relevance label (its `search_order_by` is
 `created_at`). The 2026-08-16 investigation's D5 recommended *excluding* UserEntry from any
-fulltext path on the merits — recall matters more than ordering when searching your own
+fulltext path on the merits: recall matters more than ordering when searching your own
 writing, and Lucene's substring loss bites hardest there ("that entry where I mentioned
-photosyn…"), on top of it being a privacy line. Those two pull opposite ways and the
-tension is real: **either UserEntry joins D1(b)'s scope, or Relevance is disabled for it
-specifically.** The reasoning MOVES WITH THE ENTRIES to the profile-side search ruling 2
-owes — it is not deleted, and it is answered there, not here. (Raised by Codex on #1153.)
+photosyn…"), on top of it being a privacy line. That pulls against wanting relevance at
+all, and the tension is real — **either UserEntry joins D1(b)'s scope, or Relevance is
+disabled for it specifically.** D1(b)'s contract is a rule and not a list precisely so this
+answers itself: every domain visible on a surface is either in that scope or has Relevance
+disabled for it, and that applies to whatever this build puts on `/profile`. (Raised by
+Codex on #1153.)
 
-**The honest backdrop, kept on the record.** The usage census in the D1(b) section — ~8
-genuine queries across the two `faceted` surfaces, most recent 2026-07-22. The redesign was
-a product decision about what `/search` is *for*, never a response to traffic, and there is
-no post-redesign comparison to be had: `entry_point="faceted"` still cannot separate
-`/search` from the `/explore` catalog, and that distinction cannot be backfilled (D1(b)
-§ ruling 2). Splitting the entry point is a one-argument fix whenever surface-level
-attribution matters.
+**Enable when**: Mike schedules it — the strip already landed, so the trigger is the build
+half: a product decision, not a data threshold. When Reports gains a search box, the
+**EntryReport / ActivityReport Search** section above has had its trigger fired and is
+scoped with it.
 
 ---
 
@@ -2201,8 +1802,8 @@ Review this document at the **September 2026 quarterly review**. Checklist:
 | Content-linting survivors (NOUS vocabulary check; orphan detection at lint time) | Authoring volume makes silent nous typos / orphan drift a lived problem | Ride-along on `ingestion/validator.py` |
 | Principles `_validate_update` reform or deletion | Next substantive touch of the Principles update path | Ruling needed — see the section's landmine note |
 | EntryReport / ActivityReport search | A teacher workflow wants direct report-content search | Product need (not a data threshold) |
-| Domain-level fulltext-first text search (D1(b)) — ruled DEFERRED **twice** (2026-08-16, 2026-08-25) | A consumer wants relevance ranking for the domains remaining on `/search` after the facet redesign (shipped #1155–#1159) — the 6 Activity Domains + Ku, which is now the whole surface | ⚠️ scope INVERTED, do not scope from the bullet list; the OWNER_ONLY edge-vs-property "ruling needed" is STALE — already closed, do not re-open. Product need (not a data threshold); read the section's two rulings first |
-| Profile-side search for UserEntry, Exercise **and RevisedExercise** (the `/search` facet redesign's one open obligation) | Mike schedules it — the strip landed first by his sequencing (#1155), so the trigger is the build half, not a data threshold | ⚠️ all THREE domains, not two: consequence 2 sends RevisedExercise to the profile hub with Exercise, so a two-domain build leaves revision artifacts unsearchable. See § `/search` Facet Redesign (RESOLVED) — ruling 2 + consequence 2. When Reports gains a search box, the EntryReport / ActivityReport row above has fired too |
+| Domain-level fulltext-first text search (D1(b)) — ruled DEFERRED **twice** (2026-08-16, 2026-08-25) | A consumer wants relevance ranking for the domains remaining on `/search` after the facet redesign (shipped #1155–#1160) — the 6 Activity Domains + Ku, which is now the whole surface | ⚠️ scope INVERTED, do not scope from the bullet list; the OWNER_ONLY edge-vs-property "ruling needed" is STALE — already closed, do not re-open. Product need (not a data threshold); read the section's two rulings first. It also now OWNS the "Relevance" fiction — do not tidy that label away |
+| Profile-side search for UserEntry, Exercise **and RevisedExercise** (the `/search` facet redesign's one open obligation) | Mike schedules it — the strip landed first by his sequencing (#1155), so the trigger is the build half, not a data threshold | ⚠️ all THREE domains, not two: a two-domain build leaves revision artifacts unsearchable. Read the section, then `done/search-facet-redesign.md` for the arc's rulings. When Reports gains a search box, the EntryReport / ActivityReport row above has fired too |
 | ZPD snapshot history & trend analysis | A ZPD-over-time consumer exists | Product need + `MATCH (h:ZPDHistory) RETURN count(h)` for accrual |
 | Habit rows in the weekly-note panel | Lived weekly-review use wants the backward look | Product need (not a data threshold) |
 | Non-positive-duration follow-ups (habit `0m` on `/today` / proposes `15`) | Next touch of either surface | Ride-along, not standalone |
