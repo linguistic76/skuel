@@ -660,162 +660,30 @@ counts in the statistics block, not the length of the printed list — the info 
 
 ---
 
-## `:OWNS` Writers That Skip `user_uid` — ✅ RESOLVED (ownership bundle PR-2, 2026-08-21)
+## Event Attendance Wiring (`ATTENDS`) — Staged Build (REGISTERED 2026-08-26)
 
-The write-side facet of the ownership bundle, closed by ADR-086 + the residue collapse
-(arc contract PR-2). Deleted outright: the registry `ownership_relationship` field and its
-paper `HAS_*`/`MADE_REFLECTION` enum family (zero such edges ever existed in the graph),
-`UnifiedRelationshipService.create_user_relationship`/`delete_user_relationship`, the
-backend generic pair in `_user_entity_mixin.py` (the one interpolation that could write a
-`HAS_*` edge), and the four gravity writers
-(`create_user_goal/habit/principle/event_relationship`). `is_ownership_relationship()` now
-traits `OWNS` alone, and the regenerated `GRAPH_CONTRACT.yaml` stopped documenting
-never-written edges as "ownership".
+Carried out of the ownership bundle when its closure record was archived — the bundle
+itself is done: `docs/roadmap/done/ownership-bundle.md`.
 
-The attendee triple (`add_attendee`/`remove_attendee`/`get_event_attendees`) survived,
-retargeted onto the designed `(User)-[:ATTENDS {joined_at, role, added_by, status}]->(Event)`
-shape with the invite→accept consent state machine (actor always a service parameter from
-the auth layer, never the request body) — still STAGED in `PLANNED_METHODS`; the wiring
-obligations (self-add eligibility gate, `OWNER_OR_ATTENDEE` visibility, creator
-auto-attend, ghost filter, `max_attendees`, role enum) are recorded in ADR-086.
+#1119 retargeted the attendee triple (`add_attendee` / `remove_attendee` /
+`get_event_attendees`) onto the designed
+`(User)-[:ATTENDS {joined_at, role, added_by, status}]->(Event)` shape, with an
+invite→accept consent state machine whose actor is always a service parameter from the auth
+layer, never the request body. It is **staged, not abandoned**: registered in
+`PLANNED_METHODS` (`scripts/detect_bloat.py`), so `./dev bloat` reports it as planned work
+rather than dead code.
 
-**Correction recorded while retiring:** the original section claimed faceted search
-"hard-anchors `(User)-[:OWNS]->`" — stale since #1079: `faceted_search_raw` is
-property-scoped and fail-closed (`has_user=True`). Today's `:OWNS` readers are the
-MEGA-QUERY/CONSOLIDATED anchors (`user_context_queries.py`), `get_user_entities`, the GDPR
-cascade, and one SCOPE_AWARE disjunct.
+**The wiring obligations are recorded once, in ADR-086 § 3 and § Follow-ups** — self-add
+eligibility gate, `OWNER_OR_ATTENDEE` visibility, creator auto-attend, ghost filter,
+`max_attendees`, role enum. Read them there; do not re-summarise them here (a second copy
+is a second thing to keep true).
 
-**Deferred design note — adoption/gravity (recorded, unscheduled):** the deleted gravity
-writers expressed "this user has pulled this entity into their orbit" (adoption,
-engagement) — a semantic that is *not* ownership. If SKUEL wants it later, it returns as
-its own named edge with its own design, never by resurrecting the `HAS_*` family
-(ADR-086 § 2).
+⚠️ The eligibility gate is a **read-contract** obligation, not a nicety: unconditional
+self-add plus `OWNER_OR_ATTENDEE` would let any authenticated user who obtains an event UID
+join it and then read a private event — a direct bypass of ADR-085.
 
-### Completion stamping — ✅ RESOLVED (completion-stamping arc, 2026-08-22)
-
-The residue: `get_recent_activities` read `coalesce(completion_date[, achieved_date],
-updated_at)` (#1116), and `updated_at` is a *mutable* proxy — editing a long-completed task
-re-dated its "completion" and bounced it to the top. Only the explicit complete paths
-stamped anything (measured 5/85 on the live graph).
-
-Closed by a four-PR arc: canonical fields per domain (#1122), the shared transition helper
-wired at all six `update_<domain>` chokepoints plus `EntityType.valid_statuses()`
-enforcement (#1123), Goals reopen alignment (#1124), and the read + vault + backfill pass
-(this PR). What the fix is, in one line: **every transition into COMPLETED stamps the
-domain's canonical field, every transition out clears it, and nothing downstream reads
-`updated_at` as a completion any more.**
-
-- **Read** (`cross_domain_backend.get_recent_activities`): the stamp alone — Task
-  `completion_date`, Goal `achieved_date`. The legacy Goal `completion_date` leg died with
-  it. A completed row carrying no stamp is **excluded, not approximated** (truth over
-  coverage — an absent row is honest, a wrong date is not).
-- **Vault outbound** (`vault_reconciler`): the Obsidian `✅ date` comes from
-  `task.completion_date`, falling back to today only for pre-stamp history. It used to come
-  from `updated_at`, which rewrote the user's own file every time a long-done task was edited.
-- **History**, frozen once: `scripts/backfill_activity_completion_stamps.py` sets
-  `field = updated_at` where a completed node has no stamp. **Applied to the live graph
-  2026-08-22** (AuraDB `d2d160c4`, measured first): 85 completed Tasks, 5 already stamped,
-  80 frozen, 0 unstampable; zero completed Goals/Habits/Events/Choices, so Task was the only
-  label with anything to do. Verified post-apply — 85/85 stamped, all `STRING` (writers
-  persist ISO strings via `to_neo4j_node`; a native Neo4j DATE would read back fine and still
-  be the wrong shape). `migrate_activity_completion_aliases.py` reran to a clean no-op:
-  zero legacy `completion_date` rows, as PR-1's rerun already found.
-- **`complete_task_with_cascade`** now gates its own stamp on the same transition rule
-  (surfaced by Codex on #1124). It writes through the *generic* CRUD update, so the
-  chokepoint helper never sees it — the stamp was unconditional, and two live callers
-  re-enter behind an ownership check only (`POST /today/tasks/{uid}/complete`,
-  `UserContextService.complete_task_with_context`), so a retry re-dated the completion and
-  would now propagate into the vault `✅`.
-
-✅ **RESOLVED by the cascade-idempotency arc (#1126–#1136, 2026-08-23).** Ruled: **the cascade
-genuinely re-runs**, and the subscribers were made safe to repeat — a repeat complete stays a
-real complete, so the repair path is preserved.
-
-Two things this entry got wrong, kept here because the corrections are the useful part:
-
-- **Three of the four listed effects were not real.** "Goal progress bumped again, habit
-  reinforced again, knowledge mastery +0.1 again" described `logger.debug("Would …")` **stubs**
-  (`_update_goal_progress`, `_reinforce_habit`, `_update_knowledge_mastery`). The fourth,
-  "dependent tasks re-triggered", **was real** — `_trigger_task` wrote `{"status": "scheduled"}`
-  through the generic CRUD with no read first, so it could reopen an already-completed dependent
-  while leaving its `completion_date` set. Latent only because the graph has 0
-  `TRIGGERS_ON_COMPLETION` edges, and it fired on a **first** completion too, not just a repeat.
-  Fixed in #1128. What else actually re-ran: the `ProductivityAnalytics` counter, a duplicate
-  `PersistedInsight` (**two** append sites, not one), the Prometheus counter, and the
-  duration-calibration EMA.
-- **The "offline PWA queue replay" vector does not exist** — `static/service-worker.js` has no
-  background-sync or POST queue. The real vector was three deterministic clicks: complete → Undo →
-  complete, because Today's Undo un-hid the card client-side without posting anything.
-
-The mechanism is one signal, `TaskCompleted.is_repeat`, with the contract on the event class:
-handlers that **recompute** ignore it; handlers that **count or append** skip on a repeat. A later
-refinement (#1134) sharpened it further — the flag gates what **accumulates** (appends, stamps),
-never what **derives**. See `core/events/task_events.py` for the authoritative statement.
-
-✅ **The successor arc is CLOSED too — ADR-087, the conditional-write primitive
-(#1145 / #1147 / #1148 / #1149 + its final PR, 2026-08-24).** Codex flagged the underlying
-read-then-write race five times across the cascade arc (#1127, #1128, #1131, #1133, #1136) and
-each rejection was scoped, not dismissive — the window was the one the completion stamps
-already carry (#1123), so closing it closed both. Every status-bearing write in `core/services/`
-now goes through `backend.update_with_status_guard`, which takes the node's write-lock BEFORE
-reading the prior and hands that prior back; `is_repeat` is exact by construction, and
-`completion_transition_patch` (the read-then-write form) is deleted — there is no second path.
-The five stamping domains plus seven raw status writers migrated; Principles is the one
-deliberate exception (target-only legality, prior-independent, so no race) and calls
-`validate_status_target` for that check alone. See ADR-087 § Consequences / § Scope, and
-CLAUDE.md § Status-Guarded Writes.
-
-The residue PRs that preceded the arc are merged: #1139/#1140 (habit windows bounded both
-ends), #1142 (`tasks_completed` derived at read; the reconcile instrument retired — never
-resurrect), #1143 (the 🆔 is identity at ingest — Guard 2b).
-
-R4 — vault **inbound** `[x]`-completion propagation — is ✅ dispositioned (ruled 2026-08-23;
-docs corrected 2026-08-24): the `git log -S` discriminator ran, verdict **never wired**, the docs
-now state the outbound-only truth (CLAUDE.md § Obsidian VaultBridge, ADR-070 status annotation,
-both user guides), and the build is parked with a trigger and design sketch — see § R4 Vault
-Inbound Propagation — Parked Build.
-
----
-
-## `User.uid` Has No Index or Constraint — ✅ RESOLVED (ownership bundle PR-4, 2026-08-21)
-
-Closed by ADR-086 §4. The open question ("index or *uniqueness constraint*?") resolved to a
-**uniqueness constraint** — `uid` is the identity key (`user_<name>`) and the constraint
-doubles as the seek index. `sync_auth_indexes` (`neo4j_schema_manager.py`) now creates
-`User_uid_unique` as startup DDL, idempotent per boot (`IF NOT EXISTS`).
-
-**Applied to the live graph 2026-08-21** (re-measured first: 6 users, zero duplicate `uid`s,
-zero null `uid`s — built cleanly) by running the real `sync_auth_indexes` path against AuraDB
-`d2d160c4`. Verified post-apply: `EXPLAIN MATCH (u:User {uid:$uid})-[:OWNS]->(e:Entity)` now
-plans `NodeUniqueIndexSeek [UNIQUE u:User(uid)]` where it was `NodeByLabelScan` — the ~290
-`MATCH (:User {uid: $…})` adapter call sites all inherit the seek.
-
-⚠️ **Counting trap** preserved for anyone re-measuring those call sites: the f-string spelling
-(`User {{uid:`) and the plain spelling (`User {uid:`) are disjoint substrings. Grepping one
-undercounts by ~2×.
-
----
-
-## `GroupService` Declares `OWNER_ONLY` But `Group` Has No `user_uid` — ✅ RESOLVED (ownership bundle PR-4, 2026-08-21)
-
-Surfaced 2026-08-16 by Codex on PR #1079; closed by the ruling's **option 1** (ADR-086, arc
-contract ruling 7): `DomainConfig` gained a **configurable ownership property** —
-`ownership_property` (default `"user_uid"`, identifier-validated at construction and again at
-the composition point) — and the `OWNER_ONLY` branch of `build_search_visibility_clause` now
-renders `n.{ownership_property} = $user_uid`. The declaration threads from DomainConfig through
-the service search mixin and `get_visible_to_user` into every strategy builder, riding with
-`search_visibility`. `GroupService._config` declares `ownership_property="owner_uid"` — the
-scoping claim its model can finally render.
-
-What did NOT change, deliberately: Group stays absent from every search registry (wiring it in
-remains a product decision — `test_group_is_not_a_searchable_domain` still pins it); no
-`user_uid` was added to `Group` (the two-names-for-one-claim divergence #1078 closed);
-Exercise's `owner_uid` half stays inside `SCOPE_AWARE` (its exemption is still earned by that
-declaration, and the exemption set still asserts its own length — do not add Group to it). The
-guard was tightened per the contract:
-`TestOwnerOnlyDomainsCarryTheScopingProperty::test_every_searchable_owner_only_domain_declares_a_real_property`
-now asserts every searchable OWNER_ONLY domain's **declared** property exists on its model.
-Doc truth-up rode along in `docs/architecture/SEARCH_ARCHITECTURE.md` § Ownership Scoping.
+**Trigger:** Mike schedules it — a future arc on his explicit decision (ADR-086
+§ Follow-ups). The surface stays staged until then.
 
 ---
 
@@ -1213,19 +1081,23 @@ bundle never reaches it: `context_retriever.py` references neither
 `SearchVisibility` nor that clause, and reads entities directly through
 `service.get()`, bypassing SearchRouter.
 
-| entry | facet of the same root |
+The other three facets were entries in this file until their closure record was archived
+to `docs/roadmap/done/ownership-bundle.md`; the table below now cites that record.
+
+| facet | where it landed |
 |---|---|
-| § `:OWNS` Writers That Skip `user_uid` | **write-side** — ✅ RESOLVED (ADR-086 + PR-2 residue collapse: paper channel deleted, attendee triple retargeted onto consent-carrying `ATTENDS`) |
-| § `GroupService` Declares `OWNER_ONLY`… | **declaration-side** — ✅ RESOLVED (bundle PR-4: `DomainConfig.ownership_property`, Group declares `owner_uid`, guard test tightened to the declaration) |
-| § `User.uid` Has No Index or Constraint | **index-side** — ✅ RESOLVED (bundle PR-4: `User_uid_unique` uniqueness constraint via startup DDL, applied live + `NodeUniqueIndexSeek` confirmed) |
+| write-side (`:OWNS` writers that skipped `user_uid`) | ✅ RESOLVED — ADR-086 + bundle PR-2 residue collapse: paper channel deleted, attendee triple retargeted onto consent-carrying `ATTENDS`. See `done/ownership-bundle.md` § 1 |
+| declaration-side (`GroupService` declared `OWNER_ONLY` on a model with no `user_uid`) | ✅ RESOLVED — bundle PR-4: `DomainConfig.ownership_property`, Group declares `owner_uid`, guard test tightened to the declaration. See `done/ownership-bundle.md` § 3 |
+| index-side (`User.uid` had no index or constraint) | ✅ RESOLVED — bundle PR-4: `User_uid_unique` uniqueness constraint via startup DDL, applied live + `NodeUniqueIndexSeek` confirmed. See `done/ownership-bundle.md` § 2 |
 | **this P1** | **read-side** — ✅ RESOLVED (ADR-085 G1+G2, bundle PR-3: `_fetch_entities_by_uid` reads through `get_visible_to_user`, and the MEGA-QUERY habit/task projections carry `user_uid = user.uid`) |
 
 **Ruled 2026-08-21 (Mike): this is significant cross-cutting work and belongs to
-a fresh context, taken with those three entries together rather than as four
-separate fixes.** Whoever takes it should settle the general question — *what
-enforces ownership on a read that does not go through SearchRouter?* — before
-touching any single site. ⚠️ `CrudOperationsMixin.get` (`:135`) is used by every
-domain; changing its signature is a repo-wide change, not a local one.
+a fresh context, taken with the other three facets together rather than as four
+separate fixes** — which is how the ownership bundle was in fact taken. Whoever
+takes it should settle the general question — *what enforces ownership on a read
+that does not go through SearchRouter?* — before touching any single site.
+⚠️ `CrudOperationsMixin.get` (`:135`) is used by every domain; changing its
+signature is a repo-wide change, not a local one.
 
 **✅ That ruling landed — ADR-085 (the read-enforcement contract, bundle PR-1),
 and the mechanism is CLOSED (bundle PR-3, 2026-08-21):** two chokepoints, one
@@ -1812,7 +1684,7 @@ Review this document at the **September 2026 quarterly review**. Checklist:
 | Tasks/Events edge-clear on edit (`""` → None) | Next touch of the Tasks/Events edit forms | Ride-along; re-verify the bug still reproduces first |
 | Skill↔doc backlink reconciliation | Docs-taxonomy pass — ruling needed per warning, not a rote edit | `uv run python scripts/validate_cross_references.py --verbose` |
 | Drifted `## Related Skills` body sections (3 of 35) | Next `docs/patterns` sweep already touching these files | `uv run python scripts/sync_cross_references.py --all --dry-run` |
-| Completion stamping at the status-transition chokepoint (truth-pass residue) | Next touch of the status-transition write path, or recent-activities ordering visibly lies | See § `:OWNS` Writers (RESOLVED) — residue subsection |
+| Event attendance wiring (`ATTENDS`) — staged since the ownership bundle | Mike schedules it — a future arc on his explicit decision (ADR-086 § Follow-ups) | See the section; the obligations live in ADR-086 § 3 + § Follow-ups, not in a second copy here. `./dev bloat` reports the attendee triple as PLANNED, not dead |
 | LP recommendation backend methods (ruled *build, not now* 2026-08-20) | Mike schedules it — full feature: backend methods + frozen contract + consumer surface | Case file `lp-backend-recommendation-methods.md`; the 3 `Any` handles + their comments are the in-code markers |
 | `KnowledgePracticed` subscriber (ruled "earns a subscriber" 2026-08-21) | A review-scheduling / spaced-repetition surface is scheduled | `git grep -l "subscribe(KnowledgePracticed"` — empty until wired; see the section |
 | Per-node substance counters — the unread arm (ruled "keep staged" 2026-08-21) | A substantiation UI/surface is scheduled | `git grep -n "get_substantiation_gaps\|is_well_practiced" -- "ui/" "adapters/inbound/"` — empty until wired; see the section (incl. the retroactive-credit question) |
