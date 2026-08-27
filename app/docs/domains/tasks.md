@@ -298,8 +298,8 @@ amended). ⚠ The trigger is **not** this event: it is the outbound sync pass's 
 ("not completed AND the line is still marked done"), because a reopen is only knowable after the
 guarded write returns the prior, so it is a one-shot fact with no retry. The event is kept
 published and deliberately **unsubscribed** — do not delete it in a bloat sweep, and do not give
-it a subscriber. Case file (resolved): `docs/roadmap/deferred-work.md` § "`TaskReopened` Has Zero
-Subscribers, and a Reopen Has No Vault Surface".
+it a subscriber. Case file (resolved): `docs/roadmap/done/reopen-vault-surface.md` § "`TaskReopened` Has
+Zero Subscribers, and a Reopen Has No Vault Surface".
 
 **Neither a reopen nor a repeat complete is a completion moment.** Both leave
 `first_completion_at` / `last_completion_at` untouched: those stamps record when the user first

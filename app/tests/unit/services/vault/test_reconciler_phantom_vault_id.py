@@ -6,8 +6,8 @@ that persist on FILE-level ``WriteResult.success`` — which says the file was
 written, not that a given update found its target line. An injection that
 matched no line is a no-op inside a successful write, so the edge would carry a
 🆔 the file never received: no later sync can locate the line by it, and that
-task's completion write-back silently never happens (deferred-work
-§ Phantom-🆔).
+task's completion write-back silently never happens
+(done/reopen-vault-surface.md § Phantom-🆔).
 
 ``WriteResult.updates_applied`` reports each update's own outcome, positionally
 parallel to the batch, and the persist now gates on that.

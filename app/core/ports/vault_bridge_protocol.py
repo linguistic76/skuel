@@ -147,7 +147,7 @@ class WriteResult:
     reconciler minting a 🆔 onto an ``EXTRACTED_FROM`` edge) must gate on this
     tuple, never on ``success`` alone — persisting a 🆔 the file never received
     strands the task: no later sync can find its line, so its completion
-    write-back silently never happens (deferred-work § Phantom-🆔).
+    write-back silently never happens (done/reopen-vault-surface.md § Phantom-🆔).
 
     It is empty on every failure path and reads fail-CLOSED through
     ``was_applied``: unreported is "did not land", so a transport that cannot
@@ -507,8 +507,9 @@ def apply_task_updates(content: str, updates: list[TaskLineUpdate]) -> tuple[str
     line. The per-update outcome is the return value, never OR-ed away — a
     file-level "something changed" cannot tell a caller WHICH update landed,
     and an update that matched no line is a silent no-op inside an otherwise
-    successful write (``WriteResult.updates_applied``, deferred-work
-    § Phantom-🆔). Callers needing the file-level answer take ``any(applied)``.
+    successful write (``WriteResult.updates_applied``,
+    done/reopen-vault-surface.md § Phantom-🆔). Callers needing the file-level answer take
+    ``any(applied)``.
 
     Both transports wrap this with the same SHA-256 stale-read guard and
     atomic temp-file + ``rename()`` write.

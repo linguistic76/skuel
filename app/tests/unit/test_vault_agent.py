@@ -309,7 +309,7 @@ class TestWriteTaskUpdates:
         """A batch where one update lands and one matches no line reports BOTH.
 
         The file-level answer is "success" either way; only ``updates_applied``
-        tells the server which 🆔 it may persist (deferred-work § Phantom-🆔).
+        tells the server which 🆔 it may persist (done/reopen-vault-surface.md § Phantom-🆔).
         """
         params = self._params(
             vault,
