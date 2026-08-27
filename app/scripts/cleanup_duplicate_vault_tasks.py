@@ -11,34 +11,49 @@ read this entry's edges (none), and Guard 4 filters to ACTIVE twins by design
 § R4). Once such an orphan was completed in SKUEL its still-unchecked vault
 line minted a twin on the next sync, and the twin took the line's 🆔.
 
-The provable rule — **one physical vault checkbox line ⇒ one task**:
+The script PROPOSES; a human CONFIRMS. Without an edge nothing ties an
+edge-less task to a line beyond its title — a completed app-created task with a
+coincidental title would look identical (Codex #1165 P1) — so ``--apply``
+deletes ONLY uids that are both proposed by the rule below AND passed back via
+``--confirm`` / ``--confirm-file``. Any confirmed uid the current run does not
+propose aborts the whole apply: the census is stale, re-read it.
+
+Proposal rule — **one physical vault checkbox line ⇒ one task**:
 
   - Group the user's Tasks by the R3 semantic key (``normalized_activity_title``,
     the same normaliser Guard 4 uses).
-  - A group is a duplicate set ONLY when the vault holds exactly ONE
+  - A group is a RE-MINT set ONLY when the vault holds exactly ONE
     ``extract_activities`` checkbox line with that title today. Zero lines
     (deleted / template variant) or ≥2 lines (recurring template) are REVIEW.
   - Keeper = the task whose edge owns that line's 🆔; else the oldest task.
-  - DELETE = the other tasks in the group that have NO ``EXTRACTED_FROM`` edge
-    (an edge-bearing twin may legitimately belong to another entry) AND are
-    COMPLETED (an active twin is Guard 4's business — REVIEW).
+  - Proposed = the other tasks in the group that have NO ``EXTRACTED_FROM``
+    edge (an edge-bearing twin may legitimately belong to another entry) AND
+    are COMPLETED (an active twin is Guard 4's business — REVIEW).
+  - STRAYS — edge-less COMPLETED tasks whose title matches NO vault line at all
+    (the pre-🆔-era paraphrase census) — are proposed separately. A task whose
+    title matches a live line is that line's task (its edge was lost), never a
+    stray.
 
-Also reported, never acted on:
-  - **Phantom 🆔s** — a vault line whose id no edge owns (the next sync of that
-    file re-mints it, then recovers the id onto the new edge). With the
-    edge-less same-title task that is its likely owner, when one exists.
-  - **Dangling ids** — edge ids no vault line carries today (line deleted:
-    deferred-work.md § "Line Deletions Leave EXTRACTED_FROM Edges").
-  - **Orphans** — every edge-less task outside a duplicate set (the paraphrase-
-    era census; a human decides).
+Also reported: **phantom 🆔s** — a vault line whose id no edge owns (the next
+sync of that file re-mints it, then recovers the id onto the new edge). Repair
+with ``--repair-id <id>``: the line's single edge-less same-title task gets the
+``EXTRACTED_FROM`` edge (``vault_id`` + the door's ``source_line_hash``) on the
+entry the file's OTHER owned ids point to — the reconciler's own recovery case,
+applied to a task that predates the edge. A file with no owned id resolves no
+entry and is refused. **Dangling ids** (on edges, on no line) are counted; that
+class is registered (deferred-work.md § "Line Deletions Leave EXTRACTED_FROM
+Edges").
 
-Dry-run by default: prints every set and changes nothing. ``--apply`` deletes
-ONLY the DELETE set, through ``TasksService.delete_task`` (cascade + the
-``TaskDeleted`` event), after the dry-run has been reviewed.
+Dry-run by default: prints every set and the exact ``--confirm`` invocation,
+changes nothing. Deletions go through ``TasksService.delete_task`` (cascade +
+``TaskDeleted``); repairs through ``UserEntryService.create_extracted_from_links``.
 
 Usage:
-    uv run python scripts/cleanup_duplicate_vault_tasks.py --user user_linguistic76
-    uv run python scripts/cleanup_duplicate_vault_tasks.py --user user_linguistic76 --apply
+    uv run python scripts/cleanup_duplicate_vault_tasks.py --user user_x
+    uv run python scripts/cleanup_duplicate_vault_tasks.py --user user_x \\
+        --apply --confirm task_a --confirm task_b --repair-id sk_abc123
+    uv run python scripts/cleanup_duplicate_vault_tasks.py --user user_x \\
+        --apply --confirm-file /path/to/uids.txt
 """
 
 from __future__ import annotations
@@ -49,16 +64,24 @@ import sys
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Protocol
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from neo4j import EagerResult
+
 from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.pipeline import Pipeline
-from core.services.dsl.activity_extractor import normalized_activity_title
+from core.services.dsl.activity_extractor import normalized_activity_title, normalized_line_hash
 from core.services.dsl.obsidian_tasks_adapter import obsidian_task_line_to_parsed
 from core.services.ingestion.config import SyncAllowlist, is_ingestible_path
 from core.utils.frontmatter import parse_frontmatter
+
+
+class _ReadDriver(Protocol):
+    """The one driver call this script makes (script-tier read; Cypher lives here, not core/)."""
+
+    async def execute_query(self, query: str, /, **parameters: object) -> EagerResult: ...
 
 
 @dataclass(frozen=True)
@@ -70,6 +93,7 @@ class VaultTaskLine:
     title: str  # the description the door persists as ``Task.title``
     vault_id: str | None
     is_checked: bool
+    raw_line: str = ""  # the door's normalized raw line — what ``source_line_hash`` digests
 
     @property
     def where(self) -> str:
@@ -99,12 +123,12 @@ class TaskRow:
 
 @dataclass(frozen=True)
 class DuplicateSet:
-    """A title group proven to be one vault line: keep one, delete the re-mints."""
+    """A title group proven to be one vault line: keep one, propose the re-mints."""
 
     line: VaultTaskLine
     keep: TaskRow
-    delete: tuple[TaskRow, ...]
-    left_for_review: tuple[TaskRow, ...]  # twins that fail the delete criteria
+    proposed: tuple[TaskRow, ...]
+    left_for_review: tuple[TaskRow, ...]  # twins that fail the proposal criteria
 
 
 @dataclass(frozen=True)
@@ -120,21 +144,43 @@ class PhantomId:
     likely_owners: tuple[TaskRow, ...]  # edge-less tasks with the line's title
 
 
+@dataclass(frozen=True)
+class Repair:
+    """One EXTRACTED_FROM edge to write: ``(task_uid, source_line_hash, vault_id)`` on ``entry_uid``."""
+
+    phantom: PhantomId
+    task: TaskRow
+    entry_uid: str
+
+    @property
+    def link(self) -> tuple[str, str, str | None]:
+        return (
+            self.task.uid,
+            normalized_line_hash(self.phantom.line.raw_line),
+            self.phantom.line.vault_id,
+        )
+
+
 @dataclass
 class Classification:
     duplicate_sets: list[DuplicateSet] = field(default_factory=list)
     review: list[ReviewGroup] = field(default_factory=list)
     phantom_ids: list[PhantomId] = field(default_factory=list)
     dangling_ids: list[str] = field(default_factory=list)
-    orphans: list[TaskRow] = field(default_factory=list)
+    strays: list[TaskRow] = field(default_factory=list)
+    line_backed: list[TaskRow] = field(default_factory=list)  # edge-less, but a live line's task
 
     @property
-    def delete_uids(self) -> list[str]:
-        return [t.uid for s in self.duplicate_sets for t in s.delete]
+    def remint_uids(self) -> list[str]:
+        return [t.uid for s in self.duplicate_sets for t in s.proposed]
+
+    @property
+    def proposed_uids(self) -> list[str]:
+        return self.remint_uids + [t.uid for t in self.strays]
 
 
 # ---------------------------------------------------------------------------
-# Pure classification
+# Pure rules
 # ---------------------------------------------------------------------------
 
 
@@ -161,7 +207,7 @@ def classify(
     for task in tasks:
         tasks_by_title[normalized_activity_title(task.title)].append(task)
 
-    deleted: set[str] = set()
+    proposed: set[str] = set()
     for key, group in sorted(tasks_by_title.items()):
         if len(group) < 2:
             continue
@@ -199,9 +245,9 @@ def classify(
                 )
             )
             continue
-        delete = tuple(t for t in group if t is not keeper and t.is_edgeless and t.is_completed)
-        leftover = tuple(t for t in group if t is not keeper and t not in delete)
-        if not delete:
+        remints = tuple(t for t in group if t is not keeper and t.is_edgeless and t.is_completed)
+        leftover = tuple(t for t in group if t is not keeper and t not in remints)
+        if not remints:
             out.review.append(
                 ReviewGroup(
                     title=group[0].title,
@@ -211,9 +257,9 @@ def classify(
                 )
             )
             continue
-        deleted.update(t.uid for t in delete)
+        proposed.update(t.uid for t in remints)
         out.duplicate_sets.append(
-            DuplicateSet(line=line, keep=keeper, delete=delete, left_for_review=leftover)
+            DuplicateSet(line=line, keep=keeper, proposed=remints, left_for_review=leftover)
         )
 
     line_ids = {line.vault_id for line in lines if line.vault_id}
@@ -221,16 +267,22 @@ def classify(
         if line.vault_id and line.vault_id not in owned_vault_ids:
             key = normalized_activity_title(line.title)
             owners = tuple(
-                t for t in tasks_by_title.get(key, []) if t.is_edgeless and t.uid not in deleted
+                t for t in tasks_by_title.get(key, []) if t.is_edgeless and t.uid not in proposed
             )
             out.phantom_ids.append(PhantomId(line=line, likely_owners=owners))
     out.dangling_ids = sorted(owned_vault_ids - line_ids)
 
-    out.orphans = [
-        t
-        for t in sorted(tasks, key=lambda t: t.created_at)
-        if t.is_edgeless and t.uid not in deleted
-    ]
+    # Edge-less survivors: a live line with the same title makes the task that
+    # line's task (its edge was lost) — never a stray. No line at all = stray.
+    for task in sorted(tasks, key=lambda t: t.created_at):
+        if not task.is_edgeless or task.uid in proposed:
+            continue
+        if normalized_activity_title(task.title) in lines_by_title:
+            out.line_backed.append(task)
+        elif task.is_completed:
+            out.strays.append(task)
+        else:
+            out.line_backed.append(task)  # active + edge-less: could be app-created; not ours
     return out
 
 
@@ -245,6 +297,66 @@ def _keeper(group: list[TaskRow], line: VaultTaskLine) -> TaskRow | None:
     return group[0]  # caller passes the group oldest-first
 
 
+def select_confirmed(proposed: list[str], confirmed: list[str]) -> tuple[list[str], list[str]]:
+    """``(to_delete, refused)`` — the human census intersected with this run's proposals.
+
+    A confirmed uid the run does not propose is REFUSED (stale census, typo, or
+    a task the rule never tied to a line); the caller aborts on any refusal.
+    Order follows ``proposed`` so the apply log reads like the report.
+    """
+    wanted = {uid.strip() for uid in confirmed if uid.strip()}
+    to_delete = [uid for uid in proposed if uid in wanted]
+    refused = sorted(wanted - set(proposed))
+    return to_delete, refused
+
+
+def entry_for_file(lines: list[VaultTaskLine], owned: dict[str, str]) -> dict[str, str | None]:
+    """``file → entry_uid`` from the owned 🆔s the file's lines carry.
+
+    Periodic entries carry no ``vault_file_path``; the ids on their edges are
+    the only honest file↔entry link. A file whose owned ids point at more than
+    one entry resolves to ``None`` (ambiguous) — as does a file with no owned id.
+    """
+    seen: dict[str, set[str]] = defaultdict(set)
+    for line in lines:
+        if line.vault_id and line.vault_id in owned:
+            seen[line.file].add(owned[line.vault_id])
+    return {
+        file: next(iter(entries)) if len(entries) == 1 else None for file, entries in seen.items()
+    }
+
+
+def plan_repairs(
+    classification: Classification,
+    repair_ids: list[str],
+    file_entry: dict[str, str | None],
+) -> tuple[list[Repair], list[str]]:
+    """``(repairs, problems)`` — every requested id must resolve to ONE owner + ONE entry."""
+    phantoms = {p.line.vault_id: p for p in classification.phantom_ids if p.line.vault_id}
+    repairs: list[Repair] = []
+    problems: list[str] = []
+    for vault_id in repair_ids:
+        phantom = phantoms.get(vault_id)
+        if phantom is None:
+            problems.append(f"{vault_id}: not a phantom id in this run (owned, or on no line)")
+            continue
+        if len(phantom.likely_owners) != 1:
+            problems.append(
+                f"{vault_id}: {len(phantom.likely_owners)} edge-less task(s) carry the line's "
+                f"title at {phantom.line.where} — need exactly one"
+            )
+            continue
+        entry_uid = file_entry.get(phantom.line.file)
+        if entry_uid is None:
+            problems.append(
+                f"{vault_id}: {phantom.line.file} resolves to no single entry "
+                "(no other owned 🆔 in the file) — re-sync the file first"
+            )
+            continue
+        repairs.append(Repair(phantom=phantom, task=phantom.likely_owners[0], entry_uid=entry_uid))
+    return repairs, problems
+
+
 # ---------------------------------------------------------------------------
 # Vault scan
 # ---------------------------------------------------------------------------
@@ -257,7 +369,7 @@ def scan_vault_task_lines(root: Path, allowlist: SyncAllowlist | None) -> list[V
     allowlist + je_pro consent), then only ``pipeline: extract_activities``
     files — the one pipeline whose checkbox lines become Tasks. Lines are
     parsed by the door's own adapter so titles compare the way they were
-    minted.
+    minted and hashes digest the way Guard 2 digests them.
     """
     found: list[VaultTaskLine] = []
     for path in sorted(root.rglob("*.md")):
@@ -287,6 +399,7 @@ def scan_vault_task_lines(root: Path, allowlist: SyncAllowlist | None) -> list[V
                     title=parsed.description,
                     vault_id=parsed.vault_id,
                     is_checked=parsed.is_checked,
+                    raw_line=parsed.raw_line or "",
                 )
             )
     return found
@@ -297,7 +410,7 @@ def scan_vault_task_lines(root: Path, allowlist: SyncAllowlist | None) -> list[V
 # ---------------------------------------------------------------------------
 
 
-async def _fetch_tasks(driver: Any, user_uid: str) -> list[TaskRow]:
+async def _fetch_tasks(driver: _ReadDriver, user_uid: str) -> list[TaskRow]:
     result = await driver.execute_query(
         """
         MATCH (t:Task {user_uid: $user_uid})
@@ -326,16 +439,17 @@ async def _fetch_tasks(driver: Any, user_uid: str) -> list[TaskRow]:
     ]
 
 
-async def _fetch_owned_vault_ids(driver: Any, user_uid: str) -> set[str]:
+async def _fetch_owned_vault_ids(driver: _ReadDriver, user_uid: str) -> dict[str, str]:
+    """``vault_id → entry_uid`` for every 🆔 an EXTRACTED_FROM edge into this user's entries carries."""
     result = await driver.execute_query(
         """
         MATCH ()-[r:EXTRACTED_FROM]->(ue:UserEntry {user_uid: $user_uid})
         WHERE r.vault_id IS NOT NULL
-        RETURN DISTINCT r.vault_id AS vault_id
+        RETURN DISTINCT r.vault_id AS vault_id, ue.uid AS entry_uid
         """,
         user_uid=user_uid,
     )
-    return {str(r["vault_id"]) for r in result.records}
+    return {str(r["vault_id"]): str(r["entry_uid"]) for r in result.records}
 
 
 # ---------------------------------------------------------------------------
@@ -349,19 +463,28 @@ def _task_line(t: TaskRow) -> str:
     return f"{t.uid}  [{t.status}]  created {t.created_at[:19]}  ({prov}{extra})"
 
 
-def _print_report(c: Classification) -> None:
+def _print_report(c: Classification, user_uid: str) -> None:
     bar = "=" * 72
     print(
-        f"\n{bar}\nDELETE — re-mints of ONE vault line (edge-less, completed): {len(c.delete_uids)}\n{bar}"
+        f"\n{bar}\nPROPOSED re-mints of ONE vault line (edge-less, completed): {len(c.remint_uids)}\n{bar}"
     )
     for s in c.duplicate_sets:
         state = "[x]" if s.line.is_checked else "[ ]"
         print(f"\n  line  {s.line.where}  {state} {s.line.title!r}  🆔 {s.line.vault_id}")
         print(f"  KEEP  {_task_line(s.keep)}")
-        for t in s.delete:
-            print(f"  DEL   {_task_line(t)}")
+        for t in s.proposed:
+            print(f"  DEL?  {_task_line(t)}")
         for t in s.left_for_review:
             print(f"  ...   {_task_line(t)}  ← left alone (has edges or still active)")
+
+    print(
+        f"\n{bar}\nPROPOSED strays — edge-less, completed, title on NO vault line: {len(c.strays)}\n{bar}"
+    )
+    print(
+        "  Pre-🆔-era minting (LLM paraphrase door, deleted entries) or app-created; a human decides."
+    )
+    for t in c.strays:
+        print(f"  DEL?  {_task_line(t)}  {t.title!r}")
 
     print(f"\n{bar}\nREVIEW — same-title groups NOT proven duplicates: {len(c.review)}\n{bar}")
     for g in c.review:
@@ -369,9 +492,16 @@ def _print_report(c: Classification) -> None:
         for t in g.tasks:
             print(f"      {_task_line(t)}")
 
+    print(
+        f"\n{bar}\nLINE-BACKED — edge-less, but a live vault line carries the title: {len(c.line_backed)}\n{bar}"
+    )
+    print("  That line's task with its edge lost (or an active app-created task). Never proposed.")
+    for t in c.line_backed:
+        print(f"  {_task_line(t)}  {t.title!r}")
+
     print(f"\n{bar}\nPHANTOM 🆔 — vault line whose id no edge owns: {len(c.phantom_ids)}\n{bar}")
-    print("  The next sync of that file re-mints the line, then recovers the id onto the new")
-    print("  edge. Repair = give the likely owner an EXTRACTED_FROM edge with this id (by hand).")
+    print("  The next sync of that file re-mints the line, then recovers the id onto the new edge.")
+    print("  Repair with --repair-id <id> when exactly one edge-less task carries the title.")
     for p in c.phantom_ids:
         state = "[x]" if p.line.is_checked else "[ ]"
         print(f"\n  {p.line.where}  {state} {p.line.title!r}  🆔 {p.line.vault_id}")
@@ -385,17 +515,20 @@ def _print_report(c: Classification) -> None:
         print("  " + ", ".join(c.dangling_ids))
         print("  (registered: deferred-work.md § Line Deletions Leave EXTRACTED_FROM Edges)")
 
-    print(f"\n{bar}\nORPHANS — edge-less tasks outside any duplicate set: {len(c.orphans)}\n{bar}")
-    print(
-        "  Pre-🆔-era minting (LLM paraphrase door, deleted entries) or app-created; a human decides."
-    )
-    for t in c.orphans:
-        print(f"  {_task_line(t)}  {t.title!r}")
+    if c.proposed_uids:
+        confirms = " ".join(f"--confirm {uid}" for uid in c.proposed_uids)
+        print(
+            f"\nTo delete everything proposed above, after reading it:\n  uv run python {sys.argv[0]} --user {user_uid} --apply {confirms}"
+        )
 
 
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
+
+
+def _read_confirm_file(path: str) -> list[str]:
+    return [ln.strip() for ln in Path(path).read_text(encoding="utf-8").splitlines() if ln.strip()]
 
 
 async def main() -> int:
@@ -404,10 +537,34 @@ async def main() -> int:
     parser.add_argument(
         "--apply",
         action="store_true",
-        help="Delete the DELETE set via TasksService.delete_task (cascade). "
-        "REVIEW / PHANTOM / ORPHANS are never touched. Run the dry-run and get sign-off first.",
+        help="Act: delete the --confirm'd proposed uids and write the --repair-id edges. "
+        "Run the dry-run and read it first.",
+    )
+    parser.add_argument(
+        "--confirm",
+        action="append",
+        default=[],
+        metavar="UID",
+        help="A proposed task uid to delete (repeatable). Refused if this run does not propose it.",
+    )
+    parser.add_argument(
+        "--confirm-file", metavar="PATH", help="File with one proposed task uid per line to delete."
+    )
+    parser.add_argument(
+        "--repair-id",
+        action="append",
+        default=[],
+        metavar="ID",
+        help="A phantom 🆔 to repair by giving its single edge-less owner the EXTRACTED_FROM edge.",
     )
     args = parser.parse_args()
+    confirmed: list[str] = list(args.confirm)
+    if args.confirm_file:
+        confirmed.extend(_read_confirm_file(args.confirm_file))
+    if args.apply and not confirmed and not args.repair_id:
+        parser.error("--apply needs at least one --confirm/--confirm-file uid or --repair-id")
+    if (confirmed or args.repair_id) and not args.apply:
+        parser.error("--confirm/--repair-id only act together with --apply (dry-run ignores them)")
 
     from adapters.infrastructure.event_bus import InMemoryEventBus
     from adapters.persistence.neo4j_adapter import Neo4jAdapter
@@ -435,43 +592,67 @@ async def main() -> int:
             print(f"ERROR: {descriptor_result.expect_error()}", file=sys.stderr)
             return 1
         descriptor = descriptor_result.value
-        if services.tasks is None:
-            print("ERROR: tasks service is not wired", file=sys.stderr)
+        if services.tasks is None or services.user_entry is None:
+            print("ERROR: tasks / user_entry services are not wired", file=sys.stderr)
             return 1
 
-        driver = adapter.get_driver()
+        driver: _ReadDriver = adapter.get_driver()
         tasks = await _fetch_tasks(driver, str(user_uid))
-        owned_ids = await _fetch_owned_vault_ids(driver, str(user_uid))
+        owned = await _fetch_owned_vault_ids(driver, str(user_uid))
         lines = scan_vault_task_lines(descriptor.root, descriptor.allowlist)
         print(
-            f"{len(tasks)} task(s), {len(owned_ids)} owned 🆔(s), "
+            f"{len(tasks)} task(s), {len(owned)} owned 🆔(s), "
             f"{len(lines)} vault checkbox line(s) under {descriptor.root}",
             file=sys.stderr,
         )
 
-        classification = classify(tasks, lines, owned_ids)
-        _print_report(classification)
+        classification = classify(tasks, lines, set(owned))
+        _print_report(classification, str(user_uid))
 
-        uids = classification.delete_uids
-        if not uids:
-            print("\nNothing to delete — no provably re-minted twin found.")
-            return 0
         if not args.apply:
-            print("\n[DRY-RUN] No changes made. Re-run with --apply to delete the DELETE set.")
+            print("\n[DRY-RUN] No changes made.")
             return 0
+
+        to_delete, refused = select_confirmed(classification.proposed_uids, confirmed)
+        repairs, problems = plan_repairs(
+            classification, list(args.repair_id), entry_for_file(lines, owned)
+        )
+        if refused or problems:
+            for uid in refused:
+                print(f"  REFUSED {uid}: not proposed by this run — re-read the dry-run")
+            for problem in problems:
+                print(f"  REFUSED repair {problem}")
+            print("\n[ABORTED] Nothing changed: every --confirm / --repair-id must match this run.")
+            return 1
+
+        repaired = 0
+        for repair in repairs:
+            outcome = await services.user_entry.create_extracted_from_links(
+                repair.entry_uid, [repair.link]
+            )
+            if outcome.is_error:
+                print(f"  FAILED repair {repair.phantom.line.vault_id}: {outcome.expect_error()}")
+                continue
+            repaired += 1
+            print(
+                f"  repaired {repair.phantom.line.vault_id}: {repair.task.uid} "
+                f"-[:EXTRACTED_FROM]-> {repair.entry_uid} ({repair.phantom.line.where})"
+            )
 
         deleted = 0
-        for uid in uids:
-            outcome = await services.tasks.delete_task(uid)
-            if outcome.is_error:
-                print(f"  FAILED  {uid}: {outcome.expect_error()}")
+        for uid in to_delete:
+            deletion = await services.tasks.delete_task(uid)
+            if deletion.is_error:
+                print(f"  FAILED delete {uid}: {deletion.expect_error()}")
                 continue
             deleted += 1
             print(f"  deleted {uid}")
+
         print(
-            f"\n[APPLIED] Deleted {deleted}/{len(uids)} re-minted task(s). Everything else untouched."
+            f"\n[APPLIED] {repaired}/{len(repairs)} repair(s), {deleted}/{len(to_delete)} "
+            "deletion(s). Everything not confirmed is untouched."
         )
-        return 0 if deleted == len(uids) else 1
+        return 0 if (repaired == len(repairs) and deleted == len(to_delete)) else 1
     finally:
         await adapter.close()
 
