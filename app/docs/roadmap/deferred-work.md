@@ -1219,6 +1219,37 @@ the entry, forever.
 
 ---
 
+## Vault-Task Provenance Residue — Phantom 🆔 Lines + Pre-🆔-Era Orphans (REGISTERED 2026-08-27)
+
+The 🆔→task join key lives on the `EXTRACTED_FROM` edge, not the Task node. Tasks minted before
+that edge existed — the 2026-06-28 LLM-paraphrase door, and lines whose entry was later deleted
+and re-created — carry no edge, so no extraction guard can recognise them (Guard 2/2b read this
+entry's edges; Guard 4 filters to ACTIVE twins by design, § R4 above). Once such an orphan was
+completed in SKUEL, its still-unchecked vault line re-minted a twin on the next sync. The
+provable class (one physical vault line ⇒ one task) is cleaned by
+`scripts/cleanup_duplicate_vault_tasks.py --user <uid>` (dry-run default, `--apply`); the
+2026-08-27 live run found 3 re-mints and left two residues the script only REPORTS:
+
+- **Phantom 🆔 lines** — a vault line whose id no edge owns. The next sync of that file
+  re-mints the line, then recovers the id onto the new edge. Live: `Daily/2026-06-17.md:20`
+  (`sk_3uhmts`, checked; its entry `ue:daily:…:2026-06-17` no longer exists, so a repair needs
+  the file re-synced first) and `Daily/2026-06-29.md:20` (`sk_bcd7if`, **unchecked** in the
+  vault while its likely owner `task_091092e1` is COMPLETED in SKUEL — a truth conflict the
+  owner must rule on, not a script).
+- **Pre-🆔-era orphans** — 17 edge-less completed tasks outside any duplicate set, mostly the
+  06-28 LLM-door paraphrases of lines the line door later minted properly (`Consider trailer
+  options` ≈ `Consider the trailer`). Semantic duplicates need a human eye; the script lists them.
+
+**Repair shape (phantom ids):** give the owning task an `EXTRACTED_FROM` edge carrying the
+line's `vault_id` + `normalized_line_hash` — the reconciler's own recovery case, applied by hand
+to a task that predates the edge. Not automated: the two live cases each need a ruling first.
+**Trigger:** the owner's ruling on the two lines and the orphan list, or the next reconciler
+touch (the R4 build inherits both).
+**Named cost while parked:** the two lines re-mint on their next file sync (one more completed
+twin each); the 17 orphans inflate completed-task counts and clutter `/tasks`.
+
+---
+
 ## Habit Streak Counters — Lost-Update Race + Future-Day Credit (REGISTERED 2026-08-24)
 
 Two named defects in the same write family, deliberately scoped OUT of the conditional-write arc
@@ -1380,6 +1411,7 @@ Review this document at the **September 2026 quarterly review**. Checklist:
 | R4 vault inbound propagation — parked build | Mike schedules it (product decision) | See the section — sketch + the #1143 r5 rejection; parsed-line vs entity state, never hash |
 | Vault task door publishes no task events | R4 build or next vault-door touch | `git grep -n "event_bus" adapters/persistence/neo4j/bulk_upsert_backend.py` — empty until wired |
 | Line deletions leave `EXTRACTED_FROM` edges | R4 build or next reconciler touch | Census shape in the section; re-probe the W28 edges before building |
+| Vault-task provenance residue (2 phantom 🆔 lines + 17 pre-🆔-era orphans) | Owner's ruling on the two lines + the orphan list, or next reconciler touch | `uv run python scripts/cleanup_duplicate_vault_tasks.py --user <uid>` (dry-run) — PHANTOM / ORPHANS sections |
 | Habit streak counters (lost-update + future-day credit) | Next touch of the streak write path, or a lived wrong-streak report | Ruling needed on `current_streak` semantics — see the section |
 | Unwired `HabitCompletion` model methods | A consumer wants one, or next Habits model touch | `git grep -n "is_streak_eligible\|was_completed_today" -- core/services/ adapters/ ui/` — empty until wired |
 | "Vault has un-synced changes" signal | Mike schedules it — product decision (what the user is told), not a data threshold | See the section; ⚠️ must cover completions + 🆔 injections + new tasks, NOT reopens alone — no last-sync state is persisted today |
