@@ -332,15 +332,30 @@ def plan_repairs(
     repair_ids: list[str],
     file_entry: dict[str, str | None],
 ) -> tuple[list[Repair], list[str]]:
-    """``(repairs, problems)`` — every requested id must resolve to ONE owner + ONE entry."""
-    phantoms = {p.line.vault_id: p for p in classification.phantom_ids if p.line.vault_id}
+    """``(repairs, problems)`` — every requested id must be ONE line with ONE owner + ONE entry.
+
+    A 🆔 copied onto two vault lines is ambiguous: repairing either line would
+    write provenance the other then inherits (ownership is checked globally),
+    so the id is refused outright (Codex #1165 r3).
+    """
+    lines_by_id: dict[str, list[PhantomId]] = defaultdict(list)
+    for phantom in classification.phantom_ids:
+        if phantom.line.vault_id:
+            lines_by_id[phantom.line.vault_id].append(phantom)
     repairs: list[Repair] = []
     problems: list[str] = []
     for vault_id in repair_ids:
-        phantom = phantoms.get(vault_id)
-        if phantom is None:
+        candidates = lines_by_id.get(vault_id, [])
+        if not candidates:
             problems.append(f"{vault_id}: not a phantom id in this run (owned, or on no line)")
             continue
+        if len(candidates) > 1:
+            problems.append(
+                f"{vault_id}: {len(candidates)} vault lines carry this id "
+                f"({', '.join(p.line.where for p in candidates)}) — ambiguous, fix the vault first"
+            )
+            continue
+        phantom = candidates[0]
         if len(phantom.likely_owners) != 1:
             problems.append(
                 f"{vault_id}: {len(phantom.likely_owners)} edge-less task(s) carry the line's "

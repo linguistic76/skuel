@@ -267,6 +267,25 @@ def test_plan_repairs_builds_the_door_shaped_link_and_refuses_the_rest():
     assert any(p.startswith("sk_1hmd4h:") and "not a phantom" in p for p in problems)
 
 
+def test_plan_repairs_refuses_an_id_copied_onto_two_lines():
+    """A 🆔 on two vault lines is ambiguous — repairing either would mis-tie the other (Codex r3)."""
+    owner = _task("task_o", "Vacuum", created="2026-07-01T18:53:14")
+    lines = [
+        _line("anchor", vault_id="sk_anchor"),
+        _line("Vacuum", vault_id="sk_copied", no=30),
+        _line("Vacuum", vault_id="sk_copied", file="periodic_notes/Weekly/2026-W29.md", no=31),
+    ]
+    owned = {"sk_anchor": "ue:daily:u:2026-06-29"}
+    c = classify([owner], lines, set(owned))
+    assert [p.line.vault_id for p in c.phantom_ids] == ["sk_copied", "sk_copied"]
+
+    repairs, problems = plan_repairs(c, ["sk_copied"], entry_for_file(lines, owned))
+
+    assert repairs == []
+    assert len(problems) == 1 and "2 vault lines carry this id" in problems[0]
+    assert "2026-06-29.md:30" in problems[0] and "2026-W29.md:31" in problems[0]
+
+
 # --- Vault scan ---------------------------------------------------------------
 
 
