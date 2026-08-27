@@ -453,6 +453,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 
 | Document | Completed | Description |
 |----------|-----------|-------------|
+| [`/search` Facet Redesign](roadmap/done/search-facet-redesign.md) | 2026-08-26 | All 6 PRs (#1155–#1160): `/search` is the 6 Activity Domains + Ku; Type dropdown, Nous-driven knowledge mode, and the NOUS + tag facet vocabularies scoped to what the page returns. LearningPaths ruled *navigated, not searched*. The one open obligation — profile-side search — lives in [Deferred Work](roadmap/deferred-work.md) |
 | [ZPDService — Design & Architecture](roadmap/done/zpd-service-architecture.md) | 2026-03 | ZPDService + ZPDBackend architecture: ZPDAssessment, graph traversal, readiness scores, behavioral enrichment — implemented |
 | [Semantic Analysis Implementation Roadmap](roadmap/done/SEMANTIC_ANALYSIS_ROADMAP.md) | 2026-07-10 | All three approved items shipped (#598–#600): concept-cluster chips, admin prereq suggestion queue, ZPD semantic feed; data-gated residue lives in [Deferred Work](roadmap/deferred-work.md) |
 | [Resources/ Reference Library — Ingestion Roadmap](roadmap/done/resources-reference-library.md) | 2026-07 | Tier 1 pointing/citations shipped (#562–#566); Tier 2 superseded by the canon shelf; "point at the raw" graduated into CANON_CITATION_DESIGN.md |

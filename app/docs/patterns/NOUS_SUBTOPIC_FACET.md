@@ -47,8 +47,8 @@ scope on the curriculum corpus.
   result scope; today that is `:Ku` alone. ⚠ A surface must pass the SAME scope to both
   wrappers: the flat list gates whether the column exists, the map supplies its options,
   and a mismatch renders a column with nothing to offer (gate wider) or hides one whose
-  map has entries (gate narrower). See `docs/roadmap/deferred-work.md` § "`/search` Facet
-  Redesign" consequence 1.
+  map has entries (gate narrower). See
+  [`docs/roadmap/done/search-facet-redesign.md`](../roadmap/done/search-facet-redesign.md).
 - **Fail-soft:** with no authored data the vocabulary is empty, so the search `<select>`
   (`ui/search/components.py::_render_nous_subtopic_select`) and the Askesis scope
   selector (`ui/askesis/chat.py`) render nothing rather than an empty control. A failing

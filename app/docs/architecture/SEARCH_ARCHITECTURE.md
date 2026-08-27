@@ -1184,10 +1184,14 @@ string→`bool`, string→enum, and the **renames**. Add a filter by extending i
 adding a `SearchRequest` field named after the control.
 
 The renames are the trap: `query` → `query_text`, `entity_type` (one string) →
-`entity_types` (a parsed one-element list — see consequence 4 in deferred-work § "`/search`
-Facet Redesign" for what that single-value contract costs a grouped facet), `tags` (a CSV
-string) → `tags_contain` (a list), and `frequency`/`event_type`/`urgency`/`strength` →
-entries in the `extended_facets` dict rather than fields of their own.
+`entity_types` (a parsed **one-element** list), `tags` (a CSV string) → `tags_contain` (a
+list), and `frequency`/`event_type`/`urgency`/`strength` → entries in the
+`extended_facets` dict rather than fields of their own.
+
+⚠️ **The scope control carries ONE value, and that bounds what a facet can express.**
+`from_form_params` sets `parsed_entity_types = [et]`, so a single dropdown row can never
+mean "these three entity types". Any future grouped facet — one control standing for
+several enum values — needs a different contract here, not a wider option list.
 
 | Layer | Controls | Form param → what it becomes | Section that describes it |
 |---|---|---|---|
