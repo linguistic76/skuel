@@ -70,10 +70,18 @@ class TestCreate:
         assert result.is_error
 
     @pytest.mark.anyio
-    async def test_create_owns_failure_does_not_fail_create(self):
-        """OWNS edge failure is logged but doesn't fail the create."""
+    async def test_create_owns_failure_fails_the_create(self):
+        """OWNS edge failure fails the create — it is not a warning (ADR-086).
+
+        Inverted from the warn-only contract this test used to pin. The node is
+        already persisted when the edge write runs, so returning ok left a group
+        its owner could not reach through any :OWNS-traversing read while the
+        caller was told the create succeeded — the property-only shape ADR-086
+        grades as a door-4 soft spot. Reporting the failure is what lets the
+        caller see it.
+        """
         group = _make_group()
-        service, backend, _ = _make_service()
+        service, backend, event_bus = _make_service()
         backend.create = AsyncMock(return_value=Result.ok(group))
         backend.create_owns_relationship = AsyncMock(
             return_value=Result.fail(Errors.database(operation="rel", message="boom"))
@@ -81,7 +89,10 @@ class TestCreate:
 
         result = await service.create(group)
 
-        assert result.is_ok
+        assert result.is_error
+        # The failure returns BEFORE GroupCreated: no event announces a group
+        # whose ownership edge is missing.
+        event_bus.publish_async.assert_not_awaited()
 
 
 class TestVerifyOwnership:

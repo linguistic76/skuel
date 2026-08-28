@@ -311,8 +311,14 @@ Just a short piece of content.
 
 
 @pytest.mark.asyncio
-async def test_non_ku_entities_skip_chunking(neo4j_driver):
-    """Test that non-KU entities don't attempt chunking"""
+async def test_non_ku_entities_skip_chunking(neo4j_driver, ensure_test_users):
+    """Test that non-KU entities don't attempt chunking.
+
+    Takes ``ensure_test_users`` where its Ku siblings do not: a Task is
+    user-owned, so the preparer stamps the ingestion fallback owner and the
+    bulk door refuses a batch whose owner has no ``:User`` node (ADR-086).
+    Curriculum Kus are ownerless and name nobody.
+    """
     # Given: A Task file (not KU)
     task_content = """---
 type: task

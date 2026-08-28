@@ -219,13 +219,26 @@ now scopes correctly if that day comes. Guarded by
 which asserts every searchable OWNER_ONLY domain's declared property exists on
 its model.
 
-⚠️ **`faceted_search_raw` passes `has_user=True` unconditionally, on purpose.**
-`build_search_visibility_clause(OWNER_ONLY, has_user=False)` emits **no
-predicate at all**, so deriving `has_user` from `user_uid is not None` would
-turn a null uid into an unscoped query over every user's rows. Passing True
-always emits `entity.user_uid = $user_uid`, which on a null parameter is a null
-predicate matching nothing — fail-closed. Guarded by
-`test_search_visibility_scoping.py::test_faceted_null_user_fails_closed`.
+⚠️ **Every clause-composing surface passes `has_user=True` unconditionally, on
+purpose.** `build_search_visibility_clause(OWNER_ONLY, has_user=False)` emits
+**no predicate at all**, so deriving `has_user` from `user_uid is not None`
+would turn a null uid into an unscoped query over every user's rows. Passing
+True always emits `entity.{ownership_property} = $user_uid`, which on a null
+parameter is a null predicate matching nothing — fail-closed (measured on the
+live engine: the null forms match 0 rows where a real uid matches 145).
+
+This is one convention, not a per-surface judgement: `faceted_search_raw` and
+all five strategy builders (`build_text_search_query`,
+`build_graph_aware_search_query`, `build_array_any_match_query`,
+`build_relationship_traversal_query`, `build_array_contains_query`) hold the
+floor themselves rather than relying on an upstream refusal. The three text/tag/
+graph builders derived `has_user` until 2026-08-28; the refusals above are still
+the *first* line of defence, but they live in another module and
+`advanced_search`'s skip keys on `EntityType.is_user_owned()` — a different
+signal from the `search_visibility` the clause reads. Guarded by
+`test_search_visibility_scoping.py::TestEveryBuilderFailsClosed` (a rule over
+the builder list, so a sixth builder inherits it) and
+`::test_faceted_null_user_fails_closed`.
 
 **Fail-closed rules:**
 - `advanced_search` without `request.user_uid` skips user-owned domains

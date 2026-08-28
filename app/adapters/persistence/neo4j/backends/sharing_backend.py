@@ -154,8 +154,9 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
 
         Ownership lives in two shapes: user-owned domains stamp a ``user_uid``
         property; curriculum entities (e.g. Exercise) stamp ``owner_uid`` and
-        dual-write the canonical ``:OWNS`` edge (edge write is warn-only, so
-        property-without-edge can exist). Resolve user_uid → owner_uid → edge,
+        dual-write the canonical ``:OWNS`` edge (a failed edge write now fails
+        the create — ADR-086 — but property-without-edge nodes predate that).
+        Resolve user_uid → owner_uid → edge,
         mirroring ``verify_ownership`` in crud_operations_mixin — the two
         layers must agree on who owns a node. Neither → unowned, unshareable.
         """

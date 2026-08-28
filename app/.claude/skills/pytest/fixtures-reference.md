@@ -196,9 +196,17 @@ class TestBackendWrapper:
 async def ensure_test_users(neo4j_container):
     """Create all test User nodes (session scope)."""
     test_user_uids = [
-        "user.test",
-        "user.test_integration",
-        "user.mike",
+        # UIDs are canonical `user_<name>` — a non-canonical owner is rejected
+        # at the ingestion boundary before it ever reaches the graph.
+        "user_test",
+        "user_test_integration",
+        "user_mike",
+        # The ingestion fallback owner, RESOLVED not spelled: a file that names
+        # no owner is stamped with DEFAULT_USER_UID, which a developer's .env
+        # sets to their own uid while CI falls back to SYSTEM_USER_UID. Seeding
+        # the literal passes on one machine and fails on the other.
+        DEFAULT_USER_UID,
+        SYSTEM_USER_UID,
     ]
 
     async with driver.session() as session:
@@ -209,8 +217,16 @@ async def ensure_test_users(neo4j_container):
             )
     yield
     # Cleanup after all tests
+```
 
+**A test that creates or ingests an owned entity MUST depend on this fixture.**
+The `:OWNS` write doors refuse an owner with no `:User` node rather than leaving
+a property-only orphan (ADR-086) — the CRUD door aborts the write, the bulk
+ingestion door refuses the batch. The failure names the missing owner, so the
+fix is normally "add the uid" — except for the ingestion fallback owner above,
+which must be resolved rather than spelled.
 
+```python
 @pytest.fixture
 def test_user_uid() -> UserUID:
     """Standard test user UID."""
