@@ -183,9 +183,13 @@ class TestCurriculumRichContext:
         assert "total_steps" in path_context
         assert "progress_percentage" in path_context
 
-        # Check that step was included
+        # Check that step was included — and that the derived counts count
+        # exactly it (the step carries no `completed`, so nothing is done yet).
         assert len(path_context["steps"]) == 1
         assert path_context["steps"][0]["uid"] == path_step.uid
+        assert path_context["total_steps"] == 1
+        assert path_context["completed_steps"] == 0
+        assert path_context["progress_percentage"] == 0.0
 
         # Check that goal was included
         assert len(path_context["aligned_goals"]) == 1
@@ -232,6 +236,54 @@ class TestCurriculumRichContext:
         print("✅ MEGA-QUERY curriculum integration complete")
         print(f"   - {len(context.enrolled_paths_rich)} learning paths with rich data")
         print(f"   - {len(context.active_path_steps_rich)} path steps with rich data")
+
+    async def test_empty_enrolled_path_counts_zero_steps(self, services, test_user):
+        """An enrolled path with no HAS_STEP edge reports no step at all.
+
+        The LP block's OPTIONAL MATCH yields one unmatched row for such a
+        path; the collect has to drop it, or every rich-context consumer
+        sees one phantom step — steps [{uid: null, ...}], total_steps 1,
+        "(0/1 steps)" — instead of an empty skeleton.
+        """
+        learning_path = LearningPathDTO(
+            uid=UIDGenerator.generate_random_uid("lp"),
+            title="Empty Skeleton",
+            description="Enrolled before any step was authored",
+            domain=Domain.TECH,
+        )
+        await services.lp.core.backend.create(learning_path)
+        driver = services.lp.core.backend.driver
+        await driver.execute_query(
+            """
+            MATCH (lp:Entity {uid: $lp_uid}) SET lp:LearningPath
+            WITH lp
+            MATCH (user:User {uid: $user_uid})
+            CREATE (user)-[:ENROLLED_IN]->(lp)
+            """,
+            {"lp_uid": learning_path.uid, "user_uid": test_user.uid},
+        )
+        try:
+            result = await services.users.get_rich_unified_context(test_user.uid)
+            assert result.is_ok, f"Failed to get rich context: {result.error}"
+            context = result.value
+
+            # Still enrolled — an empty path is a path, just one with no steps.
+            assert learning_path.uid in context.enrolled_path_uids
+            by_uid = {p["path"]["uid"]: p["graph_context"] for p in context.enrolled_paths_rich}
+            graph_context = by_uid[learning_path.uid]
+
+            assert graph_context["steps"] == []
+            assert graph_context["total_steps"] == 0
+            assert graph_context["completed_steps"] == 0
+            assert graph_context["progress_percentage"] == 0.0
+            # Same storage type on both branches of the CASE — a consumer must
+            # never see an int here for an empty path and a float for a full one.
+            assert isinstance(graph_context["progress_percentage"], float)
+        finally:
+            await driver.execute_query(
+                "MATCH (lp:Entity {uid: $lp_uid}) DETACH DELETE lp",
+                {"lp_uid": learning_path.uid},
+            )
 
     async def test_practice_projections_scope_to_the_anchored_user(self, services, test_user):
         """ADR-085 G2 pin — practice_habits/practice_tasks re-tie to the anchor.
