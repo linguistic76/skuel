@@ -750,3 +750,14 @@ class TestInlineCodeIsLiteral:
         assert is_activity_line("`a \\` b` @context(task)")
         # …whereas a marker sitting before that closer is inside the span.
         assert not is_activity_line("`a @context(task) \\` b")
+
+    def test_a_span_cannot_cross_a_blank_line(self):
+        """A code span is inline: the paragraph ends at a blank line, so an unmatched backtick
+        in one paragraph never pairs with a run in a later one (Codex #1167 r5)."""
+        text = "Explain `oops\n\n- [ ] Real @context(task)\n\n`later`\n"
+        parsed = parse_journal_text(text).value
+        assert [a.description for a in parsed.activities] == ["Real"]
+        # …while within one paragraph the same shape still masks the marker.
+        text = "Explain `oops\n- [ ] Not real @context(task)\n`later`\n"
+        parsed = parse_journal_text(text).value
+        assert parsed.activities == []

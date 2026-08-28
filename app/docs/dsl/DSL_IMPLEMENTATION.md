@@ -440,13 +440,15 @@ class ActivityDSLParser:
                    line_number: int | None = None) -> ParsedActivityLine | None:
         """Parse a single activity line."""
 
-        # Check for a real @context() marker (inline code is literal text)
-        if not has_context_marker(line):
+        # Inline code is literal text: blank every code span (same length, so
+        # offsets still address the original) and read markers/tags off the mask.
+        masked = mask_inline_code(line)          # or the document-level mask
+        if '@context(' not in masked:
             return None
 
-        # Extract all tags
+        # Extract all tags — from the MASK, so a tag-shaped token inside code is not a tag
         tags = {}
-        for match in self.tag_pattern.finditer(line):
+        for match in self.tag_pattern.finditer(masked):
             tag_name = match.group(1)
             tag_value = match.group(2)
             tags[tag_name] = tag_value
@@ -459,8 +461,9 @@ class ActivityDSLParser:
         if not contexts:
             return None
 
-        # Extract description
-        description = self.extract_description(line, tags)
+        # Extract description — cut out only the tag spans found on the mask, by
+        # position, so literal code text stays in the description verbatim
+        description = self.extract_description(line, masked)
 
         # Parse optional tags
         when = self.parse_when(tags.get('when')) if 'when' in tags else None

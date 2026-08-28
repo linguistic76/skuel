@@ -1275,7 +1275,8 @@ def mask_code_spans_in_lines(lines: list[str]) -> list[str]:
     A code span opens with a backtick run and closes at the NEXT run of the
     same length — anywhere later in the document, including a later line
     (CommonMark lets a span contain line endings). Runs of other lengths in
-    between are literal, and an opener with no closer anywhere is literal text.
+    between are literal, and an opener with no closer before the paragraph's
+    end (the next blank line) is literal text.
     Pairing in document order is what keeps ``Intro `code\\ncontinued` Do it
     @context(task) and `literal` `` right: the line-1 opener closes at the
     FIRST backtick of line 2, so the marker after it is real (Codex #1167 r3 —
@@ -1293,6 +1294,15 @@ def mask_code_spans_in_lines(lines: list[str]) -> list[str]:
         for i, line in enumerate(lines)
         for m in _BACKTICK_RUN.finditer(line)
     ]
+    # A code span is an INLINE element: it cannot cross a blank line, which ends
+    # the paragraph (Codex #1167 r5). ``block_end[i]`` is the first blank line
+    # at or after line ``i`` — a closer must sit before it.
+    block_end: list[int] = [len(lines)] * len(lines)
+    next_blank = len(lines)
+    for i in range(len(lines) - 1, -1, -1):
+        if not lines[i].strip():
+            next_blank = i
+        block_end[i] = next_blank
     k = 0
     while k < len(runs):
         i, s, e = runs[k]
@@ -1302,7 +1312,11 @@ def mask_code_spans_in_lines(lines: list[str]) -> list[str]:
                 k += 1
                 continue
         closer = next(
-            (idx for idx in range(k + 1, len(runs)) if runs[idx][2] - runs[idx][1] == e - s),
+            (
+                idx
+                for idx in range(k + 1, len(runs))
+                if runs[idx][0] < block_end[i] and runs[idx][2] - runs[idx][1] == e - s
+            ),
             None,
         )
         if closer is None:
