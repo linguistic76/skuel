@@ -1320,6 +1320,81 @@ reads, today view, and exports — a confident wrong answer, not an error.
 
 ---
 
+## Habit-Completion Persistence Bundle — Orphans, UID Collisions, Non-Atomic Day Uniqueness (REGISTERED 2026-08-28)
+
+Codex's "future care session" on #915 (calendar act-from arc PR 3 —
+[`done/calendar-act-from-arc.md`](done/calendar-act-from-arc.md)): five findings accepted as real
+and deferred there because each belongs to the `HabitCompletion` **persistence layer**
+(`core/services/habits/habits_completion_service.py` + the plain
+`UniversalNeo4jBackend[HabitCompletion]` in `services_bootstrap/_backends.py`), not to the
+calendar surface that PR was building. Until this section they lived only in that PR's body and
+two consideration notes. Re-verified against the code and the live graph 2026-08-28.
+
+1. **A habit delete orphans its completions.** `HabitsCoreService.delete` →
+   `_CrudMixin.delete(cascade=True)` → `DETACH DELETE` of the `:Habit` node. A completion is tied
+   to its habit by the `habit_uid` *property* only — its one edge is
+   `(User)-[:OWNS]->(:HabitCompletion)` (`_create_node`, per the model's field docstring) — so the
+   cascade cannot reach it. The rows stay: unreachable from any habit read, still counted by every
+   user-scoped `OWNS` aggregate (`activity_backends.py:413` high-quality count,
+   `cross_domain_backend.py`'s consistency window). Both writers orphan identically; #915's own
+   acceptance run swept its residue by hand.
+2. **The completion uid is second-granularity and unconstrained.**
+   `hc.{user_uid}.{habit_uid}.{int(now.timestamp())}` (`record_completion`, `:133`); the bulk door
+   mints from `completed_at` instead (`:265`), so two bulk logs of one day collide
+   *deterministically*, not only on a same-second race. Nothing enforces uniqueness: the model
+   declares no `field(metadata={"index": ...})`, startup schema sync is `sync_auth_indexes()` only,
+   and live AuraDB `SHOW CONSTRAINTS` (2026-08-28) lists 7 constraints, **none on
+   `HabitCompletion`** (no index either). #915 live-verified three same-second writes → three nodes
+   sharing one uid. The `hc.` spelling is registered nowhere else (no prefix validation knows it);
+   the ratified separator grammar spells generated UIDs with `_` — settle the spelling when the key
+   is redesigned, not before.
+3. **Day idempotency is a read-before-write guard, not an invariant.** `record_habit_occurrence`
+   (`calendar_service.py:1219-1224`) reads that day's completions and returns the existing one; two
+   concurrent requests (two tabs) both pass the read and each create a node and increment the
+   stats. The habits-surface door (`/api/habits/track` → `record_completion`) has **no** day guard
+   at all. The `(habit_uid, day)` invariant has to live in persistence — the same redesign as
+   defect 2 (a day-keyed uid + uniqueness constraint + upsert-on-create makes the double-tap a
+   database-level no-op). ⚠ **Ruling needed first:** is one completion per habit-day the contract?
+   The calendar door and every streak reader assume it (DISTINCT days); `record_completion` never
+   said, and `_completed_days_window` explicitly tolerates same-day duplicates. A multi-per-day
+   habit would want a different key.
+4. **A transient stats-write failure strands the node behind a later "success".** Write order is
+   compute → `completions_backend.create` → `habits_backend.update` (`:162`). If the update fails
+   after the create landed, the node exists with `total_completions` / streaks / `last_completed`
+   stale, and a calendar retry is intercepted by defect 3's existing-day return — reported success,
+   no repair (the `record_completion` docstring names this "the residual window"). Fix shapes: one
+   Cypher statement that creates the node and patches the habit (which also closes the streak
+   lost-update race above), or derive the tally from the nodes — the direction
+   `cross_domain_backend.py`'s consistency window already took because the bulk door's nodes are
+   invisible to the tally.
+5. **The streak backfill wants a DISTINCT-day query.** `_completed_days_window` (`:372-390`)
+   fetches raw rows (`limit=max(1000, days*2)`) and dedupes to days in Python; ≥3 same-day
+   duplicates sustained across a >1000-row window starve it and `best_streak` under-reports
+   (conservative — `current_streak` is protected by the `max()` guard). The backend method that
+   returns distinct `date(completed_at)` in a range is the **same method** the `find_by` row above
+   wants (`date(left(toString(x), 10))` on both sides) — build them as one.
+
+**Not covered by the three Habit rows above, deliberately:** *Habit Streak Counters* is the HABIT
+node's counters (read-then-write; what `current_streak` means); *Unwired `HabitCompletion` Model
+Methods* is dormant model code; *`find_by` Datetime String-Binding* is the read-side range
+predicate. This bundle is the completion node's **identity and lifecycle** and the atomicity
+between the two backends. The overlaps are fix-sharing, not scope-sharing: a single-statement
+create+patch (4) closes the streak lost-update too; the DISTINCT-day backend method (5) is the
+`find_by` row's fix.
+
+**Trigger:** lived habit-completion use — live graph 2026-08-28: **0 `HabitCompletion` nodes**
+across 5 habits; the machinery has never been exercised outside #915's swept acceptance run — or
+the next touch of the completion write path (`record_completion` / `_record_completion_no_event` /
+`record_habit_occurrence`). Defect 5 fires whenever the `find_by` row does. Defect 3's ruling is
+Mike's, taken at build time, not in passing.
+**Named cost:** orphaned completion rows after a habit delete (invisible to habit reads, counted
+by user aggregates); a same-second double-tap — or any two bulk logs of one day — mints nodes
+sharing one uid; a two-tab double-complete double-counts stats; a transient stats-write failure
+leaves totals permanently stale behind a "success"; a dup-heavy history under-reports
+`best_streak`. Today every one of these costs nothing, because nothing has been written.
+
+---
+
 ## `TaskUpdateRequest` Future `completion_date` — Create/Update Asymmetry (REGISTERED 2026-08-24 — ruling needed)
 
 `TaskCreateRequest` refuses a future `completion_date` ("semantically impossible and would pin
@@ -1410,6 +1485,7 @@ Review this document at the **September 2026 quarterly review**. Checklist:
 | Unwired `HabitCompletion` model methods | A consumer wants one, or next Habits model touch | `git grep -n "is_streak_eligible\|was_completed_today" -- core/services/ adapters/ ui/` — empty until wired |
 | "Vault has un-synced changes" signal | Mike schedules it — product decision (what the user is told), not a data threshold | See the section; ⚠️ must cover completions + 🆔 injections + new tasks, NOT reopens alone — no last-sync state is persisted today |
 | `find_by` datetime string-binding (3 habit sites) | Next touch of any of the three reads, or a second `completed_at` writer | One PR: normalized range on a backend method (Pattern 10b / Key Rule 18b) |
+| Habit-completion persistence bundle (#915 Codex "future care session": delete orphans / uid collision / non-atomic day uniqueness / stranded stats / DISTINCT-day query) | Lived habit-completion use, or next touch of the completion write path | `MATCH (hc:HabitCompletion) RETURN count(hc)` — **0 on 2026-08-28**; `SHOW CONSTRAINTS` lists none on the label. Fires WITH the `find_by` row (one shared backend method); defect 3 needs Mike's one-per-day ruling first |
 | `TaskUpdateRequest` future `completion_date` asymmetry | Next touch of `task_request.py` validators | Ruling needed — see the section; don't rule in passing |
 
 **The document is the checklist, the table is a convenience:** a section added to this file
