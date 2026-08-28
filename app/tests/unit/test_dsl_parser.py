@@ -719,3 +719,16 @@ class TestInlineCodeIsLiteral:
         parsed = parse_journal_text(text).value
         assert [a.description for a in parsed.activities] == ["y` then Do it"]
         assert parsed.activities[0].context_values == ["task"]
+
+    def test_backtick_runs_pair_in_document_order(self):
+        """CommonMark closes a span at the NEXT run of equal length — the line-1 opener closes
+        at the first backtick of line 2, so the marker after it is real (Codex #1167 r3)."""
+        text = "Intro `code\ncontinued` Do it @context(task) and `literal`\n"
+        parsed = parse_journal_text(text).value
+        assert [a.description for a in parsed.activities] == ["continued` Do it and `literal`"]
+        assert parsed.activities[0].context_values == ["task"]
+
+    def test_runs_of_another_length_inside_a_span_are_literal(self):
+        """A `` `` span may contain a single backtick; a ``` ``` run inside it is literal too."""
+        assert not is_activity_line("``a ` b ``` c @context(task)``")
+        assert is_activity_line("``a`` @context(task) ` still real")

@@ -1258,67 +1258,60 @@ def parse_journal_text(text: str) -> Result[ParsedJournal]:
     return parser.parse_journal(text)
 
 
-# A CommonMark code span opens with a run of N backticks and closes with a run
-# of exactly N — ``…`` may contain a single backtick. The opener/closer runs
-# must be maximal (not touching another backtick), and the span is single-line.
-_INLINE_CODE = re.compile(r"(?<!`)(`+)(?!`)([^\n]+?)(?<!`)\1(?!`)")
+_BACKTICK_RUN = re.compile(r"`+")
 
 
-def _blank_span(match: re.Match[str]) -> str:
-    """Same-length whitespace for a matched inline-code span (offsets preserved)."""
-    return " " * len(match.group(0))
+def mask_code_spans_in_lines(lines: list[str]) -> list[str]:
+    """Blank every CommonMark code span, pairing backtick runs in DOCUMENT order.
+
+    A code span opens with a backtick run and closes at the NEXT run of the
+    same length — anywhere later in the document, including a later line
+    (CommonMark lets a span contain line endings). Runs of other lengths in
+    between are literal, and an opener with no closer anywhere is literal text.
+    Pairing in document order is what keeps ``Intro `code\ncontinued` Do it
+    @context(task) and `literal` `` right: the line-1 opener closes at the
+    FIRST backtick of line 2, so the marker after it is real (Codex #1167 r3 —
+    masking each line's own spans first paired that backtick with the wrong
+    partner and blanked the marker). Every output line keeps its length, so a
+    match found on a masked line can be cut out of, or read from, the original.
+    """
+    chars = [list(line) for line in lines]
+    runs = [
+        (i, m.start(), m.end())
+        for i, line in enumerate(lines)
+        for m in _BACKTICK_RUN.finditer(line)
+    ]
+    k = 0
+    while k < len(runs):
+        i, s, e = runs[k]
+        closer = next(
+            (idx for idx in range(k + 1, len(runs)) if runs[idx][2] - runs[idx][1] == e - s),
+            None,
+        )
+        if closer is None:
+            k += 1  # literal backticks
+            continue
+        ci, _cs, ce = runs[closer]
+        if i == ci:
+            chars[i][s:ce] = [" "] * (ce - s)
+        else:
+            chars[i][s:] = [" "] * (len(chars[i]) - s)
+            for mid in range(i + 1, ci):
+                chars[mid] = [" "] * len(chars[mid])
+            chars[ci][:ce] = [" "] * ce
+        k = closer + 1
+    return ["".join(line) for line in chars]
 
 
 def mask_inline_code(line: str) -> str:
     """The line with every inline-code span replaced by spaces of the same length.
 
     Markdown inline code (``` `…` ```) is literal text — a legend showing the
-    syntax, a note about the tag itself — never an instruction. Masking keeps
-    every other character at its original offset, so a match found on the
-    masked copy can be cut out of, or read from, the original.
+    syntax, a note about the tag itself — never an instruction. One line on
+    its own: the same document-order pairing as ``mask_code_spans_in_lines``,
+    so the two never disagree.
     """
-    return _INLINE_CODE.sub(_blank_span, line)
-
-
-_BACKTICK_RUN = re.compile(r"(?<!`)`+(?!`)")
-
-
-def mask_code_spans_in_lines(lines: list[str]) -> list[str]:
-    """Document-level mask: code spans that straddle lines are literal on every line.
-
-    CommonMark lets a code span contain line endings, and the journal loop
-    reads one line at a time — so a marker on the second line of
-    ``Explain `the marker\\n@context(event)` literally`` would read as intent
-    (Codex #1167 r2). Same-line spans are masked first; a leftover backtick run
-    then opens a span iff a matching run (same length, maximal) appears on a
-    later line — everything from the opener to that closer is blanked, and the
-    scan resumes after the closer. A run with no closer anywhere is literal
-    text, exactly as CommonMark reads it. Every output line keeps its length.
-    """
-    masked = [mask_inline_code(line) for line in lines]
-    i = 0
-    while i < len(masked):
-        opener = _BACKTICK_RUN.search(masked[i])
-        if opener is None:
-            i += 1
-            continue
-        run = opener.group(0)
-        closer_pattern = re.compile(rf"(?<!`){re.escape(run)}(?!`)")
-        closer_line = next(
-            (j for j in range(i + 1, len(masked)) if closer_pattern.search(masked[j])), None
-        )
-        if closer_line is None:
-            # Literal backticks: blank just this run so the scan moves on.
-            masked[i] = masked[i][: opener.start()] + " " * len(run) + masked[i][opener.end() :]
-            continue
-        closer = closer_pattern.search(masked[closer_line])
-        assert closer is not None  # found above
-        masked[i] = masked[i][: opener.start()] + " " * (len(masked[i]) - opener.start())
-        for k in range(i + 1, closer_line):
-            masked[k] = " " * len(masked[k])
-        masked[closer_line] = " " * closer.end() + masked[closer_line][closer.end() :]
-        i = closer_line
-    return masked
+    return mask_code_spans_in_lines([line])[0]
 
 
 def has_context_marker(line: str) -> bool:
