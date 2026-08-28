@@ -33,10 +33,15 @@ any hand-rolled scoring Cypher; that section is the reusable part.
 `ULTIMATE_PATH.alignment_score` or `ALIGNMENT_SNAPSHOT` predating 2026-08-12 is
 on the old basis.
 
-**Migration:** nodes promoted by the old writer keep the stale discriminator
-forever, because nothing sets it any more. One-shot repair, idempotent:
-`scripts/migrations/revert_designated_life_path_entity_type_2026_08.cypher`.
-Not yet run against production — the dev graph had zero designated paths.
+**Migration — none needed (verified 2026-08-28, deleted).** A one-shot repair for
+nodes the old writer had promoted in place (`:LearningPath` carrying
+`entity_type: 'life_path'`) was staged but never run; the live graph
+(AuraDB `d2d160c4`) holds zero such nodes and zero `ULTIMATE_PATH` edges, and
+the writer that could create them is gone (#1040). The script was deleted
+rather than kept as a dead migration — should the mismatch ever reappear, the
+fix is the same two-line `MATCH (n:Entity:LearningPath {entity_type: 'life_path'})
+SET n.entity_type = 'learning_path'`, scoped by the `:LearningPath` label that
+distinguishes a promoted path from an authored `type: life_path` entity.
 
 ## Three alignment metrics, one name
 
