@@ -77,9 +77,16 @@ mark_mastered(ku_uid, user_uid)
 
 There is deliberately no *Subscribers* column. The one that used to be here named
 "Dashboard, Notifications" as consumers of the two progress events — neither of which has a
-handler by that name anywhere in the tree. Publisher and event-type string are facts about the
-event and live beside its definition; subscribers live in the wiring and drift away from any
-copy of them. Read the two wiring modules named above.
+handler by that name anywhere in the tree.
+
+Of the two columns that remain, only the event-type string is definition-local: it is the
+`ClassVar` in the event's own file. **`Published By` is a copied fact and can drift** — a
+publisher may move, or a second one may appear, and nothing here will fail. Re-derive it with
+`git grep '<EventClass>(' -- core/services/`, which is reliable in a way the equivalent
+subscriber search is not: a constructor call puts the class name and its opening parenthesis
+together, whereas subscriptions are registered through loop variables and aliases.
+
+For consumers, read the two wiring modules named below.
 
 ---
 
@@ -116,7 +123,11 @@ via `USES_KU`, and LearningPaths compose PathSteps directly via `HAS_STEP`.
 
 ## Bootstrap Wiring
 
-All subscriptions are wired in `services_bootstrap/_event_wiring.py`:
+The progress-chain subscriptions are wired in `services_bootstrap/_event_wiring.py`. This is
+**not** every subscription to these events: `services_bootstrap/_intelligence_hub.py` registers
+FULL-tier ZPD handlers for `KnowledgeMastered`, `PathStepCompleted` and
+`LearningPathProgressUpdated` (under aliased import names), and the context-invalidation loop
+in `_event_wiring.py` subscribes them again as part of a list.
 
 ```python
 # KU mastery → LP progress (direct KU-level tracking)
