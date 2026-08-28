@@ -1349,8 +1349,11 @@ two consideration notes. Re-verified against the code and the live graph 2026-08
    `hc.{user_uid}.{habit_uid}.{int(now.timestamp())}` (`record_completion`, `:133`); the bulk door
    keys on the request's `completed_at` (`:265`), which defaults to `datetime.now()` per request
    and which its one production caller (`habits_api.py`, the bulk route) never passes — so bulk
-   collides on the same second exactly as the single door does, and deterministically only if a
-   caller reuses an identical explicit timestamp (none does today). Nothing enforces uniqueness:
+   collides on the same second exactly as the single door does — and deterministically in one case
+   reachable today: `BulkCompleteHabitsRequest.habit_uids` (`min_length=1`, no uniqueness check)
+   accepts the same habit twice and the loop shares one `now`, so `["habit.x", "habit.x"]` mints
+   one uid twice and increments the habit twice. The repair rejects a duplicated list at the
+   boundary. Nothing enforces uniqueness:
    the model declares no `field(metadata={"index": ...})`; of the five startup sync routines in
    `services_bootstrap/compose.py` (`sync_auth_indexes` / `sync_vector_indexes` /
    `sync_domain_indexes` / `sync_fulltext_indexes` / `sync_conversation_indexes`) none names the
@@ -1437,7 +1440,11 @@ lock-derived create+patch (4) closes the streak lost-update too; the DISTINCT-da
 rides the same normalized range predicate as the `find_by` row's fix.
 
 **Trigger:** lived habit-completion use — live graph 2026-08-28: **0 `HabitCompletion` nodes**
-across 5 habits; the machinery has never been exercised outside #915's swept acceptance run — or
+across 5 habits, and the node-less door's footprint is zero too (`sum(h.total_completions)` 0, no
+`last_completed`, `max(current_streak)` 0); the machinery has never been exercised outside #915's
+swept acceptance run. ⚠ The node count alone cannot see the `/api/context` door — a habit tally
+above the node count is that door's signature (`get_habit_analytics` already counts nodes only),
+so the check reads both. Or
 the next touch of the completion write path (`record_completion` / `_record_completion_no_event` /
 `record_habit_occurrence` / `untrack_habit` / `complete_habit_with_quality`). Defect 5 is built in
 the `find_by` row's PR (same predicate, distinct operations) but has its own trigger: duplicate
@@ -1446,7 +1453,8 @@ invariant makes impossible once it lands; one natively-typed row fires the `find
 nothing about this one. Defect 3's ruling is
 Mike's, taken at build time, not in passing.
 **Named cost:** orphaned completion rows after a habit delete (invisible to habit reads, counted
-by user aggregates); a same-second double-tap on either door mints nodes sharing one uid; a two-tab double-complete double-counts stats; a transient stats-write failure
+by user aggregates); a same-second double-tap on either door — or one bulk request naming a
+habit twice — mints nodes sharing one uid; a two-tab double-complete double-counts stats; a transient stats-write failure
 leaves totals permanently stale behind a "success"; a dup-heavy history under-reports
 `best_streak`; an untrack answers `deleted: true` having deleted nothing. Today every one of
 these costs nothing, because nothing has been written.
@@ -1543,7 +1551,7 @@ Review this document at the **September 2026 quarterly review**. Checklist:
 | Unwired `HabitCompletion` model methods | A consumer wants one, or next Habits model touch | `git grep -n "is_streak_eligible\|was_completed_today" -- core/services/ adapters/ ui/` — empty until wired |
 | "Vault has un-synced changes" signal | Mike schedules it — product decision (what the user is told), not a data threshold | See the section; ⚠️ must cover completions + 🆔 injections + new tasks, NOT reopens alone — no last-sync state is persisted today |
 | `find_by` datetime string-binding (3 habit sites) | Next touch of any of the three reads, or a second `completed_at` writer | One PR: normalized range on a backend method (Pattern 10b / Key Rule 18b) |
-| Habit-completion persistence bundle (#915 Codex "future care session": delete orphans / uid collision / non-atomic day uniqueness / stranded stats / DISTINCT-day query; + untrack refused-and-reported-success since #1100, found on #1172) | Lived habit-completion use, or next touch of the completion write path | `MATCH (hc:HabitCompletion) RETURN count(hc)` — **0 on 2026-08-28**; `SHOW CONSTRAINTS` lists none on the label. Built WITH the `find_by` row (one shared range predicate, two operations) but triggered by duplicate volume, moot once defect 3 lands; defect 3 needs Mike's one-per-day ruling first |
+| Habit-completion persistence bundle (#915 Codex "future care session": delete orphans / uid collision / non-atomic day uniqueness / stranded stats / DISTINCT-day query; + untrack refused-and-reported-success since #1100, found on #1172) | Lived habit-completion use, or next touch of the completion write path | `MATCH (hc:HabitCompletion) RETURN count(hc)` **and** `MATCH (h:Habit) RETURN sum(h.total_completions), max(h.last_completed)` — nodes 0 / tally 0 / null on 2026-08-28 (tally > nodes = the node-less `/api/context` door was used); `SHOW CONSTRAINTS` lists none on the label. Built WITH the `find_by` row (one shared range predicate, two operations) but triggered by duplicate volume, moot once defect 3 lands; defect 3 needs Mike's one-per-day ruling first |
 | `TaskUpdateRequest` future `completion_date` asymmetry | Next touch of `task_request.py` validators | Ruling needed — see the section; don't rule in passing |
 
 **The document is the checklist, the table is a convenience:** a section added to this file
