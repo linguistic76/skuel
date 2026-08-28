@@ -1431,8 +1431,9 @@ two consideration notes. Re-verified against the code and the live graph 2026-08
    `(User)-[:OWNS]->` edge since #1100, so the delete has been refused on every call since then;
    the loop **discards** each `Result`, so the route answers `{"removed": true}` regardless. No
    test covers the door. Had it deleted, nothing recomputes `total_completions` / `current_streak`
-   / `best_streak` / `last_completed` / `identity_votes_cast` — cached stats diverge from the node
-   set exactly as in defect 4, in the other direction. Requirement: one atomic
+   / `best_streak` / `last_completed` / `identity_votes_cast` / `success_rate` (an untrack inside
+   the trailing consistency window changes its numerator) — cached stats diverge from the node set
+   exactly as in defect 4, in the other direction. Requirement: one atomic
    delete-and-recompute (the inverse of defect 4's create-and-patch, the same single-statement
    shape), `cascade=True`, errors propagated. Found by Codex on #1172, not on #915.
 
