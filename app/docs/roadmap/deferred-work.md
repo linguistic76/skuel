@@ -1439,7 +1439,13 @@ two consideration notes. Re-verified against the code and the live graph 2026-08
    the trailing consistency window changes its numerator) — cached stats diverge from the node set
    exactly as in defect 4, in the other direction. Requirement: one atomic
    delete-and-recompute (the inverse of defect 4's create-and-patch, the same single-statement
-   shape), `cascade=True`, errors propagated. Found by Codex on #1172, not on #915.
+   shape), `cascade=True`, errors propagated — **and an inverse event with explicit subscriber
+   semantics** (name it at build time; a new `core/events` module must be imported in
+   `core/events/__init__.py`): the user-context cache must invalidate, linked-goal progress that
+   `GoalsProgressService.handle_habit_completed` advanced must recompute, and once the shared
+   writer emits `HabitCompleted` its analytics / timing-learning subscribers must be told the
+   completion is gone, or every one of them keeps the removed completion. Two node writes are not
+   the whole inverse. Found by Codex on #1172, not on #915.
 
 ⚠ **A third writer creates no node at all.** `POST /api/context/habit/complete` →
 `UserContextService.complete_habit_with_context` →
@@ -1461,7 +1467,13 @@ work: a recalculation that runs after the node commits recreates defect 4's stra
 lets concurrent completions overwrite each other's rate; the same holds for untrack's inverse —
 or deletes the door; a ruling taken at build time, not a default.
 A redesign that leaves bulk on its own helper closes the bundle with a defective path still
-open. (Its own
+open. **And routing future calls is not enough:** every contextual completion made before the
+migration exists only in `Habit.total_completions`, the streak fields and already-published
+events — a node-derived `success_rate` or untrack recompute would erase that history, and the
+tally-vs-node trigger below only *detects* the condition. The bundle carries a historical
+baseline/reconciliation step before any node-derived write is enabled (seed the pre-migration
+tally as a baseline, or backfill it as nodes — a ruling), unless it lands before the first
+contextual completion. (Its own
 read-then-write streak block is already the *Habit Streak Counters* row's first item.)
 
 ⚠ **And the event asymmetry runs the other way.** That node-less door is today the ONLY
