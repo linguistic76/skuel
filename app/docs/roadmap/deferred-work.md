@@ -1330,8 +1330,14 @@ and deferred there because each belongs to the `HabitCompletion` **persistence l
 calendar surface that PR was building. Until this section they lived only in that PR's body and
 two consideration notes. Re-verified against the code and the live graph 2026-08-28.
 
-1. **A habit delete orphans its completions.** `HabitsCoreService.delete` →
-   `_CrudMixin.delete(cascade=True)` → `DETACH DELETE` of the `:Habit` node. A completion is tied
+1. **A habit delete orphans its completions.** Both production delete doors are `DETACH DELETE`:
+   the API route (`CRUDRouteFactory`'s `delete`, wired for every Activity Domain by
+   `create_activity_domain_route_config`) calls `delete_for_user(uid, user_uid, cascade=True)`,
+   which goes straight to `backend.delete(cascade=True)`; the vault reconciler's
+   `bulk_upsert_backend` has no non-cascading variant at all. (`HabitsCoreService.delete` defaults
+   to `cascade=False` and no production caller passes `True` — irrelevant, because neither door
+   goes through it, and a plain `DELETE` could not succeed anyway: every habit carries its `:OWNS`
+   edge.) A completion is tied
    to its habit by the `habit_uid` *property* only — its one edge is
    `(User)-[:OWNS]->(:HabitCompletion)` (`_create_node`, per the model's field docstring) — so the
    cascade cannot reach it. The rows stay: unreachable from any habit read, still counted by every
@@ -1369,7 +1375,13 @@ two consideration notes. Re-verified against the code and the live graph 2026-08
    compute → `completions_backend.create` → `habits_backend.update` (`:162`). If the update fails
    after the create landed, the node exists with `total_completions` / streaks / `last_completed`
    stale, and a calendar retry is intercepted by defect 3's existing-day return — reported success,
-   no repair (the `record_completion` docstring names this "the residual window"). Fix shapes: one
+   no repair (the `record_completion` docstring names this "the residual window"). The bulk door
+   is worse: `_record_completion_no_event` (`:311`) **discards** the stats update's `Result`, so
+   `/api/habits/bulk-complete` counts the completion and publishes `HabitCompletionBulk` on the
+   spot even when the stats write failed — no retry is even attempted. ⚠ The one-line
+   "propagate the error" is NOT the fix there: the node is already stored, so propagating drops an
+   existing completion from the response and the event — the same strand in a different coat.
+   Only the atomicity work below closes either writer. Fix shapes: one
    Cypher statement that creates the node and patches the habit (which also closes the streak
    lost-update race above), or derive the tally from the nodes — the direction
    `cross_domain_backend.py`'s consistency window already took because the bulk door's nodes are
