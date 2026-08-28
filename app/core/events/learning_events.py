@@ -6,21 +6,13 @@ Events published by learning services (PsService, LpService, LpIntelligenceServi
 
 The mastery cascade
 -------------------
-``KnowledgeMastered`` is the entry point, published by ``PsMasteryService.mark_mastered``.
-Three subscribers fan out from it, and one of them re-publishes — the chain crosses
-services, so no single file shows it::
+``KnowledgeMastered`` — published by ``PsMasteryService.mark_mastered`` — fans out to three
+subscribers, one of which re-publishes ``PathStepCompleted``. The chain crosses services, so
+no single file shows it; it is drawn in full, with the wiring, in
+``docs/architecture/LEARNING_PROGRESS_EVENT_CHAIN.md``. That doc is the one description, not
+copied here: two copies of a cascade diverge, and the code cannot tell you which one lied.
 
-    KnowledgeMastered
-      -> PsMasteryService.handle_knowledge_mastered    # detects PathStep completion
-           -> PathStepCompleted
-                -> LpProgressService.handle_step_completed
-      -> PsProgressService.handle_knowledge_mastered   # PathStep progress
-           -> PathStepProgressUpdated
-      -> LpProgressService.handle_knowledge_mastered   # LearningPath progress
-           -> LearningPathProgressUpdated
-
-Wired in ``services_bootstrap/_event_wiring.py``; the classes this module defines are
-the catalog.
+The classes this module defines are the catalog.
 """
 
 from dataclasses import dataclass
