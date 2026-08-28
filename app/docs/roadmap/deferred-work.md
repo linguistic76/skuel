@@ -1391,8 +1391,11 @@ two consideration notes. Re-verified against the code and the live graph 2026-08
    defect open.
 5. **The streak backfill wants a DISTINCT-day query.** `_completed_days_window` (`:372-390`)
    fetches raw rows (`limit=max(1000, days*2)`) and dedupes to days in Python; ≥3 same-day
-   duplicates sustained across a >1000-row window starve it and `best_streak` under-reports
-   (conservative — `current_streak` is protected by the `max()` guard). Fix: a backend operation
+   duplicates sustained across a >1000-row window starve it and `best_streak` under-reports;
+   `current_streak` is protected by the `max(run, habit.current_streak)` guard only down to the
+   *cached* value — a backfill that extends the current run at its oldest end under the same
+   starvation reads N instead of N+1. Both directions are conservative (never over-report); the
+   repair's test must cover both. Fix: a backend operation
    returning **distinct `date(completed_at)`** in a range, for the streak reads only. It is NOT the
    `find_by` row's replacement — those three reads (`get_completions_for_habit`,
    `get_today_completions`, `export_completion_history`) need whole `HabitCompletion` records and
