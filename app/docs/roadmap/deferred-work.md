@@ -1382,9 +1382,11 @@ two consideration notes. Re-verified against the code and the live graph 2026-08
    at all. The `(habit_uid, day)` invariant has to live in persistence — the same redesign as
    defect 2 (a day-keyed uid + uniqueness constraint + upsert-on-create makes the double-tap a
    database-level no-op). ⚠ **Ruling needed first:** is one completion per habit-day the contract?
-   The calendar door and every streak reader assume it (DISTINCT days); `record_completion` never
-   said, and `_completed_days_window` explicitly tolerates same-day duplicates. A multi-per-day
-   habit would want a different key.
+   Only the calendar door enforces it today; `record_completion` never said; and the streak readers
+   are NOT evidence either way — `_completed_days_window` deliberately collapses rows to a set of
+   days, so several completions on one day stay valid records that contribute one streak day.
+   The ruling is a product decision, not an inference from the code. A multi-per-day habit would
+   want a different key.
 4. **A transient stats-write failure strands the node behind a later "success".** Write order is
    compute → `completions_backend.create` → `habits_backend.update` (`:162`). If the update fails
    after the create landed, the node exists with `total_completions` / streaks / `last_completed`
@@ -1437,15 +1439,20 @@ two consideration notes. Re-verified against the code and the live graph 2026-08
 ⚠ **A third writer creates no node at all.** `POST /api/context/habit/complete` →
 `UserContextService.complete_habit_with_context` →
 `HabitsProgressService.complete_habit_with_quality` increments `total_completions`, advances
-`current_streak` / `best_streak` / `last_completed` via `backend.update_habit`, and publishes
-`HabitCompleted` — without ever creating a `HabitCompletion`. Every node-derived shape above
+`current_streak` / `best_streak` / `last_completed` via `backend.update_habit`, is the ONLY
+completion path that recalculates and persists **`success_rate`** (the consistency value habit
+enrichment, AI, pattern and scheduling readers consume — `record_completion` never touches it),
+and publishes `HabitCompleted` — without ever creating a `HabitCompletion`. Every node-derived
+shape above
 (derived stats, untrack's recompute, the `(habit_uid, day)` invariant) would erase or bypass that
 door's contribution. The redesign migrates it onto the completion-node path — **one shared,
 lock-derived persistence operation behind all four production doors**: `/api/habits/track`
 (`record_completion`), the calendar (`record_habit_occurrence` → the same), `/api/habits/bulk-complete`
 (`_record_completion_no_event`, with explicit bulk response/event semantics — today it has UID
 collisions, discarded update failures, partial success and non-canonical events of its own), and
-`/api/context/habit/complete` — or deletes the door; a ruling taken at build time, not a default.
+`/api/context/habit/complete` — carrying `success_rate`'s post-commit recalculation into the
+shared operation, or the consolidated path stops refreshing it — or deletes the door; a ruling
+taken at build time, not a default.
 A redesign that leaves bulk on its own helper closes the bundle with a defective path still
 open. (Its own
 read-then-write streak block is already the *Habit Streak Counters* row's first item.)
