@@ -86,18 +86,19 @@ class TestRenderAskesisGrounding:
         context = _context(enrolled_paths_rich=[{"path": {}, "graph_context": {}}])
         assert "Enrolled learning paths" not in render_askesis_grounding(context)
 
-    def test_placeholder_null_step_is_not_counted_as_progress(self):
-        # A path with no HAS_STEP edges arrives with ONE all-null step map
-        # (the MEGA-QUERY's OPTIONAL MATCH placeholder — Codex #786 P2):
-        # an empty skeleton renders its title alone, never "(0/1 steps)".
+    def test_empty_path_renders_title_alone(self):
+        # A path with no HAS_STEP edge arrives with NO step — the MEGA-QUERY
+        # collects nothing for it (the all-null placeholder that once made it
+        # "(0/1 steps)", Codex #786 P2, is gone at the writer). Title only.
         context = _context(
             enrolled_paths_rich=[
                 {
                     "path": {"title": "Empty Skeleton"},
                     "graph_context": {
-                        "steps": [{"uid": None, "title": None, "completed": None}],
-                        "total_steps": 1,
+                        "steps": [],
+                        "total_steps": 0,
                         "completed_steps": 0,
+                        "progress_percentage": 0.0,
                     },
                 }
             ]

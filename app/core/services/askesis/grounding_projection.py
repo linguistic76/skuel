@@ -109,18 +109,18 @@ def render_askesis_grounding(context: UserContext) -> str:
 def _path_entry(item: RichLearningPathItem) -> str:
     """One enrolled-path entry: title, with step progress when the graph has it.
 
-    Progress counts only steps with real UIDs — the MEGA-QUERY's OPTIONAL
-    MATCH collects one all-null placeholder map for a path with no HAS_STEP
-    edges, so the precomputed ``total_steps`` reads 1 for an empty skeleton
-    (Codex #786 P2). An empty path renders its title alone, never "(0/1
-    steps)" filler.
+    ``steps`` holds real HAS_STEP targets only — the MEGA-QUERY's OPTIONAL
+    MATCH collects nothing for a path without steps — so an empty skeleton
+    renders its title alone, never "(0/1 steps)" filler. That filler was
+    Codex #786 P2, when the collect still held an all-null placeholder map
+    and this render had to re-filter what the query now guarantees.
     """
     path = item.get("path") or {}
     title = path.get("title")
     if not title:
         return ""
     graph_context = item.get("graph_context") or {}
-    steps = [s for s in graph_context.get("steps") or [] if isinstance(s, dict) and s.get("uid")]
+    steps = graph_context.get("steps") or []
     if steps:
         completed = sum(1 for s in steps if s.get("completed") is True)
         return f"{title} ({completed}/{len(steps)} steps)"

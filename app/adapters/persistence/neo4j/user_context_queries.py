@@ -717,12 +717,15 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      core_principle_uids, principles_rich,
      pending_choice_uids, choices_rich,
      enrolled_path_uids,
-     lp, collect(DISTINCT {
+     // A path with no HAS_STEP edge yields one unmatched row; collect() drops
+     // the null the CASE emits for it, so an empty path collects [] and the
+     // derived total_steps / progress_percentage below count real steps only.
+     lp, collect(DISTINCT CASE WHEN step IS NOT NULL THEN {
          uid: step.uid,
          title: step.title,
          completed: step.completed,
          sequence: coalesce(r_step.sequence, step.sequence)
-     }) as lp_steps
+     } END) as lp_steps
 
 OPTIONAL MATCH (lp)-[:REQUIRES_KNOWLEDGE]->(prereq_ku:Entity)
 WHERE lp IS NOT NULL
