@@ -6,11 +6,13 @@ Events published by learning services (PsService, LpService, LpIntelligenceServi
 
 The mastery cascade
 -------------------
-``KnowledgeMastered`` — published by ``PsMasteryService.mark_mastered`` — fans out to three
-subscribers, one of which re-publishes ``PathStepCompleted``. The chain crosses services, so
-no single file shows it; it is drawn in full, with the wiring, in
+``KnowledgeMastered`` — published by ``PsMasteryService.mark_mastered`` — fans out to several
+subscribers, one of which re-publishes ``PathStepCompleted``. The progress cascade crosses
+services, so no single file shows it; it is drawn in
 ``docs/architecture/LEARNING_PROGRESS_EVENT_CHAIN.md``. That doc is the one description, not
 copied here: two copies of a cascade diverge, and the code cannot tell you which one lied.
+For the complete subscriber set, including analytics and the FULL-tier hub, read the wiring:
+``git grep 'subscribe(KnowledgeMastered'``.
 
 The classes this module defines are the catalog.
 """

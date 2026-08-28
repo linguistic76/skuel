@@ -39,13 +39,20 @@ nothing here is a catalog, because a hand-maintained catalog drifts (see the not
 | The event bus itself | `adapters/infrastructure/event_bus.py` |
 | The pattern in full | `docs/patterns/event_driven_architecture.md` |
 
-Publish through the helper, which logs and swallows nothing:
+Publish through the helper:
 
 ```python
 from core.events import publish_event
 
 await publish_event(self.event_bus, TaskCompleted(task_uid=uid, user_uid=user_uid), self.logger)
 ```
+
+`publish_event` returns `True` when the bus exists and `False` when it is `None` (it warns and
+continues). It does **not** report handler outcomes: `InMemoryEventBus.publish_async` isolates
+failures deliberately — sync handlers are wrapped in `try/except`, async ones gathered with
+`return_exceptions=True`, and each failure is logged with a traceback. A publisher therefore
+cannot learn that a subscriber failed, and must not be written as though it could. Delivery is
+best-effort; anything requiring a guarantee needs its own persistence, not an event.
 
 Handlers are named `handle_{event_name}` and must be **idempotent** — an event may be
 delivered more than once, and a handler that accumulates rather than derives will double-count.

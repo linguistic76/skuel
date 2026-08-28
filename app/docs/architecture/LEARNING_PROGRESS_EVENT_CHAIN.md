@@ -25,6 +25,11 @@ chain now has two propagation steps instead of three.
 
 ## The Chain
 
+This traces the **progress-propagation** path only — the handlers that recompute PathStep and
+LearningPath progress. It is not the complete subscriber set: analytics and the FULL-tier ZPD
+hub also subscribe to `KnowledgeMastered`. For every consumer of an event, read the wiring
+(`git grep 'subscribe(KnowledgeMastered'`), not this diagram.
+
 ```
 mark_mastered(ku_uid, user_uid)
     │
@@ -57,13 +62,19 @@ mark_mastered(ku_uid, user_uid)
 
 ## Events
 
-| Event | Published By | Subscribers | Event Type String |
-|-------|-------------|-------------|-------------------|
-| `KnowledgeMastered` | `PsMasteryService.mark_mastered()` | `LpProgressService`, `PsProgressService`, `PsMasteryService` | `knowledge.mastered` |
-| `PathStepProgressUpdated` | `PsProgressService.handle_knowledge_mastered()` | Dashboard, Notifications | `path_step.progress_updated` |
-| `PathStepCompleted` | `PsMasteryService.handle_knowledge_mastered()` | `LpProgressService` | `path_step.completed` |
-| `LearningPathProgressUpdated` | `LpProgressService._update_lp_from_ku_mastery()` | Dashboard, Notifications | `learning_path.progress_updated` |
-| `LearningPathCompleted` | `LpProgressService._update_lp_from_ku_mastery()` | Achievements, Analytics | `learning_path.completed` |
+| Event | Published By | Event Type String |
+|-------|-------------|-------------------|
+| `KnowledgeMastered` | `PsMasteryService.mark_mastered()` | `knowledge.mastered` |
+| `PathStepProgressUpdated` | `PsProgressService.handle_knowledge_mastered()` | `path_step.progress_updated` |
+| `PathStepCompleted` | `PsMasteryService.handle_knowledge_mastered()` | `path_step.completed` |
+| `LearningPathProgressUpdated` | `LpProgressService._update_lp_from_ku_mastery()` | `learning_path.progress_updated` |
+| `LearningPathCompleted` | `LpProgressService._update_lp_from_ku_mastery()` | `learning_path.completed` |
+
+There is deliberately no *Subscribers* column. It had been wrong in four of these five rows —
+it named "Dashboard, Notifications" as consumers of `PathStepProgressUpdated` and
+`LearningPathProgressUpdated`, which have **no subscribers at all**. Publisher and event-type
+string are facts about the event, and live beside its definition; subscribers live in the
+wiring and drift away from any copy. Use `git grep 'subscribe(<EventClass>'`.
 
 ---
 
