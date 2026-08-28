@@ -77,6 +77,7 @@ def test_vault_linked_twin_is_kept_and_edgeless_completed_original_proposed():
     assert s.left_for_review == ()
     assert out.remint_uids == ["task_699a931e"]
     assert out.proposed_uids == ["task_699a931e"]
+    assert out.confirmable_uids(include_strays=True) == ["task_699a931e"]
     assert out.review == [] and out.strays == [] and out.line_backed == []
 
 
@@ -197,7 +198,13 @@ def test_stray_needs_no_line_at_all_and_completed_status():
     )
     assert [t.uid for t in out.strays] == ["task_p"]
     assert [t.uid for t in out.line_backed] == ["task_o", "task_d"]
-    assert out.proposed_uids == ["task_p"]
+    # A stray is listed, never proposed: it enters the confirmable set only on
+    # explicit opt-in (Codex #1166 — `task_b9d52706` is real history, not a re-mint).
+    assert out.proposed_uids == []
+    assert out.confirmable_uids(include_strays=False) == []
+    assert out.confirmable_uids(include_strays=True) == ["task_p"]
+    assert select_confirmed(out.confirmable_uids(False), ["task_p"]) == ([], ["task_p"])
+    assert select_confirmed(out.confirmable_uids(True), ["task_p"]) == (["task_p"], [])
 
 
 # --- PHANTOM / DANGLING -------------------------------------------------------
