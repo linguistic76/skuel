@@ -284,20 +284,17 @@ Event handlers across all 6 Activity Domains and the Learning Loop persist struc
 
 ## Context Invalidation Coverage
 
-**52 events** trigger UserContext invalidation across all domains:
+UserContext invalidation is wired by subscribing two arrays of event types to a single
+handler in `services_bootstrap/_event_wiring.py` — `activity_context_events` and
+`learning_context_events`. **Read those arrays**; they are the coverage.
 
-| Domain | Events |
-|--------|--------|
-| Tasks | TaskCreated, TaskCompleted, TaskUpdated, TaskDeleted, TaskPriorityChanged |
-| Goals | GoalCreated, GoalAchieved, GoalProgressUpdated, GoalAbandoned |
-| Habits | HabitCreated, HabitCompleted, HabitCompletionBulk, HabitMissed, HabitStreakBroken, HabitStreakMilestone |
-| Events | CalendarEventCreated, CalendarEventUpdated, CalendarEventCompleted, CalendarEventRescheduled, EventAttendeeAdded, EventAttendeeRemoved |
-| Choices | ChoiceCreated, ChoiceUpdated, ChoiceMade, ChoiceOutcomeRecorded |
-| Principles | PrincipleCreated, PrincipleUpdated, PrincipleStrengthChanged, PrincipleAlignmentAssessed |
-| Finance | ExpenseCreated, ExpenseUpdated, ExpensePaid, ExpenseDeleted |
-| Learning | KnowledgeCreated, KnowledgeMastered, LessonCompleted, LearningPathStarted, LearningPathCompleted, LearningPathProgressUpdated, PathStepProgressUpdated |
-| PS | PathStepCreated, PathStepUpdated, PathStepDeleted, PathStepCompleted |
-| Submissions | SubmissionCreated, ReportSubmitted, SubmissionApproved, SubmissionRevisionRequested |
+A table used to be reproduced here, claiming "52 events". It had drifted into naming a whole
+Finance row (`ExpenseCreated`, `ExpensePaid`, …) after ADR-052 removed the native expense
+module, plus `LessonCompleted` from the Lesson layer merged into PathStep, and
+`SubmissionCreated` from before the ADR-054 UserEntry collapse. Auditing invalidation
+coverage against it meant chasing events that do not exist while missing ones that do.
+
+The arrays cannot drift from the wiring, because the wiring *is* the arrays.
 
 ---
 
