@@ -1261,6 +1261,14 @@ def parse_journal_text(text: str) -> Result[ParsedJournal]:
 _BACKTICK_RUN = re.compile(r"`+")
 
 
+def _escaped_at(line: str, index: int) -> bool:
+    """Whether the character at ``index`` sits behind an odd run of backslashes."""
+    backslashes = 0
+    while index - backslashes - 1 >= 0 and line[index - backslashes - 1] == "\\":
+        backslashes += 1
+    return backslashes % 2 == 1
+
+
 def mask_code_spans_in_lines(lines: list[str]) -> list[str]:
     """Blank every CommonMark code span, pairing backtick runs in DOCUMENT order.
 
@@ -1268,12 +1276,16 @@ def mask_code_spans_in_lines(lines: list[str]) -> list[str]:
     same length — anywhere later in the document, including a later line
     (CommonMark lets a span contain line endings). Runs of other lengths in
     between are literal, and an opener with no closer anywhere is literal text.
-    Pairing in document order is what keeps ``Intro `code\ncontinued` Do it
+    Pairing in document order is what keeps ``Intro `code\\ncontinued` Do it
     @context(task) and `literal` `` right: the line-1 opener closes at the
     FIRST backtick of line 2, so the marker after it is real (Codex #1167 r3 —
     masking each line's own spans first paired that backtick with the wrong
-    partner and blanked the marker). Every output line keeps its length, so a
-    match found on a masked line can be cut out of, or read from, the original.
+    partner and blanked the marker). Backslash escapes cut both ways (r4): a
+    backslash-escaped backtick OUTSIDE a span is a literal character and opens
+    nothing (the rest of its run still can), while INSIDE a span escapes do
+    not work, so a closer may sit behind a backslash. Every output line keeps
+    its length, so a match found on a masked line can be cut out of, or read
+    from, the original.
     """
     chars = [list(line) for line in lines]
     runs = [
@@ -1284,6 +1296,11 @@ def mask_code_spans_in_lines(lines: list[str]) -> list[str]:
     k = 0
     while k < len(runs):
         i, s, e = runs[k]
+        if _escaped_at(lines[i], s):
+            s += 1  # the escaped backtick is literal; the remainder may open
+            if s == e:
+                k += 1
+                continue
         closer = next(
             (idx for idx in range(k + 1, len(runs)) if runs[idx][2] - runs[idx][1] == e - s),
             None,

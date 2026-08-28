@@ -732,3 +732,21 @@ class TestInlineCodeIsLiteral:
         """A `` `` span may contain a single backtick; a ``` ``` run inside it is literal too."""
         assert not is_activity_line("``a ` b ``` c @context(task)``")
         assert is_activity_line("``a`` @context(task) ` still real")
+
+    def test_backslash_escaped_backticks_are_literal_outside_a_span(self):
+        """Markdown: \\` is a literal backtick, not a delimiter — the marker is real (Codex #1167 r4)."""
+        line = "- [ ] Do \\`thing @context(event)\\` today"
+        assert is_activity_line(line)
+        result = parse_activity_line(line)
+        assert result.is_ok
+        assert result.value.context_values == ["event"]
+        assert result.value.description == "Do \\`thing \\` today"
+        # An escaped backslash before a backtick leaves the backtick a real delimiter.
+        assert not is_activity_line("Say \\\\`@context(task)` now")
+
+    def test_backslash_does_not_escape_inside_a_span(self):
+        """CommonMark: escapes do not work inside code spans — the closer may follow a backslash."""
+        # `a \` closes at the backslashed backtick; the trailing lone ` is literal; marker is real.
+        assert is_activity_line("`a \\` b` @context(task)")
+        # …whereas a marker sitting before that closer is inside the span.
+        assert not is_activity_line("`a @context(task) \\` b")
