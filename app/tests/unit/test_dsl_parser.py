@@ -694,3 +694,28 @@ class TestInlineCodeIsLiteral:
         assert result.is_ok
         assert result.value.context_values == ["task"]
         assert result.value.description == "Doc ``the ` @context(habit) form``"
+
+    def test_a_code_span_straddling_lines_is_literal_on_every_line(self):
+        """CommonMark spans may contain line endings; the journal loop carries the
+        span across lines so a marker on its second line stays literal (Codex #1167 r2)."""
+        text = "Explain `the marker\n@context(event)` literally\n- [ ] Real task @context(task)\n"
+        parsed = parse_journal_text(text).value
+        assert [a.description for a in parsed.activities] == ["Real task"]
+
+    def test_a_checkbox_line_inside_a_multiline_span_creates_nothing(self):
+        text = (
+            "``\n- [ ] not a task\n- [ ] also not @context(task)\n``\n- [ ] Real @context(task)\n"
+        )
+        parsed = parse_journal_text(text).value
+        assert [a.description for a in parsed.activities] == ["Real"]
+
+    def test_an_unclosed_backtick_run_is_literal_and_masks_nothing_after_it(self):
+        text = "Say `hi\n- [ ] Real @context(task)\n"
+        parsed = parse_journal_text(text).value
+        assert [a.description for a in parsed.activities] == ["Real"]
+
+    def test_parsing_resumes_after_the_closer_on_the_same_line(self):
+        text = "Explain `x\ny` then @context(task) Do it\n"
+        parsed = parse_journal_text(text).value
+        assert [a.description for a in parsed.activities] == ["y` then Do it"]
+        assert parsed.activities[0].context_values == ["task"]

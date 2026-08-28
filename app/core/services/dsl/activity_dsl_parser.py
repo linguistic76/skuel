@@ -586,7 +586,12 @@ class ActivityDSLParser:
     # ========================================================================
 
     def parse_line(
-        self, line: str, source_file: str | None = None, source_line_num: int | None = None
+        self,
+        line: str,
+        source_file: str | None = None,
+        source_line_num: int | None = None,
+        *,
+        masked: str | None = None,
     ) -> Result[ParsedActivityLine]:
         """
         Parse a single Activity Line with type-safe context validation.
@@ -623,8 +628,11 @@ class ActivityDSLParser:
         # Check for @context() - required for Activity Line. A marker inside
         # inline code is documentation-by-example, not intent (see
         # has_context_marker) — a legend line like "> Events: `- [ ] Description
-        # @context(event) …`" minted a junk Event on 2026-08-27.
-        if not has_context_marker(line):
+        # @context(event) …`" minted a junk Event on 2026-08-27. ``masked`` is
+        # the caller's document-level mask when a code span straddles lines
+        # (parse_journal); alone, a line is masked for its own spans only.
+        masked_line = mask_inline_code(line) if masked is None else masked
+        if "@context(" not in masked_line:
             return Result.fail(
                 Errors.validation(
                     message="Not an Activity Line (missing @context)",
@@ -635,7 +643,7 @@ class ActivityDSLParser:
 
         try:
             # Extract all tags
-            tags = self._extract_tags(line)
+            tags = self._extract_tags(line, masked_line)
 
             # Validate @context exists and has values
             if "context" not in tags or not tags["context"]:
@@ -655,7 +663,7 @@ class ActivityDSLParser:
             contexts = contexts_result.value
 
             # Extract description (everything before first @tag, minus checkbox)
-            description = self._extract_description(line)
+            description = self._extract_description(line, masked_line)
 
             # A tags-only line has no human-readable content; extraction would
             # mint a titleless entity, so fail it like any other invalid line.
@@ -784,12 +792,19 @@ class ActivityDSLParser:
         from core.services.dsl.obsidian_tasks_adapter import obsidian_task_line_to_parsed
 
         lines = text.split("\n")
+        # Code spans are literal text, on every line they cover — including a
+        # span that straddles lines, which a per-line mask cannot see.
+        masked_lines = mask_code_spans_in_lines(lines)
         activities: list[ParsedActivityLine] = []
         errors: list[str] = []
 
-        for line_num, line in enumerate(lines, start=1):
+        for line_num, (line, masked) in enumerate(zip(lines, masked_lines, strict=True), start=1):
+            # A line lying entirely inside a code span is literal text for BOTH
+            # doors — neither a marker line nor a checkbox line.
+            if line.strip() and not masked.strip():
+                continue
             # Non-@context lines: try the obsidian-tasks checkbox adapter.
-            if not has_context_marker(line):
+            if "@context(" not in masked:
                 obsidian = obsidian_task_line_to_parsed(
                     line,
                     entry_kind=entry_kind,
@@ -800,7 +815,7 @@ class ActivityDSLParser:
                     activities.append(obsidian)
                 continue
 
-            result = self.parse_line(line, source_file, line_num)
+            result = self.parse_line(line, source_file, line_num, masked=masked)
 
             if result.is_ok:
                 activities.append(result.value)
@@ -828,21 +843,25 @@ class ActivityDSLParser:
     # TAG EXTRACTION
     # ========================================================================
 
-    def _extract_tags(self, line: str) -> dict[str, str]:
+    def _extract_tags(self, line: str, masked: str | None = None) -> dict[str, str]:
         """
         Extract all @tag(value) pairs from a line.
 
-        Returns dict mapping tag name to raw value string.
+        Returns dict mapping tag name to raw value string. ``masked`` is the
+        line with its code spans blanked (same length); computed here when the
+        caller has no document-level mask.
         """
         tags = {}
         # Tags inside inline code are literal text, never instructions.
-        for match in self.TAG_PATTERN.finditer(mask_inline_code(line)):
+        for match in self.TAG_PATTERN.finditer(
+            mask_inline_code(line) if masked is None else masked
+        ):
             tag_name = match.group(1).lower()
             tag_value = match.group(2).strip()
             tags[tag_name] = tag_value
         return tags
 
-    def _extract_description(self, line: str) -> str:
+    def _extract_description(self, line: str, masked: str | None = None) -> str:
         """
         Extract the human-readable description from the line.
 
@@ -850,16 +869,22 @@ class ActivityDSLParser:
         1. Remove leading checkbox/bullet
         2. Remove all @tag() segments
         3. Trim whitespace
+
+        ``masked`` is the line with its code spans blanked (same length).
         """
         # Remove checkbox or bullet
         text = self.CHECKBOX_UNCHECKED.sub("", line)
         text = self.CHECKBOX_CHECKED.sub("", text)
         text = self.BULLET_ONLY.sub("", text)
+        # The subs above strip a LEADING prefix only, so the masked copy aligns
+        # with ``text`` once the same prefix length is dropped.
+        masked_line = mask_inline_code(line) if masked is None else masked
+        masked_text = masked_line[len(line) - len(text) :]
 
         # Remove all @tag() segments — only the ones that ARE tags. A tag-shaped
         # token inside inline code is part of the description (positions come
         # from the masked copy, which is the same length as ``text``).
-        for match in reversed(list(self.TAG_PATTERN.finditer(mask_inline_code(text)))):
+        for match in reversed(list(self.TAG_PATTERN.finditer(masked_text))):
             text = text[: match.start()] + text[match.end() :]
 
         # Clean up whitespace
@@ -1253,6 +1278,47 @@ def mask_inline_code(line: str) -> str:
     masked copy can be cut out of, or read from, the original.
     """
     return _INLINE_CODE.sub(_blank_span, line)
+
+
+_BACKTICK_RUN = re.compile(r"(?<!`)`+(?!`)")
+
+
+def mask_code_spans_in_lines(lines: list[str]) -> list[str]:
+    """Document-level mask: code spans that straddle lines are literal on every line.
+
+    CommonMark lets a code span contain line endings, and the journal loop
+    reads one line at a time — so a marker on the second line of
+    ``Explain `the marker\\n@context(event)` literally`` would read as intent
+    (Codex #1167 r2). Same-line spans are masked first; a leftover backtick run
+    then opens a span iff a matching run (same length, maximal) appears on a
+    later line — everything from the opener to that closer is blanked, and the
+    scan resumes after the closer. A run with no closer anywhere is literal
+    text, exactly as CommonMark reads it. Every output line keeps its length.
+    """
+    masked = [mask_inline_code(line) for line in lines]
+    i = 0
+    while i < len(masked):
+        opener = _BACKTICK_RUN.search(masked[i])
+        if opener is None:
+            i += 1
+            continue
+        run = opener.group(0)
+        closer_pattern = re.compile(rf"(?<!`){re.escape(run)}(?!`)")
+        closer_line = next(
+            (j for j in range(i + 1, len(masked)) if closer_pattern.search(masked[j])), None
+        )
+        if closer_line is None:
+            # Literal backticks: blank just this run so the scan moves on.
+            masked[i] = masked[i][: opener.start()] + " " * len(run) + masked[i][opener.end() :]
+            continue
+        closer = closer_pattern.search(masked[closer_line])
+        assert closer is not None  # found above
+        masked[i] = masked[i][: opener.start()] + " " * (len(masked[i]) - opener.start())
+        for k in range(i + 1, closer_line):
+            masked[k] = " " * len(masked[k])
+        masked[closer_line] = " " * closer.end() + masked[closer_line][closer.end() :]
+        i = closer_line
+    return masked
 
 
 def has_context_marker(line: str) -> bool:

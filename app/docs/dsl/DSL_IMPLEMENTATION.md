@@ -62,7 +62,10 @@ line such as ``> Events: `- [ ] Description @context(event) …` `` is documenta
 not an Activity Line (DSL_SPECIFICATION § `@context()`, "Literal text is not a
 marker" — ruled 2026-08-27 after such a line minted a junk Event). The same mask
 feeds tag extraction and description extraction, so a tag-shaped token inside
-code is neither a tag nor cut from the description.
+code is neither a tag nor cut from the description. A span may straddle lines:
+`parse_journal` masks the whole document first (`mask_code_spans_in_lines`) and hands
+each line's mask to `parse_line`, so a line lying inside such a span is literal for
+both doors; `parse_line` on its own masks a line for its own spans only.
 
 **Alternative (stricter):**
 ```python
