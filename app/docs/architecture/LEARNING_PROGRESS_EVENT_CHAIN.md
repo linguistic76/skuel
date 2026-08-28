@@ -25,6 +25,16 @@ chain now has two propagation steps instead of three.
 
 ## The Chain
 
+This traces the **progress-propagation** path only — the handlers that recompute PathStep and
+LearningPath progress. It is *not* the complete subscriber set; user-context invalidation,
+analytics and the FULL-tier ZPD hub also consume these events.
+
+To find every consumer, read both wiring modules — `services_bootstrap/_event_wiring.py` and
+`services_bootstrap/_intelligence_hub.py` (FULL tier). Grepping an event's class name is **not
+sufficient**: some subscriptions are registered by looping over a list of event types
+(`for event_type in learning_context_events`), some import the class under an alias, and some
+`.subscribe(` calls in the tree are examples inside docstrings rather than live wiring.
+
 ```
 mark_mastered(ku_uid, user_uid)
     │
@@ -57,13 +67,26 @@ mark_mastered(ku_uid, user_uid)
 
 ## Events
 
-| Event | Published By | Subscribers | Event Type String |
-|-------|-------------|-------------|-------------------|
-| `KnowledgeMastered` | `PsMasteryService.mark_mastered()` | `LpProgressService`, `PsProgressService`, `PsMasteryService` | `knowledge.mastered` |
-| `PathStepProgressUpdated` | `PsProgressService.handle_knowledge_mastered()` | Dashboard, Notifications | `path_step.progress_updated` |
-| `PathStepCompleted` | `PsMasteryService.handle_knowledge_mastered()` | `LpProgressService` | `path_step.completed` |
-| `LearningPathProgressUpdated` | `LpProgressService._update_lp_from_ku_mastery()` | Dashboard, Notifications | `learning_path.progress_updated` |
-| `LearningPathCompleted` | `LpProgressService._update_lp_from_ku_mastery()` | Achievements, Analytics | `learning_path.completed` |
+| Event | Published By | Event Type String |
+|-------|-------------|-------------------|
+| `KnowledgeMastered` | `PsMasteryService.mark_mastered()` | `knowledge.mastered` |
+| `PathStepProgressUpdated` | `PsProgressService.handle_knowledge_mastered()` | `path_step.progress_updated` |
+| `PathStepCompleted` | `PsMasteryService.handle_knowledge_mastered()` | `path_step.completed` |
+| `LearningPathProgressUpdated` | `LpProgressService._update_lp_from_ku_mastery()` | `learning_path.progress_updated` |
+| `LearningPathCompleted` | `LpProgressService._update_lp_from_ku_mastery()` | `learning_path.completed` |
+
+There is deliberately no *Subscribers* column. The one that used to be here named
+"Dashboard, Notifications" as consumers of the two progress events — neither of which has a
+handler by that name anywhere in the tree.
+
+Of the two columns that remain, only the event-type string is definition-local: it is the
+`ClassVar` in the event's own file. **`Published By` is a copied fact and can drift** — a
+publisher may move, or a second one may appear, and nothing here will fail. Re-derive it with
+`git grep '<EventClass>(' -- core/services/`, which is reliable in a way the equivalent
+subscriber search is not: a constructor call puts the class name and its opening parenthesis
+together, whereas subscriptions are registered through loop variables and aliases.
+
+For consumers, read the two wiring modules named below.
 
 ---
 
@@ -100,7 +123,11 @@ via `USES_KU`, and LearningPaths compose PathSteps directly via `HAS_STEP`.
 
 ## Bootstrap Wiring
 
-All subscriptions are wired in `services_bootstrap/_event_wiring.py`:
+The progress-chain subscriptions are wired in `services_bootstrap/_event_wiring.py`. This is
+**not** every subscription to these events: `services_bootstrap/_intelligence_hub.py` registers
+FULL-tier ZPD handlers for `KnowledgeMastered`, `PathStepCompleted` and
+`LearningPathProgressUpdated` (under aliased import names), and the context-invalidation loop
+in `_event_wiring.py` subscribes them again as part of a list.
 
 ```python
 # KU mastery → LP progress (direct KU-level tracking)

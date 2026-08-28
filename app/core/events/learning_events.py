@@ -4,17 +4,18 @@ Learning Domain Events
 
 Events published by learning services (PsService, LpService, LpIntelligenceService).
 
-Event Catalog:
-- knowledge.mastered - KU mastered by user
-- path_step.progress_updated - PathStep progress changed (KU mastery driven)
-- learning_path.started - Learning path started
-- learning_path.completed - Learning path completed
+The mastery cascade
+-------------------
+``KnowledgeMastered`` — published by ``PsMasteryService.mark_mastered`` — fans out to several
+subscribers, one of which re-publishes ``PathStepCompleted``. The progress cascade crosses
+services, so no single file shows it; it is drawn in
+``docs/architecture/LEARNING_PROGRESS_EVENT_CHAIN.md``. That doc is the one description, not
+copied here: two copies of a cascade diverge, and the code cannot tell you which one lied.
+The complete subscriber set is larger than the progress cascade and is not listed anywhere:
+read ``services_bootstrap/_event_wiring.py`` and ``_intelligence_hub.py``. Grepping the class
+name misses subscriptions registered by looping over a list of event types.
 
-Subscribers:
-- UserService (context invalidation)
-- ProgressTrackingService (update learning progress)
-- RecommendationEngine (suggest next learning)
-- AnalyticsEngine (learning patterns)
+The classes this module defines are the catalog.
 """
 
 from dataclasses import dataclass
@@ -207,42 +208,3 @@ class LearningRecommendationGenerated(BaseEvent):
     recommendation_reason: str  # "next_in_path", "related_to_interests", "skill_gap"
 
     event_type: ClassVar[str] = "learning.recommendation_generated"
-
-
-# ============================================================================
-# USAGE EXAMPLES
-# ============================================================================
-
-"""
-Publishing Learning Events:
-===========================
-
-# In PsMasteryService.mark_mastered()
-async def mark_mastered(self, user_uid: UserUID, ku_uid: str, score: float) -> Result[bool]:
-    '''Mark a KU as mastered by user.'''
-
-    result = await self.backend.mark_mastered(user_uid, ku_uid, now, score, method)
-
-    if result.value:
-        event = KnowledgeMastered(
-            ku_uid=ku_uid,
-            user_uid=user_uid,
-            mastery_score=score
-        )
-        await publish_event(self.event_bus, event, self.logger)
-
-    return Result.ok(True)
-
-
-Event Chain (KU mastery → PathStep → LearningPath):
-=====================================================
-
-KnowledgeMastered
-  → PsMasteryService.handle_knowledge_mastered()   # detect PS completion
-    → PathStepCompleted
-      → LpProgressService.handle_step_completed()
-  → PsProgressService.handle_knowledge_mastered()  # update PS progress
-    → PathStepProgressUpdated (kus_mastered / kus_total)
-  → LpProgressService.handle_knowledge_mastered()  # update LP progress
-    → LearningPathProgressUpdated
-"""

@@ -100,7 +100,9 @@ event_bus.subscribe(TaskCompleted, user_service.handle_task_completed)
 
 ## Auto-Timestamping
 
-`BaseEvent.occurred_at` uses `field(default_factory=datetime.now, kw_only=True)` — every event is automatically timestamped at construction. Do NOT pass `occurred_at=datetime.now()` manually. Override only in tests or event replay scenarios.
+`BaseEvent.occurred_at` uses `field(default_factory=datetime.now, kw_only=True)` — every event is automatically timestamped at construction. Do NOT pass `occurred_at=datetime.now()` manually for an event about something happening now.
+
+**Derived events carry the source timestamp forward.** When a handler publishes an event about the *same* occurrence it just consumed, pass the triggering event's `occurred_at` — `PsPracticeService` does this for `KnowledgePracticed`, and `LearningRecommendationEngine` for `LearningRecommendationGenerated`. Letting it default there records handler-execution time, which is wrong under delayed processing and on backfill. `occurred_at` means *when the thing happened*, not when you published.
 
 ---
 
@@ -112,7 +114,7 @@ event_bus.subscribe(TaskCompleted, user_service.handle_task_completed)
 - `task.created`, `task.completed`, `task.deleted`
 - `goal.achieved`, `goal.progress_updated`
 - `habit.completed`, `habit.streak_broken`
-- `user.context_invalidated`
+- `user.activity_recorded`, `user.deleted`
 - `knowledge.mastered`, `learning_path.completed`
 
 ---
@@ -161,8 +163,6 @@ live answer, and there is no grouping layer to keep in sync.
 ---
 
 ## Migration Guide
-
-**Complete documentation:** `/home/mike/0bsidian/skuel/docs/guides/EVENT_DRIVEN_MIGRATION_GUIDE.md`
 
 ### Quick Reference
 
@@ -248,7 +248,7 @@ await event_bus.publish_async(event)
 Use `publish_event()` for consistent warning handling when event bus is unavailable:
 
 ```python
-from core.events.utils import publish_event
+from core.events import publish_event
 
 # In service methods:
 await publish_event(self.event_bus, event, self.logger)
@@ -276,7 +276,7 @@ Event handlers across all 6 Activity Domains and the Learning Loop persist struc
 | Principles | Principle conflicts | `PRINCIPLE_CONFLICT` |
 | Learning Loop | Submission iterations, feedback turnaround anomaly, mastery velocity | `LEARNING_PROGRESS`, `COMPLETION_PATTERN`, `MASTERY_ACHIEVED` |
 
-**Wiring:** `services_bootstrap/_event_wiring.py` passes `insight_store` to all 6 Activity Domain facades (which forward it to their `EventHandlerService` and `IntelligenceService` via `BaseAnalyticsService`) and directly to `LearningLoopEventHandlerService`.
+**Wiring:** `services_bootstrap/_event_wiring.py` passes `insight_store` to all 6 Activity Domain facades (which forward it to their per-domain `*EventHandlerService` and `*IntelligenceService` — `HabitEventHandlerService`, `GoalsIntelligenceService`, and so on — via `BaseAnalyticsService`) and directly to `LearningLoopEventHandlerService`.
 
 **See:** [INSIGHT_ACTION_TRACKING.md](/docs/patterns/INSIGHT_ACTION_TRACKING.md), [SUB_SERVICE_CATALOG.md](/docs/reference/SUB_SERVICE_CATALOG.md)
 
@@ -284,29 +284,26 @@ Event handlers across all 6 Activity Domains and the Learning Loop persist struc
 
 ## Context Invalidation Coverage
 
-**52 events** trigger UserContext invalidation across all domains:
+UserContext invalidation is wired by subscribing two arrays of event types to a single
+handler in `services_bootstrap/_event_wiring.py` — `activity_context_events` and
+`learning_context_events`. **Read those arrays**; they are the coverage.
 
-| Domain | Events |
-|--------|--------|
-| Tasks | TaskCreated, TaskCompleted, TaskUpdated, TaskDeleted, TaskPriorityChanged |
-| Goals | GoalCreated, GoalAchieved, GoalProgressUpdated, GoalAbandoned |
-| Habits | HabitCreated, HabitCompleted, HabitCompletionBulk, HabitMissed, HabitStreakBroken, HabitStreakMilestone |
-| Events | CalendarEventCreated, CalendarEventUpdated, CalendarEventCompleted, CalendarEventRescheduled, EventAttendeeAdded, EventAttendeeRemoved |
-| Choices | ChoiceCreated, ChoiceUpdated, ChoiceMade, ChoiceOutcomeRecorded |
-| Principles | PrincipleCreated, PrincipleUpdated, PrincipleStrengthChanged, PrincipleAlignmentAssessed |
-| Finance | ExpenseCreated, ExpenseUpdated, ExpensePaid, ExpenseDeleted |
-| Learning | KnowledgeCreated, KnowledgeMastered, LessonCompleted, LearningPathStarted, LearningPathCompleted, LearningPathProgressUpdated, PathStepProgressUpdated |
-| PS | PathStepCreated, PathStepUpdated, PathStepDeleted, PathStepCompleted |
-| Submissions | SubmissionCreated, ReportSubmitted, SubmissionApproved, SubmissionRevisionRequested |
+A table used to be reproduced here, claiming "52 events". It had drifted into naming a whole
+Finance row (`ExpenseCreated`, `ExpensePaid`, …) after ADR-052 removed the native expense
+module, plus `LessonCompleted` from the Lesson layer merged into PathStep, and
+`SubmissionCreated` from before the ADR-054 UserEntry collapse. Auditing invalidation
+coverage against it meant chasing events that do not exist while missing ones that do.
+
+The arrays cannot drift from the wiring, because the wiring *is* the arrays.
 
 ---
 
 ## Related Documentation
 
-- [Phase 4 Implementation Complete](/home/mike/0bsidian/skuel/docs/patterns/PHASE_4_EVENT_DRIVEN_ARCHITECTURE_COMPLETE.md) - Full implementation details
-- [Event-Driven Migration Guide](/home/mike/0bsidian/skuel/docs/guides/EVENT_DRIVEN_MIGRATION_GUIDE.md)
-- [Knowledge Substance Philosophy](/home/mike/0bsidian/skuel/docs/architecture/knowledge_substance_philosophy.md) - Uses event-driven substance tracking
-- [Service Creation Template](/home/mike/0bsidian/skuel/docs/reference/templates/service_creation.md)
+- [Knowledge Substance Philosophy](/docs/architecture/knowledge_substance_philosophy.md) - Uses event-driven substance tracking
+- [Service Creation Template](/docs/reference/templates/service_creation.md)
+- `core/events/base.py` - Defining, publishing and subscribing; `core/events/README.md` - the rules
+- `services_bootstrap/_event_wiring.py` - most subscription wiring (not all: components that own their handlers subscribe themselves; `git grep '.subscribe('` finds every site)
 
 ---
 

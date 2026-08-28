@@ -1,282 +1,101 @@
 # SKUEL Domain Events
 
-**Status:** IN PROGRESS (Migration from direct dependencies to events)
-**Complete Guide:** `/home/mike/0bsidian/skuel/docs/guides/EVENT_DRIVEN_MIGRATION_GUIDE.md`
+Events are how services stay decoupled: a publisher states what happened, and subscribers
+react without the publisher knowing they exist. Everything below is a rule you can check;
+nothing here is a catalog, because a hand-maintained catalog drifts (see the note at the end).
 
-## Quick Reference
+## The four rules
 
-### Event Structure
+1. **Name it `{domain}.{action}`** — lowercase, dot-separated, singular domain, past-tense
+   action. `task.completed`, never `TaskCompleted` / `task_completed` / `task.complete`.
+   Prefer the specific action (`task.priority_changed`) over `task.updated`, which means
+   "several fields moved at once". The one sanctioned plural is a bulk event, where the
+   plural *is* the meaning: `tasks.bulk_completed` and `habits.bulk_completed`.
 
-All events extend `BaseEvent` (frozen dataclass). `occurred_at` is auto-set to `datetime.now()` via `kw_only` default — callers never need to pass it:
+2. **Declare `event_type` as a `ClassVar`, never a `@property`.** It is a fact about the
+   class, and that is what lets `EVENT_REGISTRY` be derived by comprehension instead of
+   hand-maintained. `BaseEvent.__init_subclass__` rejects a subclass that does not declare
+   its own.
 
-```python
-from dataclasses import dataclass
-from typing import ClassVar
+3. **A new `*_events.py` module MUST be imported in `core/events/__init__.py`.** This is the
+   one gap a comprehension cannot close — it cannot see what nobody imports.
+   `tests/unit/test_event_registry_derivation.py` fails when it is missed.
 
-from core.events.base import BaseEvent
+4. **`occurred_at` records when the thing happened, not when you published.** For an event
+   about something happening now, let `BaseEvent`'s `kw_only` default fill it in. When a
+   handler publishes a **derived** event about the *same* occurrence, pass the source's
+   `occurred_at` forward — `PsPracticeService` does this for `KnowledgePracticed` — or the
+   derived event records handler-execution time, which is wrong under delayed processing and
+   backfill. ⚠ Subscribers read it directly and persist it, so an event published as-is for a
+   backfilled or future occurrence stamps it as happening *now*.
 
-@dataclass(frozen=True)
-class TaskCompleted(BaseEvent):
-    """Published when a task is marked complete."""
-    # The event type is a fact about the CLASS, not the instance. ClassVar is
-    # excluded from dataclass fields, so this is not a constructor argument —
-    # and it is what lets core/events/__init__.py DERIVE EVENT_REGISTRY instead
-    # of hand-maintaining it.
-    event_type: ClassVar[str] = "task.completed"
+## Where to look
 
-    # Core identifiers
-    task_uid: str
-    user_uid: str
+| You want | Go to |
+|----------|-------|
+| The live catalog of every event type | `list_event_types()` — derived, never stale |
+| How to define, publish, subscribe | `core/events/base.py` (module docstring) |
+| Who subscribes to what | the two wiring modules — read the caveat below before grepping |
+| The event bus itself | `adapters/infrastructure/event_bus.py` |
+| The pattern in full | `docs/patterns/event_driven_architecture.md` |
 
-    # Optional context
-    completion_time_seconds: int | None = None
-
-# occurred_at is inherited from BaseEvent with default_factory=datetime.now
-# BaseEvent.__init_subclass__ raises if event_type is not declared here.
-```
-
-### Publishing Events
-
-**Standard Pattern (100% conformance as of October 2025):**
-
-```python
-# 1. Top-level imports
-from core.events.task_events import TaskCreated, TaskCompleted, TaskUpdated
-
-# 2. Conditional publishing in service methods
-if self.event_bus:
-    event = TaskCompleted(
-        task_uid=task.uid,
-        user_uid=task.user_uid,
-    )
-    await self.event_bus.publish_async(event)
-    self.logger.debug(f"Published {event.event_type} for {task.uid}")
-```
-
-**Rules:**
-- ✅ Always use typed event objects (frozen dataclasses)
-- ✅ Always check `if self.event_bus:` before publishing
-- ✅ Always use `publish_async()` in async services
-- ✅ Always log at `debug` level (events are high-volume)
-- ✅ Always import events at top of file (not local imports)
-- ❌ Never use string-based publishing
-- ❌ Never log at `info` level for event publishing
-
-### Subscribing to Events
+Publish through the helper:
 
 ```python
-# In service class
-async def handle_task_completed(self, event: TaskCompleted) -> None:
-    """Handle task completion event."""
-    await self.invalidate_context(event.user_uid)
-    self.logger.info(f"Processed {event.event_type} for {event.user_uid}")
+from core.events import publish_event
 
-# In bootstrap
-event_bus.subscribe(TaskCompleted, user_service.handle_task_completed)
+await publish_event(self.event_bus, TaskCompleted(task_uid=uid, user_uid=user_uid), self.logger)
 ```
 
-## Event Catalog
+`publish_event` returns `True` when the bus exists and `False` when it is `None` (it warns and
+continues). It does **not** report handler outcomes: `InMemoryEventBus.publish_async` isolates
+failures deliberately — sync handlers are wrapped in `try/except`, async ones gathered with
+`return_exceptions=True`, and each failure is logged with a traceback. A publisher therefore
+cannot learn that a subscriber failed, and must not be written as though it could. Delivery is
+best-effort; anything requiring a guarantee needs its own persistence, not an event.
 
-### Tasks Domain
+Handlers are named `handle_{event_name}`. The bus does not retry or redeliver: each handler is
+called once per publish. Duplicates come from the **publisher**, and they are legitimate — a
+repeat completion deliberately re-runs its cascade, so the same occurrence is published again.
 
-**File:** `task_events.py` (to be created)
+That makes the distinction that matters not "idempotent handler" but **what the handler does
+with the event**: one that *derives* (recomputes progress from current state) is naturally safe
+under a repeat, while one that *accumulates* (increments a counter) double-counts unless it
+guards. This is the ruled contract — a repeat gates what accumulates, never what derives — and
+it is not uniformly enforced: `PsPracticeService.handle_event_completed` increments
+`times_practiced_in_events` unconditionally, with no event id to deduplicate on. Write
+accumulating handlers with a guard, and do not assume existing ones have it.
 
-| Event | When Published | Subscribers |
-|-------|----------------|-------------|
-| `task.created` | Task created | Analytics, User Context |
-| `task.completed` | Task marked complete | User Context, Goal Analytics |
-| `task.updated` | Task properties changed | User Context |
-| `task.deleted` | Task deleted | User Context |
-| `task.priority_changed` | Priority changed | Analytics |
+### Where subscriptions live
 
-### Goals Domain
+`services_bootstrap/_event_wiring.py` holds most of them, and
+`services_bootstrap/_intelligence_hub.py` holds the FULL-tier ones — but components that own
+their handlers also subscribe themselves (the embedding worker, the metrics handler, the
+analytics/AI service bases). `git grep -n '\.subscribe('` finds the call *sites*.
 
-**File:** `goal_events.py` (to be created)
+⚠ It does **not** reliably tell you who consumes a **particular** event, and neither does
+grepping that event's class name. Subscriptions are registered by looping over a list of event
+types, under aliased imports, and across line breaks — and some `.subscribe(` calls in the tree
+are examples inside docstrings, not live wiring. Auditing one event's consumers means reading
+the wiring modules, not trusting a pattern match. This file deliberately lists no consumers,
+for the reason below.
 
-| Event | When Published | Subscribers |
-|-------|----------------|-------------|
-| `goal.created` | Goal created | Analytics, Recommendations |
-| `goal.achieved` | Goal achieved | User Context, Analytics, Celebrations |
-| `goal.progress_updated` | Progress changed | Analytics, Dashboard |
-| `goal.abandoned` | Goal abandoned | Analytics, Insights |
+## Why there is no event table here
 
-### Habits Domain
+There used to be one. It listed 22 events with a "Subscribers" column, of which 4 named no
+real event and 85 real events were missing — and the file it lived in described five event
+modules as "(to be created)" that had shipped in the same commit as the README itself.
 
-**File:** `habit_events.py` (to be created)
+That is not staleness. It is a **plan mistaken for documentation**: a pre-implementation
+migration doc (it carried a four-week timeline and a target completion date) that shipped
+alongside its own implementation and was never retired. Seven commits touched it afterwards
+and each fixed the row its author came for, leaving the frame intact.
 
-| Event | When Published | Subscribers |
-|-------|----------------|-------------|
-| `habit.completed` | Habit completion logged | User Context, Streak Tracking |
-| `habit.streak_broken` | Streak broken | Notifications, Analytics |
-| `habit.created` | Habit created | Analytics |
-| `habit.missed` | Habit missed (scheduled but not done) | Reminders, Analytics |
+A per-domain publisher/subscriber table has no mechanism keeping it honest: nothing imports
+it, nothing greps it, no test fails when it drifts. `list_event_types()` and a `git grep` over
+the wiring cannot drift, because they *are* the thing — they read the code rather than describe
+it. Point at them instead.
 
-### Search (Cross-Cutting)
-
-**File:** `search_events.py`
-
-| Event | When Published | Subscribers |
-|-------|----------------|-------------|
-| `search.executed` | External search ran through SearchRouter (faceted/intelligent/advanced; one event per search, internal fan-out suppressed, empty queries skipped) | SearchEventRecorder (:SearchEvent behavioral log) |
-
-### User Context Domain
-
-**File:** `user_events.py` (to be created)
-
-| Event | When Published | Subscribers |
-|-------|----------------|-------------|
-| `user.context_invalidated` | Context needs refresh | Askesis, Search, Recommendations |
-| `user.preferences_changed` | Preferences updated | Personalization Services |
-
-### Learning Domain
-
-**File:** `learning_events.py` (to be created)
-
-| Event | When Published | Subscribers |
-|-------|----------------|-------------|
-| `knowledge.mastered` | KU mastered | LessonMasteryService (lesson completion detection), LpProgressService, Analytics |
-| `lesson.completed` | All KUs in Lesson mastered | PsProgressService (PS progress) |
-| `path_step.progress_updated` | PS progress changed | Dashboard, Notifications |
-| `learning_path.started` | Path started | Progress Tracking, Analytics |
-| `learning_path.completed` | Path completed | Achievements, Analytics |
-| `prerequisites.analyzed` | Prerequisites computed | KU Service, Path Builder |
-
-## Migration Checklist
-
-### For Service Publishers
-
-- [ ] Add `event_bus: EventBusOperations | None = None` parameter
-- [ ] Define events in `/core/events/{domain}_events.py`
-- [ ] Publish events after successful state changes
-- [ ] Log event publication
-- [ ] Remove direct service dependencies
-- [ ] Update tests to verify event publication
-
-### For Service Subscribers
-
-- [ ] Create `handle_{event_name}()` methods
-- [ ] Add event type hints to handler signatures
-- [ ] Make handlers idempotent (safe to retry)
-- [ ] Log event processing
-- [ ] Update tests for event handlers
-
-### For Bootstrap
-
-- [ ] Create `_wire_event_subscribers()` function
-- [ ] Subscribe handlers to event types
-- [ ] Remove service-to-service dependency injection
-- [ ] Simplify initialization order
-- [ ] Update integration tests
-
-## Examples
-
-### Example 1: Simple Event Publication
-
-```python
-# tasks_service.py
-# Top-level imports
-from core.events.task_events import TaskCompleted
-
-async def complete_task(self, uid: str) -> Result[Task]:
-    result = await self.backend.complete(uid)
-
-    if self.event_bus and result.is_ok:
-        event = TaskCompleted(
-            task_uid=uid,
-            user_uid=result.value.user_uid,
-        )
-        await self.event_bus.publish_async(event)
-        self.logger.debug(f"Published TaskCompleted event for task {uid}")
-
-    return result
-```
-
-### Example 2: Event Handler
-
-```python
-# user_service.py
-async def handle_task_completed(self, event: TaskCompleted) -> None:
-    """Invalidate user context when task completed."""
-    try:
-        await self.invalidate_context(event.user_uid)
-        self.logger.info(f"Context invalidated for user {event.user_uid}")
-    except Exception as e:
-        self.logger.error(f"Error handling task.completed: {e}")
-```
-
-### Example 3: Bootstrap Wiring
-
-```python
-# services_bootstrap.py
-def _wire_event_subscribers(event_bus: EventBusOperations, services: Services):
-    """Wire all event subscribers."""
-
-    # User context invalidation
-    event_bus.subscribe(TaskCompleted, services.user.handle_task_completed)
-    event_bus.subscribe(GoalUpdated, services.user.handle_goal_updated)
-
-    # Analytics
-    event_bus.subscribe(TaskCompleted, services.analytics.handle_task_completed)
-    event_bus.subscribe(GoalAchieved, services.analytics.handle_goal_achieved)
-
-    logger.info("✅ Event subscribers wired")
-```
-
-### Example 4: Testing Event Flow
-
-```python
-# test_event_flow.py
-@pytest.mark.asyncio
-async def test_task_completion_flow():
-    """Test complete flow: task → event → context invalidation."""
-    event_bus = InMemoryEventBus()
-
-    tasks_service = TasksService(backend=mock_backend, event_bus=event_bus)
-    user_service = UserService(backend=mock_backend)
-
-    # Wire subscriber
-    event_bus.subscribe(TaskCompleted, user_service.handle_task_completed)
-
-    # Spy on user service
-    user_service.invalidate_context = AsyncMock()
-
-    # Act
-    await tasks_service.complete_task("task-123")
-    await asyncio.sleep(0.1)  # Allow async processing
-
-    # Assert
-    user_service.invalidate_context.assert_called_once()
-```
-
-## Event Naming Rules
-
-1. **Lowercase, dot-separated:** `task.completed` not `TaskCompleted` or `task_completed`
-2. **Past tense:** `created`, `completed`, `deleted` (what happened, not what will happen)
-3. **Domain prefix:** Always start with domain (`task.`, `goal.`, `user.`)
-4. **Specific action:** `task.priority_changed` not `task.updated` when priority is the key change
-5. **No verbs in domain:** `task.completed` not `tasks.completed` (domain is singular)
-
-## Benefits Tracking
-
-### Before Event Migration
-- ❌ 9 circular dependency workarounds
-- ❌ 85 lines of post-construction wiring
-- ❌ 6 services with initialization order dependencies
-- ❌ No audit trail of state changes
-
-### After Event Migration
-- ✅ 0 circular dependencies
-- ✅ 0 post-construction wiring
-- ✅ Order-independent bootstrap
-- ✅ Full audit trail via event logs
-- ✅ Easier testing (mock event bus only)
-- ✅ Flexible feature toggles (subscribe/unsubscribe)
-
-## Timeline
-
-**Week 1:** Define all domain events
-**Week 2:** Convert publishers (Tasks, Goals, Habits)
-**Week 3:** Wire subscribers (User, Analytics)
-**Week 4:** Remove circular dependencies, cleanup
-
-**Target Completion:** End of January 2025
+If a catalog is ever genuinely wanted, generate it and drift-test it — the precedent is
+`docs/reference/GRAPH_CONTRACT.yaml` (`scripts/generate_graph_contract.py`). Do not
+hand-write one back.

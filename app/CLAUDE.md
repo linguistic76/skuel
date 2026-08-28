@@ -262,7 +262,7 @@ Domain backends live in clustered files under `adapters/persistence/neo4j/backen
 
 **Event Naming:** `{domain}.{action}` (e.g., `task.completed`, `goal.achieved`). **Location:** `/core/events/`
 
-**Auto-timestamp:** `BaseEvent.occurred_at` defaults to `datetime.now()` via `kw_only` field — never pass it manually. Override only for tests or event replay.
+**Auto-timestamp:** `BaseEvent.occurred_at` defaults to `datetime.now()` via `kw_only` field — don't pass it for an event about something happening now. Pass it to carry a source occurrence forward when a handler publishes a *derived* event about the same moment (`PsPracticeService` → `KnowledgePracticed`), and for tests or event replay.
 
 **Publish:** `await publish_event(self.event_bus, TaskCompleted(task_uid=uid, user_uid=user_uid), self.logger)` — import from `core.events` (there is no `core.events.utils`).
 

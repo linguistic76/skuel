@@ -12,8 +12,10 @@ Event Catalog:
   subscriber is already wired
 
 Publishers and subscribers are deliberately not enumerated here - such a list drifts
-silently. To find publishers, grep the event class name under ``core/services/habits/``;
-for subscribers, ``services_bootstrap/_event_wiring.py`` is the one wiring point.
+silently. To find publishers, grep the event class name under ``core/services/habits/``.
+For subscribers, read ``services_bootstrap/_event_wiring.py`` and ``_intelligence_hub.py``,
+plus the components that subscribe themselves (e.g. the metrics handler): grepping an event's
+class name misses the subscriptions registered by looping over a list of event types.
 """
 
 from dataclasses import dataclass
