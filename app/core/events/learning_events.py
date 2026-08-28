@@ -11,8 +11,9 @@ subscribers, one of which re-publishes ``PathStepCompleted``. The progress casca
 services, so no single file shows it; it is drawn in
 ``docs/architecture/LEARNING_PROGRESS_EVENT_CHAIN.md``. That doc is the one description, not
 copied here: two copies of a cascade diverge, and the code cannot tell you which one lied.
-For the complete subscriber set, including analytics and the FULL-tier hub, read the wiring:
-``git grep 'subscribe(KnowledgeMastered'``.
+The complete subscriber set is larger than the progress cascade and is not listed anywhere:
+read ``services_bootstrap/_event_wiring.py`` and ``_intelligence_hub.py``. Grepping the class
+name misses subscriptions registered by looping over a list of event types.
 
 The classes this module defines are the catalog.
 """

@@ -35,7 +35,7 @@ nothing here is a catalog, because a hand-maintained catalog drifts (see the not
 |----------|-------|
 | The live catalog of every event type | `list_event_types()` — derived, never stale |
 | How to define, publish, subscribe | `core/events/base.py` (module docstring) |
-| Who subscribes to what | `git grep -n '\.subscribe('` — see the note below |
+| Who subscribes to what | the two wiring modules — read the caveat below before grepping |
 | The event bus itself | `adapters/infrastructure/event_bus.py` |
 | The pattern in full | `docs/patterns/event_driven_architecture.md` |
 
@@ -59,11 +59,17 @@ delivered more than once, and a handler that accumulates rather than derives wil
 
 ### Where subscriptions live
 
-`services_bootstrap/_event_wiring.py` holds most of them, but it is **not** the only site, and
-auditing an event's consumers by reading it alone will miss live handlers. Components that own
-their own handlers subscribe themselves — the embedding worker, the metrics handler, the
-FULL-tier intelligence hub, the analytics/AI service bases. `git grep -n '\.subscribe('` is the
-answer that stays true; this file deliberately does not list the sites, for the reason below.
+`services_bootstrap/_event_wiring.py` holds most of them, and
+`services_bootstrap/_intelligence_hub.py` holds the FULL-tier ones — but components that own
+their handlers also subscribe themselves (the embedding worker, the metrics handler, the
+analytics/AI service bases). `git grep -n '\.subscribe('` finds the call *sites*.
+
+⚠ It does **not** reliably tell you who consumes a **particular** event, and neither does
+grepping that event's class name. Subscriptions are registered by looping over a list of event
+types, under aliased imports, and across line breaks — and some `.subscribe(` calls in the tree
+are examples inside docstrings, not live wiring. Auditing one event's consumers means reading
+the wiring modules, not trusting a pattern match. This file deliberately lists no consumers,
+for the reason below.
 
 ## Why there is no event table here
 
