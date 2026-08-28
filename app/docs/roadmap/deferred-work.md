@@ -1383,8 +1383,11 @@ two consideration notes. Re-verified against the code and the live graph 2026-08
    "propagate the error" is NOT the fix there: the node is already stored, so propagating drops an
    existing completion from the response and the event — the same strand in a different coat.
    Only the atomicity work below closes either writer. Fix shapes: one
-   Cypher statement that creates the node and patches the habit (which also closes the streak
-   lost-update race above) — the primary shape. Derivation is an alternative only if it covers
+   Cypher statement that creates the node and patches the habit — the primary shape. It closes the
+   streak lost-update race above **only if the statement derives the counters from the node's
+   state after taking the write lock** (ADR-087's shape: lock, read prior, patch in the same
+   statement); a Python-computed absolute `N+1` serialized twice is still `N+1`. Derivation is an
+   alternative only if it covers
    **every** field the patch writes — `total_completions`, `current_streak`, `best_streak`,
    `last_completed`, `identity_votes_cast` — plus the milestone events keyed off them; deriving the
    tally alone (the direction `cross_domain_backend.py`'s consistency window took because the bulk
@@ -1415,19 +1418,32 @@ two consideration notes. Re-verified against the code and the live graph 2026-08
    delete-and-recompute (the inverse of defect 4's create-and-patch, the same single-statement
    shape), `cascade=True`, errors propagated. Found by Codex on #1172, not on #915.
 
+⚠ **A third writer creates no node at all.** `POST /api/context/habit/complete` →
+`UserContextService.complete_habit_with_context` →
+`HabitsProgressService.complete_habit_with_quality` increments `total_completions`, advances
+`current_streak` / `best_streak` / `last_completed` via `backend.update_habit`, and publishes
+`HabitCompleted` — without ever creating a `HabitCompletion`. Every node-derived shape above
+(derived stats, untrack's recompute, the `(habit_uid, day)` invariant) would erase or bypass that
+door's contribution. The redesign migrates it onto the completion-node path (one writer shape
+behind three doors) or deletes the door — a ruling taken at build time, not a default. (Its own
+read-then-write streak block is already the *Habit Streak Counters* row's first item.)
+
 **Not covered by the three Habit rows above, deliberately:** *Habit Streak Counters* is the HABIT
 node's counters (read-then-write; what `current_streak` means); *Unwired `HabitCompletion` Model
 Methods* is dormant model code; *`find_by` Datetime String-Binding* is the read-side range
 predicate. This bundle is the completion node's **identity and lifecycle** and the atomicity
 between the two backends. The overlaps are fix-sharing, not scope-sharing: a single-statement
-create+patch (4) closes the streak lost-update too; the DISTINCT-day operation (5) rides the same
-normalized range predicate as the `find_by` row's fix.
+lock-derived create+patch (4) closes the streak lost-update too; the DISTINCT-day operation (5)
+rides the same normalized range predicate as the `find_by` row's fix.
 
 **Trigger:** lived habit-completion use — live graph 2026-08-28: **0 `HabitCompletion` nodes**
 across 5 habits; the machinery has never been exercised outside #915's swept acceptance run — or
 the next touch of the completion write path (`record_completion` / `_record_completion_no_event` /
-`record_habit_occurrence` / `untrack_habit`). Defect 5 fires whenever the `find_by` row does (same predicate, same
-PR — distinct operations). Defect 3's ruling is
+`record_habit_occurrence` / `untrack_habit` / `complete_habit_with_quality`). Defect 5 is built in
+the `find_by` row's PR (same predicate, distinct operations) but has its own trigger: duplicate
+volume — ≥3 same-day rows sustained across a >1000-row window — which defect 3's `(habit_uid, day)`
+invariant makes impossible once it lands; one natively-typed row fires the `find_by` row and says
+nothing about this one. Defect 3's ruling is
 Mike's, taken at build time, not in passing.
 **Named cost:** orphaned completion rows after a habit delete (invisible to habit reads, counted
 by user aggregates); a same-second double-tap on either door mints nodes sharing one uid; a two-tab double-complete double-counts stats; a transient stats-write failure
@@ -1527,7 +1543,7 @@ Review this document at the **September 2026 quarterly review**. Checklist:
 | Unwired `HabitCompletion` model methods | A consumer wants one, or next Habits model touch | `git grep -n "is_streak_eligible\|was_completed_today" -- core/services/ adapters/ ui/` — empty until wired |
 | "Vault has un-synced changes" signal | Mike schedules it — product decision (what the user is told), not a data threshold | See the section; ⚠️ must cover completions + 🆔 injections + new tasks, NOT reopens alone — no last-sync state is persisted today |
 | `find_by` datetime string-binding (3 habit sites) | Next touch of any of the three reads, or a second `completed_at` writer | One PR: normalized range on a backend method (Pattern 10b / Key Rule 18b) |
-| Habit-completion persistence bundle (#915 Codex "future care session": delete orphans / uid collision / non-atomic day uniqueness / stranded stats / DISTINCT-day query; + untrack refused-and-reported-success since #1100, found on #1172) | Lived habit-completion use, or next touch of the completion write path | `MATCH (hc:HabitCompletion) RETURN count(hc)` — **0 on 2026-08-28**; `SHOW CONSTRAINTS` lists none on the label. Fires WITH the `find_by` row (one shared range predicate, two operations); defect 3 needs Mike's one-per-day ruling first |
+| Habit-completion persistence bundle (#915 Codex "future care session": delete orphans / uid collision / non-atomic day uniqueness / stranded stats / DISTINCT-day query; + untrack refused-and-reported-success since #1100, found on #1172) | Lived habit-completion use, or next touch of the completion write path | `MATCH (hc:HabitCompletion) RETURN count(hc)` — **0 on 2026-08-28**; `SHOW CONSTRAINTS` lists none on the label. Built WITH the `find_by` row (one shared range predicate, two operations) but triggered by duplicate volume, moot once defect 3 lands; defect 3 needs Mike's one-per-day ruling first |
 | `TaskUpdateRequest` future `completion_date` asymmetry | Next touch of `task_request.py` validators | Ruling needed — see the section; don't rule in passing |
 
 **The document is the checklist, the table is a convenience:** a section added to this file
