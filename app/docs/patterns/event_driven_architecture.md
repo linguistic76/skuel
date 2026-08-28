@@ -102,7 +102,7 @@ event_bus.subscribe(TaskCompleted, user_service.handle_task_completed)
 
 `BaseEvent.occurred_at` uses `field(default_factory=datetime.now, kw_only=True)` — every event is automatically timestamped at construction. Do NOT pass `occurred_at=datetime.now()` manually for an event about something happening now.
 
-**Derived events carry the source timestamp forward.** When a handler publishes an event about the *same* occurrence it just consumed, pass the triggering event's `occurred_at` — `PsPracticeService` does this for `KnowledgePracticed`, as do `LearningRecommendationEngine` and `HabitEventHandlerService`. Letting it default there records handler-execution time, which is wrong under delayed processing and on backfill. `occurred_at` means *when the thing happened*, not when you published.
+**Derived events carry the source timestamp forward.** When a handler publishes an event about the *same* occurrence it just consumed, pass the triggering event's `occurred_at` — `PsPracticeService` does this for `KnowledgePracticed`, and `LearningRecommendationEngine` for `LearningRecommendationGenerated`. Letting it default there records handler-execution time, which is wrong under delayed processing and on backfill. `occurred_at` means *when the thing happened*, not when you published.
 
 ---
 
