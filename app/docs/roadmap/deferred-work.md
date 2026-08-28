@@ -1492,7 +1492,15 @@ the wired `HabitEventHandlerService` subscription never hears a tracked or calen
 the same example-comment block). A live gap on the node doors now, not only a consolidation
 hazard: the shared committed writer must carry the canonical `HabitCompleted` and
 `HabitStreakBroken` and the contextual side effects with it, or the merge silently disconnects
-goal progress and streak recovery from every completion.
+goal progress and streak recovery from every completion. **With explicit completion-time
+semantics:** `BaseEvent.occurred_at` defaults to `datetime.now()`, and two subscribers read it
+directly — `CrossDomainAnalyticsService.handle_habit_completed` persists it,
+`HabitEventHandlerService.handle_habit_completed` learns the completion hour from it — so a
+canonical event published as-is stamps a backfilled or future occurrence as completed *now* and
+trains scheduling on the request hour (and setting `occurred_at` to the date-only midnight trains
+an artificial hour instead). The shared writer's event carries the occurrence's own
+`completed_at`, and date-only backfills are excluded from hour learning — defined, not
+defaulted.
 
 **Not covered by the three Habit rows above, deliberately:** *Habit Streak Counters* is the HABIT
 node's counters (read-then-write; what `current_streak` means); *Unwired `HabitCompletion` Model
