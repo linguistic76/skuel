@@ -10,6 +10,54 @@ Design Principles:
 - Past tense naming (what happened, not what will happen)
 - Include all context needed by subscribers
 - Timestamp all events for audit trail
+
+Naming: ``{domain}.{action}``
+-----------------------------
+Lowercase, dot-separated, singular domain, past-tense action —
+``task.completed``, not ``TaskCompleted`` / ``task_completed`` / ``task.complete``.
+Prefer the specific action (``task.priority_changed``) over ``task.updated``, which
+means "several fields moved at once".
+
+The one sanctioned exception to the singular domain is a bulk event, where the plural
+IS the meaning: ``tasks.bulk_completed`` and ``habits.bulk_completed`` are the only two.
+
+Defining a new event
+--------------------
+::
+
+    @dataclass(frozen=True)
+    class TaskCompleted(BaseEvent):
+        '''Published when a task is marked complete.'''
+
+        event_type: ClassVar[str] = "task.completed"
+
+        task_uid: str
+        user_uid: UserUID
+        completion_time_seconds: int | None = None
+
+``event_type`` must be a ``ClassVar``, never a ``@property`` — it is a fact about the
+class, and that is what lets ``EVENT_REGISTRY`` be derived by comprehension instead of
+hand-maintained. ``BaseEvent.__init_subclass__`` rejects a subclass that does not
+declare its own.
+
+⚠ A new ``core/events/*_events.py`` module MUST be imported in ``core/events/__init__.py``.
+The registry is derived, and a comprehension cannot see what nobody imports;
+``tests/unit/test_event_registry_derivation.py`` fails when it is missed.
+
+Publishing and subscribing
+--------------------------
+::
+
+    # occurred_at defaults to datetime.now() — never pass it except in tests/replay
+    await publish_event(
+        self.event_bus, TaskCompleted(task_uid=uid, user_uid=user_uid), self.logger
+    )
+
+    event_bus.subscribe(TaskCompleted, service.handle_task_completed)
+
+``list_event_types()`` is the live catalog. ``services_bootstrap/_event_wiring.py`` is
+the one place subscriptions are wired — no per-domain table is kept here, because a
+hand-maintained list of publishers and subscribers drifts silently and nothing greps it.
 """
 
 from abc import ABC
@@ -142,86 +190,3 @@ class EventMetadata:
 
     # Additional context
     context: dict[str, Any] | None = None
-
-
-# ============================================================================
-# EVENT NAMING CONVENTIONS
-# ============================================================================
-
-"""
-Event Naming Rules:
-===================
-
-1. Format: {domain}.{action}
-   - domain: singular noun (task, goal, habit, user, learning_path)
-   - action: past tense verb (created, completed, updated, deleted, achieved)
-
-2. Lowercase with dot separator
-   - ✅ "task.completed"
-   - ❌ "TaskCompleted" or "task_completed"
-
-3. Past tense (what happened)
-   - ✅ "goal.achieved" (happened)
-   - ❌ "goal.achieve" (command)
-
-4. Specific when needed
-   - ✅ "task.priority_changed" (specific)
-   - ⚠️ "task.updated" (too general, use when multiple fields change)
-
-5. Domain is singular
-   - ✅ "task.completed"
-   - ❌ "tasks.completed"
-
-Examples:
----------
-✅ Good:
-  - task.created, task.completed, task.deleted
-  - goal.achieved, goal.progress_updated, goal.abandoned
-  - habit.completed, habit.streak_broken
-  - user.context_invalidated, user.preferences_changed
-  - learning_path.started, learning_path.completed
-
-❌ Bad:
-  - TaskCreated (class name, not event type string)
-  - task_created (underscore instead of dot)
-  - task.create (present tense, sounds like command)
-  - tasks.completed (plural domain)
-"""
-
-
-# ============================================================================
-# EXAMPLE USAGE
-# ============================================================================
-
-"""
-Creating a New Event Type:
-==========================
-
-from dataclasses import dataclass
-from datetime import datetime
-from typing import ClassVar
-from core.events.base import BaseEvent
-
-@dataclass(frozen=True)
-class TaskCompleted(BaseEvent):
-    '''Published when a task is marked complete.'''
-
-    event_type: ClassVar[str] = "task.completed"
-
-    task_uid: str
-    user_uid: UserUID
-    completion_time_seconds: int | None = None
-
-# Publishing (occurred_at auto-set to datetime.now()):
-event = TaskCompleted(task_uid="task-123", user_uid="user-456")
-await event_bus.publish_async(event)
-
-# Or with explicit timestamp:
-event = TaskCompleted(task_uid="task-123", user_uid="user-456", occurred_at=specific_time)
-
-# Subscribing:
-async def handle_task_completed(event: TaskCompleted) -> None:
-    await invalidate_context(event.user_uid)
-
-event_bus.subscribe(TaskCompleted, handle_task_completed)
-"""

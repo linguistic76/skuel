@@ -37,7 +37,7 @@ imported event classes (see below), so the live answer is::
 
     from core.events import list_event_types
 
-    list_event_types()  # every {domain}.{action} string, 102 today
+    list_event_types()  # every {domain}.{action} string
 
 Adding an event to a module that this package already imports registers it
 automatically. A NEW event module must be imported here — that is the one gap a
@@ -46,9 +46,10 @@ fails if a defined event never reaches the registry.
 
 References:
 ----------
-- Migration Guide: /home/mike/0bsidian/skuel/docs/guides/EVENT_DRIVEN_MIGRATION_GUIDE.md
-- Quick Reference: /home/mike/skuel/app/core/events/README.md
-- Event Bus: /home/mike/skuel/app/adapters/infrastructure/event_bus.py
+- Defining / publishing / subscribing: ``core/events/base.py``
+- Subscription wiring: ``services_bootstrap/_event_wiring.py``
+- Event Bus: ``adapters/infrastructure/event_bus.py``
+- Pattern doc: ``docs/patterns/event_driven_architecture.md``
 """
 
 from collections.abc import Iterator
@@ -452,46 +453,3 @@ def list_event_types() -> list[str]:
         List of event type strings
     """
     return list(EVENT_REGISTRY.keys())
-
-
-# ============================================================================
-# QUICK REFERENCE
-# ============================================================================
-
-"""
-Quick Reference - Common Patterns
-==================================
-
-1. Publishing an event:
-    event = TaskCompleted(
-        task_uid="task-123",
-        user_uid="user-456",
-    )
-    await event_bus.publish_async(event)
-
-2. Subscribing to an event:
-    async def handle_task_completed(event: TaskCompleted):
-        await invalidate_context(event.user_uid)
-
-    event_bus.subscribe(TaskCompleted, handle_task_completed)
-
-3. Bootstrap wiring:
-    def _wire_event_subscribers(event_bus, services):
-        event_bus.subscribe(TaskCompleted, services.user.handle_task_completed)
-        event_bus.subscribe(GoalAchieved, services.user.handle_goal_achieved)
-
-4. Testing:
-    mock_bus = Mock()
-    mock_bus.publish_async = AsyncMock()
-
-    service = TasksService(backend, event_bus=mock_bus)
-    await service.complete_task("task-123")
-
-    mock_bus.publish_async.assert_called_once()
-    event = mock_bus.publish_async.call_args[0][0]
-    assert event.event_type == "task.completed"
-
-For complete documentation, see:
-- Migration Guide: /home/mike/0bsidian/skuel/docs/guides/EVENT_DRIVEN_MIGRATION_GUIDE.md
-- Quick Reference: /home/mike/skuel/app/core/events/README.md
-"""
