@@ -4,19 +4,8 @@ Task Domain Events
 
 Events published by TasksService for task lifecycle operations.
 
-Event Catalog:
-- task.created - Task created
-- task.completed - Task marked complete
-- task.reopened - Task moved back OUT of completed
-- task.updated - Task properties changed
-- task.deleted - Task deleted
-- task.priority_changed - Task priority changed (high-priority event)
-
-Subscribers:
-- TaskEventHandlerService (duration calibration, overdue detection, principle alignment)
-- UserService (context invalidation)
-- GoalAnalyticsService (goal progress tracking)
-- AnalyticsEngine (completion patterns)
+The classes below are the catalog. For consumers read the wiring modules
+(``services_bootstrap/_event_wiring.py``, ``_intelligence_hub.py``).
 """
 
 from dataclasses import dataclass

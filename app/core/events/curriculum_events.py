@@ -2,26 +2,15 @@
 Curriculum Events (PS)
 ==============================
 
-*Last updated: 2026-01-20*
-
 Events published by curriculum services (PsService).
 
 These events complement learning_events.py which covers KU and LP events.
 
-Event Catalog:
-- path_step.created - Learning step created
-- path_step.updated - Learning step updated
-- path_step.deleted - Learning step deleted
-- path_step.completed - User completed a path step
-
 NOTE: MOC events (moc.created, moc.updated, moc.deleted) removed January 2026.
 MOC is now KU-based - use KU events instead.
 
-Subscribers:
-- UserService (context invalidation)
-- SearchService (index for discovery)
-- LpService (update path progress when step completes)
-- AnalyticsEngine (curriculum patterns)
+The classes below are the catalog. For consumers read the wiring modules
+(``services_bootstrap/_event_wiring.py``, ``_intelligence_hub.py``).
 """
 
 from dataclasses import dataclass, field

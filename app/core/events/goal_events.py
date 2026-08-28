@@ -4,17 +4,8 @@ Goal Domain Events
 
 Events published by GoalsService for goal lifecycle operations.
 
-Event Catalog:
-- goal.created - Goal created
-- goal.achieved - Goal achieved/completed
-- goal.progress_updated - Goal progress percentage changed
-- goal.abandoned - Goal abandoned/cancelled
-- goal.recommendations_generated - Goal recommendations generated (after achievement)
-
-Subscribers:
-- UserService (context invalidation)
-- AnalyticsEngine (goal success patterns)
-- NotificationService (achievements, reminders)
+The classes below are the catalog. For consumers read the wiring modules
+(``services_bootstrap/_event_wiring.py``, ``_intelligence_hub.py``).
 """
 
 from dataclasses import dataclass
