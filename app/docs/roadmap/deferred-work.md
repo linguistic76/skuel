@@ -1431,6 +1431,18 @@ door's contribution. The redesign migrates it onto the completion-node path (one
 behind three doors) or deletes the door — a ruling taken at build time, not a default. (Its own
 read-then-write streak block is already the *Habit Streak Counters* row's first item.)
 
+⚠ **And the event asymmetry runs the other way.** That node-less door is today the ONLY
+publisher of `HabitCompleted` (`habits_progress_service.py:298`; the other constructor in
+`core/events/habit_events.py` is a usage-example comment citing a `log_completion` that does not
+exist). `record_completion` publishes milestone / streak-broken events only, so the two
+node-writing doors (`/api/habits/track`, calendar) reach none of the three wired subscribers —
+`GoalsProgressService.handle_habit_completed` (goal progress),
+`CrossDomainAnalyticsService.handle_habit_completed`,
+`HabitEventHandlerService.handle_habit_completed` — nor the user-context cache invalidation keyed
+on it. A live gap on the node doors now, not only a consolidation hazard: the shared committed
+writer must carry the canonical `HabitCompleted` and the contextual side effects with it, or the
+merge silently disconnects goal progress from every completion.
+
 **Not covered by the three Habit rows above, deliberately:** *Habit Streak Counters* is the HABIT
 node's counters (read-then-write; what `current_streak` means); *Unwired `HabitCompletion` Model
 Methods* is dormant model code; *`find_by` Datetime String-Binding* is the read-side range
@@ -1456,8 +1468,9 @@ Mike's, taken at build time, not in passing.
 by user aggregates); a same-second double-tap on either door — or one bulk request naming a
 habit twice — mints nodes sharing one uid; a two-tab double-complete double-counts stats; a transient stats-write failure
 leaves totals permanently stale behind a "success"; a dup-heavy history under-reports
-`best_streak`; an untrack answers `deleted: true` having deleted nothing. Today every one of
-these costs nothing, because nothing has been written.
+`best_streak`; an untrack answers `deleted: true` having deleted nothing; a tracked or calendar
+completion advances no goal progress and invalidates no context cache (no `HabitCompleted`).
+Today every one of these costs nothing, because nothing has been written.
 
 ---
 
@@ -1551,7 +1564,7 @@ Review this document at the **September 2026 quarterly review**. Checklist:
 | Unwired `HabitCompletion` model methods | A consumer wants one, or next Habits model touch | `git grep -n "is_streak_eligible\|was_completed_today" -- core/services/ adapters/ ui/` — empty until wired |
 | "Vault has un-synced changes" signal | Mike schedules it — product decision (what the user is told), not a data threshold | See the section; ⚠️ must cover completions + 🆔 injections + new tasks, NOT reopens alone — no last-sync state is persisted today |
 | `find_by` datetime string-binding (3 habit sites) | Next touch of any of the three reads, or a second `completed_at` writer | One PR: normalized range on a backend method (Pattern 10b / Key Rule 18b) |
-| Habit-completion persistence bundle (#915 Codex "future care session": delete orphans / uid collision / non-atomic day uniqueness / stranded stats / DISTINCT-day query; + untrack refused-and-reported-success since #1100, found on #1172) | Lived habit-completion use, or next touch of the completion write path | `MATCH (hc:HabitCompletion) RETURN count(hc)` **and** `MATCH (h:Habit) RETURN sum(h.total_completions), max(h.last_completed)` — nodes 0 / tally 0 / null on 2026-08-28 (tally > nodes = the node-less `/api/context` door was used); `SHOW CONSTRAINTS` lists none on the label. Built WITH the `find_by` row (one shared range predicate, two operations) but triggered by duplicate volume, moot once defect 3 lands; defect 3 needs Mike's one-per-day ruling first |
+| Habit-completion persistence bundle (#915 Codex "future care session": delete orphans / uid collision / non-atomic day uniqueness / stranded stats / DISTINCT-day query; + untrack refused-and-reported-success since #1100 and node doors publishing no `HabitCompleted`, both found on #1172) | Lived habit-completion use, or next touch of the completion write path | `MATCH (hc:HabitCompletion) RETURN count(hc)` **and** `MATCH (h:Habit) RETURN sum(h.total_completions), max(h.last_completed)` — nodes 0 / tally 0 / null on 2026-08-28 (tally > nodes = the node-less `/api/context` door was used); `SHOW CONSTRAINTS` lists none on the label. Built WITH the `find_by` row (one shared range predicate, two operations) but triggered by duplicate volume, moot once defect 3 lands; defect 3 needs Mike's one-per-day ruling first |
 | `TaskUpdateRequest` future `completion_date` asymmetry | Next touch of `task_request.py` validators | Ruling needed — see the section; don't rule in passing |
 
 **The document is the checklist, the table is a convenience:** a section added to this file
