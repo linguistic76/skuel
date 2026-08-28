@@ -112,7 +112,7 @@ event_bus.subscribe(TaskCompleted, user_service.handle_task_completed)
 - `task.created`, `task.completed`, `task.deleted`
 - `goal.achieved`, `goal.progress_updated`
 - `habit.completed`, `habit.streak_broken`
-- `user.context_invalidated`
+- `user.activity_recorded`, `user.deleted`
 - `knowledge.mastered`, `learning_path.completed`
 
 ---
@@ -161,8 +161,6 @@ live answer, and there is no grouping layer to keep in sync.
 ---
 
 ## Migration Guide
-
-**Complete documentation:** `/home/mike/0bsidian/skuel/docs/guides/EVENT_DRIVEN_MIGRATION_GUIDE.md`
 
 ### Quick Reference
 
@@ -303,10 +301,10 @@ Event handlers across all 6 Activity Domains and the Learning Loop persist struc
 
 ## Related Documentation
 
-- [Phase 4 Implementation Complete](/home/mike/0bsidian/skuel/docs/patterns/PHASE_4_EVENT_DRIVEN_ARCHITECTURE_COMPLETE.md) - Full implementation details
-- [Event-Driven Migration Guide](/home/mike/0bsidian/skuel/docs/guides/EVENT_DRIVEN_MIGRATION_GUIDE.md)
-- [Knowledge Substance Philosophy](/home/mike/0bsidian/skuel/docs/architecture/knowledge_substance_philosophy.md) - Uses event-driven substance tracking
-- [Service Creation Template](/home/mike/0bsidian/skuel/docs/reference/templates/service_creation.md)
+- [Knowledge Substance Philosophy](/docs/architecture/knowledge_substance_philosophy.md) - Uses event-driven substance tracking
+- [Service Creation Template](/docs/reference/templates/service_creation.md)
+- `core/events/base.py` - Defining, publishing and subscribing; `core/events/README.md` - the rules
+- `services_bootstrap/_event_wiring.py` - the one place subscriptions are wired
 
 ---
 
