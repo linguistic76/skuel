@@ -1342,8 +1342,12 @@ two consideration notes. Re-verified against the code and the live graph 2026-08
    goes through it, and a plain `DELETE` could not succeed anyway: every habit carries its `:OWNS`
    edge.) A completion is tied
    to its habit by the `habit_uid` *property* only — its one edge is
-   `(User)-[:OWNS]->(:HabitCompletion)` (`_create_node`, per the model's field docstring) — so the
-   cascade cannot reach it. The rows stay: unreachable from any habit read, still counted by every
+   `(User)-[:OWNS]->(:HabitCompletion)` (`_create_node`, per the model's field docstring). But the
+   edge is not the point: `DETACH DELETE` removes the habit and its relationships and never touches
+   a neighbouring node, so an edge would not help either. **Requirement:** both delete doors
+   explicitly `MATCH` and delete the habit's `HabitCompletion` nodes in the same deletion statement
+   (the habit-specific backend delete and `delete_entities_with_metadata`'s Habit shape) — a
+   bundle closed without that still orphans. Today the rows stay: unreachable from any habit read, still counted by every
    user-scoped `OWNS` aggregate (`activity_backends.py:413` high-quality count,
    `cross_domain_backend.py`'s consistency window). Both writers orphan identically; #915's own
    acceptance run swept its residue by hand.
@@ -1363,8 +1367,12 @@ two consideration notes. Re-verified against the code and the live graph 2026-08
    because its backend is built without `base_label=NeoLabel.ENTITY`; live AuraDB
    `SHOW CONSTRAINTS` (2026-08-28) lists 7 constraints, **none on `HabitCompletion`** (no index
    either). The eventual constraint belongs in `sync_domain_indexes`, alongside the per-label uid
-   indexes it already owns. #915 live-verified three same-second writes → three nodes sharing one
-   uid. The `hc.` spelling is registered nowhere else (no prefix validation knows it);
+   indexes it already owns — **behind a preflight**: Neo4j refuses to create a uniqueness
+   constraint over a label that already violates it, and this work is triggered by lived use, i.e.
+   after today's writers may have minted duplicates; a dedupe/migration (or an explicit
+   duplicate-count preflight that fails the repair, not the boot) has to run before the constraint
+   is enabled, or the repaired build cannot bootstrap. #915 live-verified three same-second
+   writes → three nodes sharing one uid. The `hc.` spelling is registered nowhere else (no prefix validation knows it);
    the ratified separator grammar spells generated UIDs with `_` — settle the spelling when the key
    is redesigned, not before.
 3. **Day idempotency is a read-before-write guard, not an invariant.** `record_habit_occurrence`
