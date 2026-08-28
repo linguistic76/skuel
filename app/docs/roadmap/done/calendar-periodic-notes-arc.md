@@ -69,6 +69,9 @@ for the weekly/monthly notes. That is this arc.
   No section-heading→domain mapping, ever — a heading is prose, not a parse
   instruction. Choices/Principles become entities ONLY via explicit markers
   (a deliberate act; per R2 the compass is writing first).
+  *(Amended 2026-08-27: a marker inside Markdown inline code is literal text, not a
+  marker — a daily-note legend line had minted a junk Event. DSL_SPECIFICATION
+  § `@context()`, "Literal text is not a marker".)*
 - **E4 — Markwhen is DEFERRED.** The door stays open; reading/rendering the daily
   template's timeline is out of this arc and resumes as its own conversation (where
   the act-from arc's hourly-time-grid non-goal anticipated it).

@@ -49,12 +49,23 @@ This guide covers how to implement a parser for the SKUEL Activity DSL, includin
 ACTIVITY_LINE_PATTERN = r'@context\('
 ```
 
-**Usage:**
+**Usage** (the live shape — `core/services/dsl/activity_dsl_parser.py`):
 ```python
 def is_activity_line(line: str) -> bool:
-    """Check if line contains @context() tag."""
-    return '@context(' in line
+    """A real @context() marker — one OUTSIDE Markdown inline code."""
+    return has_context_marker(line)          # "@context(" in mask_inline_code(line)
 ```
+
+`mask_inline_code()` replaces every code span (`` `…` ``, or a run of N backticks
+closed by exactly N) with same-length whitespace before the check, so a legend
+line such as ``> Events: `- [ ] Description @context(event) …` `` is documentation,
+not an Activity Line (DSL_SPECIFICATION § `@context()`, "Literal text is not a
+marker" — ruled 2026-08-27 after such a line minted a junk Event). The same mask
+feeds tag extraction and description extraction, so a tag-shaped token inside
+code is neither a tag nor cut from the description. A span may straddle lines:
+`parse_journal` masks the whole document first (`mask_code_spans_in_lines`) and hands
+each line's mask to `parse_line`, so a line lying inside such a span is literal for
+both doors; `parse_line` on its own masks a line for its own spans only.
 
 **Alternative (stricter):**
 ```python
@@ -429,13 +440,15 @@ class ActivityDSLParser:
                    line_number: int | None = None) -> ParsedActivityLine | None:
         """Parse a single activity line."""
 
-        # Check if line contains @context()
-        if '@context(' not in line:
+        # Inline code is literal text: blank every code span (same length, so
+        # offsets still address the original) and read markers/tags off the mask.
+        masked = mask_inline_code(line)          # or the document-level mask
+        if '@context(' not in masked:
             return None
 
-        # Extract all tags
+        # Extract all tags — from the MASK, so a tag-shaped token inside code is not a tag
         tags = {}
-        for match in self.tag_pattern.finditer(line):
+        for match in self.tag_pattern.finditer(masked):
             tag_name = match.group(1)
             tag_value = match.group(2)
             tags[tag_name] = tag_value
@@ -448,8 +461,9 @@ class ActivityDSLParser:
         if not contexts:
             return None
 
-        # Extract description
-        description = self.extract_description(line, tags)
+        # Extract description — cut out only the tag spans found on the mask, by
+        # position, so literal code text stays in the description verbatim
+        description = self.extract_description(line, masked)
 
         # Parse optional tags
         when = self.parse_when(tags.get('when')) if 'when' in tags else None

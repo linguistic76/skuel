@@ -88,6 +88,12 @@ ContextList ::= DomainIdentifier ("," DomainIdentifier)*
 DomainIdentifier ::= Identifier
 ```
 
+**Literal text is not a marker.** A `@context()` (or any `@tag()`) inside Markdown inline code
+(`` `…` ``) is documentation-by-example — a legend line, a note about the tag itself — and is
+never parsed: it neither makes the line an Activity Line nor counts as a tag, and it stays in
+the description verbatim. A marker outside the code span on the same line still counts.
+(Ruled 2026-08-27 after a daily-note legend line minted a junk Event.)
+
 **Entity-creating context types** (wired to a live create surface in production — `services_bootstrap/compose.py`):
 
 ```

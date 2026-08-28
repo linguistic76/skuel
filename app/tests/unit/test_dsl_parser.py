@@ -645,3 +645,119 @@ class TestErrorHandling:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+class TestInlineCodeIsLiteral:
+    """A DSL marker inside inline code is documentation, never intent.
+
+    Live incident 2026-08-27: a daily note's legend line
+    ``> Events: `- [ ] Description @context(event) @when(YYYY-MM-DDTHH:MM) @duration(1h)` ``
+    minted a junk Event titled with the legend itself. Backticks mean "literal text"
+    everywhere in Markdown; the parser must read them the same way.
+    """
+
+    LEGEND = "> Events: `- [ ] Description @context(event) @when(YYYY-MM-DDTHH:MM) @duration(1h)`  "
+
+    def test_legend_line_is_not_an_activity_line(self):
+        assert not is_activity_line(self.LEGEND)
+        result = parse_activity_line(self.LEGEND)
+        assert result.is_error
+        assert "missing @context" in str(result.error)
+
+    def test_legend_line_creates_nothing_in_a_journal(self):
+        text = "## Events\n\n" + self.LEGEND + "\n\n- [ ] Real task @context(task)\n"
+        parsed = parse_journal_text(text).value
+        assert [a.description for a in parsed.activities] == ["Real task"]
+
+    def test_real_marker_survives_a_code_span_on_the_same_line(self):
+        """Only the marker outside the code span counts; the code text stays in the description."""
+        line = "- [ ] Fix the `@context(habit)` example in the guide @context(task) @priority(2)"
+        result = parse_activity_line(line)
+        assert result.is_ok
+        activity = result.value
+        assert activity.context_values == ["task"]
+        assert activity.priority == 2
+        assert activity.description == "Fix the `@context(habit)` example in the guide"
+
+    def test_unclosed_backtick_is_not_a_code_span(self):
+        """A lone backtick masks nothing — the marker after it is real."""
+        assert is_activity_line("- [ ] Run `pytest @context(task)")
+
+    def test_multi_backtick_code_spans_are_literal_too(self):
+        """CommonMark: a run of N backticks opens a span closed by exactly N (Codex #1167)."""
+        assert not is_activity_line("Explain ``@context(event)`` literally")
+        assert not is_activity_line("Explain ``` @context(event) ``` literally")
+        # A single backtick INSIDE a double-backtick span does not close it.
+        assert not is_activity_line("See ``the ` and @context(task) form`` here")
+        # …and a real marker after such a span still counts, code text kept verbatim.
+        result = parse_activity_line("- [ ] Doc ``the ` @context(habit) form`` @context(task)")
+        assert result.is_ok
+        assert result.value.context_values == ["task"]
+        assert result.value.description == "Doc ``the ` @context(habit) form``"
+
+    def test_a_code_span_straddling_lines_is_literal_on_every_line(self):
+        """CommonMark spans may contain line endings; the journal loop carries the
+        span across lines so a marker on its second line stays literal (Codex #1167 r2)."""
+        text = "Explain `the marker\n@context(event)` literally\n- [ ] Real task @context(task)\n"
+        parsed = parse_journal_text(text).value
+        assert [a.description for a in parsed.activities] == ["Real task"]
+
+    def test_a_checkbox_line_inside_a_multiline_span_creates_nothing(self):
+        text = (
+            "``\n- [ ] not a task\n- [ ] also not @context(task)\n``\n- [ ] Real @context(task)\n"
+        )
+        parsed = parse_journal_text(text).value
+        assert [a.description for a in parsed.activities] == ["Real"]
+
+    def test_an_unclosed_backtick_run_is_literal_and_masks_nothing_after_it(self):
+        text = "Say `hi\n- [ ] Real @context(task)\n"
+        parsed = parse_journal_text(text).value
+        assert [a.description for a in parsed.activities] == ["Real"]
+
+    def test_parsing_resumes_after_the_closer_on_the_same_line(self):
+        text = "Explain `x\ny` then @context(task) Do it\n"
+        parsed = parse_journal_text(text).value
+        assert [a.description for a in parsed.activities] == ["y` then Do it"]
+        assert parsed.activities[0].context_values == ["task"]
+
+    def test_backtick_runs_pair_in_document_order(self):
+        """CommonMark closes a span at the NEXT run of equal length — the line-1 opener closes
+        at the first backtick of line 2, so the marker after it is real (Codex #1167 r3)."""
+        text = "Intro `code\ncontinued` Do it @context(task) and `literal`\n"
+        parsed = parse_journal_text(text).value
+        assert [a.description for a in parsed.activities] == ["continued` Do it and `literal`"]
+        assert parsed.activities[0].context_values == ["task"]
+
+    def test_runs_of_another_length_inside_a_span_are_literal(self):
+        """A `` `` span may contain a single backtick; a ``` ``` run inside it is literal too."""
+        assert not is_activity_line("``a ` b ``` c @context(task)``")
+        assert is_activity_line("``a`` @context(task) ` still real")
+
+    def test_backslash_escaped_backticks_are_literal_outside_a_span(self):
+        """Markdown: \\` is a literal backtick, not a delimiter — the marker is real (Codex #1167 r4)."""
+        line = "- [ ] Do \\`thing @context(event)\\` today"
+        assert is_activity_line(line)
+        result = parse_activity_line(line)
+        assert result.is_ok
+        assert result.value.context_values == ["event"]
+        assert result.value.description == "Do \\`thing \\` today"
+        # An escaped backslash before a backtick leaves the backtick a real delimiter.
+        assert not is_activity_line("Say \\\\`@context(task)` now")
+
+    def test_backslash_does_not_escape_inside_a_span(self):
+        """CommonMark: escapes do not work inside code spans — the closer may follow a backslash."""
+        # `a \` closes at the backslashed backtick; the trailing lone ` is literal; marker is real.
+        assert is_activity_line("`a \\` b` @context(task)")
+        # …whereas a marker sitting before that closer is inside the span.
+        assert not is_activity_line("`a @context(task) \\` b")
+
+    def test_a_span_cannot_cross_a_blank_line(self):
+        """A code span is inline: the paragraph ends at a blank line, so an unmatched backtick
+        in one paragraph never pairs with a run in a later one (Codex #1167 r5)."""
+        text = "Explain `oops\n\n- [ ] Real @context(task)\n\n`later`\n"
+        parsed = parse_journal_text(text).value
+        assert [a.description for a in parsed.activities] == ["Real"]
+        # …while within one paragraph the same shape still masks the marker.
+        text = "Explain `oops\n- [ ] Not real @context(task)\n`later`\n"
+        parsed = parse_journal_text(text).value
+        assert parsed.activities == []
