@@ -1334,8 +1334,10 @@ two consideration notes. Re-verified against the code and the live graph 2026-08
 1. **A habit delete orphans its completions.** Both production delete doors are `DETACH DELETE`:
    the API route (`CRUDRouteFactory`'s `delete`, wired for every Activity Domain by
    `create_activity_domain_route_config`) calls `delete_for_user(uid, user_uid, cascade=True)`,
-   which goes straight to `backend.delete(cascade=True)`; the vault reconciler's
-   `bulk_upsert_backend` has no non-cascading variant at all. (`HabitsCoreService.delete` defaults
+   which goes straight to `backend.delete(cascade=True)`; the vault reconciler
+   (`IngestionTracker._execute_deletion_plan` → `IngestionBackend.delete_entities_with_metadata`,
+   `DETACH DELETE` leaf-first) has no non-cascading variant at all — `BulkUpsertBackend.delete_batch`
+   is also DETACH but has no caller, so it is not the production path. (`HabitsCoreService.delete` defaults
    to `cascade=False` and no production caller passes `True` — irrelevant, because neither door
    goes through it, and a plain `DELETE` could not succeed anyway: every habit carries its `:OWNS`
    edge.) A completion is tied
@@ -1382,7 +1384,10 @@ two consideration notes. Re-verified against the code and the live graph 2026-08
    no repair (the `record_completion` docstring names this "the residual window"). The bulk door
    is worse: `_record_completion_no_event` (`:311`) **discards** the stats update's `Result`, so
    `/api/habits/bulk-complete` counts the completion and publishes `HabitCompletionBulk` on the
-   spot even when the stats write failed — no retry is even attempted. ⚠ The one-line
+   spot even when the stats write failed — no retry is even attempted. And the bulk loop appends
+   only `is_ok` results and always returns `Result.ok`, so `/api/habits/bulk-complete` answers 201
+   on partial failure: atomicity alone does not close this writer — per-item failures must
+   propagate or be reported. ⚠ The one-line
    "propagate the error" is NOT the fix there: the node is already stored, so propagating drops an
    existing completion from the response and the event — the same strand in a different coat.
    Only the atomicity work below closes either writer. Fix shapes: one
@@ -1414,7 +1419,7 @@ two consideration notes. Re-verified against the code and the live graph 2026-08
    with `completions_backend.delete(uid)` — default `cascade=False`, the plain `DELETE` the mixin
    documents as "will fail if entity has any relationships" — and every completion has carried its
    `(User)-[:OWNS]->` edge since #1100, so the delete has been refused on every call since then;
-   the loop **discards** each `Result`, so the route answers `{"deleted": true}` regardless. No
+   the loop **discards** each `Result`, so the route answers `{"removed": true}` regardless. No
    test covers the door. Had it deleted, nothing recomputes `total_completions` / `current_streak`
    / `best_streak` / `last_completed` / `identity_votes_cast` — cached stats diverge from the node
    set exactly as in defect 4, in the other direction. Requirement: one atomic
@@ -1439,9 +1444,14 @@ node-writing doors (`/api/habits/track`, calendar) reach none of the three wired
 `GoalsProgressService.handle_habit_completed` (goal progress),
 `CrossDomainAnalyticsService.handle_habit_completed`,
 `HabitEventHandlerService.handle_habit_completed` — nor the user-context cache invalidation keyed
-on it. A live gap on the node doors now, not only a consolidation hazard: the shared committed
-writer must carry the canonical `HabitCompleted` and the contextual side effects with it, or the
-merge silently disconnects goal progress from every completion.
+on it. The same holds for `HabitStreakBroken`: `_calculate_new_streak` resets the streak after a
+gap, but `record_completion` publishes only `HabitStreakMilestone` (`_check_streak_milestones`), so
+the wired `HabitEventHandlerService` subscription never hears a tracked or calendar break —
+`complete_habit_with_quality` (`:309`) is again the only real publisher (`habit_events.py:350` is
+the same example-comment block). A live gap on the node doors now, not only a consolidation
+hazard: the shared committed writer must carry the canonical `HabitCompleted` and
+`HabitStreakBroken` and the contextual side effects with it, or the merge silently disconnects
+goal progress and streak recovery from every completion.
 
 **Not covered by the three Habit rows above, deliberately:** *Habit Streak Counters* is the HABIT
 node's counters (read-then-write; what `current_streak` means); *Unwired `HabitCompletion` Model
@@ -1468,8 +1478,9 @@ Mike's, taken at build time, not in passing.
 by user aggregates); a same-second double-tap on either door — or one bulk request naming a
 habit twice — mints nodes sharing one uid; a two-tab double-complete double-counts stats; a transient stats-write failure
 leaves totals permanently stale behind a "success"; a dup-heavy history under-reports
-`best_streak`; an untrack answers `deleted: true` having deleted nothing; a tracked or calendar
-completion advances no goal progress and invalidates no context cache (no `HabitCompleted`).
+`best_streak`; an untrack answers `removed: true` having removed nothing; a tracked or calendar
+completion advances no goal progress, invalidates no context cache, and reports no broken streak
+(no `HabitCompleted`, no `HabitStreakBroken`).
 Today every one of these costs nothing, because nothing has been written.
 
 ---
