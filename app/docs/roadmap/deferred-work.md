@@ -1432,8 +1432,14 @@ two consideration notes. Re-verified against the code and the live graph 2026-08
 `current_streak` / `best_streak` / `last_completed` via `backend.update_habit`, and publishes
 `HabitCompleted` — without ever creating a `HabitCompletion`. Every node-derived shape above
 (derived stats, untrack's recompute, the `(habit_uid, day)` invariant) would erase or bypass that
-door's contribution. The redesign migrates it onto the completion-node path (one writer shape
-behind three doors) or deletes the door — a ruling taken at build time, not a default. (Its own
+door's contribution. The redesign migrates it onto the completion-node path — **one shared,
+lock-derived persistence operation behind all four production doors**: `/api/habits/track`
+(`record_completion`), the calendar (`record_habit_occurrence` → the same), `/api/habits/bulk-complete`
+(`_record_completion_no_event`, with explicit bulk response/event semantics — today it has UID
+collisions, discarded update failures, partial success and non-canonical events of its own), and
+`/api/context/habit/complete` — or deletes the door; a ruling taken at build time, not a default.
+A redesign that leaves bulk on its own helper closes the bundle with a defective path still
+open. (Its own
 read-then-write streak block is already the *Habit Streak Counters* row's first item.)
 
 ⚠ **And the event asymmetry runs the other way.** That node-less door is today the ONLY
