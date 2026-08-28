@@ -1328,7 +1328,8 @@ and deferred there because each belongs to the `HabitCompletion` **persistence l
 (`core/services/habits/habits_completion_service.py` + the plain
 `UniversalNeo4jBackend[HabitCompletion]` in `services_bootstrap/_backends.py`), not to the
 calendar surface that PR was building. Until this section they lived only in that PR's body and
-two consideration notes. Re-verified against the code and the live graph 2026-08-28.
+two consideration notes. Re-verified against the code and the live graph 2026-08-28; a sixth
+(untrack) surfaced in this section's own review (#1172).
 
 1. **A habit delete orphans its completions.** Both production delete doors are `DETACH DELETE`:
    the API route (`CRUDRouteFactory`'s `delete`, wired for every Activity Domain by
@@ -1402,6 +1403,17 @@ two consideration notes. Re-verified against the code and the live graph 2026-08
    deliberately keep same-day duplicates. What the two share is the **normalized range
    predicate** (`date(left(toString(x), 10))` on both sides): two operations, one predicate, one
    PR.
+6. **Untrack cannot delete, says it did, and would not recompute if it could.** `untrack_habit`
+   (`_completion_mixin.py:88`, `POST /api/habits/untrack`) deletes each of the day's completions
+   with `completions_backend.delete(uid)` — default `cascade=False`, the plain `DELETE` the mixin
+   documents as "will fail if entity has any relationships" — and every completion has carried its
+   `(User)-[:OWNS]->` edge since #1100, so the delete has been refused on every call since then;
+   the loop **discards** each `Result`, so the route answers `{"deleted": true}` regardless. No
+   test covers the door. Had it deleted, nothing recomputes `total_completions` / `current_streak`
+   / `best_streak` / `last_completed` / `identity_votes_cast` — cached stats diverge from the node
+   set exactly as in defect 4, in the other direction. Requirement: one atomic
+   delete-and-recompute (the inverse of defect 4's create-and-patch, the same single-statement
+   shape), `cascade=True`, errors propagated. Found by Codex on #1172, not on #915.
 
 **Not covered by the three Habit rows above, deliberately:** *Habit Streak Counters* is the HABIT
 node's counters (read-then-write; what `current_streak` means); *Unwired `HabitCompletion` Model
@@ -1414,13 +1426,14 @@ normalized range predicate as the `find_by` row's fix.
 **Trigger:** lived habit-completion use — live graph 2026-08-28: **0 `HabitCompletion` nodes**
 across 5 habits; the machinery has never been exercised outside #915's swept acceptance run — or
 the next touch of the completion write path (`record_completion` / `_record_completion_no_event` /
-`record_habit_occurrence`). Defect 5 fires whenever the `find_by` row does (same predicate, same
+`record_habit_occurrence` / `untrack_habit`). Defect 5 fires whenever the `find_by` row does (same predicate, same
 PR — distinct operations). Defect 3's ruling is
 Mike's, taken at build time, not in passing.
 **Named cost:** orphaned completion rows after a habit delete (invisible to habit reads, counted
 by user aggregates); a same-second double-tap on either door mints nodes sharing one uid; a two-tab double-complete double-counts stats; a transient stats-write failure
 leaves totals permanently stale behind a "success"; a dup-heavy history under-reports
-`best_streak`. Today every one of these costs nothing, because nothing has been written.
+`best_streak`; an untrack answers `deleted: true` having deleted nothing. Today every one of
+these costs nothing, because nothing has been written.
 
 ---
 
@@ -1514,7 +1527,7 @@ Review this document at the **September 2026 quarterly review**. Checklist:
 | Unwired `HabitCompletion` model methods | A consumer wants one, or next Habits model touch | `git grep -n "is_streak_eligible\|was_completed_today" -- core/services/ adapters/ ui/` — empty until wired |
 | "Vault has un-synced changes" signal | Mike schedules it — product decision (what the user is told), not a data threshold | See the section; ⚠️ must cover completions + 🆔 injections + new tasks, NOT reopens alone — no last-sync state is persisted today |
 | `find_by` datetime string-binding (3 habit sites) | Next touch of any of the three reads, or a second `completed_at` writer | One PR: normalized range on a backend method (Pattern 10b / Key Rule 18b) |
-| Habit-completion persistence bundle (#915 Codex "future care session": delete orphans / uid collision / non-atomic day uniqueness / stranded stats / DISTINCT-day query) | Lived habit-completion use, or next touch of the completion write path | `MATCH (hc:HabitCompletion) RETURN count(hc)` — **0 on 2026-08-28**; `SHOW CONSTRAINTS` lists none on the label. Fires WITH the `find_by` row (one shared range predicate, two operations); defect 3 needs Mike's one-per-day ruling first |
+| Habit-completion persistence bundle (#915 Codex "future care session": delete orphans / uid collision / non-atomic day uniqueness / stranded stats / DISTINCT-day query; + untrack refused-and-reported-success since #1100, found on #1172) | Lived habit-completion use, or next touch of the completion write path | `MATCH (hc:HabitCompletion) RETURN count(hc)` — **0 on 2026-08-28**; `SHOW CONSTRAINTS` lists none on the label. Fires WITH the `find_by` row (one shared range predicate, two operations); defect 3 needs Mike's one-per-day ruling first |
 | `TaskUpdateRequest` future `completion_date` asymmetry | Next touch of `task_request.py` validators | Ruling needed — see the section; don't rule in passing |
 
 **The document is the checklist, the table is a convenience:** a section added to this file
