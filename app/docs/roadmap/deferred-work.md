@@ -1336,8 +1336,7 @@ two consideration notes. Re-verified against the code and the live graph 2026-08
    `create_activity_domain_route_config`) calls `delete_for_user(uid, user_uid, cascade=True)`,
    which goes straight to `backend.delete(cascade=True)`; the vault reconciler
    (`IngestionTracker._execute_deletion_plan` → `IngestionBackend.delete_entities_with_metadata`,
-   `DETACH DELETE` leaf-first) has no non-cascading variant at all — `BulkUpsertBackend.delete_batch`
-   is also DETACH but has no caller, so it is not the production path. (`HabitsCoreService.delete` defaults
+   `DETACH DELETE` leaf-first) has no non-cascading variant at all. (`HabitsCoreService.delete` defaults
    to `cascade=False` and no production caller passes `True` — irrelevant, because neither door
    goes through it, and a plain `DELETE` could not succeed anyway: every habit carries its `:OWNS`
    edge.) A completion is tied
@@ -1477,9 +1476,10 @@ contextual completion. (Its own
 read-then-write streak block is already the *Habit Streak Counters* row's first item.)
 
 ⚠ **And the event asymmetry runs the other way.** That node-less door is today the ONLY
-publisher of `HabitCompleted` (`habits_progress_service.py:298`; the other constructor in
-`core/events/habit_events.py` is a usage-example comment citing a `log_completion` that does not
-exist). `record_completion` publishes `HabitStreakMilestone` only, so the two
+publisher of `HabitCompleted` (`habits_progress_service.py:298` — the only `HabitCompleted(`
+left in the tree since the `core/events/habit_events.py` usage-example fiction, which cited a
+`log_completion` that never existed, was deleted 2026-08-28). `record_completion` publishes
+`HabitStreakMilestone` only, so the two
 node-writing doors (`/api/habits/track`, calendar) reach none of the four wired subscribers —
 `GoalsProgressService.handle_habit_completed` (goal progress),
 `CrossDomainAnalyticsService.handle_habit_completed`,
@@ -1488,8 +1488,9 @@ node-writing doors (`/api/habits/track`, calendar) reach none of the four wired 
 to them too) — nor the user-context cache invalidation keyed on it. The same holds for `HabitStreakBroken`: `_calculate_new_streak` resets the streak after a
 gap, but `record_completion` publishes only `HabitStreakMilestone` (`_check_streak_milestones`), so
 the wired `HabitEventHandlerService` subscription never hears a tracked or calendar break —
-`complete_habit_with_quality` (`:309`) is again the only real publisher (`habit_events.py:350` is
-the same example-comment block). A live gap on the node doors now, not only a consolidation
+`complete_habit_with_quality` (`:309`) is again the only real publisher — the second
+constructor was in that same deleted example block. A live gap on the node doors now, not only
+a consolidation
 hazard: the shared committed writer must carry the canonical `HabitCompleted` and
 `HabitStreakBroken` and the contextual side effects with it, or the merge silently disconnects
 goal progress and streak recovery from every completion. **With explicit completion-time

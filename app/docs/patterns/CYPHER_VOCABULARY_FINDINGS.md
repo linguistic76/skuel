@@ -662,7 +662,8 @@ nowhere but that service's own docstring example.
 Guarded by `tests/unit/test_bulk_upsert_template_removal.py`, which pins that no
 `.cypher` file returns under `adapters/persistence/` and that the live bulk-write
 surface (`upsert_nodes`, `create_relationships`, `upsert_with_relationships`,
-`delete_batch`) survived the deletion.
+`delete_batch`) survived the deletion. (`delete_batch` was itself deleted later, on
+2026-08-28 — never wired in any commit; the other three remain pinned.)
 
 ---
 
