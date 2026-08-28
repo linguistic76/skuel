@@ -1233,7 +1233,10 @@ def parse_journal_text(text: str) -> Result[ParsedJournal]:
     return parser.parse_journal(text)
 
 
-_INLINE_CODE = re.compile(r"`[^`\n]*`")
+# A CommonMark code span opens with a run of N backticks and closes with a run
+# of exactly N — ``…`` may contain a single backtick. The opener/closer runs
+# must be maximal (not touching another backtick), and the span is single-line.
+_INLINE_CODE = re.compile(r"(?<!`)(`+)(?!`)([^\n]+?)(?<!`)\1(?!`)")
 
 
 def _blank_span(match: re.Match[str]) -> str:

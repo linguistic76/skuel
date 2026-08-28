@@ -682,3 +682,15 @@ class TestInlineCodeIsLiteral:
     def test_unclosed_backtick_is_not_a_code_span(self):
         """A lone backtick masks nothing — the marker after it is real."""
         assert is_activity_line("- [ ] Run `pytest @context(task)")
+
+    def test_multi_backtick_code_spans_are_literal_too(self):
+        """CommonMark: a run of N backticks opens a span closed by exactly N (Codex #1167)."""
+        assert not is_activity_line("Explain ``@context(event)`` literally")
+        assert not is_activity_line("Explain ``` @context(event) ``` literally")
+        # A single backtick INSIDE a double-backtick span does not close it.
+        assert not is_activity_line("See ``the ` and @context(task) form`` here")
+        # …and a real marker after such a span still counts, code text kept verbatim.
+        result = parse_activity_line("- [ ] Doc ``the ` @context(habit) form`` @context(task)")
+        assert result.is_ok
+        assert result.value.context_values == ["task"]
+        assert result.value.description == "Doc ``the ` @context(habit) form``"
