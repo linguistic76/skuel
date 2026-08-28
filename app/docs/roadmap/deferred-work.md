@@ -1381,7 +1381,11 @@ two consideration notes. Re-verified against the code and the live graph 2026-08
    stats. The habits-surface door (`/api/habits/track` → `record_completion`) has **no** day guard
    at all. The `(habit_uid, day)` invariant has to live in persistence — the same redesign as
    defect 2 (a day-keyed uid + uniqueness constraint + upsert-on-create makes the double-tap a
-   database-level no-op). ⚠ **Ruling needed first:** is one completion per habit-day the contract?
+   database-level no-op — **for the whole statement, not just the node**: the habit patch and every
+   completion side effect must sit on the `ON CREATE` path, and the match path returns the
+   already-recorded completion without incrementing or publishing anything; a `MERGE` that no-ops
+   the node and still patches the counters double-counts the exact double-tap this exists to
+   stop). ⚠ **Ruling needed first:** is one completion per habit-day the contract?
    Only the calendar door enforces it today; `record_completion` never said; and the streak readers
    are NOT evidence either way — `_completed_days_window` deliberately collapses rows to a set of
    days, so several completions on one day stay valid records that contribute one streak day.
@@ -1451,9 +1455,11 @@ lock-derived persistence operation behind all four production doors**: `/api/hab
 (`record_completion`), the calendar (`record_habit_occurrence` → the same), `/api/habits/bulk-complete`
 (`_record_completion_no_event`, with explicit bulk response/event semantics — today it has UID
 collisions, discarded update failures, partial success and non-canonical events of its own), and
-`/api/context/habit/complete` — carrying `success_rate`'s post-commit recalculation into the
-shared operation, or the consolidated path stops refreshing it — or deletes the door; a ruling
-taken at build time, not a default.
+`/api/context/habit/complete` — carrying `success_rate` into the shared operation, **derived and
+persisted inside the same locked statement** (or derived at read time), never as post-commit
+work: a recalculation that runs after the node commits recreates defect 4's stranded window and
+lets concurrent completions overwrite each other's rate; the same holds for untrack's inverse —
+or deletes the door; a ruling taken at build time, not a default.
 A redesign that leaves bulk on its own helper closes the bundle with a defective path still
 open. (Its own
 read-then-write streak block is already the *Habit Streak Counters* row's first item.)
