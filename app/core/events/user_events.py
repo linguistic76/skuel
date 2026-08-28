@@ -4,9 +4,7 @@ User Domain Events
 
 Events published by UserService for user account changes.
 
-Event Catalog:
-- user.deleted - User account deleted (soft or hard)
-- user.activity_recorded - User activity logged
+The classes below are the catalog.
 """
 
 from dataclasses import dataclass

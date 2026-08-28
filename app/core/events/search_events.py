@@ -4,9 +4,8 @@ Search Domain Events
 
 Events published by SearchRouter for search behavior logging.
 
-Event Catalog:
-- search.executed - A search ran through one of SearchRouter's external
-  entry points (faceted / intelligent / advanced)
+``SearchExecuted`` fires from SearchRouter's external entry points only
+(faceted / intelligent / advanced).
 
 Subscribers:
 - SearchEventRecorder (persists :SearchEvent nodes for discovery analytics —

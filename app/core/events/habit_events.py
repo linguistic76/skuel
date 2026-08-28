@@ -4,12 +4,9 @@ Habit Domain Events
 
 Events published by the Habits services (``core/services/habits/``) for habit tracking.
 
-Event Catalog:
-- habit.created, habit.updated
-- habit.completed, habit.streak_broken, habit.streak_milestone
-- habits.bulk_completed, habit.achievement_earned
-- habit.missed - no publisher; a PLANNED event (``scripts/detect_bloat.py``) whose
-  subscriber is already wired
+``habit.missed`` is the one event here with no publisher: a PLANNED event
+(``scripts/detect_bloat.py``) whose subscriber is already wired. The classes below are
+the catalog.
 
 Publishers and subscribers are deliberately not enumerated here - such a list drifts
 silently. To find publishers, grep the event class name under ``core/services/habits/``.

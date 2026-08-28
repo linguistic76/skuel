@@ -9,12 +9,7 @@ Philosophical Foundation:
 "Applied knowledge, not pure theory" - Knowledge gains substance through
 real-world application, practice, reflection, and decision-making.
 
-Event Catalog:
-- knowledge.applied_in_task - Task applies knowledge
-- knowledge.practiced_in_event - Event practices knowledge
-- knowledge.built_into_habit - Habit builds on knowledge
-- knowledge.reflected_in_entry - UserEntry reflects on knowledge (ADR-069)
-- knowledge.informed_choice - Choice informed by knowledge
+The classes below are the catalog (each ``*Bulk`` variant included).
 
 Subscriber: PsService (increment substance metrics) — wired in
 services_bootstrap/_event_wiring.py. Former docstrings here also named

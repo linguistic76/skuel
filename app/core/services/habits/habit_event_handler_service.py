@@ -648,6 +648,9 @@ class HabitEventHandlerService:
                     badge_category="streak",
                     habit_uid=event.habit_uid,
                     streak_length=streak_length,
+                    # Same moment the badge row records (_award_badge above): the milestone
+                    # occurrence, not this handler's execution time.
+                    occurred_at=event.occurred_at,
                 )
                 await publish_event(self.event_bus, achievement_event, self.logger)
 
