@@ -48,7 +48,8 @@ Publishing and subscribing
 --------------------------
 ::
 
-    # occurred_at defaults to datetime.now() — never pass it except in tests/replay
+    # occurred_at defaults to datetime.now(); pass it forward when publishing a derived
+    # event about the same occurrence, so it records when the thing happened
     await publish_event(
         self.event_bus, TaskCompleted(task_uid=uid, user_uid=user_uid), self.logger
     )

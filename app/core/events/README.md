@@ -21,9 +21,13 @@ nothing here is a catalog, because a hand-maintained catalog drifts (see the not
    one gap a comprehension cannot close — it cannot see what nobody imports.
    `tests/unit/test_event_registry_derivation.py` fails when it is missed.
 
-4. **Never pass `occurred_at`.** `BaseEvent` defaults it to `datetime.now()` via a `kw_only`
-   field. Override it only in tests or event replay. ⚠ Subscribers read it directly, so an
-   event published for a backfilled or future occurrence stamps it as happening *now*.
+4. **`occurred_at` records when the thing happened, not when you published.** For an event
+   about something happening now, let `BaseEvent`'s `kw_only` default fill it in. When a
+   handler publishes a **derived** event about the *same* occurrence, pass the source's
+   `occurred_at` forward — `PsPracticeService` does this for `KnowledgePracticed` — or the
+   derived event records handler-execution time, which is wrong under delayed processing and
+   backfill. ⚠ Subscribers read it directly and persist it, so an event published as-is for a
+   backfilled or future occurrence stamps it as happening *now*.
 
 ## Where to look
 
