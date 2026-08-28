@@ -487,6 +487,45 @@ class TestHandleHabitStreakMilestone:
         mock_backend.award_badge.assert_called_once()
 
     @pytest.mark.asyncio
+    async def test_badge_row_and_event_agree_on_when_it_was_earned(
+        self, service_full: HabitEventHandlerService, mock_backend: Mock
+    ):
+        """The persisted badge and the published event must name the same moment.
+
+        ``_award_badge`` writes the milestone's own ``occurred_at`` to the badge row. If
+        ``AchievementEarned`` lets ``occurred_at`` default instead, the row and the event
+        disagree by however long the handler took to run — invisible when the milestone is
+        processed immediately, wrong on a backfill or under delayed processing.
+
+        The source time is deliberately backdated: with ``datetime.now()`` both halves would
+        agree by accident and the test could not fail.
+        """
+        milestone_time = datetime(2026, 3, 20, 14, 30)
+        mock_backend.check_badge_already_earned.return_value = Result.ok(False)
+        mock_backend.award_badge.return_value = Result.ok(True)
+
+        event = HabitStreakMilestone(
+            habit_uid="habit_test_abc",
+            user_uid="user_mike",
+            streak_length=7,
+            occurred_at=milestone_time,
+            milestone_name="one_week",
+        )
+
+        await service_full.handle_habit_streak_milestone(event)
+
+        # The persisted half.
+        persisted = mock_backend.award_badge.call_args.kwargs["occurred_at"]
+        assert persisted == milestone_time.isoformat()
+
+        # The published half must name that same moment, not the handler's run time.
+        published = service_full.event_bus.publish_async.call_args.args[0]
+        assert published.occurred_at == milestone_time, (
+            "AchievementEarned must carry the milestone's occurred_at, so the badge row "
+            "and the badge event agree on when the badge was earned"
+        )
+
+    @pytest.mark.asyncio
     async def test_non_milestone_ignored(
         self, service: HabitEventHandlerService, mock_backend: Mock
     ):
