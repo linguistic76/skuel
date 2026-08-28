@@ -620,8 +620,11 @@ class ActivityDSLParser:
                 )
             )
 
-        # Check for @context() - required for Activity Line
-        if "@context(" not in line:
+        # Check for @context() - required for Activity Line. A marker inside
+        # inline code is documentation-by-example, not intent (see
+        # has_context_marker) — a legend line like "> Events: `- [ ] Description
+        # @context(event) …`" minted a junk Event on 2026-08-27.
+        if not has_context_marker(line):
             return Result.fail(
                 Errors.validation(
                     message="Not an Activity Line (missing @context)",
@@ -786,7 +789,7 @@ class ActivityDSLParser:
 
         for line_num, line in enumerate(lines, start=1):
             # Non-@context lines: try the obsidian-tasks checkbox adapter.
-            if "@context(" not in line:
+            if not has_context_marker(line):
                 obsidian = obsidian_task_line_to_parsed(
                     line,
                     entry_kind=entry_kind,
@@ -832,7 +835,8 @@ class ActivityDSLParser:
         Returns dict mapping tag name to raw value string.
         """
         tags = {}
-        for match in self.TAG_PATTERN.finditer(line):
+        # Tags inside inline code are literal text, never instructions.
+        for match in self.TAG_PATTERN.finditer(mask_inline_code(line)):
             tag_name = match.group(1).lower()
             tag_value = match.group(2).strip()
             tags[tag_name] = tag_value
@@ -852,8 +856,11 @@ class ActivityDSLParser:
         text = self.CHECKBOX_CHECKED.sub("", text)
         text = self.BULLET_ONLY.sub("", text)
 
-        # Remove all @tag() segments
-        text = self.TAG_PATTERN.sub("", text)
+        # Remove all @tag() segments — only the ones that ARE tags. A tag-shaped
+        # token inside inline code is part of the description (positions come
+        # from the masked copy, which is the same length as ``text``).
+        for match in reversed(list(self.TAG_PATTERN.finditer(mask_inline_code(text)))):
+            text = text[: match.start()] + text[match.end() :]
 
         # Clean up whitespace
         text = " ".join(text.split())
@@ -1226,10 +1233,34 @@ def parse_journal_text(text: str) -> Result[ParsedJournal]:
     return parser.parse_journal(text)
 
 
+_INLINE_CODE = re.compile(r"`[^`\n]*`")
+
+
+def _blank_span(match: re.Match[str]) -> str:
+    """Same-length whitespace for a matched inline-code span (offsets preserved)."""
+    return " " * len(match.group(0))
+
+
+def mask_inline_code(line: str) -> str:
+    """The line with every inline-code span replaced by spaces of the same length.
+
+    Markdown inline code (``` `…` ```) is literal text — a legend showing the
+    syntax, a note about the tag itself — never an instruction. Masking keeps
+    every other character at its original offset, so a match found on the
+    masked copy can be cut out of, or read from, the original.
+    """
+    return _INLINE_CODE.sub(_blank_span, line)
+
+
+def has_context_marker(line: str) -> bool:
+    """Whether the line carries a real ``@context(`` marker (outside inline code)."""
+    return "@context(" in mask_inline_code(line)
+
+
 def is_activity_line(line: str) -> bool:
     """
     Quick check if a line is an Activity Line.
 
     Activity Lines contain @context().
     """
-    return "@context(" in line
+    return has_context_marker(line)

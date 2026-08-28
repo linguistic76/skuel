@@ -645,3 +645,40 @@ class TestErrorHandling:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+class TestInlineCodeIsLiteral:
+    """A DSL marker inside inline code is documentation, never intent.
+
+    Live incident 2026-08-27: a daily note's legend line
+    ``> Events: `- [ ] Description @context(event) @when(YYYY-MM-DDTHH:MM) @duration(1h)` ``
+    minted a junk Event titled with the legend itself. Backticks mean "literal text"
+    everywhere in Markdown; the parser must read them the same way.
+    """
+
+    LEGEND = "> Events: `- [ ] Description @context(event) @when(YYYY-MM-DDTHH:MM) @duration(1h)`  "
+
+    def test_legend_line_is_not_an_activity_line(self):
+        assert not is_activity_line(self.LEGEND)
+        result = parse_activity_line(self.LEGEND)
+        assert result.is_error
+        assert "missing @context" in str(result.error)
+
+    def test_legend_line_creates_nothing_in_a_journal(self):
+        text = "## Events\n\n" + self.LEGEND + "\n\n- [ ] Real task @context(task)\n"
+        parsed = parse_journal_text(text).value
+        assert [a.description for a in parsed.activities] == ["Real task"]
+
+    def test_real_marker_survives_a_code_span_on_the_same_line(self):
+        """Only the marker outside the code span counts; the code text stays in the description."""
+        line = "- [ ] Fix the `@context(habit)` example in the guide @context(task) @priority(2)"
+        result = parse_activity_line(line)
+        assert result.is_ok
+        activity = result.value
+        assert activity.context_values == ["task"]
+        assert activity.priority == 2
+        assert activity.description == "Fix the `@context(habit)` example in the guide"
+
+    def test_unclosed_backtick_is_not_a_code_span(self):
+        """A lone backtick masks nothing — the marker after it is real."""
+        assert is_activity_line("- [ ] Run `pytest @context(task)")
