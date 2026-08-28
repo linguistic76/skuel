@@ -1479,7 +1479,7 @@ read-then-write streak block is already the *Habit Streak Counters* row's first 
 ⚠ **And the event asymmetry runs the other way.** That node-less door is today the ONLY
 publisher of `HabitCompleted` (`habits_progress_service.py:298`; the other constructor in
 `core/events/habit_events.py` is a usage-example comment citing a `log_completion` that does not
-exist). `record_completion` publishes milestone / streak-broken events only, so the two
+exist). `record_completion` publishes `HabitStreakMilestone` only, so the two
 node-writing doors (`/api/habits/track`, calendar) reach none of the four wired subscribers —
 `GoalsProgressService.handle_habit_completed` (goal progress),
 `CrossDomainAnalyticsService.handle_habit_completed`,
@@ -1503,6 +1503,13 @@ an artificial hour instead). The shared writer's event carries the occurrence's 
 hour histogram alone: `HabitCompleted.completed_on_time` defaults to `True` and the same handler
 feeds it into `learned_on_time_rate`, so an unknown-time completion left on the default is
 counted as known-on-time and inflates the EMA and its sample count — defined, not defaulted.
+And a **future-dated** completion (legitimate by the 2026-08-23 ruling — see the *Habit Streak
+Counters* row) is stored but must not feed behaviour that has not happened yet into downstream
+state: published as-is, `CrossDomainAnalyticsService.handle_habit_completed` would pass the
+future timestamp into `_upsert_counter_analytics` (a permanently future `first_completion_at`)
+and the handler would learn its hour and on-time sample. Its side effects are deferred or
+excluded until its occurrence day arrives — the same decision as that row's `current_streak`
+semantics, taken once.
 
 **Not covered by the three Habit rows above, deliberately:** *Habit Streak Counters* is the HABIT
 node's counters (read-then-write; what `current_streak` means); *Unwired `HabitCompletion` Model
