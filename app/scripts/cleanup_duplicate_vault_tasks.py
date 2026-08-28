@@ -746,16 +746,21 @@ async def main() -> int:
         to_delete, refused = select_confirmed(
             classification.confirmable_uids(args.include_strays), confirmed
         )
-        withheld_strays = [uid for uid in refused if uid in set(classification.stray_uids)]
-        for uid in withheld_strays:
-            print(f"  REFUSED {uid}: a stray — legitimate history unless you pass --include-strays")
-        refused = [uid for uid in refused if uid not in withheld_strays]
+        # A withheld stray is still a refusal: the all-or-nothing contract holds
+        # (Codex #1168) — only the message differs.
+        withheld_strays = set(refused) & set(classification.stray_uids)
         repairs, problems = plan_repairs(
             classification, list(args.repair_id), entry_for_file(lines, owned)
         )
         if refused or problems:
             for uid in refused:
-                print(f"  REFUSED {uid}: not proposed by this run — re-read the dry-run")
+                if uid in withheld_strays:
+                    print(
+                        f"  REFUSED {uid}: a stray — legitimate history unless you pass "
+                        "--include-strays"
+                    )
+                else:
+                    print(f"  REFUSED {uid}: not proposed by this run — re-read the dry-run")
             for problem in problems:
                 print(f"  REFUSED repair {problem}")
             print("\n[ABORTED] Nothing changed: every --confirm / --repair-id must match this run.")
