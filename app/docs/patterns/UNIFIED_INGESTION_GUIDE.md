@@ -736,8 +736,14 @@ bulk upsert persists with a `user_uid` property also gets its
 deleted (a former owner must not keep access after re-ingest under a new owner).
 This keeps the `user_uid == :OWNS owner` single-owner invariant that OWNS-consuming
 read paths (faceted search, `get_user_entities`) depend on. The owner is `MATCH`ed,
-not `MERGE`d — an unknown user produces no edge and no stub. Curriculum types never
-carry `user_uid`, so they stay edge-free by construction. Ingested exercises are
+not `MERGE`d — the door never invents a `:User`. It **refuses the batch** instead:
+before the upsert runs, `BulkUpsertBackend._refuse_unknown_owners` resolves the
+batch's distinct owners in one query and fails it, naming any that have no `:User`
+node, so nothing lands (ADR-086). The batch's owner is normally the single
+descriptor-resolved one above, so a miss means every row would land orphaned. The
+failure text names the cause to check — a deleted user, a stale vault descriptor, or
+a mistyped `SKUEL_DEFAULT_USER_UID`. Curriculum types never carry `user_uid`, so they
+name no owner and skip the check entirely. Ingested exercises are
 validated to `scope: curriculum`: shared templates owned by the curriculum itself,
 visible to everyone. That is the shared-node model, not a missing owner — a user's
 ownership of an exercise materializes on their engagement chain (their `OWNS`ed
