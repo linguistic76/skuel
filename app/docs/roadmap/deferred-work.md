@@ -1468,11 +1468,12 @@ read-then-write streak block is already the *Habit Streak Counters* row's first 
 publisher of `HabitCompleted` (`habits_progress_service.py:298`; the other constructor in
 `core/events/habit_events.py` is a usage-example comment citing a `log_completion` that does not
 exist). `record_completion` publishes milestone / streak-broken events only, so the two
-node-writing doors (`/api/habits/track`, calendar) reach none of the three wired subscribers —
+node-writing doors (`/api/habits/track`, calendar) reach none of the four wired subscribers —
 `GoalsProgressService.handle_habit_completed` (goal progress),
 `CrossDomainAnalyticsService.handle_habit_completed`,
-`HabitEventHandlerService.handle_habit_completed` — nor the user-context cache invalidation keyed
-on it. The same holds for `HabitStreakBroken`: `_calculate_new_streak` resets the streak after a
+`HabitEventHandlerService.handle_habit_completed`, and `MetricsEventHandler._on_habit_completed`
+(the Prometheus `entities_completed{entity_type="habit"}` counter — completion telemetry is blind
+to them too) — nor the user-context cache invalidation keyed on it. The same holds for `HabitStreakBroken`: `_calculate_new_streak` resets the streak after a
 gap, but `record_completion` publishes only `HabitStreakMilestone` (`_check_streak_milestones`), so
 the wired `HabitEventHandlerService` subscription never hears a tracked or calendar break —
 `complete_habit_with_quality` (`:309`) is again the only real publisher (`habit_events.py:350` is
