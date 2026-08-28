@@ -1499,8 +1499,10 @@ directly — `CrossDomainAnalyticsService.handle_habit_completed` persists it,
 canonical event published as-is stamps a backfilled or future occurrence as completed *now* and
 trains scheduling on the request hour (and setting `occurred_at` to the date-only midnight trains
 an artificial hour instead). The shared writer's event carries the occurrence's own
-`completed_at`, and date-only backfills are excluded from hour learning — defined, not
-defaulted.
+`completed_at`, and a date-only backfill is excluded from the **whole timing sample** — not the
+hour histogram alone: `HabitCompleted.completed_on_time` defaults to `True` and the same handler
+feeds it into `learned_on_time_rate`, so an unknown-time completion left on the default is
+counted as known-on-time and inflates the EMA and its sample count — defined, not defaulted.
 
 **Not covered by the three Habit rows above, deliberately:** *Habit Streak Counters* is the HABIT
 node's counters (read-then-write; what `current_streak` means); *Unwired `HabitCompletion` Model
