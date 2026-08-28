@@ -205,6 +205,34 @@ class TestBulkOwnerPreflight:
         assert refusal is None
         assert session.queries == []
 
+    async def test_a_driver_failure_refuses_rather_than_raising(self) -> None:
+        """A Neo4j error in the pre-flight becomes a Result, and it fails CLOSED.
+
+        The pre-flight runs on the raw session, outside ``CypherExecutor`` —
+        which is what converts ``NEO4J_EXCEPTIONS`` into a Result for the batch
+        write. Without a guard here a timeout or disconnect would raise out of a
+        method whose signature promises a ``Result``, and ``ingest_directory``
+        branches on ``result.is_ok`` with no try/except around the call (its one
+        guard covers the MOC pass, much later). Codex P2 on #1176.
+
+        Fail-closed matters as much as not-raising: an owner set we could not
+        verify must refuse, never wave the batch through.
+        """
+        from neo4j.exceptions import ServiceUnavailable
+
+        class _FailingSession(_FakeSession):
+            async def run(self, query: str, params: dict[str, Any] | None = None) -> _FakeResult:
+                raise ServiceUnavailable("connection lost")
+
+        backend = BulkUpsertBackend(driver=MagicMock())
+
+        refusal = await backend._refuse_unknown_owners(
+            _FailingSession(missing=[]), "Entity", _items("user_real")
+        )
+
+        assert refusal is not None and refusal.is_error
+        assert "user_real" in refusal.expect_error().message
+
     async def test_upsert_nodes_returns_the_refusal_before_writing(self) -> None:
         """The refusal short-circuits ``upsert_nodes`` — no batch is executed.
 

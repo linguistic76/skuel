@@ -38,6 +38,7 @@ from adapters.persistence.neo4j.cypher_executor import CypherExecutor, CypherTem
 from adapters.persistence.neo4j.timed_driver import neo4j_query_timeout
 from core.ingestion.ingestion_types import IngestionResult, RelationshipConfig
 from core.models.enums.neo_labels import NeoLabel
+from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -278,6 +279,11 @@ class BulkUpsertBackend:
         self,
         session: "AsyncSession",
         base_label: str | None,
+        # boundary: prepared batch items are genuinely heterogeneous — a uid
+        # string, the nested ``_node_props`` map, and one flattened list per
+        # connection key. This is the type ``prepare_batch_items`` returns and
+        # ``upsert_nodes``/``execute_batch`` already declare; narrowing it here
+        # alone would be a cast asserting a shape nothing produces.
         items: list[dict[str, Any]],
     ) -> Result[IngestionResult] | None:
         """Refuse the batch when an owner it names has no ``:User`` node.
@@ -335,17 +341,35 @@ class BulkUpsertBackend:
         if not owner_uids:
             return None
 
-        result = await session.run(
-            f"""
-            UNWIND $owner_uids AS owner_uid
-            OPTIONAL MATCH (u:{NeoLabel.USER.value} {{uid: owner_uid}})
-            WITH owner_uid, u
-            WHERE u IS NULL
-            RETURN collect(owner_uid) AS missing
-            """,
-            {"owner_uids": owner_uids},
-        )
-        record = await result.single()
+        # This lookup runs on the raw session, outside CypherExecutor — which is
+        # what converts NEO4J_EXCEPTIONS into a Result for the batch write below.
+        # Without this guard a driver timeout or disconnect would raise straight
+        # out of a method whose signature promises a Result, and ingest_directory
+        # branches on ``result.is_ok`` with no try/except around the call. The
+        # conversion is also fail-CLOSED by construction: an owner set we could
+        # not verify returns a failure, so the batch never runs.
+        try:
+            result = await session.run(
+                f"""
+                UNWIND $owner_uids AS owner_uid
+                OPTIONAL MATCH (u:{NeoLabel.USER.value} {{uid: owner_uid}})
+                WITH owner_uid, u
+                WHERE u IS NULL
+                RETURN collect(owner_uid) AS missing
+                """,
+                {"owner_uids": owner_uids},
+            )
+            record = await result.single()
+        except NEO4J_EXCEPTIONS as e:
+            self.logger.error(f"Owner pre-flight failed, refusing the batch: {e}")
+            return Result.fail(
+                Errors.database(
+                    "upsert_nodes",
+                    f"Could not verify the batch's owner(s) {owner_uids} against the "
+                    f"graph ({e}); refusing rather than persisting entities whose "
+                    "ownership edge may never be written (ADR-086).",
+                )
+            )
         missing = list(record["missing"]) if record else []
         if not missing:
             return None
