@@ -49,12 +49,20 @@ This guide covers how to implement a parser for the SKUEL Activity DSL, includin
 ACTIVITY_LINE_PATTERN = r'@context\('
 ```
 
-**Usage:**
+**Usage** (the live shape — `core/services/dsl/activity_dsl_parser.py`):
 ```python
 def is_activity_line(line: str) -> bool:
-    """Check if line contains @context() tag."""
-    return '@context(' in line
+    """A real @context() marker — one OUTSIDE Markdown inline code."""
+    return has_context_marker(line)          # "@context(" in mask_inline_code(line)
 ```
+
+`mask_inline_code()` replaces every code span (`` `…` ``, or a run of N backticks
+closed by exactly N) with same-length whitespace before the check, so a legend
+line such as ``> Events: `- [ ] Description @context(event) …` `` is documentation,
+not an Activity Line (DSL_SPECIFICATION § `@context()`, "Literal text is not a
+marker" — ruled 2026-08-27 after such a line minted a junk Event). The same mask
+feeds tag extraction and description extraction, so a tag-shaped token inside
+code is neither a tag nor cut from the description.
 
 **Alternative (stricter):**
 ```python
@@ -429,8 +437,8 @@ class ActivityDSLParser:
                    line_number: int | None = None) -> ParsedActivityLine | None:
         """Parse a single activity line."""
 
-        # Check if line contains @context()
-        if '@context(' not in line:
+        # Check for a real @context() marker (inline code is literal text)
+        if not has_context_marker(line):
             return None
 
         # Extract all tags
