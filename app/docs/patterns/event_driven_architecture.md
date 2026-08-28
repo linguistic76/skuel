@@ -246,7 +246,7 @@ await event_bus.publish_async(event)
 Use `publish_event()` for consistent warning handling when event bus is unavailable:
 
 ```python
-from core.events.utils import publish_event
+from core.events import publish_event
 
 # In service methods:
 await publish_event(self.event_bus, event, self.logger)
@@ -274,7 +274,7 @@ Event handlers across all 6 Activity Domains and the Learning Loop persist struc
 | Principles | Principle conflicts | `PRINCIPLE_CONFLICT` |
 | Learning Loop | Submission iterations, feedback turnaround anomaly, mastery velocity | `LEARNING_PROGRESS`, `COMPLETION_PATTERN`, `MASTERY_ACHIEVED` |
 
-**Wiring:** `services_bootstrap/_event_wiring.py` passes `insight_store` to all 6 Activity Domain facades (which forward it to their `EventHandlerService` and `IntelligenceService` via `BaseAnalyticsService`) and directly to `LearningLoopEventHandlerService`.
+**Wiring:** `services_bootstrap/_event_wiring.py` passes `insight_store` to all 6 Activity Domain facades (which forward it to their per-domain `*EventHandlerService` and `*IntelligenceService` — `HabitEventHandlerService`, `GoalsIntelligenceService`, and so on — via `BaseAnalyticsService`) and directly to `LearningLoopEventHandlerService`.
 
 **See:** [INSIGHT_ACTION_TRACKING.md](/docs/patterns/INSIGHT_ACTION_TRACKING.md), [SUB_SERVICE_CATALOG.md](/docs/reference/SUB_SERVICE_CATALOG.md)
 
