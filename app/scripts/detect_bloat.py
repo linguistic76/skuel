@@ -469,6 +469,15 @@ PLANNED_METHODS: dict[str, str] = {
         "act-from arc C5 deletion (vulture name-collision); wire a chunk-metadata "
         "consumer or delete the accessor"
     ),
+    # --- UserContext fallback next-action (unmasked 2026-08-28) ---
+    "core/services/user/unified_user_context.py::get_recommended_next_action": (
+        "documented CORE-tier fallback next-action heuristic (blocked → prerequisites, "
+        "at-risk habits, overdue tasks, goal progress) — its only production caller was "
+        "the dead EnhancedUserContext deleted 2026-08-28 (#1170); four integration tests "
+        "and scripts/demos/bidirectional_relationships_demo.py still exercise it. Wire it "
+        "as the /today or /api hint for the CORE tier (where the intelligence methods it "
+        "defers to are absent), or delete it with its tests and the demo call"
+    ),
     # --- Shared BaseService mixins (campaign 16) ---
     "core/services/mixins/relationship_operations_mixin.py::add_prerequisite": (
         _MIXIN_PREREQUISITE_WRITE
