@@ -207,13 +207,22 @@ class ExerciseService(BaseService[ExerciseBackendOperations, Exercise]):
             self.logger.error(f"Failed to create exercise: {result.error}")
             return result
 
-        # Create OWNS relationship (owner → exercise)
+        # Create OWNS relationship (owner → exercise). Return failure when the
+        # edge write fails: the node is already persisted, so a warning here
+        # left an owner holding a create that reported success while the edge
+        # was missing — the property-only shape ADR-086 grades as door 4's soft
+        # spot, invisible to every :OWNS-traversing read. Reporting the failure
+        # is what lets the caller retry or surface it (ADR-086 hardening).
         if entity.owner_uid:
             owns_result = await self.backend.create_owns_relationship(
                 UserUID(entity.owner_uid), uid
             )
             if owns_result.is_error:
-                self.logger.warning(f"Failed to create OWNS relationship: {owns_result.error}")
+                self.logger.error(
+                    f"OWNS edge failed for {uid} -> owner {entity.owner_uid}: "
+                    f"{owns_result.expect_error()} (node was persisted)"
+                )
+                return Result.fail(owns_result)
 
         # Dual-write: HAS_EXERCISE edge mirrors Exercise.path_step_uid for PERSONAL scope.
         # Return failure when edge creation fails — a PERSONAL exercise without the edge

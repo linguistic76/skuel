@@ -419,6 +419,17 @@ class TestQueryBuilderComposition:
         assert "user_uid" in params and params["user_uid"] is None
 
     def test_scope_aware_without_user_still_filters_to_curriculum(self) -> None:
+        """Anonymous SCOPE_AWARE still floors at published curriculum.
+
+        Since the builders fail closed (has_user=True unconditionally), the
+        anonymous clause now carries the owned disjuncts too with $user_uid
+        bound to None. That does not widen the audience: every one of them is
+        a null comparison, and a null comparison selects no row — measured on
+        the live engine, ``n.owner_uid = null``, ``MATCH (n {user_uid: null})``
+        and ``EXISTS { MATCH (:User {uid: null})-[:OWNS]->(n) }`` each match 0
+        of 337 entities where a real uid matches 145. The curriculum disjunct
+        is the only one that can fire, exactly as before.
+        """
         cypher, params = build_text_search_query(
             Task,  # any dataclass with title works for the builder
             "alpha",
@@ -429,10 +440,139 @@ class TestQueryBuilderComposition:
         )
         assert "n.scope = $visibility_curriculum_scope" in cypher
         assert params["visibility_curriculum_scope"] == "curriculum"
-        assert "user_uid" not in params
+        assert params["user_uid"] is None
         # Anonymous callers see published curriculum only.
         assert "publication_state" in cypher
         assert params["publication_draft"] == "draft"
+
+
+# ============================================================================
+# 2a. EVERY clause-composing builder fails closed — one convention, no list
+# ============================================================================
+
+
+def _owner_only_no_user_query(builder_name: str) -> tuple[str, dict[str, Any]]:
+    """Drive one builder with OWNER_ONLY and NO user, returning (cypher, params).
+
+    Driving the real builder — rather than asserting on its source — is what
+    makes this a measurement: a builder that stopped composing the clause at
+    all would still read fine.
+    """
+    if builder_name == "build_text_search_query":
+        return build_text_search_query(
+            Task,
+            "alpha",
+            search_fields=("title",),
+            label="Task",
+            visibility=SearchVisibility.OWNER_ONLY,
+        )
+    if builder_name == "build_graph_aware_search_query":
+        return build_graph_aware_search_query(
+            Task,
+            query="alpha",
+            source_uid="goal_1",
+            relationship_type=RelationshipName.SUPPORTS_GOAL.value,
+            search_fields=("title",),
+            label="Task",
+            visibility=SearchVisibility.OWNER_ONLY,
+        )
+    if builder_name == "build_array_any_match_query":
+        return build_array_any_match_query(
+            label=NeoLabel.TASK,
+            field="tags",
+            values=["alpha"],
+            visibility=SearchVisibility.OWNER_ONLY,
+        )
+    if builder_name == "build_relationship_traversal_query":
+        return build_relationship_traversal_query(
+            source_uid="goal_1",
+            relationship_type=RelationshipName.SUPPORTS_GOAL.value,
+            target_label=NeoLabel.TASK,
+            visibility=SearchVisibility.OWNER_ONLY,
+        )
+    if builder_name == "build_array_contains_query":
+        return build_array_contains_query(
+            label=NeoLabel.TASK,
+            field="tags",
+            value="alpha",
+            visibility=SearchVisibility.OWNER_ONLY,
+        )
+    raise AssertionError(f"no driver for {builder_name}")
+
+
+class TestEveryBuilderFailsClosed:
+    """OWNER_ONLY + no user emits the predicate anyway — in EVERY builder.
+
+    ``build_search_visibility_clause`` emits NO ownership predicate for
+    OWNER_ONLY when ``has_user`` is False, so a builder that derives
+    ``has_user`` from ``user_uid is not None`` drops the predicate exactly when
+    it is needed and returns every user's rows. Two builders were fixed for
+    that in #1120; the other three kept the derived form because SearchRouter
+    refuses unscoped OWNER_ONLY upstream.
+
+    That upstream defence is real but indirect, and it is not one defence:
+    ``search()``'s gate keys on the domain's ``search_visibility`` (the same
+    signal the clause reads), while ``advanced_search`` — the only path to the
+    tag and graph strategies — skips on ``EntityType.is_user_owned()``, a
+    *different* signal. Measured 2026-08-28: the two agree for all 12
+    searchable domains, and nothing pinned that agreement. Rather than pin a
+    coincidence between two modules, every builder now holds the floor itself
+    (ADR-086 hardening).
+
+    This is a RULE, not a list: a sixth clause-composing builder is added to
+    ``BUILDERS`` and inherits the assertion.
+    """
+
+    BUILDERS = (
+        "build_text_search_query",
+        "build_graph_aware_search_query",
+        "build_array_any_match_query",
+        "build_relationship_traversal_query",
+        "build_array_contains_query",
+    )
+
+    @pytest.mark.parametrize("builder_name", BUILDERS)
+    def test_owner_only_without_user_still_emits_the_predicate(self, builder_name: str) -> None:
+        cypher, params = _owner_only_no_user_query(builder_name)
+
+        assert "$user_uid" in cypher, (
+            f"{builder_name} dropped the ownership predicate for OWNER_ONLY with no user — "
+            "the query it returns is unscoped and matches every user's rows"
+        )
+        assert "user_uid" in params, (
+            f"{builder_name} emitted $user_uid without binding it — the query errors unbound "
+            "rather than failing closed"
+        )
+        assert params["user_uid"] is None
+
+    @pytest.mark.parametrize("builder_name", BUILDERS)
+    def test_the_predicate_is_the_ownership_property_not_an_owns_traversal(
+        self, builder_name: str
+    ) -> None:
+        """Positive control: with a real user the SAME builders scope by property.
+
+        Without this the assertion above passes against a builder that emits
+        ``$user_uid`` somewhere harmless — it pins that the fail-closed
+        predicate is the ownership one.
+        """
+        cypher, _ = _owner_only_no_user_query(builder_name)
+        alias = "target" if "graph_aware" in builder_name or "traversal" in builder_name else "n"
+        assert f"({alias}.user_uid = $user_uid)" in cypher
+
+    def test_no_builder_derives_has_user_from_the_uid(self) -> None:
+        """The inversion, spelled out: a derived has_user leaves NO predicate.
+
+        Composing the clause the old way is still legal for a caller that has
+        genuinely no ownership dimension, so this asserts the consequence
+        rather than banning the spelling — it is the fact the builders' ⚠
+        comments point at, and it holds the clause's own contract.
+        """
+        assert (
+            build_search_visibility_clause(
+                SearchVisibility.OWNER_ONLY, entity_alias="n", has_user=False
+            )
+            is None
+        )
 
 
 # ============================================================================

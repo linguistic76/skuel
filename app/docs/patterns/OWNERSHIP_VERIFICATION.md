@@ -367,11 +367,14 @@ class Task:
 ```
 
 - **Owner-bound curriculum** (Exercise) carries `owner_uid` plus the
-  canonical `:OWNS` edge — there is no `user_uid` property on those nodes,
-  and the edge write is warn-only at create, so property-without-edge can
-  exist. Both layers resolve `user_uid` → `owner_uid` → `:OWNS` owner (the
-  mixin sees the model properties; the sharing query adds the edge fallback)
-  so they always agree. An entity with none is unowned: `verify_ownership`
+  canonical `:OWNS` edge — there is no `user_uid` property on those nodes.
+  `create()` returns the failure when the edge write fails (ADR-086 door-4
+  hardening, 2026-08-28; it used to only warn, which is how a
+  property-without-edge node could be created in the first place). Both layers
+  still resolve `user_uid` → `owner_uid` → `:OWNS` owner (the mixin sees the
+  model properties; the sharing query adds the edge fallback) so they always
+  agree — the fallback covers nodes created before the hardening, and any door
+  not yet enumerated. An entity with none is unowned: `verify_ownership`
   returns a system error, sharing refuses.
 
 ## Domains by Ownership Type

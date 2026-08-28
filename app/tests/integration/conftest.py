@@ -22,6 +22,8 @@ from neo4j import AsyncGraphDatabase
 from testcontainers.neo4j import Neo4jContainer  # type: ignore[import-untyped]
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
+from core.constants import SYSTEM_USER_UID
+from core.services.ingestion.config import DEFAULT_USER_UID
 
 # Lazy imports to avoid circular import issues
 # These are imported inside fixtures that need them
@@ -173,12 +175,20 @@ async def ensure_test_users(neo4j_driver):
         # The Goal complete → reopen → complete cycle (ADR-087 PR-3): the stamp clear
         # and the progress reset ride one write-time condition, proven on real goals.
         "user_goal_cycle",
+        # The ingestion fallback owner. A file that names no owner is stamped with
+        # DEFAULT_USER_UID (SKUEL_DEFAULT_USER_UID, else SYSTEM_USER_UID), so the
+        # bulk door's unknown-owner refusal (ADR-086) makes it REQUIRED — and it is
+        # resolved, not spelled, because a developer's .env sets it to their own uid
+        # while CI falls back to user_system. Seeding the literal would pass on one
+        # machine and fail on the other.
+        DEFAULT_USER_UID,
+        SYSTEM_USER_UID,
     ]
 
     async def create_users():
         """Create all test User nodes."""
         async with neo4j_driver.session() as session:
-            for user_uid in test_user_uids:
+            for user_uid in dict.fromkeys(test_user_uids):
                 result = await session.run(
                     """
                     MERGE (u:User {uid: $user_uid})

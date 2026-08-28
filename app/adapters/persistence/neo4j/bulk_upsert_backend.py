@@ -37,11 +37,12 @@ from adapters.persistence.neo4j.batch_preparer import prepare_batch_items
 from adapters.persistence.neo4j.cypher_executor import CypherExecutor, CypherTemplate
 from adapters.persistence.neo4j.timed_driver import neo4j_query_timeout
 from core.ingestion.ingestion_types import IngestionResult, RelationshipConfig
+from core.models.enums.neo_labels import NeoLabel
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from neo4j import AsyncDriver
+    from neo4j import AsyncDriver, AsyncSession
 
 logger = get_logger("skuel.adapters.bulk_upsert")
 
@@ -230,13 +231,21 @@ class BulkUpsertBackend:
         relationship_config: dict[str, RelationshipConfig],
         batch_size: int = 500,
     ) -> Result[IngestionResult]:
-        """Node-only upsert (phase 1) — connection fields filtered off the node."""
+        """Node-only upsert (phase 1) — connection fields filtered off the node.
+
+        Refuses the whole batch when an owner it names has no ``:User`` node —
+        see :meth:`_refuse_unknown_owners` (ADR-086 door 2 hardening).
+        """
         template = build_node_upsert_template(entity_label, base_label)
 
         with neo4j_query_timeout(_BULK_INGESTION_TIMEOUT_SECONDS):
             async with self._driver.session() as session:
                 executor = CypherExecutor(session, dict)
                 items = prepare_batch_items(entities, rel_config=relationship_config)
+
+                refusal = await self._refuse_unknown_owners(session, base_label, items)
+                if refusal is not None:
+                    return refusal
 
                 result = await executor.execute_batch(
                     template=template,
@@ -264,6 +273,97 @@ class BulkUpsertBackend:
                         errors=[],
                     )
                 )
+
+    async def _refuse_unknown_owners(
+        self,
+        session: "AsyncSession",
+        base_label: str | None,
+        items: list[dict[str, Any]],
+    ) -> Result[IngestionResult] | None:
+        """Refuse the batch when an owner it names has no ``:User`` node.
+
+        The invariant every write door owes is ``user_uid`` property ==
+        ``:OWNS`` owner (ADR-086). The upsert template holds it for a KNOWN
+        owner, but its owner ``MATCH`` sits in a row-preserving unit subquery
+        *after* the node persists — so an unknown owner used to yield a
+        property-only node while the ingest reported success. That orphan is
+        invisible to every ``:OWNS``-traversing read (MEGA-QUERY,
+        ``get_user_entities``, the GDPR cascade) and the only signal was an
+        integration test.
+
+        This is the loud half of the no-stub choice: the door still never
+        ``MERGE``s a ``:User`` — it refuses instead of inventing one. The
+        batch's owner set is normally a single descriptor-resolved owner, so a
+        miss means the whole batch would land orphaned; refusing all of it is
+        the honest verdict, and it names the owner so the cause (a deleted
+        user, a stale vault descriptor, a mistyped ``SKUEL_DEFAULT_USER_UID``)
+        is diagnosable from the error alone.
+
+        Scoped to ``:Entity`` batches keyed on ``_node_props.user_uid`` —
+        exactly what the template's owns clause reads, so the check cannot
+        drift from the write it guards. Group's ``owner_uid`` is popped before
+        this template runs and ownerless curriculum names no owner at all;
+        both yield an empty owner set and skip the query entirely.
+
+        The check is a pre-flight, not a lock: a user deleted between it and the
+        upsert still yields the old property-only node. Closing that window
+        would mean gating the node write on the owner ``MATCH``, which drops
+        the row from the stream instead — a silent under-write, worse than the
+        shape it replaces. The residual window is covered where it always was,
+        from the other side: the June-2026 repair migration and
+        ``tests/integration/test_owner_only_ownership_invariant.py``.
+
+        The refusal is a DATABASE-category error on purpose, matching door 1's
+        unknown-owner refusal (``_crud_mixin._create_node``, "owner ... must be
+        an existing User"): the ingestion report files VALIDATION-category
+        failures under *ignored-with-reason*, and a refused batch is a failure
+        the sync must show, not a file it chose to skip.
+
+        Returns:
+            A failed Result to return from the caller, or None to proceed.
+        """
+        if base_label != "Entity":
+            return None
+
+        owner_uids = sorted(
+            {
+                str(owner)
+                for item in items
+                if (owner := item.get("_node_props", item).get("user_uid"))
+            }
+        )
+        if not owner_uids:
+            return None
+
+        result = await session.run(
+            f"""
+            UNWIND $owner_uids AS owner_uid
+            OPTIONAL MATCH (u:{NeoLabel.USER.value} {{uid: owner_uid}})
+            WITH owner_uid, u
+            WHERE u IS NULL
+            RETURN collect(owner_uid) AS missing
+            """,
+            {"owner_uids": owner_uids},
+        )
+        record = await result.single()
+        missing = list(record["missing"]) if record else []
+        if not missing:
+            return None
+
+        self.logger.error(
+            f"Ingestion refused: {len(missing)} owner(s) named by this batch have no "
+            f"User node — {missing}"
+        )
+        return Result.fail(
+            Errors.database(
+                "upsert_nodes",
+                f"Ingestion refused — owner(s) {missing} have no :User node, so the "
+                f"{len(items)} entities in this batch would persist with a user_uid "
+                "nobody owns (ADR-086: user_uid property == :OWNS owner). Create the "
+                "user, or correct the vault descriptor / SKUEL_DEFAULT_USER_UID that "
+                "named it.",
+            )
+        )
 
     async def create_relationships(
         self,

@@ -52,36 +52,50 @@ membership/consent semantics.
 ### 1. Universal `:OWNS` is ratified as THE ownership edge
 
 The accreted reality becomes the contract. `(User)-[:OWNS]->(entity)` is the single ownership
-edge for every user-owned entity. The **four write doors** (file:line as of 2026-08-21):
+edge for every user-owned entity. The **four shared write doors** every domain flows through
+(file:line as of 2026-08-21; hand-written domain Cypher also writes the edge — see
+Consequences for the rule that governs those):
 
 1. **Generic CRUD create** — `_crud_mixin.py:157-168`: the `MERGE (owner)-[:OWNS]->(n)` is
    composed into the same statement as the node CREATE; the owner is `MATCH`ed, so a
    `user_uid` naming a non-existent User aborts the whole write.
-2. **Ingestion bulk upsert** — `bulk_upsert_backend.py:99-108`: `MERGE` plus a stale-owner
-   guard that deletes any previous owner's edge — single-owner invariant. Deliberately
-   **no-stub**: the owner is `MATCH`ed inside a row-preserving unit `CALL` subquery *after*
-   the node (with its `user_uid` property) has persisted, so an unknown owner silently
-   yields a property-only node rather than aborting the row (the door's docstring records
-   this as a choice, mirroring relationship-target semantics).
+2. **Ingestion bulk upsert** — `bulk_upsert_backend.py`: `MERGE` plus a stale-owner
+   guard that deletes any previous owner's edge — single-owner invariant. The owner is
+   still `MATCH`ed inside a row-preserving unit `CALL` subquery *after* the node has
+   persisted, so the statement alone cannot abort the row; the door instead **refuses the
+   batch before it runs** — `BulkUpsertBackend._refuse_unknown_owners` resolves the batch's
+   distinct owners in one query and fails the batch, naming them, when any has no `:User`
+   node. **No-stub is preserved**: the door still never `MERGE`s a `:User` — it refuses
+   rather than inventing one.
 3. **UserEntry** — `_user_entry_crud_mixin.py:128-129`: strictest door — `WHERE n.user_uid =
    owner.uid` guards the MERGE against an ownership race.
-4. **Hand-written domain writers** — Exercise (`backends/exercise_backends.py:253-269`,
-   invoked warn-only from `exercise_service.py:211-216` — property lands even if the edge
-   write fails), Group (`backends/collab_backends.py:51`), FormSubmission
-   (`backends/forms_backends.py:561`).
+4. **Hand-written domain writers** — Exercise (`backends/exercise_backends.py`, invoked from
+   `exercise_service.create`), Group (`backends/collab_backends.py`, invoked from
+   `group_service.create`), FormSubmission (`backends/forms_backends.py`). FormSubmission is
+   structural in its own right — one atomic `MATCH` + `CREATE` whose empty record is a
+   failure. Exercise and Group write the edge in a separate query; both **return the
+   failure** rather than warning past it.
 
 **The invariant:** wherever both exist, `user_uid` property `== :OWNS` owner — ratified as
-the contract every door owes, with honest enforcement grades: doors 1 and 3 enforce it
-**structurally** (same statement / guarded MERGE — the write aborts rather than splitting
-the halves); doors 2 and 4 are the known **soft spots** — ingestion's deliberate no-stub
-skip can leave a property-only node (and a null `user_uid` on re-ingest skips the
-stale-owner guard, leaving a prior owner's edge beside a nulled property), and Exercise's
-edge write is warn-only (documented in OWNERSHIP_VERIFICATION.md § Entity Requirements).
-The invariant is repaired from the other side by the June-2026 migration + the single-owner
-guard, and watched by `tests/integration/test_owner_only_ownership_invariant.py`. Hardening
-the two soft doors (fail loudly vs. document-and-watch) is **open work, recorded here** —
-not assumed away. `owner_uid` domains (Exercise, Group) carry edge + `owner_uid` property
-instead of `user_uid`.
+the contract every door owes. Doors 1, 3 and FormSubmission enforce it **structurally**
+(one statement / guarded MERGE — the write aborts rather than splitting the halves); doors
+2, Exercise and Group enforce it by **refusing**: the batch pre-flight above, and a returned
+`Result.fail` when the separate edge write fails. Both were the ADR's original soft spots,
+where the caller was told the write succeeded while a property-only node had landed —
+invisible to every `:OWNS`-traversing read. **That hardening is done** (2026-08-28); the
+grading above replaces the earlier "doors 2 and 4 are soft spots" text, which also
+mis-filed FormSubmission as soft. The invariant is still repaired from the other side by the
+June-2026 migration + the single-owner guard and watched by
+`tests/integration/test_owner_only_ownership_invariant.py`. `owner_uid` domains (Exercise,
+Group) carry edge + `owner_uid` property instead of `user_uid`.
+
+**One residue stays open, by name:** a re-ingest that sets `user_uid` to null skips the
+stale-owner `DELETE` (the guard is gated on `_owner_uid IS NOT NULL`), leaving a prior
+owner's `:OWNS` edge beside a nulled property. The preparer always stamps a string owner on
+`requires_user_uid` types, so no live path reaches it — it is a latent shape, not a
+defect in flight. Live-graph measurement 2026-08-28 (AuraDB `d2d160c4`): 337 `:Entity`,
+161 owned, **zero** violations in all four directions (property-only, edge-less,
+stale-owner, nulled-property).
 
 **Sanctioned consequence — property-scoped reads are sound.** The standing ruling that
 `find_by(user_uid=…)` and other property predicates are legitimate (distinct from `:OWNS`
@@ -90,7 +104,10 @@ soft spots*, not on a claim of universal structural enforcement: a property-only
 (unknown-owner ingest) stores a `user_uid` naming a **nonexistent** user, so no live
 requester's property-scoped read can match it — the defect orphans data rather than
 disclosing it — while the stale-edge case is visible only to the *former* owner and only via
-edge-traversing reads. Search scopes by property (the August 2026 faceted convergence,
+edge-traversing reads. Since the 2026-08-28 hardening the ruling no longer *needs* that
+fallback for doors 2/Exercise/Group, which now refuse instead of splitting the halves; the
+failure-direction argument is kept because it is what makes the ruling survive a door we
+have not yet thought of. Search scopes by property (the August 2026 faceted convergence,
 SEARCH_ARCHITECTURE § Ownership Scoping), while the edge remains the signal for cascade
 deletes, sharing checks, and the adapter Cypher that traverses it (MEGA-QUERY/CONSOLIDATED
 anchors `user_context_queries.py:94/:1294`, `get_user_entities` `_user_entity_mixin.py:270`,
@@ -216,9 +233,15 @@ DDL (only user-admin Cypher is refused).
 
 - The graph contract stops lying: after regeneration, no label traits a never-written edge as
   "ownership", and `OWNS` carries the trait.
-- One channel fewer: with the generic interpolation gone, every `:OWNS` edge enters through
-  one of the four named doors — the invariant becomes auditable at the doors instead of
-  "doors plus a generic bypass".
+- One channel fewer: with the generic interpolation gone, no writer can compose an ownership
+  edge from a registry field — the invariant becomes auditable at the write sites instead of
+  "write sites plus a generic bypass". The doors enumerated in §1 are the *shared* ones every
+  domain flows through; hand-written domain Cypher writes `:OWNS` too (the teacher-workflow
+  report and revision writers in `exercise_backends.py`, `get_or_create_default_group` in
+  `collab_backends.py`). Verified 2026-08-28: each of those composes the edge in the SAME
+  statement as the node, with the owner `MATCH`ed — structural, like door 1. **The rule, not
+  the list, is what to check against a new writer: the owner `MATCH` and the node write share
+  one statement, or the write reports its own failure.**
 - Events attendance gets consent semantics instead of inherited ownership semantics; the
   staged methods stop implying a second user can own someone's event.
 - ADR-026 remains authoritative for the registry's *relationship* definitions; only its
@@ -234,6 +257,13 @@ DDL (only user-admin Cypher is refused).
   deleting; regenerates `GRAPH_CONTRACT.yaml`; repairs the round-trip and tracking tests).
 - Read-side gap closures: ADR-085 §5 (PR-3).
 - Group `ownership_property` + the `User.uid` constraint + arc close-out: PR-4.
+- Write-door hardening (§1's "fail loudly vs. document-and-watch"): **CLOSED 2026-08-28** —
+  fail loudly, ruled by Mike. Door 2 refuses the batch before it runs
+  (`BulkUpsertBackend._refuse_unknown_owners`); Exercise and Group return the failed edge
+  write instead of warning past it. Pins: `tests/unit/test_ownership_write_door_hardening.py`
+  and `tests/integration/test_ingestion_owns_enum_casing.py` (refusal + positive control).
+  The one residue — a nulled `user_uid` on re-ingest skipping the stale-owner DELETE — is
+  named in §1 and has no live path.
 - Attendance wiring (routes, UI, `OWNER_OR_ATTENDEE`, auto-attend, ghost filter,
   `max_attendees`, role enum): a future arc, on Mike's explicit decision — the surface stays
   staged until then.

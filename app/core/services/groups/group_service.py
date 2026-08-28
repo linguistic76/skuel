@@ -149,10 +149,17 @@ class GroupService(BaseService[GroupBackendOperations, Group]):
             self.logger.error(f"Failed to create group: {result.error}")
             return result
 
-        # Create OWNS relationship from teacher to group
+        # Create OWNS relationship from teacher to group. Return failure when the
+        # edge write fails: the node is already persisted, so a warning here left
+        # a group whose owner could not reach it through any :OWNS-traversing
+        # read while create() reported success (ADR-086 door 4 hardening).
         owns_result = await self.backend.create_owns_relationship(entity.owner_uid, entity.uid)
         if owns_result.is_error:
-            self.logger.warning(f"Failed to create OWNS relationship: {owns_result.error}")
+            self.logger.error(
+                f"OWNS edge failed for {entity.uid} -> owner {entity.owner_uid}: "
+                f"{owns_result.expect_error()} (node was persisted)"
+            )
+            return Result.fail(owns_result)
 
         if self.event_bus:
             from core.events.group_events import GroupCreated

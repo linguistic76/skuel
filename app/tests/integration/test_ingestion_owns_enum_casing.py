@@ -174,6 +174,73 @@ async def test_reingest_removes_stale_owner_edge(
 
 
 @pytest.mark.asyncio
+async def test_unknown_owner_is_refused_and_nothing_lands(
+    clean_neo4j, neo4j_driver, ingestion_service, tmp_path: Path
+) -> None:
+    """An owner with no :User node refuses the batch — it does not orphan a node.
+
+    The template's owner ``MATCH`` sits in a row-preserving unit ``CALL``
+    subquery *after* the node persists, so this used to be the silent case:
+    node written with ``user_uid``, no ``:OWNS`` edge, ingest reports success,
+    and the entity is invisible to every ``:OWNS``-traversing read. That is
+    ADR-086's door-2 soft spot; ``BulkUpsertBackend._refuse_unknown_owners``
+    is the loud half. The door still never MERGEs a ``:User`` — it refuses
+    rather than inventing one.
+    """
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    ghost = "user_owns_ghost_never_created"
+    path = vault / "ownstest-ghost.md"
+    path.write_text(
+        f"""---
+type: task
+uid: task.ownstest-ghost
+title: Task owned by nobody
+user_uid: {ghost}
+---
+
+Body.
+"""
+    )
+    # The ghost must NOT exist — :User nodes survive clean_neo4j.
+    async with neo4j_driver.session() as session:
+        await session.run("MATCH (u:User {uid: $uid}) DETACH DELETE u", {"uid": ghost})
+
+    result = await ingestion_service.ingest_directory(vault)
+
+    stats = result.value
+    assert stats.successful == 0 and stats.failed == 1, (
+        f"an ingest naming an owner with no :User node was not counted as failed: {stats}"
+    )
+    assert stats.errors and ghost in stats.errors[0]["error"], (
+        "the refusal must name the owner — that is what makes the cause "
+        "(deleted user / stale descriptor / mistyped SKUEL_DEFAULT_USER_UID) diagnosable"
+    )
+    assert await _node_props(neo4j_driver, "task.ownstest-ghost") is None, (
+        "the node landed anyway — the refusal must precede the write, not report "
+        "orphans it already created"
+    )
+
+
+@pytest.mark.asyncio
+async def test_known_owner_still_ingests(
+    clean_neo4j, neo4j_driver, ingestion_service, tmp_path: Path
+) -> None:
+    """Positive control for the refusal above — a real owner is unaffected.
+
+    Without this, a pre-flight that refused *every* batch would pass the test
+    above and look like a working guard.
+    """
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    _write_task_file(vault, "ownstest-known")
+
+    assert (await ingestion_service.ingest_directory(vault)).is_ok
+    assert await _node_props(neo4j_driver, "task.ownstest-known") is not None
+    assert len(await _owns_edges(neo4j_driver, "task.ownstest-known")) == 1
+
+
+@pytest.mark.asyncio
 async def test_invariant_no_user_uid_bearing_entity_without_owns(
     clean_neo4j, neo4j_driver, ingestion_service, tmp_path: Path
 ) -> None:

@@ -316,13 +316,15 @@ def build_search_visibility_clause(
             fail-closed floor.
 
             ``owner_uid`` is checked alongside the :OWNS edge because the two
-            are a dual write and the edge half is not guaranteed: on Exercise,
-            ``create()`` persists the node and only *warns* if the OWNS write
-            fails, so an owner can hold a create that reported success while
-            the edge is missing. Trusting the edge alone hides that entity
-            from its own owner. Reading either half keeps the owner's claim
-            whole; both halves are written only by paths that already own the
-            entity, so this widens the audience by nothing else.
+            are a dual write whose halves can be split in stored data: on
+            Exercise the node persists first, and until the ADR-086 hardening
+            (2026-08-28) a failed OWNS write only *warned*, so an owner could
+            hold a create that reported success while the edge was missing.
+            ``create()`` now returns that failure, but nodes written before it
+            remain. Trusting the edge alone hides such an entity from its own
+            owner. Reading either half keeps the owner's claim whole; both
+            halves are written only by paths that already own the entity, so
+            this widens the audience by nothing else.
 
     Returns:
         ``(fragment, params)`` — a parenthesized WHERE fragment plus the
@@ -467,21 +469,30 @@ def build_text_search_query(
     where_clause = f"({' OR '.join(where_clauses)})"
 
     params: dict[str, Neo4jValue] = {"query": query, "limit": limit}
+    # ⚠ has_user=True is deliberate and load-bearing — do NOT derive it from
+    # `user_uid is not None`. OWNER_ONLY must always emit its predicate: on a
+    # null $user_uid it is a null predicate and matches nothing (fail-closed),
+    # whereas dropping it returns EVERY user's rows. The clause's own docstring
+    # names that inversion. All five clause-composing builders hold this one
+    # convention themselves rather than each leaning on an upstream refusal in
+    # another module — SearchRouter's skip keys on EntityType.is_user_owned(),
+    # a different signal from the search_visibility the clause reads, and the
+    # two agreeing today is a coincidence no builder should depend on.
     visibility_scope = build_search_visibility_clause(
         visibility,
         entity_alias="n",
-        has_user=user_uid is not None,
+        has_user=True,
         ownership_property=ownership_property,
     )
     if visibility_scope:
         visibility_clause, visibility_params = visibility_scope
         where_clause = f"{visibility_clause} AND {where_clause}"
         params.update(visibility_params)
-        # Only bind $user_uid when the clause actually references it: a PUBLIC
-        # domain now returns the publication gate (which does not), and passing
-        # the caller's identity into a query that never uses it is a needless
-        # leak of who is asking.
-        if user_uid is not None and "$user_uid" in visibility_clause:
+        # Bind $user_uid whenever the clause references it — even when None, so
+        # the emitted predicate can fail closed rather than error unbound. A
+        # clause that does not reference it (PUBLIC's publication gate) still
+        # never receives the caller's identity.
+        if "$user_uid" in visibility_clause:
             params["user_uid"] = user_uid
 
     # Build ORDER BY clause
@@ -686,21 +697,30 @@ def build_graph_aware_search_query(
     text_where = f"({' OR '.join(text_where_clauses)})"
 
     params: dict[str, Neo4jValue] = {"source_uid": source_uid, "query": query, "limit": limit}
+    # ⚠ has_user=True is deliberate and load-bearing — do NOT derive it from
+    # `user_uid is not None`. OWNER_ONLY must always emit its predicate: on a
+    # null $user_uid it is a null predicate and matches nothing (fail-closed),
+    # whereas dropping it returns EVERY user's rows. The clause's own docstring
+    # names that inversion. All five clause-composing builders hold this one
+    # convention themselves rather than each leaning on an upstream refusal in
+    # another module — SearchRouter's skip keys on EntityType.is_user_owned(),
+    # a different signal from the search_visibility the clause reads, and the
+    # two agreeing today is a coincidence no builder should depend on.
     visibility_scope = build_search_visibility_clause(
         visibility,
         entity_alias="target",
-        has_user=user_uid is not None,
+        has_user=True,
         ownership_property=ownership_property,
     )
     if visibility_scope:
         visibility_clause, visibility_params = visibility_scope
         text_where = f"{visibility_clause} AND {text_where}"
         params.update(visibility_params)
-        # Only bind $user_uid when the clause actually references it: a PUBLIC
-        # domain now returns the publication gate (which does not), and passing
-        # the caller's identity into a query that never uses it is a needless
-        # leak of who is asking.
-        if user_uid is not None and "$user_uid" in visibility_clause:
+        # Bind $user_uid whenever the clause references it — even when None, so
+        # the emitted predicate can fail closed rather than error unbound. A
+        # clause that does not reference it (PUBLIC's publication gate) still
+        # never receives the caller's identity.
+        if "$user_uid" in visibility_clause:
             params["user_uid"] = user_uid
 
     # Build ORDER BY clause
@@ -879,21 +899,30 @@ def build_array_any_match_query(
 
     result_values: list[str | int | float] = list(values)
     params: dict[str, Neo4jValue] = {"values": result_values, "limit": limit}
+    # ⚠ has_user=True is deliberate and load-bearing — do NOT derive it from
+    # `user_uid is not None`. OWNER_ONLY must always emit its predicate: on a
+    # null $user_uid it is a null predicate and matches nothing (fail-closed),
+    # whereas dropping it returns EVERY user's rows. The clause's own docstring
+    # names that inversion. All five clause-composing builders hold this one
+    # convention themselves rather than each leaning on an upstream refusal in
+    # another module — SearchRouter's skip keys on EntityType.is_user_owned(),
+    # a different signal from the search_visibility the clause reads, and the
+    # two agreeing today is a coincidence no builder should depend on.
     visibility_scope = build_search_visibility_clause(
         visibility,
         entity_alias="n",
-        has_user=user_uid is not None,
+        has_user=True,
         ownership_property=ownership_property,
     )
     if visibility_scope:
         visibility_clause, visibility_params = visibility_scope
         match_where = f"{visibility_clause} AND {match_where}"
         params.update(visibility_params)
-        # Only bind $user_uid when the clause actually references it: a PUBLIC
-        # domain now returns the publication gate (which does not), and passing
-        # the caller's identity into a query that never uses it is a needless
-        # leak of who is asking.
-        if user_uid is not None and "$user_uid" in visibility_clause:
+        # Bind $user_uid whenever the clause references it — even when None, so
+        # the emitted predicate can fail closed rather than error unbound. A
+        # clause that does not reference it (PUBLIC's publication gate) still
+        # never receives the caller's identity.
+        if "$user_uid" in visibility_clause:
             params["user_uid"] = user_uid
 
     cypher = f"""
