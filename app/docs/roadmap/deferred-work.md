@@ -1340,12 +1340,19 @@ two consideration notes. Re-verified against the code and the live graph 2026-08
    acceptance run swept its residue by hand.
 2. **The completion uid is second-granularity and unconstrained.**
    `hc.{user_uid}.{habit_uid}.{int(now.timestamp())}` (`record_completion`, `:133`); the bulk door
-   mints from `completed_at` instead (`:265`), so two bulk logs of one day collide
-   *deterministically*, not only on a same-second race. Nothing enforces uniqueness: the model
-   declares no `field(metadata={"index": ...})`, startup schema sync is `sync_auth_indexes()` only,
-   and live AuraDB `SHOW CONSTRAINTS` (2026-08-28) lists 7 constraints, **none on
-   `HabitCompletion`** (no index either). #915 live-verified three same-second writes → three nodes
-   sharing one uid. The `hc.` spelling is registered nowhere else (no prefix validation knows it);
+   keys on the request's `completed_at` (`:265`), which defaults to `datetime.now()` per request
+   and which its one production caller (`habits_api.py`, the bulk route) never passes — so bulk
+   collides on the same second exactly as the single door does, and deterministically only if a
+   caller reuses an identical explicit timestamp (none does today). Nothing enforces uniqueness:
+   the model declares no `field(metadata={"index": ...})`; of the five startup sync routines in
+   `services_bootstrap/compose.py` (`sync_auth_indexes` / `sync_vector_indexes` /
+   `sync_domain_indexes` / `sync_fulltext_indexes` / `sync_conversation_indexes`) none names the
+   label, and the `:Entity` uid uniqueness constraint `sync_domain_indexes` creates cannot reach it
+   because its backend is built without `base_label=NeoLabel.ENTITY`; live AuraDB
+   `SHOW CONSTRAINTS` (2026-08-28) lists 7 constraints, **none on `HabitCompletion`** (no index
+   either). The eventual constraint belongs in `sync_domain_indexes`, alongside the per-label uid
+   indexes it already owns. #915 live-verified three same-second writes → three nodes sharing one
+   uid. The `hc.` spelling is registered nowhere else (no prefix validation knows it);
    the ratified separator grammar spells generated UIDs with `_` — settle the spelling when the key
    is redesigned, not before.
 3. **Day idempotency is a read-before-write guard, not an invariant.** `record_habit_occurrence`
@@ -1388,8 +1395,7 @@ the next touch of the completion write path (`record_completion` / `_record_comp
 `record_habit_occurrence`). Defect 5 fires whenever the `find_by` row does. Defect 3's ruling is
 Mike's, taken at build time, not in passing.
 **Named cost:** orphaned completion rows after a habit delete (invisible to habit reads, counted
-by user aggregates); a same-second double-tap — or any two bulk logs of one day — mints nodes
-sharing one uid; a two-tab double-complete double-counts stats; a transient stats-write failure
+by user aggregates); a same-second double-tap on either door mints nodes sharing one uid; a two-tab double-complete double-counts stats; a transient stats-write failure
 leaves totals permanently stale behind a "success"; a dup-heavy history under-reports
 `best_streak`. Today every one of these costs nothing, because nothing has been written.
 
