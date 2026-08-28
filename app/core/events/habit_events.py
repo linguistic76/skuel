@@ -13,7 +13,9 @@ Event Catalog:
 
 Publishers and subscribers are deliberately not enumerated here - such a list drifts
 silently. To find publishers, grep the event class name under ``core/services/habits/``;
-for subscribers, ``services_bootstrap/_event_wiring.py`` is the one wiring point.
+for subscribers, ``git grep '.subscribe(Habit'`` - most are wired in
+``services_bootstrap/_event_wiring.py``, but components that own their handlers (e.g. the
+metrics handler) subscribe themselves.
 """
 
 from dataclasses import dataclass

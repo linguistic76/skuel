@@ -55,9 +55,12 @@ Publishing and subscribing
 
     event_bus.subscribe(TaskCompleted, service.handle_task_completed)
 
-``list_event_types()`` is the live catalog. ``services_bootstrap/_event_wiring.py`` is
-the one place subscriptions are wired — no per-domain table is kept here, because a
-hand-maintained list of publishers and subscribers drifts silently and nothing greps it.
+``list_event_types()`` is the live catalog. Most subscriptions are wired in
+``services_bootstrap/_event_wiring.py``, but it is not the only site — components that
+own their handlers subscribe themselves (the embedding worker, the metrics handler,
+the FULL-tier intelligence hub), so ``git grep '.subscribe('`` is the honest answer.
+No per-domain table is kept here: a hand-maintained list of publishers and subscribers
+drifts silently and nothing greps it.
 """
 
 from abc import ABC

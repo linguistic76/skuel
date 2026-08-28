@@ -31,7 +31,7 @@ nothing here is a catalog, because a hand-maintained catalog drifts (see the not
 |----------|-------|
 | The live catalog of every event type | `list_event_types()` — derived, never stale |
 | How to define, publish, subscribe | `core/events/base.py` (module docstring) |
-| Who subscribes to what | `services_bootstrap/_event_wiring.py` — the one wiring point |
+| Who subscribes to what | `git grep -n '\.subscribe('` — see the note below |
 | The event bus itself | `adapters/infrastructure/event_bus.py` |
 | The pattern in full | `docs/patterns/event_driven_architecture.md` |
 
@@ -46,6 +46,14 @@ await publish_event(self.event_bus, TaskCompleted(task_uid=uid, user_uid=user_ui
 Handlers are named `handle_{event_name}` and must be **idempotent** — an event may be
 delivered more than once, and a handler that accumulates rather than derives will double-count.
 
+### Where subscriptions live
+
+`services_bootstrap/_event_wiring.py` holds most of them, but it is **not** the only site, and
+auditing an event's consumers by reading it alone will miss live handlers. Components that own
+their own handlers subscribe themselves — the embedding worker, the metrics handler, the
+FULL-tier intelligence hub, the analytics/AI service bases. `git grep -n '\.subscribe('` is the
+answer that stays true; this file deliberately does not list the sites, for the reason below.
+
 ## Why there is no event table here
 
 There used to be one. It listed 22 events with a "Subscribers" column, of which 4 named no
@@ -58,8 +66,9 @@ alongside its own implementation and was never retired. Seven commits touched it
 and each fixed the row its author came for, leaving the frame intact.
 
 A per-domain publisher/subscriber table has no mechanism keeping it honest: nothing imports
-it, nothing greps it, no test fails when it drifts. `list_event_types()` and
-`_event_wiring.py` cannot drift, because they *are* the thing. Point at them instead.
+it, nothing greps it, no test fails when it drifts. `list_event_types()` and a `git grep` over
+the wiring cannot drift, because they *are* the thing — they read the code rather than describe
+it. Point at them instead.
 
 If a catalog is ever genuinely wanted, generate it and drift-test it — the precedent is
 `docs/reference/GRAPH_CONTRACT.yaml` (`scripts/generate_graph_contract.py`). Do not

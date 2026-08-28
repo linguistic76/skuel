@@ -47,7 +47,8 @@ fails if a defined event never reaches the registry.
 References:
 ----------
 - Defining / publishing / subscribing: ``core/events/base.py``
-- Subscription wiring: ``services_bootstrap/_event_wiring.py``
+- Subscription wiring: ``services_bootstrap/_event_wiring.py`` (most of it; components
+  that own their handlers subscribe themselves — ``git grep '.subscribe('``)
 - Event Bus: ``adapters/infrastructure/event_bus.py``
 - Pattern doc: ``docs/patterns/event_driven_architecture.md``
 """

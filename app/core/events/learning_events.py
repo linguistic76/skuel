@@ -19,8 +19,8 @@ services, so no single file shows it::
       -> LpProgressService.handle_knowledge_mastered   # LearningPath progress
            -> LearningPathProgressUpdated
 
-Wired in ``services_bootstrap/_event_wiring.py``, which is the one place to confirm it;
-the classes this module defines are the catalog.
+Wired in ``services_bootstrap/_event_wiring.py``; the classes this module defines are
+the catalog.
 """
 
 from dataclasses import dataclass

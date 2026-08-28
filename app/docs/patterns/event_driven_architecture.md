@@ -304,7 +304,7 @@ Event handlers across all 6 Activity Domains and the Learning Loop persist struc
 - [Knowledge Substance Philosophy](/docs/architecture/knowledge_substance_philosophy.md) - Uses event-driven substance tracking
 - [Service Creation Template](/docs/reference/templates/service_creation.md)
 - `core/events/base.py` - Defining, publishing and subscribing; `core/events/README.md` - the rules
-- `services_bootstrap/_event_wiring.py` - the one place subscriptions are wired
+- `services_bootstrap/_event_wiring.py` - most subscription wiring (not all: components that own their handlers subscribe themselves; `git grep '.subscribe('` finds every site)
 
 ---
 
