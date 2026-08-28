@@ -831,7 +831,9 @@ carry no baseline pairs — recorded here so they don't get lost.
   `get_optimal_learning_session` and `get_dominant_content_preferences` dead.
   Left standing in tranche 3 (the `learning_preferences` field stays a typed
   `None`) because it is a bloat finding, not a vocabulary one — wants its own
-  One Path Forward ruling.
+  One Path Forward ruling. *(Ruled and deleted 2026-08-28, PR #1170, together
+  with the Ku-uid domain sniffer it consumed; the still-write-only fields are
+  registered in `deferred-work.md` § `UserLearningIntelligence` Write-Only Fields.)*
 
 ---
 

@@ -1219,6 +1219,31 @@ the entry, forever.
 
 ---
 
+## `UserLearningIntelligence` Write-Only Fields (REGISTERED 2026-08-28 — ruling needed)
+
+`core/models/user/user_intelligence.py` lost its uid-sniffing "by domain" grouping and the
+dead `EnhancedUserContext` that consumed it (never-sniff, ADR-013). What survives is read in
+exactly two places: `PsAdaptiveService` reads `current_masteries` and calls
+`get_dominant_learning_velocity()`. Every other field the loader
+(`PsAdaptiveService._load_user_intelligence` / `_create_default_intelligence`) fills —
+`active_learning_paths`, `completed_learning_paths`, `learning_preferences`,
+`knowledge_recommendations`, `recent_search_queries`, `search_interests`,
+`search_intent_patterns`, the three transfer lists, `intelligence_sources`,
+`last_intelligence_update`, `intelligence_confidence` (and the `IntelligenceSource` enum that
+only feeds one of them) — is written and never read. Their sources are gone (the search
+archive and the `:LearningPreference` node were deleted earlier; the loader hard-codes
+empties), so this is hollow shape, not staged foundation.
+
+**Named work:** trim the dataclass to `user_uid` + `current_masteries` + the velocity reading;
+drop the two LP queries the loader runs only to fill the unread path fields
+(`_query_active_learning_paths` / `_query_completed_learning_paths` — check for other callers
+first) and the `IntelligenceSource` enum; adjust the test factory. Or name a consumer.
+**Trigger:** the owner's ruling, or the next touch of `PsAdaptiveService`.
+**Named cost while parked:** two graph queries per adaptive-path call whose results nothing
+reads; a dataclass that advertises intelligence it does not hold.
+
+---
+
 ## Habit Streak Counters — Lost-Update Race + Future-Day Credit (REGISTERED 2026-08-24)
 
 Two named defects in the same write family, deliberately scoped OUT of the conditional-write arc
@@ -1380,6 +1405,7 @@ Review this document at the **September 2026 quarterly review**. Checklist:
 | R4 vault inbound propagation — parked build | Mike schedules it (product decision) | See the section — sketch + the #1143 r5 rejection; parsed-line vs entity state, never hash |
 | Vault task door publishes no task events | R4 build or next vault-door touch | `git grep -n "event_bus" adapters/persistence/neo4j/bulk_upsert_backend.py` — empty until wired |
 | Line deletions leave `EXTRACTED_FROM` edges | R4 build or next reconciler touch | Census shape in the section; re-probe the W28 edges before building |
+| `UserLearningIntelligence` write-only fields (hollow since their sources were deleted) | Owner's ruling, or next touch of `PsAdaptiveService` | `git grep -n "intelligence\." core/services/ps/ps_adaptive_service.py` — assignments with no matching read |
 | Habit streak counters (lost-update + future-day credit) | Next touch of the streak write path, or a lived wrong-streak report | Ruling needed on `current_streak` semantics — see the section |
 | Unwired `HabitCompletion` model methods | A consumer wants one, or next Habits model touch | `git grep -n "is_streak_eligible\|was_completed_today" -- core/services/ adapters/ ui/` — empty until wired |
 | "Vault has un-synced changes" signal | Mike schedules it — product decision (what the user is told), not a data threshold | See the section; ⚠️ must cover completions + 🆔 injections + new tasks, NOT reopens alone — no last-sync state is persisted today |
