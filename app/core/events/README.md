@@ -54,8 +54,17 @@ failures deliberately — sync handlers are wrapped in `try/except`, async ones 
 cannot learn that a subscriber failed, and must not be written as though it could. Delivery is
 best-effort; anything requiring a guarantee needs its own persistence, not an event.
 
-Handlers are named `handle_{event_name}` and must be **idempotent** — an event may be
-delivered more than once, and a handler that accumulates rather than derives will double-count.
+Handlers are named `handle_{event_name}`. The bus does not retry or redeliver: each handler is
+called once per publish. Duplicates come from the **publisher**, and they are legitimate — a
+repeat completion deliberately re-runs its cascade, so the same occurrence is published again.
+
+That makes the distinction that matters not "idempotent handler" but **what the handler does
+with the event**: one that *derives* (recomputes progress from current state) is naturally safe
+under a repeat, while one that *accumulates* (increments a counter) double-counts unless it
+guards. This is the ruled contract — a repeat gates what accumulates, never what derives — and
+it is not uniformly enforced: `PsPracticeService.handle_event_completed` increments
+`times_practiced_in_events` unconditionally, with no event id to deduplicate on. Write
+accumulating handlers with a guard, and do not assume existing ones have it.
 
 ### Where subscriptions live
 
