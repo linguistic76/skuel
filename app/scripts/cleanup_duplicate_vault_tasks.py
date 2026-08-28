@@ -30,9 +30,14 @@ Proposal rule — **one physical vault checkbox line ⇒ one task**:
     edge (an edge-bearing twin may legitimately belong to another entry) AND
     are COMPLETED (an active twin is Guard 4's business — REVIEW).
   - STRAYS — edge-less COMPLETED tasks whose title matches NO vault line at all
-    (the pre-🆔-era paraphrase census) — are proposed separately. A task whose
-    title matches a live line is that line's task (its edge was lost), never a
-    stray.
+    — are LISTED, never proposed: after the one-time pre-🆔-era census such a
+    task is legitimate history by default (app-created, or its line was
+    deleted later — e.g. `task_b9d52706` 'move furniture', the real record of
+    a task whose line the owner erased). Deleting one takes
+    ``--include-strays`` on top of ``--confirm``, one deliberate act per
+    stray; the ready-to-run line never contains them (Codex #1166). A task
+    whose title matches a live line is that line's task (its edge was lost),
+    never a stray.
 
 Also reported: **phantom 🆔s** — a vault line whose id no edge owns (the next
 sync of that file re-mints it, then recovers the id onto the new edge). Repair
@@ -181,8 +186,22 @@ class Classification:
         return [t.uid for s in self.duplicate_sets for t in s.proposed]
 
     @property
+    def stray_uids(self) -> list[str]:
+        return [t.uid for t in self.strays]
+
+    @property
     def proposed_uids(self) -> list[str]:
-        return self.remint_uids + [t.uid for t in self.strays]
+        """What the run proposes for deletion: re-mints only.
+
+        Strays are LISTED, never proposed — an edge-less completed task on no
+        line is, after the one-time pre-🆔-era census, legitimate history by
+        default (app-created, or its line deleted later). Codex #1166.
+        """
+        return self.remint_uids
+
+    def confirmable_uids(self, include_strays: bool) -> list[str]:
+        """The uids a ``--confirm`` may name: re-mints, plus strays only on explicit opt-in."""
+        return self.remint_uids + (self.stray_uids if include_strays else [])
 
 
 # ---------------------------------------------------------------------------
@@ -578,13 +597,17 @@ def _print_report(c: Classification, user_uid: str) -> None:
             print(f"  ...   {_task_line(t)}  ← left alone (has edges or still active)")
 
     print(
-        f"\n{bar}\nPROPOSED strays — edge-less, completed, title on NO vault line: {len(c.strays)}\n{bar}"
+        f"\n{bar}\nSTRAYS (listed, not proposed) — edge-less, completed, title on NO vault line: {len(c.strays)}\n{bar}"
     )
     print(
         "  Pre-🆔-era minting (LLM paraphrase door, deleted entries) or app-created; a human decides."
     )
+    print(
+        "  Never in the ready-to-run line. Legitimate history by default — to delete ONE:\n"
+        "    --apply --include-strays --confirm <uid>"
+    )
     for t in c.strays:
-        print(f"  DEL?  {_task_line(t)}  {t.title!r}")
+        print(f"  STRAY {_task_line(t)}  {t.title!r}")
 
     print(f"\n{bar}\nREVIEW — same-title groups NOT proven duplicates: {len(c.review)}\n{bar}")
     for g in c.review:
@@ -618,7 +641,8 @@ def _print_report(c: Classification, user_uid: str) -> None:
     if c.proposed_uids:
         confirms = " ".join(f"--confirm {uid}" for uid in c.proposed_uids)
         print(
-            f"\nTo delete everything proposed above, after reading it:\n  uv run python {sys.argv[0]} --user {user_uid} --apply {confirms}"
+            f"\nTo delete the proposed re-mints above (strays excluded), after reading it:\n"
+            f"  uv run python {sys.argv[0]} --user {user_uid} --apply {confirms}"
         )
 
 
@@ -649,6 +673,12 @@ async def main() -> int:
     )
     parser.add_argument(
         "--confirm-file", metavar="PATH", help="File with one proposed task uid per line to delete."
+    )
+    parser.add_argument(
+        "--include-strays",
+        action="store_true",
+        help="Let --confirm name STRAYS too (edge-less completed tasks on no vault line). "
+        "They are legitimate history by default; without this flag a stray uid is refused.",
     )
     parser.add_argument(
         "--repair-id",
@@ -713,13 +743,24 @@ async def main() -> int:
             print("\n[DRY-RUN] No changes made.")
             return 0
 
-        to_delete, refused = select_confirmed(classification.proposed_uids, confirmed)
+        to_delete, refused = select_confirmed(
+            classification.confirmable_uids(args.include_strays), confirmed
+        )
+        # A withheld stray is still a refusal: the all-or-nothing contract holds
+        # (Codex #1168) — only the message differs.
+        withheld_strays = set(refused) & set(classification.stray_uids)
         repairs, problems = plan_repairs(
             classification, list(args.repair_id), entry_for_file(lines, owned)
         )
         if refused or problems:
             for uid in refused:
-                print(f"  REFUSED {uid}: not proposed by this run — re-read the dry-run")
+                if uid in withheld_strays:
+                    print(
+                        f"  REFUSED {uid}: a stray — legitimate history unless you pass "
+                        "--include-strays"
+                    )
+                else:
+                    print(f"  REFUSED {uid}: not proposed by this run — re-read the dry-run")
             for problem in problems:
                 print(f"  REFUSED repair {problem}")
             print("\n[ABORTED] Nothing changed: every --confirm / --repair-id must match this run.")
