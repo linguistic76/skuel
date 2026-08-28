@@ -212,6 +212,14 @@ def classify(
     tasks_by_title: dict[str, list[TaskRow]] = defaultdict(list)
     for task in tasks:
         tasks_by_title[normalized_activity_title(task.title)].append(task)
+    # 🆔 ownership across ALL the user's tasks, not the title group: a line
+    # whose id is owned by a task with a diverged title (vault edit; inbound
+    # propagation parked, § R4) belongs to THAT task, and the same-title
+    # group is not its re-mints (Codex #1165 r8).
+    owners_by_id: dict[str, list[TaskRow]] = defaultdict(list)
+    for task in tasks:
+        for vault_id in task.vault_ids:
+            owners_by_id[vault_id].append(task)
 
     proposed: set[str] = set()
     for key, group in sorted(tasks_by_title.items()):
@@ -241,15 +249,9 @@ def classify(
             continue
 
         line = title_lines[0]
-        keeper = _keeper(group, line)
+        keeper, blocker = _keeper(group, line, owners_by_id)
         if keeper is None:
-            out.review.append(
-                ReviewGroup(
-                    title=group[0].title,
-                    tasks=tuple(group),
-                    reason=f"🆔 {line.vault_id} at {line.where} is owned by more than one task",
-                )
-            )
+            out.review.append(ReviewGroup(title=group[0].title, tasks=tuple(group), reason=blocker))
             continue
         remints = tuple(t for t in group if t is not keeper and t.is_edgeless and t.is_completed)
         leftover = tuple(t for t in group if t is not keeper and t not in remints)
@@ -292,15 +294,29 @@ def classify(
     return out
 
 
-def _keeper(group: list[TaskRow], line: VaultTaskLine) -> TaskRow | None:
-    """The task the line belongs to: its 🆔's owner, else the oldest. None = contested."""
+def _keeper(
+    group: list[TaskRow], line: VaultTaskLine, owners_by_id: dict[str, list[TaskRow]]
+) -> tuple[TaskRow | None, str]:
+    """``(keeper, blocker)`` — the task the line belongs to, or why the group is REVIEW.
+
+    The line's 🆔 decides when it is owned: by exactly one task INSIDE the group
+    → that task; by more than one task, or by a task outside the group → the
+    group is not this line's re-mints. No owner anywhere (phantom id) or no
+    id → the oldest (the caller passes the group oldest-first).
+    """
     if line.vault_id:
-        owners = [t for t in group if line.vault_id in t.vault_ids]
+        owners = owners_by_id.get(line.vault_id, [])
         if len(owners) > 1:
-            return None
+            return None, f"🆔 {line.vault_id} at {line.where} is owned by more than one task"
         if owners:
-            return owners[0]
-    return group[0]  # caller passes the group oldest-first
+            owner = owners[0]
+            if owner in group:
+                return owner, ""
+            return None, (
+                f"🆔 {line.vault_id} at {line.where} is owned by {owner.uid} "
+                f"({owner.title!r}) — a task outside this title group; the line is its"
+            )
+    return group[0], ""
 
 
 def select_confirmed(proposed: list[str], confirmed: list[str]) -> tuple[list[str], list[str]]:

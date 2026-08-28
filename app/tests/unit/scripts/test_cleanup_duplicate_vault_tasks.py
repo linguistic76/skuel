@@ -160,6 +160,21 @@ def test_active_edgeless_twin_is_left_for_review_not_proposed():
     assert [t.uid for t in out.line_backed] == ["task_x"]  # active + edge-less: not a stray
 
 
+def test_id_owned_by_a_task_outside_the_title_group_is_review():
+    """The line's 🆔 positively ties it to a task whose title diverged (vault edit, inbound
+    propagation parked) — the same-title group is NOT that line's re-mints (Codex r8)."""
+    outside = _task(
+        "task_z", "Physio look 4 — OLD title", created="2026-06-20", vault_ids=("sk_x",)
+    )
+    a = _task("task_a", "Physio", created="2026-06-28T12:43:04")
+    b = _task("task_b", "Physio", created="2026-07-11T20:59:23")
+    out = classify([outside, a, b], [_line("Physio", vault_id="sk_x")], {"sk_x"})
+    assert out.duplicate_sets == []
+    assert len(out.review) == 1
+    assert "task_z" in out.review[0].reason and "outside" in out.review[0].reason
+    assert out.proposed_uids == []
+
+
 def test_contested_id_is_review():
     """A 🆔 owned by two tasks (the pre-Guard-2b bug shape) is not resolved here."""
     a = _task("task_a", "Dr 9 am", created="2026-07-04T12:28:35", vault_ids=("sk_kqawpy",))
