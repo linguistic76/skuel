@@ -379,8 +379,10 @@ Ku), the fixture follows that conclusion.
 4. **A test naming a field is not a reader.** If a counter is only ever asserted by a test that
    seeds it, that is evidence the production path is dead, not that it works (#1108's defect
    class).
-5. **Integration tests here need Neo4j.** CI runs them on an ephemeral `neo4j:2026.06.0`
-   testcontainer via path filters; mock-only tests hide phantom methods.
+5. **Integration tests here need Neo4j.** CI runs them via path filters on an ephemeral
+   testcontainer built from the single authored server pin in `infrastructure/docker-compose.yml`
+   (read by `tests/integration/_neo4j_pin.py` — never restate the version); mock-only tests hide
+   phantom methods.
 
 ## Workflow
 
