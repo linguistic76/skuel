@@ -148,12 +148,19 @@ probably *not* prunable telemetry) — and any new relationship name must be reg
 "which of these have I looked at" is a real question. Likely rides along with whichever of
 §1/§2 lands first rather than shipping alone.
 
-## 4. Pagination + subject-exercise filter (pointer only)
+## 4. Subject-exercise filter (pointer only)
 
-Already stated where they belong: the arc 2 contract rejects both **with a volume gate**
-("add when volume exists"), and list pagination is tracked separately (#555, itself a
-possible DROP). Listed here only so the staged set is enumerated in one place — this doc
-adds no new intent for them.
+Already stated where it belongs: the arc 2 contract rejects it **with a volume gate**
+("add when volume exists"). Listed here only so the staged set is enumerated in one place
+— this doc adds no new intent for it.
+
+**Pagination — DROPPED 2026-08-29. Not staged, not tracked, no gate.** `/search`'s
+pagination was ruled DROP and shipped as top-N (#555 closed, PR #1181); the founder
+extended the same ruling to these lists. The volume gate is *withdrawn*, not merely unmet:
+pagination is not waiting on volume, it is not planned. Re-proposing it is a fresh
+decision, not an un-staging. The arc records in `done/` that still read "pagination (still
+deferred, #555)" are pinned history of what arc 2 decided on 2026-08-01; this ruling
+supersedes them.
 
 ---
 
