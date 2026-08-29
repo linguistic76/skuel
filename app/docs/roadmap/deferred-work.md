@@ -2059,18 +2059,22 @@ other pinned archives are exempt.
   repo-root-relative ones (`app/docs/...`). Joining the two on filename matches nothing,
   every file looks current, and the measurement reads a clean `0 stale`. This happened on
   the first run of the measurement above.
-- Fifteen of the traps above — partial staging, backfill self-invalidation, quoted scalars,
+- Sixteen of the traps above — partial staging, backfill self-invalidation, quoted scalars,
   worktree desync, an unwired guard, a guard blind to missing fields, a refusal branch that
   lets the commit through, a future date that passes a lower-bound check, an exclusion rule
   its own prescribed tool cannot implement, a new file with no frontmatter to stamp, a
   squash merge that makes every correctly stamped doc look stale, a timezone boundary that
   rejects a valid stamp as a future date, a Review Schedule row still prescribing the broken
   comparison, a duplicate check that a body example turns permanently red, and a fork
-  option that could never detect the rot it was offered to guard against — were found
-  by Codex review of the *registration* across nine rounds,
-  not of an implementation. One qualified the ruling's own premise, and **three** were this
-  document contradicting itself, which is the very failure class its sub-finding below
-  describes. Every round after the first found holes in the previous round's fix, and
+  option that could never detect the rot it was offered to guard against, and that same
+  Review Schedule row still offering a struck option — were found by Codex review of the
+  *registration* across ten rounds,
+  not of an implementation. One qualified the ruling's own premise, and **four** were this
+  document contradicting itself — the very failure class its sub-finding below describes.
+  Two of those four were the same Review Schedule row restating the section's options and
+  going stale when the section moved, which is why that row now points at the section
+  instead of summarising it: the durable fix for a duplicated fact is to stop duplicating
+  it, not to re-sync the copy. Every round after the first found holes in the previous round's fix, and
   round 4 caught this document contradicting itself. That is the argument for reviewing a
   contract to convergence before writing the code it describes.
 
@@ -2145,7 +2149,7 @@ Review this document at the **September 2026 quarterly review**. Checklist:
 | PathStep → Ku wiring backlog (1 Ku-less step; 67 Kus composed by no step) | Mike's next `Ps_dev` content session | The three counts in the section, over all three composition edges (`USES_KU\|TRAINS_KU\|CONTAINS_KNOWLEDGE`, never `USES_KU` alone) — 1 / 67 / 67 on 2026-08-28 |
 | py314 annotation sweeps — UP037 schedulable, TC002/TC003 never (home: ADR-067 § Deferred) | UP037: a churn window Mike picks; TC002/TC003: never | `uv run ruff check --select UP037 --statistics .` — 1222 on 2026-08-28 |
 | Parked features (activity ledger · interest/gravity · icon provider · templates re-homing) | Mike schedules each — feature work, never self-scoped | The four `git grep` checks in the section, all empty on 2026-08-28 |
-| Docs `updated:` frontmatter auto-stamp (ruled 2026-08-29 — build it, fresh context) | Ruled, not gated: Mike starts it. NOT a data threshold — do not re-litigate the delete-vs-stamp choice | Once shipped, the check must be **green** under whichever acceptance rule the section's squash fork selects (threshold / merge-side stamp / no date comparison) — do NOT build the strict `updated:` vs last-commit-date comparison this row used to prescribe; the section explains why it false-positives on date-boundary squash merges. Baseline it replaces: 194 stale of 219 with the field, plus 192 with no field, on 2026-08-29. ⚠️ two ways to read a false clean: match paths on the SAME base (`git ls-files` is CWD-relative, `git log --name-only` is repo-root-relative), and accept QUOTED dates (`updated: '2026-04-20'`, 25 files) |
+| Docs `updated:` frontmatter auto-stamp (ruled 2026-08-29 — build it, fresh context) | Ruled, not gated: Mike starts it. NOT a data threshold — do not re-litigate the delete-vs-stamp choice | Once shipped, the check must be **green** under the acceptance rule the section's squash fork selects. ⛔ **This row deliberately does not restate the options** — it listed them twice and was wrong both times (it prescribed the strict comparison after the section rejected it, then kept a fork option after the section struck it). Read the section; do not scope from this cell. Baseline the check replaces: 194 stale of 219 with the field, plus 192 with no field, on 2026-08-29. ⚠️ two ways to read a false clean: match paths on the SAME base (`git ls-files` is CWD-relative, `git log --name-only` is repo-root-relative), and accept QUOTED dates (`updated: '2026-04-20'`, 25 files) |
 
 **The document is the checklist, the table is a convenience:** a section added to this file
 without a matching row here is still in review scope — walk every `##` section, then the table.
