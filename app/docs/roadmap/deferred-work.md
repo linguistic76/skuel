@@ -1621,7 +1621,7 @@ below the configured `min_chunk_size` of 50** — the floor is
 inert, never enforced (`core/services/ingestion/reference_ingestion.py:127` says so; #560
 recorded 0 strategy references), and its default is above the corpus median. **83 chunks are
 under 5 words** (72 of them `explanation`; 32 are under 20 characters — headings and one-word
-fragments) and 2 exceed 500 words. 41 `:SearchEvent` in total, flat since 2026-07-22.
+fragments); none exceeds the 500-word `max_chunk_size` (max 496 — the naive `split` had counted 2 over by counting empty tokens). 41 `:SearchEvent` in total, flat since 2026-07-22.
 
 **What the numbers say.** Type weighting has little to act on: 79% of chunks share one type,
 DEFINITION is 6%, EXAMPLE and SUMMARY are 3 each — a weight table would re-rank a near-uniform
