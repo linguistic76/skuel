@@ -1827,14 +1827,13 @@ the check.
 ## py314 Annotation Sweeps — UP037 Schedulable, TC002/TC003 Never (REGISTERED 2026-08-28)
 
 **Home: ADR-067 § "Deferred: TC/UP037 annotation-modernization sweep"** — the rationale, the two
-dispositions and the runtime-evaluation hazard live there; this section holds only the trigger
-and the check, so the review walk sees it. Measured 2026-08-28
-(`uv run ruff check --select TC002,TC003,UP037 --statistics .`): UP037 **1222** (all marked
-safe-fixable), TC003 **161**, TC002 **91**.
+dispositions, the runtime-evaluation hazard and the measured baseline live there; this section
+holds only the trigger and the check, so the review walk sees it. For today's size, run the
+check — the counts move with every commit, so no number is written down here.
 **Trigger:** UP037 — a churn window Mike picks (one mechanical PR, boot-verified per the ADR);
 TC002/TC003 — never as a sweep (permanent ignore; re-open only if ruff can name a local
 decorator as runtime-evaluated).
-**Check:** `uv run ruff check --select UP037 --statistics . | tail -3` — 1222 → 0 after the
+**Check:** `uv run ruff check --select UP037 --statistics . | tail -3` — no UP037 row after the
 sweep; `grep -n '"TC002"\|"TC003"' pyproject.toml` still in the ignore list, comment says
 *permanent*.
 
@@ -2297,7 +2296,7 @@ Review this document at the **September 2026 quarterly review**. Checklist:
 | `HabitMissed` publisher-less chain (ruled keep-staged 2026-08-28) | A lived want for difficulty insights, or the streak-semantics ruling — rule the day model once | `git grep -n "HabitMissed(" -- core/ adapters/ scripts/ services_bootstrap/ ui/ ':!core/events/'` empty (scripts/ included — a one-shot publisher counts); `MATCH (i:Insight {insight_type: 'difficulty_pattern'}) RETURN count(i)` → 0 |
 | Quarterly / yearly periodic notes (founder vault pass first) | The first real note in either vault folder | `find ~/0bsidian/skuel/periodic_notes/Quarterly ~/0bsidian/skuel/periodic_notes/yearly -type f \| wc -l` > 0 (files, not `ls` headings) — founder-owned, non-repo |
 | PathStep → Ku wiring backlog (1 Ku-less step; 67 Kus composed by no step) | Mike's next `Ps_dev` content session | The three counts in the section, over all three composition edges (`USES_KU\|TRAINS_KU\|CONTAINS_KNOWLEDGE`, never `USES_KU` alone) — 1 / 67 / 67 on 2026-08-28 |
-| py314 annotation sweeps — UP037 schedulable, TC002/TC003 never (home: ADR-067 § Deferred) | UP037: a churn window Mike picks; TC002/TC003: never | `uv run ruff check --select UP037 --statistics .` — 1222 on 2026-08-28 |
+| py314 annotation sweeps — UP037 schedulable, TC002/TC003 never (home: ADR-067 § Deferred) | UP037: a churn window Mike picks; TC002/TC003: never | `uv run ruff check --select UP037 --statistics .`; baseline in the ADR |
 | Parked features (activity ledger · interest/gravity · icon provider · templates re-homing) | Mike schedules each — feature work, never self-scoped | The four `git grep` checks in the section, all empty on 2026-08-28 |
 | Docs `updated:` frontmatter auto-stamp (ruled 2026-08-29 — build it, fresh context) | Ruled, not gated: Mike starts it. NOT a data threshold — do not re-litigate the delete-vs-stamp choice | Once shipped, the check must be **green** under the acceptance rule the section's squash fork selects. ⛔ **This row deliberately does not restate the options** — it listed them twice and was wrong both times (it prescribed the strict comparison after the section rejected it, then kept a fork option after the section struck it). Read the section; do not scope from this cell. Baseline the check replaces: 194 stale of 219 with the field, plus 192 with no field, on 2026-08-29. ⚠️ two ways to read a false clean: match paths on the SAME base (`git ls-files` is CWD-relative, `git log --name-only` is repo-root-relative), and accept QUOTED dates (`updated: '2026-04-20'`, 25 files) |
 | Catalog copies in code — the duplicated-fact class (measured 2026-08-29) | Mike schedules the mechanical items; until then a ride-along: any PR that adds a health check, an embeddable type, a vector-index label, or a suppressible rule touches every copy the section names | ⛔ Do not scope from this cell — the section holds the inventory and the ruling. Re-measure: `uv run python scripts/detect_bloat.py --json` → count of `planned-marking-stale` findings (2 on 2026-08-29, seen by neither CI nor the janitor); the scripts named in `dev` § `health)` and in the janitor's `for check in` loop must be the same set (5 on 2026-08-29) |
