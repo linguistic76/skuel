@@ -96,8 +96,8 @@ PLANNED_EVENTS: dict[str, str] = {
         "publish-side missed-habit detection never built (no publisher in ANY commit); "
         "subscriber wiring in services_bootstrap/_event_wiring.py is intentional staging. "
         "RULED keep-staged 2026-08-28 (Mike) — its siblings add_change_handler and "
-        "get_recommended_next_action were ruled DELETE the same day (removal lands in "
-        "its own PR; their PLANNED entries go with them); this one earns a row: "
+        "get_recommended_next_action were DELETED 2026-08-29 (the PR after #1179); this "
+        "one earns a row: "
         "docs/roadmap/deferred-work.md § 'HabitMissed — Publisher-less Chain'. The "
         "publisher's constraints are no LLM and no API cost plus the streak day-model "
         "ruling — a scheduled Analog detector (ProgressReportWorker pattern), a read-time "
@@ -194,15 +194,6 @@ _USER_PRINCIPLE_INTEGRATION = (
     "staged rich-context principle-integration read surface — the populator fills "
     "principle_guided_choice_counts/recent_principle_aligned_choices and SKUEL018 "
     "mandates these accessors as the read path; wire a profile/insights consumer"
-)
-_SCHEMA_CHANGE_HANDLERS = (
-    "2026-08-17: extension point of the live opt-in schema-monitoring feature "
-    "(NEO4J_SCHEMA_MONITORING), left without a production consumer when "
-    "AdaptiveOptimizationHandler was deleted alongside the query_builders/ stack "
-    "whose caches were its only job (PR #1081). The detector itself stays live "
-    "(drift detection + logging + migration history); this is its registration "
-    "seam. Wire a real handler (alerting on breaking changes is the obvious one) "
-    "or delete the fan-out chain (_change_handlers/_notify_handlers) with it"
 )
 # Choices dead-code campaign (2026-06): staged choice capabilities kept by
 # deliberate decision — each reason names the wiring that completes it.
@@ -475,15 +466,6 @@ PLANNED_METHODS: dict[str, str] = {
         "act-from arc C5 deletion (vulture name-collision); wire a chunk-metadata "
         "consumer or delete the accessor"
     ),
-    # --- UserContext fallback next-action (unmasked 2026-08-28) ---
-    "core/services/user/unified_user_context.py::get_recommended_next_action": (
-        "documented CORE-tier fallback next-action heuristic (blocked → prerequisites, "
-        "at-risk habits, overdue tasks, goal progress) — its only production caller was "
-        "the dead EnhancedUserContext deleted 2026-08-28 (#1170); four integration tests "
-        "and scripts/demos/bidirectional_relationships_demo.py still exercise it. Wire it "
-        "as the /today or /api hint for the CORE tier (where the intelligence methods it "
-        "defers to are absent), or delete it with its tests and the demo call"
-    ),
     # --- Shared BaseService mixins (campaign 16) ---
     "core/services/mixins/relationship_operations_mixin.py::add_prerequisite": (
         _MIXIN_PREREQUISITE_WRITE
@@ -573,8 +555,6 @@ PLANNED_METHODS: dict[str, str] = {
     "core/services/user/unified_user_context.py::recent_principle_aligned_choices_or_empty": (
         _USER_PRINCIPLE_INTEGRATION
     ),
-    # --- Schema monitoring: handler registration seam ---
-    "core/services/schema_change_detector.py::add_change_handler": _SCHEMA_CHANGE_HANDLERS,
     # --- Choices: gravity links (inlined from _relationship_mixin into facade) ---
     "core/services/choices_service.py::link_choice_to_habit": _CHOICES_GRAVITY,
     "core/services/choices_service.py::create_semantic_choice_relationship": _CHOICES_GRAVITY,

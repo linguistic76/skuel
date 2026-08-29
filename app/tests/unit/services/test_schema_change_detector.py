@@ -18,7 +18,6 @@ the adapter seam now registers no handler of its own.
 """
 
 from datetime import datetime
-from typing import Any
 
 import pytest
 
@@ -102,10 +101,9 @@ async def test_adapter_seam_builds_working_detector() -> None:
     detector = adapter.get_schema_change_detector()
 
     assert isinstance(detector, SchemaChangeDetector)
-    # No handler is auto-registered: the seam builds a bare detector whose job
-    # is drift detection + logging (the adaptive cache-clearing handler was
-    # deleted with the query_builders/ stack it served).
-    assert detector._change_handlers == []
+    # Drift detection + logging is the whole job: the adaptive cache-clearing handler
+    # died with the query_builders/ stack it served (#1081) and the consumer-less
+    # handler seam followed on 2026-08-29.
     # Cached on the adapter — second call returns the same instance.
     assert adapter.get_schema_change_detector() is detector
 
@@ -153,12 +151,13 @@ async def test_check_for_changes_detects_index_addition() -> None:
 
 
 @pytest.mark.asyncio
-async def test_end_to_end_change_reaches_registered_handler() -> None:
-    """Full path: adapter seam → detector → a registered handler.
+async def test_end_to_end_change_reaches_the_adapter_seam() -> None:
+    """Full path: adapter seam → cached detector → a drift report.
 
-    A detected schema change must fan out through `adapter.check_schema_changes()`
-    to handlers registered on the cached detector. This exercises the async
-    handler dispatch (PR #136) end to end through the seam compose.py uses.
+    A detected schema change must surface through `adapter.check_schema_changes()`,
+    the seam compose.py uses. The handler fan-out this test once also asserted was
+    deleted on 2026-08-29 (no consumer since #1081 took AdaptiveOptimizationHandler);
+    drift detection + the report are the detector's whole job now.
     """
     fake = _FakeSchemaService(_make_schema(labels=["Entity"], index_names=["idx_uid"]))
     adapter = _adapter_with_schema(fake)
@@ -166,13 +165,6 @@ async def test_end_to_end_change_reaches_registered_handler() -> None:
     detector = adapter.get_schema_change_detector()
     detector.enable_persistence = False
     await detector.initialize()
-
-    handled: list[Any] = []
-
-    async def record(event: Any) -> None:
-        handled.append(event)
-
-    detector.add_change_handler(record)
 
     # Migration: enough index churn to force re-optimization (HIGH impact).
     fake.current = _make_schema(
@@ -184,32 +176,6 @@ async def test_end_to_end_change_reaches_registered_handler() -> None:
 
     assert report.changes
     assert report.requires_reoptimization
-    assert len(handled) == 1
-
-
-@pytest.mark.asyncio
-async def test_handler_dispatch_supports_sync_and_async_handlers() -> None:
-    """The SchemaChangeHandler contract accepts both sync and async callables."""
-    fake = _FakeSchemaService(_make_schema(labels=["Entity"], index_names=["idx_uid"]))
-    detector = SchemaChangeDetector(fake)
-    detector.enable_persistence = False
-    await detector.initialize()
-
-    seen: list[str] = []
-
-    def sync_handler(event: object) -> None:
-        seen.append("sync")
-
-    async def async_handler(event: object) -> None:
-        seen.append("async")
-
-    detector.add_change_handler(sync_handler)
-    detector.add_change_handler(async_handler)
-
-    fake.current = _make_schema(labels=["Entity", "Task"], index_names=["idx_uid"])
-    await detector.check_for_changes()
-
-    assert seen == ["sync", "async"]
 
 
 @pytest.mark.asyncio
