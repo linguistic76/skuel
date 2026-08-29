@@ -1939,8 +1939,12 @@ must **rewrite the existing key in place**, never append a second `updated:`.
      worktree keeps the old value, so `git status` shows an unstaged reversal of the stamp
      after every docs commit and the next `git add` re-propagates the stale date. Touching
      only that one line preserves the author's other unstaged hunks.
-   - **Refuse.** Detect a partially-staged file, decline to stamp it, and tell the author
-     what to do. Simpler and always safe; costs a stamp on those commits.
+   - **Refuse and abort.** Detect a partially-staged file, decline to stamp it, print what
+     to do, and **exit nonzero**. Declining while returning 0 is not a strategy — the
+     commit lands unstamped, "true by construction" is false, and the guard reports it
+     later instead of the hook preventing it. This branch trades a blocked commit for that
+     guarantee; the index+worktree strategy above is the one that handles partial staging
+     without blocking.
 2. **Backfill.** One-shot over the 194 stale + 192 fieldless files. See the
    *history-or-not* fork below — it decides what date this writes.
 3. **Guard.** A `./dev health-*` check (family: `app/scripts/health/`) that fails when any
@@ -1956,6 +1960,14 @@ must **rewrite the existing key in place**, never append a second `updated:`.
    `health-xref` was added. Update all three. Keep the check fast: `./dev health`
    deliberately excludes `health-mypy` at ~80s, and one `git log --name-only` pass over
    `app/docs` is enough for all 411 files.
+   ⚠️ **A date comparison alone leaves the guard blind to its main target.** A file
+   committed with `--no-verify` — the exact bypass this guard exists to catch — can arrive
+   with **no** `updated:` key at all, and then there is no date that predates anything, so
+   a naive checker skips it and stays green. Fail on **missing**, **duplicate**, or
+   **unparsable** `updated:` in an in-scope doc *before* comparing dates. This also fixes
+   the ordering: a missing-field failure is only enforceable once the backfill has run, so
+   the guard must land **with or after** step 2, never before it — shipped first it would
+   fail on all 192 fieldless files.
    ⚠️ **Ignore stamp-only commits**, or the backfill invalidates itself: the moment the
    backfill lands it becomes the newest commit for all 386 rewritten files, so every
    historical date it just wrote predates it and the guard fails on nearly the whole
@@ -1984,9 +1996,12 @@ other pinned archives are exempt.
   repo-root-relative ones (`app/docs/...`). Joining the two on filename matches nothing,
   every file looks current, and the measurement reads a clean `0 stale`. This happened on
   the first run of the measurement above.
-- Five of the traps above (partial staging, backfill self-invalidation, quoted scalars,
-  worktree desync, an unwired guard) were found by Codex review of the *registration* over
-  two rounds, not of an implementation — the contract is the artifact worth reviewing here.
+- Seven of the traps above — partial staging, backfill self-invalidation, quoted scalars,
+  worktree desync, an unwired guard, a guard blind to missing fields, and a refusal branch
+  that lets the commit through — were found by Codex review of the *registration* across
+  three rounds, not of an implementation. Rounds 2 and 3 each found holes in the previous
+  round's fix, which is the argument for reviewing a contract to convergence before writing
+  the code it describes.
 
 ### Sub-finding: same-file contradictory ruling prose is NOT mechanizable
 
