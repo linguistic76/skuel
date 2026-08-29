@@ -234,7 +234,7 @@ jobs:
                 echo "No WARNING findings (structurally dead, or a stale PLANNED marking)."
               else
                 echo "**${warning_count} WARNING finding(s)** — structurally dead, or a stale"
-                echo "PLANNED marking whose subject vanished or is now wired. The PR-side"
+                echo "PLANNED marking whose registered subject no longer exists. The PR-side"
                 echo "\`--check\` gate (CI lint job / \`./dev quality\`) fails on these too:"
                 echo ""
                 jq -r '.findings[] | select(.severity == "warning") | "- `\(.subject)` (\(.file):\(.line)) — \(.detail)"' bloat.json > warnings.txt

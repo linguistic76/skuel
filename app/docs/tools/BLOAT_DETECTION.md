@@ -100,7 +100,12 @@ functions as the visible wiring backlog.
 **Integrity is self-policing, and exactly one thing fails `--check`: the
 subject is GONE.** A deleted or renamed event class, service method, or
 template `.md` makes its registry key a lie, and that is the only fact this
-detector establishes without inference. It is a `WARNING` in every tier.
+detector establishes without inference. It is a `WARNING` in every tier — and
+"gone" is proven by looking for the definition, never inferred from a subject's
+absence from an index: an event class missing from the *event universe* may
+simply have stopped resolving as a `BaseEvent` subclass (a base-class edit, or a
+module missing from `core/events/__init__.py`), which is an inheritance defect,
+not stale backlog metadata.
 
 **"It looks wired now" NEVER gates — it reports as `planned-marking-masked`
 (INFO).** Every liveness engine here over-approximates *by design*, because the

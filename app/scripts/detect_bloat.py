@@ -1476,6 +1476,23 @@ class EventUsageCollector:
 # ============================================================================
 
 
+def _class_definition_site(codebase: ParsedCodebase, name: str) -> str | None:
+    """Relative path of the first production ``class <name>``, or None.
+
+    Universe membership proves event ELIGIBILITY (a transitive BaseEvent
+    subclass whose module is imported), not that the class exists. Absence from
+    the universe therefore cannot be read as "deleted" — an accidental
+    base-class edit, or a module missing from ``core/events/__init__.py``, drops
+    a live class out of it. Only this scan proves the subject is gone, and only
+    that may gate (Codex P2, PR #1188).
+    """
+    for path, tree in codebase.production.items():
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ClassDef) and node.name == name:
+                return codebase.rel(path)
+    return None
+
+
 def analyze_events(
     universe: EventUniverse, usage: EventUsage
 ) -> tuple[list[Finding], list[Finding]]:
@@ -1586,24 +1603,45 @@ def analyze_events(
         else:
             findings.append(finding)
 
-    # Stale planned markings for vanished subjects: a PLANNED_EVENTS key
-    # absent from the event universe was deleted, renamed, or mistyped —
-    # without this pass the registry would silently keep dead keys.
-    findings.extend(
-        Finding(
-            kind="planned-marking-stale",
-            severity=BloatSeverity.WARNING,
-            subject=cls,
-            file="core/events/",
-            line=0,
-            detail=(
-                "marked planned but no such event class exists — deleted, "
-                "renamed, or mistyped; remove from PLANNED_EVENTS"
-            ),
-        )
-        for cls in sorted(PLANNED_EVENTS)
-        if cls not in universe
-    )
+    # A PLANNED_EVENTS key absent from the universe is only STALE if the class
+    # is really gone. Absence can also mean the class exists but stopped
+    # resolving as a BaseEvent subclass — an inheritance defect, where deleting
+    # the registry entry is the wrong repair — so the definition is checked
+    # before anything gates.
+    for cls in sorted(PLANNED_EVENTS):
+        if cls in universe:
+            continue
+        defined_at = _class_definition_site(universe.codebase, cls)
+        if defined_at is None:
+            findings.append(
+                Finding(
+                    kind="planned-marking-stale",
+                    severity=BloatSeverity.WARNING,
+                    subject=cls,
+                    file="core/events/",
+                    line=0,
+                    detail=(
+                        "marked planned but no such event class exists — deleted, "
+                        "renamed, or mistyped; remove from PLANNED_EVENTS"
+                    ),
+                )
+            )
+        else:
+            findings.append(
+                Finding(
+                    kind="planned-marking-masked",
+                    severity=BloatSeverity.INFO,
+                    subject=cls,
+                    file=defined_at,
+                    line=0,
+                    detail=(
+                        "registered class exists but is outside the event universe "
+                        "— it no longer resolves as a transitive BaseEvent subclass, "
+                        "or its module is not imported in core/events/__init__.py. "
+                        "Fix that, not the registry; KEEP the entry"
+                    ),
+                )
+            )
 
     return findings, exempted
 

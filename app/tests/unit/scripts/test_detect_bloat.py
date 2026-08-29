@@ -565,6 +565,32 @@ def test_name_masked_planned_method_is_flagged_but_never_stale(monkeypatch):
     assert "KEEP the entry" in masked[0].detail
 
 
+def test_planned_event_outside_universe_but_defined_is_masked(monkeypatch):
+    """A class that exists but stopped being an event is an inheritance defect.
+
+    Codex P2 on PR #1188: universe membership proves event ELIGIBILITY, not
+    definition existence. A base-class edit — or a module missing from
+    core/events/__init__.py — drops a live class out of the universe, and
+    gating on that would tell the maintainer to delete registry metadata when
+    the real repair is the inheritance.
+    """
+    monkeypatch.setattr(detect_bloat, "PLANNED_EVENTS", {"NotAnEventAnymore": "awaiting wiring"})
+    codebase = build_codebase(
+        {"core/events/x.py": "class NotAnEventAnymore:\n    pass\n"},
+    )
+    universe = EventUniverse(codebase)
+    universe.build()
+    usage = EventUsageCollector(universe, codebase).collect()
+    findings, _exempted = analyze_events(universe, usage)
+
+    assert not [f for f in findings if f.kind == "planned-marking-stale"]
+    masked = [f for f in findings if f.kind == "planned-marking-masked"]
+    assert [f.subject for f in masked] == ["NotAnEventAnymore"]
+    assert masked[0].severity is BloatSeverity.INFO
+    assert "outside the event universe" in masked[0].detail
+    assert masked[0].file == "core/events/x.py"
+
+
 # ============================================================================
 # PLANNED_TEMPLATES — existence is provable, a render match is not
 # ============================================================================
