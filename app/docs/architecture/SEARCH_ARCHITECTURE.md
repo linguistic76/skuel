@@ -1270,7 +1270,7 @@ and educational-level controls it does.
 | **Vector Search** | `/core/services/neo4j_vector_search_service.py` | `semantic_enhanced_search()`, `learning_aware_search()` (FULL tier only) |
 | **Vector Config** | `/core/config/unified_config.py` | `VectorSearchConfig` |
 | **Schema Manager** | `/adapters/persistence/neo4j/neo4j_schema_manager.py` | `sync_fulltext_indexes()` (always), `sync_vector_indexes()` (FULL tier only) |
-| **UI Components** | `/ui/search/components.py` | Query box, filter bar (+ mobile drawer), result cards, pagination |
+| **UI Components** | `/ui/search/components.py` | Query box, filter bar (+ mobile drawer), result cards, top-N headline (no pagination — #555 ruled DROP) |
 | **Query parsing & ranking** | `SearchQueryParser` (`/core/models/search/query_parser.py`) + `score_*` (`/core/models/search/scoring.py`) | Analog typed-filter (priority/status/domain) parse; `score_*` unified ranking applied by `SearchRouter._score_results` only when a caller supplies `user_context` (CORE tier) |
 | **MEGA-QUERY** | `/core/services/user/user_context_queries.py` | User state query |
 | **Ku Learning State** | `KuBackend` in `/adapters/persistence/neo4j/backends/curriculum_backends.py` | IN_PROGRESS, MASTERED (Ku-native two-tier: Studying + Understood) |
