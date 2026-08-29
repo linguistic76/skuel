@@ -143,12 +143,10 @@ class RelationshipType(StrEnum):
     ADVANCES_GOAL = "advances_goal"  # Event advances goal
 
     # Goal-Domain relationships
-    HAS_GOAL = "has_goal"  # User has/owns goal
     SUPPORTED_BY = "supported_by"  # Goal supported by habit (with weight)
     GUIDED_BY = "guided_by"  # Goal guided by principle/value
 
     # Habit-Domain relationships
-    HAS_HABIT = "has_habit"  # User has/practices habit
     DEVELOPS_SKILL = "develops_skill"  # Habit develops knowledge/skill
     EMBODIES = "embodies"  # Habit embodies principle/value
 

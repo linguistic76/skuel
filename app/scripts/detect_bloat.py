@@ -93,9 +93,15 @@ PLANNED_EVENTS: dict[str, str] = {
     # the same chokepoint but has no producer that passes RESOURCE yet —
     # see the note on EMBEDDING_EVENT_TYPES in embedding_publisher.py.
     "HabitMissed": (
-        "publish-side missed-habit detection never built; subscriber wiring in "
-        "services_bootstrap/_event_wiring.py is intentional staging — wire a "
-        "scheduler/cron detector that publishes it, or delete the chain"
+        "publish-side missed-habit detection never built (no publisher in ANY commit); "
+        "subscriber wiring in services_bootstrap/_event_wiring.py is intentional staging. "
+        "RULED keep-staged 2026-08-28 (Mike) — its siblings add_change_handler and "
+        "get_recommended_next_action were ruled DELETE the same day (removal lands in "
+        "its own PR; their PLANNED entries go with them); this one earns a row: "
+        "docs/roadmap/deferred-work.md § 'HabitMissed — Publisher-less Chain'. The "
+        "publisher's constraints are no LLM and no API cost plus the streak day-model "
+        "ruling — a scheduled Analog detector (ProgressReportWorker pattern), a read-time "
+        "scan or a one-shot are all legitimate shapes"
     ),
     # Exercises dead-code campaign (2026-06): ADR-040 teacher-assignment
     # notification hook. Neither published nor subscribed — its sibling

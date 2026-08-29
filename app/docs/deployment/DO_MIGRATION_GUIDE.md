@@ -144,7 +144,7 @@ AuraDB Free caps the graph at **200k nodes / 400k relationships** (Aura FAQ, ver
 0 4 * * 0  root  cd /opt/skuel/app && docker compose -f docker-compose.production.yml exec -T skuel-app python scripts/telemetry_retention.py >> /opt/skuel/telemetry-cron.log 2>&1
 ```
 
-One-shot, not a daemon — this preserves the "no background workers" guarantee (ADR-080 H0).
+One-shot, not a daemon — ADR-080 H0 adds no always-on worker (CORE's actual guarantee is AI-scoped: the hourly `ProgressReportWorker` already runs there).
 
 On auto-pause: Aura Free pauses after ~72 hours **without connections** — a weekly cron alone would not prevent that. In practice the question doesn't arise while the app is up: the app's graph-health metrics poller queries Neo4j every 5 minutes for as long as the container runs, so an active deployment never goes idle. Pausing only happens if the app itself is down past the pause window, and that wake-up is exactly what `connect_with_retry` and the deploy health gate absorb.
 

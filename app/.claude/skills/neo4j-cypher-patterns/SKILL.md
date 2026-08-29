@@ -423,7 +423,7 @@ NEO4J_SCHEMA_MONITORING=true            # start the background poll at startup
 NEO4J_SCHEMA_MONITORING_INTERVAL=900    # poll interval (seconds); must be ≥ 1
 ```
 
-- **Off by default.** Gated by `config.database.schema_monitoring_enabled`, *not* by `INTELLIGENCE_TIER` — it's plain graph infrastructure (no API calls), so it can run in either tier. Keeping it off by default preserves the CORE-tier "no background workers" guarantee.
+- **Off by default.** Gated by `config.database.schema_monitoring_enabled`, *not* by `INTELLIGENCE_TIER` — it's plain graph infrastructure (no API calls), so it can run in either tier. Keeping it off by default adds no always-on worker to CORE (the tier's guarantee is AI-scoped — the hourly `ProgressReportWorker` already runs there).
 - **Where it's wired.** `services_bootstrap/compose.py` calls `initialize_schema_monitoring()` right after the startup DDL sync (so it baselines against the freshly-synced schema); `shutdown_skuel` calls `stop_schema_monitoring()`. The detector owns its own `asyncio` poll task, which lives on the single loop shared by bootstrap and `server.serve()`.
 - **Non-fatal.** A failed start warns and continues — monitoring is observability, never a correctness gate.
 - **Interval is validated at the env boundary** (`DatabaseConfig.from_env` rejects values < 1): a non-positive interval is truthy and would make `asyncio.sleep(<=0)` busy-spin Neo4j introspection.
