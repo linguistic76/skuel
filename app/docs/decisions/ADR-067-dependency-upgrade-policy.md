@@ -131,7 +131,9 @@ test for "is this a pin or a stale floor?" is: a pin says **why** and references
 2. uv lock --upgrade          # re-resolve to latest allowed (pins/caps hold automatically)
 3. raise the >= floors in pyproject.toml to match the new lock (step 1's "latest" column)
 4. uv sync                    # install onto the pinned interpreter
-5. uv run python -c "import main"   # boot smoke test (import the app)
+5. uv run python -c "import asyncio; from scripts.dev.bootstrap import bootstrap_skuel; asyncio.run(bootstrap_skuel())"
+                              # boot smoke test — COMPOSES the app (services + every @rt handler);
+                              # `import main` alone registers nothing (main() is __main__-guarded)
 6. ./dev quality              # ruff + SKUEL lint + mypy + pyright + cypher + skills
 7. ./dev test-integration     # LOCAL Docker Neo4j — same suite CI's integration_tests job runs
 ```
@@ -317,10 +319,15 @@ UP037 **1222** (all marked safe-fixable), TC003 **161**, TC002 **91**. They are 
   redundant and ruff marks all 1222 fixes safe. The one hazard is the mirror image of the TC one: a
   quoted name imported only under `TYPE_CHECKING` is inert as a string but, unquoted, becomes a
   deferred reference that raises `NameError` the moment something introspects that signature — the
-  FastHTML bootstrap gotcha. So the sweep is `uv run ruff check --select UP037 --fix .`, then
-  `uv run python -c "import main"` + `./dev smoke` + the unit suite; a `NameError` names the site,
-  which keeps its quotes (or gains a runtime import). Churn across most of the tree → its own PR in a
-  merge lull.
+  FastHTML bootstrap gotcha. So the sweep is `uv run ruff check --select UP037 --fix .`, then a
+  check that actually COMPOSES the app — `uv run python -c "import asyncio; from scripts.dev.bootstrap import bootstrap_skuel; asyncio.run(bootstrap_skuel())"`
+  against a reachable Neo4j (it is what `main()` runs; `bootstrap_skuel()` builds the services and
+  registers every `@rt` handler, which is the moment FastHTML evaluates the signatures) — or
+  `./dev test-integration`, whose `tests/conftest.py` app fixture calls the same function. A bare
+  `import main` registers nothing (`main()` is `__main__`-guarded) and `./dev smoke` renders static
+  fixtures without a server, so neither can see the failure. A `NameError` at bootstrap names the
+  site, which keeps its quotes (or gains a runtime import). Churn across most of the tree → its
+  own PR in a merge lull.
 
 **Trigger + check** live in `deferred-work.md` § "py314 Annotation Sweeps" (UP037: Mike picks the
 window; TC002/TC003: never). mypy/pyright already type-check against 3.14 — the backlog is cosmetic,
