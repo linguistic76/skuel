@@ -1896,6 +1896,211 @@ unsearchable); no templates hub under `ui/`.
 
 ---
 
+## Docs `updated:` Frontmatter — Auto-Stamp in Pre-Commit (REGISTERED 2026-08-29 — ruled auto-stamp)
+
+**Ruling (Mike, 2026-08-29): AUTO-STAMP.** The field becomes true by construction, so
+nobody has to remember it. *Rejected:* delete the field corpus-wide; leave it and merely
+stop citing it.
+
+⚠️ **The ruling stands, but "by construction" is qualified — read the squash finding
+below.** A local pre-commit hook cannot make `updated:` *equal* the final commit date,
+because `gh pr merge --squash` creates that commit server-side without running any hook.
+Auto-stamping still takes the corpus from 89% wrong to accurate within a merge-latency
+window, which is why the ruling holds; it is not exactness.
+
+**Why it needed a ruling — measured 2026-08-29 on `24cd4a2ab`:** the field is not
+maintained, so reading it as evidence is a mistake.
+
+| | Count |
+|---|---|
+| tracked `app/docs/**/*.md` | 411 |
+| no `updated:` field at all | 192 |
+| has the field, date **>=** last commit | 25 |
+| has the field, date **older** than last commit (STALE) | **194** |
+
+Lag among the 194: 26 same-month, 128 one-to-five months, 40 six months or more. Worst:
+`patterns/http_status_codes.md` reads `2025-10-17` against a `2026-03-09` last commit.
+PR #1182 corrected exactly one of the 194 by hand — which is what prompted measuring the
+rest.
+
+⚠️ **The value may be quoted.** 25 files write `updated: '2026-04-20'`, and a
+`^updated:\s*(\d{4}-\d{2}-\d{2})$` parser silently classifies every one of them as
+*fieldless* — which is how the first census here counted the field present on only 194
+files and absent on 217, when the true split is 219 present / 192 absent (Codex P2 on
+#1184). Both the backfill and the guard must accept quoted scalars, and the backfill
+must **rewrite the existing key in place**, never append a second `updated:`.
+
+**Contract (one PR):**
+
+1. **Stamp.** Extend `app/scripts/git-hooks/pre-commit` (the tracked script behind
+   `core.hooksPath`; `.git/hooks/pre-commit` is a symlink to it) so that, for each staged
+   `.md` in scope, the frontmatter's `updated:` becomes the commit date.
+   ⛔ **Not with a plain `git add <path>`.** That replaces the index entry with the whole
+   working tree file, silently staging every hunk the author deliberately left out of a
+   `git add -p` — including work the hook's own secrets check (check 1) already scanned
+   past. Two permitted strategies; the PR picks one and says which:
+   - **Index + worktree, both.** Write the stamped blob into the index
+     (`git hash-object -w` → `git update-index --cacheinfo`) **and** rewrite the single
+     `updated:` line in the worktree file. An index-only write is NOT complete: the
+     worktree keeps the old value, so `git status` shows an unstaged reversal of the stamp
+     after every docs commit and the next `git add` re-propagates the stale date. Touching
+     only that one line preserves the author's other unstaged hunks.
+   ⚠️ **Both strategies presuppose an `updated:` key already exists.** A newly added
+   in-scope `.md` with no YAML frontmatter at all — still permitted outside pattern docs —
+   has no line to rewrite, and the backfill only covers files present when the feature
+   ships. So a perfectly normal commit lands a new unstamped doc and nothing notices until
+   the health check runs later, which is the hook failing at its one job. The hook must
+   **create** the frontmatter block and the key, in the index and the worktree both, or
+   **abort** when it is absent. Creating is the better default: aborting makes every new
+   doc a two-step commit.
+   - **Refuse and abort.** Detect a partially-staged file, decline to stamp it, print what
+     to do, and **exit nonzero**. Declining while returning 0 is not a strategy — the
+     commit lands unstamped, "true by construction" is false, and the guard reports it
+     later instead of the hook preventing it. This branch trades a blocked commit for that
+     guarantee; the index+worktree strategy above is the one that handles partial staging
+     without blocking.
+2. **Backfill.** One-shot over the 194 stale + 192 fieldless files. See the
+   *history-or-not* fork below — it decides what date this writes.
+3. **Guard.** A `./dev health-*` check (family: `app/scripts/health/`) that fails when any
+   tracked doc's `updated:` predates the last commit that changed the file, so a
+   silently-broken hook is caught rather than trusted.
+   ⚠️ **A new script + a new `./dev` target is invoked by nobody.** Both runner lists are
+   hard-coded and must be edited, or the guard is opt-in and a bypassed hook goes unnoticed:
+   `app/dev` § `health)` (the five `uv run python scripts/health/*.py` lines) and
+   `.github/workflows/weekly-janitor.yml` § `for check in …` (the same five, named again).
+   There is a **third** copy the janitor's own report text enumerates
+   (`health-modules` / `health-links` / `health-names` / `health-headings` / `health-xref`)
+   — a list with no count, which is how one of these enumerations was wrong from the day
+   `health-xref` was added. Update all three. Keep the check fast: `./dev health`
+   deliberately excludes `health-mypy` at ~80s. One `git log --name-only` pass over
+   `app/docs` covers the date comparison for all 411 files — but see the stamp-only
+   exclusion below, which needs diff content `--name-only` does not carry.
+   ⚠️ **A strict date comparison false-positives on every squash merge — settle this
+   fork first.** The mandated merge is `gh pr merge <PR#> --squash` (CLAUDE.md § PR Review
+   Workflow), which builds the final commit **server-side, running no hook**. The branch
+   commit stamped `updated: D1`; the squash lands on a later clock as the only commit
+   touching that file; the guard sees `D1 < D2` and reports a correctly stamped doc as
+   stale. The stamp-only exclusion does not help — the squash commit carries the
+   *substantive* change. Measured on this session's own merges: squash `6ffa7b741` is
+   `08:37:56` against branch commit `e01661b89` at `08:34:21`, and **the author date is
+   rewritten too** (both fields move), so "compare the author date instead" — the first
+   thing anyone will try — is not an escape hatch. Same-day here, but any merge crossing
+   midnight, or a local-vs-UTC boundary, fires it. Three viable answers:
+   - **(a) Rot threshold (recommended).** Fail only when `updated:` predates the last
+     commit by more than a merge-latency window. Squash-immune, and it still catches the
+     measured problem: 168 of the 194 stale files are a month or more out.
+   - **(b) Merge-side stamping.** A workflow re-stamps on `main` after merge. Exact, but it
+     pushes to `main` and has to co-exist with the CI gate.
+   - ~~**(c) Drop the date comparison**, keeping only the missing / duplicate / unparsable /
+     future checks below.~~ **REJECTED — it cannot do the guard's job.** On a previously
+     backfilled doc whose hook is bypassed or silently stops running, the old value stays
+     present, unique, parseable and non-future, so all four retained checks pass forever.
+     That is exactly the rot the census measured — 194 files with valid-*looking* dates —
+     and step 3 promises to catch it. Recorded rather than deleted so it is not re-proposed
+     as "the simple option".
+   ⚠️ **A date comparison alone leaves the guard blind to its main target.** A file
+   committed with `--no-verify` — the exact bypass this guard exists to catch — can arrive
+   with **no** `updated:` key at all, and then there is no date that predates anything, so
+   a naive checker skips it and stays green. Fail on **missing**, **duplicate**, or
+   **unparsable** `updated:` in an in-scope doc *before* comparing dates.
+   ⚠️ **Parse the leading YAML block only — never grep the whole file.** A body example is
+   not a duplicate key: `docs/README.md` carries the real `updated:` at line 4 and a
+   documentation example at line 104, and `patterns/CYPHER_VS_APOC_STRATEGY.md` does the
+   same (measured 2026-08-29: exactly those two of 411). A whole-file `^updated:` count
+   flags both as duplicates, the backfill will not remove a legitimate example, and the new
+   guard sits permanently red. Use `core/utils/frontmatter.py::split_frontmatter` — it
+   already exists; do not hand-roll a parser. **Bound it from
+   both sides:** a lower-bound-only check stays green forever on a future value like
+   `updated: 2099-01-01`, which never predates anything and would mask every unstamped edit
+   for years — require `updated:` to be no later than the file's newest commit date too, so
+   the value must be one a commit could actually have produced.
+   ⚠️ **Pick one timezone for this comparison, or it fires on a valid stamp.** An author
+   east of UTC committing just after local midnight stamps the new local date while the
+   immediate squash commit still carries the previous UTC date, and the upper bound then
+   rejects a correct stamp as a future date. Normalize stamping *and* comparison to UTC, or
+   tolerate one day of boundary skew. (This machine is `-0700`, so the local date never
+   runs ahead of UTC and the bug is invisible here — do not conclude from local testing
+   that it is absent.) This also fixes
+   the ordering: a missing-field failure is only enforceable once the backfill has run, so
+   the guard must land **with or after** step 2, never before it — shipped first it would
+   fail on all 192 fieldless files.
+   ⚠️ **Ignore stamp-only commits**, or the backfill invalidates itself: the moment the
+   backfill lands it becomes the newest commit for all 386 rewritten files, so every
+   historical date it just wrote predates it and the guard fails on nearly the whole
+   corpus (Codex P1 on #1184). One rule covers both the bootstrap and any future
+   stamp-only commit: **skip commits whose diff for that file touches only the `updated:`
+   line.** Prefer that to hardcoding the backfill SHA.
+   ⚠️ **That exclusion needs line-level diffs, which `git log --name-only` cannot give.**
+   `--name-only` emits paths, not changed lines, so it can never tell a stamp-only commit
+   from a substantive one — this contract asserted both the exclusion and a `--name-only`
+   pass, and they are incompatible. Use a patch-producing traversal (`git log -p`), or the
+   cheaper two-stage form: `--numstat` to shortlist commits touching the file with exactly
+   one insertion and one deletion, then `git show` only those candidates to confirm the
+   changed line is `updated:`.
+
+**Fork the PR must settle — does `updated:` keep pre-stamp history?**
+
+- **(i) Preserve it (recommended).** Backfill writes each file's last *substantive* commit
+   date; the hook does not stamp during the backfill commit; the guard carries the
+   stamp-only exclusion above permanently. Costs one rule, keeps ~10 months of real dating.
+- **(ii) Don't.** Backfill stamps everything to the backfill date and `updated:` means
+   "changed since the stamp went live." No exclusion logic at all, but every doc claims the
+   same date and the pre-2026-08 history is gone. Only pick this if (i)'s one rule proves
+   harder than it reads.
+
+**Decide inside the PR (not blocking):** scope beyond `app/docs/**` — `.claude/skills/**/SKILL.md`,
+root `AGENTS.md`, `CLAUDE.md` were **not** measured; and whether `docs/roadmap/done/` and
+other pinned archives are exempt.
+
+**Gotchas — do not rediscover these:**
+
+- ⚠️ **Path-base mismatch silently reports zero staleness.** `git ls-files docs` run from
+  `app/` yields CWD-relative paths (`docs/...`) while `git log --name-only` yields
+  repo-root-relative ones (`app/docs/...`). Joining the two on filename matches nothing,
+  every file looks current, and the measurement reads a clean `0 stale`. This happened on
+  the first run of the measurement above.
+- Sixteen of the traps above — partial staging, backfill self-invalidation, quoted scalars,
+  worktree desync, an unwired guard, a guard blind to missing fields, a refusal branch that
+  lets the commit through, a future date that passes a lower-bound check, an exclusion rule
+  its own prescribed tool cannot implement, a new file with no frontmatter to stamp, a
+  squash merge that makes every correctly stamped doc look stale, a timezone boundary that
+  rejects a valid stamp as a future date, a Review Schedule row still prescribing the broken
+  comparison, a duplicate check that a body example turns permanently red, and a fork
+  option that could never detect the rot it was offered to guard against, and that same
+  Review Schedule row still offering a struck option — were found by Codex review of the
+  *registration* across ten rounds,
+  not of an implementation. One qualified the ruling's own premise, and **four** were this
+  document contradicting itself — the very failure class its sub-finding below describes.
+  Two of those four were the same Review Schedule row restating the section's options and
+  going stale when the section moved, which is why that row now points at the section
+  instead of summarising it: the durable fix for a duplicated fact is to stop duplicating
+  it, not to re-sync the copy. Every round after the first found holes in the previous round's fix, and
+  round 4 caught this document contradicting itself. That is the argument for reviewing a
+  contract to convergence before writing the code it describes.
+
+### Sub-finding: same-file contradictory ruling prose is NOT mechanizable
+
+Registered so it is not attempted again. The three sites cleaned up in #1182/#1183 shared a
+shape — a ruling PR corrected one mention and left a contradicting one **in the same file**
+(`search_request.py` 816 fixed / 895 stale; `SEARCH_MODELS.md` prose fixed / code block
+stale; #1169's frontmatter vs its own body). The obvious detector does not work: scanning
+for one `#NNN` cited twice in a file with both defer-family and settled-family words nearby
+yields 28 pairs across 18 files, and **4 of 4 spot-checks were false positives** —
+`INDEX.md` #978 (two correct rows), `deferred-work.md` #215 ("PR #215 dropped X" inside a
+*different* item's "Why deferred"), `ingestion_tracker.py` #618 (Codex round citations),
+and the deliberate "was deferred, now dropped" history in
+`feedback-loop-staged-directions.md` § 4. History sections legitimately carry both
+dispositions, so the check would flag correct prose as loudly as real drift.
+
+Stays a **process discipline**, already recorded twice as a lesson: enumerate every site
+before fixing any, and treat every summary as a duplicated fact. The one narrowing worth
+carrying: when a ruling changes a fact, **re-grep the file you just edited** — in all three
+cases the stale twin was in the same file as the fix. The post-commit docs hook covers the
+*other* direction (docs referencing a changed module) and demonstrably works: it caught two
+of the four sites unprompted during #1183.
+
+---
+
 ## Review Schedule
 
 Review this document at the **September 2026 quarterly review**. Checklist:
@@ -1944,6 +2149,7 @@ Review this document at the **September 2026 quarterly review**. Checklist:
 | PathStep → Ku wiring backlog (1 Ku-less step; 67 Kus composed by no step) | Mike's next `Ps_dev` content session | The three counts in the section, over all three composition edges (`USES_KU\|TRAINS_KU\|CONTAINS_KNOWLEDGE`, never `USES_KU` alone) — 1 / 67 / 67 on 2026-08-28 |
 | py314 annotation sweeps — UP037 schedulable, TC002/TC003 never (home: ADR-067 § Deferred) | UP037: a churn window Mike picks; TC002/TC003: never | `uv run ruff check --select UP037 --statistics .` — 1222 on 2026-08-28 |
 | Parked features (activity ledger · interest/gravity · icon provider · templates re-homing) | Mike schedules each — feature work, never self-scoped | The four `git grep` checks in the section, all empty on 2026-08-28 |
+| Docs `updated:` frontmatter auto-stamp (ruled 2026-08-29 — build it, fresh context) | Ruled, not gated: Mike starts it. NOT a data threshold — do not re-litigate the delete-vs-stamp choice | Once shipped, the check must be **green** under the acceptance rule the section's squash fork selects. ⛔ **This row deliberately does not restate the options** — it listed them twice and was wrong both times (it prescribed the strict comparison after the section rejected it, then kept a fork option after the section struck it). Read the section; do not scope from this cell. Baseline the check replaces: 194 stale of 219 with the field, plus 192 with no field, on 2026-08-29. ⚠️ two ways to read a false clean: match paths on the SAME base (`git ls-files` is CWD-relative, `git log --name-only` is repo-root-relative), and accept QUOTED dates (`updated: '2026-04-20'`, 25 files) |
 
 **The document is the checklist, the table is a convenience:** a section added to this file
 without a matching row here is still in review scope — walk every `##` section, then the table.
