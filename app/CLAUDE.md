@@ -286,7 +286,7 @@ Domain backends live in clustered files under `adapters/persistence/neo4j/backen
 
 **Schema-change monitoring (opt-in, default OFF):** `SchemaChangeDetector` fingerprints the live schema, logs drift and keeps a migration history — that is its whole job: the cache-invalidating handler died with `query_builders/` (#1081) and the consumer-less handler seam was deleted 2026-08-29. On-demand via `Neo4jAdapter.check_schema_changes()`; or wire a background poll at startup with `NEO4J_SCHEMA_MONITORING=true` (+ `NEO4J_SCHEMA_MONITORING_INTERVAL`, default 900s, validated ≥1). Tier-independent (not `INTELLIGENCE_TIER`-gated) — off by default adds no always-on worker to CORE (the tier's guarantee is AI-scoped — the hourly `ProgressReportWorker` is a CORE Analog worker; see `GRACEFUL_DEGRADATION_ARCHITECTURE.md`). **See:** neo4j-cypher-patterns skill § 7.
 
-**Server tuning (memory, JVM, Vector API — sandbox/self-host only; AuraDB manages its own):** all server config is `NEO4J_*` env vars on the `neo4j` service in the base compose `../infrastructure/docker-compose.yml` (repo root; the app `docker-compose.yml` extends it, overriding only deltas). The Java Vector API (SIMD) is enabled via `NEO4J_server_jvm_additional=--add-modules jdk.incubator.vector` — required for optimal performance of the 8 vector indexes (Entity/ContentChunk/ReferenceChunk/Goal/Task/Ku/PathStep/LearningPath embeddings); `2026.x` warns without it.
+**Server tuning (memory, JVM, Vector API — sandbox/self-host only; AuraDB manages its own):** all server config is `NEO4J_*` env vars on the `neo4j` service in the base compose `../infrastructure/docker-compose.yml` (repo root; the app `docker-compose.yml` extends it, overriding only deltas). The Java Vector API (SIMD) is enabled via `NEO4J_server_jvm_additional=--add-modules jdk.incubator.vector` — required for optimal performance of the vector indexes (boot creates the label set listed in `services_bootstrap/compose.py` — one list, not a count); `2026.x` warns without it.
 
 **AuraDB three-horizon strategy (ADR-080):** AuraDB Free is live (cutover 2026-08-15); Neo4j Graph Data Science (GDS/AuraDS) deliberately deferred (density-gated; a Digital-layer enhancer, not part of the $0 core — GDS = pre-built graph algorithms, don't hand-roll). **Horizon 0 (shipped):** telemetry retention — `./dev telemetry-retention [--days N] [--dry-run]`, one-shot batched prune of unbounded-growth system telemetry (AuthEvent/SearchEvent/Interaction/stale VIEWED; saved `:ConversationSession` discussions EXCLUDED) keeps the graph under the Free node cap; startup connect-retry — `connect_with_retry` chokepoint in `Neo4jAdapter.connect` tolerates a paused/waking instance. `AURA-TEMPORARY:` marks self-host-only knobs — sandbox-only since the cutover, kept in compose for it. **Horizon 1:** author edge-first + the knowledge-health gauge (see Analytics below). Retention/connect-retry add no daemon to CORE (its guarantee is AI-scoped — "no AI background workers", not "no workers") (one-shot, not a loop).
 
@@ -472,7 +472,7 @@ Auth: `require_authenticated_user(request) -> UserUID` (from `adapters.inbound.a
 - Use `Errors` factory for creating errors
 - Seven error types: Validation, NotFound, Database, Integration, Business, System, Forbidden
 - **Narrow exceptions:** Use specific types from `core/utils/exception_types.py` (`NEO4J_EXCEPTIONS`, `LLM_EXCEPTIONS`, `DATA_CONVERSION_EXCEPTIONS`, etc.) instead of bare `except Exception`. Annotate intentional broad catches with `# intentional-broad:`, `# safety-net:`, or `# skuel-lint: disable=SKUEL017` (SKUEL017). Convention: persistence layer uses `NEO4J_EXCEPTIONS`; API/UI boundaries use `# safety-net:` annotations.
-- **Inline suppression:** `# skuel-lint: disable=SKUELXXX -- <reason>` (line) or `# skuel-lint: disable-file=SKUELXXX -- <reason>` (file-level). Supported: SKUEL005, SKUEL011–SKUEL015, SKUEL017–SKUEL025, SKUEL027–SKUEL030, SKUEL032. Every lint run audits suppressions; one that suppresses nothing is flagged as SKUEL026 — delete it.
+- **Inline suppression:** `# skuel-lint: disable=SKUELXXX -- <reason>` (line) or `# skuel-lint: disable-file=SKUELXXX -- <reason>` (file-level). Supported: exactly `SkuelLinter.SUPPRESSIBLE_RULES` in `scripts/lint_skuel.py` (enumerated in `linter_rules.md`). Every lint run audits suppressions; one that suppresses nothing is flagged as SKUEL026 — delete it.
 
 **See:** `/docs/patterns/ERROR_HANDLING.md`
 
@@ -548,7 +548,7 @@ All three load CSS through `build_head()` (pre-compiled Tailwind + vendored JS).
 | Server Communication | HTMX | Form submissions, loading |
 | Pure Presentation | FastHTML | HTML generation |
 
-**Key Files:** `/static/js/skuel.js` (the 22 **shared** Alpine.data() components — NOT all of them; 4 more live in page-local bundles `today.js`, `explore-reading.js`, `ku-reading.js`, `ps-detail.js`, 26 total), `/static/vendor/alpinejs/alpine.3.14.8.min.js`
+**Key Files:** `/static/js/skuel.js` (the **shared** Alpine.data() components — NOT the whole registry: page-local bundles under `static/js/` register their own, and `tests/unit/docs/test_alpine_docs_registry.py` derives the union from every registrar; never count them in prose), `/static/vendor/alpinejs/alpine.3.14.8.min.js`
 
 ⚠ **Upgrading Alpine/HTMX touches two files:** the version constant in `ui/theme.py` **and** the versioned filename in `static/service-worker.js`'s `PRECACHE_URLS` — plus a `CACHE_VERSION` bump. `install` calls `cache.addAll()`, which rejects wholesale on a single 404, so a missed precache entry breaks service-worker install for every PWA client.
 
@@ -573,7 +573,7 @@ Available on all 9 domains (Tasks, Goals, Habits, Events, Choices, Principles, K
 
 **Three Components:** BlockingChainView (vertical flow), AlternativesComparisonGrid (side-by-side), RelationshipGraphView (Vis.js force-directed graph).
 
-**6 Lateral Relationship Types:** BLOCKS/BLOCKED_BY, PREREQUISITE_FOR/DEPENDS_ON, ALTERNATIVE_TO, COMPLEMENTARY_TO, SIBLING, RELATED_TO.
+**Lateral relationship types:** the `RelationshipName` members in `_LATERAL_TYPES` (`core/models/relationship_names.py`; the `lateral` trait in the generated `GRAPH_CONTRACT.yaml`), inverses in `_LATERAL_INVERSES` — `PREREQUISITE_FOR` ↔ `REQUIRES_PREREQUISITE`; `DEPENDS_ON` is the separate Task scheduling edge, not a lateral type. The authoring UI exposes the subset its add-modal sub-forms POST to (`adapters/inbound/lateral_routes.py`).
 
 **Usage:** `EntityRelationshipsSection(entity_uid=entity.uid, entity_type="tasks")` — add to any detail page.
 
@@ -589,7 +589,7 @@ Available on all 9 domains (Tasks, Goals, Habits, Events, Choices, Principles, K
 
 **Docs-staleness check (automatic):** `.claude/hooks/post-commit-docs.sh` fires after `git commit` and flags docs/skills that reference changed files for semantic staleness review. **See:** `/docs/tools/AUTOMATIC_DOCS_CHECK.md`
 
-**SKUEL Linter Rules** — full detail in `/docs/patterns/linter_rules.md`:
+**SKUEL Linter Rules** — the rules most often hit, not the full registry (`RULE_DOCS` in `scripts/lint_skuel.py` is); full detail in `/docs/patterns/linter_rules.md`:
 
 | Rule | Guards | Severity |
 |------|--------|----------|

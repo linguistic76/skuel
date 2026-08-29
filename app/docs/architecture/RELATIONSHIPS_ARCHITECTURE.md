@@ -141,7 +141,7 @@ class DomainRelationshipConfig:
 | Exercise / Group | 3 | `FOR_GROUP`, `FULFILLS_EXERCISE`, `ASSIGNED_TO` |
 | Resource | 1 | `CITES_RESOURCE` — `(PathStep/Ku)-[:CITES_RESOURCE {context}]->(Resource)` |
 | Content / Processing | 3 | `REPORT_FOR`, `TRANSCRIBED_FOR`, `HAS_SCHEDULE` |
-| Lateral | 13 | `BLOCKS`, `BLOCKED_BY`, `PREREQUISITE_FOR`, `DEPENDS_ON`, `ALTERNATIVE_TO`, `COMPLEMENTARY_TO`, `SIBLING`, `RELATED_TO` |
+| Lateral | 17 | the `lateral` trait in the generated `GRAPH_CONTRACT.yaml` (`_LATERAL_TYPES` in `core/models/relationship_names.py`); `PREREQUISITE_FOR` ↔ `REQUIRES_PREREQUISITE`, `BLOCKS` ↔ `BLOCKED_BY` — `DEPENDS_ON` is the separate Task scheduling edge, not a lateral type |
 
 ---
 
@@ -288,7 +288,7 @@ Lateral relationships capture semantics that hierarchies cannot: dependencies be
 | `STACKS_WITH` | Directional | Habit chaining — do habit A after habit B |
 
 **Phase 5 deployed types** (fully tested across 9 domains — Tasks, Goals, Habits, Events, Choices, Principles, KU, PS, LP):
-`BLOCKS/BLOCKED_BY`, `PREREQUISITE_FOR/DEPENDS_ON`, `ALTERNATIVE_TO`, `COMPLEMENTARY_TO`, `SIBLING`, `RELATED_TO`
+`BLOCKS/BLOCKED_BY`, `PREREQUISITE_FOR/REQUIRES_PREREQUISITE`, `ALTERNATIVE_TO`, `COMPLEMENTARY_TO`, `SIBLING`, `RELATED_TO` (`DEPENDS_ON` was never the lateral inverse — it is the Task scheduling edge)
 
 The extended types (`ENABLES`, `SIMILAR_TO`, `CONFLICTS_WITH`, `COUSIN`, `RECOMMENDED_WITH`, `STACKS_WITH`) are defined in `RelationshipName` and available to services but not yet wired to Phase 5 UI endpoints.
 
