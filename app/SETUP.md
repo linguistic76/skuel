@@ -1,7 +1,7 @@
 # SKUEL Setup Guide
 
 **Last Updated:** 2026-01-02
-**Infrastructure Version:** Neo4j 2026.06.0 (Consolidated)
+**Infrastructure:** Neo4j, calendar line — the exact release is pinned in one place, `infrastructure/docker-compose.yml` (ADR-067 § 3a)
 
 ---
 
@@ -49,7 +49,7 @@ cd ~/skuel/infrastructure
 docker compose up -d
 ```
 
-This starts Neo4j 2026.06.0 with:
+This starts the pinned Neo4j calendar release (the `image:` in `infrastructure/docker-compose.yml`) with:
 - HTTP interface: http://localhost:7474
 - Bolt connection: bolt://localhost:7687
 - Production-ready memory tuning

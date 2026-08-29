@@ -24,6 +24,7 @@ from testcontainers.neo4j import Neo4jContainer  # type: ignore[import-untyped]
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.constants import SYSTEM_USER_UID
 from core.services.ingestion.config import DEFAULT_USER_UID
+from tests.integration._neo4j_pin import NEO4J_IMAGE
 
 # Lazy imports to avoid circular import issues
 # These are imported inside fixtures that need them
@@ -38,8 +39,9 @@ def neo4j_container():
     Start Neo4j container for integration tests.
 
     Note: Requires Docker to be running.
-    Image pinned to the calendar release in infrastructure/docker-compose.yml
-    (ADR-067 § 3a — bump both together).
+    Image = the calendar release pinned in infrastructure/docker-compose.yml,
+    read from that file (tests/integration/_neo4j_pin.py) — one authored site,
+    nothing to bump here (ADR-067 § 3a).
 
     ⚠ The APOC profile here is DELIBERATELY more permissive than compose, which
     sets both `..._unrestricted` and `..._allowlist` to `apoc.meta.*`. Do not
@@ -52,7 +54,7 @@ def neo4j_container():
     fixture as the positive control for its refusal assertions. Both profiles
     are load-bearing; neither replaces the other.
     """
-    container = Neo4jContainer("neo4j:2026.06.0")
+    container = Neo4jContainer(NEO4J_IMAGE)
     # Disable auth completely for testing
     container.with_env("NEO4J_dbms_security_auth__enabled", "false")
     container.with_env("NEO4J_PLUGINS", '["apoc"]')

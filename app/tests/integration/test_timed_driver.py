@@ -1,4 +1,4 @@
-"""Integration tests for TimedDriver against a real Neo4j 2026.06.0 container.
+"""Integration tests for TimedDriver against a real Neo4j container (the pinned calendar release).
 
 Proves the **server** aborts a runaway query at the configured per-tx timeout
 (not the client just giving up). Uses a busy Cartesian-product Cypher — APOC's

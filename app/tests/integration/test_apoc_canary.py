@@ -15,6 +15,8 @@ Run before/after Neo4j version upgrades to catch breaking changes.
 import pytest
 from neo4j import AsyncDriver
 
+from tests.integration._neo4j_pin import NEO4J_SERVER_VERSION
+
 
 @pytest.mark.asyncio
 class TestApocCanary:
@@ -326,17 +328,20 @@ class TestNeo4jVersionCanary:
     """
     Canary tests for Neo4j version verification.
 
-    The server tracks the calendar line (2026.06.0); the driver stays on the
+    The server tracks the calendar line (exact pin: infrastructure/docker-compose.yml); the driver stays on the
     last 5.x release (5.26.0). The two are DECOUPLED — Bolt keeps the 5.26
     driver forward-compatible with 2026.x servers. See ADR-067 §§ 3, 3a.
     """
 
     async def test_neo4j_server_version_matches_calendar_pin(self, neo4j_driver: AsyncDriver):
         """
-        Canary: Verify the Neo4j server is the pinned calendar release (2026.06.0).
+        Canary: the running server IS the calendar release pinned in
+        infrastructure/docker-compose.yml (ADR-067 § 3a).
 
-        Pinned in infrastructure/docker-compose.yml + tests/integration/conftest.py
-        (ADR-067 § 3a). Bump both together when the calendar pin moves.
+        The expected version is read from that file, so a bump is one line there;
+        this test proves the image the testcontainer pulled reports the same
+        version — exact match, because the pin is exact (a hotfix `.1` is a
+        different pin, not a tolerated drift).
         """
         async with neo4j_driver.session() as session:
             result = await session.run(
@@ -350,11 +355,12 @@ class TestNeo4jVersionCanary:
             version = record["version"]
             edition = record["edition"]
 
-            # Verify version matches the pinned calendar release
-            assert version.startswith("2026.06"), (
-                f"Expected Neo4j 2026.06.x, got {version}. "
-                "Update the pin in infrastructure/docker-compose.yml + "
-                "tests/integration/conftest.py if intentionally upgraded (ADR-067 § 3a)."
+            # The pin is exact, so the match is exact
+            assert version == NEO4J_SERVER_VERSION, (
+                f"Expected Neo4j {NEO4J_SERVER_VERSION} (infrastructure/docker-compose.yml), "
+                f"got {version}. The testcontainer reads the same pin, so a mismatch means "
+                "a stale local image or a compose edit that skipped the exact-tag form "
+                "(ADR-067 § 3a)."
             )
 
             # Log edition for reference

@@ -123,7 +123,7 @@ None required for existing code. The wrapper is fully backward-compatible at the
 - **PR:** [#89 — feat(neo4j): wire per-query server-side transaction timeout via TimedDriver proxy](https://github.com/linguistic76/skuel/pull/89) (merged commit `c865dc61`).
 - **Pattern doc:** [`docs/patterns/NEO4J_QUERY_TIMEOUT.md`](../patterns/NEO4J_QUERY_TIMEOUT.md) — how-to for query authors, override mechanism, when-to-wrap table.
 - **Implementation:** `adapters/persistence/neo4j/timed_driver.py`, `services_bootstrap/compose.py` (lines ~116-128, ~140-143), `core/config/unified_config.py` (`DatabaseConfig.transaction_timeout`).
-- **Tests:** `tests/unit/test_timed_driver.py` (12 tests), `tests/integration/test_timed_driver.py` (5 tests against real `neo4j:2026.06.0` testcontainer).
+- **Tests:** `tests/unit/test_timed_driver.py` (12 tests), `tests/integration/test_timed_driver.py` (5 tests against the pinned calendar-release testcontainer — the tag is read from `infrastructure/docker-compose.yml`).
 - **Related code-side notes:**
   - `adapters/persistence/neo4j/neo4j_connection.py` module docstring — explains why `Neo4jConnection` itself stays raw.
   - `adapters/persistence/neo4j/bulk_upsert_backend.py` — the `_BULK_INGESTION_TIMEOUT_SECONDS = 600.0` constant and the three wrap sites.

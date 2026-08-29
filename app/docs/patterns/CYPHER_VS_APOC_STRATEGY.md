@@ -283,7 +283,7 @@ edge.
 
 | Component | Pin | Location |
 |-----------|-----|----------|
-| Neo4j server | `neo4j:2026.06.0` (calendar line, exact — never a floating tag) | `infrastructure/docker-compose.yml` |
+| Neo4j server | `neo4j:2026.07.1` (calendar line, exact — never a floating tag; the testcontainer reads this same pin) | `infrastructure/docker-compose.yml` |
 | Python driver | `neo4j==5.26.0` (deliberate cap) | `app/pyproject.toml` |
 | APOC plugin | `NEO4J_PLUGINS: '["apoc"]'` — version tracks the server image | `infrastructure/docker-compose.yml` |
 

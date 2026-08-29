@@ -95,7 +95,7 @@ async def test_create_roundtrip(tasks_backend, clean_neo4j):
 
 | Fixture | Provides |
 |---------|----------|
-| `neo4j_container` / `neo4j_uri` / `neo4j_driver` (session) | Testcontainers `Neo4jContainer("neo4j:2026.06.0")` + async driver |
+| `neo4j_container` / `neo4j_uri` / `neo4j_driver` (session) | Testcontainers `Neo4jContainer(NEO4J_IMAGE)` — the tag is read from `infrastructure/docker-compose.yml` (`tests/integration/_neo4j_pin.py`) + async driver |
 | `clean_neo4j` | Per-test wipe of all non-`:User` nodes + creates `entity_embedding_idx` vector index |
 | `ensure_test_users` (session) | MERGEs the shared test-user UIDs (`user_test_*`, `user_mike`, …) plus the resolved ingestion fallback owner. **Required by any test that creates or ingests an owned entity** — the `:OWNS` write doors refuse an owner with no `:User` node (ADR-086) |
 | `{tasks,goals,habits,events,choices,principles}_backend` / `_service` | Real `UniversalNeo4jBackend[T]` + core sub-service per domain |
