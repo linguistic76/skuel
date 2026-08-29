@@ -1896,6 +1896,78 @@ unsearchable); no templates hub under `ui/`.
 
 ---
 
+## Docs `updated:` Frontmatter — Auto-Stamp in Pre-Commit (REGISTERED 2026-08-29 — ruled auto-stamp)
+
+**Ruling (Mike, 2026-08-29): AUTO-STAMP.** The field becomes true by construction, so
+nobody has to remember it. *Rejected:* delete the field corpus-wide; leave it and merely
+stop citing it.
+
+**Why it needed a ruling — measured 2026-08-29 on `24cd4a2ab`:** the field is not
+maintained, so reading it as evidence is a mistake.
+
+| | Count |
+|---|---|
+| tracked `app/docs/**/*.md` | 411 |
+| no `updated:` field at all | 217 |
+| has the field, date **>=** last commit | 25 |
+| has the field, date **older** than last commit (STALE) | **169** |
+
+Lag among the 169: 21 same-month, 114 one-to-five months, 34 six months or more. Worst:
+`decisions/ADR-002-user-progress-service-query.md` reads `2025-11-27` against a
+`2026-07-20` last commit. PR #1182 corrected exactly one of the 169 by hand — which is
+what prompted measuring the rest.
+
+**Contract (one PR):**
+
+1. **Stamp.** Extend `app/scripts/git-hooks/pre-commit` (the tracked script behind
+   `core.hooksPath`; `.git/hooks/pre-commit` is a symlink to it) with a check that, for
+   each staged `.md` in scope, rewrites or inserts `updated: <today>` in the frontmatter
+   and **`git add`s the file back** — without that re-add the stamp is not in the commit.
+2. **Backfill.** One-shot script: stamp the 169 stale files and insert the field on the
+   217 that lack it, using each file's **last commit date, not today** — today would be a
+   fresh lie about when the content changed.
+3. **Guard.** A `./dev health-*` check (family: `app/scripts/health/`) that fails when any
+   tracked doc's `updated:` predates its last commit, so a silently-broken hook is caught
+   rather than trusted.
+
+**Decide inside the PR (not blocking):** scope beyond `app/docs/**` — `.claude/skills/**/SKILL.md`,
+root `AGENTS.md`, `CLAUDE.md` were **not** measured; and whether `docs/roadmap/done/` and
+other pinned archives are exempt.
+
+**Gotchas — do not rediscover these:**
+
+- ⚠️ **Path-base mismatch silently reports zero staleness.** `git ls-files docs` run from
+  `app/` yields CWD-relative paths (`docs/...`) while `git log --name-only` yields
+  repo-root-relative ones (`app/docs/...`). Joining the two on filename matches nothing,
+  every file looks current, and the measurement reads a clean `0 stale`. This happened on
+  the first run of the measurement above.
+- The hook rewrites **staged content**, so it interacts with partial staging (`git add -p`):
+  stamping a file the author staged only in part pulls the whole frontmatter hunk in.
+  Choose and document the behaviour.
+
+### Sub-finding: same-file contradictory ruling prose is NOT mechanizable
+
+Registered so it is not attempted again. The three sites cleaned up in #1182/#1183 shared a
+shape — a ruling PR corrected one mention and left a contradicting one **in the same file**
+(`search_request.py` 816 fixed / 895 stale; `SEARCH_MODELS.md` prose fixed / code block
+stale; #1169's frontmatter vs its own body). The obvious detector does not work: scanning
+for one `#NNN` cited twice in a file with both defer-family and settled-family words nearby
+yields 28 pairs across 18 files, and **4 of 4 spot-checks were false positives** —
+`INDEX.md` #978 (two correct rows), `deferred-work.md` #215 ("PR #215 dropped X" inside a
+*different* item's "Why deferred"), `ingestion_tracker.py` #618 (Codex round citations),
+and the deliberate "was deferred, now dropped" history in
+`feedback-loop-staged-directions.md` § 4. History sections legitimately carry both
+dispositions, so the check would flag correct prose as loudly as real drift.
+
+Stays a **process discipline**, already recorded twice as a lesson: enumerate every site
+before fixing any, and treat every summary as a duplicated fact. The one narrowing worth
+carrying: when a ruling changes a fact, **re-grep the file you just edited** — in all three
+cases the stale twin was in the same file as the fix. The post-commit docs hook covers the
+*other* direction (docs referencing a changed module) and demonstrably works: it caught two
+of the four sites unprompted during #1183.
+
+---
+
 ## Review Schedule
 
 Review this document at the **September 2026 quarterly review**. Checklist:
@@ -1944,6 +2016,7 @@ Review this document at the **September 2026 quarterly review**. Checklist:
 | PathStep → Ku wiring backlog (1 Ku-less step; 67 Kus composed by no step) | Mike's next `Ps_dev` content session | The three counts in the section, over all three composition edges (`USES_KU\|TRAINS_KU\|CONTAINS_KNOWLEDGE`, never `USES_KU` alone) — 1 / 67 / 67 on 2026-08-28 |
 | py314 annotation sweeps — UP037 schedulable, TC002/TC003 never (home: ADR-067 § Deferred) | UP037: a churn window Mike picks; TC002/TC003: never | `uv run ruff check --select UP037 --statistics .` — 1222 on 2026-08-28 |
 | Parked features (activity ledger · interest/gravity · icon provider · templates re-homing) | Mike schedules each — feature work, never self-scoped | The four `git grep` checks in the section, all empty on 2026-08-28 |
+| Docs `updated:` frontmatter auto-stamp (ruled 2026-08-29 — build it, fresh context) | Ruled, not gated: Mike starts it. NOT a data threshold — do not re-litigate the delete-vs-stamp choice | Stale count must be **0** once shipped: compare each doc's frontmatter `updated:` against its last commit date — 169 stale of 194 with the field, plus 217 with no field, on 2026-08-29. ⚠️ match paths on the SAME base (`git ls-files` is CWD-relative, `git log --name-only` is repo-root-relative) or the check reads a false 0 |
 
 **The document is the checklist, the table is a convenience:** a section added to this file
 without a matching row here is still in review scope — walk every `##` section, then the table.
