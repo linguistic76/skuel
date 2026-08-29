@@ -110,7 +110,7 @@ Application (~/skuel/app) → Connects to → Infrastructure (~/skuel/infrastruc
 
 **Status**: ✅ Active
 **Container**: `skuel-neo4j`
-**Image**: `neo4j:2026.06.0`
+**Image**: `neo4j:2026.07.1`
 
 **Ports**:
 - `7474` - HTTP browser interface (http://localhost:7474)
@@ -168,7 +168,7 @@ docker compose ps
 Expected output:
 ```
 NAME          IMAGE        COMMAND     SERVICE   STATUS      PORTS
-skuel-neo4j   neo4j:2026.06.0   ...         neo4j     Up 2 hours  127.0.0.1:7474->7474/tcp, 127.0.0.1:7687->7687/tcp
+skuel-neo4j   neo4j:2026.07.1   ...         neo4j     Up 2 hours  127.0.0.1:7474->7474/tcp, 127.0.0.1:7687->7687/tcp
 ```
 
 ### Viewing Logs
@@ -547,7 +547,7 @@ docker system prune -a  # Remove unused containers, images, networks
 ## Upgrading Neo4j
 
 **Version policy (ADR-067 § 3a):** SKUEL runs the **latest monthly** of Neo4j's
-**calendar-versioned** line (`YYYY.MM`) — today **`neo4j:2026.06.0`**. Neo4j hotfixes each monthly
+**calendar-versioned** line (`YYYY.MM`) — today **`neo4j:2026.07.1`**. Neo4j hotfixes each monthly
 release only until the next monthly ships, so we track the *current* monthly rather than soaking on an
 older one (which would already be EOL for fixes). When a new monthly lands, bump to it; take its
 `.1`/`.2` hotfixes as they appear. Pinning is deliberate and exact (no floating `latest`/major/minor
@@ -571,7 +571,7 @@ LTS — a separate, ADR-worthy call.
    ```yaml
    services:
      neo4j:
-       image: neo4j:2026.06.0  # current pinned calendar release (ADR-067)
+       image: neo4j:2026.07.1  # current pinned calendar release (ADR-067)
    ```
 
 3. **Restart with new image**:

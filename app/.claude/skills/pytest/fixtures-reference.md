@@ -52,7 +52,7 @@ def authenticated_client(skuel_app):
 @pytest.fixture(scope="session")
 def neo4j_container():
     """Start Neo4j container for integration tests."""
-    container = Neo4jContainer("neo4j:2026.06.0")
+    container = Neo4jContainer(NEO4J_IMAGE)  # tag read from infrastructure/docker-compose.yml
     container.with_env("NEO4J_dbms_security_auth__enabled", "false")
     container.with_env("NEO4J_PLUGINS", '["apoc"]')
     container.start()

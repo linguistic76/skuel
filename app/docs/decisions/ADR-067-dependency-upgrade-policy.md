@@ -78,7 +78,8 @@ routine upgrade pass:
 ### 3a. Neo4j **server** version policy — latest calendar monthly, hotfix-tracked
 
 The server (Docker image, testcontainers, k8s, all environments) tracks Neo4j's **calendar-versioned
-line** (`YYYY.MM.patch`), pinned to the **latest monthly release** — today **`neo4j:2026.06.0`**.
+line** (`YYYY.MM.patch`), pinned to the **latest monthly release** — today **`neo4j:2026.07.1`**
+(bumped 2026-08-28; the line went `2026.06.0` → `2026.07.1` — no `2026.07.0` image was ever published).
 
 - **Track the latest monthly, don't soak.** Neo4j hotfixes each monthly release **only until the next
   monthly ships** — e.g. `2026.04.0` stopped receiving fixes the moment `2026.05` released. So on this
@@ -92,17 +93,29 @@ line** (`YYYY.MM.patch`), pinned to the **latest monthly release** — today **`
   is announced but whose `neo4j:<tag>` image is not yet on Docker Hub is **not** pinnable — pinning it
   would break `docker compose pull` and CI testcontainers. So "current monthly" means the newest one
   whose image is actually pullable; bump when the image lands, not when the release notes drop.
-- **Bump cadence ≈ monthly, always deliberate.** When a new monthly's image publishes, bump to it (it
-  supersedes the prior line's hotfix support). Pin **exactly** — never a floating `latest`/major/minor
-  tag — so every environment is reproducible; the bump is a conscious PR, not an auto-pull.
+- **Bump cadence ≈ monthly, always deliberate — and since 2026-08-28, PROPOSED by Renovate.** The
+  `docker-compose` manager is enabled for `infrastructure/docker-compose.yml` only (§ 5), so when a new
+  monthly's image publishes Renovate opens the bump PR; a human merges it after CI's integration job has
+  run the proposed image. Pin **exactly** — never a floating `latest`/major/minor tag — so every
+  environment is reproducible; the bump is a reviewed PR, not an auto-pull. The treadmill lapsed for a
+  month before this (pinned `2026.06.0` while `2026.07.1` had been published since 2026-08-25) because
+  nothing watched it — a prose obligation is not a trigger. Manual check, when you want one:
+
+  ```bash
+  curl -s "https://hub.docker.com/v2/repositories/library/neo4j/tags?name=2026.&page_size=100" \
+    | uv run python -c "import sys,json; print(sorted(t['name'] for t in json.load(sys.stdin)['results'] if t['name'].replace('.','').isdigit()))"
+  grep -n 'image: neo4j:' infrastructure/docker-compose.yml   # must equal the newest tag printed
+  ```
 - **Upgrades are forward and in-place.** Neo4j auto-migrates the store forward, so `2026.06.0` → a
   later monthly is: back up → swap the tag everywhere it is pinned → restart → run integration.
 - **Downgrades are not supported** — a store written by a newer server will not open on an older one.
   Rolling back means restoring the pre-upgrade backup, not just re-pinning the old tag.
-- **Where the tag lives:** primary source `infrastructure/docker-compose.yml`; mirrored only by
-  the integration testcontainer in `tests/integration/conftest.py` (production runs no Neo4j
-  service — it talks to AuraDB). Bump them together; the `test_apoc_canary` version canary fails
-  loudly when they drift from the running server.
+- **Where the tag lives — ONE place:** `infrastructure/docker-compose.yml`. The integration
+  testcontainer no longer mirrors it: `tests/integration/_neo4j_pin.py` reads the compose pin, so
+  `conftest.py` starts the image the compose file names and the `test_apoc_canary` version canary
+  asserts the running server reports exactly that version (production runs no Neo4j service — it
+  talks to AuraDB). A floating tag fails the pin reader loudly, so "exact tag" is enforced, not
+  requested. Before the 2026-08-28 bump the mirror had drifted with the primary for a month.
 - **Driver ↔ server:** kept decoupled on purpose (see § 3). The `5.26.0` driver is Bolt-forward-
   compatible with the `2026.x` server; they need not share a version.
 
@@ -154,6 +167,7 @@ a **vulnerability** layer, which reports *published CVEs* rather than staleness:
 | Signal | Covers | Automated? | Trigger |
 |---|---|---|---|
 | Renovate PRs | **both** ecosystems — **freshness** | ✅ yes | Mend App schedule; PR-only, no auto-merge — **live 2026-08-05** |
+| Renovate PRs — Neo4j **server** image | the calendar-monthly treadmill (§ 3a) | ✅ yes | `docker-compose` manager scoped to `infrastructure/docker-compose.yml` — **since 2026-08-28**; the pypi-only `neo4j` driver pin rule deliberately does not catch the docker `neo4j` image |
 | `dependency-audit.yml` | **both** ecosystems — CVEs | ✅ yes | **daily cron**, independent of any diff — added 2026-08-03 |
 | `dep_audit` CI job (required) | **both** ecosystems — CVEs | ✅ yes | **diff-triggered** — the `py`/`audit` path filters (the `audit` filter carries the JS lockfile) |
 | `./dev quality` check 8 / `./dev audit-deps` | **both** ecosystems — CVEs | local | the same script as both jobs above — one path |

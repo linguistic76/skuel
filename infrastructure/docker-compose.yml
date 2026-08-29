@@ -19,7 +19,7 @@ services:
     # is self-host upkeep — AuraDB auto-upgrades and removes the ~monthly bump.
     # Keep tracking it while self-hosting (see the treadmill policy); it simply
     # goes away on migration. See docs/deployment/AURADB_MIGRATION_GUIDE.md § 6.2.
-    image: neo4j:2026.06.0
+    image: neo4j:2026.07.1
     container_name: skuel-neo4j
     restart: unless-stopped
 

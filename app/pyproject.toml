@@ -14,7 +14,7 @@ dependencies = [
     "uvicorn>=0.51.0",
     # Database — pinned for operational stability.
     # The driver version is DECOUPLED from the server version: the server runs the
-    # Neo4j calendar line (today neo4j:2026.06.0, ADR-067 § 3a); this last-5.x driver
+    # Neo4j calendar line (today neo4j:2026.07.1, ADR-067 § 3a); this last-5.x driver
     # is Bolt-forward-compatible with 2026.x servers (verified live). Bumping the
     # driver is a normal latest-stable upgrade (test against the pinned server);
     # moving to the 6.x driver is a deliberate migration (ADR-worthy), not a routine

@@ -6,7 +6,11 @@
     ":semanticCommits"
   ],
   "description": "SKUEL dependency upgrade policy — see app/docs/decisions/ADR-067-dependency-upgrade-policy.md. PR-only, no auto-merge; verify every bump locally (./dev quality + ./dev test-integration) before merge. CI runs unit + integration tests (testcontainer Neo4j) on py/cypher changes as a backstop.",
-  "enabledManagers": ["pep621", "npm", "github-actions", "dockerfile"],
+  "enabledManagers": ["pep621", "npm", "github-actions", "dockerfile", "docker-compose"],
+  "docker-compose": {
+    "description": "Only the Neo4j sandbox compose. The server image tracks the latest published calendar monthly (ADR-067 § 3a): Renovate proposes each bump as a PR, CI's testcontainer runs the proposed image (tests/integration/_neo4j_pin.py reads this same pin) and the version canary proves they agree. app/docker-compose.yml's dev-only monitoring images stay manual.",
+    "managerFilePatterns": ["/^infrastructure/docker-compose\\.yml$/"]
+  },
   "automerge": false,
   "prConcurrentLimit": 5,
   "prHourlyLimit": 0,
@@ -29,9 +33,17 @@
       "groupName": null
     },
     {
-      "description": "INTENTIONAL PINS (ADR-067 § Pins) — neo4j driver must match the server/APOC line (ADR-044); deepgram 5.x+ is a breaking rewrite. Bump only via a deliberate migration, never a routine PR.",
+      "description": "INTENTIONAL PINS (ADR-067 § Pins) — the neo4j DRIVER stays on the last 5.x, decoupled from the server (ADR-067 § 3); deepgram 5.x+ is a breaking rewrite. Bump only via a deliberate migration, never a routine PR. pypi-scoped on purpose: the `neo4j` DOCKER image is the server and MUST flow (next rule).",
+      "matchDatasources": ["pypi"],
       "matchPackageNames": ["neo4j", "deepgram-sdk"],
       "enabled": false
+    },
+    {
+      "description": "Neo4j SERVER image — the calendar-monthly treadmill (ADR-067 § 3a). Merging moves the stopped local sandbox's store forward on its next start (downgrades unsupported); AuraDB, the daily graph, is unaffected.",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["neo4j"],
+      "groupName": "neo4j server (calendar monthly)",
+      "prBodyNotes": ["⚠ ADR-067 § 3a: merging migrates the local sandbox store forward on its next `./dev up-neo4j` — no downgrade path. CI's integration job runs the proposed image; `test_apoc_canary` must be green before merge."]
     },
     {
       "description": "Group routine JS minor/patch bumps into one reviewable PR, mirroring pep621.",
