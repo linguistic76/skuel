@@ -1595,6 +1595,251 @@ syncs, and nothing on any surface says so.
 
 ---
 
+## Per-Domain Chunking Knobs + Chunk-Type-Aware Retrieval (REGISTERED 2026-08-28)
+
+The chunking-params foundation shipped in #560 (2026-07-08): `ChunkingParams` on
+`EntityIngestionConfig` (`core/services/ingestion/config.py`), every domain on
+`DEFAULT_CHUNKING_PARAMS` (min 50 / max 500 words / context 100), `REFERENCE_CHUNKING_PARAMS`
+(100/1000/150) for canon books, per-domain re-chunk via `regenerate_chunks(force=False)`
+(`core/services/chunks/batch_chunking_service.py:101`). Two forward threads were recorded only in
+memory: (1) **tune the knobs — "measure first"** (Mike's ruling), with the measurement never named;
+(2) **chunk-type-aware retrieval** — chunks carry `chunk_type` (`ContentChunkType`:
+definition / explanation / example / exercise / code / summary) but `_augment_with_body_chunks`
+(`core/orchestrator/search_router.py:1120`) is type-blind. The sketch: a `chunk_type_weights`
+table on `VectorSearchConfig` (`core/config/unified_config.py:142`, beside
+`body_chunk_search_min_score = 0.68`), score = `vector_score × type_weight`, flat table first,
+query-intent-conditioned later (ADR-034 Phase 2). `git grep chunk_type_weights` → 0 hits.
+
+**Measured 2026-08-28 (AuraDB `d2d160c4`):** 998 `:ContentChunk`, all `chunking_version = 'v1'`,
+all under `(:Content)-[:HAS_CHUNK]->`. By type: explanation **788** (avg 225 chars, min 1,
+max 4161), exercise 142 (avg 172), definition 62 (avg 174), example 3, summary 3, code 0.
+**32 chunks are under 20 characters** — `min_chunk_size` is inert, never enforced
+(`core/services/ingestion/reference_ingestion.py:127` says so; #560 recorded 0 strategy
+references) — and **2 exceed 500 words**. 41 `:SearchEvent` in total, flat since 2026-07-22.
+
+**What the numbers say.** Type weighting has little to act on: 79% of chunks share one type,
+DEFINITION is 6%, EXAMPLE and SUMMARY are 3 each — a weight table would re-rank a near-uniform
+population and look like it worked. The knob thread has a real target that is not "tuning": the
+32 degenerate chunks are an ingestion-quality defect visible in retrieval (a one-character chunk
+can only ever be noise), fixed by making `min_chunk_size` do something, not by moving
+`max_chunk_size`.
+
+**Named work:**
+1. **Degenerate chunks (a defect with a count, own small PR):** enforce `min_chunk_size` in the
+   strategy (fold sub-minimum fragments into a neighbour), bump the chunk version tag so
+   `regenerate_chunks` re-chunks the affected domains, re-run the count below → 0.
+2. **Knob tuning — gated on an instrument that does not exist:** a ~20-query eval set with
+   expected Ku/PathStep hits, scored hit@5 over the FULL-tier semantic path (`advanced_search`'s
+   body-chunk augmentation). Its first run IS the baseline; only a measured miss traced to chunk
+   grain earns a `chunking_params` change on one `EntityIngestionConfig` + a domain-scoped
+   re-chunk. No existing script measures this (`analyze_search_metrics.py` is latency/score
+   from logs; `benchmark_hybrid_queries.py` is query-pattern latency).
+3. **`chunk_type_weights`:** only when (a) the eval set exists and (b) the corpus's type
+   distribution has flattened enough for weights to change an ordering (explanation < 50%).
+
+**Trigger:** (1) next chunking/ingestion touch, or Mike schedules it; (2) and (3) Mike schedules
+the eval set — a measurement decision, not a data threshold.
+**Check:**
+```cypher
+MATCH (c:ContentChunk) RETURN c.chunk_type AS t, count(*) AS n,
+       round(avg(size(c.text))) AS avg_chars, min(size(c.text)) AS mn, max(size(c.text)) AS mx
+ORDER BY n DESC
+MATCH (c:ContentChunk) WHERE size(c.text) < 20 RETURN count(*) AS degenerate   // 32 on 2026-08-28
+```
+plus `git grep -n chunk_type_weights -- core/` (empty until built).
+**Named cost while parked:** 32 noise chunks compete at the 0.68 similarity floor on every
+semantic search; a type table built today would be tuned against a 79%-one-type corpus.
+
+---
+
+## DSL-Bridge Grounding Pair — Goal-Link Persistence + Principles/Recent-Topics (REGISTERED 2026-08-28)
+
+#474 (2026-07-04) grounded BOTH `LLMDSLBridgeService.transform_with_context` callers in the
+user's active goals through one builder (`core/services/dsl/grounding.py`: `active_goal_titles`,
+`goals_as_context`), riding a non-extractable `{user_context}` prompt slot. Two follow-ups were
+deferred in that PR's thread and lived only in memory:
+
+1. **Goal-LINK persistence.** Grounding passes TITLES, so nothing resolves to an edge:
+   `ActivityDSLParser.get_linked_goals` (`core/services/dsl/activity_dsl_parser.py:352`) builds
+   `FULFILLS_GOAL` only from an explicit `@link(goal:<uid>)`; `@goal(...)` is a dropped attribute.
+   Wiring it = UID-aware grounding + the model emitting `@link(goal:<uid>)` through the
+   suggestion path + cache key — and a **keyed LLM test**, because a hallucinated UID on the
+   entity-creating `EXTRACT_ACTIVITIES` path writes a WRONG edge. Measured 2026-08-28:
+   **56 extracted tasks (`EXTRACTED_FROM`), 0 with any edge to a Goal, 0 `fulfills_goal_uid`;
+   2 active goals** — the 2 live `FULFILLS_GOAL` edges in the graph are hand-authored.
+2. **Principles / `recent_topics` grounding.** `transform_with_context` accepts both
+   (`core/services/dsl/llm_dsl_bridge.py:301`); neither caller passes them
+   (`core/services/journal/journal_service.py:286`,
+   `core/services/user_entry/user_entry_processing_service.py:478`). Deliberately symmetric:
+   adding either to ONE path re-introduces the asymmetry #474 closed — **add to BOTH together**.
+
+**The prerequisite both share:** the keyed LLM A/B that #474 could not run (no key then; the
+Anthropic key has been in dev since 2026-07-23) — does goal grounding actually lift recognition?
+Until that is measured, extending grounding is adding inputs to an unverified effect.
+
+**Named work:** (0) run the A/B on the two prompt-capture fixtures with a real key and record the
+recognition delta here; (2) if it lifts, thread `principles` / `recent_topics` through BOTH
+callers in one PR (principle titles via `UserContext.core_principle_uids`; recent topics from
+the entry's own recent tags); (1) only on Mike's product ruling that AI-inferred goal edges are
+wanted — an edge the user did not author is a different kind of write.
+**Trigger:** (0) next touch of the bridge, or Mike schedules it; (1) Mike's ruling; (2) the A/B.
+**Check:** `git grep -n "principles=\|recent_topics=" -- core/services/journal/journal_service.py core/services/user_entry/user_entry_processing_service.py`
+must return BOTH files or NEITHER (neither today);
+`MATCH (t:Task)-[:EXTRACTED_FROM]->() OPTIONAL MATCH (t)-[:FULFILLS_GOAL]->(g:Goal) RETURN count(DISTINCT t) AS extracted, count(DISTINCT g) AS linked`
+→ 56 / 0 on 2026-08-28.
+**Named cost while parked:** every extracted task is goal-less however obviously it serves an
+active goal; the recognition-quality claim behind #474 stays unmeasured.
+
+---
+
+## `HabitMissed` — Publisher-less Chain (REGISTERED 2026-08-28 — ruled keep-staged)
+
+`HabitMissed` (`core/events/habit_events.py:131`) is subscribed
+(`services_bootstrap/_event_wiring.py:532` → `HabitEventHandlerService.handle_habit_missed`,
+`core/services/habits/habit_event_handler_service.py:447`) and has **no publisher in any
+commit** — `git log -S'HabitMissed('` finds only the initial commit's usage fiction, deleted in
+#1173. The handler is real: structured miss/difficulty logging, and at ≥3 consecutive misses a
+persisted `InsightType.DIFFICULTY_PATTERN` through `InsightStore` — a live store (11 `:Insight`
+nodes on 2026-08-28: 8 `completion_pattern`, 3 `learning_progress`, **0 `difficulty_pattern`**).
+
+**Ruling 2026-08-28 (Mike):** the three same-shaped PLANNED entries were ruled in one sitting —
+`SchemaChangeDetector.add_change_handler` and `UserContext.get_recommended_next_action`
+DELETED; this chain KEPT staged. It differs from the two: its consumer is a persisted insight in
+a store other events already feed, not a fan-out with no reader.
+
+**What the publisher must be:** a detector that finds occurrence days with no completion. The
+CORE tier guarantees no background workers, so the shape is **read-time** (compute misses since
+the last observation when the habit list or `/today` loads, publish, record the watermark) or
+**one-shot** (`./dev habit-miss-scan`, like telemetry retention) — never a cron loop. Its day
+maths must honour the future-completion ruling (a future completion is not a miss) and the
+`current_streak` semantics question in § Habit Streak Counters — the same "what does a day mean"
+ruling. Do not build the detector before that ruling.
+**Trigger:** a lived want for difficulty insights, or the streak-semantics ruling (they share the
+day model — rule it once).
+**Check:** `git grep -n "HabitMissed(" -- core/services/ adapters/` — empty until a publisher
+exists (the subscriber in `_event_wiring.py` is the deliberate staging);
+`MATCH (i:Insight {insight_type: 'difficulty_pattern'}) RETURN count(i)` → 0.
+**Named cost while staged:** `./dev bloat` carries it as PLANNED; the difficulty assessment is
+code that has never run outside its unit tests.
+
+---
+
+## Quarterly / Yearly Periodic Notes — Founder Vault Pass First (REGISTERED 2026-08-28)
+
+The periodic-notes arc (`done/calendar-periodic-notes-arc.md`) unified daily + weekly + monthly:
+the ingestion door derives `ue:daily:{user}:{date}`, `ue:weekly:{user}:{week_of}` and
+`ue:monthly:{user}:{month}` (`core/services/ingestion/user_entry_ingestion.py:397-410`). The
+founder vault also holds `templates/t_quarterly.md` (0 bytes) and `t_yearly.md` (2 bytes) and
+the empty folders `periodic_notes/Quarterly/` and `periodic_notes/yearly/` (2026-08-28: Daily 13
+files, Weekly 3, Monthly 0, Quarterly 0, yearly 0) — stubs with no UID derivation and no
+calendar door.
+
+**Ruling 2026-08-28 (Mike):** founder vault pass first — the templates get authored when a
+quarterly/yearly rhythm actually starts; app support follows the first real note, not the stub.
+**Named work (then):** `ue:quarterly:{user}:{YYYY-Qn}` / `ue:yearly:{user}:{YYYY}` derivation +
+frontmatter date parsing beside the monthly branch; the calendar panel question
+(§ Monthly-Note Panel Parity) inherits the same answer.
+**Trigger:** the first file in either folder —
+`ls ~/0bsidian/skuel/periodic_notes/Quarterly ~/0bsidian/skuel/periodic_notes/yearly | wc -l` > 0
+(founder-owned check, non-repo).
+**Named cost while parked:** none in the app; two empty template files in the vault.
+
+---
+
+## PathStep → Ku Wiring Backlog — Ku-less PathSteps, PathStep-less Kus (REGISTERED 2026-08-28)
+
+Askesis grounds a PathStep through the Kus it `USES_KU` (`PsBundle.kus`, filled by
+`ContextRetriever._fetch_kus`, `core/services/askesis/context_retriever.py:693`); a step with
+none renders `kus=0` and the companion has no atomic knowledge to cite for it. Measured
+2026-08-28 (AuraDB): **5 of 25 PathSteps have no `USES_KU`** — `ps.meditation.basics`,
+`ps.mindfulness-101.step-1`, `ps.mindfulness-101.step-2`, `ps.self-reflection-101.step-1`,
+`ps.self-reflection-101.step-2`, all authored in `0vault/Ps/Ps_dev/` (also the seed set of
+`scripts/seed_search_test_data.py`) — and **67 of 121 Kus are used by no PathStep**.
+`./dev knowledge-health` reports neither: its orphan count is degree-0 Kus (no edge of any
+kind), a different question.
+
+**Ruling 2026-08-28 (Mike):** a content backlog, registered with the two counts as the check.
+**Named work:** author `uses_kus:` on the five (a `Ps_dev` content session); decide which of the
+67 unused Kus deserve a PathStep — or an `ORGANIZES` parent, the other path to knowledge (MOC),
+which this count does not see. Optional, not built: a `path_steps_without_ku` /
+`kus_unused_by_path_step` pair in `KnowledgeHealthService` (ADR-080 H1 authoring gauge) so the
+check becomes `./dev knowledge-health`.
+**Trigger:** Mike's next content session on `Ps_dev`.
+**Check:**
+```cypher
+MATCH (p:PathStep) WHERE NOT (p)-[:USES_KU]->(:Ku) RETURN count(p)     // 5 on 2026-08-28
+MATCH (k:Ku) WHERE NOT (:PathStep)-[:USES_KU]->(k) RETURN count(k)     // 67 on 2026-08-28
+```
+**Named cost while open:** five steps Askesis cannot ground in Kus; 55% of the Ku corpus is
+reachable only by search, never by a path.
+
+---
+
+## py314 Annotation Sweeps — UP037 Schedulable, TC002/TC003 Never (REGISTERED 2026-08-28)
+
+**Home: ADR-067 § "Deferred: TC/UP037 annotation-modernization sweep"** — the rationale, the two
+dispositions and the runtime-evaluation hazard live there; this section holds only the trigger
+and the check, so the review walk sees it. Measured 2026-08-28
+(`uv run ruff check --select TC002,TC003,UP037 --statistics .`): UP037 **1222** (all marked
+safe-fixable), TC003 **161**, TC002 **91**.
+**Trigger:** UP037 — a churn window Mike picks (one mechanical PR, boot-verified per the ADR);
+TC002/TC003 — never as a sweep (permanent ignore; re-open only if ruff can name a local
+decorator as runtime-evaluated).
+**Check:** `uv run ruff check --select UP037 --statistics . | tail -3` — 1222 → 0 after the
+sweep; `grep -n '"TC002"\|"TC003"' pyproject.toml` still in the ignore list, comment says
+*permanent*.
+
+---
+
+## Parked Features — Memory-Only Until Now (REGISTERED 2026-08-28)
+
+Four feature-shaped threads Mike ruled *build later, from a stated design* — parked under the
+2026-08 stabilize directive, and until this section recorded nowhere the repo could see. Each
+row: what it is, the constraint already ruled, and a check that it is still absent. **Trigger
+for all four: Mike schedules it** — none is a data threshold, and none may be self-scoped.
+
+### Activity ledger (ruled 2026-06-11)
+A cross-domain, event-grained, chronological feed ("Completed habit: Exercise · 2h ago") with
+two consumers: a profile sibling to the recent-reports section, and the evidence input
+`ActivityReport` generation synthesizes from. **Constraint:** design from the LIVE stores and
+`{domain}.{action}` events (`dual_track_checkins`, habit completions, choice records) across all
+6 Activity Domains at once; never restore the #286-deleted `get_recent_activity` (single-track,
+proxy timestamps).
+**Check:** `git grep -n -i "activity_ledger\|ActivityLedger" -- core/ ui/ adapters/` → empty.
+
+### Interest signal + adoption/gravity — ONE thread (ruled 2026-06-11, unified 2026-08-22)
+An interest-aware recommendation signal derived from live stores — `VIEWED` edge
+recency/frequency, tags of engaged entities, or an embedding centroid of touched content —
+feeding LP/content ranking. The ownership bundle deleted the four `HAS_*` "gravity" writers
+(ADR-086 § 2); Mike ruled adoption/engagement is the SAME signal. **Constraint:** one engagement
+signal, never two edges; never resurrect the #288 facet-affinity code (session-local by design)
+or `HAS_*`.
+**Check:** `git grep -n -i "interest_signal\|engagement_signal\|facet_affinit\|HAS_ADOPTED" -- core/ ui/ adapters/` → empty.
+
+### Icon provider swap (ruled 2026-06-29)
+`Icon()` (`ui/components/icon.py`) is a real chokepoint but its port leaks lucide's vocabulary —
+126 `Icon("<lucide-name>")` literals on 2026-08-28, one `ICON_PATHS` registry, no provider
+concept. **Design when wanted:** a semantic `IconName` StrEnum port; one generated registry per
+provider with a `SEMANTIC_MAP`; `ICON_PROVIDER=lucide|heroicons` selected at startup like
+`INTELLIGENCE_TIER`; the build assertion becomes "every adapter is total". **Constraint:** no
+swap machinery before a second provider is actually wanted (One Path Forward); the silent-
+fallback validation already shipped (#454/#455, `gen_icons.py::icon_name_literals`).
+**Check:** `git grep -n "IconName\|ICON_PROVIDER" -- ui/ core/` → empty.
+
+### Activity-templates re-homing (ruled 2026-07-06, shape undecided)
+The 6 Activity Templates are PS-owned, TEACHER-gated, spawn instances on engagement, and are
+invisible to search (not in `SearchRouter._SEARCHABLE_DOMAINS`,
+`core/orchestrator/search_router.py:335`; absent from the `/search` Types facet). Mike ruled they
+should be modelled/surfaced *somewhere of their own* and explicitly did not want a shape forced
+yet. **Constraint:** a separate arc (not folded into search/nous work); entities stay orthogonal —
+no coupling edges to make templates "belong". The adjacent question — should the Types facet do
+content-discovery-by-domain? — is distinct and unruled.
+**Check:** `git grep -n "_TEMPLATE" -- core/orchestrator/search_router.py` → empty (still
+unsearchable); no templates hub under `ui/`.
+
+
+---
+
 ## Review Schedule
 
 Review this document at the **September 2026 quarterly review**. Checklist:
@@ -1636,6 +1881,13 @@ Review this document at the **September 2026 quarterly review**. Checklist:
 | `find_by` datetime string-binding (3 habit sites) | Next touch of any of the three reads, or a second `completed_at` writer | One PR: normalized range on a backend method (Pattern 10b / Key Rule 18b) |
 | Habit-completion persistence bundle (#915 Codex "future care session": delete orphans / uid collision / non-atomic day uniqueness / stranded stats / DISTINCT-day query; + untrack refused-and-reported-success since #1100 and node doors publishing no `HabitCompleted`, both found on #1172) | Lived habit-completion use, or next touch of the completion write path | `MATCH (hc:HabitCompletion) RETURN count(hc)` **and** `MATCH (h:Habit) RETURN sum(h.total_completions), max(h.last_completed)` — nodes 0 / tally 0 / null on 2026-08-28 (tally > nodes = the node-less `/api/context` door was used); `SHOW CONSTRAINTS` lists none on the label. Built WITH the `find_by` row (one shared range predicate, two operations) but triggered by duplicate volume, moot once defect 3 lands; defect 3 needs Mike's one-per-day ruling first |
 | `TaskUpdateRequest` future `completion_date` asymmetry | Next touch of `task_request.py` validators | Ruling needed — see the section; don't rule in passing |
+| Per-domain chunking knobs + `chunk_type_weights` (degenerate chunks first) | Degenerate-chunk fix: next chunking touch or Mike schedules it; tuning / type weights: Mike schedules the eval set | `MATCH (c:ContentChunk) WHERE size(c.text) < 20 RETURN count(*)` — 32 on 2026-08-28; `git grep -n chunk_type_weights -- core/` empty until built |
+| DSL-bridge grounding pair (goal-LINK persistence; principles/`recent_topics` to BOTH paths) | Keyed A/B on the next bridge touch; goal edges need Mike's ruling on AI-inferred writes | `git grep -n "principles=\|recent_topics=" -- core/services/journal/journal_service.py core/services/user_entry/user_entry_processing_service.py` → both files or neither; extracted-task goal edges 56 / 0 on 2026-08-28 |
+| `HabitMissed` publisher-less chain (ruled keep-staged 2026-08-28) | A lived want for difficulty insights, or the streak-semantics ruling — rule the day model once | `git grep -n "HabitMissed(" -- core/services/ adapters/` empty; `MATCH (i:Insight {insight_type: 'difficulty_pattern'}) RETURN count(i)` → 0 |
+| Quarterly / yearly periodic notes (founder vault pass first) | The first real note in either vault folder | `ls ~/0bsidian/skuel/periodic_notes/Quarterly ~/0bsidian/skuel/periodic_notes/yearly \| wc -l` > 0 — founder-owned, non-repo |
+| PathStep → Ku wiring backlog (5 Ku-less steps; 67 Kus used by no step) | Mike's next `Ps_dev` content session | The two `USES_KU` counts in the section — 5 / 67 on 2026-08-28 |
+| py314 annotation sweeps — UP037 schedulable, TC002/TC003 never (home: ADR-067 § Deferred) | UP037: a churn window Mike picks; TC002/TC003: never | `uv run ruff check --select UP037 --statistics .` — 1222 on 2026-08-28 |
+| Parked features (activity ledger · interest/gravity · icon provider · templates re-homing) | Mike schedules each — feature work, never self-scoped | The four `git grep` checks in the section, all empty on 2026-08-28 |
 
 **The document is the checklist, the table is a convenience:** a section added to this file
 without a matching row here is still in review scope — walk every `##` section, then the table.

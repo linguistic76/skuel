@@ -58,7 +58,7 @@ This ADR records the policy and the structure that enforces it.
 | Type checking | `[tool.mypy]` `python_version`, `[tool.pyright]` `pythonVersion` | `3.14` |
 | Interpreter pin | `.python-version` | `3.14` |
 | Container base | `Dockerfile`, `Dockerfile.production` | `python:3.14-slim` |
-| **Lint/format syntax target** | `[tool.ruff]` / `[tool.black]` `target-version` | ruff: **`py314`** (TC002/TC003/UP037 suppressed — see Deferred); black: **`py312`** (still intentionally lags) |
+| **Lint/format syntax target** | `[tool.ruff]` / `[tool.black]` `target-version` | ruff: **`py314`** (TC002/TC003 permanently ignored, UP037 one scheduled sweep — see Deferred); black: **`py312`** (still intentionally lags) |
 | **Node runtime** | **Two** `setup-node` pins that must move together — `../.github/workflows/ci.yml` (`js_tests`) and `../.github/workflows/dependency-audit.yml` (`js_audit`) — plus `app/package.json` `engines.node`, `app/.nvmrc`, and `app/.npmrc` (`engine-strict=true`) for local dev | `^24.15.0` (Node 24 LTS Krypton, at jsdom-30's floor; `.nvmrc` = `24`, enforced by engine-strict) — keeps jsdom on 30 / undici on 8.x (§ 6c) |
 
 ### 3. Intentional pins (exempt from routine upgrades)
@@ -298,16 +298,30 @@ nothing on day one.
 - The scheduled audit files an issue rather than blocking a merge. That is deliberate (§ 6e), and
   the cost is real: a red scheduled run is easy to ignore in a way a red PR check is not.
 
-### Deferred: TC/UP037 annotation-modernization sweep
+### Deferred: TC/UP037 annotation-modernization sweep — ruled 2026-08-28, two dispositions
 
-Ruff `target-version` was bumped to `py314` in PR #340 (June 2026), but three rules are explicitly
-suppressed in `pyproject.toml` to isolate their sweeps:
+Ruff `target-version` was bumped to `py314` in PR #340 (June 2026) with three rules suppressed in
+`pyproject.toml`. Measured 2026-08-28 (`uv run ruff check --select TC002,TC003,UP037 --statistics .`):
+UP037 **1222** (all marked safe-fixable), TC003 **161**, TC002 **91**. They are two kinds of work:
 
-- **`TC002` / `TC003`** — move third-party / stdlib imports into `TYPE_CHECKING` blocks. **Runtime-risky:**
-  Pydantic and FastHTML resolve annotations at runtime (`get_type_hints`), so hiding a referenced type
-  behind `if TYPE_CHECKING:` can break model construction or route param extraction. Must be reviewed
-  case-by-case before enabling.
-- **`UP037`** — remove quotes from type annotations (~890 sites). Own deliberate change; not urgent.
+- **`TC002` / `TC003` — permanent ignore, never a sweep.** Moving an import under `TYPE_CHECKING` is
+  only safe where nothing evaluates the annotation at runtime. `[tool.ruff.lint.flake8-type-checking]
+  runtime-evaluated-base-classes` already exempts `pydantic.BaseModel` and `fasthtml.common.ft`
+  subclasses, so what the counts contain is exactly the residue ruff cannot see: FastHTML route
+  handlers, whose signatures the *local* `@rt` decorator introspects at registration (not expressible
+  as a `runtime-evaluated-decorators` entry — those take dotted paths), plus every
+  `get_type_hints`-style consumer. A bulk move turns a lint pass into a bootstrap-time `NameError`.
+  Enable either rule only per file, after checking no annotation in it is evaluated; the pyproject
+  comment now says *permanent*, not *deferred*.
+- **`UP037` — one mechanical PR whenever convenient.** Under 3.14's deferred evaluation the quotes are
+  redundant and ruff marks all 1222 fixes safe. The one hazard is the mirror image of the TC one: a
+  quoted name imported only under `TYPE_CHECKING` is inert as a string but, unquoted, becomes a
+  deferred reference that raises `NameError` the moment something introspects that signature — the
+  FastHTML bootstrap gotcha. So the sweep is `uv run ruff check --select UP037 --fix .`, then
+  `uv run python -c "import main"` + `./dev smoke` + the unit suite; a `NameError` names the site,
+  which keeps its quotes (or gains a runtime import). Churn across most of the tree → its own PR in a
+  merge lull.
 
-mypy/pyright already type-check against 3.14 — the suppressed rules are a cosmetic backlog, not a
-correctness gap.
+**Trigger + check** live in `deferred-work.md` § "py314 Annotation Sweeps" (UP037: Mike picks the
+window; TC002/TC003: never). mypy/pyright already type-check against 3.14 — the backlog is cosmetic,
+not a correctness gap.

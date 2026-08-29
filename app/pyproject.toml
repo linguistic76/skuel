@@ -130,8 +130,9 @@ packages = ["."]
 [tool.black]
 line-length = 88
 # Lint/format syntax target intentionally LAGS the runtime (requires-python = 3.14).
-# Bumping to py314 triggers a codebase-wide annotation modernization (UP037/TC rules);
-# that sweep is a separate, deliberate change. See ADR-067 § Deferred: py314 lint sweep.
+# Bumping to py314 would trigger the UP037 annotation sweep (scheduled separately —
+# deferred-work.md § py314 Annotation Sweeps; TC002/TC003 stay ignored permanently).
+# See ADR-067 § Deferred.
 target-version = ['py312']
 include = '\.pyi?$'
 extend-exclude = '''
@@ -614,10 +615,12 @@ output = "coverage.xml"
 # ============================================================================
 
 [tool.ruff]
-# Matches requires-python (3.14). TC002/TC003/UP037 are explicitly suppressed
-# in the ignore list below to keep their deferred sweeps isolated: the TC moves
-# are runtime-risky (Pydantic/FastHTML resolve annotations at runtime) and UP037
-# is a ~890-site annotation-modernization sweep that belongs in its own change.
+# Matches requires-python (3.14). TC002/TC003 are PERMANENTLY ignored (ruled
+# 2026-08-28): moving an import under TYPE_CHECKING is only safe where nothing
+# evaluates the annotation at runtime, and FastHTML handler signatures are
+# introspected at registration by a local decorator ruff cannot be told about.
+# UP037 (1222 sites on 2026-08-28) is a single scheduled mechanical sweep — see
+# ADR-067 § Deferred + deferred-work.md § py314 Annotation Sweeps.
 target-version = "py314"
 line-length = 100
 include = ["*.py", "*.pyi"]
@@ -724,9 +727,9 @@ ignore = [
     # SKUEL-specific ignores (January 2026)
     "RUF022",  # __all__ sorting - we use semantic grouping with comments
     "TC001",   # TYPE_CHECKING imports - false positives for runtime imports
-    "TC002",   # move third-party import into TYPE_CHECKING — deferred py314 sweep (runtime-risky w/ Pydantic/FastHTML)
-    "TC003",   # move stdlib import into TYPE_CHECKING — deferred py314 sweep (runtime-risky w/ Pydantic/FastHTML)
-    "UP037",   # remove quotes from type annotations — deferred py314 sweep (~890 sites, own change)
+    "TC002",   # PERMANENT — TYPE_CHECKING moves break runtime-evaluated annotations (FastHTML handlers); ADR-067 § Deferred
+    "TC003",   # PERMANENT — same as TC002
+    "UP037",   # scheduled sweep, one mechanical PR (1222 sites 2026-08-28) — deferred-work.md § py314 Annotation Sweeps
     "UP046",   # Generic[T] syntax - keep existing pattern for compatibility
     "UP047",   # TypeVar in function signatures - keep existing pattern for consistency with UP046
 ]
