@@ -30,8 +30,13 @@ Design rules (mirrors the SKUEL linter's structural-soundness discipline):
   printed in the Limitations section.
 - Unwired by intent is not bloat: staged work registered in PLANNED_EVENTS /
   PLANNED_METHODS / PLANNED_TEMPLATES reports in its own PLANNED tier — a
-  visible completion to-do list that never fails --check. Stale markings
-  (subject became live) are themselves reported. There is deliberately no
+  visible completion to-do list that never fails --check. A STALE marking does
+  fail it (ruled 2026-08-29): a registry key whose subject vanished or is now
+  wired is a lie about the backlog, and nothing may rot silently. The one case
+  that is not staleness gets its own advisory kind — a method whose name is
+  defined at several sites is MASKED, because vulture matches by name and cannot
+  attribute a call to an owner; its marking may still be true, so it is kept and
+  flagged, never demanded. There is deliberately no
   PLANNED_FIELDS: the PLANNED tiers stay honest only because stale keys are
   audited, and there is no field scanner to audit with. Each examined tier
   also prints an aging summary (entry count + oldest ISO date extracted
@@ -83,8 +88,8 @@ EXEMPTED_METHODS: dict[str, str] = {}
 # wiring, not abandonment. One Path Forward demands deleting abandoned code;
 # staged work instead gets its own PLANNED tier here: still printed (it is a
 # completion to-do list), never counted as dead, never fails --check. The
-# reason must name what completes it. Entries whose subject becomes live are
-# reported as stale and must be removed.
+# reason must name what completes it. Entries whose subject vanished or became
+# live are reported as stale, FAIL --check, and must be removed.
 PLANNED_EVENTS: dict[str, str] = {
     # ADR-074 wired the curriculum embedding events through the
     # embedding_publisher chokepoint (Ku/PathStep/LearningPath via the
@@ -787,8 +792,8 @@ PLANNED_METHODS: dict[str, str] = {
 # Prompt templates staged with no render site (ADR-082 D4): committed .md
 # floors in core/prompts/templates/ registered in PROMPT_REGISTRY but not yet
 # rendered by any production code. Keyed by template id (filename stem). Same
-# PLANNED semantics as events/methods: printed as backlog, never fails
-# --check, stale markings (file gone, or a render site appeared) reported.
+# PLANNED semantics as events/methods: the backlog itself never fails --check;
+# a stale marking (file gone, or a render site appeared) is a WARNING and does.
 PLANNED_TEMPLATES: dict[str, str] = {
     "askesis_ku_bridge": (
         "Ku-bridge turn staged — first wiring candidate: aligns with "
@@ -821,7 +826,7 @@ METHOD_SCOPE = "core/services/"
 class BloatSeverity(Enum):
     """Finding tiers. Only WARNING can ever fail a --check run."""
 
-    WARNING = "warning"  # structurally dead — verified absence of liveness
+    WARNING = "warning"  # structurally dead, or a stale PLANNED marking
     UNVERIFIED = "unverified"  # constructed somewhere; publication untraceable
     INFO = "info"  # live but noteworthy (e.g. published, never subscribed)
     PLANNED = "planned"  # unwired by intent — a completion to-do, not bloat
@@ -1484,7 +1489,7 @@ def analyze_events(
                 findings.append(
                     Finding(
                         kind="planned-marking-stale",
-                        severity=BloatSeverity.INFO,
+                        severity=BloatSeverity.WARNING,
                         subject=cls,
                         file=site.file,
                         line=site.line,
@@ -1574,7 +1579,7 @@ def analyze_events(
     findings.extend(
         Finding(
             kind="planned-marking-stale",
-            severity=BloatSeverity.INFO,
+            severity=BloatSeverity.WARNING,
             subject=cls,
             file="core/events/",
             line=0,
@@ -1785,6 +1790,34 @@ def _test_reference_index(codebase: ParsedCodebase) -> dict[str, int]:
     return counts
 
 
+def _definition_site_counts(codebase: ParsedCodebase) -> dict[str, int]:
+    """name -> number of ``def``/``async def`` sites across production files.
+
+    Vulture's liveness is NAME-based: a single ``self.backend.add_attendee(...)``
+    marks every ``add_attendee`` in the tree used. So for a name defined at more
+    than one site, "stopped being a candidate" no longer means "wired" — the
+    engine simply cannot attribute the call to an owner. Counting definitions is
+    what separates a PLANNED marking that rotted from one nothing can verify.
+    """
+    counts: dict[str, int] = defaultdict(int)
+    for tree in codebase.production.values():
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+                counts[node.name] += 1
+    return counts
+
+
+def _definition_line(codebase: ParsedCodebase, rel: str, name: str) -> int:
+    """Line where ``name`` is defined in ``rel``, or 0 when it is absent."""
+    module = codebase.production.get(codebase.root / rel)
+    if module is None:
+        return 0
+    for node in ast.walk(module):
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef) and node.name == name:
+            return node.lineno
+    return 0
+
+
 class VultureScan(NamedTuple):
     """Vulture's unused-code candidates plus the used-name set that gates them.
 
@@ -1900,27 +1933,66 @@ def analyze_methods(codebase: ParsedCodebase, scan: VultureScan) -> MethodAnalys
         else:
             findings.append(finding)
 
-    # Stale planned markings: a planned method that stopped being a vulture
-    # candidate is now live (wiring complete) or deleted — either way the
-    # entry must go. Only METHOD_SCOPE keys ride this check — out-of-scope
-    # entries are never vulture candidates here, so they get the
-    # existence-checked path below instead.
+    # A planned method that stopped being a vulture candidate is one of three
+    # things, and only two are the registry's fault:
+    #   definition gone      -> stale (deleted or renamed)
+    #   name defined once    -> stale (wiring complete)
+    #   name defined N > 1   -> MASKED, not stale. Vulture matches by name, so a
+    #     same-named method elsewhere — typically the backend this service
+    #     delegates to — marks this one used. The marking may still be perfectly
+    #     true, and deleting the entry to clear the report would hide genuinely
+    #     staged work, so it is reported as its own advisory kind.
+    # Only METHOD_SCOPE keys ride this check — out-of-scope entries are never
+    # vulture candidates here, so they get the existence-checked path below.
     flagged_keys = {f"{f.file}::{f.subject}" for f in findings + exempted}
+    def_counts = _definition_site_counts(codebase)
     for planned_key in PLANNED_METHODS:
         rel, _, name = planned_key.rpartition("::")
-        if not rel.startswith(METHOD_SCOPE):
+        if not rel.startswith(METHOD_SCOPE) or planned_key in flagged_keys:
             continue
-        if planned_key not in flagged_keys:
+        def_line = _definition_line(codebase, rel, name)
+        sites = def_counts.get(name, 0)
+        if def_line == 0:
             findings.append(
                 Finding(
                     kind="planned-marking-stale",
-                    severity=BloatSeverity.INFO,
+                    severity=BloatSeverity.WARNING,
                     subject=name,
                     file=rel,
                     line=0,
                     detail=(
+                        "marked planned but the method no longer exists at this "
+                        "path — deleted or renamed; remove from PLANNED_METHODS"
+                    ),
+                )
+            )
+        elif sites > 1:
+            findings.append(
+                Finding(
+                    kind="planned-marking-masked",
+                    severity=BloatSeverity.INFO,
+                    subject=name,
+                    file=rel,
+                    line=def_line,
+                    detail=(
+                        f"still staged, liveness unverifiable — '{name}' is defined "
+                        f"at {sites} sites, so vulture's name matching cannot "
+                        "attribute a call to this one; KEEP the entry and verify "
+                        "wiring by hand"
+                    ),
+                )
+            )
+        else:
+            findings.append(
+                Finding(
+                    kind="planned-marking-stale",
+                    severity=BloatSeverity.WARNING,
+                    subject=name,
+                    file=rel,
+                    line=def_line,
+                    detail=(
                         "marked planned but no longer flagged unused — wiring "
-                        "complete or method deleted; remove from PLANNED_METHODS"
+                        "complete; remove from PLANNED_METHODS"
                     ),
                 )
             )
@@ -1946,18 +2018,12 @@ def _out_of_scope_planned_findings(codebase: ParsedCodebase) -> list[Finding]:
         rel, _, name = planned_key.rpartition("::")
         if rel.startswith(METHOD_SCOPE):
             continue
-        module = codebase.production.get(codebase.root / rel)
-        def_line = 0
-        if module is not None:
-            for node in ast.walk(module):
-                if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef) and node.name == name:
-                    def_line = node.lineno
-                    break
+        def_line = _definition_line(codebase, rel, name)
         if def_line == 0:
             results.append(
                 Finding(
                     kind="planned-marking-stale",
-                    severity=BloatSeverity.INFO,
+                    severity=BloatSeverity.WARNING,
                     subject=name,
                     file=rel,
                     line=0,
@@ -2027,7 +2093,7 @@ def analyze_planned_templates(codebase: ParsedCodebase) -> list[Finding]:
             results.append(
                 Finding(
                     kind="planned-marking-stale",
-                    severity=BloatSeverity.INFO,
+                    severity=BloatSeverity.WARNING,
                     subject=template_id,
                     file=rel,
                     line=0,
@@ -2041,7 +2107,7 @@ def analyze_planned_templates(codebase: ParsedCodebase) -> list[Finding]:
             results.append(
                 Finding(
                     kind="planned-marking-stale",
-                    severity=BloatSeverity.INFO,
+                    severity=BloatSeverity.WARNING,
                     subject=template_id,
                     file=rel,
                     line=0,
@@ -2276,9 +2342,12 @@ def print_method_report(analysis: MethodAnalysis, verbose: bool) -> None:
 
     by_severity: dict[BloatSeverity, list[Finding]] = defaultdict(list)
     stale_planned: list[Finding] = []
+    masked_planned: list[Finding] = []
     for finding in analysis.findings:
         if finding.kind == "planned-marking-stale":
             stale_planned.append(finding)
+        elif finding.kind == "planned-marking-masked":
+            masked_planned.append(finding)
         else:
             by_severity[finding.severity].append(finding)
 
@@ -2320,10 +2389,18 @@ def print_method_report(analysis: MethodAnalysis, verbose: bool) -> None:
         for finding in planned:
             _print_finding(finding)
 
+    if masked_planned:
+        print(
+            f"\n{Colors.YELLOW}Planned, liveness unverifiable — name-masked, KEEP "
+            f"the entry ({len(masked_planned)}):{Colors.RESET}\n"
+        )
+        for finding in masked_planned:
+            _print_finding(finding)
+
     if stale_planned:
         print(
-            f"\n{Colors.RED}Stale planned markings — remove from PLANNED_METHODS "
-            f"({len(stale_planned)}):{Colors.RESET}\n"
+            f"\n{Colors.RED}Stale planned markings — remove from PLANNED_METHODS; "
+            f"these FAIL --check ({len(stale_planned)}):{Colors.RESET}\n"
         )
         for finding in stale_planned:
             _print_finding(finding)
@@ -2500,12 +2577,19 @@ def main() -> int:
         print_planned_aging(aging)
         print_limitations(codebase, usage, methods)
         warnings = [f for f in findings if f.severity is BloatSeverity.WARNING]
+        stale = [f for f in warnings if f.kind == "planned-marking-stale"]
         planned = [f for f in findings if f.severity is BloatSeverity.PLANNED]
         other = len(findings) - len(warnings) - len(planned)
         print(f"\n{Colors.BOLD}{'=' * 78}{Colors.RESET}")
         if warnings:
+            dead_count = len(warnings) - len(stale)
+            parts = []
+            if dead_count:
+                parts.append(f"{dead_count} structurally-dead findings")
+            if stale:
+                parts.append(f"{len(stale)} stale PLANNED markings")
             print(
-                f"{Colors.YELLOW}{len(warnings)} structurally-dead findings "
+                f"{Colors.YELLOW}{' + '.join(parts)} "
                 f"(+{other} unverified/info, {len(planned)} planned). "
                 f"Verify before deleting.{Colors.RESET}"
             )

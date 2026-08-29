@@ -50,7 +50,10 @@ uv run python scripts/detect_bloat.py --check     # exit 1 on surviving WARNINGs
 Advisory by default (exit 0). `--check` **is** wired into `./dev quality`
 (check 7, the dead-code gate) and the CI lint job — gating became possible
 once the recorded false-positive audit passed (PR #272). Staged work belongs
-in the PLANNED tiers, which never fail `--check`. The full advisory report
+in the PLANNED tiers, which never fail `--check` — but a **stale** marking in
+one of them does (ruled 2026-08-29): a registry key whose subject vanished or
+is now wired is a lie about the backlog, and the tiers stay honest only if
+nothing rots silently in them. The full advisory report
 also runs on a clock: `.github/workflows/weekly-janitor.yml` (Mondays 06:30
 UTC) runs it alongside the `./dev health` checks and renders the
 PLANNED-tier aging plus any WARNING findings into an always-open status
@@ -76,10 +79,10 @@ The detector follows the SKUEL linter's structural-soundness discipline
 
 | Tier | Meaning | Fails `--check`? |
 |------|---------|------------------|
-| `WARNING` | Structurally dead — verified absence of liveness | Yes |
+| `WARNING` | Structurally dead — verified absence of liveness — **or a stale PLANNED marking** (subject vanished, or is now wired) | Yes |
 | `UNVERIFIED` | Liveness signal exists but is not structurally traceable (constructed-but-untraced events; methods whose name appears as a string literal) | No |
 | `PLANNED` | Structurally dead **by intent** — staged work registered in `PLANNED_EVENTS` / `PLANNED_METHODS` / `PLANNED_TEMPLATES`, awaiting its wiring | No |
-| `INFO` | Live but noteworthy (published-never-subscribed — fine for fire-and-forget audit events) | No |
+| `INFO` | Live but noteworthy (published-never-subscribed — fine for fire-and-forget audit events; **name-masked PLANNED markings**, below) | No |
 
 Act on `WARNING` findings after a manual grep-verify; treat `UNVERIFIED` as a
 lead list, not a verdict.
@@ -91,8 +94,23 @@ curriculum/resource `*EmbeddingRequested` events — subscribers live in
 code. Register it in `PLANNED_EVENTS` / `PLANNED_METHODS` (keyed
 `relative/path.py::method_name`) with a reason naming what completes it. The
 PLANNED section then functions as the visible wiring backlog. Integrity is
-self-policing: a planned subject that becomes live (or disappears from the
-candidates) is reported as a **stale planned marking** demanding removal.
+self-policing: a planned subject that vanished, or is now wired, is reported as
+a **stale planned marking** — a `WARNING`, so it fails `--check` and must be
+removed.
+
+**The one case that is not staleness: a name-masked method.** Vulture's
+liveness is name-based, so a single `self.backend.add_attendee(...)` marks
+*every* `add_attendee` in the tree used — including a service method that is
+still staged and unwired. "Stopped being a candidate" therefore stops meaning
+"wired" for any name defined at more than one site. Such an entry is reported
+as `planned-marking-masked` (INFO, its own report block): the marking may be
+perfectly true, and deleting the entry to clear a report would hide genuinely
+staged work — exactly the entries most likely to be forgotten. **Keep the
+entry; verify wiring by hand.** The discriminator is a definition-site count,
+so the three outcomes are: definition gone → stale; name defined once → stale
+(wiring complete); name defined more than once → masked. The weekly janitor
+prints masked markings so the unverifiable case stays visible rather than
+silently accruing.
 
 **Prompt templates ride the same tier** (`PLANNED_TEMPLATES`, keyed by
 template id — ADR-082 D4): registry `.md` files with no production render

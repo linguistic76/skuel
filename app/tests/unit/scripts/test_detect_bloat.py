@@ -446,7 +446,7 @@ def test_stale_planned_event_marking_is_reported(monkeypatch):
     )
     stale = [f for f in findings if f.kind == "planned-marking-stale"]
     assert [f.subject for f in stale] == ["GammaOrphan"]
-    assert stale[0].severity is BloatSeverity.INFO
+    assert stale[0].severity is BloatSeverity.WARNING
 
 
 def test_vanished_planned_event_marking_is_reported(monkeypatch):
@@ -458,7 +458,7 @@ def test_vanished_planned_event_marking_is_reported(monkeypatch):
     _, _, findings = analyze({})
     stale = [f for f in findings if f.kind == "planned-marking-stale"]
     assert [f.subject for f in stale] == ["NoSuchEventAnywhere"]
-    assert stale[0].severity is BloatSeverity.INFO
+    assert stale[0].severity is BloatSeverity.WARNING
     assert "no such event class" in stale[0].detail
 
 
@@ -491,18 +491,63 @@ def test_planned_method_reports_planned_not_dead(monkeypatch):
     assert finding.kind == "method-awaiting-wiring"
 
 
-def test_stale_planned_method_marking_is_reported(monkeypatch):
+def test_stale_planned_method_marking_when_definition_vanished(monkeypatch):
+    monkeypatch.setattr(
+        detect_bloat,
+        "PLANNED_METHODS",
+        {"core/services/x.py::deleted_method": "awaiting synthetic wiring"},
+    )
+    codebase = build_codebase({})
+    # not a vulture candidate, and no definition anywhere -> deleted or renamed
+    analysis = analyze_methods(codebase, VultureScan([], frozenset()))
+    stale = [f for f in analysis.findings if f.kind == "planned-marking-stale"]
+    assert [f.subject for f in stale] == ["deleted_method"]
+    assert stale[0].severity is BloatSeverity.WARNING
+    assert "no longer exists at this path" in stale[0].detail
+
+
+def test_stale_planned_method_marking_when_wiring_completed(monkeypatch):
     monkeypatch.setattr(
         detect_bloat,
         "PLANNED_METHODS",
         {"core/services/x.py::now_live_method": "awaiting synthetic wiring"},
     )
-    codebase = build_codebase({})
-    # not a vulture candidate -> live or deleted
+    # defined exactly once and no longer a candidate -> vulture saw a real call
+    codebase = build_codebase({"core/services/x.py": "def now_live_method():\n    pass\n"})
     analysis = analyze_methods(codebase, VultureScan([], frozenset()))
     stale = [f for f in analysis.findings if f.kind == "planned-marking-stale"]
     assert [f.subject for f in stale] == ["now_live_method"]
-    assert stale[0].severity is BloatSeverity.INFO
+    assert stale[0].severity is BloatSeverity.WARNING
+    assert "wiring complete" in stale[0].detail
+
+
+def test_name_masked_planned_method_is_flagged_but_never_stale(monkeypatch):
+    """A same-named method elsewhere makes vulture drop the candidate.
+
+    Regression for the attendee pair (#1119): the service method stayed staged
+    and unwired, but `self.backend.add_attendee(...)` marked the NAME used, so
+    the old negative-only check called a true marking stale. Deleting the entry
+    to clear that report would have hidden genuinely staged work.
+    """
+    monkeypatch.setattr(
+        detect_bloat,
+        "PLANNED_METHODS",
+        {"core/services/x.py::add_attendee": "awaiting synthetic wiring"},
+    )
+    codebase = build_codebase(
+        {
+            "core/services/x.py": "def add_attendee():\n    pass\n",
+            "core/services/y.py": "def add_attendee():\n    pass\n",
+        }
+    )
+    analysis = analyze_methods(codebase, VultureScan([], frozenset()))
+
+    assert not [f for f in analysis.findings if f.kind == "planned-marking-stale"]
+    masked = [f for f in analysis.findings if f.kind == "planned-marking-masked"]
+    assert [f.subject for f in masked] == ["add_attendee"]
+    assert masked[0].severity is BloatSeverity.INFO
+    assert "defined at 2 sites" in masked[0].detail
+    assert "KEEP the entry" in masked[0].detail
 
 
 # ============================================================================

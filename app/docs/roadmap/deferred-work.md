@@ -2154,8 +2154,9 @@ most of the instances below rely on today.
    marking**. Measured: **2 stale on 2026-08-29** — `add_attendee` and `remove_attendee`,
    masked since #1119 introduced `self.backend.add_attendee(...)` on 2026-08-21, eight days
    unseen — and the Event-attendance section of this file said so too (both copies now point
-   here instead). **Floor:** the janitor prints `kind == "planned-marking-stale"`
-   findings (three lines of `jq`). **Ruling below:** whether stale markings also fail `--check`.
+   here instead). ✅ **BUILT (ruled + shipped 2026-08-29):** a stale marking is a `WARNING` and
+   fails `--check`; the janitor prints both tiers. The masked case was measured to be **2 of the
+   2** findings and is NOT staleness — see the ruling below.
 3. **Embeddable entity types.** Copies: `EMBEDDING_EVENT_TYPES` (13), `EMBEDDING_NODE_LABELS`
    (13), `EmbeddingWorker.subscribe()` (13 hand-written lines plus the two chunk events),
    `ENTITY_CONFIGS[…].embeddable` (11), `EMBEDDING_SCAN_LABELS` (derived ✓),
@@ -2232,16 +2233,29 @@ most of the instances below rely on today.
     `HEALTH_CHECKS.md`'s file-structure tree (an `ls`; delete on next touch); root `AGENTS.md`
     (declares `app/CLAUDE.md` authoritative).
 
-**Ruling needed (Mike): does a stale PLANNED marking fail `--check`?** Strict = SKUEL026
-parity (an exemption that exempts nothing is a failure) and the registry can never rot. But the
-name-collision mask means a still-staged method must leave the PLANNED tier the moment a
-same-named backend method appears — as #1119's attendee pair did — after which `./dev bloat`
-cannot see it at all: the visible completion backlog loses exactly the entries most likely to
-be forgotten. Advisory = what exists, where two entries rotted for eight days unseen.
-Recommendation: keep advisory, land the janitor floor, revisit if the janitor shows repeats.
+**RULED 2026-08-29 (Mike): yes — a stale PLANNED marking fails `--check`.** "If it renders as
+stale it registers as a fail; we don't stale xyz." SKUEL026 parity: a registration that
+registers nothing is a failure.
 
-**Build order if scheduled** — each is small, none is scheduled: the janitor floor for stale
-markings → the health-check single source + parity test (the `updated:` guard's "update all three"
+The objection that had recommended *advisory* — that the name-collision mask would force a
+still-staged method out of the tier — was **not a reason to weaken the ruling; it was a
+detector bug**, and measuring settled it: `planned-marking-stale` fired exactly twice, both on
+the attendee pair, and both markings were **true** (the methods are still unwired; the only
+production calls are the mixin's own `self.backend.add_attendee(...)`). So the fix was to make
+"stale" mean stale, then gate on it:
+
+- The METHOD_SCOPE check was negative ("vulture stopped flagging it"), which conflates *wired*
+  with *masked*. It is now a three-way decision on a definition-site count: definition gone →
+  stale; name defined once → stale (wiring complete); name defined more than once → the new
+  `planned-marking-masked` (INFO), which **keeps** the entry and says liveness is unverifiable.
+- All seven `planned-marking-stale` emissions are `WARNING`, so `--check` (`./dev quality`
+  check 7 + the CI lint job) fails on them, and the janitor's existing WARNING block prints
+  them for free. A masked block was added beside it, because an INFO finding no reader prints
+  is the defect this whole section is about.
+- The gate landed **green**: true stale count is 0, masked count is 2.
+
+**Build order if scheduled** — each is small; item 2 is DONE (above), the rest unscheduled:
+~~the janitor floor for stale markings~~ → the health-check single source + parity test (the `updated:` guard's "update all three"
 collapses to one edit) → the precache pin test → the three derivations (worker subscribe,
 `EMBEDDING_NODE_LABELS`, `ENTITY_TYPE_TO_LABEL`; each deletes more than it adds) → the
 suppressible-rules docs test → one vector-index constant. Do not build a same-file
