@@ -303,8 +303,12 @@ nothing on day one.
 ### Deferred: TC/UP037 annotation-modernization sweep — ruled 2026-08-28, two dispositions
 
 Ruff `target-version` was bumped to `py314` in PR #340 (June 2026) with three rules suppressed in
-`pyproject.toml`. Measured 2026-08-28 (`uv run ruff check --select TC002,TC003,UP037 --statistics .`):
-UP037 **1222** (all marked safe-fixable), TC003 **161**, TC002 **91**. They are two kinds of work:
+`pyproject.toml`. **These counts live here and nowhere else** — `CLAUDE.md`, `pyproject.toml` and
+`deferred-work.md` name the command instead of a number, because a copied count decays in both
+directions: the UP037 figure below was stale within a day, and TC003 was written as `161` into two
+files on a tree that measured `162`. Baseline at `fd08f3bd7`
+(`uv run ruff check --select TC002,TC003,UP037 --statistics .`): UP037 **1222** (all marked
+safe-fixable), TC003 **162**, TC002 **91**. They are two kinds of work:
 
 - **`TC002` / `TC003` — permanent ignore, never a sweep.** Moving an import under `TYPE_CHECKING` is
   only safe where nothing evaluates the annotation at runtime. `[tool.ruff.lint.flake8-type-checking]
@@ -316,7 +320,7 @@ UP037 **1222** (all marked safe-fixable), TC003 **161**, TC002 **91**. They are 
   Enable either rule only per file, after checking no annotation in it is evaluated; the pyproject
   comment now says *permanent*, not *deferred*.
 - **`UP037` — one mechanical PR whenever convenient.** Under 3.14's deferred evaluation the quotes are
-  redundant and ruff marks all 1222 fixes safe. The one hazard is the mirror image of the TC one: a
+  redundant and ruff marks every fix safe. The one hazard is the mirror image of the TC one: a
   quoted name imported only under `TYPE_CHECKING` is inert as a string but, unquoted, becomes a
   deferred reference that raises `NameError` the moment something introspects that signature — the
   FastHTML bootstrap gotcha. So the sweep is `uv run ruff check --select UP037 --fix .`, then a
