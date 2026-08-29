@@ -83,6 +83,8 @@ from neo4j import AsyncDriver, AsyncGraphDatabase
 from neo4j.exceptions import ClientError
 from testcontainers.neo4j import Neo4jContainer  # type: ignore[import-untyped]
 
+from tests.integration._neo4j_pin import NEO4J_IMAGE
+
 # ============================================================================
 # Compose configuration — the source of truth for the profile under test
 # ============================================================================
@@ -144,22 +146,6 @@ def _read_apoc_env(compose_path: Path) -> dict[str, str]:
     return {key: str(environment[key]) for key in PROFILE_KEYS if key in environment}
 
 
-def resolve_locked_image() -> str:
-    """
-    Read the pinned server image FROM the base compose.
-
-    Deliberately NOT a third hard-coded pin. The documented bump procedure names
-    two locations (compose + conftest.py, ADR-067 § 3a); a third copy here would
-    sit on the old release after a bump with every check still green, and this
-    module would then be validating allowlist behaviour against a stale APOC.
-    """
-    image = _neo4j_service(COMPOSE_FILES[BASE_COMPOSE]).get("image")
-    assert isinstance(image, str) and image.startswith("neo4j:"), (
-        f"{BASE_COMPOSE} declares image={image!r}; expected a pinned neo4j: tag."
-    )
-    return image
-
-
 def resolve_locked_profile() -> dict[str, str]:
     """
     Build the container env for the production-shaped profile FROM compose.
@@ -195,7 +181,10 @@ def locked_neo4j_container():
     is a registration-level filter and applies regardless of auth (a blocked
     procedure reports as *not found*, not as *not permitted*).
     """
-    container = Neo4jContainer(resolve_locked_image())
+    # The pin is read by tests/integration/_neo4j_pin.py — the one reader every
+    # integration container shares, so this suite can never validate allowlist
+    # behaviour against a stale APOC on an old release (ADR-067 § 3a).
+    container = Neo4jContainer(NEO4J_IMAGE)
     container.with_env("NEO4J_dbms_security_auth__enabled", "false")
 
     for key, value in resolve_locked_profile().items():

@@ -94,7 +94,9 @@ line** (`YYYY.MM.patch`), pinned to the **latest monthly release** — today **`
   would break `docker compose pull` and CI testcontainers. So "current monthly" means the newest one
   whose image is actually pullable; bump when the image lands, not when the release notes drop.
 - **Bump cadence ≈ monthly, always deliberate — and since 2026-08-28, PROPOSED by Renovate.** The
-  `docker-compose` manager is enabled for `infrastructure/docker-compose.yml` only (§ 5), so when a new
+  `docker-compose` manager is enabled for `infrastructure/docker-compose.yml` only (§ 5 — scoped by a
+  package rule that disables `app/**`, because `managerFilePatterns` is additive to the manager's
+  defaults and cannot exclude a file), so when a new
   monthly's image publishes Renovate opens the bump PR; a human merges it after CI's integration job has
   run the proposed image. Pin **exactly** — never a floating `latest`/major/minor tag — so every
   environment is reproducible; the bump is a reviewed PR, not an auto-pull. The treadmill lapsed for a
@@ -111,9 +113,9 @@ line** (`YYYY.MM.patch`), pinned to the **latest monthly release** — today **`
 - **Downgrades are not supported** — a store written by a newer server will not open on an older one.
   Rolling back means restoring the pre-upgrade backup, not just re-pinning the old tag.
 - **Where the tag lives — ONE place:** `infrastructure/docker-compose.yml`. The integration
-  testcontainer no longer mirrors it: `tests/integration/_neo4j_pin.py` reads the compose pin, so
-  `conftest.py` starts the image the compose file names and the `test_apoc_canary` version canary
-  asserts the running server reports exactly that version (production runs no Neo4j service — it
+  testcontainers no longer mirror it: `tests/integration/_neo4j_pin.py` YAML-parses the compose pin
+  (the one reader — `conftest.py` and the APOC-lockdown suite both start that image) and the
+  `test_apoc_canary` version canary asserts the running server reports exactly that version (production runs no Neo4j service — it
   talks to AuraDB). A floating tag fails the pin reader loudly, so "exact tag" is enforced, not
   requested. Before the 2026-08-28 bump the mirror had drifted with the primary for a month.
 - **Driver ↔ server:** kept decoupled on purpose (see § 3). The `5.26.0` driver is Bolt-forward-
@@ -167,7 +169,7 @@ a **vulnerability** layer, which reports *published CVEs* rather than staleness:
 | Signal | Covers | Automated? | Trigger |
 |---|---|---|---|
 | Renovate PRs | **both** ecosystems — **freshness** | ✅ yes | Mend App schedule; PR-only, no auto-merge — **live 2026-08-05** |
-| Renovate PRs — Neo4j **server** image | the calendar-monthly treadmill (§ 3a) | ✅ yes | `docker-compose` manager scoped to `infrastructure/docker-compose.yml` — **since 2026-08-28**; the pypi-only `neo4j` driver pin rule deliberately does not catch the docker `neo4j` image |
+| Renovate PRs — Neo4j **server** image | the calendar-monthly treadmill (§ 3a) | ✅ yes | `docker-compose` manager, scoped to `infrastructure/docker-compose.yml` by a package rule disabling `app/**` — **since 2026-08-28**; the pypi-only `neo4j` driver pin rule deliberately does not catch the docker `neo4j` image |
 | `dependency-audit.yml` | **both** ecosystems — CVEs | ✅ yes | **daily cron**, independent of any diff — added 2026-08-03 |
 | `dep_audit` CI job (required) | **both** ecosystems — CVEs | ✅ yes | **diff-triggered** — the `py`/`audit` path filters (the `audit` filter carries the JS lockfile) |
 | `./dev quality` check 8 / `./dev audit-deps` | **both** ecosystems — CVEs | local | the same script as both jobs above — one path |

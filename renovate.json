@@ -8,8 +8,7 @@
   "description": "SKUEL dependency upgrade policy — see app/docs/decisions/ADR-067-dependency-upgrade-policy.md. PR-only, no auto-merge; verify every bump locally (./dev quality + ./dev test-integration) before merge. CI runs unit + integration tests (testcontainer Neo4j) on py/cypher changes as a backstop.",
   "enabledManagers": ["pep621", "npm", "github-actions", "dockerfile", "docker-compose"],
   "docker-compose": {
-    "description": "Only the Neo4j sandbox compose. The server image tracks the latest published calendar monthly (ADR-067 § 3a): Renovate proposes each bump as a PR, CI's testcontainer runs the proposed image (tests/integration/_neo4j_pin.py reads this same pin) and the version canary proves they agree. app/docker-compose.yml's dev-only monitoring images stay manual.",
-    "managerFilePatterns": ["/^infrastructure/docker-compose\\.yml$/"]
+    "description": "Enabled for the Neo4j sandbox compose: the server image tracks the latest published calendar monthly (ADR-067 § 3a) — Renovate proposes each bump as a PR, CI's testcontainers run the proposed image (tests/integration/_neo4j_pin.py reads this same pin) and the version canary proves they agree. Scope is narrowed by the package rule below, NOT here: managerFilePatterns is additive to the manager defaults and cannot exclude files."
   },
   "automerge": false,
   "prConcurrentLimit": 5,
@@ -36,6 +35,12 @@
       "description": "INTENTIONAL PINS (ADR-067 § Pins) — the neo4j DRIVER stays on the last 5.x, decoupled from the server (ADR-067 § 3); deepgram 5.x+ is a breaking rewrite. Bump only via a deliberate migration, never a routine PR. pypi-scoped on purpose: the `neo4j` DOCKER image is the server and MUST flow (next rule).",
       "matchDatasources": ["pypi"],
       "matchPackageNames": ["neo4j", "deepgram-sdk"],
+      "enabled": false
+    },
+    {
+      "description": "The app compose files' images (MariaDB, Firefly, Prometheus, Grafana, Caddy) are dev-only sidecars that stay manual — the docker-compose manager is on for infrastructure/docker-compose.yml alone.",
+      "matchManagers": ["docker-compose"],
+      "matchFileNames": ["app/**"],
       "enabled": false
     },
     {
