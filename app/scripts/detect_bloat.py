@@ -98,7 +98,9 @@ PLANNED_EVENTS: dict[str, str] = {
         "RULED keep-staged 2026-08-28 (Mike) — its siblings add_change_handler and "
         "get_recommended_next_action were deleted the same day; this one earns a row: "
         "docs/roadmap/deferred-work.md § 'HabitMissed — Publisher-less Chain'. The "
-        "publisher must be CORE-safe (read-time scan or one-shot; no background worker)"
+        "publisher's constraints are no LLM and no API cost plus the streak day-model "
+        "ruling — a scheduled Analog detector (ProgressReportWorker pattern), a read-time "
+        "scan or a one-shot are all legitimate shapes"
     ),
     # Exercises dead-code campaign (2026-06): ADR-040 teacher-assignment
     # notification hook. Neither published nor subscribed — its sibling

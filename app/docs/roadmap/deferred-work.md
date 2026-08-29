@@ -1636,8 +1636,12 @@ the blind tuning Mike ruled against, so the floor's VALUE belongs to the measure
    not the 50-word knob — bump the chunk version tag so `regenerate_chunks` re-chunks the affected
    domains, re-run the `< 5 words` count below → 0.
 2. **Knob tuning — gated on an instrument that does not exist:** a ~20-query eval set with
-   expected Ku/PathStep hits, scored hit@5 over the FULL-tier semantic path (`advanced_search`'s
-   body-chunk augmentation). Its first run IS the baseline; only a measured miss traced to chunk
+   expected Ku/PathStep hits, scored hit@5 over the SEARCH path that retrieves chunks —
+   `SearchRouter.faceted_search` with semantic boost, the sole caller of
+   `_augment_with_body_chunks` (`core/orchestrator/search_router.py:979`); `advanced_search`
+   searches parent entities and never touches a `ContentChunk`, so a baseline run through it
+   would be blind to every knob here (Askesis reaches chunks separately via
+   `retrieve_scoped_chunks`, `:1028` — the knobs move that too, but the eval targets search). Its first run IS the baseline; only a measured miss traced to chunk
    grain earns a `chunking_params` change on one `EntityIngestionConfig` + a domain-scoped
    re-chunk. This is also where `min_chunk_size`'s default is re-based: 50 words is above the
    corpus median, so enforcing it is a tuning decision, not a defect fix. No existing script
