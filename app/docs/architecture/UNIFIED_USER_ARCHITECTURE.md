@@ -332,6 +332,16 @@ The MEGA-QUERY in `user_context_queries.py` fetches UIDs and full entity data wi
 | `"path_steps"` | PS entities (normalised from `steps_rich`) |
 | `"ku"` | Window-engaged KUs only (mastered or viewed within window); `graph_context.interaction_type` = `"mastered"` or `"viewed"` |
 
+**A `graph_context` sub-collection is EMPTY when the entity has no neighbours** — never a one-element list of a null-filled map. That guarantee is load-bearing: `len(graph_context["guided_choices"])` is a legitimate way to count neighbours, and consumers do.
+
+It is not free, because Cypher makes the wrong thing the default. `collect()` drops null *values*, but a **map literal is never null** — only its fields are — so `collect({uid: x.uid, …})` over an OPTIONAL MATCH that found nothing yields `[{uid: null, …}]`. Every map-collecting projection in `MEGA_QUERY` / `CONSOLIDATED_QUERY` is therefore written guarded (the shape exists elsewhere in the adapter layer and is not swept — see the test module's scope note):
+
+```cypher
+collect(DISTINCT CASE WHEN x IS NOT NULL THEN {uid: x.uid, title: x.title} END) AS …
+```
+
+`collect(x)`, `collect(x.uid)` and `collect(CASE WHEN … END)` need no guard — measured: all three yield `[]`. A new sub-collection that collects a bare map literal is rejected by `tests/unit/test_mega_query_null_placeholders.py`, and the runtime consequence is pinned on a real graph by `tests/integration/test_mega_query_empty_neighbours.py`.
+
 `enrolled_paths_rich: list[RichLearningPathItem]`, `active_path_steps_rich: list[RichPathStepItem]`, and `knowledge_units_rich: dict[str, RichKnowledgeUnitItem]` are typed with their own TypedDicts. All 9 formerly-untyped `dict[str, Any]` UserContext fields now have TypedDict annotations (March 2026).
 
 ### ActivityReport Fields — Both Paths

@@ -111,13 +111,13 @@ UNWIND CASE WHEN size(all_tasks_nodes) > 0 THEN all_tasks_nodes ELSE [null] END 
 OPTIONAL MATCH (task)-[:HAS_SUBTASK]->(subtask:Task)
 WHERE task IS NOT NULL AND (task.status IN $open_task_statuses OR task.updated_at >= datetime($window_start))
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids,
-     task, collect(DISTINCT {uid: subtask.uid, title: subtask.title, status: subtask.status}) as task_subtasks
+     task, collect(DISTINCT CASE WHEN subtask IS NOT NULL THEN {uid: subtask.uid, title: subtask.title, status: subtask.status} END) as task_subtasks
 
 OPTIONAL MATCH (task)-[dep_rel:DEPENDS_ON]->(dependency:Task)
 WHERE task IS NOT NULL AND coalesce(dep_rel.confidence, 1.0) >= $min_confidence
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids,
      task, task_subtasks,
-     collect(DISTINCT {uid: dependency.uid, title: dependency.title, confidence: dep_rel.confidence}) as task_dependencies
+     collect(DISTINCT CASE WHEN dependency IS NOT NULL THEN {uid: dependency.uid, title: dependency.title, confidence: dep_rel.confidence} END) as task_dependencies
 
 // Roll activity→knowledge edges up to atomic Ku grain (ADR-046 § Ku-grain substance):
 // keep direct :Ku targets (1-hop) and bridge :PathStep targets to the Kus they
@@ -161,7 +161,7 @@ OPTIONAL MATCH (user)-[:OWNS]->(goal:Goal)
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      collect(CASE WHEN goal.status = $status_active THEN goal.uid END) as active_goal_uids,
      collect(CASE WHEN goal.status = $status_completed THEN goal.uid END) as completed_goal_uids,
-     collect({uid: goal.uid, progress: coalesce(goal.progress, 0.0)}) as goal_progress_data,
+     collect(CASE WHEN goal IS NOT NULL THEN {uid: goal.uid, progress: coalesce(goal.progress, 0.0)} END) as goal_progress_data,
      collect(goal) as all_goals_nodes
 
 // Filter goals for rich data — active status always included; window entities included if touched since $window_start
@@ -170,21 +170,21 @@ OPTIONAL MATCH (contributing_task:Task)-[:FULFILLS_GOAL]->(goal)
 WHERE goal IS NOT NULL AND (goal.status = $status_active OR goal.updated_at >= datetime($window_start))
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data,
-     goal, collect(DISTINCT {uid: contributing_task.uid, title: contributing_task.title, status: contributing_task.status}) as goal_tasks
+     goal, collect(DISTINCT CASE WHEN contributing_task IS NOT NULL THEN {uid: contributing_task.uid, title: contributing_task.title, status: contributing_task.status} END) as goal_tasks
 
 OPTIONAL MATCH (goal)-[:HAS_SUBGOAL]->(subgoal:Goal)
 WHERE goal IS NOT NULL
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data,
      goal, goal_tasks,
-     collect(DISTINCT {uid: subgoal.uid, title: subgoal.title, progress: subgoal.progress}) as goal_subgoals
+     collect(DISTINCT CASE WHEN subgoal IS NOT NULL THEN {uid: subgoal.uid, title: subgoal.title, progress: subgoal.progress} END) as goal_subgoals
 
 OPTIONAL MATCH (goal)-[req_rel:REQUIRES_KNOWLEDGE]->(req_ku:Entity)
 WHERE goal IS NOT NULL AND coalesce(req_rel.confidence, 1.0) >= $min_confidence
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data,
      goal, goal_tasks, goal_subgoals,
-     collect(DISTINCT {uid: req_ku.uid, title: req_ku.title, confidence: req_rel.confidence}) as goal_required_knowledge
+     collect(DISTINCT CASE WHEN req_ku IS NOT NULL THEN {uid: req_ku.uid, title: req_ku.title, confidence: req_rel.confidence} END) as goal_required_knowledge
 
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data,
@@ -207,7 +207,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 OPTIONAL MATCH (user)-[mastered:MASTERED|IN_PROGRESS]->(ku:Entity)
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
-     collect({
+     collect(CASE WHEN ku IS NOT NULL THEN {
          uid: ku.uid,
          // MASTERED carries mastery_score; IN_PROGRESS carries progress (0.0-1.0)
          // from record_knowledge_progress / UserProgressBackend.record_progress.
@@ -215,7 +215,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
          score: coalesce(mastered.mastery_score, mastered.progress, CASE WHEN type(mastered) = 'MASTERED' THEN 1.0 ELSE 0.1 END),
          mastered_at: mastered.mastered_at,
          confidence: coalesce(mastered.confidence, 1.0)
-     }) as knowledge_mastery_data,
+     } END) as knowledge_mastery_data,
      collect(ku) as all_knowledge_nodes
 
 // Filter knowledge for rich data (with prerequisites/dependents)
@@ -225,7 +225,7 @@ WHERE ku IS NOT NULL AND coalesce(prereq_rel.confidence, 1.0) >= $min_confidence
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data,
-     ku, collect(DISTINCT {uid: prereq.uid, title: prereq.title, confidence: prereq_rel.confidence}) as ku_prerequisites
+     ku, collect(DISTINCT CASE WHEN prereq IS NOT NULL THEN {uid: prereq.uid, title: prereq.title, confidence: prereq_rel.confidence} END) as ku_prerequisites
 
 OPTIONAL MATCH (dependent:Entity)-[dep_rel:REQUIRES_KNOWLEDGE]->(ku)
 WHERE ku IS NOT NULL AND coalesce(dep_rel.confidence, 1.0) >= $min_confidence
@@ -233,7 +233,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data,
      ku, ku_prerequisites,
-     collect(DISTINCT {uid: dependent.uid, title: dependent.title, confidence: dep_rel.confidence}) as ku_dependents
+     collect(DISTINCT CASE WHEN dependent IS NOT NULL THEN {uid: dependent.uid, title: dependent.title, confidence: dep_rel.confidence} END) as ku_dependents
 
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
@@ -255,12 +255,12 @@ OPTIONAL MATCH (user)-[viewed:VIEWED]->(viewed_ku:Entity)
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
-     collect({
+     collect(CASE WHEN viewed_ku IS NOT NULL THEN {
          uid: viewed_ku.uid,
          view_count: coalesce(viewed.view_count, 1),
          time_spent_seconds: coalesce(viewed.time_spent_seconds, 0),
          last_viewed_at: viewed.last_viewed_at
-     }) as ku_view_data
+     } END) as ku_view_data
 
 // Track marked as read KUs
 OPTIONAL MATCH (user)-[:MARKED_AS_READ]->(read_ku:Entity)
@@ -300,7 +300,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      knowledge_mastery_data, knowledge_rich,
      ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
      active_habit_uids, habit_metadata,
-     habit, collect(DISTINCT {uid: linked_goal.uid, title: linked_goal.title, status: linked_goal.status}) as habit_linked_goals
+     habit, collect(DISTINCT CASE WHEN linked_goal IS NOT NULL THEN {uid: linked_goal.uid, title: linked_goal.title, status: linked_goal.status} END) as habit_linked_goals
 
 // Roll activity→knowledge edges up to atomic Ku grain (ADR-046 § Ku-grain substance).
 OPTIONAL MATCH (habit)-[:APPLIES_KNOWLEDGE|REINFORCES_KNOWLEDGE]->(habit_applied:Entity)
@@ -339,7 +339,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
      active_habit_uids, habit_metadata,
      habit, habit_linked_goals, habit_applied_knowledge,
-     collect(DISTINCT {uid: prereq_habit.uid, title: prereq_habit.title}) +
+     collect(DISTINCT CASE WHEN prereq_habit IS NOT NULL THEN {uid: prereq_habit.uid, title: prereq_habit.title} END) +
      [(habit)-[:REQUIRES_PREREQUISITE_HABIT]->(rp:Habit) | {uid: rp.uid, title: rp.title}]
      as habit_prerequisites_raw
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
@@ -411,7 +411,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      active_habit_uids, habit_metadata, habits_rich,
      upcoming_event_uids, today_event_uids,
      event, event_applied_knowledge,
-     collect(DISTINCT {uid: event_goal.uid, title: event_goal.title, status: event_goal.status})[0..10] as event_linked_goals
+     collect(DISTINCT CASE WHEN event_goal IS NOT NULL THEN {uid: event_goal.uid, title: event_goal.title, status: event_goal.status} END)[0..10] as event_linked_goals
 
 OPTIONAL MATCH (event_habit:Habit)-[:PRACTICED_AT_EVENT]->(event)
 WHERE event IS NOT NULL
@@ -422,7 +422,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      active_habit_uids, habit_metadata, habits_rich,
      upcoming_event_uids, today_event_uids,
      event, event_applied_knowledge, event_linked_goals,
-     collect(DISTINCT {uid: event_habit.uid, title: event_habit.title})[0..10] as event_practiced_habits
+     collect(DISTINCT CASE WHEN event_habit IS NOT NULL THEN {uid: event_habit.uid, title: event_habit.title} END)[0..10] as event_practiced_habits
 
 OPTIONAL MATCH (event)-[:CONFLICTS_WITH]-(conflicting_event:Event)
 WHERE event IS NOT NULL AND conflicting_event.uid <> event.uid
@@ -433,7 +433,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      active_habit_uids, habit_metadata, habits_rich,
      upcoming_event_uids, today_event_uids,
      event, event_applied_knowledge, event_linked_goals, event_practiced_habits,
-     collect(DISTINCT {uid: conflicting_event.uid, title: conflicting_event.title})[0..5] as event_conflicting_events
+     collect(DISTINCT CASE WHEN conflicting_event IS NOT NULL THEN {uid: conflicting_event.uid, title: conflicting_event.title} END)[0..5] as event_conflicting_events
 
 // Event → Habit reinforcement edge (graph-native; replaces the former
 // reinforces_habit_uid property). Loaded into graph_context.reinforced_habits.
@@ -447,7 +447,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      upcoming_event_uids, today_event_uids,
      event, event_applied_knowledge, event_linked_goals, event_practiced_habits,
      event_conflicting_events,
-     collect(DISTINCT {uid: event_reinforced_habit.uid, title: event_reinforced_habit.title})[0..10] as event_reinforced_habits
+     collect(DISTINCT CASE WHEN event_reinforced_habit IS NOT NULL THEN {uid: event_reinforced_habit.uid, title: event_reinforced_habit.title} END)[0..10] as event_reinforced_habits
 
 // Aggregate events into rich format
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
@@ -515,7 +515,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      upcoming_event_uids, today_event_uids, events_rich,
      core_principle_uids,
      principle, principle_grounded_knowledge,
-     collect(DISTINCT {uid: principle_goal.uid, title: principle_goal.title, status: principle_goal.status})[0..10] as principle_guided_goals
+     collect(DISTINCT CASE WHEN principle_goal IS NOT NULL THEN {uid: principle_goal.uid, title: principle_goal.title, status: principle_goal.status} END)[0..10] as principle_guided_goals
 
 OPTIONAL MATCH (principle)-[:GUIDES_CHOICE]->(principle_choice:Choice)
 WHERE principle IS NOT NULL
@@ -527,7 +527,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      upcoming_event_uids, today_event_uids, events_rich,
      core_principle_uids,
      principle, principle_grounded_knowledge, principle_guided_goals,
-     collect(DISTINCT {uid: principle_choice.uid, title: principle_choice.title})[0..10] as principle_guided_choices
+     collect(DISTINCT CASE WHEN principle_choice IS NOT NULL THEN {uid: principle_choice.uid, title: principle_choice.title} END)[0..10] as principle_guided_choices
 
 OPTIONAL MATCH (principle_habit:Habit)-[:EMBODIES_PRINCIPLE]->(principle)
 WHERE principle IS NOT NULL
@@ -539,7 +539,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      upcoming_event_uids, today_event_uids, events_rich,
      core_principle_uids,
      principle, principle_grounded_knowledge, principle_guided_goals, principle_guided_choices,
-     collect(DISTINCT {uid: principle_habit.uid, title: principle_habit.title})[0..10] as principle_embodying_habits
+     collect(DISTINCT CASE WHEN principle_habit IS NOT NULL THEN {uid: principle_habit.uid, title: principle_habit.title} END)[0..10] as principle_embodying_habits
 
 OPTIONAL MATCH (principle_task:Task)-[:ALIGNED_WITH_PRINCIPLE]->(principle)
 WHERE principle IS NOT NULL
@@ -551,7 +551,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      upcoming_event_uids, today_event_uids, events_rich,
      core_principle_uids,
      principle, principle_grounded_knowledge, principle_guided_goals, principle_guided_choices, principle_embodying_habits,
-     collect(DISTINCT {uid: principle_task.uid, title: principle_task.title, status: principle_task.status})[0..10] as principle_aligned_tasks
+     collect(DISTINCT CASE WHEN principle_task IS NOT NULL THEN {uid: principle_task.uid, title: principle_task.title, status: principle_task.status} END)[0..10] as principle_aligned_tasks
 
 // Aggregate principles into rich format
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
@@ -625,7 +625,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      core_principle_uids, principles_rich,
      pending_choice_uids,
      choice, choice_informing_knowledge,
-     collect(DISTINCT {uid: choice_principle.uid, title: choice_principle.title})[0..10] as choice_guiding_principles
+     collect(DISTINCT CASE WHEN choice_principle IS NOT NULL THEN {uid: choice_principle.uid, title: choice_principle.title} END)[0..10] as choice_guiding_principles
 
 OPTIONAL MATCH (choice)-[:AFFECTS_GOAL]->(choice_goal:Goal)
 WHERE choice IS NOT NULL
@@ -638,7 +638,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      core_principle_uids, principles_rich,
      pending_choice_uids,
      choice, choice_informing_knowledge, choice_guiding_principles,
-     collect(DISTINCT {uid: choice_goal.uid, title: choice_goal.title, status: choice_goal.status})[0..10] as choice_affected_goals
+     collect(DISTINCT CASE WHEN choice_goal IS NOT NULL THEN {uid: choice_goal.uid, title: choice_goal.title, status: choice_goal.status} END)[0..10] as choice_affected_goals
 
 OPTIONAL MATCH (choice)-[:OPENS_LEARNING_PATH]->(choice_path:LearningPath)
 WHERE choice IS NOT NULL
@@ -651,7 +651,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      core_principle_uids, principles_rich,
      pending_choice_uids,
      choice, choice_informing_knowledge, choice_guiding_principles, choice_affected_goals,
-     collect(DISTINCT {uid: choice_path.uid, title: choice_path.title})[0..5] as choice_opened_paths
+     collect(DISTINCT CASE WHEN choice_path IS NOT NULL THEN {uid: choice_path.uid, title: choice_path.title} END)[0..5] as choice_opened_paths
 
 OPTIONAL MATCH (choice_task:Task)-[:IMPLEMENTS_CHOICE]->(choice)
 WHERE choice IS NOT NULL
@@ -664,7 +664,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      core_principle_uids, principles_rich,
      pending_choice_uids,
      choice, choice_informing_knowledge, choice_guiding_principles, choice_affected_goals, choice_opened_paths,
-     collect(DISTINCT {uid: choice_task.uid, title: choice_task.title, status: choice_task.status})[0..10] as choice_implementing_tasks
+     collect(DISTINCT CASE WHEN choice_task IS NOT NULL THEN {uid: choice_task.uid, title: choice_task.title, status: choice_task.status} END)[0..10] as choice_implementing_tasks
 
 // Aggregate choices into rich format
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
@@ -739,7 +739,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      pending_choice_uids, choices_rich,
      enrolled_path_uids,
      lp, lp_steps,
-     collect(DISTINCT {uid: prereq_ku.uid, title: prereq_ku.title}) as lp_prereqs
+     collect(DISTINCT CASE WHEN prereq_ku IS NOT NULL THEN {uid: prereq_ku.uid, title: prereq_ku.title} END) as lp_prereqs
 
 OPTIONAL MATCH (lp)-[:ALIGNED_WITH_GOAL]->(lp_goal:Goal)
 WHERE lp IS NOT NULL
@@ -753,7 +753,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      pending_choice_uids, choices_rich,
      enrolled_path_uids,
      lp, lp_steps, lp_prereqs,
-     collect(DISTINCT {uid: lp_goal.uid, title: lp_goal.title, status: lp_goal.status}) as lp_goals
+     collect(DISTINCT CASE WHEN lp_goal IS NOT NULL THEN {uid: lp_goal.uid, title: lp_goal.title, status: lp_goal.status} END) as lp_goals
 
 OPTIONAL MATCH (lp)-[:EMBODIES_PRINCIPLE]->(lp_principle:Principle)
 WHERE lp IS NOT NULL
@@ -767,7 +767,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      pending_choice_uids, choices_rich,
      enrolled_path_uids,
      lp, lp_steps, lp_prereqs, lp_goals,
-     collect(DISTINCT {uid: lp_principle.uid, title: lp_principle.title}) as lp_embodied_principles
+     collect(DISTINCT CASE WHEN lp_principle IS NOT NULL THEN {uid: lp_principle.uid, title: lp_principle.title} END) as lp_embodied_principles
 
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
@@ -827,7 +827,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      core_principle_uids, principles_rich,
      pending_choice_uids, choices_rich,
      enrolled_path_uids, paths_rich,
-     ps, collect(DISTINCT {uid: prereq_step.uid, title: prereq_step.title, completed: prereq_step.completed}) as ps_prereq_steps
+     ps, collect(DISTINCT CASE WHEN prereq_step IS NOT NULL THEN {uid: prereq_step.uid, title: prereq_step.title, completed: prereq_step.completed} END) as ps_prereq_steps
 
 // Owner predicate re-ties the projection to the anchored user (ADR-085 §4/G2):
 // a PathStep is shared curriculum, so BUILDS_HABIT can point at ANY user's
@@ -845,7 +845,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      pending_choice_uids, choices_rich,
      enrolled_path_uids, paths_rich,
      ps, ps_prereq_steps,
-     collect(DISTINCT {uid: ps_habit.uid, title: ps_habit.title}) as ps_habits
+     collect(DISTINCT CASE WHEN ps_habit IS NOT NULL THEN {uid: ps_habit.uid, title: ps_habit.title} END) as ps_habits
 
 // Same anchor re-tie as ps_habit above (ADR-085 G2): Tasks are OWNER_ONLY.
 OPTIONAL MATCH (ps)-[:ASSIGNS_TASK]->(ps_task:Task)
@@ -860,7 +860,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      pending_choice_uids, choices_rich,
      enrolled_path_uids, paths_rich,
      ps, ps_prereq_steps, ps_habits,
-     collect(DISTINCT {uid: ps_task.uid, title: ps_task.title, status: ps_task.status}) as ps_tasks
+     collect(DISTINCT CASE WHEN ps_task IS NOT NULL THEN {uid: ps_task.uid, title: ps_task.title, status: ps_task.status} END) as ps_tasks
 
 // USES_KU is THE canonical composition edge (PathStep composes atomic Kus);
 // TEACHES was a phantom name with no RelationshipName entry and no writer.
@@ -880,7 +880,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      pending_choice_uids, choices_rich,
      enrolled_path_uids, paths_rich,
      ps, ps_prereq_steps, ps_habits, ps_tasks,
-     collect(DISTINCT {uid: ps_ku.uid, title: ps_ku.title, domain: ps_ku.domain, entity_type: ps_ku.entity_type, rel_type: type(ps_ku_r)}) as ps_knowledge
+     collect(DISTINCT CASE WHEN ps_ku IS NOT NULL THEN {uid: ps_ku.uid, title: ps_ku.title, domain: ps_ku.domain, entity_type: ps_ku.entity_type, rel_type: type(ps_ku_r)} END) as ps_knowledge
 
 OPTIONAL MATCH (lp_parent:LearningPath)-[:HAS_STEP]->(ps)
 WHERE ps IS NOT NULL
@@ -948,7 +948,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      steps_rich,
      life_path_uid, life_path_designated_at, life_path_alignment_score,
      collect(DISTINCT moc.uid) as active_moc_uids,
-     collect(DISTINCT {uid: moc.uid, updated: moc.updated_at}) as moc_metadata
+     collect(DISTINCT CASE WHEN moc IS NOT NULL THEN {uid: moc.uid, updated: moc.updated_at} END) as moc_metadata
 
 // ====================================================================
 // ACTIVITY REPORT - Latest report for intelligence reasoning
@@ -1314,7 +1314,7 @@ OPTIONAL MATCH (user)-[:OWNS]->(habit:Habit)
 WHERE habit.status = $status_active
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids,
      collect(habit.uid) as active_habit_uids,
-     collect({uid: habit.uid, streak: coalesce(habit.current_streak, 0), rate: coalesce(habit.completion_rate, 0.0)}) as habit_data
+     collect(CASE WHEN habit IS NOT NULL THEN {uid: habit.uid, streak: coalesce(habit.current_streak, 0), rate: coalesce(habit.completion_rate, 0.0)} END) as habit_data
 
 // Goals - parallel collection with status and progress
 OPTIONAL MATCH (user)-[:OWNS]->(goal:Goal)
@@ -1322,14 +1322,14 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      active_habit_uids, habit_data,
      collect(CASE WHEN goal.status = $status_active THEN goal.uid END) as active_goal_uids,
      collect(CASE WHEN goal.status = $status_completed THEN goal.uid END) as completed_goal_uids,
-     collect({uid: goal.uid, progress: coalesce(goal.progress, 0.0)}) as goal_data
+     collect(CASE WHEN goal IS NOT NULL THEN {uid: goal.uid, progress: coalesce(goal.progress, 0.0)} END) as goal_data
 
 // Knowledge - parallel collection with mastery scores
 OPTIONAL MATCH (user)-[mastered:MASTERED]->(ku:Entity)
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids,
      active_habit_uids, habit_data,
      active_goal_uids, completed_goal_uids, goal_data,
-     collect({uid: ku.uid, score: coalesce(mastered.mastery_score, 1.0)}) as knowledge_data
+     collect(CASE WHEN ku IS NOT NULL THEN {uid: ku.uid, score: coalesce(mastered.mastery_score, 1.0)} END) as knowledge_data
 
 // KU Tracking - view counts, time spent, marked as read, bookmarked (Phase B)
 OPTIONAL MATCH (user)-[viewed:VIEWED]->(viewed_ku:Entity)
@@ -1337,7 +1337,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      active_habit_uids, habit_data,
      active_goal_uids, completed_goal_uids, goal_data,
      knowledge_data,
-     collect({uid: viewed_ku.uid, view_count: coalesce(viewed.view_count, 1), time_spent_seconds: coalesce(viewed.time_spent_seconds, 0), last_viewed_at: viewed.last_viewed_at}) as ku_view_data
+     collect(CASE WHEN viewed_ku IS NOT NULL THEN {uid: viewed_ku.uid, view_count: coalesce(viewed.view_count, 1), time_spent_seconds: coalesce(viewed.time_spent_seconds, 0), last_viewed_at: viewed.last_viewed_at} END) as ku_view_data
 
 OPTIONAL MATCH (user)-[:MARKED_AS_READ]->(read_ku:Entity)
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids,
@@ -1373,7 +1373,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
      enrolled_path_uids,
      collect(DISTINCT moc.uid) as active_moc_uids,
-     collect(DISTINCT {uid: moc.uid, updated: moc.updated_at}) as moc_data
+     collect(DISTINCT CASE WHEN moc IS NOT NULL THEN {uid: moc.uid, updated: moc.updated_at} END) as moc_data
 
 // Events - parallel collection with date filtering
 OPTIONAL MATCH (user)-[:OWNS]->(event:Event)
@@ -1639,13 +1639,13 @@ class UserContextQueryExecutor:
         query = """
         MATCH (user:User {uid: $user_uid})
         OPTIONAL MATCH (user)-[:MEMBER_OF]->(mg:Group)
-        WITH user, collect(DISTINCT {
+        WITH user, collect(DISTINCT CASE WHEN mg IS NOT NULL THEN {
             uid: mg.uid,
             name: coalesce(mg.name, 'Untitled Group'),
             role: 'student',
             member_count: 0,
             is_active: coalesce(mg.is_active, true)
-        }) AS member_groups_raw
+        } END) AS member_groups_raw
         OPTIONAL MATCH (user)-[:OWNS]->(og:Group)
         OPTIONAL MATCH (og)<-[:MEMBER_OF]-(member:User)
         WITH user, member_groups_raw, og,
