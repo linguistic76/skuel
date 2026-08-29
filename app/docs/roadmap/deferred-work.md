@@ -2245,9 +2245,12 @@ production calls are the mixin's own `self.backend.add_attendee(...)`). So the f
 "stale" mean stale, then gate on it:
 
 - The METHOD_SCOPE check was negative ("vulture stopped flagging it"), which conflates *wired*
-  with *masked*. It is now a three-way decision on a definition-site count: definition gone →
-  stale; name defined once → stale (wiring complete); name defined more than once → the new
-  `planned-marking-masked` (INFO), which **keeps** the entry and says liveness is unverifiable.
+  with *masked*. For methods the only provable case is now **definition gone → stale**;
+  a method that still exists is the new `planned-marking-masked` (INFO), which **keeps** the
+  entry and names why attribution failed. Codex (#1188) killed the first attempt — a
+  definition-site count catches only the def-side collision, while `VultureScan.used_names` is
+  global by attribute name, so one `x.name` load masks a single-def method too. Events and
+  templates keep both stale causes: their wiring is detected positively, not by name.
 - All seven `planned-marking-stale` emissions are `WARNING`, so `--check` (`./dev quality`
   check 7 + the CI lint job) fails on them, and the janitor's existing WARNING block prints
   them for free. A masked block was added beside it, because an INFO finding no reader prints

@@ -506,19 +506,28 @@ def test_stale_planned_method_marking_when_definition_vanished(monkeypatch):
     assert "no longer exists at this path" in stale[0].detail
 
 
-def test_stale_planned_method_marking_when_wiring_completed(monkeypatch):
+def test_attribute_collision_on_a_single_def_is_masked_not_stale(monkeypatch):
+    """One `x.name` load anywhere drops the candidate — with only ONE def.
+
+    Codex P2 on PR #1188: counting definition sites catches only the def-side
+    collision. Vulture's used-name set is global by attribute name, so an
+    unrelated `other.only_defined_once` masks a method that is still unwired.
+    Reading that as "wiring complete" would fail --check on honest staged work.
+    """
     monkeypatch.setattr(
         detect_bloat,
         "PLANNED_METHODS",
-        {"core/services/x.py::now_live_method": "awaiting synthetic wiring"},
+        {"core/services/x.py::only_defined_once": "awaiting synthetic wiring"},
     )
-    # defined exactly once and no longer a candidate -> vulture saw a real call
-    codebase = build_codebase({"core/services/x.py": "def now_live_method():\n    pass\n"})
-    analysis = analyze_methods(codebase, VultureScan([], frozenset()))
-    stale = [f for f in analysis.findings if f.kind == "planned-marking-stale"]
-    assert [f.subject for f in stale] == ["now_live_method"]
-    assert stale[0].severity is BloatSeverity.WARNING
-    assert "wiring complete" in stale[0].detail
+    codebase = build_codebase({"core/services/x.py": "def only_defined_once():\n    pass\n"})
+    # single def, but the NAME is in vulture's used set -> unverifiable
+    analysis = analyze_methods(codebase, VultureScan([], frozenset({"only_defined_once"})))
+
+    assert not [f for f in analysis.findings if f.kind == "planned-marking-stale"]
+    masked = [f for f in analysis.findings if f.kind == "planned-marking-masked"]
+    assert [f.subject for f in masked] == ["only_defined_once"]
+    assert masked[0].severity is BloatSeverity.INFO
+    assert "loaded as an attribute elsewhere" in masked[0].detail
 
 
 def test_name_masked_planned_method_is_flagged_but_never_stale(monkeypatch):

@@ -32,11 +32,12 @@ Design rules (mirrors the SKUEL linter's structural-soundness discipline):
   PLANNED_METHODS / PLANNED_TEMPLATES reports in its own PLANNED tier — a
   visible completion to-do list that never fails --check. A STALE marking does
   fail it (ruled 2026-08-29): a registry key whose subject vanished or is now
-  wired is a lie about the backlog, and nothing may rot silently. The one case
-  that is not staleness gets its own advisory kind — a method whose name is
-  defined at several sites is MASKED, because vulture matches by name and cannot
-  attribute a call to an owner; its marking may still be true, so it is kept and
-  flagged, never demanded. There is deliberately no
+  wired is a lie about the backlog, and nothing may rot silently. Where wiring
+  cannot be PROVEN the finding is not staleness: a planned method that still
+  exists but left vulture's candidate set is MASKED, because vulture matches by
+  name and no call can be attributed to that definition. Its marking may still
+  be true, so it is kept and flagged, never demanded — the safe-direction rule
+  applied to the registry. There is deliberately no
   PLANNED_FIELDS: the PLANNED tiers stay honest only because stale keys are
   audited, and there is no field scanner to audit with. Each examined tier
   also prints an aging summary (entry count + oldest ISO date extracted
@@ -1933,15 +1934,19 @@ def analyze_methods(codebase: ParsedCodebase, scan: VultureScan) -> MethodAnalys
         else:
             findings.append(finding)
 
-    # A planned method that stopped being a vulture candidate is one of three
-    # things, and only two are the registry's fault:
-    #   definition gone      -> stale (deleted or renamed)
-    #   name defined once    -> stale (wiring complete)
-    #   name defined N > 1   -> MASKED, not stale. Vulture matches by name, so a
-    #     same-named method elsewhere — typically the backend this service
-    #     delegates to — marks this one used. The marking may still be perfectly
-    #     true, and deleting the entry to clear the report would hide genuinely
-    #     staged work, so it is reported as its own advisory kind.
+    # A planned method that stopped being a vulture candidate is one of two
+    # things, and only ONE of them is provable here:
+    #   definition gone -> stale. Certain: nothing exists at that path.
+    #   definition still there -> MASKED, never stale. Vulture's liveness is
+    #     NAME-based (see VultureScan.used_names): a single same-named `def`
+    #     elsewhere, or one `x.name` attribute load anywhere in the tree, drops
+    #     the candidate without any call reaching THIS definition. So "stopped
+    #     being a candidate" cannot be read as "wired", and the marking may be
+    #     perfectly true. Calling it stale would fail --check on honest staged
+    #     work, clearable only by deleting the entry — which hides exactly the
+    #     entries most likely to be forgotten. It also breaks this module's
+    #     safe-direction rule: over-approximation may suppress a dead-code
+    #     accusation, never create one.
     # Only METHOD_SCOPE keys ride this check — out-of-scope entries are never
     # vulture candidates here, so they get the existence-checked path below.
     flagged_keys = {f"{f.file}::{f.subject}" for f in findings + exempted}
@@ -1951,7 +1956,6 @@ def analyze_methods(codebase: ParsedCodebase, scan: VultureScan) -> MethodAnalys
         if not rel.startswith(METHOD_SCOPE) or planned_key in flagged_keys:
             continue
         def_line = _definition_line(codebase, rel, name)
-        sites = def_counts.get(name, 0)
         if def_line == 0:
             findings.append(
                 Finding(
@@ -1966,36 +1970,31 @@ def analyze_methods(codebase: ParsedCodebase, scan: VultureScan) -> MethodAnalys
                     ),
                 )
             )
-        elif sites > 1:
-            findings.append(
-                Finding(
-                    kind="planned-marking-masked",
-                    severity=BloatSeverity.INFO,
-                    subject=name,
-                    file=rel,
-                    line=def_line,
-                    detail=(
-                        f"still staged, liveness unverifiable — '{name}' is defined "
-                        f"at {sites} sites, so vulture's name matching cannot "
-                        "attribute a call to this one; KEEP the entry and verify "
-                        "wiring by hand"
-                    ),
-                )
-            )
+            continue
+
+        sites = def_counts.get(name, 0)
+        if sites > 1:
+            why = f"'{name}' is defined at {sites} sites"
+        elif name in scan.used_names:
+            why = f"'{name}' is loaded as an attribute elsewhere in the tree"
+        elif name in dispatch.live:
+            why = f"dispatch knowledge lists '{name}' live — {dispatch.live[name]}"
         else:
-            findings.append(
-                Finding(
-                    kind="planned-marking-stale",
-                    severity=BloatSeverity.WARNING,
-                    subject=name,
-                    file=rel,
-                    line=def_line,
-                    detail=(
-                        "marked planned but no longer flagged unused — wiring "
-                        "complete; remove from PLANNED_METHODS"
-                    ),
-                )
+            why = f"vulture no longer lists '{name}' as a candidate"
+        findings.append(
+            Finding(
+                kind="planned-marking-masked",
+                severity=BloatSeverity.INFO,
+                subject=name,
+                file=rel,
+                line=def_line,
+                detail=(
+                    f"still staged, liveness unverifiable — {why}, and vulture "
+                    "matches by NAME, so no call can be attributed to this "
+                    "definition; KEEP the entry and verify wiring by hand"
+                ),
             )
+        )
 
     findings.extend(_out_of_scope_planned_findings(codebase))
 

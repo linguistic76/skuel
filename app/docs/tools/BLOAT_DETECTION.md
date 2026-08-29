@@ -106,11 +106,18 @@ still staged and unwired. "Stopped being a candidate" therefore stops meaning
 as `planned-marking-masked` (INFO, its own report block): the marking may be
 perfectly true, and deleting the entry to clear a report would hide genuinely
 staged work — exactly the entries most likely to be forgotten. **Keep the
-entry; verify wiring by hand.** The discriminator is a definition-site count,
-so the three outcomes are: definition gone → stale; name defined once → stale
-(wiring complete); name defined more than once → masked. The weekly janitor
-prints masked markings so the unverifiable case stays visible rather than
-silently accruing.
+entry; verify wiring by hand.** The mask is not only a second `def` — one
+`x.method_name` attribute load anywhere in the tree drops the candidate too
+(`VultureScan.used_names` *is* the suppressor), so for methods there are exactly
+two outcomes: **definition gone → stale** (the only provable case), **definition
+still there → masked**. Reading "left the candidate set" as "wired" would fail
+`--check` on honest staged work and would break the module's safe-direction rule
+— over-approximation may suppress a dead-code accusation, never create one. The
+masked detail names *why* attribution failed (N definition sites / the name is
+loaded elsewhere / dispatch knowledge). Events and templates keep both stale
+causes: their wiring is detected positively (a publish site, a render site), not
+by name. The weekly janitor prints masked markings so the unverifiable case
+stays visible rather than silently accruing.
 
 **Prompt templates ride the same tier** (`PLANNED_TEMPLATES`, keyed by
 template id — ADR-082 D4): registry `.md` files with no production render
