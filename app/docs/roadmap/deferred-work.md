@@ -1845,8 +1845,17 @@ recency/frequency, tags of engaged entities, or an embedding centroid of touched
 feeding LP/content ranking. The ownership bundle deleted the four `HAS_*` "gravity" writers
 (ADR-086 § 2); Mike ruled adoption/engagement is the SAME signal. **Constraint:** one engagement
 signal, never two edges; never resurrect the #288 facet-affinity code (session-local by design)
-or `HAS_*`.
-**Check:** `git grep -n -i "interest_signal\|engagement_signal\|facet_affinit\|HAS_ADOPTED" -- core/ ui/ adapters/` → empty.
+or the retired gravity edges `HAS_TASK` / `HAS_GOAL` / `HAS_HABIT` / `HAS_EVENT` / `HAS_CHOICE` /
+`HAS_PRINCIPLE` / `HAS_KU` (the live `HAS_*_TEMPLATE` family is a different edge and stays).
+**Check** — two greps, both empty today: the new signal is absent, and no retired gravity edge is
+a `RelationshipName` member (SKUEL030 makes that enum the only door to a Cypher edge, so the
+member is the thing to watch, not free-text mentions — two comments still name the edges
+historically):
+`git grep -n -i "interest_signal\|engagement_signal\|facet_affinit" -- core/ ui/ adapters/`
+`git grep -n -E '^\s+HAS_(TASK|GOAL|HABIT|EVENT|CHOICE|PRINCIPLE|KU)\s*=' -- core/models/relationship_names.py`
+The same idea also survived as two reader-less members of the lowercase semantic vocabulary
+(`RelationshipType.HAS_GOAL` / `.HAS_HABIT`, `core/models/enums/metadata_enums.py`) — deleted in
+#1179; `git grep -n -E '^\s+HAS_(GOAL|HABIT)\s*=' -- core/models/enums/metadata_enums.py` → empty.
 
 ### Icon provider swap (ruled 2026-06-29)
 `Icon()` (`ui/components/icon.py`) is a real chokepoint but its port leaks lucide's vocabulary —
