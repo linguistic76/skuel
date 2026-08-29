@@ -3,8 +3,9 @@ Search UI Components
 ====================
 
 FastHTML components for the search page: query box (+ optional Ask verb),
-horizontal filter bar (off-canvas drawer on mobile), active-filter badges,
-results grid, and pagination.
+horizontal filter bar (off-canvas drawer on mobile), active-filter badges and a
+top-N results grid (no pagination — search is a find-the-thing tool; #555 ruled
+DROP 2026-08-28: one page-only query, no match-set count, nothing to page).
 
 Design Philosophy:
     "Users can handle complexity, but they need visual calm to process it."
@@ -21,7 +22,7 @@ import json
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import H3, H4, A, Div, Option, P, Span, Template
+from fasthtml.common import H3, H4, Div, Option, P, Span, Template
 from fasthtml.common import Button as HtmlButton
 
 if TYPE_CHECKING:
@@ -36,7 +37,7 @@ from core.models.enums import (
     SELCategory,
 )
 from core.models.search.filter_enums import SearchSortOrder
-from core.models.search_request import FacetCount, SearchResponse
+from core.models.search_request import BODY_HIT_MATCH_REASON, FacetCount, SearchResponse
 from ui.components import (
     Button,
     ButtonT,
@@ -207,7 +208,7 @@ ALL_FILTER_NAMES = [
     "aligned_with_principles",
     "next_logical_step",
     # Semantic enhancement toggles — part of the request like any other facet, so
-    # they must ride along on every re-fire (filter change OR pagination). Omitting
+    # they must ride along on every re-fire (any filter change). Omitting
     # them here silently dropped them whenever any other control triggered a search.
     "enable_semantic_boost",
     "enable_learning_aware",
@@ -1042,8 +1043,30 @@ def _render_domain_breakdown(response: SearchResponse) -> Any | None:
     return Div(*chips, cls="flex flex-wrap items-center gap-1.5 mt-2")
 
 
+def _results_headline(response: SearchResponse) -> str:
+    """Honest headline for a top-N result set.
+
+    Search runs ONE page-only query and never counts the match set (#555, ruled
+    DROP 2026-08-28: a find-the-thing tool, not a browser — counting would cost a
+    second query per search for a browsing affordance nobody asked for). A full
+    entity page is "the top N" where N is the requested window; a short page IS
+    every match, so it is counted plainly. The semantic-boost path APPENDS
+    lesson-body hits beyond the window (`_augment_with_body_chunks` does not cap
+    the merge), so those are named separately rather than inflating N.
+    """
+    body_hits = sum(1 for r in response.results if r.get("_match_reason") == BODY_HIT_MATCH_REASON)
+    entity_rows = len(response.results) - body_hits
+    if entity_rows >= response.limit:
+        head = f"Top {response.limit} results"
+        if body_hits:
+            return f"{head} + {body_hits} lesson-body hit{'s' if body_hits != 1 else ''}"
+        return head
+    shown = len(response.results)
+    return f"{shown} result{'s' if shown != 1 else ''}"
+
+
 def render_search_results(response: SearchResponse) -> Any:
-    """Render search results with calm design."""
+    """Render search results with calm design — top-N, no pagination."""
     if not response.has_results():
         return Div(
             _render_capacity_banner(response.capacity_warnings),
@@ -1062,8 +1085,6 @@ def render_search_results(response: SearchResponse) -> Any:
             id="search-results",
         )
 
-    page_info = response.get_page_info()
-
     return Div(
         _render_capacity_banner(response.capacity_warnings),
         # Results header — count summary only. Sort lives in the persistent filter
@@ -1072,11 +1093,7 @@ def render_search_results(response: SearchResponse) -> Any:
         # colliding with the bar's control on hx-include (duplicate sort_order
         # param, first-wins in Starlette). One control, outside the swap target.
         Div(
-            H3(f"Found {response.total} results", cls="text-xl font-bold"),
-            P(
-                f"Showing {page_info['showing_from']}-{page_info['showing_to']} of {page_info['total_results']}",
-                cls="text-muted-foreground text-sm",
-            ),
+            H3(_results_headline(response), cls="text-xl font-bold"),
             P(
                 f"Search completed in {response.search_time_ms:.0f}ms",
                 cls="text-muted-foreground text-xs",
@@ -1089,9 +1106,6 @@ def render_search_results(response: SearchResponse) -> Any:
             *[_render_result_card(result) for result in response.results],
             cls="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4",
         ),
-        # Pagination — shown whenever the result set spans more than one page, so
-        # the LAST page still offers Previous (has_more_pages() is False there).
-        _render_pagination(response) if page_info["total_pages"] > 1 else None,
         id="search-results",
         cls="mt-4",
     )
@@ -1263,65 +1277,6 @@ def _render_graph_context(context: dict) -> Any | None:
             cls="mt-3 p-3 bg-muted rounded-lg border-l-4 border-primary",
         ),
         cls="mt-4",
-    )
-
-
-def _render_pagination(response: SearchResponse) -> Any:
-    """Render pagination controls with calm design.
-
-    Each control re-runs ``/search/results`` for the target page's offset,
-    passed via ``hx-vals`` (reliably included on GET) plus EVERY active filter
-    via ``hx-include`` — so paging preserves the query and all facets.
-    """
-    page_info = response.get_page_info()
-    current_page = page_info["current_page"]
-    total_pages = page_info["total_pages"]
-    include = _get_hx_include()  # all filters — pagination must carry every facet
-
-    # Compose from the shared button vocabulary: ButtonT carries the style
-    # variant; the sm geometry string mirrors ui.components.Button size="sm".
-    btn_sm = (
-        "inline-flex items-center justify-center font-medium transition-colors h-8 px-3 "
-        "text-sm rounded-md focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
-    )
-
-    def page_link(
-        label: str, offset: int, *, disabled: bool = False, current: bool = False
-    ) -> "FT":
-        """One pagination control. Current page and disabled ends are inert Spans;
-        the rest are HTMX links that swap #search-results for the target offset."""
-        if current:
-            return Span(label, cls=f"{btn_sm} {ButtonT.primary}")
-        if disabled:
-            return Span(label, cls=f"{btn_sm} pointer-events-none opacity-50")
-        return A(
-            label,
-            hx_get="/search/results",
-            hx_vals=f'{{"offset": {offset}}}',
-            hx_include=include,
-            hx_target="#search-results",
-            cls=f"{btn_sm} {ButtonT.default}",
-        )
-
-    return Div(
-        Div(
-            page_link(
-                "« Previous",
-                max(0, response.offset - response.limit),
-                disabled=current_page <= 1,
-            ),
-            *[
-                page_link(str(page), (page - 1) * response.limit, current=(page == current_page))
-                for page in range(max(1, current_page - 2), min(total_pages + 1, current_page + 3))
-            ],
-            page_link(
-                "Next »",
-                response.offset + response.limit,
-                disabled=not response.has_more_pages(),
-            ),
-            cls="flex justify-center gap-1",
-        ),
-        cls="mt-12",
     )
 
 

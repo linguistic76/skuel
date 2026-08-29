@@ -355,31 +355,10 @@ def has_results() -> bool:
     return len(results) > 0
 ```
 
-#### has_more_pages()
-
-```python
-def has_more_pages() -> bool:
-    """Check if there are more pages available."""
-    return (offset + limit) < total
-```
-
-#### get_page_info()
-
-```python
-def get_page_info() -> dict[str, int]:
-    """
-    Get pagination information.
-
-    Returns:
-        {
-            "current_page": int,  # Current page number (1-indexed)
-            "total_pages": int,   # Total number of pages
-            "showing_from": int,  # First result index (1-indexed)
-            "showing_to": int,    # Last result index (1-indexed)
-            "total_results": int  # Total matching results
-        }
-    """
-```
+**No page maths.** `/search` is top-N: one page-only query, no match-set count, so `total`
+is the number of rows in *this* page (the JSON API returns it as `total_count`) and is never
+"how many matched". `has_more_pages()` / `get_page_info()` were deleted with the pagination
+controls (#555, ruled DROP 2026-08-28 — see `roadmap/done/search-facet-redesign.md` ruling 8).
 
 ### Usage Example
 
@@ -411,15 +390,10 @@ response = SearchResponse(
     search_time_ms=23.4
 )
 
-# Check pagination
+# Top-N: a full page is "the top N", a short page IS every match
 if response.has_results():
-    print(f"Found {response.total} results")
-
-if response.has_more_pages():
-    print("More results available")
-
-page_info = response.get_page_info()
-# {"current_page": 1, "total_pages": 3, "showing_from": 1, "showing_to": 20, ...}
+    shown = len(response.results)
+    label = f"Top {shown} results" if shown >= response.limit else f"{shown} results"
 ```
 
 ## Search Modes

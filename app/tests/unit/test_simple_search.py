@@ -120,26 +120,6 @@ class TestSearchRequestModels:
         assert len(response.results) == 1
         assert response.query_text == "self-awareness"
         assert response.has_results() is True
-        assert response.has_more_pages() is False
-
-    def test_search_response_pagination(self):
-        """Test SearchResponse pagination info"""
-        response = SearchResponse(
-            results=[{"uid": f"ku.{i}"} for i in range(20)],
-            total=100,
-            limit=20,
-            offset=40,
-            query_text="test",
-        )
-
-        page_info = response.get_page_info()
-
-        assert page_info["current_page"] == 3  # (40 / 20) + 1
-        assert page_info["total_pages"] == 5  # ceil(100 / 20)
-        assert page_info["showing_from"] == 41
-        assert page_info["showing_to"] == 60
-        assert page_info["total_results"] == 100
-        assert response.has_more_pages() is True
 
     def test_search_response_with_facet_counts(self):
         """Test SearchResponse with facet counts"""

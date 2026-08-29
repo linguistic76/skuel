@@ -449,6 +449,8 @@ class TaskResponse(ResponseBase):
 ```python
 class SearchResponse(BaseModel):
     results: list[dict[str, Any]] = Field(default_factory=list)
+    # Rows in THIS page — search is top-N (one page-only query, no match-set
+    # count; #555 ruled DROP 2026-08-28). Never read `total` as "how many matched".
     total: int = Field(..., ge=0)
     limit: int = Field(..., ge=1)
     offset: int = Field(..., ge=0)
@@ -457,19 +459,6 @@ class SearchResponse(BaseModel):
 
     def has_results(self) -> bool:
         return len(self.results) > 0
-
-    def has_more_pages(self) -> bool:
-        return (self.offset + self.limit) < self.total
-
-    def get_page_info(self) -> dict[str, int]:
-        current_page = (self.offset // self.limit) + 1
-        total_pages = (self.total + self.limit - 1) // self.limit
-        return {
-            "current_page": current_page,
-            "total_pages": total_pages,
-            "showing_from": self.offset + 1,
-            "showing_to": min(self.offset + self.limit, self.total),
-        }
 ```
 
 ## Anti-Patterns

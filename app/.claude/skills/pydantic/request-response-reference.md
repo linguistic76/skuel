@@ -298,9 +298,8 @@ class SearchResponse(BaseModel):
 
     def has_results(self) -> bool:
         return len(self.results) > 0
-
-    def has_more_pages(self) -> bool:
-        return (self.offset + self.limit) < self.total
+    # No page maths: /search is top-N — `total` is the rows in this page, not a
+    # match count (#555 ruled DROP 2026-08-28).
 ```
 
 ## ConfigDict Reference
