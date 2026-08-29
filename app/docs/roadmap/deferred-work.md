@@ -1939,6 +1939,14 @@ must **rewrite the existing key in place**, never append a second `updated:`.
      worktree keeps the old value, so `git status` shows an unstaged reversal of the stamp
      after every docs commit and the next `git add` re-propagates the stale date. Touching
      only that one line preserves the author's other unstaged hunks.
+   ⚠️ **Both strategies presuppose an `updated:` key already exists.** A newly added
+   in-scope `.md` with no YAML frontmatter at all — still permitted outside pattern docs —
+   has no line to rewrite, and the backfill only covers files present when the feature
+   ships. So a perfectly normal commit lands a new unstamped doc and nothing notices until
+   the health check runs later, which is the hook failing at its one job. The hook must
+   **create** the frontmatter block and the key, in the index and the worktree both, or
+   **abort** when it is absent. Creating is the better default: aborting makes every new
+   doc a two-step commit.
    - **Refuse and abort.** Detect a partially-staged file, decline to stamp it, print what
      to do, and **exit nonzero**. Declining while returning 0 is not a strategy — the
      commit lands unstamped, "true by construction" is false, and the guard reports it
@@ -2008,14 +2016,14 @@ other pinned archives are exempt.
   repo-root-relative ones (`app/docs/...`). Joining the two on filename matches nothing,
   every file looks current, and the measurement reads a clean `0 stale`. This happened on
   the first run of the measurement above.
-- Nine of the traps above — partial staging, backfill self-invalidation, quoted scalars,
+- Ten of the traps above — partial staging, backfill self-invalidation, quoted scalars,
   worktree desync, an unwired guard, a guard blind to missing fields, a refusal branch that
-  lets the commit through, a future date that passes a lower-bound check, and an exclusion
-  rule its own prescribed tool cannot implement — were found by Codex review of the
-  *registration* across four rounds, not of an implementation. Every round after the first
-  found holes in the previous round's fix, and round 4 caught this document contradicting
-  itself. That is the argument for reviewing a contract to convergence before writing the
-  code it describes.
+  lets the commit through, a future date that passes a lower-bound check, an exclusion rule
+  its own prescribed tool cannot implement, and a new file with no frontmatter to stamp —
+  were found by Codex review of the *registration* across five rounds, not of an
+  implementation. Every round after the first found holes in the previous round's fix, and
+  round 4 caught this document contradicting itself. That is the argument for reviewing a
+  contract to convergence before writing the code it describes.
 
 ### Sub-finding: same-file contradictory ruling prose is NOT mechanizable
 
