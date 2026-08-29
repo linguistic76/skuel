@@ -1992,7 +1992,7 @@ must **rewrite the existing key in place**, never append a second `updated:`.
    - **(b) Merge-side stamping.** A workflow re-stamps on `main` after merge. Exact, but it
      pushes to `main` and has to co-exist with the CI gate.
    - **(c) Drop the date comparison**, keeping only the missing / duplicate / unparsable /
-     future checks below — all four are squash-immune. Simplest, weakest.
+     future checks below — **three** of those four are squash-immune. Simplest, weakest.
    ⚠️ **A date comparison alone leaves the guard blind to its main target.** A file
    committed with `--no-verify` — the exact bypass this guard exists to catch — can arrive
    with **no** `updated:` key at all, and then there is no date that predates anything, so
@@ -2001,7 +2001,14 @@ must **rewrite the existing key in place**, never append a second `updated:`.
    both sides:** a lower-bound-only check stays green forever on a future value like
    `updated: 2099-01-01`, which never predates anything and would mask every unstamped edit
    for years — require `updated:` to be no later than the file's newest commit date too, so
-   the value must be one a commit could actually have produced. This also fixes
+   the value must be one a commit could actually have produced.
+   ⚠️ **Pick one timezone for this comparison, or it fires on a valid stamp.** An author
+   east of UTC committing just after local midnight stamps the new local date while the
+   immediate squash commit still carries the previous UTC date, and the upper bound then
+   rejects a correct stamp as a future date. Normalize stamping *and* comparison to UTC, or
+   tolerate one day of boundary skew. (This machine is `-0700`, so the local date never
+   runs ahead of UTC and the bug is invisible here — do not conclude from local testing
+   that it is absent.) This also fixes
    the ordering: a missing-field failure is only enforceable once the backfill has run, so
    the guard must land **with or after** step 2, never before it — shipped first it would
    fail on all 192 fieldless files.
@@ -2040,13 +2047,16 @@ other pinned archives are exempt.
   repo-root-relative ones (`app/docs/...`). Joining the two on filename matches nothing,
   every file looks current, and the measurement reads a clean `0 stale`. This happened on
   the first run of the measurement above.
-- Eleven of the traps above — partial staging, backfill self-invalidation, quoted scalars,
+- Thirteen of the traps above — partial staging, backfill self-invalidation, quoted scalars,
   worktree desync, an unwired guard, a guard blind to missing fields, a refusal branch that
   lets the commit through, a future date that passes a lower-bound check, an exclusion rule
-  its own prescribed tool cannot implement, a new file with no frontmatter to stamp, and a
-  squash merge that makes every correctly stamped doc look stale — were found by Codex
-  review of the *registration* across six rounds, not of an implementation. The last one
-  qualified the ruling's own premise. Every round after the first found holes in the previous round's fix, and
+  its own prescribed tool cannot implement, a new file with no frontmatter to stamp, a
+  squash merge that makes every correctly stamped doc look stale, a timezone boundary that
+  rejects a valid stamp as a future date, and a Review Schedule row still prescribing the
+  broken comparison — were found by Codex review of the *registration* across seven rounds,
+  not of an implementation. One qualified the ruling's own premise, and **three** were this
+  document contradicting itself, which is the very failure class its sub-finding below
+  describes. Every round after the first found holes in the previous round's fix, and
   round 4 caught this document contradicting itself. That is the argument for reviewing a
   contract to convergence before writing the code it describes.
 
@@ -2121,7 +2131,7 @@ Review this document at the **September 2026 quarterly review**. Checklist:
 | PathStep → Ku wiring backlog (1 Ku-less step; 67 Kus composed by no step) | Mike's next `Ps_dev` content session | The three counts in the section, over all three composition edges (`USES_KU\|TRAINS_KU\|CONTAINS_KNOWLEDGE`, never `USES_KU` alone) — 1 / 67 / 67 on 2026-08-28 |
 | py314 annotation sweeps — UP037 schedulable, TC002/TC003 never (home: ADR-067 § Deferred) | UP037: a churn window Mike picks; TC002/TC003: never | `uv run ruff check --select UP037 --statistics .` — 1222 on 2026-08-28 |
 | Parked features (activity ledger · interest/gravity · icon provider · templates re-homing) | Mike schedules each — feature work, never self-scoped | The four `git grep` checks in the section, all empty on 2026-08-28 |
-| Docs `updated:` frontmatter auto-stamp (ruled 2026-08-29 — build it, fresh context) | Ruled, not gated: Mike starts it. NOT a data threshold — do not re-litigate the delete-vs-stamp choice | Stale count must be **0** once shipped: compare each doc's frontmatter `updated:` against its last commit date — 194 stale of 219 with the field, plus 192 with no field, on 2026-08-29. ⚠️ two ways to read a false clean: match paths on the SAME base (`git ls-files` is CWD-relative, `git log --name-only` is repo-root-relative), and accept QUOTED dates (`updated: '2026-04-20'`, 25 files) |
+| Docs `updated:` frontmatter auto-stamp (ruled 2026-08-29 — build it, fresh context) | Ruled, not gated: Mike starts it. NOT a data threshold — do not re-litigate the delete-vs-stamp choice | Once shipped, the check must be **green** under whichever acceptance rule the section's squash fork selects (threshold / merge-side stamp / no date comparison) — do NOT build the strict `updated:` vs last-commit-date comparison this row used to prescribe; the section explains why it false-positives on date-boundary squash merges. Baseline it replaces: 194 stale of 219 with the field, plus 192 with no field, on 2026-08-29. ⚠️ two ways to read a false clean: match paths on the SAME base (`git ls-files` is CWD-relative, `git log --name-only` is repo-root-relative), and accept QUOTED dates (`updated: '2026-04-20'`, 25 files) |
 
 **The document is the checklist, the table is a convenience:** a section added to this file
 without a matching row here is still in review scope — walk every `##` section, then the table.
