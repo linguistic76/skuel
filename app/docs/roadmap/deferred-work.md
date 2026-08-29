@@ -1902,6 +1902,12 @@ unsearchable); no templates hub under `ui/`.
 nobody has to remember it. *Rejected:* delete the field corpus-wide; leave it and merely
 stop citing it.
 
+⚠️ **The ruling stands, but "by construction" is qualified — read the squash finding
+below.** A local pre-commit hook cannot make `updated:` *equal* the final commit date,
+because `gh pr merge --squash` creates that commit server-side without running any hook.
+Auto-stamping still takes the corpus from 89% wrong to accurate within a merge-latency
+window, which is why the ruling holds; it is not exactness.
+
 **Why it needed a ruling — measured 2026-08-29 on `24cd4a2ab`:** the field is not
 maintained, so reading it as evidence is a mistake.
 
@@ -1969,6 +1975,24 @@ must **rewrite the existing key in place**, never append a second `updated:`.
    deliberately excludes `health-mypy` at ~80s. One `git log --name-only` pass over
    `app/docs` covers the date comparison for all 411 files — but see the stamp-only
    exclusion below, which needs diff content `--name-only` does not carry.
+   ⚠️ **A strict date comparison false-positives on every squash merge — settle this
+   fork first.** The mandated merge is `gh pr merge <PR#> --squash` (CLAUDE.md § PR Review
+   Workflow), which builds the final commit **server-side, running no hook**. The branch
+   commit stamped `updated: D1`; the squash lands on a later clock as the only commit
+   touching that file; the guard sees `D1 < D2` and reports a correctly stamped doc as
+   stale. The stamp-only exclusion does not help — the squash commit carries the
+   *substantive* change. Measured on this session's own merges: squash `6ffa7b741` is
+   `08:37:56` against branch commit `e01661b89` at `08:34:21`, and **the author date is
+   rewritten too** (both fields move), so "compare the author date instead" — the first
+   thing anyone will try — is not an escape hatch. Same-day here, but any merge crossing
+   midnight, or a local-vs-UTC boundary, fires it. Three viable answers:
+   - **(a) Rot threshold (recommended).** Fail only when `updated:` predates the last
+     commit by more than a merge-latency window. Squash-immune, and it still catches the
+     measured problem: 168 of the 194 stale files are a month or more out.
+   - **(b) Merge-side stamping.** A workflow re-stamps on `main` after merge. Exact, but it
+     pushes to `main` and has to co-exist with the CI gate.
+   - **(c) Drop the date comparison**, keeping only the missing / duplicate / unparsable /
+     future checks below — all four are squash-immune. Simplest, weakest.
    ⚠️ **A date comparison alone leaves the guard blind to its main target.** A file
    committed with `--no-verify` — the exact bypass this guard exists to catch — can arrive
    with **no** `updated:` key at all, and then there is no date that predates anything, so
@@ -2016,12 +2040,13 @@ other pinned archives are exempt.
   repo-root-relative ones (`app/docs/...`). Joining the two on filename matches nothing,
   every file looks current, and the measurement reads a clean `0 stale`. This happened on
   the first run of the measurement above.
-- Ten of the traps above — partial staging, backfill self-invalidation, quoted scalars,
+- Eleven of the traps above — partial staging, backfill self-invalidation, quoted scalars,
   worktree desync, an unwired guard, a guard blind to missing fields, a refusal branch that
   lets the commit through, a future date that passes a lower-bound check, an exclusion rule
-  its own prescribed tool cannot implement, and a new file with no frontmatter to stamp —
-  were found by Codex review of the *registration* across five rounds, not of an
-  implementation. Every round after the first found holes in the previous round's fix, and
+  its own prescribed tool cannot implement, a new file with no frontmatter to stamp, and a
+  squash merge that makes every correctly stamped doc look stale — were found by Codex
+  review of the *registration* across six rounds, not of an implementation. The last one
+  qualified the ruling's own premise. Every round after the first found holes in the previous round's fix, and
   round 4 caught this document contradicting itself. That is the argument for reviewing a
   contract to convergence before writing the code it describes.
 
