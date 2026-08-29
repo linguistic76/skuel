@@ -122,11 +122,13 @@ stays visible rather than silently accruing.
 **Prompt templates ride the same tier** (`PLANNED_TEMPLATES`, keyed by
 template id — ADR-082 D4): registry `.md` files with no production render
 site are invisible to the event/method scanners, so entries are emitted
-directly with two verifications — existence (file deleted/renamed → stale)
-and render-site liveness (a constant-string `.render()`/`.get()` reference
-appeared → stale, wiring complete). Render sites that pass a variable
-template id are invisible to the liveness check, so such an entry stays
-listed until removed by hand. The template backlog appears on full runs
+directly, and — as with methods — only **existence** is provable: a deleted or
+renamed file is stale. Render-site liveness is collected *receiver-blind* (any
+constant-string `.render()`/`.get()` argument counts), so an unrelated
+`settings.get("some_template_id")` reads as a render site; that match is
+reported as **masked**, never stale. Render sites that pass a variable template
+id are invisible to the check either way, so such an entry stays listed until
+removed by hand. The template backlog appears on full runs
 only — the scoped `--events-only` / `--methods-only` modes isolate their
 own analysis.
 

@@ -34,6 +34,7 @@ from detect_bloat import (  # type: ignore[import-not-found]
     VultureScan,
     analyze_events,
     analyze_methods,
+    analyze_planned_templates,
     json_document,
     measure_vulture_blind_spot,
     run_vulture,
@@ -557,6 +558,67 @@ def test_name_masked_planned_method_is_flagged_but_never_stale(monkeypatch):
     assert masked[0].severity is BloatSeverity.INFO
     assert "defined at 2 sites" in masked[0].detail
     assert "KEEP the entry" in masked[0].detail
+
+
+# ============================================================================
+# PLANNED_TEMPLATES — existence is provable, a render match is not
+# ============================================================================
+
+
+def _template_codebase(tmp_path, sources: dict[str, str], on_disk: list[str]) -> ParsedCodebase:
+    """ParsedCodebase rooted in tmp_path, with real .md floors written out.
+
+    analyze_planned_templates stats the filesystem, so the root cannot be the
+    repo — these tests own their template directory.
+    """
+    codebase = ParsedCodebase(tmp_path)
+    for rel, src in sources.items():
+        codebase.production[tmp_path / rel] = ast.parse(src)
+    tdir = tmp_path / detect_bloat.TEMPLATES_DIR_REL
+    tdir.mkdir(parents=True, exist_ok=True)
+    for template_id in on_disk:
+        (tdir / f"{template_id}.md").write_text("# floor\n", encoding="utf-8")
+    return codebase
+
+
+def test_stale_planned_template_marking_when_file_vanished(monkeypatch, tmp_path):
+    monkeypatch.setattr(detect_bloat, "PLANNED_TEMPLATES", {"gone_tpl": "awaiting wiring"})
+    findings = analyze_planned_templates(_template_codebase(tmp_path, {}, []))
+    stale = [f for f in findings if f.kind == "planned-marking-stale"]
+    assert [f.subject for f in stale] == ["gone_tpl"]
+    assert stale[0].severity is BloatSeverity.WARNING
+    assert "no longer exists" in stale[0].detail
+
+
+def test_receiver_blind_render_match_is_masked_not_stale(monkeypatch, tmp_path):
+    """An unrelated `.get()` on the same string must not demand removal.
+
+    Codex P2 on PR #1188: _collect_rendered_template_ids is receiver-blind, so
+    `settings.get("staged_tpl")` reads as a render site. Raising the became-live
+    report to WARNING would have turned that pre-existing false positive into a
+    CI failure telling the author to delete a still-valid PLANNED entry.
+    """
+    monkeypatch.setattr(detect_bloat, "PLANNED_TEMPLATES", {"staged_tpl": "awaiting wiring"})
+    codebase = _template_codebase(
+        tmp_path,
+        {"core/services/x.py": 'def f(settings):\n    return settings.get("staged_tpl")\n'},
+        ["staged_tpl"],
+    )
+    findings = analyze_planned_templates(codebase)
+
+    assert not [f for f in findings if f.kind == "planned-marking-stale"]
+    masked = [f for f in findings if f.kind == "planned-marking-masked"]
+    assert [f.subject for f in masked] == ["staged_tpl"]
+    assert masked[0].severity is BloatSeverity.INFO
+    assert "receiver-blind" in masked[0].detail
+
+
+def test_unreferenced_template_stays_planned(monkeypatch, tmp_path):
+    monkeypatch.setattr(detect_bloat, "PLANNED_TEMPLATES", {"staged_tpl": "awaiting wiring"})
+    findings = analyze_planned_templates(_template_codebase(tmp_path, {}, ["staged_tpl"]))
+    assert [(f.kind, f.severity) for f in findings] == [
+        ("template-awaiting-wiring", BloatSeverity.PLANNED)
+    ]
 
 
 # ============================================================================

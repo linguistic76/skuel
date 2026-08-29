@@ -2249,8 +2249,13 @@ production calls are the mixin's own `self.backend.add_attendee(...)`). So the f
   a method that still exists is the new `planned-marking-masked` (INFO), which **keeps** the
   entry and names why attribution failed. Codex (#1188) killed the first attempt — a
   definition-site count catches only the def-side collision, while `VultureScan.used_names` is
-  global by attribute name, so one `x.name` load masks a single-def method too. Events and
-  templates keep both stale causes: their wiring is detected positively, not by name.
+  global by attribute name, so one `x.name` load masks a single-def method too. A second Codex
+  round found the same class in the template tier — `_collect_rendered_template_ids` is
+  receiver-blind, so `settings.get("<template_id>")` fabricates a became-live report — so a
+  render match is masked there too. **Only events keep both stale causes**, because a publish
+  site is resolved structurally from the event class, not from a string. Net: the gate fires on
+  what is provable (the subject is gone; an event is genuinely published) and reports the rest
+  visibly without demanding anything.
 - All seven `planned-marking-stale` emissions are `WARNING`, so `--check` (`./dev quality`
   check 7 + the CI lint job) fails on them, and the janitor's existing WARNING block prints
   them for free. A masked block was added beside it, because an INFO finding no reader prints

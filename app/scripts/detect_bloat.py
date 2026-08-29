@@ -794,7 +794,8 @@ PLANNED_METHODS: dict[str, str] = {
 # floors in core/prompts/templates/ registered in PROMPT_REGISTRY but not yet
 # rendered by any production code. Keyed by template id (filename stem). Same
 # PLANNED semantics as events/methods: the backlog itself never fails --check;
-# a stale marking (file gone, or a render site appeared) is a WARNING and does.
+# a stale marking is a WARNING and does — but only the provable one (file gone).
+# A render-site match is receiver-blind, so it reports as masked, not stale.
 PLANNED_TEMPLATES: dict[str, str] = {
     "askesis_ku_bridge": (
         "Ku-bridge turn staged — first wiring candidate: aligns with "
@@ -2056,10 +2057,13 @@ def _collect_rendered_template_ids(codebase: ParsedCodebase) -> set[str]:
     """String-constant first args to any ``.render(...)`` / ``.get(...)`` call.
 
     Receiver-blind by design: any string handed to a render/get attribute call
-    in production counts as a template reference — over-approximation in the
-    safe direction (may suppress a became-live report, never fabricate one).
-    Render sites that pass a variable template id are invisible here, so a
-    PLANNED entry wired that way stays listed until removed by hand.
+    in production counts as a template reference. That OVER-collects, and the
+    over-approximation runs the UNSAFE way for staleness — an unrelated
+    ``settings.get("some_template_id")`` fabricates a became-live report — which
+    is why a render-site match is reported as unverifiable, never as stale
+    (Codex P2, PR #1188). Render sites that pass a variable template id are
+    invisible here, so a PLANNED entry wired that way stays listed until removed
+    by hand.
     """
     ids: set[str] = set()
     for tree in codebase.production.values():
@@ -2080,9 +2084,11 @@ def analyze_planned_templates(codebase: ParsedCodebase) -> list[Finding]:
 
     Templates are .md files, invisible to the event/method scanners, so
     entries are emitted directly (the _out_of_scope_planned_findings pattern).
-    Two verifications are possible: existence (file deleted or renamed →
-    stale) and render-site liveness (a constant-string ``.render()``/``.get()``
-    reference in production → stale, wiring complete).
+    Only ONE verification is provable: existence (file deleted or renamed →
+    stale). A constant-string ``.render()``/``.get()`` reference is collected
+    receiver-blind, so it cannot be attributed to the prompt renderer — that
+    case is reported as ``planned-marking-masked`` (INFO), the same
+    safe-direction rule the method tier follows.
     """
     rendered = _collect_rendered_template_ids(codebase)
     results: list[Finding] = []
@@ -2105,14 +2111,17 @@ def analyze_planned_templates(codebase: ParsedCodebase) -> list[Finding]:
         elif template_id in rendered:
             results.append(
                 Finding(
-                    kind="planned-marking-stale",
-                    severity=BloatSeverity.WARNING,
+                    kind="planned-marking-masked",
+                    severity=BloatSeverity.INFO,
                     subject=template_id,
                     file=rel,
                     line=0,
                     detail=(
-                        "marked planned but a production render site now references "
-                        "it — wiring complete; remove from PLANNED_TEMPLATES"
+                        "still staged, liveness unverifiable — a production "
+                        f"`.render()`/`.get()` call passes '{template_id}', but the "
+                        "collector is receiver-blind, so the call cannot be "
+                        "attributed to the prompt renderer; KEEP the entry and "
+                        "verify wiring by hand"
                     ),
                 )
             )
@@ -2425,6 +2434,7 @@ def print_template_report(findings: list[Finding]) -> None:
         return
     print(f"\n{Colors.BOLD}📄 Prompt Templates (PLANNED backlog){Colors.RESET}")
     planned = [f for f in findings if f.severity is BloatSeverity.PLANNED]
+    masked = [f for f in findings if f.kind == "planned-marking-masked"]
     stale = [f for f in findings if f.kind == "planned-marking-stale"]
     if planned:
         print(
@@ -2432,6 +2442,13 @@ def print_template_report(findings: list[Finding]) -> None:
             f"({len(planned)}):{Colors.RESET}\n"
         )
         for finding in planned:
+            _print_finding(finding)
+    if masked:
+        print(
+            f"\n{Colors.YELLOW}Planned, liveness unverifiable — receiver-blind "
+            f"render match, KEEP the entry ({len(masked)}):{Colors.RESET}\n"
+        )
+        for finding in masked:
             _print_finding(finding)
     if stale:
         print(
