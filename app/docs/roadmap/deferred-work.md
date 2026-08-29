@@ -1728,8 +1728,8 @@ persisted `InsightType.DIFFICULTY_PATTERN` through `InsightStore` — a live sto
 nodes on 2026-08-28: 8 `completion_pattern`, 3 `learning_progress`, **0 `difficulty_pattern`**).
 
 **Ruling 2026-08-28 (Mike):** the three same-shaped PLANNED entries were ruled in one sitting —
-`SchemaChangeDetector.add_change_handler` and `UserContext.get_recommended_next_action`
-DELETED; this chain KEPT staged. It differs from the two: its consumer is a persisted insight in
+`SchemaChangeDetector.add_change_handler` and `UserContext.get_recommended_next_action` ruled
+DELETE (the removal lands in its own PR after this one); this chain KEPT staged. It differs from the two: its consumer is a persisted insight in
 a store other events already feed, not a fan-out with no reader.
 
 **What the publisher must be:** a detector that finds occurrence days with no completion. Tier
