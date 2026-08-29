@@ -1991,8 +1991,13 @@ must **rewrite the existing key in place**, never append a second `updated:`.
      measured problem: 168 of the 194 stale files are a month or more out.
    - **(b) Merge-side stamping.** A workflow re-stamps on `main` after merge. Exact, but it
      pushes to `main` and has to co-exist with the CI gate.
-   - **(c) Drop the date comparison**, keeping only the missing / duplicate / unparsable /
-     future checks below — **three** of those four are squash-immune. Simplest, weakest.
+   - ~~**(c) Drop the date comparison**, keeping only the missing / duplicate / unparsable /
+     future checks below.~~ **REJECTED — it cannot do the guard's job.** On a previously
+     backfilled doc whose hook is bypassed or silently stops running, the old value stays
+     present, unique, parseable and non-future, so all four retained checks pass forever.
+     That is exactly the rot the census measured — 194 files with valid-*looking* dates —
+     and step 3 promises to catch it. Recorded rather than deleted so it is not re-proposed
+     as "the simple option".
    ⚠️ **A date comparison alone leaves the guard blind to its main target.** A file
    committed with `--no-verify` — the exact bypass this guard exists to catch — can arrive
    with **no** `updated:` key at all, and then there is no date that predates anything, so
@@ -2054,14 +2059,15 @@ other pinned archives are exempt.
   repo-root-relative ones (`app/docs/...`). Joining the two on filename matches nothing,
   every file looks current, and the measurement reads a clean `0 stale`. This happened on
   the first run of the measurement above.
-- Fourteen of the traps above — partial staging, backfill self-invalidation, quoted scalars,
+- Fifteen of the traps above — partial staging, backfill self-invalidation, quoted scalars,
   worktree desync, an unwired guard, a guard blind to missing fields, a refusal branch that
   lets the commit through, a future date that passes a lower-bound check, an exclusion rule
   its own prescribed tool cannot implement, a new file with no frontmatter to stamp, a
   squash merge that makes every correctly stamped doc look stale, a timezone boundary that
   rejects a valid stamp as a future date, a Review Schedule row still prescribing the broken
-  comparison, and a duplicate check that a body example turns permanently red — were found
-  by Codex review of the *registration* across eight rounds,
+  comparison, a duplicate check that a body example turns permanently red, and a fork
+  option that could never detect the rot it was offered to guard against — were found
+  by Codex review of the *registration* across nine rounds,
   not of an implementation. One qualified the ruling's own premise, and **three** were this
   document contradicting itself, which is the very failure class its sub-finding below
   describes. Every round after the first found holes in the previous round's fix, and
