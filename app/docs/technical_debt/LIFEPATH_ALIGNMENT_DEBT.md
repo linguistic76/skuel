@@ -1,6 +1,6 @@
 ---
 title: LifePath Alignment Debt
-updated: 2026-08-12
+updated: 2026-08-28
 status: resolved
 category: technical-debt
 tags: [lifepath, analytics, substance, cypher, technical-debt, graph-vocabulary]
