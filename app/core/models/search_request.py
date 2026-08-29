@@ -892,8 +892,8 @@ def build_facet_counts(results: list[dict[str, Any]]) -> dict[str, list[FacetCou
 
     Derived from the results actually returned (post-limit), NOT a separate
     count query — cheap enough for the keystroke-driven ``/search`` path and
-    consistent with the window-scoped ``total`` (issue #555 defers true
-    corpus-wide counts). Two facets today:
+    consistent with the window-scoped ``total``: search is top-N and never
+    counts the match set (#555, ruled DROP 2026-08-28). Two facets today:
 
     - ``entity_type`` — from the ``_domain`` stamp every SearchRouter
       producer path writes (EntityType values, one vocabulary)

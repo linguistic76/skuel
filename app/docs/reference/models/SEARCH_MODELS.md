@@ -314,7 +314,7 @@ class SearchResponse(BaseModel):
     # Polymorphic based on domain
 
     # Result metadata
-    total: int           # Total number of matching results (>= 0)
+    total: int           # Rows in THIS page (top-N; NOT a match count) (>= 0)
     limit: int           # Results per page (>= 1)
     offset: int          # Current offset (>= 0)
 
