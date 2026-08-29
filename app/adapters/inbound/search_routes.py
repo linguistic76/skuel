@@ -290,7 +290,6 @@ def create_search_api_routes(
         enable_learning_aware: str | None = None,
         prefer_unmastered: str | None = None,
         limit: int = 20,
-        offset: int = 0,
     ) -> Any:
         """Execute search and return HTML results. Requires authentication."""
         user_uid = require_authenticated_user(request)
@@ -336,7 +335,6 @@ def create_search_api_routes(
                 enable_learning_aware=enable_learning_aware,
                 prefer_unmastered=prefer_unmastered,
                 limit=limit,
-                offset=offset,
             )
         except ValueError as e:
             logger.error(f"Invalid filter value: {e}")

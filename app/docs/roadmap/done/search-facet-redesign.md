@@ -67,6 +67,14 @@ behind it*: the 6 Activity Domains + Ku, and nothing else.
    access to everything about the user with some transparent and adjustable boundaries."*
    The general rule outranks this one facet: **never derive an Askesis scope from what a
    page lists.** See `ASKESIS_ARCHITECTURE.md`.
+8. **Pagination and the match count are DROPPED — `/search` is top-N** (Mike, 2026-08-28;
+   #555 closed won't-build). Search runs one page-only query and never counts the match
+   set, so the header said `Found 20 results` for any ≥20 matches and pagination never
+   rendered (`total_pages` was always 1). Counting would have cost a second query per search
+   plus a three-protocol contract change, for a browsing affordance a find-the-thing tool
+   does not need. The header now says `Top N results` for a full page and `N results` for a
+   short one; `SearchResponse.total` stays as the API's page size (`total_count`), documented
+   as such; `get_page_info` / `has_more_pages` / `_render_pagination` are gone.
 
 ## Where the mechanisms are documented
 

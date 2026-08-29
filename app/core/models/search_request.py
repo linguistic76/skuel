@@ -805,7 +805,12 @@ class SearchResponse(BaseModel):
     )
 
     # Result metadata
-    total: int = Field(..., ge=0, description="Total number of matching results")
+    # Rows in THIS page — search is top-N by design: one page-only query, no
+    # match-set count (#555, ruled DROP 2026-08-28). Kept as the API's page size
+    # (`total_count`); never read as "how many matched".
+    total: int = Field(
+        ..., ge=0, description="Number of results in this page (top-N; not a match count)"
+    )
 
     limit: int = Field(..., ge=1, description="Results per page")
     offset: int = Field(..., ge=0, description="Current offset")
@@ -841,23 +846,6 @@ class SearchResponse(BaseModel):
     def has_results(self) -> bool:
         """Check if search returned any results"""
         return len(self.results) > 0
-
-    def has_more_pages(self) -> bool:
-        """Check if there are more pages available"""
-        return (self.offset + self.limit) < self.total
-
-    def get_page_info(self) -> dict[str, int]:
-        """Get pagination information"""
-        current_page = (self.offset // self.limit) + 1
-        total_pages = (self.total + self.limit - 1) // self.limit
-
-        return {
-            "current_page": current_page,
-            "total_pages": total_pages,
-            "showing_from": self.offset + 1,
-            "showing_to": min(self.offset + self.limit, self.total),
-            "total_results": self.total,
-        }
 
     model_config = ConfigDict(
         from_attributes=True,

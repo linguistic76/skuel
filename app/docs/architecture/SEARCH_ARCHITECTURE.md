@@ -428,7 +428,8 @@ SearchRouter.faceted_search(request, user_uid)      ← THE public entry point
        └─► SearchResponse
              - results (each stamped with _domain; _graph_context on the
                graph-aware path)
-             - total / limit / offset (pagination)
+             - total / limit / offset (the page window; `total` = rows in this
+               page — search is top-N, no match-set count; #555 ruled DROP)
              - search_time_ms (shown in the results header)
 ```
 
