@@ -1476,8 +1476,8 @@ class EventUsageCollector:
 # ============================================================================
 
 
-def _class_definition_site(codebase: ParsedCodebase, name: str) -> str | None:
-    """Relative path of the first production ``class <name>``, or None.
+def _event_class_definition_site(codebase: ParsedCodebase, name: str) -> str | None:
+    """Relative path of ``class <name>`` inside the events package, or None.
 
     Universe membership proves event ELIGIBILITY (a transitive BaseEvent
     subclass whose module is imported), not that the class exists. Absence from
@@ -1485,8 +1485,16 @@ def _class_definition_site(codebase: ParsedCodebase, name: str) -> str | None:
     base-class edit, or a module missing from ``core/events/__init__.py``, drops
     a live class out of it. Only this scan proves the subject is gone, and only
     that may gate (Codex P2, PR #1188).
+
+    Scoped to EVENTS_PACKAGE with the SAME predicate ``EventUniverse.build``
+    uses, so the two can never disagree about where an event may live. A
+    repo-wide scan would be worse than none here: an unrelated class that
+    happens to share the name would mask a genuinely deleted event and silently
+    drop it out of the gate (Codex round 5).
     """
     for path, tree in codebase.production.items():
+        if EVENTS_PACKAGE not in path.parents:
+            continue
         for node in ast.walk(tree):
             if isinstance(node, ast.ClassDef) and node.name == name:
                 return codebase.rel(path)
@@ -1611,7 +1619,7 @@ def analyze_events(
     for cls in sorted(PLANNED_EVENTS):
         if cls in universe:
             continue
-        defined_at = _class_definition_site(universe.codebase, cls)
+        defined_at = _event_class_definition_site(universe.codebase, cls)
         if defined_at is None:
             findings.append(
                 Finding(

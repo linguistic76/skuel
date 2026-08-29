@@ -591,6 +591,27 @@ def test_planned_event_outside_universe_but_defined_is_masked(monkeypatch):
     assert masked[0].file == "core/events/x.py"
 
 
+def test_same_named_class_outside_events_package_does_not_mask_a_deleted_event(monkeypatch):
+    """A name collision outside core/events/ must not suppress a true stale.
+
+    Codex round 5 on PR #1188: the first cut scanned the whole tree, so an
+    unrelated `class TaskCompleted` in a service would have masked a genuinely
+    deleted event and dropped it out of the gate. The scan is scoped with the
+    same predicate EventUniverse.build uses.
+    """
+    monkeypatch.setattr(detect_bloat, "PLANNED_EVENTS", {"DeletedEvent": "awaiting wiring"})
+    codebase = build_codebase({"core/services/x.py": "class DeletedEvent:\n    pass\n"})
+    universe = EventUniverse(codebase)
+    universe.build()
+    usage = EventUsageCollector(universe, codebase).collect()
+    findings, _exempted = analyze_events(universe, usage)
+
+    assert not [f for f in findings if f.kind == "planned-marking-masked"]
+    stale = [f for f in findings if f.kind == "planned-marking-stale"]
+    assert [f.subject for f in stale] == ["DeletedEvent"]
+    assert stale[0].severity is BloatSeverity.WARNING
+
+
 # ============================================================================
 # PLANNED_TEMPLATES — existence is provable, a render match is not
 # ============================================================================
