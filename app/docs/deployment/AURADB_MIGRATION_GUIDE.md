@@ -110,7 +110,7 @@ Verify the dump file exists with non-zero size before proceeding.
 
 In the [Aura console](https://console.neo4j.io/): select the instance → **Import/Restore** → upload the `.dump` file → wait for completion.
 
-**Compatibility note:** the local server is calendar-line `2026.06.0`. Confirm the console accepts a dump from that line at migration time (Aura's import path and its accepted formats have changed before — e.g. the 2024 dump→`.backup` export format change). If the upload is rejected, the fallback is a Cypher-level export/import; at SKUEL's data volume that is tedious but tractable.
+**Compatibility note:** the local server runs the calendar release pinned in `infrastructure/docker-compose.yml` (ADR-067 § 3a — `2026.06.0` at the 2026-08-15 cutover; read the pin, don't trust this sentence). Confirm the console accepts a dump from that line at migration time (Aura's import path and its accepted formats have changed before — e.g. the 2024 dump→`.backup` export format change). If the upload is rejected, the fallback is a Cypher-level export/import; at SKUEL's data volume that is tedious but tractable.
 
 ---
 
