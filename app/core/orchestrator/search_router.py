@@ -1246,13 +1246,15 @@ class SearchRouter:
         WHY the lesson surfaced; ``_domain`` is the parent's EntityType value
         (single vocabulary, #537) so the card links via entity_detail_href.
         """
+        from core.models.search_request import BODY_HIT_MATCH_REASON
+
         return {
             "uid": hit.get("parent_uid", ""),
             "title": hit.get("parent_title") or "Untitled",
             "description": hit.get("text", "") or "",
             "_domain": hit.get("parent_entity_type", ""),
             "_score": hit.get("similarity_score", 0.0),
-            "_match_reason": "Matched lesson body",
+            "_match_reason": BODY_HIT_MATCH_REASON,
         }
 
     @staticmethod

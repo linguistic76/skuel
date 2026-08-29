@@ -37,7 +37,7 @@ from core.models.enums import (
     SELCategory,
 )
 from core.models.search.filter_enums import SearchSortOrder
-from core.models.search_request import FacetCount, SearchResponse
+from core.models.search_request import BODY_HIT_MATCH_REASON, FacetCount, SearchResponse
 from ui.components import (
     Button,
     ButtonT,
@@ -1049,11 +1049,19 @@ def _results_headline(response: SearchResponse) -> str:
     Search runs ONE page-only query and never counts the match set (#555, ruled
     DROP 2026-08-28: a find-the-thing tool, not a browser — counting would cost a
     second query per search for a browsing affordance nobody asked for). A full
-    page is "the top N"; a short page IS every match, so it is counted plainly.
+    entity page is "the top N" where N is the requested window; a short page IS
+    every match, so it is counted plainly. The semantic-boost path APPENDS
+    lesson-body hits beyond the window (`_augment_with_body_chunks` does not cap
+    the merge), so those are named separately rather than inflating N.
     """
+    body_hits = sum(1 for r in response.results if r.get("_match_reason") == BODY_HIT_MATCH_REASON)
+    entity_rows = len(response.results) - body_hits
+    if entity_rows >= response.limit:
+        head = f"Top {response.limit} results"
+        if body_hits:
+            return f"{head} + {body_hits} lesson-body hit{'s' if body_hits != 1 else ''}"
+        return head
     shown = len(response.results)
-    if shown >= response.limit:
-        return f"Top {shown} results"
     return f"{shown} result{'s' if shown != 1 else ''}"
 
 

@@ -789,6 +789,13 @@ class SearchRequest(BaseModel):
 # ============================================================================
 
 
+# Stamped on rows the semantic-boost path APPENDS beyond the entity page
+# (`SearchRouter._augment_with_body_chunks` does not cap the merge). The /search
+# header counts them so a boosted page reads 'Top N results + K lesson-body hits'
+# instead of folding K extras into the top-N window.
+BODY_HIT_MATCH_REASON = "Matched lesson body"
+
+
 class SearchResponse(BaseModel):
     """
     Clean search response with results and facet counts.
