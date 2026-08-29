@@ -1932,14 +1932,30 @@ must **rewrite the existing key in place**, never append a second `updated:`.
    ⛔ **Not with a plain `git add <path>`.** That replaces the index entry with the whole
    working tree file, silently staging every hunk the author deliberately left out of a
    `git add -p` — including work the hook's own secrets check (check 1) already scanned
-   past. Either write the stamped blob straight into the index
-   (`git hash-object -w` → `git update-index --cacheinfo`) or **refuse to stamp a
-   partially-staged file** and tell the author. Choose one and say which in the PR.
+   past. Two permitted strategies; the PR picks one and says which:
+   - **Index + worktree, both.** Write the stamped blob into the index
+     (`git hash-object -w` → `git update-index --cacheinfo`) **and** rewrite the single
+     `updated:` line in the worktree file. An index-only write is NOT complete: the
+     worktree keeps the old value, so `git status` shows an unstaged reversal of the stamp
+     after every docs commit and the next `git add` re-propagates the stale date. Touching
+     only that one line preserves the author's other unstaged hunks.
+   - **Refuse.** Detect a partially-staged file, decline to stamp it, and tell the author
+     what to do. Simpler and always safe; costs a stamp on those commits.
 2. **Backfill.** One-shot over the 194 stale + 192 fieldless files. See the
    *history-or-not* fork below — it decides what date this writes.
 3. **Guard.** A `./dev health-*` check (family: `app/scripts/health/`) that fails when any
    tracked doc's `updated:` predates the last commit that changed the file, so a
    silently-broken hook is caught rather than trusted.
+   ⚠️ **A new script + a new `./dev` target is invoked by nobody.** Both runner lists are
+   hard-coded and must be edited, or the guard is opt-in and a bypassed hook goes unnoticed:
+   `app/dev` § `health)` (the five `uv run python scripts/health/*.py` lines) and
+   `.github/workflows/weekly-janitor.yml` § `for check in …` (the same five, named again).
+   There is a **third** copy the janitor's own report text enumerates
+   (`health-modules` / `health-links` / `health-names` / `health-headings` / `health-xref`)
+   — a list with no count, which is how one of these enumerations was wrong from the day
+   `health-xref` was added. Update all three. Keep the check fast: `./dev health`
+   deliberately excludes `health-mypy` at ~80s, and one `git log --name-only` pass over
+   `app/docs` is enough for all 411 files.
    ⚠️ **Ignore stamp-only commits**, or the backfill invalidates itself: the moment the
    backfill lands it becomes the newest commit for all 386 rewritten files, so every
    historical date it just wrote predates it and the guard fails on nearly the whole
@@ -1968,9 +1984,9 @@ other pinned archives are exempt.
   repo-root-relative ones (`app/docs/...`). Joining the two on filename matches nothing,
   every file looks current, and the measurement reads a clean `0 stale`. This happened on
   the first run of the measurement above.
-- Three of the four traps above (partial staging, backfill self-invalidation, quoted
-  scalars) were found by Codex review of the *registration*, not of an implementation —
-  the contract is the artifact worth reviewing here.
+- Five of the traps above (partial staging, backfill self-invalidation, quoted scalars,
+  worktree desync, an unwired guard) were found by Codex review of the *registration* over
+  two rounds, not of an implementation — the contract is the artifact worth reviewing here.
 
 ### Sub-finding: same-file contradictory ruling prose is NOT mechanizable
 
