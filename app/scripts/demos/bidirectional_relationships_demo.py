@@ -371,16 +371,7 @@ class BiDirectionalDemo:
         print(f"      - Habit streaks: {max(context.habit_streaks.values())}")
         print(f"      - Knowledge mastery: {len(context.knowledge_mastery)}")
 
-        print("2. Context-aware task recommendations")
-
-        # Get recommended actions based on context
-        recommendation = context.get_recommended_next_action()
-
-        print(f"   ✓ AI recommendation: {recommendation['action']}")
-        print(f"      - Type: {recommendation['type']}")
-        print(f"      - Items: {len(recommendation.get('items', []))}")
-
-        print("3. Context-driven priority calculation")
+        print("2. Context-driven priority calculation")
 
         # Create task and calculate priority using context
         dto = TaskDTO(

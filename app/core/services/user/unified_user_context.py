@@ -61,7 +61,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
-from itertools import islice
 from typing import TYPE_CHECKING, Any, ClassVar, TypeGuard, cast
 
 from core.models.enums import (
@@ -837,63 +836,6 @@ class UserContext:
             }
 
         return warnings
-
-    def get_recommended_next_action(self) -> dict[str, Any]:
-        """
-        Get a conservative next-action hint based on context state.
-
-        **FALLBACK HEURISTIC ONLY**
-
-        This method provides a basic, deterministic recommendation based on
-        simple priority rules. It does NOT consider:
-        - User preferences or learning style
-        - Time of day or energy levels
-        - Cross-domain optimization
-        - Semantic relationships between items
-
-        For comprehensive recommendations, use UserContextIntelligence methods:
-        - get_ready_to_work_on_today()
-        - get_optimal_next_path_steps()
-        - get_schedule_aware_recommendations()
-
-        This method exists for:
-        - Quick fallback when intelligence services are unavailable
-        - Simple API responses where full intelligence is overkill
-        - Testing and debugging
-
-        Returns:
-            Dict with type, action, and items (UIDs)
-        """
-        if self.is_blocked:
-            # Focus on unblocking
-            return {
-                "type": "unblock",
-                "action": "complete_prerequisites",
-                "items": list(islice(self.prerequisites_needed, 3)),
-            }
-        elif at_risk := self.at_risk_habits_or_empty():
-            # Maintain streaks (empty at standard depth — accessor handles the gate)
-            return {
-                "type": "maintain",
-                "action": "reinforce_habits",
-                "items": at_risk[:2],
-            }
-        elif self.overdue_task_uids:
-            # Catch up on overdue
-            return {
-                "type": "catch_up",
-                "action": "complete_overdue",
-                "items": self.overdue_task_uids[:2],
-            }
-        else:
-            # Progress on primary goal
-            return {
-                "type": "progress",
-                "action": "advance_goal",
-                "items": self.get_tasks_for_goal(self.primary_goal_focus)[:2]
-                if self.primary_goal_focus
-                else [],
-            }
 
     # =========================================================================
     # CONVENIENCE PROPERTIES (Derived from canonical fields)

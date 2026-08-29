@@ -11,9 +11,7 @@ __version__ = "1.0"
 
 import asyncio
 import contextlib
-import inspect
 import json
-from collections.abc import Awaitable, Callable
 from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
@@ -23,7 +21,6 @@ from core.infrastructure.database.schema import SchemaContext
 from core.infrastructure.database.schema_change import (
     ChangeImpact,
     SchemaChange,
-    SchemaChangeEvent,
     SchemaChangeReport,
     SchemaChangeType,
     SchemaEvolutionStats,
@@ -37,11 +34,6 @@ from core.utils.result_simplified import Errors, Result
 
 _HISTORY_IO_EXCEPTIONS = (*FILE_IO_EXCEPTIONS, *JSON_EXCEPTIONS)
 _HISTORY_SAVE_EXCEPTIONS = (*_HISTORY_IO_EXCEPTIONS, TypeError)
-
-# Change handlers may be sync or async — the dispatch in _notify_change_handlers
-# calls each handler once and awaits whatever it returns when awaitable, so both
-# forms (and async __call__ objects) are supported.
-SchemaChangeHandler = Callable[[SchemaChangeEvent], Awaitable[None] | None]
 
 
 class SchemaChangeDetector:
@@ -62,7 +54,6 @@ class SchemaChangeDetector:
         self.logger = get_logger("SchemaChangeDetector")
 
         # Event handlers
-        self._change_handlers: list[SchemaChangeHandler] = []
 
         # In-memory state
         self._current_fingerprint: SchemaFingerprint | None = None
@@ -145,9 +136,6 @@ class SchemaChangeDetector:
 
             if self.enable_persistence:
                 await self._save_migration_history()
-
-        # Notify handlers
-        await self._notify_change_handlers(change_report)
 
         self.logger.info(
             f"Detected {len(change_report.changes)} schema changes with {change_report.overall_impact.value} impact"
@@ -378,36 +366,6 @@ class SchemaChangeDetector:
             except Exception as e:  # safety-net: catch unexpected errors in long-running loop
                 self.logger.error(f"Error in monitoring loop: {e}", exc_info=True)
                 await asyncio.sleep(self.check_interval_seconds)
-
-    def add_change_handler(self, handler: SchemaChangeHandler) -> None:
-        """Add a handler for schema change events"""
-        self._change_handlers.append(handler)
-        self.logger.debug(
-            f"Added schema change handler, total handlers: {len(self._change_handlers)}"
-        )
-
-    async def _notify_change_handlers(self, report: SchemaChangeReport) -> None:
-        """Notify all registered change handlers"""
-        if not self._change_handlers or not report.changes:
-            return
-
-        event = SchemaChangeEvent(
-            event_id=f"schema_change_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
-            change_report=report,
-        )
-
-        for handler in self._change_handlers:
-            try:
-                # Honor the SchemaChangeHandler contract: a handler may be sync
-                # (returns None) or async (returns an awaitable). Call once and
-                # await whatever it returns if awaitable — this covers async def,
-                # callable objects with async __call__, and sync wrappers that
-                # return a coroutine, none of which iscoroutinefunction() detects.
-                outcome = handler(event)
-                if inspect.isawaitable(outcome):
-                    await outcome
-            except Exception as e:  # safety-net: catch unexpected errors from external handlers
-                self.logger.error(f"Error in change handler: {e}", exc_info=True)
 
     async def _load_migration_history(self, current_fp: SchemaFingerprint) -> None:
         """Load migration history from storage"""

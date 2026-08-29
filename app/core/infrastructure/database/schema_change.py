@@ -332,18 +332,3 @@ class SchemaEvolutionStats:
             average_changes_per_day=avg_changes_per_day,
             stability_score=stability_score,
         )
-
-
-# Event system for schema change notifications
-@dataclass
-class SchemaChangeEvent:
-    """Event triggered when schema changes are detected"""
-
-    event_id: str
-    change_report: SchemaChangeReport
-    timestamp: datetime = field(default_factory=datetime.now)
-    handled: bool = False
-
-    def mark_handled(self):
-        """Mark this event as handled"""
-        self.handled = True
