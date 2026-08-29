@@ -265,7 +265,7 @@ composite GDS-readiness score. Scoped to the knowledge subgraph (Ku / PathStep /
 Exercise) matched by `entity_type`, with learner-state telemetry edges excluded so user activity
 never inflates connectivity. Same `RelationshipMetrics` class, same 5-min poller (a 4th query added
 to the existing `update_graph_health_metrics()` in `scripts/dev/bootstrap.py` — **no new worker**,
-preserving the CORE "no background workers" guarantee).
+adding no always-on worker; CORE's guarantee is AI-scoped, not "no workers").
 
 | Metric | Type | Labels | Purpose |
 |--------|------|--------|---------|

@@ -1728,13 +1728,17 @@ nodes on 2026-08-28: 8 `completion_pattern`, 3 `learning_progress`, **0 `difficu
 DELETED; this chain KEPT staged. It differs from the two: its consumer is a persisted insight in
 a store other events already feed, not a fan-out with no reader.
 
-**What the publisher must be:** a detector that finds occurrence days with no completion. The
-CORE tier guarantees no background workers, so the shape is **read-time** (compute misses since
-the last observation when the habit list or `/today` loads, publish, record the watermark) or
-**one-shot** (`./dev habit-miss-scan`, like telemetry retention) — never a cron loop. Its day
-maths must honour the future-completion ruling (a future completion is not a miss) and the
-`current_streak` semantics question in § Habit Streak Counters — the same "what does a day mean"
-ruling. Do not build the detector before that ruling.
+**What the publisher must be:** a detector that finds occurrence days with no completion. Tier
+does not constrain its shape: CORE's guarantee is **AI-scoped** ("no AI background workers" —
+`GRACEFUL_DEGRADATION_ARCHITECTURE.md` § Why This Matters; the hourly `ProgressReportWorker` IS a
+CORE-tier Analog worker, and `done/reopen-vault-surface.md` records "CORE runs no background
+workers" as a falsified premise). So a **scheduled Analog detector** on the `ProgressReportWorker`
+pattern, a **read-time** scan (compute misses since the last observation when the habit list or
+`/today` loads, publish, record the watermark) and a **one-shot** (`./dev habit-miss-scan`, like
+telemetry retention) are all legitimate; the constraints are no LLM, no API cost, and the day
+model. Its day maths must honour the future-completion ruling (a future completion is not a
+miss) and the `current_streak` semantics question in § Habit Streak Counters — the same "what
+does a day mean" ruling. Do not build the detector before that ruling.
 **Trigger:** a lived want for difficulty insights, or the streak-semantics ruling (they share the
 day model — rule it once).
 **Check:** `git grep -n "HabitMissed(" -- core/ adapters/ scripts/ services_bootstrap/ ui/ ':!core/events/'`
