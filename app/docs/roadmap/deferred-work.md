@@ -1611,43 +1611,53 @@ table on `VectorSearchConfig` (`core/config/unified_config.py:142`, beside
 query-intent-conditioned later (ADR-034 Phase 2). `git grep chunk_type_weights` → 0 hits.
 
 **Measured 2026-08-28 (AuraDB `d2d160c4`):** 998 `:ContentChunk`, all `chunking_version = 'v1'`,
-all under `(:Content)-[:HAS_CHUNK]->`. By type: explanation **788** (avg 225 chars, min 1,
-max 4161), exercise 142 (avg 172), definition 62 (avg 174), example 3, summary 3, code 0.
-**32 chunks are under 20 characters** — `min_chunk_size` is inert, never enforced
-(`core/services/ingestion/reference_ingestion.py:127` says so; #560 recorded 0 strategy
-references) — and **2 exceed 500 words**. 41 `:SearchEvent` in total, flat since 2026-07-22.
+all under `(:Content)-[:HAS_CHUNK]->`. By type: explanation **788**, exercise 142, definition 62,
+example 3, summary 3, code 0. In WORDS — the unit the knobs are in: median **28**, p25 13, p90 75,
+max 599. **753 of 998 (75%) sit below the configured `min_chunk_size` of 50** — the floor is
+inert, never enforced (`core/services/ingestion/reference_ingestion.py:127` says so; #560
+recorded 0 strategy references), and its default is above the corpus median. **83 chunks are
+under 5 words** (72 of them `explanation`; 32 are under 20 characters — headings and one-word
+fragments) and 2 exceed 500 words. 41 `:SearchEvent` in total, flat since 2026-07-22.
 
 **What the numbers say.** Type weighting has little to act on: 79% of chunks share one type,
 DEFINITION is 6%, EXAMPLE and SUMMARY are 3 each — a weight table would re-rank a near-uniform
-population and look like it worked. The knob thread has a real target that is not "tuning": the
-32 degenerate chunks are an ingestion-quality defect visible in retrieval (a one-character chunk
-can only ever be noise), fixed by making `min_chunk_size` do something, not by moving
-`max_chunk_size`.
+population and look like it worked. The knob thread splits in two: the 83 sub-sentence fragments
+are an ingestion-quality defect visible in retrieval (a one-word chunk can only ever be noise),
+while "enforce `min_chunk_size`" as configured would fold three-quarters of the corpus — that IS
+the blind tuning Mike ruled against, so the floor's VALUE belongs to the measured thread below.
 
 **Named work:**
-1. **Degenerate chunks (a defect with a count, own small PR):** enforce `min_chunk_size` in the
-   strategy (fold sub-minimum fragments into a neighbour), bump the chunk version tag so
-   `regenerate_chunks` re-chunks the affected domains, re-run the count below → 0.
+1. **Sub-sentence fragments (a defect with a count, own small PR):** give the strategy a fragment
+   floor — fold chunks under ~5 words into a neighbour, the floor re-based from this measurement,
+   not the 50-word knob — bump the chunk version tag so `regenerate_chunks` re-chunks the affected
+   domains, re-run the `< 5 words` count below → 0.
 2. **Knob tuning — gated on an instrument that does not exist:** a ~20-query eval set with
    expected Ku/PathStep hits, scored hit@5 over the FULL-tier semantic path (`advanced_search`'s
    body-chunk augmentation). Its first run IS the baseline; only a measured miss traced to chunk
    grain earns a `chunking_params` change on one `EntityIngestionConfig` + a domain-scoped
-   re-chunk. No existing script measures this (`analyze_search_metrics.py` is latency/score
+   re-chunk. This is also where `min_chunk_size`'s default is re-based: 50 words is above the
+   corpus median, so enforcing it is a tuning decision, not a defect fix. No existing script
+   measures this (`analyze_search_metrics.py` is latency/score
    from logs; `benchmark_hybrid_queries.py` is query-pattern latency).
 3. **`chunk_type_weights`:** only when (a) the eval set exists and (b) the corpus's type
    distribution has flattened enough for weights to change an ordering (explanation < 50%).
 
 **Trigger:** (1) next chunking/ingestion touch, or Mike schedules it; (2) and (3) Mike schedules
 the eval set — a measurement decision, not a data threshold.
-**Check:**
+**Check** (one statement per block — paste each on its own; words, not characters, because the
+knobs are word counts):
 ```cypher
-MATCH (c:ContentChunk) RETURN c.chunk_type AS t, count(*) AS n,
-       round(avg(size(c.text))) AS avg_chars, min(size(c.text)) AS mn, max(size(c.text)) AS mx
+MATCH (c:ContentChunk) WITH c.chunk_type AS t, size(split(c.text, ' ')) AS w
+RETURN t, count(*) AS n, percentileCont(w, 0.5) AS p50_words,
+       sum(CASE WHEN w < 5 THEN 1 ELSE 0 END) AS fragments,
+       sum(CASE WHEN w < 50 THEN 1 ELSE 0 END) AS under_min_chunk_size
 ORDER BY n DESC
-MATCH (c:ContentChunk) WHERE size(c.text) < 20 RETURN count(*) AS degenerate   // 32 on 2026-08-28
+```
+```cypher
+MATCH (c:ContentChunk) WHERE size(split(c.text, ' ')) < 5 RETURN count(*) AS fragments   // 83 on 2026-08-28 → 0 after (1)
 ```
 plus `git grep -n chunk_type_weights -- core/` (empty until built).
-**Named cost while parked:** 32 noise chunks compete at the 0.68 similarity floor on every
+**Named cost while parked:** 83 fragment chunks compete at the 0.68 similarity floor on every
 semantic search; a type table built today would be tuned against a 79%-one-type corpus.
 
 ---
@@ -1667,7 +1677,7 @@ deferred in that PR's thread and lived only in memory:
    entity-creating `EXTRACT_ACTIVITIES` path writes a WRONG edge. Measured 2026-08-28:
    **56 extracted tasks (`EXTRACTED_FROM`), 0 with any edge to a Goal, 0 `fulfills_goal_uid`;
    2 active goals** — the 2 live `FULFILLS_GOAL` edges in the graph are hand-authored.
-2. **Principles / `recent_topics` grounding.** `transform_with_context` accepts both
+2. **`user_principles` / `recent_topics` grounding.** `transform_with_context` accepts both
    (`core/services/dsl/llm_dsl_bridge.py:301`); neither caller passes them
    (`core/services/journal/journal_service.py:286`,
    `core/services/user_entry/user_entry_processing_service.py:478`). Deliberately symmetric:
@@ -1678,13 +1688,15 @@ Anthropic key has been in dev since 2026-07-23) — does goal grounding actually
 Until that is measured, extending grounding is adding inputs to an unverified effect.
 
 **Named work:** (0) run the A/B on the two prompt-capture fixtures with a real key and record the
-recognition delta here; (2) if it lifts, thread `principles` / `recent_topics` through BOTH
+recognition delta here; (2) if it lifts, thread `user_principles` / `recent_topics` through BOTH
 callers in one PR (principle titles via `UserContext.core_principle_uids`; recent topics from
 the entry's own recent tags); (1) only on Mike's product ruling that AI-inferred goal edges are
 wanted — an edge the user did not author is a different kind of write.
 **Trigger:** (0) next touch of the bridge, or Mike schedules it; (1) Mike's ruling; (2) the A/B.
-**Check:** `git grep -n "principles=\|recent_topics=" -- core/services/journal/journal_service.py core/services/user_entry/user_entry_processing_service.py`
-must return BOTH files or NEITHER (neither today);
+**Check:** per argument — each must appear in BOTH callers or in NEITHER (neither today; a single
+grep for either name would pass with one argument in each file):
+`git grep -c "user_principles=" -- core/services/journal/journal_service.py core/services/user_entry/user_entry_processing_service.py`
+`git grep -c "recent_topics=" -- core/services/journal/journal_service.py core/services/user_entry/user_entry_processing_service.py`;
 `MATCH (t:Task)-[:EXTRACTED_FROM]->() OPTIONAL MATCH (t)-[:FULFILLS_GOAL]->(g:Goal) RETURN count(DISTINCT t) AS extracted, count(DISTINCT CASE WHEN g IS NOT NULL THEN t END) AS linked_tasks`
 → 56 / 0 on 2026-08-28.
 **Named cost while parked:** every extracted task is goal-less however obviously it serves an
@@ -1716,8 +1728,10 @@ maths must honour the future-completion ruling (a future completion is not a mis
 ruling. Do not build the detector before that ruling.
 **Trigger:** a lived want for difficulty insights, or the streak-semantics ruling (they share the
 day model — rule it once).
-**Check:** `git grep -n "HabitMissed(" -- core/services/ adapters/` — empty until a publisher
-exists (the subscriber in `_event_wiring.py` is the deliberate staging);
+**Check:** `git grep -n "HabitMissed(" -- core/ adapters/ scripts/ services_bootstrap/ ui/ ':!core/events/'`
+— empty until a publisher exists in either accepted shape (`scripts/` covers the one-shot;
+`core/events/` is excluded because it holds the class definition; the subscriber in
+`_event_wiring.py` is the deliberate staging);
 `MATCH (i:Insight {insight_type: 'difficulty_pattern'}) RETURN count(i)` → 0.
 **Named cost while staged:** `./dev bloat` carries it as PLANNED; the difficulty assessment is
 code that has never run outside its unit tests.
@@ -1766,9 +1780,11 @@ which this count does not see. Optional, not built: a `path_steps_without_ku` /
 `kus_unused_by_path_step` pair in `KnowledgeHealthService` (ADR-080 H1 authoring gauge) so the
 check becomes `./dev knowledge-health`.
 **Trigger:** Mike's next content session on `Ps_dev`.
-**Check:**
+**Check** (one statement per block):
 ```cypher
 MATCH (p:PathStep) WHERE NOT (p)-[:USES_KU]->(:Ku) RETURN count(p)     // 5 on 2026-08-28
+```
+```cypher
 MATCH (k:Ku) WHERE NOT (:PathStep)-[:USES_KU]->(k) RETURN count(k)     // 67 on 2026-08-28
 ```
 **Named cost while open:** five steps Askesis cannot ground in Kus; 55% of the Ku corpus is
@@ -1882,9 +1898,9 @@ Review this document at the **September 2026 quarterly review**. Checklist:
 | `find_by` datetime string-binding (3 habit sites) | Next touch of any of the three reads, or a second `completed_at` writer | One PR: normalized range on a backend method (Pattern 10b / Key Rule 18b) |
 | Habit-completion persistence bundle (#915 Codex "future care session": delete orphans / uid collision / non-atomic day uniqueness / stranded stats / DISTINCT-day query; + untrack refused-and-reported-success since #1100 and node doors publishing no `HabitCompleted`, both found on #1172) | Lived habit-completion use, or next touch of the completion write path | `MATCH (hc:HabitCompletion) RETURN count(hc)` **and** `MATCH (h:Habit) RETURN sum(h.total_completions), max(h.last_completed)` — nodes 0 / tally 0 / null on 2026-08-28 (tally > nodes = the node-less `/api/context` door was used); `SHOW CONSTRAINTS` lists none on the label. Built WITH the `find_by` row (one shared range predicate, two operations) but triggered by duplicate volume, moot once defect 3 lands; defect 3 needs Mike's one-per-day ruling first |
 | `TaskUpdateRequest` future `completion_date` asymmetry | Next touch of `task_request.py` validators | Ruling needed — see the section; don't rule in passing |
-| Per-domain chunking knobs + `chunk_type_weights` (degenerate chunks first) | Degenerate-chunk fix: next chunking touch or Mike schedules it; tuning / type weights: Mike schedules the eval set | `MATCH (c:ContentChunk) WHERE size(c.text) < 20 RETURN count(*)` — 32 on 2026-08-28; `git grep -n chunk_type_weights -- core/` empty until built |
-| DSL-bridge grounding pair (goal-LINK persistence; principles/`recent_topics` to BOTH paths) | Keyed A/B on the next bridge touch; goal edges need Mike's ruling on AI-inferred writes | `git grep -n "principles=\|recent_topics=" -- core/services/journal/journal_service.py core/services/user_entry/user_entry_processing_service.py` → both files or neither; extracted tasks / tasks with a `FULFILLS_GOAL` edge = 56 / 0 on 2026-08-28 (count TASKS linked, not goals reached — ten tasks on one goal must read 10) |
-| `HabitMissed` publisher-less chain (ruled keep-staged 2026-08-28) | A lived want for difficulty insights, or the streak-semantics ruling — rule the day model once | `git grep -n "HabitMissed(" -- core/services/ adapters/` empty; `MATCH (i:Insight {insight_type: 'difficulty_pattern'}) RETURN count(i)` → 0 |
+| Per-domain chunking knobs + `chunk_type_weights` (fragment chunks first) | Fragment fix: next chunking touch or Mike schedules it; tuning / type weights: Mike schedules the eval set | `MATCH (c:ContentChunk) WHERE size(split(c.text, ' ')) < 5 RETURN count(*)` — 83 on 2026-08-28 (words, the knobs' unit; 753 sit under the 50-word `min_chunk_size` — its value is the tuning question, not the defect); `git grep -n chunk_type_weights -- core/` empty until built |
+| DSL-bridge grounding pair (goal-LINK persistence; `user_principles`/`recent_topics` to BOTH paths) | Keyed A/B on the next bridge touch; goal edges need Mike's ruling on AI-inferred writes | `git grep -c "user_principles="` and `git grep -c "recent_topics="` over `journal_service.py` + `user_entry_processing_service.py` — EACH argument in both files or neither (neither today); extracted tasks / tasks with a `FULFILLS_GOAL` edge = 56 / 0 on 2026-08-28 (count TASKS linked, not goals reached — ten tasks on one goal must read 10) |
+| `HabitMissed` publisher-less chain (ruled keep-staged 2026-08-28) | A lived want for difficulty insights, or the streak-semantics ruling — rule the day model once | `git grep -n "HabitMissed(" -- core/ adapters/ scripts/ services_bootstrap/ ui/ ':!core/events/'` empty (scripts/ included — a one-shot publisher counts); `MATCH (i:Insight {insight_type: 'difficulty_pattern'}) RETURN count(i)` → 0 |
 | Quarterly / yearly periodic notes (founder vault pass first) | The first real note in either vault folder | `find ~/0bsidian/skuel/periodic_notes/Quarterly ~/0bsidian/skuel/periodic_notes/yearly -type f \| wc -l` > 0 (files, not `ls` headings) — founder-owned, non-repo |
 | PathStep → Ku wiring backlog (5 Ku-less steps; 67 Kus used by no step) | Mike's next `Ps_dev` content session | The two `USES_KU` counts in the section — 5 / 67 on 2026-08-28 |
 | py314 annotation sweeps — UP037 schedulable, TC002/TC003 never (home: ADR-067 § Deferred) | UP037: a churn window Mike picks; TC002/TC003: never | `uv run ruff check --select UP037 --statistics .` — 1222 on 2026-08-28 |
