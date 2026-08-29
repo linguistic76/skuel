@@ -34,29 +34,29 @@ MATCH (t:Task {uid: $uid})
 
 // Get subtasks
 OPTIONAL MATCH (t)-[:HAS_SUBTASK]->(subtask:Task)
-WITH t, collect(DISTINCT {
+WITH t, collect(DISTINCT CASE WHEN subtask IS NOT NULL THEN {
     uid: subtask.uid,
     title: subtask.title,
     status: subtask.status
-}) as subtasks
+} END) as subtasks
 
 // Get dependencies
 OPTIONAL MATCH (t)-[dep_rel:DEPENDS_ON]->(dependency:Task)
 WHERE coalesce(dep_rel.confidence, 1.0) >= 0.7
-WITH t, subtasks, collect(DISTINCT {
+WITH t, subtasks, collect(DISTINCT CASE WHEN dependency IS NOT NULL THEN {
     uid: dependency.uid,
     title: dependency.title,
     confidence: dep_rel.confidence
-}) as dependencies
+} END) as dependencies
 
 // Get applied knowledge
 OPTIONAL MATCH (t)-[app_rel:APPLIES_KNOWLEDGE]->(ku:Ku)
 WHERE coalesce(app_rel.confidence, 1.0) >= 0.7
-WITH t, subtasks, dependencies, collect(DISTINCT {
+WITH t, subtasks, dependencies, collect(DISTINCT CASE WHEN ku IS NOT NULL THEN {
     uid: ku.uid,
     title: ku.title,
     confidence: app_rel.confidence
-}) as applied_knowledge
+} END) as applied_knowledge
 
 // Get goal context
 OPTIONAL MATCH (t)-[:FULFILLS_GOAL]->(goal:Goal)
@@ -96,17 +96,17 @@ ORDER BY g.priority DESC
 ```cypher
 MATCH (g:Goal {uid: $uid})
 OPTIONAL MATCH (task:Task)-[:FULFILLS_GOAL]->(g)
-WITH g, collect({
+WITH g, collect(CASE WHEN task IS NOT NULL THEN {
     uid: task.uid,
     title: task.title,
     status: task.status
-}) as contributing_tasks
+} END) as contributing_tasks
 OPTIONAL MATCH (g)-[:HAS_SUBGOAL]->(subgoal:Goal)
-WITH g, contributing_tasks, collect({
+WITH g, contributing_tasks, collect(CASE WHEN subgoal IS NOT NULL THEN {
     uid: subgoal.uid,
     title: subgoal.title,
     progress: subgoal.progress
-}) as subgoals
+} END) as subgoals
 RETURN g as goal,
        contributing_tasks,
        subgoals
@@ -118,25 +118,25 @@ MATCH (g:Goal {uid: $uid})
 
 // Required knowledge
 OPTIONAL MATCH (g)-[req:REQUIRES_KNOWLEDGE]->(ku:Ku)
-WITH g, collect({
+WITH g, collect(CASE WHEN ku IS NOT NULL THEN {
     uid: ku.uid,
     title: ku.title
-}) as required_knowledge
+} END) as required_knowledge
 
 // Guiding principles
 OPTIONAL MATCH (g)-[:GUIDED_BY_PRINCIPLE]->(p:Principle)
-WITH g, required_knowledge, collect({
+WITH g, required_knowledge, collect(CASE WHEN p IS NOT NULL THEN {
     uid: p.uid,
     title: p.title
-}) as guiding_principles
+} END) as guiding_principles
 
 // Supporting habits
 OPTIONAL MATCH (h:Habit)-[:SUPPORTS_GOAL]->(g)
-WITH g, required_knowledge, guiding_principles, collect({
+WITH g, required_knowledge, guiding_principles, collect(CASE WHEN h IS NOT NULL THEN {
     uid: h.uid,
     title: h.title,
     streak: h.current_streak
-}) as supporting_habits
+} END) as supporting_habits
 
 RETURN g as goal,
        required_knowledge,
@@ -153,25 +153,25 @@ MATCH (ku:Ku {uid: $uid})
 // Direct prerequisites
 OPTIONAL MATCH (ku)-[prereq:REQUIRES_KNOWLEDGE]->(p:Ku)
 WHERE coalesce(prereq.confidence, 1.0) >= 0.7
-WITH ku, collect(DISTINCT {
+WITH ku, collect(DISTINCT CASE WHEN p IS NOT NULL THEN {
     uid: p.uid,
     title: p.title,
     confidence: prereq.confidence
-}) as prerequisites
+} END) as prerequisites
 
 // What this enables
 OPTIONAL MATCH (ku)-[:ENABLES_KNOWLEDGE]->(enabled:Ku)
-WITH ku, prerequisites, collect(DISTINCT {
+WITH ku, prerequisites, collect(DISTINCT CASE WHEN enabled IS NOT NULL THEN {
     uid: enabled.uid,
     title: enabled.title
-}) as enables
+} END) as enables
 
 // Related knowledge
 OPTIONAL MATCH (ku)-[:RELATED_TO]-(related:Ku)
-WITH ku, prerequisites, enables, collect(DISTINCT {
+WITH ku, prerequisites, enables, collect(DISTINCT CASE WHEN related IS NOT NULL THEN {
     uid: related.uid,
     title: related.title
-}) as related
+} END) as related
 
 RETURN ku,
        prerequisites,
@@ -254,25 +254,25 @@ MATCH (h:Habit {uid: $uid})
 
 // Linked goals
 OPTIONAL MATCH (h)-[:SUPPORTS_GOAL|FULFILLS_GOAL]->(goal:Goal)
-WITH h, collect({
+WITH h, collect(CASE WHEN goal IS NOT NULL THEN {
     uid: goal.uid,
     title: goal.title,
     status: goal.status
-}) as linked_goals
+} END) as linked_goals
 
 // Reinforced knowledge
 OPTIONAL MATCH (h)-[:REINFORCES_KNOWLEDGE]->(ku:Ku)
-WITH h, linked_goals, collect({
+WITH h, linked_goals, collect(CASE WHEN ku IS NOT NULL THEN {
     uid: ku.uid,
     title: ku.title
-}) as reinforced_knowledge
+} END) as reinforced_knowledge
 
 // Embodied principles
 OPTIONAL MATCH (h)-[:EMBODIES_PRINCIPLE]->(p:Principle)
 RETURN h as habit,
        linked_goals,
        reinforced_knowledge,
-       collect({uid: p.uid, title: p.title}) as embodied_principles
+       collect(CASE WHEN p IS NOT NULL THEN {uid: p.uid, title: p.title} END) as embodied_principles
 ```
 
 ## Principles Domain
@@ -283,26 +283,26 @@ MATCH (p:Principle {uid: $uid})
 
 // Goals guided by this principle
 OPTIONAL MATCH (p)-[:GUIDES_GOAL]->(goal:Goal)
-WITH p, collect({
+WITH p, collect(CASE WHEN goal IS NOT NULL THEN {
     uid: goal.uid,
     title: goal.title,
     status: goal.status
-}) as guided_goals
+} END) as guided_goals
 
 // Choices aligned with this principle
 OPTIONAL MATCH (choice:Choice)-[:ALIGNED_WITH_PRINCIPLE]->(p)
-WITH p, guided_goals, collect({
+WITH p, guided_goals, collect(CASE WHEN choice IS NOT NULL THEN {
     uid: choice.uid,
     title: choice.title
-}) as aligned_choices
+} END) as aligned_choices
 
 // Habits that embody this principle
 OPTIONAL MATCH (habit:Habit)-[:EMBODIES_PRINCIPLE]->(p)
-WITH p, guided_goals, aligned_choices, collect({
+WITH p, guided_goals, aligned_choices, collect(CASE WHEN habit IS NOT NULL THEN {
     uid: habit.uid,
     title: habit.title,
     streak: habit.current_streak
-}) as embodying_habits
+} END) as embodying_habits
 
 // Grounding knowledge
 OPTIONAL MATCH (p)-[:GROUNDED_IN_KNOWLEDGE]->(ku:Ku)
@@ -310,7 +310,7 @@ RETURN p as principle,
        guided_goals,
        aligned_choices,
        embodying_habits,
-       collect({uid: ku.uid, title: ku.title}) as grounding_knowledge
+       collect(CASE WHEN ku IS NOT NULL THEN {uid: ku.uid, title: ku.title} END) as grounding_knowledge
 ```
 
 ## Choices Domain
@@ -321,21 +321,21 @@ MATCH (c:Choice {uid: $uid})
 
 // Guiding principles
 OPTIONAL MATCH (c)-[:ALIGNED_WITH_PRINCIPLE]->(p:Principle)
-WITH c, collect({uid: p.uid, title: p.title}) as guiding_principles
+WITH c, collect(CASE WHEN p IS NOT NULL THEN {uid: p.uid, title: p.title} END) as guiding_principles
 
 // Informing knowledge
 OPTIONAL MATCH (c)-[:INFORMED_BY_KNOWLEDGE]->(ku:Ku)
-WITH c, guiding_principles, collect({
+WITH c, guiding_principles, collect(CASE WHEN ku IS NOT NULL THEN {
     uid: ku.uid,
     title: ku.title
-}) as informing_knowledge
+} END) as informing_knowledge
 
 // Affected goals
 OPTIONAL MATCH (c)-[:AFFECTS_GOAL]->(goal:Goal)
-WITH c, guiding_principles, informing_knowledge, collect({
+WITH c, guiding_principles, informing_knowledge, collect(CASE WHEN goal IS NOT NULL THEN {
     uid: goal.uid,
     title: goal.title
-}) as affected_goals
+} END) as affected_goals
 
 // Implementing tasks
 OPTIONAL MATCH (task:Task)-[:IMPLEMENTS_CHOICE]->(c)
@@ -343,7 +343,7 @@ RETURN c as choice,
        guiding_principles,
        informing_knowledge,
        affected_goals,
-       collect({uid: task.uid, title: task.title}) as implementing_tasks
+       collect(CASE WHEN task IS NOT NULL THEN {uid: task.uid, title: task.title} END) as implementing_tasks
 ```
 
 ## Cross-Domain Patterns
@@ -381,7 +381,7 @@ WITH user, active_tasks, completed_tasks, overdue_tasks, active_goals, completed
 OPTIONAL MATCH (user)-[m:MASTERED]->(ku:Ku)
 WITH user, active_tasks, completed_tasks, overdue_tasks,
      active_goals, completed_goals, active_habits,
-     collect({uid: ku.uid, score: m.mastery_score}) as mastered_knowledge
+     collect(CASE WHEN ku IS NOT NULL THEN {uid: ku.uid, score: m.mastery_score} END) as mastered_knowledge
 
 RETURN user,
        {

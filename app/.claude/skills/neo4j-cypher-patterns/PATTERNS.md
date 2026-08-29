@@ -151,7 +151,8 @@ UNWIND CASE WHEN size(all_task_nodes) > 0 THEN all_task_nodes ELSE [null] END AS
 OPTIONAL MATCH (task)-[:HAS_SUBTASK]->(subtask:Task)
 WHERE task IS NOT NULL AND task.status IN ['draft', 'scheduled', 'active', 'blocked']
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, task,
-     collect(DISTINCT {uid: subtask.uid, title: subtask.title, status: subtask.status})
+     collect(DISTINCT CASE WHEN subtask IS NOT NULL
+             THEN {uid: subtask.uid, title: subtask.title, status: subtask.status} END)
      AS task_subtasks
 ```
 
@@ -161,6 +162,26 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, task,
 - `UNWIND CASE` pattern handles empty lists gracefully
 
 **Real-world usage**: `user_context_queries.py` MEGA-QUERY (Tasks, Goals, Habits, Events segments)
+
+### ⚠️ The map-literal trap
+
+`collect()` drops null **values**. A **map literal is never null** — only its fields are. So
+the map form is the one shape that turns "no neighbours" into a one-element list:
+
+| Over an OPTIONAL MATCH that found nothing | Result |
+|---|---|
+| `collect(x)` | `[]` ✅ |
+| `collect(x.uid)` | `[]` ✅ |
+| `collect(CASE WHEN x IS NOT NULL THEN {…} END)` | `[]` ✅ |
+| `collect({uid: x.uid, …})` | `[{uid: null, …}]` ❌ |
+
+Measured on the engine, not inferred. Iterating consumers usually survive it (they filter on
+`uid`); **counting consumers are silently wrong** — `len()` reads 1 where the truth is 0. The
+live instance: `principle_guided_choice_counts` reported one guided choice per principle on a
+graph with no `GUIDES_CHOICE` edges at all.
+
+**Always wrap a collected map literal**: `collect(DISTINCT CASE WHEN x IS NOT NULL THEN {…} END)`.
+Guarded by `tests/unit/test_mega_query_null_placeholders.py` for the MEGA-QUERY file.
 
 ---
 
@@ -236,14 +257,14 @@ RETURN size(lp_kus) AS total_kus,
 // user_context_queries.py — user progress via multiple relationship types
 OPTIONAL MATCH (user)-[mastered:MASTERED|IN_PROGRESS]->(ku:Entity)
 WITH user, ...,
-     collect({
+     collect(CASE WHEN ku IS NOT NULL THEN {
          uid: ku.uid,
          score: coalesce(
              mastered.mastery_score,
              CASE WHEN type(mastered) = 'MASTERED' THEN 1.0 ELSE 0.5 END
          ),
          mastered_at: mastered.mastered_at,
-     }) AS knowledge_mastery_data
+     } END) AS knowledge_mastery_data
 ```
 
 **Trade-offs**:
@@ -281,7 +302,10 @@ RETURN ku IS NOT NULL AS ku_exists, count(child) > 0 AS is_organizer
 
 **Trade-offs**:
 - `OPTIONAL MATCH` returns `null` for missing relationships — the entity row is still returned
-- Combine with `collect()` to get empty list instead of `null`
+- ⚠️ **`collect()` gives you an empty list only when you collect a NULLABLE value.** It drops
+  null *values* — but a **map literal is never null**, only its fields are. So
+  `collect({uid: x.uid})` over a null `x` yields `[{uid: null}]`: a ONE-element list meaning
+  zero, which every counting consumer reads as one. See § The map-literal trap below.
 - `DISTINCT` in collect prevents duplicates when multiple paths reach the same node (Cartesian products)
 
 **Real-world usage**: All graph context queries, domain backends, `KuBackend.is_organizer()`

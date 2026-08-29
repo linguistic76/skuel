@@ -93,6 +93,14 @@ We will use a **single complex Cypher query** with multiple OPTIONAL MATCH claus
 - **Total: 52 points** (Extreme Complexity - highest in codebase)
 
 **Query Structure:**
+> ⚠️ **Copying these samples: wrap each collected map.** The samples below are kept as
+> written (an ADR records what was decided, not what was later corrected), but
+> `collect(DISTINCT {…})` over an `OPTIONAL MATCH` that found nothing yields
+> `[{uid: null, …}]`, not `[]` — a map literal is never null, only its fields are. Any
+> consumer that counts the list reads 1 where the truth is 0. Use
+> `collect(DISTINCT CASE WHEN x IS NOT NULL THEN {…} END)`. See
+> `.claude/skills/neo4j-cypher-patterns/PATTERNS.md` § The map-literal trap.
+
 ```cypher
 MATCH (ku:Curriculum {uid: $knowledge_uid})
 
