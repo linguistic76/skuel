@@ -1685,7 +1685,7 @@ wanted — an edge the user did not author is a different kind of write.
 **Trigger:** (0) next touch of the bridge, or Mike schedules it; (1) Mike's ruling; (2) the A/B.
 **Check:** `git grep -n "principles=\|recent_topics=" -- core/services/journal/journal_service.py core/services/user_entry/user_entry_processing_service.py`
 must return BOTH files or NEITHER (neither today);
-`MATCH (t:Task)-[:EXTRACTED_FROM]->() OPTIONAL MATCH (t)-[:FULFILLS_GOAL]->(g:Goal) RETURN count(DISTINCT t) AS extracted, count(DISTINCT g) AS linked`
+`MATCH (t:Task)-[:EXTRACTED_FROM]->() OPTIONAL MATCH (t)-[:FULFILLS_GOAL]->(g:Goal) RETURN count(DISTINCT t) AS extracted, count(DISTINCT CASE WHEN g IS NOT NULL THEN t END) AS linked_tasks`
 → 56 / 0 on 2026-08-28.
 **Named cost while parked:** every extracted task is goal-less however obviously it serves an
 active goal; the recognition-quality claim behind #474 stays unmeasured.
@@ -1740,8 +1740,9 @@ quarterly/yearly rhythm actually starts; app support follows the first real note
 frontmatter date parsing beside the monthly branch; the calendar panel question
 (§ Monthly-Note Panel Parity) inherits the same answer.
 **Trigger:** the first file in either folder —
-`ls ~/0bsidian/skuel/periodic_notes/Quarterly ~/0bsidian/skuel/periodic_notes/yearly | wc -l` > 0
-(founder-owned check, non-repo).
+`find ~/0bsidian/skuel/periodic_notes/Quarterly ~/0bsidian/skuel/periodic_notes/yearly -type f | wc -l` > 0
+(founder-owned check, non-repo — `find -type f`, not `ls`: with two directory operands `ls` prints
+headings, so two EMPTY folders already count 3).
 **Named cost while parked:** none in the app; two empty template files in the vault.
 
 ---
@@ -1882,9 +1883,9 @@ Review this document at the **September 2026 quarterly review**. Checklist:
 | Habit-completion persistence bundle (#915 Codex "future care session": delete orphans / uid collision / non-atomic day uniqueness / stranded stats / DISTINCT-day query; + untrack refused-and-reported-success since #1100 and node doors publishing no `HabitCompleted`, both found on #1172) | Lived habit-completion use, or next touch of the completion write path | `MATCH (hc:HabitCompletion) RETURN count(hc)` **and** `MATCH (h:Habit) RETURN sum(h.total_completions), max(h.last_completed)` — nodes 0 / tally 0 / null on 2026-08-28 (tally > nodes = the node-less `/api/context` door was used); `SHOW CONSTRAINTS` lists none on the label. Built WITH the `find_by` row (one shared range predicate, two operations) but triggered by duplicate volume, moot once defect 3 lands; defect 3 needs Mike's one-per-day ruling first |
 | `TaskUpdateRequest` future `completion_date` asymmetry | Next touch of `task_request.py` validators | Ruling needed — see the section; don't rule in passing |
 | Per-domain chunking knobs + `chunk_type_weights` (degenerate chunks first) | Degenerate-chunk fix: next chunking touch or Mike schedules it; tuning / type weights: Mike schedules the eval set | `MATCH (c:ContentChunk) WHERE size(c.text) < 20 RETURN count(*)` — 32 on 2026-08-28; `git grep -n chunk_type_weights -- core/` empty until built |
-| DSL-bridge grounding pair (goal-LINK persistence; principles/`recent_topics` to BOTH paths) | Keyed A/B on the next bridge touch; goal edges need Mike's ruling on AI-inferred writes | `git grep -n "principles=\|recent_topics=" -- core/services/journal/journal_service.py core/services/user_entry/user_entry_processing_service.py` → both files or neither; extracted-task goal edges 56 / 0 on 2026-08-28 |
+| DSL-bridge grounding pair (goal-LINK persistence; principles/`recent_topics` to BOTH paths) | Keyed A/B on the next bridge touch; goal edges need Mike's ruling on AI-inferred writes | `git grep -n "principles=\|recent_topics=" -- core/services/journal/journal_service.py core/services/user_entry/user_entry_processing_service.py` → both files or neither; extracted tasks / tasks with a `FULFILLS_GOAL` edge = 56 / 0 on 2026-08-28 (count TASKS linked, not goals reached — ten tasks on one goal must read 10) |
 | `HabitMissed` publisher-less chain (ruled keep-staged 2026-08-28) | A lived want for difficulty insights, or the streak-semantics ruling — rule the day model once | `git grep -n "HabitMissed(" -- core/services/ adapters/` empty; `MATCH (i:Insight {insight_type: 'difficulty_pattern'}) RETURN count(i)` → 0 |
-| Quarterly / yearly periodic notes (founder vault pass first) | The first real note in either vault folder | `ls ~/0bsidian/skuel/periodic_notes/Quarterly ~/0bsidian/skuel/periodic_notes/yearly \| wc -l` > 0 — founder-owned, non-repo |
+| Quarterly / yearly periodic notes (founder vault pass first) | The first real note in either vault folder | `find ~/0bsidian/skuel/periodic_notes/Quarterly ~/0bsidian/skuel/periodic_notes/yearly -type f \| wc -l` > 0 (files, not `ls` headings) — founder-owned, non-repo |
 | PathStep → Ku wiring backlog (5 Ku-less steps; 67 Kus used by no step) | Mike's next `Ps_dev` content session | The two `USES_KU` counts in the section — 5 / 67 on 2026-08-28 |
 | py314 annotation sweeps — UP037 schedulable, TC002/TC003 never (home: ADR-067 § Deferred) | UP037: a churn window Mike picks; TC002/TC003: never | `uv run ruff check --select UP037 --statistics .` — 1222 on 2026-08-28 |
 | Parked features (activity ledger · interest/gravity · icon provider · templates re-homing) | Mike schedules each — feature work, never self-scoped | The four `git grep` checks in the section, all empty on 2026-08-28 |
