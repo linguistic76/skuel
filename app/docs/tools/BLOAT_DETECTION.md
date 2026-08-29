@@ -51,9 +51,10 @@ Advisory by default (exit 0). `--check` **is** wired into `./dev quality`
 (check 7, the dead-code gate) and the CI lint job — gating became possible
 once the recorded false-positive audit passed (PR #272). Staged work belongs
 in the PLANNED tiers, which never fail `--check` — but a **stale** marking in
-one of them does (ruled 2026-08-29): a registry key whose subject vanished or
-is now wired is a lie about the backlog, and the tiers stay honest only if
-nothing rots silently in them. The full advisory report
+one of them does (ruled 2026-08-29): a registry key whose subject is gone is a
+lie about the backlog, and the tiers stay honest only if nothing rots silently
+in them. "Stale" is confined to what the detector can prove — see *Integrity is
+self-policing* below. The full advisory report
 also runs on a clock: `.github/workflows/weekly-janitor.yml` (Mondays 06:30
 UTC) runs it alongside the `./dev health` checks and renders the
 PLANNED-tier aging plus any WARNING findings into an always-open status
@@ -79,7 +80,7 @@ The detector follows the SKUEL linter's structural-soundness discipline
 
 | Tier | Meaning | Fails `--check`? |
 |------|---------|------------------|
-| `WARNING` | Structurally dead — verified absence of liveness — **or a stale PLANNED marking** (subject vanished, or is now wired) | Yes |
+| `WARNING` | Structurally dead — verified absence of liveness — **or a stale PLANNED marking** (a provably-gone subject; for events also a now-published one) | Yes |
 | `UNVERIFIED` | Liveness signal exists but is not structurally traceable (constructed-but-untraced events; methods whose name appears as a string literal) | No |
 | `PLANNED` | Structurally dead **by intent** — staged work registered in `PLANNED_EVENTS` / `PLANNED_METHODS` / `PLANNED_TEMPLATES`, awaiting its wiring | No |
 | `INFO` | Live but noteworthy (published-never-subscribed — fine for fire-and-forget audit events; **name-masked PLANNED markings**, below) | No |
@@ -92,45 +93,43 @@ lead list, not a verdict.
 curriculum/resource `*EmbeddingRequested` events — subscribers live in
 `embedding_worker.py`, publishers pending) is a completion to-do, not dead
 code. Register it in `PLANNED_EVENTS` / `PLANNED_METHODS` (keyed
-`relative/path.py::method_name`) with a reason naming what completes it. The
-PLANNED section then functions as the visible wiring backlog. Integrity is
-self-policing: a planned subject that vanished, or is now wired, is reported as
-a **stale planned marking** — a `WARNING`, so it fails `--check` and must be
-removed.
+`relative/path.py::method_name`) or `PLANNED_TEMPLATES` (keyed by template id —
+ADR-082 D4) with a reason naming what completes it. The PLANNED section then
+functions as the visible wiring backlog.
 
-**The one case that is not staleness: a name-masked method.** Vulture's
-liveness is name-based, so a single `self.backend.add_attendee(...)` marks
-*every* `add_attendee` in the tree used — including a service method that is
-still staged and unwired. "Stopped being a candidate" therefore stops meaning
-"wired" for any name defined at more than one site. Such an entry is reported
-as `planned-marking-masked` (INFO, its own report block): the marking may be
-perfectly true, and deleting the entry to clear a report would hide genuinely
-staged work — exactly the entries most likely to be forgotten. **Keep the
-entry; verify wiring by hand.** The mask is not only a second `def` — one
-`x.method_name` attribute load anywhere in the tree drops the candidate too
-(`VultureScan.used_names` *is* the suppressor), so for methods there are exactly
-two outcomes: **definition gone → stale** (the only provable case), **definition
-still there → masked**. Reading "left the candidate set" as "wired" would fail
-`--check` on honest staged work and would break the module's safe-direction rule
-— over-approximation may suppress a dead-code accusation, never create one. The
-masked detail names *why* attribution failed (N definition sites / the name is
-loaded elsewhere / dispatch knowledge). Events and templates keep both stale
-causes: their wiring is detected positively (a publish site, a render site), not
-by name. The weekly janitor prints masked markings so the unverifiable case
-stays visible rather than silently accruing.
+**Integrity is self-policing, but only on what is PROVABLE.** A planned subject
+that **vanished** — an event class, a method, or a template `.md` that is no
+longer there — is a **stale planned marking**: a `WARNING`, so it fails
+`--check` and must be removed. A subject that became **wired** is stale only
+where wiring can be attributed, and that is events alone: a publish site is
+resolved structurally from the event class, not matched by string.
 
-**Prompt templates ride the same tier** (`PLANNED_TEMPLATES`, keyed by
-template id — ADR-082 D4): registry `.md` files with no production render
-site are invisible to the event/method scanners, so entries are emitted
-directly, and — as with methods — only **existence** is provable: a deleted or
-renamed file is stale. Render-site liveness is collected *receiver-blind* (any
-constant-string `.render()`/`.get()` argument counts), so an unrelated
-`settings.get("some_template_id")` reads as a render site; that match is
-reported as **masked**, never stale. Render sites that pass a variable template
-id are invisible to the check either way, so such an entry stays listed until
-removed by hand. The template backlog appears on full runs
-only — the scoped `--events-only` / `--methods-only` modes isolate their
-own analysis.
+**Everywhere else, `planned-marking-masked` (INFO).** Two engines cannot
+attribute their signal to a subject:
+
+- **Methods.** Vulture's liveness is name-based — `VultureScan.used_names` *is*
+  the suppressor. A second `def` of the name, **or a single `x.method_name`
+  attribute load anywhere in the tree**, drops the candidate without any call
+  reaching this definition. So methods have exactly two outcomes: definition
+  gone → stale; definition still there → masked. The detail names why
+  attribution failed (N definition sites / the name is loaded elsewhere /
+  dispatch knowledge).
+- **Templates.** `_collect_rendered_template_ids` counts any constant string
+  handed to a `.render()`/`.get()` call, with no receiver check, so an unrelated
+  `settings.get("some_template_id")` reads as a render site. A render match is
+  therefore masked, never stale. (A render site passing a *variable* template id
+  is invisible either way, so such an entry stays listed until removed by hand.)
+
+The rule behind both is this module's safe-direction discipline:
+**over-approximation may suppress a dead-code accusation, never create one.** A
+stale `WARNING` on a true registration creates one — and the only way to clear
+it is to delete the entry, which hides exactly the entries most likely to be
+forgotten (the #1119 attendee pair sat masked for eight days). **Keep the entry;
+verify wiring by hand.** The weekly janitor prints masked markings so the
+unverifiable case stays visible rather than silently accruing.
+
+The template backlog appears on full runs only — the scoped `--events-only` /
+`--methods-only` modes isolate their own analysis.
 
 ## PLANNED-tier aging
 

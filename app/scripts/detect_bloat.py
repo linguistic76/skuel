@@ -31,13 +31,14 @@ Design rules (mirrors the SKUEL linter's structural-soundness discipline):
 - Unwired by intent is not bloat: staged work registered in PLANNED_EVENTS /
   PLANNED_METHODS / PLANNED_TEMPLATES reports in its own PLANNED tier — a
   visible completion to-do list that never fails --check. A STALE marking does
-  fail it (ruled 2026-08-29): a registry key whose subject vanished or is now
-  wired is a lie about the backlog, and nothing may rot silently. Where wiring
-  cannot be PROVEN the finding is not staleness: a planned method that still
-  exists but left vulture's candidate set is MASKED, because vulture matches by
-  name and no call can be attributed to that definition. Its marking may still
-  be true, so it is kept and flagged, never demanded — the safe-direction rule
-  applied to the registry. There is deliberately no
+  fail it (ruled 2026-08-29): a registry key pointing at a subject that is GONE
+  is a lie about the backlog, and nothing may rot silently. "Became wired" joins
+  it only for events, where a publish site is resolved from the event class.
+  Elsewhere wiring cannot be PROVEN — a method that still exists but left
+  vulture's name-based candidate set, a template id matched by the receiver-blind
+  render collector — and the finding is MASKED, not stale: the marking may still
+  be true, so it is kept and flagged, never demanded. That is the safe-direction
+  rule above, applied to the registry. There is deliberately no
   PLANNED_FIELDS: the PLANNED tiers stay honest only because stale keys are
   audited, and there is no field scanner to audit with. Each examined tier
   also prints an aging summary (entry count + oldest ISO date extracted
@@ -89,8 +90,9 @@ EXEMPTED_METHODS: dict[str, str] = {}
 # wiring, not abandonment. One Path Forward demands deleting abandoned code;
 # staged work instead gets its own PLANNED tier here: still printed (it is a
 # completion to-do list), never counted as dead, never fails --check. The
-# reason must name what completes it. Entries whose subject vanished or became
-# live are reported as stale, FAIL --check, and must be removed.
+# reason must name what completes it. An entry whose subject is GONE (and, for
+# events, one now published) is reported as stale, FAILS --check, and must be
+# removed; where wiring cannot be attributed the entry is masked, never demanded.
 PLANNED_EVENTS: dict[str, str] = {
     # ADR-074 wired the curriculum embedding events through the
     # embedding_publisher chokepoint (Ku/PathStep/LearningPath via the
