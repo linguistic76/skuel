@@ -2244,18 +2244,18 @@ the attendee pair, and both markings were **true** (the methods are still unwire
 production calls are the mixin's own `self.backend.add_attendee(...)`). So the fix was to make
 "stale" mean stale, then gate on it:
 
-- The METHOD_SCOPE check was negative ("vulture stopped flagging it"), which conflates *wired*
-  with *masked*. For methods the only provable case is now **definition gone → stale**;
-  a method that still exists is the new `planned-marking-masked` (INFO), which **keeps** the
-  entry and names why attribution failed. Codex (#1188) killed the first attempt — a
-  definition-site count catches only the def-side collision, while `VultureScan.used_names` is
-  global by attribute name, so one `x.name` load masks a single-def method too. A second Codex
-  round found the same class in the template tier — `_collect_rendered_template_ids` is
-  receiver-blind, so `settings.get("<template_id>")` fabricates a became-live report — so a
-  render match is masked there too. **Only events keep both stale causes**, because a publish
-  site is resolved structurally from the event class, not from a string. Net: the gate fires on
-  what is provable (the subject is gone; an event is genuinely published) and reports the rest
-  visibly without demanding anything.
+- **Stale means exactly one thing: the subject is GONE** — the only fact the detector
+  establishes without inference. It is a `WARNING` in all three tiers.
+- **"Looks wired now" never gates.** Three Codex rounds on #1188 found the same defect in each
+  tier in turn: a definition-site count catches only the def-side collision
+  (`VultureScan.used_names` is global by attribute name, so one `x.name` load masks a single-def
+  method); `_collect_rendered_template_ids` is receiver-blind, so `settings.get("<template_id>")`
+  fabricates a became-live report; and publish resolution uses a file-scoped variable index plus
+  class registries, so a sibling's publish resolves for every class in the registry. The pattern
+  is not three bugs but one: **every liveness engine here over-approximates by design**, because
+  the module's rule permits over-approximation only to SUPPRESS an accusation. Gating any
+  became-live signal inverts it. All three now report `planned-marking-masked` (INFO) — printed
+  in their own report block and by the janitor, never demanded.
 - All seven `planned-marking-stale` emissions are `WARNING`, so `--check` (`./dev quality`
   check 7 + the CI lint job) fails on them, and the janitor's existing WARNING block prints
   them for free. A masked block was added beside it, because an INFO finding no reader prints

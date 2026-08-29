@@ -30,15 +30,18 @@ Design rules (mirrors the SKUEL linter's structural-soundness discipline):
   printed in the Limitations section.
 - Unwired by intent is not bloat: staged work registered in PLANNED_EVENTS /
   PLANNED_METHODS / PLANNED_TEMPLATES reports in its own PLANNED tier — a
-  visible completion to-do list that never fails --check. A STALE marking does
-  fail it (ruled 2026-08-29): a registry key pointing at a subject that is GONE
-  is a lie about the backlog, and nothing may rot silently. "Became wired" joins
-  it only for events, where a publish site is resolved from the event class.
-  Elsewhere wiring cannot be PROVEN — a method that still exists but left
-  vulture's name-based candidate set, a template id matched by the receiver-blind
-  render collector — and the finding is MASKED, not stale: the marking may still
-  be true, so it is kept and flagged, never demanded. That is the safe-direction
-  rule above, applied to the registry. There is deliberately no
+  visible completion to-do list that never fails --check. Exactly ONE thing about
+  a registry entry fails it (ruled 2026-08-29): the subject is GONE. That is the
+  only fact established here without inference, and a key pointing at nothing is
+  a lie about the backlog.
+  "It looks wired now" NEVER gates, in any tier. Every liveness engine in this
+  module over-approximates by design — vulture matches by name, the template
+  render collector is receiver-blind, publish resolution uses a file-scoped
+  variable index and class registries — because the safe-direction rule above
+  permits over-approximation only to SUPPRESS an accusation. Gating on such a
+  signal inverts that rule and fails --check on honest staged work, clearable
+  only by deleting the entry. So a became-live signal is reported as MASKED:
+  printed, never demanded. There is deliberately no
   PLANNED_FIELDS: the PLANNED tiers stay honest only because stale keys are
   audited, and there is no field scanner to audit with. Each examined tier
   also prints an aging summary (entry count + oldest ISO date extracted
@@ -90,9 +93,9 @@ EXEMPTED_METHODS: dict[str, str] = {}
 # wiring, not abandonment. One Path Forward demands deleting abandoned code;
 # staged work instead gets its own PLANNED tier here: still printed (it is a
 # completion to-do list), never counted as dead, never fails --check. The
-# reason must name what completes it. An entry whose subject is GONE (and, for
-# events, one now published) is reported as stale, FAILS --check, and must be
-# removed; where wiring cannot be attributed the entry is masked, never demanded.
+# reason must name what completes it. An entry whose subject is GONE is stale,
+# FAILS --check, and must be removed. An entry that merely LOOKS wired is masked
+# — printed, never demanded — because no engine here can attribute the signal.
 PLANNED_EVENTS: dict[str, str] = {
     # ADR-074 wired the curriculum embedding events through the
     # embedding_publisher chokepoint (Ku/PathStep/LearningPath via the
@@ -1203,13 +1206,16 @@ class EventUsageCollector:
     - Import aliases: ``from core.events.x import TaskCompleted as TC`` makes
       ``TC`` resolve to ``TaskCompleted`` within that file.
     - Variables: ``x = EventClass(...)`` anywhere in a file lets a later
-      ``publish_*(x)`` in the same file resolve — over-approximation in the
-      safe direction (it can only suppress a dead-event accusation).
+      ``publish_*(x)`` in the same file resolve — over-approximation, safe ONLY
+      for suppressing a dead-event accusation. It must never gate anything: a
+      different ``x`` published elsewhere in the file resolves here too, which
+      is why "now published" is masked, not stale (Codex P2, PR #1188).
     - Class registries: ``REG = {...: EventClass, ...}`` (dict literal whose
       values are event classes) followed by ``cls = REG.get(...)`` /
       ``cls = REG[...]`` and a published ``cls(...)`` resolves to EVERY class
-      in the registry — the embedding_publisher chokepoint pattern; same safe
-      over-approximation direction as the variable rule.
+      in the registry — the embedding_publisher chokepoint pattern; same
+      over-approximation as the variable rule, and the same restriction: one
+      published sibling marks every class in the registry published.
     - Publish wrappers: see PublishWrapperInference.
     Cross-FILE event flow is never traced — it surfaces as an unresolved
     publish site plus the UNVERIFIED construction tier.
@@ -1492,14 +1498,17 @@ def analyze_events(
             if cls in PLANNED_EVENTS:
                 findings.append(
                     Finding(
-                        kind="planned-marking-stale",
-                        severity=BloatSeverity.WARNING,
+                        kind="planned-marking-masked",
+                        severity=BloatSeverity.INFO,
                         subject=cls,
                         file=site.file,
                         line=site.line,
                         detail=(
-                            "marked planned but now published — wiring complete; "
-                            "remove from PLANNED_EVENTS"
+                            "still staged, liveness unverifiable — a publish site "
+                            "resolves to this class, but resolution over-approximates "
+                            "(file-scoped variable index, class registries, inferred "
+                            "publish wrappers), so the publication cannot be "
+                            "attributed; KEEP the entry and verify wiring by hand"
                         ),
                     )
                 )
@@ -2294,9 +2303,12 @@ def print_event_report(
 
     by_severity: dict[BloatSeverity, list[Finding]] = defaultdict(list)
     stale_planned: list[Finding] = []
+    masked_planned: list[Finding] = []
     for finding in findings:
         if finding.kind == "planned-marking-stale":
             stale_planned.append(finding)
+        elif finding.kind == "planned-marking-masked":
+            masked_planned.append(finding)
         else:
             by_severity[finding.severity].append(finding)
 
@@ -2313,10 +2325,18 @@ def print_event_report(
         for finding in items:
             _print_finding(finding)
 
+    if masked_planned:
+        print(
+            f"\n{Colors.YELLOW}Planned, liveness unverifiable — publication not "
+            f"attributable, KEEP the entry ({len(masked_planned)}):{Colors.RESET}\n"
+        )
+        for finding in masked_planned:
+            _print_finding(finding)
+
     if stale_planned:
         print(
-            f"\n{Colors.RED}Stale planned markings — remove from PLANNED_EVENTS "
-            f"({len(stale_planned)}):{Colors.RESET}\n"
+            f"\n{Colors.RED}Stale planned markings — remove from PLANNED_EVENTS; "
+            f"these FAIL --check ({len(stale_planned)}):{Colors.RESET}\n"
         )
         for finding in stale_planned:
             _print_finding(finding)

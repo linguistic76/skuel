@@ -433,7 +433,7 @@ def test_planned_event_subscriber_is_staging_not_dead_chain(monkeypatch):
     assert not any("dead wiring chain" in note for note in finding.annotations)
 
 
-def test_stale_planned_event_marking_is_reported(monkeypatch):
+def test_published_planned_event_is_masked_not_stale(monkeypatch):
     monkeypatch.setattr(
         detect_bloat, "PLANNED_EVENTS", {"GammaOrphan": "awaiting synthetic wiring"}
     )
@@ -445,9 +445,14 @@ def test_stale_planned_event_marking_is_reported(monkeypatch):
             )
         }
     )
-    stale = [f for f in findings if f.kind == "planned-marking-stale"]
-    assert [f.subject for f in stale] == ["GammaOrphan"]
-    assert stale[0].severity is BloatSeverity.WARNING
+    # publish resolution over-approximates (file-scoped var index, class
+    # registries, inferred wrappers), so "now published" can never gate — it is
+    # reported as unverifiable, not stale (Codex P2, PR #1188).
+    assert not [f for f in findings if f.kind == "planned-marking-stale"]
+    masked = [f for f in findings if f.kind == "planned-marking-masked"]
+    assert [f.subject for f in masked] == ["GammaOrphan"]
+    assert masked[0].severity is BloatSeverity.INFO
+    assert "cannot be attributed" in masked[0].detail
 
 
 def test_vanished_planned_event_marking_is_reported(monkeypatch):
