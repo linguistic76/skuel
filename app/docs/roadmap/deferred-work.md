@@ -1958,13 +1958,18 @@ must **rewrite the existing key in place**, never append a second `updated:`.
    (`health-modules` / `health-links` / `health-names` / `health-headings` / `health-xref`)
    — a list with no count, which is how one of these enumerations was wrong from the day
    `health-xref` was added. Update all three. Keep the check fast: `./dev health`
-   deliberately excludes `health-mypy` at ~80s, and one `git log --name-only` pass over
-   `app/docs` is enough for all 411 files.
+   deliberately excludes `health-mypy` at ~80s. One `git log --name-only` pass over
+   `app/docs` covers the date comparison for all 411 files — but see the stamp-only
+   exclusion below, which needs diff content `--name-only` does not carry.
    ⚠️ **A date comparison alone leaves the guard blind to its main target.** A file
    committed with `--no-verify` — the exact bypass this guard exists to catch — can arrive
    with **no** `updated:` key at all, and then there is no date that predates anything, so
    a naive checker skips it and stays green. Fail on **missing**, **duplicate**, or
-   **unparsable** `updated:` in an in-scope doc *before* comparing dates. This also fixes
+   **unparsable** `updated:` in an in-scope doc *before* comparing dates. **Bound it from
+   both sides:** a lower-bound-only check stays green forever on a future value like
+   `updated: 2099-01-01`, which never predates anything and would mask every unstamped edit
+   for years — require `updated:` to be no later than the file's newest commit date too, so
+   the value must be one a commit could actually have produced. This also fixes
    the ordering: a missing-field failure is only enforceable once the backfill has run, so
    the guard must land **with or after** step 2, never before it — shipped first it would
    fail on all 192 fieldless files.
@@ -1974,6 +1979,13 @@ must **rewrite the existing key in place**, never append a second `updated:`.
    corpus (Codex P1 on #1184). One rule covers both the bootstrap and any future
    stamp-only commit: **skip commits whose diff for that file touches only the `updated:`
    line.** Prefer that to hardcoding the backfill SHA.
+   ⚠️ **That exclusion needs line-level diffs, which `git log --name-only` cannot give.**
+   `--name-only` emits paths, not changed lines, so it can never tell a stamp-only commit
+   from a substantive one — this contract asserted both the exclusion and a `--name-only`
+   pass, and they are incompatible. Use a patch-producing traversal (`git log -p`), or the
+   cheaper two-stage form: `--numstat` to shortlist commits touching the file with exactly
+   one insertion and one deletion, then `git show` only those candidates to confirm the
+   changed line is `updated:`.
 
 **Fork the PR must settle — does `updated:` keep pre-stamp history?**
 
@@ -1996,12 +2008,14 @@ other pinned archives are exempt.
   repo-root-relative ones (`app/docs/...`). Joining the two on filename matches nothing,
   every file looks current, and the measurement reads a clean `0 stale`. This happened on
   the first run of the measurement above.
-- Seven of the traps above — partial staging, backfill self-invalidation, quoted scalars,
-  worktree desync, an unwired guard, a guard blind to missing fields, and a refusal branch
-  that lets the commit through — were found by Codex review of the *registration* across
-  three rounds, not of an implementation. Rounds 2 and 3 each found holes in the previous
-  round's fix, which is the argument for reviewing a contract to convergence before writing
-  the code it describes.
+- Nine of the traps above — partial staging, backfill self-invalidation, quoted scalars,
+  worktree desync, an unwired guard, a guard blind to missing fields, a refusal branch that
+  lets the commit through, a future date that passes a lower-bound check, and an exclusion
+  rule its own prescribed tool cannot implement — were found by Codex review of the
+  *registration* across four rounds, not of an implementation. Every round after the first
+  found holes in the previous round's fix, and round 4 caught this document contradicting
+  itself. That is the argument for reviewing a contract to convergence before writing the
+  code it describes.
 
 ### Sub-finding: same-file contradictory ruling prose is NOT mechanizable
 
