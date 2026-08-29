@@ -231,9 +231,10 @@ jobs:
               echo ""
               warning_count=$(jq '[.findings[] | select(.severity == "warning")] | length' bloat.json)
               if [ "$warning_count" -eq 0 ]; then
-                echo "No structurally-dead (WARNING) findings."
+                echo "No WARNING findings (structurally dead, or a stale PLANNED marking)."
               else
-                echo "**${warning_count} structurally-dead (WARNING) finding(s)** — the PR-side"
+                echo "**${warning_count} WARNING finding(s)** — structurally dead, or a stale"
+                echo "PLANNED marking whose registered subject no longer exists. The PR-side"
                 echo "\`--check\` gate (CI lint job / \`./dev quality\`) fails on these too:"
                 echo ""
                 jq -r '.findings[] | select(.severity == "warning") | "- `\(.subject)` (\(.file):\(.line)) — \(.detail)"' bloat.json > warnings.txt
@@ -242,6 +243,18 @@ jobs:
                   echo ""
                   echo "_Truncated at 6000 characters — full findings in the janitor-output artifact._"
                 fi
+              fi
+              # Name-masked PLANNED markings are INFO by design (the marking may
+              # still be true), so they ride no gate. Printing them here is what
+              # keeps the unverifiable case visible instead of silently accruing.
+              masked_count=$(jq '[.findings[] | select(.kind == "planned-marking-masked")] | length' bloat.json)
+              if [ "$masked_count" -ne 0 ]; then
+                echo ""
+                echo "**${masked_count} name-masked PLANNED marking(s)** — vulture cannot"
+                echo "attribute a call to these, so liveness is unverified. KEEP the entries;"
+                echo "verify wiring by hand when the owning arc is next touched:"
+                echo ""
+                jq -r '.findings[] | select(.kind == "planned-marking-masked") | "- `\(.subject)` (\(.file):\(.line)) — \(.detail)"' bloat.json
               fi
             fi
             echo ""

@@ -585,7 +585,7 @@ Available on all 9 domains (Tasks, Goals, Habits, Events, Choices, Principles, K
 
 **Formatting:** Ruff. `./dev format` to format, `./dev quality` for full checks (Ruff + MyPy + audit scripts).
 
-**Dead-code detection (advisory):** `./dev bloat` — staged-but-unwired work belongs in `PLANNED_EVENTS`/`PLANNED_METHODS`/`PLANNED_TEMPLATES` in `scripts/detect_bloat.py`, not the trash. Scope = events/methods/templates ONLY — a clean run is NOT evidence for fields, dataclasses, enum members, or config knobs (those are found by review). **See:** `/docs/tools/BLOAT_DETECTION.md`
+**Dead-code detection (advisory):** `./dev bloat` — staged-but-unwired work belongs in `PLANNED_EVENTS`/`PLANNED_METHODS`/`PLANNED_TEMPLATES` in `scripts/detect_bloat.py`, not the trash — but a **stale** registration is a WARNING and fails `--check`. Stale means exactly one thing: the registered subject is GONE. *"Looks wired now"* never gates in any tier — every liveness engine here over-approximates by design, so a became-live signal is reported as masked, printed and never demanded. Scope = events/methods/templates ONLY — a clean run is NOT evidence for fields, dataclasses, enum members, or config knobs (those are found by review). **See:** `/docs/tools/BLOAT_DETECTION.md`
 
 **Docs-staleness check (automatic):** `.claude/hooks/post-commit-docs.sh` fires after `git commit` and flags docs/skills that reference changed files for semantic staleness review. **See:** `/docs/tools/AUTOMATIC_DOCS_CHECK.md`
 

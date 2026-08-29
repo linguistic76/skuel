@@ -50,7 +50,11 @@ uv run python scripts/detect_bloat.py --check     # exit 1 on surviving WARNINGs
 Advisory by default (exit 0). `--check` **is** wired into `./dev quality`
 (check 7, the dead-code gate) and the CI lint job — gating became possible
 once the recorded false-positive audit passed (PR #272). Staged work belongs
-in the PLANNED tiers, which never fail `--check`. The full advisory report
+in the PLANNED tiers, which never fail `--check` — but a **stale** marking in
+one of them does (ruled 2026-08-29): a registry key whose subject is gone is a
+lie about the backlog, and the tiers stay honest only if nothing rots silently
+in them. "Stale" means *provably* stale — see *Integrity is self-policing*
+below. The full advisory report
 also runs on a clock: `.github/workflows/weekly-janitor.yml` (Mondays 06:30
 UTC) runs it alongside the `./dev health` checks and renders the
 PLANNED-tier aging plus any WARNING findings into an always-open status
@@ -76,10 +80,10 @@ The detector follows the SKUEL linter's structural-soundness discipline
 
 | Tier | Meaning | Fails `--check`? |
 |------|---------|------------------|
-| `WARNING` | Structurally dead — verified absence of liveness | Yes |
+| `WARNING` | Structurally dead — verified absence of liveness — **or a stale PLANNED marking** (the registered subject no longer exists) | Yes |
 | `UNVERIFIED` | Liveness signal exists but is not structurally traceable (constructed-but-untraced events; methods whose name appears as a string literal) | No |
 | `PLANNED` | Structurally dead **by intent** — staged work registered in `PLANNED_EVENTS` / `PLANNED_METHODS` / `PLANNED_TEMPLATES`, awaiting its wiring | No |
-| `INFO` | Live but noteworthy (published-never-subscribed — fine for fire-and-forget audit events) | No |
+| `INFO` | Live but noteworthy (published-never-subscribed — fine for fire-and-forget audit events; **name-masked PLANNED markings**, below) | No |
 
 Act on `WARNING` findings after a manual grep-verify; treat `UNVERIFIED` as a
 lead list, not a verdict.
@@ -89,21 +93,43 @@ lead list, not a verdict.
 curriculum/resource `*EmbeddingRequested` events — subscribers live in
 `embedding_worker.py`, publishers pending) is a completion to-do, not dead
 code. Register it in `PLANNED_EVENTS` / `PLANNED_METHODS` (keyed
-`relative/path.py::method_name`) with a reason naming what completes it. The
-PLANNED section then functions as the visible wiring backlog. Integrity is
-self-policing: a planned subject that becomes live (or disappears from the
-candidates) is reported as a **stale planned marking** demanding removal.
+`relative/path.py::method_name`) or `PLANNED_TEMPLATES` (keyed by template id —
+ADR-082 D4) with a reason naming what completes it. The PLANNED section then
+functions as the visible wiring backlog.
 
-**Prompt templates ride the same tier** (`PLANNED_TEMPLATES`, keyed by
-template id — ADR-082 D4): registry `.md` files with no production render
-site are invisible to the event/method scanners, so entries are emitted
-directly with two verifications — existence (file deleted/renamed → stale)
-and render-site liveness (a constant-string `.render()`/`.get()` reference
-appeared → stale, wiring complete). Render sites that pass a variable
-template id are invisible to the liveness check, so such an entry stays
-listed until removed by hand. The template backlog appears on full runs
-only — the scoped `--events-only` / `--methods-only` modes isolate their
-own analysis.
+**Integrity is self-policing, and exactly one thing fails `--check`: the
+subject is GONE.** A deleted or renamed event class, service method, or
+template `.md` makes its registry key a lie, and that is the only fact this
+detector establishes without inference. It is a `WARNING` in every tier — and
+"gone" is proven by looking for the definition, never inferred from a subject's
+absence from an index: an event class missing from the *event universe* may
+simply have stopped resolving as a `BaseEvent` subclass (a base-class edit, or a
+module missing from `core/events/__init__.py`), which is an inheritance defect,
+not stale backlog metadata.
+
+**"It looks wired now" NEVER gates — it reports as `planned-marking-masked`
+(INFO).** Every liveness engine here over-approximates *by design*, because the
+module's safe-direction rule permits over-approximation only to **suppress a
+dead-code accusation, never create one**. Gating a became-live signal inverts
+that rule: it fails `--check` on honest staged work, and the only way to clear
+it is to delete the entry — which hides exactly the entries most likely to be
+forgotten (the #1119 attendee pair sat masked for eight days). The three
+engines and why none can attribute its signal:
+
+| Tier | Engine | Why it cannot attribute |
+|------|--------|-------------------------|
+| Methods | vulture | Liveness is name-based (`VultureScan.used_names` *is* the suppressor). A second `def` of the name, **or one `x.method_name` attribute load anywhere in the tree**, drops the candidate with no call reaching this definition. |
+| Templates | `_collect_rendered_template_ids` | Receiver-blind: any constant string handed to a `.render()`/`.get()` counts, so `settings.get("some_template_id")` reads as a render site. |
+| Events | `EventUsageCollector` | Publish resolution uses a file-scoped variable index and class registries — a different `x` published elsewhere in the file resolves here, and one published sibling marks every class in a registry published. |
+
+**Keep the entry; verify wiring by hand.** The masked detail names why
+attribution failed. The weekly janitor prints masked markings so the
+unverifiable case stays visible rather than silently accruing. (A template
+render site passing a *variable* id is invisible to the check either way, so
+such an entry stays listed until removed by hand.)
+
+The template backlog appears on full runs only — the scoped `--events-only` /
+`--methods-only` modes isolate their own analysis.
 
 ## PLANNED-tier aging
 

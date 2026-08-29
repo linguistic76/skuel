@@ -30,8 +30,18 @@ Design rules (mirrors the SKUEL linter's structural-soundness discipline):
   printed in the Limitations section.
 - Unwired by intent is not bloat: staged work registered in PLANNED_EVENTS /
   PLANNED_METHODS / PLANNED_TEMPLATES reports in its own PLANNED tier — a
-  visible completion to-do list that never fails --check. Stale markings
-  (subject became live) are themselves reported. There is deliberately no
+  visible completion to-do list that never fails --check. Exactly ONE thing about
+  a registry entry fails it (ruled 2026-08-29): the subject is GONE. That is the
+  only fact established here without inference, and a key pointing at nothing is
+  a lie about the backlog.
+  "It looks wired now" NEVER gates, in any tier. Every liveness engine in this
+  module over-approximates by design — vulture matches by name, the template
+  render collector is receiver-blind, publish resolution uses a file-scoped
+  variable index and class registries — because the safe-direction rule above
+  permits over-approximation only to SUPPRESS an accusation. Gating on such a
+  signal inverts that rule and fails --check on honest staged work, clearable
+  only by deleting the entry. So a became-live signal is reported as MASKED:
+  printed, never demanded. There is deliberately no
   PLANNED_FIELDS: the PLANNED tiers stay honest only because stale keys are
   audited, and there is no field scanner to audit with. Each examined tier
   also prints an aging summary (entry count + oldest ISO date extracted
@@ -83,8 +93,9 @@ EXEMPTED_METHODS: dict[str, str] = {}
 # wiring, not abandonment. One Path Forward demands deleting abandoned code;
 # staged work instead gets its own PLANNED tier here: still printed (it is a
 # completion to-do list), never counted as dead, never fails --check. The
-# reason must name what completes it. Entries whose subject becomes live are
-# reported as stale and must be removed.
+# reason must name what completes it. An entry whose subject is GONE is stale,
+# FAILS --check, and must be removed. An entry that merely LOOKS wired is masked
+# — printed, never demanded — because no engine here can attribute the signal.
 PLANNED_EVENTS: dict[str, str] = {
     # ADR-074 wired the curriculum embedding events through the
     # embedding_publisher chokepoint (Ku/PathStep/LearningPath via the
@@ -787,8 +798,9 @@ PLANNED_METHODS: dict[str, str] = {
 # Prompt templates staged with no render site (ADR-082 D4): committed .md
 # floors in core/prompts/templates/ registered in PROMPT_REGISTRY but not yet
 # rendered by any production code. Keyed by template id (filename stem). Same
-# PLANNED semantics as events/methods: printed as backlog, never fails
-# --check, stale markings (file gone, or a render site appeared) reported.
+# PLANNED semantics as events/methods: the backlog itself never fails --check;
+# a stale marking is a WARNING and does — but only the provable one (file gone).
+# A render-site match is receiver-blind, so it reports as masked, not stale.
 PLANNED_TEMPLATES: dict[str, str] = {
     "askesis_ku_bridge": (
         "Ku-bridge turn staged — first wiring candidate: aligns with "
@@ -821,7 +833,7 @@ METHOD_SCOPE = "core/services/"
 class BloatSeverity(Enum):
     """Finding tiers. Only WARNING can ever fail a --check run."""
 
-    WARNING = "warning"  # structurally dead — verified absence of liveness
+    WARNING = "warning"  # structurally dead, or a stale PLANNED marking
     UNVERIFIED = "unverified"  # constructed somewhere; publication untraceable
     INFO = "info"  # live but noteworthy (e.g. published, never subscribed)
     PLANNED = "planned"  # unwired by intent — a completion to-do, not bloat
@@ -1194,13 +1206,16 @@ class EventUsageCollector:
     - Import aliases: ``from core.events.x import TaskCompleted as TC`` makes
       ``TC`` resolve to ``TaskCompleted`` within that file.
     - Variables: ``x = EventClass(...)`` anywhere in a file lets a later
-      ``publish_*(x)`` in the same file resolve — over-approximation in the
-      safe direction (it can only suppress a dead-event accusation).
+      ``publish_*(x)`` in the same file resolve — over-approximation, safe ONLY
+      for suppressing a dead-event accusation. It must never gate anything: a
+      different ``x`` published elsewhere in the file resolves here too, which
+      is why "now published" is masked, not stale (Codex P2, PR #1188).
     - Class registries: ``REG = {...: EventClass, ...}`` (dict literal whose
       values are event classes) followed by ``cls = REG.get(...)`` /
       ``cls = REG[...]`` and a published ``cls(...)`` resolves to EVERY class
-      in the registry — the embedding_publisher chokepoint pattern; same safe
-      over-approximation direction as the variable rule.
+      in the registry — the embedding_publisher chokepoint pattern; same
+      over-approximation as the variable rule, and the same restriction: one
+      published sibling marks every class in the registry published.
     - Publish wrappers: see PublishWrapperInference.
     Cross-FILE event flow is never traced — it surfaces as an unresolved
     publish site plus the UNVERIFIED construction tier.
@@ -1461,6 +1476,31 @@ class EventUsageCollector:
 # ============================================================================
 
 
+def _event_class_definition_site(codebase: ParsedCodebase, name: str) -> str | None:
+    """Relative path of ``class <name>`` inside the events package, or None.
+
+    Universe membership proves event ELIGIBILITY (a transitive BaseEvent
+    subclass whose module is imported), not that the class exists. Absence from
+    the universe therefore cannot be read as "deleted" — an accidental
+    base-class edit, or a module missing from ``core/events/__init__.py``, drops
+    a live class out of it. Only this scan proves the subject is gone, and only
+    that may gate (Codex P2, PR #1188).
+
+    Scoped to EVENTS_PACKAGE with the SAME predicate ``EventUniverse.build``
+    uses, so the two can never disagree about where an event may live. A
+    repo-wide scan would be worse than none here: an unrelated class that
+    happens to share the name would mask a genuinely deleted event and silently
+    drop it out of the gate (Codex round 5).
+    """
+    for path, tree in codebase.production.items():
+        if EVENTS_PACKAGE not in path.parents:
+            continue
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ClassDef) and node.name == name:
+                return codebase.rel(path)
+    return None
+
+
 def analyze_events(
     universe: EventUniverse, usage: EventUsage
 ) -> tuple[list[Finding], list[Finding]]:
@@ -1483,14 +1523,17 @@ def analyze_events(
             if cls in PLANNED_EVENTS:
                 findings.append(
                     Finding(
-                        kind="planned-marking-stale",
+                        kind="planned-marking-masked",
                         severity=BloatSeverity.INFO,
                         subject=cls,
                         file=site.file,
                         line=site.line,
                         detail=(
-                            "marked planned but now published — wiring complete; "
-                            "remove from PLANNED_EVENTS"
+                            "still staged, liveness unverifiable — a publish site "
+                            "resolves to this class, but resolution over-approximates "
+                            "(file-scoped variable index, class registries, inferred "
+                            "publish wrappers), so the publication cannot be "
+                            "attributed; KEEP the entry and verify wiring by hand"
                         ),
                     )
                 )
@@ -1568,24 +1611,45 @@ def analyze_events(
         else:
             findings.append(finding)
 
-    # Stale planned markings for vanished subjects: a PLANNED_EVENTS key
-    # absent from the event universe was deleted, renamed, or mistyped —
-    # without this pass the registry would silently keep dead keys.
-    findings.extend(
-        Finding(
-            kind="planned-marking-stale",
-            severity=BloatSeverity.INFO,
-            subject=cls,
-            file="core/events/",
-            line=0,
-            detail=(
-                "marked planned but no such event class exists — deleted, "
-                "renamed, or mistyped; remove from PLANNED_EVENTS"
-            ),
-        )
-        for cls in sorted(PLANNED_EVENTS)
-        if cls not in universe
-    )
+    # A PLANNED_EVENTS key absent from the universe is only STALE if the class
+    # is really gone. Absence can also mean the class exists but stopped
+    # resolving as a BaseEvent subclass — an inheritance defect, where deleting
+    # the registry entry is the wrong repair — so the definition is checked
+    # before anything gates.
+    for cls in sorted(PLANNED_EVENTS):
+        if cls in universe:
+            continue
+        defined_at = _event_class_definition_site(universe.codebase, cls)
+        if defined_at is None:
+            findings.append(
+                Finding(
+                    kind="planned-marking-stale",
+                    severity=BloatSeverity.WARNING,
+                    subject=cls,
+                    file="core/events/",
+                    line=0,
+                    detail=(
+                        "marked planned but no such event class exists — deleted, "
+                        "renamed, or mistyped; remove from PLANNED_EVENTS"
+                    ),
+                )
+            )
+        else:
+            findings.append(
+                Finding(
+                    kind="planned-marking-masked",
+                    severity=BloatSeverity.INFO,
+                    subject=cls,
+                    file=defined_at,
+                    line=0,
+                    detail=(
+                        "registered class exists but is outside the event universe "
+                        "— it no longer resolves as a transitive BaseEvent subclass, "
+                        "or its module is not imported in core/events/__init__.py. "
+                        "Fix that, not the registry; KEEP the entry"
+                    ),
+                )
+            )
 
     return findings, exempted
 
@@ -1785,6 +1849,34 @@ def _test_reference_index(codebase: ParsedCodebase) -> dict[str, int]:
     return counts
 
 
+def _definition_site_counts(codebase: ParsedCodebase) -> dict[str, int]:
+    """name -> number of ``def``/``async def`` sites across production files.
+
+    Vulture's liveness is NAME-based: a single ``self.backend.add_attendee(...)``
+    marks every ``add_attendee`` in the tree used. So for a name defined at more
+    than one site, "stopped being a candidate" no longer means "wired" — the
+    engine simply cannot attribute the call to an owner. Counting definitions is
+    what separates a PLANNED marking that rotted from one nothing can verify.
+    """
+    counts: dict[str, int] = defaultdict(int)
+    for tree in codebase.production.values():
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+                counts[node.name] += 1
+    return counts
+
+
+def _definition_line(codebase: ParsedCodebase, rel: str, name: str) -> int:
+    """Line where ``name`` is defined in ``rel``, or 0 when it is absent."""
+    module = codebase.production.get(codebase.root / rel)
+    if module is None:
+        return 0
+    for node in ast.walk(module):
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef) and node.name == name:
+            return node.lineno
+    return 0
+
+
 class VultureScan(NamedTuple):
     """Vulture's unused-code candidates plus the used-name set that gates them.
 
@@ -1900,30 +1992,67 @@ def analyze_methods(codebase: ParsedCodebase, scan: VultureScan) -> MethodAnalys
         else:
             findings.append(finding)
 
-    # Stale planned markings: a planned method that stopped being a vulture
-    # candidate is now live (wiring complete) or deleted — either way the
-    # entry must go. Only METHOD_SCOPE keys ride this check — out-of-scope
-    # entries are never vulture candidates here, so they get the
-    # existence-checked path below instead.
+    # A planned method that stopped being a vulture candidate is one of two
+    # things, and only ONE of them is provable here:
+    #   definition gone -> stale. Certain: nothing exists at that path.
+    #   definition still there -> MASKED, never stale. Vulture's liveness is
+    #     NAME-based (see VultureScan.used_names): a single same-named `def`
+    #     elsewhere, or one `x.name` attribute load anywhere in the tree, drops
+    #     the candidate without any call reaching THIS definition. So "stopped
+    #     being a candidate" cannot be read as "wired", and the marking may be
+    #     perfectly true. Calling it stale would fail --check on honest staged
+    #     work, clearable only by deleting the entry — which hides exactly the
+    #     entries most likely to be forgotten. It also breaks this module's
+    #     safe-direction rule: over-approximation may suppress a dead-code
+    #     accusation, never create one.
+    # Only METHOD_SCOPE keys ride this check — out-of-scope entries are never
+    # vulture candidates here, so they get the existence-checked path below.
     flagged_keys = {f"{f.file}::{f.subject}" for f in findings + exempted}
+    def_counts = _definition_site_counts(codebase)
     for planned_key in PLANNED_METHODS:
         rel, _, name = planned_key.rpartition("::")
-        if not rel.startswith(METHOD_SCOPE):
+        if not rel.startswith(METHOD_SCOPE) or planned_key in flagged_keys:
             continue
-        if planned_key not in flagged_keys:
+        def_line = _definition_line(codebase, rel, name)
+        if def_line == 0:
             findings.append(
                 Finding(
                     kind="planned-marking-stale",
-                    severity=BloatSeverity.INFO,
+                    severity=BloatSeverity.WARNING,
                     subject=name,
                     file=rel,
                     line=0,
                     detail=(
-                        "marked planned but no longer flagged unused — wiring "
-                        "complete or method deleted; remove from PLANNED_METHODS"
+                        "marked planned but the method no longer exists at this "
+                        "path — deleted or renamed; remove from PLANNED_METHODS"
                     ),
                 )
             )
+            continue
+
+        sites = def_counts.get(name, 0)
+        if sites > 1:
+            why = f"'{name}' is defined at {sites} sites"
+        elif name in scan.used_names:
+            why = f"'{name}' is loaded as an attribute elsewhere in the tree"
+        elif name in dispatch.live:
+            why = f"dispatch knowledge lists '{name}' live — {dispatch.live[name]}"
+        else:
+            why = f"vulture no longer lists '{name}' as a candidate"
+        findings.append(
+            Finding(
+                kind="planned-marking-masked",
+                severity=BloatSeverity.INFO,
+                subject=name,
+                file=rel,
+                line=def_line,
+                detail=(
+                    f"still staged, liveness unverifiable — {why}, and vulture "
+                    "matches by NAME, so no call can be attributed to this "
+                    "definition; KEEP the entry and verify wiring by hand"
+                ),
+            )
+        )
 
     findings.extend(_out_of_scope_planned_findings(codebase))
 
@@ -1946,18 +2075,12 @@ def _out_of_scope_planned_findings(codebase: ParsedCodebase) -> list[Finding]:
         rel, _, name = planned_key.rpartition("::")
         if rel.startswith(METHOD_SCOPE):
             continue
-        module = codebase.production.get(codebase.root / rel)
-        def_line = 0
-        if module is not None:
-            for node in ast.walk(module):
-                if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef) and node.name == name:
-                    def_line = node.lineno
-                    break
+        def_line = _definition_line(codebase, rel, name)
         if def_line == 0:
             results.append(
                 Finding(
                     kind="planned-marking-stale",
-                    severity=BloatSeverity.INFO,
+                    severity=BloatSeverity.WARNING,
                     subject=name,
                     file=rel,
                     line=0,
@@ -1991,10 +2114,13 @@ def _collect_rendered_template_ids(codebase: ParsedCodebase) -> set[str]:
     """String-constant first args to any ``.render(...)`` / ``.get(...)`` call.
 
     Receiver-blind by design: any string handed to a render/get attribute call
-    in production counts as a template reference — over-approximation in the
-    safe direction (may suppress a became-live report, never fabricate one).
-    Render sites that pass a variable template id are invisible here, so a
-    PLANNED entry wired that way stays listed until removed by hand.
+    in production counts as a template reference. That OVER-collects, and the
+    over-approximation runs the UNSAFE way for staleness — an unrelated
+    ``settings.get("some_template_id")`` fabricates a became-live report — which
+    is why a render-site match is reported as unverifiable, never as stale
+    (Codex P2, PR #1188). Render sites that pass a variable template id are
+    invisible here, so a PLANNED entry wired that way stays listed until removed
+    by hand.
     """
     ids: set[str] = set()
     for tree in codebase.production.values():
@@ -2015,9 +2141,11 @@ def analyze_planned_templates(codebase: ParsedCodebase) -> list[Finding]:
 
     Templates are .md files, invisible to the event/method scanners, so
     entries are emitted directly (the _out_of_scope_planned_findings pattern).
-    Two verifications are possible: existence (file deleted or renamed →
-    stale) and render-site liveness (a constant-string ``.render()``/``.get()``
-    reference in production → stale, wiring complete).
+    Only ONE verification is provable: existence (file deleted or renamed →
+    stale). A constant-string ``.render()``/``.get()`` reference is collected
+    receiver-blind, so it cannot be attributed to the prompt renderer — that
+    case is reported as ``planned-marking-masked`` (INFO), the same
+    safe-direction rule the method tier follows.
     """
     rendered = _collect_rendered_template_ids(codebase)
     results: list[Finding] = []
@@ -2027,7 +2155,7 @@ def analyze_planned_templates(codebase: ParsedCodebase) -> list[Finding]:
             results.append(
                 Finding(
                     kind="planned-marking-stale",
-                    severity=BloatSeverity.INFO,
+                    severity=BloatSeverity.WARNING,
                     subject=template_id,
                     file=rel,
                     line=0,
@@ -2040,14 +2168,17 @@ def analyze_planned_templates(codebase: ParsedCodebase) -> list[Finding]:
         elif template_id in rendered:
             results.append(
                 Finding(
-                    kind="planned-marking-stale",
+                    kind="planned-marking-masked",
                     severity=BloatSeverity.INFO,
                     subject=template_id,
                     file=rel,
                     line=0,
                     detail=(
-                        "marked planned but a production render site now references "
-                        "it — wiring complete; remove from PLANNED_TEMPLATES"
+                        "still staged, liveness unverifiable — a production "
+                        f"`.render()`/`.get()` call passes '{template_id}', but the "
+                        "collector is receiver-blind, so the call cannot be "
+                        "attributed to the prompt renderer; KEEP the entry and "
+                        "verify wiring by hand"
                     ),
                 )
             )
@@ -2218,9 +2349,12 @@ def print_event_report(
 
     by_severity: dict[BloatSeverity, list[Finding]] = defaultdict(list)
     stale_planned: list[Finding] = []
+    masked_planned: list[Finding] = []
     for finding in findings:
         if finding.kind == "planned-marking-stale":
             stale_planned.append(finding)
+        elif finding.kind == "planned-marking-masked":
+            masked_planned.append(finding)
         else:
             by_severity[finding.severity].append(finding)
 
@@ -2237,10 +2371,18 @@ def print_event_report(
         for finding in items:
             _print_finding(finding)
 
+    if masked_planned:
+        print(
+            f"\n{Colors.YELLOW}Planned, liveness unverifiable — publication not "
+            f"attributable, KEEP the entry ({len(masked_planned)}):{Colors.RESET}\n"
+        )
+        for finding in masked_planned:
+            _print_finding(finding)
+
     if stale_planned:
         print(
-            f"\n{Colors.RED}Stale planned markings — remove from PLANNED_EVENTS "
-            f"({len(stale_planned)}):{Colors.RESET}\n"
+            f"\n{Colors.RED}Stale planned markings — remove from PLANNED_EVENTS; "
+            f"these FAIL --check ({len(stale_planned)}):{Colors.RESET}\n"
         )
         for finding in stale_planned:
             _print_finding(finding)
@@ -2276,9 +2418,12 @@ def print_method_report(analysis: MethodAnalysis, verbose: bool) -> None:
 
     by_severity: dict[BloatSeverity, list[Finding]] = defaultdict(list)
     stale_planned: list[Finding] = []
+    masked_planned: list[Finding] = []
     for finding in analysis.findings:
         if finding.kind == "planned-marking-stale":
             stale_planned.append(finding)
+        elif finding.kind == "planned-marking-masked":
+            masked_planned.append(finding)
         else:
             by_severity[finding.severity].append(finding)
 
@@ -2320,10 +2465,18 @@ def print_method_report(analysis: MethodAnalysis, verbose: bool) -> None:
         for finding in planned:
             _print_finding(finding)
 
+    if masked_planned:
+        print(
+            f"\n{Colors.YELLOW}Planned, liveness unverifiable — name-masked, KEEP "
+            f"the entry ({len(masked_planned)}):{Colors.RESET}\n"
+        )
+        for finding in masked_planned:
+            _print_finding(finding)
+
     if stale_planned:
         print(
-            f"\n{Colors.RED}Stale planned markings — remove from PLANNED_METHODS "
-            f"({len(stale_planned)}):{Colors.RESET}\n"
+            f"\n{Colors.RED}Stale planned markings — remove from PLANNED_METHODS; "
+            f"these FAIL --check ({len(stale_planned)}):{Colors.RESET}\n"
         )
         for finding in stale_planned:
             _print_finding(finding)
@@ -2349,6 +2502,7 @@ def print_template_report(findings: list[Finding]) -> None:
         return
     print(f"\n{Colors.BOLD}📄 Prompt Templates (PLANNED backlog){Colors.RESET}")
     planned = [f for f in findings if f.severity is BloatSeverity.PLANNED]
+    masked = [f for f in findings if f.kind == "planned-marking-masked"]
     stale = [f for f in findings if f.kind == "planned-marking-stale"]
     if planned:
         print(
@@ -2356,6 +2510,13 @@ def print_template_report(findings: list[Finding]) -> None:
             f"({len(planned)}):{Colors.RESET}\n"
         )
         for finding in planned:
+            _print_finding(finding)
+    if masked:
+        print(
+            f"\n{Colors.YELLOW}Planned, liveness unverifiable — receiver-blind "
+            f"render match, KEEP the entry ({len(masked)}):{Colors.RESET}\n"
+        )
+        for finding in masked:
             _print_finding(finding)
     if stale:
         print(
@@ -2500,12 +2661,19 @@ def main() -> int:
         print_planned_aging(aging)
         print_limitations(codebase, usage, methods)
         warnings = [f for f in findings if f.severity is BloatSeverity.WARNING]
+        stale = [f for f in warnings if f.kind == "planned-marking-stale"]
         planned = [f for f in findings if f.severity is BloatSeverity.PLANNED]
         other = len(findings) - len(warnings) - len(planned)
         print(f"\n{Colors.BOLD}{'=' * 78}{Colors.RESET}")
         if warnings:
+            dead_count = len(warnings) - len(stale)
+            parts = []
+            if dead_count:
+                parts.append(f"{dead_count} structurally-dead findings")
+            if stale:
+                parts.append(f"{len(stale)} stale PLANNED markings")
             print(
-                f"{Colors.YELLOW}{len(warnings)} structurally-dead findings "
+                f"{Colors.YELLOW}{' + '.join(parts)} "
                 f"(+{other} unverified/info, {len(planned)} planned). "
                 f"Verify before deleting.{Colors.RESET}"
             )

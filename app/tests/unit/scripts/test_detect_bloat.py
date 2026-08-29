@@ -34,6 +34,7 @@ from detect_bloat import (  # type: ignore[import-not-found]
     VultureScan,
     analyze_events,
     analyze_methods,
+    analyze_planned_templates,
     json_document,
     measure_vulture_blind_spot,
     run_vulture,
@@ -432,7 +433,7 @@ def test_planned_event_subscriber_is_staging_not_dead_chain(monkeypatch):
     assert not any("dead wiring chain" in note for note in finding.annotations)
 
 
-def test_stale_planned_event_marking_is_reported(monkeypatch):
+def test_published_planned_event_is_masked_not_stale(monkeypatch):
     monkeypatch.setattr(
         detect_bloat, "PLANNED_EVENTS", {"GammaOrphan": "awaiting synthetic wiring"}
     )
@@ -444,9 +445,14 @@ def test_stale_planned_event_marking_is_reported(monkeypatch):
             )
         }
     )
-    stale = [f for f in findings if f.kind == "planned-marking-stale"]
-    assert [f.subject for f in stale] == ["GammaOrphan"]
-    assert stale[0].severity is BloatSeverity.INFO
+    # publish resolution over-approximates (file-scoped var index, class
+    # registries, inferred wrappers), so "now published" can never gate — it is
+    # reported as unverifiable, not stale (Codex P2, PR #1188).
+    assert not [f for f in findings if f.kind == "planned-marking-stale"]
+    masked = [f for f in findings if f.kind == "planned-marking-masked"]
+    assert [f.subject for f in masked] == ["GammaOrphan"]
+    assert masked[0].severity is BloatSeverity.INFO
+    assert "cannot be attributed" in masked[0].detail
 
 
 def test_vanished_planned_event_marking_is_reported(monkeypatch):
@@ -458,7 +464,7 @@ def test_vanished_planned_event_marking_is_reported(monkeypatch):
     _, _, findings = analyze({})
     stale = [f for f in findings if f.kind == "planned-marking-stale"]
     assert [f.subject for f in stale] == ["NoSuchEventAnywhere"]
-    assert stale[0].severity is BloatSeverity.INFO
+    assert stale[0].severity is BloatSeverity.WARNING
     assert "no such event class" in stale[0].detail
 
 
@@ -491,18 +497,180 @@ def test_planned_method_reports_planned_not_dead(monkeypatch):
     assert finding.kind == "method-awaiting-wiring"
 
 
-def test_stale_planned_method_marking_is_reported(monkeypatch):
+def test_stale_planned_method_marking_when_definition_vanished(monkeypatch):
     monkeypatch.setattr(
         detect_bloat,
         "PLANNED_METHODS",
-        {"core/services/x.py::now_live_method": "awaiting synthetic wiring"},
+        {"core/services/x.py::deleted_method": "awaiting synthetic wiring"},
     )
     codebase = build_codebase({})
-    # not a vulture candidate -> live or deleted
+    # not a vulture candidate, and no definition anywhere -> deleted or renamed
     analysis = analyze_methods(codebase, VultureScan([], frozenset()))
     stale = [f for f in analysis.findings if f.kind == "planned-marking-stale"]
-    assert [f.subject for f in stale] == ["now_live_method"]
-    assert stale[0].severity is BloatSeverity.INFO
+    assert [f.subject for f in stale] == ["deleted_method"]
+    assert stale[0].severity is BloatSeverity.WARNING
+    assert "no longer exists at this path" in stale[0].detail
+
+
+def test_attribute_collision_on_a_single_def_is_masked_not_stale(monkeypatch):
+    """One `x.name` load anywhere drops the candidate — with only ONE def.
+
+    Codex P2 on PR #1188: counting definition sites catches only the def-side
+    collision. Vulture's used-name set is global by attribute name, so an
+    unrelated `other.only_defined_once` masks a method that is still unwired.
+    Reading that as "wiring complete" would fail --check on honest staged work.
+    """
+    monkeypatch.setattr(
+        detect_bloat,
+        "PLANNED_METHODS",
+        {"core/services/x.py::only_defined_once": "awaiting synthetic wiring"},
+    )
+    codebase = build_codebase({"core/services/x.py": "def only_defined_once():\n    pass\n"})
+    # single def, but the NAME is in vulture's used set -> unverifiable
+    analysis = analyze_methods(codebase, VultureScan([], frozenset({"only_defined_once"})))
+
+    assert not [f for f in analysis.findings if f.kind == "planned-marking-stale"]
+    masked = [f for f in analysis.findings if f.kind == "planned-marking-masked"]
+    assert [f.subject for f in masked] == ["only_defined_once"]
+    assert masked[0].severity is BloatSeverity.INFO
+    assert "loaded as an attribute elsewhere" in masked[0].detail
+
+
+def test_name_masked_planned_method_is_flagged_but_never_stale(monkeypatch):
+    """A same-named method elsewhere makes vulture drop the candidate.
+
+    Regression for the attendee pair (#1119): the service method stayed staged
+    and unwired, but `self.backend.add_attendee(...)` marked the NAME used, so
+    the old negative-only check called a true marking stale. Deleting the entry
+    to clear that report would have hidden genuinely staged work.
+    """
+    monkeypatch.setattr(
+        detect_bloat,
+        "PLANNED_METHODS",
+        {"core/services/x.py::add_attendee": "awaiting synthetic wiring"},
+    )
+    codebase = build_codebase(
+        {
+            "core/services/x.py": "def add_attendee():\n    pass\n",
+            "core/services/y.py": "def add_attendee():\n    pass\n",
+        }
+    )
+    analysis = analyze_methods(codebase, VultureScan([], frozenset()))
+
+    assert not [f for f in analysis.findings if f.kind == "planned-marking-stale"]
+    masked = [f for f in analysis.findings if f.kind == "planned-marking-masked"]
+    assert [f.subject for f in masked] == ["add_attendee"]
+    assert masked[0].severity is BloatSeverity.INFO
+    assert "defined at 2 sites" in masked[0].detail
+    assert "KEEP the entry" in masked[0].detail
+
+
+def test_planned_event_outside_universe_but_defined_is_masked(monkeypatch):
+    """A class that exists but stopped being an event is an inheritance defect.
+
+    Codex P2 on PR #1188: universe membership proves event ELIGIBILITY, not
+    definition existence. A base-class edit — or a module missing from
+    core/events/__init__.py — drops a live class out of the universe, and
+    gating on that would tell the maintainer to delete registry metadata when
+    the real repair is the inheritance.
+    """
+    monkeypatch.setattr(detect_bloat, "PLANNED_EVENTS", {"NotAnEventAnymore": "awaiting wiring"})
+    codebase = build_codebase(
+        {"core/events/x.py": "class NotAnEventAnymore:\n    pass\n"},
+    )
+    universe = EventUniverse(codebase)
+    universe.build()
+    usage = EventUsageCollector(universe, codebase).collect()
+    findings, _exempted = analyze_events(universe, usage)
+
+    assert not [f for f in findings if f.kind == "planned-marking-stale"]
+    masked = [f for f in findings if f.kind == "planned-marking-masked"]
+    assert [f.subject for f in masked] == ["NotAnEventAnymore"]
+    assert masked[0].severity is BloatSeverity.INFO
+    assert "outside the event universe" in masked[0].detail
+    assert masked[0].file == "core/events/x.py"
+
+
+def test_same_named_class_outside_events_package_does_not_mask_a_deleted_event(monkeypatch):
+    """A name collision outside core/events/ must not suppress a true stale.
+
+    Codex round 5 on PR #1188: the first cut scanned the whole tree, so an
+    unrelated `class TaskCompleted` in a service would have masked a genuinely
+    deleted event and dropped it out of the gate. The scan is scoped with the
+    same predicate EventUniverse.build uses.
+    """
+    monkeypatch.setattr(detect_bloat, "PLANNED_EVENTS", {"DeletedEvent": "awaiting wiring"})
+    codebase = build_codebase({"core/services/x.py": "class DeletedEvent:\n    pass\n"})
+    universe = EventUniverse(codebase)
+    universe.build()
+    usage = EventUsageCollector(universe, codebase).collect()
+    findings, _exempted = analyze_events(universe, usage)
+
+    assert not [f for f in findings if f.kind == "planned-marking-masked"]
+    stale = [f for f in findings if f.kind == "planned-marking-stale"]
+    assert [f.subject for f in stale] == ["DeletedEvent"]
+    assert stale[0].severity is BloatSeverity.WARNING
+
+
+# ============================================================================
+# PLANNED_TEMPLATES — existence is provable, a render match is not
+# ============================================================================
+
+
+def _template_codebase(tmp_path, sources: dict[str, str], on_disk: list[str]) -> ParsedCodebase:
+    """ParsedCodebase rooted in tmp_path, with real .md floors written out.
+
+    analyze_planned_templates stats the filesystem, so the root cannot be the
+    repo — these tests own their template directory.
+    """
+    codebase = ParsedCodebase(tmp_path)
+    for rel, src in sources.items():
+        codebase.production[tmp_path / rel] = ast.parse(src)
+    tdir = tmp_path / detect_bloat.TEMPLATES_DIR_REL
+    tdir.mkdir(parents=True, exist_ok=True)
+    for template_id in on_disk:
+        (tdir / f"{template_id}.md").write_text("# floor\n", encoding="utf-8")
+    return codebase
+
+
+def test_stale_planned_template_marking_when_file_vanished(monkeypatch, tmp_path):
+    monkeypatch.setattr(detect_bloat, "PLANNED_TEMPLATES", {"gone_tpl": "awaiting wiring"})
+    findings = analyze_planned_templates(_template_codebase(tmp_path, {}, []))
+    stale = [f for f in findings if f.kind == "planned-marking-stale"]
+    assert [f.subject for f in stale] == ["gone_tpl"]
+    assert stale[0].severity is BloatSeverity.WARNING
+    assert "no longer exists" in stale[0].detail
+
+
+def test_receiver_blind_render_match_is_masked_not_stale(monkeypatch, tmp_path):
+    """An unrelated `.get()` on the same string must not demand removal.
+
+    Codex P2 on PR #1188: _collect_rendered_template_ids is receiver-blind, so
+    `settings.get("staged_tpl")` reads as a render site. Raising the became-live
+    report to WARNING would have turned that pre-existing false positive into a
+    CI failure telling the author to delete a still-valid PLANNED entry.
+    """
+    monkeypatch.setattr(detect_bloat, "PLANNED_TEMPLATES", {"staged_tpl": "awaiting wiring"})
+    codebase = _template_codebase(
+        tmp_path,
+        {"core/services/x.py": 'def f(settings):\n    return settings.get("staged_tpl")\n'},
+        ["staged_tpl"],
+    )
+    findings = analyze_planned_templates(codebase)
+
+    assert not [f for f in findings if f.kind == "planned-marking-stale"]
+    masked = [f for f in findings if f.kind == "planned-marking-masked"]
+    assert [f.subject for f in masked] == ["staged_tpl"]
+    assert masked[0].severity is BloatSeverity.INFO
+    assert "receiver-blind" in masked[0].detail
+
+
+def test_unreferenced_template_stays_planned(monkeypatch, tmp_path):
+    monkeypatch.setattr(detect_bloat, "PLANNED_TEMPLATES", {"staged_tpl": "awaiting wiring"})
+    findings = analyze_planned_templates(_template_codebase(tmp_path, {}, ["staged_tpl"]))
+    assert [(f.kind, f.severity) for f in findings] == [
+        ("template-awaiting-wiring", BloatSeverity.PLANNED)
+    ]
 
 
 # ============================================================================
