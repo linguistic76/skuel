@@ -101,7 +101,7 @@ route_count = len(app.routes) if hasattr(app, "routes") else 0  # skuel-lint: di
 # skuel-lint: disable-file=SKUEL005 -- Cache service, raw values not Result[T]
 ```
 
-**Supported rules:** SKUEL005, SKUEL011, SKUEL012, SKUEL013, SKUEL014, SKUEL015, SKUEL017, SKUEL018, SKUEL019, SKUEL020, SKUEL021, SKUEL022, SKUEL023, SKUEL024, SKUEL025, SKUEL027, SKUEL028, SKUEL029, SKUEL030, SKUEL032 — the `SUPPRESSIBLE_RULES` set in `lint_skuel.py`, drift-guarded by `TestSuppressibleRulesDrift` (a source scan of the suppression-helper call sites). A comment naming any other rule does nothing and is flagged by SKUEL026.
+**Supported rules:** SKUEL005, SKUEL011, SKUEL012, SKUEL013, SKUEL014, SKUEL015, SKUEL017, SKUEL018, SKUEL019, SKUEL020, SKUEL021, SKUEL022, SKUEL023, SKUEL024, SKUEL025, SKUEL027, SKUEL028, SKUEL029, SKUEL030, SKUEL032, SKUEL033 — the `SUPPRESSIBLE_RULES` set in `lint_skuel.py`. `TestSuppressibleRulesDrift` pins that *set* to the checkers' suppression-helper call sites; it does not pin this list to the set (SKUEL033 was missing here for a month) — the list-side pin is registered in `docs/roadmap/deferred-work.md` § Catalog Copies in Code. A comment naming any other rule does nothing and is flagged by SKUEL026.
 
 **SKUEL017** additionally recognizes `# intentional-broad: <reason>` and `# safety-net: <reason>` (anywhere in the except-clause header, or the line above — both survive formatter wrapping).
 
