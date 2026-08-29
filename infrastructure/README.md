@@ -12,7 +12,7 @@
 
 This directory contains **all infrastructure services** that SKUEL depends on, completely separated from application code.
 
-**What runs here:** Neo4j 2026.06.0 (graph database)
+**What runs here:** Neo4j 2026.07.1 (graph database)
 **What connects here:** SKUEL application (`/home/mike/skuel/app`)
 
 > **This directory is LOCAL DEVELOPMENT only.** Production does not use anything in here:
@@ -440,7 +440,7 @@ docker stats skuel-neo4j
 
 | Service | Status | Purpose | Ports |
 |---------|--------|---------|-------|
-| **Neo4j 2026.06.0** | ✅ Running | Graph database (primary data store) | 7474 (HTTP), 7687 (Bolt) |
+| **Neo4j 2026.07.1** | ✅ Running | Graph database (primary data store) | 7474 (HTTP), 7687 (Bolt) |
 
 **Total Active Services:** 1
 **Total Data Volume:** All in `./neo4j/data/`
@@ -555,7 +555,7 @@ tags) so every environment is reproducible. The long-support, no-treadmill alter
 LTS — a separate, ADR-worthy call.
 
 > **Direction matters.** Neo4j auto-migrates the store *forward*, so moving to a newer monthly
-> (e.g. `2026.06.0` → `2026.07.0`) is an in-place upgrade — back up, swap the tag, restart.
+> (e.g. `2026.06.0` → `2026.07.1`) is an in-place upgrade — back up, swap the tag, restart.
 > It does **not** support *downgrades*: a store written by a newer server will not open on an older
 > one, so rolling back means restoring the pre-upgrade backup, not just re-pinning the old tag.
 
