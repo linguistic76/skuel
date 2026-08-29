@@ -328,7 +328,7 @@ class TestNeo4jVersionCanary:
     """
     Canary tests for Neo4j version verification.
 
-    The server tracks the calendar line (2026.06.0); the driver stays on the
+    The server tracks the calendar line (exact pin: infrastructure/docker-compose.yml); the driver stays on the
     last 5.x release (5.26.0). The two are DECOUPLED — Bolt keeps the 5.26
     driver forward-compatible with 2026.x servers. See ADR-067 §§ 3, 3a.
     """
