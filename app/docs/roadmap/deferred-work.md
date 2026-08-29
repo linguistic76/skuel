@@ -1997,7 +1997,14 @@ must **rewrite the existing key in place**, never append a second `updated:`.
    committed with `--no-verify` — the exact bypass this guard exists to catch — can arrive
    with **no** `updated:` key at all, and then there is no date that predates anything, so
    a naive checker skips it and stays green. Fail on **missing**, **duplicate**, or
-   **unparsable** `updated:` in an in-scope doc *before* comparing dates. **Bound it from
+   **unparsable** `updated:` in an in-scope doc *before* comparing dates.
+   ⚠️ **Parse the leading YAML block only — never grep the whole file.** A body example is
+   not a duplicate key: `docs/README.md` carries the real `updated:` at line 4 and a
+   documentation example at line 104, and `patterns/CYPHER_VS_APOC_STRATEGY.md` does the
+   same (measured 2026-08-29: exactly those two of 411). A whole-file `^updated:` count
+   flags both as duplicates, the backfill will not remove a legitimate example, and the new
+   guard sits permanently red. Use `core/utils/frontmatter.py::split_frontmatter` — it
+   already exists; do not hand-roll a parser. **Bound it from
    both sides:** a lower-bound-only check stays green forever on a future value like
    `updated: 2099-01-01`, which never predates anything and would mask every unstamped edit
    for years — require `updated:` to be no later than the file's newest commit date too, so
@@ -2047,13 +2054,14 @@ other pinned archives are exempt.
   repo-root-relative ones (`app/docs/...`). Joining the two on filename matches nothing,
   every file looks current, and the measurement reads a clean `0 stale`. This happened on
   the first run of the measurement above.
-- Thirteen of the traps above — partial staging, backfill self-invalidation, quoted scalars,
+- Fourteen of the traps above — partial staging, backfill self-invalidation, quoted scalars,
   worktree desync, an unwired guard, a guard blind to missing fields, a refusal branch that
   lets the commit through, a future date that passes a lower-bound check, an exclusion rule
   its own prescribed tool cannot implement, a new file with no frontmatter to stamp, a
   squash merge that makes every correctly stamped doc look stale, a timezone boundary that
-  rejects a valid stamp as a future date, and a Review Schedule row still prescribing the
-  broken comparison — were found by Codex review of the *registration* across seven rounds,
+  rejects a valid stamp as a future date, a Review Schedule row still prescribing the broken
+  comparison, and a duplicate check that a body example turns permanently red — were found
+  by Codex review of the *registration* across eight rounds,
   not of an implementation. One qualified the ruling's own premise, and **three** were this
   document contradicting itself, which is the very failure class its sub-finding below
   describes. Every round after the first found holes in the previous round's fix, and
