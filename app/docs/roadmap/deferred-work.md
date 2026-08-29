@@ -1908,27 +1908,54 @@ maintained, so reading it as evidence is a mistake.
 | | Count |
 |---|---|
 | tracked `app/docs/**/*.md` | 411 |
-| no `updated:` field at all | 217 |
+| no `updated:` field at all | 192 |
 | has the field, date **>=** last commit | 25 |
-| has the field, date **older** than last commit (STALE) | **169** |
+| has the field, date **older** than last commit (STALE) | **194** |
 
-Lag among the 169: 21 same-month, 114 one-to-five months, 34 six months or more. Worst:
-`decisions/ADR-002-user-progress-service-query.md` reads `2025-11-27` against a
-`2026-07-20` last commit. PR #1182 corrected exactly one of the 169 by hand — which is
-what prompted measuring the rest.
+Lag among the 194: 26 same-month, 128 one-to-five months, 40 six months or more. Worst:
+`patterns/http_status_codes.md` reads `2025-10-17` against a `2026-03-09` last commit.
+PR #1182 corrected exactly one of the 194 by hand — which is what prompted measuring the
+rest.
+
+⚠️ **The value may be quoted.** 25 files write `updated: '2026-04-20'`, and a
+`^updated:\s*(\d{4}-\d{2}-\d{2})$` parser silently classifies every one of them as
+*fieldless* — which is how the first census here counted the field present on only 194
+files and absent on 217, when the true split is 219 present / 192 absent (Codex P2 on
+#1184). Both the backfill and the guard must accept quoted scalars, and the backfill
+must **rewrite the existing key in place**, never append a second `updated:`.
 
 **Contract (one PR):**
 
 1. **Stamp.** Extend `app/scripts/git-hooks/pre-commit` (the tracked script behind
-   `core.hooksPath`; `.git/hooks/pre-commit` is a symlink to it) with a check that, for
-   each staged `.md` in scope, rewrites or inserts `updated: <today>` in the frontmatter
-   and **`git add`s the file back** — without that re-add the stamp is not in the commit.
-2. **Backfill.** One-shot script: stamp the 169 stale files and insert the field on the
-   217 that lack it, using each file's **last commit date, not today** — today would be a
-   fresh lie about when the content changed.
+   `core.hooksPath`; `.git/hooks/pre-commit` is a symlink to it) so that, for each staged
+   `.md` in scope, the frontmatter's `updated:` becomes the commit date.
+   ⛔ **Not with a plain `git add <path>`.** That replaces the index entry with the whole
+   working tree file, silently staging every hunk the author deliberately left out of a
+   `git add -p` — including work the hook's own secrets check (check 1) already scanned
+   past. Either write the stamped blob straight into the index
+   (`git hash-object -w` → `git update-index --cacheinfo`) or **refuse to stamp a
+   partially-staged file** and tell the author. Choose one and say which in the PR.
+2. **Backfill.** One-shot over the 194 stale + 192 fieldless files. See the
+   *history-or-not* fork below — it decides what date this writes.
 3. **Guard.** A `./dev health-*` check (family: `app/scripts/health/`) that fails when any
-   tracked doc's `updated:` predates its last commit, so a silently-broken hook is caught
-   rather than trusted.
+   tracked doc's `updated:` predates the last commit that changed the file, so a
+   silently-broken hook is caught rather than trusted.
+   ⚠️ **Ignore stamp-only commits**, or the backfill invalidates itself: the moment the
+   backfill lands it becomes the newest commit for all 386 rewritten files, so every
+   historical date it just wrote predates it and the guard fails on nearly the whole
+   corpus (Codex P1 on #1184). One rule covers both the bootstrap and any future
+   stamp-only commit: **skip commits whose diff for that file touches only the `updated:`
+   line.** Prefer that to hardcoding the backfill SHA.
+
+**Fork the PR must settle — does `updated:` keep pre-stamp history?**
+
+- **(i) Preserve it (recommended).** Backfill writes each file's last *substantive* commit
+   date; the hook does not stamp during the backfill commit; the guard carries the
+   stamp-only exclusion above permanently. Costs one rule, keeps ~10 months of real dating.
+- **(ii) Don't.** Backfill stamps everything to the backfill date and `updated:` means
+   "changed since the stamp went live." No exclusion logic at all, but every doc claims the
+   same date and the pre-2026-08 history is gone. Only pick this if (i)'s one rule proves
+   harder than it reads.
 
 **Decide inside the PR (not blocking):** scope beyond `app/docs/**` — `.claude/skills/**/SKILL.md`,
 root `AGENTS.md`, `CLAUDE.md` were **not** measured; and whether `docs/roadmap/done/` and
@@ -1941,9 +1968,9 @@ other pinned archives are exempt.
   repo-root-relative ones (`app/docs/...`). Joining the two on filename matches nothing,
   every file looks current, and the measurement reads a clean `0 stale`. This happened on
   the first run of the measurement above.
-- The hook rewrites **staged content**, so it interacts with partial staging (`git add -p`):
-  stamping a file the author staged only in part pulls the whole frontmatter hunk in.
-  Choose and document the behaviour.
+- Three of the four traps above (partial staging, backfill self-invalidation, quoted
+  scalars) were found by Codex review of the *registration*, not of an implementation —
+  the contract is the artifact worth reviewing here.
 
 ### Sub-finding: same-file contradictory ruling prose is NOT mechanizable
 
@@ -2016,7 +2043,7 @@ Review this document at the **September 2026 quarterly review**. Checklist:
 | PathStep → Ku wiring backlog (1 Ku-less step; 67 Kus composed by no step) | Mike's next `Ps_dev` content session | The three counts in the section, over all three composition edges (`USES_KU\|TRAINS_KU\|CONTAINS_KNOWLEDGE`, never `USES_KU` alone) — 1 / 67 / 67 on 2026-08-28 |
 | py314 annotation sweeps — UP037 schedulable, TC002/TC003 never (home: ADR-067 § Deferred) | UP037: a churn window Mike picks; TC002/TC003: never | `uv run ruff check --select UP037 --statistics .` — 1222 on 2026-08-28 |
 | Parked features (activity ledger · interest/gravity · icon provider · templates re-homing) | Mike schedules each — feature work, never self-scoped | The four `git grep` checks in the section, all empty on 2026-08-28 |
-| Docs `updated:` frontmatter auto-stamp (ruled 2026-08-29 — build it, fresh context) | Ruled, not gated: Mike starts it. NOT a data threshold — do not re-litigate the delete-vs-stamp choice | Stale count must be **0** once shipped: compare each doc's frontmatter `updated:` against its last commit date — 169 stale of 194 with the field, plus 217 with no field, on 2026-08-29. ⚠️ match paths on the SAME base (`git ls-files` is CWD-relative, `git log --name-only` is repo-root-relative) or the check reads a false 0 |
+| Docs `updated:` frontmatter auto-stamp (ruled 2026-08-29 — build it, fresh context) | Ruled, not gated: Mike starts it. NOT a data threshold — do not re-litigate the delete-vs-stamp choice | Stale count must be **0** once shipped: compare each doc's frontmatter `updated:` against its last commit date — 194 stale of 219 with the field, plus 192 with no field, on 2026-08-29. ⚠️ two ways to read a false clean: match paths on the SAME base (`git ls-files` is CWD-relative, `git log --name-only` is repo-root-relative), and accept QUOTED dates (`updated: '2026-04-20'`, 25 files) |
 
 **The document is the checklist, the table is a convenience:** a section added to this file
 without a matching row here is still in review scope — walk every `##` section, then the table.
