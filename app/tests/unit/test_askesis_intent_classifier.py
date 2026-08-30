@@ -15,7 +15,11 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from core.constants import IntelligenceThreshold
-from core.services.askesis.intent_classifier import IntentClassifier, QueryIntent
+from core.services.askesis.intent_classifier import (
+    ExemplarLoad,
+    IntentClassifier,
+    QueryIntent,
+)
 from core.utils.result_simplified import Errors, Result
 
 # ============================================================================
@@ -187,12 +191,66 @@ class TestClassifyIntentScored:
         assert scored.value.score < IntelligenceThreshold.INTENT_CLASSIFICATION
 
     @pytest.mark.asyncio
+    async def test_a_partial_exemplar_load_is_refused(self, mock_embeddings) -> None:
+        # A transient 429 partway through the 48 exemplar embeddings leaves a
+        # subset cached for the process's lifetime. Averages then run over
+        # unequal denominators, so scores stop being comparable across intents
+        # — confident-looking numbers with no error, which is precisely what
+        # this API exists to prevent.
+        vector = [1.0] + [0.0] * 1023
+        mock_embeddings.create_embedding = AsyncMock(return_value=Result.ok(vector))
+        classifier = IntentClassifier(embeddings_service=mock_embeddings)
+        classifier._intent_exemplar_embeddings = {QueryIntent.PRACTICE: [vector]}
+        classifier._exemplar_load = ExemplarLoad(
+            expected=48, loaded=44, intents_expected=6, intents_loaded=6
+        )
+
+        scored = await classifier.classify_intent_scored("anything")
+
+        assert scored.is_error
+        assert "44/48" in str(scored.expect_error())
+
+    @pytest.mark.asyncio
+    async def test_a_missing_intent_is_refused(self, mock_embeddings) -> None:
+        # An intent that lost every exemplar can never win — a silent
+        # narrowing of the classification space.
+        vector = [1.0] + [0.0] * 1023
+        mock_embeddings.create_embedding = AsyncMock(return_value=Result.ok(vector))
+        classifier = IntentClassifier(embeddings_service=mock_embeddings)
+        classifier._intent_exemplar_embeddings = {QueryIntent.PRACTICE: [vector]}
+        classifier._exemplar_load = ExemplarLoad(
+            expected=48, loaded=48, intents_expected=6, intents_loaded=5
+        )
+
+        assert (await classifier.classify_intent_scored("anything")).is_error
+
+    @pytest.mark.asyncio
+    async def test_the_fail_soft_path_still_tolerates_a_partial_load(self, mock_embeddings) -> None:
+        # The strictness is the SCORED contract's alone. classify_intent keeps
+        # its documented "lower precision, not a crash" behaviour, so this
+        # change moves no production behaviour.
+        vector = [1.0] + [0.0] * 1023
+        mock_embeddings.create_embedding = AsyncMock(return_value=Result.ok(vector))
+        classifier = IntentClassifier(embeddings_service=mock_embeddings)
+        classifier._intent_exemplar_embeddings = {QueryIntent.PRACTICE: [vector]}
+        classifier._exemplar_load = ExemplarLoad(
+            expected=48, loaded=44, intents_expected=6, intents_loaded=6
+        )
+
+        soft = await classifier.classify_intent("anything")
+
+        assert soft.is_ok and soft.value is QueryIntent.PRACTICE
+
+    @pytest.mark.asyncio
     async def test_above_the_gate_returns_the_matched_intent(self, mock_embeddings) -> None:
         # An identical vector scores 1.0 — comfortably over the gate.
         vector = [1.0] + [0.0] * 1023
         mock_embeddings.create_embedding = AsyncMock(return_value=Result.ok(vector))
         classifier = IntentClassifier(embeddings_service=mock_embeddings)
         classifier._intent_exemplar_embeddings = {QueryIntent.PRACTICE: [vector]}
+        classifier._exemplar_load = ExemplarLoad(
+            expected=1, loaded=1, intents_expected=1, intents_loaded=1
+        )
 
         scored = await classifier.classify_intent_scored("anything")
 

@@ -63,6 +63,31 @@ logger = get_logger(__name__)
 
 
 @dataclass(frozen=True)
+class ExemplarLoad:
+    """How completely the intent exemplar set embedded on its one-time load.
+
+    Cached with the embeddings it describes, because the load happens once and
+    a partial result is kept for the process's lifetime.
+    """
+
+    expected: int
+    loaded: int
+    intents_expected: int
+    intents_loaded: int
+
+    def is_complete(self) -> bool:
+        """True when every exemplar of every intent embedded successfully."""
+        return self.loaded == self.expected and self.intents_loaded == self.intents_expected
+
+    def describe(self) -> str:
+        """One-line summary for an error message."""
+        return (
+            f"{self.loaded}/{self.expected} exemplars across "
+            f"{self.intents_loaded}/{self.intents_expected} intents"
+        )
+
+
+@dataclass(frozen=True)
 class IntentClassification:
     """A classification verdict WITH the confidence that produced it.
 
@@ -186,6 +211,7 @@ class IntentClassifier:
 
         # Lazy-loaded intent exemplar embeddings (one-time initialization)
         self._intent_exemplar_embeddings: dict[QueryIntent, list[list[float]]] | None = None
+        self._exemplar_load: ExemplarLoad | None = None
 
         logger.info("IntentClassifier initialized")
 
@@ -363,22 +389,12 @@ class IntentClassifier:
     # PRIVATE — EMBEDDING-BASED INTENT CLASSIFICATION
     # ========================================================================
 
-    async def classify_intent_scored(self, query: str) -> Result[IntentClassification]:
-        """Classify intent AND report the confidence behind the verdict.
+    async def _score_against_exemplars(self, query: str) -> Result[IntentClassification]:
+        """Score the query against whatever exemplars are loaded.
 
-        The observable counterpart to ``classify_intent``. That method is
-        fail-soft by design — it converts an embedding outage into
-        ``Result.ok(SPECIFIC)`` so an Askesis turn still answers — which makes a
-        provider failure indistinguishable from a genuine low-confidence
-        classification at the call site. Anything that must tell those apart
-        (measurement, diagnostics, an eval that would otherwise score an outage
-        as a finding) calls this instead and gets a real ``Result.fail``.
-
-        The score is the best AVERAGE cosine similarity across an intent's
-        exemplar set, and ``confident`` says whether it cleared
-        ``IntelligenceThreshold.INTENT_CLASSIFICATION``. A verdict of SPECIFIC
-        with a score far below the gate means the gate is out of reach, not that
-        the query was unusual — the two readings call for opposite fixes.
+        The shared engine under both public contracts. It deliberately does NOT
+        judge the exemplar set's COMPLETENESS — tolerating a partial set is the
+        difference between the two callers, so that check lives in them.
         """
         await self._ensure_exemplars_loaded()
 
@@ -422,6 +438,50 @@ class IntentClassifier:
             )
         )
 
+    async def classify_intent_scored(self, query: str) -> Result[IntentClassification]:
+        """Classify intent AND report the confidence behind the verdict.
+
+        The observable counterpart to ``classify_intent``. That method is
+        fail-soft by design — it converts an embedding outage into
+        ``Result.ok(SPECIFIC)`` so an Askesis turn still answers — which makes a
+        provider failure indistinguishable from a genuine low-confidence
+        classification at the call site. Anything that must tell those apart
+        (measurement, diagnostics, an eval that would otherwise score an outage
+        as a finding) calls this instead and gets a real ``Result.fail``.
+
+        Stricter than ``classify_intent`` in one further way, deliberately: it
+        refuses an INCOMPLETE exemplar set. A load that lost exemplars to a
+        transient error is cached for the process's lifetime, and its per-intent
+        averages are then taken over unequal denominators — scores that are no
+        longer comparable across intents, and an intent that lost all eight can
+        never win. ``classify_intent`` tolerates that as its documented "lower
+        precision, not a crash"; a caller asking for the SCORE is asking whether
+        the score can be trusted, and a silently-degraded set is exactly the
+        answer it must not miss.
+
+        The score is the best AVERAGE cosine similarity across an intent's
+        exemplar set, and ``confident`` says whether it cleared
+        ``IntelligenceThreshold.INTENT_CLASSIFICATION``. A verdict of SPECIFIC
+        with a score far below the gate means the gate is out of reach, not that
+        the query was unusual — the two readings call for opposite fixes.
+        """
+        scored = await self._score_against_exemplars(query)
+        if scored.is_error:
+            return scored
+        load = self._exemplar_load
+        if load is not None and not load.is_complete():
+            return Result.fail(
+                Errors.unavailable(
+                    feature="intent_classification",
+                    reason=(
+                        f"exemplar set incomplete ({load.describe()}) — scores are "
+                        "averaged over unequal exemplar counts and are not comparable"
+                    ),
+                    operation="classify_intent_scored",
+                )
+            )
+        return scored
+
     async def _classify_via_embeddings(self, query: str) -> QueryIntent | None:
         """Classify intent using semantic similarity to exemplars.
 
@@ -430,8 +490,12 @@ class IntentClassifier:
         or the classification could not be performed at all. The caller
         (``classify_intent``) turns both of those into SPECIFIC; a caller that
         must distinguish them wants ``classify_intent_scored``.
+
+        Scores against whatever exemplars loaded, INCLUDING a partial set — the
+        documented fail-soft contract. The strict completeness check belongs to
+        ``classify_intent_scored``, so this path's behaviour is unchanged.
         """
-        scored = await self.classify_intent_scored(query)
+        scored = await self._score_against_exemplars(query)
         if scored.is_error:
             logger.warning(
                 "Intent classification unavailable — cannot classify: %s", scored.expect_error()
@@ -491,6 +555,19 @@ class IntentClassifier:
                 logger.warning("No exemplars loaded for intent %s — will not match", intent.value)
 
         self._intent_exemplar_embeddings = exemplar_embeddings
+        # Keep the completeness of THIS load. A partially-loaded set is cached
+        # permanently, and its per-intent averages are then taken over
+        # different denominators — scores stop being comparable ACROSS intents,
+        # which biases which intent wins, and an intent that lost every
+        # exemplar can never win at all. `classify_intent` tolerates that by
+        # documented design; `classify_intent_scored` must not, or a corrupted
+        # set would yield confident-looking numbers with no error.
+        self._exemplar_load = ExemplarLoad(
+            expected=sum(len(queries) for queries in INTENT_EXEMPLARS.values()),
+            loaded=sum(len(embs) for embs in exemplar_embeddings.values()),
+            intents_expected=len(INTENT_EXEMPLARS),
+            intents_loaded=len(exemplar_embeddings),
+        )
 
         if failed_count:
             logger.warning(
