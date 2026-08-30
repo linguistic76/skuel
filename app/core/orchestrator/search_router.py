@@ -1045,17 +1045,17 @@ class SearchRouter:
         Returns an ``unavailable`` error on the CORE tier (no vector search), so the
         caller can fail soft rather than crash — the Digital layer is optional.
 
+        ``user_uid`` is the AUDIENCE (ADR-085), the chunk-level twin of the
+        visibility clause every entity strategy composes: published curriculum
+        passages are visible to everyone, a UserEntry's passages only to its
+        owner. The chunk index holds both (canon P3 chunks non-private knowledge
+        notes), so this is the difference between grounding a learner's answer
+        in their own notes and in another user's. ``None`` reads curriculum
+        only — never "everything".
+
         Backend: Neo4jVectorSearchService.find_similar_chunks_by_text →
         VectorSearchBackend.semantic_search_chunks.
         """
-        # Reserved: future owner-scoped chunk VISIBILITY (parity with
-        # faceted_search — curriculum chunks visible to all + the user's own).
-        # Deliberately NOT wired to semantic_search_chunks(owner_uid=...): that
-        # parameter is the canon-P3 vault scope (OWNS-only + private-excluded),
-        # which would EXCLUDE ownerless curriculum chunks and break Askesis.
-        # Different feature, different clause.
-        del user_uid
-
         vector_search = self._vector_search
         if vector_search is None:
             return Result.fail(
@@ -1072,6 +1072,7 @@ class SearchRouter:
             limit=request.limit,
             min_score=min_score,
             parent_filters=request.to_property_filters(),
+            viewer_uid=user_uid,
         )
 
     # Domains that support graph_aware_faceted_search (January 2026 - Unified Search)
@@ -1135,6 +1136,13 @@ class SearchRouter:
         Parent cards obey the request's ENTITY-TYPE scope as well: a sweep
         narrowed to Ku admits Ku bodies only, so a curriculum domain excluded
         from the frontmatter results cannot re-enter through the Digital layer.
+
+        Audience: this path passes no viewer, so the backend's visibility
+        clause admits PUBLISHED CURRICULUM bodies only — UserEntry passages
+        never fold into /search (UserEntry is excluded from cross-domain
+        sweeps by ruling), and they no longer occupy candidate slots either;
+        the ``target_values`` drop in ``_aggregate_body_chunk_parents`` is the
+        entity-type scope, not the audience gate.
 
         Fails SOFT and NEVER raises: no vector service (CORE tier), no query, or
         a search error all return ``response`` unchanged so /search stays fully

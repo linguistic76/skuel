@@ -593,6 +593,9 @@ class TestFindSimilarChunksRouting:
 
         mapped = await retriever._find_similar_chunks("what is body awareness?", "user_1")
 
+        # The asking user IS the audience: Askesis grounds in curriculum plus
+        # this user's own notes, never another user's (ADR-085 chunk twin).
+        assert router.retrieve_scoped_chunks.await_args.kwargs["user_uid"] == "user_1"
         assert len(mapped) == 1
         row = mapped[0]
         assert row["chunk_uid"] == "chunk_1"

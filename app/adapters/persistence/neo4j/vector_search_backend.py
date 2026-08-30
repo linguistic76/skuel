@@ -14,7 +14,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, cast
 
-from adapters.persistence.neo4j.query.cypher import build_publication_clause
+from adapters.persistence.neo4j.query.cypher import (
+    build_publication_clause,
+    build_search_visibility_clause,
+)
+from core.models.enums.entity_enums import EntityType
+from core.models.enums.metadata_enums import SearchVisibility
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
@@ -27,13 +32,24 @@ if TYPE_CHECKING:
     from core.ports.query_types import SemanticSearchChunkResult
 
 
-# Facet-scoped chunk search post-filters AFTER the vector index ranks by score
-# (Neo4j 5.26 has no pre-filtered vector search), so higher-scoring off-facet
-# chunks can crowd out valid in-scope ones. Widen the candidate pool through
-# this schedule until `limit` in-scope chunks survive — early-exit for
-# well-populated facets, ceiling (last step) for narrow ones. Unscoped search
-# keeps a single 2x over-fetch. Superseded by pre-filtered vector search at scale.
-_SCOPED_CANDIDATE_SCHEDULE: tuple[int, ...] = (10, 40, 160)
+# Chunk search post-filters AFTER the vector index ranks by score (Neo4j 5.26
+# has no pre-filtered vector search), so higher-scoring out-of-scope chunks can
+# crowd out valid in-scope ones. Widen the candidate pool through this schedule
+# until `limit` in-scope chunks survive — early-exit for well-populated scopes,
+# ceiling (last step) for narrow ones. EVERY chunk query is scoped (the
+# visibility clause below is unconditional), so there is no unscoped
+# single-pass variant. Superseded by pre-filtered vector search at scale.
+_CANDIDATE_SCHEDULE: tuple[int, ...] = (10, 40, 160)
+
+# The chunk index mixes parents of two audiences: shared curriculum (Ku /
+# PathStep bodies — `chunks_body_content`) and user-owned notes (non-private
+# knowledge UserEntries — canon P3). The split is read off the EntityType
+# authority, never a hand-kept list, so a future chunked type is scoped by
+# construction: user-owned → needs the viewer, anything else → needs to be
+# published. Sorted for a stable parameter (query-cache friendly).
+_USER_OWNED_ENTITY_TYPE_VALUES: tuple[str, ...] = tuple(
+    sorted(entity_type.value for entity_type in EntityType if entity_type.is_user_owned())
+)
 
 
 class VectorSearchBackend:
@@ -144,6 +160,7 @@ class VectorSearchBackend:
         parent_uid: str | None = None,
         parent_filters: FilterParams | None = None,
         owner_uid: str | None = None,
+        viewer_uid: str | None = None,
     ) -> Result[list[SemanticSearchChunkResult]]:
         """Vector search across :ContentChunk nodes for precise RAG retrieval.
 
@@ -163,9 +180,19 @@ class VectorSearchBackend:
         property — and the private gate is belt-and-suspenders (a private note
         structurally has no chunks; the WHERE guarantees it anyway). Scoped
         rows additionally return ``parent_metadata`` (the raw metadata JSON,
-        carrying ``vault_file_path`` for citations). With ``owner_uid=None``
-        the emitted Cypher is byte-identical to the unscoped query — guarded by
-        ``test_unscoped_query_is_single_pass_and_unchanged``.
+        carrying ``vault_file_path`` for citations).
+
+        ``viewer_uid`` is the AUDIENCE scope (ADR-085), applied to EVERY query —
+        there is no unscoped chunk read. The chunk index mixes shared curriculum
+        with user-owned notes, and the parent decides which half a chunk is on
+        (``_USER_OWNED_ENTITY_TYPE_VALUES``): a curriculum parent must be
+        published (``build_publication_clause``); a user-owned parent must be
+        the viewer's own (``build_search_visibility_clause(OWNER_ONLY)``, the
+        same predicate every entity search strategy composes) and not
+        ``private``. With ``viewer_uid=None`` only the curriculum half is
+        emitted — an anonymous reader sees no user's notes, and a caller that
+        forgets the viewer fails CLOSED rather than open. ``owner_uid`` narrows
+        further (vault-only); it does not replace the viewer.
         """
         parts = [
             """CALL db.index.vector.queryNodes(
@@ -193,7 +220,7 @@ class VectorSearchBackend:
             "chunk_types": chunk_types,
             "parent_uid": parent_uid,
         }
-        scope_clauses: list[str] = []
+        scope_clauses: list[str] = [self._chunk_visibility_clause(params, viewer_uid)]
         # Owner scope (canon P3): OWNS edge on the parent + the hard private
         # exclusion. Ordered ahead of the facet clauses so the cheap edge
         # check prunes before property comparisons.
@@ -216,8 +243,7 @@ class VectorSearchBackend:
                         f"ELSE parent.{field} = ${pname} END)"
                     )
                 params[pname] = value
-        if scope_clauses:
-            parts.append("WHERE " + " AND ".join(scope_clauses))
+        parts.append("WHERE " + " AND ".join(scope_clauses))
         metadata_return = ",\n            parent.metadata as parent_metadata" if owner_uid else ""
         parts.append(
             f"""RETURN
@@ -235,19 +261,17 @@ class VectorSearchBackend:
         cypher = "\n".join(parts)
 
         # Escalate the candidate pool until `limit` in-scope chunks survive the
-        # scope filter (unscoped → single 2x pass, unchanged). Each pass is a
-        # strict superset of the last, so the final result stands alone.
-        scoped = bool(parent_filters or owner_uid)
-        schedule = _SCOPED_CANDIDATE_SCHEDULE if scoped else (2,)
+        # scope filter. Each pass is a strict superset of the last, so the
+        # final result stands alone.
         # boundary: query_executor returns dict rows; the Cypher's RETURN
         # clause matches SemanticSearchChunkResult by construction.
         last: Result[list[Any]] = Result.ok([])
-        for multiplier in schedule:
+        for multiplier in _CANDIDATE_SCHEDULE:
             params["candidate_limit"] = limit * multiplier
             last = await self._executor.execute_query(cypher, params)
             if last.is_error or len(last.value) >= limit:
                 break
-        if scoped and last.is_ok:
+        if last.is_ok:
             # Growth tripwire: when the ceiling pass still under-fills, the
             # corpus has outgrown the schedule — time for pre-filtered search.
             logger.debug(
@@ -257,6 +281,45 @@ class VectorSearchBackend:
                 limit,
             )
         return cast("Result[list[SemanticSearchChunkResult]]", last)
+
+    @staticmethod
+    def _chunk_visibility_clause(params: dict[str, Any], viewer_uid: str | None) -> str:
+        """Compose the audience predicate on the chunk's owning ``parent``.
+
+        Two halves, split by whether the parent's EntityType is user-owned:
+        curriculum parents pass when published; user-owned parents pass only
+        for their owner (and never when ``private``). Both halves are the
+        shared builders — this method decides WHICH applies to a row, it
+        authors no predicate of its own. Adds the parameters it references
+        to ``params``; the owner half is emitted only with a viewer.
+        """
+        params["user_owned_types"] = list(_USER_OWNED_ENTITY_TYPE_VALUES)
+        curriculum = build_search_visibility_clause(
+            SearchVisibility.PUBLIC, entity_alias="parent", has_user=False
+        )
+        # PUBLIC with the publication gate always yields a fragment — the
+        # None branch is for a domain that declares nothing; raise loudly
+        # rather than silently drop the gate if that contract ever changes.
+        if curriculum is None:
+            raise RuntimeError("PUBLIC visibility produced no publication predicate")
+        published, published_params = curriculum
+        params.update(published_params)
+        curriculum_half = f"(NOT parent.entity_type IN $user_owned_types AND {published})"
+        if viewer_uid is None:
+            return curriculum_half
+        owned = build_search_visibility_clause(
+            SearchVisibility.OWNER_ONLY, entity_alias="parent", has_user=True
+        )
+        if owned is None:
+            raise RuntimeError("OWNER_ONLY visibility with a user produced no predicate")
+        owner_predicate, owner_params = owned
+        params.update(owner_params)
+        params["user_uid"] = viewer_uid
+        owned_half = (
+            f"(parent.entity_type IN $user_owned_types AND {owner_predicate}"
+            " AND coalesce(parent.private, false) = false)"
+        )
+        return f"({curriculum_half} OR {owned_half})"
 
     async def get_learning_states_batch(
         self, user_uid: str, ku_uids: list[str]

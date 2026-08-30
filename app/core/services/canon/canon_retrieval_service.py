@@ -214,6 +214,7 @@ class CanonRetrievalService:
             threshold=min_score,
             parent_filters={"pipeline": "knowledge"},
             owner_uid=user_uid,
+            viewer_uid=user_uid,
         )
         if hits_result.is_error:
             return Result.fail(hits_result)

@@ -623,6 +623,17 @@ UNMEASURABLE: dict[tuple[str, str], str] = {
         "requires a populated Neo4j vector index and an embedding, neither of "
         "which the CORE-tier test container provides"
     ),
+    (
+        "adapters.persistence.neo4j.vector_search_backend",
+        "VectorSearchBackend._chunk_visibility_clause",
+    ): (
+        "composes into semantic_search_chunks, which needs a populated chunk "
+        "vector index and a query embedding — the same gap as its vector twin "
+        "above; calling it here on an empty index would read vacuously clean. "
+        "The draft-withholding invariant IS measured end-to-end, on a seeded "
+        "index, by tests/integration/test_chunk_retrieval_visibility.py::"
+        "test_draft_curriculum_and_private_notes_never_surface"
+    ),
 }
 
 

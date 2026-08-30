@@ -24,8 +24,9 @@ result = await search_router.advanced_search(SearchRequest(...))
 # THE UI entry point (/search) — strategy selection + visibility scoping
 result = await search_router.faceted_search(search_request, user_uid)
 
-# Scoped ContentChunk retrieval (semantic boost / RAG, FULL tier)
-result = await search_router.retrieve_scoped_chunks(...)
+# Scoped ContentChunk retrieval (RAG, FULL tier) — user_uid is the AUDIENCE:
+# published curriculum passages + this user's own notes, never another user's
+result = await search_router.retrieve_scoped_chunks(search_request, user_uid=user_uid)
 ```
 
 There is **no `unified_search()`** — use `search_domains()` or `intelligent_search()`.

@@ -382,6 +382,7 @@ class Neo4jVectorSearchService:
         limit: int | None = None,
         min_score: float | None = None,
         parent_filters: FilterParams | None = None,
+        viewer_uid: str | None = None,
     ) -> Result[list[SemanticSearchChunkResult]]:
         """Find similar :ContentChunk nodes by embedding the query text.
 
@@ -404,6 +405,11 @@ class Neo4jVectorSearchService:
                 (e.g. ``{"nous": "body"}``) — the same facet→property mapping
                 faceted search applies to entities, so body hits stay inside the
                 active facets instead of leaking across topics.
+            viewer_uid: The reading user (ADR-085 audience scope). Published
+                curriculum bodies are visible to everyone; a user-owned
+                parent's chunks (UserEntry notes) only to their owner. ``None``
+                reads the curriculum half alone — fail-closed for anonymous
+                surfaces and for any caller that has no user in hand.
         """
         if not self.embeddings:
             return Result.fail(
@@ -430,6 +436,7 @@ class Neo4jVectorSearchService:
             chunk_types=chunk_types,
             parent_uid=parent_uid,
             parent_filters=parent_filters,
+            viewer_uid=viewer_uid,
         )
 
         if result.is_error:

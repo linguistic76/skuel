@@ -144,6 +144,27 @@ genuinely instance-scoped domains declare it explicitly.
 | `OWNER_ONLY` | Activities, UserEntry, RevisedExercise | Property scope `n.{ownership_property} = $user_uid` on the domain's declared `DomainConfig.ownership_property` (default `user_uid`; Group declares `owner_uid` — ADR-086) — **every** strategy, faceted included (see the convergence note below) |
 | `SCOPE_AWARE` | Exercise | `scope = 'curriculum'` always visible; owned scopes (PERSONAL/ASSIGNED/ASSESSMENT) visible via `:OWNS`, `:SHARES_WITH`, or group membership (`:MEMBER_OF` + `:SHARED_WITH_GROUP`) — ADR-038/040 semantics. A student finds their group's assigned exercise by search; a stranger never sees someone's PERSONAL template |
 
+### Body-chunk (RAG) reads compose the same clause, decided per parent
+
+`:ContentChunk` rows carry no ownership of their own — the owning Entity does, and
+the chunk index mixes two audiences: shared curriculum bodies (Ku / PathStep,
+`chunks_body_content`) and user-owned knowledge notes (non-private UserEntries,
+canon P3). `VectorSearchBackend.semantic_search_chunks` therefore composes the
+audience on the **parent**, on **every** query — there is no unscoped chunk read:
+
+| Parent `EntityType.is_user_owned()` | Predicate (all via the shared builders) |
+|---|---|
+| `False` (curriculum) | `build_publication_clause("parent")` — published bodies only |
+| `True` (UserEntry) | `build_search_visibility_clause(OWNER_ONLY, entity_alias="parent")` — `parent.user_uid = $user_uid` — plus `coalesce(parent.private, false) = false` |
+
+`viewer_uid=None` emits the curriculum half alone (fail-closed: an anonymous
+reader, or a caller with no user in hand, sees no user's notes). The split is
+read off `EntityType.is_user_owned()`, never a hand-kept list, so a future
+chunked type is scoped by construction. `retrieve_scoped_chunks(user_uid=…)`
+(Askesis) forwards the asking user as the viewer; `/search`'s body-chunk fold
+passes none. The canon vault draw (`owner_uid`) narrows further; it does not
+replace the viewer. ADR-085 gap **G8** (found and closed 2026-08-30).
+
 ### Facet vocabularies scope by the same DECLARATION, through a different builder
 
 ⚠️ **Not a third enforcement mechanism, and worth understanding why not.** The tag
@@ -672,7 +693,9 @@ facet→scope path**: a `nous` topic on the Askesis composer narrows the retriev
 passages exactly as it narrows `/search` cards. Askesis's `ContextRetriever` routes
 `_find_similar_chunks` through this method (search_router post-wired in compose);
 returns an `unavailable` error on the CORE tier (no vector service) so the caller
-fails soft.
+fails soft. `user_uid` is the **audience** — forwarded to the backend as
+`viewer_uid`, it admits published curriculum passages plus the asking user's own
+UserEntry notes and nobody else's (§ Ownership Scoping → *Body-chunk reads*).
 
 ### `SearchRequest` Semantic Fields
 
