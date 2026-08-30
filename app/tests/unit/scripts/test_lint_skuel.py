@@ -7115,6 +7115,47 @@ class TestSKUEL034:
         )
         assert lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC) == []
 
+    def test_dict_comprehension_is_materialised(self) -> None:
+        """`str({k: r.entity_uid for r in rows})` renders keys and values."""
+        content = (
+            'def f(rows) -> bool:\n    return "tech" in str({r.name: r.entity_uid for r in rows})\n'
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"]
+
+    def test_generator_renders_its_repr_not_its_elements(self) -> None:
+        """`repr(x.entity_uid for x in rows)` produces `<generator object ...>`
+        — no uid spelling reaches the string, so flagging it would be a false
+        positive on an ERROR rule (Codex, #1194)."""
+        content = (
+            "def f(rows) -> bool:\n"
+            '    a = "generator" in repr(x.entity_uid for x in rows)\n'
+            '    b = "generator" in f"{(x.entity_uid for x in rows)}"\n'
+            "    return a or b\n"
+        )
+        assert lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC) == []
+
+    def test_generator_reaching_a_consumer_is_still_read(self) -> None:
+        """The mirror: `join` and the transforms DO iterate, directly or nested."""
+        content = (
+            "def f(rows, ku_uids: list[str]) -> bool:\n"
+            '    a = "ku." in ",".join(r.knowledge_uid for r in rows)\n'
+            '    b = "ku." in ",".join(sorted(u for u in ku_uids))\n'
+            "    return a or b\n"
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"] * 2
+
+    def test_transforming_comprehension_element_stays_legal(self) -> None:
+        """THE guard on expanding a comprehension's iterable: only the IDENTITY
+        form carries the collection through. `get_title(u) for u in ku_uids`
+        renders titles, and flagging it would block CI on correct code."""
+        content = (
+            "def f(ku_uids: list[str]) -> bool:\n"
+            '    return "intro" in ", ".join(get_title(u) for u in ku_uids)\n'
+        )
+        assert lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC) == []
+
     def test_serializing_a_non_uid_collection_is_legal(self) -> None:
         """The rule is still about uids — `str()` alone does not make it fire."""
         content = 'def f(titles: list[str]) -> bool:\n    return "revision" in str(titles)\n'

@@ -1221,6 +1221,14 @@ alike — call arguments, `%`/`+` leaves, f-string values, and a serialized cont
 because the wrappers nest (`", ".join(sorted(set(ku_uids)))` is three deep) and because a
 capability added on one branch and not its sibling is how three of these gaps arose.
 
+Two Python semantics the expansion respects, because getting either backwards flips the
+rule's answer. A COMPREHENSION is materialised, so rendering it renders its elements; a
+GENERATOR is not — `repr(x.uid for x in rows)` produces `<generator object ...>` and no
+uid spelling reaches the string — so its element counts only where something ITERATES it
+(`join`, or a transform). And a comprehension contributes the collection it iterates only
+in the IDENTITY form: `u for u in ku_uids` renders what `ku_uids` would, while
+`get_title(u) for u in ku_uids` renders titles.
+
 ALL THREE MAPPING FORMS narrow by their template, and all three read attribute paths in
 it: `format`, `format_map`, and `%`. WHAT a mapping contributes differs per call, and each
 answer is Python semantics rather than a choice: `join` iterates KEYS (so
@@ -5844,15 +5852,21 @@ class SkuelLinter:
         positional = re.sub(r"%\([^)]*\)", "", literal_free)
         return None if "%" in positional else set()
 
-    @staticmethod
+    @classmethod
     def _expand_rendered_once(
+        cls,
         node: ast.expr,
         allowed_keys: set[str] | None = None,
         *,
         dict_keys: bool = True,
         dict_values: bool = True,
-    ) -> list[ast.expr]:
-        """ONE level of what a container contributes to a rendering call.
+        consumes_iterator: bool = False,
+    ) -> tuple[list[ast.expr], bool]:
+        """ONE level of what a container contributes, and whether it CONSUMES.
+
+        The second element says whether the returned children sit in an
+        iterating position — which is what decides if a generator among them
+        renders its elements or its own repr.
 
         Callers want `_expand_rendered_container`, which applies this repeatedly.
         `allowed_keys` narrows a mapping to the fields its template actually
@@ -5860,17 +5874,29 @@ class SkuelLinter:
         the template and dropping it could hide a real value.
         """
         if isinstance(node, ast.List | ast.Tuple | ast.Set):
-            return list(node.elts)
-        # `", ".join(u.knowledge_uid for u in rows)` — the element expression is
-        # what gets rendered, once per row.
-        if isinstance(node, ast.GeneratorExp | ast.ListComp | ast.SetComp):
-            return [node.elt]
+            return list(node.elts), False
+        # A comprehension is MATERIALISED, so rendering it renders its elements.
+        if isinstance(node, ast.ListComp | ast.SetComp):
+            return cls._comprehension_parts(node), True
+        if isinstance(node, ast.DictComp):
+            parts: list[ast.expr] = []
+            if dict_keys:
+                parts.append(node.key)
+            if dict_values:
+                parts.append(node.value)
+            return parts, False
+        # A GENERATOR is not. `repr(x.uid for x in rows)` renders
+        # `<generator object ...>` — no uid spelling reaches the string — so its
+        # element counts only where something ITERATES it (Codex, #1194).
+        if isinstance(node, ast.GeneratorExp):
+            return (cls._comprehension_parts(node), True) if consumes_iterator else ([node], False)
         if (
             isinstance(node, ast.Call)
             and isinstance(node.func, ast.Name)
             and node.func.id in SkuelLinter.UID_CONTAINER_TRANSFORMS
         ):
-            return list(node.args)
+            # A transform iterates what it is given, so its arguments ARE consumed.
+            return list(node.args), True
         if isinstance(node, ast.Dict):
             rendered: list[ast.expr] = []
             for key, value in zip(node.keys, node.values, strict=True):
@@ -5889,8 +5915,31 @@ class SkuelLinter:
                 ):
                     continue
                 rendered.append(value)
-            return rendered
-        return [node]
+            return rendered, False
+        return [node], False
+
+    @staticmethod
+    def _comprehension_parts(
+        node: ast.ListComp | ast.SetComp | ast.GeneratorExp,
+    ) -> list[ast.expr]:
+        """What a comprehension renders: its element, and — only for the
+        IDENTITY form — the collection it iterates.
+
+        `u for u in ku_uids` renders exactly what rendering `ku_uids` would, and
+        the element expression `u` names no uid on its own. But
+        `get_title(u) for u in ku_uids` renders TITLES, so expanding the iterable
+        unconditionally would be a false positive on an ERROR rule. Only an
+        element that IS the loop variable carries the iterable's contents
+        through unchanged.
+        """
+        parts: list[ast.expr] = [node.elt]
+        if isinstance(node.elt, ast.Name):
+            parts.extend(
+                generator.iter
+                for generator in node.generators
+                if isinstance(generator.target, ast.Name) and generator.target.id == node.elt.id
+            )
+        return parts
 
     @classmethod
     def _expand_rendered_container(
@@ -5900,6 +5949,7 @@ class SkuelLinter:
         *,
         dict_keys: bool = True,
         dict_values: bool = True,
+        consumes_iterator: bool = False,
         _depth: int = 0,
     ) -> list[ast.expr]:
         """Every expression a rendered operand ultimately contributes.
@@ -5917,15 +5967,21 @@ class SkuelLinter:
         they come from that call's template and semantics. Nested containers are
         expanded whole, since nothing narrows them.
         """
-        direct = cls._expand_rendered_once(
-            node, allowed_keys, dict_keys=dict_keys, dict_values=dict_values
+        direct, children_consumed = cls._expand_rendered_once(
+            node,
+            allowed_keys,
+            dict_keys=dict_keys,
+            dict_values=dict_values,
+            consumes_iterator=consumes_iterator,
         )
         if _depth >= cls.MAX_RENDER_EXPANSION_DEPTH or direct == [node]:
             return direct
         return [
             leaf
             for child in direct
-            for leaf in cls._expand_rendered_container(child, _depth=_depth + 1)
+            for leaf in cls._expand_rendered_container(
+                child, consumes_iterator=children_consumed, _depth=_depth + 1
+            )
         ]
 
     @classmethod
@@ -6094,6 +6150,7 @@ class SkuelLinter:
                         allowed_keys,
                         dict_keys=method != "format_map",
                         dict_values=method != "join",
+                        consumes_iterator=method == "join",
                     ):
                         inner, _ = cls._resolve_uid_operand(candidate)
                         if cls._is_uid_name(inner):
