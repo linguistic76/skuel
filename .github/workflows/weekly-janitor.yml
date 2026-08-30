@@ -232,10 +232,11 @@ jobs:
               echo ""
               warning_count=$(jq '[.findings[] | select(.severity == "warning")] | length' bloat.json)
               if [ "$warning_count" -eq 0 ]; then
-                echo "No WARNING findings (structurally dead, or a stale PLANNED marking)."
+                echo "No WARNING findings (structurally dead, a stale PLANNED marking, or a dangling \`blocked_by\` pointer)."
               else
-                echo "**${warning_count} WARNING finding(s)** — structurally dead, or a stale"
-                echo "PLANNED marking whose registered subject no longer exists. The PR-side"
+                echo "**${warning_count} WARNING finding(s)** — structurally dead, a stale PLANNED"
+                echo "marking whose registered subject no longer exists, or a PLANNED entry whose"
+                echo "\`blocked_by\` names no \`deferred-work.md\` heading. The PR-side"
                 echo "\`--check\` gate (CI lint job / \`./dev quality\`) fails on these too:"
                 echo ""
                 jq -r '.findings[] | select(.severity == "warning") | "- `\(.subject)` (\(.file):\(.line)) — \(.detail)"' bloat.json > warnings.txt
