@@ -7021,6 +7021,30 @@ class TestSKUEL034:
         )
         assert lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC) == []
 
+    def test_percent_mapping_narrows_to_referenced_keys(self) -> None:
+        """An unused mapping entry renders nothing (Codex, #1194)."""
+        content = (
+            "def f(title: str, entity_uid: str) -> bool:\n"
+            '    return "intro" in "%(title)s" % {"title": title, "unused": entity_uid}\n'
+        )
+        assert lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC) == []
+
+    def test_positional_percent_renders_the_whole_mapping(self) -> None:
+        """`"%s" % {"a": uid}` renders the DICT — uid spelling included — so
+        "no named fields" must mean "do not narrow", not "narrow to nothing"."""
+        content = 'def f(entity_uid: str) -> bool:\n    return "tech" in "%s" % {"a": entity_uid}\n'
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"]
+
+    def test_format_map_reads_template_attribute_paths(self) -> None:
+        """The attribute-path check applies to `format_map`, not just `format`."""
+        content = (
+            "def f(record) -> bool:\n"
+            '    return "tech" in "{record.entity_uid}".format_map({"record": record})\n'
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"]
+
     def test_serializing_a_non_uid_collection_is_legal(self) -> None:
         """The rule is still about uids — `str()` alone does not make it fire."""
         content = 'def f(titles: list[str]) -> bool:\n    return "revision" in str(titles)\n'

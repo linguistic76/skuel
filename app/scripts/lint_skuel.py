@@ -1218,6 +1218,11 @@ comprehension contributes its ELEMENT expression, and a container transform
 `", ".join(get_titles(ku_uids))` renders titles, so "any call taking a uid argument"
 would be a false positive.
 
+ALL THREE MAPPING FORMS narrow by their template, and all three read attribute paths in
+it: `format`, `format_map`, and `%`. A `%` template that names NO key does not narrow at
+all, because `"%s" % {"a": uid}` renders the whole dict — uid spelling included — and an
+empty field set would otherwise read as "narrow to nothing" and hide a real hit.
+
 DELIBERATELY OUT OF SCOPE — prefix and segment reads. `uid.startswith(prefix)` and
 `uid.split(".")[1]` cannot be judged without knowing what the branch does with the answer,
 which is flow analysis this linter does not do. All four live sites of those shapes are
@@ -5805,6 +5810,21 @@ class SkuelLinter:
         return positional, keywords
 
     @staticmethod
+    def _percent_template_fields(template: str) -> set[str] | None:
+        """Mapping keys a `%`-format template references, or None to not narrow.
+
+        `"%(title)s" % {"title": t, "unused": uid}` renders only `title`, so
+        scanning every mapping value would be a false positive on an ERROR rule
+        (Codex, #1194).
+
+        None when the template names NO mapping key — because `"%s" % {"a": uid}`
+        renders the whole dict, uid spelling included. An empty result would
+        otherwise read as "narrow to nothing" and hide a real hit.
+        """
+        names = {match.group(1) for match in re.finditer(r"%\(([^)]*)\)", template)}
+        return names or None
+
+    @staticmethod
     def _expand_rendered_container(
         node: ast.expr, allowed_keys: set[str] | None = None
     ) -> list[ast.expr]:
@@ -5983,7 +6003,7 @@ class SkuelLinter:
             ):
                 template = node.func.value
                 if (
-                    node.func.attr == "format"
+                    node.func.attr in {"format", "format_map"}
                     and isinstance(template, ast.Constant)
                     and isinstance(template.value, str)
                 ):
@@ -6026,8 +6046,15 @@ class SkuelLinter:
                     break
                 # Leaves go through the container expansion too, so the
                 # mapping form `"%(u)s" % {"u": uid}` is read like `format_map`.
+                percent_keys: set[str] | None = None
+                if (
+                    isinstance(node.op, ast.Mod)
+                    and isinstance(node.left, ast.Constant)
+                    and isinstance(node.left.value, str)
+                ):
+                    percent_keys = cls._percent_template_fields(node.left.value)
                 for leaf in leaves:
-                    for candidate in cls._expand_rendered_container(leaf):
+                    for candidate in cls._expand_rendered_container(leaf, percent_keys):
                         inner, _ = cls._resolve_uid_operand(candidate)
                         if cls._is_uid_name(inner):
                             return inner, True
