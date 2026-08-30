@@ -5709,12 +5709,17 @@ class SkuelLinter:
             ):
                 node = node.func.value
                 continue
-            # `str(x)` / `repr(x)` — a conversion.
+            # `str(x)` / `repr(x)` / `format(x)` — a conversion. All three take
+            # the value FIRST, and two of them have a legitimate two-argument
+            # overload (`format(uid, ">30")`, `str(b, "utf-8")`), so the arity
+            # test is a range: pinning it at 1 left `"tech" in format(uid, ">30")`
+            # — still a substring test on uid spelling — walking past the rule
+            # (Codex, #1194).
             if (
                 isinstance(node, ast.Call)
                 and isinstance(node.func, ast.Name)
                 and node.func.id in cls.UID_SERIALIZER_FUNCS
-                and len(node.args) == 1
+                and 1 <= len(node.args) <= 2
             ):
                 serialized = True
                 node = node.args[0]

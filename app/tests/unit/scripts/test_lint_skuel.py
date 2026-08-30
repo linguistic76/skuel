@@ -6787,6 +6787,16 @@ class TestSKUEL034:
         violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
         assert [v.rule_id for v in violations] == ["SKUEL034"]
 
+    def test_two_argument_format_is_still_a_conversion(self) -> None:
+        """`format(uid, spec)` is the valid two-arg builtin — pinning the arity
+        at 1 let this walk past the rule (Codex, #1194)."""
+        content = (
+            "def f(knowledge_uid: str) -> bool:\n"
+            '    return "tech" in format(knowledge_uid, ">30")\n'
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"]
+
     def test_serializing_a_non_uid_collection_is_legal(self) -> None:
         """The rule is still about uids — `str()` alone does not make it fire."""
         content = 'def f(titles: list[str]) -> bool:\n    return "revision" in str(titles)\n'
