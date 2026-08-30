@@ -51,3 +51,34 @@ async def test_unavailable_when_vector_search_missing() -> None:
     assert result.is_error
     error = result.expect_error()
     assert "scoped_chunk_search" in str(error.message) or "scoped_chunk_search" in str(error)
+
+
+@pytest.mark.anyio
+async def test_user_uid_is_forwarded_as_the_viewer() -> None:
+    """The asking user reaches the backend as ``viewer_uid`` — the audience scope.
+
+    Until 2026-08-30 this method discarded ``user_uid`` (``del user_uid``,
+    "reserved"), so Askesis grounding for any user could draw on any other
+    user's non-private knowledge notes in the shared chunk index.
+    """
+    vector_search = MagicMock()
+    vector_search.find_similar_chunks_by_text = AsyncMock(return_value=Result.ok([]))
+    router = _router_with_vector_search(vector_search)
+
+    await router.retrieve_scoped_chunks(SearchRequest(query_text="q"), user_uid="user_1")
+
+    kwargs = vector_search.find_similar_chunks_by_text.await_args.kwargs
+    assert kwargs["viewer_uid"] == "user_1"
+
+
+@pytest.mark.anyio
+async def test_no_user_forwards_no_viewer_and_reads_curriculum_only() -> None:
+    """Absent user → ``viewer_uid=None``: the backend then emits the curriculum half alone."""
+    vector_search = MagicMock()
+    vector_search.find_similar_chunks_by_text = AsyncMock(return_value=Result.ok([]))
+    router = _router_with_vector_search(vector_search)
+
+    await router.retrieve_scoped_chunks(SearchRequest(query_text="q"))
+
+    kwargs = vector_search.find_similar_chunks_by_text.await_args.kwargs
+    assert kwargs["viewer_uid"] is None

@@ -283,6 +283,10 @@ class TestRetrieveVaultHappyPath:
         chunk_search.semantic_search_chunks.assert_awaited_once()
         kwargs = chunk_search.semantic_search_chunks.await_args.kwargs
         assert kwargs["owner_uid"] == "user_1"
+        # The vault scope narrows; the audience (viewer) is what admits the
+        # user's own UserEntry chunks at all — omitting it would read
+        # curriculum only and empty the vault draw.
+        assert kwargs["viewer_uid"] == "user_1"
         assert kwargs["parent_filters"] == {"pipeline": "knowledge"}
         assert kwargs["limit"] == CANON_RETRIEVAL_LIMIT
         assert kwargs["threshold"] == CANON_RETRIEVAL_MIN_SCORE

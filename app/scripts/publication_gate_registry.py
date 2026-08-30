@@ -412,6 +412,15 @@ SURFACES: tuple[Surface, ...] = (
         "The fulltext half of hybrid search — an ungated fulltext door would "
         "resurface drafts the vector gate withholds (Codex #1006 class).",
     ),
+    Surface(
+        "adapters.persistence.neo4j.vector_search_backend",
+        "VectorSearchBackend._chunk_visibility_clause",
+        Disposition.GATED,
+        "The body-chunk (RAG) audience clause, composed on EVERY chunk query: "
+        "a curriculum parent must be published, a user-owned parent must be "
+        "the viewer's (ADR-085 G8). An ungated chunk door would let a draft "
+        "PathStep's body re-enter /search and Askesis through the Digital layer.",
+    ),
 )
 
 
