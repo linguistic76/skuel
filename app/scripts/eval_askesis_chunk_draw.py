@@ -49,11 +49,12 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import contextlib
 import json
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, TypedDict
+from typing import TYPE_CHECKING, Protocol, TypedDict
 
 # Sibling script: sys.path[0] is scripts/ when run as `python scripts/...`,
 # which is how ./dev invokes it. The query set is shared ON PURPOSE — one
@@ -66,6 +67,21 @@ from eval_chunk_retrieval import (  # type: ignore[import-not-found]
 
 if TYPE_CHECKING:
     from core.models.query_types import QueryIntent
+    from core.ports.query_types import SemanticSearchChunkResult
+    from core.utils.result_simplified import Result
+
+
+class IntentClassifierPort(Protocol):
+    """The one classifier member this comparison drives.
+
+    Narrow on purpose: the script must not grow a dependency on the rest of
+    IntentClassifier, and typing the call is what makes the SPECIFIC-always
+    result a checked fact rather than an ``Any`` that would swallow a signature
+    change in silence.
+    """
+
+    async def classify_intent(self, query: str) -> "Result[QueryIntent]": ...
+
 
 # ContextRetriever._find_similar_chunks, verbatim — the production draw this
 # comparison must reproduce, not an idealized one.
@@ -158,8 +174,10 @@ class DrawRow:
 
 
 def backfill(
-    filtered: list[dict[str, Any]], unfiltered: list[dict[str, Any]], k: int
-) -> tuple[list[dict[str, Any]], int]:
+    filtered: list["SemanticSearchChunkResult"],
+    unfiltered: list["SemanticSearchChunkResult"],
+    k: int,
+) -> tuple[list["SemanticSearchChunkResult"], int]:
     """Top a thin intent-filtered draw up to k from the unfiltered draw (pure, DB-free).
 
     Every filtered hit is KEPT and keeps its position — the intent preference is
@@ -182,7 +200,7 @@ def backfill(
     return merged, len(merged) - len(filtered)
 
 
-def parents_of(hits: list[dict[str, Any]]) -> list[str]:
+def parents_of(hits: list["SemanticSearchChunkResult"]) -> list[str]:
     """Distinct parent uids in draw order (pure, DB-free)."""
     ordered: list[str] = []
     for hit in hits:
@@ -225,7 +243,7 @@ def summarize(rows: list[DrawRow], query_set: QuerySet, viewer_uid: str | None) 
     }
 
 
-async def _classify(classifier: Any, query: str) -> "QueryIntent":
+async def _classify(classifier: IntentClassifierPort, query: str) -> "QueryIntent":
     """Classify one query, falling back to SPECIFIC exactly as production does."""
     from core.models.query_types import QueryIntent
 
@@ -397,14 +415,21 @@ def main() -> int:
         print(f"ERROR: {e}", file=sys.stderr)
         return 1
 
-    exit_code, report = asyncio.run(
-        run_comparison(query_set, viewer_uid=args.user, as_json=args.as_json)
-    )
-    if report is None:
-        return exit_code
     if args.as_json:
-        print(json.dumps(report, indent=2))
-    else:
+        # Redirect the ENTIRE async lifecycle to stderr (same rationale as
+        # eval_chunk_retrieval.py): logging binds sys.stdout at configure time,
+        # so the driver's connect/close lines would otherwise sit either side of
+        # the report and make the output unparseable as one JSON document.
+        with contextlib.redirect_stdout(sys.stderr):
+            exit_code, report = asyncio.run(
+                run_comparison(query_set, viewer_uid=args.user, as_json=True)
+            )
+        if report is not None:
+            print(json.dumps(report, indent=2))
+        return exit_code
+
+    exit_code, report = asyncio.run(run_comparison(query_set, viewer_uid=args.user, as_json=False))
+    if report is not None:
         _print_human(report)
     return exit_code
 
