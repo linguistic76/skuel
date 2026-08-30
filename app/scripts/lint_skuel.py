@@ -1216,7 +1216,10 @@ not a substring test, and must keep falling through. The same expansion runs ove
 comprehension contributes its ELEMENT expression, and a container transform
 (`sorted`/`list`/`map`/…) its arguments — an ALLOWLIST, because
 `", ".join(get_titles(ku_uids))` renders titles, so "any call taking a uid argument"
-would be a false positive.
+would be a false positive. Expansion is RECURSIVE and applies to every rendering site
+alike — call arguments, `%`/`+` leaves, f-string values, and a serialized container —
+because the wrappers nest (`", ".join(sorted(set(ku_uids)))` is three deep) and because a
+capability added on one branch and not its sibling is how three of these gaps arose.
 
 ALL THREE MAPPING FORMS narrow by their template, and all three read attribute paths in
 it: `format`, `format_map`, and `%`. WHAT a mapping contributes differs per call, and each
@@ -5778,6 +5781,11 @@ class SkuelLinter:
         {"sorted", "list", "set", "tuple", "frozenset", "reversed", "map"}
     )
 
+    # SKUEL034: recursion bound for the rendered-operand expansion. Deep enough
+    # that no realistic nesting reaches it, finite so a pathological literal
+    # cannot make the linter walk forever.
+    MAX_RENDER_EXPANSION_DEPTH: ClassVar[int] = 8
+
     @staticmethod
     def _format_template_fields(template: str) -> tuple[set[int], set[str]] | None:
         """Positional indices and keyword names a format template RENDERS.
@@ -5837,23 +5845,19 @@ class SkuelLinter:
         return None if "%" in positional else set()
 
     @staticmethod
-    def _expand_rendered_container(
+    def _expand_rendered_once(
         node: ast.expr,
         allowed_keys: set[str] | None = None,
         *,
         dict_keys: bool = True,
         dict_values: bool = True,
     ) -> list[ast.expr]:
-        """Values a container literal contributes to a rendering call.
+        """ONE level of what a container contributes to a rendering call.
 
-        `", ".join([a_uid, b_uid])` and `"{v}".format_map({"v": uid})` pass the
-        values INSIDE a literal, so the argument itself names no uid. Used only
-        on the rendering path — a bare `"x" in {"a": uid}` is key membership,
-        not a substring test, and must keep falling through.
-
-        `allowed_keys` narrows a `format_map` mapping to the fields its template
-        actually renders. A non-literal key is kept, because it cannot be matched
-        against the template and dropping it could hide a real value.
+        Callers want `_expand_rendered_container`, which applies this repeatedly.
+        `allowed_keys` narrows a mapping to the fields its template actually
+        renders; a non-literal key is kept, because it cannot be matched against
+        the template and dropping it could hide a real value.
         """
         if isinstance(node, ast.List | ast.Tuple | ast.Set):
             return list(node.elts)
@@ -5887,6 +5891,42 @@ class SkuelLinter:
                 rendered.append(value)
             return rendered
         return [node]
+
+    @classmethod
+    def _expand_rendered_container(
+        cls,
+        node: ast.expr,
+        allowed_keys: set[str] | None = None,
+        *,
+        dict_keys: bool = True,
+        dict_values: bool = True,
+        _depth: int = 0,
+    ) -> list[ast.expr]:
+        """Every expression a rendered operand ultimately contributes.
+
+        `", ".join([a_uid, b_uid])` and `"{v}".format_map({"v": uid})` carry the
+        value INSIDE a literal, so the operand itself names no uid. Expansion is
+        RECURSIVE because the wrappers nest — `", ".join(sorted(set(ku_uids)))`
+        is three deep, and a one-level expansion stopped at the first call
+        (Codex, #1194). Nesting must not be an escape from an ERROR gate.
+
+        Used only on the rendering path: a bare `"x" in {"a": uid}` is key
+        membership, not a substring test, and must keep falling through.
+
+        `allowed_keys` and the dict-part flags describe the OUTERMOST call only —
+        they come from that call's template and semantics. Nested containers are
+        expanded whole, since nothing narrows them.
+        """
+        direct = cls._expand_rendered_once(
+            node, allowed_keys, dict_keys=dict_keys, dict_values=dict_values
+        )
+        if _depth >= cls.MAX_RENDER_EXPANSION_DEPTH or direct == [node]:
+            return direct
+        return [
+            leaf
+            for child in direct
+            for leaf in cls._expand_rendered_container(child, _depth=_depth + 1)
+        ]
 
     @classmethod
     def _format_template_uid_attribute(cls, template: str) -> str | None:
@@ -6108,8 +6148,12 @@ class SkuelLinter:
         # f-string: `"x" in f"{uids}"` renders exactly as `str(uids)` does.
         if isinstance(node, ast.JoinedStr):
             for value in node.values:
-                if isinstance(value, ast.FormattedValue):
-                    inner, _ = cls._resolve_uid_operand(value.value)
+                if not isinstance(value, ast.FormattedValue):
+                    continue
+                # `f"{[entity_uid]}"` renders a container inline, so the
+                # formatted value needs the same expansion an argument gets.
+                for candidate in cls._expand_rendered_container(value.value):
+                    inner, _ = cls._resolve_uid_operand(candidate)
                     if cls._is_uid_name(inner):
                         return inner, True
             return None, True

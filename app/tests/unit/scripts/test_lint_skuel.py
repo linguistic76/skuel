@@ -7088,6 +7088,33 @@ class TestSKUEL034:
         content = 'def f(titles: list[str]) -> bool:\n    return "rev" in str([titles])\n'
         assert lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC) == []
 
+    def test_nested_transforms_are_expanded_recursively(self) -> None:
+        """Wrappers nest — `join(sorted(set(uids)))` is three deep, and a
+        one-level expansion stopped at the first call (Codex, #1194)."""
+        content = (
+            "def f(ku_uids: list[str]) -> bool:\n"
+            '    return "tech" in ",".join(sorted(set(ku_uids)))\n'
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"]
+
+    def test_fstring_expands_containers(self) -> None:
+        """An f-string can render a container inline (Codex, #1194)."""
+        content = 'def f(entity_uid: str) -> bool:\n    return "tech" in f"{[entity_uid]}"\n'
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"]
+
+    def test_recursive_expansion_keeps_the_non_uid_negatives(self) -> None:
+        """Recursion must not turn the allowlist into a heuristic: titles
+        rendered through the same nesting stay clean."""
+        content = (
+            "def f(titles: list[str], ku_uids: list[str]) -> bool:\n"
+            '    a = "intro" in ",".join(sorted(set(titles)))\n'
+            '    b = "intro" in ",".join(sorted(get_titles(ku_uids)))\n'
+            "    return a or b\n"
+        )
+        assert lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC) == []
+
     def test_serializing_a_non_uid_collection_is_legal(self) -> None:
         """The rule is still about uids — `str()` alone does not make it fire."""
         content = 'def f(titles: list[str]) -> bool:\n    return "revision" in str(titles)\n'
