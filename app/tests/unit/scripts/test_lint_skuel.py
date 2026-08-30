@@ -91,6 +91,8 @@ def lint_content(
         linter._check_deleted_activity_update_payloads(fp, rel, content, lines, tree)
     if linter._should_run_rule("SKUEL028") and not is_test:
         linter._check_result_fail_expect_error(fp, rel, content, lines, tree)
+    if linter._should_run_rule("SKUEL034") and not is_test:
+        linter._check_uid_substring_sniff(fp, rel, content, lines, tree)
     if linter._should_run_rule("SKUEL006"):
         linter._check_todo_comments(fp, rel, content, lines)
 
@@ -6660,6 +6662,685 @@ class TestSKUEL033:
             f"anchored to {reported!r}, not the query's own first line — the "
             "cleaned-vs-raw offset bug is back"
         )
+
+
+# ============================================================================
+# SKUEL034 — Never Sniff Entity Kind From a UID
+# ============================================================================
+
+
+class TestSKUEL034:
+    """`"lit" in <uid>` is never a legitimate way to learn an entity's kind.
+
+    The fixtures are the real #1170 shape and its real neighbours, not invented
+    ones: the corpus measured ZERO production hits at introduction, so these
+    tests are the only thing that can tell a working rule from a dead one.
+    """
+
+    SVC = "core/models/user/user_intelligence.py"
+
+    def test_deleted_sniffer_shape_is_flagged(self) -> None:
+        """The exact code #1170 deleted, verbatim — one violation per literal."""
+        content = (
+            "def _get_knowledge_domain(self, knowledge_uid: str) -> Domain:\n"
+            '    if "tech" in knowledge_uid.lower() or "python" in knowledge_uid.lower():\n'
+            "        return Domain.TECHNOLOGY\n"
+            '    elif "finance" in knowledge_uid.lower():\n'
+            "        return Domain.FINANCE\n"
+            "    return Domain.GENERAL\n"
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"] * 3
+        assert [v.line_number for v in violations] == [2, 2, 4]
+
+    def test_not_in_is_the_same_sniff(self) -> None:
+        """Negation changes the branch taken, not the fact being invented."""
+        content = 'def f(entity_uid: str) -> bool:\n    return "draft" not in entity_uid\n'
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"]
+
+    def test_attribute_operand_is_flagged(self) -> None:
+        """`rec.knowledge_uid` sniffs exactly as a bare name does."""
+        content = 'def f(rec) -> bool:\n    return "ku" in rec.knowledge_uid\n'
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"]
+
+    def test_case_unwrap_does_not_hide_the_shape(self) -> None:
+        """Re-spelling the operand must not buy an escape."""
+        content = 'def f(uid: str) -> bool:\n    return "x" in uid.strip().lower()\n'
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"]
+
+    def test_membership_in_a_uid_collection_is_legal(self) -> None:
+        """THE false-positive class: `x in ku_uids` is a collection lookup.
+
+        `_uids` does not end in `_uid`, so the plural is excluded structurally
+        rather than by a maintained exception list.
+        """
+        content = (
+            "def f(ku_uids: list[str], prereq_uids: list[str]) -> bool:\n"
+            '    return "ku.a.b" in ku_uids and "task_x" in prereq_uids\n'
+        )
+        assert lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC) == []
+
+    def test_prefix_and_segment_reads_stay_out_of_scope(self) -> None:
+        """Ruled out deliberately — all four live sites of these shapes are
+        sanctioned, so covering them buys suppressions and no findings."""
+        content = (
+            "def f(uid: str) -> str:\n"
+            '    if uid.startswith("ku."):\n'
+            '        return uid.split(".")[1]\n'
+            '    return "general"\n'
+        )
+        assert lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC) == []
+
+    def test_substring_against_a_non_uid_name_is_legal(self) -> None:
+        """The rule is about uids, not about `in` — ordinary text tests stay clean."""
+        content = 'def f(title: str, msg: str) -> bool:\n    return "revision" in title.lower()\n'
+        assert lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC) == []
+
+    def test_tests_are_out_of_scope(self) -> None:
+        """Asserting on uid content is how a UID GENERATOR is tested.
+
+        Both real corpus hits are this shape — `assert "..." not in uid` pinning
+        what a generator must not emit.
+        """
+        content = 'def test_uid() -> None:\n    assert "text-embedding-" not in uid\n'
+        violations = lint_content(
+            make_linter(["SKUEL034"]),
+            content,
+            file_path="tests/unit/test_progress_vectors_backends.py",
+        )
+        assert violations == []
+
+    # ---- serialization: the plural exemption must not survive a conversion ----
+    # Found by Codex review on #1194, as a LIVE violation the first cut missed:
+    # `"programming" in str(user_context.mastered_knowledge_uids)` fed
+    # recommendation relevance scoring in learning_state_analyzer.py.
+
+    def test_str_of_a_uid_collection_is_flagged(self) -> None:
+        """`str(uids)` renders the collection into one string, so `in` is a
+        substring test again — the real #1194 shape."""
+        content = (
+            "def f(user_context) -> float:\n"
+            '    return 0.8 if "programming" in str(user_context.mastered_knowledge_uids) else 0.5\n'
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"]
+        assert "serialized" in violations[0].message
+
+    def test_fstring_and_join_render_the_same_way(self) -> None:
+        """An f-string and `join` render a collection exactly as `str` does."""
+        content = (
+            "def f(ku_uids: list[str], task_uids: list[str]) -> bool:\n"
+            '    return "ku." in f"{ku_uids}" or "task_" in ", ".join(task_uids)\n'
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"] * 2
+
+    def test_serialization_nested_under_case_unwrap(self) -> None:
+        """Order and nesting of the wrappers must not buy an escape."""
+        content = (
+            "def f(entity_uids: set[str]) -> bool:\n"
+            '    return "draft" in str(entity_uids).lower()\n'
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"]
+
+    def test_two_argument_format_is_still_a_conversion(self) -> None:
+        """`format(uid, spec)` is the valid two-arg builtin — pinning the arity
+        at 1 let this walk past the rule (Codex, #1194)."""
+        content = (
+            "def f(knowledge_uid: str) -> bool:\n"
+            '    return "tech" in format(knowledge_uid, ">30")\n'
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"]
+
+    def test_method_style_format_is_a_conversion(self) -> None:
+        """`"{}".format(uid)` is an Attribute call, invisible to the builtin
+        gate — it walked past an earlier cut (Codex, #1194)."""
+        content = (
+            'def f(knowledge_uid: str) -> bool:\n    return "tech" in "{}".format(knowledge_uid)\n'
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"]
+
+    def test_format_scans_every_argument_including_keywords(self) -> None:
+        """`format` renders all its arguments, so the uid need not sit first."""
+        content = (
+            "def f(name: str, ku_uids: list[str], entity_uid: str) -> bool:\n"
+            '    a = "tech" in "{} {}".format(name, ku_uids)\n'
+            '    b = "tech" in "{u}".format(u=entity_uid)\n'
+            "    return a or b\n"
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"] * 2
+
+    def test_format_of_non_uid_arguments_is_legal(self) -> None:
+        """Rendering alone does not make the rule fire — it must render a uid."""
+        content = 'def f(title: str) -> bool:\n    return "revision" in "{}".format(title)\n'
+        assert lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC) == []
+
+    def test_percent_and_concat_string_building(self) -> None:
+        """`%` formatting and `+` concatenation build a string from the uid."""
+        content = (
+            "def f(knowledge_uid: str, entity_uid: str, a_uid: str, b_uid: str) -> bool:\n"
+            '    a = "tech" in "%s" % knowledge_uid\n'
+            '    b = "tech" in "ku:" + entity_uid\n'
+            '    c = "tech" in "%s/%s" % (a_uid, b_uid)\n'
+            "    return a or b or c\n"
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"] * 3
+
+    def test_concatenating_two_uid_collections_is_legal(self) -> None:
+        """THE trap in covering `+`: `uids_a + uids_b` is LIST concatenation and
+        `in` against it is ordinary membership. The string-literal gate is what
+        keeps the rule off it."""
+        content = (
+            "def f(ku_uids: list[str], lp_uids: list[str]) -> bool:\n"
+            '    return "ku.a.b" in ku_uids + lp_uids\n'
+        )
+        assert lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC) == []
+
+    def test_library_serializers_render_too(self) -> None:
+        """`json.dumps(uids)` is an Attribute call with the value in the args —
+        the same shape as the method spellings."""
+        content = (
+            "import json\n"
+            "def f(ku_uids: list[str]) -> bool:\n"
+            '    return "programming" in json.dumps(ku_uids)\n'
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"]
+
+    def test_chained_concatenation_is_flattened(self) -> None:
+        """`"a:" + "b:" + uid` nests BinOps — inspecting only the outer node's
+        two immediate sides found neither the literal nor the uid (Codex, #1194)."""
+        content = (
+            "def f(entity_uid: str) -> bool:\n"
+            '    return "tech" in "prefix:" + "kind:" + entity_uid\n'
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"]
+
+    def test_chained_collection_concat_stays_legal(self) -> None:
+        """Flattening must not lose the string-literal gate: three uid lists
+        concatenated are still a collection."""
+        content = (
+            "def f(a_uids: list[str], b_uids: list[str], c_uids: list[str]) -> bool:\n"
+            '    return "ku.a" in a_uids + b_uids + c_uids\n'
+        )
+        assert lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC) == []
+
+    def test_surplus_format_arguments_are_not_flagged(self) -> None:
+        """A uid the template never renders reaches no output, and a false
+        positive on an ERROR rule blocks CI (Codex, #1194)."""
+        content = (
+            "def f(entity_uid: str) -> bool:\n"
+            '    a = "constant" in "constant".format(entity_uid)\n'
+            '    b = "x" in "{name}".format(name="x", other=entity_uid)\n'
+            "    return a or b\n"
+        )
+        assert lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC) == []
+
+    def test_narrowing_still_catches_rendered_fields(self) -> None:
+        """The narrowing must not hide a uid the template DOES render — by
+        position, by explicit index, and by keyword."""
+        content = (
+            "def f(name: str, ku_uid: str, a_uid: str, b_uid: str) -> bool:\n"
+            '    a = "tech" in "{} {}".format(name, ku_uid)\n'
+            '    b = "tech" in "{1}".format(name, a_uid)\n'
+            '    c = "tech" in "{u}".format(u=b_uid, unused=name)\n'
+            "    return a or b or c\n"
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"] * 3
+
+    def test_starred_arguments_fall_back_to_scanning_all(self) -> None:
+        """A starred argument breaks the positional indexing the template maps
+        onto, so the narrowing is skipped rather than applied wrongly."""
+        content = 'def f(ku_uids: list[str]) -> bool:\n    return "tech" in "{}".format(*ku_uids)\n'
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"]
+
+    def test_non_literal_template_scans_all_arguments(self) -> None:
+        """`tmpl.format(uid)` cannot be read statically — stay conservative."""
+        content = (
+            "def f(tmpl: str, entity_uid: str) -> bool:\n"
+            '    return "tech" in tmpl.format(entity_uid)\n'
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"]
+
+    def test_nested_format_spec_field_counts_as_rendered(self) -> None:
+        """A field inside a format SPEC (`"{:{w}}"`) renders too."""
+        content = (
+            "def f(width: int, entity_uid: str) -> bool:\n"
+            '    return "tech" in "{:{w}}".format(width, w=entity_uid)\n'
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"]
+
+    def test_format_field_attribute_path_selects_the_uid(self) -> None:
+        """`"{0.entity_uid}".format(record)` names the uid in the TEMPLATE — the
+        AST argument only names `record` (Codex, #1194)."""
+        content = (
+            "def f(record, entity) -> bool:\n"
+            '    a = "tech" in "{0.entity_uid}".format(record)\n'
+            '    b = "tech" in "{e.knowledge_uid}".format(e=entity)\n'
+            "    return a or b\n"
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"] * 2
+
+    def test_format_field_non_uid_attribute_is_legal(self) -> None:
+        """Only a uid-named segment counts — `{0.title}` renders a title."""
+        content = 'def f(record) -> bool:\n    return "rev" in "{0.title}".format(record)\n'
+        assert lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC) == []
+
+    def test_one_sided_strip_methods_are_re_spellings(self) -> None:
+        """`lstrip`/`rstrip` re-spell the uid exactly as `strip` does."""
+        content = (
+            "def f(entity_uid: str, knowledge_uid: str) -> bool:\n"
+            '    a = "tech" in entity_uid.lstrip()\n'
+            '    b = "tech" in knowledge_uid.rstrip().removeprefix("ku.")\n'
+            "    return a or b\n"
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"] * 2
+
+    def test_format_map_renders_its_mapping(self) -> None:
+        """`format_map` takes the values in a mapping literal, so the argument
+        itself names no uid (Codex, #1194)."""
+        content = (
+            "def f(entity_uid: str) -> bool:\n"
+            '    return "tech" in "{value}".format_map({"value": entity_uid})\n'
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"]
+
+    def test_format_map_narrows_by_template_like_format(self) -> None:
+        """A mapping entry the template never renders is inert."""
+        content = (
+            "def f(entity_uid: str) -> bool:\n"
+            '    return "x" in "{name}".format_map({"name": "x", "other": entity_uid})\n'
+        )
+        assert lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC) == []
+
+    def test_container_literal_arguments_are_expanded(self) -> None:
+        """`join([a_uid, b_uid])` passes the uids inside a list literal."""
+        content = (
+            "def f(a_uid: str, b_uid: str) -> bool:\n"
+            '    return "ku." in ", ".join([a_uid, b_uid])\n'
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"]
+
+    def test_bare_dict_membership_is_not_a_substring_test(self) -> None:
+        """Container expansion is for the RENDERING path only — `"a" in {...}`
+        is key membership and must keep falling through."""
+        content = (
+            "def f(entity_uid: str) -> bool:\n"
+            '    return "a" in {"a": entity_uid} or "a" in [entity_uid]\n'
+        )
+        assert lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC) == []
+
+    def test_percent_mapping_form(self) -> None:
+        """`"%(u)s" % {"u": uid}` is the `%` analogue of `format_map`."""
+        content = (
+            'def f(entity_uid: str) -> bool:\n    return "tech" in "%(u)s" % {"u": entity_uid}\n'
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"]
+
+    def test_comprehension_element_is_rendered(self) -> None:
+        """A generator's element expression is what each row renders to."""
+        content = (
+            'def f(rows) -> bool:\n    return "ku." in ", ".join(r.knowledge_uid for r in rows)\n'
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"]
+
+    def test_container_transforms_preserve_the_contents(self) -> None:
+        """`sorted(uids)` renders the same uids `uids` would."""
+        content = (
+            'def f(ku_uids: list[str]) -> bool:\n    return "ku." in ", ".join(sorted(ku_uids))\n'
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"]
+
+    def test_arbitrary_call_over_uids_is_not_expanded(self) -> None:
+        """THE reason transforms are an allowlist: `get_titles(ku_uids)` renders
+        titles, so treating any call taking a uid as rendering it would be a
+        false positive on an ERROR rule."""
+        content = (
+            "def f(ku_uids: list[str]) -> bool:\n"
+            '    return "intro" in ", ".join(get_titles(ku_uids))\n'
+        )
+        assert lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC) == []
+
+    def test_percent_mapping_narrows_to_referenced_keys(self) -> None:
+        """An unused mapping entry renders nothing (Codex, #1194)."""
+        content = (
+            "def f(title: str, entity_uid: str) -> bool:\n"
+            '    return "intro" in "%(title)s" % {"title": title, "unused": entity_uid}\n'
+        )
+        assert lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC) == []
+
+    def test_positional_percent_renders_the_whole_mapping(self) -> None:
+        """`"%s" % {"a": uid}` renders the DICT — uid spelling included — so
+        "no named fields" must mean "do not narrow", not "narrow to nothing"."""
+        content = 'def f(entity_uid: str) -> bool:\n    return "tech" in "%s" % {"a": entity_uid}\n'
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"]
+
+    def test_format_map_reads_template_attribute_paths(self) -> None:
+        """The attribute-path check applies to `format_map`, not just `format`."""
+        content = (
+            "def f(record) -> bool:\n"
+            '    return "tech" in "{record.entity_uid}".format_map({"record": record})\n'
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"]
+
+    def test_join_over_a_mapping_renders_keys_not_values(self) -> None:
+        """`",".join({"title": uid})` produces `"title"` — the value never
+        reaches the string (Codex, #1194)."""
+        content = (
+            "def f(entity_uid: str) -> bool:\n"
+            '    return "tech" in ",".join({"title": entity_uid})\n'
+        )
+        assert lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC) == []
+
+    def test_join_over_a_mapping_still_reads_its_keys(self) -> None:
+        """The mirror of the case above: a uid used AS a key is rendered."""
+        content = (
+            "def f(entity_uid: str) -> bool:\n"
+            '    return "tech" in ",".join({entity_uid: "title"})\n'
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"]
+
+    def test_escaped_percent_is_not_a_placeholder(self) -> None:
+        """`%%` is a literal percent, so `"%%(unused)s"` references nothing."""
+        content = (
+            "def f(entity_uid: str) -> bool:\n"
+            '    return "tech" in "%%(unused)s" % {"unused": entity_uid}\n'
+        )
+        assert lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC) == []
+
+    def test_builtin_serializers_expand_containers(self) -> None:
+        """`str([uid])` leaves the container as the operand, which names no uid
+        — the builtin path needs the method path's expansion (Codex, #1194)."""
+        content = (
+            "def f(entity_uid: str, ku_uids: list[str]) -> bool:\n"
+            '    a = "tech" in str([entity_uid])\n'
+            '    b = "tech" in repr((entity_uid,))\n'
+            '    c = "tech" in str(sorted(ku_uids))\n'
+            "    return a or b or c\n"
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"] * 3
+
+    def test_builtin_serializer_of_non_uid_container_is_legal(self) -> None:
+        content = 'def f(titles: list[str]) -> bool:\n    return "rev" in str([titles])\n'
+        assert lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC) == []
+
+    def test_nested_transforms_are_expanded_recursively(self) -> None:
+        """Wrappers nest — `join(sorted(set(uids)))` is three deep, and a
+        one-level expansion stopped at the first call (Codex, #1194)."""
+        content = (
+            "def f(ku_uids: list[str]) -> bool:\n"
+            '    return "tech" in ",".join(sorted(set(ku_uids)))\n'
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"]
+
+    def test_fstring_expands_containers(self) -> None:
+        """An f-string can render a container inline (Codex, #1194)."""
+        content = 'def f(entity_uid: str) -> bool:\n    return "tech" in f"{[entity_uid]}"\n'
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"]
+
+    def test_recursive_expansion_keeps_the_non_uid_negatives(self) -> None:
+        """Recursion must not turn the allowlist into a heuristic: titles
+        rendered through the same nesting stay clean."""
+        content = (
+            "def f(titles: list[str], ku_uids: list[str]) -> bool:\n"
+            '    a = "intro" in ",".join(sorted(set(titles)))\n'
+            '    b = "intro" in ",".join(sorted(get_titles(ku_uids)))\n'
+            "    return a or b\n"
+        )
+        assert lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC) == []
+
+    def test_dict_comprehension_is_materialised(self) -> None:
+        """`str({k: r.entity_uid for r in rows})` renders keys and values."""
+        content = (
+            'def f(rows) -> bool:\n    return "tech" in str({r.name: r.entity_uid for r in rows})\n'
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"]
+
+    def test_generator_renders_its_repr_not_its_elements(self) -> None:
+        """`repr(x.entity_uid for x in rows)` produces `<generator object ...>`
+        — no uid spelling reaches the string, so flagging it would be a false
+        positive on an ERROR rule (Codex, #1194)."""
+        content = (
+            "def f(rows) -> bool:\n"
+            '    a = "generator" in repr(x.entity_uid for x in rows)\n'
+            '    b = "generator" in f"{(x.entity_uid for x in rows)}"\n'
+            "    return a or b\n"
+        )
+        assert lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC) == []
+
+    def test_generator_reaching_a_consumer_is_still_read(self) -> None:
+        """The mirror: `join` and the transforms DO iterate, directly or nested."""
+        content = (
+            "def f(rows, ku_uids: list[str]) -> bool:\n"
+            '    a = "ku." in ",".join(r.knowledge_uid for r in rows)\n'
+            '    b = "ku." in ",".join(sorted(u for u in ku_uids))\n'
+            "    return a or b\n"
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"] * 2
+
+    def test_transforming_comprehension_element_stays_legal(self) -> None:
+        """THE guard on expanding a comprehension's iterable: only the IDENTITY
+        form carries the collection through. `get_title(u) for u in ku_uids`
+        renders titles, and flagging it would block CI on correct code."""
+        content = (
+            "def f(ku_uids: list[str]) -> bool:\n"
+            '    return "intro" in ", ".join(get_title(u) for u in ku_uids)\n'
+        )
+        assert lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC) == []
+
+    def test_chained_comparison_legs_are_inspected(self) -> None:
+        """Every leg of a chain is evaluated, so `"tech" in uid == other` runs
+        the same membership test a lone `in` does (Codex, #1194)."""
+        content = (
+            "def f(entity_uid: str, expected_uid: str) -> bool:\n"
+            '    return "tech" in entity_uid == expected_uid\n'
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"]
+
+    def test_ascii_is_a_serializer(self) -> None:
+        """`ascii` renders like `repr`."""
+        content = 'def f(entity_uid: str) -> bool:\n    return "tech" in ascii(entity_uid)\n'
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"]
+
+    def test_lazy_transforms_render_an_iterator_object(self) -> None:
+        """`repr(reversed(uids))` renders `<list_reverseiterator ...>`, so no uid
+        spelling reaches the string (Codex, #1194)."""
+        content = (
+            "def f(entity_uids: list[str]) -> bool:\n"
+            '    a = "iterator" in repr(reversed(entity_uids))\n'
+            '    b = "iterator" in f"{map(str, entity_uids)}"\n'
+            "    return a or b\n"
+        )
+        assert lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC) == []
+
+    def test_lazy_transforms_count_once_consumed(self) -> None:
+        """The mirror: `join` iterates, so the uids do reach the string."""
+        content = (
+            "def f(entity_uids: list[str]) -> bool:\n"
+            '    return "ku." in ",".join(reversed(entity_uids))\n'
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"]
+
+    def test_eager_transforms_still_render_without_a_consumer(self) -> None:
+        """`sorted` materialises, so `str(sorted(uids))` renders the uids."""
+        content = (
+            'def f(entity_uids: list[str]) -> bool:\n    return "ku." in str(sorted(entity_uids))\n'
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"]
+
+    def test_rendering_receiver_is_read(self) -> None:
+        """`uid.format()` returns the uid's own text; `uid.join(parts)` puts it
+        between them (Codex, #1194)."""
+        content = (
+            "def f(entity_uid: str, parts: list[str]) -> bool:\n"
+            '    a = "tech" in entity_uid.format()\n'
+            '    b = "tech" in entity_uid.join(parts)\n'
+            "    return a or b\n"
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"] * 2
+
+    def test_value_selecting_expressions_are_inspected(self) -> None:
+        """`uid if rec else ""` and `uid or ""` are ordinary optional-value
+        idioms; the uid still reaches the comparison (Codex, #1194)."""
+        content = (
+            "def f(record, entity_uid: str) -> bool:\n"
+            '    a = "tech" in (record.entity_uid if record else "")\n'
+            '    b = "tech" in (entity_uid or "")\n'
+            "    return a or b\n"
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"] * 2
+
+    def test_value_selection_between_collections_stays_legal(self) -> None:
+        """Each branch is judged by the same singular rule, so choosing between
+        two uid COLLECTIONS is still ordinary membership."""
+        content = (
+            "def f(cond: bool, ku_uids: list[str]) -> bool:\n"
+            '    return "ku.a" in (ku_uids if cond else [])\n'
+        )
+        assert lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC) == []
+
+    def test_join_with_fewer_than_two_elements_never_emits_the_separator(self) -> None:
+        """`uid.join(["one"])` produces `"one"` — the receiver lands nowhere
+        (Codex, #1194)."""
+        content = (
+            "def f(entity_uid: str) -> bool:\n"
+            '    a = "needle" in entity_uid.join(["haystack"])\n'
+            '    b = "needle" in entity_uid.join([])\n'
+            "    return a or b\n"
+        )
+        assert lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC) == []
+
+    def test_join_with_two_elements_does_emit_the_separator(self) -> None:
+        """The mirror, and the reason the count is checked rather than the shape."""
+        content = (
+            'def f(entity_uid: str) -> bool:\n    return "tech" in entity_uid.join(["a", "b"])\n'
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"]
+
+    def test_suppression_anywhere_on_a_wrapped_comparison(self) -> None:
+        """A wrapped comparison starts at the string literal, so a suppression
+        beside the OPERAND was being read off the wrong line (Codex, #1194)."""
+        content = (
+            "def f(knowledge_uid: str) -> bool:\n"
+            "    return (\n"
+            '        "tech"\n'
+            "        in knowledge_uid  # skuel-lint: disable=SKUEL034 -- deliberate\n"
+            "    )\n"
+        )
+        assert lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC) == []
+
+    def test_wrapped_comparison_reports_at_the_operand_line(self) -> None:
+        """Unsuppressed, the report anchors where the uid actually is."""
+        content = (
+            "def f(knowledge_uid: str) -> bool:\n"
+            "    return (\n"
+            '        "tech"\n'
+            "        in knowledge_uid\n"
+            "    )\n"
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.line_number for v in violations] == [4]
+
+    def test_mapping_views_expose_the_receiver(self) -> None:
+        """`d.values()` exposes what `d` holds, and rendering the view renders it
+        (Codex, #1194)."""
+        content = (
+            "def f(entity_uids: dict[str, str]) -> bool:\n"
+            '    a = "tech" in ",".join(entity_uids.values())\n'
+            '    b = "tech" in str(entity_uids.values())\n'
+            "    return a or b\n"
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"] * 2
+
+    def test_mapping_view_of_a_non_uid_receiver_is_legal(self) -> None:
+        content = (
+            "def f(titles: dict[str, str]) -> bool:\n"
+            '    return "intro" in ",".join(titles.values())\n'
+        )
+        assert lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC) == []
+
+    def test_starred_join_argument_is_not_provably_inert(self) -> None:
+        """`[*parts]` is one AST element that expands to however many `parts`
+        holds, so the separator is not provably unused (Codex, #1194)."""
+        content = (
+            "def f(entity_uid: str, parts: list[str]) -> bool:\n"
+            '    return "tech" in entity_uid.join([*parts])\n'
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"]
+
+    def test_enclosing_serialization_reaches_selected_branches(self) -> None:
+        """Inside `str(...)` a plural branch IS rendered, so the outer
+        serialization state must survive the branch walk (Codex, #1194)."""
+        content = (
+            "def f(cond: bool, entity_uids: list[str]) -> bool:\n"
+            '    return "tech" in str(entity_uids if cond else [])\n'
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"]
+
+    def test_serializing_a_non_uid_collection_is_legal(self) -> None:
+        """The rule is still about uids — `str()` alone does not make it fire."""
+        content = 'def f(titles: list[str]) -> bool:\n    return "revision" in str(titles)\n'
+        assert lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC) == []
+
+    def test_line_suppression(self) -> None:
+        content = (
+            "def f(uid: str) -> bool:\n"
+            '    return "edge:" in uid  # skuel-lint: disable=SKUEL034 -- sentinel\n'
+        )
+        assert lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC) == []
+
+    def test_file_suppression(self) -> None:
+        content = (
+            "# skuel-lint: disable-file=SKUEL034 -- wire-format parser\n"
+            "def f(uid: str) -> bool:\n"
+            '    return "task-" in uid\n'
+        )
+        assert lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC) == []
+
+    def test_rule_is_registered_as_an_error(self) -> None:
+        from lint_skuel import RULE_DOCS  # type: ignore[import-not-found]
+
+        assert RULE_DOCS["SKUEL034"]["severity"] == "ERROR"
+        assert "SKUEL034" in SkuelLinter.SUPPRESSIBLE_RULES
+        assert "SKUEL034" in SkuelLinter.AST_RULE_IDS
 
 
 class TestOptInRulesDrift:

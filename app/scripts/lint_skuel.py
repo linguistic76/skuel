@@ -24,6 +24,8 @@ ERROR (blocks CI):
   SKUEL025: No deleted Activity *UpdatePayload — use the frozen *UpdateIntent (ADR-066)
   SKUEL027: ui/ must not import adapters/ at runtime (ui renders; routes compose)
   SKUEL032: core/ must not import ui/ at runtime (ADR-058; SKUEL022's ui/ twin)
+  SKUEL034: No substring test against a uid — entity kind comes from label /
+            entity_type / edge, never from UID spelling (ADR-013 never-sniff)
 
 WARNING (blocks `./dev lint` / `./dev quality` via --strict; plain runs report only):
   SKUEL005: Result[T] return types on service methods
@@ -76,6 +78,7 @@ import ast
 import io
 import itertools
 import re
+import string
 import subprocess
 import sys
 import time
@@ -1129,6 +1132,170 @@ File-level: # skuel-lint: disable-file=SKUEL033 -- <reason>""",
     # The port now documents the backend's mechanism. It drifts the moment the
     # backend changes, and says nothing about what the caller is guaranteed.''',
     },
+    "SKUEL034": {
+        "title": "Never Sniff Entity Kind From a UID",
+        "severity": "ERROR",
+        "description": """ADR-013 (Addendum, reaffirmed 2026-07-03) and
+`CURRICULUM_GROUPING_PATTERNS.md` § Two Sanctioned UID Forms both say it outright:
+**UID spelling is provenance, not type information. Entity kind is determined by label,
+`entity_type`, or edge — NEVER by UID string content.** Until this rule the statement was
+prose only, enforced by review.
+
+It had already failed once. `UserLearningIntelligence._get_knowledge_domain` grouped a
+user's masteries "by domain" with `"tech" in knowledge_uid.lower()` /
+`"python" in ...` / `"finance" in ...`, inventing a Domain no entity carries. Every
+mastery fell into one bucket, so the two readings built on it were constant-valued. It
+survived from the initial commit to 2026-08-27 (#1170), through a separator arc that saw
+it (#1055) and left it as "residue for a ruling". This rule is that ruling made runnable.
+
+SHAPE: a string-literal membership test against a uid expression —
+`"lit" in uid`, `"lit" not in entity_uid`, and the same through a
+`.lower()` / `.upper()` / `.strip()` / `.casefold()` unwrap. The comparator is matched by
+NAME: exactly `uid`, or a `_uid` suffix. That is what separates the violation from
+`"ku_x" in ku_uids`, membership in a COLLECTION of uids, which is ordinary and correct —
+and `_uids` does not end in `_uid`, so the plural is excluded structurally, not by a list.
+
+THE PLURAL EXEMPTION DOES NOT SURVIVE SERIALIZATION. The builtins `str` / `repr` /
+`ascii` / `format(uids)` (either arity), the method spellings
+`"{}".format(uids)` and `", ".join(uids)` (every argument, keywords included), and
+`f"{uids}"` all render a collection back into ONE string, so `in`
+against the result is a substring test again — reading the same uid spelling the singular
+form reads. On that path both singular and plural names are flagged. Not hypothetical: the
+first cut of this rule measured zero and MISSED a live violation,
+`"programming" in str(user_context.mastered_knowledge_uids)` in
+`learning_state_analyzer.py`, feeding recommendation relevance scoring (Codex, #1194). It
+matched authored `ku.programming.*` uids and never the API-generated `ku_{slug}_{random}`
+for the same concept, so a learner's "technical affinity" split on PROVENANCE rather than
+on anything they had done — ADR-013's failure mode exactly.
+
+WHERE THE ENUMERATION STOPS, and why it is an enumeration at all. Covered: the
+builtins (`str`/`repr`/`format`, either arity), the method spellings
+(`"{}".format(...)`, `join`, `dumps`, `pformat` — every argument AND keyword, since the
+receiver is the template and the value is an argument), f-strings, and language-level
+string construction (`"%s" % uid`, `"ku:" + uid`, including the `% (a, b)` tuple form).
+Review found three of these one at a time (#1194), so the branches are now organised by
+WHERE THE VALUE SITS — receiver, argument, or operand — rather than by call spelling,
+which is what makes them cover forms nobody has written yet.
+
+KNOWN AND ACCEPTED MISS: a loop variable EMBEDDED in a comprehension's element, as in
+`str([(u, title) for u in entity_uids])`. Only the identity form (`u for u in
+entity_uids`) traces back to the iterable; catching the embedded one means binding `u` to
+its iterable and following that alias through arbitrary nesting — variable tracking, not
+a shape test, which this linter declines by ruling. The failure direction is a MISS, the
+safe one for an ERROR gate: the alternative over-approximates, and a false positive
+blocks CI on correct code.
+
+The tempting generalisation — walk the whole right-hand side for any uid-ish name — is
+WRONG, and measurably so: `"a" in mapping[uid]` is a dict lookup and `"revision" in
+get_title(uid)` tests a title, neither of which reads uid spelling. Both would be false
+positives, and a false positive on an ERROR rule blocks CI. So the set is finite and
+deliberately so: this rule is a GUARD against the shape that has no legitimate form, not
+a proof that no uid can ever reach an `in`.
+
+Note the gates, which are load-bearing rather than incidental. `%`/`+` count as string
+building only when one LEAF is a string literal — the check runs over the FLATTENED
+operand tree, because `"a:" + "b:" + uid` nests BinOps and neither immediate side of the
+outer node is the literal or the uid. Without the literal gate,
+`"x" in (a_uids + b_uids)` — list concatenation followed by ordinary membership — would
+be flagged, and `%` on numbers is modulo.
+
+And `str.format` on a LITERAL template is NARROWED to the arguments the template actually
+renders: `"constant".format(uid)` and `"{name}".format(name="x", other=uid)` render no
+uid, so flagging them would be a false positive on an ERROR rule — the direction that
+blocks CI. The narrowing is skipped, not guessed, whenever it cannot be trusted: a
+non-literal template, a `*args`/`**kwargs` spread (which breaks the positional indexing
+the template maps onto), or a template that will not parse. Falling back
+over-approximates, which for a NARROWING is the safe direction — it can only re-include
+an argument, never hide one. `join`/`dumps`/`pformat` are never narrowed; they render
+everything they are given.
+
+A format FIELD can also select the uid itself — `"{0.entity_uid}".format(record)` — where
+the AST argument only ever names `record`. The attribute/item path after a field's base is
+therefore read from the template. The BASE is deliberately not: it is resolved through the
+argument actually passed, which is more accurate than its spelling and keeps the rule off
+`"{uid}".format(uid=title)`.
+
+`format_map` is read the same way, and a container LITERAL argument is expanded on the
+rendering path — `", ".join([a_uid, b_uid])` and `"{v}".format_map({"v": uid})` carry the
+value inside the literal, so the argument itself names no uid. That expansion is
+deliberately confined to the rendering path: a bare `"a" in {"a": uid}` is KEY membership,
+not a substring test, and must keep falling through. The same expansion runs over the
+`%`/`+` leaves, which is what reads the mapping form `"%(u)s" % {"u": uid}`. A
+comprehension contributes its ELEMENT expression, and a container transform
+(`sorted`/`list`/`map`/…) its arguments — an ALLOWLIST, because
+`", ".join(get_titles(ku_uids))` renders titles, so "any call taking a uid argument"
+would be a false positive. Expansion is RECURSIVE and applies to every rendering site
+alike — call arguments, `%`/`+` leaves, f-string values, and a serialized container —
+because the wrappers nest (`", ".join(sorted(set(ku_uids)))` is three deep) and because a
+capability added on one branch and not its sibling is how three of these gaps arose.
+
+Two Python semantics the expansion respects, because getting either backwards flips the
+rule's answer. A COMPREHENSION is materialised, so rendering it renders its elements; a
+GENERATOR is not — `repr(x.uid for x in rows)` produces `<generator object ...>` and no
+uid spelling reaches the string — so its element counts only where something ITERATES it
+(`join`, or a transform). And a comprehension contributes the collection it iterates only
+in the IDENTITY form: `u for u in ku_uids` renders what `ku_uids` would, while
+`get_title(u) for u in ku_uids` renders titles. A mapping VIEW (`d.values()`) exposes the receiver's own contents, so it
+resolves to the receiver. The same eager/lazy split applies to the
+transforms themselves — `sorted`/`list`/`set`/`tuple`/`frozenset` materialise, while
+`reversed`/`map`/`filter`/`enumerate`/`zip` only produce an iterator whose repr is what
+`str()` would render. And a rendering call's RECEIVER is rendered too: `uid.format()`
+returns the uid's own text and `uid.join(parts)` puts it between them — unless the joined
+literal holds fewer than two elements, where the separator lands nowhere.
+Value-SELECTING expressions are read branch by branch — `uid if record else ""` and
+`uid or ""` are ordinary optional-value idioms — each branch judged by the same
+singular/serialized rule, so choosing between two collections stays ordinary membership.
+
+ALL THREE MAPPING FORMS narrow by their template, and all three read attribute paths in
+it: `format`, `format_map`, and `%`. WHAT a mapping contributes differs per call, and each
+answer is Python semantics rather than a choice: `join` iterates KEYS (so
+`",".join({"k": uid})` produces `"k"` and the value is inert), `format_map` looks VALUES
+up by key, and `format`/`dumps`/`pformat` render the mapping whole. A `%` template has
+three outcomes for the same reason — named conversions narrow to those keys, a positional
+`%s` consumes the mapping whole, and a template with NO conversion (`"%%(unused)s"`, where
+`%%` is a literal percent) renders nothing from it at all.
+
+DELIBERATELY OUT OF SCOPE — prefix and segment reads. `uid.startswith(prefix)` and
+`uid.split(".")[1]` cannot be judged without knowing what the branch does with the answer,
+which is flow analysis this linter does not do. All four live sites of those shapes are
+sanctioned and say so in their own docstrings: `parse_calendar_item_uid` (parses a wire
+format the app itself mints, not an entity uid), `_extract_label_from_uid` (a fast path
+whose miss falls back to the DB, so it is never a wrong answer), and
+`_table_domain` + its caller in `entity_inference_service.py` (the keys are hardcoded
+table literals, authored beside the keywords). Covering them would buy four suppressions
+and no findings. The boundary here is deliberate: this rule takes the shape that has no
+legitimate form, and leaves the shapes whose legitimacy is contextual to review.
+
+MEASURED AT INTRODUCTION: ONE hit — the serialized one above, fixed in the same
+change — and zero after it, across `core/`, `adapters/`, `ui/`, `scripts/`,
+`services_bootstrap/`. The zero is earned, not bought with suppressions, of which this
+rule needs none. Tests are OUT of scope, and the two hits there show why: both are
+`assert "..." not in uid` pinning what a UID GENERATOR must not emit. Asserting on uid
+content is how you test the generator; branching on it in production is the bug.
+
+Fix: read the field that carries the fact. A mastery's subject area is
+`Mastery.sel_category`; an entity's kind is `entity_type` or its Neo4j label; a
+relationship's meaning is the edge. If no field carries it, the fact does not exist yet —
+add it to the model rather than encoding it in a string.
+
+A line suppression is honoured anywhere on the comparison's SPAN, and the violation is
+reported at the OPERAND line rather than the node's start — a wrapped comparison begins at
+the string literal, which is neither where the uid is nor where a reader puts the comment.
+
+Suppress: # skuel-lint: disable=SKUEL034 -- <reason>
+File-level: # skuel-lint: disable-file=SKUEL034 -- <reason>""",
+        "good": """# The record carries the fact; read it.
+by_area: dict[str, list[Mastery]] = defaultdict(list)
+for mastery in self.current_masteries.values():
+    by_area[mastery.sel_category].append(mastery)""",
+        "bad": """# Invents a Domain out of uid spelling. "ku.finance.budgeting" and the
+# API-generated "ku_budgeting_a1b2c3" describe the same entity and land in
+# different buckets — and neither carries a Domain at all.
+if "tech" in knowledge_uid.lower() or "python" in knowledge_uid.lower():
+    return Domain.TECHNOLOGY
+elif "finance" in knowledge_uid.lower():
+    return Domain.FINANCE""",
+    },
 }
 
 
@@ -1264,6 +1431,7 @@ class SkuelLinter:
             "SKUEL030",
             "SKUEL032",
             "SKUEL033",
+            "SKUEL034",
         }
     )
 
@@ -1331,6 +1499,7 @@ class SkuelLinter:
             "SKUEL030",
             "SKUEL032",
             "SKUEL033",
+            "SKUEL034",
         }
     )
 
@@ -1842,6 +2011,10 @@ class SkuelLinter:
                 )
             if self._should_run_rule("SKUEL028") and not is_test:
                 self._check_result_fail_expect_error(file_path, rel_path, content, lines, tree)
+            # Never-sniff (ADR-013): tests are out of scope because asserting on
+            # uid content is how a UID GENERATOR is tested — see the rule doc.
+            if self._should_run_rule("SKUEL034") and not is_test:
+                self._check_uid_substring_sniff(file_path, rel_path, content, lines, tree)
 
             # Graph-vocabulary rule: persistence Cypher may only name labels and
             # relationship types the enum registry knows (migrations excepted —
@@ -5598,6 +5771,662 @@ class SkuelLinter:
                     line_content=line.strip(),
                 )
             )
+
+    # SKUEL034: expressions that only re-spell the uid, unwrapped before the
+    # name test so `"x" in uid.lower().strip()` reads the same as `"x" in uid`.
+    UID_CASE_UNWRAP_METHODS: ClassVar[frozenset[str]] = frozenset(
+        {
+            "lower",
+            "upper",
+            "casefold",
+            "title",
+            "capitalize",
+            "swapcase",
+            "strip",
+            "lstrip",
+            "rstrip",
+            "removeprefix",
+            "removesuffix",
+            "replace",
+        }
+    )
+
+    # SKUEL034: calls that SERIALIZE their argument. `str(uids)` turns a
+    # collection back into one string, so `in` against it is a substring test
+    # again — the plural exemption below must not survive the conversion.
+    UID_SERIALIZER_FUNCS: ClassVar[frozenset[str]] = frozenset({"str", "repr", "ascii", "format"})
+
+    # SKUEL034: the METHOD spellings of the same rendering. Their receiver is
+    # the template/separator, so the uid lives in the ARGUMENTS.
+    UID_SERIALIZER_METHODS: ClassVar[frozenset[str]] = frozenset(
+        {"format", "format_map", "join", "dumps", "pformat"}
+    )
+
+    # SKUEL034: calls that RESHAPE a collection without changing what is in it.
+    # `", ".join(sorted(ku_uids))` renders the same uids `join(ku_uids)` would.
+    # Deliberately an allowlist: `join(get_titles(ku_uids))` renders titles, so
+    # "any call taking a uid argument" would be a false positive.
+    # EAGER: these materialise, so rendering the result renders the contents.
+    UID_EAGER_TRANSFORMS: ClassVar[frozenset[str]] = frozenset(
+        {"sorted", "list", "set", "tuple", "frozenset"}
+    )
+
+    # LAZY: `repr(reversed(uids))` renders `<list_reverseiterator ...>`, not the
+    # uids — so like a generator, these count only where something iterates them.
+    UID_LAZY_TRANSFORMS: ClassVar[frozenset[str]] = frozenset(
+        {"reversed", "map", "filter", "enumerate", "zip"}
+    )
+
+    UID_CONTAINER_TRANSFORMS: ClassVar[frozenset[str]] = UID_EAGER_TRANSFORMS | UID_LAZY_TRANSFORMS
+
+    # Mapping views: `d.values()` exposes what `d` holds, and rendering the view
+    # renders it. Zero-argument calls only, so an unrelated `.items(x)` method is
+    # not mistaken for one.
+    UID_MAPPING_VIEWS: ClassVar[frozenset[str]] = frozenset({"keys", "values", "items"})
+
+    # SKUEL034: recursion bound for the rendered-operand expansion. Deep enough
+    # that no realistic nesting reaches it, finite so a pathological literal
+    # cannot make the linter walk forever.
+    MAX_RENDER_EXPANSION_DEPTH: ClassVar[int] = 8
+
+    @staticmethod
+    def _format_template_fields(template: str) -> tuple[set[int], set[str]] | None:
+        """Positional indices and keyword names a format template RENDERS.
+
+        `"constant".format(uid)` renders nothing, and
+        `"{name}".format(name="x", other=uid)` renders only `name` — flagging
+        either would be a false positive on an ERROR rule, which blocks CI
+        (Codex, #1194). Returns None when the template will not parse, and the
+        caller then falls back to scanning every argument.
+        """
+        positional: set[int] = set()
+        keywords: set[str] = set()
+        auto_index = 0
+        # A format spec can itself hold fields (`"{:{width}}"`), and the top-level
+        # parse does not descend into them.
+        pending = [template]
+        try:
+            while pending:
+                for _, field_name, spec, _ in string.Formatter().parse(pending.pop()):
+                    if spec:
+                        pending.append(spec)
+                    if field_name is None:
+                        continue
+                    base = re.split(r"[.\[]", field_name, maxsplit=1)[0]
+                    if base == "":
+                        positional.add(auto_index)
+                        auto_index += 1
+                    elif base.isdigit():
+                        positional.add(int(base))
+                    else:
+                        keywords.add(base)
+        except ValueError, IndexError:
+            return None
+        return positional, keywords
+
+    @staticmethod
+    def _percent_template_fields(template: str) -> set[str] | None:
+        """Mapping keys a `%`-format template renders. None means "do not narrow".
+
+        A `%` template has THREE outcomes, and collapsing any two of them is a
+        bug (Codex, #1194):
+
+        - Named conversions — `"%(title)s"` — render only those keys, so a
+          mapping's other entries are inert and must not be flagged.
+        - A POSITIONAL conversion — `"%s" % {"a": uid}` — consumes the mapping
+          whole and renders uid spelling with it. Returns None: do not narrow.
+        - NO conversion at all — `"%%(unused)s"`, where `%%` is a literal
+          percent — renders nothing from the operand. Returns an empty set:
+          narrow to nothing.
+        """
+        # Drop the escapes first, or `%%(unused)s` reads as an active field.
+        literal_free = template.replace("%%", "")
+        names = {match.group(1) for match in re.finditer(r"%\(([^)]*)\)", literal_free)}
+        if names:
+            return names
+        positional = re.sub(r"%\([^)]*\)", "", literal_free)
+        return None if "%" in positional else set()
+
+    @classmethod
+    def _expand_rendered_once(
+        cls,
+        node: ast.expr,
+        allowed_keys: set[str] | None = None,
+        *,
+        dict_keys: bool = True,
+        dict_values: bool = True,
+        consumes_iterator: bool = False,
+    ) -> tuple[list[ast.expr], bool]:
+        """ONE level of what a container contributes, and whether it CONSUMES.
+
+        The second element says whether the returned children sit in an
+        iterating position — which is what decides if a generator among them
+        renders its elements or its own repr.
+
+        Callers want `_expand_rendered_container`, which applies this repeatedly.
+        `allowed_keys` narrows a mapping to the fields its template actually
+        renders; a non-literal key is kept, because it cannot be matched against
+        the template and dropping it could hide a real value.
+        """
+        if isinstance(node, ast.List | ast.Tuple | ast.Set):
+            return list(node.elts), False
+        # A comprehension is MATERIALISED, so rendering it renders its elements.
+        if isinstance(node, ast.ListComp | ast.SetComp):
+            return cls._comprehension_parts(node), True
+        if isinstance(node, ast.DictComp):
+            parts: list[ast.expr] = []
+            if dict_keys:
+                parts.append(node.key)
+            if dict_values:
+                parts.append(node.value)
+            return parts, False
+        # A GENERATOR is not. `repr(x.uid for x in rows)` renders
+        # `<generator object ...>` — no uid spelling reaches the string — so its
+        # element counts only where something ITERATES it (Codex, #1194).
+        if isinstance(node, ast.GeneratorExp):
+            return (cls._comprehension_parts(node), True) if consumes_iterator else ([node], False)
+        # A mapping VIEW exposes the receiver's own contents, and rendering the
+        # view renders them (`str(d.values())` → `dict_values([...])`). The
+        # callee is an Attribute, so the Name-only transform branch below cannot
+        # see it (Codex, #1194).
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr in SkuelLinter.UID_MAPPING_VIEWS
+            and not node.args
+        ):
+            return [node.func.value], True
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
+            # A transform iterates what it is given, so its arguments ARE
+            # consumed. A LAZY one only produces an iterator, so it contributes
+            # nothing unless something downstream iterates IT (Codex, #1194).
+            if node.func.id in SkuelLinter.UID_EAGER_TRANSFORMS:
+                return list(node.args), True
+            if node.func.id in SkuelLinter.UID_LAZY_TRANSFORMS:
+                return (list(node.args), True) if consumes_iterator else ([node], False)
+        if isinstance(node, ast.Dict):
+            rendered: list[ast.expr] = []
+            for key, value in zip(node.keys, node.values, strict=True):
+                # `",".join({"k": uid})` joins the KEYS — the values never reach
+                # the string, so expanding them would be a false positive on an
+                # ERROR rule (Codex, #1194). `format_map` is the mirror image.
+                if dict_keys and key is not None:
+                    rendered.append(key)
+                if not dict_values or value is None:
+                    continue
+                if (
+                    allowed_keys is not None
+                    and isinstance(key, ast.Constant)
+                    and isinstance(key.value, str)
+                    and key.value not in allowed_keys
+                ):
+                    continue
+                rendered.append(value)
+            return rendered, False
+        return [node], False
+
+    @staticmethod
+    def _comprehension_parts(
+        node: ast.ListComp | ast.SetComp | ast.GeneratorExp,
+    ) -> list[ast.expr]:
+        """What a comprehension renders: its element, and — only for the
+        IDENTITY form — the collection it iterates.
+
+        `u for u in ku_uids` renders exactly what rendering `ku_uids` would, and
+        the element expression `u` names no uid on its own. But
+        `get_title(u) for u in ku_uids` renders TITLES, so expanding the iterable
+        unconditionally would be a false positive on an ERROR rule. Only an
+        element that IS the loop variable carries the iterable's contents
+        through unchanged.
+        """
+        parts: list[ast.expr] = [node.elt]
+        if isinstance(node.elt, ast.Name):
+            parts.extend(
+                generator.iter
+                for generator in node.generators
+                if isinstance(generator.target, ast.Name) and generator.target.id == node.elt.id
+            )
+        return parts
+
+    @classmethod
+    def _expand_rendered_container(
+        cls,
+        node: ast.expr,
+        allowed_keys: set[str] | None = None,
+        *,
+        dict_keys: bool = True,
+        dict_values: bool = True,
+        consumes_iterator: bool = False,
+        _depth: int = 0,
+    ) -> list[ast.expr]:
+        """Every expression a rendered operand ultimately contributes.
+
+        `", ".join([a_uid, b_uid])` and `"{v}".format_map({"v": uid})` carry the
+        value INSIDE a literal, so the operand itself names no uid. Expansion is
+        RECURSIVE because the wrappers nest — `", ".join(sorted(set(ku_uids)))`
+        is three deep, and a one-level expansion stopped at the first call
+        (Codex, #1194). Nesting must not be an escape from an ERROR gate.
+
+        Used only on the rendering path: a bare `"x" in {"a": uid}` is key
+        membership, not a substring test, and must keep falling through.
+
+        `allowed_keys` and the dict-part flags describe the OUTERMOST call only —
+        they come from that call's template and semantics. Nested containers are
+        expanded whole, since nothing narrows them.
+        """
+        direct, children_consumed = cls._expand_rendered_once(
+            node,
+            allowed_keys,
+            dict_keys=dict_keys,
+            dict_values=dict_values,
+            consumes_iterator=consumes_iterator,
+        )
+        if _depth >= cls.MAX_RENDER_EXPANSION_DEPTH or direct == [node]:
+            return direct
+        return [
+            leaf
+            for child in direct
+            for leaf in cls._expand_rendered_container(
+                child, consumes_iterator=children_consumed, _depth=_depth + 1
+            )
+        ]
+
+    @classmethod
+    def _format_template_uid_attribute(cls, template: str) -> str | None:
+        """A uid named by a format field's ATTRIBUTE / ITEM path.
+
+        `"{0.entity_uid}".format(record)` and `"{e.knowledge_uid}".format(e=rec)`
+        select the uid inside the TEMPLATE; the AST argument only ever names
+        `record` / `rec`, so the argument scan cannot see it (Codex, #1194).
+
+        Only the path AFTER the base is read. The base is deliberately left to
+        the argument scan, which resolves the value actually passed — more
+        accurate than its spelling, and it keeps the rule from firing on
+        `"{uid}".format(uid=title)` purely because of a field's name.
+        """
+        pending = [template]
+        try:
+            while pending:
+                for _, field_name, spec, _ in string.Formatter().parse(pending.pop()):
+                    if spec:
+                        pending.append(spec)
+                    if not field_name:
+                        continue
+                    for segment in re.split(r"[.\[]", field_name)[1:]:
+                        if cls._is_uid_name(segment.rstrip("]")):
+                            return segment.rstrip("]")
+        except ValueError, IndexError:
+            return None
+        return None
+
+    @staticmethod
+    def _join_separator_is_inert(node: ast.Call) -> bool:
+        """True when `sep.join(...)` provably never emits its separator.
+
+        `uid.join(["one"])` produces `"one"` — with fewer than two elements the
+        separator lands nowhere, so reading the receiver would be a false
+        positive on an ERROR rule (Codex, #1194). Only a LITERAL container can be
+        counted statically; anything else is assumed to join two or more.
+        """
+        if not (isinstance(node.func, ast.Attribute) and node.func.attr == "join"):
+            return False
+        if len(node.args) != 1:
+            return False
+        argument = node.args[0]
+        if isinstance(argument, ast.List | ast.Tuple | ast.Set):
+            # `[*parts]` is ONE ast element that expands to however many `parts`
+            # holds, so a starred entry makes the literal dynamically sized and
+            # the separator is no longer provably inert (Codex, #1194).
+            if any(isinstance(element, ast.Starred) for element in argument.elts):
+                return False
+            return len(argument.elts) < 2
+        return False
+
+    @classmethod
+    def _rendered_arguments(cls, node: ast.Call) -> tuple[list[ast.expr], list[ast.keyword]]:
+        """The arguments of a rendering call that actually reach its output.
+
+        Only `str.format` on a LITERAL template can be narrowed: its template
+        says which fields render, so a surplus argument
+        (`"constant".format(uid)`) is genuinely inert and must not be flagged.
+        `join` / `dumps` / `pformat` render everything they are given, and a
+        non-literal template (`tmpl.format(uid)`) cannot be read statically —
+        both keep the full argument list.
+
+        `*args` / `**kwargs` also fall back to the full list: a starred argument
+        breaks the positional indexing the template maps onto, so narrowing
+        under one would drop real arguments. Falling back over-approximates,
+        which is the safe direction for a NARROWING (it can only re-include an
+        argument, never hide one).
+        """
+        func = node.func
+        if not (isinstance(func, ast.Attribute) and func.attr == "format"):
+            return list(node.args), list(node.keywords)
+        template_node = func.value
+        if not (isinstance(template_node, ast.Constant) and isinstance(template_node.value, str)):
+            return list(node.args), list(node.keywords)
+        if any(isinstance(arg, ast.Starred) for arg in node.args) or any(
+            kw.arg is None for kw in node.keywords
+        ):
+            return list(node.args), list(node.keywords)
+
+        fields = cls._format_template_fields(template_node.value)
+        if fields is None:
+            return list(node.args), list(node.keywords)
+        positional, keywords = fields
+        return (
+            [arg for index, arg in enumerate(node.args) if index in positional],
+            [kw for kw in node.keywords if kw.arg in keywords],
+        )
+
+    @classmethod
+    def _flatten_string_operands(cls, node: ast.expr) -> list[ast.expr]:
+        """Leaves of a chained `+` / `%` expression, tuple elements included.
+
+        `"a:" + "b:" + uid` nests BinOps, so inspecting only the outer node's two
+        immediate sides finds neither the string literal nor the uid (Codex,
+        #1194). Flattening makes chain length irrelevant.
+        """
+        if isinstance(node, ast.BinOp) and isinstance(node.op, (ast.Mod, ast.Add)):
+            return cls._flatten_string_operands(node.left) + cls._flatten_string_operands(
+                node.right
+            )
+        if isinstance(node, ast.Tuple):
+            return [leaf for elt in node.elts for leaf in cls._flatten_string_operands(elt)]
+        return [node]
+
+    @classmethod
+    def _resolve_uid_operand(cls, node: ast.expr) -> tuple[str | None, bool]:
+        """Identify a membership test's right-hand side: (name, was_serialized).
+
+        Unwraps the case/whitespace re-spellings AND the serializations, in any
+        order and any nesting, so the shape is judged on the underlying operand
+        rather than on how it was written. `was_serialized` records whether the
+        operand reached `in` as a *rendered string* — which is what decides
+        whether the singular-only rule applies (see the checker).
+        """
+        serialized = False
+        while True:
+            # `*uids` inside a rendering call — the star is not itself a
+            # conversion (the enclosing call supplies that), it just wraps the
+            # operand the caller is spreading.
+            if isinstance(node, ast.Starred):
+                node = node.value
+                continue
+            # `.lower()` / `.strip()` — a re-spelling, not a conversion.
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr in cls.UID_CASE_UNWRAP_METHODS
+            ):
+                node = node.func.value
+                continue
+            # `str(x)` / `repr(x)` / `format(x)` — a conversion. All three take
+            # the value FIRST, and two of them have a legitimate two-argument
+            # overload (`format(uid, ">30")`, `str(b, "utf-8")`), so the arity
+            # test is a range: pinning it at 1 left `"tech" in format(uid, ">30")`
+            # — still a substring test on uid spelling — walking past the rule
+            # (Codex, #1194).
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Name)
+                and node.func.id in cls.UID_SERIALIZER_FUNCS
+                and 1 <= len(node.args) <= 2
+            ):
+                serialized = True
+                node = node.args[0]
+                continue
+            # METHOD-style rendering: `"{}".format(uid)`, `", ".join(uids)`.
+            # `node.func` is an Attribute here, so the builtin gate above cannot
+            # see these — `"tech" in "{}".format(knowledge_uid)` walked past an
+            # earlier cut for exactly that reason (Codex, #1194). Both spellings
+            # render EVERY argument into the result, and `format` accepts
+            # several plus keywords (`"{a}".format(a=uid)`), so scan them all
+            # rather than assuming the value sits at position 0.
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr in cls.UID_SERIALIZER_METHODS
+            ):
+                template = node.func.value
+                if (
+                    node.func.attr in {"format", "format_map"}
+                    and isinstance(template, ast.Constant)
+                    and isinstance(template.value, str)
+                ):
+                    templated = cls._format_template_uid_attribute(template.value)
+                    if templated is not None:
+                        return templated, True
+                # `format_map`'s mapping is narrowed by the same template read
+                # `format`'s arguments are, so a value the template never renders
+                # is not flagged.
+                allowed_keys: set[str] | None = None
+                if (
+                    node.func.attr == "format_map"
+                    and isinstance(template, ast.Constant)
+                    and isinstance(template.value, str)
+                ):
+                    parsed = cls._format_template_fields(template.value)
+                    if parsed is not None:
+                        allowed_keys = parsed[1]
+                # The RECEIVER is rendered too: `uid.format()` returns the
+                # uid's own text, and `uid.join(parts)` puts it between them.
+                # A module receiver (`json.dumps`) simply resolves to no uid.
+                receiver_name, _ = cls._resolve_uid_operand(template)
+                if cls._is_uid_name(receiver_name) and not cls._join_separator_is_inert(node):
+                    return receiver_name, True
+                args, keywords = cls._rendered_arguments(node)
+                # What a mapping ARGUMENT contributes depends on the call:
+                # `join` iterates keys, `format_map` looks values up by key, and
+                # `format`/`dumps`/`pformat` render the mapping whole.
+                method = node.func.attr
+                for arg in [*args, *(kw.value for kw in keywords)]:
+                    for candidate in cls._expand_rendered_container(
+                        arg,
+                        allowed_keys,
+                        dict_keys=method != "format_map",
+                        dict_values=method != "join",
+                        consumes_iterator=method == "join",
+                    ):
+                        inner, _ = cls._resolve_uid_operand(candidate)
+                        if cls._is_uid_name(inner):
+                            return inner, True
+                return None, True
+            # LANGUAGE-LEVEL string construction: `"%s" % uid`, `"ku:" + uid`.
+            # Gated on one side being a string literal, which is what makes the
+            # result a string at all — WITHOUT that gate `"x" in (uids_a +
+            # uids_b)` (list concatenation, then ordinary membership) would be
+            # flagged, and `%` on numbers is modulo, not formatting.
+            if isinstance(node, ast.BinOp) and isinstance(node.op, (ast.Mod, ast.Add)):
+                # Flattened, so `"a:" + "b:" + uid` and `"%s/%s" % (a_uid, b_uid)`
+                # are the same shape as the two-leaf case.
+                leaves = cls._flatten_string_operands(node)
+                if not any(
+                    (isinstance(leaf, ast.Constant) and isinstance(leaf.value, str))
+                    or isinstance(leaf, ast.JoinedStr)
+                    for leaf in leaves
+                ):
+                    break
+                # Leaves go through the container expansion too, so the
+                # mapping form `"%(u)s" % {"u": uid}` is read like `format_map`.
+                percent_keys: set[str] | None = None
+                if (
+                    isinstance(node.op, ast.Mod)
+                    and isinstance(node.left, ast.Constant)
+                    and isinstance(node.left.value, str)
+                ):
+                    percent_keys = cls._percent_template_fields(node.left.value)
+                for leaf in leaves:
+                    for candidate in cls._expand_rendered_container(
+                        leaf, percent_keys, dict_keys=percent_keys is None
+                    ):
+                        inner, _ = cls._resolve_uid_operand(candidate)
+                        if cls._is_uid_name(inner):
+                            return inner, True
+                return None, True
+            break
+
+        # A serialized CONTAINER literal: `str([uid])`, `repr((uid,))`,
+        # `str(sorted(ku_uids))`. The builtin unwrap above leaves the container
+        # itself as the operand, which names no uid — the same expansion the
+        # method path does is needed here (Codex, #1194).
+        if serialized:
+            for candidate in cls._expand_rendered_container(node):
+                if candidate is node:
+                    continue
+                inner, _ = cls._resolve_uid_operand(candidate)
+                if cls._is_uid_name(inner):
+                    return inner, True
+
+        # VALUE-SELECTING expressions: `uid if record else ""` and the very
+        # common `uid or ""`. Either yields one of its branches, so a uid in any
+        # branch reaches the comparison. Each branch is judged by the SAME
+        # singular/serialized rule, so `ku_uids if c else []` — a collection
+        # either way — stays ordinary membership.
+        branches: list[ast.expr] = []
+        if isinstance(node, ast.IfExp):
+            branches = [node.body, node.orelse]
+        elif isinstance(node, ast.BoolOp):
+            branches = list(node.values)
+        for branch in branches:
+            inner, branch_serialized = cls._resolve_uid_operand(branch)
+            # The ENCLOSING serialization counts too: inside `str(uids if c else
+            # [])` the plural branch is rendered, so dropping the outer state
+            # would reject it (Codex, #1194).
+            if cls._is_singular_uid_name(inner) or (
+                (serialized or branch_serialized) and cls._is_uid_name(inner)
+            ):
+                return inner, serialized or branch_serialized
+
+        # f-string: `"x" in f"{uids}"` renders exactly as `str(uids)` does.
+        if isinstance(node, ast.JoinedStr):
+            for value in node.values:
+                if not isinstance(value, ast.FormattedValue):
+                    continue
+                # `f"{[entity_uid]}"` renders a container inline, so the
+                # formatted value needs the same expansion an argument gets.
+                for candidate in cls._expand_rendered_container(value.value):
+                    inner, _ = cls._resolve_uid_operand(candidate)
+                    if cls._is_uid_name(inner):
+                        return inner, True
+            return None, True
+
+        if isinstance(node, ast.Name):
+            return node.id, serialized
+        if isinstance(node, ast.Attribute):
+            return node.attr, serialized
+        return None, serialized
+
+    @staticmethod
+    def _is_singular_uid_name(name: str | None) -> bool:
+        """True for a name holding ONE uid string, false for a collection.
+
+        `uid` / `*_uid` are the singular forms; `uids` / `*_uids` fail the
+        `_uid` suffix test structurally, which is what keeps the rule off
+        `"ku_x" in ku_uids` — membership in a collection, not a substring test.
+        """
+        return name is not None and (name == "uid" or name.endswith("_uid"))
+
+    @classmethod
+    def _is_uid_name(cls, name: str | None) -> bool:
+        """True for a name holding a uid OR a collection of them.
+
+        Used only on the SERIALIZED path, where the singular/plural distinction
+        has been erased by the conversion: `"programming" in str(mastered_uids)`
+        reads uid spelling exactly as `"programming" in uid` does.
+        """
+        return cls._is_singular_uid_name(name) or (
+            name is not None and (name == "uids" or name.endswith("_uids"))
+        )
+
+    def _check_uid_substring_sniff(
+        self,
+        file_path: Path,
+        rel_path: Path,
+        content: str,
+        lines: list[str],
+        tree: ast.Module | None,
+    ) -> None:
+        """
+        SKUEL034 [ERROR]: entity kind comes from label/entity_type/edge, never a uid.
+
+        AST-based: flags `"literal" in <uid>` and `"literal" not in <uid>` where
+        the operand names a SINGULAR uid, including through a `.lower()`-style
+        unwrap. Deliberately does NOT cover `uid.startswith(...)` or
+        `uid.split(...)[i]` — judging those needs to know what the branch does
+        with the answer, and all four live sites of those shapes are sanctioned
+        (see RULE_DOCS["SKUEL034"]).
+
+        Suppressible: `# skuel-lint: disable=SKUEL034 -- <reason>`.
+        """
+        if tree is None:
+            return
+        if self._is_file_suppressed(content, "SKUEL034"):
+            return
+
+        # Real comment tokens only, computed once: a multi-line comparison can
+        # carry its suppression on any of its lines, and a raw line scan would
+        # let a string containing the marker suppress the rule reading it.
+        comment_lines = self._comment_lines(content)
+
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Compare):
+                continue
+            # EVERY leg of a chain is evaluated, so `"tech" in uid == other` runs
+            # the same membership test a lone `in` does (Codex, #1194). Each leg's
+            # left side is the previous comparator.
+            for index, operator in enumerate(node.ops):
+                if not isinstance(operator, (ast.In, ast.NotIn)):
+                    continue
+                left = node.left if index == 0 else node.comparators[index - 1]
+                if not (isinstance(left, ast.Constant) and isinstance(left.value, str)):
+                    continue
+                operand, serialized = self._resolve_uid_operand(node.comparators[index])
+                # A serialized collection is a string again, so the plural
+                # exemption does not survive it; a bare operand must be singular
+                # to be a substring test at all.
+                if serialized:
+                    if not self._is_uid_name(operand):
+                        continue
+                elif not self._is_singular_uid_name(operand):
+                    continue
+
+                # Anchor the report at the OPERAND: on a wrapped comparison the
+                # Compare node starts at the string literal, which is not the
+                # line a reader needs to look at (Codex, #1194).
+                operand_node = node.comparators[index]
+                line_num = operand_node.lineno
+                line = lines[line_num - 1] if 0 < line_num <= len(lines) else ""
+                span_start = node.lineno
+                span_end = node.end_lineno or span_start
+                if any(
+                    self._is_line_suppressed(comment_lines[lineno], "SKUEL034")
+                    for lineno in range(span_start, span_end + 1)
+                    if lineno in comment_lines
+                ):
+                    continue
+                self.result.violations.append(
+                    Violation(
+                        file_path=rel_path,
+                        line_number=line_num,
+                        column=node.col_offset,
+                        severity=Severity.ERROR,
+                        rule_id="SKUEL034",
+                        message=(
+                            f"Substring test {left.value!r} against "
+                            f"{'serialized ' if serialized else ''}uid "
+                            f"`{operand}` - UID spelling is provenance, not type"
+                        ),
+                        suggestion=(
+                            "Read the field that carries the fact (entity_type, label, "
+                            "sel_category, or the edge) - ADR-013 never-sniff"
+                        ),
+                        line_content=line.strip(),
+                        # So SKUEL026's audit agrees a comment anywhere on a
+                        # wrapped comparison is USED.
+                        suppression_span=(span_start, span_end),
+                    )
+                )
 
     # SKUEL030: migrations are the one persistence path that SHOULD name retired
     # vocabulary — a rename migration must reference what it is renaming away.

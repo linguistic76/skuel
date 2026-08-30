@@ -30,7 +30,7 @@ SKUEL enforces code quality through three linting layers, all run via `uv run` u
 | Layer | Tool | Scope | Config |
 |-------|------|-------|--------|
 | **Standard Python** | Ruff | 33 rule families (F, E, W, I, N, UP, B, SIM, RET, PERF, etc.) | `pyproject.toml` `[tool.ruff]` |
-| **SKUEL Patterns** | `scripts/lint_skuel.py` | 32 architectural rules (SKUEL001–SKUEL033; SKUEL004 deleted, IDs not renumbered) | Inline in script |
+| **SKUEL Patterns** | `scripts/lint_skuel.py` | 33 architectural rules (SKUEL001–SKUEL034; SKUEL004 deleted, IDs not renumbered) | Inline in script |
 | **Cypher Queries** | `scripts/cypher_linter.py` | Neo4j query rules CYP001–CYP012 (CYP007/CYP008/CYP010 disabled — see the script docstring) | Inline in script |
 
 Additional type checkers run during `./dev quality`:
@@ -65,7 +65,7 @@ Configured in `pyproject.toml` under `[tool.ruff]`:
 - **All rules auto-fixable:** `fixable = ["ALL"]`
 - **Per-file ignores:** Extensive config for tests, UI, routes, scripts (see `[tool.ruff.lint.per-file-ignores]`)
 
-## SKUEL Pattern Rules (SKUEL001–SKUEL033)
+## SKUEL Pattern Rules (SKUEL001–SKUEL034)
 
 These enforce SKUEL-specific architectural patterns that Ruff cannot catch.
 
@@ -118,6 +118,7 @@ them without failing.
 | **SKUEL030** | Unregistered label / edge name in `adapters/persistence/` Cypher | Must be a `NeoLabel` / `RelationshipName` member — Neo4j matches zero rows silently on an unknown name (`.cypher` half is CYP011) |
 | **SKUEL031** | Stale pip references | uv is the one path (`uv add` / `uv sync`) — SKUEL016's pip sibling |
 | **SKUEL033** | Cypher-shaped docstrings in `core/services`, `core/orchestrator`, `core/ports`, `core/models` | State intent + the guarantee; the query belongs in the backend docstring (see SERVICE_DOCSTRING_STYLE.md) |
+| **SKUEL034** | Substring test against a *singular* uid (`"tech" in knowledge_uid.lower()`) | Read the field that carries the fact — `entity_type`, the label, `sel_category`, or the edge (ADR-013 never-sniff; bare collections / `startswith` / `split` out of scope, but `str(uids)`-style serialization is flagged) |
 
 ### INFO
 
@@ -325,7 +326,7 @@ uv run python scripts/lint_skuel.py --strict    # Treat warnings as errors
 
 ## Adding a New SKUEL Rule
 
-1. **Choose a rule ID** — next available `SKUELXXX` number (last allocated: **SKUEL033**; SKUEL004 was deleted 2026-07 and must NOT be reused)
+1. **Choose a rule ID** — next available `SKUELXXX` number (last allocated: **SKUEL034**; SKUEL004 was deleted 2026-07 and must NOT be reused)
 2. **Add a check method** in `scripts/lint_skuel.py` — follow the pattern of existing `_check_skuelXXX()` methods
 3. **Register the rule** in the `RULE_DOCS` dict with severity, description, and good/bad examples (used by `--explain`)
 4. **Wire it into `_lint_file`** with the correct context gate (e.g. `not is_test`, `is_service`), AND add the id to `AST_RULE_IDS` if the rule reads the shared tree — omitting it leaves `tree` as `None`, so `--rule SKUELXXX` silently reports zero while a full sweep works
@@ -347,7 +348,7 @@ Both custom linters have comprehensive test coverage:
 |------|---------|
 | `dev` | CLI wrapper — `./dev lint`, `./dev quality`, etc. |
 | `pyproject.toml` | Ruff, MyPy, Pyright configuration |
-| `scripts/lint_skuel.py` | SKUEL pattern linter (32 rules; SKUEL004 deleted 2026-07, IDs not renumbered) |
+| `scripts/lint_skuel.py` | SKUEL pattern linter (33 rules; SKUEL004 deleted 2026-07, IDs not renumbered) |
 | `scripts/cypher_linter.py` | Cypher query linter (CYP001–CYP012; CYP007/CYP008/CYP010 disabled) |
 | `scripts/cypher_vocabulary.py` | Shared registry reader + name scanner for SKUEL030/CYP011 and the `looks_like_cypher` admission gate — one anchor, both linters |
 | `scripts/cypher_scan_diagnostics.py` | Diagnostic (not a rule): replays both rules' real scan paths and reports every span the scanner admitted but could not read |

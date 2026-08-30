@@ -183,7 +183,7 @@ reaffirmed 2026-07-03):
 
 | Form | Format | Provenance |
 |------|--------|------------|
-| Authored | `ku.{namespace}.{slug}` | Vault/editorial — validator-enforced (`core/services/ingestion/validator.py` requires `"{prefix}."`); authored in dot form directly (colon spelling retired 2026-08-14; legacy colons still normalized at the boundary) |
+| Authored | `ku.{namespace}.{slug}` | Vault/editorial — validator-enforced (`core/services/ingestion/validator.py` requires `"{prefix}."`); authored in dot form directly (colon spelling retired 2026-08-14, its `normalize_uid` input shim deleted with it — a colon-spelled entity uid now fails prefix validation loudly, per § Authoring Spelling) |
 | Generated | `ku_{slug}_{random}` | API — the Universal flat format shared with all Activity domains |
 
 **No migration between them, ever.** UID spelling is provenance (curated vs
@@ -192,6 +192,33 @@ generated), not type information. **Entity kind is determined by label,
 check silently drops every authored KU (and vice versa); consumers that need
 to split mixed UID lists take the `entity_type` field the MEGA-QUERY carries
 on `knowledge_relationships`, or resolve by lookup.
+
+**Lint-enforced since 2026-08-30 (SKUEL034, ERROR).** The rule was prose-only until a real
+violation lived from the initial commit to 2026-08-27: `_get_knowledge_domain` grouped
+masteries by `"tech" in knowledge_uid.lower()`, inventing a Domain no entity carries (#1170).
+SKUEL034 flags the shape that has no legitimate form — a string-literal membership test
+against a uid (`"lit" in uid`, `not in`, and through `.lower()`-style unwraps).
+Membership in a *collection* of uids (`"ku.a.b" in ku_uids`) is ordinary and is not flagged —
+but that exemption does **not** survive serialization: `str(uids)`, `f"{uids}"`, and
+`", ".join(uids)` render the collection back into one string, and `in` against the result
+reads uid spelling exactly as the singular form does. That shape was live and unnoticed until
+#1194: `"programming" in str(user_context.mastered_knowledge_uids)` gave a learner a higher
+"technical affinity" for holding an *authored* `ku.programming.*` uid, and never for the
+API-generated `ku_{slug}_{random}` naming the same concept.
+
+Prefix and segment reads are **deliberately out of the rule's scope**, because their
+legitimacy depends on what the branch does with the answer. All four live sites are
+sanctioned, and each says so in its own docstring:
+
+| Site | Why it is not sniffing |
+|------|------------------------|
+| `parse_calendar_item_uid` (`core/models/event/calendar_models.py`) | Parses a composite **wire format the app itself mints** (`task-{uid}`), not an entity uid |
+| `_extract_label_from_uid` (`adapters/persistence/neo4j/_relationship_crud_mixin.py`) | Performance fast path only; an unknown shape returns `None` and **falls back to the DB label**, so it is never a wrong answer |
+| `_table_domain` + its caller (`core/services/entity_inference_service.py`) | The keys are **hardcoded inference-table literals** authored beside their keywords, never stored uids |
+
+The distinction the table draws is the one to apply to any new site: reading your own minted
+format, or a literal you wrote, is not sniffing. Deriving an entity's kind from a uid that
+came out of the graph is.
 
 ---
 
