@@ -1,0 +1,152 @@
+"""Tests for the Askesis chunk-draw comparison's pure parts.
+
+The DB half drives the live retrieval path — that is the tool's point. What
+must never be wrong silently is the backfill rule and the arm arithmetic: a
+thin-draw arm that quietly dropped a filtered hit, or a starvation count off
+by one, would argue for a behavior change on bad evidence.
+"""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
+
+from eval_askesis_chunk_draw import (  # type: ignore[import-not-found]
+    ASKESIS_LIMIT,
+    DrawRow,
+    backfill,
+    parents_of,
+    summarize,
+)
+from eval_chunk_retrieval import QuerySet  # type: ignore[import-not-found]
+
+
+def _chunk(uid: str, parent: str) -> dict[str, object]:
+    return {"chunk_uid": uid, "parent_uid": parent}
+
+
+class TestBackfill:
+    def test_full_filtered_draw_is_a_no_op(self) -> None:
+        # The fallback must not touch the WIDE intents — 85% of the corpus is
+        # eligible for them, so they fill k and the arm should be identical.
+        filtered = [_chunk(f"c{i}", "ku.a") for i in range(5)]
+        merged, added = backfill(filtered, [_chunk("x", "ku.z")], 5)
+        assert added == 0
+        assert merged == filtered
+
+    def test_thin_draw_is_topped_up_from_the_unfiltered_draw(self) -> None:
+        filtered = [_chunk("c1", "ku.a")]
+        unfiltered = [_chunk("c9", "ku.b"), _chunk("c8", "ku.c")]
+        merged, added = backfill(filtered, unfiltered, 3)
+        assert added == 2
+        assert [c["chunk_uid"] for c in merged] == ["c1", "c9", "c8"]
+
+    def test_every_filtered_hit_survives_the_backfill(self) -> None:
+        # The design claim: unlike "use the unfiltered draw when thin", this
+        # can never lose an intent-appropriate passage that the unfiltered
+        # top-k would have ranked out.
+        filtered = [_chunk("deep", "ku.definition")]
+        unfiltered = [_chunk(f"hi{i}", "ku.other") for i in range(5)]
+        merged, _ = backfill(filtered, unfiltered, 5)
+        assert merged[0]["chunk_uid"] == "deep"
+        assert len(merged) == 5
+
+    def test_duplicates_are_not_drawn_twice(self) -> None:
+        filtered = [_chunk("c1", "ku.a")]
+        unfiltered = [_chunk("c1", "ku.a"), _chunk("c2", "ku.b")]
+        merged, added = backfill(filtered, unfiltered, 5)
+        assert added == 1
+        assert [c["chunk_uid"] for c in merged] == ["c1", "c2"]
+
+    def test_backfill_stops_at_k(self) -> None:
+        merged, added = backfill([], [_chunk(f"c{i}", "ku.a") for i in range(9)], 5)
+        assert (len(merged), added) == (5, 5)
+
+    def test_empty_unfiltered_draw_leaves_a_thin_draw_thin(self) -> None:
+        # Starvation the fallback cannot cure: nothing cleared min_score.
+        merged, added = backfill([_chunk("c1", "ku.a")], [], 5)
+        assert (len(merged), added) == (1, 0)
+
+
+class TestParentsOf:
+    def test_distinct_parents_in_draw_order(self) -> None:
+        hits = [_chunk("c1", "ku.a"), _chunk("c2", "ku.a"), _chunk("c3", "ku.b")]
+        assert parents_of(hits) == ["ku.a", "ku.b"]
+
+    def test_missing_parent_uids_are_dropped(self) -> None:
+        assert parents_of([{"chunk_uid": "c1"}, _chunk("c2", "ku.b")]) == ["ku.b"]
+
+
+def _row(**kw: object) -> DrawRow:
+    base: dict[str, object] = {
+        "query": "q",
+        "kind": "body_paraphrase",
+        "intent": "exploratory",
+        "filter_types": ["definition"],
+        "expect": ("ku.a",),
+    }
+    base.update(kw)
+    return DrawRow(**base)  # type: ignore[arg-type]
+
+
+class TestSummarize:
+    def _set(self) -> QuerySet:
+        return QuerySet(version=2, ratified=None, k=5, queries=())
+
+    def test_arms_are_scored_independently(self) -> None:
+        rows = [
+            _row(
+                filtered_parents=[],
+                thin_draw_parents=["ku.a"],
+                unfiltered_parents=["ku.a"],
+                filtered_chunks=1,
+                thin_draw_chunks=5,
+                unfiltered_chunks=5,
+            )
+        ]
+        report = summarize(rows, self._set(), None)
+        assert report["arms"]["filtered"]["hits"] == 0
+        assert report["arms"]["thin_draw"]["hits"] == 1
+        assert report["arms"]["unfiltered"]["hits"] == 1
+
+    def test_starvation_counts_draws_short_of_k(self) -> None:
+        rows = [
+            _row(filtered_chunks=ASKESIS_LIMIT, thin_draw_chunks=ASKESIS_LIMIT),
+            _row(filtered_chunks=1, thin_draw_chunks=ASKESIS_LIMIT),
+        ]
+        report = summarize(rows, self._set(), None)
+        assert report["arms"]["filtered"]["starved_queries"] == 1
+        assert report["arms"]["thin_draw"]["starved_queries"] == 0
+
+    def test_errored_rows_are_excluded_from_every_arm(self) -> None:
+        # An errored row must not dilute a recall rate — it is not a miss.
+        rows = [
+            _row(
+                filtered_parents=["ku.a"], thin_draw_parents=["ku.a"], unfiltered_parents=["ku.a"]
+            ),
+            _row(error="draw failed"),
+        ]
+        report = summarize(rows, self._set(), None)
+        assert report["errors"] == 1
+        assert report["query_count"] == 1
+        assert report["arms"]["filtered"]["recall_at_k"] == 1.0
+
+    def test_filtered_intent_queries_counts_only_mapped_intents(self) -> None:
+        # The guard against a false clean bill: with zero filtered-intent rows
+        # the arms are identical BY CONSTRUCTION, so the count must be reported
+        # or a +0.0% delta reads as "the filter is harmless" when in fact the
+        # filter never ran. Measured 2026-08-30: 0 of 23 on the live corpus.
+        rows = [_row(filter_types=None), _row(filter_types=["definition"])]
+        assert summarize(rows, self._set(), None)["filtered_intent_queries"] == 1
+
+    def test_no_mapped_intent_is_reported_as_zero(self) -> None:
+        rows = [_row(filter_types=None), _row(filter_types=None)]
+        assert summarize(rows, self._set(), None)["filtered_intent_queries"] == 0
+
+    def test_viewer_uid_is_recorded(self) -> None:
+        # The audience is the difference between a curriculum-only draw and one
+        # that sees the asking user's vault notes (ADR-085 G8) — it must ride
+        # into the record or two runs are not comparable.
+        assert summarize([], self._set(), "user_mike")["viewer_uid"] == "user_mike"

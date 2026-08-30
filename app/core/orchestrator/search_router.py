@@ -66,7 +66,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 from core.models.enums import SearchVisibility
 from core.models.enums.entity_enums import Domain, EntityType, NonKuDomain
 from core.models.enums.neo_labels import NeoLabel
-from core.models.search.filter_enums import SearchSortOrder
+from core.models.search.filter_enums import BodyFoldStatus, SearchSortOrder
 from core.models.type_hints import UserUID
 from core.ports.search_protocols import (
     SupportsGraphAwareSearch,
@@ -1145,8 +1145,11 @@ class SearchRouter:
         entity-type scope, not the audience gate.
 
         Fails SOFT and NEVER raises: no vector service (CORE tier), no query, or
-        a search error all return ``response`` unchanged so /search stays fully
-        functional without the Digital layer.
+        a search error all leave the results untouched so /search stays fully
+        functional without the Digital layer. Every one of those exits STAMPS
+        ``response.body_fold`` on its way out (`BodyFoldReport`) — soft failure
+        is invisible to a caller otherwise, and an empty body contribution
+        would read the same whether the fold found nothing or never ran.
 
         Backend: VectorSearchBackend.semantic_search_chunks (via
         Neo4jVectorSearchService.find_similar_chunks_by_text).
@@ -1166,19 +1169,21 @@ class SearchRouter:
             }
             target_values = body_values & requested if requested else body_values
             if not target_values:
-                return response  # sweep excludes both curriculum domains
+                # Sweep excludes both curriculum domains — not a degradation.
+                return self._stamp_body_fold(response, BodyFoldStatus.NOT_ATTEMPTED)
         elif domain_str in self._BODY_CHUNK_DOMAIN_VALUE:
             target_values = frozenset({self._BODY_CHUNK_DOMAIN_VALUE[domain_str]})
         else:
-            return response  # non-curriculum single domain — no bodies to add
+            # Non-curriculum single domain — no bodies to add.
+            return self._stamp_body_fold(response, BodyFoldStatus.NOT_ATTEMPTED)
 
         if not request.query_text:
-            return response
+            return self._stamp_body_fold(response, BodyFoldStatus.NOT_ATTEMPTED)
 
         vector_search = self._vector_search
         if vector_search is None:
             self.logger.debug("Body-chunk search skipped: vector search unavailable (CORE tier)")
-            return response
+            return self._stamp_body_fold(response, BodyFoldStatus.UNAVAILABLE)
 
         try:
             chunk_result = await vector_search.find_similar_chunks_by_text(
@@ -1192,27 +1197,61 @@ class SearchRouter:
             )
         except (AttributeError, TypeError, ValueError, KeyError) as e:
             self.logger.warning(f"Body-chunk search errored, returning base results: {e}")
-            return response
+            return self._stamp_body_fold(response, BodyFoldStatus.FAILED)
         except Exception as e:  # safety-net: body chunks must never break search
             self.logger.warning(f"Body-chunk search errored (unexpected): {e}")
-            return response
+            return self._stamp_body_fold(response, BodyFoldStatus.FAILED)
 
         if chunk_result.is_error:
             self.logger.warning(f"Body-chunk search failed: {chunk_result.expect_error()}")
-            return response
+            return self._stamp_body_fold(response, BodyFoldStatus.FAILED)
 
+        candidates = len(chunk_result.value)
         existing_uids = {str(r.get("uid", "")) for r in response.results}
         body_results = self._aggregate_body_chunk_parents(
             list(chunk_result.value), target_values, existing_uids
         )
+        # COMPLETED with zero parents is the HEALTHY empty case — no passage
+        # cleared the score floor, or every parent was already on the page.
+        # It must not read as a failure, which is the whole point of the stamp.
         if not body_results:
-            return response
+            return self._stamp_body_fold(
+                response, BodyFoldStatus.COMPLETED, chunk_candidates=candidates
+            )
 
         merged = list(response.results) + body_results
         self.logger.info(
             f"Body-chunk augmentation added {len(body_results)} Ku/PS lesson-body result(s)"
         )
-        return response.model_copy(update={"results": merged, "total": len(merged)})
+        stamped = self._stamp_body_fold(
+            response,
+            BodyFoldStatus.COMPLETED,
+            chunk_candidates=candidates,
+            parents_added=len(body_results),
+        )
+        return stamped.model_copy(update={"results": merged, "total": len(merged)})
+
+    @staticmethod
+    def _stamp_body_fold(
+        response: "SearchResponse",
+        status: "BodyFoldStatus",
+        *,
+        chunk_candidates: int = 0,
+        parents_added: int = 0,
+    ) -> "SearchResponse":
+        """Record what the body-chunk fold did, on the response it did it to.
+
+        In place, because ``faceted_search`` holds this same object and enriches
+        it further (facet counts, capacity warnings) after the fold returns.
+        """
+        from core.models.search_request import BodyFoldReport
+
+        response.body_fold = BodyFoldReport(
+            status=status,
+            chunk_candidates=chunk_candidates,
+            parents_added=parents_added,
+        )
+        return response
 
     @staticmethod
     def _aggregate_body_chunk_parents(

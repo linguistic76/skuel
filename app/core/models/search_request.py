@@ -73,7 +73,7 @@ from core.models.enums import (
 )
 from core.models.enums.entity_enums import EntityType, NonKuDomain
 from core.models.relationship_filters import RelationshipFilters
-from core.models.search.filter_enums import SearchSortOrder
+from core.models.search.filter_enums import BodyFoldStatus, SearchSortOrder
 from core.models.type_hints import UserUID
 from core.ports.query_types import CapacityWarnings
 from core.utils.logging import get_logger
@@ -796,6 +796,30 @@ class SearchRequest(BaseModel):
 BODY_HIT_MATCH_REASON = "Matched lesson body"
 
 
+class BodyFoldReport(BaseModel):
+    """What the lesson-BODY chunk fold did on this response.
+
+    The fold fails SOFT (`SearchRouter._augment_with_body_chunks`), so without
+    this record an empty body contribution is ambiguous three ways: the fold
+    found nothing, the Digital layer is down, or the request was never eligible.
+    `status` separates them; the two counts say how far a COMPLETED fold got.
+
+    `chunk_candidates` counts passages that cleared
+    `VectorSearchConfig.body_chunk_search_min_score`, BEFORE dedupe to parents;
+    `parents_added` counts the cards actually appended. They differ whenever
+    several passages share a parent, or a parent was already in the results —
+    the fold appends, it never re-ranks an entity the frontmatter sweep found.
+    """
+
+    status: BodyFoldStatus = Field(
+        default=BodyFoldStatus.NOT_ATTEMPTED, description="Whether the body-chunk fold ran"
+    )
+    chunk_candidates: int = Field(
+        default=0, ge=0, description="Passages above the score floor (pre-dedupe)"
+    )
+    parents_added: int = Field(default=0, ge=0, description="Parent cards appended by the fold")
+
+
 class SearchResponse(BaseModel):
     """
     Clean search response with results and facet counts.
@@ -848,6 +872,14 @@ class SearchResponse(BaseModel):
     capacity_warnings: CapacityWarnings = Field(
         default_factory=CapacityWarnings,
         description="User capacity warnings (workload, overdue backlog)",
+    )
+
+    # Digital-layer observability: the body-chunk fold fails soft, so its
+    # status has to be reported or a chunk-blind response is indistinguishable
+    # from a chunk-aware one that matched nothing.
+    body_fold: BodyFoldReport = Field(
+        default_factory=BodyFoldReport,
+        description="Status and yield of the lesson-body chunk fold",
     )
 
     def has_results(self) -> bool:

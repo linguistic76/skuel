@@ -18,6 +18,9 @@ from pathlib import Path
 
 import pytest
 
+from core.models.search.filter_enums import BodyFoldStatus
+from core.models.search_request import BodyFoldReport
+
 # scripts/ has no __init__.py, and this directory is itself named `scripts`,
 # so it shadows the real package under pytest's prepend import mode.
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
@@ -26,7 +29,7 @@ from eval_chunk_retrieval import (  # type: ignore[import-not-found]
     EvalQuery,
     QueryRow,
     QuerySet,
-    fold_consistency_error,
+    fold_status_error,
     load_query_set,
     score_query,
     summarize,
@@ -162,46 +165,45 @@ class TestScoreQuery:
         assert row.body_result_count == 1
 
     def test_chunk_candidates_passthrough(self) -> None:
-        # The probe's candidate count rides the row into the report — the
-        # per-query proof that body search ran (and how much it had to offer).
+        # The fold's own candidate count rides the row into the report — the
+        # per-query record of how much body search had to offer.
         row = score_query(_query(), ["ku.a"], body_uids=set(), k=5, chunk_candidates=12)
         assert row.chunk_candidates == 12
         assert row.to_dict()["chunk_candidates"] == 12
 
 
-KU_PS = frozenset({"ku", "path_step"})
+class TestFoldStatusGate:
+    """The response's own fold report is what licenses scoring a row.
 
-
-def _hit(parent_uid: str, parent_entity_type: str = "ku") -> dict[str, object]:
-    return {"parent_uid": parent_uid, "parent_entity_type": parent_entity_type}
-
-
-class TestFoldConsistency:
-    """The probe closes the fold's fail-soft window — these pin WHEN it fires.
-
-    It must fire toward invalidation only: never on a legitimately empty fold
-    (nothing eligible), always on candidates-but-no-cards.
+    Replaced the out-of-band probe (PR-1): the probe proved a SIBLING call
+    succeeded, then scored a response whose own fold ran afterwards and could
+    fail independently. `SearchResponse.body_fold` reports the real call.
     """
 
-    def test_eligible_candidates_but_no_body_cards_fires(self) -> None:
-        err = fold_consistency_error([_hit("ku.a")], ["ku.x"], set(), KU_PS)
-        assert err is not None and "1 eligible" in err
+    def test_completed_fold_scores(self) -> None:
+        assert fold_status_error(BodyFoldReport(status=BodyFoldStatus.COMPLETED)) is None
 
-    def test_body_cards_present_is_consistent(self) -> None:
-        assert fold_consistency_error([_hit("ku.a")], ["ku.x", "ku.a"], {"ku.a"}, KU_PS) is None
-
-    def test_all_candidates_already_in_frontmatter_asserts_nothing(self) -> None:
-        assert fold_consistency_error([_hit("ku.a")], ["ku.a"], set(), KU_PS) is None
-
-    def test_empty_probe_asserts_nothing(self) -> None:
-        assert fold_consistency_error([], ["ku.x"], set(), KU_PS) is None
-
-    def test_out_of_scope_parent_types_do_not_count(self) -> None:
-        # A user_entry chunk parent can never fold into /search — its absence
-        # from the cards is not evidence of a failed fold.
-        assert (
-            fold_consistency_error([_hit("ue.note", "user_entry")], ["ku.x"], set(), KU_PS) is None
+    def test_completed_but_empty_is_not_an_error(self) -> None:
+        # The `body` measurement: zero passages cleared the score floor. That
+        # is the finding, not a broken run — it must score as a miss.
+        report = BodyFoldReport(
+            status=BodyFoldStatus.COMPLETED, chunk_candidates=0, parents_added=0
         )
+        assert fold_status_error(report) is None
+
+    def test_core_tier_invalidates_the_row(self) -> None:
+        err = fold_status_error(BodyFoldReport(status=BodyFoldStatus.UNAVAILABLE))
+        assert err is not None and "unavailable" in err
+
+    def test_failed_fold_invalidates_the_row(self) -> None:
+        err = fold_status_error(BodyFoldReport(status=BodyFoldStatus.FAILED))
+        assert err is not None and "failed" in err
+
+    def test_not_attempted_invalidates_the_row(self) -> None:
+        # Every eval request names both body domains and carries query text,
+        # so NOT_ATTEMPTED means the fold's eligibility rules moved under us.
+        err = fold_status_error(BodyFoldReport(status=BodyFoldStatus.NOT_ATTEMPTED))
+        assert err is not None and "not attempted" in err
 
 
 class TestSummarize:
