@@ -43,10 +43,12 @@ Design rules (mirrors the SKUEL linter's structural-soundness discipline):
   only by deleting the entry. So a became-live signal is reported as MASKED:
   printed, never demanded. There is deliberately no
   PLANNED_FIELDS: the PLANNED tiers stay honest only because stale keys are
-  audited, and there is no field scanner to audit with. Each examined tier
-  also prints an aging summary (entry count + oldest ISO date extracted
-  best-effort from reason prose; entries with no parseable date are counted
-  as undated, never dropped) so backlog age is visible, not remembered.
+  audited, and there is no field scanner to audit with. Every entry is a
+  PlannedEntry: a Readiness (READY = the completing change is fully specified
+  and no decision stands before it; DELAYED = waiting on a product decision
+  or on a surface that does not exist yet), the reason, and ``since`` — the
+  staging-decision date, structured — so each examined tier prints an aging
+  summary (entry count + oldest ``since``) that scrapes nothing from prose.
 
 Advisory by default (exit 0). ``--check`` exits 1 on surviving WARNING
 findings — wired as ./dev quality check 7 and the CI lint job's dead-code
@@ -62,7 +64,6 @@ Usage:
 import argparse
 import ast
 import json
-import re
 import sys
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -83,11 +84,64 @@ EXCLUDED_PARTS = {"__pycache__", "archive"}
 EVENTS_PACKAGE = ROOT / "core" / "events"
 EVENT_ROOT_BASE = "BaseEvent"
 
+
+class Readiness(Enum):
+    """Whether a PLANNED entry can be picked up today.
+
+    READY: the completing change is fully specified and no decision stands
+        before it — a fresh context could execute it without inventing a
+        design or asking. In practice the live half already exists (a
+        consumer polling an empty table, a detail page rendering the field,
+        the ADD route of an add/remove pair) and only the producer, the write
+        form, or the mirror route is missing.
+    DELAYED: waiting on a product decision, a ruling, or a surface (page,
+        panel, subsystem) that does not exist yet — something other than the
+        wiring itself has to happen first.
+    """
+
+    READY = "ready"
+    DELAYED = "delayed"
+
+
+@dataclass(frozen=True)
+class PlannedEntry:
+    """One staged subject in a PLANNED registry.
+
+    ``readiness`` is required with no default: the cost of the dimension is
+    that every future entry classifies itself, and a required constructor
+    argument is the only enforcement that cannot be forgotten. ``since`` is
+    the date of the STAGING DECISION — the first ruling, never a later
+    re-ruling — structured so the aging summary reads it instead of scraping
+    ISO dates out of prose (which missed 74% of PLANNED_METHODS). ``reason``
+    keeps the tier's standing contract: it must name what completes the entry.
+    """
+
+    readiness: Readiness
+    reason: str
+    since: date
+
+
 # Exemptions require a documented reason (audit_route_security.py convention).
 # Exempted findings are still printed, collapsed — never hidden.
 EXEMPTED_EVENTS: dict[str, str] = {}
 # Keyed "relative/path.py::method_name".
-EXEMPTED_METHODS: dict[str, str] = {}
+# ⚠ EXEMPTED_METHODS has no stale audit: a key whose method is deleted is never
+# reported. That gap is why the two entries below sat mis-tiered in
+# PLANNED_METHODS (borrowing its audit) until 2026-08-29 — they are LIVE, not
+# staged: each one's only caller sits in scripts/, outside FIRST_PARTY_ROOTS by
+# design, so vulture reports it unused. An exemption is the honest register for
+# "the scanner cannot see the caller"; there is nothing to wire.
+EXEMPTED_METHODS: dict[str, str] = {
+    "core/services/embeddings_service.py::stamp_embedding_hashes": (
+        "LIVE — called only by scripts/generate_embeddings_batch.py --stamp-hashes "
+        "(ADR-074 §8 one-shot hash rollout), outside the scanner's production roots"
+    ),
+    "core/services/ingestion/reference_ingestion.py::ingest_book": (
+        "LIVE — called only by scripts/ingest_canon_book.py (the canon Phase-2 admin "
+        "ingest door), outside the scanner's production roots; becomes an in-app "
+        "caller when a canon management route/UI is built (Phase 3+)"
+    ),
+}
 
 # Planned code: structurally dead TODAY, by intent — staged work awaiting its
 # wiring, not abandonment. One Path Forward demands deleting abandoned code;
@@ -96,14 +150,17 @@ EXEMPTED_METHODS: dict[str, str] = {}
 # reason must name what completes it. An entry whose subject is GONE is stale,
 # FAILS --check, and must be removed. An entry that merely LOOKS wired is masked
 # — printed, never demanded — because no engine here can attribute the signal.
-PLANNED_EVENTS: dict[str, str] = {
+# Every entry is a PlannedEntry: it declares its Readiness (READY / DELAYED)
+# and its ``since`` — the staging-decision date, structured, never scraped.
+PLANNED_EVENTS: dict[str, PlannedEntry] = {
     # ADR-074 wired the curriculum embedding events through the
     # embedding_publisher chokepoint (Ku/PathStep/LearningPath via the
     # ingestion post-persist step + in-app creates; Exercise via
     # ExerciseService). ResourceEmbeddingRequested is structurally live via
     # the same chokepoint but has no producer that passes RESOURCE yet —
     # see the note on EMBEDDING_EVENT_TYPES in embedding_publisher.py.
-    "HabitMissed": (
+    "HabitMissed": PlannedEntry(
+        Readiness.DELAYED,
         "publish-side missed-habit detection never built (no publisher in ANY commit); "
         "subscriber wiring in services_bootstrap/_event_wiring.py is intentional staging. "
         "RULED keep-staged 2026-08-28 (Mike) — its siblings add_change_handler and "
@@ -112,225 +169,288 @@ PLANNED_EVENTS: dict[str, str] = {
         "docs/roadmap/deferred-work.md § 'HabitMissed — Publisher-less Chain'. The "
         "publisher's constraints are no LLM and no API cost plus the streak day-model "
         "ruling — a scheduled Analog detector (ProgressReportWorker pattern), a read-time "
-        "scan or a one-shot are all legitimate shapes"
+        "scan or a one-shot are all legitimate shapes",
+        since=date(2026, 6, 10),
     ),
     # Exercises dead-code campaign (2026-06): ADR-040 teacher-assignment
     # notification hook. Neither published nor subscribed — its sibling
     # ExerciseSubmitted was deleted (superseded by the live UserEntryCreated
     # after the ADR-054 UserEntry collapse), but the assignment-notification
     # moment ExerciseCreated marks has no live equivalent.
-    "ExerciseCreated": (
+    "ExerciseCreated": PlannedEntry(
+        Readiness.DELAYED,
         "teacher-assignment notification + calendar-integration hook staged "
         "(ADR-040) — publish side (notify group members + calendar due-date on "
         "exercise assignment) never built and no subscriber wired; same staged "
         "assignment-notification family as report.get_unsubmitted_exercises / "
         "review_queue.request_review — wire when the assignment-notification / "
-        "Messaging surface lands, or delete the chain"
+        "Messaging surface lands, or delete the chain",
+        since=date(2026, 6, 13),
     ),
     # Campaign 18 (2026-06): events with subscribers but no publisher — staging
-    "KnowledgeCreated": (
+    "KnowledgeCreated": PlannedEntry(
+        Readiness.DELAYED,
         "publish-side never built; subscribers wired in metrics_event_handler + "
         "_event_wiring — fire when a Ku or PS is created/ingested and downstream "
-        "knowledge-tracking consumers need it, or delete the chain"
+        "knowledge-tracking consumers need it, or delete the chain",
+        since=date(2026, 6, 17),
     ),
 }
 # Habits dead-code campaign (2026-06): staged habit capabilities kept by
 # deliberate decision — each reason names the wiring that completes it.
-_HABITS_DUE_TODAY = (
+_HABITS_DUE_TODAY = PlannedEntry(
+    Readiness.DELAYED,
     "sole home of frequency-based due-ness — staged daily-planning capability; "
-    "wire into daily planning/dashboard or delete the frequency lens"
+    "wire into daily planning/dashboard or delete the frequency lens",
+    since=date(2026, 6, 10),
 )
-_HABITS_SCHED_CREATE = (
+_HABITS_SCHED_CREATE = PlannedEntry(
+    Readiness.DELAYED,
     "scheduling-aware habit creation staged; wire a route/UI entry point that "
-    "creates habits with capacity checks"
+    "creates habits with capacity checks",
+    since=date(2026, 6, 10),
 )
-_HABITS_LIFECYCLE = (
-    "habit lifecycle + reminder surface staged; wire routes/UI for pause/resume/"
-    "archive/untrack, streak/progress/history, completion calendar, reminders"
-)
-_HABITS_BADGES = "completion bulk/badge/export surface staged; wire gamification and export routes"
-_HABITS_ORCHESTRATION = (
+_HABITS_ORCHESTRATION = PlannedEntry(
+    Readiness.DELAYED,
     "goal/Ku/principle orchestration surface staged; wire link + skill routes "
-    "or fold into relationship routes"
+    "or fold into relationship routes",
+    since=date(2026, 6, 10),
 )
-_HABITS_INSIGHTS = (
-    "habit analytics/AI insight surface staged; wire an insights UI or Askesis consumer"
+_HABITS_INSIGHTS = PlannedEntry(
+    Readiness.DELAYED,
+    "habit analytics/AI insight surface staged; wire an insights UI or Askesis consumer",
+    since=date(2026, 6, 10),
 )
 # Principles dead-code campaign (2026-06): staged principle capabilities kept
 # by deliberate decision — each reason names the wiring that completes it.
-_PRINCIPLES_EMBODIMENT = (
-    "embodiment surface staged (post-create expression append, portfolio, integrity); "
-    "wire an add-expression UI on the detail page — create-time expressions and the "
-    "detail-page render are already live"
-)
-_PRINCIPLES_ASSESS = (
+_PRINCIPLES_ASSESS = PlannedEntry(
+    Readiness.READY,
     "single-track self-assessment staged — the ONLY post-create writer of "
     "alignment_history, which the detail page already renders; wire an assess "
-    "route/UI (dual-track check-ins live separately in dual_track_checkins)"
+    "route/UI (dual-track check-ins live separately in dual_track_checkins)",
+    since=date(2026, 6, 11),
 )
-_PRINCIPLES_INSIGHTS = (
-    "principle analytics/AI insight surface staged; wire an insights UI or Askesis consumer"
+_PRINCIPLES_INSIGHTS = PlannedEntry(
+    Readiness.DELAYED,
+    "principle analytics/AI insight surface staged; wire an insights UI or Askesis consumer",
+    since=date(2026, 6, 11),
 )
 # Events dead-code campaign (2026-06): staged event capabilities kept by
 # deliberate decision — each reason names the wiring that completes it.
-_EVENTS_ATTENDEES = (
+_EVENTS_ATTENDEES = PlannedEntry(
+    Readiness.DELAYED,
     "attendee surface staged, retargeted onto the ADR-086 attendance design "
     "((User)-[:ATTENDS {joined_at, role, added_by, status}]->(Event), invite->accept consent "
     "state machine, actor from the auth layer); wire attendee routes/UI on the event detail "
     "page (wiring obligations recorded in ADR-086: self-add eligibility gate, OWNER_OR_ATTENDEE "
-    "visibility, creator auto-attend, ghost filter, max_attendees, role enum)"
+    "visibility, creator auto-attend, ghost filter, max_attendees, role enum)",
+    since=date(2026, 6, 11),
 )
-_EVENTS_ORCHESTRATION = (
+_EVENTS_ORCHESTRATION = PlannedEntry(
+    Readiness.DELAYED,
     "goal/Ku link + context-aware create surface staged; create_event_with_context is "
     "the ONLY knowledge-practice-at-create writer (KnowledgePracticedInEvent); wire link "
-    "routes/UI or fold into relationship routes"
+    "routes/UI or fold into relationship routes",
+    since=date(2026, 6, 11),
 )
-_EVENTS_SCHEDULING = (
+_EVENTS_SCHEDULING = PlannedEntry(
+    Readiness.DELAYED,
     "conflict-detection + recurring-instance-expansion surface staged; wire a conflict-check "
     "UI and a recurrence expansion route, or fold conflicts into "
-    "CalendarOptimizationOrchestrator (cross-domain slot view)"
+    "CalendarOptimizationOrchestrator (cross-domain slot view)",
+    since=date(2026, 6, 11),
 )
-_HABIT_EVENT_AUTOMATION = (
+_HABIT_EVENT_AUTOMATION = PlannedEntry(
+    Readiness.DELAYED,
     "bulk habit→event automation staged on the LIVE HabitEventScheduler (single-habit "
     "schedule_events_for_habit is routed via orchestration_routes.py); wire bulk-scheduling/"
-    "routine/template routes or a scheduler cron"
+    "routine/template routes or a scheduler cron",
+    since=date(2026, 6, 11),
 )
 # User dead-code campaign (2026-06): staged user-context capabilities kept by
 # deliberate decision — each reason names the wiring that completes it.
-_USER_PERCEPTION = (
+_USER_PERCEPTION = PlannedEntry(
+    Readiness.DELAYED,
     "ADR-030 cross-domain perception aggregator built (#262–#265) but never wired; "
-    "wire a perception-insights panel (profile or Self Check-In page) consuming it"
+    "wire a perception-insights panel (profile or Self Check-In page) consuming it",
+    since=date(2026, 6, 11),
 )
-_USER_PRINCIPLE_INTEGRATION = (
+_USER_PRINCIPLE_INTEGRATION = PlannedEntry(
+    Readiness.DELAYED,
     "staged rich-context principle-integration read surface — the populator fills "
     "principle_guided_choice_counts/recent_principle_aligned_choices and SKUEL018 "
-    "mandates these accessors as the read path; wire a profile/insights consumer"
+    "mandates these accessors as the read path; wire a profile/insights consumer",
+    since=date(2026, 6, 11),
 )
 # Choices dead-code campaign (2026-06): staged choice capabilities kept by
 # deliberate decision — each reason names the wiring that completes it.
-_CHOICES_GRAVITY = (
-    "goal/habit/principle link surface staged; wire link routes/UI or fold into relationship routes"
+_CHOICES_GRAVITY = PlannedEntry(
+    Readiness.DELAYED,
+    "goal/habit/principle link surface staged; wire link routes/UI or fold into relationship routes",
+    since=date(2026, 6, 11),
 )
-_CHOICES_QUICK_METRICS = (
+_CHOICES_QUICK_METRICS = PlannedEntry(
+    Readiness.DELAYED,
     "fast-path decision screening staged (ChoiceRelationships.fetch-based quick metrics, "
     "the LIVE get_decision_intelligence is the full typed-reader lens); wire a dashboard "
-    "quick-view or batch complexity filter consuming it"
+    "quick-view or batch complexity filter consuming it",
+    since=date(2026, 6, 11),
 )
-_CHOICES_OUTCOME = (
+_CHOICES_OUTCOME = PlannedEntry(
+    Readiness.READY,
     "outcome-evaluation write path staged — ADR-066 designates it THE writer of "
     "satisfaction_score/actual_outcome/lessons_learned (rendered on the detail page; "
-    "ChoiceOutcomeRecorded handler is live-subscribed); wire an evaluate route/form"
+    "ChoiceOutcomeRecorded handler is live-subscribed); wire an evaluate route/form",
+    since=date(2026, 6, 11),
 )
 # Goals dead-code campaign (2026-06): staged goal capabilities kept by
 # deliberate decision — each reason names the wiring that completes it.
-_GOALS_GRAVITY = (
+_GOALS_GRAVITY = PlannedEntry(
+    Readiness.DELAYED,
     "Ku/principle link surface staged (link_goal_to_habit is the LIVE essentiality "
-    "write path); wire link routes/UI or fold into relationship routes"
+    "write path); wire link routes/UI or fold into relationship routes",
+    since=date(2026, 6, 11),
 )
-_GOALS_SCHED_CREATE = (
-    "scheduling-aware goal creation staged; wire a route/UI entry point that "
-    "creates goals with capacity checks"
-)
-_GOALS_INSIGHTS = (
+_GOALS_INSIGHTS = PlannedEntry(
+    Readiness.DELAYED,
     "goal analytics/AI insight surface staged (feasibility, what-if scenarios, "
-    "LLM strategy); wire an insights UI or Askesis consumer"
+    "LLM strategy); wire an insights UI or Askesis consumer",
+    since=date(2026, 6, 11),
 )
-_GOAL_TASK_AUTOMATION = (
+_GOAL_TASK_AUTOMATION = PlannedEntry(
+    Readiness.DELAYED,
     "bulk goal→task automation staged on the LIVE GoalTaskGenerator (single-goal "
     "generate_tasks_for_goal is routed via orchestration_routes.py); wire bulk/"
-    "critical-task/template routes or a planner cron"
+    "critical-task/template routes or a planner cron",
+    since=date(2026, 6, 11),
 )
 # Tasks dead-code campaign (2026-06): staged task capabilities kept by
 # deliberate decision — each reason names the wiring that completes it.
-_TASKS_ASSIGNMENT = (
+_TASKS_ASSIGNMENT = PlannedEntry(
+    Readiness.DELAYED,
     "task-assignment surface staged — reads (Task)-[:ASSIGNED_TO]->(User); the writer "
     "assign_task_to_user (progress service + facade) is its staged dependency with no "
-    "route/UI; wire assign/queue routes (teacher→student shape) or delete the surface"
+    "route/UI; wire assign/queue routes (teacher→student shape) or delete the surface",
+    since=date(2026, 6, 11),
 )
-_TASKS_BULK = (
+_TASKS_BULK = PlannedEntry(
+    Readiness.DELAYED,
     "bulk completion staged — sole publisher of TasksBulkCompleted, whose subscriber "
     "(task event handler batch-pattern classification) is live, and fans out per-row "
-    "TaskCompleted for the transitioning rows; wire a multi-select complete route/UI"
+    "TaskCompleted for the transitioning rows; wire a multi-select complete route/UI",
+    since=date(2026, 6, 11),
 )
-_TASKS_INSIGHTS = (
-    "task analytics/AI insight surface staged; wire an insights UI or Askesis consumer"
+_TASKS_INSIGHTS = PlannedEntry(
+    Readiness.DELAYED,
+    "task analytics/AI insight surface staged; wire an insights UI or Askesis consumer",
+    since=date(2026, 6, 11),
 )
-_TASKS_KU_ORCHESTRATION = (
+_TASKS_KU_ORCHESTRATION = PlannedEntry(
+    Readiness.DELAYED,
     "manual knowledge-generation trigger staged — the automatic TaskCompleted "
     "event-handler path is live; this variant returns curated results for review "
-    "instead of auto-creating; wire an admin/review route"
+    "instead of auto-creating; wire an admin/review route",
+    since=date(2026, 6, 11),
 )
-_TASKS_GRAVITY = (
+_TASKS_GRAVITY = PlannedEntry(
+    Readiness.DELAYED,
     "goal/Ku link surface staged (link_task_to_knowledge is the LIVE knowledge-edge "
-    "write path); wire link routes/UI or fold into relationship routes"
+    "write path); wire link routes/UI or fold into relationship routes",
+    since=date(2026, 6, 11),
 )
-_PS_SEMANTIC_DELETE = (
+_PS_SEMANTIC_DELETE = PlannedEntry(
+    Readiness.READY,
     "semantic-edge delete counterpart staged — the ADD path is LIVE (create_step_relationship "
     "route in path_steps_api.py + hierarchy_routes string-dispatch → add_semantic_relationship); "
-    "wire a delete-step-relationship route for write-path symmetry"
+    "wire a delete-step-relationship route for write-path symmetry",
+    since=date(2026, 6, 11),
 )
-_PS_SEMANTIC_INFER = (
+_PS_SEMANTIC_INFER = PlannedEntry(
+    Readiness.DELAYED,
     "transitive-inference lens staged (confidence-filtered reasoning chains over semantic "
-    "edges); wire an explore/intelligence inference surface"
+    "edges); wire an explore/intelligence inference surface",
+    since=date(2026, 6, 11),
 )
-_PS_GUIDANCE = (
+_PS_GUIDANCE = PlannedEntry(
+    Readiness.DELAYED,
     "guidance-strength lens staged (principles 40% + choices 60% weighted score; backend "
     "fetch_guidance_counts stays); compose into get_domain_insights like the live "
-    "practice_completeness lens, or a PS detail-page guidance indicator"
+    "practice_completeness lens, or a PS detail-page guidance indicator",
+    since=date(2026, 6, 11),
 )
-_LP_REVERSE_LOOKUP = (
+_LP_REVERSE_LOOKUP = PlannedEntry(
+    Readiness.DELAYED,
     "LP reverse-lookup lens staged (full chain: service wrapper + protocol member + backend "
     "query, no live equivalent at LP grain); wire a goal-detail 'aligned learning paths' / "
-    "ku-detail 'paths teaching this' consumer"
+    "ku-detail 'paths teaching this' consumer",
+    since=date(2026, 6, 11),
 )
-_DSL_EXTRACTION_PREVIEW = (
+_DSL_EXTRACTION_PREVIEW = PlannedEntry(
+    Readiness.DELAYED,
     "extraction preview lens staged — extract_and_create went live as the "
     "Pipeline.EXTRACT_ACTIVITIES branch (ADR-069 PR-1) but the no-create preview has no UI "
     "consumer yet; wire a 'preview what this entry would create' panel on the entry submit/"
-    "detail page calling preview_extraction before the user commits to processing"
+    "detail page calling preview_extraction before the user commits to processing",
+    since=date(2026, 6, 12),
 )
-_LIFEPATH_WORD_ACTION = (
+_LIFEPATH_WORD_ACTION = PlannedEntry(
+    Readiness.DELAYED,
     "words-vs-actions integrity lens staged — the concept-defining LifePath check "
     "('Are you LIVING what you SAID?'): vision themes vs UserContext action themes, "
     "no live equivalent (the live 5-dimension alignment measures graph edges, not "
     "theme overlap); wire as the words-vs-actions panel on the /lifepath alignment "
-    "dashboard next to the live dimension breakdown"
+    "dashboard next to the live dimension breakdown",
+    since=date(2026, 6, 12),
 )
-_REPORT_DAILY_PLANNING = (
+_REPORT_DAILY_PLANNING = PlannedEntry(
+    Readiness.DELAYED,
     "assigned-work nag staged — 'exercises assigned via group with no submission yet, by due "
-    "date' is a daily-planning signal in the same family as the daily-plan phantom-dispatch "
-    "repair thread; wire when that cross-domain repair lands (Mike ruled PLANNED 2026-06-12)"
+    "date' is a daily-planning signal; the daily-plan phantom-dispatch repair it once waited on "
+    "landed (campaign 14, 2026-06-13 — get_ready_to_work_on_today is live), so what remains is "
+    "the consumer: wire it into the daily plan / dashboard (Mike ruled PLANNED 2026-06-12)",
+    since=date(2026, 6, 12),
 )
-_REPORT_COMPLETION_STATS = (
+_REPORT_COMPLETION_STATS = PlannedEntry(
+    Readiness.DELAYED,
     "learning-loop completion-rate read surface staged — submissions with/without reports + "
     "total reports received over REPORT_FOR edges; wire a progress/dashboard consumer "
-    "(Mike ruled PLANNED 2026-06-12)"
+    "(Mike ruled PLANNED 2026-06-12)",
+    since=date(2026, 6, 12),
 )
-_REPORT_EXERCISE_CHAIN = (
+_REPORT_EXERCISE_CHAIN = PlannedEntry(
+    Readiness.DELAYED,
     "exercise-rooted loop traversal staged — teacher/admin 'everything chained to this "
     "Exercise' (submissions, reports, revised exercises); the entry-rooted twin "
     "get_submission_chain is now wired live (ADR-069 PR-3), this one awaits a teaching-UI "
-    "exercise detail view (Mike ruled PLANNED 2026-06-12)"
+    "exercise detail view (Mike ruled PLANNED 2026-06-12)",
+    since=date(2026, 6, 12),
 )
-_REPORT_SCHEDULE_PRODUCER = (
+_REPORT_SCHEDULE_PRODUCER = PlannedEntry(
+    Readiness.READY,
     "missing producer of a LIVE consumer — ProgressReportWorker starts at bootstrap "
     "(scripts/dev/bootstrap.py) and polls get_due_schedules, but no route creates/manages "
     "ReportSchedule nodes, so the loop polls an eternally-empty table; wire a report-schedule "
-    "settings route/UI to complete the periodic ActivityReport feature (ADR-069 §3)"
+    "settings route/UI to complete the periodic ActivityReport feature (ADR-069 §3)",
+    since=date(2026, 6, 12),
 )
-_REPORT_PRIVACY_AUDIT = (
+_REPORT_PRIVACY_AUDIT = PlannedEntry(
+    Readiness.DELAYED,
     "privacy-transparency surface staged — per-user audit of admin snapshots, shares granted, "
     "and report schedule; the producer side (ActivitySnapshotAccessed audit events) already "
     "publishes; wire a /privacy route + UI per the security posture "
-    "(Mike ruled PLANNED 2026-06-12)"
+    "(Mike ruled PLANNED 2026-06-12)",
+    since=date(2026, 6, 12),
 )
-_REVIEW_REQUEST_PRODUCER = (
+_REVIEW_REQUEST_PRODUCER = PlannedEntry(
+    Readiness.READY,
     "missing producer of a LIVE consumer — the admin activity-review queue page "
     "(activity_review_ui.py → get_pending_reviews) ships and reads an eternally-empty queue "
     "because no user-facing route calls request_review; wire a 'request a review' "
-    "button/route to complete the loop (ADR-069 §3)"
+    "button/route to complete the loop (ADR-069 §3)",
+    since=date(2026, 6, 12),
 )
-_SHARING_MANAGEMENT = (
+_SHARING_MANAGEMENT = PlannedEntry(
+    Readiness.DELAYED,
     "sharing-management surface staged — the unwired half of UnifiedSharingService (ADR-038): "
     "the create/check half is LIVE and wired (share, check_access, get_shared_with_me, "
     "share_with_group, get_user_entries_shared_with_group all have routes/UI), but the "
@@ -338,57 +458,70 @@ _SHARING_MANAGEMENT = (
     "No superseded loser — each is the unwired inverse or owner-view twin of a live op. "
     "Wire a sharing-management panel on entity detail pages (revoke button, "
     "PRIVATE→SHARED→TEAM→PUBLIC visibility selector, 'shared with' list) "
-    "(Mike ruled PLANNED 2026-06-13)"
+    "(Mike ruled PLANNED 2026-06-13)",
+    since=date(2026, 6, 13),
 )
 # Relationships dead-code campaign (2026-06-13): staged relationship capabilities
 # kept by deliberate decision — each reason names the wiring that completes it.
-_RELATIONSHIPS_DAILY_PLANNING = (
+_RELATIONSHIPS_DAILY_PLANNING = PlannedEntry(
+    Readiness.DELAYED,
     "generic UserContext planning surface on UnifiedRelationshipService — "
     "get_blocked_for_user has no live caller after the phantom-dispatch repair "
     "(the facade services now supply domain-specific planning methods directly); "
-    "wire a cross-domain blocked-item surface or delete (Mike ruled PLANNED 2026-06-13)"
+    "wire a cross-domain blocked-item surface or delete (Mike ruled PLANNED 2026-06-13)",
+    since=date(2026, 6, 13),
 )
-_RELATIONSHIPS_HIERARCHY = (
+_RELATIONSHIPS_HIERARCHY = PlannedEntry(
+    Readiness.DELAYED,
     "curriculum multi-hop hierarchy traversal staged (universal hierarchical "
     "pattern) — OrderedRelationshipsMixin is mixed into UnifiedRelationshipService "
     "and the backend impls (get_hierarchical_children_single/two_level/deep) are "
     "live, but no caller invokes the service entry point; wire a curriculum "
-    "tree/hierarchy explorer consumer (Mike ruled PLANNED 2026-06-13)"
+    "tree/hierarchy explorer consumer (Mike ruled PLANNED 2026-06-13)",
+    since=date(2026, 6, 13),
 )
-_RELATIONSHIPS_EXISTS = (
+_RELATIONSHIPS_EXISTS = PlannedEntry(
+    Readiness.DELAYED,
     "generic relationship existence-check staged — config-keyed has-any-related "
     "boolean (sibling of the live count_related / get_related_uids); integration-"
     "tested on live Neo4j (LP relationships) but no production caller; wire where "
     "a cheap exists check beats loading UIDs, or fold into the domain relationship "
-    "containers (Mike ruled PLANNED 2026-06-13)"
+    "containers (Mike ruled PLANNED 2026-06-13)",
+    since=date(2026, 6, 13),
 )
 # Askesis dead-code campaign (2026-06-13): Askesis is a LIVE subsystem (the
 # answer_user_question conversation pipeline is wired to /api/askesis/ask and
 # /askesis/api/submit), but its instance-persistence/management layer and several
 # AI/citation/context lenses were never wired. Flagship-maintained direction
 # (feedback: Askesis = ZPD-aware companion) — staged, not deleted.
-_ASKESIS_INSTANCE_MANAGEMENT = (
+_ASKESIS_INSTANCE_MANAGEMENT = PlannedEntry(
+    Readiness.DELAYED,
     "askesis instance persistence/management surface staged — the live conversation "
     "flow only uses get_or_create_for_user (auto-create) + in-memory ConversationContext; "
     "the explicit-create (configured AskesisCreateRequest), settings-update, delete, "
     "multi-instance listing, and conversation-metrics-persist half was never wired. "
     "No superseded loser — these back the placeholder /askesis/settings form (no persist), "
     "/askesis/history, and /askesis/analytics ('coming soon') UIs. Wire settings "
-    "persistence + conversation-history/analytics consumers (Mike ruled PLANNED 2026-06-13)"
+    "persistence + conversation-history/analytics consumers (Mike ruled PLANNED 2026-06-13)",
+    since=date(2026, 6, 13),
 )
-_ASKESIS_CITATION_QUALITY = (
+_ASKESIS_CITATION_QUALITY = PlannedEntry(
+    Readiness.DELAYED,
     "askesis citation-quality lens staged — the live citation path is "
     "format_citations_for_askesis → get_citations_for_knowledge_unit (query_processor); "
     "the evidence-count-filtered 'well-supported' selector and the citation-quality "
     "analyzer are unwired lenses over that live bundle with no caller; wire a "
-    "citation-quality display / 'well-supported sources' filter (Mike ruled PLANNED 2026-06-13)"
+    "citation-quality display / 'well-supported sources' filter (Mike ruled PLANNED 2026-06-13)",
+    since=date(2026, 6, 13),
 )
-_ASKESIS_CONTEXT_ORCHESTRATION = (
+_ASKESIS_CONTEXT_ORCHESTRATION = PlannedEntry(
+    Readiness.DELAYED,
     "askesis context-orchestration surface staged — load_askesis_context centralises the "
     "get_askesis → get_rich_unified_context bundle (AskesisContext) for instance-aware "
     "intelligence API routes that were never wired (the live pipeline loads UserContext "
     "inline, instance-free); wire instance-aware intelligence routes consuming it "
-    "(Mike ruled PLANNED 2026-06-13)"
+    "(Mike ruled PLANNED 2026-06-13)",
+    since=date(2026, 6, 13),
 )
 # Shared BaseService-mixin dead-code campaign (2026-06-13, campaign 16): the 6
 # common mixins (ConversionHelpers, CRUD, Search, Relationships, TimeQuery,
@@ -397,7 +530,8 @@ _ASKESIS_CONTEXT_ORCHESTRATION = (
 # masked any same-named call). Two pure-plumbing helpers were DELETED (live
 # winners exist: inline None-guard / a standalone conversion fn (itself since deleted in Tier 6)); these
 # three are feature-shaped surfaces with no superseded loser.
-_MIXIN_PREREQUISITE_WRITE = (
+_MIXIN_PREREQUISITE_WRITE = PlannedEntry(
+    Readiness.DELAYED,
     "config-driven prerequisite-write half staged — the write twin of the "
     "get_prerequisites read (the mixin read is DomainConfig-wired; PsService's "
     "live caller overrides it with its graph service; get_enables is PLANNED). "
@@ -405,9 +539,11 @@ _MIXIN_PREREQUISITE_WRITE = (
     "lateral create_lateral_relationship writes a route-chosen RelationshipName, "
     "not via the domain prereq config; live prereq edges currently come only from "
     "ingestion (Edge YAML). Wire a prerequisite-edit control on entity detail "
-    "pages (Mike ruled PLANNED 2026-06-13)"
+    "pages (Mike ruled PLANNED 2026-06-13)",
+    since=date(2026, 6, 13),
 )
-_MIXIN_ENABLES_TRAVERSAL = (
+_MIXIN_ENABLES_TRAVERSAL = PlannedEntry(
+    Readiness.DELAYED,
     "enables-direction traversal — the symmetric inverse of the LIVE get_prerequisites "
     "(walks the same _prerequisite_relationships edges inward vs outward), a member of the "
     "ADR-023 lateral-getter convenience family (get_prerequisites / get_enables / get_related "
@@ -420,7 +556,8 @@ _MIXIN_ENABLES_TRAVERSAL = (
     "live graph and deleted (was deferred-work #9, 2026-07-25 — no separable nous cross-topic "
     "structure: 6 singleton disjoint bridges, zero MASTERED edges, redundant with the live "
     "entity-level get_cross_domain_synergies). Complete when any consumer needs the inverse "
-    "'what does X enable' read (Mike ruled KEEP 2026-07-25)"
+    "'what does X enable' read (Mike ruled KEEP 2026-07-25)",
+    since=date(2026, 7, 25),
 )
 # NOTE: RelationshipOperationsMixin.get_hierarchy (the generic parents/children
 # read over backend.hierarchy_query_raw) was PLANNED here. Tier 2 (#721) added
@@ -431,32 +568,38 @@ _MIXIN_ENABLES_TRAVERSAL = (
 # unwired (no route calls it; the live path is the per-domain get_*_hierarchy
 # over get_hierarchy_raw), so it was removed per the stale convention. Wire a
 # hierarchy explorer/breadcrumb consuming the unified surface to complete it.
-_MIXIN_ARRAY_SEARCH = (
+_MIXIN_ARRAY_SEARCH = PlannedEntry(
+    Readiness.DELAYED,
     "generic array-field search staged — the 'any array field contains value' "
     "generalization of the live search_by_tags (which covers the tags case); no "
     "production caller, in the same unwired-search-surface family as the PLANNED "
     "intelligent_search NL entry point. Wire a faceted array-field filter or fold "
-    "into the search box (Mike ruled PLANNED 2026-06-13)"
+    "into the search box (Mike ruled PLANNED 2026-06-13)",
+    since=date(2026, 6, 13),
 )
 # Exercises dead-code campaign (2026-06, campaign 17): teacher-management half
 # of the exercise lifecycle. delete_exercise was DELETED (superseded by the
 # generic CRUDRouteFactory delete route → ownership-verified service.delete_for_user),
 # but these two have no live winner — the live exercise-listing family
 # (get_student_exercises*) is a STUDENT view, and no route archives an exercise.
-_EXERCISES_GROUP_LISTING = (
+_EXERCISES_GROUP_LISTING = PlannedEntry(
+    Readiness.DELAYED,
     "teacher group-roster listing staged — 'all ASSIGNED exercises for a group' "
     "(find_by group_uid, scope='assigned'); the live get_student_exercises / "
     "get_student_exercises_with_status family is the STUDENT view (a learner's "
     "exercises across their groups, via MEMBER_OF + SHARED_WITH_GROUP), a "
     "different job with no superseded loser. Wire a teacher group-detail "
-    "exercises panel consuming it (Mike ruled PLANNED 2026-06-13)"
+    "exercises panel consuming it (Mike ruled PLANNED 2026-06-13)",
+    since=date(2026, 6, 13),
 )
-_EXERCISES_ARCHIVE = (
+_EXERCISES_ARCHIVE = PlannedEntry(
+    Readiness.DELAYED,
     "exercise archive soft-delete staged — writes status='archived'; the live "
     "delete path is the generic ownership-verified hard delete (CRUDRouteFactory "
     "→ service.delete_for_user) and ExerciseUpdateRequest carries no status field "
     "(only is_active), so no live route reaches archiving. Wire an archive/restore "
-    "control on the exercise detail page (Mike ruled PLANNED 2026-06-13)"
+    "control on the exercise detail page (Mike ruled PLANNED 2026-06-13)",
+    since=date(2026, 6, 13),
 )
 # Keyed "relative/path.py::method_name".
 # NOTE (ADR-075): AgentSession.call / AgentChannelRegistry.get were PLANNED here
@@ -468,14 +611,16 @@ _EXERCISES_ARCHIVE = (
 # the arc wired calendar actions through CalendarService + the item modal, so
 # the adapters/protocol/converters trio was superseded and deleted whole.
 
-PLANNED_METHODS: dict[str, str] = {
+PLANNED_METHODS: dict[str, PlannedEntry] = {
     # --- Entity chunking: staged metadata read path ---
-    "core/services/entity_chunking_service.py::get_metadata": (
+    "core/services/entity_chunking_service.py::get_metadata": PlannedEntry(
+        Readiness.DELAYED,
         "read accessor over the live _metadata_cache (populated by "
         "process_content_for_ingestion, counted in get_cache_stats) — unmasked "
         "when the calendar adapters' same-named method left the tree with the "
         "act-from arc C5 deletion (vulture name-collision); wire a chunk-metadata "
-        "consumer or delete the accessor"
+        "consumer or delete the accessor",
+        since=date(2026, 8, 3),
     ),
     # --- Shared BaseService mixins (campaign 16) ---
     "core/services/mixins/relationship_operations_mixin.py::add_prerequisite": (
@@ -698,69 +843,78 @@ PLANNED_METHODS: dict[str, str] = {
     # recommendation to complete it (Mike ruled PLANNED 2026-06-13).
     "core/services/askesis_service.py::load_askesis_context": _ASKESIS_CONTEXT_ORCHESTRATION,
     # --- Campaign 18 (2026-06): standalone service staged capabilities ---
-    "core/services/content_enrichment_service.py::process_audio": (
+    "core/services/content_enrichment_service.py::process_audio": PlannedEntry(
+        Readiness.DELAYED,
         "audio transcription pipeline staged — wire a /upload-audio route that "
         "accepts an audio file, calls process_audio, then routes the transcript "
-        "through the UserEntry pipeline (ADR-054)"
+        "through the UserEntry pipeline (ADR-054)",
+        since=date(2026, 6, 17),
     ),
-    "core/services/content_enrichment_service.py::create_instruction_set": (
+    "core/services/content_enrichment_service.py::create_instruction_set": PlannedEntry(
+        Readiness.DELAYED,
         "instruction-set management write path — pair with list_instruction_sets "
-        "and wire an admin UI/API once the instruction-set editing surface lands"
+        "and wire an admin UI/API once the instruction-set editing surface lands",
+        since=date(2026, 6, 17),
     ),
-    "core/services/content_enrichment_service.py::list_instruction_sets": (
-        "instruction-set management read path — see create_instruction_set"
+    "core/services/content_enrichment_service.py::list_instruction_sets": PlannedEntry(
+        Readiness.DELAYED,
+        "instruction-set management read path — see create_instruction_set",
+        since=date(2026, 6, 17),
     ),
-    "core/services/embeddings_service.py::calculate_similarity": (
+    "core/services/embeddings_service.py::calculate_similarity": PlannedEntry(
+        Readiness.DELAYED,
         "cosine similarity utility with test coverage; no production caller yet — "
-        "wire into a similarity-comparison route or search re-ranking when needed"
+        "wire into a similarity-comparison route or search re-ranking when needed",
+        since=date(2026, 6, 17),
     ),
-    "core/services/embeddings_service.py::check_version_compatibility": (
+    "core/services/embeddings_service.py::check_version_compatibility": PlannedEntry(
+        Readiness.DELAYED,
         "per-node embedding-version diagnostic; lost its one production caller when "
         "get_or_create_embedding folded onto verify_fresh_embeddings (ADR-074 §8) — "
         "test-covered; wire into an admin embedding-health surface, or delete if "
-        "check_embedding_versions.py-style batch queries stay the only diagnostic path"
+        "check_embedding_versions.py-style batch queries stay the only diagnostic path",
+        since=date(2026, 7, 2),
     ),
-    "core/services/embeddings_service.py::get_or_create_embedding": (
+    "core/services/embeddings_service.py::get_or_create_embedding": PlannedEntry(
+        Readiness.DELAYED,
         "embedding with idempotent caching on THE hash-based skip decision "
         "(verify_fresh_embeddings — version current + text-hash match, ADR-074 §8); "
         "test-covered but not wired in production — wire into bulk-embed or "
-        "on-demand embed routes"
+        "on-demand embed routes",
+        since=date(2026, 6, 17),
     ),
-    "core/services/embeddings_service.py::stamp_embedding_hashes": (
-        "NOT staged — LIVE, but its only caller is scripts/generate_embeddings_batch.py "
-        "--stamp-hashes (ADR-074 §8 one-shot hash rollout), and scripts/ sits outside the "
-        "scanner's production roots by design; registry entry keeps the gate honest instead "
-        "of widening the roots for one method"
-    ),
-    "core/services/ingestion/reference_ingestion.py::ingest_book": (
-        "NOT staged — LIVE, but its only caller is scripts/ingest_canon_book.py "
-        "(the canon Phase-2 admin ingest door), and scripts/ sits outside the scanner's "
-        "production roots by design; registry entry keeps the gate honest instead of "
-        "widening the roots for one method. Becomes an in-app caller when a canon "
-        "management route/UI is built (Phase 3+)"
-    ),
-    "core/services/entity_inference_service.py::_infer_from_content": (
+    "core/services/entity_inference_service.py::_infer_from_content": PlannedEntry(
+        Readiness.DELAYED,
         "private helper for the inference pipeline — becomes live when "
-        "get_inference_statistics / analyze_inference_confidence are wired"
+        "get_inference_statistics / analyze_inference_confidence are wired",
+        since=date(2026, 6, 17),
     ),
-    "core/services/entity_inference_service.py::get_inference_statistics": (
+    "core/services/entity_inference_service.py::get_inference_statistics": PlannedEntry(
+        Readiness.DELAYED,
         "inference stats surface — wire into an admin/debug route to expose "
-        "inference accuracy and throughput metrics"
+        "inference accuracy and throughput metrics",
+        since=date(2026, 6, 17),
     ),
-    "core/services/entity_inference_service.py::analyze_inference_confidence": (
+    "core/services/entity_inference_service.py::analyze_inference_confidence": PlannedEntry(
+        Readiness.DELAYED,
         "confidence analysis surface — wire into the inference result detail "
-        "view or a teacher-facing confidence dashboard"
+        "view or a teacher-facing confidence dashboard",
+        since=date(2026, 6, 17),
     ),
-    "core/services/zpd/zpd_service.py::get_proximal_ku_uids": (
+    "core/services/zpd/zpd_service.py::get_proximal_ku_uids": PlannedEntry(
+        Readiness.DELAYED,
         "lightweight ranked-proximal-Kus wrapper over assess_zone — the "
         "/explore/next-step/related fragment (its once-destined consumer) ended "
         "up on assess_zone directly because it also needs current_zone to filter "
         "engaged Kus out of the hint chips; this wrapper stays staged for a "
-        "consumer that needs ONLY the ranked list"
+        "consumer that needs ONLY the ranked list",
+        since=date(2026, 6, 17),
     ),
-    "core/services/zpd/zpd_service.py::get_readiness_score": (
+    "core/services/zpd/zpd_service.py::get_readiness_score": PlannedEntry(
+        Readiness.DELAYED,
         "ZPD readiness score for a specific Ku — wire into the PS detail page "
-        "or the prerequisite-checker surface when per-Ku readiness is needed"
+        "or the prerequisite-checker surface when per-Ku readiness is needed",
+        since=date(2026, 6, 17),
     ),
     # NOT registrable: core/services/askesis_service.py::analyze_user_state has
     # zero external callers (hand-verified 2026-07-10, PR 5 discovery-analytics
@@ -772,26 +926,34 @@ PLANNED_METHODS: dict[str, str] = {
     # Restored from campaign-18 deletion — test-covered, no production caller
     # (find_similar_to_node graduated 2026-07-10: consumed by find_related_concepts
     # → the /explore/{ku,ps}/{uid}/related "Related concepts" fragments)
-    "core/services/neo4j_vector_search_service.py::find_cross_domain_similar": (
+    "core/services/neo4j_vector_search_service.py::find_cross_domain_similar": PlannedEntry(
+        Readiness.DELAYED,
         "cross-domain vector similarity across multiple labels in one call; "
         "integration test coverage in test_vector_search.py + test_embedding_fixtures_usage.py; "
-        "wire into a cross-domain search route when the multi-domain surface lands"
+        "wire into a cross-domain search route when the multi-domain surface lands",
+        since=date(2026, 6, 17),
     ),
-    "core/services/neo4j_vector_search_service.py::find_similar_by_text_with_metrics": (
+    "core/services/neo4j_vector_search_service.py::find_similar_by_text_with_metrics": PlannedEntry(
+        Readiness.DELAYED,
         "find_similar_by_text wrapper that captures SearchMetrics; full integration "
         "test coverage in test_search_metrics_tracking.py; wire when metrics "
-        "collection is needed on the vector search path"
+        "collection is needed on the vector search path",
+        since=date(2026, 6, 17),
     ),
     # Restored — test-covered, no production caller (same pattern as vector search above)
-    "core/services/base_service.py::ensure_backend_available": (
+    "core/services/base_service.py::ensure_backend_available": PlannedEntry(
+        Readiness.DELAYED,
         "backend health-check method; unit test coverage in "
         "tests/unit/test_base_service.py::TestInfrastructure; no production "
-        "call site yet — wire into a /health route or startup check"
+        "call site yet — wire into a /health route or startup check",
+        since=date(2026, 6, 17),
     ),
-    "core/services/ingestion/ingestion_history.py::get_total_count": (
+    "core/services/ingestion/ingestion_history.py::get_total_count": PlannedEntry(
+        Readiness.DELAYED,
         "count query for ingestion history entries; unit test coverage in "
         "tests/unit/test_ingestion_history.py; no production caller yet — "
-        "wire into the ingestion admin dashboard or a /status route"
+        "wire into the ingestion admin dashboard or a /status route",
+        since=date(2026, 6, 17),
     ),
 }
 
@@ -801,25 +963,33 @@ PLANNED_METHODS: dict[str, str] = {
 # PLANNED semantics as events/methods: the backlog itself never fails --check;
 # a stale marking is a WARNING and does — but only the provable one (file gone).
 # A render-site match is receiver-blind, so it reports as masked, not stale.
-PLANNED_TEMPLATES: dict[str, str] = {
-    "askesis_ku_bridge": (
+PLANNED_TEMPLATES: dict[str, PlannedEntry] = {
+    "askesis_ku_bridge": PlannedEntry(
+        Readiness.DELAYED,
         "Ku-bridge turn staged — first wiring candidate: aligns with "
         "citation-as-core (referencing a Ku from Askesis chat); wire when the "
-        "Ku-bridge turn lands (ADR-082 D4, Mike ruled PLANNED 2026-07-23)"
+        "Ku-bridge turn lands (ADR-082 D4, Mike ruled PLANNED 2026-07-23)",
+        since=date(2026, 7, 23),
     ),
-    "askesis_journal_reflection": (
+    "askesis_journal_reflection": PlannedEntry(
+        Readiness.DELAYED,
         "journal-reflection turn staged — only ever wired via the je_pro/"
         "UserEntry shared-entry doorway (deliberately shared entries, never "
         "discussions — the ADR-073 wall is absolute); wire there or delete "
-        "(ADR-082 D4, Mike ruled PLANNED 2026-07-23)"
+        "(ADR-082 D4, Mike ruled PLANNED 2026-07-23)",
+        since=date(2026, 7, 23),
     ),
-    "askesis_scaffold_entry": (
+    "askesis_scaffold_entry": PlannedEntry(
+        Readiness.DELAYED,
         "scaffolded-entry turn staged — re-evaluate at the Askesis "
-        "alternative-modes discussion (ADR-082 D4, Mike ruled PLANNED 2026-07-23)"
+        "alternative-modes discussion (ADR-082 D4, Mike ruled PLANNED 2026-07-23)",
+        since=date(2026, 7, 23),
     ),
-    "askesis_socratic_turn": (
+    "askesis_socratic_turn": PlannedEntry(
+        Readiness.DELAYED,
         "Socratic-turn template staged — re-evaluate at the Askesis "
-        "alternative-modes discussion (ADR-082 D4, Mike ruled PLANNED 2026-07-23)"
+        "alternative-modes discussion (ADR-082 D4, Mike ruled PLANNED 2026-07-23)",
+        since=date(2026, 7, 23),
     ),
 }
 
@@ -1578,7 +1748,7 @@ def analyze_events(
                 subject=cls,
                 file=site.file,
                 line=site.line,
-                detail=f"unwired by intent — {PLANNED_EVENTS[cls]}",
+                detail=f"unwired by intent — {PLANNED_EVENTS[cls].reason}",
                 annotations=planned_notes,
             )
         elif constructed:
@@ -1954,7 +2124,7 @@ def analyze_methods(codebase: ParsedCodebase, scan: VultureScan) -> MethodAnalys
                     subject=name,
                     file=rel,
                     line=item.first_lineno,
-                    detail=f"unwired by intent — {PLANNED_METHODS[planned_key]}",
+                    detail=f"unwired by intent — {PLANNED_METHODS[planned_key].reason}",
                     annotations=annotations,
                 )
             )
@@ -2098,7 +2268,7 @@ def _out_of_scope_planned_findings(codebase: ParsedCodebase) -> list[Finding]:
                     subject=name,
                     file=rel,
                     line=def_line,
-                    detail=f"unwired by intent — {note}",
+                    detail=f"unwired by intent — {note.reason}",
                     annotations=["outside METHOD_SCOPE — liveness not vulture-verified"],
                 )
             )
@@ -2190,77 +2360,46 @@ def analyze_planned_templates(codebase: ParsedCodebase) -> list[Finding]:
                     subject=template_id,
                     file=rel,
                     line=1,
-                    detail=f"unwired by intent — {note}",
+                    detail=f"unwired by intent — {note.reason}",
                 )
             )
     return results
 
 
 # ============================================================================
-# PLANNED-tier aging — backlog size + oldest embedded date, best-effort
+# PLANNED-tier aging — backlog size + oldest staging decision
 # ============================================================================
-
-_ISO_DATE = re.compile(r"\b(\d{4}-\d{2}-\d{2})\b")
 
 
 @dataclass(frozen=True)
 class PlannedAging:
     """Aging summary for one PLANNED registry.
 
-    Registry reasons carry decision dates as prose ("Mike ruled PLANNED
-    2026-06-13"), not structure — the registries are deliberately NOT
-    restructured for this, so extraction is best-effort by design. The
-    ``undated`` count keeps the no-silent-caps rule: an entry whose reason
-    yields no parseable ISO date is counted, never dropped.
+    Reads ``PlannedEntry.since`` — the structured staging-decision date every
+    entry must carry — so there is nothing to extract and nothing to miss.
+    ``oldest`` is None only for an empty registry.
     """
 
     tier: str
     entries: int
-    dated: int
-    undated: int
     oldest: date | None
 
     def to_json(self) -> dict[str, object]:
         return {
             "tier": self.tier,
             "entries": self.entries,
-            "dated": self.dated,
-            "undated": self.undated,
             "oldest": self.oldest.isoformat() if self.oldest else None,
         }
 
 
-def summarize_planned_aging(tier: str, registry: dict[str, str]) -> PlannedAging:
-    """Count a PLANNED registry and extract its oldest embedded ISO date.
+def summarize_planned_aging(tier: str, registry: dict[str, PlannedEntry]) -> PlannedAging:
+    """Count a PLANNED registry and find its oldest staging decision.
 
-    A reason may carry several dates (original ruling plus a later
-    re-ruling); an entry ages from its OLDEST date — staging time is measured
-    from the first decision, not the latest touch-up. Regex hits that are not
-    real calendar dates (e.g. "2026-13-40") are discarded; an entry with no
-    surviving date lands in the undated count.
+    An entry ages from its ``since`` — the first ruling that staged it, never
+    a later re-ruling — which is exactly what that field is defined to hold.
     """
-    oldest: date | None = None
-    dated = 0
-    for reason in registry.values():
-        entry_dates: list[date] = []
-        for candidate in _ISO_DATE.findall(reason):
-            try:
-                entry_dates.append(date.fromisoformat(candidate))
-            except ValueError:
-                continue
-        if not entry_dates:
-            continue
-        dated += 1
-        entry_oldest = min(entry_dates)
-        if oldest is None or entry_oldest < oldest:
-            oldest = entry_oldest
-    return PlannedAging(
-        tier=tier,
-        entries=len(registry),
-        dated=dated,
-        undated=len(registry) - dated,
-        oldest=oldest,
-    )
+    dates = [entry.since for entry in registry.values()]
+    return PlannedAging(tier=tier, entries=len(registry), oldest=min(dates) if dates else None)
 
 
 def json_document(findings: list[Finding], aging: list[PlannedAging]) -> dict[str, object]:
@@ -2282,21 +2421,16 @@ def print_planned_aging(summaries: list[PlannedAging]) -> None:
     if not summaries:
         return
     print(
-        f"\n{Colors.BOLD}◷ PLANNED-tier aging (backlog size + oldest embedded date){Colors.RESET}"
+        f"\n{Colors.BOLD}◷ PLANNED-tier aging (backlog size + oldest staging decision){Colors.RESET}"
     )
     today = date.today()
     for summary in summaries:
         if summary.oldest is None:
-            oldest_note = "no parseable date in any reason"
+            oldest_note = "empty"
         else:
             age_days = (today - summary.oldest).days
             oldest_note = f"oldest {summary.oldest.isoformat()} ({age_days} days ago)"
-        undated_note = f", {summary.undated} undated" if summary.undated else ""
-        print(f"  {summary.tier}: {summary.entries} entries — {oldest_note}{undated_note}")
-    print(
-        f"  {Colors.DIM}dates extracted best-effort from reason prose (YYYY-MM-DD); "
-        f"an entry without one is counted as undated, never dropped.{Colors.RESET}"
-    )
+        print(f"  {summary.tier}: {summary.entries} entries — {oldest_note}")
 
 
 def _print_finding(finding: Finding) -> None:

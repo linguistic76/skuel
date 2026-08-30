@@ -31,6 +31,8 @@ from detect_bloat import (  # type: ignore[import-not-found]
     EventUsageCollector,
     Finding,
     ParsedCodebase,
+    PlannedEntry,
+    Readiness,
     VultureScan,
     analyze_events,
     analyze_methods,
@@ -46,6 +48,13 @@ from detect_bloat import (  # type: ignore[import-not-found]
 # ============================================================================
 
 EVENTS_FILE = ROOT / "core" / "events" / "synthetic_events.py"
+
+
+def staged(reason: str = "awaiting synthetic wiring") -> PlannedEntry:
+    """A synthetic PLANNED entry — readiness and date are required, so tests
+    that only care about the tier mechanics get them from one place."""
+    return PlannedEntry(Readiness.DELAYED, reason, since=date(2026, 6, 10))
+
 
 BASE_EVENTS_SRC = """
 class BaseEvent:
@@ -404,9 +413,7 @@ def test_planned_event_reports_planned_not_dead(monkeypatch):
     # setattr replaces the registry wholesale — the production entries (real
     # embedding events) are absent from synthetic universes and would
     # otherwise fire the vanished-key stale check.
-    monkeypatch.setattr(
-        detect_bloat, "PLANNED_EVENTS", {"GammaOrphan": "awaiting synthetic wiring"}
-    )
+    monkeypatch.setattr(detect_bloat, "PLANNED_EVENTS", {"GammaOrphan": staged()})
     _, _, findings = analyze({})
     finding = finding_for(findings, "GammaOrphan")
     assert finding is not None
@@ -416,9 +423,7 @@ def test_planned_event_reports_planned_not_dead(monkeypatch):
 
 
 def test_planned_event_subscriber_is_staging_not_dead_chain(monkeypatch):
-    monkeypatch.setattr(
-        detect_bloat, "PLANNED_EVENTS", {"GammaOrphan": "awaiting synthetic wiring"}
-    )
+    monkeypatch.setattr(detect_bloat, "PLANNED_EVENTS", {"GammaOrphan": staged()})
     _, _, findings = analyze(
         {
             "services_bootstrap/wiring.py": (
@@ -434,9 +439,7 @@ def test_planned_event_subscriber_is_staging_not_dead_chain(monkeypatch):
 
 
 def test_published_planned_event_is_masked_not_stale(monkeypatch):
-    monkeypatch.setattr(
-        detect_bloat, "PLANNED_EVENTS", {"GammaOrphan": "awaiting synthetic wiring"}
-    )
+    monkeypatch.setattr(detect_bloat, "PLANNED_EVENTS", {"GammaOrphan": staged()})
     _, _, findings = analyze(
         {
             "core/services/x.py": (
@@ -458,9 +461,7 @@ def test_published_planned_event_is_masked_not_stale(monkeypatch):
 def test_vanished_planned_event_marking_is_reported(monkeypatch):
     # A PLANNED_EVENTS key whose class was deleted/renamed/mistyped is not in
     # the universe — the stale check must still fire (Codex P2, PR #274).
-    monkeypatch.setattr(
-        detect_bloat, "PLANNED_EVENTS", {"NoSuchEventAnywhere": "awaiting synthetic wiring"}
-    )
+    monkeypatch.setattr(detect_bloat, "PLANNED_EVENTS", {"NoSuchEventAnywhere": staged()})
     _, _, findings = analyze({})
     stale = [f for f in findings if f.kind == "planned-marking-stale"]
     assert [f.subject for f in stale] == ["NoSuchEventAnywhere"]
@@ -484,7 +485,7 @@ def test_planned_method_reports_planned_not_dead(monkeypatch):
     monkeypatch.setattr(
         detect_bloat,
         "PLANNED_METHODS",
-        {"core/services/x.py::future_method": "awaiting synthetic wiring"},
+        {"core/services/x.py::future_method": staged()},
     )
     codebase = build_codebase({"core/services/x.py": "def future_method():\n    pass\n"})
     analysis = analyze_methods(
@@ -501,7 +502,7 @@ def test_stale_planned_method_marking_when_definition_vanished(monkeypatch):
     monkeypatch.setattr(
         detect_bloat,
         "PLANNED_METHODS",
-        {"core/services/x.py::deleted_method": "awaiting synthetic wiring"},
+        {"core/services/x.py::deleted_method": staged()},
     )
     codebase = build_codebase({})
     # not a vulture candidate, and no definition anywhere -> deleted or renamed
@@ -523,7 +524,7 @@ def test_attribute_collision_on_a_single_def_is_masked_not_stale(monkeypatch):
     monkeypatch.setattr(
         detect_bloat,
         "PLANNED_METHODS",
-        {"core/services/x.py::only_defined_once": "awaiting synthetic wiring"},
+        {"core/services/x.py::only_defined_once": staged()},
     )
     codebase = build_codebase({"core/services/x.py": "def only_defined_once():\n    pass\n"})
     # single def, but the NAME is in vulture's used set -> unverifiable
@@ -547,7 +548,7 @@ def test_name_masked_planned_method_is_flagged_but_never_stale(monkeypatch):
     monkeypatch.setattr(
         detect_bloat,
         "PLANNED_METHODS",
-        {"core/services/x.py::add_attendee": "awaiting synthetic wiring"},
+        {"core/services/x.py::add_attendee": staged()},
     )
     codebase = build_codebase(
         {
@@ -574,7 +575,7 @@ def test_planned_event_outside_universe_but_defined_is_masked(monkeypatch):
     gating on that would tell the maintainer to delete registry metadata when
     the real repair is the inheritance.
     """
-    monkeypatch.setattr(detect_bloat, "PLANNED_EVENTS", {"NotAnEventAnymore": "awaiting wiring"})
+    monkeypatch.setattr(detect_bloat, "PLANNED_EVENTS", {"NotAnEventAnymore": staged()})
     codebase = build_codebase(
         {"core/events/x.py": "class NotAnEventAnymore:\n    pass\n"},
     )
@@ -599,7 +600,7 @@ def test_same_named_class_outside_events_package_does_not_mask_a_deleted_event(m
     deleted event and dropped it out of the gate. The scan is scoped with the
     same predicate EventUniverse.build uses.
     """
-    monkeypatch.setattr(detect_bloat, "PLANNED_EVENTS", {"DeletedEvent": "awaiting wiring"})
+    monkeypatch.setattr(detect_bloat, "PLANNED_EVENTS", {"DeletedEvent": staged()})
     codebase = build_codebase({"core/services/x.py": "class DeletedEvent:\n    pass\n"})
     universe = EventUniverse(codebase)
     universe.build()
@@ -634,7 +635,7 @@ def _template_codebase(tmp_path, sources: dict[str, str], on_disk: list[str]) ->
 
 
 def test_stale_planned_template_marking_when_file_vanished(monkeypatch, tmp_path):
-    monkeypatch.setattr(detect_bloat, "PLANNED_TEMPLATES", {"gone_tpl": "awaiting wiring"})
+    monkeypatch.setattr(detect_bloat, "PLANNED_TEMPLATES", {"gone_tpl": staged()})
     findings = analyze_planned_templates(_template_codebase(tmp_path, {}, []))
     stale = [f for f in findings if f.kind == "planned-marking-stale"]
     assert [f.subject for f in stale] == ["gone_tpl"]
@@ -650,7 +651,7 @@ def test_receiver_blind_render_match_is_masked_not_stale(monkeypatch, tmp_path):
     report to WARNING would have turned that pre-existing false positive into a
     CI failure telling the author to delete a still-valid PLANNED entry.
     """
-    monkeypatch.setattr(detect_bloat, "PLANNED_TEMPLATES", {"staged_tpl": "awaiting wiring"})
+    monkeypatch.setattr(detect_bloat, "PLANNED_TEMPLATES", {"staged_tpl": staged()})
     codebase = _template_codebase(
         tmp_path,
         {"core/services/x.py": 'def f(settings):\n    return settings.get("staged_tpl")\n'},
@@ -666,7 +667,7 @@ def test_receiver_blind_render_match_is_masked_not_stale(monkeypatch, tmp_path):
 
 
 def test_unreferenced_template_stays_planned(monkeypatch, tmp_path):
-    monkeypatch.setattr(detect_bloat, "PLANNED_TEMPLATES", {"staged_tpl": "awaiting wiring"})
+    monkeypatch.setattr(detect_bloat, "PLANNED_TEMPLATES", {"staged_tpl": staged()})
     findings = analyze_planned_templates(_template_codebase(tmp_path, {}, ["staged_tpl"]))
     assert [(f.kind, f.severity) for f in findings] == [
         ("template-awaiting-wiring", BloatSeverity.PLANNED)
@@ -674,63 +675,44 @@ def test_unreferenced_template_stays_planned(monkeypatch, tmp_path):
 
 
 # ============================================================================
-# PLANNED-TIER AGING — backlog size + oldest embedded date, best-effort
+# PLANNED-TIER AGING — backlog size + oldest staging decision (structured)
 # ============================================================================
 
 
-def test_aging_extracts_oldest_date_across_entries():
+def test_aging_oldest_is_the_earliest_since_across_entries():
     summary = summarize_planned_aging(
         "PLANNED_TEST",
         {
-            "a": "staged surface (Mike ruled PLANNED 2026-06-13)",
-            "b": "staged twin (Mike ruled PLANNED 2026-06-12); revisited 2026-07-25",
-            "c": "no date in this reason at all",
+            "a": PlannedEntry(Readiness.DELAYED, "staged surface", since=date(2026, 6, 13)),
+            "b": PlannedEntry(Readiness.READY, "staged twin", since=date(2026, 6, 12)),
+            "c": PlannedEntry(Readiness.DELAYED, "staged lens", since=date(2026, 7, 25)),
         },
     )
     assert summary.entries == 3
-    assert summary.dated == 2
-    assert summary.undated == 1
     assert summary.oldest == date(2026, 6, 12)
 
 
-def test_aging_entry_ages_from_its_oldest_date_not_its_latest():
-    # A reason carrying an original staging date plus a later re-ruling ages
-    # from the FIRST decision — staging time, not latest touch-up.
+def test_aging_reads_since_not_prose():
+    # A date in the reason prose is inert — the structured field is the only
+    # source, which is the whole point of having one.
     summary = summarize_planned_aging(
-        "PLANNED_TEST", {"a": "re-ruled 2026-07-25; originally staged 2026-06-10"}
+        "PLANNED_TEST",
+        {"a": PlannedEntry(Readiness.DELAYED, "re-ruled 2026-01-01", since=date(2026, 6, 10))},
     )
     assert summary.oldest == date(2026, 6, 10)
-
-
-def test_aging_discards_impossible_dates_but_still_counts_the_entry():
-    # A regex hit that is not a calendar date must not poison the summary,
-    # and the entry must not vanish (no silent caps): it counts as undated.
-    summary = summarize_planned_aging("PLANNED_TEST", {"a": "see run 2026-13-40 for context"})
-    assert summary.entries == 1
-    assert summary.dated == 0
-    assert summary.undated == 1
-    assert summary.oldest is None
 
 
 def test_aging_empty_registry_is_zero_not_error():
     summary = summarize_planned_aging("PLANNED_TEST", {})
     assert summary.entries == 0
-    assert summary.dated == 0
-    assert summary.undated == 0
     assert summary.oldest is None
 
 
 def test_aging_json_shape_is_pinned_for_the_janitor_workflow():
     # weekly-janitor.yml reads these keys with jq — a rename breaks the
     # scheduled report without failing anything here unless pinned.
-    doc = summarize_planned_aging("PLANNED_TEST", {"a": "ruled 2026-06-13"}).to_json()
-    assert doc == {
-        "tier": "PLANNED_TEST",
-        "entries": 1,
-        "dated": 1,
-        "undated": 0,
-        "oldest": "2026-06-13",
-    }
+    doc = summarize_planned_aging("PLANNED_TEST", {"a": staged()}).to_json()
+    assert doc == {"tier": "PLANNED_TEST", "entries": 1, "oldest": "2026-06-10"}
 
 
 def test_json_document_top_level_keys_are_pinned_for_the_janitor_workflow():
@@ -749,22 +731,40 @@ def test_json_document_top_level_keys_are_pinned_for_the_janitor_workflow():
     assert findings[0]["severity"] == "warning"
 
 
+PLANNED_TIER_BORN = date(2026, 6, 10)  # campaign 1 — the first staging decision ever recorded
+
+
 def test_live_registries_summarize_cleanly():
-    # Sentinel over the live registries: counts add up, and PLANNED_METHODS
-    # (whose reasons carry "Mike ruled" dates) yields a real, past oldest
-    # date. Deliberately no exact-count/date pins — entries come and go with
-    # wiring campaigns; the invariants are what must hold.
+    # Sentinel over the live registries: every value is a PlannedEntry whose
+    # staging decision is a real past date no earlier than the tier itself,
+    # and the summary counts add up. Deliberately no exact-count/date pins —
+    # entries come and go with wiring campaigns; the invariants are what hold.
     for tier, registry in [
         ("PLANNED_EVENTS", detect_bloat.PLANNED_EVENTS),
         ("PLANNED_METHODS", detect_bloat.PLANNED_METHODS),
         ("PLANNED_TEMPLATES", detect_bloat.PLANNED_TEMPLATES),
     ]:
+        for key, entry in registry.items():
+            assert isinstance(entry, PlannedEntry), key
+            assert isinstance(entry.readiness, Readiness), key
+            assert PLANNED_TIER_BORN <= entry.since <= date.today(), key
+            assert entry.reason.strip(), key
         summary = summarize_planned_aging(tier, registry)
         assert summary.entries == len(registry)
-        assert summary.dated + summary.undated == summary.entries
+        assert (summary.oldest is None) == (not registry)
     methods = summarize_planned_aging("PLANNED_METHODS", detect_bloat.PLANNED_METHODS)
-    assert methods.oldest is not None
-    assert methods.oldest <= date.today()
+    assert methods.oldest == PLANNED_TIER_BORN
+
+
+def test_live_exempted_methods_still_exist():
+    # EXEMPTED_METHODS has no stale audit in the detector (an exemption for a
+    # deleted method is never reported), so this sentinel is the audit: every
+    # key must name a definition that still exists at that path.
+    codebase = ParsedCodebase(detect_bloat.ROOT)
+    codebase.load()
+    for key in detect_bloat.EXEMPTED_METHODS:
+        rel, _, name = key.rpartition("::")
+        assert detect_bloat._definition_line(codebase, rel, name) > 0, key
 
 
 # ============================================================================
