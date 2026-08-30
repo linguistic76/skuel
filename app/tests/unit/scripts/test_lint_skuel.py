@@ -6940,6 +6940,53 @@ class TestSKUEL034:
         content = 'def f(record) -> bool:\n    return "rev" in "{0.title}".format(record)\n'
         assert lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC) == []
 
+    def test_one_sided_strip_methods_are_re_spellings(self) -> None:
+        """`lstrip`/`rstrip` re-spell the uid exactly as `strip` does."""
+        content = (
+            "def f(entity_uid: str, knowledge_uid: str) -> bool:\n"
+            '    a = "tech" in entity_uid.lstrip()\n'
+            '    b = "tech" in knowledge_uid.rstrip().removeprefix("ku.")\n'
+            "    return a or b\n"
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"] * 2
+
+    def test_format_map_renders_its_mapping(self) -> None:
+        """`format_map` takes the values in a mapping literal, so the argument
+        itself names no uid (Codex, #1194)."""
+        content = (
+            "def f(entity_uid: str) -> bool:\n"
+            '    return "tech" in "{value}".format_map({"value": entity_uid})\n'
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"]
+
+    def test_format_map_narrows_by_template_like_format(self) -> None:
+        """A mapping entry the template never renders is inert."""
+        content = (
+            "def f(entity_uid: str) -> bool:\n"
+            '    return "x" in "{name}".format_map({"name": "x", "other": entity_uid})\n'
+        )
+        assert lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC) == []
+
+    def test_container_literal_arguments_are_expanded(self) -> None:
+        """`join([a_uid, b_uid])` passes the uids inside a list literal."""
+        content = (
+            "def f(a_uid: str, b_uid: str) -> bool:\n"
+            '    return "ku." in ", ".join([a_uid, b_uid])\n'
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"]
+
+    def test_bare_dict_membership_is_not_a_substring_test(self) -> None:
+        """Container expansion is for the RENDERING path only — `"a" in {...}`
+        is key membership and must keep falling through."""
+        content = (
+            "def f(entity_uid: str) -> bool:\n"
+            '    return "a" in {"a": entity_uid} or "a" in [entity_uid]\n'
+        )
+        assert lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC) == []
+
     def test_serializing_a_non_uid_collection_is_legal(self) -> None:
         """The rule is still about uids — `str()` alone does not make it fire."""
         content = 'def f(titles: list[str]) -> bool:\n    return "revision" in str(titles)\n'

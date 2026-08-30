@@ -1207,6 +1207,12 @@ therefore read from the template. The BASE is deliberately not: it is resolved t
 argument actually passed, which is more accurate than its spelling and keeps the rule off
 `"{uid}".format(uid=title)`.
 
+`format_map` is read the same way, and a container LITERAL argument is expanded on the
+rendering path — `", ".join([a_uid, b_uid])` and `"{v}".format_map({"v": uid})` carry the
+value inside the literal, so the argument itself names no uid. That expansion is
+deliberately confined to the rendering path: a bare `"a" in {"a": uid}` is KEY membership,
+not a substring test, and must keep falling through.
+
 DELIBERATELY OUT OF SCOPE — prefix and segment reads. `uid.startswith(prefix)` and
 `uid.split(".")[1]` cannot be judged without knowing what the branch does with the answer,
 which is flow analysis this linter does not do. All four live sites of those shapes are
@@ -5723,7 +5729,20 @@ class SkuelLinter:
     # SKUEL034: expressions that only re-spell the uid, unwrapped before the
     # name test so `"x" in uid.lower().strip()` reads the same as `"x" in uid`.
     UID_CASE_UNWRAP_METHODS: ClassVar[frozenset[str]] = frozenset(
-        {"lower", "upper", "strip", "casefold"}
+        {
+            "lower",
+            "upper",
+            "casefold",
+            "title",
+            "capitalize",
+            "swapcase",
+            "strip",
+            "lstrip",
+            "rstrip",
+            "removeprefix",
+            "removesuffix",
+            "replace",
+        }
     )
 
     # SKUEL034: calls that SERIALIZE their argument. `str(uids)` turns a
@@ -5734,7 +5753,7 @@ class SkuelLinter:
     # SKUEL034: the METHOD spellings of the same rendering. Their receiver is
     # the template/separator, so the uid lives in the ARGUMENTS.
     UID_SERIALIZER_METHODS: ClassVar[frozenset[str]] = frozenset(
-        {"format", "join", "dumps", "pformat"}
+        {"format", "format_map", "join", "dumps", "pformat"}
     )
 
     @staticmethod
@@ -5771,6 +5790,39 @@ class SkuelLinter:
         except ValueError, IndexError:
             return None
         return positional, keywords
+
+    @staticmethod
+    def _expand_rendered_container(
+        node: ast.expr, allowed_keys: set[str] | None = None
+    ) -> list[ast.expr]:
+        """Values a container literal contributes to a rendering call.
+
+        `", ".join([a_uid, b_uid])` and `"{v}".format_map({"v": uid})` pass the
+        values INSIDE a literal, so the argument itself names no uid. Used only
+        on the rendering path — a bare `"x" in {"a": uid}` is key membership,
+        not a substring test, and must keep falling through.
+
+        `allowed_keys` narrows a `format_map` mapping to the fields its template
+        actually renders. A non-literal key is kept, because it cannot be matched
+        against the template and dropping it could hide a real value.
+        """
+        if isinstance(node, ast.List | ast.Tuple | ast.Set):
+            return list(node.elts)
+        if isinstance(node, ast.Dict):
+            values: list[ast.expr] = []
+            for key, value in zip(node.keys, node.values, strict=True):
+                if value is None:
+                    continue
+                if (
+                    allowed_keys is not None
+                    and isinstance(key, ast.Constant)
+                    and isinstance(key.value, str)
+                    and key.value not in allowed_keys
+                ):
+                    continue
+                values.append(value)
+            return values
+        return [node]
 
     @classmethod
     def _format_template_uid_attribute(cls, template: str) -> str | None:
@@ -5915,11 +5967,24 @@ class SkuelLinter:
                     templated = cls._format_template_uid_attribute(template.value)
                     if templated is not None:
                         return templated, True
+                # `format_map`'s mapping is narrowed by the same template read
+                # `format`'s arguments are, so a value the template never renders
+                # is not flagged.
+                allowed_keys: set[str] | None = None
+                if (
+                    node.func.attr == "format_map"
+                    and isinstance(template, ast.Constant)
+                    and isinstance(template.value, str)
+                ):
+                    parsed = cls._format_template_fields(template.value)
+                    if parsed is not None:
+                        allowed_keys = parsed[1]
                 args, keywords = cls._rendered_arguments(node)
                 for arg in [*args, *(kw.value for kw in keywords)]:
-                    inner, _ = cls._resolve_uid_operand(arg)
-                    if cls._is_uid_name(inner):
-                        return inner, True
+                    for candidate in cls._expand_rendered_container(arg, allowed_keys):
+                        inner, _ = cls._resolve_uid_operand(candidate)
+                        if cls._is_uid_name(inner):
+                            return inner, True
                 return None, True
             # LANGUAGE-LEVEL string construction: `"%s" % uid`, `"ku:" + uid`.
             # Gated on one side being a string literal, which is what makes the
