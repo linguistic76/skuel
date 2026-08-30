@@ -1604,7 +1604,7 @@ syncs, and nothing on any surface says so.
 
 ---
 
-## Per-Domain Chunking Knobs + Chunk-Type-Aware Retrieval (REGISTERED 2026-08-28)
+## Per-Domain Chunking Knobs + Chunk-Type-Aware Retrieval (REGISTERED 2026-08-28 · re-measured + fragment fix DONE 2026-08-30)
 
 The chunking-params foundation shipped in #560 (2026-07-08): `ChunkingParams` on
 `EntityIngestionConfig` (`core/services/ingestion/config.py`), every domain on
@@ -1620,50 +1620,78 @@ table on `VectorSearchConfig` (`core/config/unified_config.py:142`, beside
 `body_chunk_search_min_score = 0.68`), score = `vector_score × type_weight`, flat table first,
 query-intent-conditioned later (ADR-034 Phase 2). `git grep chunk_type_weights` → 0 hits.
 
-**Measured 2026-08-28 (AuraDB `d2d160c4`):** 998 `:ContentChunk`, all `chunking_version = 'v1'`,
+**Measured 2026-08-28 (AuraDB `d2d160c4`); re-measured 2026-08-30 unchanged, then acted on (Named work 1):** 998 `:ContentChunk`, all `chunking_version = 'v1'`,
 all under `(:Content)-[:HAS_CHUNK]->`. By type: explanation **788**, exercise 142, definition 62,
-example 3, summary 3; `code`, `section`, `introduction`, `conclusion` — 0 today. In WORDS — the
+example 3, summary 3; `code`, `section`, `introduction`, `conclusion` — 0 today. **By parent: path_step 386 chunks (21 parents), ku 309 (30),
+user_entry 303 (15)** — the index is 30% personal-vault knowledge notes (canon P3), not
+curriculum alone. In WORDS — the
 unit the knobs are in, read from the persisted whitespace-aware count (`ContentChunk.word_count`
 = `len(text.split())`, stored as `c.end_index` by `neo4j_content_adapter.py:193` — the name is
 the adapter's, not a span): median **27**, p25 13, p90 75, max 496. **753 of 998 (75%) sit
 below the configured `min_chunk_size` of 50** — the floor is
 inert, never enforced (`core/services/ingestion/reference_ingestion.py:127` says so; #560
-recorded 0 strategy references), and its default is above the corpus median. **83 chunks are
-under 5 words** (72 of them `explanation`; 32 are under 20 characters — headings and one-word
-fragments); none exceeds the 500-word `max_chunk_size` (max 496 — the naive `split` had counted 2 over by counting empty tokens). 41 `:SearchEvent` in total, flat since 2026-07-22.
+recorded 0 strategy references), and its default is above the corpus median. **83 chunks were
+under 5 words — 75 of them `user_entry`** (`---` rules, bare `-` markers, link-only and
+label-only lines; 72 typed `explanation`; 32 under 20 characters), 6 path_step (one was
+`**5-4-3-2-1:**`), 2 ku; none exceeded the 500-word `max_chunk_size` (max 496 — the naive `split` had counted 2 over by counting empty tokens). 41 `:SearchEvent` in total, flat since 2026-07-22.
 
-**What the numbers say.** Type weighting has little to act on: 79% of chunks share one type,
-DEFINITION is 6%, EXAMPLE and SUMMARY are 3 each — a weight table would re-rank a near-uniform
-population and look like it worked. The knob thread splits in two: the 83 sub-sentence fragments
-are an ingestion-quality defect visible in retrieval (a one-word chunk can only ever be noise),
-while "enforce `min_chunk_size`" as configured would fold three-quarters of the corpus — that IS
-the blind tuning Mike ruled against, so the floor's VALUE belongs to the measured thread below.
+**What the numbers say (revised 2026-08-30).**
+- **The type split is a classifier artifact, not a corpus fact.** `_detect_chunk_type`
+  (`core/models/ps_content/content_chunks.py`) is a keyword heuristic whose FALLBACK is
+  `EXPLANATION` — 79% means "no keyword matched" (and its `startswith(("a ", "an ", …))` →
+  DEFINITION rule is over-broad). The distribution will NOT flatten from content growth; only a
+  classifier that types by content changes it. A weight table built on it would re-rank a
+  fallback label and look like it worked.
+- **Chunk-type-aware retrieval ALREADY exists — on the Askesis path, as a HARD filter.**
+  `_INTENT_CHUNK_TYPES` (`core/services/askesis/context_retriever.py`) →
+  `retrieve_scoped_chunks(chunk_types=)` → `chunk.chunk_type IN $chunk_types`. Over the fallback
+  distribution an EXPLORATORY question can draw on **65 of 998** chunks (introduction 0 +
+  summary 3 + definition 62); PRACTICE 145; the other mapped intents 850. Loosening that filter
+  is a more measurable move than adding `/search` weights — Named work 4.
+- **The fragments were an ingestion-hygiene defect, 90% in vault notes** — `/search` never showed
+  them (`_aggregate_body_chunk_parents` drops non-Ku/PS parents); they only crowded the vector
+  candidate pool and Askesis draws. "Enforce `min_chunk_size`" as configured would have folded
+  three-quarters of the corpus — that IS the blind tuning Mike ruled against, so the floor's
+  VALUE stays with the measured thread below.
+- **Ride-along, found by this re-measure:** Askesis chunk retrieval was owner-UNSCOPED over that
+  30% vault-note share — closed the same day as ADR-085 **G8** (#1195).
 
 **Named work:**
-1. **Sub-sentence fragments (a defect with a count, own small PR):** give the strategy a fragment
-   floor — fold chunks under ~5 words into a neighbour, the floor re-based from this measurement,
-   not the 50-word knob — bump the chunk version tag so `regenerate_chunks` re-chunks the affected
-   domains, re-run the `< 5 words` count below → 0.
+1. ✅ **Sub-sentence fragments — DONE 2026-08-30 (#1196 + live re-chunk).** Chunking algorithm
+   **v2**: `FRAGMENT_FLOOR_WORDS = 5` (`content_chunks.py`), re-based from the corpus median,
+   deliberately NOT the 50-word knob. Thematic breaks and bare list markers are dropped; any
+   other sub-5-word prose fragment folds into a prose neighbour (never into a code fence; a
+   merged chunk re-types from its final text; a section made only of fragments joins into ONE
+   chunk — the designed residual). Live run: `regenerate_chunks(force=False)` 66/66 parents,
+   998 → **925** chunks all `v2`, fragments 83 → **7** (every survivor a link-only MOC-style
+   note with nothing to fold into — a content property, not a splitter defect), embedding
+   `NULL` = 0 after the worker drain, median 27 → 30 words.
 2. **Knob tuning — gated on an instrument that does not exist:** a ~20-query eval set with
    expected Ku/PathStep hits, scored hit@5 over the SEARCH path that retrieves chunks —
    `SearchRouter.faceted_search` with semantic boost, the sole caller of
-   `_augment_with_body_chunks` (`core/orchestrator/search_router.py:979`); `advanced_search`
+   `_augment_with_body_chunks`; `advanced_search`
    searches parent entities and never touches a `ContentChunk`, so a baseline run through it
    would be blind to every knob here (Askesis reaches chunks separately via
-   `retrieve_scoped_chunks`, `:1028` — the knobs move that too, but the eval targets search). Its first run IS the baseline; only a measured miss traced to chunk
+   `retrieve_scoped_chunks` — the knobs move that too, and it is audience-scoped since ADR-085 G8 (#1195) — but the eval targets search). Its first run IS the baseline; only a measured miss traced to chunk
    grain earns a `chunking_params` change on one `EntityIngestionConfig` + a domain-scoped
    re-chunk. This is also where `min_chunk_size`'s default is re-based: 50 words is above the
    corpus median, so enforcing it is a tuning decision, not a defect fix. No existing script
    measures this (`analyze_search_metrics.py` is latency/score
    from logs; `benchmark_hybrid_queries.py` is query-pattern latency).
-3. **`chunk_type_weights`:** only when (a) the eval set exists and (b) the corpus's type
-   distribution has flattened enough for weights to change an ordering (explanation < 50%).
+3. **`chunk_type_weights`:** only when (a) the eval set exists and (b) a content-typing
+   classifier has replaced the keyword fallback AND its distribution has flattened enough for
+   weights to change an ordering (explanation < 50%) — (b) is a classifier decision, not a
+   threshold the corpus crosses by growing (first bullet above).
    The table must carry all nine `ContentChunkType` members — a type with 0 chunks today
    (`code`, `section`, `introduction`, `conclusion`) weights 1.0 until it is measured, never
    "absent"; the distribution check below groups by whatever types exist.
+4. **Askesis intent filter — loosen before weighting:** the hard `IN` filter over the fallback
+   classifier starves EXPLORATORY (65 of 998 eligible). With (2)'s eval set in hand, measure a
+   thin-draw fallback (unfiltered retrieval when the filtered draw returns fewer than k chunks)
+   against the current filter; if it wins, the `/search` weight table (3) may be moot.
 
-**Trigger:** (1) next chunking/ingestion touch, or Mike schedules it; (2) and (3) Mike schedules
-the eval set — a measurement decision, not a data threshold.
+**Trigger:** (1) ✅ done; (2) and (4) Mike schedules the eval set — a measurement decision, not a
+data threshold; (3) additionally needs the content-typing classifier named in its (b).
 **Check** (one statement per block — paste each on its own; words, not characters, because the
 knobs are word counts; `c.end_index` is the persisted whitespace-aware `word_count`, so a chunk
 with line breaks or doubled spaces is counted the way ingestion counted it — a naive
@@ -1676,11 +1704,11 @@ RETURN t, count(*) AS n, percentileCont(words, 0.5) AS p50_words,
 ORDER BY n DESC
 ```
 ```cypher
-MATCH (c:ContentChunk) WHERE c.end_index < 5 RETURN count(*) AS fragments   // 83 on 2026-08-28 → 0 after (1)
+MATCH (c:ContentChunk) WHERE c.end_index < 5 RETURN count(*) AS fragments   // 83 pre-v2 → 7 after the 2026-08-30 re-chunk (all link-only notes); a rise = new fragment-shaped ingestion
 ```
 plus `git grep -n chunk_type_weights -- core/` (empty until built).
-**Named cost while parked:** 83 fragment chunks compete at the 0.68 similarity floor on every
-semantic search; a type table built today would be tuned against a 79%-one-type corpus.
+**Named cost while parked:** a type table built today would be tuned against a fallback-dominated
+corpus (79% one label), and Askesis EXPLORATORY draws stay starved at 65-of-998 eligible until (4).
 
 ---
 
@@ -2337,7 +2365,7 @@ Review this document at the **September 2026 quarterly review**. Checklist:
 | `find_by` datetime string-binding (3 habit sites) | Next touch of any of the three reads, or a second `completed_at` writer | One PR: normalized range on a backend method (Pattern 10b / Key Rule 18b) |
 | Habit-completion persistence bundle (#915 Codex "future care session": delete orphans / uid collision / non-atomic day uniqueness / stranded stats / DISTINCT-day query; + untrack refused-and-reported-success since #1100 and node doors publishing no `HabitCompleted`, both found on #1172) | Lived habit-completion use, or next touch of the completion write path | `MATCH (hc:HabitCompletion) RETURN count(hc)` **and** `MATCH (h:Habit) RETURN sum(h.total_completions), max(h.last_completed)` — nodes 0 / tally 0 / null on 2026-08-28 (tally > nodes = the node-less `/api/context` door was used); `SHOW CONSTRAINTS` lists none on the label. Built WITH the `find_by` row (one shared range predicate, two operations) but triggered by duplicate volume, moot once defect 3 lands; defect 3 needs Mike's one-per-day ruling first |
 | `TaskUpdateRequest` future `completion_date` asymmetry | Next touch of `task_request.py` validators | Ruling needed — see the section; don't rule in passing |
-| Per-domain chunking knobs + `chunk_type_weights` (fragment chunks first) | Fragment fix: next chunking touch or Mike schedules it; tuning / type weights: Mike schedules the eval set | `MATCH (c:ContentChunk) WHERE c.end_index < 5 RETURN count(*)` — 83 on 2026-08-28 (`end_index` = the persisted whitespace-aware `word_count`; words are the knobs' unit; 753 sit under the 50-word `min_chunk_size` — its value is the tuning question, not the defect); `git grep -n chunk_type_weights -- core/` empty until built |
+| Per-domain chunking knobs + `chunk_type_weights` (fragment fix ✅ v2, 2026-08-30) | Tuning + Askesis intent-filter loosening: Mike schedules the eval set; type weights additionally need a content-typing classifier (79% `explanation` is the keyword FALLBACK, not the corpus) | `MATCH (c:ContentChunk) WHERE c.end_index < 5 RETURN count(*)` — **7** after the v2 re-chunk (all link-only MOC-style notes; a rise = new fragment-shaped ingestion; `end_index` = the persisted whitespace-aware `word_count`; pre-v2, 753 of 998 sat under the 50-word `min_chunk_size` — its value is the tuning question, not the defect); `git grep -n chunk_type_weights -- core/` empty until built |
 | DSL-bridge grounding pair (goal-LINK persistence; `user_principles`/`recent_topics` to BOTH paths) | Keyed A/B on the next bridge touch; goal edges need Mike's ruling on AI-inferred writes | `git grep -c "user_principles="` and `git grep -c "recent_topics="` over `journal_service.py` + `user_entry_processing_service.py` — EACH argument in both files or neither (neither today); extracted tasks / tasks with a `FULFILLS_GOAL` edge = 56 / 0 on 2026-08-28 (count TASKS linked, not goals reached — ten tasks on one goal must read 10) |
 | `HabitMissed` publisher-less chain (ruled keep-staged 2026-08-28) | A lived want for difficulty insights, or the streak-semantics ruling — rule the day model once | `git grep -n "HabitMissed(" -- core/ adapters/ scripts/ services_bootstrap/ ui/ ':!core/events/'` empty (scripts/ included — a one-shot publisher counts); `MATCH (i:Insight {insight_type: 'difficulty_pattern'}) RETURN count(i)` → 0 |
 | Quarterly / yearly periodic notes (founder vault pass first) | The first real note in either vault folder | `find ~/0bsidian/skuel/periodic_notes/Quarterly ~/0bsidian/skuel/periodic_notes/yearly -type f \| wc -l` > 0 (files, not `ls` headings) — founder-owned, non-repo |
