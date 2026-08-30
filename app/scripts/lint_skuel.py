@@ -1211,7 +1211,12 @@ argument actually passed, which is more accurate than its spelling and keeps the
 rendering path — `", ".join([a_uid, b_uid])` and `"{v}".format_map({"v": uid})` carry the
 value inside the literal, so the argument itself names no uid. That expansion is
 deliberately confined to the rendering path: a bare `"a" in {"a": uid}` is KEY membership,
-not a substring test, and must keep falling through.
+not a substring test, and must keep falling through. The same expansion runs over the
+`%`/`+` leaves, which is what reads the mapping form `"%(u)s" % {"u": uid}`. A
+comprehension contributes its ELEMENT expression, and a container transform
+(`sorted`/`list`/`map`/…) its arguments — an ALLOWLIST, because
+`", ".join(get_titles(ku_uids))` renders titles, so "any call taking a uid argument"
+would be a false positive.
 
 DELIBERATELY OUT OF SCOPE — prefix and segment reads. `uid.startswith(prefix)` and
 `uid.split(".")[1]` cannot be judged without knowing what the branch does with the answer,
