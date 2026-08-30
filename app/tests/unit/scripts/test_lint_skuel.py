@@ -7233,6 +7233,49 @@ class TestSKUEL034:
         )
         assert lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC) == []
 
+    def test_join_with_fewer_than_two_elements_never_emits_the_separator(self) -> None:
+        """`uid.join(["one"])` produces `"one"` — the receiver lands nowhere
+        (Codex, #1194)."""
+        content = (
+            "def f(entity_uid: str) -> bool:\n"
+            '    a = "needle" in entity_uid.join(["haystack"])\n'
+            '    b = "needle" in entity_uid.join([])\n'
+            "    return a or b\n"
+        )
+        assert lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC) == []
+
+    def test_join_with_two_elements_does_emit_the_separator(self) -> None:
+        """The mirror, and the reason the count is checked rather than the shape."""
+        content = (
+            'def f(entity_uid: str) -> bool:\n    return "tech" in entity_uid.join(["a", "b"])\n'
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"]
+
+    def test_suppression_anywhere_on_a_wrapped_comparison(self) -> None:
+        """A wrapped comparison starts at the string literal, so a suppression
+        beside the OPERAND was being read off the wrong line (Codex, #1194)."""
+        content = (
+            "def f(knowledge_uid: str) -> bool:\n"
+            "    return (\n"
+            '        "tech"\n'
+            "        in knowledge_uid  # skuel-lint: disable=SKUEL034 -- deliberate\n"
+            "    )\n"
+        )
+        assert lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC) == []
+
+    def test_wrapped_comparison_reports_at_the_operand_line(self) -> None:
+        """Unsuppressed, the report anchors where the uid actually is."""
+        content = (
+            "def f(knowledge_uid: str) -> bool:\n"
+            "    return (\n"
+            '        "tech"\n'
+            "        in knowledge_uid\n"
+            "    )\n"
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.line_number for v in violations] == [4]
+
     def test_serializing_a_non_uid_collection_is_legal(self) -> None:
         """The rule is still about uids — `str()` alone does not make it fire."""
         content = 'def f(titles: list[str]) -> bool:\n    return "revision" in str(titles)\n'

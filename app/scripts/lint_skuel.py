@@ -1239,7 +1239,8 @@ in the IDENTITY form: `u for u in ku_uids` renders what `ku_uids` would, while
 transforms themselves — `sorted`/`list`/`set`/`tuple`/`frozenset` materialise, while
 `reversed`/`map`/`filter`/`enumerate`/`zip` only produce an iterator whose repr is what
 `str()` would render. And a rendering call's RECEIVER is rendered too: `uid.format()`
-returns the uid's own text and `uid.join(parts)` puts it between them.
+returns the uid's own text and `uid.join(parts)` puts it between them — unless the joined
+literal holds fewer than two elements, where the separator lands nowhere.
 Value-SELECTING expressions are read branch by branch — `uid if record else ""` and
 `uid or ""` are ordinary optional-value idioms — each branch judged by the same
 singular/serialized rule, so choosing between two collections stays ordinary membership.
@@ -1275,6 +1276,10 @@ Fix: read the field that carries the fact. A mastery's subject area is
 `Mastery.sel_category`; an entity's kind is `entity_type` or its Neo4j label; a
 relationship's meaning is the edge. If no field carries it, the fact does not exist yet —
 add it to the model rather than encoding it in a string.
+
+A line suppression is honoured anywhere on the comparison's SPAN, and the violation is
+reported at the OPERAND line rather than the node's start — a wrapped comparison begins at
+the string literal, which is neither where the uid is nor where a reader puts the comment.
 
 Suppress: # skuel-lint: disable=SKUEL034 -- <reason>
 File-level: # skuel-lint: disable-file=SKUEL034 -- <reason>""",
@@ -6037,6 +6042,24 @@ class SkuelLinter:
             return None
         return None
 
+    @staticmethod
+    def _join_separator_is_inert(node: ast.Call) -> bool:
+        """True when `sep.join(...)` provably never emits its separator.
+
+        `uid.join(["one"])` produces `"one"` — with fewer than two elements the
+        separator lands nowhere, so reading the receiver would be a false
+        positive on an ERROR rule (Codex, #1194). Only a LITERAL container can be
+        counted statically; anything else is assumed to join two or more.
+        """
+        if not (isinstance(node.func, ast.Attribute) and node.func.attr == "join"):
+            return False
+        if len(node.args) != 1:
+            return False
+        argument = node.args[0]
+        if isinstance(argument, ast.List | ast.Tuple | ast.Set):
+            return len(argument.elts) < 2
+        return False
+
     @classmethod
     def _rendered_arguments(cls, node: ast.Call) -> tuple[list[ast.expr], list[ast.keyword]]:
         """The arguments of a rendering call that actually reach its output.
@@ -6168,7 +6191,7 @@ class SkuelLinter:
                 # uid's own text, and `uid.join(parts)` puts it between them.
                 # A module receiver (`json.dumps`) simply resolves to no uid.
                 receiver_name, _ = cls._resolve_uid_operand(template)
-                if cls._is_uid_name(receiver_name):
+                if cls._is_uid_name(receiver_name) and not cls._join_separator_is_inert(node):
                     return receiver_name, True
                 args, keywords = cls._rendered_arguments(node)
                 # What a mapping ARGUMENT contributes depends on the call:
@@ -6314,6 +6337,11 @@ class SkuelLinter:
         if self._is_file_suppressed(content, "SKUEL034"):
             return
 
+        # Real comment tokens only, computed once: a multi-line comparison can
+        # carry its suppression on any of its lines, and a raw line scan would
+        # let a string containing the marker suppress the rule reading it.
+        comment_lines = self._comment_lines(content)
+
         for node in ast.walk(tree):
             if not isinstance(node, ast.Compare):
                 continue
@@ -6336,9 +6364,19 @@ class SkuelLinter:
                 elif not self._is_singular_uid_name(operand):
                     continue
 
-                line_num = node.lineno
+                # Anchor the report at the OPERAND: on a wrapped comparison the
+                # Compare node starts at the string literal, which is not the
+                # line a reader needs to look at (Codex, #1194).
+                operand_node = node.comparators[index]
+                line_num = operand_node.lineno
                 line = lines[line_num - 1] if 0 < line_num <= len(lines) else ""
-                if self._is_line_suppressed(line, "SKUEL034"):
+                span_start = node.lineno
+                span_end = node.end_lineno or span_start
+                if any(
+                    self._is_line_suppressed(comment_lines[lineno], "SKUEL034")
+                    for lineno in range(span_start, span_end + 1)
+                    if lineno in comment_lines
+                ):
                     continue
                 self.result.violations.append(
                     Violation(
@@ -6357,6 +6395,9 @@ class SkuelLinter:
                             "sel_category, or the edge) - ADR-013 never-sniff"
                         ),
                         line_content=line.strip(),
+                        # So SKUEL026's audit agrees a comment anywhere on a
+                        # wrapped comparison is USED.
+                        suppression_span=(span_start, span_end),
                     )
                 )
 

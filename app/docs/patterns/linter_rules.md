@@ -832,7 +832,7 @@ The tempting generalisation — walk the whole right-hand side for any uid-ish n
 **Fix:** read the field that carries the fact. A mastery's subject area is `Mastery.sel_category`; an entity's kind is `entity_type` or its Neo4j label; a relationship's meaning is the edge. If no field carries it, the fact does not exist yet — add it to the model rather than encoding it in a string.
 
 **Suppression:**
-- `# skuel-lint: disable=SKUEL034 -- <reason>` (line)
+- `# skuel-lint: disable=SKUEL034 -- <reason>` (line — honoured anywhere on the comparison's span, since a wrapped comparison starts at the string literal rather than at the uid)
 - `# skuel-lint: disable-file=SKUEL034 -- <reason>` (file)
 
 ## Rule: SKUEL024 - No cls= / **kwargs Collision in FT Helpers
