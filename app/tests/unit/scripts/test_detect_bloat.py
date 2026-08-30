@@ -981,6 +981,23 @@ def test_report_prints_ready_before_delayed_each_labelled(capsys):
     assert ready_at < out.index("now") < delayed_at < out.index("later")
 
 
+def test_block_headings_carry_no_escapes_once_colours_are_disabled(capsys, monkeypatch):
+    # main() calls Colors.disable() for non-tty stdout, which rewrites the class
+    # attributes; a heading colour bound as a default at import would survive
+    # that and leave an unterminated escape in piped output (Codex P2, #1190).
+    for name in ("RED", "GREEN", "YELLOW", "BLUE", "CYAN", "BOLD", "DIM", "RESET"):
+        monkeypatch.setattr(detect_bloat.Colors, name, "")
+    print_template_report(
+        [
+            _planned("now", Readiness.READY),
+            _about("planned-marking-stale", BloatSeverity.WARNING, "gone", Readiness.READY),
+        ]
+    )
+    out = capsys.readouterr().out
+    assert "\x1b[" not in out
+    assert "Planned, READY" in out and "Stale planned markings" in out
+
+
 def test_ready_aging_prints_under_its_own_heading_not_the_info_one(capsys):
     # The printers bucket INFO under "published but never subscribed"; the new
     # kind is pulled out by name the way stale/masked are.

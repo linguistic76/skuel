@@ -2602,9 +2602,13 @@ def _partition(findings: list[Finding]) -> _Partition:
     return _Partition(by_severity, stale, masked, ready_aging)
 
 
-def _print_block(items: list[Finding], title: str, color: str = Colors.YELLOW) -> None:
+def _print_block(items: list[Finding], title: str, color: str | None = None) -> None:
     if not items:
         return
+    # Resolved at CALL time: Colors.disable() (non-tty stdout) empties the class
+    # attributes after import, so a default bound at definition would keep the
+    # escape while RESET had already gone blank (Codex P2, PR #1190).
+    color = Colors.YELLOW if color is None else color
     print(f"\n{color}{title} ({len(items)}):{Colors.RESET}\n")
     for finding in items:
         _print_finding(finding)
