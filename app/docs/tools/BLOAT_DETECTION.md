@@ -235,10 +235,12 @@ not examine in Limitations. It **can never be more than advisory**:
 `_get_field_value` also reads ingestion / Neo4j property dicts, so a dict-only
 key is legitimate; it is blind to the inverse — a field that *exists*
 (inherited from `Entity`) but no writer populates is a writer fact, found by
-review; and it has one blind spot in the *unsafe* direction — a `@property`
-exposing a map field is no annotated name, so it would read as a phantom (a
-false advisory the live sentinel surfaces; measured zero on 2026-08-30, see
-the `ModelFieldIndex` docstring). `ENTRY_REPORT`'s old map `("title", "content", "summary")` was exactly
+review; and it has one blind spot in the *unsafe* direction — the index
+records annotated names only while `_get_field_value` reads with `getattr`,
+so any runtime-readable attribute without an annotation (a `@property`, a
+`cached_property`, a bare class attribute, any descriptor) named in a map
+would read as a phantom (a false advisory the live sentinel surfaces;
+measured zero on 2026-08-30, see the `ModelFieldIndex` docstring). `ENTRY_REPORT`'s old map `("title", "content", "summary")` was exactly
 that: both fields exist, both writers populate `processed_content`. The check
 did find `HABIT`'s `name` on the day it landed (no such field; the map's
 comment records the fix).
