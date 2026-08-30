@@ -112,7 +112,7 @@ After ingestion, this YAML produces the following graph structure:
     context_window: "...",              ← text + ~100-word pre/post buffer (what gets embedded)
     start_index: 0,
     end_index: 512,
-    chunking_version: "v1",
+    chunking_version: "v2",
     embedding: [0.23, -0.17, ...]       ← 1024-dim vector, written later by the
                                           background worker (ChunkEmbeddingRequested,
                                           ADR-074) — null until then

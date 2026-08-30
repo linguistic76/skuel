@@ -17,7 +17,40 @@ from typing import Any
 # Bumped whenever ContentChunkingStrategy logic changes in a way that produces
 # different chunk boundaries or types for the same input. Stored on every chunk
 # so BatchChunkingService can identify stale chunks (chunking_version < current).
-CHUNKING_ALGORITHM_VERSION = "v1"
+#   v1 — structural split (headers → paragraphs → code fences), keyword typing.
+#   v2 — fragment floor (2026-08-30): sub-sentence prose fragments fold into a
+#        prose neighbour; horizontal rules and bare list markers are dropped.
+CHUNKING_ALGORITHM_VERSION = "v2"
+
+# The fragment floor, in WORDS (the unit every chunk knob is in; a chunk's
+# persisted ``word_count`` is ``len(text.split())``). A chunk under it is a
+# sub-sentence fragment — a ``---`` rule, a bare list marker, a link-only or
+# label-only line (``Ask:``, ``**5-4-3-2-1:**``) — and can only ever be noise
+# in retrieval. Measured 2026-08-28 on the live corpus: 83 of 998 chunks were
+# under 5 words (75 of them vault notes) against a 27-word median. Re-based
+# from THAT measurement, deliberately not from ``ChunkingParams.min_chunk_size``
+# (50, inert): that knob sits above the corpus median, so enforcing it is a
+# tuning decision, not this defect fix — see
+# docs/roadmap/deferred-work.md § Per-Domain Chunking Knobs.
+FRAGMENT_FLOOR_WORDS = 5
+
+# Structural noise that carries no content of its own: a markdown thematic
+# break (``---`` / ``***`` / ``___``, spaces allowed) or a list marker that a
+# blank line separated from its item. Dropped, never folded — folding would
+# only push the noise into a neighbour's embedding text.
+_THEMATIC_BREAK = re.compile(r"^(?:[-*_]\s*){3,}$")
+_BARE_LIST_MARKER = re.compile(r"^(?:[-*+]|\d+[.)])$")
+
+
+def _is_structural_noise(text: str) -> bool:
+    """True for a paragraph that is a thematic break or a bare list marker."""
+    stripped = text.strip()
+    return bool(_THEMATIC_BREAK.match(stripped) or _BARE_LIST_MARKER.match(stripped))
+
+
+def _is_fragment(text: str) -> bool:
+    """True when ``text`` is under the fragment floor (whitespace word count)."""
+    return len(text.split()) < FRAGMENT_FLOOR_WORDS
 
 
 @dataclass(frozen=True)
@@ -253,51 +286,45 @@ class ContentChunkingStrategy:
         Chunk plain text by paragraphs and size limits.
         """
         chunks: list[ContentChunk] = []
-        paragraphs = content.split("\n\n")
-        chunk_index = 0
         version = chunk_version_tag(params)
 
-        for i, para in enumerate(paragraphs):
-            if not para.strip():
+        # Same paragraph → sub-chunk shape as the markdown path (uniform SECTION
+        # type, large paragraphs split), then the same fragment floor.
+        sub_chunks: list[dict[str, Any]] = []
+        for para in content.split("\n\n"):
+            para = para.strip()
+            if not para:
                 continue
+            pieces = (
+                cls._split_large_text(para, params)
+                if len(para.split()) > params.max_chunk_size
+                else [para]
+            )
+            sub_chunks.extend(
+                {"text": piece, "type": ContentChunkType.SECTION, "metadata": {}}
+                for piece in pieces
+            )
+        sub_chunks = cls._fold_fragments(sub_chunks, None, retype=False)
 
-            # Split large paragraphs
-            if len(para.split()) > params.max_chunk_size:
-                sub_paras = cls._split_large_text(para, params)
-                for sub_para in sub_paras:
-                    context_before = chunks[-1].text[-params.context_size :] if chunks else ""
-                    context_after = ""  # Will be updated
-
-                    chunk = ContentChunk(
-                        parent_uid=parent_uid,
-                        chunk_index=chunk_index,
-                        chunk_type=ContentChunkType.SECTION,
-                        text=sub_para,
-                        context_before=context_before,
-                        context_after=context_after,
-                        heading=None,
-                        chunking_version=version,
-                    )
-                    chunks.append(chunk)
-                    chunk_index += 1
-            else:
-                context_before = chunks[-1].text[-params.context_size :] if chunks else ""
-                context_after = (
-                    paragraphs[i + 1][: params.context_size] if i < len(paragraphs) - 1 else ""
-                )
-
-                chunk = ContentChunk(
+        for chunk_index, sub_chunk in enumerate(sub_chunks):
+            context_before = chunks[-1].text[-params.context_size :] if chunks else ""
+            context_after = (
+                sub_chunks[chunk_index + 1]["text"][: params.context_size]
+                if chunk_index < len(sub_chunks) - 1
+                else ""
+            )
+            chunks.append(
+                ContentChunk(
                     parent_uid=parent_uid,
                     chunk_index=chunk_index,
                     chunk_type=ContentChunkType.SECTION,
-                    text=para.strip(),
+                    text=sub_chunk["text"],
                     context_before=context_before,
                     context_after=context_after,
                     heading=None,
                     chunking_version=version,
                 )
-                chunks.append(chunk)
-                chunk_index += 1
+            )
 
         return chunks
 
@@ -429,7 +456,64 @@ class ContentChunkingStrategy:
                         {"text": para, "type": chunk_type, "metadata": {"section_heading": heading}}
                     )
 
-        return sub_chunks
+        return cls._fold_fragments(sub_chunks, heading)
+
+    @classmethod
+    def _fold_fragments(
+        cls,
+        sub_chunks: list[dict[str, Any]],
+        heading: str | None,
+        *,
+        retype: bool = True,
+    ) -> list[dict[str, Any]]:
+        """Apply the fragment floor to one section's sub-chunks (algorithm v2).
+
+        Structural noise (``_is_structural_noise``) is dropped. A prose
+        sub-chunk under ``FRAGMENT_FLOOR_WORDS`` is folded into the NEXT prose
+        sub-chunk (a label such as ``Ask:`` introduces what follows); trailing
+        fragments fold into the last prose sub-chunk; a section made only of
+        fragments becomes one joined chunk. Code fences are never merged into
+        and never fold — their text is the verbatim fence. A merged chunk is
+        re-typed from its final text when ``retype`` is set (markdown path);
+        the plain-text path keeps its uniform ``SECTION`` type.
+        """
+
+        def merged(base: dict[str, Any], parts: list[str]) -> dict[str, Any]:
+            text = "\n\n".join(parts)
+            chunk_type = cls._detect_chunk_type(text, heading) if retype else base["type"]
+            return {**base, "text": text, "type": chunk_type}
+
+        folded: list[dict[str, Any]] = []
+        pending: list[str] = []
+        for chunk in sub_chunks:
+            if chunk["type"] is ContentChunkType.CODE:
+                folded.append(chunk)
+                continue
+            text = chunk["text"]
+            if _is_structural_noise(text):
+                continue
+            if _is_fragment(text):
+                pending.append(text)
+                continue
+            if pending:
+                chunk = merged(chunk, [*pending, text])
+                pending = []
+            folded.append(chunk)
+
+        if pending:
+            for i in range(len(folded) - 1, -1, -1):
+                if folded[i]["type"] is not ContentChunkType.CODE:
+                    folded[i] = merged(folded[i], [folded[i]["text"], *pending])
+                    break
+            else:
+                template = {
+                    "type": ContentChunkType.EXPLANATION,
+                    "metadata": {"section_heading": heading},
+                }
+                if not retype:
+                    template["type"] = ContentChunkType.SECTION
+                folded.append(merged(template, pending))
+        return folded
 
     @classmethod
     def _detect_chunk_type(cls, text: str, heading: str | None) -> ContentChunkType:

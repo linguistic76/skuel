@@ -367,7 +367,7 @@ class TestBatchDoorStalenessIsPerDomain:
 
         mapping = diverged_chunk_version_by_label()
         assert mapping == {"Ku": chunk_version_tag(ku_params)}
-        assert mapping["Ku"] == "v1:250-40"  # suffixed, not the bare "v1"
+        assert mapping["Ku"] == "v2:250-40"  # suffixed, not the bare "v2"
 
     @pytest.mark.anyio
     async def test_service_threads_expected_map_into_candidate_query(

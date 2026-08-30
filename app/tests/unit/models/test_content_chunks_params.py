@@ -26,7 +26,7 @@ class TestChunkVersionTag:
         # Zero-churn guarantee: default params stamp the unadorned base version,
         # so existing chunks and every `== CHUNKING_ALGORITHM_VERSION` test still match.
         assert chunk_version_tag(DEFAULT_CHUNKING_PARAMS) == CHUNKING_ALGORITHM_VERSION
-        assert chunk_version_tag(DEFAULT_CHUNKING_PARAMS) == "v1"
+        assert chunk_version_tag(DEFAULT_CHUNKING_PARAMS) == "v2"
 
     def test_explicit_defaults_equal_the_shared_default(self) -> None:
         # An explicitly-constructed default is value-equal, so it also gets the bare tag.
@@ -35,7 +35,7 @@ class TestChunkVersionTag:
 
     def test_diverged_params_get_a_suffixed_tag(self) -> None:
         diverged = ChunkingParams(max_chunk_size=300, context_size=60)
-        assert chunk_version_tag(diverged) == "v1:300-60"
+        assert chunk_version_tag(diverged) == "v2:300-60"
 
     def test_min_chunk_size_is_inert_and_excluded_from_the_tag(self) -> None:
         # min_chunk_size has no refs in the strategy, so a change to it alone must
@@ -50,13 +50,13 @@ class TestChunkingStampsVersion:
     def test_default_chunking_stamps_bare_version(self) -> None:
         chunks = chunk_content(_LARGE_BODY, "ps.default", "markdown")
         assert chunks  # produced something
-        assert all(c.chunking_version == "v1" for c in chunks)
+        assert all(c.chunking_version == "v2" for c in chunks)
 
     def test_diverged_chunking_stamps_suffixed_version(self) -> None:
         diverged = ChunkingParams(max_chunk_size=300, context_size=60)
         chunks = chunk_content(_LARGE_BODY, "ps.diverged", "markdown", diverged)
         assert chunks
-        assert all(c.chunking_version == "v1:300-60" for c in chunks)
+        assert all(c.chunking_version == "v2:300-60" for c in chunks)
 
 
 class TestBoundaryDivergence:
