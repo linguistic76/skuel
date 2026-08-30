@@ -1177,6 +1177,14 @@ Review found three of these one at a time (#1194), so the branches are now organ
 WHERE THE VALUE SITS — receiver, argument, or operand — rather than by call spelling,
 which is what makes them cover forms nobody has written yet.
 
+KNOWN AND ACCEPTED MISS: a loop variable EMBEDDED in a comprehension's element, as in
+`str([(u, title) for u in entity_uids])`. Only the identity form (`u for u in
+entity_uids`) traces back to the iterable; catching the embedded one means binding `u` to
+its iterable and following that alias through arbitrary nesting — variable tracking, not
+a shape test, which this linter declines by ruling. The failure direction is a MISS, the
+safe one for an ERROR gate: the alternative over-approximates, and a false positive
+blocks CI on correct code.
+
 The tempting generalisation — walk the whole right-hand side for any uid-ish name — is
 WRONG, and measurably so: `"a" in mapping[uid]` is a dict lookup and `"revision" in
 get_title(uid)` tests a title, neither of which reads uid spelling. Both would be false
@@ -1232,6 +1240,9 @@ transforms themselves — `sorted`/`list`/`set`/`tuple`/`frozenset` materialise,
 `reversed`/`map`/`filter`/`enumerate`/`zip` only produce an iterator whose repr is what
 `str()` would render. And a rendering call's RECEIVER is rendered too: `uid.format()`
 returns the uid's own text and `uid.join(parts)` puts it between them.
+Value-SELECTING expressions are read branch by branch — `uid if record else ""` and
+`uid or ""` are ordinary optional-value idioms — each branch judged by the same
+singular/serialized rule, so choosing between two collections stays ordinary membership.
 
 ALL THREE MAPPING FORMS narrow by their template, and all three read attribute paths in
 it: `format`, `format_map`, and `%`. WHAT a mapping contributes differs per call, and each
