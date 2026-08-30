@@ -225,9 +225,10 @@ jobs:
               echo "implied — see the run log and the janitor-output artifact."
             else
               echo "PLANNED-tier backlog aging (each entry's structured \`since\` date in"
-              echo "\`scripts/detect_bloat.py\` — the staging decision, never a re-ruling):"
+              echo "\`scripts/detect_bloat.py\` — the staging decision, never a re-ruling — split"
+              echo "by readiness: a DELAYED entry aging is expected, a READY one aging is the signal):"
               echo ""
-              jq -r '.planned_aging[] | "- **\(.tier)**: \(.entries) entries — oldest staging decision \(.oldest // "none (empty)")"' bloat.json
+              jq -r '.planned_aging[] | "- **\(.tier)**: \(.entries) entries — \(.ready.entries) ready (oldest \(.ready.oldest // "none")), \(.delayed.entries) delayed (oldest \(.delayed.oldest // "none"))"' bloat.json
               echo ""
               warning_count=$(jq '[.findings[] | select(.severity == "warning")] | length' bloat.json)
               if [ "$warning_count" -eq 0 ]; then
@@ -255,6 +256,19 @@ jobs:
                 echo "verify wiring by hand when the owning arc is next touched:"
                 echo ""
                 jq -r '.findings[] | select(.kind == "planned-marking-masked") | "- `\(.subject)` (\(.file):\(.line)) — \(.detail)"' bloat.json
+              fi
+              # A READY entry staged past the quarterly-review window (INFO by
+              # design — never gates). Printed here so the one aging signal
+              # worth having reaches a reader on a clock; \`./dev bloat --ready\`
+              # is the local view.
+              ready_aging_count=$(jq '[.findings[] | select(.kind == "planned-ready-aging")] | length' bloat.json)
+              if [ "$ready_aging_count" -ne 0 ]; then
+                echo ""
+                echo "**${ready_aging_count} READY PLANNED marking(s) staged past the review window** —"
+                echo "fully specified, nothing to decide, still unwired. Wire-or-delete ruling due"
+                echo "(\`./dev bloat --ready\` lists the whole READY slice):"
+                echo ""
+                jq -r '.findings[] | select(.kind == "planned-ready-aging") | "- `\(.subject)` (\(.file):\(.line)) — \(.detail)"' bloat.json
               fi
             fi
             echo ""

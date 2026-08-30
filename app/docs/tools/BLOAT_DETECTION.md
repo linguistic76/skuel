@@ -1,6 +1,6 @@
 ---
 title: Bloat Detection
-updated: 2026-08-07
+updated: 2026-08-29
 status: current
 category: tools
 tags: [dead-code, events, services, vulture, ast, maintenance]
@@ -39,6 +39,7 @@ and frontmatter mapping, which is cross-file dataflow.
 
 ```bash
 ./dev bloat               # full report (events + methods)
+./dev bloat --ready       # only the READY PLANNED entries (flags pass through)
 ./dev bloat-events        # event lifecycle only
 ./dev bloat-methods       # service methods only
 
@@ -57,8 +58,9 @@ in them. "Stale" means *provably* stale — see *Integrity is self-policing*
 below. The full advisory report
 also runs on a clock: `.github/workflows/weekly-janitor.yml` (Mondays 06:30
 UTC) runs it alongside the `./dev health` checks and renders the
-PLANNED-tier aging plus any WARNING findings into an always-open status
-issue — a rot detector that relies on human memory contradicts its own
+PLANNED-tier aging (per readiness), any WARNING findings, the name-masked
+markings and any READY entry past the review window into an always-open
+status issue — a rot detector that relies on human memory contradicts its own
 purpose.
 
 ## Design rules
@@ -83,7 +85,7 @@ The detector follows the SKUEL linter's structural-soundness discipline
 | `WARNING` | Structurally dead — verified absence of liveness — **or a stale PLANNED marking** (the registered subject no longer exists) | Yes |
 | `UNVERIFIED` | Liveness signal exists but is not structurally traceable (constructed-but-untraced events; methods whose name appears as a string literal) | No |
 | `PLANNED` | Structurally dead **by intent** — staged work registered in `PLANNED_EVENTS` / `PLANNED_METHODS` / `PLANNED_TEMPLATES`, awaiting its wiring; every entry declares `READY` / `DELAYED` and its staging date (below) | No |
-| `INFO` | Live but noteworthy (published-never-subscribed — fine for fire-and-forget audit events; **name-masked PLANNED markings**, below) | No |
+| `INFO` | Live but noteworthy (published-never-subscribed — fine for fire-and-forget audit events; **name-masked PLANNED markings**, below; **`planned-ready-aging`** — a READY entry staged past the review window, see *PLANNED-tier aging*) | No |
 
 Act on `WARNING` findings after a manual grep-verify; treat `UNVERIFIED` as a
 lead list, not a verdict.
@@ -154,10 +156,16 @@ The template backlog appears on full runs only — the scoped `--events-only` /
 ## PLANNED-tier aging
 
 A backlog is only honest if its age is visible, so every run summarizes each
-examined registry: **entry count + oldest staging decision** — printed as the
-`◷ PLANNED-tier aging` block in the text report and emitted as the
-`planned_aging` array in `--json` (one object per tier: `tier`, `entries`,
-`oldest`).
+examined registry: **entry count + oldest staging decision, per readiness
+class** — printed as the `◷ PLANNED-tier aging` block in the text report
+(`PLANNED_METHODS: 105 entries — 7 ready (oldest 2026-06-11, 79 days ago), 98
+delayed (oldest …)`) and emitted as the `planned_aging` array in `--json` (one
+object per tier: `tier`, `entries`, `oldest`, plus `ready` / `delayed`
+sub-objects each carrying `entries` + `oldest`). The definitions of the two
+classes live on the `Readiness` docstring in `scripts/detect_bloat.py`; the
+split exists because the two age differently: **a DELAYED entry aging is
+expected** — it waits on something other than the wiring — **a READY one aging
+is the signal.**
 
 The date is `PlannedEntry.since`, a structured field every entry must carry,
 so nothing is extracted and nothing can be missed. (Until 2026-08-29 the tool
@@ -167,12 +175,37 @@ and its `dated` / `undated` counters rather than adding a second one.) One rule
 keeps it honest: **an entry ages from its staging decision** — the first
 ruling, not the latest re-ruling — which is what `since` is defined to hold.
 
+**Readiness changes what the tool does, in three places:**
+
+- **Grouping.** Every tier's PLANNED block prints READY first, then DELAYED,
+  each labelled — the actionable slice leads. Findings carry the entry's
+  readiness (`--json`: `"readiness": "ready" | "delayed" | null`, null for a
+  finding that is not about a PLANNED entry). It rides every finding *about*
+  an entry — awaiting-wiring, masked, stale — because it is a fact about the
+  entry, not about what the run learned of its subject.
+- **`--ready`.** Prints only the READY entries of the tiers the run examined,
+  then the aging block and the verdict line — nothing else. It filters the
+  full analyses' output rather than reading the registries, so a READY entry
+  the run found masked or gone prints in that state (its detail says which);
+  `--check` is unaffected. Mutually exclusive with `--json` (the document is
+  always the full one — filter on `.readiness` with jq).
+- **`planned-ready-aging`** (INFO, advisory, **never gates**). A READY entry
+  staged for **more than `READY_AGING_DAYS` = 90 days** — one quarter, the
+  cadence `deferred-work.md` § Review Schedule walks the backlog on, so such
+  an entry has outlived a review without being wired or deleted. It is emitted
+  *beside* the entry's `*-awaiting-wiring` finding (same subject, file, line),
+  never instead of it, prints under its own heading in every report (not the
+  tier's generic INFO one), and is counted apart from unverified/info on the
+  verdict line. A DELAYED entry never triggers it, whatever its age. At the
+  2026-08-29 baseline it fires on nothing and first fires 2026-09-10 — a
+  signal, not noise.
+
 Tier scoping mirrors the analyses: `--events-only` summarizes
 `PLANNED_EVENTS` only, `--methods-only` summarizes `PLANNED_METHODS` only,
 and the full report adds `PLANNED_TEMPLATES` (same gate as the template
-backlog itself). The weekly janitor workflow (below) renders this summary
-into its status issue, so backlog aging is reviewed on a clock instead of
-remembered.
+backlog itself). The weekly janitor workflow (below) renders the per-readiness
+summary and any `planned-ready-aging` findings into its status issue, so
+backlog aging is reviewed on a clock instead of remembered.
 
 ## Event analysis (pure AST)
 
