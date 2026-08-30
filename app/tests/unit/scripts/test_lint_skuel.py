@@ -7295,6 +7295,26 @@ class TestSKUEL034:
         )
         assert lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC) == []
 
+    def test_starred_join_argument_is_not_provably_inert(self) -> None:
+        """`[*parts]` is one AST element that expands to however many `parts`
+        holds, so the separator is not provably unused (Codex, #1194)."""
+        content = (
+            "def f(entity_uid: str, parts: list[str]) -> bool:\n"
+            '    return "tech" in entity_uid.join([*parts])\n'
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"]
+
+    def test_enclosing_serialization_reaches_selected_branches(self) -> None:
+        """Inside `str(...)` a plural branch IS rendered, so the outer
+        serialization state must survive the branch walk (Codex, #1194)."""
+        content = (
+            "def f(cond: bool, entity_uids: list[str]) -> bool:\n"
+            '    return "tech" in str(entity_uids if cond else [])\n'
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"]
+
     def test_serializing_a_non_uid_collection_is_legal(self) -> None:
         """The rule is still about uids — `str()` alone does not make it fire."""
         content = 'def f(titles: list[str]) -> bool:\n    return "revision" in str(titles)\n'

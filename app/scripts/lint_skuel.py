@@ -6074,6 +6074,11 @@ class SkuelLinter:
             return False
         argument = node.args[0]
         if isinstance(argument, ast.List | ast.Tuple | ast.Set):
+            # `[*parts]` is ONE ast element that expands to however many `parts`
+            # holds, so a starred entry makes the literal dynamically sized and
+            # the separator is no longer provably inert (Codex, #1194).
+            if any(isinstance(element, ast.Starred) for element in argument.elts):
+                return False
             return len(argument.elts) < 2
         return False
 
@@ -6285,7 +6290,12 @@ class SkuelLinter:
             branches = list(node.values)
         for branch in branches:
             inner, branch_serialized = cls._resolve_uid_operand(branch)
-            if cls._is_singular_uid_name(inner) or (branch_serialized and cls._is_uid_name(inner)):
+            # The ENCLOSING serialization counts too: inside `str(uids if c else
+            # [])` the plural branch is rendered, so dropping the outer state
+            # would reject it (Codex, #1194).
+            if cls._is_singular_uid_name(inner) or (
+                (serialized or branch_serialized) and cls._is_uid_name(inner)
+            ):
                 return inner, serialized or branch_serialized
 
         # f-string: `"x" in f"{uids}"` renders exactly as `str(uids)` does.
