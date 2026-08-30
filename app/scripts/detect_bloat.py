@@ -48,7 +48,11 @@ Design rules (mirrors the SKUEL linter's structural-soundness discipline):
   and no decision stands before it; DELAYED = waiting on a product decision
   or on a surface that does not exist yet), the reason, and ``since`` — the
   staging-decision date, structured — so each examined tier prints an aging
-  summary (entry count + oldest ``since``) that scrapes nothing from prose.
+  summary (entry count + oldest ``since``, split by readiness) that scrapes
+  nothing from prose. The PLANNED block prints READY first; ``--ready`` prints
+  only that slice; a READY entry staged longer than READY_AGING_DAYS gets an
+  INFO ``planned-ready-aging`` finding beside it (a DELAYED entry aging is
+  expected — a READY one aging is the signal). Advisory, never gates.
 
 Advisory by default (exit 0). ``--check`` exits 1 on surviving WARNING
 findings — wired as ./dev quality check 7 and the CI lint job's dead-code
@@ -58,6 +62,7 @@ Usage:
     uv run python scripts/detect_bloat.py
     uv run python scripts/detect_bloat.py --events-only
     uv run python scripts/detect_bloat.py --methods-only
+    uv run python scripts/detect_bloat.py --ready
     uv run python scripts/detect_bloat.py --verbose --json
 """
 
@@ -83,6 +88,14 @@ EXCLUDED_PARTS = {"__pycache__", "archive"}
 
 EVENTS_PACKAGE = ROOT / "core" / "events"
 EVENT_ROOT_BASE = "BaseEvent"
+
+# A READY entry staged for MORE than this many days is reported as
+# ``planned-ready-aging`` — INFO, advisory, never gates. 90 days is one quarter:
+# deferred-work.md § Review Schedule walks the backlog on that cadence, so a
+# READY entry older than this has outlived a review without being wired or
+# deleted. A DELAYED entry aging is expected (it waits on something other than
+# the wiring); a READY one aging is the one signal worth a finding.
+READY_AGING_DAYS = 90
 
 
 class Readiness(Enum):
@@ -1020,6 +1033,18 @@ class Finding:
     line: int
     detail: str
     annotations: list[str] = field(default_factory=list)
+    # The registry entry's Readiness on every finding ABOUT a PLANNED entry —
+    # awaiting-wiring, masked, stale, ready-aging — so --ready can show a READY
+    # entry in whatever state the run found it. None for everything else.
+    # Readiness is a third axis on Finding, not a kind: the printers bucket by
+    # severity and special-case the planned-marking kinds by name.
+    readiness: Readiness | None = None
+
+    def __post_init__(self) -> None:
+        # The PLANNED block is grouped by readiness; a PLANNED finding without
+        # one would print nowhere. Fail-fast on the tool itself.
+        if self.severity is BloatSeverity.PLANNED and self.readiness is None:
+            raise ValueError(f"PLANNED finding for {self.subject!r} carries no readiness")
 
     def to_json(self) -> dict[str, object]:
         return {
@@ -1030,6 +1055,7 @@ class Finding:
             "line": self.line,
             "detail": self.detail,
             "annotations": self.annotations,
+            "readiness": self.readiness.value if self.readiness else None,
         }
 
 
@@ -1042,6 +1068,38 @@ class Site:
 
     def __str__(self) -> str:
         return f"{self.file}:{self.line}"
+
+
+def _with_ready_aging(entry: PlannedEntry, awaiting: Finding) -> list[Finding]:
+    """The finding(s) for one still-staged PLANNED entry.
+
+    ``awaiting`` is the tier's ``*-awaiting-wiring`` finding, carried through
+    unchanged. A READY entry staged for more than READY_AGING_DAYS gets a
+    second, INFO ``planned-ready-aging`` finding BESIDE it — same subject,
+    file and line — never instead of it: the age is a fact about the entry,
+    not a different state of its subject, and it can never gate (nothing
+    about "still staged" is a fact the over-approximating engines verify).
+    """
+    findings = [awaiting]
+    if entry.readiness is Readiness.READY:
+        age = (date.today() - entry.since).days
+        if age > READY_AGING_DAYS:
+            findings.append(
+                Finding(
+                    kind="planned-ready-aging",
+                    severity=BloatSeverity.INFO,
+                    subject=awaiting.subject,
+                    file=awaiting.file,
+                    line=awaiting.line,
+                    detail=(
+                        f"READY for {age} days (staged {entry.since.isoformat()}) — "
+                        f"past the {READY_AGING_DAYS}-day quarterly-review window; "
+                        "wire it or delete the entry"
+                    ),
+                    readiness=Readiness.READY,
+                )
+            )
+    return findings
 
 
 # ============================================================================
@@ -1705,6 +1763,7 @@ def analyze_events(
                             "publish wrappers), so the publication cannot be "
                             "attributed; KEEP the entry and verify wiring by hand"
                         ),
+                        readiness=PLANNED_EVENTS[cls].readiness,
                     )
                 )
             if not subscribed and not universe.descendants[cls]:
@@ -1750,6 +1809,7 @@ def analyze_events(
                 line=site.line,
                 detail=f"unwired by intent — {PLANNED_EVENTS[cls].reason}",
                 annotations=planned_notes,
+                readiness=PLANNED_EVENTS[cls].readiness,
             )
         elif constructed:
             finding = Finding(
@@ -1778,6 +1838,8 @@ def analyze_events(
         if cls in EXEMPTED_EVENTS:
             finding.annotations.append(f"exempted: {EXEMPTED_EVENTS[cls]}")
             exempted.append(finding)
+        elif cls in PLANNED_EVENTS:
+            findings.extend(_with_ready_aging(PLANNED_EVENTS[cls], finding))
         else:
             findings.append(finding)
 
@@ -1802,6 +1864,7 @@ def analyze_events(
                         "marked planned but no such event class exists — deleted, "
                         "renamed, or mistyped; remove from PLANNED_EVENTS"
                     ),
+                    readiness=PLANNED_EVENTS[cls].readiness,
                 )
             )
         else:
@@ -1818,6 +1881,7 @@ def analyze_events(
                         "or its module is not imported in core/events/__init__.py. "
                         "Fix that, not the registry; KEEP the entry"
                     ),
+                    readiness=PLANNED_EVENTS[cls].readiness,
                 )
             )
 
@@ -2117,15 +2181,20 @@ def analyze_methods(codebase: ParsedCodebase, scan: VultureScan) -> MethodAnalys
 
         planned_key = f"{rel}::{name}"
         if planned_key in PLANNED_METHODS:
-            findings.append(
-                Finding(
-                    kind="method-awaiting-wiring",
-                    severity=BloatSeverity.PLANNED,
-                    subject=name,
-                    file=rel,
-                    line=item.first_lineno,
-                    detail=f"unwired by intent — {PLANNED_METHODS[planned_key].reason}",
-                    annotations=annotations,
+            entry = PLANNED_METHODS[planned_key]
+            findings.extend(
+                _with_ready_aging(
+                    entry,
+                    Finding(
+                        kind="method-awaiting-wiring",
+                        severity=BloatSeverity.PLANNED,
+                        subject=name,
+                        file=rel,
+                        line=item.first_lineno,
+                        detail=f"unwired by intent — {entry.reason}",
+                        annotations=annotations,
+                        readiness=entry.readiness,
+                    ),
                 )
             )
             continue
@@ -2196,6 +2265,7 @@ def analyze_methods(codebase: ParsedCodebase, scan: VultureScan) -> MethodAnalys
                         "marked planned but the method no longer exists at this "
                         "path — deleted or renamed; remove from PLANNED_METHODS"
                     ),
+                    readiness=PLANNED_METHODS[planned_key].readiness,
                 )
             )
             continue
@@ -2221,6 +2291,7 @@ def analyze_methods(codebase: ParsedCodebase, scan: VultureScan) -> MethodAnalys
                     "matches by NAME, so no call can be attributed to this "
                     "definition; KEEP the entry and verify wiring by hand"
                 ),
+                readiness=PLANNED_METHODS[planned_key].readiness,
             )
         )
 
@@ -2258,18 +2329,23 @@ def _out_of_scope_planned_findings(codebase: ParsedCodebase) -> list[Finding]:
                         "marked planned but the function no longer exists at this "
                         "path — deleted or renamed; remove from PLANNED_METHODS"
                     ),
+                    readiness=note.readiness,
                 )
             )
         else:
-            results.append(
-                Finding(
-                    kind="method-awaiting-wiring",
-                    severity=BloatSeverity.PLANNED,
-                    subject=name,
-                    file=rel,
-                    line=def_line,
-                    detail=f"unwired by intent — {note.reason}",
-                    annotations=["outside METHOD_SCOPE — liveness not vulture-verified"],
+            results.extend(
+                _with_ready_aging(
+                    note,
+                    Finding(
+                        kind="method-awaiting-wiring",
+                        severity=BloatSeverity.PLANNED,
+                        subject=name,
+                        file=rel,
+                        line=def_line,
+                        detail=f"unwired by intent — {note.reason}",
+                        annotations=["outside METHOD_SCOPE — liveness not vulture-verified"],
+                        readiness=note.readiness,
+                    ),
                 )
             )
     return results
@@ -2333,6 +2409,7 @@ def analyze_planned_templates(codebase: ParsedCodebase) -> list[Finding]:
                         "marked planned but the template file no longer exists — "
                         "deleted or renamed; remove from PLANNED_TEMPLATES"
                     ),
+                    readiness=note.readiness,
                 )
             )
         elif template_id in rendered:
@@ -2350,17 +2427,22 @@ def analyze_planned_templates(codebase: ParsedCodebase) -> list[Finding]:
                         "attributed to the prompt renderer; KEEP the entry and "
                         "verify wiring by hand"
                     ),
+                    readiness=note.readiness,
                 )
             )
         else:
-            results.append(
-                Finding(
-                    kind="template-awaiting-wiring",
-                    severity=BloatSeverity.PLANNED,
-                    subject=template_id,
-                    file=rel,
-                    line=1,
-                    detail=f"unwired by intent — {note.reason}",
+            results.extend(
+                _with_ready_aging(
+                    note,
+                    Finding(
+                        kind="template-awaiting-wiring",
+                        severity=BloatSeverity.PLANNED,
+                        subject=template_id,
+                        file=rel,
+                        line=1,
+                        detail=f"unwired by intent — {note.reason}",
+                        readiness=note.readiness,
+                    ),
                 )
             )
     return results
@@ -2372,34 +2454,66 @@ def analyze_planned_templates(codebase: ParsedCodebase) -> list[Finding]:
 
 
 @dataclass(frozen=True)
-class PlannedAging:
-    """Aging summary for one PLANNED registry.
+class ReadinessAging:
+    """One readiness class of a PLANNED registry: entry count + oldest ``since``."""
 
-    Reads ``PlannedEntry.since`` — the structured staging-decision date every
-    entry must carry — so there is nothing to extract and nothing to miss.
-    ``oldest`` is None only for an empty registry.
-    """
-
-    tier: str
     entries: int
     oldest: date | None
 
     def to_json(self) -> dict[str, object]:
         return {
-            "tier": self.tier,
             "entries": self.entries,
             "oldest": self.oldest.isoformat() if self.oldest else None,
         }
 
 
+@dataclass(frozen=True)
+class PlannedAging:
+    """Aging summary for one PLANNED registry.
+
+    Reads ``PlannedEntry.since`` — the structured staging-decision date every
+    entry must carry — so there is nothing to extract and nothing to miss.
+    ``oldest`` is None only for an empty registry. ``ready`` / ``delayed``
+    split the same registry by Readiness: a DELAYED entry aging is expected,
+    a READY one aging is the signal (see READY_AGING_DAYS).
+    """
+
+    tier: str
+    entries: int
+    oldest: date | None
+    ready: ReadinessAging
+    delayed: ReadinessAging
+
+    def to_json(self) -> dict[str, object]:
+        # weekly-janitor.yml jq-reads every key here — additive changes only.
+        return {
+            "tier": self.tier,
+            "entries": self.entries,
+            "oldest": self.oldest.isoformat() if self.oldest else None,
+            "ready": self.ready.to_json(),
+            "delayed": self.delayed.to_json(),
+        }
+
+
+def _readiness_aging(registry: dict[str, PlannedEntry], readiness: Readiness) -> ReadinessAging:
+    dates = [entry.since for entry in registry.values() if entry.readiness is readiness]
+    return ReadinessAging(entries=len(dates), oldest=min(dates) if dates else None)
+
+
 def summarize_planned_aging(tier: str, registry: dict[str, PlannedEntry]) -> PlannedAging:
-    """Count a PLANNED registry and find its oldest staging decision.
+    """Count a PLANNED registry and find its oldest staging decision, per class.
 
     An entry ages from its ``since`` — the first ruling that staged it, never
     a later re-ruling — which is exactly what that field is defined to hold.
     """
     dates = [entry.since for entry in registry.values()]
-    return PlannedAging(tier=tier, entries=len(registry), oldest=min(dates) if dates else None)
+    return PlannedAging(
+        tier=tier,
+        entries=len(registry),
+        oldest=min(dates) if dates else None,
+        ready=_readiness_aging(registry, Readiness.READY),
+        delayed=_readiness_aging(registry, Readiness.DELAYED),
+    )
 
 
 def json_document(findings: list[Finding], aging: list[PlannedAging]) -> dict[str, object]:
@@ -2421,16 +2535,26 @@ def print_planned_aging(summaries: list[PlannedAging]) -> None:
     if not summaries:
         return
     print(
-        f"\n{Colors.BOLD}◷ PLANNED-tier aging (backlog size + oldest staging decision){Colors.RESET}"
+        f"\n{Colors.BOLD}◷ PLANNED-tier aging (backlog size + oldest staging "
+        f"decision, per readiness){Colors.RESET}"
     )
     today = date.today()
     for summary in summaries:
         if summary.oldest is None:
-            oldest_note = "empty"
-        else:
-            age_days = (today - summary.oldest).days
-            oldest_note = f"oldest {summary.oldest.isoformat()} ({age_days} days ago)"
-        print(f"  {summary.tier}: {summary.entries} entries — {oldest_note}")
+            print(f"  {summary.tier}: 0 entries — empty")
+            continue
+        classes = []
+        for readiness, aging in (
+            (Readiness.READY, summary.ready),
+            (Readiness.DELAYED, summary.delayed),
+        ):
+            note = f"{aging.entries} {readiness.value}"
+            if aging.oldest is not None:
+                note += (
+                    f" (oldest {aging.oldest.isoformat()}, {(today - aging.oldest).days} days ago)"
+                )
+            classes.append(note)
+        print(f"  {summary.tier}: {summary.entries} entries — {', '.join(classes)}")
 
 
 def _print_finding(finding: Finding) -> None:
@@ -2444,6 +2568,65 @@ def _print_finding(finding: Finding) -> None:
     print(f"      {finding.detail}")
     for note in finding.annotations:
         print(f"      {Colors.YELLOW}⚠ {note}{Colors.RESET}")
+
+
+class _Partition(NamedTuple):
+    """One tier's findings split for printing.
+
+    The printers bucket by severity; the planned-marking kinds (stale, masked,
+    ready-aging) are pulled out by NAME so each prints under its own heading
+    instead of its severity's generic one — an INFO ready-aging finding under
+    "published but never subscribed" would be a lie about what it is.
+    """
+
+    by_severity: dict[BloatSeverity, list[Finding]]
+    stale: list[Finding]
+    masked: list[Finding]
+    ready_aging: list[Finding]
+
+
+def _partition(findings: list[Finding]) -> _Partition:
+    by_severity: dict[BloatSeverity, list[Finding]] = defaultdict(list)
+    stale: list[Finding] = []
+    masked: list[Finding] = []
+    ready_aging: list[Finding] = []
+    for finding in findings:
+        if finding.kind == "planned-marking-stale":
+            stale.append(finding)
+        elif finding.kind == "planned-marking-masked":
+            masked.append(finding)
+        elif finding.kind == "planned-ready-aging":
+            ready_aging.append(finding)
+        else:
+            by_severity[finding.severity].append(finding)
+    return _Partition(by_severity, stale, masked, ready_aging)
+
+
+def _print_block(items: list[Finding], title: str, color: str | None = None) -> None:
+    if not items:
+        return
+    # Resolved at CALL time: Colors.disable() (non-tty stdout) empties the class
+    # attributes after import, so a default bound at definition would keep the
+    # escape while RESET had already gone blank (Codex P2, PR #1190).
+    color = Colors.YELLOW if color is None else color
+    print(f"\n{color}{title} ({len(items)}):{Colors.RESET}\n")
+    for finding in items:
+        _print_finding(finding)
+
+
+def _print_planned_blocks(planned: list[Finding], ready_aging: list[Finding]) -> None:
+    """The PLANNED block of any tier: READY first — the actionable slice
+    leads — then DELAYED, then the READY entries over READY_AGING_DAYS, each
+    labelled. Definitions live on the Readiness docstring, not here."""
+    for readiness, label in (
+        (Readiness.READY, "READY — only the wiring is missing"),
+        (Readiness.DELAYED, "DELAYED — waits on a decision or an absent surface"),
+    ):
+        _print_block([f for f in planned if f.readiness is readiness], f"Planned, {label}")
+    _print_block(
+        ready_aging,
+        f"READY for more than {READY_AGING_DAYS} days — wire it or delete the entry",
+    )
 
 
 def print_event_report(
@@ -2481,45 +2664,26 @@ def print_event_report(
             f"the collector is almost certainly broken. Do not trust this report.{Colors.RESET}"
         )
 
-    by_severity: dict[BloatSeverity, list[Finding]] = defaultdict(list)
-    stale_planned: list[Finding] = []
-    masked_planned: list[Finding] = []
-    for finding in findings:
-        if finding.kind == "planned-marking-stale":
-            stale_planned.append(finding)
-        elif finding.kind == "planned-marking-masked":
-            masked_planned.append(finding)
-        else:
-            by_severity[finding.severity].append(finding)
-
-    for severity, title in [
-        (BloatSeverity.WARNING, "Structurally dead events"),
-        (BloatSeverity.UNVERIFIED, "Constructed but publication untraced — verify manually"),
-        (BloatSeverity.PLANNED, "Planned — unwired by intent, awaiting completion"),
-        (BloatSeverity.INFO, "Published but never subscribed (may be intentional)"),
-    ]:
-        items = by_severity.get(severity, [])
-        if not items:
-            continue
-        print(f"\n{Colors.YELLOW}{title} ({len(items)}):{Colors.RESET}\n")
-        for finding in items:
-            _print_finding(finding)
-
-    if masked_planned:
-        print(
-            f"\n{Colors.YELLOW}Planned, liveness unverifiable — publication not "
-            f"attributable, KEEP the entry ({len(masked_planned)}):{Colors.RESET}\n"
-        )
-        for finding in masked_planned:
-            _print_finding(finding)
-
-    if stale_planned:
-        print(
-            f"\n{Colors.RED}Stale planned markings — remove from PLANNED_EVENTS; "
-            f"these FAIL --check ({len(stale_planned)}):{Colors.RESET}\n"
-        )
-        for finding in stale_planned:
-            _print_finding(finding)
+    parts = _partition(findings)
+    _print_block(parts.by_severity.get(BloatSeverity.WARNING, []), "Structurally dead events")
+    _print_block(
+        parts.by_severity.get(BloatSeverity.UNVERIFIED, []),
+        "Constructed but publication untraced — verify manually",
+    )
+    _print_planned_blocks(parts.by_severity.get(BloatSeverity.PLANNED, []), parts.ready_aging)
+    _print_block(
+        parts.by_severity.get(BloatSeverity.INFO, []),
+        "Published but never subscribed (may be intentional)",
+    )
+    _print_block(
+        parts.masked,
+        "Planned, liveness unverifiable — publication not attributable, KEEP the entry",
+    )
+    _print_block(
+        parts.stale,
+        "Stale planned markings — remove from PLANNED_EVENTS; these FAIL --check",
+        color=Colors.RED,
+    )
 
     if not findings:
         print(f"\n  {Colors.GREEN}✓ No event findings.{Colors.RESET}")
@@ -2550,20 +2714,9 @@ def print_method_report(analysis: MethodAnalysis, verbose: bool) -> None:
         f"(dynamic-dispatch vocabulary: {len(analysis.dispatch.live)} names)"
     )
 
-    by_severity: dict[BloatSeverity, list[Finding]] = defaultdict(list)
-    stale_planned: list[Finding] = []
-    masked_planned: list[Finding] = []
-    for finding in analysis.findings:
-        if finding.kind == "planned-marking-stale":
-            stale_planned.append(finding)
-        elif finding.kind == "planned-marking-masked":
-            masked_planned.append(finding)
-        else:
-            by_severity[finding.severity].append(finding)
-
-    dead = by_severity.get(BloatSeverity.WARNING, [])
-    demoted = by_severity.get(BloatSeverity.UNVERIFIED, [])
-    planned = by_severity.get(BloatSeverity.PLANNED, [])
+    parts = _partition(analysis.findings)
+    dead = parts.by_severity.get(BloatSeverity.WARNING, [])
+    demoted = parts.by_severity.get(BloatSeverity.UNVERIFIED, [])
 
     if dead:
         print(
@@ -2591,29 +2744,13 @@ def print_method_report(analysis: MethodAnalysis, verbose: bool) -> None:
         for finding in demoted:
             _print_finding(finding)
 
-    if planned:
-        print(
-            f"\n{Colors.YELLOW}Planned — unwired by intent, awaiting completion "
-            f"({len(planned)}):{Colors.RESET}\n"
-        )
-        for finding in planned:
-            _print_finding(finding)
-
-    if masked_planned:
-        print(
-            f"\n{Colors.YELLOW}Planned, liveness unverifiable — name-masked, KEEP "
-            f"the entry ({len(masked_planned)}):{Colors.RESET}\n"
-        )
-        for finding in masked_planned:
-            _print_finding(finding)
-
-    if stale_planned:
-        print(
-            f"\n{Colors.RED}Stale planned markings — remove from PLANNED_METHODS; "
-            f"these FAIL --check ({len(stale_planned)}):{Colors.RESET}\n"
-        )
-        for finding in stale_planned:
-            _print_finding(finding)
+    _print_planned_blocks(parts.by_severity.get(BloatSeverity.PLANNED, []), parts.ready_aging)
+    _print_block(parts.masked, "Planned, liveness unverifiable — name-masked, KEEP the entry")
+    _print_block(
+        parts.stale,
+        "Stale planned markings — remove from PLANNED_METHODS; these FAIL --check",
+        color=Colors.RED,
+    )
 
     if analysis.exempted:
         print(
@@ -2635,30 +2772,78 @@ def print_template_report(findings: list[Finding]) -> None:
     if not findings:
         return
     print(f"\n{Colors.BOLD}📄 Prompt Templates (PLANNED backlog){Colors.RESET}")
+    parts = _partition(findings)
+    _print_planned_blocks(parts.by_severity.get(BloatSeverity.PLANNED, []), parts.ready_aging)
+    _print_block(
+        parts.masked,
+        "Planned, liveness unverifiable — receiver-blind render match, KEEP the entry",
+    )
+    _print_block(
+        parts.stale,
+        "Stale planned markings — remove from PLANNED_TEMPLATES; these FAIL --check",
+        color=Colors.RED,
+    )
+
+
+def print_ready_report(examined: list[tuple[str, list[Finding]]]) -> None:
+    """``--ready``: the READY slice of every examined tier and nothing else.
+
+    A filter over the full analyses' findings, never a registry-only read: a
+    READY entry the run found masked or stale prints in the state the run
+    found it (its detail says which), so the short list tells the same truth
+    the full report does, minus everything that is not READY.
+    """
+    print(f"\n{Colors.BOLD}◷ READY PLANNED entries — only the wiring is missing{Colors.RESET}")
+    for tier, findings in examined:
+        parts = _partition([f for f in findings if f.readiness is Readiness.READY])
+        planned = parts.by_severity.get(BloatSeverity.PLANNED, [])
+        count = len(planned) + len(parts.masked) + len(parts.stale)
+        print(f"\n{Colors.BOLD}{tier}{Colors.RESET}: {count} READY")
+        _print_planned_blocks(planned, parts.ready_aging)
+        _print_block(
+            parts.masked, "READY but liveness unverifiable — KEEP the entry, verify by hand"
+        )
+        _print_block(
+            parts.stale,
+            "READY but the subject is GONE — remove the entry; FAILS --check",
+            color=Colors.RED,
+        )
+
+
+def print_summary(findings: list[Finding], ran: list[str]) -> None:
+    """The one-line verdict. ``ran`` names what this run examined — templates
+    ride the full report only (mirrors the analyze_planned_templates gate)."""
+    warnings = [f for f in findings if f.severity is BloatSeverity.WARNING]
+    stale = [f for f in warnings if f.kind == "planned-marking-stale"]
     planned = [f for f in findings if f.severity is BloatSeverity.PLANNED]
-    masked = [f for f in findings if f.kind == "planned-marking-masked"]
-    stale = [f for f in findings if f.kind == "planned-marking-stale"]
-    if planned:
+    ready_aging = [f for f in findings if f.kind == "planned-ready-aging"]
+    other = len(findings) - len(warnings) - len(planned) - len(ready_aging)
+    aging_note = f", {len(ready_aging)} READY over {READY_AGING_DAYS} days" if ready_aging else ""
+    print(f"\n{Colors.BOLD}{'=' * 78}{Colors.RESET}")
+    if warnings:
+        dead_count = len(warnings) - len(stale)
+        parts = []
+        if dead_count:
+            parts.append(f"{dead_count} structurally-dead findings")
+        if stale:
+            parts.append(f"{len(stale)} stale PLANNED markings")
         print(
-            f"\n{Colors.YELLOW}Planned — unwired by intent, awaiting completion "
-            f"({len(planned)}):{Colors.RESET}\n"
+            f"{Colors.YELLOW}{' + '.join(parts)} "
+            f"(+{other} unverified/info, {len(planned)} planned{aging_note}). "
+            f"Verify before deleting.{Colors.RESET}"
         )
-        for finding in planned:
-            _print_finding(finding)
-    if masked:
+    else:
         print(
-            f"\n{Colors.YELLOW}Planned, liveness unverifiable — receiver-blind "
-            f"render match, KEEP the entry ({len(masked)}):{Colors.RESET}\n"
+            f"{Colors.GREEN}✅ No structurally-dead findings within scope "
+            f"({'/'.join(ran)})"
+            f"{f' ({len(planned)} planned{aging_note})' if planned else ''}.{Colors.RESET}"
         )
-        for finding in masked:
-            _print_finding(finding)
-    if stale:
-        print(
-            f"\n{Colors.RED}Stale planned markings — remove from PLANNED_TEMPLATES "
-            f"({len(stale)}):{Colors.RESET}\n"
-        )
-        for finding in stale:
-            _print_finding(finding)
+
+
+def gate_fails(findings: list[Finding]) -> bool:
+    """The ``--check`` predicate: severity-based, WARNING only. Every
+    advisory kind (INFO, UNVERIFIED, PLANNED) passes by construction."""
+    return any(f.severity is BloatSeverity.WARNING for f in findings)
 
 
 def print_limitations(
@@ -2710,7 +2895,7 @@ def print_limitations(
 # ============================================================================
 
 
-def main() -> int:
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Detect unused code in SKUEL (AST-sound)")
     parser.add_argument("--events-only", action="store_true", help="Check events only")
     parser.add_argument("--methods-only", action="store_true", help="Check methods only")
@@ -2720,17 +2905,36 @@ def main() -> int:
         action="store_true",
         help="Exit 1 if WARNING findings survive (advisory otherwise)",
     )
-    parser.add_argument("--json", action="store_true", dest="as_json", help="Emit findings as JSON")
-    args = parser.parse_args()
+    # Two output shapes, one at a time: --json is the full document (filter on
+    # .readiness with jq); --ready is the READY slice of the text report.
+    output = parser.add_mutually_exclusive_group()
+    output.add_argument("--json", action="store_true", dest="as_json", help="Emit findings as JSON")
+    output.add_argument(
+        "--ready",
+        action="store_true",
+        dest="ready_only",
+        help=(
+            "Print only READY PLANNED entries across the examined tiers "
+            "(the analyses still run in full; --check is unaffected)"
+        ),
+    )
+    return parser
+
+
+def main() -> int:
+    args = build_parser().parse_args()
 
     if not sys.stdout.isatty():
         Colors.disable()
 
     check_events = not args.methods_only
     check_methods = not args.events_only
+    # The three per-analysis reports print only in the default text mode.
+    full_report = not args.as_json and not args.ready_only
 
-    # With --json, stdout carries ONLY the findings document.
-    progress_out = sys.stderr if args.as_json else sys.stdout
+    # --json and --ready both reserve stdout for the requested shape — the
+    # document, or the READY slice — so progress goes to stderr (Kody, #1190).
+    progress_out = sys.stderr if (args.as_json or args.ready_only) else sys.stdout
 
     print(f"{Colors.CYAN}🔍 Parsing codebase...{Colors.RESET}", file=progress_out)
     codebase = ParsedCodebase(ROOT)
@@ -2747,6 +2951,8 @@ def main() -> int:
     )
 
     findings: list[Finding] = []
+    # (tier, that tier's findings) in report order — what --ready filters.
+    examined: list[tuple[str, list[Finding]]] = []
     usage: EventUsage | None = None
     methods: MethodAnalysis | None = None
 
@@ -2756,7 +2962,8 @@ def main() -> int:
         usage = EventUsageCollector(universe, codebase).collect()
         event_findings, exempted = analyze_events(universe, usage)
         findings.extend(event_findings)
-        if not args.as_json:
+        examined.append(("PLANNED_EVENTS", event_findings))
+        if full_report:
             print_event_report(universe, usage, event_findings, exempted, args.verbose)
 
     if check_methods:
@@ -2766,7 +2973,8 @@ def main() -> int:
         )
         methods = analyze_methods(codebase, run_vulture(ROOT))
         findings.extend(methods.findings)
-        if not args.as_json:
+        examined.append(("PLANNED_METHODS", methods.findings))
+        if full_report:
             print_method_report(methods, args.verbose)
 
     # Prompt-template backlog rides the FULL report only — the scoped
@@ -2774,7 +2982,8 @@ def main() -> int:
     if check_events and check_methods:
         template_findings = analyze_planned_templates(codebase)
         findings.extend(template_findings)
-        if not args.as_json:
+        examined.append(("PLANNED_TEMPLATES", template_findings))
+        if full_report:
             print_template_report(template_findings)
 
     # Aging summaries follow the same scoping as the analyses: each mode
@@ -2790,47 +2999,16 @@ def main() -> int:
 
     if args.as_json:
         print(json.dumps(json_document(findings, aging), indent=2))
-
-    if not args.as_json:
+    else:
+        if args.ready_only:
+            print_ready_report(examined)
         print_planned_aging(aging)
-        print_limitations(codebase, usage, methods)
-        warnings = [f for f in findings if f.severity is BloatSeverity.WARNING]
-        stale = [f for f in warnings if f.kind == "planned-marking-stale"]
-        planned = [f for f in findings if f.severity is BloatSeverity.PLANNED]
-        other = len(findings) - len(warnings) - len(planned)
-        print(f"\n{Colors.BOLD}{'=' * 78}{Colors.RESET}")
-        if warnings:
-            dead_count = len(warnings) - len(stale)
-            parts = []
-            if dead_count:
-                parts.append(f"{dead_count} structurally-dead findings")
-            if stale:
-                parts.append(f"{len(stale)} stale PLANNED markings")
-            print(
-                f"{Colors.YELLOW}{' + '.join(parts)} "
-                f"(+{other} unverified/info, {len(planned)} planned). "
-                f"Verify before deleting.{Colors.RESET}"
-            )
-        else:
-            # Name only what this run examined: templates ride the full report
-            # (mirrors the analyze_planned_templates gate above).
-            ran = [
-                name
-                for name, examined in [
-                    ("events", check_events),
-                    ("methods", check_methods),
-                    ("templates", check_events and check_methods),
-                ]
-                if examined
-            ]
-            print(
-                f"{Colors.GREEN}✅ No structurally-dead findings within scope "
-                f"({'/'.join(ran)})"
-                f"{f' ({len(planned)} planned)' if planned else ''}.{Colors.RESET}"
-            )
+        if full_report:
+            print_limitations(codebase, usage, methods)
+        print_summary(findings, [tier.removeprefix("PLANNED_").lower() for tier, _ in examined])
 
     if args.check:
-        return 1 if any(f.severity is BloatSeverity.WARNING for f in findings) else 0
+        return 1 if gate_fails(findings) else 0
     return 0
 
 

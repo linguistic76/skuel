@@ -12,7 +12,7 @@ Two layers:
 
 import ast
 import sys
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from typing import cast
 
@@ -37,8 +37,14 @@ from detect_bloat import (  # type: ignore[import-not-found]
     analyze_events,
     analyze_methods,
     analyze_planned_templates,
+    build_parser,
+    gate_fails,
     json_document,
     measure_vulture_blind_spot,
+    print_event_report,
+    print_ready_report,
+    print_summary,
+    print_template_report,
     run_vulture,
     summarize_planned_aging,
 )
@@ -54,6 +60,12 @@ def staged(reason: str = "awaiting synthetic wiring") -> PlannedEntry:
     """A synthetic PLANNED entry — readiness and date are required, so tests
     that only care about the tier mechanics get them from one place."""
     return PlannedEntry(Readiness.DELAYED, reason, since=date(2026, 6, 10))
+
+
+def ready(reason: str = "awaiting synthetic wiring", *, days_ago: int = 0) -> PlannedEntry:
+    """A READY synthetic entry staged ``days_ago`` days before today — the
+    aging tests measure against today, so the date is relative by design."""
+    return PlannedEntry(Readiness.READY, reason, since=date.today() - timedelta(days=days_ago))
 
 
 BASE_EVENTS_SRC = """
@@ -692,6 +704,22 @@ def test_aging_oldest_is_the_earliest_since_across_entries():
     assert summary.oldest == date(2026, 6, 12)
 
 
+def test_aging_splits_by_readiness():
+    # A DELAYED entry aging is expected; a READY one aging is the signal — so
+    # the summary carries count + oldest per class, not just per tier.
+    summary = summarize_planned_aging(
+        "PLANNED_TEST",
+        {
+            "a": PlannedEntry(Readiness.DELAYED, "staged surface", since=date(2026, 6, 13)),
+            "b": PlannedEntry(Readiness.READY, "staged twin", since=date(2026, 6, 12)),
+            "c": PlannedEntry(Readiness.READY, "staged lens", since=date(2026, 7, 25)),
+        },
+    )
+    assert (summary.ready.entries, summary.ready.oldest) == (2, date(2026, 6, 12))
+    assert (summary.delayed.entries, summary.delayed.oldest) == (1, date(2026, 6, 13))
+    assert summary.ready.entries + summary.delayed.entries == summary.entries
+
+
 def test_aging_reads_since_not_prose():
     # A date in the reason prose is inert — the structured field is the only
     # source, which is the whole point of having one.
@@ -712,7 +740,13 @@ def test_aging_json_shape_is_pinned_for_the_janitor_workflow():
     # weekly-janitor.yml reads these keys with jq — a rename breaks the
     # scheduled report without failing anything here unless pinned.
     doc = summarize_planned_aging("PLANNED_TEST", {"a": staged()}).to_json()
-    assert doc == {"tier": "PLANNED_TEST", "entries": 1, "oldest": "2026-06-10"}
+    assert doc == {
+        "tier": "PLANNED_TEST",
+        "entries": 1,
+        "oldest": "2026-06-10",
+        "ready": {"entries": 0, "oldest": None},
+        "delayed": {"entries": 1, "oldest": "2026-06-10"},
+    }
 
 
 def test_json_document_top_level_keys_are_pinned_for_the_janitor_workflow():
@@ -729,6 +763,8 @@ def test_json_document_top_level_keys_are_pinned_for_the_janitor_workflow():
     assert sorted(doc) == ["findings", "planned_aging"]
     findings = cast("list[dict[str, object]]", doc["findings"])
     assert findings[0]["severity"] == "warning"
+    # every finding carries the key; null when it is not about a PLANNED entry
+    assert findings[0]["readiness"] is None
 
 
 PLANNED_TIER_BORN = date(2026, 6, 10)  # campaign 1 — the first staging decision ever recorded
@@ -752,19 +788,260 @@ def test_live_registries_summarize_cleanly():
         summary = summarize_planned_aging(tier, registry)
         assert summary.entries == len(registry)
         assert (summary.oldest is None) == (not registry)
+        assert summary.ready.entries + summary.delayed.entries == summary.entries
     methods = summarize_planned_aging("PLANNED_METHODS", detect_bloat.PLANNED_METHODS)
     assert methods.oldest == PLANNED_TIER_BORN
 
 
-def test_live_exempted_methods_still_exist():
+def test_live_exempted_methods_still_exist(live_codebase):
     # EXEMPTED_METHODS has no stale audit in the detector (an exemption for a
     # deleted method is never reported), so this sentinel is the audit: every
     # key must name a definition that still exists at that path.
-    codebase = ParsedCodebase(detect_bloat.ROOT)
-    codebase.load()
     for key in detect_bloat.EXEMPTED_METHODS:
         rel, _, name = key.rpartition("::")
-        assert detect_bloat._definition_line(codebase, rel, name) > 0, key
+        assert detect_bloat._definition_line(live_codebase, rel, name) > 0, key
+
+
+# ============================================================================
+# READINESS — the PLANNED block's third axis; --ready; the 90-day signal
+# ============================================================================
+
+
+def _planned(subject: str, readiness: Readiness | None) -> Finding:
+    return Finding(
+        kind="template-awaiting-wiring",
+        severity=BloatSeverity.PLANNED,
+        subject=subject,
+        file="f.md",
+        line=1,
+        detail="synthetic",
+        readiness=readiness,
+    )
+
+
+def _about(
+    kind: str, severity: BloatSeverity, subject: str, readiness: Readiness | None
+) -> Finding:
+    return Finding(
+        kind=kind,
+        severity=severity,
+        subject=subject,
+        file="f",
+        line=1,
+        detail="synthetic",
+        readiness=readiness,
+    )
+
+
+def test_planned_finding_without_readiness_is_rejected():
+    # The PLANNED block is grouped by readiness — a PLANNED finding carrying
+    # none would print nowhere, so construction refuses it (fail-fast applied
+    # to the tool itself).
+    with pytest.raises(ValueError, match="carries no readiness"):
+        _planned("orphan", None)
+
+
+def test_finding_json_carries_readiness_or_null():
+    assert _planned("x", Readiness.READY).to_json()["readiness"] == "ready"
+    assert _planned("x", Readiness.DELAYED).to_json()["readiness"] == "delayed"
+    assert (
+        _about("event-never-subscribed", BloatSeverity.INFO, "y", None).to_json()["readiness"]
+        is None
+    )
+
+
+def test_awaiting_wiring_findings_carry_the_entry_readiness(monkeypatch):
+    monkeypatch.setattr(
+        detect_bloat,
+        "PLANNED_METHODS",
+        {
+            "core/services/x.py::ready_method": ready(),
+            "core/services/x.py::delayed_method": staged(),
+        },
+    )
+    codebase = build_codebase(
+        {"core/services/x.py": "def ready_method():\n    pass\n\ndef delayed_method():\n    pass\n"}
+    )
+    analysis = analyze_methods(
+        codebase,
+        VultureScan(
+            [
+                FakeVultureItem("core/services/x.py", "ready_method"),
+                FakeVultureItem("core/services/x.py", "delayed_method", 4),
+            ],
+            frozenset(),
+        ),
+    )
+    by_subject = {f.subject: f for f in analysis.findings}
+    assert by_subject["ready_method"].readiness is Readiness.READY
+    assert by_subject["delayed_method"].readiness is Readiness.DELAYED
+
+
+def test_masked_and_stale_findings_carry_the_entry_readiness(monkeypatch):
+    # --ready filters findings by readiness, so a READY entry the run found
+    # masked or gone must still reach it: readiness is a fact about the ENTRY,
+    # whatever the run learned about its subject.
+    monkeypatch.setattr(
+        detect_bloat,
+        "PLANNED_METHODS",
+        {
+            "core/services/x.py::masked_ready": ready(),
+            "core/services/x.py::gone_ready": ready(),
+        },
+    )
+    codebase = build_codebase({"core/services/x.py": "def masked_ready():\n    pass\n"})
+    analysis = analyze_methods(codebase, VultureScan([], frozenset({"masked_ready"})))
+    by_subject = {f.subject: f for f in analysis.findings}
+    assert by_subject["masked_ready"].kind == "planned-marking-masked"
+    assert by_subject["gone_ready"].kind == "planned-marking-stale"
+    assert {f.readiness for f in analysis.findings} == {Readiness.READY}
+
+
+def test_ready_entry_past_the_window_gets_an_aging_finding_beside_its_row(monkeypatch):
+    monkeypatch.setattr(
+        detect_bloat,
+        "PLANNED_METHODS",
+        {"core/services/x.py::old_ready": ready(days_ago=detect_bloat.READY_AGING_DAYS + 1)},
+    )
+    codebase = build_codebase({"core/services/x.py": "def old_ready():\n    pass\n"})
+    analysis = analyze_methods(
+        codebase, VultureScan([FakeVultureItem("core/services/x.py", "old_ready")], frozenset())
+    )
+    # beside the backlog row — never instead of it
+    assert [(f.kind, f.severity) for f in analysis.findings] == [
+        ("method-awaiting-wiring", BloatSeverity.PLANNED),
+        ("planned-ready-aging", BloatSeverity.INFO),
+    ]
+    row, aging = analysis.findings
+    assert (aging.subject, aging.file, aging.line) == (row.subject, row.file, row.line)
+    assert aging.readiness is Readiness.READY
+    assert f"READY for {detect_bloat.READY_AGING_DAYS + 1} days" in aging.detail
+
+
+@pytest.mark.parametrize(
+    ("readiness", "days_ago"),
+    [
+        pytest.param(Readiness.READY, 89, id="ready-inside-the-window"),
+        pytest.param(Readiness.DELAYED, 400, id="delayed-never-ages"),
+    ],
+)
+def test_no_aging_finding_inside_the_window_or_for_delayed(monkeypatch, readiness, days_ago):
+    entry = PlannedEntry(readiness, "staged", since=date.today() - timedelta(days=days_ago))
+    monkeypatch.setattr(detect_bloat, "PLANNED_METHODS", {"core/services/x.py::m": entry})
+    codebase = build_codebase({"core/services/x.py": "def m():\n    pass\n"})
+    analysis = analyze_methods(
+        codebase, VultureScan([FakeVultureItem("core/services/x.py", "m")], frozenset())
+    )
+    assert [f.kind for f in analysis.findings] == ["method-awaiting-wiring"]
+
+
+def test_ready_aging_is_emitted_by_every_awaiting_wiring_site(monkeypatch, tmp_path):
+    # Four construction sites carry the entry: events, in-scope methods,
+    # out-of-scope methods, templates. One left out would age silently.
+    old = ready(days_ago=detect_bloat.READY_AGING_DAYS + 1)
+    monkeypatch.setattr(detect_bloat, "PLANNED_EVENTS", {"GammaOrphan": old})
+    _, _, event_findings = analyze({})
+
+    monkeypatch.setattr(
+        detect_bloat,
+        "PLANNED_METHODS",
+        {"core/services/x.py::in_scope": old, "adapters/x.py::out_of_scope": old},
+    )
+    codebase = build_codebase(
+        {
+            "core/services/x.py": "def in_scope():\n    pass\n",
+            "adapters/x.py": "def out_of_scope():\n    pass\n",
+        }
+    )
+    method_findings = analyze_methods(
+        codebase, VultureScan([FakeVultureItem("core/services/x.py", "in_scope")], frozenset())
+    ).findings
+
+    monkeypatch.setattr(detect_bloat, "PLANNED_TEMPLATES", {"old_tpl": old})
+    template_findings = analyze_planned_templates(_template_codebase(tmp_path, {}, ["old_tpl"]))
+
+    everything = event_findings + method_findings + template_findings
+    aging = sorted(f.subject for f in everything if f.kind == "planned-ready-aging")
+    assert aging == ["GammaOrphan", "in_scope", "old_tpl", "out_of_scope"]
+    rows = sorted(f.subject for f in everything if f.severity is BloatSeverity.PLANNED)
+    assert rows == aging  # beside, never instead
+
+
+def test_ready_aging_is_info_and_never_fails_the_gate():
+    aging = _about("planned-ready-aging", BloatSeverity.INFO, "x", Readiness.READY)
+    assert not gate_fails([aging])
+    stale = _about("planned-marking-stale", BloatSeverity.WARNING, "gone", Readiness.READY)
+    assert gate_fails([aging, stale])
+
+
+def test_report_prints_ready_before_delayed_each_labelled(capsys):
+    print_template_report([_planned("later", Readiness.DELAYED), _planned("now", Readiness.READY)])
+    out = capsys.readouterr().out
+    ready_at, delayed_at = out.index("Planned, READY"), out.index("Planned, DELAYED")
+    assert ready_at < out.index("now") < delayed_at < out.index("later")
+
+
+def test_block_headings_carry_no_escapes_once_colours_are_disabled(capsys, monkeypatch):
+    # main() calls Colors.disable() for non-tty stdout, which rewrites the class
+    # attributes; a heading colour bound as a default at import would survive
+    # that and leave an unterminated escape in piped output (Codex P2, #1190).
+    for name in ("RED", "GREEN", "YELLOW", "BLUE", "CYAN", "BOLD", "DIM", "RESET"):
+        monkeypatch.setattr(detect_bloat.Colors, name, "")
+    print_template_report(
+        [
+            _planned("now", Readiness.READY),
+            _about("planned-marking-stale", BloatSeverity.WARNING, "gone", Readiness.READY),
+        ]
+    )
+    out = capsys.readouterr().out
+    assert "\x1b[" not in out
+    assert "Planned, READY" in out and "Stale planned markings" in out
+
+
+def test_ready_aging_prints_under_its_own_heading_not_the_info_one(capsys):
+    # The printers bucket INFO under "published but never subscribed"; the new
+    # kind is pulled out by name the way stale/masked are.
+    universe, usage, _ = analyze({})
+    aging = _about("planned-ready-aging", BloatSeverity.INFO, "GammaOrphan", Readiness.READY)
+    print_event_report(universe, usage, [aging], [], verbose=False)
+    out = capsys.readouterr().out
+    assert "Published but never subscribed" not in out
+    assert f"READY for more than {detect_bloat.READY_AGING_DAYS} days" in out
+    assert "GammaOrphan" in out
+
+
+def test_ready_report_prints_only_ready_entries_in_whatever_state_the_run_found(capsys):
+    findings = [
+        _planned("ready_row", Readiness.READY),
+        _planned("delayed_row", Readiness.DELAYED),
+        _about("planned-marking-masked", BloatSeverity.INFO, "masked_ready", Readiness.READY),
+        _about("planned-marking-stale", BloatSeverity.WARNING, "gone_ready", Readiness.READY),
+        _about("planned-marking-masked", BloatSeverity.INFO, "masked_delayed", Readiness.DELAYED),
+        _about("event-never-subscribed", BloatSeverity.INFO, "unrelated", None),
+    ]
+    print_ready_report([("PLANNED_TEST", findings)])
+    out = capsys.readouterr().out
+    assert "PLANNED_TEST" in out and ": 3 READY" in out  # a colour code sits between them
+    for shown in ("ready_row", "masked_ready", "gone_ready"):
+        assert shown in out
+    for hidden in ("delayed_row", "masked_delayed", "unrelated"):
+        assert hidden not in out
+
+
+def test_summary_counts_ready_aging_apart_from_info(capsys):
+    aging = _about("planned-ready-aging", BloatSeverity.INFO, "x", Readiness.READY)
+    print_summary([_planned("x", Readiness.READY), aging], ["methods"])
+    out = capsys.readouterr().out
+    assert f"(1 planned, 1 READY over {detect_bloat.READY_AGING_DAYS} days)" in out
+    assert "unverified/info" not in out
+
+
+def test_ready_and_json_are_mutually_exclusive():
+    # --json is the full document (filter on .readiness with jq); --ready is a
+    # text-mode filter. One output shape per run.
+    with pytest.raises(SystemExit):
+        build_parser().parse_args(["--ready", "--json"])
+    assert build_parser().parse_args(["--ready", "--check"]).ready_only
 
 
 # ============================================================================
