@@ -618,7 +618,7 @@ Available on all 9 domains (Tasks, Goals, Habits, Events, Choices, Principles, K
 | SKUEL031 | No stale pip refs (`pip/pip3 install\|uninstall\|freeze`, `python -m pip`, incl. `uv pip install`) — uv is the one path (`uv add`/`uv sync`); SKUEL016's pip sibling | WARNING |
 | SKUEL032 | No runtime `ui` imports in `core/` — return a `core/ports/query_types` row, build the display type in `ui/` (ADR-058; SKUEL022's presentation-side twin) | ERROR |
 | SKUEL033 | No docstring *opening* with a Cypher clause, or *hosting* a query (≥2 clause-leading lines), in `core/services`, `core/orchestrator`, `core/ports`, `core/models` — state intent + the guarantee, not the backend's query. Scope transcribed from SERVICE_DOCSTRING_STYLE.md's table (`core/utils/` excluded — its USAGE EXAMPLES are sanctioned) | WARNING |
-| SKUEL034 | No substring test against a *singular* uid (`"tech" in knowledge_uid.lower()`) — entity kind comes from label / `entity_type` / edge, never UID spelling (ADR-013 never-sniff). Collections (`x in ku_uids`), `startswith`, and `split` are out of scope by ruling — their four live sites are sanctioned | ERROR |
+| SKUEL034 | No substring test against a uid (`"tech" in knowledge_uid.lower()`) — entity kind comes from label / `entity_type` / edge, never UID spelling (ADR-013 never-sniff). A *collection* (`x in ku_uids`) is exempt, but that exemption does NOT survive serialization — `str(uids)` / `f"{uids}"` / `join(uids)` are flagged. `startswith` / `split` out of scope by ruling — their four live sites are sanctioned | ERROR |
 
 **MyPy:** `./dev quality` enforces **0 errors**. Key strictness:
 - `arg-type` on all first-party trees (`core/`, `services_bootstrap/`, `adapters/`, `ui/`); `tests`/`scripts` exempt

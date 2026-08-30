@@ -1147,12 +1147,23 @@ mastery fell into one bucket, so the two readings built on it were constant-valu
 survived from the initial commit to 2026-08-27 (#1170), through a separator arc that saw
 it (#1055) and left it as "residue for a ruling". This rule is that ruling made runnable.
 
-SHAPE: a string-literal membership test against a SINGULAR uid expression —
+SHAPE: a string-literal membership test against a uid expression —
 `"lit" in uid`, `"lit" not in entity_uid`, and the same through a
 `.lower()` / `.upper()` / `.strip()` / `.casefold()` unwrap. The comparator is matched by
 NAME: exactly `uid`, or a `_uid` suffix. That is what separates the violation from
 `"ku_x" in ku_uids`, membership in a COLLECTION of uids, which is ordinary and correct —
 and `_uids` does not end in `_uid`, so the plural is excluded structurally, not by a list.
+
+THE PLURAL EXEMPTION DOES NOT SURVIVE SERIALIZATION. `str(uids)`, `repr(uids)`,
+`f"{uids}"`, and `", ".join(uids)` render a collection back into ONE string, so `in`
+against the result is a substring test again — reading the same uid spelling the singular
+form reads. On that path both singular and plural names are flagged. Not hypothetical: the
+first cut of this rule measured zero and MISSED a live violation,
+`"programming" in str(user_context.mastered_knowledge_uids)` in
+`learning_state_analyzer.py`, feeding recommendation relevance scoring (Codex, #1194). It
+matched authored `ku.programming.*` uids and never the API-generated `ku_{slug}_{random}`
+for the same concept, so a learner's "technical affinity" split on PROVENANCE rather than
+on anything they had done — ADR-013's failure mode exactly.
 
 DELIBERATELY OUT OF SCOPE — prefix and segment reads. `uid.startswith(prefix)` and
 `uid.split(".")[1]` cannot be judged without knowing what the branch does with the answer,
@@ -1165,12 +1176,12 @@ table literals, authored beside the keywords). Covering them would buy four supp
 and no findings. The boundary here is deliberate: this rule takes the shape that has no
 legitimate form, and leaves the shapes whose legitimacy is contextual to review.
 
-MEASURED AT INTRODUCTION: zero hits in `core/`, `adapters/`, `ui/`, `scripts/`,
-`services_bootstrap/`. The zero is earned — #1170 deleted the last violation — not bought
-with suppressions, of which this rule needs none. Tests are OUT of scope, and the two hits
-there show why: both are `assert "..." not in uid` pinning what a UID GENERATOR must not
-emit. Asserting on uid content is how you test the generator; branching on it in
-production is the bug.
+MEASURED AT INTRODUCTION: ONE hit — the serialized one above, fixed in the same
+change — and zero after it, across `core/`, `adapters/`, `ui/`, `scripts/`,
+`services_bootstrap/`. The zero is earned, not bought with suppressions, of which this
+rule needs none. Tests are OUT of scope, and the two hits there show why: both are
+`assert "..." not in uid` pinning what a UID GENERATOR must not emit. Asserting on uid
+content is how you test the generator; branching on it in production is the bug.
 
 Fix: read the field that carries the fact. A mastery's subject area is
 `Mastery.sel_category`; an entity's kind is `entity_type` or its Neo4j label; a
@@ -5673,24 +5684,67 @@ class SkuelLinter:
         {"lower", "upper", "strip", "casefold"}
     )
 
-    @classmethod
-    def _uid_operand_name(cls, node: ast.expr) -> str | None:
-        """Identifier a membership test's right-hand side ultimately names.
+    # SKUEL034: calls that SERIALIZE their argument. `str(uids)` turns a
+    # collection back into one string, so `in` against it is a substring test
+    # again — the plural exemption below must not survive the conversion.
+    UID_SERIALIZER_FUNCS: ClassVar[frozenset[str]] = frozenset({"str", "repr", "format"})
 
-        Unwraps the case/whitespace re-spellings first, so the shape is judged on
-        the underlying operand rather than on how it was written.
+    @classmethod
+    def _resolve_uid_operand(cls, node: ast.expr) -> tuple[str | None, bool]:
+        """Identify a membership test's right-hand side: (name, was_serialized).
+
+        Unwraps the case/whitespace re-spellings AND the serializations, in any
+        order and any nesting, so the shape is judged on the underlying operand
+        rather than on how it was written. `was_serialized` records whether the
+        operand reached `in` as a *rendered string* — which is what decides
+        whether the singular-only rule applies (see the checker).
         """
-        while (
-            isinstance(node, ast.Call)
-            and isinstance(node.func, ast.Attribute)
-            and node.func.attr in cls.UID_CASE_UNWRAP_METHODS
-        ):
-            node = node.func.value
+        serialized = False
+        while True:
+            # `.lower()` / `.strip()` — a re-spelling, not a conversion.
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr in cls.UID_CASE_UNWRAP_METHODS
+            ):
+                node = node.func.value
+                continue
+            # `str(x)` / `repr(x)` — a conversion.
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Name)
+                and node.func.id in cls.UID_SERIALIZER_FUNCS
+                and len(node.args) == 1
+            ):
+                serialized = True
+                node = node.args[0]
+                continue
+            # `"".join(uids)` / `", ".join(uids)` — the other rendering idiom.
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr == "join"
+                and len(node.args) == 1
+            ):
+                serialized = True
+                node = node.args[0]
+                continue
+            break
+
+        # f-string: `"x" in f"{uids}"` renders exactly as `str(uids)` does.
+        if isinstance(node, ast.JoinedStr):
+            for value in node.values:
+                if isinstance(value, ast.FormattedValue):
+                    inner, _ = cls._resolve_uid_operand(value.value)
+                    if cls._is_uid_name(inner):
+                        return inner, True
+            return None, True
+
         if isinstance(node, ast.Name):
-            return node.id
+            return node.id, serialized
         if isinstance(node, ast.Attribute):
-            return node.attr
-        return None
+            return node.attr, serialized
+        return None, serialized
 
     @staticmethod
     def _is_singular_uid_name(name: str | None) -> bool:
@@ -5701,6 +5755,18 @@ class SkuelLinter:
         `"ku_x" in ku_uids` — membership in a collection, not a substring test.
         """
         return name is not None and (name == "uid" or name.endswith("_uid"))
+
+    @classmethod
+    def _is_uid_name(cls, name: str | None) -> bool:
+        """True for a name holding a uid OR a collection of them.
+
+        Used only on the SERIALIZED path, where the singular/plural distinction
+        has been erased by the conversion: `"programming" in str(mastered_uids)`
+        reads uid spelling exactly as `"programming" in uid` does.
+        """
+        return cls._is_singular_uid_name(name) or (
+            name is not None and (name == "uids" or name.endswith("_uids"))
+        )
 
     def _check_uid_substring_sniff(
         self,
@@ -5736,8 +5802,14 @@ class SkuelLinter:
                 and isinstance(node.left.value, str)
             ):
                 continue
-            operand = self._uid_operand_name(node.comparators[0])
-            if not self._is_singular_uid_name(operand):
+            operand, serialized = self._resolve_uid_operand(node.comparators[0])
+            # A serialized collection is a string again, so the plural exemption
+            # does not survive it; a bare operand must be singular to be a
+            # substring test at all.
+            if serialized:
+                if not self._is_uid_name(operand):
+                    continue
+            elif not self._is_singular_uid_name(operand):
                 continue
 
             line_num = node.lineno
@@ -5752,7 +5824,8 @@ class SkuelLinter:
                     severity=Severity.ERROR,
                     rule_id="SKUEL034",
                     message=(
-                        f"Substring test {node.left.value!r} against uid "
+                        f"Substring test {node.left.value!r} against "
+                        f"{'serialized ' if serialized else ''}uid "
                         f"`{operand}` - UID spelling is provenance, not type"
                     ),
                     suggestion=(

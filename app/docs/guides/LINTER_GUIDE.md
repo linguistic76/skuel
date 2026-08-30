@@ -118,7 +118,7 @@ them without failing.
 | **SKUEL030** | Unregistered label / edge name in `adapters/persistence/` Cypher | Must be a `NeoLabel` / `RelationshipName` member — Neo4j matches zero rows silently on an unknown name (`.cypher` half is CYP011) |
 | **SKUEL031** | Stale pip references | uv is the one path (`uv add` / `uv sync`) — SKUEL016's pip sibling |
 | **SKUEL033** | Cypher-shaped docstrings in `core/services`, `core/orchestrator`, `core/ports`, `core/models` | State intent + the guarantee; the query belongs in the backend docstring (see SERVICE_DOCSTRING_STYLE.md) |
-| **SKUEL034** | Substring test against a *singular* uid (`"tech" in knowledge_uid.lower()`) | Read the field that carries the fact — `entity_type`, the label, `sel_category`, or the edge (ADR-013 never-sniff; collections / `startswith` / `split` out of scope) |
+| **SKUEL034** | Substring test against a *singular* uid (`"tech" in knowledge_uid.lower()`) | Read the field that carries the fact — `entity_type`, the label, `sel_category`, or the edge (ADR-013 never-sniff; bare collections / `startswith` / `split` out of scope, but `str(uids)`-style serialization is flagged) |
 
 ### INFO
 

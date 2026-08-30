@@ -6753,6 +6753,45 @@ class TestSKUEL034:
         )
         assert violations == []
 
+    # ---- serialization: the plural exemption must not survive a conversion ----
+    # Found by Codex review on #1194, as a LIVE violation the first cut missed:
+    # `"programming" in str(user_context.mastered_knowledge_uids)` fed
+    # recommendation relevance scoring in learning_state_analyzer.py.
+
+    def test_str_of_a_uid_collection_is_flagged(self) -> None:
+        """`str(uids)` renders the collection into one string, so `in` is a
+        substring test again — the real #1194 shape."""
+        content = (
+            "def f(user_context) -> float:\n"
+            '    return 0.8 if "programming" in str(user_context.mastered_knowledge_uids) else 0.5\n'
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"]
+        assert "serialized" in violations[0].message
+
+    def test_fstring_and_join_render_the_same_way(self) -> None:
+        """An f-string and `join` render a collection exactly as `str` does."""
+        content = (
+            "def f(ku_uids: list[str], task_uids: list[str]) -> bool:\n"
+            '    return "ku." in f"{ku_uids}" or "task_" in ", ".join(task_uids)\n'
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"] * 2
+
+    def test_serialization_nested_under_case_unwrap(self) -> None:
+        """Order and nesting of the wrappers must not buy an escape."""
+        content = (
+            "def f(entity_uids: set[str]) -> bool:\n"
+            '    return "draft" in str(entity_uids).lower()\n'
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"]
+
+    def test_serializing_a_non_uid_collection_is_legal(self) -> None:
+        """The rule is still about uids — `str()` alone does not make it fire."""
+        content = 'def f(titles: list[str]) -> bool:\n    return "revision" in str(titles)\n'
+        assert lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC) == []
+
     def test_line_suppression(self) -> None:
         content = (
             "def f(uid: str) -> bool:\n"

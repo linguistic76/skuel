@@ -197,8 +197,14 @@ on `knowledge_relationships`, or resolve by lookup.
 violation lived from the initial commit to 2026-08-27: `_get_knowledge_domain` grouped
 masteries by `"tech" in knowledge_uid.lower()`, inventing a Domain no entity carries (#1170).
 SKUEL034 flags the shape that has no legitimate form — a string-literal membership test
-against a singular uid (`"lit" in uid`, `not in`, and through `.lower()`-style unwraps).
-Membership in a *collection* of uids (`"ku.a.b" in ku_uids`) is ordinary and is not flagged.
+against a uid (`"lit" in uid`, `not in`, and through `.lower()`-style unwraps).
+Membership in a *collection* of uids (`"ku.a.b" in ku_uids`) is ordinary and is not flagged —
+but that exemption does **not** survive serialization: `str(uids)`, `f"{uids}"`, and
+`", ".join(uids)` render the collection back into one string, and `in` against the result
+reads uid spelling exactly as the singular form does. That shape was live and unnoticed until
+#1194: `"programming" in str(user_context.mastered_knowledge_uids)` gave a learner a higher
+"technical affinity" for holding an *authored* `ku.programming.*` uid, and never for the
+API-generated `ku_{slug}_{random}` naming the same concept.
 
 Prefix and segment reads are **deliberately out of the rule's scope**, because their
 legitimacy depends on what the branch does with the answer. All four live sites are
