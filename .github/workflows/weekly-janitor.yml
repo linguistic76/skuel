@@ -224,10 +224,10 @@ jobs:
               echo "**The bloat report aborted** (exit \`$bloat_rc\`). No findings are"
               echo "implied — see the run log and the janitor-output artifact."
             else
-              echo "PLANNED-tier backlog aging (dates extracted best-effort from reason prose"
-              echo "in \`scripts/detect_bloat.py\`; undated entries are counted, never dropped):"
+              echo "PLANNED-tier backlog aging (each entry's structured \`since\` date in"
+              echo "\`scripts/detect_bloat.py\` — the staging decision, never a re-ruling):"
               echo ""
-              jq -r '.planned_aging[] | "- **\(.tier)**: \(.entries) entries — oldest embedded date \(.oldest // "none parseable"), \(.undated) undated"' bloat.json
+              jq -r '.planned_aging[] | "- **\(.tier)**: \(.entries) entries — oldest staging decision \(.oldest // "none (empty)")"' bloat.json
               echo ""
               warning_count=$(jq '[.findings[] | select(.severity == "warning")] | length' bloat.json)
               if [ "$warning_count" -eq 0 ]; then

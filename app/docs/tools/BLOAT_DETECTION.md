@@ -82,7 +82,7 @@ The detector follows the SKUEL linter's structural-soundness discipline
 |------|---------|------------------|
 | `WARNING` | Structurally dead — verified absence of liveness — **or a stale PLANNED marking** (the registered subject no longer exists) | Yes |
 | `UNVERIFIED` | Liveness signal exists but is not structurally traceable (constructed-but-untraced events; methods whose name appears as a string literal) | No |
-| `PLANNED` | Structurally dead **by intent** — staged work registered in `PLANNED_EVENTS` / `PLANNED_METHODS` / `PLANNED_TEMPLATES`, awaiting its wiring | No |
+| `PLANNED` | Structurally dead **by intent** — staged work registered in `PLANNED_EVENTS` / `PLANNED_METHODS` / `PLANNED_TEMPLATES`, awaiting its wiring; every entry declares `READY` / `DELAYED` and its staging date (below) | No |
 | `INFO` | Live but noteworthy (published-never-subscribed — fine for fire-and-forget audit events; **name-masked PLANNED markings**, below) | No |
 
 Act on `WARNING` findings after a manual grep-verify; treat `UNVERIFIED` as a
@@ -94,8 +94,28 @@ curriculum/resource `*EmbeddingRequested` events — subscribers live in
 `embedding_worker.py`, publishers pending) is a completion to-do, not dead
 code. Register it in `PLANNED_EVENTS` / `PLANNED_METHODS` (keyed
 `relative/path.py::method_name`) or `PLANNED_TEMPLATES` (keyed by template id —
-ADR-082 D4) with a reason naming what completes it. The PLANNED section then
-functions as the visible wiring backlog.
+ADR-082 D4) as a `PlannedEntry(readiness, reason, since=date(...))` — a reason
+naming what completes it, plus two structured facts:
+
+- **`readiness`** (required, no default — every entry classifies itself):
+  `Readiness.READY` when the completing change is fully specified and no
+  decision stands before it (the live half already exists — a consumer polling
+  an empty table, a detail page rendering the field, the ADD route of a pair —
+  and only the producer, the write form, or the mirror route is missing);
+  `Readiness.DELAYED` when it waits on a product decision, a ruling, or a
+  surface that does not exist yet. On 2026-08-29 the split was 7 READY / 105
+  DELAYED — the backlog is overwhelmingly product decisions, and that skew is
+  the report, not a defect.
+- **`since`** — the date of the *staging decision*: the first ruling, never a
+  later re-ruling. Recovered per key from `git log -S` when the registries were
+  restructured (2026-08-29); for a new entry it is the day the entry is written.
+
+The PLANNED section then functions as the visible wiring backlog. Something the
+scanner cannot see but that is **live** — a method whose only caller is under
+`scripts/`, outside `FIRST_PARTY_ROOTS` — is not staged work and does not belong
+here: it is an `EXEMPTED_METHODS` entry. ⚠ Exemptions have no stale audit in the
+tool; `tests/unit/scripts/test_detect_bloat.py::test_live_exempted_methods_still_exist`
+is the audit.
 
 **Integrity is self-policing, and exactly one thing fails `--check`: the
 subject is GONE.** A deleted or renamed event class, service method, or
@@ -134,23 +154,18 @@ The template backlog appears on full runs only — the scoped `--events-only` /
 ## PLANNED-tier aging
 
 A backlog is only honest if its age is visible, so every run summarizes each
-examined registry: **entry count + oldest embedded ISO date + undated
-count** — printed as the `◷ PLANNED-tier aging` block in the text report and
-emitted as the `planned_aging` array in `--json` (one object per tier:
-`tier`, `entries`, `dated`, `undated`, `oldest`).
+examined registry: **entry count + oldest staging decision** — printed as the
+`◷ PLANNED-tier aging` block in the text report and emitted as the
+`planned_aging` array in `--json` (one object per tier: `tier`, `entries`,
+`oldest`).
 
-Registry reasons carry decision dates as prose (`"Mike ruled PLANNED
-2026-06-13"`), not structure — the registries are deliberately **not**
-restructured for this, so extraction is best-effort by design: a `YYYY-MM-DD`
-regex over the reason string, with non-calendar hits (e.g. `2026-13-40`)
-discarded. Two rules keep it honest:
-
-- **An entry ages from its OLDEST date.** A reason carrying an original
-  staging date plus a later re-ruling measures from the first decision, not
-  the latest touch-up.
-- **No silent caps.** An entry whose reason yields no parseable date is
-  counted in the `undated` figure, never dropped — a tier reading "84
-  undated" is telling you the extraction's blind spot, not hiding it.
+The date is `PlannedEntry.since`, a structured field every entry must carry,
+so nothing is extracted and nothing can be missed. (Until 2026-08-29 the tool
+scraped `YYYY-MM-DD` out of reason prose and reported the misses as `undated`
+— 74% of `PLANNED_METHODS`; restructuring the registries deleted that scrape
+and its `dated` / `undated` counters rather than adding a second one.) One rule
+keeps it honest: **an entry ages from its staging decision** — the first
+ruling, not the latest re-ruling — which is what `since` is defined to hold.
 
 Tier scoping mirrors the analyses: `--events-only` summarizes
 `PLANNED_EVENTS` only, `--methods-only` summarizes `PLANNED_METHODS` only,
