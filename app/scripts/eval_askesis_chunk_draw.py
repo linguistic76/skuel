@@ -167,9 +167,14 @@ class DrawRow:
     kind: str
     intent: str
     filter_types: list[str] | None
-    filtered_parents: list[str] = field(default_factory=list)
-    unfiltered_parents: list[str] = field(default_factory=list)
-    thin_draw_parents: list[str] = field(default_factory=list)
+    # Parents of the chunks that REACH THE PROMPT — derived from the chunk list
+    # already sliced to ASKESIS_PROMPT_WINDOW, never from a deduped parent list
+    # sliced afterwards. Those are different: chunks [A, A, A, expected] dedupe
+    # to parents [A, expected], and slicing THAT at 3 would score `expected` as
+    # a hit although production truncated it away with the fourth chunk.
+    filtered_window_parents: list[str] = field(default_factory=list)
+    unfiltered_window_parents: list[str] = field(default_factory=list)
+    thin_draw_window_parents: list[str] = field(default_factory=list)
     filtered_chunks: int = 0
     unfiltered_chunks: int = 0
     thin_draw_chunks: int = 0
@@ -178,9 +183,12 @@ class DrawRow:
     expect: tuple[str, ...] = ()
     error: str | None = None
 
-    def hit(self, parents: list[str]) -> bool:
-        """True when an expected parent survives INTO the prompt window."""
-        return any(uid in parents[:ASKESIS_PROMPT_WINDOW] for uid in self.expect)
+    def hit(self, window_parents: list[str]) -> bool:
+        """True when an expected parent is among those reaching the prompt.
+
+        Takes an ALREADY window-scoped parent list — see the field comments.
+        """
+        return any(uid in window_parents for uid in self.expect)
 
     def to_dict(self) -> RowReport:
         return {
@@ -189,12 +197,12 @@ class DrawRow:
             "intent": self.intent,
             "filter_types": self.filter_types,
             "filtered_chunks": self.filtered_chunks,
-            "filtered_hit": self.hit(self.filtered_parents),
+            "filtered_hit": self.hit(self.filtered_window_parents),
             "thin_draw_chunks": self.thin_draw_chunks,
-            "thin_draw_hit": self.hit(self.thin_draw_parents),
+            "thin_draw_hit": self.hit(self.thin_draw_window_parents),
             "thin_draw_backfilled": self.thin_draw_backfilled,
             "unfiltered_chunks": self.unfiltered_chunks,
-            "unfiltered_hit": self.hit(self.unfiltered_parents),
+            "unfiltered_hit": self.hit(self.unfiltered_window_parents),
             "unlabelled_in_window": self.unlabelled_in_window,
             "error": self.error,
         }
@@ -228,7 +236,12 @@ def backfill(
 
 
 def parents_of(hits: list["SemanticSearchChunkResult"]) -> list[str]:
-    """Distinct parent uids in draw order (pure, DB-free)."""
+    """Distinct parent uids in draw order (pure, DB-free).
+
+    Callers must slice the CHUNK list to the prompt window BEFORE calling this —
+    deduping first and slicing after promotes a parent that production truncated
+    away.
+    """
     ordered: list[str] = []
     for hit in hits:
         parent = str(hit.get("parent_uid") or "")
@@ -243,6 +256,7 @@ def summarize(rows: list[DrawRow], query_set: QuerySet, viewer_uid: str | None) 
     total = len(scored)
 
     def arm(parents_attr: str, chunks_attr: str) -> ArmReport:
+        """One arm's aggregate. `parents_attr` names a WINDOW-scoped parent list."""
         hits = sum(1 for row in scored if row.hit(getattr(row, parents_attr)))
         drawn = [getattr(row, chunks_attr) for row in scored]
         return {
@@ -266,9 +280,9 @@ def summarize(rows: list[DrawRow], query_set: QuerySet, viewer_uid: str | None) 
         "unlabelled_chunks_drawn": sum(row.unlabelled_in_window for row in scored),
         "filtered_intent_queries": sum(1 for row in scored if row.filter_types is not None),
         "arms": {
-            "filtered": arm("filtered_parents", "filtered_chunks"),
-            "thin_draw": arm("thin_draw_parents", "thin_draw_chunks"),
-            "unfiltered": arm("unfiltered_parents", "unfiltered_chunks"),
+            "filtered": arm("filtered_window_parents", "filtered_chunks"),
+            "thin_draw": arm("thin_draw_window_parents", "thin_draw_chunks"),
+            "unfiltered": arm("unfiltered_window_parents", "unfiltered_chunks"),
         },
         "rows": [row.to_dict() for row in rows],
     }
@@ -364,9 +378,13 @@ async def run_comparison(
             row.unfiltered_chunks = len(unfiltered.value)
             row.thin_draw_chunks = len(merged)
             row.thin_draw_backfilled = backfilled
-            row.filtered_parents = parents_of(filtered_hits)
-            row.unfiltered_parents = parents_of(list(unfiltered.value))
-            row.thin_draw_parents = parents_of(merged)
+            # Slice the CHUNK list to the prompt window first — production
+            # truncates chunks, not parents (context_retriever.py:299).
+            row.filtered_window_parents = parents_of(filtered_hits[:ASKESIS_PROMPT_WINDOW])
+            row.unfiltered_window_parents = parents_of(
+                list(unfiltered.value)[:ASKESIS_PROMPT_WINDOW]
+            )
+            row.thin_draw_window_parents = parents_of(merged[:ASKESIS_PROMPT_WINDOW])
             row.unlabelled_in_window = sum(
                 1
                 for hit in merged[:ASKESIS_PROMPT_WINDOW]

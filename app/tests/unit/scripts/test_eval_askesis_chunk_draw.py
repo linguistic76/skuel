@@ -78,6 +78,21 @@ class TestParentsOf:
     def test_missing_parent_uids_are_dropped(self) -> None:
         assert parents_of([{"chunk_uid": "c1"}, _chunk("c2", "ku.b")]) == ["ku.b"]
 
+    def test_chunks_are_sliced_before_dedupe_not_after(self) -> None:
+        # Production truncates the CHUNK list (context_retriever.py:299), not a
+        # deduped parent list. When several top chunks share a parent, deduping
+        # first and slicing after PROMOTES a parent that production threw away.
+        draw = [
+            _chunk("c1", "ku.a"),
+            _chunk("c2", "ku.a"),
+            _chunk("c3", "ku.a"),
+            _chunk("c4", "ku.expected"),
+        ]
+        # Right: slice chunks, then dedupe — only ku.a was ever delivered.
+        assert parents_of(draw[:ASKESIS_PROMPT_WINDOW]) == ["ku.a"]
+        # Wrong (the bug): dedupe, then slice — ku.expected appears to survive.
+        assert parents_of(draw)[:ASKESIS_PROMPT_WINDOW] == ["ku.a", "ku.expected"]
+
 
 def _row(**kw: object) -> DrawRow:
     base: dict[str, object] = {
@@ -98,9 +113,9 @@ class TestSummarize:
     def test_arms_are_scored_independently(self) -> None:
         rows = [
             _row(
-                filtered_parents=[],
-                thin_draw_parents=["ku.a"],
-                unfiltered_parents=["ku.a"],
+                filtered_window_parents=[],
+                thin_draw_window_parents=["ku.a"],
+                unfiltered_window_parents=["ku.a"],
                 filtered_chunks=1,
                 thin_draw_chunks=5,
                 unfiltered_chunks=5,
@@ -123,11 +138,10 @@ class TestSummarize:
         assert report["arms"]["filtered"]["starved_queries"] == 1
         assert report["arms"]["thin_draw"]["starved_queries"] == 0
 
-    def test_a_parent_below_the_prompt_window_is_not_a_hit(self) -> None:
-        # The draw reaches it at rank 4; production throws it away before the
-        # prompt. Scoring it as a hit would overstate what Askesis can ground in.
-        beyond = ["ku.x"] * ASKESIS_PROMPT_WINDOW + ["ku.a"]
-        row = _row(filtered_parents=beyond, thin_draw_parents=["ku.a"])
+    def test_only_parents_reaching_the_prompt_score(self) -> None:
+        # The window lists are built from chunks already truncated to the
+        # prompt window, so a parent absent from one was never delivered.
+        row = _row(filtered_window_parents=["ku.x"], thin_draw_window_parents=["ku.a"])
         report = summarize([row], self._set(), None)
         assert report["arms"]["filtered"]["hits"] == 0
         assert report["arms"]["thin_draw"]["hits"] == 1
@@ -143,7 +157,9 @@ class TestSummarize:
         # An errored row must not dilute a recall rate — it is not a miss.
         rows = [
             _row(
-                filtered_parents=["ku.a"], thin_draw_parents=["ku.a"], unfiltered_parents=["ku.a"]
+                filtered_window_parents=["ku.a"],
+                thin_draw_window_parents=["ku.a"],
+                unfiltered_window_parents=["ku.a"],
             ),
             _row(error="draw failed"),
         ]
