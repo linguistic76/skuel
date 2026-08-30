@@ -68,7 +68,7 @@ EntityType.PATH_STEP:  ("title", "intent", "description", "summary")  # NO "cont
 EntityType.KU:         ("title", "summary", "description")
 EntityType.TASK:       ("title", "description")
 EntityType.GOAL:       ("title", "description", "vision_statement")
-EntityType.HABIT:      ("name", "title", "description", "cue", "reward")
+EntityType.HABIT:      ("title", "description", "cue", "reward")
 EntityType.EXERCISE:   ("title", "instructions", "description")
 ```
 

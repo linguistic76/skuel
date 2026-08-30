@@ -472,23 +472,9 @@ Title, description, content, and tags are indexed for full-text search. A user s
 
 ### Vector/Semantic Search
 
-Embedding text is built from entity-specific field maps. Each entity type contributes different fields:
+Embedding text is built from entity-specific field maps — `EMBEDDING_FIELD_MAPS` in `core/utils/embedding_text_builder.py` is the one list, and each entry's comment records why a field is in or out (a table here would be a second copy: this one used to list `content` for PathStep, which the map deliberately excludes — body semantics live in chunk vectors). One example: a Goal embeds `title`, `description` and `vision_statement`.
 
-| Entity Type | Fields included in embedding |
-|-------------|----------------------------|
-| Ku | title, summary, description |
-| PathStep | title, content, intent, description |
-| LearningPath | title, description, outcomes |
-| Task | title, description |
-| Goal | title, description, vision_statement |
-| Habit | name, title, description, cue, reward |
-| Event | title, description, location |
-| Choice | title, description, decision_context, actual_outcome |
-| Principle | title, statement, description, why_important |
-| Exercise | title, instructions, description |
-| Resource | title, author, content, summary |
-
-Curriculum types use double-newline separators between fields for stronger semantic boundaries. Activity types use single newlines.
+Curriculum types use double-newline separators between fields for stronger semantic boundaries. Activity types use single newlines. A map alone does not make a type searchable — only types with an event class in `EMBEDDING_EVENT_TYPES` (`core/events/embedding_publisher.py`) are embedded.
 
 ### Graph-Aware Search
 
