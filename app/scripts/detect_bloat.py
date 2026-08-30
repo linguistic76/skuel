@@ -2782,6 +2782,16 @@ class ModelFieldIndex:
     base name, their fields are UNIONED, and ClassVar annotations count too:
     over-approximation in the safe direction — a wider field set can only
     SUPPRESS a phantom-field report, never create one.
+
+    The one blind spot runs the OTHER way: ``_get_field_value`` reads with
+    ``getattr``, but ``fields()`` records annotated names only, so any
+    runtime-readable attribute that carries no annotation — a ``@property``,
+    a ``cached_property``, a bare class attribute, any descriptor — named in
+    a map reads as a phantom: a false advisory (INFO, never gates;
+    ``test_live_embedding_map_tier_is_clean`` surfaces it for the author to
+    resolve). Measured 2026-08-30 with ``hasattr`` over every map field on
+    its bound model: none resolves as a non-dataclass attribute, so the blind
+    spot is documented, not live (Codex P3, PR #1193).
     """
 
     def __init__(self, codebase: ParsedCodebase) -> None:
