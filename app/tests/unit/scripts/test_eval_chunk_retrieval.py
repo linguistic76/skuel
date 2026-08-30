@@ -26,6 +26,7 @@ from eval_chunk_retrieval import (  # type: ignore[import-not-found]
     EvalQuery,
     QueryRow,
     QuerySet,
+    fold_consistency_error,
     load_query_set,
     score_query,
     summarize,
@@ -104,6 +105,15 @@ class TestLoadQuerySet:
         with pytest.raises(ValueError, match="'ratified' must be null or an ISO date"):
             load_query_set(_write(tmp_path, content))
 
+    @pytest.mark.parametrize("mutation", [("k: 5", "k: true"), ("version: 1", "version: true")])
+    def test_bools_rejected_for_ints(self, tmp_path: Path, mutation: tuple[str, str]) -> None:
+        # bool subclasses int: `k: true` would silently measure hit@1
+        # (best_rank <= True) — a baseline-corrupting typo (Codex, PR #1197).
+        old, new = mutation
+        assert old in VALID_SET
+        with pytest.raises(ValueError, match="must be a"):
+            load_query_set(_write(tmp_path, VALID_SET.replace(old, new)))
+
     def test_ratified_quoted_iso_string_ok(self, tmp_path: Path) -> None:
         content = VALID_SET.replace("ratified: null", "ratified: '2026-09-01'")
         assert load_query_set(_write(tmp_path, content)).ratified == "2026-09-01"
@@ -157,6 +167,41 @@ class TestScoreQuery:
         row = score_query(_query(), ["ku.a"], body_uids=set(), k=5, chunk_candidates=12)
         assert row.chunk_candidates == 12
         assert row.to_dict()["chunk_candidates"] == 12
+
+
+KU_PS = frozenset({"ku", "path_step"})
+
+
+def _hit(parent_uid: str, parent_entity_type: str = "ku") -> dict[str, object]:
+    return {"parent_uid": parent_uid, "parent_entity_type": parent_entity_type}
+
+
+class TestFoldConsistency:
+    """The probe closes the fold's fail-soft window — these pin WHEN it fires.
+
+    It must fire toward invalidation only: never on a legitimately empty fold
+    (nothing eligible), always on candidates-but-no-cards.
+    """
+
+    def test_eligible_candidates_but_no_body_cards_fires(self) -> None:
+        err = fold_consistency_error([_hit("ku.a")], ["ku.x"], set(), KU_PS)
+        assert err is not None and "1 eligible" in err
+
+    def test_body_cards_present_is_consistent(self) -> None:
+        assert fold_consistency_error([_hit("ku.a")], ["ku.x", "ku.a"], {"ku.a"}, KU_PS) is None
+
+    def test_all_candidates_already_in_frontmatter_asserts_nothing(self) -> None:
+        assert fold_consistency_error([_hit("ku.a")], ["ku.a"], set(), KU_PS) is None
+
+    def test_empty_probe_asserts_nothing(self) -> None:
+        assert fold_consistency_error([], ["ku.x"], set(), KU_PS) is None
+
+    def test_out_of_scope_parent_types_do_not_count(self) -> None:
+        # A user_entry chunk parent can never fold into /search — its absence
+        # from the cards is not evidence of a failed fold.
+        assert (
+            fold_consistency_error([_hit("ue.note", "user_entry")], ["ku.x"], set(), KU_PS) is None
+        )
 
 
 class TestSummarize:

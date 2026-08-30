@@ -48,6 +48,7 @@ import asyncio
 import contextlib
 import json
 import sys
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
@@ -176,7 +177,7 @@ def load_query_set(path: Path) -> QuerySet:
         raise ValueError(f"{path}: top level must be a mapping")
 
     version = raw.get("version")
-    if not isinstance(version, int):
+    if isinstance(version, bool) or not isinstance(version, int):
         raise ValueError(f"{path}: 'version' must be an integer")
 
     # The ratification gate must be unforgeable by a typo: the FIRST ratified
@@ -202,8 +203,10 @@ def load_query_set(path: Path) -> QuerySet:
             f"{path}: 'ratified' must be null or an ISO date (YYYY-MM-DD), got {ratified!r}"
         )
 
+    # bool subclasses int: `k: true` would otherwise silently measure hit@1
+    # (best_rank <= True) and could ratify that as the baseline (Codex, #1197).
     k = raw.get("k")
-    if not isinstance(k, int) or k < 1:
+    if isinstance(k, bool) or not isinstance(k, int) or k < 1:
         raise ValueError(f"{path}: 'k' must be a positive integer")
 
     entries = raw.get("queries")
@@ -272,6 +275,42 @@ def score_query(
         expected_missing=[u for u in eval_query.expect if u not in rank_by_uid],
         chunk_candidates=chunk_candidates,
     )
+
+
+def fold_consistency_error(
+    probe_hits: Sequence[Mapping[str, object]],
+    ordered_uids: list[str],
+    body_uids: set[str],
+    target_values: frozenset[str],
+) -> str | None:
+    """Detect a body fold that failed INSIDE the scored request (pure, DB-free).
+
+    The probe proves chunk retrieval works with the fold's exact inputs, but the
+    fold's own call runs afterwards and fails SOFT — a transient provider error
+    between the two would leave a frontmatter-only response scored as normal.
+    The probe's evidence closes that window: if it found candidate parents that
+    are NOT already frontmatter results, the fold had something to add — zero
+    body cards in the scored response then means its in-path search failed (or
+    its scoping regressed), and the row must be invalidated, not scored.
+
+    Fires toward invalidation only: a query whose probe finds nothing eligible
+    (all parents already in the base results, or no chunks above min_score)
+    asserts nothing — with no candidates, a fold failure could not have changed
+    the response.
+    """
+    base_uids = {u for u in ordered_uids if u not in body_uids}
+    eligible = {
+        str(hit.get("parent_uid") or "")
+        for hit in probe_hits
+        if str(hit.get("parent_entity_type") or "") in target_values and hit.get("parent_uid")
+    } - base_uids
+    if eligible and not body_uids:
+        return (
+            f"body fold added no cards although the probe found {len(eligible)} eligible "
+            "parent(s) outside the frontmatter results — the in-path body search "
+            "likely failed (the fold is fail-soft)"
+        )
+    return None
 
 
 def summarize(rows: list[QueryRow], query_set: QuerySet) -> EvalReport:
@@ -352,6 +391,7 @@ async def run_eval(query_set: QuerySet, *, as_json: bool) -> tuple[int, EvalRepo
             )
             return 2, None
 
+        body_domains = frozenset({EntityType.KU.value, EntityType.PATH_STEP.value})
         rows: list[QueryRow] = []
         for eval_query in query_set.queries:
             request = SearchRequest(
@@ -414,6 +454,24 @@ async def run_eval(query_set: QuerySet, *, as_json: bool) -> tuple[int, EvalRepo
                 for card in cards
                 if card.get("_match_reason") == BODY_HIT_MATCH_REASON
             }
+            fold_error = fold_consistency_error(probe.value, ordered_uids, body_uids, body_domains)
+            if fold_error is not None:
+                rows.append(
+                    QueryRow(
+                        query=eval_query.query,
+                        kind=eval_query.kind,
+                        hit=False,
+                        best_rank=None,
+                        matched_uid=None,
+                        via_body=False,
+                        result_count=len(ordered_uids),
+                        body_result_count=0,
+                        expected_missing=list(eval_query.expect),
+                        chunk_candidates=len(probe.value),
+                        error=fold_error,
+                    )
+                )
+                continue
             rows.append(
                 score_query(
                     eval_query,
