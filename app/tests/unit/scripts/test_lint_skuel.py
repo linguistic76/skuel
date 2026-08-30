@@ -7071,6 +7071,23 @@ class TestSKUEL034:
         )
         assert lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC) == []
 
+    def test_builtin_serializers_expand_containers(self) -> None:
+        """`str([uid])` leaves the container as the operand, which names no uid
+        — the builtin path needs the method path's expansion (Codex, #1194)."""
+        content = (
+            "def f(entity_uid: str, ku_uids: list[str]) -> bool:\n"
+            '    a = "tech" in str([entity_uid])\n'
+            '    b = "tech" in repr((entity_uid,))\n'
+            '    c = "tech" in str(sorted(ku_uids))\n'
+            "    return a or b or c\n"
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"] * 3
+
+    def test_builtin_serializer_of_non_uid_container_is_legal(self) -> None:
+        content = 'def f(titles: list[str]) -> bool:\n    return "rev" in str([titles])\n'
+        assert lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC) == []
+
     def test_serializing_a_non_uid_collection_is_legal(self) -> None:
         """The rule is still about uids — `str()` alone does not make it fire."""
         content = 'def f(titles: list[str]) -> bool:\n    return "revision" in str(titles)\n'

@@ -6093,6 +6093,18 @@ class SkuelLinter:
                 return None, True
             break
 
+        # A serialized CONTAINER literal: `str([uid])`, `repr((uid,))`,
+        # `str(sorted(ku_uids))`. The builtin unwrap above leaves the container
+        # itself as the operand, which names no uid — the same expansion the
+        # method path does is needed here (Codex, #1194).
+        if serialized:
+            for candidate in cls._expand_rendered_container(node):
+                if candidate is node:
+                    continue
+                inner, _ = cls._resolve_uid_operand(candidate)
+                if cls._is_uid_name(inner):
+                    return inner, True
+
         # f-string: `"x" in f"{uids}"` renders exactly as `str(uids)` does.
         if isinstance(node, ast.JoinedStr):
             for value in node.values:
