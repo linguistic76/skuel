@@ -14,7 +14,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
 
 from eval_askesis_chunk_draw import (  # type: ignore[import-not-found]
-    ASKESIS_LIMIT,
+    ASKESIS_PROMPT_WINDOW,
     DrawRow,
     backfill,
     parents_of,
@@ -111,14 +111,33 @@ class TestSummarize:
         assert report["arms"]["thin_draw"]["hits"] == 1
         assert report["arms"]["unfiltered"]["hits"] == 1
 
-    def test_starvation_counts_draws_short_of_k(self) -> None:
+    def test_starvation_is_measured_against_the_prompt_window(self) -> None:
+        # Production draws 5 but keeps relevant_chunks[:3]. A 4-chunk draw has
+        # lost NOTHING, so it must not be counted as starved — only a draw too
+        # thin to fill the prompt window costs Askesis context.
         rows = [
-            _row(filtered_chunks=ASKESIS_LIMIT, thin_draw_chunks=ASKESIS_LIMIT),
-            _row(filtered_chunks=1, thin_draw_chunks=ASKESIS_LIMIT),
+            _row(filtered_chunks=4, thin_draw_chunks=5),
+            _row(filtered_chunks=1, thin_draw_chunks=5),
         ]
         report = summarize(rows, self._set(), None)
         assert report["arms"]["filtered"]["starved_queries"] == 1
         assert report["arms"]["thin_draw"]["starved_queries"] == 0
+
+    def test_a_parent_below_the_prompt_window_is_not_a_hit(self) -> None:
+        # The draw reaches it at rank 4; production throws it away before the
+        # prompt. Scoring it as a hit would overstate what Askesis can ground in.
+        beyond = ["ku.x"] * ASKESIS_PROMPT_WINDOW + ["ku.a"]
+        row = _row(filtered_parents=beyond, thin_draw_parents=["ku.a"])
+        report = summarize([row], self._set(), None)
+        assert report["arms"]["filtered"]["hits"] == 0
+        assert report["arms"]["thin_draw"]["hits"] == 1
+
+    def test_unlabelled_chunks_in_the_window_are_reported(self) -> None:
+        # A --user run admits the viewer's own notes into the prompt window.
+        # They compete but cannot score, so the count has to ride into the
+        # report or a depressed recall reads as a retrieval defect.
+        rows = [_row(unlabelled_in_window=2), _row(unlabelled_in_window=1)]
+        assert summarize(rows, self._set(), "user_mike")["unlabelled_chunks_drawn"] == 3
 
     def test_errored_rows_are_excluded_from_every_arm(self) -> None:
         # An errored row must not dilute a recall rate — it is not a miss.

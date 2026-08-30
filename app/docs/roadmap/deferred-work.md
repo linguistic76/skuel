@@ -1725,9 +1725,16 @@ label-only lines; 72 typed `explanation`; 32 under 20 characters), 6 path_step (
    loses an intent-appropriate passage the way "use the unfiltered draw when thin" can) and
    `unfiltered` (control) — over the same reviewable query set, reproducing the production
    draw (`limit=5`, `min_score=0.6` — NOT /search's 0.68 — and `user_uid` as the ADR-085
-   audience). **Result: all three arms identical (recall@5 22/23, 0 starved), because
-   0 of 23 queries reached a filtered intent.** The script prints that as a loud banner —
-   `filtered_intent_queries: 0` means the arms are an identity, not a finding.
+   audience). Recall is scored at the **prompt window of 3**, not the draw limit:
+   `retrieve_relevant_context` keeps `relevant_chunks[:3]` and that is what `llm_service`
+   inlines, so a parent reached only at draw rank 4 is retrieved and thrown away.
+   Starvation is measured against the same 3 for the mirror reason. **Result: all three
+   arms identical (recall@3 22/23, 0 starved), run both curriculum-only and with the
+   audience, because 0 of 23 queries reached a filtered intent.** The script prints that
+   as a loud banner — `filtered_intent_queries: 0` means the arms are an identity, not a
+   finding — and reports `unlabelled_chunks_drawn` (1 across all 23 windows on the
+   `--user` run, 0 curriculum-only), because a viewer's own notes compete for the prompt
+   window while the set labels only published Ku/PathStep.
    **So the thin-draw fallback would change nothing today**, and shipping it alone would be
    dead code guarding dead code. The ruling Mike owes this entry is which of three:
    (a) **delete** `_INTENT_CHUNK_TYPES` + the `chunk_types` plumbing (One Path Forward — it

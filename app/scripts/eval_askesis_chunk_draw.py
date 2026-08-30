@@ -88,7 +88,22 @@ class IntentClassifierPort(Protocol):
 ASKESIS_LIMIT = 5
 ASKESIS_MIN_SCORE = 0.6
 
+# ...and `retrieve_relevant_context` then keeps `relevant_chunks[:3]`, which is
+# what `llm_service` inlines into the prompt. Recall is scored at THIS window,
+# not at the draw limit: a parent reached only at draw rank 4 is retrieved and
+# then thrown away, so counting it as a production hit overstates what Askesis
+# can ground an answer in. Starvation is measured against it for the mirror
+# reason — a 4-chunk draw still fills the prompt and has lost nothing.
+ASKESIS_PROMPT_WINDOW = 3
+
 ARMS = ("filtered", "thin_draw", "unfiltered")
+
+# The parent types the shared query set actually labels. A --user run admits the
+# asking user's UserEntry passages too (ADR-085 audience) — production-faithful,
+# but unlabelled, so they compete for the prompt window without being able to
+# score. Counted, never filtered out: silently dropping them would stop the
+# comparison reproducing the production draw, which is its whole point.
+LABELLED_PARENT_TYPES = frozenset({"ku", "path_step"})
 
 
 class ArmReport(TypedDict):
@@ -114,6 +129,7 @@ class RowReport(TypedDict):
     thin_draw_backfilled: int
     unfiltered_chunks: int
     unfiltered_hit: bool
+    unlabelled_in_window: int
     error: str | None
 
 
@@ -124,8 +140,16 @@ class ComparisonReport(TypedDict):
     ratified: str | None
     k: int
     viewer_uid: str | None
+    draw_limit: int
     query_count: int
     errors: int
+    # Chunks drawn from parents OUTSIDE the query set's label vocabulary — the
+    # asking user's own UserEntry passages, admitted by --user. They are real
+    # production competition for the prompt window, but the set labels only
+    # published Ku/PathStep parents, so they can only ever displace a labelled
+    # hit and never score as one. Reported so a --user run's recall is read as
+    # a curriculum-recall proxy, not as production answer quality.
+    unlabelled_chunks_drawn: int
     # Queries whose classified intent actually carries a chunk-type filter. At
     # ZERO the three arms are identical BY CONSTRUCTION and the comparison has
     # measured nothing about filtering — the instrument must say so rather than
@@ -150,11 +174,13 @@ class DrawRow:
     unfiltered_chunks: int = 0
     thin_draw_chunks: int = 0
     thin_draw_backfilled: int = 0
+    unlabelled_in_window: int = 0
     expect: tuple[str, ...] = ()
     error: str | None = None
 
     def hit(self, parents: list[str]) -> bool:
-        return any(uid in parents for uid in self.expect)
+        """True when an expected parent survives INTO the prompt window."""
+        return any(uid in parents[:ASKESIS_PROMPT_WINDOW] for uid in self.expect)
 
     def to_dict(self) -> RowReport:
         return {
@@ -169,6 +195,7 @@ class DrawRow:
             "thin_draw_backfilled": self.thin_draw_backfilled,
             "unfiltered_chunks": self.unfiltered_chunks,
             "unfiltered_hit": self.hit(self.unfiltered_parents),
+            "unlabelled_in_window": self.unlabelled_in_window,
             "error": self.error,
         }
 
@@ -222,17 +249,21 @@ def summarize(rows: list[DrawRow], query_set: QuerySet, viewer_uid: str | None) 
             "hits": hits,
             "recall_at_k": round(hits / total, 4) if total else 0.0,
             "mean_chunks_drawn": round(sum(drawn) / total, 2) if total else 0.0,
-            # A draw that could not fill k — the starvation this work exists to measure.
-            "starved_queries": sum(1 for n in drawn if n < ASKESIS_LIMIT),
+            # A draw too thin to fill the PROMPT window — the starvation that
+            # actually costs Askesis context. A draw of 4 is not starved: the
+            # prompt only ever receives 3.
+            "starved_queries": sum(1 for n in drawn if n < ASKESIS_PROMPT_WINDOW),
         }
 
     return {
         "query_set_version": query_set.version,
         "ratified": query_set.ratified,
-        "k": ASKESIS_LIMIT,
+        "k": ASKESIS_PROMPT_WINDOW,
+        "draw_limit": ASKESIS_LIMIT,
         "viewer_uid": viewer_uid,
         "query_count": total,
         "errors": len(rows) - total,
+        "unlabelled_chunks_drawn": sum(row.unlabelled_in_window for row in scored),
         "filtered_intent_queries": sum(1 for row in scored if row.filter_types is not None),
         "arms": {
             "filtered": arm("filtered_parents", "filtered_chunks"),
@@ -336,6 +367,11 @@ async def run_comparison(
             row.filtered_parents = parents_of(filtered_hits)
             row.unfiltered_parents = parents_of(list(unfiltered.value))
             row.thin_draw_parents = parents_of(merged)
+            row.unlabelled_in_window = sum(
+                1
+                for hit in merged[:ASKESIS_PROMPT_WINDOW]
+                if str(hit.get("parent_entity_type") or "") not in LABELLED_PARENT_TYPES
+            )
             rows.append(row)
 
         report = summarize(rows, query_set, viewer_uid)
@@ -351,7 +387,18 @@ def _print_human(report: ComparisonReport) -> None:
         print("!! DRAFT query set (ratified: null) — relative arms still compare,")
         print("!! but the absolute recall numbers are not a baseline.")
     print(f"Viewer: {report['viewer_uid'] or 'NONE (curriculum-only draw)'}")
-    print(f"Queries: {report['query_count']}   k={report['k']}   min_score={ASKESIS_MIN_SCORE}")
+    print(
+        f"Queries: {report['query_count']}   recall@{report['k']} (prompt window)   "
+        f"draw limit {report['draw_limit']}   min_score={ASKESIS_MIN_SCORE}"
+    )
+    if report["viewer_uid"] and report["unlabelled_chunks_drawn"]:
+        print(
+            f"\n!! {report['unlabelled_chunks_drawn']} chunk(s) in the scored windows come from\n"
+            f"!! UNLABELLED parents (this viewer's own notes). They are real production\n"
+            f"!! competition but the set labels only published Ku/PathStep, so they can\n"
+            f"!! displace a hit and never score as one. Read recall here as a\n"
+            f"!! curriculum-recall proxy; run without --user for the label-consistent number."
+        )
     if report["errors"]:
         print(f"ERRORS: {report['errors']}")
 
@@ -363,7 +410,10 @@ def _print_human(report: ComparisonReport) -> None:
             "!! filtering. Look at the intent column, then at IntentClassifier."
         )
 
-    print(f"\n{'arm':<12} {'recall@k':>9} {'hits':>6} {'mean drawn':>11} {'starved':>8}")
+    print(
+        f"\n{'arm':<12} {'recall@' + str(report['k']):>9} {'hits':>6} "
+        f"{'mean drawn':>11} {'starved':>8}"
+    )
     for name in ARMS:
         a = report["arms"][name]
         print(
