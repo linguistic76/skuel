@@ -96,6 +96,18 @@ class TestLoadQuerySet:
         with pytest.raises(ValueError, match=fragment):
             load_query_set(_write(tmp_path, VALID_SET.replace(old, new)))
 
+    @pytest.mark.parametrize("value", ["false", "yes", "not-a-date", "[2026]", "{d: 1}"])
+    def test_ratified_rejects_non_dates(self, tmp_path: Path, value: str) -> None:
+        # `ratified: false` once coerced to the truthy string "False" — a typo
+        # would have certified a draft set as the baseline (Codex, PR #1197).
+        content = VALID_SET.replace("ratified: null", f"ratified: {value}")
+        with pytest.raises(ValueError, match="'ratified' must be null or an ISO date"):
+            load_query_set(_write(tmp_path, content))
+
+    def test_ratified_quoted_iso_string_ok(self, tmp_path: Path) -> None:
+        content = VALID_SET.replace("ratified: null", "ratified: '2026-09-01'")
+        assert load_query_set(_write(tmp_path, content)).ratified == "2026-09-01"
+
     def test_duplicate_query_text_raises(self, tmp_path: Path) -> None:
         content = VALID_SET.replace("query: how trees share resources underground", "query: breath")
         with pytest.raises(ValueError, match="duplicate query text"):
@@ -138,6 +150,13 @@ class TestScoreQuery:
         row = score_query(_query(), ["ku.a", "ku.x", "ku.y"], body_uids={"ku.y"}, k=5)
         assert row.result_count == 3
         assert row.body_result_count == 1
+
+    def test_chunk_candidates_passthrough(self) -> None:
+        # The probe's candidate count rides the row into the report — the
+        # per-query proof that body search ran (and how much it had to offer).
+        row = score_query(_query(), ["ku.a"], body_uids=set(), k=5, chunk_candidates=12)
+        assert row.chunk_candidates == 12
+        assert row.to_dict()["chunk_candidates"] == 12
 
 
 class TestSummarize:

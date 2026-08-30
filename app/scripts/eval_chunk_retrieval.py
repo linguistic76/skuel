@@ -49,8 +49,9 @@ import contextlib
 import json
 import sys
 from dataclasses import dataclass, field
+from datetime import date
 from pathlib import Path
-from typing import Any
+from typing import TypedDict
 
 import yaml
 
@@ -62,6 +63,46 @@ DEFAULT_QUERY_SET = Path(__file__).parent / "eval_chunk_retrieval_queries.yaml"
 REQUEST_LIMIT = 20
 
 VALID_KINDS = frozenset({"real_usage", "body_paraphrase", "title_control"})
+
+
+class KindReport(TypedDict):
+    """Per-kind aggregate in the report."""
+
+    queries: int
+    hits: int
+    hit_at_k: float
+    hits_via_body: int
+
+
+class RowReport(TypedDict):
+    """One query's outcome, as serialized into the report."""
+
+    query: str
+    kind: str
+    hit: bool
+    best_rank: int | None
+    matched_uid: str | None
+    via_body: bool
+    result_count: int
+    body_result_count: int
+    chunk_candidates: int
+    expected_missing: list[str]
+    error: str | None
+
+
+class EvalReport(TypedDict):
+    """The full eval report — the JSON contract of a recorded run."""
+
+    query_set_version: int
+    ratified: str | None
+    k: int
+    query_count: int
+    errors: int
+    hits: int
+    hit_at_k: float
+    hits_via_body: int
+    by_kind: dict[str, KindReport]
+    rows: list[RowReport]
 
 
 @dataclass(frozen=True)
@@ -97,9 +138,10 @@ class QueryRow:
     result_count: int
     body_result_count: int
     expected_missing: list[str]
+    chunk_candidates: int = 0
     error: str | None = None
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> RowReport:
         return {
             "query": self.query,
             "kind": self.kind,
@@ -109,6 +151,7 @@ class QueryRow:
             "via_body": self.via_body,
             "result_count": self.result_count,
             "body_result_count": self.body_result_count,
+            "chunk_candidates": self.chunk_candidates,
             "expected_missing": self.expected_missing,
             "error": self.error,
         }
@@ -136,9 +179,28 @@ def load_query_set(path: Path) -> QuerySet:
     if not isinstance(version, int):
         raise ValueError(f"{path}: 'version' must be an integer")
 
-    # yaml parses a bare date literal to datetime.date; accept both forms.
+    # The ratification gate must be unforgeable by a typo: the FIRST ratified
+    # run becomes the baseline, so `ratified: false`/`yes`/a list must never
+    # coerce into a truthy "ratified" string. Only null, a bare YAML date
+    # (parsed to datetime.date), or a quoted ISO date pass.
     ratified = raw.get("ratified")
-    ratified_str = None if ratified is None else str(ratified)
+    ratified_str: str | None
+    if ratified is None:
+        ratified_str = None
+    elif isinstance(ratified, date):
+        ratified_str = ratified.isoformat()
+    elif isinstance(ratified, str):
+        try:
+            date.fromisoformat(ratified)
+        except ValueError:
+            raise ValueError(
+                f"{path}: 'ratified' must be null or an ISO date (YYYY-MM-DD), got {ratified!r}"
+            ) from None
+        ratified_str = ratified
+    else:
+        raise ValueError(
+            f"{path}: 'ratified' must be null or an ISO date (YYYY-MM-DD), got {ratified!r}"
+        )
 
     k = raw.get("k")
     if not isinstance(k, int) or k < 1:
@@ -183,6 +245,7 @@ def score_query(
     ordered_uids: list[str],
     body_uids: set[str],
     k: int,
+    chunk_candidates: int = 0,
 ) -> QueryRow:
     """Score one query's live results against its expected uids (pure, DB-free).
 
@@ -207,10 +270,11 @@ def score_query(
         result_count=len(ordered_uids),
         body_result_count=len(body_uids),
         expected_missing=[u for u in eval_query.expect if u not in rank_by_uid],
+        chunk_candidates=chunk_candidates,
     )
 
 
-def summarize(rows: list[QueryRow], query_set: QuerySet) -> dict[str, Any]:
+def summarize(rows: list[QueryRow], query_set: QuerySet) -> EvalReport:
     """Aggregate per-query rows into the report dict (pure, DB-free)."""
     by_kind: dict[str, KindSummary] = {}
     hits = 0
@@ -253,7 +317,7 @@ def summarize(rows: list[QueryRow], query_set: QuerySet) -> dict[str, Any]:
     }
 
 
-async def run_eval(query_set: QuerySet, *, as_json: bool) -> tuple[int, dict[str, Any] | None]:
+async def run_eval(query_set: QuerySet, *, as_json: bool) -> tuple[int, EvalReport | None]:
     """Compose services, drive faceted_search per query, and return (exit_code, report)."""
     from adapters.infrastructure.event_bus import InMemoryEventBus
     from adapters.persistence.neo4j_adapter import Neo4jAdapter
@@ -275,7 +339,8 @@ async def run_eval(query_set: QuerySet, *, as_json: bool) -> tuple[int, dict[str
         if router is None:
             print("ERROR: search router is not wired", file=sys.stderr)
             return 1, None
-        if composed.value.vector_search_service is None:
+        vector_search = composed.value.vector_search_service
+        if vector_search is None:
             # Without vector search the body fold silently no-ops and this
             # instrument would "measure" frontmatter CONTAINS alone — the
             # predictable wrong-firing mode, so refuse instead.
@@ -295,6 +360,36 @@ async def run_eval(query_set: QuerySet, *, as_json: bool) -> tuple[int, dict[str
                 enable_semantic_boost=True,
                 limit=REQUEST_LIMIT,
             )
+            # Body-search canary (Codex, PR #1197): the production fold fails
+            # SOFT by design — a /search user must still get frontmatter results
+            # when embedding or chunk retrieval breaks — so inside faceted_search
+            # a dead Digital layer is invisible and every query would quietly
+            # score as a frontmatter-only run. Prove each query's body search
+            # completes, with the SAME inputs the fold uses; a probe failure
+            # invalidates the row (and the run, via errors → exit 1).
+            probe = await vector_search.find_similar_chunks_by_text(
+                text=eval_query.query,
+                limit=request.limit,
+                min_score=vector_search.config.body_chunk_search_min_score,
+                parent_filters=request.to_property_filters(),
+            )
+            if probe.is_error:
+                rows.append(
+                    QueryRow(
+                        query=eval_query.query,
+                        kind=eval_query.kind,
+                        hit=False,
+                        best_rank=None,
+                        matched_uid=None,
+                        via_body=False,
+                        result_count=0,
+                        body_result_count=0,
+                        expected_missing=list(eval_query.expect),
+                        error=f"body-chunk search failed: {probe.expect_error()}",
+                    )
+                )
+                continue
+
             result = await router.faceted_search(request, user_uid=None, log_event=False)
             if result.is_error:
                 rows.append(
@@ -319,7 +414,15 @@ async def run_eval(query_set: QuerySet, *, as_json: bool) -> tuple[int, dict[str
                 for card in cards
                 if card.get("_match_reason") == BODY_HIT_MATCH_REASON
             }
-            rows.append(score_query(eval_query, ordered_uids, body_uids, query_set.k))
+            rows.append(
+                score_query(
+                    eval_query,
+                    ordered_uids,
+                    body_uids,
+                    query_set.k,
+                    chunk_candidates=len(probe.value),
+                )
+            )
 
         report = summarize(rows, query_set)
         return (1 if report["errors"] else 0), report
@@ -327,7 +430,7 @@ async def run_eval(query_set: QuerySet, *, as_json: bool) -> tuple[int, dict[str
         await adapter.close()
 
 
-def _print_human(report: dict[str, Any]) -> None:
+def _print_human(report: EvalReport) -> None:
     """Render the report as a readable console summary."""
     k = report["k"]
     if report["ratified"]:
@@ -353,7 +456,10 @@ def _print_human(report: dict[str, Any]) -> None:
                 if row["best_rank"]
                 else "no expected uid returned"
             )
-            print(f"  ✗ MISS   {row['query']!r} — {ranked} of {row['result_count']} results")
+            print(
+                f"  ✗ MISS   {row['query']!r} — {ranked} of {row['result_count']} results"
+                f" ({row['chunk_candidates']} chunk candidates)"
+            )
 
     print(
         f"\nhit@{k}: {report['hits']}/{report['query_count']}"
