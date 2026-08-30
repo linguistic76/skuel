@@ -6923,6 +6923,23 @@ class TestSKUEL034:
         violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
         assert [v.rule_id for v in violations] == ["SKUEL034"]
 
+    def test_format_field_attribute_path_selects_the_uid(self) -> None:
+        """`"{0.entity_uid}".format(record)` names the uid in the TEMPLATE — the
+        AST argument only names `record` (Codex, #1194)."""
+        content = (
+            "def f(record, entity) -> bool:\n"
+            '    a = "tech" in "{0.entity_uid}".format(record)\n'
+            '    b = "tech" in "{e.knowledge_uid}".format(e=entity)\n'
+            "    return a or b\n"
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"] * 2
+
+    def test_format_field_non_uid_attribute_is_legal(self) -> None:
+        """Only a uid-named segment counts — `{0.title}` renders a title."""
+        content = 'def f(record) -> bool:\n    return "rev" in "{0.title}".format(record)\n'
+        assert lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC) == []
+
     def test_serializing_a_non_uid_collection_is_legal(self) -> None:
         """The rule is still about uids — `str()` alone does not make it fire."""
         content = 'def f(titles: list[str]) -> bool:\n    return "revision" in str(titles)\n'

@@ -1201,6 +1201,12 @@ over-approximates, which for a NARROWING is the safe direction — it can only r
 an argument, never hide one. `join`/`dumps`/`pformat` are never narrowed; they render
 everything they are given.
 
+A format FIELD can also select the uid itself — `"{0.entity_uid}".format(record)` — where
+the AST argument only ever names `record`. The attribute/item path after a field's base is
+therefore read from the template. The BASE is deliberately not: it is resolved through the
+argument actually passed, which is more accurate than its spelling and keeps the rule off
+`"{uid}".format(uid=title)`.
+
 DELIBERATELY OUT OF SCOPE — prefix and segment reads. `uid.startswith(prefix)` and
 `uid.split(".")[1]` cannot be judged without knowing what the branch does with the answer,
 which is flow analysis this linter does not do. All four live sites of those shapes are
@@ -5767,6 +5773,34 @@ class SkuelLinter:
         return positional, keywords
 
     @classmethod
+    def _format_template_uid_attribute(cls, template: str) -> str | None:
+        """A uid named by a format field's ATTRIBUTE / ITEM path.
+
+        `"{0.entity_uid}".format(record)` and `"{e.knowledge_uid}".format(e=rec)`
+        select the uid inside the TEMPLATE; the AST argument only ever names
+        `record` / `rec`, so the argument scan cannot see it (Codex, #1194).
+
+        Only the path AFTER the base is read. The base is deliberately left to
+        the argument scan, which resolves the value actually passed — more
+        accurate than its spelling, and it keeps the rule from firing on
+        `"{uid}".format(uid=title)` purely because of a field's name.
+        """
+        pending = [template]
+        try:
+            while pending:
+                for _, field_name, spec, _ in string.Formatter().parse(pending.pop()):
+                    if spec:
+                        pending.append(spec)
+                    if not field_name:
+                        continue
+                    for segment in re.split(r"[.\[]", field_name)[1:]:
+                        if cls._is_uid_name(segment.rstrip("]")):
+                            return segment.rstrip("]")
+        except ValueError, IndexError:
+            return None
+        return None
+
+    @classmethod
     def _rendered_arguments(cls, node: ast.Call) -> tuple[list[ast.expr], list[ast.keyword]]:
         """The arguments of a rendering call that actually reach its output.
 
@@ -5872,6 +5906,15 @@ class SkuelLinter:
                 and isinstance(node.func, ast.Attribute)
                 and node.func.attr in cls.UID_SERIALIZER_METHODS
             ):
+                template = node.func.value
+                if (
+                    node.func.attr == "format"
+                    and isinstance(template, ast.Constant)
+                    and isinstance(template.value, str)
+                ):
+                    templated = cls._format_template_uid_attribute(template.value)
+                    if templated is not None:
+                        return templated, True
                 args, keywords = cls._rendered_arguments(node)
                 for arg in [*args, *(kw.value for kw in keywords)]:
                     inner, _ = cls._resolve_uid_operand(arg)
