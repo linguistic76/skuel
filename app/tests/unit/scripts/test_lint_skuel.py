@@ -6797,6 +6797,31 @@ class TestSKUEL034:
         violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
         assert [v.rule_id for v in violations] == ["SKUEL034"]
 
+    def test_method_style_format_is_a_conversion(self) -> None:
+        """`"{}".format(uid)` is an Attribute call, invisible to the builtin
+        gate — it walked past an earlier cut (Codex, #1194)."""
+        content = (
+            'def f(knowledge_uid: str) -> bool:\n    return "tech" in "{}".format(knowledge_uid)\n'
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"]
+
+    def test_format_scans_every_argument_including_keywords(self) -> None:
+        """`format` renders all its arguments, so the uid need not sit first."""
+        content = (
+            "def f(name: str, ku_uids: list[str], entity_uid: str) -> bool:\n"
+            '    a = "tech" in "{} {}".format(name, ku_uids)\n'
+            '    b = "tech" in "{u}".format(u=entity_uid)\n'
+            "    return a or b\n"
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"] * 2
+
+    def test_format_of_non_uid_arguments_is_legal(self) -> None:
+        """Rendering alone does not make the rule fire — it must render a uid."""
+        content = 'def f(title: str) -> bool:\n    return "revision" in "{}".format(title)\n'
+        assert lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC) == []
+
     def test_serializing_a_non_uid_collection_is_legal(self) -> None:
         """The rule is still about uids — `str()` alone does not make it fire."""
         content = 'def f(titles: list[str]) -> bool:\n    return "revision" in str(titles)\n'

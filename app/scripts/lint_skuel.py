@@ -1154,9 +1154,10 @@ NAME: exactly `uid`, or a `_uid` suffix. That is what separates the violation fr
 `"ku_x" in ku_uids`, membership in a COLLECTION of uids, which is ordinary and correct —
 and `_uids` does not end in `_uid`, so the plural is excluded structurally, not by a list.
 
-THE PLURAL EXEMPTION DOES NOT SURVIVE SERIALIZATION. `str(uids)` / `repr(uids)` /
-`format(uids)` (either arity), `f"{uids}"`, and `", ".join(uids)` render a collection
-back into ONE string, so `in`
+THE PLURAL EXEMPTION DOES NOT SURVIVE SERIALIZATION. The builtins `str(uids)` /
+`repr(uids)` / `format(uids)` (either arity), the method spellings
+`"{}".format(uids)` and `", ".join(uids)` (every argument, keywords included), and
+`f"{uids}"` all render a collection back into ONE string, so `in`
 against the result is a substring test again — reading the same uid spelling the singular
 form reads. On that path both singular and plural names are flagged. Not hypothetical: the
 first cut of this rule measured zero and MISSED a live violation,
@@ -5690,6 +5691,10 @@ class SkuelLinter:
     # again — the plural exemption below must not survive the conversion.
     UID_SERIALIZER_FUNCS: ClassVar[frozenset[str]] = frozenset({"str", "repr", "format"})
 
+    # SKUEL034: the METHOD spellings of the same rendering. Their receiver is
+    # the template/separator, so the uid lives in the ARGUMENTS.
+    UID_SERIALIZER_METHODS: ClassVar[frozenset[str]] = frozenset({"format", "join"})
+
     @classmethod
     def _resolve_uid_operand(cls, node: ast.expr) -> tuple[str | None, bool]:
         """Identify a membership test's right-hand side: (name, was_serialized).
@@ -5725,16 +5730,23 @@ class SkuelLinter:
                 serialized = True
                 node = node.args[0]
                 continue
-            # `"".join(uids)` / `", ".join(uids)` — the other rendering idiom.
+            # METHOD-style rendering: `"{}".format(uid)`, `", ".join(uids)`.
+            # `node.func` is an Attribute here, so the builtin gate above cannot
+            # see these — `"tech" in "{}".format(knowledge_uid)` walked past an
+            # earlier cut for exactly that reason (Codex, #1194). Both spellings
+            # render EVERY argument into the result, and `format` accepts
+            # several plus keywords (`"{a}".format(a=uid)`), so scan them all
+            # rather than assuming the value sits at position 0.
             if (
                 isinstance(node, ast.Call)
                 and isinstance(node.func, ast.Attribute)
-                and node.func.attr == "join"
-                and len(node.args) == 1
+                and node.func.attr in cls.UID_SERIALIZER_METHODS
             ):
-                serialized = True
-                node = node.args[0]
-                continue
+                for arg in [*node.args, *(kw.value for kw in node.keywords)]:
+                    inner, _ = cls._resolve_uid_operand(arg)
+                    if cls._is_uid_name(inner):
+                        return inner, True
+                return None, True
             break
 
         # f-string: `"x" in f"{uids}"` renders exactly as `str(uids)` does.
