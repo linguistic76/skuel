@@ -1732,9 +1732,11 @@ label-only lines; 72 typed `explanation`; 32 under 20 characters), 6 path_step (
    arms identical (recall@3 22/23, 0 starved), run both curriculum-only and with the
    audience, because 0 of 23 queries reached a filtered intent.** The script prints that
    as a loud banner — `filtered_intent_queries: 0` means the arms are an identity, not a
-   finding — and reports `unlabelled_chunks_drawn` (1 across all 23 windows on the
+   finding — and reports `unlabelled_in_windows` PER ARM (1 in each of the three on the
    `--user` run, 0 curriculum-only), because a viewer's own notes compete for the prompt
-   window while the set labels only published Ku/PathStep.
+   window while the set labels only published Ku/PathStep. Per arm, not per run: once
+   the filter is live the three arms hold different windows, and a note sitting in only
+   one of them would depress that arm alone and make the delta look like filtering.
    **So the thin-draw fallback would change nothing today**, and shipping it alone would be
    dead code guarding dead code. The ruling Mike owes this entry is which of three:
    (a) **delete** `_INTENT_CHUNK_TYPES` + the `chunk_types` plumbing (One Path Forward — it

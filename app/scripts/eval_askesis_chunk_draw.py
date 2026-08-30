@@ -106,6 +106,22 @@ ARMS = ("filtered", "thin_draw", "unfiltered")
 LABELLED_PARENT_TYPES = frozenset({"ku", "path_step"})
 
 
+def unlabelled_in_window(hits: list["SemanticSearchChunkResult"]) -> int:
+    """Chunks in one arm's prompt window whose parent the query set cannot label.
+
+    Per ARM, never once for the run: when the intent filter is live the three
+    arms hold DIFFERENT windows, so an unlabelled note can occupy the unfiltered
+    top three alone — depressing that arm's recall while the other two are
+    clean. Counting only one arm would leave that delta looking attributable to
+    filtering (Codex, PR #1198).
+    """
+    return sum(
+        1
+        for hit in hits[:ASKESIS_PROMPT_WINDOW]
+        if str(hit.get("parent_entity_type") or "") not in LABELLED_PARENT_TYPES
+    )
+
+
 class ArmReport(TypedDict):
     """One arm's aggregate outcome."""
 
@@ -113,6 +129,7 @@ class ArmReport(TypedDict):
     recall_at_k: float
     mean_chunks_drawn: float
     starved_queries: int
+    unlabelled_in_windows: int
 
 
 class RowReport(TypedDict):
@@ -129,7 +146,9 @@ class RowReport(TypedDict):
     thin_draw_backfilled: int
     unfiltered_chunks: int
     unfiltered_hit: bool
-    unlabelled_in_window: int
+    filtered_unlabelled: int
+    thin_draw_unlabelled: int
+    unfiltered_unlabelled: int
     error: str | None
 
 
@@ -179,7 +198,9 @@ class DrawRow:
     unfiltered_chunks: int = 0
     thin_draw_chunks: int = 0
     thin_draw_backfilled: int = 0
-    unlabelled_in_window: int = 0
+    filtered_unlabelled: int = 0
+    unfiltered_unlabelled: int = 0
+    thin_draw_unlabelled: int = 0
     expect: tuple[str, ...] = ()
     error: str | None = None
 
@@ -203,7 +224,9 @@ class DrawRow:
             "thin_draw_backfilled": self.thin_draw_backfilled,
             "unfiltered_chunks": self.unfiltered_chunks,
             "unfiltered_hit": self.hit(self.unfiltered_window_parents),
-            "unlabelled_in_window": self.unlabelled_in_window,
+            "filtered_unlabelled": self.filtered_unlabelled,
+            "thin_draw_unlabelled": self.thin_draw_unlabelled,
+            "unfiltered_unlabelled": self.unfiltered_unlabelled,
             "error": self.error,
         }
 
@@ -255,7 +278,7 @@ def summarize(rows: list[DrawRow], query_set: QuerySet, viewer_uid: str | None) 
     scored = [row for row in rows if row.error is None]
     total = len(scored)
 
-    def arm(parents_attr: str, chunks_attr: str) -> ArmReport:
+    def arm(parents_attr: str, chunks_attr: str, unlabelled_attr: str) -> ArmReport:
         """One arm's aggregate. `parents_attr` names a WINDOW-scoped parent list."""
         hits = sum(1 for row in scored if row.hit(getattr(row, parents_attr)))
         drawn = [getattr(row, chunks_attr) for row in scored]
@@ -267,6 +290,7 @@ def summarize(rows: list[DrawRow], query_set: QuerySet, viewer_uid: str | None) 
             # actually costs Askesis context. A draw of 4 is not starved: the
             # prompt only ever receives 3.
             "starved_queries": sum(1 for n in drawn if n < ASKESIS_PROMPT_WINDOW),
+            "unlabelled_in_windows": sum(getattr(row, unlabelled_attr) for row in scored),
         }
 
     return {
@@ -277,12 +301,21 @@ def summarize(rows: list[DrawRow], query_set: QuerySet, viewer_uid: str | None) 
         "viewer_uid": viewer_uid,
         "query_count": total,
         "errors": len(rows) - total,
-        "unlabelled_chunks_drawn": sum(row.unlabelled_in_window for row in scored),
+        # Any arm's unlabelled chunk must raise the caveat — a note that sits
+        # in only ONE arm's window is exactly the case that biases a delta.
+        "unlabelled_chunks_drawn": sum(
+            row.filtered_unlabelled + row.thin_draw_unlabelled + row.unfiltered_unlabelled
+            for row in scored
+        ),
         "filtered_intent_queries": sum(1 for row in scored if row.filter_types is not None),
         "arms": {
-            "filtered": arm("filtered_window_parents", "filtered_chunks"),
-            "thin_draw": arm("thin_draw_window_parents", "thin_draw_chunks"),
-            "unfiltered": arm("unfiltered_window_parents", "unfiltered_chunks"),
+            "filtered": arm("filtered_window_parents", "filtered_chunks", "filtered_unlabelled"),
+            "thin_draw": arm(
+                "thin_draw_window_parents", "thin_draw_chunks", "thin_draw_unlabelled"
+            ),
+            "unfiltered": arm(
+                "unfiltered_window_parents", "unfiltered_chunks", "unfiltered_unlabelled"
+            ),
         },
         "rows": [row.to_dict() for row in rows],
     }
@@ -385,11 +418,9 @@ async def run_comparison(
                 list(unfiltered.value)[:ASKESIS_PROMPT_WINDOW]
             )
             row.thin_draw_window_parents = parents_of(merged[:ASKESIS_PROMPT_WINDOW])
-            row.unlabelled_in_window = sum(
-                1
-                for hit in merged[:ASKESIS_PROMPT_WINDOW]
-                if str(hit.get("parent_entity_type") or "") not in LABELLED_PARENT_TYPES
-            )
+            row.filtered_unlabelled = unlabelled_in_window(filtered_hits)
+            row.unfiltered_unlabelled = unlabelled_in_window(list(unfiltered.value))
+            row.thin_draw_unlabelled = unlabelled_in_window(merged)
             rows.append(row)
 
         report = summarize(rows, query_set, viewer_uid)
@@ -411,11 +442,13 @@ def _print_human(report: ComparisonReport) -> None:
     )
     if report["viewer_uid"] and report["unlabelled_chunks_drawn"]:
         print(
-            f"\n!! {report['unlabelled_chunks_drawn']} chunk(s) in the scored windows come from\n"
-            f"!! UNLABELLED parents (this viewer's own notes). They are real production\n"
-            f"!! competition but the set labels only published Ku/PathStep, so they can\n"
-            f"!! displace a hit and never score as one. Read recall here as a\n"
-            f"!! curriculum-recall proxy; run without --user for the label-consistent number."
+            f"\n!! {report['unlabelled_chunks_drawn']} chunk(s), summed across the arms'\n"
+            f"!! scored windows, come from UNLABELLED parents (this viewer's own notes).\n"
+            f"!! They are real production competition, but the set labels only published\n"
+            f"!! Ku/PathStep, so they can displace a hit and never score as one. See the\n"
+            f"!! per-arm 'unlabelled' column: a count that differs BETWEEN arms biases the\n"
+            f"!! delta. Read recall as a curriculum-recall proxy; run without --user for\n"
+            f"!! the label-consistent number."
         )
     if report["errors"]:
         print(f"ERRORS: {report['errors']}")
@@ -430,13 +463,14 @@ def _print_human(report: ComparisonReport) -> None:
 
     print(
         f"\n{'arm':<12} {'recall@' + str(report['k']):>9} {'hits':>6} "
-        f"{'mean drawn':>11} {'starved':>8}"
+        f"{'mean drawn':>11} {'starved':>8} {'unlabelled':>11}"
     )
     for name in ARMS:
         a = report["arms"][name]
         print(
             f"{name:<12} {a['recall_at_k']:>8.1%} {a['hits']:>6} "
-            f"{a['mean_chunks_drawn']:>11.2f} {a['starved_queries']:>8}"
+            f"{a['mean_chunks_drawn']:>11.2f} {a['starved_queries']:>8} "
+            f"{a['unlabelled_in_windows']:>11}"
         )
 
     print("\nPer query (F=filtered, T=thin-draw, U=unfiltered):")

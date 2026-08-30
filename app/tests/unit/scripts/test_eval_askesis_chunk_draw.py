@@ -19,6 +19,7 @@ from eval_askesis_chunk_draw import (  # type: ignore[import-not-found]
     backfill,
     parents_of,
     summarize,
+    unlabelled_in_window,
 )
 from eval_chunk_retrieval import QuerySet  # type: ignore[import-not-found]
 
@@ -68,6 +69,24 @@ class TestBackfill:
         # Starvation the fallback cannot cure: nothing cleared min_score.
         merged, added = backfill([_chunk("c1", "ku.a")], [], 5)
         assert (len(merged), added) == (1, 0)
+
+
+class TestUnlabelledInWindow:
+    """The per-arm audience accounting — computed on CHUNKS, inside the window."""
+
+    def _u(self, parent_type: str) -> dict[str, object]:
+        return {"chunk_uid": "c", "parent_uid": "p", "parent_entity_type": parent_type}
+
+    def test_curriculum_parents_are_labelled(self) -> None:
+        assert unlabelled_in_window([self._u("ku"), self._u("path_step")]) == 0
+
+    def test_user_entry_parents_are_unlabelled(self) -> None:
+        assert unlabelled_in_window([self._u("user_entry"), self._u("ku")]) == 1
+
+    def test_only_the_prompt_window_is_counted(self) -> None:
+        # A note at draw rank 4 never reaches the prompt, so it biases nothing.
+        draw = [self._u("ku")] * ASKESIS_PROMPT_WINDOW + [self._u("user_entry")]
+        assert unlabelled_in_window(draw) == 0
 
 
 class TestParentsOf:
@@ -146,12 +165,28 @@ class TestSummarize:
         assert report["arms"]["filtered"]["hits"] == 0
         assert report["arms"]["thin_draw"]["hits"] == 1
 
-    def test_unlabelled_chunks_in_the_window_are_reported(self) -> None:
+    def test_unlabelled_chunks_are_counted_per_arm(self) -> None:
         # A --user run admits the viewer's own notes into the prompt window.
         # They compete but cannot score, so the count has to ride into the
         # report or a depressed recall reads as a retrieval defect.
-        rows = [_row(unlabelled_in_window=2), _row(unlabelled_in_window=1)]
-        assert summarize(rows, self._set(), "user_mike")["unlabelled_chunks_drawn"] == 3
+        rows = [
+            _row(filtered_unlabelled=2, thin_draw_unlabelled=1, unfiltered_unlabelled=0),
+            _row(filtered_unlabelled=0, thin_draw_unlabelled=0, unfiltered_unlabelled=1),
+        ]
+        report = summarize(rows, self._set(), "user_mike")
+        assert report["arms"]["filtered"]["unlabelled_in_windows"] == 2
+        assert report["arms"]["thin_draw"]["unlabelled_in_windows"] == 1
+        assert report["arms"]["unfiltered"]["unlabelled_in_windows"] == 1
+        assert report["unlabelled_chunks_drawn"] == 4
+
+    def test_a_note_in_one_arm_alone_still_raises_the_total(self) -> None:
+        # The biasing case: an unlabelled note occupies ONLY the unfiltered
+        # window, depressing that arm alone. Counting a single arm would leave
+        # the total at 0 and the delta looking attributable to filtering.
+        rows = [_row(unfiltered_unlabelled=1)]
+        report = summarize(rows, self._set(), "user_mike")
+        assert report["unlabelled_chunks_drawn"] == 1
+        assert report["arms"]["filtered"]["unlabelled_in_windows"] == 0
 
     def test_errored_rows_are_excluded_from_every_arm(self) -> None:
         # An errored row must not dilute a recall rate — it is not a miss.
