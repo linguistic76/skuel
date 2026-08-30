@@ -1155,8 +1155,8 @@ NAME: exactly `uid`, or a `_uid` suffix. That is what separates the violation fr
 `"ku_x" in ku_uids`, membership in a COLLECTION of uids, which is ordinary and correct —
 and `_uids` does not end in `_uid`, so the plural is excluded structurally, not by a list.
 
-THE PLURAL EXEMPTION DOES NOT SURVIVE SERIALIZATION. The builtins `str(uids)` /
-`repr(uids)` / `format(uids)` (either arity), the method spellings
+THE PLURAL EXEMPTION DOES NOT SURVIVE SERIALIZATION. The builtins `str` / `repr` /
+`ascii` / `format(uids)` (either arity), the method spellings
 `"{}".format(uids)` and `", ".join(uids)` (every argument, keywords included), and
 `f"{uids}"` all render a collection back into ONE string, so `in`
 against the result is a substring test again — reading the same uid spelling the singular
