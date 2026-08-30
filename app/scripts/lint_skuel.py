@@ -5756,6 +5756,14 @@ class SkuelLinter:
         {"format", "format_map", "join", "dumps", "pformat"}
     )
 
+    # SKUEL034: calls that RESHAPE a collection without changing what is in it.
+    # `", ".join(sorted(ku_uids))` renders the same uids `join(ku_uids)` would.
+    # Deliberately an allowlist: `join(get_titles(ku_uids))` renders titles, so
+    # "any call taking a uid argument" would be a false positive.
+    UID_CONTAINER_TRANSFORMS: ClassVar[frozenset[str]] = frozenset(
+        {"sorted", "list", "set", "tuple", "frozenset", "reversed", "map"}
+    )
+
     @staticmethod
     def _format_template_fields(template: str) -> tuple[set[int], set[str]] | None:
         """Positional indices and keyword names a format template RENDERS.
@@ -5808,6 +5816,16 @@ class SkuelLinter:
         """
         if isinstance(node, ast.List | ast.Tuple | ast.Set):
             return list(node.elts)
+        # `", ".join(u.knowledge_uid for u in rows)` — the element expression is
+        # what gets rendered, once per row.
+        if isinstance(node, ast.GeneratorExp | ast.ListComp | ast.SetComp):
+            return [node.elt]
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id in SkuelLinter.UID_CONTAINER_TRANSFORMS
+        ):
+            return list(node.args)
         if isinstance(node, ast.Dict):
             values: list[ast.expr] = []
             for key, value in zip(node.keys, node.values, strict=True):
@@ -6001,10 +6019,13 @@ class SkuelLinter:
                     for leaf in leaves
                 ):
                     break
+                # Leaves go through the container expansion too, so the
+                # mapping form `"%(u)s" % {"u": uid}` is read like `format_map`.
                 for leaf in leaves:
-                    inner, _ = cls._resolve_uid_operand(leaf)
-                    if cls._is_uid_name(inner):
-                        return inner, True
+                    for candidate in cls._expand_rendered_container(leaf):
+                        inner, _ = cls._resolve_uid_operand(candidate)
+                        if cls._is_uid_name(inner):
+                            return inner, True
                 return None, True
             break
 

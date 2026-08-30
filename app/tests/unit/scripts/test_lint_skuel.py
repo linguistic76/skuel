@@ -6987,6 +6987,40 @@ class TestSKUEL034:
         )
         assert lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC) == []
 
+    def test_percent_mapping_form(self) -> None:
+        """`"%(u)s" % {"u": uid}` is the `%` analogue of `format_map`."""
+        content = (
+            'def f(entity_uid: str) -> bool:\n    return "tech" in "%(u)s" % {"u": entity_uid}\n'
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"]
+
+    def test_comprehension_element_is_rendered(self) -> None:
+        """A generator's element expression is what each row renders to."""
+        content = (
+            'def f(rows) -> bool:\n    return "ku." in ", ".join(r.knowledge_uid for r in rows)\n'
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"]
+
+    def test_container_transforms_preserve_the_contents(self) -> None:
+        """`sorted(uids)` renders the same uids `uids` would."""
+        content = (
+            'def f(ku_uids: list[str]) -> bool:\n    return "ku." in ", ".join(sorted(ku_uids))\n'
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"]
+
+    def test_arbitrary_call_over_uids_is_not_expanded(self) -> None:
+        """THE reason transforms are an allowlist: `get_titles(ku_uids)` renders
+        titles, so treating any call taking a uid as rendering it would be a
+        false positive on an ERROR rule."""
+        content = (
+            "def f(ku_uids: list[str]) -> bool:\n"
+            '    return "intro" in ", ".join(get_titles(ku_uids))\n'
+        )
+        assert lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC) == []
+
     def test_serializing_a_non_uid_collection_is_legal(self) -> None:
         """The rule is still about uids — `str()` alone does not make it fire."""
         content = 'def f(titles: list[str]) -> bool:\n    return "revision" in str(titles)\n'
