@@ -310,6 +310,13 @@ search by Exercise or Submission and navigate to feedback via relationships.
 **Enable when**: a teacher workflow wants to search report *content* directly rather than
 navigate to it — product need, not a data threshold.
 
+**The embedding half rides this want** (2026-08-30): `EMBEDDING_FIELD_MAPS` carries hollow
+`ENTRY_REPORT` and `ACTIVITY_REPORT` maps — no event class, nothing builds text — registered
+in `PLANNED_EMBEDDING_MAPS` (`scripts/detect_bloat.py`) with `blocked_by` pointing here.
+Completing them is ADR-074's quartet (event class, label, post-persist publish in the
+writer, worker subscription), scheduled by the same trigger. Never rename this heading
+without moving the two pointers — the detector fails `--check` on a dangling one.
+
 ---
 
 ## Domain-level fulltext-first text search (D1(b) follow-on)
@@ -2178,6 +2185,17 @@ most of the instances below rely on today.
    other caller of `build_embedding_text` is `_rank_similar_entities` on the eight AI-bearing
    facades, so nothing ever builds text for them and the "16" faithfully restates a count three
    of which are dead. `./dev bloat` cannot see map entries. Deletion protocol: unwired → ask.
+   ✅ **RULED + BUILT (2026-08-29 / 2026-08-30, readiness arc PR-4):** asked, ruled keep — the
+   three hollow maps are registered in `PLANNED_EMBEDDING_MAPS`, joined by a new
+   `ACTIVITY_REPORT` map (four declared-hollow, zero undeclared). `./dev bloat` now *derives*
+   the hollow set (`set(EMBEDDING_FIELD_MAPS) - set(EMBEDDING_EVENT_TYPES)`, both dict literals
+   read by AST) and the registry annotates it: an unregistered hollow map is
+   `embedding-map-unregistered`, `WARNING`, fails `--check`; a registered key that gained an
+   event class is masked, never stale. The advisory phantom-field check drove two map fixes
+   on the day it landed — `ENTRY_REPORT` (`content`/`summary` exist, inherited, but both
+   writers populate `processed_content`) and `HABIT` (`name` is no field). CLAUDE.md's "16" is
+   a rule now (the map's keys are the list); the three other doc copies followed. The two
+   derivations (worker `subscribe`, `EMBEDDING_NODE_LABELS`) remain unbuilt.
 4. **Suppressible lint rules.** `SkuelLinter.SUPPRESSIBLE_RULES` has 21 members; the
    "Supported" lists in CLAUDE.md and `docs/patterns/linter_rules.md` both had 20 — **SKUEL033
    missing since it became suppressible on 2026-07-29 (#868)**, a month unseen.
@@ -2329,6 +2347,7 @@ Review this document at the **September 2026 quarterly review**. Checklist:
 | Docs `updated:` frontmatter auto-stamp (ruled 2026-08-29 — build it, fresh context) | Ruled, not gated: Mike starts it. NOT a data threshold — do not re-litigate the delete-vs-stamp choice | Once shipped, the check must be **green** under the acceptance rule the section's squash fork selects. ⛔ **This row deliberately does not restate the options** — it listed them twice and was wrong both times (it prescribed the strict comparison after the section rejected it, then kept a fork option after the section struck it). Read the section; do not scope from this cell. Baseline the check replaces: 194 stale of 219 with the field, plus 192 with no field, on 2026-08-29. ⚠️ two ways to read a false clean: match paths on the SAME base (`git ls-files` is CWD-relative, `git log --name-only` is repo-root-relative), and accept QUOTED dates (`updated: '2026-04-20'`, 25 files) |
 | READY PLANNED entries over 90 days → wire-or-delete ruling (the `planned-ready-aging` finding, INFO, never gates) | Any READY entry in `scripts/detect_bloat.py` older than `READY_AGING_DAYS` — first fires 2026-09-10 on the three 2026-06-11 entries; by this review all seven READY are over it, which is the intended signal | `./dev bloat --ready` — every row listed is wire-or-delete; a DELAYED entry aging is expected and is NOT this row |
 | Catalog copies in code — the duplicated-fact class (measured 2026-08-29) | Mike schedules the mechanical items; until then a ride-along: any PR that adds a health check, an embeddable type, a vector-index label, or a suppressible rule touches every copy the section names | ⛔ Do not scope from this cell — the section holds the inventory and the ruling. Re-measure: `uv run python scripts/detect_bloat.py --json` → count of `planned-marking-stale` findings (2 on 2026-08-29, seen by neither CI nor the janitor); the scripts named in `dev` § `health)` and in the janitor's `for check in` loop must be the same set (5 on 2026-08-29) |
+| Hollow embedding field maps — `PLANNED_EMBEDDING_MAPS` (4 DELAYED on 2026-08-30: `ENTRY_REPORT`, `ACTIVITY_REPORT`, `FORM_TEMPLATE`, `FORM_SUBMISSION`) | The EntryReport / ActivityReport search row above fires (the two report maps point at it), or a consumer wants form content in semantic search (the two form maps — no section, the registry reason is the one copy) | `./dev bloat` § Embedding field maps — every row is hollow by ruling; an unregistered hollow map already fails `--check` on its own. Wiring one = ADR-074's quartet, then delete its entry (the stale gate demands it) |
 
 **The document is the checklist, the table is a convenience:** a section added to this file
 without a matching row here is still in review scope — walk every `##` section, then the table.

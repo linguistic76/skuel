@@ -29,8 +29,15 @@ class MockGoal:
 
 @dataclass
 class MockHabit:
-    name: str
-    title: str | None = None
+    """Field names mirror the real ``Habit`` columns.
+
+    Same lesson as MockChoice: this mock carried a ``name`` field matching the
+    EMBEDDING_FIELD_MAPS entry rather than the model, and the phantom stayed
+    green here until the bloat detector's advisory phantom-field check found
+    it (2026-08-30). A habit's name IS ``title``.
+    """
+
+    title: str
     description: str | None = None
     cue: str | None = None
     reward: str | None = None
@@ -97,14 +104,13 @@ class TestBuildEmbeddingTextFromDict:
 
     def test_habit_with_all_fields(self):
         data = {
-            "name": "Morning run",
-            "title": "Exercise",
+            "title": "Morning run",
             "description": "Stay fit",
             "cue": "Wake up",
             "reward": "Energy",
         }
         result = build_embedding_text(EntityType.HABIT, data)
-        assert result == "Morning run\nExercise\nStay fit\nWake up\nEnergy"
+        assert result == "Morning run\nStay fit\nWake up\nEnergy"
 
     def test_event_with_all_fields(self):
         data = {
@@ -214,14 +220,13 @@ class TestBuildEmbeddingTextFromModel:
 
     def test_habit_model_with_all_fields(self):
         habit = MockHabit(
-            name="Morning run",
-            title="Exercise",
+            title="Morning run",
             description="Stay fit",
             cue="Wake up",
             reward="Energy",
         )
         result = build_embedding_text(EntityType.HABIT, habit)
-        assert result == "Morning run\nExercise\nStay fit\nWake up\nEnergy"
+        assert result == "Morning run\nStay fit\nWake up\nEnergy"
 
     def test_event_model_with_all_fields(self):
         event = MockEvent(title="Team meeting", description="Sprint planning", location="Office")
@@ -328,7 +333,7 @@ class TestSeparatorLogic:
         assert result == "A\nB\nC"
 
     def test_habit_uses_single_newline(self):
-        data = {"name": "A", "title": "B", "description": "C"}
+        data = {"title": "A", "description": "B", "cue": "C"}
         result = build_embedding_text(EntityType.HABIT, data)
         assert "\n\n" not in result
         assert result == "A\nB\nC"

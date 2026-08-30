@@ -27,6 +27,7 @@ from detect_bloat import (  # type: ignore[import-not-found]
     ROOT,
     BloatSeverity,
     DispatchKnowledge,
+    EmbeddingMapAnalysis,
     EventUniverse,
     EventUsageCollector,
     Finding,
@@ -37,6 +38,7 @@ from detect_bloat import (  # type: ignore[import-not-found]
     VultureScan,
     analyze_events,
     analyze_methods,
+    analyze_planned_embedding_maps,
     analyze_planned_templates,
     audit_blocked_by,
     build_parser,
@@ -45,11 +47,13 @@ from detect_bloat import (  # type: ignore[import-not-found]
     load_deferred_work_headings,
     measure_vulture_blind_spot,
     normalize_heading,
+    print_embedding_map_report,
     print_event_report,
     print_method_report,
     print_ready_report,
     print_summary,
     print_template_report,
+    read_entity_type_keys,
     run_vulture,
     summarize_planned_aging,
 )
@@ -692,6 +696,283 @@ def test_unreferenced_template_stays_planned(monkeypatch, tmp_path):
 
 
 # ============================================================================
+# EMBEDDING FIELD MAPS — PLANNED backlog over a DERIVED hollow set
+# ============================================================================
+
+# The model tree in miniature: a base that binds a member with a bare default
+# (as ``Entity`` does), concrete models binding theirs through ``field(...)``.
+MODELS_SRC = """
+class Entity:
+    uid: str
+    title: str
+    entity_type: EntityType = EntityType.KU
+    content: str | None = None
+    summary: str = ""
+
+class Report(Entity):
+    entity_type: EntityType = field(default=EntityType.ENTRY_REPORT, kw_only=True)
+    processed_content: str | None = None
+
+class Task(Entity):
+    entity_type: EntityType = field(default=EntityType.TASK, kw_only=True)
+    description: str | None = None
+"""
+
+MAPS_SRC = (
+    'EntityType.TASK: ("title", "description"),\n'
+    'EntityType.ENTRY_REPORT: ("title", "processed_content"),'
+)
+
+
+def _embedding_codebase(
+    field_maps: str = MAPS_SRC,
+    event_types: str = "EntityType.TASK: TaskEmbeddingRequested,",
+    models: str = MODELS_SRC,
+    *,
+    maps_module: str | None = None,
+) -> ParsedCodebase:
+    """The two dict literals and a model tree, parsed in place — nothing on disk.
+
+    ``maps_module`` replaces the whole field-map module source for the
+    reader's abort tests; otherwise the entries are wrapped in the live
+    annotated-assignment shape.
+    """
+    codebase = ParsedCodebase(ROOT)
+    codebase.production[ROOT / detect_bloat.EMBEDDING_MAPS_REL] = ast.parse(
+        maps_module
+        if maps_module is not None
+        else f"EMBEDDING_FIELD_MAPS: dict[EntityType, tuple[str, ...]] = {{\n{field_maps}\n}}\n"
+    )
+    codebase.production[ROOT / detect_bloat.EMBEDDING_EVENTS_REL] = ast.parse(
+        f"EMBEDDING_EVENT_TYPES = {{\n{event_types}\n}}\n"
+    )
+    codebase.production[ROOT / "core/models/synthetic_models.py"] = ast.parse(models)
+    return codebase
+
+
+def _kinds(analysis: EmbeddingMapAnalysis) -> list[tuple[str, str]]:
+    return [(f.kind, f.subject) for f in analysis.findings]
+
+
+def test_entity_type_keys_are_read_by_ast_with_their_lines():
+    codebase = _embedding_codebase()
+    keys = read_entity_type_keys(
+        codebase, detect_bloat.EMBEDDING_MAPS_REL, detect_bloat.EMBEDDING_MAPS_NAME
+    )
+    assert {member: key.line for member, key in keys.items()} == {"TASK": 2, "ENTRY_REPORT": 3}
+    # a bare (unannotated) assignment reads the same way
+    events = read_entity_type_keys(
+        codebase, detect_bloat.EMBEDDING_EVENTS_REL, detect_bloat.EMBEDDING_EVENTS_NAME
+    )
+    assert list(events) == ["TASK"]
+
+
+@pytest.mark.parametrize(
+    ("module_src", "error", "match"),
+    [
+        (None, FileNotFoundError, "not in the parsed production tree"),
+        ("OTHER = {}\n", ValueError, "defines no module-level"),
+        ("EMBEDDING_FIELD_MAPS = build_maps()\n", ValueError, "not a dict literal"),
+        ('EMBEDDING_FIELD_MAPS = {SOME_KEY: ("title",)}\n', ValueError, "not EntityType.<MEMBER>"),
+        ("EMBEDDING_FIELD_MAPS = {**OTHER}\n", ValueError, "not EntityType.<MEMBER>"),
+    ],
+)
+def test_dict_reader_aborts_on_any_shape_it_cannot_see_whole(module_src, error, match):
+    # A set the reader cannot see whole is one it can neither accuse nor
+    # exonerate — "zero hollow maps" over an unread dict is the lie the tier
+    # exists to prevent, so every such shape aborts (the deferred-work rule).
+    codebase = _embedding_codebase(maps_module=module_src or "")
+    if module_src is None:
+        del codebase.production[ROOT / detect_bloat.EMBEDDING_MAPS_REL]
+    with pytest.raises(error, match=match):
+        read_entity_type_keys(
+            codebase, detect_bloat.EMBEDDING_MAPS_REL, detect_bloat.EMBEDDING_MAPS_NAME
+        )
+
+
+def test_unregistered_hollow_map_is_a_warning_without_readiness_that_fails_the_gate(monkeypatch):
+    # ENTRY_REPORT has a map and no event class, and nobody has said that is
+    # intended: an accident and abandoned work look identical without a
+    # registration, which is provable absence (ruling 2, 2026-08-29).
+    monkeypatch.setattr(detect_bloat, "PLANNED_EMBEDDING_MAPS", {})
+    analysis = analyze_planned_embedding_maps(_embedding_codebase())
+    assert _kinds(analysis) == [("embedding-map-unregistered", "ENTRY_REPORT")]
+    (finding,) = analysis.findings
+    assert finding.severity is BloatSeverity.WARNING
+    assert finding.readiness is None  # about a map entry, not a registry entry
+    assert (finding.file, finding.line) == (detect_bloat.EMBEDDING_MAPS_REL, 3)
+    assert "register it (staged) or delete the map (abandoned)" in finding.detail
+    assert gate_fails(analysis.findings)
+
+
+def test_registered_hollow_map_stays_planned_with_its_row_at_the_map_line(monkeypatch):
+    monkeypatch.setattr(detect_bloat, "PLANNED_EMBEDDING_MAPS", {"ENTRY_REPORT": staged()})
+    analysis = analyze_planned_embedding_maps(_embedding_codebase())
+    assert _kinds(analysis) == [("embedding-map-awaiting-wiring", "ENTRY_REPORT")]
+    (row,) = analysis.findings
+    assert row.severity is BloatSeverity.PLANNED
+    assert row.readiness is Readiness.DELAYED
+    assert (row.file, row.line) == (detect_bloat.EMBEDDING_MAPS_REL, 3)
+    assert not gate_fails(analysis.findings)
+
+
+def test_stale_embedding_map_marking_when_the_map_entry_vanished(monkeypatch):
+    monkeypatch.setattr(
+        detect_bloat, "PLANNED_EMBEDDING_MAPS", {"ENTRY_REPORT": staged(), "GONE": staged()}
+    )
+    analysis = analyze_planned_embedding_maps(_embedding_codebase())
+    stale = [f for f in analysis.findings if f.kind == "planned-marking-stale"]
+    assert [(f.subject, f.severity, f.line) for f in stale] == [("GONE", BloatSeverity.WARNING, 0)]
+    assert "remove from PLANNED_EMBEDDING_MAPS" in stale[0].detail
+
+
+def test_registered_map_that_gained_an_event_class_is_masked_not_stale(monkeypatch):
+    # An event class is not a producer that passes the type — RESOURCE sits in
+    # the live event map with vault ingestion as its only producer. Became-live
+    # never gates (#1188's ruling holds in this tier too).
+    monkeypatch.setattr(
+        detect_bloat, "PLANNED_EMBEDDING_MAPS", {"TASK": staged(), "ENTRY_REPORT": staged()}
+    )
+    analysis = analyze_planned_embedding_maps(_embedding_codebase())
+    assert _kinds(analysis) == [
+        ("embedding-map-awaiting-wiring", "ENTRY_REPORT"),
+        ("planned-marking-masked", "TASK"),
+    ]
+    assert not [f for f in analysis.findings if f.kind == "planned-marking-stale"]
+    masked = next(f for f in analysis.findings if f.kind == "planned-marking-masked")
+    assert masked.severity is BloatSeverity.INFO
+    assert masked.readiness is Readiness.DELAYED
+    assert "not a producer" in masked.detail
+    assert not gate_fails(analysis.findings)
+
+
+def test_phantom_field_is_advisory_and_inherited_fields_are_not_phantom(monkeypatch):
+    # ``content`` / ``summary`` live on the base — real fields, whatever the
+    # writer does with them; ``outcome`` is on no class (the CHOICE bug's
+    # shape). Only the latter is reported, and only as INFO: a dict-only key
+    # is legitimate, so this can never be more than advisory.
+    monkeypatch.setattr(detect_bloat, "PLANNED_EMBEDDING_MAPS", {"ENTRY_REPORT": staged()})
+    codebase = _embedding_codebase(
+        'EntityType.TASK: ("title", "description"),\n'
+        'EntityType.ENTRY_REPORT: ("title", "content", "summary", "outcome"),'
+    )
+    analysis = analyze_planned_embedding_maps(codebase)
+    phantom = [f for f in analysis.findings if f.kind == "embedding-map-phantom-field"]
+    assert [(f.subject, f.severity, f.readiness, f.line) for f in phantom] == [
+        ("ENTRY_REPORT", BloatSeverity.INFO, None, 3)
+    ]
+    assert "['outcome']" in phantom[0].detail
+    assert any(note.startswith("ADVISORY") for note in phantom[0].annotations)
+    assert analysis.unexaminable == []
+    assert not gate_fails(analysis.findings)
+
+
+def test_phantom_check_unions_same_named_classes_and_counts_what_it_cannot_examine(monkeypatch):
+    monkeypatch.setattr(detect_bloat, "PLANNED_EMBEDDING_MAPS", {})
+    # Two classes bind TASK (a model and, say, its DTO): their fields are
+    # UNIONED — a wider set can only suppress a phantom report, never create
+    # one. ENTRY_REPORT binds no class at all, and KU's value is not a literal
+    # tuple: neither is examined, and both are counted (no silent caps).
+    models = (
+        MODELS_SRC.replace("EntityType.ENTRY_REPORT", "EntityType.OTHER") + "\nclass TaskDTO:\n"
+        "    entity_type: EntityType = EntityType.TASK\n"
+        "    extra: str = ''\n"
+    )
+    codebase = _embedding_codebase(
+        'EntityType.TASK: ("title", "extra"),\n'
+        'EntityType.ENTRY_REPORT: ("title", "outcome"),\n'
+        "EntityType.KU: KU_FIELDS,",
+        event_types=(
+            "EntityType.TASK: TaskEmbeddingRequested,\n"
+            "EntityType.ENTRY_REPORT: ReportEmbeddingRequested,\n"
+            "EntityType.KU: KuEmbeddingRequested,"
+        ),
+        models=models,
+    )
+    analysis = analyze_planned_embedding_maps(codebase)
+    assert analysis.findings == []
+    assert analysis.unexaminable == ["ENTRY_REPORT", "KU"]
+
+
+def test_blocker_note_rides_every_embedding_map_state(monkeypatch):
+    monkeypatch.setattr(
+        detect_bloat,
+        "PLANNED_EMBEDDING_MAPS",
+        {
+            "ENTRY_REPORT": blocked("Somewhere"),  # hollow, staged
+            "TASK": blocked("Somewhere"),  # gained an event class → masked
+            "GONE": blocked("Somewhere"),  # map entry vanished → stale
+        },
+    )
+    _assert_every_row_carries_the_note(
+        analyze_planned_embedding_maps(_embedding_codebase()).findings,
+        {"embedding-map-awaiting-wiring", "planned-marking-masked", "planned-marking-stale"},
+    )
+
+
+def test_embedding_map_report_prints_its_own_kinds_under_their_own_headings(capsys):
+    # An unlisted kind lands under its severity's generic heading — a WARNING
+    # that reads as "structurally dead" is a lie about what it is.
+    findings = [
+        _about("embedding-map-unregistered", BloatSeverity.WARNING, "HOLLOW", None),
+        _about("embedding-map-phantom-field", BloatSeverity.INFO, "PHANTOM", None),
+        _blocker_missing("POINTS_AT_NOTHING", Readiness.DELAYED),
+    ]
+    print_embedding_map_report(EmbeddingMapAnalysis(findings, []))
+    out = capsys.readouterr().out
+    assert detect_bloat.UNREGISTERED_TITLE in out
+    assert detect_bloat.PHANTOM_FIELD_TITLE in out
+    assert detect_bloat.BLOCKER_MISSING_TITLE in out
+    for subject in ("HOLLOW", "PHANTOM", "POINTS_AT_NOTHING"):
+        assert subject in out
+    assert "Structurally dead" not in out
+
+
+def test_summary_names_unregistered_hollow_maps_apart_from_structurally_dead(capsys):
+    dead = _about("event-never-published", BloatSeverity.WARNING, "x", None)
+    hollow = _about("embedding-map-unregistered", BloatSeverity.WARNING, "y", None)
+    print_summary([dead, hollow], ["events", "embedding_maps"])
+    assert "1 structurally-dead findings + 1 unregistered hollow embedding maps" in (
+        capsys.readouterr().out
+    )
+
+
+def test_ready_report_lists_a_ready_map_row_but_never_the_entry_less_kinds(capsys):
+    findings = [
+        _about(
+            "embedding-map-awaiting-wiring", BloatSeverity.PLANNED, "ready_map", Readiness.READY
+        ),
+        _about("embedding-map-unregistered", BloatSeverity.WARNING, "hollow_map", None),
+        _about("embedding-map-phantom-field", BloatSeverity.INFO, "phantom_map", None),
+    ]
+    print_ready_report([("PLANNED_EMBEDDING_MAPS", findings)])
+    out = capsys.readouterr().out
+    assert ": 1 READY" in out
+    assert "ready_map" in out
+    assert "hollow_map" not in out  # carries no readiness — not a READY entry in any state
+    assert "phantom_map" not in out
+
+
+def test_live_embedding_map_tier_is_clean(live_codebase):
+    # Sentinel over the live maps and registry: every hollow map is registered
+    # and every registered map is hollow (the registry annotates the derived
+    # set exactly), nothing is stale, nothing gates, and no map names a field
+    # its model lacks. A phantom here is either a map bug (fix the map — the
+    # HABIT/``name`` and CHOICE/``outcome`` class) or a deliberate dict-only
+    # key, in which case the map's comment says so and this pin lists it.
+    analysis = analyze_planned_embedding_maps(live_codebase)
+    by_kind: dict[str, list[str]] = {}
+    for finding in analysis.findings:
+        by_kind.setdefault(finding.kind, []).append(finding.subject)
+    assert sorted(by_kind.get("embedding-map-awaiting-wiring", [])) == sorted(
+        detect_bloat.PLANNED_EMBEDDING_MAPS
+    )
+    assert set(by_kind) == {"embedding-map-awaiting-wiring"}, by_kind
+    assert analysis.unexaminable == []
+    assert not gate_fails(analysis.findings)
+
+
+# ============================================================================
 # PLANNED-TIER AGING — backlog size + oldest staging decision (structured)
 # ============================================================================
 
@@ -784,6 +1065,7 @@ def test_live_registries_summarize_cleanly():
         ("PLANNED_EVENTS", detect_bloat.PLANNED_EVENTS),
         ("PLANNED_METHODS", detect_bloat.PLANNED_METHODS),
         ("PLANNED_TEMPLATES", detect_bloat.PLANNED_TEMPLATES),
+        ("PLANNED_EMBEDDING_MAPS", detect_bloat.PLANNED_EMBEDDING_MAPS),
     ]:
         for key, entry in registry.items():
             assert isinstance(entry, PlannedEntry), key
@@ -966,9 +1248,12 @@ def test_ready_aging_is_emitted_by_every_awaiting_wiring_site(monkeypatch, tmp_p
     monkeypatch.setattr(detect_bloat, "PLANNED_TEMPLATES", {"old_tpl": old})
     template_findings = analyze_planned_templates(_template_codebase(tmp_path, {}, ["old_tpl"]))
 
-    everything = event_findings + method_findings + template_findings
+    monkeypatch.setattr(detect_bloat, "PLANNED_EMBEDDING_MAPS", {"ENTRY_REPORT": old})
+    map_findings = analyze_planned_embedding_maps(_embedding_codebase()).findings
+
+    everything = event_findings + method_findings + template_findings + map_findings
     aging = sorted(f.subject for f in everything if f.kind == "planned-ready-aging")
-    assert aging == ["GammaOrphan", "in_scope", "old_tpl", "out_of_scope"]
+    assert aging == ["ENTRY_REPORT", "GammaOrphan", "in_scope", "old_tpl", "out_of_scope"]
     rows = sorted(f.subject for f in everything if f.severity is BloatSeverity.PLANNED)
     assert rows == aging  # beside, never instead
 
@@ -1181,7 +1466,11 @@ def test_blocker_missing_finding_carries_each_tier_subject_and_path():
     assert [(f.subject, f.file) for f in templates] == [
         ("tpl", f"{detect_bloat.TEMPLATES_DIR_REL}/tpl.md")
     ]
-    # a tier this helper was never taught fails loudly — PR-4's tier must extend it
+    maps = audit_blocked_by("PLANNED_EMBEDDING_MAPS", {"ENTRY_REPORT": blocked("Fake")}, headings)
+    assert [(f.subject, f.file) for f in maps] == [
+        ("ENTRY_REPORT", detect_bloat.EMBEDDING_MAPS_REL)
+    ]
+    # a tier this helper was never taught fails loudly — a fifth tier must extend it
     with pytest.raises(ValueError, match="unknown PLANNED tier"):
         audit_blocked_by("PLANNED_OTHER", {"k": blocked("Fake")}, headings)
 
@@ -1307,7 +1596,9 @@ def test_blocker_missing_prints_under_its_own_red_heading_in_every_printer(capsy
     method_out = capsys.readouterr().out
     print_template_report([dangling])
     template_out = capsys.readouterr().out
-    for out in (event_out, method_out, template_out):
+    print_embedding_map_report(EmbeddingMapAnalysis([dangling], []))
+    map_out = capsys.readouterr().out
+    for out in (event_out, method_out, template_out, map_out):
         assert detect_bloat.BLOCKER_MISSING_TITLE in out
         assert "waits" in out
     assert "Structurally dead events" not in event_out
@@ -1344,6 +1635,7 @@ def test_live_blocked_by_pointers_resolve_against_the_live_deferred_work():
         ("PLANNED_EVENTS", detect_bloat.PLANNED_EVENTS),
         ("PLANNED_METHODS", detect_bloat.PLANNED_METHODS),
         ("PLANNED_TEMPLATES", detect_bloat.PLANNED_TEMPLATES),
+        ("PLANNED_EMBEDDING_MAPS", detect_bloat.PLANNED_EMBEDDING_MAPS),
     ]:
         assert audit_blocked_by(tier, registry, headings) == [], tier
 

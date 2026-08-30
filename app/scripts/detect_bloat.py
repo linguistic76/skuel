@@ -13,8 +13,11 @@ Finds dead code that generic tools cannot express:
   relationship-registry method names, dispatch tables).
 - Prompt-template backlog: PLANNED_TEMPLATES entries with no render site
   (full report only).
+- Embedding field-map backlog: EMBEDDING_FIELD_MAPS entries whose type has no
+  event class in EMBEDDING_EVENT_TYPES — "hollow" maps, nothing builds text for
+  them — audited against PLANNED_EMBEDDING_MAPS (full report only).
 
-Scope is EXACTLY those three subjects. Dataclasses, fields, enum members, and
+Scope is EXACTLY those four subjects. Dataclasses, fields, enum members, and
 config knobs are never examined — a clean run is not evidence they are live.
 Inert fields are found by review, not by this tool.
 
@@ -29,22 +32,31 @@ Design rules (mirrors the SKUEL linter's structural-soundness discipline):
 - No silent caps: everything the analysis could not resolve is counted and
   printed in the Limitations section.
 - Unwired by intent is not bloat: staged work registered in PLANNED_EVENTS /
-  PLANNED_METHODS / PLANNED_TEMPLATES reports in its own PLANNED tier — a
-  visible completion to-do list that never fails --check. Exactly TWO things about
-  a registry entry fail it, both provable absence with no inference (ruled
-  2026-08-29): the subject is GONE — a key pointing at nothing is a lie about
-  the backlog — or its ``blocked_by`` pointer resolves to no deferred-work.md
-  heading — a pointer at nothing is the same lie about the blocker.
+  PLANNED_METHODS / PLANNED_TEMPLATES / PLANNED_EMBEDDING_MAPS reports in its
+  own PLANNED tier — a visible completion to-do list that never fails --check.
+  Exactly THREE things fail it, all provable absence with no inference (ruled
+  2026-08-29): a registry entry's subject is GONE — a key pointing at nothing
+  is a lie about the backlog; an entry's ``blocked_by`` pointer resolves to no
+  deferred-work.md heading — a pointer at nothing is the same lie about the
+  blocker; or a hollow embedding field map has NO registration at all — an
+  unregistered hollow map is indistinguishable from an accident, which is the
+  reason the registry exists.
   "It looks wired now" NEVER gates, in any tier. Every liveness engine in this
   module over-approximates by design — vulture matches by name, the template
   render collector is receiver-blind, publish resolution uses a file-scoped
-  variable index and class registries — because the safe-direction rule above
-  permits over-approximation only to SUPPRESS an accusation. Gating on such a
-  signal inverts that rule and fails --check on honest staged work, clearable
-  only by deleting the entry. So a became-live signal is reported as MASKED:
-  printed, never demanded. There is deliberately no
-  PLANNED_FIELDS: the PLANNED tiers stay honest only because stale keys are
-  audited, and there is no field scanner to audit with. Every entry is a
+  variable index and class registries, an event class in EMBEDDING_EVENT_TYPES
+  is not a producer that passes the type — because the safe-direction rule
+  above permits over-approximation only to SUPPRESS an accusation. Gating on
+  such a signal inverts that rule and fails --check on honest staged work,
+  clearable only by deleting the entry. So a became-live signal is reported as
+  MASKED: printed, never demanded. There is deliberately no PLANNED_FIELDS for
+  dataclass fields, enum members or config knobs: the PLANNED tiers stay honest
+  only because stale keys are audited, and there is no field scanner to audit
+  with. PLANNED_EMBEDDING_MAPS is the one field-shaped tier, and it is
+  auditable where a general field registry is not: its subject is a KEY of a
+  known dict literal, and the hollow set it annotates is DERIVED at run time
+  (``set(EMBEDDING_FIELD_MAPS) - set(EMBEDDING_EVENT_TYPES)``, both read by
+  AST) rather than copied. Every entry is a
   PlannedEntry: a Readiness (READY = the completing change is fully specified
   and no decision stands before it; DELAYED = waiting on a product decision
   or on a surface that does not exist yet), the reason, ``since`` — the
@@ -1029,6 +1041,60 @@ PLANNED_TEMPLATES: dict[str, PlannedEntry] = {
 
 TEMPLATES_DIR_REL = "core/prompts/templates"
 
+# The two dict literals the embedding-map tier reads by AST (never imported —
+# the events package is not loaded at lint time). Both are keyed by
+# ``EntityType.<MEMBER>`` and nothing else; that shape is the contract
+# ``read_entity_type_keys`` enforces.
+EMBEDDING_MAPS_REL = "core/utils/embedding_text_builder.py"
+EMBEDDING_MAPS_NAME = "EMBEDDING_FIELD_MAPS"
+EMBEDDING_EVENTS_REL = "core/events/embedding_publisher.py"
+EMBEDDING_EVENTS_NAME = "EMBEDDING_EVENT_TYPES"
+
+# What completes ANY hollow embedding map — the ADR-074 write-side quartet.
+# Shared by every entry below so the completion recipe has one copy.
+_EMBEDDING_QUARTET = (
+    "completing it is the ADR-074 quartet: an *EmbeddingRequested event class, "
+    "an EMBEDDING_EVENT_TYPES + EMBEDDING_NODE_LABELS entry, a post-persist "
+    "publish through publish_embedding_requested in the writer, and the worker "
+    "subscription"
+)
+_REPORT_EMBEDDING = PlannedEntry(
+    Readiness.DELAYED,
+    "report-tier field map with no event class — nothing builds text for it "
+    f"today; {_EMBEDDING_QUARTET}, once the report-search want fires (ruled "
+    "keep-and-register 2026-08-29)",
+    since=date(2026, 8, 29),
+    blocked_by="EntryReport / ActivityReport Search",
+)
+_FORMS_EMBEDDING = PlannedEntry(
+    Readiness.DELAYED,
+    "forms field map with no event class — FormSubmission.processed_content is "
+    "flattened 'for search/embedding' but no consumer wants form content in "
+    "semantic search and none is scheduled (no deferred-work section: this "
+    f"reason is the one copy of the why); {_EMBEDDING_QUARTET} (ruled "
+    "keep-and-register 2026-08-29)",
+    since=date(2026, 8, 29),
+)
+
+# EntityType MEMBER NAME → entry, for an EMBEDDING_FIELD_MAPS entry whose type
+# has no event class in EMBEDDING_EVENT_TYPES. Such a map is HOLLOW: it declares
+# what would be embedded, and nothing builds text for it (ADR-074's only
+# producers key on the event map). The hollow set is derived at run time from
+# the two dict literals; this registry ANNOTATES it, never copies it — so a
+# hollow map with no entry here is a WARNING (an accident or abandoned work,
+# and the two are indistinguishable without a registration), a registered key
+# whose map is gone is stale (WARNING), and a registered key whose type gained
+# an event class is masked (INFO — an event class is not a producer; RESOURCE
+# is in the event map and its only producer is vault ingestion). ``since`` is
+# the 2026-08-29 ruling for all four: before it no decision existed, which is
+# exactly why they were indistinguishable from accidents.
+PLANNED_EMBEDDING_MAPS: dict[str, PlannedEntry] = {
+    "ENTRY_REPORT": _REPORT_EMBEDDING,
+    "ACTIVITY_REPORT": _REPORT_EMBEDDING,
+    "FORM_TEMPLATE": _FORMS_EMBEDDING,
+    "FORM_SUBMISSION": _FORMS_EMBEDDING,
+}
+
 # Method findings are scoped to the service layer; the rest of the tree is
 # covered by the standalone vulture run at --min-confidence 90.
 METHOD_SCOPE = "core/services/"
@@ -1037,7 +1103,9 @@ METHOD_SCOPE = "core/services/"
 class BloatSeverity(Enum):
     """Finding tiers. Only WARNING can ever fail a --check run."""
 
-    WARNING = "warning"  # structurally dead, a stale PLANNED marking, or a dangling blocked_by
+    # structurally dead, a stale PLANNED marking, a dangling blocked_by, or an
+    # unregistered hollow embedding map
+    WARNING = "warning"
     UNVERIFIED = "unverified"  # constructed somewhere; publication untraceable
     INFO = "info"  # live but noteworthy (e.g. published, never subscribed)
     PLANNED = "planned"  # unwired by intent — a completion to-do, not bloat
@@ -1200,6 +1268,8 @@ def _planned_subject_site(tier: str, key: str) -> tuple[str, str]:
         return name, rel
     if tier == "PLANNED_TEMPLATES":
         return key, f"{TEMPLATES_DIR_REL}/{key}.md"
+    if tier == "PLANNED_EMBEDDING_MAPS":
+        return key, EMBEDDING_MAPS_REL
     raise ValueError(f"unknown PLANNED tier {tier!r} — teach _planned_subject_site its key shape")
 
 
@@ -2601,6 +2671,314 @@ def analyze_planned_templates(codebase: ParsedCodebase) -> list[Finding]:
 
 
 # ============================================================================
+# Embedding field maps — PLANNED backlog over a DERIVED hollow set
+# ============================================================================
+
+
+class EntityTypeKey(NamedTuple):
+    """One ``EntityType.X`` key of a dict literal: where it sits, and its value node."""
+
+    line: int
+    value: ast.expr
+
+
+def read_entity_type_keys(
+    codebase: ParsedCodebase, rel: str, name: str
+) -> dict[str, EntityTypeKey]:
+    """The ``EntityType.<MEMBER>`` keys of a module-level dict literal, by member name.
+
+    AST, never import: the events package is not loaded at lint time, and the
+    module's AST-only rule holds. The dict is a CONTRACT — every key is an
+    ``EntityType.<MEMBER>`` attribute access — so any other shape (module or
+    name missing from the parsed tree, a non-literal value, a computed key, a
+    ``**`` spread) ABORTS the run. A set the reader cannot see whole is one it
+    can neither accuse nor exonerate, and "zero hollow maps" over an unread
+    dict would be the lie the tier exists to prevent (the
+    ``load_deferred_work_headings`` rule: fail-fast applied to the tool).
+    """
+    tree = codebase.production.get(codebase.root / rel)
+    if tree is None:
+        raise FileNotFoundError(
+            f"{rel} is not in the parsed production tree — {name} cannot be read"
+        )
+    for node in tree.body:
+        target: str | None = None
+        value: ast.expr | None = None
+        if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+            target, value = node.target.id, node.value
+        elif (
+            isinstance(node, ast.Assign)
+            and len(node.targets) == 1
+            and isinstance(node.targets[0], ast.Name)
+        ):
+            target, value = node.targets[0].id, node.value
+        if target != name:
+            continue
+        if not isinstance(value, ast.Dict):
+            raise ValueError(f"{rel}::{name} is not a dict literal — its keys cannot be read")
+        keys: dict[str, EntityTypeKey] = {}
+        for key, item in zip(value.keys, value.values, strict=True):
+            if (
+                isinstance(key, ast.Attribute)
+                and isinstance(key.value, ast.Name)
+                and key.value.id == "EntityType"
+            ):
+                keys[key.attr] = EntityTypeKey(key.lineno, item)
+            else:
+                where = f"line {item.lineno}" if key is None else f"line {key.lineno}"
+                raise ValueError(
+                    f"{rel}::{name} has a key that is not EntityType.<MEMBER> ({where}) — "
+                    "the reader cannot see the set whole"
+                )
+        return keys
+    raise ValueError(f"{rel} defines no module-level {name}")
+
+
+def _entity_type_member(node: ast.expr | None) -> str | None:
+    """``EntityType.X`` → ``"X"``; anything else → None."""
+    if (
+        isinstance(node, ast.Attribute)
+        and isinstance(node.value, ast.Name)
+        and node.value.id == "EntityType"
+    ):
+        return node.attr
+    return None
+
+
+def _bound_entity_type(cls: ast.ClassDef) -> str | None:
+    """The member a class binds as its ``entity_type`` default, if any.
+
+    Two shapes, both in the model tree today: ``entity_type: EntityType =
+    EntityType.X`` (the ``Entity`` base) and ``entity_type: EntityType =
+    field(default=EntityType.X, kw_only=True)`` (every concrete model).
+    """
+    for stmt in cls.body:
+        if not (
+            isinstance(stmt, ast.AnnAssign)
+            and isinstance(stmt.target, ast.Name)
+            and stmt.target.id == "entity_type"
+        ):
+            continue
+        member = _entity_type_member(stmt.value)
+        if member is not None:
+            return member
+        if isinstance(stmt.value, ast.Call) and _base_name(stmt.value.func) == "field":
+            for keyword in stmt.value.keywords:
+                if keyword.arg == "default":
+                    return _entity_type_member(keyword.value)
+    return None
+
+
+class ModelFieldIndex:
+    """EntityType member name → every annotated field name on the model that binds it.
+
+    Built from the parsed production tree: a model is any class whose body
+    annotates ``entity_type`` with an ``EntityType.X`` default
+    (``_bound_entity_type``); its fields are its own annotated names plus
+    those of every class its bases name, resolved by terminal name across the
+    whole tree (``_base_name``) — so ``EntryReport`` sees ``Entity``'s
+    ``content`` and ``summary``. Where several classes bind one member
+    (``Entity`` itself defaults to ``EntityType.KU`` beside ``Ku``) or share a
+    base name, their fields are UNIONED, and ClassVar annotations count too:
+    over-approximation in the safe direction — a wider field set can only
+    SUPPRESS a phantom-field report, never create one.
+    """
+
+    def __init__(self, codebase: ParsedCodebase) -> None:
+        self._classes: dict[str, list[ast.ClassDef]] = defaultdict(list)
+        self._models: dict[str, list[ast.ClassDef]] = defaultdict(list)
+        self._codebase = codebase
+
+    def build(self) -> "ModelFieldIndex":
+        for tree in self._codebase.production.values():
+            for node in ast.walk(tree):
+                if isinstance(node, ast.ClassDef):
+                    self._classes[node.name].append(node)
+                    member = _bound_entity_type(node)
+                    if member is not None:
+                        self._models[member].append(node)
+        return self
+
+    def fields(self, member: str) -> frozenset[str] | None:
+        """None when no parsed class binds the member — unexaminable, not clean."""
+        roots = self._models.get(member)
+        if not roots:
+            return None
+        names: set[str] = set()
+        seen: set[int] = set()
+        stack = list(roots)
+        while stack:
+            cls = stack.pop()
+            if id(cls) in seen:
+                continue
+            seen.add(id(cls))
+            for stmt in cls.body:
+                if isinstance(stmt, ast.AnnAssign) and isinstance(stmt.target, ast.Name):
+                    names.add(stmt.target.id)
+            for base in cls.bases:
+                base_name = _base_name(base)
+                if base_name is not None:
+                    stack.extend(self._classes.get(base_name, []))
+        return frozenset(names)
+
+
+def _string_tuple(node: ast.expr) -> tuple[str, ...] | None:
+    """A literal tuple of string constants, or None for any other shape."""
+    if not isinstance(node, ast.Tuple):
+        return None
+    names: list[str] = []
+    for element in node.elts:
+        if not (isinstance(element, ast.Constant) and isinstance(element.value, str)):
+            return None
+        names.append(element.value)
+    return tuple(names)
+
+
+@dataclass
+class EmbeddingMapAnalysis:
+    """The tier's findings plus what its ADVISORY half could not examine."""
+
+    findings: list[Finding]
+    # Map keys whose EntityType no parsed class binds, or whose value is not a
+    # literal tuple of strings — the phantom-field check skipped them. Printed
+    # in Limitations, never hidden (no silent caps).
+    unexaminable: list[str]
+
+
+def analyze_planned_embedding_maps(codebase: ParsedCodebase) -> EmbeddingMapAnalysis:
+    """PLANNED_EMBEDDING_MAPS backlog over the DERIVED hollow set, plus one advisory.
+
+    The hollow set is ``set(EMBEDDING_FIELD_MAPS) - set(EMBEDDING_EVENT_TYPES)``,
+    both dict literals read by AST — a map with no event class has no
+    producer, so nothing builds text for it. Four kinds:
+
+    - registered key absent from the field map → ``planned-marking-stale``
+      (WARNING): the subject is GONE, proven by the same read that derives the
+      set.
+    - hollow member with NO registration → ``embedding-map-unregistered``
+      (WARNING, gates — ruled 2026-08-29): the one place a hollow map can be
+      declared intentional is this registry, so an undeclared one is an
+      accident or abandoned work, and provably so. It is about a map entry,
+      not a registry entry, so it carries NO readiness and never appears in
+      ``--ready``.
+    - registered key now in the event map → ``planned-marking-masked`` (INFO,
+      never stale): an event class is not a producer that passes the type —
+      RESOURCE is in the event map and its only producer is vault ingestion.
+    - ADVISORY, forever: ``embedding-map-phantom-field`` (INFO) — a mapped name
+      that is no annotated field of the bound model, bases included (the
+      CHOICE/``outcome`` class, which sat in the tree until a comment recorded
+      it). Never more than advisory because ``_get_field_value`` also reads
+      ingestion / Neo4j property dicts, so a dict-only key is legitimate; and
+      it is blind to the inverse — a field that EXISTS (inherited) but no
+      writer populates (EntryReport's ``content``) is a writer fact, found by
+      review.
+    """
+    field_maps = read_entity_type_keys(codebase, EMBEDDING_MAPS_REL, EMBEDDING_MAPS_NAME)
+    event_types = read_entity_type_keys(codebase, EMBEDDING_EVENTS_REL, EMBEDDING_EVENTS_NAME)
+    hollow = set(field_maps) - set(event_types)
+    results: list[Finding] = []
+    for member, note in sorted(PLANNED_EMBEDDING_MAPS.items()):
+        if member not in field_maps:
+            results.append(
+                Finding(
+                    kind="planned-marking-stale",
+                    severity=BloatSeverity.WARNING,
+                    subject=member,
+                    file=EMBEDDING_MAPS_REL,
+                    line=0,
+                    detail=(
+                        f"marked planned but {EMBEDDING_MAPS_NAME} no longer has an "
+                        f"EntityType.{member} entry — deleted or renamed; remove from "
+                        "PLANNED_EMBEDDING_MAPS"
+                    ),
+                    annotations=_blocker_note(note),
+                    readiness=note.readiness,
+                )
+            )
+        elif member in event_types:
+            results.append(
+                Finding(
+                    kind="planned-marking-masked",
+                    severity=BloatSeverity.INFO,
+                    subject=member,
+                    file=EMBEDDING_MAPS_REL,
+                    line=field_maps[member].line,
+                    detail=(
+                        f"still staged, liveness unverifiable — {EMBEDDING_EVENTS_NAME} now "
+                        f"carries EntityType.{member}, but an event class is not a producer "
+                        "that passes the type (RESOURCE's only producer is vault ingestion); "
+                        "KEEP the entry and verify a publish site by hand"
+                    ),
+                    annotations=_blocker_note(note),
+                    readiness=note.readiness,
+                )
+            )
+        else:
+            results.extend(
+                _with_ready_aging(
+                    note,
+                    Finding(
+                        kind="embedding-map-awaiting-wiring",
+                        severity=BloatSeverity.PLANNED,
+                        subject=member,
+                        file=EMBEDDING_MAPS_REL,
+                        line=field_maps[member].line,
+                        detail=f"unwired by intent — {note.reason}",
+                        annotations=_blocker_note(note),
+                        readiness=note.readiness,
+                    ),
+                )
+            )
+    results.extend(
+        Finding(
+            kind="embedding-map-unregistered",
+            severity=BloatSeverity.WARNING,
+            subject=member,
+            file=EMBEDDING_MAPS_REL,
+            line=field_maps[member].line,
+            detail=(
+                f"hollow field map — EntityType.{member} has no event class in "
+                f"{EMBEDDING_EVENTS_NAME} and no PLANNED_EMBEDDING_MAPS entry, so nothing "
+                "builds text for it and nothing says that is intended; register it "
+                "(staged) or delete the map (abandoned)"
+            ),
+        )
+        for member in sorted(hollow - set(PLANNED_EMBEDDING_MAPS))
+    )
+
+    models = ModelFieldIndex(codebase).build()
+    unexaminable: list[str] = []
+    for member, key in sorted(field_maps.items()):
+        fields = models.fields(member)
+        mapped = _string_tuple(key.value)
+        if fields is None or mapped is None:
+            unexaminable.append(member)
+            continue
+        phantoms = [name for name in mapped if name not in fields]
+        if phantoms:
+            results.append(
+                Finding(
+                    kind="embedding-map-phantom-field",
+                    severity=BloatSeverity.INFO,
+                    subject=member,
+                    file=EMBEDDING_MAPS_REL,
+                    line=key.line,
+                    detail=(
+                        f"maps {phantoms} but no annotated field of that name exists on the "
+                        f"model bound to EntityType.{member} (bases included) — on the model "
+                        "path the name contributes nothing (the CHOICE/'outcome' class)"
+                    ),
+                    annotations=[
+                        "ADVISORY — _get_field_value also reads ingestion / Neo4j property "
+                        "dicts, so a dict-only key is legitimate; verify by hand and record "
+                        "the verdict in the map's comment"
+                    ],
+                )
+            )
+    return EmbeddingMapAnalysis(results, unexaminable)
+
+
+# ============================================================================
 # PLANNED-tier aging — backlog size + oldest staging decision
 # ============================================================================
 
@@ -2726,7 +3104,8 @@ class _Partition(NamedTuple):
     """One tier's findings split for printing.
 
     The printers bucket by severity; the planned-marking kinds (stale, masked,
-    ready-aging, blocker-missing) are pulled out by NAME so each prints under
+    ready-aging, blocker-missing) and the embedding-map tier's two own kinds
+    (unregistered, phantom-field) are pulled out by NAME so each prints under
     its own heading instead of its severity's generic one — an INFO ready-aging
     finding under "published but never subscribed", or a WARNING blocker-missing
     under "structurally dead events", would be a lie about what it is.
@@ -2737,6 +3116,8 @@ class _Partition(NamedTuple):
     masked: list[Finding]
     ready_aging: list[Finding]
     blocker_missing: list[Finding]
+    unregistered: list[Finding]
+    phantom_field: list[Finding]
 
 
 def _partition(findings: list[Finding]) -> _Partition:
@@ -2745,6 +3126,8 @@ def _partition(findings: list[Finding]) -> _Partition:
     masked: list[Finding] = []
     ready_aging: list[Finding] = []
     blocker_missing: list[Finding] = []
+    unregistered: list[Finding] = []
+    phantom_field: list[Finding] = []
     for finding in findings:
         if finding.kind == "planned-marking-stale":
             stale.append(finding)
@@ -2754,9 +3137,15 @@ def _partition(findings: list[Finding]) -> _Partition:
             ready_aging.append(finding)
         elif finding.kind == "planned-blocker-missing":
             blocker_missing.append(finding)
+        elif finding.kind == "embedding-map-unregistered":
+            unregistered.append(finding)
+        elif finding.kind == "embedding-map-phantom-field":
+            phantom_field.append(finding)
         else:
             by_severity[finding.severity].append(finding)
-    return _Partition(by_severity, stale, masked, ready_aging, blocker_missing)
+    return _Partition(
+        by_severity, stale, masked, ready_aging, blocker_missing, unregistered, phantom_field
+    )
 
 
 BLOCKER_MISSING_TITLE = (
@@ -2950,6 +3339,35 @@ def print_template_report(findings: list[Finding]) -> None:
     _print_block(parts.blocker_missing, BLOCKER_MISSING_TITLE, color=Colors.RED)
 
 
+UNREGISTERED_TITLE = (
+    "Hollow embedding field maps with no PLANNED_EMBEDDING_MAPS entry — register or "
+    "delete; these FAIL --check"
+)
+PHANTOM_FIELD_TITLE = (
+    "Embedding field maps naming no field of their model — advisory, verify by hand"
+)
+
+
+def print_embedding_map_report(analysis: EmbeddingMapAnalysis) -> None:
+    if not analysis.findings:
+        return
+    print(f"\n{Colors.BOLD}🧭 Embedding field maps (PLANNED backlog){Colors.RESET}")
+    parts = _partition(analysis.findings)
+    _print_planned_blocks(parts.by_severity.get(BloatSeverity.PLANNED, []), parts.ready_aging)
+    _print_block(
+        parts.masked,
+        "Planned, liveness unverifiable — an event class is not a producer, KEEP the entry",
+    )
+    _print_block(
+        parts.stale,
+        "Stale planned markings — remove from PLANNED_EMBEDDING_MAPS; these FAIL --check",
+        color=Colors.RED,
+    )
+    _print_block(parts.unregistered, UNREGISTERED_TITLE, color=Colors.RED)
+    _print_block(parts.phantom_field, PHANTOM_FIELD_TITLE, color=Colors.CYAN)
+    _print_block(parts.blocker_missing, BLOCKER_MISSING_TITLE, color=Colors.RED)
+
+
 def print_ready_report(examined: list[tuple[str, list[Finding]]]) -> None:
     """``--ready``: the READY slice of every examined tier and nothing else.
 
@@ -2986,13 +3404,14 @@ def print_summary(findings: list[Finding], ran: list[str]) -> None:
     warnings = [f for f in findings if f.severity is BloatSeverity.WARNING]
     stale = [f for f in warnings if f.kind == "planned-marking-stale"]
     dangling = [f for f in warnings if f.kind == "planned-blocker-missing"]
+    unregistered = [f for f in warnings if f.kind == "embedding-map-unregistered"]
     planned = [f for f in findings if f.severity is BloatSeverity.PLANNED]
     ready_aging = [f for f in findings if f.kind == "planned-ready-aging"]
     other = len(findings) - len(warnings) - len(planned) - len(ready_aging)
     aging_note = f", {len(ready_aging)} READY over {READY_AGING_DAYS} days" if ready_aging else ""
     print(f"\n{Colors.BOLD}{'=' * 78}{Colors.RESET}")
     if warnings:
-        dead_count = len(warnings) - len(stale) - len(dangling)
+        dead_count = len(warnings) - len(stale) - len(dangling) - len(unregistered)
         parts = []
         if dead_count:
             parts.append(f"{dead_count} structurally-dead findings")
@@ -3000,6 +3419,8 @@ def print_summary(findings: list[Finding], ran: list[str]) -> None:
             parts.append(f"{len(stale)} stale PLANNED markings")
         if dangling:
             parts.append(f"{len(dangling)} dangling blocked_by pointers")
+        if unregistered:
+            parts.append(f"{len(unregistered)} unregistered hollow embedding maps")
         print(
             f"{Colors.YELLOW}{' + '.join(parts)} "
             f"(+{other} unverified/info, {len(planned)} planned{aging_note}). "
@@ -3023,13 +3444,28 @@ def print_limitations(
     codebase: ParsedCodebase,
     usage: EventUsage | None,
     methods: MethodAnalysis | None,
+    embedding: EmbeddingMapAnalysis | None,
 ) -> None:
     print(f"\n{Colors.BOLD}📏 Limitations (read before acting on findings){Colors.RESET}")
     print(
-        "  - Scope: event lifecycle, service-method liveness, and prompt-template "
-        "wiring ONLY. Dataclasses, fields, enum members, and config knobs are "
-        "never examined — a clean run is NOT evidence those are live."
+        "  - Scope: event lifecycle, service-method liveness, prompt-template "
+        "wiring, and embedding field maps ONLY. Dataclasses, fields, enum members, "
+        "and config knobs are never examined — a clean run is NOT evidence those are live."
     )
+    if embedding is not None:
+        print(
+            "  - Embedding field maps: a phantom-field report is ADVISORY — "
+            "_get_field_value also reads ingestion / Neo4j property dicts, so a "
+            "dict-only key is legitimate, and a field that exists but no writer "
+            "populates is invisible to a name check."
+            + (
+                f" {len(embedding.unexaminable)} map entries could not be examined "
+                f"(no parsed model binds the type, or the value is not a literal tuple): "
+                f"{', '.join(embedding.unexaminable)}."
+                if embedding.unexaminable
+                else ""
+            )
+        )
     if usage is not None:
         print(
             f"  - {len(usage.unresolved_publishes)} publish and "
@@ -3102,7 +3538,7 @@ def main() -> int:
 
     check_events = not args.methods_only
     check_methods = not args.events_only
-    # The three per-analysis reports print only in the default text mode.
+    # The per-analysis reports print only in the default text mode.
     full_report = not args.as_json and not args.ready_only
 
     # --json and --ready both reserve stdout for the requested shape — the
@@ -3132,6 +3568,7 @@ def main() -> int:
     examined: list[tuple[str, list[Finding]]] = []
     usage: EventUsage | None = None
     methods: MethodAnalysis | None = None
+    embedding: EmbeddingMapAnalysis | None = None
 
     if check_events:
         universe = EventUniverse(codebase)
@@ -3156,8 +3593,9 @@ def main() -> int:
         if full_report:
             print_method_report(methods, args.verbose)
 
-    # Prompt-template backlog rides the FULL report only — the scoped
-    # --events-only / --methods-only modes isolate their own analysis.
+    # The prompt-template and embedding-map backlogs ride the FULL report only
+    # — the scoped --events-only / --methods-only modes isolate their own
+    # analysis.
     if check_events and check_methods:
         template_findings = analyze_planned_templates(codebase)
         template_findings.extend(audit_blocked_by("PLANNED_TEMPLATES", PLANNED_TEMPLATES, headings))
@@ -3166,9 +3604,18 @@ def main() -> int:
         if full_report:
             print_template_report(template_findings)
 
+        embedding = analyze_planned_embedding_maps(codebase)
+        embedding.findings.extend(
+            audit_blocked_by("PLANNED_EMBEDDING_MAPS", PLANNED_EMBEDDING_MAPS, headings)
+        )
+        findings.extend(embedding.findings)
+        examined.append(("PLANNED_EMBEDDING_MAPS", embedding.findings))
+        if full_report:
+            print_embedding_map_report(embedding)
+
     # Aging summaries follow the same scoping as the analyses: each mode
-    # reports only the registries it examined (templates ride the full
-    # report, mirroring the analyze_planned_templates gate above).
+    # reports only the registries it examined (templates and embedding maps
+    # ride the full report, mirroring the gate above).
     aging: list[PlannedAging] = []
     if check_events:
         aging.append(summarize_planned_aging("PLANNED_EVENTS", PLANNED_EVENTS))
@@ -3176,6 +3623,7 @@ def main() -> int:
         aging.append(summarize_planned_aging("PLANNED_METHODS", PLANNED_METHODS))
     if check_events and check_methods:
         aging.append(summarize_planned_aging("PLANNED_TEMPLATES", PLANNED_TEMPLATES))
+        aging.append(summarize_planned_aging("PLANNED_EMBEDDING_MAPS", PLANNED_EMBEDDING_MAPS))
 
     if args.as_json:
         print(json.dumps(json_document(findings, aging), indent=2))
@@ -3184,7 +3632,7 @@ def main() -> int:
             print_ready_report(examined)
         print_planned_aging(aging)
         if full_report:
-            print_limitations(codebase, usage, methods)
+            print_limitations(codebase, usage, methods, embedding)
         print_summary(findings, [tier.removeprefix("PLANNED_").lower() for tier, _ in examined])
 
     if args.check:

@@ -29,7 +29,7 @@ When the content is stable and you want semantic search, recommendation, and AI 
 
 ### 3. Cost is a design constraint, not a bug
 
-Running 16 entity types through `text-embedding-3-small` (ADR-068; BGE staged as the long-term swap) at scale is cheap but not free. More importantly, LLM calls for feedback generation, Askesis conversations, and content enrichment add up. The Analog layer gives you a $0 operating cost floor. You choose when to spend.
+Running every embeddable entity type (the `EMBEDDING_EVENT_TYPES` keys) through `text-embedding-3-small` (ADR-068; BGE staged as the long-term swap) at scale is cheap but not free. More importantly, LLM calls for feedback generation, Askesis conversations, and content enrichment add up. The Analog layer gives you a $0 operating cost floor. You choose when to spend.
 
 ### 4. Testability
 
@@ -122,5 +122,5 @@ When switching from Digital back to Analog, nothing is lost. Existing embeddings
 | `core/services/intelligence_tier_service.py` | Per-user tier gate consumed by the AI routes |
 | `core/services/base_analytics_service.py` | Analog intelligence base (no AI deps) |
 | `core/services/base_ai_service.py` | Digital intelligence base (requires LLM + embeddings) |
-| `core/utils/embedding_text_builder.py` | Field mappings for 16 content-bearing entity types |
+| `core/utils/embedding_text_builder.py` | Field mappings per content-bearing entity type (`EMBEDDING_FIELD_MAPS` — its keys are the list; a map with no event class is hollow and registered in the bloat detector's `PLANNED_EMBEDDING_MAPS`) |
 | `core/services/background/embedding_worker.py` | Event-driven embedding (only starts in Digital mode) |
