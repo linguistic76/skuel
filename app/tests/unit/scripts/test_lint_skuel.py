@@ -6855,6 +6855,74 @@ class TestSKUEL034:
         violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
         assert [v.rule_id for v in violations] == ["SKUEL034"]
 
+    def test_chained_concatenation_is_flattened(self) -> None:
+        """`"a:" + "b:" + uid` nests BinOps — inspecting only the outer node's
+        two immediate sides found neither the literal nor the uid (Codex, #1194)."""
+        content = (
+            "def f(entity_uid: str) -> bool:\n"
+            '    return "tech" in "prefix:" + "kind:" + entity_uid\n'
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"]
+
+    def test_chained_collection_concat_stays_legal(self) -> None:
+        """Flattening must not lose the string-literal gate: three uid lists
+        concatenated are still a collection."""
+        content = (
+            "def f(a_uids: list[str], b_uids: list[str], c_uids: list[str]) -> bool:\n"
+            '    return "ku.a" in a_uids + b_uids + c_uids\n'
+        )
+        assert lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC) == []
+
+    def test_surplus_format_arguments_are_not_flagged(self) -> None:
+        """A uid the template never renders reaches no output, and a false
+        positive on an ERROR rule blocks CI (Codex, #1194)."""
+        content = (
+            "def f(entity_uid: str) -> bool:\n"
+            '    a = "constant" in "constant".format(entity_uid)\n'
+            '    b = "x" in "{name}".format(name="x", other=entity_uid)\n'
+            "    return a or b\n"
+        )
+        assert lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC) == []
+
+    def test_narrowing_still_catches_rendered_fields(self) -> None:
+        """The narrowing must not hide a uid the template DOES render — by
+        position, by explicit index, and by keyword."""
+        content = (
+            "def f(name: str, ku_uid: str, a_uid: str, b_uid: str) -> bool:\n"
+            '    a = "tech" in "{} {}".format(name, ku_uid)\n'
+            '    b = "tech" in "{1}".format(name, a_uid)\n'
+            '    c = "tech" in "{u}".format(u=b_uid, unused=name)\n'
+            "    return a or b or c\n"
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"] * 3
+
+    def test_starred_arguments_fall_back_to_scanning_all(self) -> None:
+        """A starred argument breaks the positional indexing the template maps
+        onto, so the narrowing is skipped rather than applied wrongly."""
+        content = 'def f(ku_uids: list[str]) -> bool:\n    return "tech" in "{}".format(*ku_uids)\n'
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"]
+
+    def test_non_literal_template_scans_all_arguments(self) -> None:
+        """`tmpl.format(uid)` cannot be read statically — stay conservative."""
+        content = (
+            "def f(tmpl: str, entity_uid: str) -> bool:\n"
+            '    return "tech" in tmpl.format(entity_uid)\n'
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"]
+
+    def test_nested_format_spec_field_counts_as_rendered(self) -> None:
+        """A field inside a format SPEC (`"{:{w}}"`) renders too."""
+        content = (
+            "def f(width: int, entity_uid: str) -> bool:\n"
+            '    return "tech" in "{:{w}}".format(width, w=entity_uid)\n'
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"]
+
     def test_serializing_a_non_uid_collection_is_legal(self) -> None:
         """The rule is still about uids — `str()` alone does not make it fire."""
         content = 'def f(titles: list[str]) -> bool:\n    return "revision" in str(titles)\n'

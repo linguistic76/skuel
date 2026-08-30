@@ -78,6 +78,7 @@ import ast
 import io
 import itertools
 import re
+import string
 import subprocess
 import sys
 import time
@@ -1183,10 +1184,22 @@ positives, and a false positive on an ERROR rule blocks CI. So the set is finite
 deliberately so: this rule is a GUARD against the shape that has no legitimate form, not
 a proof that no uid can ever reach an `in`.
 
-Note the two string-construction gates, which are load-bearing rather than incidental:
-`%`/`+` are only treated as string building when one side is a string literal. Without
-that gate `"x" in (ku_uids + lp_uids)` — LIST concatenation followed by ordinary
-membership — would be flagged, and `%` on numbers is modulo.
+Note the gates, which are load-bearing rather than incidental. `%`/`+` count as string
+building only when one LEAF is a string literal — the check runs over the FLATTENED
+operand tree, because `"a:" + "b:" + uid` nests BinOps and neither immediate side of the
+outer node is the literal or the uid. Without the literal gate,
+`"x" in (a_uids + b_uids)` — list concatenation followed by ordinary membership — would
+be flagged, and `%` on numbers is modulo.
+
+And `str.format` on a LITERAL template is NARROWED to the arguments the template actually
+renders: `"constant".format(uid)` and `"{name}".format(name="x", other=uid)` render no
+uid, so flagging them would be a false positive on an ERROR rule — the direction that
+blocks CI. The narrowing is skipped, not guessed, whenever it cannot be trusted: a
+non-literal template, a `*args`/`**kwargs` spread (which breaks the positional indexing
+the template maps onto), or a template that will not parse. Falling back
+over-approximates, which for a NARROWING is the safe direction — it can only re-include
+an argument, never hide one. `join`/`dumps`/`pformat` are never narrowed; they render
+everything they are given.
 
 DELIBERATELY OUT OF SCOPE — prefix and segment reads. `uid.startswith(prefix)` and
 `uid.split(".")[1]` cannot be judged without knowing what the branch does with the answer,
@@ -5718,6 +5731,94 @@ class SkuelLinter:
         {"format", "join", "dumps", "pformat"}
     )
 
+    @staticmethod
+    def _format_template_fields(template: str) -> tuple[set[int], set[str]] | None:
+        """Positional indices and keyword names a format template RENDERS.
+
+        `"constant".format(uid)` renders nothing, and
+        `"{name}".format(name="x", other=uid)` renders only `name` — flagging
+        either would be a false positive on an ERROR rule, which blocks CI
+        (Codex, #1194). Returns None when the template will not parse, and the
+        caller then falls back to scanning every argument.
+        """
+        positional: set[int] = set()
+        keywords: set[str] = set()
+        auto_index = 0
+        # A format spec can itself hold fields (`"{:{width}}"`), and the top-level
+        # parse does not descend into them.
+        pending = [template]
+        try:
+            while pending:
+                for _, field_name, spec, _ in string.Formatter().parse(pending.pop()):
+                    if spec:
+                        pending.append(spec)
+                    if field_name is None:
+                        continue
+                    base = re.split(r"[.\[]", field_name, maxsplit=1)[0]
+                    if base == "":
+                        positional.add(auto_index)
+                        auto_index += 1
+                    elif base.isdigit():
+                        positional.add(int(base))
+                    else:
+                        keywords.add(base)
+        except ValueError, IndexError:
+            return None
+        return positional, keywords
+
+    @classmethod
+    def _rendered_arguments(cls, node: ast.Call) -> tuple[list[ast.expr], list[ast.keyword]]:
+        """The arguments of a rendering call that actually reach its output.
+
+        Only `str.format` on a LITERAL template can be narrowed: its template
+        says which fields render, so a surplus argument
+        (`"constant".format(uid)`) is genuinely inert and must not be flagged.
+        `join` / `dumps` / `pformat` render everything they are given, and a
+        non-literal template (`tmpl.format(uid)`) cannot be read statically —
+        both keep the full argument list.
+
+        `*args` / `**kwargs` also fall back to the full list: a starred argument
+        breaks the positional indexing the template maps onto, so narrowing
+        under one would drop real arguments. Falling back over-approximates,
+        which is the safe direction for a NARROWING (it can only re-include an
+        argument, never hide one).
+        """
+        func = node.func
+        if not (isinstance(func, ast.Attribute) and func.attr == "format"):
+            return list(node.args), list(node.keywords)
+        template_node = func.value
+        if not (isinstance(template_node, ast.Constant) and isinstance(template_node.value, str)):
+            return list(node.args), list(node.keywords)
+        if any(isinstance(arg, ast.Starred) for arg in node.args) or any(
+            kw.arg is None for kw in node.keywords
+        ):
+            return list(node.args), list(node.keywords)
+
+        fields = cls._format_template_fields(template_node.value)
+        if fields is None:
+            return list(node.args), list(node.keywords)
+        positional, keywords = fields
+        return (
+            [arg for index, arg in enumerate(node.args) if index in positional],
+            [kw for kw in node.keywords if kw.arg in keywords],
+        )
+
+    @classmethod
+    def _flatten_string_operands(cls, node: ast.expr) -> list[ast.expr]:
+        """Leaves of a chained `+` / `%` expression, tuple elements included.
+
+        `"a:" + "b:" + uid` nests BinOps, so inspecting only the outer node's two
+        immediate sides finds neither the string literal nor the uid (Codex,
+        #1194). Flattening makes chain length irrelevant.
+        """
+        if isinstance(node, ast.BinOp) and isinstance(node.op, (ast.Mod, ast.Add)):
+            return cls._flatten_string_operands(node.left) + cls._flatten_string_operands(
+                node.right
+            )
+        if isinstance(node, ast.Tuple):
+            return [leaf for elt in node.elts for leaf in cls._flatten_string_operands(elt)]
+        return [node]
+
     @classmethod
     def _resolve_uid_operand(cls, node: ast.expr) -> tuple[str | None, bool]:
         """Identify a membership test's right-hand side: (name, was_serialized).
@@ -5730,6 +5831,12 @@ class SkuelLinter:
         """
         serialized = False
         while True:
+            # `*uids` inside a rendering call — the star is not itself a
+            # conversion (the enclosing call supplies that), it just wraps the
+            # operand the caller is spreading.
+            if isinstance(node, ast.Starred):
+                node = node.value
+                continue
             # `.lower()` / `.strip()` — a re-spelling, not a conversion.
             if (
                 isinstance(node, ast.Call)
@@ -5765,7 +5872,8 @@ class SkuelLinter:
                 and isinstance(node.func, ast.Attribute)
                 and node.func.attr in cls.UID_SERIALIZER_METHODS
             ):
-                for arg in [*node.args, *(kw.value for kw in node.keywords)]:
+                args, keywords = cls._rendered_arguments(node)
+                for arg in [*args, *(kw.value for kw in keywords)]:
                     inner, _ = cls._resolve_uid_operand(arg)
                     if cls._is_uid_name(inner):
                         return inner, True
@@ -5776,19 +5884,17 @@ class SkuelLinter:
             # uids_b)` (list concatenation, then ordinary membership) would be
             # flagged, and `%` on numbers is modulo, not formatting.
             if isinstance(node, ast.BinOp) and isinstance(node.op, (ast.Mod, ast.Add)):
-                sides = (node.left, node.right)
+                # Flattened, so `"a:" + "b:" + uid` and `"%s/%s" % (a_uid, b_uid)`
+                # are the same shape as the two-leaf case.
+                leaves = cls._flatten_string_operands(node)
                 if not any(
-                    (isinstance(s, ast.Constant) and isinstance(s.value, str))
-                    or isinstance(s, ast.JoinedStr)
-                    for s in sides
+                    (isinstance(leaf, ast.Constant) and isinstance(leaf.value, str))
+                    or isinstance(leaf, ast.JoinedStr)
+                    for leaf in leaves
                 ):
                     break
-                # `"%s/%s" % (a_uid, b_uid)` passes its values as a tuple.
-                candidates: list[ast.expr] = []
-                for side in sides:
-                    candidates.extend(side.elts if isinstance(side, ast.Tuple) else [side])
-                for candidate in candidates:
-                    inner, _ = cls._resolve_uid_operand(candidate)
+                for leaf in leaves:
+                    inner, _ = cls._resolve_uid_operand(leaf)
                     if cls._is_uid_name(inner):
                         return inner, True
                 return None, True
