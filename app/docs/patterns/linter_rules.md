@@ -88,6 +88,7 @@ warnings without failing, which is the on-ramp for prototyping a new rule.
 | **SKUEL030** | Unregistered label / relationship type in persistence Cypher | Register it in `NeoLabel` / `RelationshipName`, or fix the name (AST rule, docstring-aware) |
 | **SKUEL031** | Stale pip references (`pip/pip3 install\|uninstall\|freeze`, `python -m pip`, incl. `uv pip install`) | SKUEL is lockfile-managed by uv — `uv add` / `uv sync` / `uv remove` / `uv export`; the `pip-audit` tool name is not caught |
 | **SKUEL033** | A docstring in `core/services/`, `core/orchestrator/`, `core/ports/`, `core/models/` that *opens* with a Cypher clause, or *hosts* a query (≥2 clause-leading lines) | State intent and the guarantee; mechanism belongs in the backend docstring (AST rule, shares SKUEL021's head anchor; `core/utils/` excluded by the same table it enforces) |
+| **SKUEL034** | A string-literal membership test against a *singular* uid (`"tech" in knowledge_uid.lower()`) | Read the field that carries the fact — `entity_type`, the Neo4j label, `sel_category`, or the edge (AST rule, ADR-013 never-sniff; collections, `startswith`, and `split` are out of scope) |
 
 ## Inline Suppression
 
@@ -101,7 +102,7 @@ route_count = len(app.routes) if hasattr(app, "routes") else 0  # skuel-lint: di
 # skuel-lint: disable-file=SKUEL005 -- Cache service, raw values not Result[T]
 ```
 
-**Supported rules:** SKUEL005, SKUEL011, SKUEL012, SKUEL013, SKUEL014, SKUEL015, SKUEL017, SKUEL018, SKUEL019, SKUEL020, SKUEL021, SKUEL022, SKUEL023, SKUEL024, SKUEL025, SKUEL027, SKUEL028, SKUEL029, SKUEL030, SKUEL032, SKUEL033 — the `SUPPRESSIBLE_RULES` set in `lint_skuel.py`. `TestSuppressibleRulesDrift` pins that *set* to the checkers' suppression-helper call sites; it does not pin this list to the set (SKUEL033 was missing here for a month) — the list-side pin is registered in `docs/roadmap/deferred-work.md` § Catalog Copies in Code. A comment naming any other rule does nothing and is flagged by SKUEL026.
+**Supported rules:** SKUEL005, SKUEL011, SKUEL012, SKUEL013, SKUEL014, SKUEL015, SKUEL017, SKUEL018, SKUEL019, SKUEL020, SKUEL021, SKUEL022, SKUEL023, SKUEL024, SKUEL025, SKUEL027, SKUEL028, SKUEL029, SKUEL030, SKUEL032, SKUEL033, SKUEL034 — the `SUPPRESSIBLE_RULES` set in `lint_skuel.py`. `TestSuppressibleRulesDrift` pins that *set* to the checkers' suppression-helper call sites; it does not pin this list to the set (SKUEL033 was missing here for a month) — the list-side pin is registered in `docs/roadmap/deferred-work.md` § Catalog Copies in Code. A comment naming any other rule does nothing and is flagged by SKUEL026.
 
 **SKUEL017** additionally recognizes `# intentional-broad: <reason>` and `# safety-net: <reason>` (anywhere in the except-clause header, or the line above — both survive formatter wrapping).
 
@@ -800,6 +801,28 @@ branch before writing the word.
 - `# skuel-lint: disable=SKUEL033 -- <reason>` (line, on the docstring)
 - `# skuel-lint: disable-file=SKUEL033 -- <reason>` (file)
 
+## Rule: SKUEL034 - Never Sniff Entity Kind From a UID
+
+**Pattern:** A string-literal membership test against a **singular** uid — `"tech" in knowledge_uid.lower()`, `"draft" not in entity_uid`, and the same through a `.lower()` / `.upper()` / `.strip()` / `.casefold()` unwrap. ADR-013 (Addendum) and `CURRICULUM_GROUPING_PATTERNS.md` § Two Sanctioned UID Forms both state the rule: **UID spelling is provenance, not type information.** Entity kind comes from the label, `entity_type`, or the edge.
+
+**Why it exists:** the rule was prose-only, and it failed. `UserLearningIntelligence._get_knowledge_domain` grouped a user's masteries "by domain" with `"tech"` / `"python"` / `"finance"` substring tests, inventing a `Domain` no entity carries. Because every mastery fell into one bucket, the two readings built on it were constant-valued. It survived from the initial commit to 2026-08-27 (#1170) — including a separator arc that saw it (#1055) and left it as "residue for a ruling". This rule is that ruling made runnable.
+
+**The singular/plural line is structural, not a list.** `"ku.a.b" in ku_uids` is membership in a *collection* and is correct, ordinary code. The operand is matched by name — exactly `uid`, or a `_uid` suffix — and `_uids` does not end in `_uid`, so the plural is excluded by the shape of the test rather than by an exception list that would need maintaining.
+
+**Deliberately out of scope: prefix and segment reads.** `uid.startswith(prefix)` and `uid.split(".")[1]` cannot be judged without knowing what the branch does with the answer, which is flow analysis this linter does not do. All four live sites are sanctioned and say so in their own docstrings — `parse_calendar_item_uid` (parses a wire format the app itself mints), `_extract_label_from_uid` (a fast path whose miss falls back to the DB, so it is never a wrong answer), and `_table_domain` + its caller (hardcoded table literals). Covering them would buy four suppressions and no findings. The rule takes the shape with no legitimate form and leaves the contextual ones to review; the sanctioned-site table lives in `CURRICULUM_GROUPING_PATTERNS.md`.
+
+**Tests are out of scope, and the corpus says why.** The only two hits anywhere are `assert "user_charlie" not in dto.uid` and `assert "text-embedding-" not in uid` — both pinning what a UID *generator* must not emit. Asserting on uid content is how you test the generator; branching on it in production is the bug.
+
+**Measured at introduction:** zero hits in `core/`, `adapters/`, `ui/`, `scripts/`, `services_bootstrap/`. The zero is *earned* — #1170 deleted the last violation — not bought with suppressions, of which the rule needs none.
+
+**Guard test:** `tests/unit/scripts/test_lint_skuel.py::TestSKUEL034` — the #1170 shape verbatim (three violations across two lines), `not in`, attribute operands, the case-unwrap escape, and the four negatives that define the boundary: uid collections, `startswith`/`split`, non-uid names, and the test-tree exemption. Because the tree measures zero, these fixtures are the only thing separating a working rule from a dead one.
+
+**Fix:** read the field that carries the fact. A mastery's subject area is `Mastery.sel_category`; an entity's kind is `entity_type` or its Neo4j label; a relationship's meaning is the edge. If no field carries it, the fact does not exist yet — add it to the model rather than encoding it in a string.
+
+**Suppression:**
+- `# skuel-lint: disable=SKUEL034 -- <reason>` (line)
+- `# skuel-lint: disable-file=SKUEL034 -- <reason>` (file)
+
 ## Rule: SKUEL024 - No cls= / **kwargs Collision in FT Helpers
 
 **Pattern:** A UI/FT helper that hardcodes a `cls=` keyword **and** splats `**kwargs` into the same call, without declaring an explicit `cls` parameter, is a latent crash. When any caller passes `cls=`, that value lands in `**kwargs` and collides with the hardcoded keyword: `TypeError: <fn>() got multiple values for keyword argument 'cls'`.
@@ -1245,4 +1268,4 @@ The linter automatically excludes certain files from specific rules. Per-file ex
 ---
 
 **Last Updated:** 2026-08-07
-**Status:** Active - 32 rules (SKUEL001–SKUEL033; SKUEL004 deleted 2026-07, IDs not renumbered) enforcing SKUEL architectural patterns, unified inline suppression via `# skuel-lint: disable=SKUELXXX` with a per-run unused-suppression audit (SKUEL026). Files are parsed ONCE per run — `_lint_file` hands a shared AST to every tree-based rule. Unit tests cover both linters.
+**Status:** Active - 33 rules (SKUEL001–SKUEL034; SKUEL004 deleted 2026-07, IDs not renumbered) enforcing SKUEL architectural patterns, unified inline suppression via `# skuel-lint: disable=SKUELXXX` with a per-run unused-suppression audit (SKUEL026). Files are parsed ONCE per run — `_lint_file` hands a shared AST to every tree-based rule. Unit tests cover both linters.

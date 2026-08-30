@@ -91,6 +91,8 @@ def lint_content(
         linter._check_deleted_activity_update_payloads(fp, rel, content, lines, tree)
     if linter._should_run_rule("SKUEL028") and not is_test:
         linter._check_result_fail_expect_error(fp, rel, content, lines, tree)
+    if linter._should_run_rule("SKUEL034") and not is_test:
+        linter._check_uid_substring_sniff(fp, rel, content, lines, tree)
     if linter._should_run_rule("SKUEL006"):
         linter._check_todo_comments(fp, rel, content, lines)
 
@@ -6660,6 +6662,118 @@ class TestSKUEL033:
             f"anchored to {reported!r}, not the query's own first line — the "
             "cleaned-vs-raw offset bug is back"
         )
+
+
+# ============================================================================
+# SKUEL034 — Never Sniff Entity Kind From a UID
+# ============================================================================
+
+
+class TestSKUEL034:
+    """`"lit" in <uid>` is never a legitimate way to learn an entity's kind.
+
+    The fixtures are the real #1170 shape and its real neighbours, not invented
+    ones: the corpus measured ZERO production hits at introduction, so these
+    tests are the only thing that can tell a working rule from a dead one.
+    """
+
+    SVC = "core/models/user/user_intelligence.py"
+
+    def test_deleted_sniffer_shape_is_flagged(self) -> None:
+        """The exact code #1170 deleted, verbatim — one violation per literal."""
+        content = (
+            "def _get_knowledge_domain(self, knowledge_uid: str) -> Domain:\n"
+            '    if "tech" in knowledge_uid.lower() or "python" in knowledge_uid.lower():\n'
+            "        return Domain.TECHNOLOGY\n"
+            '    elif "finance" in knowledge_uid.lower():\n'
+            "        return Domain.FINANCE\n"
+            "    return Domain.GENERAL\n"
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"] * 3
+        assert [v.line_number for v in violations] == [2, 2, 4]
+
+    def test_not_in_is_the_same_sniff(self) -> None:
+        """Negation changes the branch taken, not the fact being invented."""
+        content = 'def f(entity_uid: str) -> bool:\n    return "draft" not in entity_uid\n'
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"]
+
+    def test_attribute_operand_is_flagged(self) -> None:
+        """`rec.knowledge_uid` sniffs exactly as a bare name does."""
+        content = 'def f(rec) -> bool:\n    return "ku" in rec.knowledge_uid\n'
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"]
+
+    def test_case_unwrap_does_not_hide_the_shape(self) -> None:
+        """Re-spelling the operand must not buy an escape."""
+        content = 'def f(uid: str) -> bool:\n    return "x" in uid.strip().lower()\n'
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"]
+
+    def test_membership_in_a_uid_collection_is_legal(self) -> None:
+        """THE false-positive class: `x in ku_uids` is a collection lookup.
+
+        `_uids` does not end in `_uid`, so the plural is excluded structurally
+        rather than by a maintained exception list.
+        """
+        content = (
+            "def f(ku_uids: list[str], prereq_uids: list[str]) -> bool:\n"
+            '    return "ku.a.b" in ku_uids and "task_x" in prereq_uids\n'
+        )
+        assert lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC) == []
+
+    def test_prefix_and_segment_reads_stay_out_of_scope(self) -> None:
+        """Ruled out deliberately — all four live sites of these shapes are
+        sanctioned, so covering them buys suppressions and no findings."""
+        content = (
+            "def f(uid: str) -> str:\n"
+            '    if uid.startswith("ku."):\n'
+            '        return uid.split(".")[1]\n'
+            '    return "general"\n'
+        )
+        assert lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC) == []
+
+    def test_substring_against_a_non_uid_name_is_legal(self) -> None:
+        """The rule is about uids, not about `in` — ordinary text tests stay clean."""
+        content = 'def f(title: str, msg: str) -> bool:\n    return "revision" in title.lower()\n'
+        assert lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC) == []
+
+    def test_tests_are_out_of_scope(self) -> None:
+        """Asserting on uid content is how a UID GENERATOR is tested.
+
+        Both real corpus hits are this shape — `assert "..." not in uid` pinning
+        what a generator must not emit.
+        """
+        content = 'def test_uid() -> None:\n    assert "text-embedding-" not in uid\n'
+        violations = lint_content(
+            make_linter(["SKUEL034"]),
+            content,
+            file_path="tests/unit/test_progress_vectors_backends.py",
+        )
+        assert violations == []
+
+    def test_line_suppression(self) -> None:
+        content = (
+            "def f(uid: str) -> bool:\n"
+            '    return "edge:" in uid  # skuel-lint: disable=SKUEL034 -- sentinel\n'
+        )
+        assert lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC) == []
+
+    def test_file_suppression(self) -> None:
+        content = (
+            "# skuel-lint: disable-file=SKUEL034 -- wire-format parser\n"
+            "def f(uid: str) -> bool:\n"
+            '    return "task-" in uid\n'
+        )
+        assert lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC) == []
+
+    def test_rule_is_registered_as_an_error(self) -> None:
+        from lint_skuel import RULE_DOCS  # type: ignore[import-not-found]
+
+        assert RULE_DOCS["SKUEL034"]["severity"] == "ERROR"
+        assert "SKUEL034" in SkuelLinter.SUPPRESSIBLE_RULES
+        assert "SKUEL034" in SkuelLinter.AST_RULE_IDS
 
 
 class TestOptInRulesDrift:

@@ -24,6 +24,8 @@ ERROR (blocks CI):
   SKUEL025: No deleted Activity *UpdatePayload — use the frozen *UpdateIntent (ADR-066)
   SKUEL027: ui/ must not import adapters/ at runtime (ui renders; routes compose)
   SKUEL032: core/ must not import ui/ at runtime (ADR-058; SKUEL022's ui/ twin)
+  SKUEL034: No substring test against a uid — entity kind comes from label /
+            entity_type / edge, never from UID spelling (ADR-013 never-sniff)
 
 WARNING (blocks `./dev lint` / `./dev quality` via --strict; plain runs report only):
   SKUEL005: Result[T] return types on service methods
@@ -1129,6 +1131,66 @@ File-level: # skuel-lint: disable-file=SKUEL033 -- <reason>""",
     # The port now documents the backend's mechanism. It drifts the moment the
     # backend changes, and says nothing about what the caller is guaranteed.''',
     },
+    "SKUEL034": {
+        "title": "Never Sniff Entity Kind From a UID",
+        "severity": "ERROR",
+        "description": """ADR-013 (Addendum, reaffirmed 2026-07-03) and
+`CURRICULUM_GROUPING_PATTERNS.md` § Two Sanctioned UID Forms both say it outright:
+**UID spelling is provenance, not type information. Entity kind is determined by label,
+`entity_type`, or edge — NEVER by UID string content.** Until this rule the statement was
+prose only, enforced by review.
+
+It had already failed once. `UserLearningIntelligence._get_knowledge_domain` grouped a
+user's masteries "by domain" with `"tech" in knowledge_uid.lower()` /
+`"python" in ...` / `"finance" in ...`, inventing a Domain no entity carries. Every
+mastery fell into one bucket, so the two readings built on it were constant-valued. It
+survived from the initial commit to 2026-08-27 (#1170), through a separator arc that saw
+it (#1055) and left it as "residue for a ruling". This rule is that ruling made runnable.
+
+SHAPE: a string-literal membership test against a SINGULAR uid expression —
+`"lit" in uid`, `"lit" not in entity_uid`, and the same through a
+`.lower()` / `.upper()` / `.strip()` / `.casefold()` unwrap. The comparator is matched by
+NAME: exactly `uid`, or a `_uid` suffix. That is what separates the violation from
+`"ku_x" in ku_uids`, membership in a COLLECTION of uids, which is ordinary and correct —
+and `_uids` does not end in `_uid`, so the plural is excluded structurally, not by a list.
+
+DELIBERATELY OUT OF SCOPE — prefix and segment reads. `uid.startswith(prefix)` and
+`uid.split(".")[1]` cannot be judged without knowing what the branch does with the answer,
+which is flow analysis this linter does not do. All four live sites of those shapes are
+sanctioned and say so in their own docstrings: `parse_calendar_item_uid` (parses a wire
+format the app itself mints, not an entity uid), `_extract_label_from_uid` (a fast path
+whose miss falls back to the DB, so it is never a wrong answer), and
+`_table_domain` + its caller in `entity_inference_service.py` (the keys are hardcoded
+table literals, authored beside the keywords). Covering them would buy four suppressions
+and no findings. The boundary here is deliberate: this rule takes the shape that has no
+legitimate form, and leaves the shapes whose legitimacy is contextual to review.
+
+MEASURED AT INTRODUCTION: zero hits in `core/`, `adapters/`, `ui/`, `scripts/`,
+`services_bootstrap/`. The zero is earned — #1170 deleted the last violation — not bought
+with suppressions, of which this rule needs none. Tests are OUT of scope, and the two hits
+there show why: both are `assert "..." not in uid` pinning what a UID GENERATOR must not
+emit. Asserting on uid content is how you test the generator; branching on it in
+production is the bug.
+
+Fix: read the field that carries the fact. A mastery's subject area is
+`Mastery.sel_category`; an entity's kind is `entity_type` or its Neo4j label; a
+relationship's meaning is the edge. If no field carries it, the fact does not exist yet —
+add it to the model rather than encoding it in a string.
+
+Suppress: # skuel-lint: disable=SKUEL034 -- <reason>
+File-level: # skuel-lint: disable-file=SKUEL034 -- <reason>""",
+        "good": """# The record carries the fact; read it.
+by_area: dict[str, list[Mastery]] = defaultdict(list)
+for mastery in self.current_masteries.values():
+    by_area[mastery.sel_category].append(mastery)""",
+        "bad": """# Invents a Domain out of uid spelling. "ku.finance.budgeting" and the
+# API-generated "ku_budgeting_a1b2c3" describe the same entity and land in
+# different buckets — and neither carries a Domain at all.
+if "tech" in knowledge_uid.lower() or "python" in knowledge_uid.lower():
+    return Domain.TECHNOLOGY
+elif "finance" in knowledge_uid.lower():
+    return Domain.FINANCE""",
+    },
 }
 
 
@@ -1264,6 +1326,7 @@ class SkuelLinter:
             "SKUEL030",
             "SKUEL032",
             "SKUEL033",
+            "SKUEL034",
         }
     )
 
@@ -1331,6 +1394,7 @@ class SkuelLinter:
             "SKUEL030",
             "SKUEL032",
             "SKUEL033",
+            "SKUEL034",
         }
     )
 
@@ -1842,6 +1906,10 @@ class SkuelLinter:
                 )
             if self._should_run_rule("SKUEL028") and not is_test:
                 self._check_result_fail_expect_error(file_path, rel_path, content, lines, tree)
+            # Never-sniff (ADR-013): tests are out of scope because asserting on
+            # uid content is how a UID GENERATOR is tested — see the rule doc.
+            if self._should_run_rule("SKUEL034") and not is_test:
+                self._check_uid_substring_sniff(file_path, rel_path, content, lines, tree)
 
             # Graph-vocabulary rule: persistence Cypher may only name labels and
             # relationship types the enum registry knows (migrations excepted —
@@ -5594,6 +5662,102 @@ class SkuelLinter:
                     suggestion=(
                         "Propagate with Result.fail(result); "
                         ".expect_error() is for reading the error only"
+                    ),
+                    line_content=line.strip(),
+                )
+            )
+
+    # SKUEL034: expressions that only re-spell the uid, unwrapped before the
+    # name test so `"x" in uid.lower().strip()` reads the same as `"x" in uid`.
+    UID_CASE_UNWRAP_METHODS: ClassVar[frozenset[str]] = frozenset(
+        {"lower", "upper", "strip", "casefold"}
+    )
+
+    @classmethod
+    def _uid_operand_name(cls, node: ast.expr) -> str | None:
+        """Identifier a membership test's right-hand side ultimately names.
+
+        Unwraps the case/whitespace re-spellings first, so the shape is judged on
+        the underlying operand rather than on how it was written.
+        """
+        while (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr in cls.UID_CASE_UNWRAP_METHODS
+        ):
+            node = node.func.value
+        if isinstance(node, ast.Name):
+            return node.id
+        if isinstance(node, ast.Attribute):
+            return node.attr
+        return None
+
+    @staticmethod
+    def _is_singular_uid_name(name: str | None) -> bool:
+        """True for a name holding ONE uid string, false for a collection.
+
+        `uid` / `*_uid` are the singular forms; `uids` / `*_uids` fail the
+        `_uid` suffix test structurally, which is what keeps the rule off
+        `"ku_x" in ku_uids` — membership in a collection, not a substring test.
+        """
+        return name is not None and (name == "uid" or name.endswith("_uid"))
+
+    def _check_uid_substring_sniff(
+        self,
+        file_path: Path,
+        rel_path: Path,
+        content: str,
+        lines: list[str],
+        tree: ast.Module | None,
+    ) -> None:
+        """
+        SKUEL034 [ERROR]: entity kind comes from label/entity_type/edge, never a uid.
+
+        AST-based: flags `"literal" in <uid>` and `"literal" not in <uid>` where
+        the operand names a SINGULAR uid, including through a `.lower()`-style
+        unwrap. Deliberately does NOT cover `uid.startswith(...)` or
+        `uid.split(...)[i]` — judging those needs to know what the branch does
+        with the answer, and all four live sites of those shapes are sanctioned
+        (see RULE_DOCS["SKUEL034"]).
+
+        Suppressible: `# skuel-lint: disable=SKUEL034 -- <reason>`.
+        """
+        if tree is None:
+            return
+        if self._is_file_suppressed(content, "SKUEL034"):
+            return
+
+        for node in ast.walk(tree):
+            if not (
+                isinstance(node, ast.Compare)
+                and len(node.ops) == 1
+                and isinstance(node.ops[0], (ast.In, ast.NotIn))
+                and isinstance(node.left, ast.Constant)
+                and isinstance(node.left.value, str)
+            ):
+                continue
+            operand = self._uid_operand_name(node.comparators[0])
+            if not self._is_singular_uid_name(operand):
+                continue
+
+            line_num = node.lineno
+            line = lines[line_num - 1] if 0 < line_num <= len(lines) else ""
+            if self._is_line_suppressed(line, "SKUEL034"):
+                continue
+            self.result.violations.append(
+                Violation(
+                    file_path=rel_path,
+                    line_number=line_num,
+                    column=node.col_offset,
+                    severity=Severity.ERROR,
+                    rule_id="SKUEL034",
+                    message=(
+                        f"Substring test {node.left.value!r} against uid "
+                        f"`{operand}` - UID spelling is provenance, not type"
+                    ),
+                    suggestion=(
+                        "Read the field that carries the fact (entity_type, label, "
+                        "sel_category, or the edge) - ADR-013 never-sniff"
                     ),
                     line_content=line.strip(),
                 )

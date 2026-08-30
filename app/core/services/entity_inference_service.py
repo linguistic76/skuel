@@ -586,7 +586,7 @@ class EntityInferenceService:
         for knowledge_uid, keywords in depth_keywords.items():
             matches = [kw for kw in keywords if kw in content]
             if matches:
-                domain = knowledge_uid.split(".")[1]
+                domain = _table_domain(knowledge_uid)
                 patterns.append(
                     KuPattern(
                         pattern_type="complexity_based",
