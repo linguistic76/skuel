@@ -2932,8 +2932,9 @@ def main() -> int:
     # The three per-analysis reports print only in the default text mode.
     full_report = not args.as_json and not args.ready_only
 
-    # With --json, stdout carries ONLY the findings document.
-    progress_out = sys.stderr if args.as_json else sys.stdout
+    # --json and --ready both reserve stdout for the requested shape — the
+    # document, or the READY slice — so progress goes to stderr (Kody, #1190).
+    progress_out = sys.stderr if (args.as_json or args.ready_only) else sys.stdout
 
     print(f"{Colors.CYAN}🔍 Parsing codebase...{Colors.RESET}", file=progress_out)
     codebase = ParsedCodebase(ROOT)
