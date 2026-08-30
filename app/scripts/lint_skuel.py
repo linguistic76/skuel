@@ -1167,6 +1167,27 @@ matched authored `ku.programming.*` uids and never the API-generated `ku_{slug}_
 for the same concept, so a learner's "technical affinity" split on PROVENANCE rather than
 on anything they had done — ADR-013's failure mode exactly.
 
+WHERE THE ENUMERATION STOPS, and why it is an enumeration at all. Covered: the
+builtins (`str`/`repr`/`format`, either arity), the method spellings
+(`"{}".format(...)`, `join`, `dumps`, `pformat` — every argument AND keyword, since the
+receiver is the template and the value is an argument), f-strings, and language-level
+string construction (`"%s" % uid`, `"ku:" + uid`, including the `% (a, b)` tuple form).
+Review found three of these one at a time (#1194), so the branches are now organised by
+WHERE THE VALUE SITS — receiver, argument, or operand — rather than by call spelling,
+which is what makes them cover forms nobody has written yet.
+
+The tempting generalisation — walk the whole right-hand side for any uid-ish name — is
+WRONG, and measurably so: `"a" in mapping[uid]` is a dict lookup and `"revision" in
+get_title(uid)` tests a title, neither of which reads uid spelling. Both would be false
+positives, and a false positive on an ERROR rule blocks CI. So the set is finite and
+deliberately so: this rule is a GUARD against the shape that has no legitimate form, not
+a proof that no uid can ever reach an `in`.
+
+Note the two string-construction gates, which are load-bearing rather than incidental:
+`%`/`+` are only treated as string building when one side is a string literal. Without
+that gate `"x" in (ku_uids + lp_uids)` — LIST concatenation followed by ordinary
+membership — would be flagged, and `%` on numbers is modulo.
+
 DELIBERATELY OUT OF SCOPE — prefix and segment reads. `uid.startswith(prefix)` and
 `uid.split(".")[1]` cannot be judged without knowing what the branch does with the answer,
 which is flow analysis this linter does not do. All four live sites of those shapes are
@@ -5693,7 +5714,9 @@ class SkuelLinter:
 
     # SKUEL034: the METHOD spellings of the same rendering. Their receiver is
     # the template/separator, so the uid lives in the ARGUMENTS.
-    UID_SERIALIZER_METHODS: ClassVar[frozenset[str]] = frozenset({"format", "join"})
+    UID_SERIALIZER_METHODS: ClassVar[frozenset[str]] = frozenset(
+        {"format", "join", "dumps", "pformat"}
+    )
 
     @classmethod
     def _resolve_uid_operand(cls, node: ast.expr) -> tuple[str | None, bool]:
@@ -5744,6 +5767,28 @@ class SkuelLinter:
             ):
                 for arg in [*node.args, *(kw.value for kw in node.keywords)]:
                     inner, _ = cls._resolve_uid_operand(arg)
+                    if cls._is_uid_name(inner):
+                        return inner, True
+                return None, True
+            # LANGUAGE-LEVEL string construction: `"%s" % uid`, `"ku:" + uid`.
+            # Gated on one side being a string literal, which is what makes the
+            # result a string at all — WITHOUT that gate `"x" in (uids_a +
+            # uids_b)` (list concatenation, then ordinary membership) would be
+            # flagged, and `%` on numbers is modulo, not formatting.
+            if isinstance(node, ast.BinOp) and isinstance(node.op, (ast.Mod, ast.Add)):
+                sides = (node.left, node.right)
+                if not any(
+                    (isinstance(s, ast.Constant) and isinstance(s.value, str))
+                    or isinstance(s, ast.JoinedStr)
+                    for s in sides
+                ):
+                    break
+                # `"%s/%s" % (a_uid, b_uid)` passes its values as a tuple.
+                candidates: list[ast.expr] = []
+                for side in sides:
+                    candidates.extend(side.elts if isinstance(side, ast.Tuple) else [side])
+                for candidate in candidates:
+                    inner, _ = cls._resolve_uid_operand(candidate)
                     if cls._is_uid_name(inner):
                         return inner, True
                 return None, True

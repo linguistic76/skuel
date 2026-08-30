@@ -6822,6 +6822,39 @@ class TestSKUEL034:
         content = 'def f(title: str) -> bool:\n    return "revision" in "{}".format(title)\n'
         assert lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC) == []
 
+    def test_percent_and_concat_string_building(self) -> None:
+        """`%` formatting and `+` concatenation build a string from the uid."""
+        content = (
+            "def f(knowledge_uid: str, entity_uid: str, a_uid: str, b_uid: str) -> bool:\n"
+            '    a = "tech" in "%s" % knowledge_uid\n'
+            '    b = "tech" in "ku:" + entity_uid\n'
+            '    c = "tech" in "%s/%s" % (a_uid, b_uid)\n'
+            "    return a or b or c\n"
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"] * 3
+
+    def test_concatenating_two_uid_collections_is_legal(self) -> None:
+        """THE trap in covering `+`: `uids_a + uids_b` is LIST concatenation and
+        `in` against it is ordinary membership. The string-literal gate is what
+        keeps the rule off it."""
+        content = (
+            "def f(ku_uids: list[str], lp_uids: list[str]) -> bool:\n"
+            '    return "ku.a.b" in ku_uids + lp_uids\n'
+        )
+        assert lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC) == []
+
+    def test_library_serializers_render_too(self) -> None:
+        """`json.dumps(uids)` is an Attribute call with the value in the args —
+        the same shape as the method spellings."""
+        content = (
+            "import json\n"
+            "def f(ku_uids: list[str]) -> bool:\n"
+            '    return "programming" in json.dumps(ku_uids)\n'
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"]
+
     def test_serializing_a_non_uid_collection_is_legal(self) -> None:
         """The rule is still about uids — `str()` alone does not make it fire."""
         content = 'def f(titles: list[str]) -> bool:\n    return "revision" in str(titles)\n'
