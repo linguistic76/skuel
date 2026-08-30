@@ -154,6 +154,12 @@ case "$1" in
     uv run python scripts/knowledge_health_report.py "${@:2}"
     ;;
 
+  eval-chunk-retrieval)
+    # Status to stderr so `./dev eval-chunk-retrieval --json` yields clean JSON on stdout.
+    echo -e "${GREEN}Running chunk-retrieval eval (hit@k over /search semantic boost)...${NC}" >&2
+    uv run python scripts/eval_chunk_retrieval.py "${@:2}"
+    ;;
+
   embed-backfill)
     # Default mode ONLY fills embedding-NULL nodes — deliberately not --stale
     # (--stale requires embedding IS NOT NULL, so it would skip every missing
@@ -355,6 +361,7 @@ case "$1" in
     echo "  ./dev vault-sync     - One-shot vault sync via reconciler (--vault content | --user <uid> | --force)"
     echo "  ./dev knowledge-health - Knowledge-subgraph structural-health report (ADR-080; --json)"
     echo "  ./dev embed-backfill - Fill missing embeddings (embedding-NULL nodes; needs OPENAI_API_KEY)"
+    echo "  ./dev eval-chunk-retrieval - hit@k eval of /search chunk retrieval (FULL tier; --json)"
     echo "  ./dev telemetry-retention - Prune unbounded-growth telemetry (ADR-080 H0; --dry-run | --days N)"
     echo "  ./dev backfill-productivity-stamps - Fill NULL ProductivityAnalytics completion stamps + drop the retired count (census by default; --confirm to write)"
     echo "  ./dev backfill-form-audience - Share pre-gate FormSubmissions with their submitter's groups (--dry-run first; --confirm to write)"

@@ -1,0 +1,184 @@
+# Chunk-retrieval eval query set — the INPUT to scripts/eval_chunk_retrieval.py.
+#
+# Contract: docs/roadmap/deferred-work.md § "Per-Domain Chunking Knobs +
+# Chunk-Type-Aware Retrieval" (Named work 2). This set evolves under review —
+# the script stays fixed while these pairs are edited; every entry is a
+# query → expected-hit claim a reviewer can dispute line by line.
+#
+# RATIFICATION: runs are DRAFT until `ratified:` carries a date. Mike ratifies
+# the query→expected-hit pairs; the first ratified run IS the baseline.
+#
+# Drafting provenance (2026-08-30, AuraDB d2d160c4):
+#   - `kind: real_usage` — the only two substantive queries among the 41
+#     :SearchEvent rows (the rest are single-letter test keystrokes and one
+#     deliberate zero-hit probe). Real usage is thin; it seeds, not bounds.
+#   - `kind: body_paraphrase` — phrased from lesson-BODY prose (sampled chunk
+#     text), deliberately avoiding title words, so a hit exercises the
+#     :ContentChunk fold rather than frontmatter CONTAINS.
+#   - `kind: title_control` — title/frontmatter words on purpose: a control
+#     group; a miss here implicates the frontmatter path, not chunk grain.
+#   - Expected uids are published entities only (publication_state null or
+#     non-draft) that HAVE body chunks — draft PathSteps are withheld from
+#     search by build_publication_clause and can never be hits.
+#
+# Fields per entry:
+#   query   — verbatim user query
+#   kind    — real_usage | body_paraphrase | title_control
+#   expect  — entity uids counted as relevant; ANY of them in the top k = hit
+#   note    — why these uids; what the query probes
+
+version: 1
+ratified: null
+k: 5
+
+queries:
+  - query: breath
+    kind: real_usage
+    expect:
+      - ps.mindfulness.breath-awareness-basics
+      - ps.mindfulness.everyday-anchors
+    note: Real :SearchEvent query (2026-07). Title word AND body coverage.
+
+  - query: body
+    kind: real_usage
+    expect:
+      - ps.self-awareness.understanding-your-emotions
+      - ps.mindfulness.posture-basics
+    note: >
+      Real :SearchEvent query (2026-07). Also a nous topic; expects body-signal
+      and posture content.
+
+  - query: why does my mind keep wandering when I meditate
+    kind: body_paraphrase
+    expect:
+      - ps.mindfulness.mind-wandering-happens
+    note: Body says "default mode", "gentle return"; title lacks "meditate".
+
+  - query: small daily actions that add up over time
+    kind: body_paraphrase
+    expect:
+      - ku.discipline.compounding
+      - ps.discipline.investing-in-yourself
+    note: Compounding body prose ("one small daily action ... 365 of them").
+
+  - query: choosing between what I want now and what I want long term
+    kind: body_paraphrase
+    expect:
+      - ku.discipline.long-term-thinking
+      - ps.discipline.investing-in-yourself
+    note: The "contest" framing — short-term vivid vs long-term abstract.
+
+  - query: how the words we use change what we see
+    kind: body_paraphrase
+    expect:
+      - ku.language.words-as-filters
+      - ps.language.words-as-filters
+    note: Filter metaphor lives in the body; query avoids "filter".
+
+  - query: reading tone of voice and body language
+    kind: body_paraphrase
+    expect:
+      - ku.language.nonverbal-communication
+    note: Body speaks of "music not lyrics", tone/speed/volume.
+
+  - query: what makes a story grip the listener
+    kind: body_paraphrase
+    expect:
+      - ku.stories.what-is-story
+      - ps.stories.understanding-story
+    note: Body covers want/resistance/change and why brains track stories.
+
+  - query: laughing at your own mistakes
+    kind: body_paraphrase
+    expect:
+      - ku.stories.comedy
+    note: Tight grip vs loose grip on the self-image at the moment of error.
+
+  - query: how should I sit when meditating
+    kind: body_paraphrase
+    expect:
+      - ps.mindfulness.posture-basics
+    note: Chair/cushion/lying-down guidance is body content; title says "Posture".
+
+  - query: noticing feelings in my body before I react
+    kind: body_paraphrase
+    expect:
+      - ps.self-awareness.understanding-your-emotions
+      - ps.sel.knowing-yourself
+    note: Lead-time framing — jaw/stomach/chest signals before the reaction.
+
+  - query: figuring out what actually matters to me
+    kind: body_paraphrase
+    expect:
+      - ps.self-reflection.values-discovery
+    note: Values-discovery body; query avoids the word "values".
+
+  - query: setting boundaries in relationships
+    kind: body_paraphrase
+    expect:
+      - ps.sel.building-relationships
+    note: Three-part boundary recipe is body content.
+
+  - query: money as stored time
+    kind: body_paraphrase
+    expect:
+      - ku.discipline.financial-basics
+    note: The body's central reframe, phrased almost verbatim.
+
+  - query: imagining your future self to resist temptation
+    kind: body_paraphrase
+    expect:
+      - ku.discipline.visualization
+      - ku.discipline.long-term-thinking
+    note: '"Give the future a body" / "consult your future self".'
+
+  - query: how trees share resources underground
+    kind: body_paraphrase
+    expect:
+      - ku.nature.forests
+    note: Fungal-network passage; title is just "Forests".
+
+  - query: living with fewer regrets
+    kind: body_paraphrase
+    expect:
+      - ku.discipline.regret
+    note: Foundation/boldness regret taxonomy; title contains "Regret" too.
+
+  - query: writing to find out what you really think
+    kind: body_paraphrase
+    expect:
+      - ku.values.writing-practice
+    note: Free-writing as discovery mode vs fast circular thought.
+
+  - query: seeing things from another person's point of view
+    kind: body_paraphrase
+    expect:
+      - ps.sel.understanding-others
+    note: Perspective question — "what would have to be true".
+
+  - query: seasons and stages of a human life
+    kind: body_paraphrase
+    expect:
+      - ku.nature.stages-of-life
+      - ku.nature.the-life-cycle
+      - ps.nature.living-in-cycles
+    note: Cycle grammar applied to a life; three sibling lessons qualify.
+
+  - query: the name that can be named is not the eternal name
+    kind: body_paraphrase
+    expect:
+      - ku.values.tao-te-ching-v1
+      - ku.language.eal-metaphor
+    note: Near-quote of body prose — the strongest pure chunk-recall probe.
+
+  - query: gunas
+    kind: title_control
+    expect:
+      - ku.nature.gunas
+    note: Rare title term; frontmatter CONTAINS should catch it alone.
+
+  - query: compounding
+    kind: title_control
+    expect:
+      - ku.discipline.compounding
+    note: Exact title word; the frontmatter path's easiest case.

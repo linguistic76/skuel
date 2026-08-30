@@ -1666,18 +1666,25 @@ label-only lines; 72 typed `explanation`; 32 under 20 characters), 6 path_step (
    998 → **925** chunks all `v2`, fragments 83 → **7** (every survivor a link-only MOC-style
    note with nothing to fold into — a content property, not a splitter defect), embedding
    `NULL` = 0 after the worker drain, median 27 → 30 words.
-2. **Knob tuning — gated on an instrument that does not exist:** a ~20-query eval set with
-   expected Ku/PathStep hits, scored hit@5 over the SEARCH path that retrieves chunks —
-   `SearchRouter.faceted_search` with semantic boost, the sole caller of
-   `_augment_with_body_chunks`; `advanced_search`
+2. **Knob tuning — instrument SHIPPED 2026-08-30 (eval arc PR-1), baseline pending
+   ratification:** `scripts/eval_chunk_retrieval.py` (`./dev eval-chunk-retrieval`) scores
+   hit@5 over the reviewable query set `scripts/eval_chunk_retrieval_queries.yaml`
+   (23 queries with expected Ku/PathStep hits) through the SEARCH path that retrieves
+   chunks — `SearchRouter.faceted_search` with semantic boost, the sole caller of
+   `_augment_with_body_chunks` (`log_event=False`, so eval runs never write
+   :SearchEvent telemetry); `advanced_search`
    searches parent entities and never touches a `ContentChunk`, so a baseline run through it
    would be blind to every knob here (Askesis reaches chunks separately via
-   `retrieve_scoped_chunks` — the knobs move that too, and it is audience-scoped since ADR-085 G8 (#1195) — but the eval targets search). Its first run IS the baseline; only a measured miss traced to chunk
+   `retrieve_scoped_chunks` — the knobs move that too, and it is audience-scoped since ADR-085 G8 (#1195) — but the eval targets search). Mike ratifies the query→expected-hit pairs
+   (the set's `ratified:` field carries the date); the first RATIFIED run IS the baseline —
+   the 2026-08-30 draft run (hit@5 = 21/23, 18 hits via the body fold, both misses
+   `real_usage` queries) is evidence the instrument works, not a baseline. Only a measured
+   miss traced to chunk
    grain earns a `chunking_params` change on one `EntityIngestionConfig` + a domain-scoped
    re-chunk. This is also where `min_chunk_size`'s default is re-based: 50 words is above the
-   corpus median, so enforcing it is a tuning decision, not a defect fix. No existing script
-   measures this (`analyze_search_metrics.py` is latency/score
-   from logs; `benchmark_hybrid_queries.py` is query-pattern latency).
+   corpus median, so enforcing it is a tuning decision, not a defect fix. (The two older
+   scripts still measure something else: `analyze_search_metrics.py` is latency/score
+   from logs; `benchmark_hybrid_queries.py` is query-pattern latency.)
 3. **`chunk_type_weights`:** only when (a) the eval set exists and (b) a content-typing
    classifier has replaced the keyword fallback AND its distribution has flattened enough for
    weights to change an ordering (explanation < 50%) — (b) is a classifier decision, not a
@@ -1690,8 +1697,10 @@ label-only lines; 72 typed `explanation`; 32 under 20 characters), 6 path_step (
    thin-draw fallback (unfiltered retrieval when the filtered draw returns fewer than k chunks)
    against the current filter; if it wins, the `/search` weight table (3) may be moot.
 
-**Trigger:** (1) ✅ done; (2) and (4) Mike schedules the eval set — a measurement decision, not a
-data threshold; (3) additionally needs the content-typing classifier named in its (b).
+**Trigger:** (1) ✅ done; (2) scheduled by Mike 2026-08-30 as a two-PR eval arc —
+instrument shipped, next step is Mike ratifying the query set, then the baseline run; (4) acts
+on that eval set in the arc's PR-2; (3) additionally needs the content-typing classifier named
+in its (b).
 **Check** (one statement per block — paste each on its own; words, not characters, because the
 knobs are word counts; `c.end_index` is the persisted whitespace-aware `word_count`, so a chunk
 with line breaks or doubled spaces is counted the way ingestion counted it — a naive
