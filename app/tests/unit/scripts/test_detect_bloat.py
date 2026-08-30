@@ -1186,14 +1186,112 @@ def test_blocker_missing_finding_carries_each_tier_subject_and_path():
         audit_blocked_by("PLANNED_OTHER", {"k": blocked("Fake")}, headings)
 
 
-def test_staged_row_names_its_blocker_beside_the_reason(monkeypatch):
-    # The pointer is DISPLAY on the awaiting-wiring row (the reason no longer
-    # restates the section); the CHECK is audit_blocked_by over the whole registry.
-    monkeypatch.setattr(detect_bloat, "PLANNED_EVENTS", {"GammaOrphan": blocked("Somewhere")})
-    _, _, findings = analyze({})
-    row = finding_for(findings, "GammaOrphan")
-    assert row.kind == "event-awaiting-wiring"
-    assert "blocked by: deferred-work.md § Somewhere" in row.annotations
+BLOCKER_NOTE = "blocked by: deferred-work.md § Somewhere"
+
+
+def _assert_every_row_carries_the_note(findings, expected_kinds: set[str]) -> None:
+    # A row IS a finding about an entry (readiness set), whatever state the run
+    # found the subject in — awaiting, masked, stale. The pointer is DISPLAY on
+    # every one of them (the reason no longer restates the section); the CHECK
+    # is audit_blocked_by over the whole registry (Codex P2, PR #1191: masked
+    # and stale rows lost the pointer when only the still-staged helper set it).
+    rows = [f for f in findings if f.readiness is not None and f.kind != "planned-ready-aging"]
+    assert {f.kind for f in rows} == expected_kinds
+    missing = [(f.kind, f.subject) for f in rows if BLOCKER_NOTE not in f.annotations]
+    assert not missing, missing
+
+
+def test_blocker_note_rides_every_event_state(monkeypatch):
+    monkeypatch.setattr(
+        detect_bloat,
+        "PLANNED_EVENTS",
+        {
+            "GammaOrphan": blocked("Somewhere"),  # awaiting-wiring
+            "AlphaEvent": blocked("Somewhere"),  # masked — a publish site resolves to it
+            "NotAnEvent": blocked("Somewhere"),  # masked — defined outside the universe
+            "DeletedEvent": blocked("Somewhere"),  # stale
+        },
+    )
+    _, _, findings = analyze(
+        {
+            "core/services/x.py": (
+                "async def f(self):\n"
+                "    await publish_event(self.event_bus, AlphaEvent(uid='1'), self.logger)\n"
+            ),
+            "core/events/x.py": "class NotAnEvent:\n    pass\n",
+        }
+    )
+    _assert_every_row_carries_the_note(
+        findings, {"event-awaiting-wiring", "planned-marking-masked", "planned-marking-stale"}
+    )
+
+
+def test_blocker_note_rides_every_method_state(monkeypatch):
+    old_ready = PlannedEntry(
+        Readiness.READY,
+        "staged",
+        since=date.today() - timedelta(days=detect_bloat.READY_AGING_DAYS + 1),
+        blocked_by="Somewhere",
+    )
+    monkeypatch.setattr(
+        detect_bloat,
+        "PLANNED_METHODS",
+        {
+            "core/services/x.py::awaiting": blocked("Somewhere"),
+            "core/services/x.py::masked": blocked("Somewhere"),  # name in vulture's used set
+            "core/services/x.py::gone": blocked("Somewhere"),
+            "core/services/x.py::old_ready": old_ready,  # awaiting + a ready-aging beside it
+            "adapters/x.py::outside": blocked("Somewhere"),
+            "adapters/x.py::outside_gone": blocked("Somewhere"),
+        },
+    )
+    codebase = build_codebase(
+        {
+            "core/services/x.py": (
+                "def awaiting():\n    pass\n\ndef masked():\n    pass\n\ndef old_ready():\n    pass\n"
+            ),
+            "adapters/x.py": "def outside():\n    pass\n",
+        }
+    )
+    analysis = analyze_methods(
+        codebase,
+        VultureScan(
+            [
+                FakeVultureItem("core/services/x.py", "awaiting"),
+                FakeVultureItem("core/services/x.py", "old_ready", 7),
+            ],
+            frozenset({"masked"}),
+        ),
+    )
+    _assert_every_row_carries_the_note(
+        analysis.findings,
+        {"method-awaiting-wiring", "planned-marking-masked", "planned-marking-stale"},
+    )
+    # the beside-finding repeats its row — it does not repeat the pointer
+    aging = [f for f in analysis.findings if f.kind == "planned-ready-aging"]
+    assert [f.subject for f in aging] == ["old_ready"]
+    assert aging[0].annotations == []
+
+
+def test_blocker_note_rides_every_template_state(monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        detect_bloat,
+        "PLANNED_TEMPLATES",
+        {
+            "awaiting_tpl": blocked("Somewhere"),
+            "masked_tpl": blocked("Somewhere"),  # receiver-blind render match
+            "gone_tpl": blocked("Somewhere"),
+        },
+    )
+    codebase = _template_codebase(
+        tmp_path,
+        {"core/services/x.py": 'def f(settings):\n    return settings.get("masked_tpl")\n'},
+        ["awaiting_tpl", "masked_tpl"],
+    )
+    _assert_every_row_carries_the_note(
+        analyze_planned_templates(codebase),
+        {"template-awaiting-wiring", "planned-marking-masked", "planned-marking-stale"},
+    )
 
 
 def test_blocker_missing_prints_under_its_own_red_heading_in_every_printer(capsys):

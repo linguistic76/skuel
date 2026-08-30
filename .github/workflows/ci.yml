@@ -62,6 +62,13 @@ jobs:
               # trigger the unit-test drift guard that rejects it.
               - 'app/docs/reference/GRAPH_CONTRACT.yaml'
               - 'app/docs/reference/BASESERVICE_METHOD_INDEX.md'
+              # The blocked_by anchor file (scripts/detect_bloat.py reads its
+              # headings): a heading rename alone must still trigger the
+              # Dead-Code Gate (lint) and the live sentinel in
+              # tests/unit/scripts/test_detect_bloat.py that reject a dangling
+              # pointer — otherwise the docs-only skip merges it green and the
+              # weekly janitor is the first reader (Codex P2, PR #1191).
+              - 'app/docs/roadmap/deferred-work.md'
               # The uv.lock pinning guard's inputs (tests/unit/
               # test_workflow_uv_lock_pinning.py). It reads EVERY workflow, not
               # just ci.yml (unlike the filters below), and follows what those

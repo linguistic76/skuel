@@ -1091,23 +1091,31 @@ class Site:
         return f"{self.file}:{self.line}"
 
 
-def _staged_entry_findings(entry: PlannedEntry, awaiting: Finding) -> list[Finding]:
+def _blocker_note(entry: PlannedEntry) -> list[str]:
+    """The ``blocked by:`` annotation for every finding that IS an entry's row.
+
+    Display only — the pointer is VERIFIED by ``audit_blocked_by``. Attached at
+    each row-construction site (awaiting-wiring, masked and stale, in every
+    tier) rather than in the still-staged helper, so a masked or stale row
+    still names where the why lives (Codex P2, PR #1191). The beside-findings
+    do not carry it: ``planned-ready-aging`` repeats its row, and
+    ``planned-blocker-missing`` quotes the pointer in its detail.
+    """
+    if entry.blocked_by is None:
+        return []
+    return [f"blocked by: deferred-work.md § {entry.blocked_by}"]
+
+
+def _with_ready_aging(entry: PlannedEntry, awaiting: Finding) -> list[Finding]:
     """The finding(s) for one still-staged PLANNED entry.
 
     ``awaiting`` is the tier's ``*-awaiting-wiring`` finding, carried through
-    with one addition: the entry's ``blocked_by`` pointer, if any, is printed
-    BESIDE its row as an annotation. Display only — the pointer is VERIFIED by
-    ``audit_blocked_by`` over the whole registry, because a dangling pointer
-    must gate whatever state the run found the subject in (masked and stale
-    included) and this helper sees only the still-staged ones. A READY entry
-    staged for more than READY_AGING_DAYS gets a second, INFO
-    ``planned-ready-aging`` finding BESIDE it — same subject, file and line —
-    never instead of it: the age is a fact about the entry, not a different
-    state of its subject, and it can never gate (nothing about "still staged"
-    is a fact the over-approximating engines verify).
+    unchanged. A READY entry staged for more than READY_AGING_DAYS gets a
+    second, INFO ``planned-ready-aging`` finding BESIDE it — same subject,
+    file and line — never instead of it: the age is a fact about the entry,
+    not a different state of its subject, and it can never gate (nothing
+    about "still staged" is a fact the over-approximating engines verify).
     """
-    if entry.blocked_by is not None:
-        awaiting.annotations.append(f"blocked by: deferred-work.md § {entry.blocked_by}")
     findings = [awaiting]
     if entry.readiness is Readiness.READY:
         age = (date.today() - entry.since).days
@@ -1895,6 +1903,7 @@ def analyze_events(
                             "publish wrappers), so the publication cannot be "
                             "attributed; KEEP the entry and verify wiring by hand"
                         ),
+                        annotations=_blocker_note(PLANNED_EVENTS[cls]),
                         readiness=PLANNED_EVENTS[cls].readiness,
                     )
                 )
@@ -1940,7 +1949,7 @@ def analyze_events(
                 file=site.file,
                 line=site.line,
                 detail=f"unwired by intent — {PLANNED_EVENTS[cls].reason}",
-                annotations=planned_notes,
+                annotations=planned_notes + _blocker_note(PLANNED_EVENTS[cls]),
                 readiness=PLANNED_EVENTS[cls].readiness,
             )
         elif constructed:
@@ -1971,7 +1980,7 @@ def analyze_events(
             finding.annotations.append(f"exempted: {EXEMPTED_EVENTS[cls]}")
             exempted.append(finding)
         elif cls in PLANNED_EVENTS:
-            findings.extend(_staged_entry_findings(PLANNED_EVENTS[cls], finding))
+            findings.extend(_with_ready_aging(PLANNED_EVENTS[cls], finding))
         else:
             findings.append(finding)
 
@@ -1996,6 +2005,7 @@ def analyze_events(
                         "marked planned but no such event class exists — deleted, "
                         "renamed, or mistyped; remove from PLANNED_EVENTS"
                     ),
+                    annotations=_blocker_note(PLANNED_EVENTS[cls]),
                     readiness=PLANNED_EVENTS[cls].readiness,
                 )
             )
@@ -2013,6 +2023,7 @@ def analyze_events(
                         "or its module is not imported in core/events/__init__.py. "
                         "Fix that, not the registry; KEEP the entry"
                     ),
+                    annotations=_blocker_note(PLANNED_EVENTS[cls]),
                     readiness=PLANNED_EVENTS[cls].readiness,
                 )
             )
@@ -2315,7 +2326,7 @@ def analyze_methods(codebase: ParsedCodebase, scan: VultureScan) -> MethodAnalys
         if planned_key in PLANNED_METHODS:
             entry = PLANNED_METHODS[planned_key]
             findings.extend(
-                _staged_entry_findings(
+                _with_ready_aging(
                     entry,
                     Finding(
                         kind="method-awaiting-wiring",
@@ -2324,7 +2335,7 @@ def analyze_methods(codebase: ParsedCodebase, scan: VultureScan) -> MethodAnalys
                         file=rel,
                         line=item.first_lineno,
                         detail=f"unwired by intent — {entry.reason}",
-                        annotations=annotations,
+                        annotations=annotations + _blocker_note(entry),
                         readiness=entry.readiness,
                     ),
                 )
@@ -2397,6 +2408,7 @@ def analyze_methods(codebase: ParsedCodebase, scan: VultureScan) -> MethodAnalys
                         "marked planned but the method no longer exists at this "
                         "path — deleted or renamed; remove from PLANNED_METHODS"
                     ),
+                    annotations=_blocker_note(PLANNED_METHODS[planned_key]),
                     readiness=PLANNED_METHODS[planned_key].readiness,
                 )
             )
@@ -2423,6 +2435,7 @@ def analyze_methods(codebase: ParsedCodebase, scan: VultureScan) -> MethodAnalys
                     "matches by NAME, so no call can be attributed to this "
                     "definition; KEEP the entry and verify wiring by hand"
                 ),
+                annotations=_blocker_note(PLANNED_METHODS[planned_key]),
                 readiness=PLANNED_METHODS[planned_key].readiness,
             )
         )
@@ -2461,12 +2474,13 @@ def _out_of_scope_planned_findings(codebase: ParsedCodebase) -> list[Finding]:
                         "marked planned but the function no longer exists at this "
                         "path — deleted or renamed; remove from PLANNED_METHODS"
                     ),
+                    annotations=_blocker_note(note),
                     readiness=note.readiness,
                 )
             )
         else:
             results.extend(
-                _staged_entry_findings(
+                _with_ready_aging(
                     note,
                     Finding(
                         kind="method-awaiting-wiring",
@@ -2475,7 +2489,10 @@ def _out_of_scope_planned_findings(codebase: ParsedCodebase) -> list[Finding]:
                         file=rel,
                         line=def_line,
                         detail=f"unwired by intent — {note.reason}",
-                        annotations=["outside METHOD_SCOPE — liveness not vulture-verified"],
+                        annotations=[
+                            "outside METHOD_SCOPE — liveness not vulture-verified",
+                            *_blocker_note(note),
+                        ],
                         readiness=note.readiness,
                     ),
                 )
@@ -2541,6 +2558,7 @@ def analyze_planned_templates(codebase: ParsedCodebase) -> list[Finding]:
                         "marked planned but the template file no longer exists — "
                         "deleted or renamed; remove from PLANNED_TEMPLATES"
                     ),
+                    annotations=_blocker_note(note),
                     readiness=note.readiness,
                 )
             )
@@ -2559,12 +2577,13 @@ def analyze_planned_templates(codebase: ParsedCodebase) -> list[Finding]:
                         "attributed to the prompt renderer; KEEP the entry and "
                         "verify wiring by hand"
                     ),
+                    annotations=_blocker_note(note),
                     readiness=note.readiness,
                 )
             )
         else:
             results.extend(
-                _staged_entry_findings(
+                _with_ready_aging(
                     note,
                     Finding(
                         kind="template-awaiting-wiring",
@@ -2573,6 +2592,7 @@ def analyze_planned_templates(codebase: ParsedCodebase) -> list[Finding]:
                         file=rel,
                         line=1,
                         detail=f"unwired by intent — {note.reason}",
+                        annotations=_blocker_note(note),
                         readiness=note.readiness,
                     ),
                 )

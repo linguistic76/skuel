@@ -119,8 +119,10 @@ naming what completes it, plus two structured facts and one optional pointer:
   stripped, one trailing parenthetical (the `(REGISTERED … — ruled …)` status
   suffix; the last balanced group only, so an earlier parenthetical is core
   text) dropped, whitespace collapsed — so the pointer survives a suffix edit
-  and dies on a rename (see *Integrity*, below). The entry's row prints it as a
-  `blocked by:` note. A pointer at another registry key is not a form the tool
+  and dies on a rename (see *Integrity*, below). Every row about the entry —
+  awaiting-wiring, masked, stale — prints it as a `blocked by:` note; the
+  beside-findings (`planned-ready-aging`, `planned-blocker-missing`) do not
+  repeat it. A pointer at another registry key is not a form the tool
   accepts: it had zero users when the field landed, and a form with no user is
   dead the day it ships.
 
@@ -151,7 +153,9 @@ zero pointers. Both are `WARNING` in every tier, print under their own red
 heading (the full report, `--ready`, and the verdict line each name them apart
 from structurally-dead findings), and
 `test_detect_bloat.py::test_live_blocked_by_pointers_resolve_against_the_live_deferred_work`
-fails locally on a heading rename before CI does.
+fails locally on a heading rename before CI does — and CI does: `deferred-work.md`
+sits in `ci.yml`'s `py` path filter so a rename-only PR still runs the gate and
+the sentinel instead of taking the docs-only skip.
 
 **"It looks wired now" NEVER gates — it reports as `planned-marking-masked`
 (INFO).** Every liveness engine here over-approximates *by design*, because the
