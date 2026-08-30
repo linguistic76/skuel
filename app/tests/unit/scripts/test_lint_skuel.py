@@ -7156,6 +7156,22 @@ class TestSKUEL034:
         )
         assert lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC) == []
 
+    def test_chained_comparison_legs_are_inspected(self) -> None:
+        """Every leg of a chain is evaluated, so `"tech" in uid == other` runs
+        the same membership test a lone `in` does (Codex, #1194)."""
+        content = (
+            "def f(entity_uid: str, expected_uid: str) -> bool:\n"
+            '    return "tech" in entity_uid == expected_uid\n'
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"]
+
+    def test_ascii_is_a_serializer(self) -> None:
+        """`ascii` renders like `repr`."""
+        content = 'def f(entity_uid: str) -> bool:\n    return "tech" in ascii(entity_uid)\n'
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"]
+
     def test_serializing_a_non_uid_collection_is_legal(self) -> None:
         """The rule is still about uids — `str()` alone does not make it fire."""
         content = 'def f(titles: list[str]) -> bool:\n    return "revision" in str(titles)\n'

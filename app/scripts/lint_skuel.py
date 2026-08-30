@@ -5773,7 +5773,7 @@ class SkuelLinter:
     # SKUEL034: calls that SERIALIZE their argument. `str(uids)` turns a
     # collection back into one string, so `in` against it is a substring test
     # again — the plural exemption below must not survive the conversion.
-    UID_SERIALIZER_FUNCS: ClassVar[frozenset[str]] = frozenset({"str", "repr", "format"})
+    UID_SERIALIZER_FUNCS: ClassVar[frozenset[str]] = frozenset({"str", "repr", "ascii", "format"})
 
     # SKUEL034: the METHOD spellings of the same rendering. Their receiver is
     # the template/separator, so the uid lives in the ARGUMENTS.
@@ -6269,47 +6269,50 @@ class SkuelLinter:
             return
 
         for node in ast.walk(tree):
-            if not (
-                isinstance(node, ast.Compare)
-                and len(node.ops) == 1
-                and isinstance(node.ops[0], (ast.In, ast.NotIn))
-                and isinstance(node.left, ast.Constant)
-                and isinstance(node.left.value, str)
-            ):
+            if not isinstance(node, ast.Compare):
                 continue
-            operand, serialized = self._resolve_uid_operand(node.comparators[0])
-            # A serialized collection is a string again, so the plural exemption
-            # does not survive it; a bare operand must be singular to be a
-            # substring test at all.
-            if serialized:
-                if not self._is_uid_name(operand):
+            # EVERY leg of a chain is evaluated, so `"tech" in uid == other` runs
+            # the same membership test a lone `in` does (Codex, #1194). Each leg's
+            # left side is the previous comparator.
+            for index, operator in enumerate(node.ops):
+                if not isinstance(operator, (ast.In, ast.NotIn)):
                     continue
-            elif not self._is_singular_uid_name(operand):
-                continue
+                left = node.left if index == 0 else node.comparators[index - 1]
+                if not (isinstance(left, ast.Constant) and isinstance(left.value, str)):
+                    continue
+                operand, serialized = self._resolve_uid_operand(node.comparators[index])
+                # A serialized collection is a string again, so the plural
+                # exemption does not survive it; a bare operand must be singular
+                # to be a substring test at all.
+                if serialized:
+                    if not self._is_uid_name(operand):
+                        continue
+                elif not self._is_singular_uid_name(operand):
+                    continue
 
-            line_num = node.lineno
-            line = lines[line_num - 1] if 0 < line_num <= len(lines) else ""
-            if self._is_line_suppressed(line, "SKUEL034"):
-                continue
-            self.result.violations.append(
-                Violation(
-                    file_path=rel_path,
-                    line_number=line_num,
-                    column=node.col_offset,
-                    severity=Severity.ERROR,
-                    rule_id="SKUEL034",
-                    message=(
-                        f"Substring test {node.left.value!r} against "
-                        f"{'serialized ' if serialized else ''}uid "
-                        f"`{operand}` - UID spelling is provenance, not type"
-                    ),
-                    suggestion=(
-                        "Read the field that carries the fact (entity_type, label, "
-                        "sel_category, or the edge) - ADR-013 never-sniff"
-                    ),
-                    line_content=line.strip(),
+                line_num = node.lineno
+                line = lines[line_num - 1] if 0 < line_num <= len(lines) else ""
+                if self._is_line_suppressed(line, "SKUEL034"):
+                    continue
+                self.result.violations.append(
+                    Violation(
+                        file_path=rel_path,
+                        line_number=line_num,
+                        column=node.col_offset,
+                        severity=Severity.ERROR,
+                        rule_id="SKUEL034",
+                        message=(
+                            f"Substring test {left.value!r} against "
+                            f"{'serialized ' if serialized else ''}uid "
+                            f"`{operand}` - UID spelling is provenance, not type"
+                        ),
+                        suggestion=(
+                            "Read the field that carries the fact (entity_type, label, "
+                            "sel_category, or the edge) - ADR-013 never-sniff"
+                        ),
+                        line_content=line.strip(),
+                    )
                 )
-            )
 
     # SKUEL030: migrations are the one persistence path that SHOULD name retired
     # vocabulary — a rename migration must reference what it is renaming away.
