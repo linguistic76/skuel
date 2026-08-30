@@ -18,7 +18,14 @@ from typing import Any, overload
 
 from core.models.enums.entity_enums import EntityType
 
-# Single source of truth for embedding field mappings
+# Single source of truth for embedding field mappings — the keys ARE the list
+# of content-bearing entity types; no prose count elsewhere is authoritative.
+# A map declares WHAT would be embedded, not that anything is: a type is
+# embedded only through an event class in EMBEDDING_EVENT_TYPES
+# (core/events/embedding_publisher.py). A map with no event class is HOLLOW —
+# nothing builds text for it — and must be registered in
+# PLANNED_EMBEDDING_MAPS (scripts/detect_bloat.py), which audits the derived
+# hollow set on every run; an unregistered hollow map fails --check.
 # PATH_STEP deliberately excludes "content": the entity vector covers
 # frontmatter fields only — body-content semantics live in CHUNK embeddings
 # (ADR-074). Keeping it out makes that hold on every trigger path (ingest,
@@ -30,7 +37,12 @@ EMBEDDING_FIELD_MAPS: dict[EntityType, tuple[str, ...]] = {
     EntityType.RESOURCE: ("title", "author", "content", "summary"),
     EntityType.TASK: ("title", "description"),
     EntityType.GOAL: ("title", "description", "vision_statement"),
-    EntityType.HABIT: ("name", "title", "description", "cue", "reward"),
+    # HABIT: "name" was a phantom — Habit has no such field (its name IS
+    # ``title``), no vault file authors ``name:``, and the enrichment dicts that
+    # carry ``"name": habit.title`` never reach this builder. Found by the
+    # detector's advisory phantom-field check the day it landed; dropping it
+    # changes no model-path text (the name never contributed).
+    EntityType.HABIT: ("title", "description", "cue", "reward"),
     EntityType.EVENT: ("title", "description", "location"),
     # CHOICE: "outcome" was a phantom — the column is ``actual_outcome``, so the
     # map silently contributed nothing for it. ``decision_context`` was equally
@@ -48,7 +60,27 @@ EMBEDDING_FIELD_MAPS: dict[EntityType, tuple[str, ...]] = {
     # ``processed_content`` is pipeline-specific output. Filename is metadata,
     # not semantics — deliberately excluded.
     EntityType.USER_ENTRY: ("title", "content", "processed_content"),
-    EntityType.ENTRY_REPORT: ("title", "content", "summary"),
+    # The four maps below are HOLLOW (registered in PLANNED_EMBEDDING_MAPS,
+    # ruled keep 2026-08-29): they name what the report-tier and forms vectors
+    # WILL carry once ADR-074's event/label/publish/subscribe quartet exists.
+    # ENTRY_REPORT: was ("title", "content", "summary") — ``content`` and
+    # ``summary`` exist on the model (inherited from Entity) but both writers
+    # in EntryReportService populate ``processed_content`` and leave them at
+    # their defaults, so the old map would have embedded the title alone. The
+    # writer decides the field, not the dataclass.
+    EntityType.ENTRY_REPORT: ("title", "processed_content"),
+    # ACTIVITY_REPORT: ``processing_error`` is not content. ``annotation_mode``
+    # discriminates additive commentary (``user_annotation``) from a sharing
+    # replacement (``user_revision``) and a flat tuple cannot branch, so every
+    # populated content field concatenates — as USER_ENTRY already does for
+    # its raw/pipeline pair; in practice at most one annotation field is set.
+    EntityType.ACTIVITY_REPORT: (
+        "title",
+        "description",
+        "processed_content",
+        "user_annotation",
+        "user_revision",
+    ),
     EntityType.FORM_TEMPLATE: ("title", "instructions", "description"),
     EntityType.FORM_SUBMISSION: ("title", "processed_content", "description"),
 }

@@ -72,7 +72,7 @@ EntityType.HABIT:      ("name", "title", "description", "cue", "reward")
 EntityType.EXERCISE:   ("title", "instructions", "description")
 ```
 
-Curriculum types use `"\n\n"` between fields; activity types use `"\n"`. All 16 content-bearing entity types in `EMBEDDING_FIELD_MAPS` are supported.
+Curriculum types use `"\n\n"` between fields; activity types use `"\n"`. Every key of `EMBEDDING_FIELD_MAPS` is supported by the builder — the map is the list — but whether a type is actually *embedded* is decided by `EMBEDDING_EVENT_TYPES` (`core/events/embedding_publisher.py`); a map with no event class is hollow and registered in the bloat detector's `PLANNED_EMBEDDING_MAPS`.
 
 **PathStep is deliberate (ADR-074):** the entity vector covers frontmatter fields only, on every trigger path. Body-content semantics live in the CHUNK embeddings (Stage 3).
 

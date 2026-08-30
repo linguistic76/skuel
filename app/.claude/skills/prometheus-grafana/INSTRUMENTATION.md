@@ -320,7 +320,7 @@ cadence, that's a design discussion, not a new scheduler.
 counters, cpu/memory gauges) accumulated since inception and were deleted wholesale in May 2026
 (commit 5b477a281) under One Path Forward. If instrumentation is genuinely deferred, keep it as
 a plain backlog note (review doc, ADR, TODO) — under emit-first there is nothing to stage in
-code. `detect_bloat.py`'s `PLANNED_*` tiers cover events/methods/templates only; a
+code. `detect_bloat.py`'s `PLANNED_*` tiers cover events/methods/templates/embedding field maps only; a
 planned-metrics registry deliberately does not exist, because a metric exists only with its
 emission.
 

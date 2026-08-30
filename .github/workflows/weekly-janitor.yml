@@ -232,11 +232,12 @@ jobs:
               echo ""
               warning_count=$(jq '[.findings[] | select(.severity == "warning")] | length' bloat.json)
               if [ "$warning_count" -eq 0 ]; then
-                echo "No WARNING findings (structurally dead, a stale PLANNED marking, or a dangling \`blocked_by\` pointer)."
+                echo "No WARNING findings (structurally dead, a stale PLANNED marking, a dangling \`blocked_by\` pointer, or an unregistered hollow embedding map)."
               else
                 echo "**${warning_count} WARNING finding(s)** — structurally dead, a stale PLANNED"
-                echo "marking whose registered subject no longer exists, or a PLANNED entry whose"
-                echo "\`blocked_by\` names no \`deferred-work.md\` heading. The PR-side"
+                echo "marking whose registered subject no longer exists, a PLANNED entry whose"
+                echo "\`blocked_by\` names no \`deferred-work.md\` heading, or an embedding field"
+                echo "map with no event class and no \`PLANNED_EMBEDDING_MAPS\` entry. The PR-side"
                 echo "\`--check\` gate (CI lint job / \`./dev quality\`) fails on these too:"
                 echo ""
                 jq -r '.findings[] | select(.severity == "warning") | "- `\(.subject)` (\(.file):\(.line)) — \(.detail)"' bloat.json > warnings.txt
@@ -270,6 +271,20 @@ jobs:
                 echo "(\`./dev bloat --ready\` lists the whole READY slice):"
                 echo ""
                 jq -r '.findings[] | select(.kind == "planned-ready-aging") | "- `\(.subject)` (\(.file):\(.line)) — \(.detail)"' bloat.json
+              fi
+              # An embedding field map naming a field its model lacks (INFO,
+              # advisory forever — a dict-only key is legitimate). Printed here
+              # because an advisory no reader prints is the defect deferred-work.md
+              # § Catalog Copies in Code records; the live sentinel test pins the
+              # set to zero, so a line here means the pin was updated on purpose.
+              phantom_count=$(jq '[.findings[] | select(.kind == "embedding-map-phantom-field")] | length' bloat.json)
+              if [ "$phantom_count" -ne 0 ]; then
+                echo ""
+                echo "**${phantom_count} embedding field map(s) naming a field their model lacks** —"
+                echo "advisory: a phantom contributes nothing on the model path; a dict-only key"
+                echo "is legitimate and the map's comment says so. Verify by hand:"
+                echo ""
+                jq -r '.findings[] | select(.kind == "embedding-map-phantom-field") | "- `\(.subject)` (\(.file):\(.line)) — \(.detail)"' bloat.json
               fi
             fi
             echo ""

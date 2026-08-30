@@ -115,7 +115,7 @@ No metric definition without live emission **in the same change** — 14 defined
 metrics were deleted in May 2026 (commit 5b477a281: SystemMetrics, SearchMetrics, token/transcription
 counters). Genuinely deferred instrumentation stays a plain backlog note (review doc, ADR, TODO) —
 never a defined-but-unemitted metric. There is deliberately no planned-metrics registry
-(`detect_bloat.py`'s `PLANNED_*` tiers cover events/methods/templates only).
+(`detect_bloat.py`'s `PLANNED_*` tiers cover events/methods/templates/embedding field maps only).
 **See:** [INSTRUMENTATION.md](INSTRUMENTATION.md) § Emit-First Doctrine.
 
 ---

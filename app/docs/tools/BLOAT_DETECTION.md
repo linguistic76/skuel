@@ -1,6 +1,6 @@
 ---
 title: Bloat Detection
-updated: 2026-08-29
+updated: 2026-08-30
 status: current
 category: tools
 tags: [dead-code, events, services, vulture, ast, maintenance]
@@ -26,13 +26,21 @@ Finds dead code that generic tools cannot express:
   relationship-registry method names, dispatch tables).
 - **Prompt-template backlog** — `PLANNED_TEMPLATES` entries with no render
   site (rides the full report only, not the scoped modes).
+- **Embedding field-map backlog** — `EMBEDDING_FIELD_MAPS` entries whose type
+  has no event class in `EMBEDDING_EVENT_TYPES` ("hollow" maps: nothing builds
+  text for them), audited against `PLANNED_EMBEDDING_MAPS` (full report only;
+  see *Embedding field maps* below).
 
-**Scope is exactly those three subjects.** Dataclasses, fields, enum members,
+**Scope is exactly those four subjects.** Dataclasses, fields, enum members,
 and config knobs are never examined, so a clean run is **not evidence** they
 are live — inert fields are found by review, not by this tool (e.g. the
 #849 / #853 / #864 / #877 deletions, all review-caught). There is deliberately
-no `PLANNED_FIELDS` registry: the PLANNED tiers stay honest only because the
-detector stale-audits their keys, and it has no field scanner to audit with.
+no `PLANNED_FIELDS` registry for dataclass fields, enum members or config
+knobs: the PLANNED tiers stay honest only because the detector stale-audits
+their keys, and it has no field scanner to audit with. `PLANNED_EMBEDDING_MAPS`
+is the one field-shaped tier, and it is auditable where a general field
+registry is not — its subject is a *key of a known dict literal*, and the
+hollow set it annotates is derived at run time rather than copied.
 Field-liveness detection itself is out of reach under the design rules below —
 fields are consumed through `**kwargs`, DTO conversion, Neo4j property dicts,
 and frontmatter mapping, which is cross-file dataflow.
@@ -82,10 +90,10 @@ The detector follows the SKUEL linter's structural-soundness discipline
 
 | Tier | Meaning | Fails `--check`? |
 |------|---------|------------------|
-| `WARNING` | Structurally dead — verified absence of liveness — **or a stale PLANNED marking** (the registered subject no longer exists) **or a dangling `blocked_by` pointer** (`planned-blocker-missing`: an entry names a `deferred-work.md` heading that does not exist) | Yes |
+| `WARNING` | Structurally dead — verified absence of liveness — **or a stale PLANNED marking** (the registered subject no longer exists) **or a dangling `blocked_by` pointer** (`planned-blocker-missing`: an entry names a `deferred-work.md` heading that does not exist) **or an unregistered hollow embedding map** (`embedding-map-unregistered`: a field map with no event class and no `PLANNED_EMBEDDING_MAPS` entry) | Yes |
 | `UNVERIFIED` | Liveness signal exists but is not structurally traceable (constructed-but-untraced events; methods whose name appears as a string literal) | No |
-| `PLANNED` | Structurally dead **by intent** — staged work registered in `PLANNED_EVENTS` / `PLANNED_METHODS` / `PLANNED_TEMPLATES`, awaiting its wiring; every entry declares `READY` / `DELAYED` and its staging date (below) | No |
-| `INFO` | Live but noteworthy (published-never-subscribed — fine for fire-and-forget audit events; **name-masked PLANNED markings**, below; **`planned-ready-aging`** — a READY entry staged past the review window, see *PLANNED-tier aging*) | No |
+| `PLANNED` | Structurally dead **by intent** — staged work registered in `PLANNED_EVENTS` / `PLANNED_METHODS` / `PLANNED_TEMPLATES` / `PLANNED_EMBEDDING_MAPS`, awaiting its wiring; every entry declares `READY` / `DELAYED` and its staging date (below) | No |
+| `INFO` | Live but noteworthy (published-never-subscribed — fine for fire-and-forget audit events; **name-masked PLANNED markings**, below; **`planned-ready-aging`** — a READY entry staged past the review window, see *PLANNED-tier aging*; **`embedding-map-phantom-field`** — advisory, see *Embedding field maps*) | No |
 
 Act on `WARNING` findings after a manual grep-verify; treat `UNVERIFIED` as a
 lead list, not a verdict.
@@ -95,9 +103,10 @@ lead list, not a verdict.
 curriculum/resource `*EmbeddingRequested` events — subscribers live in
 `embedding_worker.py`, publishers pending) is a completion to-do, not dead
 code. Register it in `PLANNED_EVENTS` / `PLANNED_METHODS` (keyed
-`relative/path.py::method_name`) or `PLANNED_TEMPLATES` (keyed by template id —
-ADR-082 D4) as a `PlannedEntry(readiness, reason, since=date(...))` — a reason
-naming what completes it, plus two structured facts and one optional pointer:
+`relative/path.py::method_name`), `PLANNED_TEMPLATES` (keyed by template id —
+ADR-082 D4) or `PLANNED_EMBEDDING_MAPS` (keyed by `EntityType` member name) as
+a `PlannedEntry(readiness, reason, since=date(...))` — a reason naming what
+completes it, plus two structured facts and one optional pointer:
 
 - **`readiness`** (required, no default — every entry classifies itself):
   `Readiness.READY` when the completing change is fully specified and no
@@ -133,25 +142,29 @@ here: it is an `EXEMPTED_METHODS` entry. ⚠ Exemptions have no stale audit in t
 tool; `tests/unit/scripts/test_detect_bloat.py::test_live_exempted_methods_still_exist`
 is the audit.
 
-**Integrity is self-policing, and exactly two things fail `--check` — both
-provable absence, neither inferred.** First, **the subject is GONE**
-(`planned-marking-stale`): a deleted or renamed event class, service method, or
-template `.md` makes its registry key a lie. "Gone" is proven by looking for
-the definition, never inferred from a subject's absence from an index: an event
-class missing from the *event universe* may simply have stopped resolving as a
-`BaseEvent` subclass (a base-class edit, or a module missing from
-`core/events/__init__.py`), which is an inheritance defect, not stale backlog
-metadata. Second, **a `blocked_by` pointer resolves to nothing**
-(`planned-blocker-missing`): the tool reads `docs/roadmap/deferred-work.md`
-once per run — a markdown read, not source analysis; the AST-only rule is about
-Python — and compares every pointer, in every examined tier and whatever state
-the run found the subject in, against the file's `##` / `###` headings by core
-text. A section renamed, moved to `done/` (its trigger fired), or a mistyped
-pointer is the same finding; there is no fuzzy match, because absence is the
-only fact. A missing `deferred-work.md` aborts the run rather than reporting
-zero pointers. Both are `WARNING` in every tier, print under their own red
-heading (the full report, `--ready`, and the verdict line each name them apart
-from structurally-dead findings), and
+**Integrity is self-policing, and exactly three things fail `--check` — all
+provable absence, none inferred.** First, **the subject is GONE**
+(`planned-marking-stale`): a deleted or renamed event class, service method,
+template `.md` or field-map entry makes its registry key a lie. "Gone" is
+proven by looking for the definition, never inferred from a subject's absence
+from an index: an event class missing from the *event universe* may simply
+have stopped resolving as a `BaseEvent` subclass (a base-class edit, or a
+module missing from `core/events/__init__.py`), which is an inheritance
+defect, not stale backlog metadata. Second, **a `blocked_by` pointer resolves
+to nothing** (`planned-blocker-missing`): the tool reads
+`docs/roadmap/deferred-work.md` once per run — a markdown read, not source
+analysis; the AST-only rule is about Python — and compares every pointer, in
+every examined tier and whatever state the run found the subject in, against
+the file's `##` / `###` headings by core text. A section renamed, moved to
+`done/` (its trigger fired), or a mistyped pointer is the same finding; there
+is no fuzzy match, because absence is the only fact. A missing
+`deferred-work.md` aborts the run rather than reporting zero pointers. Third,
+**a hollow embedding field map has no registration** (`embedding-map-unregistered`,
+see *Embedding field maps*): the registry is the only place a hollow map can
+be declared intentional, so an undeclared one is an accident or abandoned work
+and provably so. All three are `WARNING`, print under their own red heading
+(the full report, `--ready`, and the verdict line each name them apart from
+structurally-dead findings), and
 `test_detect_bloat.py::test_live_blocked_by_pointers_resolve_against_the_live_deferred_work`
 fails locally on a heading rename before CI does — and CI does: `deferred-work.md`
 sits in `ci.yml`'s `py` path filter so a rename-only PR still runs the gate and
@@ -163,7 +176,7 @@ module's safe-direction rule permits over-approximation only to **suppress a
 dead-code accusation, never create one**. Gating a became-live signal inverts
 that rule: it fails `--check` on honest staged work, and the only way to clear
 it is to delete the entry — which hides exactly the entries most likely to be
-forgotten (the #1119 attendee pair sat masked for eight days). The three
+forgotten (the #1119 attendee pair sat masked for eight days). The four
 engines and why none can attribute its signal:
 
 | Tier | Engine | Why it cannot attribute |
@@ -171,6 +184,7 @@ engines and why none can attribute its signal:
 | Methods | vulture | Liveness is name-based (`VultureScan.used_names` *is* the suppressor). A second `def` of the name, **or one `x.method_name` attribute load anywhere in the tree**, drops the candidate with no call reaching this definition. |
 | Templates | `_collect_rendered_template_ids` | Receiver-blind: any constant string handed to a `.render()`/`.get()` counts, so `settings.get("some_template_id")` reads as a render site. |
 | Events | `EventUsageCollector` | Publish resolution uses a file-scoped variable index and class registries — a different `x` published elsewhere in the file resolves here, and one published sibling marks every class in a registry published. |
+| Embedding maps | `EMBEDDING_EVENT_TYPES` membership | An event class is not a producer that passes the type: `RESOURCE` sits in the event map with vault ingestion as its only producer, and a service-created type could gain an event class with no publish site. |
 
 **Keep the entry; verify wiring by hand.** The masked detail names why
 attribution failed. The weekly janitor prints masked markings so the
@@ -178,8 +192,58 @@ unverifiable case stays visible rather than silently accruing. (A template
 render site passing a *variable* id is invisible to the check either way, so
 such an entry stays listed until removed by hand.)
 
-The template backlog appears on full runs only — the scoped `--events-only` /
-`--methods-only` modes isolate their own analysis.
+The template and embedding-map backlogs appear on full runs only — the scoped
+`--events-only` / `--methods-only` modes isolate their own analysis.
+
+## Embedding field maps
+
+`EMBEDDING_FIELD_MAPS` (`core/utils/embedding_text_builder.py`) declares *what*
+each entity type's vector would carry; `EMBEDDING_EVENT_TYPES`
+(`core/events/embedding_publisher.py`) decides *whether* anything is embedded
+at all — ADR-074's only producers key on the event map. A map whose type has
+no event class is **hollow**: nothing builds text for it, and until 2026-08-30
+the three hollow entries (`ENTRY_REPORT`, `FORM_TEMPLATE`, `FORM_SUBMISSION`)
+were indistinguishable from accidents *precisely because there was nowhere to
+declare them intentional* (`deferred-work.md` § Catalog Copies in Code,
+instance 3). Ruled 2026-08-29: keep them, register them, add `ACTIVITY_REPORT`.
+
+**Why this is auditable where a general `PLANNED_FIELDS` is not:** the subject
+is a key of a known dict literal, and the hollow set is **derived** at run time
+— `set(EMBEDDING_FIELD_MAPS) - set(EMBEDDING_EVENT_TYPES)`, both read by AST
+(`read_entity_type_keys`; the events package is never imported at lint time).
+`PLANNED_EMBEDDING_MAPS` (keyed by `EntityType` member name) *annotates* that
+set rather than copying it. The reader treats the two dicts as a contract —
+every key is `EntityType.<MEMBER>` — and **aborts the run** on any other shape
+(missing module or name, non-literal value, computed key, `**` spread): a set
+it cannot see whole is one it can neither accuse nor exonerate, and "zero
+hollow maps" over an unread dict would be the lie the tier exists to prevent.
+
+Four findings:
+
+| Finding | Severity | When |
+|---------|----------|------|
+| `planned-marking-stale` | WARNING, gates | a registered key has no `EMBEDDING_FIELD_MAPS` entry — the subject is gone (same predicate as the derivation) |
+| `embedding-map-unregistered` | WARNING, gates | a hollow map has no registration — register it (staged) or delete the map (abandoned). About a *map entry*, not a registry entry: carries no readiness, never appears in `--ready` |
+| `planned-marking-masked` | INFO, never gates | a registered key is now in `EMBEDDING_EVENT_TYPES` — an event class is not a producer (see the engines table); keep the entry, verify a publish site by hand |
+| `embedding-map-phantom-field` | INFO, **advisory forever** | a mapped name is no annotated field of the model bound to that type, bases included (the `CHOICE`/`outcome` class — a phantom contributes nothing on the model path) |
+
+The phantom check resolves each type's model by its `entity_type` default
+(`ModelFieldIndex`), unions the fields of every class binding the member and
+of every class its bases name — over-approximation in the safe direction only,
+so it can suppress a report, never fabricate one — and counts what it could
+not examine in Limitations. It **can never be more than advisory**:
+`_get_field_value` also reads ingestion / Neo4j property dicts, so a dict-only
+key is legitimate; and it is blind to the inverse — a field that *exists*
+(inherited from `Entity`) but no writer populates is a writer fact, found by
+review. `ENTRY_REPORT`'s old map `("title", "content", "summary")` was exactly
+that: both fields exist, both writers populate `processed_content`. The check
+did find `HABIT`'s `name` on the day it landed (no such field; the map's
+comment records the fix).
+
+The live sentinel `test_live_embedding_map_tier_is_clean` pins the tier to its
+intended state — every hollow map registered, every registered map hollow,
+zero phantoms; a deliberate dict-only key is recorded in the map's comment and
+in that pin.
 
 ## PLANNED-tier aging
 
@@ -230,8 +294,8 @@ ruling, not the latest re-ruling — which is what `since` is defined to hold.
 
 Tier scoping mirrors the analyses: `--events-only` summarizes
 `PLANNED_EVENTS` only, `--methods-only` summarizes `PLANNED_METHODS` only,
-and the full report adds `PLANNED_TEMPLATES` (same gate as the template
-backlog itself). The weekly janitor workflow (below) renders the per-readiness
+and the full report adds `PLANNED_TEMPLATES` and `PLANNED_EMBEDDING_MAPS`
+(same gate as those backlogs themselves). The weekly janitor workflow (below) renders the per-readiness
 summary and any `planned-ready-aging` findings into its status issue, so
 backlog aging is reviewed on a clock instead of remembered.
 
@@ -299,6 +363,10 @@ dynamically-dispatched method vocabulary, collected structurally:
   facade methods delegating to same-named sub-service methods are invisible.
 - **No cross-function/cross-file event dataflow** by design — those flows land
   in UNVERIFIED.
+- **Embedding field maps:** a phantom-field report is advisory (dict-only keys
+  are legitimate; an inherited-but-unpopulated field is invisible to a name
+  check), and map entries whose type no parsed class binds, or whose value is
+  not a literal tuple, are counted as unexaminable rather than passed.
 - Unparseable files are reported loudly; their usage is invisible to every
   liveness claim.
 

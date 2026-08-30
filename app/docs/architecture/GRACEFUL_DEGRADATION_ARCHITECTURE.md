@@ -43,7 +43,7 @@ The app is architecturally split into two layers. The foundational layer — CRU
 
 | Capability | What It Does | Dependencies |
 |-----------|-------------|--------------|
-| Embeddings | 1024-dim vectors on 16 content-bearing entity types | OpenAI `text-embedding-3-small` @1024 (ADR-068; BGE adapter staged) |
+| Embeddings | 1024-dim vectors on every embeddable entity type (the `EMBEDDING_EVENT_TYPES` keys) | OpenAI `text-embedding-3-small` @1024 (ADR-068; BGE adapter staged) |
 | Vector Search | Semantic similarity, hybrid search, RRF | Embeddings + Neo4j vector indexes |
 | Askesis | Socratic AI companion, ZPD-aware | LLM (OpenAI) |
 | Feedback Generation | AI assessment of submissions | LLM |
