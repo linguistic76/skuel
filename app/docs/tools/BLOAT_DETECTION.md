@@ -82,7 +82,7 @@ The detector follows the SKUEL linter's structural-soundness discipline
 
 | Tier | Meaning | Fails `--check`? |
 |------|---------|------------------|
-| `WARNING` | Structurally dead — verified absence of liveness — **or a stale PLANNED marking** (the registered subject no longer exists) | Yes |
+| `WARNING` | Structurally dead — verified absence of liveness — **or a stale PLANNED marking** (the registered subject no longer exists) **or a dangling `blocked_by` pointer** (`planned-blocker-missing`: an entry names a `deferred-work.md` heading that does not exist) | Yes |
 | `UNVERIFIED` | Liveness signal exists but is not structurally traceable (constructed-but-untraced events; methods whose name appears as a string literal) | No |
 | `PLANNED` | Structurally dead **by intent** — staged work registered in `PLANNED_EVENTS` / `PLANNED_METHODS` / `PLANNED_TEMPLATES`, awaiting its wiring; every entry declares `READY` / `DELAYED` and its staging date (below) | No |
 | `INFO` | Live but noteworthy (published-never-subscribed — fine for fire-and-forget audit events; **name-masked PLANNED markings**, below; **`planned-ready-aging`** — a READY entry staged past the review window, see *PLANNED-tier aging*) | No |
@@ -97,7 +97,7 @@ curriculum/resource `*EmbeddingRequested` events — subscribers live in
 code. Register it in `PLANNED_EVENTS` / `PLANNED_METHODS` (keyed
 `relative/path.py::method_name`) or `PLANNED_TEMPLATES` (keyed by template id —
 ADR-082 D4) as a `PlannedEntry(readiness, reason, since=date(...))` — a reason
-naming what completes it, plus two structured facts:
+naming what completes it, plus two structured facts and one optional pointer:
 
 - **`readiness`** (required, no default — every entry classifies itself):
   `Readiness.READY` when the completing change is fully specified and no
@@ -111,6 +111,20 @@ naming what completes it, plus two structured facts:
 - **`since`** — the date of the *staging decision*: the first ruling, never a
   later re-ruling. Recovered per key from `git log -S` when the registries were
   restructured (2026-08-29); for a new entry it is the day the entry is written.
+- **`blocked_by`** (optional, keyword) — a *pointer* at the `deferred-work.md`
+  section that holds why the entry waits, written as the heading's core text
+  (`blocked_by="HabitMissed — Publisher-less Chain"`), never a restatement of
+  it: a reason that repeats what the section says is two copies of one fact,
+  and one rots. Compared on both sides by `normalize_heading` — backticks
+  stripped, one trailing parenthetical (the `(REGISTERED … — ruled …)` status
+  suffix; the last balanced group only, so an earlier parenthetical is core
+  text) dropped, whitespace collapsed — so the pointer survives a suffix edit
+  and dies on a rename (see *Integrity*, below). Every row about the entry —
+  awaiting-wiring, masked, stale — prints it as a `blocked by:` note; the
+  beside-findings (`planned-ready-aging`, `planned-blocker-missing`) do not
+  repeat it. A pointer at another registry key is not a form the tool
+  accepts: it had zero users when the field landed, and a form with no user is
+  dead the day it ships.
 
 The PLANNED section then functions as the visible wiring backlog. Something the
 scanner cannot see but that is **live** — a method whose only caller is under
@@ -119,15 +133,29 @@ here: it is an `EXEMPTED_METHODS` entry. ⚠ Exemptions have no stale audit in t
 tool; `tests/unit/scripts/test_detect_bloat.py::test_live_exempted_methods_still_exist`
 is the audit.
 
-**Integrity is self-policing, and exactly one thing fails `--check`: the
-subject is GONE.** A deleted or renamed event class, service method, or
-template `.md` makes its registry key a lie, and that is the only fact this
-detector establishes without inference. It is a `WARNING` in every tier — and
-"gone" is proven by looking for the definition, never inferred from a subject's
-absence from an index: an event class missing from the *event universe* may
-simply have stopped resolving as a `BaseEvent` subclass (a base-class edit, or a
-module missing from `core/events/__init__.py`), which is an inheritance defect,
-not stale backlog metadata.
+**Integrity is self-policing, and exactly two things fail `--check` — both
+provable absence, neither inferred.** First, **the subject is GONE**
+(`planned-marking-stale`): a deleted or renamed event class, service method, or
+template `.md` makes its registry key a lie. "Gone" is proven by looking for
+the definition, never inferred from a subject's absence from an index: an event
+class missing from the *event universe* may simply have stopped resolving as a
+`BaseEvent` subclass (a base-class edit, or a module missing from
+`core/events/__init__.py`), which is an inheritance defect, not stale backlog
+metadata. Second, **a `blocked_by` pointer resolves to nothing**
+(`planned-blocker-missing`): the tool reads `docs/roadmap/deferred-work.md`
+once per run — a markdown read, not source analysis; the AST-only rule is about
+Python — and compares every pointer, in every examined tier and whatever state
+the run found the subject in, against the file's `##` / `###` headings by core
+text. A section renamed, moved to `done/` (its trigger fired), or a mistyped
+pointer is the same finding; there is no fuzzy match, because absence is the
+only fact. A missing `deferred-work.md` aborts the run rather than reporting
+zero pointers. Both are `WARNING` in every tier, print under their own red
+heading (the full report, `--ready`, and the verdict line each name them apart
+from structurally-dead findings), and
+`test_detect_bloat.py::test_live_blocked_by_pointers_resolve_against_the_live_deferred_work`
+fails locally on a heading rename before CI does — and CI does: `deferred-work.md`
+sits in `ci.yml`'s `py` path filter so a rename-only PR still runs the gate and
+the sentinel instead of taking the docs-only skip.
 
 **"It looks wired now" NEVER gates — it reports as `planned-marking-masked`
 (INFO).** Every liveness engine here over-approximates *by design*, because the

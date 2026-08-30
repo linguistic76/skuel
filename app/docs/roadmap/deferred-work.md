@@ -2157,6 +2157,12 @@ most of the instances below rely on today.
    here instead). ✅ **BUILT (ruled + shipped 2026-08-29):** a stale marking is a `WARNING` and
    fails `--check`; the janitor prints both tiers. The masked case was measured to be **2 of the
    2** findings and is NOT staleness — see the ruling below.
+   ✅ **BUILT (2026-08-29, readiness arc PR-3):** the registry now *points* at this file instead
+   of restating it — `PlannedEntry.blocked_by` names the `##`/`###` heading (core text) whose
+   section holds an entry's blocker; the detector reads this file on every run and a pointer at
+   nothing is `planned-blocker-missing`, `WARNING`, fails `--check`, with a live sentinel test
+   that fails on a heading rename before CI does. `HabitMissed` lost its restated constraints
+   (one copy, here). The sibling-registry-key pointer form was NOT built — zero populators.
 3. **Embeddable entity types.** Copies: `EMBEDDING_EVENT_TYPES` (13), `EMBEDDING_NODE_LABELS`
    (13), `EmbeddingWorker.subscribe()` (13 hand-written lines plus the two chunk events),
    `ENTITY_CONFIGS[…].embeddable` (11), `EMBEDDING_SCAN_LABELS` (derived ✓),

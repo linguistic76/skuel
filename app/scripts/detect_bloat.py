@@ -30,10 +30,11 @@ Design rules (mirrors the SKUEL linter's structural-soundness discipline):
   printed in the Limitations section.
 - Unwired by intent is not bloat: staged work registered in PLANNED_EVENTS /
   PLANNED_METHODS / PLANNED_TEMPLATES reports in its own PLANNED tier — a
-  visible completion to-do list that never fails --check. Exactly ONE thing about
-  a registry entry fails it (ruled 2026-08-29): the subject is GONE. That is the
-  only fact established here without inference, and a key pointing at nothing is
-  a lie about the backlog.
+  visible completion to-do list that never fails --check. Exactly TWO things about
+  a registry entry fail it, both provable absence with no inference (ruled
+  2026-08-29): the subject is GONE — a key pointing at nothing is a lie about
+  the backlog — or its ``blocked_by`` pointer resolves to no deferred-work.md
+  heading — a pointer at nothing is the same lie about the blocker.
   "It looks wired now" NEVER gates, in any tier. Every liveness engine in this
   module over-approximates by design — vulture matches by name, the template
   render collector is receiver-blind, publish resolution uses a file-scoped
@@ -46,10 +47,13 @@ Design rules (mirrors the SKUEL linter's structural-soundness discipline):
   audited, and there is no field scanner to audit with. Every entry is a
   PlannedEntry: a Readiness (READY = the completing change is fully specified
   and no decision stands before it; DELAYED = waiting on a product decision
-  or on a surface that does not exist yet), the reason, and ``since`` — the
-  staging-decision date, structured — so each examined tier prints an aging
-  summary (entry count + oldest ``since``, split by readiness) that scrapes
-  nothing from prose. The PLANNED block prints READY first; ``--ready`` prints
+  or on a surface that does not exist yet), the reason, ``since`` — the
+  staging-decision date, structured — and optionally ``blocked_by``: a POINTER
+  at the deferred-work.md section that holds the why (its heading's core text),
+  never a restatement of it, verified against the live file on every run. Each
+  examined tier prints an aging summary (entry count + oldest ``since``, split
+  by readiness) that scrapes nothing from prose. The PLANNED block prints READY
+  first; ``--ready`` prints
   only that slice; a READY entry staged longer than READY_AGING_DAYS gets an
   INFO ``planned-ready-aging`` finding beside it (a DELAYED entry aging is
   expected — a READY one aging is the signal). Advisory, never gates.
@@ -89,6 +93,10 @@ EXCLUDED_PARTS = {"__pycache__", "archive"}
 EVENTS_PACKAGE = ROOT / "core" / "events"
 EVENT_ROOT_BASE = "BaseEvent"
 
+# The anchor file for PlannedEntry.blocked_by: a pointer must name one of its
+# ``## `` / ``### `` headings. Read ONCE per run (main), never per tier.
+DEFERRED_WORK = ROOT / "docs" / "roadmap" / "deferred-work.md"
+
 # A READY entry staged for MORE than this many days is reported as
 # ``planned-ready-aging`` — INFO, advisory, never gates. 90 days is one quarter:
 # deferred-work.md § Review Schedule walks the backlog on that cadence, so a
@@ -127,11 +135,24 @@ class PlannedEntry:
     re-ruling — structured so the aging summary reads it instead of scraping
     ISO dates out of prose (which missed 74% of PLANNED_METHODS). ``reason``
     keeps the tier's standing contract: it must name what completes the entry.
+
+    ``blocked_by`` is a POINTER, never prose: the core text of the
+    deferred-work.md ``##`` / ``###`` heading whose section holds WHY the entry
+    waits. A reason that restates that section is two copies of one fact and
+    one will rot; the pointer is verified against the live file on every run
+    (``audit_blocked_by`` — a dangling one is a WARNING and fails --check). Core
+    text is what ``normalize_heading`` returns, applied to BOTH sides: backticks
+    stripped, one trailing parenthetical dropped (the ``(REGISTERED … — ruled …)``
+    status suffix), whitespace collapsed — so "HabitMissed — Publisher-less
+    Chain" resolves whatever suffix the heading carries. Positional after
+    ``since`` so the registries' ``PlannedEntry(Readiness.X, "…", since=…)``
+    form is untouched; pass it by keyword.
     """
 
     readiness: Readiness
     reason: str
     since: date
+    blocked_by: str | None = None
 
 
 # Exemptions require a documented reason (audit_route_security.py convention).
@@ -164,7 +185,9 @@ EXEMPTED_METHODS: dict[str, str] = {
 # FAILS --check, and must be removed. An entry that merely LOOKS wired is masked
 # — printed, never demanded — because no engine here can attribute the signal.
 # Every entry is a PlannedEntry: it declares its Readiness (READY / DELAYED)
-# and its ``since`` — the staging-decision date, structured, never scraped.
+# and its ``since`` — the staging-decision date, structured, never scraped —
+# and may point (``blocked_by``) at the deferred-work.md section that holds its
+# blocker instead of restating it; a pointer at nothing FAILS --check too.
 PLANNED_EVENTS: dict[str, PlannedEntry] = {
     # ADR-074 wired the curriculum embedding events through the
     # embedding_publisher chokepoint (Ku/PathStep/LearningPath via the
@@ -178,12 +201,10 @@ PLANNED_EVENTS: dict[str, PlannedEntry] = {
         "subscriber wiring in services_bootstrap/_event_wiring.py is intentional staging. "
         "RULED keep-staged 2026-08-28 (Mike) — its siblings add_change_handler and "
         "get_recommended_next_action were DELETED 2026-08-29 (the PR after #1179); this "
-        "one earns a row: "
-        "docs/roadmap/deferred-work.md § 'HabitMissed — Publisher-less Chain'. The "
-        "publisher's constraints are no LLM and no API cost plus the streak day-model "
-        "ruling — a scheduled Analog detector (ProgressReportWorker pattern), a read-time "
-        "scan or a one-shot are all legitimate shapes",
+        "one earns a deferred-work.md row (the publisher's constraints and candidate "
+        "shapes live there, not here)",
         since=date(2026, 6, 10),
+        blocked_by="HabitMissed — Publisher-less Chain",
     ),
     # Exercises dead-code campaign (2026-06): ADR-040 teacher-assignment
     # notification hook. Neither published nor subscribed — its sibling
@@ -1016,7 +1037,7 @@ METHOD_SCOPE = "core/services/"
 class BloatSeverity(Enum):
     """Finding tiers. Only WARNING can ever fail a --check run."""
 
-    WARNING = "warning"  # structurally dead, or a stale PLANNED marking
+    WARNING = "warning"  # structurally dead, a stale PLANNED marking, or a dangling blocked_by
     UNVERIFIED = "unverified"  # constructed somewhere; publication untraceable
     INFO = "info"  # live but noteworthy (e.g. published, never subscribed)
     PLANNED = "planned"  # unwired by intent — a completion to-do, not bloat
@@ -1070,6 +1091,21 @@ class Site:
         return f"{self.file}:{self.line}"
 
 
+def _blocker_note(entry: PlannedEntry) -> list[str]:
+    """The ``blocked by:`` annotation for every finding that IS an entry's row.
+
+    Display only — the pointer is VERIFIED by ``audit_blocked_by``. Attached at
+    each row-construction site (awaiting-wiring, masked and stale, in every
+    tier) rather than in the still-staged helper, so a masked or stale row
+    still names where the why lives (Codex P2, PR #1191). The beside-findings
+    do not carry it: ``planned-ready-aging`` repeats its row, and
+    ``planned-blocker-missing`` quotes the pointer in its detail.
+    """
+    if entry.blocked_by is None:
+        return []
+    return [f"blocked by: deferred-work.md § {entry.blocked_by}"]
+
+
 def _with_ready_aging(entry: PlannedEntry, awaiting: Finding) -> list[Finding]:
     """The finding(s) for one still-staged PLANNED entry.
 
@@ -1100,6 +1136,110 @@ def _with_ready_aging(entry: PlannedEntry, awaiting: Finding) -> list[Finding]:
                 )
             )
     return findings
+
+
+def normalize_heading(text: str) -> str:
+    """The core text of a deferred-work.md heading — the form ``blocked_by`` is compared in.
+
+    Applied to BOTH sides (the file's headings and the registries' pointers),
+    so a pointer may be written with or without the decoration. Three steps —
+    the only inference in the anchor check, and the convention every existing
+    code citation already uses ("§ Line Deletions Leave EXTRACTED_FROM Edges"
+    in cleanup_duplicate_vault_tasks.py cites a backticked, suffixed heading by
+    its core text):
+
+    1. strip backticks;
+    2. drop ONE trailing parenthetical — the ``(REGISTERED 2026-08-28 — ruled
+       keep-staged)`` status suffix. It is the LAST balanced group only: an
+       earlier parenthetical inside the core text stays ("Event Attendance
+       Wiring (ATTENDS) — Staged Build"), nesting inside the trailing group is
+       dropped with it ("… (D1(b) follow-on)" → "…"), and an unbalanced
+       trailing ')' drops nothing;
+    3. collapse whitespace.
+    """
+    stripped = text.replace("`", "").rstrip()
+    if stripped.endswith(")"):
+        depth = 0
+        for index in range(len(stripped) - 1, -1, -1):
+            if stripped[index] == ")":
+                depth += 1
+            elif stripped[index] == "(":
+                depth -= 1
+                if depth == 0:
+                    stripped = stripped[:index]
+                    break
+    return " ".join(stripped.split())
+
+
+def load_deferred_work_headings(path: Path) -> frozenset[str]:
+    """The normalized ``## `` / ``### `` headings of deferred-work.md — the anchor set.
+
+    A markdown read, not source analysis: the module's AST-only rule is about
+    Python, and this file is prose. Read ONCE per run in main() and handed to
+    every tier's ``audit_blocked_by``. A missing file ABORTS the run — the check
+    cannot report "no dangling pointers" over a file it never read (fail-fast
+    applied to the tool itself; never zero findings by default).
+    """
+    if not path.is_file():
+        raise FileNotFoundError(
+            f"blocked_by anchor file missing: {path} — the pointer check cannot run without it"
+        )
+    headings: set[str] = set()
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if line.startswith("## ") or line.startswith("### "):
+            headings.add(normalize_heading(line.split(" ", 1)[1]))
+    return frozenset(headings)
+
+
+def _planned_subject_site(tier: str, key: str) -> tuple[str, str]:
+    """(subject, file) for a registry key — each tier's stale-finding convention."""
+    if tier == "PLANNED_EVENTS":
+        return key, "core/events/"
+    if tier == "PLANNED_METHODS":
+        rel, _, name = key.rpartition("::")
+        return name, rel
+    if tier == "PLANNED_TEMPLATES":
+        return key, f"{TEMPLATES_DIR_REL}/{key}.md"
+    raise ValueError(f"unknown PLANNED tier {tier!r} — teach _planned_subject_site its key shape")
+
+
+def audit_blocked_by(
+    tier: str, registry: dict[str, PlannedEntry], headings: frozenset[str]
+) -> list[Finding]:
+    """The ``blocked_by`` anchor check for one registry — WARNING, fails --check.
+
+    ONE predicate and nothing else: the pointer's normalized text is not in
+    ``headings``. Absence is the only fact — no fuzzy match, no "did you
+    mean"; a heading that moved to ``done/`` (its trigger fired) and a mistyped
+    pointer are the same finding, and the fix is the entry's, not the
+    tool's. Runs over the WHOLE registry, beside the tier's analysis, never
+    inside the still-staged helper: a pointer at nothing is a lie whatever
+    state the run found the subject in.
+    """
+    results: list[Finding] = []
+    for key, entry in sorted(registry.items()):
+        if entry.blocked_by is None or normalize_heading(entry.blocked_by) in headings:
+            continue
+        subject, file = _planned_subject_site(tier, key)
+        results.append(
+            Finding(
+                kind="planned-blocker-missing",
+                severity=BloatSeverity.WARNING,
+                subject=subject,
+                file=file,
+                line=0,
+                detail=(
+                    f"blocked_by points at nothing — {entry.blocked_by!r} is not a "
+                    "## / ### heading of docs/roadmap/deferred-work.md (compared by core "
+                    "text: backticks stripped, one trailing parenthetical dropped, "
+                    "whitespace collapsed); the section was renamed, moved to done/, or "
+                    "the pointer is mistyped — fix the pointer, or act on the entry if "
+                    "its blocker has resolved"
+                ),
+                readiness=entry.readiness,
+            )
+        )
+    return results
 
 
 # ============================================================================
@@ -1763,6 +1903,7 @@ def analyze_events(
                             "publish wrappers), so the publication cannot be "
                             "attributed; KEEP the entry and verify wiring by hand"
                         ),
+                        annotations=_blocker_note(PLANNED_EVENTS[cls]),
                         readiness=PLANNED_EVENTS[cls].readiness,
                     )
                 )
@@ -1808,7 +1949,7 @@ def analyze_events(
                 file=site.file,
                 line=site.line,
                 detail=f"unwired by intent — {PLANNED_EVENTS[cls].reason}",
-                annotations=planned_notes,
+                annotations=planned_notes + _blocker_note(PLANNED_EVENTS[cls]),
                 readiness=PLANNED_EVENTS[cls].readiness,
             )
         elif constructed:
@@ -1864,6 +2005,7 @@ def analyze_events(
                         "marked planned but no such event class exists — deleted, "
                         "renamed, or mistyped; remove from PLANNED_EVENTS"
                     ),
+                    annotations=_blocker_note(PLANNED_EVENTS[cls]),
                     readiness=PLANNED_EVENTS[cls].readiness,
                 )
             )
@@ -1881,6 +2023,7 @@ def analyze_events(
                         "or its module is not imported in core/events/__init__.py. "
                         "Fix that, not the registry; KEEP the entry"
                     ),
+                    annotations=_blocker_note(PLANNED_EVENTS[cls]),
                     readiness=PLANNED_EVENTS[cls].readiness,
                 )
             )
@@ -2192,7 +2335,7 @@ def analyze_methods(codebase: ParsedCodebase, scan: VultureScan) -> MethodAnalys
                         file=rel,
                         line=item.first_lineno,
                         detail=f"unwired by intent — {entry.reason}",
-                        annotations=annotations,
+                        annotations=annotations + _blocker_note(entry),
                         readiness=entry.readiness,
                     ),
                 )
@@ -2265,6 +2408,7 @@ def analyze_methods(codebase: ParsedCodebase, scan: VultureScan) -> MethodAnalys
                         "marked planned but the method no longer exists at this "
                         "path — deleted or renamed; remove from PLANNED_METHODS"
                     ),
+                    annotations=_blocker_note(PLANNED_METHODS[planned_key]),
                     readiness=PLANNED_METHODS[planned_key].readiness,
                 )
             )
@@ -2291,6 +2435,7 @@ def analyze_methods(codebase: ParsedCodebase, scan: VultureScan) -> MethodAnalys
                     "matches by NAME, so no call can be attributed to this "
                     "definition; KEEP the entry and verify wiring by hand"
                 ),
+                annotations=_blocker_note(PLANNED_METHODS[planned_key]),
                 readiness=PLANNED_METHODS[planned_key].readiness,
             )
         )
@@ -2329,6 +2474,7 @@ def _out_of_scope_planned_findings(codebase: ParsedCodebase) -> list[Finding]:
                         "marked planned but the function no longer exists at this "
                         "path — deleted or renamed; remove from PLANNED_METHODS"
                     ),
+                    annotations=_blocker_note(note),
                     readiness=note.readiness,
                 )
             )
@@ -2343,7 +2489,10 @@ def _out_of_scope_planned_findings(codebase: ParsedCodebase) -> list[Finding]:
                         file=rel,
                         line=def_line,
                         detail=f"unwired by intent — {note.reason}",
-                        annotations=["outside METHOD_SCOPE — liveness not vulture-verified"],
+                        annotations=[
+                            "outside METHOD_SCOPE — liveness not vulture-verified",
+                            *_blocker_note(note),
+                        ],
                         readiness=note.readiness,
                     ),
                 )
@@ -2409,6 +2558,7 @@ def analyze_planned_templates(codebase: ParsedCodebase) -> list[Finding]:
                         "marked planned but the template file no longer exists — "
                         "deleted or renamed; remove from PLANNED_TEMPLATES"
                     ),
+                    annotations=_blocker_note(note),
                     readiness=note.readiness,
                 )
             )
@@ -2427,6 +2577,7 @@ def analyze_planned_templates(codebase: ParsedCodebase) -> list[Finding]:
                         "attributed to the prompt renderer; KEEP the entry and "
                         "verify wiring by hand"
                     ),
+                    annotations=_blocker_note(note),
                     readiness=note.readiness,
                 )
             )
@@ -2441,6 +2592,7 @@ def analyze_planned_templates(codebase: ParsedCodebase) -> list[Finding]:
                         file=rel,
                         line=1,
                         detail=f"unwired by intent — {note.reason}",
+                        annotations=_blocker_note(note),
                         readiness=note.readiness,
                     ),
                 )
@@ -2574,15 +2726,17 @@ class _Partition(NamedTuple):
     """One tier's findings split for printing.
 
     The printers bucket by severity; the planned-marking kinds (stale, masked,
-    ready-aging) are pulled out by NAME so each prints under its own heading
-    instead of its severity's generic one — an INFO ready-aging finding under
-    "published but never subscribed" would be a lie about what it is.
+    ready-aging, blocker-missing) are pulled out by NAME so each prints under
+    its own heading instead of its severity's generic one — an INFO ready-aging
+    finding under "published but never subscribed", or a WARNING blocker-missing
+    under "structurally dead events", would be a lie about what it is.
     """
 
     by_severity: dict[BloatSeverity, list[Finding]]
     stale: list[Finding]
     masked: list[Finding]
     ready_aging: list[Finding]
+    blocker_missing: list[Finding]
 
 
 def _partition(findings: list[Finding]) -> _Partition:
@@ -2590,6 +2744,7 @@ def _partition(findings: list[Finding]) -> _Partition:
     stale: list[Finding] = []
     masked: list[Finding] = []
     ready_aging: list[Finding] = []
+    blocker_missing: list[Finding] = []
     for finding in findings:
         if finding.kind == "planned-marking-stale":
             stale.append(finding)
@@ -2597,9 +2752,16 @@ def _partition(findings: list[Finding]) -> _Partition:
             masked.append(finding)
         elif finding.kind == "planned-ready-aging":
             ready_aging.append(finding)
+        elif finding.kind == "planned-blocker-missing":
+            blocker_missing.append(finding)
         else:
             by_severity[finding.severity].append(finding)
-    return _Partition(by_severity, stale, masked, ready_aging)
+    return _Partition(by_severity, stale, masked, ready_aging, blocker_missing)
+
+
+BLOCKER_MISSING_TITLE = (
+    "Planned entries whose blocked_by points at nothing — fix the pointer; these FAIL --check"
+)
 
 
 def _print_block(items: list[Finding], title: str, color: str | None = None) -> None:
@@ -2684,6 +2846,7 @@ def print_event_report(
         "Stale planned markings — remove from PLANNED_EVENTS; these FAIL --check",
         color=Colors.RED,
     )
+    _print_block(parts.blocker_missing, BLOCKER_MISSING_TITLE, color=Colors.RED)
 
     if not findings:
         print(f"\n  {Colors.GREEN}✓ No event findings.{Colors.RESET}")
@@ -2751,6 +2914,7 @@ def print_method_report(analysis: MethodAnalysis, verbose: bool) -> None:
         "Stale planned markings — remove from PLANNED_METHODS; these FAIL --check",
         color=Colors.RED,
     )
+    _print_block(parts.blocker_missing, BLOCKER_MISSING_TITLE, color=Colors.RED)
 
     if analysis.exempted:
         print(
@@ -2783,6 +2947,7 @@ def print_template_report(findings: list[Finding]) -> None:
         "Stale planned markings — remove from PLANNED_TEMPLATES; these FAIL --check",
         color=Colors.RED,
     )
+    _print_block(parts.blocker_missing, BLOCKER_MISSING_TITLE, color=Colors.RED)
 
 
 def print_ready_report(examined: list[tuple[str, list[Finding]]]) -> None:
@@ -2808,6 +2973,11 @@ def print_ready_report(examined: list[tuple[str, list[Finding]]]) -> None:
             "READY but the subject is GONE — remove the entry; FAILS --check",
             color=Colors.RED,
         )
+        _print_block(
+            parts.blocker_missing,
+            "READY but its blocked_by points at nothing — fix the pointer; FAILS --check",
+            color=Colors.RED,
+        )
 
 
 def print_summary(findings: list[Finding], ran: list[str]) -> None:
@@ -2815,18 +2985,21 @@ def print_summary(findings: list[Finding], ran: list[str]) -> None:
     ride the full report only (mirrors the analyze_planned_templates gate)."""
     warnings = [f for f in findings if f.severity is BloatSeverity.WARNING]
     stale = [f for f in warnings if f.kind == "planned-marking-stale"]
+    dangling = [f for f in warnings if f.kind == "planned-blocker-missing"]
     planned = [f for f in findings if f.severity is BloatSeverity.PLANNED]
     ready_aging = [f for f in findings if f.kind == "planned-ready-aging"]
     other = len(findings) - len(warnings) - len(planned) - len(ready_aging)
     aging_note = f", {len(ready_aging)} READY over {READY_AGING_DAYS} days" if ready_aging else ""
     print(f"\n{Colors.BOLD}{'=' * 78}{Colors.RESET}")
     if warnings:
-        dead_count = len(warnings) - len(stale)
+        dead_count = len(warnings) - len(stale) - len(dangling)
         parts = []
         if dead_count:
             parts.append(f"{dead_count} structurally-dead findings")
         if stale:
             parts.append(f"{len(stale)} stale PLANNED markings")
+        if dangling:
+            parts.append(f"{len(dangling)} dangling blocked_by pointers")
         print(
             f"{Colors.YELLOW}{' + '.join(parts)} "
             f"(+{other} unverified/info, {len(planned)} planned{aging_note}). "
@@ -2950,6 +3123,10 @@ def main() -> int:
         file=progress_out,
     )
 
+    # blocked_by anchors: one read, shared by every examined tier's audit. A
+    # missing file raises here and the run aborts — never "zero pointers".
+    headings = load_deferred_work_headings(DEFERRED_WORK)
+
     findings: list[Finding] = []
     # (tier, that tier's findings) in report order — what --ready filters.
     examined: list[tuple[str, list[Finding]]] = []
@@ -2961,6 +3138,7 @@ def main() -> int:
         universe.build()
         usage = EventUsageCollector(universe, codebase).collect()
         event_findings, exempted = analyze_events(universe, usage)
+        event_findings.extend(audit_blocked_by("PLANNED_EVENTS", PLANNED_EVENTS, headings))
         findings.extend(event_findings)
         examined.append(("PLANNED_EVENTS", event_findings))
         if full_report:
@@ -2972,6 +3150,7 @@ def main() -> int:
             file=progress_out,
         )
         methods = analyze_methods(codebase, run_vulture(ROOT))
+        methods.findings.extend(audit_blocked_by("PLANNED_METHODS", PLANNED_METHODS, headings))
         findings.extend(methods.findings)
         examined.append(("PLANNED_METHODS", methods.findings))
         if full_report:
@@ -2981,6 +3160,7 @@ def main() -> int:
     # --events-only / --methods-only modes isolate their own analysis.
     if check_events and check_methods:
         template_findings = analyze_planned_templates(codebase)
+        template_findings.extend(audit_blocked_by("PLANNED_TEMPLATES", PLANNED_TEMPLATES, headings))
         findings.extend(template_findings)
         examined.append(("PLANNED_TEMPLATES", template_findings))
         if full_report:

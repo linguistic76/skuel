@@ -30,6 +30,7 @@ from detect_bloat import (  # type: ignore[import-not-found]
     EventUniverse,
     EventUsageCollector,
     Finding,
+    MethodAnalysis,
     ParsedCodebase,
     PlannedEntry,
     Readiness,
@@ -37,11 +38,15 @@ from detect_bloat import (  # type: ignore[import-not-found]
     analyze_events,
     analyze_methods,
     analyze_planned_templates,
+    audit_blocked_by,
     build_parser,
     gate_fails,
     json_document,
+    load_deferred_work_headings,
     measure_vulture_blind_spot,
+    normalize_heading,
     print_event_report,
+    print_method_report,
     print_ready_report,
     print_summary,
     print_template_report,
@@ -785,6 +790,7 @@ def test_live_registries_summarize_cleanly():
             assert isinstance(entry.readiness, Readiness), key
             assert PLANNED_TIER_BORN <= entry.since <= date.today(), key
             assert entry.reason.strip(), key
+            assert entry.blocked_by is None or entry.blocked_by.strip(), key
         summary = summarize_planned_aging(tier, registry)
         assert summary.entries == len(registry)
         assert (summary.oldest is None) == (not registry)
@@ -1042,6 +1048,304 @@ def test_ready_and_json_are_mutually_exclusive():
     with pytest.raises(SystemExit):
         build_parser().parse_args(["--ready", "--json"])
     assert build_parser().parse_args(["--ready", "--check"]).ready_only
+
+
+# ============================================================================
+# BLOCKED_BY — a pointer, verified against the live deferred-work.md
+# ============================================================================
+
+
+def _headings(*lines: str) -> frozenset[str]:
+    return frozenset(normalize_heading(line) for line in lines)
+
+
+def blocked(pointer: str, readiness: Readiness = Readiness.DELAYED) -> PlannedEntry:
+    return PlannedEntry(readiness, "staged", since=date(2026, 6, 10), blocked_by=pointer)
+
+
+def _blocker_missing(subject: str, readiness: Readiness) -> Finding:
+    return _about("planned-blocker-missing", BloatSeverity.WARNING, subject, readiness)
+
+
+def test_dangling_blocked_by_is_a_warning_that_fails_the_gate():
+    registry = {"core/services/x.py::waits": blocked("Nowhere To Be Found")}
+    findings = audit_blocked_by("PLANNED_METHODS", registry, _headings("Somewhere Else"))
+    assert [(f.kind, f.severity) for f in findings] == [
+        ("planned-blocker-missing", BloatSeverity.WARNING)
+    ]
+    finding = findings[0]
+    # the stale findings' convention: the subject and its path, no line
+    assert (finding.subject, finding.file, finding.line) == ("waits", "core/services/x.py", 0)
+    assert finding.readiness is Readiness.DELAYED
+    assert "'Nowhere To Be Found'" in finding.detail  # quoted verbatim — no "did you mean"
+    assert gate_fails(findings)
+
+
+def test_resolving_and_absent_blocked_by_produce_no_finding():
+    registry = {
+        "GammaOrphan": blocked("HabitMissed — Publisher-less Chain"),
+        "AlphaEvent": staged(),  # blocked_by None — never audited
+    }
+    headings = _headings(
+        "`HabitMissed` — Publisher-less Chain (REGISTERED 2026-08-28 — ruled keep-staged)"
+    )
+    assert audit_blocked_by("PLANNED_EVENTS", registry, headings) == []
+
+
+@pytest.mark.parametrize(
+    ("heading", "pointer", "resolves"),
+    [
+        pytest.param(
+            "`HabitMissed` — Publisher-less Chain (REGISTERED 2026-08-28 — ruled keep-staged)",
+            "HabitMissed — Publisher-less Chain",
+            True,
+            id="backticks-and-status-suffix-are-decoration",
+        ),
+        pytest.param(
+            "`HabitMissed` — Publisher-less Chain (REGISTERED 2026-09-01)",
+            "HabitMissed — Publisher-less Chain",
+            True,
+            id="a-different-suffix-still-resolves",
+        ),
+        pytest.param(
+            "`HabitMissed` — Publisher-less Chain (REGISTERED 2026-08-28)",
+            "HabitMissed — Publisherless Chain",
+            False,
+            id="a-wrong-core-does-not",
+        ),
+        pytest.param(
+            "Event Attendance Wiring (`ATTENDS`) — Staged Build (REGISTERED 2026-08-26)",
+            "Event Attendance Wiring (ATTENDS) — Staged Build",
+            True,
+            id="only-the-trailing-parenthetical-is-dropped",
+        ),
+        pytest.param(
+            "Event Attendance Wiring (`ATTENDS`) — Staged Build (REGISTERED 2026-08-26)",
+            "Event Attendance Wiring — Staged Build",
+            False,
+            id="an-earlier-parenthetical-is-core-text",
+        ),
+        pytest.param(
+            "Domain-level fulltext-first text search (D1(b) follow-on)",
+            "Domain-level fulltext-first text search",
+            True,
+            id="nesting-inside-the-trailing-group-goes-with-it",
+        ),
+        pytest.param(
+            "Secrets   Follow-ups —\tDISPOSITION (2026-08-21)",
+            "Secrets Follow-ups — DISPOSITION",
+            True,
+            id="whitespace-collapses",
+        ),
+        pytest.param(
+            "Unbalanced tail)",
+            "Unbalanced tail)",
+            True,
+            id="an-unbalanced-trailing-paren-drops-nothing",
+        ),
+    ],
+)
+def test_blocked_by_resolves_by_heading_core_text(heading, pointer, resolves):
+    # normalize_heading is applied to BOTH sides, so a pointer may carry the
+    # decoration or not; this rule is the only inference in the check.
+    assert (normalize_heading(pointer) in _headings(heading)) is resolves
+
+
+def test_deferred_work_headings_are_read_from_the_two_section_levels(tmp_path):
+    md = tmp_path / "deferred-work.md"
+    md.write_text(
+        "# Deferred Work\n"
+        "## Alpha (REGISTERED 2026-08-01)\n"
+        "### `Beta` sub-item\n"
+        "#### Gamma is too deep\n"
+        "## Delta\n",
+        encoding="utf-8",
+    )
+    assert load_deferred_work_headings(md) == frozenset({"Alpha", "Beta sub-item", "Delta"})
+
+
+def test_missing_deferred_work_file_aborts_instead_of_reporting_nothing(tmp_path):
+    # The check cannot say "no dangling pointers" over a file it never read —
+    # fail-fast on the tool itself, never zero findings by default.
+    with pytest.raises(FileNotFoundError, match="anchor file missing"):
+        load_deferred_work_headings(tmp_path / "deferred-work.md")
+
+
+def test_blocker_missing_finding_carries_each_tier_subject_and_path():
+    headings = _headings("Real")
+    events = audit_blocked_by("PLANNED_EVENTS", {"GammaOrphan": blocked("Fake")}, headings)
+    methods = audit_blocked_by("PLANNED_METHODS", {"adapters/x.py::m": blocked("Fake")}, headings)
+    templates = audit_blocked_by("PLANNED_TEMPLATES", {"tpl": blocked("Fake")}, headings)
+    assert [(f.subject, f.file) for f in events] == [("GammaOrphan", "core/events/")]
+    assert [(f.subject, f.file) for f in methods] == [("m", "adapters/x.py")]
+    assert [(f.subject, f.file) for f in templates] == [
+        ("tpl", f"{detect_bloat.TEMPLATES_DIR_REL}/tpl.md")
+    ]
+    # a tier this helper was never taught fails loudly — PR-4's tier must extend it
+    with pytest.raises(ValueError, match="unknown PLANNED tier"):
+        audit_blocked_by("PLANNED_OTHER", {"k": blocked("Fake")}, headings)
+
+
+BLOCKER_NOTE = "blocked by: deferred-work.md § Somewhere"
+
+
+def _assert_every_row_carries_the_note(findings, expected_kinds: set[str]) -> None:
+    # A row IS a finding about an entry (readiness set), whatever state the run
+    # found the subject in — awaiting, masked, stale. The pointer is DISPLAY on
+    # every one of them (the reason no longer restates the section); the CHECK
+    # is audit_blocked_by over the whole registry (Codex P2, PR #1191: masked
+    # and stale rows lost the pointer when only the still-staged helper set it).
+    rows = [f for f in findings if f.readiness is not None and f.kind != "planned-ready-aging"]
+    assert {f.kind for f in rows} == expected_kinds
+    missing = [(f.kind, f.subject) for f in rows if BLOCKER_NOTE not in f.annotations]
+    assert not missing, missing
+
+
+def test_blocker_note_rides_every_event_state(monkeypatch):
+    monkeypatch.setattr(
+        detect_bloat,
+        "PLANNED_EVENTS",
+        {
+            "GammaOrphan": blocked("Somewhere"),  # awaiting-wiring
+            "AlphaEvent": blocked("Somewhere"),  # masked — a publish site resolves to it
+            "NotAnEvent": blocked("Somewhere"),  # masked — defined outside the universe
+            "DeletedEvent": blocked("Somewhere"),  # stale
+        },
+    )
+    _, _, findings = analyze(
+        {
+            "core/services/x.py": (
+                "async def f(self):\n"
+                "    await publish_event(self.event_bus, AlphaEvent(uid='1'), self.logger)\n"
+            ),
+            "core/events/x.py": "class NotAnEvent:\n    pass\n",
+        }
+    )
+    _assert_every_row_carries_the_note(
+        findings, {"event-awaiting-wiring", "planned-marking-masked", "planned-marking-stale"}
+    )
+
+
+def test_blocker_note_rides_every_method_state(monkeypatch):
+    old_ready = PlannedEntry(
+        Readiness.READY,
+        "staged",
+        since=date.today() - timedelta(days=detect_bloat.READY_AGING_DAYS + 1),
+        blocked_by="Somewhere",
+    )
+    monkeypatch.setattr(
+        detect_bloat,
+        "PLANNED_METHODS",
+        {
+            "core/services/x.py::awaiting": blocked("Somewhere"),
+            "core/services/x.py::masked": blocked("Somewhere"),  # name in vulture's used set
+            "core/services/x.py::gone": blocked("Somewhere"),
+            "core/services/x.py::old_ready": old_ready,  # awaiting + a ready-aging beside it
+            "adapters/x.py::outside": blocked("Somewhere"),
+            "adapters/x.py::outside_gone": blocked("Somewhere"),
+        },
+    )
+    codebase = build_codebase(
+        {
+            "core/services/x.py": (
+                "def awaiting():\n    pass\n\ndef masked():\n    pass\n\ndef old_ready():\n    pass\n"
+            ),
+            "adapters/x.py": "def outside():\n    pass\n",
+        }
+    )
+    analysis = analyze_methods(
+        codebase,
+        VultureScan(
+            [
+                FakeVultureItem("core/services/x.py", "awaiting"),
+                FakeVultureItem("core/services/x.py", "old_ready", 7),
+            ],
+            frozenset({"masked"}),
+        ),
+    )
+    _assert_every_row_carries_the_note(
+        analysis.findings,
+        {"method-awaiting-wiring", "planned-marking-masked", "planned-marking-stale"},
+    )
+    # the beside-finding repeats its row — it does not repeat the pointer
+    aging = [f for f in analysis.findings if f.kind == "planned-ready-aging"]
+    assert [f.subject for f in aging] == ["old_ready"]
+    assert aging[0].annotations == []
+
+
+def test_blocker_note_rides_every_template_state(monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        detect_bloat,
+        "PLANNED_TEMPLATES",
+        {
+            "awaiting_tpl": blocked("Somewhere"),
+            "masked_tpl": blocked("Somewhere"),  # receiver-blind render match
+            "gone_tpl": blocked("Somewhere"),
+        },
+    )
+    codebase = _template_codebase(
+        tmp_path,
+        {"core/services/x.py": 'def f(settings):\n    return settings.get("masked_tpl")\n'},
+        ["awaiting_tpl", "masked_tpl"],
+    )
+    _assert_every_row_carries_the_note(
+        analyze_planned_templates(codebase),
+        {"template-awaiting-wiring", "planned-marking-masked", "planned-marking-stale"},
+    )
+
+
+def test_blocker_missing_prints_under_its_own_red_heading_in_every_printer(capsys):
+    # An unlisted WARNING kind lands under the severity's generic heading
+    # ("Structurally dead events" / "Unused service methods") — a lie about what it is.
+    universe, usage, _ = analyze({})
+    dangling = _blocker_missing("waits", Readiness.DELAYED)
+    print_event_report(universe, usage, [dangling], [], verbose=False)
+    event_out = capsys.readouterr().out
+    dispatch = DispatchKnowledge(build_codebase({}))
+    dispatch.collect()
+    print_method_report(MethodAnalysis([dangling], [], {}, 0, dispatch, frozenset()), verbose=False)
+    method_out = capsys.readouterr().out
+    print_template_report([dangling])
+    template_out = capsys.readouterr().out
+    for out in (event_out, method_out, template_out):
+        assert detect_bloat.BLOCKER_MISSING_TITLE in out
+        assert "waits" in out
+    assert "Structurally dead events" not in event_out
+    assert "Unused service methods" not in method_out
+
+
+def test_ready_report_prints_a_ready_entrys_dangling_pointer(capsys):
+    findings = [
+        _planned("ready_row", Readiness.READY),
+        _blocker_missing("ready_row", Readiness.READY),
+        _blocker_missing("delayed_row", Readiness.DELAYED),
+    ]
+    print_ready_report([("PLANNED_TEST", findings)])
+    out = capsys.readouterr().out
+    assert "READY but its blocked_by points at nothing" in out
+    assert ": 1 READY" in out  # the dangling pointer is a fact about the row, not a second row
+    assert "delayed_row" not in out
+
+
+def test_summary_names_dangling_pointers_apart_from_structurally_dead(capsys):
+    dead = _about("event-never-published", BloatSeverity.WARNING, "x", None)
+    print_summary([dead, _blocker_missing("y", Readiness.DELAYED)], ["events"])
+    out = capsys.readouterr().out
+    assert "1 structurally-dead findings + 1 dangling blocked_by pointers" in out
+
+
+def test_live_blocked_by_pointers_resolve_against_the_live_deferred_work():
+    # The drift guard: a heading rename in deferred-work.md fails here locally
+    # before --check fails in CI. Real file, real registries; deliberately no
+    # pin on WHICH entries point — entries come and go with wiring campaigns.
+    headings = load_deferred_work_headings(detect_bloat.DEFERRED_WORK)
+    assert headings, "deferred-work.md parsed to zero headings — the reader is broken"
+    for tier, registry in [
+        ("PLANNED_EVENTS", detect_bloat.PLANNED_EVENTS),
+        ("PLANNED_METHODS", detect_bloat.PLANNED_METHODS),
+        ("PLANNED_TEMPLATES", detect_bloat.PLANNED_TEMPLATES),
+    ]:
+        assert audit_blocked_by(tier, registry, headings) == [], tier
 
 
 # ============================================================================
