@@ -7212,6 +7212,27 @@ class TestSKUEL034:
         violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
         assert [v.rule_id for v in violations] == ["SKUEL034"] * 2
 
+    def test_value_selecting_expressions_are_inspected(self) -> None:
+        """`uid if rec else ""` and `uid or ""` are ordinary optional-value
+        idioms; the uid still reaches the comparison (Codex, #1194)."""
+        content = (
+            "def f(record, entity_uid: str) -> bool:\n"
+            '    a = "tech" in (record.entity_uid if record else "")\n'
+            '    b = "tech" in (entity_uid or "")\n'
+            "    return a or b\n"
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"] * 2
+
+    def test_value_selection_between_collections_stays_legal(self) -> None:
+        """Each branch is judged by the same singular rule, so choosing between
+        two uid COLLECTIONS is still ordinary membership."""
+        content = (
+            "def f(cond: bool, ku_uids: list[str]) -> bool:\n"
+            '    return "ku.a" in (ku_uids if cond else [])\n'
+        )
+        assert lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC) == []
+
     def test_serializing_a_non_uid_collection_is_legal(self) -> None:
         """The rule is still about uids — `str()` alone does not make it fire."""
         content = 'def f(titles: list[str]) -> bool:\n    return "revision" in str(titles)\n'

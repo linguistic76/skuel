@@ -6222,6 +6222,21 @@ class SkuelLinter:
                 if cls._is_uid_name(inner):
                     return inner, True
 
+        # VALUE-SELECTING expressions: `uid if record else ""` and the very
+        # common `uid or ""`. Either yields one of its branches, so a uid in any
+        # branch reaches the comparison. Each branch is judged by the SAME
+        # singular/serialized rule, so `ku_uids if c else []` — a collection
+        # either way — stays ordinary membership.
+        branches: list[ast.expr] = []
+        if isinstance(node, ast.IfExp):
+            branches = [node.body, node.orelse]
+        elif isinstance(node, ast.BoolOp):
+            branches = list(node.values)
+        for branch in branches:
+            inner, branch_serialized = cls._resolve_uid_operand(branch)
+            if cls._is_singular_uid_name(inner) or (branch_serialized and cls._is_uid_name(inner)):
+                return inner, serialized or branch_serialized
+
         # f-string: `"x" in f"{uids}"` renders exactly as `str(uids)` does.
         if isinstance(node, ast.JoinedStr):
             for value in node.values:
