@@ -1650,13 +1650,15 @@ label-only lines; 72 typed `explanation`; 32 under 20 characters), 6 path_step (
   intents 786 (85.0%). The v2 re-chunk moved none of it (was 65/145/850 of 998), as predicted.
   **But those are counterfactuals.** Driving the production path (`./dev eval-askesis-draw`)
   showed all 23 queries classify to **SPECIFIC**, which is unmapped → `chunk_types=None` → no
-  filter. The cause is one layer up and is not a tuning miss:
-  `IntentClassifier._classify_via_embeddings` needs **0.65** average cosine similarity across
-  **8** exemplars, and a query that IS one of its own exemplars, verbatim, scores **0.43–0.56**
-  (hierarchical 0.561, practice 0.562, relationship 0.561, aggregation 0.482, prerequisite 0.480,
-  exploratory 0.429). The threshold is unreachable for `text-embedding-3-small` averaged over 8
-  diverse short sentences, so `classify_intent` can only ever return SPECIFIC. The starvation is
-  real arithmetic with **zero production effect** — see Named work 4, now a RULING.
+  filter. The cause is one layer up and is not a tuning miss: classification needs
+  `IntelligenceThreshold.INTENT_CLASSIFICATION` = **0.65** *average* cosine similarity across an
+  intent's **8** exemplars. Averaging over 8 diverse short sentences is a far stricter gate than
+  it reads: the 23 eval queries score **0.078–0.291**, and a query that IS one of the exemplars,
+  verbatim, still only reaches **0.43–0.56** against its own intent (practice 0.562,
+  hierarchical 0.561, relationship 0.561, aggregation 0.482, prerequisite 0.480, exploratory
+  0.429). Nothing can clear it, so `classify_intent` can only ever return SPECIFIC. The
+  starvation is real arithmetic with **zero production effect** — see Named work 4, now a
+  RULING.
 - **The fragments were an ingestion-hygiene defect, 90% in vault notes** — `/search` never showed
   them (`_aggregate_body_chunk_parents` drops non-Ku/PS parents); they only crowded the vector
   candidate pool and Askesis draws. "Enforce `min_chunk_size`" as configured would have folded
@@ -1731,8 +1733,14 @@ label-only lines; 72 typed `explanation`; 32 under 20 characters), 6 path_step (
    Starvation is measured against the same 3 for the mirror reason. **Result: all three
    arms identical (recall@3 22/23, 0 starved), run both curriculum-only and with the
    audience, because 0 of 23 queries reached a filtered intent.** The script prints that
-   as a loud banner — `filtered_intent_queries: 0` means the arms are an identity, not a
-   finding — and reports `unlabelled_in_windows` PER ARM (1 in each of the three on the
+   as a loud banner, with the measured margin (`max_intent_score` 0.29 against the 0.65
+   gate) so the zero reads as "unreachable gate", not "unusual queries" —
+   `filtered_intent_queries: 0` means the arms are an identity, not a finding. It classifies
+   through `IntentClassifier.classify_intent_scored` (added here), NOT the fail-soft
+   `classify_intent`: that one converts an embedding outage into `Result.ok(SPECIFIC)`, which
+   is byte-identical to a real low-confidence verdict, so an outage could have manufactured
+   this very finding with `errors: 0`. The scored variant fails loudly and a failed
+   classification invalidates its row. It also reports `unlabelled_in_windows` PER ARM (1 in each of the three on the
    `--user` run, 0 curriculum-only), because a viewer's own notes compete for the prompt
    window while the set labels only published Ku/PathStep. Per arm, not per run: once
    the filter is live the three arms hold different windows, and a note sitting in only

@@ -54,7 +54,7 @@ import json
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Protocol, TypedDict
+from typing import TYPE_CHECKING, TypedDict
 
 # Sibling script: sys.path[0] is scripts/ when run as `python scripts/...`,
 # which is how ./dev invokes it. The query set is shared ON PURPOSE — one
@@ -66,21 +66,8 @@ from eval_chunk_retrieval import (  # type: ignore[import-not-found]
 )
 
 if TYPE_CHECKING:
-    from core.models.query_types import QueryIntent
     from core.ports.query_types import SemanticSearchChunkResult
-    from core.utils.result_simplified import Result
-
-
-class IntentClassifierPort(Protocol):
-    """The one classifier member this comparison drives.
-
-    Narrow on purpose: the script must not grow a dependency on the rest of
-    IntentClassifier, and typing the call is what makes the SPECIFIC-always
-    result a checked fact rather than an ``Any`` that would swallow a signature
-    change in silence.
-    """
-
-    async def classify_intent(self, query: str) -> "Result[QueryIntent]": ...
+    from core.services.askesis.intent_classifier import IntentClassification, IntentClassifier
 
 
 # ContextRetriever._find_similar_chunks, verbatim — the production draw this
@@ -138,6 +125,10 @@ class RowReport(TypedDict):
     query: str
     kind: str
     intent: str
+    # The best average exemplar similarity behind `intent`. Reported because a
+    # bare SPECIFIC cannot distinguish "genuinely ambiguous query" from
+    # "threshold nothing can reach" — the distinction the ruling turns on.
+    intent_score: float
     filter_types: list[str] | None
     filtered_chunks: int
     filtered_hit: bool
@@ -162,6 +153,12 @@ class ComparisonReport(TypedDict):
     draw_limit: int
     query_count: int
     errors: int
+    # The confidence gate, and the best score any query reached against it. A
+    # max well below the gate is the evidence that no query CAN be classified —
+    # without it, `filtered_intent_queries: 0` is indistinguishable from an
+    # embedding outage that silently classified everything as SPECIFIC.
+    intent_threshold: float
+    max_intent_score: float
     # Chunks drawn from parents OUTSIDE the query set's label vocabulary — the
     # asking user's own UserEntry passages, admitted by --user. They are real
     # production competition for the prompt window, but the set labels only
@@ -185,6 +182,7 @@ class DrawRow:
     query: str
     kind: str
     intent: str
+    intent_score: float
     filter_types: list[str] | None
     # Parents of the chunks that REACH THE PROMPT — derived from the chunk list
     # already sliced to ASKESIS_PROMPT_WINDOW, never from a deduped parent list
@@ -216,6 +214,7 @@ class DrawRow:
             "query": self.query,
             "kind": self.kind,
             "intent": self.intent,
+            "intent_score": round(self.intent_score, 4),
             "filter_types": self.filter_types,
             "filtered_chunks": self.filtered_chunks,
             "filtered_hit": self.hit(self.filtered_window_parents),
@@ -275,6 +274,8 @@ def parents_of(hits: list["SemanticSearchChunkResult"]) -> list[str]:
 
 def summarize(rows: list[DrawRow], query_set: QuerySet, viewer_uid: str | None) -> ComparisonReport:
     """Aggregate per-query rows into the report dict (pure, DB-free)."""
+    from core.constants import IntelligenceThreshold
+
     scored = [row for row in rows if row.error is None]
     total = len(scored)
 
@@ -307,6 +308,8 @@ def summarize(rows: list[DrawRow], query_set: QuerySet, viewer_uid: str | None) 
             row.filtered_unlabelled + row.thin_draw_unlabelled + row.unfiltered_unlabelled
             for row in scored
         ),
+        "intent_threshold": IntelligenceThreshold.INTENT_CLASSIFICATION,
+        "max_intent_score": round(max((row.intent_score for row in scored), default=0.0), 4),
         "filtered_intent_queries": sum(1 for row in scored if row.filter_types is not None),
         "arms": {
             "filtered": arm("filtered_window_parents", "filtered_chunks", "filtered_unlabelled"),
@@ -321,12 +324,27 @@ def summarize(rows: list[DrawRow], query_set: QuerySet, viewer_uid: str | None) 
     }
 
 
-async def _classify(classifier: IntentClassifierPort, query: str) -> "QueryIntent":
-    """Classify one query, falling back to SPECIFIC exactly as production does."""
-    from core.models.query_types import QueryIntent
+async def measure_classification(
+    classifier: "IntentClassifier", query: str
+) -> "IntentClassification | str":
+    """Classify one query through the OBSERVABLE classifier API.
 
-    result = await classifier.classify_intent(query)
-    return result.value if result.is_ok else QueryIntent.SPECIFIC
+    Not ``classify_intent``: that one is fail-soft in exactly the way this
+    comparison must never score. It catches an embedding outage and returns
+    ``Result.ok(SPECIFIC)``, byte-identical to a genuine low-confidence
+    classification — so a provider blip would yield three identical unfiltered
+    arms, ``errors = 0`` and ``filtered_intent_queries = 0``: the precise shape
+    of the finding this script exists to test, manufactured out of an outage
+    (Codex, PR #1198). ``classify_intent_scored`` fails loudly instead, and
+    carries the score, so a run says WHY every query is SPECIFIC rather than
+    only that it is.
+
+    Returns the classification, or an error string that invalidates the row.
+    """
+    scored = await classifier.classify_intent_scored(query)
+    if scored.is_error:
+        return f"intent classification failed: {scored.expect_error()}"
+    return scored.value
 
 
 async def run_comparison(
@@ -370,12 +388,28 @@ async def run_comparison(
 
         rows: list[DrawRow] = []
         for eval_query in query_set.queries:
-            intent = await _classify(classifier, eval_query.query)
-            filter_types = _intent_to_chunk_types(intent)
+            measured = await measure_classification(classifier, eval_query.query)
+            if isinstance(measured, str):
+                # Classification could not be MEASURED. Scoring the row would
+                # manufacture the very finding this script tests, so invalidate.
+                rows.append(
+                    DrawRow(
+                        query=eval_query.query,
+                        kind=eval_query.kind,
+                        intent="unmeasured",
+                        intent_score=0.0,
+                        filter_types=None,
+                        expect=eval_query.expect,
+                        error=measured,
+                    )
+                )
+                continue
+            filter_types = _intent_to_chunk_types(measured.intent)
             row = DrawRow(
                 query=eval_query.query,
                 kind=eval_query.kind,
-                intent=intent.value,
+                intent=measured.intent.value,
+                intent_score=measured.score,
                 filter_types=filter_types,
                 expect=eval_query.expect,
             )
@@ -455,10 +489,13 @@ def _print_human(report: ComparisonReport) -> None:
 
     if report["query_count"] and not report["filtered_intent_queries"]:
         print(
-            "\n!! NO QUERY REACHED A FILTERED INTENT — every one classified to an\n"
-            "!! unmapped intent, so all three arms ran the SAME unfiltered draw.\n"
-            "!! The equal recall below is an identity, not a finding about\n"
-            "!! filtering. Look at the intent column, then at IntentClassifier."
+            f"\n!! NO QUERY REACHED A FILTERED INTENT — every one classified to an\n"
+            f"!! unmapped intent, so all three arms ran the SAME unfiltered draw.\n"
+            f"!! The equal recall below is an identity, not a finding about\n"
+            f"!! filtering. Best exemplar similarity across the whole set was\n"
+            f"!! {report['max_intent_score']:.3f} against a "
+            f"{report['intent_threshold']:.2f} gate — the gate is unreachable,\n"
+            f"!! not the queries unusual. See IntentClassifier."
         )
 
     print(
@@ -473,7 +510,10 @@ def _print_human(report: ComparisonReport) -> None:
             f"{a['unlabelled_in_windows']:>11}"
         )
 
-    print("\nPer query (F=filtered, T=thin-draw, U=unfiltered):")
+    print(
+        f"\nPer query (F=filtered, T=thin-draw, U=unfiltered; score vs "
+        f"{report['intent_threshold']:.2f} gate):"
+    )
     for row in report["rows"]:
         if row["error"]:
             print(f"  !! {row['query'][:44]:<44} {row['error']}")
@@ -487,7 +527,8 @@ def _print_human(report: ComparisonReport) -> None:
             )
         )
         print(
-            f"  {marks:<4} {row['query'][:40]:<40} {row['intent']:<14} "
+            f"  {marks:<4} {row['query'][:38]:<38} {row['intent']:<12} "
+            f"{row['intent_score']:.3f} "
             f"n={row['filtered_chunks']}→{row['thin_draw_chunks']} "
             f"(+{row['thin_draw_backfilled']})"
         )

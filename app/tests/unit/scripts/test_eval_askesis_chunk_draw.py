@@ -23,6 +23,8 @@ from eval_askesis_chunk_draw import (  # type: ignore[import-not-found]
 )
 from eval_chunk_retrieval import QuerySet  # type: ignore[import-not-found]
 
+from core.constants import IntelligenceThreshold
+
 
 def _chunk(uid: str, parent: str) -> dict[str, object]:
     return {"chunk_uid": uid, "parent_uid": parent}
@@ -118,6 +120,7 @@ def _row(**kw: object) -> DrawRow:
         "query": "q",
         "kind": "body_paraphrase",
         "intent": "exploratory",
+        "intent_score": 0.7,
         "filter_types": ["definition"],
         "expect": ("ku.a",),
     }
@@ -202,6 +205,15 @@ class TestSummarize:
         assert report["errors"] == 1
         assert report["query_count"] == 1
         assert report["arms"]["filtered"]["recall_at_k"] == 1.0
+
+    def test_the_confidence_gate_and_best_score_are_recorded(self) -> None:
+        # `filtered_intent_queries: 0` alone cannot distinguish "no query can
+        # be classified" from "the embedding provider was down". The gate and
+        # the best score reached against it are what make the zero readable.
+        rows = [_row(intent_score=0.42), _row(intent_score=0.56)]
+        report = summarize(rows, self._set(), None)
+        assert report["max_intent_score"] == 0.56
+        assert report["intent_threshold"] == IntelligenceThreshold.INTENT_CLASSIFICATION
 
     def test_filtered_intent_queries_counts_only_mapped_intents(self) -> None:
         # The guard against a false clean bill: with zero filtered-intent rows

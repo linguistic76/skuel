@@ -25,11 +25,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
+from core.constants import IntelligenceThreshold
 from core.models.askesis.pedagogical_intent import PedagogicalIntent
 from core.models.enums import GuidanceMode
 from core.models.query_types import QueryIntent
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
 from core.utils.vector_math import cosine_similarity
 
 if TYPE_CHECKING:
@@ -59,6 +60,23 @@ logger = get_logger(__name__)
 # ============================================================================
 # INTENT EXEMPLARS - For Embedding-Based Intent Classification
 # ============================================================================
+
+
+@dataclass(frozen=True)
+class IntentClassification:
+    """A classification verdict WITH the confidence that produced it.
+
+    ``confident`` is whether ``score`` cleared
+    ``IntelligenceThreshold.INTENT_CLASSIFICATION``. When it is False the intent
+    is SPECIFIC — the catch-all — and ``score`` is what the best-matching intent
+    actually reached, which is the number that says whether the gate is
+    reachable at all.
+    """
+
+    intent: QueryIntent
+    score: float
+    confident: bool
+
 
 INTENT_EXEMPLARS: dict[QueryIntent, list[str]] = {
     QueryIntent.HIERARCHICAL: [
@@ -345,41 +363,42 @@ class IntentClassifier:
     # PRIVATE — EMBEDDING-BASED INTENT CLASSIFICATION
     # ========================================================================
 
-    async def _classify_via_embeddings(self, query: str) -> QueryIntent | None:
+    async def classify_intent_scored(self, query: str) -> Result[IntentClassification]:
+        """Classify intent AND report the confidence behind the verdict.
+
+        The observable counterpart to ``classify_intent``. That method is
+        fail-soft by design — it converts an embedding outage into
+        ``Result.ok(SPECIFIC)`` so an Askesis turn still answers — which makes a
+        provider failure indistinguishable from a genuine low-confidence
+        classification at the call site. Anything that must tell those apart
+        (measurement, diagnostics, an eval that would otherwise score an outage
+        as a finding) calls this instead and gets a real ``Result.fail``.
+
+        The score is the best AVERAGE cosine similarity across an intent's
+        exemplar set, and ``confident`` says whether it cleared
+        ``IntelligenceThreshold.INTENT_CLASSIFICATION``. A verdict of SPECIFIC
+        with a score far below the gate means the gate is out of reach, not that
+        the query was unusual — the two readings call for opposite fixes.
         """
-        Classify intent using semantic similarity to exemplars.
-
-        Approach:
-        1. Get query embedding
-        2. Compare to pre-computed intent exemplar embeddings
-        3. Return intent with highest average similarity (if above threshold)
-
-        Args:
-            query: User's natural language question
-
-        Returns:
-            QueryIntent if confidence >= 0.65, else None (low confidence)
-        """
-        # Ensure exemplar embeddings are loaded (lazy initialization)
         await self._ensure_exemplars_loaded()
 
         if not self._intent_exemplar_embeddings:
-            logger.warning("No intent exemplar embeddings available — cannot classify")
-            return None
+            return Result.fail(
+                Errors.unavailable(
+                    feature="intent_classification",
+                    reason="no intent exemplar embeddings available",
+                    operation="classify_intent_scored",
+                )
+            )
 
-        # Create query embedding (returns Result[list[float]])
         query_result = await self.embeddings_service.create_embedding(query)
         if query_result.is_error:
-            logger.warning("Failed to create query embedding — cannot classify intent")
-            return None
+            return Result.fail(query_result)
         query_embedding = query_result.value
 
-        # Compare to each intent's exemplar embeddings
-        best_intent = None
+        best_intent: QueryIntent | None = None
         best_score = 0.0
-
         for intent, exemplar_embeddings in self._intent_exemplar_embeddings.items():
-            # Calculate average similarity to all exemplars for this intent
             similarities = [
                 cosine_similarity(query_embedding, exemplar_emb)
                 for exemplar_emb in exemplar_embeddings
@@ -390,16 +409,42 @@ class IntentClassifier:
                 best_score = avg_similarity
                 best_intent = intent
 
-        # Return if confidence is high enough (65% threshold)
-        if best_score >= 0.65:
-            logger.debug(
-                "Embedding classification: %s (score: %.2f)",
-                best_intent.value if best_intent else None,
-                best_score,
+        confident = (
+            best_score >= IntelligenceThreshold.INTENT_CLASSIFICATION and best_intent is not None
+        )
+        return Result.ok(
+            IntentClassification(
+                # Below the gate the verdict IS SPECIFIC — a classification
+                # result, not a fallback (see classify_intent).
+                intent=best_intent if confident and best_intent else QueryIntent.SPECIFIC,
+                score=best_score,
+                confident=confident,
             )
-            return best_intent
+        )
 
-        return None
+    async def _classify_via_embeddings(self, query: str) -> QueryIntent | None:
+        """Classify intent using semantic similarity to exemplars.
+
+        Returns the QueryIntent whose exemplar set the query best matches, or
+        None when nothing clears ``IntelligenceThreshold.INTENT_CLASSIFICATION``
+        or the classification could not be performed at all. The caller
+        (``classify_intent``) turns both of those into SPECIFIC; a caller that
+        must distinguish them wants ``classify_intent_scored``.
+        """
+        scored = await self.classify_intent_scored(query)
+        if scored.is_error:
+            logger.warning(
+                "Intent classification unavailable — cannot classify: %s", scored.expect_error()
+            )
+            return None
+        if not scored.value.confident:
+            return None
+        logger.debug(
+            "Embedding classification: %s (score: %.2f)",
+            scored.value.intent.value,
+            scored.value.score,
+        )
+        return scored.value.intent
 
     async def _ensure_exemplars_loaded(self) -> None:
         """
