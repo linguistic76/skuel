@@ -182,7 +182,11 @@ relevant to the question, not just the owning PathStep titles:
 1. Embed the user's question.
 2. Hit `contentchunk_embedding_idx` via
    `Neo4jVectorSearchService.find_similar_chunks_by_text()` — top-5 above the
-   0.6 cosine threshold.
+   0.6 cosine threshold, through `SearchRouter.retrieve_scoped_chunks(request,
+   user_uid=…)`. The asking user is the **audience** (ADR-085 G8): the backend
+   admits published curriculum passages plus that user's own non-private
+   UserEntry notes — never another user's, which the shared chunk index also
+   holds (canon P3).
 3. Optionally filter `chunk_types` based on intent (e.g. `PRACTICE` ⇒
    `["exercise", "example"]`, `PREREQUISITE` ⇒ `["definition", "explanation"]`).
    The filter carries persisted **`ContentChunkType` values (lowercase)** — the

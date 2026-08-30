@@ -375,9 +375,12 @@ personal cell of the 2×2 is realized:
   flip retracts on the next sync. Backfill via `./dev vault-sync --force`.
 - **Retrieval shape:** `CanonRetrievalService.retrieve_vault(query_text, user_uid, *, limit,
   min_score)` — the sibling of `retrieve` over the OTHER port
-  (`VectorSearchBackendOperations.semantic_search_chunks(owner_uid=…, parent_filters=
-  {"pipeline": "knowledge"})`): OWNS-edge owner scope + `coalesce(parent.private,false)=false`
-  in the one content-index Cypher; the unscoped query is byte-identical (guarded).
+  (`VectorSearchBackendOperations.semantic_search_chunks(owner_uid=…, viewer_uid=…,
+  parent_filters={"pipeline": "knowledge"})`): OWNS-edge owner scope +
+  `coalesce(parent.private,false)=false` in the one content-index Cypher, on top of the
+  audience clause every chunk query carries (`viewer_uid` — ADR-085 G8, 2026-08-30; the
+  vault scope narrows the audience, it does not replace it). There is no unscoped chunk
+  query any more: a viewer-less call reads published curriculum only.
 - **Contract:** the same `CanonPassage`/`CanonContext` family with a `SourceKind` discriminator
   (VAULT reinterprets `book_title` := note title, `resource_uid` := entry uid; `vault_path` is
   the locator); `weight: float = 1.0` landed (uniform, contract letter). Citations link to the

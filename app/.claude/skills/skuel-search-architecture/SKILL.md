@@ -155,7 +155,7 @@ await lp_service.search.get_aligned_with_goal("goal_learn-python_xyz")
 | `intelligent_search(query, user_uid)` | NL cross-domain with semantic filter extraction |
 | `advanced_search(SearchRequest)` | Filters, graph patterns, tags (`request.user_uid` scopes all strategies) |
 | `faceted_search(request, user_uid)` | THE entry point for UI-driven search (/search) |
-| `retrieve_scoped_chunks(...)` | Scoped ContentChunk retrieval for semantic boost / RAG contexts (FULL tier) |
+| `retrieve_scoped_chunks(request, user_uid=...)` | Facet- AND audience-scoped ContentChunk retrieval for RAG contexts (FULL tier): published curriculum + the user's own UserEntry notes; `user_uid=None` reads curriculum only (ADR-085 G8) |
 
 **Search-event logging (July 2026):** all three external entry points (faceted/intelligent/advanced) publish `search.executed` → `:SearchEvent` node — one event per external search (`intelligent_search`'s internal faceted fan-out passes `log_event=False`; empty queries never logged; fail-soft; tier-independent). See SEARCH_ARCHITECTURE.md § Search-Event Logging.
 
