@@ -1235,7 +1235,8 @@ GENERATOR is not — `repr(x.uid for x in rows)` produces `<generator object ...
 uid spelling reaches the string — so its element counts only where something ITERATES it
 (`join`, or a transform). And a comprehension contributes the collection it iterates only
 in the IDENTITY form: `u for u in ku_uids` renders what `ku_uids` would, while
-`get_title(u) for u in ku_uids` renders titles. The same eager/lazy split applies to the
+`get_title(u) for u in ku_uids` renders titles. A mapping VIEW (`d.values()`) exposes the receiver's own contents, so it
+resolves to the receiver. The same eager/lazy split applies to the
 transforms themselves — `sorted`/`list`/`set`/`tuple`/`frozenset` materialise, while
 `reversed`/`map`/`filter`/`enumerate`/`zip` only produce an iterator whose repr is what
 `str()` would render. And a rendering call's RECEIVER is rendered too: `uid.format()`
@@ -5818,6 +5819,11 @@ class SkuelLinter:
 
     UID_CONTAINER_TRANSFORMS: ClassVar[frozenset[str]] = UID_EAGER_TRANSFORMS | UID_LAZY_TRANSFORMS
 
+    # Mapping views: `d.values()` exposes what `d` holds, and rendering the view
+    # renders it. Zero-argument calls only, so an unrelated `.items(x)` method is
+    # not mistaken for one.
+    UID_MAPPING_VIEWS: ClassVar[frozenset[str]] = frozenset({"keys", "values", "items"})
+
     # SKUEL034: recursion bound for the rendered-operand expansion. Deep enough
     # that no realistic nesting reaches it, finite so a pathological literal
     # cannot make the linter walk forever.
@@ -5919,6 +5925,17 @@ class SkuelLinter:
         # element counts only where something ITERATES it (Codex, #1194).
         if isinstance(node, ast.GeneratorExp):
             return (cls._comprehension_parts(node), True) if consumes_iterator else ([node], False)
+        # A mapping VIEW exposes the receiver's own contents, and rendering the
+        # view renders them (`str(d.values())` → `dict_values([...])`). The
+        # callee is an Attribute, so the Name-only transform branch below cannot
+        # see it (Codex, #1194).
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr in SkuelLinter.UID_MAPPING_VIEWS
+            and not node.args
+        ):
+            return [node.func.value], True
         if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
             # A transform iterates what it is given, so its arguments ARE
             # consumed. A LAZY one only produces an iterator, so it contributes

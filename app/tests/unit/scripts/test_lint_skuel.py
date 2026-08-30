@@ -7276,6 +7276,25 @@ class TestSKUEL034:
         violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
         assert [v.line_number for v in violations] == [4]
 
+    def test_mapping_views_expose_the_receiver(self) -> None:
+        """`d.values()` exposes what `d` holds, and rendering the view renders it
+        (Codex, #1194)."""
+        content = (
+            "def f(entity_uids: dict[str, str]) -> bool:\n"
+            '    a = "tech" in ",".join(entity_uids.values())\n'
+            '    b = "tech" in str(entity_uids.values())\n'
+            "    return a or b\n"
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"] * 2
+
+    def test_mapping_view_of_a_non_uid_receiver_is_legal(self) -> None:
+        content = (
+            "def f(titles: dict[str, str]) -> bool:\n"
+            '    return "intro" in ",".join(titles.values())\n'
+        )
+        assert lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC) == []
+
     def test_serializing_a_non_uid_collection_is_legal(self) -> None:
         """The rule is still about uids — `str()` alone does not make it fire."""
         content = 'def f(titles: list[str]) -> bool:\n    return "revision" in str(titles)\n'
