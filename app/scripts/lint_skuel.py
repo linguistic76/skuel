@@ -1219,9 +1219,13 @@ comprehension contributes its ELEMENT expression, and a container transform
 would be a false positive.
 
 ALL THREE MAPPING FORMS narrow by their template, and all three read attribute paths in
-it: `format`, `format_map`, and `%`. A `%` template that names NO key does not narrow at
-all, because `"%s" % {"a": uid}` renders the whole dict — uid spelling included — and an
-empty field set would otherwise read as "narrow to nothing" and hide a real hit.
+it: `format`, `format_map`, and `%`. WHAT a mapping contributes differs per call, and each
+answer is Python semantics rather than a choice: `join` iterates KEYS (so
+`",".join({"k": uid})` produces `"k"` and the value is inert), `format_map` looks VALUES
+up by key, and `format`/`dumps`/`pformat` render the mapping whole. A `%` template has
+three outcomes for the same reason — named conversions narrow to those keys, a positional
+`%s` consumes the mapping whole, and a template with NO conversion (`"%%(unused)s"`, where
+`%%` is a literal percent) renders nothing from it at all.
 
 DELIBERATELY OUT OF SCOPE — prefix and segment reads. `uid.startswith(prefix)` and
 `uid.split(".")[1]` cannot be judged without knowing what the branch does with the answer,
@@ -5811,22 +5815,34 @@ class SkuelLinter:
 
     @staticmethod
     def _percent_template_fields(template: str) -> set[str] | None:
-        """Mapping keys a `%`-format template references, or None to not narrow.
+        """Mapping keys a `%`-format template renders. None means "do not narrow".
 
-        `"%(title)s" % {"title": t, "unused": uid}` renders only `title`, so
-        scanning every mapping value would be a false positive on an ERROR rule
-        (Codex, #1194).
+        A `%` template has THREE outcomes, and collapsing any two of them is a
+        bug (Codex, #1194):
 
-        None when the template names NO mapping key — because `"%s" % {"a": uid}`
-        renders the whole dict, uid spelling included. An empty result would
-        otherwise read as "narrow to nothing" and hide a real hit.
+        - Named conversions — `"%(title)s"` — render only those keys, so a
+          mapping's other entries are inert and must not be flagged.
+        - A POSITIONAL conversion — `"%s" % {"a": uid}` — consumes the mapping
+          whole and renders uid spelling with it. Returns None: do not narrow.
+        - NO conversion at all — `"%%(unused)s"`, where `%%` is a literal
+          percent — renders nothing from the operand. Returns an empty set:
+          narrow to nothing.
         """
-        names = {match.group(1) for match in re.finditer(r"%\(([^)]*)\)", template)}
-        return names or None
+        # Drop the escapes first, or `%%(unused)s` reads as an active field.
+        literal_free = template.replace("%%", "")
+        names = {match.group(1) for match in re.finditer(r"%\(([^)]*)\)", literal_free)}
+        if names:
+            return names
+        positional = re.sub(r"%\([^)]*\)", "", literal_free)
+        return None if "%" in positional else set()
 
     @staticmethod
     def _expand_rendered_container(
-        node: ast.expr, allowed_keys: set[str] | None = None
+        node: ast.expr,
+        allowed_keys: set[str] | None = None,
+        *,
+        dict_keys: bool = True,
+        dict_values: bool = True,
     ) -> list[ast.expr]:
         """Values a container literal contributes to a rendering call.
 
@@ -5852,9 +5868,14 @@ class SkuelLinter:
         ):
             return list(node.args)
         if isinstance(node, ast.Dict):
-            values: list[ast.expr] = []
+            rendered: list[ast.expr] = []
             for key, value in zip(node.keys, node.values, strict=True):
-                if value is None:
+                # `",".join({"k": uid})` joins the KEYS — the values never reach
+                # the string, so expanding them would be a false positive on an
+                # ERROR rule (Codex, #1194). `format_map` is the mirror image.
+                if dict_keys and key is not None:
+                    rendered.append(key)
+                if not dict_values or value is None:
                     continue
                 if (
                     allowed_keys is not None
@@ -5863,8 +5884,8 @@ class SkuelLinter:
                     and key.value not in allowed_keys
                 ):
                     continue
-                values.append(value)
-            return values
+                rendered.append(value)
+            return rendered
         return [node]
 
     @classmethod
@@ -6023,8 +6044,17 @@ class SkuelLinter:
                     if parsed is not None:
                         allowed_keys = parsed[1]
                 args, keywords = cls._rendered_arguments(node)
+                # What a mapping ARGUMENT contributes depends on the call:
+                # `join` iterates keys, `format_map` looks values up by key, and
+                # `format`/`dumps`/`pformat` render the mapping whole.
+                method = node.func.attr
                 for arg in [*args, *(kw.value for kw in keywords)]:
-                    for candidate in cls._expand_rendered_container(arg, allowed_keys):
+                    for candidate in cls._expand_rendered_container(
+                        arg,
+                        allowed_keys,
+                        dict_keys=method != "format_map",
+                        dict_values=method != "join",
+                    ):
                         inner, _ = cls._resolve_uid_operand(candidate)
                         if cls._is_uid_name(inner):
                             return inner, True
@@ -6054,7 +6084,9 @@ class SkuelLinter:
                 ):
                     percent_keys = cls._percent_template_fields(node.left.value)
                 for leaf in leaves:
-                    for candidate in cls._expand_rendered_container(leaf, percent_keys):
+                    for candidate in cls._expand_rendered_container(
+                        leaf, percent_keys, dict_keys=percent_keys is None
+                    ):
                         inner, _ = cls._resolve_uid_operand(candidate)
                         if cls._is_uid_name(inner):
                             return inner, True

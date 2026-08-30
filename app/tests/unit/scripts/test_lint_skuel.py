@@ -7045,6 +7045,32 @@ class TestSKUEL034:
         violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
         assert [v.rule_id for v in violations] == ["SKUEL034"]
 
+    def test_join_over_a_mapping_renders_keys_not_values(self) -> None:
+        """`",".join({"title": uid})` produces `"title"` — the value never
+        reaches the string (Codex, #1194)."""
+        content = (
+            "def f(entity_uid: str) -> bool:\n"
+            '    return "tech" in ",".join({"title": entity_uid})\n'
+        )
+        assert lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC) == []
+
+    def test_join_over_a_mapping_still_reads_its_keys(self) -> None:
+        """The mirror of the case above: a uid used AS a key is rendered."""
+        content = (
+            "def f(entity_uid: str) -> bool:\n"
+            '    return "tech" in ",".join({entity_uid: "title"})\n'
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"]
+
+    def test_escaped_percent_is_not_a_placeholder(self) -> None:
+        """`%%` is a literal percent, so `"%%(unused)s"` references nothing."""
+        content = (
+            "def f(entity_uid: str) -> bool:\n"
+            '    return "tech" in "%%(unused)s" % {"unused": entity_uid}\n'
+        )
+        assert lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC) == []
+
     def test_serializing_a_non_uid_collection_is_legal(self) -> None:
         """The rule is still about uids — `str()` alone does not make it fire."""
         content = 'def f(titles: list[str]) -> bool:\n    return "revision" in str(titles)\n'
