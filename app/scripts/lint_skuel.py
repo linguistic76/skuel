@@ -1227,7 +1227,11 @@ GENERATOR is not — `repr(x.uid for x in rows)` produces `<generator object ...
 uid spelling reaches the string — so its element counts only where something ITERATES it
 (`join`, or a transform). And a comprehension contributes the collection it iterates only
 in the IDENTITY form: `u for u in ku_uids` renders what `ku_uids` would, while
-`get_title(u) for u in ku_uids` renders titles.
+`get_title(u) for u in ku_uids` renders titles. The same eager/lazy split applies to the
+transforms themselves — `sorted`/`list`/`set`/`tuple`/`frozenset` materialise, while
+`reversed`/`map`/`filter`/`enumerate`/`zip` only produce an iterator whose repr is what
+`str()` would render. And a rendering call's RECEIVER is rendered too: `uid.format()`
+returns the uid's own text and `uid.join(parts)` puts it between them.
 
 ALL THREE MAPPING FORMS narrow by their template, and all three read attribute paths in
 it: `format`, `format_map`, and `%`. WHAT a mapping contributes differs per call, and each
@@ -5785,9 +5789,18 @@ class SkuelLinter:
     # `", ".join(sorted(ku_uids))` renders the same uids `join(ku_uids)` would.
     # Deliberately an allowlist: `join(get_titles(ku_uids))` renders titles, so
     # "any call taking a uid argument" would be a false positive.
-    UID_CONTAINER_TRANSFORMS: ClassVar[frozenset[str]] = frozenset(
-        {"sorted", "list", "set", "tuple", "frozenset", "reversed", "map"}
+    # EAGER: these materialise, so rendering the result renders the contents.
+    UID_EAGER_TRANSFORMS: ClassVar[frozenset[str]] = frozenset(
+        {"sorted", "list", "set", "tuple", "frozenset"}
     )
+
+    # LAZY: `repr(reversed(uids))` renders `<list_reverseiterator ...>`, not the
+    # uids — so like a generator, these count only where something iterates them.
+    UID_LAZY_TRANSFORMS: ClassVar[frozenset[str]] = frozenset(
+        {"reversed", "map", "filter", "enumerate", "zip"}
+    )
+
+    UID_CONTAINER_TRANSFORMS: ClassVar[frozenset[str]] = UID_EAGER_TRANSFORMS | UID_LAZY_TRANSFORMS
 
     # SKUEL034: recursion bound for the rendered-operand expansion. Deep enough
     # that no realistic nesting reaches it, finite so a pathological literal
@@ -5890,13 +5903,14 @@ class SkuelLinter:
         # element counts only where something ITERATES it (Codex, #1194).
         if isinstance(node, ast.GeneratorExp):
             return (cls._comprehension_parts(node), True) if consumes_iterator else ([node], False)
-        if (
-            isinstance(node, ast.Call)
-            and isinstance(node.func, ast.Name)
-            and node.func.id in SkuelLinter.UID_CONTAINER_TRANSFORMS
-        ):
-            # A transform iterates what it is given, so its arguments ARE consumed.
-            return list(node.args), True
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
+            # A transform iterates what it is given, so its arguments ARE
+            # consumed. A LAZY one only produces an iterator, so it contributes
+            # nothing unless something downstream iterates IT (Codex, #1194).
+            if node.func.id in SkuelLinter.UID_EAGER_TRANSFORMS:
+                return list(node.args), True
+            if node.func.id in SkuelLinter.UID_LAZY_TRANSFORMS:
+                return (list(node.args), True) if consumes_iterator else ([node], False)
         if isinstance(node, ast.Dict):
             rendered: list[ast.expr] = []
             for key, value in zip(node.keys, node.values, strict=True):
@@ -6139,6 +6153,12 @@ class SkuelLinter:
                     parsed = cls._format_template_fields(template.value)
                     if parsed is not None:
                         allowed_keys = parsed[1]
+                # The RECEIVER is rendered too: `uid.format()` returns the
+                # uid's own text, and `uid.join(parts)` puts it between them.
+                # A module receiver (`json.dumps`) simply resolves to no uid.
+                receiver_name, _ = cls._resolve_uid_operand(template)
+                if cls._is_uid_name(receiver_name):
+                    return receiver_name, True
                 args, keywords = cls._rendered_arguments(node)
                 # What a mapping ARGUMENT contributes depends on the call:
                 # `join` iterates keys, `format_map` looks values up by key, and

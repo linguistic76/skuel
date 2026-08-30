@@ -7172,6 +7172,46 @@ class TestSKUEL034:
         violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
         assert [v.rule_id for v in violations] == ["SKUEL034"]
 
+    def test_lazy_transforms_render_an_iterator_object(self) -> None:
+        """`repr(reversed(uids))` renders `<list_reverseiterator ...>`, so no uid
+        spelling reaches the string (Codex, #1194)."""
+        content = (
+            "def f(entity_uids: list[str]) -> bool:\n"
+            '    a = "iterator" in repr(reversed(entity_uids))\n'
+            '    b = "iterator" in f"{map(str, entity_uids)}"\n'
+            "    return a or b\n"
+        )
+        assert lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC) == []
+
+    def test_lazy_transforms_count_once_consumed(self) -> None:
+        """The mirror: `join` iterates, so the uids do reach the string."""
+        content = (
+            "def f(entity_uids: list[str]) -> bool:\n"
+            '    return "ku." in ",".join(reversed(entity_uids))\n'
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"]
+
+    def test_eager_transforms_still_render_without_a_consumer(self) -> None:
+        """`sorted` materialises, so `str(sorted(uids))` renders the uids."""
+        content = (
+            'def f(entity_uids: list[str]) -> bool:\n    return "ku." in str(sorted(entity_uids))\n'
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"]
+
+    def test_rendering_receiver_is_read(self) -> None:
+        """`uid.format()` returns the uid's own text; `uid.join(parts)` puts it
+        between them (Codex, #1194)."""
+        content = (
+            "def f(entity_uid: str, parts: list[str]) -> bool:\n"
+            '    a = "tech" in entity_uid.format()\n'
+            '    b = "tech" in entity_uid.join(parts)\n'
+            "    return a or b\n"
+        )
+        violations = lint_content(make_linter(["SKUEL034"]), content, file_path=self.SVC)
+        assert [v.rule_id for v in violations] == ["SKUEL034"] * 2
+
     def test_serializing_a_non_uid_collection_is_legal(self) -> None:
         """The rule is still about uids — `str()` alone does not make it fire."""
         content = 'def f(titles: list[str]) -> bool:\n    return "revision" in str(titles)\n'
