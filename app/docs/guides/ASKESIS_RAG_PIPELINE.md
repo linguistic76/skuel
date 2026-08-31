@@ -194,6 +194,13 @@ relevant to the question, not just the owning PathStep titles:
    test is a bare `chunk.chunk_type IN $chunk_types`, so a member NAME
    (`"EXERCISE"`) matches zero rows silently instead of erroring; the intent map
    holds enum members and emits `.value` for exactly this reason.
+   ⚠️ **Measured 2026-08-30: this filter has never run.** Every question
+   classifies as `SPECIFIC` (Step 5a), which is unmapped, so `chunk_types` is
+   always `None` and the draw is always unfiltered. The starvation the map would
+   cause if it did fire — an `EXPLORATORY` question eligible for 66 of 925
+   chunks — is arithmetic with no production effect today. Reproduce with
+   `./dev eval-askesis-draw`; the open ruling is `docs/roadmap/deferred-work.md`
+   § "Per-Domain Chunking Knobs + Chunk-Type-Aware Retrieval", Named work 4.
 4. Join `chunk → content → entity` so each hit carries the owning PathStep's
    `parent_uid` + `parent_title` for citation.
 
@@ -252,7 +259,24 @@ intent = await intent_classifier.classify_intent(question)
 
 The six exemplar intents above (`SPECIFIC` is the default fallback when no match clears the threshold) each have 8 exemplar sentences. Exemplar embeddings are lazily computed on first classification and cached.
 
+⚠️ **Nothing clears the threshold (measured 2026-08-30).** The gate is
+`IntelligenceThreshold.INTENT_CLASSIFICATION` = 0.65 *average* cosine similarity
+across an intent's 8 exemplars — much stricter than it reads, since averaging
+over 8 diverse short sentences pulls the mean far below any single best match.
+Real queries score 0.078–0.291; a query that IS one of the exemplars, verbatim,
+still only reaches 0.43–0.56 against its own intent. So `SPECIFIC` is not a
+fallback in practice, it is the only outcome, and every intent-conditioned
+branch downstream takes its catch-all path.
+
 **Error tolerance:** If the embeddings API is unavailable, intent classification defaults to `SPECIFIC` rather than crashing. Individual exemplar embedding failures are skipped — classification works with fewer exemplars per intent.
+
+That leniency makes an outage indistinguishable from a real low-confidence
+verdict at the call site. Callers that must tell them apart — measurement,
+diagnostics — use `classify_intent_scored()`, which returns
+`Result[IntentClassification]` (intent + score + `confident`), converts raised
+embedding failures into `Result.fail`, and additionally refuses a *partially
+loaded* exemplar set, whose per-intent averages run over unequal denominators
+and are no longer comparable across intents.
 
 ### Step 5c: Extract Entities
 
