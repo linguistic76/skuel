@@ -33,6 +33,7 @@ from eval_intent_classification import (  # type: ignore[import-not-found]
     _print_human,
     aggregate,
     allowed_labels,
+    exit_code_for,
     fires,
     load_labelled_set,
     nearest_exemplar,
@@ -487,3 +488,36 @@ class TestLabelledQueryShape:
         query = LabelledQuery(query="q", label="specific", kind="natural", note="")
         with pytest.raises(AttributeError):
             query.label = "practice"  # type: ignore[misc]
+
+
+def _status_report(errors: int = 0, disagreements: int = 0, wrong: int = 0) -> EvalReport:
+    """The minimal slice of an EvalReport that exit_code_for reads."""
+    return {  # type: ignore[typeddict-item]
+        "errors": errors,
+        "production_agreement": {
+            "checked": 45,
+            "disagreements": disagreements,
+            "max_score_delta": 0.0,
+        },
+        "arms": {"mean": {"wrong_activations": wrong}},
+    }
+
+
+class TestExitCodeContract:
+    """The exit status is what shell automation reads — the human summary saying
+    ACCEPTANCE FAILS while the process exits 0 is exactly the gap this pins
+    (Codex, #1208)."""
+
+    def test_valid_and_accepted_exits_zero(self) -> None:
+        assert exit_code_for(_status_report()) == 0
+
+    def test_a_wrong_activation_fails_acceptance_with_a_distinct_code(self) -> None:
+        assert exit_code_for(_status_report(wrong=1)) == 3
+
+    def test_provider_errors_void_the_run(self) -> None:
+        assert exit_code_for(_status_report(errors=1)) == 1
+
+    def test_a_void_run_outranks_the_acceptance_verdict(self) -> None:
+        # A run whose mean arm does not provably mirror production is not a
+        # measurement at all — its wrong_activations count is meaningless.
+        assert exit_code_for(_status_report(disagreements=1, wrong=2)) == 1

@@ -699,6 +699,26 @@ async def measure_production(classifier: IntentClassifier, query: str) -> tuple[
     return scored.value.intent.value, scored.value.score
 
 
+def exit_code_for(report: EvalReport) -> int:
+    """Exit status for a completed run — the contract shell automation reads (pure).
+
+    1 — the run is VOID: provider errors or a production-agreement mismatch mean
+        the measurement itself cannot be trusted (the counterfactual arms are
+        only meaningful while the mean arm provably mirrors production).
+    3 — a VALID measurement that FAILS acceptance: a wrong activation on the
+        production arm, the standing regression condition since PR-2. Distinct
+        from 1 so automation can tell "re-run, the instrument glitched" from
+        "the classifier now mis-routes a query" — before this, the human
+        summary said ACCEPTANCE FAILS while the process exited 0 (Codex, #1208).
+    0 — valid and accepted.
+    """
+    if report["errors"] or report["production_agreement"]["disagreements"]:
+        return 1
+    if report["arms"]["mean"]["wrong_activations"]:
+        return 3
+    return 0
+
+
 async def run_eval(labelled_set: LabelledSet, *, as_json: bool) -> tuple[int, EvalReport | None]:
     """Compose services, score every arm per query, and return (exit_code, report)."""
     from adapters.infrastructure.event_bus import InMemoryEventBus
@@ -787,10 +807,7 @@ async def run_eval(labelled_set: LabelledSet, *, as_json: bool) -> tuple[int, Ev
             rows.append(row)
 
         report = summarize(rows, labelled_set, threshold)
-        # A disagreement voids the counterfactual arms: they are only meaningful
-        # while the arm mirroring production provably mirrors it.
-        void = report["errors"] or report["production_agreement"]["disagreements"]
-        return (1 if void else 0), report
+        return exit_code_for(report), report
     finally:
         await adapter.close()
 
