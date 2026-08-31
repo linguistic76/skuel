@@ -1,20 +1,24 @@
 # Askesis Intent Classification — Activation Arc
 
-**Status:** PR-1 SHIPPED + **BASELINE RATIFIED 2026-08-31** (Mike) — instrument, 45-query
-labelled set, exemplar disambiguation. **PR-2 (activation) is next and is measured against
-that baseline**; PR-3 is registered but gated.
+**Status:** PR-1 SHIPPED + **BASELINE RATIFIED 2026-08-31** (Mike) + **PR-2 SHIPPED
+2026-08-31** — the gate is live at 0.35 on the kept `mean` aggregation, with `AGGREGATION`
+held unreachable by the carve-out (`UNREACHABLE_INTENTS`; lifted only by the tool-selection
+first slice, its own doc/PR). PR-3 (the chunk-type filter) is registered but gated.
 
 **Core Principle:** *"Intent shapes the answer. It does not narrow what the answer may draw on."*
 
-`IntentClassifier` has never returned anything but `SPECIFIC` in production. This is not a
-tuning miss — an entire intent-conditioned layer of Askesis has never executed. This doc is the
-contract for turning it on; the discovery that produced it lives in
+`IntentClassifier` had never returned anything but `SPECIFIC` in production until PR-2
+(2026-08-31). That was not a tuning miss — an entire intent-conditioned layer of Askesis had
+never executed. This doc is the contract that turned it on; the discovery that produced it lives in
 [deferred-work.md](deferred-work.md) § "Per-Domain Chunking Knobs + Chunk-Type-Aware
 Retrieval", Named work 4, which is where the chunk-filter half stays.
 
 ---
 
 ## What is actually dormant
+
+*(Written pre-activation. Since PR-2 — 2026-08-31 — the five in-scope branches below execute;
+the tables remain as the map of what activation touched and what stays off.)*
 
 `classify_intent` has **two production callers**, and BOTH must be in scope — an activation
 validated on only one of them ships unmeasured behaviour on the other:
@@ -69,7 +73,7 @@ decision**, not a side effect of activation: that prompt is deliberately narrow 
 `PREREQUISITE`, and so on. Nothing there is dormant; nothing there changes. Only the
 classifier-derived path is asleep. Do not "fix" those call sites.
 
-## Why it can never fire (measured 2026-08-30, AuraDB `d2d160c4`)
+## Why it could never fire — HISTORICAL, fixed by PR-2 (measured 2026-08-30, AuraDB `d2d160c4`)
 
 `IntelligenceThreshold.INTENT_CLASSIFICATION` = 0.65 is compared against the **mean** cosine
 similarity over an intent's **8** exemplars. Averaging 8 diverse short sentences puts the mean
@@ -294,7 +298,7 @@ answers.
 | 0.50 | 38% / 3 / 0 | 76% / 21 / 1 | 58% / 12 / **0** |
 | 0.55 | 31% / 0 / 0 | 62% / 14 / **0** | 49% / 8 / 0 |
 | 0.60 | 31% / 0 / 0 | 58% / 12 / 0 | 42% / 5 / 0 |
-| **0.65** (today) | **31% / 0 / 0** | **51% / 9 / 0** | **33% / 1 / 0** |
+| **0.65** (pre-PR-2) | **31% / 0 / 0** | **51% / 9 / 0** | **33% / 1 / 0** |
 | 0.70–0.80 | 31% / 0 / 0 | 40→33% / 4→1 / 0 | 33→31% / 1→0 / 0 |
 
 **What that says, and it is the opposite of "raise the aggregation".** Every arm has a
@@ -343,7 +347,7 @@ that activates the other five intents while leaving AGGREGATION dormant, so **PR
 unreachable by an explicit carve-out** — ruled 2026-08-31; the reasoning and the alternative it
 rejected are in § PR-2.
 
-### PR-2 — activation (behaviour change, narrow)
+### PR-2 — activation (behaviour change, narrow) ✅ SHIPPED 2026-08-31
 
 ⚠ **The ratified baseline changed this PR's shape. Re-read this section; it was rewritten
 2026-08-31 against the measurement, and the pre-baseline framing was wrong in its central
@@ -481,6 +485,42 @@ RELATIONSHIP deliberately rather than hoping a sample reaches it.**
   first time these numbers describe behaviour a user can receive. `wrong_activations` on the mean
   arm is the number to carry forward.
 
+#### SHIPPED — measured 2026-08-31 (post-change, AuraDB `d2d160c4`)
+
+**Eval after the move** (`./dev eval-intent-classification`, gate 0.35, mean arm): **19 of 45
+fire, `wrong_activations` 0**, ranking 30/31, accuracy 33/45 (73%), production agreement 45/45
+(max score delta 4.5e-4). Firing by intent matches the pre-change prediction exactly
+(aggregation 6 / exploratory 5 / prerequisite 3 / hierarchical 2 / practice 2 / relationship 1).
+No off-set mis-route surfaced in the before/after, so nothing rejected the proposal.
+
+**Before/after, driven through BOTH callers** (9 probes: one per firing intent with
+RELATIONSHIP driven deliberately, 2 AGGREGATION, 1 SPECIFIC control; `answer_user_question` on
+the guided path AND — via a `nous` facet scope — the context-aware path, plus
+`process_query_with_context`):
+
+- **EXPLORATORY** injects the own-graph overview (`{"tasks": 7, "goals": 2, "habits": 3, …}`)
+  into `context_used` on the guided path, the scoped context-aware path, and the API caller.
+- **PRACTICE** adds task counts + the `apply_knowledge` action (chat) / `complete_task` with a
+  real task uid (API); **HIERARCHICAL** adds `enrolled_paths` + `continue_learning_path` with
+  the live LP uid (API).
+- **Citations attached for the first time ever.** All 3 driven PREREQUISITE/HIERARCHICAL
+  candidates carried them (`has_citations: true`) — on these probes the second gate
+  (`extracted_entities["knowledge"]` with a `uid`) did not bite; each resolved through the same
+  extracted PathStep, so the rate on real traffic is still effectively unmeasured — one
+  extraction target is not a distribution.
+- **The carve-out holds:** both AGGREGATION probes score `aggregation@0.43–0.52` on the raw
+  classifier and answer as `specific` in production, with response shape identical to before.
+- **SPECIFIC control unchanged.**
+
+**Activation surfaced a latent crash — the predicted risk, realised.**
+`process_query_with_context` errored on its FIRST-ever `hierarchical` and `practice`
+classifications: `generate_suggested_actions` read `learning_paths[0].uid` /
+`tasks[0].uid` while `get_learning_context` serves plain dicts — a dead branch's bug,
+invisible until the branch ran, and invisible to the eval (which measures classification
+only). Fixed in the same change and pinned by
+`tests/unit/test_askesis_response_generator_actions.py`; every pre-existing test had mocked
+the method away.
+
 ### PR-3 — the chunk-type filter (REGISTERED, GATED — may never happen)
 
 Blocked on the content-typing classifier ([deferred-work.md](deferred-work.md) Named work 3).
@@ -505,7 +545,8 @@ intact for PR-3.
 ./dev eval-intent-classification            # human summary
 ./dev eval-intent-classification --json     # the recorded report
 
-# the gate is unreachable — every query classifies SPECIFIC (max_intent_score vs 0.65)
+# the chunk draw stays unfiltered post-activation (the call site hard-wires
+# chunk_types=None); the three arms measure the staged filter's counterfactual
 ./dev eval-askesis-draw
 ```
 
@@ -514,5 +555,6 @@ intact for PR-3.
 MATCH (c:ContentChunk) RETURN c.chunk_type AS t, count(*) AS n ORDER BY n DESC
 ```
 
-**Trigger:** PR-1 DONE 2026-08-31. PR-2 on PR-1's ratified baseline. PR-3 only
-if the content-typing classifier lands AND its distribution makes a type filter meaningful.
+**Trigger:** PR-1 DONE 2026-08-31. PR-2 DONE 2026-08-31 (on PR-1's ratified baseline).
+PR-3 only if the content-typing classifier lands AND its distribution makes a type filter
+meaningful.

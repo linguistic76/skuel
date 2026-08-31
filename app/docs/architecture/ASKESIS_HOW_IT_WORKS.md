@@ -1,6 +1,6 @@
 # How Askesis Works
 
-**Last Updated:** March 12, 2026
+**Last Updated:** August 31, 2026 (intent activation — PR-2)
 
 **Audience:** Anyone trying to understand what Askesis is, how its parts connect, and why it works the way it does. No code required — this is the plain-English explanation.
 
@@ -75,32 +75,33 @@ When a user asks Askesis a question, here's exactly what happens:
 | RELATIONSHIP | "How are these topics connected?" |
 | AGGREGATION | "How many tasks do I have?" |
 
-This classification determines which context sections get included in the LLM prompt, which suggested actions get generated, and which `ContentChunk` types the RAG draw may use.
+This classification determines which context sections get included in the LLM prompt and which suggested actions get generated. It does NOT shape the RAG draw: `chunk_types` is hard-wired off at the call site (ruling 1 of the activation arc — intent shapes the answer, never what it may draw on).
 
-> ⚠️ **Measured 2026-08-30: the classifier never returns any of these six.** The gate is
-> `IntelligenceThreshold.INTENT_CLASSIFICATION` = 0.65 *average* cosine similarity across an
-> intent's 8 exemplars — a much stricter bar than it reads, because averaging over 8 diverse
-> short sentences pulls the mean far below any single best match. Across the ratified 45-query
-> intent-labelled set (baseline 2026-08-31) the best score spans **0.112–0.540** — nothing reaches 0.65 — and a
-> query that IS one of the exemplars, verbatim, tops out at 0.540 against its own intent. So
-> every question classifies as `SPECIFIC`, and every intent-conditioned branch below —
-> including the `_INTENT_CHUNK_TYPES` chunk filter — takes its catch-all path. Reproduce with
-> `./dev eval-intent-classification` (`cleared_gate` on the mean arm); `./dev eval-askesis-draw`
-> shows the same thing from the chunk-draw side (`max_intent_score`).
-> **Scheduled 2026-08-30; baseline RATIFIED 2026-08-31** —
-> `docs/roadmap/askesis-intent-classification-activation.md` is the contract. ⚠️ **The fix IS
-> the threshold, and an earlier note here said the opposite.** That note reasoned from a verbatim
-> exemplar's 0.43–0.56 self-similarity that the *averaging over 8 exemplars* was the defect, and
-> from a 12-probe sketch that all three aggregations rank identically. The ratified 45-query set
-> refutes both: ranking is 30/31 (mean), 29/31 (max), 29/31 (top-3) — they differ — and compared
-> at each aggregation's exact zero-wrong-activation gate, the **mean activates the most queries
-> without mis-routing any, and scores highest doing it** — 21 of 45 at 0.3329 (78%), against max
-> 17 at 0.5353 (69%) and top-3 15 at 0.4911 (64%). The averaging is the best-behaved of the
-> three; the gate is what is out of reach.
-> Activation covers the two branches that shape the ANSWER; the `_INTENT_CHUNK_TYPES` map stays
-> switched off and keeps its own entry (`deferred-work.md` § "Per-Domain Chunking Knobs +
-> Chunk-Type-Aware Retrieval", Named work 4) — switching THAT on is what would require a
-> thin-draw fallback in the same change.
+> ⚠️ **ACTIVATED 2026-08-31 (PR-2).** Before that date the classifier had never returned any of
+> these six in production: the gate was `IntelligenceThreshold.INTENT_CLASSIFICATION` = 0.65
+> *average* cosine similarity across an intent's 8 exemplars, and on the ratified 45-query
+> labelled set the best score spanned 0.112–0.540 — so every question classified as `SPECIFIC`
+> and every intent-conditioned branch took its catch-all path. PR-2 kept the `mean` aggregation
+> (measured best of the three candidate arms at the exact zero-wrong-activation frontier) and
+> moved the gate to **0.35**: 19 of the 45 labelled queries now fire, none of them wrongly.
+> Re-measure with `./dev eval-intent-classification` — the standing acceptance is
+> `wrong_activations == 0` on the mean arm, not any particular fire count.
+>
+> Two deliberate exclusions survive activation:
+>
+> - **`AGGREGATION` is carved out** (`UNREACHABLE_INTENTS`, `intent_classifier.py`): it still
+>   classifies internally and is logged, but the production verdict is `SPECIFIC`, because
+>   nothing can answer a count question yet. The tool-selection first slice
+>   (`docs/roadmap/askesis-tool-selection-queries.md`) removes the carve-out in the same commit
+>   that adds the tool.
+> - **The `_INTENT_CHUNK_TYPES` chunk filter stays off** — `retrieve_relevant_context`
+>   hard-wires `chunk_types=None`. Switching the filter on is a separate, gated change
+>   (`deferred-work.md` § "Per-Domain Chunking Knobs + Chunk-Type-Aware Retrieval", Named
+>   work 4) and requires a thin-draw fallback in the same change.
+>
+> `docs/roadmap/askesis-intent-classification-activation.md` is the contract; it carries the
+> ratified baseline, the arm comparison, the history of the unreachable gate, and what would
+> move the gate again.
 
 **Error tolerance:** If the embeddings API is unavailable or exemplar loading fails, the classifier defaults to `SPECIFIC` intent rather than crashing the pipeline. ⚠️ **An INCOMPLETE exemplar load also answers `SPECIFIC`** (changed 2026-08-30). Individual exemplar failures are still skipped rather than raising, but the resulting set is not merely less precise — averaging over fewer exemplars *raises* the mean, so an intent left holding one exemplar scores its max, and the partial set is cached for the process's lifetime. A degraded load would therefore manufacture confident verdicts, and every downstream consumer would act on the least trustworthy classification the service can produce.
 

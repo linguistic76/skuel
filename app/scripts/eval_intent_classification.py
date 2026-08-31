@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """Intent-classification eval — is the gate reachable, and does it pick the right intent?
 
-The instrument for PR-1 of docs/roadmap/askesis-intent-classification-activation.md.
-`IntentClassifier` has never returned anything but `SPECIFIC` in production, and
-an entire intent-conditioned layer of Askesis has therefore never executed. Before
-PR-2 turns those branches on, this measures — against a reviewable labelled set —
-what the classifier would actually decide, and under which aggregation.
+The instrument for docs/roadmap/askesis-intent-classification-activation.md.
+Built as PR-1's measurement while `IntentClassifier` had never returned anything
+but `SPECIFIC` in production; since PR-2 (2026-08-31) the gate is live at 0.35
+and this is the standing regression instrument: it measures — against a
+reviewable labelled set — what the classifier decides, under which aggregation,
+and whether anything mis-routes.
 
 Three aggregation arms over the SAME query embedding and the SAME exemplar
 embeddings, so the only variable is how an intent's eight per-exemplar
@@ -30,14 +31,24 @@ script exists to measure, manufactured out of a provider blip.
 What a run reports, per arm: accuracy at the live gate, the ranking accuracy
 that ignores the gate, the score and margin distributions, how many queries
 clear `IntelligenceThreshold.INTENT_CLASSIFICATION`, and a threshold sweep —
-the inputs PR-2 needs to re-base aggregation AND threshold together.
+the inputs PR-2 used to re-base aggregation AND threshold together (2026-08-31),
+kept because the next re-basing needs the same inputs.
 
-⚠ PR-1 acceptance condition (see the arc doc): after the AGGREGATION/EXPLORATORY
-exemplar rewrite, EVERY query's best score must stay BELOW the live threshold on
-the production arm. Editing exemplars is not behaviour-neutral — a more coherent
-set scores HIGHER — and a query that starts classifying before PR-2 exists is
-answered by branches that have no tool behind them yet. `cleared_gate` on the
-mean arm is that condition, and the human summary states it outright.
+⚠ Acceptance condition — PR-2 (activation, 2026-08-31) superseded PR-1's. The
+gate is live at 0.35 and queries are MEANT to clear it, so the condition is no
+longer "nothing fires" but **`wrong_activations == 0` on the production arm** —
+a query that clears the gate while ranking to the wrong intent is a
+user-visible wrong answer, and the gate moves UP before anything else moves.
+(PR-1's condition — every best score below the then-0.65 gate after the
+exemplar rewrite — held on the ratified baseline and is history.)
+
+⚠ The arms mirror the CLASSIFIER, not the production verdict: `AGGREGATION` is
+carved out in `classify_intent` (`UNREACHABLE_INTENTS` — it classifies, is
+logged, and answers SPECIFIC), while `classify_intent_scored`, the API this
+eval checks against, reports the raw verdict. The aggregation-labelled rows
+therefore count as correct activations here while production still answers
+them as SPECIFIC — deliberate; see the arc doc § PR-2 and the carve-out's
+comment in intent_classifier.py.
 
 Query set: scripts/eval_intent_classification_queries.yaml (reviewable, checked
 in; it evolves under review — this script does not). Runs print a DRAFT banner
@@ -898,18 +909,23 @@ def _print_human(report: EvalReport) -> None:
             " arm in this run is void."
         )
 
+    wrong = report["arms"]["mean"]["wrong_activations"]
     cleared = report["arms"]["mean"]["cleared_gate"]
-    if cleared:
+    if wrong:
         print(
-            f"\n⚠ PR-1 ACCEPTANCE FAILS: {cleared} query(ies) clear the live gate on the"
-            "\n  production arm. Exemplar edits that make an intent reachable belong in"
-            "\n  PR-2, with the activation — see docs/roadmap/"
-            "askesis-intent-classification-activation.md."
+            f"\n⚠ ACCEPTANCE FAILS: {wrong} wrong activation(s) on the production arm —"
+            "\n  a query cleared the gate AND ranked to the wrong intent. Under the"
+            "\n  activation contract that is a user-visible wrong answer, not a tuning"
+            "\n  miss; the gate moves UP before anything else moves — see docs/roadmap/"
+            "askesis-intent-classification-activation.md § PR-2."
         )
     else:
         print(
-            "\n✓ PR-1 acceptance: no query clears the live gate on the production arm —"
-            "\n  the exemplar set stays unreachable until PR-2 re-bases the mechanism."
+            f"\n✓ acceptance (activation, PR-2): {cleared} query(ies) clear the gate and"
+            "\n  none mis-route — wrong_activations == 0 on the production arm. Firing is"
+            "\n  the intended state since 2026-08-31; the count is reported, not judged."
+            "\n  (AGGREGATION rows count as classifier activations here; production holds"
+            "\n  them unreachable via the UNREACHABLE_INTENTS carve-out.)"
         )
     if report["errors"]:
         print(f"\n⚠ {report['errors']} query(ies) errored — run is not a valid measurement.")

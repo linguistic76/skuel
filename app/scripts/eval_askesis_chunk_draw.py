@@ -2,10 +2,13 @@
 """Askesis chunk-draw comparison — does the intent chunk-type filter earn its keep?
 
 The instrument for docs/roadmap/deferred-work.md § "Per-Domain Chunking Knobs +
-Chunk-Type-Aware Retrieval" Named work **4**: chunk-type-aware retrieval already
-exists on the Askesis path as a HARD ``IN`` filter (``_INTENT_CHUNK_TYPES`` →
-``retrieve_scoped_chunks(chunk_types=)``), and over a fallback-dominated type
-distribution it starves the narrow intents. Measured 2026-08-30 on the 925-chunk
+Chunk-Type-Aware Retrieval" Named work **4**: chunk-type-aware retrieval exists
+on the Askesis path as a STAGED hard ``IN`` filter (``_INTENT_CHUNK_TYPES`` →
+``retrieve_scoped_chunks(chunk_types=)``) — disconnected since PR-2 of the
+activation arc (2026-08-31): ``retrieve_relevant_context`` hard-wires
+``chunk_types=None``, so no production draw is filtered whatever the intent.
+Over a fallback-dominated type distribution the filter would starve the narrow
+intents. Measured 2026-08-30 on the 925-chunk
 v2 corpus: an EXPLORATORY question can draw on **66 of 925** chunks (7.1%),
 PRACTICE on 137 (14.8%) — and ``introduction``, one of EXPLORATORY's three
 named types, matches ZERO rows.
@@ -13,15 +16,17 @@ named types, matches ZERO rows.
 Three arms over the SAME queries and the same embedding, so the only variable is
 the filter:
 
-  filtered   — production today: hard ``chunk_type IN $types`` for the classified
-               intent (no filter for the unmapped intents).
+  filtered   — the staged filter's counterfactual (production until PR-2 made
+               the disconnection explicit): hard ``chunk_type IN $types`` for
+               the classified intent (no filter for the unmapped intents).
   thin_draw  — the proposal: keep every filtered hit, then BACKFILL from an
                unfiltered draw until k. Never loses an intent-appropriate
                passage, which a plain "unfiltered when thin" fallback can —
                the unfiltered top-k ranks on score alone, so a definition
                chunk sitting at overall rank 12 is in the filtered draw and
                NOT in the unfiltered one.
-  unfiltered — the control/ceiling: no type filter at all. If this does not beat
+  unfiltered — the control/ceiling, and since PR-2 the arm that IS the
+               production draw: no type filter at all. If this does not beat
                `filtered`, the filter costs nothing and Named work 3's weight
                table is arguing about a non-problem.
 
@@ -510,10 +515,11 @@ def _print_human(report: ComparisonReport) -> None:
             f"!! finding about filtering.\n"
             f"!! Best similarity reached by any query here: "
             f"{report['max_intent_score']:.3f} vs a {report['intent_threshold']:.2f} gate.\n"
-            f"!! That is a fact about THIS set. Whether the gate is reachable AT ALL\n"
-            f"!! is a separate, set-independent question — argued from the\n"
-            f"!! classifier's own exemplars in deferred-work.md § Per-Domain\n"
-            f"!! Chunking Knobs (a verbatim exemplar reaches only 0.43-0.56)."
+            f"!! That is a fact about THIS set. Since PR-2 of the activation arc\n"
+            f"!! (2026-08-31) the gate is reachable in general (0.35), so an all-\n"
+            f"!! unmapped run says these queries score low — no longer that the\n"
+            f"!! gate is out of reach. Production draws are unfiltered either way:\n"
+            f"!! the call site hard-wires chunk_types=None."
         )
 
     print(

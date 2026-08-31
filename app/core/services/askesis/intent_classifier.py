@@ -192,6 +192,34 @@ INTENT_EXEMPLARS: dict[QueryIntent, list[str]] = {
     ],
 }
 
+# ── Intents held UNREACHABLE: classified internally, never the verdict ───────
+#
+# `AGGREGATION` must not become a production verdict while nothing can answer
+# it: `retrieve_relevant_context` has no AGGREGATION branch, so a count question
+# routed there would fall through to ordinary generation and be answered
+# generically or invented. No threshold achieves this dormancy — AGGREGATION is
+# the best-separated intent on the ratified labelled set (all 6 of its 6 queries
+# clear the live gate) — so the carve-out is explicit code, not a tuning choice.
+# Ruled 2026-08-31 (Mike); the sequencing reasoning is in
+# docs/roadmap/askesis-intent-classification-activation.md § PR-2.
+#
+# What REMOVES it: the tool-selection first slice
+# (docs/roadmap/askesis-tool-selection-queries.md) deletes AGGREGATION from this
+# set in the SAME commit that adds the aggregation tool and its
+# `retrieve_relevant_context` branch.
+#
+# ⚠ The dangerous future edit is not adding that branch late — it is deleting
+# this exclusion early. An empty set here with no tool behind AGGREGATION
+# re-opens the window the carve-out closes.
+#
+# AGGREGATION's exemplars STAY (ruling 2 — Askesis does answer questions about
+# the user's own records; the mechanism is tool-selection): only the intent's
+# REACHABILITY is deferred. `classify_intent` still scores it and logs the
+# suppressed verdict, so the real demand is measurable before the tool lands;
+# `classify_intent_scored` — the measurement contract — reports the raw verdict
+# untouched. Pinned by tests/unit/test_askesis_intent_filter_activation_guard.py.
+UNREACHABLE_INTENTS: frozenset[QueryIntent] = frozenset({QueryIntent.AGGREGATION})
+
 
 _INTENT_TO_GUIDANCE_MODE: dict[PedagogicalIntent, GuidanceMode] = {
     PedagogicalIntent.ASSESS_UNDERSTANDING: GuidanceMode.SOCRATIC,
@@ -247,7 +275,9 @@ class IntentClassifier:
 
         Fail-soft: an embeddings outage answers SPECIFIC rather than raising, so an
         Askesis turn still completes. An INCOMPLETE exemplar load answers SPECIFIC too —
-        see below; that is a correctness guard, not tolerance.
+        see below; that is a correctness guard, not tolerance. An intent in
+        ``UNREACHABLE_INTENTS`` also answers SPECIFIC — the verdict is real and logged,
+        but nothing downstream can answer it yet (the carve-out ruled 2026-08-31).
 
         Args:
             query: User's natural language question
@@ -290,6 +320,17 @@ class IntentClassifier:
                 "Intent exemplar set incomplete (%s) — scores are averaged over unequal "
                 "counts and are not comparable; answering SPECIFIC instead of %s",
                 load.describe(),
+                intent.value,
+            )
+            return Result.ok(QueryIntent.SPECIFIC)
+
+        # An unreachable intent's verdict is real — log it, so the suppressed
+        # demand is measurable before its tool exists — but it must not reach
+        # the branches, which have nothing behind it (see UNREACHABLE_INTENTS).
+        if intent is not None and intent in UNREACHABLE_INTENTS:
+            logger.info(
+                "Intent %s classified but held unreachable (carve-out — no tool "
+                "answers it yet); answering SPECIFIC",
                 intent.value,
             )
             return Result.ok(QueryIntent.SPECIFIC)
@@ -534,6 +575,12 @@ class IntentClassifier:
                 classification at the call site. Anything that must tell those apart
                 (measurement, diagnostics, an eval that would otherwise score an outage
                 as a finding) calls this instead and gets a real ``Result.fail``.
+
+        This is the RAW verdict: ``UNREACHABLE_INTENTS`` is not applied here, so a
+        query can report ``aggregation`` from this method while ``classify_intent``
+        answers SPECIFIC for it. That is deliberate — the eval measures the
+        classifier, and the carve-out is a production-reachability decision layered
+        on top of it, not a property of the scoring.
 
         Both methods refuse an INCOMPLETE exemplar set; this one differs only in
                 saying so out loud. A load that lost exemplars to a transient error is cached

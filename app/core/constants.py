@@ -285,12 +285,19 @@ class IntelligenceThreshold:
     CROSS_DOMAIN: Final = 0.6
 
     # Askesis query-intent classification: minimum AVERAGE cosine similarity to
-    # an intent's exemplar set (IntentClassifier). Averaging over ~8 diverse
-    # short exemplars pulls the mean well below any single best match, so this
-    # is a far stricter gate than it looks — measured 2026-08-30, a query that
-    # IS one of the exemplars verbatim scores 0.43-0.56 against its own intent.
-    # Below this, classification returns SPECIFIC (no chunk-type filter).
-    INTENT_CLASSIFICATION: Final = 0.65
+    # an intent's exemplar set (IntentClassifier). The MEAN aggregation is kept
+    # deliberately — on the ratified 45-query labelled set it mis-routes least
+    # of the three candidate aggregations at its zero-wrong-activation frontier
+    # (baseline 2026-08-31, `./dev eval-intent-classification`). 0.35 sits
+    # deliberately ABOVE that frontier (an observed score that drifts run to
+    # run) and clears the highest-scoring mis-route by ~0.03 — two orders of
+    # magnitude more than the observed re-embedding drift. At the previous
+    # value of 0.65 the gate was unreachable and every query classified
+    # SPECIFIC; the history and what would move this again are in
+    # docs/roadmap/askesis-intent-classification-activation.md § PR-2.
+    # Below this, classification returns SPECIFIC. Re-measure before changing;
+    # do not re-derive numbers from this comment.
+    INTENT_CLASSIFICATION: Final = 0.35
 
     # Minimum confidence for recommendations
     MIN_RECOMMENDATION: Final = 0.7

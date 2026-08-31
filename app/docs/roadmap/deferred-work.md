@@ -1657,15 +1657,19 @@ label-only lines; 72 typed `explanation`; 32 under 20 characters), 6 path_step (
   7.1% is beside the point.
   **But those are counterfactuals.** Driving the production path (`./dev eval-askesis-draw`)
   showed all 23 queries classify to **SPECIFIC**, which is unmapped → `chunk_types=None` → no
-  filter. The cause is one layer up and is not a tuning miss: classification needs
+  filter. The cause was one layer up and was not a tuning miss: classification needed
   `IntelligenceThreshold.INTENT_CLASSIFICATION` = **0.65** *average* cosine similarity across an
   intent's **8** exemplars. Averaging over 8 diverse short sentences is a far stricter gate than
-  it reads: the 23 eval queries score **0.078–0.291**, and a query that IS one of the exemplars,
-  verbatim, still only reaches **0.43–0.56** against its own intent (practice 0.562,
+  it reads: the 23 eval queries scored **0.078–0.291**, and a query that IS one of the exemplars,
+  verbatim, still only reached **0.43–0.56** against its own intent (practice 0.562,
   hierarchical 0.561, relationship 0.561, aggregation 0.482, prerequisite 0.480, exploratory
-  0.429). Nothing can clear it, so `classify_intent` can only ever return SPECIFIC. The
-  starvation is real arithmetic with **zero production effect** — see Named work 4, now a
-  RULING.
+  0.429). Nothing could clear it, so `classify_intent` could only ever return SPECIFIC — the
+  starvation was real arithmetic with zero production effect.
+  ⚠ **STATE CHANGE (PR-2, 2026-08-31): the gate is 0.35 and queries DO classify to mapped
+  intents — the filter stays off by a DIFFERENT mechanism.** `retrieve_relevant_context` now
+  hard-wires `chunk_types=None` at the call site instead of deriving it from the intent: the
+  map is explicitly disconnected (greppable), no longer shadowed by an unreachable gate. See
+  Named work 4, now a RULING.
 - **The fragments were an ingestion-hygiene defect, 90% in vault notes** — `/search` never showed
   them (`_aggregate_body_chunk_parents` drops non-Ku/PS parents); they only crowded the vector
   candidate pool and Askesis draws. "Enforce `min_chunk_size`" as configured would have folded
@@ -1750,9 +1754,11 @@ label-only lines; 72 typed `explanation`; 32 under 20 characters), 6 path_step (
    inlines, so a parent reached only at draw rank 4 is retrieved and thrown away.
    Starvation is measured against the same 3 for the mirror reason. **Result: all three
    arms identical (recall@3 22/23, 0 starved), run both curriculum-only and with the
-   audience, because 0 of 23 queries reached a filtered intent.** The script prints that
-   as a loud banner, with the measured margin (`max_intent_score` 0.29 against the 0.65
-   gate) so the zero reads as "unreachable gate", not "unusual queries" —
+   audience, because 0 of 23 queries reached a filtered intent.** The script printed that
+   as a loud banner, with the measured margin (`max_intent_score` 0.29 against the then-0.65
+   gate) so the zero read as "unreachable gate", not "unusual queries" (banner re-worded at
+   PR-2: the gate is reachable now, so an all-unmapped run reads as "these queries score
+   low") —
    `filtered_intent_queries: 0` means the arms are an identity, not a finding. It classifies
    through `IntentClassifier.classify_intent_scored` (added here), NOT the fail-soft
    `classify_intent`: that one converts an embedding outage into `Result.ok(SPECIFIC)`, which
@@ -1770,9 +1776,11 @@ label-only lines; 72 typed `explanation`; 32 under 20 characters), 6 path_step (
    is SCHEDULED and the chunk filter is NOT part of it** — see
    [askesis-intent-classification-activation.md](askesis-intent-classification-activation.md).
    The classifier gates SIX Askesis branches across its two callers, and this filter is the
-   weakest of them; the other five (graph context, suggested actions, citations — which have
-   consequently never attached to any Askesis answer — plus the context-query API's own prose
-   and actions branches) need no chunk types at all. So activation happens there first with `chunk_types` hard-wired off, and
+   weakest of them; the other five (graph context, suggested actions, citations — which had
+   consequently never attached to any Askesis answer until PR-2 — plus the context-query
+   API's own prose and actions branches) need no chunk types at all. So activation happened there first with `chunk_types` hard-wired off
+   (LANDED 2026-08-31, PR-2 — `retrieve_relevant_context` no longer calls
+   `_intent_to_chunk_types`; the map's disconnection is stated at the call site), and
    "fix and fallback ship together" narrows to its true scope: it binds whoever switches the
    FILTER on, not whoever fixes the classifier. This entry keeps the filter half.
    The plumbing stays because the intent is to *connect* it, not to retire it:
@@ -1793,9 +1801,12 @@ label-only lines; 72 typed `explanation`; 32 under 20 characters), 6 path_step (
    `introduction` population, the mapping would be answering a question EXPLORATORY no longer
    asks. Whoever builds (3)'s weight table or switches this filter on re-derives that row
    first — the arc doc's ruling 3 carries the reasoning.
-   **Named cost while inert:** every reader of `context_retriever.py` — and, until #1198,
-   four docs — sees an intent→chunk-type filter that appears operative and is not; the
-   only thing keeping that legible is this entry plus the `./dev eval-askesis-draw` banner.
+   **Named cost while inert — SHRUNK by PR-2 (2026-08-31):** until then every reader of
+   `context_retriever.py` — and, until #1198, four docs — saw an intent→chunk-type filter that
+   appeared operative and was not, legible only through this entry plus the
+   `./dev eval-askesis-draw` banner. The call site now states the disconnection itself
+   (`chunk_types=None`, hard-wired, with the reason), and `_intent_to_chunk_types` is
+   registered in `PLANNED_METHODS`.
    ⚠ **"Fix the classifier" DOES now mean "move the gate" — this reversed on the ratified
    baseline (2026-08-31), and the earlier reading here was wrong.** It said the fix must not be
    assumed to be a lower threshold, because a verbatim exemplar's 0.43–0.56 self-similarity
@@ -1808,10 +1819,12 @@ label-only lines; 72 typed `explanation`; 32 under 20 characters), 6 path_step (
    which understated all three arms (#1206). The averaging is not the defect; it is the
    best-behaved of the three. So the indicated fix is the one the old reading warned against:
    keep the mean, move the gate — **0.35, deliberately not the frontier itself**, which is an
-   observed score and drifts between runs. The arc doc's PR-2 section carries the
-   proposal and what would reject it. Note what flipping queries off SPECIFIC does and does not touch: with `chunk_types`
+   observed score and drifts between runs. **SHIPPED 2026-08-31 (PR-2)**: the gate is 0.35;
+   `AGGREGATION` is carved out (`UNREACHABLE_INTENTS` in `intent_classifier.py` — see §
+   AGGREGATION Carve-Out below); the arc doc's PR-2 section records the post-change
+   measurement. Note what flipping queries off SPECIFIC does and does not touch: with `chunk_types`
    held off it re-routes the two answer-shaping branches and NOT the chunk draw, which is
-   exactly why the arc can proceed without the fallback.
+   exactly why the arc proceeded without the fallback.
    **Both halves of that are RUNNABLE, not just prose**
    (`tests/unit/test_askesis_intent_filter_activation_guard.py`): mapping `SPECIFIC` fails —
    it is the verdict `classify_intent` returns on an embeddings OUTAGE, so a mapping would let
@@ -1846,13 +1859,46 @@ ORDER BY n DESC
 MATCH (c:ContentChunk) WHERE c.end_index < 5 RETURN count(*) AS fragments   // 83 pre-v2 → 7 after the 2026-08-30 re-chunk (all link-only notes); a rise = new fragment-shaped ingestion
 ```
 plus `git grep -n chunk_type_weights -- core/` (empty until built).
-The intent filter's liveness is NOT greppable — the code is wired and reachable, it is the
-0.65 threshold that no query clears — so it is checked by DRIVING the path:
-`./dev eval-askesis-draw --json` → `filtered_intent_queries` (0 of 23 on 2026-08-30; any
-non-zero means the classifier now returns a mapped intent and (4) has changed under us).
+The intent filter's disconnection IS greppable since PR-2 (2026-08-31): the one production
+call site hard-wires `chunk_types=None` with the reason stated
+(`retrieve_relevant_context`, `core/services/askesis/context_retriever.py`) — before that the
+code was wired and reachable and only the unreachable 0.65 gate kept it inert.
+`./dev eval-askesis-draw --json` → `filtered_intent_queries` now counts queries whose
+CLASSIFIED intent has a mapping — a counterfactual input to the filter arms, not "production
+filtered here"; non-zero is EXPECTED at the 0.35 gate, and the arms measure what the filter
+WOULD do for PR-3.
 **Named cost while parked:** a type table built today would be tuned against a fallback-dominated
 corpus (78% one label on the v2 corpus), and EXPLORATORY's eligible slice stays 66-of-925 — a
 counterfactual while the filter cannot fire, and the number to beat the moment it can.
+
+---
+
+## `AGGREGATION` Carve-Out — Held Unreachable Until the Tool-Selection First Slice (REGISTERED 2026-08-31)
+
+PR-2 of [askesis-intent-classification-activation.md](askesis-intent-classification-activation.md)
+moved the intent gate to 0.35, and at that gate `AGGREGATION` is the best-separated intent in the
+ratified set — all 6 of its 6 labelled queries fire. Nothing can answer it yet
+(`retrieve_relevant_context` has no AGGREGATION branch; the tool catalog does not exist), so the
+invariant *"`AGGREGATION` must never CLASSIFY with nothing behind it"* (ruled 2026-08-31) is held
+by explicit code, not a threshold: `UNREACHABLE_INTENTS` in
+`core/services/askesis/intent_classifier.py`. `classify_intent` still scores the intent and logs
+the suppressed verdict — so the real demand is measurable before the tool exists — but answers
+`SPECIFIC`; `classify_intent_scored` (the measurement contract) reports the raw verdict
+untouched, which is what keeps the eval's production-agreement check meaningful.
+
+**What removes it:** the first slice of
+[askesis-tool-selection-queries.md](askesis-tool-selection-queries.md) deletes `AGGREGATION`
+from the set **in the same commit that adds the aggregation tool and its
+`retrieve_relevant_context` branch** — its own PR, its own doc, and deliberately NOT the
+activation arc's PR-3 (that is the unrelated, gated chunk-type filter). ⚠ The dangerous edit is
+deleting the exclusion early, not adding the branch late: an empty set with no tool behind
+`AGGREGATION` re-opens the window in which count questions classify, meet no branch, fall
+through to ordinary generation, and are answered generically or invented.
+
+If the slice never lands, `AGGREGATION` stays exactly as dormant as it was before PR-2 — the
+fallback is the status quo, not a regression. Pinned by
+`tests/unit/test_askesis_intent_filter_activation_guard.py` (the carve-out guard fails if
+`classify_intent` can return `AGGREGATION` while nothing answers it).
 
 ---
 
@@ -2510,6 +2556,7 @@ Review this document at the **September 2026 quarterly review**. Checklist:
 | Habit-completion persistence bundle (#915 Codex "future care session": delete orphans / uid collision / non-atomic day uniqueness / stranded stats / DISTINCT-day query; + untrack refused-and-reported-success since #1100 and node doors publishing no `HabitCompleted`, both found on #1172) | Lived habit-completion use, or next touch of the completion write path | `MATCH (hc:HabitCompletion) RETURN count(hc)` **and** `MATCH (h:Habit) RETURN sum(h.total_completions), max(h.last_completed)` — nodes 0 / tally 0 / null on 2026-08-28 (tally > nodes = the node-less `/api/context` door was used); `SHOW CONSTRAINTS` lists none on the label. Built WITH the `find_by` row (one shared range predicate, two operations) but triggered by duplicate volume, moot once defect 3 lands; defect 3 needs Mike's one-per-day ruling first |
 | `TaskUpdateRequest` future `completion_date` asymmetry | Next touch of `task_request.py` validators | Ruling needed — see the section; don't rule in passing |
 | Per-domain chunking knobs + `chunk_type_weights` (fragment fix ✅ v2, 2026-08-30) | Tuning + Askesis intent-filter loosening: Mike schedules the eval set; type weights additionally need a content-typing classifier (79% `explanation` is the keyword FALLBACK, not the corpus) | `MATCH (c:ContentChunk) WHERE c.end_index < 5 RETURN count(*)` — **7** after the v2 re-chunk (all link-only MOC-style notes; a rise = new fragment-shaped ingestion; `end_index` = the persisted whitespace-aware `word_count`; pre-v2, 753 of 998 sat under the 50-word `min_chunk_size` — its value is the tuning question, not the defect); `git grep -n chunk_type_weights -- core/` empty until built |
+| `AGGREGATION` carve-out (held unreachable since PR-2, 2026-08-31) | The tool-selection first slice — its own PR in its own doc; Mike schedules it | `git grep -n "UNREACHABLE_INTENTS" -- core/` non-empty until the slice lands; the removal must ship in the same commit as the tool (see the section) |
 | DSL-bridge grounding pair (goal-LINK persistence; `user_principles`/`recent_topics` to BOTH paths) | Keyed A/B on the next bridge touch; goal edges need Mike's ruling on AI-inferred writes | `git grep -c "user_principles="` and `git grep -c "recent_topics="` over `journal_service.py` + `user_entry_processing_service.py` — EACH argument in both files or neither (neither today); extracted tasks / tasks with a `FULFILLS_GOAL` edge = 56 / 0 on 2026-08-28 (count TASKS linked, not goals reached — ten tasks on one goal must read 10) |
 | `HabitMissed` publisher-less chain (ruled keep-staged 2026-08-28) | A lived want for difficulty insights, or the streak-semantics ruling — rule the day model once | `git grep -n "HabitMissed(" -- core/ adapters/ scripts/ services_bootstrap/ ui/ ':!core/events/'` empty (scripts/ included — a one-shot publisher counts); `MATCH (i:Insight {insight_type: 'difficulty_pattern'}) RETURN count(i)` → 0 |
 | Quarterly / yearly periodic notes (founder vault pass first) | The first real note in either vault folder | `find ~/0bsidian/skuel/periodic_notes/Quarterly ~/0bsidian/skuel/periodic_notes/yearly -type f \| wc -l` > 0 (files, not `ls` headings) — founder-owned, non-repo |

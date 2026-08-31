@@ -98,16 +98,16 @@ _SENTINEL = object()
 #                       tests/unit/test_askesis_intent_filter_activation_guard.py.
 #   GOAL_ACHIEVEMENT  — domain query served from user activity data, not curriculum.
 #
-# ⚠ This map has never filtered anything: it executes on every question and
-# takes its no-filter branch every time, because no query clears the classifier's
-# gate (measured 2026-08-30). Ruled staged, not dead.
-#
-# The classifier fix is SCHEDULED and deliberately leaves this map OFF —
-# docs/roadmap/askesis-intent-classification-activation.md. It activates the two
-# branches that shape the ANSWER (graph context, suggested actions); the draw
-# stays unfiltered. ⚠ Whoever lands that arc must revisit this comment: the
-# "no query clears the gate" sentence above is a claim about STATE and stops
-# being true the moment the gate becomes reachable.
+# ⚠ This map has never filtered anything — and since PR-2 of the activation arc
+# (2026-08-31) the reason changed. Before: the classifier's gate was unreachable,
+# so the map executed on every question and took its no-filter branch. Now the
+# gate IS reachable (IntelligenceThreshold.INTENT_CLASSIFICATION — value and
+# evidence live on the constant), and the map is held off EXPLICITLY: the one
+# production call site (`retrieve_relevant_context`) passes a hard-wired
+# `chunk_types=None` instead of calling `_intent_to_chunk_types` — ruling 1 of
+# docs/roadmap/askesis-intent-classification-activation.md: intent shapes the
+# ANSWER (graph context, suggested actions), never the draw. Ruled staged, not
+# dead (PLANNED_METHODS in scripts/detect_bloat.py).
 #
 # Switching THIS map on is a separate, gated change (deferred-work § "Per-Domain
 # Chunking Knobs + Chunk-Type-Aware Retrieval", Named work 4) and needs the
@@ -141,6 +141,11 @@ def _intent_to_chunk_types(intent: QueryIntent) -> list[str] | None:
     content adapters write to ``chunk.chunk_type`` — so the backend's equality
     filter can match. Returning None means 'no filter' — used for catch-all
     (SPECIFIC), aggregate, or user-data queries where any chunk type is fair game.
+
+    STAGED, no production caller: `retrieve_relevant_context` hard-wires
+    `chunk_types=None` (see the comment above the map). Live callers are the
+    activation guard tests and `scripts/eval_askesis_chunk_draw.py`, which uses
+    it to measure the filter's counterfactual arms for PR-3.
     """
     chunk_types = _INTENT_CHUNK_TYPES.get(intent)
     if chunk_types is None:
@@ -321,9 +326,17 @@ class ContextRetriever:
         # We target :ContentChunk (not :Entity) so the LLM grounds answers in the
         # actual passage that matched, with the owning PathStep surfaced via the
         # chunk → content → entity join for citation.
-        chunk_types = _intent_to_chunk_types(intent)
+        #
+        # `chunk_types` is hard-wired None — intent shapes the ANSWER (the
+        # branches above), never the draw (ruling 1, activation arc 2026-08-30).
+        # Deriving it from the intent here (`_intent_to_chunk_types`) would
+        # activate the staged `_INTENT_CHUNK_TYPES` filter as a side effect of
+        # the gate becoming reachable, without the thin-draw fallback that
+        # switching the filter on requires (deferred-work § Named work 4 — PR-3,
+        # gated). Reconnecting the map is that PR's whole change, never an edit
+        # riding along here.
         relevant_chunks = await self._find_similar_chunks(
-            query, user_context.user_uid, chunk_types=chunk_types, scope=scope
+            query, user_context.user_uid, chunk_types=None, scope=scope
         )
         if relevant_chunks:
             context["relevant_chunks"] = relevant_chunks[:3]  # Top 3
