@@ -158,6 +158,12 @@ Mike ratifies**, first ratified run is the baseline.
 - The set must carry **AGGREGATION-shaped queries** on both shapes tool-selection targets: the
   bare count ("how many goals do I have") and the predicate-bearing one ("how many goals did I
   complete last quarter that were blocked by a habit I dropped").
+  ⚠ **Labelling a query `AGGREGATION` does not mean anything can answer it.** The tool catalog's
+  first slice covers neither of those two shapes, so once PR-2 makes them classify, an
+  unmatched question must be an explicit decline — not the nearest tool returning a confident
+  wrong number. That coverage gate belongs to
+  [askesis-tool-selection-queries.md](askesis-tool-selection-queries.md) step 6; this set is
+  what will expose it.
 - **Label the corpus honestly:** a content question ("why does my mind keep wandering when I
   meditate") is genuinely `SPECIFIC`. A set that labels everything with a non-SPECIFIC intent
   measures wishful thinking. Expect SPECIFIC to be the largest class and keep it so.

@@ -198,12 +198,12 @@ async def count_goals_achieved(
 ⚠ **There is no single completion field, so a date-bounded count CANNOT be one generic
 `EntityType` tool** (Codex, #1202 — verified against the models):
 
-| domain | completion field | stored type |
-|---|---|---|
-| Task | `completion_date` | `date` |
-| Goal | `achieved_date` | `date` |
-| Choice / Event / Habit | `completed_at` | `datetime` |
-| Principle | **none** | — (deliberate: ADR-087 keeps Principle off the completion guard) |
+| domain | completion field | model type | **persisted in Neo4j** |
+|---|---|---|---|
+| Task | `completion_date` | `date` | **ISO string** `"2026-06-15"` |
+| Goal | `achieved_date` | `date` | **ISO string** `"2026-06-15"` |
+| Choice / Event / Habit | `completed_at` | `datetime` | **ISO string** `"2026-06-15T08:09:10.111213"` |
+| Principle | **none** | — | — (deliberate: ADR-087 keeps Principle off the completion guard) |
 
 The sketch's original `e.completed_at` is real — on Choice, Event and Habit — and **absent on
 exactly the two types this doc's own headline example names** ("how many *goals* did I complete
@@ -216,9 +216,19 @@ Three consequences for whoever builds this:
    what SKUEL's architecture rule already requires ("domain-specific Cypher belongs on the domain
    backend; cross-domain aggregation stays in services"). Narrow each tool's `args_model` to the
    domains it can actually serve, so the LLM cannot select a shape that has no field.
-2. **`date` and `datetime` are not interchangeable at a bound.** Task/Goal store `date`,
-   the other three `datetime`; a comparison against the wrong one silently mis-filters rather
-   than failing. Bind the type the WRITER used, per domain.
+2. **Everything temporal is persisted as an ISO STRING, not a temporal type.**
+   `neo4j_mapper.py` serializes both `date` and `datetime` with `.isoformat()`, and
+   `tests/integration/test_backfill_activity_completion_stamps.py` asserts `STRING` for
+   `achieved_date` and `completed_at` alike. So bind ISO strings — as the sketch above does —
+   and **never** a Neo4j temporal value: comparing `date()` against a stored string matches
+   nothing and fails silently.
+   ⚠ **The surviving difference is the string's SHAPE, and it bites the upper bound.**
+   Lexicographic order makes ISO-8601 compare correctly *until* the shapes differ:
+   `"2026-06-15T08:09:10" <= "2026-06-15"` is **false**, so an `until` bound of `2026-06-15`
+   silently excludes everything completed *on* that day for the three `completed_at` domains,
+   while behaving as expected for Task/Goal. Each domain's tool must normalise its own bound
+   (a date-shaped `until` needs widening to the day's end for `datetime`-backed fields) — one
+   more reason the tool is per-domain and not generic.
 3. **A "completed" count over Principle is not answerable** and must not be offered as a tool
    option — not an omission to fix later.
 
@@ -351,7 +361,20 @@ Implement **one** tool end-to-end, behind the FULL intelligence tier
    a topic-orientation question ("introduce me to stoicism") can route here and be answered with
    a COUNT. That mis-route is harmless while this branch is absent and user-visible the moment
    it exists.
-6. **Delivery, per answer path — the slice is not end-to-end without it** (§ 6 table).
+6. **Declare the catalog's COVERAGE, and decline outside it.** The first slice answers
+   *"how many goals did I complete last quarter"* and nothing else — not the bare total, and
+   not the relationship-bearing question this doc opens with (*"…blocked by a habit I
+   dropped"*), which needs **service-level cross-domain aggregation**, not a single-domain
+   backend method. `tool_choice="auto"` has no completeness check, so the model will either
+   decline a question the ruling says is supported, or pick the nearest tool and report an
+   achieved-goal total that quietly ignores the predicate. **The second failure is the
+   dangerous one — a confident wrong number.** Either add the matching tools before those
+   shapes can classify, or make an unmatched shape an explicit decline with a stated reason.
+   ⚠ Cross-check against
+   [askesis-intent-classification-activation.md](askesis-intent-classification-activation.md)
+   PR-1, whose labelled set is required to carry BOTH shapes: labelling a query `AGGREGATION`
+   does not conjure a tool that can answer it.
+7. **Delivery, per answer path — the slice is not end-to-end without it** (§ 6 table).
    Computing the count in `ContextRetriever` reaches only non-guided chat. Decide and wire:
    (a) `process_query_with_context`, which calls `get_learning_context()` and so never runs
    the tool at all; (b) the guided path, where `_generate_guided_answer` receives no
@@ -359,10 +382,12 @@ Implement **one** tool end-to-end, behind the FULL intelligence tier
    prompt is a **pedagogical** call (ADR-077), so "wire it" is not the automatic answer. A
    documented decision to serve only the non-guided path is acceptable; shipping that by
    omission is not.
-7. A pytest exercising: tool selected + args validated + cross-tenant attempt
+8. A pytest exercising: tool selected + args validated + cross-tenant attempt
    (LLM-supplied `user_uid` ignored) + no-tool fallback path + **the count actually reaching
-   the answer on every path step 6 claims to serve** — the delivery half is where this
-   silently fails, not the selection half.
+   the answer on every path step 7 claims to serve** — the delivery half is where this
+   silently fails, not the selection half — + **an out-of-coverage question is declined, not
+   approximated** (step 6), + **a same-day `until` bound includes that day** on a
+   `completed_at` domain (§ 3, consequence 2).
 
 Try it against a live question before deciding whether the pattern earns its keep.
 
