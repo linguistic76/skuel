@@ -102,13 +102,16 @@ context["aggregation"] = result   →   existing ResponseGenerator answers in NL
 from dataclasses import dataclass
 from collections.abc import Awaitable, Callable
 from pydantic import BaseModel, Field
-from core.models.enums.entity_enums import EntityType, EntityStatus
 from core.utils.result import Result
 
-class CountByStatusArgs(BaseModel):
-    """LLM fills ONLY these. No raw strings reach Cypher."""
-    entity_type: EntityType                       # enum-bound → can't be arbitrary
-    status: EntityStatus | None = None
+class CountGoalsAchievedArgs(BaseModel):
+    """LLM fills ONLY these. No raw strings reach Cypher.
+
+    Deliberately ONE domain, not an `entity_type` dial: the completion field
+    differs per domain (§ 3), so a generic tool can only be wrong for some of
+    them — and narrowing the schema is also what stops the LLM selecting a
+    shape that has no field to filter on.
+    """
     since: date | None = Field(default=None, description="ISO date lower bound")
     until: date | None = None
 
@@ -126,35 +129,42 @@ class QueryTool:
 ### 2. The registry — small, hand-curated, every entry backed by tested Cypher
 
 ```python
-def build_aggregation_catalog(backend: ActivityAggregationBackend) -> dict[str, QueryTool]:
+def build_aggregation_catalog(goals: GoalsBackend) -> dict[str, QueryTool]:
     return {
-        "count_entities_by_status": QueryTool(
-            name="count_entities_by_status",
+        "count_goals_achieved": QueryTool(
+            name="count_goals_achieved",
             description=(
-                "Count a user's entities of one type, optionally filtered by status "
-                "and a date range. Use for 'how many goals did I complete', etc."
+                "Count the goals this user has achieved, optionally within a date "
+                "range. Use for 'how many goals did I complete last quarter'."
             ),
-            args_model=CountByStatusArgs,
-            handler=backend.count_entities_by_status,
+            args_model=CountGoalsAchievedArgs,
+            handler=goals.count_goals_achieved,
         ),
-        # find_blocking_relationships, count_completed_in_period, … add as needed
+        # Siblings are added PER DOMAIN, each bound to its own backend and its own
+        # completion field (§ 3): count_tasks_completed (TasksBackend,
+        # completion_date), count_habits_completed (HabitsBackend, completed_at), …
+        # There is no "count_entities_by_status" — that shape cannot be written
+        # correctly across domains.
     }
 ```
 
 ### 3. The backend method — the *only* place Cypher exists (SKUEL001-clean, user-scoped)
 
 ```python
-# adapters/persistence/neo4j/backends/activity.py
-async def count_entities_by_status(
+# adapters/persistence/neo4j/backends/activity_backends.py — on GoalsBackend
+async def count_goals_achieved(
     self,
     *,
     user_uid: str,                 # ← always required, always bound as a param
-    entity_type: EntityType,
-    status: EntityStatus | None = None,
     since: date | None = None,
     until: date | None = None,
 ) -> Result[dict[str, Any]]:
-    """Parameterized aggregation. Ownership edge is non-optional in the MATCH."""
+    """Parameterized aggregation. Ownership edge is non-optional in the MATCH.
+
+    One domain, one field: Goal's completion is ``achieved_date`` (a ``date``).
+    Siblings on TasksBackend/HabitsBackend bind THEIR field and type — see the
+    table below for why this cannot be one shared method.
+    """
     # ⚠ `uid`, NOT `user_uid` — `User` declares its identifier as `uid`
     # (core/models/user/user.py) and every production query matches
     # `(u:User {uid: $user_uid})`. An unknown property name matches ZERO rows
@@ -163,17 +173,14 @@ async def count_entities_by_status(
     # and exactly the kind of silence a "safe alternative to text2cypher" cannot
     # afford. Corrected 2026-08-31 (Codex, #1202).
     cypher = """
-        MATCH (u:User {uid: $user_uid})-[:OWNS]->(e:Entity)
-        WHERE e.entity_type = $entity_type
-          AND ($status IS NULL OR e.status = $status)
-          AND ($since  IS NULL OR e[$completion_field] >= $since)
-          AND ($until  IS NULL OR e[$completion_field] <= $until)
-        RETURN count(e) AS total
-    """  # ⚠ see the completion-field table below — there is no ONE field name
+        MATCH (u:User {uid: $user_uid})-[:OWNS]->(g:Goal)
+        WHERE g.achieved_date IS NOT NULL
+          AND ($since IS NULL OR g.achieved_date >= $since)
+          AND ($until IS NULL OR g.achieved_date <= $until)
+        RETURN count(g) AS total
+    """
     params = {
         "user_uid": user_uid,
-        "entity_type": entity_type.value,
-        "status": status.value if status else None,
         "since": since.isoformat() if since else None,
         "until": until.isoformat() if until else None,
     }
@@ -321,9 +328,10 @@ while keeping every SKUEL safety guarantee.
 Implement **one** tool end-to-end, behind the FULL intelligence tier
 (`INTELLIGENCE_TIER=full`, so the $0 analytics tier is unaffected):
 
-1. `count_entities_by_status` backend method (parameterized, user-scoped Cypher —
-   `(u:User {uid: $user_uid})`, see the ⚠ in § 3).
-2. `QueryTool` + `CountByStatusArgs` + a one-entry aggregation catalog.
+1. `count_goals_achieved` on `GoalsBackend` (parameterized, user-scoped Cypher —
+   `(u:User {uid: $user_uid})`, `achieved_date`; see the ⚠ in § 3 for why it is
+   per-domain and not a generic `EntityType` count).
+2. `QueryTool` + `CountGoalsAchievedArgs` + a one-entry aggregation catalog.
 3. `LLMService.select_tool()` for the **Anthropic** provider in use.
 4. `run_tool` executor with the `user_uid` injection.
 5. The `QueryIntent.AGGREGATION` branch in `context_retriever.py`. ⚠ **It cannot fire until
@@ -336,8 +344,18 @@ Implement **one** tool end-to-end, behind the FULL intelligence tier
    a topic-orientation question ("introduce me to stoicism") can route here and be answered with
    a COUNT. That mis-route is harmless while this branch is absent and user-visible the moment
    it exists.
-6. A pytest exercising: tool selected + args validated + cross-tenant attempt
-   (LLM-supplied `user_uid` ignored) + no-tool fallback path.
+6. **Delivery, per answer path — the slice is not end-to-end without it** (§ 6 table).
+   Computing the count in `ContextRetriever` reaches only non-guided chat. Decide and wire:
+   (a) `process_query_with_context`, which calls `get_learning_context()` and so never runs
+   the tool at all; (b) the guided path, where `_generate_guided_answer` receives no
+   `relevant_context` — and whether an aggregation may enter a deliberately narrow Socratic
+   prompt is a **pedagogical** call (ADR-077), so "wire it" is not the automatic answer. A
+   documented decision to serve only the non-guided path is acceptable; shipping that by
+   omission is not.
+7. A pytest exercising: tool selected + args validated + cross-tenant attempt
+   (LLM-supplied `user_uid` ignored) + no-tool fallback path + **the count actually reaching
+   the answer on every path step 6 claims to serve** — the delivery half is where this
+   silently fails, not the selection half.
 
 Try it against a live question before deciding whether the pattern earns its keep.
 
