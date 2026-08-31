@@ -299,23 +299,40 @@ answers.
 
 **What that says, and it is the opposite of "raise the aggregation".** Every arm has a
 zero-wrong-activation threshold. Compare them at that frontier — the only comparison that
-matters if a wrong activation is the expensive error:
+matters if a wrong activation is the expensive error.
 
-| arm | best zero-wrong gate | queries it activates | accuracy there |
-|---|---|---|---|
-| **mean** (production) | **0.35** | **19 of 45** | 73% |
-| max | 0.55 | 14 of 45 | 62% |
-| top-3 mean | 0.50 | 12 of 45 | 58% |
+⚠ **Compare at the EXACT frontier, not at a ladder step.** The frontier is pinned by a single
+query — the highest-scoring mis-route — and the 0.05 sweep rounds that up to the next step,
+crediting an arm with a stricter gate and fewer activations than it actually needs. Rounding
+understated all three arms and narrowed nothing consistently, so it could have inverted the
+comparison (Codex, #1206). `zero_wrong_frontier` in the report computes it at observed scores:
+
+| arm | exact zero-wrong gate | activates | accuracy | pinned by |
+|---|---|---|---|---|
+| **mean** (production) | **0.3329** | **21 of 45** | **78%** | *"give me an overview of this topic"* @ 0.320 |
+| max | 0.5353 | 17 of 45 | 69% | *"what should I learn first to understand compounding"* @ 0.527 |
+| top-3 mean | 0.4911 | 15 of 45 | 64% | same query @ 0.472 |
+
+The mean arm wins on both columns, and the arms fail differently: the mean's frontier is pinned
+by the topic-orientation probe, the other two by the PREREQUISITE/HIERARCHICAL *direction*
+confusion. Fix the pinning query's routing and that arm's gate can come down.
 
 **The production aggregation wins on its own terms.** It activates the most queries without
-mis-routing any; `max` and `top3_mean` reach higher headline accuracy only by firing into
-territory where they mis-route 3–8. So the mechanism does not need replacing — **moving the gate
-on the aggregation we already have is the smaller and safer change**, and 0.35 is where the sweep
-says it stops being wrong. Two caveats before that becomes a decision: 45 queries is a thin base
-for a threshold (each mis-route is 2.2 points), and the zero-wrong frontier is measured on THIS
-set, which contains no adversarial phrasing. The one wrong activation at 0.30 is *"give me an
-overview of this topic"* → `prerequisite@0.320` — the topic-orientation probe again, now landing
-somewhere harmless rather than on a count tool.
+mis-routing any AND scores highest doing it; `max` and `top3_mean` reach their higher *ladder*
+accuracy only by firing past their own frontier, where they mis-route 3–8. So the mechanism does
+not need replacing — **moving the gate on the aggregation we already have is the smaller and
+safer change.**
+
+⚠ **Do not adopt 0.3329 as the gate.** A frontier value IS an observed score, and scores move
+between runs (the production-agreement delta is 1e-4 – 3e-4, and re-embedding is not
+bit-identical). A gate set exactly at the frontier sits 0.013 above the mis-route that pins it
+and could flip on a re-run. **0.35 is the proposal**: it clears the pinning score (0.320) by
+0.03 — two orders of magnitude more than the observed drift — and costs 2 activations (19 rather
+than 21). The frontier's value is the comparison BETWEEN arms; it is not a threshold to copy.
+
+Two further caveats before any of this becomes a decision: 45 queries is a thin base for a
+threshold (each mis-route is 2.2 points), and the frontier is measured on a set containing no
+adversarial phrasing.
 
 ⚠ **The baseline makes ruling 2's coverage gate URGENT, not theoretical.** At **either**
 candidate threshold, **all 6 of 6 AGGREGATION queries fire** — it is the best-separated intent in
@@ -331,9 +348,9 @@ AGGREGATION dormant.
 2026-08-31 against the measurement, and the pre-baseline framing was wrong in its central
 claim.** That framing said *"the value of 0.65 is not the question; the mechanism is"* — the
 aggregation was assumed to be the defect and the threshold a symptom. The baseline says the
-reverse: the production `mean` aggregation **ranks 30 of 31 correctly** and, at its zero-wrong
-gate, activates MORE queries than either alternative (19/45 vs max 14/45, top-3 12/45). The
-mechanism is not the defect. **The value is the question**, and it is a one-line change to
+reverse: the production `mean` aggregation **ranks 30 of 31 correctly** and, at its exact
+zero-wrong gate, both activates more queries and scores higher than either alternative (21/45 at
+78%, vs max 17/45 at 69% and top-3 15/45 at 64%). The mechanism is not the defect. **The value is the question**, and it is a one-line change to
 `IntelligenceThreshold.INTENT_CLASSIFICATION` (`core/constants.py:293`).
 
 **That relocates the whole risk of this PR.** Nothing subtle happens in the classifier; the
@@ -343,8 +360,10 @@ accordingly: the constant is the easy part.
 #### The proposal, and what would reject it
 
 **Keep `mean`; move the gate to 0.35.** On the ratified set that is 19 of 45 queries activating
-with **zero** wrong activations, all six intents represented. Reject it if any of these turn out
-true — each is a real check, not a formality:
+with **zero** wrong activations, all six intents represented. ⚠ Deliberately NOT the exact
+frontier (0.3329, 21 queries): a frontier value is an observed score and drifts between runs,
+while 0.35 clears the mis-route pinning it (0.320) by 0.03 — see the baseline. Reject the
+proposal if any of these turn out true — each is a real check, not a formality:
 
 - **A wrong activation appears off-set.** The zero-wrong frontier is measured on 45 queries with
   no adversarial phrasing. One mis-route is 2.2 points of accuracy and, under ruling 2, a
@@ -375,14 +394,23 @@ RELATIONSHIP deliberately rather than hoping a sample reaches it.**
 
 #### The work
 
-- **Move the threshold, and move its documentation in the same change.** `core/constants.py`
-  (the comment above the constant explains why 0.65 was strict — it stops being true),
-  [deferred-work.md](deferred-work.md),
-  [ASKESIS_HOW_IT_WORKS.md](../architecture/ASKESIS_HOW_IT_WORKS.md) and
-  [ASKESIS_RAG_PIPELINE.md](../guides/ASKESIS_RAG_PIPELINE.md) — all four state the gate or its
-  unreachability as fact. The change-detector in
-  `tests/unit/test_askesis_intent_filter_activation_guard.py` fires precisely so this cannot be
-  forgotten.
+- **Move the threshold, and move its documentation in the same change — SEVEN places, not four.**
+  The change-detector in `tests/unit/test_askesis_intent_filter_activation_guard.py` fires
+  precisely so this cannot be forgotten, and its failure message carries the list:
+  1. `core/constants.py` — the constant, and the comment above it explaining why 0.65 was strict
+     (that explanation stops being true).
+  2. [deferred-work.md](deferred-work.md) — Named work 4.
+  3. [ASKESIS_HOW_IT_WORKS.md](../architecture/ASKESIS_HOW_IT_WORKS.md) — the measured-inert box.
+  4. [ASKESIS_RAG_PIPELINE.md](../guides/ASKESIS_RAG_PIPELINE.md) — Step 5a.
+  5. `docs/intelligence/ASKESIS_INTELLIGENCE.md` — "≥0.65 threshold", stated as live behaviour.
+  6. [askesis-tool-selection-queries.md](askesis-tool-selection-queries.md) — **twice**: the
+     trigger and the AGGREGATION-gap argument, both of which rest on the gate being unreachable.
+     ⚠ Those two are not documentation of the threshold; they are ARGUMENTS that stop holding.
+  7. `docs/INDEX.md` — the arc's one-line summary.
+
+  ⚠ Entries 5–7 were missing from this list until a review found them (Codex, #1206), which is
+  the point: **re-derive it** with `git grep -n '0\.65' -- docs core` rather than trusting the
+  enumeration. A checklist of references decays exactly like the references it lists.
 - ⚠ **Re-point the eval's own acceptance message — it will cry failure on a CORRECT PR-2 run.**
   `scripts/eval_intent_classification.py` prints *"⚠ PR-1 ACCEPTANCE FAILS: N query(ies) clear
   the live gate"* whenever anything fires (`_print_human`, and the condition is stated in the

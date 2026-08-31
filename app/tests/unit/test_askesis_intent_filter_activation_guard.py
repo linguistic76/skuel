@@ -184,17 +184,28 @@ class TestScoreIsAveragedNotMaximised:
         assert result.value.intent is QueryIntent.SPECIFIC
 
     def test_threshold_value_matches_the_evidence_quoted_in_the_docs(self) -> None:
-        """The measured 0.078-0.291 / 0.43-0.56 scores are quoted AGAINST 0.65 in
-        four places. Moving the constant without them orphans the evidence and
-        leaves prose that reads as measured but is not.
+        """The gate's unreachability is quoted AGAINST 0.65 across the docs.
+        Moving the constant without them orphans the evidence and leaves prose
+        that reads as measured but is not.
+
+        ⚠ The enumeration in the assertion message is a snapshot, not an
+        authority: it was four entries until a review (#1206) found three more
+        that had drifted in unnoticed. Re-derive the list rather than trusting
+        it — a checklist is exactly the kind of thing that decays silently.
 
         This is deliberately a change-detector: the point is to fail at the exact
         moment someone lowers the gate, so they update the measurement's other
         half rather than discovering later that it silently stopped applying.
         """
         assert IntelligenceThreshold.INTENT_CLASSIFICATION == 0.65, (
-            "changing this value orphans the measurement quoted in "
-            "core/constants.py, docs/roadmap/deferred-work.md (Named work 4), "
-            "docs/architecture/ASKESIS_HOW_IT_WORKS.md and "
-            "docs/guides/ASKESIS_RAG_PIPELINE.md — update them in the same change"
+            "changing this value orphans the measurement quoted in SEVEN places — "
+            "core/constants.py (the comment above the constant), "
+            "docs/roadmap/deferred-work.md (Named work 4), "
+            "docs/architecture/ASKESIS_HOW_IT_WORKS.md, "
+            "docs/guides/ASKESIS_RAG_PIPELINE.md, "
+            "docs/intelligence/ASKESIS_INTELLIGENCE.md, "
+            "docs/roadmap/askesis-tool-selection-queries.md (twice: the trigger and "
+            "the AGGREGATION gap) and docs/INDEX.md — update them in the same change. "
+            "This list was four entries until #1206 found three more; re-derive it "
+            "with `git grep -n '0\\.65' -- docs core` rather than trusting it"
         )

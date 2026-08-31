@@ -137,6 +137,22 @@ class SweepPoint(TypedDict):
     wrong_activations: int
 
 
+class FrontierPoint(TypedDict):
+    """One arm's EXACT lowest zero-wrong-activation gate.
+
+    The threshold ladder cannot answer this: it samples 0.05 steps, so an arm
+    whose last mis-route scores 0.527 is credited with the ladder's 0.55 and
+    undercounted by every query between. PR-2 chooses a gate on exactly this
+    number, so it is computed at OBSERVED scores instead (Codex, #1206).
+    """
+
+    threshold: float | None
+    cleared_gate: int
+    accuracy: float
+    forced_by_score: float | None
+    forced_by_query: str | None
+
+
 class LabelReport(TypedDict):
     """Per-expected-intent aggregate within one arm."""
 
@@ -172,6 +188,7 @@ class ArmReport(TypedDict):
     score_max: float
     margin_median: float
     by_label: dict[str, LabelReport]
+    zero_wrong_frontier: FrontierPoint
     threshold_sweep: list[SweepPoint]
 
 
@@ -444,6 +461,66 @@ def sweep(rows: list[QueryRow], arm: str) -> list[SweepPoint]:
     return points
 
 
+def zero_wrong_frontier(rows: list[QueryRow], arm: str) -> FrontierPoint:
+    """The lowest gate at which this arm mis-routes NOTHING (pure, DB-free).
+
+    Evaluated at every observed score rather than on a fixed ladder, because the
+    frontier is pinned by one query — the highest-scoring mis-route — and a
+    0.05 grid rounds that up to the next step, crediting the arm with a stricter
+    gate and fewer activations than it actually needs. Comparing arms on the
+    rounded number can invert which one activates most (Codex, #1206).
+
+    ``threshold`` is None when no cutoff over the observed scores is clean —
+    i.e. the top-scoring query is itself a mis-route, so only an empty gate is.
+    ``forced_by_*`` names the query that sets the frontier: fix ITS routing and
+    the gate can come down.
+    """
+    scored = [row for row in rows if row.error is None]
+    if not scored:
+        return {
+            "threshold": None,
+            "cleared_gate": 0,
+            "accuracy": 0.0,
+            "forced_by_score": None,
+            "forced_by_query": None,
+        }
+
+    wrong = [
+        (row.arms[arm].best_score, row.query)
+        for row in scored
+        if row.arms[arm].best_intent != row.label
+    ]
+    forced_score, forced_query = max(wrong) if wrong else (None, None)
+
+    for cutoff in sorted({row.arms[arm].best_score for row in scored}):
+        firing = [row for row in scored if row.arms[arm].best_score >= cutoff]
+        if any(row.arms[arm].best_intent != row.label for row in firing):
+            continue
+        correct = sum(
+            1
+            for row in scored
+            if (row.arms[arm].best_intent if row.arms[arm].best_score >= cutoff else SPECIFIC_LABEL)
+            == row.label
+        )
+        return {
+            "threshold": round(cutoff, 4),
+            "cleared_gate": len(firing),
+            "accuracy": round(correct / len(scored), 4),
+            "forced_by_score": None if forced_score is None else round(forced_score, 4),
+            "forced_by_query": forced_query,
+        }
+
+    # Every observed cutoff admits a mis-route: only a gate above the top score
+    # is clean, and that one activates nothing.
+    return {
+        "threshold": None,
+        "cleared_gate": 0,
+        "accuracy": round(sum(1 for row in scored if row.label == SPECIFIC_LABEL) / len(scored), 4),
+        "forced_by_score": None if forced_score is None else round(forced_score, 4),
+        "forced_by_query": forced_query,
+    }
+
+
 def summarize_arm(rows: list[QueryRow], arm: str) -> ArmReport:
     """Aggregate one arm's per-query outcomes (pure, DB-free)."""
     scored = [row for row in rows if row.error is None]
@@ -488,6 +565,7 @@ def summarize_arm(rows: list[QueryRow], arm: str) -> ArmReport:
         "score_max": round(max(scores), 4) if scores else 0.0,
         "margin_median": round(statistics.median(margins), 4) if margins else 0.0,
         "by_label": {label: by_label[label] for label in sorted(by_label)},
+        "zero_wrong_frontier": zero_wrong_frontier(rows, arm),
         "threshold_sweep": sweep(rows, arm),
     }
 
@@ -729,6 +807,15 @@ def _print_human(report: EvalReport) -> None:
             f"  best score min/median/max: {a['score_min']:.3f} / {a['score_median']:.3f}"
             f" / {a['score_max']:.3f}; median margin {a['margin_median']:.3f}"
         )
+        frontier = a["zero_wrong_frontier"]
+        if frontier["threshold"] is None:
+            print("  zero-wrong frontier: none — every cutoff admits a mis-route")
+        else:
+            print(
+                f"  zero-wrong frontier: gate {frontier['threshold']:.4f} →"
+                f" {frontier['cleared_gate']} fire, accuracy {frontier['accuracy']:.0%}"
+                f" (pinned by {frontier['forced_by_query']!r} @ {frontier['forced_by_score']:.3f})"
+            )
         best = max(a["threshold_sweep"], key=lambda p: p["accuracy"])
         print(
             f"  sweep best: threshold {best['threshold']:.2f} →"

@@ -37,6 +37,7 @@ from eval_intent_classification import (  # type: ignore[import-not-found]
     summarize,
     summarize_arm,
     sweep,
+    zero_wrong_frontier,
 )
 
 VALID_SET = """
@@ -257,6 +258,67 @@ class TestSweep:
         assert points[0.45]["cleared_gate"] == 2
         assert points[0.45]["wrong_activations"] == 1
         assert points[0.45]["accuracy"] == pytest.approx(0.5)
+
+
+class TestZeroWrongFrontier:
+    """The number PR-2 picks a gate from — and the one a 0.05 ladder gets wrong."""
+
+    def test_frontier_sits_at_an_observed_score_not_a_grid_step(self) -> None:
+        """A mis-route at 0.527 must yield a frontier just above IT, not 0.55.
+
+        Rounding up to the ladder step drops every query scoring between, which
+        undercounts the arm and can invert which aggregation looks best.
+        """
+        rows = [
+            _row("practice", _outcome({"hierarchical": 0.527}, "practice")),  # mis-route
+            _row("hierarchical", _outcome({"hierarchical": 0.540}, "hierarchical")),
+            _row("practice", _outcome({"practice": 0.530}, "practice")),
+        ]
+        frontier = zero_wrong_frontier(rows, "mean")
+
+        assert frontier["threshold"] == pytest.approx(0.530)
+        assert frontier["cleared_gate"] == 2, "0.55 would have credited only one"
+        assert frontier["forced_by_score"] == pytest.approx(0.527)
+
+    def test_it_names_the_query_that_pins_the_gate(self) -> None:
+        rows = [
+            _row("specific", _outcome({"aggregation": 0.40}, "specific")),
+            _row("practice", _outcome({"practice": 0.50}, "practice")),
+        ]
+        frontier = zero_wrong_frontier(rows, "mean")
+
+        assert frontier["forced_by_query"] == "q"
+        assert frontier["threshold"] == pytest.approx(0.50)
+        assert frontier["cleared_gate"] == 1
+
+    def test_no_mis_routes_at_all_means_the_lowest_score_is_clean(self) -> None:
+        rows = [
+            _row("practice", _outcome({"practice": 0.20}, "practice")),
+            _row("aggregation", _outcome({"aggregation": 0.60}, "aggregation")),
+        ]
+        frontier = zero_wrong_frontier(rows, "mean")
+
+        assert frontier["threshold"] == pytest.approx(0.20)
+        assert frontier["cleared_gate"] == 2
+        assert frontier["forced_by_score"] is None
+
+    def test_a_top_scoring_mis_route_leaves_no_clean_gate(self) -> None:
+        """When the highest score is itself wrong, only an empty gate is clean."""
+        rows = [
+            _row("specific", _outcome({"aggregation": 0.90}, "specific")),
+            _row("practice", _outcome({"practice": 0.50}, "practice")),
+        ]
+        frontier = zero_wrong_frontier(rows, "mean")
+
+        assert frontier["threshold"] is None
+        assert frontier["cleared_gate"] == 0
+
+    def test_errored_rows_are_excluded(self) -> None:
+        rows = [
+            _row("practice", _outcome({"practice": 0.50}, "practice")),
+            _row("specific", {}, error="embedding failed"),
+        ]
+        assert zero_wrong_frontier(rows, "mean")["cleared_gate"] == 1
 
 
 class TestSummarize:
