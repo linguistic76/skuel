@@ -1759,7 +1759,14 @@ label-only lines; 72 typed `explanation`; 32 under 20 characters), 6 path_step (
    **So the thin-draw fallback would change nothing today**, and shipping it alone would be
    dead code guarding dead code.
    **RULED 2026-08-30 (Mike): NOT (a) — do not delete. The shape is (b); the present state
-   is (c).** The plumbing stays because the intent is to *connect* it, not to retire it:
+   is (c).** **REFINED the same day, once the dormant surface was measured: the classifier fix
+   is SCHEDULED and the chunk filter is NOT part of it** — see
+   [askesis-intent-classification-activation.md](askesis-intent-classification-activation.md).
+   The classifier gates three Askesis branches, and this filter is the weakest of them; the
+   other two (intent-conditioned graph context, intent-conditioned suggested actions) need no
+   chunk types at all. So activation happens there first with `chunk_types` hard-wired off, and
+   "fix and fallback ship together" narrows to its true scope: it binds whoever switches the
+   FILTER on, not whoever fixes the classifier. This entry keeps the filter half. The plumbing stays because the intent is to *connect* it, not to retire it:
    `_INTENT_CHUNK_TYPES` + `chunk_types=` are a staged surface awaiting its classifier, so
    they are **PLANNED, not dead** — the One Path Forward carve-out for deliberately
    staged-but-unwired work. When it is scheduled, the classifier fix and the thin-draw

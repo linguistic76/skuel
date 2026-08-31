@@ -199,10 +199,14 @@ relevant to the question, not just the owning PathStep titles:
    always `None` and the draw is always unfiltered. The starvation the map would
    cause if it did fire — an `EXPLORATORY` question eligible for 66 of 925
    chunks — is arithmetic with no production effect today. Reproduce with
-   `./dev eval-askesis-draw`. **Ruled 2026-08-30: staged, not dead** — the map
-   stays, and the classifier fix ships in ONE change with a thin-draw fallback,
-   because a reachable gate without the fallback would newly impose that
-   starvation. `docs/roadmap/deferred-work.md` § "Per-Domain Chunking Knobs +
+   `./dev eval-askesis-draw`. **Ruled 2026-08-30: staged, not dead.** The
+   classifier fix is scheduled
+   (`docs/roadmap/askesis-intent-classification-activation.md`) but deliberately
+   leaves this map OFF: it activates the two branches that shape the answer, not
+   the draw. Switching this map on is separate, gated on the content-typing
+   classifier, and would need a thin-draw fallback in the same change — over the
+   live 925-chunk corpus it grants 85% of chunks to three intents and 7.1% to
+   EXPLORATORY. `docs/roadmap/deferred-work.md` § "Per-Domain Chunking Knobs +
    Chunk-Type-Aware Retrieval", Named work 4.
 4. Join `chunk → content → entity` so each hit carries the owning PathStep's
    `parent_uid` + `parent_title` for citation.

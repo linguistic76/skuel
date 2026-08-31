@@ -85,12 +85,14 @@ This classification determines which context sections get included in the LLM pr
 > **0.43–0.56** against its own intent. So every question classifies as `SPECIFIC`, and every
 > intent-conditioned branch below — including the `_INTENT_CHUNK_TYPES` chunk filter — takes
 > its catch-all path. Reproduce with `./dev eval-askesis-draw` (`max_intent_score`).
-> **Ruled 2026-08-30: the map stays — it is staged, not dead.** When it is scheduled, the
-> classifier fix and the thin-draw fallback ship together (a reachable gate WITHOUT the
-> fallback would newly starve `EXPLORATORY` draws). Note the fix is not assumed to be a lower
-> threshold: the 0.43–0.56 self-similarity implicates the *averaging over 8 exemplars*, not the
-> number. `docs/roadmap/deferred-work.md` § "Per-Domain Chunking Knobs + Chunk-Type-Aware
-> Retrieval", Named work 4.
+> **Scheduled 2026-08-30** — `docs/roadmap/askesis-intent-classification-activation.md` is the
+> contract. The fix is NOT assumed to be a lower threshold: the 0.43–0.56 self-similarity
+> implicates the *averaging over 8 exemplars*, not the number, and measured across mean / max /
+> top-3 the aggregation moves REACHABILITY, not correctness (all three rank identically).
+> Activation covers the two branches that shape the ANSWER; the `_INTENT_CHUNK_TYPES` map stays
+> switched off and keeps its own entry (`deferred-work.md` § "Per-Domain Chunking Knobs +
+> Chunk-Type-Aware Retrieval", Named work 4) — switching THAT on is what would require a
+> thin-draw fallback in the same change.
 
 **Error tolerance:** If the embeddings API is unavailable or exemplar loading fails, the classifier defaults to `SPECIFIC` intent rather than crashing the pipeline. Individual exemplar embedding failures are skipped — classification works with fewer exemplars (lower precision, not a crash).
 
