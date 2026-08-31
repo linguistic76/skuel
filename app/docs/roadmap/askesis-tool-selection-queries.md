@@ -137,11 +137,16 @@ context["aggregation"] = result   →   existing ResponseGenerator answers in NL
 Successive review rounds produced a defect per revision in this block; what survives review is
 what the shapes must satisfy. `core/services/askesis/query_tools.py` (new):
 
-- **`QueryTool` is GENERIC over its payload type** — `QueryTool[P]`, with the executor
-  parameterised to match. It cannot declare `Result[ToolPayload]` over a union and accept a
-  handler returning `Result[GoalsAchievedCount]`: **`Result[T]` is invariant**, so MyPy rejects
-  it and the zero-error gate fails. Widening inside `Result` is the wrong move; parameterising
-  is the right one.
+- **The catalog needs a typed ERASURE BOUNDARY, and neither obvious option is it.**
+  `Result[T]` is invariant here, so `QueryTool` cannot declare `Result[ToolPayload]` over a
+  union and accept a handler returning `Result[GoalsAchievedCount]` — MyPy rejects it and the
+  zero-error gate fails. But parameterising (`QueryTool[P]`) only works for a *homogeneous*
+  catalog: the moment a second domain is registered, `QueryTool[GoalsAchievedCount]` and
+  `QueryTool[TasksCompletedCount]` cannot share one `dict`. Since the catalog is designed to
+  grow per domain, the design must **normalise each handler into one common result type at the
+  registration boundary** (or provide an equivalent typed narrowing), so registering the second
+  tool is not the thing that breaks the type gate. Unresolved — and it bites at tool #2, not
+  tool #1, which is what makes it easy to ship past.
 - **The args model is narrow, enum-bound, and per-domain.** No `entity_type` dial — the
   completion field differs per domain (§ 3), so a generic tool can only be wrong for some of
   them, and a narrow schema is also what stops the model selecting a shape that has no field to
@@ -442,10 +447,9 @@ Implement **one** tool end-to-end, behind the FULL intelligence tier
 5. The `QueryIntent.AGGREGATION` branch in `context_retriever.py`. ⚠ **It cannot fire until
    the classifier arc lands.** `AGGREGATION` keeps its exemplars (ruled 2026-08-31 — see that
    doc's ruling 2), but the classifier returns only `SPECIFIC` today because the 0.65 gate is a
-   MEAN over 8 exemplars and is unreachable, so a branch added now is dead on arrival. Build it
-   AFTER
-   [askesis-intent-classification-activation.md](askesis-intent-classification-activation.md)
-   PR-2's activation — **with it or before it, never after**. An earlier draft of this step
+   MEAN over 8 exemplars and is unreachable, so a branch added now is dead on arrival.
+   **Build it WITH [askesis-intent-classification-activation.md](askesis-intent-classification-activation.md)
+   PR-2's activation, or before it — never after.** An earlier draft of this step
    said "after PR-2", which opens a window of exactly the harm this doc exists to prevent:
    between activation and this branch existing, count questions classify as `AGGREGATION`, meet
    no branch, fall through to ordinary generation, and are answered generically or invented —
