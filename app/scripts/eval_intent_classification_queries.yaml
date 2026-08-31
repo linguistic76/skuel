@@ -58,7 +58,7 @@
 #     confuse. These are the rows that decide whether the disambiguation worked.
 
 version: 1
-ratified: null
+ratified: 2026-08-31
 
 queries:
   # ── SPECIFIC — content questions; nothing should fire ────────────────────

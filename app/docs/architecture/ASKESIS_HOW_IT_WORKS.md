@@ -80,8 +80,8 @@ This classification determines which context sections get included in the LLM pr
 > ⚠️ **Measured 2026-08-30: the classifier never returns any of these six.** The gate is
 > `IntelligenceThreshold.INTENT_CLASSIFICATION` = 0.65 *average* cosine similarity across an
 > intent's 8 exemplars — a much stricter bar than it reads, because averaging over 8 diverse
-> short sentences pulls the mean far below any single best match. Across the 45 labelled
-> intent-shaped queries the best score spans **0.112–0.540** — nothing reaches 0.65 — and a
+> short sentences pulls the mean far below any single best match. Across the ratified 45-query
+> intent-labelled set (baseline 2026-08-31) the best score spans **0.112–0.540** — nothing reaches 0.65 — and a
 > query that IS one of the exemplars, verbatim, tops out at 0.540 against its own intent. So
 > every question classifies as `SPECIFIC`, and every intent-conditioned branch below —
 > including the `_INTENT_CHUNK_TYPES` chunk filter — takes its catch-all path. Reproduce with
