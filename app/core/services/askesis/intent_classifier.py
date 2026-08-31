@@ -415,8 +415,10 @@ class IntentClassifier:
         """Score the query against whatever exemplars are loaded.
 
         The shared engine under both public contracts. It deliberately does NOT
-        judge the exemplar set's COMPLETENESS — tolerating a partial set is the
-        difference between the two callers, so that check lives in them.
+        judge the exemplar set's COMPLETENESS; both callers do, and both REJECT a
+        partial load — they differ only in how loudly (``classify_intent`` answers
+        SPECIFIC, ``classify_intent_scored`` fails). The check lives in them because
+        the verdict differs, not because either one tolerates it.
 
         Returns a Result for EVERY failure, raised ones included: the embeddings
         service can throw as well as return ``Result.fail`` — which is why
@@ -487,29 +489,29 @@ class IntentClassifier:
     async def classify_intent_scored(self, query: str) -> Result[IntentClassification]:
         """Classify intent AND report the confidence behind the verdict.
 
-        The observable counterpart to ``classify_intent``. That method is
-        fail-soft by design — it converts an embedding outage into
-        ``Result.ok(SPECIFIC)`` so an Askesis turn still answers — which makes a
-        provider failure indistinguishable from a genuine low-confidence
-        classification at the call site. Anything that must tell those apart
-        (measurement, diagnostics, an eval that would otherwise score an outage
-        as a finding) calls this instead and gets a real ``Result.fail``.
+                The observable counterpart to ``classify_intent``. That method is
+                fail-soft by design — it converts an embedding outage into
+                ``Result.ok(SPECIFIC)`` so an Askesis turn still answers — which makes a
+                provider failure indistinguishable from a genuine low-confidence
+                classification at the call site. Anything that must tell those apart
+                (measurement, diagnostics, an eval that would otherwise score an outage
+                as a finding) calls this instead and gets a real ``Result.fail``.
 
-        Stricter than ``classify_intent`` in one further way, deliberately: it
-        refuses an INCOMPLETE exemplar set. A load that lost exemplars to a
-        transient error is cached for the process's lifetime, and its per-intent
-        averages are then taken over unequal denominators — scores that are no
-        longer comparable across intents, and an intent that lost all eight can
-        never win. ``classify_intent`` tolerates that as its documented "lower
-        precision, not a crash"; a caller asking for the SCORE is asking whether
-        the score can be trusted, and a silently-degraded set is exactly the
-        answer it must not miss.
+        Both methods refuse an INCOMPLETE exemplar set; this one differs only in
+                saying so out loud. A load that lost exemplars to a transient error is cached
+                for the process's lifetime, and its per-intent averages are then taken over
+                unequal denominators — scores no longer comparable across intents, an intent
+                that lost all eight can never win, and, worst, a SMALLER denominator RAISES
+                the mean, so a degraded set looks confident rather than uncertain.
+                ``classify_intent`` answers SPECIFIC there; a caller asking for the SCORE is
+                asking whether the score can be trusted, so it gets a real ``Result.fail``
+                rather than a verdict it cannot tell apart from a genuine one.
 
-        The score is the best AVERAGE cosine similarity across an intent's
-        exemplar set, and ``confident`` says whether it cleared
-        ``IntelligenceThreshold.INTENT_CLASSIFICATION``. A verdict of SPECIFIC
-        with a score far below the gate means the gate is out of reach, not that
-        the query was unusual — the two readings call for opposite fixes.
+                The score is the best AVERAGE cosine similarity across an intent's
+                exemplar set, and ``confident`` says whether it cleared
+                ``IntelligenceThreshold.INTENT_CLASSIFICATION``. A verdict of SPECIFIC
+                with a score far below the gate means the gate is out of reach, not that
+                the query was unusual — the two readings call for opposite fixes.
         """
         scored = await self._score_against_exemplars(query)
         if scored.is_error:
