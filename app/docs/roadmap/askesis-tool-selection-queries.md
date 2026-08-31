@@ -184,7 +184,14 @@ async def count_goals_achieved(
         "since": since.isoformat() if since else None,
         "until": until.isoformat() if until else None,
     }
-    rows = await self.execute_query(cypher, params)
+    # `execute_query` returns Result[list[dict]], never a bare list — reading
+    # rows[0] off it fails on EVERY call and swallows database errors. Result.fail
+    # (not `return result`) because the payload types differ here: list[dict] in,
+    # dict out (SKUEL028).
+    result = await self.execute_query(cypher, params)
+    if result.is_error:
+        return Result.fail(result)
+    rows = result.value or []
     return Result.ok({"total": rows[0]["total"] if rows else 0})
 ```
 
