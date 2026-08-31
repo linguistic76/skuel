@@ -38,6 +38,7 @@ from core.services.askesis.context_retriever import ContextRetriever
 from core.services.askesis.entity_extractor import EntityExtractor
 from core.services.askesis.intent_classifier import IntentClassifier
 from core.services.askesis.query_processor import QueryProcessor
+from core.services.askesis.query_tools import build_aggregation_catalog
 from core.services.askesis.response_generator import ResponseGenerator
 from core.services.askesis.types import AskesisContext
 from core.services.askesis.user_state_analyzer import UserStateAnalyzer
@@ -210,6 +211,12 @@ class AskesisService:
             ps_backend=deps.ps_backend,
             # Engagement service for lifecycle-aware bundle loading
             ps_engagement_service=deps.ps_engagement_service,
+            # Aggregation tool selection (tool-selection first slice): the LLM
+            # picks from this vetted catalog; the executor injects user_uid
+            # server-side. Handlers bind SERVICE methods (goals_service), never
+            # backends.
+            llm_service=deps.llm_service,
+            aggregation_catalog=build_aggregation_catalog(deps.goals_service),
         )
 
         # January 2026: IntentClassifier and ResponseGenerator extracted from QueryProcessor

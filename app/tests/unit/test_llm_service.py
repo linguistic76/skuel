@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from core.ports.llm_protocols import LLMCompletion
+from core.ports.llm_protocols import LLMCompletion, ToolSelection
 from core.services.llm_service import LLMConfig, LLMProvider, LLMResponse, LLMService
 from core.utils.result_simplified import Errors, Result
 
@@ -104,3 +104,69 @@ async def test_per_call_model_override_routes_via_caller():
     assert resp.provider == LLMProvider.ANTHROPIC
     _, kwargs = caller.complete.call_args
     assert kwargs["model"] == "claude-sonnet-4-6"
+
+
+# ============================================================================
+# select_tool — Anthropic-native resolution (Askesis tool-selection first slice)
+# ============================================================================
+
+
+def _selection_caller(anthropic_models: list[str]):
+    caller = MagicMock()
+    caller.get_supported_models = MagicMock(
+        return_value={"openai": ["gpt-4o", "gpt-4o-mini"], "anthropic": anthropic_models}
+    )
+    caller.select_tool = AsyncMock(
+        return_value=Result.ok(ToolSelection(tool_name=None, arguments={}))
+    )
+    return caller
+
+
+@pytest.mark.asyncio
+async def test_select_tool_resolves_to_an_anthropic_model_not_the_chat_default():
+    """The chat default is gpt-4o, but tool selection exists only on the
+    Anthropic adapter — resolving through resolve_model would route every
+    selection to OpenAI and turn every count question into an 'unavailable'."""
+    caller = _selection_caller(["claude-sonnet-4-6"])
+    service = LLMService(
+        config=LLMConfig(provider=LLMProvider.OPENAI, model_name="gpt-4o"), caller=caller
+    )
+
+    result = await service.select_tool("how many goals?", [])
+
+    assert result.is_ok
+    _, kwargs = caller.select_tool.call_args
+    assert kwargs["model"] == "claude-sonnet-4-6"
+
+
+@pytest.mark.asyncio
+async def test_select_tool_honors_a_claude_per_conversation_choice():
+    caller = _selection_caller(["claude-sonnet-4-6", "claude-haiku-4-5-20251001"])
+    service = LLMService(config=LLMConfig(provider=LLMProvider.OPENAI), caller=caller)
+
+    await service.select_tool("how many goals?", [], model="claude-haiku-4-5-20251001")
+
+    _, kwargs = caller.select_tool.call_args
+    assert kwargs["model"] == "claude-haiku-4-5-20251001"
+
+
+@pytest.mark.asyncio
+async def test_select_tool_fails_typed_without_an_anthropic_model():
+    """No Anthropic wiring → a typed failure the branch renders as unavailable —
+    never a silent mis-route to a provider that cannot select."""
+    caller = _selection_caller([])
+    service = LLMService(config=LLMConfig(provider=LLMProvider.OPENAI), caller=caller)
+
+    result = await service.select_tool("how many goals?", [])
+
+    assert result.is_error
+    caller.select_tool.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_select_tool_without_a_caller_fails_typed():
+    service = LLMService()  # MOCK provider — no caller, and no mock selection exists
+
+    result = await service.select_tool("how many goals?", [])
+
+    assert result.is_error

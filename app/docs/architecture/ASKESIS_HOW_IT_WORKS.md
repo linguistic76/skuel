@@ -87,17 +87,18 @@ This classification determines which context sections get included in the LLM pr
 > Re-measure with `./dev eval-intent-classification` — the standing acceptance is
 > `wrong_activations == 0` on the mean arm, not any particular fire count.
 >
-> Two deliberate exclusions survive activation:
+> One deliberate exclusion survives activation:
 >
-> - **`AGGREGATION` is carved out** (`UNREACHABLE_INTENTS`, `intent_classifier.py`): it still
->   classifies internally and is logged, but the production verdict is `SPECIFIC`, because
->   nothing can answer a count question yet. The tool-selection first slice
->   (`docs/roadmap/askesis-tool-selection-queries.md`) removes the carve-out in the same commit
->   that adds the tool.
 > - **The `_INTENT_CHUNK_TYPES` chunk filter stays off** — `retrieve_relevant_context`
 >   hard-wires `chunk_types=None`. Switching the filter on is a separate, gated change
 >   (`deferred-work.md` § "Per-Domain Chunking Knobs + Chunk-Type-Aware Retrieval", Named
 >   work 4) and requires a thin-draw fallback in the same change.
+>
+> (`AGGREGATION` was briefly a second exclusion — PR-2 carved it out because nothing could
+> answer a count question. The tool-selection first slice, same day, deleted the carve-out in
+> the same commit that added the aggregation tool: a count question is now answered by an
+> executed, user-scoped tool or explicitly declined — never generated.
+> See `docs/roadmap/askesis-tool-selection-queries.md`.)
 >
 > `docs/roadmap/askesis-intent-classification-activation.md` is the contract; it carries the
 > ratified baseline, the arm comparison, the history of the unreachable gate, and what would

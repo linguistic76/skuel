@@ -1820,9 +1820,10 @@ label-only lines; 72 typed `explanation`; 32 under 20 characters), 6 path_step (
    best-behaved of the three. So the indicated fix is the one the old reading warned against:
    keep the mean, move the gate — **0.35, deliberately not the frontier itself**, which is an
    observed score and drifts between runs. **SHIPPED 2026-08-31 (PR-2)**: the gate is 0.35;
-   `AGGREGATION` is carved out (`UNREACHABLE_INTENTS` in `intent_classifier.py` — see §
-   AGGREGATION Carve-Out below); the arc doc's PR-2 section records the post-change
-   measurement. Note what flipping queries off SPECIFIC does and does not touch: with `chunk_types`
+   the `AGGREGATION` carve-out PR-2 introduced was lifted the same day by the tool-selection
+   first slice ([askesis-tool-selection-queries.md](askesis-tool-selection-queries.md)) in the
+   same commit that added the aggregation tool; the arc doc's PR-2 section records the
+   post-change measurement. Note what flipping queries off SPECIFIC does and does not touch: with `chunk_types`
    held off it re-routes the two answer-shaping branches and NOT the chunk draw, which is
    exactly why the arc proceeded without the fallback.
    **Both halves of that are RUNNABLE, not just prose**
@@ -1870,35 +1871,6 @@ WOULD do for PR-3.
 **Named cost while parked:** a type table built today would be tuned against a fallback-dominated
 corpus (78% one label on the v2 corpus), and EXPLORATORY's eligible slice stays 66-of-925 — a
 counterfactual while the filter cannot fire, and the number to beat the moment it can.
-
----
-
-## `AGGREGATION` Carve-Out — Held Unreachable Until the Tool-Selection First Slice (REGISTERED 2026-08-31)
-
-PR-2 of [askesis-intent-classification-activation.md](askesis-intent-classification-activation.md)
-moved the intent gate to 0.35, and at that gate `AGGREGATION` is the best-separated intent in the
-ratified set — all 6 of its 6 labelled queries fire. Nothing can answer it yet
-(`retrieve_relevant_context` has no AGGREGATION branch; the tool catalog does not exist), so the
-invariant *"`AGGREGATION` must never CLASSIFY with nothing behind it"* (ruled 2026-08-31) is held
-by explicit code, not a threshold: `UNREACHABLE_INTENTS` in
-`core/services/askesis/intent_classifier.py`. `classify_intent` still scores the intent and logs
-the suppressed verdict — so the real demand is measurable before the tool exists — but answers
-`SPECIFIC`; `classify_intent_scored` (the measurement contract) reports the raw verdict
-untouched, which is what keeps the eval's production-agreement check meaningful.
-
-**What removes it:** the first slice of
-[askesis-tool-selection-queries.md](askesis-tool-selection-queries.md) deletes `AGGREGATION`
-from the set **in the same commit that adds the aggregation tool and its
-`retrieve_relevant_context` branch** — its own PR, its own doc, and deliberately NOT the
-activation arc's PR-3 (that is the unrelated, gated chunk-type filter). ⚠ The dangerous edit is
-deleting the exclusion early, not adding the branch late: an empty set with no tool behind
-`AGGREGATION` re-opens the window in which count questions classify, meet no branch, fall
-through to ordinary generation, and are answered generically or invented.
-
-If the slice never lands, `AGGREGATION` stays exactly as dormant as it was before PR-2 — the
-fallback is the status quo, not a regression. Pinned by
-`tests/unit/test_askesis_intent_filter_activation_guard.py` (the carve-out guard fails if
-`classify_intent` can return `AGGREGATION` while nothing answers it).
 
 ---
 
@@ -2556,7 +2528,6 @@ Review this document at the **September 2026 quarterly review**. Checklist:
 | Habit-completion persistence bundle (#915 Codex "future care session": delete orphans / uid collision / non-atomic day uniqueness / stranded stats / DISTINCT-day query; + untrack refused-and-reported-success since #1100 and node doors publishing no `HabitCompleted`, both found on #1172) | Lived habit-completion use, or next touch of the completion write path | `MATCH (hc:HabitCompletion) RETURN count(hc)` **and** `MATCH (h:Habit) RETURN sum(h.total_completions), max(h.last_completed)` — nodes 0 / tally 0 / null on 2026-08-28 (tally > nodes = the node-less `/api/context` door was used); `SHOW CONSTRAINTS` lists none on the label. Built WITH the `find_by` row (one shared range predicate, two operations) but triggered by duplicate volume, moot once defect 3 lands; defect 3 needs Mike's one-per-day ruling first |
 | `TaskUpdateRequest` future `completion_date` asymmetry | Next touch of `task_request.py` validators | Ruling needed — see the section; don't rule in passing |
 | Per-domain chunking knobs + `chunk_type_weights` (fragment fix ✅ v2, 2026-08-30) | Tuning + Askesis intent-filter loosening: Mike schedules the eval set; type weights additionally need a content-typing classifier (79% `explanation` is the keyword FALLBACK, not the corpus) | `MATCH (c:ContentChunk) WHERE c.end_index < 5 RETURN count(*)` — **7** after the v2 re-chunk (all link-only MOC-style notes; a rise = new fragment-shaped ingestion; `end_index` = the persisted whitespace-aware `word_count`; pre-v2, 753 of 998 sat under the 50-word `min_chunk_size` — its value is the tuning question, not the defect); `git grep -n chunk_type_weights -- core/` empty until built |
-| `AGGREGATION` carve-out (held unreachable since PR-2, 2026-08-31) | The tool-selection first slice — its own PR in its own doc; Mike schedules it | `git grep -n "UNREACHABLE_INTENTS" -- core/` non-empty until the slice lands; the removal must ship in the same commit as the tool (see the section) |
 | DSL-bridge grounding pair (goal-LINK persistence; `user_principles`/`recent_topics` to BOTH paths) | Keyed A/B on the next bridge touch; goal edges need Mike's ruling on AI-inferred writes | `git grep -c "user_principles="` and `git grep -c "recent_topics="` over `journal_service.py` + `user_entry_processing_service.py` — EACH argument in both files or neither (neither today); extracted tasks / tasks with a `FULFILLS_GOAL` edge = 56 / 0 on 2026-08-28 (count TASKS linked, not goals reached — ten tasks on one goal must read 10) |
 | `HabitMissed` publisher-less chain (ruled keep-staged 2026-08-28) | A lived want for difficulty insights, or the streak-semantics ruling — rule the day model once | `git grep -n "HabitMissed(" -- core/ adapters/ scripts/ services_bootstrap/ ui/ ':!core/events/'` empty (scripts/ included — a one-shot publisher counts); `MATCH (i:Insight {insight_type: 'difficulty_pattern'}) RETURN count(i)` → 0 |
 | Quarterly / yearly periodic notes (founder vault pass first) | The first real note in either vault folder | `find ~/0bsidian/skuel/periodic_notes/Quarterly ~/0bsidian/skuel/periodic_notes/yearly -type f \| wc -l` > 0 (files, not `ls` headings) — founder-owned, non-repo |

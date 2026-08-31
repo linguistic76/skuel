@@ -46,6 +46,13 @@ from core.models.query_types import QueryIntent
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
 from core.ports.base_protocols import HasTitle
+from core.services.askesis.query_tools import (
+    AggregationOutcome,
+    AggregationUnavailable,
+    QueryTool,
+    ToolSelector,
+    select_and_run,
+)
 from core.services.askesis.types import EntityLookup, KuLookup, VisibleEntityLookup
 from core.utils.decorators import with_error_handling
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS
@@ -198,6 +205,12 @@ class ContextRetriever:
         # Always wired in production (FULL tier); optional only for unit-test
         # construction without a full engagement-service mock.
         ps_engagement_service: Any | None = None,  # boundary: PsEngagementService
+        # Aggregation tool selection (tool-selection first slice, 2026-08-31).
+        # Both wired in production (FULL tier); optional only for unit-test
+        # construction — an AGGREGATION verdict with either missing yields a
+        # deterministic AggregationUnavailable, never a fall-through.
+        llm_service: ToolSelector | None = None,
+        aggregation_catalog: dict[str, QueryTool] | None = None,
     ) -> None:
         """
         Initialize context retriever.
@@ -240,6 +253,10 @@ class ContextRetriever:
 
         # Engagement service for lifecycle-aware bundle loading (ADR-059)
         self.ps_engagement_service = ps_engagement_service
+
+        # Aggregation tool selection — the AGGREGATION branch's dependencies
+        self.llm_service = llm_service
+        self.aggregation_catalog = aggregation_catalog
 
         logger.info("ContextRetriever initialized")
 
@@ -294,6 +311,14 @@ class ContextRetriever:
             if user_context.current_learning_path_uid:
                 context["current_path"] = user_context.current_learning_path_uid
 
+        # For count questions, run the aggregation tool-selection pipeline
+        # (tool-selection first slice, ruled 2026-08-31). The outcome object is
+        # TYPED and deterministic — QueryProcessor delivers it as the answer
+        # (or the decline/unavailable text) and swaps in its JSON-safe
+        # projection before the context dict reaches the response.
+        elif intent == QueryIntent.AGGREGATION:
+            context["aggregation"] = await self._aggregation_outcome(query, user_context.user_uid)
+
         # For exploratory questions, provide overview
         elif intent == QueryIntent.EXPLORATORY:
             context["overview"] = {
@@ -342,6 +367,24 @@ class ContextRetriever:
             context["relevant_chunks"] = relevant_chunks[:3]  # Top 3
 
         return context
+
+    async def _aggregation_outcome(self, query: str, user_uid: UserUID) -> AggregationOutcome:
+        """Run the aggregation tool-selection pipeline for one count question.
+
+        Total by design: unwired dependencies (a test-constructed retriever)
+        yield a deterministic ``AggregationUnavailable`` — an AGGREGATION
+        verdict must NEVER fall through to generic generation, which could
+        invent a count. Selection/execution failures fold the same way inside
+        ``select_and_run``.
+        """
+        if self.llm_service is None or not self.aggregation_catalog:
+            logger.warning(
+                "AGGREGATION classified but tool selection is not wired — answering unavailable"
+            )
+            return AggregationUnavailable(reason="aggregation tools are not wired")
+        return await select_and_run(
+            query, self.aggregation_catalog, self.llm_service, user_uid=user_uid
+        )
 
     @with_error_handling("get_learning_context", error_type="system", uid_param="user_context")
     async def get_learning_context(  # skuel-lint: disable=SKUEL029 -- facade-delegated: askesis_service awaits via delegation

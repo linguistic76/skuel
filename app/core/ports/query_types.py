@@ -3164,6 +3164,20 @@ class GoalStats(TypedDict, total=False):
     completed: int
 
 
+class GoalsAchievedCount(TypedDict):
+    """Return shape for GoalsBackend.count_goals_achieved().
+
+    Carries the APPLIED bounds with the count, not a bare total: the Askesis
+    aggregation answer must state the scope it actually filtered on, which is
+    impossible if the resolved since/until do not survive the call. Bounds are
+    ISO date strings exactly as bound into the query (``None`` = unbounded).
+    """
+
+    total: int
+    since: str | None
+    until: str | None
+
+
 class HabitStats(TypedDict, total=False):
     """Return shape for HabitsBackend.get_stats_for_user()."""
 
@@ -4108,6 +4122,7 @@ __all__ = [
     # Domain Stats Result Types
     "TaskStats",
     "GoalStats",
+    "GoalsAchievedCount",
     "HabitStats",
     "EventStats",
     "ChoiceStats",

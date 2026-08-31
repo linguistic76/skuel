@@ -1,12 +1,21 @@
 # Askesis Tool-Selection Queries — A Safe Alternative to text2cypher
 
-**Status:** **Direction RULED 2026-08-31 (Mike) — position (b): Askesis DOES answer questions
-about the user's own records, and this is how.** Not yet scheduled as a build, and **blocked on
-a trigger**: intent classification cannot return `AGGREGATION` today because PR-2 of the
-activation arc holds it explicitly unreachable (`UNREACHABLE_INTENTS` in
-`intent_classifier.py`, since 2026-08-31 — the gate itself is live at 0.35, and all 6 of the
-ratified set's AGGREGATION queries would otherwise fire). This slice removes that carve-out in
-the same change that adds the tool.
+**Status:** **FIRST SLICE SHIPPED 2026-08-31** (direction ruled 2026-08-31, Mike —
+position (b): Askesis DOES answer questions about the user's own records, and this is how).
+The slice landed as one PR, exactly per the ruled sequencing: the aggregation tool
+(`count_goals_achieved` — `GoalsBackend`, :OWNS-scoped, `achieved_date`, FULL tier only), the
+one-entry catalog + `run_tool` executor with server-side `user_uid` injection
+(`core/services/askesis/query_tools.py`), `LLMService.select_tool()` (Anthropic-native), the
+`QueryIntent.AGGREGATION` branch in `retrieve_relevant_context`, **and the deletion of the
+activation arc's `UNREACHABLE_INTENTS` carve-out — all in the same commit**, so `AGGREGATION`
+never classified with nothing behind it. What shipped resolves the two rulings recorded below
+(§ Proposed first slice, steps 6-7): **decline outside the catalog** — the one-entry catalog
+answers the time-windowed achieved-goals shape and nothing else, so day one most real count
+questions DECLINE with a learner-visible reason (by design: a decline beats a confident wrong
+number) — and **deterministic delivery on the chat pipeline only**, with
+`process_query_with_context` declining rather than generating. OPEN PROBLEM 2 is closed for
+this slice by construction (the outcome's own text IS the answer; generation is
+short-circuited). OPEN PROBLEM 1 remains open and gates catalog growth.
 
 ⚠ **The constraint is REACHABILITY, not PR count — amended 2026-08-31 (Mike).** This doc
 previously said the activation arc's PR-2 and this first slice are "ONE coordinated change, not a
@@ -16,9 +25,9 @@ or by PR-2 holding `AGGREGATION` explicitly unreachable and this slice removing 
 the same change that adds the tool. **The ruled sequencing is the latter**, because this slice
 carries an LLM-chosen, user-scoped query executor whose cross-tenant test deserves its own review,
 plus two unresolved decisions (step 6's coverage enforcement, step 7's Socratic-prompt question)
-that would otherwise block a one-constant threshold change. Prerequisites are therefore: the
-arc's **PR-1 (labels, DONE — #1204/#1205)**, then its **PR-2 (activation with the carve-out)**,
-then this slice. Originally captured the conclusion of a "should we adopt LangChain
+that would otherwise block a one-constant threshold change. Prerequisites were therefore: the
+arc's **PR-1 (labels, DONE — #1204/#1205)**, then its **PR-2 (activation with the carve-out,
+DONE — #1208)**, then this slice — **executed exactly so, 2026-08-31**. Originally captured the conclusion of a "should we adopt LangChain
 `text2cypher`?" review (May 2026) and the SKUEL-aligned alternative that came out of it; the
 ruling promotes that alternative from "possible" to "the intended shape".
 
@@ -52,28 +61,29 @@ Cypher**:
 The "ask a question, get an answer grounded in your graph" capability therefore
 already exists — by a different mechanism than text2cypher.
 
-### The actual gap
+### The gap this doc existed to close (closed for one shape, 2026-08-31)
 
-Askesis can only answer questions that fit its pre-built retrieval shapes. Note that
-`retrieve_relevant_context` (`context_retriever.py`, ~line 243 as of 2026-08-21) has
-branches for `PREREQUISITE`, `PRACTICE`, `HIERARCHICAL`, and `EXPLORATORY` — but **no
-branch for `AGGREGATION`** (`RELATIONSHIP` has since gained chunk-type routing via
-`_intent_to_chunk_types`, so its half of the gap narrowed; the `AGGREGATION` gap — this
-doc's thesis — is intact). Those intents fall through to bare MEGA-QUERY
-counts + vector chunks. Open-ended ad-hoc analytics —
-*"how many goals did I complete last quarter that were blocked by a habit I dropped?"*
-— get no real graph aggregation today. That is exactly what text2cypher is pitched to
-solve, and exactly where the alternative below slots in.
+Askesis could only answer questions that fit its pre-built retrieval shapes:
+`retrieve_relevant_context` had branches for `PREREQUISITE`, `PRACTICE`, `HIERARCHICAL`, and
+`EXPLORATORY` — but **no branch for `AGGREGATION`**, so count questions fell through to bare
+MEGA-QUERY counts + vector chunks with no real graph aggregation. The first slice added the
+`AGGREGATION` branch (tool-selection → deterministic delivery) for exactly ONE shape — the
+time-windowed achieved-goals count — and an explicit decline for every other count question.
+Open-ended ad-hoc analytics — *"how many goals did I complete last quarter that were blocked
+by a habit I dropped?"* — still decline: the relationship-bearing shape needs service-level
+cross-domain aggregation and its own catalog entry, a separate decision.
 
 ## ⚠ How to read the code below
 
-These blocks are **shape, not implementation**, for work that is ruled but **not scheduled**.
-Eight rounds of review (#1202) corrected them against the real codebase, so the ⚠ notes are
-checked facts a builder can rely on — the `User.uid` spelling, the per-domain completion fields
-and their ISO-string persistence, `execute_query`'s `Result` wrapper, the service/adapter
-boundary, `LLMService.caller`, and the three answer paths. **The two problems below are NOT
-solved.** They are the design's real content, and a builder must answer them rather than
-inherit an answer from this sketch.
+These blocks are **shape, not implementation** — the design the first slice was built against
+(the real code lives in `core/services/askesis/query_tools.py` and its callers; where the two
+differ, the code is the truth and the shapes are rationale). Eight rounds of review (#1202)
+corrected them against the real codebase, so the ⚠ notes are checked facts — the `User.uid`
+spelling, the per-domain completion fields and their ISO-string persistence, `execute_query`'s
+`Result` wrapper, the service/adapter boundary, `LLMService.caller`, and the three answer
+paths. Of the two problems below, the slice CLOSED problem 2 by construction and answered
+problem 1 for one catalog entry only — problem 1 is the standing review bar for every future
+catalog addition.
 
 ### OPEN PROBLEM 1 — coverage cannot be enforced by the model
 
@@ -86,7 +96,11 @@ before a tool covers it") is necessary but **not sufficient**: activating `AGGRE
 the whole intent, and a novel production question the labelled set never anticipated still
 reaches selection. What is missing is a **deterministic runtime coverage check** — a
 capability predicate the selection is validated against, or a catalog complete enough that no
-in-scope question falls outside it. Unresolved.
+in-scope question falls outside it. **Still unresolved after the first slice** (2026-08-31):
+the slice mitigates with a selection stance that instructs near-match declining
+(`core/prompts/templates/askesis_tool_selection.md`), a period-only args model (no free-form
+dates to approximate with), and an answer that states its applied bounds in code — but an
+instruction to a model is not an enforcement mechanism, and this problem gates catalog growth.
 
 ### OPEN PROBLEM 2 — a decline must not be answerable around
 
@@ -95,7 +109,10 @@ Storing `context["aggregation_declined"]` puts the reason into ordinary prompt c
 instructs the model to answer from actual data. The model can simply ignore it and produce the
 generic answer the decline exists to prevent. A decline therefore needs a **deterministic branch
 that short-circuits generation** and returns a learner-visible "not answerable yet", not a hint
-dropped into a prompt. Unresolved.
+dropped into a prompt. **Closed by construction in the first slice** (2026-08-31): every
+AGGREGATION outcome — Answered, Declined, Unavailable — renders its own answer text in the
+pipeline and no generation runs; the decline IS the answer, not a context hint
+(pinned by `tests/unit/test_askesis_aggregation_delivery.py`).
 
 Both are the same shape of mistake, worth naming once: **an instruction to a model is not an
 enforcement mechanism.** Every guarantee in this design has to hold in code the model cannot
@@ -412,6 +429,16 @@ builds this must name the delivery point for each path**, not just the computati
 for the guided path that means deciding whether an aggregation result may enter a deliberately
 narrow Socratic prompt at all (ADR-077), which is a pedagogical question, not a plumbing one.
 
+**Decided and shipped (first slice, 2026-08-31) — the delivery point per path:**
+
+| path | decision |
+|---|---|
+| non-guided chat | an `AGGREGATION` verdict short-circuits generation; the outcome's own text (Answered with its exact bounds / Declined / Unavailable) IS the answer |
+| guided chat | **an aggregation never enters the Socratic prompt** (ADR-077 preserved — the guided prompt and its builders are untouched). The pedagogical call: a count question is not a Socratic turn, so an `AGGREGATION` verdict BYPASSES the guided pipeline and takes the deterministic branch above — a guided-eligible learner asking a count gets the count (or the decline), not a Socratic deflection over an invisible number |
+| `process_query_with_context` | **does not serve the tool** — it declines deterministically at intent time rather than letting its generic generator answer a count question (the fall-through this doc forbids). The chat pipeline is the one surface that serves aggregation |
+
+Pinned by `tests/unit/test_askesis_aggregation_delivery.py`.
+
 **Requirements, not a snippet.** Successive drafts of this branch produced a defect per
 review round; what it must satisfy is the durable part:
 
@@ -445,9 +472,11 @@ a tool for. Each tool still covers a whole parameter space (its domain × date r
 handful of tools covers much of the `AGGREGATION`/`RELATIONSHIP` gap —
 while keeping every SKUEL safety guarantee.
 
-## Proposed first slice (if pursued)
+## Proposed first slice — ✅ SHIPPED 2026-08-31
 
-Implement **one** tool end-to-end, behind the FULL intelligence tier
+Implemented as specified, one PR (see the Status block for what landed and the two rulings —
+coverage: decline outside the catalog; delivery: § 6's decided table). Kept verbatim below as
+the executed scope. **One** tool end-to-end, behind the FULL intelligence tier
 (`INTELLIGENCE_TIER=full`, so the $0 analytics tier is unaffected):
 
 1. `count_goals_achieved` on `GoalsBackend` (parameterized, user-scoped Cypher —
@@ -506,6 +535,14 @@ Implement **one** tool end-to-end, behind the FULL intelligence tier
    the model volunteered (§ 4).
 
 Try it against a live question before deciding whether the pattern earns its keep.
+*(Driven live at ship time — `answer_user_question` against the live graph with the ratified
+set's six AGGREGATION queries plus a covered-shape probe, normal chat AND nous-scoped. All
+routed to the deterministic aggregation branch: none fell through to generation, the API
+surface declined, and the executor's cross-tenant probe returned the caller's own count. The
+SELECTION step itself could not be live-verified: the environment's Anthropic key is invalid
+(401), so every probe exercised the failure fold instead — the deterministic "unavailable",
+exactly the § 6 failure row, with no invented number anywhere. Re-drive the covered/declined
+split once the key is rotated.)*
 
 ## Open questions
 

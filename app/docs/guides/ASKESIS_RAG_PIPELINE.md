@@ -250,7 +250,7 @@ intent = await intent_classifier.classify_intent(question)
 1. Generate embedding of the user's question
 2. Compare (cosine similarity) to pre-embedded exemplars for each intent type
 3. Return the intent whose exemplars have the highest average similarity
-4. Gate: `IntelligenceThreshold.INTENT_CLASSIFICATION` = 0.35 (moved from the unreachable 0.65 — PR-2, 2026-08-31) — below this, the verdict is `QueryIntent.SPECIFIC`. `AGGREGATION` additionally never becomes the production verdict (`UNREACHABLE_INTENTS` carve-out: nothing can answer a count question yet)
+4. Gate: `IntelligenceThreshold.INTENT_CLASSIFICATION` = 0.35 (moved from the unreachable 0.65 — PR-2, 2026-08-31) — below this, the verdict is `QueryIntent.SPECIFIC`. An `AGGREGATION` verdict routes to the tool-selection branch (a vetted, user-scoped count tool, or an explicit decline — tool-selection first slice, 2026-08-31), never to ordinary generation
 
 **Intent types:**
 
@@ -273,9 +273,10 @@ outcome and every intent-conditioned branch downstream took its catch-all path. 
 mean aggregation (measured best of the three candidate arms at the zero-wrong-activation
 frontier) and moved the gate to 0.35: 19 of the 45 ratified labelled queries now fire, none
 wrongly (`./dev eval-intent-classification` re-measures; the standing acceptance is
-`wrong_activations == 0` on the mean arm). `AGGREGATION` is carved out (`UNREACHABLE_INTENTS`)
-until the tool-selection first slice can answer it, and the chunk-type filter stays hard-wired
-off. Contract: `docs/roadmap/askesis-intent-classification-activation.md`.
+`wrong_activations == 0` on the mean arm). The `AGGREGATION` carve-out PR-2 introduced was
+lifted the same day by the tool-selection first slice (a tool now answers the covered count
+shape; everything else declines), and the chunk-type filter stays hard-wired off. Contract:
+`docs/roadmap/askesis-intent-classification-activation.md`.
 
 **Error tolerance:** If the embeddings API is unavailable, intent classification defaults to `SPECIFIC` rather than crashing. Individual exemplar embedding failures are skipped rather than raising — but the load is then incomplete, and an incomplete load also answers `SPECIFIC` (2026-08-30): averaging over fewer exemplars *raises* the mean, so a degraded set produces confident-looking verdicts rather than uncertain ones.
 
@@ -482,7 +483,7 @@ See: `/docs/architecture/ASKESIS_SOCRATIC_ARCHITECTURE.md`
 
 The classifier uses cosine similarity against exemplar sentences. Check:
 - Is the question too far from any exemplar? (Gate: 0.35 — `IntelligenceThreshold.INTENT_CLASSIFICATION`)
-- `AGGREGATION` never becomes the production verdict — a deliberate carve-out (`UNREACHABLE_INTENTS`), not a classification miss; `classify_intent_scored` shows the raw verdict.
+- An `AGGREGATION` verdict answers deterministically (a real count with stated bounds, or a decline/unavailable) — tool-selection first slice, 2026-08-31; a declined count question is coverage, not a classification miss.
 - Default fallback is `QueryIntent.SPECIFIC` — if you're seeing too many SPECIFIC classifications, the exemplars may need expansion.
 - Exemplar embeddings are cached after first use — restart to pick up changes.
 

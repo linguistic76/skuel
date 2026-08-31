@@ -12,9 +12,10 @@ PLANNED_METHODS. See `docs/roadmap/deferred-work.md` § "Per-Domain Chunking
 Knobs + Chunk-Type-Aware Retrieval", Named work 4.
 
 These pin what must hold BEFORE and AFTER the filter is ever activated
-(guards 1-2), plus the AGGREGATION carve-out PR-2 introduced (guard 3). None
-asserts the filter is inert — that is live-corpus state, and its home is
-`./dev eval-askesis-draw`.
+(guards 1-2), plus the invariant that REPLACED the AGGREGATION carve-out when
+the tool-selection first slice lifted it (guard 3: served or declined, never
+invented — and never another user's data). None asserts the filter is inert —
+that is live-corpus state, and its home is `./dev eval-askesis-draw`.
 """
 
 from __future__ import annotations
@@ -24,12 +25,20 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from core.constants import IntelligenceThreshold
+from core.ports.llm_protocols import ToolSelection
 from core.services.askesis.context_retriever import _intent_to_chunk_types
 from core.services.askesis.intent_classifier import (
-    UNREACHABLE_INTENTS,
     ExemplarLoad,
     IntentClassifier,
     QueryIntent,
+)
+from core.services.askesis.query_tools import (
+    AggregationAnswered,
+    AggregationCount,
+    AggregationDeclined,
+    CountGoalsAchievedArgs,
+    QueryTool,
+    run_tool,
 )
 from core.utils.result_simplified import Result
 
@@ -215,7 +224,7 @@ class TestScoreIsAveragedNotMaximised:
             "core/constants.py (the comment above the constant), "
             "docs/roadmap/askesis-intent-classification-activation.md (§ PR-2: the "
             "proposal and the shipped measurement), "
-            "docs/roadmap/deferred-work.md (Named work 4 + § AGGREGATION Carve-Out), "
+            "docs/roadmap/deferred-work.md (Named work 4), "
             "docs/architecture/ASKESIS_HOW_IT_WORKS.md, "
             "docs/guides/ASKESIS_RAG_PIPELINE.md (three sites), "
             "docs/intelligence/ASKESIS_INTELLIGENCE.md, "
@@ -227,79 +236,121 @@ class TestScoreIsAveragedNotMaximised:
 
 
 # ============================================================================
-# GUARD 3: AGGREGATION is carved out — classified, never the production verdict
+# GUARD 3: AGGREGATION is served or declined — never invented, never cross-tenant
 # ============================================================================
 
 
-class TestAggregationHeldUnreachable:
-    """PR-2 moved the gate to 0.35, and at that gate AGGREGATION is the
-    best-separated intent in the ratified set (all 6 of its 6 labelled queries
-    fire) — but nothing can answer it: `retrieve_relevant_context` has no
-    AGGREGATION branch and the tool catalog does not exist. So
-    `UNREACHABLE_INTENTS` holds it out of the PRODUCTION verdict
-    (`classify_intent` answers SPECIFIC and logs the real verdict), while
-    `classify_intent_scored` reports it raw for measurement. Ruled 2026-08-31;
-    registered in deferred-work.md § AGGREGATION Carve-Out.
+def _one_tool_catalog(handler) -> dict[str, QueryTool]:
+    return {
+        "count_goals_achieved": QueryTool(
+            name="count_goals_achieved",
+            description="test tool",
+            args_model=CountGoalsAchievedArgs,
+            handler=handler,
+        )
+    }
 
-    ⚠ This guard — and the carve-out it pins — may only be deleted in the SAME
-    change that adds the aggregation tool and its `retrieve_relevant_context`
-    branch (the tool-selection first slice,
-    docs/roadmap/askesis-tool-selection-queries.md). The dangerous edit is
-    deleting the exclusion early, not adding the branch late: an empty set with
-    no tool re-opens the window in which count questions classify, meet no
-    branch, and are answered generically or invented.
+
+class TestAggregationServedOrDeclined:
+    """The invariant that REPLACED the carve-out (lifted 2026-08-31, the same
+    change that added the aggregation tool — the one condition the old guard's
+    docstring named for its own deletion).
+
+    PR-2 held AGGREGATION out of the production verdict because nothing could
+    answer it. The tool-selection first slice put a tool, a decline path, and a
+    deterministic delivery behind the intent, so the carve-out is gone and the
+    invariant is now: an AGGREGATION verdict is ANSWERED by an executed tool or
+    DECLINED/UNAVAILABLE with a learner-visible reason — never generated,
+    never invented, and never another user's data. The delivery half
+    (generation short-circuited on every outcome) is pinned in
+    tests/unit/test_askesis_aggregation_delivery.py; the executor half is
+    pinned here because it is the safety-critical piece: server-side
+    ``user_uid`` injection is the whole reason this pattern is safe where
+    text2cypher is not.
     """
 
     @pytest.mark.asyncio
-    async def test_aggregation_never_becomes_the_production_verdict(self) -> None:
+    async def test_aggregation_is_a_production_verdict_now(self) -> None:
+        """The lift is complete — both classifier APIs agree on AGGREGATION.
+
+        A half-lift (scored says aggregation, production still says SPECIFIC)
+        would silently disconnect the tool this guard exists to protect.
+        """
         vector = [1.0] + [0.0] * 1023
         classifier = _classifier(AsyncMock(return_value=Result.ok(vector)))
-        # AGGREGATION wins at cosine 1.0 — far above any gate, so only the
-        # carve-out can be what keeps it out of the verdict.
         classifier._intent_exemplar_embeddings = {QueryIntent.AGGREGATION: [vector]}
         classifier._exemplar_load = ExemplarLoad(
             expected=1, loaded=1, intents_expected=1, intents_loaded=1
         )
 
-        result = await classifier.classify_intent("how many tasks do I have")
+        production = await classifier.classify_intent("how many tasks do I have")
+        scored = await classifier.classify_intent_scored("how many tasks do I have")
 
-        assert result.is_ok
-        assert result.value is QueryIntent.SPECIFIC, (
-            "AGGREGATION became a production verdict with nothing behind it — no "
-            "retrieve_relevant_context branch and no tool can answer a count "
-            "question. The carve-out may only be lifted in the same change that "
-            "adds the aggregation tool (tool-selection first slice)"
+        assert production.is_ok and scored.is_ok
+        assert production.value is QueryIntent.AGGREGATION, (
+            "AGGREGATION classified but did not become the production verdict — "
+            "the carve-out was lifted 2026-08-31 with the tool behind it; a "
+            "re-introduced suppression strands the aggregation branch"
+        )
+        assert scored.value.intent is production.value, (
+            "classify_intent and classify_intent_scored disagree — the eval's "
+            "production-agreement check reads the scored API, so a divergence "
+            "voids every eval run"
         )
 
     @pytest.mark.asyncio
-    async def test_scored_api_still_reports_the_raw_aggregation_verdict(self) -> None:
-        """The eval's production-agreement check reads `classify_intent_scored`.
+    async def test_llm_supplied_user_uid_is_ignored_by_the_executor(self) -> None:
+        """THE cross-tenant guard: identity is injected server-side, always.
 
-        Carving the verdict out THERE would make the eval's mean arm disagree
-        with production on every aggregation-labelled row and void every run —
-        the carve-out is a reachability decision, not a scoring one.
+        A model-smuggled ``user_uid`` argument is discarded; the handler runs
+        for the AUTHENTICATED user and the answer is the caller's own data —
+        never the named user's.
         """
-        vector = [1.0] + [0.0] * 1023
-        classifier = _classifier(AsyncMock(return_value=Result.ok(vector)))
-        classifier._intent_exemplar_embeddings = {QueryIntent.AGGREGATION: [vector]}
-        classifier._exemplar_load = ExemplarLoad(
-            expected=1, loaded=1, intents_expected=1, intents_loaded=1
+        seen: dict[str, str] = {}
+
+        async def handler(*, user_uid: str, period) -> Result[AggregationCount]:
+            seen["user_uid"] = user_uid
+            return Result.ok(
+                AggregationCount(
+                    subject="goals achieved", total=2, since="2026-04-01", until="2026-06-30"
+                )
+            )
+
+        selection = ToolSelection(
+            tool_name="count_goals_achieved",
+            arguments={"period": "last_quarter", "user_uid": "user_someone_else"},
         )
 
-        result = await classifier.classify_intent_scored("how many tasks do I have")
+        result = await run_tool(selection, _one_tool_catalog(handler), user_uid="user_caller")
 
         assert result.is_ok
-        assert result.value.intent is QueryIntent.AGGREGATION
-        assert result.value.confident is True
-
-    def test_the_carve_out_names_exactly_aggregation(self) -> None:
-        """Membership pin, both directions: GROWING the set would silently
-        disable an intent PR-2 activated, and EMPTYING it without a tool
-        re-opens the window. Either move is a deliberate, reviewed decision.
-        """
-        assert frozenset({QueryIntent.AGGREGATION}) == UNREACHABLE_INTENTS, (
-            "UNREACHABLE_INTENTS changed. Removing AGGREGATION is legal only in "
-            "the same change that adds the aggregation tool "
-            "(docs/roadmap/askesis-tool-selection-queries.md, first slice); adding "
-            "an intent deactivates part of PR-2 and needs its own ruling"
+        assert isinstance(result.value, AggregationAnswered)
+        assert seen["user_uid"] == "user_caller", (
+            "the executor let a model-supplied user_uid reach the handler — "
+            "server-side injection is the safety property that separates "
+            "tool-selection from text2cypher"
         )
+
+    @pytest.mark.asyncio
+    async def test_out_of_coverage_selection_declines(self) -> None:
+        """No tool / unknown tool → an explicit Declined, never a fall-through.
+
+        The decline is a NORMAL outcome carrying a learner-visible reason —
+        modelling it as an error would let the response generator answer the
+        unsupported question anyway (the design doc's OPEN PROBLEM 2).
+        """
+
+        async def handler(*, user_uid: str, period) -> Result[AggregationCount]:
+            raise AssertionError("no handler may run for an out-of-coverage selection")
+
+        catalog = _one_tool_catalog(handler)
+
+        for selection in (
+            ToolSelection(tool_name=None, arguments={}),
+            ToolSelection(tool_name="count_unicorns", arguments={"period": "last_quarter"}),
+        ):
+            result = await run_tool(selection, catalog, user_uid="user_caller")
+            assert result.is_ok, "a coverage gap is a decline, not a failure"
+            outcome = result.value
+            assert isinstance(outcome, AggregationDeclined)
+            assert outcome.reason, "the decline must carry a stated reason"

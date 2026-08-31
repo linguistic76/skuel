@@ -21,6 +21,7 @@ from core.models.type_hints import Neo4jProperties, UserUID
 from core.ports.query_types import (
     ChoiceStats,
     EventStats,
+    GoalsAchievedCount,
     GoalStats,
     HabitStats,
     ParentProgressResult,
@@ -489,6 +490,57 @@ class GoalsBackend(_HierarchyMixin, UniversalNeo4jBackend[Goal]):
         if result.is_error:
             return Result.fail(result)
         return Result.ok(cast("GoalStats", result.value))
+
+    async def count_goals_achieved(
+        self,
+        *,
+        user_uid: UserUID,
+        since: date | None = None,
+        until: date | None = None,
+    ) -> Result[GoalsAchievedCount]:
+        """Count the user's achieved goals, optionally bounded by achievement date.
+
+        The ownership edge is non-optional in the MATCH — ``(u:User {uid:
+        $user_uid})-[:OWNS]->`` — so even a mis-selected call can only ever read
+        the requesting user's subgraph (the Askesis tool-selection safety
+        contract; ``user_uid`` is injected server-side by the executor, never
+        model-supplied).
+
+        One domain, one field: Goal's completion stamp is ``achieved_date``, a
+        ``date`` persisted as an ISO STRING (``neo4j_mapper`` serializes with
+        ``.isoformat()``), so bounds are bound as ISO date strings and compare
+        lexicographically — correct here because both operands share the
+        date-only shape, which makes a same-day ``until`` inclusive. A sibling
+        on a ``completed_at`` (datetime) domain must widen its ``until`` to the
+        day's end AND normalise offsets before this comparison is sound — see
+        docs/roadmap/askesis-tool-selection-queries.md § 3.
+
+        The applied bounds are returned WITH the count (``GoalsAchievedCount``)
+        so the answer can state the scope it actually filtered on.
+        """
+        cypher = f"""
+        MATCH (u:{NeoLabel.USER.value} {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(g:{NeoLabel.GOAL.value})
+        WHERE g.achieved_date IS NOT NULL
+          AND ($since IS NULL OR g.achieved_date >= $since)
+          AND ($until IS NULL OR g.achieved_date <= $until)
+        RETURN count(g) AS total
+        """
+        params = {
+            "user_uid": user_uid,
+            "since": since.isoformat() if since else None,
+            "until": until.isoformat() if until else None,
+        }
+        result = await self.execute_query(cypher, params)
+        if result.is_error:
+            return Result.fail(result)
+        rows = result.value or []
+        return Result.ok(
+            GoalsAchievedCount(
+                total=int(rows[0]["total"]) if rows else 0,
+                since=params["since"],
+                until=params["until"],
+            )
+        )
 
     async def _find_linked_goals(
         self, target_uid: str, user_uid: UserUID, target_type: EntityType

@@ -28,6 +28,7 @@ Available templates (core/prompts/templates/):
     dsl_domain_recognition        — Full domain recognition prompt for LLMDSLBridgeService
     dsl_domain_recognition_compact — Compact domain recognition prompt for LLMDSLBridgeService
     askesis_stance                — Shared Askesis study-buddy stance — heads BOTH answer branches (ADR-082 D1/D3)
+    askesis_tool_selection        — Aggregation tool-selection system prompt (tool-selection first slice)
     askesis_guided_redirect       — DIRECT/REDIRECT_TO_CURRICULUM system prompt
     askesis_guided_out_of_scope   — DIRECT/OUT_OF_SCOPE system prompt
     askesis_guided_assess         — SOCRATIC/ASSESS_UNDERSTANDING system prompt

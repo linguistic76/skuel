@@ -59,6 +59,12 @@ from core.models.enums import GuidanceMode, MessageRole
 from core.models.query_types import QueryIntent
 from core.models.type_hints import UserUID
 from core.models.user.conversation import ConversationContext
+from core.services.askesis.query_tools import (
+    AggregationAnswered,
+    AggregationDeclined,
+    AggregationOutcome,
+    AggregationUnavailable,
+)
 from core.services.canon import CanonContext
 from core.utils.decorators import with_error_handling
 from core.utils.exception_types import NEO4J_EXCEPTIONS
@@ -320,12 +326,40 @@ class QueryProcessor:
         if any(extracted_entities.values()):
             relevant_context["mentioned_entities"] = extracted_entities
 
+        # Step 6b: AGGREGATION is delivered DETERMINISTICALLY (tool-selection
+        # first slice, ruled 2026-08-31). The retriever's branch produced a
+        # typed outcome; pop it for delivery and swap in its JSON-safe
+        # projection so context_used stays serializable. If the branch produced
+        # nothing (a mis-wired retriever), the floor is a deterministic
+        # unavailable — an AGGREGATION verdict must never reach LLM generation,
+        # which could invent a count.
+        aggregation: AggregationOutcome | None = None
+        if intent == QueryIntent.AGGREGATION:
+            popped = relevant_context.pop("aggregation", None)
+            if isinstance(
+                popped, AggregationAnswered | AggregationDeclined | AggregationUnavailable
+            ):
+                aggregation = popped
+            else:
+                logger.error(
+                    "AGGREGATION intent produced no outcome object — answering unavailable"
+                )
+                aggregation = AggregationUnavailable(
+                    reason="the aggregation branch produced no outcome"
+                )
+            relevant_context["aggregation"] = aggregation.to_context()
+
         # Step 7: Run guided pipeline (ZPD + guidance mode) — UNLESS the user set an
         # explicit facet scope. An explicit scope OVERRIDES auto-guidance (Codex #544):
         # answer from the scoped passages via the context-aware branch below, not the
         # current PS bundle — which would otherwise re-introduce unscoped curriculum
         # context and make the topic selection a silent no-op for guided users.
-        if scope is not None and scope.to_property_filters():
+        # An AGGREGATION outcome also bypasses guidance: the count (or its
+        # decline) is delivered deterministically below, and an aggregation
+        # result never enters the deliberately narrow Socratic prompt (ADR-077
+        # preserved — the guided prompt and its builders are untouched; count
+        # questions simply are not Socratic turns).
+        if aggregation is not None or (scope is not None and scope.to_property_filters()):
             guided_system_prompt, guidance_mode, ps_bundle, canon_context = (
                 None,
                 None,
@@ -340,8 +374,16 @@ class QueryProcessor:
                 canon_context,
             ) = await self._run_guided_pipeline(user_uid, question, user_context, preferred_mode)
 
-        # Step 8: Generate answer (guided or context-aware)
-        if guided_system_prompt:
+        # Step 8: Generate answer (aggregation-deterministic, guided, or context-aware)
+        if aggregation is not None:
+            # Composed in code, not by the model: the answer states the exact
+            # bounds the tool filtered on (Answered), the coverage reason
+            # (Declined), or an honest unavailability (Unavailable) — a decline
+            # short-circuits generation entirely, so the model cannot answer
+            # around it (OPEN PROBLEM 2 of the design doc, closed by
+            # construction for this slice).
+            answer = aggregation.answer_text()
+        elif guided_system_prompt:
             answer = await self._generate_guided_answer(
                 question,
                 guided_system_prompt,
@@ -395,6 +437,7 @@ class QueryProcessor:
             guidance_mode=guidance_mode,
             session_id=session_id,
             canon_sources=canon_context.sources(),
+            mode_override="aggregation" if aggregation is not None else None,
         )
 
         logger.info(
@@ -493,6 +536,37 @@ class QueryProcessor:
                 )
             )
         intent = intent_result.value
+
+        # Step 3b: AGGREGATION is not served on this surface — decline, don't
+        # generate (ruled 2026-08-31, tool-selection first slice). This pipeline
+        # never runs the tool (it reads get_learning_context(), not
+        # retrieve_relevant_context()), so letting generation proceed would be
+        # exactly the fall-through the design forbids: a count question answered
+        # generically or invented. The decline is deterministic and
+        # learner-visible; the chat pipeline (answer_user_question) is the one
+        # surface that serves aggregation. See
+        # docs/roadmap/askesis-tool-selection-queries.md § 6-7 (delivery per
+        # answer path).
+        if intent == QueryIntent.AGGREGATION:
+            decline = AggregationDeclined(
+                reason=(
+                    "count questions are answered in the Askesis chat, not through "
+                    "this surface yet. Ask me there."
+                )
+            )
+            return Result.ok(
+                self._build_query_response_result(
+                    decline.answer_text(),
+                    context_data["knowledge_units"],
+                    context_data["learning_paths"],
+                    context_data["related_tasks"],
+                    context_data.get("related_goals", []),
+                    intent,
+                    self.response_generator.generate_suggested_actions(
+                        query_message, context_data, intent
+                    ),
+                )
+            )
 
         # Step 4: Run guided pipeline (ZPD + guidance mode)
         # canon_context: grounded prompt only in this path — sources surface is
@@ -679,8 +753,14 @@ class QueryProcessor:
         guidance_mode: str | None,
         session_id: str | None,
         canon_sources: tuple[CanonSource, ...] = (),
+        mode_override: str | None = None,
     ) -> dict[str, Any]:
-        """Build the response dict for answer_user_question."""
+        """Build the response dict for answer_user_question.
+
+        ``mode_override`` labels the deterministic aggregation branch
+        ("aggregation") — neither guided nor llm_generated describes an answer
+        no LLM produced.
+        """
         final_answer = answer + citations_text if citations_text else answer
         confidence = QueryProcessorConfidence.calculate(
             has_context=bool(relevant_context),
@@ -692,7 +772,7 @@ class QueryProcessor:
             "context_used": relevant_context,
             "suggested_actions": suggested_actions,
             "confidence": confidence,
-            "mode": "guided" if is_guided else "llm_generated",
+            "mode": mode_override or ("guided" if is_guided else "llm_generated"),
             "has_citations": bool(citations_text),
             # Canon readings the guided prompt drew on (ADR-077) — [] when none.
             "canon_sources": list(canon_sources),
