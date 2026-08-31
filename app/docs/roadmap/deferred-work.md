@@ -1797,10 +1797,14 @@ label-only lines; 72 typed `explanation`; 32 under 20 characters), 6 path_step (
 
 **Trigger:** (1) ✅ done; (2) ✅ instrument + body-fold status shipped (PR-2), set ratified at
 v2 and the baseline recorded on #1197 — the thread is now open only for a measured miss traced to
-chunk grain (judged on `best_rank`, not the saturated hit@5); (4) ✅ measured in PR-2 and RULED —
-not deleted, shipped as one classifier-fix + thin-draw change when Mike schedules it, inert with
-the cost named until then; (3) additionally needs the content-typing classifier named in its (b),
-and is downstream of (4) executing at all.
+chunk grain (judged on `best_rank`, not the saturated hit@5); (4) ✅ measured and RULED — and the
+ruling SPLIT it in two, so read both halves before starting: the **classifier fix is scheduled
+separately** and does NOT touch this filter
+([askesis-intent-classification-activation.md](askesis-intent-classification-activation.md)),
+while **switching this filter on** stays here, gated on (3)'s content-typing classifier and
+carrying the thin-draw fallback in the same change. Inert with the cost named until then;
+(3) needs that classifier regardless, and gates the filter half of (4) — not the classifier arc,
+which does not depend on it.
 **Check** (one statement per block — paste each on its own; words, not characters, because the
 knobs are word counts; `c.end_index` is the persisted whitespace-aware `word_count`, so a chunk
 with line breaks or doubled spaces is counted the way ingestion counted it — a naive
