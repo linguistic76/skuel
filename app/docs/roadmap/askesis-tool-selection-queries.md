@@ -535,14 +535,17 @@ the executed scope. **One** tool end-to-end, behind the FULL intelligence tier
    the model volunteered (§ 4).
 
 Try it against a live question before deciding whether the pattern earns its keep.
-*(Driven live at ship time — `answer_user_question` against the live graph with the ratified
-set's six AGGREGATION queries plus a covered-shape probe, normal chat AND nous-scoped. All
-routed to the deterministic aggregation branch: none fell through to generation, the API
-surface declined, and the executor's cross-tenant probe returned the caller's own count. The
-SELECTION step itself could not be live-verified: the environment's Anthropic key is invalid
-(401), so every probe exercised the failure fold instead — the deterministic "unavailable",
-exactly the § 6 failure row, with no invented number anywhere. Re-drive the covered/declined
-split once the key is rotated.)*
+*(✅ Verified live, 2026-08-31 — two drives. At ship time the environment's Anthropic key was
+invalid (401), so the first drive proved routing, deterministic delivery, the API decline, the
+cross-tenant probe, and the § 6 failure fold — every count answered the honest "unavailable",
+no invented number anywhere. After the key rotation the full split was re-driven: the covered
+shape answered with the real count and its exact applied bounds ("Goals achieved between
+2026-04-01 and 2026-06-30: 0.") on normal chat AND the nous-scoped path, while ALL SIX of the
+ratified set's AGGREGATION queries declined with the stated coverage reason — including the
+predicate-bearing "blocked by a habit I dropped" shape, where the model declined rather than
+picking the nearest tool (OPEN PROBLEM 1's mitigation holding on the exact query that names
+it), and "how many tasks did I complete this week", the right shape on the wrong domain.
+Nothing fell through to generation on any probe.)*
 
 ## Open questions
 
