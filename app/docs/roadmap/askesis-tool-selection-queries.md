@@ -52,6 +52,42 @@ counts + vector chunks. Open-ended ad-hoc analytics —
 — get no real graph aggregation today. That is exactly what text2cypher is pitched to
 solve, and exactly where the alternative below slots in.
 
+## ⚠ How to read the code below
+
+These blocks are **shape, not implementation**, for work that is ruled but **not scheduled**.
+Eight rounds of review (#1202) corrected them against the real codebase, so the ⚠ notes are
+checked facts a builder can rely on — the `User.uid` spelling, the per-domain completion fields
+and their ISO-string persistence, `execute_query`'s `Result` wrapper, the service/adapter
+boundary, `LLMService.caller`, and the three answer paths. **The two problems below are NOT
+solved.** They are the design's real content, and a builder must answer them rather than
+inherit an answer from this sketch.
+
+### OPEN PROBLEM 1 — coverage cannot be enforced by the model
+
+`tool_choice="auto"` can say "no tool", but it cannot say *"I picked the closest one and it does
+not really fit."* Given *"how many goals did I complete last quarter that were blocked by a habit
+I dropped?"*, the model selects `count_goals_achieved`, the name resolves, the args validate, and
+the answer is a total that **silently drops the habit predicate** — a confident wrong number,
+the worst outcome this document can produce. Scheduling discipline ("don't let a shape classify
+before a tool covers it") is necessary but **not sufficient**: activating `AGGREGATION` activates
+the whole intent, and a novel production question the labelled set never anticipated still
+reaches selection. What is missing is a **deterministic runtime coverage check** — a
+capability predicate the selection is validated against, or a catalog complete enough that no
+in-scope question falls outside it. Unresolved.
+
+### OPEN PROBLEM 2 — a decline must not be answerable around
+
+Storing `context["aggregation_declined"]` puts the reason into ordinary prompt context, where
+`_format_additional_context` renders it as one more scalar while the surrounding prompt still
+instructs the model to answer from actual data. The model can simply ignore it and produce the
+generic answer the decline exists to prevent. A decline therefore needs a **deterministic branch
+that short-circuits generation** and returns a learner-visible "not answerable yet", not a hint
+dropped into a prompt. Unresolved.
+
+Both are the same shape of mistake, worth naming once: **an instruction to a model is not an
+enforcement mechanism.** Every guarantee in this design has to hold in code the model cannot
+route around.
+
 ## Why not raw text2cypher
 
 For SKUEL specifically, LLM-generated Cypher is the wrong fit:
@@ -253,32 +289,26 @@ class ToolSelection:
     tool_name: str | None
     arguments: dict[str, Any]          # raw LLM args, not yet validated
 
+# ⚠ There is no `self.client` on LLMService, and there must not be. It holds
+# `self.caller: LLMCallerProtocol` (llm_service.py:116), and vendor SDK clients live
+# behind `adapters/external/llm/` by ADR-063 — `tests/unit/test_llm_sdk_boundary.py`
+# fails closed on any vendor import in `core/`. So tool selection is a NORMALIZED
+# operation added to the caller port, not an SDK call written here; the
+# OpenAI/Anthropic tool-schema shapes are the ADAPTER's business.
 async def select_tool(
     self, question: str, tools: list[QueryTool],
 ) -> ToolSelection:
     """LLM chooses a tool + args. Returns no tool if none fits (→ Declined).
 
     ⚠ "No tool" is the only decline this can express. It CANNOT say "I picked the
-    closest one but it does not really fit" — see the coverage gate in § 5.
+    closest one but it does not really fit" — see OPEN PROBLEM 1 below.
     """
-    if not isinstance(self.client, AsyncOpenAI):
+    if self.caller is None:                     # CORE tier — no Digital layer
         return ToolSelection(tool_name=None, arguments={})
-    resp = await self.client.chat.completions.create(
-        model=self.config.model_name,
-        messages=[{"role": "user", "content": question}],
-        tools=[
-            {"type": "function", "function": {
-                "name": t.name, "description": t.description,
-                "parameters": t.json_schema()}}
-            for t in tools
-        ],
-        tool_choice="auto",            # model may decline → None → Declined
+    return await self.caller.select_tool(       # ← new port operation
+        question=question,
+        tools=[t.json_schema_entry() for t in tools],
     )
-    calls = resp.choices[0].message.tool_calls
-    if not calls:
-        return ToolSelection(tool_name=None, arguments={})
-    return ToolSelection(calls[0].function.name, json.loads(calls[0].function.arguments))
-# Anthropic path is the parallel `tools=[{name, description, input_schema}]` shape.
 ```
 
 ⚠ **`select_tool` must be handed a trusted reference date, or "last quarter" is a guess.**
@@ -334,7 +364,10 @@ async def run_tool(
         return Result.fail(Errors.validation(f"Bad tool args: {e}"))
 
     # user_uid comes from the authenticated context, NEVER from the LLM:
-    return await tool.handler(user_uid=user_context.user_uid, **args.model_dump())
+    result = await tool.handler(user_uid=user_context.user_uid, **args.model_dump())
+    if result.is_error:
+        return Result.fail(result)              # a real failure, not a decline
+    return Result.ok(Answered(payload=result.value))
 ```
 
 ### 6. Wiring into the existing pipeline
