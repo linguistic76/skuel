@@ -1,8 +1,13 @@
 # Askesis Tool-Selection Queries — A Safe Alternative to text2cypher
 
-**Status:** Possible development — not scheduled. Evaluation + design sketch only.
-Captures the conclusion of a "should we adopt LangChain `text2cypher`?" review
-(May 2026) and the SKUEL-aligned alternative that came out of it.
+**Status:** **Direction RULED 2026-08-31 (Mike) — position (b): Askesis DOES answer questions
+about the user's own records, and this is how.** Not yet scheduled as a build, and **blocked on
+a trigger**: intent classification cannot return `AGGREGATION` today because its 0.65 gate is
+unreachable, so
+[askesis-intent-classification-activation.md](askesis-intent-classification-activation.md) is a
+prerequisite, not a neighbour. Originally captured the conclusion of a "should we adopt LangChain
+`text2cypher`?" review (May 2026) and the SKUEL-aligned alternative that came out of it; the
+ruling promotes that alternative from "possible" to "the intended shape".
 
 ## Context
 
@@ -270,16 +275,16 @@ Implement **one** tool end-to-end, behind the FULL intelligence tier
 2. `QueryTool` + `CountByStatusArgs` + a one-entry aggregation catalog.
 3. `LLMService.select_tool()` for the **Anthropic** provider in use.
 4. `run_tool` executor with the `user_uid` injection.
-5. A trigger for the tool-selection path. ⚠ **This step's assumed trigger is scheduled for
-   removal.** `AGGREGATION`'s 8 `INTENT_EXEMPLARS` entries are still in the tree today, but
-   PR-1 of
+5. The `QueryIntent.AGGREGATION` branch in `context_retriever.py`. ⚠ **It cannot fire until
+   the classifier arc lands.** `AGGREGATION` keeps its exemplars (ruled 2026-08-31 — see that
+   doc's ruling 2), but the classifier returns only `SPECIFIC` today because the 0.65 gate is a
+   MEAN over 8 exemplars and is unreachable, so a branch added now is dead on arrival. Build it
+   AFTER
    [askesis-intent-classification-activation.md](askesis-intent-classification-activation.md)
-   (ruled 2026-08-30, not yet landed) deletes them, after which the classifier can never
-   return it and a branch on it is dead on arrival. Note the classifier cannot return it
-   *today* either — the 0.65 gate is unreachable — so this step has no working trigger in
-   either state. When this arc is picked up, name its own trigger (an LLM selecting a tool
-   needs no pre-classified intent) or re-argue the exemplars with that PR. Its thesis below is
-   unaffected: the aggregation GAP is real.
+   PR-2, and not before its PR-1 has disambiguated `AGGREGATION` from `EXPLORATORY`: until then
+   a topic-orientation question ("introduce me to stoicism") can route here and be answered with
+   a COUNT. That mis-route is harmless while this branch is absent and user-visible the moment
+   it exists.
 6. A pytest exercising: tool selected + args validated + cross-tenant attempt
    (LLM-supplied `user_uid` ignored) + no-tool fallback path.
 
@@ -291,9 +296,9 @@ Try it against a live question before deciding whether the pattern earns its kee
   stay small and curated, not become a dumping ground. What is the review bar for
   adding a tool? (cf. `docs/roadmap/programmatic-client-auth-csrf.md` on interim
   lists becoming the norm.)
-- **Overlap with intent classification.** Tool-selection is itself a form of intent
-  routing. Do `AGGREGATION`/`RELATIONSHIP` intents still earn their place in
-  `IntentClassifier`, or does tool-selection subsume them?
+- ~~**Overlap with intent classification.**~~ ✅ **Answered for `AGGREGATION` 2026-08-31:** it
+  earns its place — the ruling keeps it as the routing trigger for this path rather than having
+  tool-selection subsume it. `RELATIONSHIP` is untouched and the question stands for it alone.
 - **Cost.** Adds one LLM round-trip (selection) before generation. Acceptable only
   for intents the pre-baked context genuinely can't serve — keep the gate narrow.
 - ~~**langchain cleanup.**~~ ✅ **Done 2026-07-27.** The four unused `langchain-*` deps and

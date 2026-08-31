@@ -92,7 +92,22 @@ is PR-1 and is the reason PR-1 exists.
 
 **The errors cluster on EXPLORATORY**, which never won: both its probes lost to `AGGREGATION`,
 because "Give me an overview" is literally an AGGREGATION exemplar. The two exemplar sets
-overlap semantically.
+overlap semantically — and reading them side by side says *how*:
+
+**The discriminator is the OBJECT, not the verb.** *"Summarize my learning"* (AGGREGATION) and
+*"give me an overview of stoicism"* (EXPLORATORY) share their verb and differ only in what they
+are about — your records, or a subject. Worse, AGGREGATION's `"Give me an overview"` carries **no
+object at all**, which makes it a magnet: the probe *"give me an overview of this topic"* matched
+it at **0.792**. Short-sentence embeddings are dominated by the verb, which is exactly why an
+average over eight of them separates these two so badly.
+
+⚠ **And `EXPLORATORY` currently means two different things.** Its exemplars are *catalog
+browsing* — "Show me what's available", "Browse available knowledge", "What else is there?" — but
+its chunk-type mapping is `INTRODUCTION`/`SUMMARY`/`DEFINITION`, which answers *topic
+orientation* ("introduce me to stoicism"). Those are different intents under one name. PR-1's
+labelled set has to pick one, and the choice feeds back: **if it picks browsing, the
+`_INTENT_CHUNK_TYPES` mapping in deferred-work Named work 4 is wrong on its own terms**, quite
+apart from the corpus measurements there.
 
 ## Rulings (Mike, 2026-08-30)
 
@@ -102,28 +117,24 @@ overlap semantically.
    it is only needed if the filter is ever switched on, which is PR-3's problem.
    *This supersedes the earlier "fix and fallback ship together" framing*: that reasoning holds
    only while activation implies the filter, and it no longer does.
-2. **`AGGREGATION` is retired — from the EXEMPLARS, not from the enum.** Askesis is a
-   learning companion, not a dashboard query language; counts belong to the app's own
-   surfaces. Deleting its 8 entries from `INTENT_EXEMPLARS` means it can never be *classified*
-   again, which is the whole of what this arc needs — it resolves the EXPLORATORY collision
-   for free.
+2. **`AGGREGATION` STAYS — member and exemplars. Ruled 2026-08-31 (Mike): position (b).**
+   Askesis *does* answer questions about the user's own records; the safe mechanism is LLM
+   **tool-selection** over vetted, parameterized, server-scoped tools — never generated Cypher
+   ([askesis-tool-selection-queries.md](askesis-tool-selection-queries.md), whose direction this
+   ratifies).
 
-   ⚠ **The enum member STAYS, and the narrowing is the point.** The first draft of this ruling
-   deleted the member on the evidence that no code branches on it — true, and incomplete:
-   [askesis-tool-selection-queries.md](askesis-tool-selection-queries.md) is a live roadmap
-   doc whose stated thesis IS the `AGGREGATION` gap and whose step 5 is adding a
-   `QueryIntent.AGGREGATION` branch (found by Codex on #1201, confirmed). Keeping the member
-   costs nothing, keeps that sketch's hook, and stops a classifier-hygiene decision from
-   quietly settling a product question — *does Askesis ever answer "how many goals do I have"* —
-   that belongs to that doc, not this one. Open for Mike; the arc does not depend on it.
+   ⚠ **This SUPERSEDES the 2026-08-30 retirement**, which was ruled one day earlier on the
+   opposite premise — *"Askesis is a learning companion, not a dashboard query language; counts
+   belong to the app's own surfaces"* — i.e. position (a), stated in those words. The same
+   question was put twice; the later, fuller framing governs, and the mechanical outcome of the
+   earlier one is reversed with it rather than kept on a dead rationale.
 
-   ⚠ **PR-1 must CLOSE this, not inherit it.** Codex is right that an enum member with no
-   producer is an unused alternative path, and One Path Forward has no "keep it for a sketch"
-   tier — enum members are outside every `./dev bloat` tier by ruling, so nothing else will
-   ever flag it. PR-1 ships with exactly one of: (a) the member deleted with its exemplars and
-   `askesis-tool-selection-queries.md` amended to name a trigger that does not need it, or
-   (b) Mike's explicit decision to keep it, recorded HERE with the date. Not a third
-   quiet option.
+   **What survives the reversal is the collision — and it is now LOAD-BEARING.** Today a
+   mis-route costs nothing, because nothing fires. Under (b), routing *"introduce me to
+   stoicism"* to `AGGREGATION` sends a learner's exploratory question to a **count tool** and
+   answers it with a number: a user-visible wrong answer where today there is merely a dormant
+   one. Disambiguating the two exemplar sets is therefore a **correctness prerequisite** for
+   tool-selection, not tidying.
 
 ## Sequencing
 
@@ -138,8 +149,15 @@ Mike ratifies**, first ratified run is the baseline.
   strategy: accuracy, score distribution, share clearing the gate, and margin over the
   runner-up. Must classify through `classify_intent_scored` — `classify_intent` converts an
   embedding outage into `Result.ok(SPECIFIC)`, which would score an outage as a finding.
-- Fix the AGGREGATION/EXPLORATORY exemplar collision as part of retiring AGGREGATION, and
-  measure before/after on the set.
+- **Disambiguate the AGGREGATION/EXPLORATORY exemplar sets** (both stay — see ruling 2), and
+  measure before/after on the set. Rewrite by OBJECT, not verb: AGGREGATION's exemplars must
+  each name the user's own records, and `"Give me an overview"` — objectless — must go or gain
+  one. Acceptance bar: **no topic-orientation query routes to `AGGREGATION`.**
+- **Decide what `EXPLORATORY` means** — catalog browsing or topic orientation — and label
+  accordingly. Record the choice here; Named work 4's chunk mapping depends on it.
+- The set must carry **AGGREGATION-shaped queries** on both shapes tool-selection targets: the
+  bare count ("how many goals do I have") and the predicate-bearing one ("how many goals did I
+  complete last quarter that were blocked by a habit I dropped").
 - **Label the corpus honestly:** a content question ("why does my mind keep wandering when I
   meditate") is genuinely `SPECIFIC`. A set that labels everything with a non-SPECIFIC intent
   measures wishful thinking. Expect SPECIFIC to be the largest class and keep it so.
