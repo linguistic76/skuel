@@ -338,10 +338,10 @@ adversarial phrasing.
 ⚠ **The baseline makes ruling 2's coverage gate URGENT, not theoretical.** At **either**
 candidate threshold, **all 6 of 6 AGGREGATION queries fire** — it is the best-separated intent in
 the set. So the moment PR-2 lowers the gate, count questions classify, and the tool catalog's
-first slice covers neither the bare count nor the predicate-bearing shape. PR-2 must therefore
-land the tool-selection first slice WITH it, or hold `AGGREGATION` out of the reachable set until
-that exists. There is no threshold that activates the other five intents while leaving
-AGGREGATION dormant.
+first slice covers neither the bare count nor the predicate-bearing shape. There is no threshold
+that activates the other five intents while leaving AGGREGATION dormant, so **PR-2 holds it
+unreachable by an explicit carve-out** — ruled 2026-08-31; the reasoning and the alternative it
+rejected are in § PR-2.
 
 ### PR-2 — activation (behaviour change, narrow)
 
@@ -423,14 +423,30 @@ RELATIONSHIP deliberately rather than hoping a sample reaches it.**
   overview of the user's own graph, which is what catalog browsing asks for — and browsing is what
   EXPLORATORY means (ruling 3). The conditional rewrite this section used to carry was contingent
   on PR-1 choosing topic orientation; it did not, so there is nothing to rewrite.
-- ⚠ **`AGGREGATION` must not become reachable before something can answer it — and no threshold
-  avoids it.** All **6 of 6** AGGREGATION queries fire at both candidate gates; it is the
-  best-separated intent in the set. There is no gate that activates the other five while leaving
-  this one dormant, so this is a **sequencing constraint, not a risk to monitor**: either the
-  tool-selection first slice ([askesis-tool-selection-queries.md](askesis-tool-selection-queries.md))
-  lands **with** this PR, or PR-2 holds `AGGREGATION` out of the reachable set explicitly. A
-  window where the intent classifies with nothing behind it answers count questions with an
-  invented number — a regression, not a staging step. (Codex, #1202.)
+- ⚠ **`AGGREGATION` is held UNREACHABLE by this PR. Ruled 2026-08-31 (Mike).** It must not
+  classify before something can answer it, and **no threshold achieves that**: all **6 of 6**
+  AGGREGATION queries fire at both candidate gates — it is the best-separated intent in the set.
+  So the carve-out is explicit code, not a tuning choice:
+  - PR-2 excludes `AGGREGATION` from the reachable set (a named set with a comment saying it goes
+    when the tool lands, plus a test pinning it). Its exemplars STAY — ruling 2 is untouched; only
+    its reachability is deferred.
+  - The tool-selection first slice
+    ([askesis-tool-selection-queries.md](askesis-tool-selection-queries.md)) **removes that
+    exclusion in the same change that adds the tool** — mechanically the same guarantee bundling
+    would give, in a review that can attend to it.
+  - ⚠ **It is NOT this doc's PR-3**, which is the chunk-type filter and unrelated. The slice is
+    its own PR in its own doc, sequenced immediately after this one.
+
+  **Why split rather than bundle** (the alternative, and the earlier framing): the slice is eight
+  items including an LLM-chosen, user-scoped query executor with server-side `user_uid` injection.
+  Its cross-tenant test is the most important test in this arc and should not be item 8 of a
+  twelve-item PR next to a threshold change. Two of its items are also unresolved *decisions* —
+  coverage enforcement (its OPEN PROBLEM 1) and whether an aggregation may enter the deliberately
+  narrow Socratic prompt (ADR-077) — and bundling would let those block a one-constant change that
+  has a measured case behind it. **The constraint was never "one PR"; it is that `AGGREGATION`
+  never classifies with nothing behind it.** A carve-out satisfies it, and if the slice never
+  lands, `AGGREGATION` stays exactly as dormant as it is today — the fallback is the status quo,
+  not a regression. (Constraint from Codex, #1202; sequencing ruled 2026-08-31.)
 - ⚠ **Citations become POSSIBLE for the first time ever — on at most ~11% of questions, and
   probably fewer. Activation opens only the first of two gates.** `PREREQUISITE` and
   `HIERARCHICAL` fire on **5 of 45** at 0.35, but the call site
@@ -456,6 +472,10 @@ RELATIONSHIP deliberately rather than hoping a sample reaches it.**
   as a null result would be measuring a wire that isn't connected.
 - ⚠ `SPECIFIC` must stay unmapped in `_INTENT_CHUNK_TYPES` — it is the outage fallback, and the
   activation guard pins this.
+- **Build the `AGGREGATION` carve-out** (see the sequencing ruling above): an explicit unreachable
+  set, a comment naming what removes it, and a test that fails if `AGGREGATION` becomes reachable
+  while no tool answers it. Register it as staged work so it is visible rather than forgotten —
+  it is deliberately-unwired, which is the PLANNED tier's case, not dead code.
 - **Re-run `./dev eval-intent-classification` after the change and record it.** The baseline is a
   pre-activation measurement of a classifier nothing consumed; the post-activation run is the
   first time these numbers describe behaviour a user can receive. `wrong_activations` on the mean
