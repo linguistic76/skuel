@@ -30,7 +30,7 @@ Its verdict branches at **six** sites across the two, all permanently on their e
 |---|---|---|
 | `context_retriever.py:256–283` | intent-conditioned **graph context** — prerequisites/blocked knowledge, task counts, learning-path position, the EXPLORATORY overview | **yes** |
 | `response_generator.py:389–470` | intent-conditioned **suggested actions** + follow-ups | **yes** |
-| `query_processor.py:379–386` | **citations** — `_retrieve_citations_for_knowledge_units` fires only for `PREREQUISITE`/`HIERARCHICAL`, and has ONE call site, so **no Askesis answer has ever carried a citation** | **yes** (user-visible) |
+| `query_processor.py:379–386` | **citations** — `_retrieve_citations_for_knowledge_units` has ONE call site, behind **two** gates: the intent must be `PREREQUISITE`/`HIERARCHICAL` **and** `extracted_entities["knowledge"]` must be non-empty (with a `uid`). The intent gate alone is enough to prove **no Askesis answer has ever carried a citation**; ⚠ but activation only opens the FIRST gate — see PR-2 | **yes** (user-visible) |
 | `context_retriever.py:127` (`_INTENT_CHUNK_TYPES`) | chunk-type `IN` filter on the RAG draw | **no — PR-3, gated** |
 
 Those four are reachable from `answer_user_question`. The second caller has **two more of its
@@ -402,12 +402,22 @@ RELATIONSHIP deliberately rather than hoping a sample reaches it.**
   lands **with** this PR, or PR-2 holds `AGGREGATION` out of the reachable set explicitly. A
   window where the intent classifies with nothing behind it answers count questions with an
   invented number — a regression, not a staging step. (Codex, #1202.)
-- ⚠ **Citations turn on for the first time ever — on ~11% of questions.** `PREREQUISITE` and
-  `HIERARCHICAL` together fire on **5 of 45** at 0.35, and they are the only intents gating
-  `_retrieve_citations_for_knowledge_units`. So this is a user-visible change with no production
-  precedent AND a thin one: a before/after that does not deliberately include prerequisite- and
-  progression-shaped questions will not see a single citation. Check the citation block renders
-  where the answer is displayed.
+- ⚠ **Citations become POSSIBLE for the first time ever — on at most ~11% of questions, and
+  probably fewer. Activation opens only the first of two gates.** `PREREQUISITE` and
+  `HIERARCHICAL` fire on **5 of 45** at 0.35, but the call site
+  (`query_processor.py:379–386`) then requires `extracted_entities["knowledge"]` to be non-empty
+  and to carry a `uid`, and `_retrieve_citations_for_knowledge_units` applies
+  `min_evidence_count=1` on top. **Those 5 rows are citation CANDIDATES, not citations.** The
+  eval cannot tell you the real rate: it measures classification and never exercises entity
+  extraction. So:
+  - **Do not read "no citations appeared" as "activation did nothing"** — it is far more likely
+    the second gate, and diagnosing it as the first would send PR-2 chasing the threshold.
+  - The before/after must use questions that **name a corpus concept** ("what do I need before
+    *the eight-fold path*"), not merely prerequisite-shaped phrasing — otherwise extraction
+    resolves nothing and the branch stays dark whatever the gate does.
+  - **Measure and record the real activation rate**; it is unknown today, and this PR is the
+    first thing that can find out. Check the citation block renders where the answer is
+    displayed. (Codex, #1206.)
 - ⚠ **Both callers get before/after, not just the chat surface.** `process_query_with_context`
   has its own prose branch and its own actions method; validating only `answer_user_question`
   would ship the API's change unmeasured.
