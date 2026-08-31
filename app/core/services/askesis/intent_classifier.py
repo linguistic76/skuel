@@ -29,6 +29,7 @@ from core.constants import IntelligenceThreshold
 from core.models.askesis.pedagogical_intent import PedagogicalIntent
 from core.models.enums import GuidanceMode
 from core.models.query_types import QueryIntent
+from core.utils.exception_types import LLM_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.vector_math import cosine_similarity
@@ -395,19 +396,43 @@ class IntentClassifier:
         The shared engine under both public contracts. It deliberately does NOT
         judge the exemplar set's COMPLETENESS — tolerating a partial set is the
         difference between the two callers, so that check lives in them.
-        """
-        await self._ensure_exemplars_loaded()
 
-        if not self._intent_exemplar_embeddings:
+        Returns a Result for EVERY failure, raised ones included: the embeddings
+        service can throw as well as return ``Result.fail`` — which is why
+        ``classify_intent`` carries a safety net — and a caller that asked for an
+        observable verdict must get one, not an exception that takes down the
+        whole run instead of the one classification.
+        """
+        try:
+            await self._ensure_exemplars_loaded()
+
+            if not self._intent_exemplar_embeddings:
+                return Result.fail(
+                    Errors.unavailable(
+                        feature="intent_classification",
+                        reason="no intent exemplar embeddings available",
+                        operation="classify_intent_scored",
+                    )
+                )
+
+            query_result = await self.embeddings_service.create_embedding(query)
+        except LLM_EXCEPTIONS as e:
             return Result.fail(
-                Errors.unavailable(
-                    feature="intent_classification",
-                    reason="no intent exemplar embeddings available",
+                Errors.integration(
+                    service="embeddings",
+                    message=f"embedding failed during intent classification: {e}",
+                    operation="classify_intent_scored",
+                )
+            )
+        except Exception as e:  # safety-net: embeddings service raises varied exceptions
+            return Result.fail(
+                Errors.integration(
+                    service="embeddings",
+                    message=f"intent classification raised: {e}",
                     operation="classify_intent_scored",
                 )
             )
 
-        query_result = await self.embeddings_service.create_embedding(query)
         if query_result.is_error:
             return Result.fail(query_result)
         query_embedding = query_result.value

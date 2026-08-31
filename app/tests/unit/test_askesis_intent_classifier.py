@@ -168,6 +168,33 @@ class TestClassifyIntentScored:
         assert soft.is_ok and soft.value is QueryIntent.SPECIFIC
 
     @pytest.mark.asyncio
+    async def test_a_raised_embedding_failure_is_also_an_error_result(
+        self, mock_embeddings
+    ) -> None:
+        # The embeddings service throws as well as returning Result.fail —
+        # which is why classify_intent carries a safety net. A caller that
+        # asked for an observable verdict must get one, not an exception that
+        # takes down the whole run instead of the single classification.
+        mock_embeddings.create_embedding = AsyncMock(side_effect=RuntimeError("socket closed"))
+        classifier = IntentClassifier(embeddings_service=mock_embeddings)
+        classifier._intent_exemplar_embeddings = {QueryIntent.PRACTICE: [[0.1] * 1024]}
+
+        scored = await classifier.classify_intent_scored("anything")
+
+        assert scored.is_error
+        assert "socket closed" in str(scored.expect_error())
+
+    @pytest.mark.asyncio
+    async def test_a_raised_failure_during_exemplar_load_is_an_error_result(
+        self, mock_embeddings
+    ) -> None:
+        # The load itself embeds 48 exemplars, so it is the other throw site.
+        mock_embeddings.create_embedding = AsyncMock(side_effect=RuntimeError("429"))
+        classifier = IntentClassifier(embeddings_service=mock_embeddings)
+
+        assert (await classifier.classify_intent_scored("anything")).is_error
+
+    @pytest.mark.asyncio
     async def test_missing_exemplars_are_an_error(self, mock_embeddings) -> None:
         classifier = IntentClassifier(embeddings_service=mock_embeddings)
         classifier._intent_exemplar_embeddings = {}
