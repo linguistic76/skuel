@@ -230,6 +230,19 @@ class IntentClassifier:
         Returns:
             Result[QueryIntent] - Classified intent or error if classification fails
         """
+        # A degraded load is permanent for the process, so from the second turn on the
+        # verdict is already decided — scoring first would buy a query embedding, its
+        # latency and its cost to reach a conclusion known before the call. The
+        # post-scoring check below still covers the request that DID the loading, where
+        # `_exemplar_load` is necessarily None on entry.
+        cached_load = self._exemplar_load
+        if cached_load is not None and not cached_load.is_complete():
+            logger.debug(
+                "Intent exemplar set incomplete (%s) — answering SPECIFIC without embedding",
+                cached_load.describe(),
+            )
+            return Result.ok(QueryIntent.SPECIFIC)
+
         try:
             intent = await self._classify_via_embeddings(query)
         except Exception:  # safety-net: embeddings service raises varied exceptions

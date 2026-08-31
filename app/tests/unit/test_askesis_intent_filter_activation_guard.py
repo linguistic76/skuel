@@ -95,6 +95,29 @@ class TestCatchAllVerdictCarriesNoFilter:
         )
 
     @pytest.mark.asyncio
+    async def test_a_cached_degraded_load_costs_no_further_embedding_calls(self) -> None:
+        """The verdict is decided before the call, so the call must not happen.
+
+        A partial load is cached for the process's lifetime; scoring first would buy a
+        query embedding — latency and provider spend — to reach a conclusion already
+        known. Only the request that DID the loading can pay it.
+        """
+        vector = [1.0] + [0.0] * 1023
+        embed = AsyncMock(return_value=Result.ok(vector))
+        classifier = _classifier(embed)
+        classifier._intent_exemplar_embeddings = {QueryIntent.PRACTICE: [vector]}
+        classifier._exemplar_load = ExemplarLoad(
+            expected=48, loaded=44, intents_expected=6, intents_loaded=6
+        )
+
+        result = await classifier.classify_intent("anything at all")
+
+        assert result.is_ok and result.value is QueryIntent.SPECIFIC
+        assert embed.await_count == 0, (
+            "a cached degraded load must short-circuit BEFORE embedding the query"
+        )
+
+    @pytest.mark.asyncio
     async def test_low_confidence_verdict_does_not_narrow_retrieval(self) -> None:
         # A real embedding that matches no exemplar well — the ordinary route to
         # SPECIFIC, and the one every production query takes today.
