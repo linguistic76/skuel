@@ -1802,10 +1802,13 @@ label-only lines; 72 typed `explanation`; 32 under 20 characters), 6 path_step (
    implicates the *averaging over 8 diverse exemplars*, and because all three aggregations were
    thought to rank identically. Measured on 45 labelled queries, both halves fail: the
    aggregations do NOT rank identically (mean 30/31, max 29/31, top-3 29/31), and the production
-   `mean` **dominates at the zero-wrong-activation frontier** — it activates 19 of 45 with zero
-   mis-routes, against max 14/45 and top-3 12/45. The averaging is not the defect; it is the
+   `mean` **dominates at the exact zero-wrong-activation frontier** — it activates 21 of 45 at
+   0.3329 (78% accuracy), against max 17/45 at 0.5353 (69%) and top-3 15/45 at 0.4911 (64%).
+   ⚠ Exact, not ladder-rounded: the frontier is pinned by one query and a 0.05 grid rounds it up,
+   which understated all three arms (#1206). The averaging is not the defect; it is the
    best-behaved of the three. So the indicated fix is the one the old reading warned against:
-   keep the mean, move the gate (~0.35 on this evidence). The arc doc's PR-2 section carries the
+   keep the mean, move the gate — **0.35, deliberately not the frontier itself**, which is an
+   observed score and drifts between runs. The arc doc's PR-2 section carries the
    proposal and what would reject it. Note what flipping queries off SPECIFIC does and does not touch: with `chunk_types`
    held off it re-routes the two answer-shaping branches and NOT the chunk draw, which is
    exactly why the arc can proceed without the fallback.

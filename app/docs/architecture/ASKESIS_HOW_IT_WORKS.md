@@ -93,9 +93,10 @@ This classification determines which context sections get included in the LLM pr
 > exemplar's 0.43–0.56 self-similarity that the *averaging over 8 exemplars* was the defect, and
 > from a 12-probe sketch that all three aggregations rank identically. The ratified 45-query set
 > refutes both: ranking is 30/31 (mean), 29/31 (max), 29/31 (top-3) — they differ — and compared
-> at each aggregation's zero-wrong-activation gate, the **mean activates the most queries without
-> mis-routing any** (19 of 45 at 0.35, vs max 14 at 0.55 and top-3 12 at 0.50). The averaging is
-> the best-behaved of the three; the gate is what is out of reach.
+> at each aggregation's exact zero-wrong-activation gate, the **mean activates the most queries
+> without mis-routing any, and scores highest doing it** — 21 of 45 at 0.3329 (78%), against max
+> 17 at 0.5353 (69%) and top-3 15 at 0.4911 (64%). The averaging is the best-behaved of the
+> three; the gate is what is out of reach.
 > Activation covers the two branches that shape the ANSWER; the `_INTENT_CHUNK_TYPES` map stays
 > switched off and keeps its own entry (`deferred-work.md` § "Per-Domain Chunking Knobs +
 > Chunk-Type-Aware Retrieval", Named work 4) — switching THAT on is what would require a
