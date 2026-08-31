@@ -316,8 +316,10 @@ class ToolSelection:
 #     to an unwired OpenAI adapter that rejects every selection.
 #   • Returns "no tool" as a normal outcome, NOT an error — that is a Declined,
 #     and it is the only decline the model can express (OPEN PROBLEM 1).
-#   • Is skipped entirely when `self.caller is None` (CORE tier has no Digital
-#     layer), which must itself be a Declined and not a silent generic answer.
+#   • Has NO CORE-tier branch. Askesis is constructed only at
+#     INTELLIGENCE_TIER=FULL with every dependency required and fail-fast
+#     (askesis_factory.py, askesis_service.py) — a `caller is None` path here
+#     would be unreachable code contradicting that philosophy.
 ```
 
 ⚠ **`select_tool` must be handed a trusted reference date, or "last quarter" is a guess.**
@@ -397,25 +399,19 @@ builds this must name the delivery point for each path**, not just the computati
 for the guided path that means deciding whether an aggregation result may enter a deliberately
 narrow Socratic prompt at all (ADR-077), which is a pedagogical question, not a plumbing one.
 
-```python
-# context_retriever.py — computes the aggregation (necessary, NOT sufficient — see above)
-elif intent == QueryIntent.AGGREGATION:
-    # select_tool returns Result[ToolSelection] (§ 4) — a provider failure is not a
-    # selection, and passing the wrapper on would have run_tool read .tool_name off it.
-    selected = await self.llm_service.select_tool(query, self._agg_tools)
-    if selected.is_error:
-        logger.info("Tool selection FAILED; using baseline context")
-        return context
-    result = await run_tool(selected.value, self._agg_catalog, user_context)
-    if result.is_error:
-        logger.info("Aggregation tool FAILED; using baseline context")
-    elif isinstance(result.value, Declined):
-        # Carried, not swallowed — the answer path must say so rather than
-        # answering from generic context as if nothing was asked.
-        context["aggregation_declined"] = result.value.reason
-    else:
-        context["aggregation"] = {"tool": selection.tool_name, **result.value.payload}
-```
+**Requirements, not a snippet.** Successive drafts of this branch produced a defect per
+review round; what it must satisfy is the durable part:
+
+- **Unwrap `select_tool`'s `Result` before executing.** A provider failure is not a selection.
+- **Three outcomes, three behaviours, and only one of them resumes normal generation:**
+
+  | outcome | behaviour |
+  |---|---|
+  | `Answered(payload)` | attach the result; the answer must state the scope it actually filtered on |
+  | `Declined(reason)` | deterministic learner-visible "not answerable yet" — **must not** be a hint in prompt context (OPEN PROBLEM 2) |
+  | selection or tool **FAILED** | ⚠ **also not baseline generation.** An embeddings/provider outage on a reachable `AGGREGATION` question would otherwise let the ordinary generator produce a plausible **invented count** — the failure mode this whole document exists to avoid, arriving through the error path instead of the selection path. Return a deterministic "unavailable", the same shape as a decline. |
+
+- **Deliver on every answer path**, not just where the value is computed (§ 7).
 
 Everything downstream is unchanged — the result lands in the same `context` dict the
 existing `ResponseGenerator` already consumes.
