@@ -132,68 +132,34 @@ ToolExecutor.run(selection, user_context)
 context["aggregation"] = result   →   existing ResponseGenerator answers in NL
 ```
 
-### 1. The catalog entry — a vetted tool, not a free-form query
+### 1–2. The catalog and its entries — requirements, not a body
 
-```python
-# core/services/askesis/query_tools.py  (new)
-from dataclasses import dataclass
-from collections.abc import Awaitable, Callable
-from pydantic import BaseModel, Field
-from core.utils.result import Result
+Successive review rounds produced a defect per revision in this block; what survives review is
+what the shapes must satisfy. `core/services/askesis/query_tools.py` (new):
 
-class CountGoalsAchievedArgs(BaseModel):
-    """LLM fills ONLY these. No raw strings reach Cypher.
-
-    Deliberately ONE domain, not an `entity_type` dial: the completion field
-    differs per domain (§ 3), so a generic tool can only be wrong for some of
-    them — and narrowing the schema is also what stops the LLM selecting a
-    shape that has no field to filter on.
-    """
-    since: date | None = Field(default=None, description="ISO date lower bound")
-    until: date | None = None
-
-@dataclass(frozen=True)
-class QueryTool:
-    name: str
-    description: str                              # what the LLM reads to choose
-    args_model: type[BaseModel]                   # pydantic = the param schema
-    handler: Callable[..., Awaitable[Result[ToolPayload]]]     # bound SERVICE method
-    # ⚠ `ToolPayload` is the union of the catalog's concrete TypedDicts, NOT
-    # dict[str, Any]. Erasing it here would undo the typing at the one boundary
-    # that matters: consumers could no longer rely on `total`/`since`/`until`
-    # being present, which is what makes "state the scope you filtered on"
-    # checkable rather than aspirational.
-
-    def json_schema(self) -> dict[str, Any]:
-        return self.args_model.model_json_schema()  # → OpenAI/Anthropic tool spec
-```
-
-### 2. The registry — small, hand-curated, every entry backed by tested Cypher
-
-```python
-# ⚠ Takes the SERVICE, not `GoalsBackend`. This catalog lives in
-# `core/services/askesis/`, and a `core/` file naming a concrete adapter is a
-# SKUEL023 error, not a style preference — it would also let the executor bypass
-# domain-service orchestration entirely. The service's delegation method is the
-# contract; it holds the backend. (Codex, #1202.)
-def build_aggregation_catalog(goals: GoalsService) -> dict[str, QueryTool]:
-    return {
-        "count_goals_achieved": QueryTool(
-            name="count_goals_achieved",
-            description=(
-                "Count the goals this user has achieved, optionally within a date "
-                "range. Use for 'how many goals did I complete last quarter'."
-            ),
-            args_model=CountGoalsAchievedArgs,
-            handler=goals.count_goals_achieved,   # GoalsService → its backend
-        ),
-        # Siblings are added PER DOMAIN, each bound to its own SERVICE and its own
-        # completion field (§ 3): count_tasks_completed (TasksService →
-        # completion_date), count_habits_completed (HabitsService → completed_at), …
-        # There is no "count_entities_by_status" — that shape cannot be written
-        # correctly across domains.
-    }
-```
+- **`QueryTool` is GENERIC over its payload type** — `QueryTool[P]`, with the executor
+  parameterised to match. It cannot declare `Result[ToolPayload]` over a union and accept a
+  handler returning `Result[GoalsAchievedCount]`: **`Result[T]` is invariant**, so MyPy rejects
+  it and the zero-error gate fails. Widening inside `Result` is the wrong move; parameterising
+  is the right one.
+- **The args model is narrow, enum-bound, and per-domain.** No `entity_type` dial — the
+  completion field differs per domain (§ 3), so a generic tool can only be wrong for some of
+  them, and a narrow schema is also what stops the model selecting a shape that has no field to
+  filter on.
+- **Cross-field validation belongs in the args model**, not downstream. A model-emitted
+  `since > until` must fail validation and take the deterministic unavailable path — otherwise
+  the backend faithfully returns `0` for an empty interval and a **malformed selection is
+  presented as a real answer**. Same failure family as everything else here: a wrong number
+  that looks like a right one.
+- **`handler` is a bound SERVICE method** (`GoalsService`, not `GoalsBackend`) — a `core/` file
+  naming a concrete adapter is a SKUEL023 error, and binding the backend lets the executor
+  bypass domain-service orchestration.
+- **The tool's JSON schema comes from pydantic** (`model_json_schema()`), so the provider tool
+  spec and the validation gate can never drift apart.
+- **Entries are added per domain**, each bound to its own service and its own completion field:
+  `count_goals_achieved` (`achieved_date`), `count_tasks_completed` (`completion_date`),
+  `count_habits_completed` (`completed_at`), … **There is no `count_entities_by_status`** —
+  that shape cannot be written correctly across domains.
 
 ### 3. The backend method — the *only* place Cypher exists (SKUEL001-clean, user-scoped)
 
