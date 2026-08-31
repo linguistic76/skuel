@@ -98,11 +98,22 @@ _SENTINEL = object()
 #                       tests/unit/test_askesis_intent_filter_activation_guard.py.
 #   GOAL_ACHIEVEMENT  — domain query served from user activity data, not curriculum.
 #
-# ⚠ This map executes on every question and takes its no-filter branch every
-# time: no query clears the classifier's gate today (deferred-work § "Per-Domain
-# Chunking Knobs + Chunk-Type-Aware Retrieval", Named work 4 — measured + ruled
-# 2026-08-30, staged not dead). Activating it is one change with the thin-draw
-# fallback, never a lone edit here.
+# ⚠ This map has never filtered anything: it executes on every question and
+# takes its no-filter branch every time, because no query clears the classifier's
+# gate (measured 2026-08-30). Ruled staged, not dead.
+#
+# The classifier fix is SCHEDULED and deliberately leaves this map OFF —
+# docs/roadmap/askesis-intent-classification-activation.md. It activates the two
+# branches that shape the ANSWER (graph context, suggested actions); the draw
+# stays unfiltered. ⚠ Whoever lands that arc must revisit this comment: the
+# "no query clears the gate" sentence above is a claim about STATE and stops
+# being true the moment the gate becomes reachable.
+#
+# Switching THIS map on is a separate, gated change (deferred-work § "Per-Domain
+# Chunking Knobs + Chunk-Type-Aware Retrieval", Named work 4) and needs the
+# thin-draw fallback in the same commit — over the live 925-chunk corpus it
+# grants 85% of chunks to three intents and 7.1% to EXPLORATORY, on labels that
+# are 78% keyword fallback. Never a lone edit here.
 _INTENT_CHUNK_TYPES: dict[QueryIntent, tuple[ContentChunkType, ...]] = {
     QueryIntent.PREREQUISITE: (ContentChunkType.DEFINITION, ContentChunkType.EXPLANATION),
     QueryIntent.PRACTICE: (ContentChunkType.EXERCISE, ContentChunkType.EXAMPLE),

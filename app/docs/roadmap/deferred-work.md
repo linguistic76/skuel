@@ -1759,23 +1759,34 @@ label-only lines; 72 typed `explanation`; 32 under 20 characters), 6 path_step (
    **So the thin-draw fallback would change nothing today**, and shipping it alone would be
    dead code guarding dead code.
    **RULED 2026-08-30 (Mike): NOT (a) — do not delete. The shape is (b); the present state
-   is (c).** The plumbing stays because the intent is to *connect* it, not to retire it:
-   `_INTENT_CHUNK_TYPES` + `chunk_types=` are a staged surface awaiting its classifier, so
+   is (c).** **REFINED the same day, once the dormant surface was measured: the classifier fix
+   is SCHEDULED and the chunk filter is NOT part of it** — see
+   [askesis-intent-classification-activation.md](askesis-intent-classification-activation.md).
+   The classifier gates SIX Askesis branches across its two callers, and this filter is the
+   weakest of them; the other five (graph context, suggested actions, citations — which have
+   consequently never attached to any Askesis answer — plus the context-query API's own prose
+   and actions branches) need no chunk types at all. So activation happens there first with `chunk_types` hard-wired off, and
+   "fix and fallback ship together" narrows to its true scope: it binds whoever switches the
+   FILTER on, not whoever fixes the classifier. This entry keeps the filter half.
+   The plumbing stays because the intent is to *connect* it, not to retire it:
+   `_INTENT_CHUNK_TYPES` + `chunk_types=` are a staged surface awaiting a reason to fire, so
    they are **PLANNED, not dead** — the One Path Forward carve-out for deliberately
-   staged-but-unwired work. When it is scheduled, the classifier fix and the thin-draw
-   fallback ship in ONE change: activation is never neutral, and a reachable threshold
-   without the fallback would newly impose the 66-of-925 EXPLORATORY starvation on draws
-   that today see all 925 — the fallback is the PREREQUISITE for the fix, not a sequel to
-   it. Until then (3)'s weight table is arguing about a path that does not execute.
-   **Named cost while inert:** every reader of `context_retriever.py` — and, until PR-2,
+   staged-but-unwired work. **Switching this filter on is ONE change with the thin-draw
+   fallback**: activation is never neutral, and a live filter without the fallback imposes
+   the 66-of-925 EXPLORATORY starvation on draws that today see all 925. The fallback is the
+   prerequisite for ACTIVATING THE FILTER — not for fixing the classifier, which the arc doc
+   does with the filter left off. Until then (3)'s weight table is arguing about a path that
+   does not execute.
+   **Named cost while inert:** every reader of `context_retriever.py` — and, until #1198,
    four docs — sees an intent→chunk-type filter that appears operative and is not; the
    only thing keeping that legible is this entry plus the `./dev eval-askesis-draw` banner.
-   **What "fix the classifier" means is not yet decided** and must not be assumed to be
-   "lower 0.65": the measured 0.43–0.56 self-similarity of a verbatim exemplar says the
-   *averaging over 8 diverse exemplars* is the mechanism at fault, so max-similarity,
-   per-intent centroids, or a different classifier are all live shapes — and the fix would
-   need its own before/after on the ratified set, since flipping queries off SPECIFIC
-   re-routes retrieval for every Askesis ask, not only the starved intents.
+   **"Fix the classifier" must not be assumed to mean "lower 0.65"** — the measured
+   0.43–0.56 self-similarity of a verbatim exemplar implicates the *averaging over 8 diverse
+   exemplars*, and measured across mean / max / top-3 the aggregation moves REACHABILITY, not
+   correctness (all three rank identically). Which shape lands is PR-1's measurement in the arc
+   doc. Note what flipping queries off SPECIFIC does and does not touch: with `chunk_types`
+   held off it re-routes the two answer-shaping branches and NOT the chunk draw, which is
+   exactly why the arc can proceed without the fallback.
    **Both halves of that are RUNNABLE, not just prose**
    (`tests/unit/test_askesis_intent_filter_activation_guard.py`): mapping `SPECIFIC` fails —
    it is the verdict `classify_intent` returns on an embeddings OUTAGE, so a mapping would let
@@ -1786,10 +1797,14 @@ label-only lines; 72 typed `explanation`; 32 under 20 characters), 6 path_step (
 
 **Trigger:** (1) ✅ done; (2) ✅ instrument + body-fold status shipped (PR-2), set ratified at
 v2 and the baseline recorded on #1197 — the thread is now open only for a measured miss traced to
-chunk grain (judged on `best_rank`, not the saturated hit@5); (4) ✅ measured in PR-2 and RULED —
-not deleted, shipped as one classifier-fix + thin-draw change when Mike schedules it, inert with
-the cost named until then; (3) additionally needs the content-typing classifier named in its (b),
-and is downstream of (4) executing at all.
+chunk grain (judged on `best_rank`, not the saturated hit@5); (4) ✅ measured and RULED — and the
+ruling SPLIT it in two, so read both halves before starting: the **classifier fix is scheduled
+separately** and does NOT touch this filter
+([askesis-intent-classification-activation.md](askesis-intent-classification-activation.md)),
+while **switching this filter on** stays here, gated on (3)'s content-typing classifier and
+carrying the thin-draw fallback in the same change. Inert with the cost named until then;
+(3) needs that classifier regardless, and gates the filter half of (4) — not the classifier arc,
+which does not depend on it.
 **Check** (one statement per block — paste each on its own; words, not characters, because the
 knobs are word counts; `c.end_index` is the persisted whitespace-aware `word_count`, so a chunk
 with line breaks or doubled spaces is counted the way ingestion counted it — a naive

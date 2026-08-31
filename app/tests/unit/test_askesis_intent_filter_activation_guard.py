@@ -70,6 +70,54 @@ class TestCatchAllVerdictCarriesNoFilter:
         )
 
     @pytest.mark.asyncio
+    async def test_a_degraded_exemplar_load_does_not_narrow_retrieval(self) -> None:
+        """The third route to the catch-all, and the one that nearly shipped.
+
+        A partial load is cached for the process's lifetime and averages over fewer
+        exemplars, which RAISES the mean — so it is the one path that can clear the gate
+        today, on the least trustworthy classification the service can produce. Before
+        this guard it would have filtered the draw with no thin-draw fallback.
+        """
+        vector = [1.0] + [0.0] * 1023
+        classifier = _classifier(AsyncMock(return_value=Result.ok(vector)))
+        # One exemplar scoring 1.0 — the mean IS the max, comfortably over 0.65.
+        classifier._intent_exemplar_embeddings = {QueryIntent.PRACTICE: [vector]}
+        classifier._exemplar_load = ExemplarLoad(
+            expected=48, loaded=44, intents_expected=6, intents_loaded=6
+        )
+
+        result = await classifier.classify_intent("anything at all")
+
+        assert result.is_ok
+        assert _intent_to_chunk_types(result.value) is None, (
+            "a degraded exemplar load must not narrow the chunk draw — PRACTICE would "
+            "restrict it to 137 of 925 chunks on a manufactured confidence score"
+        )
+
+    @pytest.mark.asyncio
+    async def test_a_cached_degraded_load_costs_no_further_embedding_calls(self) -> None:
+        """The verdict is decided before the call, so the call must not happen.
+
+        A partial load is cached for the process's lifetime; scoring first would buy a
+        query embedding — latency and provider spend — to reach a conclusion already
+        known. Only the request that DID the loading can pay it.
+        """
+        vector = [1.0] + [0.0] * 1023
+        embed = AsyncMock(return_value=Result.ok(vector))
+        classifier = _classifier(embed)
+        classifier._intent_exemplar_embeddings = {QueryIntent.PRACTICE: [vector]}
+        classifier._exemplar_load = ExemplarLoad(
+            expected=48, loaded=44, intents_expected=6, intents_loaded=6
+        )
+
+        result = await classifier.classify_intent("anything at all")
+
+        assert result.is_ok and result.value is QueryIntent.SPECIFIC
+        assert embed.await_count == 0, (
+            "a cached degraded load must short-circuit BEFORE embedding the query"
+        )
+
+    @pytest.mark.asyncio
     async def test_low_confidence_verdict_does_not_narrow_retrieval(self) -> None:
         # A real embedding that matches no exemplar well — the ordinary route to
         # SPECIFIC, and the one every production query takes today.

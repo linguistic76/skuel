@@ -85,14 +85,16 @@ This classification determines which context sections get included in the LLM pr
 > **0.43–0.56** against its own intent. So every question classifies as `SPECIFIC`, and every
 > intent-conditioned branch below — including the `_INTENT_CHUNK_TYPES` chunk filter — takes
 > its catch-all path. Reproduce with `./dev eval-askesis-draw` (`max_intent_score`).
-> **Ruled 2026-08-30: the map stays — it is staged, not dead.** When it is scheduled, the
-> classifier fix and the thin-draw fallback ship together (a reachable gate WITHOUT the
-> fallback would newly starve `EXPLORATORY` draws). Note the fix is not assumed to be a lower
-> threshold: the 0.43–0.56 self-similarity implicates the *averaging over 8 exemplars*, not the
-> number. `docs/roadmap/deferred-work.md` § "Per-Domain Chunking Knobs + Chunk-Type-Aware
-> Retrieval", Named work 4.
+> **Scheduled 2026-08-30** — `docs/roadmap/askesis-intent-classification-activation.md` is the
+> contract. The fix is NOT assumed to be a lower threshold: the 0.43–0.56 self-similarity
+> implicates the *averaging over 8 exemplars*, not the number, and measured across mean / max /
+> top-3 the aggregation moves REACHABILITY, not correctness (all three rank identically).
+> Activation covers the two branches that shape the ANSWER; the `_INTENT_CHUNK_TYPES` map stays
+> switched off and keeps its own entry (`deferred-work.md` § "Per-Domain Chunking Knobs +
+> Chunk-Type-Aware Retrieval", Named work 4) — switching THAT on is what would require a
+> thin-draw fallback in the same change.
 
-**Error tolerance:** If the embeddings API is unavailable or exemplar loading fails, the classifier defaults to `SPECIFIC` intent rather than crashing the pipeline. Individual exemplar embedding failures are skipped — classification works with fewer exemplars (lower precision, not a crash).
+**Error tolerance:** If the embeddings API is unavailable or exemplar loading fails, the classifier defaults to `SPECIFIC` intent rather than crashing the pipeline. ⚠️ **An INCOMPLETE exemplar load also answers `SPECIFIC`** (changed 2026-08-30). Individual exemplar failures are still skipped rather than raising, but the resulting set is not merely less precise — averaging over fewer exemplars *raises* the mean, so an intent left holding one exemplar scores its max, and the partial set is cached for the process's lifetime. A degraded load would therefore manufacture confident verdicts, and every downstream consumer would act on the least trustworthy classification the service can produce.
 
 That fail-soft default is indistinguishable from a genuine low-confidence verdict at the call site, so anything that must tell an outage from a real classification calls `classify_intent_scored()` instead: it returns `Result[IntentClassification]` (intent + score + `confident`) and fails loudly rather than defaulting.
 
@@ -317,8 +319,8 @@ On timeout: `Result.fail()` with user message *"Your question is taking too long
 | Component | Failure Mode | Pipeline Response |
 |-----------|-------------|-------------------|
 | **UserContext load** | Neo4j down or MEGA-QUERY fails | Pipeline cannot proceed — returns `Result.fail()` |
-| **Intent classification** | Embeddings API unavailable | Defaults to `SPECIFIC` intent (lower precision, not a crash) |
-| **Intent classification** | Individual exemplar embedding fails | Skipped — classification works with fewer exemplars |
+| **Intent classification** | Embeddings API unavailable | Answers `SPECIFIC` — the catch-all verdict, never a chunk-type filter (pinned by `test_askesis_intent_filter_activation_guard.py`) |
+| **Intent classification** | Individual exemplar embedding fails | Skipped, but the LOAD is then incomplete → every classification answers `SPECIFIC` (a smaller denominator raises the mean, so a degraded set scores *higher*) |
 | **Entity extraction** | Domain service unavailable | Continues with empty matches — LLM still answers using other context |
 | **PS bundle fetch** | One of 7 entity fetches times out | That collection defaults to empty; bundle built from what succeeds |
 | **PS bundle fetch** | All fetches fail | Minimal bundle (just the PathStep) — still enables GuidanceMode |

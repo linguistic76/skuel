@@ -220,18 +220,52 @@ class IntentClassifier:
         """
         Classify query intent using embeddings-based semantic classification.
 
+        Fail-soft: an embeddings outage answers SPECIFIC rather than raising, so an
+        Askesis turn still completes. An INCOMPLETE exemplar load answers SPECIFIC too —
+        see below; that is a correctness guard, not tolerance.
+
         Args:
             query: User's natural language question
 
         Returns:
             Result[QueryIntent] - Classified intent or error if classification fails
         """
+        # A degraded load is permanent for the process, so from the second turn on the
+        # verdict is already decided — scoring first would buy a query embedding, its
+        # latency and its cost to reach a conclusion known before the call. The
+        # post-scoring check below still covers the request that DID the loading, where
+        # `_exemplar_load` is necessarily None on entry.
+        cached_load = self._exemplar_load
+        if cached_load is not None and not cached_load.is_complete():
+            logger.debug(
+                "Intent exemplar set incomplete (%s) — answering SPECIFIC without embedding",
+                cached_load.describe(),
+            )
+            return Result.ok(QueryIntent.SPECIFIC)
+
         try:
             intent = await self._classify_via_embeddings(query)
         except Exception:  # safety-net: embeddings service raises varied exceptions
             logger.warning(
                 "Embedding-based classification failed — defaulting to SPECIFIC",
                 exc_info=True,
+            )
+            return Result.ok(QueryIntent.SPECIFIC)
+
+        # A partial load is cached for the process's lifetime, and averaging over FEWER
+        # exemplars RAISES the mean — an intent left holding one exemplar scores its max.
+        # So a degraded load does not merely lose precision, it manufactures confidence,
+        # and it is the only route by which a verdict clears the gate today. Every
+        # consumer downstream (chunk-type filter, graph context, suggested actions,
+        # citations) would then act on the least trustworthy classification the service
+        # can produce. SPECIFIC is precisely the "we do not know" verdict; take it.
+        load = self._exemplar_load
+        if intent and load is not None and not load.is_complete():
+            logger.warning(
+                "Intent exemplar set incomplete (%s) — scores are averaged over unequal "
+                "counts and are not comparable; answering SPECIFIC instead of %s",
+                load.describe(),
+                intent.value,
             )
             return Result.ok(QueryIntent.SPECIFIC)
 
@@ -394,8 +428,10 @@ class IntentClassifier:
         """Score the query against whatever exemplars are loaded.
 
         The shared engine under both public contracts. It deliberately does NOT
-        judge the exemplar set's COMPLETENESS — tolerating a partial set is the
-        difference between the two callers, so that check lives in them.
+        judge the exemplar set's COMPLETENESS; both callers do, and both REJECT a
+        partial load — they differ only in how loudly (``classify_intent`` answers
+        SPECIFIC, ``classify_intent_scored`` fails). The check lives in them because
+        the verdict differs, not because either one tolerates it.
 
         Returns a Result for EVERY failure, raised ones included: the embeddings
         service can throw as well as return ``Result.fail`` — which is why
@@ -466,29 +502,29 @@ class IntentClassifier:
     async def classify_intent_scored(self, query: str) -> Result[IntentClassification]:
         """Classify intent AND report the confidence behind the verdict.
 
-        The observable counterpart to ``classify_intent``. That method is
-        fail-soft by design — it converts an embedding outage into
-        ``Result.ok(SPECIFIC)`` so an Askesis turn still answers — which makes a
-        provider failure indistinguishable from a genuine low-confidence
-        classification at the call site. Anything that must tell those apart
-        (measurement, diagnostics, an eval that would otherwise score an outage
-        as a finding) calls this instead and gets a real ``Result.fail``.
+                The observable counterpart to ``classify_intent``. That method is
+                fail-soft by design — it converts an embedding outage into
+                ``Result.ok(SPECIFIC)`` so an Askesis turn still answers — which makes a
+                provider failure indistinguishable from a genuine low-confidence
+                classification at the call site. Anything that must tell those apart
+                (measurement, diagnostics, an eval that would otherwise score an outage
+                as a finding) calls this instead and gets a real ``Result.fail``.
 
-        Stricter than ``classify_intent`` in one further way, deliberately: it
-        refuses an INCOMPLETE exemplar set. A load that lost exemplars to a
-        transient error is cached for the process's lifetime, and its per-intent
-        averages are then taken over unequal denominators — scores that are no
-        longer comparable across intents, and an intent that lost all eight can
-        never win. ``classify_intent`` tolerates that as its documented "lower
-        precision, not a crash"; a caller asking for the SCORE is asking whether
-        the score can be trusted, and a silently-degraded set is exactly the
-        answer it must not miss.
+        Both methods refuse an INCOMPLETE exemplar set; this one differs only in
+                saying so out loud. A load that lost exemplars to a transient error is cached
+                for the process's lifetime, and its per-intent averages are then taken over
+                unequal denominators — scores no longer comparable across intents, an intent
+                that lost all eight can never win, and, worst, a SMALLER denominator RAISES
+                the mean, so a degraded set looks confident rather than uncertain.
+                ``classify_intent`` answers SPECIFIC there; a caller asking for the SCORE is
+                asking whether the score can be trusted, so it gets a real ``Result.fail``
+                rather than a verdict it cannot tell apart from a genuine one.
 
-        The score is the best AVERAGE cosine similarity across an intent's
-        exemplar set, and ``confident`` says whether it cleared
-        ``IntelligenceThreshold.INTENT_CLASSIFICATION``. A verdict of SPECIFIC
-        with a score far below the gate means the gate is out of reach, not that
-        the query was unusual — the two readings call for opposite fixes.
+                The score is the best AVERAGE cosine similarity across an intent's
+                exemplar set, and ``confident`` says whether it cleared
+                ``IntelligenceThreshold.INTENT_CLASSIFICATION``. A verdict of SPECIFIC
+                with a score far below the gate means the gate is out of reach, not that
+                the query was unusual — the two readings call for opposite fixes.
         """
         scored = await self._score_against_exemplars(query)
         if scored.is_error:
@@ -516,9 +552,12 @@ class IntentClassifier:
         (``classify_intent``) turns both of those into SPECIFIC; a caller that
         must distinguish them wants ``classify_intent_scored``.
 
-        Scores against whatever exemplars loaded, INCLUDING a partial set — the
-        documented fail-soft contract. The strict completeness check belongs to
-        ``classify_intent_scored``, so this path's behaviour is unchanged.
+        Scores against whatever exemplars loaded, INCLUDING a partial set. That is
+        deliberate HERE and safe only because both callers reject the result of a
+        partial load: ``classify_intent_scored`` returns an error, and
+        ``classify_intent`` answers SPECIFIC. Do not "simplify" by treating a verdict
+        off this method as trustworthy on its own — averaging over fewer exemplars
+        raises the mean, so a degraded set scores HIGHER, not lower.
         """
         scored = await self._score_against_exemplars(query)
         if scored.is_error:
@@ -539,10 +578,12 @@ class IntentClassifier:
         """
         Lazy-load intent exemplar embeddings on first use.
 
-        Generates embeddings for all INTENT_EXEMPLARS and caches them
-        for efficient intent classification. Individual exemplar failures
-        are logged and skipped — classification still works with fewer
-        exemplars per intent (lower precision, not a crash).
+        Generates embeddings for all INTENT_EXEMPLARS and caches them for efficient
+        intent classification. Individual exemplar failures are logged and skipped
+        rather than raising — but the resulting set is NOT merely less precise, and
+        neither caller will classify from it: ``classify_intent`` answers SPECIFIC and
+        ``classify_intent_scored`` fails. The completeness of the load is recorded on
+        ``self._exemplar_load`` for exactly that purpose.
         """
         if self._intent_exemplar_embeddings is not None:
             return  # Already loaded
@@ -584,9 +625,10 @@ class IntentClassifier:
         # permanently, and its per-intent averages are then taken over
         # different denominators — scores stop being comparable ACROSS intents,
         # which biases which intent wins, and an intent that lost every
-        # exemplar can never win at all. `classify_intent` tolerates that by
-        # documented design; `classify_intent_scored` must not, or a corrupted
-        # set would yield confident-looking numbers with no error.
+        # exemplar can never win at all. Worse, a SMALLER denominator RAISES the
+        # mean — one surviving exemplar scores its max — so a degraded set does not
+        # look uncertain, it looks confident. Neither caller accepts that:
+        # `classify_intent` answers SPECIFIC, `classify_intent_scored` fails.
         self._exemplar_load = ExemplarLoad(
             expected=sum(len(queries) for queries in INTENT_EXEMPLARS.values()),
             loaded=sum(len(embs) for embs in exemplar_embeddings.values()),
