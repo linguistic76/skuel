@@ -838,10 +838,19 @@ def _print_human(report: EvalReport) -> None:
         if frontier["threshold"] is None:
             print("  zero-wrong frontier: none — every cutoff admits a mis-route")
         else:
+            # An arm that mis-routes NOTHING anywhere has no pinning query, so
+            # `forced_by_score` is None — and formatting None with `:.3f` raises.
+            # Today every arm has a mis-route, which is why this never fired; a
+            # cleaner set or a smaller --queries set reaches it (Kody, #1206).
+            pinned = (
+                f"pinned by {frontier['forced_by_query']!r} @ {frontier['forced_by_score']:.3f}"
+                if frontier["forced_by_score"] is not None
+                else "no mis-routes at any gate"
+            )
             print(
                 f"  zero-wrong frontier: gate {frontier['threshold']:.4f} →"
                 f" {frontier['cleared_gate']} fire, accuracy {frontier['accuracy']:.0%}"
-                f" (pinned by {frontier['forced_by_query']!r} @ {frontier['forced_by_score']:.3f})"
+                f" ({pinned})"
             )
         best = max(a["threshold_sweep"], key=lambda p: p["accuracy"])
         print(

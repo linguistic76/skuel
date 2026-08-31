@@ -26,9 +26,11 @@ from eval_intent_classification import (  # type: ignore[import-not-found]
     ARMS,
     SPECIFIC_LABEL,
     ArmOutcome,
+    EvalReport,
     LabelledQuery,
     LabelledSet,
     QueryRow,
+    _print_human,
     aggregate,
     allowed_labels,
     fires,
@@ -396,6 +398,66 @@ class TestSummarize:
         assert report["errors"] == 1
         assert report["label_counts"] == {"practice": 1, "specific": 1}
         assert set(report["arms"]) == set(ARMS)
+
+
+class TestPrintHuman:
+    """The DEFAULT output path, and it was untested — which is how a `None`
+    format slipped in (Kody, #1206).
+
+    Every field the renderer formats numerically that CAN be None is a crash
+    waiting for the run that produces it. These exercise each shape rather than
+    asserting exact prose, so they survive wording changes but not a TypeError.
+    """
+
+    @staticmethod
+    def _report(rows: list[QueryRow]) -> EvalReport:
+        return summarize(rows, LabelledSet(version=1, ratified=None, queries=()), THRESHOLD)
+
+    def test_an_arm_with_no_misroutes_anywhere_renders(self, capsys) -> None:
+        """The reported crash: no mis-route means no pinning query, and
+        `forced_by_score` is None — which `:.3f` cannot format."""
+        rows = [
+            _row("practice", _outcome({"practice": 0.9}, "practice")),
+            _row("aggregation", _outcome({"aggregation": 0.8}, "aggregation")),
+        ]
+
+        _print_human(self._report(rows))
+
+        assert "no mis-routes at any gate" in capsys.readouterr().out
+
+    def test_a_pinned_frontier_names_the_query_that_sets_it(self, capsys) -> None:
+        rows = [
+            _row("specific", _outcome({"aggregation": 0.40}, "specific")),
+            _row("practice", _outcome({"practice": 0.90}, "practice")),
+        ]
+
+        _print_human(self._report(rows))
+
+        assert "pinned by" in capsys.readouterr().out
+
+    def test_no_clean_gate_renders_its_own_line(self, capsys) -> None:
+        """The top-scoring row is itself a mis-route, so only an empty gate is clean."""
+        rows = [_row("specific", _outcome({"aggregation": 0.95}, "specific"))]
+
+        _print_human(self._report(rows))
+
+        assert "every cutoff admits a mis-route" in capsys.readouterr().out
+
+    def test_an_errored_row_renders_instead_of_indexing_empty_arms(self, capsys) -> None:
+        """An errored row carries NO arms; the renderer must take its error branch."""
+        rows = [
+            _row("practice", _outcome({"practice": 0.5}, "practice")),
+            _row("specific", {}, error="embedding failed"),
+        ]
+
+        _print_human(self._report(rows))
+
+        assert "ERROR" in capsys.readouterr().out
+
+    def test_a_draft_set_is_announced_as_not_a_baseline(self, capsys) -> None:
+        _print_human(self._report([_row("practice", _outcome({"practice": 0.5}, "practice"))]))
+
+        assert "DRAFT" in capsys.readouterr().out
 
 
 class TestLabelledQueryShape:
