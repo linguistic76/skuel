@@ -327,45 +327,100 @@ AGGREGATION dormant.
 
 ### PR-2 — activation (behaviour change, narrow)
 
-- Aggregation + threshold re-based on PR-1's measurement — **the value of 0.65 is not the
-  question**; the mechanism is. ⚠ And the ratified baseline's answer is not the one this bullet
-  anticipated: the sweep says **keep the mean and move the gate to ~0.35** (19/45 fire, zero
-  wrong activations, all six intents covered). `max` and `top3_mean` reach higher accuracy only
-  by mis-routing 3–6 queries. Whatever lands, argue it against the wrong-activation column. Whatever lands must move `core/constants.py`,
-  [deferred-work.md](deferred-work.md), [ASKESIS_HOW_IT_WORKS.md](../architecture/ASKESIS_HOW_IT_WORKS.md)
-  and [ASKESIS_RAG_PIPELINE.md](../guides/ASKESIS_RAG_PIPELINE.md) together — the change-detector in
+⚠ **The ratified baseline changed this PR's shape. Re-read this section; it was rewritten
+2026-08-31 against the measurement, and the pre-baseline framing was wrong in its central
+claim.** That framing said *"the value of 0.65 is not the question; the mechanism is"* — the
+aggregation was assumed to be the defect and the threshold a symptom. The baseline says the
+reverse: the production `mean` aggregation **ranks 30 of 31 correctly** and, at its zero-wrong
+gate, activates MORE queries than either alternative (19/45 vs max 14/45, top-3 12/45). The
+mechanism is not the defect. **The value is the question**, and it is a one-line change to
+`IntelligenceThreshold.INTENT_CLASSIFICATION` (`core/constants.py:293`).
+
+**That relocates the whole risk of this PR.** Nothing subtle happens in the classifier; the
+subtle things happen in the five branches downstream that have never executed. Budget the review
+accordingly: the constant is the easy part.
+
+#### The proposal, and what would reject it
+
+**Keep `mean`; move the gate to 0.35.** On the ratified set that is 19 of 45 queries activating
+with **zero** wrong activations, all six intents represented. Reject it if any of these turn out
+true — each is a real check, not a formality:
+
+- **A wrong activation appears off-set.** The zero-wrong frontier is measured on 45 queries with
+  no adversarial phrasing. One mis-route is 2.2 points of accuracy and, under ruling 2, a
+  user-visible wrong answer. If before/after surfaces a mis-route the set does not contain, the
+  gate moves up, not the aggregation sideways.
+- **0.30 is argued for on accuracy.** It scores higher (80% vs 73%) and activates 24, but it
+  mis-routes *"give me an overview of this topic"* → `prerequisite@0.320`. Accuracy is the wrong
+  column; the wrong-activation column is the one that costs a user something.
+- **AGGREGATION cannot be answered yet** — see the sequencing constraint below. That does not
+  reject 0.35; it decides whether AGGREGATION is in the reachable set at all.
+
+#### What actually activates at 0.35 — it is lopsided, and the before/after must follow it
+
+| classified intent | fires (of 45) | what that means for validation |
+|---|---|---|
+| AGGREGATION | **6** | the most-activated intent — and the one with nothing behind it yet |
+| EXPLORATORY | **5** | activates the own-graph overview branch (ruling 3: correct as written) |
+| PREREQUISITE | 3 | + citations |
+| HIERARCHICAL | 2 | + citations |
+| PRACTICE | 2 | task-count branch |
+| RELATIONSHIP | **1** | barely reachable — one query in 45 |
+
+⚠ So *"five branches start running for every Askesis turn"* — the pre-baseline framing — is
+wrong in emphasis. **Activation is partial and uneven.** Two intents carry 11 of the 19 firings;
+RELATIONSHIP fires once. A before/after that samples questions uniformly will barely exercise
+half of what it is meant to validate. **Drive the branches that actually fire, and drive
+RELATIONSHIP deliberately rather than hoping a sample reaches it.**
+
+#### The work
+
+- **Move the threshold, and move its documentation in the same change.** `core/constants.py`
+  (the comment above the constant explains why 0.65 was strict — it stops being true),
+  [deferred-work.md](deferred-work.md),
+  [ASKESIS_HOW_IT_WORKS.md](../architecture/ASKESIS_HOW_IT_WORKS.md) and
+  [ASKESIS_RAG_PIPELINE.md](../guides/ASKESIS_RAG_PIPELINE.md) — all four state the gate or its
+  unreachability as fact. The change-detector in
   `tests/unit/test_askesis_intent_filter_activation_guard.py` fires precisely so this cannot be
   forgotten.
-- `chunk_types` stays off. State the reason at the site, not in a commit message.
-- ✅ **`retrieve_relevant_context`'s `EXPLORATORY` branch is activated AS WRITTEN.** It injects
-  an overview of the user's own graph, which is what catalog browsing asks for — and browsing is
-  what EXPLORATORY means (ruling 3). The conditional rewrite this section used to carry was
-  contingent on PR-1 choosing topic orientation; it did not, so there is nothing to rewrite.
+- ⚠ **Re-point the eval's own acceptance message — it will cry failure on a CORRECT PR-2 run.**
+  `scripts/eval_intent_classification.py` prints *"⚠ PR-1 ACCEPTANCE FAILS: N query(ies) clear
+  the live gate"* whenever anything fires (`_print_human`, and the condition is stated in the
+  module docstring). That was PR-1's acceptance condition; after PR-2 a non-zero `cleared_gate`
+  is the **intended** state. Left alone, the instrument that measures this arc reports success as
+  failure. Replace it with what PR-2 actually cares about: **wrong activations must stay at 0**.
+- **`chunk_types` stays off.** State the reason at the site, not in a commit message.
+- ✅ **`retrieve_relevant_context`'s `EXPLORATORY` branch is activated AS WRITTEN.** It injects an
+  overview of the user's own graph, which is what catalog browsing asks for — and browsing is what
+  EXPLORATORY means (ruling 3). The conditional rewrite this section used to carry was contingent
+  on PR-1 choosing topic orientation; it did not, so there is nothing to rewrite.
+- ⚠ **`AGGREGATION` must not become reachable before something can answer it — and no threshold
+  avoids it.** All **6 of 6** AGGREGATION queries fire at both candidate gates; it is the
+  best-separated intent in the set. There is no gate that activates the other five while leaving
+  this one dormant, so this is a **sequencing constraint, not a risk to monitor**: either the
+  tool-selection first slice ([askesis-tool-selection-queries.md](askesis-tool-selection-queries.md))
+  lands **with** this PR, or PR-2 holds `AGGREGATION` out of the reachable set explicitly. A
+  window where the intent classifies with nothing behind it answers count questions with an
+  invented number — a regression, not a staging step. (Codex, #1202.)
+- ⚠ **Citations turn on for the first time ever — on ~11% of questions.** `PREREQUISITE` and
+  `HIERARCHICAL` together fire on **5 of 45** at 0.35, and they are the only intents gating
+  `_retrieve_citations_for_knowledge_units`. So this is a user-visible change with no production
+  precedent AND a thin one: a before/after that does not deliberately include prerequisite- and
+  progression-shaped questions will not see a single citation. Check the citation block renders
+  where the answer is displayed.
 - ⚠ **Both callers get before/after, not just the chat surface.** `process_query_with_context`
   has its own prose branch and its own actions method; validating only `answer_user_question`
   would ship the API's change unmeasured.
-- ⚠ **Activation is never neutral.** Five branches that have never run start running for
-  every Askesis turn. Before/after the same questions through the real path — and **read the
-  right output for each path**, per the table above: on the context-aware path read the ANSWER
-  prose; on the guided path read `suggested_actions`, `context_used` and citations, because the
-  prose cannot change there. Scoring "no answer change" on the guided path as a null result
-  would be measuring a wire that isn't connected.
-- ⚠ **`AGGREGATION` must not become reachable before something can answer it — and the
-  baseline says there is no threshold that avoids it.** All **6 of 6** AGGREGATION queries fire
-  at both candidate gates (0.30 and 0.35); it is the best-separated intent in the set. So this
-  is not a risk to watch, it is a sequencing constraint: the tool-selection first slice lands
-  WITH the activation, or `AGGREGATION` is held out of the reachable set explicitly. Activation
-  makes count questions classify; if no tool branch exists yet they fall through to ordinary
-  generation and are answered generically or invented. So either the tool-selection first slice
-  ([askesis-tool-selection-queries.md](askesis-tool-selection-queries.md)) lands **with** this
-  PR, or PR-2 holds `AGGREGATION` unreachable (keep it out of the reachable set) until it does.
-  A window where the intent classifies with nothing behind it is a regression, not a staging
-  step. (Codex, #1202.)
-- ⚠ **Citations turn on for the first time ever.** `PREREQUISITE`/`HIERARCHICAL` answers start
-  carrying `citations_text`. That is a user-visible change with no production precedent — give
-  it its own before/after, and check the citation block renders where the answer is displayed.
+- ⚠ **Read the right output for each path** (per the fork table above): on the context-aware path
+  read the ANSWER prose; on the guided path read `suggested_actions`, `context_used` and
+  citations, because the prose cannot change there. Scoring "no answer change" on the guided path
+  as a null result would be measuring a wire that isn't connected.
 - ⚠ `SPECIFIC` must stay unmapped in `_INTENT_CHUNK_TYPES` — it is the outage fallback, and the
   activation guard pins this.
+- **Re-run `./dev eval-intent-classification` after the change and record it.** The baseline is a
+  pre-activation measurement of a classifier nothing consumed; the post-activation run is the
+  first time these numbers describe behaviour a user can receive. `wrong_activations` on the mean
+  arm is the number to carry forward.
 
 ### PR-3 — the chunk-type filter (REGISTERED, GATED — may never happen)
 

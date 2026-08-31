@@ -133,19 +133,30 @@ class TestCatchAllVerdictCarriesNoFilter:
 
 
 # ============================================================================
-# GUARD 2: the premise under "fixing this is not lowering the threshold"
+# GUARD 2: the score is a MEAN — and the mean is the measured-best aggregation
 # ============================================================================
 
 
 class TestScoreIsAveragedNotMaximised:
-    """The gate is an AVERAGE over an intent's exemplars, and that mechanism —
-    not the value 0.65 — is why a query that IS an exemplar verbatim still only
-    reaches 0.43-0.56 against its own intent.
+    """The gate is an AVERAGE over an intent's exemplars, and switching that to a
+    max must be a deliberate, measured decision rather than a passing edit.
 
-    An argument cannot be tested, so this pins the premise the argument rests
-    on. Switch the aggregation to max and this fails, forcing whoever does it to
-    read why: 0.65 against a max is a completely different gate, and the
-    measured evidence for "the threshold is unreachable" would no longer apply.
+    ⚠ This guard's REASON changed on 2026-08-31 and the new one is stronger, so
+    do not dismiss it by refuting the old one. Originally: averaging is why a
+    verbatim exemplar only reaches 0.43-0.56 against its own intent, so a max
+    would invalidate the "threshold is unreachable" evidence. That reason
+    EXPIRES the moment PR-2 moves the gate — which is exactly when someone is
+    standing here.
+
+    The reason that replaces it is a measurement, not an argument. On the
+    ratified 45-query set (`./dev eval-intent-classification`), compared at each
+    aggregation's zero-wrong-activation threshold, the mean ACTIVATES THE MOST
+    QUERIES WITHOUT MIS-ROUTING ANY — 19 of 45 at 0.35, against max 14 of 45 at
+    0.55 and top-3 12 of 45 at 0.50. max and top-3 reach higher headline
+    accuracy only by firing where they mis-route 3-8. So the mean is not merely
+    the incumbent: it is the best-behaved of the three on the metric that costs a
+    user something. Changing it needs a new measurement, and this failure is what
+    asks for one.
     """
 
     @pytest.mark.asyncio
@@ -164,8 +175,10 @@ class TestScoreIsAveragedNotMaximised:
 
         assert result.is_ok, result.expect_error() if result.is_error else ""
         assert result.value.score == pytest.approx(0.5), (
-            "score must be the MEAN across the exemplar set; a max would read "
-            "1.0 here and the 'threshold is unreachable' measurement would not hold"
+            "score must be the MEAN across the exemplar set — a max would read 1.0 "
+            "here. Measured on the ratified labelled set, the mean mis-routes least "
+            "of the three aggregations; re-measure with "
+            "./dev eval-intent-classification before changing it"
         )
         assert result.value.confident is False
         assert result.value.intent is QueryIntent.SPECIFIC
