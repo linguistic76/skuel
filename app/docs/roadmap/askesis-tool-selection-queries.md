@@ -166,10 +166,10 @@ async def count_entities_by_status(
         MATCH (u:User {uid: $user_uid})-[:OWNS]->(e:Entity)
         WHERE e.entity_type = $entity_type
           AND ($status IS NULL OR e.status = $status)
-          AND ($since  IS NULL OR e.completed_at >= $since)
-          AND ($until  IS NULL OR e.completed_at <= $until)
+          AND ($since  IS NULL OR e[$completion_field] >= $since)
+          AND ($until  IS NULL OR e[$completion_field] <= $until)
         RETURN count(e) AS total
-    """
+    """  # ⚠ see the completion-field table below — there is no ONE field name
     params = {
         "user_uid": user_uid,
         "entity_type": entity_type.value,
@@ -181,7 +181,34 @@ async def count_entities_by_status(
     return Result.ok({"total": rows[0]["total"] if rows else 0})
 ```
 
-The `(u:User {user_uid: $user_uid})-[:OWNS]->` clause is structurally
+⚠ **There is no single completion field, so a date-bounded count CANNOT be one generic
+`EntityType` tool** (Codex, #1202 — verified against the models):
+
+| domain | completion field | stored type |
+|---|---|---|
+| Task | `completion_date` | `date` |
+| Goal | `achieved_date` | `date` |
+| Choice / Event / Habit | `completed_at` | `datetime` |
+| Principle | **none** | — (deliberate: ADR-087 keeps Principle off the completion guard) |
+
+The sketch's original `e.completed_at` is real — on Choice, Event and Habit — and **absent on
+exactly the two types this doc's own headline example names** ("how many *goals* did I complete
+last quarter"). Same silent-zero class as the `uid` defect above: an unknown property matches no
+rows instead of erroring.
+
+Three consequences for whoever builds this:
+
+1. **Dispatch per domain**, from a service, to domain-specific backend methods — which is also
+   what SKUEL's architecture rule already requires ("domain-specific Cypher belongs on the domain
+   backend; cross-domain aggregation stays in services"). Narrow each tool's `args_model` to the
+   domains it can actually serve, so the LLM cannot select a shape that has no field.
+2. **`date` and `datetime` are not interchangeable at a bound.** Task/Goal store `date`,
+   the other three `datetime`; a comparison against the wrong one silently mis-filters rather
+   than failing. Bind the type the WRITER used, per domain.
+3. **A "completed" count over Principle is not answerable** and must not be offered as a tool
+   option — not an omission to fix later.
+
+The `(u:User {uid: $user_uid})-[:OWNS]->` clause is structurally
 non-bypassable — even a "correct" tool call can only ever read the requesting
 user's subgraph.
 
