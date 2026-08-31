@@ -1,19 +1,20 @@
 """Guards on ACTIVATING the Askesis intent → chunk-type filter.
 
 The filter (`_INTENT_CHUNK_TYPES` → `retrieve_scoped_chunks(chunk_types=)`) is
-staged, not dead: it executes on every Askesis question and takes its no-filter
-branch every time, because the classifier can only return `SPECIFIC` today
-(`IntelligenceThreshold.INTENT_CLASSIFICATION` = 0.65 is an *average* cosine
-over 8 exemplars, and a verbatim exemplar scores 0.43-0.56 against its own
-intent). Measured + ruled 2026-08-30 — see `docs/roadmap/deferred-work.md`
-§ "Per-Domain Chunking Knobs + Chunk-Type-Aware Retrieval", Named work 4.
+staged, not dead — and HOW it is held off changed with PR-2 of the activation
+arc (2026-08-31). Before: the gate (0.65, an *average* cosine over 8 exemplars,
+which a verbatim exemplar reached only 0.43-0.56 against) was unreachable, so
+the map executed on every question and took its no-filter branch every time.
+Since PR-2: the gate is live at 0.35 and intents DO classify, and the map is
+held off EXPLICITLY — `retrieve_relevant_context` hard-wires `chunk_types=None`
+at the call site, and `_intent_to_chunk_types` is registered in
+PLANNED_METHODS. See `docs/roadmap/deferred-work.md` § "Per-Domain Chunking
+Knobs + Chunk-Type-Aware Retrieval", Named work 4.
 
-No dead-code detector can find this: the map IS referenced and IS executed. So
-the two claims that would otherwise decay into stale prose are pinned here.
-
-Neither test asserts that the filter is inert — that is live-corpus state, and
-its home is `./dev eval-askesis-draw`. These pin the two things that must hold
-BEFORE and AFTER the filter is activated.
+These pin what must hold BEFORE and AFTER the filter is ever activated
+(guards 1-2), plus the AGGREGATION carve-out PR-2 introduced (guard 3). None
+asserts the filter is inert — that is live-corpus state, and its home is
+`./dev eval-askesis-draw`.
 """
 
 from __future__ import annotations
@@ -25,6 +26,7 @@ import pytest
 from core.constants import IntelligenceThreshold
 from core.services.askesis.context_retriever import _intent_to_chunk_types
 from core.services.askesis.intent_classifier import (
+    UNREACHABLE_INTENTS,
     ExemplarLoad,
     IntentClassifier,
     QueryIntent,
@@ -74,13 +76,14 @@ class TestCatchAllVerdictCarriesNoFilter:
         """The third route to the catch-all, and the one that nearly shipped.
 
         A partial load is cached for the process's lifetime and averages over fewer
-        exemplars, which RAISES the mean — so it is the one path that can clear the gate
-        today, on the least trustworthy classification the service can produce. Before
-        this guard it would have filtered the draw with no thin-draw fallback.
+        exemplars, which RAISES the mean — manufacturing confidence on the least
+        trustworthy classification the service can produce (before PR-2 opened the
+        gate, it was the ONLY path that could clear it). Before this guard it would
+        have filtered the draw with no thin-draw fallback.
         """
         vector = [1.0] + [0.0] * 1023
         classifier = _classifier(AsyncMock(return_value=Result.ok(vector)))
-        # One exemplar scoring 1.0 — the mean IS the max, comfortably over 0.65.
+        # One exemplar scoring 1.0 — the mean IS the max, comfortably over the gate.
         classifier._intent_exemplar_embeddings = {QueryIntent.PRACTICE: [vector]}
         classifier._exemplar_load = ExemplarLoad(
             expected=48, loaded=44, intents_expected=6, intents_loaded=6
@@ -145,8 +148,7 @@ class TestScoreIsAveragedNotMaximised:
     do not dismiss it by refuting the old one. Originally: averaging is why a
     verbatim exemplar only reaches 0.43-0.56 against its own intent, so a max
     would invalidate the "threshold is unreachable" evidence. That reason
-    EXPIRES the moment PR-2 moves the gate — which is exactly when someone is
-    standing here.
+    EXPIRED when PR-2 moved the gate (2026-08-31).
 
     The reason that replaces it is a measurement, not an argument. On the
     ratified 45-query set, compared at each aggregation's EXACT
@@ -186,32 +188,118 @@ class TestScoreIsAveragedNotMaximised:
             "of the three aggregations; re-measure with "
             "./dev eval-intent-classification before changing it"
         )
-        assert result.value.confident is False
-        assert result.value.intent is QueryIntent.SPECIFIC
+        # 0.5 clears the live 0.35 gate, so the verdict is the winning intent —
+        # before PR-2 this same mean sat below the 0.65 gate and the verdict was
+        # SPECIFIC. Either way a max aggregation would have scored 1.0 above.
+        assert result.value.confident is True
+        assert result.value.intent is QueryIntent.PRACTICE
 
     def test_threshold_value_matches_the_evidence_quoted_in_the_docs(self) -> None:
-        """The gate's unreachability is quoted AGAINST 0.65 across the docs.
+        """The 0.35 gate is quoted WITH the measurement that chose it across the
+        docs (the ratified baseline's zero-wrong frontier, cleared by ~0.03).
         Moving the constant without them orphans the evidence and leaves prose
         that reads as measured but is not.
 
         ⚠ The enumeration in the assertion message is a snapshot, not an
-        authority: it was four entries until a review (#1206) found three more
-        that had drifted in unnoticed. Re-derive the list rather than trusting
-        it — a checklist is exactly the kind of thing that decays silently.
+        authority: the 0.65-era list was four entries until a review (#1206)
+        found three more that had drifted in unnoticed. Re-derive the list
+        rather than trusting it — a checklist decays exactly like the
+        references it lists.
 
         This is deliberately a change-detector: the point is to fail at the exact
-        moment someone lowers the gate, so they update the measurement's other
+        moment someone moves the gate, so they update the measurement's other
         half rather than discovering later that it silently stopped applying.
         """
-        assert IntelligenceThreshold.INTENT_CLASSIFICATION == 0.65, (
-            "changing this value orphans the measurement quoted in SEVEN places — "
+        assert IntelligenceThreshold.INTENT_CLASSIFICATION == 0.35, (
+            "changing this value orphans the measurement quoted in EIGHT places — "
             "core/constants.py (the comment above the constant), "
-            "docs/roadmap/deferred-work.md (Named work 4), "
+            "docs/roadmap/askesis-intent-classification-activation.md (§ PR-2: the "
+            "proposal and the shipped measurement), "
+            "docs/roadmap/deferred-work.md (Named work 4 + § AGGREGATION Carve-Out), "
             "docs/architecture/ASKESIS_HOW_IT_WORKS.md, "
-            "docs/guides/ASKESIS_RAG_PIPELINE.md, "
+            "docs/guides/ASKESIS_RAG_PIPELINE.md (three sites), "
             "docs/intelligence/ASKESIS_INTELLIGENCE.md, "
-            "docs/roadmap/askesis-tool-selection-queries.md (twice: the trigger and "
-            "the AGGREGATION gap) and docs/INDEX.md — update them in the same change. "
-            "This list was four entries until #1206 found three more; re-derive it "
-            "with `git grep -n '0\\.65' -- docs core` rather than trusting it"
+            "docs/roadmap/askesis-tool-selection-queries.md and docs/INDEX.md — "
+            "update them in the same change. Re-derive the list with "
+            "`git grep -nE '0\\.35|0\\.65' -- docs core` and READ the hits (both "
+            "digits appear in unrelated constants) rather than trusting it"
+        )
+
+
+# ============================================================================
+# GUARD 3: AGGREGATION is carved out — classified, never the production verdict
+# ============================================================================
+
+
+class TestAggregationHeldUnreachable:
+    """PR-2 moved the gate to 0.35, and at that gate AGGREGATION is the
+    best-separated intent in the ratified set (all 6 of its 6 labelled queries
+    fire) — but nothing can answer it: `retrieve_relevant_context` has no
+    AGGREGATION branch and the tool catalog does not exist. So
+    `UNREACHABLE_INTENTS` holds it out of the PRODUCTION verdict
+    (`classify_intent` answers SPECIFIC and logs the real verdict), while
+    `classify_intent_scored` reports it raw for measurement. Ruled 2026-08-31;
+    registered in deferred-work.md § AGGREGATION Carve-Out.
+
+    ⚠ This guard — and the carve-out it pins — may only be deleted in the SAME
+    change that adds the aggregation tool and its `retrieve_relevant_context`
+    branch (the tool-selection first slice,
+    docs/roadmap/askesis-tool-selection-queries.md). The dangerous edit is
+    deleting the exclusion early, not adding the branch late: an empty set with
+    no tool re-opens the window in which count questions classify, meet no
+    branch, and are answered generically or invented.
+    """
+
+    @pytest.mark.asyncio
+    async def test_aggregation_never_becomes_the_production_verdict(self) -> None:
+        vector = [1.0] + [0.0] * 1023
+        classifier = _classifier(AsyncMock(return_value=Result.ok(vector)))
+        # AGGREGATION wins at cosine 1.0 — far above any gate, so only the
+        # carve-out can be what keeps it out of the verdict.
+        classifier._intent_exemplar_embeddings = {QueryIntent.AGGREGATION: [vector]}
+        classifier._exemplar_load = ExemplarLoad(
+            expected=1, loaded=1, intents_expected=1, intents_loaded=1
+        )
+
+        result = await classifier.classify_intent("how many tasks do I have")
+
+        assert result.is_ok
+        assert result.value is QueryIntent.SPECIFIC, (
+            "AGGREGATION became a production verdict with nothing behind it — no "
+            "retrieve_relevant_context branch and no tool can answer a count "
+            "question. The carve-out may only be lifted in the same change that "
+            "adds the aggregation tool (tool-selection first slice)"
+        )
+
+    @pytest.mark.asyncio
+    async def test_scored_api_still_reports_the_raw_aggregation_verdict(self) -> None:
+        """The eval's production-agreement check reads `classify_intent_scored`.
+
+        Carving the verdict out THERE would make the eval's mean arm disagree
+        with production on every aggregation-labelled row and void every run —
+        the carve-out is a reachability decision, not a scoring one.
+        """
+        vector = [1.0] + [0.0] * 1023
+        classifier = _classifier(AsyncMock(return_value=Result.ok(vector)))
+        classifier._intent_exemplar_embeddings = {QueryIntent.AGGREGATION: [vector]}
+        classifier._exemplar_load = ExemplarLoad(
+            expected=1, loaded=1, intents_expected=1, intents_loaded=1
+        )
+
+        result = await classifier.classify_intent_scored("how many tasks do I have")
+
+        assert result.is_ok
+        assert result.value.intent is QueryIntent.AGGREGATION
+        assert result.value.confident is True
+
+    def test_the_carve_out_names_exactly_aggregation(self) -> None:
+        """Membership pin, both directions: GROWING the set would silently
+        disable an intent PR-2 activated, and EMPTYING it without a tool
+        re-opens the window. Either move is a deliberate, reviewed decision.
+        """
+        assert frozenset({QueryIntent.AGGREGATION}) == UNREACHABLE_INTENTS, (
+            "UNREACHABLE_INTENTS changed. Removing AGGREGATION is legal only in "
+            "the same change that adds the aggregation tool "
+            "(docs/roadmap/askesis-tool-selection-queries.md, first slice); adding "
+            "an intent deactivates part of PR-2 and needs its own ruling"
         )

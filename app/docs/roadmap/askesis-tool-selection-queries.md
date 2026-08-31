@@ -2,8 +2,11 @@
 
 **Status:** **Direction RULED 2026-08-31 (Mike) — position (b): Askesis DOES answer questions
 about the user's own records, and this is how.** Not yet scheduled as a build, and **blocked on
-a trigger**: intent classification cannot return `AGGREGATION` today because its 0.65 gate is
-unreachable.
+a trigger**: intent classification cannot return `AGGREGATION` today because PR-2 of the
+activation arc holds it explicitly unreachable (`UNREACHABLE_INTENTS` in
+`intent_classifier.py`, since 2026-08-31 — the gate itself is live at 0.35, and all 6 of the
+ratified set's AGGREGATION queries would otherwise fire). This slice removes that carve-out in
+the same change that adds the tool.
 
 ⚠ **The constraint is REACHABILITY, not PR count — amended 2026-08-31 (Mike).** This doc
 previously said the activation arc's PR-2 and this first slice are "ONE coordinated change, not a
@@ -454,9 +457,11 @@ Implement **one** tool end-to-end, behind the FULL intelligence tier
 3. `LLMService.select_tool()` for the **Anthropic** provider in use.
 4. `run_tool` executor with the `user_uid` injection.
 5. The `QueryIntent.AGGREGATION` branch in `context_retriever.py`. ⚠ **It cannot fire until
-   the classifier arc lands.** `AGGREGATION` keeps its exemplars (ruled 2026-08-31 — see that
-   doc's ruling 2), but the classifier returns only `SPECIFIC` today because the 0.65 gate is a
-   MEAN over 8 exemplars and is unreachable, so a branch added now is dead on arrival.
+   this slice lifts the carve-out.** `AGGREGATION` keeps its exemplars (ruled 2026-08-31 — see
+   that doc's ruling 2), and since the arc's PR-2 (2026-08-31) the gate is live at 0.35 — but
+   `classify_intent` holds `AGGREGATION` out of the production verdict (`UNREACHABLE_INTENTS`),
+   so a branch added without lifting the carve-out is dead on arrival, and lifting the
+   carve-out without the branch re-opens the window below.
    **This branch and the removal of PR-2's `AGGREGATION` carve-out are ONE change** — see the
    Status note. The harm to prevent is a window in which count questions classify as
    `AGGREGATION`, meet no branch, fall through to ordinary generation, and are answered
@@ -467,8 +472,9 @@ Implement **one** tool end-to-end, behind the FULL intelligence tier
    exclusion early. It must also not land
    before PR-1 has disambiguated `AGGREGATION` from `EXPLORATORY`, or a topic-orientation
    question ("introduce me to stoicism") routes here and is answered with a COUNT. So the
-   ordering is: **PR-1 (labels, DONE) → PR-2 (activation, with the `AGGREGATION` carve-out) →
-   this branch, which removes the carve-out in the same commit that adds the tool.**
+   ordering is: **PR-1 (labels, DONE) → PR-2 (activation with the `AGGREGATION` carve-out,
+   DONE 2026-08-31) → this branch, which removes the carve-out in the same commit that adds
+   the tool.**
 6. **Declare the catalog's COVERAGE, and decline outside it.** The first slice answers
    *"how many goals did I complete last quarter"* and nothing else — not the bare total, and
    not the relationship-bearing question this doc opens with (*"…blocked by a habit I

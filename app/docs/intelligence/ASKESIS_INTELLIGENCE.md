@@ -1,6 +1,6 @@
 # Askesis Intelligence - Cross-Cutting Life Context Synthesis
 
-**Last Updated:** March 12, 2026
+**Last Updated:** August 31, 2026 (intent activation — PR-2)
 
 ## Overview
 
@@ -266,7 +266,7 @@ Both methods run the same PS-first pipeline: enrollment gate (an active PathStep
 **Intent Classification Strategy:**
 1. Create query embedding
 2. Compare to INTENT_EXEMPLARS (pre-computed exemplar embeddings)
-3. Return intent with highest similarity (≥0.65 threshold)
+3. Return intent with highest average similarity (≥0.35 gate — `IntelligenceThreshold.INTENT_CLASSIFICATION`, moved from the unreachable 0.65 in PR-2, 2026-08-31; `AGGREGATION` is carved out via `UNREACHABLE_INTENTS` and answers `SPECIFIC` until the tool-selection slice can answer it)
 4. Default to `QueryIntent.SPECIFIC` if low confidence (no keyword fallback — embeddings required)
 
 **Guidance Determination:** PedagogicalIntent → GuidanceMode mapping: ASSESS_UNDERSTANDING/PROBE_DEEPER → SOCRATIC, SCAFFOLD/SURFACE_CONNECTION → EXPLORATORY, REDIRECT_TO_CURRICULUM/OUT_OF_SCOPE → DIRECT, ENCOURAGE_PRACTICE → ENCOURAGING.

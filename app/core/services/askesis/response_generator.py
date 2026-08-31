@@ -448,14 +448,18 @@ class ResponseGenerator:
         """
         actions = []
 
-        # Add actions based on intent
+        # Rows are ContextRetriever.get_learning_context's dicts ({"uid",
+        # "title", ...}), not domain models — attribute access here crashed the
+        # first time these branches ever ran (intent activation, 2026-08-31;
+        # the classifier had only ever returned SPECIFIC before, so no call had
+        # reached them).
         if intent == QueryIntent.HIERARCHICAL:
             learning_paths = context_data.get("learning_paths", [])
             if learning_paths:
                 actions.append(
                     {
                         "action": "continue_learning_path",
-                        "target": learning_paths[0].uid if learning_paths else None,
+                        "target": learning_paths[0].get("uid") or None,
                         "description": "Continue your current learning path",
                     }
                 )
@@ -466,7 +470,7 @@ class ResponseGenerator:
                 actions.append(
                     {
                         "action": "complete_task",
-                        "target": tasks[0].uid if tasks else None,
+                        "target": tasks[0].get("uid") or None,
                         "description": "Apply knowledge through practical task",
                     }
                 )

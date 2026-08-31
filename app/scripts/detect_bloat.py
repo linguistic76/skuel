@@ -678,6 +678,18 @@ PLANNED_METHODS: dict[str, PlannedEntry] = {
         "consumer or delete the accessor",
         since=date(2026, 8, 3),
     ),
+    # --- Askesis intent→chunk-type filter: resolver disconnected by PR-2 ---
+    "core/services/askesis/context_retriever.py::_intent_to_chunk_types": PlannedEntry(
+        Readiness.DELAYED,
+        "the staged intent→chunk-type filter's resolver — disconnected by PR-2 of "
+        "the activation arc (2026-08-31): retrieve_relevant_context hard-wires "
+        "chunk_types=None (ruling 1 — intent shapes the answer, never the draw), so "
+        "the map has no production caller (guard tests + eval_askesis_chunk_draw.py "
+        "keep it exercised); reconnecting it is the gated filter change, which needs "
+        "the content-typing classifier and the thin-draw fallback in the same commit",
+        since=date(2026, 8, 31),
+        blocked_by="Per-Domain Chunking Knobs + Chunk-Type-Aware Retrieval",
+    ),
     # --- Shared BaseService mixins (campaign 16) ---
     "core/services/mixins/relationship_operations_mixin.py::add_prerequisite": (
         _MIXIN_PREREQUISITE_WRITE

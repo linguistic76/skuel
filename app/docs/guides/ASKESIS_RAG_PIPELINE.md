@@ -1,6 +1,6 @@
 # Askesis RAG Pipeline — Developer Guide
 
-**Last Updated:** July 2026 (ADR-074 post-persist embedding events)
+**Last Updated:** August 2026 (intent activation — PR-2)
 
 **Audience:** Developers building, debugging, or extending Askesis's question-answering capabilities.
 
@@ -250,7 +250,7 @@ intent = await intent_classifier.classify_intent(question)
 1. Generate embedding of the user's question
 2. Compare (cosine similarity) to pre-embedded exemplars for each intent type
 3. Return the intent whose exemplars have the highest average similarity
-4. Threshold: 0.65 — below this, defaults to `QueryIntent.SPECIFIC`
+4. Gate: `IntelligenceThreshold.INTENT_CLASSIFICATION` = 0.35 (moved from the unreachable 0.65 — PR-2, 2026-08-31) — below this, the verdict is `QueryIntent.SPECIFIC`. `AGGREGATION` additionally never becomes the production verdict (`UNREACHABLE_INTENTS` carve-out: nothing can answer a count question yet)
 
 **Intent types:**
 
@@ -266,14 +266,16 @@ intent = await intent_classifier.classify_intent(question)
 
 The six exemplar intents above (`SPECIFIC` is the default fallback when no match clears the threshold) each have 8 exemplar sentences. Exemplar embeddings are lazily computed on first classification and cached.
 
-⚠️ **Nothing clears the threshold (measured 2026-08-30).** The gate is
-`IntelligenceThreshold.INTENT_CLASSIFICATION` = 0.65 *average* cosine similarity
-across an intent's 8 exemplars — much stricter than it reads, since averaging
-over 8 diverse short sentences pulls the mean far below any single best match.
-Real queries score 0.078–0.291; a query that IS one of the exemplars, verbatim,
-still only reaches 0.43–0.56 against its own intent. So `SPECIFIC` is not a
-fallback in practice, it is the only outcome, and every intent-conditioned
-branch downstream takes its catch-all path.
+⚠️ **The gate was unreachable until 2026-08-31 (PR-2).** At the previous value of 0.65 —
+an *average* over 8 diverse short exemplars — real queries scored 0.078–0.291 and even a
+verbatim exemplar reached only 0.43–0.56 against its own intent, so `SPECIFIC` was the only
+outcome and every intent-conditioned branch downstream took its catch-all path. PR-2 kept the
+mean aggregation (measured best of the three candidate arms at the zero-wrong-activation
+frontier) and moved the gate to 0.35: 19 of the 45 ratified labelled queries now fire, none
+wrongly (`./dev eval-intent-classification` re-measures; the standing acceptance is
+`wrong_activations == 0` on the mean arm). `AGGREGATION` is carved out (`UNREACHABLE_INTENTS`)
+until the tool-selection first slice can answer it, and the chunk-type filter stays hard-wired
+off. Contract: `docs/roadmap/askesis-intent-classification-activation.md`.
 
 **Error tolerance:** If the embeddings API is unavailable, intent classification defaults to `SPECIFIC` rather than crashing. Individual exemplar embedding failures are skipped rather than raising — but the load is then incomplete, and an incomplete load also answers `SPECIFIC` (2026-08-30): averaging over fewer exemplars *raises* the mean, so a degraded set produces confident-looking verdicts rather than uncertain ones.
 
@@ -479,7 +481,8 @@ See: `/docs/architecture/ASKESIS_SOCRATIC_ARCHITECTURE.md`
 ### "Intent classification is wrong"
 
 The classifier uses cosine similarity against exemplar sentences. Check:
-- Is the question too far from any exemplar? (Threshold: 0.65)
+- Is the question too far from any exemplar? (Gate: 0.35 — `IntelligenceThreshold.INTENT_CLASSIFICATION`)
+- `AGGREGATION` never becomes the production verdict — a deliberate carve-out (`UNREACHABLE_INTENTS`), not a classification miss; `classify_intent_scored` shows the raw verdict.
 - Default fallback is `QueryIntent.SPECIFIC` — if you're seeing too many SPECIFIC classifications, the exemplars may need expansion.
 - Exemplar embeddings are cached after first use — restart to pick up changes.
 
