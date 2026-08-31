@@ -25,7 +25,10 @@ Scoring: a query is a hit when ANY of its expected uids appears in the top k
 production returns it — frontmatter results first, body-fold parents appended.
 Per-query rows record the rank and whether the hit arrived via the lesson-body
 fold (``_match_reason``), which is the trace PR-2 needs to attribute a miss to
-chunk grain rather than to the frontmatter path.
+chunk grain rather than to the frontmatter path. Each row also carries the
+response's own ``body_fold`` report: the fold fails SOFT, so a row is scored
+only when the response says the fold COMPLETED — a CORE-tier or errored fold
+invalidates the row instead of quietly scoring as a frontmatter-only run.
 
 Query set: scripts/eval_chunk_retrieval_queries.yaml (reviewable, checked in;
 it evolves under review — this script does not). Runs print a DRAFT banner
@@ -48,11 +51,13 @@ import asyncio
 import contextlib
 import json
 import sys
-from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
-from typing import TypedDict
+from typing import TYPE_CHECKING, TypedDict
+
+if TYPE_CHECKING:
+    from core.models.search_request import BodyFoldReport
 
 import yaml
 
@@ -277,40 +282,34 @@ def score_query(
     )
 
 
-def fold_consistency_error(
-    probe_hits: Sequence[Mapping[str, object]],
-    ordered_uids: list[str],
-    body_uids: set[str],
-    target_values: frozenset[str],
-) -> str | None:
-    """Detect a body fold that failed INSIDE the scored request (pure, DB-free).
+def fold_status_error(report: "BodyFoldReport") -> str | None:
+    """Reject a row whose response did not actually search lesson bodies (pure, DB-free).
 
-    The probe proves chunk retrieval works with the fold's exact inputs, but the
-    fold's own call runs afterwards and fails SOFT — a transient provider error
-    between the two would leave a frontmatter-only response scored as normal.
-    The probe's evidence closes that window: if it found candidate parents that
-    are NOT already frontmatter results, the fold had something to add — zero
-    body cards in the scored response then means its in-path search failed (or
-    its scoping regressed), and the row must be invalidated, not scored.
+    The fold is fail-soft: on the CORE tier or a provider error it returns the
+    frontmatter results untouched, which would score as a normal — and quietly
+    chunk-blind — run. ``SearchResponse.body_fold`` reports what the fold DID,
+    inside the scored request itself, so the check reads the real call rather
+    than inferring it from a sibling one.
 
-    Fires toward invalidation only: a query whose probe finds nothing eligible
-    (all parents already in the base results, or no chunks above min_score)
-    asserts nothing — with no candidates, a fold failure could not have changed
-    the response.
+    Every eval request names both body-chunk domains and carries query text, so
+    COMPLETED is the only healthy outcome; NOT_ATTEMPTED here means the fold's
+    eligibility rules changed under the instrument. A COMPLETED fold that added
+    nothing is NOT an error — that is the measurement (`body` on 2026-08-30:
+    zero passages cleared the 0.68 floor).
     """
-    base_uids = {u for u in ordered_uids if u not in body_uids}
-    eligible = {
-        str(hit.get("parent_uid") or "")
-        for hit in probe_hits
-        if str(hit.get("parent_entity_type") or "") in target_values and hit.get("parent_uid")
-    } - base_uids
-    if eligible and not body_uids:
+    if report.status.searched_bodies():
+        return None
+    if report.status.is_degraded():
         return (
-            f"body fold added no cards although the probe found {len(eligible)} eligible "
-            "parent(s) outside the frontmatter results — the in-path body search "
-            "likely failed (the fold is fail-soft)"
+            f"body fold did not run (status={report.status.value}) — the Digital "
+            "layer is unavailable or errored; this row would score as a "
+            "frontmatter-only run"
         )
-    return None
+    return (
+        f"body fold was not attempted (status={report.status.value}) although the "
+        "request names both body-chunk domains and carries query text — the fold's "
+        "eligibility rules changed under this instrument"
+    )
 
 
 def summarize(rows: list[QueryRow], query_set: QuerySet) -> EvalReport:
@@ -391,7 +390,6 @@ async def run_eval(query_set: QuerySet, *, as_json: bool) -> tuple[int, EvalRepo
             )
             return 2, None
 
-        body_domains = frozenset({EntityType.KU.value, EntityType.PATH_STEP.value})
         rows: list[QueryRow] = []
         for eval_query in query_set.queries:
             request = SearchRequest(
@@ -400,36 +398,6 @@ async def run_eval(query_set: QuerySet, *, as_json: bool) -> tuple[int, EvalRepo
                 enable_semantic_boost=True,
                 limit=REQUEST_LIMIT,
             )
-            # Body-search canary (Codex, PR #1197): the production fold fails
-            # SOFT by design — a /search user must still get frontmatter results
-            # when embedding or chunk retrieval breaks — so inside faceted_search
-            # a dead Digital layer is invisible and every query would quietly
-            # score as a frontmatter-only run. Prove each query's body search
-            # completes, with the SAME inputs the fold uses; a probe failure
-            # invalidates the row (and the run, via errors → exit 1).
-            probe = await vector_search.find_similar_chunks_by_text(
-                text=eval_query.query,
-                limit=request.limit,
-                min_score=vector_search.config.body_chunk_search_min_score,
-                parent_filters=request.to_property_filters(),
-            )
-            if probe.is_error:
-                rows.append(
-                    QueryRow(
-                        query=eval_query.query,
-                        kind=eval_query.kind,
-                        hit=False,
-                        best_rank=None,
-                        matched_uid=None,
-                        via_body=False,
-                        result_count=0,
-                        body_result_count=0,
-                        expected_missing=list(eval_query.expect),
-                        error=f"body-chunk search failed: {probe.expect_error()}",
-                    )
-                )
-                continue
-
             result = await router.faceted_search(request, user_uid=None, log_event=False)
             if result.is_error:
                 rows.append(
@@ -454,7 +422,8 @@ async def run_eval(query_set: QuerySet, *, as_json: bool) -> tuple[int, EvalRepo
                 for card in cards
                 if card.get("_match_reason") == BODY_HIT_MATCH_REASON
             }
-            fold_error = fold_consistency_error(probe.value, ordered_uids, body_uids, body_domains)
+            fold_report = result.value.body_fold
+            fold_error = fold_status_error(fold_report)
             if fold_error is not None:
                 rows.append(
                     QueryRow(
@@ -467,7 +436,7 @@ async def run_eval(query_set: QuerySet, *, as_json: bool) -> tuple[int, EvalRepo
                         result_count=len(ordered_uids),
                         body_result_count=0,
                         expected_missing=list(eval_query.expect),
-                        chunk_candidates=len(probe.value),
+                        chunk_candidates=fold_report.chunk_candidates,
                         error=fold_error,
                     )
                 )
@@ -478,7 +447,7 @@ async def run_eval(query_set: QuerySet, *, as_json: bool) -> tuple[int, EvalRepo
                     ordered_uids,
                     body_uids,
                     query_set.k,
-                    chunk_candidates=len(probe.value),
+                    chunk_candidates=fold_report.chunk_candidates,
                 )
             )
 

@@ -284,6 +284,14 @@ class IntelligenceThreshold:
     # Cross-domain relationships
     CROSS_DOMAIN: Final = 0.6
 
+    # Askesis query-intent classification: minimum AVERAGE cosine similarity to
+    # an intent's exemplar set (IntentClassifier). Averaging over ~8 diverse
+    # short exemplars pulls the mean well below any single best match, so this
+    # is a far stricter gate than it looks — measured 2026-08-30, a query that
+    # IS one of the exemplars verbatim scores 0.43-0.56 against its own intent.
+    # Below this, classification returns SPECIFIC (no chunk-type filter).
+    INTENT_CLASSIFICATION: Final = 0.65
+
     # Minimum confidence for recommendations
     MIN_RECOMMENDATION: Final = 0.7
 

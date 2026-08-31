@@ -27,7 +27,7 @@
 #   expect  — entity uids counted as relevant; ANY of them in the top k = hit
 #   note    — why these uids; what the query probes
 
-version: 1
+version: 2
 ratified: null
 k: 5
 
@@ -35,18 +35,42 @@ queries:
   - query: breath
     kind: real_usage
     expect:
+      - ku.mindfulness.anchor
+      - ku.yoga.be-here-now
+      - ku.yoga.prana
+      - ku.yoga.eight-fold-path
+      - ku.mindfulness.practice-cue
       - ps.mindfulness.breath-awareness-basics
       - ps.mindfulness.everyday-anchors
-    note: Real :SearchEvent query (2026-07). Title word AND body coverage.
+    note: >
+      Real :SearchEvent query (2026-07). WIDENED 2026-08-30 (Mike): the five
+      Kus that hold the top five are all breath-adjacent — Anchor, Prana and
+      Practice Cue are the concept itself — so the draft pair was too narrow,
+      not the ranking wrong. Measured while ratifying, and NOT scored by this
+      row: chunk retrieval ranks ps.mindfulness.breath-awareness-basics the #1
+      parent at 0.755, yet it lands at merged rank 6 because the fold APPENDS
+      and never promotes a parent the frontmatter sweep already found. See
+      deferred-work § Per-Domain Chunking Knobs, "Append-never-promote".
 
   - query: body
     kind: real_usage
     expect:
+      - ku.yoga.prana
+      - ku.yoga.chakras
+      - ku.yoga.eight-fold-path
       - ps.self-awareness.understanding-your-emotions
       - ps.mindfulness.posture-basics
     note: >
-      Real :SearchEvent query (2026-07). Also a nous topic; expects body-signal
-      and posture content.
+      Real :SearchEvent query (2026-07). WIDENED 2026-08-30 (Mike): the yoga
+      Kus that fill the result page are body-about content, so they count.
+      Two measured caveats kept visible rather than deleted — the FOLD adds
+      nothing here (zero passages clear body_chunk_search_min_score = 0.68;
+      the corpus best for "body" is 0.651), and
+      ps.self-awareness.understanding-your-emotions was ABSENT at every probed
+      threshold (0.68 / 0.55 / 0.40), so that one uid is an aspiration, not a
+      reachable hit. ps.mindfulness.posture-basics reaches parent-rank 7 only
+      at 0.55. A one-word query has no semantic anchor: at 0.55 the top
+      passages are noise (gunas, forests, an MOC link line).
 
   - query: why does my mind keep wandering when I meditate
     kind: body_paraphrase

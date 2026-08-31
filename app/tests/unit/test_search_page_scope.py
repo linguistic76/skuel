@@ -55,10 +55,10 @@ from adapters.inbound.search_routes import (
 )
 from core.models.enums import SearchVisibility
 from core.models.enums.entity_enums import EntityType
-from core.models.search.filter_enums import SearchSortOrder
+from core.models.search.filter_enums import BodyFoldStatus, SearchSortOrder
 from core.models.search_request import FacetCount, SearchRequest, SearchResponse
 from core.orchestrator.search_router import CURRICULUM_FACET_DOMAINS, SearchRouter
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
 from ui.explore.cards import LIBRARY_DEFAULT_SORT
 from ui.search.components import (
     _ENTITY_TYPE_OPTIONS,
@@ -107,6 +107,16 @@ def _vector_search(hits: list[dict[str, Any]]) -> MagicMock:
     vector.config = MagicMock(body_chunk_search_min_score=0.5)
     vector.find_similar_chunks_by_text = AsyncMock(return_value=Result.ok(hits))
     return vector
+
+
+def _body_fold_request() -> SearchRequest:
+    """A request the fold is eligible for: both body domains + query text."""
+    return SearchRequest(
+        query_text="breath",
+        entity_types=[EntityType.KU, EntityType.PATH_STEP],
+        enable_semantic_boost=True,
+        sort_order=SearchSortOrder.TITLE_ASC,
+    )
 
 
 # ============================================================================
@@ -311,6 +321,98 @@ class TestScopedBodyChunks:
         uids = {record["uid"] for record in result.value.results}
         assert "ku_9" in uids
         assert "ps_9" not in uids
+
+    @pytest.mark.asyncio
+    async def test_completed_fold_reports_candidates_and_parents(self) -> None:
+        # The fold fails SOFT, so its status has to be REPORTED or a chunk-blind
+        # response is indistinguishable from a chunk-aware one that matched
+        # nothing (ruled 2026-08-30, eval arc PR-2).
+        ku = _graph_aware_service([{"uid": "ku_1", "title": "K", "_domain": "ku"}])
+        vector = _vector_search(
+            [
+                _chunk_hit("ku_9", EntityType.KU.value, 0.9),
+                _chunk_hit("ku_9", EntityType.KU.value, 0.8),  # same parent, deduped
+            ]
+        )
+        router = SearchRouter(ku=ku, vector_search_service=vector, event_bus=None)
+
+        result = await router.faceted_search(_body_fold_request(), user_uid=None)
+
+        assert result.is_ok
+        fold = result.value.body_fold
+        assert fold.status is BodyFoldStatus.COMPLETED
+        assert fold.status.searched_bodies()
+        # Two passages above the floor, ONE parent card — the counts are not
+        # interchangeable, which is why both are reported.
+        assert fold.chunk_candidates == 2
+        assert fold.parents_added == 1
+
+    @pytest.mark.asyncio
+    async def test_fold_that_found_nothing_is_completed_not_degraded(self) -> None:
+        # Measured on the live corpus: the real query `body` clears the 0.68
+        # floor with ZERO passages. That is a finding about the corpus, and it
+        # must never read as a broken Digital layer.
+        ku = _graph_aware_service([{"uid": "ku_1", "title": "K", "_domain": "ku"}])
+        router = SearchRouter(ku=ku, vector_search_service=_vector_search([]), event_bus=None)
+
+        result = await router.faceted_search(_body_fold_request(), user_uid=None)
+
+        assert result.is_ok
+        fold = result.value.body_fold
+        assert fold.status is BodyFoldStatus.COMPLETED
+        assert not fold.status.is_degraded()
+        assert (fold.chunk_candidates, fold.parents_added) == (0, 0)
+
+    @pytest.mark.asyncio
+    async def test_core_tier_reports_unavailable(self) -> None:
+        ku = _graph_aware_service([{"uid": "ku_1", "title": "K", "_domain": "ku"}])
+        router = SearchRouter(ku=ku, vector_search_service=None, event_bus=None)
+
+        result = await router.faceted_search(_body_fold_request(), user_uid=None)
+
+        assert result.is_ok
+        assert result.value.results  # fails SOFT — frontmatter results stand
+        assert result.value.body_fold.status is BodyFoldStatus.UNAVAILABLE
+        assert result.value.body_fold.status.is_degraded()
+
+    @pytest.mark.asyncio
+    async def test_chunk_search_error_reports_failed(self) -> None:
+        ku = _graph_aware_service([{"uid": "ku_1", "title": "K", "_domain": "ku"}])
+        vector = _vector_search([])
+        vector.find_similar_chunks_by_text = AsyncMock(
+            return_value=Result.fail(Errors.database(operation="chunks", message="boom"))
+        )
+        router = SearchRouter(ku=ku, vector_search_service=vector, event_bus=None)
+
+        result = await router.faceted_search(_body_fold_request(), user_uid=None)
+
+        assert result.is_ok
+        assert result.value.results
+        assert result.value.body_fold.status is BodyFoldStatus.FAILED
+
+    @pytest.mark.asyncio
+    async def test_ineligible_sweep_reports_not_attempted(self) -> None:
+        # An Activity-only sweep never wanted bodies — not a degradation, so
+        # `is_degraded()` must stay False and a caller must not raise an alarm.
+        tasks = _graph_aware_service(
+            [{"uid": "task_1", "title": "T", "_domain": "task"}],
+            visibility=SearchVisibility.OWNER_ONLY,
+        )
+        router = SearchRouter(tasks=tasks, vector_search_service=_vector_search([]), event_bus=None)
+
+        result = await router.faceted_search(
+            SearchRequest(
+                query_text="breath",
+                entity_types=[EntityType.TASK],
+                enable_semantic_boost=True,
+                sort_order=SearchSortOrder.TITLE_ASC,
+            ),
+            user_uid="user_x",
+        )
+
+        assert result.is_ok
+        assert result.value.body_fold.status is BodyFoldStatus.NOT_ATTEMPTED
+        assert not result.value.body_fold.status.is_degraded()
 
     @pytest.mark.asyncio
     async def test_sweep_without_a_curriculum_domain_skips_the_vector_call(self) -> None:

@@ -646,7 +646,8 @@ request = SearchRequest(
 
 **What it reaches:** Ku/PS ENTITY vectors are frontmatter-only by design (ADR-074 —
 title/summary/description); a lesson's **body prose** lives on `:ContentChunk` nodes
-(the `chunks_body_content` ingestion configs, ~305 Ku + 244 PS chunks, 100% embedded).
+(the `chunks_body_content` ingestion configs; 688 curriculum chunks — 308 Ku + 380 PS —
+of a 925-chunk corpus, 100% embedded, measured 2026-08-30 after the v2 re-chunk).
 Frontmatter text/faceted search cannot see that prose. The body-chunk layer is the one
 `/search` path that does.
 
@@ -676,10 +677,24 @@ request's own entity-type scope** — both for a Ku+PathStep request, Ku only on
 excluded from the frontmatter results must not re-enter through the Digital layer.
 
 **Tier discipline (ADR-043):** Digital-layer enhancement. `INTELLIGENCE_TIER=core` has
-no vector service — the augmentation **fails soft** (skips silently, never raises), so
-the Analog frontmatter/faceted search stands alone as a complete search, not a degraded
-one. `find_similar_chunks_by_text` unavailable / erroring / empty all return the base
-results unchanged.
+no vector service — the augmentation **fails soft** (never raises), so the Analog
+frontmatter/faceted search stands alone as a complete search, not a degraded one.
+`find_similar_chunks_by_text` unavailable / erroring / empty all leave the base results
+unchanged.
+
+It no longer fails soft *silently*: every exit stamps `SearchResponse.body_fold`
+(`BodyFoldReport`, August 2026) with what the fold did — `NOT_ATTEMPTED` /
+`UNAVAILABLE` / `FAILED` / `COMPLETED`, plus the passages that cleared the score floor
+and the parent cards appended. Without it a chunk-blind response is indistinguishable
+from a chunk-aware one that matched nothing, which is the state `/search` is in whenever
+no passage clears 0.68. `COMPLETED` with zero candidates is the HEALTHY empty case —
+`is_degraded()` is false for it and for `NOT_ATTEMPTED`.
+
+**The fold appends; it never promotes.** Body parents are concatenated after every
+frontmatter result, and a parent already present from frontmatter is deduped out of the
+body list, keeping its frontmatter rank. So the single best-matching passage in the
+corpus cannot lift its parent above a weaker title match — measured 2026-08-30 for the
+query `breath`, where the #1 chunk parent (0.755) sits at merged rank 6.
 
 **Code:** `SearchRouter._augment_with_body_chunks` /
 `_aggregate_body_chunk_parents` (pure, DB-free dedup) /

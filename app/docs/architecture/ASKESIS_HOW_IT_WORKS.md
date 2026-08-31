@@ -75,9 +75,22 @@ When a user asks Askesis a question, here's exactly what happens:
 | RELATIONSHIP | "How are these topics connected?" |
 | AGGREGATION | "How many tasks do I have?" |
 
-This classification determines which context sections get included in the LLM prompt and which suggested actions get generated.
+This classification determines which context sections get included in the LLM prompt, which suggested actions get generated, and which `ContentChunk` types the RAG draw may use.
+
+> ⚠️ **Measured 2026-08-30: the classifier never returns any of these six.** The gate is
+> `IntelligenceThreshold.INTENT_CLASSIFICATION` = 0.65 *average* cosine similarity across an
+> intent's 8 exemplars — a much stricter bar than it reads, because averaging over 8 diverse
+> short sentences pulls the mean far below any single best match. Real queries score
+> **0.078–0.291**; a query that IS one of the exemplars, verbatim, still only reaches
+> **0.43–0.56** against its own intent. So every question classifies as `SPECIFIC`, and every
+> intent-conditioned branch below — including the `_INTENT_CHUNK_TYPES` chunk filter — takes
+> its catch-all path. Reproduce with `./dev eval-askesis-draw` (`max_intent_score`). What to do
+> about it is an open ruling: `docs/roadmap/deferred-work.md` § "Per-Domain Chunking Knobs +
+> Chunk-Type-Aware Retrieval", Named work 4.
 
 **Error tolerance:** If the embeddings API is unavailable or exemplar loading fails, the classifier defaults to `SPECIFIC` intent rather than crashing the pipeline. Individual exemplar embedding failures are skipped — classification works with fewer exemplars (lower precision, not a crash).
+
+That fail-soft default is indistinguishable from a genuine low-confidence verdict at the call site, so anything that must tell an outage from a real classification calls `classify_intent_scored()` instead: it returns `Result[IntentClassification]` (intent + score + `confident`) and fails loudly rather than defaulting.
 
 ### Step 4: Extract Entities
 

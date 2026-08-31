@@ -187,6 +187,14 @@ EXEMPTED_METHODS: dict[str, str] = {
         "ingest door), outside the scanner's production roots; becomes an in-app "
         "caller when a canon management route/UI is built (Phase 3+)"
     ),
+    "core/services/askesis/intent_classifier.py::classify_intent_scored": (
+        "LIVE — called only by scripts/eval_askesis_chunk_draw.py, outside the "
+        "scanner's production roots. The observable counterpart to the fail-soft "
+        "classify_intent: it reports the confidence score and refuses a degraded "
+        "exemplar set, so a measurement cannot mistake an outage for a finding. "
+        "Gains in-app callers if the intent filter is revived (deferred-work "
+        "§ Per-Domain Chunking Knobs, Named work 4)"
+    ),
 }
 
 # Planned code: structurally dead TODAY, by intent — staged work awaiting its

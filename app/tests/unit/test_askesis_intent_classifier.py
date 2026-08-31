@@ -14,8 +14,13 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from core.services.askesis.intent_classifier import IntentClassifier, QueryIntent
-from core.utils.result_simplified import Result
+from core.constants import IntelligenceThreshold
+from core.services.askesis.intent_classifier import (
+    ExemplarLoad,
+    IntentClassifier,
+    QueryIntent,
+)
+from core.utils.result_simplified import Errors, Result
 
 # ============================================================================
 # MOCK FACTORIES
@@ -128,6 +133,161 @@ class TestIntentTypeCoverage:
         assert QueryIntent.RELATIONSHIP is not None
         assert QueryIntent.AGGREGATION is not None
         assert QueryIntent.SPECIFIC is not None
+
+
+# ============================================================================
+# TESTS: classify_intent_scored — the OBSERVABLE contract
+# ============================================================================
+
+
+class TestClassifyIntentScored:
+    """`classify_intent` is fail-soft; `classify_intent_scored` is not.
+
+    The distinction is the point: a caller that must tell a provider outage
+    from a genuine low-confidence verdict cannot use the fail-soft one, because
+    both arrive as `Result.ok(SPECIFIC)`.
+    """
+
+    @pytest.mark.asyncio
+    async def test_embedding_failure_errors_instead_of_verdicting_specific(
+        self, mock_embeddings
+    ) -> None:
+        mock_embeddings.create_embedding = AsyncMock(
+            return_value=Result.fail(Errors.integration(service="openai", message="429"))
+        )
+        classifier = IntentClassifier(embeddings_service=mock_embeddings)
+        classifier._intent_exemplar_embeddings = {QueryIntent.PRACTICE: [[0.1] * 1024]}
+
+        scored = await classifier.classify_intent_scored("anything")
+
+        assert scored.is_error
+        # ...while the fail-soft sibling reports success, indistinguishably
+        # from a real low-confidence classification. That is the whole reason
+        # the scored variant exists.
+        soft = await classifier.classify_intent("anything")
+        assert soft.is_ok and soft.value is QueryIntent.SPECIFIC
+
+    @pytest.mark.asyncio
+    async def test_a_raised_embedding_failure_is_also_an_error_result(
+        self, mock_embeddings
+    ) -> None:
+        # The embeddings service throws as well as returning Result.fail —
+        # which is why classify_intent carries a safety net. A caller that
+        # asked for an observable verdict must get one, not an exception that
+        # takes down the whole run instead of the single classification.
+        mock_embeddings.create_embedding = AsyncMock(side_effect=RuntimeError("socket closed"))
+        classifier = IntentClassifier(embeddings_service=mock_embeddings)
+        classifier._intent_exemplar_embeddings = {QueryIntent.PRACTICE: [[0.1] * 1024]}
+
+        scored = await classifier.classify_intent_scored("anything")
+
+        assert scored.is_error
+        assert "socket closed" in str(scored.expect_error())
+
+    @pytest.mark.asyncio
+    async def test_a_raised_failure_during_exemplar_load_is_an_error_result(
+        self, mock_embeddings
+    ) -> None:
+        # The load itself embeds 48 exemplars, so it is the other throw site.
+        mock_embeddings.create_embedding = AsyncMock(side_effect=RuntimeError("429"))
+        classifier = IntentClassifier(embeddings_service=mock_embeddings)
+
+        assert (await classifier.classify_intent_scored("anything")).is_error
+
+    @pytest.mark.asyncio
+    async def test_missing_exemplars_are_an_error(self, mock_embeddings) -> None:
+        classifier = IntentClassifier(embeddings_service=mock_embeddings)
+        classifier._intent_exemplar_embeddings = {}
+
+        assert (await classifier.classify_intent_scored("anything")).is_error
+
+    @pytest.mark.asyncio
+    async def test_below_the_gate_is_specific_but_carries_the_score(self, mock_embeddings) -> None:
+        # An orthogonal exemplar scores ~0, well under the gate. The verdict is
+        # SPECIFIC and `confident` is False — but the score still rides out, so
+        # a caller can tell "gate unreachable" from "query ambiguous".
+        mock_embeddings.create_embedding = AsyncMock(return_value=Result.ok([1.0] + [0.0] * 1023))
+        classifier = IntentClassifier(embeddings_service=mock_embeddings)
+        classifier._intent_exemplar_embeddings = {QueryIntent.PRACTICE: [[0.0, 1.0] + [0.0] * 1022]}
+
+        scored = await classifier.classify_intent_scored("anything")
+
+        assert scored.is_ok
+        assert scored.value.intent is QueryIntent.SPECIFIC
+        assert scored.value.confident is False
+        assert scored.value.score < IntelligenceThreshold.INTENT_CLASSIFICATION
+
+    @pytest.mark.asyncio
+    async def test_a_partial_exemplar_load_is_refused(self, mock_embeddings) -> None:
+        # A transient 429 partway through the 48 exemplar embeddings leaves a
+        # subset cached for the process's lifetime. Averages then run over
+        # unequal denominators, so scores stop being comparable across intents
+        # — confident-looking numbers with no error, which is precisely what
+        # this API exists to prevent.
+        vector = [1.0] + [0.0] * 1023
+        mock_embeddings.create_embedding = AsyncMock(return_value=Result.ok(vector))
+        classifier = IntentClassifier(embeddings_service=mock_embeddings)
+        classifier._intent_exemplar_embeddings = {QueryIntent.PRACTICE: [vector]}
+        classifier._exemplar_load = ExemplarLoad(
+            expected=48, loaded=44, intents_expected=6, intents_loaded=6
+        )
+
+        scored = await classifier.classify_intent_scored("anything")
+
+        assert scored.is_error
+        assert "44/48" in str(scored.expect_error())
+
+    @pytest.mark.asyncio
+    async def test_a_missing_intent_is_refused(self, mock_embeddings) -> None:
+        # An intent that lost every exemplar can never win — a silent
+        # narrowing of the classification space.
+        vector = [1.0] + [0.0] * 1023
+        mock_embeddings.create_embedding = AsyncMock(return_value=Result.ok(vector))
+        classifier = IntentClassifier(embeddings_service=mock_embeddings)
+        classifier._intent_exemplar_embeddings = {QueryIntent.PRACTICE: [vector]}
+        classifier._exemplar_load = ExemplarLoad(
+            expected=48, loaded=48, intents_expected=6, intents_loaded=5
+        )
+
+        assert (await classifier.classify_intent_scored("anything")).is_error
+
+    @pytest.mark.asyncio
+    async def test_the_fail_soft_path_still_tolerates_a_partial_load(self, mock_embeddings) -> None:
+        # The strictness is the SCORED contract's alone. classify_intent keeps
+        # its documented "lower precision, not a crash" behaviour, so this
+        # change moves no production behaviour.
+        vector = [1.0] + [0.0] * 1023
+        mock_embeddings.create_embedding = AsyncMock(return_value=Result.ok(vector))
+        classifier = IntentClassifier(embeddings_service=mock_embeddings)
+        classifier._intent_exemplar_embeddings = {QueryIntent.PRACTICE: [vector]}
+        classifier._exemplar_load = ExemplarLoad(
+            expected=48, loaded=44, intents_expected=6, intents_loaded=6
+        )
+
+        soft = await classifier.classify_intent("anything")
+
+        assert soft.is_ok and soft.value is QueryIntent.PRACTICE
+
+    @pytest.mark.asyncio
+    async def test_above_the_gate_returns_the_matched_intent(self, mock_embeddings) -> None:
+        # An identical vector scores 1.0 — comfortably over the gate.
+        vector = [1.0] + [0.0] * 1023
+        mock_embeddings.create_embedding = AsyncMock(return_value=Result.ok(vector))
+        classifier = IntentClassifier(embeddings_service=mock_embeddings)
+        classifier._intent_exemplar_embeddings = {QueryIntent.PRACTICE: [vector]}
+        classifier._exemplar_load = ExemplarLoad(
+            expected=1, loaded=1, intents_expected=1, intents_loaded=1
+        )
+
+        scored = await classifier.classify_intent_scored("anything")
+
+        assert scored.is_ok
+        assert scored.value.intent is QueryIntent.PRACTICE
+        assert scored.value.confident is True
+        assert scored.value.score == pytest.approx(1.0)
+        # The fail-soft path must agree whenever classification succeeded.
+        soft = await classifier.classify_intent("anything")
+        assert soft.is_ok and soft.value is QueryIntent.PRACTICE
 
 
 if __name__ == "__main__":

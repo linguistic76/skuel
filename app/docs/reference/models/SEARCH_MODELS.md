@@ -343,7 +343,31 @@ class SearchResponse(BaseModel):
     # Capacity warnings (user-aware search)
     capacity_warnings: dict[str, Any] = {}
     # User capacity warnings (workload, energy, time constraints)
+
+    # Digital-layer observability (August 2026)
+    body_fold: BodyFoldReport = BodyFoldReport()
+    # status: BodyFoldStatus  — not_attempted | unavailable | failed | completed
+    # chunk_candidates: int   — passages above the score floor, BEFORE dedupe
+    # parents_added: int      — parent cards the fold actually appended
 ```
+
+#### `body_fold` — why an empty fold is not self-explanatory
+
+The body-chunk fold fails SOFT, so `results` alone cannot distinguish three
+different things: the fold searched and matched nothing, the Digital layer was
+down (CORE tier or a provider error), or the request was never eligible for
+bodies at all. `BodyFoldStatus.searched_bodies()` is the predicate that licenses
+reading an empty contribution as "the corpus has nothing"; `is_degraded()` is
+true only for `UNAVAILABLE` / `FAILED` — `NOT_ATTEMPTED` is not a degradation,
+the request simply never asked for bodies.
+
+`COMPLETED` with `chunk_candidates = 0` is the healthy empty case and must not
+read as a failure. Measured 2026-08-30: the real user query `body` clears the
+0.68 floor with **zero** passages (the corpus best for it is 0.651).
+
+The two counts are not interchangeable — several passages can share a parent, and
+a parent already in the frontmatter results is dropped, because the fold appends
+and never re-ranks an entity the frontmatter sweep already found.
 
 ### Key Methods
 

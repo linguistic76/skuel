@@ -102,3 +102,44 @@ class SearchSortOrder(StrEnum):
             return cls(value)
         except ValueError:
             return cls.RELEVANCE
+
+
+class BodyFoldStatus(StrEnum):
+    """Whether the lesson-BODY chunk fold ran on a `/search` response.
+
+    The fold (`SearchRouter._augment_with_body_chunks`) is a Digital-layer
+    enhancement that fails SOFT by design: on the CORE tier, on a vector-search
+    error, or on a request that reaches neither body-chunk domain, `/search`
+    still returns its frontmatter results. That is right for a user and opaque
+    to every caller — a response with no body hits reads identically whether
+    the fold searched and found nothing or never ran at all.
+
+    This status is that distinction, made observable. It is a report ABOUT the
+    fold, not a promise that any body hit survived into the results: a
+    COMPLETED fold whose every parent was already present contributes zero
+    cards (`parents_added = 0`) and is still the healthy case.
+
+    Ruled 2026-08-30 (eval arc PR-2) after `body` — a real user query — was
+    measured returning zero chunk candidates at the 0.68 floor, indistinguishable
+    from a dead Digital layer without an out-of-band probe.
+    """
+
+    NOT_ATTEMPTED = "not_attempted"  # request reached no body-chunk domain, or no query text
+    UNAVAILABLE = "unavailable"  # no vector search (CORE tier)
+    FAILED = "failed"  # chunk search errored — fail-soft, results still stand
+    COMPLETED = "completed"  # chunk search ran to completion
+
+    def searched_bodies(self) -> bool:
+        """True when lesson bodies were actually searched for this response.
+
+        The predicate a caller wants before reading an empty body contribution
+        as "the corpus has nothing" — only COMPLETED licenses that reading.
+        """
+        return self is BodyFoldStatus.COMPLETED
+
+    def is_degraded(self) -> bool:
+        """True when the fold was wanted but could not run.
+
+        NOT_ATTEMPTED is not degraded: the request never asked for bodies.
+        """
+        return self in (BodyFoldStatus.UNAVAILABLE, BodyFoldStatus.FAILED)

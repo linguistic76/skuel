@@ -1604,7 +1604,7 @@ syncs, and nothing on any surface says so.
 
 ---
 
-## Per-Domain Chunking Knobs + Chunk-Type-Aware Retrieval (REGISTERED 2026-08-28 · re-measured + fragment fix DONE 2026-08-30)
+## Per-Domain Chunking Knobs + Chunk-Type-Aware Retrieval (REGISTERED 2026-08-28 · re-measured + fragment fix DONE 2026-08-30 · intent filter measured INERT 2026-08-30)
 
 The chunking-params foundation shipped in #560 (2026-07-08): `ChunkingParams` on
 `EntityIngestionConfig` (`core/services/ingestion/config.py`), every domain on
@@ -1642,12 +1642,23 @@ label-only lines; 72 typed `explanation`; 32 under 20 characters), 6 path_step (
   DEFINITION rule is over-broad). The distribution will NOT flatten from content growth; only a
   classifier that types by content changes it. A weight table built on it would re-rank a
   fallback label and look like it worked.
-- **Chunk-type-aware retrieval ALREADY exists — on the Askesis path, as a HARD filter.**
+- **Chunk-type-aware retrieval exists on the Askesis path as a HARD filter — and has NEVER RUN.**
   `_INTENT_CHUNK_TYPES` (`core/services/askesis/context_retriever.py`) →
-  `retrieve_scoped_chunks(chunk_types=)` → `chunk.chunk_type IN $chunk_types`. Over the fallback
-  distribution an EXPLORATORY question can draw on **65 of 998** chunks (introduction 0 +
-  summary 3 + definition 62); PRACTICE 145; the other mapped intents 850. Loosening that filter
-  is a more measurable move than adding `/search` weights — Named work 4.
+  `retrieve_scoped_chunks(chunk_types=)` → `chunk.chunk_type IN $chunk_types`. Re-measured on the
+  925-chunk v2 corpus (2026-08-30): EXPLORATORY **66 of 925** (7.1%) — of which `introduction`,
+  one of its three named types, matches **zero rows**; PRACTICE 137 (14.8%); the other mapped
+  intents 786 (85.0%). The v2 re-chunk moved none of it (was 65/145/850 of 998), as predicted.
+  **But those are counterfactuals.** Driving the production path (`./dev eval-askesis-draw`)
+  showed all 23 queries classify to **SPECIFIC**, which is unmapped → `chunk_types=None` → no
+  filter. The cause is one layer up and is not a tuning miss: classification needs
+  `IntelligenceThreshold.INTENT_CLASSIFICATION` = **0.65** *average* cosine similarity across an
+  intent's **8** exemplars. Averaging over 8 diverse short sentences is a far stricter gate than
+  it reads: the 23 eval queries score **0.078–0.291**, and a query that IS one of the exemplars,
+  verbatim, still only reaches **0.43–0.56** against its own intent (practice 0.562,
+  hierarchical 0.561, relationship 0.561, aggregation 0.482, prerequisite 0.480, exploratory
+  0.429). Nothing can clear it, so `classify_intent` can only ever return SPECIFIC. The
+  starvation is real arithmetic with **zero production effect** — see Named work 4, now a
+  RULING.
 - **The fragments were an ingestion-hygiene defect, 90% in vault notes** — `/search` never showed
   them (`_aggregate_body_chunk_parents` drops non-Ku/PS parents); they only crowded the vector
   candidate pool and Askesis draws. "Enforce `min_chunk_size`" as configured would have folded
@@ -1685,6 +1696,23 @@ label-only lines; 72 typed `explanation`; 32 under 20 characters), 6 path_step (
    corpus median, so enforcing it is a tuning decision, not a defect fix. (The two older
    scripts still measure something else: `analyze_search_metrics.py` is latency/score
    from logs; `benchmark_hybrid_queries.py` is query-pattern latency.)
+   **PR-2 (2026-08-30):** set widened to **v2** on Mike's ratification review — both
+   `real_usage` rows had been too narrow, and both notes now carry the measurement that
+   settled them. **Body-fold status shipped:** `SearchResponse.body_fold`
+   (`BodyFoldReport` + `BodyFoldStatus`, ruled 2026-08-30) reports whether the fold ran,
+   how many passages cleared the floor and how many parent cards it added — the fold fails
+   SOFT, so without it a chunk-blind response is indistinguishable from a chunk-aware one
+   that matched nothing. It REPLACED the eval's out-of-band probe, which proved only that a
+   SIBLING call succeeded while the scored response's own fold ran afterwards and could fail
+   independently.
+   **Append-never-promote (measured, not a defect claim).** `_augment_with_body_chunks`
+   ends `merged = list(response.results) + body_results`, and a parent already present from
+   frontmatter is deduped OUT of the body list. So the fold can append but never re-rank:
+   for `breath`, chunk retrieval scores `ps.mindfulness.breath-awareness-basics` the **#1
+   parent at 0.755** while it sits at merged rank **6**, below five title-CONTAINS Kus. Mike
+   ruled 2026-08-30 that those five are genuinely relevant, so this is recorded as a
+   structural fact, not scheduled work; it is what a future ordering change would have to
+   contend with.
 3. **`chunk_type_weights`:** only when (a) the eval set exists and (b) a content-typing
    classifier has replaced the keyword fallback AND its distribution has flattened enough for
    weights to change an ordering (explanation < 50%) — (b) is a classifier decision, not a
@@ -1692,15 +1720,46 @@ label-only lines; 72 typed `explanation`; 32 under 20 characters), 6 path_step (
    The table must carry all nine `ContentChunkType` members — a type with 0 chunks today
    (`code`, `section`, `introduction`, `conclusion`) weights 1.0 until it is measured, never
    "absent"; the distribution check below groups by whatever types exist.
-4. **Askesis intent filter — loosen before weighting:** the hard `IN` filter over the fallback
-   classifier starves EXPLORATORY (65 of 998 eligible). With (2)'s eval set in hand, measure a
-   thin-draw fallback (unfiltered retrieval when the filtered draw returns fewer than k chunks)
-   against the current filter; if it wins, the `/search` weight table (3) may be moot.
+4. **Askesis intent filter — MEASURED INERT 2026-08-30; now a RULING, not a build.**
+   The thin-draw comparison shipped as `scripts/eval_askesis_chunk_draw.py`
+   (`./dev eval-askesis-draw [--user <uid>]`): three arms — `filtered` (production),
+   `thin_draw` (keep every filtered hit, BACKFILL from an unfiltered draw up to k — never
+   loses an intent-appropriate passage the way "use the unfiltered draw when thin" can) and
+   `unfiltered` (control) — over the same reviewable query set, reproducing the production
+   draw (`limit=5`, `min_score=0.6` — NOT /search's 0.68 — and `user_uid` as the ADR-085
+   audience). Recall is scored at the **prompt window of 3**, not the draw limit:
+   `retrieve_relevant_context` keeps `relevant_chunks[:3]` and that is what `llm_service`
+   inlines, so a parent reached only at draw rank 4 is retrieved and thrown away.
+   Starvation is measured against the same 3 for the mirror reason. **Result: all three
+   arms identical (recall@3 22/23, 0 starved), run both curriculum-only and with the
+   audience, because 0 of 23 queries reached a filtered intent.** The script prints that
+   as a loud banner, with the measured margin (`max_intent_score` 0.29 against the 0.65
+   gate) so the zero reads as "unreachable gate", not "unusual queries" —
+   `filtered_intent_queries: 0` means the arms are an identity, not a finding. It classifies
+   through `IntentClassifier.classify_intent_scored` (added here), NOT the fail-soft
+   `classify_intent`: that one converts an embedding outage into `Result.ok(SPECIFIC)`, which
+   is byte-identical to a real low-confidence verdict, so an outage could have manufactured
+   this very finding with `errors: 0`. The scored variant fails loudly and a failed
+   classification invalidates its row. It also reports `unlabelled_in_windows` PER ARM (1 in each of the three on the
+   `--user` run, 0 curriculum-only), because a viewer's own notes compete for the prompt
+   window while the set labels only published Ku/PathStep. Per arm, not per run: once
+   the filter is live the three arms hold different windows, and a note sitting in only
+   one of them would depress that arm alone and make the delta look like filtering.
+   **So the thin-draw fallback would change nothing today**, and shipping it alone would be
+   dead code guarding dead code. The ruling Mike owes this entry is which of three:
+   (a) **delete** `_INTENT_CHUNK_TYPES` + the `chunk_types` plumbing (One Path Forward — it
+   has never run in any commit's production path); (b) **fix the classifier AND ship the
+   thin-draw fallback together** — activation is never neutral, and a reachable threshold
+   without the fallback would newly impose the 66-of-925 EXPLORATORY starvation on draws
+   that today see all 925, so the fallback is the PREREQUISITE for the fix, not a sequel to
+   it; (c) leave inert and register the named cost. Until then (3)'s weight table is arguing
+   about a path that does not execute.
 
-**Trigger:** (1) ✅ done; (2) scheduled by Mike 2026-08-30 as a two-PR eval arc —
-instrument shipped, next step is Mike ratifying the query set, then the baseline run; (4) acts
-on that eval set in the arc's PR-2; (3) additionally needs the content-typing classifier named
-in its (b).
+**Trigger:** (1) ✅ done; (2) instrument + body-fold status shipped (PR-2), set at v2 — the
+one remaining step is Mike setting `ratified:` and the baseline run; (4) ✅ measured in PR-2 and
+now waiting on Mike's (a)/(b)/(c) ruling — no further measurement will move it, because the path
+does not execute; (3) additionally needs the content-typing classifier named in its (b), and is
+moot under (4a).
 **Check** (one statement per block — paste each on its own; words, not characters, because the
 knobs are word counts; `c.end_index` is the persisted whitespace-aware `word_count`, so a chunk
 with line breaks or doubled spaces is counted the way ingestion counted it — a naive
@@ -1716,6 +1775,10 @@ ORDER BY n DESC
 MATCH (c:ContentChunk) WHERE c.end_index < 5 RETURN count(*) AS fragments   // 83 pre-v2 → 7 after the 2026-08-30 re-chunk (all link-only notes); a rise = new fragment-shaped ingestion
 ```
 plus `git grep -n chunk_type_weights -- core/` (empty until built).
+The intent filter's liveness is NOT greppable — the code is wired and reachable, it is the
+0.65 threshold that no query clears — so it is checked by DRIVING the path:
+`./dev eval-askesis-draw --json` → `filtered_intent_queries` (0 of 23 on 2026-08-30; any
+non-zero means the classifier now returns a mapped intent and (4) has changed under us).
 **Named cost while parked:** a type table built today would be tuned against a fallback-dominated
 corpus (79% one label), and Askesis EXPLORATORY draws stay starved at 65-of-998 eligible until (4).
 
