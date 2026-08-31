@@ -3,10 +3,19 @@
 **Status:** **Direction RULED 2026-08-31 (Mike) — position (b): Askesis DOES answer questions
 about the user's own records, and this is how.** Not yet scheduled as a build, and **blocked on
 a trigger**: intent classification cannot return `AGGREGATION` today because its 0.65 gate is
-unreachable. That arc's **PR-1 (labels) is the prerequisite**; its **PR-2 (activation) and this
-doc's first slice are ONE coordinated change**, not a sequence — activating the intent before a
-branch can answer it opens a window where count questions fall through to ordinary generation
-and are answered generically or invented (see § first slice, step 5). Originally captured the conclusion of a "should we adopt LangChain
+unreachable.
+
+⚠ **The constraint is REACHABILITY, not PR count — amended 2026-08-31 (Mike).** This doc
+previously said the activation arc's PR-2 and this first slice are "ONE coordinated change, not a
+sequence". That over-stated the requirement. The real invariant is that **`AGGREGATION` must
+never CLASSIFY with nothing behind it** — and that is satisfied either by shipping them together
+or by PR-2 holding `AGGREGATION` explicitly unreachable and this slice removing that exclusion in
+the same change that adds the tool. **The ruled sequencing is the latter**, because this slice
+carries an LLM-chosen, user-scoped query executor whose cross-tenant test deserves its own review,
+plus two unresolved decisions (step 6's coverage enforcement, step 7's Socratic-prompt question)
+that would otherwise block a one-constant threshold change. Prerequisites are therefore: the
+arc's **PR-1 (labels, DONE — #1204/#1205)**, then its **PR-2 (activation with the carve-out)**,
+then this slice. Originally captured the conclusion of a "should we adopt LangChain
 `text2cypher`?" review (May 2026) and the SKUEL-aligned alternative that came out of it; the
 ruling promotes that alternative from "possible" to "the intended shape".
 
@@ -448,15 +457,18 @@ Implement **one** tool end-to-end, behind the FULL intelligence tier
    the classifier arc lands.** `AGGREGATION` keeps its exemplars (ruled 2026-08-31 — see that
    doc's ruling 2), but the classifier returns only `SPECIFIC` today because the 0.65 gate is a
    MEAN over 8 exemplars and is unreachable, so a branch added now is dead on arrival.
-   **Build it WITH [askesis-intent-classification-activation.md](askesis-intent-classification-activation.md)
-   PR-2's activation, or before it — never after.** An earlier draft of this step
-   said "after PR-2", which opens a window of exactly the harm this doc exists to prevent:
-   between activation and this branch existing, count questions classify as `AGGREGATION`, meet
-   no branch, fall through to ordinary generation, and are answered generically or invented —
-   with neither a tool result nor the promised decline (Codex, #1202). It must also not land
+   **This branch and the removal of PR-2's `AGGREGATION` carve-out are ONE change** — see the
+   Status note. The harm to prevent is a window in which count questions classify as
+   `AGGREGATION`, meet no branch, fall through to ordinary generation, and are answered
+   generically or invented, with neither a tool result nor the promised decline (Codex, #1202).
+   An earlier draft said to build this "after PR-2", which opens exactly that window; the
+   carve-out closes it instead, and lifting the carve-out without the branch in the same commit
+   re-opens it. ⚠ So the dangerous edit is not adding this branch late — it is deleting the
+   exclusion early. It must also not land
    before PR-1 has disambiguated `AGGREGATION` from `EXPLORATORY`, or a topic-orientation
    question ("introduce me to stoicism") routes here and is answered with a COUNT. So the
-   ordering is: PR-1 (labels) → then this branch and PR-2's activation together.
+   ordering is: **PR-1 (labels, DONE) → PR-2 (activation, with the `AGGREGATION` carve-out) →
+   this branch, which removes the carve-out in the same commit that adds the tool.**
 6. **Declare the catalog's COVERAGE, and decline outside it.** The first slice answers
    *"how many goals did I complete last quarter"* and nothing else — not the bare total, and
    not the relationship-bearing question this doc opens with (*"…blocked by a habit I
