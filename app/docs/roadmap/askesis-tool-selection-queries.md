@@ -331,7 +331,6 @@ is the same reason the args model is domain-narrow. (Codex, #1202.)
 
 ### 5. The executor — validation + the critical `user_uid` injection
 
-```python
 ⚠ **`run_tool` as shown CANNOT enforce the decline, and this is the design's weakest
 point.** It checks only that the selected NAME exists in the catalog. Hand
 `tool_choice="auto"` the relationship-bearing question — *"how many goals did I complete last
@@ -351,6 +350,7 @@ in this whole document. Two mitigations, and the first is not optional:
    to self-report "aspects I could not honour" is not a substitute: that is the same model that
    just mis-selected.
 
+```python
 # ⚠ A DECLINE IS NOT AN ERROR. Step 6 requires an out-of-coverage question to be
 # declined with a reason, but an `Errors.validation` here is indistinguishable from
 # a genuine failure, and the § 6 branch logs errors and continues — so the response
@@ -400,8 +400,13 @@ narrow Socratic prompt at all (ADR-077), which is a pedagogical question, not a 
 ```python
 # context_retriever.py — computes the aggregation (necessary, NOT sufficient — see above)
 elif intent == QueryIntent.AGGREGATION:
-    selection = await self.llm_service.select_tool(query, self._agg_tools)
-    result = await run_tool(selection, self._agg_catalog, user_context)
+    # select_tool returns Result[ToolSelection] (§ 4) — a provider failure is not a
+    # selection, and passing the wrapper on would have run_tool read .tool_name off it.
+    selected = await self.llm_service.select_tool(query, self._agg_tools)
+    if selected.is_error:
+        logger.info("Tool selection FAILED; using baseline context")
+        return context
+    result = await run_tool(selected.value, self._agg_catalog, user_context)
     if result.is_error:
         logger.info("Aggregation tool FAILED; using baseline context")
     elif isinstance(result.value, Declined):
