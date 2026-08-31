@@ -1648,6 +1648,13 @@ label-only lines; 72 typed `explanation`; 32 under 20 characters), 6 path_step (
   925-chunk v2 corpus (2026-08-30): EXPLORATORY **66 of 925** (7.1%) — of which `introduction`,
   one of its three named types, matches **zero rows**; PRACTICE 137 (14.8%); the other mapped
   intents 786 (85.0%). The v2 re-chunk moved none of it (was 65/145/850 of 998), as predicted.
+  ⚠ **EXPLORATORY's mapping may be answering the wrong question entirely.** Its
+  `INTENT_EXEMPLARS` describe *catalog browsing* ("Show me what's available", "Browse available
+  knowledge"), while `INTRODUCTION`/`SUMMARY`/`DEFINITION` chunks answer *topic orientation*
+  ("introduce me to stoicism") — two intents under one name. PR-1 of
+  [askesis-intent-classification-activation.md](askesis-intent-classification-activation.md)
+  decides which it is; if it lands on browsing, this mapping is wrong on its own terms and the
+  7.1% is beside the point.
   **But those are counterfactuals.** Driving the production path (`./dev eval-askesis-draw`)
   showed all 23 queries classify to **SPECIFIC**, which is unmapped → `chunk_types=None` → no
   filter. The cause is one layer up and is not a tuning miss: classification needs
@@ -1825,7 +1832,8 @@ The intent filter's liveness is NOT greppable — the code is wired and reachabl
 `./dev eval-askesis-draw --json` → `filtered_intent_queries` (0 of 23 on 2026-08-30; any
 non-zero means the classifier now returns a mapped intent and (4) has changed under us).
 **Named cost while parked:** a type table built today would be tuned against a fallback-dominated
-corpus (79% one label), and Askesis EXPLORATORY draws stay starved at 65-of-998 eligible until (4).
+corpus (78% one label on the v2 corpus), and EXPLORATORY's eligible slice stays 66-of-925 — a
+counterfactual while the filter cannot fire, and the number to beat the moment it can.
 
 ---
 

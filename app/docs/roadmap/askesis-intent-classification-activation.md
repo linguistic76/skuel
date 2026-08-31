@@ -92,7 +92,22 @@ is PR-1 and is the reason PR-1 exists.
 
 **The errors cluster on EXPLORATORY**, which never won: both its probes lost to `AGGREGATION`,
 because "Give me an overview" is literally an AGGREGATION exemplar. The two exemplar sets
-overlap semantically.
+overlap semantically — and reading them side by side says *how*:
+
+**The discriminator is the OBJECT, not the verb.** *"Summarize my learning"* (AGGREGATION) and
+*"give me an overview of stoicism"* (EXPLORATORY) share their verb and differ only in what they
+are about — your records, or a subject. Worse, AGGREGATION's `"Give me an overview"` carries **no
+object at all**, which makes it a magnet: the probe *"give me an overview of this topic"* matched
+it at **0.792**. Short-sentence embeddings are dominated by the verb, which is exactly why an
+average over eight of them separates these two so badly.
+
+⚠ **And `EXPLORATORY` currently means two different things.** Its exemplars are *catalog
+browsing* — "Show me what's available", "Browse available knowledge", "What else is there?" — but
+its chunk-type mapping is `INTRODUCTION`/`SUMMARY`/`DEFINITION`, which answers *topic
+orientation* ("introduce me to stoicism"). Those are different intents under one name. PR-1's
+labelled set has to pick one, and the choice feeds back: **if it picks browsing, the
+`_INTENT_CHUNK_TYPES` mapping in deferred-work Named work 4 is wrong on its own terms**, quite
+apart from the corpus measurements there.
 
 ## Rulings (Mike, 2026-08-30)
 
@@ -102,32 +117,41 @@ overlap semantically.
    it is only needed if the filter is ever switched on, which is PR-3's problem.
    *This supersedes the earlier "fix and fallback ship together" framing*: that reasoning holds
    only while activation implies the filter, and it no longer does.
-2. **`AGGREGATION` is retired — from the EXEMPLARS, not from the enum.** Askesis is a
-   learning companion, not a dashboard query language; counts belong to the app's own
-   surfaces. Deleting its 8 entries from `INTENT_EXEMPLARS` means it can never be *classified*
-   again, which is the whole of what this arc needs — it resolves the EXPLORATORY collision
-   for free.
+2. **`AGGREGATION` STAYS — member and exemplars. Ruled 2026-08-31 (Mike): position (b).**
+   Askesis *does* answer questions about the user's own records; the safe mechanism is LLM
+   **tool-selection** over vetted, parameterized, server-scoped tools — never generated Cypher
+   ([askesis-tool-selection-queries.md](askesis-tool-selection-queries.md), whose direction this
+   ratifies).
 
-   ⚠ **The enum member STAYS, and the narrowing is the point.** The first draft of this ruling
-   deleted the member on the evidence that no code branches on it — true, and incomplete:
-   [askesis-tool-selection-queries.md](askesis-tool-selection-queries.md) is a live roadmap
-   doc whose stated thesis IS the `AGGREGATION` gap and whose step 5 is adding a
-   `QueryIntent.AGGREGATION` branch (found by Codex on #1201, confirmed). Keeping the member
-   costs nothing, keeps that sketch's hook, and stops a classifier-hygiene decision from
-   quietly settling a product question — *does Askesis ever answer "how many goals do I have"* —
-   that belongs to that doc, not this one. Open for Mike; the arc does not depend on it.
+   ⚠ **This SUPERSEDES the 2026-08-30 retirement**, which was ruled one day earlier on the
+   opposite premise — *"Askesis is a learning companion, not a dashboard query language; counts
+   belong to the app's own surfaces"* — i.e. position (a), stated in those words. The same
+   question was put twice; the later, fuller framing governs, and the mechanical outcome of the
+   earlier one is reversed with it rather than kept on a dead rationale.
 
-   ⚠ **PR-1 must CLOSE this, not inherit it.** Codex is right that an enum member with no
-   producer is an unused alternative path, and One Path Forward has no "keep it for a sketch"
-   tier — enum members are outside every `./dev bloat` tier by ruling, so nothing else will
-   ever flag it. PR-1 ships with exactly one of: (a) the member deleted with its exemplars and
-   `askesis-tool-selection-queries.md` amended to name a trigger that does not need it, or
-   (b) Mike's explicit decision to keep it, recorded HERE with the date. Not a third
-   quiet option.
+   **What survives the reversal is the collision — and it is now LOAD-BEARING.** Today a
+   mis-route costs nothing, because nothing fires. Under (b), routing *"introduce me to
+   stoicism"* to `AGGREGATION` sends a learner's exploratory question to a **count tool** and
+   answers it with a number: a user-visible wrong answer where today there is merely a dormant
+   one. Disambiguating the two exemplar sets is therefore a **correctness prerequisite** for
+   tool-selection, not tidying.
 
 ## Sequencing
 
-### PR-1 — the labelled set + the instrument (no behaviour change)
+### PR-1 — the labelled set + the instrument
+
+⚠ **PR-1 is NOT behaviour-neutral, despite touching no branch.** `INTENT_EXEMPLARS` is live
+input to `_score_against_exemplars`, and the 0.65 gate does not move until PR-2. Making
+`AGGREGATION`'s eight examples more semantically coherent — which is exactly what the
+disambiguation asks for — *raises* the average a count question scores against them, and could
+carry it over the gate **during PR-1**, before any tool branch exists. The question would then
+take today's ungrounded path and be answered with an invented count: the same window closed at
+PR-2, reopened one PR earlier by a rewrite that looks like documentation.
+
+**Acceptance condition, therefore:** PR-1 proves, with the instrument it ships, that **every
+intent's best score stays below `IntelligenceThreshold.INTENT_CLASSIFICATION` for every query in
+the labelled set** after the rewrite. If any clears it, that exemplar change moves into PR-2 and
+lands with the activation, not before. (Codex, #1202.)
 
 Same discipline as the chunk-retrieval eval, and the same ratification pattern: **Claude drafts,
 Mike ratifies**, first ratified run is the baseline.
@@ -138,8 +162,30 @@ Mike ratifies**, first ratified run is the baseline.
   strategy: accuracy, score distribution, share clearing the gate, and margin over the
   runner-up. Must classify through `classify_intent_scored` — `classify_intent` converts an
   embedding outage into `Result.ok(SPECIFIC)`, which would score an outage as a finding.
-- Fix the AGGREGATION/EXPLORATORY exemplar collision as part of retiring AGGREGATION, and
-  measure before/after on the set.
+- **Disambiguate the AGGREGATION/EXPLORATORY exemplar sets** (both stay — see ruling 2), and
+  measure before/after on the set. Rewrite by OBJECT, not verb: AGGREGATION's exemplars must
+  each name the user's own records, and `"Give me an overview"` — objectless — must go or gain
+  one. Acceptance bar: **no topic-orientation query routes to `AGGREGATION`.**
+- **Decide what `EXPLORATORY` means** — catalog browsing or topic orientation — and label
+  accordingly. Record the choice here. Two things downstream depend on it, and the second is
+  live code, not a future mapping:
+  - Named work 4's chunk-type mapping (`INTRODUCTION`/`SUMMARY`/`DEFINITION`).
+  - ⚠ **`retrieve_relevant_context`'s existing `EXPLORATORY` branch**
+    (`context_retriever.py:285–294`), which injects an overview of the user's **own records** —
+    counts of tasks, goals, habits, knowledge units and MOCs. That fits *catalog browsing* and
+    is plainly wrong for *topic orientation*: PR-2 would answer "introduce me to stoicism" with
+    the learner's task statistics. **If PR-1 chooses topic orientation, rewriting that branch is
+    part of PR-2**, not a follow-up — activating an intent whose branch contradicts its meaning
+    is worse than leaving it dormant. (Codex, #1202.)
+- The set must carry **AGGREGATION-shaped queries** on both shapes tool-selection targets: the
+  bare count ("how many goals do I have") and the predicate-bearing one ("how many goals did I
+  complete last quarter that were blocked by a habit I dropped").
+  ⚠ **Labelling a query `AGGREGATION` does not mean anything can answer it.** The tool catalog's
+  first slice covers neither of those two shapes, so once PR-2 makes them classify, an
+  unmatched question must be an explicit decline — not the nearest tool returning a confident
+  wrong number. That coverage gate belongs to
+  [askesis-tool-selection-queries.md](askesis-tool-selection-queries.md) step 6; this set is
+  what will expose it.
 - **Label the corpus honestly:** a content question ("why does my mind keep wandering when I
   meditate") is genuinely `SPECIFIC`. A set that labels everything with a non-SPECIFIC intent
   measures wishful thinking. Expect SPECIFIC to be the largest class and keep it so.
@@ -162,6 +208,13 @@ Mike ratifies**, first ratified run is the baseline.
   prose; on the guided path read `suggested_actions`, `context_used` and citations, because the
   prose cannot change there. Scoring "no answer change" on the guided path as a null result
   would be measuring a wire that isn't connected.
+- ⚠ **`AGGREGATION` must not become reachable before something can answer it.** Activation
+  makes count questions classify; if no tool branch exists yet they fall through to ordinary
+  generation and are answered generically or invented. So either the tool-selection first slice
+  ([askesis-tool-selection-queries.md](askesis-tool-selection-queries.md)) lands **with** this
+  PR, or PR-2 holds `AGGREGATION` unreachable (keep it out of the reachable set) until it does.
+  A window where the intent classifies with nothing behind it is a regression, not a staging
+  step. (Codex, #1202.)
 - ⚠ **Citations turn on for the first time ever.** `PREREQUISITE`/`HIERARCHICAL` answers start
   carrying `citations_text`. That is a user-visible change with no production precedent — give
   it its own before/after, and check the citation block renders where the answer is displayed.
