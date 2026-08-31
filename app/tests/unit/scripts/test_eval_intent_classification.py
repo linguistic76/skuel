@@ -26,17 +26,21 @@ from eval_intent_classification import (  # type: ignore[import-not-found]
     ARMS,
     SPECIFIC_LABEL,
     ArmOutcome,
+    EvalReport,
     LabelledQuery,
     LabelledSet,
     QueryRow,
+    _print_human,
     aggregate,
     allowed_labels,
+    fires,
     load_labelled_set,
     nearest_exemplar,
     score_arm,
     summarize,
     summarize_arm,
     sweep,
+    zero_wrong_frontier,
 )
 
 VALID_SET = """
@@ -208,7 +212,7 @@ class TestSummarizeArm:
             _row("practice", _outcome({"practice": 0.4, "aggregation": 0.1}, "practice")),
             _row("specific", _outcome({"practice": 0.2}, "specific")),
         ]
-        report = summarize_arm(rows, "mean")
+        report = summarize_arm(rows, "mean", THRESHOLD)
 
         assert report["ranking_scored"] == 1
         assert report["ranking_correct"] == 1
@@ -222,7 +226,7 @@ class TestSummarizeArm:
             _row("specific", _outcome({"aggregation": 0.9}, "specific")),
             _row("practice", _outcome({"practice": 0.2}, "practice")),
         ]
-        report = summarize_arm(rows, "mean")
+        report = summarize_arm(rows, "mean", THRESHOLD)
 
         assert report["wrong_activations"] == 1
         assert report["missed_activations"] == 1
@@ -233,7 +237,7 @@ class TestSummarizeArm:
             _row("practice", _outcome({"practice": 0.9}, "practice")),
             _row("specific", {}, error="embedding failed"),
         ]
-        report = summarize_arm(rows, "mean")
+        report = summarize_arm(rows, "mean", THRESHOLD)
 
         assert report["scored"] == 1
         assert report["accuracy"] == 1.0
@@ -257,6 +261,107 @@ class TestSweep:
         assert points[0.45]["cleared_gate"] == 2
         assert points[0.45]["wrong_activations"] == 1
         assert points[0.45]["accuracy"] == pytest.approx(0.5)
+
+
+class TestFiresIsOneDefinition:
+    """An empty winner is not an activation, and every consumer must agree.
+
+    `score_arm` leaves `best_intent` empty when nothing scores above zero —
+    cosine can be zero or negative — and production returns SPECIFIC there. The
+    condition lived in three copies until a fourth was written without this
+    check and counted a correctly classified SPECIFIC row as a mis-route
+    (Codex, #1206).
+    """
+
+    def test_an_empty_winner_never_fires_however_low_the_gate(self) -> None:
+        assert fires("", 0.0, 0.0) is False
+        assert fires("practice", 0.0, 0.0) is True
+
+    def test_a_nonpositive_row_is_not_a_misroute_at_any_cutoff(self) -> None:
+        """The bug: at cutoff 0 this row was 'firing' with intent "" != 'specific'."""
+        rows = [
+            _row("specific", _outcome({"practice": -0.1, "aggregation": -0.2}, "specific")),
+            _row("practice", _outcome({"practice": 0.5}, "practice")),
+        ]
+        frontier = zero_wrong_frontier(rows, "mean")
+
+        assert frontier["forced_by_query"] is None, "a row that cannot fire cannot mis-route"
+        assert frontier["threshold"] is not None, (
+            "before the fix every cutoff 'admitted a mis-route' and the frontier collapsed to None"
+        )
+        assert frontier["cleared_gate"] == 1
+
+    def test_the_frontier_and_the_sweep_agree_on_who_fires(self) -> None:
+        """Two readings of one condition must not drift apart again."""
+        rows = [
+            _row("specific", _outcome({"practice": -0.3}, "specific")),
+            _row("aggregation", _outcome({"aggregation": 0.45}, "aggregation")),
+        ]
+        at_zero = next(p for p in sweep(rows, "mean") if p["threshold"] == 0.30)
+
+        assert at_zero["cleared_gate"] == 1, "the nonpositive row must not count as firing"
+        assert zero_wrong_frontier(rows, "mean")["cleared_gate"] == 1
+
+
+class TestZeroWrongFrontier:
+    """The number PR-2 picks a gate from — and the one a 0.05 ladder gets wrong."""
+
+    def test_frontier_sits_at_an_observed_score_not_a_grid_step(self) -> None:
+        """A mis-route at 0.527 must yield a frontier just above IT, not 0.55.
+
+        Rounding up to the ladder step drops every query scoring between, which
+        undercounts the arm and can invert which aggregation looks best.
+        """
+        rows = [
+            _row("practice", _outcome({"hierarchical": 0.527}, "practice")),  # mis-route
+            _row("hierarchical", _outcome({"hierarchical": 0.540}, "hierarchical")),
+            _row("practice", _outcome({"practice": 0.530}, "practice")),
+        ]
+        frontier = zero_wrong_frontier(rows, "mean")
+
+        assert frontier["threshold"] == pytest.approx(0.530)
+        assert frontier["cleared_gate"] == 2, "0.55 would have credited only one"
+        assert frontier["forced_by_score"] == pytest.approx(0.527)
+
+    def test_it_names_the_query_that_pins_the_gate(self) -> None:
+        rows = [
+            _row("specific", _outcome({"aggregation": 0.40}, "specific")),
+            _row("practice", _outcome({"practice": 0.50}, "practice")),
+        ]
+        frontier = zero_wrong_frontier(rows, "mean")
+
+        assert frontier["forced_by_query"] == "q"
+        assert frontier["threshold"] == pytest.approx(0.50)
+        assert frontier["cleared_gate"] == 1
+
+    def test_no_mis_routes_at_all_means_the_lowest_score_is_clean(self) -> None:
+        rows = [
+            _row("practice", _outcome({"practice": 0.20}, "practice")),
+            _row("aggregation", _outcome({"aggregation": 0.60}, "aggregation")),
+        ]
+        frontier = zero_wrong_frontier(rows, "mean")
+
+        assert frontier["threshold"] == pytest.approx(0.20)
+        assert frontier["cleared_gate"] == 2
+        assert frontier["forced_by_score"] is None
+
+    def test_a_top_scoring_mis_route_leaves_no_clean_gate(self) -> None:
+        """When the highest score is itself wrong, only an empty gate is clean."""
+        rows = [
+            _row("specific", _outcome({"aggregation": 0.90}, "specific")),
+            _row("practice", _outcome({"practice": 0.50}, "practice")),
+        ]
+        frontier = zero_wrong_frontier(rows, "mean")
+
+        assert frontier["threshold"] is None
+        assert frontier["cleared_gate"] == 0
+
+    def test_errored_rows_are_excluded(self) -> None:
+        rows = [
+            _row("practice", _outcome({"practice": 0.50}, "practice")),
+            _row("specific", {}, error="embedding failed"),
+        ]
+        assert zero_wrong_frontier(rows, "mean")["cleared_gate"] == 1
 
 
 class TestSummarize:
@@ -293,6 +398,88 @@ class TestSummarize:
         assert report["errors"] == 1
         assert report["label_counts"] == {"practice": 1, "specific": 1}
         assert set(report["arms"]) == set(ARMS)
+
+
+class TestPrintHuman:
+    """The DEFAULT output path, and it was untested — which is how a `None`
+    format slipped in (Kody, #1206).
+
+    Every field the renderer formats numerically that CAN be None is a crash
+    waiting for the run that produces it. These exercise each shape rather than
+    asserting exact prose, so they survive wording changes but not a TypeError.
+    """
+
+    @staticmethod
+    def _report(rows: list[QueryRow]) -> EvalReport:
+        return summarize(rows, LabelledSet(version=1, ratified=None, queries=()), THRESHOLD)
+
+    def test_an_arm_with_no_misroutes_anywhere_renders(self, capsys) -> None:
+        """The reported crash: no mis-route means no pinning query, and
+        `forced_by_score` is None — which `:.3f` cannot format."""
+        rows = [
+            _row("practice", _outcome({"practice": 0.9}, "practice")),
+            _row("aggregation", _outcome({"aggregation": 0.8}, "aggregation")),
+        ]
+
+        _print_human(self._report(rows))
+
+        assert "no mis-routes at any gate" in capsys.readouterr().out
+
+    def test_a_pinned_frontier_names_the_query_that_sets_it(self, capsys) -> None:
+        rows = [
+            _row("specific", _outcome({"aggregation": 0.40}, "specific")),
+            _row("practice", _outcome({"practice": 0.90}, "practice")),
+        ]
+
+        _print_human(self._report(rows))
+
+        assert "pinned by" in capsys.readouterr().out
+
+    def test_no_clean_gate_renders_its_own_line(self, capsys) -> None:
+        """The top-scoring row is itself a mis-route, so only an empty gate is clean."""
+        rows = [_row("specific", _outcome({"aggregation": 0.95}, "specific"))]
+
+        _print_human(self._report(rows))
+
+        assert "every cutoff admits a mis-route" in capsys.readouterr().out
+
+    def test_an_errored_row_renders_instead_of_indexing_empty_arms(self, capsys) -> None:
+        """An errored row carries NO arms; the renderer must take its error branch."""
+        rows = [
+            _row("practice", _outcome({"practice": 0.5}, "practice")),
+            _row("specific", {}, error="embedding failed"),
+        ]
+
+        _print_human(self._report(rows))
+
+        assert "ERROR" in capsys.readouterr().out
+
+    def test_a_total_outage_says_nothing_was_measured(self, capsys) -> None:
+        """Every row errored: there is no frontier, clean or otherwise.
+
+        Reporting "every cutoff admits a mis-route" on zero scored rows is an
+        outage wearing a finding's clothes — the exact confusion this instrument
+        exists to prevent, turned on its own output (Codex, #1206).
+        """
+        rows = [
+            _row("practice", {}, error="embedding failed"),
+            _row("specific", {}, error="embedding failed"),
+        ]
+
+        out = capsys.readouterr  # bind before the call for clarity
+        _print_human(self._report(rows))
+        printed = out().out
+
+        assert "nothing to measure" in printed
+        assert "every cutoff admits a mis-route" not in printed, (
+            "a frontier verdict on zero scored rows asserts something about data "
+            "that does not exist"
+        )
+
+    def test_a_draft_set_is_announced_as_not_a_baseline(self, capsys) -> None:
+        _print_human(self._report([_row("practice", _outcome({"practice": 0.5}, "practice"))]))
+
+        assert "DRAFT" in capsys.readouterr().out
 
 
 class TestLabelledQueryShape:

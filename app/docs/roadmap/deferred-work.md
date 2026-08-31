@@ -1796,19 +1796,29 @@ label-only lines; 72 typed `explanation`; 32 under 20 characters), 6 path_step (
    **Named cost while inert:** every reader of `context_retriever.py` — and, until #1198,
    four docs — sees an intent→chunk-type filter that appears operative and is not; the
    only thing keeping that legible is this entry plus the `./dev eval-askesis-draw` banner.
-   **"Fix the classifier" must not be assumed to mean "lower 0.65"** — the measured
-   0.43–0.56 self-similarity of a verbatim exemplar implicates the *averaging over 8 diverse
-   exemplars*, and measured across mean / max / top-3 the aggregation moves REACHABILITY, not
-   correctness (all three rank identically). Which shape lands is PR-1's measurement in the arc
-   doc. Note what flipping queries off SPECIFIC does and does not touch: with `chunk_types`
+   ⚠ **"Fix the classifier" DOES now mean "move the gate" — this reversed on the ratified
+   baseline (2026-08-31), and the earlier reading here was wrong.** It said the fix must not be
+   assumed to be a lower threshold, because a verbatim exemplar's 0.43–0.56 self-similarity
+   implicates the *averaging over 8 diverse exemplars*, and because all three aggregations were
+   thought to rank identically. Measured on 45 labelled queries, both halves fail: the
+   aggregations do NOT rank identically (mean 30/31, max 29/31, top-3 29/31), and the production
+   `mean` **dominates at the exact zero-wrong-activation frontier** — it activates 21 of 45 at
+   0.3329 (78% accuracy), against max 17/45 at 0.5353 (69%) and top-3 15/45 at 0.4911 (64%).
+   ⚠ Exact, not ladder-rounded: the frontier is pinned by one query and a 0.05 grid rounds it up,
+   which understated all three arms (#1206). The averaging is not the defect; it is the
+   best-behaved of the three. So the indicated fix is the one the old reading warned against:
+   keep the mean, move the gate — **0.35, deliberately not the frontier itself**, which is an
+   observed score and drifts between runs. The arc doc's PR-2 section carries the
+   proposal and what would reject it. Note what flipping queries off SPECIFIC does and does not touch: with `chunk_types`
    held off it re-routes the two answer-shaping branches and NOT the chunk draw, which is
    exactly why the arc can proceed without the fallback.
    **Both halves of that are RUNNABLE, not just prose**
    (`tests/unit/test_askesis_intent_filter_activation_guard.py`): mapping `SPECIFIC` fails —
    it is the verdict `classify_intent` returns on an embeddings OUTAGE, so a mapping would let
    a provider failure silently answer from a type-filtered slice, and that holds after the fix
-   too; and switching the score from a mean to a max fails, because the averaging IS the
-   mechanism the "not just lower 0.65" reading rests on. Neither asserts the filter is inert —
+   too; and switching the score from a mean to a max fails — originally because the averaging
+   was the mechanism the "not just lower 0.65" reading rested on, and now for a better reason
+   that outlived it: the mean is MEASURED to mis-route least. Neither asserts the filter is inert —
    that is live-corpus state and stays with `./dev eval-askesis-draw`.
 
 **Trigger:** (1) ✅ done; (2) ✅ instrument + body-fold status shipped (PR-2), set ratified at
