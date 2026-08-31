@@ -1604,7 +1604,7 @@ syncs, and nothing on any surface says so.
 
 ---
 
-## Per-Domain Chunking Knobs + Chunk-Type-Aware Retrieval (REGISTERED 2026-08-28 · re-measured + fragment fix DONE 2026-08-30 · intent filter measured INERT 2026-08-30)
+## Per-Domain Chunking Knobs + Chunk-Type-Aware Retrieval (REGISTERED 2026-08-28 · re-measured + fragment fix DONE 2026-08-30 · intent filter measured INERT + RULED 2026-08-30 · baseline RATIFIED 2026-08-30)
 
 The chunking-params foundation shipped in #560 (2026-07-08): `ChunkingParams` on
 `EntityIngestionConfig` (`core/services/ingestion/config.py`), every domain on
@@ -1677,8 +1677,8 @@ label-only lines; 72 typed `explanation`; 32 under 20 characters), 6 path_step (
    998 → **925** chunks all `v2`, fragments 83 → **7** (every survivor a link-only MOC-style
    note with nothing to fold into — a content property, not a splitter defect), embedding
    `NULL` = 0 after the worker drain, median 27 → 30 words.
-2. **Knob tuning — instrument SHIPPED 2026-08-30 (eval arc PR-1), baseline pending
-   ratification:** `scripts/eval_chunk_retrieval.py` (`./dev eval-chunk-retrieval`) scores
+2. **Knob tuning — instrument SHIPPED 2026-08-30 (eval arc PR-1), baseline RATIFIED
+   2026-08-30:** `scripts/eval_chunk_retrieval.py` (`./dev eval-chunk-retrieval`) scores
    hit@5 over the reviewable query set `scripts/eval_chunk_retrieval_queries.yaml`
    (23 queries with expected Ku/PathStep hits) through the SEARCH path that retrieves
    chunks — `SearchRouter.faceted_search` with semantic boost, the sole caller of
@@ -1687,9 +1687,20 @@ label-only lines; 72 typed `explanation`; 32 under 20 characters), 6 path_step (
    searches parent entities and never touches a `ContentChunk`, so a baseline run through it
    would be blind to every knob here (Askesis reaches chunks separately via
    `retrieve_scoped_chunks` — the knobs move that too, and it is audience-scoped since ADR-085 G8 (#1195) — but the eval targets search). Mike ratifies the query→expected-hit pairs
-   (the set's `ratified:` field carries the date); the first RATIFIED run IS the baseline —
-   the 2026-08-30 draft run (hit@5 = 21/23, 18 hits via the body fold, both misses
-   `real_usage` queries) is evidence the instrument works, not a baseline. Only a measured
+   (the set's `ratified:` field carries the date); the first RATIFIED run IS the baseline.
+   **BASELINE (v2, ratified 2026-08-30, AuraDB `d2d160c4`, 925-chunk v2 corpus): hit@5 =
+   23/23 = 1.00, 18 via the body fold, 0 errors; best_rank 1×19 / 2×3 / 3×1, mean 1.22.**
+   ⚠ **The headline metric is SATURATED and can only detect regression, not improvement.**
+   It reads 1.00 because the v2 widening admitted the Kus the two `real_usage` rows were
+   already returning — not because retrieval changed (the 21/23 draft ran on the same
+   corpus and the same code). A knob change that improves ordering cannot show up in
+   hit@5, so **tuning is judged on `best_rank` and `expected_missing`**, which are in the
+   `--json` rows and are NOT saturated. The one live residual: for the bare query `body`
+   the fold contributes **0 chunk candidates** (nothing clears
+   `body_chunk_search_min_score = 0.68`; corpus best 0.651) and both expected PathSteps
+   stay absent — yet `ps.self-awareness.understanding-your-emotions` is reached at rank 1
+   via the fold by "noticing feelings in my body before I react", so the gap is that
+   query's specificity against the score floor, not that PathStep's retrievability. Only a measured
    miss traced to chunk
    grain earns a `chunking_params` change on one `EntityIngestionConfig` + a domain-scoped
    re-chunk. This is also where `min_chunk_size`'s default is re-based: 50 words is above the
@@ -1746,20 +1757,32 @@ label-only lines; 72 typed `explanation`; 32 under 20 characters), 6 path_step (
    the filter is live the three arms hold different windows, and a note sitting in only
    one of them would depress that arm alone and make the delta look like filtering.
    **So the thin-draw fallback would change nothing today**, and shipping it alone would be
-   dead code guarding dead code. The ruling Mike owes this entry is which of three:
-   (a) **delete** `_INTENT_CHUNK_TYPES` + the `chunk_types` plumbing (One Path Forward — it
-   has never run in any commit's production path); (b) **fix the classifier AND ship the
-   thin-draw fallback together** — activation is never neutral, and a reachable threshold
+   dead code guarding dead code.
+   **RULED 2026-08-30 (Mike): NOT (a) — do not delete. The shape is (b); the present state
+   is (c).** The plumbing stays because the intent is to *connect* it, not to retire it:
+   `_INTENT_CHUNK_TYPES` + `chunk_types=` are a staged surface awaiting its classifier, so
+   they are **PLANNED, not dead** — the One Path Forward carve-out for deliberately
+   staged-but-unwired work. When it is scheduled, the classifier fix and the thin-draw
+   fallback ship in ONE change: activation is never neutral, and a reachable threshold
    without the fallback would newly impose the 66-of-925 EXPLORATORY starvation on draws
-   that today see all 925, so the fallback is the PREREQUISITE for the fix, not a sequel to
-   it; (c) leave inert and register the named cost. Until then (3)'s weight table is arguing
-   about a path that does not execute.
+   that today see all 925 — the fallback is the PREREQUISITE for the fix, not a sequel to
+   it. Until then (3)'s weight table is arguing about a path that does not execute.
+   **Named cost while inert:** every reader of `context_retriever.py` — and, until PR-2,
+   four docs — sees an intent→chunk-type filter that appears operative and is not; the
+   only thing keeping that legible is this entry plus the `./dev eval-askesis-draw` banner.
+   **What "fix the classifier" means is not yet decided** and must not be assumed to be
+   "lower 0.65": the measured 0.43–0.56 self-similarity of a verbatim exemplar says the
+   *averaging over 8 diverse exemplars* is the mechanism at fault, so max-similarity,
+   per-intent centroids, or a different classifier are all live shapes — and the fix would
+   need its own before/after on the ratified set, since flipping queries off SPECIFIC
+   re-routes retrieval for every Askesis ask, not only the starved intents.
 
-**Trigger:** (1) ✅ done; (2) instrument + body-fold status shipped (PR-2), set at v2 — the
-one remaining step is Mike setting `ratified:` and the baseline run; (4) ✅ measured in PR-2 and
-now waiting on Mike's (a)/(b)/(c) ruling — no further measurement will move it, because the path
-does not execute; (3) additionally needs the content-typing classifier named in its (b), and is
-moot under (4a).
+**Trigger:** (1) ✅ done; (2) ✅ instrument + body-fold status shipped (PR-2), set ratified at
+v2 and the baseline recorded on #1197 — the thread is now open only for a measured miss traced to
+chunk grain (judged on `best_rank`, not the saturated hit@5); (4) ✅ measured in PR-2 and RULED —
+not deleted, shipped as one classifier-fix + thin-draw change when Mike schedules it, inert with
+the cost named until then; (3) additionally needs the content-typing classifier named in its (b),
+and is downstream of (4) executing at all.
 **Check** (one statement per block — paste each on its own; words, not characters, because the
 knobs are word counts; `c.end_index` is the persisted whitespace-aware `word_count`, so a chunk
 with line breaks or doubled spaces is counted the way ingestion counted it — a naive
