@@ -149,14 +149,20 @@ class TestScoreIsAveragedNotMaximised:
     standing here.
 
     The reason that replaces it is a measurement, not an argument. On the
-    ratified 45-query set (`./dev eval-intent-classification`), compared at each
-    aggregation's zero-wrong-activation threshold, the mean ACTIVATES THE MOST
-    QUERIES WITHOUT MIS-ROUTING ANY — 19 of 45 at 0.35, against max 14 of 45 at
-    0.55 and top-3 12 of 45 at 0.50. max and top-3 reach higher headline
-    accuracy only by firing where they mis-route 3-8. So the mean is not merely
-    the incumbent: it is the best-behaved of the three on the metric that costs a
-    user something. Changing it needs a new measurement, and this failure is what
-    asks for one.
+    ratified 45-query set, compared at each aggregation's EXACT
+    zero-wrong-activation gate (`zero_wrong_frontier` in the report — computed
+    at observed scores, because a 0.05 ladder rounds the frontier up and
+    understates every arm), the mean ACTIVATES THE MOST QUERIES WITHOUT
+    MIS-ROUTING ANY, and scores highest doing it: 21 of 45 at 0.3329 (78%),
+    against max 17 at 0.5353 (69%) and top-3 15 at 0.4911 (64%). So the mean is
+    not merely the incumbent: it is the best-behaved of the three on the metric
+    that costs a user something.
+
+    ⚠ Do not re-derive those figures FROM this docstring — re-measure with
+    `./dev eval-intent-classification`. They are a snapshot of a corpus and an
+    embedding model, both of which move, and this comment has already been stale
+    once (#1206). Changing the aggregation needs a fresh measurement, and this
+    failure is what asks for one.
     """
 
     @pytest.mark.asyncio
