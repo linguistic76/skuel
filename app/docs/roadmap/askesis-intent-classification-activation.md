@@ -90,6 +90,11 @@ three under all three. ⚠ **Those 12 probes are a sketch, not evidence**: at le
 near-verbatim exemplars, so 9/12 is optimistic. Replacing them with a reviewable labelled set
 is PR-1 and is the reason PR-1 exists.
 
+⚠ **SUPERSEDED by PR-1's 45-query measurement below**, and in both directions: ranking is much
+BETTER than 9/12 (30/31 on the mean arm), and the three arms do NOT rank identically (30/31,
+29/31, 29/31). The table stays because it is what scheduled the arc, not because it is the
+number to reason from.
+
 **The errors cluster on EXPLORATORY**, which never won: both its probes lost to `AGGREGATION`,
 because "Give me an overview" is literally an AGGREGATION exemplar. The two exemplar sets
 overlap semantically — and reading them side by side says *how*:

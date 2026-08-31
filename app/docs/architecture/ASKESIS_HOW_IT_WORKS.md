@@ -80,15 +80,20 @@ This classification determines which context sections get included in the LLM pr
 > ⚠️ **Measured 2026-08-30: the classifier never returns any of these six.** The gate is
 > `IntelligenceThreshold.INTENT_CLASSIFICATION` = 0.65 *average* cosine similarity across an
 > intent's 8 exemplars — a much stricter bar than it reads, because averaging over 8 diverse
-> short sentences pulls the mean far below any single best match. Real queries score
-> **0.078–0.291**; a query that IS one of the exemplars, verbatim, still only reaches
-> **0.43–0.56** against its own intent. So every question classifies as `SPECIFIC`, and every
-> intent-conditioned branch below — including the `_INTENT_CHUNK_TYPES` chunk filter — takes
-> its catch-all path. Reproduce with `./dev eval-askesis-draw` (`max_intent_score`).
+> short sentences pulls the mean far below any single best match. Across the 45 labelled
+> intent-shaped queries the best score spans **0.112–0.540** — nothing reaches 0.65 — and a
+> query that IS one of the exemplars, verbatim, tops out at 0.540 against its own intent. So
+> every question classifies as `SPECIFIC`, and every intent-conditioned branch below —
+> including the `_INTENT_CHUNK_TYPES` chunk filter — takes its catch-all path. Reproduce with
+> `./dev eval-intent-classification` (`cleared_gate` on the mean arm); `./dev eval-askesis-draw`
+> shows the same thing from the chunk-draw side (`max_intent_score`).
 > **Scheduled 2026-08-30** — `docs/roadmap/askesis-intent-classification-activation.md` is the
 > contract. The fix is NOT assumed to be a lower threshold: the 0.43–0.56 self-similarity
-> implicates the *averaging over 8 exemplars*, not the number, and measured across mean / max /
-> top-3 the aggregation moves REACHABILITY, not correctness (all three rank identically).
+> implicates the *averaging over 8 exemplars*, not the number: measured across mean / max /
+> top-3 on the labelled set, the aggregation moves REACHABILITY far more than correctness —
+> ranking accuracy is 30/31, 29/31 and 29/31, while the share clearing the gate goes 0, 9, 1
+> of 45. ⚠️ The earlier "all three rank identically" was measured on a 12-probe sketch and is
+> superseded; they differ, but only at the margin.
 > Activation covers the two branches that shape the ANSWER; the `_INTENT_CHUNK_TYPES` map stays
 > switched off and keeps its own entry (`deferred-work.md` § "Per-Domain Chunking Knobs +
 > Chunk-Type-Aware Retrieval", Named work 4) — switching THAT on is what would require a
