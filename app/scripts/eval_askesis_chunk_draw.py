@@ -53,6 +53,7 @@ import contextlib
 import json
 import sys
 from dataclasses import dataclass, field
+from functools import cache
 from pathlib import Path
 from typing import TYPE_CHECKING, TypedDict
 
@@ -85,12 +86,26 @@ ASKESIS_PROMPT_WINDOW = 3
 
 ARMS = ("filtered", "thin_draw", "unfiltered")
 
-# The parent types the shared query set actually labels. A --user run admits the
-# asking user's UserEntry passages too (ADR-085 audience) — production-faithful,
-# but unlabelled, so they compete for the prompt window without being able to
-# score. Counted, never filtered out: silently dropping them would stop the
-# comparison reproducing the production draw, which is its whole point.
-LABELLED_PARENT_TYPES = frozenset({"ku", "path_step"})
+
+@cache
+def labelled_parent_types() -> frozenset[str]:
+    """The parent types the shared query set actually labels.
+
+    A --user run admits the asking user's UserEntry passages too (ADR-085
+    audience) — production-faithful, but unlabelled, so they compete for the
+    prompt window without being able to score. Counted, never filtered out:
+    dropping them would stop the comparison reproducing the production draw,
+    which is its whole point.
+
+    Derived from ``EntityType``, never re-spelled: this set gates the caveat
+    that qualifies the whole experiment, so a renamed discriminator must break
+    loudly rather than silently reclassify curriculum passages as noise.
+    Imported lazily to keep the module importable (and ``--help`` usable)
+    without loading the app.
+    """
+    from core.models.enums.entity_enums import EntityType
+
+    return frozenset({EntityType.KU.value, EntityType.PATH_STEP.value})
 
 
 def unlabelled_in_window(hits: list["SemanticSearchChunkResult"]) -> int:
@@ -105,7 +120,7 @@ def unlabelled_in_window(hits: list["SemanticSearchChunkResult"]) -> int:
     return sum(
         1
         for hit in hits[:ASKESIS_PROMPT_WINDOW]
-        if str(hit.get("parent_entity_type") or "") not in LABELLED_PARENT_TYPES
+        if str(hit.get("parent_entity_type") or "") not in labelled_parent_types()
     )
 
 
@@ -489,13 +504,16 @@ def _print_human(report: ComparisonReport) -> None:
 
     if report["query_count"] and not report["filtered_intent_queries"]:
         print(
-            f"\n!! NO QUERY REACHED A FILTERED INTENT — every one classified to an\n"
-            f"!! unmapped intent, so all three arms ran the SAME unfiltered draw.\n"
-            f"!! The equal recall below is an identity, not a finding about\n"
-            f"!! filtering. Best exemplar similarity across the whole set was\n"
-            f"!! {report['max_intent_score']:.3f} against a "
-            f"{report['intent_threshold']:.2f} gate — the gate is unreachable,\n"
-            f"!! not the queries unusual. See IntentClassifier."
+            f"\n!! NO QUERY IN THIS SET REACHED A FILTERED INTENT — every one\n"
+            f"!! classified to an unmapped intent, so all three arms ran the SAME\n"
+            f"!! unfiltered draw. The equal recall below is an identity, not a\n"
+            f"!! finding about filtering.\n"
+            f"!! Best similarity reached by any query here: "
+            f"{report['max_intent_score']:.3f} vs a {report['intent_threshold']:.2f} gate.\n"
+            f"!! That is a fact about THIS set. Whether the gate is reachable AT ALL\n"
+            f"!! is a separate, set-independent question — argued from the\n"
+            f"!! classifier's own exemplars in deferred-work.md § Per-Domain\n"
+            f"!! Chunking Knobs (a verbatim exemplar reaches only 0.43-0.56)."
         )
 
     print(
