@@ -3,9 +3,10 @@
 **Status:** **Direction RULED 2026-08-31 (Mike) — position (b): Askesis DOES answer questions
 about the user's own records, and this is how.** Not yet scheduled as a build, and **blocked on
 a trigger**: intent classification cannot return `AGGREGATION` today because its 0.65 gate is
-unreachable, so
-[askesis-intent-classification-activation.md](askesis-intent-classification-activation.md) is a
-prerequisite, not a neighbour. Originally captured the conclusion of a "should we adopt LangChain
+unreachable. That arc's **PR-1 (labels) is the prerequisite**; its **PR-2 (activation) and this
+doc's first slice are ONE coordinated change**, not a sequence — activating the intent before a
+branch can answer it opens a window where count questions fall through to ordinary generation
+and are answered generically or invented (see § first slice, step 5). Originally captured the conclusion of a "should we adopt LangChain
 `text2cypher`?" review (May 2026) and the SKUEL-aligned alternative that came out of it; the
 ruling promotes that alternative from "possible" to "the intended shape".
 
@@ -213,8 +214,12 @@ async def count_goals_achieved(
     # would have reported 0 for every valid account — the SKUEL030 defect class,
     # and exactly the kind of silence a "safe alternative to text2cypher" cannot
     # afford. Corrected 2026-08-31 (Codex, #1202).
-    cypher = """
-        MATCH (u:User {uid: $user_uid})-[:OWNS]->(g:Goal)
+    # f-string + `RelationshipName.OWNS.value`, matching every real backend: a raw
+    # `[:OWNS]` detaches the query from the canonical edge vocabulary, and an edge
+    # name Neo4j does not know matches ZERO rows rather than erroring (SKUEL013 /
+    # SKUEL030). Note the DOUBLED braces the f-string forces on the property map.
+    cypher = f"""
+        MATCH (u:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(g:Goal)
         WHERE g.achieved_date IS NOT NULL
           AND ($since IS NULL OR g.achieved_date >= $since)
           AND ($until IS NULL OR g.achieved_date <= $until)
