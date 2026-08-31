@@ -467,7 +467,8 @@ Implement **one** tool end-to-end, behind the FULL intelligence tier
    exclusion early. It must also not land
    before PR-1 has disambiguated `AGGREGATION` from `EXPLORATORY`, or a topic-orientation
    question ("introduce me to stoicism") routes here and is answered with a COUNT. So the
-   ordering is: PR-1 (labels) → then this branch and PR-2's activation together.
+   ordering is: **PR-1 (labels, DONE) → PR-2 (activation, with the `AGGREGATION` carve-out) →
+   this branch, which removes the carve-out in the same commit that adds the tool.**
 6. **Declare the catalog's COVERAGE, and decline outside it.** The first slice answers
    *"how many goals did I complete last quarter"* and nothing else — not the bare total, and
    not the relationship-bearing question this doc opens with (*"…blocked by a habit I
