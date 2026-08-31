@@ -195,6 +195,13 @@ Mike ratifies**, first ratified run is the baseline.
   prose; on the guided path read `suggested_actions`, `context_used` and citations, because the
   prose cannot change there. Scoring "no answer change" on the guided path as a null result
   would be measuring a wire that isn't connected.
+- ⚠ **`AGGREGATION` must not become reachable before something can answer it.** Activation
+  makes count questions classify; if no tool branch exists yet they fall through to ordinary
+  generation and are answered generically or invented. So either the tool-selection first slice
+  ([askesis-tool-selection-queries.md](askesis-tool-selection-queries.md)) lands **with** this
+  PR, or PR-2 holds `AGGREGATION` unreachable (keep it out of the reachable set) until it does.
+  A window where the intent classifies with nothing behind it is a regression, not a staging
+  step. (Codex, #1202.)
 - ⚠ **Citations turn on for the first time ever.** `PREREQUISITE`/`HIERARCHICAL` answers start
   carrying `citations_text`. That is a user-visible change with no production precedent — give
   it its own before/after, and check the citation block renders where the answer is displayed.

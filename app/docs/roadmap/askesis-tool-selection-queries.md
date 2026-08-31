@@ -295,20 +295,24 @@ class ToolSelection:
 # fails closed on any vendor import in `core/`. So tool selection is a NORMALIZED
 # operation added to the caller port, not an SDK call written here; the
 # OpenAI/Anthropic tool-schema shapes are the ADAPTER's business.
-async def select_tool(
-    self, question: str, tools: list[QueryTool],
-) -> ToolSelection:
-    """LLM chooses a tool + args. Returns no tool if none fits (→ Declined).
-
-    ⚠ "No tool" is the only decline this can express. It CANNOT say "I picked the
-    closest one but it does not really fit" — see OPEN PROBLEM 1 below.
-    """
-    if self.caller is None:                     # CORE tier — no Digital layer
-        return ToolSelection(tool_name=None, arguments={})
-    return await self.caller.select_tool(       # ← new port operation
-        question=question,
-        tools=[t.json_schema_entry() for t in tools],
-    )
+# Deliberately stated as REQUIREMENTS, not a body. Three review rounds produced
+# three different speculative implementations here, each with its own defects;
+# the durable content is what the operation must satisfy:
+#
+#   • Lives on the CALLER PORT, not in LLMService — no vendor SDK may enter
+#     `core/` (ADR-063; tests/unit/test_llm_sdk_boundary.py fails closed).
+#     Provider tool-schema shapes are the adapter's business.
+#   • Returns `Result[ToolSelection]`. Provider auth, network and parse failures
+#     need a typed path — every other caller operation returns `Result`, and a
+#     bare return turns them into exceptions or malformed selections.
+#   • Threads the RESOLVED MODEL through. `UnifiedLLMCaller` picks its adapter
+#     from the model prefix, so an operation that passes only the question and
+#     schemas routes to the caller's default — in an Anthropic-only deployment,
+#     to an unwired OpenAI adapter that rejects every selection.
+#   • Returns "no tool" as a normal outcome, NOT an error — that is a Declined,
+#     and it is the only decline the model can express (OPEN PROBLEM 1).
+#   • Is skipped entirely when `self.caller is None` (CORE tier has no Digital
+#     layer), which must itself be a Declined and not a silent generic answer.
 ```
 
 ⚠ **`select_tool` must be handed a trusted reference date, or "last quarter" is a guess.**
@@ -439,10 +443,14 @@ Implement **one** tool end-to-end, behind the FULL intelligence tier
    MEAN over 8 exemplars and is unreachable, so a branch added now is dead on arrival. Build it
    AFTER
    [askesis-intent-classification-activation.md](askesis-intent-classification-activation.md)
-   PR-2, and not before its PR-1 has disambiguated `AGGREGATION` from `EXPLORATORY`: until then
-   a topic-orientation question ("introduce me to stoicism") can route here and be answered with
-   a COUNT. That mis-route is harmless while this branch is absent and user-visible the moment
-   it exists.
+   PR-2's activation — **with it or before it, never after**. An earlier draft of this step
+   said "after PR-2", which opens a window of exactly the harm this doc exists to prevent:
+   between activation and this branch existing, count questions classify as `AGGREGATION`, meet
+   no branch, fall through to ordinary generation, and are answered generically or invented —
+   with neither a tool result nor the promised decline (Codex, #1202). It must also not land
+   before PR-1 has disambiguated `AGGREGATION` from `EXPLORATORY`, or a topic-orientation
+   question ("introduce me to stoicism") routes here and is answered with a COUNT. So the
+   ordering is: PR-1 (labels) → then this branch and PR-2's activation together.
 6. **Declare the catalog's COVERAGE, and decline outside it.** The first slice answers
    *"how many goals did I complete last quarter"* and nothing else — not the bare total, and
    not the relationship-bearing question this doc opens with (*"…blocked by a habit I
