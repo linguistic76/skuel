@@ -52,7 +52,6 @@ import contextlib
 import json
 import sys
 from dataclasses import dataclass, field
-from datetime import date
 from pathlib import Path
 from typing import TYPE_CHECKING, TypedDict
 
@@ -60,6 +59,14 @@ if TYPE_CHECKING:
     from core.models.search_request import BodyFoldReport
 
 import yaml
+
+# Sibling module: sys.path[0] is scripts/ when run as `python scripts/...`,
+# which is how ./dev invokes it. The `ratified:`/int parses are SHARED with the
+# intent-classification set on purpose — one ratification contract, one parse.
+from eval_query_set import (  # type: ignore[import-not-found]
+    parse_int_field,
+    parse_ratified_field,
+)
 
 DEFAULT_QUERY_SET = Path(__file__).parent / "eval_chunk_retrieval_queries.yaml"
 
@@ -181,38 +188,16 @@ def load_query_set(path: Path) -> QuerySet:
     if not isinstance(raw, dict):
         raise ValueError(f"{path}: top level must be a mapping")
 
-    version = raw.get("version")
-    if isinstance(version, bool) or not isinstance(version, int):
-        raise ValueError(f"{path}: 'version' must be an integer")
+    version = parse_int_field(raw.get("version"), str(path), "version")
 
     # The ratification gate must be unforgeable by a typo: the FIRST ratified
     # run becomes the baseline, so `ratified: false`/`yes`/a list must never
-    # coerce into a truthy "ratified" string. Only null, a bare YAML date
-    # (parsed to datetime.date), or a quoted ISO date pass.
-    ratified = raw.get("ratified")
-    ratified_str: str | None
-    if ratified is None:
-        ratified_str = None
-    elif isinstance(ratified, date):
-        ratified_str = ratified.isoformat()
-    elif isinstance(ratified, str):
-        try:
-            date.fromisoformat(ratified)
-        except ValueError:
-            raise ValueError(
-                f"{path}: 'ratified' must be null or an ISO date (YYYY-MM-DD), got {ratified!r}"
-            ) from None
-        ratified_str = ratified
-    else:
-        raise ValueError(
-            f"{path}: 'ratified' must be null or an ISO date (YYYY-MM-DD), got {ratified!r}"
-        )
+    # coerce into a truthy "ratified" string.
+    ratified_str = parse_ratified_field(raw.get("ratified"), str(path))
 
     # bool subclasses int: `k: true` would otherwise silently measure hit@1
     # (best_rank <= True) and could ratify that as the baseline (Codex, #1197).
-    k = raw.get("k")
-    if isinstance(k, bool) or not isinstance(k, int) or k < 1:
-        raise ValueError(f"{path}: 'k' must be a positive integer")
+    k = parse_int_field(raw.get("k"), str(path), "k", minimum=1)
 
     entries = raw.get("queries")
     if not isinstance(entries, list) or not entries:

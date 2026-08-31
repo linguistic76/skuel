@@ -188,12 +188,14 @@ EXEMPTED_METHODS: dict[str, str] = {
         "caller when a canon management route/UI is built (Phase 3+)"
     ),
     "core/services/askesis/intent_classifier.py::classify_intent_scored": (
-        "LIVE — called only by scripts/eval_askesis_chunk_draw.py, outside the "
-        "scanner's production roots. The observable counterpart to the fail-soft "
-        "classify_intent: it reports the confidence score and refuses a degraded "
-        "exemplar set, so a measurement cannot mistake an outage for a finding. "
-        "Gains in-app callers if the intent filter is revived (deferred-work "
-        "§ Per-Domain Chunking Knobs, Named work 4)"
+        "LIVE — called only by the two eval instruments "
+        "(scripts/eval_askesis_chunk_draw.py, scripts/eval_intent_classification.py), "
+        "outside the scanner's production roots. The observable counterpart to the "
+        "fail-soft classify_intent: it reports the confidence score and refuses a "
+        "degraded exemplar set, so a measurement cannot mistake an outage for a "
+        "finding. Gains in-app callers only if a caller needs the SCORE; activating "
+        "the classifier (roadmap § askesis-intent-classification-activation, PR-2) "
+        "does not, because the branches read the intent alone"
     ),
 }
 

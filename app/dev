@@ -166,6 +166,12 @@ case "$1" in
     uv run python scripts/eval_askesis_chunk_draw.py "${@:2}"
     ;;
 
+  eval-intent-classification)
+    # Status to stderr so `./dev eval-intent-classification --json` yields clean JSON on stdout.
+    echo -e "${GREEN}Scoring Askesis intent classification across aggregation arms...${NC}" >&2
+    uv run python scripts/eval_intent_classification.py "${@:2}"
+    ;;
+
   embed-backfill)
     # Default mode ONLY fills embedding-NULL nodes — deliberately not --stale
     # (--stale requires embedding IS NOT NULL, so it would skip every missing
@@ -369,6 +375,7 @@ case "$1" in
     echo "  ./dev embed-backfill - Fill missing embeddings (embedding-NULL nodes; needs OPENAI_API_KEY)"
     echo "  ./dev eval-chunk-retrieval - hit@k eval of /search chunk retrieval (FULL tier; --json)"
     echo "  ./dev eval-askesis-draw - Askesis chunk-draw arms: intent filter vs thin-draw (FULL tier; --json)"
+    echo "  ./dev eval-intent-classification - Askesis intent classification: labelled set × aggregation arms (FULL tier; --json)"
     echo "  ./dev telemetry-retention - Prune unbounded-growth telemetry (ADR-080 H0; --dry-run | --days N)"
     echo "  ./dev backfill-productivity-stamps - Fill NULL ProductivityAnalytics completion stamps + drop the retired count (census by default; --confirm to write)"
     echo "  ./dev backfill-form-audience - Share pre-gate FormSubmissions with their submitter's groups (--dry-run first; --confirm to write)"

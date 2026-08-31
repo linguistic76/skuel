@@ -1784,6 +1784,15 @@ label-only lines; 72 typed `explanation`; 32 under 20 characters), 6 path_step (
    prerequisite for ACTIVATING THE FILTER — not for fixing the classifier, which the arc doc
    does with the filter left off. Until then (3)'s weight table is arguing about a path that
    does not execute.
+   ⚠ **The EXPLORATORY mapping is now wrong ON ITS OWN TERMS (PR-1 of the arc, 2026-08-31).**
+   PR-1 settled `EXPLORATORY` as **catalog browsing** — *"what is there to learn here?"* — and
+   NOT topic orientation (*"introduce me to stoicism"*, which is a content question and stays
+   `SPECIFIC`). `INTRODUCTION`/`SUMMARY`/`DEFINITION` types an orientation answer, so this row
+   maps an intent to the chunk types of a DIFFERENT intent. That is independent of the 7.1%
+   eligibility measured above: even with a perfect content-typing classifier and a rich
+   `introduction` population, the mapping would be answering a question EXPLORATORY no longer
+   asks. Whoever builds (3)'s weight table or switches this filter on re-derives that row
+   first — the arc doc's ruling 3 carries the reasoning.
    **Named cost while inert:** every reader of `context_retriever.py` — and, until #1198,
    four docs — sees an intent→chunk-type filter that appears operative and is not; the
    only thing keeping that legible is this entry plus the `./dev eval-askesis-draw` banner.

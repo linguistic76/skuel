@@ -1,0 +1,354 @@
+# Intent-classification labelled set — the INPUT to scripts/eval_intent_classification.py.
+#
+# Contract: docs/roadmap/askesis-intent-classification-activation.md, PR-1.
+# Every entry is a query → expected-intent claim a reviewer can dispute line by
+# line. The set evolves under review; the script stays fixed.
+#
+# RATIFICATION: runs are DRAFT until `ratified:` carries a date. Mike ratifies
+# the query→intent labels; the first ratified run IS the baseline.
+#
+# ── What a label MEANS here ────────────────────────────────────────────────
+# The classifier can only return an intent it holds exemplars for, plus the
+# catch-all. `specific` is therefore not a seventh exemplar set: it is the claim
+# that NO intent should fire — the correct answer for an ordinary content
+# question, and the largest class in this set on purpose. A set that labelled
+# everything with a non-SPECIFIC intent would measure wishful thinking.
+#
+#   specific       a content question about a subject. Askesis answers it from
+#                  the corpus; no intent-conditioned branch should engage.
+#   aggregation    a question about the USER'S OWN RECORDS, answerable only by
+#                  counting/filtering them. Both shapes tool-selection targets
+#                  are represented: the bare count, and the predicate-bearing
+#                  one. ⚠ Labelling a query `aggregation` does NOT assert that
+#                  anything can answer it — see the arc doc's coverage gate.
+#   exploratory    CATALOG BROWSING — "what is there to learn here?". Settled
+#                  2026-08-31 (PR-1): EXPLORATORY means browsing the corpus, NOT
+#                  topic orientation ("introduce me to stoicism"), which is a
+#                  content question and stays `specific`. Rationale + the two
+#                  downstream consequences are in the arc doc.
+#   prerequisite   what must come BEFORE a named thing.
+#   hierarchical   where to go NEXT in a learning progression.
+#   practice       how to apply/rehearse — exercises, examples, doing.
+#   relationship   how two or more things connect.
+#
+# ── The discriminator is the OBJECT, not the verb ──────────────────────────
+# "Summarize my learning" and "give me an overview of stoicism" share a verb and
+# differ only in what they are ABOUT: your records, or a subject. Short-sentence
+# embeddings are dominated by the verb, so the labels below are assigned by
+# object and the collision cases are marked `kind: collision_probe`.
+#
+# Fields per entry:
+#   query   — verbatim user question, as a learner would type it into Ask
+#   intent  — the expected classification (one of the seven above)
+#   kind    — real_usage | natural | near_exemplar | collision_probe
+#   note    — why this label; what the query probes
+#
+# Drafting provenance (2026-08-31, AuraDB d2d160c4):
+#   - `kind: real_usage` — Askesis usage is TWO rows (:ConversationSession
+#     titles, 2026-07). One is a test keystroke ("I want to test this oiut...")
+#     and is excluded; the other is included below. Real usage seeds, it cannot
+#     bound.
+#   - `kind: natural` — a question a learner could plausibly ask of THIS corpus
+#     (mindfulness, yoga, discipline, language, stories, nature, SEL), phrased
+#     without borrowing exemplar wording.
+#   - `kind: near_exemplar` — deliberately close to an exemplar. An UPPER BOUND
+#     probe: these flatter the classifier and must never be read as evidence of
+#     what real questions score. Kept few, and marked.
+#   - `kind: collision_probe` — written to sit on a boundary the exemplar sets
+#     confuse. These are the rows that decide whether the disambiguation worked.
+
+version: 1
+ratified: null
+
+queries:
+  # ── SPECIFIC — content questions; nothing should fire ────────────────────
+  - query: why does my mind keep wandering when I meditate
+    intent: specific
+    kind: natural
+    note: >
+      Ordinary content question — the corpus answers it from
+      ps.mindfulness.mind-wandering-happens. No intent-conditioned branch helps.
+
+  - query: what is prana
+    intent: specific
+    kind: natural
+    note: A definition question about a subject. The bare-definition shape.
+
+  - query: how do trees share resources underground
+    intent: specific
+    kind: natural
+    note: Content question with no first-person object at all.
+
+  - query: what does the tao te ching mean by the name that can be named
+    intent: specific
+    kind: natural
+    note: Near-quotation of body prose; a comprehension question, not navigation.
+
+  - query: how should I sit when I meditate
+    intent: specific
+    kind: natural
+    note: >
+      A "how do I do X" question that is answered by lesson CONTENT (posture
+      basics), not by an exercise recommendation. Contrast the `practice` rows,
+      which ask WHERE to rehearse rather than HOW the thing works.
+
+  - query: why do I regret things I didn't do more than things I did
+    intent: specific
+    kind: natural
+    note: >
+      First-person phrasing but the object is a SUBJECT (the regret taxonomy),
+      not the user's records — the exact distinction AGGREGATION must respect.
+
+  - query: what are the gunas
+    intent: specific
+    kind: natural
+    note: Definition question; the rare-term case.
+
+  - query: what does laughing at your own mistakes actually do for you
+    intent: specific
+    kind: natural
+    note: Content question drawn from the comedy lesson's loose-grip framing.
+
+  - query: what does it mean to think of money as stored time
+    intent: specific
+    kind: natural
+    note: Reframe question — content, not progression.
+
+  - query: what should I do when I feel angry
+    intent: specific
+    kind: collision_probe
+    note: >
+      Shares "what should I do" with HIERARCHICAL's exemplars ("What should I
+      focus on learning?") but its object is an emotional situation, not a
+      learning progression. If this fires HIERARCHICAL the verb is winning.
+
+  - query: explain compounding to me
+    intent: specific
+    kind: collision_probe
+    note: >
+      "Explain X" is a content request. It borders HIERARCHICAL's
+      self-improvement exemplars ("I want to understand machine learning
+      better") — the difference is that this asks for the explanation itself,
+      not for a path toward it.
+
+  - query: give me an overview of this topic
+    intent: specific
+    kind: collision_probe
+    note: >
+      THE magnet probe. It matched AGGREGATION at 0.792 before the rewrite,
+      because "Give me an overview" was an objectless AGGREGATION exemplar. Its
+      object is a topic, so under the 2026-08-31 ruling (EXPLORATORY = catalog
+      browsing) topic orientation is a content question: `specific`. This row is
+      the acceptance bar "no topic-orientation query routes to AGGREGATION".
+
+  - query: introduce me to stoicism
+    intent: specific
+    kind: collision_probe
+    note: >
+      The other topic-orientation shape, and the one the arc doc names. Under
+      the browsing ruling it must NOT reach EXPLORATORY, whose live branch would
+      answer it with the learner's task/goal/habit counts.
+
+  - query: We have done some work to develop this interface. How is the success?
+    intent: specific
+    kind: real_usage
+    note: >
+      Verbatim :ConversationSession title (2026-07-13), one of only two real
+      Askesis openers on record. A meta question about the app: no exemplar set
+      covers it, and the catch-all is the right answer. Kept verbatim,
+      capitalisation and all — a real query is evidence, not a draft.
+
+  # ── AGGREGATION — the user's own records ─────────────────────────────────
+  - query: how many goals do I have
+    intent: aggregation
+    kind: natural
+    note: The bare count, shape one of the two tool-selection targets.
+
+  - query: count the lessons I have finished
+    intent: aggregation
+    kind: natural
+    note: >
+      Bare count over curriculum progress rather than activities, in a learner's
+      words rather than the exemplar set's ("knowledge units").
+
+  - query: what is my current streak on my morning habit
+    intent: aggregation
+    kind: natural
+    note: >
+      A single derived number about the user's own records. Streak is a
+      computed field, so this is a tool question, not a corpus question.
+
+  - query: how many tasks did I complete this week
+    intent: aggregation
+    kind: natural
+    note: Predicate-bearing (a time window) — shape two.
+
+  - query: how many goals did I complete last quarter that were blocked by a habit I dropped
+    intent: aggregation
+    kind: natural
+    note: >
+      The hardest predicate-bearing shape, named verbatim in the arc doc. The
+      tool catalog's first slice covers NEITHER count shape, so once PR-2 makes
+      this classify, an unmatched question must DECLINE rather than let the
+      nearest tool return a confident wrong number. This row is what exposes it.
+
+  - query: which of my goals have had no activity in the last month
+    intent: aggregation
+    kind: natural
+    note: >
+      A filter over the user's records rather than a count. Still AGGREGATION by
+      object — it is answerable only by querying what the user owns.
+
+  # ── EXPLORATORY — catalog browsing ───────────────────────────────────────
+  - query: what topics can I learn about here
+    intent: exploratory
+    kind: natural
+    note: Browsing the corpus. Object = the catalog, not the user's records.
+
+  - query: show me what is available to study
+    intent: exploratory
+    kind: near_exemplar
+    note: >
+      Close to the rewritten exemplar "Show me what's available to learn" — an
+      upper-bound probe, not evidence about real phrasing.
+
+  - query: what else is there beyond the mindfulness lessons
+    intent: exploratory
+    kind: natural
+    note: >
+      Browsing outward from a known area. Borders RELATIONSHIP ("what's linked
+      to this?") — the difference is that this asks what EXISTS, not what
+      CONNECTS.
+
+  - query: browse the lessons on offer
+    intent: exploratory
+    kind: natural
+    note: Imperative browsing with the catalog as object.
+
+  - query: what subjects does this cover
+    intent: exploratory
+    kind: natural
+    note: >
+      Scope question about the corpus. ⚠ Deliberately close to the topic-
+      orientation boundary: "this" is the library, not a topic.
+
+  # ── PREREQUISITE — what comes before ─────────────────────────────────────
+  - query: what do I need to know before starting the yoga path
+    intent: prerequisite
+    kind: natural
+    note: Named target, backward-looking dependency question.
+
+  - query: what should I learn first to understand compounding
+    intent: prerequisite
+    kind: natural
+    note: >
+      "First" is the discriminator against HIERARCHICAL's "next". Both are
+      progression questions; only the direction differs.
+
+  - query: am I ready for the harder meditation lessons yet
+    intent: prerequisite
+    kind: natural
+    note: >
+      Readiness phrasing — the question is about unmet prerequisites even though
+      the word never appears. The hardest PREREQUISITE row.
+
+  - query: what comes before this lesson
+    intent: prerequisite
+    kind: near_exemplar
+    note: Close to "What comes before learning this?" — upper-bound probe.
+
+  - query: what foundation do I need for storytelling
+    intent: prerequisite
+    kind: near_exemplar
+    note: Close to "What foundation do I need?" — upper-bound probe.
+
+  # ── HIERARCHICAL — where to go next ──────────────────────────────────────
+  - query: what should I learn next
+    intent: hierarchical
+    kind: near_exemplar
+    note: >
+      VERBATIM exemplar. The ceiling probe: whatever this scores is the most any
+      query of this intent can score under a given aggregation.
+
+  - query: I want to get better at listening to people
+    intent: hierarchical
+    kind: natural
+    note: Self-improvement framing with a named skill; the "get better at" shape.
+
+  - query: help me improve my self-discipline
+    intent: hierarchical
+    kind: natural
+    note: >
+      "my self-discipline" names an ATTRIBUTE of the user, not a record —
+      deliberately adjacent to AGGREGATION's "my" phrasing without being about
+      countable data.
+
+  - query: where should I go after finishing the mindfulness path
+    intent: hierarchical
+    kind: natural
+    note: Explicit next-step question anchored on a completed path.
+
+  - query: what should I focus on to grow my emotional awareness
+    intent: hierarchical
+    kind: natural
+    note: Goal-directed progression; borders PRACTICE ("what can I do").
+
+  # ── PRACTICE — apply and rehearse ────────────────────────────────────────
+  - query: give me an exercise for noticing my emotions
+    intent: practice
+    kind: natural
+    note: Direct exercise request with a named target.
+
+  - query: how do I actually apply this in daily life
+    intent: practice
+    kind: natural
+    note: Application question; "actually" marks the doing, not the theory.
+
+  - query: where can I practise the gentle return
+    intent: practice
+    kind: natural
+    note: >
+      Close in shape to "Where can I practice this?" but names a corpus concept.
+      British spelling on purpose — the classifier is semantic, not lexical.
+
+  - query: what can I do today to work on this
+    intent: practice
+    kind: collision_probe
+    note: >
+      Borders HIERARCHICAL ("what should I focus on"). The discriminator is the
+      time frame and the verb "do": an action now, not a direction.
+
+  - query: show me a real example of setting a boundary
+    intent: practice
+    kind: natural
+    note: Worked-example request — the EXAMPLE half of the practice intent.
+
+  # ── RELATIONSHIP — how things connect ────────────────────────────────────
+  - query: how does compounding relate to long term thinking
+    intent: relationship
+    kind: natural
+    note: Two named corpus concepts, explicit connective verb.
+
+  - query: what connects breath awareness and posture
+    intent: relationship
+    kind: natural
+    note: Two named lessons; the connection itself is the object.
+
+  - query: what is similar to the idea that words act as filters
+    intent: relationship
+    kind: natural
+    note: Similarity question — the "show me similar concepts" shape, rephrased.
+
+  - query: how do these two lessons tie together
+    intent: relationship
+    kind: near_exemplar
+    note: Close to "How do these concepts tie together?" — upper-bound probe.
+
+  - query: what else is linked to the gunas
+    intent: relationship
+    kind: collision_probe
+    note: >
+      "What else is there?" was an EXPLORATORY exemplar, and "what else is
+      linked" borrows its opening. The object is a NAMED concept's neighbours,
+      so it is RELATIONSHIP; if it routes EXPLORATORY, the browsing set is still
+      absorbing anything that opens with "what else".
