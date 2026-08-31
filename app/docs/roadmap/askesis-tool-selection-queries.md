@@ -129,7 +129,12 @@ class QueryTool:
 ### 2. The registry — small, hand-curated, every entry backed by tested Cypher
 
 ```python
-def build_aggregation_catalog(goals: GoalsBackend) -> dict[str, QueryTool]:
+# ⚠ Takes the SERVICE, not `GoalsBackend`. This catalog lives in
+# `core/services/askesis/`, and a `core/` file naming a concrete adapter is a
+# SKUEL023 error, not a style preference — it would also let the executor bypass
+# domain-service orchestration entirely. The service's delegation method is the
+# contract; it holds the backend. (Codex, #1202.)
+def build_aggregation_catalog(goals: GoalsService) -> dict[str, QueryTool]:
     return {
         "count_goals_achieved": QueryTool(
             name="count_goals_achieved",
@@ -138,11 +143,11 @@ def build_aggregation_catalog(goals: GoalsBackend) -> dict[str, QueryTool]:
                 "range. Use for 'how many goals did I complete last quarter'."
             ),
             args_model=CountGoalsAchievedArgs,
-            handler=goals.count_goals_achieved,
+            handler=goals.count_goals_achieved,   # GoalsService → its backend
         ),
-        # Siblings are added PER DOMAIN, each bound to its own backend and its own
-        # completion field (§ 3): count_tasks_completed (TasksBackend,
-        # completion_date), count_habits_completed (HabitsBackend, completed_at), …
+        # Siblings are added PER DOMAIN, each bound to its own SERVICE and its own
+        # completion field (§ 3): count_tasks_completed (TasksService →
+        # completion_date), count_habits_completed (HabitsService → completed_at), …
         # There is no "count_entities_by_status" — that shape cannot be written
         # correctly across domains.
     }
@@ -272,17 +277,34 @@ async def select_tool(
 # Anthropic path is the parallel `tools=[{name, description, input_schema}]` shape.
 ```
 
+⚠ **`select_tool` must be handed a trusted reference date, or "last quarter" is a guess.**
+The model is asked to emit absolute `since`/`until` values from a relative phrase, and it has no
+reliable "today" — a hallucinated or stale bound produces a confidently wrong count with no
+error anywhere. Either pass the current date and the user's timezone into the selection prompt
+as system-supplied context (never trusting a date the model volunteers), or keep relative
+periods out of the args model entirely and resolve them server-side from an enum
+(`last_quarter`, `this_month`, …). The second is narrower and harder to get subtly wrong, which
+is the same reason the args model is domain-narrow. (Codex, #1202.)
+
 ### 5. The executor — validation + the critical `user_uid` injection
 
 ```python
+# ⚠ A DECLINE IS NOT AN ERROR. Step 6 requires an out-of-coverage question to be
+# declined with a reason, but an `Errors.validation` here is indistinguishable from
+# a genuine failure, and the § 6 branch logs errors and continues — so the response
+# generator answers the unsupported question anyway and the reason is discarded.
+# Model the intentional decline as its own outcome and DELIVER it to the answer
+# path, so the learner is told the question cannot be answered yet rather than
+# being given a plausible substitute. (Codex, #1202.)
 async def run_tool(
     selection: ToolSelection,
     catalog: dict[str, QueryTool],
     user_context: UserContext,
-) -> Result[dict[str, Any]]:
+) -> Result[ToolOutcome]:          # ToolOutcome = Answered(payload) | Declined(reason)
     tool = catalog.get(selection.tool_name or "")
     if tool is None:
-        return Result.fail(Errors.validation(f"Unknown tool: {selection.tool_name}"))
+        # No tool matched — a coverage gap, not a failure.
+        return Result.ok(Declined(reason=f"no tool covers this question yet"))
     try:
         args = tool.args_model.model_validate(selection.arguments)  # schema gate
     except ValidationError as e:
@@ -316,9 +338,13 @@ elif intent == QueryIntent.AGGREGATION:
     selection = await self.llm_service.select_tool(query, self._agg_tools)
     result = await run_tool(selection, self._agg_catalog, user_context)
     if result.is_error:
-        logger.info("Aggregation tool declined/failed; using baseline context")
+        logger.info("Aggregation tool FAILED; using baseline context")
+    elif isinstance(result.value, Declined):
+        # Carried, not swallowed — the answer path must say so rather than
+        # answering from generic context as if nothing was asked.
+        context["aggregation_declined"] = result.value.reason
     else:
-        context["aggregation"] = {"tool": selection.tool_name, **result.unwrap()}
+        context["aggregation"] = {"tool": selection.tool_name, **result.value.payload}
 ```
 
 Everything downstream is unchanged — the result lands in the same `context` dict the
@@ -385,9 +411,11 @@ Implement **one** tool end-to-end, behind the FULL intelligence tier
 8. A pytest exercising: tool selected + args validated + cross-tenant attempt
    (LLM-supplied `user_uid` ignored) + no-tool fallback path + **the count actually reaching
    the answer on every path step 7 claims to serve** — the delivery half is where this
-   silently fails, not the selection half — + **an out-of-coverage question is declined, not
-   approximated** (step 6), + **a same-day `until` bound includes that day** on a
-   `completed_at` domain (§ 3, consequence 2).
+   silently fails, not the selection half — + **an out-of-coverage question is declined, and
+   the DECLINE reaches the learner** rather than the generator answering anyway (step 6) +
+   **a same-day `until` bound includes that day** on a `completed_at` domain (§ 3,
+   consequence 2) + **a relative period resolves against a server-supplied date**, never one
+   the model volunteered (§ 4).
 
 Try it against a live question before deciding whether the pattern earns its keep.
 
