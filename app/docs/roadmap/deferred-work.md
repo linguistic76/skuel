@@ -1776,6 +1776,13 @@ label-only lines; 72 typed `explanation`; 32 under 20 characters), 6 path_step (
    per-intent centroids, or a different classifier are all live shapes — and the fix would
    need its own before/after on the ratified set, since flipping queries off SPECIFIC
    re-routes retrieval for every Askesis ask, not only the starved intents.
+   **Both halves of that are RUNNABLE, not just prose**
+   (`tests/unit/test_askesis_intent_filter_activation_guard.py`): mapping `SPECIFIC` fails —
+   it is the verdict `classify_intent` returns on an embeddings OUTAGE, so a mapping would let
+   a provider failure silently answer from a type-filtered slice, and that holds after the fix
+   too; and switching the score from a mean to a max fails, because the averaging IS the
+   mechanism the "not just lower 0.65" reading rests on. Neither asserts the filter is inert —
+   that is live-corpus state and stays with `./dev eval-askesis-draw`.
 
 **Trigger:** (1) ✅ done; (2) ✅ instrument + body-fold status shipped (PR-2), set ratified at
 v2 and the baseline recorded on #1197 — the thread is now open only for a measured miss traced to

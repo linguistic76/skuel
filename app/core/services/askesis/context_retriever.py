@@ -89,8 +89,20 @@ _SENTINEL = object()
 #
 # Unmapped on purpose:
 #   AGGREGATION       — pure graph/count query; chunk text doesn't help.
-#   SPECIFIC          — catch-all default; any chunk type may answer.
+#   SPECIFIC          — catch-all default; any chunk type may answer. ⚠ Also the
+#                       verdict `classify_intent` returns on an EMBEDDINGS OUTAGE
+#                       (it is fail-soft), so mapping it would make a provider
+#                       failure silently answer from a type-filtered slice of the
+#                       corpus. That reason outlives the pedagogical one and holds
+#                       after the classifier is fixed — pinned by
+#                       tests/unit/test_askesis_intent_filter_activation_guard.py.
 #   GOAL_ACHIEVEMENT  — domain query served from user activity data, not curriculum.
+#
+# ⚠ This map executes on every question and takes its no-filter branch every
+# time: no query clears the classifier's gate today (deferred-work § "Per-Domain
+# Chunking Knobs + Chunk-Type-Aware Retrieval", Named work 4 — measured + ruled
+# 2026-08-30, staged not dead). Activating it is one change with the thin-draw
+# fallback, never a lone edit here.
 _INTENT_CHUNK_TYPES: dict[QueryIntent, tuple[ContentChunkType, ...]] = {
     QueryIntent.PREREQUISITE: (ContentChunkType.DEFINITION, ContentChunkType.EXPLANATION),
     QueryIntent.PRACTICE: (ContentChunkType.EXERCISE, ContentChunkType.EXAMPLE),
