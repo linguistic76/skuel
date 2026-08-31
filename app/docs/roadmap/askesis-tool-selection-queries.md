@@ -155,8 +155,15 @@ async def count_entities_by_status(
     until: date | None = None,
 ) -> Result[dict[str, Any]]:
     """Parameterized aggregation. Ownership edge is non-optional in the MATCH."""
+    # ⚠ `uid`, NOT `user_uid` — `User` declares its identifier as `uid`
+    # (core/models/user/user.py) and every production query matches
+    # `(u:User {uid: $user_uid})`. An unknown property name matches ZERO rows
+    # rather than erroring, so the earlier `{user_uid:}` spelling in this sketch
+    # would have reported 0 for every valid account — the SKUEL030 defect class,
+    # and exactly the kind of silence a "safe alternative to text2cypher" cannot
+    # afford. Corrected 2026-08-31 (Codex, #1202).
     cypher = """
-        MATCH (u:User {user_uid: $user_uid})-[:OWNS]->(e:Entity)
+        MATCH (u:User {uid: $user_uid})-[:OWNS]->(e:Entity)
         WHERE e.entity_type = $entity_type
           AND ($status IS NULL OR e.status = $status)
           AND ($since  IS NULL OR e.completed_at >= $since)
@@ -234,10 +241,26 @@ async def run_tool(
     return await tool.handler(user_uid=user_context.user_uid, **args.model_dump())
 ```
 
-### 6. Wiring into the existing pipeline — a few lines in the empty branch
+### 6. Wiring into the existing pipeline
+
+⚠ **The obvious placement reaches only ONE of the three answer paths.** Dropping the tool call
+into `retrieve_relevant_context` is where the gap is *described*, but (Codex, #1202 — confirmed
+in code):
+
+| path | does it run the tool? | does the answer see the count? |
+|---|---|---|
+| non-guided chat (`generate_context_aware_answer`) | yes | yes — `additional_context=relevant_context` |
+| **guided chat** (`_generate_guided_answer`) | yes | **no** — that call takes only the question, the guided system prompt and the PS bundle |
+| **`process_query_with_context`** | **no** — it calls `get_learning_context()` (`query_processor.py:480`), not `retrieve_relevant_context()` | n/a |
+
+So a guided learner could be handed an answer *unrelated to a count that was computed for them*,
+and the public context-query API would keep the very gap this doc exists to close. **Whoever
+builds this must name the delivery point for each path**, not just the computation point — and
+for the guided path that means deciding whether an aggregation result may enter a deliberately
+narrow Socratic prompt at all (ADR-077), which is a pedagogical question, not a plumbing one.
 
 ```python
-# context_retriever.py — fills the AGGREGATION gap (currently absent at ~line 232)
+# context_retriever.py — computes the aggregation (necessary, NOT sufficient — see above)
 elif intent == QueryIntent.AGGREGATION:
     selection = await self.llm_service.select_tool(query, self._agg_tools)
     result = await run_tool(selection, self._agg_catalog, user_context)
@@ -271,7 +294,8 @@ while keeping every SKUEL safety guarantee.
 Implement **one** tool end-to-end, behind the FULL intelligence tier
 (`INTELLIGENCE_TIER=full`, so the $0 analytics tier is unaffected):
 
-1. `count_entities_by_status` backend method (parameterized, user-scoped Cypher).
+1. `count_entities_by_status` backend method (parameterized, user-scoped Cypher —
+   `(u:User {uid: $user_uid})`, see the ⚠ in § 3).
 2. `QueryTool` + `CountByStatusArgs` + a one-entry aggregation catalog.
 3. `LLMService.select_tool()` for the **Anthropic** provider in use.
 4. `run_tool` executor with the `user_uid` injection.
