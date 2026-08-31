@@ -154,7 +154,16 @@ Mike ratifies**, first ratified run is the baseline.
   each name the user's own records, and `"Give me an overview"` — objectless — must go or gain
   one. Acceptance bar: **no topic-orientation query routes to `AGGREGATION`.**
 - **Decide what `EXPLORATORY` means** — catalog browsing or topic orientation — and label
-  accordingly. Record the choice here; Named work 4's chunk mapping depends on it.
+  accordingly. Record the choice here. Two things downstream depend on it, and the second is
+  live code, not a future mapping:
+  - Named work 4's chunk-type mapping (`INTRODUCTION`/`SUMMARY`/`DEFINITION`).
+  - ⚠ **`retrieve_relevant_context`'s existing `EXPLORATORY` branch**
+    (`context_retriever.py:285–294`), which injects an overview of the user's **own records** —
+    counts of tasks, goals, habits, knowledge units and MOCs. That fits *catalog browsing* and
+    is plainly wrong for *topic orientation*: PR-2 would answer "introduce me to stoicism" with
+    the learner's task statistics. **If PR-1 chooses topic orientation, rewriting that branch is
+    part of PR-2**, not a follow-up — activating an intent whose branch contradicts its meaning
+    is worse than leaving it dormant. (Codex, #1202.)
 - The set must carry **AGGREGATION-shaped queries** on both shapes tool-selection targets: the
   bare count ("how many goals do I have") and the predicate-bearing one ("how many goals did I
   complete last quarter that were blocked by a habit I dropped").

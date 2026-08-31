@@ -86,7 +86,7 @@ LLMService.select_tool(question, catalog)   ← LLM returns {tool, args}, NOT Cy
    │
    ▼
 ToolExecutor.run(selection, user_context)
-   ├─ tool name ∈ catalog?            (else → fall through to today's behavior)
+   ├─ tool name ∈ catalog?            (else → Declined(reason), DELIVERED — not a fall-through)
    ├─ args validated by pydantic       (typed, schema-checked)
    ├─ user_uid := user_context.user_uid (INJECTED here — never from the LLM)
    └─ backend.<vetted_parameterized_cypher>(user_uid=…, **args)
@@ -256,7 +256,11 @@ class ToolSelection:
 async def select_tool(
     self, question: str, tools: list[QueryTool],
 ) -> ToolSelection:
-    """LLM chooses a tool + args. Returns no tool if none fits (→ fallback)."""
+    """LLM chooses a tool + args. Returns no tool if none fits (→ Declined).
+
+    ⚠ "No tool" is the only decline this can express. It CANNOT say "I picked the
+    closest one but it does not really fit" — see the coverage gate in § 5.
+    """
     if not isinstance(self.client, AsyncOpenAI):
         return ToolSelection(tool_name=None, arguments={})
     resp = await self.client.chat.completions.create(
@@ -268,7 +272,7 @@ async def select_tool(
                 "parameters": t.json_schema()}}
             for t in tools
         ],
-        tool_choice="auto",            # model may decline → None → fallback
+        tool_choice="auto",            # model may decline → None → Declined
     )
     calls = resp.choices[0].message.tool_calls
     if not calls:
@@ -289,6 +293,25 @@ is the same reason the args model is domain-narrow. (Codex, #1202.)
 ### 5. The executor — validation + the critical `user_uid` injection
 
 ```python
+⚠ **`run_tool` as shown CANNOT enforce the decline, and this is the design's weakest
+point.** It checks only that the selected NAME exists in the catalog. Hand
+`tool_choice="auto"` the relationship-bearing question — *"how many goals did I complete last
+quarter that were blocked by a habit I dropped?"* — and the model will happily select
+`count_goals_achieved`: the lookup succeeds, the args validate, and it returns a total that
+**silently ignores the habit predicate**. A confident wrong number, which is the worst outcome
+in this whole document. Two mitigations, and the first is not optional:
+
+1. **Coverage is a SCHEDULING gate, not a runtime one.** A question shape must not be allowed to
+   classify as `AGGREGATION` before a tool exists that answers it. That is why step 6 sits before
+   activation, and why the labelled set in
+   [askesis-intent-classification-activation.md](askesis-intent-classification-activation.md)
+   PR-1 is the thing that exposes the gap.
+2. **Make the applied scope visible in the answer.** The tool returns what it actually filtered
+   on, and the response states it — *"You achieved 4 goals between 1 Apr and 30 Jun"* — so a
+   dropped predicate reads as a mismatch to the learner instead of disappearing. A model asked
+   to self-report "aspects I could not honour" is not a substitute: that is the same model that
+   just mis-selected.
+
 # ⚠ A DECLINE IS NOT AN ERROR. Step 6 requires an out-of-coverage question to be
 # declined with a reason, but an `Errors.validation` here is indistinguishable from
 # a genuine failure, and the § 6 branch logs errors and continues — so the response
@@ -359,11 +382,11 @@ existing `ResponseGenerator` already consumes.
 | Cypher injection | Args are **enum/pydantic-typed**, bound as `$params` — never string-concatenated |
 | Violates SKUEL001 / unauditable | All Cypher stays in **tested backend methods**, version-controlled |
 | Non-deterministic | Same `{tool, args}` → same query; log the selection for a full audit trail |
-| Hard failure mode | LLM may return **no tool** → graceful fall-through to today's behavior |
+| Hard failure mode | LLM may return **no tool** → `Declined(reason)`, delivered to the learner — never a silent fall-through to a generic answer |
 
 What we give up vs. real text2cypher: we can only answer question *shapes* we've added
-a tool for. But each tool covers a whole parameter space (any `entity_type` × status ×
-date range), so a handful of tools covers most of the `AGGREGATION`/`RELATIONSHIP` gap —
+a tool for. Each tool still covers a whole parameter space (its domain × date range), so a
+handful of tools covers much of the `AGGREGATION`/`RELATIONSHIP` gap —
 while keeping every SKUEL safety guarantee.
 
 ## Proposed first slice (if pursued)
@@ -409,7 +432,7 @@ Implement **one** tool end-to-end, behind the FULL intelligence tier
    documented decision to serve only the non-guided path is acceptable; shipping that by
    omission is not.
 8. A pytest exercising: tool selected + args validated + cross-tenant attempt
-   (LLM-supplied `user_uid` ignored) + no-tool fallback path + **the count actually reaching
+   (LLM-supplied `user_uid` ignored) + the no-tool **decline** path + **the count actually reaching
    the answer on every path step 7 claims to serve** — the delivery half is where this
    silently fails, not the selection half — + **an out-of-coverage question is declined, and
    the DECLINE reaches the learner** rather than the generator answering anyway (step 6) +
