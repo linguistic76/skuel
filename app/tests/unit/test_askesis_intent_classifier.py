@@ -252,10 +252,16 @@ class TestClassifyIntentScored:
         assert (await classifier.classify_intent_scored("anything")).is_error
 
     @pytest.mark.asyncio
-    async def test_the_fail_soft_path_still_tolerates_a_partial_load(self, mock_embeddings) -> None:
-        # The strictness is the SCORED contract's alone. classify_intent keeps
-        # its documented "lower precision, not a crash" behaviour, so this
-        # change moves no production behaviour.
+    async def test_a_partial_load_answers_specific_rather_than_a_confident_verdict(
+        self, mock_embeddings
+    ) -> None:
+        """A partial load does not lose precision — it MANUFACTURES confidence.
+
+        Averaging over fewer exemplars raises the mean (an intent left holding one
+        exemplar scores its max), and the set is cached for the process's lifetime. This
+        test previously asserted the opposite and was the evidence that the chunk-type
+        filter could fire on a degraded classification (Codex, #1201).
+        """
         vector = [1.0] + [0.0] * 1023
         mock_embeddings.create_embedding = AsyncMock(return_value=Result.ok(vector))
         classifier = IntentClassifier(embeddings_service=mock_embeddings)
@@ -266,7 +272,10 @@ class TestClassifyIntentScored:
 
         soft = await classifier.classify_intent("anything")
 
-        assert soft.is_ok and soft.value is QueryIntent.PRACTICE
+        assert soft.is_ok
+        assert soft.value is QueryIntent.SPECIFIC, (
+            "a 1.0-scoring one-exemplar set must not out-rank a complete one"
+        )
 
     @pytest.mark.asyncio
     async def test_above_the_gate_returns_the_matched_intent(self, mock_embeddings) -> None:

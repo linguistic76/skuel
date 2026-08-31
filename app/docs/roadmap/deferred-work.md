@@ -1762,9 +1762,10 @@ label-only lines; 72 typed `explanation`; 32 under 20 characters), 6 path_step (
    is (c).** **REFINED the same day, once the dormant surface was measured: the classifier fix
    is SCHEDULED and the chunk filter is NOT part of it** — see
    [askesis-intent-classification-activation.md](askesis-intent-classification-activation.md).
-   The classifier gates FOUR Askesis branches, and this filter is the weakest of them; the
-   other three (intent-conditioned graph context, suggested actions, and citations — which have
-   consequently never attached to any Askesis answer) need no chunk types at all. So activation happens there first with `chunk_types` hard-wired off, and
+   The classifier gates SIX Askesis branches across its two callers, and this filter is the
+   weakest of them; the other five (graph context, suggested actions, citations — which have
+   consequently never attached to any Askesis answer — plus the context-query API's own prose
+   and actions branches) need no chunk types at all. So activation happens there first with `chunk_types` hard-wired off, and
    "fix and fallback ship together" narrows to its true scope: it binds whoever switches the
    FILTER on, not whoever fixes the classifier. This entry keeps the filter half.
    The plumbing stays because the intent is to *connect* it, not to retire it:

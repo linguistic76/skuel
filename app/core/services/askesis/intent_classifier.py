@@ -220,6 +220,10 @@ class IntentClassifier:
         """
         Classify query intent using embeddings-based semantic classification.
 
+        Fail-soft: an embeddings outage answers SPECIFIC rather than raising, so an
+        Askesis turn still completes. An INCOMPLETE exemplar load answers SPECIFIC too —
+        see below; that is a correctness guard, not tolerance.
+
         Args:
             query: User's natural language question
 
@@ -232,6 +236,23 @@ class IntentClassifier:
             logger.warning(
                 "Embedding-based classification failed — defaulting to SPECIFIC",
                 exc_info=True,
+            )
+            return Result.ok(QueryIntent.SPECIFIC)
+
+        # A partial load is cached for the process's lifetime, and averaging over FEWER
+        # exemplars RAISES the mean — an intent left holding one exemplar scores its max.
+        # So a degraded load does not merely lose precision, it manufactures confidence,
+        # and it is the only route by which a verdict clears the gate today. Every
+        # consumer downstream (chunk-type filter, graph context, suggested actions,
+        # citations) would then act on the least trustworthy classification the service
+        # can produce. SPECIFIC is precisely the "we do not know" verdict; take it.
+        load = self._exemplar_load
+        if intent and load is not None and not load.is_complete():
+            logger.warning(
+                "Intent exemplar set incomplete (%s) — scores are averaged over unequal "
+                "counts and are not comparable; answering SPECIFIC instead of %s",
+                load.describe(),
+                intent.value,
             )
             return Result.ok(QueryIntent.SPECIFIC)
 

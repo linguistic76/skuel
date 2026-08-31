@@ -14,8 +14,15 @@ Retrieval", Named work 4, which is where the chunk-filter half stays.
 
 ## What is actually dormant
 
-`classify_intent` has two production callers (`query_processor.py:281, 486`). Its verdict
-branches at **four** Askesis sites, all permanently on their else-path:
+`classify_intent` has **two production callers**, and BOTH must be in scope — an activation
+validated on only one of them ships unmeasured behaviour on the other:
+
+| caller | entry point |
+|---|---|
+| `_answer_user_question_pipeline` (`query_processor.py:281`) | `answer_user_question` — the chat/Ask surface |
+| `_process_query_with_context_pipeline` (`query_processor.py:486`) | `process_query_with_context` — the public context-query API |
+
+Its verdict branches at **six** sites across the two, all permanently on their else-path:
 
 | site | dormant behaviour | in scope |
 |---|---|---|
@@ -23,6 +30,17 @@ branches at **four** Askesis sites, all permanently on their else-path:
 | `response_generator.py:389–470` | intent-conditioned **suggested actions** + follow-ups | **yes** |
 | `query_processor.py:379–386` | **citations** — `_retrieve_citations_for_knowledge_units` fires only for `PREREQUISITE`/`HIERARCHICAL`, and has ONE call site, so **no Askesis answer has ever carried a citation** | **yes** (user-visible) |
 | `context_retriever.py:127` (`_INTENT_CHUNK_TYPES`) | chunk-type `IN` filter on the RAG draw | **no — PR-3, gated** |
+
+Those four are reachable from `answer_user_question`. The second caller has **two more of its
+own**, and they are different methods, not the same ones re-entered:
+
+| site | dormant behaviour |
+|---|---|
+| `query_processor.py:517` → `_generate_context_aware_response(intent=…)` | intent-conditioned **prose** on the context-query API |
+| `query_processor.py:528` → `response_generator.generate_suggested_actions(…, intent)` | a DIFFERENT method from `generate_actions` used by the other caller — its own intent branches |
+
+`_build_query_response_result` also carries `intent` into the returned dict, so the API's
+response shape changes for its clients too.
 
 ### ⚠ Activation reaches the two answer paths UNEQUALLY
 
@@ -135,7 +153,10 @@ Mike ratifies**, first ratified run is the baseline.
   `tests/unit/test_askesis_intent_filter_activation_guard.py` fires precisely so this cannot be
   forgotten.
 - `chunk_types` stays off. State the reason at the site, not in a commit message.
-- ⚠ **Activation is never neutral.** Three branches that have never run start running for
+- ⚠ **Both callers get before/after, not just the chat surface.** `process_query_with_context`
+  has its own prose branch and its own actions method; validating only `answer_user_question`
+  would ship the API's change unmeasured.
+- ⚠ **Activation is never neutral.** Five branches that have never run start running for
   every Askesis turn. Before/after the same questions through the real path — and **read the
   right output for each path**, per the table above: on the context-aware path read the ANSWER
   prose; on the guided path read `suggested_actions`, `context_used` and citations, because the

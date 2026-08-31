@@ -94,7 +94,7 @@ This classification determines which context sections get included in the LLM pr
 > Chunk-Type-Aware Retrieval", Named work 4) — switching THAT on is what would require a
 > thin-draw fallback in the same change.
 
-**Error tolerance:** If the embeddings API is unavailable or exemplar loading fails, the classifier defaults to `SPECIFIC` intent rather than crashing the pipeline. Individual exemplar embedding failures are skipped — classification works with fewer exemplars (lower precision, not a crash).
+**Error tolerance:** If the embeddings API is unavailable or exemplar loading fails, the classifier defaults to `SPECIFIC` intent rather than crashing the pipeline. ⚠️ **An INCOMPLETE exemplar load also answers `SPECIFIC`** (changed 2026-08-30). Individual exemplar failures are still skipped rather than raising, but the resulting set is not merely less precise — averaging over fewer exemplars *raises* the mean, so an intent left holding one exemplar scores its max, and the partial set is cached for the process's lifetime. A degraded load would therefore manufacture confident verdicts, and every downstream consumer would act on the least trustworthy classification the service can produce.
 
 That fail-soft default is indistinguishable from a genuine low-confidence verdict at the call site, so anything that must tell an outage from a real classification calls `classify_intent_scored()` instead: it returns `Result[IntentClassification]` (intent + score + `confident`) and fails loudly rather than defaulting.
 
