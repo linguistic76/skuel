@@ -275,7 +275,7 @@ still only reaches 0.43–0.56 against its own intent. So `SPECIFIC` is not a
 fallback in practice, it is the only outcome, and every intent-conditioned
 branch downstream takes its catch-all path.
 
-**Error tolerance:** If the embeddings API is unavailable, intent classification defaults to `SPECIFIC` rather than crashing. Individual exemplar embedding failures are skipped — classification works with fewer exemplars per intent.
+**Error tolerance:** If the embeddings API is unavailable, intent classification defaults to `SPECIFIC` rather than crashing. Individual exemplar embedding failures are skipped rather than raising — but the load is then incomplete, and an incomplete load also answers `SPECIFIC` (2026-08-30): averaging over fewer exemplars *raises* the mean, so a degraded set produces confident-looking verdicts rather than uncertain ones.
 
 That leniency makes an outage indistinguishable from a real low-confidence
 verdict at the call site. Callers that must tell them apart — measurement,

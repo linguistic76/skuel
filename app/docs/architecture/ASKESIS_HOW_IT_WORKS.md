@@ -319,8 +319,8 @@ On timeout: `Result.fail()` with user message *"Your question is taking too long
 | Component | Failure Mode | Pipeline Response |
 |-----------|-------------|-------------------|
 | **UserContext load** | Neo4j down or MEGA-QUERY fails | Pipeline cannot proceed — returns `Result.fail()` |
-| **Intent classification** | Embeddings API unavailable | Defaults to `SPECIFIC` intent (lower precision, not a crash) |
-| **Intent classification** | Individual exemplar embedding fails | Skipped — classification works with fewer exemplars |
+| **Intent classification** | Embeddings API unavailable | Answers `SPECIFIC` — the catch-all verdict, never a chunk-type filter (pinned by `test_askesis_intent_filter_activation_guard.py`) |
+| **Intent classification** | Individual exemplar embedding fails | Skipped, but the LOAD is then incomplete → every classification answers `SPECIFIC` (a smaller denominator raises the mean, so a degraded set scores *higher*) |
 | **Entity extraction** | Domain service unavailable | Continues with empty matches — LLM still answers using other context |
 | **PS bundle fetch** | One of 7 entity fetches times out | That collection defaults to empty; bundle built from what succeeds |
 | **PS bundle fetch** | All fetches fail | Minimal bundle (just the PathStep) — still enables GuidanceMode |
