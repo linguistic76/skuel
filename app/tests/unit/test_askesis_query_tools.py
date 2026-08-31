@@ -75,11 +75,26 @@ class TestResolvePeriod:
             date(2026, 8, 30),
         )
 
-    def test_every_member_resolves_to_an_ordered_closed_range(self) -> None:
-        """Exhaustive over the enum — a new member must land in the resolver."""
-        for period in AggregationPeriod:
-            since, until = resolve_period(period, date(2026, 8, 31))
-            assert since <= until, f"{period.value} resolved to an empty interval"
+    def test_every_member_resolves_to_its_own_exact_range(self) -> None:
+        """Exhaustive over the enum, pinned to EXACT bounds — an ordering-only
+        sweep passed while an unhandled member inherited another period's
+        window (Codex, #1209). A new member now fails resolve_period's
+        unhandled-member raise AND this table until both carry it."""
+        expected = {
+            AggregationPeriod.THIS_WEEK: (date(2026, 8, 31), date(2026, 9, 6)),
+            AggregationPeriod.LAST_WEEK: (date(2026, 8, 24), date(2026, 8, 30)),
+            AggregationPeriod.THIS_MONTH: (date(2026, 8, 1), date(2026, 8, 31)),
+            AggregationPeriod.LAST_MONTH: (date(2026, 7, 1), date(2026, 7, 31)),
+            AggregationPeriod.THIS_QUARTER: (date(2026, 7, 1), date(2026, 9, 30)),
+            AggregationPeriod.LAST_QUARTER: (date(2026, 4, 1), date(2026, 6, 30)),
+            AggregationPeriod.THIS_YEAR: (date(2026, 1, 1), date(2026, 12, 31)),
+            AggregationPeriod.LAST_YEAR: (date(2025, 1, 1), date(2025, 12, 31)),
+        }
+        assert set(expected) == set(AggregationPeriod), (
+            "a new AggregationPeriod member needs a pinned expected range here"
+        )
+        for period, bounds in expected.items():
+            assert resolve_period(period, date(2026, 8, 31)) == bounds
 
 
 # ============================================================================

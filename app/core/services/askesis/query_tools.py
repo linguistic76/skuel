@@ -264,10 +264,15 @@ def resolve_period(period: AggregationPeriod, today: date) -> tuple[date, date]:
         return start, _month_end(_month_start_back(start, months=-2))
     if period is AggregationPeriod.THIS_YEAR:
         return today.replace(month=1, day=1), today.replace(month=12, day=31)
-    # LAST_YEAR — the exhaustive tail; a new member fails loudly in tests.
-    return today.replace(year=today.year - 1, month=1, day=1), today.replace(
-        year=today.year - 1, month=12, day=31
-    )
+    if period is AggregationPeriod.LAST_YEAR:
+        return today.replace(year=today.year - 1, month=1, day=1), today.replace(
+            year=today.year - 1, month=12, day=31
+        )
+    # A new enum member must land in an arm above BEFORE it can resolve — an
+    # unconditional tail would silently hand it another period's bounds, and a
+    # wrong window under a right-looking count is this design's named worst
+    # outcome (Codex, #1209).
+    raise ValueError(f"Unhandled AggregationPeriod: {period.value}")
 
 
 def _month_start_back(month_start: date, months: int) -> date:
