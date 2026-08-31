@@ -1,6 +1,6 @@
 # Askesis Intent Classification — Activation Arc
 
-**Status:** SCHEDULED 2026-08-30 (Mike). Contract for a 2-PR arc; PR-3 is registered but gated.
+**Status:** PR-1 SHIPPED 2026-08-31 (instrument + labelled set + exemplar disambiguation, DRAFT until Mike ratifies the labels). PR-2 is next; PR-3 is registered but gated.
 
 **Core Principle:** *"Intent shapes the answer. It does not narrow what the answer may draw on."*
 
@@ -101,17 +101,14 @@ object at all**, which makes it a magnet: the probe *"give me an overview of thi
 it at **0.792**. Short-sentence embeddings are dominated by the verb, which is exactly why an
 average over eight of them separates these two so badly.
 
-⚠ **And `EXPLORATORY` currently means two different things.** Its exemplars are *catalog
-browsing* — "Show me what's available", "Browse available knowledge", "What else is there?" — but
-its chunk-type mapping is `INTRODUCTION`/`SUMMARY`/`DEFINITION`, which answers *topic
-orientation* ("introduce me to stoicism"). Those are different intents under one name. PR-1's
-labelled set has to pick one, and the choice feeds back: **if it picks browsing, the
-`_INTENT_CHUNK_TYPES` mapping in deferred-work Named work 4 is wrong on its own terms**, quite
-apart from the corpus measurements there.
+⚠ **`EXPLORATORY` meant two different things — RESOLVED by PR-1, see ruling 3.** Its exemplars
+were *catalog browsing* ("Show me what's available", "Browse available knowledge", "What else is
+there?") while its chunk-type mapping is `INTRODUCTION`/`SUMMARY`/`DEFINITION`, which answers
+*topic orientation* ("introduce me to stoicism") — two intents under one name.
 
-## Rulings (Mike, 2026-08-30)
+## Rulings
 
-1. **Intent shapes the ANSWER, not the draw.** PR-2 activates the graph-context and
+1. **Intent shapes the ANSWER, not the draw. Ruled 2026-08-30 (Mike).** PR-2 activates the graph-context and
    response-shaping branches only. `chunk_types` stays `None`, hard-wired with the reason
    stated at the site. The thin-draw fallback is therefore NOT a prerequisite for this arc —
    it is only needed if the filter is ever switched on, which is PR-3's problem.
@@ -136,59 +133,116 @@ apart from the corpus measurements there.
    one. Disambiguating the two exemplar sets is therefore a **correctness prerequisite** for
    tool-selection, not tidying.
 
+3. **`EXPLORATORY` means CATALOG BROWSING, not topic orientation. DRAFTED by PR-1 2026-08-31 —
+   Claude's call, ratified with the labelled set, not yet Mike's.** *"What is there to learn here?"* is EXPLORATORY;
+   *"introduce me to stoicism"* is a content question and stays `SPECIFIC`.
+
+   Three reasons, in the order they decided it:
+   - **It is the only choice that keeps EXPLORATORY separable from `SPECIFIC`.** `SPECIFIC` has
+     no exemplars — it is what the classifier returns when nothing clears the gate — so it can
+     never win a comparison, only be fallen back to. Making EXPLORATORY mean *topic orientation*
+     would point its exemplars at the same objects every ordinary content question names, and
+     the catch-all has no exemplar set with which to defend its own rows. Browsing's object
+     ("the catalog") is one no content question has.
+   - **It is what the live code already does.** `retrieve_relevant_context`'s `EXPLORATORY`
+     branch (`context_retriever.py:285–294`) injects an overview of the user's own graph —
+     tasks, goals, habits, knowledge units, MOCs. That answers *"where am I / what is here"*.
+     Under topic orientation it would answer "introduce me to stoicism" with the learner's task
+     statistics, and PR-2 would have had to rewrite it. **It does not: PR-2 activates that
+     branch as written.**
+   - **The object discriminator then partitions cleanly**: the catalog (EXPLORATORY), the
+     user's own records (AGGREGATION), a subject (SPECIFIC). Under topic orientation the
+     partition needs breadth-vs-depth — a distinction of shape, not object, which is the kind
+     short-sentence embeddings resolve worst.
+
+   ⚠ **Consequence, recorded in [deferred-work.md](deferred-work.md) Named work 4:** the
+   `_INTENT_CHUNK_TYPES` mapping `INTRODUCTION`/`SUMMARY`/`DEFINITION` is now wrong *on its own
+   terms* — it types chunks for topic orientation under an intent that no longer means that. A
+   browsing question does not want an introduction passage; it wants the catalog. That is
+   independent of the 7.1%-eligibility measurement, and it lands on PR-3, which is gated.
+
 ## Sequencing
 
-### PR-1 — the labelled set + the instrument
+### PR-1 — the labelled set + the instrument ✅ SHIPPED 2026-08-31
 
-⚠ **PR-1 is NOT behaviour-neutral, despite touching no branch.** `INTENT_EXEMPLARS` is live
-input to `_score_against_exemplars`, and the 0.65 gate does not move until PR-2. Making
-`AGGREGATION`'s eight examples more semantically coherent — which is exactly what the
-disambiguation asks for — *raises* the average a count question scores against them, and could
-carry it over the gate **during PR-1**, before any tool branch exists. The question would then
-take today's ungrounded path and be answered with an invented count: the same window closed at
-PR-2, reopened one PR earlier by a rewrite that looks like documentation.
+**What landed**
 
-**Acceptance condition, therefore:** PR-1 proves, with the instrument it ships, that **every
-intent's best score stays below `IntelligenceThreshold.INTENT_CLASSIFICATION` for every query in
-the labelled set** after the rewrite. If any clears it, that exemplar change moves into PR-2 and
-lands with the activation, not before. (Codex, #1202.)
+- `scripts/eval_intent_classification_queries.yaml` — **45 labelled queries** (`query →
+  expected intent`), with the same typo-proof `ratified:` parse as the chunk-retrieval set
+  (both now share `scripts/eval_query_set.py`, so the ratification contract cannot drift
+  between them). Labels: SPECIFIC 14 (the largest class, on purpose), AGGREGATION 6,
+  and 5 each for EXPLORATORY / PREREQUISITE / HIERARCHICAL / PRACTICE / RELATIONSHIP.
+- `scripts/eval_intent_classification.py` (`./dev eval-intent-classification`) — three
+  aggregation arms (`mean` = production, `max`, `top3_mean`) over the SAME query embedding and
+  the SAME exemplar embeddings, reporting per arm: accuracy at the live gate, gate-blind
+  ranking accuracy, score and margin distributions, share clearing the gate, and a threshold
+  sweep for PR-2.
+- The AGGREGATION / EXPLORATORY exemplar rewrite, with the editing rule stated above
+  `INTENT_EXEMPLARS` so the next editor is standing in front of it.
 
-Same discipline as the chunk-retrieval eval, and the same ratification pattern: **Claude drafts,
-Mike ratifies**, first ratified run is the baseline.
+⚠ **Every arm is checked against production, per run.** The `mean` arm is a
+re-implementation, and a re-implementation that silently diverges would make the two
+counterfactual arms meaningless. So every row is ALSO classified through
+`classify_intent_scored` (never `classify_intent`, which converts an embeddings outage into
+`Result.ok(SPECIFIC)` — the exact finding under test, manufactured from a provider blip), and
+the run FAILS on any disagreement — a different predicted intent OR a score more than
+1e-3 from production's. Measured across three runs: 45/45 checked, **0 disagreements**, max
+score delta **8.4e-05 – 1.3e-04**. Re-embedding the same text is NOT bit-identical (that
+spread is the evidence), which is why the check is a tolerance and why the delta is reported
+on every run rather than assumed once.
 
-- A reviewable intent-labelled query set (`query → expected intent`), carrying a `ratified:`
-  date field with the same typo-proof parse as `eval_chunk_retrieval_queries.yaml`.
-- A scoring instrument (`./dev eval-intent-classification`) reporting, per aggregation
-  strategy: accuracy, score distribution, share clearing the gate, and margin over the
-  runner-up. Must classify through `classify_intent_scored` — `classify_intent` converts an
-  embedding outage into `Result.ok(SPECIFIC)`, which would score an outage as a finding.
-- **Disambiguate the AGGREGATION/EXPLORATORY exemplar sets** (both stay — see ruling 2), and
-  measure before/after on the set. Rewrite by OBJECT, not verb: AGGREGATION's exemplars must
-  each name the user's own records, and `"Give me an overview"` — objectless — must go or gain
-  one. Acceptance bar: **no topic-orientation query routes to `AGGREGATION`.**
-- **Decide what `EXPLORATORY` means** — catalog browsing or topic orientation — and label
-  accordingly. Record the choice here. Two things downstream depend on it, and the second is
-  live code, not a future mapping:
-  - Named work 4's chunk-type mapping (`INTRODUCTION`/`SUMMARY`/`DEFINITION`).
-  - ⚠ **`retrieve_relevant_context`'s existing `EXPLORATORY` branch**
-    (`context_retriever.py:285–294`), which injects an overview of the user's **own records** —
-    counts of tasks, goals, habits, knowledge units and MOCs. That fits *catalog browsing* and
-    is plainly wrong for *topic orientation*: PR-2 would answer "introduce me to stoicism" with
-    the learner's task statistics. **If PR-1 chooses topic orientation, rewriting that branch is
-    part of PR-2**, not a follow-up — activating an intent whose branch contradicts its meaning
-    is worse than leaving it dormant. (Codex, #1202.)
-- The set must carry **AGGREGATION-shaped queries** on both shapes tool-selection targets: the
-  bare count ("how many goals do I have") and the predicate-bearing one ("how many goals did I
-  complete last quarter that were blocked by a habit I dropped").
-  ⚠ **Labelling a query `AGGREGATION` does not mean anything can answer it.** The tool catalog's
-  first slice covers neither of those two shapes, so once PR-2 makes them classify, an
-  unmatched question must be an explicit decline — not the nearest tool returning a confident
-  wrong number. That coverage gate belongs to
-  [askesis-tool-selection-queries.md](askesis-tool-selection-queries.md) step 6; this set is
-  what will expose it.
-- **Label the corpus honestly:** a content question ("why does my mind keep wandering when I
-  meditate") is genuinely `SPECIFIC`. A set that labels everything with a non-SPECIFIC intent
-  measures wishful thinking. Expect SPECIFIC to be the largest class and keep it so.
+**The acceptance condition HOLDS.** After the rewrite, **0 of 45 queries clear
+`IntelligenceThreshold.INTENT_CLASSIFICATION` on the production arm** (highest score in the
+set: 0.540, the verbatim HIERARCHICAL exemplar; highest AGGREGATION or EXPLORATORY row: 0.517).
+The exemplar edits therefore ship here, not in PR-2 — nothing became reachable.
+
+**Measured before → after (AuraDB `d2d160c4`, 45-query set, gate 0.65)**
+
+| arm | accuracy at gate | ranking (gate-blind) | clears the gate | wrong activations |
+|---|---|---|---|---|
+| **mean** (production) | 31% → **31%** | 30/31 → **30/31 (97%)** | 0 → **0** | 0 → **0** |
+| max | 47% → **51%** | 28/31 → **29/31** | 9 → **9** | 1 → **0** |
+| top-3 mean | 33% → **33%** | 29/31 → **29/31** | 1 → **1** | 0 → **0** |
+
+Two things in that table matter more than the accuracy column:
+
+1. **The classifier's RANKING is already almost right — 30 of 31 — and only the gate is out of
+   reach.** The 12-probe sketch above put ranking at 9/12; on a reviewable set that is not
+   stacked with near-verbatim exemplars, the mean arm ranks 97% correctly and fires on nothing.
+   *"It can't tell intents apart"* was never the problem. **The gate is the whole problem**,
+   which is what makes PR-2 a threshold/aggregation decision rather than an exemplar-tuning one.
+   Sweep, mean arm: threshold 0.30 → 80% accuracy, 24 of 45 fire, **1** wrong activation.
+2. **The magnet is gone.** `"give me an overview of this topic"` matched AGGREGATION at
+   **0.792** under `max` — the highest score in the whole set bar the verbatim exemplar — and
+   was the ONLY wrong activation any arm produced. After the rewrite it matches
+   `prerequisite@0.472`, and `"introduce me to stoicism"` moves from `aggregation@0.313` to
+   `exploratory@0.293`. **No topic-orientation query routes to AGGREGATION under any arm** —
+   the acceptance bar, met.
+
+**Residuals, recorded rather than tuned away** (a 45-query set is too small to tune against;
+none of these fires today):
+
+- Three SPECIFIC rows still take AGGREGATION as their mean-arm argmax — including *"why do I
+  regret things I didn't do more than things I did"*. The rewrite made AGGREGATION uniformly
+  first-person-possessive, so a first-person question about a SUBJECT drifts toward it. At
+  scores of 0.15–0.25 an argmax is noise, not a routing claim; it becomes one only if PR-2
+  lowers the gate that far, which the sweep's single wrong activation at 0.30 already prices in.
+- `"where should I go after finishing the mindfulness path"` (HIERARCHICAL) is the one ranking
+  error on the mean arm, and it lands on AGGREGATION — same possessive pull.
+- `"give me an overview of this topic"` no longer resolves to a stable argmax at all: across
+  runs it landed on EXPLORATORY (0.342) and then PREREQUISITE (0.320) as near-tied intents
+  swapped places. Topic orientation vs catalog browsing is a soft boundary in the embedding
+  space even after the object rewrite; the gate is what keeps it harmless.
+
+**Reading the report honestly.** `kind: near_exemplar` rows are UPPER BOUNDS, not evidence —
+the instrument now names each row's nearest exemplar and its similarity, so an unmarked
+near-duplicate is visible instead of flattering the score. Exactly one row sits within 0.85 of
+an exemplar (`"what should I learn next"` ≈ `"What should I learn next?"` @ 0.943), and it is
+the deliberate ceiling probe.
+
+**What is still DRAFT:** the labels themselves. Runs print a DRAFT banner until `ratified:`
+carries a date. **Mike ratifies the query→intent pairs; the first ratified run IS the
+baseline**, and PR-2 is measured against it.
 
 ### PR-2 — activation (behaviour change, narrow)
 
@@ -199,6 +253,10 @@ Mike ratifies**, first ratified run is the baseline.
   `tests/unit/test_askesis_intent_filter_activation_guard.py` fires precisely so this cannot be
   forgotten.
 - `chunk_types` stays off. State the reason at the site, not in a commit message.
+- ✅ **`retrieve_relevant_context`'s `EXPLORATORY` branch is activated AS WRITTEN.** It injects
+  an overview of the user's own graph, which is what catalog browsing asks for — and browsing is
+  what EXPLORATORY means (ruling 3). The conditional rewrite this section used to carry was
+  contingent on PR-1 choosing topic orientation; it did not, so there is nothing to rewrite.
 - ⚠ **Both callers get before/after, not just the chat surface.** `process_query_with_context`
   has its own prose branch and its own actions method; validating only `answer_user_question`
   would ship the API's change unmeasured.
@@ -240,6 +298,11 @@ intact for PR-3.
 ## Checks
 
 ```bash
+# PR-1's instrument: 45 labelled queries x 3 aggregation arms, checked against production.
+# `cleared_gate` on the mean arm is the acceptance condition; the sweep is PR-2's input.
+./dev eval-intent-classification            # human summary
+./dev eval-intent-classification --json     # the recorded report
+
 # the gate is unreachable — every query classifies SPECIFIC (max_intent_score vs 0.65)
 ./dev eval-askesis-draw
 ```
@@ -249,5 +312,5 @@ intact for PR-3.
 MATCH (c:ContentChunk) RETURN c.chunk_type AS t, count(*) AS n ORDER BY n DESC
 ```
 
-**Trigger:** PR-1 on Mike's next Askesis session. PR-2 on PR-1's ratified baseline. PR-3 only
+**Trigger:** PR-1 DONE 2026-08-31. PR-2 on PR-1's ratified baseline. PR-3 only
 if the content-typing classifier lands AND its distribution makes a type filter meaningful.

@@ -114,6 +114,13 @@ _SENTINEL = object()
 # thin-draw fallback in the same commit — over the live 925-chunk corpus it
 # grants 85% of chunks to three intents and 7.1% to EXPLORATORY, on labels that
 # are 78% keyword fallback. Never a lone edit here.
+#
+# ⚠ And the EXPLORATORY row below is wrong on its own terms, whatever the corpus
+# does: EXPLORATORY was settled (2026-08-31) as CATALOG BROWSING — "what is
+# there to learn here?" — while INTRODUCTION/SUMMARY/DEFINITION type an answer to
+# TOPIC ORIENTATION ("introduce me to stoicism"), which is a content question and
+# classifies SPECIFIC. Re-derive that row before switching anything on; a richer
+# `introduction` population would not make it right.
 _INTENT_CHUNK_TYPES: dict[QueryIntent, tuple[ContentChunkType, ...]] = {
     QueryIntent.PREREQUISITE: (ContentChunkType.DEFINITION, ContentChunkType.EXPLANATION),
     QueryIntent.PRACTICE: (ContentChunkType.EXERCISE, ContentChunkType.EXAMPLE),

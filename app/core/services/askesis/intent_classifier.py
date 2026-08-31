@@ -104,6 +104,31 @@ class IntentClassification:
     confident: bool
 
 
+# ── Editing rule: an exemplar is defined by its OBJECT, not its verb ──────────
+#
+# Short-sentence embeddings are dominated by the verb, so two intents whose
+# exemplars share verbs collide no matter how the scores are aggregated.
+# "Summarize my learning" and "give me an overview of stoicism" differ only in
+# what they are ABOUT — your records, or a subject — and an OBJECTLESS exemplar
+# ("Give me an overview") is a magnet that absorbs both: it matched the topic
+# question "give me an overview of this topic" at 0.792 (measured 2026-08-31,
+# `./dev eval-intent-classification`). So:
+#
+#   AGGREGATION  — every exemplar names the USER'S OWN RECORDS (tasks, goals,
+#                  habits, mastered knowledge). Never objectless. Under the
+#                  tool-selection direction these route to a count tool, so a
+#                  content question landing here would be answered with a
+#                  number — a wrong answer, not a vague one.
+#   EXPLORATORY  — CATALOG BROWSING: "what is there to learn here?". Settled
+#                  2026-08-31. NOT topic orientation ("introduce me to
+#                  stoicism"), which is a content question and belongs to the
+#                  SPECIFIC catch-all; and never the user's own records, which
+#                  is AGGREGATION's object.
+#
+# Keep EIGHT per intent: the score is a per-intent MEAN, so unequal counts stop
+# being comparable across intents (see `ExemplarLoad`). Any edit here changes
+# live classification — re-measure with `./dev eval-intent-classification`.
+# See: docs/roadmap/askesis-intent-classification-activation.md
 INTENT_EXEMPLARS: dict[QueryIntent, list[str]] = {
     QueryIntent.HIERARCHICAL: [
         "What should I learn next?",
@@ -136,14 +161,14 @@ INTENT_EXEMPLARS: dict[QueryIntent, list[str]] = {
         "What tasks will help me practice?",
     ],
     QueryIntent.EXPLORATORY: [
-        "Show me what's available",
+        "Show me what's available to learn",
         "What can I learn about?",
-        "Explore Python topics",
-        "What's in my learning path?",
+        "Explore the topics on offer",
+        "What is in the library?",
         "Discover new concepts",
-        "What topics are related?",
+        "What areas of study are there?",
         "Browse available knowledge",
-        "What else is there?",
+        "What else is there to study?",
     ],
     QueryIntent.RELATIONSHIP: [
         "How are these topics connected?",
@@ -158,12 +183,12 @@ INTENT_EXEMPLARS: dict[QueryIntent, list[str]] = {
     QueryIntent.AGGREGATION: [
         "How many tasks do I have?",
         "What's my total progress?",
-        "Show me statistics",
-        "Count my goals",
-        "What are my metrics?",
-        "Summarize my learning",
-        "Give me an overview",
-        "What's my status?",
+        "Show me my task and goal statistics",
+        "Count my active goals",
+        "What is my completion rate on my habits?",
+        "Summarize my progress across my goals",
+        "Give me the numbers on my tasks this month",
+        "How many knowledge units have I mastered?",
     ],
 }
 

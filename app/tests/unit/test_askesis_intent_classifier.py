@@ -16,6 +16,7 @@ import pytest
 
 from core.constants import IntelligenceThreshold
 from core.services.askesis.intent_classifier import (
+    INTENT_EXEMPLARS,
     ExemplarLoad,
     IntentClassifier,
     QueryIntent,
@@ -133,6 +134,38 @@ class TestIntentTypeCoverage:
         assert QueryIntent.RELATIONSHIP is not None
         assert QueryIntent.AGGREGATION is not None
         assert QueryIntent.SPECIFIC is not None
+
+    def test_every_intent_carries_the_same_number_of_exemplars(self):
+        """Unequal exemplar counts make the per-intent scores incomparable.
+
+        The score is a MEAN over an intent's exemplars, so a set with six
+        exemplars is scored on a different denominator than one with eight — and
+        a SMALLER denominator RAISES the mean, so the thinner set wins ties it
+        should lose. Production already refuses a partial LOAD for this reason
+        (`ExemplarLoad`); this pins the same property in the authored set, where
+        an editor adding a seventh line to one intent would otherwise tilt
+        classification silently.
+        """
+        counts = {intent: len(exemplars) for intent, exemplars in INTENT_EXEMPLARS.items()}
+
+        assert len(set(counts.values())) == 1, (
+            f"exemplar counts differ across intents: {counts} — per-intent means "
+            "are then averaged over different denominators and stop being comparable"
+        )
+
+    def test_no_exemplar_is_shared_between_two_intents(self):
+        """A duplicated exemplar scores identically for both owners.
+
+        It cannot discriminate, and it drags both means toward each other — the
+        collision the AGGREGATION/EXPLORATORY rewrite exists to remove.
+        """
+        seen: dict[str, QueryIntent] = {}
+        for intent, exemplars in INTENT_EXEMPLARS.items():
+            for exemplar in exemplars:
+                assert exemplar not in seen, (
+                    f"{exemplar!r} belongs to both {seen.get(exemplar)} and {intent}"
+                )
+                seen[exemplar] = intent
 
 
 # ============================================================================
