@@ -31,6 +31,7 @@ from eval_intent_classification import (  # type: ignore[import-not-found]
     QueryRow,
     aggregate,
     allowed_labels,
+    fires,
     load_labelled_set,
     nearest_exemplar,
     score_arm,
@@ -209,7 +210,7 @@ class TestSummarizeArm:
             _row("practice", _outcome({"practice": 0.4, "aggregation": 0.1}, "practice")),
             _row("specific", _outcome({"practice": 0.2}, "specific")),
         ]
-        report = summarize_arm(rows, "mean")
+        report = summarize_arm(rows, "mean", THRESHOLD)
 
         assert report["ranking_scored"] == 1
         assert report["ranking_correct"] == 1
@@ -223,7 +224,7 @@ class TestSummarizeArm:
             _row("specific", _outcome({"aggregation": 0.9}, "specific")),
             _row("practice", _outcome({"practice": 0.2}, "practice")),
         ]
-        report = summarize_arm(rows, "mean")
+        report = summarize_arm(rows, "mean", THRESHOLD)
 
         assert report["wrong_activations"] == 1
         assert report["missed_activations"] == 1
@@ -234,7 +235,7 @@ class TestSummarizeArm:
             _row("practice", _outcome({"practice": 0.9}, "practice")),
             _row("specific", {}, error="embedding failed"),
         ]
-        report = summarize_arm(rows, "mean")
+        report = summarize_arm(rows, "mean", THRESHOLD)
 
         assert report["scored"] == 1
         assert report["accuracy"] == 1.0
@@ -258,6 +259,46 @@ class TestSweep:
         assert points[0.45]["cleared_gate"] == 2
         assert points[0.45]["wrong_activations"] == 1
         assert points[0.45]["accuracy"] == pytest.approx(0.5)
+
+
+class TestFiresIsOneDefinition:
+    """An empty winner is not an activation, and every consumer must agree.
+
+    `score_arm` leaves `best_intent` empty when nothing scores above zero —
+    cosine can be zero or negative — and production returns SPECIFIC there. The
+    condition lived in three copies until a fourth was written without this
+    check and counted a correctly classified SPECIFIC row as a mis-route
+    (Codex, #1206).
+    """
+
+    def test_an_empty_winner_never_fires_however_low_the_gate(self) -> None:
+        assert fires("", 0.0, 0.0) is False
+        assert fires("practice", 0.0, 0.0) is True
+
+    def test_a_nonpositive_row_is_not_a_misroute_at_any_cutoff(self) -> None:
+        """The bug: at cutoff 0 this row was 'firing' with intent "" != 'specific'."""
+        rows = [
+            _row("specific", _outcome({"practice": -0.1, "aggregation": -0.2}, "specific")),
+            _row("practice", _outcome({"practice": 0.5}, "practice")),
+        ]
+        frontier = zero_wrong_frontier(rows, "mean")
+
+        assert frontier["forced_by_query"] is None, "a row that cannot fire cannot mis-route"
+        assert frontier["threshold"] is not None, (
+            "before the fix every cutoff 'admitted a mis-route' and the frontier collapsed to None"
+        )
+        assert frontier["cleared_gate"] == 1
+
+    def test_the_frontier_and_the_sweep_agree_on_who_fires(self) -> None:
+        """Two readings of one condition must not drift apart again."""
+        rows = [
+            _row("specific", _outcome({"practice": -0.3}, "specific")),
+            _row("aggregation", _outcome({"aggregation": 0.45}, "aggregation")),
+        ]
+        at_zero = next(p for p in sweep(rows, "mean") if p["threshold"] == 0.30)
+
+        assert at_zero["cleared_gate"] == 1, "the nonpositive row must not count as firing"
+        assert zero_wrong_frontier(rows, "mean")["cleared_gate"] == 1
 
 
 class TestZeroWrongFrontier:

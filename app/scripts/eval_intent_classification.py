@@ -267,6 +267,23 @@ class LabelledSet:
     queries: tuple[LabelledQuery, ...]
 
 
+def fires(best_intent: str, best_score: float, threshold: float) -> bool:
+    """THE definition of "this arm activates an intent" (pure, DB-free).
+
+    Two conditions, and the second is easy to forget: the score must clear the
+    gate, AND an intent must have won at all. `score_arm` leaves `best_intent`
+    empty when no intent scores above zero — cosine can be zero or negative —
+    and production returns SPECIFIC there, so an empty winner is NOT an
+    activation.
+
+    This lived as three separate copies until one of them (the zero-wrong
+    frontier) was written without the empty check and reported a correctly
+    classified SPECIFIC row as a mis-route (Codex, #1206). Every consumer calls
+    this now; do not re-inline it.
+    """
+    return best_score >= threshold and bool(best_intent)
+
+
 @dataclass(frozen=True)
 class ArmOutcome:
     """One aggregation's verdict on one query (pure, DB-free)."""
@@ -278,6 +295,22 @@ class ArmOutcome:
     predicted: str
     cleared_gate: bool
     correct: bool
+
+    def fires_at(self, threshold: float) -> bool:
+        """Whether this verdict activates an intent at `threshold`."""
+        return fires(self.best_intent, self.best_score, threshold)
+
+    def predicted_at(self, threshold: float) -> str:
+        """The intent returned at `threshold` — the catch-all when it does not fire."""
+        return self.best_intent if self.fires_at(threshold) else SPECIFIC_LABEL
+
+    def is_misroute_at(self, label: str, threshold: float) -> bool:
+        """Fires at `threshold` AND on the WRONG intent — the expensive error.
+
+        Distinct from "incorrect": a labelled intent that stays below the gate is
+        a miss, which costs the user nothing beyond today's behaviour.
+        """
+        return self.fires_at(threshold) and self.best_intent != label
 
     @property
     def margin(self) -> float:
@@ -414,7 +447,7 @@ def score_arm(scores: dict[str, float], label: str, threshold: float) -> ArmOutc
         if runner_up is None or score > runner_up_score:
             runner_up, runner_up_score = intent, score
 
-    cleared = best_score >= threshold and bool(best_intent)
+    cleared = fires(best_intent, best_score, threshold)
     predicted = best_intent if cleared else SPECIFIC_LABEL
     return ArmOutcome(
         best_intent=best_intent,
@@ -442,13 +475,11 @@ def sweep(rows: list[QueryRow], arm: str) -> list[SweepPoint]:
         wrong = 0
         for row in scored:
             outcome = row.arms[arm]
-            fires = outcome.best_score >= threshold and bool(outcome.best_intent)
-            predicted = outcome.best_intent if fires else SPECIFIC_LABEL
-            if fires:
+            if outcome.fires_at(threshold):
                 cleared += 1
-            if predicted == row.label:
+            if outcome.predicted_at(threshold) == row.label:
                 correct += 1
-            elif fires:
+            elif outcome.is_misroute_at(row.label, threshold):
                 wrong += 1
         points.append(
             {
@@ -485,23 +516,19 @@ def zero_wrong_frontier(rows: list[QueryRow], arm: str) -> FrontierPoint:
             "forced_by_query": None,
         }
 
+    # A row that never fires can never mis-route, whatever its label.
     wrong = [
         (row.arms[arm].best_score, row.query)
         for row in scored
-        if row.arms[arm].best_intent != row.label
+        if row.arms[arm].is_misroute_at(row.label, row.arms[arm].best_score)
     ]
     forced_score, forced_query = max(wrong) if wrong else (None, None)
 
     for cutoff in sorted({row.arms[arm].best_score for row in scored}):
-        firing = [row for row in scored if row.arms[arm].best_score >= cutoff]
-        if any(row.arms[arm].best_intent != row.label for row in firing):
+        firing = [row for row in scored if row.arms[arm].fires_at(cutoff)]
+        if any(row.arms[arm].is_misroute_at(row.label, cutoff) for row in scored):
             continue
-        correct = sum(
-            1
-            for row in scored
-            if (row.arms[arm].best_intent if row.arms[arm].best_score >= cutoff else SPECIFIC_LABEL)
-            == row.label
-        )
+        correct = sum(1 for row in scored if row.arms[arm].predicted_at(cutoff) == row.label)
         return {
             "threshold": round(cutoff, 4),
             "cleared_gate": len(firing),
@@ -521,13 +548,13 @@ def zero_wrong_frontier(rows: list[QueryRow], arm: str) -> FrontierPoint:
     }
 
 
-def summarize_arm(rows: list[QueryRow], arm: str) -> ArmReport:
+def summarize_arm(rows: list[QueryRow], arm: str, threshold: float) -> ArmReport:
     """Aggregate one arm's per-query outcomes (pure, DB-free)."""
     scored = [row for row in rows if row.error is None]
     outcomes = [(row, row.arms[arm]) for row in scored]
     correct = sum(1 for _, o in outcomes if o.correct)
     cleared = sum(1 for _, o in outcomes if o.cleared_gate)
-    wrong = sum(1 for _, o in outcomes if not o.correct and o.predicted != SPECIFIC_LABEL)
+    wrong = sum(1 for r, o in outcomes if o.is_misroute_at(r.label, threshold))
     missed = sum(
         1 for r, o in outcomes if r.label != SPECIFIC_LABEL and o.predicted == SPECIFIC_LABEL
     )
@@ -594,7 +621,7 @@ def summarize(rows: list[QueryRow], labelled_set: LabelledSet, threshold: float)
             "disagreements": sum(1 for row in checked if not row.agrees_with_production),
             "max_score_delta": round(max(deltas), 6) if deltas else 0.0,
         },
-        "arms": {arm: summarize_arm(rows, arm) for arm in ARMS},
+        "arms": {arm: summarize_arm(rows, arm, threshold) for arm in ARMS},
         "rows": [row.to_dict() for row in rows],
     }
 

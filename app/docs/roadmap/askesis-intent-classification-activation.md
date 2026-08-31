@@ -325,7 +325,8 @@ safer change.**
 
 ⚠ **Do not adopt 0.3329 as the gate.** A frontier value IS an observed score, and scores move
 between runs (the production-agreement delta is 1e-4 – 3e-4, and re-embedding is not
-bit-identical). A gate set exactly at the frontier sits 0.013 above the mis-route that pins it
+bit-identical). Observed, not theorised: two consecutive runs put top-3's frontier at 0.4911 and
+0.4912. A gate set exactly at the frontier sits 0.013 above the mis-route that pins it
 and could flip on a re-run. **0.35 is the proposal**: it clears the pinning score (0.320) by
 0.03 — two orders of magnitude more than the observed drift — and costs 2 activations (19 rather
 than 21). The frontier's value is the comparison BETWEEN arms; it is not a threshold to copy.
