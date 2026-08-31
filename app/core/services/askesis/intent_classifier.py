@@ -537,9 +537,12 @@ class IntentClassifier:
         (``classify_intent``) turns both of those into SPECIFIC; a caller that
         must distinguish them wants ``classify_intent_scored``.
 
-        Scores against whatever exemplars loaded, INCLUDING a partial set — the
-        documented fail-soft contract. The strict completeness check belongs to
-        ``classify_intent_scored``, so this path's behaviour is unchanged.
+        Scores against whatever exemplars loaded, INCLUDING a partial set. That is
+        deliberate HERE and safe only because both callers reject the result of a
+        partial load: ``classify_intent_scored`` returns an error, and
+        ``classify_intent`` answers SPECIFIC. Do not "simplify" by treating a verdict
+        off this method as trustworthy on its own — averaging over fewer exemplars
+        raises the mean, so a degraded set scores HIGHER, not lower.
         """
         scored = await self._score_against_exemplars(query)
         if scored.is_error:
@@ -560,10 +563,12 @@ class IntentClassifier:
         """
         Lazy-load intent exemplar embeddings on first use.
 
-        Generates embeddings for all INTENT_EXEMPLARS and caches them
-        for efficient intent classification. Individual exemplar failures
-        are logged and skipped — classification still works with fewer
-        exemplars per intent (lower precision, not a crash).
+        Generates embeddings for all INTENT_EXEMPLARS and caches them for efficient
+        intent classification. Individual exemplar failures are logged and skipped
+        rather than raising — but the resulting set is NOT merely less precise, and
+        neither caller will classify from it: ``classify_intent`` answers SPECIFIC and
+        ``classify_intent_scored`` fails. The completeness of the load is recorded on
+        ``self._exemplar_load`` for exactly that purpose.
         """
         if self._intent_exemplar_embeddings is not None:
             return  # Already loaded
@@ -605,9 +610,10 @@ class IntentClassifier:
         # permanently, and its per-intent averages are then taken over
         # different denominators — scores stop being comparable ACROSS intents,
         # which biases which intent wins, and an intent that lost every
-        # exemplar can never win at all. `classify_intent` tolerates that by
-        # documented design; `classify_intent_scored` must not, or a corrupted
-        # set would yield confident-looking numbers with no error.
+        # exemplar can never win at all. Worse, a SMALLER denominator RAISES the
+        # mean — one surviving exemplar scores its max — so a degraded set does not
+        # look uncertain, it looks confident. Neither caller accepts that:
+        # `classify_intent` answers SPECIFIC, `classify_intent_scored` fails.
         self._exemplar_load = ExemplarLoad(
             expected=sum(len(queries) for queries in INTENT_EXEMPLARS.values()),
             loaded=sum(len(embs) for embs in exemplar_embeddings.values()),

@@ -270,13 +270,16 @@ Implement **one** tool end-to-end, behind the FULL intelligence tier
 2. `QueryTool` + `CountByStatusArgs` + a one-entry aggregation catalog.
 3. `LLMService.select_tool()` for the **Anthropic** provider in use.
 4. `run_tool` executor with the `user_uid` injection.
-5. A trigger for the tool-selection path. ⚠ **This step's assumed trigger no longer fires.**
-   `AGGREGATION` was retired from `INTENT_EXEMPLARS` on 2026-08-30
-   ([askesis-intent-classification-activation.md](askesis-intent-classification-activation.md)),
-   so the classifier can never return it — the enum member was deliberately KEPT for this doc,
-   but a branch on an intent nothing produces is dead on arrival. This arc must name its own
-   trigger (the LLM selecting a tool needs no pre-classified intent), or re-argue the
-   exemplars. Its thesis below is unaffected: the aggregation GAP is still real.
+5. A trigger for the tool-selection path. ⚠ **This step's assumed trigger is scheduled for
+   removal.** `AGGREGATION`'s 8 `INTENT_EXEMPLARS` entries are still in the tree today, but
+   PR-1 of
+   [askesis-intent-classification-activation.md](askesis-intent-classification-activation.md)
+   (ruled 2026-08-30, not yet landed) deletes them, after which the classifier can never
+   return it and a branch on it is dead on arrival. Note the classifier cannot return it
+   *today* either — the 0.65 gate is unreachable — so this step has no working trigger in
+   either state. When this arc is picked up, name its own trigger (an LLM selecting a tool
+   needs no pre-classified intent) or re-argue the exemplars with that PR. Its thesis below is
+   unaffected: the aggregation GAP is real.
 6. A pytest exercising: tool selected + args validated + cross-tenant attempt
    (LLM-supplied `user_uid` ignored) + no-tool fallback path.
 
