@@ -11,7 +11,7 @@ via subprocess. That covers the bash state machine (which conclusion clears
 which check, exit codes, message truth) — the one place the clean-Kody-run
 defect lived. Fidelity of the embedded jq programs themselves is out of
 scope here; those are anchored to API responses measured 2026-08-31
-(plans/kody-verdict-signal-premerge-fix.md → PR notes):
+(provenance: PR #1203's description):
 
 - Kody ran clean  → check-run `Kody Code Review` conclusion `success`,
   app.slug `kody-ai`, and NO review object posted.
