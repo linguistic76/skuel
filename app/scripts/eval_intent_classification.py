@@ -42,13 +42,12 @@ user-visible wrong answer, and the gate moves UP before anything else moves.
 (PR-1's condition — every best score below the then-0.65 gate after the
 exemplar rewrite — held on the ratified baseline and is history.)
 
-⚠ The arms mirror the CLASSIFIER, not the production verdict: `AGGREGATION` is
-carved out in `classify_intent` (`UNREACHABLE_INTENTS` — it classifies, is
-logged, and answers SPECIFIC), while `classify_intent_scored`, the API this
-eval checks against, reports the raw verdict. The aggregation-labelled rows
-therefore count as correct activations here while production still answers
-them as SPECIFIC — deliberate; see the arc doc § PR-2 and the carve-out's
-comment in intent_classifier.py.
+The arms mirror production directly: since the tool-selection first slice
+lifted PR-2's `AGGREGATION` carve-out (2026-08-31, in the same commit that
+added the aggregation tool), `classify_intent` and `classify_intent_scored`
+agree on every scorable query — an aggregation-labelled row that fires here
+also fires in production, where it is answered by the tool or explicitly
+declined, never generated.
 
 Query set: scripts/eval_intent_classification_queries.yaml (reviewable, checked
 in; it evolves under review — this script does not). Runs print a DRAFT banner
@@ -941,8 +940,8 @@ def _print_human(report: EvalReport) -> None:
             f"\n✓ acceptance (activation, PR-2): {cleared} query(ies) clear the gate and"
             "\n  none mis-route — wrong_activations == 0 on the production arm. Firing is"
             "\n  the intended state since 2026-08-31; the count is reported, not judged."
-            "\n  (AGGREGATION rows count as classifier activations here; production holds"
-            "\n  them unreachable via the UNREACHABLE_INTENTS carve-out.)"
+            "\n  (AGGREGATION activations are production verdicts too — answered by the"
+            "\n  tool-selection branch or explicitly declined, since the first slice.)"
         )
     if report["errors"]:
         print(f"\n⚠ {report['errors']} query(ies) errored — run is not a valid measurement.")

@@ -69,3 +69,60 @@ class ChatCompletionPort(Protocol):
         default model.
         """
         ...
+
+
+@dataclass(frozen=True)
+class ToolSpec:
+    """A provider-agnostic tool the LLM may select.
+
+    ``input_schema`` is the pydantic-generated JSON schema of the tool's args
+    model (``model_json_schema()``), so the provider tool spec and the
+    validation gate can never drift apart. Provider-specific wrapping (OpenAI's
+    ``{"type": "function", ...}`` envelope vs Anthropic's flat shape) is the
+    adapter's concern.
+    """
+
+    name: str
+    description: str
+    input_schema: dict[str, object]
+
+
+@dataclass(frozen=True)
+class ToolSelection:
+    """The normalized outcome of a tool-selection call.
+
+    ``tool_name is None`` means the model selected NO tool — a normal outcome
+    (the only decline the model can express), never an error. ``arguments``
+    are the raw model-emitted args, not yet validated; the executor's pydantic
+    gate (``run_tool``) is the validation boundary.
+    """
+
+    tool_name: str | None
+    arguments: dict[str, object]
+
+
+@runtime_checkable
+class ToolSelectionPort(Protocol):
+    """Provider-native tool selection: the model picks a tool name + typed args.
+
+    The model never sees or emits a query — it fills a schema. Implemented by
+    the Anthropic adapter (the provider in use for Askesis tool selection);
+    an adapter without this operation simply does not satisfy the protocol and
+    the caller reports a typed integration failure.
+    """
+
+    async def select_tool(
+        self,
+        question: str,
+        tools: list[ToolSpec],
+        *,
+        system_prompt: str | None = None,
+        model: str | None = None,
+    ) -> Result[ToolSelection]:
+        """Ask the model to pick one of ``tools`` (or none) for ``question``.
+
+        Returns ``Result.ok(ToolSelection)`` — with ``tool_name=None`` when the
+        model declines — or ``Result.fail(integration_error)`` on provider
+        failure. ``model=None`` uses the adapter's default model.
+        """
+        ...

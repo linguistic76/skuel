@@ -16,11 +16,18 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
+from core.ports.llm_protocols import ToolSelectionPort
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.ports.llm_protocols import ChatCompletionPort, ChatMessage, LLMCompletion
+    from core.ports.llm_protocols import (
+        ChatCompletionPort,
+        ChatMessage,
+        LLMCompletion,
+        ToolSelection,
+        ToolSpec,
+    )
 
 logger = get_logger("skuel.services.llm_caller")
 
@@ -60,6 +67,17 @@ class LLMCallerProtocol(Protocol):
         max_tokens: int = 4000,
     ) -> Result[LLMCompletion]:
         """Generate a completion for a message history, routing to the appropriate provider."""
+        ...
+
+    async def select_tool(
+        self,
+        question: str,
+        tools: list[ToolSpec],
+        *,
+        system_prompt: str | None = None,
+        model: str = "gpt-4o-mini",
+    ) -> Result[ToolSelection]:
+        """Ask the routed provider to pick a tool (or none) for the question."""
         ...
 
     def get_supported_models(self) -> dict[str, list[str]]:
@@ -202,6 +220,35 @@ class UnifiedLLMCaller:
             temperature=temperature,
             max_tokens=max_tokens,
         )
+
+    async def select_tool(
+        self,
+        question: str,
+        tools: list[ToolSpec],
+        *,
+        system_prompt: str | None = None,
+        model: str = "gpt-4o-mini",
+    ) -> Result[ToolSelection]:
+        """Ask the routed provider to pick a tool (or none) for the question.
+
+        Routes by model prefix like ``complete``. A routed adapter that does not
+        implement ``ToolSelectionPort`` (today: the OpenAI adapter) is a typed
+        integration failure, not a fallback — Askesis tool selection is
+        Anthropic-native in the first slice.
+        """
+        port_result = self._select_port(model)
+        if port_result.is_error:
+            return Result.fail(port_result)
+        port = port_result.value
+        if not isinstance(port, ToolSelectionPort):
+            return Result.fail(
+                Errors.integration(
+                    service="LLMCaller",
+                    operation="select_tool",
+                    message=f"Provider adapter for model '{model}' does not support tool selection",
+                )
+            )
+        return await port.select_tool(question, tools, system_prompt=system_prompt, model=model)
 
     def get_supported_models(self) -> dict[str, list[str]]:
         """Get supported models by provider."""

@@ -20,7 +20,7 @@ Module Organization:
 - scheduling_enums: RecurrencePattern, TimeOfDay, EnergyLevel
 - learning_enums: MasteryImpact, LearningLevel, EducationalLevel, MasteryStatus, KnowledgeStatus, etc.
 - metadata_enums: RelationshipType, Intent, Visibility, SystemConstants, etc.
-- askesis_enums: QueryComplexity, IntegrationSuccess
+- askesis_enums: QueryComplexity, IntegrationSuccess, AggregationPeriod
 - transcription_enums: TranscriptionStatus
 - interaction_enums: InteractionType, InteractionResult
 - relationship_enums: ProficiencyLevel, KnowledgeRelevance
@@ -45,7 +45,7 @@ from .activity_enums import (
     ProductivityLevel,
     ProgressLevel,
 )
-from .askesis_enums import IntegrationSuccess, QueryComplexity
+from .askesis_enums import AggregationPeriod, IntegrationSuccess, QueryComplexity
 
 # Choice enums
 from .choice_enums import ChoiceType
@@ -165,6 +165,7 @@ from .user_enums import (
 
 __all__ = [
     "ActivityType",
+    "AggregationPeriod",
     "AlignmentLevel",
     "AssessmentOutcome",
     "AnalyticsDomain",

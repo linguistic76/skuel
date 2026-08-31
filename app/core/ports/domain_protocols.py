@@ -88,6 +88,7 @@ from core.ports.query_types import (
     ContextSummary,
     EventStats,
     FutureContextStateResult,
+    GoalsAchievedCount,
     GoalStats,
     GraphContextResult,
     HabitStats,
@@ -674,6 +675,23 @@ class GoalsOperations(
 
     async def get_user_goals(self, user_uid: UserUID) -> Result[list[Goal]]:
         """Get all goals for a user. Returns flat list (not paginated tuple)."""
+        ...
+
+    async def count_goals_achieved(
+        self,
+        *,
+        user_uid: UserUID,
+        since: date | None = None,
+        until: date | None = None,
+    ) -> Result[GoalsAchievedCount]:
+        """Count the user's achieved goals within optional achievement-date bounds.
+
+        Ownership is enforced in the query itself (the :OWNS edge is part of the
+        MATCH), and the applied bounds are returned with the count so the answer
+        can state the scope it actually filtered on.
+
+        Backend: GoalsBackend.count_goals_achieved
+        """
         ...
 
     async def get_user_items_in_range(

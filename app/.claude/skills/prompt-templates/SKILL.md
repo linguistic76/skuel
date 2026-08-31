@@ -61,6 +61,7 @@ core/prompts/
     ├── prereq_edge_judge.md
     ├── entry_ku_grounding_judge.md
     ├── askesis_stance.md
+    ├── askesis_tool_selection.md
     ├── askesis_guided_redirect.md
     ├── askesis_guided_direct.md
     ├── askesis_guided_out_of_scope.md
@@ -106,6 +107,7 @@ with a warning — it replaces the words, never the placeholders.
 | `dsl_domain_recognition` | `LLMDSLBridgeService.transform()` (default) | `{journal_text}`, `{user_context}` |
 | `dsl_domain_recognition_compact` | `LLMDSLBridgeService.transform()` (compact mode) | `{journal_text}`, `{user_context}` |
 | `askesis_stance` | `ResponseGenerator.build_guided_system_prompt()` + `LLMService._build_context_aware_system_prompt()` — heads BOTH Askesis answer branches (ADR-082 D1/D3) | none |
+| `askesis_tool_selection` | `select_and_run()` (`core/services/askesis/query_tools.py`) — system prompt for the aggregation tool-selection call (`LLMService.select_tool`): match every constraint or select no tool; never guess dates | none |
 | `askesis_guided_redirect` | `ResponseGenerator._build_direct_prompt()` | `{lessons_text}`, `{resource_refs}` |
 | `askesis_guided_out_of_scope` | `ResponseGenerator._build_direct_prompt()` | `{ls_title}`, `{ls_intent}` |
 | `askesis_guided_assess` | `ResponseGenerator._build_socratic_prompt()` | `{concepts}` |

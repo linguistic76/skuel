@@ -1,9 +1,12 @@
 # Askesis Intent Classification — Activation Arc
 
 **Status:** PR-1 SHIPPED + **BASELINE RATIFIED 2026-08-31** (Mike) + **PR-2 SHIPPED
-2026-08-31** — the gate is live at 0.35 on the kept `mean` aggregation, with `AGGREGATION`
-held unreachable by the carve-out (`UNREACHABLE_INTENTS`; lifted only by the tool-selection
-first slice, its own doc/PR). PR-3 (the chunk-type filter) is registered but gated.
+2026-08-31** — the gate is live at 0.35 on the kept `mean` aggregation. The `AGGREGATION`
+carve-out PR-2 introduced (`UNREACHABLE_INTENTS`) was **LIFTED the same day by the
+tool-selection first slice** ([askesis-tool-selection-queries.md](askesis-tool-selection-queries.md))
+in the same commit that put the tool and its `retrieve_relevant_context` branch behind the
+intent — all six intents are now production verdicts. PR-3 (the chunk-type filter) is
+registered but gated.
 
 **Core Principle:** *"Intent shapes the answer. It does not narrow what the answer may draw on."*
 
@@ -437,7 +440,9 @@ RELATIONSHIP deliberately rather than hoping a sample reaches it.**
   - The tool-selection first slice
     ([askesis-tool-selection-queries.md](askesis-tool-selection-queries.md)) **removes that
     exclusion in the same change that adds the tool** — mechanically the same guarantee bundling
-    would give, in a review that can attend to it.
+    would give, in a review that can attend to it. ✅ **Executed exactly so, 2026-08-31** —
+    the carve-out lived for the gap between the two PRs and is gone; guard 3 of the activation
+    guard tests now pins the successor invariant (served or declined, never invented).
   - ⚠ **It is NOT this doc's PR-3**, which is the chunk-type filter and unrelated. The slice is
     its own PR in its own doc, sequenced immediately after this one.
 
@@ -510,6 +515,8 @@ the guided path AND — via a `nous` facet scope — the context-aware path, plu
   extraction target is not a distribution.
 - **The carve-out holds:** both AGGREGATION probes score `aggregation@0.43–0.52` on the raw
   classifier and answer as `specific` in production, with response shape identical to before.
+  *(A same-day snapshot: the tool-selection first slice lifted the carve-out hours later, and
+  those probes now answer deterministically through the aggregation branch.)*
 - **SPECIFIC control unchanged.**
 
 **Activation surfaced a latent crash — the predicted risk, realised.**
@@ -556,5 +563,6 @@ MATCH (c:ContentChunk) RETURN c.chunk_type AS t, count(*) AS n ORDER BY n DESC
 ```
 
 **Trigger:** PR-1 DONE 2026-08-31. PR-2 DONE 2026-08-31 (on PR-1's ratified baseline).
-PR-3 only if the content-typing classifier lands AND its distribution makes a type filter
-meaningful.
+The AGGREGATION carve-out was lifted 2026-08-31 by the tool-selection first slice (its own
+doc/PR). PR-3 only if the content-typing classifier lands AND its distribution makes a type
+filter meaningful.

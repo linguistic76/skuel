@@ -19,10 +19,11 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
 
-from core.ports.llm_protocols import ChatMessage
+from core.ports.llm_protocols import ChatMessage, ToolSelection, ToolSpec
 from core.prompts import PROMPT_REGISTRY
 from core.services.chat import resolve_chat_model
 from core.services.llm_caller import LLMCallerProtocol
+from core.utils.result_simplified import Errors, Result
 from core.utils.type_converters import EnumLike
 
 logger = logging.getLogger(__name__)
@@ -241,6 +242,57 @@ class LLMService:
             content += "Practice and application are essential for mastery."
 
         return LLMResponse(content=content, provider=LLMProvider.MOCK, model="mock-model")
+
+    async def select_tool(
+        self,
+        question: str,
+        tools: list[ToolSpec],
+        *,
+        system_prompt: str | None = None,
+        model: str | None = None,
+    ) -> Result[ToolSelection]:
+        """Ask the LLM to pick one of ``tools`` (or none) for ``question``.
+
+        The Askesis aggregation path's selection step: the model chooses a tool
+        name and fills typed args — it never sees or emits a query. The model is
+        resolved through the same gate as chat (``resolve_model``), so the
+        selection routes to a provider the wired caller actually serves rather
+        than the config default's prefix.
+
+        Returns ``Result`` — a provider failure is a typed error the caller
+        turns into a deterministic "unavailable", never a selection.
+
+        ⚠ Resolution here is ANTHROPIC-NATIVE, deliberately not ``resolve_model``:
+        tool selection exists only on the Anthropic adapter (first slice), and the
+        chat default (``gpt-4o``) would route every selection to the OpenAI
+        adapter — which has no ``select_tool`` — turning every count question
+        into an "unavailable". A ``claude*`` per-conversation choice is honored;
+        anything else resolves to the first wired Anthropic model.
+        """
+        if self.caller is None:
+            # Type-narrowing guard, not a degraded mode: Askesis is FULL-tier
+            # only and its factory wires a real caller fail-fast. There is no
+            # mock selection — a mocked pick would be an invented routing.
+            return Result.fail(
+                Errors.integration(
+                    service="LLMService",
+                    operation="select_tool",
+                    message="Tool selection requires a wired LLM caller (MOCK/LOCAL has none)",
+                )
+            )
+        anthropic_models = self.caller.get_supported_models().get("anthropic", [])
+        if not anthropic_models:
+            return Result.fail(
+                Errors.integration(
+                    service="LLMService",
+                    operation="select_tool",
+                    message="Tool selection is Anthropic-native and no Anthropic model is wired",
+                )
+            )
+        resolved_model = model if model in anthropic_models else anthropic_models[0]
+        return await self.caller.select_tool(
+            question, tools, system_prompt=system_prompt, model=resolved_model
+        )
 
     async def generate_context_aware_answer(  # skuel-lint: disable=SKUEL005 -- always answers: errors fold into degraded response text (RAG surface)
         self,

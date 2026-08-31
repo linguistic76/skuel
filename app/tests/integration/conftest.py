@@ -177,6 +177,11 @@ async def ensure_test_users(neo4j_driver):
         # The Goal complete → reopen → complete cycle (ADR-087 PR-3): the stamp clear
         # and the progress reset ride one write-time condition, proven on real goals.
         "user_goal_cycle",
+        # The Askesis aggregation tool's backend count (tool-selection first
+        # slice): OWNS-scoped achieved-goal counts, plus a second owner to prove
+        # cross-tenant isolation in the query itself.
+        "user_agg_count",
+        "user_agg_other",
         # The ingestion fallback owner. A file that names no owner is stamped with
         # DEFAULT_USER_UID (SKUEL_DEFAULT_USER_UID, else SYSTEM_USER_UID), so the
         # bulk door's unknown-owner refusal (ADR-086) makes it REQUIRED — and it is

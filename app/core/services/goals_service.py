@@ -33,6 +33,7 @@ from core.models.goal.goal_dto import GoalDTO
 from core.models.goal.goal_update_intent import GoalUpdateIntent
 from core.models.type_hints import EntityUID, UserUID
 from core.ports.domain_protocols import GoalsOperations
+from core.ports.query_types import GoalsAchievedCount
 from core.services.activity_domain_config import CommonSubServices, create_common_sub_services
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
@@ -247,6 +248,24 @@ class GoalsService(
 
     async def get_user_goals(self, user_uid: UserUID) -> Result[list[Goal]]:
         return await self.core.get_user_goals(user_uid)
+
+    async def count_goals_achieved(
+        self,
+        *,
+        user_uid: UserUID,
+        since: date | None = None,
+        until: date | None = None,
+    ) -> Result[GoalsAchievedCount]:
+        """Count the user's achieved goals within optional achievement-date bounds.
+
+        The handler behind the Askesis ``count_goals_achieved`` query tool
+        (tool-selection first slice): ownership is enforced inside the query
+        (:OWNS edge in the MATCH), and the applied bounds come back with the
+        count so the answer states the scope it actually filtered on.
+
+        Backend: GoalsBackend.count_goals_achieved
+        """
+        return await self.backend.count_goals_achieved(user_uid=user_uid, since=since, until=until)
 
     async def get_user_items_in_range(
         self,
