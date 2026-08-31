@@ -138,7 +138,20 @@ apart from the corpus measurements there.
 
 ## Sequencing
 
-### PR-1 — the labelled set + the instrument (no behaviour change)
+### PR-1 — the labelled set + the instrument
+
+⚠ **PR-1 is NOT behaviour-neutral, despite touching no branch.** `INTENT_EXEMPLARS` is live
+input to `_score_against_exemplars`, and the 0.65 gate does not move until PR-2. Making
+`AGGREGATION`'s eight examples more semantically coherent — which is exactly what the
+disambiguation asks for — *raises* the average a count question scores against them, and could
+carry it over the gate **during PR-1**, before any tool branch exists. The question would then
+take today's ungrounded path and be answered with an invented count: the same window closed at
+PR-2, reopened one PR earlier by a rewrite that looks like documentation.
+
+**Acceptance condition, therefore:** PR-1 proves, with the instrument it ships, that **every
+intent's best score stays below `IntelligenceThreshold.INTENT_CLASSIFICATION` for every query in
+the labelled set** after the rewrite. If any clears it, that exemplar change moves into PR-2 and
+lands with the activation, not before. (Codex, #1202.)
 
 Same discipline as the chunk-retrieval eval, and the same ratification pattern: **Claude drafts,
 Mike ratifies**, first ratified run is the baseline.

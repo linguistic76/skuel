@@ -157,7 +157,12 @@ class QueryTool:
     name: str
     description: str                              # what the LLM reads to choose
     args_model: type[BaseModel]                   # pydantic = the param schema
-    handler: Callable[..., Awaitable[Result[dict[str, Any]]]]  # bound backend method
+    handler: Callable[..., Awaitable[Result[ToolPayload]]]     # bound SERVICE method
+    # ⚠ `ToolPayload` is the union of the catalog's concrete TypedDicts, NOT
+    # dict[str, Any]. Erasing it here would undo the typing at the one boundary
+    # that matters: consumers could no longer rely on `total`/`since`/`until`
+    # being present, which is what makes "state the scope you filtered on"
+    # checkable rather than aspirational.
 
     def json_schema(self) -> dict[str, Any]:
         return self.args_model.model_json_schema()  # → OpenAI/Anthropic tool spec
@@ -200,7 +205,7 @@ async def count_goals_achieved(
     user_uid: str,                 # ← always required, always bound as a param
     since: date | None = None,
     until: date | None = None,
-) -> Result[dict[str, Any]]:
+) -> Result[GoalsAchievedCount]:      # ← the TypedDict, not dict[str, Any]
     """Parameterized aggregation. Ownership edge is non-optional in the MATCH.
 
     One domain, one field: Goal's completion is ``achieved_date`` (a ``date``).
