@@ -11,8 +11,30 @@ which is exactly how the crash stayed invisible.
 
 from __future__ import annotations
 
+import pytest
+
 from core.models.query_types import QueryIntent
 from core.services.askesis.response_generator import ResponseGenerator
+
+# A context carrying BOTH action sources, so a branch that fires for an intent
+# it should not fire for has something to trip over.
+_FULL_CONTEXT = {
+    "learning_paths": [{"uid": "lp.mindfulness.101", "title": "Mindfulness 101"}],
+    "related_tasks": [{"uid": "task_abc123", "title": "Practice", "status": "active"}],
+}
+
+# The only intents with a generate_suggested_actions branch. The derived list
+# covers every OTHER QueryIntent member, so a future intent cannot be forgotten.
+_ACTION_BEARING = {QueryIntent.HIERARCHICAL, QueryIntent.PRACTICE}
+
+
+def _intent_value(intent: QueryIntent) -> str:
+    return intent.value
+
+
+_NON_ACTION_INTENTS: list[QueryIntent] = sorted(
+    (i for i in QueryIntent if i not in _ACTION_BEARING), key=_intent_value
+)
 
 
 class TestGenerateSuggestedActionsConsumesWriterShape:
@@ -49,6 +71,17 @@ class TestGenerateSuggestedActionsConsumesWriterShape:
     def test_empty_context_yields_no_actions(self) -> None:
         actions = ResponseGenerator().generate_suggested_actions(
             "what should I learn next", {}, QueryIntent.HIERARCHICAL
+        )
+
+        assert actions == []
+
+    @pytest.mark.parametrize("intent", _NON_ACTION_INTENTS, ids=_intent_value)
+    def test_every_other_intent_yields_no_actions(self, intent: QueryIntent) -> None:
+        """Exhaustive complement (Kody, #1208): every non-action-bearing intent —
+        including any future member, since the set is derived from the enum —
+        returns no actions even when both action sources are populated."""
+        actions = ResponseGenerator().generate_suggested_actions(
+            "any question", _FULL_CONTEXT, intent
         )
 
         assert actions == []
