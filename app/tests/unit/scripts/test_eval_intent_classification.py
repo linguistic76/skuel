@@ -454,6 +454,28 @@ class TestPrintHuman:
 
         assert "ERROR" in capsys.readouterr().out
 
+    def test_a_total_outage_says_nothing_was_measured(self, capsys) -> None:
+        """Every row errored: there is no frontier, clean or otherwise.
+
+        Reporting "every cutoff admits a mis-route" on zero scored rows is an
+        outage wearing a finding's clothes — the exact confusion this instrument
+        exists to prevent, turned on its own output (Codex, #1206).
+        """
+        rows = [
+            _row("practice", {}, error="embedding failed"),
+            _row("specific", {}, error="embedding failed"),
+        ]
+
+        out = capsys.readouterr  # bind before the call for clarity
+        _print_human(self._report(rows))
+        printed = out().out
+
+        assert "nothing to measure" in printed
+        assert "every cutoff admits a mis-route" not in printed, (
+            "a frontier verdict on zero scored rows asserts something about data "
+            "that does not exist"
+        )
+
     def test_a_draft_set_is_announced_as_not_a_baseline(self, capsys) -> None:
         _print_human(self._report([_row("practice", _outcome({"practice": 0.5}, "practice"))]))
 

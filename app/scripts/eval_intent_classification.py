@@ -820,6 +820,17 @@ def _print_human(report: EvalReport) -> None:
         a = report["arms"][arm]
         marker = " (production)" if arm == "mean" else ""
         print(f"\n--- {arm}{marker} ---")
+        if a["scored"] == 0:
+            # Every row errored — a provider outage, not a measurement. Printing
+            # the statistics here would assert things about zero data, and the
+            # frontier line in particular would read "every cutoff admits a
+            # mis-route" when no query was scored and nothing mis-routed. This
+            # instrument exists to stop an outage looking like a finding
+            # (`classify_intent_scored` over `classify_intent`); the same rule
+            # applies to its own output (Codex, #1206). In JSON, `scored: 0`
+            # is the field that distinguishes the two states.
+            print("  no rows scored — every query errored; nothing to measure")
+            continue
         print(
             f"  accuracy at gate: {a['correct']}/{a['scored']} ({a['accuracy']:.0%})"
             f" — ranking (gate-blind): {a['ranking_correct']}/{a['ranking_scored']}"
