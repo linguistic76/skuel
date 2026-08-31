@@ -157,9 +157,15 @@ what the shapes must satisfy. `core/services/askesis/query_tools.py` (new):
 - **The tool's JSON schema comes from pydantic** (`model_json_schema()`), so the provider tool
   spec and the validation gate can never drift apart.
 - **Entries are added per domain**, each bound to its own service and its own completion field:
-  `count_goals_achieved` (`achieved_date`), `count_tasks_completed` (`completion_date`),
-  `count_habits_completed` (`completed_at`), … **There is no `count_entities_by_status`** —
-  that shape cannot be written correctly across domains.
+  `count_goals_achieved` (`achieved_date`), `count_tasks_completed` (`completion_date`), …
+  **There is no `count_entities_by_status`** — that shape cannot be written correctly across
+  domains.
+  ⚠ **And `count_habits_completed` is NOT `Habit.completed_at`.** That field is the habit's
+  **lifecycle** stamp — the habit itself was closed out — and `habits_core_service.py` marks it
+  as "distinct from occurrence completions" in as many words. The thing a learner means by "how
+  many times did I do this" lives in **`HabitCompletion` nodes**, read through the completions
+  sub-service. Binding the lifecycle field would answer a daily habit with **0 or 1**. Define
+  that tool against habit completions, not against the Habit node. (Codex, #1202.)
 
 ### 3. The backend method — the *only* place Cypher exists (SKUEL001-clean, user-scoped)
 
@@ -229,6 +235,7 @@ async def count_goals_achieved(
 | Task | `completion_date` | `date` | **ISO string** `"2026-06-15"` |
 | Goal | `achieved_date` | `date` | **ISO string** `"2026-06-15"` |
 | Choice / Event / Habit | `completed_at` | `datetime` | **ISO string** `"2026-06-15T08:09:10.111213"` |
+| Habit *occurrences* | ⚠ **not a field** — `HabitCompletion` nodes | — | the row above is the habit's LIFECYCLE close, not "times done" |
 | Principle | **none** | — | — (deliberate: ADR-087 keeps Principle off the completion guard) |
 
 The sketch's original `e.completed_at` is real — on Choice, Event and Habit — and **absent on
