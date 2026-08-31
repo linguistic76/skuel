@@ -1,6 +1,8 @@
 # Askesis Intent Classification — Activation Arc
 
-**Status:** PR-1 SHIPPED 2026-08-31 (instrument + labelled set + exemplar disambiguation, DRAFT until Mike ratifies the labels). PR-2 is next; PR-3 is registered but gated.
+**Status:** PR-1 SHIPPED + **BASELINE RATIFIED 2026-08-31** (Mike) — instrument, 45-query
+labelled set, exemplar disambiguation. **PR-2 (activation) is next and is measured against
+that baseline**; PR-3 is registered but gated.
 
 **Core Principle:** *"Intent shapes the answer. It does not narrow what the answer may draw on."*
 
@@ -138,8 +140,8 @@ there?") while its chunk-type mapping is `INTRODUCTION`/`SUMMARY`/`DEFINITION`, 
    one. Disambiguating the two exemplar sets is therefore a **correctness prerequisite** for
    tool-selection, not tidying.
 
-3. **`EXPLORATORY` means CATALOG BROWSING, not topic orientation. DRAFTED by PR-1 2026-08-31 —
-   Claude's call, ratified with the labelled set, not yet Mike's.** *"What is there to learn here?"* is EXPLORATORY;
+3. **`EXPLORATORY` means CATALOG BROWSING, not topic orientation. Drafted by PR-1 and
+   RATIFIED 2026-08-31 (Mike), with the labelled set that carries it.** *"What is there to learn here?"* is EXPLORATORY;
    *"introduce me to stoicism"* is a content question and stays `SPECIFIC`.
 
    Three reasons, in the order they decided it:
@@ -245,14 +247,91 @@ near-duplicate is visible instead of flattering the score. Exactly one row sits 
 an exemplar (`"what should I learn next"` ≈ `"What should I learn next?"` @ 0.943), and it is
 the deliberate ceiling probe.
 
-**What is still DRAFT:** the labels themselves. Runs print a DRAFT banner until `ratified:`
-carries a date. **Mike ratifies the query→intent pairs; the first ratified run IS the
-baseline**, and PR-2 is measured against it.
+### BASELINE — RATIFIED 2026-08-31 (Mike)
+
+`scripts/eval_intent_classification_queries.yaml` carries `ratified: 2026-08-31`; the labels,
+and with them ruling 3, are Mike's. **This is the first ratified run — PR-2 is measured against
+it.** (AuraDB `d2d160c4`, set v1, 45 queries, gate 0.65, 0 errors, production agreement 45/45
+with max score delta 9e-05.)
+
+| arm | accuracy at gate | ranking (gate-blind) | clears the gate | wrong / missed |
+|---|---|---|---|---|
+| **mean** (production) | **14/45 (31%)** | **30/31 (97%)** | **0** | 0 / 31 |
+| max | 23/45 (51%) | 29/31 (94%) | 9 | 0 / 22 |
+| top-3 mean | 15/45 (33%) | 29/31 (94%) | 1 | 0 / 30 |
+
+Best-score distribution (min / median / max) — mean **0.112 / 0.314 / 0.540**, max
+0.166 / 0.483 / 0.943, top-3 0.142 / 0.402 / 0.734. Median margin over the runner-up: 0.055 /
+0.080 / 0.070.
+
+Per-label on the production arm: `specific` **14/14**, every other intent **0/n** — not because
+they rank wrong (they rank 30/31 right) but because none of them reaches 0.65. That is the
+dormancy, stated as a number.
+
+**The three ranking errors across all arms** (the only ones there are):
+
+| arm | query | labelled | ranked |
+|---|---|---|---|
+| mean | *"where should I go after finishing the mindfulness path"* | HIERARCHICAL | `aggregation@0.245` |
+| max, top-3 | *"what should I learn first to understand compounding"* | PREREQUISITE | `hierarchical@0.527 / 0.472` |
+| max | *"what subjects does this cover"* | EXPLORATORY | `hierarchical@0.493` |
+
+The second is the PREREQUISITE/HIERARCHICAL *direction* confusion (first vs next) and the third
+is a browsing question read as a progression one — both genuine, neither a set defect.
+
+**Threshold sweep — the input PR-2 re-bases on.** ⚠ Read the **wrong-activation** column, not
+accuracy: under ruling 2 a wrong activation routes a question to a tool that answers it
+confidently and incorrectly, while a miss just leaves today's behaviour in place. Those are not
+symmetric costs, and the arm with the best accuracy is not the arm with the fewest wrong
+answers.
+
+| threshold | mean: acc / fire / wrong | max: acc / fire / wrong | top-3: acc / fire / wrong |
+|---|---|---|---|
+| 0.30 | 80% / 24 / 1 | 80% / 36 / 8 | 84% / 32 / 5 |
+| 0.35 | 73% / 19 / **0** | 82% / 33 / 6 | 82% / 28 / 3 |
+| 0.40 | 64% / 15 / 0 | 78% / 27 / 4 | 76% / 23 / 2 |
+| 0.45 | 44% / 6 / 0 | 78% / 25 / 3 | 67% / 17 / 1 |
+| 0.50 | 38% / 3 / 0 | 76% / 21 / 1 | 58% / 12 / **0** |
+| 0.55 | 31% / 0 / 0 | 62% / 14 / **0** | 49% / 8 / 0 |
+| 0.60 | 31% / 0 / 0 | 58% / 12 / 0 | 42% / 5 / 0 |
+| **0.65** (today) | **31% / 0 / 0** | **51% / 9 / 0** | **33% / 1 / 0** |
+| 0.70–0.80 | 31% / 0 / 0 | 40→33% / 4→1 / 0 | 33→31% / 1→0 / 0 |
+
+**What that says, and it is the opposite of "raise the aggregation".** Every arm has a
+zero-wrong-activation threshold. Compare them at that frontier — the only comparison that
+matters if a wrong activation is the expensive error:
+
+| arm | best zero-wrong gate | queries it activates | accuracy there |
+|---|---|---|---|
+| **mean** (production) | **0.35** | **19 of 45** | 73% |
+| max | 0.55 | 14 of 45 | 62% |
+| top-3 mean | 0.50 | 12 of 45 | 58% |
+
+**The production aggregation wins on its own terms.** It activates the most queries without
+mis-routing any; `max` and `top3_mean` reach higher headline accuracy only by firing into
+territory where they mis-route 3–8. So the mechanism does not need replacing — **moving the gate
+on the aggregation we already have is the smaller and safer change**, and 0.35 is where the sweep
+says it stops being wrong. Two caveats before that becomes a decision: 45 queries is a thin base
+for a threshold (each mis-route is 2.2 points), and the zero-wrong frontier is measured on THIS
+set, which contains no adversarial phrasing. The one wrong activation at 0.30 is *"give me an
+overview of this topic"* → `prerequisite@0.320` — the topic-orientation probe again, now landing
+somewhere harmless rather than on a count tool.
+
+⚠ **The baseline makes ruling 2's coverage gate URGENT, not theoretical.** At **either**
+candidate threshold, **all 6 of 6 AGGREGATION queries fire** — it is the best-separated intent in
+the set. So the moment PR-2 lowers the gate, count questions classify, and the tool catalog's
+first slice covers neither the bare count nor the predicate-bearing shape. PR-2 must therefore
+land the tool-selection first slice WITH it, or hold `AGGREGATION` out of the reachable set until
+that exists. There is no threshold that activates the other five intents while leaving
+AGGREGATION dormant.
 
 ### PR-2 — activation (behaviour change, narrow)
 
 - Aggregation + threshold re-based on PR-1's measurement — **the value of 0.65 is not the
-  question**; the mechanism is. Whatever lands must move `core/constants.py`,
+  question**; the mechanism is. ⚠ And the ratified baseline's answer is not the one this bullet
+  anticipated: the sweep says **keep the mean and move the gate to ~0.35** (19/45 fire, zero
+  wrong activations, all six intents covered). `max` and `top3_mean` reach higher accuracy only
+  by mis-routing 3–6 queries. Whatever lands, argue it against the wrong-activation column. Whatever lands must move `core/constants.py`,
   [deferred-work.md](deferred-work.md), [ASKESIS_HOW_IT_WORKS.md](../architecture/ASKESIS_HOW_IT_WORKS.md)
   and [ASKESIS_RAG_PIPELINE.md](../guides/ASKESIS_RAG_PIPELINE.md) together — the change-detector in
   `tests/unit/test_askesis_intent_filter_activation_guard.py` fires precisely so this cannot be
@@ -271,7 +350,11 @@ baseline**, and PR-2 is measured against it.
   prose; on the guided path read `suggested_actions`, `context_used` and citations, because the
   prose cannot change there. Scoring "no answer change" on the guided path as a null result
   would be measuring a wire that isn't connected.
-- ⚠ **`AGGREGATION` must not become reachable before something can answer it.** Activation
+- ⚠ **`AGGREGATION` must not become reachable before something can answer it — and the
+  baseline says there is no threshold that avoids it.** All **6 of 6** AGGREGATION queries fire
+  at both candidate gates (0.30 and 0.35); it is the best-separated intent in the set. So this
+  is not a risk to watch, it is a sequencing constraint: the tool-selection first slice lands
+  WITH the activation, or `AGGREGATION` is held out of the reachable set explicitly. Activation
   makes count questions classify; if no tool branch exists yet they fall through to ordinary
   generation and are answered generically or invented. So either the tool-selection first slice
   ([askesis-tool-selection-queries.md](askesis-tool-selection-queries.md)) lands **with** this
