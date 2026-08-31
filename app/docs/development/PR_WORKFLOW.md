@@ -54,7 +54,9 @@ An autonomous merge (including by an AI agent running the workflow) requires BOT
 1. **CI Gate and Codex Review Gate green**, and
 2. **at least one AI review verdict on the final substantive content — Codex
    (`scripts/request_codex_review.sh`) or Kody (`@kody start-review`) — obtained, read, and
-   considered.** For Python-touching PRs the Codex Review Gate enforces this (it only turns
+   considered.** A clean Kody run posts **no review object** — its verdict is the Kody
+   check-run concluding `success` on the head, which `./dev pre-merge` (check 3) accepts.
+   For Python-touching PRs the Codex Review Gate enforces this (it only turns
    green via `scripts/apply_codex_considered.sh` after a verdict exists). For docs/tooling-only
    PRs the gate **auto-passes with no verdict**, so condition 2 does not come for free: summon
    a reviewer explicitly before merging autonomously.
@@ -80,7 +82,7 @@ Three reviewers can run on a PR, gated by **two required status checks** (CI Gat
 |---|---|---|---|---|
 | **CI Gate** (`ci.yml`) | Mechanical invariants: 0 MyPy errors, valid doc cross-references | A required status check | **Automatic** — every PR/push | **Yes** — required check |
 | **Codex Review Gate** (`codex-gate.yml`) | That Codex review was **considered** — not Codex's verdict | A required status check | **Automatic** — two tiers: (1) **Python files changed** → RED until `codex-considered` label applied, regardless of whether `@codex review` was posted; (2) **docs/tooling only** → RED only once `@codex review` was posted and not yet considered; passes automatically with no request | **Yes** — required check; cleared by applying the `codex-considered` label (auto-dropped on every new commit, so changed code is re-considered) |
-| **Kody** (`kody-ai[bot]`, Kodus) | Full-spectrum review (security, error handling, business logic, …) per `kodus-config.yml` | A check **and** a real PR review | **On demand** — `@kody start-review` (auto-review turned off in the Kodus dashboard, not via the repo file) | **Yes, when summoned** — `CHANGES_REQUESTED` holds the merge until resolved/dismissed |
+| **Kody** (`kody-ai[bot]`, Kodus) | Full-spectrum review (security, error handling, business logic, …) per `kodus-config.yml` | A check-run always; a real PR review **only when it has findings** — a clean run posts no review object, so its check-run concluding `success` IS the verdict signal (`./dev pre-merge` check 3 reads it) | **On demand** — `@kody start-review` (auto-review turned off in the Kodus dashboard, not via the repo file) | **Yes, when summoned** — `CHANGES_REQUESTED` holds the merge until resolved/dismissed |
 | **Codex** (`chatgpt-codex-connector[bot]`) | Full-spectrum review against `AGENTS.md` invariants | **PR reviews/comments only — never itself a status check** (the *Codex Review Gate* above is the check) | **On demand** — `@codex review` | **No** — its *verdict* is advisory; the *gate* enforces only that you considered it |
 
 > ℹ️ **Both AI reviewers are on-demand as of 2026-05-25.** Codex auto-review is off (Codex dashboard "Personal auto review preferences" toggle off + `linguistic76/skuel` set to "Follow personal preferences", which resolves to off — the personal toggle / per-repo setting is the switch, not the "Personal Review Trigger Preference" dropdown, which only picks *when*). The repo's comment-bot (`codex-review.yml`) is disabled too, because a bot-posted `@codex review` only returns the cosmetic "create a Codex account" prompt. Kody auto-review is off via its app.kodus.io "enable automatic code review" toggle. So both review **only** when summoned (`@codex review` / `@kody start-review`), and **CI Gate is the only dependable *automatic* gate**; Kody is the gating review you summon, Codex an optional second opinion. (Both briefly auto-ran earlier on 2026-05-25 before being consolidated back to on-demand.) Details: [`.github/workflows/README.md`](../../../.github/workflows/README.md).
