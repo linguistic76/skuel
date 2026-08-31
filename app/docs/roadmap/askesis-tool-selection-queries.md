@@ -238,7 +238,16 @@ async def count_goals_achieved(
     if result.is_error:
         return Result.fail(result)
     rows = result.value or []
-    return Result.ok({"total": rows[0]["total"] if rows else 0})
+    # ⚠ Return the APPLIED BOUNDS with the count, in a TypedDict — not a bare total.
+    # The safety contract requires the answer to state the scope it actually filtered
+    # on, which is impossible if the resolved since/until do not survive the call. It
+    # matters most exactly where it is easiest to forget: when the bounds were resolved
+    # server-side from a relative period like "last quarter".
+    return Result.ok(GoalsAchievedCount(
+        total=rows[0]["total"] if rows else 0,
+        since=params["since"],
+        until=params["until"],
+    ))
 ```
 
 ⚠ **There is no single completion field, so a date-bounded count CANNOT be one generic
@@ -275,6 +284,15 @@ Three consequences for whoever builds this:
    while behaving as expected for Task/Goal. Each domain's tool must normalise its own bound
    (a date-shaped `until` needs widening to the day's end for `datetime`-backed fields) — one
    more reason the tool is per-domain and not generic.
+   ⚠⚠ **Widening the bound is NOT sufficient, because offsets break the ordering outright.**
+   `completed_at` is a bare `datetime` on the Choice/Event request models, so an offset-aware
+   value is accepted and the mapper preserves that offset in the stored string — and the
+   codebase writes tz-aware ISO elsewhere (`datetime.now(UTC).isoformat()`). Lexicographic
+   order is then not chronological at all: `"…10:00:00+02:00"` sorts AFTER
+   `"…09:00:00+00:00"` while occurring BEFORE it. Normalise stored values and bounds to one
+   timezone and format, or convert both operands with Neo4j `datetime()` before comparing.
+   **Sorting ISO strings is chronological only when every string shares a shape AND an
+   offset.** (Codex, #1202.)
 3. **A "completed" count over Principle is not answerable** and must not be offered as a tool
    option — not an omission to fix later.
 
