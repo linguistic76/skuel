@@ -270,7 +270,13 @@ Implement **one** tool end-to-end, behind the FULL intelligence tier
 2. `QueryTool` + `CountByStatusArgs` + a one-entry aggregation catalog.
 3. `LLMService.select_tool()` for the **Anthropic** provider in use.
 4. `run_tool` executor with the `user_uid` injection.
-5. The `QueryIntent.AGGREGATION` branch in `context_retriever.py`.
+5. A trigger for the tool-selection path. ⚠ **This step's assumed trigger no longer fires.**
+   `AGGREGATION` was retired from `INTENT_EXEMPLARS` on 2026-08-30
+   ([askesis-intent-classification-activation.md](askesis-intent-classification-activation.md)),
+   so the classifier can never return it — the enum member was deliberately KEPT for this doc,
+   but a branch on an intent nothing produces is dead on arrival. This arc must name its own
+   trigger (the LLM selecting a tool needs no pre-classified intent), or re-argue the
+   exemplars. Its thesis below is unaffected: the aggregation GAP is still real.
 6. A pytest exercising: tool selected + args validated + cross-tenant attempt
    (LLM-supplied `user_uid` ignored) + no-tool fallback path.
 

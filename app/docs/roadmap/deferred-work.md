@@ -1766,23 +1766,26 @@ label-only lines; 72 typed `explanation`; 32 under 20 characters), 6 path_step (
    other two (intent-conditioned graph context, intent-conditioned suggested actions) need no
    chunk types at all. So activation happens there first with `chunk_types` hard-wired off, and
    "fix and fallback ship together" narrows to its true scope: it binds whoever switches the
-   FILTER on, not whoever fixes the classifier. This entry keeps the filter half. The plumbing stays because the intent is to *connect* it, not to retire it:
-   `_INTENT_CHUNK_TYPES` + `chunk_types=` are a staged surface awaiting its classifier, so
+   FILTER on, not whoever fixes the classifier. This entry keeps the filter half.
+   The plumbing stays because the intent is to *connect* it, not to retire it:
+   `_INTENT_CHUNK_TYPES` + `chunk_types=` are a staged surface awaiting a reason to fire, so
    they are **PLANNED, not dead** — the One Path Forward carve-out for deliberately
-   staged-but-unwired work. When it is scheduled, the classifier fix and the thin-draw
-   fallback ship in ONE change: activation is never neutral, and a reachable threshold
-   without the fallback would newly impose the 66-of-925 EXPLORATORY starvation on draws
-   that today see all 925 — the fallback is the PREREQUISITE for the fix, not a sequel to
-   it. Until then (3)'s weight table is arguing about a path that does not execute.
-   **Named cost while inert:** every reader of `context_retriever.py` — and, until PR-2,
+   staged-but-unwired work. **Switching this filter on is ONE change with the thin-draw
+   fallback**: activation is never neutral, and a live filter without the fallback imposes
+   the 66-of-925 EXPLORATORY starvation on draws that today see all 925. The fallback is the
+   prerequisite for ACTIVATING THE FILTER — not for fixing the classifier, which the arc doc
+   does with the filter left off. Until then (3)'s weight table is arguing about a path that
+   does not execute.
+   **Named cost while inert:** every reader of `context_retriever.py` — and, until #1198,
    four docs — sees an intent→chunk-type filter that appears operative and is not; the
    only thing keeping that legible is this entry plus the `./dev eval-askesis-draw` banner.
-   **What "fix the classifier" means is not yet decided** and must not be assumed to be
-   "lower 0.65": the measured 0.43–0.56 self-similarity of a verbatim exemplar says the
-   *averaging over 8 diverse exemplars* is the mechanism at fault, so max-similarity,
-   per-intent centroids, or a different classifier are all live shapes — and the fix would
-   need its own before/after on the ratified set, since flipping queries off SPECIFIC
-   re-routes retrieval for every Askesis ask, not only the starved intents.
+   **"Fix the classifier" must not be assumed to mean "lower 0.65"** — the measured
+   0.43–0.56 self-similarity of a verbatim exemplar implicates the *averaging over 8 diverse
+   exemplars*, and measured across mean / max / top-3 the aggregation moves REACHABILITY, not
+   correctness (all three rank identically). Which shape lands is PR-1's measurement in the arc
+   doc. Note what flipping queries off SPECIFIC does and does not touch: with `chunk_types`
+   held off it re-routes the two answer-shaping branches and NOT the chunk draw, which is
+   exactly why the arc can proceed without the fallback.
    **Both halves of that are RUNNABLE, not just prose**
    (`tests/unit/test_askesis_intent_filter_activation_guard.py`): mapping `SPECIFIC` fails —
    it is the verdict `classify_intent` returns on an embeddings OUTAGE, so a mapping would let

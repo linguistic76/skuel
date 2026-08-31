@@ -64,11 +64,20 @@ overlap semantically.
    it is only needed if the filter is ever switched on, which is PR-3's problem.
    *This supersedes the earlier "fix and fallback ship together" framing*: that reasoning holds
    only while activation implies the filter, and it no longer does.
-2. **`AGGREGATION` is retired.** Askesis is a learning companion, not a dashboard query
-   language — counts belong to the app's own surfaces. Retiring it resolves the EXPLORATORY
-   collision for free, and it is the cheapest possible retirement: **no site branches on it**
-   (`git grep QueryIntent.AGGREGATION` → exemplars, tests and comments only; it is explicitly
-   ABSENT from `_INTENT_EDGE_SETS`).
+2. **`AGGREGATION` is retired — from the EXEMPLARS, not from the enum.** Askesis is a
+   learning companion, not a dashboard query language; counts belong to the app's own
+   surfaces. Deleting its 8 entries from `INTENT_EXEMPLARS` means it can never be *classified*
+   again, which is the whole of what this arc needs — it resolves the EXPLORATORY collision
+   for free.
+
+   ⚠ **The enum member STAYS, and the narrowing is the point.** The first draft of this ruling
+   deleted the member on the evidence that no code branches on it — true, and incomplete:
+   [askesis-tool-selection-queries.md](askesis-tool-selection-queries.md) is a live roadmap
+   doc whose stated thesis IS the `AGGREGATION` gap and whose step 5 is adding a
+   `QueryIntent.AGGREGATION` branch (found by Codex on #1201, confirmed). Keeping the member
+   costs nothing, keeps that sketch's hook, and stops a classifier-hygiene decision from
+   quietly settling a product question — *does Askesis ever answer "how many goals do I have"* —
+   that belongs to that doc, not this one. Open for Mike; the arc does not depend on it.
 
 ## Sequencing
 
