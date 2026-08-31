@@ -15,13 +15,33 @@ Retrieval", Named work 4, which is where the chunk-filter half stays.
 ## What is actually dormant
 
 `classify_intent` has two production callers (`query_processor.py:281, 486`). Its verdict
-branches at **three** Askesis sites, all permanently on their else-path:
+branches at **four** Askesis sites, all permanently on their else-path:
 
 | site | dormant behaviour | in scope |
 |---|---|---|
 | `context_retriever.py:256–283` | intent-conditioned **graph context** — prerequisites/blocked knowledge, task counts, learning-path position, the EXPLORATORY overview | **yes** |
 | `response_generator.py:389–470` | intent-conditioned **suggested actions** + follow-ups | **yes** |
+| `query_processor.py:379–386` | **citations** — `_retrieve_citations_for_knowledge_units` fires only for `PREREQUISITE`/`HIERARCHICAL`, and has ONE call site, so **no Askesis answer has ever carried a citation** | **yes** (user-visible) |
 | `context_retriever.py:127` (`_INTENT_CHUNK_TYPES`) | chunk-type `IN` filter on the RAG draw | **no — PR-3, gated** |
+
+### ⚠ Activation reaches the two answer paths UNEQUALLY
+
+`answer_user_question` Step 8 forks (`query_processor.py:344`), and the fork decides how much
+of this the learner actually sees:
+
+| | `_generate_guided_answer` (Socratic — the enrolled-user default) | `generate_context_aware_answer` (explicit facet scope, or no PS bundle) |
+|---|---|---|
+| receives `intent` | **no** | yes |
+| receives `relevant_context` | **no** | yes (`additional_context=`) |
+| answer PROSE changes on activation | **no** | yes |
+| suggested actions / citations / `context_used` change | yes | yes |
+
+So on the guided path the graph-context branch shapes **metadata, actions and citations — not
+the prose**, because `_generate_guided_answer` takes only the question, the guided system
+prompt and the PS bundle. Wiring `relevant_context` into the guided prompt is a **separate
+decision**, not a side effect of activation: that prompt is deliberately narrow (ADR-077 /
+`ASKESIS_SOCRATIC_ARCHITECTURE.md`), and widening it is a pedagogical change. Found by Codex on
+#1201, confirmed in code.
 
 ⚠ **`QueryIntent` has non-classifier callers that are already live and are NOT affected.**
 `_INTENT_EDGE_SETS` (`cross_domain_backend.py:49`) and `build_graph_context_query`
@@ -79,6 +99,14 @@ overlap semantically.
    quietly settling a product question — *does Askesis ever answer "how many goals do I have"* —
    that belongs to that doc, not this one. Open for Mike; the arc does not depend on it.
 
+   ⚠ **PR-1 must CLOSE this, not inherit it.** Codex is right that an enum member with no
+   producer is an unused alternative path, and One Path Forward has no "keep it for a sketch"
+   tier — enum members are outside every `./dev bloat` tier by ruling, so nothing else will
+   ever flag it. PR-1 ships with exactly one of: (a) the member deleted with its exemplars and
+   `askesis-tool-selection-queries.md` amended to name a trigger that does not need it, or
+   (b) Mike's explicit decision to keep it, recorded HERE with the date. Not a third
+   quiet option.
+
 ## Sequencing
 
 ### PR-1 — the labelled set + the instrument (no behaviour change)
@@ -107,10 +135,15 @@ Mike ratifies**, first ratified run is the baseline.
   `tests/unit/test_askesis_intent_filter_activation_guard.py` fires precisely so this cannot be
   forgotten.
 - `chunk_types` stays off. State the reason at the site, not in a commit message.
-- ⚠ **Activation is never neutral.** Two branches that have never run start running for every
-  Askesis turn. Before/after the same questions through the real path, and read the ANSWERS,
-  not just the classification — a correct intent that produces a worse answer is still a
-  regression.
+- ⚠ **Activation is never neutral.** Three branches that have never run start running for
+  every Askesis turn. Before/after the same questions through the real path — and **read the
+  right output for each path**, per the table above: on the context-aware path read the ANSWER
+  prose; on the guided path read `suggested_actions`, `context_used` and citations, because the
+  prose cannot change there. Scoring "no answer change" on the guided path as a null result
+  would be measuring a wire that isn't connected.
+- ⚠ **Citations turn on for the first time ever.** `PREREQUISITE`/`HIERARCHICAL` answers start
+  carrying `citations_text`. That is a user-visible change with no production precedent — give
+  it its own before/after, and check the citation block renders where the answer is displayed.
 - ⚠ `SPECIFIC` must stay unmapped in `_INTENT_CHUNK_TYPES` — it is the outage fallback, and the
   activation guard pins this.
 
