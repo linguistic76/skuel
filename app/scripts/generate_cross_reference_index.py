@@ -75,18 +75,23 @@ def load_pattern_frontmatter(base_path: Path) -> dict[str, dict[str, Any]]:
     ``related_skills`` from the index while the artifact rendered "fresh" (Codex
     P2, PR #1213 round 6). A YAML-failed block is skipped here and rejected by the
     drift test's honesty guard, which shares this extraction.
+
+    Traversal is recursive and keys are paths RELATIVE to docs/patterns/ (flat
+    docs keep their bare filename): ``glob("*.md")`` made subdirectory patterns
+    (``curriculum/…``) invisible, and a bare-filename key could collide across
+    subdirectories and emits the wrong link for them (Codex P2, PR #1213 round 7).
     """
     patterns_dir = base_path / "docs" / "patterns"
     pattern_data = {}
 
-    for doc_path in patterns_dir.glob("*.md"):
+    for doc_path in patterns_dir.rglob("*.md"):
         raw, _body = split_frontmatter(doc_path.read_text())
         if raw is None:
             continue
 
         try:
             frontmatter = yaml.safe_load(raw)
-            pattern_data[doc_path.name] = frontmatter
+            pattern_data[str(doc_path.relative_to(patterns_dir))] = frontmatter
         except yaml.YAMLError:
             pass
 
@@ -261,11 +266,13 @@ def generate_index_content(base_path: Path) -> str:
 
     pattern_to_skills: dict[str, list[str]] = {}
 
-    # From skills metadata (primary_docs + patterns)
+    # From skills metadata (primary_docs + patterns). Keyed by the path relative
+    # to docs/patterns/ — the same key load_pattern_frontmatter uses — so a
+    # subdirectory doc named by both sources merges instead of forking.
     for skill in skills_data["skills"]:
         for doc in skill.get("primary_docs", []) + skill.get("patterns", []):
             if "/docs/patterns/" in doc:
-                doc_name = doc.split("/")[-1]
+                doc_name = doc.split("/docs/patterns/", 1)[1]
                 if doc_name not in pattern_to_skills:
                     pattern_to_skills[doc_name] = []
                 pattern_to_skills[doc_name].append(skill["name"])

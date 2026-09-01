@@ -87,13 +87,26 @@ def test_every_skill_renders_a_section() -> None:
 
 
 def test_every_metadata_doc_link_survives_rendering() -> None:
-    """No doc path named in skills_metadata.yaml is dropped by category bucketing."""
+    """No doc path named in skills_metadata.yaml is dropped by category bucketing.
+
+    Asserted inside the OWNING skill's ``### @skill`` section, not globally: the
+    same path is emitted again under "By Document Category" (and by any other
+    skill sharing it), so a whole-render substring stays green while this skill's
+    own association is lost (Codex P2, PR #1213 round 7).
+    """
     content = generate_index_content(PROJECT_ROOT)
+    by_skill_part = content.split("## By Document Category")[0]
+    sections: dict[str, str] = {}
+    for chunk in re.split(r"^### @", by_skill_part, flags=re.MULTILINE)[1:]:
+        name, _, body = chunk.partition("\n")
+        sections[name.strip()] = body
+
     for skill in load_skills_metadata(PROJECT_ROOT)["skills"]:
+        section = sections.get(skill["name"], "")
         for doc in skill.get("primary_docs", []) + skill.get("patterns", []):
-            assert f"]({doc})" in content, (
-                f"@{skill['name']} names {doc} in skills_metadata.yaml but the "
-                "rendered index never links it — a renderer bucket dropped it."
+            assert f"]({doc})" in section, (
+                f"@{skill['name']} names {doc} in skills_metadata.yaml but its own "
+                "rendered section never links it — a renderer bucket dropped it."
             )
 
 
@@ -112,7 +125,7 @@ def test_every_pattern_frontmatter_parses() -> None:
     swallow shape is already loud: a block parsing to a non-mapping crashes
     ``generate_index_content`` on ``.get``, which errors the freshness test.
     """
-    for doc_path in sorted((PROJECT_ROOT / "docs" / "patterns").glob("*.md")):
+    for doc_path in sorted((PROJECT_ROOT / "docs" / "patterns").rglob("*.md")):
         raw = _raw_frontmatter(doc_path)
         if raw is None:
             continue
@@ -144,7 +157,8 @@ def test_declared_skills_render_in_pattern_mapping() -> None:
             rendered[match.group(1)] = match.group(2)
 
     checked = 0
-    for doc_path in sorted((PROJECT_ROOT / "docs" / "patterns").glob("*.md")):
+    patterns_dir = PROJECT_ROOT / "docs" / "patterns"
+    for doc_path in sorted(patterns_dir.rglob("*.md")):
         raw = _raw_frontmatter(doc_path)
         if raw is None:
             continue
@@ -155,7 +169,7 @@ def test_declared_skills_render_in_pattern_mapping() -> None:
         declared = _normalize_related_skills(frontmatter.get("related_skills"))
         if not declared:
             continue
-        mapping = rendered.get(doc_path.name, "")
+        mapping = rendered.get(str(doc_path.relative_to(patterns_dir)), "")
         rendered_skills = {chunk.strip().removeprefix("@") for chunk in mapping.split(",")}
         for skill in declared:
             checked += 1
