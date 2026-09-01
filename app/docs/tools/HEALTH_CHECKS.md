@@ -482,9 +482,12 @@ masks every unstamped edit until the date arrives.
 **Stamp-only commits are skipped, permanently.** The one-shot backfill that seeded
 this corpus became the newest commit for every file it rewrote, so compared naively
 every historical date it wrote predates it and the check would fail on nearly the whole
-corpus. The rule is stated as "a commit whose diff for that file touches only the
-`updated:` line (or the fences and blank line that creating a block emits)" rather than
-a hardcoded SHA, so any future stamp-only commit gets the same treatment. This needs
+corpus. The rule is stated permanently rather than as a hardcoded SHA, so any future
+stamp-only commit gets the same treatment: **a commit qualifies only if it actually
+changes an `updated:` line**, with fences and the blank separator permitted alongside it
+because *creating* a block emits them. Requiring the key is not pedantry — accepting
+"every changed line is a fence or a blank" on its own made a commit that merely deleted
+two blank lines qualify, and dated three pattern docs from the commit before it. This needs
 line-level diffs, which `git log --name-only` cannot give — hence the two-stage
 traversal in `docs_updated_field.load_history`: `--numstat` shortlists commits small
 enough to *possibly* be stamp-only, and `git show` confirms only those.
