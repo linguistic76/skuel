@@ -293,6 +293,43 @@ def test_a_whitespace_only_commit_is_substantive(repo: Path) -> None:
     assert history.last_substantive == date(2026, 4, 14)
 
 
+def test_editing_a_body_example_of_the_key_is_substantive(repo: Path) -> None:
+    """Two docs carry a documentation *example* of an `updated:` line in their body.
+
+    Deciding stamp-only from raw `+`/`-` diff lines cannot tell WHERE a matched line
+    sat, so a commit editing only that example was classified as stamp-only — and the
+    real edit the guard exists to catch was skipped, leaving stale frontmatter green
+    indefinitely (Codex P2 on #1212). Normalising both blobs is positional by
+    construction: `apply_stamp` writes only the leading block, so a body difference
+    survives it.
+    """
+    doc = repo / "app" / "docs" / "readme.md"
+    doc.write_text("---\nupdated: 2026-01-01\n---\n\nWrite it like this:\n\nupdated: 2020-01-01\n")
+    _commit(repo, "first", "2026-01-01T12:00:00+00:00")
+
+    # Only the BODY example changes; the frontmatter stamp is untouched.
+    doc.write_text("---\nupdated: 2026-01-01\n---\n\nWrite it like this:\n\nupdated: 2021-02-02\n")
+    _commit(repo, "edit the example", "2026-06-01T12:00:00+00:00")
+
+    history = field_mod.load_history({"app/docs/readme.md"})["app/docs/readme.md"]
+    assert history.last_substantive == date(2026, 6, 1)
+
+
+def test_a_quoting_change_is_substantive(repo: Path) -> None:
+    """Conservative on purpose: normalisation preserves each blob's own quoting, so
+    `updated: X` → `updated: 'X'` does not compare equal. Erring toward substantive
+    costs a needless date; erring the other way hides a real edit."""
+    doc = repo / "app" / "docs" / "q.md"
+    doc.write_text("---\nupdated: 2026-01-01\n---\n\nbody\n")
+    _commit(repo, "first", "2026-01-01T12:00:00+00:00")
+
+    doc.write_text("---\nupdated: '2026-02-02'\n---\n\nbody\n")
+    _commit(repo, "requote", "2026-06-01T12:00:00+00:00")
+
+    history = field_mod.load_history({"app/docs/q.md"})["app/docs/q.md"]
+    assert history.last_substantive == date(2026, 6, 1)
+
+
 def test_a_body_edit_alongside_a_stamp_is_substantive(repo: Path) -> None:
     doc = repo / "app" / "docs" / "c.md"
     doc.write_text("---\nupdated: 2026-01-01\n---\n\nold\n")

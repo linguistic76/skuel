@@ -2155,7 +2155,7 @@ session must not re-decide.
 - ⛔ **No same-file contradictory-prose detector** — measured unmechanizable, 4/4 false
   positives. See the sub-finding below.
 
-**Five traps that survived into the build**, none visible to a fixture and all found by
+**Six traps that survived into the build**, none visible to a fixture and all found by
 running against the real corpus, the full test suite, or review — worth carrying because
 each looks like a simplification:
 
@@ -2169,6 +2169,15 @@ each looks like a simplification:
 - **Do not attribute `git show` hunks to files by parsing `+++ b/<path>`.** Git appends a
   TAB to that header for paths containing spaces, and three docs under
   `design-principles/` have them. Pass the path as a pathspec instead.
+- **Diff text cannot decide "touches only the stamp" — normalise the blobs instead.** Two
+  formulations failed in sequence. *"Every changed line is a fence or a blank"* classified
+  a commit that merely deleted two blank lines as stamp-only, dating three pattern docs
+  from the commit before it. Adding *"and at least one changed line is `^updated:`"* still
+  could not tell **where** that line sat — and two docs carry a documentation *example* of
+  an `updated:` line in their body, so a commit editing only that example counted as
+  stamp-only and the real edit stayed invisible to the guard indefinitely (Codex P2 on
+  #1212). Stamping both blobs to the same date and comparing is positional by
+  construction, because `apply_stamp` writes only the leading block.
 - **A generated doc must not be stamped.** Its generator's drift test byte-compares it
   against a fresh render, so a frontmatter block reds that test immediately, and the next
   regeneration wipes the stamp and reds the guard instead. Detected by the file's own

@@ -251,6 +251,17 @@ def _run_git(*args: str) -> str:
     ).stdout
 
 
+def _blob(rev: str, path: str) -> str | None:
+    """File content at ``rev``, or None when it does not exist there."""
+    result = subprocess.run(
+        ["git", "-C", str(REPO_ROOT), "show", f"{rev}:{path}"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return result.stdout if result.returncode == 0 else None
+
+
 def _utc_date(iso_with_offset: str) -> date:
     return datetime.fromisoformat(iso_with_offset).astimezone(UTC).date()
 
@@ -271,55 +282,44 @@ _MAX_STAMP_INSERTIONS = 4
 _MAX_STAMP_DELETIONS = 1
 
 
-def _is_updated_line(line: str) -> bool:
-    """Is this added/removed diff line the ``updated:`` key itself?"""
-    return _UPDATED_LINE.match(line[1:]) is not None
-
-
-def _is_stamp_incidental_line(line: str) -> bool:
-    """Is this added/removed diff line something *creating a block* drags along?
-
-    Fences and the blank separator, and nothing else. On their own they are not
-    evidence of a stamp change — see ``_is_stamp_only``, which requires the key.
-    """
-    payload = line[1:]
-    return _FENCE.match(payload) is not None or payload.strip() == ""
-
-
 def _is_stamp_only(commit: str, path: str) -> bool:
     """Does ``commit``'s diff for ``path`` touch nothing but the ``updated:`` stamp?
 
     ``git log --name-only`` cannot answer this — it emits paths, not changed lines —
     which is why this is a second pass over a shortlist rather than one traversal.
 
-    **One call per (commit, path), deliberately, instead of one per commit.** Batching
-    would mean attributing each hunk to a file by parsing ``+++ b/<path>`` headers,
+    **Decided by normalising both blobs, not by reading diff lines.** Stamping both the
+    before and after content to the *same* date and asking whether they are then equal
+    is exact by construction: ``apply_stamp`` only ever writes the leading frontmatter
+    block, so anything else that differs survives the normalisation and the commit is
+    substantive. Reading raw ``+``/``-`` lines instead cannot tell WHERE a matched line
+    sat, and two docs (``docs/README.md`` and ``patterns/CYPHER_VS_APOC_STRATEGY.md``)
+    carry a documentation *example* of an ``updated:`` line in their body — so a commit
+    editing only that example was classified as stamp-only, and the real edit the guard
+    exists to catch was skipped (Codex P2 on #1212). It also handles all four shapes
+    ``apply_stamp`` can produce, including block creation, with no special cases.
+
+    A file's creation commit has no parent blob and is substantive by definition.
+
+    **One call pair per (commit, path), deliberately, instead of one per commit.**
+    Batching would mean attributing hunks to files by parsing ``+++ b/<path>`` headers,
     and that parse is wrong in a way that is invisible on most corpora: git appends a
-    TAB to the header when the path contains spaces, and quotes the whole path when
-    it contains characters ``core.quotePath`` escapes. Three docs under
+    TAB to the header when the path contains spaces, and quotes the whole path when it
+    contains characters ``core.quotePath`` escapes. Three docs under
     ``design-principles/`` have spaces in their names, and the tab left on the parsed
-    path matched nothing — so all three were reported stale immediately after a
-    backfill that had stamped them correctly. Passing the path as a pathspec makes
-    every ``+``/``-`` line in the output belong to it by construction, with no header
-    format to get right.
+    path matched nothing — so all three were reported stale immediately after a backfill
+    that had stamped them correctly.
 
     The cost is bounded by how much stamp-only history exists: a file whose newest
     commit is substantive is answered by ``--numstat`` alone and reaches this at most
     once.
     """
-    diff = _run_git("show", "-U0", "--format=", "--no-renames", commit, "--", path)
-    changed = [
-        line
-        for line in diff.split("\n")
-        if line[:1] in "+-" and not line.startswith(("+++", "---"))
-    ]
-    # The key must actually change. Accepting "every changed line is a fence or a
-    # blank" without it made a commit that merely deleted two blank lines read as
-    # stamp-only — a whitespace edit is not a stamp edit, and treating it as one
-    # dated two docs from the wrong commit until a real run caught it.
-    return any(_is_updated_line(line) for line in changed) and all(
-        _is_updated_line(line) or _is_stamp_incidental_line(line) for line in changed
-    )
+    after = _blob(commit, path)
+    before = _blob(f"{commit}^", path)
+    if after is None or before is None:
+        return False
+    reference = date(2000, 1, 1)
+    return apply_stamp(before, reference) == apply_stamp(after, reference)
 
 
 class ShallowHistoryError(RuntimeError):

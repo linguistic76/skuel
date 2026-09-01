@@ -483,14 +483,22 @@ masks every unstamped edit until the date arrives.
 this corpus became the newest commit for every file it rewrote, so compared naively
 every historical date it wrote predates it and the check would fail on nearly the whole
 corpus. The rule is stated permanently rather than as a hardcoded SHA, so any future
-stamp-only commit gets the same treatment: **a commit qualifies only if it actually
-changes an `updated:` line**, with fences and the blank separator permitted alongside it
-because *creating* a block emits them. Requiring the key is not pedantry — accepting
-"every changed line is a fence or a blank" on its own made a commit that merely deleted
-two blank lines qualify, and dated three pattern docs from the commit before it. This needs
-line-level diffs, which `git log --name-only` cannot give — hence the two-stage
-traversal in `docs_updated_field.load_history`: `--numstat` shortlists commits small
-enough to *possibly* be stamp-only, and `git show` confirms only those.
+stamp-only commit gets the same treatment.
+
+**A commit qualifies only if normalising both of its blobs to the same date makes them
+equal.** `apply_stamp` writes only the leading frontmatter block, so anything else that
+differs survives the normalisation — which makes the test positional by construction and
+handles all four write shapes (rewrite, requote, insert-into-block, create-block) with no
+special cases. Two weaker formulations were tried and both let real edits through:
+"every changed diff line is a fence or a blank" classified a commit that merely deleted
+two blank lines as stamp-only, and requiring a changed `^updated:` line still could not
+tell *where* that line sat — so a commit editing only the body `updated:` *example* in
+`docs/README.md` counted as stamp-only, and the real edit stayed invisible to the check
+indefinitely. Deciding it from content rather than from diff text also needs no
+`git log --name-only`, which could never have answered this at all: it emits paths, not
+lines. Hence the two-stage traversal in `docs_updated_field.load_history` — `--numstat`
+shortlists commits small enough to *possibly* be stamp-only, and only those pay for the
+blob comparison.
 
 **Scope is `app/docs/**/*.md`.** Skills are excluded (`SKILL.md` already carries
 `last_updated`, and the cross-reference validator reads a human-set `last_reviewed` — a
