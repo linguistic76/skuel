@@ -326,7 +326,7 @@ After deletions/merges, update the registry files:
 # 4. Fix dangling references in docs that pointed to deleted files
 ```
 
-`dead_doc_links.py` replaces the manual `rg "DELETED_DOC_NAME" docs/` pattern. It catches four reference kinds at once (markdown links, backtick paths, bare absolute paths, and path tokens inside fenced code blocks) across the whole `docs/` and `.claude/skills/` tree. Two classes are deliberately excluded and **both print their count on every run** — freeform notes and skill templates (scope carve-out) and link targets that match a live `@rt("…")` registration in `adapters/inbound/`; see `docs/tools/HEALTH_CHECKS.md`. When `docs/INDEX.md` has broken links, it calls it out specifically:
+`dead_doc_links.py` replaces the manual `rg "DELETED_DOC_NAME" docs/` pattern. It catches four reference kinds at once (markdown links, backtick paths, bare absolute paths, and path tokens inside fenced code blocks) across the whole `docs/` and `.claude/skills/` tree. Four classes are deliberately excluded and **every one prints its count on every run** — freeform notes and templates (scope carve-out), history directories (`docs/migrations/`, `docs/roadmap/done/`, `docs/investigations/`, `docs/Reviews/`, where a dead link is a dated record being faithful), link targets that match a live `@rt("…")` registration in `adapters/inbound/`, and `<!-- historical -->`-marked citations inside `docs/decisions/`; see `docs/tools/HEALTH_CHECKS.md`. When `docs/INDEX.md` has broken links, it calls it out specifically:
 
 ```
 ⚠  docs/INDEX.md has 24 broken reference(s) — update the index to match current files
