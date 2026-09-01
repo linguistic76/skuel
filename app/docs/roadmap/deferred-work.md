@@ -2525,9 +2525,15 @@ unused); ≈15 were never tracked in this repo (the early query-ADRs' "Tests: N/
 passing" lines — de-fiction the claim, don't invent a path). Apply the marker to the
 ~70 narrative citations. Execute the content rulings recorded below (delete ADR-010;
 delete never-to-be-done planned citations; ADR-003 chain-completion + repoint;
-create `docs/domains/user_entry.md`). Splitting by cluster into more than one PR is
-sanctioned if the diff is unwieldy. Exit: `docs/decisions/` findings = 0, marker
-skips printed.
+create `docs/domains/user_entry.md`) **with their catalog ripple** (Codex on #1216):
+deleting ADR-010 must also drop its `docs/INDEX.md` row (line 248 today), and the new
+`user_entry.md` joins the domain catalogs — `docs/domains/README.md`'s Submissions row
+still links the deleted `submissions.md` and becomes the UserEntry row; add an
+INDEX.md entry if the domains are cataloged there. Splitting by cluster into more
+than one PR is sanctioned if the diff is unwieldy. Exit: `docs/decisions/` findings
+= 0 AND the full scanner run shows no NEW findings introduced by the sweep's own
+deletions/creations (a `decisions/`-only check would miss an orphaned INDEX.md row),
+marker skips printed.
 
 **RULED — the history line (226 + 156) (Mike, 2026-09-01, on the classification pass's
 report):** C takes **(a)** — the silent dir carve-out (no tripwire to un-observe). D
