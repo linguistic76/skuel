@@ -45,11 +45,16 @@ decides what (if anything) happens after creation.
 `modality` (`SubmissionModality`: `FILE_UPLOAD` / `STRUCTURED_FORM`) is designed as
 **orthogonal** to `pipeline` — how the entry was created, rather than what happens to it.
 
-⚠️ **Staged, not live.** No production path assigns it: both `UserEntryCreateRequest`
-constructors in `adapters/inbound/user_entry_api.py` omit `modality`, and the only
-`SubmissionModality` producers in the tree set `Exercise.expected_modality`. Every
-persisted entry therefore carries the `None` default, so the field cannot be read to
-learn how an entry was created until a writer exists.
+⚠️ **Nothing derives it, and it is client-settable — so it is not provenance.** The two
+routes that actually *know* how the entry arrived omit it: both `UserEntryCreateRequest`
+constructors in `adapters/inbound/user_entry_api.py` (multipart upload, structured form)
+leave `modality` unset, and the only `SubmissionModality` producers in the tree set
+`Exercise.expected_modality`. Meanwhile `POST /api/user-entries` parses a full
+`UserEntryCreateRequest` from the JSON body, so an authenticated caller can supply — or
+spoof — any value, which `create_entry()` copies straight onto the model.
+
+Read it as a client-supplied hint, never as a trustworthy record of how an entry was
+created. Making it real means having the upload and form routes stamp it themselves.
 
 ## Key Files
 
@@ -90,7 +95,7 @@ Inherits identity, content, status, sharing, meta and embedding fields from
 | Field | Type | Description |
 |-------|------|-------------|
 | `pipeline` | `Pipeline` | Dispatch discriminator (table above) |
-| `modality` | `SubmissionModality?` | How the entry was created — **always `None` today**, see above |
+| `modality` | `SubmissionModality?` | A client-supplied hint, **not provenance** — nothing derives it; see above |
 | `private` | `bool` | Never grows a vector — no entity embedding, no `:ContentChunk` subtree, and a hard exclusion in companion-retrieval Cypher. Gates companion retrieval only; orthogonal to `visibility` |
 | `original_filename` | `str?` | Upload only |
 | `file_path` | `str?` | Upload only |
@@ -171,8 +176,9 @@ the facade.
 
 ## Events/Publishing
 
-Payloads below are the dataclass fields, minus the `occurred_at` / `metadata`
-every event carries.
+Payloads below are the dataclass fields, minus the `occurred_at` every event inherits
+from `BaseEvent`. (That is the *only* inherited field — `EventMetadata` is a standalone
+opt-in dataclass, not a `BaseEvent` member, and none of these four carry one.)
 
 | Event | Trigger |
 |-------|---------|
