@@ -576,6 +576,7 @@ Automated scripts in `scripts/health/` that prevent drift between refactors, doc
 | `dead_doc_links.py` | Broken markdown links, backtick paths, bare absolute paths | After any file rename/delete |
 | `stale_names.py` | Old class/method/enum names in doc code blocks | After a rename or deprecation |
 | `duplicate_headings.py` | Repeated headings at the same level under the same parent — a superseded section outliving its replacement | After rewriting or reorganising a long document |
+| `docs_updated.py` | Docs whose frontmatter `updated:` stamp is missing or has rotted past the merge-latency window | Never by hand — the pre-commit stamper writes the field; this catches a bypassed hook |
 
 **`dead_doc_links.py`** is the fastest way to confirm INDEX.md is clean after pruning docs. It specifically calls out INDEX.md violations:
 

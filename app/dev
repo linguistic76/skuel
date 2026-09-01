@@ -229,6 +229,8 @@ case "$1" in
     echo ""
     uv run python scripts/health/duplicate_headings.py || failed=1
     echo ""
+    uv run python scripts/health/docs_updated.py || failed=1
+    echo ""
     uv run python scripts/validate_cross_references.py || failed=1
     echo ""
     if [ $failed -eq 1 ]; then
@@ -257,6 +259,11 @@ case "$1" in
   health-headings)
     echo -e "${YELLOW}Checking for duplicate Markdown headings...${NC}"
     uv run python scripts/health/duplicate_headings.py "${@:2}"
+    ;;
+
+  health-updated)
+    echo -e "${YELLOW}Checking docs \`updated:\` frontmatter stamps...${NC}"
+    uv run python scripts/health/docs_updated.py "${@:2}"
     ;;
 
   health-xref)
@@ -333,11 +340,12 @@ case "$1" in
     echo "  ./dev bloat-methods  - Detect unused service methods only"
     echo ""
     echo "Health Checks:"
-    echo "  ./dev health         - Run all health checks (modules + links + names + headings + xref)"
+    echo "  ./dev health         - Run all health checks (modules + links + names + headings + updated + xref)"
     echo "  ./dev health-modules - Find Python files with zero importers"
     echo "  ./dev health-links   - Find broken links in docs/ and .claude/skills/"
     echo "  ./dev health-names   - Find stale/deprecated identifiers in doc code blocks"
     echo "  ./dev health-headings - Find repeated headings under one parent in docs"
+    echo "  ./dev health-updated - Find docs whose \`updated:\` stamp has rotted or is missing"
     echo "  ./dev health-xref    - Validate skill↔doc cross-references and staleness"
     echo "  ./dev health-mypy    - Find mypy suppressions that suppress nothing (~80s, not in health)"
     echo ""

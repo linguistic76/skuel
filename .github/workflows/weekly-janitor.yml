@@ -152,6 +152,7 @@ jobs:
                        dead_doc_links:scripts/health/dead_doc_links.py \
                        stale_names:scripts/health/stale_names.py \
                        duplicate_headings:scripts/health/duplicate_headings.py \
+                       docs_updated:scripts/health/docs_updated.py \
                        cross_references:scripts/validate_cross_references.py; do
             name="${check%%:*}"
             script="${check#*:}"
@@ -184,7 +185,7 @@ jobs:
           # the 65536-character issue limit. Strip and truncate as two steps,
           # not a pipeline — `sed | head -c` is a SIGPIPE trap under pipefail
           # (see PR #931).
-          for name in dead_modules dead_doc_links stale_names duplicate_headings cross_references; do
+          for name in dead_modules dead_doc_links stale_names duplicate_headings docs_updated cross_references; do
             sed 's/\x1b\[[0-9;]*m//g' "${name}.out" > "${name}.stripped"
             head -c 6000 "${name}.stripped" > "${name}.clean"
             if [ "$(wc -c < "${name}.stripped")" -gt 6000 ]; then
@@ -198,14 +199,14 @@ jobs:
           {
             if [ -z "$failed" ]; then
               echo "**All codebase health checks passed**"
-              echo "(\`dead_modules\`, \`dead_doc_links\`, \`stale_names\`, \`duplicate_headings\`, \`cross_references\` —"
+              echo "(\`dead_modules\`, \`dead_doc_links\`, \`stale_names\`, \`duplicate_headings\`, \`docs_updated\`, \`cross_references\` —"
               echo "the same checks \`./dev health\` runs)."
             else
               echo "**Failing sections:** \`${failed# }\`"
               echo ""
               echo "Reproduce locally with \`./dev health\` (or the individual targets:"
-              echo "\`./dev health-modules\` / \`health-links\` / \`health-names\` / \`health-headings\` / \`health-xref\`)."
-              for name in dead_modules dead_doc_links stale_names duplicate_headings cross_references; do
+              echo "\`./dev health-modules\` / \`health-links\` / \`health-names\` / \`health-headings\` / \`health-updated\` / \`health-xref\`)."
+              for name in dead_modules dead_doc_links stale_names duplicate_headings docs_updated cross_references; do
                 rc=$(cat "${name}.rc")
                 if [ "$rc" -ne 0 ]; then
                   echo ""

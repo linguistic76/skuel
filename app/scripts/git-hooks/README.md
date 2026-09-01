@@ -6,7 +6,13 @@ Two hooks, two purposes, one canonical source per file. Install with `app/script
 
 ### `pre-commit` — runs on every `git commit`
 
-Four checks, fail-fast on any:
+One rewrite then four checks, fail-fast on any check:
+
+0. **Docs `updated:` auto-stamp** — only when at least one `app/docs/**/*.md` is staged.
+   - Runs `app/scripts/stamp_docs_updated.py`, which sets each staged doc's frontmatter `updated:` to today (UTC), creating the block when a new doc has none.
+   - Writes the **index entry and the worktree file both** — never `git add`, which would replace the index entry with the whole working-tree file and silently stage hunks deliberately left out of a `git add -p`. Only the one `updated:` line is rewritten on disk, so other unstaged hunks survive.
+   - Rewrites rather than reports: it does not block the commit. `./dev health-updated` is the gate that catches a bypassed or broken stamp.
+   - Runs **first**, so checks 1–2 read the content that will actually land.
 
 1. **Secret-leak scan** — always runs.
    - Refuses to commit `.env` / `.env.local` / `.env.<anything>` (allows `.env.example` and `.env.sample`).
@@ -45,7 +51,12 @@ git push   --no-verify     # skip ALL pre-push checks (last resort)
 SKUEL_ALLOW_SECRETS=1 ...  # skip just the secret scan (false-positive case)
 SKUEL_SKIP_MYPY=1     ...  # skip just the MyPy check (work-in-progress refactor)
 SKUEL_SKIP_LINT=1     ...  # skip just the Ruff + SKUEL lint check
+SKUEL_SKIP_DOC_STAMP=1 ... # skip just the docs `updated:` stamp
 ```
+
+`SKUEL_SKIP_DOC_STAMP=1` is not a "rushed dev" bypass — it is required by
+`scripts/backfill_docs_updated.py`, which writes each doc's *historical* date and
+would be undone by a stamper that rewrote them all to today.
 
 If you find yourself reaching for `--no-verify`, that's a signal — either fix the underlying issue or open a discussion about adjusting the patterns. The env-var bypasses are the right tool when you're committing a legitimate fixture (e.g. a test that asserts a fake-looking key is rejected) or staging a deliberate WIP that you'll fix before pushing — narrower scope, more obvious in `git log -p`. CI will still gate the push regardless of local bypasses.
 
@@ -56,7 +67,7 @@ A pre-commit hook is the cheap, fast first line — not a comprehensive defense.
 | Layer | Catches at | Bypassable? | Implemented? |
 |---|---|---|---|
 | `.gitignore` patterns | before `git add` | `git add -f`; useless against literals in `.py`/`.yaml` | yes (baseline) |
-| **pre-commit hook** | at `git commit` | `--no-verify`, `SKUEL_ALLOW_SECRETS=1`, `SKUEL_SKIP_MYPY=1`, `SKUEL_SKIP_LINT=1` | **yes** (this file) |
+| **pre-commit hook** | at `git commit` | `--no-verify`, `SKUEL_ALLOW_SECRETS=1`, `SKUEL_SKIP_MYPY=1`, `SKUEL_SKIP_LINT=1`, `SKUEL_SKIP_DOC_STAMP=1` | **yes** (this file) |
 | **pre-push hook** | at `git push` | `--no-verify`, `SKUEL_ALLOW_SECRETS=1` | **yes** (this file) |
 | Server-side scan (GitHub secret scanning) | after push, on remote | no, but post-leak — alerts you to rotate | depends on plan |
 | CI quality scan (MyPy + Lint) | on every PR / push to main | no — runs in CI | **yes** ([`ci.yml`](../../../.github/workflows/ci.yml)) |

@@ -89,7 +89,7 @@ For the full step-by-step workflows — library upgrades, pattern deprecation, s
 
 | Purpose | Location |
 |---------|----------|
-| Health check scripts | `scripts/health/` (`dead_modules.py`, `dead_doc_links.py`, `stale_names.py`, `duplicate_headings.py`) |
+| Health check scripts | `scripts/health/` — see `docs/tools/HEALTH_CHECKS.md` for the roster (a list here goes stale the moment a check is added) |
 | Health check docs | `docs/tools/HEALTH_CHECKS.md` |
 | Skills metadata | `.claude/skills/skills_metadata.yaml` |
 | Post-commit doc check | `.claude/hooks/post-commit-docs.sh` (Claude Code PostToolUse hook) |
