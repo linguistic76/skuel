@@ -11,9 +11,11 @@ regenerate and byte-compare it
 automation, deliberately: ``generate_method_index.py``'s original docstring claimed a
 pre-commit hook that was never wired, which is exactly how that artifact silently sat
 stale — CI failing on a stale artifact is the enforcement path, in two halves matching
-the CI path filters: the unit test runs when the ``py`` filter fires (generator edits),
-and ``validate_documentation`` runs ``--check`` when only doc-side inputs change (a
-docs-only PR skips unit_tests entirely — Codex P2, PR #1213).
+the CI path filters: unit_tests runs the drift-test file when the ``py`` filter fires
+(generator edits), and ``validate_documentation`` runs the SAME file when doc-side
+inputs change (a docs-only PR skips unit_tests entirely, and a bare ``--check`` cannot
+see doc-side corruption that renders "fresh" — Codex P2 x2, PR #1213). ``--check``
+remains for local/manual use.
 
 Usage:
     uv run python scripts/generate_cross_reference_index.py          # regenerate

@@ -540,14 +540,17 @@ jobs:
       # unit_tests entirely. Its sibling artifacts solved this by joining the `py`
       # filter, which works for one file each; here the input set is a whole docs
       # directory, and putting docs/patterns/** into `py` would erode the
-      # deliberate docs-only skip wholesale. So the doc-side half of the guard
-      # runs here instead (Codex P2, PR #1213).
+      # deliberate docs-only skip wholesale. So the SAME test file runs here — the
+      # full file, not a bare `--check` byte-compare, because the honesty guards
+      # catch doc-side corruption a byte-compare cannot: a pattern doc whose YAML
+      # breaks is dropped from the render silently, leaving the artifact "fresh"
+      # while the mapping is lost (Codex P2 x2, PR #1213).
       - name: Check CROSS_REFERENCE_INDEX drift
         id: xref_drift
         working-directory: app
         run: |
-          echo "Checking docs/CROSS_REFERENCE_INDEX.md against a fresh render..."
-          uv run python scripts/generate_cross_reference_index.py --check || echo "xref_drift_failed=true" >> $GITHUB_OUTPUT
+          echo "Running the CROSS_REFERENCE_INDEX drift + honesty guards..."
+          uv run pytest tests/unit/scripts/test_generate_cross_reference_index.py -q --no-cov || echo "xref_drift_failed=true" >> $GITHUB_OUTPUT
         continue-on-error: true
 
       - name: Check for broken documentation links (optional)
@@ -647,8 +650,9 @@ jobs:
             echo "  Run locally: uv run python scripts/skills_validator.py"
           fi
           if [ "$xref_drift_failed" == "true" ]; then
-            echo "::error::docs/CROSS_REFERENCE_INDEX.md is stale against its sources"
-            echo "  Regenerate: uv run python scripts/generate_cross_reference_index.py"
+            echo "::error::CROSS_REFERENCE_INDEX drift/honesty guards failed"
+            echo "  Run locally: uv run pytest tests/unit/scripts/test_generate_cross_reference_index.py"
+            echo "  If merely stale: uv run python scripts/generate_cross_reference_index.py"
           fi
           exit 1
 
