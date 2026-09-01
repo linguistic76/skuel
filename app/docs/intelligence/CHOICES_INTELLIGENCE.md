@@ -1,3 +1,7 @@
+---
+updated: 2026-06-25
+---
+
 # ChoicesIntelligenceService - Decision Support & Impact Analysis
 
 ## Overview

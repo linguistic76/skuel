@@ -1,3 +1,7 @@
+---
+updated: 2026-08-13
+---
+
 # Path-keyed identity for uid-less vault UserEntries
 
 **Shipped** 2026-07-12 (#616). This is the contract the ingestion code cites.

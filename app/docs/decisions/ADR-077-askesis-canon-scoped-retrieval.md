@@ -1,3 +1,7 @@
+---
+updated: 2026-08-13
+---
+
 # ADR-077: Companion Grounding via a Shared Corpus-Scope Seam — Askesis (PS-scoped) & Journals (vault-scoped) Share One Retrieve-and-Cite Contract
 
 **Status:** Accepted (Mike, 2026-07-11) — Phase 1 shipped: PR-A (scoped retrieval seam +

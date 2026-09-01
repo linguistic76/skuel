@@ -1,3 +1,7 @@
+---
+updated: 2026-08-30
+---
+
 # Analog + Digital Architecture
 
 **Status:** Active

@@ -1,6 +1,6 @@
 ---
 title: SKUEL Activity DSL - Formal Specification
-updated: 2026-07-10
+updated: 2026-08-28
 status: current
 category: dsl
 tags: [dsl, grammar, specification, formal, syntax]

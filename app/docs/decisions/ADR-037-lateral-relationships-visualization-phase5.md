@@ -1,3 +1,7 @@
+---
+updated: 2026-07-29
+---
+
 # ADR-037: Lateral Relationships Visualization (Phase 5)
 
 **Date:** 2026-02-01

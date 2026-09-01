@@ -1,3 +1,7 @@
+---
+updated: 2026-07-25
+---
+
 # Prometheus + Grafana Observability for SKUEL
 
 **Status**: ✅ Complete (Phases 1-5 implemented - January 2026)

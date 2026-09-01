@@ -1,3 +1,7 @@
+---
+updated: 2026-08-26
+---
+
 # Route Map
 
 Per-page description of user-facing routes, grouped by navigation section. Routes live in `/adapters/inbound/*_routes.py`; UI components in `/ui/`; static assets in `/static/`.

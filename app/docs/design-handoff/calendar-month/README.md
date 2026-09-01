@@ -1,3 +1,7 @@
+---
+updated: 2026-08-13
+---
+
 # Handoff: Calendar Month View Redesign
 
 > **Status: HISTORICAL DESIGN RECORD (2026-07-12). Shipped — do not follow as instructions.**

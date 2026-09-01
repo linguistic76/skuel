@@ -1,6 +1,6 @@
 ---
 title: Admin Dashboard Architecture
-updated: 2026-04-07
+updated: 2026-07-10
 status: current
 category: architecture
 tags:

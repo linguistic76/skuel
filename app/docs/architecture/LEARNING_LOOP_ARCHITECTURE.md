@@ -1,6 +1,6 @@
 ---
 title: Four-Phase Learning Loop
-updated: 2026-04-18
+updated: 2026-08-06
 status: current
 category: architecture
 related:

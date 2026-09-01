@@ -1,3 +1,7 @@
+---
+updated: 2026-09-01
+---
+
 # Askesis Tool-Selection Queries — A Safe Alternative to text2cypher
 
 **Status:** **FIRST SLICE SHIPPED 2026-08-31** (direction ruled 2026-08-31, Mike —

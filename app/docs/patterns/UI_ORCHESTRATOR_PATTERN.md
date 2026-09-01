@@ -1,6 +1,6 @@
 ---
 title: UI Orchestrator Pattern
-updated: '2026-04-13'
+updated: '2026-06-13'
 category: patterns
 related_skills:
 - fasthtml

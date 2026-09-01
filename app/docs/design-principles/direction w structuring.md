@@ -1,3 +1,6 @@
+---
+updated: 2026-03-30
+---
 
 You’re exactly right: this is the foundation. If content isn’t structured well, everything above it (search, learning paths, community features) gets wobbly. Here’s how to “pour the slab” so the whole SKUEL stack stays solid.
 

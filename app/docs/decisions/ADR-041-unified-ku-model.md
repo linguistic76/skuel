@@ -1,3 +1,7 @@
+---
+updated: 2026-03-30
+---
+
 # ADR-041: Unified Ku Model
 
 **Status:** Accepted

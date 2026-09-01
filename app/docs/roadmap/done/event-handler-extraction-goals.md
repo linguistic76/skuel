@@ -1,3 +1,7 @@
+---
+updated: 2026-08-08
+---
+
 # Plan 2 of 5: GoalEventHandlerService
 
 ## Context

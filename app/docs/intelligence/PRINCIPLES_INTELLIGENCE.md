@@ -1,3 +1,7 @@
+---
+updated: 2026-08-14
+---
+
 # PrinciplesIntelligenceService - Cross-Domain Principle Alignment & Conflict Detection
 
 ## Overview

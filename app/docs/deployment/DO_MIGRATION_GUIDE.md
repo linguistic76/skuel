@@ -1,6 +1,6 @@
 ---
 title: Droplet Deployment Guide
-updated: 2026-07-24
+updated: 2026-08-29
 category: deployment
 tags: [deployment, droplet, caddy, auradb, operations]
 related_skills:

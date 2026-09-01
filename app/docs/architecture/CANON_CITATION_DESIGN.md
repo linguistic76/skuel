@@ -1,3 +1,7 @@
+---
+updated: 2026-07-09
+---
+
 # Canon Citation & Discussion — Design Choices
 
 **Status:** Design / decision-support (Deliverable 1). Implementation pending review.

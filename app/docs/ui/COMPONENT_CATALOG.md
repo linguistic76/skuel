@@ -1,3 +1,7 @@
+---
+updated: 2026-08-14
+---
+
 # SKUEL UI Component Catalog
 
 **Last Updated:** 2026-06-30

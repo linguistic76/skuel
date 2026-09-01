@@ -1,6 +1,6 @@
 ---
 title: PWA Architecture
-updated: 2026-03-16
+updated: 2026-08-26
 status: current
 category: architecture
 tags: [pwa, service-worker, offline, mobile]

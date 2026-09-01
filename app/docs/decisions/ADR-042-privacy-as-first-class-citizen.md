@@ -1,6 +1,6 @@
 ---
 title: "ADR-042: Privacy as First-Class Citizen"
-updated: 2026-03-01
+updated: 2026-06-28
 status: accepted
 category: decisions
 tags: [privacy, security, sharing, access-control, activity-report]

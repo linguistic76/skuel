@@ -1,6 +1,6 @@
 ---
 title: Return Type Error Propagation Pattern
-updated: 2025-12-05
+updated: 2026-06-11
 category: patterns
 related_skills:
 - result-pattern

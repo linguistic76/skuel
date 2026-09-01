@@ -1,3 +1,7 @@
+---
+updated: 2026-08-15
+---
+
 # Ingestion System Architecture Diagrams
 
 **Last Updated:** 2026-02-06

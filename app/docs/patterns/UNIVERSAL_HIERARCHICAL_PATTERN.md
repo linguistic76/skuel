@@ -1,6 +1,6 @@
 ---
 title: Universal Hierarchical Pattern
-updated: '2026-03-19'
+updated: '2026-08-14'
 category: patterns
 related_skills: []
 related_docs: []

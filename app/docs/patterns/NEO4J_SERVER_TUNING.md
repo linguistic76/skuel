@@ -1,3 +1,7 @@
+---
+updated: 2026-07-24
+---
+
 # Neo4j Server Tuning (memory, JVM, Vector API)
 
 **Core Principle:** "The server config is data, not code — it lives in one compose file and only `.env` changes across stages."

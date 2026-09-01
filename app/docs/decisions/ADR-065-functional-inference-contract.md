@@ -1,6 +1,6 @@
 ---
 title: "ADR-065: Functional Inference Contract (typed `*InferenceResult`, no DTO mutation)"
-updated: 2026-05-28
+updated: 2026-07-18
 status: current
 category: decisions
 tags: [adr, decisions, architecture, intelligence, dto, immutability, hexagonal]

@@ -4,6 +4,7 @@ created: 2026-03-20
 status: current
 category: architecture
 tags: [deepgram, transcription, audio, batch, configuration]
+updated: 2026-07-28
 ---
 
 # Audio Transcription Architecture

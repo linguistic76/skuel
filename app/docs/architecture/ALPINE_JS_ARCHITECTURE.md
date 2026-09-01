@@ -1,6 +1,7 @@
 ---
 related_skills:
 - ui-browser
+updated: 2026-08-26
 ---
 # Alpine.js Architecture
 *Last updated: 2026-08-04*

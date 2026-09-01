@@ -1,3 +1,7 @@
+---
+updated: 2026-03-11
+---
+
 # Profile Domain Stats Configuration Refactoring
 
 **Date:** 2026-02-03

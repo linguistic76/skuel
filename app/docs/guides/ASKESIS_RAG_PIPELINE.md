@@ -1,3 +1,7 @@
+---
+updated: 2026-08-31
+---
+
 # Askesis RAG Pipeline — Developer Guide
 
 **Last Updated:** August 2026 (intent activation — PR-2)

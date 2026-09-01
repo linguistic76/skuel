@@ -1,6 +1,6 @@
 ---
 title: Standalone Service Pattern
-updated: 2026-01-07
+updated: 2026-04-14
 category: patterns
 related_skills:
 - base-analytics-service

@@ -1,6 +1,7 @@
 ---
 related_skills:
 - user-context-intelligence
+updated: 2026-08-01
 ---
 # UserContextIntelligence - Central Intelligence Hub
 ## Related Skills

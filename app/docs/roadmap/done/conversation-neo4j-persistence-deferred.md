@@ -1,3 +1,7 @@
+---
+updated: 2026-08-21
+---
+
 # Conversation Neo4j Persistence — Deferred Design
 
 > "Cross-session memory is what transforms Askesis from a chat interface into a companion

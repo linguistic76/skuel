@@ -1,3 +1,7 @@
+---
+updated: 2026-07-25
+---
+
 # Neo4j GenAI Plugin Migration Guide
 
 > **Historical Note:** This document records the initial embeddings migration (2026-01-28). The embeddings service has since been replaced: `Neo4jGenAIEmbeddingsService` → `HuggingFaceEmbeddingsService`, model `text-embedding-3-small` (1536d) → `BAAI/bge-large-en-v1.5` (1024d), provider OpenAI → HuggingFace Inference API. Class names and config values below have been updated to reflect current names.

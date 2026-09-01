@@ -1,3 +1,7 @@
+---
+updated: 2026-08-21
+---
+
 # Askesis: Pedagogical Architecture
 
 > "Not a recommendation feed. A Socratic companion that knows the curriculum and the learner,

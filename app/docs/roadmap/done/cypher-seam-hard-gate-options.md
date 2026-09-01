@@ -1,3 +1,7 @@
+---
+updated: 2026-08-08
+---
+
 # Cypher label/rel-type seam typing — hard-gate options (scoping only, NOT done)
 
 *Created: 2026-05-24. Companion to the Phase-1 (rel-type → `RelationshipName`, PR #41) and

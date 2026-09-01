@@ -1,3 +1,7 @@
+---
+updated: 2026-08-16
+---
+
 # ADR-043: Intelligence Tier Toggle
 
 **Status:** Accepted

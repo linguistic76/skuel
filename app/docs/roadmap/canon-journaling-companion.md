@@ -1,3 +1,7 @@
+---
+updated: 2026-08-21
+---
+
 # Canon — Book-as-Journaling-Companion
 
 **Status:** **Phases 1–3 = DONE 2026-07-08** (silent voice-infusion). **Quote-and-cite

@@ -1,6 +1,6 @@
 ---
 title: Clean Patterns Reference
-updated: '2026-02-02'
+updated: '2026-08-16'
 category: patterns
 related_skills: []
 related_docs: []

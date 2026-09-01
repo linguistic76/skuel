@@ -1,6 +1,6 @@
 ---
 title: "ADR-061: Spawn-Layer Consolidation — DomainSpawnSpec Registry"
-updated: 2026-05-20
+updated: 2026-06-20
 status: current
 category: decisions
 tags: [adr, decisions, ps-engagement, spawn, activity-templates, dry, type-safety]

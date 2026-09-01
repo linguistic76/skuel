@@ -1,3 +1,7 @@
+---
+updated: 2026-06-10
+---
+
 # ADR-068: OpenAI Embeddings Now, BGE Long-Term — Behind One Provider Chokepoint
 
 **Status:** Accepted

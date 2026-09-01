@@ -1,3 +1,7 @@
+---
+updated: 2026-08-09
+---
+
 # Functional Direction Roadmap
 
 **Status:** Doctrine established (ADR-035 + ADR-065); **enforcement infrastructure complete (2026-05-31)** — mypy `arg-type` is the toolchain default on all first-party trees, the global disable deleted. Of the three targeted *extensions* below: **#2 (typed update intents, ADR-066) is ✅ done (2026-06-05)** — all six Activity Domains on frozen `*UpdateIntent` dataclasses, the shared CRUD base parameterized over the update type `U`, every `dict`/`*UpdatePayload` alternative deleted (PRs #228, #230–233, #236, #238); **#3 (the `Result[None] | None` collapse) is done (2026-05-31)**; #1 inference parity is 1/6 (Task only) and **blocked** on the 5 remaining domains growing an inference service. See the [implementation status snapshot](#implementation-status-snapshot-2026-05-31).

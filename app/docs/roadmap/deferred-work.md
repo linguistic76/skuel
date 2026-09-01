@@ -1,3 +1,7 @@
+---
+updated: 2026-08-31
+---
+
 # Deferred Work
 
 **Context**: Items here are real, valuable improvements that are intentionally on hold. They are not rejected — they are waiting for usage data, business decisions, or production prerequisites that do not yet exist. Each item has an explicit trigger condition.

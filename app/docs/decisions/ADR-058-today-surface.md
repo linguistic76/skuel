@@ -1,6 +1,6 @@
 ---
 title: "ADR-058: Today as the Post-Login Landing Surface"
-updated: 2026-04-23
+updated: 2026-08-23
 status: current
 category: decisions
 tags: [adr, decisions, ui, landing, today, lifepath]

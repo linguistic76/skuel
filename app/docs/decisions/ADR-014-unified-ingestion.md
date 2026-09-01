@@ -1,6 +1,6 @@
 ---
 title: ADR-014: Unified Content Ingestion Service
-updated: 2026-01-04
+updated: 2026-08-14
 status: accepted
 category: decisions
 tags: [adr, decisions, ingestion, markdown, yaml, unified, modular]

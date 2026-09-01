@@ -1,6 +1,6 @@
 ---
 title: Intelligence Route Factory - Usage Guide
-updated: 2025-11-27
+updated: 2026-08-14
 status: current
 category: guides
 tags: [factory, guides, intelligence, route, usage]

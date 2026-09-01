@@ -1,6 +1,6 @@
 ---
 title: UID Boundary Conversion Pattern
-updated: '2026-02-02'
+updated: '2026-03-30'
 category: patterns
 related_skills: []
 related_docs: []

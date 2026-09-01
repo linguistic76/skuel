@@ -1,6 +1,6 @@
 ---
 title: Report Architecture
-updated: 2026-06-13
+updated: 2026-08-09
 status: current
 category: architecture
 version: 3.2.0

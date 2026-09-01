@@ -1,6 +1,6 @@
 ---
 title: FastHTML Route Registration Pattern
-updated: 2026-01-15
+updated: 2026-07-21
 category: patterns
 related_skills:
 - ui-browser

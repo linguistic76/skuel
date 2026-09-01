@@ -1,6 +1,6 @@
 ---
 title: Service Consolidation Patterns
-updated: 2026-04-10
+updated: 2026-08-21
 category: patterns
 related_skills:
 - base-analytics-service

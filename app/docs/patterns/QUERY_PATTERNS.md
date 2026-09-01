@@ -1,6 +1,6 @@
 ---
 title: Query Patterns
-updated: '2026-02-02'
+updated: '2026-08-17'
 category: patterns
 related_skills:
 - neo4j-cypher-patterns

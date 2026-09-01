@@ -1,3 +1,7 @@
+---
+updated: 2026-07-29
+---
+
 # EventsIntelligenceService - Cross-Domain Impact Analysis & Schedule Optimization
 
 ## Overview

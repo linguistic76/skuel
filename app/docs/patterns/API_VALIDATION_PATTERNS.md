@@ -1,6 +1,6 @@
 ---
 title: API Validation Patterns
-updated: 2026-03-23
+updated: 2026-08-23
 category: patterns
 related_skills:
 - pydantic

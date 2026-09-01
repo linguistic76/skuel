@@ -1,3 +1,7 @@
+---
+updated: 2026-03-10
+---
+
 # ADR-020: FastHTML Route Registration Pattern
 
 **Status:** Accepted

@@ -1,6 +1,6 @@
 ---
 title: Docstring Standards
-updated: 2026-01-29
+updated: 2026-05-21
 category: patterns
 related_skills:
 - python

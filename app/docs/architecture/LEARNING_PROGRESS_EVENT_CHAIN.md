@@ -1,6 +1,6 @@
 ---
 title: Learning Progress Event Chain
-updated: 2026-04-12
+updated: 2026-08-28
 status: current
 category: architecture
 related:

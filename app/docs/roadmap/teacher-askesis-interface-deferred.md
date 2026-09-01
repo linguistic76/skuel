@@ -1,3 +1,7 @@
+---
+updated: 2026-08-21
+---
+
 # Teacher-Askesis Interface — Deferred Design
 
 > "The teacher doesn't just assign exercises. They shape the pedagogical environment

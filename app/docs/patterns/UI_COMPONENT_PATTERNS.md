@@ -1,6 +1,6 @@
 ---
 title: UI Component Patterns
-updated: '2026-04-05'
+updated: '2026-08-21'
 category: patterns
 related_skills:
   - accessibility-guide

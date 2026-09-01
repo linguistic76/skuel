@@ -1,3 +1,7 @@
+---
+updated: 2026-08-14
+---
+
 # P2 Storage Implementation — Journals Discussion Sessions
 
 > **⚠️ Superseded default (2026-07-13):** P2 built discussion persistence as **automatic**

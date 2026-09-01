@@ -1,3 +1,7 @@
+---
+updated: 2026-08-15
+---
+
 # Core Systems Architecture
 
 **Last Updated:** 2026-02-08

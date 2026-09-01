@@ -1,3 +1,7 @@
+---
+updated: 2026-07-29
+---
+
 # ADR-030: Dual-Track Assessment Pattern (BaseAnalyticsService Extension)
 
 **Status:** Accepted

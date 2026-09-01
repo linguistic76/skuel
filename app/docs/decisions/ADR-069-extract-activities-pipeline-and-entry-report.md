@@ -1,3 +1,7 @@
+---
+updated: 2026-08-24
+---
+
 # ADR-069: EXTRACT_ACTIVITIES Pipeline + EntryReport Convergence
 
 **Status:** Accepted (Decisions 1–2, Mike 2026-06-12). Decision 3 ruled

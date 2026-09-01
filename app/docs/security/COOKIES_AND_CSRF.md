@@ -1,6 +1,6 @@
 ---
 title: Cookies and CSRF in SKUEL
-updated: '2026-04-20'
+updated: '2026-08-08'
 category: security
 audience: learners
 related_skills: [security]

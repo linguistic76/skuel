@@ -1,6 +1,6 @@
 ---
 title: Async/Sync Design Pattern
-updated: 2026-01-03
+updated: 2026-07-19
 category: patterns
 related_skills:
 - python

@@ -1,3 +1,7 @@
+---
+updated: 2026-03-30
+---
+
 # DomainRouteConfig Pattern Migration Summary
 
 **Date:** 2026-01-24

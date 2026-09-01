@@ -1,6 +1,6 @@
 ---
 title: Linter Guide
-updated: 2026-08-07
+updated: 2026-08-30
 category: guides
 related_skills:
 - python

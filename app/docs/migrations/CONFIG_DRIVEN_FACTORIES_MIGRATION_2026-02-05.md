@@ -6,6 +6,7 @@ scope: Activity Domains (6 files)
 related_docs:
   - /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
   - /docs/patterns/ROUTE_FACTORIES.md
+updated: 2026-08-13
 ---
 
 # Config-Driven Route Factory Registration Migration

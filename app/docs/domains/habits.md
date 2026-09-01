@@ -1,7 +1,7 @@
 ---
 title: Habits Domain
 created: 2025-12-04
-updated: 2026-01-19
+updated: 2026-08-22
 status: current
 category: domains
 tags:

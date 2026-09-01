@@ -1,3 +1,7 @@
+---
+updated: 2026-08-27
+---
+
 # `nous_subtopic` Facet — Mechanism
 
 The 2nd taxonomy level beneath `nous`: a graph-derived search facet + Askesis retrieval

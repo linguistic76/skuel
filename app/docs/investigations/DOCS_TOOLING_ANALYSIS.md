@@ -1,3 +1,7 @@
+---
+updated: 2026-03-30
+---
+
 # Documentation Tooling Analysis
 **Date:** 2026-01-30
 **Context:** Investigation of docs_freshness.py limitations and recommendations for improvement

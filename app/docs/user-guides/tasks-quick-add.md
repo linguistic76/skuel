@@ -1,3 +1,7 @@
+---
+updated: 2026-07-10
+---
+
 # Tasks Quick-Add Guide
 
 *Last updated: 2025-12-08*

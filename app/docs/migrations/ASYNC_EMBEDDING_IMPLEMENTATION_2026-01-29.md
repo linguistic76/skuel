@@ -1,3 +1,7 @@
+---
+updated: 2026-07-29
+---
+
 # Async Embedding Implementation - January 29, 2026
 
 ## Summary

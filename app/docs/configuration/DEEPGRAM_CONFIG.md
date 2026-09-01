@@ -1,3 +1,7 @@
+---
+updated: 2026-07-28
+---
+
 # Deepgram Configuration Guide
 
 **Config file:** `config/deepgram.toml`

@@ -1,6 +1,6 @@
 ---
 title: Documentation Index
-updated: 2026-08-11
+updated: 2026-08-31
 status: current
 category: index
 tags: [index, navigation, documentation]

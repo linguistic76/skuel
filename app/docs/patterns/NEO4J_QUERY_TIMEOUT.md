@@ -1,6 +1,6 @@
 ---
 title: "Neo4j Per-Query Server-Side Timeout"
-updated: 2026-05-28
+updated: 2026-08-29
 status: current
 category: patterns
 tags: [neo4j, persistence, performance, timeout, adapters]

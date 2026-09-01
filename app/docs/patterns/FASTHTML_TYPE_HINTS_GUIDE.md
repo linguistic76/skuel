@@ -1,6 +1,6 @@
 ---
 title: FastHTML Type Hints Pattern Guide
-updated: 2025-11-18
+updated: 2026-08-14
 category: patterns
 related_skills:
 - ui-browser

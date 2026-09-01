@@ -1,7 +1,7 @@
 ---
 title: Domain Documentation
 created: 2025-12-04
-updated: 2026-01-20
+updated: 2026-08-04
 status: current
 category: domains
 tags: [domains, reference, architecture]

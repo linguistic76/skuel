@@ -1,3 +1,7 @@
+---
+updated: 2026-08-27
+---
+
 # Askesis Architecture - Cross-Cutting Intelligence System
 
 **Last Updated:** March 12, 2026

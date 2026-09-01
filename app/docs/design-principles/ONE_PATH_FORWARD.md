@@ -1,6 +1,6 @@
 ---
 title: "Design Principle: One Path Forward"
-updated: 2026-03-28
+updated: 2026-04-13
 status: current
 category: design-principles
 tags: [design, principles, migration, backward-compatibility]

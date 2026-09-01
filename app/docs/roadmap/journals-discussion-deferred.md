@@ -1,3 +1,7 @@
+---
+updated: 2026-08-14
+---
+
 # Journals Discussion — Deferred Work (post-P3)
 
 **Status:** the discussion-first arc (P1 → P2 → P3) is **complete and merged**

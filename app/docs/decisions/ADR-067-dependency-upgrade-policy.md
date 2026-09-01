@@ -1,6 +1,6 @@
 ---
 title: "ADR-067: Dependency upgrade policy (latest-stable default, documented pins)"
-updated: 2026-08-05
+updated: 2026-08-29
 status: current
 category: decisions
 tags: [adr, decisions, dependencies, uv, python, javascript, npm, node, tooling, maintenance]

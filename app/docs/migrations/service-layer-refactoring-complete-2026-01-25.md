@@ -1,3 +1,7 @@
+---
+updated: 2026-03-27
+---
+
 # Service Layer Refactoring - Complete
 *Date: 2026-01-25*
 

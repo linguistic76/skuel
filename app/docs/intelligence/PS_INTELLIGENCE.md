@@ -1,3 +1,7 @@
+---
+updated: 2026-08-25
+---
+
 # PsIntelligenceService - Practice Integration & Guidance Assessment
 
 ## Overview

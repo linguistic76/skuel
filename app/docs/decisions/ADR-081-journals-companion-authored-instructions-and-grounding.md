@@ -1,3 +1,7 @@
+---
+updated: 2026-07-23
+---
+
 # ADR-081: Journals companion — authored instruction home + UserContext grounding
 
 **Status:** Accepted — founder-confirmed 2026-07-23 (D1=B, D2=B, PR1 instruction-home → PR2 grounding; D3 to author discernment)

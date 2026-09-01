@@ -1,7 +1,7 @@
 ---
 title: Finance Domain
 created: 2025-12-04
-updated: 2026-05-25
+updated: 2026-08-13
 status: current
 category: domains
 tags: [finance, firefly, chargekeep, billing, invoicing, admin-only, adr-052, adr-062]

@@ -1,3 +1,7 @@
+---
+updated: 2026-08-30
+---
+
 # Placeholder Parameter Index
 
 *Technical debt register for accepted-but-unimplemented features: parameters whose bodies ignore

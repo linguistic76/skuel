@@ -1,3 +1,7 @@
+---
+updated: 2026-02-02
+---
+
 # ADR-036: Prometheus as Primary with In-Memory Cache Pattern
 
 **Status**: ✅ Accepted

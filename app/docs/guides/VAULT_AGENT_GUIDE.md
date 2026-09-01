@@ -1,3 +1,7 @@
+---
+updated: 2026-08-25
+---
+
 # Vault Agent Guide — Enroll, Run, Revoke
 
 **Purpose:** Walk a user through pairing their machine with a hosted SKUEL server and serving their Obsidian vault through the local agent (ADR-075 B3).

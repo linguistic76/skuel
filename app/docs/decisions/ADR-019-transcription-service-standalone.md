@@ -1,6 +1,6 @@
 ---
 title: ADR-019: Transcription Service Simplification
-updated: 2025-12-06
+updated: 2026-03-30
 status: accepted
 category: decisions
 tags: [adr, decisions, lsp, architecture, transcription, refactoring]

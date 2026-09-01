@@ -1,3 +1,7 @@
+---
+updated: 2026-03-11
+---
+
 > **Note:** As of 2026-02-06, the Assignments domain has been renamed to Reports.
 > All references to "assignments", "Assignment", "AssignmentsCoreService", etc. in this document
 > reflect the naming at the time of the original refactoring. The current equivalents are

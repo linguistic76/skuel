@@ -1,6 +1,6 @@
 ---
 title: SKUEL Query Design - Pure Cypher Patterns for Curriculum Navigation
-updated: 2025-11-27
+updated: 2026-07-20
 status: current
 category: general
 tags: [design, query, skuel]

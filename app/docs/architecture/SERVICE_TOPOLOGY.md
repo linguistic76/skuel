@@ -1,3 +1,7 @@
+---
+updated: 2026-08-20
+---
+
 # Service Architecture: File Organization & Topology
 
 **Purpose:** File organization rules, import guidelines, and visual architecture diagrams for `/core/services/`.

@@ -1,6 +1,6 @@
 ---
 title: Context DSL Cheat-Sheet
-updated: 2026-07-10
+updated: 2026-08-14
 status: current
 category: user-guide
 tags: [dsl, cheatsheet, activities, quick-reference]

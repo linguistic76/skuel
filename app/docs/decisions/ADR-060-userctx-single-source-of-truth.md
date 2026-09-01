@@ -1,6 +1,6 @@
 ---
 title: "ADR-060: UserContext as Single Source of Truth — Awareness Slice Protocols Retired"
-updated: 2026-05-11
+updated: 2026-08-13
 status: current
 category: decisions
 tags: [adr, decisions, type-safety, user-context, isp, protocols]

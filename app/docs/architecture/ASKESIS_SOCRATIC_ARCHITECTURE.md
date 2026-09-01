@@ -1,3 +1,7 @@
+---
+updated: 2026-07-24
+---
+
 # Askesis Guided Pipeline — PS-Scoped, ZPD-Centered, GuidanceMode-Aware
 
 **Last Updated:** March 12, 2026

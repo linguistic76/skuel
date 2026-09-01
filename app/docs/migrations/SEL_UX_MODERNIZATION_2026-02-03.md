@@ -4,6 +4,7 @@ date: 2026-02-03
 status: complete
 category: migration
 tags: [sel, ux, htmx, basepage, entity-card, accessibility]
+updated: 2026-03-30
 ---
 
 # SEL Routes UX Modernization

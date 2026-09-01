@@ -1,3 +1,7 @@
+---
+updated: 2026-03-12
+---
+
 # Activity Domain Embedding Version Tracking - Implementation Complete
 
 **Date:** 2026-01-30

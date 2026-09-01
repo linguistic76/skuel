@@ -1,6 +1,6 @@
 ---
 title: Security Hardening — Deferred Items
-updated: 2026-07-27
+updated: 2026-08-21
 category: roadmap
 tags: [roadmap, security, hardening]
 ---

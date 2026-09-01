@@ -1,3 +1,7 @@
+---
+updated: 2026-07-25
+---
+
 # KU Route Naming Standardization
 
 **Date:** 2026-02-02

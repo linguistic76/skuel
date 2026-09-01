@@ -1,3 +1,7 @@
+---
+updated: 2026-05-21
+---
+
 # Profile Hub Modernization - Complete
 
 > **Note (2026-02-09):** The `profile_sidebar.css`, `profile_sidebar.js`, and `build_profile_sidebar()` described below were superseded by the unified Tailwind + Alpine.js sidebar in commit `949f201`. See `@skuel-ui`.

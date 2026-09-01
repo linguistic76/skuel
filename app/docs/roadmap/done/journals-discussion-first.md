@@ -1,3 +1,7 @@
+---
+updated: 2026-08-21
+---
+
 # Journals Discussion-First — Design & Choices
 
 > **✅ Arc closed 2026-07-13 — P1 → P2 → P3 all shipped** (#627, #633–#636, #638–#640).

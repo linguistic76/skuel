@@ -1,7 +1,7 @@
 ---
 title: Goals Domain
 created: 2025-12-04
-updated: 2026-04-11
+updated: 2026-08-24
 status: current
 category: domains
 tags:

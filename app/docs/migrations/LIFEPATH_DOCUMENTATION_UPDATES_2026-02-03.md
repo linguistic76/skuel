@@ -1,3 +1,7 @@
+---
+updated: 2026-02-03
+---
+
 # LifePath Routes Migration - Documentation Updates
 
 **Date:** 2026-02-03

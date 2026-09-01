@@ -1,6 +1,6 @@
 ---
 title: Query Architecture
-updated: 2026-01-21
+updated: 2026-08-18
 category: patterns
 related_skills:
 - skuel-search-architecture

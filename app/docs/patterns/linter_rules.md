@@ -1,6 +1,6 @@
 ---
 title: Code Quality Enforcement - Linter Rules
-updated: 2026-08-07
+updated: 2026-08-30
 category: patterns
 related_skills:
 - python

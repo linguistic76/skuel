@@ -1,6 +1,6 @@
 ---
 title: Domain Patterns Catalog
-updated: 2026-01-29
+updated: 2026-08-06
 category: patterns
 related_skills:
 - python

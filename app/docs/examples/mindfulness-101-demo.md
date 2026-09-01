@@ -1,3 +1,7 @@
+---
+updated: 2026-08-14
+---
+
 # SKUEL Quick Start - Mindfulness 101 Demo
 
 ## True Fresh Start (Recommended)

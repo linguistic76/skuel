@@ -1,3 +1,7 @@
+---
+updated: 2026-03-30
+---
+
 # LifePath Routes DomainRouteConfig Migration
 
 **Date:** 2026-02-03

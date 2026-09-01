@@ -1,6 +1,6 @@
 ---
 title: "ADR-055: Architectural Lenses — Subsystems + 3-Layer Lens"
-updated: 2026-04-19
+updated: 2026-05-11
 status: current
 category: decisions
 tags: [adr, decisions, architecture, mental-model, vocabulary]

@@ -1,6 +1,6 @@
 ---
 title: HTTP Status Codes - REST Best Practices
-updated: 2025-10-17
+updated: 2026-03-08
 category: patterns
 related_skills: []
 related_docs: []

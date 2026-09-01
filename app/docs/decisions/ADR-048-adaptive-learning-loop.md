@@ -1,3 +1,7 @@
+---
+updated: 2026-03-20
+---
+
 # ADR-048: Adaptive Learning Loop Architecture
 
 **Status:** Proposed

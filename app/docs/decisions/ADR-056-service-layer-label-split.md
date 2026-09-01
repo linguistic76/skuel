@@ -1,6 +1,6 @@
 ---
 title: "ADR-056: Service-Layer Label Split — entity_label + config_lookup_label"
-updated: 2026-04-21
+updated: 2026-06-17
 status: current
 category: decisions
 tags: [adr, decisions, service-layer, domain-config, neo4j, registry]

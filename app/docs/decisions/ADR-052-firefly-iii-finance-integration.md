@@ -13,6 +13,7 @@ related:
   - ADR-044-neo4j-committed-architectural-choice
   - ADR-049-huggingface-embeddings-migration
   - ADR-062-chargekeep-billing-layer
+updated: 2026-08-13
 ---
 
 # ADR-052: Firefly III Replaces SKUEL Expense/Budget/Reporting

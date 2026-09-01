@@ -1,3 +1,7 @@
+---
+updated: 2026-08-25
+---
+
 # Sub-Service Responsibility Catalog
 
 **Purpose:** Quick reference for understanding which sub-service handles which responsibilities across SKUEL's Activity Domain facades.

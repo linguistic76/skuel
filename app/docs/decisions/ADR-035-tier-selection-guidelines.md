@@ -1,6 +1,6 @@
 ---
 title: ADR-035: Three-Tier vs Two-Tier Pattern Selection Guidelines
-updated: 2026-01-29
+updated: 2026-08-08
 status: accepted
 category: decisions
 tags: [adr, decisions, architecture, patterns, three-tier]

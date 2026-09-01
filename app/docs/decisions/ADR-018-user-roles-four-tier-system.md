@@ -1,6 +1,6 @@
 ---
 title: ADR-018: Four-Tier User Role System
-updated: 2026-01-04
+updated: 2026-03-30
 status: current
 category: decisions
 tags: [adr, decisions, user, roles, authorization, authentication]

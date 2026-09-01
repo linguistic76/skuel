@@ -1,3 +1,7 @@
+---
+updated: 2026-08-08
+---
+
 # Journals: Domain Architecture
 
 > "Not a curriculum companion. A personal thinking partner that meets you where you are — no enrollment required."

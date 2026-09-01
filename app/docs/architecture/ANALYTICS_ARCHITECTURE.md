@@ -1,6 +1,6 @@
 ---
 title: Analytics Architecture - Statistical Aggregation Meta-Service
-updated: 2026-03-03
+updated: 2026-08-13
 status: current
 category: architecture
 tags: [architecture, analytics]

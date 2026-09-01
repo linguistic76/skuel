@@ -1,3 +1,7 @@
+---
+updated: 2026-08-19
+---
+
 # Semantic Relationship Layer — Development Roadmap
 
 *Created: 2026-07-19*

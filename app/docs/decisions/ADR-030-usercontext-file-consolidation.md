@@ -1,6 +1,6 @@
 ---
 title: ADR-030: UserContext File Consolidation
-updated: 2026-01-20
+updated: 2026-02-02
 status: current
 category: decisions
 tags: [adr, decisions, usercontext, cleanup]

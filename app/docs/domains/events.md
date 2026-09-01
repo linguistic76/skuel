@@ -1,7 +1,7 @@
 ---
 title: Events Domain
 created: 2025-12-04
-updated: 2026-06-11
+updated: 2026-08-22
 status: current
 category: domains
 tags: [events, scheduling-domain, integration-domain, domain]

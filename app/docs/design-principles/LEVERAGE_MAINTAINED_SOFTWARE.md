@@ -1,6 +1,6 @@
 ---
 title: "Design Principle: Leverage Maintained Software"
-updated: 2026-03-28
+updated: 2026-08-21
 status: current
 category: design-principles
 tags: [design, principles, open-source, dependencies, maintenance]

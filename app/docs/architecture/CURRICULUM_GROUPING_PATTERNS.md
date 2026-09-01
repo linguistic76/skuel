@@ -1,6 +1,6 @@
 ---
 title: "Curriculum Grouping Patterns: KU, PS, LP + MOC Organization"
-updated: 2026-08-14
+updated: 2026-08-30
 status: current
 category: architecture
 tags: [architecture, curriculum, grouping, patterns, moc, montessori]

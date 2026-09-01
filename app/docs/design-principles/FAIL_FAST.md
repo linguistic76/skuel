@@ -1,6 +1,6 @@
 ---
 title: "Design Principle: Fail Fast"
-updated: 2026-05-16
+updated: 2026-08-08
 status: current
 category: design-principles
 tags: [design, principles, error-handling, dependencies]

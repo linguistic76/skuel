@@ -1,3 +1,7 @@
+---
+updated: 2026-08-08
+---
+
 # Activity Domain Views Consolidation
 
 **Context**: The 6 Activity Domain view files (`ui/activities/*_views.py`) share three

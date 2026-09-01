@@ -1,6 +1,6 @@
 ---
 title: GitHub Fundamentals - Local to Remote Workflow
-updated: 2026-01-29
+updated: 2026-07-24
 status: current
 category: guides
 tags: [git, github, guide, workflow]

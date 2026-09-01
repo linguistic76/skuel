@@ -1,6 +1,6 @@
 ---
 title: UnifiedRelationshipService - Configuration-Driven Relationships
-updated: 2026-06-02
+updated: 2026-08-22
 category: patterns
 related_skills:
 - base-analytics-service

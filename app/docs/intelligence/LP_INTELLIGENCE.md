@@ -1,3 +1,7 @@
+---
+updated: 2026-08-20
+---
+
 # LpIntelligenceService - Learning State & Content Intelligence
 
 ## Overview

@@ -1,6 +1,7 @@
 ---
 related_skills:
 - skuel-search-architecture
+updated: 2026-08-21
 ---
 # Search Service Method Reference
 *Last updated: 2026-06-11*

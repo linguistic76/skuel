@@ -1,3 +1,7 @@
+---
+updated: 2026-08-31
+---
+
 # BaseService Method Index
 
 **Purpose:** Complete reference of all methods available in BaseService and Activity Domain facades.

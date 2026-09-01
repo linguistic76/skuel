@@ -1,3 +1,7 @@
+---
+updated: 2026-08-24
+---
+
 # Today — surface spec
 
 > One-page spec for engineering.  Pairs with `today.html`.

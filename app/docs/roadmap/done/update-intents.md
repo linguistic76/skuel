@@ -1,6 +1,6 @@
 ---
 title: "Roadmap: Typed Update Intents migration"
-updated: 2026-06-05
+updated: 2026-08-24
 status: complete
 category: roadmap
 tags: [roadmap, activity-domains, typing, immutability, one-path-forward]

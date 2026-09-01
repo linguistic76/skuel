@@ -1,3 +1,7 @@
+---
+updated: 2026-08-25
+---
+
 # ADR-034: Semantic Search Phase 1 Enhancement
 
 **Status:** Implemented

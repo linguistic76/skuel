@@ -1,3 +1,7 @@
+---
+updated: 2026-06-17
+---
+
 # PsIntelligenceService - Semantic Knowledge & Cross-Domain Discovery
 
 ## Overview

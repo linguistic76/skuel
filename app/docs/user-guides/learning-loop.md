@@ -1,3 +1,7 @@
+---
+updated: 2026-06-20
+---
+
 # The Learning Loop
 
 *Last updated: 2026-04-05*

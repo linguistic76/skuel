@@ -1,6 +1,6 @@
 ---
 title: "Design Principle: Type Safety as Ontology"
-updated: 2026-03-28
+updated: 2026-08-11
 status: current
 category: design-principles
 tags: [design, principles, type-safety, enums, mypy]

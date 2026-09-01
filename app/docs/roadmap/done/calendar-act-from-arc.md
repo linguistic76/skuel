@@ -1,3 +1,7 @@
+---
+updated: 2026-08-21
+---
+
 # Calendar Act-From Arc — Design & Choices
 
 **Status:** CONFIRMED 2026-08-02 (founder ruling: "I want the calendar to be a place that

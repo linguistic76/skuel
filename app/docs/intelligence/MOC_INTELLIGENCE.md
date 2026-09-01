@@ -1,3 +1,7 @@
+---
+updated: 2026-08-08
+---
+
 # MOC Intelligence (Emergent Identity, KU-Canonical)
 
 **Last Updated:** January 20, 2026 · **Code-accuracy audit:** August 8, 2026 (removed a fictional `MocNavigationService`/`MOCService` architecture; see below)

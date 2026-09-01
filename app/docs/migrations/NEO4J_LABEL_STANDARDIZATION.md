@@ -1,6 +1,6 @@
 ---
 title: Neo4j Label Standardization Migration Plan
-updated: 2026-03-17
+updated: 2026-03-30
 status: superseded
 category: migrations
 tags: [label, migrations, neo4j, standardization]

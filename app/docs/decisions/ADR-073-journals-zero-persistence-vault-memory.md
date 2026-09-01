@@ -1,3 +1,7 @@
+---
+updated: 2026-08-13
+---
+
 # ADR-073: Journals Are a Zero-Persistence Private Workshop; the Vault Is the Only Memory Channel
 
 **Status:** Accepted — PR 1 (text sessions + allowlist), PR 2 (upload/transcription, decision A),

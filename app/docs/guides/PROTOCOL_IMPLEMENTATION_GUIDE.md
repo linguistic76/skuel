@@ -1,7 +1,7 @@
 ---
 title: Protocol Implementation Guide
 created: 2026-01-03
-updated: 2026-01-03
+updated: 2026-08-19
 status: active
 audience: developers
 tags: [guide, protocols, implementation]

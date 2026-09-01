@@ -1,3 +1,7 @@
+---
+updated: 2026-08-08
+---
+
 # Gantt Visualization Surface — Staged, Not Abandoned
 
 **Status:** 🅿️ STAGED (founder ruling 2026-08-04). The Frappe Gantt surface is

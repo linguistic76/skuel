@@ -1,6 +1,6 @@
 ---
 title: ADR-029: GraphNative Service Removal - One Path Forward
-updated: 2026-01-08
+updated: 2026-03-06
 status: current
 category: decisions
 tags: [adr, decisions, architecture, refactoring, one-path-forward]

@@ -1,6 +1,6 @@
 ---
 title: SEL Adaptive Curriculum
-updated: 2026-02-03
+updated: 2026-08-09
 status: production
 category: features
 tags: [sel, adaptive-learning, curriculum, personalization, htmx]

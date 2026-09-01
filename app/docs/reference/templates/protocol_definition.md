@@ -1,6 +1,6 @@
 ---
 title: Protocol Definition Template
-updated: 2026-01-24
+updated: 2026-03-28
 status: current
 category: reference
 tags: [definition, protocol, reference]

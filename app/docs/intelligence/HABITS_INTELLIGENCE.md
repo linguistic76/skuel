@@ -1,3 +1,7 @@
+---
+updated: 2026-06-25
+---
+
 # HabitsIntelligenceService - Streak Pattern Analysis & Habit Formation
 
 ## Overview

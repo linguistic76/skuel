@@ -1,6 +1,6 @@
 ---
 title: Secondary Entity Pattern
-updated: 2026-03-24
+updated: 2026-08-22
 category: patterns
 related_skills: []
 related_docs:
