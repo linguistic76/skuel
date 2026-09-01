@@ -2155,9 +2155,13 @@ session must not re-decide.
 - ⛔ **No same-file contradictory-prose detector** — measured unmechanizable, 4/4 false
   positives. See the sub-finding below.
 
-**Seven traps that survived into the build**, none visible to a fixture and all found by
-running against the real corpus, the full test suite, or review — worth carrying because
-each looks like a simplification:
+**Traps that survived into the build.** None was visible to a fixture; each was found by
+running against the real corpus, by the full test suite, or by review, and each looks like
+a simplification. **This is not the whole list** — Codex found twelve defects across ten
+review rounds of the *implementation*, on top of the sixteen it found in ten rounds of the
+registration, and every one of them is recorded in a docstring beside the code it
+constrains, which is where a constraint cannot rot into a paraphrase. Carried here are the
+ones a future session would most plausibly reintroduce while scoping:
 
 - **Never `yaml.safe_load` the frontmatter to read this field.** 35 of 412 docs carry an
   unquoted `title: ADR-013: KU UID Flat Identity Design`, whose colon-space is a YAML
@@ -2169,6 +2173,13 @@ each looks like a simplification:
 - **Do not attribute `git show` hunks to files by parsing `+++ b/<path>`.** Git appends a
   TAB to that header for paths containing spaces, and three docs under
   `design-principles/` have them. Pass the path as a pathspec instead.
+- ⚠️ **Never compute a file line number by adding an offset to a position inside the
+  parsed frontmatter.** `split_frontmatter`'s opening fence is `^---\s*\n`, and `\s*`
+  swallows a blank line after the `---` — so the raw block can begin on file line 2 while
+  "raw index + 1" assumes line 1. Stamping then overwrote `title:` and left the real
+  `updated:` below it: metadata deleted, duplicate key created, silently. Scan the file's
+  own lines between the fences; `split_frontmatter` decides *whether* there is a block,
+  not *where* its lines are. (Codex P1 on #1212 — the most destructive defect in the arc.)
 - **Diff text cannot decide "touches only the stamp" — normalise the blobs instead.** Two
   formulations failed in sequence. *"Every changed line is a fence or a blank"* classified
   a commit that merely deleted two blank lines as stamp-only, dating three pattern docs
