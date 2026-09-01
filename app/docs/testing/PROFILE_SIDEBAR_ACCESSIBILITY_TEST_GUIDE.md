@@ -1,3 +1,7 @@
+---
+updated: 2026-03-11
+---
+
 # Profile Sidebar Accessibility Testing Guide
 
 **Date:** 2026-02-01

@@ -1,3 +1,7 @@
+---
+updated: 2026-08-20
+---
+
 # LP intelligence: two backend methods that were never built
 
 **Status:** RULED — *build, but not now* (Mike, 2026-08-20; **confirmed

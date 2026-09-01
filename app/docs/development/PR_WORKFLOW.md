@@ -1,3 +1,7 @@
+---
+updated: 2026-08-31
+---
+
 # PR-Based Development Workflow
 
 **Purpose:** Explain *why* every change to `main` now goes through a pull request, what happens to a change along the way, and which checks actually gate a merge.

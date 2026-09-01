@@ -1,3 +1,7 @@
+---
+updated: 2026-08-19
+---
+
 # Service Decomposition Rule
 
 **Line counts guide and suggest; coherence determines.** The two thresholds in this document

@@ -11,6 +11,7 @@ tags:
 related:
   - three_tier_type_system.md
   - EMBEDDING_ARCHITECTURE.md
+updated: 2026-03-30
 ---
 
 # ADR-037: Embedding Infrastructure Separation from Domain Models

@@ -1,6 +1,6 @@
 ---
 title: ADR-007: Graph-Sourced-Context-Builder Query Architecture
-updated: 2025-11-26
+updated: 2026-01-25
 status: current
 category: decisions
 tags: [007, adr, builder, context, decisions]

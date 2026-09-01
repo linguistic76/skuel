@@ -1,3 +1,7 @@
+---
+updated: 2026-02-26
+---
+
 # SKUEL Features Documentation
 
 This directory contains complete documentation for implemented features in SKUEL.

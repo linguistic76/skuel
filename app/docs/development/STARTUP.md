@@ -3,6 +3,7 @@ title: Starting SKUEL
 related_docs:
   - docs/development/DEVELOPMENT_SETUP.md
   - docs/deployment/DO_MIGRATION_GUIDE.md
+updated: 2026-03-17
 ---
 # Starting SKUEL
 

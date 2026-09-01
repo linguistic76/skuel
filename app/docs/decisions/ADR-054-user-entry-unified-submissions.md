@@ -1,3 +1,7 @@
+---
+updated: 2026-08-13
+---
+
 # ADR-054: UserEntry — Unified User-Authored Content
 
 **Status:** Accepted

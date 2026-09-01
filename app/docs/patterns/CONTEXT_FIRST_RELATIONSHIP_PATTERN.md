@@ -1,6 +1,6 @@
 ---
 title: Context-First Relationship Pattern
-updated: 2026-02-10
+updated: 2026-06-18
 category: patterns
 related_skills:
 - neo4j-cypher-patterns

@@ -12,6 +12,7 @@ tags:
 related:
   - ADR-047-entity-types-replace-domain-categories
   - ADR-043-intelligence-tier-toggle
+updated: 2026-07-19
 ---
 
 # ADR-051: User Interaction Contract

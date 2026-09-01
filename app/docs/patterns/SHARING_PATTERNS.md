@@ -1,6 +1,6 @@
 ---
 title: Content Sharing Patterns
-updated: '2026-03-05'
+updated: '2026-08-02'
 category: patterns
 related_skills:
 - pytest

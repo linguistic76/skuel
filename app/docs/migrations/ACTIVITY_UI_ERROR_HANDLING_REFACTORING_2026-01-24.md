@@ -1,3 +1,7 @@
+---
+updated: 2026-03-27
+---
+
 # Activity Domain UI Error Handling Refactoring
 
 **Date**: 2026-01-24

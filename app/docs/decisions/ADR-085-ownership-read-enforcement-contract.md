@@ -1,6 +1,6 @@
 ---
 title: "ADR-085: Ownership Read-Enforcement Contract"
-updated: 2026-08-21
+updated: 2026-08-30
 status: accepted
 category: decisions
 tags: [adr, decisions, ownership, multi-tenancy, security, search, reads]

@@ -1,6 +1,6 @@
 ---
 title: "Design Principle: Hub Pages"
-updated: 2026-04-07
+updated: 2026-08-02
 status: current
 category: design-principles
 tags: [design, principles, ui, navigation, moc, hub]

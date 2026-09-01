@@ -3,6 +3,7 @@ title: Embedding Infrastructure Alignment - Activity & Curriculum Domains
 date: 2026-02-01
 status: complete
 category: migration
+updated: 2026-03-30
 ---
 
 # Embedding Infrastructure Alignment (2026-02-01)

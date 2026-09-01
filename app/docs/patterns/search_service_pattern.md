@@ -1,6 +1,6 @@
 ---
 title: SearchService Pattern for Activity Domains
-updated: 2026-01-07
+updated: 2026-08-21
 category: patterns
 related_skills:
 - base-analytics-service

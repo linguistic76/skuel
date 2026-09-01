@@ -1,6 +1,6 @@
 ---
 title: SKUEL Activity DSL - Usage Guide
-updated: 2026-08-03
+updated: 2026-08-14
 status: current
 category: dsl
 tags: [dsl, examples, patterns, guide, usage, periodic-notes]

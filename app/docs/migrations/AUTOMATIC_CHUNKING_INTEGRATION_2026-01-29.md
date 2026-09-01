@@ -1,3 +1,7 @@
+---
+updated: 2026-06-17
+---
+
 # Automatic Chunking Integration (January 2026)
 
 ## Executive Summary

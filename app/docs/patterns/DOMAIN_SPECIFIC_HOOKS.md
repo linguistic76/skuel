@@ -1,6 +1,6 @@
 ---
 title: Domain-Specific Hooks Pattern
-updated: 2026-08-06
+updated: 2026-08-23
 category: patterns
 related_skills: []
 related_docs: []

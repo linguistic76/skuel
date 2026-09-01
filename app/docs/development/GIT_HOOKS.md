@@ -1,3 +1,7 @@
+---
+updated: 2026-03-30
+---
+
 # Git Hooks for SKUEL
 
 **Purpose:** Automated library-change detection after merges.

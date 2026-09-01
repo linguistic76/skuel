@@ -1,7 +1,7 @@
 ---
 title: PS (Path Step) Domain
 created: 2025-12-04
-updated: 2026-04-12
+updated: 2026-08-14
 status: current
 category: domains
 tags:

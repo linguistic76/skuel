@@ -1,3 +1,7 @@
+---
+updated: 2026-08-21
+---
+
 # ContextRetriever's Three Write-Only Fields
 
 *Live plan. Registered 2026-08-20. Case file for the `deferred-work.md` entry of the same name;

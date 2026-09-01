@@ -1,3 +1,7 @@
+---
+updated: 2026-07-28
+---
+
 # ADR-040: Teacher Exercise Workflow — Groups, Exercises, and Human Review
 
 > **2026-04-14 — Partially superseded by [ADR-053](ADR-053-groups-first-class-and-unified-sharing.md).** The `FOR_GROUP` edge described in this ADR has been retired. Curriculum (Exercise, PathStep, LearningPath) is now shared to groups via `SHARED_WITH_GROUP` through `UnifiedSharingService`. The rest of the workflow — teacher review, submissions, OWNS-based review queue — remains current.

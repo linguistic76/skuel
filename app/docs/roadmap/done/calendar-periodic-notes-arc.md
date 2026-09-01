@@ -1,3 +1,7 @@
+---
+updated: 2026-08-28
+---
+
 # Calendar × Periodic Notes Arc — Rulings & Contract
 
 **Status:** ✅ COMPLETE 2026-08-03 — all four PRs shipped the same day the arc went

@@ -1,6 +1,6 @@
 ---
 title: "ADR-064: Neo4j Per-Query Server-Side Timeout via Driver Wrapper"
-updated: 2026-05-28
+updated: 2026-08-29
 status: current
 category: decisions
 tags: [adr, decisions, architecture, neo4j, persistence, performance, hexagonal]

@@ -1,6 +1,6 @@
 ---
 title: UV Package Manager Guide
-updated: 2026-03-29
+updated: 2026-08-25
 category: guides
 related_skills:
 - python

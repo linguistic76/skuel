@@ -1,6 +1,6 @@
 ---
 title: ADR-010: Moc-Core-Service Query Architecture
-updated: 2025-11-26
+updated: 2026-01-25
 status: current
 category: decisions
 tags: [010, adr, core, decisions, moc]

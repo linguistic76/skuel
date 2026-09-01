@@ -1,3 +1,7 @@
+---
+updated: 2026-08-14
+---
+
 # Curriculum Developer Guide
 
 **Purpose:** Show curriculum developers how to build structured, interconnected learning content for the SKUEL system — starting from atomic concepts (Kus), composing them into teaching narratives (PathSteps), and linking everything into prerequisite chains that learners follow.

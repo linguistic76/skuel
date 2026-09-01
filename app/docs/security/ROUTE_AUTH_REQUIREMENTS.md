@@ -1,5 +1,6 @@
 ---
 related_skills: [security]
+updated: 2026-08-17
 ---
 # Route Authentication Requirements
 

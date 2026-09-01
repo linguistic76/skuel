@@ -1,6 +1,6 @@
 ---
 title: Error Handling Architecture
-updated: 2026-05-16
+updated: 2026-08-23
 category: patterns
 related_skills:
 - result-pattern

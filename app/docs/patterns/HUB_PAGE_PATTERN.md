@@ -1,6 +1,6 @@
 ---
 title: "Pattern: Hub Page (MOC) Implementation"
-updated: 2026-04-07
+updated: 2026-08-02
 status: current
 category: patterns
 tags: [ui, navigation, moc, hub, cards]

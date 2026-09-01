@@ -1,6 +1,6 @@
 ---
 title: Configuration-Driven Service Architecture
-updated: 2026-01-29
+updated: 2026-08-21
 category: patterns
 related_skills:
 - base-analytics-service

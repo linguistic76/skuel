@@ -1,6 +1,6 @@
 ---
 title: The 7 Subsystems — SKUEL's Functional Organization
-updated: 2026-04-19
+updated: 2026-08-11
 status: current
 category: architecture
 tags:

@@ -1,3 +1,7 @@
+---
+updated: 2026-08-16
+---
+
 # Development Setup Guide
 
 This guide covers setting up SKUEL for local development.

@@ -1,6 +1,6 @@
 ---
 title: Codebase Health Checks
-updated: 2026-08-12
+updated: 2026-09-01
 status: current
 category: tools
 tags: [health, scripts, dead-code, documentation, maintenance, drift]
@@ -23,6 +23,7 @@ Automated checks that prevent codebase drift — the kind that accumulates silen
 ./dev health-links        # broken doc links only
 ./dev health-names        # stale identifiers in docs only
 ./dev health-headings     # repeated headings under one parent only
+./dev health-updated      # docs whose `updated:` stamp has rotted or is missing
 ./dev health-xref         # cross-reference + staleness only
 ./dev health-mypy         # dead mypy suppressions only (~80s — NOT in ./dev health)
 ```
@@ -448,6 +449,110 @@ keep those subsections in separate scopes.
 
 ---
 
+### 7. `docs_updated.py` — Rotted `updated:` Frontmatter Stamps
+
+**What it catches:** a doc whose frontmatter `updated:` no longer reflects when the
+file actually changed — because the pre-commit stamper was bypassed with
+`--no-verify`, uninstalled, or silently stopped running.
+
+**Why the field is worth guarding at all.** Measured 2026-08-29 across 411 docs: 192
+carried no `updated:` at all, and **194 of the 219 that did were stale** — one by ten
+months. A hand-maintained date field does not survive contact with a codebase; the
+pre-commit stamp (`scripts/stamp_docs_updated.py`) makes it true by construction, and
+this check is what makes "by construction" verifiable rather than assumed.
+
+**The comparison is a rot threshold, not an equality check.** `gh pr merge --squash`
+builds the final commit server-side where no local hook runs — and rewrites the
+*author* date as well as the committer date, so "compare the author date instead" is
+not an escape hatch. A correctly stamped doc therefore trails its own merge commit by
+the review latency, and an equality check would red the gate on every merge. The
+window is `ROT_WINDOW_DAYS = 7` in `scripts/docs_updated_field.py`: at least the worst
+realistic squash latency plus a day of timezone-boundary skew, and far below the rot
+it exists to catch (149 of the 162 docs stale on 2026-08-31 lagged by over a week).
+
+**Six verdicts, structural ones first.** `malformed` / `missing` / `duplicate` /
+`unparsable` / `future` are checked before the date comparison, because a doc with no
+usable date has no lag to report and calling it "stale by N days" would be a lie.
+`malformed` means the document opens a `---` fence it never closes: `split_frontmatter`
+calls that "no frontmatter", which is right for a reader and dangerous for a writer — the
+stamper would prepend a second, valid block and the author's `title:`/`status:`/
+`related_skills:` would silently become body text. The stamper refuses those and prints
+which files it skipped; it still does not block the commit, and this check names them. The `missing` check
+carries the guard's main target: a doc committed with `--no-verify` can arrive with no
+`updated:` at all, and then there is no date that predates anything — a
+comparison-only checker stays green on exactly the bypass it exists to catch. The
+`future` check is the upper bound: without it `updated: 2099-01-01` passes forever and
+masks every unstamped edit until the date arrives.
+
+**Stamp-only commits are skipped, permanently.** The one-shot backfill that seeded
+this corpus became the newest commit for every file it rewrote, so compared naively
+every historical date it wrote predates it and the check would fail on nearly the whole
+corpus. The rule is stated permanently rather than as a hardcoded SHA, so any future
+stamp-only commit gets the same treatment.
+
+**A commit qualifies only if normalising both of its blobs to the same date makes them
+equal.** `apply_stamp` writes only the leading frontmatter block, so anything else that
+differs survives the normalisation — which makes the test positional by construction and
+handles all four write shapes (rewrite, requote, insert-into-block, create-block) with no
+special cases. Two weaker formulations were tried and both let real edits through:
+"every changed diff line is a fence or a blank" classified a commit that merely deleted
+two blank lines as stamp-only, and requiring a changed `^updated:` line still could not
+tell *where* that line sat — so a commit editing only the body `updated:` *example* in
+`docs/README.md` counted as stamp-only, and the real edit stayed invisible to the check
+indefinitely. Deciding it from content rather than from diff text also needs no
+`git log --name-only`, which could never have answered this at all: it emits paths, not
+lines. Hence the two-stage traversal in `docs_updated_field.load_history` — `--numstat`
+shortlists commits small enough to *possibly* be stamp-only, and only those pay for the
+blob comparison.
+
+**Scope is `app/docs/**/*.md`.** Skills are excluded (`SKILL.md` already carries
+`last_updated`, and the cross-reference validator reads a human-set `last_reviewed` — a
+third date key would be a duplicated fact, and auto-stamping a *review* date destroys
+its meaning); root `AGENTS.md`/`CLAUDE.md` are excluded (always-loaded instruction files
+read in full, not sampled for freshness). `docs/roadmap/done/` and other pinned archives
+are **not** exempt: an unedited doc's stamp already matches its last substantive commit,
+so the check is free on them, and an exemption would only open a hole.
+
+**Machine-generated docs are excluded, and say so themselves.** A doc whose first 15
+lines *assert* that it is generated — "this file is auto-generated", the shape both real
+artifacts use — is skipped, because a date written into generated content describes
+nothing: the next regeneration overwrites it, and the check would then report a correctly
+regenerated file as missing its key. Where the artifact is drift-tested the stamp is
+actively destructive — the backfill put a block on `reference/BASESERVICE_METHOD_INDEX.md`
+and `test_generate_method_index.py`, which byte-compares it against a fresh render, went
+red at once. ⚠️ **This exemption does not claim every excluded artifact is drift-tested.**
+`BASESERVICE_METHOD_INDEX.md` is; `CROSS_REFERENCE_INDEX.md` has no such test, so nothing
+currently notices if it drifts from `skills_metadata.yaml`. Excluding it is still right —
+a stamp would not have noticed either, since its generator rewrites the file wholesale —
+but that gap belongs to that generator, and closing it is separate work. The rule reads the same banner
+a human reads rather than keeping a list of generated paths, which would be a catalog
+copy that rots the first time a generator is added. It matches a self-assertion rather
+than the bare phrase, because the consequence runs the wrong way: a hand-maintained doc
+caught by a loose match ("this file is NOT auto-generated", "this guide explains
+AUTO-GENERATED indexes") is dropped from the guard permanently and *silently*, while a
+generated doc that omits the banner merely breaks its own drift test on the first stamp,
+loudly. Header-scoped for the same reason — over the corpus, an unqualified whole-file
+substring matches 12 files against the 2 real ones. The excluded paths are **named** on
+every run, not just counted, so a wrong exclusion is discoverable rather than silent.
+
+**It refuses to run in a shallow clone.** Staleness is decided from per-file commit
+history, and `actions/checkout` fetches a single commit by default. In that repository
+every doc's only commit is HEAD: if HEAD touched docs, all of them date from it and the
+check reports the whole corpus stale (measured: 343 of 410 in a depth-1 clone); if HEAD
+did not, no file has any history and a naive walk reports a clean green having checked
+nothing. It exits **2** — distinct from 1 (found defects) — because "could not measure"
+and "measured, all clean" must never be the same signal. `weekly-janitor.yml` sets
+`fetch-depth: 0`; the refusal exists so the next workflow that forgets fails loudly
+instead of publishing a number. A tracked doc the traversal never saw is refused for the
+same reason — it means the file list and the history were joined on different path bases.
+
+⚠️ **`updated:` is evidence of freshness only within this window, and only because this
+check runs.** Do not cite the field as staleness evidence anywhere else.
+
+**Run:** `./dev health-updated`
+
+---
+
 ## Maintaining `stale_names.py`
 
 This script is only as useful as its RENAMED/DELETED tables. **Update it whenever you rename or delete something significant.**
@@ -550,8 +655,12 @@ scripts/health/
 ├── dead_doc_links.py                  # Markdown link validator
 ├── stale_names.py                     # Deprecated identifier scanner
 ├── duplicate_headings.py              # Repeated headings under one parent
+├── docs_updated.py                    # Rotted / missing `updated:` frontmatter stamps
 ├── markdown_fences.py                 # Shared CommonMark fence walker (links + names)
 └── mypy_suppressions.py               # Dead mypy suppression auditor
+scripts/docs_updated_field.py          # Shared stamp mechanics (guard + stamper + backfill)
+scripts/stamp_docs_updated.py          # Pre-commit stamper (hook check 0)
+scripts/backfill_docs_updated.py       # One-shot seed from commit history
 scripts/validate_cross_references.py   # Skill↔doc cross-reference validator
 ```
 

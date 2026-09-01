@@ -1,3 +1,7 @@
+---
+updated: 2026-08-13
+---
+
 # Profile Routes Security & Robustness Improvements
 
 > **Status: SHIPPED 2026-01-25.** All medium-and-above items were implemented; see

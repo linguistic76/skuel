@@ -1,3 +1,7 @@
+---
+updated: 2026-08-05
+---
+
 # FormGenerator User Guide
 
 **Location:** `ui/patterns/form_generator.py`

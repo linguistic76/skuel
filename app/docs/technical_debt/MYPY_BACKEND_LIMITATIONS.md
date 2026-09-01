@@ -1,6 +1,6 @@
 ---
 title: MyPy Limitations in Universal Backend
-updated: 2026-03-26
+updated: 2026-06-01
 status: current
 category: technical-debt
 tags: [backend, limitations, mypy, technical-debt]

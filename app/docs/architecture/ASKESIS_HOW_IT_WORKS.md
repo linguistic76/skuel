@@ -1,3 +1,7 @@
+---
+updated: 2026-08-31
+---
+
 # How Askesis Works
 
 **Last Updated:** August 31, 2026 (intent activation — PR-2)

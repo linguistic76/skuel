@@ -1,3 +1,7 @@
+---
+updated: 2026-08-13
+---
+
 # MOC + knowledge channel — design rulings
 
 **Ruled** 2026-07-04. **Shipped:** MOC ingestion arc (#506, #507); vault exercise channel

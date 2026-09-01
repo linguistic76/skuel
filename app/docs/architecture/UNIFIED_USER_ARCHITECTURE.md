@@ -1,6 +1,6 @@
 ---
 title: User Architecture — User Model, Auth, Roles, and UserContext
-updated: 2026-03-03
+updated: 2026-08-29
 status: current
 category: architecture
 tags:

@@ -1,6 +1,6 @@
 ---
 title: Relationships Architecture
-updated: 2026-07-29
+updated: 2026-08-29
 status: current
 category: architecture
 version: 2.0.0

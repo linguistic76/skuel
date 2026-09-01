@@ -1,6 +1,6 @@
 ---
 title: Unified Ingestion Implementation Guide
-updated: 2026-07-23
+updated: 2026-08-28
 category: patterns
 related_skills: []
 related_docs:

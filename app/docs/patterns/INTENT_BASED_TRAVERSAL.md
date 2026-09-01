@@ -1,6 +1,6 @@
 ---
 title: Intent-Based Graph Traversal
-updated: 2026-06-04
+updated: 2026-08-15
 category: patterns
 related_skills: []
 related_docs:

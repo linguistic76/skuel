@@ -1,3 +1,7 @@
+---
+updated: 2026-07-23
+---
+
 # ADR-082: Askesis instruction home — authored pedagogy floors + grounding projection
 
 **Status:** Accepted — founder-confirmed 2026-07-23 (D1=B with stance, D2=B both branches + per-turn rich, D3=B authoring-parity-only, D4=PLANNED all four with ku_bridge first; PR1 instruction-home → PR2 grounding)

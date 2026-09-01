@@ -1,3 +1,7 @@
+---
+updated: 2026-08-05
+---
+
 # UX Improvements Integration Guide
 
 This guide provides step-by-step instructions for integrating the newly implemented UX improvements into SKUEL.

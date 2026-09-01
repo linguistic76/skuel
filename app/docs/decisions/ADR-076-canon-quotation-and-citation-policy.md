@@ -1,3 +1,7 @@
+---
+updated: 2026-07-09
+---
+
 # ADR-076: Canon Quotation & Citation Policy — the Companion May Quote and Cite the Shelf
 
 **Status:** Accepted — design confirmed with Mike; Phases A–D implemented on the journal

@@ -1,3 +1,7 @@
+---
+updated: 2026-08-08
+---
+
 # ZPDService — Design & Architecture
 
 > "The plant grows on the lattice — ZPDService reads the graph to know where the user is

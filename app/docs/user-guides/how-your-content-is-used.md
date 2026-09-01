@@ -1,3 +1,7 @@
+---
+updated: 2026-07-01
+---
+
 # How Your Content Is Used — SKUEL.app
 
 This guide explains what happens to everything you put into SKUEL: your tasks and goals, your journal entries, your audio recordings, your vault files. It covers what stays on your device, what is stored by SKUEL, and what (if anything) leaves SKUEL to reach an external service.

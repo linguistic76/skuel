@@ -1,3 +1,7 @@
+---
+updated: 2026-08-21
+---
+
 # Feedback-Loop UX — Design & Choices (Arc 1: fix it, make it legible, thread it)
 
 **Status:** COMPLETE — all 4 PRs merged (#902–#905); moved to done/ 2026-08-21 (triage pass

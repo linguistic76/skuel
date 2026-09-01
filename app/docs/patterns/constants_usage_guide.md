@@ -1,6 +1,6 @@
 ---
 title: Constants Usage Guide
-updated: 2025-11-27
+updated: 2026-08-11
 category: patterns
 related_skills: []
 related_docs: []

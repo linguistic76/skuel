@@ -1,3 +1,7 @@
+---
+updated: 2026-07-29
+---
+
 # Intelligence Backlog
 
 Deferred intelligence gaps. Each item has a clear trigger condition and implementation guide.

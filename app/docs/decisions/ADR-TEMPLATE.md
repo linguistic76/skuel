@@ -1,6 +1,6 @@
 ---
 title: "ADR-XXX: [Short Title of Decision]"
-updated: 2025-11-26
+updated: 2026-05-21
 status: current
 category: decisions
 tags: [adr, decisions, template]

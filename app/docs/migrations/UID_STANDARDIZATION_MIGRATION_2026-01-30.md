@@ -1,3 +1,7 @@
+---
+updated: 2026-08-14
+---
+
 # UID Standardization Migration - Underscore Convention
 
 **Date:** 2026-01-30

@@ -1,6 +1,6 @@
 ---
 title: Error Handling Decorators - DRY Pattern Guide
-updated: '2026-02-02'
+updated: '2026-08-21'
 category: patterns
 related_skills:
 - result-pattern

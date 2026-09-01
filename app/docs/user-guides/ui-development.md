@@ -1,3 +1,7 @@
+---
+updated: 2026-08-09
+---
+
 # UI Development Guide
 
 **Last Updated:** 2026-06-30

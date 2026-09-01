@@ -1,3 +1,7 @@
+---
+updated: 2026-08-21
+---
+
 # Feedback-Loop UX — Design & Choices (Arc 2: GradeBook centerpiece, waiting both ways, inbox identity)
 
 **Status:** COMPLETE — all 3 PRs merged (#906–#908); moved to done/ 2026-08-21 (triage

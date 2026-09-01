@@ -1,3 +1,7 @@
+---
+updated: 2026-07-27
+---
+
 # TasksIntelligenceService - Behavioral & Performance Intelligence
 
 ## Overview

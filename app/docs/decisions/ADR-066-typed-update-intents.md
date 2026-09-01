@@ -1,6 +1,6 @@
 ---
 title: "ADR-066: Typed Update Intents (frozen `*UpdateIntent`, one update path)"
-updated: 2026-06-04
+updated: 2026-08-08
 status: current
 category: decisions
 tags: [adr, decisions, architecture, dto, immutability, typing, hexagonal, activity-domains]

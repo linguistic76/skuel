@@ -1,6 +1,6 @@
 ---
 title: Event-Driven Architecture
-updated: 2026-03-25
+updated: 2026-08-28
 category: patterns
 related_skills:
 - python

@@ -1,6 +1,6 @@
 ---
 title: PrerequisiteChecker & the Learning-Requirements Lens
-updated: 2026-06-06
+updated: 2026-08-07
 category: patterns
 related_docs:
   - /docs/intelligence/GOALS_INTELLIGENCE.md

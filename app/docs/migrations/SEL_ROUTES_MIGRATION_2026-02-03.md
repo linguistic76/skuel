@@ -1,3 +1,7 @@
+---
+updated: 2026-03-11
+---
+
 # SEL Routes Migration to DomainRouteConfig Pattern
 
 **Date:** 2026-02-03

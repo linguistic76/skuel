@@ -1,7 +1,7 @@
 ---
 title: SKUEL Documentation Hub
 created: 2025-10-17
-updated: 2026-03-03
+updated: 2026-09-01
 status: active
 audience: all
 tags: [documentation, index, hub, architecture, patterns]
@@ -96,8 +96,6 @@ See [decisions/](decisions/) for all ADRs.
 
 ### YAML Frontmatter
 
-All markdown documents include:
-
 ```yaml
 ---
 title: Document Title
@@ -108,6 +106,19 @@ tags: [tag1, tag2]
 related: [other_doc.md]
 ---
 ```
+
+**`updated:` is machine-maintained — never edit it by hand.** The pre-commit hook
+(`scripts/stamp_docs_updated.py`) rewrites it on every staged doc, and
+`./dev health-updated` fails when a doc's stamp has rotted past a merge-latency
+window or is missing entirely. A doc created without frontmatter gets the block and
+the key created for it at commit time. Hand-editing the field is at best a no-op and
+at worst a lie the guard will catch. See
+[tools/HEALTH_CHECKS.md § 7](tools/HEALTH_CHECKS.md).
+
+The other keys are authored, and each is optional where it does not apply — `title:`
+and `category:` on reference material, `related_skills:` where a skill covers the
+doc (the cross-reference validator reads that one). A document carrying only
+`updated:` is a normal, valid document.
 
 ### Status Values
 

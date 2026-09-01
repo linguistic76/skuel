@@ -1,7 +1,7 @@
 ---
 title: Search Models Reference
 created: 2026-01-03
-updated: 2026-01-04
+updated: 2026-08-31
 status: active
 category: reference
 tags: [search, models, reference, pedagogical, nous]

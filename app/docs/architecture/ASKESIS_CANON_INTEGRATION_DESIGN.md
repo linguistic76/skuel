@@ -1,3 +1,7 @@
+---
+updated: 2026-08-30
+---
+
 # Askesis × Canon — PS-Scoped Readings in Socratic Guidance
 
 **Status:** Approved design — Phase 1 shipped.

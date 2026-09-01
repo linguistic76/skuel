@@ -1,3 +1,7 @@
+---
+updated: 2026-08-29
+---
+
 # Feedback-Loop Staged Directions — Peer Feedback, Reply Artifact, Read-State
 
 **Status:** STAGED — not scheduled. Intent + un-staging gates only; **no code exists for

@@ -1,7 +1,7 @@
 ---
 title: MOC (Map of Content) - KU-Based Architecture
 created: 2025-12-04
-updated: 2026-01-20
+updated: 2026-03-30
 status: current
 category: domains
 tags:

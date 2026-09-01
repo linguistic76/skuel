@@ -1,7 +1,7 @@
 ---
 title: Documentation Naming Convention
 created: 2026-01-03
-updated: 2026-01-03
+updated: 2026-03-20
 status: active
 category: reference
 tags: [documentation, naming, convention]

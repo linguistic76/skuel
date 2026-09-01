@@ -1,3 +1,7 @@
+---
+updated: 2026-03-27
+---
+
 # A/B Testing Infrastructure
 
 **Version:** 1.0.0

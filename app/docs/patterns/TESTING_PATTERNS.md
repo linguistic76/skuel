@@ -1,6 +1,6 @@
 ---
 title: Testing Patterns
-updated: 2026-03-19
+updated: 2026-08-21
 category: patterns
 related_skills:
 - pytest

@@ -1,3 +1,7 @@
+---
+updated: 2026-08-21
+---
+
 # ADR-078: Discussion Sessions Are Stored but Never Understood
 
 **Status:** Accepted — **founder-confirmed 2026-07-13** ("I confirm I abide by the ADR").

@@ -1,6 +1,6 @@
 ---
 title: BackendOperations Protocol Architecture
-updated: 2026-07-26
+updated: 2026-08-24
 category: patterns
 related_skills: []
 related_docs:

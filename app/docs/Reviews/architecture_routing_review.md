@@ -1,3 +1,7 @@
+---
+updated: 2026-04-07
+---
+
 # Application Interoperability & Routing Review
 
 This review analyzes the current state of interconnections within the application, specifically focusing on how the routing architecture binds the core parts together. Based on an exploration of  `/app` directory, the routing architecture acts as the primary connective tissue linking your data persistence layers, business domains, and UI.

@@ -1,3 +1,7 @@
+---
+updated: 2026-03-11
+---
+
 # Visualization Routes Refactoring Summary
 *Completed: 2026-01-25*
 

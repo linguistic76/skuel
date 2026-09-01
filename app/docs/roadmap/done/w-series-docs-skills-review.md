@@ -1,3 +1,7 @@
+---
+updated: 2026-08-13
+---
+
 # W-Series Docs & Skills Review — Scoping / Punch-List
 
 **Status:** ✅ Done — executed 2026-05-26 (docs-only sweep, 9 files) · **Created:** 2026-05-26 · **Author:** scoped from the W1 implementation thread

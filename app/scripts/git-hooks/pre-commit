@@ -1,7 +1,16 @@
 #!/usr/bin/env bash
 # SKUEL pre-commit hook — single canonical script.
 #
-# Runs four independent checks; failure of ANY blocks the commit:
+# Runs one rewrite and four independent checks; failure of ANY check blocks the
+# commit:
+#
+#   0. Docs `updated:` auto-stamp
+#      - only when at least one app/docs/**/*.md is staged
+#      - runs scripts/stamp_docs_updated.py, which sets each staged doc's
+#        frontmatter `updated:` to today (UTC) in the INDEX and the worktree both,
+#        creating the block when a new doc has none
+#      - never blocks the commit; it rewrites rather than reports
+#      - deliberately first, so checks 1-2 see the content that will actually land
 #
 #   1. Secret-leak scan
 #      - .env / .env.local / .env.<anything> files staged
@@ -32,6 +41,9 @@
 #        never block an unrelated commit; the CI Lint job is the full-tree gate.
 #
 # Bypass (use sparingly, prefer fixing):
+#   SKUEL_SKIP_DOC_STAMP=1 git commit ...  # skip the docs `updated:` stamp only
+#                                          # (required for the one-shot backfill,
+#                                          #  which writes HISTORICAL dates)
 #   SKUEL_ALLOW_SECRETS=1 git commit ...   # skip secret scan only
 #   SKUEL_SKIP_MYPY=1     git commit ...   # skip MyPy only
 #   SKUEL_SKIP_LINT=1     git commit ...   # skip Ruff + SKUEL lint only
@@ -48,6 +60,35 @@ green()  { printf '\033[32m%s\033[0m\n' "$*"; }
 
 repo_root="$(git rev-parse --show-toplevel)"
 fail=0
+
+# =========================================================================
+# Check 0 — Docs `updated:` auto-stamp
+# =========================================================================
+# Runs BEFORE the scans below so they read what will be committed, and before
+# check 2 so the cross-reference validator sees any frontmatter block this
+# creates. Rewrites the index entry directly (never `git add`, which would stage
+# hunks the author left out of a `git add -p`); see the script docstring.
+if [[ "${SKUEL_SKIP_DOC_STAMP:-0}" == "1" ]]; then
+  yellow "⚠ SKUEL_SKIP_DOC_STAMP=1 set — skipping the docs \`updated:\` stamp."
+else
+  # -z, because three docs under design-principles/ have spaces in their names.
+  #
+  # `grep -c`, not `grep -q`: -q exits on the FIRST match and closes the pipe, so once
+  # the staged list exceeds the pipe buffer `git diff` takes SIGPIPE, `pipefail` makes
+  # the pipeline 141, and the stamper is silently skipped on exactly the large commits
+  # that need it most (reproduced with 2000 staged docs). -c reads all of its input.
+  # This is the trap PR #931 already recorded for `sed | head -c`.
+  staged_doc_count=$(git diff --cached --name-only -z --diff-filter=ACMR \
+    | grep -cz '^app/docs/.*\.md$' || true)
+  if [[ "${staged_doc_count:-0}" -gt 0 ]]; then
+    if ! ( cd "$repo_root/app" && uv run python scripts/stamp_docs_updated.py ); then
+      red "✗ Docs \`updated:\` stamp failed"
+      yellow "  Reproduce:   cd app && uv run python scripts/stamp_docs_updated.py"
+      yellow "  Bypass once: SKUEL_SKIP_DOC_STAMP=1 git commit ..."
+      fail=1
+    fi
+  fi
+fi
 
 # =========================================================================
 # Check 1 — Secret-leak scan
@@ -216,6 +257,8 @@ if [[ $fail -ne 0 ]]; then
   yellow "      SKUEL_SKIP_MYPY=1     git commit ..."
   yellow "  • Skip just the Ruff + SKUEL lint check:"
   yellow "      SKUEL_SKIP_LINT=1     git commit ..."
+  yellow "  • Skip just the docs \`updated:\` stamp (backfill / historical dates):"
+  yellow "      SKUEL_SKIP_DOC_STAMP=1 git commit ..."
   yellow "  • Skip ALL checks (use only if you understand the trade-off):"
   yellow "      git commit --no-verify ..."
   yellow "Real key in staged diff? Rotate it now and unstage."

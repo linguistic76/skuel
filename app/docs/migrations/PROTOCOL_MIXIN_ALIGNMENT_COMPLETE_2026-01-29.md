@@ -1,3 +1,7 @@
+---
+updated: 2026-03-27
+---
+
 # Protocol-Mixin Alignment - COMPLETE ✅
 *Completed: 2026-01-29*
 

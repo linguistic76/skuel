@@ -1,3 +1,7 @@
+---
+updated: 2026-08-30
+---
+
 # PathStep Content Architecture
 ## How YAML Files, Neo4j Nodes, and Content Blocks Relate
 

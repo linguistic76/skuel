@@ -1,3 +1,7 @@
+---
+updated: 2026-08-29
+---
+
 # Substance-Write Grain — the `ku_uid` That May Not Be a Ku
 
 *✅ ARC CLOSED 2026-08-21 — executed with item C riding, as scheduled. Nothing here

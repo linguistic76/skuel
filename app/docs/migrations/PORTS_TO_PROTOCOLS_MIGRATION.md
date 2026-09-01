@@ -1,7 +1,7 @@
 ---
 title: Ports to Protocols Migration History
 created: 2026-01-03
-updated: 2026-01-03
+updated: 2026-07-28
 status: complete
 category: migration
 tags: [migration, protocols, ports, history]

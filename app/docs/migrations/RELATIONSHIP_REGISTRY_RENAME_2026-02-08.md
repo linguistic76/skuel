@@ -3,6 +3,7 @@ title: Relationship Registry Rename - _UNIFIED to _CONFIG
 date: 2026-02-08
 category: migrations
 tags: [naming, refactor, one-path-forward]
+updated: 2026-03-30
 ---
 
 # Relationship Registry Rename: `_UNIFIED` → `_CONFIG`

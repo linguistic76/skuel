@@ -1,3 +1,7 @@
+---
+updated: 2026-08-13
+---
+
 # Content-hash move detection for uid-less vault files
 
 **Shipped** 2026-07-12 — Phase 1 exact-hash (#617), Phase 2 similarity (#618). Closes the

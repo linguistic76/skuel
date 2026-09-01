@@ -1,6 +1,6 @@
 ---
 title: Discovery Analytics Roadmap
-updated: 2026-07-10
+updated: 2026-08-21
 status: current
 category: intelligence
 tags: [analytics, discovery, intelligence, roadmap, search]

@@ -1,3 +1,7 @@
+---
+updated: 2026-06-12
+---
+
 # ADR-046: Activity Domains Connect to Ku via Graph Edges, Not Inheritance
 
 **Status:** Accepted

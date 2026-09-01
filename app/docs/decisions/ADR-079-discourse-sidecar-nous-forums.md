@@ -1,3 +1,7 @@
+---
+updated: 2026-07-16
+---
+
 # ADR-079: Discourse Sidecar for NOUS Community Forums (Staged)
 
 **Status:** Proposed — **staged, not scheduled.** This is a choices-doc written ahead of need

@@ -1,6 +1,6 @@
 ---
 title: ADR-023: Unified BaseService Architecture
-updated: 2026-01-06
+updated: 2026-03-30
 status: accepted
 category: decisions
 tags: [adr, decisions, baseservice, unified-architecture, search, curriculum]

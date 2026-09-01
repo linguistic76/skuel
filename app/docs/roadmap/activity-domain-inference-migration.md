@@ -1,3 +1,7 @@
+---
+updated: 2026-06-21
+---
+
 # Activity Domain Inference Migration
 
 **Status:** Tasks complete (ADR-065, PR #101 merged `4b082db4` 2026-05-28). Goals, Habits, Events, Choices, Principles pending — **blocked on product demand, not on engineering readiness** (see [Blockage status](#blockage-status-verified-2026-05-31)).

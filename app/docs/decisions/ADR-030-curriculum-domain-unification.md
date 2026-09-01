@@ -1,3 +1,7 @@
+---
+updated: 2026-03-30
+---
+
 # ADR-030: Curriculum Domain Unification
 
 **Status:** Accepted

@@ -1,3 +1,7 @@
+---
+updated: 2026-03-30
+---
+
 # Activity Domain UI Code Quality Improvements
 
 **Date**: 2026-01-24

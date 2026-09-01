@@ -1,6 +1,6 @@
 ---
 title: HTMX Accessibility Patterns
-updated: '2026-02-26'
+updated: '2026-08-12'
 category: patterns
 related_skills:
 - accessibility-guide

@@ -1,7 +1,7 @@
 ---
 title: Principles Domain
 created: 2025-12-04
-updated: 2026-06-18
+updated: 2026-08-19
 status: current
 category: domains
 tags: [principles, activity-domain, domain, reflections, planning]

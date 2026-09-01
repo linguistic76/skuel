@@ -1,3 +1,7 @@
+---
+updated: 2026-08-31
+---
+
 # Askesis Intelligence - Cross-Cutting Life Context Synthesis
 
 **Last Updated:** August 31, 2026 (intent activation — PR-2)

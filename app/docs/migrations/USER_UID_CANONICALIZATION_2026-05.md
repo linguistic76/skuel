@@ -1,3 +1,7 @@
+---
+updated: 2026-05-23
+---
+
 # user_uid Canonicalization — Underscore Convention
 
 **Date:** 2026-05-22

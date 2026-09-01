@@ -1,3 +1,7 @@
+---
+updated: 2026-08-21
+---
+
 # Intelligence Backlog: Implementation Guide
 
 Four deferred intelligence gaps. Each item has a concrete starting point, the exact files

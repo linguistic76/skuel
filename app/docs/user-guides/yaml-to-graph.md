@@ -1,3 +1,7 @@
+---
+updated: 2026-08-30
+---
+
 # YAML to Graph — A Creator's Guide to SKUEL Content
 
 *Last updated: 2026-07-06*

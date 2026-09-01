@@ -1,3 +1,7 @@
+---
+updated: 2026-08-08
+---
+
 # Shared Intelligence Utilities
 
 **Last Updated:** June 12, 2026

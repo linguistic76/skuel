@@ -1,6 +1,6 @@
 ---
 title: Graph Access Patterns Guide
-updated: 2026-02-18
+updated: 2026-06-12
 category: patterns
 related_skills:
 - pytest

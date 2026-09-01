@@ -1,3 +1,7 @@
+---
+updated: 2026-02-14
+---
+
 # Context Health Score Enum Improvement
 *Completed: 2026-01-25*
 

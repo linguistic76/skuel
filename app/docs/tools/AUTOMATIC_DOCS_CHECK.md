@@ -1,3 +1,7 @@
+---
+updated: 2026-07-09
+---
+
 # Automatic Documentation Check
 **Status:** Active (Claude Code PostToolUse hook)
 **Date Added:** 2026-01-30

@@ -1,3 +1,7 @@
+---
+updated: 2026-03-11
+---
+
 # Semantic Search Phase 1 Test Report
 
 **Test Suite:** Semantic-Enhanced Search & Learning-Aware Search

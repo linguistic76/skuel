@@ -1,3 +1,7 @@
+---
+updated: 2026-08-21
+---
+
 # Any Usage Policy
 
 *Last updated: 2026-07-28*

@@ -1,3 +1,7 @@
+---
+updated: 2026-08-31
+---
+
 # Askesis Intent Classification — Activation Arc
 
 **Status:** PR-1 SHIPPED + **BASELINE RATIFIED 2026-08-31** (Mike) + **PR-2 SHIPPED

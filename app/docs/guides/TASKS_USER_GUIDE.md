@@ -1,7 +1,7 @@
 ---
 title: Tasks User Guide
 created: 2026-06-25
-updated: 2026-06-25
+updated: 2026-08-25
 status: current
 category: guides
 tags: [tasks, user-guide, goals, subtasks, obsidian, learning-loop, applied-knowledge]

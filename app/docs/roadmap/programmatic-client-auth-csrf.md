@@ -1,3 +1,7 @@
+---
+updated: 2026-08-21
+---
+
 # Programmatic-Client Auth — Token Path for CSRF-Exempt Endpoints
 
 **Context**: The route-security sweep (PR #1, commits `c78e3861` → `8ab04eb8`,

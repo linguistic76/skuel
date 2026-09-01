@@ -1,3 +1,7 @@
+---
+updated: 2026-08-14
+---
+
 # P3 — Ephemeral by Default, *Save this Chat* to Persist (both doors)
 
 > **✅ Confirmed and shipped 2026-07-13.** The rulings below were founder-confirmed and the

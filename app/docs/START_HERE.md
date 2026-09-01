@@ -1,6 +1,6 @@
 ---
 title: Start Here — New Developer Onboarding
-updated: 2026-03-20
+updated: 2026-08-11
 status: current
 category: onboarding
 tags: [onboarding, getting-started, newcomer]

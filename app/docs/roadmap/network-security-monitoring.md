@@ -1,3 +1,7 @@
+---
+updated: 2026-03-10
+---
+
 # Network Security Monitoring — Roadmap
 
 **Status**: Informational — not actionable until Stage 2 (Droplet deployment)

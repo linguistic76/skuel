@@ -1,6 +1,6 @@
 ---
 title: Report Mastery Architecture
-updated: 2026-04-02
+updated: 2026-06-13
 status: current
 category: architecture
 related:

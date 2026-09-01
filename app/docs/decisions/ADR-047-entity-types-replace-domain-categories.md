@@ -1,3 +1,7 @@
+---
+updated: 2026-05-11
+---
+
 # ADR-047: Entity Types Replace Domain Categories
 
 **Status:** Accepted

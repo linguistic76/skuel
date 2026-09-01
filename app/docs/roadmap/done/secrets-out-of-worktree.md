@@ -1,3 +1,7 @@
+---
+updated: 2026-08-21
+---
+
 # Secrets Out of the Worktree
 
 **Status**: Stages 1, 2, 3 all shipped. Keyring is the canonical store.

@@ -1,3 +1,7 @@
+---
+updated: 2026-07-02
+---
+
 # Review — Sync Unification (#482): "One Path Forward" Residual Surfaces
 
 **Reviewed commit:** `638d2fa` — *refactor(vault): unify sync onto a descriptor

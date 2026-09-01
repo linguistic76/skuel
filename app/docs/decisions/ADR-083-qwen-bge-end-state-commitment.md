@@ -1,3 +1,7 @@
+---
+updated: 2026-07-25
+---
+
 # ADR-083: Qwen + BGE End-State — Committed Destination, Staged Convergence
 
 **Status:** Accepted — founder-confirmed 2026-07-24

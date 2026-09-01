@@ -1,3 +1,7 @@
+---
+updated: 2026-08-14
+---
+
 # user_uid ↔ :OWNS Ownership-Signal Reconciliation
 
 **Date:** 2026-06-06

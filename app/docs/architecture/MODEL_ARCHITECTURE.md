@@ -1,3 +1,7 @@
+---
+updated: 2026-08-20
+---
+
 # Model Architecture
 *Last updated: 2026-03-03*
 

@@ -1,6 +1,6 @@
 ---
 title: Performance Monitoring System
-updated: 2026-01-31
+updated: 2026-07-18
 category: patterns
 related_skills:
   - prometheus-grafana

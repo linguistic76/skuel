@@ -1,6 +1,6 @@
 ---
 title: Protocol LSP Compliance Pattern
-updated: 2026-01-20
+updated: 2026-04-14
 category: patterns
 related_skills:
 - python

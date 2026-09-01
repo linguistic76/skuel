@@ -1,3 +1,7 @@
+---
+updated: 2026-08-28
+---
+
 # Cypher Vocabulary Findings (SKUEL030 introduction sweep, 2026-07-19)
 
 **Status: the vocabulary backlog is CLOSED as of tranche 5 (2026-07-20).** All of

@@ -1,3 +1,7 @@
+---
+updated: 2026-08-08
+---
+
 # Learning Loop Cross-Domain Search
 
 *Created: 2026-03-07*

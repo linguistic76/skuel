@@ -1,3 +1,7 @@
+---
+updated: 2026-03-11
+---
+
 # BaseService Architecture Improvements
 **Date:** 2026-01-29
 **Status:** Completed (Priorities 2, 3, 4, 6)

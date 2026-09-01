@@ -1,6 +1,6 @@
 ---
 title: MyPy Zero-Error Strategy - From Pragmatic Acceptance to Clean Baseline
-updated: 2026-03-27
+updated: 2026-08-09
 category: patterns
 related_skills: []
 related_docs:

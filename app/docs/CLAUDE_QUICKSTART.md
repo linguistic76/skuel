@@ -1,7 +1,7 @@
 ---
 title: Claude Quick Start Guide
 created: 2025-12-04
-updated: 2026-05-16
+updated: 2026-08-15
 status: current
 category: guides
 tags: [claude, quickstart, onboarding, ai-assistant]

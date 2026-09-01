@@ -1,7 +1,7 @@
 ---
 title: LP (Learning Path) Domain
 created: 2025-12-04
-updated: 2026-04-11
+updated: 2026-07-27
 status: current
 category: domains
 tags:

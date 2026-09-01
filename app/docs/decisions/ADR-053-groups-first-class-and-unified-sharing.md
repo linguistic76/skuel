@@ -1,3 +1,7 @@
+---
+updated: 2026-04-14
+---
+
 # ADR-053: Groups First-Class + Unified Sharing
 
 > **2026-04-14 — Extended by [ADR-054](ADR-054-user-entry-unified-submissions.md).** This ADR unified the teacher → student direction of sharing on `SHARED_WITH_GROUP`. ADR-054 makes the student → teacher direction symmetric by collapsing `Submission`/`ExerciseSubmission`/`JeInput`/`JeOutput` into a single `UserEntry` type that is shared via `UnifiedSharingService` at submit time.

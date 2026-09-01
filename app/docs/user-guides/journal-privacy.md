@@ -1,3 +1,7 @@
+---
+updated: 2026-06-28
+---
+
 # Journal Privacy — What SKUEL Stores, Who Can See It, and Our Commitment
 
 This document covers journal entries specifically. For how SKUEL handles all other content types (tasks, goals, audio, vault files), see [How Your Content Is Used](how-your-content-is-used.md).

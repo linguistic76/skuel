@@ -1,3 +1,7 @@
+---
+updated: 2026-08-11
+---
+
 # Type Safety Architecture Overview
 
 *Last updated: 2026-03-28 (submission/report protocol enum enforcement, new TypedDicts)*

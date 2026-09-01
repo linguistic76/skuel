@@ -1,6 +1,6 @@
 ---
 title: ADR-028: KU & MOC Unified Relationship Migration
-updated: 2026-01-07
+updated: 2026-03-09
 status: current
 category: decisions
 tags: [adr, decisions, relationships, unified-architecture, ku, moc]

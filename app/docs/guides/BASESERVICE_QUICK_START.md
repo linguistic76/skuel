@@ -1,3 +1,7 @@
+---
+updated: 2026-06-21
+---
+
 # BaseService Quick Start Guide
 
 **Purpose:** Get new developers productive with SKUEL's BaseService architecture in <30 minutes.

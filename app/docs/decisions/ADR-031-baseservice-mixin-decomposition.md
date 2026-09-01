@@ -1,6 +1,6 @@
 ---
 title: ADR-031: BaseService Mixin Decomposition
-updated: 2026-01-21
+updated: 2026-03-11
 status: current
 category: decisions
 tags: [adr, decisions, baseservice, mixin, srp, decomposition]

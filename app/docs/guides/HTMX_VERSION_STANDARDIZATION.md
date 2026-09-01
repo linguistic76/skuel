@@ -1,6 +1,6 @@
 ---
 title: HTMX Version Standardization Guide
-updated: 2026-01-15
+updated: 2026-08-13
 status: current
 category: guides
 tags:

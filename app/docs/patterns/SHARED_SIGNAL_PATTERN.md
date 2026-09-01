@@ -1,6 +1,6 @@
 ---
 title: Shared Signal Pattern
-updated: 2026-04-21
+updated: 2026-08-11
 status: proposed
 category: patterns
 tags: [patterns, activity-domains, intelligence, protocols, cross-cutting, design]

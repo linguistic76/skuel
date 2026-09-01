@@ -1,6 +1,6 @@
 ---
 title: ADR-006: Knowledge Gaps for Goals Query Architecture
-updated: 2025-11-27
+updated: 2026-02-23
 status: current
 category: decisions
 tags: [006, adr, decisions, gaps, goals]

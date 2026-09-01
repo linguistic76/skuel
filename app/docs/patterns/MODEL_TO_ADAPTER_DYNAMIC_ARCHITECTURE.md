@@ -1,6 +1,6 @@
 ---
 title: Model-to-Adapter Dynamic Architecture
-updated: 2026-05-26
+updated: 2026-08-29
 category: patterns
 related_skills: []
 related_docs:

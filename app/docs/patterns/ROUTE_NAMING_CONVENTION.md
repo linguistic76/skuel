@@ -1,6 +1,6 @@
 ---
 title: Route File Naming Convention
-updated: '2026-02-02'
+updated: '2026-04-14'
 category: patterns
 related_skills:
 - fasthtml

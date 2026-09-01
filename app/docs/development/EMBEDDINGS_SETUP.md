@@ -1,5 +1,6 @@
 ---
 title: Embeddings Setup
+updated: 2026-08-16
 ---
 # Embeddings Setup (OpenAI Embeddings API)
 

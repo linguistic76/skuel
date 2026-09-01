@@ -1,3 +1,7 @@
+---
+updated: 2026-08-15
+---
+
 # ADR-074: Ingestion Never Embeds Inline — One Post-Persist Event Chokepoint for Both Doors
 
 **Status:** Accepted — PR 1 (#487, post-persist chokepoint), PR 2 (#488, chunk unification),

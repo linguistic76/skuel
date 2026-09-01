@@ -1,6 +1,6 @@
 ---
 title: The 3-Layer Lens — A Cross-Cutting View of SKUEL
-updated: 2026-04-19
+updated: 2026-08-12
 status: current
 category: architecture
 tags:

@@ -1,7 +1,7 @@
 ---
 title: Type Safety Design Philosophy
 created: 2026-03-27
-updated: 2026-03-28
+updated: 2026-08-11
 status: active
 audience: all
 tags: [architecture, type-safety, philosophy, ontology, security, dsl]

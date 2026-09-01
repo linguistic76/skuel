@@ -1,3 +1,7 @@
+---
+updated: 2026-08-08
+---
+
 # Edge Ingestion Support
 
 *Created: 2026-03-07*

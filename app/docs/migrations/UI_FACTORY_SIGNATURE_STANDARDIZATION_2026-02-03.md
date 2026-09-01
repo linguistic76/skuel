@@ -1,3 +1,7 @@
+---
+updated: 2026-02-03
+---
+
 # UI Factory Signature Standardization
 
 **Date:** 2026-02-03

@@ -1,6 +1,6 @@
 ---
 title: Hierarchy Components Guide
-updated: '2026-03-18'
+updated: '2026-08-09'
 category: patterns
 related_skills:
 - skuel-ui

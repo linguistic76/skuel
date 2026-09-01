@@ -1,6 +1,6 @@
 ---
 title: Route Decorator Architecture
-updated: '2026-02-08'
+updated: '2026-08-22'
 category: patterns
 related_skills:
 - fasthtml

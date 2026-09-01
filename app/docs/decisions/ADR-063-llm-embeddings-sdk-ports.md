@@ -1,6 +1,6 @@
 ---
 title: "ADR-063: LLM & Embedding SDKs Behind Ports"
-updated: 2026-05-26
+updated: 2026-07-10
 status: current
 category: decisions
 tags: [adr, decisions, architecture, llm, embeddings, hexagonal, ports]

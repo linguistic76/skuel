@@ -1,3 +1,7 @@
+---
+updated: 2026-08-16
+---
+
 # Intelligence Tier Guide
 
 *Last updated: 2026-03-04*

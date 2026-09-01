@@ -1,3 +1,7 @@
+---
+updated: 2026-08-21
+---
+
 # Habit Rhythm Arc — Markwhen Resolution & the Time-of-Day Vocabulary
 
 **Status:** ✅ COMPLETE (2026-08-04) — shipped as **#927** (PR 1, S1), **#933**

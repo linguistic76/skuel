@@ -1,3 +1,7 @@
+---
+updated: 2026-08-15
+---
+
 # BGE Embeddings Migration (ADR-083 Arc 3)
 
 **Created:** 2026-07-24

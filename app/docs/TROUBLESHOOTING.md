@@ -1,3 +1,7 @@
+---
+updated: 2026-08-08
+---
+
 # SKUEL Troubleshooting Guide
 
 **Last Updated**: 2026-01-31
