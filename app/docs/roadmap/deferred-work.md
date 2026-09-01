@@ -2443,6 +2443,78 @@ claims that matter are pinned or gone, and "N things" in running text has no rel
 
 ---
 
+## Dead-Doc-Links Instrument — Rulings + Scheduled Work (REGISTERED 2026-09-02)
+
+`scripts/health/dead_doc_links.py` (in `./dev health` + the weekly janitor; not a CI gate)
+has sat red at **871 findings / 531 distinct missing targets** (measured 2026-09-01 and
+re-measured 2026-09-02 on `eb6aad6af` — identical). An always-on check reporting 871
+findings is one nobody reads. The findings decompose into disjoint classes (re-derive by
+driving `check_file()` over `get_md_files()` — never trust these counts as current):
+
+| Class | Findings | Disposition (Mike, 2026-09-02) |
+|---|---|---|
+| Parser false positives (subscript-as-link ×30, globs in the bare pass ×7, ` + ` joins ×10, un-decoded `%20` ×1-real) | 47 | **APPROVED** — PR B1 |
+| `docs/design-principles/` (freeform; links point into the Obsidian vault — unvalidatable by construction) + `.claude/skills/_templates/` (placeholder paths) | 31 + 14 | **APPROVED** — PR B1 carve-outs, `FREEFORM_DIRS` precedent, skip counts printed |
+| Generated `CROSS_REFERENCE_INDEX.md` (slug-less ADR links) | 30 | **RULED** — PR B2, glob-with-loud-failure |
+| History dirs (`migrations/` 206, `roadmap/done/` 12, `Reviews/`+`investigations/` 16 → 226 after parser dedup) | 226 | **OPEN** — ruling pending |
+| ADRs (`docs/decisions/`, 50 files; mixed faithful history and standing contracts) | 156 | **OPEN** — ruling pending |
+| Live docs — real rot | 367 | **RULED** — sweep queue below |
+
+**PR B1 (scheduled, fresh context):** the four parser narrowings — each targets a measured
+shape, is measured against the live tree, and is pinned by a case in
+`tests/unit/scripts/test_dead_doc_links.py` (the module's own PLACEHOLDER discipline) —
+plus the two directory carve-outs with per-dir reasons and the skip count printed in every
+run (`duplicate_headings.py` shape; that sibling already excludes `design-principles/`).
+⚠️ No blanket space-rejection in `_looks_like_local_path`: quoted fence spans deliberately
+keep the real `docs/design-principles/direction w structuring.md` whole so a DEAD
+space-bearing path stays detectable (Codex, PR #872). Expected 871 → 779; re-measure.
+
+**PR B2 (scheduled, fresh context):** the generator links ADRs as bare `ADR-NNN.md` under
+`docs/decisions/` but real ADRs carry slugs — 12 of its 13 distinct ADR link targets are dead. Ruling:
+resolve bare numbers by glob, **fail loudly naming every candidate on zero or ≥2 hits —
+never pick silently**; a ref already ending `.md` is a full filename (verify it exists).
+The loud failure forces the collision unblock in the same PR: the metadata's three
+colliding refs get full filenames, promoting intent already recorded in YAML comments
+(vis-network + neo4j-cypher-patterns `ADR-037` → `…lateral-relationships-visualization-phase5.md`;
+user-context-intelligence `ADR-030` → `…usercontext-file-consolidation.md`).
+⚠️ `validate_cross_references.py` must move in the same PR — its `adr_map` is
+last-wins-silent on duplicate numbers, and both scripts share a `.md.md` hazard on
+full-filename refs; they are the only two `related_adrs` consumers (verified 2026-09-02).
+Add the honesty guard that would have caught this at birth: every rendered
+`/docs/decisions/` link target exists. Expected −30.
+
+**OPEN RULING — the history line (226 + 156):** where does rot end and faithful history
+begin, and which mechanism carries it. Mike, 2026-09-02: *"I am not sure."* Do not build
+any of it until he rules; the check staying red on these classes is expected, not a defect
+to fix en passant. The options, with named costs: **(a)** dir carve-out for the four
+history dirs (a migration doc naming the file it migrated away from is faithful, not
+stale — the de-fiction rule's dated-logs-LEAVE); for ADRs a carve-out is coarser — it
+blinds the instrument to rot in *standing contracts* inside active ADRs; **(b)** an
+audited **file-level** exemption tier (`{path: reason}`, an exemption that hides nothing
+is itself a finding — the stale_names/SKUEL026 discipline WITHOUT `(file, line)` anchors,
+which #1212's backfill broke 72 of); **(c)** report-separately-don't-red for the dirs.
+Evidence that would settle it: the first time a standing contract in an active ADR is
+found rotten via a dead link, that argues (b) over (a) for `docs/decisions/`.
+
+**Live-docs sweep queue (RULED: register + burn down via doc sweeps):** ~367 findings in
+live docs — patterns 103 · skills 48 · intelligence 41 · architecture 35 · domains 32 ·
+guides 30 · roadmap-live 14 · reference 13 · ui 11 · misc ~40 (2026-09-02). The tail is
+decisive: of 231 distinct targets only 36 have a unique same-basename relocation
+candidate; 215 are genuinely deleted, so the usual fix is editing the citing PROSE, not
+swapping a path — a rename map cannot carry this queue. **Protocol:** any sweep or PR
+touching one of these docs fixes its dead links as a ride-along; the heavy hitters
+(`UI_COMPONENT_PATTERNS.md` 12 · `VOICE_JOURNALING_AND_OBSIDIAN_GUIDE.md` 13 ·
+`COMPONENT_CATALOG.md` 11 · `PWA_ARCHITECTURE.md` 10) can be dedicated small sweeps.
+A bulk correction script, if one ever emerges, re-derives its premise at run time and
+aborts on surprise — a heuristic proposes, never rewrites.
+
+**Noted, unscheduled — duplicate ADR numbers:** ADR-030 exists three times
+(`curriculum-domain-unification`, `dual-track-assessment-pattern`,
+`usercontext-file-consolidation`) and ADR-037 twice (`embedding-infrastructure-separation`,
+`lateral-relationships-visualization-phase5`). PR B2's metadata unblock routes around the
+collisions; it does not remove them. Renumbering is a citation-update campaign — Mike
+decides if/when; nothing schedules it.
+
 ## Review Schedule
 
 Review this document at the **September 2026 quarterly review**. Checklist:
@@ -2494,6 +2566,9 @@ Review this document at the **September 2026 quarterly review**. Checklist:
 | READY PLANNED entries over 90 days → wire-or-delete ruling (the `planned-ready-aging` finding, INFO, never gates) | Any READY entry in `scripts/detect_bloat.py` older than `READY_AGING_DAYS` — first fires 2026-09-10 on the three 2026-06-11 entries; by this review all seven READY are over it, which is the intended signal | `./dev bloat --ready` — every row listed is wire-or-delete; a DELAYED entry aging is expected and is NOT this row |
 | Catalog copies in code — the duplicated-fact class (measured 2026-08-29) | Mike schedules the mechanical items; until then a ride-along: any PR that adds a health check, an embeddable type, a vector-index label, or a suppressible rule touches every copy the section names | ⛔ Do not scope from this cell — the section holds the inventory and the ruling. Re-measure: `uv run python scripts/detect_bloat.py --json` → count of `planned-marking-stale` findings (2 on 2026-08-29, seen by neither CI nor the janitor); the scripts named in `dev` § `health)` and in the janitor's `for check in` loop must be the same set (6 on 2026-09-01, up from 5 — `docs_updated.py` was added by hand to every copy) |
 | Hollow embedding field maps — `PLANNED_EMBEDDING_MAPS` (4 DELAYED on 2026-08-30: `ENTRY_REPORT`, `ACTIVITY_REPORT`, `FORM_TEMPLATE`, `FORM_SUBMISSION`) | The EntryReport / ActivityReport search row above fires (the two report maps point at it), or a consumer wants form content in semantic search (the two form maps — no section, the registry reason is the one copy) | `./dev bloat` § Embedding field maps — every row is hollow by ruling; an unregistered hollow map already fails `--check` on its own. Wiring one = ADR-074's quartet, then delete its entry (the stale gate demands it) |
+| Dead-doc-links PR B1 (parser fixes + freeform carve-outs) + PR B2 (ADR glob-with-loud-failure) — both APPROVED/RULED 2026-09-02 | Fresh-context sessions, one per PR — approved work, not waiting on data | `uv run python scripts/health/dead_doc_links.py` — count should step 871 → ~779 (B1) → ~749 (B2); re-measure, never trust the snapshot. See the section |
+| Dead-doc-links history line (history dirs 226 + ADRs 156) — Mike *"not sure"* 2026-09-02 | Ruling needed — do not build any carve-out/exemption for these dirs until then; a standing contract in an active ADR found rotten via a dead link is evidence for the file-level tier over a dir carve-out | The check stays red on these classes by design meanwhile; options + costs in the section |
+| Live-docs dead-link sweep queue (~367 across patterns/skills/intelligence/architecture/…) | Ride-along on every doc sweep or PR touching a listed area; heavy hitters may get dedicated small sweeps | Re-derive per doc by running the scanner and filtering to the file; fix the citing prose (215 of 231 targets are deleted, not moved) |
 
 **The document is the checklist, the table is a convenience:** a section added to this file
 without a matching row here is still in review scope — walk every `##` section, then the table.
