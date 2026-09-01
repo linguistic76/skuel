@@ -41,8 +41,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 # ignore in scripts/health/stale_names.py).
 from docs_updated_field import (  # type: ignore[import-not-found]
     REPO_ROOT,
+    MalformedFrontmatterError,
     apply_stamp,
     find_updated,
+    has_malformed_frontmatter,
     in_scope,
     is_generated,
     today_utc,
@@ -84,6 +86,8 @@ def stamp_index(path: str, stamp: date) -> bool:
     original = _git("show", f":{path}").decode("utf-8")
     if is_generated(original):
         return False
+    if has_malformed_frontmatter(original):
+        raise MalformedFrontmatterError(path)
     stamped = apply_stamp(original, stamp)
     if stamped == original:
         return False
@@ -104,7 +108,7 @@ def stamp_worktree(path: str, stamp: date) -> bool:
         # Staged, then deleted from the worktree. The index half still stands.
         return False
     original = target.read_text(encoding="utf-8")
-    if is_generated(original):
+    if is_generated(original) or has_malformed_frontmatter(original):
         return False
     field = find_updated(original)
     stamped = apply_stamp(original, stamp)
@@ -130,11 +134,30 @@ def main() -> int:
 
     stamp = today_utc()
     touched: list[str] = []
+    skipped: list[str] = []
     for path in paths:
-        index_changed = stamp_index(path, stamp)
+        try:
+            index_changed = stamp_index(path, stamp)
+        except MalformedFrontmatterError:
+            # Refuse rather than corrupt: prepending a second block above an unclosed
+            # fence would turn the author's `title:`/`status:`/`related_skills:` into
+            # body text — present in the file, invisible to every frontmatter parser.
+            # The commit still lands (this check rewrites, it does not gate), and
+            # `./dev health-updated` reports it as `malformed` with the fix.
+            skipped.append(path)
+            continue
         worktree_changed = stamp_worktree(path, stamp)
         if index_changed or worktree_changed:
             touched.append(path)
+
+    if skipped:
+        noun = "doc" if len(skipped) == 1 else "docs"
+        print(
+            f"⚠ Not stamped — unclosed `---` frontmatter fence in "
+            f"{len(skipped)} {noun} (close it; `./dev health-updated` will flag this):"
+        )
+        for path in skipped:
+            print(f"    {path}")
 
     if touched:
         noun = "doc" if len(touched) == 1 else "docs"

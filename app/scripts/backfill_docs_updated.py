@@ -55,6 +55,7 @@ from docs_updated_field import (  # type: ignore[import-not-found]
     ShallowHistoryError,
     apply_stamp,
     find_updated,
+    has_malformed_frontmatter,
     load_history,
     tracked_docs,
 )
@@ -128,14 +129,25 @@ def verify_premise(docs: list[str], history: dict[str, object]) -> None:
 
     duplicates: list[str] = []
     unparsable: list[str] = []
+    malformed: list[str] = []
     for path in docs:
-        field = find_updated((REPO_ROOT / path).read_text(encoding="utf-8"))
+        content = (REPO_ROOT / path).read_text(encoding="utf-8")
+        if has_malformed_frontmatter(content):
+            malformed.append(path)
+            continue
+        field = find_updated(content)
         if field is None:
             continue
         if field.occurrences > 1:
             duplicates.append(path)
         elif field.parsed is None:
             unparsable.append(f"{path} ({field.value!r})")
+    if malformed:
+        raise PremiseError(
+            f"{len(malformed)} docs open a `---` fence that never closes — stamping "
+            f"would prepend a second block and shadow their existing keys. Close the "
+            f"fences by hand: {malformed}"
+        )
     if duplicates:
         raise PremiseError(
             f"{len(duplicates)} docs carry two `updated:` keys — a human must pick "
@@ -241,7 +253,7 @@ def main() -> int:
 
     print(
         f"{Colors.BOLD}Backfill plan{Colors.RESET} — {len(docs)} docs in scope"
-        + (f" ({generated} generated doc(s) excluded)" if generated else "")
+        + (f" ({len(generated)} generated doc(s) excluded)" if generated else "")
     )
     for reason, count in sorted(by_reason.items()):
         print(f"  {reason:<10} {count}")

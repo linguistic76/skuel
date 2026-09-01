@@ -110,14 +110,23 @@ def in_scope(repo_relative_path: str) -> bool:
 # `reference/BASESERVICE_METHOD_INDEX.md` and `test_generate_method_index.py` went red
 # immediately). Its generator would also wipe the stamp on the next run, and the guard
 # would then report a correctly regenerated file as missing its key.
-_GENERATED_MARKER = re.compile(r"AUTO-GENERATED", re.IGNORECASE)
+# A positive self-assertion, not the bare phrase. An unqualified `AUTO-GENERATED`
+# substring also matches "this file is NOT auto-generated" and "this guide explains
+# AUTO-GENERATED indexes" — and the consequence runs the wrong way: a hand-maintained
+# doc matched here is excluded from the guard permanently and SILENTLY, whereas a
+# generated doc that omits the banner merely breaks its own drift test on the first
+# stamp, loudly. Match what the two real artifacts actually say:
+#   "**WARNING:** This file is AUTO-GENERATED. Do not edit manually."
+#   "**Generated:** This file is auto-generated from `skills_metadata.yaml` ..."
+_GENERATED_MARKER = re.compile(
+    r"\bthis (?:file|document) is (?:an?\s+)?auto[-\s]?generated\b", re.IGNORECASE
+)
 
-# Header only. Measured over the 412-doc corpus: scanning the first 15 lines finds
-# exactly the 2 generated artifacts; scanning whole files finds 12, and the extra 10
-# are docs that merely *mention* a generated file. Same scoping argument as
+# Header only, on top of the declaration shape. Measured over the 412-doc corpus: the
+# first 15 lines hold both real declarations, while an unqualified whole-file
+# `AUTO-GENERATED` substring matches 12 files. Same scoping argument as
 # `duplicate_headings.py` — in an always-on gate a false positive costs more than a
-# miss, and this one fails loudly anyway (a generated doc that omits the banner breaks
-# its own drift test on the first stamp).
+# miss.
 _GENERATED_HEADER_LINES = 15
 
 
@@ -166,6 +175,26 @@ class UpdatedField:
             return None
 
 
+class MalformedFrontmatterError(ValueError):
+    """The document opens a frontmatter fence it never closes."""
+
+
+def has_malformed_frontmatter(content: str) -> bool:
+    """Does this document open a ``---`` fence that never closes?
+
+    ``split_frontmatter`` reports "no frontmatter" for that shape, which is the right
+    answer for a *reader* and a dangerous one for a *writer*: stamping would prepend a
+    second, valid block above the broken one, and the author's ``title:``, ``status:``
+    and ``related_skills:`` would silently become body text — present in the file,
+    invisible to every consumer that parses frontmatter. Nothing in the corpus is
+    malformed today; one mistyped fence is all it takes.
+    """
+    lines = content.split("\n")
+    return (
+        bool(lines) and _FENCE.match(lines[0]) is not None and split_frontmatter(content)[0] is None
+    )
+
+
 def find_updated(content: str) -> UpdatedField | None:
     """Locate ``updated:`` in the leading YAML block. None when there is no key.
 
@@ -205,6 +234,11 @@ def apply_stamp(content: str, stamp: date) -> str:
     Returns ``content`` unchanged when the stamp already reads ``stamp``, so callers
     can treat "no change" as "nothing to write" without a second comparison.
     """
+    if has_malformed_frontmatter(content):
+        raise MalformedFrontmatterError(
+            "document opens a `---` frontmatter fence that never closes; stamping "
+            "would prepend a second block and turn the existing keys into body text"
+        )
     field = find_updated(content)
     stamp_text = stamp.isoformat()
 
@@ -438,23 +472,24 @@ def load_history(paths: set[str]) -> dict[str, FileHistory]:
     }
 
 
-def tracked_docs() -> tuple[list[str], int]:
-    """Every stampable doc tracked at HEAD, plus the count skipped as generated.
+def tracked_docs() -> tuple[list[str], list[str]]:
+    """Every stampable doc tracked at HEAD, plus the ones skipped as generated.
 
     ``-z`` because three docs under ``design-principles/`` have spaces in their
     filenames and a newline-split list quietly turns each into three phantom paths.
 
-    The skip count is returned rather than swallowed so the carve-out stays visible in
-    the guard's own output — excluded by scope, not suppressed.
+    The skipped PATHS are returned, not just a count, so the carve-out is not only
+    visible but checkable: a hand-maintained doc wrongly matched here would otherwise be
+    dropped from the guard permanently and silently. Excluded by scope, not suppressed.
     """
     raw = _run_git("ls-files", "-z", "--", SCOPE_PREFIX)
     paths = [path for path in raw.split("\0") if path and in_scope(path)]
     stampable: list[str] = []
-    generated = 0
+    generated: list[str] = []
     for path in paths:
         content = (REPO_ROOT / path).read_text(encoding="utf-8", errors="replace")
         if is_generated(content):
-            generated += 1
+            generated.append(path)
         else:
             stampable.append(path)
     return stampable, generated

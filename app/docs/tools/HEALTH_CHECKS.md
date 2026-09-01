@@ -470,9 +470,14 @@ window is `ROT_WINDOW_DAYS = 7` in `scripts/docs_updated_field.py`: at least the
 realistic squash latency plus a day of timezone-boundary skew, and far below the rot
 it exists to catch (149 of the 162 docs stale on 2026-08-31 lagged by over a week).
 
-**Five verdicts, structural ones first.** `missing` / `duplicate` / `unparsable` /
-`future` are checked before the date comparison, because a doc with no usable date has
-no lag to report and calling it "stale by N days" would be a lie. The `missing` check
+**Six verdicts, structural ones first.** `malformed` / `missing` / `duplicate` /
+`unparsable` / `future` are checked before the date comparison, because a doc with no
+usable date has no lag to report and calling it "stale by N days" would be a lie.
+`malformed` means the document opens a `---` fence it never closes: `split_frontmatter`
+calls that "no frontmatter", which is right for a reader and dangerous for a writer — the
+stamper would prepend a second, valid block and the author's `title:`/`status:`/
+`related_skills:` would silently become body text. The stamper refuses those and prints
+which files it skipped; it still does not block the commit, and this check names them. The `missing` check
 carries the guard's main target: a doc committed with `--no-verify` can arrive with no
 `updated:` at all, and then there is no date that predates anything — a
 comparison-only checker stays green on exactly the bypass it exists to catch. The
@@ -509,17 +514,22 @@ are **not** exempt: an unedited doc's stamp already matches its last substantive
 so the check is free on them, and an exemption would only open a hole.
 
 **Machine-generated docs are excluded, and say so themselves.** A doc whose first 15
-lines carry an `AUTO-GENERATED` banner is skipped, because its generator's drift test
+lines *assert* that it is generated — "this file is auto-generated", the shape both real
+artifacts use — is skipped, because its generator's drift test
 byte-compares it against a fresh render — a stronger freshness guarantee than a date,
 and one a stamp actively breaks (the backfill put a block on
 `reference/BASESERVICE_METHOD_INDEX.md` and `test_generate_method_index.py` went red at
 once; the generator would also wipe the stamp on its next run, and the guard would then
 report a correctly regenerated file as missing its key). The rule reads the same banner
 a human reads rather than keeping a list of generated paths, which would be a catalog
-copy that rots the first time a generator is added. Header-scoped deliberately: over the
-412-doc corpus the first-15-lines rule finds exactly the 2 real artifacts while a
-whole-file scan finds 12, the extra 10 being docs that merely *mention* one. The count
-skipped is printed on every run, so the carve-out stays visible.
+copy that rots the first time a generator is added. It matches a self-assertion rather
+than the bare phrase, because the consequence runs the wrong way: a hand-maintained doc
+caught by a loose match ("this file is NOT auto-generated", "this guide explains
+AUTO-GENERATED indexes") is dropped from the guard permanently and *silently*, while a
+generated doc that omits the banner merely breaks its own drift test on the first stamp,
+loudly. Header-scoped for the same reason — over the corpus, an unqualified whole-file
+substring matches 12 files against the 2 real ones. The excluded paths are **named** on
+every run, not just counted, so a wrong exclusion is discoverable rather than silent.
 
 **It refuses to run in a shallow clone.** Staleness is decided from per-file commit
 history, and `actions/checkout` fetches a single commit by default. In that repository

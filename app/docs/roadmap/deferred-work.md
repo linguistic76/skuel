@@ -2155,7 +2155,7 @@ session must not re-decide.
 - ⛔ **No same-file contradictory-prose detector** — measured unmechanizable, 4/4 false
   positives. See the sub-finding below.
 
-**Six traps that survived into the build**, none visible to a fixture and all found by
+**Seven traps that survived into the build**, none visible to a fixture and all found by
 running against the real corpus, the full test suite, or review — worth carrying because
 each looks like a simplification:
 
@@ -2181,8 +2181,18 @@ each looks like a simplification:
 - **A generated doc must not be stamped.** Its generator's drift test byte-compares it
   against a fresh render, so a frontmatter block reds that test immediately, and the next
   regeneration wipes the stamp and reds the guard instead. Detected by the file's own
-  `AUTO-GENERATED` banner (header-scoped: 2 real artifacts vs 12 whole-file false
-  positives), never a list of generated paths.
+  declaration — *"this file is auto-generated"*, matched as a self-assertion rather than
+  the bare phrase, header-scoped — never a list of generated paths. The loose form has to
+  be avoided in that exact direction: a hand-maintained doc wrongly matched is dropped
+  from the guard permanently and *silently*, whereas a generated doc missing its banner
+  fails loudly on its own drift test. The excluded paths are named on every run.
+- **A writer must not treat malformed frontmatter as absent frontmatter.**
+  `split_frontmatter` reports "no frontmatter" for a `---` fence that never closes — the
+  right answer for a reader, a dangerous one for a writer: stamping prepends a second,
+  valid block and the author's `title:`/`status:`/`related_skills:` become body text,
+  present in the file and invisible to every parser. The stamper refuses and names the
+  file; the guard reports `malformed` as its own verdict. Nothing in the corpus is
+  malformed today; one mistyped fence is all it takes. (Codex P2 on #1212.)
 - **A history-reading check must refuse a shallow clone, not measure it.**
   `actions/checkout` fetches one commit by default, and the weekly janitor's checkout had
   no `fetch-depth` — the guard reported 343 of 410 docs stale in a depth-1 clone, and at a

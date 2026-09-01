@@ -57,6 +57,7 @@ from docs_updated_field import (  # type: ignore[import-not-found]
     FileHistory,
     ShallowHistoryError,
     find_updated,
+    has_malformed_frontmatter,
     load_history,
     tracked_docs,
 )
@@ -74,9 +75,15 @@ class Finding:
 # Ordered: a structural defect is reported as itself, not as a date comparison that
 # happens to fail. A doc with no field has no date to compare, and saying "stale by
 # N days" about it would be a lie.
-_ORDER = ["missing", "duplicate", "unparsable", "future", "stale"]
+_ORDER = ["malformed", "missing", "duplicate", "unparsable", "future", "stale"]
 
 _REMEDY = {
+    "malformed": (
+        "The document opens a `---` frontmatter fence that never closes, so every key "
+        "below it is body text to any parser. The stamper refuses to touch it — "
+        "stamping would prepend a second, valid block and make the shadowing "
+        "permanent. Close the fence."
+    ),
     "missing": (
         "No `updated:` in the leading frontmatter block. The pre-commit hook adds "
         "one to every staged doc — a doc without it was committed with --no-verify, "
@@ -104,6 +111,8 @@ _REMEDY = {
 
 def evaluate(path: str, content: str, history: FileHistory) -> Finding | None:
     """One doc's verdict, or None when it is correctly stamped."""
+    if has_malformed_frontmatter(content):
+        return Finding(path, "malformed", "opens a `---` fence that never closes")
     field = find_updated(content)
     if field is None:
         return Finding(path, "missing", "no `updated:` key")
@@ -133,7 +142,7 @@ def evaluate(path: str, content: str, history: FileHistory) -> Finding | None:
     return None
 
 
-def collect() -> tuple[list[Finding], int, int]:
+def collect() -> tuple[list[Finding], int, list[str]]:
     docs, generated = tracked_docs()
     history = load_history(set(docs))
 
@@ -161,7 +170,8 @@ def main() -> int:
     # Named, not swallowed: an exclusion nobody can see is indistinguishable from a
     # blind spot (the `duplicate_headings.py` freeform carve-out sets the precedent).
     carve_out = (
-        f", {generated} generated doc(s) excluded — their own drift tests guarantee freshness"
+        f", {len(generated)} generated doc(s) excluded — their own drift tests"
+        f" guarantee freshness: {', '.join(generated)}"
         if generated
         else ""
     )

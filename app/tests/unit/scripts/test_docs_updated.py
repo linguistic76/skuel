@@ -197,11 +197,57 @@ def test_a_generated_artifact_is_excluded() -> None:
     assert field_mod.is_generated(content) is True
 
 
-def test_a_doc_merely_mentioning_generated_files_is_not_excluded() -> None:
-    """Header only. Measured on the corpus: the first 15 lines find exactly the 2 real
-    artifacts, a whole-file scan finds 12 — the extra 10 are docs discussing them."""
-    content = "# Patterns\n" + "\n" * 20 + "Some docs are AUTO-GENERATED; do not edit those.\n"
+@pytest.mark.parametrize(
+    "content",
+    [
+        "# Patterns\n" + "\n" * 20 + "Some docs are AUTO-GENERATED; do not edit those.\n",
+        "# Guide\n\nThis guide explains AUTO-GENERATED indexes.\n",
+        "# Guide\n\nThis file is NOT auto-generated — edit it freely.\n",
+        "# Guide\n\nSee the AUTO-GENERATED index for the full list.\n",
+    ],
+)
+def test_a_doc_merely_mentioning_generated_files_is_not_excluded(content: str) -> None:
+    """A positive self-assertion, not the bare phrase, and header-scoped.
+
+    The consequence runs the wrong way for a loose match: a hand-maintained doc caught
+    here is dropped from the guard permanently and SILENTLY, while a generated doc that
+    omits the banner merely breaks its own drift test on the first stamp, loudly. An
+    unqualified `AUTO-GENERATED` substring matches all four of these (Codex P2 on
+    #1212); it also matched 12 files corpus-wide against the 2 real artifacts.
+    """
     assert field_mod.is_generated(content) is False
+
+
+# ============================================================================
+# Malformed frontmatter — refuse, never prepend a second block
+# ============================================================================
+
+
+def test_an_unclosed_fence_is_malformed() -> None:
+    assert field_mod.has_malformed_frontmatter("---\ntitle: X\n\nbody\n") is True
+    assert field_mod.has_malformed_frontmatter("---\ntitle: X\n---\nbody\n") is False
+    assert field_mod.has_malformed_frontmatter("# No frontmatter\n") is False
+
+
+def test_stamping_a_malformed_doc_raises_rather_than_shadowing_its_keys() -> None:
+    """`split_frontmatter` reports "no frontmatter" for an unclosed fence — the right
+    answer for a reader, a dangerous one for a writer. Stamping would prepend a second,
+    valid block, and the author's `title:`/`status:`/`related_skills:` would silently
+    become body text: present in the file, invisible to every frontmatter parser
+    (Codex P2 on #1212)."""
+    broken = "---\ntitle: X\nstatus: current\n\n# Body\n"
+    with pytest.raises(field_mod.MalformedFrontmatterError):
+        field_mod.apply_stamp(broken, STAMP)
+
+
+def test_the_guard_reports_malformed_as_itself() -> None:
+    verdict = guard.evaluate(
+        "app/docs/a.md",
+        "---\ntitle: X\n\nbody\n",
+        _history(date(2026, 8, 30), date(2026, 8, 30)),
+    )
+    assert verdict is not None
+    assert verdict.kind == "malformed"
 
 
 # ============================================================================
@@ -496,8 +542,8 @@ def test_the_report_renders_every_verdict_kind(
     not lint `scripts/` for SKUEL012.)"""
     findings = [guard.Finding(f"app/docs/{kind}.md", kind, "detail") for kind in guard._ORDER]
 
-    def _collect() -> tuple[list[guard.Finding], int, int]:
-        return findings, 410, 2
+    def _collect() -> tuple[list[guard.Finding], int, list[str]]:
+        return findings, 410, ["app/docs/gen-a.md", "app/docs/gen-b.md"]
 
     monkeypatch.setattr(guard, "collect", _collect)
     assert guard.main() == 1
@@ -505,6 +551,8 @@ def test_the_report_renders_every_verdict_kind(
     for kind in guard._ORDER:
         assert kind in out
     assert "2 generated doc(s) excluded" in out
+    # Named, not merely counted: a wrongly-excluded doc must be discoverable.
+    assert "app/docs/gen-a.md" in out
 
 
 def test_every_verdict_kind_has_a_remedy_line() -> None:
