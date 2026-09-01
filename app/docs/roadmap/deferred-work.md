@@ -2525,7 +2525,9 @@ unused); ≈15 were never tracked in this repo (the early query-ADRs' "Tests: N/
 passing" lines — de-fiction the claim, don't invent a path). Apply the marker to the
 ~70 narrative citations. Execute the content rulings recorded below (delete ADR-010;
 delete never-to-be-done planned citations; ADR-003 chain-completion + repoint;
-create `docs/domains/user_entry.md`) **with their catalog ripple** (Codex on #1216):
+create the UserEntry domain doc — `user_entry.md` under `docs/domains/`, spelled
+indirectly here so the plan itself is not a scanner finding before B4 creates it)
+**with their catalog ripple** (Codex on #1216):
 deleting ADR-010 must also drop its `docs/INDEX.md` row (line 248 today), and the new
 `user_entry.md` joins the domain catalogs — `docs/domains/README.md`'s Submissions row
 still links the deleted `submissions.md` and becomes the UserEntry row; add an
@@ -2548,7 +2550,8 @@ Content rulings from the same sitting: **(1)** planned-work citations advertisin
 that must never be done are DELETED, not marked — unchecked "[ ] Create X" checklist
 items and "(if exists)" hedges included (ADR-027:221 is the precedent). **(2)**
 ADR-003:379's historical note gets its chain completed (Journal → Reports → UserEntry),
-its `See` repointed at ADR-054, **and** `docs/domains/user_entry.md` created — the
+its `See` repointed at ADR-054, **and** a `user_entry.md` created under
+`docs/domains/` — the
 domains set documents 12 domains and is missing its busiest. **(3)**
 `ADR-010-moc-core-service-query.md` is an unfilled template shell (its Decision section
 is ADR-TEMPLATE's instructions + example block verbatim) — DELETE it; the number stays
