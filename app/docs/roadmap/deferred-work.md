@@ -2155,9 +2155,9 @@ session must not re-decide.
 - ⛔ **No same-file contradictory-prose detector** — measured unmechanizable, 4/4 false
   positives. See the sub-finding below.
 
-**Four traps that survived into the build**, none visible to a fixture and all found by
-running against the real corpus or the full test suite — worth carrying because each
-looks like a simplification:
+**Five traps that survived into the build**, none visible to a fixture and all found by
+running against the real corpus, the full test suite, or review — worth carrying because
+each looks like a simplification:
 
 - **Never `yaml.safe_load` the frontmatter to read this field.** 35 of 412 docs carry an
   unquoted `title: ADR-013: KU UID Flat Identity Design`, whose colon-space is a YAML
@@ -2174,6 +2174,13 @@ looks like a simplification:
   regeneration wipes the stamp and reds the guard instead. Detected by the file's own
   `AUTO-GENERATED` banner (header-scoped: 2 real artifacts vs 12 whole-file false
   positives), never a list of generated paths.
+- **A history-reading check must refuse a shallow clone, not measure it.**
+  `actions/checkout` fetches one commit by default, and the weekly janitor's checkout had
+  no `fetch-depth` — the guard reported 343 of 410 docs stale in a depth-1 clone, and at a
+  HEAD touching no docs it would have reported a clean green having checked nothing. Fixed
+  at the site (`fetch-depth: 0`) *and* in the check, which now exits 2 rather than publish
+  either number — an audit that could not measure must never read as a passing week, the
+  rule the janitor already applies to its bloat report. (Codex P2 on #1212.)
 - **Creating a frontmatter block shifts every line number below it**, which invalidates
   any registry anchored by `(file, line)`. `stale_names.ALLOWED_OCCURRENCES` is exactly
   that, and the backfill left 72 of its anchors hitting nothing — so the exemptions

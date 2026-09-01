@@ -513,6 +513,17 @@ copy that rots the first time a generator is added. Header-scoped deliberately: 
 whole-file scan finds 12, the extra 10 being docs that merely *mention* one. The count
 skipped is printed on every run, so the carve-out stays visible.
 
+**It refuses to run in a shallow clone.** Staleness is decided from per-file commit
+history, and `actions/checkout` fetches a single commit by default. In that repository
+every doc's only commit is HEAD: if HEAD touched docs, all of them date from it and the
+check reports the whole corpus stale (measured: 343 of 410 in a depth-1 clone); if HEAD
+did not, no file has any history and a naive walk reports a clean green having checked
+nothing. It exits **2** — distinct from 1 (found defects) — because "could not measure"
+and "measured, all clean" must never be the same signal. `weekly-janitor.yml` sets
+`fetch-depth: 0`; the refusal exists so the next workflow that forgets fails loudly
+instead of publishing a number. A tracked doc the traversal never saw is refused for the
+same reason — it means the file list and the history were joined on different path bases.
+
 ⚠️ **`updated:` is evidence of freshness only within this window, and only because this
 check runs.** Do not cite the field as staleness evidence anywhere else.
 

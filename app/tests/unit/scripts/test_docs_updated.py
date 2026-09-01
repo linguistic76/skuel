@@ -320,6 +320,45 @@ def test_commit_dates_are_normalised_to_utc(repo: Path) -> None:
 
 
 # ============================================================================
+# Refusing to measure beats measuring wrongly
+# ============================================================================
+
+
+def test_a_shallow_clone_is_refused_not_measured(repo: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """`actions/checkout` fetches one commit by default, and there every doc's only
+    commit is HEAD: the guard reports the whole corpus stale (343 of 410 measured on a
+    depth-1 clone of this branch), or — at a HEAD touching no docs — a green having
+    checked nothing. The false green is the worse half."""
+    doc = repo / "app" / "docs" / "s.md"
+    doc.write_text("---\nupdated: 2026-01-01\n---\n\nbody\n")
+    _commit(repo, "first", "2026-01-01T12:00:00+00:00")
+    doc.write_text("---\nupdated: 2026-01-01\n---\n\nmore body\n")
+    _commit(repo, "second", "2026-06-01T12:00:00+00:00")
+
+    shallow = tmp_path / "shallow"
+    _git(tmp_path, "clone", "-q", "--depth", "1", f"file://{repo}", str(shallow))
+    assert _git(shallow, "rev-parse", "--is-shallow-repository").strip() == "true"
+
+    monkeypatch.setattr(field_mod, "REPO_ROOT", shallow)
+    with pytest.raises(field_mod.ShallowHistoryError):
+        field_mod.load_history({"app/docs/s.md"})
+
+
+def test_an_unhistoried_path_is_refused_not_skipped(repo: Path) -> None:
+    """Every tracked file has a creation commit, so a path the traversal never saw
+    means the two sides were joined on different bases — `git ls-files` from `app/` is
+    CWD-relative while `git log` is repo-root-relative, the mistake that once made a
+    census of this corpus read a clean `0 stale`. Skipping it would be a green line
+    about a document nobody checked."""
+    doc = repo / "app" / "docs" / "real.md"
+    doc.write_text("body\n")
+    _commit(repo, "first", "2026-01-01T12:00:00+00:00")
+
+    with pytest.raises(field_mod.ShallowHistoryError):
+        field_mod.load_history({"app/docs/real.md", "docs/wrong-base.md"})
+
+
+# ============================================================================
 # The guard's verdicts
 # ============================================================================
 

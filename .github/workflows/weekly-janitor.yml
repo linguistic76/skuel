@@ -67,6 +67,13 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
+        with:
+          # `docs_updated.py` decides staleness from per-file commit history, which a
+          # depth-1 checkout does not have — it would report the whole corpus stale, or
+          # (at a HEAD that touches no docs) a green having checked nothing. The script
+          # refuses to run shallow rather than publish either number, so a missing
+          # `fetch-depth` fails the section loudly instead of silently.
+          fetch-depth: 0
 
       # Ordering key for the marker issue. Concurrency serializes runs but
       # does not order them, so a result must carry the revision it describes.

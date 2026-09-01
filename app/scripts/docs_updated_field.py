@@ -330,6 +330,32 @@ def _is_stamp_only(commit: str, path: str) -> bool:
     )
 
 
+class ShallowHistoryError(RuntimeError):
+    """The repository cannot answer "when did this file last really change?"."""
+
+
+def _require_full_history() -> None:
+    """Refuse to measure in a shallow clone, rather than measure wrongly.
+
+    ``actions/checkout`` fetches a single commit by default, and in that repository
+    every doc's only commit is HEAD: if HEAD touched docs, all of them date from it and
+    the guard reports the whole corpus stale (measured: 343 of 410 false positives in a
+    depth-1 clone of this branch); if HEAD did not touch docs, no file has any history
+    at all and a naive walk reports a clean green having checked nothing. The false
+    green is the worse half — an audit that could not measure must never read as a
+    passing week, which is the rule the janitor already applies to its bloat report.
+
+    The workflow that runs this sets ``fetch-depth: 0``. This exists so that the next
+    workflow which forgets fails loudly instead of publishing a number.
+    """
+    if _run_git("rev-parse", "--is-shallow-repository").strip() == "true":
+        raise ShallowHistoryError(
+            "shallow repository — `updated:` staleness is decided by per-file commit "
+            "history, which a depth-1 checkout does not have. Re-run with the full "
+            "history (`fetch-depth: 0` in a GitHub Actions checkout)."
+        )
+
+
 def load_history(paths: set[str]) -> dict[str, FileHistory]:
     """Newest and last-substantive commit date per path, both UTC.
 
@@ -342,6 +368,7 @@ def load_history(paths: set[str]) -> dict[str, FileHistory]:
     shortlists commits small enough to *possibly* be stamp-only; ``git show`` then
     confirms only those. In a healthy tree the shortlist is a handful of commits.
     """
+    _require_full_history()
     log = _run_git(
         "log",
         "--numstat",
@@ -397,6 +424,19 @@ def load_history(paths: set[str]) -> dict[str, FileHistory]:
             if shortlisted and _is_stamp_only(sha, path):
                 continue
             substantive[path] = when
+
+    # Every tracked file has a creation commit, so an unhistoried path in a full clone
+    # means the traversal did not see what it was asked about — most likely the two
+    # sides were joined on different path bases (`git ls-files` run from `app/` is
+    # CWD-relative, `git log` is repo-root-relative), the mistake that once made a
+    # census of this corpus read a clean `0 stale`. Refuse rather than skip: a silently
+    # skipped file is a green line about a document nobody checked.
+    missing = sorted(paths - newest.keys())
+    if missing:
+        raise ShallowHistoryError(
+            f"{len(missing)} tracked docs have no commit history in a full clone — "
+            f"the traversal and the file list disagree. First: {missing[:3]}"
+        )
 
     return {
         path: FileHistory(

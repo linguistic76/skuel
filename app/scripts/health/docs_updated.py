@@ -54,6 +54,7 @@ from docs_updated_field import (  # type: ignore[import-not-found]
     REPO_ROOT,
     ROT_WINDOW_DAYS,
     FileHistory,
+    ShallowHistoryError,
     find_updated,
     load_history,
     tracked_docs,
@@ -139,13 +140,8 @@ def collect() -> tuple[list[Finding], int, int]:
 
     findings: list[Finding] = []
     for path in docs:
-        record = history.get(path)
-        if record is None:
-            # Tracked but with no commit touching it — only reachable mid-rebase.
-            # Not a stamp defect; skip rather than invent a date to compare against.
-            continue
         content = (REPO_ROOT / path).read_text(encoding="utf-8", errors="replace")
-        finding = evaluate(path, content, record)
+        finding = evaluate(path, content, history[path])
         if finding is not None:
             findings.append(finding)
     return findings, len(docs), generated
@@ -155,7 +151,14 @@ def main() -> int:
     if not sys.stdout.isatty():
         Colors.disable()
 
-    findings, scanned, generated = collect()
+    try:
+        findings, scanned, generated = collect()
+    except ShallowHistoryError as refusal:
+        # Exit 2, distinct from 1 (= found defects): "could not measure" and "measured,
+        # all clean" must never be the same signal, and neither may be silence.
+        print(f"{Colors.RED}✗ Cannot measure `updated:` staleness{Colors.RESET}")
+        print(f"  {refusal}")
+        return 2
     # Named, not swallowed: an exclusion nobody can see is indistinguishable from a
     # blind spot (the `duplicate_headings.py` freeform carve-out sets the precedent).
     carve_out = (

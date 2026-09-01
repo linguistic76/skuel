@@ -52,6 +52,7 @@ from docs_updated_field import (  # type: ignore[import-not-found]
     FUTURE_SKEW_DAYS,
     REPO_ROOT,
     ROT_WINDOW_DAYS,
+    ShallowHistoryError,
     apply_stamp,
     find_updated,
     load_history,
@@ -219,7 +220,12 @@ def main() -> int:
         Colors.disable()
 
     docs, generated = tracked_docs()
-    history = load_history(set(docs))
+    try:
+        history = load_history(set(docs))
+    except ShallowHistoryError as refusal:
+        print(f"{Colors.RED}✗ Cannot read commit history — nothing written{Colors.RESET}")
+        print(f"  {refusal}")
+        return 2
 
     try:
         verify_premise(docs, history)  # type: ignore[arg-type]
