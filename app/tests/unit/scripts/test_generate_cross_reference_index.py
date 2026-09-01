@@ -22,12 +22,13 @@ The honesty guards pin the properties the index exists to provide:
 - every doc path the metadata names survives the renderer's category
   bucketing (the ``other_docs`` catch-all is a construction, not a law — a
   doc in a new directory must land somewhere, never vanish), and
-- a pattern doc that declares ``related_skills:`` is actually represented:
+- no pattern doc's frontmatter fails the YAML parse:
   ``load_pattern_frontmatter`` swallows ``yaml.YAMLError`` per file, and 35
   docs in the corpus carry an unquoted ``title: … : …`` that is a YAML
-  syntax error — the moment one of those gains ``related_skills:``, its
-  half of the bidirectional mapping would vanish silently. This guard turns
-  that silent loss into a red test.
+  syntax error — one of those in docs/patterns/ would have its whole
+  metadata, ``related_skills`` included, vanish from the index silently.
+  This guard rejects the parse failure itself, which covers every spelling
+  of every key at once.
 """
 
 import re
@@ -43,7 +44,6 @@ from generate_cross_reference_index import (  # type: ignore[import-not-found]
     PROJECT_ROOT,
     _normalize_related_skills,
     generate_index_content,
-    load_pattern_frontmatter,
     load_skills_metadata,
 )
 
@@ -89,28 +89,34 @@ def test_every_metadata_doc_link_survives_rendering() -> None:
             )
 
 
-def test_related_skills_frontmatter_never_silently_swallowed() -> None:
-    """A pattern doc declaring ``related_skills:`` must survive the YAML parse.
+def test_every_pattern_frontmatter_parses() -> None:
+    """No pattern doc's frontmatter may fail the YAML parse.
 
-    Deliberately re-derives "declares related_skills" from the raw text with an
-    independent scan rather than the generator's own regex + yaml pipeline — the
-    whole point is to catch a doc that pipeline dropped. The scan tolerates every
-    legal YAML spelling of the key (indentation, space before the colon:
-    ``related_skills : [x]``) — a startswith() scan missed those, and a missed
-    declaration is exactly a silently lost mapping (Codex P2, PR #1213 round 4).
+    ``load_pattern_frontmatter`` swallows ``yaml.YAMLError`` per file, so an
+    unparseable block makes the doc's ENTIRE metadata — ``related_skills`` in any
+    of its legal spellings included — silently invisible to the generator, with
+    the artifact still rendering "fresh". Guarding the declaration textually is an
+    unwinnable enumeration (bare key, spaced colon, indented key, quoted key —
+    Codex P2s, PR #1213 rounds 2/4/5); guarding the PRECONDITION of the loss is
+    total: reject the parse failure itself, before anything is declared in it.
+    Zero pattern docs fail today (the 35 unquoted-``title:`` docs in the corpus
+    all live outside docs/patterns/), so this is enforceable now. Every other
+    swallow shape is already loud: a block parsing to a non-mapping crashes
+    ``generate_index_content`` on ``.get``, which errors the freshness test.
     """
-    declares_key = re.compile(r"^\s*related_skills\s*:")
-    parsed = load_pattern_frontmatter(PROJECT_ROOT)
     for doc_path in sorted((PROJECT_ROOT / "docs" / "patterns").glob("*.md")):
         block = _frontmatter_block(doc_path)
-        if block is None or not any(declares_key.match(line) for line in block):
+        if block is None:
             continue
-        assert doc_path.name in parsed, (
-            f"{doc_path.name} declares related_skills: but load_pattern_frontmatter "
-            "dropped it — almost certainly a YAML syntax error elsewhere in its "
-            "frontmatter (an unquoted colon in title: is the known shape). Its "
-            "skills would silently vanish from the index."
-        )
+        try:
+            yaml.safe_load("\n".join(block))
+        except yaml.YAMLError as exc:
+            raise AssertionError(
+                f"{doc_path.name} has unparseable frontmatter — its metadata is "
+                "silently invisible to generate_cross_reference_index.py (an "
+                "unquoted colon in title: is the known shape). Fix the YAML: "
+                f"{exc}"
+            ) from exc
 
 
 def test_declared_skills_render_in_pattern_mapping() -> None:
