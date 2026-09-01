@@ -123,7 +123,7 @@ removes the property on the next sync. This mirrors the
 
 | Key | Relationship | Target | Description |
 |-----|--------------|--------|-------------|
-| `source_entry` | `TRANSFORMS` | UserEntry | Multi-stage pipelines (transcript → LLM-structured entry) |
+| `source_entry` | `TRANSFORMS` | UserEntry | Multi-stage pipelines. ⚠️ The edge runs **derived → source**: the LLM-structured child is written with `transforms_of_uid` pointing back at the transcript it came from, so traversing `TRANSFORMS` outward walks *up* the pipeline, not down. The field name is the tell |
 | `exercise` | `FULFILLS_EXERCISE` | Exercise | What the entry answers; carries `revision` |
 | `applied_knowledge` | `APPLIES_KNOWLEDGE` | Ku | Knowledge applied/reflected in the entry — written by `EXTRACT_ACTIVITIES` (ADR-069); THE substance/ZPD contract edge |
 
