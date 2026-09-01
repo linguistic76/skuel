@@ -2155,9 +2155,9 @@ session must not re-decide.
 - ⛔ **No same-file contradictory-prose detector** — measured unmechanizable, 4/4 false
   positives. See the sub-finding below.
 
-**Three traps that survived into the build**, none visible to a fixture and all found by
-running against the real corpus — worth carrying because each looks like a
-simplification:
+**Four traps that survived into the build**, none visible to a fixture and all found by
+running against the real corpus or the full test suite — worth carrying because each
+looks like a simplification:
 
 - **Never `yaml.safe_load` the frontmatter to read this field.** 35 of 412 docs carry an
   unquoted `title: ADR-013: KU UID Flat Identity Design`, whose colon-space is a YAML
@@ -2174,6 +2174,16 @@ simplification:
   regeneration wipes the stamp and reds the guard instead. Detected by the file's own
   `AUTO-GENERATED` banner (header-scoped: 2 real artifacts vs 12 whole-file false
   positives), never a list of generated paths.
+- **Creating a frontmatter block shifts every line number below it**, which invalidates
+  any registry anchored by `(file, line)`. `stale_names.ALLOWED_OCCURRENCES` is exactly
+  that, and the backfill left 72 of its anchors hitting nothing — so the exemptions
+  stopped exempting and `./dev health-names` reported 72 phantom stale references. Found
+  by the full unit suite, not by the backfill's own verification, which checked its
+  writes but not what downstream depended on their line numbers. **Any future bulk edit
+  that inserts at the top of docs must re-anchor that dict** (re-anchor by the file's
+  measured line-count delta, not by a guessed constant — the delta here was 4, 1 or 0
+  depending on whether the block was created, a key was inserted, or the key was
+  rewritten in place).
 
 
 ### Sub-finding: same-file contradictory ruling prose is NOT mechanizable
