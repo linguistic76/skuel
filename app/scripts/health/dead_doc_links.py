@@ -44,20 +44,27 @@ Also confirms that all files referenced in docs/INDEX.md exist.
 
 What is deliberately NOT reported
 ---------------------------------
-Two exclusions, both **visible**: the run prints how many files a scope carve-out
-skipped and how many targets matched a registered application route. A check that
-reports 871 findings is one nobody reads, but a check that goes quiet without
-saying so is worse — so nothing here suppresses silently.
+Four exclusions, every one **visible**: the run prints a count per class on every
+run, zero included. A check that reports 871 findings is one nobody reads, but a
+check that goes quiet without saying so is worse — so nothing here suppresses
+silently.
 
-  - ``FREEFORM_FILES`` / ``TEMPLATE_DIRS`` — files whose links are unvalidatable by
-    construction (working notes citing an Obsidian vault outside this repo; skill
-    templates whose paths are fictional by design). Scoped to measured FILES for
-    ``design-principles/``, never the directory: it also holds maintained specs
-    whose dead links are genuine rot.
+  - ``FREEFORM_FILES`` / ``TEMPLATE_FILES`` / ``TEMPLATE_DIRS`` — files whose links
+    are unvalidatable by construction (working notes citing an Obsidian vault
+    outside this repo; templates whose paths are fictional by design). Scoped to
+    measured FILES for ``design-principles/``, never the directory: it also holds
+    maintained specs whose dead links are genuine rot.
+  - ``HISTORY_DIRS`` — dated records of a past state, where a dead link is the
+    history being faithful rather than rot. Directory membership IS the
+    classification, so this one is a *directory* carve-out (Mike, 2026-09-01).
   - Registered application routes — docs cite app URLs (``/journals``,
     ``/manifest.json``) with the same leading-slash spelling as a repo path. The
     class is defined by MATCHING a live registration read from ``adapters/inbound/``,
     never by shape and never by a hand-kept URL list.
+  - ``<!-- historical -->`` markers in ``docs/decisions/`` — a per-citation opt-out
+    that skips a dead target and nothing else. A marker that skipped nothing is
+    itself reported (the SKUEL026 inversion), so it stays falsifiable; a blanket
+    carve-out for ADRs would not, which is why it was refused.
 
 Usage:
     uv run python scripts/health/dead_doc_links.py
@@ -70,10 +77,13 @@ import sys
 import urllib.parse
 from functools import cache
 from pathlib import Path
-from typing import NamedTuple
+from typing import Literal, NamedTuple
 
 # scripts/health/ is not a package — see the note in stale_names.py.
-from markdown_fences import iter_code_fence_lines  # type: ignore[import-not-found]
+from markdown_fences import (  # type: ignore[import-not-found]
+    iter_code_fence_blocks,
+    iter_code_fence_lines,
+)
 
 from core.utils.terminal_colors import Colors
 
@@ -190,7 +200,7 @@ FENCE_QUOTED_RE = re.compile(r"\"([^\"\n]+)\"|'([^'\n]+)'")
 PATH_JOIN_MARKER = " + "
 
 # ── Scope carve-outs ─────────────────────────────────────────────────────────
-# Excluded by SCOPE, not suppressed: the run prints how many files it skipped, so the
+# Excluded by SCOPE, not suppressed: the run prints a file count per class, so each
 # carve-out stays visible (the shape `duplicate_headings.py` uses). Entries are
 # repo-relative POSIX strings, resolved against ROOT at call time so tests can
 # substitute a throwaway root.
@@ -218,6 +228,51 @@ FREEFORM_FILES = frozenset(
 # are the shapes a reader substitutes, not citations (14 findings).
 TEMPLATE_DIRS = (".claude/skills/_templates",)
 
+# Single files of the same species, where the directory around them is NOT a template
+# tree. Kept file-scoped for the same reason `design-principles/` is: `docs/decisions/`
+# is the authority tier, and carving out the directory to reach one template would hide
+# the rot this instrument exists to surface.
+TEMPLATE_FILES = frozenset(
+    {
+        # The ADR template's `**Example:**` block illustrates what a Decision section
+        # looks like; its `File: /core/services/user/graph_sourced_context_builder.py`
+        # names a module that was never tracked in this repo (`git log --all` is empty),
+        # which is what "fictional by design" means here. 1 finding, measured 2026-09-01.
+        "docs/decisions/ADR-TEMPLATE.md",
+    }
+)
+
+# ── History directories: dated records of a past state ───────────────────────
+# A dead link inside a dated record is the history being FAITHFUL — the file it names
+# really was there when the record was written. Directory membership IS the
+# classification, so unlike `design-principles/` there is no mixed-content risk to scope
+# around: these directories hold nothing but records (Mike's ruling, 2026-09-01, option
+# (a) on the C class — 226 findings measured that day).
+#
+# Silence is sanctioned here in a way it is NOT for `docs/decisions/`: these directories
+# carry no tripwire. An ADR carve-out would have un-observed its own reopening condition
+# (Codex, PR #1215), which is why ADRs got the per-citation marker below instead.
+#
+# ⚠️ "Silent" names the absence of a tripwire, not the absence of a count — the file
+# count prints on every run, and it prints SEPARATELY from the unvalidatable-by-
+# construction count. Measured 2026-09-01: 73 files here against 6 there, so one merged
+# number would be a number whose growth nobody can read (this set grows with every
+# completed roadmap doc; that one is meant to stay fixed).
+#
+# ⚠️ `docs/roadmap/done/` and not `docs/roadmap/` — the live half of that folder is
+# "what might still happen" and its dead links are rot. The trailing separator added at
+# match time is what keeps `docs/migrations` from also swallowing a `docs/migrations-v2/`.
+HISTORY_DIRS = (
+    # Dated migration logs: each records a cutover as it stood (198 findings).
+    "docs/migrations",
+    # Completed roadmap docs — the citable archive of executed work (12).
+    "docs/roadmap/done",
+    # One-off investigations, written against the tree as it was on the day (12).
+    "docs/investigations",
+    # Point-in-time review write-ups (4).
+    "docs/Reviews",
+)
+
 # ── Registered application routes ────────────────────────────────────────────
 # Docs cite application URLs (`/journals`, `/submissions/sync`, the root-served PWA
 # assets `/manifest.json` `/service-worker.js` `/offline.html`) with the same
@@ -242,27 +297,140 @@ TEMPLATE_DIRS = (".claude/skills/_templates",)
 ROUTE_DECORATORS = frozenset({"rt", "route"})
 
 
-def _is_carved_out(path: Path) -> bool:
-    """Is this doc excluded from the scan by scope (freeform notes / templates)?"""
+# ── The historical-citation marker ───────────────────────────────────────────
+# ADRs mix two kinds of citation in one Accepted file: faithful narrative ("we deleted
+# X", "the former Y") and standing contract ("the chokepoint lives at X"). Measured
+# 2026-09-01 across all 154 `docs/decisions/` findings: 81 standing / 70 narrative / 3
+# ambiguous. A whole-tier carve-out would have hidden the 81 — so the narrative citations
+# opt out one at a time, and the marker itself stays falsifiable:
+#
+#   - it skips a marked citation ONLY when the target is dead, and
+#   - a marker that skipped nothing is REPORTED (`stale_markers`), the same inversion
+#     SKUEL026 applies to lint suppressions that suppress nothing.
+#
+# **Line-scoped**, which in this corpus is per-citation: 153 of the 154 findings are
+# alone on their line, and the single two-finding line (ADR-070:255, naming two deleted
+# scripts) is homogeneous. A line mixing a narrative citation with a standing-contract
+# one must be SPLIT before marking — one marker would silence both.
+#
+# ⚠️ The grammar is the WHOLE comment, matched exactly. The comment delimiters are the
+# anchors, so `<!-- historical: replaced by X -->` and `<!-- historically ... -->` are
+# not markers and their citations stay red. That direction is deliberate: B2's one
+# review finding was a pattern anchored at only one end reading `ADR-050-typo` as
+# `ADR-050`, and a marker predicate that accepts a superset of its grammar would quietly
+# swallow ADR prose that was never a marker. Fail toward reporting.
+#
+# The marker is inert as a citation: it carries no path, no extension and no project
+# prefix, so no pass extracts it (and `<`/`>` are TEMPLATE_MARKERS besides).
+HISTORICAL_MARKER = "<!-- historical -->"
+HISTORICAL_MARKER_RE = re.compile(r"<!--\s*historical\s*-->")
+
+# An inline code span, removed before marker detection — see `_historical_marker_lines`.
+# The same shape `extract_backtick_paths` reads, since it is the same convention: what
+# is inside backticks is a quoted token, not the surrounding prose's own voice.
+INLINE_CODE_RE = re.compile(r"`[^`\n]+`")
+
+# Honored ONLY here. Elsewhere the marker suppresses nothing and is reported as such —
+# one rule, evaluated corpus-wide, so a marker copied into a live doc cannot quietly
+# silence the sweep queue.
+MARKER_SCOPE_DIRS = ("docs/decisions",)
+
+CarveOutClass = Literal["unvalidatable", "history"]
+
+
+def _carve_out_class(path: Path) -> CarveOutClass | None:
+    """Which scope carve-out excludes this doc from the scan, if any?
+
+    The two classes are counted and printed separately because their reasons differ:
+    one set of links can never be checked, the other should not be.
+    """
     if not path.is_relative_to(ROOT):
-        return False
+        return None
     rel = path.relative_to(ROOT).as_posix()
-    return rel in FREEFORM_FILES or rel.startswith(tuple(f"{d}/" for d in TEMPLATE_DIRS))
+    if rel in FREEFORM_FILES or rel in TEMPLATE_FILES:
+        return "unvalidatable"
+    if rel.startswith(tuple(f"{d}/" for d in TEMPLATE_DIRS)):
+        return "unvalidatable"
+    if rel.startswith(tuple(f"{d}/" for d in HISTORY_DIRS)):
+        return "history"
+    return None
 
 
-def get_md_files() -> tuple[list[Path], int]:
-    """Markdown to scan, plus the count skipped by a scope carve-out."""
+class ScopeSkips(NamedTuple):
+    """Files a scope carve-out kept out of the scan, counted per class.
+
+    Two numbers rather than one: a merged count moves for two unrelated reasons, and
+    the 73-file history set would swamp the 6-file unvalidatable set it was merged with.
+    """
+
+    unvalidatable: int
+    history: int
+
+
+def get_md_files() -> tuple[list[Path], ScopeSkips]:
+    """Markdown to scan, plus the counts skipped by each scope carve-out."""
     scanned: list[Path] = []
-    skipped = 0
+    skipped = {"unvalidatable": 0, "history": 0}
     for base in SCAN_DIRS:
         if not base.exists():
             continue
         for path in sorted(base.rglob("*.md")):
-            if _is_carved_out(path):
-                skipped += 1
-            else:
+            carve_out = _carve_out_class(path)
+            if carve_out is None:
                 scanned.append(path)
-    return scanned, skipped
+            else:
+                skipped[carve_out] += 1
+    return scanned, ScopeSkips(skipped["unvalidatable"], skipped["history"])
+
+
+def _honors_historical_marker(path: Path) -> bool:
+    """Is this doc inside the tier where `<!-- historical -->` is honored?"""
+    if not path.is_relative_to(ROOT):
+        return False
+    rel = path.relative_to(ROOT).as_posix()
+    return rel.startswith(tuple(f"{d}/" for d in MARKER_SCOPE_DIRS))
+
+
+def _historical_marker_lines(content: str) -> frozenset[int]:
+    """Line numbers carrying a well-formed historical marker.
+
+    A marker inside a code span or a fenced block is prose ABOUT the marker, not an
+    annotation — documenting this checker requires writing the shape it hunts, and the
+    four occurrences in `HEALTH_CHECKS.md` and `deferred-work.md` each reported as a
+    marker-that-suppresses-nothing until this rule existed. `stale_names.py` meets the
+    same problem and answers it with a `SKIP_FILES` list; a code-span rule needs no
+    registry, generalises to the next doc that names the marker, and fails toward
+    reporting — a marker accidentally backticked inside an ADR is simply not honored,
+    so its citation stays red.
+
+    Scoped to the two contexts that fence off code by construction. A marker in an
+    indented (4-space) code block would still count; measured zero today, and the cost
+    would be one advisory line telling its author to backtick it.
+
+    ⚠️ The exclusion takes each fence's whole ``span``, delimiter lines included — not
+    the content-line projection ``iter_code_fence_lines`` gives. A marker in an INFO
+    STRING (```` ```markdown <!-- historical --> ````) sits on the opener, which is not
+    a content line, so the projection left it counting as a real annotation (Codex, PR
+    #1219). That was not merely noise: the prose passes DO read the opener line, so a
+    citation in the same info string would have been suppressed by it. ``FenceBlock``
+    carries ``span`` for precisely this reason — "a delimiter line is neither content
+    nor prose".
+    """
+    if not HISTORICAL_MARKER_RE.search(content):
+        # Nothing to walk fences for. Sound because the whole-content match is a strict
+        # superset of the per-line ones, and it keeps the fence parse (which
+        # `extract_fenced_paths` already pays once) off every unmarked file.
+        return frozenset()
+    fenced = {
+        lineno
+        for block in iter_code_fence_blocks(content)
+        for lineno in range(block.span[0], block.span[1] + 1)
+    }
+    return frozenset(
+        lineno
+        for lineno, line in enumerate(content.splitlines(), 1)
+        if lineno not in fenced and HISTORICAL_MARKER_RE.search(INLINE_CODE_RE.sub("", line))
+    )
 
 
 def _decorator_callee(func: ast.expr) -> str:
@@ -606,29 +774,40 @@ def _looks_like_local_path(text: str) -> bool:
 class FileScan(NamedTuple):
     """One file's audit: the dead references, plus what was skipped and why.
 
-    ``route_skips`` is carried out of the scan rather than dropped so ``main`` can print
-    it. A skip nobody can see is a suppression, and this checker's exclusions are
-    supposed to be countable — the same reason the carve-out prints a file count.
+    The skip counts are carried out of the scan rather than dropped so ``main`` can
+    print them. A skip nobody can see is a suppression, and this checker's exclusions
+    are supposed to be countable — the same reason the carve-outs print a file count.
+
+    ``stale_markers`` is the other half of the marker's contract: a ``<!-- historical -->``
+    that skipped nothing is rot in the marker, so it is a FINDING (rows of
+    ``(source, line_no, reason)``), not a silent no-op.
     """
 
     dead: list[tuple[Path, int, str, str]]
     route_skips: int
+    marker_skips: int
+    stale_markers: list[tuple[Path, int, str]]
 
 
 def check_file(md_file: Path, verbose: bool) -> FileScan:
     """
     Check one Markdown file for broken links.
-    Returns the dead (relative_source, line_no, raw_link, kind) rows plus the count of
-    targets that matched a registered application route.
+    Returns the dead (relative_source, line_no, raw_link, kind) rows, the counts of
+    targets skipped as a registered application route and as a marked historical
+    citation, and any marker that skipped nothing.
     """
     try:
         content = md_file.read_text(encoding="utf-8", errors="ignore")
     except OSError:
-        return FileScan([], 0)
+        return FileScan([], 0, 0, [])
 
     rel_source = md_file.relative_to(ROOT)
     dead: list[tuple[Path, int, str, str]] = []
     route_skips = 0
+    marker_skips = 0
+    marker_lines = _historical_marker_lines(content)
+    honors_marker = _honors_historical_marker(md_file)
+    used_marker_lines: set[int] = set()
     # Deduplicate on (lineno, RESOLVED TARGET), not (lineno, raw). Two spellings of one
     # dead file on one line are one defect, and since `./core/x.py` became checkable the
     # backtick pass reports it while the bare pass independently matches its
@@ -636,7 +815,7 @@ def check_file(md_file: Path, verbose: bool) -> FileScan:
     seen: set[tuple[int, str]] = set()
 
     def record(lineno: int, raw: str, kind: str) -> None:
-        nonlocal route_skips
+        nonlocal route_skips, marker_skips
         target = resolve_path(raw, md_file)
         if target is None:
             return
@@ -652,6 +831,17 @@ def check_file(md_file: Path, verbose: bool) -> FileScan:
             route_skips += 1
             if verbose:
                 print(f"  ROUTE [{kind}] {rel_source}:{lineno} → {raw}")
+            return
+        # An author has marked this line's citations as history. Reached only once the
+        # target has failed to resolve AND failed to match a live route, which is the
+        # contract: the marker skips a DEAD reference and nothing else, so it can never
+        # cover a live one — the property that keeps it falsifiable.
+        if honors_marker and lineno in marker_lines:
+            seen.add(key)
+            marker_skips += 1
+            used_marker_lines.add(lineno)
+            if verbose:
+                print(f"  HISTORICAL [{kind}] {rel_source}:{lineno} → {raw}")
             return
         seen.add(key)
         dead.append((rel_source, lineno, raw, kind))
@@ -672,12 +862,30 @@ def check_file(md_file: Path, verbose: bool) -> FileScan:
     for lineno, path in extract_fenced_paths(content):
         record(lineno, path, "code")
 
-    return FileScan(dead, route_skips)
+    # The SKUEL026 inversion: a marker that suppressed nothing is rot in the marker.
+    # Out of scope it can never suppress anything, which is a different authoring
+    # mistake from a marker whose target came back to life — so the reason is carried.
+    reason = (
+        "no dead reference on this line"
+        if honors_marker
+        else f"markers are honored only in {'/, '.join(MARKER_SCOPE_DIRS)}/"
+    )
+    stale_markers = [
+        (rel_source, lineno, reason) for lineno in sorted(marker_lines - used_marker_lines)
+    ]
+
+    return FileScan(dead, route_skips, marker_skips, stale_markers)
 
 
 def _sort_dead_link_records(record: tuple[Path, int, str, str]) -> tuple[str, int]:
     """Sort dead links by source file path then line number."""
     source, lineno, _, _ = record
+    return str(source), lineno
+
+
+def _sort_stale_marker_records(record: tuple[Path, int, str]) -> tuple[str, int]:
+    """Sort stale markers by source file path then line number."""
+    source, lineno, _ = record
     return str(source), lineno
 
 
@@ -692,24 +900,34 @@ def main() -> int:
     print("=" * 60)
 
     md_files, carved_out = get_md_files()
-    print(
-        f"Scanning {len(md_files)} Markdown files in docs/ and .claude/skills/ "
-        f"({carved_out} carved-out files skipped: freeform notes + skill templates)..."
-    )
+    print(f"Scanning {len(md_files)} Markdown files in docs/ and .claude/skills/...")
 
     all_dead: list[tuple[Path, int, str, str]] = []
+    all_stale_markers: list[tuple[Path, int, str]] = []
     route_skips = 0
+    marker_skips = 0
     index_md = Path("docs/INDEX.md")
 
     for md_file in md_files:
         scan = check_file(md_file, args.verbose)
         all_dead.extend(scan.dead)
+        all_stale_markers.extend(scan.stale_markers)
         route_skips += scan.route_skips
+        marker_skips += scan.marker_skips
 
-    # Printed unconditionally, zero included: both counts are the visible half of an
+    # Printed unconditionally, zero included: each count is the visible half of an
     # exclusion, and a silent zero is how a carve-out that has rotted (or a route
     # matcher that has broken) looks exactly like a clean run.
-    print(f"{route_skips} target(s) skipped: registered application routes (adapters/inbound/)\n")
+    print(
+        f"{carved_out.unvalidatable} file(s) carved out: freeform notes + templates "
+        f"(links unvalidatable by construction)"
+    )
+    print(
+        f"{carved_out.history} file(s) carved out: history directories "
+        f"(dated records, where a dead link is the record being faithful)"
+    )
+    print(f"{route_skips} target(s) skipped: registered application routes (adapters/inbound/)")
+    print(f"{marker_skips} target(s) skipped: {HISTORICAL_MARKER} markers\n")
 
     if all_dead:
         print(
@@ -741,11 +959,28 @@ def main() -> int:
                 f"{Colors.RED}⚠  docs/INDEX.md has {index_issues} broken reference(s) — "
                 f"update the index to match current files{Colors.RESET}"
             )
+
+    if all_stale_markers:
+        print(
+            f"\n{Colors.RED}{Colors.BOLD}Markers that suppress nothing — "
+            f"{len(all_stale_markers)}:{Colors.RESET}\n"
+        )
+        for source, lineno, reason in sorted(all_stale_markers, key=_sort_stale_marker_records):
+            print(
+                f"    {Colors.YELLOW}{source}:{lineno}{Colors.RESET}  "
+                f"{HISTORICAL_MARKER}  {Colors.RED}({reason}){Colors.RESET}"
+            )
+        print(
+            f"\n{Colors.YELLOW}Delete the marker — the citation it covered is no longer "
+            f"dead, or was never in scope.{Colors.RESET}"
+        )
+
+    if all_dead or all_stale_markers:
         return 1
-    else:
-        print(f"{Colors.GREEN}✓ All links valid{Colors.RESET}")
-        print(f"{Colors.GREEN}✓ docs/INDEX.md references verified{Colors.RESET}")
-        return 0
+
+    print(f"{Colors.GREEN}✓ All links valid{Colors.RESET}")
+    print(f"{Colors.GREEN}✓ docs/INDEX.md references verified{Colors.RESET}")
+    return 0
 
 
 if __name__ == "__main__":
