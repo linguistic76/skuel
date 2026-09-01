@@ -47,7 +47,6 @@ from docs_updated_field import (  # type: ignore[import-not-found]
     has_malformed_frontmatter,
     in_scope,
     is_generated,
-    newline_of,
     today_utc,
 )
 
@@ -71,10 +70,30 @@ def staged_docs() -> list[str]:
     return [path for path in raw.split("\0") if path and in_scope(path)]
 
 
+# Git's modes for a regular blob. 120000 is a symlink and 160000 a submodule gitlink;
+# neither holds Markdown, and stamping one corrupts it rather than dating it.
+_REGULAR_FILE_MODES = frozenset({"100644", "100755"})
+
+
 def _staged_mode(path: str) -> str:
     """The file mode git already records for this path (usually 100644)."""
     entry = _git("ls-files", "--stage", "--", path).decode().strip()
     return entry.split()[0] if entry else "100644"
+
+
+def is_regular_file(path: str) -> bool:
+    """Is the STAGED entry an ordinary file, rather than a symlink or a gitlink?
+
+    A symlinked ``.md`` breaks both halves of the stamp in different ways. ``git show
+    :path`` yields the link *target string*, so the index half would write frontmatter
+    plus a path back under mode ``120000`` — a symlink pointing at a broken target. The
+    worktree half is worse: ``read_text``/``write_text`` follow the link and edit
+    whatever it points at, which may be outside the docs tree entirely.
+
+    No ``app/docs/**/*.md`` is a symlink today. That is a fact about this moment, not a
+    property of the path, and the failure would be silent (Codex P2 on #1212).
+    """
+    return _staged_mode(path) in _REGULAR_FILE_MODES
 
 
 def stamp_index(path: str, stamp: date) -> bool:
@@ -84,6 +103,8 @@ def stamp_index(path: str, stamp: date) -> bool:
     the staged blob is what will land, and it is what the drift test a generated doc
     carries will be compared against.
     """
+    if not is_regular_file(path):
+        return False
     original = _git("show", f":{path}").decode("utf-8")
     if is_generated(original):
         return False
@@ -105,8 +126,10 @@ def stamp_worktree(path: str, stamp: date) -> bool:
     under partial staging and copying the blob out would destroy the difference.
     """
     target = REPO_ROOT / path
-    if not target.exists():
-        # Staged, then deleted from the worktree. The index half still stands.
+    if target.is_symlink() or not target.exists():
+        # A symlink is never followed — writing through it would edit the link's target,
+        # which may sit outside the docs tree. `exists()` also covers "staged, then
+        # deleted from the worktree"; the index half still stands in that case.
         return False
     # newline="" disables universal-newline translation in BOTH directions. Without it
     # a CRLF document is read as LF and written back as LF in its entirety, so the
@@ -126,11 +149,12 @@ def stamp_worktree(path: str, stamp: date) -> bool:
         # frontmatter for a hunk to overlap).
         target.write_text(stamped, encoding="utf-8", newline="")
         return True
-    eol = newline_of(original)
-    lines = original.split(eol)
-    stamped_lines = stamped.split(eol)
+    # Split on "\n" exactly as `find_updated` did, so `line_index` addresses the same
+    # list; each line keeps its own ending, mixed documents included.
+    lines = original.split("\n")
+    stamped_lines = stamped.split("\n")
     lines[field.line_index] = stamped_lines[field.line_index]
-    target.write_text(eol.join(lines), encoding="utf-8", newline="")
+    target.write_text("\n".join(lines), encoding="utf-8", newline="")
     return True
 
 

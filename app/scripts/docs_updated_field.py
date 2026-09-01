@@ -79,18 +79,24 @@ ROT_WINDOW_DAYS = 7
 FUTURE_SKEW_DAYS = 1
 
 
-def newline_of(content: str) -> str:
-    """The line ending this document uses, so a rewrite does not convert the file.
+def _carriage_return(line: str) -> str:
+    """The ``\r`` a ``\n``-split leaves on a CRLF line, or ``""`` for an LF line.
 
-    Splitting on ``\n`` and re-joining with ``\n`` leaves the one stamped line LF-only
-    while every other line keeps ``\r\n``, and ``Path.read_text``/``write_text`` without
-    an explicit ``newline`` would separately rewrite the WHOLE worktree file to LF.
-    Either way the index and the worktree stop agreeing about lines nobody edited —
-    breaking both the "touch only the stamp" promise and the partial staging it
-    protects. No doc in the corpus uses CRLF today; that is not a reason to convert the
-    first one that does.
+    **Every split in this module is on ``\n``, and every join puts it back.** Line
+    endings are preserved per LINE rather than per file, which is what makes the
+    indices consistent: ``find_updated`` locates the key by splitting on ``\n``, so any
+    writer that split on ``\r\n`` instead would be indexing a different list. It is not
+    hypothetical — choosing one ending for the whole file replaced the closing ``---``
+    fence of a mixed-ending document (silently corrupting it) and raised ``IndexError``
+    on the inverse mixture (Codex P2 on #1212). Mixed endings are unusual, not
+    impossible, and a writer must not assume they are absent.
+
+    The point of preserving them at all: writing one LF line into a CRLF file leaves
+    mixed endings in the index, and rewriting the whole worktree file to LF makes the
+    index and worktree disagree about lines nobody edited — breaking both the "touch
+    only the stamp" promise and the partial staging it protects.
     """
-    return "\r\n" if "\r\n" in content else "\n"
+    return "\r" if line.endswith("\r") else ""
 
 
 _UPDATED_LINE = re.compile(r"^updated\s*:(?P<value>.*)$")
@@ -260,21 +266,21 @@ def apply_stamp(content: str, stamp: date) -> str:
     if field is not None:
         if field.value == stamp_text:
             return content
-        eol = newline_of(content)
-        lines = content.split(eol)
+        lines = content.split("\n")
         quoted = field.raw_value.strip().startswith(("'", '"'))
-        lines[field.line_index] = f"updated: '{stamp_text}'" if quoted else f"updated: {stamp_text}"
-        return eol.join(lines)
+        value = f"'{stamp_text}'" if quoted else stamp_text
+        lines[field.line_index] = f"updated: {value}{_carriage_return(lines[field.line_index])}"
+        return "\n".join(lines)
 
     raw, _body = split_frontmatter(content)
     if raw is not None:
         # A frontmatter block with no `updated:` key — insert it as the last key of
         # the block, ahead of the closing fence, rather than rebuilding the block.
-        eol = newline_of(content)
-        lines = content.split(eol)
+        lines = content.split("\n")
         closing = next(index for index in range(1, len(lines)) if _FENCE.match(lines[index]))
-        lines.insert(closing, f"updated: {stamp_text}")
-        return eol.join(lines)
+        # Match the fence's own ending, so an inserted key never introduces a mixture.
+        lines.insert(closing, f"updated: {stamp_text}{_carriage_return(lines[closing])}")
+        return "\n".join(lines)
 
     # No frontmatter at all: create the block. The blank separator line is emitted
     # only when the document does not already start with one — stripping the
@@ -283,9 +289,13 @@ def apply_stamp(content: str, stamp: date) -> str:
     # would then read the backfill commit as substantive and fail on that file.
     # Exactly one in-scope doc starts with a newline today; the bound is what keeps
     # a second one from being a silent regression.
-    eol = newline_of(content)
-    separator = "" if content.startswith(eol) else eol
-    return f"---{eol}updated: {stamp_text}{eol}---{eol}{separator}{content}"
+    # A created block matches the ending of the line it is being placed above, so the
+    # new head does not introduce a mixture into an otherwise-consistent document.
+    first_line = content.split("\n", 1)[0]
+    cr = _carriage_return(first_line) or ("\r" if "\r\n" in content else "")
+    head = f"---{cr}\nupdated: {stamp_text}{cr}\n---{cr}\n"
+    separator = "" if content.startswith(("\n", "\r\n")) else f"{cr}\n"
+    return f"{head}{separator}{content}"
 
 
 # ---------------------------------------------------------------------------
@@ -503,6 +513,9 @@ def tracked_docs() -> tuple[list[str], list[str]]:
     ``-z`` because three docs under ``design-principles/`` have spaces in their
     filenames and a newline-split list quietly turns each into three phantom paths.
 
+    Symlinked entries are skipped entirely — the stamper refuses to write through one,
+    so requiring a stamp would red the guard forever with no reachable fix.
+
     The skipped PATHS are returned, not just a count, so the carve-out is not only
     visible but checkable: a hand-maintained doc wrongly matched here would otherwise be
     dropped from the guard permanently and silently. Excluded by scope, not suppressed.
@@ -512,7 +525,14 @@ def tracked_docs() -> tuple[list[str], list[str]]:
     stampable: list[str] = []
     generated: list[str] = []
     for path in paths:
-        content = (REPO_ROOT / path).read_text(encoding="utf-8", errors="replace")
+        target = REPO_ROOT / path
+        if target.is_symlink():
+            # The stamper refuses to write through a symlink (it would edit the link's
+            # target, possibly outside the docs tree), so demanding a stamp here would
+            # red the guard forever with no reachable fix. Reading through it is wrong
+            # in its own right — the verdict would describe a different file.
+            continue
+        content = target.read_text(encoding="utf-8", errors="replace")
         if is_generated(content):
             generated.append(path)
         else:

@@ -154,6 +154,7 @@ def test_block_creation_adds_no_deletion_when_the_doc_starts_blank() -> None:
         "---\r\ntitle: X\r\nupdated: 2020-01-01\r\n---\r\n\r\nbody\r\n",  # rewrite
         "---\r\ntitle: X\r\n---\r\nbody\r\n",  # insert into an existing block
         "# Title\r\n\r\nbody\r\n",  # create the block
+        "\r\n# Title\r\n",  # create, over a document that already starts blank
     ],
 )
 def test_a_crlf_document_keeps_crlf(source: str) -> None:
@@ -162,9 +163,31 @@ def test_a_crlf_document_keeps_crlf(source: str) -> None:
     so the two disagree about lines nobody edited, which is precisely the partial
     staging the stamper exists to protect (Codex P2 on #1212)."""
     out = field_mod.apply_stamp(source, STAMP)
-    assert "2026-09-01" in out
+    field = field_mod.find_updated(out)
+    assert field is not None and field.parsed == STAMP and field.occurrences == 1
     assert "\n" not in out.replace("\r\n", "")
     assert "\r" not in out.replace("\r\n", "")
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "---\r\ntitle: X\nupdated: 2020-01-01\r\n---\r\n\r\nbody\r\n",
+        "---\ntitle: X\r\nupdated: 2020-01-01\n---\n\nbody\n",
+        "---\r\ntitle: X\n---\r\nbody\n",
+    ],
+)
+def test_mixed_line_endings_are_stamped_correctly(source: str) -> None:
+    """Choosing ONE ending for the whole file makes the writer index a different list
+    than `find_updated` did: on the first case it replaced the closing `---` fence
+    (silently corrupting the document), and on the second it raised `IndexError`
+    (Codex P2 on #1212). Every split here is on `\n`, and each line keeps its own `\r`.
+    """
+    out = field_mod.apply_stamp(source, STAMP)
+    field = field_mod.find_updated(out)
+    assert field is not None and field.parsed == STAMP and field.occurrences == 1
+    # The document still closes its frontmatter — the fence was not the line replaced.
+    assert field_mod.has_malformed_frontmatter(out) is False
 
 
 def test_stamping_the_same_date_is_a_no_op() -> None:
