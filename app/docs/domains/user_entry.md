@@ -181,10 +181,17 @@ iteration counts, teacher feedback turnaround, and mastery velocity.
 
 ## Ingestion
 
-The vault is the source of truth for user data. `/submit` and the vault sync
-both reach `UserEntryService.create_entry()` through
-`core/services/ingestion/user_entry_ingestion.py` (ADR-054) — **not** the
-directory-ingest door used for content-vault curriculum.
+The vault is the source of truth for user data. Two doors reach
+`UserEntryService.create_entry()`, and they do **not** share a middle layer:
+
+| Door | Path |
+|------|------|
+| The `/submit` form | HTMX-posts multipart to `POST /api/user-entries/upload`; the handler in `adapters/inbound/user_entry_api.py` builds the request and calls `create_entry()` **directly** |
+| Vault / YAML sync | `UnifiedIngestionService` → `ingest_user_entry()` in `core/services/ingestion/user_entry_ingestion.py` (ADR-054) → `create_entry()` |
+
+Neither uses the directory-ingest door that serves content-vault curriculum.
+`create_entry()` is the one convergence point — which is why the audience,
+exercise-link and `Interaction` rules live there rather than on either door.
 
 `ensure_periodic_note()` covers the three stored periodic-note kinds; the
 membership vocabulary is the single `PERIODIC_NOTE_KINDS` frozenset on the

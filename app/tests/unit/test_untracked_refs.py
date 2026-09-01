@@ -294,6 +294,17 @@ class TestTrackedBasenameSuppression:
         line = "- Memory: `user_entry.md` — the note, not the doc"
         assert guard._memory_citation(guard._probe(line), {"user_entry.md"}) is not None
 
+    def test_excusing_one_match_does_not_excuse_the_line(self) -> None:
+        """Codex #1220: `search()` returns the LEFTMOST match, so a probe opening with a
+        tracked filename excused the whole probe — hiding a real citation further along
+        it. Neither line matches alone here, so nothing else would have reported it."""
+        guard = _load_guard()
+        probe = guard._probe("user_entry.md See memory:", "project_secret_thing")
+        assert len(list(guard.MEMORY_CITATION.finditer(probe))) == 2, "precondition"
+        hit = guard._memory_citation(probe, {"user_entry.md"})
+        assert hit is not None, "the real citation must survive the excused one"
+        assert "project_secret_thing" in hit.group(0)
+
 
 class TestScratchPathEdgeCases:
     def test_does_not_flag_a_tracked_docs_plans_path(self) -> None:

@@ -218,15 +218,20 @@ def _memory_citation(probe: str, tracked_basenames: set[str]) -> re.Match[str] |
     (`docs/domains/user_entry.md`) was excused on its own line and then re-reported as
     half of a two-line citation — the suppression was there, and the second caller simply
     did not run it.
+
+    ⚠️ Scans EVERY match, not just the first. ``search()`` returns the leftmost one, so a
+    line opening with a tracked filename would have excused the whole probe — hiding a
+    real citation later on it (``user_entry.md See memory: project_secret``, where neither
+    line matches alone, so nothing else reports it). Excusing one match must never excuse
+    the line; a guard that fails silent is the failure mode this one exists to prevent
+    (Codex, PR #1220).
     """
-    hit = MEMORY_CITATION.search(probe)
-    if (
-        hit
-        and hit.group("unmarked")
-        and hit.group("unmarked").rsplit("/", 1)[-1] in tracked_basenames
-    ):
-        return None
-    return hit
+    for hit in MEMORY_CITATION.finditer(probe):
+        unmarked = hit.group("unmarked")
+        if unmarked and unmarked.rsplit("/", 1)[-1] in tracked_basenames:
+            continue  # a tracked document's name — excuse THIS match, keep looking
+        return hit
+    return None
 
 
 def find_violations() -> tuple[list[tuple[str, int, str]], list[str]]:
