@@ -34,12 +34,20 @@ Renumbering the duplicate ADRs is a separate, unscheduled question — see
 import re
 from pathlib import Path
 
-# The leading ADR number of a reference, in any of the three authored spellings:
-# `ADR-037`, `037`, and the full `ADR-037-lateral-…-phase5.md`. The number is
-# captured as WRITTEN, padding included, because it is also the glob's stem —
-# `ADR-37-*.md` matches nothing, and reporting that is better than silently
+# The two authored spellings, and nothing else. Both patterns are ANCHORED AT BOTH
+# ENDS, which is the whole precondition: an unanchored `^(?:ADR-)?(\d+)` reads
+# `ADR-050-typo`, `ADR-050junk` and `ADR-050.md.bak` as the number 050 and resolves
+# each of them, silently, to the real ADR-050 — a malformed ref linked to a decision
+# nobody named it after (Codex P2, PR #1218). Rejecting the *shape* covers every
+# spelling of the mistake at once; enumerating bad suffixes never would.
+#
+# The number is captured as WRITTEN, padding included, because it is also the glob's
+# stem — `ADR-37-*.md` matches nothing, and reporting that is better than silently
 # re-padding a ref into a file its author never named.
-ADR_NUMBER_RE = re.compile(r"^(?:ADR-)?(\d+)")
+ADR_BARE_RE = re.compile(r"^(?:ADR-)?(\d+)$")
+# `[^/]` is load-bearing, not decoration: it is what stops `ADR-1-x/../y.md` from
+# resolving through the directory and rendering a link nobody authored.
+ADR_FILENAME_RE = re.compile(r"^ADR-(\d+)(?:-[^/]*)?\.md$")
 
 
 class AdrReferenceError(ValueError):
@@ -47,12 +55,17 @@ class AdrReferenceError(ValueError):
 
 
 def _number_token(ref: str) -> str:
-    """The reference's ADR number, as authored."""
-    match = ADR_NUMBER_RE.match(ref)
+    """The reference's ADR number, as authored — rejecting any other spelling.
+
+    This is the grammar gate for every entry point in the module, so a reference
+    that is neither of the two documented forms never reaches a glob, a file check
+    or a display label.
+    """
+    match = ADR_BARE_RE.match(ref) or ADR_FILENAME_RE.match(ref)
     if match is None:
         raise AdrReferenceError(
-            f"related_adrs entry {ref!r} does not start with an ADR number "
-            "(expected `ADR-NNN` or a full `ADR-NNN-slug.md` filename)."
+            f"related_adrs entry {ref!r} is not a valid ADR reference — expected a "
+            "bare `ADR-NNN` or a full `ADR-NNN-slug.md` filename."
         )
     return match.group(1)
 
@@ -88,9 +101,9 @@ def resolve_adr_filename(ref: str, decisions_dir: Path) -> str:
     number = _number_token(ref)
 
     if ref.endswith(".md"):
-        # A full filename, and a bare one: `docs/decisions/x.md` or `ADR-1-a/../b.md`
-        # would resolve but render a link nobody authored.
-        if "/" not in ref and (decisions_dir / ref).is_file():
+        # Shape is already guaranteed by the grammar gate above — only existence
+        # is left to check.
+        if (decisions_dir / ref).is_file():
             return ref
         raise AdrReferenceError(
             f"related_adrs entry {ref!r} names no file in {decisions_dir.as_posix()}/. "

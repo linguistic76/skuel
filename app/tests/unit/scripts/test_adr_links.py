@@ -102,38 +102,56 @@ class TestFullFilenameRefs:
         with pytest.raises(AdrReferenceError, match="names no file"):
             resolve_adr_filename("ADR-037-embedding-infrastructure-separation.md", directory)
 
-    def test_a_path_is_not_a_filename(self, tmp_path):
-        """A ref that resolves through a separator would render a link nobody authored.
-
-        Two guards cover this between them and the ref's shape decides which: one
-        that leads with the separator never parses an ADR number at all (see
-        ``TestUnparseableRefs``), while one that leads with a real number reaches
-        the filename check below.
-        """
-        name = "ADR-037-lateral-relationships-visualization-phase5.md"
-        directory = _decisions(tmp_path, name)
-        with pytest.raises(AdrReferenceError, match="names no file"):
-            resolve_adr_filename(f"ADR-037-lateral/../{name}", directory)
+    def test_a_slugless_filename_is_also_a_filename(self, tmp_path):
+        directory = _decisions(tmp_path, "ADR-042.md")
+        assert resolve_adr_filename("ADR-042.md", directory) == "ADR-042.md"
 
 
-class TestUnparseableRefs:
+class TestMalformedRefs:
+    """Neither documented form is a prefix match — the grammar is anchored at both ends.
+
+    An unanchored number pattern read ``ADR-050-typo`` as the number 050 and
+    resolved it, silently, to the real ADR-050 file: a skill associated with a
+    decision nobody named it after (Codex P2, PR #1218). Rejecting the *shape*
+    covers every spelling of the mistake at once, which enumerating bad suffixes
+    never would.
+    """
+
     @pytest.mark.parametrize(
         "ref",
         [
+            # A valid number followed by junk — the shapes that used to resolve.
+            "ADR-050-typo",
+            "ADR-050junk",
+            "ADR-050.md.bak",
+            # No ADR number at all.
             "",
             "ADR-",
             "TEMPLATE",
             "ADR-TEMPLATE.md",
             "see the ADR",
-            # Leads with a separator, so it never parses as an ADR number — the
-            # other half of the escape-the-directory case in TestFullFilenameRefs.
+            # Escaping the directory, from either end: a ref that would resolve
+            # through a separator renders a link nobody authored. Both spellings
+            # now fail at the one precondition rather than at two different guards.
             "../decisions/ADR-037-lateral-relationships-visualization-phase5.md",
+            "ADR-037-lateral/../ADR-037-lateral-relationships-visualization-phase5.md",
         ],
     )
-    def test_a_ref_with_no_adr_number_raises(self, ref, tmp_path):
-        directory = _decisions(tmp_path, "ADR-035-tier-selection-guidelines.md")
-        with pytest.raises(AdrReferenceError, match="does not start with an ADR number"):
+    def test_a_ref_outside_the_grammar_raises(self, ref, tmp_path):
+        directory = _decisions(
+            tmp_path,
+            "ADR-050-pwa-mobile-strategy.md",
+            "ADR-037-lateral-relationships-visualization-phase5.md",
+        )
+        with pytest.raises(AdrReferenceError, match="is not a valid ADR reference"):
             resolve_adr_filename(ref, directory)
+
+    def test_the_malformed_ref_does_not_reach_the_real_adr(self, tmp_path):
+        """The consequence, stated directly: a typo must not silently link ADR-050."""
+        directory = _decisions(tmp_path, "ADR-050-pwa-mobile-strategy.md")
+        assert resolve_adr_filename("ADR-050", directory) == "ADR-050-pwa-mobile-strategy.md"
+        with pytest.raises(AdrReferenceError):
+            resolve_adr_filename("ADR-050-typo", directory)
 
 
 class TestDisplayAndOrder:
