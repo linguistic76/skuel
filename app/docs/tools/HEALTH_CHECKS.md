@@ -332,7 +332,7 @@ Cross-Reference Validation Report
 | Check | Severity | Meaning |
 |-------|----------|---------|
 | Broken skill reference | ❌ Error | A name in a doc's `related_skills` doesn't exist in `skills_metadata.yaml` |
-| Broken doc link | ❌ Error | Doc in `skills_metadata.yaml` doesn't exist on disk |
+| Broken doc link | ❌ Error | Doc in `skills_metadata.yaml` doesn't exist on disk, or a `related_adrs` entry resolves to no single ADR — a bare number that matches several files is refused, never guessed (`scripts/adr_links.py`) |
 | Missing reverse link | ⚠️ Warning | Unidirectional reference (A→B but not B→A) |
 | Orphaned doc | 🔵 Info | Doc declares no `related_skills` at all |
 | Stale skill | 🔵 Info | Primary docs have git commits after `last_reviewed` |

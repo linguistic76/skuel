@@ -21,7 +21,9 @@ The honesty guards pin the properties the index exists to provide:
   (a new skill cannot be silently omitted),
 - every doc path the metadata names survives the renderer's category
   bucketing (the ``other_docs`` catch-all is a construction, not a law — a
-  doc in a new directory must land somewhere, never vanish), and
+  doc in a new directory must land somewhere, never vanish),
+- every ``/docs/decisions/`` link target the renderer emits is a real file
+  (the guard that would have caught the slug-less ADR links at birth), and
 - no pattern doc's frontmatter fails the YAML parse:
   ``load_pattern_frontmatter`` swallows ``yaml.YAMLError`` per file, and 35
   docs in the corpus carry an unquoted ``title: … : …`` that is a YAML
@@ -108,6 +110,33 @@ def test_every_metadata_doc_link_survives_rendering() -> None:
                 f"@{skill['name']} names {doc} in skills_metadata.yaml but its own "
                 "rendered section never links it — a renderer bucket dropped it."
             )
+
+
+def test_every_rendered_adr_link_target_exists() -> None:
+    """No ``/docs/decisions/`` link this generator emits may point at a missing file.
+
+    The bug this would have caught at birth: the renderer spelled ADR targets as
+    ``ADR-NNN.md`` while every ADR in the tree carries a slug, so 12 of the 13
+    distinct ``/docs/decisions/`` targets were dead — 30 findings, the whole of
+    this artifact's dead-link count, sitting inside a *generated* file where no
+    doc sweep would ever have thought to look.
+
+    Scoped to ``decisions/`` because that is the only path the generator
+    *constructs*: every other link is a metadata string passed through verbatim,
+    and a dead one there is a metadata defect, which ``validate_cross_references.py``
+    reports against the skill that authored it. The freshness test cannot cover
+    this — a wrong render is faithfully wrong twice.
+    """
+    targets = re.findall(r"\]\((/docs/decisions/[^)]+)\)", generate_index_content(PROJECT_ROOT))
+    assert targets, "guard checked nothing — the render names no ADR at all?"
+
+    missing = sorted({t for t in targets if not (PROJECT_ROOT / t.lstrip("/")).is_file()})
+    assert not missing, (
+        f"generate_cross_reference_index.py renders {len(missing)} dead ADR link "
+        f"target(s): {', '.join(missing)}. The target is computed from "
+        "related_adrs in skills_metadata.yaml — fix the reference or the resolver "
+        "in scripts/adr_links.py, not the artifact."
+    )
 
 
 def test_every_pattern_frontmatter_parses() -> None:

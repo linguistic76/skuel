@@ -5,6 +5,11 @@
 #
 # Skills are organized by foundation layer (base dependencies).
 #
+# `related_adrs` grammar: a bare `ADR-NNN` is resolved to its file under
+# docs/decisions/ by glob. Some numbers were reused across ADRs, so a bare number
+# there matches several files and the resolver refuses to choose — write the full
+# filename instead (three entries below do). See scripts/adr_links.py.
+#
 # New 2026-05-21 (registry hardening):
 # - Registered 5 previously-unregistered skills: docker, learning-loop, prompt-templates,
 #   ui-orchestrator, zpd (skill dirs existed but were missing from this registry).
@@ -127,7 +132,7 @@ skills:
       - /docs/patterns/LATERAL_RELATIONSHIPS_VISUALIZATION.md
       - /docs/architecture/RELATIONSHIPS_ARCHITECTURE.md
     related_adrs:
-      - ADR-037
+      - ADR-037-lateral-relationships-visualization-phase5.md  # duplicate number — full filename required
     patterns:
       - /docs/patterns/LATERAL_RELATIONSHIPS_VISUALIZATION.md
     keywords: [vis.js, visjs, vis-network, graph-visualization, force-directed-graph, relationship-network, lateral-relationships, interactive-graph, network-diagram, alpine-integration, htmx-lazy-loading, neo4j-visualization]
@@ -266,7 +271,7 @@ skills:
       - /docs/patterns/GRAPH_ACCESS_PATTERNS.md
       - /docs/patterns/CYPHER_VS_APOC_STRATEGY.md
     related_adrs:
-      - ADR-037  # Lateral relationships visualization
+      - ADR-037-lateral-relationships-visualization-phase5.md  # duplicate number — full filename required
     patterns:
       - /docs/patterns/CONTEXT_FIRST_RELATIONSHIP_PATTERN.md
       - /docs/patterns/LATERAL_RELATIONSHIPS_VISUALIZATION.md
@@ -479,7 +484,7 @@ skills:
       - /docs/architecture/UNIFIED_USER_ARCHITECTURE.md
       - /docs/intelligence/USER_CONTEXT_INTELLIGENCE.md
     related_adrs:
-      - ADR-030  # UserContext file consolidation
+      - ADR-030-usercontext-file-consolidation.md  # duplicate number — full filename required
     patterns: []
     keywords: [UserContext, intelligence, planning, alignment, recommendations]
 

@@ -498,6 +498,11 @@ uv run python scripts/generate_cross_reference_index.py
     - /docs/patterns/ROUTE_FACTORIES.md
 ```
 
+`related_adrs` takes a bare `ADR-NNN`, resolved to its file under `docs/decisions/`
+by glob. A few numbers were reused across ADRs; a bare one then matches several files
+and the resolver refuses to choose — write the full filename instead. See
+`scripts/adr_links.py`.
+
 **In Documentation** - Reference skills:
 ```markdown
 See: @fasthtml for route registration patterns

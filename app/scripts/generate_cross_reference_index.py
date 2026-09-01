@@ -29,6 +29,11 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from adr_links import (  # type: ignore[import-not-found]
+    adr_display,
+    adr_sort_key,
+    resolve_adr_filename,
+)
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 ARTIFACT_PATH = PROJECT_ROOT / "docs" / "CROSS_REFERENCE_INDEX.md"
@@ -36,11 +41,6 @@ ARTIFACT_PATH = PROJECT_ROOT / "docs" / "CROSS_REFERENCE_INDEX.md"
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from core.utils.frontmatter import split_frontmatter
-
-
-def _parse_adr_number(adr_id: str) -> int:
-    """Extract numeric part from ADR identifier for sorting."""
-    return int(adr_id.replace("ADR-", ""))
 
 
 def _normalize_related_skills(value: object) -> list[str]:
@@ -102,6 +102,7 @@ def generate_index_content(base_path: Path) -> str:
     """Generate the cross-reference index content."""
     skills_data = load_skills_metadata(base_path)
     pattern_data = load_pattern_frontmatter(base_path)
+    decisions_dir = base_path / "docs" / "decisions"
 
     content = ["# Cross-Reference Index: Skills ↔ Documentation"]
     content.append("")
@@ -202,8 +203,8 @@ def generate_index_content(base_path: Path) -> str:
         if related_adrs:
             content.append("**ADRs:**")
             for adr in related_adrs:
-                adr_file = f"ADR-{adr}.md" if not adr.startswith("ADR-") else f"{adr}.md"
-                content.append(f"- [{adr}](/docs/decisions/{adr_file})")
+                adr_file = resolve_adr_filename(adr, decisions_dir)
+                content.append(f"- [{adr_display(adr)}](/docs/decisions/{adr_file})")
             content.append("")
 
         if not primary_docs and not patterns and not related_adrs:
@@ -298,19 +299,22 @@ def generate_index_content(base_path: Path) -> str:
     content.append("### ADRs (Architecture Decision Records)")
     content.append("")
 
+    # Keyed by the RESOLVED filename, not the authored ref: two skills may now spell
+    # one ADR differently (a bare number and a full filename both resolve), and
+    # keying on the spelling would render that single ADR as two rows.
     adr_to_skills: dict[str, list[str]] = {}
     for skill in skills_data["skills"]:
         for adr in skill.get("related_adrs", []):
-            if adr not in adr_to_skills:
-                adr_to_skills[adr] = []
-            adr_to_skills[adr].append(skill["name"])
+            adr_file = resolve_adr_filename(adr, decisions_dir)
+            if adr_file not in adr_to_skills:
+                adr_to_skills[adr_file] = []
+            adr_to_skills[adr_file].append(skill["name"])
 
-    for adr in sorted(adr_to_skills.keys(), key=_parse_adr_number):
-        skills = sorted(set(adr_to_skills[adr]))
+    for adr_file in sorted(adr_to_skills.keys(), key=adr_sort_key):
+        skills = sorted(set(adr_to_skills[adr_file]))
         skills_str = ", ".join(f"@{s}" for s in skills)
-        adr_file = f"ADR-{adr}.md" if not adr.startswith("ADR-") else f"{adr}.md"
         adr_path = f"/docs/decisions/{adr_file}"
-        content.append(f"- [{adr}]({adr_path}) → {skills_str}")
+        content.append(f"- [{adr_display(adr_file)}]({adr_path}) → {skills_str}")
 
     content.append("")
 
