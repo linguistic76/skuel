@@ -38,6 +38,22 @@ def _parse_adr_number(adr_id: str) -> int:
     return int(adr_id.replace("ADR-", ""))
 
 
+def _normalize_related_skills(value: object) -> list[str]:
+    """Frontmatter ``related_skills`` as a list of names, whatever form it was authored in.
+
+    The scalar form (``related_skills: fasthtml``) is a supported authoring shape —
+    ``validate_cross_references.py`` tolerates it explicitly — and ``list.extend()`` on
+    that string iterates CHARACTERS, rendering one phantom skill per letter (``@f, @a,
+    …``) with the freshness test green over the corrupted artifact (Codex P2, PR #1213).
+    Mirrors the validator's normalization: scalar wraps, non-string members drop.
+    """
+    if isinstance(value, str):
+        return [value]
+    if not isinstance(value, list):
+        return []
+    return [name for name in value if isinstance(name, str)]
+
+
 def load_skills_metadata(base_path: Path) -> dict[str, Any]:
     """Load skills metadata from YAML."""
     metadata_file = base_path / ".claude" / "skills" / "skills_metadata.yaml"
@@ -247,7 +263,7 @@ def generate_index_content(base_path: Path) -> str:
 
     # From pattern frontmatter
     for doc_name, frontmatter in pattern_data.items():
-        related_skills = frontmatter.get("related_skills", [])
+        related_skills = _normalize_related_skills(frontmatter.get("related_skills"))
         if doc_name not in pattern_to_skills:
             pattern_to_skills[doc_name] = []
         pattern_to_skills[doc_name].extend(related_skills)

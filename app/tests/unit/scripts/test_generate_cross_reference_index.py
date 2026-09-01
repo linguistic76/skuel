@@ -35,13 +35,23 @@ from pathlib import Path
 # scripts/ has no __init__.py — add it to sys.path for import
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
 
+import yaml
 from generate_cross_reference_index import (  # type: ignore[import-not-found]
     ARTIFACT_PATH,
     PROJECT_ROOT,
+    _normalize_related_skills,
     generate_index_content,
     load_pattern_frontmatter,
     load_skills_metadata,
 )
+
+
+def _frontmatter_block(doc_path: Path) -> list[str] | None:
+    """The raw frontmatter lines, extracted independently of the generator's pipeline."""
+    lines = doc_path.read_text(encoding="utf-8").split("\n")
+    if lines[0] != "---" or "---" not in lines[1:]:
+        return None
+    return lines[1 : lines[1:].index("---") + 1]
 
 
 def test_artifact_is_fresh() -> None:
@@ -86,11 +96,8 @@ def test_related_skills_frontmatter_never_silently_swallowed() -> None:
     """
     parsed = load_pattern_frontmatter(PROJECT_ROOT)
     for doc_path in sorted((PROJECT_ROOT / "docs" / "patterns").glob("*.md")):
-        lines = doc_path.read_text(encoding="utf-8").split("\n")
-        if lines[0] != "---" or "---" not in lines[1:]:
-            continue
-        block = lines[1 : lines[1:].index("---") + 1]
-        if not any(line.startswith("related_skills:") for line in block):
+        block = _frontmatter_block(doc_path)
+        if block is None or not any(line.startswith("related_skills:") for line in block):
             continue
         assert doc_path.name in parsed, (
             f"{doc_path.name} declares related_skills: but load_pattern_frontmatter "
@@ -98,3 +105,52 @@ def test_related_skills_frontmatter_never_silently_swallowed() -> None:
             "frontmatter (an unquoted colon in title: is the known shape). Its "
             "skills would silently vanish from the index."
         )
+
+
+def test_declared_skills_render_in_pattern_mapping() -> None:
+    """Every skill a pattern doc declares appears, whole, in its rendered mapping line.
+
+    The corruption this pins: ``related_skills: fasthtml`` (the scalar form the
+    cross-reference validator explicitly supports) fed to ``list.extend()`` renders one
+    phantom skill per CHARACTER — and the freshness test stays green over the corrupted
+    artifact, because a wrong render is faithfully wrong twice (Codex P2, PR #1213).
+    The declared set is re-derived here with an independent frontmatter parse.
+    """
+    content = generate_index_content(PROJECT_ROOT)
+    rendered: dict[str, str] = {}
+    for line in content.splitlines():
+        match = re.match(r"^- \[([^\]]+)\]\(/docs/patterns/[^)]+\) → (.+)$", line)
+        if match:
+            rendered[match.group(1)] = match.group(2)
+
+    checked = 0
+    for doc_path in sorted((PROJECT_ROOT / "docs" / "patterns").glob("*.md")):
+        block = _frontmatter_block(doc_path)
+        if block is None:
+            continue
+        try:
+            frontmatter = yaml.safe_load("\n".join(block)) or {}
+        except yaml.YAMLError:
+            continue
+        declared = _normalize_related_skills(frontmatter.get("related_skills"))
+        if not declared:
+            continue
+        mapping = rendered.get(doc_path.name, "")
+        rendered_skills = {chunk.strip().removeprefix("@") for chunk in mapping.split(",")}
+        for skill in declared:
+            checked += 1
+            assert skill in rendered_skills, (
+                f"{doc_path.name} declares related_skills {declared} but its rendered "
+                f"mapping line reads {mapping!r} — the declared name is not there whole "
+                "(a per-character split renders '@f, @a, …')."
+            )
+    assert checked > 0, "guard checked nothing — no pattern doc declares related_skills?"
+
+
+def test_normalize_related_skills_forms() -> None:
+    """Scalar wraps, list passes, non-string members and junk drop — the validator's shape."""
+    assert _normalize_related_skills("fasthtml") == ["fasthtml"]
+    assert _normalize_related_skills(["fasthtml", "pytest"]) == ["fasthtml", "pytest"]
+    assert _normalize_related_skills(["fasthtml", 3, None]) == ["fasthtml"]
+    assert _normalize_related_skills(None) == []
+    assert _normalize_related_skills({"not": "a list"}) == []
