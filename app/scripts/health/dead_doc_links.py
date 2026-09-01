@@ -80,7 +80,10 @@ from pathlib import Path
 from typing import Literal, NamedTuple
 
 # scripts/health/ is not a package — see the note in stale_names.py.
-from markdown_fences import iter_code_fence_lines  # type: ignore[import-not-found]
+from markdown_fences import (  # type: ignore[import-not-found]
+    iter_code_fence_blocks,
+    iter_code_fence_lines,
+)
 
 from core.utils.terminal_colors import Colors
 
@@ -403,13 +406,26 @@ def _historical_marker_lines(content: str) -> frozenset[int]:
     Scoped to the two contexts that fence off code by construction. A marker in an
     indented (4-space) code block would still count; measured zero today, and the cost
     would be one advisory line telling its author to backtick it.
+
+    ⚠️ The exclusion takes each fence's whole ``span``, delimiter lines included — not
+    the content-line projection ``iter_code_fence_lines`` gives. A marker in an INFO
+    STRING (```` ```markdown <!-- historical --> ````) sits on the opener, which is not
+    a content line, so the projection left it counting as a real annotation (Codex, PR
+    #1219). That was not merely noise: the prose passes DO read the opener line, so a
+    citation in the same info string would have been suppressed by it. ``FenceBlock``
+    carries ``span`` for precisely this reason — "a delimiter line is neither content
+    nor prose".
     """
     if not HISTORICAL_MARKER_RE.search(content):
         # Nothing to walk fences for. Sound because the whole-content match is a strict
         # superset of the per-line ones, and it keeps the fence parse (which
         # `extract_fenced_paths` already pays once) off every unmarked file.
         return frozenset()
-    fenced = {lineno for lineno, _lang, _line in iter_code_fence_lines(content)}
+    fenced = {
+        lineno
+        for block in iter_code_fence_blocks(content)
+        for lineno in range(block.span[0], block.span[1] + 1)
+    }
     return frozenset(
         lineno
         for lineno, line in enumerate(content.splitlines(), 1)

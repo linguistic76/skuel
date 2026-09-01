@@ -196,9 +196,10 @@ deleted thing as what-was. The grammar is the whole comment, matched exactly —
 (`<!-- historical: see ADR-054 -->`) or a different case is **not** a marker and its
 citation stays red, which is the fail-safe direction. It is **line-scoped**: one marker
 covers every dead citation on its line, so a line mixing narrative with a standing
-contract must be split before marking. Writing the marker inside backticks or a fenced
-block names it without being it — which is how this page can document it at all (the
-same problem `stale_names.py` solves with `SKIP_FILES`, answered here without a registry).
+contract must be split before marking. Writing the marker inside backticks, or anywhere
+in a fenced block (delimiter lines included), names it without being it — which is how
+this page can document it at all (the same problem `stale_names.py` solves with
+`SKIP_FILES`, answered here without a registry).
 
 **Special callout:** When `docs/INDEX.md` has broken links, the output highlights it:
 ```

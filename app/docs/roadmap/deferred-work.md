@@ -2557,16 +2557,20 @@ mechanism, both halves:
   citation stays red — a predicate accepting a superset of its grammar would quietly
   swallow ADR prose that was never a marker. Zero HTML comments existed anywhere in
   `docs/decisions/` when the syntax was chosen, so it collides with nothing.
-- **A marker inside backticks or a fence is prose ABOUT the marker**, not an
-  annotation. Documenting this checker requires writing the shape it hunts, and this
-  PR's own four occurrences (one here, three in `HEALTH_CHECKS.md`, one of those inside
-  a sample output block) each reported as a marker-suppressing-nothing until the rule
-  existed —
+- **A marker inside backticks or anywhere in a fence — delimiter lines included — is
+  prose ABOUT the marker**, not an annotation. Documenting this checker requires
+  writing the shape it hunts, and this PR's own four occurrences (one here, three in
+  `HEALTH_CHECKS.md`, one of those inside a sample output block) each reported as a
+  marker-suppressing-nothing until the rule existed —
   caught by re-measuring AFTER the prose edits, which is why that step is in the arc's
   discipline. `stale_names.py` meets the same problem and answers it with a file skip
   list; a code-span rule needs no registry and generalises to the next doc that names
   the marker. A corpus test now asserts no doc in the tree carries a marker that
-  suppresses nothing.
+  suppresses nothing. ⚠️ The exclusion takes each fence's whole **span**, not the
+  content-line projection: a marker in an INFO STRING sits on the opener, which is not
+  a content line, and the prose passes DO read that line — so it could have suppressed
+  a citation sharing the info string (Codex on this PR; `FenceBlock` carries `span`
+  for exactly this, and zero findings sit on a delimiter line today).
 - **It is honored ONLY under `docs/decisions/`**, and that scope needs no second
   mechanism to enforce: one rule ("a marker that suppressed nothing is reported")
   evaluated corpus-wide catches a marker copied into a live doc, with the reason

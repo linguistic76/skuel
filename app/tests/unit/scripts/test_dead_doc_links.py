@@ -924,24 +924,56 @@ def test_one_marker_covers_every_dead_citation_on_its_line(docs_root: Path) -> N
     assert scan.marker_skips == 2
 
 
-@pytest.mark.parametrize("quoting", ["backtick", "fence"])
-def test_a_quoted_marker_is_prose_about_the_marker(docs_root: Path, quoting: str) -> None:
+@pytest.mark.parametrize(
+    ("position", "body"),
+    [
+        # An inline code span — how prose names the marker mid-sentence.
+        ("code span", f"# ADR\n\nWrite `{{shown}}` on the line. See `{DEAD_REL}`.\n"),
+        # Fence content — how a doc shows the marker as a copyable sample.
+        ("fence content", f"# ADR\n\n```\n{{shown}}\n```\n\nSee `{DEAD_REL}`.\n"),
+        # ⚠️ The delimiter lines. A fence's INFO STRING is not a content line, so the
+        # `iter_code_fence_lines` projection left this one counting (Codex, PR #1219).
+        (
+            "fence info string",
+            f"# ADR\n\n```markdown {{shown}}\nsample\n```\n\nSee `{DEAD_REL}`.\n",
+        ),
+        ("fence closer", f"# ADR\n\n```markdown\nsample\n``` {{shown}}\n\nSee `{DEAD_REL}`.\n"),
+    ],
+)
+def test_a_quoted_marker_is_prose_about_the_marker(
+    docs_root: Path, position: str, body: str
+) -> None:
     """Documenting this checker requires writing the shape it hunts — the same problem
     `stale_names.py` answers with a `SKIP_FILES` list. A code-span rule needs no
     registry and generalises to the next doc that names the marker. Measured: the four
     occurrences across `HEALTH_CHECKS.md` and `deferred-work.md` each reported as a
     marker-that-suppresses-nothing until this rule existed.
+
+    The exclusion takes each fence's whole SPAN, delimiter lines included, which is why
+    the last two positions are here: `FenceBlock` carries `span` precisely because "a
+    delimiter line is neither content nor prose".
     """
-    shown = ddl.HISTORICAL_MARKER
-    body = (
-        f"# ADR\n\nWrite `{shown}` on the line. See `{DEAD_REL}`.\n"
-        if quoting == "backtick"
-        else f"# ADR\n\n```\n{shown}\n```\n\nSee `{DEAD_REL}`.\n"
-    )
+    scan = _scan(docs_root, body.format(shown=ddl.HISTORICAL_MARKER), ADR_PROBE)
+    assert {raw for _s, _l, raw, _k in scan.dead} == {DEAD_REL}, position
+    assert scan.marker_skips == 0, position
+    assert scan.stale_markers == [], position
+
+
+def test_a_marker_in_an_info_string_cannot_suppress_that_lines_citation(
+    docs_root: Path,
+) -> None:
+    """The failure scenario behind the finding, not just its symptom (Codex, PR #1219).
+
+    The prose passes DO read a fence opener — that is what `FenceBlock.span` exists to
+    warn about — so a citation sharing an info string with a marker would have been
+    suppressed by it, silently, inside the one tier where a citation may not vanish.
+    Measured on the live tree: zero findings currently sit on a delimiter line, so this
+    pins a latent gap rather than a live one.
+    """
+    body = f"# ADR\n\n```markdown {DEAD_ABS} {ddl.HISTORICAL_MARKER}\nsample\n```\n"
     scan = _scan(docs_root, body, ADR_PROBE)
-    assert {raw for _s, _l, raw, _k in scan.dead} == {DEAD_REL}
+    assert {raw for _s, _l, raw, _k in scan.dead} == {DEAD_ABS}
     assert scan.marker_skips == 0
-    assert scan.stale_markers == []
 
 
 def test_no_doc_in_the_tree_carries_a_marker_that_suppresses_nothing() -> None:
