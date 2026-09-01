@@ -143,10 +143,13 @@ Scans all `.md` files in `docs/` and `.claude/skills/` for broken path reference
 ```
 Dead Doc Link Validator
 ============================================================
-Scanning 509 Markdown files in docs/ and .claude/skills/ (5 carved-out files skipped: freeform notes + skill templates)...
+Scanning 435 Markdown files in docs/ and .claude/skills/...
+6 file(s) carved out: freeform notes + templates (links unvalidatable by construction)
+73 file(s) carved out: history directories (dated records, where a dead link is the record being faithful)
 28 target(s) skipped: registered application routes (adapters/inbound/)
+0 target(s) skipped: <!-- historical --> markers
 
-Broken References — 754 dead links:
+Broken References — 497 dead links:
 
   docs/INDEX.md  [INDEX.md]
     L  14  [link]      docs/decisions/ADR-029-graphnative-service-removal.md
@@ -177,14 +180,25 @@ they are retried relative to the repo root (docs routinely cite root-relative pa
 **`%20`-encoded destinations are decoded** before resolution, so a correctly-encoded
 citation of a file whose name contains spaces resolves instead of reporting dead.
 
-**Two exclusions, both visible (PR B1).** A check reporting 871 findings is one nobody
-reads — but a check that goes quiet without saying so is worse, so each exclusion prints
-its count on **every** run, zero included:
+**Four exclusions, every one visible (PRs B1 + B3).** A check reporting 871 findings is
+one nobody reads — but a check that goes quiet without saying so is worse, so each
+exclusion prints its count on **every** run, zero included:
 
 | Exclusion | Mechanism | Why |
 |---|---|---|
-| Freeform notes + skill templates | `FREEFORM_FILES` (explicit FILE list) and `TEMPLATE_DIRS` in `scripts/health/dead_doc_links.py`; skipped in `get_md_files()` | Links unvalidatable by construction — working notes citing an Obsidian vault outside the repo; template paths a reader substitutes. ⚠️ FILE-scoped for `docs/design-principles/`, never the directory: it also holds maintained specs whose dead links are genuine rot |
+| Freeform notes + templates | `FREEFORM_FILES` / `TEMPLATE_FILES` (explicit FILE lists) and `TEMPLATE_DIRS` in `scripts/health/dead_doc_links.py`; skipped in `get_md_files()` | Links unvalidatable by construction — working notes citing an Obsidian vault outside the repo; template paths a reader substitutes. ⚠️ FILE-scoped for `docs/design-principles/` and for `docs/decisions/ADR-TEMPLATE.md`, never the directory: both also hold maintained content whose dead links are genuine rot |
+| History directories | `HISTORY_DIRS` (`docs/migrations`, `docs/roadmap/done`, `docs/investigations`, `docs/Reviews`); skipped in `get_md_files()` | Dated records of a past state, where a dead link is the record being **faithful** — the file really was there when the record was written. Directory membership IS the classification, so this one is a directory carve-out (Mike's ruling, 2026-09-01). ⚠️ `docs/roadmap/done/` and never `docs/roadmap/`: the live half is "what might still happen" and its dead links are ordinary rot |
 | Registered application routes | AST match against the `@rt("…")` literals in `adapters/inbound/` | Docs cite app URLs (`/journals`, `/manifest.json`) with the same leading-slash spelling a repo path uses. The class is defined by MATCHING a live registration — never by shape, never by a hand-kept URL list. ⚠️ Only literal paths match: a factory's `@rt(f"/{domain}")` is unresolvable statically, so `/tasks` stays reported. Fail toward reporting |
+| `<!-- historical -->` markers | Exact-shape comment on the citation's line, honored only under `docs/decisions/` | An Accepted ADR mixes faithful narrative ("we deleted X") with standing contract ("the chokepoint lives at X"), so the opt-out is per citation rather than per file. It skips a marked citation **only when the target is dead**, and a marker that skipped nothing is itself reported — the SKUEL026 inversion. That is what a blanket ADR carve-out could not offer, and why it was refused |
+
+**The marker, in one line:** put `<!-- historical -->` on the line whose citation names a
+deleted thing as what-was. The grammar is the whole comment, matched exactly — a payload
+(`<!-- historical: see ADR-054 -->`) or a different case is **not** a marker and its
+citation stays red, which is the fail-safe direction. It is **line-scoped**: one marker
+covers every dead citation on its line, so a line mixing narrative with a standing
+contract must be split before marking. Writing the marker inside backticks or a fenced
+block names it without being it — which is how this page can document it at all (the
+same problem `stale_names.py` solves with `SKIP_FILES`, answered here without a registry).
 
 **Special callout:** When `docs/INDEX.md` has broken links, the output highlights it:
 ```

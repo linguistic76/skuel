@@ -2449,11 +2449,13 @@ claims that matter are pinned or gone, and "N things" in running text has no rel
 sat red at **871 findings / 531 distinct missing targets** before PR B1 (measured
 2026-09-01 on `eb6aad6af`, confirmed identical by the classification pass on `e2e5b7f4a`).
 An always-on check reporting 871 findings is one nobody reads. **PR B1 landed the
-approved false-positive removals: 871 → 754 / 456 distinct**, and **PR B2 the generated
-index: 754 → 724 / 447 distinct** (each measured on its branch by driving `check_file()`
-over `get_md_files()`). Re-derive the same way — never trust these counts as current.
-The rows below SUM to the current total: the parser, carve-out and generated-index
-classes are gone, and the route-shaped class is no longer scattered across the others.
+approved false-positive removals: 871 → 754 / 456 distinct**, **PR B2 the generated
+index: 754 → 724 / 447 distinct**, and **PR B3 the history line: 724 → 497 / 314
+distinct** (each measured on its branch by driving `check_file()` over
+`get_md_files()`). Re-derive the same way — never trust these counts as current.
+The rows below SUM to the current total: the parser, carve-out, generated-index and
+history-dir classes are gone, and the route-shaped class is no longer scattered across
+the others.
 
 | Class | Findings (now) | Disposition |
 |---|---|---|
@@ -2461,8 +2463,9 @@ classes are gone, and the route-shaped class is no longer scattered across the o
 | ~~Route-shaped targets~~ — application URLs read as filesystem paths | 0 · 6 still red | **DONE — PR B1.** Matched by AST against the live `@rt("…")` registrations in `adapters/inbound/`, never by shape and never by a URL list; skips are counted and printed. ⚠️ Unmatched stays RED by design: `/journals/browse` ×3 (deleted in #420 — the stale `user_entry_ui.py` docstring claiming otherwise was fixed in B1), `/yaml_templates/_schemas/` ×2 (neither route nor directory), and `/tasks` ×1 (live, but registered as `@rt(f"/{domain}")`, which no static pass resolves — fail toward reporting). All 6 join the sweep queue |
 | ~~The two freeform design-principles files~~ + `.claude/skills/_templates/` | 0 (−50) | **DONE — PR B1** carve-outs, 5 files, count printed every run. ⚠️ FILE-scoped, not the directory: `design-principles/HUB_PAGES.md` cites a teaching-hub view module that no longer exists, and that finding is still reported — verify it still is, before ever widening this to a directory. (The path is named in prose there rather than backticked here: a backticked dead path in this doc is itself a finding.) |
 | ~~Generated `CROSS_REFERENCE_INDEX.md`~~ (slug-less ADR links) | 0 (−30) | **DONE — PR B2.** One resolver (`scripts/adr_links.py`) now serves both `related_adrs` readers; the duplicate numbers are refused, never guessed. All 13 of the artifact's distinct `docs/decisions/` link targets exist (12 were dead). ⚠️ Corpus-wide distinct fell 9, not 12: `.claude/skills/docs-skills-evolution/SKILL.md` still cites three of those targets by hand, and those stay in the sweep queue — a generated-artifact fix reaches only the artifact |
-| History dirs (`migrations/` 198, `roadmap/done/` + `Reviews/` + `investigations/` 28) | 226 | **RULED 2026-09-01** — silent dir carve-out; directory membership IS the classification (PR B3) |
-| ADRs (`docs/decisions/`, mixed faithful history and standing contracts) | 154 | **RULED 2026-09-01** — per-citation historical marker, option (d); measured split 81 standing / 70 narrative / 3 ambiguous. B1's exit measurement lands on exactly 154, confirming the pass's arithmetic (167 raw − 11 parser − 2 route-matched) (PR B3 mechanism + PR B4 sweep) |
+| ~~History dirs~~ (`migrations/` 198, `roadmap/done/` 12, `investigations/` 12, `Reviews/` 4) | 0 (−226) | **DONE — PR B3.** Silent dir carve-out, 73 files, counted and printed on its own line (not folded into the freeform count: that set is meant to stay fixed while this one grows with every completed roadmap doc, so one merged number would be a number nobody can read). ⚠️ `roadmap/done/` and never `roadmap/` — the live half's 14 findings are ordinary rot on the sweep queue |
+| ~~`docs/decisions/ADR-TEMPLATE.md`~~ | 0 (−1) | **DONE — PR B3.** Joined the template carve-out: its one finding sits in the `**Example:**` block illustrating what a Decision section looks like, naming a module never tracked in this repo (`git log --all` empty). Fictional by design, same species as `.claude/skills/_templates/`. FILE-scoped — `docs/decisions/` is the authority tier and a directory carve-out to reach one template would hide the rot below |
+| ADRs (`docs/decisions/`, mixed faithful history and standing contracts) | 153 | **RULED 2026-09-01** — per-citation historical marker, option (d); measured split 81 standing / 70 narrative / 3 ambiguous. **PR B3 built the mechanism; no citation is marked yet** — B4 applies them, so the printed marker count is 0 and that zero is the point. B1's exit measurement landed on exactly 154 (167 raw − 11 parser − 2 route-matched), of which ADR-TEMPLATE's 1 moved to the row above |
 | Live docs — real rot | 344 | **RULED** — sweep queue below, now actionable |
 
 **PR B1 (LANDED):** 871 → **754** (−117: 40 parser, 50 carve-out, 27 route-matched),
@@ -2535,24 +2538,60 @@ while every real ADR carries a slug. Both `related_adrs` readers now share one r
   A drift test only proves the artifact matches the generator; it cannot prove either is
   right, which is exactly how 30 dead links sat inside a *generated* file.
 
-**PR B3 (scheduled, fresh context; after B1 — it edits the same scanner):** the ruled
-history-line mechanism. (i) **Silent dir carve-out** for `docs/migrations/` +
-`docs/roadmap/done/` + `docs/Reviews/` + `docs/investigations/` — directory membership
-IS the classification (de-fiction: dated logs = LEAVE); these dirs carry no tripwire,
-silence is sanctioned. (ii) **Per-citation historical marker** for `docs/decisions/`:
-the scanner skips a marked citation ONLY when its target is dead; **marked-but-alive is
-itself a finding** (the SKUEL026 inversion); the per-run output prints the
-skipped-marker count (`duplicate_headings.py` shape). Marker syntax is decided in-PR,
-measured against the live tree and pinned by cases in
-`tests/unit/scripts/test_dead_doc_links.py`. Steady state: red inside `decisions/`
-means rot in the authority tier — observability is inherent, no report-only section
-needed. (iii) Decide in-PR whether `docs/decisions/ADR-TEMPLATE.md` joins the template
-carve-out (same species as `.claude/skills/_templates/` — its example paths are
-fictional by design; 1 finding).
+**PR B3 (LANDED):** 724 → **497** (−227: 226 history-dir + 1 ADR-TEMPLATE), every
+removed finding classified by source directory and zero added. The ruled history-line
+mechanism, both halves:
 
-**PR B4 (scheduled, fresh context; after B3 — the marker must exist to apply):** the
+- **The silent dir carve-out** extends B1's machinery rather than opening a second one
+  — one `_carve_out_class()` predicate, one loop, per-class counts. ⚠️ **"Silent" names
+  the absence of a tripwire, not the absence of a count.** The two classes print
+  separately because they carve out for different reasons and move for unrelated
+  causes; a stale-registration test now also asserts every carve-out directory is real
+  AND inside the scanned tree, since a carve-out for a directory the checker never
+  visits is the same silent no-op as one naming a deleted path. Directory matching is
+  anchored at a path separator — `docs/migrations` must not swallow a
+  `docs/migrations-v2/`, the same anchoring lesson B2 learned from `ADR-050-typo`.
+- **The marker is `<!-- historical -->`**, matched as the WHOLE comment. The comment
+  delimiters are the anchors, so a payload (`<!-- historical: see ADR-054 -->`), a
+  different case, or prose that merely starts the same way is **not** a marker and its
+  citation stays red — a predicate accepting a superset of its grammar would quietly
+  swallow ADR prose that was never a marker. Zero HTML comments existed anywhere in
+  `docs/decisions/` when the syntax was chosen, so it collides with nothing.
+- **A marker inside backticks or a fence is prose ABOUT the marker**, not an
+  annotation. Documenting this checker requires writing the shape it hunts, and this
+  PR's own four occurrences (one here, three in `HEALTH_CHECKS.md`, one of those inside
+  a sample output block) each reported as a marker-suppressing-nothing until the rule
+  existed —
+  caught by re-measuring AFTER the prose edits, which is why that step is in the arc's
+  discipline. `stale_names.py` meets the same problem and answers it with a file skip
+  list; a code-span rule needs no registry and generalises to the next doc that names
+  the marker. A corpus test now asserts no doc in the tree carries a marker that
+  suppresses nothing.
+- **It is honored ONLY under `docs/decisions/`**, and that scope needs no second
+  mechanism to enforce: one rule ("a marker that suppressed nothing is reported")
+  evaluated corpus-wide catches a marker copied into a live doc, with the reason
+  carried on the row. A stale marker reddens the run on its own — a finding that does
+  not fail the run is not a finding.
+- **Line-scoped, which in this corpus is per-citation:** 153 of the 154 `decisions/`
+  findings are alone on their line, and the single two-finding line (ADR-070:255,
+  naming two deleted scripts) is homogeneous. ⚠️ B4: a line mixing a narrative citation
+  with a standing-contract one must be SPLIT before marking — one marker silences both.
+- **Driven on the live tree, not only fixtures** (four probes, reverted): a marked dead
+  ADR citation is skipped and counted; a marked LIVE one is reported; a marker outside
+  `decisions/` is reported with the scope reason; two near-miss spellings left their
+  citations red.
+- **`ADR-TEMPLATE.md` joined the template carve-out** as a FILE, with the reason
+  recorded beside the entry — see its row above.
+
+Steady state: red inside `decisions/` now means rot in the authority tier.
+
+**PR B4 (scheduled, fresh context; the marker B3 built is what it applies):** the
 ADR content sweep, working from the classification pass's verified worksheet (scratch
-tier — the B4 arc prompt carries the pointer). Fix the **81 standing-contract
+tier — the B4 arc prompt carries the pointer). The marker to apply is
+`<!-- historical -->` at the end of the citation's line — exact comment, line-scoped
+(split a line that mixes narrative with a standing contract), and it must land on a
+line whose citation is genuinely dead, since a marker that suppresses nothing is
+reported and reddens the run. Fix the **81 standing-contract
 findings**: ≈40 have a verified unique successor (e.g. `user_context_queries.py` →
 `adapters/persistence/neo4j/`, `domain_configs.py` → `core/models/relationship_registry.py`,
 `core/auth/{roles,session}.py` → `adapters/inbound/auth/`, `ku_enums.py` →

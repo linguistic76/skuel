@@ -712,28 +712,41 @@ def test_dead_space_bearing_path_in_a_quoted_fence_is_still_reported(docs_root: 
 def test_carve_out_entries_all_exist() -> None:
     """Stale-registration guard. A carve-out naming a file that no longer exists is a
     silent no-op, and the skip count it inflates is the only thing that would say so."""
-    missing = [rel for rel in ddl.FREEFORM_FILES if not (ddl.ROOT / rel).is_file()]
+    missing = [
+        rel for rel in (*ddl.FREEFORM_FILES, *ddl.TEMPLATE_FILES) if not (ddl.ROOT / rel).is_file()
+    ]
     assert missing == [], f"carve-out entries no longer in the tree: {missing}"
-    for directory in ddl.TEMPLATE_DIRS:
+    for directory in (*ddl.TEMPLATE_DIRS, *ddl.HISTORY_DIRS):
         assert (ddl.ROOT / directory).is_dir(), directory
+        # ...and inside the scanned tree. A carve-out for a directory this checker never
+        # visits is the same silent no-op as one naming a deleted path.
+        assert any((ddl.ROOT / directory).is_relative_to(base) for base in ddl.SCAN_DIRS), directory
 
 
-def test_carved_out_files_are_skipped_and_counted(
+def test_carved_out_files_are_skipped_and_counted_per_class(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Excluded by SCOPE, not suppressed: the count is what keeps the exclusion visible."""
+    """Excluded by SCOPE, not suppressed: the counts are what keep the exclusions visible.
+
+    Two counts, not one: the classes carve out for different reasons (links that can
+    never be checked vs. links that should not be), and the 73-file history set would
+    swamp the 6-file unvalidatable set if they shared a number.
+    """
     monkeypatch.setattr(ddl, "ROOT", tmp_path)
     monkeypatch.setattr(ddl, "SCAN_DIRS", [tmp_path / "docs", tmp_path / ".claude" / "skills"])
-    for rel in (*ddl.FREEFORM_FILES, ".claude/skills/_templates/SKILL_TEMPLATE.md"):
+    unvalidatable = (*ddl.FREEFORM_FILES, *ddl.TEMPLATE_FILES, ".claude/skills/_templates/T.md")
+    history = tuple(f"{d}/2026-01-01-log.md" for d in ddl.HISTORY_DIRS)
+    for rel in (*unvalidatable, *history):
         path = tmp_path / rel
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(f"[x]({DEAD_REL})\n", encoding="utf-8")
     kept = tmp_path / "docs" / "design-principles" / "HUB_PAGES.md"
     kept.write_text(f"[x]({DEAD_REL})\n", encoding="utf-8")
 
-    scanned, skipped = ddl.get_md_files()
+    scanned, skips = ddl.get_md_files()
 
-    assert skipped == len(ddl.FREEFORM_FILES) + 1
+    assert skips.unvalidatable == len(unvalidatable)
+    assert skips.history == len(history)
     assert [p.name for p in scanned] == ["HUB_PAGES.md"]
 
 
@@ -747,16 +760,218 @@ def test_a_maintained_spec_beside_the_freeform_notes_is_not_carved_out() -> None
     assert "direction w structuring.md" not in names
 
 
-def test_run_prints_both_skip_counts(
+def test_run_prints_every_skip_count(
     capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The counts print on EVERY run, zero included: a silent zero is how a rotted
-    carve-out or a broken route matcher looks exactly like a clean scan."""
+    """All four counts print on EVERY run, zero included: a silent zero is how a rotted
+    carve-out, a broken route matcher or a dead marker channel looks exactly like a
+    clean scan. The marker count is 0 until PR B4 applies the first one — printing that
+    zero is the point."""
     monkeypatch.setattr(sys, "argv", ["dead_doc_links.py"])
     ddl.main()
     out = capsys.readouterr().out
-    assert "carved-out files skipped" in out
+    assert "freeform notes + templates" in out
+    assert "history directories" in out
     assert "registered application routes" in out
+    assert f"{ddl.HISTORICAL_MARKER} markers" in out
+
+
+# ============================================================================
+# HISTORY DIRECTORIES — a dead link in a dated record is the record being faithful
+# ============================================================================
+
+
+def test_history_directories_are_carved_out_of_the_live_tree() -> None:
+    """Live-tree pin: the four dated-record directories leave the scan, 226 findings
+    with them (measured 2026-09-01). Directory membership IS the classification here —
+    unlike `design-principles/`, these hold nothing but records."""
+    rels = {p.relative_to(ddl.ROOT).as_posix() for p in ddl.get_md_files()[0]}
+    for directory in ddl.HISTORY_DIRS:
+        assert not any(rel.startswith(f"{directory}/") for rel in rels), directory
+
+
+def test_history_carve_out_takes_only_the_dated_half_of_roadmap() -> None:
+    """⚠️ `docs/roadmap/done/`, never `docs/roadmap/`. The live half is "what might
+    still happen" and its dead links are ordinary rot — 14 of them on the sweep queue.
+    A carve-out one directory level too high would swallow the queue it feeds."""
+    rels = {p.relative_to(ddl.ROOT).as_posix() for p in ddl.get_md_files()[0]}
+    assert "docs/roadmap/deferred-work.md" in rels
+    assert not any(rel.startswith("docs/roadmap/done/") for rel in rels)
+
+
+def test_history_dir_match_is_anchored_at_a_path_separator(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A sibling sharing the prefix is a different directory (the same anchoring lesson
+    B2 learned when `ADR-050-typo` resolved as `ADR-050`). Carving out `docs/migrations`
+    must not carve out `docs/migrations-v2`."""
+    monkeypatch.setattr(ddl, "ROOT", tmp_path)
+    monkeypatch.setattr(ddl, "SCAN_DIRS", [tmp_path / "docs"])
+    for rel in ("docs/migrations/log.md", "docs/migrations-v2/plan.md", "docs/migrations.md"):
+        path = tmp_path / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("x", encoding="utf-8")
+
+    scanned, skips = ddl.get_md_files()
+
+    assert skips.history == 1
+    assert {p.name for p in scanned} == {"plan.md", "migrations.md"}
+
+
+# ============================================================================
+# THE HISTORICAL MARKER — per-citation, honored only where a dead link may be history
+# ============================================================================
+
+ADR_PROBE = "decisions/ADR-999-probe.md"
+
+
+def test_marked_dead_citation_is_skipped_and_counted(docs_root: Path) -> None:
+    """THE mechanism: an ADR's narrative citation of a deleted file opts out one line at
+    a time. 70 of the 154 `decisions/` findings are narrative (measured 2026-09-01), and
+    a whole-tier carve-out would have hidden the 81 standing-contract ones with them."""
+    scan = _scan(
+        docs_root, f"# ADR\n\nWe deleted `{DEAD_REL}`. {ddl.HISTORICAL_MARKER}\n", ADR_PROBE
+    )
+    assert scan.dead == []
+    assert scan.marker_skips == 1
+    assert scan.stale_markers == []
+
+
+def test_marker_over_a_live_target_is_itself_reported(docs_root: Path) -> None:
+    """⭐ The SKUEL026 inversion, and the marker's whole advantage over a carve-out: it
+    stays falsifiable. A marker that silently covered a live target would be a carve-out
+    in costume."""
+    (docs_root / "core").mkdir()
+    (docs_root / "core" / "alive.py").write_text("", encoding="utf-8")
+    scan = _scan(docs_root, f"# ADR\n\nSee `core/alive.py`. {ddl.HISTORICAL_MARKER}\n", ADR_PROBE)
+    assert scan.dead == []
+    assert scan.marker_skips == 0
+    assert [(line, reason) for _src, line, reason in scan.stale_markers] == [
+        (3, "no dead reference on this line")
+    ]
+
+
+def test_marker_outside_the_decisions_tier_is_never_honored(docs_root: Path) -> None:
+    """Scope pin. Honoring it corpus-wide would let a marker copied into a live doc
+    silence the sweep queue — the one thing the ADR ruling was careful not to buy. One
+    rule catches it: a marker that suppresses nothing is reported, and out of scope it
+    can never suppress anything."""
+    scan = _scan(
+        docs_root, f"# Guide\n\nSee `{DEAD_REL}`. {ddl.HISTORICAL_MARKER}\n", "patterns/G.md"
+    )
+    assert {raw for _s, _l, raw, _k in scan.dead} == {DEAD_REL}
+    assert scan.marker_skips == 0
+    assert [reason for _src, _line, reason in scan.stale_markers] == [
+        "markers are honored only in docs/decisions/"
+    ]
+
+
+def test_marker_line_alone_produces_no_citation(docs_root: Path) -> None:
+    """The marker is inert as a reference: no path, no extension, no project prefix, and
+    `<`/`>` are TEMPLATE_MARKERS besides. If it ever parsed as one, marking a line would
+    manufacture the finding it was meant to remove.
+
+    It is also the shape an author reaches for first — the marker on its own line above
+    the citation. Line-scoped means that does not work, and the run says so rather than
+    going quiet: the marker is reported as suppressing nothing.
+    """
+    scan = _scan(docs_root, f"# ADR\n\n{ddl.HISTORICAL_MARKER}\nSee `{DEAD_REL}`.\n", ADR_PROBE)
+    assert {(line, raw) for _s, line, raw, _k in scan.dead} == {(4, DEAD_REL)}
+    assert scan.marker_skips == 0
+    assert [line for _src, line, _reason in scan.stale_markers] == [3]
+
+
+@pytest.mark.parametrize(
+    "spelling",
+    [
+        "<!-- historical: replaced by ADR-054 -->",  # a payload is not this grammar
+        "<!-- Historical -->",  # one canonical spelling
+        "<!-- historically we used it -->",  # prose that merely starts the same
+        "<!--historical-ish-->",  # superset acceptance is the bug B2 caught
+        "<!-- history -->",
+        "historical",  # not a comment at all
+    ],
+)
+def test_near_miss_grammars_are_not_markers(docs_root: Path, spelling: str) -> None:
+    """⚠️ Match the SHAPE, anchored — the comment delimiters ARE the anchors, so nothing
+    that merely CONTAINS the word qualifies. B2's one review finding was this class one
+    layer down: a pattern anchored only at the start read `ADR-050-typo` as `ADR-050`. A
+    near-miss is not a marker, so its citation stays red — fail toward reporting."""
+    scan = _scan(docs_root, f"# ADR\n\nSee `{DEAD_REL}`. {spelling}\n", ADR_PROBE)
+    assert {raw for _s, _l, raw, _k in scan.dead} == {DEAD_REL}
+    assert scan.marker_skips == 0
+    assert scan.stale_markers == []
+
+
+@pytest.mark.parametrize("spelling", ["<!--historical-->", "<!--  historical  -->"])
+def test_whitespace_inside_the_marker_is_flexible(docs_root: Path, spelling: str) -> None:
+    """The other direction, so the grammar is narrow rather than merely strict: only
+    whitespace varies, and the canonical spelling must satisfy its own pattern."""
+    scan = _scan(docs_root, f"# ADR\n\nWe deleted `{DEAD_REL}`. {spelling}\n", ADR_PROBE)
+    assert scan.dead == []
+    assert scan.marker_skips == 1
+    assert ddl.HISTORICAL_MARKER_RE.search(ddl.HISTORICAL_MARKER)
+
+
+def test_one_marker_covers_every_dead_citation_on_its_line(docs_root: Path) -> None:
+    """Line-scoped, which in this corpus is per-citation: 153 of 154 `decisions/`
+    findings are alone on their line, and the single two-finding line (ADR-070:255,
+    naming two deleted scripts) is homogeneous. ⚠️ A line mixing narrative with a
+    standing contract must be SPLIT before marking — one marker would silence both."""
+    body = f"# ADR\n\nDeleted `{DEAD_REL}` and `scripts/gone.py`. {ddl.HISTORICAL_MARKER}\n"
+    scan = _scan(docs_root, body, ADR_PROBE)
+    assert scan.dead == []
+    assert scan.marker_skips == 2
+
+
+@pytest.mark.parametrize("quoting", ["backtick", "fence"])
+def test_a_quoted_marker_is_prose_about_the_marker(docs_root: Path, quoting: str) -> None:
+    """Documenting this checker requires writing the shape it hunts — the same problem
+    `stale_names.py` answers with a `SKIP_FILES` list. A code-span rule needs no
+    registry and generalises to the next doc that names the marker. Measured: the four
+    occurrences across `HEALTH_CHECKS.md` and `deferred-work.md` each reported as a
+    marker-that-suppresses-nothing until this rule existed.
+    """
+    shown = ddl.HISTORICAL_MARKER
+    body = (
+        f"# ADR\n\nWrite `{shown}` on the line. See `{DEAD_REL}`.\n"
+        if quoting == "backtick"
+        else f"# ADR\n\n```\n{shown}\n```\n\nSee `{DEAD_REL}`.\n"
+    )
+    scan = _scan(docs_root, body, ADR_PROBE)
+    assert {raw for _s, _l, raw, _k in scan.dead} == {DEAD_REL}
+    assert scan.marker_skips == 0
+    assert scan.stale_markers == []
+
+
+def test_no_doc_in_the_tree_carries_a_marker_that_suppresses_nothing() -> None:
+    """Corpus invariant, driven over the production path — the check that catches a
+    marker gone stale because its target came back, or one written where it is not
+    honored. It is also what caught this PR's own documentation."""
+    stale = [
+        f"{source}:{lineno} — {reason}"
+        for md_file in ddl.get_md_files()[0]
+        for source, lineno, reason in ddl.check_file(md_file, verbose=False).stale_markers
+    ]
+    assert stale == [], f"markers suppressing nothing: {stale}"
+
+
+def test_a_stale_marker_alone_fails_the_run(
+    capsys: pytest.CaptureFixture[str], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A finding that does not redden the run is not a finding. With zero dead links and
+    one marker suppressing nothing, the run must still report and exit 1."""
+    monkeypatch.setattr(ddl, "ROOT", tmp_path)
+    monkeypatch.setattr(ddl, "SCAN_DIRS", [tmp_path / "docs"])
+    monkeypatch.setattr(sys, "argv", ["dead_doc_links.py"])
+    probe = tmp_path / "docs" / "decisions" / "ADR-999-probe.md"
+    probe.parent.mkdir(parents=True)
+    probe.write_text(f"# ADR\n\nNothing dead here. {ddl.HISTORICAL_MARKER}\n", encoding="utf-8")
+
+    assert ddl.main() == 1
+    out = capsys.readouterr().out
+    assert "Markers that suppress nothing" in out
+    assert "ADR-999-probe.md:3" in out
 
 
 # ============================================================================
