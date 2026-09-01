@@ -2573,7 +2573,15 @@ consolidation initial commit. Scanner residue landed entirely inside B1's approv
 classes (11 parser-class + 2 PWA URLs matching `adapters/inbound/pwa_routes.py`) —
 nothing new for B1. The worksheet (per-finding anchors, verified successors, quoted
 ambiguous cases) is the pass's report in the scratch tier; PR B4's arc prompt carries
-the pointer — this doc deliberately does not.
+the pointer — this doc deliberately does not. Graduating it into `docs/` was considered
+and rejected (Codex on #1216): a document consisting of ~150 intentionally-dead paths
+would itself become ~150 scanner findings — the noise this section exists to remove.
+**Fallback if the worksheet is unavailable** (fresh clone/worktree — scratch is
+machine-local): B4 re-derives it by the recorded procedure — drive `check_file()` over
+`docs/decisions/`, classify each finding by its surrounding paragraph
+(narrative/standing/ambiguous), verify every standing case against git history — with
+the split recorded above as the expected shape; re-derivation is mandatory for the
+counts anyway, never guessed.
 
 **Live-docs sweep queue (RULED: register + burn down via doc sweeps):** ~367 findings in
 live docs — patterns 103 · skills 48 · intelligence 41 · architecture 35 · domains 32 ·
