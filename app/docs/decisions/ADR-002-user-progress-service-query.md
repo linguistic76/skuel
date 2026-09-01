@@ -1,6 +1,6 @@
 ---
 title: ADR-002: Knowledge Coverage Calculation Query
-updated: 2026-07-20
+updated: 2026-09-01
 status: current
 category: decisions
 tags: [002, adr, decisions, progress, query]
@@ -332,7 +332,10 @@ Transitive prerequisite: Variables, Loops (0% mastered) → User will fail
 
 **Readiness Threshold:** 0.8 (80% coverage) - defined in RETURN clause
 
-**Tests:** Integration tests in `/tests/integration/test_user_progress_service.py`
+**Tests:** None for this query. The integration file this line once named was never
+written — `git log` for it is empty across this repo's whole history — and the service's
+only live pin, `tests/unit/test_user_progress_get_mastered_uids.py`, covers a different
+method.
 
 ---
 

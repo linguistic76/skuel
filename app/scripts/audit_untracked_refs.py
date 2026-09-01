@@ -204,6 +204,31 @@ def tracked_files() -> list[str]:
     return [p for p in out.stdout.split("\0") if p]
 
 
+def _memory_citation(probe: str, tracked_basenames: set[str]) -> re.Match[str] | None:
+    """A memory citation in ``probe``, or None once tracked-document names are excused.
+
+    Suppresses ONLY the unmarked-filename alternative: a bare `project_x.md` that names
+    a real tracked document is a link, not a citation. A match carrying an explicit cue
+    (`Memory: project_x.md`) or tag (`project_x.md (memory)`) says outright that it means
+    memory, and must survive even when a tracked file happens to share the basename —
+    otherwise the marker is overridden by a coincidence (Codex #1047 r6).
+
+    ONE helper for both probes, deliberately. The wrapped-line probe used the raw regex
+    while the single-line probe applied this rule, so a tracked lowercase-underscore doc
+    (`docs/domains/user_entry.md`) was excused on its own line and then re-reported as
+    half of a two-line citation — the suppression was there, and the second caller simply
+    did not run it.
+    """
+    hit = MEMORY_CITATION.search(probe)
+    if (
+        hit
+        and hit.group("unmarked")
+        and hit.group("unmarked").rsplit("/", 1)[-1] in tracked_basenames
+    ):
+        return None
+    return hit
+
+
 def find_violations() -> tuple[list[tuple[str, int, str]], list[str]]:
     """Return (citations, tracked-under-scratch) violations."""
     citations: list[tuple[str, int, str]] = []
@@ -239,19 +264,7 @@ def find_violations() -> tuple[list[tuple[str, int, str]], list[str]]:
         lines = text.splitlines()
         for index, line in enumerate(lines):
             probe = _probe(line)
-            memory_hit = MEMORY_CITATION.search(probe)
-            # Suppress ONLY the unmarked-filename alternative: a bare `project_x.md`
-            # that names a real tracked document is a link, not a citation. A match
-            # carrying an explicit cue (`Memory: project_x.md`) or tag
-            # (`project_x.md (memory)`) says outright that it means memory, and must
-            # survive even when a tracked file happens to share the basename —
-            # otherwise the marker is overridden by a coincidence (Codex #1047 r6).
-            if (
-                memory_hit
-                and memory_hit.group("unmarked")
-                and memory_hit.group("unmarked").rsplit("/", 1)[-1] in tracked_basenames
-            ):
-                memory_hit = None
+            memory_hit = _memory_citation(probe, tracked_basenames)
             if SCRATCH_CITATION.search(probe) or memory_hit:
                 citations.append((rel, index + 1, line.strip()))
                 continue
@@ -262,9 +275,9 @@ def find_violations() -> tuple[list[tuple[str, int, str]], list[str]]:
             if index + 1 >= len(lines):
                 continue
             following = lines[index + 1]
-            if MEMORY_CITATION.search(_probe(following)):
+            if _memory_citation(_probe(following), tracked_basenames):
                 continue  # it will be reported on its own iteration
-            if MEMORY_CITATION.search(_probe(line, following)):
+            if _memory_citation(_probe(line, following), tracked_basenames):
                 citations.append((rel, index + 1, f"{line.strip()} ⏎ {following.strip()}"))
 
     return citations, under_scratch

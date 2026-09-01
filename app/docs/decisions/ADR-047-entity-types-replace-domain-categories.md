@@ -1,5 +1,5 @@
 ---
-updated: 2026-05-11
+updated: 2026-09-01
 ---
 
 # ADR-047: Entity Types Replace Domain Categories
@@ -160,7 +160,8 @@ Establish the decision. No code changes.
 ### Key Files
 - `core/models/enums/entity_enums.py` — EntityType enum + behavioral trait methods (already correct)
 - `core/models/entity_types.py` — Type aliases (keep, they're type-narrowing tools)
-- `docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md` — Primary rewrite target
+- `docs/architecture/ENTITY_TYPE_ARCHITECTURE.md` — Primary rewrite target (this decision's
+  own execution renamed it from `FOURTEEN_DOMAIN_ARCHITECTURE.md`)
 - `CLAUDE.md` — Section rewrite
 
 ---
@@ -169,4 +170,4 @@ Establish the decision. No code changes.
 
 - ADR-046: Activity Domains Connect to Ku via Graph Edges
 - ADR-041: Unified Ku Model
-- `docs/architecture/FOURTEEN_DOMAIN_ARCHITECTURE.md`
+- `docs/architecture/ENTITY_TYPE_ARCHITECTURE.md`

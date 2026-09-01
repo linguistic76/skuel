@@ -2465,8 +2465,8 @@ the others.
 | ~~Generated `CROSS_REFERENCE_INDEX.md`~~ (slug-less ADR links) | 0 (−30) | **DONE — PR B2.** One resolver (`scripts/adr_links.py`) now serves both `related_adrs` readers; the duplicate numbers are refused, never guessed. All 13 of the artifact's distinct `docs/decisions/` link targets exist (12 were dead). ⚠️ Corpus-wide distinct fell 9, not 12: `.claude/skills/docs-skills-evolution/SKILL.md` still cites three of those targets by hand, and those stay in the sweep queue — a generated-artifact fix reaches only the artifact |
 | ~~History dirs~~ (`migrations/` 198, `roadmap/done/` 12, `investigations/` 12, `Reviews/` 4) | 0 (−226) | **DONE — PR B3.** Silent dir carve-out, 73 files, counted and printed on its own line (not folded into the freeform count: that set is meant to stay fixed while this one grows with every completed roadmap doc, so one merged number would be a number nobody can read). ⚠️ `roadmap/done/` and never `roadmap/` — the live half's 14 findings are ordinary rot on the sweep queue |
 | ~~`docs/decisions/ADR-TEMPLATE.md`~~ | 0 (−1) | **DONE — PR B3.** Joined the template carve-out: its one finding sits in the `**Example:**` block illustrating what a Decision section looks like, naming a module never tracked in this repo (`git log --all` empty). Fictional by design, same species as `.claude/skills/_templates/`. FILE-scoped — `docs/decisions/` is the authority tier and a directory carve-out to reach one template would hide the rot below |
-| ADRs (`docs/decisions/`, mixed faithful history and standing contracts) | 153 | **RULED 2026-09-01** — per-citation historical marker, option (d); measured split 81 standing / 70 narrative / 3 ambiguous. **PR B3 built the mechanism; no citation is marked yet** — B4 applies them, so the printed marker count is 0 and that zero is the point. B1's exit measurement landed on exactly 154 (167 raw − 11 parser − 2 route-matched), of which ADR-TEMPLATE's 1 moved to the row above |
-| Live docs — real rot | 344 | **RULED** — sweep queue below, now actionable |
+| ~~ADRs~~ (`docs/decisions/`, mixed faithful history and standing contracts) | 0 (−153) | **DONE — PR B4** applied the ruled mechanism: 62 markers on narrative citations, every standing contract fixed against a reproduced successor, and the four content rulings executed. Steady state: a finding here now means rot in the authority tier |
+| Live docs — real rot | 343 | **RULED** — sweep queue below, now actionable. Dropped 1 in B4: `docs/domains/README.md`'s Submissions row was the catalog ripple of the UserEntry doc |
 
 **PR B1 (LANDED):** 871 → **754** (−117: 40 parser, 50 carve-out, 27 route-matched),
 every removed finding classified and zero findings added. Four narrowings, each stating
@@ -2589,35 +2589,54 @@ mechanism, both halves:
 
 Steady state: red inside `decisions/` now means rot in the authority tier.
 
-**PR B4 (scheduled, fresh context; the marker B3 built is what it applies):** the
-ADR content sweep, working from the classification pass's verified worksheet (scratch
-tier — the B4 arc prompt carries the pointer). The marker to apply is
-`<!-- historical -->` at the end of the citation's line — exact comment, line-scoped
-(split a line that mixes narrative with a standing contract), and it must land on a
-line whose citation is genuinely dead, since a marker that suppresses nothing is
-reported and reddens the run. Fix the **81 standing-contract
-findings**: ≈40 have a verified unique successor (e.g. `user_context_queries.py` →
-`adapters/persistence/neo4j/`, `domain_configs.py` → `core/models/relationship_registry.py`,
-`core/auth/{roles,session}.py` → `adapters/inbound/auth/`, `ku_enums.py` →
-`entity_enums.py`, `learning_ui.py` → the ku/path_steps/pathways trio); ≈17 cite
-deleted-no-successor targets (prose edit or supersession note — ADR-027 gets the
-supersession note: its entire subject, the KnowledgeCarrier protocol, was deleted as
-unused); ≈15 were never tracked in this repo (the early query-ADRs' "Tests: N/N
-passing" lines — de-fiction the claim, don't invent a path). Apply the marker to the
-~70 narrative citations. Execute the content rulings recorded below (delete ADR-010;
-delete never-to-be-done planned citations; ADR-003 chain-completion + repoint;
-create the UserEntry domain doc under `docs/domains/`, named like its siblings —
-the filename is deliberately not spelled here: before B4 creates the file, a spelled
-path is a scanner finding and the bare name trips the memory-citation guard)
-**with their catalog ripple** (Codex on #1216):
-deleting ADR-010 must also drop its `docs/INDEX.md` row (line 248 today), and the new
-the new domain doc joins the catalogs — `docs/domains/README.md`'s Submissions row
-still links the deleted `submissions.md` and becomes the UserEntry row; add an
-INDEX.md entry if the domains are cataloged there. Splitting by cluster into more
-than one PR is sanctioned if the diff is unwieldy. Exit: `docs/decisions/` findings
-= 0 AND the full scanner run shows no NEW findings introduced by the sweep's own
-deletions/creations (a `decisions/`-only check would miss an orphaned INDEX.md row),
-marker skips printed.
+**PR B4 (LANDED):** 497 → **343** (−154: all 153 `docs/decisions/` findings plus the one
+catalog ripple), zero findings added — the ADR content sweep, working from the
+classification pass's verified worksheet. **62 markers** print on every run; **0 stale**.
+The 153 split into 62 marked narrative citations and 91 edits.
+
+- **The worksheet was a hypothesis, not an answer.** Reproducing each successor against the
+  live tree overturned four of its verdicts: ADR-003's `JournalContext`/`JournalAIInsights`
+  were *renamed* (`EnrichmentContext`/`EnrichmentInsights` in
+  `core/services/content_enrichment/types.py`), not deleted-without-successor;
+  `CompletionStatus` lives in `habit_enums.py`, not `entity_enums.py` with its two
+  siblings; and ADR-011/012's "primary consumer" guesses were wrong in both files — driving
+  the production path showed `analytics_life_path_service.py` and `askesis_service.py`.
+  A finding can be right while its fix is wrong; so can a worksheet row.
+- **A marker cannot land inside a fence** (B3 scoped it out as prose-about-the-marker), so
+  the fence-bound illustrative paths took a content fix instead: ADR-013/014 spelled
+  Obsidian **vault** files as repo paths (`/docs/stories/…`), which was wrong on its own
+  terms — they now read `0vault/…` and are correctly invisible to a repo-path checker.
+- **Planned-but-unbuilt is a third class**, distinct from both narrative and rot, and it
+  takes neither treatment. ADR-057 and ADR-062 are `Proposed`; their citations are designed
+  destinations, so the paths are named in prose rather than backticked as files (the
+  spelling this document already uses for the same reason). Marking them would have called
+  a plan "history"; deleting them would have destroyed the design.
+- **Deleting a file breaks anchors no link checker sees.** Removing ADR-010 cost three
+  inbound fixes — its `docs/INDEX.md` row, and a measured claim in BOTH
+  `docs/tools/HEALTH_CHECKS.md` and `scripts/health/duplicate_headings.py` about phantom
+  setext headings. That count was re-derived by driving the real `find_duplicates` with the
+  narrowing lifted: **8 today (4 per file), not the "six" both copies claimed** — so the
+  copies were already stale, and the surviving number is 4 in `ADR-TEMPLATE.md` alone.
+  Editing ADR-042 likewise shifted a `(file, line)` anchor in `stale_names.py`'s
+  `ALLOWED_OCCURRENCES`, caught by its own positive-control test.
+- **The new domain doc surfaced a real bug in `audit_untracked_refs.py`.**
+  `docs/domains/user_entry.md` is the first tracked doc whose lowercase-underscore name has
+  the exact shape of a memory slug. The single-line probe excused it as a tracked basename;
+  the wrapped-line probe called the raw regex instead and re-reported the same citation as
+  half of a two-line one. Both probes now share one `_memory_citation()` helper, pinned by
+  three cases in `tests/unit/test_untracked_refs.py`. The suppression existed — the second
+  caller simply never ran it.
+- **ADR-027 is now `Superseded`**, which moves a number this section cites: strictly-Superseded
+  ADRs are **3 of 88** (was 2 of 89 — ADR-027 gained the status, ADR-010 left the tree).
+  Status-scoping stays falsified; the argument never rested on the exact count, and the
+  intra-file mixing it actually rested on is untouched.
+- **The 344-finding sweep queue was left alone** except for its one mandated ripple. ⚠️
+  `docs/domains/README.md` still carries two dead rows three cells from the one B4 rewrote:
+  its PS row links a nonexistent `ls.md` and its Journals row a deleted `journals.md`.
+  Deliberately not fixed — they are ordinary sweep-queue rot, and this PR's fence was the
+  ADR tier. (Named here without link syntax on purpose: a markdown link is parsed inside
+  backticks too, so writing the rows out verbatim would add two findings to the queue this
+  paragraph is counting.)
 
 **RULED — the history line (226 + 156) (Mike, 2026-09-01, on the classification pass's
 report):** C takes **(a)** — the silent dir carve-out (no tripwire to un-observe). D
@@ -2643,7 +2662,8 @@ ADR-037-embedding-infrastructure-separation:173 (the "(if exists)" hedge) → (1
 the line or repoint at ADR-068/ADR-074; ADR-027:221 → (1), delete the checklist item
 alongside the supersession note. ⚠️ Standing constraints survive
 the ruling: ADR findings stay OBSERVED (a silent `decisions/` carve-out remains off the
-menu — Codex on #1215), and status-scoping stays FALSIFIED (2 of 89 Superseded; the
+menu — Codex on #1215), and status-scoping stays FALSIFIED (2 of 89 Superseded as measured
+at ruling time — 3 of 88 after B4, see its note above, which changes nothing: the
 mixing is INTRA-file — reconfirmed by the pass: ADR-011/012 hold exemplary narrative
 corrections lines above standing rot). Do not resurrect either.
 
@@ -2666,7 +2686,8 @@ the split recorded above as the expected shape; re-derivation is mandatory for t
 counts anyway, never guessed.
 
 **Live-docs sweep queue (RULED: register + burn down via doc sweeps) — ACTIONABLE since
-PR B1:** **344 findings / 224 distinct targets**, recounted on B1's exit measurement —
+PR B1:** **343 findings / 223 distinct targets** (344/224 on B1's exit; B4 fixed one as a
+catalog ripple) — the per-directory split below is B1's recount —
 patterns 104 · skills 46 · intelligence 41 · domains 32 · architecture 26 · guides 18 ·
 roadmap-live 14 · reference 13 · ui 11 · user-guides 9 · docs-root 8 · development 6 ·
 misc 16. The route-shaped contamination that blocked this queue is gone: the counts above
@@ -2744,8 +2765,8 @@ Review this document at the **September 2026 quarterly review**. Checklist:
 | READY PLANNED entries over 90 days → wire-or-delete ruling (the `planned-ready-aging` finding, INFO, never gates) | Any READY entry in `scripts/detect_bloat.py` older than `READY_AGING_DAYS` — first fires 2026-09-10 on the three 2026-06-11 entries; by this review all seven READY are over it, which is the intended signal | `./dev bloat --ready` — every row listed is wire-or-delete; a DELAYED entry aging is expected and is NOT this row |
 | Catalog copies in code — the duplicated-fact class (measured 2026-08-29) | Mike schedules the mechanical items; until then a ride-along: any PR that adds a health check, an embeddable type, a vector-index label, or a suppressible rule touches every copy the section names | ⛔ Do not scope from this cell — the section holds the inventory and the ruling. Re-measure: `uv run python scripts/detect_bloat.py --json` → count of `planned-marking-stale` findings (2 on 2026-08-29, seen by neither CI nor the janitor); the scripts named in `dev` § `health)` and in the janitor's `for check in` loop must be the same set (6 on 2026-09-01, up from 5 — `docs_updated.py` was added by hand to every copy) |
 | Hollow embedding field maps — `PLANNED_EMBEDDING_MAPS` (4 DELAYED on 2026-08-30: `ENTRY_REPORT`, `ACTIVITY_REPORT`, `FORM_TEMPLATE`, `FORM_SUBMISSION`) | The EntryReport / ActivityReport search row above fires (the two report maps point at it), or a consumer wants form content in semantic search (the two form maps — no section, the registry reason is the one copy) | `./dev bloat` § Embedding field maps — every row is hollow by ruling; an unregistered hollow map already fails `--check` on its own. Wiring one = ADR-074's quartet, then delete its entry (the stale gate demands it) |
-| Dead-doc-links PR B2 (ADR glob-with-loud-failure), then B3 (history-line mechanism) and B4 (ADR content sweep) — B1 LANDED at 754 | Fresh-context sessions, one per PR, in order — approved/ruled work, not waiting on data | `uv run python scripts/health/dead_doc_links.py` — 754 today; B2 expects −30, B3 −226 from the history-dir carve-out (its marker *mechanism* only pays off when B4 applies the markers), B4 clears `decisions/`. Re-measure, never trust the snapshot. See the section |
-| Dead-doc-links history line — **RULED 2026-09-01** (classification pass executed: 81 standing / 70 narrative / 3 ambiguous): ADRs = per-citation marker, 4 history dirs = silent carve-out; PR B3 (mechanism, after B1) + PR B4 (ADR sweep, after B3) | Fresh-context sessions, one per PR — ruled work, not waiting on data | The check stays red on `decisions/` + history dirs by design until B3/B4 land; rulings + content rulings in the section (status-scoping stays falsified — 2/89 Superseded) |
+| ~~Dead-doc-links B1–B4~~ — **ARC COMPLETE 2026-09-01** (#1217, #1218, #1219, and B4) | — | `uv run python scripts/health/dead_doc_links.py` — **343** today, all of it the live-docs sweep queue row below; `decisions/` and the history dirs are clear. Re-measure, never trust the snapshot. See the section |
+| ~~Dead-doc-links history line~~ — **RULED and BUILT 2026-09-01**: ADRs = per-citation marker (B3 mechanism, B4 applied 62 of them), 4 history dirs = silent carve-out | — | Steady state: red inside `docs/decisions/` now means rot in the authority tier. Status-scoping stays falsified (3/88 Superseded after B4) |
 | Live-docs dead-link sweep queue (~367 pre-recount — ⚠️ NOT actionable until PR B1 lands: counts contaminated by valid route links, a sweep today would rewrite them) | Post-B1 recount, then ride-along on every doc sweep or PR touching a listed area; confirmed heavy hitters may get dedicated small sweeps | Re-derive per doc by running the scanner and filtering to the file; check route-shaped targets against live route registrations; fix the citing prose (most targets are deleted, not moved) |
 
 **The document is the checklist, the table is a convenience:** a section added to this file

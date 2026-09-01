@@ -1,6 +1,6 @@
 ---
 title: ADR-026: Unified Relationship Registry
-updated: 2026-08-21
+updated: 2026-09-01
 status: accepted (evolved; ownership declaration superseded by ADR-086)
 category: decisions
 tags: [adr, decisions, relationships, consolidation, single-source-of-truth]
@@ -282,10 +282,9 @@ TASK_CONFIG = generate_relationship_config(Domain.TASKS)
 ### Code Location
 - **Primary file:** `/core/models/relationship_registry.py`
 - **Related files:**
-  - `/core/models/relationship_registry.py` (now facade)
-  - `/core/services/relationships/domain_configs.py` (now facade)
   - `/core/models/relationship_names.py` (11 new values)
-  - `/adapters/persistence/neo4j/query/cypher/post_processors.py` (Phase 3 - processor functions)
+  - `/core/models/post_processors.py` (Phase 3 - processor functions; moved out of
+    `adapters/` when the core→adapters leaks were inverted)
   - `/core/services/base_service.py` (`_parse_context_result()` applies processors)
 - **Tests:** `/tests/unit/test_relationship_registry.py`
 
@@ -352,7 +351,7 @@ with hardcoded `RelationshipConfig` dicts that drifted from the registry:
 - `yaml_field_path: str | None` — marks which registry entries are created during YAML ingestion (e.g., `"connections.requires"`)
 - `ingestion_entity_type: EntityType | None` — disambiguates when multiple EntityTypes share a Neo4j label. *(Was `ingestion_ku_type` from Feb–Mar 2026, renamed to `ingestion_entity_type` in March 2026.)*
 
-**Neo4j migration:** `scripts/migrations/unify_ingestion_relationship_types.cypher` renames legacy edge types:
+**Neo4j migration:** `scripts/migrations/unify_ingestion_relationship_types.cypher` renames legacy edge types: <!-- historical -->
 1. `PREREQUISITE` → `REQUIRES_KNOWLEDGE` (with direction reversal)
 2. `REQUIRES` → `REQUIRES_KNOWLEDGE` (legacy bulk template variant)
 3. `ENABLES` → `ENABLES_KNOWLEDGE` (KU-to-KU only)

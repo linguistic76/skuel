@@ -1,6 +1,6 @@
 ---
 title: ADR-028: KU & MOC Unified Relationship Migration
-updated: 2026-03-09
+updated: 2026-09-01
 status: current
 category: decisions
 tags: [adr, decisions, relationships, unified-architecture, ku, moc]
@@ -131,15 +131,22 @@ KU and MOC domains had specialized relationship services (MocRelationshipService
 
 **Primary files:**
 - `/core/services/ku_service.py` - Added UnifiedRelationshipService
-- `/core/services/moc_service.py` - Two relationship service instances
-- `/core/services/ku/ku_relationships.py` - fetch_via_unified() method
 
 **Deleted files:**
-- `/core/services/moc/moc_relationship_service.py` (~694 lines)
+- `/core/services/moc/moc_relationship_service.py` (~694 lines) <!-- historical -->
 
-**Kept specialized services:**
-- `/core/services/ku/ku_graph_service.py` - Graph intelligence
-- `/core/services/ku/ku_semantic_service.py` - Semantic relationships
+**Gone since, with no successor:**
+- `/core/services/moc_service.py` — held the two relationship service instances this <!-- historical -->
+  decision wired. Deleted with `KuType.MOC`: MOC is emergent identity (any Entity with
+  `ORGANIZES` edges), so there is no MOC service to hold them.
+- `/core/services/ku/ku_relationships.py` — held `fetch_via_unified()`. Deleted as dead <!-- historical -->
+  code; relationship reads go through `UnifiedRelationshipService` and `KuBackend`.
+
+**Specialized services, at their current homes** (both were renamed away from the `ku_`
+prefix after this decision):
+- `/core/services/ps/ps_graph_service.py` - Graph intelligence (was `ku_graph_service.py`)
+- `/core/services/infrastructure/semantic_relationship_linker.py` - Semantic
+  relationships (`SemanticRelationshipLinker`, was `ku_semantic_service.py`)
 
 ### Key Code Patterns
 

@@ -1,6 +1,6 @@
 ---
 title: ADR-045: Priority & Confidence as First-Class Customization Dials
-updated: 2026-04-13
+updated: 2026-09-01
 status: current
 category: decisions
 tags: [adr, decisions, enums, priority, confidence, planning, graph-visualization]
@@ -156,7 +156,10 @@ This applies uniformly regardless of which domain the entities belong to.
 
 ### Testing Strategy
 
-- [x] Unit tests: `Priority` and `Confidence` enum methods tested in `tests/unit/test_activity_enums.py`
+- [ ] Unit tests: partial. `Priority.get_color()` is exercised in
+  `tests/unit/test_ui_components.py`; `Confidence`'s methods have no test. The
+  `test_activity_enums.py` this line once claimed as passing was never written — `git log`
+  for it is empty
 - [x] Integration: Planning service tests verify CRITICAL items surface correctly
 - [x] Graph visualization: vis.js edge styling verified in browser
 

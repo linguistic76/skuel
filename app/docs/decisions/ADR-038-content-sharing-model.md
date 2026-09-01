@@ -1,5 +1,5 @@
 ---
-updated: 2026-04-14
+updated: 2026-09-01
 ---
 
 # ADR-038: Content Sharing Model
@@ -99,7 +99,11 @@ This prevents users from sharing failed/processing reports, ensuring portfolio q
 
 ### API Layer
 
-**6 new endpoints** (`/adapters/inbound/reports_sharing_api.py`):
+**6 new endpoints** (in a `reports_sharing_api.py` that no longer exists — the reports tree
+was split into submissions + feedback and then collapsed by ADR-054; today the operations
+below are methods on `UnifiedSharingService` in `/core/services/sharing/`, exposed at
+`POST /api/form-submissions/share` and consumed inside `UserEntryService.create_entry`'s
+audience resolution):
 
 1. `POST /api/submissions/share` - Share with user
 2. `POST /api/submissions/unshare` - Revoke access
@@ -112,7 +116,8 @@ All routes use `@boundary_handler` for Result[T] -> HTTP conversion.
 
 ### Data Model Changes
 
-**Report model** (`/core/models/report/report.py`):
+**Report model** (since split per ADR-054 into `/core/models/report/activity_report.py`
+and `/core/models/report/entry_report.py`):
 - Added field: `visibility: Visibility = Visibility.PRIVATE`
 - Added method: `is_shareable() -> bool`
 - Added method: `can_view(user_uid, owner_uid, shared_uids) -> bool`
@@ -223,11 +228,11 @@ report.shared_with = ["user_1", "user_2"]
 
 ## References
 
-- `/core/services/submissions/ + core/services/feedback/report_sharing_service.py` - Service implementation
-- `/adapters/inbound/reports_sharing_api.py` - API routes
-- `/core/models/report/report.py` - Data model changes
-- `/docs/patterns/SHARING_PATTERNS.md` - Usage patterns (to be created)
-- `/docs/architecture/CONTENT_SHARING_ARCHITECTURE.md` - Full architecture (to be created)
+- `/core/services/sharing/unified_sharing_service.py` - Service implementation (the
+  submissions/feedback pair this line named was collapsed by ADR-054)
+- `/adapters/inbound/form_submissions_api.py` + `/adapters/inbound/user_entry_api.py` - API routes
+- `/core/models/report/activity_report.py`, `/core/models/report/entry_report.py` - Data model changes
+- `/docs/patterns/SHARING_PATTERNS.md` - Usage patterns
 
 ## Related ADRs
 

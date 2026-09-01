@@ -1,6 +1,6 @@
 ---
 title: ADR-019: Transcription Service Simplification
-updated: 2026-03-30
+updated: 2026-09-01
 status: accepted
 category: decisions
 tags: [adr, decisions, lsp, architecture, transcription, refactoring]
@@ -253,7 +253,7 @@ Moved to `/skuel/app/zarchives/`:
 | `core/services/transcription/transcription_service.py` | Main service (8 methods) |
 | `core/models/transcription/transcription.py` | Domain model + requests |
 | `adapters/external/deepgram/adapter.py` | Thin Deepgram wrapper |
-| `adapters/inbound/transcription_routes_v3.py` | API routes |
+| `adapters/inbound/transcription_routes.py` | API routes (plus `transcription_api.py` and `batch_transcription_api.py`) |
 | `core/events/transcription_events.py` | Domain events |
 
 ### Related Documentation

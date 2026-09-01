@@ -1,5 +1,5 @@
 ---
-updated: 2026-03-30
+updated: 2026-09-01
 ---
 
 # ADR-041: Unified Ku Model
@@ -126,17 +126,20 @@ The `ku_type` field on Entity (and `parent_ku_uid`) were renamed to `entity_type
 |-----------|----------|
 | Ku model | `core/models/ku/ku.py` |
 | KuDTO | ~~`core/models/ku/ku_dto.py`~~ (deleted 2026-02-23) |
-| EntityType (was KuType) | `core/models/enums/ku_enums.py` |
-| EntityStatus (was KuStatus) | `core/models/enums/ku_enums.py` |
-| CompletionStatus | `core/models/enums/ku_enums.py` |
+| EntityType (was KuType) | `core/models/enums/entity_enums.py` |
+| EntityStatus (was KuStatus) | `core/models/enums/entity_enums.py` |
+| CompletionStatus | `core/models/enums/habit_enums.py` |
 | Priority | `core/models/enums/activity_enums.py` |
 | ActivityType | `core/models/enums/activity_enums.py` |
 | Per-domain DTOs | `core/models/ku/{domain}_dto.py` (15 files) |
-| Entity base | `core/models/ku/entity.py` |
-| UserOwnedEntity | `core/models/ku/user_owned_entity.py` |
-| EntityDTO base | `core/models/ku/entity_dto.py` |
-| UserOwnedDTO | `core/models/ku/user_owned_dto.py` |
-| NeoLabel | `adapters/persistence/neo4j/neo_labels.py` |
+| Entity base | `core/models/entity.py` |
+| UserOwnedEntity | `core/models/user_owned_entity.py` |
+| EntityDTO base | `core/models/entity_dto.py` |
+| UserOwnedDTO | `core/models/user_owned_dto.py` |
+| NeoLabel | `core/models/enums/neo_labels.py` |
+
+(`ku_enums.py` was deleted and the `core/models/ku/` monolith dissolved after this
+decision; the rows above are the current homes, not the ones the change created.)
 
 ## Related ADRs
 

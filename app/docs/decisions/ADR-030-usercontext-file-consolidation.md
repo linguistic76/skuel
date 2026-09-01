@@ -1,6 +1,6 @@
 ---
 title: ADR-030: UserContext File Consolidation
-updated: 2026-02-02
+updated: 2026-09-01
 status: current
 category: decisions
 tags: [adr, decisions, usercontext, cleanup]
@@ -27,7 +27,7 @@ related: [ADR-016, ADR-021, ADR-029]
 **What is the issue we're facing?**
 
 During the November 2025 UserContext refactoring (ADR-016), the canonical UserContext was relocated from the models layer to the services layer:
-- OLD: `/core/models/user/user_context.py`
+- OLD: `/core/models/user/user_context.py` <!-- historical -->
 - NEW: `/core/services/user/unified_user_context.py`
 
 However, the old file was not deleted. It remained as a stale 968-line duplicate with:
@@ -46,7 +46,7 @@ However, the old file was not deleted. It remained as a stale 968-line duplicate
 
 **Delete the stale duplicate and consolidate exports.**
 
-1. **Delete** `/core/models/user/user_context.py` (968 lines removed)
+1. **Delete** `/core/models/user/user_context.py` (968 lines removed) <!-- historical -->
 
 2. **Update** `/core/models/user/__init__.py` to re-export UserContext from services:
    ```python
@@ -98,7 +98,7 @@ This follows SKUEL's "One Path Forward" philosophy: no legacy wrappers, no depre
 ## Implementation Details
 
 ### Code Location
-- **Deleted:** `/core/models/user/user_context.py`
+- **Deleted:** `/core/models/user/user_context.py` <!-- historical -->
 - **Canonical:** `/core/services/user/unified_user_context.py`
 - **Updated:** `/core/models/user/__init__.py`
 
@@ -120,7 +120,8 @@ This follows SKUEL's "One Path Forward" philosophy: no legacy wrappers, no depre
 **Code Locations:**
 - `/core/services/user/unified_user_context.py` - Canonical UserContext (THE source of truth)
 - `/core/services/user/user_context_builder.py` - Context building orchestration
-- `/core/services/user/user_context_queries.py` - MEGA-QUERY for rich context
+- `/adapters/persistence/neo4j/user_context_queries.py` - MEGA-QUERY for rich context
+  (moved below the hexagonal boundary per SKUEL021)
 - `/core/models/user/__init__.py` - Re-exports UserContext from services layer
 
 ---

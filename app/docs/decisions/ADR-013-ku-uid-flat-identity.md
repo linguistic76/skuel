@@ -1,6 +1,6 @@
 ---
 title: ADR-013: KU UID Flat Identity Design
-updated: 2026-08-14
+updated: 2026-09-01
 status: implemented
 category: decisions
 tags: [adr, decisions, ku, uid, identity, curriculum, universal-hierarchical-pattern]
@@ -29,7 +29,7 @@ Knowledge Units (KU) need unique identifiers (UIDs) for storage in Neo4j and ret
 
 **Example scenario:**
 ```
-File: /docs/stories/machine-learning.md
+File: 0vault/stories/machine-learning.md
 
 Option A (Hierarchical): ku.stories.machine-learning
 Option B (Flat):         ku.machine-learning
@@ -228,7 +228,8 @@ If two files produce the same UID, the second sync overwrites the first. This is
 **Primary files** (function names, not line pins — lines drift):
 - `/core/utils/uid_generator.py` — `generate_knowledge_uid()`, flat UID generation
 - `/core/services/ku/ku_core_service.py` — `create()`, KU creation
-- `/core/services/ku/ku_organization_service.py` — ORGANIZES relationship operations (MOC)
+- `/adapters/persistence/neo4j/backends/curriculum_backends.py` — `KuBackend`, the ORGANIZES
+  Cypher (MOC); read back through `/core/services/ku/ku_intelligence_service.py`
 - `/core/models/relationship_names.py` — ORGANIZES relationship
 
 **Related files:**
@@ -377,7 +378,7 @@ result = await ku_service.create(
 
 1. Create markdown file in Obsidian vault:
    ```
-   /docs/meditation/meditation-basics.md
+   0vault/meditation/meditation-basics.md
    ```
 
 2. Add frontmatter:

@@ -1,6 +1,6 @@
 ---
 title: "ADR-059: Engagement-Aware Daily Plan in Askesis"
-updated: 2026-05-13
+updated: 2026-09-01
 status: current
 category: decisions
 tags: [adr, decisions, askesis, engagement, daily-plan]
@@ -160,7 +160,7 @@ it behind a larger redesign blocks a small, correct fix.
 ### Original Proposed Files (superseded — see "As Shipped" below)
 
 **Modified:**
-- `core/models/askesis/daily_work_plan.py` — add `engaged_ps_groups`,
+- `core/models/askesis/daily_work_plan.py` — add `engaged_ps_groups`, <!-- historical -->
   `available_to_start` (both default-empty tuples).
 - `core/services/askesis_service.py` — `get_daily_work_plan` post-processes
   the existing `UserContextIntelligence` output: fetch engaged PSes, group
@@ -229,8 +229,9 @@ The dataflow as shipped:
   `tests/unit/test_daily_planning_bucketing.py`.
 - [x] **Unit:** `available_to_start` excludes any PS in the engaged set —
   `tests/unit/test_daily_planning_bucketing.py`.
-- [x] **Unit:** rendered "engaged PS" UI section gates on empty buckets —
-  `tests/unit/test_engaged_ps_section.py`.
+- [x] **Unit:** rendered "engaged PS" UI section gates on empty buckets — was
+  `tests/unit/test_engaged_ps_section.py`, deleted in #519 along with the dead overview <!-- historical -->
+  constellation it covered. No successor: that UI section is gone.
 - [~] **Integration:** intentionally **not** added to
   `tests/integration/test_askesis_rag_wiring.py` (and a note at line 140-143
   of that file documents the move). Because bucketing happens in
@@ -276,4 +277,5 @@ The dataflow as shipped:
 - `core/services/askesis/context_retriever.py:396-571` — engagement-aware bundle building (already shipped)
 - `core/services/askesis_service.py:417-477` — daily-plan entry point (pass-through after 2026-05-13; bucketing happens upstream in `DailyPlanningMixin`)
 - `core/services/user/intelligence/daily_planning.py:362-371` — actual bucketing site
-- `tests/unit/test_daily_planning_bucketing.py`, `tests/unit/test_engaged_ps_section.py` — coverage for the shipped path
+- `tests/unit/test_daily_planning_bucketing.py` — coverage for the shipped path (its
+  `test_engaged_ps_section.py` sibling went with the UI it tested, #519)

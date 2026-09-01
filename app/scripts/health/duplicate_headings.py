@@ -44,13 +44,14 @@ it returns:
   agreement is not correctness (the lesson ``markdown_fences`` was written to record).
 - **ATX (``##``) only; setext underlines are ignored.** Not a shortcut — a measured
   choice. The corpus contains ZERO intentional setext headings, and enabling them
-  reported six phantom ones: an unfilled ADR template writes ``**Pros:**`` above an
+  reports four phantom ones: an unfilled ADR template writes ``**Pros:**`` above an
   empty ``-`` bullet, and CommonMark reads a lone ``-`` after a paragraph as a setext
   underline rather than a list item, so the bold label renders as an ``<h2>``. Those
   repeats are a template artifact, not a superseded section, and reporting them would
   red the gate for something this scanner is not about. (The phantom ``<h2>``s are a
-  real if minor rendering bug in ``ADR-TEMPLATE.md`` and ``ADR-010``; they belong to
-  whoever fixes that template.) A genuine setext heading is therefore MISSED — accepted,
+  real if minor rendering bug in ``ADR-TEMPLATE.md``; they belong to whoever fixes that
+  template. It was eight across two files until PR B4 deleted ``ADR-010``, an unfilled
+  copy of the same template.) A genuine setext heading is therefore MISSED — accepted,
   because none exists and the alternative is a standing false positive.
 
 Scope excludes ``docs/design-principles/`` — see ``FREEFORM_DIRS``.

@@ -1,6 +1,6 @@
 ---
 title: "ADR-062: ChargeKeep as the SaaS Billing Layer"
-updated: 2026-08-13
+updated: 2026-09-01
 status: proposed
 category: decisions
 tags: [adr, decisions, finance, billing, subscriptions, stripe, chargekeep, leverage-maintained-software]
@@ -68,11 +68,15 @@ and ADR-052's Stripe-direct path stands.
 
 ### What SKUEL builds (ChargeKeep-first)
 
-- `core/ports/billing_protocols.py` — a `BillingProvider` Protocol + event TypedDicts.
+⚠️ **None of the modules below exist yet** — this ADR is Proposed and the build is gated on
+the spike. The paths are the designed destinations, not places to look.
+
+- a billing-protocols module under `core/ports` — a `BillingProvider` Protocol + event
+  TypedDicts.
   **The source of billing events is abstracted**: ChargeKeep ships now; Stripe-direct stays
   swappable behind the same port if ChargeKeep is ever rejected or sunset.
-- `adapters/outbound/chargekeep_client.py` — outbound adapter implementing `BillingProvider`.
-- `adapters/inbound/webhook_routes.py` — `POST /webhooks/chargekeep`: verify signature →
+- a ChargeKeep client under `adapters/outbound` — outbound adapter implementing `BillingProvider`.
+- webhook routes under `adapters/inbound` — `POST /webhooks/chargekeep`: verify signature →
   map ChargeKeep customer → SKUEL user (via metadata `user_uid`) → `update_role(MEMBER)` on
   `subscription.active`; revert to `REGISTERED` on `subscription.cancelled`. Idempotent,
   replay-safe.
@@ -99,7 +103,7 @@ the fallback adapter only.
 
 **Hexagonal placement.** `chargekeep_client.py` is an outbound adapter (sibling of
 `firefly_client.py` / `invoice_renderer.py`); routes and services depend on the
-`BillingProvider` Protocol in `core/ports/billing_protocols.py`, never the concrete client.
+`BillingProvider` Protocol in the `core/ports` billing module, never the concrete client.
 
 **Flow.**
 ```

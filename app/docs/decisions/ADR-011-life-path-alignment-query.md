@@ -1,6 +1,6 @@
 ---
 title: ADR-011: Life Path Alignment Query Architecture
-updated: 2026-05-22
+updated: 2026-09-01
 status: current
 category: decisions
 tags: [011, adr, alignment, decisions, life]
@@ -300,11 +300,16 @@ The Knowledge Substance Philosophy's weighted formula is CORE to SKUEL's approac
 - Pedagogical intent preserved in: `/docs/intelligence/PEDAGOGICAL_QUESTIONS.md`
 - Related files:
   - `/docs/architecture/knowledge_substance_philosophy.md` (formula definition)
-  - `/core/services/lp/lp_analytics_service.py` (primary consumer)
-  - `/core/services/user/user_stats_service.py` (dashboard integration)
-- Tests:
-  - `/tests/integration/test_life_path_alignment.py` (9/9 passing)
-  - `/tests/integration/test_substance_calculation.py` (formula validation)
+  - `/core/services/analytics/analytics_life_path_service.py` (primary consumer, reached
+    through the `AnalyticsService` facade)
+  - `/adapters/inbound/analytics_ui.py` + `/adapters/inbound/analytics_summary_api.py`
+    (the surfaces that call it)
+- Tests: `tests/integration/test_lifepath_alignment_calculation.py`,
+  `test_life_path_alignment_learner_scope.py` and
+  `test_life_path_five_dimension_alignment.py`. ⚠️ The two files this line once named —
+  a `test_life_path_alignment.py` claimed as "9/9 passing" and a
+  `test_substance_calculation.py` — were never written; `git log` for both is empty, so
+  the pass count was never true here.
 
 ### Complexity Analysis
 **Breakdown of query complexity:**
@@ -439,9 +444,10 @@ Comparison to multi-query approach (5 queries):
 
 ### Related Documentation
 - Philosophy: `/docs/architecture/knowledge_substance_philosophy.md`
-- Life Path feature: `/docs/features/LIFE_PATH_TRACKING.md`
-- Query templates catalog: `/docs/tools/QUERY_TEMPLATES_CATALOG.md`
-- Code comments: Extensive inline documentation in template
+- Life Path feature: `/docs/domains/lifepath.md`
+- Code comments: Extensive inline documentation in
+  `core/services/user/intelligence/life_path_intelligence.py` (the query templates and
+  their catalog are gone — see the Code Location note above)
 - Other ADRs:
   - ADR-012: Cross-Domain Knowledge Applications (similar multi-domain pattern)
   - ADR-001: Unified User Context (similar complexity justification)

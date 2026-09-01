@@ -1,6 +1,6 @@
 ---
 title: ADR-018: Four-Tier User Role System
-updated: 2026-03-30
+updated: 2026-09-01
 status: current
 category: decisions
 tags: [adr, decisions, user, roles, authorization, authentication]
@@ -59,7 +59,7 @@ Key constraints:
    - Added `role: UserRole` field (default: REGISTERED)
    - Delegation methods to role enum
 
-3. **Role-Checking Decorators** (`/core/auth/roles.py`):
+3. **Role-Checking Decorators** (`/adapters/inbound/auth/roles.py`):
    - `@require_role(UserRole.ADMIN, user_service_getter)`
    - `@require_admin(user_service_getter)`
    - `@require_teacher(user_service_getter)`
@@ -73,9 +73,10 @@ Key constraints:
    - `POST /api/admin/users/{uid}/activate` - Activate
    - `POST /api/admin/users/{uid}/reset-password` - Generate reset token (ADMIN only)
 
-5. **Trial Limits Service** (`/core/services/trial_limits.py`):
-   - Infrastructure for consumption limits (currently all unlimited)
-   - Rate limiting reserved for future use
+5. **Trial Limits Service** — ⚠️ **removed.** It shipped with this decision as
+   infrastructure for consumption limits (all tiers unlimited, rate limiting reserved for
+   future use) and was deleted as dead code; nothing succeeded it. Role tiers today carry
+   permissions, not quotas.
 
 ---
 
@@ -159,10 +160,11 @@ Key constraints:
 
 ### Code Location
 - **Enum:** `/core/models/enums/user_enums.py`
-- **Decorators:** `/core/auth/roles.py`
+- **Decorators:** `/adapters/inbound/auth/roles.py`
 - **Admin Routes:** `/adapters/inbound/admin_routes.py`
-- **Trial Limits:** `/core/services/trial_limits.py`
-- **Migration:** `/scripts/migrations/add_user_role.py`
+- **Trial Limits:** removed — see the Decision note above
+- **Migration:** `/scripts/migrations/add_user_role.py` <!-- historical --> (applied, then
+  archived with 29 other one-time migration scripts)
 
 ### Key Code Patterns
 

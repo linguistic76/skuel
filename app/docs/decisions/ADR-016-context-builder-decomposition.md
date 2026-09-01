@@ -1,6 +1,6 @@
 ---
 title: ADR-016: Context Builder Decomposition
-updated: 2026-03-03
+updated: 2026-09-01
 status: current
 category: decisions
 tags: [adr, architecture, refactoring, separation-of-concerns]
@@ -111,7 +111,8 @@ core/services/user/
 ### Code Location
 - **Primary files:**
   - `/core/services/user/user_context_builder.py`
-  - `/core/services/user/user_context_queries.py`
+  - `/adapters/persistence/neo4j/user_context_queries.py` (moved below the hexagonal
+    boundary per SKUEL021)
   - `/core/services/user/user_context_extractor.py`
   - `/core/services/user/user_context_populator.py`
 - **Exports:** `/core/services/user/__init__.py`

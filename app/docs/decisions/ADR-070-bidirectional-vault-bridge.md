@@ -1,6 +1,6 @@
 ---
 title: "ADR-070: Bidirectional VaultBridge — Obsidian ↔ SKUEL Task Sync"
-updated: 2026-08-25
+updated: 2026-09-01
 status: accepted
 category: decisions
 tags: [adr, decisions, vault, obsidian, bidirectional-sync, vault-bridge]
@@ -239,7 +239,7 @@ Fail-closed posture is unchanged: unset → doorway folders only; a newly-create
 
 ### Decision 9 — Ingestion is human-initiated per event; one reconciler engine; the continuous watcher is deleted (2026-07-01)
 
-`docs/Reviews/SYNC_UNIFICATION_REVIEW.md` (a *One Path Forward* pass over #482) surfaced two consolidation debts. PR 1's commit message promised PR 2 would *retire* `/api/ingest/directory` and `scripts/vault_watch.py`; PR 2 kept both working and removed only the admin button. The result: a parallel directory-ingest door (**A1**) and three sync triggers spanning two engines — the raw `/api/ingest/*` door vs. the `VaultReconciler` (**A2**). This decision resolves both. It also **enforces Alternative E** below, which rejected the continuous watcher in prose on 2026-06-16 while the code kept `vault_watch.py` alive as a live trigger — the exact intent-vs-reality drift the review caught.
+`docs/Reviews/SYNC_UNIFICATION_REVIEW.md` (a *One Path Forward* pass over #482) surfaced two consolidation debts. PR 1's commit message promised PR 2 would *retire* `/api/ingest/directory` and `scripts/vault_watch.py`; PR 2 kept both working and removed only the admin button. The result: a parallel directory-ingest door (**A1**) and three sync triggers spanning two engines — the raw `/api/ingest/*` door vs. the `VaultReconciler` (**A2**). This decision resolves both. It also **enforces Alternative E** below, which rejected the continuous watcher in prose on 2026-06-16 while the code kept `vault_watch.py` alive as a live trigger — the exact intent-vs-reality drift the review caught. <!-- historical -->
 
 **Ruling 1 — one engine (resolves A1).** The raw arbitrary-path `POST /api/ingest/directory` door is **deleted**. The single directory-ingest path is the `VaultReconciler`, reachable over HTTP as `POST /api/vault/sync` (PERSONAL, session user) and `POST /api/vault/sync/content` (CONTENT, admin, inbound-only); the admin dashboard's former "Ingest Directory" card becomes a **"Sync content vault"** button onto the latter. Arbitrary-path / glob admin ingest is retired with it — a pre-vault-era capability Mike confirmed (2026-07-01) is not needed, since the vault is the ingestion source of truth. PR 1's "to be retired" language is honoured, not deferred.
 
@@ -252,7 +252,7 @@ Fail-closed posture is unchanged: unset → doorway folders only; a newly-create
 
 **Why per-event, not merely "machinery human-started."** The looser reading (launching a daemon is itself the explicit act, so a background watcher is fine) was considered and rejected: it re-imports the property we are removing — a scheduled `--once` is a continuous watcher wearing a cron hat, "not human per event" via a timer instead of a poll-loop. Sanctioning it would reopen the same drift this decision closes.
 
-**Enforcement (done in this PR):** deleted `scripts/vault_watch.py` (the continuous poll-loop) and `scripts/provision_vault_watcher.py` (the watcher's HTTP service-account provisioner — obsolete once sync is in-process); deleted `POST /api/ingest/directory` and its route-level test; added `POST /api/vault/sync/content` (admin) onto the reconciler; rewired the ingestion dashboard's directory card to a "Sync content vault" button; replaced `./dev vault-watch` with one-shot `./dev vault-sync` (→ `vault_bridge_sync.py`); updated the CLAUDE.md ingestion note.
+**Enforcement (done in this PR):** deleted `scripts/vault_watch.py` (the continuous poll-loop) and `scripts/provision_vault_watcher.py` (the watcher's HTTP service-account provisioner — obsolete once sync is in-process); deleted `POST /api/ingest/directory` and its route-level test; added `POST /api/vault/sync/content` (admin) onto the reconciler; rewired the ingestion dashboard's directory card to a "Sync content vault" button; replaced `./dev vault-watch` with one-shot `./dev vault-sync` (→ `vault_bridge_sync.py`); updated the CLAUDE.md ingestion note. <!-- historical -->
 
 **Rejected:** (a) cron / systemd `--once` as sanctioned automation — violates per-event-human initiation; it is Alternative E by another name. (b) keeping `/api/ingest/directory` as a parallel raw ingest door — One Path Forward forbids two live paths to one outcome.
 

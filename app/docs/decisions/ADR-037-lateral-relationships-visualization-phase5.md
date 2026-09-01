@@ -1,5 +1,5 @@
 ---
-updated: 2026-07-29
+updated: 2026-09-01
 ---
 
 # ADR-037: Lateral Relationships Visualization (Phase 5)
@@ -363,11 +363,14 @@ async def detail_page(request: Any, uid: str) -> Any:
 2. Goals (`adapters/inbound/goals_ui.py`)
 3. Habits (`adapters/inbound/habits_ui.py`)
 4. Events (`adapters/inbound/events_ui.py`)
-5. Choices (`adapters/inbound/choice_ui.py`)
-6. Principles (`ui/principles/views.py`)
-7. KU (`adapters/inbound/learning_ui.py`)
-8. PS (`adapters/inbound/learning_ui.py`)
-9. LP (`adapters/inbound/learning_ui.py`)
+5. Choices (`adapters/inbound/choices_ui.py`)
+6. Principles (`ui/activities/principles_views.py`)
+7. KU (`adapters/inbound/ku_ui.py`)
+8. PS (`adapters/inbound/path_steps_ui.py`)
+9. LP (`adapters/inbound/pathways_ui.py`)
+
+(The curriculum three shared one `learning_ui.py` at the time; the `/learning` → `/pathways`
+split gave each its own module.)
 
 **Time to integrate:** ~5 minutes per domain (import + 5 lines of code)
 
@@ -499,7 +502,8 @@ network.on("stabilizationIterationsDone", function() {
 
 ### Manual Testing
 
-**Checklist:** See `/PHASE5_MANUAL_QA_CHECKLIST.md`
+**Checklist:** the key tests below are it — the standalone QA-checklist work-note this
+line once pointed at was deleted with the other 74.
 
 **Key Tests:**
 1. Page load (no errors)
@@ -518,8 +522,7 @@ network.on("stabilizationIterationsDone", function() {
 
 **Documentation:**
 - [RELATIONSHIPS_ARCHITECTURE.md](/docs/architecture/RELATIONSHIPS_ARCHITECTURE.md) - Core relationship architecture
-- [LATERAL_RELATIONSHIPS_VISUALIZATION.md](/docs/patterns/LATERAL_RELATIONSHIPS_VISUALIZATION.md) - UI visualization patterns
-- [PHASE5_COMPLETE.md](/PHASE5_COMPLETE.md) - Complete implementation guide
+- [LATERAL_RELATIONSHIPS_VISUALIZATION.md](/docs/patterns/LATERAL_RELATIONSHIPS_VISUALIZATION.md) - UI visualization patterns (this ADR and that pattern doc are the implementation guide; the phase's standalone completion note was deleted with the other 74 work notes)
 
 **Code Locations:**
 - `/ui/patterns/relationships/` - 4 UI components (EntityRelationshipsSection, BlockingChainView, AlternativesComparisonGrid, RelationshipGraphView)
@@ -702,10 +705,11 @@ network.on("stabilizationIterationsDone", function() {
 ## References
 
 ### Documentation
-- `/PHASE5_COMPLETE.md` - Complete overview
 - `/docs/patterns/LATERAL_RELATIONSHIPS_VISUALIZATION.md` - Implementation pattern
 - `/docs/architecture/RELATIONSHIPS_ARCHITECTURE.md` - Core graph modeling
-- `/PHASE5_MANUAL_QA_CHECKLIST.md` - Testing guide
+
+(The phase's own completion note and QA checklist were work notes, deleted with the other
+74; this ADR is what survived them.)
 
 ### Related ADRs
 - ADR-026: Unified Relationship Registry

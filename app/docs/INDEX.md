@@ -1,6 +1,6 @@
 ---
 title: Documentation Index
-updated: 2026-08-31
+updated: 2026-09-01
 status: current
 category: index
 tags: [index, navigation, documentation]
@@ -100,6 +100,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [KU (Knowledge Unit)](domains/ku.md) | Atomic knowledge unit (point topology) |
 | [PS (Path Step)](domains/ps.md) | THE curriculum content entity — composes Kus (collection topology) |
 | [LP (Learning Path)](domains/lp.md) | Complete learning sequences (path topology) |
+| [UserEntry](domains/user_entry.md) | All user-authored content — turn-ins, journal entries, uploads, periodic notes (ADR-054) |
 | [Submissions + Reports](architecture/LEARNING_LOOP_ARCHITECTURE.md) | Exercise→UserEntry→EntryReport→RevisedExercise (4-phase learning loop, anchored to PathStep via HAS_EXERCISE) |
 | [Journals](architecture/JOURNALS_DOMAIN_ARCHITECTURE.md) | Journal workflows on the UserEntry domain (JE_INPUT → JE_OUTPUT, AI-processed; ADR-054) |
 | Groups | Teacher-student class management (ADR-040) — doc pending |
@@ -245,7 +246,6 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [ADR-007: Graph-Sourced-Context-Builder Query Archi...](decisions/ADR-007-graph-sourced-context-builder-query.md) | |
 | [ADR-008: Learning Path Blocker Identification Quer...](decisions/ADR-008-lp-validation-service-query.md) | |
 | [ADR-009: Optimal Learning Path Recommendation Quer...](decisions/ADR-009-lp-validation-service-query.md) | |
-| [ADR-010: Moc-Core-Service Query Architecture](decisions/ADR-010-moc-core-service-query.md) | |
 | [ADR-011: Life Path Alignment Query Architecture](decisions/ADR-011-life-path-alignment-query.md) | |
 | [ADR-012: Cross-Domain Knowledge Applications Query...](decisions/ADR-012-cross-domain-knowledge-applications-query.md) | |
 | [ADR-013: KU UID Flat Identity](decisions/ADR-013-ku-uid-flat-identity.md) | |

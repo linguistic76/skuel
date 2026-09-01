@@ -1,5 +1,5 @@
 ---
-updated: 2026-06-10
+updated: 2026-09-01
 ---
 
 # ADR-068: OpenAI Embeddings Now, BGE Long-Term — Behind One Provider Chokepoint
@@ -89,7 +89,7 @@ no `embedding_version`, which the cache layer would have treated as stale foreve
   embeddings too.
 - All embeddings must be (re)generated as v3 — trivial today (the corpus had zero embeddings).
 - A future BGE swap = new factory line + `EMBEDDING_VERSION` bump + re-embed. Indexes stay.
-- `scripts/migrations/migrate_to_huggingface_embeddings.py` deleted (superseded one-shot that
+- `scripts/migrations/migrate_to_huggingface_embeddings.py` deleted (superseded one-shot that <!-- historical -->
   never ran; `--recreate` replaces its index mechanics).
 - ADR-049 is **superseded in its provider choice** but its architecture decisions stand:
   Python-side embedding generation, no Neo4j plugin, SDK behind the hexagonal boundary (ADR-063).

@@ -1,6 +1,6 @@
 ---
 title: "ADR-050: PWA as Mobile Strategy"
-updated: 2026-03-16
+updated: 2026-09-01
 status: current
 category: decisions
 tags: [adr, decisions, mobile, pwa, service-worker]
@@ -42,8 +42,8 @@ Implementation:
 
 **Hyperview groundwork removed:**
 - `core/hxml/` package (element builders)
-- `adapters/inbound/negotiation.py` (content negotiation)
-- `docs/architecture/HYPERVIEW_STRATEGY.md` (strategy doc)
+- `adapters/inbound/negotiation.py` (content negotiation) <!-- historical -->
+- `docs/architecture/HYPERVIEW_STRATEGY.md` (strategy doc) <!-- historical -->
 
 ---
 
