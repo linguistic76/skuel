@@ -10,7 +10,10 @@ regenerate and byte-compare it
 (``tests/unit/scripts/test_generate_cross_reference_index.py``). There is NO commit-time
 automation, deliberately: ``generate_method_index.py``'s original docstring claimed a
 pre-commit hook that was never wired, which is exactly how that artifact silently sat
-stale — CI failing on a stale artifact is the one enforcement path.
+stale — CI failing on a stale artifact is the enforcement path, in two halves matching
+the CI path filters: the unit test runs when the ``py`` filter fires (generator edits),
+and ``validate_documentation`` runs ``--check`` when only doc-side inputs change (a
+docs-only PR skips unit_tests entirely — Codex P2, PR #1213).
 
 Usage:
     uv run python scripts/generate_cross_reference_index.py          # regenerate

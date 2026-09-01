@@ -5,7 +5,9 @@ Drift + honesty guards for docs/CROSS_REFERENCE_INDEX.md
 Same pattern as test_generate_method_index.py: the artifact is a checked-in
 generated view whose freshness is enforced by byte-comparing it against a
 fresh render. There is no commit-time automation — deliberately (see the
-generator's docstring); this test is the one enforcement path. Before it
+generator's docstring); enforcement is this test plus the ``--check`` step in
+CI's validate_documentation job, which covers the doc-side inputs a docs-only
+PR can change while skipping unit_tests (Codex P2, PR #1213). Before either
 existed, nothing compared the checked-in file against its sources
 (``.claude/skills/skills_metadata.yaml`` + ``docs/patterns/*.md``
 frontmatter), so the index could drift indefinitely — the gap #1212 recorded
