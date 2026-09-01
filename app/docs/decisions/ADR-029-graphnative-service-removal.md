@@ -1,6 +1,6 @@
 ---
 title: ADR-029: GraphNative Service Removal - One Path Forward
-updated: 2026-03-06
+updated: 2026-09-01
 status: current
 category: decisions
 tags: [adr, decisions, architecture, refactoring, one-path-forward]
@@ -91,8 +91,8 @@ Habits/Events/Choices/Principles (Clean):
    - `/core/services/tasks/__init__.py` - Remove TasksGraphNativeService
 
 3. **Delete service files:**
-   - `/core/services/goals/goals_graph_native_service.py` (830 lines)
-   - `/core/services/tasks/tasks_graph_native_service.py` (605 lines)
+   - `/core/services/goals/goals_graph_native_service.py` (830 lines) <!-- historical -->
+   - `/core/services/tasks/tasks_graph_native_service.py` (605 lines) <!-- historical -->
 
 **Result:** All 6 Activity domains now use identical UnifiedRelationshipService pattern.
 
@@ -186,8 +186,8 @@ Habits/Events/Choices/Principles (Clean):
 - Migration file: `/core/services/goals/goals_planning_service.py`
 - Updated exports: `/core/services/goals/__init__.py`, `/core/services/tasks/__init__.py`
 - Deleted files:
-  - `/core/services/goals/goals_graph_native_service.py`
-  - `/core/services/tasks/tasks_graph_native_service.py`
+  - `/core/services/goals/goals_graph_native_service.py` <!-- historical -->
+  - `/core/services/tasks/tasks_graph_native_service.py` <!-- historical -->
 - Related: `/core/services/relationships/unified_relationship_service.py`
 
 ### Migration Changes
@@ -384,6 +384,6 @@ Net Impact: -1,410 lines (97% reduction)
 ### References
 **Internal resources:**
 - UnifiedRelationshipService implementation: `/core/services/relationships/unified_relationship_service.py`
-- Domain configs: `/core/services/relationships/domain_configs.py`
+- Domain configs: `/core/models/relationship_registry.py` (`DomainRelationshipConfig`)
 - CLAUDE.md: "Relationship Service Pattern" section
 - Migration conversation: January 8, 2026 analysis

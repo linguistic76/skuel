@@ -1,6 +1,6 @@
 ---
 title: ADR-022: Graph-Native Authentication
-updated: 2026-03-03
+updated: 2026-09-01
 status: current
 category: decisions
 tags: [adr, decisions, authentication, security, neo4j]
@@ -63,7 +63,7 @@ All authentication data lives in Neo4j alongside user data:
 | `AuthEvent` | `/core/models/auth/auth_event.py` | Audit log entry |
 | `PasswordResetToken` | `/core/models/auth/password_reset_token.py` | Reset token (email or admin-generated) |
 | Password utilities | `/core/auth/password.py` | Bcrypt hash/verify functions |
-| Session helpers | `/core/auth/session.py` | Cookie config, decorators, helpers |
+| Session helpers | `/adapters/inbound/auth/session.py` | Cookie config, decorators, helpers |
 
 **Authentication Flow:**
 
@@ -126,8 +126,11 @@ result = await graph_auth.reset_password_with_token(
 - [AUTH_PATTERNS.md](/docs/patterns/AUTH_PATTERNS.md) - Authentication patterns and decorators
 
 **Code Locations:**
-- `/core/auth/authentication.py` - Core auth logic (require_authenticated_user, password hashing)
-- `/core/auth/session.py` - Session management (create_session, validate_session)
+- `/adapters/inbound/auth/session.py` - HTTP-side auth (`require_authenticated_user`,
+  cookie readers) — `core/auth/` was split into domain logic and this inbound adapter
+- `/core/auth/password.py` - Password hashing
+- `/core/models/auth/session.py` - `create_session` (the session factory)
+- `/core/auth/graph_auth.py` - `validate_session` (on `GraphAuthService`)
 - `/core/services/user/user_core_service.py` - User CRUD operations
 - `/adapters/inbound/auth_routes.py` - Login/logout routes
 - `/core/models/user/user.py` - User domain model with auth fields
@@ -220,7 +223,7 @@ result = await graph_auth.reset_password_with_token(
 
 ### Code Location
 - **GraphAuthService:** `/core/auth/graph_auth.py`
-- **Session helpers:** `/core/auth/session.py` (cookie config, decorators)
+- **Session helpers:** `/adapters/inbound/auth/session.py` (cookie config, decorators)
 - **Auth models:** `/core/models/auth/` (session.py, auth_event.py, password_reset_token.py)
 - **Password utilities:** `/core/auth/password.py`
 - **Session backend:** `/adapters/persistence/neo4j/session_backend.py`

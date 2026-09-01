@@ -1,6 +1,6 @@
 ---
 title: ADR-009: Optimal Learning Path Recommendation Query
-updated: 2026-03-30
+updated: 2026-09-01
 status: current
 category: decisions
 tags: [009, adr, decisions, query, service]
@@ -339,7 +339,10 @@ Nested prerequisite: Internet Fundamentals (0% mastered) → User will struggle
 - `REQUIRES_CONCEPTUAL_FOUNDATION` - Core understanding
 - `BUILDS_ON_FOUNDATION` - Layered learning
 
-**Tests:** Integration tests in `/tests/integration/test_lp_validation_service.py`
+**Tests:** None for this query. The integration file this line once named was never
+written — `git log` for it is empty, and no `lp_validation_service` has ever existed here;
+the LP integration suite that does exist is `tests/integration/test_lp_intelligence_consolidated.py`,
+which covers the intelligence service rather than this recommendation query.
 
 ---
 

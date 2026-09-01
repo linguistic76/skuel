@@ -1,7 +1,7 @@
 ---
 title: Domain Documentation
 created: 2025-12-04
-updated: 2026-08-04
+updated: 2026-09-01
 status: current
 category: domains
 tags: [domains, reference, architecture]
@@ -28,7 +28,7 @@ Each entity type is a peer — behavioral traits (not category membership) deter
 | [PS](ls.md) | `ls:` | Sequential path steps (edge topology) |
 | [LP](lp.md) | `lp:` | Complete learning sequences (path topology) |
 | [Journals](journals.md) | `journal:` | Two-tier system: Voice (ephemeral) + Curated (permanent) |
-| [Submissions](submissions.md) | N/A | Student work + feedback |
+| [UserEntry](user_entry.md) | N/A | All user-authored content — exercise turn-ins, journal entries, uploads, periodic notes (ADR-054) |
 | [MOC](moc.md) | `ku:` | Non-linear navigation (graph topology via ORGANIZES) |
 | [LifePath](lifepath.md) | `lp:` | "Am I living my life path?" |
 

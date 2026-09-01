@@ -1,5 +1,5 @@
 ---
-updated: 2026-02-02
+updated: 2026-09-01
 ---
 
 # ADR-036: Prometheus as Primary with In-Memory Cache Pattern
@@ -75,7 +75,7 @@ Event Bus
 - `/core/infrastructure/monitoring/__init__.py` - Export MetricsCache
 
 **Files Removed**:
-- `/core/infrastructure/monitoring/prometheus_bridge.py` - No longer needed
+- `/core/infrastructure/monitoring/prometheus_bridge.py` - No longer needed <!-- historical -->
 
 ### Cache Design
 
@@ -237,7 +237,6 @@ class MetricsCache:
 
 ## References
 
-- Analysis: `/PHASE1_COMPLETE.md` (metrics DRY analysis)
 - Documentation: `/docs/observability/PROMETHEUS_METRICS.md`
 - Implementation: `/core/infrastructure/monitoring/metrics_cache.py`
 - Migration: See commit history (2026-01-31)
@@ -250,14 +249,15 @@ class MetricsCache:
 - [@prometheus-grafana](../../.claude/skills/prometheus-grafana/SKILL.md) - Complete observability guide (metrics, alerts, dashboards)
 
 **Documentation:**
-- [OBSERVABILITY_PHASE1_COMPLETE.md](/OBSERVABILITY_PHASE1_COMPLETE.md) - Complete implementation guide
-- [monitoring/README.md](/monitoring/README.md) - Quick start guide
+- [monitoring/README.md](/monitoring/README.md) - Quick start guide (this and the
+  `@prometheus-grafana` skill above are the living guides; the work-note the phase shipped
+  with was deleted with the other 74)
 
 **Code Locations:**
 - `/core/infrastructure/monitoring/metrics_cache.py` - MetricsCache class (Prometheus-primary with lossy cache)
 - `/core/infrastructure/monitoring/prometheus_metrics.py` - Prometheus metric definitions
 - `/adapters/infrastructure/event_bus.py` - Uses MetricsCache for event instrumentation
-- `/monitoring/prometheus.yml` - Prometheus configuration
+- `/monitoring/prometheus/prometheus.yml` - Prometheus configuration
 - `/monitoring/dashboards/` - Grafana dashboard JSON files
 
 ---

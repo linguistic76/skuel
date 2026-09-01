@@ -1,6 +1,6 @@
 ---
 title: "ADR-060: UserContext as Single Source of Truth — Awareness Slice Protocols Retired"
-updated: 2026-08-13
+updated: 2026-09-01
 status: current
 category: decisions
 tags: [adr, decisions, type-safety, user-context, isp, protocols]
@@ -17,7 +17,7 @@ related:
 
 ## Context
 
-`core/ports/context_awareness_protocols.py` defined 11 `Protocol` classes —
+`core/ports/context_awareness_protocols.py` defined 11 `Protocol` classes — <!-- historical -->
 `CoreIdentity`, `TaskAwareness`, `KnowledgeAwareness`, `HabitAwareness`,
 `GoalAwareness`, `EventAwareness`, `PrincipleAwareness`, `ChoiceAwareness`,
 `LearningPathAwareness`, `CrossDomainAwareness`, `FullAwareness` — each an
@@ -56,9 +56,9 @@ user-state parameters.
 
 **Changes:**
 
-1. `core/ports/context_awareness_protocols.py` deleted (480 lines, 11
+1. `core/ports/context_awareness_protocols.py` deleted (480 lines, 11 <!-- historical -->
    protocols).
-2. `tests/unit/test_context_awareness_protocols.py` deleted (271 lines).
+2. `tests/unit/test_context_awareness_protocols.py` deleted (271 lines). <!-- historical -->
 3. `core/ports/__init__.py` no longer exports `TaskAwareness`,
    `KnowledgeAwareness`, `HabitAwareness`, `GoalAwareness`,
    `EventAwareness`, `PrincipleAwareness`, `ChoiceAwareness`,

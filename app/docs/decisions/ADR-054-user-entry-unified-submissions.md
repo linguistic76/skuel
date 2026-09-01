@@ -1,5 +1,5 @@
 ---
-updated: 2026-08-13
+updated: 2026-09-01
 ---
 
 # ADR-054: UserEntry — Unified User-Authored Content
@@ -44,7 +44,7 @@ Worse, the entity type hierarchy itself is cosmetic:
 - `Submission` adds 13 fields to `UserOwnedEntity` (4 file, 8 processing,
   `modality`, `revision_number`). But `JeInput` reimplements the same 13
   fields directly on `UserOwnedEntity` without a `Submission` base
-  (`core/models/journal/je_input.py`). Two parallel code paths for the same
+  (`core/models/journal/je_input.py`). Two parallel code paths for the same <!-- historical -->
   concept: "user-authored content with files and optional processing."
 - Processing dispatch in `submissions_processing_service.py:321` reads
   `entity_type == JE_INPUT` as a flag for "run the journal LLM" —

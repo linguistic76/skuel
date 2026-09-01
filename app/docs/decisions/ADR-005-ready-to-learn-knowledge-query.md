@@ -1,6 +1,6 @@
 ---
 title: ADR-005: Ready-to-Learn Knowledge Query Architecture
-updated: 2026-08-13
+updated: 2026-09-01
 status: current
 category: decisions
 tags: [005, adr, decisions, knowledge, learn]
@@ -289,9 +289,11 @@ Fundamentally breaks the learning experience. SKUEL's value is in CORRECT prereq
 - Related files:
   - `/core/services/user/intelligence/learning_intelligence.py` (learning intelligence layer)
   - `/core/services/user_progress_service.py` (confidence and progress tracking)
-- Tests:
-  - `/tests/integration/test_ready_to_learn_query.py` (8/8 passing)
-  - `/tests/integration/intelligence/` (intelligence service tests)
+- Tests: none. Neither path this line once named — a `test_ready_to_learn_query.py`
+  claimed as "8/8 passing", and an `intelligence/` suite directory — has ever existed in
+  this repo (`git log` for both is empty); today's integration tests are organised under
+  `tests/integration/` as flat modules plus `cross_domain/`, `routes/`, `user_entry/`
+  and `relationships/`.
 
 ### Complexity Analysis
 **Breakdown of query complexity:**
@@ -415,8 +417,8 @@ Large graph (1000 KUs, 5000 prerequisites, 7-level chains):
 ## Documentation & Communication
 
 ### Related Documentation
-- Architecture docs: `/docs/architecture/LEARNING_INTELLIGENCE.md`
-- Graph schema: `/docs/schema/KNOWLEDGE_RELATIONSHIPS.md`
+- Architecture docs: `/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md`
+- Graph schema: `/docs/reference/GRAPH_CONTRACT.yaml`
 - Code comments: Extensive inline documentation with optimization notes
 - Other ADRs:
   - ADR-001: Unified User Context (similar complexity pattern)

@@ -1,6 +1,6 @@
 ---
 title: "ADR-063: LLM & Embedding SDKs Behind Ports"
-updated: 2026-07-10
+updated: 2026-09-01
 status: current
 category: decisions
 tags: [adr, decisions, architecture, llm, embeddings, hexagonal, ports]
@@ -27,7 +27,7 @@ related: [ADR-044, ADR-043, ADR-049]
 After the SKUEL022 work (core must not import `adapters`), three vendor AI SDKs
 were still imported **directly inside `core/services/`**, with no port:
 
-- `openai` + `anthropic` in `core/services/llm_service.py` and `core/services/ai_service.py`
+- `openai` + `anthropic` in `core/services/llm_service.py` and `core/services/ai_service.py` <!-- historical -->
 - `huggingface_hub` in `core/services/embeddings_service.py`
 - `openai` in `core/services/dsl/llm_dsl_bridge.py`
 

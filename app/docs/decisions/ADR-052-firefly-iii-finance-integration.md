@@ -13,7 +13,7 @@ related:
   - ADR-044-neo4j-committed-architectural-choice
   - ADR-049-huggingface-embeddings-migration
   - ADR-062-chargekeep-billing-layer
-updated: 2026-08-13
+updated: 2026-09-01
 ---
 
 # ADR-052: Firefly III Replaces SKUEL Expense/Budget/Reporting
@@ -67,15 +67,15 @@ With no custom finance UI and invoicing moved to ChargeKeep, demolition covers t
 
 | File / path | Notes |
 |---|---|
-| `core/models/finance/finance_pure.py` (ExpensePure, BudgetPure) | |
-| `core/models/finance/finance_dto.py`, `finance_converters.py`, `finance_intelligence.py`, `finance_request.py` | |
+| `core/models/finance/finance_pure.py` (ExpensePure, BudgetPure) | | <!-- historical -->
+| `core/models/finance/finance_dto.py`, `finance_converters.py`, `finance_intelligence.py`, `finance_request.py` | | <!-- historical -->
 | `core/models/finance/invoice.py` (InvoicePure + line items) | invoicing → ChargeKeep |
 | `core/services/finance_service.py` facade + `core/services/finance/` sub-services (core, budget, reporting, categories, **invoice**) + `finance_types.py` | |
 | Expense/budget/invoice backend code in `misc_backends.py` + the finance Neo4j backend(s) | |
 | `adapters/inbound/finance_api.py`, `finance_ui.py`, `finance_routes.py` (the `/finance` routes + DomainConfig wiring) | |
 | `ui/finance/` package (layout, section_views, invoice_views, components, types) | |
 | `adapters/outbound/invoice_renderer.py` (WeasyPrint) | invoicing → ChargeKeep |
-| `core/events/finance_events.py` — exported but **no live subscribers** (verified) | |
+| `core/events/finance_events.py` — exported but **no live subscribers** (verified) | | <!-- historical -->
 | Finance tests | |
 
 **Cross-domain ripple to unwire during demolition (verified against current code):**
@@ -93,7 +93,7 @@ With no custom finance UI and invoicing moved to ChargeKeep, demolition covers t
 |---|---|
 | `adapters/outbound/firefly_client.py` | **Done (Phase 2).** Async httpx-backed FireflyClient implementing `FireflyOperations`. |
 | `core/ports/finance_protocols.py` | **Done (Phase 2).** `FireflyOperations` protocol + TypedDicts. |
-| ~~`core/services/finance/firefly_expense_service.py`~~ | **CANCELLED (Phase 4).** No custom finance UI → no read-facade; `finance_ui.py` is deleted, not rewired. |
+| ~~`core/services/finance/firefly_expense_service.py`~~ | **CANCELLED (Phase 4).** No custom finance UI → no read-facade; `finance_ui.py` is deleted, not rewired. | <!-- historical -->
 | Billing webhook + revenue sync | **Owned by [ADR-062](ADR-062-chargekeep-billing-layer.md)** (`billing_protocols.py`, `chargekeep_client.py`, `webhook_routes.py`). Replaces this ADR's original `stripe_firefly_sync_service.py` + `stripe_webhook_routes.py`. |
 | `docker-compose.yml` Firefly stack | **Done (Phase 1).** `firefly`, `firefly-db`, `firefly-importer` under `finance` profile. |
 

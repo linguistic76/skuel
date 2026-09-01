@@ -1,6 +1,6 @@
 ---
 title: ADR-015: MEGA-QUERY Rich Queries Completion for All Activity Domains
-updated: 2026-03-30
+updated: 2026-09-01
 status: current
 category: decisions
 tags: [adr, decisions, query, mega-query, user-context]
@@ -89,7 +89,7 @@ We implemented rich queries for all three missing domains, extending the MEGA-QU
 - `OPENS_LEARNING_PATH` → Lp (LIMIT 5)
 - `IMPLEMENTS_CHOICE` (incoming) → Task (LIMIT 10)
 
-**File:** `/core/services/user/user_context_queries.py` (MEGA_QUERY constant)
+**File:** `/adapters/persistence/neo4j/user_context_queries.py` (MEGA_QUERY constant)
 
 ---
 
@@ -153,12 +153,12 @@ UnifiedRelationshipService operates at a different semantic level (per-entity qu
 
 ### Code Location
 **Where is this decision implemented?**
-- Primary file: `/core/services/user/user_context_queries.py` (MEGA_QUERY constant, ~850 lines of Cypher)
+- Primary file: `/adapters/persistence/neo4j/user_context_queries.py` (MEGA_QUERY constant, ~850 lines of Cypher — moved below the hexagonal boundary per SKUEL021)
 - Related files:
   - `/core/services/user/user_context_builder.py` (orchestration, ~331 lines)
   - `/core/services/user/user_context_extractor.py` (result parsing, ~351 lines)
   - `/core/services/user/user_context_populator.py` (context population, ~270 lines)
-  - `/core/services/relationships/domain_configs.py` (relationship definitions)
+  - `/core/models/relationship_registry.py` (relationship definitions)
   - `/core/services/user/unified_user_context.py` (field definitions)
 - Tests:
   - `/tests/integration/test_rich_user_context_pattern.py` (has pre-existing fixture issues)

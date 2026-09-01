@@ -352,7 +352,7 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
     "docs/decisions/ADR-042-privacy-as-first-class-citizen.md": {
         (168, "SubmissionsSharingService"): Allow(_adr042),
         (248, "SubmissionsSharingService"): Allow(_adr042),
-        (270, "submissions_sharing_service"): Allow(_adr042),
+        (271, "submissions_sharing_service"): Allow(_adr042),
     },
     "docs/decisions/ADR-043-intelligence-tier-toggle.md": {
         (40, "JournalOutputService"): Allow(_adr043),

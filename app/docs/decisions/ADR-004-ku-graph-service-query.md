@@ -1,6 +1,6 @@
 ---
 title: ADR-004: Ready-to-Learn Knowledge Unit Query
-updated: 2026-05-22
+updated: 2026-09-01
 status: current
 category: decisions
 tags: [004, adr, decisions, graph, query]
@@ -332,7 +332,11 @@ ORDER BY readiness DESC, enables_count DESC
 
 **Default Limit:** 10 recommendations
 
-**Tests:** Integration tests in `/tests/integration/test_ku_graph_service.py`
+**Tests:** None for this query. The integration file this line once named was never
+written. A unit suite of the same basename is live — `tests/unit/test_ku_graph_service.py`
+— but it kept the old name through the service's rename and exercises `PsGraphService`'s
+prerequisite/next-step methods, not this readiness query (which now lives below the
+hexagonal boundary as `find_ready_to_learn` on the Neo4j knowledge-context mixin).
 
 ---
 

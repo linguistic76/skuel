@@ -1,6 +1,6 @@
 ---
 title: ADR-006: Knowledge Gaps for Goals Query Architecture
-updated: 2026-02-23
+updated: 2026-09-01
 status: current
 category: decisions
 tags: [006, adr, decisions, gaps, goals]
@@ -156,7 +156,8 @@ ORDER BY priority_score DESC, blocking_goals_count DESC
 - Typical: 120-180ms (5 active goals, 15 knowledge gaps)
 - Worst-case: 250-320ms (20 goals, 50+ gaps, deep prerequisites)
 
-**Tests:** 7/7 passing in `/tests/integration/test_knowledge_gaps.py`
+**Tests:** None. The "7/7 passing" file this line once named was never written — `git log`
+for it is empty across this repo's whole history, so the pass count was never true here.
 
 ---
 

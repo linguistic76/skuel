@@ -1,6 +1,6 @@
 ---
 title: ADR-003: Journal Context Gathering Query
-updated: 2026-02-27
+updated: 2026-09-01
 status: current
 category: decisions
 tags: [003, adr, decisions, journals, query]
@@ -59,7 +59,9 @@ Use **single complex query** with:
 5. Strategic WITH staging to avoid cartesian products
 
 **File:** `/core/services/content_enrichment_service.py` (context query)
-**Types:** `/core/services/journals/journals_types.py` (`JournalContext`, `JournalAIInsights`)
+**Types:** `/core/services/content_enrichment/types.py` (`EnrichmentContext`,
+`EnrichmentInsights` — renamed from `JournalContext` / `JournalAIInsights` in the
+Journal→Report merge)
 
 **Complexity Breakdown:**
 - 1 MATCH clause (2 pts)
@@ -290,7 +292,9 @@ AI with mood trends: "You've been low energy this week - consider self-care"
 
 **Method:** `gather_journal_context(user_uid: str)`
 
-**Types:** `/core/services/journals/journals_types.py` defines `JournalContext` and `JournalAIInsights`
+**Types:** `/core/services/content_enrichment/types.py` defines `EnrichmentContext` and
+`EnrichmentInsights` (their names before the Journal→Report merge were `JournalContext`
+and `JournalAIInsights`)
 
 **Performance:**
 - Typical: 150-220ms (20 journals, 5 goals, 30-day history)
@@ -328,7 +332,9 @@ AI with mood trends: "You've been low energy this week - consider self-care"
 - Recent journals: 7 days (P7D)
 - Topics/mood: 30 days (P30D)
 
-**Tests:** Integration tests in `/tests/integration/test_option_a_journals_processing.py`
+**Tests:** `tests/integration/user_entry/`. The journals-processing suite this line once
+named was shelved in the ADR-054 collapse and then deleted; UserEntry is the domain that
+inherited its coverage.
 
 ---
 
@@ -376,7 +382,12 @@ The transcript processor was refactored to streamline journal processing:
    - **New:** `BaseService[JournalsOperations, Report]`
    - Uses protocol-based backend for zero port dependencies
 
-> **Note:** JournalPure was merged into Report (February 2026). The Journal domain was absorbed into the Reports domain. See `/docs/domains/submissions.md`.
+> **Note:** JournalPure was merged into Report (February 2026) and the Journal domain was
+> absorbed into the Reports domain — which ADR-054 then collapsed a second time, into
+> **UserEntry** (April 2026). That is where journal entries live today, carried by
+> `pipeline=JOURNAL` rather than by a type of their own. See
+> [ADR-054](/docs/decisions/ADR-054-user-entry-unified-submissions.md) and
+> `/docs/domains/user_entry.md`.
 
 ### Updated Architecture
 

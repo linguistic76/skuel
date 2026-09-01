@@ -12,7 +12,7 @@ tags:
 related:
   - ADR-047-entity-types-replace-domain-categories
   - ADR-043-intelligence-tier-toggle
-updated: 2026-07-19
+updated: 2026-09-01
 ---
 
 # ADR-051: User Interaction Contract
@@ -120,7 +120,7 @@ result.
 - `submissions_api.py` / `submissions_ui.py` — `user_service` wired in; `_get_learning_context(explicit_ps_uid=...)` helper prefers explicit `from_ps` param over UserContext heuristic
 - `path_steps_ui.py` — exercises section added; links carry `?from_ps={ps_uid}` context
 - `exercises_ui.py` — "Submit →" button forwards `from_ps` query param
-- `ui/submissions/forms.py` — `render_upload_form(from_ps=...)` embeds PathStep context as hidden field
+- `ui/submissions/forms.py` — `render_upload_form(from_ps=...)` embeds PathStep context as hidden field <!-- historical -->
 - `adapters/persistence/neo4j/_knowledge_context_mixin.py` — `get_exercises_for_path_step()` added
 - `core/services/ps_service.py` — `get_exercises_for_path_step()` facade method added
 

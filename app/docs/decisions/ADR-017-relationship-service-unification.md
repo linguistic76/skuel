@@ -1,6 +1,6 @@
 ---
 title: ADR-017: Relationship Service Unification
-updated: 2026-07-29
+updated: 2026-09-01
 status: current
 category: decisions
 tags: [adr, decisions, pattern, relationship-services]
@@ -182,7 +182,7 @@ knowledge_uids = await tasks_service.get_related_uids("knowledge", task_uid)
 
 ### Code Location
 - Primary file: `/core/services/relationships/unified_relationship_service.py`
-- Configuration: `/core/services/relationships/domain_configs.py`
+- Configuration: `/core/models/relationship_registry.py` (`DomainRelationshipConfig`)
 - Module exports: `/core/services/relationships/__init__.py`
 - Tests: `/tests/unit/services/relationships/`
 
@@ -209,8 +209,8 @@ knowledge_uids = await tasks_service.get_related_uids("knowledge", task_uid)
   - `core/services/user/intelligence/core.py`
   - `core/services/user/intelligence/factory.py`
   - `core/services/tasks/tasks_planning_service.py`
-  - `core/services/tasks/tasks_analytics_service.py`
-  - `core/services/analytics_engine.py`
+  - `core/services/tasks/tasks_analytics_service.py` <!-- historical -->
+  - `core/services/analytics_engine.py` <!-- historical -->
   - `core/services/goals/goals_learning_service.py`
   - `core/services/goals/goals_progress_service.py`
   - `core/services/events/events_learning_service.py`

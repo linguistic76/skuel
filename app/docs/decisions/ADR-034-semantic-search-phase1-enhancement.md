@@ -1,5 +1,5 @@
 ---
-updated: 2026-08-25
+updated: 2026-09-01
 ---
 
 # ADR-034: Semantic Search Phase 1 Enhancement
@@ -281,12 +281,14 @@ learning_state_boost_not_started: float = 0.15
 
 **Architecture:**
 - [SEARCH_ARCHITECTURE.md](/docs/architecture/SEARCH_ARCHITECTURE.md) - Unified search architecture
-- [NEO4J_DATABASE_ARCHITECTURE.md](/docs/architecture/NEO4J_DATABASE_ARCHITECTURE.md) - Graph database patterns
+- [GRAPH_CONTRACT.yaml](/docs/reference/GRAPH_CONTRACT.yaml) - Graph labels and edges (the
+  generated contract; it replaced the hand-written database-architecture doc, which was
+  deleted with the `:Ku` label)
 
 **Code Locations:**
-- `/core/services/search/neo4j_vector_search.py` - Neo4jVectorSearchService with semantic enhancements
-- `/core/services/search/models.py` - VectorSearchConfig with boost parameters
-- `/core/utils/vector_config.py` - Configuration utilities
+- `/core/services/neo4j_vector_search_service.py` - Neo4jVectorSearchService with semantic enhancements
+- `/core/config/unified_config.py` - `VectorSearchConfig` (boost parameters and the
+  configuration utilities that were once split across two modules)
 
 ---
 

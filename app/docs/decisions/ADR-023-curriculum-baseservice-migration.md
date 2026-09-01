@@ -1,6 +1,6 @@
 ---
 title: ADR-023: Unified BaseService Architecture
-updated: 2026-03-30
+updated: 2026-09-01
 status: accepted
 category: decisions
 tags: [adr, decisions, baseservice, unified-architecture, search, curriculum]
@@ -132,16 +132,16 @@ self.search = MocSearchService(backend=moc_backend, discovery_service=self.disco
 **Phase 2c: Delete curriculum backend wrappers (January 2026)**
 
 Removed three wrapper backend files (~2,000 lines total):
-- `adapters/persistence/neo4j/ps_backend.py` (590 lines) - DELETED
-- `adapters/persistence/neo4j/lp_backend.py` (748 lines) - DELETED
-- `adapters/persistence/neo4j/moc_backend.py` (679 lines) - DELETED
+- `adapters/persistence/neo4j/ps_backend.py` (590 lines) - DELETED <!-- historical -->
+- `adapters/persistence/neo4j/lp_backend.py` (748 lines) - DELETED <!-- historical -->
+- `adapters/persistence/neo4j/moc_backend.py` (679 lines) - DELETED <!-- historical -->
 
 These were thin wrappers around `UniversalNeo4jBackend[T]` that added no real value.
 Per "One Path Forward", services now use `UniversalNeo4jBackend[T]` directly.
 
 **Phase 3: Delete CurriculumBaseService**
 
-Removed `/core/services/curriculum_base_service.py` (819 lines deleted).
+Removed `/core/services/curriculum_base_service.py` (819 lines deleted). <!-- historical -->
 
 **Phase 4: Flatten EntityType enum**
 
@@ -223,10 +223,10 @@ Removed category helper methods from ParsedActivityLine and ParsedJournal:
 ### Code Location
 
 **Deleted Files:**
-- `core/services/curriculum_base_service.py` (819 lines)
-- `adapters/persistence/neo4j/ps_backend.py` (590 lines) - January 2026
-- `adapters/persistence/neo4j/lp_backend.py` (748 lines) - January 2026
-- `adapters/persistence/neo4j/moc_backend.py` (679 lines) - January 2026
+- `core/services/curriculum_base_service.py` (819 lines) <!-- historical -->
+- `adapters/persistence/neo4j/ps_backend.py` (590 lines) - January 2026 <!-- historical -->
+- `adapters/persistence/neo4j/lp_backend.py` (748 lines) - January 2026 <!-- historical -->
+- `adapters/persistence/neo4j/moc_backend.py` (679 lines) - January 2026 <!-- historical -->
 
 **Deleted Protocols (ku_protocols.py) - January 2026:**
 - `LearningOperations` - Dead code (type hint was wrong)
@@ -247,12 +247,12 @@ Removed category helper methods from ParsedActivityLine and ParsedJournal:
 - `core/services/lp/lp_core_service.py` - Changed inheritance to BaseService (January 2026)
 - `core/services/lp/lp_search_service.py` - Changed inheritance to BaseService
 - `core/services/lp_service.py` - Updated to use UniversalNeo4jBackend directly (January 2026)
-- `core/services/moc_service.py` - Updated to use UniversalNeo4jBackend directly (January 2026)
-- `core/services/moc/moc_search_service.py` - Changed inheritance to BaseService
+- `core/services/moc_service.py` - Updated to use UniversalNeo4jBackend directly (January 2026) <!-- historical -->
+- `core/services/moc/moc_search_service.py` - Changed inheritance to BaseService <!-- historical -->
 - `core/models/enums/entity_enums.py` - Removed categorization methods
 - `core/services/dsl/activity_dsl_parser.py` - Removed category helper methods
 - `core/ports/__init__.py` - Removed deleted protocol exports (January 2026)
-- `core/ports/ku_protocols.py` - Removed 4 dead protocols (January 2026)
+- `core/ports/ku_protocols.py` - Removed 4 dead protocols (January 2026) <!-- historical -->
 - `core/ports/domain_protocols.py` - Removed 7 orphaned protocols (January 2026)
 - `services_bootstrap.py` - Fixed wrong type hints (January 2026)
 

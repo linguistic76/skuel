@@ -1,6 +1,6 @@
 ---
 title: ADR-012: Cross-Domain Knowledge Applications Query Architecture
-updated: 2026-08-29
+updated: 2026-09-01
 status: current
 category: decisions
 tags: [012, adr, applications, cross, decisions]
@@ -288,10 +288,13 @@ Doesn't reduce complexity or improve performance. OPTIONAL MATCH is more straigh
 - Pedagogical intent preserved in: `/docs/intelligence/PEDAGOGICAL_QUESTIONS.md`
 - Related files:
   - `/docs/architecture/knowledge_substance_philosophy.md` (formula definition)
-  - `/core/services/ku/ku_analytics_service.py` (primary consumer)
-- Tests:
-  - `/tests/integration/test_cross_domain_queries.py` (11/11 passing)
-  - `/tests/integration/test_knowledge_substance.py` (substance score validation)
+  - `/core/services/askesis_service.py` (primary consumer — delegates to the same
+    `LearningIntelligence` method)
+- Tests: the cross-domain integration suite lives under `tests/integration/cross_domain/`
+  (plus `tests/integration/test_cross_domain_context_pipeline.py`). ⚠️ The two files this
+  line once named — a `test_cross_domain_queries.py` claimed as "11/11 passing" and a
+  `test_knowledge_substance.py` — were never written; `git log` for both is empty, so the
+  pass count was never true here.
 
 ### Complexity Analysis
 **Breakdown of query complexity:**
@@ -385,8 +388,9 @@ Comparison to naive approach (7 separate queries):
 
 ### Related Documentation
 - Architecture docs: `/docs/architecture/knowledge_substance_philosophy.md`
-- Query templates catalog: `/docs/tools/QUERY_TEMPLATES_CATALOG.md`
-- Code comments: Extensive inline documentation in template definition
+- Code comments: Extensive inline documentation in
+  `core/services/user/intelligence/learning_intelligence.py` (the query templates and
+  their catalog are gone — see the Code Location note above)
 - Other ADRs:
   - ADR-001: Unified User Context Single Query (similar pattern)
   - ADR-005: Ready-to-Learn Query (knowledge-domain focused)

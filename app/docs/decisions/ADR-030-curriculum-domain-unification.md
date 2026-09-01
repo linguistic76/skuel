@@ -1,5 +1,5 @@
 ---
-updated: 2026-03-30
+updated: 2026-09-01
 ---
 
 # ADR-030: Curriculum Domain Unification
@@ -166,12 +166,12 @@ class MocIntelligenceService(BaseAnalyticsService[...]):
 | File | Change |
 |------|--------|
 | `/core/services/curriculum_domain_config.py` | NEW: Factory module |
-| `/core/services/moc/moc_intelligence_service.py` | NEW: MOC intelligence |
+| `/core/services/moc/moc_intelligence_service.py` | NEW: MOC intelligence | <!-- historical -->
 | `/core/services/ps_service.py` | Use factory, require `graph_intel` |
 | `/core/services/lp_service.py` | Add `intelligence_service` param, require `graph_intel` |
 | `/core/services/ku_service.py` | Require `graph_intel` |
-| `/core/services/moc_service.py` | Add intelligence, require `graph_intel` |
-| `/services_bootstrap.py` | Pass `graph_intel` to all curriculum domains |
+| `/core/services/moc_service.py` | Add intelligence, require `graph_intel` | <!-- historical -->
+| `/services_bootstrap.py` | Pass `graph_intel` to all curriculum domains | <!-- historical -->
 
 ### Domain Summary After Unification
 

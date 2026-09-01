@@ -1,6 +1,6 @@
 ---
 title: ADR-025: Service Consolidation Patterns
-updated: 2026-08-11
+updated: 2026-09-01
 status: current
 category: decisions
 tags: [adr, decisions, consolidation, baseservice, patterns]
@@ -75,7 +75,7 @@ Implement consolidation in three phases:
    - Auto-registers on `__init__` if `event_bus` provided
 
 3. **FacadeDelegationMixin** - Auto-generate delegation methods at class definition time:
-   - File: `/core/services/mixins/facade_delegation_mixin.py`
+   - File: `/core/services/mixins/facade_delegation_mixin.py` <!-- historical -->
    - Uses `__init_subclass__` for IDE-visible methods (not `__getattr__`)
 
 ### Phase 3: Rollout (COMPLETED - January 2026)
@@ -197,14 +197,14 @@ Implement consolidation in three phases:
 **Phase 1 Files:**
 - `/core/services/base_service.py` - entity_label auto-inference
 - `/core/models/relationship_registry.py` - NEW - centralized registry
-- `/core/services/ku/ku_graph_service.py` - shared Cypher-builder adoption
+- `/core/services/ku/ku_graph_service.py` - shared Cypher-builder adoption <!-- historical -->
 - `/core/services/tasks/tasks_search_service.py` - registry usage
 - `/core/services/goals/goals_search_service.py` - registry usage
 
 **Phase 2 Files:**
 - `/core/services/domain_config.py` - NEW - DomainConfig dataclass
-- `/core/services/base_intelligence_service.py` - event handler registration
-- `/core/services/mixins/facade_delegation_mixin.py` - NEW - delegation mixin
+- `/core/services/base_intelligence_service.py` - event handler registration <!-- historical -->
+- `/core/services/mixins/facade_delegation_mixin.py` - NEW - delegation mixin <!-- historical -->
 - `/core/services/mixins/__init__.py` - NEW - exports mixin
 
 **Tests:**

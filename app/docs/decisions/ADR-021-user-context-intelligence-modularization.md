@@ -1,6 +1,6 @@
 ---
 title: ADR-021: User Context Intelligence Modularization
-updated: 2026-03-30
+updated: 2026-09-01
 status: current
 category: decisions
 tags: [adr, architecture, refactoring, separation-of-concerns, one-path-forward]
@@ -143,18 +143,18 @@ from core.services.user.intelligence import UserContextIntelligence
 
 ### Files Created
 - `/core/services/user/intelligence/__init__.py` - Package exports
-- `/core/services/user/intelligence/types.py` - LifePathAlignment, DailyWorkPlan, etc.
+- `/core/services/user/intelligence/types.py` - LifePathAlignment, DailyWorkPlan, etc. <!-- historical -->
 - `/core/services/user/intelligence/learning_intelligence.py` - LearningIntelligenceMixin
 - `/core/services/user/intelligence/life_path_intelligence.py` - LifePathIntelligenceMixin
 - `/core/services/user/intelligence/synergy_intelligence.py` - SynergyIntelligenceMixin
 - `/core/services/user/intelligence/schedule_intelligence.py` - ScheduleIntelligenceMixin
 - `/core/services/user/intelligence/daily_planning.py` - DailyPlanningMixin
-- `/core/services/user/intelligence/graph_native.py` - GraphNativeMixin
+- `/core/services/user/intelligence/graph_native.py` - GraphNativeMixin <!-- historical -->
 - `/core/services/user/intelligence/core.py` - UserContextIntelligence
 - `/core/services/user/intelligence/factory.py` - UserContextIntelligenceFactory
 
 ### Files Deleted
-- `/core/services/user/user_context_intelligence.py` (2,703 lines)
+- `/core/services/user/user_context_intelligence.py` (2,703 lines) <!-- historical -->
 
 ### Files Updated (imports)
 - `services_bootstrap.py`

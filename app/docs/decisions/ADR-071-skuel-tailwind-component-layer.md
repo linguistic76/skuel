@@ -1,6 +1,6 @@
 ---
 title: "ADR-071: SKUEL-Owned Tailwind Component Layer"
-updated: 2026-06-29
+updated: 2026-09-01
 status: implemented
 category: decisions
 tags: [adr, decisions, ui, tailwind, alpine, components]
@@ -255,7 +255,7 @@ Approximate sequence (re-evaluated after Phase 1):
 | M5 ✅ | All `Card*` call sites | 55 sites (#441 2026-06-29) |
 | M6 ✅ | All `UkIcon` call sites | 138 sites (#442 2026-06-29) |
 | M7 ✅ | Form components (`ui/forms/`) | 1 file (#443 2026-06-29) |
-| M8 ✅ | Remaining components (`ui/data.py`, `ui/navigation.py`, `relationship_section.py`) | 4 files (#444 2026-06-29) |
+| M8 ✅ | Remaining components (`ui/data.py`, `ui/navigation.py`, `relationship_section.py`) | 4 files (#444 2026-06-29) | <!-- historical -->
 | M9 ✅ | Wire `skuel_headers()`, remove `monster_headers()` — UIkit leaves the browser | Cutover |
 | M10 ✅ | `uv remove monsterui`; delete vendor files; remove quality gate | Cleanup |
 | M11 ✅ | **DaisyUI removal** (2026-06-30 follow-up): `daisyui` dropped from `package.json` + `tailwind.config.js`; daisy color utilities (`text-error`, `bg-base-200`, …) re-homed as concrete tokens in the Tailwind config; 2 remaining daisy component-class sites (`ui/ingestion/dashboard.py`, `ui/search/components.py`) migrated to pure Tailwind. `output.css` ~195KB → ~98KB (30 baked-in themes removed). | Cleanup |

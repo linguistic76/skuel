@@ -1,6 +1,6 @@
 ---
 title: "ADR-042: Privacy as First-Class Citizen"
-updated: 2026-06-28
+updated: 2026-09-01
 status: accepted
 category: decisions
 tags: [privacy, security, sharing, access-control, activity-report]
@@ -265,9 +265,10 @@ Any entity type — `SUBMISSION`, `ACTIVITY_REPORT`, or future types — calls t
 ### Code Location
 
 - `UnifiedSharingService`: `core/services/sharing/unified_sharing_service.py` (new)
-- `ActivityReport` model: `core/models/activity_report/activity_report.py` (rename from `ai_feedback.py`)
+- `ActivityReport` model: `core/models/report/activity_report.py` (renamed from
+  `ai_feedback.py` here, and later re-homed under `core/models/report/`)
 - `UnifiedSharingService` protocol: `core/ports/sharing_protocols.py` (new)
-- Existing: `core/services/submissions/submissions_sharing_service.py` → absorbed into UnifiedSharingService
+- Existing: `core/services/submissions/submissions_sharing_service.py` → absorbed into UnifiedSharingService <!-- historical -->
 
 ### Neo4j Schema Changes
 
@@ -315,10 +316,13 @@ Any entity type — `SUBMISSION`, `ACTIVITY_REPORT`, or future types — calls t
 ## Documentation & Communication
 
 ### Pattern Documentation Checklist
-- [ ] Create companion pattern guide: `/docs/patterns/PRIVACY_PATTERNS.md`
 - [ ] Add to `/docs/INDEX.md`
 - [ ] Update CLAUDE.md: add Privacy section with pointer to this ADR
 - [ ] Update `REPORT_ARCHITECTURE.md`: reference this ADR for ACTIVITY_REPORT sharing model
+
+(A fifth item — a companion `PRIVACY_PATTERNS.md` pattern guide — was dropped: privacy is
+documented by this ADR, ADR-073 and `docs/user-guides/journal-privacy.md`, so the guide is
+work that will not be done.)
 
 **User-facing docs (added post-ADR):**
 - [x] `docs/user-guides/how-your-content-is-used.md` — plain-language guide covering all content types (2026-06-27)

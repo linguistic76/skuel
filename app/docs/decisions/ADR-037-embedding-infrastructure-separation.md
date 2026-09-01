@@ -11,7 +11,7 @@ tags:
 related:
   - three_tier_type_system.md
   - EMBEDDING_ARCHITECTURE.md
-updated: 2026-03-30
+updated: 2026-09-01
 ---
 
 # ADR-037: Embedding Infrastructure Separation from Domain Models
@@ -170,7 +170,9 @@ return dto_from_dict(
 ## References
 
 - **Three-Tier Type System:** `/docs/patterns/three_tier_type_system.md`
-- **Embedding Architecture:** `/docs/patterns/EMBEDDING_ARCHITECTURE.md` (if exists)
+- **Embedding Architecture:** [ADR-074](/docs/decisions/ADR-074-post-persist-embedding-events.md)
+  (post-persist embedding events) and [ADR-068](/docs/decisions/ADR-068-openai-embeddings-now-bge-later.md)
+  (provider choice)
 - **DTO Helpers:** `/core/models/dto_helpers.py`
 - **Background Worker:** `/core/services/background/embedding_worker.py`
 

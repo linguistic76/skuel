@@ -1,5 +1,5 @@
 ---
-updated: 2026-04-14
+updated: 2026-09-01
 ---
 
 # ADR-038: Content Sharing Model
@@ -99,7 +99,17 @@ This prevents users from sharing failed/processing reports, ensuring portfolio q
 
 ### API Layer
 
-**6 new endpoints** (`/adapters/inbound/reports_sharing_api.py`):
+**6 new endpoints** (in a `reports_sharing_api.py` that no longer exists — the reports tree
+was split into submissions + feedback and then collapsed by ADR-054). **Five of the six
+survive as methods on `UnifiedSharingService`** in `/core/services/sharing/` — `share`,
+`unshare`, `set_visibility`, `get_shared_with_me`, `get_shared_with`. The sixth, browsing
+public portfolios, has **no successor at all**: `set_visibility(PUBLIC)` and `check_access`
+honour PUBLIC, but nothing lists public entities.
+
+Of the five, only `share` has an HTTP route today — `POST /api/form-submissions/share`,
+plus the internal share performed by `UserEntryService.create_entry`'s audience resolution.
+The other four are **service-only**: no unshare, set-visibility, shared-with-me or
+shared-users endpoint is registered anywhere in `adapters/inbound/`:
 
 1. `POST /api/submissions/share` - Share with user
 2. `POST /api/submissions/unshare` - Revoke access
@@ -112,7 +122,8 @@ All routes use `@boundary_handler` for Result[T] -> HTTP conversion.
 
 ### Data Model Changes
 
-**Report model** (`/core/models/report/report.py`):
+**Report model** (since split per ADR-054 into `/core/models/report/activity_report.py`
+and `/core/models/report/entry_report.py`):
 - Added field: `visibility: Visibility = Visibility.PRIVATE`
 - Added method: `is_shareable() -> bool`
 - Added method: `can_view(user_uid, owner_uid, shared_uids) -> bool`
@@ -223,11 +234,11 @@ report.shared_with = ["user_1", "user_2"]
 
 ## References
 
-- `/core/services/submissions/ + core/services/feedback/report_sharing_service.py` - Service implementation
-- `/adapters/inbound/reports_sharing_api.py` - API routes
-- `/core/models/report/report.py` - Data model changes
-- `/docs/patterns/SHARING_PATTERNS.md` - Usage patterns (to be created)
-- `/docs/architecture/CONTENT_SHARING_ARCHITECTURE.md` - Full architecture (to be created)
+- `/core/services/sharing/unified_sharing_service.py` - Service implementation (the
+  submissions/feedback pair this line named was collapsed by ADR-054)
+- `/adapters/inbound/form_submissions_api.py` + `/adapters/inbound/user_entry_api.py` - API routes
+- `/core/models/report/activity_report.py`, `/core/models/report/entry_report.py` - Data model changes
+- `/docs/patterns/SHARING_PATTERNS.md` - Usage patterns
 
 ## Related ADRs
 

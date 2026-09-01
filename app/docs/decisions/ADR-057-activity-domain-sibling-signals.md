@@ -1,6 +1,6 @@
 ---
 title: "ADR-057: Activity-Domain Sibling Signals"
-updated: 2026-04-21
+updated: 2026-09-01
 status: current
 category: decisions
 tags: [adr, decisions, architecture, activity-domains, intelligence, design]
@@ -60,7 +60,7 @@ That shape is a distinct pattern — *Shared Signal* — covered separately in [
 
 The pattern has three commitments:
 
-1. **Protocols, not service-to-service calls.** Each signal is a `Protocol` in `core/ports/sibling_signals.py`. Consumers depend on the narrow protocol, not the producing facade. This avoids circular imports, preserves ISP, and makes testing straightforward.
+1. **Protocols, not service-to-service calls.** Each signal is a `Protocol`, and they would live together in one sibling-signals module under `core/ports/` (nothing is built yet — this ADR is Proposed). Consumers depend on the narrow protocol, not the producing facade. This avoids circular imports, preserves ISP, and makes testing straightforward.
 2. **Consulted at judgment time, not ingestion time.** When `predict_goal_success()` runs, it consults the habit consistency signal right then — not when habits are created or updated. This keeps per-entity latency honest and avoids a combinatorial enrichment layer.
 3. **Not a new service tier.** Siblings remain the same intelligence services. No new facade, no new sub-service. The protocol is the thin contract between existing services.
 

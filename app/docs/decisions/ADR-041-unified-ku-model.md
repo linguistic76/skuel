@@ -1,5 +1,5 @@
 ---
-updated: 2026-03-30
+updated: 2026-09-01
 ---
 
 # ADR-041: Unified Ku Model
@@ -125,18 +125,22 @@ The `ku_type` field on Entity (and `parent_ku_uid`) were renamed to `entity_type
 | Component | Location |
 |-----------|----------|
 | Ku model | `core/models/ku/ku.py` |
-| KuDTO | ~~`core/models/ku/ku_dto.py`~~ (deleted 2026-02-23) |
-| EntityType (was KuType) | `core/models/enums/ku_enums.py` |
-| EntityStatus (was KuStatus) | `core/models/enums/ku_enums.py` |
-| CompletionStatus | `core/models/enums/ku_enums.py` |
+| KuDTO | `core/models/ku/ku_dto.py` (live — an earlier "deleted 2026-02-23" note here was wrong) |
+| EntityType (was KuType) | `core/models/enums/entity_enums.py` |
+| EntityStatus (was KuStatus) | `core/models/enums/entity_enums.py` |
+| CompletionStatus | `core/models/enums/habit_enums.py` |
 | Priority | `core/models/enums/activity_enums.py` |
 | ActivityType | `core/models/enums/activity_enums.py` |
-| Per-domain DTOs | `core/models/ku/{domain}_dto.py` (15 files) |
-| Entity base | `core/models/ku/entity.py` |
-| UserOwnedEntity | `core/models/ku/user_owned_entity.py` |
-| EntityDTO base | `core/models/ku/entity_dto.py` |
-| UserOwnedDTO | `core/models/ku/user_owned_dto.py` |
-| NeoLabel | `adapters/persistence/neo4j/neo_labels.py` |
+| Per-domain DTOs | `core/models/{domain}/{domain}_dto.py` — one per domain package (33 `*_dto.py` in `core/models/`), never under `core/models/ku/` |
+| Entity base | `core/models/entity.py` |
+| UserOwnedEntity | `core/models/user_owned_entity.py` |
+| EntityDTO base | `core/models/entity_dto.py` |
+| UserOwnedDTO | `core/models/user_owned_dto.py` |
+| NeoLabel | `core/models/enums/neo_labels.py` |
+
+(`ku_enums.py` was deleted and the `core/models/ku/` monolith dissolved after this
+decision, so the homes above are today's, not the ones the change created. `core/models/ku/`
+now holds exactly `ku.py`, `ku_dto.py` and `__init__.py`.)
 
 ## Related ADRs
 

@@ -1,6 +1,6 @@
 ---
 title: ADR-014: Unified Content Ingestion Service
-updated: 2026-08-14
+updated: 2026-09-01
 status: accepted
 category: decisions
 tags: [adr, decisions, ingestion, markdown, yaml, unified, modular]
@@ -212,7 +212,7 @@ from core.services.ingestion import UnifiedIngestionService
 |-----------|------|
 | Package | `/core/services/ingestion/` |
 | Routes | `/adapters/inbound/ingestion_routes.py` |
-| Bootstrap | `/services_bootstrap.py` |
+| Bootstrap | `/services_bootstrap/` (package — `compose.py` orchestration, `_container.py` Services dataclass) |
 
 ### Entity Configuration
 
@@ -287,7 +287,7 @@ ENTITY_CONFIGS: dict[str, EntityIngestionConfig] = {
 
 **For markdown content:**
 ```yaml
-# /docs/stories/machine-learning.md
+# 0vault/stories/machine-learning.md
 ---
 title: Machine Learning
 domain: tech
@@ -313,7 +313,7 @@ connections:
 ```bash
 curl -X POST http://localhost:5001/api/ingest/file \
   -H "Content-Type: application/json" \
-  -d '{"file_path": "/docs/stories/machine-learning.md"}'
+  -d '{"file_path": "0vault/stories/machine-learning.md"}'
 ```
 
 **Or use the dashboard:**

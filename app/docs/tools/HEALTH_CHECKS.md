@@ -440,9 +440,10 @@ back into false positives:
 
 - **Setext headings are ignored.** An unfilled ADR template writes `**Pros:**` above an
   empty `-` bullet, and CommonMark reads a lone `-` after a paragraph as a setext underline
-  rather than a list item — so the bold label renders as an `<h2>`. Six such phantoms exist
+  rather than a list item — so the bold label renders as an `<h2>`. Four such phantoms exist
   in the tree; they are a template artifact, not an authored section. (They are also a real
-  minor rendering bug in `ADR-TEMPLATE.md` and `ADR-010`, for whoever fixes that template.)
+  minor rendering bug in `ADR-TEMPLATE.md`, for whoever fixes that template. The count was
+  eight until PR B4 deleted `ADR-010`, an unfilled copy of the same template.)
 - **Blockquoted headings are ignored** — quoted material is someone else's outline.
 - **Headings carrying inline HTML never match** (they still scope their children). The
   walker cannot know what a raw tag renders to: `## A<br>B` collapsed to `AB` and

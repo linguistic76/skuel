@@ -1,7 +1,7 @@
 ---
 title: ADR-027: KnowledgeCarrier Protocol
-updated: 2026-03-30
-status: current
+updated: 2026-09-01
+status: superseded
 category: decisions
 tags: [adr, decisions, protocol, knowledge, curriculum]
 related: [ADR-017, ADR-023]
@@ -9,7 +9,17 @@ related: [ADR-017, ADR-023]
 
 # ADR-027: KnowledgeCarrier Protocol
 
-**Status:** Accepted
+**Status:** Superseded — **the protocol was built, went unused, and was deleted**
+
+> ⚠️ **This ADR's entire artifact is gone.** `KnowledgeCarrier` was implemented as decided
+> below, acquired no consumer, and was removed in the commit that deleted stale legacy
+> model docs and the unused protocol. Nothing replaced it: what the protocol was meant to
+> encode — that every domain type is a knowledge carrier — is carried today by `Entity`
+> being the universal base and by `EntityType`'s own trait methods
+> (`is_applied_knowledge()`, `is_curriculum_structure()`), not by a structural protocol.
+>
+> Everything below this line is the record of the decision as made. The file paths it
+> names are what the change touched at the time, not where to look now.
 
 **Date:** 2026-01-07
 
@@ -191,14 +201,14 @@ class ActivityCarrier(KnowledgeCarrier, Protocol):
 ### Code Location
 
 **Primary files:**
-- `/core/models/protocols/knowledge_carrier_protocol.py` (NEW)
+- `/core/models/protocols/knowledge_carrier_protocol.py` (NEW) <!-- historical -->
 - `/core/models/protocols/__init__.py` (MODIFIED - exports)
 
 **Domain model modifications (3 methods each):**
 - `/core/models/ku/ku.py`
 - `/core/models/pathways/path_step.py`
-- `/core/models/lp/lp.py`
-- `/core/models/moc/moc.py`
+- `/core/models/lp/lp.py` <!-- historical -->
+- `/core/models/moc/moc.py` <!-- historical -->
 - `/core/models/task/task.py`
 - `/core/models/event/event.py`
 - `/core/models/habit/habit.py`
@@ -218,9 +228,10 @@ class ActivityCarrier(KnowledgeCarrier, Protocol):
 
 ### Pattern Documentation Checklist
 
-- [ ] Create companion pattern guide in `/docs/patterns/KNOWLEDGE_CARRIER_PROTOCOL.md`
-- [ ] Add pattern guide to `/docs/INDEX.md`
 - [x] Cross-reference: ADR → CLAUDE.md (update Knowledge Substance section)
+
+(The two unchecked items — a companion pattern guide and its index entry — were dropped
+when the protocol was deleted. They advertised work that must never be done.)
 
 ### Related Documentation
 - CLAUDE.md: Knowledge Substance Philosophy section

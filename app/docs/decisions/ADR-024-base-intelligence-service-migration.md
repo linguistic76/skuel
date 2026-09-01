@@ -1,6 +1,6 @@
 ---
 title: ADR-024: BaseIntelligenceService Migration (now BaseAnalyticsService)
-updated: 2026-07-29
+updated: 2026-09-01
 status: accepted
 category: decisions
 tags: [adr, decisions, intelligence-services, base-class, facade-pattern, intelligence-operations-protocol, analytics, ai-separation]
@@ -33,7 +33,7 @@ related: [ADR-023-curriculum-baseservice-migration.md, ADR-021-user-context-inte
 **Files:**
 - `/core/services/base_analytics_service.py` - Graph analytics (NO AI deps)
 - `/core/services/base_ai_service.py` - AI features (optional)
-- `/core/services/base_intelligence_service.py` - DELETED
+- `/core/services/base_intelligence_service.py` - DELETED <!-- historical -->
 
 **See:** ADR-030 for dual-track assessment pattern (extends `BaseAnalyticsService`)
 
@@ -99,7 +99,7 @@ Each service duplicated ~15-20 lines of boilerplate initialization.
 
 ### Implementation
 
-**New Base Class:** `core/services/base_intelligence_service.py`
+**New Base Class:** `core/services/base_intelligence_service.py` <!-- historical -->
 
 ```python
 class BaseIntelligenceService(Generic[B, T]):
@@ -389,7 +389,7 @@ Created comprehensive intelligence service documentation (January 2026):
 |------|---------|
 | `core/services/base_analytics_service.py` | Base class for graph analytics (NO AI deps) |
 | `core/services/base_ai_service.py` | Base class for AI features (optional) |
-| `core/services/base_intelligence_service.py` | **DELETED** - replaced by above two classes |
+| `core/services/base_intelligence_service.py` | **DELETED** - replaced by above two classes | <!-- historical -->
 | `core/services/activity_domain_config.py` | Domain registry + factory |
 | `core/services/{domain}/{domain}_intelligence_service.py` | Migrated services (extend BaseAnalyticsService) |
 
