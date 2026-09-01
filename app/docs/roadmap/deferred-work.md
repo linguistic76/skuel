@@ -2506,6 +2506,14 @@ while every real ADR carries a slug. Both `related_adrs` readers now share one r
   real tree, not a fixture: a bare `ADR-030` restored into the metadata aborts the
   generator *before it writes* and reddens `validate_cross_references.py` with the same
   message and exit 1.
+- **The grammar is anchored at BOTH ends** (Codex P2). Anchored only at the start, the
+  number pattern read `ADR-050-typo` / `ADR-050junk` / `ADR-050.md.bak` as the number
+  050 and silently resolved each to the real ADR-050 — a malformed ref linked to a
+  decision nobody named it after, inside the resolver built to never pick silently. One
+  grammar gate now serves every entry point, so a ref outside the two documented forms
+  never reaches a glob, a file check or a display label; it also subsumes the separate
+  path-separator guard, since rejecting the shape covers every spelling of the mistake
+  at once.
 - **A ref ending `.md` is a full filename** (verified to exist, and rejected if it
   carries a path separator). Both scripts previously appended a second `.md` to such a
   ref, so the escape hatch from the slug bug was itself broken.
