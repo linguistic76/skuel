@@ -44,7 +44,6 @@ from __future__ import annotations
 import re
 import subprocess
 import sys
-from collections import defaultdict
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from pathlib import Path
@@ -252,50 +251,55 @@ _MAX_STAMP_INSERTIONS = 4
 _MAX_STAMP_DELETIONS = 1
 
 
-def _is_stamp_only_line(line: str) -> bool:
-    """Is this one added/removed diff line explicable as stamp bookkeeping?
+def _is_updated_line(line: str) -> bool:
+    """Is this added/removed diff line the ``updated:`` key itself?"""
+    return _UPDATED_LINE.match(line[1:]) is not None
 
-    Fences and blank lines are allowed because *creating* a frontmatter block emits
-    them; the substance of the change still has to be the ``updated:`` key.
+
+def _is_stamp_incidental_line(line: str) -> bool:
+    """Is this added/removed diff line something *creating a block* drags along?
+
+    Fences and the blank separator, and nothing else. On their own they are not
+    evidence of a stamp change — see ``_is_stamp_only``, which requires the key.
     """
     payload = line[1:]
-    return (
-        _UPDATED_LINE.match(payload) is not None
-        or _FENCE.match(payload) is not None
-        or payload.strip() == ""
-    )
+    return _FENCE.match(payload) is not None or payload.strip() == ""
 
 
-def _stamp_only_files(commit: str) -> set[str]:
-    """Paths in ``commit`` whose diff touches nothing but the ``updated:`` stamp.
+def _is_stamp_only(commit: str, path: str) -> bool:
+    """Does ``commit``'s diff for ``path`` touch nothing but the ``updated:`` stamp?
 
     ``git log --name-only`` cannot answer this — it emits paths, not changed lines —
     which is why this is a second pass over a shortlist rather than one traversal.
-    """
-    diff = _run_git(
-        "show",
-        "-U0",
-        "--format=",
-        "--no-renames",
-        commit,
-        "--",
-        SCOPE_PREFIX,
-    )
-    per_file: dict[str, list[str]] = defaultdict(list)
-    current: str | None = None
-    for line in diff.split("\n"):
-        if line.startswith("+++ b/"):
-            current = line[6:]
-        elif line.startswith("--- ") or line.startswith("diff --git"):
-            continue
-        elif current and line[:1] in "+-" and not line.startswith(("+++", "---")):
-            per_file[current].append(line)
 
-    return {
-        path
-        for path, changed in per_file.items()
-        if changed and all(_is_stamp_only_line(line) for line in changed)
-    }
+    **One call per (commit, path), deliberately, instead of one per commit.** Batching
+    would mean attributing each hunk to a file by parsing ``+++ b/<path>`` headers,
+    and that parse is wrong in a way that is invisible on most corpora: git appends a
+    TAB to the header when the path contains spaces, and quotes the whole path when
+    it contains characters ``core.quotePath`` escapes. Three docs under
+    ``design-principles/`` have spaces in their names, and the tab left on the parsed
+    path matched nothing — so all three were reported stale immediately after a
+    backfill that had stamped them correctly. Passing the path as a pathspec makes
+    every ``+``/``-`` line in the output belong to it by construction, with no header
+    format to get right.
+
+    The cost is bounded by how much stamp-only history exists: a file whose newest
+    commit is substantive is answered by ``--numstat`` alone and reaches this at most
+    once.
+    """
+    diff = _run_git("show", "-U0", "--format=", "--no-renames", commit, "--", path)
+    changed = [
+        line
+        for line in diff.split("\n")
+        if line[:1] in "+-" and not line.startswith(("+++", "---"))
+    ]
+    # The key must actually change. Accepting "every changed line is a fence or a
+    # blank" without it made a commit that merely deleted two blank lines read as
+    # stamp-only — a whitespace edit is not a stamp edit, and treating it as one
+    # dated two docs from the wrong commit until a real run caught it.
+    return any(_is_updated_line(line) for line in changed) and all(
+        _is_updated_line(line) or _is_stamp_incidental_line(line) for line in changed
+    )
 
 
 def load_history(paths: set[str]) -> dict[str, FileHistory]:
@@ -349,24 +353,22 @@ def load_history(paths: set[str]) -> dict[str, FileHistory]:
     if current_sha:
         commits.append((current_sha, current_date, current_files))  # type: ignore[arg-type]
 
-    candidates = {
-        sha
-        for sha, _, files in commits
-        if any(
-            added <= _MAX_STAMP_INSERTIONS and removed <= _MAX_STAMP_DELETIONS
-            for added, removed in files.values()
-        )
-    }
-    stamp_only: dict[str, set[str]] = {sha: _stamp_only_files(sha) for sha in candidates}
-
     newest: dict[str, date] = {}
     substantive: dict[str, date] = {}
     for sha, when, files in commits:
-        for path in files:
+        for path, (insertions, deletions) in files.items():
             newest.setdefault(path, when)
-            if path in stamp_only.get(sha, set()):
+            if path in substantive:
+                # This file's answer is already fixed; nothing older can change it,
+                # so it never pays for a confirmation call.
                 continue
-            substantive.setdefault(path, when)
+            shortlisted = (
+                insertions <= _MAX_STAMP_INSERTIONS
+                and deletions <= _MAX_STAMP_DELETIONS
+            )
+            if shortlisted and _is_stamp_only(sha, path):
+                continue
+            substantive[path] = when
 
     return {
         path: FileHistory(

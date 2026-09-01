@@ -252,6 +252,25 @@ def test_block_creation_counts_as_stamp_only(repo: Path) -> None:
     assert history.last_substantive == date(2026, 2, 1)
 
 
+def test_a_whitespace_only_commit_is_substantive(repo: Path) -> None:
+    """A commit that changes no `updated:` line is not a stamp commit, however small.
+
+    Allowing "every changed line is a fence or a blank" WITHOUT requiring the key
+    made a real commit that merely deleted two blank lines read as stamp-only, and
+    three docs were dated from the wrong commit until a live run caught it. The rule
+    is "touches only the stamp", which presupposes it touches the stamp.
+    """
+    doc = repo / "app" / "docs" / "w.md"
+    doc.write_text("---\nupdated: 2026-01-01\n---\n\nbody\n\n\ntail\n")
+    _commit(repo, "first", "2026-01-01T12:00:00+00:00")
+
+    doc.write_text("---\nupdated: 2026-01-01\n---\n\nbody\n\ntail\n")
+    _commit(repo, "drop a blank line", "2026-04-14T12:00:00+00:00")
+
+    history = field_mod.load_history({"app/docs/w.md"})["app/docs/w.md"]
+    assert history.last_substantive == date(2026, 4, 14)
+
+
 def test_a_body_edit_alongside_a_stamp_is_substantive(repo: Path) -> None:
     doc = repo / "app" / "docs" / "c.md"
     doc.write_text("---\nupdated: 2026-01-01\n---\n\nold\n")
