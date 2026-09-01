@@ -94,12 +94,16 @@ def test_related_skills_frontmatter_never_silently_swallowed() -> None:
 
     Deliberately re-derives "declares related_skills" from the raw text with an
     independent scan rather than the generator's own regex + yaml pipeline — the
-    whole point is to catch a doc that pipeline dropped.
+    whole point is to catch a doc that pipeline dropped. The scan tolerates every
+    legal YAML spelling of the key (indentation, space before the colon:
+    ``related_skills : [x]``) — a startswith() scan missed those, and a missed
+    declaration is exactly a silently lost mapping (Codex P2, PR #1213 round 4).
     """
+    declares_key = re.compile(r"^\s*related_skills\s*:")
     parsed = load_pattern_frontmatter(PROJECT_ROOT)
     for doc_path in sorted((PROJECT_ROOT / "docs" / "patterns").glob("*.md")):
         block = _frontmatter_block(doc_path)
-        if block is None or not any(line.startswith("related_skills:") for line in block):
+        if block is None or not any(declares_key.match(line) for line in block):
             continue
         assert doc_path.name in parsed, (
             f"{doc_path.name} declares related_skills: but load_pattern_frontmatter "
