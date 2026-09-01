@@ -143,9 +143,10 @@ Scans all `.md` files in `docs/` and `.claude/skills/` for broken path reference
 ```
 Dead Doc Link Validator
 ============================================================
-Scanning 339 Markdown files in docs/ and .claude/skills/...
+Scanning 509 Markdown files in docs/ and .claude/skills/ (5 carved-out files skipped: freeform notes + skill templates)...
+28 target(s) skipped: registered application routes (adapters/inbound/)
 
-Broken References — 1360 dead links:
+Broken References — 754 dead links:
 
   docs/INDEX.md  [INDEX.md]
     L  14  [link]      docs/decisions/ADR-029-graphnative-service-removal.md
@@ -173,6 +174,17 @@ checkout, so the doc gets fixed rather than the alternative style preserved.
 they are retried relative to the repo root (docs routinely cite root-relative paths like
 `docs/patterns/linter_rules.md` without a leading slash).
 **External URLs** (`http://`, `https://`, etc.) and anchor-only links (`#section`) are skipped.
+**`%20`-encoded destinations are decoded** before resolution, so a correctly-encoded
+citation of a file whose name contains spaces resolves instead of reporting dead.
+
+**Two exclusions, both visible (PR B1).** A check reporting 871 findings is one nobody
+reads — but a check that goes quiet without saying so is worse, so each exclusion prints
+its count on **every** run, zero included:
+
+| Exclusion | Mechanism | Why |
+|---|---|---|
+| Freeform notes + skill templates | `FREEFORM_FILES` (explicit FILE list) and `TEMPLATE_DIRS` in `scripts/health/dead_doc_links.py`; skipped in `get_md_files()` | Links unvalidatable by construction — working notes citing an Obsidian vault outside the repo; template paths a reader substitutes. ⚠️ FILE-scoped for `docs/design-principles/`, never the directory: it also holds maintained specs whose dead links are genuine rot |
+| Registered application routes | AST match against the `@rt("…")` literals in `adapters/inbound/` | Docs cite app URLs (`/journals`, `/manifest.json`) with the same leading-slash spelling a repo path uses. The class is defined by MATCHING a live registration — never by shape, never by a hand-kept URL list. ⚠️ Only literal paths match: a factory's `@rt(f"/{domain}")` is unresolvable statically, so `/tasks` stays reported. Fail toward reporting |
 
 **Special callout:** When `docs/INDEX.md` has broken links, the output highlights it:
 ```
@@ -636,6 +648,13 @@ The `./dev health` scripts are fast enough to run on every commit if desired (a 
 - Relative links in template files may appear broken (the template is never at its "real" location)
 - Links to anchors within files are not validated (only the file existence is checked)
 - Links inside HTML comments or non-standard syntax may be missed
+- Route matching reads *literal* `@rt("…")` paths only. A route registered through a
+  factory f-string (`@rt(f"/{domain}")`) is not in the catalog, so a doc citing it keeps
+  reporting — deliberate: an unmatched route costs one advisory line, a wrongly-matched
+  one hides real rot
+- A link destination containing a raw space is treated as not-a-link (it is a Python
+  generic subscript far more often than a path, and CommonMark does not allow one), which
+  also means the `[text](dest "title")` form is skipped rather than checked
 
 **`stale_names.py`:**
 - Only catches names that are explicitly listed in RENAMED/DELETED — it won't catch names you forgot to add

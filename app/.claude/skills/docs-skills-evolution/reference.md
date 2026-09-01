@@ -326,7 +326,7 @@ After deletions/merges, update the registry files:
 # 4. Fix dangling references in docs that pointed to deleted files
 ```
 
-`dead_doc_links.py` replaces the manual `rg "DELETED_DOC_NAME" docs/` pattern. It catches three reference kinds at once (markdown links, backtick paths, bare absolute paths) across all 330+ docs and skills. When `docs/INDEX.md` has broken links, it calls it out specifically:
+`dead_doc_links.py` replaces the manual `rg "DELETED_DOC_NAME" docs/` pattern. It catches four reference kinds at once (markdown links, backtick paths, bare absolute paths, and path tokens inside fenced code blocks) across the whole `docs/` and `.claude/skills/` tree. Two classes are deliberately excluded and **both print their count on every run** — freeform notes and skill templates (scope carve-out) and link targets that match a live `@rt("…")` registration in `adapters/inbound/`; see `docs/tools/HEALTH_CHECKS.md`. When `docs/INDEX.md` has broken links, it calls it out specifically:
 
 ```
 ⚠  docs/INDEX.md has 24 broken reference(s) — update the index to match current files
@@ -574,7 +574,7 @@ Automated scripts in `scripts/health/` that prevent drift between refactors, doc
 | Script | What it finds | When to run |
 |--------|--------------|-------------|
 | `dead_modules.py` | Python files with zero importers, and packages nothing outside themselves imports | After a monolith dissolution or service split |
-| `dead_doc_links.py` | Broken markdown links, backtick paths, bare absolute paths | After any file rename/delete |
+| `dead_doc_links.py` | Broken markdown links, backtick paths, bare absolute paths, fenced-code path tokens | After any file rename/delete |
 | `stale_names.py` | Old class/method/enum names in doc code blocks | After a rename or deprecation |
 | `duplicate_headings.py` | Repeated headings at the same level under the same parent — a superseded section outliving its replacement | After rewriting or reorganising a long document |
 | `docs_updated.py` | Docs whose frontmatter `updated:` stamp is missing or has rotted past the merge-latency window | Never by hand — the pre-commit stamper writes the field; this catches a bypassed hook |

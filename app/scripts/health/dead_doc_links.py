@@ -42,14 +42,35 @@ correctness it looked like, and for why one walker now serves both scanners.
 
 Also confirms that all files referenced in docs/INDEX.md exist.
 
+What is deliberately NOT reported
+---------------------------------
+Two exclusions, both **visible**: the run prints how many files a scope carve-out
+skipped and how many targets matched a registered application route. A check that
+reports 871 findings is one nobody reads, but a check that goes quiet without
+saying so is worse — so nothing here suppresses silently.
+
+  - ``FREEFORM_FILES`` / ``TEMPLATE_DIRS`` — files whose links are unvalidatable by
+    construction (working notes citing an Obsidian vault outside this repo; skill
+    templates whose paths are fictional by design). Scoped to measured FILES for
+    ``design-principles/``, never the directory: it also holds maintained specs
+    whose dead links are genuine rot.
+  - Registered application routes — docs cite app URLs (``/journals``,
+    ``/manifest.json``) with the same leading-slash spelling as a repo path. The
+    class is defined by MATCHING a live registration read from ``adapters/inbound/``,
+    never by shape and never by a hand-kept URL list.
+
 Usage:
     uv run python scripts/health/dead_doc_links.py
     uv run python scripts/health/dead_doc_links.py --verbose
 """
 
+import ast
 import re
 import sys
+import urllib.parse
+from functools import cache
 from pathlib import Path
+from typing import NamedTuple
 
 # scripts/health/ is not a package — see the note in stale_names.py.
 from markdown_fences import iter_code_fence_lines  # type: ignore[import-not-found]
@@ -161,13 +182,138 @@ FENCE_TOKEN_RE = re.compile(r"[A-Za-z0-9_./" + re.escape(TEMPLATE_MARKERS) + r"-
 # live `docs/design-principles/direction w structuring.md`.
 FENCE_QUOTED_RE = re.compile(r"\"([^\"\n]+)\"|'([^'\n]+)'")
 
+# Two-path prose joins. A backtick span like
+# `core/services/submissions/ + core/services/feedback/x.py` names TWO paths, so it
+# resolves to neither and reports as one dead file that was never cited (9 findings,
+# measured 2026-09-01). Rejecting the join is not the same as rejecting spaces, and
+# the difference is load-bearing — see `_looks_like_local_path`.
+PATH_JOIN_MARKER = " + "
 
-def get_md_files() -> list[Path]:
-    result: list[Path] = []
+# ── Scope carve-outs ─────────────────────────────────────────────────────────
+# Excluded by SCOPE, not suppressed: the run prints how many files it skipped, so the
+# carve-out stays visible (the shape `duplicate_headings.py` uses). Entries are
+# repo-relative POSIX strings, resolved against ROOT at call time so tests can
+# substitute a throwaway root.
+#
+# ⚠️ FILE-scoped for `design-principles/`, never the directory. That directory also
+# holds maintained specs whose dead links are genuine rot — `HUB_PAGES.md` cites the
+# deleted `ui/teaching/hub.py` — and a directory carve-out would hide it (Codex, PR
+# #1214). Measured 2026-09-01: 20 + 16 of the directory's 37 findings are the two
+# freeform files below; the 37th is that HUB_PAGES.md rot, which stays reported.
+#
+# (`duplicate_headings.py` excluding the whole directory remains right for ITS check:
+# freeform notes legitimately repeat headings, while dead links in a maintained spec
+# are a different property. Not an inconsistency to "fix" the other way.)
+FREEFORM_FILES = frozenset(
+    {
+        # Working notes; the links point at files in the author's Obsidian vault,
+        # which is not in this repo — unvalidatable by construction (20 findings).
+        "docs/design-principles/direction w structuring.md",
+        # Same, exported from the vault with `%20`-encoded destinations (16).
+        "docs/design-principles/dp - emergence, patience, non-attachment.md",
+    }
+)
+
+# Whole directories where every file is a template by construction: the paths in them
+# are the shapes a reader substitutes, not citations (14 findings).
+TEMPLATE_DIRS = (".claude/skills/_templates",)
+
+# ── Registered application routes ────────────────────────────────────────────
+# Docs cite application URLs (`/journals`, `/submissions/sync`, the root-served PWA
+# assets `/manifest.json` `/service-worker.js` `/offline.html`) with the same
+# leading-slash spelling a repo path uses, and this checker reads them as files.
+#
+# The class is defined by MATCHING a live route registration — never by shape, and
+# never by a hand-maintained URL list, which is a catalog copy that rots (Codex, PR
+# #1214). Extraction is AST-based over `adapters/inbound/`, the one tree that
+# registers routes: measured 2026-09-01, 514 `@rt("…")` calls there and none anywhere
+# else in production code. AST rather than grep because the other `@rt(` occurrences
+# in the repo are docstring examples and test fixtures, which a walk never sees.
+#
+# `ROUTE_DECORATORS` mirrors `scripts/audit_route_security.py`'s definition of a route
+# decorator rather than inventing a second one — the same reason `TEMPLATE_MARKERS` is
+# one constant feeding two consumers.
+#
+# ⚠️ Only *string-literal* paths are extracted. The activity/domain UI factories
+# register `@rt(f"/{domain}")`, which no static pass can resolve, so `/tasks` stays
+# reported even though it is live. That is the deliberate direction: an unmatched
+# route costs one advisory line, a wrongly-matched one hides real rot. Fail toward
+# reporting.
+ROUTE_DECORATORS = frozenset({"rt", "route"})
+
+
+def _is_carved_out(path: Path) -> bool:
+    """Is this doc excluded from the scan by scope (freeform notes / templates)?"""
+    if not path.is_relative_to(ROOT):
+        return False
+    rel = path.relative_to(ROOT).as_posix()
+    return rel in FREEFORM_FILES or rel.startswith(tuple(f"{d}/" for d in TEMPLATE_DIRS))
+
+
+def get_md_files() -> tuple[list[Path], int]:
+    """Markdown to scan, plus the count skipped by a scope carve-out."""
+    scanned: list[Path] = []
+    skipped = 0
     for base in SCAN_DIRS:
-        if base.exists():
-            result.extend(sorted(base.rglob("*.md")))
-    return result
+        if not base.exists():
+            continue
+        for path in sorted(base.rglob("*.md")):
+            if _is_carved_out(path):
+                skipped += 1
+            else:
+                scanned.append(path)
+    return scanned, skipped
+
+
+def _decorator_callee(func: ast.expr) -> str:
+    """Name of the thing being called — `rt` in `@rt(...)`, `route` in `@app.route(...)`."""
+    if isinstance(func, ast.Name):
+        return func.id
+    if isinstance(func, ast.Attribute):
+        return func.attr
+    return ""
+
+
+@cache
+def _route_paths_under(inbound_dir: Path) -> frozenset[str]:
+    """Literal route paths registered under a routes tree. Cached per directory."""
+    paths: set[str] = set()
+    if not inbound_dir.exists():
+        return frozenset()
+    for py_file in sorted(inbound_dir.rglob("*.py")):
+        try:
+            tree = ast.parse(py_file.read_text(encoding="utf-8"))
+        except OSError, SyntaxError:
+            continue
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            if _decorator_callee(node.func) not in ROUTE_DECORATORS:
+                continue
+            first = node.args[0] if node.args else None
+            if (
+                isinstance(first, ast.Constant)
+                and isinstance(first.value, str)
+                and first.value.startswith("/")
+            ):
+                paths.add(first.value)
+    return frozenset(paths)
+
+
+def registered_route_paths() -> frozenset[str]:
+    """The live route catalog, read from `adapters/inbound/` source."""
+    return _route_paths_under(ROOT / "adapters" / "inbound")
+
+
+def _is_registered_route(raw: str) -> bool:
+    """Does this link target name an application URL rather than a repo file?"""
+    if not raw.startswith("/") or raw.startswith(PROJECT_PREFIXES):
+        # A repo-rooted citation is a file path by convention, never a route.
+        # Measured 2026-09-01: no registered route lives under a PROJECT_PREFIX, so
+        # this costs nothing today and blocks a whole class of accidental suppression
+        # if one ever does.
+        return False
+    return raw.split("#")[0].strip() in registered_route_paths()
 
 
 def _is_external(link: str) -> bool:
@@ -194,6 +340,15 @@ def resolve_path(raw: str, source_file: Path) -> Path | None:
     if not raw:
         return None
 
+    # A link destination is a URL, so `%20` is a space. Without decoding, the REAL
+    # `docs/design-principles/dp - emergence, patience, non-attachment.md` reported dead
+    # purely because its citation was correctly encoded. Decoded AFTER the anchor strip,
+    # so an encoded `%23` cannot manufacture an anchor.
+    #
+    # Corner: a literal `%20` inside a real filename would now false-negative. Measured
+    # 2026-09-01 — zero tracked filenames contain `%` at all (`git ls-files | grep %`).
+    raw = urllib.parse.unquote(raw)
+
     # Mirror _looks_like_local_path's `./` normalisation so the guard and the resolver
     # agree on what a token means.
     raw = raw.removeprefix("./")
@@ -217,9 +372,41 @@ def resolve_path(raw: str, source_file: Path) -> Path | None:
         return ROOT / raw
 
 
+def _is_checkable_link_target(target: str) -> bool:
+    """Is this `[text](target)` destination something this checker can resolve?
+
+    The link pass was the only one of the four with no shape guard at all, and Python
+    generic subscripts collide with link syntax:
+    ``UniversalNeo4jBackend[T](driver, "Task", Task)`` parses as link text ``T`` and
+    destination ``driver, "Task", Task``. ADR-019/023 and the pytest skill are dense
+    with them — 24 findings measured 2026-09-01, every one a subscript, none a link.
+
+    **A raw space is the discriminator**, and it is CommonMark-grounded rather than
+    heuristic: an unescaped space cannot appear in a link destination at all (the
+    spelling for a path with spaces is ``<…>``-wrapped, of which the corpus has none).
+    The one thing this gives up is the ``(dest "title")`` form, whose title the regex
+    above swallows into the destination — measured zero in the corpus, and skipping is
+    the fail-safe direction.
+
+    **A comma is NOT a rejection signal**, deliberately: the corpus's six comma-bearing
+    destinations are all properly ``%20``-encoded vault links, one of which
+    (``dp%20-%20emergence,…md``) names a REAL file that ``resolve_path`` now resolves.
+    That is why the guard runs BEFORE URL-decoding but tests only for a RAW space.
+
+    ``TEMPLATE_MARKERS`` rejection measures zero today. It pins a *latent* gap rather
+    than a live one: ``core/services/{domain}/x.py`` in backticks is rejected by
+    ``_looks_like_local_path`` while the same token as a link destination was reported,
+    and closing a measured-zero inconsistency with a test is the same move
+    ``test_blockquoted_fence_is_walked`` made.
+    """
+    if " " in target:
+        return False
+    return not _has_template_marker(target)
+
+
 def extract_markdown_links(content: str) -> list[tuple[int, str, str]]:
     """
-    Extract [text](path) patterns.
+    Extract [text](path) patterns whose destination is a checkable path.
     Returns list of (line_no, display_text, raw_path).
     """
     results = []
@@ -227,7 +414,8 @@ def extract_markdown_links(content: str) -> list[tuple[int, str, str]]:
         for match in re.finditer(r"\[([^\]]*)\]\(([^)]+)\)", line):
             text = match.group(1)
             path = match.group(2).strip()
-            results.append((i, text, path))
+            if _is_checkable_link_target(path):
+                results.append((i, text, path))
     return results
 
 
@@ -266,6 +454,13 @@ def extract_bare_paths(content: str) -> list[tuple[int, str]]:
         # Skip lines that are markdown link syntax (already covered)
         for match in pattern.finditer(line):
             raw = match.group(1).rstrip(".,;:")
+            # This pass never consulted the shared shape guard, so glob and template
+            # patterns sailed through it — ADR-071's Tailwind content globs
+            # (`/ui/**/*.py`) and the skuel-ui skill's `/ui/{domain}/layout.py`, 7
+            # findings measured 2026-09-01. The ONE constant, not a fresh literal: the
+            # tokenizer/guard drift in PR #872 is the cautionary tale.
+            if _has_template_marker(raw):
+                continue
             if any(raw.endswith(ext) for ext in LOCAL_EXTENSIONS):
                 results.append((i, raw))
     return results
@@ -353,9 +548,25 @@ def _is_placeholder(text: str) -> bool:
     return False
 
 
+def _has_template_marker(text: str) -> bool:
+    """Does this token carry a template / glob / shell-variable marker?
+
+    One predicate for every pass, so a marker added to ``TEMPLATE_MARKERS`` reaches all
+    of them at once — the drift this constant already exists to prevent.
+    """
+    return any(marker in text for marker in TEMPLATE_MARKERS)
+
+
 def _looks_like_local_path(text: str) -> bool:
     """Heuristic: does this backtick span look like a checkable project file path?"""
     if _is_external(text):
+        return False
+    # Two-path prose join — see PATH_JOIN_MARKER. Reject the JOIN, never spaces in
+    # general: this guard is shared with the fence pass, whose quoted spans exist
+    # precisely to keep space-bearing filenames whole (Codex, PR #872), and a blanket
+    # space rejection would also lose the live dead `/docs/FastHTML Best Practices –
+    # fasthtml.html` — a real finding with spaces in it, measured 2026-09-01.
+    if PATH_JOIN_MARKER in text:
         return False
     # `./core/services/foo.py` is a valid repo-relative citation and the natural form in
     # a copy-paste shell command, but it starts with neither `/` nor a known project
@@ -365,7 +576,7 @@ def _looks_like_local_path(text: str) -> bool:
     text = text.removeprefix("./")
     if len(text) < 5:
         return False
-    if any(marker in text for marker in TEMPLATE_MARKERS):
+    if _has_template_marker(text):
         return False  # template / glob / shell-variable patterns — see TEMPLATE_MARKERS
     if _is_placeholder(text):
         return False  # `your_service.py`, `alpine.X.Y.Z.min.js`, `adapters/.../foo.py`
@@ -392,18 +603,32 @@ def _looks_like_local_path(text: str) -> bool:
     return any(text.endswith(ext) for ext in LOCAL_EXTENSIONS)
 
 
-def check_file(md_file: Path, verbose: bool) -> list[tuple[Path, int, str, str]]:
+class FileScan(NamedTuple):
+    """One file's audit: the dead references, plus what was skipped and why.
+
+    ``route_skips`` is carried out of the scan rather than dropped so ``main`` can print
+    it. A skip nobody can see is a suppression, and this checker's exclusions are
+    supposed to be countable — the same reason the carve-out prints a file count.
+    """
+
+    dead: list[tuple[Path, int, str, str]]
+    route_skips: int
+
+
+def check_file(md_file: Path, verbose: bool) -> FileScan:
     """
     Check one Markdown file for broken links.
-    Returns list of (relative_source, line_no, raw_link, kind).
+    Returns the dead (relative_source, line_no, raw_link, kind) rows plus the count of
+    targets that matched a registered application route.
     """
     try:
         content = md_file.read_text(encoding="utf-8", errors="ignore")
     except OSError:
-        return []
+        return FileScan([], 0)
 
     rel_source = md_file.relative_to(ROOT)
     dead: list[tuple[Path, int, str, str]] = []
+    route_skips = 0
     # Deduplicate on (lineno, RESOLVED TARGET), not (lineno, raw). Two spellings of one
     # dead file on one line are one defect, and since `./core/x.py` became checkable the
     # backtick pass reports it while the bare pass independently matches its
@@ -411,17 +636,27 @@ def check_file(md_file: Path, verbose: bool) -> list[tuple[Path, int, str, str]]
     seen: set[tuple[int, str]] = set()
 
     def record(lineno: int, raw: str, kind: str) -> None:
+        nonlocal route_skips
         target = resolve_path(raw, md_file)
         if target is None:
             return
         key = (lineno, str(target))
         if key in seen:
             return
-        if not target.exists():
+        if target.exists():
+            return
+        # A live application URL is not a missing file. Checked only once the path has
+        # failed to resolve, so a real repo file at a route-shaped path still wins.
+        if _is_registered_route(raw):
             seen.add(key)
-            dead.append((rel_source, lineno, raw, kind))
+            route_skips += 1
             if verbose:
-                print(f"  DEAD [{kind}] {rel_source}:{lineno} → {raw}")
+                print(f"  ROUTE [{kind}] {rel_source}:{lineno} → {raw}")
+            return
+        seen.add(key)
+        dead.append((rel_source, lineno, raw, kind))
+        if verbose:
+            print(f"  DEAD [{kind}] {rel_source}:{lineno} → {raw}")
 
     for lineno, _text, path in extract_markdown_links(content):
         record(lineno, path, "link")
@@ -437,7 +672,7 @@ def check_file(md_file: Path, verbose: bool) -> list[tuple[Path, int, str, str]]
     for lineno, path in extract_fenced_paths(content):
         record(lineno, path, "code")
 
-    return dead
+    return FileScan(dead, route_skips)
 
 
 def _sort_dead_link_records(record: tuple[Path, int, str, str]) -> tuple[str, int]:
@@ -456,15 +691,25 @@ def main() -> int:
     print(f"{Colors.BOLD}Dead Doc Link Validator{Colors.RESET}")
     print("=" * 60)
 
-    md_files = get_md_files()
-    print(f"Scanning {len(md_files)} Markdown files in docs/ and .claude/skills/...\n")
+    md_files, carved_out = get_md_files()
+    print(
+        f"Scanning {len(md_files)} Markdown files in docs/ and .claude/skills/ "
+        f"({carved_out} carved-out files skipped: freeform notes + skill templates)..."
+    )
 
     all_dead: list[tuple[Path, int, str, str]] = []
+    route_skips = 0
     index_md = Path("docs/INDEX.md")
 
     for md_file in md_files:
-        dead = check_file(md_file, args.verbose)
-        all_dead.extend(dead)
+        scan = check_file(md_file, args.verbose)
+        all_dead.extend(scan.dead)
+        route_skips += scan.route_skips
+
+    # Printed unconditionally, zero included: both counts are the visible half of an
+    # exclusion, and a silent zero is how a carve-out that has rotted (or a route
+    # matcher that has broken) looks exactly like a clean run.
+    print(f"{route_skips} target(s) skipped: registered application routes (adapters/inbound/)\n")
 
     if all_dead:
         print(
