@@ -78,9 +78,24 @@ ROT_WINDOW_DAYS = 7
 # that touched the file" and fail as a future date.
 FUTURE_SKEW_DAYS = 1
 
+
+def newline_of(content: str) -> str:
+    """The line ending this document uses, so a rewrite does not convert the file.
+
+    Splitting on ``\n`` and re-joining with ``\n`` leaves the one stamped line LF-only
+    while every other line keeps ``\r\n``, and ``Path.read_text``/``write_text`` without
+    an explicit ``newline`` would separately rewrite the WHOLE worktree file to LF.
+    Either way the index and the worktree stop agreeing about lines nobody edited —
+    breaking both the "touch only the stamp" promise and the partial staging it
+    protects. No doc in the corpus uses CRLF today; that is not a reason to convert the
+    first one that does.
+    """
+    return "\r\n" if "\r\n" in content else "\n"
+
+
 _UPDATED_LINE = re.compile(r"^updated\s*:(?P<value>.*)$")
 _ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
-_FENCE = re.compile(r"^---\s*$")
+_FENCE = re.compile(r"^---[ \t\r]*$")
 
 
 def in_scope(repo_relative_path: str) -> bool:
@@ -245,19 +260,21 @@ def apply_stamp(content: str, stamp: date) -> str:
     if field is not None:
         if field.value == stamp_text:
             return content
-        lines = content.split("\n")
+        eol = newline_of(content)
+        lines = content.split(eol)
         quoted = field.raw_value.strip().startswith(("'", '"'))
         lines[field.line_index] = f"updated: '{stamp_text}'" if quoted else f"updated: {stamp_text}"
-        return "\n".join(lines)
+        return eol.join(lines)
 
     raw, _body = split_frontmatter(content)
     if raw is not None:
         # A frontmatter block with no `updated:` key — insert it as the last key of
         # the block, ahead of the closing fence, rather than rebuilding the block.
-        lines = content.split("\n")
+        eol = newline_of(content)
+        lines = content.split(eol)
         closing = next(index for index in range(1, len(lines)) if _FENCE.match(lines[index]))
         lines.insert(closing, f"updated: {stamp_text}")
-        return "\n".join(lines)
+        return eol.join(lines)
 
     # No frontmatter at all: create the block. The blank separator line is emitted
     # only when the document does not already start with one — stripping the
@@ -266,8 +283,9 @@ def apply_stamp(content: str, stamp: date) -> str:
     # would then read the backfill commit as substantive and fail on that file.
     # Exactly one in-scope doc starts with a newline today; the bound is what keeps
     # a second one from being a silent regression.
-    separator = "" if content.startswith("\n") else "\n"
-    return f"---\nupdated: {stamp_text}\n---\n{separator}{content}"
+    eol = newline_of(content)
+    separator = "" if content.startswith(eol) else eol
+    return f"---{eol}updated: {stamp_text}{eol}---{eol}{separator}{content}"
 
 
 # ---------------------------------------------------------------------------
@@ -353,7 +371,14 @@ def _is_stamp_only(commit: str, path: str) -> bool:
     if after is None or before is None:
         return False
     reference = date(2000, 1, 1)
-    return apply_stamp(before, reference) == apply_stamp(after, reference)
+    try:
+        return apply_stamp(before, reference) == apply_stamp(after, reference)
+    except MalformedFrontmatterError:
+        # A commit that introduced (or still carries) an unclosed fence is substantive
+        # by this measure. The stamper warns about that shape but lets it land, so it
+        # WILL reach history — and letting the exception escape here would replace the
+        # guard's `malformed` verdict with a traceback naming no file and no fix.
+        return False
 
 
 class ShallowHistoryError(RuntimeError):

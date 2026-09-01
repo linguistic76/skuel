@@ -148,6 +148,25 @@ def test_block_creation_adds_no_deletion_when_the_doc_starts_blank() -> None:
     assert out.endswith("\n# Title\n")
 
 
+@pytest.mark.parametrize(
+    "source",
+    [
+        "---\r\ntitle: X\r\nupdated: 2020-01-01\r\n---\r\n\r\nbody\r\n",  # rewrite
+        "---\r\ntitle: X\r\n---\r\nbody\r\n",  # insert into an existing block
+        "# Title\r\n\r\nbody\r\n",  # create the block
+    ],
+)
+def test_a_crlf_document_keeps_crlf(source: str) -> None:
+    """Writing one LF line into a CRLF file leaves mixed endings in the index, and
+    reading/writing the worktree without `newline=""` rewrites the WHOLE file to LF —
+    so the two disagree about lines nobody edited, which is precisely the partial
+    staging the stamper exists to protect (Codex P2 on #1212)."""
+    out = field_mod.apply_stamp(source, STAMP)
+    assert "2026-09-01" in out
+    assert "\n" not in out.replace("\r\n", "")
+    assert "\r" not in out.replace("\r\n", "")
+
+
 def test_stamping_the_same_date_is_a_no_op() -> None:
     content = "---\nupdated: 2026-09-01\n---\n"
     assert field_mod.apply_stamp(content, STAMP) is content
@@ -373,6 +392,23 @@ def test_a_quoting_change_is_substantive(repo: Path) -> None:
     _commit(repo, "requote", "2026-06-01T12:00:00+00:00")
 
     history = field_mod.load_history({"app/docs/q.md"})["app/docs/q.md"]
+    assert history.last_substantive == date(2026, 6, 1)
+
+
+def test_a_malformed_blob_in_history_is_substantive_not_a_traceback(repo: Path) -> None:
+    """The stamper warns about an unclosed fence but lets the commit land, so that shape
+    reaches history. Letting `MalformedFrontmatterError` escape the stamp-only probe
+    would replace the guard's `malformed` verdict with a traceback naming no file and no
+    fix (Codex P2 on #1212)."""
+    doc = repo / "app" / "docs" / "m.md"
+    doc.write_text("---\nupdated: 2026-01-01\n---\n\nbody\n")
+    _commit(repo, "first", "2026-01-01T12:00:00+00:00")
+
+    # A small diff that opens a fence it never closes — inside the stamp-only shortlist.
+    doc.write_text("---\nupdated: 2026-01-01\n\nbody\n")
+    _commit(repo, "break the fence", "2026-06-01T12:00:00+00:00")
+
+    history = field_mod.load_history({"app/docs/m.md"})["app/docs/m.md"]
     assert history.last_substantive == date(2026, 6, 1)
 
 

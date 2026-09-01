@@ -47,6 +47,7 @@ from docs_updated_field import (  # type: ignore[import-not-found]
     has_malformed_frontmatter,
     in_scope,
     is_generated,
+    newline_of,
     today_utc,
 )
 
@@ -107,7 +108,12 @@ def stamp_worktree(path: str, stamp: date) -> bool:
     if not target.exists():
         # Staged, then deleted from the worktree. The index half still stands.
         return False
-    original = target.read_text(encoding="utf-8")
+    # newline="" disables universal-newline translation in BOTH directions. Without it
+    # a CRLF document is read as LF and written back as LF in its entirety, so the
+    # worktree and the index disagree about every line — including the ones this
+    # function promises not to touch, which is exactly the partial staging it exists to
+    # protect.
+    original = target.read_text(encoding="utf-8", newline="")
     if is_generated(original) or has_malformed_frontmatter(original):
         return False
     field = find_updated(original)
@@ -118,12 +124,13 @@ def stamp_worktree(path: str, stamp: date) -> bool:
         # Creating a block in the worktree rewrites the head of the file, which is
         # by construction not inside any hunk the author left unstaged (there is no
         # frontmatter for a hunk to overlap).
-        target.write_text(stamped, encoding="utf-8")
+        target.write_text(stamped, encoding="utf-8", newline="")
         return True
-    lines = original.split("\n")
-    stamped_lines = stamped.split("\n")
+    eol = newline_of(original)
+    lines = original.split(eol)
+    stamped_lines = stamped.split(eol)
     lines[field.line_index] = stamped_lines[field.line_index]
-    target.write_text("\n".join(lines), encoding="utf-8")
+    target.write_text(eol.join(lines), encoding="utf-8", newline="")
     return True
 
 

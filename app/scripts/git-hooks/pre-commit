@@ -72,8 +72,15 @@ if [[ "${SKUEL_SKIP_DOC_STAMP:-0}" == "1" ]]; then
   yellow "⚠ SKUEL_SKIP_DOC_STAMP=1 set — skipping the docs \`updated:\` stamp."
 else
   # -z, because three docs under design-principles/ have spaces in their names.
-  if git diff --cached --name-only -z --diff-filter=ACMR \
-       | grep -qz '^app/docs/.*\.md$'; then
+  #
+  # `grep -c`, not `grep -q`: -q exits on the FIRST match and closes the pipe, so once
+  # the staged list exceeds the pipe buffer `git diff` takes SIGPIPE, `pipefail` makes
+  # the pipeline 141, and the stamper is silently skipped on exactly the large commits
+  # that need it most (reproduced with 2000 staged docs). -c reads all of its input.
+  # This is the trap PR #931 already recorded for `sed | head -c`.
+  staged_doc_count=$(git diff --cached --name-only -z --diff-filter=ACMR \
+    | grep -cz '^app/docs/.*\.md$' || true)
+  if [[ "${staged_doc_count:-0}" -gt 0 ]]; then
     if ! ( cd "$repo_root/app" && uv run python scripts/stamp_docs_updated.py ); then
       red "✗ Docs \`updated:\` stamp failed"
       yellow "  Reproduce:   cd app && uv run python scripts/stamp_docs_updated.py"
