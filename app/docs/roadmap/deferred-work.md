@@ -2490,6 +2490,9 @@ user-context-intelligence `ADR-030` → `…usercontext-file-consolidation.md`).
 ⚠️ `validate_cross_references.py` must move in the same PR — its `adr_map` is
 last-wins-silent on duplicate numbers, and both scripts share a `.md.md` hazard on
 full-filename refs; they are the only two `related_adrs` consumers (verified 2026-09-02).
+⚠️ So must the generator's sort key (Codex on #1214): `_parse_adr_number` does
+`int(adr_id.replace("ADR-", ""))`, which raises `ValueError` on a full-filename ref —
+extract the leading number instead of assuming the whole remainder is numeric.
 Add the honesty guard that would have caught this at birth: every rendered
 `/docs/decisions/` link target exists. Expected −30.
 
