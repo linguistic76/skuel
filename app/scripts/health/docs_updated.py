@@ -170,8 +170,8 @@ def main() -> int:
     # Named, not swallowed: an exclusion nobody can see is indistinguishable from a
     # blind spot (the `duplicate_headings.py` freeform carve-out sets the precedent).
     carve_out = (
-        f", {len(generated)} generated doc(s) excluded — their own drift tests"
-        f" guarantee freshness: {', '.join(generated)}"
+        f", {len(generated)} generated doc(s) excluded — a date written into generated"
+        f" content describes nothing: {', '.join(generated)}"
         if generated
         else ""
     )

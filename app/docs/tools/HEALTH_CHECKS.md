@@ -515,12 +515,16 @@ so the check is free on them, and an exemption would only open a hole.
 
 **Machine-generated docs are excluded, and say so themselves.** A doc whose first 15
 lines *assert* that it is generated — "this file is auto-generated", the shape both real
-artifacts use — is skipped, because its generator's drift test
-byte-compares it against a fresh render — a stronger freshness guarantee than a date,
-and one a stamp actively breaks (the backfill put a block on
-`reference/BASESERVICE_METHOD_INDEX.md` and `test_generate_method_index.py` went red at
-once; the generator would also wipe the stamp on its next run, and the guard would then
-report a correctly regenerated file as missing its key). The rule reads the same banner
+artifacts use — is skipped, because a date written into generated content describes
+nothing: the next regeneration overwrites it, and the check would then report a correctly
+regenerated file as missing its key. Where the artifact is drift-tested the stamp is
+actively destructive — the backfill put a block on `reference/BASESERVICE_METHOD_INDEX.md`
+and `test_generate_method_index.py`, which byte-compares it against a fresh render, went
+red at once. ⚠️ **This exemption does not claim every excluded artifact is drift-tested.**
+`BASESERVICE_METHOD_INDEX.md` is; `CROSS_REFERENCE_INDEX.md` has no such test, so nothing
+currently notices if it drifts from `skills_metadata.yaml`. Excluding it is still right —
+a stamp would not have noticed either, since its generator rewrites the file wholesale —
+but that gap belongs to that generator, and closing it is separate work. The rule reads the same banner
 a human reads rather than keeping a list of generated paths, which would be a catalog
 copy that rots the first time a generator is added. It matches a self-assertion rather
 than the bare phrase, because the consequence runs the wrong way: a hand-maintained doc

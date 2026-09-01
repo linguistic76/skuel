@@ -2178,9 +2178,13 @@ each looks like a simplification:
   stamp-only and the real edit stayed invisible to the guard indefinitely (Codex P2 on
   #1212). Stamping both blobs to the same date and comparing is positional by
   construction, because `apply_stamp` writes only the leading block.
-- **A generated doc must not be stamped.** Its generator's drift test byte-compares it
-  against a fresh render, so a frontmatter block reds that test immediately, and the next
-  regeneration wipes the stamp and reds the guard instead. Detected by the file's own
+- **A generated doc must not be stamped.** A date written into generated content
+  describes nothing — the next regeneration overwrites it and the guard then reports a
+  correctly regenerated file as missing its key — and where the artifact is drift-tested a
+  frontmatter block reds that test immediately. ⚠️ The exemption does **not** assert that
+  every excluded artifact is drift-tested: `CROSS_REFERENCE_INDEX.md` has no such test, so
+  nothing notices if it drifts from `skills_metadata.yaml`. That gap is its generator's,
+  not this guard's; the argument for excluding it stands either way. Detected by the file's own
   declaration — *"this file is auto-generated"*, matched as a self-assertion rather than
   the bare phrase, header-scoped — never a list of generated paths. The loose form has to
   be avoided in that exact direction: a hand-maintained doc wrongly matched is dropped

@@ -103,6 +103,15 @@ server.log
 scratch*.py
 firefly startup command
 
+# Extensionless conversation notes under docs/roadmap/. Committed by mistake in
+# #1209 (untracked again by #1210) and swept in three more times by directory-level
+# `git add` while building the `updated:` auto-stamp — the same accident four times
+# is what earns a rule. `docs/roadmap/` holds tracked `.md` roadmap docs; a note
+# without an extension is working scratch. Add new ones here rather than committing
+# one (the `counts_*.json` convention above).
+docs/roadmap/Askesis Tool Selection - planned
+docs/roadmap/next from aug 31
+
 # Graph census exports (scripts/export_entity_counts.py). Point-in-time node /
 # relationship counts of a LIVE graph, written to the repo root by the migration
 # guides (AURADB_MIGRATION_GUIDE "> before.json", DO_MIGRATION_GUIDE

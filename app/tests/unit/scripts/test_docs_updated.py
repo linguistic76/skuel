@@ -41,6 +41,7 @@ import docs_updated as guard  # type: ignore[import-not-found]
 import docs_updated_field as field_mod  # type: ignore[import-not-found]
 
 STAMP = date(2026, 9, 1)
+Q3 = "'" * 3  # a literal ''' — written this way to keep the source quotable
 
 
 # ============================================================================
@@ -103,6 +104,25 @@ def test_a_nested_key_is_not_the_field() -> None:
 
 def test_no_frontmatter_is_no_field() -> None:
     assert field_mod.find_updated("# Just a heading\n") is None
+
+
+@pytest.mark.parametrize(
+    "raw_line",
+    [
+        "updated: '2026-09-01\"",  # mismatched pair
+        "updated: " + Q3 + "2026-09-01" + Q3,  # repeated quotes
+        "updated: '2026-09-01",  # unclosed
+        'updated: 2026-09-01"',  # trailing only
+    ],
+)
+def test_mismatched_quotes_do_not_unwrap_into_a_valid_date(raw_line: str) -> None:
+    """``strip("'\"")`` removes the character class from both ends, so every one of
+    these reduced to a clean ISO date — malformed frontmatter reading as correctly
+    stamped and passing the guard indefinitely (Codex P2 on #1212). Exactly one matching
+    pair is unwrapped, so these reach the ``unparsable`` verdict instead."""
+    found = field_mod.find_updated(f"---\n{raw_line}\n---\n")
+    assert found is not None
+    assert found.parsed is None
 
 
 def test_a_non_iso_value_does_not_parse() -> None:

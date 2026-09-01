@@ -125,12 +125,19 @@ def in_scope(repo_relative_path: str) -> bool:
     return repo_relative_path.startswith(SCOPE_PREFIX) and repo_relative_path.endswith(".md")
 
 
-# A generated artifact is byte-compared against a fresh render by its own drift test,
-# which is a STRONGER freshness guarantee than a date — and stamping one breaks that
-# comparison outright (the backfill put a frontmatter block on
-# `reference/BASESERVICE_METHOD_INDEX.md` and `test_generate_method_index.py` went red
-# immediately). Its generator would also wipe the stamp on the next run, and the guard
-# would then report a correctly regenerated file as missing its key.
+# A generated artifact's content is a function of its sources, so a date written INTO it
+# describes nothing: the next regeneration overwrites it, and the guard would then report
+# a correctly regenerated file as missing its key. Stamping one is also actively
+# destructive where the artifact is drift-tested — the backfill put a frontmatter block
+# on `reference/BASESERVICE_METHOD_INDEX.md` and `test_generate_method_index.py`, which
+# byte-compares it against a fresh render, went red immediately.
+#
+# Note what this exemption does NOT claim: that every excluded artifact is drift-tested.
+# `BASESERVICE_METHOD_INDEX.md` is; `CROSS_REFERENCE_INDEX.md` has no such test, so
+# nothing currently notices if it goes stale against `skills_metadata.yaml` (Codex P2 on
+# #1212). Excluding it is still right — a stamp would not have noticed either, since the
+# generator rewrites the file wholesale — but the gap belongs to that generator, not
+# here.
 # A positive self-assertion, not the bare phrase. An unqualified `AUTO-GENERATED`
 # substring also matches "this file is NOT auto-generated" and "this guide explains
 # AUTO-GENERATED indexes" — and the consequence runs the wrong way: a hand-maintained
@@ -176,13 +183,23 @@ class UpdatedField:
 
     @property
     def value(self) -> str:
-        """The date text with surrounding whitespace and any quotes removed.
+        """The date text, unwrapped from exactly one matching quote pair.
 
-        25 of 219 docs write ``updated: '2026-04-20'``. A parser that does not strip
+        25 of 219 docs write ``updated: '2026-04-20'``. A parser that does not unwrap
         quotes classifies every one of them as fieldless — which is how the first
         census of this corpus counted 194 present when the true figure was 219.
+
+        **One matching pair, not ``strip("'\"")``.** Stripping the character class from
+        both ends also unwraps values no YAML parser accepts — ``'2026-09-01"`` and
+        ``\'\'\'2026-09-01\'\'\'`` both reduce to a clean ISO date — so malformed frontmatter
+        would read as correctly stamped and pass the guard indefinitely (Codex P2 on
+        #1212). Unwrapping one pair leaves those looking like what they are, and they
+        reach the ``unparsable`` verdict.
         """
-        return self.raw_value.strip().strip("'\"")
+        text = self.raw_value.strip()
+        if len(text) >= 2 and text[0] == text[-1] and text[0] in "'\"":
+            return text[1:-1]
+        return text
 
     @property
     def parsed(self) -> date | None:
