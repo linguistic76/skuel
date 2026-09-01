@@ -2443,25 +2443,26 @@ claims that matter are pinned or gone, and "N things" in running text has no rel
 
 ---
 
-## Dead-Doc-Links Instrument — Rulings + Scheduled Work (REGISTERED 2026-09-02)
+## Dead-Doc-Links Instrument — Rulings + Scheduled Work (REGISTERED 2026-09-01)
 
 `scripts/health/dead_doc_links.py` (in `./dev health` + the weekly janitor; not a CI gate)
-has sat red at **871 findings / 531 distinct missing targets** (measured 2026-09-01 and
-re-measured 2026-09-02 on `eb6aad6af` — identical). An always-on check reporting 871
+has sat red at **871 findings / 531 distinct missing targets** (measured 2026-09-01,
+re-measured same day on `eb6aad6af`, and confirmed again by the classification pass on
+`e2e5b7f4a` — identical). An always-on check reporting 871
 findings is one nobody reads. The findings decompose into classes (re-derive by driving
 `check_file()` over `get_md_files()` — never trust these counts as current; the
 route-shaped row overlaps the live-docs row and the freeform-file counts overlap the
 parser row, so rows no longer sum to 871 — the authoritative recount is B1's exit
 measurement):
 
-| Class | Findings | Disposition (Mike, 2026-09-02) |
+| Class | Findings | Disposition (Mike, 2026-09-01) |
 |---|---|---|
 | Parser false positives (subscript-as-link ×30, globs in the bare pass ×7, ` + ` joins ×10, un-decoded `%20` ×1-real) | 47 | **APPROVED** — PR B1 |
 | Route-shaped targets — application-URL links read as filesystem paths: 18 extension-less absolute link targets + 15 backticked PWA URLs (offline.html, manifest.json, service-worker.js served at root — registered in `adapters/inbound/pwa_routes.py`) | ~33 | **PR B1 investigation** (Codex on #1214, both rounds) — the class is defined by MATCHING a live route registration, never by shape alone: ⚠️ 5 of the 18 are genuinely dead (`/journals/browse` ×3 — registered nowhere, and a stale docstring in `adapters/inbound/user_entry_ui.py` claims it lives in `journals_routes.py`; `/yaml_templates/_schemas/` ×2 — neither route nor directory). Matched targets are not rot and a sweep must not rewrite them; UNMATCHED ones stay red and join the post-B1 sweep queue |
 | The two freeform design-principles files (`direction w structuring.md` 20, `dp - emergence, patience, non-attachment.md` 16 — links point into the Obsidian vault, unvalidatable by construction) + `.claude/skills/_templates/` (placeholder paths) | 36 + 14 | **APPROVED** — PR B1 carve-outs; ⚠️ scoped to the two MEASURED files, NOT the directory (Codex on #1214): `design-principles/` also holds maintained specs with genuine rot — `HUB_PAGES.md` cites a teaching-hub view module that no longer exists — which must stay visible |
 | Generated `CROSS_REFERENCE_INDEX.md` (slug-less ADR links) | 30 | **RULED** — PR B2, glob-with-loud-failure |
-| History dirs (`migrations/` 206, `roadmap/done/` 12, `Reviews/`+`investigations/` 16 → 226 after parser dedup) | 226 | **OPEN** — ruling pending |
-| ADRs (`docs/decisions/`, 50 files; mixed faithful history and standing contracts) | 156 | **OPEN** — ruling pending |
+| History dirs (`migrations/` 206, `roadmap/done/` 12, `Reviews/`+`investigations/` 16 → 226 after parser dedup) | 226 | **RULED 2026-09-01** — silent dir carve-out; directory membership IS the classification (PR B3) |
+| ADRs (`docs/decisions/`, 50 files; mixed faithful history and standing contracts) | 156 | **RULED 2026-09-01** — per-citation historical marker, option (d); measured split 81 standing / 70 narrative / 3 ambiguous of 154 (PR B3 mechanism + PR B4 sweep) |
 | Live docs — real rot | 367 | **RULED** — sweep queue below |
 
 **PR B1 (scheduled, fresh context):** the four parser narrowings — each targets a measured
@@ -2489,57 +2490,103 @@ colliding refs get full filenames, promoting intent already recorded in YAML com
 user-context-intelligence `ADR-030` → `…usercontext-file-consolidation.md`).
 ⚠️ `validate_cross_references.py` must move in the same PR — its `adr_map` is
 last-wins-silent on duplicate numbers, and both scripts share a `.md.md` hazard on
-full-filename refs; they are the only two `related_adrs` consumers (verified 2026-09-02).
+full-filename refs; they are the only two `related_adrs` consumers (verified 2026-09-01).
 ⚠️ So must the generator's sort key (Codex on #1214): `_parse_adr_number` does
 `int(adr_id.replace("ADR-", ""))`, which raises `ValueError` on a full-filename ref —
 extract the leading number instead of assuming the whole remainder is numeric.
 Add the honesty guard that would have caught this at birth: every rendered
 `/docs/decisions/` link target exists. Expected −30.
 
-**OPEN RULING — the history line (226 + 156):** where does rot end and faithful history
-begin, and which mechanism carries it. Mike, 2026-09-02: *"I am not sure."* Do not build
-any of it until he rules; the check staying red on these classes is expected, not a defect
-to fix en passant. The options, with named costs: **(a)** dir carve-out for the four
-history dirs (a migration doc naming the file it migrated away from is faithful, not
-stale — the de-fiction rule's dated-logs-LEAVE); for ADRs a carve-out is coarser — it
-blinds the instrument to rot in *standing contracts* inside active ADRs; **(b)** an
-audited **file-level** exemption tier (`{path: reason}`, an exemption that hides nothing
-is itself a finding — the stale_names/SKUEL026 discipline WITHOUT `(file, line)` anchors,
-which #1212's backfill broke 72 of); **(c)** report-separately-don't-red for the dirs;
-**(d)** a per-citation historical marker the scanner honors ONLY when the target is dead
-(marked-but-alive is itself a finding — the SKUEL026 inversion), which is the one option
-whose steady state makes red mean rot inside the authority tier, at the cost of a
-one-time judgment sweep. ⚠️ Observability constraint (Codex on #1215): a SILENT
-carve-out for `docs/decisions/` un-observes its own tripwire — the first
-standing-contract failure that is supposed to reopen the ruling would have no reporter
-through this instrument, so the broad exemption could stand indefinitely. Whatever is
-chosen for the ADR half must keep ADR findings OBSERVED (printed), even if not failing;
-the four history dirs carry no tripwire and may be silently carved out. ⚠️ Status-scoping (skip Superseded ADRs by rule) was measured
-and FALSIFIED 2026-09-02 — only 2 of 89 ADRs are Superseded; One Path Forward keeps ADRs
-Accepted while their narrative names deleted things, so the mixing is INTRA-file and
-status cannot carry the line. Do not resurrect it.
+**PR B3 (scheduled, fresh context; after B1 — it edits the same scanner):** the ruled
+history-line mechanism. (i) **Silent dir carve-out** for `docs/migrations/` +
+`docs/roadmap/done/` + `docs/Reviews/` + `docs/investigations/` — directory membership
+IS the classification (de-fiction: dated logs = LEAVE); these dirs carry no tripwire,
+silence is sanctioned. (ii) **Per-citation historical marker** for `docs/decisions/`:
+the scanner skips a marked citation ONLY when its target is dead; **marked-but-alive is
+itself a finding** (the SKUEL026 inversion); the per-run output prints the
+skipped-marker count (`duplicate_headings.py` shape). Marker syntax is decided in-PR,
+measured against the live tree and pinned by cases in
+`tests/unit/scripts/test_dead_doc_links.py`. Steady state: red inside `decisions/`
+means rot in the authority tier — observability is inherent, no report-only section
+needed. (iii) Decide in-PR whether `docs/decisions/ADR-TEMPLATE.md` joins the template
+carve-out (same species as `.claude/skills/_templates/` — its example paths are
+fictional by design; 1 finding).
 
-**ADR classification pass (SCHEDULED 2026-09-02 — Mike: "prep that classification
-pass"):** the decision procedure for the ruling above. One fresh-context session,
-**read-only — classify, edit nothing, build nothing**: re-derive the `docs/decisions/`
-findings from the live scanner (post-B1 they line up directly; pre-B1, exclude
-parser-class and route-shaped targets first), then sort each finding by reading its
-surrounding paragraph into narrative/historical vs standing-contract vs scanner-class
-residue vs ambiguous — verifying every claimed standing-contract case against the
-target's true current location before classifying it (a finding can be right while its
-fix is wrong). Report to Mike: the split with per-ADR breakdown, the verified
-standing-contract list (actionable regardless of mechanism), and the recommendation the
-procedure yields — a meaningful standing-contract rate justifies the marker (d);
-~all-narrative means the cheap arm is report-separately-don't-red for `decisions/`
-(findings keep printing under their own section, the run stops failing on them — the
-tripwire keeps its observer, where a silent carve-out would un-observe its own reopening
-condition), with the tripwire recorded: first observed standing-contract rot in an
-Accepted ADR reopens the ruling. The report restates the history-dirs half so one
-sitting can close both — C does not depend on this pass's numbers.
+**PR B4 (scheduled, fresh context; after B3 — the marker must exist to apply):** the
+ADR content sweep, working from the classification pass's verified worksheet (scratch
+tier — the B4 arc prompt carries the pointer). Fix the **81 standing-contract
+findings**: ≈40 have a verified unique successor (e.g. `user_context_queries.py` →
+`adapters/persistence/neo4j/`, `domain_configs.py` → `core/models/relationship_registry.py`,
+`core/auth/{roles,session}.py` → `adapters/inbound/auth/`, `ku_enums.py` →
+`entity_enums.py`, `learning_ui.py` → the ku/path_steps/pathways trio); ≈17 cite
+deleted-no-successor targets (prose edit or supersession note — ADR-027 gets the
+supersession note: its entire subject, the KnowledgeCarrier protocol, was deleted as
+unused); ≈15 were never tracked in this repo (the early query-ADRs' "Tests: N/N
+passing" lines — de-fiction the claim, don't invent a path). Apply the marker to the
+~70 narrative citations. Execute the content rulings recorded below (delete ADR-010;
+delete never-to-be-done planned citations; ADR-003 chain-completion + repoint;
+create the UserEntry domain doc under `docs/domains/`, named like its siblings —
+the filename is deliberately not spelled here: before B4 creates the file, a spelled
+path is a scanner finding and the bare name trips the memory-citation guard)
+**with their catalog ripple** (Codex on #1216):
+deleting ADR-010 must also drop its `docs/INDEX.md` row (line 248 today), and the new
+the new domain doc joins the catalogs — `docs/domains/README.md`'s Submissions row
+still links the deleted `submissions.md` and becomes the UserEntry row; add an
+INDEX.md entry if the domains are cataloged there. Splitting by cluster into more
+than one PR is sanctioned if the diff is unwieldy. Exit: `docs/decisions/` findings
+= 0 AND the full scanner run shows no NEW findings introduced by the sweep's own
+deletions/creations (a `decisions/`-only check would miss an orphaned INDEX.md row),
+marker skips printed.
+
+**RULED — the history line (226 + 156) (Mike, 2026-09-01, on the classification pass's
+report):** C takes **(a)** — the silent dir carve-out (no tripwire to un-observe). D
+takes **(d)** — the per-citation historical marker, the option whose steady state makes
+red mean rot inside the authority tier. The measured split decided it: of 154
+classifiable `decisions/` findings (167 raw − 11 parser-class − 2 route-matched PWA),
+**81 (53%) are standing-contract rot across 31 Accepted/Implemented ADRs, 70 are
+narrative, 3 ambiguous** — the cheap arm (report-separately-don't-red) was conditioned
+on ~all-narrative with "first observed standing-contract rot in an Accepted ADR" as its
+reopening tripwire, a condition this measurement shows already fired 81 times over.
+Content rulings from the same sitting: **(1)** planned-work citations advertising work
+that must never be done are DELETED, not marked — unchecked "[ ] Create X" checklist
+items and "(if exists)" hedges included (ADR-027:221 is the precedent). **(2)**
+ADR-003:379's historical note gets its chain completed (Journal → Reports → UserEntry),
+its `See` repointed at ADR-054, **and** a UserEntry domain doc created under
+`docs/domains/` — the
+domains set documents 12 domains and is missing its busiest. **(3)**
+`ADR-010-moc-core-service-query.md` is an unfilled template shell (its Decision section
+is ADR-TEMPLATE's instructions + example block verbatim) — DELETE it; the number stays
+retired (numbering already has gaps and duplicates). **The 3 ambiguous findings each
+resolve under these rulings — B4 needs no further decision:** ADR-003:379 → (2);
+ADR-037-embedding-infrastructure-separation:173 (the "(if exists)" hedge) → (1), delete
+the line or repoint at ADR-068/ADR-074; ADR-027:221 → (1), delete the checklist item
+alongside the supersession note. ⚠️ Standing constraints survive
+the ruling: ADR findings stay OBSERVED (a silent `decisions/` carve-out remains off the
+menu — Codex on #1215), and status-scoping stays FALSIFIED (2 of 89 Superseded; the
+mixing is INTRA-file — reconfirmed by the pass: ADR-011/012 hold exemplary narrative
+corrections lines above standing rot). Do not resurrect either.
+
+**ADR classification pass (EXECUTED 2026-09-01):** full read, no sampling — all 154
+findings classified from their surrounding paragraphs, every standing-contract case
+verified against git history (`git log --follow` / `git ls-files` / `git grep`) before
+classification; a citation was called "never tracked" only on empty `git log` since the
+consolidation initial commit. Scanner residue landed entirely inside B1's approved
+classes (11 parser-class + 2 PWA URLs matching `adapters/inbound/pwa_routes.py`) —
+nothing new for B1. The worksheet (per-finding anchors, verified successors, quoted
+ambiguous cases) is the pass's report in the scratch tier; PR B4's arc prompt carries
+the pointer — this doc deliberately does not. Graduating it into `docs/` was considered
+and rejected (Codex on #1216): a document consisting of ~150 intentionally-dead paths
+would itself become ~150 scanner findings — the noise this section exists to remove.
+**Fallback if the worksheet is unavailable** (fresh clone/worktree — scratch is
+machine-local): B4 re-derives it by the recorded procedure — drive `check_file()` over
+`docs/decisions/`, classify each finding by its surrounding paragraph
+(narrative/standing/ambiguous), verify every standing case against git history — with
+the split recorded above as the expected shape; re-derivation is mandatory for the
+counts anyway, never guessed.
 
 **Live-docs sweep queue (RULED: register + burn down via doc sweeps):** ~367 findings in
 live docs — patterns 103 · skills 48 · intelligence 41 · architecture 35 · domains 32 ·
-guides 30 · roadmap-live 14 · reference 13 · ui 11 · misc ~40 (2026-09-02) — ⚠️ **counts
+guides 30 · roadmap-live 14 · reference 13 · ui 11 · misc ~40 (2026-09-01) — ⚠️ **counts
 contaminated by the route-shaped class above** (Codex on #1214: `VOICE_JOURNALING_AND_OBSIDIAN_GUIDE.md`'s
 13 findings are ALL valid route links; `PWA_ARCHITECTURE.md` is 9 valid PWA URLs + 1 real).
 **The queue is not actionable until PR B1 lands and the residue is recounted** — a sweep
@@ -2611,8 +2658,8 @@ Review this document at the **September 2026 quarterly review**. Checklist:
 | READY PLANNED entries over 90 days → wire-or-delete ruling (the `planned-ready-aging` finding, INFO, never gates) | Any READY entry in `scripts/detect_bloat.py` older than `READY_AGING_DAYS` — first fires 2026-09-10 on the three 2026-06-11 entries; by this review all seven READY are over it, which is the intended signal | `./dev bloat --ready` — every row listed is wire-or-delete; a DELAYED entry aging is expected and is NOT this row |
 | Catalog copies in code — the duplicated-fact class (measured 2026-08-29) | Mike schedules the mechanical items; until then a ride-along: any PR that adds a health check, an embeddable type, a vector-index label, or a suppressible rule touches every copy the section names | ⛔ Do not scope from this cell — the section holds the inventory and the ruling. Re-measure: `uv run python scripts/detect_bloat.py --json` → count of `planned-marking-stale` findings (2 on 2026-08-29, seen by neither CI nor the janitor); the scripts named in `dev` § `health)` and in the janitor's `for check in` loop must be the same set (6 on 2026-09-01, up from 5 — `docs_updated.py` was added by hand to every copy) |
 | Hollow embedding field maps — `PLANNED_EMBEDDING_MAPS` (4 DELAYED on 2026-08-30: `ENTRY_REPORT`, `ACTIVITY_REPORT`, `FORM_TEMPLATE`, `FORM_SUBMISSION`) | The EntryReport / ActivityReport search row above fires (the two report maps point at it), or a consumer wants form content in semantic search (the two form maps — no section, the registry reason is the one copy) | `./dev bloat` § Embedding field maps — every row is hollow by ruling; an unregistered hollow map already fails `--check` on its own. Wiring one = ADR-074's quartet, then delete its entry (the stale gate demands it) |
-| Dead-doc-links PR B1 (parser fixes + route-shaped investigation + file-scoped freeform carve-outs) + PR B2 (ADR glob-with-loud-failure) — both APPROVED/RULED 2026-09-02 | Fresh-context sessions, one per PR — approved work, not waiting on data | `uv run python scripts/health/dead_doc_links.py` — B1's exit measurement is the authority (~745–780 expected, then −30 for B2); re-measure, never trust the snapshot. See the section |
-| Dead-doc-links history line (history dirs 226 + ADRs 156) — Mike *"not sure"* 2026-09-02; **ADR classification pass SCHEDULED** as the decision procedure | The pass runs in a fresh context (read-only: classify the ADR findings narrative vs standing-contract, edit nothing); its measured split + Mike's ruling close this row — do not build any carve-out/exemption/marker until then | The check stays red on these classes by design meanwhile; procedure, options + costs in the section (status-scoping falsified — 2/89 Superseded) |
+| Dead-doc-links PR B1 (parser fixes + route-shaped investigation + file-scoped freeform carve-outs) + PR B2 (ADR glob-with-loud-failure) — both APPROVED/RULED 2026-09-01 | Fresh-context sessions, one per PR — approved work, not waiting on data | `uv run python scripts/health/dead_doc_links.py` — B1's exit measurement is the authority (~745–780 expected, then −30 for B2); re-measure, never trust the snapshot. See the section |
+| Dead-doc-links history line — **RULED 2026-09-01** (classification pass executed: 81 standing / 70 narrative / 3 ambiguous): ADRs = per-citation marker, 4 history dirs = silent carve-out; PR B3 (mechanism, after B1) + PR B4 (ADR sweep, after B3) | Fresh-context sessions, one per PR — ruled work, not waiting on data | The check stays red on `decisions/` + history dirs by design until B3/B4 land; rulings + content rulings in the section (status-scoping stays falsified — 2/89 Superseded) |
 | Live-docs dead-link sweep queue (~367 pre-recount — ⚠️ NOT actionable until PR B1 lands: counts contaminated by valid route links, a sweep today would rewrite them) | Post-B1 recount, then ride-along on every doc sweep or PR touching a listed area; confirmed heavy hitters may get dedicated small sweeps | Re-derive per doc by running the scanner and filtering to the file; check route-shaped targets against live route registrations; fix the citing prose (most targets are deleted, not moved) |
 
 **The document is the checklist, the table is a convenience:** a section added to this file
