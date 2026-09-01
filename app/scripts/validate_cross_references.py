@@ -40,13 +40,16 @@ Usage:
 """
 
 import argparse
-import re
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import yaml
+from adr_links import (  # type: ignore[import-not-found]
+    AdrReferenceError,
+    resolve_adr_filename,
+)
 
 from core.utils.frontmatter import parse_frontmatter
 
@@ -100,34 +103,25 @@ def find_skill_references_in_file(file_path: Path) -> set[str]:
     return {name for name in related if isinstance(name, str)}
 
 
-def find_actual_adr_files(base_path: Path) -> dict[str, str]:
-    """
-    Map ADR numbers to actual file names.
-
-    Returns: {adr_number: filename} e.g. {"ADR-035": "ADR-035-tier-selection-guidelines.md"}
-    """
-    adrs_dir = base_path / "docs" / "decisions"
-    adr_map = {}
-
-    for file_path in adrs_dir.glob("ADR-*.md"):
-        # Extract ADR number from filename (e.g., "ADR-035" from "ADR-035-tier-selection-guidelines.md")
-        match = re.match(r"^(ADR-\d+)", file_path.name)
-        if match:
-            adr_number = match.group(1)
-            adr_map[adr_number] = file_path.name
-
-    return adr_map
-
-
 def find_doc_references_in_skills(
-    skills_data: dict[str, Any], adr_map: dict[str, str]
-) -> dict[str, set[str]]:
+    skills_data: dict[str, Any], base_path: Path
+) -> tuple[dict[str, set[str]], list[ValidationIssue]]:
     """
     Extract doc references from skills metadata.
 
-    Returns: {skill_name: set of doc paths}
+    ADR references are resolved by the shared resolver rather than re-spelled here.
+    This function used to build its own number→filename map by ``glob()``, last
+    write winning, which meant a duplicate ADR number resolved to whichever file
+    the directory happened to list last — the same ref could mean a different ADR
+    after an unrelated one was added. Anything the resolver refuses is reported as
+    a broken link instead: an unresolvable reference contributes no doc, so it can
+    neither be silently dropped nor silently mapped to the wrong ADR.
+
+    Returns: ({skill_name: set of doc paths}, issues for unresolvable ADR refs)
     """
+    decisions_dir = base_path / "docs" / "decisions"
     skill_to_docs: dict[str, set[str]] = {}
+    issues: list[ValidationIssue] = []
 
     for skill in skills_data["skills"]:
         name = skill["name"]
@@ -136,15 +130,24 @@ def find_doc_references_in_skills(
         docs.update(skill.get("patterns", []))
         # Convert ADR references to actual file paths
         for adr in skill.get("related_adrs", []):
-            adr_number = adr if adr.startswith("ADR-") else f"ADR-{adr}"
-            if adr_number in adr_map:
-                docs.add(f"/docs/decisions/{adr_map[adr_number]}")
-            else:
-                # Keep the reference even if file doesn't exist (will be caught as broken link)
-                docs.add(f"/docs/decisions/{adr_number}.md")
+            try:
+                docs.add(f"/docs/decisions/{resolve_adr_filename(adr, decisions_dir)}")
+            except AdrReferenceError as exc:
+                issues.append(
+                    ValidationIssue(
+                        severity="error",
+                        category="broken_link",
+                        source=f"@{name}",
+                        message=str(exc),
+                        suggestion=(
+                            "Replace the bare number in related_adrs with the full "
+                            "ADR filename, or fix the reference"
+                        ),
+                    )
+                )
         skill_to_docs[name] = docs
 
-    return skill_to_docs
+    return skill_to_docs, issues
 
 
 def collect_doc_to_skills_mapping(
@@ -264,9 +267,13 @@ def validate_cross_references(base_path: Path) -> tuple[list[ValidationIssue], C
 
     # Load data
     skills_data = load_skills_metadata(base_path)
-    adr_map = find_actual_adr_files(base_path)
-    skill_to_docs = find_doc_references_in_skills(skills_data, adr_map)
+    skill_to_docs, adr_ref_issues = find_doc_references_in_skills(skills_data, base_path)
     doc_to_skills, scanned_files = collect_doc_to_skills_mapping(base_path)
+
+    # An ADR reference that names no single file is a broken link like any other,
+    # and counted as one so the report's header agrees with its own error list.
+    issues.extend(adr_ref_issues)
+    stats.broken_links += len(adr_ref_issues)
 
     stats.total_skills = len(skills_data["skills"])
     stats.total_docs = len(scanned_files)

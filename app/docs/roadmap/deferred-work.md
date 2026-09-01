@@ -2449,17 +2449,18 @@ claims that matter are pinned or gone, and "N things" in running text has no rel
 sat red at **871 findings / 531 distinct missing targets** before PR B1 (measured
 2026-09-01 on `eb6aad6af`, confirmed identical by the classification pass on `e2e5b7f4a`).
 An always-on check reporting 871 findings is one nobody reads. **PR B1 landed the
-approved false-positive removals: 871 → 754 / 456 distinct** (measured on the branch by
-driving `check_file()` over `get_md_files()`). Re-derive the same way — never trust these
-counts as current. Post-B1 the rows below SUM to the total: the parser and carve-out
+approved false-positive removals: 871 → 754 / 456 distinct**, and **PR B2 the generated
+index: 754 → 724 / 447 distinct** (each measured on its branch by driving `check_file()`
+over `get_md_files()`). Re-derive the same way — never trust these counts as current.
+The rows below SUM to the current total: the parser, carve-out and generated-index
 classes are gone, and the route-shaped class is no longer scattered across the others.
 
-| Class | Findings (post-B1) | Disposition |
+| Class | Findings (now) | Disposition |
 |---|---|---|
 | ~~Parser false positives~~ (subscript-as-link ×24, globs in the bare pass ×7, ` + ` joins ×9, un-decoded `%20`) | 0 (−40) | **DONE — PR B1.** Re-measured on the branch: 24 subscripts (not 30 — six of that count were the `%20` links, kept checkable), 9 joins (not 10). The `%20` fix resolves a citation to a REAL file rather than removing a line, so its effect lands inside the freeform carve-out |
 | ~~Route-shaped targets~~ — application URLs read as filesystem paths | 0 · 6 still red | **DONE — PR B1.** Matched by AST against the live `@rt("…")` registrations in `adapters/inbound/`, never by shape and never by a URL list; skips are counted and printed. ⚠️ Unmatched stays RED by design: `/journals/browse` ×3 (deleted in #420 — the stale `user_entry_ui.py` docstring claiming otherwise was fixed in B1), `/yaml_templates/_schemas/` ×2 (neither route nor directory), and `/tasks` ×1 (live, but registered as `@rt(f"/{domain}")`, which no static pass resolves — fail toward reporting). All 6 join the sweep queue |
 | ~~The two freeform design-principles files~~ + `.claude/skills/_templates/` | 0 (−50) | **DONE — PR B1** carve-outs, 5 files, count printed every run. ⚠️ FILE-scoped, not the directory: `design-principles/HUB_PAGES.md` cites a teaching-hub view module that no longer exists, and that finding is still reported — verify it still is, before ever widening this to a directory. (The path is named in prose there rather than backticked here: a backticked dead path in this doc is itself a finding.) |
-| Generated `CROSS_REFERENCE_INDEX.md` (slug-less ADR links) | 30 | **RULED** — PR B2, glob-with-loud-failure |
+| ~~Generated `CROSS_REFERENCE_INDEX.md`~~ (slug-less ADR links) | 0 (−30) | **DONE — PR B2.** One resolver (`scripts/adr_links.py`) now serves both `related_adrs` readers; the duplicate numbers are refused, never guessed. All 13 of the artifact's distinct `docs/decisions/` link targets exist (12 were dead). ⚠️ Corpus-wide distinct fell 9, not 12: `.claude/skills/docs-skills-evolution/SKILL.md` still cites three of those targets by hand, and those stay in the sweep queue — a generated-artifact fix reaches only the artifact |
 | History dirs (`migrations/` 198, `roadmap/done/` + `Reviews/` + `investigations/` 28) | 226 | **RULED 2026-09-01** — silent dir carve-out; directory membership IS the classification (PR B3) |
 | ADRs (`docs/decisions/`, mixed faithful history and standing contracts) | 154 | **RULED 2026-09-01** — per-citation historical marker, option (d); measured split 81 standing / 70 narrative / 3 ambiguous. B1's exit measurement lands on exactly 154, confirming the pass's arithmetic (167 raw − 11 parser − 2 route-matched) (PR B3 mechanism + PR B4 sweep) |
 | Live docs — real rot | 344 | **RULED** — sweep queue below, now actionable |
@@ -2495,22 +2496,36 @@ printed route-skip count tracks the corpus rather than the −117 accounting abo
 moves whenever a doc gains or drops a route citation (this section's own pair pushed it
 to 28 on the merge commit) — it is an observation, not an invariant.
 
-**PR B2 (scheduled, fresh context):** the generator links ADRs as bare `ADR-NNN.md` under
-`docs/decisions/` but real ADRs carry slugs — 12 of its 13 distinct ADR link targets are dead. Ruling:
-resolve bare numbers by glob, **fail loudly naming every candidate on zero or ≥2 hits —
-never pick silently**; a ref already ending `.md` is a full filename (verify it exists).
-The loud failure forces the collision unblock in the same PR: the metadata's three
-colliding refs get full filenames, promoting intent already recorded in YAML comments
-(vis-network + neo4j-cypher-patterns `ADR-037` → `…lateral-relationships-visualization-phase5.md`;
-user-context-intelligence `ADR-030` → `…usercontext-file-consolidation.md`).
-⚠️ `validate_cross_references.py` must move in the same PR — its `adr_map` is
-last-wins-silent on duplicate numbers, and both scripts share a `.md.md` hazard on
-full-filename refs; they are the only two `related_adrs` consumers (verified 2026-09-01).
-⚠️ So must the generator's sort key (Codex on #1214): `_parse_adr_number` does
-`int(adr_id.replace("ADR-", ""))`, which raises `ValueError` on a full-filename ref —
-extract the leading number instead of assuming the whole remainder is numeric.
-Add the honesty guard that would have caught this at birth: every rendered
-`/docs/decisions/` link target exists. Expected −30.
+**PR B2 (LANDED):** 754 → **724** (−30), every removed finding in the one generated
+file, zero added. The generator linked ADRs as bare `ADR-NNN.md` under `docs/decisions/`
+while every real ADR carries a slug. Both `related_adrs` readers now share one resolver,
+`scripts/adr_links.py` (they remain the only two consumers of the field):
+
+- **A bare number resolves by glob; zero or several matches raise, naming every
+  candidate.** Loud failure is the ruling — the resolver will not choose. Driven on the
+  real tree, not a fixture: a bare `ADR-030` restored into the metadata aborts the
+  generator *before it writes* and reddens `validate_cross_references.py` with the same
+  message and exit 1.
+- **A ref ending `.md` is a full filename** (verified to exist, and rejected if it
+  carries a path separator). Both scripts previously appended a second `.md` to such a
+  ref, so the escape hatch from the slug bug was itself broken.
+- **The collision unblock** rides along, promoting intent already recorded in YAML
+  comments: vis-network + neo4j-cypher-patterns `ADR-037` and user-context-intelligence
+  `ADR-030` now name their files outright. The YAML header states the grammar so the
+  next author meets the rule, not the traceback.
+- **The validator's `adr_map` is gone.** It resolved duplicates last-write-wins over
+  `Path.glob`, which yields *directory* order — so which ADR a ref meant could change
+  when an unrelated ADR was added. It happened to pick correctly here; that was luck,
+  not correctness, and it is now a reported error rather than a silent pick.
+- **Display text stays the short `ADR-NNN`**; only the target gained the slug. The
+  "By Document Category" section is keyed by the RESOLVED filename, so one ADR spelled
+  two ways renders one row rather than two.
+- **The honesty guard that would have caught this at birth** is in the generator's own
+  tests: every rendered `/docs/decisions/` link target exists. Scoped to the one path
+  the generator *constructs* — every other link is a metadata string passed through, and
+  a dead one there is the validator's report, not this guard's.
+  A drift test only proves the artifact matches the generator; it cannot prove either is
+  right, which is exactly how 30 dead links sat inside a *generated* file.
 
 **PR B3 (scheduled, fresh context; after B1 — it edits the same scanner):** the ruled
 history-line mechanism. (i) **Silent dir carve-out** for `docs/migrations/` +
@@ -2622,9 +2637,10 @@ a heuristic proposes, never rewrites.
 **Noted, unscheduled — duplicate ADR numbers:** ADR-030 exists three times
 (`curriculum-domain-unification`, `dual-track-assessment-pattern`,
 `usercontext-file-consolidation`) and ADR-037 twice (`embedding-infrastructure-separation`,
-`lateral-relationships-visualization-phase5`). PR B2's metadata unblock routes around the
-collisions; it does not remove them. Renumbering is a citation-update campaign — Mike
-decides if/when; nothing schedules it.
+`lateral-relationships-visualization-phase5`). PR B2's metadata unblock routed around the
+collisions; it did not remove them — a bare `ADR-030` or `ADR-037` in `related_adrs` is
+now a hard error naming all the candidates, which is the point, not a workaround.
+Renumbering is a citation-update campaign — Mike decides if/when; nothing schedules it.
 
 ## Review Schedule
 

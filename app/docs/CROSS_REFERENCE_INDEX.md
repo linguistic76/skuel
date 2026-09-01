@@ -45,7 +45,7 @@ For each skill, this section shows all related documentation (architecture docs,
 - [INTELLIGENCE_SERVICES_INDEX.md](/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md)
 
 **ADRs:**
-- [ADR-024](/docs/decisions/ADR-024.md)
+- [ADR-024](/docs/decisions/ADR-024-base-intelligence-service-migration.md)
 
 ### @base-analytics-service
 
@@ -64,8 +64,8 @@ For each skill, this section shows all related documentation (architecture docs,
 - [search_service_pattern.md](/docs/patterns/search_service_pattern.md)
 
 **ADRs:**
-- [ADR-024](/docs/decisions/ADR-024.md)
-- [ADR-031](/docs/decisions/ADR-031.md)
+- [ADR-024](/docs/decisions/ADR-024-base-intelligence-service-migration.md)
+- [ADR-031](/docs/decisions/ADR-031-baseservice-mixin-decomposition.md)
 
 ### @chartjs
 
@@ -91,7 +91,7 @@ For each skill, this section shows all related documentation (architecture docs,
 - [OWNERSHIP_VERIFICATION.md](/docs/patterns/OWNERSHIP_VERIFICATION.md)
 
 **ADRs:**
-- [ADR-023](/docs/decisions/ADR-023.md)
+- [ADR-023](/docs/decisions/ADR-023-curriculum-baseservice-migration.md)
 
 ### @docker
 
@@ -124,7 +124,7 @@ For each skill, this section shows all related documentation (architecture docs,
 - [FASTHTML_ROUTE_REGISTRATION.md](/docs/patterns/FASTHTML_ROUTE_REGISTRATION.md)
 
 **ADRs:**
-- [ADR-020](/docs/decisions/ADR-020.md)
+- [ADR-020](/docs/decisions/ADR-020-fasthtml-route-registration-pattern.md)
 
 ### @fasthtml
 
@@ -141,7 +141,7 @@ For each skill, this section shows all related documentation (architecture docs,
 - [ROUTE_NAMING_CONVENTION.md](/docs/patterns/ROUTE_NAMING_CONVENTION.md)
 
 **ADRs:**
-- [ADR-020](/docs/decisions/ADR-020.md)
+- [ADR-020](/docs/decisions/ADR-020-fasthtml-route-registration-pattern.md)
 
 ### @journals
 
@@ -151,8 +151,8 @@ For each skill, this section shows all related documentation (architecture docs,
 - [JOURNALS_DOMAIN_ARCHITECTURE.md](/docs/architecture/JOURNALS_DOMAIN_ARCHITECTURE.md)
 
 **ADRs:**
-- [ADR-003](/docs/decisions/ADR-003.md)
-- [ADR-054](/docs/decisions/ADR-054.md)
+- [ADR-003](/docs/decisions/ADR-003-journals-service-query.md)
+- [ADR-054](/docs/decisions/ADR-054-user-entry-unified-submissions.md)
 
 ### @learning-loop
 
@@ -177,7 +177,7 @@ For each skill, this section shows all related documentation (architecture docs,
 - [UNIFIED_RELATIONSHIP_SERVICE.md](/docs/patterns/UNIFIED_RELATIONSHIP_SERVICE.md)
 
 **ADRs:**
-- [ADR-037](/docs/decisions/ADR-037.md)
+- [ADR-037](/docs/decisions/ADR-037-lateral-relationships-visualization-phase5.md)
 
 ### @prometheus-grafana
 
@@ -190,7 +190,7 @@ For each skill, this section shows all related documentation (architecture docs,
 - [PERFORMANCE_MONITORING.md](/docs/patterns/PERFORMANCE_MONITORING.md)
 
 **ADRs:**
-- [ADR-036](/docs/decisions/ADR-036.md)
+- [ADR-036](/docs/decisions/ADR-036-prometheus-primary-cache-pattern.md)
 
 ### @prompt-templates
 
@@ -206,7 +206,7 @@ For each skill, this section shows all related documentation (architecture docs,
 - [PWA_ARCHITECTURE.md](/docs/architecture/PWA_ARCHITECTURE.md)
 
 **ADRs:**
-- [ADR-050](/docs/decisions/ADR-050.md)
+- [ADR-050](/docs/decisions/ADR-050-pwa-mobile-strategy.md)
 
 ### @pydantic
 
@@ -221,7 +221,7 @@ For each skill, this section shows all related documentation (architecture docs,
 - [PERFORMANCE_MONITORING.md](/docs/patterns/PERFORMANCE_MONITORING.md)
 
 **ADRs:**
-- [ADR-035](/docs/decisions/ADR-035.md)
+- [ADR-035](/docs/decisions/ADR-035-tier-selection-guidelines.md)
 
 ### @pytest
 
@@ -254,8 +254,8 @@ For each skill, this section shows all related documentation (architecture docs,
 - [linter_rules.md](/docs/patterns/linter_rules.md)
 
 **ADRs:**
-- [ADR-022](/docs/decisions/ADR-022.md)
-- [ADR-035](/docs/decisions/ADR-035.md)
+- [ADR-022](/docs/decisions/ADR-022-graph-native-authentication.md)
+- [ADR-035](/docs/decisions/ADR-035-tier-selection-guidelines.md)
 
 ### @result-pattern
 
@@ -270,7 +270,7 @@ For each skill, this section shows all related documentation (architecture docs,
 - [event_driven_architecture.md](/docs/patterns/event_driven_architecture.md)
 
 **ADRs:**
-- [ADR-022](/docs/decisions/ADR-022.md)
+- [ADR-022](/docs/decisions/ADR-022-graph-native-authentication.md)
 
 ### @security
 
@@ -287,7 +287,7 @@ For each skill, this section shows all related documentation (architecture docs,
 - [ERROR_HANDLING.md](/docs/patterns/ERROR_HANDLING.md)
 
 **ADRs:**
-- [ADR-022](/docs/decisions/ADR-022.md)
+- [ADR-022](/docs/decisions/ADR-022-graph-native-authentication.md)
 
 ### @skuel-search-architecture
 
@@ -367,7 +367,7 @@ For each skill, this section shows all related documentation (architecture docs,
 - [USER_CONTEXT_INTELLIGENCE.md](/docs/intelligence/USER_CONTEXT_INTELLIGENCE.md)
 
 **ADRs:**
-- [ADR-030](/docs/decisions/ADR-030.md)
+- [ADR-030](/docs/decisions/ADR-030-usercontext-file-consolidation.md)
 
 ### @vis-network
 
@@ -383,7 +383,7 @@ For each skill, this section shows all related documentation (architecture docs,
 - [LATERAL_RELATIONSHIPS_VISUALIZATION.md](/docs/patterns/LATERAL_RELATIONSHIPS_VISUALIZATION.md)
 
 **ADRs:**
-- [ADR-037](/docs/decisions/ADR-037.md)
+- [ADR-037](/docs/decisions/ADR-037-lateral-relationships-visualization-phase5.md)
 
 ### @zpd
 
@@ -463,18 +463,18 @@ For each documentation category, this section shows which skills are relevant.
 
 ### ADRs (Architecture Decision Records)
 
-- [ADR-003](/docs/decisions/ADR-003.md) → @journals
-- [ADR-020](/docs/decisions/ADR-020.md) → @domain-route-config, @fasthtml
-- [ADR-022](/docs/decisions/ADR-022.md) → @python, @result-pattern, @security
-- [ADR-023](/docs/decisions/ADR-023.md) → @curriculum-domains
-- [ADR-024](/docs/decisions/ADR-024.md) → @base-ai-service, @base-analytics-service
-- [ADR-030](/docs/decisions/ADR-030.md) → @user-context-intelligence
-- [ADR-031](/docs/decisions/ADR-031.md) → @base-analytics-service
-- [ADR-035](/docs/decisions/ADR-035.md) → @pydantic, @python
-- [ADR-036](/docs/decisions/ADR-036.md) → @prometheus-grafana
-- [ADR-037](/docs/decisions/ADR-037.md) → @neo4j-cypher-patterns, @vis-network
-- [ADR-050](/docs/decisions/ADR-050.md) → @pwa
-- [ADR-054](/docs/decisions/ADR-054.md) → @journals
+- [ADR-003](/docs/decisions/ADR-003-journals-service-query.md) → @journals
+- [ADR-020](/docs/decisions/ADR-020-fasthtml-route-registration-pattern.md) → @domain-route-config, @fasthtml
+- [ADR-022](/docs/decisions/ADR-022-graph-native-authentication.md) → @python, @result-pattern, @security
+- [ADR-023](/docs/decisions/ADR-023-curriculum-baseservice-migration.md) → @curriculum-domains
+- [ADR-024](/docs/decisions/ADR-024-base-intelligence-service-migration.md) → @base-ai-service, @base-analytics-service
+- [ADR-030](/docs/decisions/ADR-030-usercontext-file-consolidation.md) → @user-context-intelligence
+- [ADR-031](/docs/decisions/ADR-031-baseservice-mixin-decomposition.md) → @base-analytics-service
+- [ADR-035](/docs/decisions/ADR-035-tier-selection-guidelines.md) → @pydantic, @python
+- [ADR-036](/docs/decisions/ADR-036-prometheus-primary-cache-pattern.md) → @prometheus-grafana
+- [ADR-037](/docs/decisions/ADR-037-lateral-relationships-visualization-phase5.md) → @neo4j-cypher-patterns, @vis-network
+- [ADR-050](/docs/decisions/ADR-050-pwa-mobile-strategy.md) → @pwa
+- [ADR-054](/docs/decisions/ADR-054-user-entry-unified-submissions.md) → @journals
 
 ---
 
