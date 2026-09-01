@@ -100,12 +100,16 @@ This prevents users from sharing failed/processing reports, ensuring portfolio q
 ### API Layer
 
 **6 new endpoints** (in a `reports_sharing_api.py` that no longer exists — the reports tree
-was split into submissions + feedback and then collapsed by ADR-054). All six survive as
-**methods on `UnifiedSharingService`** in `/core/services/sharing/`, but only the first has
-an HTTP route today: `POST /api/form-submissions/share`, plus the internal share performed
-by `UserEntryService.create_entry`'s audience resolution. The other five are
-**service-only** — no unshare, set-visibility, shared-with-me, shared-users or
-public-portfolio endpoint is registered anywhere in `adapters/inbound/`:
+was split into submissions + feedback and then collapsed by ADR-054). **Five of the six
+survive as methods on `UnifiedSharingService`** in `/core/services/sharing/` — `share`,
+`unshare`, `set_visibility`, `get_shared_with_me`, `get_shared_with`. The sixth, browsing
+public portfolios, has **no successor at all**: `set_visibility(PUBLIC)` and `check_access`
+honour PUBLIC, but nothing lists public entities.
+
+Of the five, only `share` has an HTTP route today — `POST /api/form-submissions/share`,
+plus the internal share performed by `UserEntryService.create_entry`'s audience resolution.
+The other four are **service-only**: no unshare, set-visibility, shared-with-me or
+shared-users endpoint is registered anywhere in `adapters/inbound/`:
 
 1. `POST /api/submissions/share` - Share with user
 2. `POST /api/submissions/unshare` - Revoke access

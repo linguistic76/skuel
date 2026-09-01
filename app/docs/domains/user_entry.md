@@ -37,7 +37,7 @@ decides what (if anything) happens after creation.
 | `TRANSCRIBE_AND_STRUCTURE` | Audio → transcribed entry → LLM-structured second entry (legacy; preserved for existing nodes) |
 | `LLM_SUMMARY` | Text/file → LLM summary |
 | `EXTRACT_ACTIVITIES` | Text → DSL parse → real entities with `EXTRACTED_FROM` provenance (ADR-069) |
-| `TEACHER_REVIEW` | No processing; the entry waits in the teacher queue via `SHARED_WITH_GROUP` |
+| `TEACHER_REVIEW` | No processing; the entry waits in the teacher queue — but **only via `SHARED_WITH_GROUP`**, see the trap below |
 | `JOURNAL` | Journals-domain entry; processing driven by `JournalTier`. Always private |
 | `KNOWLEDGE` | Grounded knowledge entry — the `je_pro` channel |
 | `REFERENCE` | Reserved; no producer today (ADR-073 §4) |
@@ -169,6 +169,13 @@ through `UnifiedSharingService`:
 Audience is always **declared at submit time**. There is no implicit
 student→teacher sharing inferred from a `FULFILLS_EXERCISE` traversal plus a
 role check.
+
+⚠️ **The queue reads groups, the validator accepts users.** `AudienceResolver.validate()`
+lets a `TEACHER_REVIEW` request satisfy its audience requirement with
+`share_with_users` alone, but the review queue in
+`adapters/persistence/neo4j/_user_entry_assessment_mixin.py` matches **only**
+`SHARED_WITH_GROUP` edges. A turn-in shared with a teacher as an individual is therefore
+perfectly valid and appears in no queue. Group audience is what makes a turn-in reviewable.
 
 `AudienceResolver` is deliberately a standalone helper rather than facade-private:
 the `/upload` ingestion path reuses the same validation without going through
