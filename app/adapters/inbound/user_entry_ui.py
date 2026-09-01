@@ -19,10 +19,11 @@ Routes:
 - POST /submissions/history/delete       — HTMX row delete
 - GET  /submissions/knowledge            — Knowledge notes + grounded-Ku chips (5th slot)
 
-Journal upload routes (POST /journals/upload, POST /journals/folder-process,
-GET /journals/browse) live in journals_routes.py. Those paths are
-zero-persistence (ADR-073) — they process to je_out/ and write nothing. Reads
-go through ``UserEntryOrchestrator``.
+Journal upload routes (POST /journals/upload, POST /journals/folder-process) live
+in journals_routes.py. Those paths are zero-persistence (ADR-073) — they process
+to je_out/ and write nothing. Reads go through ``UserEntryOrchestrator``. There is
+no journal-history surface: ``GET /journals/browse`` was deleted with the browse
+route in #420 — journals flow through SKUEL, they do not live in it.
 """
 
 from __future__ import annotations

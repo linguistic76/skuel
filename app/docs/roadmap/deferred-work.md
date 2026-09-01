@@ -2446,39 +2446,54 @@ claims that matter are pinned or gone, and "N things" in running text has no rel
 ## Dead-Doc-Links Instrument — Rulings + Scheduled Work (REGISTERED 2026-09-01)
 
 `scripts/health/dead_doc_links.py` (in `./dev health` + the weekly janitor; not a CI gate)
-has sat red at **871 findings / 531 distinct missing targets** (measured 2026-09-01,
-re-measured same day on `eb6aad6af`, and confirmed again by the classification pass on
-`e2e5b7f4a` — identical). An always-on check reporting 871
-findings is one nobody reads. The findings decompose into classes (re-derive by driving
-`check_file()` over `get_md_files()` — never trust these counts as current; the
-route-shaped row overlaps the live-docs row and the freeform-file counts overlap the
-parser row, so rows no longer sum to 871 — the authoritative recount is B1's exit
-measurement):
+sat red at **871 findings / 531 distinct missing targets** before PR B1 (measured
+2026-09-01 on `eb6aad6af`, confirmed identical by the classification pass on `e2e5b7f4a`).
+An always-on check reporting 871 findings is one nobody reads. **PR B1 landed the
+approved false-positive removals: 871 → 754 / 456 distinct** (measured on the branch by
+driving `check_file()` over `get_md_files()`). Re-derive the same way — never trust these
+counts as current. Post-B1 the rows below SUM to the total: the parser and carve-out
+classes are gone, and the route-shaped class is no longer scattered across the others.
 
-| Class | Findings | Disposition (Mike, 2026-09-01) |
+| Class | Findings (post-B1) | Disposition |
 |---|---|---|
-| Parser false positives (subscript-as-link ×30, globs in the bare pass ×7, ` + ` joins ×10, un-decoded `%20` ×1-real) | 47 | **APPROVED** — PR B1 |
-| Route-shaped targets — application-URL links read as filesystem paths: 18 extension-less absolute link targets + 15 backticked PWA URLs (offline.html, manifest.json, service-worker.js served at root — registered in `adapters/inbound/pwa_routes.py`) | ~33 | **PR B1 investigation** (Codex on #1214, both rounds) — the class is defined by MATCHING a live route registration, never by shape alone: ⚠️ 5 of the 18 are genuinely dead (`/journals/browse` ×3 — registered nowhere, and a stale docstring in `adapters/inbound/user_entry_ui.py` claims it lives in `journals_routes.py`; `/yaml_templates/_schemas/` ×2 — neither route nor directory). Matched targets are not rot and a sweep must not rewrite them; UNMATCHED ones stay red and join the post-B1 sweep queue |
-| The two freeform design-principles files (`direction w structuring.md` 20, `dp - emergence, patience, non-attachment.md` 16 — links point into the Obsidian vault, unvalidatable by construction) + `.claude/skills/_templates/` (placeholder paths) | 36 + 14 | **APPROVED** — PR B1 carve-outs; ⚠️ scoped to the two MEASURED files, NOT the directory (Codex on #1214): `design-principles/` also holds maintained specs with genuine rot — `HUB_PAGES.md` cites a teaching-hub view module that no longer exists — which must stay visible |
+| ~~Parser false positives~~ (subscript-as-link ×24, globs in the bare pass ×7, ` + ` joins ×9, un-decoded `%20`) | 0 (−40) | **DONE — PR B1.** Re-measured on the branch: 24 subscripts (not 30 — six of that count were the `%20` links, kept checkable), 9 joins (not 10). The `%20` fix resolves a citation to a REAL file rather than removing a line, so its effect lands inside the freeform carve-out |
+| ~~Route-shaped targets~~ — application URLs read as filesystem paths | 0 · 6 still red | **DONE — PR B1.** Matched by AST against the live `@rt("…")` registrations in `adapters/inbound/`, never by shape and never by a URL list; skips are counted and printed. ⚠️ Unmatched stays RED by design: `/journals/browse` ×3 (deleted in #420 — the stale `user_entry_ui.py` docstring claiming otherwise was fixed in B1), `/yaml_templates/_schemas/` ×2 (neither route nor directory), and `/tasks` ×1 (live, but registered as `@rt(f"/{domain}")`, which no static pass resolves — fail toward reporting). All 6 join the sweep queue |
+| ~~The two freeform design-principles files~~ + `.claude/skills/_templates/` | 0 (−50) | **DONE — PR B1** carve-outs, 5 files, count printed every run. ⚠️ FILE-scoped, not the directory: `design-principles/HUB_PAGES.md` cites a teaching-hub view module that no longer exists, and that finding is still reported — verify it still is, before ever widening this to a directory. (The path is named in prose there rather than backticked here: a backticked dead path in this doc is itself a finding.) |
 | Generated `CROSS_REFERENCE_INDEX.md` (slug-less ADR links) | 30 | **RULED** — PR B2, glob-with-loud-failure |
-| History dirs (`migrations/` 206, `roadmap/done/` 12, `Reviews/`+`investigations/` 16 → 226 after parser dedup) | 226 | **RULED 2026-09-01** — silent dir carve-out; directory membership IS the classification (PR B3) |
-| ADRs (`docs/decisions/`, 50 files; mixed faithful history and standing contracts) | 156 | **RULED 2026-09-01** — per-citation historical marker, option (d); measured split 81 standing / 70 narrative / 3 ambiguous of 154 (PR B3 mechanism + PR B4 sweep) |
-| Live docs — real rot | 367 | **RULED** — sweep queue below |
+| History dirs (`migrations/` 198, `roadmap/done/` + `Reviews/` + `investigations/` 28) | 226 | **RULED 2026-09-01** — silent dir carve-out; directory membership IS the classification (PR B3) |
+| ADRs (`docs/decisions/`, mixed faithful history and standing contracts) | 154 | **RULED 2026-09-01** — per-citation historical marker, option (d); measured split 81 standing / 70 narrative / 3 ambiguous. B1's exit measurement lands on exactly 154, confirming the pass's arithmetic (167 raw − 11 parser − 2 route-matched) (PR B3 mechanism + PR B4 sweep) |
+| Live docs — real rot | 344 | **RULED** — sweep queue below, now actionable |
 
-**PR B1 (scheduled, fresh context):** the four parser narrowings — each targets a measured
-shape, is measured against the live tree, and is pinned by a case in
-`tests/unit/scripts/test_dead_doc_links.py` (the module's own PLACEHOLDER discipline) —
-plus the carve-outs with per-entry reasons and the skip count printed in every run
-(`duplicate_headings.py` shape): the TWO measured freeform files in `design-principles/`
-(never the whole directory — its maintained specs carry genuine rot that must stay
-visible) and the `_templates/` directory. Plus the route-shaped investigation: decide
-in-PR how link targets that are registered application routes (extension-less absolutes,
-the backticked PWA URLs) are recognized — classify against the live route registrations,
-never a hand list of URLs.
-⚠️ No blanket space-rejection in `_looks_like_local_path`: quoted fence spans deliberately
-keep the real `docs/design-principles/direction w structuring.md` whole so a DEAD
-space-bearing path stays detectable (Codex, PR #872). Expected roughly 871 → 745–780
-depending on the route mechanism; the exit measurement is the authority.
+**PR B1 (LANDED):** 871 → **754** (−117: 40 parser, 50 carve-out, 27 route-matched),
+every removed finding classified and zero findings added. Four narrowings, each stating
+the shape it targets and pinned in `tests/unit/scripts/test_dead_doc_links.py`:
+
+- **Link destinations** get a shape guard (the pass had none). A RAW space is the
+  discriminator — CommonMark-grounded, since an unescaped space cannot appear in a link
+  destination at all. ⚠️ **A comma is deliberately NOT a rejection signal**: the arc's
+  first sketch rejected commas, which would have declared the six correctly-`%20`-encoded
+  vault links uncheckable — one of which names a REAL file.
+- **`resolve_path` unquotes** the anchor-stripped target, so a `%20`-encoded citation of a
+  real space-bearing file resolves. Corner: a literal `%20` in a filename would
+  false-negative — measured zero (`git ls-files | grep %`).
+- **The bare pass** consults the shared `TEMPLATE_MARKERS` predicate (globs, `{domain}`).
+- **`_looks_like_local_path` rejects the two-path join** ` + `. ⚠️ **NOT spaces
+  wholesale** — that would lose the live dead FastHTML Best Practices citation in
+  `docs/patterns/FASTHTML_TYPE_HINTS_GUIDE.md` (spelled out in the test, not here: a
+  backticked dead path in this doc is itself a finding) and undo the quoted-fence
+  handling that keeps space-bearing filenames whole (Codex, PR #872). Pinned in both
+  directions.
+
+Carve-outs are scope exclusions with per-entry reasons and a printed file count
+(`duplicate_headings.py` shape), plus a test that every entry still exists — a carve-out
+naming a deleted file is a silent no-op. The route mechanism reads the live catalog by
+AST from `adapters/inbound/` (docstring `@rt("…")` examples are invisible to a walk, and
+would not be to a grep) and matches exact literal paths only; a repo-rooted target
+(`/docs/…`, `/core/…`) is never route-matched. Both skip counts print on **every** run,
+zero included — a silent zero is how a rotted carve-out looks like a clean scan. The
+printed route-skip count tracks the corpus rather than the −117 accounting above, so it
+moves whenever a doc gains or drops a route citation (this section's own pair pushed it
+to 28 on the merge commit) — it is an observation, not an invariant.
 
 **PR B2 (scheduled, fresh context):** the generator links ADRs as bare `ADR-NNN.md` under
 `docs/decisions/` but real ADRs carry slugs — 12 of its 13 distinct ADR link targets are dead. Ruling:
@@ -2584,21 +2599,25 @@ machine-local): B4 re-derives it by the recorded procedure — drive `check_file
 the split recorded above as the expected shape; re-derivation is mandatory for the
 counts anyway, never guessed.
 
-**Live-docs sweep queue (RULED: register + burn down via doc sweeps):** ~367 findings in
-live docs — patterns 103 · skills 48 · intelligence 41 · architecture 35 · domains 32 ·
-guides 30 · roadmap-live 14 · reference 13 · ui 11 · misc ~40 (2026-09-01) — ⚠️ **counts
-contaminated by the route-shaped class above** (Codex on #1214: `VOICE_JOURNALING_AND_OBSIDIAN_GUIDE.md`'s
-13 findings are ALL valid route links; `PWA_ARCHITECTURE.md` is 9 valid PWA URLs + 1 real).
-**The queue is not actionable until PR B1 lands and the residue is recounted** — a sweep
-run today would rewrite valid user-facing links. The tail shape survives the caveat: of
-231 distinct targets only 36 have a unique same-basename relocation candidate; most are
+**Live-docs sweep queue (RULED: register + burn down via doc sweeps) — ACTIONABLE since
+PR B1:** **344 findings / 224 distinct targets**, recounted on B1's exit measurement —
+patterns 104 · skills 46 · intelligence 41 · domains 32 · architecture 26 · guides 18 ·
+roadmap-live 14 · reference 13 · ui 11 · user-guides 9 · docs-root 8 · development 6 ·
+misc 16. The route-shaped contamination that blocked this queue is gone: the counts above
+are what the scanner reports *after* 27 valid route links stopped being read as files, so
+`VOICE_JOURNALING_AND_OBSIDIAN_GUIDE.md` drops from 13 to 3 (all genuinely dead) and
+`PWA_ARCHITECTURE.md` from 10 to 1. The tail shape survives the recount: of the 224
+distinct targets only **33** have a unique same-basename relocation candidate; most are
 genuinely deleted files, so the usual fix is editing the citing PROSE, not swapping a
-path — a rename map cannot carry this queue. **Protocol (post-B1):** any sweep or PR
-touching a listed doc fixes its dead links as a ride-along after checking route-shaped
-targets against live route registrations; confirmed real heavy hitters
-(`UI_COMPONENT_PATTERNS.md` 12 · `COMPONENT_CATALOG.md` 11 — deleted `ui/*.py` citations)
-can be dedicated small sweeps. A bulk correction script, if one ever emerges, re-derives
-its premise at run time and aborts on surprise — a heuristic proposes, never rewrites.
+path — a rename map cannot carry this queue. **Protocol:** any sweep or PR touching a
+listed doc fixes its dead links as a ride-along; ⚠️ a route-shaped target that is still
+red is not automatically rot — `/tasks` is live but registered as `@rt(f"/{domain}")`,
+which B1's static matcher cannot resolve, so check `adapters/inbound/` before rewriting
+one. Confirmed real heavy hitters (`UI_COMPONENT_PATTERNS.md` 12 · `COMPONENT_CATALOG.md`
+11 — deleted `ui/*.py` citations · `three_tier_type_system.md` 8 ·
+`user-guides/ui-development.md` 8) can be dedicated small sweeps. A bulk correction
+script, if one ever emerges, re-derives its premise at run time and aborts on surprise —
+a heuristic proposes, never rewrites.
 
 **Noted, unscheduled — duplicate ADR numbers:** ADR-030 exists three times
 (`curriculum-domain-unification`, `dual-track-assessment-pattern`,
@@ -2658,7 +2677,7 @@ Review this document at the **September 2026 quarterly review**. Checklist:
 | READY PLANNED entries over 90 days → wire-or-delete ruling (the `planned-ready-aging` finding, INFO, never gates) | Any READY entry in `scripts/detect_bloat.py` older than `READY_AGING_DAYS` — first fires 2026-09-10 on the three 2026-06-11 entries; by this review all seven READY are over it, which is the intended signal | `./dev bloat --ready` — every row listed is wire-or-delete; a DELAYED entry aging is expected and is NOT this row |
 | Catalog copies in code — the duplicated-fact class (measured 2026-08-29) | Mike schedules the mechanical items; until then a ride-along: any PR that adds a health check, an embeddable type, a vector-index label, or a suppressible rule touches every copy the section names | ⛔ Do not scope from this cell — the section holds the inventory and the ruling. Re-measure: `uv run python scripts/detect_bloat.py --json` → count of `planned-marking-stale` findings (2 on 2026-08-29, seen by neither CI nor the janitor); the scripts named in `dev` § `health)` and in the janitor's `for check in` loop must be the same set (6 on 2026-09-01, up from 5 — `docs_updated.py` was added by hand to every copy) |
 | Hollow embedding field maps — `PLANNED_EMBEDDING_MAPS` (4 DELAYED on 2026-08-30: `ENTRY_REPORT`, `ACTIVITY_REPORT`, `FORM_TEMPLATE`, `FORM_SUBMISSION`) | The EntryReport / ActivityReport search row above fires (the two report maps point at it), or a consumer wants form content in semantic search (the two form maps — no section, the registry reason is the one copy) | `./dev bloat` § Embedding field maps — every row is hollow by ruling; an unregistered hollow map already fails `--check` on its own. Wiring one = ADR-074's quartet, then delete its entry (the stale gate demands it) |
-| Dead-doc-links PR B1 (parser fixes + route-shaped investigation + file-scoped freeform carve-outs) + PR B2 (ADR glob-with-loud-failure) — both APPROVED/RULED 2026-09-01 | Fresh-context sessions, one per PR — approved work, not waiting on data | `uv run python scripts/health/dead_doc_links.py` — B1's exit measurement is the authority (~745–780 expected, then −30 for B2); re-measure, never trust the snapshot. See the section |
+| Dead-doc-links PR B2 (ADR glob-with-loud-failure), then B3 (history-line mechanism) and B4 (ADR content sweep) — B1 LANDED at 754 | Fresh-context sessions, one per PR, in order — approved/ruled work, not waiting on data | `uv run python scripts/health/dead_doc_links.py` — 754 today; B2 expects −30, B3 −226 from the history-dir carve-out (its marker *mechanism* only pays off when B4 applies the markers), B4 clears `decisions/`. Re-measure, never trust the snapshot. See the section |
 | Dead-doc-links history line — **RULED 2026-09-01** (classification pass executed: 81 standing / 70 narrative / 3 ambiguous): ADRs = per-citation marker, 4 history dirs = silent carve-out; PR B3 (mechanism, after B1) + PR B4 (ADR sweep, after B3) | Fresh-context sessions, one per PR — ruled work, not waiting on data | The check stays red on `decisions/` + history dirs by design until B3/B4 land; rulings + content rulings in the section (status-scoping stays falsified — 2/89 Superseded) |
 | Live-docs dead-link sweep queue (~367 pre-recount — ⚠️ NOT actionable until PR B1 lands: counts contaminated by valid route links, a sweep today would rewrite them) | Post-B1 recount, then ride-along on every doc sweep or PR touching a listed area; confirmed heavy hitters may get dedicated small sweeps | Re-derive per doc by running the scanner and filtering to the file; check route-shaped targets against live route registrations; fix the citing prose (most targets are deleted, not moved) |
 

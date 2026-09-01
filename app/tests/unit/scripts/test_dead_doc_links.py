@@ -56,9 +56,15 @@ def docs_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 def _report(docs_root: Path, body: str) -> set[tuple[int, str, str]]:
     """Run the real check_file over a probe doc; return {(lineno, token, kind)}."""
-    probe = docs_root / "docs" / "probe.md"
+    return {(lineno, raw, kind) for _src, lineno, raw, kind in _scan(docs_root, body).dead}
+
+
+def _scan(docs_root: Path, body: str, name: str = "probe.md") -> ddl.FileScan:
+    """Run the real check_file over a probe doc; return the whole scan (dead + skips)."""
+    probe = docs_root / "docs" / name
+    probe.parent.mkdir(parents=True, exist_ok=True)
     probe.write_text(body, encoding="utf-8")
-    return {(lineno, raw, kind) for _src, lineno, raw, kind in ddl.check_file(probe, verbose=False)}
+    return ddl.check_file(probe, verbose=False)
 
 
 def test_fenced_relative_path_is_reported(docs_root: Path) -> None:
@@ -381,7 +387,7 @@ def test_fence_walker_matches_commonmark_across_the_whole_tree() -> None:
         return found
 
     scanned, disagreements = 0, []
-    for doc in ddl.get_md_files():
+    for doc in ddl.get_md_files()[0]:
         content = doc.read_text(encoding="utf-8", errors="ignore")
         lines = content.splitlines()
         truth: set[int] = set()
@@ -535,3 +541,318 @@ def test_placeholder_guard_only_ever_subtracts() -> None:
     evidence that something IS broken — nothing may branch on a True to report."""
     assert ddl._is_placeholder("core/services/your_service.py") is True
     assert ddl._is_placeholder(DEAD_REL) is False
+
+
+# ============================================================================
+# THE LINK-DESTINATION GUARD — Python subscripts are not links (PR B1)
+# ============================================================================
+
+
+def test_generic_subscript_is_not_read_as_a_link(docs_root: Path) -> None:
+    """THE class: `Backend[T](driver, "Task", Task)` parses as `[T](driver, "Task", Task)`.
+
+    24 findings measured on the live tree 2026-09-01, every one a Python generic
+    subscript and not one an actual link — ADR-019/023 and the pytest skill are dense
+    with them. The link pass was the only one of the four with no shape guard at all.
+    """
+    body = '# P\n\nbackend = UniversalNeo4jBackend[T](driver, "Task", Task)\n'
+    assert _report(docs_root, body) == set()
+
+
+@pytest.mark.parametrize(
+    "target",
+    [
+        'driver, "Task", Task',  # the dominant live shape
+        "Generic[B, T]",  # ADR-023:72
+        "name: str, value: T",  # pydantic skill
+        "data: dict[str, Any], entity_class: type[T]",  # ASYNC_SYNC_DESIGN_PATTERN:141
+    ],
+)
+def test_raw_space_destinations_are_not_checkable(target: str) -> None:
+    """A raw space is the discriminator, and it is CommonMark-grounded rather than
+    heuristic: an unescaped space cannot appear in a link destination at all."""
+    assert not ddl._is_checkable_link_target(target)
+
+
+def test_comma_is_not_a_rejection_signal() -> None:
+    """The narrowing that would have been wrong. The arc's first sketch rejected commas
+    too — but the corpus's six comma-bearing destinations are all correctly
+    `%20`-encoded vault links, and one of them names a REAL file. Rejecting commas would
+    have declared a live link uncheckable to remove a false positive that the encoding
+    fix removes properly.
+    """
+    encoded = "dp%20-%20emergence,%20patience,%20non-attachment.md"
+    assert ddl._is_checkable_link_target(encoded)
+
+
+def test_link_destination_with_a_template_marker_is_skipped() -> None:
+    """Latent-gap pin, measured zero on the live tree (like the blockquoted-fence case).
+
+    `core/services/{domain}/x.py` in backticks is rejected by `_looks_like_local_path`
+    while the identical token as a link destination was reported — one token, two
+    answers, decided by which pass saw it first.
+    """
+    for marker in ddl.TEMPLATE_MARKERS:
+        assert not ddl._is_checkable_link_target(f"core/services/x{marker}y/service.py")
+
+
+def test_ordinary_dead_link_is_still_reported(docs_root: Path) -> None:
+    """Positive control for the guard: it must not have quieted the link pass itself."""
+    assert _report(docs_root, f"# P\n\nSee [the service]({DEAD_REL}).\n") == {(3, DEAD_REL, "link")}
+
+
+# ============================================================================
+# URL-DECODING — `%20` is a space, not a filename character (PR B1)
+# ============================================================================
+
+
+def test_percent_encoded_destination_resolves_to_the_real_file(docs_root: Path) -> None:
+    """`resolve_path` never unquoted, so a correctly-encoded citation of a real
+    space-bearing file reported dead purely because of its encoding."""
+    real = docs_root / "docs" / "a b, c.md"
+    real.write_text("x", encoding="utf-8")
+    assert _report(docs_root, "# P\n\n[note](a%20b,%20c.md)\n") == set()
+
+
+def test_percent_encoded_destination_of_a_missing_file_still_reports(docs_root: Path) -> None:
+    """The other direction: decoding must not turn the pass off, only resolve it."""
+    reported = {raw for _l, raw, _k in _report(docs_root, "# P\n\n[note](a%20b,%20c.md)\n")}
+    assert reported == {"a%20b,%20c.md"}
+
+
+def test_live_encoded_citation_of_a_real_file_resolves() -> None:
+    """Live-tree pin, because the fixture above proves only the mechanism.
+
+    This exact citation sits at `dp - emergence, patience, non-attachment.md:301` and
+    names its own file. It reports dead without the unquote and clean with it — the one
+    finding in the parser class that resolves to a REAL file rather than disappearing.
+    """
+    source = ddl.ROOT / "docs" / "design-principles" / "dp - emergence, patience, non-attachment.md"
+    target = ddl.resolve_path("dp%20-%20emergence,%20patience,%20non-attachment.md", source)
+    assert target is not None and target.exists()
+
+
+# ============================================================================
+# THE BARE PASS AND THE SHARED MARKER PREDICATE (PR B1)
+# ============================================================================
+
+
+@pytest.mark.parametrize(
+    "token",
+    [
+        "/ui/**/*.py",  # ADR-071:311 — Tailwind content glob
+        "/static/js/*.js",  # ADR-071:315
+        "/ui/{domain}/layout.py",  # skuel-ui/reference.md:12
+    ],
+)
+def test_bare_pass_rejects_globs_and_templates(docs_root: Path, token: str) -> None:
+    """`extract_bare_paths` never consulted a shape guard, so glob and template patterns
+    were reported as dead repo files — 7 findings measured 2026-09-01."""
+    assert _report(docs_root, f"# P\n\nContent scanned from {token} here.\n") == set()
+
+
+def test_bare_pass_rejects_every_marker_its_tokenizer_admits() -> None:
+    """Derived from TEMPLATE_MARKERS rather than hand-listed, the same discipline the
+    fence tokenizer/guard pair uses — a marker added later must not need a second edit.
+
+    Scoped to the markers the bare-path regex can actually produce: its character class
+    already excludes `<` and `>`, so those never reach the check.
+    """
+    for marker in ddl.TEMPLATE_MARKERS:
+        token = f"/ui/x{marker}y/layout.py"
+        if not ddl.extract_bare_paths(f"see {token} here"):
+            continue  # the regex excluded the marker; nothing for the guard to reject
+        assert ddl.extract_bare_paths(f"see {token} here") == [], marker
+
+
+def test_bare_pass_still_reports_a_plain_dead_absolute(docs_root: Path) -> None:
+    """Positive control: the marker rejection must not quiet the pass."""
+    assert _report(docs_root, f"# P\n\nSee {DEAD_ABS} here.\n") == {(3, DEAD_ABS, "bare")}
+
+
+# ============================================================================
+# TWO-PATH JOINS — and why spaces are NOT rejected wholesale (PR B1)
+# ============================================================================
+
+
+def test_two_path_join_span_is_not_one_path() -> None:
+    """A prose join names TWO paths, so it resolves to neither and reports as a dead
+    file nobody ever cited — 9 findings measured 2026-09-01."""
+    join = "core/services/submissions/ + core/services/feedback/report_project_service.py"
+    assert not ddl._looks_like_local_path(join)
+
+
+def test_spaces_are_not_rejected_wholesale() -> None:
+    """⚠️ The narrowing that must stay narrow (Codex, PR #872).
+
+    The guard is shared with the fence pass, whose quoted-span handling exists precisely
+    so a space-bearing filename survives tokenization. A blanket space rejection would
+    undo that AND lose a live finding: the guide's `FastHTML Best Practices` citation at
+    `docs/patterns/FASTHTML_TYPE_HINTS_GUIDE.md:433` is a genuinely dead path with two
+    spaces in it. Its separator is a literal EN DASH, escaped below because ruff's
+    ambiguous-character rule rejects the raw glyph — the value must stay byte-identical
+    to the live citation for this pin to mean anything.
+    """
+    assert ddl._looks_like_local_path("/docs/FastHTML Best Practices \u2013 fasthtml.html")
+    assert ddl._looks_like_local_path("docs/design-principles/direction w structuring.md")
+
+
+def test_dead_space_bearing_path_in_a_quoted_fence_is_still_reported(docs_root: Path) -> None:
+    """The other half of the #872 pin: the quoted-fence path stays *detectable* when the
+    file is DEAD, which is the only case that produces a finding."""
+    body = '# P\n\n```bash\ncp "docs/gone file.md" dest\n```\n'
+    assert _report(docs_root, body) == {(4, "docs/gone file.md", "code")}
+
+
+# ============================================================================
+# SCOPE CARVE-OUTS — excluded, counted, and printed (PR B1)
+# ============================================================================
+
+
+def test_carve_out_entries_all_exist() -> None:
+    """Stale-registration guard. A carve-out naming a file that no longer exists is a
+    silent no-op, and the skip count it inflates is the only thing that would say so."""
+    missing = [rel for rel in ddl.FREEFORM_FILES if not (ddl.ROOT / rel).is_file()]
+    assert missing == [], f"carve-out entries no longer in the tree: {missing}"
+    for directory in ddl.TEMPLATE_DIRS:
+        assert (ddl.ROOT / directory).is_dir(), directory
+
+
+def test_carved_out_files_are_skipped_and_counted(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Excluded by SCOPE, not suppressed: the count is what keeps the exclusion visible."""
+    monkeypatch.setattr(ddl, "ROOT", tmp_path)
+    monkeypatch.setattr(ddl, "SCAN_DIRS", [tmp_path / "docs", tmp_path / ".claude" / "skills"])
+    for rel in (*ddl.FREEFORM_FILES, ".claude/skills/_templates/SKILL_TEMPLATE.md"):
+        path = tmp_path / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(f"[x]({DEAD_REL})\n", encoding="utf-8")
+    kept = tmp_path / "docs" / "design-principles" / "HUB_PAGES.md"
+    kept.write_text(f"[x]({DEAD_REL})\n", encoding="utf-8")
+
+    scanned, skipped = ddl.get_md_files()
+
+    assert skipped == len(ddl.FREEFORM_FILES) + 1
+    assert [p.name for p in scanned] == ["HUB_PAGES.md"]
+
+
+def test_a_maintained_spec_beside_the_freeform_notes_is_not_carved_out() -> None:
+    """⚠️ FILE-scoped, never the directory (Codex, PR #1214). `design-principles/` holds
+    freeform notes AND maintained specs; `HUB_PAGES.md` cites the deleted
+    `ui/teaching/hub.py`, and a directory carve-out would hide that rot."""
+    scanned, _ = ddl.get_md_files()
+    names = {p.name for p in scanned}
+    assert "HUB_PAGES.md" in names
+    assert "direction w structuring.md" not in names
+
+
+def test_run_prints_both_skip_counts(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The counts print on EVERY run, zero included: a silent zero is how a rotted
+    carve-out or a broken route matcher looks exactly like a clean scan."""
+    monkeypatch.setattr(sys, "argv", ["dead_doc_links.py"])
+    ddl.main()
+    out = capsys.readouterr().out
+    assert "carved-out files skipped" in out
+    assert "registered application routes" in out
+
+
+# ============================================================================
+# ROUTE-SHAPED TARGETS — matched against live registrations (PR B1)
+# ============================================================================
+
+
+@pytest.fixture
+def fake_app(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """A throwaway root whose `adapters/inbound/` registers exactly two routes."""
+    monkeypatch.setattr(ddl, "ROOT", tmp_path)
+    (tmp_path / "docs").mkdir()
+    inbound = tmp_path / "adapters" / "inbound"
+    inbound.mkdir(parents=True)
+    (inbound / "journals_routes.py").write_text(
+        "def register(rt):\n"
+        '    """Docstring example: @rt("/ghost") — prose, not a registration."""\n'
+        '    @rt("/journals", methods=["GET"])\n'
+        "    def journals(request):\n"
+        "        return None\n"
+        '    @rt("/manifest.json")\n'
+        "    def manifest(request):\n"
+        "        return None\n",
+        encoding="utf-8",
+    )
+    (inbound / "activity_ui_factory.py").write_text(
+        "def register(rt, domain):\n"
+        '    @rt(f"/{domain}")\n'
+        "    def listing(request):\n"
+        "        return None\n",
+        encoding="utf-8",
+    )
+    return tmp_path
+
+
+def test_registered_route_target_is_skipped_and_counted(fake_app: Path) -> None:
+    """Docs cite app URLs with the same spelling a repo path uses. A live route is not a
+    missing file — but the skip is counted, never silent."""
+    scan = _scan(fake_app, "# P\n\nOpen [the journal](/journals) and `/manifest.json`.\n")
+    assert scan.dead == []
+    assert scan.route_skips == 2
+
+
+def test_unregistered_route_shaped_target_stays_red(fake_app: Path) -> None:
+    """⚠️ The class is defined by MATCHING a registration, never by shape (Codex, #1214).
+
+    `/journals/browse` is exactly the trap: route-shaped, cited three times in the voice
+    journaling guide, and registered nowhere since PR #420 deleted it. A shape rule would
+    have hidden it; matching keeps it red for the sweep queue.
+    """
+    scan = _scan(fake_app, "# P\n\nSee [history](/journals/browse).\n")
+    assert {raw for _s, _l, raw, _k in scan.dead} == {"/journals/browse"}
+    assert scan.route_skips == 0
+
+
+def test_route_paths_come_from_the_ast_not_the_text(fake_app: Path) -> None:
+    """A docstring is prose. Grepping `@rt("` would have registered `/ghost` from the
+    fixture's own docstring — an auditor's example silently suppressing real rot."""
+    assert "/ghost" not in ddl.registered_route_paths()
+    assert {"/journals", "/manifest.json"} <= ddl.registered_route_paths()
+
+
+def test_fstring_route_is_not_extracted_and_its_target_stays_red(fake_app: Path) -> None:
+    """Documented direction, not an oversight. The activity/domain factories register
+    `@rt(f"/{domain}")`, which no static pass resolves, so the live `/tasks` keeps
+    reporting. An unmatched route costs one advisory line; a wrongly-matched one hides
+    real rot. Fail toward reporting."""
+    assert not any(p.startswith("/tasks") for p in ddl.registered_route_paths())
+    scan = _scan(fake_app, "# P\n\nSee [tasks](/tasks).\n")
+    assert {raw for _s, _l, raw, _k in scan.dead} == {"/tasks"}
+
+
+def test_repo_rooted_targets_are_never_route_matched(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A `/docs/…` or `/core/…` citation is a file path by convention. Measured: no live
+    route sits under a PROJECT_PREFIX — this blocks the class if one ever does."""
+    monkeypatch.setattr(ddl, "ROOT", tmp_path)
+    inbound = tmp_path / "adapters" / "inbound"
+    inbound.mkdir(parents=True)
+    (inbound / "odd.py").write_text(
+        'def register(rt):\n    @rt("/docs/patterns/gone.md")\n    def x(request):\n'
+        "        return None\n",
+        encoding="utf-8",
+    )
+    assert "/docs/patterns/gone.md" in ddl.registered_route_paths()
+    assert not ddl._is_registered_route("/docs/patterns/gone.md")
+
+
+def test_live_route_catalog_matches_the_real_registrations() -> None:
+    """Corpus pin against the real tree: the PWA assets are registered in
+    `adapters/inbound/pwa_routes.py` and match; `/journals/browse` does not exist and
+    must not. If this goes quiet, the extractor stopped reading the routes tree."""
+    catalog = ddl.registered_route_paths()
+    assert len(catalog) > 100, f"route catalog looks empty: {len(catalog)}"
+    for served in ("/manifest.json", "/service-worker.js", "/offline.html", "/journals"):
+        assert ddl._is_registered_route(served), served
+    for gone in ("/journals/browse", "/yaml_templates/_schemas/"):
+        assert not ddl._is_registered_route(gone), gone
