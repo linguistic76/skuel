@@ -34,7 +34,7 @@ decides what (if anything) happens after creation.
 |----------|--------------|
 | `NONE` | Plain submission or text entry — no processing |
 | `TRANSCRIBE` | Audio → text (Deepgram) |
-| `TRANSCRIBE_AND_STRUCTURE` | Audio → transcribed entry → LLM-structured second entry (legacy; preserved for existing nodes) |
+| `TRANSCRIBE_AND_STRUCTURE` | Audio → transcribed entry → LLM-structured second entry. The enum calls it legacy, but the path is **live**, not read-only: a client can select it on `POST /api/user-entries` or as a `/api/user-entries/process` override, and `_run_transcribe_and_structure` still dispatches it (FULL tier) |
 | `LLM_SUMMARY` | Text/file → LLM summary |
 | `EXTRACT_ACTIVITIES` | Text → DSL parse → real entities with `EXTRACTED_FROM` provenance (ADR-069) |
 | `TEACHER_REVIEW` | No processing; the entry waits in the teacher queue — but **only via `SHARED_WITH_GROUP`**, see the trap below |
