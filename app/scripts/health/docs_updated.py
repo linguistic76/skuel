@@ -133,8 +133,8 @@ def evaluate(path: str, content: str, history: FileHistory) -> Finding | None:
     return None
 
 
-def collect() -> tuple[list[Finding], int]:
-    docs = tracked_docs()
+def collect() -> tuple[list[Finding], int, int]:
+    docs, generated = tracked_docs()
     history = load_history(set(docs))
 
     findings: list[Finding] = []
@@ -148,19 +148,27 @@ def collect() -> tuple[list[Finding], int]:
         finding = evaluate(path, content, record)
         if finding is not None:
             findings.append(finding)
-    return findings, len(docs)
+    return findings, len(docs), generated
 
 
 def main() -> int:
     if not sys.stdout.isatty():
         Colors.disable()
 
-    findings, scanned = collect()
+    findings, scanned, generated = collect()
+    # Named, not swallowed: an exclusion nobody can see is indistinguishable from a
+    # blind spot (the `duplicate_headings.py` freeform carve-out sets the precedent).
+    carve_out = (
+        f", {generated} generated doc(s) excluded — their own drift tests guarantee "
+        f"freshness"
+        if generated
+        else ""
+    )
 
     if not findings:
         print(
             f"{Colors.GREEN}✓ docs `updated:` stamps are current "
-            f"({scanned} docs){Colors.RESET}"
+            f"({scanned} docs{carve_out}){Colors.RESET}"
         )
         return 0
 

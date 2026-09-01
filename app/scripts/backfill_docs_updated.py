@@ -218,7 +218,7 @@ def main() -> int:
     if not sys.stdout.isatty():
         Colors.disable()
 
-    docs = tracked_docs()
+    docs, generated = tracked_docs()
     history = load_history(set(docs))
 
     try:
@@ -233,7 +233,10 @@ def main() -> int:
     for plan in plans:
         by_reason[plan.reason] = by_reason.get(plan.reason, 0) + 1
 
-    print(f"{Colors.BOLD}Backfill plan{Colors.RESET} — {len(docs)} docs in scope")
+    print(
+        f"{Colors.BOLD}Backfill plan{Colors.RESET} — {len(docs)} docs in scope"
+        + (f" ({generated} generated doc(s) excluded)" if generated else "")
+    )
     for reason, count in sorted(by_reason.items()):
         print(f"  {reason:<10} {count}")
     print(f"  {'unchanged':<10} {len(docs) - len(plans)}")

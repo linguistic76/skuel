@@ -106,6 +106,34 @@ def in_scope(repo_relative_path: str) -> bool:
     )
 
 
+# A generated artifact is byte-compared against a fresh render by its own drift test,
+# which is a STRONGER freshness guarantee than a date — and stamping one breaks that
+# comparison outright (the backfill put a frontmatter block on
+# `reference/BASESERVICE_METHOD_INDEX.md` and `test_generate_method_index.py` went red
+# immediately). Its generator would also wipe the stamp on the next run, and the guard
+# would then report a correctly regenerated file as missing its key.
+_GENERATED_MARKER = re.compile(r"AUTO-GENERATED", re.IGNORECASE)
+
+# Header only. Measured over the 412-doc corpus: scanning the first 15 lines finds
+# exactly the 2 generated artifacts; scanning whole files finds 12, and the extra 10
+# are docs that merely *mention* a generated file. Same scoping argument as
+# `duplicate_headings.py` — in an always-on gate a false positive costs more than a
+# miss, and this one fails loudly anyway (a generated doc that omits the banner breaks
+# its own drift test on the first stamp).
+_GENERATED_HEADER_LINES = 15
+
+
+def is_generated(content: str) -> bool:
+    """Does this document declare itself machine-generated?
+
+    Read from the same banner a human reads, rather than a hardcoded list of generated
+    paths — a second list of which files are generated would be a catalog copy that
+    rots the first time a generator is added.
+    """
+    header = "\n".join(content.split("\n")[:_GENERATED_HEADER_LINES])
+    return _GENERATED_MARKER.search(header) is not None
+
+
 @dataclass(frozen=True)
 class UpdatedField:
     """Where the ``updated:`` key sits in a document, and what it says.
@@ -381,14 +409,26 @@ def load_history(paths: set[str]) -> dict[str, FileHistory]:
     }
 
 
-def tracked_docs() -> list[str]:
-    """Every in-scope doc, repo-root-relative, tracked at HEAD.
+def tracked_docs() -> tuple[list[str], int]:
+    """Every stampable doc tracked at HEAD, plus the count skipped as generated.
 
     ``-z`` because three docs under ``design-principles/`` have spaces in their
     filenames and a newline-split list quietly turns each into three phantom paths.
+
+    The skip count is returned rather than swallowed so the carve-out stays visible in
+    the guard's own output — excluded by scope, not suppressed.
     """
     raw = _run_git("ls-files", "-z", "--", SCOPE_PREFIX)
-    return [path for path in raw.split("\0") if path and in_scope(path)]
+    paths = [path for path in raw.split("\0") if path and in_scope(path)]
+    stampable: list[str] = []
+    generated = 0
+    for path in paths:
+        content = (REPO_ROOT / path).read_text(encoding="utf-8", errors="replace")
+        if is_generated(content):
+            generated += 1
+        else:
+            stampable.append(path)
+    return stampable, generated
 
 
 def today_utc() -> date:

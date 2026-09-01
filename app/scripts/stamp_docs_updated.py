@@ -44,6 +44,7 @@ from docs_updated_field import (  # type: ignore[import-not-found]
     apply_stamp,
     find_updated,
     in_scope,
+    is_generated,
     today_utc,
 )
 
@@ -76,8 +77,15 @@ def _staged_mode(path: str) -> str:
 
 
 def stamp_index(path: str, stamp: date) -> bool:
-    """Rewrite the STAGED blob's stamp. True when the index changed."""
+    """Rewrite the STAGED blob's stamp. True when the index changed.
+
+    Reads the generated-artifact banner from the STAGED content, not the worktree's:
+    the staged blob is what will land, and it is what the drift test a generated doc
+    carries will be compared against.
+    """
     original = _git("show", f":{path}").decode("utf-8")
+    if is_generated(original):
+        return False
     stamped = apply_stamp(original, stamp)
     if stamped == original:
         return False
@@ -98,6 +106,8 @@ def stamp_worktree(path: str, stamp: date) -> bool:
         # Staged, then deleted from the worktree. The index half still stands.
         return False
     original = target.read_text(encoding="utf-8")
+    if is_generated(original):
+        return False
     field = find_updated(original)
     stamped = apply_stamp(original, stamp)
     if stamped == original:

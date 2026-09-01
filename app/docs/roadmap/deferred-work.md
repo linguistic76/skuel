@@ -2136,7 +2136,10 @@ session must not re-decide.
   its meaning. Root `AGENTS.md`/`CLAUDE.md` excluded — always-loaded instruction files
   read in full, not sampled for freshness. `roadmap/done/` and pinned archives are
   **not** exempt: an unedited doc's stamp already matches its last substantive commit,
-  so the guard is free on them and an exemption would only open a hole.
+  so the guard is free on them and an exemption would only open a hole. **Machine-generated
+  docs ARE excluded** — detected by their own `AUTO-GENERATED` banner, not a path list —
+  because a generator's drift test is a stronger freshness guarantee than a date and a
+  stamp breaks its byte-comparison.
 
 **Permanent rules the guard carries:**
 
@@ -2152,8 +2155,8 @@ session must not re-decide.
 - ⛔ **No same-file contradictory-prose detector** — measured unmechanizable, 4/4 false
   positives. See the sub-finding below.
 
-**Two traps that survived into the build**, both invisible to a fixture and found only
-by running against the real corpus — worth carrying because each looks like a
+**Three traps that survived into the build**, none visible to a fixture and all found by
+running against the real corpus — worth carrying because each looks like a
 simplification:
 
 - **Never `yaml.safe_load` the frontmatter to read this field.** 35 of 412 docs carry an
@@ -2166,6 +2169,11 @@ simplification:
 - **Do not attribute `git show` hunks to files by parsing `+++ b/<path>`.** Git appends a
   TAB to that header for paths containing spaces, and three docs under
   `design-principles/` have them. Pass the path as a pathspec instead.
+- **A generated doc must not be stamped.** Its generator's drift test byte-compares it
+  against a fresh render, so a frontmatter block reds that test immediately, and the next
+  regeneration wipes the stamp and reds the guard instead. Detected by the file's own
+  `AUTO-GENERATED` banner (header-scoped: 2 real artifacts vs 12 whole-file false
+  positives), never a list of generated paths.
 
 
 ### Sub-finding: same-file contradictory ruling prose is NOT mechanizable

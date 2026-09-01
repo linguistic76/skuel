@@ -183,6 +183,31 @@ def test_scope(path: str, expected: bool) -> None:
 
 
 # ============================================================================
+# Generated artifacts are excluded — their drift tests are the stronger guarantee
+# ============================================================================
+
+
+def test_a_generated_artifact_is_excluded() -> None:
+    """Stamping one breaks the byte-comparison its generator's drift test performs —
+    `test_generate_method_index.py` went red the moment the backfill put a block on
+    `reference/BASESERVICE_METHOD_INDEX.md`. Its generator would also wipe the stamp
+    on the next run, and the guard would report a correctly regenerated file as
+    missing its key."""
+    content = (
+        "# BaseService Method Index\n\n"
+        "**WARNING:** This file is AUTO-GENERATED. Do not edit manually.\n"
+    )
+    assert field_mod.is_generated(content) is True
+
+
+def test_a_doc_merely_mentioning_generated_files_is_not_excluded() -> None:
+    """Header only. Measured on the corpus: the first 15 lines find exactly the 2 real
+    artifacts, a whole-file scan finds 12 — the extra 10 are docs discussing them."""
+    content = "# Patterns\n" + "\n" * 20 + "Some docs are AUTO-GENERATED; do not edit those.\n"
+    assert field_mod.is_generated(content) is False
+
+
+# ============================================================================
 # History — stamp-only commits do not count as substantive
 # ============================================================================
 

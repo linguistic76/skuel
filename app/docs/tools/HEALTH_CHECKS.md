@@ -500,6 +500,19 @@ read in full, not sampled for freshness). `docs/roadmap/done/` and other pinned 
 are **not** exempt: an unedited doc's stamp already matches its last substantive commit,
 so the check is free on them, and an exemption would only open a hole.
 
+**Machine-generated docs are excluded, and say so themselves.** A doc whose first 15
+lines carry an `AUTO-GENERATED` banner is skipped, because its generator's drift test
+byte-compares it against a fresh render — a stronger freshness guarantee than a date,
+and one a stamp actively breaks (the backfill put a block on
+`reference/BASESERVICE_METHOD_INDEX.md` and `test_generate_method_index.py` went red at
+once; the generator would also wipe the stamp on its next run, and the guard would then
+report a correctly regenerated file as missing its key). The rule reads the same banner
+a human reads rather than keeping a list of generated paths, which would be a catalog
+copy that rots the first time a generator is added. Header-scoped deliberately: over the
+412-doc corpus the first-15-lines rule finds exactly the 2 real artifacts while a
+whole-file scan finds 12, the extra 10 being docs that merely *mention* one. The count
+skipped is printed on every run, so the carve-out stays visible.
+
 ⚠️ **`updated:` is evidence of freshness only within this window, and only because this
 check runs.** Do not cite the field as staleness evidence anywhere else.
 

@@ -1,7 +1,3 @@
----
-updated: 2026-07-29
----
-
 # Cross-Reference Index: Skills ↔ Documentation
 
 **Purpose:** Single source of truth for bidirectional skill-documentation mapping.
