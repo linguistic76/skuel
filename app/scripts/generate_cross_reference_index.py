@@ -23,7 +23,6 @@ Usage:
 """
 
 import argparse
-import re
 import sys
 from operator import itemgetter
 from pathlib import Path
@@ -33,6 +32,10 @@ import yaml
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 ARTIFACT_PATH = PROJECT_ROOT / "docs" / "CROSS_REFERENCE_INDEX.md"
+
+sys.path.insert(0, str(PROJECT_ROOT))
+
+from core.utils.frontmatter import split_frontmatter
 
 
 def _parse_adr_number(adr_id: str) -> int:
@@ -64,21 +67,25 @@ def load_skills_metadata(base_path: Path) -> dict[str, Any]:
 
 
 def load_pattern_frontmatter(base_path: Path) -> dict[str, dict[str, Any]]:
-    """Load frontmatter from all pattern docs."""
+    """Load frontmatter from all pattern docs.
+
+    Fence grammar comes from the repo's canonical parser (``split_frontmatter``),
+    not a local regex: a private strict grammar silently skipped docs whose fences
+    the rest of the repo accepts (``--- `` trailing space, CRLF), losing their
+    ``related_skills`` from the index while the artifact rendered "fresh" (Codex
+    P2, PR #1213 round 6). A YAML-failed block is skipped here and rejected by the
+    drift test's honesty guard, which shares this extraction.
+    """
     patterns_dir = base_path / "docs" / "patterns"
     pattern_data = {}
 
     for doc_path in patterns_dir.glob("*.md"):
-        content = doc_path.read_text()
-        if not content.startswith("---\n"):
-            continue
-
-        match = re.match(r"^---\n(.*?)\n---\n", content, re.DOTALL)
-        if not match:
+        raw, _body = split_frontmatter(doc_path.read_text())
+        if raw is None:
             continue
 
         try:
-            frontmatter = yaml.safe_load(match.group(1))
+            frontmatter = yaml.safe_load(raw)
             pattern_data[doc_path.name] = frontmatter
         except yaml.YAMLError:
             pass

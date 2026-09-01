@@ -47,13 +47,21 @@ from generate_cross_reference_index import (  # type: ignore[import-not-found]
     load_skills_metadata,
 )
 
+from core.utils.frontmatter import split_frontmatter
 
-def _frontmatter_block(doc_path: Path) -> list[str] | None:
-    """The raw frontmatter lines, extracted independently of the generator's pipeline."""
-    lines = doc_path.read_text(encoding="utf-8").split("\n")
-    if lines[0] != "---" or "---" not in lines[1:]:
-        return None
-    return lines[1 : lines[1:].index("---") + 1]
+
+def _raw_frontmatter(doc_path: Path) -> str | None:
+    """The raw frontmatter text, by the repo's canonical fence grammar.
+
+    Deliberately the SAME extraction the generator uses — a stricter private
+    grammar here silently skipped docs whose fences the canonical parser accepts
+    (``--- `` trailing space, CRLF), exactly the docs the old generator dropped
+    (Codex P2, PR #1213 round 6). A doc the canonical grammar rejects has no
+    frontmatter anywhere in the repo's machinery, which is the stamper's and
+    validator's own definition of the case.
+    """
+    raw, _body = split_frontmatter(doc_path.read_text(encoding="utf-8"))
+    return raw
 
 
 def test_artifact_is_fresh() -> None:
@@ -105,11 +113,11 @@ def test_every_pattern_frontmatter_parses() -> None:
     ``generate_index_content`` on ``.get``, which errors the freshness test.
     """
     for doc_path in sorted((PROJECT_ROOT / "docs" / "patterns").glob("*.md")):
-        block = _frontmatter_block(doc_path)
-        if block is None:
+        raw = _raw_frontmatter(doc_path)
+        if raw is None:
             continue
         try:
-            yaml.safe_load("\n".join(block))
+            yaml.safe_load(raw)
         except yaml.YAMLError as exc:
             raise AssertionError(
                 f"{doc_path.name} has unparseable frontmatter — its metadata is "
@@ -137,11 +145,11 @@ def test_declared_skills_render_in_pattern_mapping() -> None:
 
     checked = 0
     for doc_path in sorted((PROJECT_ROOT / "docs" / "patterns").glob("*.md")):
-        block = _frontmatter_block(doc_path)
-        if block is None:
+        raw = _raw_frontmatter(doc_path)
+        if raw is None:
             continue
         try:
-            frontmatter = yaml.safe_load("\n".join(block)) or {}
+            frontmatter = yaml.safe_load(raw) or {}
         except yaml.YAMLError:
             continue
         declared = _normalize_related_skills(frontmatter.get("related_skills"))
