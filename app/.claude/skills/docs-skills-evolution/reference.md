@@ -473,7 +473,8 @@ Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>"
 #### 6. Update Index (If Needed)
 
 ```bash
-# Auto-generated on next commit, or manual:
+# Manual — there is NO commit-time automation, deliberately; a drift test
+# (tests/unit/scripts/test_generate_cross_reference_index.py) fails CI on a stale artifact:
 uv run python scripts/generate_cross_reference_index.py
 ```
 
