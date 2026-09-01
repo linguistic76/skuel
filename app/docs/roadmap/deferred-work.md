@@ -2509,7 +2509,12 @@ which #1212's backfill broke 72 of); **(c)** report-separately-don't-red for the
 **(d)** a per-citation historical marker the scanner honors ONLY when the target is dead
 (marked-but-alive is itself a finding — the SKUEL026 inversion), which is the one option
 whose steady state makes red mean rot inside the authority tier, at the cost of a
-one-time judgment sweep. ⚠️ Status-scoping (skip Superseded ADRs by rule) was measured
+one-time judgment sweep. ⚠️ Observability constraint (Codex on #1215): a SILENT
+carve-out for `docs/decisions/` un-observes its own tripwire — the first
+standing-contract failure that is supposed to reopen the ruling would have no reporter
+through this instrument, so the broad exemption could stand indefinitely. Whatever is
+chosen for the ADR half must keep ADR findings OBSERVED (printed), even if not failing;
+the four history dirs carry no tripwire and may be silently carved out. ⚠️ Status-scoping (skip Superseded ADRs by rule) was measured
 and FALSIFIED 2026-09-02 — only 2 of 89 ADRs are Superseded; One Path Forward keeps ADRs
 Accepted while their narrative names deleted things, so the mixing is INTRA-file and
 status cannot carry the line. Do not resurrect it.
@@ -2525,10 +2530,12 @@ target's true current location before classifying it (a finding can be right whi
 fix is wrong). Report to Mike: the split with per-ADR breakdown, the verified
 standing-contract list (actionable regardless of mechanism), and the recommendation the
 procedure yields — a meaningful standing-contract rate justifies the marker (d);
-~all-narrative means the dir carve-out (a) loses almost nothing, taken with a recorded
-tripwire (first observed standing-contract rot in an Accepted ADR reopens the ruling).
-The report restates the history-dirs half so one sitting can close both — C does not
-depend on this pass's numbers.
+~all-narrative means the cheap arm is report-separately-don't-red for `decisions/`
+(findings keep printing under their own section, the run stops failing on them — the
+tripwire keeps its observer, where a silent carve-out would un-observe its own reopening
+condition), with the tripwire recorded: first observed standing-contract rot in an
+Accepted ADR reopens the ruling. The report restates the history-dirs half so one
+sitting can close both — C does not depend on this pass's numbers.
 
 **Live-docs sweep queue (RULED: register + burn down via doc sweeps):** ~367 findings in
 live docs — patterns 103 · skills 48 · intelligence 41 · architecture 35 · domains 32 ·
