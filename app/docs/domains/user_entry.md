@@ -42,9 +42,14 @@ decides what (if anything) happens after creation.
 | `KNOWLEDGE` | Grounded knowledge entry — the `je_pro` channel |
 | `REFERENCE` | Reserved; no producer today (ADR-073 §4) |
 
-`modality` (`SubmissionModality`: `FILE_UPLOAD` / `STRUCTURED_FORM`) is
-**orthogonal** to `pipeline` — it records how the entry was created, not what
-happens to it.
+`modality` (`SubmissionModality`: `FILE_UPLOAD` / `STRUCTURED_FORM`) is designed as
+**orthogonal** to `pipeline` — how the entry was created, rather than what happens to it.
+
+⚠️ **Staged, not live.** No production path assigns it: both `UserEntryCreateRequest`
+constructors in `adapters/inbound/user_entry_api.py` omit `modality`, and the only
+`SubmissionModality` producers in the tree set `Exercise.expected_modality`. Every
+persisted entry therefore carries the `None` default, so the field cannot be read to
+learn how an entry was created until a writer exists.
 
 ## Key Files
 
@@ -85,7 +90,7 @@ Inherits identity, content, status, sharing, meta and embedding fields from
 | Field | Type | Description |
 |-------|------|-------------|
 | `pipeline` | `Pipeline` | Dispatch discriminator (table above) |
-| `modality` | `SubmissionModality?` | How the entry was created |
+| `modality` | `SubmissionModality?` | How the entry was created — **always `None` today**, see above |
 | `private` | `bool` | Never grows a vector — no entity embedding, no `:ContentChunk` subtree, and a hard exclusion in companion-retrieval Cypher. Gates companion retrieval only; orthogonal to `visibility` |
 | `original_filename` | `str?` | Upload only |
 | `file_path` | `str?` | Upload only |
@@ -125,7 +130,7 @@ removes the property on the next sync. This mirrors the
 |-----|--------------|--------|-------------|
 | `source_entry` | `TRANSFORMS` | UserEntry | Multi-stage pipelines. ⚠️ The edge runs **derived → source**: the LLM-structured child is written with `transforms_of_uid` pointing back at the transcript it came from, so traversing `TRANSFORMS` outward walks *up* the pipeline, not down. The field name is the tell |
 | `exercise` | `FULFILLS_EXERCISE` | Exercise | What the entry answers; carries `revision` |
-| `applied_knowledge` | `APPLIES_KNOWLEDGE` | Ku | Knowledge applied/reflected in the entry — written by `EXTRACT_ACTIVITIES` (ADR-069); THE substance/ZPD contract edge |
+| `applied_knowledge` | `APPLIES_KNOWLEDGE` | Ku | Knowledge applied/reflected in the entry — THE substance/ZPD contract edge. **Two writers, one event:** explicit `@ku()` refs via the `EXTRACT_ACTIVITIES` pipeline (ADR-069), and vector grounding via `EntryGroundingService`, which stamps `inferred: true` + `confidence` + `grounded_at` so an inferred edge stays distinguishable from an authored one (and removable on its own terms) |
 
 ### Incoming (Other → UserEntry)
 
@@ -217,9 +222,14 @@ silently disagree. `SearchRouter.search()` **refuses an unscoped call**: without
 a `user_uid` the visibility clause emits no ownership predicate, which would
 return every user's entries.
 
-UserEntry is additionally the one searchable domain **excluded from cross-domain
-sweeps** and refused by name at `faceted_search` — a personal-content domain
-should not surface in an "everything" query.
+UserEntry is additionally the one searchable domain **excluded from the cross-domain
+sweep** — a personal-content domain should not surface in an "everything" query, so it
+is filtered out of `faceted_search`'s eligible domains.
+
+An **owner-scoped single-domain** request is supported and is the canonical UI path
+(the `/search` dropdown): `faceted_search` refuses `user_entry` only when `user_uid` is
+absent, and refuses loudly rather than falling through to the sweep and returning an
+empty success to a misprogrammed caller.
 
 | Config field | Value |
 |--------------|-------|
