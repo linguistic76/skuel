@@ -3,14 +3,31 @@
 Generate CROSS_REFERENCE_INDEX.md from skills metadata and pattern frontmatter.
 
 This script creates a comprehensive bidirectional mapping between skills and docs.
+
+The output is a pure function of its two sources — ``.claude/skills/skills_metadata.yaml``
+and ``docs/patterns/*.md`` frontmatter — with no timestamps, so the drift test can
+regenerate and byte-compare it
+(``tests/unit/scripts/test_generate_cross_reference_index.py``). There is NO commit-time
+automation, deliberately: ``generate_method_index.py``'s original docstring claimed a
+pre-commit hook that was never wired, which is exactly how that artifact silently sat
+stale — CI failing on a stale artifact is the one enforcement path.
+
+Usage:
+    uv run python scripts/generate_cross_reference_index.py          # regenerate
+    uv run python scripts/generate_cross_reference_index.py --check  # exit 1 on drift
 """
 
+import argparse
 import re
+import sys
 from operator import itemgetter
 from pathlib import Path
 from typing import Any
 
 import yaml
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+ARTIFACT_PATH = PROJECT_ROOT / "docs" / "CROSS_REFERENCE_INDEX.md"
 
 
 def _parse_adr_number(adr_id: str) -> int:
@@ -299,18 +316,34 @@ def generate_index_content(base_path: Path) -> str:
     return "\n".join(content)
 
 
-def main() -> None:
+def main() -> int:
     """Main entry point."""
-    base_path = Path(__file__).parent.parent
-    output_file = base_path / "docs" / "CROSS_REFERENCE_INDEX.md"
+    parser = argparse.ArgumentParser(description="Generate docs/CROSS_REFERENCE_INDEX.md")
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="Exit 1 if the checked-in artifact differs from a fresh render (no write).",
+    )
+    args = parser.parse_args()
 
-    print("Generating cross-reference index...")
-    content = generate_index_content(base_path)
+    content = generate_index_content(PROJECT_ROOT)
 
-    output_file.write_text(content)
-    print(f"✅ Generated: {output_file}")
+    if args.check:
+        on_disk = ARTIFACT_PATH.read_text(encoding="utf-8") if ARTIFACT_PATH.exists() else ""
+        if on_disk != content:
+            print("❌ CROSS_REFERENCE_INDEX.md is stale.")
+            print(
+                "   Regenerate: cd app && uv run python scripts/generate_cross_reference_index.py"
+            )
+            return 1
+        print("✅ CROSS_REFERENCE_INDEX.md is fresh.")
+        return 0
+
+    ARTIFACT_PATH.write_text(content, encoding="utf-8")
+    print(f"✅ Generated: {ARTIFACT_PATH}")
     print(f"   Lines: {len(content.splitlines())}")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
