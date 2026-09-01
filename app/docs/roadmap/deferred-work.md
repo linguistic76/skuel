@@ -2623,9 +2623,12 @@ The 153 split into 62 marked narrative citations and 91 edits.
   `docs/domains/user_entry.md` is the first tracked doc whose lowercase-underscore name has
   the exact shape of a memory slug. The single-line probe excused it as a tracked basename;
   the wrapped-line probe called the raw regex instead and re-reported the same citation as
-  half of a two-line one. Both probes now share one `_memory_citation()` helper, pinned by
-  three cases in `tests/unit/test_untracked_refs.py`. The suppression existed — the second
-  caller simply never ran it.
+  half of a two-line one. Both probes now share one `_memory_citation()` helper. The
+  suppression existed — the second caller simply never ran it. ⚠️ Review then found the
+  deeper half: the helper excused the whole probe whenever its **leftmost** match was a
+  tracked basename, so a real citation further along the same probe went unreported. It
+  scans every match now — excusing a match must never excuse the line. Four cases pin it in
+  `tests/unit/test_untracked_refs.py`.
 - **ADR-027 is now `Superseded`**, which moves a number this section cites: strictly-Superseded
   ADRs are **3 of 88** (was 2 of 89 — ADR-027 gained the status, ADR-010 left the tree).
   Status-scoping stays falsified; the argument never rested on the exact count, and the
