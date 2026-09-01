@@ -2505,9 +2505,30 @@ stale — the de-fiction rule's dated-logs-LEAVE); for ADRs a carve-out is coars
 blinds the instrument to rot in *standing contracts* inside active ADRs; **(b)** an
 audited **file-level** exemption tier (`{path: reason}`, an exemption that hides nothing
 is itself a finding — the stale_names/SKUEL026 discipline WITHOUT `(file, line)` anchors,
-which #1212's backfill broke 72 of); **(c)** report-separately-don't-red for the dirs.
-Evidence that would settle it: the first time a standing contract in an active ADR is
-found rotten via a dead link, that argues (b) over (a) for `docs/decisions/`.
+which #1212's backfill broke 72 of); **(c)** report-separately-don't-red for the dirs;
+**(d)** a per-citation historical marker the scanner honors ONLY when the target is dead
+(marked-but-alive is itself a finding — the SKUEL026 inversion), which is the one option
+whose steady state makes red mean rot inside the authority tier, at the cost of a
+one-time judgment sweep. ⚠️ Status-scoping (skip Superseded ADRs by rule) was measured
+and FALSIFIED 2026-09-02 — only 2 of 89 ADRs are Superseded; One Path Forward keeps ADRs
+Accepted while their narrative names deleted things, so the mixing is INTRA-file and
+status cannot carry the line. Do not resurrect it.
+
+**ADR classification pass (SCHEDULED 2026-09-02 — Mike: "prep that classification
+pass"):** the decision procedure for the ruling above. One fresh-context session,
+**read-only — classify, edit nothing, build nothing**: re-derive the `docs/decisions/`
+findings from the live scanner (post-B1 they line up directly; pre-B1, exclude
+parser-class and route-shaped targets first), then sort each finding by reading its
+surrounding paragraph into narrative/historical vs standing-contract vs scanner-class
+residue vs ambiguous — verifying every claimed standing-contract case against the
+target's true current location before classifying it (a finding can be right while its
+fix is wrong). Report to Mike: the split with per-ADR breakdown, the verified
+standing-contract list (actionable regardless of mechanism), and the recommendation the
+procedure yields — a meaningful standing-contract rate justifies the marker (d);
+~all-narrative means the dir carve-out (a) loses almost nothing, taken with a recorded
+tripwire (first observed standing-contract rot in an Accepted ADR reopens the ruling).
+The report restates the history-dirs half so one sitting can close both — C does not
+depend on this pass's numbers.
 
 **Live-docs sweep queue (RULED: register + burn down via doc sweeps):** ~367 findings in
 live docs — patterns 103 · skills 48 · intelligence 41 · architecture 35 · domains 32 ·
@@ -2584,7 +2605,7 @@ Review this document at the **September 2026 quarterly review**. Checklist:
 | Catalog copies in code — the duplicated-fact class (measured 2026-08-29) | Mike schedules the mechanical items; until then a ride-along: any PR that adds a health check, an embeddable type, a vector-index label, or a suppressible rule touches every copy the section names | ⛔ Do not scope from this cell — the section holds the inventory and the ruling. Re-measure: `uv run python scripts/detect_bloat.py --json` → count of `planned-marking-stale` findings (2 on 2026-08-29, seen by neither CI nor the janitor); the scripts named in `dev` § `health)` and in the janitor's `for check in` loop must be the same set (6 on 2026-09-01, up from 5 — `docs_updated.py` was added by hand to every copy) |
 | Hollow embedding field maps — `PLANNED_EMBEDDING_MAPS` (4 DELAYED on 2026-08-30: `ENTRY_REPORT`, `ACTIVITY_REPORT`, `FORM_TEMPLATE`, `FORM_SUBMISSION`) | The EntryReport / ActivityReport search row above fires (the two report maps point at it), or a consumer wants form content in semantic search (the two form maps — no section, the registry reason is the one copy) | `./dev bloat` § Embedding field maps — every row is hollow by ruling; an unregistered hollow map already fails `--check` on its own. Wiring one = ADR-074's quartet, then delete its entry (the stale gate demands it) |
 | Dead-doc-links PR B1 (parser fixes + route-shaped investigation + file-scoped freeform carve-outs) + PR B2 (ADR glob-with-loud-failure) — both APPROVED/RULED 2026-09-02 | Fresh-context sessions, one per PR — approved work, not waiting on data | `uv run python scripts/health/dead_doc_links.py` — B1's exit measurement is the authority (~745–780 expected, then −30 for B2); re-measure, never trust the snapshot. See the section |
-| Dead-doc-links history line (history dirs 226 + ADRs 156) — Mike *"not sure"* 2026-09-02 | Ruling needed — do not build any carve-out/exemption for these dirs until then; a standing contract in an active ADR found rotten via a dead link is evidence for the file-level tier over a dir carve-out | The check stays red on these classes by design meanwhile; options + costs in the section |
+| Dead-doc-links history line (history dirs 226 + ADRs 156) — Mike *"not sure"* 2026-09-02; **ADR classification pass SCHEDULED** as the decision procedure | The pass runs in a fresh context (read-only: classify the ADR findings narrative vs standing-contract, edit nothing); its measured split + Mike's ruling close this row — do not build any carve-out/exemption/marker until then | The check stays red on these classes by design meanwhile; procedure, options + costs in the section (status-scoping falsified — 2/89 Superseded) |
 | Live-docs dead-link sweep queue (~367 pre-recount — ⚠️ NOT actionable until PR B1 lands: counts contaminated by valid route links, a sweep today would rewrite them) | Post-B1 recount, then ride-along on every doc sweep or PR touching a listed area; confirmed heavy hitters may get dedicated small sweeps | Re-derive per doc by running the scanner and filtering to the file; check route-shaped targets against live route registrations; fix the citing prose (most targets are deleted, not moved) |
 
 **The document is the checklist, the table is a convenience:** a section added to this file
