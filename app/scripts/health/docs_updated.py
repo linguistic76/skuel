@@ -86,8 +86,7 @@ _REMEDY = {
         "first and the second would shadow it in any YAML reader."
     ),
     "unparsable": (
-        "`updated:` is not a bare ISO date. Write `updated: YYYY-MM-DD` "
-        "(quoted is fine)."
+        "`updated:` is not a bare ISO date. Write `updated: YYYY-MM-DD` (quoted is fine)."
     ),
     "future": (
         "`updated:` is later than every commit that touched the file — a date no "
@@ -119,8 +118,7 @@ def evaluate(path: str, content: str, history: FileHistory) -> Finding | None:
         return Finding(
             path,
             "future",
-            f"updated: {stamped} is {ahead}d past the newest commit "
-            f"({history.newest})",
+            f"updated: {stamped} is {ahead}d past the newest commit ({history.newest})",
         )
 
     lag = (history.last_substantive - stamped).days
@@ -162,8 +160,7 @@ def main() -> int:
     # Named, not swallowed: an exclusion nobody can see is indistinguishable from a
     # blind spot (the `duplicate_headings.py` freeform carve-out sets the precedent).
     carve_out = (
-        f", {generated} generated doc(s) excluded — their own drift tests guarantee "
-        f"freshness"
+        f", {generated} generated doc(s) excluded — their own drift tests guarantee freshness"
         if generated
         else ""
     )

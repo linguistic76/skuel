@@ -64,9 +64,7 @@ def staged_docs() -> list[str]:
     ``-z`` because three docs carry spaces in their filenames; a newline-split list
     turns each into several phantom paths that then fail to stat.
     """
-    raw = _git(
-        "diff", "--cached", "--name-only", "-z", "--diff-filter=ACMR"
-    ).decode()
+    raw = _git("diff", "--cached", "--name-only", "-z", "--diff-filter=ACMR").decode()
     return [path for path in raw.split("\0") if path and in_scope(path)]
 
 

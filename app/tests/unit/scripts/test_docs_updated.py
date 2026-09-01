@@ -84,10 +84,7 @@ def test_reads_the_field_from_frontmatter_that_is_not_valid_yaml() -> None:
 def test_a_body_example_is_not_a_duplicate() -> None:
     """``docs/README.md`` and ``patterns/CYPHER_VS_APOC_STRATEGY.md`` each show an
     ``updated:`` line as documentation. A whole-file count reds the gate on both."""
-    content = (
-        "---\nupdated: 2026-04-20\n---\n\n"
-        "Write the field like this:\n\nupdated: 2026-01-01\n"
-    )
+    content = "---\nupdated: 2026-04-20\n---\n\nWrite the field like this:\n\nupdated: 2026-01-01\n"
     found = field_mod.find_updated(content)
     assert found is not None
     assert found.occurrences == 1
@@ -324,7 +321,9 @@ def test_commit_dates_are_normalised_to_utc(repo: Path) -> None:
 # ============================================================================
 
 
-def test_a_shallow_clone_is_refused_not_measured(repo: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_a_shallow_clone_is_refused_not_measured(
+    repo: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """`actions/checkout` fetches one commit by default, and there every doc's only
     commit is HEAD: the guard reports the whole corpus stale (343 of 410 measured on a
     depth-1 clone of this branch), or — at a HEAD touching no docs — a green having

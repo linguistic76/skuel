@@ -101,9 +101,7 @@ def in_scope(repo_relative_path: str) -> bool:
       the guard stays green on it for free; an exemption would only create a hole
       for the day someone does edit one.
     """
-    return repo_relative_path.startswith(SCOPE_PREFIX) and repo_relative_path.endswith(
-        ".md"
-    )
+    return repo_relative_path.startswith(SCOPE_PREFIX) and repo_relative_path.endswith(".md")
 
 
 # A generated artifact is byte-compared against a fresh render by its own drift test,
@@ -215,9 +213,7 @@ def apply_stamp(content: str, stamp: date) -> str:
             return content
         lines = content.split("\n")
         quoted = field.raw_value.strip().startswith(("'", '"'))
-        lines[field.line_index] = (
-            f"updated: '{stamp_text}'" if quoted else f"updated: {stamp_text}"
-        )
+        lines[field.line_index] = f"updated: '{stamp_text}'" if quoted else f"updated: {stamp_text}"
         return "\n".join(lines)
 
     raw, _body = split_frontmatter(content)
@@ -225,11 +221,7 @@ def apply_stamp(content: str, stamp: date) -> str:
         # A frontmatter block with no `updated:` key — insert it as the last key of
         # the block, ahead of the closing fence, rather than rebuilding the block.
         lines = content.split("\n")
-        closing = next(
-            index
-            for index in range(1, len(lines))
-            if _FENCE.match(lines[index]) and index > 0
-        )
+        closing = next(index for index in range(1, len(lines)) if _FENCE.match(lines[index]))
         lines.insert(closing, f"updated: {stamp_text}")
         return "\n".join(lines)
 
@@ -417,10 +409,7 @@ def load_history(paths: set[str]) -> dict[str, FileHistory]:
                 # This file's answer is already fixed; nothing older can change it,
                 # so it never pays for a confirmation call.
                 continue
-            shortlisted = (
-                insertions <= _MAX_STAMP_INSERTIONS
-                and deletions <= _MAX_STAMP_DELETIONS
-            )
+            shortlisted = insertions <= _MAX_STAMP_INSERTIONS and deletions <= _MAX_STAMP_DELETIONS
             if shortlisted and _is_stamp_only(sha, path):
                 continue
             substantive[path] = when
