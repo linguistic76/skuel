@@ -42,6 +42,7 @@ from __future__ import annotations
 
 import sys
 from dataclasses import dataclass
+from operator import attrgetter
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -178,7 +179,7 @@ def main() -> int:
 
     print(
         f"{Colors.RED}{Colors.BOLD}Docs `updated:` stamp — "
-        f"{len(findings)} of {scanned} docs wrong:{Colors.RESET}\n"
+        f"{len(findings)} of {scanned} docs wrong{carve_out}:{Colors.RESET}\n"
     )
     for kind in _ORDER:
         group = by_kind.get(kind)
@@ -186,7 +187,7 @@ def main() -> int:
             continue
         print(f"  {Colors.BOLD}{kind}{Colors.RESET} ({len(group)})")
         print(f"    {Colors.DIM}{_REMEDY[kind]}{Colors.RESET}")
-        for finding in sorted(group, key=lambda item: item.path)[:20]:
+        for finding in sorted(group, key=attrgetter("path"))[:20]:
             print(f"      {Colors.YELLOW}{finding.path}{Colors.RESET} — {finding.detail}")
         if len(group) > 20:
             print(f"      {Colors.DIM}… and {len(group) - 20} more{Colors.RESET}")

@@ -487,6 +487,26 @@ def test_an_unparsable_value_is_reported_as_itself_not_as_staleness() -> None:
     assert verdict.kind == "unparsable"
 
 
+def test_the_report_renders_every_verdict_kind(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The findings branch runs only when something is wrong, so nothing exercised it
+    until now — a crash there would land at exactly the moment the guard mattered.
+    (A lambda sort key lived on this line through three reviews; `./dev quality` does
+    not lint `scripts/` for SKUEL012.)"""
+    findings = [guard.Finding(f"app/docs/{kind}.md", kind, "detail") for kind in guard._ORDER]
+
+    def _collect() -> tuple[list[guard.Finding], int, int]:
+        return findings, 410, 2
+
+    monkeypatch.setattr(guard, "collect", _collect)
+    assert guard.main() == 1
+    out = capsys.readouterr().out
+    for kind in guard._ORDER:
+        assert kind in out
+    assert "2 generated doc(s) excluded" in out
+
+
 def test_every_verdict_kind_has_a_remedy_line() -> None:
     """The report prints ``_REMEDY[kind]`` — a kind added without one would crash
     the guard at exactly the moment it found something."""
