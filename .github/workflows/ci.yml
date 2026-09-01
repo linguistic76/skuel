@@ -533,6 +533,26 @@ jobs:
           uv run python scripts/skills_validator.py || echo "skills_failed=true" >> $GITHUB_OUTPUT
         continue-on-error: true
 
+      # The drift test (tests/unit/scripts/test_generate_cross_reference_index.py)
+      # lives in unit_tests, which the `py` filter gates — but this generator's
+      # inputs are doc-side (skills_metadata.yaml + docs/patterns/*.md frontmatter
+      # + the artifact itself), all reachable by a docs-only PR that skips
+      # unit_tests entirely. Its sibling artifacts solved this by joining the `py`
+      # filter, which works for one file each; here the input set is a whole docs
+      # directory, and putting docs/patterns/** into `py` would erode the
+      # deliberate docs-only skip wholesale. So the SAME test file runs here — the
+      # full file, not a bare `--check` byte-compare, because the honesty guards
+      # catch doc-side corruption a byte-compare cannot: a pattern doc whose YAML
+      # breaks is dropped from the render silently, leaving the artifact "fresh"
+      # while the mapping is lost (Codex P2 x2, PR #1213).
+      - name: Check CROSS_REFERENCE_INDEX drift
+        id: xref_drift
+        working-directory: app
+        run: |
+          echo "Running the CROSS_REFERENCE_INDEX drift + honesty guards..."
+          uv run pytest tests/unit/scripts/test_generate_cross_reference_index.py -q --no-cov || echo "xref_drift_failed=true" >> $GITHUB_OUTPUT
+        continue-on-error: true
+
       - name: Check for broken documentation links (optional)
         id: broken_links
         working-directory: app
@@ -569,6 +589,7 @@ jobs:
           github.event_name == 'pull_request' &&
           (steps.freshness.outputs.freshness_failed == 'true' ||
           steps.skills.outputs.skills_failed == 'true' ||
+          steps.xref_drift.outputs.xref_drift_failed == 'true' ||
           steps.broken_links.outputs.broken_links_warning == 'true')
         continue-on-error: true  # never red the job if commenting is unavailable (e.g. fork PRs)
         uses: actions/github-script@v9
@@ -576,11 +597,13 @@ jobs:
           script: |
             const freshnessStatus = '${{ steps.freshness.outputs.freshness_failed }}' === 'true' ? '❌' : '✅';
             const skillsStatus = '${{ steps.skills.outputs.skills_failed }}' === 'true' ? '❌' : '✅';
+            const xrefStatus = '${{ steps.xref_drift.outputs.xref_drift_failed }}' === 'true' ? '❌' : '✅';
             const brokenLinksWarning = '${{ steps.broken_links.outputs.broken_links_warning }}' === 'true';
 
             let comment = `## Documentation Quality Checks\n\n`;
             comment += `${freshnessStatus} **Documentation Freshness** (critical issues only)\n`;
             comment += `${skillsStatus} **Skills Metadata Validation**\n`;
+            comment += `${xrefStatus} **CROSS_REFERENCE_INDEX Drift**\n`;
 
             if (brokenLinksWarning) {
               comment += `\n⚠️ **Warning**: More than 10 broken documentation links found\n`;
@@ -608,12 +631,15 @@ jobs:
         # split as ./dev quality.
         if: >-
           steps.freshness.outputs.freshness_failed == 'true' ||
-          steps.skills.outputs.skills_failed == 'true'
+          steps.skills.outputs.skills_failed == 'true' ||
+          steps.xref_drift.outputs.xref_drift_failed == 'true'
         run: |
           freshness_failed="${{ steps.freshness.outputs.freshness_failed }}"
           skills_failed="${{ steps.skills.outputs.skills_failed }}"
+          xref_drift_failed="${{ steps.xref_drift.outputs.xref_drift_failed }}"
           echo "Documentation freshness: $([ "$freshness_failed" == "true" ] && echo '❌ FAILED' || echo '✅ passed')"
           echo "Skills validation:       $([ "$skills_failed" == "true" ] && echo '❌ FAILED' || echo '✅ passed')"
+          echo "CROSS_REFERENCE_INDEX:   $([ "$xref_drift_failed" == "true" ] && echo '❌ STALE' || echo '✅ fresh')"
           echo ""
           if [ "$freshness_failed" == "true" ]; then
             echo "::error::Critical documentation freshness issues found"
@@ -622,6 +648,11 @@ jobs:
           if [ "$skills_failed" == "true" ]; then
             echo "::error::Skills validation errors found (.claude/skills/*/SKILL.md)"
             echo "  Run locally: uv run python scripts/skills_validator.py"
+          fi
+          if [ "$xref_drift_failed" == "true" ]; then
+            echo "::error::CROSS_REFERENCE_INDEX drift/honesty guards failed"
+            echo "  Run locally: uv run pytest tests/unit/scripts/test_generate_cross_reference_index.py"
+            echo "  If merely stale: uv run python scripts/generate_cross_reference_index.py"
           fi
           exit 1
 

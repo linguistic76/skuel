@@ -520,11 +520,11 @@ nothing: the next regeneration overwrites it, and the check would then report a 
 regenerated file as missing its key. Where the artifact is drift-tested the stamp is
 actively destructive — the backfill put a block on `reference/BASESERVICE_METHOD_INDEX.md`
 and `test_generate_method_index.py`, which byte-compares it against a fresh render, went
-red at once. ⚠️ **This exemption does not claim every excluded artifact is drift-tested.**
-`BASESERVICE_METHOD_INDEX.md` is; `CROSS_REFERENCE_INDEX.md` has no such test, so nothing
-currently notices if it drifts from `skills_metadata.yaml`. Excluding it is still right —
-a stamp would not have noticed either, since its generator rewrites the file wholesale —
-but that gap belongs to that generator, and closing it is separate work. The rule reads the same banner
+red at once. ⚠️ **This exemption does not claim every excluded artifact is drift-tested.** Both
+currently are — `CROSS_REFERENCE_INDEX.md` had no such test until
+`test_generate_cross_reference_index.py` closed that gap — but the exclusion never
+depended on it: a stamp would not have noticed drift either, since each generator
+rewrites its file wholesale. Drift detection belongs to the generators. The rule reads the same banner
 a human reads rather than keeping a list of generated paths, which would be a catalog
 copy that rots the first time a generator is added. It matches a self-assertion rather
 than the bare phrase, because the consequence runs the wrong way: a hand-maintained doc

@@ -3,19 +3,60 @@
 Generate CROSS_REFERENCE_INDEX.md from skills metadata and pattern frontmatter.
 
 This script creates a comprehensive bidirectional mapping between skills and docs.
+
+The output is a pure function of its two sources — ``.claude/skills/skills_metadata.yaml``
+and ``docs/patterns/*.md`` frontmatter — with no timestamps, so the drift test can
+regenerate and byte-compare it
+(``tests/unit/scripts/test_generate_cross_reference_index.py``). There is NO commit-time
+automation, deliberately: ``generate_method_index.py``'s original docstring claimed a
+pre-commit hook that was never wired, which is exactly how that artifact silently sat
+stale — CI failing on a stale artifact is the enforcement path, in two halves matching
+the CI path filters: unit_tests runs the drift-test file when the ``py`` filter fires
+(generator edits), and ``validate_documentation`` runs the SAME file when doc-side
+inputs change (a docs-only PR skips unit_tests entirely, and a bare ``--check`` cannot
+see doc-side corruption that renders "fresh" — Codex P2 x2, PR #1213). ``--check``
+remains for local/manual use.
+
+Usage:
+    uv run python scripts/generate_cross_reference_index.py          # regenerate
+    uv run python scripts/generate_cross_reference_index.py --check  # exit 1 on drift
 """
 
-import re
+import argparse
+import sys
 from operator import itemgetter
 from pathlib import Path
 from typing import Any
 
 import yaml
 
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+ARTIFACT_PATH = PROJECT_ROOT / "docs" / "CROSS_REFERENCE_INDEX.md"
+
+sys.path.insert(0, str(PROJECT_ROOT))
+
+from core.utils.frontmatter import split_frontmatter
+
 
 def _parse_adr_number(adr_id: str) -> int:
     """Extract numeric part from ADR identifier for sorting."""
     return int(adr_id.replace("ADR-", ""))
+
+
+def _normalize_related_skills(value: object) -> list[str]:
+    """Frontmatter ``related_skills`` as a list of names, whatever form it was authored in.
+
+    The scalar form (``related_skills: fasthtml``) is a supported authoring shape —
+    ``validate_cross_references.py`` tolerates it explicitly — and ``list.extend()`` on
+    that string iterates CHARACTERS, rendering one phantom skill per letter (``@f, @a,
+    …``) with the freshness test green over the corrupted artifact (Codex P2, PR #1213).
+    Mirrors the validator's normalization: scalar wraps, non-string members drop.
+    """
+    if isinstance(value, str):
+        return [value]
+    if not isinstance(value, list):
+        return []
+    return [name for name in value if isinstance(name, str)]
 
 
 def load_skills_metadata(base_path: Path) -> dict[str, Any]:
@@ -26,22 +67,31 @@ def load_skills_metadata(base_path: Path) -> dict[str, Any]:
 
 
 def load_pattern_frontmatter(base_path: Path) -> dict[str, dict[str, Any]]:
-    """Load frontmatter from all pattern docs."""
+    """Load frontmatter from all pattern docs.
+
+    Fence grammar comes from the repo's canonical parser (``split_frontmatter``),
+    not a local regex: a private strict grammar silently skipped docs whose fences
+    the rest of the repo accepts (``--- `` trailing space, CRLF), losing their
+    ``related_skills`` from the index while the artifact rendered "fresh" (Codex
+    P2, PR #1213 round 6). A YAML-failed block is skipped here and rejected by the
+    drift test's honesty guard, which shares this extraction.
+
+    Traversal is recursive and keys are paths RELATIVE to docs/patterns/ (flat
+    docs keep their bare filename): ``glob("*.md")`` made subdirectory patterns
+    (``curriculum/…``) invisible, and a bare-filename key could collide across
+    subdirectories and emits the wrong link for them (Codex P2, PR #1213 round 7).
+    """
     patterns_dir = base_path / "docs" / "patterns"
     pattern_data = {}
 
-    for doc_path in patterns_dir.glob("*.md"):
-        content = doc_path.read_text()
-        if not content.startswith("---\n"):
-            continue
-
-        match = re.match(r"^---\n(.*?)\n---\n", content, re.DOTALL)
-        if not match:
+    for doc_path in patterns_dir.rglob("*.md"):
+        raw, _body = split_frontmatter(doc_path.read_text())
+        if raw is None:
             continue
 
         try:
-            frontmatter = yaml.safe_load(match.group(1))
-            pattern_data[doc_path.name] = frontmatter
+            frontmatter = yaml.safe_load(raw)
+            pattern_data[str(doc_path.relative_to(patterns_dir))] = frontmatter
         except yaml.YAMLError:
             pass
 
@@ -216,18 +266,20 @@ def generate_index_content(base_path: Path) -> str:
 
     pattern_to_skills: dict[str, list[str]] = {}
 
-    # From skills metadata (primary_docs + patterns)
+    # From skills metadata (primary_docs + patterns). Keyed by the path relative
+    # to docs/patterns/ — the same key load_pattern_frontmatter uses — so a
+    # subdirectory doc named by both sources merges instead of forking.
     for skill in skills_data["skills"]:
         for doc in skill.get("primary_docs", []) + skill.get("patterns", []):
             if "/docs/patterns/" in doc:
-                doc_name = doc.split("/")[-1]
+                doc_name = doc.split("/docs/patterns/", 1)[1]
                 if doc_name not in pattern_to_skills:
                     pattern_to_skills[doc_name] = []
                 pattern_to_skills[doc_name].append(skill["name"])
 
     # From pattern frontmatter
     for doc_name, frontmatter in pattern_data.items():
-        related_skills = frontmatter.get("related_skills", [])
+        related_skills = _normalize_related_skills(frontmatter.get("related_skills"))
         if doc_name not in pattern_to_skills:
             pattern_to_skills[doc_name] = []
         pattern_to_skills[doc_name].extend(related_skills)
@@ -299,18 +351,34 @@ def generate_index_content(base_path: Path) -> str:
     return "\n".join(content)
 
 
-def main() -> None:
+def main() -> int:
     """Main entry point."""
-    base_path = Path(__file__).parent.parent
-    output_file = base_path / "docs" / "CROSS_REFERENCE_INDEX.md"
+    parser = argparse.ArgumentParser(description="Generate docs/CROSS_REFERENCE_INDEX.md")
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="Exit 1 if the checked-in artifact differs from a fresh render (no write).",
+    )
+    args = parser.parse_args()
 
-    print("Generating cross-reference index...")
-    content = generate_index_content(base_path)
+    content = generate_index_content(PROJECT_ROOT)
 
-    output_file.write_text(content)
-    print(f"✅ Generated: {output_file}")
+    if args.check:
+        on_disk = ARTIFACT_PATH.read_text(encoding="utf-8") if ARTIFACT_PATH.exists() else ""
+        if on_disk != content:
+            print("❌ CROSS_REFERENCE_INDEX.md is stale.")
+            print(
+                "   Regenerate: cd app && uv run python scripts/generate_cross_reference_index.py"
+            )
+            return 1
+        print("✅ CROSS_REFERENCE_INDEX.md is fresh.")
+        return 0
+
+    ARTIFACT_PATH.write_text(content, encoding="utf-8")
+    print(f"✅ Generated: {ARTIFACT_PATH}")
     print(f"   Lines: {len(content.splitlines())}")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

@@ -2193,9 +2193,9 @@ ones a future session would most plausibly reintroduce while scoping:
   describes nothing — the next regeneration overwrites it and the guard then reports a
   correctly regenerated file as missing its key — and where the artifact is drift-tested a
   frontmatter block reds that test immediately. ⚠️ The exemption does **not** assert that
-  every excluded artifact is drift-tested: `CROSS_REFERENCE_INDEX.md` has no such test, so
-  nothing notices if it drifts from `skills_metadata.yaml`. That gap is its generator's,
-  not this guard's; the argument for excluding it stands either way. Detected by the file's own
+  every excluded artifact is drift-tested — the argument for excluding it stands either
+  way. (`CROSS_REFERENCE_INDEX.md` had no such test when this was recorded; closed by
+  `tests/unit/scripts/test_generate_cross_reference_index.py`.) Detected by the file's own
   declaration — *"this file is auto-generated"*, matched as a self-assertion rather than
   the bare phrase, header-scoped — never a list of generated paths. The loose form has to
   be avoided in that exact direction: a hand-maintained doc wrongly matched is dropped

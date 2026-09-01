@@ -133,11 +133,10 @@ def in_scope(repo_relative_path: str) -> bool:
 # byte-compares it against a fresh render, went red immediately.
 #
 # Note what this exemption does NOT claim: that every excluded artifact is drift-tested.
-# `BASESERVICE_METHOD_INDEX.md` is; `CROSS_REFERENCE_INDEX.md` has no such test, so
-# nothing currently notices if it goes stale against `skills_metadata.yaml` (Codex P2 on
-# #1212). Excluding it is still right — a stamp would not have noticed either, since the
-# generator rewrites the file wholesale — but the gap belongs to that generator, not
-# here.
+# Both currently are — `CROSS_REFERENCE_INDEX.md` had no such test when Codex flagged it
+# (P2 on #1212; closed by `test_generate_cross_reference_index.py`) — but the exemption
+# never depends on it: a stamp would not have noticed drift either, since each generator
+# rewrites its file wholesale. Drift detection belongs to the generators, not here.
 # A positive self-assertion, not the bare phrase. An unqualified `AUTO-GENERATED`
 # substring also matches "this file is NOT auto-generated" and "this guide explains
 # AUTO-GENERATED indexes" — and the consequence runs the wrong way: a hand-maintained
