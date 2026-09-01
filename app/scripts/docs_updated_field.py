@@ -238,24 +238,41 @@ def find_updated(content: str) -> UpdatedField | None:
 
     ``occurrences`` counts every column-0 ``updated:`` **inside the block**, so a
     caller can fail on a genuine duplicate without a body example tripping it.
+
+    ``split_frontmatter`` decides *whether* there is a leading block — it is the
+    mandated parser and stays the authority — but the line index is taken by scanning
+    the FILE's own lines between the fences, never by adding an offset to a position
+    within ``raw``. Those two are not always one apart: the parser's opening fence is
+    ``^---\\s*\\n``, and ``\\s*`` swallows a blank line following the ``---``, so for
+    ``---\\n\\ntitle: X\\nupdated: …`` the raw block starts on file line 2 while the
+    arithmetic assumed line 1. Stamping then overwrote ``title: X`` and left the real
+    ``updated:`` behind — silent metadata loss plus a duplicate key (Codex P1 on #1212).
+    Indexing the file directly makes the offset correct by construction.
     """
-    raw, _ = split_frontmatter(content)
-    if raw is None:
+    if split_frontmatter(content)[0] is None:
         return None
 
-    block_lines = raw.split("\n")
+    lines = content.split("\n")
+    # The parser's closing fence is `\n---\s*`, so a line matching `_FENCE` exists; the
+    # non-greedy `(.*?)` stops at the FIRST one, which is the one found here too.
+    closing = next(
+        (index for index in range(1, len(lines)) if _FENCE.match(lines[index])),
+        None,
+    )
+    if closing is None:  # pragma: no cover — split_frontmatter guarantees one exists
+        return None
+
     hits = [
         (index, match)
-        for index, line in enumerate(block_lines)
-        if (match := _UPDATED_LINE.match(line))
+        for index in range(1, closing)
+        if (match := _UPDATED_LINE.match(lines[index]))
     ]
     if not hits:
         return None
 
     first_index, first_match = hits[0]
-    # +1 for the opening `---` fence, which split_frontmatter strips from `raw`.
     return UpdatedField(
-        line_index=first_index + 1,
+        line_index=first_index,
         raw_value=first_match.group("value"),
         occurrences=len(hits),
     )

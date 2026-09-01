@@ -97,6 +97,24 @@ def test_two_keys_in_the_block_are_a_duplicate() -> None:
     assert found.occurrences == 2
 
 
+def test_a_blank_line_after_the_opening_fence_does_not_shift_the_index() -> None:
+    """`split_frontmatter`'s opening fence is `^---\\s*\\n`, and `\\s*` swallows a blank
+    line following the `---` — so the raw block can start on file line 2 while an
+    offset-from-raw calculation assumes line 1. Stamping then overwrote `title: X` and
+    left the real `updated:` behind: silent metadata loss plus a duplicate key
+    (Codex P1 on #1212). The index is taken from the FILE's lines, so it is right by
+    construction."""
+    source = "---\n\ntitle: X\nupdated: 2020-01-01\n---\n\nbody\n"
+    found = field_mod.find_updated(source)
+    assert found is not None
+    assert source.split("\n")[found.line_index].startswith("updated:")
+
+    out = field_mod.apply_stamp(source, STAMP)
+    assert "title: X" in out
+    assert field_mod.find_updated(out).occurrences == 1  # type: ignore[union-attr]
+    assert "2020-01-01" not in out
+
+
 def test_a_nested_key_is_not_the_field() -> None:
     """Column 0 only — ``  updated:`` under some other mapping is a different fact."""
     assert field_mod.find_updated("---\nmetadata:\n  updated: 2026-04-20\n---\n") is None
