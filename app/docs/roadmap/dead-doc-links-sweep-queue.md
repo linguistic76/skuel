@@ -59,9 +59,17 @@ never quote these numbers without re-running.
 ### The tail shape decides the fix
 
 Of the 223 distinct dead targets, **33 have exactly one tracked file sharing their
-basename** — the only ones a rename map could carry. **180 have no candidate at all:**
-the file is genuinely gone. So the usual fix is **editing the citing prose**, not swapping
-a path, and a bulk rename script cannot carry this queue.
+basename** — the only ones a rename map could carry; 10 have several; **180 have none.**
+
+⚠️ **"No same-basename candidate" is not "no successor."** A rename lands in the 180 even
+when its replacement is well known: the deleted relationships-package `domain_configs.py`
+has no same-named file anywhere, yet its successor is
+`core/models/relationship_registry.py` — a repoint PR #1220 made four times over. Treat the 180 as **requiring investigation**, not
+as proven deletions; the evidence is git history and the citing paragraph, never the
+basename.
+
+So the usual fix is **editing the citing prose**, and a bulk rename script cannot carry
+this queue — but do look for a renamed successor before deleting a citation outright.
 
 ### Heavy hitters — candidates for dedicated small sweeps
 
@@ -100,11 +108,11 @@ scheduling it as cleanup.
   and `/tasks`.
 - ⚠️ **Documentation placeholders report as rot.** The scanner's placeholder vocabulary
   targets lowercase scaffolding shapes (`your_service.py`, `new_domain/`, `foo.py`); it does
-  not reject SHOUTING metavariables, so a doc teaching a naming convention reports its own
-  examples. **Eight such findings are verified today** — six in
-  `.claude/skills/docs-skills-evolution/reference.md` and two in
-  `docs/patterns/DOCSTRING_STANDARDS.md` — with the reliable tells being a `_NAME` suffix,
-  an all-`X` token, or a trailing `_X`. Never "fix" one. A narrowing for this shape is a
+  not reject SHOUTING metavariables, nor a lowercase-hyphen stand-in like `skill-name`, so a
+  doc teaching a naming convention reports its own examples. **Nine such findings are
+  verified today** — six in `.claude/skills/docs-skills-evolution/reference.md` and three in
+  the docstring template block at `docs/patterns/DOCSTRING_STANDARDS.md` — with the usual
+  tells being a `_NAME` suffix, an all-`X` token, or a trailing `_X`. Never "fix" one. A narrowing for this shape is a
   candidate improvement to the scanner, but it must be measured first: an earlier
   all-uppercase heuristic swept in real doc names like `SERVICE_PATTERNS.md`.
 - ⚠️ **Most targets are deleted, not moved** — see the tail shape. Reaching for a
