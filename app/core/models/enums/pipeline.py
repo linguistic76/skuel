@@ -90,6 +90,19 @@ class Pipeline(StrEnum):
             Pipeline.REFERENCE,
         )
 
+    def shares_by_default(self) -> bool:
+        """Whether an absent ``audience:`` at the vault/YAML door means "my teachers".
+
+        Submission-shaped pipelines keep ADR-054's default — the student is
+        handing something in, so it goes to every group they are a student of
+        (``AudienceResolver.resolve_default_teachers``). ``KNOWLEDGE`` does not:
+        a developed-files note teaches SKUEL about the user and is theirs unless
+        they say otherwise (ruling 2026-09-02), so an absent audience means
+        private and only an explicit ``audience:`` shares it. The never-shareable
+        pair is ``False`` here too; ``allows_sharing`` coerces them regardless.
+        """
+        return self.allows_sharing() and self is not Pipeline.KNOWLEDGE
+
 
 class JeUse(StrEnum):
     """

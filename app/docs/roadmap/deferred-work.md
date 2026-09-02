@@ -1195,6 +1195,21 @@ duplicate, no update). Tracked tasks must be completed and edited in SKUEL.
 
 ---
 
+## Vault Re-Sync Never Retracts a Share (REGISTERED 2026-09-02)
+
+`AudienceResolver.resolve_and_share` only adds `SHARED_WITH_GROUP` / `SHARES_WITH` edges, and the
+living-entry upsert a vault re-sync lands on carries no share reconciliation. So a note whose
+frontmatter drops or narrows its `audience:` keeps every share it already has. The 2026-09-02
+flip of the `knowledge` default to private (`Pipeline.shares_by_default()`) exposed it: the notes
+synced under the old `teachers` default stayed shared until
+`scripts/retract_defaulted_knowledge_shares.py` retracted them (one-shot, dry-run default, reads
+each note's vault frontmatter so an explicit `audience:` is never touched).
+
+**Trigger:** the next sharing-fan-out touch, or the first multi-user deployment (where a stale
+share is a leak, not a founder-vault curiosity).
+**Named cost:** `audience:` is write-once-widen in practice; narrowing needs the script or a
+manual unshare.
+
 ## Vault Task Door Publishes No Task Events (REGISTERED 2026-08-24)
 
 The direct `type: task` frontmatter ingestion path persists through

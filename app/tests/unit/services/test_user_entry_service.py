@@ -206,6 +206,12 @@ class TestJournalSharingPolicy:
         for pipeline in Pipeline:
             assert pipeline.allows_sharing() is (pipeline not in private), pipeline
 
+    def test_pipeline_shares_by_default_matrix(self):
+        """An absent audience: means teachers for submission pipelines only (ruling 2026-09-02)."""
+        opt_in = {Pipeline.KNOWLEDGE, Pipeline.TRANSCRIBE_AND_STRUCTURE, Pipeline.REFERENCE}
+        for pipeline in Pipeline:
+            assert pipeline.shares_by_default() is (pipeline not in opt_in), pipeline
+
 
 class TestCreateEntryRouting:
     """Service routes create calls based on exercise link presence."""
