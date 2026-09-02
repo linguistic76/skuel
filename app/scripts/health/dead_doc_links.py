@@ -347,18 +347,93 @@ ROUTE_DECORATORS = frozenset({"rt", "route"})
 #
 # The marker is inert as a citation: it carries no path, no extension and no project
 # prefix, so no pass extracts it (and `<`/`>` are TEMPLATE_MARKERS besides).
-HISTORICAL_MARKER = "<!-- historical -->"
-HISTORICAL_MARKER_RE = re.compile(r"<!--\s*historical\s*-->")
+# ── The planned-file marker ──────────────────────────────────────────────────
+# A LIVE roadmap doc cites the files it plans to CREATE, and the scanner sees exactly
+# what it sees for a deleted one: `not exists()`. Measured 2026-09-02 on `21491cd4e`:
+# 8 of the 14 live-`docs/roadmap/` findings are this shape, four of them annotated
+# "(new)" in the doc's own code-touch inventory and one "(when implemented)".
+#
+# It is the historical marker's mirror image — that one says "this WAS there", this one
+# says "this is not there YET" — so it is the same mechanism with a different scope,
+# not a second one. Two near-identical marker implementations would drift, which is the
+# failure `TEMPLATE_MARKERS` already exists to prevent.
+#
+# ⭐ The property that earned it over "just leave them reported" (Mike, 2026-09-02):
+# **it self-retires.** When the planned file is finally built the marker suppresses
+# nothing, so the SKUEL026 inversion REPORTS it — turning a permanent dead link into a
+# build-completion signal. A silent carve-out could never do that.
+#
+# ⚠️ Scoped to `docs/roadmap` and NOT `docs/decisions`. An ADR proposing a file is
+# writing a contract, not a schedule; if that ever needs an opt-out it gets its own
+# measured entry, never a widened scope here.
 
-# An inline code span, removed before marker detection — see `_historical_marker_lines`.
-# The same shape `extract_backtick_paths` reads, since it is the same convention: what
-# is inside backticks is a quoted token, not the surrounding prose's own voice.
+# ── Marker mechanism (both markers) ──────────────────────────────────────────
+# ONE implementation, a registry of two specs — deliberately. The two markers share
+# every rule below and differ only in name and scope, so a parallel implementation
+# would be two copies of the same contract free to drift apart.
+#
+# Every marker, whatever its name:
+#
+#   - skips a marked citation ONLY when the target is dead, and
+#   - is REPORTED when it skipped nothing (`stale_markers`), the same inversion
+#     SKUEL026 applies to lint suppressions that suppress nothing.
+#
+# **Line-scoped**, which in this corpus is per-citation. A line mixing a markable
+# citation with an unmarkable one must be SPLIT before marking — one marker would
+# silence both.
+#
+# ⚠️ The grammar is the WHOLE comment, matched exactly. The comment delimiters are the
+# anchors, so `<!-- historical: replaced by X -->` and `<!-- historically ... -->` are
+# not markers and their citations stay red. That direction is deliberate: B2's one
+# review finding was a pattern anchored at only one end reading `ADR-050-typo` as
+# `ADR-050`, and a marker predicate that accepts a superset of its grammar would quietly
+# swallow prose that was never a marker. Fail toward reporting.
+#
+# A marker is inert as a citation: it carries no path, no extension and no project
+# prefix, so no pass extracts it (and `<`/`>` are TEMPLATE_MARKERS besides).
+
+
+class MarkerSpec(NamedTuple):
+    """One per-citation opt-out: its name, where it is honored, and what it asserts.
+
+    ``scope_dirs`` is what keeps a marker from silencing the sweep queue wholesale —
+    one rule evaluated corpus-wide, so a marker copied outside its tier suppresses
+    nothing and is reported as such.
+    """
+
+    name: str
+    scope_dirs: tuple[str, ...]
+    # Completes "…because the citation is ", for the reason a stale marker carries.
+    asserts: str
+
+    @property
+    def spelling(self) -> str:
+        return f"<!-- {self.name} -->"
+
+    @property
+    def pattern(self) -> re.Pattern[str]:
+        return re.compile(rf"<!--\s*{self.name}\s*-->")
+
+
+MARKERS = (
+    # ADRs mix two kinds of citation in one Accepted file: faithful narrative ("we
+    # deleted X", "the former Y") and standing contract ("the chokepoint lives at X").
+    # Measured 2026-09-01 across all 154 `docs/decisions/` findings: 81 standing / 70
+    # narrative / 3 ambiguous. A whole-tier carve-out would have hidden the 81.
+    MarkerSpec("historical", ("docs/decisions",), "a faithful record of a past state"),
+    # See the planned-file block above.
+    MarkerSpec("planned", ("docs/roadmap",), "a file this plan intends to create"),
+)
+
+MARKERS_BY_NAME = {m.name: m for m in MARKERS}
+
+# An inline code span, removed before marker detection — see `_marker_lines`. The same
+# shape `extract_backtick_paths` reads, since it is the same convention: what is inside
+# backticks is a quoted token, not the surrounding prose's own voice.
 INLINE_CODE_RE = re.compile(r"`[^`\n]+`")
 
-# Honored ONLY here. Elsewhere the marker suppresses nothing and is reported as such —
-# one rule, evaluated corpus-wide, so a marker copied into a live doc cannot quietly
-# silence the sweep queue.
-MARKER_SCOPE_DIRS = ("docs/decisions",)
+# Any marker's opening, used to skip the fence walk on a file carrying none.
+ANY_MARKER_RE = re.compile(r"<!--\s*(?:" + "|".join(m.name for m in MARKERS) + r")\s*-->")
 
 CarveOutClass = Literal["unvalidatable", "history"]
 
@@ -408,16 +483,22 @@ def get_md_files() -> tuple[list[Path], ScopeSkips]:
     return scanned, ScopeSkips(skipped["unvalidatable"], skipped["history"])
 
 
-def _honors_historical_marker(path: Path) -> bool:
-    """Is this doc inside the tier where `<!-- historical -->` is honored?"""
+def _honors_marker(path: Path, marker: MarkerSpec) -> bool:
+    """Is this doc inside the tier where `marker` is honored?
+
+    ⚠️ Per marker, not per file: a doc is in scope for at most one of them today, and a
+    marker written outside its own tier suppresses nothing and is reported. That is what
+    stops a `planned` marker copied into an ADR — or a `historical` one copied into the
+    live roadmap — from quietly silencing the sweep queue.
+    """
     if not path.is_relative_to(ROOT):
         return False
     rel = path.relative_to(ROOT).as_posix()
-    return rel.startswith(tuple(f"{d}/" for d in MARKER_SCOPE_DIRS))
+    return rel.startswith(tuple(f"{d}/" for d in marker.scope_dirs))
 
 
-def _historical_marker_lines(content: str) -> frozenset[int]:
-    """Line numbers carrying a well-formed historical marker.
+def _marker_lines(content: str, marker: MarkerSpec) -> frozenset[int]:
+    """Line numbers carrying a well-formed marker of this kind.
 
     A marker inside a code span or a fenced block is prose ABOUT the marker, not an
     annotation — documenting this checker requires writing the shape it hunts, and the
@@ -441,7 +522,8 @@ def _historical_marker_lines(content: str) -> frozenset[int]:
     carries ``span`` for precisely this reason — "a delimiter line is neither content
     nor prose".
     """
-    if not HISTORICAL_MARKER_RE.search(content):
+    pattern = marker.pattern
+    if not pattern.search(content):
         # Nothing to walk fences for. Sound because the whole-content match is a strict
         # superset of the per-line ones, and it keeps the fence parse (which
         # `extract_fenced_paths` already pays once) off every unmarked file.
@@ -454,7 +536,7 @@ def _historical_marker_lines(content: str) -> frozenset[int]:
     return frozenset(
         lineno
         for lineno, line in enumerate(content.splitlines(), 1)
-        if lineno not in fenced and HISTORICAL_MARKER_RE.search(INLINE_CODE_RE.sub("", line))
+        if lineno not in fenced and pattern.search(INLINE_CODE_RE.sub("", line))
     )
 
 
@@ -854,15 +936,20 @@ class FileScan(NamedTuple):
     print them. A skip nobody can see is a suppression, and this checker's exclusions
     are supposed to be countable — the same reason the carve-outs print a file count.
 
-    ``stale_markers`` is the other half of the marker's contract: a ``<!-- historical -->``
-    that skipped nothing is rot in the marker, so it is a FINDING (rows of
-    ``(source, line_no, reason)``), not a silent no-op.
+    ``stale_markers`` is the other half of every marker's contract: a marker that
+    skipped nothing is rot in the marker, so it is a FINDING (rows of
+    ``(source, line_no, marker_name, reason)``), not a silent no-op.
+
+    ``marker_skips`` is keyed BY MARKER NAME rather than summed, for the reason the two
+    carve-out classes print separately: one number that moves for two unrelated reasons
+    is a number nobody can read. It also makes the planned marker's self-retirement
+    visible — that count falling is a file getting built.
     """
 
     dead: list[tuple[Path, int, str, str]]
     route_skips: int
-    marker_skips: int
-    stale_markers: list[tuple[Path, int, str]]
+    marker_skips: dict[str, int]
+    stale_markers: list[tuple[Path, int, str, str]]
 
 
 def check_file(md_file: Path, verbose: bool) -> FileScan:
@@ -875,15 +962,18 @@ def check_file(md_file: Path, verbose: bool) -> FileScan:
     try:
         content = md_file.read_text(encoding="utf-8", errors="ignore")
     except OSError:
-        return FileScan([], 0, 0, [])
+        return FileScan([], 0, {m.name: 0 for m in MARKERS}, [])
 
     rel_source = md_file.relative_to(ROOT)
     dead: list[tuple[Path, int, str, str]] = []
     route_skips = 0
-    marker_skips = 0
-    marker_lines = _historical_marker_lines(content)
-    honors_marker = _honors_historical_marker(md_file)
-    used_marker_lines: set[int] = set()
+    marker_skips: dict[str, int] = {m.name: 0 for m in MARKERS}
+    # Every marker's lines are collected, in scope or not — an out-of-scope marker must
+    # still be REPORTED as suppressing nothing, which is what stops one from being
+    # copied into a tier where it would look effective and be inert.
+    marker_lines = {m.name: _marker_lines(content, m) for m in MARKERS}
+    honored = {m.name: _honors_marker(md_file, m) for m in MARKERS}
+    used_marker_lines: dict[str, set[int]] = {m.name: set() for m in MARKERS}
     # Deduplicate on (lineno, RESOLVED TARGET), not (lineno, raw). Two spellings of one
     # dead file on one line are one defect, and since `./core/x.py` became checkable the
     # backtick pass reports it while the bare pass independently matches its
@@ -908,17 +998,20 @@ def check_file(md_file: Path, verbose: bool) -> FileScan:
             if verbose:
                 print(f"  ROUTE [{kind}] {rel_source}:{lineno} → {raw}")
             return
-        # An author has marked this line's citations as history. Reached only once the
-        # target has failed to resolve AND failed to match a live route, which is the
-        # contract: the marker skips a DEAD reference and nothing else, so it can never
-        # cover a live one — the property that keeps it falsifiable.
-        if honors_marker and lineno in marker_lines:
-            seen.add(key)
-            marker_skips += 1
-            used_marker_lines.add(lineno)
-            if verbose:
-                print(f"  HISTORICAL [{kind}] {rel_source}:{lineno} → {raw}")
-            return
+        # An author has marked this line's citations — as history, or as a file the
+        # plan intends to create. Reached only once the target has failed to resolve
+        # AND failed to match a live route, which is the contract: a marker skips a
+        # DEAD reference and nothing else, so it can never cover a live one — the
+        # property that keeps every marker falsifiable, and the planned one
+        # self-retiring.
+        for marker in MARKERS:
+            if honored[marker.name] and lineno in marker_lines[marker.name]:
+                seen.add(key)
+                marker_skips[marker.name] += 1
+                used_marker_lines[marker.name].add(lineno)
+                if verbose:
+                    print(f"  {marker.name.upper()} [{kind}] {rel_source}:{lineno} → {raw}")
+                return
         seen.add(key)
         dead.append((rel_source, lineno, raw, kind))
         if verbose:
@@ -941,14 +1034,23 @@ def check_file(md_file: Path, verbose: bool) -> FileScan:
     # The SKUEL026 inversion: a marker that suppressed nothing is rot in the marker.
     # Out of scope it can never suppress anything, which is a different authoring
     # mistake from a marker whose target came back to life — so the reason is carried.
-    reason = (
-        "no dead reference on this line"
-        if honors_marker
-        else f"markers are honored only in {'/, '.join(MARKER_SCOPE_DIRS)}/"
-    )
-    stale_markers = [
-        (rel_source, lineno, reason) for lineno in sorted(marker_lines - used_marker_lines)
-    ]
+    #
+    # ⭐ For `planned`, the in-scope reason is not a complaint but a SIGNAL: the file
+    # got built. That is the property this marker was chosen for, so the message says
+    # so rather than telling the reader to delete something they should celebrate.
+    stale_markers: list[tuple[Path, int, str, str]] = []
+    for marker in MARKERS:
+        if honored[marker.name]:
+            reason = (
+                f"no dead reference on this line — the target now exists, so it is no "
+                f"longer {marker.asserts}"
+            )
+        else:
+            reason = f"honored only in {'/, '.join(marker.scope_dirs)}/"
+        stale_markers.extend(
+            (rel_source, lineno, marker.name, reason)
+            for lineno in sorted(marker_lines[marker.name] - used_marker_lines[marker.name])
+        )
 
     return FileScan(dead, route_skips, marker_skips, stale_markers)
 
@@ -959,9 +1061,9 @@ def _sort_dead_link_records(record: tuple[Path, int, str, str]) -> tuple[str, in
     return str(source), lineno
 
 
-def _sort_stale_marker_records(record: tuple[Path, int, str]) -> tuple[str, int]:
+def _sort_stale_marker_records(record: tuple[Path, int, str, str]) -> tuple[str, int]:
     """Sort stale markers by source file path then line number."""
-    source, lineno, _ = record
+    source, lineno, _, _ = record
     return str(source), lineno
 
 
@@ -979,9 +1081,9 @@ def main() -> int:
     print(f"Scanning {len(md_files)} Markdown files in docs/ and .claude/skills/...")
 
     all_dead: list[tuple[Path, int, str, str]] = []
-    all_stale_markers: list[tuple[Path, int, str]] = []
+    all_stale_markers: list[tuple[Path, int, str, str]] = []
     route_skips = 0
-    marker_skips = 0
+    marker_skips: dict[str, int] = {m.name: 0 for m in MARKERS}
     index_md = Path("docs/INDEX.md")
 
     for md_file in md_files:
@@ -989,7 +1091,8 @@ def main() -> int:
         all_dead.extend(scan.dead)
         all_stale_markers.extend(scan.stale_markers)
         route_skips += scan.route_skips
-        marker_skips += scan.marker_skips
+        for name, count in scan.marker_skips.items():
+            marker_skips[name] += count
 
     # Printed unconditionally, zero included: each count is the visible half of an
     # exclusion, and a silent zero is how a carve-out that has rotted (or a route
@@ -1003,7 +1106,11 @@ def main() -> int:
         f"(dated records, where a dead link is the record being faithful)"
     )
     print(f"{route_skips} target(s) skipped: registered application routes (adapters/inbound/)")
-    print(f"{marker_skips} target(s) skipped: {HISTORICAL_MARKER} markers\n")
+    # One line per marker, never summed: they exclude for opposite reasons (was there /
+    # is not there yet), so a merged number would move for two unrelated causes.
+    for marker in MARKERS:
+        print(f"{marker_skips[marker.name]} target(s) skipped: {marker.spelling} markers")
+    print()
 
     if all_dead:
         print(
@@ -1017,11 +1124,13 @@ def main() -> int:
 
         index_issues = 0
         for source, items in by_file.items():
-            marker = ""
+            # `index_label`, not `marker`: this function now also iterates `MARKERS`,
+            # and one name for two unrelated things is how the two get confused.
+            index_label = ""
             if str(source) == str(index_md):
                 index_issues = len(items)
-                marker = f"  {Colors.RED}[INDEX.md]{Colors.RESET}"
-            print(f"\n  {Colors.BOLD}{source}{Colors.RESET}{marker}")
+                index_label = f"  {Colors.RED}[INDEX.md]{Colors.RESET}"
+            print(f"\n  {Colors.BOLD}{source}{Colors.RESET}{index_label}")
             for lineno, raw, kind in items:
                 tag = f"[{kind}]"
                 print(
@@ -1041,14 +1150,18 @@ def main() -> int:
             f"\n{Colors.RED}{Colors.BOLD}Markers that suppress nothing — "
             f"{len(all_stale_markers)}:{Colors.RESET}\n"
         )
-        for source, lineno, reason in sorted(all_stale_markers, key=_sort_stale_marker_records):
+        for source, lineno, name, reason in sorted(
+            all_stale_markers, key=_sort_stale_marker_records
+        ):
             print(
                 f"    {Colors.YELLOW}{source}:{lineno}{Colors.RESET}  "
-                f"{HISTORICAL_MARKER}  {Colors.RED}({reason}){Colors.RESET}"
+                f"<!-- {name} -->  {Colors.RED}({reason}){Colors.RESET}"
             )
         print(
             f"\n{Colors.YELLOW}Delete the marker — the citation it covered is no longer "
-            f"dead, or was never in scope.{Colors.RESET}"
+            f"dead, or was never in scope. For a {Colors.BOLD}planned{Colors.RESET}"
+            f"{Colors.YELLOW} marker in scope this is the good outcome: the file "
+            f"exists now.{Colors.RESET}"
         )
 
     if all_dead or all_stale_markers:

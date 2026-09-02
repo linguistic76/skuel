@@ -148,6 +148,7 @@ Scanning 435 Markdown files in docs/ and .claude/skills/...
 73 file(s) carved out: history directories (dated records, where a dead link is the record being faithful)
 28 target(s) skipped: registered application routes (adapters/inbound/)
 0 target(s) skipped: <!-- historical --> markers
+0 target(s) skipped: <!-- planned --> markers
 
 Broken References — 497 dead links:
 
@@ -190,9 +191,19 @@ exclusion prints its count on **every** run, zero included:
 | History directories | `HISTORY_DIRS` (`docs/migrations`, `docs/roadmap/done`, `docs/investigations`, `docs/Reviews`); skipped in `get_md_files()` | Dated records of a past state, where a dead link is the record being **faithful** — the file really was there when the record was written. Directory membership IS the classification, so this one is a directory carve-out (Mike's ruling, 2026-09-01). ⚠️ `docs/roadmap/done/` and never `docs/roadmap/`: the live half is "what might still happen" and its dead links are ordinary rot |
 | Registered application routes | AST match against the `@rt("…")` literals in `adapters/inbound/` | Docs cite app URLs (`/journals`, `/manifest.json`) with the same leading-slash spelling a repo path uses. The class is defined by MATCHING a live registration — never by shape, never by a hand-kept URL list. ⚠️ Only literal paths match: a factory's `@rt(f"/{domain}")` is unresolvable statically, so `/tasks` stays reported. Fail toward reporting |
 | `<!-- historical -->` markers | Exact-shape comment on the citation's line, honored only under `docs/decisions/` | An Accepted ADR mixes faithful narrative ("we deleted X") with standing contract ("the chokepoint lives at X"), so the opt-out is per citation rather than per file. It skips a marked citation **only when the target is dead**, and a marker that skipped nothing is itself reported — the SKUEL026 inversion. That is what a blanket ADR carve-out could not offer, and why it was refused |
+| `<!-- planned -->` markers | Same mechanism, honored only under `docs/roadmap/` (the live half — `done/` is carved out of the scan entirely) | A live roadmap doc cites the files it intends to CREATE, and `not exists()` looks identical for a deleted file and an unbuilt one. Measured 2026-09-02: 8 of the 14 live-roadmap findings. ⭐ Chosen over leaving them reported because it **self-retires** — when the file is built the marker suppresses nothing, so the same inversion reports it and a permanent dead link becomes a build-completion signal (Mike's ruling, 2026-09-02) |
+
+**Two markers, one mechanism.** `MARKERS` in `dead_doc_links.py` is a registry of
+`MarkerSpec(name, scope_dirs, asserts)`, and spelling, pattern, scope, skip-counting and
+stale-reporting all derive from it — deliberately, because two near-identical marker
+implementations would be two copies of one contract free to drift. Their **scopes are
+disjoint**: a `planned` marker in an ADR is inert and reported, and so is a `historical`
+one in the live roadmap. Skips print on their own line each, never summed — they exclude
+for opposite reasons (*was* there / *not yet* there).
 
 **The marker, in one line:** put `<!-- historical -->` on the line whose citation names a
-deleted thing as what-was. The grammar is the whole comment, matched exactly — a payload
+deleted thing as what-was, or `<!-- planned -->` on one naming a file the plan will
+create. The grammar is the whole comment, matched exactly — a payload
 (`<!-- historical: see ADR-054 -->`) or a different case is **not** a marker and its
 citation stays red, which is the fail-safe direction. It is **line-scoped**: one marker
 covers every dead citation on its line, so a line mixing narrative with a standing

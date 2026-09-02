@@ -1,5 +1,5 @@
 ---
-updated: 2026-08-21
+updated: 2026-09-02
 ---
 
 # Finance & Billing Migration — Intention + Plan
@@ -66,11 +66,11 @@ to Accepted (ChargeKeep-first) or Rejected (fall back to Stripe-direct/FastStrip
 ADR-052 as originally written). **Nothing after this phase starts until the gate passes.**
 
 **Phase 3b — Billing port + ChargeKeep adapter + role grant.**
-- `core/ports/billing_protocols.py` — `BillingProvider` Protocol + event TypedDicts
+- `core/ports/billing_protocols.py` <!-- planned --> — `BillingProvider` Protocol + event TypedDicts
   (keeps the source swappable: ChargeKeep now, Stripe-direct later if ever needed).
-- `adapters/outbound/chargekeep_client.py` — outbound adapter implementing `BillingProvider`
+- `adapters/outbound/chargekeep_client.py` <!-- planned --> — outbound adapter implementing `BillingProvider`
   (httpx; FastStripe only if we ever call Stripe directly).
-- `adapters/inbound/webhook_routes.py` — `POST /webhooks/chargekeep`: signature verify →
+- `adapters/inbound/webhook_routes.py` <!-- planned --> — `POST /webhooks/chargekeep`: signature verify →
   map ChargeKeep customer → SKUEL user → `user_service.update_role(MEMBER)` on **New Payment**
   (the real-money signal; New Subscription also fires on unpaid trials). Idempotent +
   replay-safe. **MEMBER is the only billing-driven role** — TEACHER/ADMIN are admin
@@ -244,10 +244,10 @@ Proposed to Accepted (with or without the reconciliation job) or Rejected.
 
 | Concern | Location |
 |---|---|
-| New billing port | `core/ports/billing_protocols.py` (new) |
-| ChargeKeep adapter | `adapters/outbound/chargekeep_client.py` (new) |
-| Webhook route | `adapters/inbound/webhook_routes.py` (new) — register in bootstrap |
-| Firefly read-facade | `core/services/finance/firefly_expense_service.py` (new) |
+| New billing port | `core/ports/billing_protocols.py` (new) <!-- planned --> |
+| ChargeKeep adapter | `adapters/outbound/chargekeep_client.py` (new) <!-- planned --> |
+| Webhook route | `adapters/inbound/webhook_routes.py` (new) <!-- planned --> — register in bootstrap |
+| Firefly read-facade | `core/services/finance/firefly_expense_service.py` (new) <!-- planned --> |
 | Role grant | `core/services/user/` `update_role` (exists) |
 | User ↔ customer link | `core/models/user/user.py` (+`chargekeep_customer_id`) |
 | Revenue sync | reuse `firefly_client.create_transaction` (exists) |

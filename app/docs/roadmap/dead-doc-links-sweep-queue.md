@@ -15,7 +15,7 @@ janitor; not a CI gate). B1–B5 took it from 871 findings to 330 by removing ev
 that was *not* rot — parser false positives, unvalidatable freeform files, application
 URLs read as file paths, a generated index, dated history directories, the ADR tier, and
 the documentation stand-ins two of the four passes reported anyway. B6–B7 begin the
-burn-down of the residue itself (330 → 288).
+burn-down of the residue itself (330 → 280).
 
 ⚠️ **What is left is NOT "overwhelmingly rot" — that framing was this doc's, and B7
 measured it false.** Classifying all 46 findings across the five heavy hitters gave
@@ -40,7 +40,7 @@ each is under *Cautions*. Verify before rewriting; a report is never proof.
 
 ## The queue
 
-**288 findings / 194 distinct missing targets**, measured 2026-09-02 on the B7 branch by
+**280 findings / 192 distinct missing targets**, measured 2026-09-02 on the B8 branch by
 driving `check_file()` over `get_md_files()`. Re-derive the same way; never quote these
 numbers without re-running.
 
@@ -52,7 +52,7 @@ numbers without re-running.
 | `docs/domains/` | 29 |
 | `docs/architecture/` | 25 |
 | `docs/guides/` | 18 |
-| `docs/roadmap/` (live half only) | 14 |
+| `docs/roadmap/` (live half only) | 6 |
 | `docs/reference/` | 13 |
 | `docs/` (root) | 8 |
 | `docs/development/` | 6 |
@@ -62,13 +62,13 @@ numbers without re-running.
 
 ### The tail shape decides the fix
 
-Of the 194 distinct dead targets, **26 have exactly one tracked file sharing their
-basename** — the only ones a rename map could carry; 8 have several; **160 have none.**
+Of the 192 distinct dead targets, **26 have exactly one tracked file sharing their
+basename** — the only ones a rename map could carry; 8 have several; **158 have none.**
 
-⚠️ **"No same-basename candidate" is not "no successor."** A rename lands in the 160 even
+⚠️ **"No same-basename candidate" is not "no successor."** A rename lands in the 158 even
 when its replacement is well known: the deleted relationships-package `domain_configs.py`
 has no same-named file anywhere, yet its successor is
-`core/models/relationship_registry.py` — a repoint PR #1220 made four times over. Treat the 160 as **requiring investigation**, not
+`core/models/relationship_registry.py` — a repoint PR #1220 made four times over. Treat the 158 as **requiring investigation**, not
 as proven deletions; the evidence is git history and the citing paragraph, never the
 basename.
 
@@ -80,10 +80,11 @@ this queue — but do look for a renamed successor before deleting a citation ou
 Four of the five listed here are done: the two UI-component docs, the UI development
 guide, and the three-tier type-system doc — 39 findings, all four now reporting zero.
 
-**The fifth stays, and sweeping it would be the mistake this table exists to warn about.**
-The finance/billing migration roadmap's 7 findings are **files the plan says to CREATE** —
-four of them literally annotated "(new)" in its own code-touch inventory. Nothing there is
-rot; the doc is correct and the scanner cannot know it. Left reported, deliberately.
+**The fifth was never rot and is now silenced correctly.** The finance/billing migration
+roadmap's 7 findings are **files the plan says to CREATE** — four annotated "(new)" in its
+own code-touch inventory. Sweeping them would have been the mistake this table exists to
+warn about. They now carry `<!-- planned -->` markers (B8), which is not the same as being
+hidden: when those files are built the markers suppress nothing and get reported.
 
 ⚠️ **Below 7 the tail is flat, and a high count was never evidence of rot** — the
 finance-billing row is the proof, from inside this very table. The docs-skills-evolution
@@ -127,10 +128,16 @@ scheduling it as cleanup.** The current top of the tail is a run of files at 7 a
   prose. A backticked BARE filename is not extracted — the shape guard needs a leading `/`
   or a project directory — so "the former `buttons.py` wrapper" keeps the precision and
   loses the finding, while a dated evolution log keeps its record intact.
-- ⚠️ **A roadmap doc citing files it plans to CREATE reports every one of them.** Not rot,
-  not narrative — a fourth class, and the scanner has no way to see the difference. Check
-  whether the doc is describing the future before touching a citation in `docs/roadmap/`.
-  There is no ruling on this class yet; it is left reported.
+- ✅ **A roadmap doc citing files it plans to CREATE has a marker now** — `<!-- planned -->`,
+  honored only under live `docs/roadmap/` (Mike's ruling, 2026-09-02). It is the
+  historical marker's mirror image and the *same* mechanism, so it inherits every rule:
+  line-scoped, exact grammar, skips only a DEAD target, and a marker that suppressed
+  nothing is reported. ⭐ It was chosen over leaving the class reported because it
+  **self-retires**: when the planned file is built the marker covers nothing, so the
+  report tells you the roadmap line came true. ⚠️ A marker is never read inside a fence,
+  so a fenced citation must move into prose to carry one. Still classify before
+  annotating — a `docs/roadmap/` citation of a *deleted* file is ordinary rot, and the
+  marker would be a lie about it.
 - ⚠️ **Some citations are pure fiction** — a path that has never existed in this repo
   (`git log --all` empty). Two were found in B7, both instructing the reader to run a
   migration script that was never written. These are the one class where deleting the
@@ -247,6 +254,6 @@ Arc PRs: #1217 (parser + carve-outs + route matching, 871→754), #1218 (one ADR
 resolver, 754→724), #1219 (history-dir carve-out + the per-citation marker mechanism,
 724→497), #1220 (ADR content sweep, 497→343), B5 (the two scheduled narrowings,
 343→330), B6 (the queued corrections + the domains catalog, 330→327), B7 (the four
-sweepable heavy hitters, 327→288). Rulings, the completed record, and the
+sweepable heavy hitters, 327→288), B8 (the planned-file marker, 288→280). Rulings, the completed record, and the
 duplicate-ADR-number note live in [`deferred-work.md`](deferred-work.md)
 § Dead-Doc-Links Instrument.
