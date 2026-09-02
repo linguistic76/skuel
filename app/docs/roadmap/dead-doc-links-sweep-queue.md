@@ -14,7 +14,9 @@ The instrument is `scripts/health/dead_doc_links.py` (in `./dev health` and the 
 janitor; not a CI gate). The B1–B4 arc took it from 871 findings to 343 by removing every
 class that was *not* rot — parser false positives, unvalidatable freeform files,
 application URLs read as file paths, a generated index, dated history directories, and
-the ADR tier. **What is left is the rot.**
+the ADR tier. **What is left is overwhelmingly rot — but it is residue, not a verdict.**
+Six of the 343 are known-good citations the scanner cannot resolve statically (see
+*Cautions* below), so verify before rewriting rather than treating a report as proof.
 
 > ⚠️ **Writing about this instrument creates findings in it.** This file is inside the
 > scanned corpus (`docs/roadmap/` is live; only `docs/roadmap/done/` is carved out), so a
@@ -121,7 +123,7 @@ next PR touching the file.
 
 | # | Where | The claim | The truth |
 |---|---|---|---|
-| 1 | `CLAUDE.md` § Unified Content Ingestion | `/submit` reaches `UserEntryService.create_entry()` *via* `core/services/ingestion/user_entry_ingestion.py` | It calls `create_entry()` **directly**. The form HTMX-posts to `POST /api/user-entries/upload`, whose handler in `adapters/inbound/user_entry_api.py` builds the request itself. `ingest_user_entry` has exactly one caller — `UnifiedIngestionService`, the vault/YAML door. Two doors, no shared middle layer; `create_entry()` is the one convergence point |
+| 1 | `CLAUDE.md` § Unified Content Ingestion | `/submit` reaches `UserEntryService.create_entry()` *via* `core/services/ingestion/user_entry_ingestion.py` | No middle layer is involved. ⚠️ Name the canonical route, not the alias: `/submit` is a legacy 302 onto **`/submissions/exercise`**, whose form HTMX-posts to `POST /api/user-entries/upload`; that handler in `adapters/inbound/user_entry_api.py` builds the request and calls `create_entry()` itself. `ingest_user_entry` has exactly one caller — `UnifiedIngestionService`, the vault/YAML door. Two doors, no shared middle layer; `create_entry()` is the one convergence point |
 | 2 | `core/models/relationship_registry.py` (the `TRANSFORMS` definition's comment) | the edge is "journal transcript → LLM-structured entry" | That is the **data flow**, and it reads as the edge direction, which is the reverse. `create_entry` does `relate(created.uid).via(TRANSFORMS).to(request.transforms_of_uid)` while the processing service sets `transforms_of_uid` on the structured **child** — so the edge runs **derived → source**. The definition's own `source_entry` field name is the tell |
 
 ## Named, still queued — `docs/domains/README.md`
