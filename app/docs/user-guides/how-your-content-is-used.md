@@ -59,7 +59,7 @@ Vault sync is inbound only: it reads your vault and creates SKUEL entries. It wr
 
 ### Audio recordings
 
-When you upload an audio file through the journals page, it is sent to Deepgram's API for transcription. The transcript is returned to SKUEL and stored as a journal entry under your account. SKUEL does not store the original audio file after transcription.
+When you upload an audio file through the journals page, it is sent to Deepgram's API for transcription. The transcript comes back to SKUEL and is written as a file into your vault's `je_out/` folder (together with the compiled output, if you chose that mode) — it is not stored in SKUEL's database. SKUEL does not store the original audio file after transcription.
 
 Deepgram processes audio under its own privacy terms. SKUEL uses Deepgram's API in a way that does not permit Deepgram to retain or train on your audio.
 
@@ -70,13 +70,13 @@ Deepgram processes audio under its own privacy terms. SKUEL uses Deepgram's API 
 | What you do | What is sent externally | To whom |
 |-------------|------------------------|---------|
 | Upload audio for transcription | Your audio file | Deepgram |
-| Request a journal AI response | Your journal entry text + a short context summary (goal/task/habit titles) | Anthropic (Claude) |
-| Request an activity report | Aggregate activity data (counts, completion rates — not entry text) | Anthropic (Claude) |
-| Use Askesis | PathStep content + your learning context | Anthropic (Claude) |
+| Request a journal AI response | Your discussion or upload text + a short context summary (goal/task/habit titles) | The configured AI provider — OpenAI or Anthropic, by the model selected |
+| Request an activity report | Aggregate activity data (counts, completion rates — not entry text) | The configured AI provider (OpenAI or Anthropic) |
+| Use Askesis | PathStep content + your learning context | The configured AI provider (OpenAI or Anthropic) |
 | Vault sync | Nothing — inbound read only | — |
 | All other SKUEL actions | Nothing leaves SKUEL | — |
 
-All external AI calls use Anthropic's API under terms that prohibit training on API-submitted data by default.
+All external AI calls go to the configured AI provider — OpenAI or Anthropic, chosen per model by the deployment — and both are used under API terms that prohibit training on API-submitted data by default.
 
 ---
 
