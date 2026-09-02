@@ -1,6 +1,6 @@
 ---
 title: Unified Ingestion Implementation Guide
-updated: 2026-08-28
+updated: 2026-09-02
 category: patterns
 related_skills: []
 related_docs:
@@ -105,6 +105,7 @@ Every UserEntry YAML must declare a pipeline. One of:
   amendment), shared to teach SKUEL about them. Persisted as-is (no
   processing) and, unlike `reference`, surfaced in the personal-notes context
   digest that informs UserContext. Not counted as a learning-loop submission.
+  Private unless `audience:` says otherwise.
 - `reference` — RESERVED for the planned per-user *stored* journal-exemplar
   layer; no producer today. `je_raw/`/`je_pro/` exemplars are read off disk,
   never ingested as REFERENCE (ADR-073 §4).
@@ -114,12 +115,14 @@ valid in YAML-ingested UserEntry files.
 
 ### Optional field: `audience`
 
-`audience:` declares who sees the submission. Defaults to `teachers`
-when omitted. Accepted values:
+`audience:` declares who sees the entry. When omitted it defaults to `teachers` for
+submission-shaped pipelines and to `private` for `knowledge` — a developed-files note
+shares only by explicit audience (`Pipeline.shares_by_default()`, ruling 2026-09-02).
+Accepted values:
 
 | Value | Meaning |
 |-------|---------|
-| `teachers` (default) | Expand to every group the uploader is a student-member of (via `AudienceResolver.resolve_default_teachers`). Zero student-role groups → no shares (no silent broadcast). |
+| `teachers` (default for submission pipelines) | Expand to every group the uploader is a student-member of (via `AudienceResolver.resolve_default_teachers`). Zero student-role groups → no shares (no silent broadcast). |
 | `group:<group_uid>` | Share with exactly one group. |
 | `public` | Set `visibility=PUBLIC` (portfolio). |
 | `private` | No shares, no visibility change. |

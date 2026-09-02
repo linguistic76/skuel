@@ -131,6 +131,34 @@ class TestBuildUserEntryRequest:
         resolver.resolve_default_teachers.assert_awaited_once_with("user_1")  # type: ignore[attr-defined]
 
     @pytest.mark.asyncio
+    async def test_knowledge_absent_audience_is_private(self):
+        """Ruling 2026-09-02: a knowledge note shares only by explicit audience."""
+        resolver = _resolver(teachers=["g_a", "g_b"])
+        result = await build_user_entry_request(
+            data={"pipeline": "knowledge", "title": "Developed note"},
+            file_path=Path("note.md"),
+            user_uid="user_1",
+            audience_resolver=resolver,
+        )
+        assert result.is_ok
+        req = result.value
+        assert req.share_with_groups == []
+        assert req.visibility is None
+        resolver.resolve_default_teachers.assert_not_awaited()  # type: ignore[attr-defined]
+
+    @pytest.mark.asyncio
+    async def test_knowledge_explicit_teachers_audience_still_expands(self):
+        resolver = _resolver(teachers=["g_a"])
+        result = await build_user_entry_request(
+            data={"pipeline": "knowledge", "title": "Shared note", "audience": "teachers"},
+            file_path=Path("note.md"),
+            user_uid="user_1",
+            audience_resolver=resolver,
+        )
+        assert result.is_ok
+        assert result.value.share_with_groups == ["g_a"]
+
+    @pytest.mark.asyncio
     async def test_explicit_group_audience(self):
         result = await build_user_entry_request(
             data={"pipeline": "teacher_review", "audience": "group:g_class"},
