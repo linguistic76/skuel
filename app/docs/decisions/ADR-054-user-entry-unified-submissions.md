@@ -549,9 +549,9 @@ Open Question 2 is effectively decided: the derived entry persists
 
 - **Open Question 1 (exercise version pinning at submit time)** was never
   addressed — no `exercise_version_hash` on `FULFILLS_EXERCISE`. Still open.
-- **Phase 3 "delete label-inclusive read helpers" is not fully done.** A few
-  defensive label-inclusive reads remain (e.g.
-  `user_context_queries.py` filters `entity_type IN ['exercise_submission',
-  'je_input', 'je_output', 'user_entry']`). These are harmless — the legacy
-  branches simply never match post-migration — but they are dead and slated for
-  removal under One Path Forward.
+- **Phase 3 "delete label-inclusive read helpers" — completed 2026-09-02.** The last
+  defensive label-inclusive read (the MEGA-QUERY's submission/feedback block in
+  `user_context_queries.py`, which still listed the three retired
+  `entity_type` strings) now matches `entity_type = 'user_entry'` only. The
+  retired names survive solely where they are *rejected*: the ingestion
+  detector's legacy-alias error and the lint catalog's stale-identifier rule.
