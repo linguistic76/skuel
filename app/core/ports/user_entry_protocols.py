@@ -461,7 +461,7 @@ class UserEntryContentOperations(Protocol):
         user_uid: UserUID,
         limit: int = 8,
     ) -> Result[list[Neo4jProperties]]:
-        """Vault-synced personal notes (pipeline=journal, vault_file_path in metadata)."""
+        """Vault-synced personal notes (pipeline=knowledge, vault_file_path in metadata)."""
         ...
 
     async def get_entries_for_path_step(

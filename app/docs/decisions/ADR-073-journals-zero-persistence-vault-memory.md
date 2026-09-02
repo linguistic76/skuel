@@ -1,5 +1,5 @@
 ---
-updated: 2026-08-13
+updated: 2026-09-02
 ---
 
 # ADR-073: Journals Are a Zero-Persistence Private Workshop; the Vault Is the Only Memory Channel
@@ -113,8 +113,11 @@ Everything else in the vault is **walled off by default** (fail-closed `SyncAllo
   The durable artifact is the file SKUEL writes to `je_out/` for the user to download and keep.
 - **Periodic notes** (daily / weekly / monthly): **kept** — stored as `UserEntry` and editable
   in-app (`/journals/{uid}/note`). This is a valued feature, distinct from a brainstorm session.
-- **Doorway notes**: ingested on sync as `UserEntry`; `journal`-mode notes feed the context
-  digest, `extract_activities`-mode notes create real entities (ADR-069).
+- **Doorway notes**: ingested on sync as `UserEntry`; `knowledge` notes feed the context
+  digest, `extract_activities` notes create real entities (ADR-069). *(Amended 2026-09-02:
+  `Pipeline.JOURNAL` is deleted. It had been authored-never-assigned since #479 re-stamped the
+  vault notes to `knowledge` and #608 purged the stored rows — `knowledge` + `private:` is the
+  one path for a context note; the count it fed, `total_journal_count`, went with it.)*
 - **je_pro entries** *(amended 2026-07-11)*: a frontmatter-consented je_pro file ingests as a
   stored `UserEntry` exactly like a `knowledge/` doorway note. Withdrawing consent in the file
   (dropping `pipeline:` or flipping to `je_use: exemplar`) deletes the stored node on the next
@@ -148,7 +151,7 @@ purposes that are one and the same today because there is a single user:
   privately, excluded from context, marked as a journal exemplar.
 
 (**#2a** — what SKUEL learns *about* the user from journaling — is **not** new: it is the vault
-doorway, `pipeline: journal|knowledge` feeding UserContext.) `Pipeline.REFERENCE` is **reserved**
+doorway, `pipeline: knowledge` feeding UserContext.) `Pipeline.REFERENCE` is **reserved**
 for the #2b stored layer and has **no producer today**; disk-only exemplars satisfy the
 functional need without it. Splitting #1 (product-default) from #2b (per-user stored) is deferred
 until there is more than one user.
@@ -165,7 +168,7 @@ Progress against target (PR 1 + PR 2 shipped; PR 3 remains):
 | `je_raw/` | Unconditionally excluded, inert | ✅ **Disk-only** — read at processing time as few-shot exemplars; never ingested |
 | `je_pro/` | Unconditionally excluded, inert | ✅ **Dual duty** (2026-07-11) — disk-only exemplar half AND frontmatter-gated understanding channel, scoped by `je_use:`; delete-on-narrow |
 | Periodic notes | Stored + in-app editable | **Unchanged (kept)** |
-| Model-feeding read (`get_vault_notes_for_context`) | Filters `pipeline='journal'` + `vault_file_path` | Unchanged; already excludes journal sessions |
+| Model-feeding read (`get_vault_notes_for_context`) | Filters `pipeline='journal'` + `vault_file_path` | ✅ `pipeline='knowledge'` only (the `journal` value is gone, 2026-09-02); already excluded journal sessions |
 
 **One Path Forward deletions** made by the code pass (machinery that existed only to serve
 storage the design removes): the journal-session chat page (`/journals/{uid}` is now

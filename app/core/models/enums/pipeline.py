@@ -33,9 +33,6 @@ class Pipeline(StrEnum):
                                     provenance (ADR-069)
         TEACHER_REVIEW            — no processing; entry waits in teacher queue
                                     via SHARED_WITH_GROUP
-        JOURNAL                   — Journals domain entry; processing driven by
-                                    JournalTier (FOUNDER: three-stage DNWF,
-                                    STANDARD: single-response). Always private.
         REFERENCE                 — RESERVED for the planned per-user stored
                                     journal-exemplar layer (private, no
                                     processing, excluded from UserContext /
@@ -58,7 +55,7 @@ class Pipeline(StrEnum):
                                     UserContext (the personal-notes context
                                     digest) rather than being archived; but it
                                     is not a learning-loop submission, so it is
-                                    excluded from submission/journal counts.
+                                    excluded from submission counts.
     """
 
     NONE = "none"
@@ -67,25 +64,29 @@ class Pipeline(StrEnum):
     LLM_SUMMARY = "llm_summary"
     EXTRACT_ACTIVITIES = "extract_activities"
     TEACHER_REVIEW = "teacher_review"
-    JOURNAL = "journal"
     REFERENCE = "reference"
     KNOWLEDGE = "knowledge"
 
     def allows_sharing(self) -> bool:
         """Whether a UserEntry on this pipeline may carry a non-private audience.
 
-        `TRANSCRIBE_AND_STRUCTURE` is the journal pipeline. Journals inherit
-        the historical `JeInput`/`JeOutput` privacy norm — raw audio + its
-        LLM-structured output are personal reflection, not shareable
-        artifacts. Enforced pre-persist in `_validate_audience`; the `/submit`
-        form hides the audience picker when this returns `False` (the
-        dedicated `/journals/submit` form never offered one).
+        Two pipelines are private by contract: `TRANSCRIBE_AND_STRUCTURE` (the
+        legacy audio → structured-entry chain — raw audio and its LLM output
+        are personal reflection, the historical `JeInput`/`JeOutput` norm) and
+        `REFERENCE` (the reserved per-user exemplar layer, ADR-073 §4). Enforced
+        pre-persist in `AudienceResolver.validate` and coerced to
+        `audience=private` at the vault/YAML door (`build_user_entry_request`);
+        the `/submit` form hides the audience picker when this returns `False`.
+
+        `Pipeline.JOURNAL` was deleted 2026-09-02 — every role it had has a
+        successor: a journal session is ephemeral (ADR-073) or an opt-in
+        `:ConversationSession` (ADR-078); a vault context note is `KNOWLEDGE`
+        (with `private:` as the retrieval opt-out). Never reintroduce it.
 
         See: ADR-054 §5 (Journal input → output, preserved).
         """
         return self not in (
             Pipeline.TRANSCRIBE_AND_STRUCTURE,
-            Pipeline.JOURNAL,
             Pipeline.REFERENCE,
         )
 

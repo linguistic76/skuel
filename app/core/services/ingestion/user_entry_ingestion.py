@@ -47,6 +47,16 @@ _AUDIO_PIPELINES: frozenset[Pipeline] = frozenset(
 )
 
 
+def _yaml_pipeline_values() -> str:
+    """The ``pipeline:`` values a YAML-ingested UserEntry may declare.
+
+    Every ``Pipeline`` member except the audio two — derived, so the error
+    messages below can never drift from the enum (they once named three
+    values while the parser admitted seven).
+    """
+    return ", ".join(p.value for p in Pipeline if p not in _AUDIO_PIPELINES)
+
+
 @dataclass(frozen=True)
 class _AudienceSpec:
     """Parsed `audience:` field. Internal to this module."""
@@ -97,7 +107,7 @@ def _parse_pipeline(raw: Any, file_name: str) -> Result[Pipeline]:
         return Result.fail(
             Errors.validation(
                 f"UserEntry YAML {file_name} is missing required 'pipeline:' field. "
-                "Set one of: none, teacher_review, llm_summary.",
+                f"Set one of: {_yaml_pipeline_values()}.",
                 field="pipeline",
             )
         )
@@ -114,8 +124,7 @@ def _parse_pipeline(raw: Any, file_name: str) -> Result[Pipeline]:
     except ValueError:
         return Result.fail(
             Errors.validation(
-                f"Unknown pipeline '{raw}'. Expected one of: "
-                f"{', '.join(p.value for p in Pipeline)}.",
+                f"Unknown pipeline '{raw}'. Expected one of: {_yaml_pipeline_values()}.",
                 field="pipeline",
             )
         )
@@ -283,7 +292,7 @@ async def build_user_entry_request(
         return Result.fail(audience_result)
     audience = audience_result.value
 
-    # Pipelines that don't allow sharing (JOURNAL, REFERENCE, TRANSCRIBE_AND_STRUCTURE)
+    # Pipelines that don't allow sharing (REFERENCE, TRANSCRIBE_AND_STRUCTURE)
     # are always private — coerce any explicit or defaulted audience to private so
     # reference-archive files don't need `audience: private` in every frontmatter block.
     if not pipeline.allows_sharing():

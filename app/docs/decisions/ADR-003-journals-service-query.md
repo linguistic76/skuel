@@ -1,6 +1,6 @@
 ---
 title: ADR-003: Journal Context Gathering Query
-updated: 2026-09-01
+updated: 2026-09-02
 status: current
 category: decisions
 tags: [003, adr, decisions, journals, query]
@@ -384,8 +384,9 @@ The transcript processor was refactored to streamline journal processing:
 
 > **Note:** JournalPure was merged into Report (February 2026) and the Journal domain was
 > absorbed into the Reports domain — which ADR-054 then collapsed a second time, into
-> **UserEntry** (April 2026). That is where journal entries live today, carried by
-> `pipeline=JOURNAL` rather than by a type of their own. See
+> **UserEntry** (April 2026). Journal *sessions* have not been stored at all since ADR-073
+> (a saved chat is an owner-private `:ConversationSession`, ADR-078); the notes around
+> journaling are `UserEntry` rows on other pipelines (`knowledge`, `extract_activities`, `none`). See
 > [ADR-054](/docs/decisions/ADR-054-user-entry-unified-submissions.md) and
 > `/docs/domains/user_entry.md`.
 

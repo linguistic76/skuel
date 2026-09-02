@@ -415,7 +415,6 @@ class UserContext:
     # SUBMISSION & FEEDBACK AWARENESS - Learning loop engagement tracking
     # =========================================================================
     total_submission_count: int = 0
-    total_journal_count: int = 0
     submissions_in_window: int = 0
     last_submission_date: datetime | None = None
     feedback_received_count: int = 0

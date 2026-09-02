@@ -1,5 +1,5 @@
 ---
-updated: 2026-08-20
+updated: 2026-09-02
 ---
 
 # Service Architecture: File Organization & Topology
@@ -68,7 +68,7 @@ Infrastructure modules with no root-level facade.
 | `relationships/` | UnifiedRelationshipService + 6 mixin files |
 | `sharing/` | UnifiedSharingService (entity-agnostic sharing) |
 | `search/` | Unified search across all domains |
-| `user_entry/` | UserEntry domain (ADR-054) — submissions + journal pipeline: CRUD, processing, learning-loop reads |
+| `user_entry/` | UserEntry domain (ADR-054) — submissions + vault-doorway entries: CRUD, processing, learning-loop reads |
 | `report/` | Teacher/AI reports, activity reports, review queue |
 | `output/` | InstructionResolver (unified instruction resolution) |
 | `transcription/` | TranscriptionService + BatchTranscriptionService + BatchProcessingService |

@@ -387,7 +387,6 @@ plan = await intelligence.get_ready_to_work_on_today()
 | `latest_activity_report_uid` | `str \| None` | Most recent ActivityReport UID (rich only) |
 | `latest_activity_report_period` | `str \| None` | Report window e.g. `"7d"` (rich only) |
 | `total_submission_count` | `int` | Cumulative student submissions |
-| `total_journal_count` | `int` | Cumulative journal entries |
 | `submissions_in_window` | `int` | Submissions within activity window |
 | `last_submission_date` | `datetime \| None` | Most recent submission timestamp |
 | `feedback_received_count` | `int` | Total feedback responses received |

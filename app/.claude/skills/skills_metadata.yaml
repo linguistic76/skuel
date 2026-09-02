@@ -531,7 +531,7 @@ skills:
       - ADR-003
       - ADR-054
     patterns: []
-    keywords: [journals, journal, DNWF, Scribe, Thought Partner, What Is Related, JournalMode, JournalService, instruction_loader, pipeline JOURNAL, run_stage1, run_stage2, run_stage3]
+    keywords: [journals, journal, DNWF, Scribe, Thought Partner, What Is Related, JournalMode, JournalService, instruction_loader, run_stage1, run_stage2, run_stage3]
 
   # ============================================================================
   # TESTING LAYER

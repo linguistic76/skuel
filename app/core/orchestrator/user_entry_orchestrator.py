@@ -12,7 +12,6 @@ All dependencies are required — bootstrap raises if any are missing
 
 from __future__ import annotations
 
-import operator
 from typing import TYPE_CHECKING, Any, TypedDict
 
 from core.models.enums.entity_enums import EntityStatus
@@ -118,39 +117,6 @@ class UserEntryOrchestrator:
             limit=limit,
             offset=offset,
         )
-
-    async def list_journal_entries(
-        self, user_uid: UserUID, limit: int = 50
-    ) -> Result[list[UserEntry]]:
-        """Return journal-domain entries across both journal pipelines.
-
-        Includes:
-        - JOURNAL                  — entries written via /journals UI (FOUNDER DNWF /
-                                     STANDARD) and vault-synced notes with pipeline: journal
-        - TRANSCRIBE_AND_STRUCTURE — legacy audio journal entries
-
-        NONE is intentionally excluded: it is shared with plain submissions and uploads
-        that have no journal identity. Vault notes intended for journals should declare
-        ``pipeline: journal`` in their frontmatter instead.
-        """
-        import asyncio
-
-        results = await asyncio.gather(
-            self._entries.list_for_user(user_uid=user_uid, pipeline=Pipeline.JOURNAL, limit=limit),
-            self._entries.list_for_user(
-                user_uid=user_uid, pipeline=Pipeline.TRANSCRIBE_AND_STRUCTURE, limit=limit
-            ),
-        )
-
-        entries: list[UserEntry] = []
-        for result in results:
-            if result.is_error:
-                return Result.fail(result)
-            if result.value:
-                entries.extend(result.value)
-
-        entries.sort(key=operator.attrgetter("created_at"), reverse=True)
-        return Result.ok(entries[:limit])
 
     async def list_exercise_entries(
         self, user_uid: UserUID, limit: int = 50

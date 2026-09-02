@@ -197,12 +197,14 @@ class TestJournalSharingPolicy:
         assert result.is_error
 
     def test_pipeline_allows_sharing_matrix(self):
-        """The policy: only TRANSCRIBE_AND_STRUCTURE is private."""
-        assert Pipeline.NONE.allows_sharing()
-        assert Pipeline.TRANSCRIBE.allows_sharing()
-        assert Pipeline.LLM_SUMMARY.allows_sharing()
-        assert Pipeline.TEACHER_REVIEW.allows_sharing()
-        assert not Pipeline.TRANSCRIBE_AND_STRUCTURE.allows_sharing()
+        """The policy: TRANSCRIBE_AND_STRUCTURE and REFERENCE are private; every other member shares.
+
+        Pinned over the whole enum so a new member must declare its side —
+        ``Pipeline.JOURNAL`` (deleted 2026-09-02) sat unasserted here for months.
+        """
+        private = {Pipeline.TRANSCRIBE_AND_STRUCTURE, Pipeline.REFERENCE}
+        for pipeline in Pipeline:
+            assert pipeline.allows_sharing() is (pipeline not in private), pipeline
 
 
 class TestCreateEntryRouting:

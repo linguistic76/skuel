@@ -136,11 +136,9 @@ class UserEntryProcessingService:
         if pipeline in (
             Pipeline.NONE,
             Pipeline.TEACHER_REVIEW,
-            Pipeline.JOURNAL,
             Pipeline.REFERENCE,
             Pipeline.KNOWLEDGE,
         ):
-            # JOURNAL: processed interactively in the Journals UI.
             # REFERENCE: archive/training material — stored as-is, no processing.
             # KNOWLEDGE: developed vault notes — stored as-is; they inform
             # UserContext via retrieval, not via a processing pass.
@@ -353,7 +351,7 @@ class UserEntryProcessingService:
         # The child is PRIVATE and inherits no audience from the source
         # (ADR-054 §5: journal is private by policy; see
         # Pipeline.allows_sharing). The source itself is already on
-        # pipeline=TRANSCRIBE_AND_STRUCTURE, so _validate_audience blocked
+        # pipeline=TRANSCRIBE_AND_STRUCTURE, so AudienceResolver.validate blocked
         # any explicit audience at submit time — the child is anchored to
         # the same norm rather than drifting to the default visibility.
         child_request = UserEntryCreateRequest(

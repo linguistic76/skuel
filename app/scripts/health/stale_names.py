@@ -172,6 +172,11 @@ DELETED: dict[str, str] = {
     "ProfileLayout": "deleted — use BasePage(page_type=PageType.CUSTOM)",
     "PageType.HUB": "deleted — sidebar pages use PageType.CUSTOM + SidebarPage",
     "PageHead": "deleted — use build_head() from ui.layouts.base_page",
+    # Deleted enum members
+    "Pipeline.JOURNAL": (
+        "deleted 2026-09-02 — a journal session is ephemeral (ADR-073) or an opt-in "
+        ":ConversationSession (ADR-078); a vault context note is Pipeline.KNOWLEDGE"
+    ),
     "PageLayout": "deleted — use BasePage",
     "SimplePageLayout": "deleted — use BasePage",
     "DrawerLayout": "deleted — use SidebarPage from ui.patterns.sidebar",
@@ -280,6 +285,7 @@ _adr043 = (
     "decision-time bootstrap gating snapshot -- all three named services have since been renamed"
 )
 _adr054 = "ADR-054 before/after record of the ProcessorType/EXERCISE_SUBMISSION/JE_* -> UserEntry collapse"
+_adr073 = "ADR-073 § 3 amendment (2026-09-02) recording the Pipeline.JOURNAL deletion -- the decision names what it retired"
 _askesis_arch = "change-history table recording the entities_rich unification / ActivityDataReader absorption / ActivityReviewService split"
 _askesis_intel = "'the former ActivityReviewService was split' -- historical record of the split"
 _entity_arch = "'Pipeline and ReportSource (supersede ProcessorType)' explainer -- names the retired enum to document its replacement"
@@ -300,6 +306,7 @@ _m_selroutes = "migration record -- sel_routes.py / create_drawer_layout name th
 _m_selux = "migration record -- sel_routes verification/procedure commands from the migration"
 _ref_ll = "learning-loop service table note: 'the former JournalOutputService was deleted'"
 _skill_ll = "learning-loop historical-references index -- names retired identifiers to map them to successors"
+_sweep_q = "dead-doc-links sweep queue: dated #1224 record of the 'authored, never assigned' finding that led to the deletion"
 _three_tier = (
     "'Key enum renames' record -- naming KuType/KuStatus is the historical record of the rename"
 )
@@ -372,6 +379,9 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         (413, "ProcessorType"): Allow(_adr054),
         (491, "EntityType.EXERCISE_SUBMISSION"): Allow(_adr054),
         (505, "ProcessorType"): Allow(_adr054),
+    },
+    "docs/decisions/ADR-073-journals-zero-persistence-vault-memory.md": {
+        (118, "Pipeline.JOURNAL"): Allow(_adr073),
     },
     "docs/intelligence/ASKESIS_INTELLIGENCE.md": {
         (361, "ActivityReviewService"): Allow(_askesis_intel),
@@ -455,6 +465,9 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         # re-derived from the scanner's report, never by adding the diff delta.
         (947, "KuType"): Allow(_three_tier),
         (948, "KuStatus"): Allow(_three_tier),
+    },
+    "docs/roadmap/dead-doc-links-sweep-queue.md": {
+        (219, "Pipeline.JOURNAL"): Allow(_sweep_q),
     },
     "docs/user-guides/documentation-freshness.md": {
         # 127/128 → 128/129: the health-command list above them gained a
