@@ -1,7 +1,7 @@
 ---
 title: Domain Documentation
 created: 2025-12-04
-updated: 2026-09-01
+updated: 2026-09-02
 status: current
 category: domains
 tags: [domains, reference, architecture]
@@ -15,28 +15,34 @@ This folder contains documentation for each of SKUEL's entity types.
 
 Each entity type is a peer — behavioral traits (not category membership) determine infrastructure behavior. See [ADR-047](../decisions/ADR-047-entity-types-replace-domain-categories.md).
 
-| Entity Type | File | UID Prefix | Key Purpose |
-|-------------|------|------------|-------------|
-| [Tasks](tasks.md) | `task:` | Work items with dependencies and deadlines |
-| [Goals](goals.md) | `goal:` | Objectives with milestones and progress |
-| [Habits](habits.md) | `habit:` | Recurring behaviors with streak tracking |
-| [Events](events.md) | `event:` | Calendar items with scheduling |
-| [Choices](choices.md) | `choice:` | Decisions with outcome tracking |
-| [Principles](principles.md) | `principle:` | Values that guide goals and choices |
-| [Finance](finance.md) | `expense:` | Expense and budget tracking (admin-only) |
-| [KU](ku.md) | `ku:` | Atomic knowledge unit (point topology) |
-| [PS](ls.md) | `ls:` | Sequential path steps (edge topology) |
-| [LP](lp.md) | `lp:` | Complete learning sequences (path topology) |
-| [Journals](journals.md) | `journal:` | Two-tier system: Voice (ephemeral) + Curated (permanent) |
-| [UserEntry](user_entry.md) | N/A | All user-authored content — exercise turn-ins, journal entries, uploads, periodic notes (ADR-054) |
-| [MOC](moc.md) | `ku:` | Non-linear navigation (graph topology via ORGANIZES) |
-| [LifePath](lifepath.md) | `lp:` | "Am I living my life path?" |
+| Entity Type | Key Purpose |
+|-------------|-------------|
+| [Tasks](tasks.md) | Work items with dependencies and deadlines |
+| [Goals](goals.md) | Objectives with milestones and progress |
+| [Habits](habits.md) | Recurring behaviors with streak tracking |
+| [Events](events.md) | Calendar items with scheduling |
+| [Choices](choices.md) | Decisions with outcome tracking |
+| [Principles](principles.md) | Values that guide goals and choices |
+| [Finance](finance.md) | Expense and budget tracking (admin-only) |
+| [KU](ku.md) | Atomic knowledge unit (point topology) |
+| [PS](ps.md) | Sequential path steps (edge topology) |
+| [LP](lp.md) | Complete learning sequences (path topology) |
+| [UserEntry](user_entry.md) | All user-authored content — exercise turn-ins, journal entries, uploads, periodic notes (ADR-054) |
+| [MOC](moc.md) | Non-linear navigation (graph topology via ORGANIZES) |
+| [LifePath](lifepath.md) | "Am I living my life path?" |
+
+**UID formats are NOT listed here.** [Entity Type Architecture](../architecture/ENTITY_TYPE_ARCHITECTURE.md) carries the authoritative per-type table; a second copy here rotted into colon-spelled prefixes that no generator has ever minted, with two entity types claiming the same one. The rule that outlives any copy: a colon is reserved for internal machine identifiers and is **never an authored** entity UID — the machine-minted periodic UserEntry uids (`ue:daily:…` and their weekly/monthly siblings) are real graph identities and the sanctioned exception, which `is_sanctioned_machine_uid()` enumerates. And entity kind is read from the label / `entity_type` / an edge — never sniffed from the UID's spelling (ADR-013, SKUEL034).
 
 **MOC Architecture:** MOC is NOT a separate entity — it IS a KU with ORGANIZES relationships. A KU "is" a MOC when it has outgoing ORGANIZES relationships (emergent identity).
 
-**Journals Two-Tier System:**
-- **PJ1 (Voice)**: Audio journals, max 3 stored, FIFO auto-cleanup (`JOURNAL_VOICE`)
-- **PJ2 (Curated)**: Text/markdown journals, permanent storage (`JOURNAL_CURATED`)
+**Journals are not an entity type.** The AI companion is ephemeral by default (ADR-073's
+understanding wall + ADR-078's opt-in persistence) — a saved chat becomes an owner-private
+`:ConversationSession`, never a `UserEntry`. Which stored notes exist, and what pipeline
+each carries, is a live contract with more than one answer — `Pipeline.JOURNAL` is authored
+rather than assigned, and the notes around journaling carry other pipelines — so this
+catalog does not restate it.
+
+**See:** [Journals Domain Architecture](../architecture/JOURNALS_DOMAIN_ARCHITECTURE.md) — the successor to the deleted per-domain doc, and the authority on journal persistence — plus the UserEntry row above and the `@journals` skill.
 
 ## Quick Reference
 

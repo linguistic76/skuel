@@ -11,10 +11,11 @@ updated: 2026-09-02
 that section keeps the rulings and the completed record, and points here.
 
 The instrument is `scripts/health/dead_doc_links.py` (in `./dev health` and the weekly
-janitor; not a CI gate). The B1–B5 arc took it from 871 findings to 330 by removing every
-class that was *not* rot — parser false positives, unvalidatable freeform files,
-application URLs read as file paths, a generated index, dated history directories, and
-the ADR tier. **What is left is overwhelmingly rot — but it is residue, not a verdict.**
+janitor; not a CI gate). B1–B5 took it from 871 findings to 330 by removing every class
+that was *not* rot — parser false positives, unvalidatable freeform files, application
+URLs read as file paths, a generated index, dated history directories, the ADR tier, and
+the documentation stand-ins two of the four passes reported anyway. B6 is the first
+burn-down of the residue itself (330 → 327). **What is left is overwhelmingly rot — but it is residue, not a verdict.**
 Some reports are known-good citations the scanner cannot classify: `/tasks` is a live page
 it cannot resolve, and one documentation placeholder is an intentional example the
 vocabulary deliberately does not cover — both enumerated under *Cautions*, which is where
@@ -34,17 +35,17 @@ those counts live. Verify before rewriting rather than treating a report as proo
 
 ## The queue
 
-**330 findings / 212 distinct missing targets**, measured 2026-09-02 on the B5 branch by
-driving `check_file()` over `get_md_files()`. Re-derive the same way; never quote these
-numbers without re-running.
+**327 findings / 210 distinct missing targets**, measured 2026-09-02 on the corrections
+branch by driving `check_file()` over `get_md_files()`. Re-derive the same way; never
+quote these numbers without re-running.
 
 | Area | Findings |
 |---|---|
 | `docs/patterns/` | 99 |
 | `.claude/skills/` | 40 |
 | `docs/intelligence/` | 40 |
-| `docs/domains/` | 31 |
-| `docs/architecture/` | 26 |
+| `docs/domains/` | 29 |
+| `docs/architecture/` | 25 |
 | `docs/guides/` | 18 |
 | `docs/roadmap/` (live half only) | 14 |
 | `docs/reference/` | 13 |
@@ -58,13 +59,13 @@ numbers without re-running.
 
 ### The tail shape decides the fix
 
-Of the 212 distinct dead targets, **33 have exactly one tracked file sharing their
-basename** — the only ones a rename map could carry; 9 have several; **170 have none.**
+Of the 210 distinct dead targets, **33 have exactly one tracked file sharing their
+basename** — the only ones a rename map could carry; 9 have several; **168 have none.**
 
-⚠️ **"No same-basename candidate" is not "no successor."** A rename lands in the 170 even
+⚠️ **"No same-basename candidate" is not "no successor."** A rename lands in the 168 even
 when its replacement is well known: the deleted relationships-package `domain_configs.py`
 has no same-named file anywhere, yet its successor is
-`core/models/relationship_registry.py` — a repoint PR #1220 made four times over. Treat the 170 as **requiring investigation**, not
+`core/models/relationship_registry.py` — a repoint PR #1220 made four times over. Treat the 168 as **requiring investigation**, not
 as proven deletions; the evidence is git history and the citing paragraph, never the
 basename.
 
@@ -151,41 +152,65 @@ Two rulings from that work outlive it:
 shadow risk. It is a decision, pinned by a test, not an oversight — reshape the citing
 example or leave it red, but do not add a rule.
 
-## Disproven claims owed a correction — NOT dead links
+## Disproven claims — a species the scanner is blind to
 
-A different species, found while fixing PR #1220's findings and deliberately left outside
-that PR's ADR-tier fence. The targets all exist, so the scanner is blind to these; they
-are **wrong claims**, each verified against the code. Same protocol: ride-along on the
-next PR touching the file.
+Wrong claims about files that **exist**, so no dead-link run will ever raise them. Three
+were filed off PR #1220; all three are now closed, and the way they closed is the reason
+this section stays:
 
-> ⚠️ **A third entry was drafted here and withdrawn** — worth recording, because it is the
-> failure mode this table can cause. It would have "corrected" `docs/domains/choices.md`'s
-> line about payloads being the dataclass fields *minus the `occurred_at` / `metadata`
-> every event carries*, on the strength of `BaseEvent` declaring only `occurred_at`. But
-> every event in `core/events/choice_events.py` declares its own
-> `metadata: dict[str, Any] | None`, so that sentence is **true for the table it heads**;
-> the generalisation came from the UserEntry events, which have no such field. Following
-> the entry would have replaced an accurate statement with a false one (Codex, PR #1221).
-> **A queued correction is a claim like any other — reproduce it at ride-along time, not
-> just when it is filed.**
+- **Two were applied** (`CLAUDE.md`'s `/submit` ingestion path, and the `TRANSFORMS`
+  direction comment in `core/models/relationship_registry.py`). Both reproduced exactly
+  as filed before being applied.
+- **One was withdrawn before it landed.** It would have "corrected" a `docs/domains/choices.md`
+  sentence about event payloads on the strength of `BaseEvent` declaring only
+  `occurred_at` — but every event in `core/events/choice_events.py` declares its own
+  `metadata` field, so the sentence was **true for the table it heads**. The
+  generalisation came from the UserEntry events, which have no such field. Following the
+  entry would have replaced an accurate statement with a false one (Codex, PR #1221).
 
-| # | Where | The claim | The truth |
-|---|---|---|---|
-| 1 | `CLAUDE.md` § Unified Content Ingestion | `/submit` reaches `UserEntryService.create_entry()` *via* `core/services/ingestion/user_entry_ingestion.py` | No middle layer is involved. ⚠️ Name the canonical route, not the alias: `/submit` is a legacy 302 onto **`/submissions/exercise`**, whose form HTMX-posts to `POST /api/user-entries/upload`; that handler in `adapters/inbound/user_entry_api.py` builds the request and calls `create_entry()` itself. `ingest_user_entry` has exactly one caller — `UnifiedIngestionService`, the vault/YAML door. Two doors, no shared middle layer; `create_entry()` is the one convergence point |
-| 2 | `core/models/relationship_registry.py` (the `TRANSFORMS` definition's comment) | the edge is "journal transcript → LLM-structured entry" | That is the **data flow**, and it reads as the edge direction, which is the reverse. `create_entry` does `relate(created.uid).via(TRANSFORMS).to(request.transforms_of_uid)` while the processing service sets `transforms_of_uid` on the structured **child** — so the edge runs **derived → source**. The definition's own `source_entry` field name is the tell |
+⚠️ **A queued correction is a claim like any other — reproduce it when you apply it, not
+only when you file it.** That is two applied-as-filed to one withdrawn-on-contact, and it
+is why nothing here is a work order. B5 hit the same edge from the other side: its
+schedule cited two docs as real files a wide rule would eat, and neither is tracked.
 
-## Named, still queued — `docs/domains/README.md`
+File a new entry with the claim, the verified truth, and the evidence — then ride it
+along on the next PR touching the file.
 
-Two rows of the entity-type table are dead links, three cells from the UserEntry row that
-PR #1220 rewrote, and were left alone on purpose (that PR's fence was the ADR tier):
+## Named, still queued
 
-- the **PS** row links a file named `ls.md`, which has never existed — the doc is `ps.md`
-- the **Journals** row links a `journals.md` deleted when the domain was absorbed; the
-  successor content is the UserEntry doc
+Nothing today. The `docs/domains/README.md` PS and Journals rows that stood here are
+fixed: the PS row's link pointed at a filename that never existed, and the Journals row
+named a doc deleted when the domain was absorbed. That row is **gone rather than
+repointed** — Journals is not an entity type — and the catalog now points at
+`docs/architecture/JOURNALS_DOMAIN_ARCHITECTURE.md`, which owns the persistence contract.
 
-⚠️ Fixing the Journals row is not a path swap: Journals is no longer a domain of its own.
-It is a `pipeline=JOURNAL` UserEntry, so the row either points at the UserEntry doc or
-comes out of the table.
+⚠️ **This queue's own successor guidance for that row was wrong, twice, and it is the most
+instructive thing on this page.** It said the successor content was the UserEntry doc.
+There is a real successor — different name, different directory, invisible to any basename
+search — and the substitute claim was itself false: "a journal is a `pipeline=JOURNAL`
+UserEntry" survives no contact with the code. The companion persists nothing by default and
+a saved chat becomes an owner-private `:ConversationSession`; in-app periodic notes are
+written `Pipeline.NONE`; vault notes are authored `extract_activities`; and
+`Pipeline.JOURNAL` is **authored, never assigned** — no service sets it, but the
+vault/YAML door accepts it from frontmatter (`_parse_pipeline` allows every member except
+the two audio ones), so a synced note declaring `pipeline: journal` persists a live entry.
+That last correction is itself the lesson: "no producer at all" was a *code-grep*
+conclusion, blind to a data-driven door, and it is exactly the over-reach the rest of this
+paragraph is about (Codex, PR #1224, six rounds on one paragraph).
+
+**Two rules come out of that.** An entry on this page is a **lead, not a finding** — a lead
+that names a successor has to be checked before it is followed. And when a fix keeps
+drawing findings, stop restating the contract: a catalog's job is to point at the authority,
+not to duplicate a live contract that has more than one answer.
+
+⚠️ **The same table held rot the scanner cannot see, and a link fix that ignored it would
+have left the doc wrong.** Its UID-prefix column was a second copy of the authoritative
+per-type table, rotted into colon spellings no generator mints — a spelling the ratified
+separator grammar reserves for internal machine identifiers — with two entity types
+claiming the same prefix, under a header declaring one more column than any row supplied.
+The copy is deleted and the authority cited. Expect this shape: **a dead link is often
+the visible edge of a stale paragraph**, so read the surrounding claim before repointing
+a path.
 
 ## How to re-derive everything on this page
 
@@ -203,6 +228,6 @@ a clean scan, which is why they print.
 Arc PRs: #1217 (parser + carve-outs + route matching, 871→754), #1218 (one ADR-link
 resolver, 754→724), #1219 (history-dir carve-out + the per-citation marker mechanism,
 724→497), #1220 (ADR content sweep, 497→343), B5 (the two scheduled narrowings,
-343→330). Rulings, the completed record, and the
+343→330), B6 (the queued corrections + the domains catalog, 330→327). Rulings, the completed record, and the
 duplicate-ADR-number note live in [`deferred-work.md`](deferred-work.md)
 § Dead-Doc-Links Instrument.

@@ -4,7 +4,7 @@ created: 2026-03-20
 status: current
 category: architecture
 tags: [deepgram, transcription, audio, batch, configuration]
-updated: 2026-07-28
+updated: 2026-09-02
 ---
 
 # Audio Transcription Architecture
@@ -237,5 +237,5 @@ The config file exposes five Deepgram intelligence features:
 ## See Also
 
 - [Deepgram Configuration Guide](/docs/configuration/DEEPGRAM_CONFIG.md) — option reference
-- [Journals Domain](/docs/domains/journals.md) — full journals architecture
+- [Journals Domain Architecture](/docs/architecture/JOURNALS_DOMAIN_ARCHITECTURE.md) — full journals architecture (successor to the deleted per-domain doc); note the file/audio door is zero-persistence, so a transcript here does not become a `UserEntry`
 - [Report Architecture](/docs/architecture/REPORT_ARCHITECTURE.md) — report generation pipeline
