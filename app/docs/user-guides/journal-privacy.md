@@ -20,7 +20,7 @@ What persists, and why:
 
 - **A saved chat** — only when you click **Save this chat**. It stores that discussion's turns and title under your account; nothing is saved until you click.
 - **The output file of an upload** — because you uploaded it. It lives in your vault's `je_out/` folder as a file for you to open in Obsidian, never in the database.
-- **Vault notes you sync** — because you put them in a sync doorway folder (`knowledge/`, your periodic notes). They are stored under your account as notes. A `knowledge` note is private unless its frontmatter names an `audience:`; a periodic note with no `audience:` follows the vault door's submission default and goes to the groups you are enrolled in as a student (private if you are in none). Mark one `private: true` and the journal companion will not read it.
+- **Vault notes you sync** — because you put them in a sync doorway folder (`knowledge/`, your periodic notes). They are stored under your account as notes, and they are private unless a note's frontmatter names an `audience:`. Mark one `private: true` and the journal companion will not read it.
 
 A saved chat is **never used to understand you**. It is not searched, embedded, or fed into the context the journal companion or Askesis works from — the only channel into that context is the vault notes you choose to sync.
 
@@ -36,7 +36,7 @@ When you request an AI response, your text and a short summary of your active go
 |------|-------------------------------|
 | You | ✅ Yes — your saved chats and synced notes only |
 | Other users | ❌ No — ownership is enforced at every query |
-| Teachers | ❌ No for saved chats, and no for `knowledge` notes without an `audience:`. A synced periodic note with no `audience:` defaults to the teachers of your groups |
+| Teachers | ❌ No — a saved chat has no sharing surface, and a synced vault note is visible to your teachers only when its frontmatter names them in `audience:` |
 | SKUEL Admins | ❌ No — admin routes cover user accounts and platform statistics; no admin route reads journal content |
 
 This is technically enforced, not just policy. A saved chat is read only through the owner-scoped conversation store, and a synced note only through `(YourAccount)-[:OWNS]->(Note)`. There is no admin route in the codebase that traverses either across users.

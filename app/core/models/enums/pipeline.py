@@ -95,13 +95,18 @@ class Pipeline(StrEnum):
 
         Submission-shaped pipelines keep ADR-054's default — the student is
         handing something in, so it goes to every group they are a student of
-        (``AudienceResolver.resolve_default_teachers``). ``KNOWLEDGE`` does not:
-        a developed-files note teaches SKUEL about the user and is theirs unless
-        they say otherwise (ruling 2026-09-02), so an absent audience means
-        private and only an explicit ``audience:`` shares it. The never-shareable
-        pair is ``False`` here too; ``allows_sharing`` coerces them regardless.
+        (``AudienceResolver.resolve_default_teachers``). The two vault-note
+        pipelines do not: a ``KNOWLEDGE`` developed-files note and an
+        ``EXTRACT_ACTIVITIES`` periodic note are the user's own vault, theirs
+        unless they say otherwise (rulings 2026-09-02), so an absent audience
+        means private and only an explicit ``audience:`` shares one. The
+        never-shareable pair is ``False`` here too; ``allows_sharing`` coerces
+        them regardless.
         """
-        return self.allows_sharing() and self is not Pipeline.KNOWLEDGE
+        return self.allows_sharing() and self not in (
+            Pipeline.KNOWLEDGE,
+            Pipeline.EXTRACT_ACTIVITIES,
+        )
 
 
 class JeUse(StrEnum):

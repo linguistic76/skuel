@@ -1,19 +1,24 @@
 #!/usr/bin/env python3
 """
-One-off graph retraction — group shares the old ``knowledge`` default created
-==============================================================================
+One-off graph retraction — group shares the old vault-note default created
+============================================================================
 
 Until 2026-09-02 the vault/YAML door defaulted an absent ``audience:`` to
-``teachers`` for every pipeline, so a ``knowledge`` note synced without that
-line was shared with every group its owner is a student-member of. Mike ruled
-that a developed-files note is private unless its frontmatter says otherwise
+``teachers`` for every pipeline, so a vault note synced without that line —
+a ``knowledge`` developed-files note or an ``extract_activities`` periodic
+note — was shared with every group its owner is a student-member of. Mike
+ruled that a vault note is private unless its frontmatter says otherwise
 (``Pipeline.shares_by_default()``), and a vault re-sync never retracts a share
 (deferred-work § Vault Re-Sync Never Retracts a Share) — so the shares the old
 default already wrote stay until this script removes them.
 
+The pipelines it covers are derived, not listed: every ``Pipeline`` that
+``allows_sharing()`` but does not ``shares_by_default()`` — the set whose
+default flipped. Re-runnable; a clean graph reports zero.
+
 The script proves its premise per row rather than trusting the graph: a
-``SHARED_WITH_GROUP`` edge on a ``knowledge`` UserEntry is retracted ONLY when
-the note's vault file (``metadata.vault_file_path``) still exists AND its
+``SHARED_WITH_GROUP`` edge on such a UserEntry is retracted ONLY when the
+note's vault file (``metadata.vault_file_path``) still exists AND its
 frontmatter carries no ``audience:`` line. A file that authors ``audience:``
 consented explicitly and is left alone; a missing file or missing path is
 reported and skipped (honest count, no silent guess).
@@ -23,8 +28,8 @@ nothing. Pass ``--apply`` to delete the targeted edges (edges only; the notes
 and their ``visibility`` are untouched — group sharing is edge-only).
 
 Usage:
-    uv run scripts/retract_defaulted_knowledge_shares.py            # dry run
-    uv run scripts/retract_defaulted_knowledge_shares.py --apply    # execute
+    uv run scripts/retract_defaulted_vault_note_shares.py            # dry run
+    uv run scripts/retract_defaulted_vault_note_shares.py --apply    # execute
 """
 
 from __future__ import annotations
@@ -46,10 +51,10 @@ _FRONTMATTER_AUDIENCE = re.compile(r"^audience\s*:", re.MULTILINE)
 _SELECT_QUERY = f"""
 MATCH (u:{NeoLabel.USER.value})-[:{RelationshipName.OWNS.value}]->(e:{NeoLabel.USER_ENTRY.value})
       -[s:{RelationshipName.SHARED_WITH_GROUP.value}]->(g:{NeoLabel.GROUP.value})
-WHERE e.pipeline = $pipeline
-RETURN u.uid AS owner, e.uid AS uid, e.title AS title, e.metadata AS metadata,
-       g.uid AS group_uid, toString(s.shared_at) AS shared_at
-ORDER BY owner, title, group_uid
+WHERE e.pipeline IN $pipelines
+RETURN u.uid AS owner, e.uid AS uid, e.title AS title, e.pipeline AS pipeline,
+       e.metadata AS metadata, g.uid AS group_uid, toString(s.shared_at) AS shared_at
+ORDER BY owner, pipeline, title, group_uid
 """
 
 _DELETE_QUERY = f"""
@@ -94,7 +99,7 @@ async def _fetch(driver: Any, query: str, params: dict[str, Any]) -> list[dict[s
 
 async def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Retract the group shares the old knowledge audience default created"
+        description="Retract the group shares the old vault-note audience default created"
     )
     parser.add_argument(
         "--apply",
@@ -107,17 +112,18 @@ async def main() -> int:
 
     driver = Neo4jConnection().connect()
     try:
-        rows = await _fetch(driver, _SELECT_QUERY, {"pipeline": Pipeline.KNOWLEDGE.value})
+        flipped = [p.value for p in Pipeline if p.allows_sharing() and not p.shares_by_default()]
+        rows = await _fetch(driver, _SELECT_QUERY, {"pipelines": flipped})
         targets: list[dict[str, Any]] = []
         skipped: list[tuple[dict[str, Any], str]] = []
         for row in rows:
             retract, reason = _verdict(row["metadata"])
             (targets.append(row) if retract else skipped.append((row, reason)))
 
-        print(f"Knowledge-note group shares in the graph: {len(rows)}\n")
+        print(f"Vault-note group shares in the graph ({', '.join(flipped)}): {len(rows)}\n")
         for row in targets:
             print(
-                f"  RETRACT  {row['uid']}  → {row['group_uid']}  "
+                f"  RETRACT  {row['uid']}  [{row['pipeline']}]  → {row['group_uid']}  "
                 f"(owner {row['owner']}, shared {row['shared_at']})  {row['title']!r}"
             )
         for row, reason in skipped:

@@ -1200,10 +1200,10 @@ duplicate, no update). Tracked tasks must be completed and edited in SKUEL.
 `AudienceResolver.resolve_and_share` only adds `SHARED_WITH_GROUP` / `SHARES_WITH` edges, and the
 living-entry upsert a vault re-sync lands on carries no share reconciliation. So a note whose
 frontmatter drops or narrows its `audience:` keeps every share it already has. The 2026-09-02
-flip of the `knowledge` default to private (`Pipeline.shares_by_default()`) exposed it: the notes
-synced under the old `teachers` default stayed shared until
-`scripts/retract_defaulted_knowledge_shares.py` retracted them (one-shot, dry-run default, reads
-each note's vault frontmatter so an explicit `audience:` is never touched).
+flips of the vault-note defaults to private (`knowledge`, then `extract_activities` —
+`Pipeline.shares_by_default()`) exposed it: the notes synced under the old `teachers` default
+stayed shared until `scripts/retract_defaulted_vault_note_shares.py` retracted them (one-shot,
+dry-run default, reads each note's vault frontmatter so an explicit `audience:` is never touched).
 
 **Trigger:** the next sharing-fan-out touch, or the first multi-user deployment (where a stale
 share is a leak, not a founder-vault curiosity).
