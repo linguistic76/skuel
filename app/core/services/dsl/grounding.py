@@ -2,8 +2,7 @@
 """Shared grounding for the LLM DSL bridge.
 
 Both bridge entry points ground ``transform_with_context`` in the user's active
-goals so prose is recognised against — and linked to — the goals the user
-actually holds:
+goals so prose is recognised against the goals the user actually holds:
 
 - the inert journal "Suggested activities" panel (``JournalService``), and
 - the entity-creating ``Pipeline.EXTRACT_ACTIVITIES`` extractor
@@ -16,6 +15,12 @@ the inert preview path called ``transform_with_context`` — a silent asymmetry
 
 Grounding is a soft signal: a missing service or a goals-query failure degrades
 to no grounding (empty list), never an error — the bridge enhances, never gates.
+
+Grounding is title-only and recognition-only. It never resolves to a goal edge:
+on the bridge paths a ``FULFILLS_GOAL`` link has one source, the user's own
+``@link(goal:<uid>)`` (ruled 2026-09-02 — goal links stay user-authored; the
+bridge never infers one). Do not add UID-aware grounding or a title→UID
+resolver here; see ``docs/roadmap/deferred-work.md`` § DSL-Bridge Grounding.
 """
 
 from __future__ import annotations

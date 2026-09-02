@@ -1,6 +1,6 @@
 ---
 title: SKUEL Activity DSL - Formal Specification
-updated: 2026-08-28
+updated: 2026-09-02
 status: current
 category: dsl
 tags: [dsl, grammar, specification, formal, syntax]
@@ -329,6 +329,13 @@ Slug ::= Identifier ("-" Identifier)*
 **Status:** Optional (v0.2+)
 
 **Purpose:** Creates graph connections to goals, principles, projects, and other entities.
+
+**Authorship:** `@link(goal:…)` is written by the user, never by the LLM bridge. The bridge
+grounds recognition in active-goal *titles* through a non-extractable prompt slot and emits no
+`@link`; in the DSL a goal edge (`FULFILLS_GOAL`) comes from the user's own
+`@link(goal:<uid>)` and from nothing the bridge adds. Ruled 2026-09-02 (goal links stay
+user-authored only) — see
+`docs/roadmap/deferred-work.md` § DSL-Bridge Grounding.
 
 **Grammar:**
 ```
