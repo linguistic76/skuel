@@ -169,7 +169,7 @@ this section stays:
   entry would have replaced an accurate statement with a false one (Codex, PR #1221).
 
 ⚠️ **A queued correction is a claim like any other — reproduce it when you apply it, not
-only when you file it.** That is one applied-as-filed to one withdrawn-on-contact, and it
+only when you file it.** That is two applied-as-filed to one withdrawn-on-contact, and it
 is why nothing here is a work order. B5 hit the same edge from the other side: its
 schedule cited two docs as real files a wide rule would eat, and neither is tracked.
 
