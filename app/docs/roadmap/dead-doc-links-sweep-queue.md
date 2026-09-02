@@ -124,13 +124,12 @@ scheduling it as cleanup.
   one into a live doc suppresses nothing and is itself reported, with the reason carried.
   There is no opt-out for this queue — that is deliberate.
 
-## Scheduled: three scanner narrowings (Mike, 2026-09-02)
+## Scheduled: two scanner narrowings (Mike, 2026-09-02)
 
 **Not built here.** Each targets a *measured* shape, each subtracts findings (the fail-safe
 direction), and each must land with cases pinning it in
 `tests/unit/scripts/test_dead_doc_links.py` — the module's standing discipline. Together
-they remove **13 of the 343**; the counts below were measured on `c6ed127e6`, re-derive
-before building.
+they remove **13 of the 343**; counts measured on `c6ed127e6`, re-derive before building.
 
 ### 1. `_is_placeholder` is consulted by ONE of the four passes — guard drift
 
@@ -141,10 +140,25 @@ already in the vocabulary that reports anyway: `NEW_FEATURE.md` matches the exis
 
 This is the same drift the module already warns about for `TEMPLATE_MARKERS` — a guard
 that one pass consults and another does not — and B1 closed exactly this shape for the
-template markers without closing it for the placeholders. **Effect: −1 today** (plus the
-four in item 3, which the link pass would also stop reporting). Small, but it pins a
-latent class rather than a live one, which is the same justification B1's own
-measured-zero `TEMPLATE_MARKERS` rejection carries.
+template markers without closing it for the placeholders.
+
+**Effect: −5**, and no new vocabulary is needed for any of them:
+
+| Pass | Finding | Why the existing vocabulary already covers it |
+|---|---|---|
+| bare | `NEW_FEATURE.md` | the `new_feature` topic marker |
+| link ×4 | three destinations that are only an elision marker, plus one `http`-prefixed illustrative example | the elided-path-segment substring |
+
+The four link findings are Python generics and syntax examples read as links: a subscripted
+call such as `require_found[T]` or `execute[T]` followed by an elided argument list parses
+as link text plus a destination. B1 gave the link pass a shape guard whose measured
+discriminator is a **raw space**, and an elision marker has none — so they survive today.
+⚠️ **They need no rule of their own.** An earlier draft of this schedule proposed a third
+item for them; it was redundant, and an exact-match version of it would additionally have
+missed the `http`-prefixed one (Codex, PR #1222).
+
+(Those examples are spelled here without their trailing argument lists on purpose —
+writing them verbatim added two findings to this very queue.)
 
 ### 2. Documentation metavariables — vocabulary extension
 
@@ -161,8 +175,9 @@ file**:
 | trailing `_X` on the stem | `FEATURE_X.md` | none |
 | `-name` suffix on a segment | `skill-name/SKILL.md` | none |
 
-**Effect: −8.** ⚠️ Item 1 is a **precondition** for five of them: those are bare-pass
-findings, so extending the vocabulary alone would not silence them.
+**Effect: −8** — three from the backtick pass, one from the fence pass, and **four from the
+bare pass**. ⚠️ Those four are **blocked on item 1**: extending the vocabulary alone would
+not silence them, because the bare pass never consults it.
 
 ⚠️ **One target is deliberately excluded.** `RELATED_ARCHITECTURE.md` fits no discriminator
 above, and a one-off `RELATED_` entry is precisely the shadow risk the module refuses
@@ -173,23 +188,7 @@ add a rule for a single instance.
 ⚠️ **The obvious wider rule is wrong.** "Reject uppercase stems" was measured and swept in
 real doc names — `SERVICE_PATTERNS.md`, `TASK_PRIORITY_ALGORITHM.md`. The narrow
 discriminators above exist because the wide one failed, which is the same lesson as the
-comma that B1's link guard does not reject.
-
-### 3. Residual generic-subscript link targets
-
-Four findings are Python generics read as links: a subscripted call such as
-`require_found[T]` or `execute[T]` followed by an elided argument list parses as link text
-plus a destination, and so does an illustrative external-link example. B1 gave the link
-pass a shape guard whose measured discriminator was a **raw space**; a destination of
-exactly three dots has no space and no template marker, so it survives.
-
-(Spelled without the trailing argument list on purpose — writing these examples verbatim
-added two findings to this very queue, which is the item reproducing itself.)
-
-A link destination that is only an elided-path marker is never checkable. **Effect: −4.**
-⚠️ Scope it to the destination being *nothing but* the marker — `adapters/.../fragments.py`
-is a different shape the vocabulary already handles, and widening this to "contains `...`"
-would reach it by a second route.
+comma that B1's link guard deliberately does not reject.
 
 ## Disproven claims owed a correction — NOT dead links
 
