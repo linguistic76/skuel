@@ -134,10 +134,11 @@ direction), and each must land with cases pinning it in
 `tests/unit/scripts/test_dead_doc_links.py` — the module's standing discipline. Together
 they remove **13 of the 343**; counts measured on `c6ed127e6`, re-derive before building.
 
-### 1. `_is_placeholder` is consulted by ONE of the four passes — guard drift
+### 1. Two of the four passes skip `_is_placeholder` — guard drift
 
-`_looks_like_local_path` calls it, so the backtick and fence passes are covered.
-`extract_bare_paths` and `extract_markdown_links` **never call it**. The proof is a target
+The backtick and fence passes are covered — both go through `_looks_like_local_path`,
+which calls the guard. The other two, `extract_bare_paths` and `extract_markdown_links`,
+**never call it**, so only those two extractors need changing. The proof is a target
 already in the vocabulary that reports anyway: `NEW_FEATURE.md` matches the existing
 `new_feature` topic marker, and the bare pass reports it regardless.
 
