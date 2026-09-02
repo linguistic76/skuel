@@ -1,6 +1,6 @@
 ---
 title: Codebase Health Checks
-updated: 2026-09-01
+updated: 2026-09-02
 status: current
 category: tools
 tags: [health, scripts, dead-code, documentation, maintenance, drift]
@@ -275,13 +275,20 @@ of **0 dead refs** — they widen *coverage*, not the count:
   leading-slash tail — one defect, two lines. Two spellings of one dead file on one line are
   now one finding; two different dead files on one line remain two.
 
-Placeholder shapes are rejected by the shared `_looks_like_local_path` guard, not a
-second filter: syntactic markers (`{domain}`, `<name>`, `*`) plus a lexical vocabulary
-for the prose convention (`your_service.py`, `test_foo.py`, `alpine.X.Y.Z.min.js`).
-That vocabulary only ever *subtracts* reports, so a gap in it costs one noisy advisory
-line rather than a false failure — never invert it to decide something *is* broken.
-Every entry is pinned by `tests/unit/scripts/test_dead_doc_links.py`, which also pins
-all four cells of the {inline, fenced} × {relative, absolute} matrix.
+Placeholder shapes are rejected by `_is_documentation_stand_in`, **one predicate that
+all four passes call** — syntactic markers (`{domain}`, `<name>`, `*`) plus a lexical
+vocabulary for the prose convention (`your_service.py`, `test_foo.py`,
+`alpine.X.Y.Z.min.js`) and for the metavariables a naming-convention doc uses for its own
+examples (a `_NAME` suffix, an all-`X` token, a trailing `_X`, a `-name` segment).
+Pairing the two vocabularies in one predicate is deliberate: they had drifted, with two
+of the four passes consulting only the syntactic half, so a token already in the lexical
+vocabulary was reported anyway. That vocabulary only ever *subtracts* reports, so a gap
+in it costs one noisy advisory line rather than a false failure — never invert it to
+decide something *is* broken. ⚠️ Widen an entry only against the whole tree: "reject any
+uppercase stem" was measured and refused, because SHOUTING_SNAKE_CASE names ~200 real
+docs here. Every entry is pinned by `tests/unit/scripts/test_dead_doc_links.py`, which
+also pins all four cells of the {inline, fenced} × {relative, absolute} matrix and that
+every pass reaches both vocabularies.
 
 ---
 

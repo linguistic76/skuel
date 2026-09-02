@@ -444,6 +444,14 @@ def test_all_fence_languages_are_scanned() -> None:
         "scripts/migrations/create_conversation_nodes_YYYY.cypher",
         # Elided segment.
         "adapters/.../relationship_filter_fragments.py",
+        # Naming-convention metavariables — the subject the reader substitutes, as
+        # distinct from the version/date metavariables above (PR B5).
+        "docs/patterns/FEATURE_NAME.md",
+        "docs/architecture/SYSTEM_NAME.md",
+        "docs/decisions/ADR-XXX.md",
+        "docs/decisions/ADR-0XX-example.md",
+        "docs/patterns/FEATURE_X.md",
+        ".claude/skills/skill-name/SKILL.md",
         # Hypothetical root.
         "/path/to/file.py",
         # Protocol-relative URL — passes the leading-slash test, resolves under ROOT.
@@ -474,6 +482,15 @@ def test_guard_rejects_placeholder_shapes(token: str) -> None:
         "tests/integration/test_new_domain_relationships.py",
         "ui/components/footer.html",
         "core/utils/footnotes.py",
+        # The wide rule that was measured and REJECTED — "reject uppercase stems" —
+        # would have shadowed these, and every one of the ~200 real docs shaped like
+        # them. They pin why the metavariable discriminators are four narrow shapes
+        # rather than one broad one.
+        "docs/patterns/ANY_USAGE_POLICY.md",
+        "docs/patterns/AUTH_PATTERNS.md",
+        # Lowercase `_name` is an ordinary module suffix; only the UPPERCASE
+        # metavariable is a stand-in, which is why that rule does not fold case.
+        "core/models/enums/relationship_names.py",
     ],
 )
 def test_guard_accepts_real_citation_shapes(token: str) -> None:
@@ -533,6 +550,81 @@ def test_non_project_rooted_absolutes_in_fences_are_skipped() -> None:
         assert ddl.extract_fenced_paths(f"```yaml\n- {token}\n```\n") == [], token
     # ...while a project-rooted absolute is still extracted.
     assert ddl.extract_fenced_paths(f"```bash\ncp {DEAD_ABS} x\n```\n") == [(2, DEAD_ABS)]
+
+
+def test_every_pass_consults_both_vocabularies(docs_root: Path) -> None:
+    """THE guard-drift pin: all four passes reject a stand-in, not just the two wired.
+
+    The backtick and fence passes reached `_is_placeholder` through
+    `_looks_like_local_path`; `extract_bare_paths` and `_is_checkable_link_target`
+    called only `_has_template_marker`. So a token already IN the placeholder
+    vocabulary was reported by those two anyway — 5 findings, measured 2026-09-01.
+
+    One probe per pass, each carrying a shape from the OTHER vocabulary than the pass
+    historically consulted, so a regression in either direction fails here.
+    """
+    body = (
+        "# P\n\n"
+        "Bare: /docs/patterns/NEW_FEATURE.md\n\n"  # bare pass, placeholder vocabulary
+        "Link: [T](adapters/.../fragments.py)\n\n"  # link pass, placeholder vocabulary
+        "Backtick: `core/services/{domain}/x.py`\n\n"  # backtick pass, template markers
+        "```bash\ncp core/services/your_service.py .\n```\n"  # fence pass, placeholders
+    )
+    assert _report(docs_root, body) == set()
+
+
+def test_bare_pass_rejects_a_placeholder_already_in_the_vocabulary(docs_root: Path) -> None:
+    """The proof that named the drift: `new_feature` was ALREADY a topic marker.
+
+    Extending the vocabulary could never have silenced this one — the pass did not
+    consult the vocabulary at all. That ordering is why the two narrowings shipped
+    together and not vocabulary-first.
+    """
+    assert ddl._is_placeholder("/docs/patterns/NEW_FEATURE.md") is True
+    assert ddl.extract_bare_paths("see /docs/patterns/NEW_FEATURE.md\n") == []
+
+
+def test_elided_generic_subscript_is_not_a_link(docs_root: Path) -> None:
+    """A generic whose argument list is ELIDED survives the raw-space discriminator.
+
+    `[T](...)` has no space in its destination, so B1's shape guard cannot see it; the
+    elided-path-segment substring already in the vocabulary is what rejects it. The
+    `http`-prefixed form is the reason this is a SUBSTRING test and not an exact match:
+    an exact-match rule would have missed it (Codex, PR #1222).
+    """
+    for destination in ("...", "http..."):
+        assert _report(docs_root, f"# P\n\nrequire_found[T]({destination})\n") == set(), destination
+    # …while a real elision-free dead destination still reports.
+    assert _report(docs_root, f"# P\n\n[x]({DEAD_REL})\n") == {(3, DEAD_REL, "link")}
+
+
+def test_metavariable_rules_are_stem_scoped_and_case_sensitive() -> None:
+    """Both scopings are load-bearing, and each has a near-miss on the other side.
+
+    STEM, not segment: an extension must not defeat the suffix test. CASE-SENSITIVE:
+    `_NAME` is a metavariable while `relationship_names.py` is an ordinary module, and
+    folding case here would widen the rule past what was measured.
+    """
+    assert ddl._is_metavariable_segment("FEATURE_NAME.md") is True
+    assert ddl._is_metavariable_segment("FEATURE_NAME") is True
+    assert ddl._is_metavariable_segment("relationship_names.py") is False
+    assert ddl._is_metavariable_segment("feature_name.py") is False
+    # The all-X token needs a non-letter boundary, and a DIGIT is one — `ADR-0XX`.
+    assert ddl._is_metavariable_segment("ADR-XXX.md") is True
+    assert ddl._is_metavariable_segment("ADR-0XX-example.md") is True
+    # A single `X` is not a token; `_X` is caught by the suffix rule, not this one.
+    assert ddl.PLACEHOLDER_ALL_X_RE.search("FEATURE_X") is None
+    assert ddl._is_metavariable_segment("FEATURE_X.md") is True
+
+
+def test_related_architecture_is_deliberately_still_reported() -> None:
+    """The ninth of nine, excluded ON PURPOSE — a one-off rule is pure shadow risk.
+
+    It fits no discriminator, and this pin is what keeps that a DECISION rather than an
+    oversight: if a future entry ever swallows it, this test says so and the rule gets
+    re-argued instead of quietly widening.
+    """
+    assert ddl._is_placeholder("/docs/architecture/RELATED_ARCHITECTURE.md") is False
 
 
 def test_placeholder_guard_only_ever_subtracts() -> None:
