@@ -191,9 +191,12 @@ search — and the substitute claim was itself false: "a journal is a `pipeline=
 UserEntry" survives no contact with the code. The companion persists nothing by default and
 a saved chat becomes an owner-private `:ConversationSession`; in-app periodic notes are
 written `Pipeline.NONE`; vault notes are authored `extract_activities`; and
-`Pipeline.JOURNAL` itself has **no producer at all** — it is read in three places, written
-in none, with scripts to purge and re-stamp legacy rows carrying it (Codex, PR #1224, four
-rounds on one paragraph).
+`Pipeline.JOURNAL` is **authored, never assigned** — no service sets it, but the
+vault/YAML door accepts it from frontmatter (`_parse_pipeline` allows every member except
+the two audio ones), so a synced note declaring `pipeline: journal` persists a live entry.
+That last correction is itself the lesson: "no producer at all" was a *code-grep*
+conclusion, blind to a data-driven door, and it is exactly the over-reach the rest of this
+paragraph is about (Codex, PR #1224, six rounds on one paragraph).
 
 **Two rules come out of that.** An entry on this page is a **lead, not a finding** — a lead
 that names a successor has to be checked before it is followed. And when a fix keeps
