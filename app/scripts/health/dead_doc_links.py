@@ -173,6 +173,31 @@ PLACEHOLDER_SUBSTRINGS = (
 # `\bYYYY\b` pattern misses the one shape this rule exists for.
 PLACEHOLDER_METAVAR_RE = re.compile(r"(?<![A-Za-z])(?:X\.Y\.Z|YYYY|MM-DD)(?![A-Za-z])")
 
+# Uppercase metavariables a *naming-convention* doc uses for its own examples:
+# `FEATURE_NAME.md`, `ADR-XXX.md`, `FEATURE_X.md`, `skill-name/SKILL.md`. Distinct from
+# the version/date metavariables above — those stand in for a value, these stand in for
+# the subject the reader is naming — and the vocabulary had no entry for them, so eight
+# docs teaching a naming convention reported their own examples as rot.
+#
+# ⚠️ The obvious WIDER rule is wrong, and was measured: SHOUTING_SNAKE_CASE is how this
+# corpus names ~200 real docs, so "reject any uppercase stem" shadows the whole tier —
+# `ANY_USAGE_POLICY.md`, `AUTH_PATTERNS.md`, on down. These four discriminators are
+# narrow because the wide one failed, the same lesson as the comma
+# `_is_checkable_link_target` deliberately does not reject. Each was scored against the
+# full tracked tree and matches no real file; `test_placeholder_vocabulary_shadows_no_
+# file_in_the_tree` re-derives that from the tree on every run rather than trusting this
+# comment.
+#
+# ⚠️ `RELATED_ARCHITECTURE.md` is deliberately NOT covered. It fits no discriminator
+# here, and a one-off `RELATED_` entry is precisely the shadow risk this vocabulary
+# refuses (the reason only `foo` is listed). One instance earns no rule; fix the citing
+# doc or leave it reported.
+PLACEHOLDER_METAVAR_STEM_SUFFIXES = ("_NAME", "_X", "-name")
+# An all-`X` token: `ADR-XXX`, `ADR-0XX-example`. The boundaries reject `X` inside a
+# word so a real `.../XXth_...` style name could never be swallowed; a digit on either
+# side is fine, which is what `0XX` needs.
+PLACEHOLDER_ALL_X_RE = re.compile(r"(?<![A-Za-z])XX+(?![A-Za-z])")
+
 # Template markers the tokenizer deliberately keeps attached to a token so the shape
 # guard can reject the whole thing. Excluding them would split
 # `core/services/{domain}/{domain}_service.py` into clean-looking fragments and hand the
@@ -566,10 +591,18 @@ def _is_checkable_link_target(target: str) -> bool:
     ``_looks_like_local_path`` while the same token as a link destination was reported,
     and closing a measured-zero inconsistency with a test is the same move
     ``test_blockquoted_fence_is_walked`` made.
+
+    The placeholder half of ``_is_documentation_stand_in`` is NOT latent here — it
+    measures 4. Python generics whose argument list is elided (``[T](…)``) parse as link
+    text plus a destination that is only an elision marker, and the raw-space
+    discriminator above cannot see them because an elision marker has no space. They
+    need no rule of their own: the elided-segment substring already in
+    ``PLACEHOLDER_SUBSTRINGS`` covers all four, including the ``http``-prefixed one that
+    an exact-match rule would have missed (Codex, PR #1222).
     """
     if " " in target:
         return False
-    return not _has_template_marker(target)
+    return not _is_documentation_stand_in(target)
 
 
 def extract_markdown_links(content: str) -> list[tuple[int, str, str]]:
@@ -625,9 +658,11 @@ def extract_bare_paths(content: str) -> list[tuple[int, str]]:
             # This pass never consulted the shared shape guard, so glob and template
             # patterns sailed through it — ADR-071's Tailwind content globs
             # (`/ui/**/*.py`) and the skuel-ui skill's `/ui/{domain}/layout.py`, 7
-            # findings measured 2026-09-01. The ONE constant, not a fresh literal: the
-            # tokenizer/guard drift in PR #872 is the cautionary tale.
-            if _has_template_marker(raw):
+            # findings measured 2026-09-01. The ONE predicate, not a fresh literal: the
+            # tokenizer/guard drift in PR #872 is the cautionary tale, and reaching for
+            # only HALF of it here was the same drift again — `/docs/patterns/NEW_FEATURE.md`
+            # was already in the placeholder vocabulary and this pass reported it anyway.
+            if _is_documentation_stand_in(raw):
                 continue
             if any(raw.endswith(ext) for ext in LOCAL_EXTENSIONS):
                 results.append((i, raw))
@@ -696,19 +731,41 @@ def _matches_topic_marker(segment: str) -> bool:
     return False
 
 
+def _is_metavariable_segment(segment: str) -> bool:
+    """Is this segment a documentation metavariable standing in for a name?
+
+    Case-SENSITIVE on the two uppercase suffixes, deliberately: `_NAME` is a
+    metavariable while a real `..._name.py` is an ordinary module, and folding case
+    here would widen the rule past what was measured. See
+    ``PLACEHOLDER_METAVAR_STEM_SUFFIXES`` for why narrow is the only safe direction.
+
+    Applied to the STEM, so an extension cannot defeat the suffix test — `FEATURE_NAME`
+    and `FEATURE_NAME.md` are the same stand-in, and `skill-name` is the same whether it
+    names a directory or a file.
+    """
+    stem = segment.rsplit(".", 1)[0] if "." in segment else segment
+    if stem.endswith(PLACEHOLDER_METAVAR_STEM_SUFFIXES):
+        return True
+    return bool(PLACEHOLDER_ALL_X_RE.search(stem))
+
+
 def _is_placeholder(text: str) -> bool:
     """Does this path use a documentation placeholder the reader is meant to replace?"""
-    lowered = text.lower()
-    if any(marker in lowered for marker in PLACEHOLDER_SUBSTRINGS):
+    if any(marker in text.lower() for marker in PLACEHOLDER_SUBSTRINGS):
         return True
     if PLACEHOLDER_METAVAR_RE.search(text):
         return True
-    for segment in lowered.split("/"):
-        if _matches_topic_marker(segment):
+    for segment in text.split("/"):
+        # Case-sensitive rules read the segment as written; the vocabulary below is
+        # lowercase, so it reads a lowered copy. One split serves both.
+        if _is_metavariable_segment(segment):
+            return True
+        lowered = segment.lower()
+        if _matches_topic_marker(lowered):
             return True
         # A test *for* a placeholder subject is itself a placeholder, and the marker
         # sits behind the `test_` prefix: `test_foo.py`, `test_your_service.py`.
-        subject = segment.removeprefix("test_")
+        subject = lowered.removeprefix("test_")
         if subject.startswith(PLACEHOLDER_SUBJECT_PREFIXES):
             return True
         if PLACEHOLDER_METASYNTACTIC_RE.match(subject):
@@ -723,6 +780,25 @@ def _has_template_marker(text: str) -> bool:
     of them at once — the drift this constant already exists to prevent.
     """
     return any(marker in text for marker in TEMPLATE_MARKERS)
+
+
+def _is_documentation_stand_in(text: str) -> bool:
+    """Is this token a shape the reader substitutes rather than a citation to check?
+
+    ONE predicate over BOTH vocabularies, and every pass calls it — because the two had
+    drifted apart exactly the way ``TEMPLATE_MARKERS`` once drifted from its tokenizer.
+    The backtick and fence passes reached ``_is_placeholder`` through
+    ``_looks_like_local_path``; ``extract_bare_paths`` and ``_is_checkable_link_target``
+    called only ``_has_template_marker``, so a placeholder already IN the vocabulary was
+    still reported by those two — `NEW_FEATURE.md` matches the `new_feature` topic
+    marker and the bare pass reported it regardless (5 findings, measured 2026-09-01).
+
+    B1 closed this shape for the template markers without closing it for the
+    placeholders. Pairing them in one predicate is what makes the next entry to either
+    vocabulary reach all four passes at once, rather than the two that happened to be
+    wired.
+    """
+    return _has_template_marker(text) or _is_placeholder(text)
 
 
 def _looks_like_local_path(text: str) -> bool:
@@ -744,10 +820,10 @@ def _looks_like_local_path(text: str) -> bool:
     text = text.removeprefix("./")
     if len(text) < 5:
         return False
-    if _has_template_marker(text):
-        return False  # template / glob / shell-variable patterns — see TEMPLATE_MARKERS
-    if _is_placeholder(text):
-        return False  # `your_service.py`, `alpine.X.Y.Z.min.js`, `adapters/.../foo.py`
+    if _is_documentation_stand_in(text):
+        # template / glob / shell-variable patterns (see TEMPLATE_MARKERS), and
+        # `your_service.py` / `alpine.X.Y.Z.min.js` / `adapters/.../foo.py`.
+        return False
 
     # Must start with / or a known project directory
     starts_ok = text.startswith("/") or any(

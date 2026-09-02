@@ -11,14 +11,14 @@ updated: 2026-09-02
 that section keeps the rulings and the completed record, and points here.
 
 The instrument is `scripts/health/dead_doc_links.py` (in `./dev health` and the weekly
-janitor; not a CI gate). The B1–B4 arc took it from 871 findings to 343 by removing every
+janitor; not a CI gate). The B1–B5 arc took it from 871 findings to 330 by removing every
 class that was *not* rot — parser false positives, unvalidatable freeform files,
 application URLs read as file paths, a generated index, dated history directories, and
 the ADR tier. **What is left is overwhelmingly rot — but it is residue, not a verdict.**
 Some reports are known-good citations the scanner cannot classify: `/tasks` is a live page
-it cannot resolve, and a set of documentation placeholders are intentional examples — both
-enumerated under *Cautions*, which is where those counts live. Verify before rewriting
-rather than treating a report as proof.
+it cannot resolve, and one documentation placeholder is an intentional example the
+vocabulary deliberately does not cover — both enumerated under *Cautions*, which is where
+those counts live. Verify before rewriting rather than treating a report as proof.
 
 > ⚠️ **Writing about this instrument creates findings in it.** This file is inside the
 > scanned corpus (`docs/roadmap/` is live; only `docs/roadmap/done/` is carved out), so a
@@ -34,15 +34,15 @@ rather than treating a report as proof.
 
 ## The queue
 
-**343 findings / 223 distinct missing targets**, measured 2026-09-01 on merged `main`
-`7d159585d` by driving `check_file()` over `get_md_files()`. Re-derive the same way;
-never quote these numbers without re-running.
+**330 findings / 212 distinct missing targets**, measured 2026-09-02 on the B5 branch by
+driving `check_file()` over `get_md_files()`. Re-derive the same way; never quote these
+numbers without re-running.
 
 | Area | Findings |
 |---|---|
-| `docs/patterns/` | 104 |
-| `.claude/skills/` | 46 |
-| `docs/intelligence/` | 41 |
+| `docs/patterns/` | 99 |
+| `.claude/skills/` | 40 |
+| `docs/intelligence/` | 40 |
 | `docs/domains/` | 31 |
 | `docs/architecture/` | 26 |
 | `docs/guides/` | 18 |
@@ -52,20 +52,19 @@ never quote these numbers without re-running.
 | `docs/user-guides/` | 9 |
 | `docs/` (root) | 8 |
 | `docs/development/` | 6 |
-| `docs/tools/` | 4 |
-| `docs/technical_debt/` | 3 |
+| `docs/technical_debt/`, `docs/tools/` | 3 each |
 | `docs/deployment/`, `docs/features/` | 2 each |
 | `design-principles/`, `examples/`, `observability/`, `security/`, `tutorials/` | 1 each |
 
 ### The tail shape decides the fix
 
-Of the 223 distinct dead targets, **33 have exactly one tracked file sharing their
-basename** — the only ones a rename map could carry; 10 have several; **180 have none.**
+Of the 212 distinct dead targets, **33 have exactly one tracked file sharing their
+basename** — the only ones a rename map could carry; 9 have several; **170 have none.**
 
-⚠️ **"No same-basename candidate" is not "no successor."** A rename lands in the 180 even
+⚠️ **"No same-basename candidate" is not "no successor."** A rename lands in the 170 even
 when its replacement is well known: the deleted relationships-package `domain_configs.py`
 has no same-named file anywhere, yet its successor is
-`core/models/relationship_registry.py` — a repoint PR #1220 made four times over. Treat the 180 as **requiring investigation**, not
+`core/models/relationship_registry.py` — a repoint PR #1220 made four times over. Treat the 170 as **requiring investigation**, not
 as proven deletions; the evidence is git history and the citing paragraph, never the
 basename.
 
@@ -86,9 +85,10 @@ The first two are the same defect twice: citations of `ui/*.py` modules deleted 
 MonsterUI removal and the activity-views consolidation.
 
 ⚠️ **The table stops at 7 deliberately.** Below that the tail is flat (a run of files at
-6 and fewer) and **a high count is not evidence of rot** — `.claude/skills/docs-skills-evolution/reference.md`
-reports 6 and every one is a template placeholder. Check a file's findings before
-scheduling it as cleanup.
+6 and fewer) and **a high count is not evidence of rot** — the docs-skills-evolution
+skill reference reported 6 when this queue was filed, and every one was a template
+placeholder; the B5 narrowing took it to 1. Check a file's findings before scheduling it
+as cleanup.
 
 ## Protocol
 
@@ -107,17 +107,15 @@ scheduling it as cleanup.
   before rewriting any leading-slash target.** Six are red for this reason: three journal
   browse URLs deleted in #420, two YAML-schema paths that are neither route nor directory,
   and `/tasks`.
-- ⚠️ **Documentation placeholders report as rot.** The scanner's placeholder vocabulary
-  targets lowercase scaffolding shapes (`your_service.py`, `new_domain/`, `foo.py`); it does
-  not reject SHOUTING metavariables, nor a lowercase-hyphen stand-in like `skill-name`, so a
-  doc teaching a naming convention reports its own examples. **Nine such findings are
-  verified today** — six in `.claude/skills/docs-skills-evolution/reference.md` and three in
-  the docstring template block at `docs/patterns/DOCSTRING_STANDARDS.md` — with the usual
-  tells being a `_NAME` suffix, an all-`X` token, or a trailing `_X`. Never "fix" one. A
-  narrowing for **eight of the nine** is **scheduled below**, and until it lands those are
-  noise to skip. ⚠️ The ninth, `RELATED_ARCHITECTURE.md`, is deliberately **not** covered —
-  it fits no discriminator and will keep reporting forever, so it needs a decision (leave
-  it, or reshape the citing example), not patience.
+- ⚠️ **Documentation placeholders report as rot.** The vocabulary now rejects the naming
+  metavariables a convention doc uses for its own examples — a `_NAME` suffix, an all-`X`
+  token, a trailing `_X`, a `-name` segment — so eight of the nine verified cases are
+  gone. **One is left, and it is deliberate:** the architecture metavariable cited at
+  line 437 of the docs-skills-evolution skill reference fits no discriminator, and a rule
+  for a single instance is the shadow risk the vocabulary refuses. Never "fix" it as
+  though it were rot; it needs a decision (leave it red, or reshape the citing example).
+  A new placeholder shape that starts reporting is a vocabulary gap, not a dead link —
+  measure it against the whole tree before adding an entry.
 - ⚠️ **Do not reach for a same-basename file** — see the tail shape. Matching on basename
   is how a correct-looking fix points at the wrong module, and it also misses every
   renamed successor, which is the more common case.
@@ -127,72 +125,31 @@ scheduling it as cleanup.
   one into a live doc suppresses nothing and is itself reported, with the reason carried.
   There is no opt-out for this queue — that is deliberate.
 
-## Scheduled: two scanner narrowings (Mike, 2026-09-02)
+## Landed: the two scanner narrowings (B5)
 
-**Not built here.** Each targets a *measured* shape, each subtracts findings (the fail-safe
-direction), and each must land with cases pinning it in
-`tests/unit/scripts/test_dead_doc_links.py` — the module's standing discipline. Together
-they remove **13 of the 343**; counts measured on `c6ed127e6`, re-derive before building.
+Both narrowings scheduled on 2026-09-02 are **built and merged**; the schedule that stood
+here is gone with them. They removed exactly the 13 findings they were measured for —
+343 → 330, no collateral — and the detail now lives where it is enforced: the vocabulary
+and its measurements in `scripts/health/dead_doc_links.py`, the pins in
+`tests/unit/scripts/test_dead_doc_links.py`.
 
-### 1. Two of the four passes skip `_is_placeholder` — guard drift
+Two rulings from that work outlive it:
 
-The backtick and fence passes are covered — both go through `_looks_like_local_path`,
-which calls the guard. The other two, `extract_bare_paths` and `extract_markdown_links`,
-**never call it**, so only those two extractors need changing. The proof is a target
-already in the vocabulary that reports anyway: `NEW_FEATURE.md` matches the existing
-`new_feature` topic marker, and the bare pass reports it regardless.
+- **Every pass now consults both vocabularies through one predicate.** Two of the four
+  extractors reached only the template markers, so a token *already in* the placeholder
+  vocabulary was still reported by those two. That is the third time this module has
+  grown the same drift, so the fix was structural rather than another pair of calls:
+  add to either vocabulary and all four passes see it. Do not reintroduce a
+  pass-specific guard.
+- **The wide rule stays refused.** SHOUTING_SNAKE_CASE is how this corpus names ~200 real
+  docs, so "reject any uppercase stem" would shadow the whole tier. The four
+  discriminators are narrow because the wide one was measured and failed — the same
+  lesson as the comma the link guard deliberately does not reject.
 
-This is the same drift the module already warns about for `TEMPLATE_MARKERS` — a guard
-that one pass consults and another does not — and B1 closed exactly this shape for the
-template markers without closing it for the placeholders.
-
-**Effect: −5**, and no new vocabulary is needed for any of them:
-
-| Pass | Finding | Why the existing vocabulary already covers it |
-|---|---|---|
-| bare | `NEW_FEATURE.md` | the `new_feature` topic marker |
-| link ×4 | three destinations that are only an elision marker, plus one `http`-prefixed illustrative example | the elided-path-segment substring |
-
-The four link findings are Python generics and syntax examples read as links: a subscripted
-call such as `require_found[T]` or `execute[T]` followed by an elided argument list parses
-as link text plus a destination. B1 gave the link pass a shape guard whose measured
-discriminator is a **raw space**, and an elision marker has none — so they survive today.
-⚠️ **They need no rule of their own.** An earlier draft of this schedule proposed a third
-item for them; it was redundant, and an exact-match version of it would additionally have
-missed the `http`-prefixed one (Codex, PR #1222).
-
-(Those examples are spelled here without their trailing argument lists on purpose —
-writing them verbatim added two findings to this very queue.)
-
-### 2. Documentation metavariables — vocabulary extension
-
-The vocabulary targets lowercase scaffolding (`your_service.py`, `new_domain/`, `foo.py`)
-and uppercase *version/date* metavariables (`X.Y.Z`, `YYYY`). It has no entry for the
-metavariable a naming-convention doc uses for its own examples. Four discriminators cover
-all eight, and **every one was checked against the full tracked tree and matches no real
-file**:
-
-| Shape | Covers | Real-file collisions |
-|---|---|---|
-| `_NAME` suffix on the stem | `FEATURE_NAME.md`, `SYSTEM_NAME.md`, `PATTERN_NAME.md`, `ARCHITECTURE_NAME.md` | none |
-| an all-`X` token (`XX`+) | `ADR-XXX.md`, `ADR-0XX-example.md` | none |
-| trailing `_X` on the stem | `FEATURE_X.md` | none |
-| `-name` suffix on a segment | `skill-name/SKILL.md` | none |
-
-**Effect: −8** — three from the backtick pass, one from the fence pass, and **four from the
-bare pass**. ⚠️ Those four are **blocked on item 1**: extending the vocabulary alone would
-not silence them, because the bare pass never consults it.
-
-⚠️ **One target is deliberately excluded.** `RELATED_ARCHITECTURE.md` fits no discriminator
-above, and a one-off `RELATED_` entry is precisely the shadow risk the module refuses
-("an unmeasured entry is pure shadow risk" — why only `foo` is listed). Either leave it
-reported, or fix the citing doc to use a shape the vocabulary already rejects. Do **not**
-add a rule for a single instance.
-
-⚠️ **The obvious wider rule is wrong.** "Reject uppercase stems" was measured and swept in
-real doc names — `SERVICE_PATTERNS.md`, `TASK_PRIORITY_ALGORITHM.md`. The narrow
-discriminators above exist because the wide one failed, which is the same lesson as the
-comma that B1's link guard deliberately does not reject.
+⚠️ One target is **deliberately still reported**: the architecture metavariable named in
+*Cautions*. It fits no discriminator, and a one-off rule for a single instance is pure
+shadow risk. It is a decision, pinned by a test, not an oversight — reshape the citing
+example or leave it red, but do not add a rule.
 
 ## Disproven claims owed a correction — NOT dead links
 
@@ -245,6 +202,7 @@ a clean scan, which is why they print.
 
 Arc PRs: #1217 (parser + carve-outs + route matching, 871→754), #1218 (one ADR-link
 resolver, 754→724), #1219 (history-dir carve-out + the per-citation marker mechanism,
-724→497), #1220 (ADR content sweep, 497→343). Rulings, the completed record, and the
+724→497), #1220 (ADR content sweep, 497→343), B5 (the two scheduled narrowings,
+343→330). Rulings, the completed record, and the
 duplicate-ADR-number note live in [`deferred-work.md`](deferred-work.md)
 § Dead-Doc-Links Instrument.
