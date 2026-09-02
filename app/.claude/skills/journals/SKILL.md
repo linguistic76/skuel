@@ -5,7 +5,7 @@ description: >
   three-stage DNWF workflows. Use when building or extending journal stages, working with
   JournalService or instruction_loader, adding a JournalMode, or integrating journals with
   UserContext or Askesis. Keywords: journals, DNWF, Scribe, Thought Partner, What Is Related,
-  JournalMode, JournalService, run_stage1, run_stage2, run_stage3, pipeline JOURNAL.
+  JournalMode, JournalService, run_stage1, run_stage2, run_stage3.
 allowed-tools: Read, Grep, Glob
 ---
 
@@ -83,9 +83,11 @@ without interactive review, producing a single markdown document with all three 
    Resource page vs `/gradebook/{uid}` in the shared `CanonSourcesBlock`). Routes force both
    flags off server-side for non-FOUNDERs (forgeable-flag gate, one user resolve).
 
-5. **Privacy-first** — `Pipeline.JOURNAL.allows_sharing()` returns `False`. No audience
-   picker, no sharing, no teacher visibility. Enforced at the ingestion layer too
-   (`build_user_entry_request()` coerces `audience=private`).
+5. **Privacy-first** — a discussion persists nothing by default (ADR-073) and a saved chat
+   is owner-private with no sharing surface (ADR-078). No audience picker, no sharing, no
+   teacher visibility. The private pipelines (`Pipeline.REFERENCE`, `TRANSCRIBE_AND_STRUCTURE`)
+   refuse an audience in `AudienceResolver.validate` and are coerced to `audience=private` at
+   the ingestion door (`build_user_entry_request()`).
 
 6. **FULL tier only** — all AI journal endpoints require `INTELLIGENCE_TIER=full`. Routes
    check this; under CORE they return an error fragment.
@@ -154,9 +156,9 @@ Routes pass raw entry text and user UID to the service, nothing else.
 — or reading fields outside the explicit list — dilutes focus, exposes data the companion
 doesn't need, and fails the recording-context guard test. Never `build_rich()`/ZPD per turn.
 
-**Don't share journal entries.** `Pipeline.JOURNAL.allows_sharing()` is `False` by design.
-Never add a sharing picker to journal UI; never pass a non-private audience for journal
-entries in ingestion code.
+**Don't share journal content.** A saved chat is owner-private by design (ADR-078). Never
+add a sharing picker to the journals UI; never pass a non-private audience for a
+private-pipeline entry in ingestion code.
 
 **Don't confuse EnrichmentMode templates with Journal stages.** The three templates
 `journal_articulation.md`, `journal_exploration.md`, `journal_activity.md` in
@@ -179,5 +181,5 @@ entries in ingestion code.
 | `core/services/journal/suggestion.py` | `SuggestedActivity` + bridge-line → checkbox DSL re-render, preserving the bridge's tags verbatim (deadlines/priorities not normalised, so nothing is lost). Inert; user copies into a Periodic Note / extraction folder, never auto-created |
 | `adapters/inbound/journals_routes.py` | FOUNDER tier enforcement lives here; discussions are **ephemeral by default** (ADR-078 §5) — `/journals/start` persists nothing (the transcript rides the composer client-side), and an explicit `POST /journals/save` folds it into an owner-private `:ConversationSession` + turns (ONE atomic `save_transcript` txn) for revisit/continue but **no UserEntry** (understanding-agnostic — ADR-073's wall holds); `/journals/follow-up` picks session-backed (saved) vs ephemeral-structured (`transcript_json`, every unsaved chat — both doors); the file/audio + DNWF doors share the same substrate (composer opens on the source→output pair); the file-upload path itself is fully zero-persistence (ADR-073), processing to the user's own flat `je_out/` folder via one shared batch engine; `GET /journals/{entry_uid}` is **periodic-notes-only** (weekly notes add a read-only panel of the week's Tasks+Events + Milestones — `ui/journals/week_panel.py` via `CalendarService.get_planning_items`, rows door to `/today/{date}`); `POST /journals/suggest-activities` takes reflection content in the body and returns the lazy-loaded suggestions panel; `GET /journals/je-out/{filename}` serves flat `je_out/` outputs |
 | `core/models/enums/user_enums.py` | `JournalTier`, `JournalMode` enum definitions |
-| `core/models/enums/pipeline.py` | `Pipeline.LLM_SUMMARY` (LLM summarisation for ingestion/EXTRACT; journal upload no longer persists); `Pipeline.JOURNAL` (privacy contract; no new entries created after save_entry deletion) |
+| `core/models/enums/pipeline.py` | `Pipeline.LLM_SUMMARY` (LLM summarisation for ingestion/EXTRACT; journal upload no longer persists); `ProcessingMode` (the zero-persistence upload door's mode — deliberately NOT a `Pipeline`; the `journal` pipeline value was deleted 2026-09-02) |
 | `core/services/output/instruction_resolver.py` | EnrichmentMode system (separate from Journals) |

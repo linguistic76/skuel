@@ -96,10 +96,10 @@ class AudienceResolver:
           - Rejected: ``pipeline=TEACHER_REVIEW`` with none of the above.
 
         §5 (journal is PRIVATE):
-          - ``Pipeline.allows_sharing()`` returns ``False`` for the journal
-            pipeline (``TRANSCRIBE_AND_STRUCTURE``). Any explicit audience on
-            such a request is rejected — the journal norm is preserved from
-            the legacy ``JeInput``/``JeOutput`` split.
+          - ``Pipeline.allows_sharing()`` returns ``False`` for the private
+            pipelines (``TRANSCRIBE_AND_STRUCTURE``, ``REFERENCE``). Any explicit
+            audience on such a request is rejected — the journal norm is
+            preserved from the legacy ``JeInput``/``JeOutput`` split.
         """
         if not request.pipeline.allows_sharing():
             has_explicit_audience = bool(

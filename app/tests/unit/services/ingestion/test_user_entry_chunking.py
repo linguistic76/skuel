@@ -9,7 +9,7 @@ pipeline-flip. These tests pin that wiring:
 
 - knowledge + non-private → chunk step gets the note body
 - explicit ``content:`` frontmatter wins over the body (even when falsy)
-- private / journal-pipeline → chunk step gets "" (clear path)
+- private / non-knowledge pipeline (REFERENCE) → chunk step gets "" (clear path)
 - a chunk-step failure (returns False) never fails the file
 - the result dict's ``chunks_generated`` reflects the real outcome
 
@@ -132,9 +132,9 @@ async def test_private_note_takes_clear_path(tmp_path: Path) -> None:
 
 
 @pytest.mark.asyncio
-async def test_journal_pipeline_takes_clear_path(tmp_path: Path) -> None:
-    svc = _ingestion_service(_entry(Pipeline.JOURNAL))
-    note = _note(tmp_path, "pipeline: journal\ntitle: Probe")
+async def test_reference_pipeline_takes_clear_path(tmp_path: Path) -> None:
+    svc = _ingestion_service(_entry(Pipeline.REFERENCE))
+    note = _note(tmp_path, "pipeline: reference\ntitle: Probe")
 
     result = await svc.ingest_file(note, user_uid="user_1")
 

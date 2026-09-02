@@ -1,5 +1,5 @@
 ---
-updated: 2026-07-01
+updated: 2026-09-02
 ---
 
 # How Your Content Is Used — SKUEL.app
@@ -28,9 +28,9 @@ When you request AI features that use these — for example, asking the Journal 
 
 ### Journal entries
 
-Journal entries are stored in SKUEL's database under your account. They are always private — there is no sharing option for journal entries, by design.
+A journal discussion is not stored by default. It is processed for that request and shown to you; when you leave the page it is gone. Only a chat you explicitly **Save** is kept — under your account, always private, with no sharing option by design — and a saved chat is never used to build SKUEL's understanding of you.
 
-When you request an AI response (Scribe, Thought Partner, or What Is Related), your entry text is sent to Claude (Anthropic's API) along with a short context summary of your active goals, tasks, and habits. The AI response is shown to you. It is not automatically saved — you choose whether to add it to your journal.
+When you request an AI response (Scribe, Thought Partner, or What Is Related), your text is sent to the configured AI provider along with a short context summary of your active goals, tasks, and habits. The reply is shown to you and discarded with the discussion unless you save the chat.
 
 **See:** [Journal Privacy](journal-privacy.md) for detail on journal-specific policy and the database-layer encryption roadmap.
 
@@ -100,7 +100,7 @@ Application logs record operational events (a save succeeded, a request failed) 
 
 ## What SKUEL is working toward
 
-Journal entries and activity reports are currently stored as plaintext in SKUEL's database. Application-layer access control prevents any route from exposing them to other users or admins — but a server operator with direct database access could technically read them.
+Saved journal chats, synced vault notes, and activity reports are currently stored as plaintext in SKUEL's database. Application-layer access control prevents any route from exposing them to other users or admins — but a server operator with direct database access could technically read them.
 
 SKUEL intends to close this gap with **field-level encryption**: encrypting sensitive content before it is written to the database, using a key that lives in the server environment. A raw database dump would then show ciphertext. This makes the privacy commitment technically enforced rather than relying solely on operator conduct.
 

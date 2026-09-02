@@ -38,7 +38,6 @@ decides what (if anything) happens after creation.
 | `LLM_SUMMARY` | Text/file → LLM summary |
 | `EXTRACT_ACTIVITIES` | Text → DSL parse → real entities with `EXTRACTED_FROM` provenance (ADR-069) |
 | `TEACHER_REVIEW` | No processing; the entry waits in the teacher queue — but **only via `SHARED_WITH_GROUP`**, see the trap below |
-| `JOURNAL` | Journals-domain entry; processing driven by `JournalTier`. Always private |
 | `KNOWLEDGE` | Grounded knowledge entry — the `je_pro` channel |
 | `REFERENCE` | Reserved; no producer today (ADR-073 §4) |
 

@@ -68,7 +68,7 @@ class MetricsEventHandler:
 
         # Content/Processing domains
         # NOTE: JournalCreated subscription REMOVED (February 2026) - Journal merged into
-        # Reports, then journals became UserEntry (ADR-054, pipeline JOURNAL) — counted
+        # Reports, then journals became UserEntry (ADR-054) — counted
         # via UserEntryCreated as entity_type="user_entry", no separate journal series.
         from core.events.transcription_events import TranscriptionCreated
 

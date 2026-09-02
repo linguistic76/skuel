@@ -407,8 +407,8 @@ class UserContextBuilder:
         #     "progress_counts": {tasks_completed, habits_maintained, goals_achieved, ...},
         #     "activity_report": {uid, period, period_end, content, user_annotation} or null,
         #     "active_insights_raw": [{uid, type, title, impact, confidence}, ...] (up to 10),
-        #     "submission_stats": {total_submission_count, total_journal_count,
-        #         submissions_in_window, last_submission_date, feedback_received_count,
+        #     "submission_stats": {total_submission_count, submissions_in_window,
+        #         last_submission_date, feedback_received_count,
         #         feedback_in_window, pending_feedback_count, assigned_exercise_count,
         #         completed_exercise_count, unsubmitted_exercises},
         #     "entry_knowledge_applied": [{uid, ku_uids}, ...],  <- ADR-069 APPLIES_KNOWLEDGE edges

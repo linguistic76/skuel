@@ -333,7 +333,6 @@ def test_populate_submission_stats_none() -> None:
     populator.populate_submission_stats(ctx, None)
 
     assert ctx.total_submission_count == 0
-    assert ctx.total_journal_count == 0
     assert ctx.submissions_in_window == 0
     assert ctx.last_submission_date is None
     assert ctx.feedback_received_count == 0
@@ -364,7 +363,6 @@ def test_populate_submission_stats_populated() -> None:
     last_date = datetime(2026, 3, 5, 14, 30, 0)
     stats = {
         "total_submission_count": 12,
-        "total_journal_count": 3,
         "submissions_in_window": 4,
         "last_submission_date": last_date,
         "feedback_received_count": 8,
@@ -381,7 +379,6 @@ def test_populate_submission_stats_populated() -> None:
     populator.populate_submission_stats(ctx, stats)
 
     assert ctx.total_submission_count == 12
-    assert ctx.total_journal_count == 3
     assert ctx.submissions_in_window == 4
     assert ctx.last_submission_date == last_date
     assert ctx.feedback_received_count == 8

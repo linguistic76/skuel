@@ -1,5 +1,5 @@
 ---
-updated: 2026-06-28
+updated: 2026-09-02
 ---
 
 # Journal Privacy — What SKUEL Stores, Who Can See It, and Our Commitment
@@ -12,13 +12,17 @@ This document explains exactly what happens to the content you write in the SKUE
 
 ## What the journal stores
 
-When you write a journal entry and click **Add to Journal**, SKUEL saves it as a personal record under your account. It stores:
+**Nothing, by default.** A journal discussion — typed text, or an uploaded file or audio recording — is processed for that request and shown to you. When you leave the page it is gone. SKUEL keeps no copy of what you typed, of a transcript, or of the AI's reply, and an unsaved discussion creates no record at all.
 
-- The text you wrote (`content`)
-- An optional title
-- Metadata: when it was created, your account ID, the pipeline label `journal`
+Three things persist only because you deliberately keep them:
 
-When you request an AI response (Respond / Scribe / Thought Partner / What Is Related), your note and a short summary of your active goals, tasks, and habits are sent to a third-party AI model to generate the response. The response is shown to you and discarded — it is not automatically saved unless you click **Add to Journal**.
+- **A saved chat.** Clicking **Save this chat** stores that discussion — its turns and title — under your account. Nothing is saved until you click.
+- **The output file of an upload.** A transcribed or compiled upload is written to your own `je_out/` folder as a file for you to open in Obsidian. SKUEL's database never holds it, and the vault sync never reads that folder back in.
+- **Vault notes you sync.** A note you place in a sync doorway folder (`knowledge/`, your periodic notes) is stored under your account as a note, because you put it there. Mark one `private: true` and the journal companion will not read it.
+
+A saved chat is **never used to understand you**. It is not searched, embedded, or fed into the context the journal companion or Askesis works from — the only channel into that context is the vault notes you choose to sync.
+
+When you request an AI response, your text and a short summary of your active goals, tasks, and habits are sent to the configured AI model for that request only. The reply is shown to you and, unless you save the chat, discarded with the rest of the discussion.
 
 ---
 
@@ -28,16 +32,16 @@ When you request an AI response (Respond / Scribe / Thought Partner / What Is Re
 
 | Role | Can read your journal content? |
 |------|-------------------------------|
-| You | ✅ Yes — your entries only |
+| You | ✅ Yes — your saved chats and synced notes only |
 | Other users | ❌ No — ownership is enforced at every query |
 | Teachers | ❌ No — teaching tools cover exercise submissions only |
 | SKUEL Admins | ❌ No — admin routes cover user accounts and platform statistics; no admin route reads journal content |
 
-This is technically enforced, not just policy. Every query that reads a journal entry is scoped to `(YourAccount)-[:OWNS]->(Entry)`. There is no admin route in the codebase that traverses this relationship across users.
+This is technically enforced, not just policy. A saved chat is read only through the owner-scoped conversation store, and a synced note only through `(YourAccount)-[:OWNS]->(Note)`. There is no admin route in the codebase that traverses either across users.
 
 ### At the raw database level
 
-SKUEL's data lives in a Neo4j database. Currently, journal content is stored as **plaintext** in that database. Anyone with direct database access (for example, a server administrator running a raw Cypher query) can technically read every node in the database, including journal entries.
+SKUEL's data lives in a Neo4j database. Currently, saved chats and synced notes are stored as **plaintext** in that database. Anyone with direct database access (for example, a server administrator running a raw Cypher query) can technically read every node in the database, including those.
 
 **SKUEL's policy commitment on this point is stated below.**
 
@@ -47,11 +51,11 @@ SKUEL's data lives in a Neo4j database. Currently, journal content is stored as 
 
 SKUEL.app commits to the following:
 
-1. **No operator access to journal content.** SKUEL's development team and operators will not read, export, query, or otherwise access a user's journal entries. This applies to direct database access, log inspection, or any other path.
+1. **No operator access to journal content.** SKUEL's development team and operators will not read, export, query, or otherwise access a user's saved chats or synced notes. This applies to direct database access, log inspection, or any other path.
 
-2. **Journals are excluded from administrative statistics.** The admin dashboard shows platform-level metrics (user counts, active goals, tasks created). Journal entry counts and content are not included in any admin view — and this is enforced in the codebase.
+2. **Journals are excluded from administrative statistics.** The admin dashboard shows platform-level metrics (user counts, active goals, tasks created). Journal counts and content are not included in any admin view — and this is enforced in the codebase.
 
-3. **AI processing is request-scoped.** When you request an AI response, your journal text is transmitted to the configured AI provider's API for that request only. SKUEL does not log the content of your entries to application logs. Entry UIDs and your account ID are logged for operational purposes (e.g., confirming a save succeeded), but never the text of what you wrote.
+3. **AI processing is request-scoped.** When you request an AI response, your journal text is transmitted to the configured AI provider's API for that request only. SKUEL does not log the content of a discussion or a note to application logs. Record identifiers and your account ID are logged for operational purposes (e.g., confirming a save succeeded), but never the text of what you wrote.
 
 4. **AI provider data handling.** Journal content sent to the AI provider is subject to that provider's privacy policy and API terms of service. SKUEL uses provider APIs under terms that prohibit the provider from training on API-submitted data by default.
 
@@ -61,9 +65,9 @@ SKUEL.app commits to the following:
 
 ## What SKUEL is working toward (technical roadmap)
 
-The current architecture enforces journal privacy at the **application layer** — the app will never expose your entries to another user or to an admin. The remaining gap is at the **database layer**: raw database access by a server operator could in principle expose plaintext.
+The current architecture enforces journal privacy at the **application layer** — nothing is stored unless you save it, and the app will never expose what you saved to another user or to an admin. The remaining gap is at the **database layer**: raw database access by a server operator could in principle expose plaintext.
 
-SKUEL intends to close this gap with **field-level encryption**: encrypting journal content before writing it to the database, using a key that lives in the server environment (not in the database itself). With this in place, a raw database dump would show ciphertext — unreadable without the application's encryption key. This makes the policy commitment technically enforced rather than relying solely on operator conduct.
+SKUEL intends to close this gap with **field-level encryption**: encrypting saved chats and synced notes before writing them to the database, using a key that lives in the server environment (not in the database itself). With this in place, a raw database dump would show ciphertext — unreadable without the application's encryption key. This makes the policy commitment technically enforced rather than relying solely on operator conduct.
 
 Until that is implemented, the protection rests on the combination of:
 - Application-layer enforcement (implemented)
@@ -75,6 +79,7 @@ Until that is implemented, the protection rests on the combination of:
 
 | Protection | Status |
 |-----------|--------|
+| Unsaved discussions leave no record | ✅ Technically enforced |
 | Admin cannot read your journals via the app | ✅ Technically enforced |
 | Other users cannot read your journals | ✅ Technically enforced |
 | Journal counts excluded from admin analytics | ✅ Technically enforced |
@@ -84,4 +89,4 @@ Until that is implemented, the protection rests on the combination of:
 
 ---
 
-*Last updated: 2026-06-26*
+*Last updated: 2026-09-02*

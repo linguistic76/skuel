@@ -67,8 +67,8 @@ class JournalTier(str, Enum):
 # File-upload path (ADR-073): zero-persistence. The uploaded file is transcribed / LLM-compiled
 # in-memory and the result is written to the user's own je_out/{stem}_out.md (or {stem}.txt for a
 # raw transcript) — flat, never synced, no UserEntry. The user downloads/opens it in Obsidian.
-Pipeline.JOURNAL.allows_sharing()  # → False; Pipeline.JOURNAL still enforces privacy
-                                   # for any legacy entries; new entries use LLM_SUMMARY
+ProcessingMode.from_string(form_value)  # the upload door's mode — NOT a Pipeline; nothing on
+                                         # this path persists a UserEntry (no journal pipeline exists)
 ```
 
 ---
