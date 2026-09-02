@@ -225,8 +225,8 @@ class LLMDSLBridgeService:
             context_block: Optional pre-rendered "USER CONTEXT" block (built by
                 ``transform_with_context`` from active goals / topics / principles).
                 Rendered into a SEPARATE, explicitly non-extractable prompt slot so
-                grounding can disambiguate and goal-link the text WITHOUT the LLM
-                emitting activity lines from the context itself — which on the
+                grounding can disambiguate the text WITHOUT the LLM emitting
+                activity lines from the context itself — which on the
                 entity-creating extraction path would persist phantom entities with
                 ``EXTRACTED_FROM`` provenance. Empty string = ungrounded.
 

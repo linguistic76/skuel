@@ -1902,45 +1902,52 @@ counterfactual while the filter cannot fire, and the number to beat the moment i
 
 ---
 
-## DSL-Bridge Grounding Pair — Goal-Link Persistence + Principles/Recent-Topics (REGISTERED 2026-08-28)
+## DSL-Bridge Grounding — Principles/Recent-Topics (REGISTERED 2026-08-28; goal-link half RETIRED by ruling 2026-09-02)
 
 #474 (2026-07-04) grounded BOTH `LLMDSLBridgeService.transform_with_context` callers in the
 user's active goals through one builder (`core/services/dsl/grounding.py`: `active_goal_titles`,
 `goals_as_context`), riding a non-extractable `{user_context}` prompt slot. Two follow-ups were
-deferred in that PR's thread and lived only in memory:
+deferred in that PR's thread and lived only in memory; one is now retired by ruling, one stays
+registered.
 
-1. **Goal-LINK persistence.** Grounding passes TITLES, so nothing resolves to an edge:
-   `ActivityDSLParser.get_linked_goals` (`core/services/dsl/activity_dsl_parser.py:352`) builds
-   `FULFILLS_GOAL` only from an explicit `@link(goal:<uid>)`; `@goal(...)` is a dropped attribute.
-   Wiring it = UID-aware grounding + the model emitting `@link(goal:<uid>)` through the
-   suggestion path + cache key — and a **keyed LLM test**, because a hallucinated UID on the
-   entity-creating `EXTRACT_ACTIVITIES` path writes a WRONG edge. Measured 2026-08-28:
-   **56 extracted tasks (`EXTRACTED_FROM`), 0 with any edge to a Goal, 0 `fulfills_goal_uid`;
-   2 active goals** — the 2 live `FULFILLS_GOAL` edges in the graph are hand-authored.
+1. **Goal-LINK persistence — RETIRED 2026-09-02 (Mike): goal links stay user-authored only.**
+   On the extraction path a `FULFILLS_GOAL` edge comes from one source only: an explicit
+   `@link(goal:<uid>)` the user wrote (`ActivityDSLParser.get_linked_goals`,
+   `core/services/dsl/activity_dsl_parser.py`); `@goal(...)` stays a dropped attribute and the
+   bridge never infers a link. (Goal links written elsewhere — the task form, goal→task
+   generation from an explicit parent goal — are outside this ruling; none of them is an LLM
+   inference over prose.)
+   Grounding is title-only and recognition-only — it disambiguates what the model recognises
+   and never resolves a title to a UID — and the bridge templates
+   (`core/prompts/templates/dsl_*`) teach `@context` and no `@link`, so the model has no channel
+   to emit a goal link either. The 2026-08-28 measurement (56 extracted tasks, 0 with any edge
+   to a Goal; the 2 live `FULFILLS_GOAL` edges hand-authored) is the accepted design, not a
+   parked cost: an edge the user did not author is a different kind of write. Do not build
+   UID-aware grounding, a model-emitted `@link(goal:…)`, or a title→UID resolver on either
+   bridge path. The ruling is also recorded at the code site (`grounding.py` module docstring)
+   and in `DSL_SPECIFICATION.md` § `@link()`.
 2. **`user_principles` / `recent_topics` grounding.** `transform_with_context` accepts both
    (`core/services/dsl/llm_dsl_bridge.py:301`); neither caller passes them
    (`core/services/journal/journal_service.py:286`,
    `core/services/user_entry/user_entry_processing_service.py:478`). Deliberately symmetric:
    adding either to ONE path re-introduces the asymmetry #474 closed — **add to BOTH together**.
 
-**The prerequisite both share:** the keyed LLM A/B that #474 could not run (no key then; the
-Anthropic key has been in dev since 2026-07-23) — does goal grounding actually lift recognition?
-Until that is measured, extending grounding is adding inputs to an unverified effect.
+**The prerequisite:** the keyed LLM A/B that #474 could not run (no key then; the Anthropic key
+has been in dev since 2026-07-23) — does goal grounding actually lift recognition? Until that is
+measured, extending grounding is adding inputs to an unverified effect.
 
 **Named work:** (0) run the A/B on the two prompt-capture fixtures with a real key and record the
 recognition delta here; (2) if it lifts, thread `user_principles` / `recent_topics` through BOTH
 callers in one PR (principle titles via `UserContext.core_principle_uids`; recent topics from
-the entry's own recent tags); (1) only on Mike's product ruling that AI-inferred goal edges are
-wanted — an edge the user did not author is a different kind of write.
-**Trigger:** (0) next touch of the bridge, or Mike schedules it; (1) Mike's ruling; (2) the A/B.
+the entry's own recent tags).
+**Trigger:** (0) next touch of the bridge, or Mike schedules it; (2) the A/B.
 **Check:** per argument — each must appear in BOTH callers or in NEITHER (neither today; a single
 grep for either name would pass with one argument in each file):
 `git grep -c "user_principles=" -- core/services/journal/journal_service.py core/services/user_entry/user_entry_processing_service.py`
-`git grep -c "recent_topics=" -- core/services/journal/journal_service.py core/services/user_entry/user_entry_processing_service.py`;
-`MATCH (t:Task)-[:EXTRACTED_FROM]->() OPTIONAL MATCH (t)-[:FULFILLS_GOAL]->(g:Goal) RETURN count(DISTINCT t) AS extracted, count(DISTINCT CASE WHEN g IS NOT NULL THEN t END) AS linked_tasks`
-→ 56 / 0 on 2026-08-28.
-**Named cost while parked:** every extracted task is goal-less however obviously it serves an
-active goal; the recognition-quality claim behind #474 stays unmeasured.
+`git grep -c "recent_topics=" -- core/services/journal/journal_service.py core/services/user_entry/user_entry_processing_service.py`.
+Ruling guard for (1): `git grep -n "@link" -- core/prompts/templates/` stays empty — a `@link`
+appearing in a bridge template is the retired path being rebuilt, not a feature.
+**Named cost while parked:** the recognition-quality claim behind #474 stays unmeasured.
 
 ---
 
@@ -2774,7 +2781,7 @@ Review this document at the **September 2026 quarterly review**. Checklist:
 | Habit-completion persistence bundle (#915 Codex "future care session": delete orphans / uid collision / non-atomic day uniqueness / stranded stats / DISTINCT-day query; + untrack refused-and-reported-success since #1100 and node doors publishing no `HabitCompleted`, both found on #1172) | Lived habit-completion use, or next touch of the completion write path | `MATCH (hc:HabitCompletion) RETURN count(hc)` **and** `MATCH (h:Habit) RETURN sum(h.total_completions), max(h.last_completed)` — nodes 0 / tally 0 / null on 2026-08-28 (tally > nodes = the node-less `/api/context` door was used); `SHOW CONSTRAINTS` lists none on the label. Built WITH the `find_by` row (one shared range predicate, two operations) but triggered by duplicate volume, moot once defect 3 lands; defect 3 needs Mike's one-per-day ruling first |
 | `TaskUpdateRequest` future `completion_date` asymmetry | Next touch of `task_request.py` validators | Ruling needed — see the section; don't rule in passing |
 | Per-domain chunking knobs + `chunk_type_weights` (fragment fix ✅ v2, 2026-08-30) | Tuning + Askesis intent-filter loosening: Mike schedules the eval set; type weights additionally need a content-typing classifier (79% `explanation` is the keyword FALLBACK, not the corpus) | `MATCH (c:ContentChunk) WHERE c.end_index < 5 RETURN count(*)` — **7** after the v2 re-chunk (all link-only MOC-style notes; a rise = new fragment-shaped ingestion; `end_index` = the persisted whitespace-aware `word_count`; pre-v2, 753 of 998 sat under the 50-word `min_chunk_size` — its value is the tuning question, not the defect); `git grep -n chunk_type_weights -- core/` empty until built |
-| DSL-bridge grounding pair (goal-LINK persistence; `user_principles`/`recent_topics` to BOTH paths) | Keyed A/B on the next bridge touch; goal edges need Mike's ruling on AI-inferred writes | `git grep -c "user_principles="` and `git grep -c "recent_topics="` over `journal_service.py` + `user_entry_processing_service.py` — EACH argument in both files or neither (neither today); extracted tasks / tasks with a `FULFILLS_GOAL` edge = 56 / 0 on 2026-08-28 (count TASKS linked, not goals reached — ten tasks on one goal must read 10) |
+| DSL-bridge grounding — `user_principles`/`recent_topics` to BOTH paths (goal-link persistence RETIRED by ruling 2026-09-02: goal links stay user-authored only) | Keyed A/B on the next bridge touch | `git grep -c "user_principles="` and `git grep -c "recent_topics="` over `journal_service.py` + `user_entry_processing_service.py` — EACH argument in both files or neither (neither today); ruling guard: `git grep -n "@link" -- core/prompts/templates/` stays empty |
 | `HabitMissed` publisher-less chain (ruled keep-staged 2026-08-28) | A lived want for difficulty insights, or the streak-semantics ruling — rule the day model once | `git grep -n "HabitMissed(" -- core/ adapters/ scripts/ services_bootstrap/ ui/ ':!core/events/'` empty (scripts/ included — a one-shot publisher counts); `MATCH (i:Insight {insight_type: 'difficulty_pattern'}) RETURN count(i)` → 0 |
 | Quarterly / yearly periodic notes (founder vault pass first) | The first real note in either vault folder | `find ~/0bsidian/skuel/periodic_notes/Quarterly ~/0bsidian/skuel/periodic_notes/yearly -type f \| wc -l` > 0 (files, not `ls` headings) — founder-owned, non-repo |
 | PathStep → Ku wiring backlog (1 Ku-less step; 67 Kus composed by no step) | Mike's next `Ps_dev` content session | The three counts in the section, over all three composition edges (`USES_KU\|TRAINS_KU\|CONTAINS_KNOWLEDGE`, never `USES_KU` alone) — 1 / 67 / 67 on 2026-08-28 |
