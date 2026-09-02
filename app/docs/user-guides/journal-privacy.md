@@ -12,17 +12,19 @@ This document explains exactly what happens to the content you write in the SKUE
 
 ## What the journal stores
 
-**Nothing, by default.** A journal discussion — typed text, or an uploaded file or audio recording — is processed for that request and shown to you. When you leave the page it is gone. SKUEL keeps no copy of what you typed, of a transcript, or of the AI's reply, and an unsaved discussion creates no record at all.
+**Nothing in the database, by default.** A typed discussion is processed for that request and shown to you. When you leave the page it is gone — no copy of what you typed or of the AI's reply is kept anywhere, and an unsaved discussion creates no record at all.
 
-Three things persist only because you deliberately keep them:
+An uploaded file or audio recording is different in one respect: its transcript, or its compiled output, is **written as a file** into the `je_out/` folder of your own vault. That file is the deliverable, and it stays where it was written until you delete it. Nothing about the upload enters SKUEL's database, and the vault sync never reads that folder back in.
 
-- **A saved chat.** Clicking **Save this chat** stores that discussion — its turns and title — under your account. Nothing is saved until you click.
-- **The output file of an upload.** A transcribed or compiled upload is written to your own `je_out/` folder as a file for you to open in Obsidian. SKUEL's database never holds it, and the vault sync never reads that folder back in.
-- **Vault notes you sync.** A note you place in a sync doorway folder (`knowledge/`, your periodic notes) is stored under your account as a note, because you put it there. Mark one `private: true` and the journal companion will not read it.
+What persists, and why:
+
+- **A saved chat** — only when you click **Save this chat**. It stores that discussion's turns and title under your account; nothing is saved until you click.
+- **The output file of an upload** — because you uploaded it. It lives in your vault's `je_out/` folder as a file for you to open in Obsidian, never in the database.
+- **Vault notes you sync** — because you put them in a sync doorway folder (`knowledge/`, your periodic notes). They are stored under your account as notes. Mark one `private: true` and the journal companion will not read it.
 
 A saved chat is **never used to understand you**. It is not searched, embedded, or fed into the context the journal companion or Askesis works from — the only channel into that context is the vault notes you choose to sync.
 
-When you request an AI response, your text and a short summary of your active goals, tasks, and habits are sent to the configured AI model for that request only. The reply is shown to you and, unless you save the chat, discarded with the rest of the discussion.
+When you request an AI response, your text and a short summary of your active goals, tasks, and habits are sent to the configured AI model for that request only. The reply is shown to you and, unless you save the chat, discarded with the rest of the discussion; for an upload, the reply *is* the output file described above.
 
 ---
 
@@ -79,7 +81,8 @@ Until that is implemented, the protection rests on the combination of:
 
 | Protection | Status |
 |-----------|--------|
-| Unsaved discussions leave no record | ✅ Technically enforced |
+| Unsaved typed discussions leave no record | ✅ Technically enforced |
+| Uploads persist only as a file in your vault's `je_out/`, never in the database | ✅ Technically enforced |
 | Admin cannot read your journals via the app | ✅ Technically enforced |
 | Other users cannot read your journals | ✅ Technically enforced |
 | Journal counts excluded from admin analytics | ✅ Technically enforced |

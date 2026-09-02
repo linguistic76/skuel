@@ -28,7 +28,7 @@ When you request AI features that use these — for example, asking the Journal 
 
 ### Journal entries
 
-A journal discussion is not stored by default. It is processed for that request and shown to you; when you leave the page it is gone. Only a chat you explicitly **Save** is kept — under your account, always private, with no sharing option by design — and a saved chat is never used to build SKUEL's understanding of you.
+A typed journal discussion is not stored by default. It is processed for that request and shown to you; when you leave the page it is gone. Only a chat you explicitly **Save** is kept — under your account, always private, with no sharing option by design — and a saved chat is never used to build SKUEL's understanding of you. An uploaded file or recording leaves its transcript or compiled output as a file in your vault's `je_out/` folder, never in the database (see [Journal Privacy](journal-privacy.md)).
 
 When you request an AI response (Scribe, Thought Partner, or What Is Related), your text is sent to the configured AI provider along with a short context summary of your active goals, tasks, and habits. The reply is shown to you and discarded with the discussion unless you save the chat.
 
