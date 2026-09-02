@@ -1,5 +1,5 @@
 ---
-updated: 2026-08-21
+updated: 2026-09-02
 ---
 
 # Teacher-Askesis Interface — Deferred Design
@@ -95,8 +95,11 @@ students' patterns. The teacher's pedagogical judgment becomes encoded in the mo
 
 ## Service Design
 
+Destination when built: `core/services/askesis/teacher_interface.py` <!-- planned -->
+(the marker is on this prose line rather than inside the block below — a marker is
+line-scoped and never read inside a fence, so a fenced citation cannot carry one).
+
 ```python
-# core/services/askesis/teacher_interface.py (when implemented)
 class TeacherAskesisService:
     """
     Teacher-facing interface to Askesis pedagogical data.

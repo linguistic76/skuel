@@ -39,6 +39,25 @@ import markdown_fences as mf  # type: ignore[import-not-found]
 
 DEAD_REL = "core/services/goals/goals_lateral_service.py"
 DEAD_ABS = "/core/services/goals/goals_lateral_service.py"
+HISTORICAL = ddl.MARKERS_BY_NAME["historical"].spelling
+PLANNED = ddl.MARKERS_BY_NAME["planned"].spelling
+
+
+def _in_scope_stale_reason(name: str) -> str:
+    """The reason a marker carries when it is in scope but suppressed nothing.
+
+    Derived from the spec rather than pasted, so the two markers' messages stay
+    honest about what each one asserts — for `planned` this is the SIGNAL that the
+    file got built, not a complaint.
+    """
+    marker = ddl.MARKERS_BY_NAME[name]
+    return (
+        f"no dead reference on this line — the target now exists, so it is no "
+        f"longer {marker.asserts}"
+    )
+
+
+HISTORICAL_STALE_REASON = _in_scope_stale_reason("historical")
 
 
 # ============================================================================
@@ -865,7 +884,7 @@ def test_run_prints_every_skip_count(
     assert "freeform notes + templates" in out
     assert "history directories" in out
     assert "registered application routes" in out
-    assert f"{ddl.HISTORICAL_MARKER} markers" in out
+    assert f"{HISTORICAL} markers" in out
 
 
 # ============================================================================
@@ -921,11 +940,9 @@ def test_marked_dead_citation_is_skipped_and_counted(docs_root: Path) -> None:
     """THE mechanism: an ADR's narrative citation of a deleted file opts out one line at
     a time. 70 of the 154 `decisions/` findings are narrative (measured 2026-09-01), and
     a whole-tier carve-out would have hidden the 81 standing-contract ones with them."""
-    scan = _scan(
-        docs_root, f"# ADR\n\nWe deleted `{DEAD_REL}`. {ddl.HISTORICAL_MARKER}\n", ADR_PROBE
-    )
+    scan = _scan(docs_root, f"# ADR\n\nWe deleted `{DEAD_REL}`. {HISTORICAL}\n", ADR_PROBE)
     assert scan.dead == []
-    assert scan.marker_skips == 1
+    assert scan.marker_skips["historical"] == 1
     assert scan.stale_markers == []
 
 
@@ -935,11 +952,11 @@ def test_marker_over_a_live_target_is_itself_reported(docs_root: Path) -> None:
     in costume."""
     (docs_root / "core").mkdir()
     (docs_root / "core" / "alive.py").write_text("", encoding="utf-8")
-    scan = _scan(docs_root, f"# ADR\n\nSee `core/alive.py`. {ddl.HISTORICAL_MARKER}\n", ADR_PROBE)
+    scan = _scan(docs_root, f"# ADR\n\nSee `core/alive.py`. {HISTORICAL}\n", ADR_PROBE)
     assert scan.dead == []
-    assert scan.marker_skips == 0
-    assert [(line, reason) for _src, line, reason in scan.stale_markers] == [
-        (3, "no dead reference on this line")
+    assert scan.marker_skips["historical"] == 0
+    assert [(line, reason) for _src, line, _name, reason in scan.stale_markers] == [
+        (3, HISTORICAL_STALE_REASON)
     ]
 
 
@@ -948,13 +965,11 @@ def test_marker_outside_the_decisions_tier_is_never_honored(docs_root: Path) -> 
     silence the sweep queue — the one thing the ADR ruling was careful not to buy. One
     rule catches it: a marker that suppresses nothing is reported, and out of scope it
     can never suppress anything."""
-    scan = _scan(
-        docs_root, f"# Guide\n\nSee `{DEAD_REL}`. {ddl.HISTORICAL_MARKER}\n", "patterns/G.md"
-    )
+    scan = _scan(docs_root, f"# Guide\n\nSee `{DEAD_REL}`. {HISTORICAL}\n", "patterns/G.md")
     assert {raw for _s, _l, raw, _k in scan.dead} == {DEAD_REL}
-    assert scan.marker_skips == 0
-    assert [reason for _src, _line, reason in scan.stale_markers] == [
-        "markers are honored only in docs/decisions/"
+    assert scan.marker_skips["historical"] == 0
+    assert [reason for _src, _line, _name, reason in scan.stale_markers] == [
+        "honored only in docs/decisions/"
     ]
 
 
@@ -967,10 +982,10 @@ def test_marker_line_alone_produces_no_citation(docs_root: Path) -> None:
     the citation. Line-scoped means that does not work, and the run says so rather than
     going quiet: the marker is reported as suppressing nothing.
     """
-    scan = _scan(docs_root, f"# ADR\n\n{ddl.HISTORICAL_MARKER}\nSee `{DEAD_REL}`.\n", ADR_PROBE)
+    scan = _scan(docs_root, f"# ADR\n\n{HISTORICAL}\nSee `{DEAD_REL}`.\n", ADR_PROBE)
     assert {(line, raw) for _s, line, raw, _k in scan.dead} == {(4, DEAD_REL)}
-    assert scan.marker_skips == 0
-    assert [line for _src, line, _reason in scan.stale_markers] == [3]
+    assert scan.marker_skips["historical"] == 0
+    assert [line for _src, line, _name, _reason in scan.stale_markers] == [3]
 
 
 @pytest.mark.parametrize(
@@ -991,7 +1006,7 @@ def test_near_miss_grammars_are_not_markers(docs_root: Path, spelling: str) -> N
     near-miss is not a marker, so its citation stays red — fail toward reporting."""
     scan = _scan(docs_root, f"# ADR\n\nSee `{DEAD_REL}`. {spelling}\n", ADR_PROBE)
     assert {raw for _s, _l, raw, _k in scan.dead} == {DEAD_REL}
-    assert scan.marker_skips == 0
+    assert scan.marker_skips["historical"] == 0
     assert scan.stale_markers == []
 
 
@@ -1001,8 +1016,8 @@ def test_whitespace_inside_the_marker_is_flexible(docs_root: Path, spelling: str
     whitespace varies, and the canonical spelling must satisfy its own pattern."""
     scan = _scan(docs_root, f"# ADR\n\nWe deleted `{DEAD_REL}`. {spelling}\n", ADR_PROBE)
     assert scan.dead == []
-    assert scan.marker_skips == 1
-    assert ddl.HISTORICAL_MARKER_RE.search(ddl.HISTORICAL_MARKER)
+    assert scan.marker_skips["historical"] == 1
+    assert ddl.MARKERS_BY_NAME["historical"].pattern.search(HISTORICAL)
 
 
 def test_one_marker_covers_every_dead_citation_on_its_line(docs_root: Path) -> None:
@@ -1010,10 +1025,10 @@ def test_one_marker_covers_every_dead_citation_on_its_line(docs_root: Path) -> N
     findings are alone on their line, and the single two-finding line (ADR-070:255,
     naming two deleted scripts) is homogeneous. ⚠️ A line mixing narrative with a
     standing contract must be SPLIT before marking — one marker would silence both."""
-    body = f"# ADR\n\nDeleted `{DEAD_REL}` and `scripts/gone.py`. {ddl.HISTORICAL_MARKER}\n"
+    body = f"# ADR\n\nDeleted `{DEAD_REL}` and `scripts/gone.py`. {HISTORICAL}\n"
     scan = _scan(docs_root, body, ADR_PROBE)
     assert scan.dead == []
-    assert scan.marker_skips == 2
+    assert scan.marker_skips["historical"] == 2
 
 
 @pytest.mark.parametrize(
@@ -1045,9 +1060,9 @@ def test_a_quoted_marker_is_prose_about_the_marker(
     the last two positions are here: `FenceBlock` carries `span` precisely because "a
     delimiter line is neither content nor prose".
     """
-    scan = _scan(docs_root, body.format(shown=ddl.HISTORICAL_MARKER), ADR_PROBE)
+    scan = _scan(docs_root, body.format(shown=HISTORICAL), ADR_PROBE)
     assert {raw for _s, _l, raw, _k in scan.dead} == {DEAD_REL}, position
-    assert scan.marker_skips == 0, position
+    assert scan.marker_skips["historical"] == 0, position
     assert scan.stale_markers == [], position
 
 
@@ -1062,10 +1077,120 @@ def test_a_marker_in_an_info_string_cannot_suppress_that_lines_citation(
     Measured on the live tree: zero findings currently sit on a delimiter line, so this
     pins a latent gap rather than a live one.
     """
-    body = f"# ADR\n\n```markdown {DEAD_ABS} {ddl.HISTORICAL_MARKER}\nsample\n```\n"
+    body = f"# ADR\n\n```markdown {DEAD_ABS} {HISTORICAL}\nsample\n```\n"
     scan = _scan(docs_root, body, ADR_PROBE)
     assert {raw for _s, _l, raw, _k in scan.dead} == {DEAD_ABS}
-    assert scan.marker_skips == 0
+    assert scan.marker_skips["historical"] == 0
+
+
+def test_planned_marker_skips_a_not_yet_built_file(docs_root: Path) -> None:
+    """THE case the planned marker exists for: a live roadmap doc citing what it will
+    create. The scanner sees `not exists()` for a deleted file and a not-yet-built one
+    alike, so only an author's annotation can tell them apart."""
+    scan = _scan(docs_root, f"# Plan\n\nBuild `{DEAD_REL}` {PLANNED}\n", "roadmap/P.md")
+    assert scan.dead == []
+    assert scan.marker_skips["planned"] == 1
+    assert scan.stale_markers == []
+
+
+def test_planned_marker_self_retires_when_the_file_is_built(docs_root: Path) -> None:
+    """⭐ The property this marker was chosen over "leave them reported" for (Mike,
+    2026-09-02). When the planned file finally exists the marker suppresses nothing, so
+    the SKUEL026 inversion REPORTS it — a permanent dead link becomes a
+    build-completion signal. A silent carve-out could never do that.
+
+    The reason it carries says so, rather than telling the reader to delete something
+    they should be pleased about.
+    """
+    (docs_root / "core").mkdir()
+    (docs_root / "core" / "built.py").write_text("", encoding="utf-8")
+    scan = _scan(docs_root, f"# Plan\n\nBuild `core/built.py` {PLANNED}\n", "roadmap/P.md")
+    assert scan.dead == []
+    assert scan.marker_skips["planned"] == 0
+    assert [(line, name) for _s, line, name, _r in scan.stale_markers] == [(3, "planned")]
+    assert "the target now exists" in scan.stale_markers[0][3]
+
+
+@pytest.mark.parametrize(
+    ("marker_name", "probe", "honored"),
+    [
+        ("planned", "roadmap/P.md", True),
+        ("planned", ADR_PROBE, False),
+        ("historical", ADR_PROBE, True),
+        ("historical", "roadmap/P.md", False),
+    ],
+)
+def test_each_marker_is_honored_only_in_its_own_tier(
+    docs_root: Path, marker_name: str, probe: str, honored: bool
+) -> None:
+    """The scopes are disjoint and neither is a superset of the other.
+
+    A `planned` marker in an ADR must NOT work: an ADR proposing a file is writing a
+    contract, not a schedule. A `historical` marker in the live roadmap must NOT work
+    either — that tier's dead links are the sweep queue. Both directions are pinned,
+    because a scope that silently widened would be a carve-out in costume.
+    """
+    spelling = ddl.MARKERS_BY_NAME[marker_name].spelling
+    scan = _scan(docs_root, f"# D\n\nSee `{DEAD_REL}`. {spelling}\n", probe)
+    assert scan.marker_skips[marker_name] == (1 if honored else 0)
+    assert (scan.dead == []) is honored
+    if not honored:
+        assert "honored only in" in scan.stale_markers[0][3]
+
+
+def test_planned_marker_cannot_cover_a_fenced_citation(docs_root: Path) -> None:
+    """A marker is never read inside a fence, so a fenced citation is unmarkable.
+
+    That is the fence rule the historical marker already needs (documenting a marker
+    means writing one), and it applies here too — which is why the one live fenced
+    planned citation was moved into prose above its block rather than annotated in
+    place. Pinned so the limitation is a known shape, not a surprise.
+    """
+    body = f"# Plan\n\n```python\n# {DEAD_REL} {PLANNED}\nclass X: ...\n```\n"
+    scan = _scan(docs_root, body, "roadmap/P.md")
+    assert {raw for _s, _l, raw, _k in scan.dead} == {DEAD_REL}
+    assert scan.marker_skips["planned"] == 0
+
+
+def test_marker_registry_drives_every_consumer() -> None:
+    """One mechanism, a registry of specs — the drift guard.
+
+    Two near-identical marker implementations would be two copies of one contract free
+    to diverge, the failure `TEMPLATE_MARKERS` exists to prevent. So every marker is
+    derived from its spec: spelling, pattern and scope all come from `MARKERS`, and a
+    new entry reaches skip-counting, stale-reporting and printing at once.
+    """
+    assert [m.name for m in ddl.MARKERS] == ["historical", "planned"]
+    for marker in ddl.MARKERS:
+        assert marker.spelling == f"<!-- {marker.name} -->"
+        assert marker.pattern.search(marker.spelling)
+        # Whitespace-flexible, but the comment delimiters are the anchors.
+        assert marker.pattern.search(f"<!--  {marker.name}  -->")
+        assert not marker.pattern.search(f"<!-- {marker.name}: why -->")
+        assert not marker.pattern.search(f"<!-- {marker.name}ly -->")
+    # Scopes are disjoint: no doc can be in scope for two markers at once.
+    scopes = [d for m in ddl.MARKERS for d in m.scope_dirs]
+    assert len(scopes) == len(set(scopes))
+
+
+def test_planned_markers_live_only_in_the_live_roadmap_half() -> None:
+    """`docs/roadmap/done/` is carved out of the scan entirely, so a marker there is
+    never evaluated. Derived from the tree rather than asserted in prose.
+
+    ⚠️ Uses `_marker_lines`, the production predicate — NOT a raw content search. A raw
+    search counts the marker wherever it is merely NAMED, and `HEALTH_CHECKS.md`
+    documents both markers in backticks and in a sample-output fence. Those are prose
+    about a marker, not markers; the first cut of this test failed on exactly that.
+    """
+    spec = ddl.MARKERS_BY_NAME["planned"]
+    marked = [
+        str(md.relative_to(ddl.ROOT))
+        for md in ddl.get_md_files()[0]
+        if ddl._marker_lines(md.read_text(encoding="utf-8"), spec)
+    ]
+    assert marked, "no live planned markers — this pin has gone vacuous"
+    assert all(m.startswith("docs/roadmap/") for m in marked), marked
+    assert not any(m.startswith("docs/roadmap/done/") for m in marked), marked
 
 
 def test_no_doc_in_the_tree_carries_a_marker_that_suppresses_nothing() -> None:
@@ -1075,7 +1200,7 @@ def test_no_doc_in_the_tree_carries_a_marker_that_suppresses_nothing() -> None:
     stale = [
         f"{source}:{lineno} — {reason}"
         for md_file in ddl.get_md_files()[0]
-        for source, lineno, reason in ddl.check_file(md_file, verbose=False).stale_markers
+        for source, lineno, _name, reason in ddl.check_file(md_file, verbose=False).stale_markers
     ]
     assert stale == [], f"markers suppressing nothing: {stale}"
 
@@ -1090,7 +1215,7 @@ def test_a_stale_marker_alone_fails_the_run(
     monkeypatch.setattr(sys, "argv", ["dead_doc_links.py"])
     probe = tmp_path / "docs" / "decisions" / "ADR-999-probe.md"
     probe.parent.mkdir(parents=True)
-    probe.write_text(f"# ADR\n\nNothing dead here. {ddl.HISTORICAL_MARKER}\n", encoding="utf-8")
+    probe.write_text(f"# ADR\n\nNothing dead here. {HISTORICAL}\n", encoding="utf-8")
 
     assert ddl.main() == 1
     out = capsys.readouterr().out
