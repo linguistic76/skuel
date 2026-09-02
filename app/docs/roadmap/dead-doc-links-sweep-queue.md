@@ -113,8 +113,11 @@ scheduling it as cleanup.
   doc teaching a naming convention reports its own examples. **Nine such findings are
   verified today** — six in `.claude/skills/docs-skills-evolution/reference.md` and three in
   the docstring template block at `docs/patterns/DOCSTRING_STANDARDS.md` — with the usual
-  tells being a `_NAME` suffix, an all-`X` token, or a trailing `_X`. Never "fix" one — the narrowing that
-  removes them is **scheduled below**, and until it lands these findings are noise to skip.
+  tells being a `_NAME` suffix, an all-`X` token, or a trailing `_X`. Never "fix" one. A
+  narrowing for **eight of the nine** is **scheduled below**, and until it lands those are
+  noise to skip. ⚠️ The ninth, `RELATED_ARCHITECTURE.md`, is deliberately **not** covered —
+  it fits no discriminator and will keep reporting forever, so it needs a decision (leave
+  it, or reshape the citing example), not patience.
 - ⚠️ **Do not reach for a same-basename file** — see the tail shape. Matching on basename
   is how a correct-looking fix points at the wrong module, and it also misses every
   renamed successor, which is the more common case.
