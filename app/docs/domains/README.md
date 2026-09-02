@@ -38,8 +38,9 @@ Each entity type is a peer — behavioral traits (not category membership) deter
 **Journals are not an entity type.** The AI companion is ephemeral by default (ADR-073's
 understanding wall + ADR-078's opt-in persistence) — a saved chat becomes an owner-private
 `:ConversationSession`, never a `UserEntry`. Which stored notes exist, and what pipeline
-each carries, is a live contract with more than one answer, so this catalog does not
-restate it.
+each carries, is a live contract with more than one answer — `Pipeline.JOURNAL` is authored
+rather than assigned, and the notes around journaling carry other pipelines — so this
+catalog does not restate it.
 
 **See:** [Journals Domain Architecture](../architecture/JOURNALS_DOMAIN_ARCHITECTURE.md) — the successor to the deleted per-domain doc, and the authority on journal persistence — plus the UserEntry row above and the `@journals` skill.
 
