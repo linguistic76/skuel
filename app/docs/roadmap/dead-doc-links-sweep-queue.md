@@ -105,14 +105,24 @@ MonsterUI removal and the activity-views consolidation.
 
 A different species, found while fixing PR #1220's findings and deliberately left outside
 that PR's ADR-tier fence. The targets all exist, so the scanner is blind to these; they
-are **wrong claims**, each verified against the code on 2026-09-01. Same protocol:
-ride-along on the next PR touching the file.
+are **wrong claims**, each verified against the code. Same protocol: ride-along on the
+next PR touching the file.
+
+> ⚠️ **A third entry was drafted here and withdrawn** — worth recording, because it is the
+> failure mode this table can cause. It would have "corrected" `docs/domains/choices.md`'s
+> line about payloads being the dataclass fields *minus the `occurred_at` / `metadata`
+> every event carries*, on the strength of `BaseEvent` declaring only `occurred_at`. But
+> every event in `core/events/choice_events.py` declares its own
+> `metadata: dict[str, Any] | None`, so that sentence is **true for the table it heads**;
+> the generalisation came from the UserEntry events, which have no such field. Following
+> the entry would have replaced an accurate statement with a false one (Codex, PR #1221).
+> **A queued correction is a claim like any other — reproduce it at ride-along time, not
+> just when it is filed.**
 
 | # | Where | The claim | The truth |
 |---|---|---|---|
 | 1 | `CLAUDE.md` § Unified Content Ingestion | `/submit` reaches `UserEntryService.create_entry()` *via* `core/services/ingestion/user_entry_ingestion.py` | It calls `create_entry()` **directly**. The form HTMX-posts to `POST /api/user-entries/upload`, whose handler in `adapters/inbound/user_entry_api.py` builds the request itself. `ingest_user_entry` has exactly one caller — `UnifiedIngestionService`, the vault/YAML door. Two doors, no shared middle layer; `create_entry()` is the one convergence point |
 | 2 | `core/models/relationship_registry.py` (the `TRANSFORMS` definition's comment) | the edge is "journal transcript → LLM-structured entry" | That is the **data flow**, and it reads as the edge direction, which is the reverse. `create_entry` does `relate(created.uid).via(TRANSFORMS).to(request.transforms_of_uid)` while the processing service sets `transforms_of_uid` on the structured **child** — so the edge runs **derived → source**. The definition's own `source_entry` field name is the tell |
-| 3 | `docs/domains/choices.md` | payloads are the dataclass fields "minus the `occurred_at` / `metadata` every event carries" | `BaseEvent` declares **only** `occurred_at`. `EventMetadata` is a standalone opt-in dataclass, not a `BaseEvent` member, and no Choice event carries one. A subscriber reading `event.metadata` fails at runtime. (This was the house phrasing — `docs/domains/user_entry.md` was corrected on #1220; this is the last copy) |
 
 ## Named, still queued — `docs/domains/README.md`
 
