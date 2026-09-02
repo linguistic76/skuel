@@ -15,8 +15,9 @@ janitor; not a CI gate). The B1–B4 arc took it from 871 findings to 343 by rem
 class that was *not* rot — parser false positives, unvalidatable freeform files,
 application URLs read as file paths, a generated index, dated history directories, and
 the ADR tier. **What is left is overwhelmingly rot — but it is residue, not a verdict.**
-Six of the 343 are known-good citations the scanner cannot resolve statically (see
-*Cautions* below), so verify before rewriting rather than treating a report as proof.
+Some reports are known-good citations the scanner cannot classify: `/tasks` is a live page
+it cannot resolve, and eight are documentation placeholders (see *Cautions*). Verify before
+rewriting rather than treating a report as proof.
 
 > ⚠️ **Writing about this instrument creates findings in it.** This file is inside the
 > scanned corpus (`docs/roadmap/` is live; only `docs/roadmap/done/` is carved out), so a
@@ -71,12 +72,14 @@ a path, and a bulk rename script cannot carry this queue.
 | 8 | `docs/patterns/three_tier_type_system.md` |
 | 8 | `docs/user-guides/ui-development.md` |
 | 7 | `docs/roadmap/finance-billing-migration.md` |
-| 6 | `.claude/skills/docs-skills-evolution/reference.md` |
-| 6 | `docs/README.md` |
-| 6 | `docs/domains/lp.md` |
 
 The first two are the same defect twice: citations of `ui/*.py` modules deleted in the
 MonsterUI removal and the activity-views consolidation.
+
+⚠️ **The table stops at 7 deliberately.** Below that the tail is flat (a run of files at
+6 and fewer) and **a high count is not evidence of rot** — `.claude/skills/docs-skills-evolution/reference.md`
+reports 6 and every one is a template placeholder. Check a file's findings before
+scheduling it as cleanup.
 
 ## Protocol
 
@@ -95,6 +98,15 @@ MonsterUI removal and the activity-views consolidation.
   before rewriting any leading-slash target.** Six are red for this reason: three journal
   browse URLs deleted in #420, two YAML-schema paths that are neither route nor directory,
   and `/tasks`.
+- ⚠️ **Documentation placeholders report as rot.** The scanner's placeholder vocabulary
+  targets lowercase scaffolding shapes (`your_service.py`, `new_domain/`, `foo.py`); it does
+  not reject SHOUTING metavariables, so a doc teaching a naming convention reports its own
+  examples. **Eight such findings are verified today** — six in
+  `.claude/skills/docs-skills-evolution/reference.md` and two in
+  `docs/patterns/DOCSTRING_STANDARDS.md` — with the reliable tells being a `_NAME` suffix,
+  an all-`X` token, or a trailing `_X`. Never "fix" one. A narrowing for this shape is a
+  candidate improvement to the scanner, but it must be measured first: an earlier
+  all-uppercase heuristic swept in real doc names like `SERVICE_PATTERNS.md`.
 - ⚠️ **Most targets are deleted, not moved** — see the tail shape. Reaching for a
   same-basename file is how a correct-looking fix points at the wrong module.
 - ⚠️ **A bulk correction script, if one ever emerges, re-derives its premise at run time
