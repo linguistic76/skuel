@@ -449,8 +449,12 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         (66, "ProfileLayout"): Allow(_ui_comp),
     },
     "docs/patterns/three_tier_type_system.md": {
-        (949, "KuType"): Allow(_three_tier),
-        (950, "KuStatus"): Allow(_three_tier),
+        # 949/950 → 947/948: the Key Files table above them lost its row for a
+        # migration script that has never existed in this repo, and the
+        # finance/automated-fixing prose shortened (B7, 2026-09-02). Anchors
+        # re-derived from the scanner's report, never by adding the diff delta.
+        (947, "KuType"): Allow(_three_tier),
+        (948, "KuStatus"): Allow(_three_tier),
     },
     "docs/user-guides/documentation-freshness.md": {
         # 127/128 → 128/129: the health-command list above them gained a

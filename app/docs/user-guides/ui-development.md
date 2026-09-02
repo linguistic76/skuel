@@ -1,5 +1,5 @@
 ---
-updated: 2026-08-09
+updated: 2026-09-02
 ---
 
 # UI Development Guide
@@ -11,9 +11,9 @@ How to build user interfaces in SKUEL. Covers the component system, page archite
 > **Component layer (ADR-071):** SKUEL owns its component layer — thin Python FT
 > functions encoding Tailwind class strings, in `ui/components/`. MonsterUI / FrankenUI /
 > UIkit / DaisyUI are **removed**. Import components from `ui.components` (`Button`, `Card`,
-> `Icon`, forms, tables, …); `ButtonLink` lives in `ui.primitives`. The deleted modules
-> `ui/buttons.py`, `ui/cards.py`, `ui/text.py` have **no drop-in replacement** — see the
-> mapping in each section below.
+> `Icon`, forms, tables, …); `ButtonLink` lives in `ui.primitives`. The three deleted
+> wrapper modules — the former `buttons.py`, `cards.py` and `text.py` — have **no drop-in
+> replacement**; see the mapping in each section below.
 
 ---
 
@@ -288,9 +288,9 @@ DivFullySpaced(
 )
 ```
 
-### Typography — `ui/text.py` is DELETED
+### Typography — the `text.py` wrapper is DELETED
 
-`ui/text.py` and all its helpers (`PageTitle`, `SectionTitle`, `Subtitle`, `BodyText`,
+That module and all its helpers (`PageTitle`, `SectionTitle`, `Subtitle`, `BodyText`,
 `SmallText`, `Caption`, `TruncatedText`) are **gone with no 1:1 replacement.** Page/section
 headings now come from **pattern components** that carry the type scale; body text is plain
 FastHTML elements with semantic-token Tailwind classes.
@@ -1045,7 +1045,7 @@ When building new components:
 | Forms (`Input`, `LabelInput`, `Textarea`, …) | `ui/forms/` |
 | Badges, alerts, progress | `ui/feedback.py` |
 | Layout (flex, grid) | `ui/layout.py` |
-| Typography | `PageHeader`/`SectionHeader` patterns + raw FastHTML `H4`/`P`/`Span` (`ui/text.py` deleted) |
+| Typography | `PageHeader`/`SectionHeader` patterns + raw FastHTML `H4`/`P`/`Span` (the former `text.py` wrapper is deleted) |
 | Modals | `AlpineModal` (`ui/patterns/modal.py`) or inline Alpine `x-show` + Tailwind |
 | Navbar | `ui/layouts/navbar.py` (internal to `BasePage`) |
 | Tables, dividers | `ui/data.py` |
@@ -1055,11 +1055,11 @@ When building new components:
 | Page wrapper | `ui/layouts/base_page.py` |
 | Navbar | `ui/layouts/navbar.py` |
 | Sidebar pages | `ui/patterns/sidebar.py` |
-| Entity cards | `ui/patterns/entity_card.py` |
+| Entity cards | `ui/patterns/card_generator.py` (`CardGenerator`) |
 | Form generation | `ui/patterns/form_generator.py` |
 | Skeleton loaders | `ui/patterns/skeleton.py` |
 | Error display | `ui/patterns/error_banner.py` |
-| Activity view tabs | `ui/patterns/activity_views_base.py` |
+| Activity domain views | `ui/activities/{domain}_views.py` (the shared `activity_views_base` module was deleted with the Activity Domain CRUD UI) |
 | Alpine.js components | `static/js/skuel.js` |
 | Component catalog | `docs/ui/COMPONENT_CATALOG.md` |
 

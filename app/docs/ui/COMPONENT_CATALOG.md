@@ -1,5 +1,5 @@
 ---
-updated: 2026-08-14
+updated: 2026-09-02
 ---
 
 # SKUEL UI Component Catalog
@@ -19,9 +19,16 @@ This catalog documents all UI components in SKUEL's design system, organized int
 
 All components are SKUEL-owned pure Tailwind + Alpine.js (ADR-071) and follow WCAG 2.1 Level AA accessibility standards.
 
-> **Note (2026-03-10):** The `ui/primitives/` layer was removed. All unique value was absorbed into the wrapper modules: typography helpers → `ui/text.py`, StatusBadge/PriorityBadge → `ui/feedback.py`, FlexItem/Row/Stack → `ui/layout.py`, CardLink → `ui/cards.py`, ButtonLink/IconButton → `ui/buttons.py`.
-> **Note (2026-06-26 PR E):** `ui/buttons.py`, `ui/cards.py`, and `ui/text.py` deleted. `ButtonLink` moved to `ui/primitives.py` (Tailwind `A()` wrapper, `cls=ButtonT.style, size="sm"` API). Typography helpers replaced by `section_label()` or inline Tailwind.
-> **Note (2026-06-30 ADR-071 complete):** `Button`/`ButtonT`, all `Card*`, forms, nav, data, feedback, and layout components are SKUEL-owned pure Tailwind, importable from `ui.components`. `from monsterui.franken import ...` no longer works — there is no `monsterui` (or `daisyui`) dependency.
+> **Where the old wrapper modules went.** Three of them are gone: the former `buttons.py`,
+> `cards.py` and `text.py` were deleted in PR E (2026-06-26) and have **no drop-in
+> replacement**. `Button`/`ButtonT` and every `Card*` are now SKUEL-owned pure Tailwind
+> importable from `ui.components`; `ButtonLink` lives in `ui/primitives.py` (a Tailwind
+> `A()` wrapper, `cls=ButtonT.style, size="sm"`); typography helpers are replaced by
+> `section_label()` or inline Tailwind. The wrappers that survived the same consolidation
+> still hold what was moved into them — StatusBadge/PriorityBadge in `ui/feedback.py`,
+> FlexItem/Row/Stack in `ui/layout.py`.
+>
+> **Note (2026-06-30 ADR-071 complete):** `from monsterui.franken import ...` no longer works — there is no `monsterui` (or `daisyui`) dependency.
 
 ---
 
@@ -46,7 +53,7 @@ All components are SKUEL-owned pure Tailwind + Alpine.js (ADR-071) and follow WC
 Thin Python wrappers around FastHTML FT components encoding Tailwind class strings (pure Tailwind + Alpine.js, ADR-071).
 These are the **lowest-level SKUEL building blocks** — imported directly in route files and views. Everything is re-exported from `ui.components`.
 
-**Module map** (June 2026 — `ui/buttons.py` + `ui/cards.py` + `ui/text.py` deleted PR E):
+**Module map** (the former `buttons.py`, `cards.py` and `text.py` were deleted in PR E — see the note above):
 
 | Module | Symbols |
 |--------|---------|
@@ -85,7 +92,7 @@ Basic building blocks for all SKUEL interfaces.
 
 ## Button
 
-**Location:** `ui.components` (pure Tailwind — `ui/buttons.py` deleted PR E)
+**Location:** `ui.components` (pure Tailwind — the former `buttons.py` wrapper was deleted in PR E)
 
 Styled buttons for actions and navigation.
 
@@ -427,7 +434,7 @@ Row(
 
 ## Text (DELETED — PR E, 2026-06-26)
 
-`ui/text.py` was deleted. Typography helpers (`SectionTitle`, `SmallText`, `TruncatedText`, etc.) are replaced by:
+The former `text.py` wrapper is gone. Its typography helpers (`SectionTitle`, `SmallText`, `TruncatedText`, etc.) are replaced by:
 
 - **Section labels:** `section_label()` from `ui/primitives.py` (or `H2` / `H3` with Tailwind classes)
 - **Small/muted text:** inline `Span("…", cls="text-sm text-muted-foreground")` or `P("…", cls="text-xs text-muted-foreground")`

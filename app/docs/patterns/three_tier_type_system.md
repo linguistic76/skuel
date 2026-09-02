@@ -1,6 +1,6 @@
 ---
 title: Three-Tier Type System
-updated: 2026-08-23
+updated: 2026-09-02
 category: patterns
 related_skills:
 - python
@@ -363,10 +363,10 @@ See [API_VALIDATION_PATTERNS.md](API_VALIDATION_PATTERNS.md) for comprehensive v
 
 ### Existing Request Models
 
-**Finance Domain** (`core/models/finance/finance_request.py`):
-- `ExpenseCreateRequest`, `ExpenseUpdateRequest`
-- `BudgetCreateRequest`, `BudgetUpdateRequest`
-- Literal types for enums (ExpenseStatus, PaymentMethod, etc.)
+**Finance Domain** — gone. The native expense/budget module was demolished in ADR-052
+Phase 5; finance is a Firefly III sidecar now, and `core/models/finance/` is down to
+`invoice.py`. The request models it once carried (`ExpenseCreateRequest`,
+`BudgetCreateRequest`, …) are not a live example of this tier.
 
 **Curriculum Domain** (`core/models/pathways/pathways_request.py`):
 - `PathStepCreateRequest`, `LearningPathCreateRequest` (used by ingestion, not CRUD routes)
@@ -431,12 +431,11 @@ Use `# type: ignore[assignment]` to suppress static analysis warnings:
 created_at: datetime = None  # type: ignore[assignment]
 ```
 
-### Automated Fixing
+### No Automated Fixing
 
-```bash
-# Apply type ignore comments to all affected fields
-uv run python scripts/add_frozen_dataclass_type_ignores.py
-```
+There is no fixer script. A migration script was described here that has never
+existed in this repo (`git log --all` is empty for it) — apply the ignore comments by
+hand, one field at a time, so each one is a decision rather than a sweep.
 
 ### Statistics
 
@@ -799,11 +798,11 @@ The `total=False` makes all fields optional, matching the partial update semanti
 
 | File | Purpose |
 |------|---------|
-| `/core/models/ku/entity.py` | Entity base class (~19 fields) |
-| `/core/models/ku/user_owned_entity.py` | UserOwnedEntity (+user_uid, priority) |
-| `/core/models/ku/entity_dto.py` | EntityDTO base (~18 fields) |
-| `/core/models/ku/user_owned_dto.py` | UserOwnedDTO (+user_uid, visibility, priority) |
-| `/core/models/ku/task.py` | Task domain model (example per-domain implementation) |
+| `/core/models/entity.py` | Entity base class (~19 fields) |
+| `/core/models/user_owned_entity.py` | UserOwnedEntity (+user_uid, priority) |
+| `/core/models/entity_dto.py` | EntityDTO base (~18 fields) |
+| `/core/models/user_owned_dto.py` | UserOwnedDTO (+user_uid, visibility, priority) |
+| `/core/models/task/task.py` | Task domain model (example per-domain implementation) |
 | `/core/models/task/task_dto.py` | TaskDTO (example per-domain DTO) |
 | `/core/models/entity_types.py` | Ku union type -- cross-domain entity types |
 | `/core/models/protocols/domain_model_protocol.py` | Protocol definition |
@@ -813,7 +812,6 @@ The `total=False` makes all fields optional, matching the partial update semanti
 | `/adapters/persistence/neo4j/user_backend.py` | User backend |
 | `/core/services/base_service.py` | Base service |
 | `/core/ports/query_types.py` | TypedDict definitions |
-| `/scripts/add_frozen_dataclass_type_ignores.py` | Migration script |
 
 ## Why Three Tiers? (Design Rationale)
 

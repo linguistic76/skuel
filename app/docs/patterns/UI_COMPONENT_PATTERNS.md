@@ -1,6 +1,6 @@
 ---
 title: UI Component Patterns
-updated: '2026-08-21'
+updated: '2026-09-02'
 category: patterns
 related_skills:
   - accessibility-guide
@@ -29,8 +29,8 @@ For hands-on implementation:
 5. Continue below for complete component architecture
 
 **Related Documentation:**
-- [/ui/activities/sidebar.py](/ui/activities/sidebar.py) - Activities sidebar items
-- [/ui/study/layout.py](/ui/study/layout.py) - Study sidebar example
+- [/ui/patterns/sidebar.py](/ui/patterns/sidebar.py) - `SidebarItem` / `SidebarLink`, the sidebar building blocks
+- [/ui/activities/nav.py](/ui/activities/nav.py) - `render_activity_sidebar_page()`, the sidebar page wrapper every activity domain uses
 
 ---
 
@@ -45,7 +45,7 @@ SKUEL uses a layered UI component architecture built on its own pure-Tailwind + 
 - `/ui/tokens.py` - Spacing, container, and styling tokens
 - `/core/utils/palette.py` - Centralized hex color constants (SemanticColor, RelationshipColor, EventTypeColor, FrequencyColor, CalendarFallback) — `ui/palette.py` re-exports for backward compat
 - `/ui/feedback.py`, `/ui/layout.py` — pure Tailwind wrappers; `ButtonLink` in `ui/primitives.py` (also pure Tailwind)
-- `/ui/forms/` — pure Tailwind wrappers; `ui/buttons.py` + `ui/cards.py` deleted PR E — `Button`/`ButtonT`/`Card*` now in `ui.components`
+- `/ui/forms/` — pure Tailwind wrappers; the former `buttons.py` + `cards.py` wrappers were deleted in PR E — `Button`/`ButtonT`/`Card*` now live in `ui.components`
 - `/ui/data.py` — pure Tailwind wrappers
 - `/ui/components/` - **SKUEL-owned Tailwind component layer (ADR-071, complete).** Pure Tailwind + Alpine.js, no UIkit/MonsterUI/DaisyUI. `ui/theme.py` is also pure Tailwind (loads compiled `output.css`).
 
@@ -99,7 +99,7 @@ SKUEL uses a layered UI component architecture built on its own pure-Tailwind + 
 
 **Evolution (2026-04-05):** Learning loop UI fully wired: EntryReport detail page at `/entry-reports/detail?uid=` (outcome badge, processor badge, assessment score bar); RevisedExercise student pages at `/revised-exercises` and `/revised-exercises/detail?uid=` (GradeBook sidebar); GradeBook expanded from 4 to 5 items (+ Revisions) and 5 hub blocks. Teaching revision form enhanced with structured `FeedbackCategory` feedback points (Alpine.js dynamic list). `AlpineModal` component standardized in `ui/patterns/modal.py` — adopted in calendar, sharing, and insights modals. Raw DaisyUI `Select` classes replaced with SKUEL `ui.forms.Select` wrapper in relationship_graph, profile, and calendar.
 
-**Evolution (2026-04-06a):** Post-login redirect changed from `/profile` to `/home` — a new post-login landing hub with 6 navigational cards (Tasks+, Explore, Library, Submissions, GradeBook, Settings) using `HubContainerGrid`. Hub view in `ui/home_hub.py`, route in `adapters/inbound/home_routes.py`.
+**Evolution (2026-04-06a):** Post-login redirect changed from `/profile` to `/home` — a new post-login landing hub with 6 navigational cards (Tasks+, Explore, Library, Submissions, GradeBook, Settings) using `HubContainerGrid`. Hub view in the then-new `home_hub.py`, route in `adapters/inbound/home_routes.py`. (`/home` was later consolidated into the `/profile` tabs: the hub view module is gone, its successor is `ui/profile/hub.py`, and `home_routes.py` survives registering only API fragments.)
 
 **Evolution (2026-04-06b):** Navbar Hub access changed from right-side hamburger dropdown to a **Hub icon** (home) as the furthest-left icon link. Right section simplified to Search + notification bell only. `_hub_dropdown()` removed from `navbar.py`.
 
@@ -1223,13 +1223,13 @@ async def tasks_view_list(request) -> Any:
 | LifePath | ✅ Complete | `_error_page`/`_service_unavailable_page` → `render_error_banner`, PageHeader adopted |
 | Calendar | ✅ Complete | Custom `Html(Head, Body)` wrapper → `BasePage`, PageHeader adopted |
 
-**Shared error/fetch handling lives in the factory** (`/adapters/inbound/activity_ui_factory.py`): not-found and fetch-error states render `render_error_banner()` inside the generated fragments; calendar query params parse via `parse_date_query_param()` (`route_factories`). The former `/adapters/inbound/ui_helpers.py` module was deleted 2026-08 (zero consumers).
+**Shared error/fetch handling lives in the factory** (`/adapters/inbound/activity_ui_factory.py`): not-found and fetch-error states render `render_error_banner()` inside the generated fragments; calendar query params parse via `parse_date_query_param()` (`route_factories`). The former `ui_helpers.py` module under `adapters/inbound/` was deleted 2026-08 (zero consumers).
 
 **Reference Files:**
 - `/adapters/inbound/tasks_ui.py` - Reference pattern (Activity)
 - `/adapters/inbound/goals_ui.py` - Calendar-enabled variant
 - `/adapters/inbound/teaching_ui.py` - Hub page pattern: `/teaching` hub (BasePage) → child pages with teaching sidebar (`ui/teaching/nav.py`) + nested student hub at `/teaching/students/{uid}` (BasePage, HTMX preview blocks) → student submissions with Alpine section sidebar. All HTML construction delegated to `ui/teaching/` — routes only do auth + service call + delegation.
-- `/adapters/inbound/study_ui.py` - HTMX fragments with error banners
+- `/adapters/inbound/user_entry_ui.py` - HTMX fragments with error banners
 - `/adapters/inbound/ku_ui.py` - Error state vs empty state
 - `/adapters/inbound/admin_dashboard_ui.py` - Per-section partial failure banners via `tuple[data, bool]` helpers
 - `/adapters/inbound/insights_ui.py` - Error state with pagination
@@ -1257,7 +1257,7 @@ All 6 Activity Domain detail pages (`/{domain}/{uid}`) follow this pattern: **ro
 
 **Exercises UI as second example:** `ui/exercises/editor.py` holds `render_exercise_editor()` (the Form/Input/Label/Textarea-heavy component), `ui/exercises/detail.py` holds `render_exercise_view()` and `render_exercise_student_detail()`, `ui/exercises/cards.py` holds `render_exercises_list()` and `render_exercise_card()`. `exercises_ui.py` is ~180 lines — pure auth + service call + delegation.
 
-**Explore UI:** `ui/explore/cards.py` holds `render_explore_card()` and `render_explore_search_panel()`. `ui/explore/filters.py` holds `filter_items()` and sort helpers. Sidebar data aggregation moved to `ExploreOrchestrator.get_sidebar_data()`. `render_explore_sidebar_page()` accepts pre-fetched `sidebar_data: dict[str, Any] | None` instead of raw services.
+**Explore UI:** `ui/explore/cards.py` holds `render_explore_card()` and `render_explore_search_panel()`. Filtering and sorting are no longer a UI concern at all — the former `filters.py` module went when `/explore/library` was consolidated onto `SearchRouter.faceted_search`. Sidebar data aggregation moved to `ExploreOrchestrator.get_sidebar_data()`. `render_explore_sidebar_page()` accepts pre-fetched `sidebar_data: dict[str, Any] | None` instead of raw services.
 
 **LifePath UI:** `ui/lifepath/` — `dashboard.py` (dashboard content + daily focus), `vision.py` (vision form + recommendations page), `alignment.py` (5-dimension alignment dashboard), `nav.py` (sidebar items + page wrapper). `lifepath_ui.py` is ~175 lines — pure auth + service call + delegation.
 
@@ -1492,12 +1492,16 @@ All 6 Activity domains refactored (2026-01-24):
 
 Pure functions are now unit-testable:
 
+The one helper here that is real is `compute_task_stats`, which was extracted out of
+the UI layer entirely and now lives in `core/utils/activity_stats.py`, returning a frozen
+`TaskStats` rather than a dict. The rest of this block is **illustrative shape**, not
+current API — `apply_task_filters` and `TaskCreateRequest` name no live symbol.
+
 ```python
-# tests/unit/ui/test_tasks_ui_helpers.py
+from core.utils.activity_stats import TaskStats, compute_task_stats
 
 def test_compute_task_stats_empty_list():
-    stats = compute_task_stats([])
-    assert stats == {"total": 0, "completed": 0, "overdue": 0}
+    assert compute_task_stats([]) == TaskStats(total=0, active=0, completed=0, overdue=0)
 
 def test_apply_task_filters_status():
     tasks = [Mock(status=EntityStatus.COMPLETED), Mock(status=EntityStatus.ACTIVE)]
@@ -1620,7 +1624,7 @@ Per-domain TypedDicts in `/ui/page_contexts.py` define route → UI contracts wi
 ## Key UI Files
 
 **Layout & navigation:**
-- `/ui/home_hub.py` — Home hub
+- `/ui/profile/hub.py` — Profile hub (absorbed the former `/home` hub)
 - `/ui/layouts/base_page.py`, `/ui/layouts/navbar.py`
 - `/ui/patterns/sidebar.py`, `/ui/patterns/modal.py` (AlpineModal)
 - `/ui/patterns/` — `PageHeader`, `form_generator`, `card_generator`, etc.
@@ -1631,7 +1635,6 @@ Per-domain TypedDicts in `/ui/page_contexts.py` define route → UI contracts wi
 - `/ui/explore/nav.py` — graph-centered sidebar (used by `/explore/library`; KU and PS detail pages use `BasePage(CUSTOM)` with no sidebar)
 - `/ui/explore/graph.py` — `ExploreGraphView` Vis.js component
 - `/ui/explore/cards.py` — card rendering + search panel (library catalog)
-- `/ui/explore/filters.py` — filter/sort helpers
 - `/ui/explore/ku_detail.py`, `/ui/explore/ps_detail.py` — extracted from `explore_ui.py`
 
 **Exercises & learning loop:**
@@ -1678,4 +1681,4 @@ Per-domain TypedDicts in `/ui/page_contexts.py` define route → UI contracts wi
 - `/docs/patterns/ERROR_HANDLING.md` - Result[T] error handling
 - `/docs/migrations/ACTIVITY_UI_ERROR_HANDLING_REFACTORING_2026-01-24.md` - P0 security fixes
 - `/docs/migrations/ACTIVITY_UI_CODE_QUALITY_IMPROVEMENTS_2026-01-24.md` - Pure helpers & validation
-- `/docs/architecture/UX_MIGRATION_PLAN.md` - Migration history
+
