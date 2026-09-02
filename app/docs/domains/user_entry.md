@@ -1,7 +1,7 @@
 ---
 title: UserEntry Domain
 created: 2026-09-01
-updated: 2026-09-01
+updated: 2026-09-02
 status: current
 category: domains
 tags: [user-entry, learning-loop, domain]
@@ -204,7 +204,7 @@ The vault is the source of truth for user data. Two doors reach
 
 | Door | Path |
 |------|------|
-| The `/submit` form | HTMX-posts multipart to `POST /api/user-entries/upload`; the handler in `adapters/inbound/user_entry_api.py` builds the request and calls `create_entry()` **directly** |
+| The exercise upload form | `/submissions/exercise` is the canonical page (`/submit` is a legacy 302 onto it, preserving query params). Its form HTMX-posts multipart to `POST /api/user-entries/upload`; the handler in `adapters/inbound/user_entry_api.py` builds the request and calls `create_entry()` **directly** |
 | Vault / YAML sync | `UnifiedIngestionService` → `ingest_user_entry()` in `core/services/ingestion/user_entry_ingestion.py` (ADR-054) → `create_entry()` |
 
 Neither uses the directory-ingest door that serves content-vault curriculum.

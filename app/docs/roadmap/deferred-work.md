@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-01
+updated: 2026-09-02
 ---
 
 # Deferred Work
@@ -2466,7 +2466,7 @@ the others.
 | ~~History dirs~~ (`migrations/` 198, `roadmap/done/` 12, `investigations/` 12, `Reviews/` 4) | 0 (−226) | **DONE — PR B3.** Silent dir carve-out, 73 files, counted and printed on its own line (not folded into the freeform count: that set is meant to stay fixed while this one grows with every completed roadmap doc, so one merged number would be a number nobody can read). ⚠️ `roadmap/done/` and never `roadmap/` — the live half's 14 findings are ordinary rot on the sweep queue |
 | ~~`docs/decisions/ADR-TEMPLATE.md`~~ | 0 (−1) | **DONE — PR B3.** Joined the template carve-out: its one finding sits in the `**Example:**` block illustrating what a Decision section looks like, naming a module never tracked in this repo (`git log --all` empty). Fictional by design, same species as `.claude/skills/_templates/`. FILE-scoped — `docs/decisions/` is the authority tier and a directory carve-out to reach one template would hide the rot below |
 | ~~ADRs~~ (`docs/decisions/`, mixed faithful history and standing contracts) | 0 (−153) | **DONE — PR B4** applied the ruled mechanism: 62 markers on narrative citations, every standing contract fixed against a reproduced successor, and the four content rulings executed. Steady state: a finding here now means rot in the authority tier |
-| Live docs — real rot | 343 | **RULED** — sweep queue below, now actionable. Dropped 1 in B4: `docs/domains/README.md`'s Submissions row was the catalog ripple of the UserEntry doc |
+| Live docs — real rot | 343 | **RULED** — actionable, and **extracted 2026-09-01** to [`dead-doc-links-sweep-queue.md`](dead-doc-links-sweep-queue.md), which owns the queue from here. Dropped 1 in B4: `docs/domains/README.md`'s Submissions row was the catalog ripple of the UserEntry doc |
 
 **PR B1 (LANDED):** 871 → **754** (−117: 40 parser, 50 carve-out, 27 route-matched),
 every removed finding classified and zero findings added. Four narrowings, each stating
@@ -2688,26 +2688,16 @@ machine-local): B4 re-derives it by the recorded procedure — drive `check_file
 the split recorded above as the expected shape; re-derivation is mandatory for the
 counts anyway, never guessed.
 
-**Live-docs sweep queue (RULED: register + burn down via doc sweeps) — ACTIONABLE since
-PR B1:** **343 findings / 223 distinct targets** (344/224 on B1's exit; B4 fixed one as a
-catalog ripple) — the per-directory split below is B1's recount —
-patterns 104 · skills 46 · intelligence 41 · domains 32 · architecture 26 · guides 18 ·
-roadmap-live 14 · reference 13 · ui 11 · user-guides 9 · docs-root 8 · development 6 ·
-misc 16. The route-shaped contamination that blocked this queue is gone: the counts above
-are what the scanner reports *after* 27 valid route links stopped being read as files, so
-`VOICE_JOURNALING_AND_OBSIDIAN_GUIDE.md` drops from 13 to 3 (all genuinely dead) and
-`PWA_ARCHITECTURE.md` from 10 to 1. The tail shape survives the recount: of the 224
-distinct targets only **33** have a unique same-basename relocation candidate; most are
-genuinely deleted files, so the usual fix is editing the citing PROSE, not swapping a
-path — a rename map cannot carry this queue. **Protocol:** any sweep or PR touching a
-listed doc fixes its dead links as a ride-along; ⚠️ a route-shaped target that is still
-red is not automatically rot — `/tasks` is live but registered as `@rt(f"/{domain}")`,
-which B1's static matcher cannot resolve, so check `adapters/inbound/` before rewriting
-one. Confirmed real heavy hitters (`UI_COMPONENT_PATTERNS.md` 12 · `COMPONENT_CATALOG.md`
-11 — deleted `ui/*.py` citations · `three_tier_type_system.md` 8 ·
-`user-guides/ui-development.md` 8) can be dedicated small sweeps. A bulk correction
-script, if one ever emerges, re-derives its premise at run time and aborts on surprise —
-a heuristic proposes, never rewrites.
+**Live-docs sweep queue — EXTRACTED to its own doc (Mike's call, 2026-09-01).** The
+remaining **343 findings / 223 distinct targets** now live in
+[`dead-doc-links-sweep-queue.md`](dead-doc-links-sweep-queue.md), with the per-directory
+split, the tail shape that decides the fix (only 33 of 223 have a unique same-basename
+relocation candidate, so the usual fix is editing the citing PROSE rather than swapping a
+path — ⚠️ but "no same-basename candidate" is not "no successor", and the linked doc says
+why), the heavy hitters, the ride-along protocol, and the cautions. That doc also
+carries two things this section deliberately does not: the **disproven claims owed a
+correction** (wrong claims about live files, invisible to the scanner) and the two named
+`docs/domains/README.md` rows. Re-derive every count there; never quote one from prose.
 
 **Noted, unscheduled — duplicate ADR numbers:** ADR-030 exists three times
 (`curriculum-domain-unification`, `dual-track-assessment-pattern`,
@@ -2770,7 +2760,9 @@ Review this document at the **September 2026 quarterly review**. Checklist:
 | Hollow embedding field maps — `PLANNED_EMBEDDING_MAPS` (4 DELAYED on 2026-08-30: `ENTRY_REPORT`, `ACTIVITY_REPORT`, `FORM_TEMPLATE`, `FORM_SUBMISSION`) | The EntryReport / ActivityReport search row above fires (the two report maps point at it), or a consumer wants form content in semantic search (the two form maps — no section, the registry reason is the one copy) | `./dev bloat` § Embedding field maps — every row is hollow by ruling; an unregistered hollow map already fails `--check` on its own. Wiring one = ADR-074's quartet, then delete its entry (the stale gate demands it) |
 | ~~Dead-doc-links B1–B4~~ — **ARC COMPLETE 2026-09-01** (#1217, #1218, #1219, and B4) | — | `uv run python scripts/health/dead_doc_links.py` — **343** today, all of it the live-docs sweep queue row below; `decisions/` and the history dirs are clear. Re-measure, never trust the snapshot. See the section |
 | ~~Dead-doc-links history line~~ — **RULED and BUILT 2026-09-01**: ADRs = per-citation marker (B3 mechanism, B4 applied 62 of them), 4 history dirs = silent carve-out | — | Steady state: red inside `docs/decisions/` now means rot in the authority tier. Status-scoping stays falsified (3/88 Superseded after B4) |
-| Live-docs dead-link sweep queue (~367 pre-recount — ⚠️ NOT actionable until PR B1 lands: counts contaminated by valid route links, a sweep today would rewrite them) | Post-B1 recount, then ride-along on every doc sweep or PR touching a listed area; confirmed heavy hitters may get dedicated small sweeps | Re-derive per doc by running the scanner and filtering to the file; check route-shaped targets against live route registrations; fix the citing prose (most targets are deleted, not moved) |
+| Live-docs dead-link sweep queue — **343 findings / 223 distinct**, ACTIONABLE; **owned by [`dead-doc-links-sweep-queue.md`](dead-doc-links-sweep-queue.md)** since 2026-09-01 | Ride-along on every doc sweep or PR touching a listed area; the heavy hitters may get dedicated small sweeps | ⛔ Do not scope from this cell — the linked doc holds the split, the tail shape, the protocol and the cautions. Re-derive per doc by running the scanner and filtering to the file; ⚠️ check route-shaped targets against live `@rt` registrations first (`/tasks` is live but reports by design); fix the citing PROSE, and ⚠️ look for a RENAMED successor before deleting a citation — a rename has no same-basename match and is easily mistaken for a deletion |
+| Disproven claims owed a correction (2 sites: `CLAUDE.md`'s `/submit` ingestion path, `relationship_registry.py`'s `TRANSFORMS` direction comment) — **found on #1220, scheduled 2026-09-01** | Ride-along on the next PR touching each file; neither is a dead link, so the scanner will never raise them | The table in [`dead-doc-links-sweep-queue.md`](dead-doc-links-sweep-queue.md) § Disproven claims carries the claim and the verified truth for each. ⚠️ These are wrong claims about files that EXIST — a clean dead-link run is not evidence they are fixed. ⚠️ **Reproduce a queued correction before applying it:** a third entry (a `choices.md` event-`metadata` sentence) was filed and withdrawn on #1221 — it was accurate, and the "fix" would have broken it |
+| `docs/domains/README.md` PS + Journals rows (dead links left by #1220's ADR-tier fence) | Next touch of the domains catalog, or a `docs/domains/` sweep | Named in [`dead-doc-links-sweep-queue.md`](dead-doc-links-sweep-queue.md) § Named, still queued. ⚠️ The Journals row is not a path swap — Journals is no longer a domain, it is a `pipeline=JOURNAL` UserEntry |
 
 **The document is the checklist, the table is a convenience:** a section added to this file
 without a matching row here is still in review scope — walk every `##` section, then the table.
