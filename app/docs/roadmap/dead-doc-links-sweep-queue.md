@@ -16,8 +16,9 @@ class that was *not* rot — parser false positives, unvalidatable freeform file
 application URLs read as file paths, a generated index, dated history directories, and
 the ADR tier. **What is left is overwhelmingly rot — but it is residue, not a verdict.**
 Some reports are known-good citations the scanner cannot classify: `/tasks` is a live page
-it cannot resolve, and eight are documentation placeholders (see *Cautions*). Verify before
-rewriting rather than treating a report as proof.
+it cannot resolve, and a set of documentation placeholders are intentional examples — both
+enumerated under *Cautions*, which is where those counts live. Verify before rewriting
+rather than treating a report as proof.
 
 > ⚠️ **Writing about this instrument creates findings in it.** This file is inside the
 > scanned corpus (`docs/roadmap/` is live; only `docs/roadmap/done/` is carved out), so a
@@ -115,8 +116,9 @@ scheduling it as cleanup.
   tells being a `_NAME` suffix, an all-`X` token, or a trailing `_X`. Never "fix" one. A narrowing for this shape is a
   candidate improvement to the scanner, but it must be measured first: an earlier
   all-uppercase heuristic swept in real doc names like `SERVICE_PATTERNS.md`.
-- ⚠️ **Most targets are deleted, not moved** — see the tail shape. Reaching for a
-  same-basename file is how a correct-looking fix points at the wrong module.
+- ⚠️ **Do not reach for a same-basename file** — see the tail shape. Matching on basename
+  is how a correct-looking fix points at the wrong module, and it also misses every
+  renamed successor, which is the more common case.
 - ⚠️ **A bulk correction script, if one ever emerges, re-derives its premise at run time
   and aborts on surprise.** A heuristic proposes; it never rewrites.
 - ⚠️ **The historical-citation marker is honored ONLY under `docs/decisions/`.** Copying
