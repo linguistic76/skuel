@@ -375,13 +375,14 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         (148, "ProcessorType"): Allow(_adr054),
         (150, "ProcessorType"): Allow(_adr054),
         # 306/362/413/491/505 → +4 (2026-09-02): the audience table gained its
-        # knowledge-defaults-private amendment note. Anchors re-derived from the
+        # vault-notes-default-private amendment note; → +1 more the same day when
+        # the note grew to name extract_activities. Anchors re-derived from the
         # scanner's report, never by adding the diff's line delta.
-        (310, "ProcessorType"): Allow(_adr054),
-        (366, "ProcessorType"): Allow(_adr054),
-        (417, "ProcessorType"): Allow(_adr054),
-        (495, "EntityType.EXERCISE_SUBMISSION"): Allow(_adr054),
-        (509, "ProcessorType"): Allow(_adr054),
+        (311, "ProcessorType"): Allow(_adr054),
+        (367, "ProcessorType"): Allow(_adr054),
+        (418, "ProcessorType"): Allow(_adr054),
+        (496, "EntityType.EXERCISE_SUBMISSION"): Allow(_adr054),
+        (510, "ProcessorType"): Allow(_adr054),
     },
     "docs/decisions/ADR-073-journals-zero-persistence-vault-memory.md": {
         (118, "Pipeline.JOURNAL"): Allow(_adr073),

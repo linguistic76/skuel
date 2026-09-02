@@ -99,7 +99,8 @@ Every UserEntry YAML must declare a pipeline. One of:
 - `teacher_review` — queued for teacher feedback.
 - `llm_summary` — sent to the LLM for a structured summary.
 - `extract_activities` — DSL-parsed into real activities (the `/submissions/sync`
-  daily-note path, ADR-069). Used by `periodic_notes/`.
+  daily-note path, ADR-069). Used by `periodic_notes/`. Private unless `audience:`
+  says otherwise.
 - `knowledge` — "developed files": the user's own vault notes in the
   `knowledge/` doorway (or a frontmatter-consented `je_pro/` file — ADR-073
   amendment), shared to teach SKUEL about them. Persisted as-is (no
@@ -116,9 +117,9 @@ valid in YAML-ingested UserEntry files.
 ### Optional field: `audience`
 
 `audience:` declares who sees the entry. When omitted it defaults to `teachers` for
-submission-shaped pipelines and to `private` for `knowledge` — a developed-files note
-shares only by explicit audience (`Pipeline.shares_by_default()`, ruling 2026-09-02).
-Accepted values:
+submission-shaped pipelines and to `private` for the two vault-note pipelines, `knowledge`
+and `extract_activities` — a vault note shares only by explicit audience
+(`Pipeline.shares_by_default()`, rulings 2026-09-02). Accepted values:
 
 | Value | Meaning |
 |-------|---------|

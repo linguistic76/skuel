@@ -69,7 +69,8 @@ def _parse_audience(raw: Any, *, default_kind: str) -> Result[_AudienceSpec]:
     """Parse the YAML ``audience:`` field.
 
     ``default_kind`` is what an absent field means — ``"teachers"`` for
-    submission-shaped pipelines, ``"private"`` for ``knowledge`` — decided by
+    submission-shaped pipelines, ``"private"`` for the vault-note pipelines
+    (``knowledge``, ``extract_activities``) — decided by
     ``Pipeline.shares_by_default`` at the call site, never here.
     """
     if raw is None:
@@ -251,8 +252,9 @@ async def build_user_entry_request(
     """Validate YAML + build a ``UserEntryCreateRequest`` ready for the service.
 
     Expands ``audience: teachers`` (the default for submission-shaped
-    pipelines — a ``knowledge`` note with no ``audience:`` is private,
-    ``Pipeline.shares_by_default``) into explicit group UIDs by looking up the
+    pipelines — a ``knowledge`` or ``extract_activities`` vault note with no
+    ``audience:`` is private, ``Pipeline.shares_by_default``) into explicit
+    group UIDs by looking up the
     user's group memberships through the resolver. A user who
     is in no groups gets an empty share list — the entry is persisted but
     private (no compensation delete in that branch, since the absence of

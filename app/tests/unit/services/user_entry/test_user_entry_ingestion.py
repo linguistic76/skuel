@@ -147,6 +147,21 @@ class TestBuildUserEntryRequest:
         resolver.resolve_default_teachers.assert_not_awaited()  # type: ignore[attr-defined]
 
     @pytest.mark.asyncio
+    async def test_periodic_note_absent_audience_is_private(self):
+        """Ruling 2026-09-02: an extract_activities vault note is private unless it names an audience."""
+        resolver = _resolver(teachers=["g_a"])
+        result = await build_user_entry_request(
+            data={"pipeline": "extract_activities", "title": "2026-09-02"},
+            file_path=Path("2026-09-02.md"),
+            user_uid="user_1",
+            audience_resolver=resolver,
+        )
+        assert result.is_ok
+        assert result.value.share_with_groups == []
+        assert result.value.visibility is None
+        resolver.resolve_default_teachers.assert_not_awaited()  # type: ignore[attr-defined]
+
+    @pytest.mark.asyncio
     async def test_knowledge_explicit_teachers_audience_still_expands(self):
         resolver = _resolver(teachers=["g_a"])
         result = await build_user_entry_request(

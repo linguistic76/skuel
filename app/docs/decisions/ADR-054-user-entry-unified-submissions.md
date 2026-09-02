@@ -186,9 +186,10 @@ required `pipeline:` field and an optional `audience:` field:
 | `public` | `visibility=PUBLIC`. |
 | `private` | No shares, no visibility change. |
 
-*Amended 2026-09-02: `knowledge` (ADR-073's developed-files doorway) defaults to `private` when
-`audience:` is omitted — `Pipeline.shares_by_default()`. The `teachers` default is submission
-semantics and stays for the submission-shaped pipelines.*
+*Amended 2026-09-02: the two vault-note pipelines — `knowledge` (ADR-073's developed-files
+doorway) and `extract_activities` (periodic notes) — default to `private` when `audience:` is
+omitted — `Pipeline.shares_by_default()`. The `teachers` default is submission semantics and
+stays for the submission-shaped pipelines.*
 
 `AudienceResolver` (`core/services/user_entry/audience_resolver.py`) is
 the shared home for audience validation, share fan-out, and default-

@@ -11,7 +11,7 @@ This guide explains what happens to everything you put into SKUEL: your tasks an
 ## The short version
 
 - Everything you create in SKUEL is **private to you by default**.
-- You control what you share with teachers or peers — nothing is shared without your action, with one default to know: a *periodic* note synced without an `audience:` field goes to the teachers of the groups you are enrolled in; a `knowledge` note stays private unless you add one.
+- You control what you share with teachers or peers — nothing is shared without your action, and a synced vault note stays private unless its frontmatter names an `audience:`.
 - When you use an AI feature, the relevant content is sent to an external AI service for that request only. It is not retained by the AI service or used to train AI models.
 - Your audio is transcribed by a third-party service (Deepgram). The audio is not stored by SKUEL after transcription.
 - SKUEL's own team cannot read your private content through the application.
@@ -86,7 +86,7 @@ All external AI calls go to the configured AI provider — OpenAI or Anthropic, 
 |-----|-------------------------------|
 | You | Yes — your content only |
 | Other users | No — ownership enforced at every query |
-| Teachers | What you share with them — including a synced periodic note whose frontmatter has no `audience:` field, which defaults to your teachers; a `knowledge` note needs an explicit one |
+| Teachers | Only what you explicitly share with them — a turn-in, or a vault note whose frontmatter names them in `audience:` |
 | SKUEL admins | No — admin access covers user accounts and system metrics only; no admin route reads your content |
 | SKUEL's development team | No — policy commitment; see below |
 

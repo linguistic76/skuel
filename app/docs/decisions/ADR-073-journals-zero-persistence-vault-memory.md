@@ -118,8 +118,9 @@ Everything else in the vault is **walled off by default** (fail-closed `SyncAllo
   `Pipeline.JOURNAL` is deleted. It had been authored-never-assigned since #479 re-stamped the
   vault notes to `knowledge` and #608 purged the stored rows — `knowledge` + `private:` is the
   one path for a context note; the count it fed, `total_journal_count`, went with it. A
-  `knowledge` note with no `audience:` is **private** — the door's `teachers` default is
-  submission semantics, `Pipeline.shares_by_default()`; follow-up to #1227.)*
+  `knowledge` note with no `audience:` is **private**, and so is an `extract_activities`
+  periodic note — the door's `teachers` default is submission semantics,
+  `Pipeline.shares_by_default()`; follow-ups to #1227.)*
 - **je_pro entries** *(amended 2026-07-11)*: a frontmatter-consented je_pro file ingests as a
   stored `UserEntry` exactly like a `knowledge/` doorway note. Withdrawing consent in the file
   (dropping `pipeline:` or flipping to `je_use: exemplar`) deletes the stored node on the next
