@@ -181,8 +181,24 @@ along on the next PR touching the file.
 Nothing today. The `docs/domains/README.md` PS and Journals rows that stood here are
 fixed: the PS row's link pointed at a filename that never existed, and the Journals row
 named a doc deleted when the domain was absorbed. That row is **gone rather than
-repointed** — Journals is no longer a domain of its own, it is a `pipeline=JOURNAL`
-UserEntry, so the catalog now carries the fact instead of a row pretending otherwise.
+repointed** — Journals is not an entity type — and the catalog now points at
+`docs/architecture/JOURNALS_DOMAIN_ARCHITECTURE.md`, which owns the persistence contract.
+
+⚠️ **This queue's own successor guidance for that row was wrong, twice, and it is the most
+instructive thing on this page.** It said the successor content was the UserEntry doc.
+There is a real successor — different name, different directory, invisible to any basename
+search — and the substitute claim was itself false: "a journal is a `pipeline=JOURNAL`
+UserEntry" survives no contact with the code. The companion persists nothing by default and
+a saved chat becomes an owner-private `:ConversationSession`; in-app periodic notes are
+written `Pipeline.NONE`; vault notes are authored `extract_activities`; and
+`Pipeline.JOURNAL` itself has **no producer at all** — it is read in three places, written
+in none, with scripts to purge and re-stamp legacy rows carrying it (Codex, PR #1224, four
+rounds on one paragraph).
+
+**Two rules come out of that.** An entry on this page is a **lead, not a finding** — a lead
+that names a successor has to be checked before it is followed. And when a fix keeps
+drawing findings, stop restating the contract: a catalog's job is to point at the authority,
+not to duplicate a live contract that has more than one answer.
 
 ⚠️ **The same table held rot the scanner cannot see, and a link fix that ignored it would
 have left the doc wrong.** Its UID-prefix column was a second copy of the authoritative
