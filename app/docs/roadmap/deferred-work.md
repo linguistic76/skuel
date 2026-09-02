@@ -2694,7 +2694,7 @@ remaining **343 findings / 223 distinct targets** now live in
 split, the tail shape that decides the fix (only 33 of 223 have a unique same-basename
 relocation candidate — 180 are genuinely gone, so the usual fix is editing the citing
 PROSE), the heavy hitters, the ride-along protocol, and the cautions. That doc also
-carries two things this section deliberately does not: the **three disproven claims owed a
+carries two things this section deliberately does not: the **disproven claims owed a
 correction** (wrong claims about live files, invisible to the scanner) and the two named
 `docs/domains/README.md` rows. Re-derive every count there; never quote one from prose.
 
