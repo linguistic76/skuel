@@ -276,6 +276,7 @@ class Allow(NamedTuple):
 # Per-file rationales (shared by every entry in that file — the reason a given doc names
 # retired identifiers is uniform within it: a changelog, a before/after table, a frozen
 # migration record). Each was verified per-example against the doc, 2026-08 (#983).
+_adr028 = "ADR-028 'Gone since' record -- names the KuType member the MOC service was deleted with"
 _adr040 = "decision Context + struck-through withdrawn processor_type clause + amendment naming the retired ProcessorType (self-notes the scanner flags it)"
 _adr041 = (
     "ADR-041 before/after record of the KuType/KuStatus -> EntityType/EntityStatus unification"
@@ -335,6 +336,9 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
     "docs/architecture/ENTITY_TYPE_ARCHITECTURE.md": {
         (407, "ProcessorType"): Allow(_entity_arch),
         (416, "ProcessorType"): Allow(_entity_arch),
+    },
+    "docs/decisions/ADR-028-ku-moc-unified-relationship-migration.md": {
+        (140, "KuType"): Allow(_adr028),
     },
     "docs/decisions/ADR-040-teacher-exercise-workflow.md": {
         (21, "ProcessorType"): Allow(_adr040),
