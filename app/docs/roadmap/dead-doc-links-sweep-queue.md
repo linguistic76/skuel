@@ -113,9 +113,8 @@ scheduling it as cleanup.
   doc teaching a naming convention reports its own examples. **Nine such findings are
   verified today** — six in `.claude/skills/docs-skills-evolution/reference.md` and three in
   the docstring template block at `docs/patterns/DOCSTRING_STANDARDS.md` — with the usual
-  tells being a `_NAME` suffix, an all-`X` token, or a trailing `_X`. Never "fix" one. A narrowing for this shape is a
-  candidate improvement to the scanner, but it must be measured first: an earlier
-  all-uppercase heuristic swept in real doc names like `SERVICE_PATTERNS.md`.
+  tells being a `_NAME` suffix, an all-`X` token, or a trailing `_X`. Never "fix" one — the narrowing that
+  removes them is **scheduled below**, and until it lands these findings are noise to skip.
 - ⚠️ **Do not reach for a same-basename file** — see the tail shape. Matching on basename
   is how a correct-looking fix points at the wrong module, and it also misses every
   renamed successor, which is the more common case.
@@ -124,6 +123,73 @@ scheduling it as cleanup.
 - ⚠️ **The historical-citation marker is honored ONLY under `docs/decisions/`.** Copying
   one into a live doc suppresses nothing and is itself reported, with the reason carried.
   There is no opt-out for this queue — that is deliberate.
+
+## Scheduled: three scanner narrowings (Mike, 2026-09-02)
+
+**Not built here.** Each targets a *measured* shape, each subtracts findings (the fail-safe
+direction), and each must land with cases pinning it in
+`tests/unit/scripts/test_dead_doc_links.py` — the module's standing discipline. Together
+they remove **13 of the 343**; the counts below were measured on `c6ed127e6`, re-derive
+before building.
+
+### 1. `_is_placeholder` is consulted by ONE of the four passes — guard drift
+
+`_looks_like_local_path` calls it, so the backtick and fence passes are covered.
+`extract_bare_paths` and `extract_markdown_links` **never call it**. The proof is a target
+already in the vocabulary that reports anyway: `NEW_FEATURE.md` matches the existing
+`new_feature` topic marker, and the bare pass reports it regardless.
+
+This is the same drift the module already warns about for `TEMPLATE_MARKERS` — a guard
+that one pass consults and another does not — and B1 closed exactly this shape for the
+template markers without closing it for the placeholders. **Effect: −1 today** (plus the
+four in item 3, which the link pass would also stop reporting). Small, but it pins a
+latent class rather than a live one, which is the same justification B1's own
+measured-zero `TEMPLATE_MARKERS` rejection carries.
+
+### 2. Documentation metavariables — vocabulary extension
+
+The vocabulary targets lowercase scaffolding (`your_service.py`, `new_domain/`, `foo.py`)
+and uppercase *version/date* metavariables (`X.Y.Z`, `YYYY`). It has no entry for the
+metavariable a naming-convention doc uses for its own examples. Four discriminators cover
+all eight, and **every one was checked against the full tracked tree and matches no real
+file**:
+
+| Shape | Covers | Real-file collisions |
+|---|---|---|
+| `_NAME` suffix on the stem | `FEATURE_NAME.md`, `SYSTEM_NAME.md`, `PATTERN_NAME.md`, `ARCHITECTURE_NAME.md` | none |
+| an all-`X` token (`XX`+) | `ADR-XXX.md`, `ADR-0XX-example.md` | none |
+| trailing `_X` on the stem | `FEATURE_X.md` | none |
+| `-name` suffix on a segment | `skill-name/SKILL.md` | none |
+
+**Effect: −8.** ⚠️ Item 1 is a **precondition** for five of them: those are bare-pass
+findings, so extending the vocabulary alone would not silence them.
+
+⚠️ **One target is deliberately excluded.** `RELATED_ARCHITECTURE.md` fits no discriminator
+above, and a one-off `RELATED_` entry is precisely the shadow risk the module refuses
+("an unmeasured entry is pure shadow risk" — why only `foo` is listed). Either leave it
+reported, or fix the citing doc to use a shape the vocabulary already rejects. Do **not**
+add a rule for a single instance.
+
+⚠️ **The obvious wider rule is wrong.** "Reject uppercase stems" was measured and swept in
+real doc names — `SERVICE_PATTERNS.md`, `TASK_PRIORITY_ALGORITHM.md`. The narrow
+discriminators above exist because the wide one failed, which is the same lesson as the
+comma that B1's link guard does not reject.
+
+### 3. Residual generic-subscript link targets
+
+Four findings are Python generics read as links: a subscripted call such as
+`require_found[T]` or `execute[T]` followed by an elided argument list parses as link text
+plus a destination, and so does an illustrative external-link example. B1 gave the link
+pass a shape guard whose measured discriminator was a **raw space**; a destination of
+exactly three dots has no space and no template marker, so it survives.
+
+(Spelled without the trailing argument list on purpose — writing these examples verbatim
+added two findings to this very queue, which is the item reproducing itself.)
+
+A link destination that is only an elided-path marker is never checkable. **Effect: −4.**
+⚠️ Scope it to the destination being *nothing but* the marker — `adapters/.../fragments.py`
+is a different shape the vocabulary already handles, and widening this to "contains `...`"
+would reach it by a second route.
 
 ## Disproven claims owed a correction — NOT dead links
 
