@@ -35,12 +35,13 @@ Each entity type is a peer — behavioral traits (not category membership) deter
 
 **MOC Architecture:** MOC is NOT a separate entity — it IS a KU with ORGANIZES relationships. A KU "is" a MOC when it has outgoing ORGANIZES relationships (emergent identity).
 
-**Journals are not an entity type, and mostly not an entity at all.** Two things wear the name and they persist differently:
+**Journals are not an entity type.** The AI companion is ephemeral by default (ADR-073's
+understanding wall + ADR-078's opt-in persistence) — a saved chat becomes an owner-private
+`:ConversationSession`, never a `UserEntry`. Which stored notes exist, and what pipeline
+each carries, is a live contract with more than one answer, so this catalog does not
+restate it.
 
-- **The AI companion** (`/journals`, both doors) is **ephemeral by default** — ADR-073's understanding wall plus ADR-078's opt-in persistence. A chat writes nothing until the user presses *Save this chat*, and even then it becomes an owner-private `:ConversationSession`, **never** a `UserEntry`, with no embeddings and no search or context reach.
-- **Stored journal notes** — the periodic daily/weekly/monthly notes — *are* `UserEntry` rows carrying `pipeline=JOURNAL`, always private. (A frontmatter-consented `je_pro/` vault file is **not** one of these: it stores a `pipeline=KNOWLEDGE` entry, which feeds UserContext and is not categorically unshareable — ADR-073's 2026-07-11 amendment.) That pipeline is a deliberate **no-op** in `UserEntryProcessingService`: the tier-driven staging (FOUNDER's three-stage DNWF, STANDARD's single response) happens interactively in the Journals UI, not in a processing pass.
-
-**See:** [Journals Domain Architecture](../architecture/JOURNALS_DOMAIN_ARCHITECTURE.md) — the successor to the deleted per-domain doc — plus the UserEntry row above and the `@journals` skill. (The former PJ1-Voice / PJ2-Curated tiering is gone; its `JOURNAL_VOICE` / `JOURNAL_CURATED` values no longer exist in the codebase.)
+**See:** [Journals Domain Architecture](../architecture/JOURNALS_DOMAIN_ARCHITECTURE.md) — the successor to the deleted per-domain doc, and the authority on journal persistence — plus the UserEntry row above and the `@journals` skill.
 
 ## Quick Reference
 
