@@ -9,6 +9,10 @@ updated: 2026-09-02
 **Related**: `/docs/roadmap/security-hardening-deferred.md` — the security hardening backlog
 (see its Priority Order table for current status).
 
+**⚠️ Open privacy gap, deliberately unbuilt:** § *Vault Re-Sync Never Retracts a Share* — a vault note's
+`audience:` is write-once-widen until share reconciliation is built. Read it before touching sharing fan-out
+or planning a second user.
+
 ---
 
 ## Shelved Intelligence Features
@@ -1195,7 +1199,12 @@ duplicate, no update). Tracked tasks must be completed and edited in SKUEL.
 
 ---
 
-## Vault Re-Sync Never Retracts a Share (REGISTERED 2026-09-02)
+## ⚠️ Vault Re-Sync Never Retracts a Share (REGISTERED 2026-09-02 — open PRIVACY gap, ruled "leave registered, not built")
+
+**Why this section is loud:** it is the one place in the vault door where a user's *narrowing* action does
+nothing. Widening `audience:` takes effect on the next sync; narrowing or removing it does not — the share
+already written stays. Every other privacy default in this door was corrected on 2026-09-02 (#1228, #1230);
+this is the remaining asymmetry, and it is a leak class the moment a second user exists.
 
 `AudienceResolver.resolve_and_share` only adds `SHARED_WITH_GROUP` / `SHARES_WITH` edges, and the
 living-entry upsert a vault re-sync lands on carries no share reconciliation. So a note whose
@@ -2756,6 +2765,7 @@ Review this document at the **September 2026 quarterly review**. Checklist:
 | R4 vault inbound propagation — parked build | Mike schedules it (product decision) | See the section — sketch + the #1143 r5 rejection; parsed-line vs entity state, never hash |
 | Vault task door publishes no task events | R4 build or next vault-door touch | `git grep -n "event_bus" adapters/persistence/neo4j/bulk_upsert_backend.py` — empty until wired |
 | Line deletions leave `EXTRACTED_FROM` edges | R4 build or next reconciler touch | Census shape in the section; re-probe the W28 edges before building |
+| ⚠️ **Vault re-sync never retracts a share** (open privacy gap; ruled leave-registered 2026-09-02) | Next sharing-fan-out touch, or the first multi-user deployment — whichever comes first; a lived "I removed `audience:` and it is still shared" report promotes it immediately | `scripts/retract_defaulted_vault_note_shares.py` (dry run) lists what the door left shared; the fix is share reconciliation in `AudienceResolver.resolve_and_share` (retract edges the declared audience no longer covers) |
 | `UserLearningIntelligence` write-only fields (hollow since their sources were deleted) | Owner's ruling, or next touch of `PsAdaptiveService` | `git grep -n "intelligence\." core/services/ps/ps_adaptive_service.py` — assignments with no matching read |
 | Habit streak counters (lost-update + future-day credit) | Next touch of the streak write path, or a lived wrong-streak report | Ruling needed on `current_streak` semantics — see the section |
 | Unwired `HabitCompletion` model methods | A consumer wants one, or next Habits model touch | `git grep -n "is_streak_eligible\|was_completed_today" -- core/services/ adapters/ ui/` — empty until wired |
