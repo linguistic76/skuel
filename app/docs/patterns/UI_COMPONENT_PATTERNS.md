@@ -1492,13 +1492,16 @@ All 6 Activity domains refactored (2026-01-24):
 
 Pure functions are now unit-testable:
 
+The one helper here that is real is `compute_task_stats`, which was extracted out of
+the UI layer entirely and now lives in `core/utils/activity_stats.py`, returning a frozen
+`TaskStats` rather than a dict. The rest of this block is **illustrative shape**, not
+current API — `apply_task_filters` and `TaskCreateRequest` name no live symbol.
+
 ```python
-# Pure helpers — no async, no mocking. `compute_task_stats` now lives in
-# core/utils/activity_stats.py, extracted out of the UI layer entirely.
+from core.utils.activity_stats import TaskStats, compute_task_stats
 
 def test_compute_task_stats_empty_list():
-    stats = compute_task_stats([])
-    assert stats == {"total": 0, "completed": 0, "overdue": 0}
+    assert compute_task_stats([]) == TaskStats(total=0, active=0, completed=0, overdue=0)
 
 def test_apply_task_filters_status():
     tasks = [Mock(status=EntityStatus.COMPLETED), Mock(status=EntityStatus.ACTIVE)]
