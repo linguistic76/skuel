@@ -2075,8 +2075,13 @@ USER_ENTRY_CONFIG = DomainRelationshipConfig(
     model_class=Entity,
     is_shared_content=False,
     relationships=(
-        # Outgoing: UserEntry → UserEntry (multi-stage pipelines, e.g. journal
-        # transcript → LLM-structured entry). Target is another :UserEntry.
+        # Outgoing: UserEntry → UserEntry (multi-stage pipelines). The edge runs
+        # DERIVED → SOURCE: `create_entry` relates the newly-created entry via
+        # TRANSFORMS to `request.transforms_of_uid`, and the processing service sets
+        # that field on the structured CHILD (`transforms_of_uid=entry.uid`). So a
+        # journal transcript is the TARGET and its LLM-structured entry the source of
+        # the edge — the reverse of the data flow, which is what the `source_entry`
+        # field name below records. Target is another :UserEntry.
         UnifiedRelationshipDefinition(
             RelationshipName.TRANSFORMS,
             "UserEntry",
