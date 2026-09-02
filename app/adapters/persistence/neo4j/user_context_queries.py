@@ -1028,8 +1028,8 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 // SUBMISSION & FEEDBACK STATS - Learning loop engagement tracking
 // ====================================================================
 OPTIONAL MATCH (user)-[:OWNS]->(sub:Entity)
-WHERE sub.entity_type IN ['exercise_submission', 'je_input', 'je_output', 'user_entry']
-  AND NOT (sub.entity_type = 'user_entry' AND sub.pipeline IN ['reference', 'knowledge'])
+WHERE sub.entity_type = 'user_entry'
+  AND NOT sub.pipeline IN ['reference', 'knowledge']
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
@@ -1043,14 +1043,14 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      life_path_uid, life_path_designated_at, life_path_alignment_score,
      active_moc_uids, moc_metadata,
      latest_ar, active_insights_raw,
-     count(CASE WHEN sub.entity_type = 'exercise_submission' OR (sub.entity_type = 'user_entry' AND sub.pipeline IS NOT NULL AND sub.pipeline <> 'transcribe_and_structure' AND sub.pipeline <> 'reference') THEN 1 END) AS total_submission_count,
-     count(CASE WHEN (sub.entity_type <> 'user_entry' OR sub.pipeline <> 'reference') AND datetime(sub.created_at) >= datetime($window_start) THEN 1 END) AS submissions_in_window,
+     count(CASE WHEN sub.pipeline IS NOT NULL AND sub.pipeline <> 'transcribe_and_structure' THEN 1 END) AS total_submission_count,
+     count(CASE WHEN datetime(sub.created_at) >= datetime($window_start) THEN 1 END) AS submissions_in_window,
      max(sub.created_at) AS last_submission_date,
      collect(sub.uid) AS all_submission_uids
 
 // Feedback received for user's submissions
 OPTIONAL MATCH (user)-[:OWNS]->(owned_sub:Entity)<-[:REPORT_FOR]-(fb:Entity)
-WHERE owned_sub.entity_type IN ['exercise_submission', 'je_input', 'je_output', 'user_entry']
+WHERE owned_sub.entity_type = 'user_entry'
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,
