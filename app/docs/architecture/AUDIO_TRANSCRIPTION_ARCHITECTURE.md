@@ -237,5 +237,5 @@ The config file exposes five Deepgram intelligence features:
 ## See Also
 
 - [Deepgram Configuration Guide](/docs/configuration/DEEPGRAM_CONFIG.md) — option reference
-- [UserEntry](/docs/domains/user_entry.md) — journals are a `pipeline=JOURNAL` UserEntry, not a domain of their own; the `@journals` skill covers the STANDARD / FOUNDER stage workflows
+- [Journals Domain Architecture](/docs/architecture/JOURNALS_DOMAIN_ARCHITECTURE.md) — full journals architecture (successor to the deleted per-domain doc); note the file/audio door is zero-persistence, so a transcript here does not become a `UserEntry`
 - [Report Architecture](/docs/architecture/REPORT_ARCHITECTURE.md) — report generation pipeline
