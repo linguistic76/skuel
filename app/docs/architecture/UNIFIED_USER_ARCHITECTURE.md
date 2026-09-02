@@ -1,6 +1,6 @@
 ---
 title: User Architecture — User Model, Auth, Roles, and UserContext
-updated: 2026-08-29
+updated: 2026-09-02
 status: current
 category: architecture
 tags:
@@ -365,7 +365,6 @@ MEGA-QUERY populates 11 submission/feedback tracking fields via `populate_submis
 | UserContext Field | What |
 |-----------------|------|
 | `total_submission_count` | Cumulative student submissions |
-| `total_journal_count` | Cumulative journal entries |
 | `submissions_in_window` | Submissions within activity window |
 | `last_submission_date` | Most recent submission timestamp |
 | `feedback_received_count` | Total feedback responses received |
