@@ -21,7 +21,6 @@ from core.models.pathways.lp_position import LpPosition
 from core.models.relationship_names import RelationshipName
 from core.models.task.task import Task
 from core.models.task.task_dto import TaskDTO
-from core.models.task.task_request import TaskCreateRequest
 from core.models.type_hints import UserUID
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
@@ -57,7 +56,7 @@ class TasksLearningService(BaseService["TasksOperations", Task]):
         self.event_bus = event_bus
         self.relationships = relationship_service
 
-        self.learning_helper = LearningAlignmentBridge[Task, TaskDTO, TaskCreateRequest](
+        self.learning_helper = LearningAlignmentBridge[Task](
             service=self,
             backend_get=self.backend.get_task,
             backend_get_user=self.backend.get_user_tasks,

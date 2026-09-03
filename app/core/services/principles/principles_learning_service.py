@@ -22,7 +22,6 @@ from core.models.pathways.lp_position import LpPosition
 from core.models.pathways.path_step import PathStep
 from core.models.principle.principle import Principle
 from core.models.principle.principle_dto import PrincipleDTO
-from core.models.principle.principle_request import PrincipleCreateRequest
 from core.models.type_hints import EntityUID
 from core.ports.domain_protocols import PrinciplesOperations
 from core.services.base_service import BaseService
@@ -151,9 +150,7 @@ class PrinciplesLearningService(BaseService[PrinciplesOperations, Principle]):
         super().__init__(backend, "principles.learning")
 
         # Initialize LearningAlignmentBridge with custom scorers
-        self.learning_helper = LearningAlignmentBridge[
-            Principle, PrincipleDTO, PrincipleCreateRequest
-        ](
+        self.learning_helper = LearningAlignmentBridge[Principle](
             service=self,
             backend_get=self.backend.get,
             backend_get_user=self.backend.get_user_principles,
