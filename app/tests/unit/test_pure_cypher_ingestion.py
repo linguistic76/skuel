@@ -150,7 +150,7 @@ def test_cypher_template_generation():
 
     # Verify template includes CALL subquery for relationship creation
     # (uses MATCH to only link existing targets, avoiding stub node creation)
-    assert "CALL {" in template.template
+    assert "CALL (n, item) {" in template.template
     assert "MATCH (target:" in template.template
     assert "connections.requires" in template.template
     assert "PREREQUISITE" in template.template

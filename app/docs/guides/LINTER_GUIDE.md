@@ -1,6 +1,6 @@
 ---
 title: Linter Guide
-updated: 2026-08-30
+updated: 2026-09-03
 category: guides
 related_skills:
 - python
@@ -172,7 +172,7 @@ deletion**. CYP002 therefore keeps the raw classifier. A gate must not fail clos
 because a regex was wrong.
 
 **Known limits of CYP012 (all misses, never false alarms):** a name reused across
-scopes (`CALL { MATCH ()-[r:OWNS]->() DELETE r } MATCH (r:Entity) DETACH DELETE r`);
+scopes (`CALL () { MATCH ()-[r:OWNS]->() DELETE r } MATCH (r:Entity) DETACH DELETE r`);
 a whitespace-separated aggregate (`count (r)`), where telling a function name from
 a clause keyword is a parser's job; and any name a `WITH … AS r` rebinds. Four
 review rounds landed on this surface in #868. That progression is a regex growing

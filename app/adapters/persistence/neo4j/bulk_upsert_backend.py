@@ -94,16 +94,14 @@ def build_node_upsert_template(
 // when the resolved owner changes (or an out-of-band edge exists), the
 // former owner must not keep access through a leftover :OWNS edge.
 WITH n, props
-CALL {
-  WITH n, props
+CALL (n, props) {
   WITH n, props.user_uid AS _owner_uid
   WHERE _owner_uid IS NOT NULL
   OPTIONAL MATCH (_stale:User)-[_stale_owns:OWNS]->(n)
   WHERE _stale.uid <> _owner_uid
   DELETE _stale_owns
 }
-CALL {
-  WITH n, props
+CALL (n, props) {
   WITH n, props.user_uid AS _owner_uid
   WHERE _owner_uid IS NOT NULL
   MATCH (owner:User {uid: _owner_uid})
@@ -176,8 +174,7 @@ def build_relationship_template(
         if order_property:
             rel_clause = f"""
 // Handle {field_name} relationships ({direction}, ordered by list index)
-CALL {{
-  WITH n, item
+CALL (n, item) {{
   WITH n, coalesce(item.`{field_name}`, []) AS _target_uids
   UNWIND range(0, size(_target_uids) - 1) AS _idx
   WITH n, _target_uids[_idx] AS _target_uid, _idx
@@ -188,8 +185,7 @@ CALL {{
         else:
             rel_clause = f"""
 // Handle {field_name} relationships ({direction})
-CALL {{
-  WITH n, item
+CALL (n, item) {{
   WITH n, coalesce(item.`{field_name}`, []) AS _target_uids
   UNWIND _target_uids AS _target_uid
   MATCH (target:{target_label} {{uid: _target_uid}})

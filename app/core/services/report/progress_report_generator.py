@@ -109,7 +109,7 @@ class ProgressReportGenerator:
         Generate activity feedback for a user.
 
         Pipeline:
-            1. Query activity stats from Neo4j (single round-trip via CALL {} subqueries)
+            1. Query activity stats from Neo4j (single round-trip via CALL subqueries)
             2. If LLM available: send stats as context → qualitative feedback text
                Else: build programmatic markdown summary
             3. Create and persist ActivityReport entity

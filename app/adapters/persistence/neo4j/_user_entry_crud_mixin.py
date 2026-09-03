@@ -123,8 +123,7 @@ class _UserEntryCrudMixin:
             owner_match = "MATCH (owner:User {uid: $owner})"
             owns_clause = f"""
         WITH n, owner
-        CALL {{
-          WITH n, owner
+        CALL (n, owner) {{
           WITH n, owner WHERE n.user_uid = owner.uid
           MERGE (owner)-[owns:{RelationshipName.OWNS.value}]->(n)
           ON CREATE SET

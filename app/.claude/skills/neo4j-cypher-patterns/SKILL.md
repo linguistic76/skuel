@@ -490,7 +490,9 @@ Ku/PathStep survives — delete the learner-state edge, never the content it poi
 how the executor and most call sites run. The Python delete-loop is the portable equivalent and keeps
 each batch a normal auto-commit call. (Aside: on the `2026.x` calendar line the modern subquery syntax
 is the variable-scope clause `CALL (e) { … }`; the legacy `CALL { WITH e … }` import form is deprecated
-— relevant if you ever do reach for a subquery here.)
+— SKUEL's own subqueries (bulk-upsert owner edge + relationship phase, the user-entry upsert, the
+cross-domain evidence and recent-activity reads) all use the scope clause, and CYP009 scores both
+spellings as a subquery.)
 
 ## Additional Resources
 

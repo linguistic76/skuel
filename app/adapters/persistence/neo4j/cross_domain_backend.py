@@ -104,8 +104,7 @@ _INTENT_EDGE_SETS: dict[str, list[str]] = {
 _PRINCIPLE_ALIGNMENT_EVIDENCE_QUERY = f"""
 MATCH (u:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(p:Entity {{uid: $principle_uid, entity_type: 'principle'}})
 
-CALL {{
-  WITH p, u
+CALL (p, u) {{
   MATCH (u)-[:{RelationshipName.OWNS.value}]->(g:Entity {{entity_type: 'goal'}})
   WHERE (p)-[:{RelationshipName.GUIDES_GOAL.value}]->(g)
      OR (g)-[:{RelationshipName.GUIDED_BY_PRINCIPLE.value}]->(p)
@@ -113,8 +112,7 @@ CALL {{
   RETURN collect(DISTINCT {{uid: g.uid, title: g.title}}) AS aligned_goals
 }}
 
-CALL {{
-  WITH p, u
+CALL (p, u) {{
   MATCH (u)-[:{RelationshipName.OWNS.value}]->(h:Entity {{entity_type: 'habit'}})
   WHERE (p)-[:{RelationshipName.INSPIRES_HABIT.value}]->(h)
      OR (h)-[:{RelationshipName.EMBODIES_PRINCIPLE.value}]->(p)
@@ -1495,8 +1493,7 @@ class CrossDomainBackend:
         return await self.executor.execute_query(
             """
             MATCH (u:User {uid: $user_uid})
-            CALL {
-                WITH u
+            CALL (u) {
                 MATCH (u)-[:OWNS]->(t:Task {status: $completed_status})
                 WITH t, toString(t.completion_date) AS ts
                 WHERE ts IS NOT NULL
@@ -1510,7 +1507,6 @@ class CrossDomainBackend:
                 ORDER BY ts DESC
                 LIMIT 5
               UNION ALL
-                WITH u
                 MATCH (u)-[m:MASTERED]->(ku:Entity)
                 WHERE m.mastered_at IS NOT NULL
                 RETURN {
@@ -1523,7 +1519,6 @@ class CrossDomainBackend:
                 ORDER BY m.mastered_at DESC
                 LIMIT 5
               UNION ALL
-                WITH u
                 MATCH (u)-[:OWNS]->(g:Goal {status: $completed_status})
                 WITH g, toString(g.achieved_date) AS ts
                 WHERE ts IS NOT NULL
