@@ -370,6 +370,12 @@ def _example_list(examples: tuple[str, ...], total: int) -> Any:
     return Ul(*items, cls="list-disc pl-6 space-y-0.5 text-base-content/70")
 
 
+# Why a set-aside note is not pending work: the ingest gate skips a file with
+# no type: field on purpose (One Path Forward — no silent defaults), so the
+# preview reports the count once and never lists the files as ingests.
+_SET_ASIDE_HINT = "no type: field — not ingestible; add a type to opt one in"
+
+
 def preview_fragment(preview: VaultSyncPreview) -> Div:
     """Dry-run report: what a sync WOULD do — nothing has been written yet."""
     items: list[Any] = [
@@ -386,6 +392,17 @@ def preview_fragment(preview: VaultSyncPreview) -> Div:
             _example_list(preview.would_delete_entity_examples, preview.would_delete_entities),
         ),
     ]
+    if preview.non_entity_notes:
+        # One number, right under the ingest line: these files are not
+        # pending work, they are notes the ingest gate sets aside (no type:).
+        items.insert(
+            1,
+            Li(
+                "set aside ",
+                Span(f"{preview.non_entity_notes}", cls="font-semibold"),
+                f" notes ({_SET_ASIDE_HINT})",
+            ),
+        )
     if preview.would_delete_edges:
         items.append(
             Li(
@@ -426,6 +443,10 @@ def preview_fragment(preview: VaultSyncPreview) -> Div:
         and not preview.stale_cleanup_count
         and not warnings
     )
+    # "In sync" must still say why the sync's report will list N ignored files.
+    in_sync_text = "This vault is already in sync — a sync would do nothing."
+    if preview.non_entity_notes:
+        in_sync_text += f" {preview.non_entity_notes} notes stay set aside ({_SET_ASIDE_HINT})."
     header = (
         H3("Preview — nothing has been changed", cls="text-base font-semibold mb-2")
         if not warnings
@@ -437,7 +458,7 @@ def preview_fragment(preview: VaultSyncPreview) -> Div:
     return Div(
         Div(
             header,
-            P("This vault is already in sync — a sync would do nothing.", cls="text-sm")
+            P(in_sync_text, cls="text-sm")
             if nothing_to_do
             else Ul(
                 Li("This sync would:", cls="list-none -ml-4 font-medium"),

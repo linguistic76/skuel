@@ -1,6 +1,6 @@
 ---
 title: Unified Ingestion Implementation Guide
-updated: 2026-09-02
+updated: 2026-09-03
 category: patterns
 related_skills: []
 related_docs:
@@ -1165,7 +1165,14 @@ session plus the `X-CSRF-Token` header.
 Decision 9). The arbitrary-path `/api/ingest/directory` door was removed; ingest the content
 vault via `POST /api/vault/sync/content` (admin) or the in-process
 `scripts/vault_bridge_sync.py --vault content` (both run `VaultReconciler.sync` in `smart`
-mode). Personal vaults sync via `POST /api/vault/sync`.
+mode). Personal vaults sync via `POST /api/vault/sync`. **Dry run:** `--preview` on the script
+(either vault) and, for personal vaults, the "Preview sync" button / `POST /api/vault/preview`
+run `VaultReconciler.preview` — would-ingest / would-delete / stale rows / ownership mismatches /
+mass-deletion refusal, nothing written. The would-ingest figures apply the ingest gate's own
+no-type verdict (`is_non_entity_note`, `detector.py` — the same predicate `detect_entity_type`
+raises on), so a vault of loose untyped notes reports one `non_entity_notes` count instead of
+hundreds of phantom "new" files; a declared-but-unknown `type:` still counts as pending, because
+the sync reports that one as a typo to fix.
 
 **Remote vaults ride a staging mirror (ADR-075, `VAULT_TRANSPORT=local_agent`):** when a
 personal vault lives on the user's machine, `VaultReconciler.sync` runs a mirror-refresh

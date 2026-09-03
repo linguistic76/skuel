@@ -378,7 +378,7 @@ case "$1" in
     echo "Development:"
     echo "  ./dev serve          - Start development server (requires Neo4j running)"
     echo "  ./dev smoke          - Render smoke test (headless Chrome; catches client-side render hangs)"
-    echo "  ./dev vault-sync     - One-shot vault sync via reconciler (--vault content | --user <uid> | --force)"
+    echo "  ./dev vault-sync     - One-shot vault sync via reconciler (--vault content | --user <uid> | --force | --preview = dry run)"
     echo "  ./dev knowledge-health - Knowledge-subgraph structural-health report (ADR-080; --json)"
     echo "  ./dev embed-backfill - Fill missing embeddings (embedding-NULL nodes; needs OPENAI_API_KEY)"
     echo "  ./dev eval-chunk-retrieval - hit@k eval of /search chunk retrieval (FULL tier; --json)"

@@ -26,6 +26,15 @@ What it does (VaultReconciler.sync, ADR-070):
 keeping smart-mode semantics — the wall, metadata re-stamping, and deletion
 reconciliation all stay active (force ≠ full).
 
+``--preview`` is the dry run: ``VaultReconciler.preview`` — the same read-only
+report the personal "Preview sync" button renders — printed and nothing
+written. What a sync WOULD ingest (new / changed, with the ingest gate's
+no-type verdict applied so loose untyped notes are one set-aside count rather
+than hundreds of "new" files), what deletion reconciliation WOULD remove, stale
+tracking rows, ownership mismatches, and any mass-deletion refusal. No
+embedding worker, no drain, no grounding pass — there is nothing to drain. This
+is the one-liner for "will my vault deletion propagate?" before a sync.
+
 Embedding freshness (ADR-074): the embedding worker is subscribed BEFORE the
 sync and its queues are drained in-process afterwards, so the sync's embedding
 events (entity + chunk) are processed right here instead of evaporating with
@@ -33,10 +42,7 @@ the script — same event path as the app process, no follow-up commands. In
 CORE tier there is no worker and ingestion publishes no events, so the drain
 step is skipped and this sync's new content is stored without embeddings
 (``./dev embed-backfill`` under FULL tier fills the gap). A FULL-tier run
-with a missing OpenAI key never reaches that branch — composition fails fast
-in bootstrap first. ``scripts/generate_embeddings_batch.py [--stale]``
-remains the backstop for pre-existing coverage gaps or drift, not a required
-follow-up to this script.
+re-probes coverage AFTER the drain so the printed figures are post-drain.
 
 Grounding (Entry-Enrichment PR 3): after the drain, personal-vault syncs run
 an entry→Ku grounding pass over pending ``pipeline: knowledge`` entries —
@@ -45,9 +51,10 @@ immediately. ``scripts/ground_knowledge_entries.py`` is the backfill/dry-run
 counterpart.
 
 Usage:
-    uv run scripts/vault_bridge_sync.py --user <user_uid>          # personal
-    uv run scripts/vault_bridge_sync.py --vault content            # content
-    uv run scripts/vault_bridge_sync.py --vault content --force    # re-ingest all
+    uv run scripts/vault_bridge_sync.py --user <user_uid>            # personal
+    uv run scripts/vault_bridge_sync.py --vault content              # content
+    uv run scripts/vault_bridge_sync.py --vault content --force      # re-ingest all
+    uv run scripts/vault_bridge_sync.py --vault content --preview    # dry run
 """
 
 from __future__ import annotations
@@ -56,37 +63,59 @@ import argparse
 import asyncio
 import sys
 from dataclasses import asdict
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from adapters.persistence.neo4j_adapter import Neo4jAdapter
+    from core.services.vault.vault_descriptor import VaultKind
+    from core.services.vault.vault_reconciler import VaultReconciler
+    from services_bootstrap import Services
+
+
+def _vault_kind(vault: str) -> VaultKind:
+    from core.services.vault.vault_descriptor import VaultKind
+
+    return VaultKind.CONTENT if vault == "content" else VaultKind.PERSONAL
+
+
+async def _compose(adapter: Neo4jAdapter) -> tuple[Services, VaultReconciler] | None:
+    """Compose the app's services around ``adapter``; ``None`` (already reported) on failure."""
+    from adapters.infrastructure.event_bus import InMemoryEventBus
+    from services_bootstrap import compose_services
+
+    composed = await compose_services(adapter, InMemoryEventBus())
+    if composed.is_error:
+        print(f"ERROR: composition failed: {composed.expect_error()}", file=sys.stderr)
+        return None
+    reconciler = composed.value.vault_reconciler
+    if reconciler is None:
+        print("ERROR: vault_reconciler is not wired (check ADR-070 config)", file=sys.stderr)
+        return None
+    return composed.value, reconciler
 
 
 async def run_sync(vault: str, user_uid: str, force: bool = False) -> int:
-    from adapters.infrastructure.event_bus import InMemoryEventBus
     from adapters.persistence.neo4j_adapter import Neo4jAdapter
     from core.models.type_hints import UserUID
     from core.services.vault.vault_descriptor import VaultKind
-    from services_bootstrap import compose_services
 
-    kind = VaultKind.CONTENT if vault == "content" else VaultKind.PERSONAL
+    kind = _vault_kind(vault)
 
     print("Connecting to Neo4j...")
     adapter = Neo4jAdapter()
     await adapter.connect()
     try:
-        composed = await compose_services(adapter, InMemoryEventBus())
-        if composed.is_error:
-            print(f"ERROR: composition failed: {composed.expect_error()}", file=sys.stderr)
+        composed = await _compose(adapter)
+        if composed is None:
             return 1
-
-        reconciler = composed.value.vault_reconciler
-        if reconciler is None:
-            print("ERROR: vault_reconciler is not wired (check ADR-070 config)", file=sys.stderr)
-            return 1
+        services, reconciler = composed
 
         # Subscribe the embedding worker BEFORE the sync so the ingest's
         # *EmbeddingRequested / ChunkEmbeddingRequested publishes land in its
         # queues; drain() after persistence processes them in-process
         # (ADR-074 script-mode freshness). None = CORE tier / no API key —
         # ingestion publishes no events, nothing to drain.
-        worker = composed.value.embedding_worker
+        worker = services.embedding_worker
         if worker is not None:
             worker.subscribe()
 
@@ -123,7 +152,7 @@ async def run_sync(vault: str, user_uid: str, force: bool = False) -> int:
         # immediately. Personal vaults only — the content vault has no
         # UserEntries. Fail-soft: a grounding problem never fails the sync.
         if kind is VaultKind.PERSONAL:
-            grounding = composed.value.entry_grounding
+            grounding = services.entry_grounding
             if grounding is not None:
                 print("\nGrounding knowledge entries (post-sync pass) ...")
                 grounded = await grounding.ground_pending(UserUID(user_uid))
@@ -185,6 +214,66 @@ async def run_sync(vault: str, user_uid: str, force: bool = False) -> int:
         await adapter.close()
 
 
+def _print_examples(examples: tuple[str, ...], total: int) -> None:
+    """The preview's vault-relative example paths, noting how many are unlisted."""
+    for example in examples:
+        print(f"    - {example}")
+    if total > len(examples):
+        print(f"    … and {total - len(examples)} more")
+
+
+async def run_preview(vault: str, user_uid: str) -> int:
+    """Dry run: print what a sync of ``vault`` WOULD do. Nothing is written."""
+    from adapters.persistence.neo4j_adapter import Neo4jAdapter
+    from core.models.type_hints import UserUID
+
+    kind = _vault_kind(vault)
+
+    print("Connecting to Neo4j...")
+    adapter = Neo4jAdapter()
+    await adapter.connect()
+    try:
+        composed = await _compose(adapter)
+        if composed is None:
+            return 1
+        _services, reconciler = composed
+
+        print(
+            f"VaultBridge sync PREVIEW ({kind.value}) as {user_uid} — dry run, nothing written ..."
+        )
+        result = await reconciler.preview(kind, UserUID(user_uid))
+        if result.is_error:
+            print(f"ERROR: preview failed: {result.expect_error()}", file=sys.stderr)
+            return 1
+        preview = result.value
+        if preview.first_run_notice:
+            print("\nNOTE: first_run_notice — the vault owner has not granted")
+            print("      vault_write_consent; the vault was not read.")
+            return 0
+
+        print("\n=== VaultSyncPreview ===")
+        print(
+            f"  would ingest: {preview.would_ingest_count} "
+            f"({preview.would_ingest_new} new, {preview.would_ingest_changed} changed)"
+        )
+        _print_examples(preview.would_ingest_examples, preview.would_ingest_count)
+        print(f"  set aside (no 'type:' field — not ingestible): {preview.non_entity_notes}")
+        print(f"  would delete entities: {preview.would_delete_entities}")
+        _print_examples(preview.would_delete_entity_examples, preview.would_delete_entities)
+        print(f"  would delete relationships (edge files): {preview.would_delete_edges}")
+        _print_examples(preview.would_delete_edge_examples, preview.would_delete_edges)
+        print(f"  stale tracking rows to clean: {preview.stale_cleanup_count}")
+        if preview.ownership_mismatches:
+            print(f"  ownership mismatches ({len(preview.ownership_mismatches)}) — never deleted:")
+            for line in preview.ownership_mismatches:
+                print(f"    - {line}")
+        if preview.refusal_warning:
+            print(f"\nWARNING: {preview.refusal_warning}")
+        return 0
+    finally:
+        await adapter.close()
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run a full VaultBridge sync for a vault.")
     parser.add_argument(
@@ -204,14 +293,25 @@ def main() -> None:
         "deletion reconciliation and the vault wall stay active. Embeddings "
         "refresh in-process via the post-sync drain (FULL tier).",
     )
+    parser.add_argument(
+        "--preview",
+        action="store_true",
+        help="dry run: print what a sync WOULD ingest (untyped notes set aside as one "
+        "count) and what deletion reconciliation WOULD remove; nothing is written, "
+        "no embeddings are touched. Not combinable with --force (a sync knob).",
+    )
     args = parser.parse_args()
 
     if args.vault == "personal" and not args.user:
         parser.error("--user is required for --vault personal")
+    if args.preview and args.force:
+        parser.error("--preview is a dry run and --force is a sync knob — pick one")
 
     # For content, the reconciler uses the fixed content-vault owner; the passed
     # user is ignored, so any placeholder is fine.
     user = args.user or "user:system"
+    if args.preview:
+        sys.exit(asyncio.run(run_preview(args.vault, user)))
     sys.exit(asyncio.run(run_sync(args.vault, user, force=args.force)))
 
 
