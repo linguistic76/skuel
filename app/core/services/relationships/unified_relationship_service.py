@@ -329,11 +329,9 @@ class UnifiedRelationshipService[
     # =========================================================================
     # RELATIONSHIP CREATION
     # =========================================================================
-    # NOTE: there is deliberately NO user→entity ownership writer here. The
-    # former create_user_relationship/delete_user_relationship pair wrote the
-    # registry's paper per-domain ownership edges (HAS_TASK, …) and was deleted
-    # with that family (ADR-086) — :OWNS enters the graph only through the four
-    # write doors the ADR names.
+    # Ownership is not a relationship this service writes: (User)-[:OWNS]-> is
+    # composed by the door that persists the owned node, alongside the node
+    # itself (ADR-086 § 1; the rule is stated at RelationshipName.OWNS).
 
     async def create_relationship(
         self,

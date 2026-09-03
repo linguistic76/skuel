@@ -3,7 +3,7 @@
 Comprehensive query examples for each SKUEL domain.
 
 **Conventions used throughout** (see SKILL.md for the rules behind them):
-- Ownership is the universal `(:User)-[:OWNS]->(:Entity)` edge — never `HAS_TASK`-style variants.
+- Ownership is the universal `(:User)-[:OWNS]->(:Entity)` edge (ADR-086).
 - Knowledge units are `:Ku` nodes (there is no `:Curriculum` Neo4j label — `Curriculum` is a Python model class).
 - Status literals are `EntityStatus` values (`draft`, `scheduled`, `active`, `blocked`, `completed`, ...). In Python, always bind `$statuses` from the enum (SKUEL014); literals here are for readability.
 - Temporal fields written by DTOs are ISO **strings** — coerce with `date()`/`datetime()` before comparing (SKILL.md § 8).
