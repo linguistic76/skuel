@@ -353,7 +353,7 @@ MATCH (t:Task {uid: $task_uid})
 RETURN t
 ```
 
-**Note:** The OWNS relationship is THE universal ownership edge (ADR-086). The former per-domain variants (HAS_TASK, HAS_GOAL, etc.) were paper-only and were deleted from RelationshipName — always use OWNS. Events attendance is the separate consent-carrying ATTENDS edge, not ownership.
+**Note:** `OWNS` is the one ownership edge (ADR-086); the write rule lives on `RelationshipName.OWNS`. Events attendance is `ATTENDS`, not ownership.
 
 ### 6. Per-Query Server-Side Timeout (TimedDriver)
 

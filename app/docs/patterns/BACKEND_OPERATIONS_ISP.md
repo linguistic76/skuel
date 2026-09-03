@@ -1,6 +1,6 @@
 ---
 title: BackendOperations Protocol Architecture
-updated: 2026-08-24
+updated: 2026-09-03
 category: patterns
 related_skills: []
 related_docs:
@@ -511,8 +511,7 @@ When you create an entity with a `user_uid`, the backend **automatically creates
 ...
 ```
 
-(One universal `:OWNS` edge — ADR-086; the former per-domain `HAS_TASK`/`HAS_GOAL`/`HAS_EVENT`
-names were paper-only and were deleted from `RelationshipName`.)
+(One universal `:OWNS` edge for every owned type — ADR-086.)
 
 Neo4j correctly refuses to delete nodes that have existing relationships. This enforces referential integrity.
 

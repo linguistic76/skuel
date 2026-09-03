@@ -36,8 +36,8 @@ class PrincipleReflection:
     - (Reflection)-[:TRIGGERED_BY]->(Goal|Habit|Event|Choice)
     - (Reflection)-[:REVEALS_CONFLICT]->(Principle)
 
-    The reflecting user is the reflection's owner (universal :OWNS + user_uid,
-    ADR-086) — the former MADE_REFLECTION edge was paper-only and was deleted.
+    The reflecting user is the reflection's owner: ``user_uid`` plus the
+    universal ``(User)-[:OWNS]->`` edge (ADR-086).
     """
 
     # Identity (required fields first)

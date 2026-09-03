@@ -1,6 +1,6 @@
 ---
 title: UnifiedRelationshipService - Configuration-Driven Relationships
-updated: 2026-08-22
+updated: 2026-09-03
 category: patterns
 related_skills:
 - base-analytics-service
@@ -447,15 +447,12 @@ Each Activity/Curriculum facade exposes domain-named wrappers (`link_task_to_goa
 guarded by `tests/unit/test_cross_domain_link_keys.py`; the real-Neo4j round-trips live in
 `tests/integration/test_relationship_link_roundtrip.py`.
 
-### User→Entity ownership edges — deliberately NOT here
+### Ownership is written by the create doors, not here
 
-There is no user→entity ownership writer on this service. The former
-`create_user_relationship`/`delete_user_relationship` pair wrote the registry's paper
-per-domain ownership edges (`HAS_TASK`, `HAS_EVENT`, …) — zero such edges were ever in the
-graph — and was deleted with that family and the registry's `ownership_relationship` field
-(ADR-086). `(User)-[:OWNS]->` is THE universal ownership edge, written only by the four
-doors ADR-086 names (CRUD create, ingestion bulk upsert, UserEntry, hand-written
-`owner_uid`-domain backends).
+This service has no user→entity ownership writer. `(User)-[:OWNS]->` is THE universal
+ownership edge (ADR-086), composed by the door that persists the owned node alongside the
+node itself — ADR-086 § 1 grades each door against that rule, and its § 2 records what the
+rule replaced.
 
 > **No `RelationshipCreator` helper.** This method used to delegate to a generic
 > `RelationshipCreator` infrastructure helper whose `create_relationship(backend_method=…)`

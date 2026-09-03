@@ -1,6 +1,6 @@
 ---
 title: Search Architecture - Unified Search System
-updated: 2026-08-31
+updated: 2026-09-03
 status: current
 category: architecture
 tags:
@@ -217,7 +217,7 @@ entity:Task(user_uid)` vs. a `:User` label scan + expand — every OWNER_ONLY
 label carries a `user_uid` RANGE index; `User.uid` had none until the ADR-086
 uniqueness constraint landed with the arc's final PR).
 
-The invariant is unchanged and still enforced on both write doors — the `:OWNS`
+The invariant is unchanged and still enforced at every `:OWNS` write door (ADR-086 § 1) — the `:OWNS`
 edge remains the ownership signal for cascade deletes, sharing, and the adapter
 Cypher that traverses it. What changed is that **search scoping no longer
 depends on it.**

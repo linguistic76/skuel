@@ -102,7 +102,7 @@ CALL db.index.vector.queryNodes('entity_embedding_idx', 10, $embedding) YIELD no
 | Unlabeled `MATCH ({uid: ...})` doubles rows | Label guard: `:Entity` or `WHERE NOT n:Content` (G13) |
 | `string >= datetime()` → null, rows vanish | Coerce stored side: `datetime(n.field) >= datetime($w)` |
 | `date()` on a datetime string → error | `date(datetime(field))` |
-| `HAS_TASK`/`HAS_GOAL`-style ownership edges | Deleted from the enum (ADR-086) — `OWNS` is the only ownership edge |
+| Per-domain ownership edges (`HAS_TASK`-style) | There is one ownership edge: `(u:User)-[:OWNS]->(e)` (ADR-086) |
 | `:Curriculum` label in MATCH | No such label — use `:Ku`/`:PathStep`/`:LearningPath`/`:Exercise` or `:Entity` + `entity_type` |
 | Status literals like `'pending'`/`'on_track'` | Not `EntityStatus` values — bind `$statuses` from the enum (SKUEL014) |
 | APOC call in `core/` | SKUEL001 — APOC is `apoc.meta.*` only, adapters-side |

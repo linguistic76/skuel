@@ -219,10 +219,12 @@ class RelationshipName(StrEnum):
     # USER/OWNERSHIP RELATIONSHIPS
     # User-to-entity ownership and progress
     # =========================================================================
-    # (user)-[:OWNS]->(entity) — THE universal ownership edge (ADR-086). The former
-    # per-domain HAS_TASK/HAS_EVENT/HAS_GOAL/HAS_HABIT/HAS_PRINCIPLE/HAS_CHOICE/HAS_KU
-    # family (and MADE_REFLECTION) was paper-only — zero edges ever written — and was
-    # deleted with its write channel in the ownership-bundle arc. Never resurrect it.
+    # (User)-[:OWNS]->(entity) — THE universal ownership edge, one for every
+    # user-owned entity type (ADR-086; `is_ownership_relationship()` is True for it
+    # alone). The door that persists a user-owned node writes the edge with the
+    # node: the owner is MATCHed and the edge lands in the node's own statement, or
+    # the write reports its own failure (ADR-086 § 1 grades each door). Attendance
+    # is ATTENDS, not ownership.
     OWNS = "OWNS"
     REQUESTED = "REQUESTED"  # (user)-[:REQUESTED]->(ReviewRequest) - Review request
 

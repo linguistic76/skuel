@@ -10,10 +10,9 @@ Provides:
     count_user_entities: Count user's entities
     update_relationship_access: Increment access_count + last_accessed
 
-NOTE: the former generic create_user_relationship/delete_user_relationship pair
-(the one interpolation that could write a paper HAS_* edge) was deleted with the
-per-domain ownership family (ADR-086) — :OWNS is written only by the four doors
-the ADR names.
+This mixin reads and annotates the ownership edge; it writes none.
+(User)-[:OWNS]-> is composed by the door that persists the owned node, alongside
+the node itself (ADR-086 § 1; the rule is stated at RelationshipName.OWNS).
 
 Requires on concrete class:
     driver, logger, label, entity_class, _inject_default_filters
@@ -143,7 +142,7 @@ class _UserEntityMixin[T: DomainModelProtocol]:
         Args:
             user_uid: User UID,
             relationship_type: Optional relationship type filter.
-                              If None, defaults to OWNS (the edge both write doors create)
+                              If None, defaults to OWNS (the universal ownership edge, ADR-086)
             filters: Optional filters on entity properties (status, priority, etc.),
             limit: Max results,
             offset: Pagination offset,

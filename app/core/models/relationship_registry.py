@@ -329,11 +329,11 @@ class DomainRelationshipConfig:
     dto_class: type
     model_class: type
 
-    # NOTE: ownership is NOT declared here. (User)-[:OWNS]-> is THE universal
-    # ownership edge (ADR-086); the per-domain `ownership_relationship` field and
-    # its HAS_*/MADE_REFLECTION values were paper-only and were deleted with their
-    # write channel. Search-visibility ownership lives on the service-layer
-    # DomainConfig (`user_ownership_relationship`) — a different field.
+    # Ownership is not declared per domain: (User)-[:OWNS]-> is THE universal
+    # ownership edge (ADR-086), written by the door that persists the owned node
+    # (the rule is stated at RelationshipName.OWNS). Search-visibility ownership
+    # lives on the service-layer DomainConfig (`user_ownership_relationship`) —
+    # a different field.
 
     # All relationships - THE SINGLE SOURCE
     relationships: tuple[UnifiedRelationshipDefinition, ...] = ()
@@ -1484,11 +1484,9 @@ PRINCIPLES_CONFIG = DomainRelationshipConfig(
 
 # -----------------------------------------------------------------------------
 # USER (Identity Layer - Minimal Config)
-# User is the identity layer, not a domain entity. Its former MADE_REFLECTION +
-# HAS_* relationship definitions were the paper ownership family — zero edges
-# ever written — deleted with the field (ADR-086). User->entity ownership is the
-# universal (User)-[:OWNS]-> edge, written by the four doors named in the ADR,
-# not declared here.
+# User is the identity layer, not a domain entity, and declares no relationships.
+# User->entity ownership is the universal (User)-[:OWNS]-> edge (ADR-086), written
+# by the door that persists the owned node — not declared here.
 # -----------------------------------------------------------------------------
 
 USER_CONFIG = DomainRelationshipConfig(
@@ -1562,9 +1560,8 @@ PRINCIPLE_REFLECTION_CONFIG = DomainRelationshipConfig(
             "conflicting_principles",
             "conflicts",
         ),
-        # NOTE: the former incoming (User)-[:MADE_REFLECTION]-> "creator" definition
-        # was deleted with the paper ownership family (ADR-086) — the reflecting
-        # user is the reflection's owner via the universal :OWNS edge + user_uid.
+        # The reflecting user is the reflection's owner — the universal :OWNS
+        # edge + user_uid (ADR-086), not a registry definition.
     ),
     prerequisite_relationship_names=(),
     enables_relationship_names=(),
