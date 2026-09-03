@@ -843,9 +843,7 @@ class TestCYP012:
         Real scope analysis is a parser's job; this guard just declines to guess.
         """
         linter = make_linter()
-        query = (
-            "CALL { MATCH ()-[n:OWNS]->() DELETE n }\nMATCH (n:Entity {uid: $uid})\nDETACH DELETE n"
-        )
+        query = "CALL () { MATCH ()-[n:OWNS]->() DELETE n }\nMATCH (n:Entity {uid: $uid})\nDETACH DELETE n"
         assert linter._check_detach_on_relationship(query, Path("test.py"), 1) == []
 
     def test_aggregate_over_the_edge_does_not_disarm_the_rule(self) -> None:
@@ -938,7 +936,7 @@ class TestCYP012:
         honest: if someone later fixes it properly, this test says so out loud.
         """
         linter = make_linter()
-        query = "CALL { MATCH ()-[ r:OWNS]->() DELETE r }\nMATCH (r:Entity)\nDELETE r"
+        query = "CALL () { MATCH ()-[ r:OWNS]->() DELETE r }\nMATCH (r:Entity)\nDELETE r"
         assert linter._check_delete_without_detach(query, Path("test.py"), 1) == []
 
     def test_only_cyp012_reads_the_subtractions(self) -> None:
@@ -948,7 +946,7 @@ class TestCYP012:
         round 7 — so the divergence is asserted rather than left to a comment.
         """
         linter = make_linter()
-        query = "CALL { MATCH ()-[ r:OWNS]->() DELETE r }\nMATCH (r:Entity)\nDETACH DELETE r"
+        query = "CALL () { MATCH ()-[ r:OWNS]->() DELETE r }\nMATCH (r:Entity)\nDETACH DELETE r"
         assert linter._relationship_vars(query) == {"r"}
         assert linter._node_vars(query) == {"r"}
         assert linter._edge_only_vars(query) == set()
@@ -964,7 +962,7 @@ class TestCYP012:
         """
         linter = make_linter()
         query = (
-            "CALL { MATCH ()-[r:OWNS]->() DELETE r }\n"
+            "CALL () { MATCH ()-[r:OWNS]->() DELETE r }\n"
             "MATCH (n:Entity)\n"
             "WITH n AS r\n"
             "DETACH DELETE r"
@@ -1287,6 +1285,21 @@ class TestCYP009:
         violations = linter._check_query_complexity(query, Path("test.py"), 1)
         # This should trigger since we have many MATCH, WITH, and aggregations
         assert len(violations) >= 1
+
+    def test_scope_clause_subquery_counts_as_subquery(self) -> None:
+        """`CALL (n) { ... }` is the same subquery as `CALL { WITH n ... }`.
+
+        The importing-WITH spelling is deprecated server-side (Neo4j 5.23+ /
+        the calendar line warn on every run), so SKUEL's own Cypher uses the
+        variable scope clause — CYP009 must keep scoring it, or a rewrite
+        could silently zero the subquery weight.
+        """
+        linter = make_linter()
+        # 1 MATCH (2pts) + 5 scoped subqueries (25pts) = 27 > 20
+        query = "MATCH (n:Entity)\n" + "CALL (n) { RETURN 1 AS x }\n" * 5 + "RETURN n"
+        violations = linter._check_query_complexity(query, Path("test.py"), 1)
+        assert len(violations) == 1
+        assert violations[0].rule_code == "CYP009"
 
 
 # ============================================================================

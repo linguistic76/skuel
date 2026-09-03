@@ -594,7 +594,7 @@ class CypherLinter:
         false alarms:
 
         * a name reused across scopes —
-          ``CALL { MATCH ()-[ r:OWNS]->() DELETE r } MATCH (r:Entity) DELETE r``
+          ``CALL () { MATCH ()-[ r:OWNS]->() DELETE r } MATCH (r:Entity) DELETE r``
           binds ``r`` as an edge inside the subquery and a node outside it;
         * ``count (r)`` and friends, where whitespace before the paren makes an
           aggregate look like a node pattern. Distinguishing a function name from
@@ -741,7 +741,7 @@ class CypherLinter:
 
         A target also bound as a NODE anywhere in the query is skipped. The
         classifier is query-wide, so a name reused across scopes —
-        ``CALL { MATCH ()-[n:OWNS]->() DELETE n } MATCH (n:Entity) DETACH DELETE n``
+        ``CALL () { MATCH ()-[n:OWNS]->() DELETE n } MATCH (n:Entity) DETACH DELETE n``
         — would otherwise read the outer node as an edge and advise dropping a
         DETACH that a node genuinely needs (Codex P2, #868). Real scope analysis
         is a parser's job, and a regex approximating a parser is a known tail in
@@ -1170,8 +1170,10 @@ class CypherLinter:
         agg_count = len(re.findall(agg_pattern, query_upper))
         complexity += agg_count * 2
 
-        # Subqueries (5 points each) - CALL { ... }
-        subquery_count = len(re.findall(r"\bCALL\s*\{", query_upper))
+        # Subqueries (5 points each) - CALL { ... } and the variable scope
+        # clause form CALL (x, y) { ... } (the importing-WITH form is deprecated
+        # server-side; both spellings are one subquery each).
+        subquery_count = len(re.findall(r"\bCALL\s*(?:\([^)]*\)\s*)?\{", query_upper))
         complexity += subquery_count * 5
 
         # Report warnings based on complexity score

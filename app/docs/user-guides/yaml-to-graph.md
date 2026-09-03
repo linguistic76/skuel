@@ -1,5 +1,5 @@
 ---
-updated: 2026-08-30
+updated: 2026-09-03
 ---
 
 # YAML to Graph — A Creator's Guide to SKUEL Content
@@ -170,8 +170,7 @@ MERGE (n:Entity:PathStep {uid: "ps.mindfulness.breath-awareness-basics"})
 WITH n, item
 
 // uses_kus → USES_KU edges
-CALL {
-  WITH n, item
+CALL (n, item) {
   WITH n, coalesce(item.uses_kus, []) AS _target_uids
   UNWIND _target_uids AS _target_uid
   MATCH (target:Entity {uid: _target_uid})
@@ -179,8 +178,7 @@ CALL {
 }
 
 // connections.enables → ENABLES_KNOWLEDGE edges
-CALL {
-  WITH n, item
+CALL (n, item) {
   WITH n, coalesce(item.`connections.enables`, []) AS _target_uids
   UNWIND _target_uids AS _target_uid
   MATCH (target:Entity {uid: _target_uid})
