@@ -307,27 +307,49 @@ class TestVaultPreview:
 
 
 class TestPreviewFragmentSetAside:
-    def test_set_aside_count_renders_with_pending_work(self) -> None:
-        """One line right under the ingest line, never listed as ingests."""
-        html = to_xml(
-            preview_fragment(
-                VaultSyncPreview(would_ingest_count=1, would_ingest_new=1, non_entity_notes=230)
-            )
-        )
-        assert "set aside" in html
-        assert "230" in html
-        assert "This sync would:" in html
+    """Every rendering state of the set-aside count, in one table (Kody rule:
+    state-driven row construction gets per-state tests that enumerate the
+    states, so an added state with no test is visible at a glance)."""
 
-    def test_set_aside_count_survives_the_in_sync_summary(self) -> None:
-        """Set-aside notes are not pending work, so the vault IS in sync — but the
-        summary must still say why the sync report will list 230 ignored files."""
-        html = to_xml(preview_fragment(VaultSyncPreview(non_entity_notes=230)))
-        assert "already in sync" in html
-        assert "230 notes stay set aside" in html
-
-    def test_zero_set_aside_renders_nothing(self) -> None:
-        """No permanent "0 notes" row for a vault with no loose notes."""
-        assert "set aside" not in to_xml(preview_fragment(VaultSyncPreview()))
+    @pytest.mark.parametrize(
+        ("state", "preview", "present", "absent"),
+        [
+            pytest.param(
+                "pending_work",
+                VaultSyncPreview(would_ingest_count=1, would_ingest_new=1, non_entity_notes=230),
+                ("This sync would:", "set aside", "230"),
+                ("already in sync",),
+                id="pending_work: one line under the ingest line, never listed as an ingest",
+            ),
+            pytest.param(
+                "in_sync",
+                VaultSyncPreview(non_entity_notes=230),
+                ("already in sync", "230 notes stay set aside"),
+                ("This sync would:",),
+                id="in_sync: set-aside is not pending work, but the summary still says why "
+                "the sync report will list 230 ignored files",
+            ),
+            pytest.param(
+                "zero_set_aside",
+                VaultSyncPreview(),
+                ("already in sync",),
+                ("set aside",),
+                id="zero_set_aside: no permanent '0 notes' row",
+            ),
+        ],
+    )
+    def test_set_aside_count_per_rendering_state(
+        self,
+        state: str,
+        preview: VaultSyncPreview,
+        present: tuple[str, ...],
+        absent: tuple[str, ...],
+    ) -> None:
+        html = to_xml(preview_fragment(preview))
+        for text in present:
+            assert text in html, f"{state}: expected {text!r}"
+        for text in absent:
+            assert text not in html, f"{state}: did not expect {text!r}"
 
 
 # ---------------------------------------------------------------------------
