@@ -48,7 +48,8 @@ from core.ports.vault_bridge_protocol import (
     normalize_vault_line_hash,
 )
 from core.services.ingestion.config import collect_files
-from core.services.ingestion.ingestion_tracker import IngestionTracker
+from core.services.ingestion.detector import is_non_entity_note
+from core.services.ingestion.ingestion_tracker import IngestionDecision, IngestionTracker
 from core.services.ingestion.types import DryRunPreview, IncrementalStats, IngestionStats
 from core.services.vault.vault_descriptor import VaultDescriptor, VaultKind, VaultRegistry
 from core.utils.exception_types import FILE_IO_EXCEPTIONS
@@ -125,6 +126,10 @@ class VaultSyncPreview:
     would_ingest_new: int = 0
     would_ingest_changed: int = 0
     would_ingest_examples: tuple[str, ...] = ()
+    # New/changed files with no ``type:`` (and no ``moc: true``): the ingest
+    # gate sets them aside as non-entity notes, so they are excluded from every
+    # would_ingest_* figure and reported here once, as one number.
+    non_entity_notes: int = 0
     would_delete_entities: int = 0
     would_delete_entity_examples: tuple[str, ...] = ()
     would_delete_edges: int = 0
@@ -363,7 +368,10 @@ class VaultReconciler:
 
         Inbound half: the tracker's read-only compare (``collect_files`` under
         the descriptor's allowlist → ``get_ingestion_metadata`` →
-        ``filter_files_needing_ingestion``) — never the ingest path. Deletion
+        ``filter_files_needing_ingestion``) — never the ingest path — then the
+        ingest gate's own no-type verdict per pending file
+        (``is_non_entity_note``), so loose untyped notes are set aside and
+        counted, not listed as pending ingests. Deletion
         half: ``IngestionTracker.plan_deletions`` with the descriptor's
         allowlist + owner (the same scope ``sync``'s ingest passes when the
         registry governs the root). Neither the graph nor the vault is
@@ -424,15 +432,27 @@ class VaultReconciler:
             metadata_result = await tracker.get_ingestion_metadata(files)
             if metadata_result.is_error:
                 return Result.fail(metadata_result)
-            to_ingest, decisions = tracker.filter_files_needing_ingestion(
-                files, metadata_result.value
-            )
-            new_count = sum(1 for d in decisions if d.needs_ingestion and d.reason == "new")
+            _, decisions = tracker.filter_files_needing_ingestion(files, metadata_result.value)
+            # The tracker compare is path-and-hash only, and a loose note with
+            # no ``type:`` is never tracked — so it would read as "new" on every
+            # preview, forever. Apply the ingest gate's own no-type verdict
+            # (``is_non_entity_note`` — the detector's predicate, not a copy)
+            # so the would-ingest figures describe what a sync would write; the
+            # set-aside notes are reported once, as one number.
+            would_ingest: list[IngestionDecision] = []
+            non_entity_notes = 0
+            for decision in decisions:
+                if not decision.needs_ingestion:
+                    continue
+                if is_non_entity_note(decision.file_path):
+                    non_entity_notes += 1
+                else:
+                    would_ingest.append(decision)
+            new_count = sum(1 for d in would_ingest if d.reason == "new")
             ingest_examples = tuple(
                 f"{display_path(d.file_path, descriptor.root)}"
                 f" ({'new' if d.reason == 'new' else 'changed'})"
-                for d in decisions
-                if d.needs_ingestion
+                for d in would_ingest
             )[:PREVIEW_EXAMPLE_LIMIT]
 
             # Deletions: the read-only planning half of reconciliation, with
@@ -449,10 +469,11 @@ class VaultReconciler:
 
             return Result.ok(
                 VaultSyncPreview(
-                    would_ingest_count=len(to_ingest),
+                    would_ingest_count=len(would_ingest),
                     would_ingest_new=new_count,
-                    would_ingest_changed=len(to_ingest) - new_count,
+                    would_ingest_changed=len(would_ingest) - new_count,
                     would_ingest_examples=ingest_examples,
+                    non_entity_notes=non_entity_notes,
                     would_delete_entities=len(plan.entity_deletions),
                     would_delete_entity_examples=tuple(
                         planned.display_path for planned in plan.entity_deletions

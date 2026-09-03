@@ -13,6 +13,8 @@ from typing import Any
 
 from core.models.enums.entity_enums import EntityType, NonKuDomain
 
+from .parser import parse_markdown, parse_yaml
+
 # ADR-054 retired ``ExerciseSubmission`` / ``JeInput`` / ``JeOutput`` in favour
 # of a single ``UserEntry`` type discriminated by ``pipeline``. Legacy YAMLs
 # carrying these type strings are rejected with a clear error rather than
@@ -155,6 +157,19 @@ def detect_entity_type(data: dict[str, Any], _file_path: Path) -> EntityType | N
         if non_ku:
             return non_ku
 
+    # No opt-in at all — a deliberate non-entity note (One Path Forward: no
+    # silent defaults). ``declares_entity_type`` is THE predicate: the sync
+    # preview reads the same verdict through ``is_non_entity_note`` without
+    # raising, so ingest and preview can never disagree on what a loose note
+    # is. An empty ``type:`` line is called out separately so the author sees
+    # the half-finished opt-in.
+    if not declares_entity_type(data):
+        field_state = "'type:' field is present but empty" if "type" in data else "no 'type:' field"
+        raise ValueError(
+            f"{field_state} in frontmatter — treated as a non-entity note. "
+            f"To ingest it, add a type ({_ACCEPTED_TYPES_HINT})."
+        )
+
     # Check for MOC flag (markdown convention) — MOC is PathStep
     if data.get("moc") is True:
         return EntityType.PATH_STEP
@@ -162,20 +177,63 @@ def detect_entity_type(data: dict[str, Any], _file_path: Path) -> EntityType | N
     # A declared-but-unrecognized type is a typo to fix, not a non-entity
     # note — say so instead of the misleading "no 'type:' field" it used to
     # fall through to.
-    if explicit_type:
-        raise ValueError(
-            f"unknown type '{explicit_type}' — not an ingestible entity type. "
-            f"Use an accepted type ({_ACCEPTED_TYPES_HINT})."
-        )
-
-    # Require explicit type — no silent defaults (One Path Forward). A file
-    # without one is a deliberate non-entity note; an empty ``type:`` line is
-    # called out separately so the author sees the half-finished opt-in.
-    field_state = "'type:' field is present but empty" if "type" in data else "no 'type:' field"
     raise ValueError(
-        f"{field_state} in frontmatter — treated as a non-entity note. "
-        f"To ingest it, add a type ({_ACCEPTED_TYPES_HINT})."
+        f"unknown type '{explicit_type}' — not an ingestible entity type. "
+        f"Use an accepted type ({_ACCEPTED_TYPES_HINT})."
     )
+
+
+def declares_entity_type(data: dict[str, Any]) -> bool:
+    """Whether parsed frontmatter / a YAML document opts the file in as an entity at all.
+
+    THE no-type predicate, shared by :func:`detect_entity_type` — which raises
+    the "no 'type:' field … treated as a non-entity note" verdict exactly when
+    this is False — and by the vault sync preview, which excludes such files
+    from its would-ingest figures. True when ``type:`` carries a non-empty
+    value, recognised or not (a declared-but-unknown type is a typo the author
+    wants surfaced, not a non-entity note), or when the markdown ``moc: true``
+    convention marks the file a PathStep. An empty ``type:`` line counts as
+    undeclared, as the detector treats it.
+    """
+    raw_type = data.get("type")
+    if raw_type is not None and str(raw_type).strip():
+        return True
+    return data.get("moc") is True
+
+
+def is_non_entity_note(file_path: Path) -> bool:
+    """Whether ingestion would set ``file_path`` aside as a deliberate non-entity note.
+
+    File-level twin of :func:`declares_entity_type`: reads the file the way the
+    ingest gate does (markdown frontmatter, or the YAML document) and reports
+    the detector's no-type verdict without raising. Everything that is NOT that
+    one verdict is False — an unsupported extension, an unreadable, empty or
+    oversized file, a YAML file that does not parse, a non-mapping document,
+    any declared type — so a caller that skips non-entity notes still counts
+    every file whose sync outcome would be an error or an ingest. One
+    faithful asymmetry: markdown whose frontmatter is not valid YAML parses as
+    EMPTY frontmatter (``parse_markdown`` logs and continues), so the gate
+    reports it as "no 'type:' field" — and this returns True for it too.
+    ``VaultReconciler.preview`` uses it so a vault of loose notes is one
+    set-aside count, not hundreds of pending "new" ingests.
+    """
+    try:
+        file_format = detect_format(file_path)
+    except ValueError:
+        return False
+    if file_format == "markdown":
+        parsed_markdown = parse_markdown(file_path)
+        if parsed_markdown.is_error:
+            return False
+        data: object = parsed_markdown.value[0]
+    else:
+        parsed_yaml = parse_yaml(file_path)
+        if parsed_yaml.is_error:
+            return False
+        data = parsed_yaml.value
+    if not isinstance(data, dict):
+        return False
+    return not declares_entity_type(data)
 
 
 def is_edge_type(data: dict[str, Any]) -> bool:
@@ -186,7 +244,9 @@ def is_edge_type(data: dict[str, Any]) -> bool:
 
 __all__ = [
     "TYPE_MAPPING",
+    "declares_entity_type",
     "detect_entity_type",
     "detect_format",
     "is_edge_type",
+    "is_non_entity_note",
 ]

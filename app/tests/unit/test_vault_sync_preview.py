@@ -34,6 +34,7 @@ from core.services.vault.vault_reconciler import (
 )
 from core.utils.result_simplified import Result
 from tests.fixtures.csrf import attach_csrf
+from ui.vault.sync_fragments import preview_fragment
 
 # ---------------------------------------------------------------------------
 # plan_deletions — read-only classification
@@ -218,7 +219,7 @@ class TestVaultPreview:
     @pytest.mark.asyncio
     async def test_preview_reports_would_ingest_new_file(self, tmp_path) -> None:
         reconciler, backend, notes = _preview_harness(tmp_path)
-        (notes / "note1.md").write_text("# hello")
+        (notes / "note1.md").write_text("---\ntype: user_entry\npipeline: knowledge\n---\n# hello")
 
         result = await reconciler.preview(VaultKind.PERSONAL, "user_owner")
         assert result.is_ok
@@ -227,6 +228,34 @@ class TestVaultPreview:
         assert preview.would_ingest_new == 1
         assert preview.would_ingest_changed == 0
         assert preview.would_ingest_examples == ("periodic_notes/note1.md (new)",)
+        _assert_no_deletes(backend)
+
+    @pytest.mark.asyncio
+    async def test_preview_sets_aside_untyped_notes(self, tmp_path) -> None:
+        """A loose note with no ``type:`` is never tracked, so the tracker compare
+        calls it "new" on every preview, forever. The ingest gate sets it aside,
+        so the preview must too — one count, no phantom pending ingest — while
+        a typed note and a ``moc: true`` file still count (they DO ingest), and
+        a declared-but-unknown type still counts (the sync reports that typo)."""
+        reconciler, backend, notes = _preview_harness(tmp_path)
+        (notes / "typed.md").write_text("---\ntype: user_entry\npipeline: knowledge\n---\nbody")
+        (notes / "moc.md").write_text("---\nmoc: true\n---\n[[typed]]")
+        (notes / "typo.md").write_text("---\ntype: knowlege\n---\nbody")
+        (notes / "loose.md").write_text("# just a note")
+        (notes / "half.md").write_text("---\ntype:\n---\nempty type line")
+
+        result = await reconciler.preview(VaultKind.PERSONAL, "user_owner")
+        assert result.is_ok
+        preview = result.value
+        assert preview.non_entity_notes == 2
+        assert preview.would_ingest_count == 3
+        assert preview.would_ingest_new == 3
+        assert preview.would_ingest_changed == 0
+        assert set(preview.would_ingest_examples) == {
+            "periodic_notes/typed.md (new)",
+            "periodic_notes/moc.md (new)",
+            "periodic_notes/typo.md (new)",
+        }
         _assert_no_deletes(backend)
 
     @pytest.mark.asyncio
@@ -275,6 +304,52 @@ class TestVaultPreview:
         assert result.is_ok
         for text in _walk_strings(list(asdict(result.value).values())):
             assert str(tmp_path) not in text
+
+
+class TestPreviewFragmentSetAside:
+    """Every rendering state of the set-aside count, in one table (Kody rule:
+    state-driven row construction gets per-state tests that enumerate the
+    states, so an added state with no test is visible at a glance)."""
+
+    @pytest.mark.parametrize(
+        ("state", "preview", "present", "absent"),
+        [
+            pytest.param(
+                "pending_work",
+                VaultSyncPreview(would_ingest_count=1, would_ingest_new=1, non_entity_notes=230),
+                ("This sync would:", "set aside", "230"),
+                ("already in sync",),
+                id="pending_work: one line under the ingest line, never listed as an ingest",
+            ),
+            pytest.param(
+                "in_sync",
+                VaultSyncPreview(non_entity_notes=230),
+                ("already in sync", "230 notes stay set aside"),
+                ("This sync would:",),
+                id="in_sync: set-aside is not pending work, but the summary still says why "
+                "the sync report will list 230 ignored files",
+            ),
+            pytest.param(
+                "zero_set_aside",
+                VaultSyncPreview(),
+                ("already in sync",),
+                ("set aside",),
+                id="zero_set_aside: no permanent '0 notes' row",
+            ),
+        ],
+    )
+    def test_set_aside_count_per_rendering_state(
+        self,
+        state: str,
+        preview: VaultSyncPreview,
+        present: tuple[str, ...],
+        absent: tuple[str, ...],
+    ) -> None:
+        html = to_xml(preview_fragment(preview))
+        for text in present:
+            assert text in html, f"{state}: expected {text!r}"
+        for text in absent:
+            assert text not in html, f"{state}: did not expect {text!r}"
 
 
 # ---------------------------------------------------------------------------
