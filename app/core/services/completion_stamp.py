@@ -24,9 +24,8 @@ update that already carries the domain's completion field keeps authority — a
 caller-supplied date (``complete_goal(achieved_date=…)``) sets its own stamp and
 nothing is injected. Default-dated ``complete_goal`` carries no field and defers
 to the gate here, so a retried complete never re-dates. The explicit-complete
-flows do the same: ``complete_task_with_cascade`` stopped stamping for itself
-when it moved onto the guard (ADR-087 PR-2), so its repeat-complete protection is
-the write's condition rather than a date it computed from a prior read.
+flows do the same: ``complete_task_with_cascade`` carries no stamp of its own, so
+its repeat-complete protection is the write's condition.
 
 Bypass paths are handled elsewhere by design: ingestion never auto-stamps (the
 file is the source of truth for its own dates), and the DSL ``[x]`` create door
@@ -46,11 +45,9 @@ narrowed by :func:`_coerce_status`, and every other use is a key-membership test
 statement evaluates against the prior status it reads *under the node's write-lock*,
 and returns that prior so the caller derives its transition verdicts
 (:func:`is_completion_transition` / :func:`is_reopen_transition`) from the same status
-the stamp was decided on. The read-then-write predecessor —
-``completion_transition_patch``, which chose one patch from a status the caller read
-beforehand, outside any lock, so two concurrent writers could both act on it — was
-deleted when the last caller left (ADR-087 PR-4). Do not reintroduce a Python-side
-form: a status read before the write is stale by the time it is written.
+the stamp was decided on. A status read before the write is stale by the time it is
+written, which is why the rules travel to the write as a guard and every verdict is
+derived from the prior the write returns.
 
 The goal-progress writers in ``GoalsProgressService`` build their achievement patch
 themselves (they derive completion from a progress recompute, not from a status target
