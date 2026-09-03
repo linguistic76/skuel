@@ -88,13 +88,6 @@ class TasksSchedulingService(BaseService["TasksOperations", Task]):
         ordering, ``TaskCreated`` event and ADR-074 embedding request as every other
         create.
 
-        This method used to reach ``backend.create`` directly and re-implement the edge
-        writes. That copy published nothing (no user-context invalidation, no
-        embedding), wrote its edges with NO admission guard (#965's cross-tenant
-        class), and spelled the principle edge with the raw string ``"ALIGNED_WITH"`` —
-        a name the relationship registry does not know, so the all-or-nothing batch
-        refused every edge in any request that named a principle.
-
         Args:
             task_data: Task creation request,
             user_context: User context for prerequisite validation
@@ -126,11 +119,7 @@ class TasksSchedulingService(BaseService["TasksOperations", Task]):
                     )
                 )
 
-        # Prerequisites hold — the primitive's request door does everything else:
-        # builds the frozen Task (ADR-035/ADR-065), writes HAS_SUBTASK and every
-        # request-carried link edge through the admission guard, and announces the
-        # task (TaskCreated → context invalidation, then the embedding request) only
-        # after its edges exist.
+        # Prerequisites hold — the primitive does the rest (see the docstring).
         return await self.core.create_task(task_data, user_context.user_uid)
 
     # ========================================================================

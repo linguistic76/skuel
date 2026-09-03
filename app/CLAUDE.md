@@ -697,6 +697,7 @@ Use `# GRAPH-NATIVE:` prefix for comments about relationship data stored as Neo4
 - **Always write:** Public APIs, complex functions, service classes, protocols
 - **Skip:** Obvious one-liners, simple private helpers
 - **Cross-reference:** `See: /docs/patterns/PATTERN_NAME.md`
+- **Present tense, no history:** a comment or docstring states what the code does now. What it used to do, which PR changed it and when belong to the commit message and the ADR or `done/` doc; a comment may point at the record, never retell it — `git log -S<name>` is the history mechanism.
 - **Intent, not mechanism — in `core/services/`, `core/orchestrator/`, `core/ports/`, `core/models/`:** describe WHAT the operation means in domain language; reference the backend for HOW (`Backend: KuBackend.get_path_steps_using`). Cypher belongs in backend / `core/utils/` docstrings. SKUEL021 skips docstrings (correctly — prose can't execute), but **SKUEL033 enforces both a docstring that OPENS with a clause and one that HOSTS a query** across all four trees; naming a clause mid-sentence stays legal (a TypedDict documenting the `RETURN` alias its row mirrors is documenting the contract). The authority on scope is the linked doc's table, not this line. Note `MERGE` is an upsert — state the idempotency rather than flattening it to "Create".
 
 **See:** `/docs/patterns/DOCSTRING_STANDARDS.md`, `/docs/patterns/SERVICE_DOCSTRING_STYLE.md`

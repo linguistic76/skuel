@@ -65,6 +65,11 @@ invariants — keep comments focused on real, high-priority risks.
 - No lambdas (SKUEL012). No `print()` in production code — use the logger
   (SKUEL015). `print()` is fine in interactive CLI scripts.
 - `async def` only when the function awaits I/O; otherwise `def`.
+- **Present tense, no history in comments/docstrings:** a comment states what the
+  code does now. Flag a docstring or comment that narrates what the code used to do,
+  which PR changed it or when ("used to", "no longer", "fixed 2026-…", "#NNN") —
+  that belongs in the commit message and the ADR/`done/` doc; a pointer to the
+  record is fine, a retelling is not.
 - **One Path Forward:** SKUEL keeps no backward-compatibility shims. Flag added
   legacy wrappers, deprecation periods, or alternative code paths — the old path
   should be deleted, not preserved.
