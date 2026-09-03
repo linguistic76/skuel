@@ -43,6 +43,7 @@ The bridge uses a two-phase approach:
 2. **Tagging Phase**: LLM adds appropriate @context tags and attributes
 """
 
+import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
@@ -55,6 +56,9 @@ from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
     from core.ports.llm_protocols import ChatCompletionPort
+
+# ``@link(...)`` as the parser's TAG_PATTERN reads it; ``_parse_llm_output`` drops it.
+_LINK_TAG_RE = re.compile(r"\s*@link\([^)]*\)")
 
 # ============================================================================
 # TRANSFORMATION RESULT
@@ -304,27 +308,23 @@ class LLMDSLBridgeService:
         """
         Transform with user context for better domain recognition.
 
-        The context helps the LLM make better decisions about:
-        - Linking tasks to existing goals
-        - Recognizing knowledge areas the user is learning
-        - Aligning with user's stated principles
+        The context helps the LLM recognise what the text is about — a task
+        that serves an existing goal, a knowledge area in progress, a stated
+        principle — and nothing more: grounding is recognition-only, and the
+        bridge emits no link (``core.services.dsl.grounding``).
 
         Args:
             text: Natural language journal text
             user_uid: User UID
-            active_goals: User's active goals (for @goal linking)
+            active_goals: User's active goals (titles; recognition only)
             recent_topics: Recent topics the user has journaled about
             user_principles: User's stated principles
 
         Returns:
             Result containing DSLTransformResult with transformed text
         """
-        # Build the grounding block and pass it through the dedicated, NON-extractable
-        # {user_context} slot — NOT prepended into the journal text. Mixing it into
-        # the extractable text let the LLM emit activity lines from the grounding
-        # itself; harmless for the inert suggestion preview but, on the
-        # entity-creating extraction path, it persisted phantom entities from the
-        # user's own goals (Codex P1 #474).
+        # The grounding block rides the dedicated, non-extractable {user_context}
+        # slot — see ``transform``'s ``context_block`` for what that guarantees.
         context_block = self._build_context_block(
             active_goals=active_goals,
             recent_topics=recent_topics,
@@ -358,7 +358,13 @@ class LLMDSLBridgeService:
         return Result.ok(content.strip() if content else "")
 
     def _parse_llm_output(self, output: str) -> list[str]:
-        """Parse LLM output into individual activity lines."""
+        """Parse LLM output into individual activity lines.
+
+        A bridge line carries no ``@link``: a link's id is a UID, and the model
+        has no source for one (grounding passes titles), so any ``@link`` it
+        emits is dropped here and the line reaches the parser link-free. Links
+        on both bridge paths are the user's own.
+        """
         lines = []
 
         for line in output.split("\n"):
@@ -375,6 +381,8 @@ class LLMDSLBridgeService:
             # Skip lines without @context
             if "@context(" not in line:
                 continue
+
+            line = _LINK_TAG_RE.sub("", line).strip()
 
             # Ensure line starts with - for DSL format
             if not line.startswith("-"):

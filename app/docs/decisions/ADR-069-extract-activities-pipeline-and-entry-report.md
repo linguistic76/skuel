@@ -1,5 +1,5 @@
 ---
-updated: 2026-08-24
+updated: 2026-09-03
 ---
 
 # ADR-069: EXTRACT_ACTIVITIES Pipeline + EntryReport Convergence
@@ -109,6 +109,22 @@ journal privacy norm does not extend to it (Ruling 2 scope).
    explicit `@context()` markers, never inferred from prose, so both tiers
    behave identically there. See `docs/roadmap/done/calendar-periodic-notes-arc.md`
    and `docs/dsl/DSL_USAGE_GUIDE.md` § Periodic Notes — The Parse Contract.
+   *Amendment 2026-09-03 (recording #473/#474 of 2026-07-04 and the ruling of
+   2026-09-02):* **one builder, one slot, no model-authored links.** Grounding
+   was first wired on the inert preview alone (#473); the entity-creating
+   pre-pass still called bare `transform()` with no context, so the
+   higher-stakes path had less grounding than the copy-only preview — a silent
+   asymmetry closed by the shared builder in `core/services/dsl/grounding.py`
+   (#474). The same PR moved the grounding block out of the extractable journal
+   text into the non-extractable `{user_context}` prompt slot: inside the text,
+   the model could emit `@context(goal) <the user's own goal>` and the
+   extraction path persisted it as a phantom entity with `EXTRACTED_FROM`
+   provenance. Grounding passes titles, never UIDs, and is recognition-only; a
+   goal link on either bridge path has one source, the user's own
+   `@link(goal:<uid>)` — the bridge never infers one (ruled 2026-09-02, goal
+   links stay user-authored). Structurally: `LLMDSLBridgeService._parse_llm_output`
+   drops any `@link` the model emits, so a bridge line reaches the parser
+   link-free (`tests/unit/test_llm_dsl_bridge.py::test_bridge_output_carries_no_link_tag`).
 3. **Deterministic extraction (Analog layer):**
    `ActivityExtractorService.extract_and_create()` over the working text. The
    parser matches explicit `@context(...)` lines plus, via a second pass,

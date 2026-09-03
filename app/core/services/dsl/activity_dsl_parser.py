@@ -31,7 +31,7 @@ This is the bridge from "user speaks/writes" to "structured action".
 **DSL Syntax (v0.6 - closed 13-value vocabulary, non-empty description):**
 
 ```markdown
-- [ ] Description @context(task) @when(2025-11-27T09:30) @priority(1) @duration(90m) @energy(focus) @ku(ku:sel/mindfulness) @link(goal:health)
+- [ ] Description @context(task) @when(2025-11-27T09:30) @priority(1) @duration(90m) @energy(focus) @ku(ku.sel.mindfulness) @link(goal:health)
 ```
 
 (One physical line — the parser handles each line independently.)
@@ -186,7 +186,7 @@ class ParsedActivityLine:
     extra_tags: list[str] = field(default_factory=list)
 
     # Knowledge graph connections
-    primary_ku: str | None = None  # @ku(ku:sel/mindfulness)
+    primary_ku: str | None = None  # @ku(ku.sel.mindfulness)
     links: list[dict[str, str]] = field(default_factory=list)  # @link(goal:health)
 
     # Source tracking
@@ -526,7 +526,7 @@ class ActivityDSLParser:
 
     - [ ] Morning meditation @context(habit) @duration(20m) @energy(spiritual)
     - [ ] Write proposal @context(task) @priority(1) @when(2025-11-27T09:00)
-    - [ ] Learn Python async @context(task,learning) @ku(ku:tech/python-async)
+    - [ ] Learn Python async @context(task,learning) @ku(ku.tech.python-async)
     '''
 
     result = parser.parse_journal(journal_text)
@@ -1211,7 +1211,7 @@ class ActivityDSLParser:
                         # These don't need prefix in the ID
                         full_id = f"{link_type}:{link_id}"
                     else:
-                        full_id = link_str  # Keep as-is (e.g., ku:namespace/slug)
+                        full_id = link_str  # the whole "type:id" token
 
                     links.append({"type": link_type, "id": full_id})
 

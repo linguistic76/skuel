@@ -12,6 +12,7 @@ import pytest
 from adapters.external.llm import create_llm_dsl_bridge
 from adapters.external.llm.openai_adapter import OpenAIChatAdapter
 from core.ports.llm_protocols import LLMCompletion
+from core.services.dsl.activity_dsl_parser import parse_activity_line
 from core.services.dsl.llm_dsl_bridge import LLMDSLBridgeService
 from core.utils.result_simplified import Result
 
@@ -41,10 +42,10 @@ async def test_transform_delegates_to_chat_port_and_parses_dsl():
 
 @pytest.mark.asyncio
 async def test_transform_with_context_grounds_in_separate_nonextractable_slot():
-    # Codex P1 #474: goal grounding must NOT sit inside the extractable journal
-    # text, or the LLM can emit activity lines from the user's own goals (phantom
-    # entities on the extraction path). It belongs in the {user_context} slot the
-    # prompt marks "background only — do not extract".
+    # Goal grounding must NOT sit inside the extractable journal text, or the
+    # LLM can emit activity lines from the user's own goals (phantom entities on
+    # the extraction path). It belongs in the {user_context} slot the prompt
+    # marks "background only — do not extract" (ADR-069 § Decision 1.1).
     port = _port("")
     bridge = LLMDSLBridgeService(chat_port=port)
 
@@ -82,6 +83,30 @@ async def test_transform_with_context_ungrounded_omits_context_section():
     # be absent when ungrounded is the injected context BLOCK (its header + data).
     assert "do NOT create activities" not in prompt
     assert "Run a marathon" not in prompt
+
+
+@pytest.mark.asyncio
+async def test_bridge_output_carries_no_link_tag():
+    # Links are the user's own: a @link id is a UID the model has no source for
+    # (grounding passes titles), so any @link the model emits is dropped before
+    # the line reaches the parser — every other tag survives.
+    port = _port(
+        "- @context(task) Work out @link(goal:goal_health_a1b2) @priority(2)\n"
+        "- @context(habit) Meditate @link(goal:x, principle:y) @repeat(daily)"
+    )
+    bridge = LLMDSLBridgeService(chat_port=port)
+
+    result = await bridge.transform("Work out and meditate.")
+
+    assert result.is_ok
+    assert result.value.activity_lines == [
+        "- @context(task) Work out @priority(2)",
+        "- @context(habit) Meditate @repeat(daily)",
+    ]
+    for line in result.value.activity_lines:
+        parsed = parse_activity_line(line)
+        assert parsed.is_ok
+        assert parsed.value.links == []
 
 
 @pytest.mark.asyncio

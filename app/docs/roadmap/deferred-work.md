@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-02
+updated: 2026-09-03
 ---
 
 # Deferred Work
@@ -1918,14 +1918,16 @@ registered.
    generation from an explicit parent goal — are outside this ruling; none of them is an LLM
    inference over prose.)
    Grounding is title-only and recognition-only — it disambiguates what the model recognises
-   and never resolves a title to a UID — and the bridge templates
-   (`core/prompts/templates/dsl_*`) teach `@context` and no `@link`, so the model has no channel
-   to emit a goal link either. The 2026-08-28 measurement (56 extracted tasks, 0 with any edge
+   and never resolves a title to a UID — and the bridge output carries no `@link`
+   (`LLMDSLBridgeService._parse_llm_output` drops any the model emits, and the templates in
+   `core/prompts/templates/dsl_*` teach none), so the model has no channel to a goal link. The
+   2026-08-28 measurement (56 extracted tasks, 0 with any edge
    to a Goal; the 2 live `FULFILLS_GOAL` edges hand-authored) is the accepted design, not a
    parked cost: an edge the user did not author is a different kind of write. Do not build
    UID-aware grounding, a model-emitted `@link(goal:…)`, or a title→UID resolver on either
-   bridge path. The ruling is also recorded at the code site (`grounding.py` module docstring)
-   and in `DSL_SPECIFICATION.md` § `@link()`.
+   bridge path. The ruling is also recorded at the code site (`grounding.py` module docstring),
+   in ADR-069 § Decision 1.1 (amendment 2026-09-03, with the #473/#474 history) and in
+   `DSL_SPECIFICATION.md` § `@link()`.
 2. **`user_principles` / `recent_topics` grounding.** `transform_with_context` accepts both
    (`core/services/dsl/llm_dsl_bridge.py:301`); neither caller passes them
    (`core/services/journal/journal_service.py:286`,
@@ -1945,7 +1947,8 @@ the entry's own recent tags).
 grep for either name would pass with one argument in each file):
 `git grep -c "user_principles=" -- core/services/journal/journal_service.py core/services/user_entry/user_entry_processing_service.py`
 `git grep -c "recent_topics=" -- core/services/journal/journal_service.py core/services/user_entry/user_entry_processing_service.py`.
-Ruling guard for (1): `git grep -n "@link" -- core/prompts/templates/` stays empty — a `@link`
+Ruling guard for (1): `tests/unit/test_llm_dsl_bridge.py::test_bridge_output_carries_no_link_tag`
+pins the drop, and `git grep -n "@link" -- core/prompts/templates/` stays empty — a `@link`
 appearing in a bridge template is the retired path being rebuilt, not a feature.
 **Named cost while parked:** the recognition-quality claim behind #474 stays unmeasured.
 
