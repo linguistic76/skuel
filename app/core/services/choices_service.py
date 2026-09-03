@@ -145,7 +145,7 @@ class ChoicesService(
 
     Delegations (explicit methods):
     - Core: get_choice, get_user_choices, get_user_items_in_range
-    - Learning: create_choice_with_learning_guidance, suggest_learning_aligned_choices, etc.
+    - Learning: suggest_learning_aligned_choices, get_learning_informed_guidance, etc.
     - Search: get_pending_choices, get_upcoming, get_overdue, get_choices_needing_decision, etc.
     - Intelligence: get_decision_intelligence, get_decision_patterns, etc.
 
@@ -204,16 +204,6 @@ class ChoicesService(
         )
 
     # Learning delegations
-    async def create_choice_with_learning_guidance(
-        self,
-        choice_request: ChoiceCreateRequest,
-        user_uid: UserUID,
-        learning_position: LpPosition | None = None,
-    ) -> Result[Choice]:
-        return await self.learning.create_choice_with_learning_guidance(
-            choice_request, user_uid, learning_position
-        )
-
     async def get_learning_informed_guidance(
         self,
         choice_description: str,

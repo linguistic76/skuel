@@ -11,10 +11,8 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.choice.choice import Choice
 from core.models.choice.choice_dto import ChoiceDTO
-from core.models.choice.choice_request import ChoiceCreateRequest
 from core.models.enums import Domain, EntityStatus, Priority
 from core.models.pathways.path_step import PathStep
-from core.models.type_hints import UserUID
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.services.infrastructure import LearningAlignmentBridge
@@ -72,58 +70,6 @@ class ChoicesLearningService(BaseService["ChoicesOperations", Choice]):
             domain=Domain.CHOICES,
             entity_name="choice",
         )
-
-    async def create_choice_with_learning_guidance(
-        self,
-        choice_request: ChoiceCreateRequest,
-        user_uid: UserUID,
-        learning_position: LpPosition | None = None,
-    ) -> Result[Choice]:
-        """
-        Create a choice enhanced with learning path guidance.
-
-        This method applies knowledge-first thinking: How does the user's learning
-        path position frame this choice creation?
-
-        Args:
-            choice_request: Choice creation request
-            user_uid: User UID (REQUIRED)
-            learning_position: User's learning path position context
-
-        Returns:
-            Result containing created Choice with learning path guidance
-        """
-        # Import core service for base creation
-        from core.services.choices.choices_core_service import ChoicesCoreService
-
-        core_service = ChoicesCoreService(backend=self.backend)
-
-        # Create base choice using core service
-        choice_result = await core_service.create_choice(choice_request, user_uid=user_uid)
-        if choice_result.is_error:
-            return Result.fail(choice_result)
-
-        choice = choice_result.value
-
-        # Apply learning path guidance if position provided
-        if learning_position:
-            # Get learning-informed choice guidance
-            guidance = learning_position.suggest_choice_guidance(
-                choice_request.description or choice_request.title
-            )
-
-            # Log learning path guidance
-            self.logger.info(
-                "Choice '%s' created with learning guidance: %d implications from %d paths",
-                choice.title,
-                len(guidance["learning_path_implications"]),
-                len(learning_position.active_paths),
-            )
-
-            # Store guidance in choice metadata (if choice has metadata field)
-            # For now, just log the guidance
-
-        return Result.ok(choice)
 
     async def get_learning_informed_guidance(  # skuel-lint: disable=SKUEL029 -- facade-delegated: ChoicesService awaits this via delegation
         self,
