@@ -998,7 +998,7 @@ class AnalyticsMetricsService:
             )
 
     # ========================================================================
-    # LAYER 2: JOURNAL METRICS (NEW)
+    # LAYER 2: JOURNAL METRICS
     # ========================================================================
 
     async def calculate_journal_metrics(

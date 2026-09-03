@@ -174,8 +174,8 @@ DELETED: dict[str, str] = {
     "PageHead": "deleted — use build_head() from ui.layouts.base_page",
     # Deleted enum members
     "Pipeline.JOURNAL": (
-        "deleted 2026-09-02 — a journal session is ephemeral (ADR-073) or an opt-in "
-        ":ConversationSession (ADR-078); a vault context note is Pipeline.KNOWLEDGE"
+        "deleted — where a journal goes is stated in the Pipeline class docstring "
+        "(core/models/enums/pipeline.py, after the Values block)"
     ),
     "PageLayout": "deleted — use BasePage",
     "SimplePageLayout": "deleted — use BasePage",
