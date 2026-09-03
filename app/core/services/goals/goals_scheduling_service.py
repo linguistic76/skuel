@@ -456,13 +456,9 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Goal]):
                     f"Goal has {len(inactive_habits)} supporting habits that aren't active"
                 )
 
-        # Step 4: Default the target date, then create through THE create primitive.
-        # This step used to hand goal_data.model_dump() to the dict-based
-        # backend.create_goal alias — a door that resolves to create(entity), so
-        # every call through POST /api/goals/create-with-scheduling persisted a
-        # corrupt uid-less node and then errored (fixed 2026-08-06). The primitive
-        # builds the frozen Goal, writes the request's link edges through the
-        # admission guard, and publishes GoalCreated after they exist — so no local
+        # Step 4: Default the target date, then create through THE create primitive,
+        # which builds the frozen Goal, writes the request's link edges through the
+        # admission guard, and publishes GoalCreated after they exist — no local
         # event publish here.
         if not goal_data.target_date:
             default_days = DEFAULT_DAYS_BY_TIMEFRAME.get(goal_data.timeframe, 90)

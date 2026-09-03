@@ -1,6 +1,6 @@
 ---
 title: Docstring Standards
-updated: 2026-05-21
+updated: 2026-09-03
 category: patterns
 related_skills:
 - python
@@ -336,6 +336,55 @@ class TasksService:
 
 ---
 
+### ❌ Anti-Pattern 4: History Where a Rule Should Be
+
+**Problem**: The docstring or comment narrates what the code used to do, which PR
+changed it and when — a fix's story written into the code as proof of work. The
+commit message and the record (ADR or `done/` doc) already hold that story; in the
+code it outlives its usefulness and buries the rule the reader came for.
+
+```python
+# BAD
+async def create_task_with_context(self, task_data, user_context) -> Result[Task]:
+    """
+    Create a task after checking its prerequisites against the user's context.
+
+    ...
+
+    This method used to reach ``backend.create`` directly and re-implement the
+    edge writes. That copy published nothing (no user-context invalidation, no
+    embedding), wrote its edges with NO admission guard (#965's cross-tenant
+    class), and spelled the principle edge with the raw string ``"ALIGNED_WITH"``
+    — a name the relationship registry does not know, so the all-or-nothing
+    batch refused every edge in any request that named a principle.
+    """
+```
+
+**Solution**: Present tense, no history. State what the code does now and the reason
+that still holds; a pointer to the record is fine, a retelling is not. `git log -S<name>`
+and the ADR are the history mechanism.
+
+```python
+# GOOD
+async def create_task_with_context(self, task_data, user_context) -> Result[Task]:
+    """
+    Create a task after checking its prerequisites against the user's context.
+
+    The prerequisite gate is ALL this door adds: set membership against the
+    context's ``prerequisites_completed`` / ``completed_task_uids``, no graph
+    round-trip. The create itself is ``TasksCoreService.create_task``, THE create
+    primitive's request door, so the task gets the same guarded link edges,
+    write-then-announce ordering, ``TaskCreated`` event and embedding request as
+    every other create.
+    """
+```
+
+**Where the history goes**: the commit message holds what changed and how it was
+verified; the ADR or `done/` doc that owns the decision holds why. A `done/` doc is a
+citable archive — point at it by section.
+
+---
+
 ## IDE Integration
 
 Docstrings are your **primary interface** for IDE users. Write them with IDE hover tooltips in mind.
@@ -470,6 +519,7 @@ Before committing code, verify:
 - [ ] Cross-references point to `/docs/` for depth
 - [ ] Args and Returns are documented
 - [ ] No redundant docstrings (obvious getters/setters)
+- [ ] Present tense — no PR numbers, dates or "used to"; history is in the commit and the record
 - [ ] IDE tooltips will be helpful
 
 ---

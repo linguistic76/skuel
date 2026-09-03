@@ -361,13 +361,9 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
                         )
                     )
 
-        # Step 3: Gates hold — create through THE create primitive. This step used
-        # to hand habit_data.model_dump() to the dict-based backend.create_habit
-        # alias — a door that resolves to create(entity), so every call persisted a
-        # corrupt uid-less node and then errored (fixed 2026-08-06). The primitive
-        # builds the frozen Habit, writes the request's link edges through the
-        # admission guard, and publishes HabitCreated after they exist — so no
-        # local event publish here.
+        # Step 3: Gates hold — create through THE create primitive, which builds the
+        # frozen Habit, writes the request's link edges through the admission guard,
+        # and publishes HabitCreated after they exist — no local event publish here.
         return await self.core.create_habit(habit_data, user_context.user_uid)
 
     # ========================================================================
