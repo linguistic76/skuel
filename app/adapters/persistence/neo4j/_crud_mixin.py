@@ -586,9 +586,9 @@ class _CrudMixin[T: DomainModelProtocol]:
         done (ADR-087). ``update`` writes a patch a caller already decided on; this
         captures the node's status *inside* the write statement — after taking the node's
         write-lock — chooses ``guard``'s conditional patches from that prior, and returns
-        the prior so the caller can derive its transition verdicts exactly. The read that
-        used to decide those verdicts happened before the write and outside any lock, so
-        two concurrent writers could both conclude "I completed this".
+        the prior so the caller can derive its transition verdicts exactly. The lock is
+        what makes them exact: a prior captured under it cannot be changed by another
+        writer before this statement's SET (ADR-087 § Mechanics measures it).
 
         Contract:
             - **Not found** (no row matched, same default-filter semantics as ``update``)
