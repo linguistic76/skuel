@@ -56,6 +56,11 @@ class Pipeline(StrEnum):
                                     digest) rather than being archived; but it
                                     is not a learning-loop submission, so it is
                                     excluded from submission counts.
+
+    Journals: a journal session stores nothing in the graph (ADR-073 §3); the
+    discussion a user saves is an owner-private ``:ConversationSession``, not a
+    ``UserEntry`` (ADR-078); a vault context note is ``KNOWLEDGE``, with
+    ``private: true`` as its companion-retrieval opt-out.
     """
 
     NONE = "none"
@@ -77,11 +82,6 @@ class Pipeline(StrEnum):
         pre-persist in `AudienceResolver.validate` and coerced to
         `audience=private` at the vault/YAML door (`build_user_entry_request`);
         the `/submit` form hides the audience picker when this returns `False`.
-
-        `Pipeline.JOURNAL` was deleted 2026-09-02 — every role it had has a
-        successor: a journal session is ephemeral (ADR-073) or an opt-in
-        `:ConversationSession` (ADR-078); a vault context note is `KNOWLEDGE`
-        (with `private:` as the retrieval opt-out). Never reintroduce it.
 
         See: ADR-054 §5 (Journal input → output, preserved).
         """

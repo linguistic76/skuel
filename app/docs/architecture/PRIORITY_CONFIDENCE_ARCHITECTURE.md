@@ -1,5 +1,5 @@
 ---
-updated: 2026-04-13
+updated: 2026-09-03
 ---
 
 # Priority & Confidence Architecture
@@ -40,17 +40,22 @@ LOW + UNCERTAIN      → Prune or validate. Low signal.
 
 **Enum:** `Priority` in `core/models/enums/activity_enums.py`
 
-**Domains:** All 8 models in the UserOwnedEntity hierarchy:
+**Domains:** every model in the `UserOwnedEntity` hierarchy inherits `priority`:
 
-| Domain | EntityType |
-|--------|-----------|
-| Tasks | TASK |
-| Goals | GOAL |
-| Habits | HABIT |
-| Events | EVENT |
-| Choices | CHOICE |
-| Principles | PRINCIPLE |
-| Submissions | SUBMISSION, JOURNAL |
+| Model | EntityType |
+|-------|-----------|
+| Task | TASK |
+| Goal | GOAL |
+| Habit | HABIT |
+| Event | EVENT |
+| Choice | CHOICE |
+| Principle | PRINCIPLE |
+| UserEntry | USER_ENTRY |
+| EntryReport | ENTRY_REPORT |
+| ActivityReport | ACTIVITY_REPORT |
+| RevisedExercise | REVISED_EXERCISE |
+| FormSubmission | FORM_SUBMISSION |
+| Interaction | INTERACTION |
 | LifePath | LIFE_PATH |
 
 **Values:**

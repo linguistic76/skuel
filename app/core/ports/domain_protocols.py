@@ -752,10 +752,6 @@ class GoalsOperations(
         ...
 
 
-# NOTE: JournalsOperations REMOVED (February 2026) - Journal merged into Reports
-# Use SubmissionsCoreService for journal CRUD (report_type=JOURNAL)
-
-
 @runtime_checkable
 class ChoicesOperations(
     BackendOperations["Choice"], GraphRelationshipOperations, HierarchyOperations, Protocol
