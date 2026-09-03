@@ -1,6 +1,6 @@
 ---
 title: LearningAlignmentBridge - Unified Learning Integration Pattern
-updated: '2026-08-06'
+updated: '2026-09-03'
 category: patterns
 related_skills: []
 related_docs:
@@ -26,7 +26,7 @@ domain had near-identical copies of:
 - `assess_X_learning_alignment()` (~55 lines each)
 
 One generic implementation now serves them all, parameterized as
-`LearningAlignmentBridge[T, DTO, Request]` and customized per domain through
+`LearningAlignmentBridge[T]` and customized per domain through
 optional hooks.
 
 ### Architecture Position
@@ -64,7 +64,8 @@ The bridge once carried `create_with_learning_alignment()` and
 
 Creation belongs to each domain's core primitive (`TasksCoreService.create_task`,
 `GoalsCoreService.create_goal`, …), which publishes the domain event, requests the
-ADR-074 embedding, and admission-guards every request-supplied link edge. The
+ADR-074 embedding, and writes the request's link edges (Tasks, Goals and Habits
+through the admission guard). The
 orchestrator context doors (`create_goal_with_context`,
 `create_habit_with_context`) keep their gates and now create through those
 primitives. The two genuinely valuable create-verb ideas the bridge half carried
@@ -89,7 +90,7 @@ when either becomes a lived need.
 
 ```python
 # In {Domain}LearningService.__init__
-self.learning_helper = LearningAlignmentBridge[Goal, GoalDTO, GoalCreateRequest](
+self.learning_helper = LearningAlignmentBridge[Goal](
     service=self,                                  # provides _to_domain_model(s), dto/model classes via _config
     backend_get=self.backend.get_goal,             # single-entity read
     backend_get_user=self.backend.get_user_goals,  # per-user read
@@ -152,3 +153,6 @@ async def assess_goal_learning_alignment(
   read/assess operations and their hooks are the whole surface. The
   scheduling-service bridges (Tasks/Goals/Habits) and the Events learning bridge,
   which existed only to create, were removed with their wrappers.
+- **2026-09-03:** the class is `LearningAlignmentBridge[T]`. The `DTO` and
+  `Request` type parameters, which nothing in the read surface consumes, left
+  the signature.

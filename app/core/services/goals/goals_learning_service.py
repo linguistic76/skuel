@@ -16,7 +16,6 @@ from typing import TYPE_CHECKING, Any
 from core.models.enums import Domain, EntityStatus
 from core.models.goal.goal import Goal
 from core.models.goal.goal_dto import GoalDTO
-from core.models.goal.goal_request import GoalCreateRequest
 from core.models.pathways.lp_position import LpPosition
 from core.models.type_hints import EntityUID, UserUID
 from core.ports.domain_protocols import GoalsOperations
@@ -79,7 +78,7 @@ class GoalsLearningService(BaseService[GoalsOperations, Goal]):
         self.relationships = relationship_service  # GRAPH-NATIVE: For fetching goal relationships
 
         # Initialize LearningAlignmentBridge for learning operations
-        self.learning_helper = LearningAlignmentBridge[Goal, GoalDTO, GoalCreateRequest](
+        self.learning_helper = LearningAlignmentBridge[Goal](
             service=self,
             backend_get=self.backend.get_goal,
             backend_get_user=self.backend.get_user_goals,

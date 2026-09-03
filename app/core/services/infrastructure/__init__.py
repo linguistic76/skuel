@@ -6,7 +6,7 @@ Shared infrastructure patterns for all service types.
 
 Provides:
 - SemanticRelationshipLinker[T, DTO]: Generic semantic relationship operations
-- LearningAlignmentBridge[T, DTO, Request]: Generic learning alignment operations
+- LearningAlignmentBridge[T]: Generic learning alignment operations
 - PrerequisiteChecker: Unified prerequisite checking for planning/scheduling (January 2026)
 - ProgressCalculator: Unified progress calculation for all domains (January 2026)
 """

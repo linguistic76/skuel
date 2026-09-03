@@ -65,7 +65,7 @@ class ChoicesLearningService(BaseService["ChoicesOperations", Choice]):
         self.logger = get_logger("skuel.services.choices.learning")  # type: ignore[assignment]  # structlog BoundLogger
 
         # Initialize LearningAlignmentBridge for learning operations
-        self.learning_helper = LearningAlignmentBridge[Choice, ChoiceDTO, ChoiceCreateRequest](
+        self.learning_helper = LearningAlignmentBridge[Choice](
             service=self,
             backend_get=self.backend.get,
             backend_get_user=self.backend.get_user_choices,

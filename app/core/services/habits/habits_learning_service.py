@@ -18,7 +18,6 @@ from core.models.enums import RecurrencePattern as HabitFrequency
 from core.models.enums.habit_enums import HabitCategory
 from core.models.habit.habit import Habit
 from core.models.habit.habit_dto import HabitDTO
-from core.models.habit.habit_request import HabitCreateRequest
 from core.models.pathways.lp_position import LpPosition
 from core.models.type_hints import EntityUID, UserUID
 from core.ports.domain_protocols import HabitsOperations
@@ -73,7 +72,7 @@ class HabitsLearningService(BaseService[HabitsOperations, Habit]):
         self.event_bus = event_bus
 
         # Initialize LearningAlignmentBridge for learning operations
-        self.learning_helper = LearningAlignmentBridge[Habit, HabitDTO, HabitCreateRequest](
+        self.learning_helper = LearningAlignmentBridge[Habit](
             service=self,
             backend_get=self.backend.get_habit,
             backend_get_user=self.backend.get_user_habits,

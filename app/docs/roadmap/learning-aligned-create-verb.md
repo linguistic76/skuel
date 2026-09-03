@@ -1,6 +1,6 @@
 ---
 title: The learning-aligned create verb — ideas preserved from the deleted bridge create half
-updated: '2026-08-06'
+updated: '2026-09-03'
 category: roadmap
 status: UNSCHEDULED — build when a lived workflow demands it
 related_docs:
@@ -13,14 +13,9 @@ related_docs:
 (2026-08-06) — plus the census of remaining dict-door creates found during the
 same investigation.
 
-**Why the code went:** the bridge's `create_with_learning_alignment` (+ batch
-variant) and its seven domain wrappers were broken at runtime in all four
-consuming domains — the dict-based `backend.create_{domain}` doors resolve
-through `UniversalNeo4jBackend.__getattr__` to `create(entity)`, so every real
-call persisted a corrupt uid-less node and then errored. Zero callers above the
-facades, zero integration coverage, and the create-time "alignment" was a log
-line. Broken ≠ staged, so this is a roadmap note rather than a PLANNED-tier
-bloat entry: there is no working code to stage.
+**Why the code went:** `/docs/patterns/LEARNING_ALIGNMENT_BRIDGE.md` § The create
+half was DELETED holds the record. Broken ≠ staged, so this is a roadmap note
+rather than a PLANNED-tier bloat entry: there is no working code to stage.
 
 ---
 
@@ -41,9 +36,9 @@ activity from a recommendation.
   `SPAWNED_FROM` edge). A recommendation that points at a PS can spawn that
   PS's template. Prefer this over a new bespoke path — One Path Forward.
 
-**Do NOT** resurrect a generic create-with-alignment helper: the alignment
-contribution at create time was never persisted, so the generic layer added
-nothing over the primitives.
+Both surfaces create through the primitive, and the primitive is the whole
+create path: an alignment assessment is a read, so a create-with-alignment
+layer above the primitive has nothing of its own to persist.
 
 ## Thread 2: Learning path → calendar schedule
 

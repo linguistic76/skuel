@@ -1,36 +1,24 @@
 """
-Learning Alignment Bridge - Generic Learning Operations Pattern
-================================================================
+Learning Alignment Bridge — the learning-alignment read operations, once
+=========================================================================
 
-Eliminates duplication across learning services by providing generic
-implementations for learning alignment READ operations.
+One generic implementation of the three learning-alignment READ operations
+(learning-supporting entities, learning-aligned suggestions, an alignment
+assessment for one entity), constructed by each Activity Domain learning
+service that offers them so the pattern lives once rather than once per
+domain. :class:`LearningAlignmentBridge` documents the operations and hooks.
 
-**The Problem:**
-All learning services (Goals, Habits, Events, Choices) had identical
-implementations of learning alignment methods:
-- get_learning_supporting_X() (~57 lines each)
-- suggest_learning_aligned_X() (~72 lines each)
-- assess_X_learning_alignment() (~55 lines each)
-
-**The Solution:**
-Single generic helper that handles the common pattern once.
-
-**Deliberately absent: creation.** The bridge once carried
-``create_with_learning_alignment`` (+ a batch variant), wired to dict-based
-``backend.create_{domain}`` doors. Those doors resolve through
-``UniversalNeo4jBackend.__getattr__`` to ``create(entity)`` — which expects a
-DOMAIN MODEL — so every call persisted a corrupt uid-less node and then errored
-on the read-back; no route ever reached the seven wrappers that called it, and
-its create-time "alignment" was a log line. Deleted 2026-08-06. Creation
-belongs to each domain's core primitive (``TasksCoreService.create_task`` et
-al.), which publishes events, requests embeddings, and admission-guards link
-edges — see /docs/roadmap/learning-aligned-create-verb.md for the create-verb
-ideas this half carried and where to build them instead.
+The bridge reads and assesses; it creates nothing. Creation belongs to each
+domain's core primitive (``TasksCoreService.create_task`` et al.), which
+publishes the domain event and requests the embedding.
+Record: /docs/patterns/LEARNING_ALIGNMENT_BRIDGE.md. The create-verb ideas,
+and the surface to build one on when it is wanted:
+/docs/roadmap/learning-aligned-create-verb.md.
 """
 
 from collections.abc import Awaitable, Callable
 from operator import itemgetter
-from typing import Any, TypeVar
+from typing import Any
 
 from core.models.enums import Domain, Priority
 from core.models.pathways.lp_position import LpPosition
@@ -40,15 +28,11 @@ from core.utils.logging import get_logger
 from core.utils.neo4j_props import coerce_int
 from core.utils.result_simplified import Errors, Result
 
-# Generic type variables
-T = TypeVar("T")  # Domain model type (Goal, Habit, Event, Choice)
-DTO = TypeVar("DTO")  # DTO type (GoalDTO, HabitDTO, etc.)
-Request = TypeVar("Request")  # Request type (GoalCreateRequest, etc.)
 
-
-class LearningAlignmentBridge[T, DTO, Request]:
+class LearningAlignmentBridge[T]:
     """
-    Generic helper for learning alignment READ operations across all domains.
+    Generic helper for the learning alignment READ operations of the Activity
+    Domain learning services.
 
     Three shared operations, each replacing a near-identical copy in every
     learning service:
@@ -71,8 +55,8 @@ class LearningAlignmentBridge[T, DTO, Request]:
     SKUEL Architecture:
     - Uses BaseService for DTO conversion
     - Leverages LpPosition for alignment assessment
-    - Reads and assesses ONLY — creation goes through each domain's core
-      primitive (see the module docstring for why the create half was deleted)
+    - Reads and assesses only; creation goes through each domain's core
+      primitive (module docstring)
     """
 
     def __init__(
@@ -81,7 +65,7 @@ class LearningAlignmentBridge[T, DTO, Request]:
         backend_get: Callable[[EntityUID], Awaitable[Result[Any]]],
         backend_get_user: Callable[[UserUID], Awaitable[Result[Any]]],
         domain: Domain,
-        entity_name: str,  # "goal", "habit", "event", "choice"
+        entity_name: str,  # e.g. "goal" — for log lines
         # Optional custom hooks for domain-specific logic
         alignment_scorer: Callable[[T, LpPosition], float] | None = None,
         suggestion_filter: Callable[[dict[str, Any], Any], bool] | None = None,
