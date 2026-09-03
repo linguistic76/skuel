@@ -1,6 +1,6 @@
 ---
 title: SKUEL Activity DSL - Implementation Guide
-updated: 2026-08-28
+updated: 2026-09-03
 status: current
 category: dsl
 tags: [dsl, implementation, parser, architecture, regex]
@@ -302,23 +302,29 @@ parse_energy("focus, creative")
 
 ### `@ku()` Parsing
 
-```python
-KU_PATTERN = re.compile(r'^ku:([a-zA-Z0-9_-]+)/([a-zA-Z0-9_-]+)$')
+`@ku()` carries a Ku uid in one of the two sanctioned spellings — authored
+`ku.{ns}.{slug}` or generated `ku_{slug}_{random}` — and the parser returns it
+verbatim. The retired colon spelling is rejected (a warning, no reference), never
+rewritten; a value with no prefix is leniently given the authored dot form.
 
-def parse_ku(value: str) -> tuple[str, str] | None:
-    """Parse @ku() identifier into (namespace, slug)."""
-    match = KU_PATTERN.match(value.strip())
-    if match:
-        namespace = match.group(1)
-        slug = match.group(2)
-        return (namespace, slug)
-    return None
+```python
+def _parse_ku(self, value: str | None) -> str | None:
+    """@ku() → the Ku uid string; None when the value is unusable."""
+    value = value.strip()
+    if value.startswith(("ku.", "ku_")):
+        return value
+    if value.startswith("ku:"):
+        self.logger.warning(f"Rejected retired colon-spelled KU reference: {value}")
+        return None
+    return f"ku.{value}"
 ```
 
 **Example:**
 ```python
-parse_ku("ku.teens-yoga/focus-lesson")
-# Result: ("teens-yoga", "focus-lesson")
+_parse_ku("ku.teens-yoga.focus-lesson")
+# Result: "ku.teens-yoga.focus-lesson"
+_parse_ku("ku:teens-yoga/focus-lesson")
+# Result: None (warning logged)
 ```
 
 ---
@@ -408,7 +414,7 @@ class ParsedActivityLine:
     energy_states: list[str] = field(default_factory=list)
 
     # Optional graph connections
-    primary_ku: tuple[str, str] | None = None  # (namespace, slug)
+    primary_ku: str | None = None  # Ku uid, as written in @ku()
     links: list[LinkRef] = field(default_factory=list)
 
     # Metadata

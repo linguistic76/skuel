@@ -1,6 +1,6 @@
 ---
 title: SKUEL Activity DSL - Formal Specification
-updated: 2026-09-02
+updated: 2026-09-03
 status: current
 category: dsl
 tags: [dsl, grammar, specification, formal, syntax]
@@ -308,16 +308,17 @@ emotion    → emotional check-in, EQ practice
 **Grammar:**
 ```
 KuTag ::= "@ku(" KuIdentifier ")"
-KuIdentifier ::= "ku:" Namespace "/" Slug
+KuIdentifier ::= "ku." Namespace "." Slug      (authored, vault)
+               | "ku_" Slug "_" Random          (generated, API)
 Namespace ::= Identifier
 Slug ::= Identifier ("-" Identifier)*
 ```
 
 **Examples:**
 ```markdown
-@ku(ku.sel/thought-not-reality)
-@ku(ku.teens-yoga/focus-lesson)
-@ku(ku.math/algebra-basics)
+@ku(ku.sel.thought-not-reality)
+@ku(ku.teens-yoga.focus-lesson)
+@ku(ku.math.algebra-basics)
 ```
 
 **Constraint:** One `@ku()` per Activity Line (v0.3). Multiple KU links use `@link()`.

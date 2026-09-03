@@ -464,13 +464,9 @@ class UserEntryProcessingService:
             # produce phantom entities regardless of this guard.) The Analog
             # parser still runs over the original checkbox text below.
             if bridge_text.strip():
-                # Ground the pre-pass in the user's active goals — the SAME
-                # grounding the journal "Suggested activities" preview uses
-                # (shared builder), so this entity-creating path recognises prose
-                # against the identical context. Recognition only: a goal edge
-                # comes solely from a user-written `@link(goal:<uid>)` (ruled
-                # 2026-09-02). Grounding is soft: it degrades to ungrounded (None)
-                # when no goals service is wired or the query fails.
+                # Ground the pre-pass in the user's active goals through the
+                # shared builder — recognition-only and soft, both stated once in
+                # core.services.dsl.grounding.
                 grounding_titles = await fetch_active_goal_titles(
                     self.goals_service, entry.user_uid
                 )

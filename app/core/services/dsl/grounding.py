@@ -1,26 +1,24 @@
 # skuel-lint: disable-file=SKUEL005 -- soft-enhancement helpers, deliberately infallible: degrade to [] (module docstring); JournalService adds the Result wrapper at the service contract layer
 """Shared grounding for the LLM DSL bridge.
 
-Both bridge entry points ground ``transform_with_context`` in the user's active
-goals so prose is recognised against the goals the user actually holds:
+Grounding is recognition-only: the titles of the user's active goals go to the
+bridge so prose is recognised against the goals the user actually holds, and
+recognition is all that comes back. A goal link on the bridge paths has one
+source, the user's own ``@link(goal:<uid>)`` — the bridge output carries no
+``@link`` (``LLMDSLBridgeService._parse_llm_output`` drops any the model
+emits). Ruled 2026-09-02; ADR-069 § Decision 1.1 holds the record.
+
+Both bridge entry points ground ``transform_with_context`` through this one
+builder, so they can never drift to different grounding:
 
 - the inert journal "Suggested activities" panel (``JournalService``), and
 - the entity-creating ``Pipeline.EXTRACT_ACTIVITIES`` extractor
   (``UserEntryProcessingService``).
 
-Centralised here so the two paths can never drift to different grounding. The
-entity-creating path previously called ``transform`` with no context block while
-the inert preview path called ``transform_with_context`` — a silent asymmetry
-(ADR-069 / PR #473) the higher-stakes path lost out on.
-
 Grounding is a soft signal: a missing service or a goals-query failure degrades
 to no grounding (empty list), never an error — the bridge enhances, never gates.
-
-Grounding is title-only and recognition-only. It never resolves to a goal edge:
-on the bridge paths a ``FULFILLS_GOAL`` link has one source, the user's own
-``@link(goal:<uid>)`` (ruled 2026-09-02 — goal links stay user-authored; the
-bridge never infers one). Do not add UID-aware grounding or a title→UID
-resolver here; see ``docs/roadmap/deferred-work.md`` § DSL-Bridge Grounding.
+Principles / recent-topics grounding is registered work:
+``docs/roadmap/deferred-work.md`` § DSL-Bridge Grounding.
 """
 
 from __future__ import annotations
