@@ -1,13 +1,13 @@
 """
-Knowledge Notes Surface (Entry-Enrichment PR 4)
-================================================
+Knowledge Notes Surface
+=======================
 
 Renders the ``/submissions/knowledge`` list: every ``pipeline: knowledge``
 entry with its grounded-Ku chips. Grounding edges are eager writes — the
-user is editor, not approver (ruling 2026-07-11) — so each chip carries a
-one-click × that calls the grounding remove route and drops the chip in
-place. Removals are permanent: the pair is never re-inferred, and each
-removal is logged as threshold-calibration data.
+user is editor, not approver — so each chip carries a one-click × that
+calls the grounding remove route and drops the chip in place. Removals
+are permanent: the pair is never re-inferred, and each removal is logged
+as threshold-calibration data.
 
 Chip anatomy: Ku title links to the reading page (``/explore/ku/{uid}``);
 inferred chips show the edge confidence as a percentage; explicit chips

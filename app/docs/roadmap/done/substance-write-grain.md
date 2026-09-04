@@ -1,5 +1,5 @@
 ---
-updated: 2026-08-29
+updated: 2026-09-04
 ---
 
 # Substance-Write Grain — the `ku_uid` That May Not Be a Ku
@@ -204,7 +204,7 @@ The inherited June-2026 claim (*"all ~20 activity→knowledge edges target `path
    that actually supports it.
    ⚠️ **That channel has TWO writers, not one** — `UserEntryProcessingService`
    (`user_entry_processing_service.py:588-619`, explicit `@ku()` refs) and `EntryGroundingService`
-   (`entry_grounding_service.py:287-314`, vector grounding). CLAUDE.md says so directly: *"two
+   (`entry_grounding_service.py:290-317`, vector grounding). CLAUDE.md says so directly: *"two
    writers, one `KnowledgeReflectedInEntry` event"*. They have different idempotency behaviour.
    Scope the investigation to the channel, and break the 28 down by provenance before attributing
    anything to one service.

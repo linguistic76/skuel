@@ -2,16 +2,17 @@
 Entry-Grounding Service
 =======================
 
-Entry-Enrichment PR 3: grounds ``pipeline: knowledge`` UserEntries to Kus so
-the substance entries-channel and ZPD's ``entry_application`` signal light up
-for Mike's "teach SKUEL about me" notes (knowledge/ and je_pro/ doors alike).
+Grounds ``pipeline: knowledge`` UserEntries to Kus so the substance
+entries-channel and ZPD's ``entry_application`` signal light up for Mike's
+"teach SKUEL about me" notes (knowledge/ and je_pro/ doors alike).
 
 Candidate stage (Analog — CORE tier, no API key):
     Each pending entry's STORED embedding queries the Ku vector index
-    (``Neo4jVectorSearchService.find_similar_by_vector``) at the 0.72
-    "related concepts" knob (#598). No text is re-read or re-embedded —
-    PR 2 guaranteed every knowledge entry carries ``embedding`` +
-    ``embedding_text_hash``.
+    (``Neo4jVectorSearchService.find_similar_by_vector``) at
+    ``EntryGroundingConfig.threshold``. No text is re-read or re-embedded —
+    only embedded entries are pending, and every embedding store writes
+    ``embedding_text_hash`` beside the vector (``EmbeddingsService``,
+    ADR-074 §8).
 
 Judge stage (Digital — FULL tier only):
     An LLM filters candidates — "does this entry genuinely engage this Ku,
@@ -20,10 +21,11 @@ Judge stage (Digital — FULL tier only):
     FULL, a judge FAILURE skips the entry un-stamped (retried next pass)
     rather than silently degrading to the vector-only bar.
 
-Eager write (Mike's ruling 2026-07-11 — no confirm gate):
+Eager write, no confirm gate:
     ``(entry)-[:APPLIES_KNOWLEDGE {inferred: true, confidence, grounded_at}]->(ku)``.
     The user is editor, not approver: edges are visible and one-click
-    removable (route in this PR, UI in PR 4); removals are recorded on the
+    removable (``POST /api/user-entries/grounding/remove``; the chips live in
+    ``ui/user_entry/knowledge_notes.py``); removals are recorded on the
     entry (``grounding_rejected_ku_uids``) as threshold-calibration data and
     are never re-inferred.
 
@@ -76,9 +78,10 @@ class EntryGroundingConfig:
     """Knobs for the candidate threshold and the LLM judge.
 
     ``threshold`` starts at the empirically derived 0.72 "related concepts"
-    knob (#598) — pairs above it are near-duplicate concept territory, which
-    is exactly what "this entry engages this Ku" wants. It is calibrated over
-    time by edge removals (each removal logs the removed edge's confidence).
+    knob (``ku_similar_min_score``) — pairs above it are near-duplicate
+    concept territory, which is exactly what "this entry engages this Ku"
+    wants. It is calibrated over time by edge removals (each removal logs
+    the removed edge's confidence).
     """
 
     threshold: float = 0.72
@@ -420,8 +423,8 @@ class EntryGroundingService:
             except TypeError, ValueError:
                 continue
             # Strict bool — truthiness would coerce a string "false" to True
-            # and write an edge the judge rejected (Codex #610 P2). A non-bool
-            # verdict is dropped, so the coverage check below fails the entry.
+            # and write an edge the judge rejected. A non-bool verdict is
+            # dropped, so the coverage check below fails the entry.
             engages = item.get("engages")
             if not isinstance(engages, bool):
                 continue
@@ -453,7 +456,7 @@ class EntryGroundingService:
         return Result.ok(judged)
 
     # ------------------------------------------------------------------
-    # Removal (the "editor, not approver" half — route here, UI in PR 4)
+    # Removal (the "editor, not approver" half)
     # ------------------------------------------------------------------
 
     async def remove(self, entry_uid: str, ku_uid: str, user_uid: UserUID) -> Result[bool]:
