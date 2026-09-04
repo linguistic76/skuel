@@ -22,8 +22,11 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from neo4j import AsyncDriver
 
+    from core.ingestion.ingestion_types import AuthoredEdge
     from core.models.enums.neo_labels import NeoLabel
     from core.models.relationship_names import RelationshipName
 
@@ -202,3 +205,40 @@ class IngestionWriteBackend:
             protected_uids=list(protected_target_uids),
         )
         return int(records[0]["edges"]) if records else 0
+
+    async def delete_authored_edges(self, source_uid: str, edges: Sequence[AuthoredEdge]) -> int:
+        """Delete exactly ``edges`` from/to the source node; return the count deleted.
+
+        The one write of the frontmatter retraction pass. Each edge is matched
+        by its type, its direction relative to the source, and its target uid,
+        so an edge of the same type to any other target — or one an app door
+        wrote to a target the file still declares — cannot be reached. The type
+        arrives as a ``RelationshipName`` and is compared as a parameter
+        (``type(r) = edge.rel_type``), never interpolated. A missing edge simply
+        matches nothing.
+        """
+        if not edges:
+            return 0
+        records, _, _ = await self._driver.execute_query(
+            """
+            UNWIND $edges AS edge
+            MATCH (s:Entity {uid: $source_uid})-[r]-(t {uid: edge.target_uid})
+            WHERE type(r) = edge.rel_type
+              AND (
+                (edge.direction = 'outgoing' AND startNode(r) = s)
+                OR (edge.direction = 'incoming' AND endNode(r) = s)
+              )
+            DELETE r
+            RETURN count(*) AS deleted
+            """,
+            source_uid=source_uid,
+            edges=[
+                {
+                    "rel_type": edge.rel_type.value,
+                    "direction": edge.direction,
+                    "target_uid": edge.target_uid,
+                }
+                for edge in edges
+            ],
+        )
+        return int(records[0]["deleted"]) if records else 0

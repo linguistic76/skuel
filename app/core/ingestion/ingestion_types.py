@@ -18,7 +18,9 @@ lives below the boundary in ``adapters/persistence/neo4j/bulk_upsert_backend.py`
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal, TypedDict
+from typing import Literal, NamedTuple, TypedDict
+
+from core.models.relationship_names import RelationshipName
 
 
 class RelationshipConfig(TypedDict, total=False):
@@ -46,6 +48,25 @@ class RelationshipConfig(TypedDict, total=False):
     target_label: str
     direction: Literal["incoming", "outgoing", "both"]
     order_property: str
+
+
+# The two edge patterns the relationship template writes, relative to the
+# file's own node: ``outgoing`` = (source)-[:T]->(target), ``incoming`` =
+# (source)<-[:T]-(target). A field declared ``both`` is written as outgoing.
+EdgeDirection = Literal["incoming", "outgoing"]
+
+
+class AuthoredEdge(NamedTuple):
+    """One edge a file's frontmatter authored, addressed the way the retraction
+    primitive deletes it — type, direction relative to the source, target uid.
+
+    The ``rel_type`` is a ``RelationshipName``: the enum is what guarantees a
+    fingerprint key decoded from the graph names a type the registry knows.
+    """
+
+    rel_type: RelationshipName
+    direction: EdgeDirection
+    target_uid: str
 
 
 @dataclass

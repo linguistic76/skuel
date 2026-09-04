@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import asyncio
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -41,6 +41,7 @@ from core.utils.frontmatter import split_frontmatter
 from core.utils.logging import get_logger
 from core.utils.result_simplified import ErrorCategory, ErrorContext, Errors, Result
 
+from .authored_edges import authored_edge_fingerprint, retracted_edges
 from .config import (
     DEFAULT_MAX_CONCURRENT_PARSING,
     DEFAULT_MAX_FILE_SIZE_BYTES,
@@ -1298,7 +1299,40 @@ async def ingest_directory(
             )
             errors.append(batch_error.to_dict())
 
-    # Phase 2: relationships for every successfully-upserted type batch.
+    # Phase 2: relationships for every successfully-upserted type batch, plus
+    # the frontmatter retraction: the edges a file authored at its previous
+    # ingest (its tracker row's ``authored_edges`` fingerprint) but omits from
+    # its current frontmatter are deleted. MERGE and retraction address disjoint edge sets,
+    # so their order is irrelevant; the retraction runs only once the pass's
+    # MERGE landed. A file whose prior fingerprint could not be read, or whose
+    # retraction failed, is dropped from the metadata stamp below so the next
+    # sync re-processes it against the row it still has — a stamped file is
+    # skipped before phase 2 runs, so a stamped-but-unretracted drop would
+    # never retry.
+    uid_to_file = {uid: file_str for file_str, (_, uid) in file_entity_map.items() if uid}
+    prior_authored_edges: dict[str, list[str]] = {}
+    prior_lookup_failed = False
+    if tracker is not None and relationship_passes:
+        prior_result = await tracker.get_authored_edges([Path(p) for p in file_entity_map])
+        if prior_result.is_ok:
+            prior_authored_edges = prior_result.value
+        else:
+            prior_lookup_failed = True
+            errors.append(
+                IngestionError(
+                    file="<tracker>",
+                    error=(
+                        "Could not read prior frontmatter edge fingerprints "
+                        f"({prior_result.error}); files with relationship fields are "
+                        "left unstamped so the next sync retracts what they dropped"
+                    ),
+                    stage="relationships",
+                    error_type="database",
+                    suggestion="Check Neo4j connection and database constraints.",
+                ).to_dict()
+            )
+    # The fingerprint stamped per file below (absent → the prior stays).
+    authored_edges_by_file: dict[str, list[str]] = {}
     for entity_type, entities, rel_config in relationship_passes:
         config = ENTITY_CONFIGS.get(entity_type)
         if not config or bulk_backend is None:
@@ -1310,9 +1344,7 @@ async def ingest_directory(
             relationship_config=rel_config,
             batch_size=batch_size,
         )
-        if rel_result.is_ok:
-            total_relationships_created += rel_result.value.relationships_created
-        else:
+        if rel_result.is_error:
             rel_error = IngestionError(
                 file=f"<batch:{entity_type.value}>",
                 error=str(rel_result.expect_error()),
@@ -1322,6 +1354,51 @@ async def ingest_directory(
                 suggestion="Check Neo4j connection and database constraints.",
             )
             errors.append(rel_error.to_dict())
+            continue
+        total_relationships_created += rel_result.value.relationships_created
+
+        for entity in entities:
+            file_str = uid_to_file.get(str(entity.get("uid", "")))
+            if file_str is None:
+                continue
+            if prior_lookup_failed:
+                file_entity_map.pop(file_str, None)
+                continue
+            fingerprint = authored_edge_fingerprint(entity, rel_config)
+            authored_edges_by_file[file_str] = fingerprint
+            dropped = retracted_edges(prior_authored_edges.get(file_str, []), fingerprint)
+            if not dropped:
+                continue
+            source_uid = str(entity["uid"])
+            if write_backend is None:
+                logger.warning(
+                    f"{source_uid}: {len(dropped)} dropped frontmatter edge(s) cannot be "
+                    "retracted without a write backend — file left unstamped"
+                )
+                file_entity_map.pop(file_str, None)
+                continue
+            try:
+                deleted = await write_backend.delete_authored_edges(source_uid, dropped)
+            except NEO4J_EXCEPTIONS as e:
+                errors.append(
+                    IngestionError(
+                        file=file_str,
+                        error=(
+                            f"Failed to retract {len(dropped)} frontmatter edge(s) "
+                            f"{source_uid} no longer declares: {e}"
+                        ),
+                        stage="relationships",
+                        error_type="database",
+                        entity_type=entity_type.value,
+                        suggestion="Check Neo4j connection and database constraints.",
+                    ).to_dict()
+                )
+                file_entity_map.pop(file_str, None)
+                continue
+            logger.info(
+                f"Retracted {deleted} frontmatter edge(s) {source_uid} no longer declares "
+                f"({len(dropped)} dropped from its registered fields)"
+            )
 
     # Ingest edge files (after entities, so referenced nodes likely exist)
     edge_outcome = _EdgeBatchOutcome()
@@ -1337,17 +1414,23 @@ async def ingest_directory(
 
     # Update ingestion metadata for successfully processed files
     if tracker is not None and ingestion_mode != "full":
-        ingestion_updates: list[tuple[Path, str, str]] = []
+        ingestion_updates: list[tuple[Path, str, str, Sequence[str]]] = []
         for file_path in files_to_process:
             file_str = str(file_path)
             if file_str in file_entity_map:
                 _, uid = file_entity_map[file_str]
                 content_hash = tracker.compute_file_hash(file_path)
-                ingestion_updates.append((file_path, uid, content_hash))
+                # The fingerprint phase 2 computed; a file that reached no
+                # relationship pass keeps the one its row already carries.
+                authored_edges = authored_edges_by_file.get(
+                    file_str, prior_authored_edges.get(file_str, [])
+                )
+                ingestion_updates.append((file_path, uid, content_hash, authored_edges))
 
         # Edge files: tracked with the relationship identity in the uid slot,
         # so unchanged edge files skip on later runs and deleting the file
-        # propagates to the relationship.
+        # propagates to the relationship. They author no frontmatter edges —
+        # the identity row IS the edge — so their fingerprint is empty.
         for success in edge_successes:
             if not success["source_file"]:
                 continue
@@ -1355,7 +1438,9 @@ async def ingest_directory(
             if not edge_path.exists():
                 continue
             identity = edge_identity(success["from_uid"], success["rel_type"], success["to_uid"])
-            ingestion_updates.append((edge_path, identity, tracker.compute_file_hash(edge_path)))
+            ingestion_updates.append(
+                (edge_path, identity, tracker.compute_file_hash(edge_path), [])
+            )
 
         if ingestion_updates:
             await tracker.update_ingestion_metadata_batch(ingestion_updates)

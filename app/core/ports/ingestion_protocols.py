@@ -21,7 +21,9 @@ from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
-    from core.ingestion.ingestion_types import IngestionResult, RelationshipConfig
+    from collections.abc import Sequence
+
+    from core.ingestion.ingestion_types import AuthoredEdge, IngestionResult, RelationshipConfig
     from core.models.enums.neo_labels import NeoLabel
     from core.models.relationship_names import RelationshipName
     from core.ports.query_types import EntityContentRow
@@ -133,6 +135,19 @@ class IngestionWriteOperations(Protocol):
     async def refresh_moc_organizes(
         self, source_uid: str, target_uids: list[str], protected_target_uids: list[str]
     ) -> int: ...
+
+    async def delete_authored_edges(self, source_uid: str, edges: Sequence[AuthoredEdge]) -> int:
+        """Delete exactly ``edges`` — each addressed by type, direction relative
+        to the source, and target uid — and return how many were deleted.
+
+        The frontmatter retraction primitive: the caller passes the edges a
+        file authored at its previous ingest but omits from its current
+        frontmatter. An edge
+        of the same type to a target still declared, or to a target the file
+        never named, is out of reach by construction. An edge already gone
+        (removed by hand) is not an error.
+        """
+        ...
 
 
 @runtime_checkable

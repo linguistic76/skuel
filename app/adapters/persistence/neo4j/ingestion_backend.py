@@ -150,7 +150,12 @@ class IngestionBackend:
         )
 
     async def get_ingestion_metadata(self, paths: list[str]) -> Result[list[dict[str, Any]]]:
-        """Fetch ingestion metadata for given file paths."""
+        """Fetch ingestion metadata for given file paths.
+
+        ``authored_edges`` is the file's frontmatter edge fingerprint (the
+        ``rel_type|direction|target_uid`` keys stamped at its last ingest);
+        null on a row stamped before the fingerprint existed.
+        """
         return await self._executor.execute_query(
             """
             UNWIND $paths AS path
@@ -159,7 +164,8 @@ class IngestionBackend:
                    s.content_hash AS content_hash,
                    s.file_mtime AS file_mtime,
                    s.last_ingested_at AS last_ingested_at,
-                   s.entity_uid AS entity_uid
+                   s.entity_uid AS entity_uid,
+                   s.authored_edges AS authored_edges
             """,
             {"paths": paths},
         )
@@ -167,14 +173,15 @@ class IngestionBackend:
     async def update_ingestion_metadata(
         self, params: dict[str, Any]
     ) -> Result[list[dict[str, Any]]]:
-        """Upsert ingestion metadata for a single file."""
+        """Upsert ingestion metadata for a single file, fingerprint included."""
         return await self._executor.execute_query(
             """
             MERGE (s:IngestionMetadata {file_path: $file_path})
             SET s.content_hash = $content_hash,
                 s.file_mtime = $file_mtime,
                 s.last_ingested_at = datetime(),
-                s.entity_uid = $entity_uid
+                s.entity_uid = $entity_uid,
+                s.authored_edges = coalesce($authored_edges, [])
             """,
             params,
         )
@@ -182,7 +189,7 @@ class IngestionBackend:
     async def update_ingestion_metadata_batch(
         self, items: list[dict[str, Any]]
     ) -> Result[list[dict[str, Any]]]:
-        """Batch upsert ingestion metadata for multiple files."""
+        """Batch upsert ingestion metadata for multiple files, fingerprints included."""
         return await self._executor.execute_query(
             """
             UNWIND $items AS item
@@ -190,7 +197,8 @@ class IngestionBackend:
             SET s.content_hash = item.content_hash,
                 s.file_mtime = item.file_mtime,
                 s.last_ingested_at = datetime(),
-                s.entity_uid = item.entity_uid
+                s.entity_uid = item.entity_uid,
+                s.authored_edges = coalesce(item.authored_edges, [])
             RETURN count(s) AS updated
             """,
             {"items": items},
@@ -214,15 +222,17 @@ class IngestionBackend:
         Used by deletion reconciliation: tracked files that no longer exist on
         disk are vault deletions to propagate. ``content_hash`` feeds the
         move-detection pre-pass — a gone row and a new file sharing a hash is
-        a rename, not a delete+create. The prefix must end with the path
-        separator so /vault/a doesn't match /vault/abc.
+        a rename, not a delete+create — and ``authored_edges`` rides along so
+        the re-keyed row keeps the file's edge fingerprint. The prefix must end
+        with the path separator so /vault/a doesn't match /vault/abc.
         """
         return await self._executor.execute_query(
             """
             MATCH (s:IngestionMetadata)
             WHERE s.file_path STARTS WITH $path_prefix
             RETURN s.file_path AS file_path, s.entity_uid AS entity_uid,
-                   s.content_hash AS content_hash
+                   s.content_hash AS content_hash,
+                   s.authored_edges AS authored_edges
             """,
             {"path_prefix": path_prefix},
         )
