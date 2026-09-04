@@ -673,6 +673,35 @@ class TestUpdateTaskGoalEdge:
         assert result.value.fulfills_goal_uid is None
 
     @pytest.mark.asyncio
+    async def test_a_failed_batch_clears_the_stamp_and_still_reports_the_failure(
+        self, tasks_service_with_mocked_subservices: TasksService
+    ) -> None:
+        """Kody on #1260: core has already written the column and the old edge is gone
+        when the batch fails, so an early return strands a stamp with no edge behind it.
+        The invariant is restored FIRST, and the failure is still reported — a silent
+        success here would also swallow a failed habit or knowledge edge in the same
+        batch."""
+        service = tasks_service_with_mocked_subservices
+        service.core.update_task = AsyncMock(
+            return_value=Result.ok(_task(fulfills_goal_uid="goal_new"))
+        )
+        service.relationships.get_related_uids = AsyncMock(side_effect=self._related("goal_old"))
+        service.relationships.delete_relationship = AsyncMock(return_value=Result.ok(True))
+        service.backend.create_relationships_batch = AsyncMock(
+            return_value=Result.fail(
+                Errors.database(message="transient Neo4j error", operation="create_batch")
+            )
+        )
+        service.backend.update = AsyncMock(return_value=Result.ok(_task()))
+
+        result = await service.update_task(
+            "task_abc", TaskUpdateIntent(fulfills_goal_uid="goal_new")
+        )
+
+        assert result.is_error, "a failed edge batch is an update failure, not a silent success"
+        service.backend.update.assert_awaited_once_with("task_abc", {"fulfills_goal_uid": None})
+
+    @pytest.mark.asyncio
     async def test_a_goal_of_the_wrong_kind_is_refused(
         self, tasks_service_with_mocked_subservices: TasksService
     ) -> None:

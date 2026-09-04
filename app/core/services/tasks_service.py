@@ -559,6 +559,8 @@ class TasksService(
                 for ku_uid in applies_knowledge_uids or []
             )
 
+        goal_requested = fulfills_goal_uid is not UNSET and bool(fulfills_goal_uid)
+
         permitted: list[tuple[str, str, str, Neo4jProperties | None]] = []
         if candidates:
             permitted = await keep_permitted_link_edges(
@@ -571,23 +573,43 @@ class TasksService(
             if permitted:
                 batch = await self.backend.create_relationships_batch(permitted)
                 if batch.is_error:
+                    # All-or-nothing: NOTHING was written — yet core has already stamped
+                    # fulfills_goal_uid and the old goal edge is gone. Restore the
+                    # invariant FIRST, then report the failure: a silent success here
+                    # would also swallow a failed habit or knowledge edge in this batch.
+                    if goal_requested:
+                        await self._clear_goal_stamp(task_uid, "its FULFILLS_GOAL batch failed")
                     return Result.fail(batch)
 
-        goal_requested = fulfills_goal_uid is not UNSET and bool(fulfills_goal_uid)
         goal_written = any(
             rel_type == RelationshipName.FULFILLS_GOAL.value for _s, _t, rel_type, _p in permitted
         )
         if goal_requested and not goal_written:
-            cleared = await self.backend.update(task_uid, {"fulfills_goal_uid": None})
+            cleared = await self._clear_goal_stamp(task_uid, "its FULFILLS_GOAL edge was refused")
             if cleared.is_error:
                 return Result.fail(cleared)
-            self.logger.warning(
-                "Cleared fulfills_goal_uid=%s on task %s: its FULFILLS_GOAL edge was refused",
-                fulfills_goal_uid,
-                task_uid,
-            )
             return Result.ok(True)
         return Result.ok(False)
+
+    async def _clear_goal_stamp(self, task_uid: str, why: str) -> Result[Task]:
+        """Remove ``fulfills_goal_uid`` from the node when its FULFILLS_GOAL edge does not exist.
+
+        The property half of the dual-written goal link is cleared so it never names a
+        goal the graph does not connect. A failed clear is logged at ERROR — the stamp is
+        then stranded, and the caller must not report a clean state.
+        """
+        cleared = await self.backend.update(task_uid, {"fulfills_goal_uid": None})
+        if cleared.is_error:
+            self.logger.error(
+                "Task %s keeps fulfills_goal_uid with no FULFILLS_GOAL edge behind it — %s "
+                "and the clearing write failed: %s",
+                task_uid,
+                why,
+                cleared.error,
+            )
+            return cleared
+        self.logger.warning("Cleared fulfills_goal_uid on task %s: %s", task_uid, why)
+        return cleared
 
     async def _publish_edge_only_update(
         self,
