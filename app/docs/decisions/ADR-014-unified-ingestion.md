@@ -1,5 +1,5 @@
 ---
-title: ADR-014: Unified Content Ingestion Service
+title: "ADR-014: Unified Content Ingestion Service"
 updated: 2026-09-04
 status: accepted
 category: decisions

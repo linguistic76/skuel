@@ -1,6 +1,6 @@
 ---
-title: ADR-004: Ready-to-Learn Knowledge Unit Query
-updated: 2026-09-01
+title: "ADR-004: Ready-to-Learn Knowledge Unit Query"
+updated: 2026-09-04
 status: current
 category: decisions
 tags: [004, adr, decisions, graph, query]

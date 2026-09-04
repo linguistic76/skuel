@@ -1,6 +1,6 @@
 ---
-title: SKUEL Routing Architecture: Routes, Services, and Persistence
-updated: 2026-08-22
+title: "SKUEL Routing Architecture: Routes, Services, and Persistence"
+updated: 2026-09-04
 status: current
 category: architecture
 tags: [architecture, routing, security]

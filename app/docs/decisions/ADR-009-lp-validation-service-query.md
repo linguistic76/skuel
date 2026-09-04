@@ -1,6 +1,6 @@
 ---
-title: ADR-009: Optimal Learning Path Recommendation Query
-updated: 2026-09-01
+title: "ADR-009: Optimal Learning Path Recommendation Query"
+updated: 2026-09-04
 status: current
 category: decisions
 tags: [009, adr, decisions, query, service]

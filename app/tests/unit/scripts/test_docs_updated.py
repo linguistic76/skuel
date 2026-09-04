@@ -11,10 +11,12 @@ plausibly reintroduce.
 
 Three deserve naming, because each looks like a simplification:
 
-  * **Never ``yaml.safe_load`` the block.** 35 of 412 docs carry an unquoted
+  * **Never ``yaml.safe_load`` the block.** 35 of 412 docs carried an unquoted
     ``title: ADR-013: KU UID Flat Identity Design`` — a YAML syntax error whose
-    ``updated:`` line is nonetheless perfectly well-formed. A YAML-parsing guard
-    sits red on all 35 for a ``title:`` defect it does not own.
+    ``updated:`` line is nonetheless perfectly well-formed (quoted 2026-09-04 by
+    ``scripts/quote_frontmatter_titles.py``; the shape is one paste away). A
+    YAML-parsing guard sits red on every such doc for a ``title:`` defect it does
+    not own.
   * **Leading block only.** Two docs carry a documentation *example* of ``updated:``
     in their body. A whole-file count calls both duplicates.
   * **Stamp-only commits are skipped.** The backfill becomes the newest commit for
@@ -66,10 +68,12 @@ def test_accepts_a_quoted_scalar() -> None:
 
 
 def test_reads_the_field_from_frontmatter_that_is_not_valid_yaml() -> None:
-    """An unquoted ``title:`` with a colon-space is a YAML error on 35 real docs.
+    """An unquoted ``title:`` with a colon-space is a YAML error — 35 real docs had
+    one until ``scripts/quote_frontmatter_titles.py`` quoted them (2026-09-04), and a
+    new doc can reintroduce it.
 
-    Their ``updated:`` is fine, and a guard that YAML-parses reports all 35 as
-    unparsable — a permanently red gate for a defect in a different key.
+    Their ``updated:`` is fine, and a guard that YAML-parses reports every such doc
+    as unparsable — a permanently red gate for a defect in a different key.
     """
     content = "---\ntitle: ADR-013: KU UID Flat Identity\nupdated: 2026-08-14\n---\n"
     import yaml
@@ -369,6 +373,27 @@ def _commit(repo_path: Path, message: str, when: str) -> None:
             "GIT_COMMITTER_EMAIL": "t@example.com",
         },
     )
+
+
+def test_dirty_docs_sees_a_space_named_path_unquoted(repo: Path) -> None:
+    """Porcelain v1 C-quotes a path with whitespace, so ``line[3:]`` never matched a
+    space-named doc and a writer's clean-tree guard passed on a dirty file (Kody,
+    high, on #1264). ``-z`` entries are never quoted; a rename's origin field is
+    dropped, not reported as a second dirty path."""
+    spaced = repo / "app" / "docs" / "direction w structuring.md"
+    spaced.write_text("---\ntitle: X\n---\n\nbody\n")
+    (repo / "app" / "docs" / "old name.md").write_text("old\n")
+    _commit(repo, "seed", "2026-01-01T12:00:00+00:00")
+    assert field_mod.dirty_docs() == set()
+
+    spaced.write_text("---\ntitle: X\n---\n\nbody edited\n")
+    (repo / "app" / "docs" / "new note.md").write_text("untracked\n")
+    _git(repo, "mv", "app/docs/old name.md", "app/docs/renamed name.md")
+    assert field_mod.dirty_docs() == {
+        "app/docs/direction w structuring.md",
+        "app/docs/new note.md",
+        "app/docs/renamed name.md",
+    }
 
 
 def test_a_stamp_only_commit_is_not_the_last_substantive_one(repo: Path) -> None:

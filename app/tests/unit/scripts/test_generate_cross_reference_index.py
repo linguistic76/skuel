@@ -26,8 +26,9 @@ The honesty guards pin the properties the index exists to provide:
   (the guard that would have caught the slug-less ADR links at birth), and
 - no pattern doc's frontmatter fails the YAML parse:
   ``load_pattern_frontmatter`` swallows ``yaml.YAMLError`` per file, and 35
-  docs in the corpus carry an unquoted ``title: … : …`` that is a YAML
-  syntax error — one of those in docs/patterns/ would have its whole
+  docs in the corpus carried an unquoted ``title: … : …`` that is a YAML
+  syntax error (quoted 2026-09-04 by ``scripts/quote_frontmatter_titles.py``;
+  the shape is one paste away) — one of those in docs/patterns/ would have its whole
   metadata, ``related_skills`` included, vanish from the index silently.
   This guard rejects the parse failure itself, which covers every spelling
   of every key at once.

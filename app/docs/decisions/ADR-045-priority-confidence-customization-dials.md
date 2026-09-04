@@ -1,6 +1,6 @@
 ---
-title: ADR-045: Priority & Confidence as First-Class Customization Dials
-updated: 2026-09-01
+title: "ADR-045: Priority & Confidence as First-Class Customization Dials"
+updated: 2026-09-04
 status: current
 category: decisions
 tags: [adr, decisions, enums, priority, confidence, planning, graph-visualization]

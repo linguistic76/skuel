@@ -1,6 +1,6 @@
 ---
-title: ADR-025: Service Consolidation Patterns
-updated: 2026-09-01
+title: "ADR-025: Service Consolidation Patterns"
+updated: 2026-09-04
 status: current
 category: decisions
 tags: [adr, decisions, consolidation, baseservice, patterns]

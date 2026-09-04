@@ -54,6 +54,7 @@ from docs_updated_field import (  # type: ignore[import-not-found]
     ROT_WINDOW_DAYS,
     ShallowHistoryError,
     apply_stamp,
+    dirty_docs,
     find_updated,
     has_malformed_frontmatter,
     load_history,
@@ -108,12 +109,7 @@ def verify_premise(docs: list[str], history: dict[str, object]) -> None:
             f"join (expected repo-root-relative on both sides). First: {unjoined[:3]}"
         )
 
-    dirty = {
-        line[3:]
-        for line in _git("status", "--porcelain", "--", "app/docs").split("\n")
-        if line.strip()
-    }
-    conflicts = sorted(dirty & set(docs))
+    conflicts = sorted(dirty_docs() & set(docs))
     if conflicts:
         raise PremiseError(
             f"{len(conflicts)} in-scope docs have uncommitted changes; commit or "

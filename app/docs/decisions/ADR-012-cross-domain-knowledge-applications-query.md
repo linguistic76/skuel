@@ -1,6 +1,6 @@
 ---
-title: ADR-012: Cross-Domain Knowledge Applications Query Architecture
-updated: 2026-09-01
+title: "ADR-012: Cross-Domain Knowledge Applications Query Architecture"
+updated: 2026-09-04
 status: current
 category: decisions
 tags: [012, adr, applications, cross, decisions]

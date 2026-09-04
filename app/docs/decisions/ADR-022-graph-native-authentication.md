@@ -1,6 +1,6 @@
 ---
-title: ADR-022: Graph-Native Authentication
-updated: 2026-09-01
+title: "ADR-022: Graph-Native Authentication"
+updated: 2026-09-04
 status: current
 category: decisions
 tags: [adr, decisions, authentication, security, neo4j]

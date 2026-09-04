@@ -1,6 +1,6 @@
 ---
-title: ADR-044: Neo4j as Committed Architectural Choice
-updated: 2026-07-20
+title: "ADR-044: Neo4j as Committed Architectural Choice"
+updated: 2026-09-04
 status: current
 category: decisions
 tags: [adr, decisions, architecture, neo4j, hexagonal]

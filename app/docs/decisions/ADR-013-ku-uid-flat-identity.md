@@ -1,6 +1,6 @@
 ---
-title: ADR-013: KU UID Flat Identity Design
-updated: 2026-09-01
+title: "ADR-013: KU UID Flat Identity Design"
+updated: 2026-09-04
 status: implemented
 category: decisions
 tags: [adr, decisions, ku, uid, identity, curriculum, universal-hierarchical-pattern]

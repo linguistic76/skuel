@@ -1,6 +1,6 @@
 ---
-title: ADR-008: Learning Path Blocker Identification Query
-updated: 2026-09-01
+title: "ADR-008: Learning Path Blocker Identification Query"
+updated: 2026-09-04
 status: current
 category: decisions
 tags: [008, adr, decisions, query, service]

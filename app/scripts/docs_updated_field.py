@@ -2,22 +2,26 @@
 """
 Shared mechanics for the docs ``updated:`` frontmatter stamp.
 
-One module, three consumers — the pre-commit stamper (``stamp_docs_updated.py``),
-the one-shot backfill (``backfill_docs_updated.py``) and the guard
-(``scripts/health/docs_updated.py``). Splitting "which files are in scope", "where
-is the ``updated:`` line" and "which commits are stamp-only" across three
-implementations would make each one a catalog copy of the others, and the copies
-would drift the first time scope changed. See ``docs/roadmap/deferred-work.md``
+One module, every consumer — the pre-commit stamper (``stamp_docs_updated.py``),
+the guard (``scripts/health/docs_updated.py``) and the one-shots that rewrite docs
+(``backfill_docs_updated.py``, ``quote_frontmatter_titles.py``). Splitting "which
+files are in scope", "which of them are dirty", "where is the ``updated:`` line" and
+"which commits are stamp-only" across per-script implementations would make each one
+a catalog copy of the others, and the copies would drift the first time scope
+changed. See ``docs/roadmap/deferred-work.md``
 § Catalog Copies in Code.
 
 Design constraints, each paid for by a registered trap:
 
 **Never ``yaml.safe_load`` the frontmatter to find this field.** 35 of 412 docs
-(measured 2026-08-31 on ``dec83d3f6``) carry an unquoted ``title: ADR-013: KU UID
-Flat Identity Design`` — a colon-space inside a plain scalar, which is a YAML
-syntax error. A YAML-parsing guard reports all 35 as unparsable and sits red for a
-``title:`` defect it does not own; a YAML-parsing backfill silently skips them.
-Their ``updated:`` line is perfectly well-formed. So: take the leading block with
+(measured 2026-08-31 on ``dec83d3f6``; quoted 2026-09-04 by
+``scripts/quote_frontmatter_titles.py``, whose check mode is the corpus probe) carried
+an unquoted ``title: ADR-013: KU UID Flat Identity Design`` — a colon-space inside a
+plain scalar, which is a YAML syntax error. A YAML-parsing guard reports every such
+doc as unparsable and sits red for a ``title:`` defect it does not own; a
+YAML-parsing backfill silently skips them. Their ``updated:`` line is perfectly
+well-formed, and a new doc with the same title shape is one paste away. So: take the
+leading block with
 ``split_frontmatter`` (the mandated parser), then match ``^updated:`` line-scoped
 inside that block only. That is a strictly smaller claim than "this is valid YAML",
 and it is the only claim this feature needs.
@@ -359,6 +363,36 @@ def _blob(rev: str, path: str) -> str | None:
 
 def _utc_date(iso_with_offset: str) -> date:
     return datetime.fromisoformat(iso_with_offset).astimezone(UTC).date()
+
+
+def dirty_docs() -> set[str]:
+    """Repo-root-relative docs with uncommitted changes — index, worktree or untracked.
+
+    A writer that rewrites docs asks this before touching one: a dirty target means
+    the author's edit is either clobbered or dragged into the writer's commit.
+
+    ``--porcelain -z``, never the plain text form. Porcelain v1 C-quotes any path
+    containing whitespace (``"app/docs/design-principles/direction w structuring.md"``),
+    so a ``line[3:]`` slice carries the literal quotes and never equals the unquoted
+    path a caller compares against — the guard passes silently and the writer
+    overwrites the edit. Three docs under ``design-principles/`` have spaces in their
+    names, and the miss reproduced on one of them (Kody, high, on #1264). NUL-separated
+    entries are never quoted. A rename or copy entry (``R``/``C`` in either status
+    column) is followed by a second NUL-terminated field, the ORIGIN path, which is
+    consumed and dropped — it no longer exists in the worktree.
+    """
+    fields = _run_git("status", "--porcelain", "-z", "--", SCOPE_PREFIX).split("\0")
+    dirty: set[str] = set()
+    index = 0
+    while index < len(fields):
+        entry = fields[index]
+        index += 1
+        if not entry:
+            continue
+        dirty.add(entry[3:])
+        if "R" in entry[:2] or "C" in entry[:2]:
+            index += 1
+    return dirty
 
 
 @dataclass(frozen=True)

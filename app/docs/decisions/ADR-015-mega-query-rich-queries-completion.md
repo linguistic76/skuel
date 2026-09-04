@@ -1,6 +1,6 @@
 ---
-title: ADR-015: MEGA-QUERY Rich Queries Completion for All Activity Domains
-updated: 2026-09-01
+title: "ADR-015: MEGA-QUERY Rich Queries Completion for All Activity Domains"
+updated: 2026-09-04
 status: current
 category: decisions
 tags: [adr, decisions, query, mega-query, user-context]
