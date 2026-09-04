@@ -1,6 +1,6 @@
 ---
-title: ADR-011: Life Path Alignment Query Architecture
-updated: 2026-09-01
+title: "ADR-011: Life Path Alignment Query Architecture"
+updated: 2026-09-04
 status: current
 category: decisions
 tags: [011, adr, alignment, decisions, life]

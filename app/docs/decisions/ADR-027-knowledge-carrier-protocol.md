@@ -1,6 +1,6 @@
 ---
-title: ADR-027: KnowledgeCarrier Protocol
-updated: 2026-09-01
+title: "ADR-027: KnowledgeCarrier Protocol"
+updated: 2026-09-04
 status: superseded
 category: decisions
 tags: [adr, decisions, protocol, knowledge, curriculum]

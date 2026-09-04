@@ -13,11 +13,14 @@ would drift the first time scope changed. See ``docs/roadmap/deferred-work.md``
 Design constraints, each paid for by a registered trap:
 
 **Never ``yaml.safe_load`` the frontmatter to find this field.** 35 of 412 docs
-(measured 2026-08-31 on ``dec83d3f6``) carry an unquoted ``title: ADR-013: KU UID
-Flat Identity Design`` — a colon-space inside a plain scalar, which is a YAML
-syntax error. A YAML-parsing guard reports all 35 as unparsable and sits red for a
-``title:`` defect it does not own; a YAML-parsing backfill silently skips them.
-Their ``updated:`` line is perfectly well-formed. So: take the leading block with
+(measured 2026-08-31 on ``dec83d3f6``; quoted 2026-09-04 by
+``scripts/quote_frontmatter_titles.py``, whose check mode is the corpus probe) carried
+an unquoted ``title: ADR-013: KU UID Flat Identity Design`` — a colon-space inside a
+plain scalar, which is a YAML syntax error. A YAML-parsing guard reports every such
+doc as unparsable and sits red for a ``title:`` defect it does not own; a
+YAML-parsing backfill silently skips them. Their ``updated:`` line is perfectly
+well-formed, and a new doc with the same title shape is one paste away. So: take the
+leading block with
 ``split_frontmatter`` (the mandated parser), then match ``^updated:`` line-scoped
 inside that block only. That is a strictly smaller claim than "this is valid YAML",
 and it is the only claim this feature needs.

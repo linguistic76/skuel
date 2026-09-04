@@ -1,6 +1,6 @@
 ---
-title: ADR-024: BaseIntelligenceService Migration (now BaseAnalyticsService)
-updated: 2026-09-01
+title: "ADR-024: BaseIntelligenceService Migration (now BaseAnalyticsService)"
+updated: 2026-09-04
 status: accepted
 category: decisions
 tags: [adr, decisions, intelligence-services, base-class, facade-pattern, intelligence-operations-protocol, analytics, ai-separation]

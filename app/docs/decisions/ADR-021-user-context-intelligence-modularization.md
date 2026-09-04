@@ -1,6 +1,6 @@
 ---
-title: ADR-021: User Context Intelligence Modularization
-updated: 2026-09-01
+title: "ADR-021: User Context Intelligence Modularization"
+updated: 2026-09-04
 status: current
 category: decisions
 tags: [adr, architecture, refactoring, separation-of-concerns, one-path-forward]

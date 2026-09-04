@@ -11,10 +11,12 @@ plausibly reintroduce.
 
 Three deserve naming, because each looks like a simplification:
 
-  * **Never ``yaml.safe_load`` the block.** 35 of 412 docs carry an unquoted
+  * **Never ``yaml.safe_load`` the block.** 35 of 412 docs carried an unquoted
     ``title: ADR-013: KU UID Flat Identity Design`` — a YAML syntax error whose
-    ``updated:`` line is nonetheless perfectly well-formed. A YAML-parsing guard
-    sits red on all 35 for a ``title:`` defect it does not own.
+    ``updated:`` line is nonetheless perfectly well-formed (quoted 2026-09-04 by
+    ``scripts/quote_frontmatter_titles.py``; the shape is one paste away). A
+    YAML-parsing guard sits red on every such doc for a ``title:`` defect it does
+    not own.
   * **Leading block only.** Two docs carry a documentation *example* of ``updated:``
     in their body. A whole-file count calls both duplicates.
   * **Stamp-only commits are skipped.** The backfill becomes the newest commit for
@@ -66,10 +68,12 @@ def test_accepts_a_quoted_scalar() -> None:
 
 
 def test_reads_the_field_from_frontmatter_that_is_not_valid_yaml() -> None:
-    """An unquoted ``title:`` with a colon-space is a YAML error on 35 real docs.
+    """An unquoted ``title:`` with a colon-space is a YAML error — 35 real docs had
+    one until ``scripts/quote_frontmatter_titles.py`` quoted them (2026-09-04), and a
+    new doc can reintroduce it.
 
-    Their ``updated:`` is fine, and a guard that YAML-parses reports all 35 as
-    unparsable — a permanently red gate for a defect in a different key.
+    Their ``updated:`` is fine, and a guard that YAML-parses reports every such doc
+    as unparsable — a permanently red gate for a defect in a different key.
     """
     content = "---\ntitle: ADR-013: KU UID Flat Identity\nupdated: 2026-08-14\n---\n"
     import yaml

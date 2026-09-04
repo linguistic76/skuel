@@ -1,6 +1,6 @@
 ---
-title: ADR-017: Relationship Service Unification
-updated: 2026-09-01
+title: "ADR-017: Relationship Service Unification"
+updated: 2026-09-04
 status: current
 category: decisions
 tags: [adr, decisions, pattern, relationship-services]

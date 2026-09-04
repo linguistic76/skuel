@@ -2238,13 +2238,13 @@ registration, and every one of them is recorded in a docstring beside the code i
 constrains, which is where a constraint cannot rot into a paraphrase. Carried here are the
 ones a future session would most plausibly reintroduce while scoping:
 
-- **Never `yaml.safe_load` the frontmatter to read this field.** 35 of 412 docs carry an
+- **Never `yaml.safe_load` the frontmatter to read this field.** 35 of 412 docs carried an
   unquoted `title: ADR-013: KU UID Flat Identity Design`, whose colon-space is a YAML
   syntax error — while their `updated:` line is perfectly well-formed. A YAML-parsing
-  guard sits red on all 35 for a `title:` defect it does not own. (`validate_cross_references.py`
-  *does* YAML-parse, so those 35 docs' `related_skills:` are invisible to it — none
-  declares any today, so nothing is currently lost; quoting the 35 titles is a separate,
-  unscheduled fix.)
+  guard sits red on every such doc for a `title:` defect it does not own. (The titles were
+  quoted 2026-09-04 by `scripts/quote_frontmatter_titles.py`, whose check mode is the
+  corpus-wide "every block parses" probe; the rule stands because a new doc with the same
+  title shape reintroduces the failure.)
 - **Do not attribute `git show` hunks to files by parsing `+++ b/<path>`.** Git appends a
   TAB to that header for paths containing spaces, and three docs under
   `design-principles/` have them. Pass the path as a pathspec instead.

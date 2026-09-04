@@ -1,6 +1,6 @@
 ---
-title: ADR-002: Knowledge Coverage Calculation Query
-updated: 2026-09-01
+title: "ADR-002: Knowledge Coverage Calculation Query"
+updated: 2026-09-04
 status: current
 category: decisions
 tags: [002, adr, decisions, progress, query]

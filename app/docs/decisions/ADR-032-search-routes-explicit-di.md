@@ -1,6 +1,6 @@
 ---
-title: ADR-032: Search Routes Explicit Dependency Injection
-updated: 2026-03-07
+title: "ADR-032: Search Routes Explicit Dependency Injection"
+updated: 2026-09-04
 status: current
 category: decisions
 tags: [adr, decisions, search, routes, dependency-injection, one-path-forward]

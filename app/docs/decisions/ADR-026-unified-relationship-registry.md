@@ -1,6 +1,6 @@
 ---
-title: ADR-026: Unified Relationship Registry
-updated: 2026-09-01
+title: "ADR-026: Unified Relationship Registry"
+updated: 2026-09-04
 status: accepted (evolved; ownership declaration superseded by ADR-086)
 category: decisions
 tags: [adr, decisions, relationships, consolidation, single-source-of-truth]

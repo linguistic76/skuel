@@ -1,6 +1,6 @@
 ---
-title: ADR-003: Journal Context Gathering Query
-updated: 2026-09-02
+title: "ADR-003: Journal Context Gathering Query"
+updated: 2026-09-04
 status: current
 category: decisions
 tags: [003, adr, decisions, journals, query]

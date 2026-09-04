@@ -125,5 +125,9 @@ counts_*.json
 # Implementation plans (local working notes, not source)
 plans/
 
+# Obsidian vault config for docs/ (app.json, core-plugins.json, appearance.json are
+# tracked — link form, enabled plugins, theme); the per-machine workspace is not.
+docs/.obsidian/workspace*.json
+
 # k8s live secrets — never commit; see k8s-secrets.yml.example
 k8s-secrets.yml

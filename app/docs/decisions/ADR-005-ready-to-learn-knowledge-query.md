@@ -1,6 +1,6 @@
 ---
-title: ADR-005: Ready-to-Learn Knowledge Query Architecture
-updated: 2026-09-01
+title: "ADR-005: Ready-to-Learn Knowledge Query Architecture"
+updated: 2026-09-04
 status: current
 category: decisions
 tags: [005, adr, decisions, knowledge, learn]

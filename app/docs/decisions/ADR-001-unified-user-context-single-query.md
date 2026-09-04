@@ -1,6 +1,6 @@
 ---
-title: ADR-001: Single Complex Query for Unified User Context
-updated: 2026-08-13
+title: "ADR-001: Single Complex Query for Unified User Context"
+updated: 2026-09-04
 status: current
 category: decisions
 tags: [001, adr, context, decisions, query]

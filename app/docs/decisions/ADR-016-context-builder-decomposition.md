@@ -1,6 +1,6 @@
 ---
-title: ADR-016: Context Builder Decomposition
-updated: 2026-09-01
+title: "ADR-016: Context Builder Decomposition"
+updated: 2026-09-04
 status: current
 category: decisions
 tags: [adr, architecture, refactoring, separation-of-concerns]
