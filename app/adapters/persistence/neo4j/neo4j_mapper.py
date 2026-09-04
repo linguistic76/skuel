@@ -107,6 +107,35 @@ RELATIONSHIP_SKIP_FIELDS = {
     "referenced_by_uids",
 }
 
+# Properties the embeddings writer owns — ``EmbeddingsBackend.store_embedding_metadata``
+# is their ONE writer (ADR-074 §8). The first three are also ``Entity`` fields, which
+# ``to_node`` serialises as explicit nulls; under ``SET n += $props`` a null REMOVES
+# the property, so an entity writer re-applying a full-model payload to an EXISTING
+# node would strip the vector on every re-sync (then the worker re-embeds identical
+# text — ``verify_fresh_embeddings`` needs ``has_embedding``). Entity writers drop
+# these keys with ``without_embedding_props()`` before any ``+=`` write.
+EMBEDDING_OWNED_PROPERTIES: frozenset[str] = frozenset(
+    {
+        "embedding",
+        "embedding_model",
+        "embedding_updated_at",
+        "embedding_version",
+        "embedding_text_hash",
+    }
+)
+
+
+def without_embedding_props(props: dict[str, Any]) -> dict[str, Any]:
+    """Return ``props`` minus the embedding writer's properties.
+
+    A re-sync refreshes what the file (or caller) authors; the vector and its
+    metadata are derived state whose freshness ``verify_fresh_embeddings``
+    decides from the stored hash, never from an entity payload. Every other
+    key passes through unchanged, explicit ``None`` included — null-under-
+    ``+=`` is the channel a cleared field uses to retract its property.
+    """
+    return {k: v for k, v in props.items() if k not in EMBEDDING_OWNED_PROPERTIES}
+
 
 class Neo4jGenericMapper:
     """
@@ -160,7 +189,11 @@ class Neo4jGenericMapper:
             if isinstance(value, types.MappingProxyType):
                 value = dict(value)
 
-            # Skip None values for optional fields
+            # Keep None as an explicit null. Under ``SET n += $props`` a null
+            # REMOVES the property — the channel a cleared field uses to retract
+            # on re-sync (``fulfills_exercise_uid``, the Task goal link); under
+            # ``SET n = $props`` / CREATE it is simply absent. Keys another writer
+            # owns are the caller's to drop (``without_embedding_props``).
             if value is None:
                 node_data[field.name] = None
                 continue
@@ -253,7 +286,7 @@ class Neo4jGenericMapper:
             if key in RELATIONSHIP_SKIP_FIELDS:
                 continue
 
-            # Skip None values
+            # Explicit null, as in to_node(): null-under-``+=`` retracts the property.
             if value is None:
                 node_data[key] = None
                 continue

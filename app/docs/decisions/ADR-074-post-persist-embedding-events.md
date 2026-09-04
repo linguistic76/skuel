@@ -1,5 +1,5 @@
 ---
-updated: 2026-08-15
+updated: 2026-09-04
 ---
 
 # ADR-074: Ingestion Never Embeds Inline — One Post-Persist Event Chokepoint for Both Doors
@@ -253,3 +253,14 @@ at store time saves nothing — the API call already happened):
   `POST /api/vault/sync/content` body `{"force": true}`, `./dev vault-sync --force` — which
   bypasses only the hash/mtime skip while keeping the wall, metadata re-stamping, and deletion
   reconciliation (force ≠ full). See `UNIFIED_INGESTION_GUIDE.md § Ingestion Modes`.
+- **Follow-up (2026-09-04):** §8's skip needs `has_embedding`, and the living-note door
+  (`UserEntryBackend.upsert`, MERGE-on-uid) was stripping it on every re-sync: the model carries
+  `embedding` / `embedding_model` / `embedding_updated_at` as `None`, the mapper keeps them as
+  explicit nulls, and `ON MATCH SET n += props` REMOVES a property set to null — so a
+  byte-identical force sync re-embedded the same three content-vault notes every run
+  (`retrievability_delta: 3`, measured before the fix). Entity writers now drop the embedding
+  writer's properties (`EMBEDDING_OWNED_PROPERTIES` / `without_embedding_props`, beside the
+  mapper) before any `+=` write — the living upsert and `prepare_batch_items` (the bulk door's
+  `+=` template; its frontmatter dicts carry no such key today, so the payload is guarded, not
+  the caller list). Deliberately NOT a blanket None-strip in the mapper: null-under-`+=` stays
+  the retraction channel for a cleared field (`fulfills_exercise_uid`, the Task goal link).
