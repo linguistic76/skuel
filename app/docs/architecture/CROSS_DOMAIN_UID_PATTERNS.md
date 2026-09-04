@@ -1,6 +1,6 @@
 ---
 title: "Cross-Domain UID Patterns: Structural Anchors vs Enrichment Links"
-updated: 2026-08-07
+updated: 2026-09-04
 status: current
 category: architecture
 tags: [architecture, uid-patterns, cross-domain, structural-anchor, enrichment-link]
@@ -40,7 +40,7 @@ Confusing the two produces either stale denormalized data (writing what should b
 
 | Domain | Field | Direction | Why persisted |
 |--------|-------|-----------|---------------|
-| Task | `fulfills_goal_uid` | TASK → GOAL | Hierarchy membership — the task is part of this goal's action system |
+| Task | `fulfills_goal_uid` | TASK → GOAL | Hierarchy membership — the task is part of this goal's action system. Dual-written with `(Task)-[:FULFILLS_GOAL]->(Goal)` (property == edge target, every door); the column serves in-hand readers, the edge every goal-side traversal |
 | Task | `source_path_step_uid` | TASK → PS | Spawn-time PS origin; also set by non-template paths (see §below) |
 | Task | `scheduled_event_uid` | TASK → EVENT | Scheduling appointment — the task is pinned to this Event |
 | Goal | `fulfills_goal_uid` | GOAL → GOAL | Sub-goal hierarchy membership (parallel to `Exercise.path_step_uid`) |
@@ -141,5 +141,6 @@ Before adding a field, decide:
 2. **Is this a scoring signal read off a graph edge that already exists?** → enrichment link: add `DERIVED FROM EDGE` comment to the model, add the name to `RELATIONSHIP_SKIP_FIELDS`, populate in the scoring enrich step.
 3. **Does a create REQUEST supply it, and does the graph own it?** → edge carrier: as (2), plus set it on the entity in both `from_request` and the `ConversionServiceV2` converter, and write the edge on the domain's shared `create()` primitive so both doors do it once. Every request-supplied endpoint must pass `keep_permitted_link_edges` (exists / owner / kind) before it becomes an edge.
 4. **Is this a many-to-many relationship with metadata?** → pure graph edge, no UID field at all. A list-typed request field can only take this shape: it reaches no model field, so the generated route cannot carry it and the request door owns it alone.
+5. **Is this a structural anchor (1) that graph readers ALSO traverse?** → dual-write: the property AND the edge, on every door (both create doors, the update path, the vault preparer), the edge admitted through the same guard as (3). State the invariant once at the write site — *property == edge target, wherever both exist* — and clear the property when the edge is refused, so the two halves never disagree. `Exercise.path_step_uid` + `HAS_EXERCISE`; `Task.fulfills_goal_uid` + `FULFILLS_GOAL` (`TasksCoreService._write_link_edges`). Two writers that each land one half is the defect this shape exists to prevent.
 
 A field that is "sometimes persisted and sometimes derived" is a design error — pick one. Adding the name to `RELATIONSHIP_SKIP_FIELDS` is what makes (2) and (3) enforceable rather than aspirational, and it is keyed on the NAME — census every dataclass carrying it before adding an entry.

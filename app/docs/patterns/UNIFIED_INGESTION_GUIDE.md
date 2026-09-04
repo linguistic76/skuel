@@ -1049,9 +1049,18 @@ connections:
     - ku.advanced-ml
   applies_knowledge:           # APPLIES_KNOWLEDGE relationship
     - ku.statistics
-  fulfills_goal:               # FULFILLS_GOAL relationship
+  fulfills_goal:               # FULFILLS_GOAL relationship (+ stamps fulfills_goal_uid)
     - goal.learn-ml
 ```
+
+**A Task's goal link lands twice.** `connections.fulfills_goal` writes the
+`FULFILLS_GOAL` edge AND stamps its first target as the `fulfills_goal_uid` node
+column — the same dual-write the app doors perform, so the in-hand readers (relevance
+scoring, the completion → goal-progress cascade, `get_tasks_for_goal`) see a vault task's
+goal too. A bare `fulfills_goal_uid:` authors the connection (edge + target validation);
+a file naming no goal clears a stale column on re-ingest together with the edge the
+authored-edge diff retracts. Invariant: property == edge target
+(`core/services/ingestion/preparer.py`, `_reconcile_task_goal_link`).
 
 **Retraction on re-ingest.** A target dropped from any registered relationship
 field loses its edge on the file's next ingest — both doors (`ingest_file` and

@@ -56,11 +56,50 @@ from core.services.domain_config import create_activity_domain_config
 from core.services.mixins.hierarchy_read_mixin import HierarchyReadMixin
 from core.services.mixins.link_edge_guard import (
     KNOWLEDGE_LABELS,
+    EdgeTuple,
     LinkEdge,
     keep_permitted_link_edges,
 )
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
+
+
+@dataclasses.dataclass(frozen=True)
+class WrittenLinks:
+    """What ``_write_link_edges`` actually put in the graph.
+
+    Everything downstream of the batch is derived from these — the substance
+    announcements and the goal-property reconciliation — never from what the request
+    asked for, so a refused or dangling link cannot claim an edge that does not exist.
+
+    Attributes:
+        applied_knowledge_uids: APPLIES_KNOWLEDGE targets written, deduplicated in order.
+        goal_uid: the FULFILLS_GOAL target written, or ``None`` when no goal edge exists.
+    """
+
+    applied_knowledge_uids: tuple[str, ...] = ()
+    goal_uid: str | None = None
+
+    @classmethod
+    def from_edges(cls, relationships: list[EdgeTuple]) -> WrittenLinks:
+        # DEDUPED: the batch MERGEs, so a UID repeated in the request yields ONE edge —
+        # but the bulk substance event UNWINDs what it is given, crediting the knowledge
+        # once per row. dict.fromkeys keeps the order.
+        applied = dict.fromkeys(
+            target
+            for _source, target, rel_type, _props in relationships
+            if rel_type == RelationshipName.APPLIES_KNOWLEDGE.value
+        )
+        goal_uid = next(
+            (
+                target
+                for _source, target, rel_type, _props in relationships
+                if rel_type == RelationshipName.FULFILLS_GOAL.value
+            ),
+            None,
+        )
+        return cls(applied_knowledge_uids=tuple(applied), goal_uid=goal_uid)
+
 
 # The HAS_SUBTASK edge's weight when the caller cannot supply one. It is a property of
 # the EDGE, not of Task, so the entity door has nothing to pass — same value
@@ -252,15 +291,15 @@ class TasksCoreService(
         Tasks declare no ``_validate_create`` hook (see the comment above ``_validate_update``
         — the rule that lived there was deleted in #963 as contradicting the DSL and
         GoalTaskGenerator), so unlike Goals, Habits, Events and Choices there is no
-        validation to reach here. What this primitive reconciles is the EVENT half — and,
-        since #966, the two ENTITY-CARRIED links below.
+        validation to reach here. What this primitive reconciles is the EVENT half and
+        the three ENTITY-CARRIED links.
 
-        ``parent_uid`` and ``reinforces_habit_uid`` are written here rather than in
-        ``create_task`` because both ride on the Task, so both doors can write them.
-        Leaving them on the request door alone is what made ``POST /api/tasks/create``
-        lose them entirely: the mapper skips ``parent_uid``, so a subtask created through
-        the API had no parent at ALL, and ``reinforces_habit_uid`` landed as a node
-        property no reader consults instead of an edge (both measured 2026-08-05).
+        ``parent_uid``, ``reinforces_habit_uid`` and ``fulfills_goal_uid`` are written
+        here rather than in ``create_task`` because all three ride on the Task, so both
+        doors can write them. A link left on the request door alone is a link the entity
+        door never writes (``POST /api/tasks/create`` hands the service an entity and no
+        request). The first two are edge-only — the mapper keeps them off the node; the
+        goal is dual-written, property AND edge (see ``_write_link_edges``).
 
         Args:
             entity: Task to create
@@ -292,13 +331,13 @@ class TasksCoreService(
         and no list edges written).
 
         Mirrors ``GoalsCoreService._create_with_hierarchy``, with one difference that
-        cost a RED test: BOTH of Tasks' entity-carried links are RELATIONSHIP_SKIP_FIELDS,
-        so they DO NOT SURVIVE THE ROUND-TRIP. ``backend.create`` returns
-        ``from_neo4j_node(props, Task)`` over the properties it wrote, and the mapper
-        dropped these two on the way in — so ``result.value.parent_uid`` is always None.
-        They are read off the INPUT entity and passed down explicitly. Goals is not a
-        guide here: ``Goal.fulfills_goal_uid`` is a real node column, so its round-trip
-        keeps it.
+        cost a RED test: two of Tasks' entity-carried links (``parent_uid``,
+        ``reinforces_habit_uid``) are RELATIONSHIP_SKIP_FIELDS, so they DO NOT SURVIVE THE
+        ROUND-TRIP. ``backend.create`` returns ``from_neo4j_node(props, Task)`` over the
+        properties it wrote, and the mapper dropped these two on the way in — so
+        ``result.value.parent_uid`` is always None. They are read off the INPUT entity and
+        passed down explicitly. ``fulfills_goal_uid`` is the third link and a real node
+        column, so the persisted task carries it and ``_write_link_edges`` reads it there.
         """
         result: Result[Task] = await self._create_validated(entity)
         if result.is_error:
@@ -306,14 +345,52 @@ class TasksCoreService(
 
         task: Task = result.value
         await self._write_hierarchy_edge(task, entity.parent_uid, progress_weight)
-        written_knowledge_uids = await self._write_link_edges(
-            task, entity.reinforces_habit_uid, request
-        )
+        written = await self._write_link_edges(task, entity.reinforces_habit_uid, request)
+        task = await self._reconcile_goal_property(task, written.goal_uid)
 
-        # Every edge is written — only now announce the task.
+        # Every edge is written and the goal stamp agrees with the graph — only now
+        # announce the task.
         await self._publish_created(task)
-        await self._publish_knowledge_substance(task, written_knowledge_uids)
-        return result
+        await self._publish_knowledge_substance(task, list(written.applied_knowledge_uids))
+        return Result.ok(task)
+
+    async def _reconcile_goal_property(self, task: Task, written_goal_uid: str | None) -> Task:
+        """Keep ``fulfills_goal_uid`` equal to the FULFILLS_GOAL edge target.
+
+        The goal link is dual-written — see ``_write_link_edges``. When the edge was
+        refused (missing, another user's, not a Goal) or the batch failed, the property the
+        create just persisted names a goal the graph does not connect, so it is CLEARED and
+        the returned task says so. A dangling stamp would satisfy no reader anyway: the
+        relevance scorer checks it against the user's active goals and the goal-progress
+        cascade addresses the goal by it. Runs BEFORE ``_publish_created`` — the
+        ``TaskCreated`` rebuild caches the task for 300s.
+
+        A failed clear is logged at ERROR and the task is returned as persisted: the stamp
+        is still on the node, and the caller must not be told otherwise.
+
+        ``backend.update`` bypasses ``_validate_update`` by design: that hook reads
+        ``priority`` and ``due_date``, neither of which this one-field patch touches.
+        """
+        if not task.fulfills_goal_uid or written_goal_uid == task.fulfills_goal_uid:
+            return task
+
+        cleared = await self.backend.update(task.uid, {"fulfills_goal_uid": None})
+        if cleared.is_error:
+            self.logger.error(
+                "Task %s keeps fulfills_goal_uid=%s with no FULFILLS_GOAL edge behind it — "
+                "the clearing write failed: %s",
+                task.uid,
+                task.fulfills_goal_uid,
+                cleared.error,
+            )
+            return task
+
+        self.logger.warning(
+            "Cleared fulfills_goal_uid=%s on task %s: its FULFILLS_GOAL edge was not written",
+            task.fulfills_goal_uid,
+            task.uid,
+        )
+        return dataclasses.replace(task, fulfills_goal_uid=None)
 
     async def _create_validated(self, entity: Task) -> Result[Task]:
         """Persist, publishing NOTHING.
@@ -393,52 +470,57 @@ class TasksCoreService(
 
     async def _write_link_edges(
         self, task: Task, habit_uid: str | None, request: TaskCreateRequest | None
-    ) -> list[str]:
+    ) -> WrittenLinks:
         """GRAPH-NATIVE: turn the task's cross-domain links into edges, in one batch.
 
-        Five registered relationships, from two different sources:
+        Six registered relationships, from two sources:
 
         - ``Task.reinforces_habit_uid`` → REINFORCES_HABIT — from the ENTITY, so BOTH
-          doors write it. Passed in as ``habit_uid`` rather than read off ``task``,
-          which cannot carry it once persisted (see ``_create_with_links``). The route
-          converter was setting this field and the mapper was
-          persisting it as a node PROPERTY, which no reader consults: every reader of the
-          name resolves it from the edge (``get_habit_links_for_tasks`` for Tasks, the
-          registry's ``habit_context``). It is now skipped by the mapper and written here.
+          doors write it. Passed in as ``habit_uid`` rather than read off ``task``, which
+          cannot carry it once persisted (see ``_create_with_links``). Edge-only: the
+          mapper's RELATIONSHIP_SKIP_FIELDS keeps the uid off the node, and every reader
+          resolves the habit from the edge.
+        - ``Task.fulfills_goal_uid`` → FULFILLS_GOAL — from the ENTITY, both doors, read
+          off the persisted ``task`` (it is a real node column). DUAL-WRITTEN: the property
+          stays, and this edge is written beside it — the same shape as
+          ``Exercise.path_step_uid`` + HAS_EXERCISE, and ADR-086's ``user_uid`` + ``:OWNS``.
+          The property serves the readers that hold the task in hand (the relevance
+          scorer, the completion → goal-progress cascade, the edit form's picker); the
+          edge serves every graph reader — the goal's open-task count that gates
+          ``cancel_goal``, the goals-for-tasks batch behind daily planning, the
+          MEGA-QUERY's ``goal_context`` and ``goal_tasks``, goal-aligned traversals. The
+          invariant, held by ``_reconcile_goal_property``: property == edge target,
+          wherever both exist — a refused edge clears the property.
         - ``applies_knowledge_uids``   → APPLIES_KNOWLEDGE  (request only)
         - ``prerequisite_knowledge_uids`` → REQUIRES_KNOWLEDGE (request only)
         - ``aligned_principle_uids``   → ALIGNED_WITH_PRINCIPLE (request only)
         - ``prerequisite_task_uids``   → BLOCKED_BY (request only)
 
-        All five are declared ``outgoing`` from the task, so the task is the source of
-        every tuple. Edge properties are ``None``, matching both the pre-existing create
-        writes and the update path's ``_sync_relationship_edges``, so a task linked at
-        creation is indistinguishable from one linked afterwards.
+        All six are declared ``outgoing`` from the task, so the task is the source of
+        every tuple. Edge properties are ``None``, matching the update path's
+        ``_sync_relationship_edges``, so a task linked at creation is indistinguishable
+        from one linked afterwards.
 
-        The last two joined when ``create_task_with_context`` was routed through this
-        primitive: ``create_task`` had silently DROPPED both request lists, and the
-        context door — the one writer they had — spelled the principle edge with the
-        raw string ``"ALIGNED_WITH"``, a name the relationship registry does not know.
-        ``create_relationships_batch`` validates every tuple against the registry and
-        is all-or-nothing, so any request naming a principle lost its habit, knowledge
-        and prerequisite-task edges along with it, as a logged warning on a create that
-        reported success. Every reader resolves principles from ALIGNED_WITH_PRINCIPLE
-        (the user-context MEGA-QUERY, the registry's ``aligned_principles``).
+        ``create_relationships_batch`` validates every tuple against the registry and is
+        all-or-nothing — one refused tuple loses every edge in the batch, as a logged
+        warning on a create that reports success. That is why every UID is admitted
+        first (below) rather than handed to the batch raw.
 
         ADMISSION: every one of these UIDs is request input, so each is checked for
-        existence, OWNER and KIND before it becomes an edge — see
-        ``keep_permitted_link_edges``. The knowledge lists were previously written
-        unguarded, which #965 recorded as the same defect class it fixed for Goals and
-        Habits; they are guarded here because they share this batch. The declared labels
-        come from the field names: ``reinforces_habit_uid`` means a Habit, the knowledge
-        lists mean Kus (KNOWLEDGE_LABELS — see there for why the atom and not the
-        PathStep), ``aligned_principle_uids`` means Principles, and
-        ``prerequisite_task_uids`` means the caller's own Tasks.
+        existence, OWNER and KIND before it becomes an edge — ``keep_permitted_link_edges``.
+        The declared kinds come from the field names: ``reinforces_habit_uid`` means a
+        Habit, ``fulfills_goal_uid`` a Goal (goals are OWNER_ONLY, and the goal readers do
+        not filter the task's owner — a cross-user edge would count the caller's task in
+        another user's goal progress), the knowledge lists mean Kus (KNOWLEDGE_LABELS —
+        see there for why the atom and not the PathStep), ``aligned_principle_uids``
+        Principles, and ``prerequisite_task_uids`` the caller's own Tasks.
 
         Returns:
-            The APPLIES_KNOWLEDGE uids actually WRITTEN — the caller announces substance
-            from these, never from what was requested, so a refused or dangling link
-            cannot claim knowledge was applied when no edge exists.
+            The edges actually WRITTEN, as ``WrittenLinks`` — the caller announces
+            substance and reconciles the goal stamp from these, never from what was
+            requested, so a refused or dangling link cannot claim an edge that does not
+            exist. Empty when the batch failed: it is all-or-nothing, so NOTHING was
+            written.
 
         A failure is logged, not propagated — the task itself is created.
         """
@@ -455,6 +537,20 @@ class TasksCoreService(
                     ),
                     other_uid=habit_uid,
                     allowed_labels=frozenset({NeoLabel.HABIT.value}),
+                )
+            )
+
+        if task.fulfills_goal_uid:
+            candidates.append(
+                LinkEdge(
+                    (
+                        task.uid,
+                        task.fulfills_goal_uid,
+                        RelationshipName.FULFILLS_GOAL.value,
+                        None,
+                    ),
+                    other_uid=task.fulfills_goal_uid,
+                    allowed_labels=frozenset({NeoLabel.GOAL.value}),
                 )
             )
 
@@ -493,7 +589,7 @@ class TasksCoreService(
             )
 
         if not candidates:
-            return []
+            return WrittenLinks()
 
         relationships = await keep_permitted_link_edges(
             self.backend,
@@ -503,7 +599,7 @@ class TasksCoreService(
             logger=self.logger,
         )
         if not relationships:
-            return []
+            return WrittenLinks()
 
         batch_result = await self.backend.create_relationships_batch(relationships)
         if batch_result.is_error:
@@ -516,18 +612,9 @@ class TasksCoreService(
             # The batch is all-or-nothing, so a failure means NOTHING was written.
             # Reporting the admitted uids here would announce substance for edges that
             # do not exist.
-            return []
+            return WrittenLinks()
 
-        # DEDUPED: the batch MERGEs, so a UID repeated in the request yields ONE edge —
-        # but the bulk substance event UNWINDs what it is given, crediting the knowledge
-        # once per row. dict.fromkeys keeps the order. (Habits' sibling, #965.)
-        return list(
-            dict.fromkeys(
-                target_uid
-                for _src, target_uid, rel_type, _props in relationships
-                if rel_type == RelationshipName.APPLIES_KNOWLEDGE.value
-            )
-        )
+        return WrittenLinks.from_edges(relationships)
 
     async def _publish_created(self, task: Task) -> None:
         """Announce a newly created task: TaskCreated + the ADR-074 embedding refresh.
@@ -605,10 +692,10 @@ class TasksCoreService(
         and the request's four link lists (two knowledge, principles, prerequisite tasks)
         are forwarded because only this door has the request: all five are EDGE-shaped,
         so none rides an entity and the entity door cannot carry them. Since the
-        generated route was bound here, every external create comes through this door. The HAS_SUBTASK
-        and REINFORCES_HABIT edges, whose endpoints DO ride on the entity, are written by
-        the shared path for both doors — writing them here as well would double-write
-        them.
+        generated route was bound here, every external create comes through this door.
+        The HAS_SUBTASK, REINFORCES_HABIT and FULFILLS_GOAL edges, whose endpoints DO ride
+        on the entity, are written by the shared path for both doors — writing them here
+        as well would double-write them.
 
         Args:
             task_request: Task creation request

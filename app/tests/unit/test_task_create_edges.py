@@ -85,6 +85,17 @@ lists — ``aligned_principle_uids`` → ALIGNED_WITH_PRINCIPLE and
 ``prerequisite_task_uids`` → BLOCKED_BY — into ``_write_link_edges``, which closes a
 second silent gap: ``create_task`` (DOOR B) had been DROPPING both lists entirely.
 
+THE GOAL LINK (sixth chapter)
+-----------------------------
+``fulfills_goal_uid`` is the third entity-carried link and the one that is DUAL-WRITTEN: a
+real node column (the relevance scorer, the completion → goal-progress cascade and the
+edit form's picker read it off the task in hand) AND the FULFILLS_GOAL edge (what every
+goal-side reader traverses — the open-task count gating ``cancel_goal``, the planner's
+goals-for-tasks batch, the MEGA-QUERY's ``goal_context``). The app doors wrote only the
+column, so an app-created task never counted toward its goal. The edge now shares the
+batch and the guard; the invariant is property == edge target, so a refused edge CLEARS
+the column — the one non-edge write the create path makes, ordered before ``TaskCreated``.
+
 No Neo4j: the backend is stubbed, so what is under test is the service wiring — which is
 exactly where the defect lived.
 """
@@ -126,6 +137,7 @@ HABIT_UID = "habit:morning-pages"
 KU_ONE = "ku.python.decorators"
 KU_TWO = "ku.python.generators"
 PRINCIPLE_UID = "principle:deep-work"
+GOAL_UID = "goal:ship-v1"
 PREREQ_TASK = "task:read-the-paper"
 
 
@@ -167,7 +179,7 @@ class StubBackend:
         self.owners: dict[str, str] = {}
         self.shared: set[str] = set()
         # uid -> Neo4j labels, for the KIND check. Absent uids default to carrying every
-        # label these fields accept (habit, knowledge, principle, prerequisite-task), so
+        # label these fields accept (goal, habit, knowledge, principle, prerequisite-task), so
         # tests that are not ABOUT the kind check are unaffected. ``missing`` stages a
         # UID resolving to NO node.
         self.labels: dict[str, list[str]] = {}
@@ -178,11 +190,28 @@ class StubBackend:
         # Force the two writers to fail, to pin "the task is created anyway".
         self.batch_fails: bool = False
         self.hierarchy_fails: bool = False
+        # (uid, patch) as handed to ``update`` — the ONE non-edge write the create path
+        # makes: clearing ``fulfills_goal_uid`` when its FULFILLS_GOAL edge was refused,
+        # so the property and the edge never disagree. ``update_fails`` pins what the
+        # returned task says when even that clear cannot land.
+        self.updated: list[tuple[str, dict[str, Any]]] = []
+        self.update_fails: bool = False
 
     async def create(self, entity: Any) -> Result[Any]:
         props = to_neo4j_node(entity)
         self.created.append(dict(props))
         self.trace.append("node_created")
+        return Result.ok(from_neo4j_node(props, self._model))
+
+    async def update(self, uid: str, updates: dict[str, Any]) -> Result[Any]:
+        """Apply a property patch to the created node, the way ``SET n += $updates`` does
+        (a ``None`` value REMOVES the property)."""
+        if self.update_fails:
+            self.trace.append("goal_property_clear_failed")
+            return Result.fail(Errors.database(operation="update", message="clear exploded"))
+        self.updated.append((uid, dict(updates)))
+        self.trace.append("goal_property_cleared")
+        props = {**self.created[-1], **updates}
         return Result.ok(from_neo4j_node(props, self._model))
 
     async def get(self, uid: str) -> Result[Any]:
@@ -212,7 +241,7 @@ class StubBackend:
         """uid -> labels, defaulting to every kind these fields accept."""
         return Result.ok(
             {
-                uid: self.labels.get(uid, ["Entity", "Habit", "Ku", "Principle", "Task"])
+                uid: self.labels.get(uid, ["Entity", "Goal", "Habit", "Ku", "Principle", "Task"])
                 for uid in uids
                 if uid not in self.missing
             }
@@ -622,6 +651,202 @@ class TestEventHabitUidIsNotAProperty:
 
 
 # ============================================================================
+# THE GOAL LINK — dual-written: property AND edge
+# ============================================================================
+
+
+@pytest.mark.asyncio
+class TestTaskGoalEdgeIsDualWritten:
+    """``fulfills_goal_uid`` is BOTH a node property and a FULFILLS_GOAL edge.
+
+    The property is a real column (the relevance scorer, the completion → goal-progress
+    cascade and the edit form's picker read it off the entity in hand); the edge is what
+    every graph reader traverses — goal progress, the open-task count that gates
+    ``cancel_goal``, the MEGA-QUERY's ``goal_context`` / ``goal_tasks``, the daily
+    planner's goal batch. Before this, the app doors wrote the property and no edge, so
+    an app-created task never counted toward its goal; the vault door wrote the edge and
+    no property. The invariant pinned here: property == edge target, wherever both exist.
+    A refused edge therefore CLEARS the property rather than leaving a stamp that names a
+    goal the graph does not connect.
+    """
+
+    async def test_request_door_writes_the_edge(
+        self, core: TasksCoreService, backend: StubBackend
+    ) -> None:
+        result = await core.create_task(make_request(fulfills_goal_uid=GOAL_UID), USER_UID)
+
+        assert result.is_ok
+        assert edges_of(backend, RelationshipName.FULFILLS_GOAL) == [
+            (result.value.uid, GOAL_UID, "FULFILLS_GOAL", None)
+        ]
+
+    async def test_entity_door_writes_the_edge_too(
+        self, facade: TasksService, backend: StubBackend
+    ) -> None:
+        """The field rides on the Task, so the shared primitive writes it for BOTH doors —
+        the entity door had no request to read it from, and wrote nothing."""
+        entity = route_entity(make_request(fulfills_goal_uid=GOAL_UID))
+        result = await facade.create(entity)
+
+        assert result.is_ok
+        assert edges_of(backend, RelationshipName.FULFILLS_GOAL) == [
+            (entity.uid, GOAL_UID, "FULFILLS_GOAL", None)
+        ], "the generated CRUD route wrote no FULFILLS_GOAL edge"
+
+    async def test_the_property_is_written_as_well(
+        self, core: TasksCoreService, backend: StubBackend
+    ) -> None:
+        """Dual-write, not a migration to the edge: the property STAYS. Unlike
+        ``reinforces_habit_uid`` it is deliberately NOT in the mapper's skip-set."""
+        result = await core.create_task(make_request(fulfills_goal_uid=GOAL_UID), USER_UID)
+
+        assert result.is_ok
+        assert backend.created[0]["fulfills_goal_uid"] == GOAL_UID
+        assert result.value.fulfills_goal_uid == GOAL_UID
+        assert "fulfills_goal_uid" not in RELATIONSHIP_SKIP_FIELDS
+        assert backend.updated == [], "an admitted goal needs no clearing write"
+
+    async def test_both_doors_carry_the_field_on_the_entity(self) -> None:
+        request = make_request(fulfills_goal_uid=GOAL_UID)
+
+        assert Task.from_request(request, user_uid=USER_UID).fulfills_goal_uid == GOAL_UID
+        assert route_entity(request).fulfills_goal_uid == GOAL_UID
+
+    async def test_edge_agrees_with_the_registry(
+        self, core: TasksCoreService, backend: StubBackend
+    ) -> None:
+        """Direction is the registry's to declare; the create path writes the task as the
+        edge SOURCE, which only agrees with an ``outgoing`` spec."""
+        spec = TASKS_CONFIG.get_relationship_by_method("fulfills_goal")
+        assert spec is not None, "TASKS_CONFIG has no 'fulfills_goal' relationship"
+        assert spec.relationship == RelationshipName.FULFILLS_GOAL
+        assert spec.direction == "outgoing"
+        assert spec.target_label == "Goal"
+
+        result = await core.create_task(make_request(fulfills_goal_uid=GOAL_UID), USER_UID)
+        assert result.is_ok
+
+        written = edges_of(backend, spec.relationship)
+        assert written[0][0] == result.value.uid, "the task must be the edge SOURCE"
+        assert written[0][1] == GOAL_UID
+
+    async def test_a_task_without_a_goal_writes_no_edge_and_clears_nothing(
+        self, core: TasksCoreService, backend: StubBackend
+    ) -> None:
+        result = await core.create_task(make_request(), USER_UID)
+
+        assert result.is_ok
+        assert backend.batched == []
+        assert backend.updated == []
+
+    async def test_refuses_a_goal_owned_by_another_user_and_clears_the_stamp(
+        self, core: TasksCoreService, backend: StubBackend
+    ) -> None:
+        """Goals are OWNER_ONLY; the goal readers that follow this edge do not filter the
+        task's owner, so a cross-user edge would surface the attacker's task in the
+        victim's goal progress. Refused — and the property goes with it, so the returned
+        task does not name a goal the graph does not connect."""
+        backend.owners[GOAL_UID] = OTHER_USER
+
+        result = await core.create_task(make_request(fulfills_goal_uid=GOAL_UID), USER_UID)
+
+        assert result.is_ok, "the task itself is legitimate and is created"
+        assert edges_of(backend, RelationshipName.FULFILLS_GOAL) == []
+        assert backend.updated == [(result.value.uid, {"fulfills_goal_uid": None})]
+        assert result.value.fulfills_goal_uid is None
+
+    async def test_refuses_a_uid_that_is_not_a_goal(
+        self, core: TasksCoreService, backend: StubBackend
+    ) -> None:
+        """The field name declares the kind: a same-user Habit UID validates against the
+        registry (its target label is ``Goal`` but the batch checks the SOURCE side) and
+        would then be counted as a goal the task fulfills."""
+        backend.labels[GOAL_UID] = ["Entity", "Habit"]
+
+        result = await core.create_task(make_request(fulfills_goal_uid=GOAL_UID), USER_UID)
+
+        assert result.is_ok
+        assert edges_of(backend, RelationshipName.FULFILLS_GOAL) == []
+        assert backend.updated == [(result.value.uid, {"fulfills_goal_uid": None})]
+        assert result.value.fulfills_goal_uid is None
+
+    async def test_a_goal_uid_that_resolves_to_no_node_is_cleared(
+        self, core: TasksCoreService, backend: StubBackend
+    ) -> None:
+        """Not an attack — a goal deleted since the form rendered, or a DSL ``@link``
+        typo. A dangling property would satisfy no reader anyway; clearing it is what
+        keeps the two halves agreeing."""
+        backend.missing.add(GOAL_UID)
+
+        result = await core.create_task(make_request(fulfills_goal_uid=GOAL_UID), USER_UID)
+
+        assert result.is_ok
+        assert backend.batched == []
+        assert backend.updated == [(result.value.uid, {"fulfills_goal_uid": None})]
+        assert result.value.fulfills_goal_uid is None
+
+    async def test_a_failed_batch_clears_the_stamp_too(
+        self, core: TasksCoreService, backend: StubBackend
+    ) -> None:
+        """The batch is all-or-nothing: when it fails, NO edge exists, so the property
+        must not claim one does."""
+        backend.batch_fails = True
+
+        result = await core.create_task(make_request(fulfills_goal_uid=GOAL_UID), USER_UID)
+
+        assert result.is_ok
+        assert backend.updated == [(result.value.uid, {"fulfills_goal_uid": None})]
+        assert result.value.fulfills_goal_uid is None
+
+    async def test_the_clear_lands_before_the_task_is_announced(
+        self, core: TasksCoreService, backend: StubBackend, event_bus: InMemoryEventBus
+    ) -> None:
+        """``TaskCreated`` rebuilds and caches the user context (300s). Announcing first
+        would cache a task whose ``fulfills_goal_uid`` names a goal it is not linked to."""
+        record_task_created(event_bus, backend)
+        backend.owners[GOAL_UID] = OTHER_USER
+
+        await core.create_task(make_request(fulfills_goal_uid=GOAL_UID), USER_UID)
+
+        assert "goal_property_cleared" in backend.trace
+        assert backend.trace.index("goal_property_cleared") < backend.trace.index(
+            "task_created_published"
+        )
+
+    async def test_a_failed_clear_leaves_the_returned_task_honest(
+        self, core: TasksCoreService, backend: StubBackend
+    ) -> None:
+        """When even the clearing write fails, the graph still holds the stamp — so the
+        returned task must say so rather than report a clean state that does not exist."""
+        backend.owners[GOAL_UID] = OTHER_USER
+        backend.update_fails = True
+
+        result = await core.create_task(make_request(fulfills_goal_uid=GOAL_UID), USER_UID)
+
+        assert result.is_ok
+        assert "goal_property_clear_failed" in backend.trace
+        assert result.value.fulfills_goal_uid == GOAL_UID
+
+    async def test_the_goal_edge_is_not_credited_as_applied_knowledge(
+        self, core: TasksCoreService, event_bus: InMemoryEventBus
+    ) -> None:
+        """The substance events are fed from the WRITTEN edges; the goal edge shares the
+        batch but is not knowledge."""
+        await core.create_task(
+            make_request(fulfills_goal_uid=GOAL_UID, applies_knowledge_uids=[KU_ONE]), USER_UID
+        )
+
+        applied = [
+            e
+            for e in event_bus.get_event_history()
+            if isinstance(e, KnowledgeAppliedInTask | KnowledgeBulkAppliedInTask)
+        ]
+        assert len(applied) == 1
+        assert isinstance(applied[0], KnowledgeAppliedInTask)
+        assert applied[0].knowledge_uid == KU_ONE
+
+
+# ============================================================================
 # THE KNOWLEDGE LISTS
 # ============================================================================
 
@@ -636,6 +861,7 @@ class TestTaskKnowledgeLinks:
         result = await core.create_task(
             make_request(
                 reinforces_habit_uid=HABIT_UID,
+                fulfills_goal_uid=GOAL_UID,
                 applies_knowledge_uids=[KU_ONE],
                 prerequisite_knowledge_uids=[KU_TWO],
                 aligned_principle_uids=[PRINCIPLE_UID],
@@ -650,6 +876,7 @@ class TestTaskKnowledgeLinks:
             RelationshipName.APPLIES_KNOWLEDGE.value,
             RelationshipName.REQUIRES_KNOWLEDGE.value,
             RelationshipName.REINFORCES_HABIT.value,
+            RelationshipName.FULFILLS_GOAL.value,
             RelationshipName.ALIGNED_WITH_PRINCIPLE.value,
             RelationshipName.BLOCKED_BY.value,
         }

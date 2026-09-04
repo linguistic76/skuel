@@ -16,11 +16,11 @@ The fixes route through real methods: ``relationships.get_related_uids("prerequi
 Task models. A mocked service can't catch either bug — the only proof is data flowing
 through real Neo4j, which is what these do.
 
-COVERAGE BOUND (deliberate, not silent): ``get_tasks_for_goal`` is NOT a FULFILLS_GOAL
-*edge* reader despite its name — it property-scans ``Task.fulfills_goal_uid``. The fixture
-below links via ``fulfills_goal_uid=goal.uid`` (the API writer, which writes the property),
-so these tests are structurally blind to vault-ingested tasks, which carry only the edge.
-See D3 in ``docs/roadmap/gantt-visualization-surface.md``.
+COVERAGE NOTE: ``get_tasks_for_goal`` reads the node column ``Task.fulfills_goal_uid``, not
+the FULFILLS_GOAL edge. The two agree by construction — the app doors dual-write property
+and edge, the vault door stamps the property from ``connections.fulfills_goal`` — so the
+property-writing fixture below covers vault-ingested tasks as well;
+``test_vault_task_goal_link_parity.py`` pins the vault half.
 """
 
 from datetime import date, timedelta
