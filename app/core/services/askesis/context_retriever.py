@@ -11,9 +11,9 @@ Responsibilities:
 - Identify quick wins and high-impact gaps
 - Generate gap recommendations
 - Find semantically similar knowledge
-- Load PS bundles for Socratic tutoring (absorbed from LSContextLoader)
+- Load PS bundles for Socratic tutoring
 
-This service is part of the refactored AskesisService architecture:
+This service is part of the AskesisService architecture:
 - UserStateAnalyzer: Analyze current user state and patterns
 - ActionRecommendationEngine: Generate personalized action recommendations
 - QueryProcessor: Process and answer natural language queries
@@ -22,15 +22,11 @@ This service is part of the refactored AskesisService architecture:
 - AskesisService: Facade coordinating all sub-services
 
 Architecture:
-- Requires GraphIntelligenceService for graph intelligence queries (optional)
+- Graph queries go through `ku_backend` / `ps_backend` (core/ports protocols)
 - Uses UserContext for user state
 - Loads PS bundles for the Socratic pipeline
-
-March 2026: Absorbed former LSContextLoader into ContextRetriever — single retrieval service.
-August 2026: `embeddings_service` param deleted — stored, never read. Semantic
-retrieval left this class in July 2026 when chunk retrieval moved to SearchRouter;
-the parameter outlived it and an integration test was briefly re-anchored to the
-dead field. The embeddings caller is IntentClassifier.
+- Holds no embeddings client: chunk (RAG) retrieval is routed through
+  SearchRouter, and Askesis's embeddings caller is IntentClassifier
 """
 
 from __future__ import annotations
@@ -105,29 +101,23 @@ _SENTINEL = object()
 #                       tests/unit/test_askesis_intent_filter_activation_guard.py.
 #   GOAL_ACHIEVEMENT  — domain query served from user activity data, not curriculum.
 #
-# ⚠ This map has never filtered anything — and since PR-2 of the activation arc
-# (2026-08-31) the reason changed. Before: the classifier's gate was unreachable,
-# so the map executed on every question and took its no-filter branch. Now the
-# gate IS reachable (IntelligenceThreshold.INTENT_CLASSIFICATION — value and
-# evidence live on the constant), and the map is held off EXPLICITLY: the one
-# production call site (`retrieve_relevant_context`) passes a hard-wired
-# `chunk_types=None` instead of calling `_intent_to_chunk_types` — ruling 1 of
-# docs/roadmap/askesis-intent-classification-activation.md: intent shapes the
-# ANSWER (graph context, suggested actions), never the draw. Ruled staged, not
-# dead (PLANNED_METHODS in scripts/detect_bloat.py).
+# Intent shapes the ANSWER, never the draw: the graph-context branches of
+# `retrieve_relevant_context` and the suggested actions read the intent; the
+# chunk draw does not. The one production call site passes a hard-wired
+# `chunk_types=None` and never calls `_intent_to_chunk_types` (ruling 1 of
+# docs/roadmap/askesis-intent-classification-activation.md). This map is
+# staged, not dead (PLANNED_METHODS in scripts/detect_bloat.py). Switching it
+# on is a separate, gated change that needs the thin-draw fallback in the same
+# commit — the gate, the measured corpus numbers and the rest of the why live
+# in deferred-work § "Per-Domain Chunking Knobs + Chunk-Type-Aware Retrieval",
+# Named work 4. Never a lone edit here.
 #
-# Switching THIS map on is a separate, gated change (deferred-work § "Per-Domain
-# Chunking Knobs + Chunk-Type-Aware Retrieval", Named work 4) and needs the
-# thin-draw fallback in the same commit — over the live 925-chunk corpus it
-# grants 85% of chunks to three intents and 7.1% to EXPLORATORY, on labels that
-# are 78% keyword fallback. Never a lone edit here.
-#
-# ⚠ And the EXPLORATORY row below is wrong on its own terms, whatever the corpus
-# does: EXPLORATORY was settled (2026-08-31) as CATALOG BROWSING — "what is
-# there to learn here?" — while INTRODUCTION/SUMMARY/DEFINITION type an answer to
-# TOPIC ORIENTATION ("introduce me to stoicism"), which is a content question and
-# classifies SPECIFIC. Re-derive that row before switching anything on; a richer
-# `introduction` population would not make it right.
+# ⚠ The EXPLORATORY row below is wrong on its own terms, whatever the corpus
+# does: EXPLORATORY is CATALOG BROWSING — "what is there to learn here?" —
+# while INTRODUCTION/SUMMARY/DEFINITION type an answer to TOPIC ORIENTATION
+# ("introduce me to stoicism"), which is a content question and classifies
+# SPECIFIC (activation-arc ruling 3). Re-derive that row before switching
+# anything on; a richer `introduction` population would not make it right.
 _INTENT_CHUNK_TYPES: dict[QueryIntent, tuple[ContentChunkType, ...]] = {
     QueryIntent.PREREQUISITE: (ContentChunkType.DEFINITION, ContentChunkType.EXPLANATION),
     QueryIntent.PRACTICE: (ContentChunkType.EXERCISE, ContentChunkType.EXAMPLE),
@@ -150,9 +140,9 @@ def _intent_to_chunk_types(intent: QueryIntent) -> list[str] | None:
     (SPECIFIC), aggregate, or user-data queries where any chunk type is fair game.
 
     STAGED, no production caller: `retrieve_relevant_context` hard-wires
-    `chunk_types=None` (see the comment above the map). Live callers are the
-    activation guard tests and `scripts/eval_askesis_chunk_draw.py`, which uses
-    it to measure the filter's counterfactual arms for PR-3.
+    `chunk_types=None` (see the comment above the map). Live callers are tests
+    and `scripts/eval_askesis_chunk_draw.py`, which uses it to measure the
+    filter's counterfactual arms.
     """
     chunk_types = _INTENT_CHUNK_TYPES.get(intent)
     if chunk_types is None:
@@ -176,14 +166,8 @@ class ContextRetriever:
     - Chunk (RAG) retrieval flows through SearchRouter.retrieve_scoped_chunks —
       the single path for external search access, so a facet scope narrows Ask's
       passages exactly as it narrows Find's cards.
-    - Returns frozen dataclasses (LearningContext)
-
-    March 2026: Both services required — no graceful degradation.
-    March 2026: Absorbed LSContextLoader — all retrieval in one service.
-    July 2026: Chunk retrieval routed through SearchRouter (PR2 — Scoped Ask).
-    August 2026: `embeddings_service` deleted — July's reroute made it dead.
-    August 2026: `graph_intel` deleted — superseded by ku_backend/ps_backend
-    when the March 2026 Cypher migration (e4ac7a9ed) removed its last read.
+    - Returns Result-wrapped dicts (learning context, gap analysis) and the
+      frozen PsBundle
     """
 
     def __init__(
@@ -198,14 +182,14 @@ class ContextRetriever:
         events_service: "VisibleEntityLookup[Event] | None" = None,
         principles_service: "VisibleEntityLookup[Principle] | None" = None,
         lp_service: "EntityLookup[LearningPath] | None" = None,
-        # Backends for graph queries (migrated from inline Cypher)
+        # Backends for graph queries
         ku_backend: KuOperations | None = None,
         ps_backend: KnowledgeContextOperations | None = None,
         # Engagement service — None falls back to legacy (unengaged) selection.
         # Always wired in production (FULL tier); optional only for unit-test
         # construction without a full engagement-service mock.
         ps_engagement_service: Any | None = None,  # boundary: PsEngagementService
-        # Aggregation tool selection (tool-selection first slice, 2026-08-31).
+        # Aggregation tool selection.
         # Both wired in production (FULL tier); optional only for unit-test
         # construction — an AGGREGATION verdict with either missing yields a
         # deterministic AggregationUnavailable, never a fall-through.
@@ -311,11 +295,11 @@ class ContextRetriever:
             if user_context.current_learning_path_uid:
                 context["current_path"] = user_context.current_learning_path_uid
 
-        # For count questions, run the aggregation tool-selection pipeline
-        # (tool-selection first slice, ruled 2026-08-31). The outcome object is
-        # TYPED and deterministic — QueryProcessor delivers it as the answer
-        # (or the decline/unavailable text) and swaps in its JSON-safe
-        # projection before the context dict reaches the response.
+        # For count questions, run the aggregation tool-selection pipeline.
+        # The outcome object is TYPED and deterministic — QueryProcessor
+        # delivers it as the answer (or the decline/unavailable text) and swaps
+        # in its JSON-safe projection before the context dict reaches the
+        # response.
         elif intent == QueryIntent.AGGREGATION:
             context["aggregation"] = await self._aggregation_outcome(query, user_context.user_uid)
 
@@ -352,14 +336,9 @@ class ContextRetriever:
         # actual passage that matched, with the owning PathStep surfaced via the
         # chunk → content → entity join for citation.
         #
-        # `chunk_types` is hard-wired None — intent shapes the ANSWER (the
-        # branches above), never the draw (ruling 1, activation arc 2026-08-30).
-        # Deriving it from the intent here (`_intent_to_chunk_types`) would
-        # activate the staged `_INTENT_CHUNK_TYPES` filter as a side effect of
-        # the gate becoming reachable, without the thin-draw fallback that
-        # switching the filter on requires (deferred-work § Named work 4 — PR-3,
-        # gated). Reconnecting the map is that PR's whole change, never an edit
-        # riding along here.
+        # `chunk_types=None` is deliberate — intent never narrows the draw; the
+        # rule and its why live at `_INTENT_CHUNK_TYPES`. Reconnecting the map
+        # is the gated filter change, never an edit riding along here.
         relevant_chunks = await self._find_similar_chunks(
             query, user_context.user_uid, chunk_types=None, scope=scope
         )
@@ -393,12 +372,11 @@ class ContextRetriever:
         """
         Get user's complete learning context, served from UserContext.
 
-        UserContext (built once via MEGA-QUERY) already carries every field this
-        method previously re-queried via PsBackend. Serving from it eliminates
-        one Cypher round-trip per Askesis turn.
+        UserContext (built once via MEGA-QUERY) carries every field this method
+        serves, so an Askesis turn costs no PsBackend round-trip here.
 
-        Returns the same dict shape as before so existing consumers
-        (query_processor, analyze_knowledge_gaps) keep working without change.
+        Consumers such as query_processor and analyze_knowledge_gaps read this
+        dict shape directly.
 
         Args:
             user_context: Rich UserContext (entities_rich/knowledge_units_rich
@@ -594,7 +572,7 @@ class ContextRetriever:
         # and real Ku↔Ku lateral edges touching the bundle's KUs. Done after
         # path_steps/kus resolve so we know which UIDs to traverse from.
         # The anchor PS leads the resource list — its own citations are the most
-        # relevant resources in the bundle (first live data: Arc D, 2026-07-03).
+        # relevant resources in the bundle.
         related_ps_uids = [a.uid for a in related_ps]
         ku_uids_list = [k.uid for k in kus]
         ring2_raw = await asyncio.gather(
@@ -918,10 +896,11 @@ class ContextRetriever:
 
         These are authored curriculum connections (RELATED_TO, PREREQUISITE_FOR,
         COMPLEMENTARY_TO, ...) with the Edge-file ``evidence`` text — the
-        material SURFACE_CONNECTION prompts surface. This replaced the former
-        pseudo-edges derived from graph_context.knowledge_relationships, which
-        carried no source, no relationship type, and no evidence (the step→KU
-        composition list still drives ``_fetch_kus``/``_fetch_related_path_steps``).
+        material SURFACE_CONNECTION prompts surface. They are read from the
+        graph, never derived from graph_context.knowledge_relationships: that
+        list is the step's own outgoing knowledge edges — one target per entry,
+        no Ku↔Ku pair, no evidence — and drives only
+        ``_fetch_kus``/``_fetch_related_path_steps``.
 
         Backend: _KnowledgeContextMixin.get_ku_lateral_edges — either endpoint
         in ``ku_uids``; an authored connection can point INTO the bundle.
@@ -1005,11 +984,12 @@ class ContextRetriever:
 
         Args:
             query: User's question
-            _user_uid: User identifier (forwarded to the router; reserved for
-                future owner-scoped chunk visibility).
+            _user_uid: User identifier — the audience the router scopes the
+                chunk draw to (ADR-085).
             chunk_types: Optional filter of persisted ``ContentChunkType`` values
-                (e.g. ``["definition", "example"]``) derived from the classified
-                intent. Lowercase: chunks are written as ``chunk_type.value``.
+                (e.g. ``["definition", "example"]``). Lowercase: chunks are
+                written as ``chunk_type.value``. The production caller passes
+                None — see ``_INTENT_CHUNK_TYPES``.
             scope: Optional facet scope; its facets (e.g. ``nous``) scope the
                 :ContentChunk hits to the owning entities. When None, an
                 unscoped SearchRequest is built from the query alone.
