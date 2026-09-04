@@ -981,10 +981,10 @@ class SearchRouter:
                 )
                 response = Result.ok(augmented)
 
-            # Response enrichment (July 2026 — the formerly writer-less
-            # fields): facet counts derive from the returned window, and
-            # capacity warnings come from the WARM UserContext cache only —
-            # neither adds a query to the keystroke-driven /search path.
+            # Response enrichment: facet counts derive from the returned
+            # window, and capacity warnings come from the WARM UserContext
+            # cache only — neither adds a query to the keystroke-driven
+            # /search path.
             if response.is_ok:
                 if request.include_facet_counts and response.value.results:
                     response.value.facet_counts = build_facet_counts(response.value.results)

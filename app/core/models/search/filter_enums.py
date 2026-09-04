@@ -60,8 +60,8 @@ class SearchSortOrder(StrEnum):
 
     THE implemented sort set — every member here is honored end-to-end
     (route → SearchRequest → graph_aware_faceted_search → ORDER BY in
-    faceted_search_raw). Do not add members without wiring them through;
-    unimplemented options were deleted in July 2026 (One Path Forward).
+    faceted_search_raw). Do not add members without wiring them through
+    (One Path Forward).
     """
 
     # Text-search relevance / recency default. No explicit field: the

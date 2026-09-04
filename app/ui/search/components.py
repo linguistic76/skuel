@@ -3,9 +3,9 @@ Search UI Components
 ====================
 
 FastHTML components for the search page: query box (+ optional Ask verb),
-horizontal filter bar (off-canvas drawer on mobile), active-filter badges and a
-top-N results grid (no pagination — search is a find-the-thing tool; #555 ruled
-DROP 2026-08-28: one page-only query, no match-set count, nothing to page).
+horizontal filter bar (off-canvas drawer on mobile), active-filter badges and
+the results grid. Search is a find-the-thing tool: one page-only query, a
+top-N grid, no match-set count. See: docs/roadmap/done/search-facet-redesign.md.
 
 Design Philosophy:
     "Users can handle complexity, but they need visual calm to process it."
@@ -437,8 +437,8 @@ def _render_filter_panel(
 # Ku is still a live result type — `SEARCH_PAGE_ENTITY_TYPES` in
 # adapters/inbound/search_routes.py scopes the RESULTS to these six plus Ku —
 # but it is reached through the **Nous** facet, not through this dropdown.
-# PathStep, LearningPath and UserEntry left the results in PR #1155; this is the
-# matching half, so the dropdown can no longer offer a type the page refuses.
+# PathStep, LearningPath and UserEntry are not results on this page, and the
+# dropdown offers no type the page refuses.
 #
 # Values are canonical `EntityType` values, per the emission rule
 # (ENUM_ARCHITECTURE § Canonical Values vs Aliases): aliases like "ps" stay valid
@@ -637,9 +637,8 @@ def _render_sort_select() -> Any:
     """Sort order dropdown for the primary filter row.
 
     Options mirror SearchSortOrder exactly — every entry here is honored
-    end-to-end by the faceted path. The formerly-listed domain-specific sorts
-    (priority/due-date/progress/streak) were never implemented and were
-    deleted with them in July 2026 (One Path Forward: no fake options).
+    end-to-end by the faceted path, and no option is offered that the path does
+    not implement (One Path Forward: no fake options).
     """
     sort_options = [
         (SearchSortOrder.RELEVANCE.value, "Relevance"),
@@ -699,8 +698,7 @@ _FREQUENCY_OPTIONS = [
     ("monthly", "Monthly"),
 ]
 
-# Derived from the enum so the facet can never drift from the canonical
-# vocabulary again (it used to offer ActivityType names no Event ever carried).
+# Derived from the enum so the facet cannot drift from the canonical vocabulary.
 _EVENT_TYPE_OPTIONS = [
     ("", "All"),
     *((t.value, t.value.title()) for t in EventType),
@@ -765,7 +763,7 @@ def _context_field(name: str, label_text: str, options: list[tuple[str, str]]) -
     Task search — guaranteed zero rows, the defect class this surface refuses.
     htmx omits disabled elements, so hiding and withholding stay in step. The
     value is KEPT, not cleared: returning to that scope restores the filter
-    visibly, rather than silently dropping what the user chose. (Codex, #1157.)
+    visibly, rather than silently dropping what the user chose.
     """
     return Div(
         Label(label_text, fr=name, cls="block py-0.5"),
@@ -1015,8 +1013,8 @@ def _render_domain_breakdown(response: SearchResponse) -> Any | None:
     # instead of narrowing. Stamps and option values both speak canonical
     # EntityType values, so membership is a direct check.
     #
-    # ⚠️ Accepted consequence of the facet redesign: **the "Ku" chip is no longer
-    # clickable.** Ku is still a live result type but left the Type dropdown, so
+    # ⚠️ Accepted consequence of the facet redesign: **the "Ku" chip is not
+    # clickable.** Ku is a live result type but not a Type-dropdown option, so
     # it falls to the plain Badge below and reports its count without narrowing.
     # That is the honest rendering, not a regression to repair here — the chip
     # can only set the control the dropdown owns, and "narrow to Ku" is not the
@@ -1046,13 +1044,10 @@ def _render_domain_breakdown(response: SearchResponse) -> Any | None:
 def _results_headline(response: SearchResponse) -> str:
     """Honest headline for a top-N result set.
 
-    Search runs ONE page-only query and never counts the match set (#555, ruled
-    DROP 2026-08-28: a find-the-thing tool, not a browser — counting would cost a
-    second query per search for a browsing affordance nobody asked for). A full
-    entity page is "the top N" where N is the requested window; a short page IS
-    every match, so it is counted plainly. The semantic-boost path APPENDS
-    lesson-body hits beyond the window (`_augment_with_body_chunks` does not cap
-    the merge), so those are named separately rather than inflating N.
+    A full entity page is "the top N" where N is the requested window; a short
+    page IS every match, so it is counted plainly. The semantic-boost path
+    APPENDS lesson-body hits beyond the window (`_augment_with_body_chunks` does
+    not cap the merge), so those are named separately rather than inflating N.
     """
     body_hits = sum(1 for r in response.results if r.get("_match_reason") == BODY_HIT_MATCH_REASON)
     entity_rows = len(response.results) - body_hits

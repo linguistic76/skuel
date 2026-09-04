@@ -837,8 +837,8 @@ class SearchResponse(BaseModel):
 
     # Result metadata
     # Rows in THIS page — search is top-N by design: one page-only query, no
-    # match-set count (#555, ruled DROP 2026-08-28). Kept as the API's page size
-    # (`total_count`); never read as "how many matched".
+    # match-set count. Kept as the API's page size (`total_count`); never read
+    # as "how many matched".
     total: int = Field(
         ..., ge=0, description="Number of results in this page (top-N; not a match count)"
     )
@@ -925,7 +925,7 @@ def build_facet_counts(results: list[dict[str, Any]]) -> dict[str, list[FacetCou
     Derived from the results actually returned (post-limit), NOT a separate
     count query — cheap enough for the keystroke-driven ``/search`` path and
     consistent with the window-scoped ``total``: search is top-N and never
-    counts the match set (#555, ruled DROP 2026-08-28). Two facets today:
+    counts the match set. Two facets today:
 
     - ``entity_type`` — from the ``_domain`` stamp every SearchRouter
       producer path writes (EntityType values, one vocabulary)
