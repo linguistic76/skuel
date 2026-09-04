@@ -806,9 +806,9 @@ class VaultReconciler:
                 line_idx = _find_line_by_hash(snapshot.content, line_hash, claimed_lines)
                 if line_idx is None:
                     # Entity was extracted from non-checkbox content (LLM bridge
-                    # augmentation, DSL prose, or Markwhen blocks).  Those lines
-                    # have no physical counterpart in the vault file and can't
-                    # participate in the 🆔 round-trip — skip silently.
+                    # augmentation or DSL prose).  Those lines have no physical
+                    # counterpart in the vault file and can't participate in the
+                    # 🆔 round-trip — skip silently.
                     logger.debug(
                         "ID injection: skipping %s — no matching checkbox line in %s"
                         " (bridge/DSL entity, not a vault checkbox line)",
