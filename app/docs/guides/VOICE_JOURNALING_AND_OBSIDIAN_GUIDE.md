@@ -269,7 +269,7 @@ Add these to any line to give SKUEL more to work with:
 |-----|---------|---------|
 | `@when(YYYY-MM-DDThh:mm)` | Scheduled time | `@when(2026-07-01T09:00)` |
 | `@repeat(daily)` | Recurrence | `@repeat(weekly:Mon,Wed,Fri)` |
-| `@priority(N)` | Priority 1–4 | `@priority(1)` |
+| `@priority(N)` | Priority 1–5 (1 = highest) | `@priority(1)` |
 | `@duration(Xm)` | How long it takes | `@duration(45m)` |
 | `@energy(type)` | Energy type needed | `@energy(focus)` or `@energy(creative,social)` |
 
