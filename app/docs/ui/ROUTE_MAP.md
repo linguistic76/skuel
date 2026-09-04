@@ -130,7 +130,7 @@ MOC root page (no sidebar) — five cards linking to the five Submissions sub-pa
 - `/submissions/journal` — journal file-upload UX (Processing → Source → Browse → Process); alternative entry point to `/journals`.
 - `/submissions/sync` — Obsidian bidirectional sync (primary personal-data ingestion path). Shows the privacy wall ("What SKUEL can see"): the exact vault folders a sync may read, from the live allowlist via `VaultReconciler.describe()`; users without a personal vault get a "no vault configured" note instead of the sync button. A secondary "Preview sync" button (`/settings/vault/preview`) reports what a sync WOULD do — ingest/delete counts with vault-relative examples — without writing anything (dry run; shares the sync consent gate). HTMX POST targets remain at `/settings/vault/sync`, `/settings/vault/preview`, and `/settings/vault/consent`.
 - `/submissions/history` — exercise submissions with feedback status, view, and delete.
-- `/submissions/knowledge` — knowledge notes (`pipeline: knowledge` entries) with their grounded-Ku chips; each chip links to the Ku reading page and carries a per-chip remove (`POST /api/user-entries/grounding/remove`) — the review surface for eager grounding writes (Entry-Enrichment PR 4). Renderer in `ui/user_entry/knowledge_notes.py`.
+- `/submissions/knowledge` — knowledge notes (`pipeline: knowledge` entries) with their grounded-Ku chips; each chip links to the Ku reading page and carries a per-chip remove (`POST /api/user-entries/grounding/remove`) — the review surface for eager grounding writes. Renderer in `ui/user_entry/knowledge_notes.py`.
 
 All four sub-pages use the Submissions sidebar (Exercise → Journal → Sync → History).
 

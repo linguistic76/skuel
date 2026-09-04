@@ -7,7 +7,7 @@ Persistence side of entry→Ku grounding (Entry-Enrichment PR 3).
 Serves ``EntryGroundingService``: which knowledge-pipeline UserEntries still
 need a grounding pass, the provenance-stamped ``APPLIES_KNOWLEDGE`` write,
 the per-entry grounded stamp, and the ownership-scoped removal that records
-the user's rejection (threshold calibration data — Mike's ruling 2026-07-11).
+the user's rejection (threshold calibration data).
 
 Freshness is HASH-based, not timestamp-based: an entry is pending when its
 ``grounded_text_hash`` differs from the ``embedding_text_hash`` the embedding

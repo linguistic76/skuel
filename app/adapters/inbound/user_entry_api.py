@@ -437,10 +437,10 @@ def create_user_entry_api_routes(
     ) -> Result[dict[str, Any]]:
         """Remove one ``(entry)-[:APPLIES_KNOWLEDGE]->(ku)`` edge from an owned entry.
 
-        The user is editor, not approver (Mike's ruling 2026-07-11): inferred
-        grounding edges write eagerly and are removed here — each removal is
-        recorded on the entry so no future pass re-infers the pair, and logged
-        as threshold-calibration data. POST (not DELETE) matches this file's
+        The user is editor, not approver: inferred grounding edges write
+        eagerly and are removed here — each removal is recorded on the entry
+        so no future pass re-infers the pair, and logged as
+        threshold-calibration data. POST (not DELETE) matches this file's
         mutation convention. Not owned / edge absent → 404, never 403.
         """
         user_uid = require_authenticated_user(request)
