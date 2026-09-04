@@ -1,6 +1,6 @@
 ---
 title: ADR-014: Unified Content Ingestion Service
-updated: 2026-09-01
+updated: 2026-09-04
 status: accepted
 category: decisions
 tags: [adr, decisions, ingestion, markdown, yaml, unified, modular]
@@ -69,6 +69,11 @@ SKUEL philosophy: "One path forward." A single, well-designed service is better 
 | Entity Types | All 14 | Full domain coverage |
 
 ### UID Normalization
+
+> **Superseded 2026-08-14** (ADR-013 v2.2; `docs/architecture/CURRICULUM_GROUPING_PATTERNS.md`
+> § Authoring Spelling): the colon→dot normalization below was deleted with its `normalize_uid`
+> shim. Authored = stored; a colon-spelled entity uid is rejected at prefix validation. The block
+> stays as the record of the original design.
 
 All UIDs normalized to dot notation:
 ```
@@ -278,6 +283,7 @@ ENTITY_CONFIGS: dict[str, EntityIngestionConfig] = {
 | 2025-12-03 | Claude | Initial decision - monolithic service | 1.0 |
 | 2026-01-04 | Claude | Decomposed into modular package (ADR-016 pattern) | 2.0 |
 | 2026-02-08 | Claude | Update KU relationship types: PREREQUISITE → REQUIRES_KNOWLEDGE, ENABLES → ENABLES_KNOWLEDGE; note registry-derived config | 2.1 |
+| 2026-09-03 | Claude Code | § UID Normalization marked superseded — the colon→dot shim was deleted 2026-08-14 (ADR-013 v2.2); pointer, no restatement | 2.2 |
 
 ---
 

@@ -3,25 +3,10 @@ Ingestion Package - Unified Content Ingestion for SKUEL
 ========================================================
 
 The "hips" of SKUEL - stability through clarity.
-Connects content (MD/YAML files) to the knowledge graph (Neo4j).
-
-Architecture (January 2026):
-- unified_ingestion_service.py - Orchestration (~250 lines)
-- config.py - Entity configs and constants (~280 lines)
-- types.py - Data classes (~200 lines)
-- parser.py - MD/YAML parsing (~150 lines)
-- detector.py - Format/type detection (~100 lines)
-- preparer.py - Data preparation (~100 lines)
-- validator.py - Validation pipeline (~550 lines)
-- batch.py - Concurrent operations (~800 lines)
-- ingestion_tracker.py - Incremental ingestion state (~300 lines)
-
-Total: ~2,700 lines across 9 focused modules
-
-Key Features (2026):
-- Incremental ingestion: Skip unchanged files using content hash/mtime
-- Relationship validation: Verify target UIDs exist before ingestion
-- Configurable user UID: Via SKUEL_DEFAULT_USER_UID env var
+Connects content (MD/YAML files) to the knowledge graph (Neo4j). Direction,
+re-sync contract and the module map are stated once, in the
+``unified_ingestion_service`` module docstring; authoring rules live in
+``docs/patterns/UNIFIED_INGESTION_GUIDE.md``.
 
 Usage:
     from adapters.persistence.neo4j.ingestion_service_factory import (
