@@ -930,6 +930,43 @@ class UnifiedIngestionService:
         stats = result.value
         self.logger.info(f"Ingested {entity_type.value}: {entity_data['uid']}")
 
+        # A Group is owned or its file fails (ADR-086 § 1, door 5): the bulk
+        # template writes :OWNS for :Entity rows only, so the Group's edge is a
+        # second statement here, BEFORE the tracker stamp — a file whose owner
+        # has no :User node is reported and left unstamped, so the next sync
+        # retries it instead of hash-skipping a property-only Group that no
+        # :OWNS traversal can reach. DATABASE category on purpose, door 2's
+        # rule: the sync report files VALIDATION failures under
+        # ignored-with-reason, and a refused owner is a failure the vault
+        # owner must see.
+        if entity_type == NonKuDomain.GROUP:
+            owner_uid = entity_data.get("owner_uid")
+            try:
+                owns_edges = (
+                    await self._write_backend.create_group_ownership(
+                        str(owner_uid), str(entity_data["uid"])
+                    )
+                    if owner_uid
+                    else 0
+                )
+            except NEO4J_EXCEPTIONS as e:
+                return Result.fail(
+                    Errors.database(
+                        "ingest_file",
+                        f"Failed to write the :OWNS edge for group {entity_data['uid']}: {e}",
+                    )
+                )
+            if owns_edges == 0:
+                return Result.fail(
+                    Errors.database(
+                        "ingest_file",
+                        f"Group {entity_data['uid']} names owner '{owner_uid}' who has no "
+                        ":User node — no :OWNS edge written; the file is not stamped and is "
+                        "retried on the next sync (ADR-086 § 1: a Group is owned or its file "
+                        "fails)",
+                    )
+                )
+
         # Frontmatter retraction + the file's tracker stamp — one identity per
         # file, shared with the directory door: the edges this file authored at
         # its previous ingest but omits now are deleted, then its row
@@ -972,18 +1009,6 @@ class UnifiedIngestionService:
                 tracker.compute_file_hash(file_path),
                 authored_edges,
             )
-
-        # Groups need an OWNS edge from the teacher to the group (ADR-053).
-        # The engine created only the :Group node; wire ownership here.
-        if entity_type == NonKuDomain.GROUP:
-            owner_uid = entity_data.get("owner_uid")
-            if owner_uid:
-                try:
-                    await self._write_backend.create_group_ownership(owner_uid, entity_data["uid"])
-                except NEO4J_EXCEPTIONS as e:
-                    self.logger.warning(
-                        f"Failed to create OWNS edge for group {entity_data['uid']}: {e}"
-                    )
 
         # Post-persist embedding step (ADR-074): publish the entity's
         # *EmbeddingRequested event for the background worker. For chunked

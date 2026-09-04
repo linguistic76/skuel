@@ -102,17 +102,26 @@ class IngestionWriteBackend:
         )
         return bool(records)
 
-    async def create_group_ownership(self, owner_uid: str, group_uid: str) -> None:
-        """MERGE the (User)-[:OWNS]->(Group) edge (ADR-053)."""
-        await self._driver.execute_query(
+    async def create_group_ownership(self, owner_uid: str, group_uid: str) -> int:
+        """MERGE the (User)-[:OWNS]->(Group) edge; return how many edges the
+        statement touched (ADR-053, ADR-086 § 1 door 5).
+
+        Both nodes are ``MATCH``ed, never invented, so an owner with no
+        ``:User`` node (or a Group that never persisted) yields 0 — the
+        caller's signal to fail the file rather than report a property-only
+        Group that no ``:OWNS`` traversal can reach.
+        """
+        records, _, _ = await self._driver.execute_query(
             """
             MATCH (u:User {uid: $owner_uid})
             MATCH (g:Group {uid: $group_uid})
             MERGE (u)-[:OWNS]->(g)
+            RETURN count(*) AS edges
             """,
             owner_uid=owner_uid,
             group_uid=group_uid,
         )
+        return int(records[0]["edges"]) if records else 0
 
     async def check_existing_entities(self, uids: list[str]) -> dict[str, bool]:
         """Map each uid → whether a node with that uid already exists."""

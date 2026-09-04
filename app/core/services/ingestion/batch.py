@@ -110,6 +110,23 @@ def classify_user_entry_failure(error: ErrorContext) -> tuple[str, str]:
     return ("user_entry_pipeline", "service")
 
 
+def classify_group_failure(error: ErrorContext) -> tuple[str, str]:
+    """(stage, error_type) for a failed per-file GROUP ingest.
+
+    A content fault (the file's own frontmatter failed validation) takes the
+    ``validation`` content stage so the report files it under
+    ignored-with-reason. A refused owner — no ``:User`` node for the file's
+    ``owner_uid``, a DATABASE-category failure by the rule door 2 follows
+    (ADR-086 § 1) — and every other failure stay an error the vault owner
+    must see.
+    """
+    if error.category == ErrorCategory.VALIDATION:
+        return ("validation", "validation")
+    if error.category == ErrorCategory.DATABASE:
+        return ("group_ownership", "database")
+    return ("group_ownership", "service")
+
+
 def create_error(
     file_path: Path,
     error: str,
@@ -1109,99 +1126,136 @@ async def ingest_directory(
     # frontmatter ``organizes:`` targets spared from the stale-edge refresh)
     moc_items: list[tuple[str, list[str], Path, list[str]]] = []
 
-    # USER_ENTRY routing: bypass the bulk upsert engine.  UserEntry requires the
-    # full UserEntryService pipeline (OWNS edge, audience resolution, extraction).
-    # When ingest_file_fn is wired (from UnifiedIngestionService), call it for
-    # each UserEntry file; otherwise warn and skip (no orphan nodes created).
+    # Per-file routing — two types whose persistence is more than the bulk
+    # upsert, so the batch door hands each file to ingest_file_fn (the
+    # single-file door) and records the uid it returns. UserEntry runs the
+    # full UserEntryService pipeline (OWNS edge, audience resolution,
+    # extraction); Group needs its owner's :OWNS edge, which the bulk template
+    # writes for :Entity rows only (ADR-086 § 1, door 5). Without
+    # ingest_file_fn both are warned and skipped — no orphan nodes. A failed
+    # file is recorded and dropped from file_entity_map so smart mode stamps no
+    # success hash and the next sync retries it.
     user_entry_entities = entities_by_type.pop(EntityType.USER_ENTRY, [])
-    if user_entry_entities:
-        if ingest_file_fn is not None:
-            for ue_entity in user_entry_entities:
-                ue_path = Path(ue_entity.get("_file_path", ""))
-                if not ue_path.exists():
-                    errors.append(
-                        IngestionError(
-                            file=str(ue_path),
-                            error="UserEntry file not found for per-file routing",
-                            stage="routing",
-                            error_type="not_found",
-                            entity_type=EntityType.USER_ENTRY.value,
-                        ).to_dict()
-                    )
-                    continue
-                ue_result = await ingest_file_fn(ue_path)
-                if ue_result.is_error:
-                    ue_error = ue_result.expect_error()
-                    ue_stage, ue_error_type = classify_user_entry_failure(ue_error)
-                    is_content_fault = ue_stage == "validation"
-                    errors.append(
-                        IngestionError(
-                            file=str(ue_path),
-                            error=ue_error.display_message if is_content_fault else str(ue_error),
-                            stage=ue_stage,
-                            error_type=ue_error_type,
-                            entity_type=EntityType.USER_ENTRY.value,
-                        ).to_dict()
-                    )
-                    # Remove from file_entity_map so smart-mode does NOT record a
-                    # success hash — the next sync will retry this file.
-                    file_entity_map.pop(str(ue_path), None)
-                else:
-                    result_data = ue_result.value or {}
-                    if result_data.get("extraction_error"):
-                        # Persistence succeeded but post-persist extraction failed.
-                        # Surface as an error and exclude from smart-mode tracking so
-                        # the next incremental sync retries extraction.
-                        errors.append(
-                            IngestionError(
-                                file=str(ue_path),
-                                error=result_data["extraction_error"],
-                                stage="extract_activities",
-                                error_type="service",
-                                entity_type=EntityType.USER_ENTRY.value,
-                            ).to_dict()
-                        )
-                        file_entity_map.pop(str(ue_path), None)
-                    else:
-                        # Count the per-file write as one node created/updated
-                        if result_data.get("nodes_created", 0):
-                            total_nodes_created += result_data["nodes_created"]
-                        else:
-                            total_nodes_updated += result_data.get("nodes_updated", 0) or 1
-                        # Record the REAL entry uid the service minted (e.g.
-                        # ue:daily:{user}:{date}), not the parse-phase
-                        # title-derived guess — the tracker row feeds deletion
-                        # propagation, and a uid that matches no node makes
-                        # file-deletion a silent no-op on the entity side (G10).
-                        if result_data.get("uid"):
-                            file_entity_map[str(ue_path)] = (
-                                EntityType.USER_ENTRY,
-                                str(result_data["uid"]),
-                            )
-                            # MOC user_entry (e.g. a knowledge-pipeline map):
-                            # collect against the REAL service uid; the edge
-                            # pass runs end-of-sync (ingest_file deferred it).
-                            if ue_entity.get("moc") is True:
-                                moc_items.append(
-                                    (
-                                        str(result_data["uid"]),
-                                        list(ue_entity.get("_moc_links") or []),
-                                        ue_path,
-                                        frontmatter_organizes_targets(ue_entity),
-                                    )
-                                )
-                        # Per-line extraction problems (parse/creation/link
-                        # errors) that did not fail the file: surface as
-                        # warnings (G10) — the entry persisted and stays
-                        # tracked, but the user must see what was dropped.
-                        for warning in result_data.get("extraction_warnings") or []:
-                            validation_warnings.append(f"{ue_path.name}: {warning}")
-        else:
-            logger.warning(
-                f"{len(user_entry_entities)} UserEntry file(s) found in directory ingest "
-                "but ingest_file_fn is not wired — skipping (no OWNS edge or pipeline). "
-                "Wire UnifiedIngestionService.user_entry_service to enable UserEntry routing."
+    group_entities = entities_by_type.pop(NonKuDomain.GROUP, [])
+    if (user_entry_entities or group_entities) and ingest_file_fn is None:
+        logger.warning(
+            f"{len(user_entry_entities)} UserEntry + {len(group_entities)} Group file(s) found "
+            "in directory ingest but ingest_file_fn is not wired — skipping (no OWNS edge or "
+            "pipeline). Wire UnifiedIngestionService to enable per-file routing."
+        )
+        user_entry_entities, group_entities = [], []
+    if ingest_file_fn is not None and (user_entry_entities or group_entities):
+        per_file_fn = ingest_file_fn
+
+        async def _route_per_file(
+            entity_path: Path,
+            entity_type_value: str,
+            classify: Callable[[ErrorContext], tuple[str, str]],
+        ) -> dict[str, Any] | None:
+            """One file through the single-file door; None when it failed —
+            the error recorded, the file unstamped so the next sync retries."""
+            if not entity_path.exists():
+                errors.append(
+                    IngestionError(
+                        file=str(entity_path),
+                        error=f"{entity_type_value} file not found for per-file routing",
+                        stage="routing",
+                        error_type="not_found",
+                        entity_type=entity_type_value,
+                    ).to_dict()
+                )
+                return None
+            per_file_result = await per_file_fn(entity_path)
+            if per_file_result.is_error:
+                per_file_error = per_file_result.expect_error()
+                stage, error_type = classify(per_file_error)
+                is_content_fault = stage == "validation"
+                errors.append(
+                    IngestionError(
+                        file=str(entity_path),
+                        error=(
+                            per_file_error.display_message
+                            if is_content_fault
+                            else str(per_file_error)
+                        ),
+                        stage=stage,
+                        error_type=error_type,
+                        entity_type=entity_type_value,
+                    ).to_dict()
+                )
+                file_entity_map.pop(str(entity_path), None)
+                return None
+            return per_file_result.value or {}
+
+        for ue_entity in user_entry_entities:
+            ue_path = Path(ue_entity.get("_file_path", ""))
+            result_data = await _route_per_file(
+                ue_path, EntityType.USER_ENTRY.value, classify_user_entry_failure
             )
+            if result_data is None:
+                continue
+            if result_data.get("extraction_error"):
+                # Persistence succeeded but post-persist extraction failed.
+                # Surface as an error and exclude from smart-mode tracking so
+                # the next incremental sync retries extraction.
+                errors.append(
+                    IngestionError(
+                        file=str(ue_path),
+                        error=result_data["extraction_error"],
+                        stage="extract_activities",
+                        error_type="service",
+                        entity_type=EntityType.USER_ENTRY.value,
+                    ).to_dict()
+                )
+                file_entity_map.pop(str(ue_path), None)
+            else:
+                # Count the per-file write as one node created/updated
+                if result_data.get("nodes_created", 0):
+                    total_nodes_created += result_data["nodes_created"]
+                else:
+                    total_nodes_updated += result_data.get("nodes_updated", 0) or 1
+                # Record the REAL entry uid the service minted (e.g.
+                # ue:daily:{user}:{date}), not the parse-phase
+                # title-derived guess — the tracker row feeds deletion
+                # propagation, and a uid that matches no node makes
+                # file-deletion a silent no-op on the entity side (G10).
+                if result_data.get("uid"):
+                    file_entity_map[str(ue_path)] = (
+                        EntityType.USER_ENTRY,
+                        str(result_data["uid"]),
+                    )
+                    # MOC user_entry (e.g. a knowledge-pipeline map):
+                    # collect against the REAL service uid; the edge
+                    # pass runs end-of-sync (ingest_file deferred it).
+                    if ue_entity.get("moc") is True:
+                        moc_items.append(
+                            (
+                                str(result_data["uid"]),
+                                list(ue_entity.get("_moc_links") or []),
+                                ue_path,
+                                frontmatter_organizes_targets(ue_entity),
+                            )
+                        )
+                # Per-line extraction problems (parse/creation/link
+                # errors) that did not fail the file: surface as
+                # warnings (G10) — the entry persisted and stays
+                # tracked, but the user must see what was dropped.
+                for warning in result_data.get("extraction_warnings") or []:
+                    validation_warnings.append(f"{ue_path.name}: {warning}")
+
+        for group_entity in group_entities:
+            group_path = Path(group_entity.get("_file_path", ""))
+            result_data = await _route_per_file(
+                group_path, NonKuDomain.GROUP.value, classify_group_failure
+            )
+            if result_data is None:
+                continue
+            if result_data.get("nodes_created", 0):
+                total_nodes_created += result_data["nodes_created"]
+            else:
+                total_nodes_updated += result_data.get("nodes_updated", 0) or 1
+            if result_data.get("uid"):
+                file_entity_map[str(group_path)] = (NonKuDomain.GROUP, str(result_data["uid"]))
 
     # Batch ingest by entity type
     if entities_by_type and bulk_backend is None:

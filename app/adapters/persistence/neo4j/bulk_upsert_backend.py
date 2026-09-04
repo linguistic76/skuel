@@ -81,7 +81,9 @@ def build_node_upsert_template(
     skipped — same no-stub semantics as relationship targets. Carve-outs hold
     by construction: file-ingested exercises are ownerless curriculum content
     (the validator forces ``scope: curriculum`` and no ``user_uid``), and
-    Group ownership is popped to ``owner_uid`` before this template runs.
+    Group ownership is popped to ``owner_uid`` before this template runs —
+    a Group's ``:OWNS`` edge is the single-file door's second statement,
+    whose MERGE count fails the file on an unknown owner (ADR-086 § 1 door 5).
     """
     label_clause = _label_clause(entity_label, base_label)
     owns_clause = ""
@@ -304,8 +306,10 @@ class BulkUpsertBackend:
         Scoped to ``:Entity`` batches keyed on ``_node_props.user_uid`` —
         exactly what the template's owns clause reads, so the check cannot
         drift from the write it guards. Group's ``owner_uid`` is popped before
-        this template runs and ownerless curriculum names no owner at all;
-        both yield an empty owner set and skip the query entirely.
+        this template runs (its owner is checked by the Group door's own edge
+        write — the MERGE count, ADR-086 § 1 door 5) and ownerless curriculum
+        names no owner at all; both yield an empty owner set and skip the
+        query entirely.
 
         The check is a pre-flight, not a lock: a user deleted between it and the
         upsert still yields the old property-only node. Closing that window
