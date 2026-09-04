@@ -1,5 +1,5 @@
 ---
-updated: 2026-08-21
+updated: 2026-09-04
 ---
 
 # Habit Rhythm Arc — Markwhen Resolution & the Time-of-Day Vocabulary
@@ -122,10 +122,12 @@ named dissolves rather than needing a new ruling.
   exist as Habit entities (daily, 15m, `preferred_time` null) *and* as
   markwhen anchors (07:00/20m, 21:30/10m) — same habitual truths, neither
   representation complete.
-- **Vault-side defect (founder's side):** the current monthly template still
-  carries the markwhen block and lacks `type: user_entry`/`pipeline`
-  frontmatter, so monthly notes would not ingest (the Monthly folder is
-  empty, so this has never bitten).
+- **Vault-side defect (founder's side):** the monthly template at the time
+  carried the markwhen block and lacked `type: user_entry`/`pipeline`
+  frontmatter, so monthly notes would not have ingested (the Monthly folder
+  was empty, so it never bit). **Discharged 2026-08-03** — `t_monthly.md`
+  carries `type: user_entry` + `pipeline: extract_activities` and no markwhen
+  block (verified 2026-09-04; the deferred-work row closed the same day).
 
 ## What PR 1 found that this doc did not say (2026-08-03)
 
@@ -418,9 +420,9 @@ Left open by design, each gated on lived use rather than on work. **Tracked live
 `docs/roadmap/deferred-work.md` § Habit-Rhythm Arc Follow-ups** (extracted when this arc
 moved to `done/` — the list below is the record; the register is the tracker):
 
-- **Vault-side cleanup** is the founder's — the monthly template still carries
-  the retired markwhen block and lacks `type: user_entry`/`pipeline`
-  frontmatter. No repo PR; no personal vault content enters this repo.
+- **Vault-side cleanup** — the founder's, **done 2026-08-03**: `t_monthly.md`
+  carries `type: user_entry` + `pipeline: extract_activities`, markwhen gone.
+  No repo PR; no personal vault content enters this repo.
 - **Habit rows in the weekly-note panel** (A5's backward-review half) remain a
   follow-up, per Non-goals.
 - **The unwired Gantt surface** (`/api/visualizations/gantt/*`, no UI consumer)
