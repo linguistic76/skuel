@@ -31,7 +31,7 @@ This is the bridge from "user speaks/writes" to "structured action".
 **DSL Syntax (v0.6 - closed 13-value vocabulary, non-empty description):**
 
 ```markdown
-- [ ] Description @context(task) @when(2025-11-27T09:30) @priority(1) @duration(90m) @energy(focus) @ku(ku.sel.mindfulness) @link(goal:health)
+- [ ] Description @context(task) @when(2025-11-27T09:30) @priority(1) @duration(90m) @energy(focus) @ku(ku.sel.mindfulness) @link(goal:goal.health.strong-body)
 ```
 
 (One physical line — the parser handles each line independently.)
@@ -187,7 +187,7 @@ class ParsedActivityLine:
 
     # Knowledge graph connections
     primary_ku: str | None = None  # @ku(ku.sel.mindfulness)
-    links: list[dict[str, str]] = field(default_factory=list)  # @link(goal:health)
+    links: list[dict[str, str]] = field(default_factory=list)  # @link(goal:<stored uid>)
 
     # Source tracking
     source_file: str | None = None
@@ -1175,11 +1175,19 @@ class ActivityDSLParser:
 
     def _parse_links(self, value: str) -> list[dict[str, str]]:
         """
-        Parse @link() connections.
+        Parse @link() connections: ``type:uid[, type:uid...]``.
 
-        Format: type:id[, type:id...]
+        The id after the prefix IS the entity's stored uid, in either
+        sanctioned spelling — authored ``goal.{grouping}.{slug}`` /
+        ``ku.{ns}.{slug}`` or generated ``goal_{random}`` /
+        ``ku_{slug}_{random}`` — and it is stored bare. The prefix only names
+        the label a sink checks (``EntityType.from_string`` resolves aliases
+        such as ``lp``); it is never prepended and nothing resolves a title
+        or a path to a uid. Every sink existence-checks the id against the
+        graph (the entry's APPLIES_KNOWLEDGE write, the create doors' link
+        guard, ``fulfills_goal_uid``), so only a stored uid ever lands.
 
-        Returns list of dicts: [{"type": "goal", "id": "goal:health/fitness"}, ...]
+        Returns list of dicts: [{"type": "goal", "id": "goal_3f9a2b1c"}, ...]
         """
         if not value:
             return []
@@ -1187,33 +1195,19 @@ class ActivityDSLParser:
         links = []
         for link_str in value.split(","):
             link_str = link_str.strip()
-            if ":" in link_str:
-                # Split on first colon only (id may contain colons)
-                parts = link_str.split(":", 1)
-                if len(parts) == 2:
-                    link_type = parts[0].strip().lower()
-                    link_id = parts[1].strip()
-
-                    # Normalize DSL prefix to EntityType value
-                    # e.g. @link(ku:...) -> type="ku" (EntityType.KU)
-                    normalized = EntityType.from_string(link_type)
-                    if normalized is not None:
-                        link_type = normalized.value
-
-                    # Reconstruct full UID if needed
-                    if link_type in (
-                        EntityType.GOAL.value,
-                        EntityType.PRINCIPLE.value,
-                        "project",
-                        "person",
-                        "vortex",
-                    ):
-                        # These don't need prefix in the ID
-                        full_id = f"{link_type}:{link_id}"
-                    else:
-                        full_id = link_str  # the whole "type:id" token
-
-                    links.append({"type": link_type, "id": full_id})
+            if ":" not in link_str:
+                continue
+            # Split on the first colon only — a uid may carry colons
+            # (periodic ``ue:daily:…`` identifiers).
+            raw_type, raw_id = link_str.split(":", 1)
+            link_type = raw_type.strip().lower()
+            link_id = raw_id.strip()
+            if not link_type or not link_id:
+                continue
+            normalized = EntityType.from_string(link_type)
+            if normalized is not None:
+                link_type = normalized.value
+            links.append({"type": link_type, "id": link_id})
 
         return links
 

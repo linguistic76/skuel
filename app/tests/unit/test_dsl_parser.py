@@ -210,11 +210,11 @@ class TestKnowledgeAndLinks:
     def test_parse_ku(self):
         """Parse @ku knowledge unit reference."""
         result = parse_activity_line(
-            "- [ ] Study mindfulness @context(task,learning) @ku(ku.sel/mindfulness-intro)"
+            "- [ ] Study mindfulness @context(task,learning) @ku(ku.sel.mindfulness-intro)"
         )
 
         assert result.is_ok
-        assert result.value.primary_ku == "ku.sel/mindfulness-intro"
+        assert result.value.primary_ku == "ku.sel.mindfulness-intro"
 
     def test_parse_ku_colon_spelling_rejected(self):
         """The retired colon spelling is OMITTED (None), never rewritten —
@@ -229,18 +229,56 @@ class TestKnowledgeAndLinks:
 
     def test_parse_single_link(self):
         """Parse single @link."""
-        result = parse_activity_line("- [ ] Exercise @context(habit) @link(goal:health/fitness)")
+        result = parse_activity_line(
+            "- [ ] Exercise @context(habit) @link(goal:goal_health_a1b2c3d4)"
+        )
 
         assert result.is_ok
         links = result.value.links
         assert len(links) == 1
         assert links[0]["type"] == "goal"
-        assert links[0]["id"] == "goal:health/fitness"
+        # The id after the prefix IS the stored uid — never re-prefixed.
+        assert links[0]["id"] == "goal_health_a1b2c3d4"
+
+    def test_link_id_is_the_stored_uid_in_either_spelling(self):
+        """A link names a node the sinks existence-check: the id is stored bare,
+        authored (dot) or generated (underscore), and the prefix only says which
+        label to check."""
+        result = parse_activity_line(
+            "- [ ] Study @context(task) "
+            "@link(ku:ku.sel.mindfulness, ku:ku_algebra_a1b2c3d4, goal:goal_3f9a2b1c, "
+            "ps:ps.sel.regulation, lp:lp.sel.foundations)"
+        )
+
+        assert result.is_ok
+        activity = result.value
+        assert [link["id"] for link in activity.links] == [
+            "ku.sel.mindfulness",
+            "ku_algebra_a1b2c3d4",
+            "goal_3f9a2b1c",
+            "ps.sel.regulation",
+            "lp.sel.foundations",
+        ]
+        # Types are emitted as canonical EntityType values — the input aliases
+        # (``ps``, ``lp``) resolve at the boundary (emission rule).
+        assert [link["type"] for link in activity.links] == [
+            "ku",
+            "ku",
+            "goal",
+            "path_step",
+            "learning_path",
+        ]
+        assert activity.get_linked_knowledge() == [
+            "ku.sel.mindfulness",
+            "ku_algebra_a1b2c3d4",
+            "ps.sel.regulation",
+        ]
+        assert activity.get_linked_goals() == ["goal_3f9a2b1c"]
 
     def test_parse_multiple_links(self):
         """Parse multiple @link values."""
         result = parse_activity_line(
-            "- [ ] Meditate @context(habit) @link(goal:wellness, principle:inner-peace)"
+            "- [ ] Meditate @context(habit) @link(goal:goal.wellness.calm, principle:principle.sel.inner-peace)"
         )
 
         assert result.is_ok
@@ -250,14 +288,13 @@ class TestKnowledgeAndLinks:
     def test_get_linked_goals(self):
         """Test get_linked_goals helper method."""
         result = parse_activity_line(
-            "- [ ] Task @context(task) @link(goal:one, goal:two, principle:x)"
+            "- [ ] Task @context(task) @link(goal:goal_one_00000001, goal:goal_two_00000002, principle:principle_x_00000003)"
         )
 
         assert result.is_ok
         goals = result.value.get_linked_goals()
-        assert len(goals) == 2
-        assert "goal:one" in goals
-        assert "goal:two" in goals
+        assert goals == ["goal_one_00000001", "goal_two_00000002"]
+        assert result.value.get_linked_principles() == ["principle_x_00000003"]
 
 
 class TestRepeatPatterns:
@@ -317,8 +354,8 @@ class TestFullActivityLine:
             "@duration(90m) "
             "@priority(1) "
             "@energy(focus,creative) "
-            "@ku(ku.teens-yoga/focus-lesson) "
-            "@link(goal:teens-yoga/20-members)"
+            "@ku(ku.teens-yoga.focus-lesson) "
+            "@link(goal:goal.teens-yoga.twenty-members)"
         )
 
         result = parse_activity_line(line)
@@ -333,7 +370,7 @@ class TestFullActivityLine:
         assert activity.duration_minutes == 90
         assert activity.priority == 1
         assert activity.energy_states == ["focus", "creative"]
-        assert activity.primary_ku == "ku.teens-yoga/focus-lesson"
+        assert activity.primary_ku == "ku.teens-yoga.focus-lesson"
         assert len(activity.links) == 1
 
     def test_parse_full_habit(self):
@@ -344,7 +381,7 @@ class TestFullActivityLine:
             "@repeat(daily) "
             "@duration(20m) "
             "@energy(spiritual,rest) "
-            "@ku(ku.yoga/meditation-intro)"
+            "@ku(ku.yoga.meditation-intro)"
         )
 
         result = parse_activity_line(line)
@@ -376,7 +413,7 @@ class TestJournalParsing:
 Today's goals:
 - [ ] Morning meditation @context(habit) @duration(20m) @energy(spiritual)
 - [ ] Write proposal @context(task) @priority(1) @when({when_str})
-- [ ] Learn Python async @context(task,learning) @ku(ku.tech/python-async)
+- [ ] Learn Python async @context(task,learning) @ku(ku.tech.python-async)
 
 Some notes without @context that should be ignored.
 

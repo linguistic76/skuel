@@ -1,6 +1,6 @@
 ---
 title: SKUEL Activity DSL - Implementation Guide
-updated: 2026-09-03
+updated: 2026-09-04
 status: current
 category: dsl
 tags: [dsl, implementation, parser, architecture, regex]
@@ -337,7 +337,8 @@ class LinkRef:
     type: str
     id: str
 
-LINK_PATTERN = re.compile(r'([a-zA-Z0-9_-]+):([a-zA-Z0-9_/-]+)')
+# type, a colon, then the stored uid — the id is the entity's uid verbatim (dot or underscore form)
+LINK_PATTERN = re.compile(r'([a-zA-Z0-9_-]+):([A-Za-z0-9._-]+)')
 
 def parse_link(value: str) -> list[LinkRef]:
     """Parse @link() into list of LinkRef."""
@@ -351,11 +352,13 @@ def parse_link(value: str) -> list[LinkRef]:
 
 **Example:**
 ```python
-parse_link("goal:teens-yoga/10-members, principle:discernment-first")
+parse_link("goal:goal.teens-yoga.ten-members, principle:principle_x_00000003")
 # Result: [
-#   LinkRef(type="goal", id="teens-yoga/10-members"),
-#   LinkRef(type="principle", id="discernment-first")
+#   LinkRef(type="goal", id="goal.teens-yoga.ten-members"),
+#   LinkRef(type="principle", id="principle_x_00000003")
 # ]
+# The id is stored bare — never re-prefixed — because every sink
+# existence-checks it against the graph.
 ```
 
 ---

@@ -1,6 +1,6 @@
 ---
 title: SKUEL Architecture — 25 Entity Types + 5 Cross-Cutting Systems
-updated: 2026-08-14
+updated: 2026-09-04
 status: current
 category: architecture
 version: 8.1.0
@@ -505,12 +505,12 @@ The Activity DSL enables natural language parsing into entity types:
 - [ ] Launch MVP                 @context(goal)      @when(2025-Q1)
 - [ ] Team standup               @context(event)     @when(2025-11-28T09:00)
 - [ ] Practice non-attachment    @context(principle) @energy(spiritual)
-- [ ] Choose tech stack          @context(choice)    @link(goal:mvp-launch)
+- [ ] Choose tech stack          @context(choice)    @link(goal:goal.startup.mvp-launch)
 - [ ] AWS hosting $150           @context(finance)   @category(skuel)
 - [ ] Python async/await         @context(ku)        @energy(focus)
-- [ ] Complete async exercises   @context(ls)        @ku(ku.python/async)
-- [ ] Master async programming   @context(lp)        @link(goal:python-expert)
-- [ ] Embody wisdom and service  @context(lifepath)  @link(principle:service)
+- [ ] Complete async exercises   @context(ls)        @ku(ku.python.async)
+- [ ] Master async programming   @context(lp)        @link(goal:goal.python.expert)
+- [ ] Embody wisdom and service  @context(lifepath)  @link(principle:principle.sel.service)
 ```
 
 **Processing pipeline (staged — PLANNED tier; wiring retired with the journal pipeline, ADR-054):**
