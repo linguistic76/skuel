@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from adapters.persistence.neo4j.neo4j_mapper import to_neo4j_node
+from adapters.persistence.neo4j.neo4j_mapper import to_neo4j_node, without_embedding_props
 
 
 def flatten_entity_connections(entity: Any, item: dict[str, Any]) -> dict[str, Any]:
@@ -68,7 +68,11 @@ def prepare_batch_items(
     """
     items = []
     for entity in entities:
-        item = to_neo4j_node(entity)
+        # The bulk template is ``MERGE … ON MATCH SET n += props``: the embedding
+        # writer's properties must never ride in an entity payload (a null under
+        # ``+=`` removes the stored vector). Frontmatter dicts carry no such key
+        # today; a dataclass entity would — guard the payload, not the callers.
+        item = without_embedding_props(to_neo4j_node(entity))
         flatten_entity_connections(entity, item)
         # to_neo4j_node drops RELATIONSHIP_SKIP_FIELDS (graph-native: edges, not
         # node properties) — but the registry's yaml_field_path keys in rel_config

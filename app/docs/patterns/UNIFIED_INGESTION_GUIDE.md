@@ -193,7 +193,8 @@ fresh on every ingest. When a deterministic UID is known, the service
 switches to **MERGE-on-uid upsert** instead: re-ingesting an edited file
 updates the existing node in place rather than duplicating it.
 `created_at` is preserved across re-syncs; `updated_at` and content are
-refreshed. An exercise-linked file **without** a `uid:` is the turn-in
+refreshed; the embedding triple is the embeddings writer's and is left
+alone (a re-sync never blanks a note's vector — ADR-074 §8). An exercise-linked file **without** a `uid:` is the turn-in
 path (`fulfills_exercise_uid` mints a random UID, fresh node every time);
 **with** a deterministic `uid:` it becomes the vault exercise channel's
 living entry — see the next section.
