@@ -170,6 +170,24 @@ class IngestionBackend:
             {"paths": paths},
         )
 
+    async def get_ingestion_metadata_by_uids(self, uids: list[str]) -> Result[list[dict[str, Any]]]:
+        """Every tracker row claiming one of ``uids`` — its path and fingerprint.
+
+        The uid-keyed read behind the moved-from prior: a renamed file's old
+        row still carries the fingerprint under the same ``entity_uid`` until
+        the stale-row cleanup removes it at the end of the sync.
+        """
+        return await self._executor.execute_query(
+            """
+            MATCH (s:IngestionMetadata)
+            WHERE s.entity_uid IN $uids
+            RETURN s.file_path AS file_path,
+                   s.entity_uid AS entity_uid,
+                   s.authored_edges AS authored_edges
+            """,
+            {"uids": uids},
+        )
+
     async def update_ingestion_metadata(
         self, params: dict[str, Any]
     ) -> Result[list[dict[str, Any]]]:

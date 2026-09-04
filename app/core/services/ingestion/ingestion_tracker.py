@@ -25,6 +25,7 @@ Usage:
 
 import hashlib
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
 from fnmatch import fnmatch
@@ -325,31 +326,73 @@ class IngestionTracker:
         )
         return Result.ok(result_map)
 
-    async def get_authored_edges(self, file_paths: list[Path]) -> Result[dict[str, list[str]]]:
+    async def get_authored_edges(
+        self,
+        file_paths: list[Path],
+        *,
+        uids_by_path: Mapping[str, str] | None = None,
+    ) -> Result[dict[str, list[str]]]:
         """The frontmatter edge fingerprint each file's tracker row carries.
 
         Keyed by ``str(file_path)`` exactly as passed — the caller's own key
         form — so the batch door can look up prior fingerprints by the path
-        strings it already holds. A file with no row, or a row stamped before
-        the fingerprint existed, maps to an empty list: nothing was recorded,
-        so nothing can be retracted for it on this ingest.
+        strings it already holds. A row stamped before the fingerprint existed
+        maps to an empty list: nothing was recorded, so nothing can be
+        retracted for it on this ingest.
 
-        Backend: IngestionBackend.get_ingestion_metadata.
+        A file with NO row maps to an empty list too — unless ``uids_by_path``
+        names the uid it authors and a row for that uid exists whose own file
+        is gone. That row is the moved-from row of a rename and an edit landing
+        in one ingest (the directory door's move pre-pass cannot claim a file
+        with no matchable body, and the single-file door has no pre-pass at
+        all), so its fingerprint is the prior: the edges the file dropped in
+        the same sync as the rename are retracted, not kept. A same-uid row
+        whose file still exists is a duplicate-uid conflict, not a move, and
+        is never borrowed.
+
+        Backend: IngestionBackend.get_ingestion_metadata,
+        IngestionBackend.get_ingestion_metadata_by_uids.
         """
         meta_result = await self.get_ingestion_metadata(file_paths)
         if meta_result.is_error:
             return Result.fail(meta_result)
         rows = meta_result.value
-        return Result.ok(
-            {
-                str(file_path): (
-                    list(row.authored_edges)
-                    if (row := rows.get(self._canonical(file_path))) is not None
-                    else []
-                )
-                for file_path in file_paths
-            }
+        fingerprints = {
+            str(file_path): (
+                list(row.authored_edges)
+                if (row := rows.get(self._canonical(file_path))) is not None
+                else []
+            )
+            for file_path in file_paths
+        }
+        if not uids_by_path:
+            return Result.ok(fingerprints)
+
+        unrowed = {
+            str(file_path): uid
+            for file_path in file_paths
+            if rows.get(self._canonical(file_path)) is None
+            and (uid := uids_by_path.get(str(file_path)))
+        }
+        if not unrowed:
+            return Result.ok(fingerprints)
+
+        by_uid_result = await self.backend.get_ingestion_metadata_by_uids(
+            sorted(set(unrowed.values()))
         )
+        if by_uid_result.is_error:
+            return Result.fail(by_uid_result)
+        moved_from: dict[str, set[str]] = {}
+        for record in by_uid_result.value:
+            if Path(str(record["file_path"])).exists():
+                continue  # a live file claiming the uid is a conflict, not a move
+            moved_from.setdefault(str(record["entity_uid"]), set()).update(
+                str(key) for key in (record.get("authored_edges") or [])
+            )
+        for key, uid in unrowed.items():
+            if uid in moved_from:
+                fingerprints[key] = sorted(moved_from[uid])
+        return Result.ok(fingerprints)
 
     async def update_ingestion_metadata(
         self,

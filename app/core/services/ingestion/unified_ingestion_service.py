@@ -6,7 +6,8 @@ Ingestion is one-way: the vault authors, the graph obeys. A re-sync of an
 edited file upserts the entity, re-chunks its body and MERGEs the edges its
 frontmatter declares; a target dropped from a registered frontmatter field
 loses its edge on that sync — only the edges the file itself authored (the
-``authored_edges`` fingerprint on its tracker row) are retracted, and an edge
+``authored_edges`` fingerprint on its tracker row, found by path or, when a
+rename and an edit land in one sync, by the uid it authors) are retracted, and an edge
 MERGEd by both a file and an app door is one edge that the file's retraction
 removes, because the vault is the author (ADR-070 Decision 10). The MOC
 body-link pass refreshes its own edges the same way. A deleted file removes
@@ -981,7 +982,9 @@ class UnifiedIngestionService:
         authored_edges = authored_edge_fingerprint(entity_data, rel_config)
         if self.ingestion_backend is not None:
             tracker = IngestionTracker(self.ingestion_backend)
-            prior_result = await tracker.get_authored_edges([file_path])
+            prior_result = await tracker.get_authored_edges(
+                [file_path], uids_by_path={str(file_path): source_uid}
+            )
             if prior_result.is_error:
                 return Result.fail(prior_result)
             dropped = retracted_edges(prior_result.value.get(str(file_path), []), authored_edges)
