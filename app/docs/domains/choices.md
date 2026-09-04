@@ -1,7 +1,7 @@
 ---
 title: Choices Domain
 created: 2025-12-04
-updated: 2026-08-19
+updated: 2026-09-04
 status: current
 category: domains
 tags: [choices, activity-domain, domain]
@@ -176,7 +176,7 @@ did not always, see *History* below.
 | Door | Path | Options | Rules |
 |------|------|---------|-------|
 | API — generated CRUD route | `CRUDRouteFactory` → `ConversionServiceV2.choice_create_to_pure` → `ChoicesService.create` | carried | enforced |
-| Facade — UI form, DSL, learning guidance | `ChoicesService.create_choice` → `ChoicesCoreService.create_choice` | carried | enforced |
+| Facade — UI form, DSL | `ChoicesService.create_choice` → `ChoicesCoreService.create_choice` | carried | enforced |
 
 Both converge on `ChoicesCoreService.create`, the one create primitive: it calls
 `CrudOperationsMixin.create` (which is what runs `_validate_create`), then
@@ -187,6 +187,12 @@ exists solely to route the generated route into it — the same reconciliation
 Both doors build the entity through the **same converter**
 (`ConversionServiceV2.choice_create_to_pure`), so neither can quietly drop a
 request field the other keeps.
+
+Only the request door holds `informed_by_knowledge_uids`. It writes them as
+`INFORMED_BY_KNOWLEDGE` edges through the admission guard
+(`keep_permitted_link_edges`: the uid exists, is unowned or the caller's, and is a
+Ku) before announcing the choice, and credits knowledge substance only for the
+edges it wrote.
 
 ### Why optional, not required
 

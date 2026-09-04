@@ -38,11 +38,11 @@ The tests below pin the settled semantics:
   BINARY choice that carries options must carry exactly 2. Both doors carry the
   options and reach the same verdict, via the one validated, event-firing path.
 
-Optional rather than required because three live doors create optionless choices
-on purpose — the UI create form (which omits the nested list entirely), DSL
-activity ingestion (which infers BINARY from prose and supplies none), and
-learning guidance. Options are added afterwards via ``add_option``, and the ">= 2"
-floor is enforced from then on by ``remove_option`` / ``_validate_update``.
+Optional rather than required because two live doors create optionless choices
+on purpose — the UI create form (which omits the nested list entirely) and DSL
+activity ingestion (which infers BINARY from prose and supplies none). Options
+are added afterwards via ``add_option``, and the ">= 2" floor is enforced from
+then on by ``remove_option`` / ``_validate_update``.
 ``TestLiveDoorsStillWork`` pins those payloads so a future tightening of the rule
 breaks here rather than in the app.
 
@@ -104,6 +104,15 @@ class StubChoicesBackend:
     async def create_relationships_batch(self, relationships: Any) -> Result[bool]:
         self.trace.append("knowledge_edges_written")
         return Result.ok(True)
+
+    # The admission guard's two batched reads (``keep_permitted_link_edges``): every
+    # uid this suite links resolves to an unowned Ku, so the edge is admitted. The
+    # admission verdicts themselves are pinned in test_choice_create_edges.py.
+    async def get_owner_uids_batch(self, uids: Any) -> Result[dict[str, list[str]]]:
+        return Result.ok({})
+
+    async def get_node_labels_batch(self, uids: Any) -> Result[dict[str, list[str]]]:
+        return Result.ok({uid: ["Entity", "Ku"] for uid in uids})
 
     def __getattr__(self, name: str):
         async def _unexpected(*args: Any, **kwargs: Any):

@@ -1,6 +1,6 @@
 ---
 title: LearningAlignmentBridge - Unified Learning Integration Pattern
-updated: '2026-09-03'
+updated: '2026-09-04'
 category: patterns
 related_skills: []
 related_docs:
@@ -64,8 +64,9 @@ The bridge once carried `create_with_learning_alignment()` and
 
 Creation belongs to each domain's core primitive (`TasksCoreService.create_task`,
 `GoalsCoreService.create_goal`, …), which publishes the domain event, requests the
-ADR-074 embedding, and writes the request's link edges (Tasks, Goals and Habits
-through the admission guard). The
+ADR-074 embedding, and writes the request's link edges through the admission guard
+(`keep_permitted_link_edges`) — every domain whose create request carries link uids;
+Principles' carries none. The
 orchestrator context doors (`create_goal_with_context`,
 `create_habit_with_context`) keep their gates and now create through those
 primitives. The two genuinely valuable create-verb ideas the bridge half carried
