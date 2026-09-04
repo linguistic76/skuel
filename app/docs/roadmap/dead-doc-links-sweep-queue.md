@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-02
+updated: 2026-09-04
 ---
 
 # Dead-doc-links sweep queue — the live-docs residue
@@ -203,7 +203,29 @@ along on the next PR touching the file.
 
 ## Named, still queued
 
-Nothing today. The `docs/domains/README.md` PS and Journals rows that stood here are
+**One lead — a fiction, not a link fix.**
+`docs/guides/VOICE_JOURNALING_AND_OBSIDIAN_GUIDE.md` § "Browsing and responding at
+/journals/browse" (L64–66), the daily walkthrough's "Optional: check your journal entries"
+step (L549), and the Quick Reference row (L564) — 3 of the 280 findings, one claim: a
+journal-history page whose cards carry a **Get AI response** button. No such surface
+exists. `GET /journals/browse` was deleted with the browse route in #420, and the route
+module states the contract — `adapters/inbound/user_entry_ui.py`'s header: *"there is no
+journal-history surface … journals flow through SKUEL, they do not live in it."*
+Repointing the three links would leave the paragraphs around them teaching a page that is
+gone, so the fix is a rewrite of those three sites against today's `/journals` flow. The
+`@rt` registrations in `adapters/inbound/journals_routes.py` are the authority (`GET
+/journals` file + folder modes, `POST /journals/start`, `/journals/upload`,
+`/journals/folder-process`, the `je_out/` files at `GET /journals/je-out/{filename}`, the
+daily / weekly / monthly views); the persistence contract is pointed at, never restated —
+ADR-073 and `docs/architecture/JOURNALS_DOMAIN_ARCHITECTURE.md`. Read the routes before
+writing; the `/journals` row in the same Quick Reference table is already right. Same
+fiction, unlinked and so invisible to the scanner:
+`docs/architecture/AUDIO_TRANSCRIPTION_ARCHITECTURE.md:232` lists `/journals/browse` among
+`journals_routes.py`'s surfaces — fix it in the same sweep. Surfaced by the signal arc's
+PR-M (#1250), which rewrote the guide's monthly-note section and left this one alone
+because it is not a one-liner.
+
+The `docs/domains/README.md` PS and Journals rows that stood here are
 fixed: the PS row's link pointed at a filename that never existed, and the Journals row
 named a doc deleted when the domain was absorbed. That row is **gone rather than
 repointed** — Journals is not an entity type — and the catalog now points at
