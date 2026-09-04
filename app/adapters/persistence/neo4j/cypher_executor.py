@@ -7,14 +7,13 @@ Handles transaction management, batching, and statistics aggregation.
 Data transformation (entity→dict conversion, connection flattening) lives in
 batch_preparer.py — this module is purely about database execution.
 
-See: /docs/architecture/YAML_MARKDOWN_INGESTION_GUIDE.md for complete flow
-See: /docs/architecture/GRAPH_NATIVE_ANALYSIS.md for architecture details
+See: /docs/patterns/UNIFIED_INGESTION_GUIDE.md for the complete ingestion flow
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import TYPE_CHECKING, Any
 
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -24,8 +23,6 @@ if TYPE_CHECKING:
 from core.utils.result_simplified import Errors, Result
 
 logger = get_logger(__name__)
-
-T = TypeVar("T")
 
 
 @dataclass
@@ -43,9 +40,11 @@ class CypherExecutor[T]:
 
     This class provides:
     - Type-safe execution of Cypher templates
-    - Automatic entity → Neo4j property conversion
     - Batch operations support
     - Transaction management
+
+    Entity → Neo4j property conversion is NOT done here — callers hand in
+    items already prepared by ``batch_preparer.prepare_batch_items``.
     """
 
     def __init__(self, session: AsyncSession, entity_type: type[T]) -> None:
@@ -59,49 +58,6 @@ class CypherExecutor[T]:
         self.session = session
         self.entity_type = entity_type
         self.logger = get_logger(f"{__name__}.{entity_type.__name__}")
-
-    async def execute_single(
-        self, template: CypherTemplate, entity: T, extra_params: dict[str, Any] | None = None
-    ) -> Result[dict[str, Any]]:
-        """
-        Execute template for a single entity.
-
-        Args:
-            template: The Cypher template to execute,
-            entity: The entity to process,
-            extra_params: Additional parameters for the query
-
-        Returns:
-            Result containing query statistics
-        """
-        from adapters.persistence.neo4j.neo4j_mapper import to_neo4j_node
-
-        try:
-            params = {"item": to_neo4j_node(entity)}
-            if extra_params:
-                params.update(extra_params)
-
-            result = await self.session.run(template.template, params)
-            summary = await result.consume()
-
-            stats = {
-                "nodes_created": summary.counters.nodes_created,
-                "nodes_deleted": summary.counters.nodes_deleted,
-                "relationships_created": summary.counters.relationships_created,
-                "relationships_deleted": summary.counters.relationships_deleted,
-                "properties_set": summary.counters.properties_set,
-            }
-
-            self.logger.debug(f"Executed {template.name}: {stats}")
-            return Result.ok(stats)
-
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.error(f"Cypher execution failed: {e}")
-            return Result.fail(
-                Errors.database(
-                    operation=template.name, message=str(e), entity=self.entity_type.__name__
-                )
-            )
 
     async def execute_batch(
         self,
