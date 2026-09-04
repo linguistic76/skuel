@@ -20,6 +20,10 @@ The interaction cases the fix must hold:
 - (f) Edge YAML rows (``edge:`` identity) are untouched.
 - an ``incoming`` field drop retracts the incoming edge, not an outgoing one.
 - the single-file door retracts too and stamps its own tracker row.
+- a rename AND an edit in ONE sync of an authored-uid file still retracts: the
+  new path has no row, so the prior is found by the uid the file authors — the
+  moved-from row, whose file is gone (both doors; the directory door's move
+  pre-pass cannot claim a file with no matchable body).
 
 Requires: Docker running with Neo4j testcontainer.
 """
@@ -384,3 +388,59 @@ class TestFrontmatterEdgeRetraction:
         # The batch door then sees the file as already ingested (one identity).
         stats = await _sync(retraction_service, vault)
         assert stats.files_ingested == 0
+
+    async def test_rename_and_edit_in_one_sync_retracts_the_dropped_target(
+        self, retraction_service, neo4j_driver, tmp_path: Path
+    ):
+        """Authored-uid file renamed AND edited between two syncs, with a body
+        the move pre-pass cannot match (empty): the new path has no tracker
+        row, so the prior fingerprint must come from the row keyed by the
+        SAME uid whose file is gone. The dropped target loses its edge; the
+        old row is cleaned as stale, never counted as a deletion."""
+        vault = tmp_path / "vault"
+        vault.mkdir()
+        _ku_file(vault, "a", _KU_A)
+        _ku_file(vault, "b", _KU_B)
+        old = _ps_file(vault, "x", _PS_X, uses_kus=[_KU_A, _KU_B], body="")
+        await _sync(retraction_service, vault)
+        assert await _edge_exists(neo4j_driver, _PS_X, "USES_KU", _KU_B)
+
+        old.unlink()
+        new = _ps_file(vault, "renamed x", _PS_X, uses_kus=[_KU_A], body="")
+        stats = await _sync(retraction_service, vault)
+        assert stats.entities_deleted == 0
+        assert not await _edge_exists(neo4j_driver, _PS_X, "USES_KU", _KU_B), (
+            "the target dropped in the same sync as the rename kept its edge"
+        )
+        assert await _edge_exists(neo4j_driver, _PS_X, "USES_KU", _KU_A)
+        rows = await _tracker_rows(neo4j_driver, _PS_X)
+        assert [row["file_path"] for row in rows] == [str(new.resolve())]
+        assert rows[0]["authored_edges"] == [f"USES_KU|outgoing|{_KU_A}"]
+
+    async def test_single_file_door_retracts_after_a_rename(
+        self, retraction_service, neo4j_driver, tmp_path: Path
+    ):
+        """``ingest_file`` has no move pre-pass at all: a renamed + edited
+        file reaches it with no row at its path, and the prior must still be
+        the moved-from row's fingerprint (same uid, file gone)."""
+        vault = tmp_path / "vault"
+        vault.mkdir()
+        a = _ku_file(vault, "a", _KU_A)
+        b = _ku_file(vault, "b", _KU_B)
+        x = _ps_file(vault, "x", _PS_X, uses_kus=[_KU_A, _KU_B])
+        for path in (a, b, x):
+            result = await retraction_service.ingest_file(path)
+            assert result.is_ok, f"ingest_file failed: {result}"
+
+        x.unlink()
+        y = _ps_file(vault, "y", _PS_X, uses_kus=[_KU_A])
+        result = await retraction_service.ingest_file(y)
+        assert result.is_ok, f"ingest_file failed: {result}"
+        assert not await _edge_exists(neo4j_driver, _PS_X, "USES_KU", _KU_B), (
+            "the target dropped in the same ingest as the rename kept its edge"
+        )
+        assert await _edge_exists(neo4j_driver, _PS_X, "USES_KU", _KU_A)
+        rows = await _tracker_rows(neo4j_driver, _PS_X)
+        assert str(y.resolve()) in [row["file_path"] for row in rows]
+        by_path = {row["file_path"]: row["authored_edges"] for row in rows}
+        assert by_path[str(y.resolve())] == [f"USES_KU|outgoing|{_KU_A}"]

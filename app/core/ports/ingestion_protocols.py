@@ -70,6 +70,11 @@ class IngestionBackendOperations(Protocol):
 
     async def get_ingestion_metadata(self, paths: list[str]) -> Result[list[dict[str, Any]]]: ...
 
+    async def get_ingestion_metadata_by_uids(self, uids: list[str]) -> Result[list[dict[str, Any]]]:
+        """Tracker rows claiming any of ``uids`` (path, uid, fingerprint) — the
+        uid-keyed prior a renamed file's new path has no row for."""
+        ...
+
     async def update_ingestion_metadata(
         self, params: dict[str, Any]
     ) -> Result[list[dict[str, Any]]]: ...

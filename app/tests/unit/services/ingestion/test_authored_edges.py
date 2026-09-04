@@ -191,6 +191,86 @@ class TestTrackerFingerprintPlumbing:
         }
 
     @pytest.mark.asyncio
+    async def test_unrowed_path_borrows_the_moved_from_row_by_uid(self, tmp_path: Path) -> None:
+        """A rename + edit landing in one ingest: the new path has no row, so
+        the prior is the row of the same uid whose file is gone."""
+        old = tmp_path / "x.md"  # never written — the moved-from file is gone
+        new = tmp_path / "renamed x.md"
+        new.write_text("---\ntype: ps\n---\n")
+        moved_from_row = {
+            "file_path": str(old.resolve()),
+            "content_hash": "h",
+            "file_mtime": 0.0,
+            "last_ingested_at": None,
+            "entity_uid": "ps.t.x",
+            "authored_edges": ["USES_KU|outgoing|ku.t.b", "USES_KU|outgoing|ku.t.a"],
+        }
+        backend = _backend_with_rows([moved_from_row])
+        backend.get_ingestion_metadata_by_uids = AsyncMock(return_value=Result.ok([moved_from_row]))
+        tracker = IngestionTracker(backend)
+
+        result = await tracker.get_authored_edges([new], uids_by_path={str(new): "ps.t.x"})
+
+        assert result.is_ok
+        assert result.value == {str(new): ["USES_KU|outgoing|ku.t.a", "USES_KU|outgoing|ku.t.b"]}
+        backend.get_ingestion_metadata_by_uids.assert_awaited_once_with(["ps.t.x"])
+
+    @pytest.mark.asyncio
+    async def test_live_same_uid_row_is_a_conflict_not_a_prior(self, tmp_path: Path) -> None:
+        """Two live files claiming one uid is a conflict; nothing is borrowed."""
+        other = tmp_path / "other.md"
+        other.write_text("---\ntype: ps\n---\n")
+        new = tmp_path / "new.md"
+        new.write_text("---\ntype: ps\n---\n")
+        live_row = {
+            "file_path": str(other.resolve()),
+            "content_hash": "h",
+            "file_mtime": 0.0,
+            "last_ingested_at": None,
+            "entity_uid": "ps.t.x",
+            "authored_edges": ["USES_KU|outgoing|ku.t.a"],
+        }
+        backend = _backend_with_rows([live_row])
+        backend.get_ingestion_metadata_by_uids = AsyncMock(return_value=Result.ok([live_row]))
+        tracker = IngestionTracker(backend)
+
+        result = await tracker.get_authored_edges([new], uids_by_path={str(new): "ps.t.x"})
+
+        assert result.is_ok
+        assert result.value == {str(new): []}
+
+    @pytest.mark.asyncio
+    async def test_rowed_paths_and_no_uid_hint_never_query_by_uid(self, tmp_path: Path) -> None:
+        stamped = tmp_path / "x.md"
+        untracked = tmp_path / "new.md"
+        backend = _backend_with_rows(
+            [
+                {
+                    "file_path": str(stamped.resolve()),
+                    "content_hash": "h",
+                    "file_mtime": 0.0,
+                    "last_ingested_at": None,
+                    "entity_uid": "ps.t.x",
+                    "authored_edges": ["USES_KU|outgoing|ku.t.a"],
+                }
+            ]
+        )
+        backend.get_ingestion_metadata_by_uids = AsyncMock(return_value=Result.ok([]))
+        tracker = IngestionTracker(backend)
+
+        # A hint only for a path that HAS a row → no uid lookup.
+        result = await tracker.get_authored_edges(
+            [stamped, untracked], uids_by_path={str(stamped): "ps.t.x"}
+        )
+        assert result.value == {str(stamped): ["USES_KU|outgoing|ku.t.a"], str(untracked): []}
+        backend.get_ingestion_metadata_by_uids.assert_not_awaited()
+
+        # No hint at all → no uid lookup.
+        result = await tracker.get_authored_edges([untracked])
+        assert result.value == {str(untracked): []}
+        backend.get_ingestion_metadata_by_uids.assert_not_awaited()
+
+    @pytest.mark.asyncio
     async def test_single_stamp_carries_fingerprint(self, tmp_path: Path) -> None:
         target = tmp_path / "x.md"
         target.write_text("x")

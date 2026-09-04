@@ -1066,7 +1066,12 @@ by both a file and an app door is one edge, and the file's retraction deletes
 it — the vault is the author (ADR-070 Decision 10). A row with no recorded
 fingerprint (null `authored_edges`) is diffed as empty: that ingest records the
 fingerprint and retracts nothing; `./dev vault-sync --force` records one for
-every file.
+every file. A file with no row at its path is diffed against the row of the
+**uid it authors** when that row's own file is gone — the moved-from row of a
+rename and an edit landing in one sync, which the directory door's move
+pre-pass cannot claim (no matchable body) and the single-file door never sees
+(no pre-pass); a same-uid row whose file still exists is a conflict, not a
+move, and is never borrowed.
 
 ### Available Relationship Types
 

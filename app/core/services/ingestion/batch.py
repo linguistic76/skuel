@@ -1367,7 +1367,12 @@ async def ingest_directory(
     prior_authored_edges: dict[str, list[str]] = {}
     prior_lookup_failed = False
     if tracker is not None and relationship_passes:
-        prior_result = await tracker.get_authored_edges([Path(p) for p in file_entity_map])
+        # Keyed by path; a path with no row (a rename landing with an edit)
+        # borrows the moved-from row's fingerprint by the uid it authors.
+        prior_result = await tracker.get_authored_edges(
+            [Path(p) for p in file_entity_map],
+            uids_by_path={p: uid for p, (_, uid) in file_entity_map.items() if uid},
+        )
         if prior_result.is_ok:
             prior_authored_edges = prior_result.value
         else:
