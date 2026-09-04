@@ -2,38 +2,23 @@
 Calendar Service
 ================
 
-Unified calendar service for displaying tasks, events, habits, and goal
-milestones in calendar views. Simplified implementation focusing on essential
-calendar functionality.
+The calendar displays and acts: it composes the four activity domains into
+one dated surface.
 
-DESIGN DECISION (October 3, 2025):
-----------------------------------
-This service intentionally keeps a SIMPLE, BASIC, FUNDAMENTAL design.
+1. Displays tasks, events, habits and goal milestones in day/week/month views
+   (``get_calendar_view``) and supplies a week's plannable items to the
+   weekly-note panel (``get_planning_items``).
+2. Reschedules tasks and events and records habit completions from the
+   calendar (``reschedule_item``, ``record_habit_occurrence``).
+3. Projects habit recurrence across the view range with each day's real
+   completion state.
 
-Core Responsibilities:
-1. Display calendar items (tasks, events, habits, goal milestones)
-2. Provide day/week/month views
-3. Reschedule tasks/events and record habit completions from the calendar
-4. Habit recurrence projection
-
-Creation is NOT a calendar concern: the day lens (/today/{date}) is the acting
-surface for adding tasks (act-from arc C6) — it creates through TasksService, so
-the calendar's former multi-type ``quick_create`` was deleted as superseded.
-
-This service does NOT provide:
-- Intelligent scheduling recommendations
-- Conflict detection
-- Knowledge-aware scheduling
-- Dependency analysis
-- Cross-domain intelligence
-
-Integration History:
-Intelligent scheduling methods (conflict detection, recommendations, context loading)
-were explored in October 2025 but removed to keep service simple and focused.
-See git history (commit around Oct 3, 2025) for reference implementation if needed.
-
-For intelligent scheduling features, create a dedicated orchestration service
-that calls CalendarService for display data.
+Creation belongs to the day lens: ``/today/{date}`` creates through
+``TasksService`` (ADR-058 § Endpoints; ``done/calendar-act-from-arc.md`` C6).
+Scheduling intelligence — conflict detection, slot suggestions, busy times,
+calendar density, cognitive-load balancing — lives above this service in
+``CalendarOptimizationOrchestrator`` (``core/orchestrator/``), which reads
+Tasks and Events itself.
 """
 
 from __future__ import annotations
@@ -134,18 +119,11 @@ def _habit_block_on(habit: Habit, day: date) -> tuple[datetime, datetime]:
 
 
 class CalendarService:
-    """
-    Unified calendar service for managing calendar views.
+    """Calendar meta-service: composes the injected domain services into one surface.
 
-    Provides:
-    - Calendar view generation (day/week/month)
-    - Task, event, habit, and goal-milestone integration
-    - Habit recurrence projection
-    - Color and icon styling
-
-    This is a meta-service: it delegates all graph queries to the injected domain
-    services (TasksOperations, EventsOperations, HabitsService, GoalsOperations).
-    It does not write Cypher directly.
+    Every graph read and write goes through TasksOperations, EventsOperations,
+    HabitsService and GoalsOperations; the calendar writes no Cypher of its own.
+    The module docstring states what it displays and acts on.
     """
 
     def __init__(
@@ -198,11 +176,6 @@ class CalendarService:
 
         Returns:
             Result with CalendarData or error
-
-        Note:
-            Refactoring:
-            Uses unified query pattern with Cypher-level filtering.
-            10-100x performance improvement over in-memory filtering.
         """
         items = []
 
@@ -269,7 +242,7 @@ class CalendarService:
         # The grid's range rule, applied listwise: an item lives on its
         # ``start_time.date()`` (``_items_by_date``), and the due-OR-scheduled
         # task fetch can match a task whose PLACEMENT day is outside the range
-        # (scheduled before the week, due within it — Codex #923). The week
+        # (scheduled before the week, due within it). The week
         # grid never renders such a chip (its day is outside the view), so the
         # panel filters identically — same fetch, same placement, same
         # visibility; that task shows on the week its scheduled day lives in.
@@ -599,14 +572,7 @@ class CalendarService:
     async def _fetch_events(
         self, user_uid: UserUID, start_date: date, end_date: date, include_completed: bool
     ) -> list[CalendarItem]:
-        """
-        Fetch events and convert to calendar items.
-
-        Refactoring:
-        Uses unified query pattern with Cypher-level date filtering.
-        BEFORE: Fetched 100 events, filtered in Python
-        AFTER: Cypher filters by event_date at database level
-        """
+        """Fetch the range's events (date-filtered by the events query) as calendar items."""
         items: list[CalendarItem] = []
 
         try:
@@ -669,11 +635,11 @@ class CalendarService:
         completed / cancelled too, via ``get_user_habits``), honouring the same flag
         the task/event fetches already respect for audit/timeline callers.
 
-        History: this previously called ``get_user_items_in_range``, which silently
-        filters by ``created_at``. That made habits vanish from any view window that
-        didn't span their creation date — e.g. a habit created July 1 showed on every
-        day of the July month view but on *no* day of a late-July week view. Fetching
-        by status keeps month and week consistent.
+        A dated range read (``get_user_items_in_range`` filters Habits on
+        ``created_at``) would drop a habit from every view window that does not
+        span its creation day — present on the month view, absent from a later
+        week of the same month. Fetching by status keeps month and week
+        consistent.
         """
         habits: list[Habit] = []
 
@@ -760,9 +726,9 @@ class CalendarService:
             start_time = datetime.now()
             end_time = start_time + timedelta(hours=1)
 
-        # Every task is ONE kind — Task (periodic-notes arc E1). A due-date-only
-        # task carries the due STATE: an all-day chip with the ⏰/red urgency cue,
-        # never a separate legend kind.
+        # Every task is ONE kind — Task. A due-date-only task carries the due
+        # STATE: an all-day chip with the ⏰/red urgency cue, never a separate
+        # legend kind.
         is_due = task.scheduled_date is None and task.due_date is not None
         item_type = CalendarItemType.TASK
         color = item_type.get_color()
