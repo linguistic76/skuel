@@ -46,7 +46,6 @@ from __future__ import annotations
 import argparse
 import json
 import re
-import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -59,6 +58,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 # sys.path[0] but not for MyPy (matches backfill_docs_updated.py).
 from docs_updated_field import (  # type: ignore[import-not-found]
     REPO_ROOT,
+    dirty_docs,
     tracked_docs,
 )
 
@@ -160,15 +160,6 @@ def quote_title(content: str) -> tuple[str, str, str]:
     return content_after, scalar, quoted_line
 
 
-def _git(*args: str) -> str:
-    return subprocess.run(
-        ["git", "-C", str(REPO_ROOT), *args],
-        capture_output=True,
-        text=True,
-        check=True,
-    ).stdout
-
-
 def scan() -> tuple[list[str], list[str], list[str]]:
     """``(failing_stampable, failing_generated, all_docs)`` over every tracked doc."""
     stampable, generated = tracked_docs()
@@ -198,12 +189,7 @@ def build_plan(failing: list[str]) -> tuple[list[Fix], list[tuple[str, str]]]:
 def verify_clean(paths: list[str]) -> None:
     """Refuse to rewrite a doc with uncommitted changes — a failed write must be
     recoverable from git, and the result must be reviewable as its own diff."""
-    dirty = {
-        line[3:]
-        for line in _git("status", "--porcelain", "--", "app/docs").split("\n")
-        if line.strip()
-    }
-    conflicts = sorted(dirty & set(paths))
+    conflicts = sorted(dirty_docs() & set(paths))
     if conflicts:
         raise PremiseError(
             f"{len(conflicts)} target docs have uncommitted changes; commit or stash "

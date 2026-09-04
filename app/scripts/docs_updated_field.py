@@ -364,6 +364,36 @@ def _utc_date(iso_with_offset: str) -> date:
     return datetime.fromisoformat(iso_with_offset).astimezone(UTC).date()
 
 
+def dirty_docs() -> set[str]:
+    """Repo-root-relative docs with uncommitted changes — index, worktree or untracked.
+
+    A writer that rewrites docs asks this before touching one: a dirty target means
+    the author's edit is either clobbered or dragged into the writer's commit.
+
+    ``--porcelain -z``, never the plain text form. Porcelain v1 C-quotes any path
+    containing whitespace (``"app/docs/design-principles/direction w structuring.md"``),
+    so a ``line[3:]`` slice carries the literal quotes and never equals the unquoted
+    path a caller compares against — the guard passes silently and the writer
+    overwrites the edit. Three docs under ``design-principles/`` have spaces in their
+    names, and the miss reproduced on one of them (Kody, high, on #1264). NUL-separated
+    entries are never quoted. A rename or copy entry (``R``/``C`` in either status
+    column) is followed by a second NUL-terminated field, the ORIGIN path, which is
+    consumed and dropped — it no longer exists in the worktree.
+    """
+    fields = _run_git("status", "--porcelain", "-z", "--", SCOPE_PREFIX).split("\0")
+    dirty: set[str] = set()
+    index = 0
+    while index < len(fields):
+        entry = fields[index]
+        index += 1
+        if not entry:
+            continue
+        dirty.add(entry[3:])
+        if "R" in entry[:2] or "C" in entry[:2]:
+            index += 1
+    return dirty
+
+
 @dataclass(frozen=True)
 class FileHistory:
     """Commit dates for one doc, in UTC."""

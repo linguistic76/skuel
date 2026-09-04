@@ -375,6 +375,27 @@ def _commit(repo_path: Path, message: str, when: str) -> None:
     )
 
 
+def test_dirty_docs_sees_a_space_named_path_unquoted(repo: Path) -> None:
+    """Porcelain v1 C-quotes a path with whitespace, so ``line[3:]`` never matched a
+    space-named doc and a writer's clean-tree guard passed on a dirty file (Kody,
+    high, on #1264). ``-z`` entries are never quoted; a rename's origin field is
+    dropped, not reported as a second dirty path."""
+    spaced = repo / "app" / "docs" / "direction w structuring.md"
+    spaced.write_text("---\ntitle: X\n---\n\nbody\n")
+    (repo / "app" / "docs" / "old name.md").write_text("old\n")
+    _commit(repo, "seed", "2026-01-01T12:00:00+00:00")
+    assert field_mod.dirty_docs() == set()
+
+    spaced.write_text("---\ntitle: X\n---\n\nbody edited\n")
+    (repo / "app" / "docs" / "new note.md").write_text("untracked\n")
+    _git(repo, "mv", "app/docs/old name.md", "app/docs/renamed name.md")
+    assert field_mod.dirty_docs() == {
+        "app/docs/direction w structuring.md",
+        "app/docs/new note.md",
+        "app/docs/renamed name.md",
+    }
+
+
 def test_a_stamp_only_commit_is_not_the_last_substantive_one(repo: Path) -> None:
     """The exclusion that keeps the backfill from invalidating itself."""
     doc = repo / "app" / "docs" / "a.md"
