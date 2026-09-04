@@ -1,5 +1,5 @@
 ---
-updated: 2026-08-08
+updated: 2026-09-04
 ---
 
 # Gantt Visualization Surface — Staged, Not Abandoned
@@ -125,7 +125,7 @@ a *wrong* chart, not merely an unrendered one. Ordered by severity.
 |---|--------|----------|-----|
 | D1 | **Zero-length task bars.** A task with `due_date` and no `scheduled_date` — the ordinary SKUEL shape — makes start == end. Renders as an invisible sliver. | `visualization_service.py:428-429` | Copy the guard from its own sibling at `:314` (`if task.due_date and task.due_date > start_date`). |
 | D2 | **Inverted bars (end before start).** `scheduled_date > due_date` (an overdue task rescheduled forward) yields a negative-duration bar. | `visualization_service.py:428-429` | Same one-line guard as D1. |
-| D3 | **Ingested tasks are invisible to the goal Gantt.** `get_tasks_for_goal` reads the node *property* `fulfills_goal_uid`; the ingestion door writes only the `FULFILLS_GOAL` *edge*. Two writers disagree; the reader sees one. Live graph: 2 `FULFILLS_GOAL` edges, 0 nodes with the property. | `tasks_search_service.py:84` | Read the edge, or dual-read. **The integration test cannot catch this** — its fixture uses the property-writing API path. |
+| D3 | ✅ **RESOLVED at the write (2026-09-04).** Was: ingested tasks invisible to the goal Gantt — `get_tasks_for_goal` reads the node *property* `fulfills_goal_uid` and the ingestion door wrote only the `FULFILLS_GOAL` *edge*. Every writer now lands both halves: the app doors dual-write property + edge (`TasksCoreService._write_link_edges`, `TasksService._sync_relationship_edges`), the vault door stamps the property from `connections.fulfills_goal` (`core/services/ingestion/preparer.py`). Invariant: property == edge target. The 2 pre-existing vault rows gain the property on their next re-ingest (`./dev vault-sync --force --vault content`). | `tasks_search_service.py:84` | Done at the write, not the read; `test_vault_task_goal_link_parity.py` pins the vault half. |
 | D4 | **Empty task list returns an ERROR, not an empty chart.** First UI load would show an error toast. | `visualization_service.py:304-305` | Return an empty `GanttConfig` instead of `Result.fail`. |
 | D5 | **Progress is a constant 50%** for every ACTIVE task. The branch computing a real number is unreachable on the normal lifecycle (`actual_minutes` is only stamped at completion, which the COMPLETED branch catches first). | `visualization_service.py:471-476` | Return 0 for ACTIVE-without-evidence, or write `actual_minutes` on a real progress path. A fallback may *place* a bar; it must not *name* a value. |
 | D6 | **`priority-None` CSS class.** The `getattr(task, "priority", Priority.MEDIUM)` default is unreachable (the field is always declared), so an unset priority stringifies to `None`. Bites vault-ingested tasks specifically. | `visualization_service.py:545` | `or Priority.MEDIUM` instead of the getattr default. Same dead-default class as the #846 defect. |

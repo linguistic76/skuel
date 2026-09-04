@@ -99,6 +99,11 @@ class Task(UserOwnedEntity):
     # =========================================================================
     # CROSS-DOMAIN LINKS
     # =========================================================================
+    # DUAL-WRITTEN: a real node column AND the (Task)-[:FULFILLS_GOAL]->(Goal) edge, on
+    # every door (TasksCoreService._write_link_edges, TasksService._sync_relationship_edges,
+    # the vault preparer). The column serves readers holding the task in hand; the edge
+    # serves every goal-side traversal. Invariant: property == edge target — a refused
+    # edge clears the column.
     fulfills_goal_uid: str | None = None  # TASK -> GOAL
     source_path_step_uid: str | None = None  # TASK -> PS
     # EDGE-BACKED, never a node property. The Task↔Habit link is the graph edge

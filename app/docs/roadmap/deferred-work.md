@@ -1259,6 +1259,26 @@ reader of first/last completion stamps under-reports that door's activity.
 
 ---
 
+## `HabitEventScheduler` Stamps a Goal on a Field `Event` Does Not Have (REGISTERED 2026-09-04)
+
+`core/services/habit_event_scheduler.py` (`_generate_events_for_habit`) sets
+`event.fulfills_goal_uid = <first linked goal>` under a `# type: ignore[attr-defined]`. `EventDTO`
+declares no such field, and the dict door it persists through (`event.to_dict()` → `dto_to_dict` →
+`asdict`) serialises declared fields only — so the stamp never reaches the node. Verified 2026-09-04
+against the live graph: 0 Event nodes carry `fulfills_goal_uid`. The goal list DOES land, as
+`metadata.supports_goals`, which no reader consults either. The Event→Goal link SKUEL reads is the
+`(Event)-[:CONTRIBUTES_TO_GOAL]->(Goal)` edge (`core/services/events/_goal_links.py`).
+
+**The real work:** write that edge post-persist in `schedule_events_for_habit` — one per goal in
+`HabitRelationships.linked_goal_uids`, admitted through `keep_permitted_link_edges` like every other
+create-door link — and delete the dead stamp with its `type: ignore`. Surfaced while building the
+Task `FULFILLS_GOAL` dual-write; ruled *verify, report, don't build* in that contract.
+**Trigger:** the next `HabitEventScheduler` touch, or a Habit→Event→Goal reader that comes up empty.
+**Named cost:** habit-scheduled events never count toward the goals their habit supports; the
+`type: ignore` hides the field mismatch from mypy.
+
+---
+
 ## Line Deletions Leave `EXTRACTED_FROM` Edges (REGISTERED 2026-08-24)
 
 Deletion propagation is FILE-level (entity file deleted → entity deleted). Deleting a task LINE
@@ -2833,6 +2853,7 @@ Review this document at the **September 2026 quarterly review**. Checklist:
 | Per-node substance counters — the unread arm (ruled "keep staged" 2026-08-21) | A substantiation UI/surface is scheduled | `git grep -n "get_substantiation_gaps\|is_well_practiced" -- "ui/" "adapters/inbound/"` — empty until wired; see the section (incl. the retroactive-credit question) |
 | R4 vault inbound propagation — parked build | Mike schedules it (product decision) | See the section — sketch + the #1143 r5 rejection; parsed-line vs entity state, never hash |
 | Vault task door publishes no task events | R4 build or next vault-door touch | `git grep -n "event_bus" adapters/persistence/neo4j/bulk_upsert_backend.py` — empty until wired |
+| `HabitEventScheduler` stamps `event.fulfills_goal_uid` — a field `Event` does not have (dead write) | Next `HabitEventScheduler` touch, or a Habit→Event→Goal reader that comes up empty | `git grep -n "fulfills_goal_uid" core/services/habit_event_scheduler.py` — the `type: ignore[attr-defined]` line is the marker; fix = CONTRIBUTES_TO_GOAL edge post-persist, guarded |
 | Line deletions leave `EXTRACTED_FROM` edges | R4 build or next reconciler touch | Census shape in the section; re-probe the W28 edges before building |
 | ⚠️ **Vault re-sync never retracts a share** (open privacy gap; ruled leave-registered 2026-09-02) | Next sharing-fan-out touch, or the first multi-user deployment — whichever comes first; a lived "I removed `audience:` and it is still shared" report promotes it immediately | `scripts/retract_defaulted_vault_note_shares.py` (dry run) lists what the door left shared; the fix is share reconciliation in `AudienceResolver.resolve_and_share` (retract edges the declared audience no longer covers) |
 | `UserLearningIntelligence` write-only fields (hollow since their sources were deleted) | Owner's ruling, or next touch of `PsAdaptiveService` | `git grep -n "intelligence\." core/services/ps/ps_adaptive_service.py` — assignments with no matching read |

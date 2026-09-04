@@ -1,6 +1,6 @@
 ---
 title: "Cross-Domain UID Patterns: Structural Anchors vs Enrichment Links"
-updated: 2026-08-07
+updated: 2026-09-04
 status: current
 category: architecture
 tags: [architecture, uid-patterns, cross-domain, structural-anchor, enrichment-link]
@@ -40,7 +40,7 @@ Confusing the two produces either stale denormalized data (writing what should b
 
 | Domain | Field | Direction | Why persisted |
 |--------|-------|-----------|---------------|
-| Task | `fulfills_goal_uid` | TASK → GOAL | Hierarchy membership — the task is part of this goal's action system |
+| Task | `fulfills_goal_uid` | TASK → GOAL | Hierarchy membership — the task is part of this goal's action system. Dual-written with `(Task)-[:FULFILLS_GOAL]->(Goal)` (property == edge target, every door); the column serves in-hand readers, the edge every goal-side traversal |
 | Task | `source_path_step_uid` | TASK → PS | Spawn-time PS origin; also set by non-template paths (see §below) |
 | Task | `scheduled_event_uid` | TASK → EVENT | Scheduling appointment — the task is pinned to this Event |
 | Goal | `fulfills_goal_uid` | GOAL → GOAL | Sub-goal hierarchy membership (parallel to `Exercise.path_step_uid`) |

@@ -1,7 +1,7 @@
 ---
 title: Tasks Domain
 created: 2025-12-04
-updated: 2026-08-27
+updated: 2026-09-04
 status: current
 category: domains
 tags:
@@ -114,6 +114,7 @@ Also handles: duration calibration (EMA on User node), cascade impact analysis, 
 | `project` | `str?` | Project grouping |
 | `tags` | `tuple[str, ...]` | Tags for categorization |
 | `parent_uid` | `str?` | Parent task UID. NOT a node property — an *edge carrier*: `RELATIONSHIP_SKIP_FIELDS` drops it and `TasksCoreService.create` writes `(parent)-[:HAS_SUBTASK]->(task)` from it, for both create doors |
+| `fulfills_goal_uid` | `str?` | Goal this task fulfills. DUAL-WRITTEN: a real node column AND the `(task)-[:FULFILLS_GOAL]->(goal)` edge — both create doors (`TasksCoreService._write_link_edges`), the update path (`TasksService._sync_relationship_edges`), and the vault door, which stamps the column from `connections.fulfills_goal` (`core/services/ingestion/preparer.py`). Invariant: property == edge target. The edge is admitted like every other link (goal must exist, be the caller's, be a Goal); a refused edge clears the column so the two halves never disagree |
 | `recurrence_pattern` | `RecurrencePattern?` | Daily, Weekly, etc. |
 
 ## Relationships
@@ -129,7 +130,7 @@ Also handles: duration calibration (EMA on User node), cascade impact analysis, 
 | `triggers` | `TRIGGERS_ON_COMPLETION` | Task | Tasks triggered when complete |
 | `unlocks_knowledge` | `UNLOCKS_KNOWLEDGE` | Ku | Knowledge unlocked by completion |
 | `contributes_to_goal` | `CONTRIBUTES_TO_GOAL` | Goal | Goals this contributes to |
-| `fulfills_goal` | `FULFILLS_GOAL` | Goal | Goals this fulfills |
+| `fulfills_goal` | `FULFILLS_GOAL` | Goal | Goal this fulfills — dual-written with the `fulfills_goal_uid` column (see Fields) |
 
 **`TRIGGERS_ON_COMPLETION` schedules, it never reopens.** The completion cascade
 (`TasksProgressService._trigger_task`) moves a dependent to `scheduled` only when that

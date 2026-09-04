@@ -21,6 +21,14 @@ from core.services.tasks_service import TasksService
 from core.utils.result_simplified import Errors, Result
 
 
+async def _owned_by_nobody(uids: list[str]) -> Result[dict[str, list[str]]]:
+    return Result.ok({})
+
+
+async def _every_linkable_kind(uids: list[str]) -> Result[dict[str, list[str]]]:
+    return Result.ok({uid: ["Entity", "Goal", "Habit", "Ku"] for uid in uids})
+
+
 @pytest.fixture
 def mock_event_bus() -> Mock:
     """Mock event bus for testing."""
@@ -75,6 +83,11 @@ def mock_tasks_backend() -> Any:
     # Relationship operations
     backend.create_relationships_batch = AsyncMock(return_value=Result.ok(0))
     backend.get_related_uids = AsyncMock(return_value=Result.ok([]))
+    # The link-edge admission guard's two batched reads (keep_permitted_link_edges).
+    # Permissive by default — every uid is owned by nobody and carries every kind the
+    # update path links — so tests that are not ABOUT admission keep writing edges.
+    backend.get_owner_uids_batch = AsyncMock(side_effect=_owned_by_nobody)
+    backend.get_node_labels_batch = AsyncMock(side_effect=_every_linkable_kind)
 
     return backend
 
@@ -534,3 +547,202 @@ class TestUpdateTaskHabitEdge:
         service.relationships.get_related_uids.assert_not_called()
         service.relationships.delete_relationship.assert_not_called()
         service.backend.create_relationships_batch.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# TestUpdateTaskGoalEdge — fulfills_goal_uid is dual-written on update too
+# ---------------------------------------------------------------------------
+
+
+def _task(**overrides: Any) -> Task:
+    defaults: dict[str, Any] = {"uid": "task_abc", "user_uid": "user_x", "title": "Ship it"}
+    defaults.update(overrides)
+    return Task(**defaults)
+
+
+class TestUpdateTaskGoalEdge:
+    """``fulfills_goal_uid`` on update: the property is written AND the FULFILLS_GOAL
+    edge is replaced — old edge deleted, new one admitted through the same guard the
+    create path uses. ``None`` clears both; ``UNSET`` touches neither. A refused goal
+    clears the property so the two halves never disagree (the create-path rule)."""
+
+    GOAL_EDGE = ("task_abc", "goal_new", RelationshipName.FULFILLS_GOAL.value, None)
+
+    @staticmethod
+    def _related(existing_goal: str | None):
+        async def related(key: str, uid: str) -> Result[list[str]]:
+            if key == "fulfills_goal":
+                return Result.ok([existing_goal] if existing_goal else [])
+            return Result.ok([])
+
+        return related
+
+    @pytest.mark.asyncio
+    async def test_setting_a_goal_writes_the_property_and_replaces_the_edge(
+        self, tasks_service_with_mocked_subservices: TasksService
+    ) -> None:
+        service = tasks_service_with_mocked_subservices
+        service.core.update_task = AsyncMock(
+            return_value=Result.ok(_task(fulfills_goal_uid="goal_new"))
+        )
+        service.relationships.get_related_uids = AsyncMock(side_effect=self._related("goal_old"))
+        service.relationships.delete_relationship = AsyncMock(return_value=Result.ok(True))
+        service.backend.create_relationships_batch = AsyncMock(return_value=Result.ok(1))
+        service.backend.update = AsyncMock()
+
+        result = await service.update_task(
+            "task_abc", TaskUpdateIntent(fulfills_goal_uid="goal_new")
+        )
+
+        assert result.is_ok
+        # The property is NOT split off: it stays in the patch core writes.
+        service.core.update_task.assert_awaited_once_with(
+            "task_abc", TaskUpdateIntent(fulfills_goal_uid="goal_new")
+        )
+        service.relationships.delete_relationship.assert_awaited_once_with(
+            "fulfills_goal", "task_abc", "goal_old"
+        )
+        service.backend.create_relationships_batch.assert_awaited_once_with([self.GOAL_EDGE])
+        service.backend.update.assert_not_called()
+        assert result.value.fulfills_goal_uid == "goal_new"
+
+    @pytest.mark.asyncio
+    async def test_clearing_the_goal_deletes_the_edge_and_creates_none(
+        self, tasks_service_with_mocked_subservices: TasksService
+    ) -> None:
+        service = tasks_service_with_mocked_subservices
+        service.core.update_task = AsyncMock(return_value=Result.ok(_task()))
+        service.relationships.get_related_uids = AsyncMock(side_effect=self._related("goal_old"))
+        service.relationships.delete_relationship = AsyncMock(return_value=Result.ok(True))
+        service.backend.create_relationships_batch = AsyncMock()
+
+        result = await service.update_task("task_abc", TaskUpdateIntent(fulfills_goal_uid=None))
+
+        assert result.is_ok
+        service.core.update_task.assert_awaited_once_with(
+            "task_abc", TaskUpdateIntent(fulfills_goal_uid=None)
+        )
+        service.relationships.delete_relationship.assert_awaited_once_with(
+            "fulfills_goal", "task_abc", "goal_old"
+        )
+        service.backend.create_relationships_batch.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_an_unset_goal_touches_no_goal_edge(
+        self, tasks_service_with_mocked_subservices: TasksService
+    ) -> None:
+        service = tasks_service_with_mocked_subservices
+        service.core.update_task = AsyncMock(return_value=Result.ok(_task()))
+        service.relationships.get_related_uids = AsyncMock(side_effect=self._related("goal_old"))
+        service.relationships.delete_relationship = AsyncMock()
+        service.backend.create_relationships_batch = AsyncMock()
+
+        result = await service.update_task("task_abc", TaskUpdateIntent(title="Renamed"))
+
+        assert result.is_ok
+        service.relationships.get_related_uids.assert_not_called()
+        service.relationships.delete_relationship.assert_not_called()
+        service.backend.create_relationships_batch.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_a_refused_goal_clears_the_property(
+        self, tasks_service_with_mocked_subservices: TasksService
+    ) -> None:
+        """Another user's goal: the old edge is gone (replace semantics), the new one is
+        refused, and the property core just wrote is cleared — the returned task names no
+        goal, matching the graph."""
+        service = tasks_service_with_mocked_subservices
+        service.core.update_task = AsyncMock(
+            return_value=Result.ok(_task(fulfills_goal_uid="goal_theirs"))
+        )
+        service.relationships.get_related_uids = AsyncMock(side_effect=self._related("goal_old"))
+        service.relationships.delete_relationship = AsyncMock(return_value=Result.ok(True))
+        service.backend.get_owner_uids_batch = AsyncMock(
+            return_value=Result.ok({"goal_theirs": ["user_someone_else"]})
+        )
+        service.backend.create_relationships_batch = AsyncMock()
+        service.backend.update = AsyncMock(return_value=Result.ok(_task()))
+
+        result = await service.update_task(
+            "task_abc", TaskUpdateIntent(fulfills_goal_uid="goal_theirs")
+        )
+
+        assert result.is_ok
+        service.backend.create_relationships_batch.assert_not_called()
+        service.backend.update.assert_awaited_once_with("task_abc", {"fulfills_goal_uid": None})
+        assert result.value.fulfills_goal_uid is None
+
+    @pytest.mark.asyncio
+    async def test_a_goal_of_the_wrong_kind_is_refused(
+        self, tasks_service_with_mocked_subservices: TasksService
+    ) -> None:
+        service = tasks_service_with_mocked_subservices
+        service.core.update_task = AsyncMock(
+            return_value=Result.ok(_task(fulfills_goal_uid="habit_not_a_goal"))
+        )
+        service.relationships.get_related_uids = AsyncMock(side_effect=self._related(None))
+        service.backend.get_node_labels_batch = AsyncMock(
+            return_value=Result.ok({"habit_not_a_goal": ["Entity", "Habit"]})
+        )
+        service.backend.create_relationships_batch = AsyncMock()
+        service.backend.update = AsyncMock(return_value=Result.ok(_task()))
+
+        result = await service.update_task(
+            "task_abc", TaskUpdateIntent(fulfills_goal_uid="habit_not_a_goal")
+        )
+
+        assert result.is_ok
+        service.backend.create_relationships_batch.assert_not_called()
+        service.backend.update.assert_awaited_once_with("task_abc", {"fulfills_goal_uid": None})
+        assert result.value.fulfills_goal_uid is None
+
+
+class TestUpdateTaskEdgesAreGuarded:
+    """The update door writes link edges through the same admission guard as create.
+
+    ``update_for_user`` verifies the TASK's owner and nothing about the far end, so
+    without this a caller could point their task at another user's habit or knowledge
+    and have the edge written — the defect class #965 closed on the create doors."""
+
+    @pytest.mark.asyncio
+    async def test_another_users_habit_is_refused_on_update(
+        self, tasks_service_with_mocked_subservices: TasksService
+    ) -> None:
+        service = tasks_service_with_mocked_subservices
+        service.core.get_task = AsyncMock(return_value=Result.ok(_task()))
+        service.relationships.get_related_uids = AsyncMock(return_value=Result.ok([]))
+        service.backend.get_owner_uids_batch = AsyncMock(
+            return_value=Result.ok({"habit_theirs": ["user_someone_else"]})
+        )
+        service.backend.create_relationships_batch = AsyncMock()
+
+        result = await service.update_task(
+            "task_abc", TaskUpdateIntent(reinforces_habit_uid="habit_theirs")
+        )
+
+        assert result.is_ok, "the update itself succeeds — only the edge is refused"
+        service.backend.create_relationships_batch.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_another_users_knowledge_is_refused_on_update(
+        self, tasks_service_with_mocked_subservices: TasksService
+    ) -> None:
+        service = tasks_service_with_mocked_subservices
+        service.core.get_task = AsyncMock(return_value=Result.ok(_task()))
+        service.relationships.get_related_uids = AsyncMock(return_value=Result.ok([]))
+        # The real owner query OMITS unowned nodes (a Ku carries no owner) — an absent
+        # row means "owned by nobody", which the guard treats as linkable.
+        service.backend.get_owner_uids_batch = AsyncMock(
+            return_value=Result.ok({"ku_theirs": ["user_someone_else"]})
+        )
+        service.backend.create_relationships_batch = AsyncMock(return_value=Result.ok(1))
+
+        result = await service.update_task(
+            "task_abc", TaskUpdateIntent(applies_knowledge_uids=["ku_theirs", "ku.shared"])
+        )
+
+        assert result.is_ok
+        # Only the offending edge is dropped; the shared (unowned) Ku still links.
+        service.backend.create_relationships_batch.assert_awaited_once_with(
+            [("task_abc", "ku.shared", RelationshipName.APPLIES_KNOWLEDGE.value, None)]
+        )

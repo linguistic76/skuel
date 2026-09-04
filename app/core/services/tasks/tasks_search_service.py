@@ -72,7 +72,9 @@ class TasksSearchService(BaseService["TasksOperations", Task]):
         """
         Get all tasks that fulfill a specific goal.
 
-        Pattern 1 (Graph-Aware Models): Simple query using fulfills_goal_uid field.
+        Reads the ``fulfills_goal_uid`` node column — the property half of the
+        dual-written goal link (property == FULFILLS_GOAL edge target on every door; see
+        ``TasksCoreService._write_link_edges``), so vault-ingested tasks are found too.
 
         Args:
             goal_uid: Goal UID

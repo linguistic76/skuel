@@ -77,6 +77,38 @@ def _reject_colon_relationship_targets(
                 )
 
 
+def _reconcile_task_goal_link(entity_data: dict[str, Any]) -> None:
+    """Keep a Task's goal link ONE fact: ``connections.fulfills_goal`` (the edge) and
+    ``fulfills_goal_uid`` (the node column) name the same goal.
+
+    The app doors dual-write this link (``TasksCoreService._write_link_edges``); the
+    vault door must land on the same invariant — property == edge target, wherever both
+    exist — or a vault task is goal-less to every in-hand reader (the relevance scorer,
+    the completion → goal-progress cascade, ``get_tasks_for_goal`` behind the goal
+    Gantt) while the graph readers see its goal.
+
+    - The connection is the registered authoring surface and the half the graph readers
+      traverse, so it WINS when both are authored; its first target is stamped as the
+      column (the column is singular — every target still gets its edge).
+    - A bare column authors the connection, so the edge is written and validated too.
+    - A file naming no goal stamps an explicit ``None``: under ``SET n += props`` a null
+      REMOVES the property, so a stale stamp goes on re-ingest together with the edge
+      the authored-edge diff retracts.
+    """
+    targets = entity_data.get("connections.fulfills_goal")
+    if isinstance(targets, str):
+        targets = [targets]
+    if targets:
+        entity_data["connections.fulfills_goal"] = list(targets)
+        entity_data["fulfills_goal_uid"] = targets[0]
+        return
+    bare = entity_data.get("fulfills_goal_uid")
+    if bare:
+        entity_data["connections.fulfills_goal"] = [bare]
+        return
+    entity_data["fulfills_goal_uid"] = None
+
+
 def generate_uid(entity_type: EntityType | NonKuDomain, file_path: Path) -> str:
     """
     Generate UID from entity type and file path.
@@ -329,6 +361,9 @@ def prepare_entity_data(
         for key, value in connections.items():
             if value:
                 entity_data[f"connections.{key}"] = value
+
+    if entity_type is EntityType.TASK:
+        _reconcile_task_goal_link(entity_data)
 
     # Flatten contains/recommends for organizing KUs
     contains = entity_data.pop("contains", {})

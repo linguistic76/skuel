@@ -357,7 +357,8 @@ UID ::= the entity's stored uid, verbatim (authored dot form or generated unders
 
 **Link types and where they land:**
 ```
-goal:       → Task.fulfills_goal_uid · Habit/Event linked_goal_uids
+goal:       → Task.fulfills_goal_uid + the task's FULFILLS_GOAL edge (dual-written, guarded:
+              the goal must exist, be yours, be a Goal — else neither lands) · Habit/Event linked_goal_uids
 principle:  → linked_principle_uids / guiding_principle_uids
 ku:  ps:    → applies_knowledge_uids (+ the entry's APPLIES_KNOWLEDGE edge) — the door
               for Kus beyond the one @ku() a line may carry
