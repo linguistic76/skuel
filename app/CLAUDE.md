@@ -594,14 +594,14 @@ Available on all 9 domains (Tasks, Goals, Habits, Events, Choices, Principles, K
 
 | Rule | Guards | Severity |
 |------|--------|----------|
-| SKUEL001 | No `apoc.*` above the boundary — `core/`, `adapters/inbound/`, `ui/`; below it, backends compose pure Cypher from the `query/cypher/` `build_*` functions; whole-namespace match, `apoc.meta.*` included (docstring-aware; unsuppressable) | CRITICAL |
+| SKUEL001 | No `apoc.*` above the boundary — `core/`, `adapters/inbound/`, `ui/`; below it, backends author pure Cypher — the runtime calls no APOC; whole-namespace match, `apoc.meta.*` included (docstring-aware; unsuppressable) | CRITICAL |
 | SKUEL003 | `.is_error` not `.is_err` | ERROR |
 | SKUEL007 | `Errors` factory (incl. `str(...)` wraps) — services + `adapters/inbound/`, `ui/` | WARNING |
 | SKUEL011 | No `hasattr()` — Protocol/isinstance/getattr | ERROR |
 | SKUEL012 | No lambda — named functions | ERROR |
 | SKUEL013 | `RelationshipName` enum — services + `adapters/inbound/`, `ui/` | ERROR |
 | SKUEL014 | `EntityType`/`NonKuDomain` enum — services + `adapters/inbound/`, `ui/` | ERROR |
-| SKUEL015 | No `print()` in production — runtime code logs through `logger.*()`; `print()` is for interactive CLIs | ERROR |
+| SKUEL015 | No `print()` in production — runtime code logs through `logger.*()`; `print()` is for interactive CLIs | WARNING |
 | SKUEL016 | No Poetry refs — SKUEL uses uv | ERROR |
 | SKUEL017 | No bare `except Exception` — specific types from `exception_types.py` | ERROR |
 | SKUEL019 | `get_credential()` not raw `os.getenv()` on credential names | ERROR |
