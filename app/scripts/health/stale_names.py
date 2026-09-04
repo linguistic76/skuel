@@ -522,10 +522,9 @@ def extract_code_segments(content: str) -> list[tuple[int, str]]:
     any line starting with the opener's first three characters, so ANY inner fence ended
     the outer one.
 
-    The live shape is not the 4-backtick wrapper it is easiest to picture — there are
-    none in this tree — but an equal-length inner fence carrying an info string: six
-    lines across four documents, e.g. a ```` ```markwhen ```` sample inside a
-    ```` ```markdown ```` block at ``docs/guides/VOICE_JOURNALING_AND_OBSIDIAN_GUIDE.md:199``.
+    The shape that matters is not the 4-backtick wrapper it is easiest to picture — there
+    are none in this tree — but an equal-length inner fence carrying an info string: a
+    ```` ```yaml ```` sample nested inside a ```` ```markdown ```` block.
     Closing there did not merely truncate one block, it INVERTED the fence state for the
     rest of the document: code read as prose and prose read as code, 153 lines of prose
     scanned as code across three files.

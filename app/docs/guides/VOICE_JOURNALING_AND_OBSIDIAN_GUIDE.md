@@ -1,6 +1,6 @@
 ---
 title: Voice Journaling and Obsidian Guide
-updated: 2026-08-25
+updated: 2026-09-04
 status: current
 category: guides
 tags: [obsidian, journaling, voice, vaultbridge, activity-domains, daily-workflow, user-guide]
@@ -185,33 +185,48 @@ The **Weekly Review** is designed to be filled in on Sunday evening. Two honest 
 
 ### The Monthly Template (`t_monthly.md`)
 
-The monthly template is more structured and uses **Markwhen** — a lightweight timeline syntax — plus a Templater script that converts your timeline into individual task entries.
+The monthly note is a plain periodic note in the same shape as the daily and weekly ones. It is where you name the month's **big rocks** — the few things that would make the month count — and check that the commitments the month rests on carry a time.
 
 ```markdown
 ---
+type: user_entry
+pipeline: extract_activities
+title: Month 2026-06
 month_of: 2026-06
-timezone: America/Vancouver
+tags:
+  - monthly
+metadata:
+  entry_kind: monthly
 ---
 
 # 📅 Month 2026-06
 
-### Monthly plan (author with Markwhen)
-```markwhen
-title: Month 2026-06
+## Monthly Focus
 
-every day at 07:00: Meditation 20m #habit
-every day at 21:30: Prep tomorrow 10m #habit
+Theme, constraints, what you are watching.
 
-2026-06-01: Set monthly focus #planning
-2026-06-10 10:00: Mentor sync #work
-2026-06-12 to 2026-06-16: Sprint — SKUEL.app chat alignment #work
+## Big Rocks
+
+- [ ] Set monthly focus @context(task) @when(2026-06-01)
+- [ ] Mentor sync @context(event) @when(2026-06-10T10:00)
+- [ ] Sprint — SKUEL.app chat alignment @context(task) @when(2026-06-12) @priority(1)
+
+## Notes
+
+## Monthly Review
+
+- What moved?
+- One adjustment for next month.
 ```
 
-The Markwhen block is a human-readable calendar. Write your month's events and recurring commitments there. The Templater script (already wired into the template) converts those lines into generated tasks in the section below it.
+**How to use it:**
+
+- **Big Rocks** — one checkbox line per big rock, with `@context(task)` and `@when(YYYY-MM-DD)` for the day it lands (add the clock time, `@when(YYYY-MM-DDThh:mm)`, when there is one; a fixed appointment is an `@context(event)`). These are the same annotations as the daily note (see [Part 3](#part-3--writing-activities-in-your-notes)): on sync each line becomes a Task with that due date, so the big rocks reach your calendar without being retyped.
+- **Recurring commitments** — the morning meditation, the evening prep — are **Habits**, not lines in the monthly note. A habit's time lives on the Habit itself as a block of the day plus a duration: `preferred_time` (`morning`, `afternoon`, `evening`, `night`, …) and `duration_minutes`, set alongside the other fields of the habit's vault file (see [Part 4](#part-4--standalone-activity-yaml-files)) or in the **Schedule** section of the habit form in the app. Set it once and the calendar week view shows the habit on every day it recurs, reading its slot and length (`Morning · 20m`); the **Habit** swatch in the calendar legend shows or hides them.
 
 The monthly template also includes a **Tasks plugin** query block that shows your upcoming p1 tasks for the next 30–45 days — a useful overview before starting the week.
 
-**When to use it:** Open your monthly note at the start of each month, sketch the big rocks in Markwhen, and let the script generate the task list. Then work from your daily notes day-to-day.
+**When to use it:** Open your monthly note at the start of each month, write the big rocks as tasks, and give any habit you mean to keep this month its time block. Then work from your daily notes day-to-day.
 
 ---
 
@@ -554,7 +569,7 @@ When you're setting a new goal for the quarter, or want to define a principle th
 |----------|---------|----------------|
 | `t_daily.md` | Daily | Task capture, focus, retrospective |
 | `t_weekly.md` | Weekly | Weekly intentions, goals, review |
-| `t_monthly.md` | Monthly | Big-picture planning with Markwhen timeline |
+| `t_monthly.md` | Monthly | Big rocks as tasks; commitments as Habits |
 | `t_quarterly.md` | Quarterly | High-altitude reflection (free prose) |
 
 | @context() type | Use for |
