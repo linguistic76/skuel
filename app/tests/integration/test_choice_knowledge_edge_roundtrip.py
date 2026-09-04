@@ -107,6 +107,65 @@ class TestChoiceKnowledgeEdgeRoundTrip:
         assert target_uids == ["ku_decision_theory_abc", "ku_opportunity_cost_def"]
         assert {r["type"] for r in edges.value} == {"INFORMED_BY_KNOWLEDGE"}
 
+    async def test_create_choice_admits_only_existing_kus(
+        self, choices_service, neo4j_driver, test_user_uid, event_bus
+    ):
+        """A dangling uid and a non-Ku are refused; the valid Ku still lands.
+
+        The real batch writer is all-or-nothing, so without admission the dangling uid
+        would refuse the whole batch and the valid link would vanish on a create that
+        reports success. Substance is credited for the edge written, not the request.
+        """
+        from core.events.knowledge_substance_events import (
+            KnowledgeBulkInformedChoice,
+            KnowledgeInformedChoice,
+        )
+
+        await self._create_ku(neo4j_driver, "ku_decision_theory_abc", "Decision Theory")
+        async with neo4j_driver.session() as session:
+            await session.run(
+                """
+                MERGE (t:Entity:Task {uid: $uid})
+                ON CREATE SET t.entity_type = 'task', t.title = 'Compare vendors',
+                              t.user_uid = $user_uid
+                """,
+                uid="task_compare_vendors_xyz",
+                user_uid=test_user_uid,
+            )
+
+        request = ChoiceCreateRequest(
+            title="Pick a database",
+            description="Choose the primary datastore for the new service",
+            domain=Domain.TECH,
+            priority=Priority.HIGH,
+            informed_by_knowledge_uids=[
+                "ku_decision_theory_abc",
+                "ku_does_not_exist_000",
+                "task_compare_vendors_xyz",
+            ],
+        )
+
+        result = await choices_service.create_choice(request, test_user_uid)
+        assert result.is_ok, f"create_choice failed: {result}"
+        choice = result.value
+
+        edges = await choices_service.backend.get_relationships(
+            choice.uid,
+            rel_type=RelationshipName.INFORMED_BY_KNOWLEDGE,
+            direction="outgoing",
+        )
+        assert edges.is_ok
+        assert [r["target_uid"] for r in edges.value] == ["ku_decision_theory_abc"]
+
+        substance = [
+            e
+            for e in event_bus.get_event_history()
+            if isinstance(e, KnowledgeInformedChoice | KnowledgeBulkInformedChoice)
+        ]
+        assert len(substance) == 1
+        assert isinstance(substance[0], KnowledgeInformedChoice)
+        assert substance[0].knowledge_uid == "ku_decision_theory_abc"
+
     async def test_create_choice_without_knowledge_creates_no_edges(
         self, choices_service, test_user_uid
     ):

@@ -2,8 +2,8 @@
 Link-Edge Guard
 ===============
 
-One admission check for create paths that turn request-supplied UIDs into graph
-edges (``GoalsCoreService._write_link_edges``, ``HabitsCoreService._write_link_edges``).
+One admission check for every create door that turns request-supplied UIDs into
+graph edges — each domain's ``_write_link_edges`` admits its links through here.
 
 A request field like ``linked_goal_uids`` or ``supporting_habit_uids`` is a list of
 UIDs the caller chose. Writing them straight into ``create_relationships_batch`` trusts
@@ -47,19 +47,19 @@ if TYPE_CHECKING:
 # (from_uid, to_uid, relationship_type, properties) — the batch writer's tuple.
 EdgeTuple = tuple[str, str, str, Neo4jProperties | None]
 
-# What a "knowledge" link list may point at: the ATOM only. Both Goals'
-# ``required_knowledge_uids`` and Habits' ``linked_knowledge_uids`` document themselves as
-# KnowledgeUnit UIDs, and the substance pipeline fans out from the atom —
-# ``KuBackend.increment_substance`` credits whatever uid it names, and fans OUT to the
-# PathSteps composing it. It has no inverse, so a PathStep UID would credit the PathStep
-# and leave every atom it teaches untouched, while the context reader (which DOES expand a
-# PathStep through ``TRAINS_KU|USES_KU``) reported those atoms as reinforced. Writing
-# atoms keeps the two halves agreeing, and the fan-out still credits the PathStep.
+# What a "knowledge" link list may point at: the ATOM only. Every knowledge link list
+# on a create request documents itself as KU UIDs, and the substance pipeline fans out
+# from the atom — ``KuBackend.increment_substance`` credits whatever uid it names, and
+# fans OUT to the PathSteps composing it. It has no inverse, so a PathStep UID would
+# credit the PathStep and leave every atom it teaches untouched, while the context reader
+# (which DOES expand a PathStep through ``TRAINS_KU|USES_KU``) reported those atoms as
+# reinforced. Writing atoms keeps the two halves agreeing, and the fan-out still credits
+# the PathStep.
 #
 # This narrows what the CREATE doors write, not what the readers accept: PathStep-targeted
-# knowledge edges from other writers keep resolving as before. Neither create form offers
-# these fields — both omit list-typed links by design — so no UI flow narrows.
-# Shared so the two lists cannot drift into disagreeing about what knowledge is.
+# knowledge edges from other writers keep resolving as before. No create form offers
+# these fields — the forms omit list-typed links by design — so no UI flow narrows.
+# Shared so the lists cannot drift into disagreeing about what knowledge is.
 KNOWLEDGE_LABELS: Final = frozenset({NeoLabel.KU.value})
 
 
@@ -80,11 +80,11 @@ class LinkEdge:
         other_uid: the request-supplied end — NOT always ``edge[1]``, because an
             incoming spec puts the supplied UID in the source position.
         allowed_labels: the kinds this request field accepts, e.g. ``{"Habit"}`` for
-            ``supporting_habit_uids`` or ``{"Ku", "PathStep"}`` for a knowledge list.
-            A SET rather than one label because some fields legitimately take several
-            — and REQUIRED, with no "any kind" default, because an opt-out is the
-            escape hatch that lets an arbitrary Entity through the moment a new list
-            forgets to declare itself.
+            ``supporting_habit_uids`` or ``KNOWLEDGE_LABELS`` for a knowledge list.
+            A SET rather than one label so a field that takes several kinds can
+            declare them all — and REQUIRED, with no "any kind" default, because an
+            opt-out is the escape hatch that lets an arbitrary Entity through the
+            moment a new list forgets to declare itself.
     """
 
     edge: EdgeTuple
@@ -95,7 +95,7 @@ class LinkEdge:
 # Returns a plain list, not Result[...]: this is a pure filter, not a fallible
 # operation. Its one failure mode — an unreadable owner/label map — is ABSORBED into
 # the fail-closed contract (refuse everything), so a Result here would never error and
-# would put a dead error branch in each of the two call sites.
+# would put a dead error branch in every call site.
 async def keep_permitted_link_edges(  # skuel-lint: disable=SKUEL005 -- see note above
     backend: _EndpointReader,
     *,

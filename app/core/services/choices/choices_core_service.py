@@ -35,6 +35,11 @@ from core.services.completion_stamp import status_transition_guard
 from core.services.conversion_service import ConversionServiceV2
 from core.services.domain_config import create_activity_domain_config
 from core.services.mixins.hierarchy_read_mixin import HierarchyReadMixin
+from core.services.mixins.link_edge_guard import (
+    KNOWLEDGE_LABELS,
+    LinkEdge,
+    keep_permitted_link_edges,
+)
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import ErrorContext, Errors, Result
@@ -371,11 +376,115 @@ class ChoicesCoreService(
         # Post-persist embedding refresh (ADR-074) — the background worker embeds async
         await publish_embedding_requested(self.event_bus, EntityType.CHOICE, choice, self.logger)
 
+    async def _write_link_edges(self, choice: Choice, request: ChoiceCreateRequest) -> list[str]:
+        """GRAPH-NATIVE: turn the request's knowledge links into edges, in one batch.
+
+        ``informed_by_knowledge_uids`` → INFORMED_BY_KNOWLEDGE, declared ``outgoing``
+        from the choice, so the choice is the source of every tuple. Edges live in the
+        graph, never on the Choice or its DTO; read back via
+        ``PsService.find_choices_informed_by_knowledge``.
+
+        ADMISSION: every uid is request input, so each is checked for existence, OWNER
+        and KIND before it becomes an edge — ``keep_permitted_link_edges``. The field
+        name declares the kind: a knowledge list means Kus (``KNOWLEDGE_LABELS``, see
+        there for why the atom and not the PathStep). The registry cannot make that
+        check — its Choice spec for INFORMED_BY_KNOWLEDGE names the target ``Entity`` —
+        and the batch is all-or-nothing, so an unadmitted dangling uid would refuse every
+        valid link in the same request.
+
+        Returns:
+            The knowledge uids actually WRITTEN, deduplicated, in request order — the
+            caller announces substance from these, never from what was requested, so a
+            refused or dangling link cannot claim knowledge informed a choice that no
+            edge backs.
+
+        A failure is logged, not propagated — the choice itself is created.
+        """
+        candidates = [
+            LinkEdge(
+                (choice.uid, knowledge_uid, RelationshipName.INFORMED_BY_KNOWLEDGE.value, None),
+                other_uid=knowledge_uid,
+                allowed_labels=KNOWLEDGE_LABELS,
+            )
+            for knowledge_uid in request.informed_by_knowledge_uids
+        ]
+        if not candidates:
+            return []
+
+        relationships = await keep_permitted_link_edges(
+            self.backend,
+            candidates=candidates,
+            subject_uid=choice.uid,
+            owner_uid=choice.user_uid,
+            logger=self.logger,
+        )
+        if not relationships:
+            return []
+
+        batch_result = await self.backend.create_relationships_batch(relationships)
+        if batch_result.is_error:
+            self.logger.warning(
+                "Failed to create %d knowledge relationships for choice %s: %s",
+                len(relationships),
+                choice.uid,
+                batch_result.error,
+            )
+            # The batch is all-or-nothing, so a failure means NOTHING was written.
+            # Reporting the admitted uids here would announce substance for edges that
+            # do not exist.
+            return []
+
+        # DEDUPED: the batch MERGEs, so a uid repeated in the request yields ONE edge —
+        # but the bulk substance event UNWINDs what it is given, crediting the knowledge
+        # once per row. dict.fromkeys keeps the order.
+        return list(dict.fromkeys(target_uid for _src, target_uid, _rel, _props in relationships))
+
+    async def _publish_knowledge_substance(self, choice: Choice, knowledge_uids: list[str]) -> None:
+        """Announce the knowledge that informed the choice: single-item for 1 Ku, bulk for 2+.
+
+        Driven by the uids ``_write_link_edges`` actually WROTE, never by what the request
+        asked for. The substance pipeline credits knowledge per uid it is handed, so
+        announcing a refused, dangling or cross-user link would claim a choice was
+        informed by knowledge that no INFORMED_BY_KNOWLEDGE edge backs.
+
+        Published AFTER ``ChoiceCreated``: these reach only substance handlers and do not
+        invalidate the user context, so they carry no ordering constraint of their own —
+        but they must not precede the announcement of the choice they describe.
+        """
+        if not knowledge_uids:
+            return
+
+        from core.events.knowledge_substance_events import (
+            KnowledgeBulkInformedChoice,
+            KnowledgeInformedChoice,
+        )
+
+        knowledge_event: KnowledgeInformedChoice | KnowledgeBulkInformedChoice
+        if len(knowledge_uids) == 1:
+            knowledge_event = KnowledgeInformedChoice(
+                knowledge_uid=knowledge_uids[0],
+                choice_uid=choice.uid,
+                user_uid=choice.user_uid,
+                choice_title=choice.title,
+            )
+        else:
+            knowledge_event = KnowledgeBulkInformedChoice(
+                knowledge_uids=tuple(knowledge_uids),
+                choice_uid=choice.uid,
+                user_uid=choice.user_uid,
+                choice_title=choice.title,
+            )
+        await publish_event(self.event_bus, knowledge_event, self.logger)
+
     async def create_choice(
         self, choice_request: ChoiceCreateRequest, user_uid: UserUID
     ) -> Result[Choice]:
-        """
-        Create a basic choice.
+        """Create a choice from a request: validate + persist, write its knowledge
+        edges, announce it, then credit the knowledge those edges name.
+
+        Only this door holds the request, so only this door can write
+        ``informed_by_knowledge_uids`` — the list rides on no ``Choice`` field, and the
+        entity door (``create``) cannot carry it.
 
         Args:
             choice_request: Choice creation request
@@ -407,50 +516,11 @@ class ChoicesCoreService(
 
         choice = create_result.value
 
-        # GRAPH-NATIVE: Create (Choice)-[:INFORMED_BY_KNOWLEDGE]->(Ku) edges in a
-        # single batch (mirrors TasksCoreService.create_task). Edges live in the
-        # graph, never on the Choice/DTO; read back via PsService.find_choices_informed_by_knowledge.
-        if choice_request.informed_by_knowledge_uids:
-            relationships: list[tuple[str, str, str, Neo4jProperties | None]] = [
-                (choice.uid, knowledge_uid, RelationshipName.INFORMED_BY_KNOWLEDGE.value, None)
-                for knowledge_uid in choice_request.informed_by_knowledge_uids
-            ]
-            batch_result = await self.backend.create_relationships_batch(relationships)
-            if batch_result.is_error:
-                self.logger.warning(
-                    f"Failed to create {len(relationships)} knowledge relationships "
-                    f"for choice {choice.uid}: {batch_result.error}"
-                )
-
-        # Edges are written — only now announce the choice. ChoiceCreated drives the
-        # user-context rebuild, which reads those edges back out of the graph.
+        # Edges first, then the announcement: ChoiceCreated drives the user-context
+        # rebuild, which reads those edges back out of the graph (see _publish_created).
+        written_knowledge_uids = await self._write_link_edges(choice, choice_request)
         await self._publish_created(choice)
-
-        # Publish knowledge substance event: single-item for 1 KU, bulk for 2+
-        if choice_request.informed_by_knowledge_uids:
-            from core.events.knowledge_substance_events import (
-                KnowledgeBulkInformedChoice,
-                KnowledgeInformedChoice,
-            )
-
-            ku_uids = choice_request.informed_by_knowledge_uids
-            if len(ku_uids) == 1:
-                knowledge_event: KnowledgeInformedChoice | KnowledgeBulkInformedChoice = (
-                    KnowledgeInformedChoice(
-                        knowledge_uid=ku_uids[0],
-                        choice_uid=choice.uid,
-                        user_uid=choice.user_uid,
-                        choice_title=choice.title,
-                    )
-                )
-            else:
-                knowledge_event = KnowledgeBulkInformedChoice(
-                    knowledge_uids=tuple(ku_uids),
-                    choice_uid=choice.uid,
-                    user_uid=choice.user_uid,
-                    choice_title=choice.title,
-                )
-            await publish_event(self.event_bus, knowledge_event, self.logger)
+        await self._publish_knowledge_substance(choice, written_knowledge_uids)
 
         return Result.ok(choice)
 

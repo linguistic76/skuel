@@ -105,6 +105,15 @@ class StubChoicesBackend:
         self.trace.append("knowledge_edges_written")
         return Result.ok(True)
 
+    # The admission guard's two batched reads (``keep_permitted_link_edges``): every
+    # uid this suite links resolves to an unowned Ku, so the edge is admitted. The
+    # admission verdicts themselves are pinned in test_choice_create_edges.py.
+    async def get_owner_uids_batch(self, uids: Any) -> Result[dict[str, list[str]]]:
+        return Result.ok({})
+
+    async def get_node_labels_batch(self, uids: Any) -> Result[dict[str, list[str]]]:
+        return Result.ok({uid: ["Entity", "Ku"] for uid in uids})
+
     def __getattr__(self, name: str):
         async def _unexpected(*args: Any, **kwargs: Any):
             raise AssertionError(f"backend.{name}() unexpectedly called")
