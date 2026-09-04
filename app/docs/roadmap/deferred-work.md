@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-03
+updated: 2026-09-04
 ---
 
 # Deferred Work
@@ -2741,6 +2741,44 @@ collisions; it did not remove them — a bare `ADR-030` or `ADR-037` in `related
 now a hard error naming all the candidates, which is the point, not a workaround.
 Renumbering is a citation-update campaign — Mike decides if/when; nothing schedules it.
 
+## History-in-Code Sweep — the finder is built, the sweep is the queue (REGISTERED 2026-09-03)
+
+**The class.** A comment or docstring that narrates what the code used to do, which PR changed it
+and when — a fix's story written into the code as proof of work, burying the rule the reader came
+for. The rule stands once (CLAUDE.md § Docstring Philosophy · `DOCSTRING_STANDARDS.md`
+Anti-Pattern 4 · AGENTS.md § Style, all #1243): present tense, no history; a pointer at the record
+is fine, a retelling is not. The finder that measures it is `./dev history-in-code`
+(`docs/tools/HISTORY_IN_CODE.md`): comments via `tokenize`, docstrings via `ast`, strings and log
+messages unread; four signal categories (`pr_tag`, `pr_ref`, `date`, `phrase`), each ratified on
+a hand-classified sample before it shipped. **Advisory by contract** — the signal arc's anti-goal:
+never in `./dev quality`, pre-commit, `./dev health` or the janitor; exit 0 always. A prose lint is
+itself noise and flow-blind; this is a census that orders a queue.
+
+**Queue = `./dev history-in-code --top 20 --verbose`**, most hits first — re-run it, never work
+from a pasted list. PR-sized slices like signal PR-C/D/E (#1239 / #1240 / #1241): one file, or one
+coherent cluster across files, per PR. Each rewrite = the positive, present tense, plus a pointer
+to the record; **the why is never deleted, only moved** — to the ADR, the `done/` doc or the commit
+message. Drop a negative only once the positive stands beside it (the arc's per-site rule). Read
+every hit: the known false positives — a date-typed field's format, a DSL example timestamp
+(`activity_dsl_parser.py` is the exemplar), the lowercase "utilized" `used to`, an entity that
+"was removed" at runtime — are reported on purpose and skipped on read. **There is no exemption
+syntax to add**; a category measuring mostly false positives is dropped from the finder, not
+annotated in the code.
+
+**Measured 2026-09-03** (first run, on `ac1450beb` + the finder — the row's cell below carries the
+re-measure command): `core/` 526 lines in 187 files of 782 scanned (pr_tag 11 · pr_ref 151 · date 227
+· phrase 162); default scope (`core/ adapters/ ui/ services_bootstrap/`) 755 lines in 283 files of
+1282 scanned. The #1243 grep baseline (385 / 149 with a PR# or date; 164 with four phrases) read
+strings too and cast a narrower phrase net, so the two are not the same measure — the finder's
+own first run is the baseline the sweep is judged against. Heaviest files on `core/`:
+`tasks_core_service.py` 19, `search_router.py` 17, `activity_dsl_parser.py` 13 (10 of them
+example dates), `ingestion_tracker.py` 12 — the queue's head.
+
+Not registered in `detect_bloat.py` — a script is outside bloat scope. `docs/tools/HEALTH_CHECKS.md`
+gains no line: the finder is not a health check and not in the janitor, by the anti-goal.
+
+---
+
 ## Review Schedule
 
 Review this document at the **September 2026 quarterly review**. Checklist:
@@ -2800,6 +2838,7 @@ Review this document at the **September 2026 quarterly review**. Checklist:
 | ~~Disproven claims owed a correction~~ — **APPLIED 2026-09-02**, both reproduced first | — | `CLAUDE.md` now states the two doors that reach `create_entry()` with no shared middle layer; the `TRANSFORMS` comment now states the edge direction (derived → source) rather than the data flow. Final tally on the species: two applied as filed, one withdrawn on contact (#1221). ⚠️ The standing rule survives the queue — **a queued correction is a claim like any other; reproduce it when you APPLY it.** A clean dead-link run is never evidence one is fixed |
 | ~~Planned-file citations in live roadmap docs~~ — **RULED + BUILT 2026-09-02 (B8)**, 288 → 280 | — | Mike ruled option (b): a `<!-- planned -->` marker, honored only under live `docs/roadmap/`, over leaving the class reported. ⭐ The deciding property is that it **self-retires** — when the planned file is built the marker suppresses nothing and the SKUEL026 inversion reports it, turning a permanent dead link into a build-completion signal. Built as ONE mechanism with `<!-- historical -->` (a `MarkerSpec` registry), not a parallel copy; scopes are disjoint and both directions pinned. ⚠️ A fenced citation cannot carry a marker |
 | ~~`docs/domains/README.md` PS + Journals rows~~ — **FIXED 2026-09-02** | — | PS pointed at a filename that never existed; the Journals row is GONE rather than repointed, since Journals is not an entity type — the catalog points at `JOURNALS_DOMAIN_ARCHITECTURE.md`, which owns a persistence contract with more than one answer (⚠️ **not** "a journal is a `pipeline=JOURNAL` UserEntry" — that claim cost six Codex rounds on #1224). ⚠️ The lesson generalises: **a dead link is often the visible edge of a stale paragraph.** The same table carried scanner-invisible rot — a rotted second copy of the authoritative UID-format table, colon-spelled, two types sharing a prefix, under a header one column wider than any row. Read the surrounding claim before repointing a path |
+| History-in-code sweep (finder built 2026-09-03; the rule is #1243) | Ride-along on any PR that opens a listed file, or a dedicated small sweep of the heaviest files when Mike schedules one | `./dev history-in-code --top 20 --verbose` — re-run, never paste; **`core/` 526 lines / 187 files, default scope 755 / 283, on 2026-09-03**. Advisory: it never gates. A rising count is a review signal (AGENTS.md § Style flags new retellings), a falling one is the sweep; known false positives stay reported, so the floor is not zero — see the section |
 
 **The document is the checklist, the table is a convenience:** a section added to this file
 without a matching row here is still in review scope — walk every `##` section, then the table.

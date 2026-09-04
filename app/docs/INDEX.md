@@ -1,6 +1,6 @@
 ---
 title: Documentation Index
-updated: 2026-09-03
+updated: 2026-09-04
 status: current
 category: index
 tags: [index, navigation, documentation]
@@ -325,6 +325,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | **[Bloat Detection](tools/BLOAT_DETECTION.md)** | AST-sound dead-event + dead-method detection, Vulture-backed (`./dev bloat`) |
 | [Automatic Documentation Check](tools/AUTOMATIC_DOCS_CHECK.md) | Post-commit hook that suggests doc updates after code changes |
 | [Knowledge-Health Gauge](tools/KNOWLEDGE_HEALTH.md) | Corpus-level knowledge-subgraph structural health, ADR-080 H1 (`./dev knowledge-health`) |
+| [History-in-Code Finder](tools/HISTORY_IN_CODE.md) | Advisory census of comments/docstrings that narrate history instead of stating the rule (`./dev history-in-code`) |
 
 ---
 
