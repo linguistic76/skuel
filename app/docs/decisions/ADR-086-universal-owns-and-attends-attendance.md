@@ -1,6 +1,6 @@
 ---
 title: "ADR-086: Universal :OWNS Ratified; Attendance Is ATTENDS"
-updated: 2026-08-21
+updated: 2026-09-04
 status: accepted
 category: decisions
 tags: [adr, decisions, ownership, owns, attends, events, graph-schema, relationships]
@@ -75,12 +75,20 @@ Consequences for the rule that governs those):
    structural in its own right — one atomic `MATCH` + `CREATE` whose empty record is a
    failure. Exercise and Group write the edge in a separate query; both **return the
    failure** rather than warning past it.
+5. **Vault Group ingest** — `ingestion_write_backend.py`: `create_group_ownership` MERGEs the
+   edge in a second statement and **returns the MERGE count**; both ingest doors fail the file
+   on 0 (the owner has no `:User` node) BEFORE the tracker stamp, so the file is retried on
+   the next sync rather than hash-skipped as a property-only Group. The directory door
+   reaches it by routing `type: group` files through the single-file door — the bulk
+   template writes `:OWNS` for `:Entity` rows only, so a Group never gets its edge from the
+   batch. Ratified 2026-09-04 (Mike); before it the door warned past a failed edge write and
+   the batch wrote none at all, both while the ingest reported success.
 
 **The invariant:** wherever both exist, `user_uid` property `== :OWNS` owner — ratified as
 the contract every door owes. Doors 1, 3 and FormSubmission enforce it **structurally**
 (one statement / guarded MERGE — the write aborts rather than splitting the halves); doors
-2, Exercise and Group enforce it by **refusing**: the batch pre-flight above, and a returned
-`Result.fail` when the separate edge write fails. Both were the ADR's original soft spots,
+2, 5, Exercise and Group enforce it by **refusing**: the batch pre-flight above, the vault Group
+door's MERGE count, and a returned `Result.fail` when the separate edge write fails. Both were the ADR's original soft spots,
 where the caller was told the write succeeded while a property-only node had landed —
 invisible to every `:OWNS`-traversing read. **That hardening is done** (2026-08-28); the
 grading above replaces the earlier "doors 2 and 4 are soft spots" text, which also
