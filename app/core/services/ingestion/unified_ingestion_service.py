@@ -2,6 +2,16 @@
 Unified Ingestion Service - Orchestration Layer
 ================================================
 
+Ingestion is one-way: the vault authors, the graph obeys. A re-sync of an
+edited file upserts the entity, re-chunks its body and MERGEs the edges its
+frontmatter declares (additive — a target dropped from the frontmatter keeps
+its edge until its Edge YAML or an endpoint's file is deleted; the MOC
+body-link pass is the one refresh that deletes stale edges); a deleted file
+removes what it declared. Nothing in this service writes into the content
+vault. Curriculum structure (Ku, PathStep, LearningPath, CURRICULUM-scope
+Exercise) has no create/update/delete route in the app — ADR-070 Decision 10
+holds the ruling and the inventory of what SKUEL does author in-app.
+
 This module orchestrates content ingestion by composing:
 - config.py - Entity configurations and constants
 - types.py - Data classes (IngestionStats, ValidationResult, etc.)
@@ -22,7 +32,8 @@ Architecture:
 Key Design Decisions (ADR-014):
 - Format Support: Both MD + YAML as first-class citizens
 - Architecture: Single unified service (one path forward)
-- UID Format: Dot notation (`ku.filename`) - normalized from colon format
+- UID Format: authored dot form (`ku.{ns}.{slug}`), stored verbatim — a colon-spelled
+  uid fails prefix validation (ADR-013; CURRICULUM_GROUPING_PATTERNS § Authoring Spelling)
 - Performance: BulkUpsertBackend for batch operations (10-100x faster)
 
 See: /docs/decisions/ADR-014-unified-ingestion.md
@@ -572,11 +583,11 @@ class UnifiedIngestionService:
         this pass runs off the frontmatter at ingestion time only, so dangling
         links fill in when the MOC file is next re-ingested (edit or --force).
 
-        Unresolved links are posture-dependent (ruled 2026-07-04): PERSONAL
-        vaults skip silently (a MOC names territory before content exists —
-        dangling links are plans, not errors); the CONTENT vault gets Arc E
-        style warnings (returned for the sync stats). No registry → personal
-        posture, unscoped resolution (tests / minimal composes).
+        Unresolved links are posture-dependent: PERSONAL vaults skip silently
+        (a MOC names territory before content exists — dangling links are
+        plans, not errors); the CONTENT vault gets warnings (returned for the
+        sync stats). No registry → personal posture, unscoped resolution
+        (tests / minimal composes).
 
         ``protected_target_uids`` (the file's own ``organizes:`` frontmatter
         targets, normalized): the refresh's stale-delete spares these — the
@@ -653,7 +664,7 @@ class UnifiedIngestionService:
         mint fresh. Without this guard a foreign uid would either collide with
         the ``:Entity.uid`` uniqueness constraint (failing every sync) or, for an
         ``edge:`` identity that names no node, create a ``:UserEntry`` with an
-        edge id (Codex #616).
+        edge id.
 
         Returns None when no tracker/service is wired (minimal composes / tests),
         the file is new, or the tracked uid is not this user's UserEntry — all
@@ -1003,17 +1014,15 @@ class UnifiedIngestionService:
             batch_size: Batch size for bulk operations
             max_concurrent: Maximum concurrent file parsing operations
             ingestion_mode: Ingestion strategy:
-                - "full": Process all files (default, backward compatible)
+                - "full": Process all files (default)
                 - "incremental": Skip files with unchanged content hash
                 - "smart": Skip files with unchanged mtime (fast), verify with hash if changed
             force: Re-process every surviving file regardless of the
                 IngestionMetadata hash/mtime match. Force ≠ full: a force run
                 keeps tracked-mode semantics — the fail-closed allowlist,
                 metadata re-stamping, and deletion reconciliation all stay
-                active — so it is the sanctioned re-chunk/migration path
-                (the ADR-074 PathStep migration previously required manual
-                tracker-row invalidation). A "full"-mode request with force is
-                coerced to "smart".
+                active — so it is the sanctioned re-chunk/migration path.
+                A "full"-mode request with force is coerced to "smart".
             validate_targets: If True, validate relationship targets exist before ingestion
             dry_run: If True, validates and previews changes without writing to Neo4j
 

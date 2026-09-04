@@ -107,7 +107,7 @@ CALL db.index.vector.queryNodes('entity_embedding_idx', 10, $embedding) YIELD no
 | Status literals like `'pending'`/`'on_track'` | Not `EntityStatus` values — bind `$statuses` from the enum (SKUEL014) |
 | APOC call in `core/` | SKUEL001 — APOC is `apoc.meta.*` only, adapters-side |
 | Inline Cypher in a service | SKUEL021 — Cypher lives in `adapters/persistence/neo4j/` backends |
-| Comparing vault UID `ps:x:y` to graph UID | Ingestion normalizes `:` → `.`; graph stores `ps.x.y` |
+| A colon-spelled entity uid (`ps:x:y`) | Not a UID spelling — authored = stored in dot form (`ps.x.y`); ingestion rejects the colon form. Colons mark internal machine ids only (`ue:daily:…`) |
 | Cartesian product from stacked OPTIONAL MATCH | `collect(DISTINCT ...)` per branch before the next MATCH |
 
 ---

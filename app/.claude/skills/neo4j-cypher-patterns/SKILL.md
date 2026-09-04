@@ -25,8 +25,8 @@ All domain entities use **multi-label architecture**: every entity gets `:Entity
 | Principles | `Principle` | `principle_{slug}_{random}` | `principle_small-steps_mno678` |
 | **Curriculum (4) — shared content** | | | |
 | Knowledge Units | `Ku` | `ku.{ns}.{slug}` (vault) or `ku_{slug}_{random}` (API) — both sanctioned, never sniff (ADR-013) | `ku.stoicism.dichotomy-of-control` |
-| Path Steps | `PathStep` | `ps.{namespace}.{slug}` (authored `ps:{ns}:{slug}`; ingestion normalizes `:` → `.`) | `ps.python.intro` |
-| Learning Paths | `LearningPath` | `lp.{namespace}.{slug}` (same colon→dot normalization) | `lp.python.developer` |
+| Path Steps | `PathStep` | `ps.{namespace}.{slug}` (authored = stored, dot form) | `ps.python.intro` |
+| Learning Paths | `LearningPath` | `lp.{namespace}.{slug}` (authored = stored, dot form) | `lp.python.developer` |
 | Exercises | `Exercise` | varies | |
 | **Curated Content — shared content** | | | |
 | Resources | `Resource` | *(no fixed format)* | |

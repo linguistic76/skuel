@@ -1,6 +1,6 @@
 ---
 title: "ADR-070: Bidirectional VaultBridge — Obsidian ↔ SKUEL Task Sync"
-updated: 2026-09-01
+updated: 2026-09-04
 status: accepted
 category: decisions
 tags: [adr, decisions, vault, obsidian, bidirectional-sync, vault-bridge]
@@ -262,6 +262,46 @@ Fail-closed posture is unchanged: unset → doorway folders only; a newly-create
 
 ---
 
+### Decision 10 — Curriculum ingestion is one-way; the content vault is the sole author of curriculum structure (2026-09-03)
+
+"Bidirectional" in this ADR is task state on PERSONAL vaults (Decisions 1–4). The content vault has
+one direction: Obsidian authors, SKUEL ingests, nothing writes curriculum back. Mike ruled it
+2026-07-11, when a "make the content vault bidirectional like the personal vault" request resolved,
+on clarification, to the edit-and-resync workflow the inbound sync already is — an edited file
+re-ingests on the next human-initiated sync (Decision 9); a deleted file removes what it declared.
+The re-sync contract is stated once, in the `unified_ingestion_service` module docstring.
+
+**Curriculum structure** here means Ku, PathStep and LearningPath — their properties, bodies and
+edges — plus CURRICULUM-scope Exercises. Verified 2026-09-03:
+
+- Ku, PathStep and LearningPath have no create/update/delete route: their `DomainRouteConfig`s
+  (`ku_routes.py`, `path_steps_routes.py`, `pathways_routes.py`) declare no `crud=`. The PathStep
+  composition endpoints (`/api/path-steps/{content,attach-to-path,detach-from-path,relationships,
+  tags,organize,unorganize,reorder}` in `path_steps_api.py`) have no UI caller — the UI posts only
+  learner state (`start`, `bookmark`, `mark-read`; Ku `mark-studying`, `mark-understood`).
+- `ExerciseCreateRequest` refuses `scope: curriculum` — such exercises "are authored in the
+  content vault and ingested, not created via the API".
+- The one in-app curriculum-edge write, prerequisite-suggestion approval, lands as an Edge YAML in
+  the content vault's `edges/` (`PrereqSuggestionService`) — the vault stays the author and the
+  next sync reads it back.
+
+**What SKUEL does author in-app** (the sole-author claim stops here): the six PathStep-owned
+Activity Templates — teaching UI `/teaching/ps/{ps_uid}/templates/{domain}/{new,edit,detach}` plus
+the `/api/pathstep-{domain}-templates/*` JSON CRUD, TEACHER+; they are not vault-ingestible — and
+PERSONAL / ASSIGNED / ASSESSMENT exercises, which are user-owned.
+
+**Consequence.** A SKUEL-side editor for curriculum structure is a new decision, not an extension
+of this one: it needs outbound-before-inbound ordering in the reconciler, two-sided conflict
+handling (dirty entity + changed file SHA → skip both, warn, explicit accept-vault / accept-SKUEL),
+and merge-in-place frontmatter edits under Decision 4's VaultWriter rules. Until one ships, "make
+the content vault bidirectional" resolves to this decision.
+
+**See:** Decision 7 (the two vaults differ only in access rights), Decision 9 (human-initiated
+sync), CLAUDE.md § Unified Content Ingestion, `docs/user-guides/how-your-content-is-used.md` (the
+personal vault's own direction statement).
+
+---
+
 ## Resolved Design Questions (2026-06-16)
 
 **1. Trigger scope:** Support BOTH — sync all changed notes (full vault incremental) AND sync a single note (single-file path). The API supports both from day one; the UX design (button placement, picker, confirmation) is deferred to a dedicated UX pass. Prior art: the existing ingestion system already distinguishes `ingest_file` (single) vs `ingest_directory` (vault-wide incremental) — the VaultBridge inherits the same duality.
@@ -375,3 +415,4 @@ Fail-closed posture is unchanged: unset → doorway folders only; a newly-create
 | 2026-07-01 | Claude Code | Decision 8 — sync allowlist stays code-defined; operator-configurability deferred to a per-user vault-local marker (hosting-gated); global env/file rejected (shadow + wrong shape). Closes PR #482 open question. | 0.4 |
 | 2026-07-01 | Mike + Claude Code | Decision 9 — ingestion is human-initiated per event (1a); raw `/api/ingest/directory` deleted, content-vault sync unified onto the reconciler via new admin `POST /api/vault/sync/content` (resolves review A1); continuous watcher + provisioner deleted, all unattended scheduling out of scope, enforcing Alternative E (resolves review A2). | 0.5 |
 | 2026-08-24 | Mike + Claude Code | **Resolved Design Question 2 AMENDED** — the undone round-trip is BUILT: a reopen un-checks its vault line and strips the `✅` date, byte-exact reverse of the done write, gated on a TRAILING `✅` token so it only ever takes back SKUEL's OWN write (a dateless `[x]` the user ticked, and a `✅ date` in their own task text, are both left alone). Two of the deferral's three premises were false (inbound does not "work for free"; a stale `✅` date is a wrong record, not a UX gap). Driven by the outbound pass's state predicate, not by `TaskReopened` (which stays published and deliberately unsubscribed). Field-authority row for undone moves to SKUEL. Wire-protocol change: `PROTOCOL_VERSION` 2 → 3. ⚠️ Outbound only — inbound propagation stays parked (deferred-work § R4). | 0.6 |
+| 2026-09-03 | Mike + Claude Code | **Decision 10** — curriculum ingestion is one-way; the content vault is the sole author of curriculum structure (Ku/PathStep/LP + CURRICULUM-scope exercises: no create/update/delete route; the PS composition endpoints have no UI caller; prereq approval writes into the vault). The in-app-authored exceptions are named: Activity Templates (teaching UI) and user-scoped exercises. Records Mike's 2026-07-11 ruling (signal arc, Q3). | 0.7 |
