@@ -1,6 +1,6 @@
 ---
 title: SKUEL Activity DSL - Formal Specification
-updated: 2026-09-03
+updated: 2026-09-04
 status: current
 category: dsl
 tags: [dsl, grammar, specification, formal, syntax]
@@ -329,7 +329,15 @@ Slug ::= Identifier ("-" Identifier)*
 
 **Status:** Optional (v0.2+)
 
-**Purpose:** Creates graph connections to goals, principles, projects, and other entities.
+**Purpose:** Creates graph connections from the activity to goals, principles and knowledge
+(Kus, PathSteps, LearningPaths) that already exist.
+
+**The id is the stored uid.** What follows the prefix is the entity's uid, copied verbatim
+from where it lives (the entity page, or the vault file's `uid:`), in either sanctioned
+spelling — authored `goal.{grouping}.{slug}` / `ku.{ns}.{slug}` or generated
+`goal_{random}` / `ku_{slug}_{random}`. The prefix only names which label the sink checks;
+it is never prepended, and nothing resolves a title, a slug or a path to a uid. A `@link`
+whose uid names no node writes no edge — the sync reports it as a link error.
 
 **Authorship:** `@link(goal:…)` is written by the user, never by the LLM bridge. The bridge
 grounds recognition in active-goal *titles* through a non-extractable prompt slot and emits no
@@ -342,26 +350,26 @@ user-authored only) — see
 ```
 LinkTag ::= "@link(" LinkList ")"
 LinkList ::= LinkRef ("," LinkRef)*
-LinkRef ::= LinkType ":" LinkId
-LinkType ::= Identifier
-LinkId ::= Identifier ("/" Identifier)*
+LinkRef ::= LinkType ":" UID
+LinkType ::= "goal" | "principle" | "ku" | "ps" | "lp"
+UID ::= the entity's stored uid, verbatim (authored dot form or generated underscore form)
 ```
 
-**Common Link Types:**
+**Link types and where they land:**
 ```
-goal:       → Goal entities
-principle:  → Guiding principles
-project:    → Projects
-ku:         → Additional Knowledge Units
-person:     → People
-vortex:     → Vortexes
+goal:       → Task.fulfills_goal_uid · Habit/Event linked_goal_uids
+principle:  → linked_principle_uids / guiding_principle_uids
+ku:  ps:    → applies_knowledge_uids (+ the entry's APPLIES_KNOWLEDGE edge) — the door
+              for Kus beyond the one @ku() a line may carry
+lp:         → the learning-path anchor of a @context(ps) line
 ```
+Any other prefix parses but reaches no sink.
 
 **Examples:**
 ```markdown
-@link(goal:teens-yoga/10-members)
-@link(principle:discernment-first, project:askesis-v1)
-@link(ku:sel/thought-not-reality, goal:wisdom-development)
+@link(goal:goal.teens-yoga.ten-members)
+@link(principle:principle.sel.discernment-first, goal:goal_3f9a2b1c)
+@link(ku:ku.sel.thought-not-reality, ku:ku_algebra-basics_a1b2c3d4)
 ```
 
 ---
@@ -387,7 +395,7 @@ vortex:     → Vortexes
 ## Complete Example
 
 ```markdown
-- [ ] Draft Teens.yoga lesson on focus @context(task,learning) @when(2025-11-30T09:00) @priority(1) @duration(90m) @energy(focus,creative) @ku(ku.teens-yoga/focus-lesson) @link(goal:teens-yoga/20-members, principle:discernment-first)
+- [ ] Draft Teens.yoga lesson on focus @context(task,learning) @when(2025-11-30T09:00) @priority(1) @duration(90m) @energy(focus,creative) @ku(ku.teens-yoga.focus-lesson) @link(goal:goal.teens-yoga.twenty-members, principle:principle.sel.discernment-first)
 ```
 
 **Parsing yields:**

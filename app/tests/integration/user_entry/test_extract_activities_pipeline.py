@@ -8,6 +8,8 @@ Neo4j container and asserts the graph contracts:
 - created entities carry ``(created)-[:EXTRACTED_FROM {extracted_at,
   source_line_hash}]->(entry)`` provenance edges,
 - resolved ``@ku()`` references write ``(entry)-[:APPLIES_KNOWLEDGE]->(ku)``,
+- ``@link(ku:<uid>)`` — the multi-Ku door — resolves the same way: the id after
+  the prefix is the stored uid, so the edge lands with no ``@ku()`` on the line,
 - the run summary lands in ``entry.metadata["activity_extraction"]``,
 - guard 1 (completed-run metadata) makes re-processing a no-op,
 - guard 2 (line-hash dedup) makes ``force`` re-runs duplicate-free,
@@ -208,6 +210,44 @@ class TestExtractActivitiesPipeline:
             )
             ku_rows = await res.data()
         assert [row["ku_uid"] for row in ku_rows] == [ku_uid]
+
+    @pytest.mark.asyncio
+    async def test_link_ku_reference_writes_the_knowledge_edge(
+        self, neo4j_driver, user_entry_service, seed_user
+    ):
+        """``@link(ku:<uid>)`` names a stored uid, so the reference resolves:
+        the entry gets its APPLIES_KNOWLEDGE edge and the run reports no
+        link error — with no ``@ku()`` on the line."""
+        user_uid = await seed_user(f"user_link_{uuid4().hex[:6]}")
+        ku_uid = await _seed_ku(neo4j_driver, f"ku_link_it_{uuid4().hex[:6]}")
+        content = f"- [ ] Practice decorators @context(task) @link(ku:{ku_uid})\n"
+        entry = await _create_entry(user_entry_service, user_uid, content)
+
+        dispatcher = UserEntryProcessingService(
+            entry_service=user_entry_service,
+            activity_extractor=ActivityExtractorService(
+                tasks_service=_GraphTasksStub(neo4j_driver)
+            ),
+            user_service=_user_service(can_create_curriculum=False),
+        )
+        result = await dispatcher.process(entry)
+        assert result.is_ok, f"process failed: {result.error}"
+        summary = (result.value.metadata or {}).get("activity_extraction")
+        assert isinstance(summary, dict), f"summary missing/unparsed: {summary!r}"
+        assert summary.get("link_errors", []) == [], summary.get("link_errors")
+
+        async with neo4j_driver.session() as session:
+            res = await session.run(
+                """
+                MATCH (e:UserEntry {uid: $uid})-[:APPLIES_KNOWLEDGE]->(k:Ku)
+                RETURN k.uid AS ku_uid
+                """,
+                uid=entry.uid,
+            )
+            ku_rows = await res.data()
+        assert [row["ku_uid"] for row in ku_rows] == [ku_uid], (
+            "the @link(ku:…) reference must resolve to the stored uid and write the edge"
+        )
 
     @pytest.mark.asyncio
     async def test_reprocess_is_noop_and_force_is_duplicate_free(
