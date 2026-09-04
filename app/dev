@@ -103,6 +103,12 @@ case "$1" in
     uv run python scripts/detect_bloat.py --methods-only
     ;;
 
+  history-in-code)
+    # Advisory census, never a gate. Status to stderr so `--json` yields clean JSON on stdout.
+    echo -e "${YELLOW}Counting history narrated in comments and docstrings (advisory)...${NC}" >&2
+    uv run python scripts/history_in_code.py "${@:2}"
+    ;;
+
   test)
     echo -e "${GREEN}Running COMPREHENSIVE test suite (recommended)${NC}"
     uv run python scripts/run_tests.py comprehensive
@@ -338,6 +344,7 @@ case "$1" in
     echo "  ./dev bloat          - Detect all unused code (events + methods); --ready = READY PLANNED entries only"
     echo "  ./dev bloat-events   - Detect unused events only"
     echo "  ./dev bloat-methods  - Detect unused service methods only"
+    echo "  ./dev history-in-code - Advisory census of history in comments/docstrings (--top N | --verbose | --json | PATH...)"
     echo ""
     echo "Health Checks:"
     echo "  ./dev health         - Run all health checks (modules + links + names + headings + updated + xref)"

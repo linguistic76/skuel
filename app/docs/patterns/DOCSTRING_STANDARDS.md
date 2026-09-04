@@ -1,6 +1,6 @@
 ---
 title: Docstring Standards
-updated: 2026-09-03
+updated: 2026-09-04
 category: patterns
 related_skills:
 - python
@@ -362,7 +362,9 @@ async def create_task_with_context(self, task_data, user_context) -> Result[Task
 
 **Solution**: Present tense, no history. State what the code does now and the reason
 that still holds; a pointer to the record is fine, a retelling is not. `git log -S<name>`
-and the ADR are the history mechanism.
+and the ADR are the history mechanism. Measure with `./dev history-in-code` — an advisory
+census of the comments and docstrings still carrying PR numbers, dates or used-to phrasing,
+ordered for the sweep (`docs/tools/HISTORY_IN_CODE.md`); it is never a gate.
 
 ```python
 # GOOD
