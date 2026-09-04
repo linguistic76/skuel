@@ -250,8 +250,6 @@ class _RelationshipQueryMixin[T: DomainModelProtocol]:
             - Returns UIDs only (no property loading) - fast for large graphs
             - For full entities with properties, use get_related_entities()
             - Multi-hop extends via variable-length patterns (pure Cypher)
-
-        See: /docs/architecture/GRAPH_NATIVE_ANALYSIS.md for architecture details
         """
         # Build Cypher pattern using helper (with named relationship variable for property access)
         pattern_result = self._build_direction_pattern(
