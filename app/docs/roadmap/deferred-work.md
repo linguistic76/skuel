@@ -295,14 +295,6 @@ two surfaces disagreeing about a non-positive `duration_minutes`.
 
 **Enable when**: next touch of either surface; small enough to ride along.
 
-### Monthly-template vault cleanup (founder's, non-repo)
-
-The monthly template in the personal vault still carries the retired markwhen block and lacks
-`type: user_entry`/`pipeline` frontmatter. No repo PR — no personal vault content enters this
-repo; the item lives here so the arc's archive can stay closed.
-
-**Owner**: founder, on a vault pass.
-
 ---
 
 ## EntryReport / ActivityReport Search
@@ -1094,6 +1086,35 @@ caller). "Delete both halves" is refuted — the path demonstrably works, see th
 test below. ⚠️ No PLANNED tier exists for *fields* (`./dev bloat` covers
 events/methods/templates), which is why an AST sweep found this and the tooling
 did not.
+
+---
+
+## ContextRetriever — Four Code-Shaped Findings (REGISTERED 2026-09-04 — set aside for deeper review)
+
+**Set aside, not ruled.** Surfaced by the signal arc's PR-J (#1253, prose-only) in
+`core/services/askesis/context_retriever.py`; Mike (2026-09-04): *"an area that needs
+deeper review — set it aside for future consideration."* Registered so the review has a
+place to start; none of the four is a decision yet. The section above (three write-only
+fields, registered 2026-08-20) is the same file — take the two in one sitting.
+
+1. **`__init__` contradicts itself** (`:175`): the comment says every PS-bundle dependency
+   is required and fail-fast, while every parameter defaults to `None` and the helpers
+   return `[]` silently when one is missing. Either the constructor refuses (fail-fast, the
+   SKUEL rule) or the comment stops claiming it — which side is right is the review's first
+   question.
+2. **`_user_uid` is live** (`:969`): underscore-prefixed, yet forwarded as the router's
+   ADR-085 audience. CLAUDE.md reserves the prefix for placeholders — rename once the review
+   confirms the flow.
+3. **`get_learning_context(depth)` `del`s its parameter** (`:390`) "for signature
+   stability" — three callers (`context_retriever.py:468`, `query_processor.py:523`,
+   `askesis_service.py:373`). One Path Forward says delete the parameter and update the
+   callers; the review decides whether anything upstream still means to honour a depth.
+4. **`LearningContext`** (`core/services/askesis/types.py:374`) is exported from `core/services/askesis/__init__.py`
+   with zero constructors — a dead dataclass unless the review finds its consumer. Outside
+   `./dev bloat`'s scope (events / methods / templates / embedding maps), so nothing else
+   reports it.
+
+**Enable when**: Mike schedules the ContextRetriever review.
 
 ---
 
@@ -2799,9 +2820,9 @@ Review this document at the **September 2026 quarterly review**. Checklist:
 | Domain-level fulltext-first text search (D1(b)) — ruled DEFERRED **twice** (2026-08-16, 2026-08-25) | A consumer wants relevance ranking for the domains remaining on `/search` after the facet redesign (shipped #1155–#1160) — the 6 Activity Domains + Ku, which is now the whole surface | ⚠️ scope INVERTED, do not scope from the bullet list; the OWNER_ONLY edge-vs-property "ruling needed" is STALE — already closed, do not re-open. Product need (not a data threshold); read the section's two rulings first. It also now OWNS the "Relevance" fiction — do not tidy that label away |
 | Profile-side search for UserEntry, Exercise **and RevisedExercise** (the `/search` facet redesign's one open obligation) | Mike schedules it — the strip landed first by his sequencing (#1155), so the trigger is the build half, not a data threshold | ⚠️ all THREE domains, not two: a two-domain build leaves revision artifacts unsearchable. Read the section, then `done/search-facet-redesign.md` for the arc's rulings. When Reports gains a search box, the EntryReport / ActivityReport row above has fired too |
 | ZPD snapshot history & trend analysis | A ZPD-over-time consumer exists | Product need + `MATCH (h:ZPDHistory) RETURN count(h)` for accrual |
+| ContextRetriever — the four code-shaped findings + the three write-only fields (one sitting) | Mike schedules the review | `grep -n "fail-fast\|del depth" core/services/askesis/context_retriever.py` |
 | Habit rows in the weekly-note panel | Lived weekly-review use wants the backward look | Product need (not a data threshold) |
 | Non-positive-duration follow-ups (habit `0m` on `/today` / proposes `15`) | Next touch of either surface | Ride-along, not standalone |
-| Monthly-template vault cleanup | Founder vault pass | Founder-owned, non-repo |
 | Monthly-note panel parity | Lived monthly-note use wants the weekly panel | Product need (not a data threshold) |
 | Tasks/Events edge-clear on edit (`""` → None) | Next touch of the Tasks/Events edit forms | Ride-along; re-verify the bug still reproduces first |
 | Skill↔doc backlink reconciliation | Docs-taxonomy pass — ruling needed per warning, not a rote edit | `uv run python scripts/validate_cross_references.py --verbose` |

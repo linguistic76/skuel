@@ -1,6 +1,6 @@
 ---
 title: UI Component Patterns
-updated: '2026-09-02'
+updated: '2026-09-04'
 category: patterns
 related_skills:
   - accessibility-guide
@@ -71,7 +71,7 @@ SKUEL uses a layered UI component architecture built on its own pure-Tailwind + 
 
 **Evolution (2026-03-11):** Major restructure into three focused areas. Navbar gains icon links: **A** (`/activities`) and **S** (`/study`). Profile stripped to lean (Focus + Steady + Settings). Activity domains at `/activities/{domain}` with Activity sidebar. Avatar dropdown removed — avatar is a direct link to `/profile`.
 
-**Evolution (2026-03-13):** `/study` is the student workspace hub landing page. Sub-pages are top-level routes (`/submit`, `/submissions`, `/entry-reports`, `/activity-reports`, `/submit-activity-report`) sharing a 5-item Study sidebar. `/study` landing shows vertically-stacked workspace cards. Old `/submissions/*` and `/learn/*` UI paths redirect 301 to the new top-level routes.
+**Evolution (2026-03-13):** `/study` was the student workspace hub landing page, with `/submit`, `/submissions`, `/entry-reports`, `/activity-reports` and `/submit-activity-report` as top-level routes sharing a 5-item Study sidebar, and the old `/submissions/*` and `/learn/*` UI paths 301-redirecting to them. *Superseded:* `/study` and those 301s are gone. `/submissions` is a standalone MOC root whose sub-pages are live routes, `/submit` 302-redirects to `/submissions/exercise`, and `/gradebook` is the one received-feedback page — `docs/ui/ROUTE_MAP.md` § Hub Sub-Pages is the authority.
 
 **Evolution (2026-03-17a):** Navbar gains **C** (Curriculum) icon between A and S. All three icons (A, C, S) now have hover dropdown menus. `/curriculum` landing shows 4-card grid. Curriculum sub-pages (`/lessons`, `/path-steps`, `/learning-paths`, `/exercises`) share a 4-item Curriculum sidebar. Exercises moved from Study sidebar to Curriculum sidebar.
 
