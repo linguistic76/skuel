@@ -594,25 +594,25 @@ Available on all 9 domains (Tasks, Goals, Habits, Events, Choices, Principles, K
 
 | Rule | Guards | Severity |
 |------|--------|----------|
-| SKUEL001 | No `apoc.*` above the boundary — `core/`, `adapters/inbound/`, `ui/`; whole-namespace match, `apoc.meta.*` included (docstring-aware; unsuppressable) | CRITICAL |
+| SKUEL001 | No `apoc.*` above the boundary — `core/`, `adapters/inbound/`, `ui/`; below it, backends compose pure Cypher from the `query/cypher/` `build_*` functions; whole-namespace match, `apoc.meta.*` included (docstring-aware; unsuppressable) | CRITICAL |
 | SKUEL003 | `.is_error` not `.is_err` | ERROR |
 | SKUEL007 | `Errors` factory (incl. `str(...)` wraps) — services + `adapters/inbound/`, `ui/` | WARNING |
 | SKUEL011 | No `hasattr()` — Protocol/isinstance/getattr | ERROR |
 | SKUEL012 | No lambda — named functions | ERROR |
 | SKUEL013 | `RelationshipName` enum — services + `adapters/inbound/`, `ui/` | ERROR |
 | SKUEL014 | `EntityType`/`NonKuDomain` enum — services + `adapters/inbound/`, `ui/` | ERROR |
-| SKUEL015 | No `print()` in production | ERROR |
+| SKUEL015 | No `print()` in production — runtime code logs through `logger.*()`; `print()` is for interactive CLIs | ERROR |
 | SKUEL016 | No Poetry refs — SKUEL uses uv | ERROR |
 | SKUEL017 | No bare `except Exception` — specific types from `exception_types.py` | ERROR |
 | SKUEL019 | `get_credential()` not raw `os.getenv()` on credential names | ERROR |
 | SKUEL020 | `request: Request` not `request: Any` in handlers (causes FastHTML 400) | ERROR |
 | SKUEL021 | No raw Cypher above the boundary — `core/`, `adapters/inbound/`, `ui/`; all Cypher in `adapters/persistence/neo4j/` (docstring-aware). Composition root (`services_bootstrap/`) is deliberately out of scope — it may ping the driver it built | ERROR |
-| SKUEL022 | No `adapters/` imports in `core/` — `TYPE_CHECKING`-only imports exempt | ERROR |
+| SKUEL022 | No `adapters/` imports in `core/` — `core/` depends on a `core/ports` protocol and the adapter is injected (ADR-044); `TYPE_CHECKING`-only imports exempt | ERROR |
 | SKUEL023 | `self.backend` in `core/` must name a `core/ports` protocol — not a concrete adapter class (direction), and not `Any`/unannotated (strength). Strength fires on classes that **assign** `self.backend` *and* on declaration-only class-body `backend: Any` (the mixin shape — dead declarations included, where the fix is deletion), *and* on a class that merely **inherits** `backend` from a `Base*[Any, ...]` or bare `Base*` parameterisation — annotating `__init__` does NOT fix that one, only parameterising the base does. Handles named anything other than `backend` stay uncovered **by ruling, not by omission** (Scope C, 2026-08-20 — measured: an AST trigger would fire on a constructor-inferred, already-checked handle) | ERROR |
 | SKUEL024 | No `cls=` + `**kwargs` collision in FT helpers — fix: `cls=f"...{cls}".strip()` | ERROR |
 | SKUEL025 | No deleted Activity `*UpdatePayload` — use `*UpdateIntent` or `*UpdateRequest.to_intent()` | ERROR |
 | SKUEL026 | No suppression comments that suppress nothing (per-run audit) | WARNING |
-| SKUEL027 | No runtime `adapters` imports in `ui/` — `TYPE_CHECKING`-only exempt (SKUEL022's ui/ sibling) | ERROR |
+| SKUEL027 | No runtime `adapters` imports in `ui/` — `ui/` renders what routes hand it, shared code moves inward; `TYPE_CHECKING`-only exempt (SKUEL022's ui/ sibling) | ERROR |
 | SKUEL028 | `Result.fail(result)` to propagate — never `Result.fail(...expect_error())` | ERROR |
 | SKUEL029 | No `async def` without `await` — async for I/O, sync for computation (suppress protocol/lifecycle-required async) | ERROR |
 | SKUEL030 | Every label / edge in `adapters/persistence/` Cypher must be a `NeoLabel` / `RelationshipName` member — Neo4j matches zero rows on an unknown name instead of erroring (`.cypher` half is CYP011) | WARNING |
