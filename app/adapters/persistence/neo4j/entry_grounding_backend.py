@@ -2,7 +2,7 @@
 Entry-Grounding Backend
 =======================
 
-Persistence side of entry→Ku grounding (Entry-Enrichment PR 3).
+Persistence side of entry→Ku grounding.
 
 Serves ``EntryGroundingService``: which knowledge-pipeline UserEntries still
 need a grounding pass, the provenance-stamped ``APPLIES_KNOWLEDGE`` write,

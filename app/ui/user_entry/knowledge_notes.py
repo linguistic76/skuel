@@ -1,6 +1,6 @@
 """
-Knowledge Notes Surface (Entry-Enrichment PR 4)
-================================================
+Knowledge Notes Surface
+=======================
 
 Renders the ``/submissions/knowledge`` list: every ``pipeline: knowledge``
 entry with its grounded-Ku chips. Grounding edges are eager writes — the
