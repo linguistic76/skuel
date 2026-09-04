@@ -6,7 +6,6 @@ Bidirectional Obsidian ↔ SKUEL sync endpoints.
 
 Routes:
     GET  /submissions/sync       — Vault sync page (canonical URL, submissions MOC section).
-    GET  /settings/vault         — 301 redirect → /submissions/sync (legacy URL preserved).
     POST /settings/vault/sync    — HTMX endpoint: run sync, return HTML results fragment.
     POST /settings/vault/preview — HTMX endpoint: dry-run preview, nothing is written.
     POST /settings/vault/preview/consent — HTMX endpoint: grant consent then re-run the PREVIEW.
@@ -31,7 +30,6 @@ from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import Div, P, Span
 from pydantic import ValidationError
-from starlette.responses import RedirectResponse
 
 from adapters.inbound.auth import (
     make_service_getter,
@@ -168,11 +166,6 @@ def create_vault_routes(
             active="sync",
             request=request,
         )
-
-    @rt("/settings/vault")
-    def vault_settings_redirect(request: Request) -> Any:
-        """301 redirect — canonical URL moved to /submissions/sync."""
-        return RedirectResponse(url="/submissions/sync", status_code=301)
 
     @rt("/settings/vault/sync", methods=["POST"])
     @csrf_protected
