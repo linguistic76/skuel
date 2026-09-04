@@ -2,12 +2,13 @@
 """
 Shared mechanics for the docs ``updated:`` frontmatter stamp.
 
-One module, three consumers — the pre-commit stamper (``stamp_docs_updated.py``),
-the one-shot backfill (``backfill_docs_updated.py``) and the guard
-(``scripts/health/docs_updated.py``). Splitting "which files are in scope", "where
-is the ``updated:`` line" and "which commits are stamp-only" across three
-implementations would make each one a catalog copy of the others, and the copies
-would drift the first time scope changed. See ``docs/roadmap/deferred-work.md``
+One module, every consumer — the pre-commit stamper (``stamp_docs_updated.py``),
+the guard (``scripts/health/docs_updated.py``) and the one-shots that rewrite docs
+(``backfill_docs_updated.py``, ``quote_frontmatter_titles.py``). Splitting "which
+files are in scope", "which of them are dirty", "where is the ``updated:`` line" and
+"which commits are stamp-only" across per-script implementations would make each one
+a catalog copy of the others, and the copies would drift the first time scope
+changed. See ``docs/roadmap/deferred-work.md``
 § Catalog Copies in Code.
 
 Design constraints, each paid for by a registered trap:
