@@ -1240,8 +1240,8 @@ async def ingest_directory(
                 # errors) that did not fail the file: surface as
                 # warnings (G10) — the entry persisted and stays
                 # tracked, but the user must see what was dropped.
-            for warning in result_data.get("extraction_warnings") or []:
-                validation_warnings.append(f"{ue_path.name}: {warning}")
+                for warning in result_data.get("extraction_warnings") or []:
+                    validation_warnings.append(f"{ue_path.name}: {warning}")
 
         for group_entity in group_entities:
             group_path = Path(group_entity.get("_file_path", ""))
