@@ -1053,6 +1053,21 @@ connections:
     - goal.learn-ml
 ```
 
+**Retraction on re-ingest.** A target dropped from any registered relationship
+field loses its edge on the file's next ingest — both doors (`ingest_file` and
+directory sync). Each file's `IngestionMetadata` row stamps the edge set its
+frontmatter authored (`authored_edges`: `rel_type|direction|target_uid` keys,
+computed by `core/services/ingestion/authored_edges.py` over exactly the
+registered fields); the next ingest deletes `prior − current` — the edges this
+file authored but omits from its current frontmatter, nothing else. An edge of the same type
+written by an app door (lateral routes, prerequisite approval, exercise
+curriculum links) is not in the file's fingerprint and survives. An edge MERGEd
+by both a file and an app door is one edge, and the file's retraction deletes
+it — the vault is the author (ADR-070 Decision 10). A row with no recorded
+fingerprint (null `authored_edges`) is diffed as empty: that ingest records the
+fingerprint and retracts nothing; `./dev vault-sync --force` records one for
+every file.
+
 ### Available Relationship Types
 
 | Connection Field | Relationship Type | Target Entity | Used By |

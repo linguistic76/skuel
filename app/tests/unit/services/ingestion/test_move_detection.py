@@ -360,6 +360,7 @@ class TestDetectAndApplyMoves:
             "content_hash": "",
             "file_mtime": 0.0,
             "entity_uid": "ue_moved1",
+            "authored_edges": [],
         }
         backend.delete_ingestion_metadata.assert_awaited_once_with([str(old_path)])
 
@@ -596,6 +597,7 @@ class TestDetectAndApplyMoves:
             "content_hash": "",
             "file_mtime": 0.0,
             "entity_uid": "ue_ab12cd34",
+            "authored_edges": [],
         }
         backend.delete_ingestion_metadata.assert_awaited_once_with([str(old_path)])
 

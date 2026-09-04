@@ -4,13 +4,16 @@ Unified Ingestion Service - Orchestration Layer
 
 Ingestion is one-way: the vault authors, the graph obeys. A re-sync of an
 edited file upserts the entity, re-chunks its body and MERGEs the edges its
-frontmatter declares (additive — a target dropped from the frontmatter keeps
-its edge until its Edge YAML or an endpoint's file is deleted; the MOC
-body-link pass is the one refresh that deletes stale edges); a deleted file
-removes what it declared. Nothing in this service writes into the content
-vault. Curriculum structure (Ku, PathStep, LearningPath, CURRICULUM-scope
-Exercise) has no create/update/delete route in the app — ADR-070 Decision 10
-holds the ruling and the inventory of what SKUEL does author in-app.
+frontmatter declares; a target dropped from a registered frontmatter field
+loses its edge on that sync — only the edges the file itself authored (the
+``authored_edges`` fingerprint on its tracker row) are retracted, and an edge
+MERGEd by both a file and an app door is one edge that the file's retraction
+removes, because the vault is the author (ADR-070 Decision 10). The MOC
+body-link pass refreshes its own edges the same way. A deleted file removes
+what it declared. Nothing in this service writes into the content vault.
+Curriculum structure (Ku, PathStep, LearningPath, CURRICULUM-scope Exercise)
+has no create/update/delete route in the app — ADR-070 Decision 10 holds the
+ruling and the inventory of what SKUEL does author in-app.
 
 This module orchestrates content ingestion by composing:
 - config.py - Entity configurations and constants
@@ -64,13 +67,14 @@ from core.models.enums.entity_enums import EntityType, NonKuDomain
 from core.models.enums.pipeline import Pipeline
 from core.models.ps_content.content_chunks import ChunkingParams
 from core.models.relationship_names import RelationshipName
-from core.models.type_hints import UserUID
+from core.models.type_hints import EntityUID, UserUID
 from core.services.vault.vault_descriptor import VaultKind
 from core.utils.decorators import with_error_handling
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
+from .authored_edges import authored_edge_fingerprint, retracted_edges
 from .batch import find_entity_file, ingest_bundle, ingest_directory, ingest_vault
 from .config import (
     DEFAULT_MAX_FILE_SIZE_BYTES,
@@ -925,6 +929,49 @@ class UnifiedIngestionService:
 
         stats = result.value
         self.logger.info(f"Ingested {entity_type.value}: {entity_data['uid']}")
+
+        # Frontmatter retraction + the file's tracker stamp — one identity per
+        # file, shared with the directory door: the edges this file authored at
+        # its previous ingest but omits now are deleted, then its row
+        # records the new fingerprint (so the directory door sees the file as
+        # ingested and diffs against the same row). Runs BEFORE the MOC pass so
+        # a target dropped from ``organizes:`` but still body-linked is
+        # re-MERGEd inside this call. A failed retraction is loud: the entity
+        # and its new edges landed, but the graph would otherwise keep an edge
+        # the file has dropped, with nothing left to retry it. Without a
+        # tracker (minimal composes) there is no prior to diff and no stamp.
+        source_uid = str(entity_data["uid"])
+        authored_edges = authored_edge_fingerprint(entity_data, rel_config)
+        if self.ingestion_backend is not None:
+            tracker = IngestionTracker(self.ingestion_backend)
+            prior_result = await tracker.get_authored_edges([file_path])
+            if prior_result.is_error:
+                return Result.fail(prior_result)
+            dropped = retracted_edges(prior_result.value.get(str(file_path), []), authored_edges)
+            if dropped:
+                try:
+                    deleted = await self._write_backend.delete_authored_edges(source_uid, dropped)
+                except NEO4J_EXCEPTIONS as e:
+                    return Result.fail(
+                        Errors.database(
+                            "ingest_file",
+                            f"Failed to retract {len(dropped)} frontmatter edge(s) "
+                            f"{source_uid} no longer declares: {e}",
+                        )
+                    )
+                self.logger.info(
+                    f"Retracted {deleted} frontmatter edge(s) {source_uid} no longer declares "
+                    f"({len(dropped)} dropped from its registered fields)"
+                )
+            # A stamp failure is logged by the tracker; the entity write stands
+            # and the row keeps its prior fingerprint (a superset — re-diffed on
+            # the next ingest, where an already-deleted edge matches nothing).
+            await tracker.update_ingestion_metadata(
+                file_path,
+                EntityUID(source_uid),
+                tracker.compute_file_hash(file_path),
+                authored_edges,
+            )
 
         # Groups need an OWNS edge from the teacher to the group (ADR-053).
         # The engine created only the :Group node; wire ownership here.

@@ -25,7 +25,7 @@ Usage:
 
 import hashlib
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from fnmatch import fnmatch
 from pathlib import Path
@@ -58,6 +58,8 @@ from core.utils.path_display import display_path
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from core.ports.ingestion_protocols import IngestionBackendOperations
     from core.services.ingestion.config import SyncAllowlist
 
@@ -186,6 +188,11 @@ class FileIngestionMetadata:
     file_mtime: float  # File modification timestamp (Unix epoch)
     last_ingested_at: datetime
     entity_uid: EntityUID
+    # Frontmatter edge fingerprint stamped at the last ingest — the
+    # ``rel_type|direction|target_uid`` keys of every edge the file's registered
+    # relationship fields declared (``authored_edge_fingerprint``). Empty for
+    # Edge YAML rows and for rows stamped before the fingerprint existed.
+    authored_edges: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -307,6 +314,9 @@ class IngestionTracker:
                 file_mtime=record["file_mtime"],
                 last_ingested_at=last_ingested,
                 entity_uid=record["entity_uid"],
+                # Null on a row stamped before the fingerprint existed — nothing
+                # to diff against, so that file's first re-ingest retracts nothing.
+                authored_edges=[str(key) for key in (record.get("authored_edges") or [])],
             )
             result_map[record["file_path"]] = metadata
 
@@ -315,11 +325,38 @@ class IngestionTracker:
         )
         return Result.ok(result_map)
 
+    async def get_authored_edges(self, file_paths: list[Path]) -> Result[dict[str, list[str]]]:
+        """The frontmatter edge fingerprint each file's tracker row carries.
+
+        Keyed by ``str(file_path)`` exactly as passed — the caller's own key
+        form — so the batch door can look up prior fingerprints by the path
+        strings it already holds. A file with no row, or a row stamped before
+        the fingerprint existed, maps to an empty list: nothing was recorded,
+        so nothing can be retracted for it on this ingest.
+
+        Backend: IngestionBackend.get_ingestion_metadata.
+        """
+        meta_result = await self.get_ingestion_metadata(file_paths)
+        if meta_result.is_error:
+            return Result.fail(meta_result)
+        rows = meta_result.value
+        return Result.ok(
+            {
+                str(file_path): (
+                    list(row.authored_edges)
+                    if (row := rows.get(self._canonical(file_path))) is not None
+                    else []
+                )
+                for file_path in file_paths
+            }
+        )
+
     async def update_ingestion_metadata(
         self,
         file_path: Path,
         entity_uid: EntityUID,
         content_hash: str,
+        authored_edges: "Sequence[str]" = (),
     ) -> Result[None]:
         """
         Update ingestion metadata after successful ingestion.
@@ -330,6 +367,9 @@ class IngestionTracker:
             file_path: Path to the ingested file
             entity_uid: UID of the entity created/updated
             content_hash: SHA-256 hash of file content
+            authored_edges: The file's frontmatter edge fingerprint
+                (``authored_edge_fingerprint``) — what the next ingest diffs
+                its declaration against. Empty for files that author no edges.
         """
         try:
             file_mtime = file_path.stat().st_mtime
@@ -356,6 +396,7 @@ class IngestionTracker:
                 "content_hash": content_hash,
                 "file_mtime": file_mtime,
                 "entity_uid": entity_uid,
+                "authored_edges": list(authored_edges),
             }
         )
 
@@ -374,7 +415,7 @@ class IngestionTracker:
 
     async def update_ingestion_metadata_batch(
         self,
-        updates: list[tuple[Path, str, str]],  # (file_path, entity_uid, content_hash)
+        updates: list[tuple[Path, str, str, "Sequence[str]"]],
     ) -> Result[int]:
         """
         Batch update ingestion metadata for multiple files.
@@ -382,7 +423,10 @@ class IngestionTracker:
         More efficient than individual updates for large ingestion operations.
 
         Args:
-            updates: List of (file_path, entity_uid, content_hash) tuples
+            updates: List of (file_path, entity_uid, content_hash,
+                authored_edges) tuples — ``authored_edges`` is the file's
+                frontmatter edge fingerprint (empty for Edge YAML rows and
+                for files that author no edges).
 
         Returns:
             Result with count of updated records
@@ -391,7 +435,7 @@ class IngestionTracker:
             return Result.ok(0)
 
         items = []
-        for file_path, entity_uid, content_hash in updates:
+        for file_path, entity_uid, content_hash, authored_edges in updates:
             try:
                 file_mtime = file_path.stat().st_mtime
                 items.append(
@@ -400,6 +444,7 @@ class IngestionTracker:
                         "entity_uid": entity_uid,
                         "content_hash": content_hash,
                         "file_mtime": file_mtime,
+                        "authored_edges": list(authored_edges),
                     }
                 )
             except OSError:
@@ -808,6 +853,7 @@ class IngestionTracker:
                 file_path=str(row["file_path"]),
                 entity_uid=str(row["entity_uid"]),
                 content_hash=str(row["content_hash"]),
+                authored_edges=tuple(str(key) for key in (row.get("authored_edges") or [])),
             )
             for row in classification.entity_rows
             if row.get("content_hash")
@@ -975,9 +1021,10 @@ class IngestionTracker:
         between the two leaves both rows claiming one uid, which the
         uid-based moved/stale split resolves as a stale row, never a node
         deletion. The new row carries pending markers (empty hash, mtime 0)
-        so a failed ingest this run still retries next sync. ``similarity``
-        is the Jaccard score for a similarity match (logged distinctly),
-        ``None`` for an exact-hash match.
+        so a failed ingest this run still retries next sync, and the old row's
+        edge fingerprint, so the ingest at the new path still retracts what
+        the file dropped. ``similarity`` is the Jaccard score for a similarity
+        match (logged distinctly), ``None`` for an exact-hash match.
         """
         upsert_result = await self.backend.update_ingestion_metadata(
             {
@@ -985,6 +1032,7 @@ class IngestionTracker:
                 "content_hash": "",  # pending marker — see docstring
                 "file_mtime": 0.0,
                 "entity_uid": row.entity_uid,
+                "authored_edges": list(row.authored_edges),
             }
         )
         if upsert_result.is_error:

@@ -37,6 +37,9 @@ class MoveCandidate:
     file_path: str  # canonical absolute path (tracker key form)
     entity_uid: str
     content_hash: str  # last-ingested SHA-256
+    # The row's frontmatter edge fingerprint — re-keyed with the row on a move so
+    # the file's next ingest can still retract what it dropped.
+    authored_edges: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)

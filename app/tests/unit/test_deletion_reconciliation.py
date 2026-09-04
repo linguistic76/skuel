@@ -264,7 +264,7 @@ class TestReconcileDeletions:
         )
         tracker = IngestionTracker(backend)
 
-        await tracker.update_ingestion_metadata_batch([(Path("ku.rel.md"), "ku.rel", "hash")])
+        await tracker.update_ingestion_metadata_batch([(Path("ku.rel.md"), "ku.rel", "hash", [])])
 
         items = backend.update_ingestion_metadata_batch.await_args.args[0]
         assert items[0]["file_path"] == str(target.resolve())
