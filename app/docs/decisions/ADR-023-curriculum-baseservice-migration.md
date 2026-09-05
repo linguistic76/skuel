@@ -1,6 +1,6 @@
 ---
 title: "ADR-023: Unified BaseService Architecture"
-updated: 2026-09-04
+updated: 2026-09-05
 status: accepted
 category: decisions
 tags: [adr, decisions, baseservice, unified-architecture, search, curriculum]
@@ -52,8 +52,8 @@ This created:
 - [@curriculum-domains](../../.claude/skills/curriculum-domains/SKILL.md) - Curriculum domain patterns (KU, PS, LP)
 
 **Architecture:**
-- [CURRICULUM_GROUPING_PATTERNS.md](/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md) - Three grouping patterns (KU, PS, LP)
-- [SERVICE_CONSOLIDATION_PATTERNS.md](/docs/patterns/SERVICE_CONSOLIDATION_PATTERNS.md) - BaseService patterns
+- [CURRICULUM_GROUPING_PATTERNS.md](../architecture/CURRICULUM_GROUPING_PATTERNS.md) - Three grouping patterns (KU, PS, LP)
+- [SERVICE_CONSOLIDATION_PATTERNS.md](../patterns/SERVICE_CONSOLIDATION_PATTERNS.md) - BaseService patterns
 
 **Code Locations:**
 - `/core/services/base_service.py` - Unified BaseService with curriculum methods

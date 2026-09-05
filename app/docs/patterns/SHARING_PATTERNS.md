@@ -1,6 +1,6 @@
 ---
 title: Content Sharing Patterns
-updated: '2026-08-02'
+updated: '2026-09-05'
 category: patterns
 related_skills:
 - pytest
@@ -9,7 +9,7 @@ related_docs: []
 # Content Sharing Patterns
 
 **Status:** All phases complete — `UnifiedSharingService` active (2026-03-01)
-**See Also:** [ADR-038: Content Sharing Model](/docs/decisions/ADR-038-content-sharing-model.md), [ADR-042: Privacy as First-Class Citizen](/docs/decisions/ADR-042-privacy-as-first-class-citizen.md)
+**See Also:** [ADR-038: Content Sharing Model](../decisions/ADR-038-content-sharing-model.md), [ADR-042: Privacy as First-Class Citizen](../decisions/ADR-042-privacy-as-first-class-citizen.md)
 
 ---
 ## Related Skills

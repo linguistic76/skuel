@@ -1,5 +1,5 @@
 ---
-updated: 2026-07-29
+updated: 2026-09-05
 ---
 
 # GoalsIntelligenceService - Progress Forecasting & Predictive Analytics
@@ -254,7 +254,7 @@ if result.is_ok:
 
 ### Method 4: get_goal_learning_requirements()
 
-**Purpose:** Analyze goal's learning requirements including required knowledge areas, current mastery status, available learning paths, and knowledge gaps. The three returned blocks are produced by the shared `build_learning_requirements` helper, so the mastery split is **truthful**: when `user_context` is supplied, `knowledge_gaps` / `mastered_knowledge` / `ready_to_start` reflect the user's actual `knowledge_mastery` (via `PrerequisiteChecker.check_prerequisites`, same 0.7 readiness threshold). Context-free callers degrade to the prior behaviour — every requirement treated as an open gap. **See:** [PREREQUISITE_CHECKER_PATTERN.md](/docs/patterns/PREREQUISITE_CHECKER_PATTERN.md).
+**Purpose:** Analyze goal's learning requirements including required knowledge areas, current mastery status, available learning paths, and knowledge gaps. The three returned blocks are produced by the shared `build_learning_requirements` helper, so the mastery split is **truthful**: when `user_context` is supplied, `knowledge_gaps` / `mastered_knowledge` / `ready_to_start` reflect the user's actual `knowledge_mastery` (via `PrerequisiteChecker.check_prerequisites`, same 0.7 readiness threshold). Context-free callers degrade to the prior behaviour — every requirement treated as an open gap. **See:** [PREREQUISITE_CHECKER_PATTERN.md](../patterns/PREREQUISITE_CHECKER_PATTERN.md).
 
 **Signature:**
 ```python

@@ -1,6 +1,6 @@
 ---
 title: Codebase Health Checks
-updated: 2026-09-02
+updated: 2026-09-05
 status: current
 category: tools
 tags: [health, scripts, dead-code, documentation, maintenance, drift]
@@ -165,18 +165,25 @@ self-report as broken):
 
 | Kind | Example | Detection Method |
 |------|---------|-----------------|
-| `[link]` | `[text](/docs/INDEX.md)` | Markdown link syntax |
+| `[link]` | `[text](../INDEX.md)` | Markdown link syntax |
 | `[backtick]` | `` `core/services/base_service.py` `` | Inline code spans that look like paths |
 | `[bare]` | `/docs/patterns/linter_rules.md` in prose | Bare absolute paths with project prefixes |
 | `[code]` | `cp core/services/base_service.py …` inside a ` ``` ` block | Path-looking tokens in fenced code blocks |
 
-**Absolute paths** (starting with `/`) are resolved relative to the repo root — the ONE
-canonical citation style. Machine-absolute paths (`/home/.../app/...`) are deliberately
-not rescued: they resolve under the repo root and report broken identically in every
-checkout, so the doc gets fixed rather than the alternative style preserved.
-**Relative paths** are resolved relative to the source file's directory; if that misses,
-they are retried relative to the repo root (docs routinely cite root-relative paths like
-`docs/patterns/linter_rules.md` without a leading slash).
+**Two citation forms, one per direction.** A link whose both ends are inside `docs/` is
+written **relative to the citing file** (`../patterns/linter_rules.md`; a sibling is just
+`linter_rules.md`) — the form Obsidian generates, and the only one its rename propagation
+reaches, since `docs/` opens as a vault. Everything else is **repo-root-absolute** (starting
+with `/`): a doc citing code (`/core/services/base_service.py`), a skill or CLAUDE.md citing
+a doc. `scripts/docs_relative_links.py` (`./dev docs-links`) names every absolute docs→docs
+link and `--apply` rewrites the ones that resolve; it is advisory and script-only, not part
+of `./dev health` — a dead target is never rewritten (it belongs to the sweep queue), and a
+generated doc is refused (its generator emits the relative form). Machine-absolute paths
+(`/home/.../app/...`) are deliberately not rescued: they resolve under the repo root and
+report broken identically in every checkout, so the doc gets fixed rather than the
+alternative style preserved. **Relative paths** are resolved relative to the source file's
+directory; if that misses, they are retried relative to the repo root — a tolerance for the
+no-leading-slash spelling (`docs/patterns/linter_rules.md`), not a third form.
 **External URLs** (`http://`, `https://`, etc.) and anchor-only links (`#section`) are skipped.
 **`%20`-encoded destinations are decoded** before resolution, so a correctly-encoded
 citation of a file whose name contains spaces resolves instead of reporting dead.
@@ -715,6 +722,7 @@ scripts/docs_updated_field.py          # Shared stamp mechanics (guard + stamper
 scripts/stamp_docs_updated.py          # Pre-commit stamper (hook check 0)
 scripts/backfill_docs_updated.py       # One-shot seed from commit history
 scripts/validate_cross_references.py   # Skill↔doc cross-reference validator
+scripts/docs_relative_links.py         # Advisory docs→docs link-form sweep (`./dev docs-links`; not in health)
 ```
 
 **Related:**

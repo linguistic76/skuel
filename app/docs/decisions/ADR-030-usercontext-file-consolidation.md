@@ -1,6 +1,6 @@
 ---
 title: "ADR-030: UserContext File Consolidation"
-updated: 2026-09-04
+updated: 2026-09-05
 status: current
 category: decisions
 tags: [adr, decisions, usercontext, cleanup]
@@ -115,7 +115,7 @@ This follows SKUEL's "One Path Forward" philosophy: no legacy wrappers, no depre
 - [@user-context-intelligence](../../.claude/skills/user-context-intelligence/SKILL.md) - UserContext intelligence operations
 
 **Architecture:**
-- [UNIFIED_USER_ARCHITECTURE.md](/docs/architecture/UNIFIED_USER_ARCHITECTURE.md) - Complete UserContext architecture
+- [UNIFIED_USER_ARCHITECTURE.md](../architecture/UNIFIED_USER_ARCHITECTURE.md) - Complete UserContext architecture
 
 **Code Locations:**
 - `/core/services/user/unified_user_context.py` - Canonical UserContext (THE source of truth)

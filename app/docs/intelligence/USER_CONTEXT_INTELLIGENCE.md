@@ -1,7 +1,7 @@
 ---
 related_skills:
 - user-context-intelligence
-updated: 2026-08-01
+updated: 2026-09-05
 ---
 # UserContextIntelligence - Central Intelligence Hub
 ## Related Skills
@@ -24,7 +24,7 @@ UserContextIntelligence is THE central intelligence hub answering: **"What shoul
 
 This service synthesizes user state (UserContext ~240 fields) with complete graph intelligence (12 domain services) to provide actionable daily planning, learning recommendations, and life path alignment insights.
 
-**Depends on:** UserContext (~240 fields) — see [Unified User Architecture](/docs/architecture/UNIFIED_USER_ARCHITECTURE.md)
+**Depends on:** UserContext (~240 fields) — see [Unified User Architecture](../architecture/UNIFIED_USER_ARCHITECTURE.md)
 
 UserContext provides the state. This service provides the synthesis.
 

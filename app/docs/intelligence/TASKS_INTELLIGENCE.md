@@ -1,5 +1,5 @@
 ---
-updated: 2026-07-27
+updated: 2026-09-05
 ---
 
 # TasksIntelligenceService - Behavioral & Performance Intelligence
@@ -240,7 +240,7 @@ counts) via the typed reader's ok-empty-context policy; a real fetch error logs 
 `PrerequisiteChecker.check_prerequisites` split that drives readiness, so gaps never disagree.
 When the call has a `user_context` the split is truthful; otherwise every requirement is an open
 gap. Shape = the `LearningRequirements` TypedDict (`knowledge_requirements` / `learning_paths` /
-`learning_analysis` blocks — see [PREREQUISITE_CHECKER_PATTERN.md](/docs/patterns/PREREQUISITE_CHECKER_PATTERN.md)).
+`learning_analysis` blocks — see [PREREQUISITE_CHECKER_PATTERN.md](../patterns/PREREQUISITE_CHECKER_PATTERN.md)).
 Note: `ContextualTask` carries the same field, but the daily-plan UI renders it for **goals only**
 (actionable tasks are pre-filtered to ready), so this block is for non-UI consumers + `to_dict`.
 

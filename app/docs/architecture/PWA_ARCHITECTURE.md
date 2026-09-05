@@ -1,6 +1,6 @@
 ---
 title: PWA Architecture
-updated: 2026-08-26
+updated: 2026-09-05
 status: current
 category: architecture
 tags: [pwa, service-worker, offline, mobile]
@@ -9,7 +9,7 @@ related_adrs: [ADR-050]
 ---
 # PWA Architecture
 
-**ADR:** [ADR-050: PWA Mobile Strategy](/docs/decisions/ADR-050-pwa-mobile-strategy.md)
+**ADR:** [ADR-050: PWA Mobile Strategy](../decisions/ADR-050-pwa-mobile-strategy.md)
 ## Related Skills
 
 For implementation guidance, see:

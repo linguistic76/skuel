@@ -1,6 +1,6 @@
 ---
 title: Docstring Standards
-updated: 2026-09-04
+updated: 2026-09-05
 category: patterns
 related_skills:
 - python
@@ -582,9 +582,9 @@ async def calculate_priority_score(
 ## Related Documentation
 
 ### Patterns
-- [Error Handling](/docs/patterns/ERROR_HANDLING.md) - Result[T] pattern usage
-- [Service Consolidation](/docs/patterns/SERVICE_CONSOLIDATION_PATTERNS.md) - Service architecture
-- [Protocol Architecture](/docs/patterns/protocol_architecture.md) - Protocol-based design
+- [Error Handling](ERROR_HANDLING.md) - Result[T] pattern usage
+- [Service Consolidation](SERVICE_CONSOLIDATION_PATTERNS.md) - Service architecture
+- [Protocol Architecture](protocol_architecture.md) - Protocol-based design
 
 ### Skills
 - [Python](/.claude/skills/python/SKILL.md) - Python patterns in SKUEL

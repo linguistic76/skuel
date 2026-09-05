@@ -1,6 +1,6 @@
 ---
 title: "ADR-031: BaseService Mixin Decomposition"
-updated: 2026-09-04
+updated: 2026-09-05
 status: current
 category: decisions
 tags: [adr, decisions, baseservice, mixin, srp, decomposition]
@@ -88,8 +88,8 @@ class BaseService[B: BackendOperations, T: DomainModelProtocol](
 - [@base-analytics-service](../../.claude/skills/base-analytics-service/SKILL.md) - Analytics service patterns
 
 **Documentation:**
-- [SERVICE_CONSOLIDATION_PATTERNS.md](/docs/patterns/SERVICE_CONSOLIDATION_PATTERNS.md) - Service architecture patterns
-- [protocol_architecture.md](/docs/patterns/protocol_architecture.md) - Protocol-based interfaces
+- [SERVICE_CONSOLIDATION_PATTERNS.md](../patterns/SERVICE_CONSOLIDATION_PATTERNS.md) - Service architecture patterns
+- [protocol_architecture.md](../patterns/protocol_architecture.md) - Protocol-based interfaces
 
 **Code Locations:**
 - `/core/services/base_service.py` - 7 focused mixins (~490 lines)

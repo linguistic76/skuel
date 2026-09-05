@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-01
+updated: 2026-09-05
 ---
 
 # ADR-037: Lateral Relationships Visualization (Phase 5)
@@ -521,8 +521,8 @@ line once pointed at was deleted with the other 74.
 - [@neo4j-cypher-patterns](../../.claude/skills/neo4j-cypher-patterns/SKILL.md) - Graph traversal and relationship queries
 
 **Documentation:**
-- [RELATIONSHIPS_ARCHITECTURE.md](/docs/architecture/RELATIONSHIPS_ARCHITECTURE.md) - Core relationship architecture
-- [LATERAL_RELATIONSHIPS_VISUALIZATION.md](/docs/patterns/LATERAL_RELATIONSHIPS_VISUALIZATION.md) - UI visualization patterns (this ADR and that pattern doc are the implementation guide; the phase's standalone completion note was deleted with the other 74 work notes)
+- [RELATIONSHIPS_ARCHITECTURE.md](../architecture/RELATIONSHIPS_ARCHITECTURE.md) - Core relationship architecture
+- [LATERAL_RELATIONSHIPS_VISUALIZATION.md](../patterns/LATERAL_RELATIONSHIPS_VISUALIZATION.md) - UI visualization patterns (this ADR and that pattern doc are the implementation guide; the phase's standalone completion note was deleted with the other 74 work notes)
 
 **Code Locations:**
 - `/ui/patterns/relationships/` - 4 UI components (EntityRelationshipsSection, BlockingChainView, AlternativesComparisonGrid, RelationshipGraphView)

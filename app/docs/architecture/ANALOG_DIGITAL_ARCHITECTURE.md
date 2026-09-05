@@ -1,5 +1,5 @@
 ---
-updated: 2026-08-30
+updated: 2026-09-05
 ---
 
 # Analog + Digital Architecture
@@ -88,7 +88,7 @@ At bootstrap, `services_bootstrap/compose.py` checks `IntelligenceTier.from_env(
 - **FULL tier only:** Vector indexes (1024-dim, cosine similarity) on Entity, ContentChunk, ReferenceChunk, Ku, PathStep and LearningPath via `sync_vector_indexes()`. AI services (embeddings, LLM, vector search) are created. Background embedding worker starts.
 - **CORE tier:** Vector indexes and all AI services are skipped. All downstream code receives `None` and handles it through the None-propagation pattern.
 
-**See:** [Graceful Degradation Architecture](/docs/architecture/GRACEFUL_DEGRADATION_ARCHITECTURE.md) for implementation details — the three gating points, None-propagation pattern, event-driven embedding architecture, and search fallback behavior.
+**See:** [Graceful Degradation Architecture](GRACEFUL_DEGRADATION_ARCHITECTURE.md) for implementation details — the three gating points, None-propagation pattern, event-driven embedding architecture, and search fallback behavior.
 
 ## The Relationship Between Layers
 

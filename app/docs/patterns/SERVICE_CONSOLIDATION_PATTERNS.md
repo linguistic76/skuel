@@ -1,6 +1,6 @@
 ---
 title: Service Consolidation Patterns
-updated: 2026-08-21
+updated: 2026-09-05
 category: patterns
 related_skills:
 - base-analytics-service
@@ -29,7 +29,7 @@ For hands-on implementation:
 
 ---
 
-**Migration Status:** ✅ **100% Complete** (January 2026) - All 34 BaseService subclasses migrated to DomainConfig across all domains (Activity: 25, Curriculum: 2, Content: 3, Assignments: 3, Infrastructure: 1). See [Migration Guide](/docs/migrations/DOMAINCONFIG_MIGRATION_COMPLETE.md).
+**Migration Status:** ✅ **100% Complete** (January 2026) - All 34 BaseService subclasses migrated to DomainConfig across all domains (Activity: 25, Curriculum: 2, Content: 3, Assignments: 3, Infrastructure: 1). See [Migration Guide](../migrations/DOMAINCONFIG_MIGRATION_COMPLETE.md).
 
 ---
 
@@ -178,7 +178,7 @@ search_fields = self._get_config_value("search_fields")
 
 Decomposes the monolithic BaseService into 7 focused mixins following Single Responsibility Principle.
 
-**Decision context:** See [ADR-031](/docs/decisions/ADR-031-baseservice-mixin-decomposition.md) for the full decomposition rationale.
+**Decision context:** See [ADR-031](../decisions/ADR-031-baseservice-mixin-decomposition.md) for the full decomposition rationale.
 
 ### The Problem
 
@@ -826,7 +826,7 @@ class ChoicesService(
 
 ## See Also
 
-- **Decision context:** [ADR-025](/docs/decisions/ADR-025-service-consolidation-patterns.md) - Why these patterns were chosen
-- **Mixin decomposition:** [ADR-031](/docs/decisions/ADR-031-baseservice-mixin-decomposition.md) - BaseService mixin architecture
+- **Decision context:** [ADR-025](../decisions/ADR-025-service-consolidation-patterns.md) - Why these patterns were chosen
+- **Mixin decomposition:** [ADR-031](../decisions/ADR-031-baseservice-mixin-decomposition.md) - BaseService mixin architecture
 - **BaseService:** `/core/services/base_service.py` - Uses DomainConfig, composed of mixins
 - **Example facade:** `/core/services/tasks_service.py` - Explicit delegation pattern

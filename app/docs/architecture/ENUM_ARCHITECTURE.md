@@ -1,5 +1,5 @@
 ---
-updated: 2026-08-15
+updated: 2026-09-05
 ---
 
 # Enum Architecture
@@ -642,13 +642,13 @@ connections:
 
 Every value after the colon is validated against the corresponding enum. A typo like `polarity: built` produces a clear Pydantic validation error at ingestion time — not a silent bad value in Neo4j.
 
-**See:** [YAML Authoring Guide](/docs/guides/YAML_AUTHORING_GUIDE.md) (authoring reference), [Schema Templates](/yaml_templates/_schemas/) (complete field reference per entity type)
+**See:** [YAML Authoring Guide](../guides/YAML_AUTHORING_GUIDE.md) (authoring reference), [Schema Templates](/yaml_templates/_schemas/) (complete field reference per entity type)
 
 ---
 
 ## See Also
 
-- [Constants Usage Guide](/docs/patterns/constants_usage_guide.md) — Named constants vs enums
-- [Domain Patterns Catalog](/docs/patterns/DOMAIN_PATTERNS_CATALOG.md) — How enums integrate with the three-tier type system
-- [YAML Authoring Guide](/docs/guides/YAML_AUTHORING_GUIDE.md) — Content authoring with enum-governed fields
+- [Constants Usage Guide](../patterns/constants_usage_guide.md) — Named constants vs enums
+- [Domain Patterns Catalog](../patterns/DOMAIN_PATTERNS_CATALOG.md) — How enums integrate with the three-tier type system
+- [YAML Authoring Guide](../guides/YAML_AUTHORING_GUIDE.md) — Content authoring with enum-governed fields
 - Source: `core/models/enums/` (17 files, ~3,400 lines)

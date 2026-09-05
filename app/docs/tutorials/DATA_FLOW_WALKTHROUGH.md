@@ -1,5 +1,5 @@
 ---
-updated: 2026-08-06
+updated: 2026-09-05
 ---
 
 # Data Flow Walkthrough: Following a Task Creation Request
@@ -784,9 +784,9 @@ response = TaskResponse.from_dto(dto, rels)
 
 ## Next Steps
 
-- Read [Three-Tier Type System](/docs/patterns/three_tier_type_system.md) for architectural rationale
-- See [API Validation Patterns](/docs/patterns/API_VALIDATION_PATTERNS.md) for Pydantic patterns
-- Explore [Graph-Native Design](/docs/patterns/GRAPH_NATIVE_PLACEHOLDERS.md) for relationship handling
+- Read [Three-Tier Type System](../patterns/three_tier_type_system.md) for architectural rationale
+- See [API Validation Patterns](../patterns/API_VALIDATION_PATTERNS.md) for Pydantic patterns
+- Explore [Graph-Native Design](../patterns/GRAPH_NATIVE_PLACEHOLDERS.md) for relationship handling
 
 ---
 

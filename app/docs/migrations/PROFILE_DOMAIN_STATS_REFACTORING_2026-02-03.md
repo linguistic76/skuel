@@ -1,5 +1,5 @@
 ---
-updated: 2026-03-11
+updated: 2026-09-05
 ---
 
 # Profile Domain Stats Configuration Refactoring
@@ -365,10 +365,10 @@ DOMAIN_STATS_CONFIG["projects"] = DomainStatsConfig(...)
 
 ## Related Documentation
 
-- **Primary:** [/docs/patterns/UI_COMPONENT_PATTERNS.md](/docs/patterns/UI_COMPONENT_PATTERNS.md) - Complete UI patterns guide
+- **Primary:** [/docs/patterns/UI_COMPONENT_PATTERNS.md](../patterns/UI_COMPONENT_PATTERNS.md) - Complete UI patterns guide
 - **Implementation:** [/ui/profile/README.md](/ui/profile/README.md) - Profile UI components documentation
 - **Quick Ref:** [/CLAUDE.md](/CLAUDE.md#ui-component-pattern) - Quick reference
-- **Architecture:** [/docs/architecture/UNIFIED_USER_ARCHITECTURE.md](/docs/architecture/UNIFIED_USER_ARCHITECTURE.md) - UserContext details
+- **Architecture:** [/docs/architecture/UNIFIED_USER_ARCHITECTURE.md](../architecture/UNIFIED_USER_ARCHITECTURE.md) - UserContext details
 
 ## Lessons Learned
 

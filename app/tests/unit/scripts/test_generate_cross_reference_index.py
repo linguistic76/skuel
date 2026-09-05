@@ -22,7 +22,7 @@ The honesty guards pin the properties the index exists to provide:
 - every doc path the metadata names survives the renderer's category
   bucketing (the ``other_docs`` catch-all is a construction, not a law — a
   doc in a new directory must land somewhere, never vanish),
-- every ``/docs/decisions/`` link target the renderer emits is a real file
+- every ``decisions/`` link target the renderer emits is a real file
   (the guard that would have caught the slug-less ADR links at birth), and
 - no pattern doc's frontmatter fails the YAML parse:
   ``load_pattern_frontmatter`` swallows ``yaml.YAMLError`` per file, and 35
@@ -46,6 +46,7 @@ from generate_cross_reference_index import (  # type: ignore[import-not-found]
     ARTIFACT_PATH,
     PROJECT_ROOT,
     _normalize_related_skills,
+    doc_link,
     generate_index_content,
     load_skills_metadata,
 )
@@ -107,18 +108,19 @@ def test_every_metadata_doc_link_survives_rendering() -> None:
     for skill in load_skills_metadata(PROJECT_ROOT)["skills"]:
         section = sections.get(skill["name"], "")
         for doc in skill.get("primary_docs", []) + skill.get("patterns", []):
-            assert f"]({doc})" in section, (
+            assert f"]({doc_link(doc)})" in section, (
                 f"@{skill['name']} names {doc} in skills_metadata.yaml but its own "
-                "rendered section never links it — a renderer bucket dropped it."
+                f"rendered section never links it as ({doc_link(doc)}) — a renderer "
+                "bucket dropped it."
             )
 
 
 def test_every_rendered_adr_link_target_exists() -> None:
-    """No ``/docs/decisions/`` link this generator emits may point at a missing file.
+    """No ``decisions/`` link this generator emits may point at a missing file.
 
     The bug this would have caught at birth: the renderer spelled ADR targets as
     ``ADR-NNN.md`` while every ADR in the tree carries a slug, so 12 of the 13
-    distinct ``/docs/decisions/`` targets were dead — 30 findings, the whole of
+    distinct ``decisions/`` targets were dead — 30 findings, the whole of
     this artifact's dead-link count, sitting inside a *generated* file where no
     doc sweep would ever have thought to look.
 
@@ -128,10 +130,11 @@ def test_every_rendered_adr_link_target_exists() -> None:
     reports against the skill that authored it. The freshness test cannot cover
     this — a wrong render is faithfully wrong twice.
     """
-    targets = re.findall(r"\]\((/docs/decisions/[^)]+)\)", generate_index_content(PROJECT_ROOT))
+    # Relative to the artifact's own directory (docs/) — the form the generator emits.
+    targets = re.findall(r"\]\((decisions/[^)]+)\)", generate_index_content(PROJECT_ROOT))
     assert targets, "guard checked nothing — the render names no ADR at all?"
 
-    missing = sorted({t for t in targets if not (PROJECT_ROOT / t.lstrip("/")).is_file()})
+    missing = sorted({t for t in targets if not (ARTIFACT_PATH.parent / t).is_file()})
     assert not missing, (
         f"generate_cross_reference_index.py renders {len(missing)} dead ADR link "
         f"target(s): {', '.join(missing)}. The target is computed from "
@@ -182,7 +185,7 @@ def test_declared_skills_render_in_pattern_mapping() -> None:
     content = generate_index_content(PROJECT_ROOT)
     rendered: dict[str, str] = {}
     for line in content.splitlines():
-        match = re.match(r"^- \[([^\]]+)\]\(/docs/patterns/[^)]+\) → (.+)$", line)
+        match = re.match(r"^- \[([^\]]+)\]\(patterns/[^)]+\) → (.+)$", line)
         if match:
             rendered[match.group(1)] = match.group(2)
 

@@ -1,7 +1,7 @@
 ---
 title: Domain Documentation
 created: 2025-12-04
-updated: 2026-09-02
+updated: 2026-09-05
 status: current
 category: domains
 tags: [domains, reference, architecture]
@@ -137,7 +137,7 @@ Each activity domain has domain-specific enums beyond the shared `Priority` and 
 | **Curriculum** | LpType, StepDifficulty, LearningLevel, KuComplexity, SELCategory |
 | **KU** | SELCategory |
 
-**See:** [Enum Architecture](/docs/architecture/ENUM_ARCHITECTURE.md) for the complete catalog with values and dynamic patterns.
+**See:** [Enum Architecture](../architecture/ENUM_ARCHITECTURE.md) for the complete catalog with values and dynamic patterns.
 
 ## See Also
 

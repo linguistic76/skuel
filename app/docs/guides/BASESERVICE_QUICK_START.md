@@ -1,5 +1,5 @@
 ---
-updated: 2026-06-21
+updated: 2026-09-05
 ---
 
 # BaseService Quick Start Guide
@@ -665,9 +665,9 @@ uv run mypy core/services/mixins/*.py
 ### Recommended Reading Order
 
 1. ✅ **This guide** (you are here)
-2. 📖 [Sub-Service Catalog](/docs/reference/SUB_SERVICE_CATALOG.md) - Which service does what
-3. 📖 [Method Index](/docs/reference/BASESERVICE_METHOD_INDEX.md) - Complete method listing
-4. 📊 [Service Topology](/docs/architecture/SERVICE_TOPOLOGY.md) - Architecture diagrams
+2. 📖 [Sub-Service Catalog](../reference/SUB_SERVICE_CATALOG.md) - Which service does what
+3. 📖 [Method Index](../reference/BASESERVICE_METHOD_INDEX.md) - Complete method listing
+4. 📊 [Service Topology](../architecture/SERVICE_TOPOLOGY.md) - Architecture diagrams
 5. 📚 [BaseService Source](/core/services/base_service.py) - Implementation details
 6. 📚 [Example Facade Source](/core/services/tasks_service.py) - Explicit delegation pattern
 

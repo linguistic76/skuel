@@ -1,6 +1,6 @@
 ---
 title: Report Architecture
-updated: 2026-08-09
+updated: 2026-09-05
 status: current
 category: architecture
 version: 3.2.0
@@ -601,8 +601,8 @@ User annotates report (additive or revision mode)
 
 ## See Also
 
-- [LEARNING_LOOP_ARCHITECTURE.md](/docs/architecture/LEARNING_LOOP_ARCHITECTURE.md) — Entry-point overview: two tracks, four phases, how MEGA_QUERY feeds the loop
-- [ADR-038: Content Sharing Model](/docs/decisions/ADR-038-content-sharing-model.md)
-- [ADR-040: Teacher Exercise Workflow](/docs/decisions/ADR-040-teacher-exercise-workflow.md)
-- [Entity Type Architecture](/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md)
-- [Sharing Patterns](/docs/patterns/SHARING_PATTERNS.md)
+- [LEARNING_LOOP_ARCHITECTURE.md](LEARNING_LOOP_ARCHITECTURE.md) — Entry-point overview: two tracks, four phases, how MEGA_QUERY feeds the loop
+- [ADR-038: Content Sharing Model](../decisions/ADR-038-content-sharing-model.md)
+- [ADR-040: Teacher Exercise Workflow](../decisions/ADR-040-teacher-exercise-workflow.md)
+- [Entity Type Architecture](ENTITY_TYPE_ARCHITECTURE.md)
+- [Sharing Patterns](../patterns/SHARING_PATTERNS.md)

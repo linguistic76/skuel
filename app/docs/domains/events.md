@@ -1,7 +1,7 @@
 ---
 title: Events Domain
 created: 2025-12-04
-updated: 2026-08-22
+updated: 2026-09-05
 status: current
 category: domains
 tags: [events, scheduling-domain, integration-domain, domain]
@@ -51,7 +51,7 @@ Events additionally has an integration sub-service (`EventsHabitIntegrationServi
 | `ActivityType` | `core.models.enums` | TASK, HABIT, EVENT, LEARNING, MILESTONE, DEADLINE, MEETING, PRACTICE, REVIEW, BREAK, BLOCK, PLACEHOLDER | `event_type` |
 | `Priority` | `core.models.enums` | LOW, MEDIUM, HIGH, CRITICAL | `priority` |
 
-**See:** [Enum Architecture](/docs/architecture/ENUM_ARCHITECTURE.md)
+**See:** [Enum Architecture](../architecture/ENUM_ARCHITECTURE.md)
 
 ## Facade Pattern (February 2026)
 
@@ -208,7 +208,7 @@ On CREATE, `reinforces_habit_uid` is the edge's INPUT: it rides on the `Event`, 
 | `get_conflicting(event_uid)` | Time-overlap conflicts (PLANNED surface) |
 | `get_prioritized(user_context, limit=10)` | Smart prioritization |
 
-**Full catalog:** [Search Service Methods Reference](/docs/reference/SEARCH_SERVICE_METHODS.md)
+**Full catalog:** [Search Service Methods Reference](../reference/SEARCH_SERVICE_METHODS.md)
 
 ## Intelligence Service
 
@@ -222,7 +222,7 @@ On CREATE, `reinforces_habit_uid` is the edge's INPUT: it rides on the `Event`, 
 | `get_performance_analytics(user_uid, period_days)` | Event performance metrics for period |
 | `get_domain_insights(uid, min_confidence)` | Domain-specific insights |
 
-**See:** [Intelligence Services Index](/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md)
+**See:** [Intelligence Services Index](../intelligence/INTELLIGENCE_SERVICES_INDEX.md)
 
 ## Progress Service (January 2026)
 
@@ -249,7 +249,7 @@ through `update_event`, which stamps `completed_at` on the transition):
 **Cross-domain scheduling** (busy times, slot suggestions, conflict detection, calendar density)
 lives in `CalendarOptimizationOrchestrator`, which aggregates Tasks + Events together.
 
-**See:** [Intelligence Services Index](/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md)
+**See:** [Intelligence Services Index](../intelligence/INTELLIGENCE_SERVICES_INDEX.md)
 
 ## Events/Publishing
 

@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-02
+updated: 2026-09-05
 ---
 
 # Service Architecture: File Organization & Topology
@@ -443,8 +443,6 @@ services_bootstrap/compose.py:  habits.goals_service = goals       # facade-leve
 ```
 
 ```
-
-```
 GoalsIntelligenceService.__init__:  self.habits_service = None
 
 services_bootstrap/compose.py:  goals.intelligence.habits_service = habits  # sub-service-level
@@ -810,10 +808,10 @@ Layer 4: Routes (HTTP → Facades)            ← Interface (HTTP boundaries)
 
 ## See Also
 
-- [Sub-Service Catalog](/docs/reference/SUB_SERVICE_CATALOG.md) — Which service does what
-- [Method Index](/docs/reference/BASESERVICE_METHOD_INDEX.md) — Complete method listing
-- [Quick Start Guide](/docs/guides/BASESERVICE_QUICK_START.md) — New developer onboarding
-- [Service Consolidation Patterns](/docs/patterns/SERVICE_CONSOLIDATION_PATTERNS.md)
-- [Entity Type Architecture](/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md)
+- [Sub-Service Catalog](../reference/SUB_SERVICE_CATALOG.md) — Which service does what
+- [Method Index](../reference/BASESERVICE_METHOD_INDEX.md) — Complete method listing
+- [Quick Start Guide](../guides/BASESERVICE_QUICK_START.md) — New developer onboarding
+- [Service Consolidation Patterns](../patterns/SERVICE_CONSOLIDATION_PATTERNS.md)
+- [Entity Type Architecture](ENTITY_TYPE_ARCHITECTURE.md)
 - [BaseService Source](/core/services/base_service.py)
 - [Example Facade Source](/core/services/tasks_service.py)

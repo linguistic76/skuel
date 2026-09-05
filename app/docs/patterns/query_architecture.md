@@ -1,6 +1,6 @@
 ---
 title: Query Architecture
-updated: 2026-08-18
+updated: 2026-09-05
 category: patterns
 related_skills:
 - skuel-search-architecture
@@ -480,7 +480,7 @@ await lp_service.update(uid, RawChanges(updates))
 | **Non-activity update payloads** | `KuUpdatePayload`, `PsUpdatePayload`, `LpUpdatePayload`, `FinanceUpdatePayload`, `ReportUpdatePayload` (extend `BaseUpdatePayload`) |
 | **Update contracts** | `SupportsToChanges`, `SupportsToIntent`, `RawChanges` (in `core/models/update_contracts.py`) |
 
-See [Three-Tier Type System](/docs/patterns/three_tier_type_system.md#the-typed-write-boundary--update-intents--payloads-adr-066) and [ADR-066](/docs/decisions/ADR-066-typed-update-intents.md) for complete documentation.
+See [Three-Tier Type System](three_tier_type_system.md#the-typed-write-boundary--update-intents--payloads-adr-066) and [ADR-066](../decisions/ADR-066-typed-update-intents.md) for complete documentation.
 
 ## Benefits of Consolidation
 
@@ -551,7 +551,7 @@ for processor in config.post_processors:
 - **Registry config:** `/core/models/relationship_registry.py`
 - **BaseService integration:** `/core/services/base_service.py` (`_parse_context_result`)
 
-See [Service Consolidation Patterns](/docs/patterns/SERVICE_CONSOLIDATION_PATTERNS.md#4-post-query-processors) for detailed usage guide.
+See [Service Consolidation Patterns](SERVICE_CONSOLIDATION_PATTERNS.md#4-post-query-processors) for detailed usage guide.
 
 ## Intent-Based Traversal Pattern (December 2025)
 

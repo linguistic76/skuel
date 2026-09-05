@@ -432,6 +432,10 @@ MARKERS_BY_NAME = {m.name: m for m in MARKERS}
 # backticks is a quoted token, not the surrounding prose's own voice.
 INLINE_CODE_RE = re.compile(r"`[^`\n]+`")
 
+# One link grammar for every consumer. `scripts/docs_relative_links.py` rewrites exactly
+# the matches this pass checks, so the two can never disagree about what a link is.
+MARKDOWN_LINK_RE = re.compile(r"\[([^\]]*)\]\(([^)]+)\)")
+
 # Any marker's opening, used to skip the fence walk on a file carrying none.
 ANY_MARKER_RE = re.compile(r"<!--\s*(?:" + "|".join(m.name for m in MARKERS) + r")\s*-->")
 
@@ -629,9 +633,10 @@ def resolve_path(raw: str, source_file: Path) -> Path | None:
     raw = raw.removeprefix("./")
 
     if raw.startswith("/"):
-        # Absolute path relative to repo root — the ONE canonical citation
-        # style for repo files. Machine-absolute citations
-        # (`/home/<user>/skuel/app/…`) are deliberately NOT rescued via an
+        # Repo-root-absolute — the citation form for everything that is not a
+        # docs→docs link (those are written relative to the citing file; the rule
+        # and its sweep live in `scripts/docs_relative_links.py`). Machine-absolute
+        # citations (`/home/<user>/skuel/app/…`) are deliberately NOT rescued via an
         # `/app/` landmark: that would legitimize a second, non-portable link
         # style (Codex, PR #796). They resolve under ROOT and report broken
         # identically in every checkout — fix the doc, not the resolver.
@@ -694,7 +699,7 @@ def extract_markdown_links(content: str) -> list[tuple[int, str, str]]:
     """
     results = []
     for i, line in enumerate(content.splitlines(), 1):
-        for match in re.finditer(r"\[([^\]]*)\]\(([^)]+)\)", line):
+        for match in MARKDOWN_LINK_RE.finditer(line):
             text = match.group(1)
             path = match.group(2).strip()
             if _is_checkable_link_target(path):

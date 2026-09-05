@@ -1,5 +1,5 @@
 ---
-updated: 2026-08-11
+updated: 2026-09-05
 ---
 
 # Type Safety Architecture Overview
@@ -312,7 +312,7 @@ Enums don't just enforce code boundaries — they define the vocabulary that con
 
 This means the type safety system extends beyond code into content authoring. A typo in a YAML template produces a Pydantic validation error, not a silent bad value in the database.
 
-**87 enum classes** across 17 files in `core/models/enums/` define SKUEL's complete vocabulary. **See:** [Enum Architecture](/docs/architecture/ENUM_ARCHITECTURE.md) for the full catalog and the enum-YAML field mapping.
+**87 enum classes** across 17 files in `core/models/enums/` define SKUEL's complete vocabulary. **See:** [Enum Architecture](../architecture/ENUM_ARCHITECTURE.md) for the full catalog and the enum-YAML field mapping.
 
 ---
 

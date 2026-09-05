@@ -1,7 +1,7 @@
 ---
 title: Tasks Domain
 created: 2025-12-04
-updated: 2026-09-04
+updated: 2026-09-05
 status: current
 category: domains
 tags:
@@ -54,7 +54,7 @@ Tasks represent work items with dependencies, deadlines, and knowledge requireme
 | `RecurrencePattern` | `core.models.enums` | DAILY, WEEKLY, MONTHLY, etc. (10 values) | `recurrence_pattern` |
 | `EnergyLevel` | `core.models.enums` | LOW, MEDIUM, HIGH, VARIABLE | — (scheduling) |
 
-**See:** [Enum Architecture](/docs/architecture/ENUM_ARCHITECTURE.md)
+**See:** [Enum Architecture](../architecture/ENUM_ARCHITECTURE.md)
 
 ## Facade Pattern (February 2026)
 
@@ -228,7 +228,7 @@ task, context = await tasks_rel.get_entity_with_context("task.123", depth=2)
 | `search_by_parent_goal(goal_uid, user_uid)` | Tasks fulfilling a goal |
 | `get_prioritized(user_uid, limit=10)` | Smart prioritization |
 
-**Full catalog:** [Search Service Methods Reference](/docs/reference/SEARCH_SERVICE_METHODS.md)
+**Full catalog:** [Search Service Methods Reference](../reference/SEARCH_SERVICE_METHODS.md)
 
 ## Intelligence Service
 
@@ -243,7 +243,7 @@ task, context = await tasks_rel.get_entity_with_context("task.123", depth=2)
 
 **Shared knowledge intelligence** (suggestions, prerequisites, learning opportunities) provided by `ActivityKnowledgeIntelligenceService` (`core/services/knowledge/`) — serves all 6 activity domains.
 
-**See:** [Intelligence Services Index](/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md)
+**See:** [Intelligence Services Index](../intelligence/INTELLIGENCE_SERVICES_INDEX.md)
 
 ## Events/Publishing
 

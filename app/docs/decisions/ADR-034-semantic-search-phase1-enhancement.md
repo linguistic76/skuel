@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-01
+updated: 2026-09-05
 ---
 
 # ADR-034: Semantic Search Phase 1 Enhancement
@@ -280,8 +280,8 @@ learning_state_boost_not_started: float = 0.15
 - [@neo4j-cypher-patterns](../../.claude/skills/neo4j-cypher-patterns/SKILL.md) - Graph queries and semantic relationship traversal
 
 **Architecture:**
-- [SEARCH_ARCHITECTURE.md](/docs/architecture/SEARCH_ARCHITECTURE.md) - Unified search architecture
-- [GRAPH_CONTRACT.yaml](/docs/reference/GRAPH_CONTRACT.yaml) - Graph labels and edges (the
+- [SEARCH_ARCHITECTURE.md](../architecture/SEARCH_ARCHITECTURE.md) - Unified search architecture
+- [GRAPH_CONTRACT.yaml](../reference/GRAPH_CONTRACT.yaml) - Graph labels and edges (the
   generated contract; it replaced the hand-written database-architecture doc, which was
   deleted with the `:Ku` label)
 

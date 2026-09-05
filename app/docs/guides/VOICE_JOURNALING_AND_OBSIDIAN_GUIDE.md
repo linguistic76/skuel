@@ -1,6 +1,6 @@
 ---
 title: Voice Journaling and Obsidian Guide
-updated: 2026-09-04
+updated: 2026-09-05
 status: current
 category: guides
 tags: [obsidian, journaling, voice, vaultbridge, activity-domains, daily-workflow, user-guide]
@@ -407,7 +407,7 @@ connections:
 
 Each connection type carries a different weight. Habits that reinforce knowledge (you practice something every day) score highest; tasks and events that apply knowledge score slightly lower. The substance score on a knowledge item climbs as you actually live it.
 
-See the [YAML Authoring Guide](/docs/guides/YAML_AUTHORING_GUIDE.md) for a full reference of connection types, status values, and every enum-governed field.
+See the [YAML Authoring Guide](YAML_AUTHORING_GUIDE.md) for a full reference of connection types, status values, and every enum-governed field.
 
 ---
 
@@ -585,7 +585,7 @@ When you're setting a new goal for the quarter, or want to define a principle th
 
 ## Related Documentation
 
-- [YAML Authoring Guide](/docs/guides/YAML_AUTHORING_GUIDE.md) — full field reference for YAML activity files, connections system, and curriculum content
-- [Activity DSL Usage Guide](/docs/dsl/DSL_USAGE_GUIDE.md) — complete `@context()` syntax with advanced examples
-- [ADR-070 — VaultBridge Architecture](/docs/decisions/ADR-070-bidirectional-vault-bridge.md) — how the sync works under the hood
-- [Unified Ingestion Guide](/docs/patterns/UNIFIED_INGESTION_GUIDE.md) — how files are processed on the way into SKUEL
+- [YAML Authoring Guide](YAML_AUTHORING_GUIDE.md) — full field reference for YAML activity files, connections system, and curriculum content
+- [Activity DSL Usage Guide](../dsl/DSL_USAGE_GUIDE.md) — complete `@context()` syntax with advanced examples
+- [ADR-070 — VaultBridge Architecture](../decisions/ADR-070-bidirectional-vault-bridge.md) — how the sync works under the hood
+- [Unified Ingestion Guide](../patterns/UNIFIED_INGESTION_GUIDE.md) — how files are processed on the way into SKUEL

@@ -1,6 +1,6 @@
 ---
 title: Unified Ingestion Implementation Guide
-updated: 2026-09-04
+updated: 2026-09-05
 category: patterns
 related_skills: []
 related_docs:
@@ -12,7 +12,7 @@ related_docs:
 
 The "hips" of SKUEL - stability through clarity. Connects content (MD/YAML) to the knowledge graph (Neo4j).
 
-**Decision context:** See [ADR-014](/docs/decisions/ADR-014-unified-ingestion.md) for architectural decisions.
+**Decision context:** See [ADR-014](../decisions/ADR-014-unified-ingestion.md) for architectural decisions.
 
 ---
 
@@ -1405,6 +1405,6 @@ print(f"Needs ingestion: {decision.needs_ingestion} ({decision.reason})")
 
 ## See Also
 
-- **Decision context:** [ADR-014](/docs/decisions/ADR-014-unified-ingestion.md) - Architecture decisions
-- **UID format:** [ADR-013](/docs/decisions/ADR-013-ku-uid-flat-identity.md) - Why dot notation
+- **Decision context:** [ADR-014](../decisions/ADR-014-unified-ingestion.md) - Architecture decisions
+- **UID format:** [ADR-013](../decisions/ADR-013-ku-uid-flat-identity.md) - Why dot notation
 - **Domain architecture:** `/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md`

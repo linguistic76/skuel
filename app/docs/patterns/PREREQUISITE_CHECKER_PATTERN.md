@@ -1,6 +1,6 @@
 ---
 title: PrerequisiteChecker & the Learning-Requirements Lens
-updated: 2026-09-03
+updated: 2026-09-05
 category: patterns
 related_docs:
   - /docs/intelligence/GOALS_INTELLIGENCE.md
@@ -90,6 +90,6 @@ behaviour exactly, so context-free callers are unchanged.
   to ready in the planning service, so a task line would be inert. The Task field is still
   populated (for non-prefiltered consumers + `to_dict`).
 
-**See:** [GOALS_INTELLIGENCE.md](/docs/intelligence/GOALS_INTELLIGENCE.md),
-[TASKS_INTELLIGENCE.md](/docs/intelligence/TASKS_INTELLIGENCE.md),
-[CONTEXT_FIRST_RELATIONSHIP_PATTERN.md](/docs/patterns/CONTEXT_FIRST_RELATIONSHIP_PATTERN.md).
+**See:** [GOALS_INTELLIGENCE.md](../intelligence/GOALS_INTELLIGENCE.md),
+[TASKS_INTELLIGENCE.md](../intelligence/TASKS_INTELLIGENCE.md),
+[CONTEXT_FIRST_RELATIONSHIP_PATTERN.md](CONTEXT_FIRST_RELATIONSHIP_PATTERN.md).

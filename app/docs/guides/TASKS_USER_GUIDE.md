@@ -1,7 +1,7 @@
 ---
 title: Tasks User Guide
 created: 2026-06-25
-updated: 2026-08-25
+updated: 2026-09-05
 status: current
 category: guides
 tags: [tasks, user-guide, goals, subtasks, obsidian, learning-loop, applied-knowledge]
@@ -114,7 +114,7 @@ After injection, your note looks like:
 
 The `🆔` suffix is the durable join key — SKUEL uses it to match the line to the Task even after you edit the title or move the note.
 
-See [Part 2 of the Voice Journaling and Obsidian Guide](/docs/guides/VOICE_JOURNALING_AND_OBSIDIAN_GUIDE.md) for full setup instructions.
+See [Part 2 of the Voice Journaling and Obsidian Guide](VOICE_JOURNALING_AND_OBSIDIAN_GUIDE.md) for full setup instructions.
 
 ### 4. Auto-Spawned from a PathStep Engagement
 
@@ -200,7 +200,7 @@ The stats bar at the top shows your task summary: total, active, completed this 
 
 Every time you complete a task that has an `applies_knowledge` connection, SKUEL increments the substance score for that knowledge concept. Substance measures how much a concept is *lived*, not just *learned*. The task channel contributes up to 0.25 to a knowledge concept's substance score (0.05 per completion, across all tasks using that knowledge).
 
-See [Knowledge Substance Philosophy](/docs/architecture/knowledge_substance_philosophy.md) for the full scoring model.
+See [Knowledge Substance Philosophy](../architecture/knowledge_substance_philosophy.md) for the full scoring model.
 
 ---
 
@@ -277,8 +277,8 @@ The vault→SKUEL rows apply when a line is **first extracted**. Once a line car
 
 ## Related Guides
 
-- [Voice Journaling and Obsidian Guide](/docs/guides/VOICE_JOURNALING_AND_OBSIDIAN_GUIDE.md) — writing tasks in daily notes, periodic notes setup
-- [YAML Authoring Guide](/docs/guides/YAML_AUTHORING_GUIDE.md) — full YAML field reference, connections system
-- [Curriculum Developer Guide](/docs/guides/CURRICULUM_DEVELOPER_GUIDE.md) — how TaskTemplates get attached to PathSteps
-- [Knowledge Substance Philosophy](/docs/architecture/knowledge_substance_philosophy.md) — how task completions contribute to substance scores
-- [ADR-070: Bidirectional VaultBridge](/docs/decisions/ADR-070-bidirectional-vault-bridge.md) — Obsidian round-trip design decisions
+- [Voice Journaling and Obsidian Guide](VOICE_JOURNALING_AND_OBSIDIAN_GUIDE.md) — writing tasks in daily notes, periodic notes setup
+- [YAML Authoring Guide](YAML_AUTHORING_GUIDE.md) — full YAML field reference, connections system
+- [Curriculum Developer Guide](CURRICULUM_DEVELOPER_GUIDE.md) — how TaskTemplates get attached to PathSteps
+- [Knowledge Substance Philosophy](../architecture/knowledge_substance_philosophy.md) — how task completions contribute to substance scores
+- [ADR-070: Bidirectional VaultBridge](../decisions/ADR-070-bidirectional-vault-bridge.md) — Obsidian round-trip design decisions

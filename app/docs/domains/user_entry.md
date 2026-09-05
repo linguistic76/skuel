@@ -1,7 +1,7 @@
 ---
 title: UserEntry Domain
 created: 2026-09-01
-updated: 2026-09-02
+updated: 2026-09-05
 status: current
 category: domains
 tags: [user-entry, learning-loop, domain]
@@ -277,6 +277,6 @@ aliases in the relationship registry's entity-type map.
 - [ADR-069: Extract-Activities Pipeline](../decisions/ADR-069-extract-activities-pipeline-and-entry-report.md)
 - [ADR-073: Journals Zero Persistence](../decisions/ADR-073-journals-zero-persistence-vault-memory.md)
 - [ADR-086: Universal OWNS](../decisions/ADR-086-universal-owns-and-attends-attendance.md)
-- [Learning Loop](/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md)
-- [Search Architecture](/docs/architecture/SEARCH_ARCHITECTURE.md)
-- [Sharing Patterns](/docs/patterns/SHARING_PATTERNS.md)
+- [Learning Loop](../architecture/CURRICULUM_GROUPING_PATTERNS.md)
+- [Search Architecture](../architecture/SEARCH_ARCHITECTURE.md)
+- [Sharing Patterns](../patterns/SHARING_PATTERNS.md)

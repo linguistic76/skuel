@@ -1,7 +1,7 @@
 ---
 title: Goals Domain
 created: 2025-12-04
-updated: 2026-08-24
+updated: 2026-09-05
 status: current
 category: domains
 tags:
@@ -58,7 +58,7 @@ Goals represent desired outcomes that guide learning and habit formation. They p
 | `HabitEssentiality` | `core.models.enums` | ESSENTIAL, CRITICAL, SUPPORTING, OPTIONAL | — (goal-habit link weight) |
 | `Priority` | `core.models.enums` | LOW, MEDIUM, HIGH, CRITICAL | `priority` |
 
-**See:** [Enum Architecture](/docs/architecture/ENUM_ARCHITECTURE.md)
+**See:** [Enum Architecture](../architecture/ENUM_ARCHITECTURE.md)
 
 ## Facade Pattern (February 2026, mixins April 2026)
 
@@ -233,7 +233,7 @@ Goals track which habits are essential for achievement:
 | `list_milestones(goal_uid, user_uid)` | Get goal milestones |
 | `get_prioritized(user_uid, limit=10)` | Smart prioritization |
 
-**Full catalog:** [Search Service Methods Reference](/docs/reference/SEARCH_SERVICE_METHODS.md)
+**Full catalog:** [Search Service Methods Reference](../reference/SEARCH_SERVICE_METHODS.md)
 
 ## Scheduling Service (January 2026)
 
@@ -272,7 +272,7 @@ decomposed into focused mixins:
 | `_PredictiveMixin` | `_predictive_mixin.py` | `predict_goal_success`, `analyze_habit_impact`, `assess_goal_risk`, `run_scenario_analysis` + private helpers |
 | `_DualTrackMixin` | `_dual_track_mixin.py` | `assess_progress_dual_track`, `_calculate_system_progress`, `_progress_level_to_score`, `_generate_progress_gap_*` |
 
-**See:** [Intelligence Services Index](/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md), [Goals Intelligence](/docs/intelligence/GOALS_INTELLIGENCE.md)
+**See:** [Intelligence Services Index](../intelligence/INTELLIGENCE_SERVICES_INDEX.md), [Goals Intelligence](../intelligence/GOALS_INTELLIGENCE.md)
 
 ## Events/Publishing
 

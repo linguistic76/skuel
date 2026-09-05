@@ -1,5 +1,5 @@
 ---
-updated: 2026-08-08
+updated: 2026-09-05
 ---
 
 # MOC Intelligence (Emergent Identity, KU-Canonical)
@@ -32,7 +32,7 @@ KU analytics are handled by `KuIntelligenceService`. There is **no MOC service o
 
 | Concern | Where it lives (verified) |
 |---------|---------------------------|
-| MOC identity | Emergent — any `Entity` with outgoing `ORGANIZES` edges (no flag, no service). See `CLAUDE.md` and [`CURRICULUM_GROUPING_PATTERNS.md`](/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md). |
+| MOC identity | Emergent — any `Entity` with outgoing `ORGANIZES` edges (no flag, no service). See `CLAUDE.md` and [`CURRICULUM_GROUPING_PATTERNS.md`](../architecture/CURRICULUM_GROUPING_PATTERNS.md). |
 | Authoring MOC edges | Ingestion — `moc: true` frontmatter → `ORGANIZES {order}` edges (`core/services/ingestion/moc_links.py`). |
 | ORGANIZES operations (create/read/reorder) | Backend `_OrganizesMixin` (`adapters/persistence/neo4j/_organizes_mixin.py`) is **entity-generic** — its Cypher matches any `:Entity`, consistent with emergent (any-Entity) MOC identity. Surfaced via `PsOrganizationService` + the `PsService` facade; **8** have routes in `adapters/inbound/path_steps_api.py` (`organize` / `unorganize` / `reorder` / `get_organized_children` / `is_organizer` / `get_organization_view` / `find_organizers` / `list_root_organizers`), and `get_navigation` is service-only (no route). Only `organize` and `get_organization_view` validate a PathStep (`ps_core.get()`); the other six operate on **any `:Entity`**. |
 | MOC navigation surface (cross-domain context) | UserContext `active_moc_uids` / `recently_viewed_moc_uids` (consumed by Askesis, `core/services/askesis/context_retriever.py`) — **user-owned organizers only**: the query is `(user)-[:OWNS]->(moc:Entity)-[:ORGANIZES]->` (`adapters/persistence/neo4j/user_context_queries.py`), so shared KU/PathStep MOCs (the canonical curriculum case) do **not** appear here; only a user's own ORGANIZES-bearing entities do. |
@@ -67,5 +67,5 @@ The same knowledge node is reachable via both the PS (linear) and MOC (graph) pa
 ## See Also
 
 - [KU_INTELLIGENCE.md](./KU_INTELLIGENCE.md) - KU analytics (MOC uses KU intelligence)
-- [/docs/domains/moc.md](/docs/domains/moc.md) - MOC domain documentation
-- [CURRICULUM_GROUPING_PATTERNS.md](/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md) - Two paths to knowledge
+- [/docs/domains/moc.md](../domains/moc.md) - MOC domain documentation
+- [CURRICULUM_GROUPING_PATTERNS.md](../architecture/CURRICULUM_GROUPING_PATTERNS.md) - Two paths to knowledge
