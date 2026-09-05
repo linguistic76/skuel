@@ -5652,6 +5652,134 @@ class TestSKUEL026:
         assert len(linter.result.suppressions) == 1
         assert linter.result.suppressions[0].used is True
 
+    # -- hidden markers: a marker inside a string is honoured by the substring
+    #    checkers but is no comment. The audit flags one that silences a rule.
+
+    HIDDEN_MESSAGE = "inside a string/docstring"
+
+    def test_hidden_marker_inside_docstring_that_silences_a_rule_is_flagged(
+        self, tmp_path: Path
+    ) -> None:
+        """`_is_line_suppressed` is a raw substring test, so a marker inside a
+        multi-line docstring silences SKUEL031 on that physical line — with no
+        comment token for the audit to count. The reverse audit reports it as
+        SKUEL026 at that line; the silenced SKUEL031 stays silent (it really
+        was suppressed — that is the point), and nothing enters the
+        `suppressions` accounting."""
+        content = (
+            '"""Service notes.\n'
+            "\n"
+            "Run pip install x first.  # skuel-lint: disable=SKUEL031 -- stale note\n"
+            '"""\n'
+        )
+        linter = self._lint_tree(tmp_path, {"core/services/x.py": content})
+        assert [v.rule_id for v in linter.result.violations] == ["SKUEL026"]
+        flagged = linter.result.violations[0]
+        assert flagged.line_number == 3
+        assert flagged.severity == Severity.WARNING
+        assert self.HIDDEN_MESSAGE in flagged.message
+        assert "silences SKUEL031" in flagged.message
+        assert linter.result.suppressions == []
+
+    def test_same_marker_as_a_real_trailing_comment_is_counted_and_used(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """The remedy the message prescribes: after a one-line docstring the
+        same marker is a genuine comment — audited, counted, used, no
+        SKUEL026. `Suppressions: 1 active (1 used)`."""
+        content = '"""Run pip install x first."""  # skuel-lint: disable=SKUEL031 -- stale note\n'
+        linter = self._lint_tree(tmp_path, {"core/services/x.py": content})
+        assert linter.result.violations == []
+        assert len(linter.result.suppressions) == 1
+        assert linter.result.suppressions[0].used is True
+        assert linter.print_report() == 0
+        assert "1 suppressions (all used)" in capsys.readouterr().out
+
+    def test_hidden_marker_on_which_nothing_fires_is_silent(self, tmp_path: Path) -> None:
+        """The fixture shape this very file carries dozens of times. In a test
+        path SKUEL011 is dispatch-gated out, so the shadow run fires nothing,
+        the marker silences nothing, and the audit has nothing to say: no
+        SKUEL026, no suppression counted — exactly the pre-audit behaviour."""
+        fixture = "line = \"x = hasattr(o, 'v')  # skuel-lint: disable=SKUEL011\"\n"
+        linter = self._lint_tree(tmp_path, {"tests/unit/scripts/test_x.py": fixture})
+        assert linter.result.violations == []
+        assert linter.result.suppressions == []
+
+    def test_hidden_marker_silencing_a_raw_line_rule_in_production_code_is_flagged(
+        self, tmp_path: Path
+    ) -> None:
+        """The same fixture line in a non-test path. SKUEL011 is a regex over
+        raw lines, not an AST rule, so `hasattr(` inside a string literal
+        fires it — and the in-string marker silences that firing. The audit
+        judges the checker's actual behaviour, not what an AST would say:
+        the marker IS suppressing something here, so it is flagged."""
+        fixture = "line = \"x = hasattr(o, 'v')  # skuel-lint: disable=SKUEL011\"\n"
+        linter = self._lint_tree(tmp_path, {"core/services/x.py": fixture})
+        assert [v.rule_id for v in linter.result.violations] == ["SKUEL026"]
+        assert self.HIDDEN_MESSAGE in linter.result.violations[0].message
+        assert "silences SKUEL011" in linter.result.violations[0].message
+        assert linter.result.suppressions == []
+
+    def test_file_whose_only_marker_is_hidden_is_still_audited(self, tmp_path: Path) -> None:
+        """The audit loop must not skip a file for having no genuine comments:
+        a hidden-only file is shadow-linted alongside one with a real comment.
+        The real comment is counted and used; the hidden marker is flagged and
+        never counted."""
+        hidden_only = '"""Notes.\n\npoetry install  # skuel-lint: disable=SKUEL016 -- stale\n"""\n'
+        genuine = "poetry install  # skuel-lint: disable=SKUEL016 -- migration note\n"
+        linter = self._lint_tree(
+            tmp_path,
+            {"core/services/hidden.py": hidden_only, "core/services/genuine.py": genuine},
+        )
+        assert [(v.file_path, v.rule_id, v.line_number) for v in linter.result.violations] == [
+            (Path("core/services/hidden.py"), "SKUEL026", 3)
+        ]
+        assert self.HIDDEN_MESSAGE in linter.result.violations[0].message
+        assert [(s.file_path, s.used) for s in linter.result.suppressions] == [
+            (Path("core/services/genuine.py"), True)
+        ]
+
+    def test_hidden_marker_for_a_non_suppressible_rule_is_silent(self, tmp_path: Path) -> None:
+        """A rule that never reads the suppression helpers cannot be silenced
+        by any marker, hidden or not — its violation shows in both runs, so the
+        used-test fails and only the visible violation is reported."""
+        content = (
+            'msg = "if r.is_err:  # skuel-lint: disable=SKUEL003"\nif result.is_err:\n    pass\n'
+        )
+        linter = self._lint_tree(tmp_path, {"core/services/x.py": content})
+        assert sorted(v.rule_id for v in linter.result.violations) == ["SKUEL003", "SKUEL003"]
+        assert linter.result.suppressions == []
+
+    def test_hidden_marker_is_absent_from_json_suppressions(self, tmp_path: Path) -> None:
+        """`_find_suppression_markers` keeps the two populations apart: the
+        hidden marker is returned on its own side and never as a
+        `SuppressionComment`."""
+        content = (
+            '"""Notes.\n'
+            "\n"
+            "pip install x  # skuel-lint: disable=SKUEL031 -- stale\n"
+            '"""\n'
+            "value = 1  # skuel-lint: disable=SKUEL011 -- rot\n"
+        )
+        self._lint_tree(tmp_path, {"core/services/x.py": content})
+        linter = SkuelLinter(root_dir=tmp_path)
+        comments, hidden = linter._find_suppression_markers(tmp_path / "core/services/x.py")
+        assert [(c.line_number, c.rule_id, c.file_level) for c in comments] == [
+            (5, "SKUEL011", False)
+        ]
+        assert [(h.line_number, h.rule_id) for h in hidden] == [(3, "SKUEL031")]
+        assert hidden[0].file_path == Path("core/services/x.py")
+        assert hidden[0].line_content == "pip install x  # skuel-lint: disable=SKUEL031 -- stale"
+
+    def test_file_level_marker_inside_a_string_is_not_collected(self, tmp_path: Path) -> None:
+        """`_is_file_suppressed` reads only comment tokens, so a file-level
+        marker inside a string is inert by construction: nothing to audit."""
+        content = 'EXAMPLE = "# skuel-lint: disable-file=SKUEL031"\npip install x\n'
+        linter = self._lint_tree(tmp_path, {"core/services/x.py": content})
+        assert [v.rule_id for v in linter.result.violations] == ["SKUEL031"]
+        comments, hidden = linter._find_suppression_markers(tmp_path / "core/services/x.py")
+        assert (comments, hidden) == ([], [])
+
 
 # ============================================================================
 # SKUEL027 — ui/ Must Not Import adapters/
@@ -7804,3 +7932,81 @@ async def afree():
             "FunctionDef",
             "Lambda",
         ]
+
+
+# ============================================================================
+# FILE DISCOVERY — an explicit file target honours the exclusion set
+# ============================================================================
+
+
+class TestExplicitFileTargetHonoursExclusions:
+    """`--file <path>` (``SkuelLinter(target_path=...)``) is governed by the same
+    exclusion set as a sweep and ``--changed``/``--staged``. Before this, the
+    single-file branch returned the file unfiltered, so
+    ``lint_skuel.py --file scripts/lint_skuel.py`` linted the one file every
+    sweep path drops — and reported its own ``RULE_DOCS`` examples as
+    violations. How a file was named never decides whether it is linted; a
+    zero is never silent (one note on stderr, the ``--changed`` precedent)."""
+
+    BANNED = "poetry install\npip install requests\n"
+
+    @staticmethod
+    def _cases() -> list[str]:
+        # Both shapes a POSIX prefix admits: the file-prefix shape (the real
+        # `scripts/lint_skuel.py`) and the tree shape (`scripts/migrations/`).
+        return [
+            rel
+            for prefix in SkuelLinter.EXCLUDED_PATH_PREFIXES
+            for rel in (f"{prefix}.py", f"{prefix}/x.py")
+        ]
+
+    @pytest.mark.parametrize("rel", _cases())
+    def test_excluded_file_target_scans_nothing_and_says_so(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str], rel: str
+    ) -> None:
+        _write_tree(tmp_path, {rel: self.BANNED})
+        linter = SkuelLinter(root_dir=tmp_path, target_path=rel)
+        linter.lint()
+        assert linter.result.files_scanned == 0
+        assert linter.result.violations == []
+        assert linter.result.exit_code(strict=True) == 0
+        err = capsys.readouterr().err
+        assert rel in err
+        for prefix in SkuelLinter.EXCLUDED_PATH_PREFIXES:
+            assert prefix in err
+
+    def test_excluded_dir_name_governs_a_file_target_too(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """The exclusion set is prefixes PLUS the shared directory vocabulary
+        (`quality_discovery.EXCLUDED_DIR_NAMES`, segment-matched) — one
+        `_is_excluded`, so a file under an excluded directory name is dropped
+        the same way."""
+        from quality_discovery import EXCLUDED_DIR_NAMES  # type: ignore[import-not-found]
+
+        rel = f"{min(EXCLUDED_DIR_NAMES)}/x.py"
+        _write_tree(tmp_path, {rel: self.BANNED})
+        linter = SkuelLinter(root_dir=tmp_path, target_path=rel)
+        linter.lint()
+        assert linter.result.files_scanned == 0
+        assert rel in capsys.readouterr().err
+
+    def test_non_excluded_file_target_still_scans_exactly_one_file(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        _write_tree(tmp_path, {"scripts/other.py": self.BANNED})
+        linter = SkuelLinter(root_dir=tmp_path, target_path="scripts/other.py")
+        linter.lint()
+        assert linter.result.files_scanned == 1
+        assert sorted(v.rule_id for v in linter.result.violations) == ["SKUEL016", "SKUEL031"]
+        assert capsys.readouterr().err == ""
+
+    def test_non_python_file_target_scans_nothing_silently(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """Unchanged: a non-`.py` target was never lintable, so it earns no note."""
+        _write_tree(tmp_path, {"scripts/notes.txt": self.BANNED})
+        linter = SkuelLinter(root_dir=tmp_path, target_path="scripts/notes.txt")
+        linter.lint()
+        assert linter.result.files_scanned == 0
+        assert capsys.readouterr().err == ""

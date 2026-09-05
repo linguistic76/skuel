@@ -28,7 +28,7 @@ For implementation guidance, see:
 5. **Cypher Linter** (`scripts/cypher_linter.py`) - Static analysis for Neo4j queries (CYP001–CYP012), covering Cypher embedded in Python strings AND standalone `.cypher` files (indexes, migrations — semicolon-split statements, comment-masked; since PR #710)
 
 **Unit Tests:** Both custom linters have comprehensive unit test coverage:
-- `tests/unit/scripts/test_lint_skuel.py` — covers all active SKUEL rules (SKUEL001–033; SKUEL004 deleted, IDs not renumbered), LintResult, suppression + the SKUEL026 audit
+- `tests/unit/scripts/test_lint_skuel.py` — covers all active SKUEL rules (SKUEL001–034; SKUEL004 deleted, IDs not renumbered), LintResult, suppression + the SKUEL026 audit
 - `tests/unit/scripts/test_cypher_linter.py` — covers CYP001–CYP006, CYP009, CYP011, CYP012, Python query extraction (admission, docstring exemption, Python + Cypher comment masking), `.cypher` statement extraction, file discovery, helpers
 
 ## SKUEL-Specific Rules
@@ -118,7 +118,12 @@ so it fails the `--strict` gates). The summary reports active/used counts per ru
 `--json` includes a full `suppressions` block.
 
 Discovery is tokenize-based: only genuine `#` comments count, so suppression examples
-inside string literals and docstrings (rule docs, linter tests) are never audited.
+inside string literals and docstrings (rule docs, linter tests) are never *counted* as
+suppressions. A line-level marker inside a string or docstring still silences a
+substring-matching rule on that physical line, though — the checkers read the raw line —
+so one that actually silences a rule is flagged as SKUEL026 as well: move it to a real
+`#` comment (or a file-level comment for a multi-line docstring). One that silences
+nothing stays silent.
 
 **Suppression placement (span-aware since 2026-07):** every checker reads the
 `# skuel-lint: disable=` comment off the exact line it reports — except the two

@@ -821,8 +821,11 @@ Suppressions are exemptions from enforced rules; an inert one silently widens wh
 readers believe is exempted. Delete it (git history keeps the reason).
 
 Detection is structural: real ``#`` comments are discovered via tokenize, so
-suppression examples inside string literals / docstrings are never audited.
-This rule is itself not suppressible.""",
+suppression examples inside string literals / docstrings are never *counted* as
+suppressions. A line-level marker inside a string still silences a substring-matching
+rule on its physical line, though, so one that actually silences a rule is flagged
+too — move it to a real ``#`` comment (or a file-level comment for a multi-line
+docstring). This rule is itself not suppressible.""",
         "good": """route_count = len(app.routes) if hasattr(app, "routes") else 0  # skuel-lint: disable=SKUEL011 -- FastHTML app attribute check
 # (SKUEL011 fires on this line without the comment -> the suppression is USED)""",
         "bad": """value = compute()  # skuel-lint: disable=SKUEL011 -- no hasattr here anymore
@@ -1355,6 +1358,27 @@ class SuppressionComment:
 
 
 @dataclass
+class HiddenSuppressionMarker:
+    """A line-level `# skuel-lint: disable=SKUELXXX` marker that is NOT a comment —
+    it sits inside a string literal or docstring on that physical line.
+
+    `_is_line_suppressed` is a raw substring test, so such a marker still silences
+    a line-based rule that fires on its line, yet it is no `SuppressionComment`:
+    it never enters `LintResult.suppressions` (the `N active (N used)` count keeps
+    its meaning) and earns no `used` credit. The SKUEL026 audit collects these so
+    it can flag the ones that actually silence something — an exemption nobody
+    can log or audit is the hole, not the marker text. File-level markers inside
+    strings are inert by construction (`_is_file_suppressed` reads only real
+    comment tokens) and are not collected.
+    """
+
+    file_path: Path  # relative to project root, like Violation.file_path
+    line_number: int
+    rule_id: str
+    line_content: str = ""
+
+
+@dataclass
 class LintResult:
     """Results from linting."""
 
@@ -1784,21 +1808,29 @@ class SkuelLinter:
             return False
         return any(marker in comment for comment in self._comment_lines(content).values())
 
-    def _find_suppression_comments(self, file_path: Path) -> list[SuppressionComment]:
+    def _find_suppression_markers(
+        self, file_path: Path
+    ) -> tuple[list[SuppressionComment], list[HiddenSuppressionMarker]]:
         """
-        Find genuine `# skuel-lint: disable[-file]=SKUELXXX` comments in a file.
+        Find every `# skuel-lint: disable[-file]=SKUELXXX` marker in a file, split
+        into genuine comments and hidden (in-string) line-level markers.
 
-        Uses tokenize so only real COMMENT tokens count — suppression examples
-        inside string literals / docstrings (linter tests, rule docs) are never
-        audited. Returns [] on unreadable or syntactically untokenizable files.
+        Uses tokenize so only real COMMENT tokens become `SuppressionComment`s —
+        suppression examples inside string literals / docstrings (linter tests,
+        rule docs) are never counted as suppressions. A line-level marker on a
+        line that no COMMENT token carries is returned separately as a
+        `HiddenSuppressionMarker`, because `_is_line_suppressed` honours it all
+        the same and the audit must be able to tell whether it silenced anything.
+        File-level markers inside strings are inert and are not returned.
+        Returns ([], []) on unreadable or syntactically untokenizable files.
         """
         try:
             content = file_path.read_text(encoding="utf-8")
         except OSError, UnicodeDecodeError:
-            return []
+            return [], []
         # Cheap pre-filter: tokenizing every file would dominate the audit cost.
         if "skuel-lint:" not in content:
-            return []
+            return [], []
 
         rel_path = file_path.relative_to(self.root_dir)
         comments: list[SuppressionComment] = []
@@ -1818,8 +1850,32 @@ class SkuelLinter:
                     for match in self._SUPPRESSION_COMMENT_RE.finditer(tok.string)
                 )
         except tokenize.TokenError, IndentationError, SyntaxError:
-            return []
-        return comments
+            return [], []
+
+        # Hidden markers: the same regex over the raw lines, minus every
+        # (line, rule) a genuine comment already accounts for. Same `split("\n")`
+        # numbering the checkers read `lines[lineno - 1]` by.
+        seen = {(c.line_number, c.rule_id) for c in comments if not c.file_level}
+        hidden: list[HiddenSuppressionMarker] = []
+        for line_number, line in enumerate(content.split("\n"), start=1):
+            if "skuel-lint:" not in line:
+                continue
+            for match in self._SUPPRESSION_COMMENT_RE.finditer(line):
+                if match.group("filelevel"):
+                    continue
+                key = (line_number, match.group("rule"))
+                if key in seen:
+                    continue
+                seen.add(key)
+                hidden.append(
+                    HiddenSuppressionMarker(
+                        file_path=rel_path,
+                        line_number=line_number,
+                        rule_id=match.group("rule"),
+                        line_content=line.strip(),
+                    )
+                )
+        return comments, hidden
 
     def _audit_suppressions(self, python_files: list[Path]) -> None:
         """
@@ -1838,6 +1894,13 @@ class SkuelLinter:
         constructs, off any line in the violation's ``suppression_span``
         (SKUEL005 def signatures, SKUEL017 except clauses). The Violation
         carries that span, so checker and audit honor the SAME set of lines.
+
+        The reverse audit rides the same shadow run: a HIDDEN marker (in a string
+        or docstring, so no comment token — see `HiddenSuppressionMarker`) gets
+        the identical used-test, and one that IS silencing a rule is reported as
+        SKUEL026 at its line, because an exemption the audit cannot see is the
+        one kind it exists to remove. One that silences nothing stays silent —
+        it is a fixture or a doc example, not a suppression.
         """
 
         # Snapshot BEFORE any SKUEL026 findings are appended below.
@@ -1845,13 +1908,14 @@ class SkuelLinter:
         main_file_hits = {(str(v.file_path), v.rule_id) for v in main_violations}
 
         for file_path in python_files:
-            comments = self._find_suppression_comments(file_path)
-            if not comments:
+            comments, hidden = self._find_suppression_markers(file_path)
+            if not comments and not hidden:
                 continue
+            named_rules = {c.rule_id for c in comments} | {h.rule_id for h in hidden}
 
             shadow = SkuelLinter(
                 self.root_dir,
-                rules_filter=sorted({c.rule_id for c in comments}),
+                rules_filter=sorted(named_rules),
                 ignore_suppressions=True,
             )
             shadow._lint_file(file_path)
@@ -1869,9 +1933,7 @@ class SkuelLinter:
             # comment that does not actually suppress is still flagged (Codex P2
             # on #679; the `suppressible`-only guard sufficed only while SKUEL029
             # was non-suppressible — #678).
-            opt_in_rules = sorted(
-                {c.rule_id for c in comments if not self._should_run_rule(c.rule_id)}
-            )
+            opt_in_rules = sorted(r for r in named_rules if not self._should_run_rule(r))
             honored_violations: list[Violation] = []
             if opt_in_rules:
                 honored = SkuelLinter(
@@ -1882,14 +1944,17 @@ class SkuelLinter:
                 honored._lint_file(file_path)
                 honored_violations = honored.result.violations
             # `main_violations` is the global snapshot; `honored_violations` is
-            # this file only. Both are filtered per-comment by `rel_str` below.
-            baseline_violations = main_violations + honored_violations
+            # this file only. Narrowed once to this file for every line-level
+            # used-test below (genuine comments and hidden markers alike).
+            rel_str = str(file_path.relative_to(self.root_dir))
+            baseline_violations = [
+                v for v in main_violations + honored_violations if str(v.file_path) == rel_str
+            ]
             baseline_file_hits = main_file_hits | {
                 (str(v.file_path), v.rule_id) for v in honored_violations
             }
 
             for comment in comments:
-                rel_str = str(comment.file_path)
                 fired = (
                     comment.rule_id in fired_rules
                     if comment.file_level
@@ -1910,9 +1975,7 @@ class SkuelLinter:
                     )
                 else:
                     hit_in_baseline = self._fires_at_line(
-                        [v for v in baseline_violations if str(v.file_path) == rel_str],
-                        comment.rule_id,
-                        comment.line_number,
+                        baseline_violations, comment.rule_id, comment.line_number
                     )
                     comment.used = suppressible and fired and not hit_in_baseline
                 self.result.suppressions.append(comment)
@@ -1949,8 +2012,49 @@ class SkuelLinter:
                     )
                 )
 
+            # Reverse audit: a hidden marker is "used" under exactly the test a
+            # genuine line-level comment gets. Used means it silenced a rule that
+            # would otherwise have fired here, invisibly — report it. Not used
+            # means it is text (a fixture, a doc example) — nothing to say.
+            for marker in hidden:
+                if marker.rule_id not in self.SUPPRESSIBLE_RULES:
+                    continue
+                if not self._fires_at_line(shadow_violations, marker.rule_id, marker.line_number):
+                    continue
+                if self._fires_at_line(baseline_violations, marker.rule_id, marker.line_number):
+                    continue
+                self.result.violations.append(
+                    Violation(
+                        file_path=marker.file_path,
+                        line_number=marker.line_number,
+                        column=0,
+                        severity=Severity.WARNING,
+                        rule_id="SKUEL026",
+                        message=(
+                            f"Suppression marker inside a string/docstring silences "
+                            f"{marker.rule_id} here but is invisible to the audit — move it "
+                            f"to a real `#` comment (or a file-level comment for a "
+                            f"multi-line docstring)."
+                        ),
+                        suggestion=(
+                            "A marker inside string content is honoured by the checker's "
+                            "substring test but is not a comment: it is never counted, "
+                            "never credited as used, and cannot be found by the audit "
+                            "once the violation it hides goes away. Put it in a real "
+                            "comment so SKUEL026 can see it."
+                        ),
+                        line_content=marker.line_content,
+                    )
+                )
+
     def _find_python_files(self) -> list[Path]:
-        """Find all Python files to lint."""
+        """Find all Python files to lint.
+
+        The exclusion set (`EXCLUDED_PATH_PREFIXES` + the shared
+        `quality_discovery.EXCLUDED_DIR_NAMES`) governs every selection path —
+        the sweep, `--changed`/`--staged`, and an explicit file target — so how a
+        file was named never decides whether it is linted.
+        """
         # Git-aware mode: use pre-resolved changed files
         if self.changed_files is not None:
             return [f for f in self.changed_files if not self._is_excluded(f)]
@@ -1964,7 +2068,21 @@ class SkuelLinter:
                 print(f"Error: Path not found: {search_root}", file=sys.stderr)
                 return []
             if search_root.is_file():
-                return [search_root] if search_root.suffix == ".py" else []
+                if search_root.suffix != ".py":
+                    return []
+                if self._is_excluded(search_root):
+                    # A zero must never be silent (the --changed "No changed
+                    # Python files" precedent). stderr keeps --json parseable.
+                    print(
+                        f"Skipped {search_root.relative_to(self.root_dir).as_posix()}: "
+                        f"it lies in the linter's excluded scope, which governs an "
+                        f"explicit file target exactly as it governs a sweep — "
+                        f"EXCLUDED_PATH_PREFIXES={self.EXCLUDED_PATH_PREFIXES!r} "
+                        f"plus the shared quality_discovery.EXCLUDED_DIR_NAMES.",
+                        file=sys.stderr,
+                    )
+                    return []
+                return [search_root]
         else:
             search_root = self.root_dir
 
@@ -2505,11 +2623,12 @@ class SkuelLinter:
         Needed wherever a suppression is honoured over a multi-line span. A raw
         line scan cannot tell a comment from string content, so a docstring whose
         own text contains `# skuel-lint: disable=SKUEL033` would suppress the very
-        rule reading it — and SKUEL026 would not report the bypass either, since
-        it correctly audits only real comment tokens (Codex P2, #868). tokenize is
-        the same mechanism `_find_suppression_comments` already trusts for that
-        reason; this variant takes content in hand rather than a path, so
-        synthetic test input goes down the identical route as a real file.
+        rule reading it, and SKUEL026 counts only real comment tokens as
+        suppressions (Codex P2, #868) — the single-line rules that do read raw
+        lines lean on the audit's hidden-marker pass instead. tokenize is the same
+        mechanism `_find_suppression_markers` already trusts for that reason;
+        this variant takes content in hand rather than a path, so synthetic test
+        input goes down the identical route as a real file.
 
         Empty on untokenizable input: ruff reports the syntax error, and failing
         open here would resurrect the bypass this exists to close.
