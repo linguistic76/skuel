@@ -83,7 +83,7 @@ import subprocess
 import sys
 import time
 import tokenize
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -1347,6 +1347,11 @@ class LintResult:
 
     violations: list[Violation] = field(default_factory=list)
     suppressions: list[SuppressionComment] = field(default_factory=list)
+    # (file, rule id, "ExcType: message") for every checker that RAISED — the
+    # file went unchecked by that rule, so the run fails (exit 2) regardless of
+    # --strict. Rule id is SkuelLinter.READ_FAILURE_ID when the file itself
+    # could not be read.
+    internal_errors: list[tuple[Path, str, str]] = field(default_factory=list)
     files_scanned: int = 0
     scan_time_ms: float = 0.0
 
@@ -1361,6 +1366,20 @@ class LintResult:
     @property
     def has_warning(self) -> bool:
         return any(v.severity == Severity.WARNING for v in self.violations)
+
+    def exit_code(self, strict: bool) -> int:
+        """Process exit code for this result — THE one severity ladder.
+
+        2 — an internal error (a rule crashed, so a file went unchecked) or any
+        CRITICAL/ERROR violation; 1 — WARNING violations under --strict;
+        0 — otherwise. INFO never fails a run. Both output paths (``print_report``
+        and ``--json``) read this, so they cannot disagree.
+        """
+        if self.internal_errors or self.has_critical or self.has_error:
+            return 2
+        if strict and self.has_warning:
+            return 1
+        return 0
 
     def by_severity(self, severity: Severity) -> list[Violation]:
         return [v for v in self.violations if v.severity == severity]
@@ -1932,181 +1951,170 @@ class SkuelLinter:
 
         return python_files
 
+    # Stands in for a rule id in ``LintResult.internal_errors`` when the file
+    # itself could not be read — no checker ran, so no rule can be named.
+    READ_FAILURE_ID: ClassVar[str] = "<read>"
+
     def _lint_file(self, file_path: Path) -> None:
-        """Lint a single file."""
+        """Lint a single file, isolating each rule's failure to that rule.
+
+        Every checker runs in its own ``try``. A rule that raises is recorded in
+        ``result.internal_errors`` as (file, rule id, exception) and the remaining
+        rules still run on the file; the run then exits 2 (``LintResult.exit_code``),
+        so a crashed rule can never read as a clean file. An unreadable file is
+        recorded the same way under ``READ_FAILURE_ID``.
+        """
+        rel_path = file_path.relative_to(self.root_dir)
         try:
             content = file_path.read_text(encoding="utf-8")
-            lines = content.split("\n")
-            rel_path = file_path.relative_to(self.root_dir)
-            is_test = "test_" in file_path.name or "/tests/" in str(file_path)
-            is_service = "/services/" in str(file_path) and file_path.suffix == ".py"
-            # SKUEL001 (APOC), SKUEL021 (raw Cypher), and SKUEL022 (import direction)
-            # all enforce the ADR-044 hexagonal boundary. Cypher of any kind is authored
-            # only BELOW the boundary (adapters/persistence/neo4j/); everything above it
-            # orchestrates and calls backend methods. For SKUEL001/021 "above" is now the
-            # whole above-boundary surface: core/ (grew here once the last leaks in
-            # core/utils — connection_fetcher, PR #75 — and core/models — search_request,
-            # PR #78 — were relocated) PLUS the inbound/presentation layers, which are
-            # above the boundary for the same reason core/ is: routes orchestrate and UI
-            # renders; neither authors queries. Extending them there mirrors SKUEL027,
-            # the ui/ sibling SKUEL022 grew for the import-direction rule.
-            # Both checkers are AST-based and skip docstring / bare-string example
-            # blocks, so the legitimate Cypher examples in core/utils docstrings
-            # (processor_functions, neo4j_mapper, ...) do not trip them.
-            # SKUEL022 stays core/-only — ui/ has its own sibling rule (SKUEL027), and
-            # adapters/inbound/ importing adapters/ is the composition it exists to do.
-            # Other service-only rules (SKUEL002/004/005) stay on is_service;
-            # SKUEL007/013/014 share the inbound/presentation scope (see below).
-            path_str = str(file_path)
-            is_core = "/core/" in path_str and file_path.suffix == ".py"
-            is_ui = "/ui/" in path_str and file_path.suffix == ".py"
-            # Routes (adapters/inbound/) + renderers (ui/). Single-sourced as a class
-            # constant so the test harness's scope mirror cannot drift from this gate.
-            is_inbound_layer = rel_path.as_posix().startswith(self.INBOUND_LAYER_PREFIXES)
-            # is_service is a strict subset of is_core today (no /services/ tree lives
-            # outside core/), but keep it in the OR so a future non-core service dir
-            # still gets the boundary rules.
-            is_above_boundary = is_core or is_service or is_inbound_layer
+        except (OSError, UnicodeDecodeError) as e:
+            self._record_internal_error(rel_path, self.READ_FAILURE_ID, e)
+            return
+        lines = content.split("\n")
+        is_test = "test_" in file_path.name or "/tests/" in str(file_path)
+        is_service = "/services/" in str(file_path) and file_path.suffix == ".py"
+        # SKUEL001 (APOC), SKUEL021 (raw Cypher), and SKUEL022 (import direction)
+        # all enforce the ADR-044 hexagonal boundary. Cypher of any kind is authored
+        # only BELOW the boundary (adapters/persistence/neo4j/); everything above it
+        # orchestrates and calls backend methods. For SKUEL001/021 "above" is now the
+        # whole above-boundary surface: core/ (grew here once the last leaks in
+        # core/utils — connection_fetcher, PR #75 — and core/models — search_request,
+        # PR #78 — were relocated) PLUS the inbound/presentation layers, which are
+        # above the boundary for the same reason core/ is: routes orchestrate and UI
+        # renders; neither authors queries. Extending them there mirrors SKUEL027,
+        # the ui/ sibling SKUEL022 grew for the import-direction rule.
+        # Both checkers are AST-based and skip docstring / bare-string example
+        # blocks, so the legitimate Cypher examples in core/utils docstrings
+        # (processor_functions, neo4j_mapper, ...) do not trip them.
+        # SKUEL022 stays core/-only — ui/ has its own sibling rule (SKUEL027), and
+        # adapters/inbound/ importing adapters/ is the composition it exists to do.
+        # Other service-only rules (SKUEL002/004/005) stay on is_service;
+        # SKUEL007/013/014 share the inbound/presentation scope (see below).
+        path_str = str(file_path)
+        is_core = "/core/" in path_str and file_path.suffix == ".py"
+        is_ui = "/ui/" in path_str and file_path.suffix == ".py"
+        is_persistence = "/adapters/persistence/" in path_str
+        # Routes (adapters/inbound/) + renderers (ui/). Single-sourced as a class
+        # constant so the test harness's scope mirror cannot drift from this gate.
+        is_inbound_layer = rel_path.as_posix().startswith(self.INBOUND_LAYER_PREFIXES)
+        # is_service is a strict subset of is_core today (no /services/ tree lives
+        # outside core/), but keep it in the OR so a future non-core service dir
+        # still gets the boundary rules.
+        is_above_boundary = is_core or is_service or is_inbound_layer
 
-            # Shared parse: every AST rule reads the SAME tree, parsed once per
-            # file (previously each rule re-parsed independently — ~7 parses/file
-            # dominated full-scan time). None = syntax error → AST rules skip.
-            tree: ast.Module | None = None
-            if not is_test and any(self._should_run_rule(r) for r in self.AST_RULE_IDS):
-                try:
-                    tree = ast.parse(content)
-                except SyntaxError:
-                    tree = None
+        # Shared parse: every AST rule reads the SAME tree, parsed once per
+        # file (previously each rule re-parsed independently — ~7 parses/file
+        # dominated full-scan time). None = syntax error → AST rules skip.
+        tree: ast.Module | None = None
+        if not is_test and any(self._should_run_rule(r) for r in self.AST_RULE_IDS):
+            try:
+                tree = ast.parse(content)
+            except SyntaxError:
+                tree = None
 
-            # Run applicable rules
-            if self._should_run_rule("SKUEL003"):
-                self._check_is_err_usage(file_path, rel_path, content, lines)
-            if self._should_run_rule("SKUEL009") and not is_test:
-                self._check_tuple_defaults(file_path, rel_path, content, lines)
-            if self._should_run_rule("SKUEL010") and not is_test:
-                self._check_nested_tuple_defaults(file_path, rel_path, content, lines)
-            if self._should_run_rule("SKUEL011") and not is_test:
-                self._check_hasattr_usage(file_path, rel_path, content, lines)
-            if self._should_run_rule("SKUEL012") and not is_test:
-                self._check_lambda_usage(file_path, rel_path, content, lines)
-            if self._should_run_rule("SKUEL015") and not is_test:
-                self._check_print_statements(file_path, rel_path, content, lines)
-            if self._should_run_rule("SKUEL016"):
-                self._check_poetry_references(file_path, rel_path, content, lines)
-            if self._should_run_rule("SKUEL031"):
-                self._check_pip_references(file_path, rel_path, content, lines)
-            if self._should_run_rule("SKUEL017") and not is_test:
-                self._check_broad_exception_catches(file_path, rel_path, content, lines, tree)
-            if self._should_run_rule("SKUEL018") and not is_test:
-                self._check_rich_only_field_access(file_path, rel_path, content, lines)
-            if self._should_run_rule("SKUEL019") and not is_test:
-                self._check_credential_env_reads(file_path, rel_path, content, lines)
-            if self._should_run_rule("SKUEL020") and not is_test:
-                self._check_request_annotation(file_path, rel_path, content, lines, tree)
-            if self._should_run_rule("SKUEL024") and not is_test:
-                self._check_cls_kwargs_collision(file_path, rel_path, content, lines, tree)
-            if self._should_run_rule("SKUEL025") and not is_test:
-                self._check_deleted_activity_update_payloads(
-                    file_path, rel_path, content, lines, tree
-                )
-            if self._should_run_rule("SKUEL028") and not is_test:
-                self._check_result_fail_expect_error(file_path, rel_path, content, lines, tree)
+        text_args = (file_path, rel_path, content, lines)
+        ast_args = (file_path, rel_path, content, lines, tree)
+
+        # Graph-vocabulary rule: persistence Cypher may only name labels and
+        # relationship types the enum registry knows (migrations excepted —
+        # renaming away from a retired name requires naming it).
+        runs_skuel030 = (
+            is_persistence
+            and not is_test
+            and not rel_path.as_posix().startswith(self.SKUEL030_EXCLUDED_PREFIXES)
+        )
+        # Boundary rules (ADR-044): no APOC, no raw Cypher anywhere above the
+        # boundary — core/, any /services/ path, and the inbound/presentation layers.
+        runs_boundary = is_above_boundary and not is_test
+        # Docstring-discipline rule: above the boundary a docstring states
+        # intent. Scope is SERVICE_DOCSTRING_STYLE.md's own table, so this is
+        # NOT `is_above_boundary` — core/utils/ sits above the boundary and is
+        # explicitly allowed Cypher in docstrings by that same table.
+        runs_skuel033 = not is_test and rel_path.as_posix().startswith(
+            self.DOCSTRING_INTENT_ONLY_TREES
+        )
+        # Import-direction (ADR-044) and type-direction rules: all of core/, not
+        # just services.
+        runs_core = is_core and not is_test
+        runs_service = is_service and not is_test
+        # Inbound/presentation layers (routes, UI renderers) — raw
+        # relationship-type / entity-type / error strings creep in here too, so
+        # SKUEL007, SKUEL013, and SKUEL014 run on these layers in addition to
+        # services.
+        runs_service_or_inbound = (is_service or is_inbound_layer) and not is_test
+
+        # The dispatch table — (rule id, gate, checker, args) in run order. Each
+        # row runs in its own ``try`` below, so one crashing rule costs exactly
+        # one rule on this file, never the file.
+        dispatch: list[tuple[str, bool, Callable[..., None], tuple[object, ...]]] = [
+            ("SKUEL003", True, self._check_is_err_usage, text_args),
+            ("SKUEL009", not is_test, self._check_tuple_defaults, text_args),
+            ("SKUEL010", not is_test, self._check_nested_tuple_defaults, text_args),
+            ("SKUEL011", not is_test, self._check_hasattr_usage, text_args),
+            ("SKUEL012", not is_test, self._check_lambda_usage, text_args),
+            ("SKUEL015", not is_test, self._check_print_statements, text_args),
+            ("SKUEL016", True, self._check_poetry_references, text_args),
+            ("SKUEL031", True, self._check_pip_references, text_args),
+            ("SKUEL017", not is_test, self._check_broad_exception_catches, ast_args),
+            ("SKUEL018", not is_test, self._check_rich_only_field_access, text_args),
+            ("SKUEL019", not is_test, self._check_credential_env_reads, text_args),
+            ("SKUEL020", not is_test, self._check_request_annotation, ast_args),
+            ("SKUEL024", not is_test, self._check_cls_kwargs_collision, ast_args),
+            ("SKUEL025", not is_test, self._check_deleted_activity_update_payloads, ast_args),
+            ("SKUEL028", not is_test, self._check_result_fail_expect_error, ast_args),
             # Never-sniff (ADR-013): tests are out of scope because asserting on
             # uid content is how a UID GENERATOR is tested — see the rule doc.
-            if self._should_run_rule("SKUEL034") and not is_test:
-                self._check_uid_substring_sniff(file_path, rel_path, content, lines, tree)
+            ("SKUEL034", not is_test, self._check_uid_substring_sniff, ast_args),
+            ("SKUEL030", runs_skuel030, self._check_cypher_vocabulary, ast_args),
+            # INFO rule — always runs, for visibility.
+            ("SKUEL006", True, self._check_todo_comments, text_args),
+            # Opt-in audit rules (OPT_IN_RULES — skipped by default sweeps).
+            ("SKUEL029", not is_test, self._check_async_without_await, ast_args),
+            ("SKUEL001", runs_boundary, self._check_apoc_in_services, ast_args),
+            ("SKUEL021", runs_boundary, self._check_raw_cypher_in_services, ast_args),
+            ("SKUEL033", runs_skuel033, self._check_docstring_cypher, ast_args),
+            ("SKUEL022", runs_core, self._check_core_imports_adapter, ast_args),
+            # SKUEL022's sibling for the ui/ layer: ui/ renders what routes hand
+            # it — no runtime adapters imports.
+            ("SKUEL027", is_ui and not is_test, self._check_ui_imports_adapter, ast_args),
+            # The other end of the same seam (ADR-058): core/ must not reach
+            # outward into ui/ either. adapters/inbound/ is deliberately out of
+            # scope: composing UI is what a route is for.
+            ("SKUEL032", runs_core, self._check_core_imports_ui, ast_args),
+            # Static type-direction rule (ADR-044) — closes the TYPE_CHECKING
+            # exemption gap left open by SKUEL022. Three sub-checks, three rows:
+            # the STRENGTH check sits deliberately outside the adapter check's
+            # `"adapters" not in content` pre-filter (a class typing self.backend
+            # as Any usually never mentions adapters at all); the INHERITED check
+            # catches the backend nobody wrote down — a `Base*[Any, ...]` (or bare
+            # `Base*`) parameterisation, invisible to both other checks because
+            # the class neither assigns nor declares it.
+            ("SKUEL023", runs_core, self._check_adapter_type_annotations, ast_args),
+            ("SKUEL023", runs_core, self._check_backend_annotation_strength, ast_args),
+            ("SKUEL023", runs_core, self._check_inherited_backend_generic, ast_args),
+            ("SKUEL002", runs_service, self._check_semantic_type_strings, ast_args),
+            ("SKUEL005", runs_service, self._check_result_return_types, ast_args),
+            ("SKUEL007", runs_service_or_inbound, self._check_string_result_fail, text_args),
+            ("SKUEL013", runs_service_or_inbound, self._check_relationship_name_strings, ast_args),
+            ("SKUEL014", runs_service_or_inbound, self._check_entity_type_strings, ast_args),
+            (
+                "SKUEL008",
+                is_persistence,
+                self._check_backend_wrappers,
+                (file_path, rel_path, content),
+            ),
+        ]
+        for rule_id, gate, checker, args in dispatch:
+            if not gate or not self._should_run_rule(rule_id):
+                continue
+            try:
+                checker(*args)
+            except Exception as e:  # safety-net: a rule bug is recorded and fails the run
+                self._record_internal_error(rel_path, rule_id, e)
 
-            # Graph-vocabulary rule: persistence Cypher may only name labels and
-            # relationship types the enum registry knows (migrations excepted —
-            # renaming away from a retired name requires naming it).
-            is_persistence = "/adapters/persistence/" in path_str
-            if (
-                is_persistence
-                and not is_test
-                and not rel_path.as_posix().startswith(self.SKUEL030_EXCLUDED_PREFIXES)
-                and self._should_run_rule("SKUEL030")
-            ):
-                self._check_cypher_vocabulary(file_path, rel_path, content, lines, tree)
-
-            # INFO rules (always run for visibility)
-            if self._should_run_rule("SKUEL006"):
-                self._check_todo_comments(file_path, rel_path, content, lines)
-
-            # Opt-in audit rules (OPT_IN_RULES — skipped by default sweeps)
-            if self._should_run_rule("SKUEL029") and not is_test:
-                self._check_async_without_await(file_path, rel_path, content, lines, tree)
-
-            # Boundary rules (ADR-044): no APOC, no raw Cypher anywhere above the
-            # boundary — core/, any /services/ path, and the inbound/presentation layers.
-            if is_above_boundary and not is_test:
-                if self._should_run_rule("SKUEL001"):
-                    self._check_apoc_in_services(file_path, rel_path, content, lines, tree)
-                if self._should_run_rule("SKUEL021"):
-                    self._check_raw_cypher_in_services(file_path, rel_path, content, lines, tree)
-
-            # Docstring-discipline rule: above the boundary a docstring states
-            # intent. Scope is SERVICE_DOCSTRING_STYLE.md's own table, so this is
-            # NOT `is_above_boundary` — core/utils/ sits above the boundary and is
-            # explicitly allowed Cypher in docstrings by that same table.
-            if (
-                not is_test
-                and rel_path.as_posix().startswith(self.DOCSTRING_INTENT_ONLY_TREES)
-                and self._should_run_rule("SKUEL033")
-            ):
-                self._check_docstring_cypher(file_path, rel_path, content, lines, tree)
-
-            # Import-direction rule (ADR-044): all of core/, not just services.
-            if is_core and not is_test and self._should_run_rule("SKUEL022"):
-                self._check_core_imports_adapter(file_path, rel_path, content, lines, tree)
-
-            # Import-direction rule (SoC): ui/ renders what routes hand it — no
-            # runtime adapters imports (SKUEL022's sibling for the ui/ layer).
-            if is_ui and not is_test and self._should_run_rule("SKUEL027"):
-                self._check_ui_imports_adapter(file_path, rel_path, content, lines, tree)
-
-            # Import-direction rule (ADR-058): the other end of the same seam — core/
-            # must not reach outward into ui/ either. adapters/inbound/ is deliberately
-            # out of scope: composing UI is what a route is for.
-            if is_core and not is_test and self._should_run_rule("SKUEL032"):
-                self._check_core_imports_ui(file_path, rel_path, content, lines, tree)
-
-            # Static type-direction rule (ADR-044): all of core/, not just services.
-            # Closes the TYPE_CHECKING exemption gap left open by SKUEL022.
-            if is_core and not is_test and self._should_run_rule("SKUEL023"):
-                self._check_adapter_type_annotations(file_path, rel_path, content, lines, tree)
-                # Second sub-check: annotation STRENGTH. Deliberately outside the
-                # adapter check's `"adapters" not in content` pre-filter — a class
-                # typing self.backend as Any usually never mentions adapters at all.
-                self._check_backend_annotation_strength(file_path, rel_path, content, lines, tree)
-                # Third sub-check: the backend nobody wrote down — inherited from a
-                # `Base*[Any, ...]` (or bare `Base*`) parameterisation, invisible to
-                # both checks above because the class neither assigns nor declares it.
-                self._check_inherited_backend_generic(file_path, rel_path, content, lines, tree)
-
-            if is_service and not is_test:
-                if self._should_run_rule("SKUEL002"):
-                    self._check_semantic_type_strings(file_path, rel_path, content, lines, tree)
-                if self._should_run_rule("SKUEL005"):
-                    self._check_result_return_types(file_path, rel_path, content, lines, tree)
-
-            # Inbound/presentation layers (routes, UI renderers) — raw
-            # relationship-type / entity-type / error strings creep in here
-            # too, so SKUEL007, SKUEL013, and SKUEL014 run on these layers in
-            # addition to services. (is_inbound_layer is computed above, where the
-            # boundary rules now share it.)
-            if (is_service or is_inbound_layer) and not is_test:
-                if self._should_run_rule("SKUEL007"):
-                    self._check_string_result_fail(file_path, rel_path, content, lines)
-                if self._should_run_rule("SKUEL013"):
-                    self._check_relationship_name_strings(file_path, rel_path, content, lines, tree)
-                if self._should_run_rule("SKUEL014"):
-                    self._check_entity_type_strings(file_path, rel_path, content, lines, tree)
-
-            if "/adapters/persistence/" in str(file_path) and self._should_run_rule("SKUEL008"):
-                self._check_backend_wrappers(file_path, rel_path, content)
-
-        except Exception as e:
-            print(f"Error linting {file_path}: {e}", file=sys.stderr)
+    def _record_internal_error(self, rel_path: Path, rule_id: str, exc: BaseException) -> None:
+        """Record a crash for the report to print and the exit code to fail on."""
+        self.result.internal_errors.append((rel_path, rule_id, f"{type(exc).__name__}: {exc}"))
 
     # =========================================================================
     # CRITICAL RULES
@@ -6899,18 +6907,33 @@ class SkuelLinter:
     # REPORTING
     # =========================================================================
 
+    def _print_internal_errors(self) -> None:
+        """Print crashed rules under their own heading — never mixed into violations."""
+        errors = self.result.internal_errors
+        if not errors:
+            return
+        print(
+            f"\n💥 {Colors.RED}{Colors.BOLD}INTERNAL ERRORS: {len(errors)} — a rule crashed, "
+            f"so its file went unchecked (fix the linter, not the file){Colors.RESET}"
+        )
+        print(f"{Colors.DIM}{'-' * 80}{Colors.RESET}")
+        for file_path, rule_id, message in errors:
+            print(f"  {Colors.CYAN}{file_path}{Colors.RESET}  [{rule_id}]  {message}")
+        print()
+
     def print_report(
         self, strict: bool = False, quiet: bool = False, show_context: bool = False
     ) -> int:
         """
         Print violations report.
 
-        Returns exit code:
+        Returns exit code (``LintResult.exit_code``):
             0 - No blocking violations
             1 - Warnings found (only in strict mode)
-            2 - Errors or critical violations found
+            2 - Errors or critical violations found, or an internal error (a
+                rule crashed — regardless of --strict)
         """
-        if not self.result.violations:
+        if not self.result.violations and not self.result.internal_errors:
             if not quiet:
                 suppression_note = ""
                 if self.result.suppressions:
@@ -6929,11 +6952,8 @@ class SkuelLinter:
             errors = len(self.result.by_severity(Severity.ERROR))
             warnings = len(self.result.by_severity(Severity.WARNING))
             print(f"SKUEL: {critical} critical, {errors} errors, {warnings} warnings")
-            if critical or errors:
-                return 2
-            if strict and warnings:
-                return 1
-            return 0
+            self._print_internal_errors()
+            return self.result.exit_code(strict)
 
         print(f"\n{Colors.BOLD}{'=' * 80}{Colors.RESET}")
         print(f"{Colors.BOLD}SKUEL LINTER{Colors.RESET}")
@@ -6980,6 +7000,8 @@ class SkuelLinter:
 
             print()
 
+        self._print_internal_errors()
+
         # Summary
         print(f"{'=' * 80}")
         print(f"{Colors.BOLD}SUMMARY{Colors.RESET}")
@@ -7006,6 +7028,9 @@ class SkuelLinter:
             print(f"  Warnings: {warning_count}")
 
         print(f"  Info:     {info_count}")
+
+        if self.result.internal_errors:
+            print(f"  {Colors.RED}Internal: {len(self.result.internal_errors)}{Colors.RESET}")
 
         # Per-rule breakdown
         rule_counts: dict[str, int] = {}
@@ -7059,21 +7084,23 @@ class SkuelLinter:
 
         print(f"{'=' * 80}")
 
-        # Determine exit code
-        if self.result.has_critical or self.result.has_error:
+        # Exit code — the one ladder, shared with --json (LintResult.exit_code).
+        exit_code = self.result.exit_code(strict)
+        if self.result.internal_errors:
+            print(
+                f"\n{Colors.RED}❌ Internal linter error(s) - the run did not check every "
+                f"file; fix the crashing rule{Colors.RESET}"
+            )
+        elif exit_code == 2:
             print(
                 f"\n{Colors.RED}❌ Critical/Error violations found - must fix before merging{Colors.RESET}"
             )
-            return 2
-
-        if strict and self.result.has_warning:
+        elif exit_code == 1:
             print(f"\n{Colors.YELLOW}⚠️ Warnings treated as errors (--strict mode){Colors.RESET}")
-            return 1
-
-        if self.result.has_warning:
+        elif self.result.has_warning:
             print(f"\n{Colors.YELLOW}⚠️ Warnings found - review before merging{Colors.RESET}")
 
-        return 0
+        return exit_code
 
 
 def explain_rule(rule_id: str) -> None:
@@ -7293,7 +7320,12 @@ Examples:
                 "error": len(linter.result.by_severity(Severity.ERROR)),
                 "warning": len(linter.result.by_severity(Severity.WARNING)),
                 "info": len(linter.result.by_severity(Severity.INFO)),
+                "internal_errors": len(linter.result.internal_errors),
             },
+            "internal_errors": [
+                {"file": str(file_path), "rule_id": rule_id, "message": message}
+                for file_path, rule_id, message in linter.result.internal_errors
+            ],
             "suppressions": {
                 "total": len(linter.result.suppressions),
                 "used": sum(1 for s in linter.result.suppressions if s.used),
@@ -7311,13 +7343,9 @@ Examples:
             },
         }
         print(json.dumps(output, indent=2))
-        # Same severity semantics as print_report — INFO never fails a run.
-        if linter.result.has_critical or linter.result.has_error:
-            exit_code = 2
-        elif args.strict and linter.result.has_warning:
-            exit_code = 1
-        else:
-            exit_code = 0
+        # The one severity ladder, shared with print_report — INFO never fails a
+        # run; an internal error always does.
+        exit_code = linter.result.exit_code(args.strict)
     else:
         show_context = not args.no_context
         exit_code = linter.print_report(
