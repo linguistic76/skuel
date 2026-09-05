@@ -7743,3 +7743,64 @@ class TestInternalErrors:
             }
         ]
         assert payload["violations"] == []
+
+
+class TestNodeIndex:
+    """`_nodes` — the per-file index every AST rule reads the shared tree through.
+
+    A rule that asks for several node classes at once must get exactly what a
+    fresh `ast.walk` would give it, in the same breadth-first order: a parent
+    before its children, interleaved across classes. A bucket-by-bucket
+    concatenation would hand back every FunctionDef, then every
+    AsyncFunctionDef, ... — and `iter_authored_cypher`'s concatenation
+    bookkeeping (a `+` root before the `+` nodes nested in it) depends on the
+    real order.
+    """
+
+    SOURCE = '''
+"""Module docstring."""
+import os
+
+
+class Outer:
+    x: int = 1
+
+    def method(self, a: int) -> int:
+        return a + 1
+
+    async def amethod(self):
+        def inner():
+            return lambda: 0
+
+        return await inner()
+
+
+def free(b):
+    return [n for n in range(b)]
+
+
+async def afree():
+    pass
+'''
+
+    def test_multi_type_results_follow_ast_walk_order(self) -> None:
+        linter = make_linter()
+        tree = ast.parse(self.SOURCE)
+        wanted = (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.ClassDef)
+
+        got = linter._nodes(tree, *wanted)
+
+        expected = [n for n in ast.walk(tree) if isinstance(n, wanted)]
+        assert [id(n) for n in got] == [id(n) for n in expected]
+        # The walk interleaves the classes by depth — module-level defs first,
+        # then the class body, then `inner`, then the lambda. Per-class
+        # concatenation would start with every FunctionDef instead.
+        assert [type(n).__name__ for n in got] == [
+            "ClassDef",
+            "FunctionDef",
+            "AsyncFunctionDef",
+            "FunctionDef",
+            "AsyncFunctionDef",
+            "FunctionDef",
+            "Lambda",
+        ]

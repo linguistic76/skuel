@@ -86,8 +86,9 @@ import tokenize
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from enum import Enum
+from operator import itemgetter
 from pathlib import Path
-from typing import ClassVar
+from typing import ClassVar, TypeVar, cast
 
 from core.utils.terminal_colors import Colors
 
@@ -1409,6 +1410,13 @@ class LintResult:
         return [v for v in self.violations if v.rule_id == rule_id]
 
 
+# Per-file node index: every node of a parsed tree bucketed by its EXACT class,
+# each entry tagged with its position in the one `ast.walk` that built the index.
+# Built by `SkuelLinter._build_node_index`, read through `SkuelLinter._nodes`.
+NodeIndex = dict[type[ast.AST], list[tuple[int, ast.AST]]]
+_N = TypeVar("_N", bound=ast.AST)
+
+
 class SkuelLinter:
     """
     Unified SKUEL linter combining architecture and pattern rules.
@@ -1684,6 +1692,9 @@ class SkuelLinter:
         # tree OBJECT (identity compare on a held strong ref, so a recycled
         # id() can never alias two trees).
         self._inert_ids_memo: tuple[ast.AST, set[int]] | None = None
+        # Per-file node index — the ONE ast.walk per file every AST rule reads
+        # through `_nodes` (see `_node_index_for`). Same identity-keyed shape.
+        self._node_index_memo: tuple[ast.AST, NodeIndex] | None = None
         self._comment_lines_memo: tuple[str, dict[int, str]] | None = None
 
     @staticmethod
@@ -2221,8 +2232,8 @@ class SkuelLinter:
         inert_ids = self._inert_ids_for(tree)
         reported_lines: set[int] = set()
 
-        for node in ast.walk(tree):
-            if not (isinstance(node, ast.Constant) and isinstance(node.value, str)):
+        for node in self._nodes(tree, ast.Constant):
+            if not isinstance(node.value, str):
                 continue
             if id(node) in inert_ids:
                 continue
@@ -2368,7 +2379,9 @@ class SkuelLinter:
     # belongs here is the consequence: there is no SKUEL021-specific clause list
     # to tune. A clause that should open a statement is added there, once.
     @classmethod
-    def iter_authored_cypher(cls, tree: ast.AST, inert_ids: set[int]) -> list[tuple[ast.expr, str]]:
+    def iter_authored_cypher(
+        cls, tree: ast.AST, inert_ids: set[int], node_index: NodeIndex | None = None
+    ) -> list[tuple[ast.expr, str]]:
         """Every string in ``tree`` that reads as authored Cypher, as (node, marker).
 
         THE single traversal behind SKUEL021. ``tests/unit/test_core_utils_boundary.py``
@@ -2382,7 +2395,14 @@ class SkuelLinter:
         ``f"cascade {mode} DETACH DELETE (...)"`` tears into a trailing piece
         that FALSELY leads with a clause keyword. Rendering the whole — with
         interpolations replaced by a sentinel — is right in both directions.
+
+        ``node_index`` is the per-file index the linter memoizes
+        (`_node_index_for`), passed in like ``inert_ids`` so this shares the
+        file's one walk; a caller without one (the boundary test) gets a fresh
+        build here.
         """
+        if node_index is None:
+            node_index = cls._build_node_index(tree)
         fstring_parts = fstring_part_ids(tree)
         composite_leaves: set[int] = set()
         nested_concats: set[int] = set()
@@ -2390,12 +2410,12 @@ class SkuelLinter:
 
         # Pass 1: resolve concatenation chains to their outermost root, so a
         # nested `+` never re-reports the text its root already covers.
-        for node in ast.walk(tree):
-            if not (isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add)):
+        for binop in cls._nodes_of(node_index, ast.BinOp):
+            if not isinstance(binop.op, ast.Add):
                 continue
-            if id(node) in nested_concats:
+            if id(binop) in nested_concats:
                 continue
-            leaves, nested = cls._flatten_concat(node)
+            leaves, nested = cls._flatten_concat(binop)
             if not any(
                 (isinstance(leaf, ast.Constant) and isinstance(leaf.value, str))
                 or isinstance(leaf, ast.JoinedStr)
@@ -2406,7 +2426,7 @@ class SkuelLinter:
             composite_leaves.update(
                 id(leaf) for leaf in leaves if isinstance(leaf, ast.Constant | ast.JoinedStr)
             )
-            concat_roots.append((node, leaves))
+            concat_roots.append((binop, leaves))
 
         found: list[tuple[ast.expr, str]] = []
 
@@ -2432,7 +2452,7 @@ class SkuelLinter:
         for root, leaves in concat_roots:
             take_whole(root, leaves)
 
-        for node in ast.walk(tree):
+        for node in cls._nodes_of(node_index, ast.JoinedStr, ast.Constant):
             if isinstance(node, ast.JoinedStr):
                 if id(node) not in composite_leaves:
                     take_whole(node, [node])
@@ -2450,7 +2470,7 @@ class SkuelLinter:
         return found
 
     @staticmethod
-    def _inert_string_constant_ids(tree: ast.AST) -> set[int]:
+    def _inert_string_constant_ids(node_index: NodeIndex) -> set[int]:
         """``id()``s of string Constants that are inert bare-expression statements.
 
         Module / class / function docstrings AND mid-body ``USAGE EXAMPLES`` blocks
@@ -2461,12 +2481,8 @@ class SkuelLinter:
         ``tests/test_core_utils_boundary.py``.
         """
         inert: set[int] = set()
-        for node in ast.walk(tree):
-            if (
-                isinstance(node, ast.Expr)
-                and isinstance(node.value, ast.Constant)
-                and isinstance(node.value.value, str)
-            ):
+        for node in SkuelLinter._nodes_of(node_index, ast.Expr):
+            if isinstance(node.value, ast.Constant) and isinstance(node.value.value, str):
                 inert.add(id(node.value))
         return inert
 
@@ -2512,13 +2528,68 @@ class SkuelLinter:
         return found
 
     def _inert_ids_for(self, tree: ast.AST) -> set[int]:
-        """Memoized `_inert_string_constant_ids` — one walk per file, shared by
-        every string-constant rule (SKUEL001/021 today)."""
+        """Memoized `_inert_string_constant_ids` — computed once per file over the
+        shared node index, read by every string-constant rule (SKUEL001/021 today)."""
         if self._inert_ids_memo is not None and self._inert_ids_memo[0] is tree:
             return self._inert_ids_memo[1]
-        ids = self._inert_string_constant_ids(tree)
+        ids = self._inert_string_constant_ids(self._node_index_for(tree))
         self._inert_ids_memo = (tree, ids)
         return ids
+
+    # ---- per-file node index ------------------------------------------------
+    # ONE ast.walk per file. `_lint_file` parses each file once and hands every
+    # AST rule the same tree; the rules read it through `_nodes`, which serves
+    # from this index instead of re-walking the whole module per rule (~20
+    # walks per file — ~62% of a full scan — before the index).
+    #
+    # Order is load-bearing, so every entry carries its walk position and a
+    # multi-class request is merged on it: `ast.walk` is breadth-first, a
+    # parent is met before its children, and `iter_authored_cypher`'s
+    # concatenation bookkeeping relies on meeting a `+` root before the `+`
+    # nodes nested inside it.
+
+    @staticmethod
+    def _build_node_index(tree: ast.AST) -> NodeIndex:
+        """Every node under ``tree`` bucketed by exact class, each tagged with its
+        position in the one ``ast.walk`` that built the index."""
+        index: NodeIndex = {}
+        for position, node in enumerate(ast.walk(tree)):
+            index.setdefault(type(node), []).append((position, node))
+        return index
+
+    def _node_index_for(self, tree: ast.AST) -> NodeIndex:
+        """Memoized `_build_node_index` — keyed on the tree OBJECT, exactly like
+        `_inert_ids_for`, so every rule run on a file shares its one walk."""
+        if self._node_index_memo is not None and self._node_index_memo[0] is tree:
+            return self._node_index_memo[1]
+        index = self._build_node_index(tree)
+        self._node_index_memo = (tree, index)
+        return index
+
+    @staticmethod
+    def _nodes_of(index: NodeIndex, *node_types: type[_N]) -> list[_N]:
+        """The indexed nodes that are instances of any of ``node_types``, in
+        ``ast.walk`` order — exactly what
+        ``[n for n in ast.walk(tree) if isinstance(n, node_types)]`` yields.
+
+        Buckets are keyed by exact class and matched with ``issubclass``, so an
+        abstract request (``ast.stmt``) is served too. A single bucket is
+        already in walk order; several are merged on their position tags.
+        """
+        buckets = [
+            entries for node_class, entries in index.items() if issubclass(node_class, node_types)
+        ]
+        if len(buckets) == 1:
+            entries = buckets[0]
+        else:
+            entries = sorted(itertools.chain.from_iterable(buckets), key=itemgetter(0))
+        # The issubclass filter above is what makes every element an `_N`.
+        return cast("list[_N]", [node for _position, node in entries])
+
+    def _nodes(self, tree: ast.AST, *node_types: type[_N]) -> list[_N]:
+        """`_nodes_of` over the memoized index of ``tree`` — THE accessor every
+        AST rule reads the shared tree through."""
+        return self._nodes_of(self._node_index_for(tree), *node_types)
 
     def _check_raw_cypher_in_services(
         self,
@@ -2571,7 +2642,9 @@ class SkuelLinter:
 
         reported_lines: set[int] = set()
 
-        for node, marker in self.iter_authored_cypher(tree, self._inert_ids_for(tree)):
+        for node, marker in self.iter_authored_cypher(
+            tree, self._inert_ids_for(tree), self._node_index_for(tree)
+        ):
             line_num = node.lineno
             # One violation per source line (matches the old line-granularity and
             # collapses the several Constant parts an f-string splits into).
@@ -2791,9 +2864,9 @@ class SkuelLinter:
 
         docstring_owners = (ast.AsyncFunctionDef, ast.ClassDef, ast.FunctionDef, ast.Module)
 
-        for node in ast.walk(tree):
+        for node in self._nodes(tree, *docstring_owners):
             if not isinstance(node, docstring_owners):
-                continue
+                continue  # already true — narrows the join type for get_docstring
             doc = (ast.get_docstring(node) or "").strip()
             if not doc:
                 continue
@@ -2915,8 +2988,8 @@ class SkuelLinter:
         inert_ids = self._inert_ids_for(tree)
         reported_lines: set[int] = set()
 
-        for node in ast.walk(tree):
-            if not (isinstance(node, ast.Constant) and isinstance(node.value, str)):
+        for node in self._nodes(tree, ast.Constant):
+            if not isinstance(node.value, str):
                 continue
             if id(node) in inert_ids:
                 continue
@@ -3039,7 +3112,9 @@ class SkuelLinter:
         # (protocols declared in *protocol*-named files are already exempt via
         # the file-name check; this catches Protocol classes declared inline).
         nested_ids: set[int] = set()
-        for scope in ast.walk(tree):
+        for scope in self._nodes(
+            tree, ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.ClassDef
+        ):
             if isinstance(scope, ast.FunctionDef | ast.AsyncFunctionDef | ast.Lambda):
                 for child in ast.walk(scope):
                     if child is not scope and isinstance(child, ast.AsyncFunctionDef):
@@ -3053,9 +3128,7 @@ class SkuelLinter:
                     if isinstance(child, ast.AsyncFunctionDef):
                         nested_ids.add(id(child))
 
-        for node in ast.walk(tree):
-            if not isinstance(node, ast.AsyncFunctionDef):
-                continue
+        for node in self._nodes(tree, ast.AsyncFunctionDef):
             if id(node) in nested_ids:
                 continue
             if node.returns is None:
@@ -3324,8 +3397,8 @@ class SkuelLinter:
         inert_ids = self._inert_ids_for(tree)
         reported: set[tuple[int, str]] = set()
 
-        for node in ast.walk(tree):
-            if not (isinstance(node, ast.Constant) and isinstance(node.value, str)):
+        for node in self._nodes(tree, ast.Constant):
+            if not isinstance(node.value, str):
                 continue
             if id(node) in inert_ids:
                 continue
@@ -3503,9 +3576,7 @@ class SkuelLinter:
                 return node
             return None
 
-        for node in ast.walk(tree):
-            if not isinstance(node, ast.Compare):
-                continue
+        for node in self._nodes(tree, ast.Compare):
             if self._mentions_enum_name(node):
                 continue
 
@@ -3807,9 +3878,7 @@ class SkuelLinter:
         if tree is None:
             return
 
-        for node in ast.walk(tree):
-            if not isinstance(node, ast.ExceptHandler):
-                continue
+        for node in self._nodes(tree, ast.ExceptHandler):
             if not self._catches_bare_exception(node.type):
                 continue
 
@@ -4162,9 +4231,9 @@ class SkuelLinter:
         if tree is None:
             return
 
-        for node in ast.walk(tree):
+        for node in self._nodes(tree, ast.FunctionDef, ast.AsyncFunctionDef):
             if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
-                continue
+                continue  # already true — narrows the join type for _find_request_arg
             if not any(self._is_route_decorator(d) for d in node.decorator_list):
                 continue
 
@@ -4469,24 +4538,22 @@ class SkuelLinter:
         (``node.module`` is ``"adapters"`` there but ``level`` is 1).
         """
         type_checking_lines: set[int] = set()
-        for node in ast.walk(tree):
-            if isinstance(node, ast.If) and self._is_type_checking_test(node.test):
-                for stmt in node.body:
+        for branch in self._nodes(tree, ast.If):
+            if self._is_type_checking_test(branch.test):
+                for stmt in branch.body:
                     for child in ast.walk(stmt):
                         lineno = getattr(child, "lineno", None)
                         if lineno is not None:
                             type_checking_lines.add(lineno)
 
         found: list[tuple[ast.stmt, str]] = []
-        for node in ast.walk(tree):
+        for node in self._nodes(tree, ast.ImportFrom, ast.Import):
             imported_modules: list[str] = []
             if isinstance(node, ast.ImportFrom):
                 if node.module and node.level == 0:
                     imported_modules.append(node.module)
             elif isinstance(node, ast.Import):
                 imported_modules.extend(alias.name for alias in node.names)
-            else:
-                continue
 
             target_modules = [
                 m for m in imported_modules if m == target or m.startswith(f"{target}.")
@@ -4745,7 +4812,7 @@ class SkuelLinter:
 
         forbidden = self._DELETED_ACTIVITY_UPDATE_PAYLOADS
         seen: set[tuple[int, str]] = set()
-        for node in ast.walk(tree):
+        for node in self._nodes(tree, ast.ImportFrom, ast.Name, ast.Attribute):
             if isinstance(node, ast.ImportFrom):
                 for alias in node.names:
                     if alias.name in forbidden:
@@ -4834,7 +4901,7 @@ class SkuelLinter:
         them costs nothing and removes the bypass classes structurally.
         Line-level suppressions are honored via ``# skuel-lint: disable=SKUEL023``.
         """
-        for node in ast.walk(tree):
+        for node in self._nodes(tree, ast.ImportFrom, ast.Import):
             if isinstance(node, ast.ImportFrom):
                 if not node.module or not self._is_adapter_module(node.module):
                     continue
@@ -4906,9 +4973,8 @@ class SkuelLinter:
                         )
                     )
 
-    @staticmethod
-    def _collect_adapter_imports(tree: ast.Module) -> dict[str, str]:
-        """Walk the whole tree (runtime AND TYPE_CHECKING blocks) and return a
+    def _collect_adapter_imports(self, tree: ast.Module) -> dict[str, str]:
+        """Read the whole tree (runtime AND TYPE_CHECKING blocks) and return a
         ``{local_name: module_path}`` map for every ``from adapters... import X``
         and ``import adapters...``.
 
@@ -4917,16 +4983,16 @@ class SkuelLinter:
         used as a type annotation is the design coupling we're catching.
         """
         imports: dict[str, str] = {}
-        for node in ast.walk(tree):
+        for node in self._nodes(tree, ast.ImportFrom, ast.Import):
             if isinstance(node, ast.ImportFrom):
-                if not node.module or not SkuelLinter._is_adapter_module(node.module):
+                if not node.module or not self._is_adapter_module(node.module):
                     continue
                 for alias in node.names:
                     local = alias.asname or alias.name
                     imports[local] = node.module
             elif isinstance(node, ast.Import):
                 for alias in node.names:
-                    if SkuelLinter._is_adapter_module(alias.name):
+                    if self._is_adapter_module(alias.name):
                         local = alias.asname or alias.name.split(".")[0]
                         imports[local] = alias.name
         return imports
@@ -5087,7 +5153,7 @@ class SkuelLinter:
 
         # Walk every annotation site and gather (lineno, col, lookup_key, type_name).
         annotation_sites: list[tuple[int, int, str, str]] = []
-        for node in ast.walk(tree):
+        for node in self._nodes(tree, ast.AnnAssign, ast.FunctionDef, ast.AsyncFunctionDef):
             if isinstance(node, ast.AnnAssign) and node.annotation is not None:
                 for lookup, type_name in self._extract_annotation_refs(node.annotation):
                     annotation_sites.append((node.lineno, node.col_offset, lookup, type_name))
@@ -5392,7 +5458,7 @@ class SkuelLinter:
 
         any_aliases = self._collect_any_aliases(tree)
 
-        for cls in [n for n in ast.walk(tree) if isinstance(n, ast.ClassDef)]:
+        for cls in self._nodes(tree, ast.ClassDef):
             assign = self._find_self_backend_assignment(cls)
             declaration = self._find_class_body_backend_declaration(cls) if assign is None else None
             if assign is not None:
@@ -5464,8 +5530,7 @@ class SkuelLinter:
     # SKUEL023 third sub-check: backend generic inherited as Any
     # =========================================================================
 
-    @classmethod
-    def _collect_backend_generic_bases(cls, tree: ast.Module) -> set[str]:
+    def _collect_backend_generic_bases(self, tree: ast.Module) -> set[str]:
         """Local names in this module bound to a ``backend``-declaring generic base.
 
         Only names imported from the module that actually defines them count, so an
@@ -5479,11 +5544,11 @@ class SkuelLinter:
         must agree, and no relative import of these four exists in the tree today.
         """
         names: set[str] = set()
-        for node in ast.walk(tree):
-            if not isinstance(node, ast.ImportFrom) or node.module is None:
+        for node in self._nodes(tree, ast.ImportFrom):
+            if node.module is None:
                 continue
             for alias in node.names:
-                expected = cls.SKUEL023_BACKEND_GENERIC_BASES.get(alias.name)
+                expected = self.SKUEL023_BACKEND_GENERIC_BASES.get(alias.name)
                 if expected is None:
                     continue
                 if node.module == expected or (
@@ -5594,7 +5659,7 @@ class SkuelLinter:
 
         any_aliases = self._collect_any_aliases(tree)
 
-        for cls in [n for n in ast.walk(tree) if isinstance(n, ast.ClassDef)]:
+        for cls in self._nodes(tree, ast.ClassDef):
             # A class-body `backend:` declaration overrides the inherited parameter,
             # so the generic no longer governs what the calls are checked against.
             if self._find_class_body_backend_declaration(cls) is not None:
@@ -5725,10 +5790,9 @@ class SkuelLinter:
         if self._is_file_suppressed(content, "SKUEL028"):
             return
 
-        for node in ast.walk(tree):
+        for node in self._nodes(tree, ast.Call):
             if not (
-                isinstance(node, ast.Call)
-                and isinstance(node.func, ast.Attribute)
+                isinstance(node.func, ast.Attribute)
                 and node.func.attr == "fail"
                 and isinstance(node.func.value, ast.Name)
                 and node.func.value.id == "Result"
@@ -6369,9 +6433,7 @@ class SkuelLinter:
         # let a string containing the marker suppress the rule reading it.
         comment_lines = self._comment_lines(content)
 
-        for node in ast.walk(tree):
-            if not isinstance(node, ast.Compare):
-                continue
+        for node in self._nodes(tree, ast.Compare):
             # EVERY leg of a chain is evaluated, so `"tech" in uid == other` runs
             # the same membership test a lone `in` does (Codex, #1194). Each leg's
             # left side is the previous comparator.
@@ -6490,7 +6552,7 @@ class SkuelLinter:
         part_ids = fstring_part_ids(tree)
         reported: set[tuple[int, str]] = set()
 
-        for node in ast.walk(tree):
+        for node in self._nodes(tree, ast.JoinedStr, ast.Constant):
             if isinstance(node, ast.JoinedStr):
                 fragment = render_fstring(node)
             elif isinstance(node, ast.Constant) and isinstance(node.value, str):
@@ -6596,7 +6658,7 @@ class SkuelLinter:
                 )
             )
 
-        for node in ast.walk(tree):
+        for node in self._nodes(tree, ast.List, ast.Tuple, ast.Set, ast.Constant):
             # Position 1: a list/tuple/set literal of bare edge names.
             if isinstance(node, ast.List | ast.Tuple | ast.Set):
                 elements = [
@@ -6730,8 +6792,8 @@ class SkuelLinter:
                     return True
             return False
 
-        for node in ast.walk(tree):
-            if not isinstance(node, ast.AsyncFunctionDef) or is_trivial(node):
+        for node in self._nodes(tree, ast.AsyncFunctionDef):
+            if is_trivial(node):
                 continue
             # An own yield makes this an ASYNC GENERATOR — `async def` is
             # load-bearing there even without awaits: converting to `def`
