@@ -1,6 +1,6 @@
 ---
 title: Discovery Analytics Roadmap
-updated: 2026-08-21
+updated: 2026-09-05
 status: current
 category: intelligence
 tags: [analytics, discovery, intelligence, roadmap, search]
@@ -91,6 +91,11 @@ gap table plus the running event total vs the Phase-2 trigger.
 
 Check: `MATCH (e:SearchEvent) RETURN count(e)` — the running total is
 surfaced on `/admin/analytics` (Search Gaps section).
+
+⚠️ **Measured 41 on 2026-08-25** — ~8 genuine queries, flat since 2026-07-22 (the census is
+in [`domain-fulltext-first-search.md`](domain-fulltext-first-search.md), Ruling 2). At the
+observed rate the gate cannot fire; at the next review **re-base the number or retire the
+phases** rather than re-checking them.
 
 With few users, behavioral aggregates are noise. These phases subscribe to the
 same `search.executed` stream / read the same nodes — no SearchRouter changes

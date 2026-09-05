@@ -1,14 +1,14 @@
 ---
-updated: 2026-09-04
+updated: 2026-09-05
 ---
 
 # Dead-doc-links sweep queue — the live-docs residue
 
 **Status:** OPEN — **ACTIONABLE**. Ruled *register + burn down via doc sweeps*
 (Mike, 2026-09-01). Extracted from
-[`deferred-work.md`](deferred-work.md) § Dead-Doc-Links Instrument on Mike's call
+the [Dead-Doc-Links Instrument](dead-doc-links-instrument.md) case file on Mike's call
 (2026-09-01) so the queue can be worked independently of the arc that produced it;
-that section keeps the rulings and the completed record, and points here.
+that file keeps the rulings and the completed record, and points here.
 
 The instrument is `scripts/health/dead_doc_links.py` (in `./dev health` and the weekly
 janitor; not a CI gate). B1–B5 took it from 871 findings to 330 by removing every class
@@ -278,5 +278,5 @@ resolver, 754→724), #1219 (history-dir carve-out + the per-citation marker mec
 724→497), #1220 (ADR content sweep, 497→343), B5 (the two scheduled narrowings,
 343→330), B6 (the queued corrections + the domains catalog, 330→327), B7 (the four
 sweepable heavy hitters, 327→288), B8 (the planned-file marker, 288→280). Rulings, the completed record, and the
-duplicate-ADR-number note live in [`deferred-work.md`](deferred-work.md)
-§ Dead-Doc-Links Instrument.
+duplicate-ADR-number note live in [`dead-doc-links-instrument.md`](dead-doc-links-instrument.md),
+the case file of the `deferred-work.md` entry of that name.
