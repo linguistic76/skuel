@@ -1,6 +1,6 @@
 ---
 title: Protocol-Based Architecture
-updated: 2026-08-20
+updated: 2026-09-05
 category: patterns
 related_skills:
 - python
@@ -24,7 +24,7 @@ For hands-on implementation:
 
 **Related Documentation:**
 - [BACKEND_OPERATIONS_ISP.md](BACKEND_OPERATIONS_ISP.md) - Interface segregation for backends
-- [protocol_mixin_alignment.md](/docs/migrations/PROTOCOL_MIXIN_ALIGNMENT_COMPLETE_2026-01-29.md) - Protocol compliance migration
+- [protocol_mixin_alignment.md](../migrations/PROTOCOL_MIXIN_ALIGNMENT_COMPLETE_2026-01-29.md) - Protocol compliance migration
 
 ---
 

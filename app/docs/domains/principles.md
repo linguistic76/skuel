@@ -1,7 +1,7 @@
 ---
 title: Principles Domain
 created: 2025-12-04
-updated: 2026-08-19
+updated: 2026-09-05
 status: current
 category: domains
 tags: [principles, activity-domain, domain, reflections, planning]
@@ -54,7 +54,7 @@ Principles represent core values and guiding beliefs that inform goals, choices,
 | `TriggerType` | `core.models.enums` | GOAL, HABIT, EVENT, CHOICE, MANUAL | — (what activates a principle) |
 | `Priority` | `core.models.enums` | LOW, MEDIUM, HIGH, CRITICAL | `priority` |
 
-**See:** [Enum Architecture](/docs/architecture/ENUM_ARCHITECTURE.md)
+**See:** [Enum Architecture](../architecture/ENUM_ARCHITECTURE.md)
 
 ## Facade Pattern (February 2026, mixins April 2026)
 
@@ -220,7 +220,7 @@ The `CONFLICTS_WITH_PRINCIPLE` relationship helps identify when principles may b
 | `get_related_principles(principle_uid, user_uid)` | Related principles |
 | `get_prioritized(user_uid, limit=10)` | Smart prioritization |
 
-**Full catalog:** [Search Service Methods Reference](/docs/reference/SEARCH_SERVICE_METHODS.md)
+**Full catalog:** [Search Service Methods Reference](../reference/SEARCH_SERVICE_METHODS.md)
 
 ## Intelligence Service (mixins April 2026)
 
@@ -242,7 +242,7 @@ class PrinciplesIntelligenceService(
 | `_AlignmentIntelligenceMixin` | `assess_principle_alignment`, `assess_alignment_dual_track`, `get_principle_adherence_trends`, helpers |
 | `_InfluenceMixin` | `get_principle_conflict_analysis`, `get_quick_principle_impact`, `batch_analyze_principle_adoption`, `get_choice_guidance_effectiveness` |
 
-**See:** [Intelligence Services Index](/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md)
+**See:** [Intelligence Services Index](../intelligence/INTELLIGENCE_SERVICES_INDEX.md)
 
 ## Planning Service (January 2026)
 
@@ -502,4 +502,4 @@ Publishes `PrincipleReflectionRecorded`. Supply `conflicting_principle_uid` to a
 - [Choices Domain](choices.md) - Principles guide choices
 - [Habits Domain](habits.md) - Habits embody principles
 - [Knowledge (KU) Domain](ku.md) - Principles grounded in knowledge
-- [Intelligence Services Index](/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md) - PrinciplesIntelligenceService
+- [Intelligence Services Index](../intelligence/INTELLIGENCE_SERVICES_INDEX.md) - PrinciplesIntelligenceService

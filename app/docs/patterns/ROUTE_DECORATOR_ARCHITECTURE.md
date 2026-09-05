@@ -1,6 +1,6 @@
 ---
 title: Route Decorator Architecture
-updated: '2026-08-22'
+updated: '2026-09-05'
 category: patterns
 related_skills:
 - fasthtml
@@ -367,10 +367,10 @@ The SKUEL version has zero try/except, zero manual status codes, zero `jsonify()
 
 ## See Also
 
-- [Routing Architecture](/docs/architecture/ROUTING_ARCHITECTURE.md) — Three-layer architecture (routes, services, persistence)
-- [Route Factories](/docs/patterns/ROUTE_FACTORIES.md) — Factory reference (CRUD, Status, Query, Intelligence, Analytics)
-- [Route Naming Convention](/docs/patterns/ROUTE_NAMING_CONVENTION.md) — File naming: `_routes.py`, `_api.py`, `_ui.py`
-- [FastHTML Route Registration](/docs/patterns/FASTHTML_ROUTE_REGISTRATION.md) — Critical anti-pattern: never use `routes = []` with `@rt()`
-- [DomainRouteConfig Pattern](/docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md) — Configuration-driven route registration
-- [Error Handling](/docs/patterns/ERROR_HANDLING.md) — `Result[T]` pattern and `Errors` factory
-- [Relationships Architecture](/docs/architecture/RELATIONSHIPS_ARCHITECTURE.md) — Lateral relationship types, service API, Cypher patterns
+- [Routing Architecture](../architecture/ROUTING_ARCHITECTURE.md) — Three-layer architecture (routes, services, persistence)
+- [Route Factories](ROUTE_FACTORIES.md) — Factory reference (CRUD, Status, Query, Intelligence, Analytics)
+- [Route Naming Convention](ROUTE_NAMING_CONVENTION.md) — File naming: `_routes.py`, `_api.py`, `_ui.py`
+- [FastHTML Route Registration](FASTHTML_ROUTE_REGISTRATION.md) — Critical anti-pattern: never use `routes = []` with `@rt()`
+- [DomainRouteConfig Pattern](DOMAIN_ROUTE_CONFIG_PATTERN.md) — Configuration-driven route registration
+- [Error Handling](ERROR_HANDLING.md) — `Result[T]` pattern and `Errors` factory
+- [Relationships Architecture](../architecture/RELATIONSHIPS_ARCHITECTURE.md) — Lateral relationship types, service API, Cypher patterns

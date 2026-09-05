@@ -1,5 +1,5 @@
 ---
-updated: 2026-08-21
+updated: 2026-09-05
 ---
 
 # Askesis: Pedagogical Architecture
@@ -383,7 +383,7 @@ assistant cannot do this. Askesis can.
 
 ## Cross-References
 
-- [LEARNING_LOOP_ARCHITECTURE.md](/docs/architecture/LEARNING_LOOP_ARCHITECTURE.md) — Askesis scaffolds the 4-phase learning loop (Exercise → UserEntry → EntryReport → RevisedExercise; PathStep anchors via HAS_EXERCISE)
+- [LEARNING_LOOP_ARCHITECTURE.md](LEARNING_LOOP_ARCHITECTURE.md) — Askesis scaffolds the 4-phase learning loop (Exercise → UserEntry → EntryReport → RevisedExercise; PathStep anchors via HAS_EXERCISE)
 - `docs/architecture/ASKESIS_ARCHITECTURE.md` — service structure (pre-refactor, 2025-11-27)
 - `docs/roadmap/done/zpd-service-architecture.md` — ZPDService design
 - `docs/roadmap/done/conversation-neo4j-persistence-deferred.md` — archived original conversation-schema design (historical; ADR-078 rejected its pedagogical half — see §5)

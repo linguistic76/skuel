@@ -1,6 +1,6 @@
 ---
 title: Four-Phase Learning Loop
-updated: 2026-09-03
+updated: 2026-09-05
 status: current
 category: architecture
 related:
@@ -100,7 +100,7 @@ The mechanism differs, but the loop closes either way.
 
 PathStep and Exercise are not peers. Exercise is subordinate to PathStep — the same
 structural relationship as sub-goal under parent goal. See
-[CURRICULUM_GROUPING_PATTERNS.md](/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md)
+[CURRICULUM_GROUPING_PATTERNS.md](CURRICULUM_GROUPING_PATTERNS.md)
 for the full hierarchy.
 
 **What:** THE curriculum content entity — composes atomic Kus into coherent narrative and
@@ -116,8 +116,8 @@ PathStep is now the single curriculum content entity; there is no separate Lesso
 **EntityType:** `EntityType.PATH_STEP`
 **Loop role:** The *why* — the knowledge the loop exists to transmit. PathStep is the
 curriculum anchor, not a phase of the loop; it supplies context the four phases cycle against.
-**See:** [ASKESIS_PEDAGOGICAL_ARCHITECTURE.md](/docs/architecture/ASKESIS_PEDAGOGICAL_ARCHITECTURE.md) — Askesis scaffolds PathStep discovery via ZPD-aware Socratic dialogue.
-**See:** [PATHSTEP_CONTENT_ARCHITECTURE.md](/docs/architecture/PATHSTEP_CONTENT_ARCHITECTURE.md) — body content storage via `HAS_CONTENT`.
+**See:** [ASKESIS_PEDAGOGICAL_ARCHITECTURE.md](ASKESIS_PEDAGOGICAL_ARCHITECTURE.md) — Askesis scaffolds PathStep discovery via ZPD-aware Socratic dialogue.
+**See:** [PATHSTEP_CONTENT_ARCHITECTURE.md](PATHSTEP_CONTENT_ARCHITECTURE.md) — body content storage via `HAS_CONTENT`.
 
 ### PathStep ↔ Exercise Storage Design
 
@@ -267,7 +267,7 @@ UNAWARE → INTRODUCED → FAMILIAR → PROFICIENT → ADVANCED → EXPERT → M
 The `PsMasteryService` (`core/services/ps/ps_mastery_service.py`) manages pedagogical
 progression: `VIEWED` → `IN_PROGRESS` → `MASTERED`. KU mastery publishes `KnowledgeMastered`,
 which triggers the learning progress event chain — see
-[LEARNING_PROGRESS_EVENT_CHAIN.md](/docs/architecture/LEARNING_PROGRESS_EVENT_CHAIN.md).
+[LEARNING_PROGRESS_EVENT_CHAIN.md](LEARNING_PROGRESS_EVENT_CHAIN.md).
 
 `LearningVelocity` tracks how fast a user learns in different domains — not as a judgment
 but as data for personalisation. A user who learns yoga slowly but Python quickly gets
@@ -381,7 +381,7 @@ LLM prompt embedded for AI-assisted feedback. Two scopes: `PERSONAL` (self-direc
 field serves double duty: directive for the student AND prompt for the AI when generating
 `ENTRY_REPORT`.
 
-**See:** [REPORT_ARCHITECTURE.md](/docs/architecture/REPORT_ARCHITECTURE.md) —
+**See:** [REPORT_ARCHITECTURE.md](REPORT_ARCHITECTURE.md) —
 Exercise pipeline and teacher workflow.
 
 ---
@@ -405,7 +405,7 @@ Without it, the Curriculum Track has no student voice.
 
 Both fields make the Python model self-describing without a round-trip to the graph. Note: `FULFILLS_EXERCISE` always points to the root Exercise (see below); `parent_entity_uid` may point to a RevisedExercise UID for revision submissions.
 
-**See:** [REPORT_ARCHITECTURE.md](/docs/architecture/REPORT_ARCHITECTURE.md) —
+**See:** [REPORT_ARCHITECTURE.md](REPORT_ARCHITECTURE.md) —
 full pipeline from upload to sharing and teacher review queue.
 
 ### Phase 2.5: Interaction — The Situated Audit Record
@@ -479,7 +479,7 @@ on-demand AI (`LLM`), or admin-written (`HUMAN`).
 Reads across all 6 Activity Domains **and** the Curriculum track (KU mastery, LP progress,
 PS progress) in a single MEGA_QUERY round-trip.
 
-**See:** [REPORT_ARCHITECTURE.md](/docs/architecture/REPORT_ARCHITECTURE.md) —
+**See:** [REPORT_ARCHITECTURE.md](REPORT_ARCHITECTURE.md) —
 canonical taxonomy, all services, API routes, ReportSource table, graph patterns.
 
 ---
@@ -573,7 +573,7 @@ Every node in the chain `Exercise → UserEntry → EntryReport → RevisedExerc
 - **`EntryReport`** carries `report_source: ReportSource` (`HUMAN`, `LLM`, `AUTOMATIC`) and `assessment_outcome: AssessmentOutcome` (`APPROVED`, `NEEDS_REVISION`, `AI_EVALUATED`) — a single report type covers both initial and revision cycles.
 - **`RevisedExercise`** is a distinct EntityType because its hierarchy (`UserOwnedEntity` vs. `Curriculum`), ownership (teacher-owned vs. shared), `ContentOrigin` tier (`USER_CREATED` vs. `CURRICULUM`), and feedback typing (`FeedbackPoint[]` vs. plain `instructions`) all diverge from `Exercise`. "Revised" is a past-participle reading as "a kind of exercise" — not a verb phrase. The verb lives on the edge `(RevisedExercise)-[:REVISES_EXERCISE]->(Exercise)`.
 
-**See:** [ENTITY_TYPE_ARCHITECTURE.md § Naming Convention](/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md#naming-convention) for the rule, the two-part test, and additional worked examples.
+**See:** [ENTITY_TYPE_ARCHITECTURE.md § Naming Convention](ENTITY_TYPE_ARCHITECTURE.md#naming-convention) for the rule, the two-part test, and additional worked examples.
 
 ---
 
@@ -609,7 +609,7 @@ is no separate activity query layer. Both `ProgressReportGenerator` and
 `ReportSource` distinguishes who produced a report entity — not a separate entity type.
 New report sources add `ReportSource` values; they do not create new EntityTypes.
 
-**See:** [REPORT_ARCHITECTURE.md](/docs/architecture/REPORT_ARCHITECTURE.md#reportsource-taxonomy) for the canonical ReportSource table.
+**See:** [REPORT_ARCHITECTURE.md](REPORT_ARCHITECTURE.md#reportsource-taxonomy) for the canonical ReportSource table.
 
 **Import:** `from core.models.enums.pipeline import ReportSource`
 
@@ -686,9 +686,9 @@ See: `docs/user-guides/zpd.md`, `docs/user-guides/learning-loop.md`
 
 | Document | What It Covers |
 |----------|---------------|
-| [REPORT_ARCHITECTURE.md](/docs/architecture/REPORT_ARCHITECTURE.md) | Canonical report reference — all services, APIs, graph patterns, ReportSource taxonomy |
-| [ENTITY_TYPE_ARCHITECTURE.md](/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md) | How the loop fits the Entity Type Architecture |
-| [ADR-038: Content Sharing](/docs/decisions/ADR-038-content-sharing-model.md) | Three-level visibility model for submissions |
-| [ADR-040: Teacher Exercise Workflow](/docs/decisions/ADR-040-teacher-exercise-workflow.md) | ASSIGNED exercise, auto-sharing, teacher review queue |
+| [REPORT_ARCHITECTURE.md](REPORT_ARCHITECTURE.md) | Canonical report reference — all services, APIs, graph patterns, ReportSource taxonomy |
+| [ENTITY_TYPE_ARCHITECTURE.md](ENTITY_TYPE_ARCHITECTURE.md) | How the loop fits the Entity Type Architecture |
+| [ADR-038: Content Sharing](../decisions/ADR-038-content-sharing-model.md) | Three-level visibility model for submissions |
+| [ADR-040: Teacher Exercise Workflow](../decisions/ADR-040-teacher-exercise-workflow.md) | ASSIGNED exercise, auto-sharing, teacher review queue |
 | `.claude/skills/learning-loop/SKILL.md` | Developer guide — implementation details, service architecture, anti-patterns |
 | `.claude/skills/zpd/SKILL.md` | ZPD intelligence layer — readiness scoring, compound evidence, recommended actions |

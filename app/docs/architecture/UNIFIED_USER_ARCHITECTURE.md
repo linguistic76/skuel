@@ -1,6 +1,6 @@
 ---
 title: User Architecture — User Model, Auth, Roles, and UserContext
-updated: 2026-09-02
+updated: 2026-09-05
 status: current
 category: architecture
 tags:
@@ -133,7 +133,7 @@ token = await graph_auth.admin_generate_reset_token(user_uid, admin_uid, ...)
 await graph_auth.reset_password_with_token(token_value, new_password, ...)
 ```
 
-**See:** [ADR-022: Graph-Native Authentication](/docs/decisions/ADR-022-graph-native-authentication.md)
+**See:** [ADR-022: Graph-Native Authentication](../decisions/ADR-022-graph-native-authentication.md)
 
 ---
 
@@ -157,7 +157,7 @@ async def admin_only_route(request, current_user):
     ...
 ```
 
-**See:** [ADR-018: User Roles](/docs/decisions/ADR-018-user-roles-four-tier-system.md)
+**See:** [ADR-018: User Roles](../decisions/ADR-018-user-roles-four-tier-system.md)
 
 ---
 
@@ -418,7 +418,7 @@ async def get_ready_to_work_on_today(self, context: UserContext) -> Result[Daily
 
 There is no parallel layer of ISP "awareness slice" protocols. `UserContext` is the contract.
 
-**Why not narrower protocols.** An earlier design (retired 2026-05-11, commit `a82faaba`, [ADR-060](/docs/decisions/ADR-060-userctx-single-source-of-truth.md)) defined 11 awareness protocols — `TaskAwareness`, `KnowledgeAwareness`, `CrossDomainAwareness`, `FullAwareness`, etc. — so callees could declare a minimum dependency surface. In practice the protocols re-declared ~25 fields that already lived on `UserContext`, creating two sources of truth that drifted by hand. Adding a field to `UserContext` did not widen the protocol surface, and the MyPy-enforced "this service only reads task state" guarantee was theoretical — anyone needing a new field could just widen the slice. The two-file maintenance burden outweighed the type-level minimization benefit, so the slices were collapsed into `UserContext`.
+**Why not narrower protocols.** An earlier design (retired 2026-05-11, commit `a82faaba`, [ADR-060](../decisions/ADR-060-userctx-single-source-of-truth.md)) defined 11 awareness protocols — `TaskAwareness`, `KnowledgeAwareness`, `CrossDomainAwareness`, `FullAwareness`, etc. — so callees could declare a minimum dependency surface. In practice the protocols re-declared ~25 fields that already lived on `UserContext`, creating two sources of truth that drifted by hand. Adding a field to `UserContext` did not widen the protocol surface, and the MyPy-enforced "this service only reads task state" guarantee was theoretical — anyone needing a new field could just widen the slice. The two-file maintenance burden outweighed the type-level minimization benefit, so the slices were collapsed into `UserContext`.
 
 **What this means in practice.**
 - A service taking `UserContext` can in principle reach into any of ~250 fields. Trust the function's docstring (or its body) for what it actually reads — not the parameter type.
@@ -483,11 +483,11 @@ No slice-conforming stubs needed.
 
 | Document | What it covers |
 |----------|---------------|
-| [ADR-015](/docs/decisions/ADR-015-mega-query-rich-queries-completion.md) | MEGA-QUERY architecture decision |
-| [ADR-016](/docs/decisions/ADR-016-context-builder-decomposition.md) | Context builder 4-module decomposition |
-| [ADR-018](/docs/decisions/ADR-018-user-roles-four-tier-system.md) | Four-tier role system |
-| [ADR-022](/docs/decisions/ADR-022-graph-native-authentication.md) | Graph-native authentication |
-| [ADR-029](/docs/decisions/ADR-029-graphnative-service-removal.md) | Two-path rule (context vs service) |
-| [USER_CONTEXT_INTELLIGENCE.md](/docs/intelligence/USER_CONTEXT_INTELLIGENCE.md) | Intelligence methods, flagship API, daily planning |
-| [AUTH_PATTERNS.md](/docs/patterns/AUTH_PATTERNS.md) | Route auth patterns, `require_authenticated_user` |
+| [ADR-015](../decisions/ADR-015-mega-query-rich-queries-completion.md) | MEGA-QUERY architecture decision |
+| [ADR-016](../decisions/ADR-016-context-builder-decomposition.md) | Context builder 4-module decomposition |
+| [ADR-018](../decisions/ADR-018-user-roles-four-tier-system.md) | Four-tier role system |
+| [ADR-022](../decisions/ADR-022-graph-native-authentication.md) | Graph-native authentication |
+| [ADR-029](../decisions/ADR-029-graphnative-service-removal.md) | Two-path rule (context vs service) |
+| [USER_CONTEXT_INTELLIGENCE.md](../intelligence/USER_CONTEXT_INTELLIGENCE.md) | Intelligence methods, flagship API, daily planning |
+| [AUTH_PATTERNS.md](../patterns/AUTH_PATTERNS.md) | Route auth patterns, `require_authenticated_user` |
 | `.claude/skills/user-context-intelligence/SKILL.md` | Implementation guidance |

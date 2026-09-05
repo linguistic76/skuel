@@ -1,6 +1,6 @@
 ---
 title: "ADR-022: Graph-Native Authentication"
-updated: 2026-09-04
+updated: 2026-09-05
 status: current
 category: decisions
 tags: [adr, decisions, authentication, security, neo4j]
@@ -123,7 +123,7 @@ result = await graph_auth.reset_password_with_token(
 - [@result-pattern](../../.claude/skills/result-pattern/SKILL.md) - Error handling for auth failures
 
 **Pattern Documentation:**
-- [AUTH_PATTERNS.md](/docs/patterns/AUTH_PATTERNS.md) - Authentication patterns and decorators
+- [AUTH_PATTERNS.md](../patterns/AUTH_PATTERNS.md) - Authentication patterns and decorators
 
 **Code Locations:**
 - `/adapters/inbound/auth/session.py` - HTTP-side auth (`require_authenticated_user`,

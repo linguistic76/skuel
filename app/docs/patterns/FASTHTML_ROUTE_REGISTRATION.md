@@ -1,6 +1,6 @@
 ---
 title: FastHTML Route Registration Pattern
-updated: 2026-07-21
+updated: 2026-09-05
 category: patterns
 related_skills:
 - ui-browser
@@ -230,7 +230,7 @@ async def tasks_dashboard(request):
 
 ## See Also
 
-- **Decision context:** [ADR-020](/docs/decisions/ADR-020-fasthtml-route-registration-pattern.md) - Full investigation
+- **Decision context:** [ADR-020](../decisions/ADR-020-fasthtml-route-registration-pattern.md) - Full investigation
 - **FastHTML docs:** `/docs/llms.txt/fasthtml-llms.txt`
 - **Route factories:** `/docs/patterns/ROUTE_FACTORIES.md`
 - **Page layouts:** `/docs/patterns/UI_COMPONENT_PATTERNS.md#page-layout-architecture-critical`

@@ -1,6 +1,6 @@
 ---
 title: Context-First Relationship Pattern
-updated: 2026-06-18
+updated: 2026-09-05
 category: patterns
 related_skills:
 - neo4j-cypher-patterns
@@ -99,7 +99,7 @@ Three pure functions in `core/models/context_types.py` (`_compute_relevance`, `_
 The factory passes `check.score` as `readiness_score` and `check.blocking_reasons` / `check.missing_knowledge`
 straight through. This consolidation (#255) deleted the former inline `_compute_readiness` /
 `_compute_blocking_reasons` helpers so the same mastery split drives readiness, gaps, *and* the rich
-`learning_requirements` display payload. **See:** [PREREQUISITE_CHECKER_PATTERN.md](/docs/patterns/PREREQUISITE_CHECKER_PATTERN.md).
+`learning_requirements` display payload. **See:** [PREREQUISITE_CHECKER_PATTERN.md](PREREQUISITE_CHECKER_PATTERN.md).
 
 ### `_compute_relevance(goal_uids, principle_uids, active_goal_uids, primary_goal_focus, core_principle_uids, principle_priorities) -> float`
 

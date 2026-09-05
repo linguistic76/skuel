@@ -1,6 +1,6 @@
 ---
 title: Lateral Relationships Visualization Pattern
-updated: '2026-07-29'
+updated: '2026-09-05'
 category: patterns
 related_skills:
 - neo4j-cypher-patterns
@@ -469,7 +469,7 @@ await services.lateral.get_relationship_graph(
 )
 ```
 
-Ownership on all 15 lateral routes comes from the domain's `OwnershipVerifier` threaded by the route factory — not from a wrapper method. Pass **both** `user_uid` and `domain_service`: the check engages only when both are present, so omitting either silently reads without enforcement. `domain_service=None` is the deliberate shared-content path for curriculum KU/PS/LP. See [RELATIONSHIPS_ARCHITECTURE.md § Ownership Coverage](/docs/architecture/RELATIONSHIPS_ARCHITECTURE.md).
+Ownership on all 15 lateral routes comes from the domain's `OwnershipVerifier` threaded by the route factory — not from a wrapper method. Pass **both** `user_uid` and `domain_service`: the check engages only when both are present, so omitting either silently reads without enforcement. `domain_service=None` is the deliberate shared-content path for curriculum KU/PS/LP. See [RELATIONSHIPS_ARCHITECTURE.md § Ownership Coverage](../architecture/RELATIONSHIPS_ARCHITECTURE.md).
 
 ---
 
@@ -484,7 +484,7 @@ _LATERAL_DOMAINS: list[tuple[str, str, str | None]] = [
 ]
 ```
 
-**If the new domain is user-owned, this entry alone is not enough.** The third item is only a lookup key into `LateralRelationshipsOrchestrator._domain_services`, a fixed map built from explicit constructor parameters. An unregistered slug makes `get_domain_service()` return `None` **silently**, which the factory reads as "shared, no ownership check" — exposing the domain's entities to every authenticated user. Also add the service to the orchestrator's constructor and map, and wire it in the composition root. See [RELATIONSHIPS_ARCHITECTURE.md § Per-Domain Wiring](/docs/architecture/RELATIONSHIPS_ARCHITECTURE.md).
+**If the new domain is user-owned, this entry alone is not enough.** The third item is only a lookup key into `LateralRelationshipsOrchestrator._domain_services`, a fixed map built from explicit constructor parameters. An unregistered slug makes `get_domain_service()` return `None` **silently**, which the factory reads as "shared, no ownership check" — exposing the domain's entities to every authenticated user. Also add the service to the orchestrator's constructor and map, and wire it in the composition root. See [RELATIONSHIPS_ARCHITECTURE.md § Per-Domain Wiring](../architecture/RELATIONSHIPS_ARCHITECTURE.md).
 
 ---
 

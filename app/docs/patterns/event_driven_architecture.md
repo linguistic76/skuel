@@ -1,6 +1,6 @@
 ---
 title: Event-Driven Architecture
-updated: 2026-08-28
+updated: 2026-09-05
 category: patterns
 related_skills:
 - python
@@ -278,7 +278,7 @@ Event handlers across all 6 Activity Domains and the Learning Loop persist struc
 
 **Wiring:** `services_bootstrap/_event_wiring.py` passes `insight_store` to all 6 Activity Domain facades (which forward it to their per-domain `*EventHandlerService` and `*IntelligenceService` — `HabitEventHandlerService`, `GoalsIntelligenceService`, and so on — via `BaseAnalyticsService`) and directly to `LearningLoopEventHandlerService`.
 
-**See:** [INSIGHT_ACTION_TRACKING.md](/docs/patterns/INSIGHT_ACTION_TRACKING.md), [SUB_SERVICE_CATALOG.md](/docs/reference/SUB_SERVICE_CATALOG.md)
+**See:** [INSIGHT_ACTION_TRACKING.md](INSIGHT_ACTION_TRACKING.md), [SUB_SERVICE_CATALOG.md](../reference/SUB_SERVICE_CATALOG.md)
 
 ---
 
@@ -300,8 +300,8 @@ The arrays cannot drift from the wiring, because the wiring *is* the arrays.
 
 ## Related Documentation
 
-- [Knowledge Substance Philosophy](/docs/architecture/knowledge_substance_philosophy.md) - Uses event-driven substance tracking
-- [Service Creation Template](/docs/reference/templates/service_creation.md)
+- [Knowledge Substance Philosophy](../architecture/knowledge_substance_philosophy.md) - Uses event-driven substance tracking
+- [Service Creation Template](../reference/templates/service_creation.md)
 - `core/events/base.py` - Defining, publishing and subscribing; `core/events/README.md` - the rules
 - `services_bootstrap/_event_wiring.py` - most subscription wiring (not all: components that own their handlers subscribe themselves; `git grep '.subscribe('` finds every site)
 

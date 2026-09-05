@@ -1,6 +1,6 @@
 ---
 title: Authentication Patterns in SKUEL
-updated: '2026-08-22'
+updated: '2026-09-05'
 category: patterns
 related_skills: [security]
 related_docs: []
@@ -695,6 +695,6 @@ factory = CRUDRouteFactory(
 
 ## See Also
 
-- [ADR-018: User Roles Four-Tier System](/docs/decisions/ADR-018-user-roles-four-tier-system.md)
-- [ADR-022: Graph-Native Authentication](/docs/decisions/ADR-022-graph-native-authentication.md)
+- [ADR-018: User Roles Four-Tier System](../decisions/ADR-018-user-roles-four-tier-system.md)
+- [ADR-022: Graph-Native Authentication](../decisions/ADR-022-graph-native-authentication.md)
 - `/docs/patterns/OWNERSHIP_VERIFICATION.md`

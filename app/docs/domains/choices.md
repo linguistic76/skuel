@@ -1,7 +1,7 @@
 ---
 title: Choices Domain
 created: 2025-12-04
-updated: 2026-09-04
+updated: 2026-09-05
 status: current
 category: domains
 tags: [choices, activity-domain, domain]
@@ -43,7 +43,7 @@ Choices represent decisions with outcome tracking. They connect knowledge, princ
 | `ChoiceType` | `core.models.enums` | BINARY, MULTIPLE, RANKING, ALLOCATION, STRATEGIC, OPERATIONAL | `choice_type` |
 | `Priority` | `core.models.enums` | LOW, MEDIUM, HIGH, CRITICAL | `priority` |
 
-**See:** [Enum Architecture](/docs/architecture/ENUM_ARCHITECTURE.md)
+**See:** [Enum Architecture](../architecture/ENUM_ARCHITECTURE.md)
 
 ## Facade Pattern (February 2026, mixins April 2026)
 
@@ -374,7 +374,7 @@ Choices support full decision lifecycle:
 | `get_needing_decision(user_uid, days=7)` | Choices with deadline approaching |
 | `get_prioritized(user_uid, limit=10)` | Smart prioritization |
 
-**Full catalog:** [Search Service Methods Reference](/docs/reference/SEARCH_SERVICE_METHODS.md)
+**Full catalog:** [Search Service Methods Reference](../reference/SEARCH_SERVICE_METHODS.md)
 
 ## Intelligence Service
 
@@ -386,7 +386,7 @@ Choices support full decision lifecycle:
 | `get_decision_intelligence(uid)` | AI-powered decision insights |
 | `analyze_choice_impact(uid)` | Impact analysis across domains |
 
-**See:** [Intelligence Services Index](/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md)
+**See:** [Intelligence Services Index](../intelligence/INTELLIGENCE_SERVICES_INDEX.md)
 
 ## See Also
 
@@ -394,4 +394,4 @@ Choices support full decision lifecycle:
 - [Goals Domain](goals.md) - Choices affect goals
 - [Knowledge (KU) Domain](ku.md) - Knowledge informs choices
 - [Tasks Domain](tasks.md) - Tasks implement choices
-- [Intelligence Services Index](/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md)
+- [Intelligence Services Index](../intelligence/INTELLIGENCE_SERVICES_INDEX.md)

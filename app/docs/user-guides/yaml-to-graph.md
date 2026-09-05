@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-03
+updated: 2026-09-05
 ---
 
 # YAML to Graph — A Creator's Guide to SKUEL Content
@@ -94,7 +94,7 @@ Note the UID normalization: colons in YAML (`ku.mindfulness.breath`) become dots
 
 ## The Composition — PathStep
 
-A PathStep is THE curriculum content entity in SKUEL. Where a Ku names a single concept, a PathStep weaves multiple Kus into coherent learning content with full markdown. PathSteps are the "textbook pages" of SKUEL — and they also connect that content to practice (habits, tasks, choices, events, principles). See [PATHSTEP_CONTENT_ARCHITECTURE.md](/docs/architecture/PATHSTEP_CONTENT_ARCHITECTURE.md) for the full content model.
+A PathStep is THE curriculum content entity in SKUEL. Where a Ku names a single concept, a PathStep weaves multiple Kus into coherent learning content with full markdown. PathSteps are the "textbook pages" of SKUEL — and they also connect that content to practice (habits, tasks, choices, events, principles). See [PATHSTEP_CONTENT_ARCHITECTURE.md](../architecture/PATHSTEP_CONTENT_ARCHITECTURE.md) for the full content model.
 
 ### uses_kus — Composing Atoms
 

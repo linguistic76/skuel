@@ -1,12 +1,12 @@
 ---
-updated: 2026-08-30
+updated: 2026-09-05
 ---
 
 # Graceful Degradation Architecture
 
 **Status:** Active
 **Date:** 2026-03-07
-**Related:** [ADR-043 Intelligence Tier Toggle](/docs/decisions/ADR-043-intelligence-tier-toggle.md)
+**Related:** [ADR-043 Intelligence Tier Toggle](../decisions/ADR-043-intelligence-tier-toggle.md)
 
 ## Core Principle
 

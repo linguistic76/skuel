@@ -1,5 +1,5 @@
 ---
-updated: 2026-08-20
+updated: 2026-09-05
 ---
 
 # Model Architecture
@@ -248,14 +248,14 @@ Intelligence logic lives in `*IntelligenceService` classes (extending `BaseAnaly
 
 The one exception is `core/models/finance/finance_intelligence.py` which defines `FinancialHealthScore` and related enums used by `cross_domain_analytics_service.py`.
 
-**See:** [ADR-048 Adaptive Learning Loop](/docs/decisions/ADR-048-adaptive-learning-loop.md) for the architecture of learning from outcomes.
+**See:** [ADR-048 Adaptive Learning Loop](../decisions/ADR-048-adaptive-learning-loop.md) for the architecture of learning from outcomes.
 
 ---
 
 ## See Also
 
 - [Enum Architecture](ENUM_ARCHITECTURE.md) — Enum landscape, enum-to-model wiring, dynamic patterns
-- [Three-Tier Type System](/docs/patterns/three_tier_type_system.md) — Pattern details and rationale
-- [Domain Patterns Catalog](/docs/patterns/DOMAIN_PATTERNS_CATALOG.md) — Per-domain examples
+- [Three-Tier Type System](../patterns/three_tier_type_system.md) — Pattern details and rationale
+- [Domain Patterns Catalog](../patterns/DOMAIN_PATTERNS_CATALOG.md) — Per-domain examples
 - [Entity Type Architecture](ENTITY_TYPE_ARCHITECTURE.md) — Entity types and relationships
 - Source: `core/models/` (194 files, 30 packages)

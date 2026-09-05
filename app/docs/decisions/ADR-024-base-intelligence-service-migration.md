@@ -1,6 +1,6 @@
 ---
 title: "ADR-024: BaseIntelligenceService Migration (now BaseAnalyticsService)"
-updated: 2026-09-04
+updated: 2026-09-05
 status: accepted
 category: decisions
 tags: [adr, decisions, intelligence-services, base-class, facade-pattern, intelligence-operations-protocol, analytics, ai-separation]
@@ -148,8 +148,8 @@ class BaseIntelligenceService(Generic[B, T]):
 - [@base-ai-service](../../.claude/skills/base-ai-service/SKILL.md) - AI service patterns (for future AI layer)
 
 **Documentation:**
-- [INTELLIGENCE_SERVICES_INDEX.md](/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md) - Complete intelligence services guide
-- [SERVICE_CONSOLIDATION_PATTERNS.md](/docs/patterns/SERVICE_CONSOLIDATION_PATTERNS.md) - Service patterns
+- [INTELLIGENCE_SERVICES_INDEX.md](../intelligence/INTELLIGENCE_SERVICES_INDEX.md) - Complete intelligence services guide
+- [SERVICE_CONSOLIDATION_PATTERNS.md](../patterns/SERVICE_CONSOLIDATION_PATTERNS.md) - Service patterns
 
 **Code Locations:**
 - `/core/services/base_analytics_service.py` - Graph analytics base class (NO AI dependencies)

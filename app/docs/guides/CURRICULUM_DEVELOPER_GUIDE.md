@@ -1,5 +1,5 @@
 ---
-updated: 2026-08-14
+updated: 2026-09-05
 ---
 
 # Curriculum Developer Guide
@@ -343,7 +343,7 @@ Once an Exercise is wired to a PathStep (via `(PathStep)-[:HAS_EXERCISE]->(Exerc
 4  RevisedExercise — teacher creates a targeted follow-up prompt if revision is needed
 ```
 
-The learner sees all four phases on the PathStep detail page at `/explore/ps/{uid}`. For the full loop mechanics, see [The Learning Loop Architecture](/docs/architecture/LEARNING_LOOP_ARCHITECTURE.md).
+The learner sees all four phases on the PathStep detail page at `/explore/ps/{uid}`. For the full loop mechanics, see [The Learning Loop Architecture](../architecture/LEARNING_LOOP_ARCHITECTURE.md).
 
 **Guidelines:**
 
@@ -726,7 +726,7 @@ When activities link back to PathSteps, substance counters track how much knowle
 
 Total capped at 1.0. The five YAML-declared channels (Habits, Choices, Principles, Events, Tasks) wire via `connections.*` fields on the activity entity. The sixth channel — UserEntry/reflection — is pipeline-driven: the `EXTRACT_ACTIVITIES` pipeline links a completed UserEntry to the PathStep it references and increments the counter automatically; no YAML declaration needed.
 
-For the complete reference, see the **[YAML Authoring Guide](/docs/guides/YAML_AUTHORING_GUIDE.md)** and the **[Knowledge Substance Philosophy](/docs/architecture/knowledge_substance_philosophy.md)**.
+For the complete reference, see the **[YAML Authoring Guide](YAML_AUTHORING_GUIDE.md)** and the **[Knowledge Substance Philosophy](../architecture/knowledge_substance_philosophy.md)**.
 
 ---
 
@@ -786,10 +786,10 @@ Place files in `/home/mike/0bsidian/0vault/` and ingest. The system handles node
 
 This guide covers: Kus, PathSteps, Exercises, prerequisite chains, activity wiring, the three-entity curriculum stack (Ku → PathStep → LP), cross-domain progression, and the practical workflow. For deeper reference:
 
-- **[The Learning Loop](/docs/architecture/LEARNING_LOOP_ARCHITECTURE.md)** — the four-phase cycle (Exercise → UserEntry → EntryReport → RevisedExercise) that closes around each PathStep; how student work is collected, evaluated by AI or teacher, and used to drive targeted revision
-- **[Askesis Pedagogical Architecture](/docs/architecture/ASKESIS_PEDAGOGICAL_ARCHITECTURE.md)** — how the AI tutor uses your curriculum graph and the learner's ZPD assessment to surface the right PathStep at the right moment
-- **[Unified Ingestion Guide](/docs/patterns/UNIFIED_INGESTION_GUIDE.md)** — bulk ingestion, dry-run mode, incremental updates, vault management, and deletion propagation (entity file deleted → graph node deleted; edge file deleted → relationship deleted)
-- **[YAML Authoring Guide](/docs/guides/YAML_AUTHORING_GUIDE.md)** — complete field reference per entity type, the connections system, edge files, enum-governed fields, and bundle structure
+- **[The Learning Loop](../architecture/LEARNING_LOOP_ARCHITECTURE.md)** — the four-phase cycle (Exercise → UserEntry → EntryReport → RevisedExercise) that closes around each PathStep; how student work is collected, evaluated by AI or teacher, and used to drive targeted revision
+- **[Askesis Pedagogical Architecture](../architecture/ASKESIS_PEDAGOGICAL_ARCHITECTURE.md)** — how the AI tutor uses your curriculum graph and the learner's ZPD assessment to surface the right PathStep at the right moment
+- **[Unified Ingestion Guide](../patterns/UNIFIED_INGESTION_GUIDE.md)** — bulk ingestion, dry-run mode, incremental updates, vault management, and deletion propagation (entity file deleted → graph node deleted; edge file deleted → relationship deleted)
+- **[YAML Authoring Guide](YAML_AUTHORING_GUIDE.md)** — complete field reference per entity type, the connections system, edge files, enum-governed fields, and bundle structure
 
 Start small. Pick a domain. Define 2-4 Kus. Write 3 PathSteps as `.md` files. Write one Exercise per PathStep. Wire a few activities. Build the LP structure. Write edge files. Ingest and see what the system builds.
 

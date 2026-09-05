@@ -1,6 +1,6 @@
 ---
 title: Three-Tier Type System
-updated: 2026-09-02
+updated: 2026-09-05
 category: patterns
 related_skills:
 - python
@@ -46,7 +46,7 @@ External World → [Pydantic] → [DTOs] → [Domain Models] → Core Logic
 
 ## Data Flow Overview
 
-**See [DATA_FLOW_WALKTHROUGH.md](/docs/tutorials/DATA_FLOW_WALKTHROUGH.md) for a complete step-by-step example following a Task creation request through all tiers.**
+**See [DATA_FLOW_WALKTHROUGH.md](../tutorials/DATA_FLOW_WALKTHROUGH.md) for a complete step-by-step example following a Task creation request through all tiers.**
 
 ### Create Flow (HTTP → Neo4j)
 
@@ -918,7 +918,7 @@ if enrichment is not None:
 
 ## Complete Example: Following a Request
 
-See [DATA_FLOW_WALKTHROUGH.md](/docs/tutorials/DATA_FLOW_WALKTHROUGH.md) for a comprehensive example following a Task creation request through all three tiers, showing:
+See [DATA_FLOW_WALKTHROUGH.md](../tutorials/DATA_FLOW_WALKTHROUGH.md) for a comprehensive example following a Task creation request through all three tiers, showing:
 - Exact code files involved at each stage
 - What data looks like at each transformation
 - Why each conversion happens
@@ -953,9 +953,9 @@ Does the domain have 3+ business logic methods?
 
 ## See Also
 
-- [DATA_FLOW_WALKTHROUGH.md](/docs/tutorials/DATA_FLOW_WALKTHROUGH.md) - Complete step-by-step example
-- [Model Architecture](/docs/architecture/MODEL_ARCHITECTURE.md) - Class hierarchy, directory layout, three-tier flow
-- [Enum Architecture](/docs/architecture/ENUM_ARCHITECTURE.md) - Enum landscape and dynamic patterns
+- [DATA_FLOW_WALKTHROUGH.md](../tutorials/DATA_FLOW_WALKTHROUGH.md) - Complete step-by-step example
+- [Model Architecture](../architecture/MODEL_ARCHITECTURE.md) - Class hierarchy, directory layout, three-tier flow
+- [Enum Architecture](../architecture/ENUM_ARCHITECTURE.md) - Enum landscape and dynamic patterns
 - [Protocol-Based Architecture](#protocol-based-architecture) in CLAUDE.md
-- [Unified User Architecture](/docs/architecture/UNIFIED_USER_ARCHITECTURE.md)
+- [Unified User Architecture](../architecture/UNIFIED_USER_ARCHITECTURE.md)
 - [DOMAIN_PATTERNS_CATALOG.md](DOMAIN_PATTERNS_CATALOG.md) - Complete per-domain examples

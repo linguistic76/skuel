@@ -1,5 +1,5 @@
 ---
-updated: 2026-07-29
+updated: 2026-09-05
 ---
 
 # Lateral Relationships - Complete Implementation ✅
@@ -20,7 +20,7 @@ updated: 2026-07-29
 > migration created, and rewriting them would falsify the history. `./dev health-links`
 > therefore reports ~31 broken references here **by design**.
 >
-> Current reference: [RELATIONSHIPS_ARCHITECTURE.md § Lateral Relationships](/docs/architecture/RELATIONSHIPS_ARCHITECTURE.md).
+> Current reference: [RELATIONSHIPS_ARCHITECTURE.md § Lateral Relationships](../architecture/RELATIONSHIPS_ARCHITECTURE.md).
 > The companion how-to guide (`DOMAIN_LATERAL_SERVICE_QUICK_START.md`) was deleted for
 > teaching the superseded wrapper pattern.
 

@@ -1,7 +1,7 @@
 ---
 title: YAML Authoring Guide
 created: 2026-03-21
-updated: 2026-08-15
+updated: 2026-09-05
 status: current
 category: guides
 tags: [yaml, ingestion, authoring, substance, relationships, curriculum, activity-domains]
@@ -178,7 +178,7 @@ Many YAML fields are constrained by Python enums — using an invalid value will
 | `recurrence_pattern` | `RecurrencePattern` | `none`, `daily`, `weekdays`, `weekends`, `weekly`, `biweekly`, `monthly`, `quarterly`, `yearly`, `custom` |
 | `sel_category` | `SELCategory` | `self_awareness`, `self_management`, `social_awareness`, `relationship_skills`, `responsible_decision_making` |
 
-All enum classes live in `core/models/enums/`. For the complete enum catalog and the field-to-enum mapping, see [Enum Architecture](/docs/architecture/ENUM_ARCHITECTURE.md).
+All enum classes live in `core/models/enums/`. For the complete enum catalog and the field-to-enum mapping, see [Enum Architecture](../architecture/ENUM_ARCHITECTURE.md).
 
 ### Entity Status
 
@@ -227,7 +227,7 @@ Activity (Task, Goal, Habit, Event, Choice, Principle):
               +→ postponed    +→ cancelled / failed
 ```
 
-See [Enum Architecture](/docs/architecture/ENUM_ARCHITECTURE.md) for the full transition map and status check methods.
+See [Enum Architecture](../architecture/ENUM_ARCHITECTURE.md) for the full transition map and status check methods.
 
 ### Ownership
 
@@ -777,10 +777,10 @@ YAML Author writes type + connections.*
 
 ## Related Documentation
 
-- [Knowledge Substance Philosophy](/docs/architecture/knowledge_substance_philosophy.md) — scoring model, decay, life path alignment
-- [Unified Ingestion Guide](/docs/patterns/UNIFIED_INGESTION_GUIDE.md) — full ingestion API
+- [Knowledge Substance Philosophy](../architecture/knowledge_substance_philosophy.md) — scoring model, decay, life path alignment
+- [Unified Ingestion Guide](../patterns/UNIFIED_INGESTION_GUIDE.md) — full ingestion API
 - [Relationship Registry](/core/models/relationship_registry.py) — source of truth for `yaml_field_path` mappings
-- [Entity Type Architecture](/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md) — all entity types
+- [Entity Type Architecture](../architecture/ENTITY_TYPE_ARCHITECTURE.md) — all entity types
 - [YAML Templates README](/yaml_templates/README.md) — directory structure and UID formats
 - [Schema Templates](/yaml_templates/_schemas/) — complete field reference per entity type
 

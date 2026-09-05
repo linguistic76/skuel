@@ -1,6 +1,6 @@
 ---
 title: "ADR-035: Three-Tier vs Two-Tier Pattern Selection Guidelines"
-updated: 2026-09-04
+updated: 2026-09-05
 status: accepted
 category: decisions
 tags: [adr, decisions, architecture, patterns, three-tier]
@@ -304,8 +304,8 @@ Neo4j → DTO → Pydantic Response (no business logic)
 - [@pydantic](../../.claude/skills/pydantic/SKILL.md) - Pydantic request model validation (Tier 1)
 
 **Pattern Documentation:**
-- [three_tier_type_system.md](/docs/patterns/three_tier_type_system.md) - Complete pattern guide
-- [DOMAIN_PATTERNS_CATALOG.md](/docs/patterns/DOMAIN_PATTERNS_CATALOG.md) - Working examples
+- [three_tier_type_system.md](../patterns/three_tier_type_system.md) - Complete pattern guide
+- [DOMAIN_PATTERNS_CATALOG.md](../patterns/DOMAIN_PATTERNS_CATALOG.md) - Working examples
 
 **Code Locations:**
 - `/core/models/{domain}/{domain}.py` - Pattern A: Domain models (frozen dataclasses)

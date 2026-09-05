@@ -1,6 +1,6 @@
 ---
 title: "SKUEL Routing Architecture: Routes, Services, and Persistence"
-updated: 2026-09-04
+updated: 2026-09-05
 status: current
 category: architecture
 tags: [architecture, routing, security]
@@ -1030,9 +1030,9 @@ This architecture ensures:
 
 ## See Also
 
-- [Route Decorator Architecture](/docs/patterns/ROUTE_DECORATOR_ARCHITECTURE.md) — Decorator composition (`@rt` + `@boundary_handler`), lateral routes, FastHTML alignment
-- [Route Factories](/docs/patterns/ROUTE_FACTORIES.md) — Factory reference (CRUD, Status, Query, Intelligence, Analytics)
-- [Route Naming Convention](/docs/patterns/ROUTE_NAMING_CONVENTION.md) — File naming: `_routes.py`, `_api.py`, `_ui.py`
+- [Route Decorator Architecture](../patterns/ROUTE_DECORATOR_ARCHITECTURE.md) — Decorator composition (`@rt` + `@boundary_handler`), lateral routes, FastHTML alignment
+- [Route Factories](../patterns/ROUTE_FACTORIES.md) — Factory reference (CRUD, Status, Query, Intelligence, Analytics)
+- [Route Naming Convention](../patterns/ROUTE_NAMING_CONVENTION.md) — File naming: `_routes.py`, `_api.py`, `_ui.py`
 
 *Last Updated: March 3, 2026*
 *Architecture: Routes → Services → Backends → Neo4j*

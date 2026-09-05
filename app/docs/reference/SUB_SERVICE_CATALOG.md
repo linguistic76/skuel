@@ -1,5 +1,5 @@
 ---
-updated: 2026-08-25
+updated: 2026-09-05
 ---
 
 # Sub-Service Responsibility Catalog
@@ -352,7 +352,7 @@ All 6 Activity Domain event handlers and the Learning Loop handler accept an opt
 - Cross-domain insight generation from event context
 - Pattern detection that doesn't need to block the original operation
 
-**See:** [INSIGHT_ACTION_TRACKING.md](/docs/patterns/INSIGHT_ACTION_TRACKING.md)
+**See:** [INSIGHT_ACTION_TRACKING.md](../patterns/INSIGHT_ACTION_TRACKING.md)
 
 **Example:**
 ```python
@@ -743,9 +743,9 @@ metrics_result = await tasks.intelligence.analyze_task_learning_metrics(user_uid
 
 ## See Also
 
-- [BaseService Method Index](/docs/reference/BASESERVICE_METHOD_INDEX.md) - Complete method listing
-- [Service Topology](/docs/architecture/SERVICE_TOPOLOGY.md) - Architecture diagrams
-- [Quick Start Guide](/docs/guides/BASESERVICE_QUICK_START.md) - New developer onboarding
+- [BaseService Method Index](BASESERVICE_METHOD_INDEX.md) - Complete method listing
+- [Service Topology](../architecture/SERVICE_TOPOLOGY.md) - Architecture diagrams
+- [Quick Start Guide](../guides/BASESERVICE_QUICK_START.md) - New developer onboarding
 - [BaseService Implementation](/core/services/base_service.py) - Source code
 - [Example Facade Service](/core/services/tasks_service.py) - Explicit delegation pattern
 - [Activity Domain Config](/core/services/activity_domain_config.py) - Factory pattern

@@ -1,6 +1,6 @@
 ---
 title: Embeddings Setup
-updated: 2026-08-16
+updated: 2026-09-05
 ---
 # Embeddings Setup (OpenAI Embeddings API)
 
@@ -15,7 +15,7 @@ SKUEL generates embeddings via the OpenAI Embeddings API using `text-embedding-3
 **1024 dimensions** (requested via the API `dimensions` parameter; native is 1536). Embeddings
 are generated Python-side — no Neo4j plugin required.
 
-**See:** [ADR-068: OpenAI Embeddings Now, BGE Long-Term](/docs/decisions/ADR-068-openai-embeddings-now-bge-later.md)
+**See:** [ADR-068: OpenAI Embeddings Now, BGE Long-Term](../decisions/ADR-068-openai-embeddings-now-bge-later.md)
 
 ### Architecture
 
@@ -28,7 +28,7 @@ are generated Python-side — no Neo4j plugin required.
 
 **BGE long-term:** `HuggingFaceEmbeddingAdapter` stays in the codebase as the staged long-term
 provider, targeting the committed end-state model **`BAAI/bge-m3`** (8,192-token context, also
-1024-dim dense — [ADR-083](/docs/decisions/ADR-083-qwen-bge-end-state-commitment.md), Arc 1). A
+1024-dim dense — [ADR-083](../decisions/ADR-083-qwen-bge-end-state-commitment.md), Arc 1). A
 CI guard (`tests/unit/test_chunk_embedding_budget.py`) asserts worst-case chunk sizes fit every
 adapter's input budget, so chunking grain can't drift past the staged window again. Swapping =
 one line in the factory + an `EMBEDDING_VERSION` bump + re-embed (Arc 3). Vector indexes stay
@@ -234,13 +234,13 @@ uv run python scripts/create_vector_indexes.py
 
 ## See Also
 
-- [ADR-083: Qwen + BGE End-State — Committed Destination, Staged Convergence](/docs/decisions/ADR-083-qwen-bge-end-state-commitment.md)
-- [ADR-068: OpenAI Embeddings Now, BGE Long-Term](/docs/decisions/ADR-068-openai-embeddings-now-bge-later.md)
-- [ADR-049: HuggingFace Embeddings Migration](/docs/decisions/ADR-049-huggingface-embeddings-migration.md) (superseded in part)
-- [ADR-063: LLM/Embeddings SDK Ports](/docs/decisions/ADR-063-llm-embeddings-sdk-ports.md)
-- [Graceful Degradation Architecture](/docs/architecture/GRACEFUL_DEGRADATION_ARCHITECTURE.md)
-- [Search Architecture](/docs/architecture/SEARCH_ARCHITECTURE.md)
-- [AuraDB Migration Guide](/docs/deployment/AURADB_MIGRATION_GUIDE.md)
+- [ADR-083: Qwen + BGE End-State — Committed Destination, Staged Convergence](../decisions/ADR-083-qwen-bge-end-state-commitment.md)
+- [ADR-068: OpenAI Embeddings Now, BGE Long-Term](../decisions/ADR-068-openai-embeddings-now-bge-later.md)
+- [ADR-049: HuggingFace Embeddings Migration](../decisions/ADR-049-huggingface-embeddings-migration.md) (superseded in part)
+- [ADR-063: LLM/Embeddings SDK Ports](../decisions/ADR-063-llm-embeddings-sdk-ports.md)
+- [Graceful Degradation Architecture](../architecture/GRACEFUL_DEGRADATION_ARCHITECTURE.md)
+- [Search Architecture](../architecture/SEARCH_ARCHITECTURE.md)
+- [AuraDB Migration Guide](../deployment/AURADB_MIGRATION_GUIDE.md)
 
 ---
 

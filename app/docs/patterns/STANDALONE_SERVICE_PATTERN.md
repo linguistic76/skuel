@@ -1,6 +1,6 @@
 ---
 title: Standalone Service Pattern
-updated: 2026-04-14
+updated: 2026-09-05
 category: patterns
 related_skills:
 - base-analytics-service
@@ -11,7 +11,7 @@ related_docs:
 
 When to use a standalone service instead of extending `BaseService`.
 
-**Decision context:** See [ADR-019](/docs/decisions/ADR-019-transcription-service-standalone.md) for the transcription service case study.
+**Decision context:** See [ADR-019](../decisions/ADR-019-transcription-service-standalone.md) for the transcription service case study.
 
 ---
 ## Related Skills
@@ -265,7 +265,7 @@ transcription_service = TranscriptionService(
 )
 ```
 
-See: [Deepgram Configuration Guide](/docs/configuration/DEEPGRAM_CONFIG.md) for all available options.
+See: [Deepgram Configuration Guide](../configuration/DEEPGRAM_CONFIG.md) for all available options.
 
 ---
 
@@ -285,6 +285,6 @@ See: [Deepgram Configuration Guide](/docs/configuration/DEEPGRAM_CONFIG.md) for 
 
 ## See Also
 
-- **Decision context:** [ADR-019](/docs/decisions/ADR-019-transcription-service-standalone.md) - Transcription simplification
+- **Decision context:** [ADR-019](../decisions/ADR-019-transcription-service-standalone.md) - Transcription simplification
 - **Event-driven architecture:** `/docs/patterns/event_driven_architecture.md`
 - **BaseService pattern:** `/docs/patterns/CONFIGURATION_DRIVEN_SERVICE_ARCHITECTURE.md`

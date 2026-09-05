@@ -1,7 +1,7 @@
 ---
 title: Habits Domain
 created: 2025-12-04
-updated: 2026-08-22
+updated: 2026-09-05
 status: current
 category: domains
 tags:
@@ -62,7 +62,7 @@ Habits represent recurring behaviors with streak tracking. They form the "system
 | `TimeOfDay` | `core.models.enums` | EARLY_MORNING, MORNING, AFTERNOON, EVENING, NIGHT, LATE_NIGHT, ANYTIME | `preferred_time` |
 | `Priority` | `core.models.enums` | LOW, MEDIUM, HIGH, CRITICAL | `priority` |
 
-**See:** [Enum Architecture](/docs/architecture/ENUM_ARCHITECTURE.md)
+**See:** [Enum Architecture](../architecture/ENUM_ARCHITECTURE.md)
 
 ## Facade Pattern (April 2026)
 
@@ -240,7 +240,7 @@ The habit model tracks all four components of the habit loop:
 | `get_knowledge_reinforcement_opportunities(user_uid)` | KU-habit connection opportunities |
 | `get_prioritized(user_uid, limit=10)` | Smart prioritization |
 
-**Full catalog:** [Search Service Methods Reference](/docs/reference/SEARCH_SERVICE_METHODS.md)
+**Full catalog:** [Search Service Methods Reference](../reference/SEARCH_SERVICE_METHODS.md)
 
 ## Intelligence Service
 
@@ -253,7 +253,7 @@ The habit model tracks all four components of the habit loop:
 | `get_stacking_recommendations(uid)` | Habit stacking suggestions |
 | `identify_at_risk_habits(user_uid)` | Habits with declining streaks |
 
-**See:** [Intelligence Services Index](/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md)
+**See:** [Intelligence Services Index](../intelligence/INTELLIGENCE_SERVICES_INDEX.md)
 
 ## Planning Service (January 2026)
 

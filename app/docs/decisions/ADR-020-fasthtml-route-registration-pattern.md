@@ -1,5 +1,5 @@
 ---
-updated: 2026-03-10
+updated: 2026-09-05
 ---
 
 # ADR-020: FastHTML Route Registration Pattern
@@ -119,7 +119,7 @@ def create_domain_routes(_app, rt, service, user_service):
 - [@fasthtml](../../.claude/skills/fasthtml/SKILL.md) - FastHTML route registration patterns
 
 **Pattern Documentation:**
-- [FASTHTML_ROUTE_REGISTRATION.md](/docs/patterns/FASTHTML_ROUTE_REGISTRATION.md) - Route registration patterns
+- [FASTHTML_ROUTE_REGISTRATION.md](../patterns/FASTHTML_ROUTE_REGISTRATION.md) - Route registration patterns
 
 **Code Locations:**
 - `/adapters/inbound/` - All route files (no `routes = []` pattern)

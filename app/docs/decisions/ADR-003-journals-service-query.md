@@ -1,6 +1,6 @@
 ---
 title: "ADR-003: Journal Context Gathering Query"
-updated: 2026-09-04
+updated: 2026-09-05
 status: current
 category: decisions
 tags: [003, adr, decisions, journals, query]
@@ -387,7 +387,7 @@ The transcript processor was refactored to streamline journal processing:
 > **UserEntry** (April 2026). Journal *sessions* have not been stored at all since ADR-073
 > (a saved chat is an owner-private `:ConversationSession`, ADR-078); the notes around
 > journaling are `UserEntry` rows on other pipelines (`knowledge`, `extract_activities`, `none`). See
-> [ADR-054](/docs/decisions/ADR-054-user-entry-unified-submissions.md) and
+> [ADR-054](ADR-054-user-entry-unified-submissions.md) and
 > `/docs/domains/user_entry.md`.
 
 ### Updated Architecture

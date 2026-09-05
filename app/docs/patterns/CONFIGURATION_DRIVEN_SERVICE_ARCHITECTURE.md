@@ -1,6 +1,6 @@
 ---
 title: Configuration-Driven Service Architecture
-updated: 2026-08-21
+updated: 2026-09-05
 category: patterns
 related_skills:
 - base-analytics-service
@@ -13,7 +13,7 @@ related_docs:
 
 How SKUEL services use DomainConfig for unified, type-safe configuration.
 
-**Decision context:** See [ADR-023](/docs/decisions/ADR-023-curriculum-baseservice-migration.md) for the unification decision.
+**Decision context:** See [ADR-023](../decisions/ADR-023-curriculum-baseservice-migration.md) for the unification decision.
 
 **Migration Status:** ✅ **100% Complete** (January 2026) - All services migrated to DomainConfig.
 
@@ -331,6 +331,6 @@ The unified architecture achieved significant code reduction:
 
 ## See Also
 
-- **Decision context:** [ADR-023](/docs/decisions/ADR-023-curriculum-baseservice-migration.md)
+- **Decision context:** [ADR-023](../decisions/ADR-023-curriculum-baseservice-migration.md)
 - **DomainConfig pattern:** `/docs/patterns/SERVICE_CONSOLIDATION_PATTERNS.md`
 - **Protocol architecture:** `/docs/patterns/protocol_architecture.md`

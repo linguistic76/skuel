@@ -1,6 +1,6 @@
 ---
 title: Domain Patterns Catalog
-updated: 2026-08-06
+updated: 2026-09-05
 category: patterns
 related_skills:
 - python
@@ -23,9 +23,9 @@ For implementation guidance, see:
 SKUEL uses **two approved patterns** for domain implementation. This catalog documents both patterns with complete examples, data flows, and decision guidance.
 
 **See also**:
-- [ADR-035](/docs/decisions/ADR-035-tier-selection-guidelines.md) - Why we have two patterns
-- [Three-Tier Type System](/docs/patterns/three_tier_type_system.md) - Tier definitions
-- [DATA_FLOW_WALKTHROUGH](/docs/tutorials/DATA_FLOW_WALKTHROUGH.md) - Complete example
+- [ADR-035](../decisions/ADR-035-tier-selection-guidelines.md) - Why we have two patterns
+- [Three-Tier Type System](three_tier_type_system.md) - Tier definitions
+- [DATA_FLOW_WALKTHROUGH](../tutorials/DATA_FLOW_WALKTHROUGH.md) - Complete example
 
 ---
 
@@ -905,7 +905,7 @@ core/models/{domain}/
 
 ## Related Documentation
 
-- [ADR-035](/docs/decisions/ADR-035-tier-selection-guidelines.md) - Decision rationale
-- [Three-Tier Type System](/docs/patterns/three_tier_type_system.md) - Tier definitions
-- [DATA_FLOW_WALKTHROUGH](/docs/tutorials/DATA_FLOW_WALKTHROUGH.md) - Complete example
+- [ADR-035](../decisions/ADR-035-tier-selection-guidelines.md) - Decision rationale
+- [Three-Tier Type System](three_tier_type_system.md) - Tier definitions
+- [DATA_FLOW_WALKTHROUGH](../tutorials/DATA_FLOW_WALKTHROUGH.md) - Complete example
 - [CLAUDE.md](/CLAUDE.md) - Quick reference section

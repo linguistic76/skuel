@@ -1,6 +1,6 @@
 ---
 title: Knowledge-Health Gauge
-updated: 2026-08-15
+updated: 2026-09-05
 status: current
 category: tools
 tags: [analytics, knowledge, graph, authoring, gds, adr-080, embeddings]
@@ -33,10 +33,10 @@ scope filters live in `core/services/embeddings/retrievability.py` (shared
 with the backfill script, drift-tested).
 
 Not to be confused with `./dev health` (codebase rot — see
-[HEALTH_CHECKS.md](/docs/tools/HEALTH_CHECKS.md)): this gauge measures the
+[HEALTH_CHECKS.md](HEALTH_CHECKS.md)): this gauge measures the
 *content graph*, and doubles as the density gate for the deferred GDS work.
 
 **Other surfaces:** admin page `/admin/knowledge-health`; 6 knowledge-scoped
 Prometheus gauges fed by the 5-minute graph-health poller.
 
-**See:** [ADR-080](/docs/decisions/ADR-080-auradb-three-horizon-strategy.md) § Horizon 1
+**See:** [ADR-080](../decisions/ADR-080-auradb-three-horizon-strategy.md) § Horizon 1

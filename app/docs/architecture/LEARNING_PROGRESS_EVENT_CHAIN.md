@@ -1,6 +1,6 @@
 ---
 title: Learning Progress Event Chain
-updated: 2026-08-28
+updated: 2026-09-05
 status: current
 category: architecture
 related:
@@ -200,6 +200,6 @@ earlier AI score.
 
 | Document | What It Covers |
 |----------|---------------|
-| [LEARNING_LOOP_ARCHITECTURE.md](/docs/architecture/LEARNING_LOOP_ARCHITECTURE.md) | The four-phase loop this chain supports |
-| [CURRICULUM_GROUPING_PATTERNS.md](/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md) | KU / PS / LP hierarchy and relationships |
-| [event_driven_architecture.md](/docs/patterns/event_driven_architecture.md) | Event bus infrastructure and patterns |
+| [LEARNING_LOOP_ARCHITECTURE.md](LEARNING_LOOP_ARCHITECTURE.md) | The four-phase loop this chain supports |
+| [CURRICULUM_GROUPING_PATTERNS.md](CURRICULUM_GROUPING_PATTERNS.md) | KU / PS / LP hierarchy and relationships |
+| [event_driven_architecture.md](../patterns/event_driven_architecture.md) | Event bus infrastructure and patterns |

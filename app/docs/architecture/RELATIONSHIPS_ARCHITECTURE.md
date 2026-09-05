@@ -1,6 +1,6 @@
 ---
 title: Relationships Architecture
-updated: 2026-08-29
+updated: 2026-09-05
 status: current
 category: architecture
 version: 2.0.0
@@ -404,12 +404,12 @@ ORDER BY complementary.synergy_score DESC
 - `POST /api/{domain}/{uid}/lateral/{blocks,prerequisites,alternatives,complementary}` — Create (emits `HX-Trigger: relationships-changed`)
 - `DELETE /api/{domain}/{uid}/lateral/{type}/{target_uid}` — Delete (emits `HX-Trigger: relationships-changed`)
 
-**Authoring** (add/delete UI) is live on all **6 Activity** detail pages (Tasks/Goals/Habits/Events/Choices/Principles) via `EntityRelationshipsSection(authoring=True)`, gated by `PICKER_TYPES`. Curriculum KU/PS/LP stay read-only (not in `PICKER_TYPES`). The `DEPENDS_ON` scheduling edge has its own task-scoped Dependencies section (`GET|POST /tasks/{uid}/dependencies*`), kept distinct from `BLOCKS` (see the task-relationships-authoring plan, R1). See [LATERAL_RELATIONSHIPS_VISUALIZATION.md](/docs/patterns/LATERAL_RELATIONSHIPS_VISUALIZATION.md) § Authoring.
+**Authoring** (add/delete UI) is live on all **6 Activity** detail pages (Tasks/Goals/Habits/Events/Choices/Principles) via `EntityRelationshipsSection(authoring=True)`, gated by `PICKER_TYPES`. Curriculum KU/PS/LP stay read-only (not in `PICKER_TYPES`). The `DEPENDS_ON` scheduling edge has its own task-scoped Dependencies section (`GET|POST /tasks/{uid}/dependencies*`), kept distinct from `BLOCKS` (see the task-relationships-authoring plan, R1). See [LATERAL_RELATIONSHIPS_VISUALIZATION.md](../patterns/LATERAL_RELATIONSHIPS_VISUALIZATION.md) § Authoring.
 
 ---
 
 ## See Also
 
-- [UNIFIED_RELATIONSHIP_SERVICE.md](/docs/patterns/UNIFIED_RELATIONSHIP_SERVICE.md) — complete service documentation
-- [LATERAL_RELATIONSHIPS_VISUALIZATION.md](/docs/patterns/LATERAL_RELATIONSHIPS_VISUALIZATION.md) — Phase 5 vis.js integration
+- [UNIFIED_RELATIONSHIP_SERVICE.md](../patterns/UNIFIED_RELATIONSHIP_SERVICE.md) — complete service documentation
+- [LATERAL_RELATIONSHIPS_VISUALIZATION.md](../patterns/LATERAL_RELATIONSHIPS_VISUALIZATION.md) — Phase 5 vis.js integration
 - [ADR-028](/docs/decisions/ADR-028.md) — KU & MOC migration rationale

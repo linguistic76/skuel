@@ -165,7 +165,7 @@ self-report as broken):
 
 | Kind | Example | Detection Method |
 |------|---------|-----------------|
-| `[link]` | `[text](/docs/INDEX.md)` | Markdown link syntax |
+| `[link]` | `[text](../INDEX.md)` | Markdown link syntax |
 | `[backtick]` | `` `core/services/base_service.py` `` | Inline code spans that look like paths |
 | `[bare]` | `/docs/patterns/linter_rules.md` in prose | Bare absolute paths with project prefixes |
 | `[code]` | `cp core/services/base_service.py …` inside a ` ``` ` block | Path-looking tokens in fenced code blocks |
@@ -722,6 +722,7 @@ scripts/docs_updated_field.py          # Shared stamp mechanics (guard + stamper
 scripts/stamp_docs_updated.py          # Pre-commit stamper (hook check 0)
 scripts/backfill_docs_updated.py       # One-shot seed from commit history
 scripts/validate_cross_references.py   # Skill↔doc cross-reference validator
+scripts/docs_relative_links.py         # Advisory docs→docs link-form sweep (`./dev docs-links`; not in health)
 ```
 
 **Related:**

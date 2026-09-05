@@ -1,6 +1,6 @@
 ---
 title: Analytics Architecture - Statistical Aggregation Meta-Service
-updated: 2026-08-13
+updated: 2026-09-05
 status: current
 category: architecture
 tags: [architecture, analytics]
@@ -397,5 +397,5 @@ Analytics and `ActivityReport` are often confused — both aggregate activity da
 
 - [REPORT_ARCHITECTURE.md](REPORT_ARCHITECTURE.md) — `ActivityReport` and `EntryReport` patterns
 - [REPORT_ARCHITECTURE.md](REPORT_ARCHITECTURE.md) — Submission pipeline, Exercise, visibility model
-- [INTELLIGENCE_SERVICES_INDEX.md](/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md) — Domain intelligence services (extend `BaseAnalyticsService`)
+- [INTELLIGENCE_SERVICES_INDEX.md](../intelligence/INTELLIGENCE_SERVICES_INDEX.md) — Domain intelligence services (extend `BaseAnalyticsService`)
 - [Entity Type Architecture](ENTITY_TYPE_ARCHITECTURE.md)
