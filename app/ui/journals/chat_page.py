@@ -270,9 +270,12 @@ def _period_rung(kind: str, ref_date: datetime.date) -> "tuple[str, str]":
 
 
 def _period_ladder(kind: str, ref_date: datetime.date) -> Any:
-    """ "Up" links to the wider periods this note sits inside — widest last.
+    """ "Up" links to the wider periods this note sits inside — widest FIRST.
 
-    Renders nothing for a yearly note (no wider period) or an unknown kind.
+    ``_PERIOD_LADDER`` stores rungs narrowest-first, so they are reversed for
+    render: the column reads Year → Quarter → Month → Week, narrowing down
+    toward the note. Renders nothing for a yearly note (no wider period) or an
+    unknown kind.
     """
     rungs = _PERIOD_LADDER.get(kind, ())
     if not rungs:
