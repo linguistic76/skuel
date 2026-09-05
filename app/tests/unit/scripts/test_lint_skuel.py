@@ -38,6 +38,16 @@ def make_linter(rules_filter: list[str] | None = None) -> SkuelLinter:
     return SkuelLinter(root_dir=Path("/fake/root"), rules_filter=rules_filter)
 
 
+def _write_tree(tmp_path: Path, files: dict[str, str]) -> None:
+    """Materialise ``{relative path: content}`` under ``tmp_path`` for a real
+    ``SkuelLinter(root_dir=tmp_path).lint()`` run — the production dispatch
+    gates, not the ``lint_content`` mirror."""
+    for rel, content in files.items():
+        p = tmp_path / rel
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(content, encoding="utf-8")
+
+
 def lint_content(
     linter: SkuelLinter,
     content: str,
@@ -76,8 +86,10 @@ def lint_content(
         linter._check_lambda_usage(fp, rel, content, lines)
     if linter._should_run_rule("SKUEL015") and not is_test:
         linter._check_print_statements(fp, rel, content, lines)
-    if linter._should_run_rule("SKUEL016"):
+    if linter._should_run_rule("SKUEL016") and not is_test:
         linter._check_poetry_references(fp, rel, content, lines)
+    if linter._should_run_rule("SKUEL031") and not is_test:
+        linter._check_pip_references(fp, rel, content, lines)
     if linter._should_run_rule("SKUEL017") and not is_test:
         linter._check_broad_exception_catches(fp, rel, content, lines, tree)
     if linter._should_run_rule("SKUEL018") and not is_test:
@@ -2003,10 +2015,173 @@ class TestSKUEL016:
         violations = lint_content(linter, "uv sync")
         assert len(violations) == 0
 
-    def test_migration_comment_exempt(self) -> None:
+    def test_fires_inside_docstring(self) -> None:
+        """Line-based on purpose: a docstring that still says `poetry install`
+        is a stale instruction, not prose to look past."""
         linter = make_linter(["SKUEL016"])
-        violations = lint_content(linter, "# was poetry install, now migrated to uv")
-        assert len(violations) == 0
+        content = (
+            "def bootstrap() -> None:\n"
+            '    """Set up the environment.\n'
+            "\n"
+            "    Run `poetry install` first.\n"
+            '    """\n'
+        )
+        violations = lint_content(linter, content)
+        assert [(v.rule_id, v.line_number) for v in violations] == [("SKUEL016", 4)]
+
+    def test_line_suppressible(self) -> None:
+        """Documenting the ban in the code it governs needs an escape hatch, and
+        the escape hatch is the explicit, SKUEL026-audited comment."""
+        linter = make_linter(["SKUEL016"])
+        content = (
+            "def bootstrap() -> None:\n"
+            '    """Never `poetry install` — uv is the one path."""'
+            "  # skuel-lint: disable=SKUEL016 -- names the pattern to ban it\n"
+        )
+        assert lint_content(linter, content) == []
+
+    def test_file_suppressible(self) -> None:
+        linter = make_linter(["SKUEL016"])
+        content = (
+            "# skuel-lint: disable-file=SKUEL016 -- migration notes name the old tool\n"
+            "poetry install\n"
+        )
+        assert lint_content(linter, content) == []
+
+    @pytest.mark.parametrize(
+        "comment",
+        [
+            "# The wasm bundle needs it, so run poetry install first.",
+            "# was poetry install, now migrated to uv",
+        ],
+    )
+    def test_comment_wording_is_not_an_exemption(self, comment: str) -> None:
+        """A comment used to be exempt when its text contained "migrat" or "was"
+        — a substring test, so "wasm" silently exempted a line. The only
+        exemption is the explicit comment; every wording fires."""
+        linter = make_linter(["SKUEL016"])
+        assert [v.rule_id for v in lint_content(linter, comment)] == ["SKUEL016"]
+
+    def test_test_files_are_gated_out_at_dispatch(self, tmp_path: Path) -> None:
+        """Test fixtures name the banned pattern in order to test the rule. The
+        gate is `not is_test` at dispatch — like the other rules, not a path
+        allowlist — so this drives the real ``lint()``, not the mirror."""
+        _write_tree(
+            tmp_path,
+            {
+                "core/services/x.py": "poetry install\n",
+                "tests/unit/test_x.py": "poetry install\n",
+            },
+        )
+        linter = SkuelLinter(root_dir=tmp_path, rules_filter=["SKUEL016"])
+        linter.lint()
+        assert [(v.file_path, v.rule_id) for v in linter.result.violations] == [
+            (Path("core/services/x.py"), "SKUEL016")
+        ]
+
+    def test_rule_is_registered_as_suppressible(self) -> None:
+        from lint_skuel import RULE_DOCS  # type: ignore[import-not-found]
+
+        assert RULE_DOCS["SKUEL016"]["severity"] == "WARNING"
+        assert "SKUEL016" in SkuelLinter.SUPPRESSIBLE_RULES
+
+
+# ============================================================================
+# SKUEL031: pip references
+# ============================================================================
+
+
+class TestSKUEL031:
+    @pytest.mark.parametrize(
+        ("content", "replacement"),
+        [
+            ("pip install requests", "uv add"),
+            ("pip3 uninstall requests", "uv remove"),
+            ("pip freeze > requirements.txt", "uv export"),
+            ("python -m pip download requests", "uv equivalent"),
+            # uv's pip interface bypasses uv.lock exactly like bare pip.
+            ("uv pip install requests", "uv add"),
+        ],
+    )
+    def test_detects_pip_invocations(self, content: str, replacement: str) -> None:
+        linter = make_linter(["SKUEL031"])
+        violations = lint_content(linter, content)
+        assert [v.rule_id for v in violations] == ["SKUEL031"]
+        assert replacement in violations[0].suggestion
+
+    @pytest.mark.parametrize(
+        "content",
+        [
+            "uv add requests",
+            "uv sync",
+            "uv remove requests",
+            # The pip-audit TOOL is a scanner, not an installer.
+            "pip-audit --strict",
+            "uv pip show requests",
+        ],
+    )
+    def test_uv_and_pip_audit_clean(self, content: str) -> None:
+        assert lint_content(make_linter(["SKUEL031"]), content) == []
+
+    def test_fires_inside_docstring(self) -> None:
+        linter = make_linter(["SKUEL031"])
+        content = (
+            "def bootstrap() -> None:\n"
+            '    """Set up the environment.\n'
+            "\n"
+            "    Run `pip install requests` first.\n"
+            '    """\n'
+        )
+        violations = lint_content(linter, content)
+        assert [(v.rule_id, v.line_number) for v in violations] == [("SKUEL031", 4)]
+
+    def test_line_suppressible(self) -> None:
+        linter = make_linter(["SKUEL031"])
+        content = (
+            "def bootstrap() -> None:\n"
+            '    """Never `pip install requests` — SKUEL uses `uv add requests`."""'
+            "  # skuel-lint: disable=SKUEL031 -- names the pattern to ban it\n"
+        )
+        assert lint_content(linter, content) == []
+
+    def test_file_suppressible(self) -> None:
+        linter = make_linter(["SKUEL031"])
+        content = (
+            "# skuel-lint: disable-file=SKUEL031 -- migration notes name the old tool\n"
+            "pip install requests\n"
+        )
+        assert lint_content(linter, content) == []
+
+    @pytest.mark.parametrize(
+        "comment",
+        [
+            "# The wasm bundle needs it, so run pip install esbuild first.",
+            "# was pip install, now migrated to uv",
+        ],
+    )
+    def test_comment_wording_is_not_an_exemption(self, comment: str) -> None:
+        linter = make_linter(["SKUEL031"])
+        assert [v.rule_id for v in lint_content(linter, comment)] == ["SKUEL031"]
+
+    def test_test_files_are_gated_out_at_dispatch(self, tmp_path: Path) -> None:
+        _write_tree(
+            tmp_path,
+            {
+                "core/services/x.py": "pip install requests\n",
+                "tests/unit/test_x.py": "pip install requests\n",
+            },
+        )
+        linter = SkuelLinter(root_dir=tmp_path, rules_filter=["SKUEL031"])
+        linter.lint()
+        assert [(v.file_path, v.rule_id) for v in linter.result.violations] == [
+            (Path("core/services/x.py"), "SKUEL031")
+        ]
+
+    def test_rule_is_registered_as_suppressible(self) -> None:
+        from lint_skuel import RULE_DOCS  # type: ignore[import-not-found]
+
+        assert RULE_DOCS["SKUEL031"]["severity"] == "WARNING"
+        assert "SKUEL031" in SkuelLinter.SUPPRESSIBLE_RULES
 
 
 # ============================================================================
@@ -7368,6 +7543,37 @@ class TestSuppressibleRulesDrift:
         assert called == set(SkuelLinter.SUPPRESSIBLE_RULES)
 
 
+class TestRuleTestCoverageDrift:
+    """Every rule in ``RULE_DOCS`` has a ``Test<RULE_ID>`` class in this module,
+    and every such class names a live rule. SKUEL031 shipped without one and
+    nothing noticed — so the classes are discovered by parsing this file, never
+    enumerated, and a new rule is covered on arrival."""
+
+    @staticmethod
+    def _module_classes() -> set[str]:
+        tree = ast.parse(Path(__file__).read_text(encoding="utf-8"))
+        return {node.name for node in tree.body if isinstance(node, ast.ClassDef)}
+
+    def test_every_documented_rule_has_a_test_class(self) -> None:
+        from lint_skuel import RULE_DOCS
+
+        classes = self._module_classes()
+        missing = sorted(rule_id for rule_id in RULE_DOCS if f"Test{rule_id}" not in classes)
+        assert missing == []
+
+    def test_every_rule_test_class_names_a_documented_rule(self) -> None:
+        """The inverse pin: a ``TestSKUELnnn*`` class for a rule that no longer
+        exists is dead code, not coverage."""
+        from lint_skuel import RULE_DOCS
+
+        named = {
+            m.group(1)
+            for name in self._module_classes()
+            if (m := re.match(r"Test(SKUEL\d{3})", name))
+        }
+        assert named <= set(RULE_DOCS)
+
+
 class TestGitChangedFiles:
     """--staged / --changed path resolution.
 
@@ -7408,13 +7614,6 @@ class TestGitChangedFiles:
 def _raise_rule_bug(self: SkuelLinter, *args: object) -> None:
     """Stand-in checker that crashes — monkeypatched over a real rule."""
     raise RuntimeError("rule bug")
-
-
-def _write_tree(tmp_path: Path, files: dict[str, str]) -> None:
-    for rel, content in files.items():
-        p = tmp_path / rel
-        p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(content, encoding="utf-8")
 
 
 class TestInternalErrors:

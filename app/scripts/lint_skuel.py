@@ -379,7 +379,13 @@ Common replacements:
   poetry add → uv add
   poetry run → uv run
   poetry.lock → uv.lock
-  [tool.poetry] → [project]""",
+  [tool.poetry] → [project]
+
+Line-based, so comments and docstrings are in scope on purpose: a docstring that
+still says `poetry install` is a stale instruction. Naming the pattern in order to
+ban it is what the suppression is for.
+Suppress: # skuel-lint: disable=SKUEL016 -- <reason>
+File-level: # skuel-lint: disable-file=SKUEL016 -- <reason>""",
         "good": """# Install dependencies
 uv sync
 
@@ -977,7 +983,13 @@ Common replacements:
 
 NOT caught (correct as-is): the pip-audit tool (`pip-audit`, `pip_audit`,
 `./dev audit-deps`) — a scanner, not an installer — and read-only `uv pip show/list`
-introspection.""",
+introspection.
+
+Line-based, so comments and docstrings are in scope on purpose: a docstring that
+still says `pip install X` is a stale instruction. Naming the pattern in order to
+ban it is what the suppression is for.
+Suppress: # skuel-lint: disable=SKUEL031 -- <reason>
+File-level: # skuel-lint: disable-file=SKUEL031 -- <reason>""",
         "good": """# Restore the locked environment
 raise RuntimeError("Neo4j driver not installed. Run: uv sync")
 
@@ -1435,6 +1447,7 @@ class SkuelLinter:
             "SKUEL013",
             "SKUEL014",
             "SKUEL015",
+            "SKUEL016",
             "SKUEL017",
             "SKUEL018",
             "SKUEL019",
@@ -1448,6 +1461,7 @@ class SkuelLinter:
             "SKUEL028",
             "SKUEL029",
             "SKUEL030",
+            "SKUEL031",
             "SKUEL032",
             "SKUEL033",
             "SKUEL034",
@@ -2053,8 +2067,8 @@ class SkuelLinter:
             ("SKUEL011", not is_test, self._check_hasattr_usage, text_args),
             ("SKUEL012", not is_test, self._check_lambda_usage, text_args),
             ("SKUEL015", not is_test, self._check_print_statements, text_args),
-            ("SKUEL016", True, self._check_poetry_references, text_args),
-            ("SKUEL031", True, self._check_pip_references, text_args),
+            ("SKUEL016", not is_test, self._check_poetry_references, text_args),
+            ("SKUEL031", not is_test, self._check_pip_references, text_args),
             ("SKUEL017", not is_test, self._check_broad_exception_catches, ast_args),
             ("SKUEL018", not is_test, self._check_rich_only_field_access, text_args),
             ("SKUEL019", not is_test, self._check_credential_env_reads, text_args),
@@ -3613,8 +3627,8 @@ class SkuelLinter:
                     )
                 )
 
-    # SKUEL016: precompiled once — this rule runs on EVERY file (tests included),
-    # and per-call re.search with an inline pattern made it the single hottest
+    # SKUEL016: precompiled once — this rule runs on every non-test file, and
+    # per-call re.search with an inline pattern made it the single hottest
     # checker in a full scan before the `poetry` content pre-filter below.
     POETRY_PATTERNS: ClassVar[tuple[tuple[re.Pattern[str], str, str], ...]] = (
         (re.compile(r"\bpoetry\s+install\b", re.IGNORECASE), "poetry install", "uv sync"),
@@ -3636,34 +3650,23 @@ class SkuelLinter:
         Catches: poetry install, poetry add, poetry run, poetry.lock,
         [tool.poetry], pyproject.toml poetry sections.
 
-        Exceptions: Migration scripts, ADR docs (historical), this linter's rule docs.
+        Line-based, so comments and docstrings are in scope on purpose: a
+        docstring that still says `poetry install` is a stale instruction. Tests
+        are gated out at dispatch; the only other exemption is the explicit,
+        SKUEL026-audited comment.
+
+        Suppress: # skuel-lint: disable=SKUEL016 -- <reason>
+        File-level: # skuel-lint: disable-file=SKUEL016 -- <reason>
         """
-        file_str = str(file_path)
-
-        # Skip files where poetry references are historical/expected
-        if any(
-            skip in file_str
-            for skip in [
-                "/migrations/",
-                "lint_skuel.py",  # This linter documents the pattern
-                "detect_library_changes.py",  # May reference lock file names
-            ]
-        ):
-            return
-
         # Cheap pre-filter: every pattern contains the literal "poetry".
         if "poetry" not in content.lower():
             return
+        if self._is_file_suppressed(content, "SKUEL016"):
+            return
 
         for line_num, line in enumerate(lines, start=1):
-            stripped = line.strip()
-
-            # Skip comments that explain the migration itself
-            if stripped.startswith("#") and (
-                "migrat" in stripped.lower() or "was" in stripped.lower()
-            ):
+            if self._is_line_suppressed(line, "SKUEL016"):
                 continue
-
             for pattern, match_text, replacement in self.POETRY_PATTERNS:
                 match = pattern.search(line)
                 if match:
@@ -3681,7 +3684,7 @@ class SkuelLinter:
                     )
                     break  # Only report once per line
 
-    # SKUEL031: precompiled like SKUEL016 — same every-file scan, same reason.
+    # SKUEL031: precompiled like SKUEL016 — same scan breadth, same reason.
     # `pip\s+` (whitespace required) keeps the pip-audit tool name (`pip-audit`,
     # `pip_audit`) out of scope; `uv pip install` is caught on purpose (it
     # bypasses uv.lock just like bare pip).
@@ -3713,34 +3716,23 @@ class SkuelLinter:
         Catches: pip/pip3 install|uninstall|freeze, python -m pip — including
         through uv's pip interface (`uv pip install`), which bypasses uv.lock.
 
-        Exceptions: Migration scripts, this linter's rule docs.
+        Line-based, so comments and docstrings are in scope on purpose: a
+        docstring that still says `pip install X` is a stale instruction. Tests
+        are gated out at dispatch; the only other exemption is the explicit,
+        SKUEL026-audited comment.
+
+        Suppress: # skuel-lint: disable=SKUEL031 -- <reason>
+        File-level: # skuel-lint: disable-file=SKUEL031 -- <reason>
         """
-        file_str = str(file_path)
-
-        # Skip files where pip references are historical/expected
-        if any(
-            skip in file_str
-            for skip in [
-                "/migrations/",
-                "lint_skuel.py",  # This linter documents the pattern
-                "detect_library_changes.py",  # May reference installer tooling
-            ]
-        ):
-            return
-
         # Cheap pre-filter: every pattern contains the literal "pip".
         if "pip" not in content.lower():
             return
+        if self._is_file_suppressed(content, "SKUEL031"):
+            return
 
         for line_num, line in enumerate(lines, start=1):
-            stripped = line.strip()
-
-            # Skip comments that explain the migration itself
-            if stripped.startswith("#") and (
-                "migrat" in stripped.lower() or "was" in stripped.lower()
-            ):
+            if self._is_line_suppressed(line, "SKUEL031"):
                 continue
-
             for pattern, match_text, replacement in self.PIP_PATTERNS:
                 match = pattern.search(line)
                 if match:

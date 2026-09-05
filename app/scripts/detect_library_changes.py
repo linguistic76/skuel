@@ -73,7 +73,7 @@ def parse_uv_lock_packages(lock_file_path: Path) -> dict[str, str]:
 
     content = lock_file_path.read_text()
 
-    # Parse [[package]] blocks — same TOML format as poetry.lock:
+    # Parse [[package]] blocks — same TOML format as poetry.lock:  # skuel-lint: disable=SKUEL016 -- poetry.lock named as a TOML format reference, not a dependency path
     # [[package]]
     # name = "pydantic"
     # version = "2.12.5"
