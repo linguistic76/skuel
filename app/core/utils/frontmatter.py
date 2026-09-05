@@ -108,35 +108,10 @@ def parse_frontmatter(content: str) -> Result[tuple[dict[str, Any], str]]:
     return Result.ok((frontmatter, body))
 
 
-def parse_frontmatter_bytes(content: bytes) -> Result[dict[str, Any]]:
-    """Parse YAML frontmatter from raw bytes.
-
-    Decodes bytes to text (replacing errors) then delegates to parse_frontmatter.
-    """
-    try:
-        text = content.decode("utf-8", errors="replace")
-    except UnicodeDecodeError, ValueError:
-        # ``errors="replace"`` already absorbs malformed bytes, so this is the
-        # narrow residue (a decoder that rejects the input outright), not a
-        # catch-all: anything else here is a real bug and must propagate.
-        return Result.fail(
-            Errors.validation(
-                "Frontmatter bytes could not be decoded",
-                field="encoding",
-                user_message="File could not be read as text",
-            )
-        )
-    parsed = parse_frontmatter(text)
-    if parsed.is_error:
-        return Result.fail(parsed)
-    return Result.ok(parsed.value[0])
-
-
 __all__ = [
     "FRONTMATTER_LINE_OFFSET",
     "extract_yaml_error_location",
     "parse_frontmatter",
-    "parse_frontmatter_bytes",
     "split_frontmatter",
     "yaml_error_location",
 ]
