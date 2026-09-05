@@ -77,10 +77,6 @@ class TestIsNonEntityNote:
             ("untyped.md", "---\ntitle: draft\ntags: [x]\n---\nbody"),
             ("empty-type.md", "---\ntype:\n---\nhalf-finished opt-in"),
             ("untyped.yaml", "title: something\nnotes: []\n"),
-            # parse_markdown swallows unparseable frontmatter as EMPTY frontmatter
-            # (warning logged), so the ingest gate then reports "no 'type:' field"
-            # — the predicate must say the same, or preview and sync disagree.
-            ("broken-frontmatter.md", "---\ntype: [unclosed\n---\nbody"),
         ],
     )
     def test_true_for_the_files_ingestion_sets_aside(
@@ -95,6 +91,12 @@ class TestIsNonEntityNote:
         [
             ("ku.md", "---\ntype: ku\nuid: ku.test.one\n---\nbody"),
             ("typo.md", "---\ntype: knowlege\n---\nbody"),  # unknown type: sync reports it
+            # A fence that does not parse is an authoring error, not a loose
+            # note: parse_markdown fails VALIDATION, so the predicate must say
+            # False and let sync report it — otherwise a broken file is filed
+            # under "set aside" and its entity goes stale unseen.
+            ("broken-frontmatter.md", "---\ntype: [unclosed\n---\nbody"),
+            ("broken-block-scalar.md", "---\ncontent: |\n\n- stray\n\n  body\n---\nb"),
             ("moc.md", "---\nmoc: true\n---\n[[a]] [[b]]"),
             ("ku.yaml", "type: Ku\nuid: ku.test.two\ntitle: Two\n"),
             ("edge.yaml", "type: edge\nfrom: ku.a\nto: ku.b\nrelationship: ORGANIZES\n"),
