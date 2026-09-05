@@ -1,6 +1,3 @@
-# Obsidian Bases view over the deferred-work MOC's case files (Obsidian-only; inert elsewhere).
-# Every column is a case-file frontmatter property — the MOC itself repeats none of them.
-# Outside Obsidian the same table is: grep -H -E '^(trigger|check|status):' docs/roadmap/*.md
 filters:
   and:
     - file.folder == "roadmap"
@@ -27,18 +24,18 @@ views:
         - file("roadmap/deferred-work.md").hasLink(file)
     order:
       - file.name
-      - note.status
-      - note.registered
-      - note.ruled
-      - note.trigger
-      - note.check
+      - status
+      - registered
+      - ruled
+      - trigger
+      - check
   - type: table
     name: Live roadmap docs by status
     groupBy:
-      property: note.status
+      property: status
       direction: ASC
     order:
       - file.name
-      - note.registered
-      - note.trigger
-      - note.check
+      - registered
+      - trigger
+      - check

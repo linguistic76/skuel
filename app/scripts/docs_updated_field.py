@@ -112,7 +112,8 @@ def in_scope(repo_relative_path: str) -> bool:
     """Is this repo-root-relative path a doc this feature stamps?
 
     ``app/docs/**/*.md`` and nothing else. Three neighbours were considered and
-    deliberately excluded (decided in the shipping PR, recorded in deferred-work.md):
+    deliberately excluded (decided in the shipping PR; recorded in
+    ``docs/roadmap/done/docs-updated-auto-stamp.md``):
 
     - ``app/.claude/skills/**`` — SKILL.md already carries ``last_updated`` and the
       cross-reference validator reads a human-set ``last_reviewed``. A third date

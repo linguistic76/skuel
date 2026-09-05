@@ -4,8 +4,8 @@ Why this file exists
 --------------------
 The feature's whole claim is that ``updated:`` becomes *true by construction*, and
 every way that claim can be quietly false is a parsing or history-walking detail
-rather than anything a reader would notice. The registration in
-``docs/roadmap/deferred-work.md`` accumulated sixteen such traps over ten review
+rather than anything a reader would notice. The registration (now
+``docs/roadmap/done/docs-updated-auto-stamp.md``) accumulated sixteen such traps over ten review
 rounds of the contract alone; the tests below are the ones that a future edit could
 plausibly reintroduce.
 

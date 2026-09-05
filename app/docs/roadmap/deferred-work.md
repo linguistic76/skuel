@@ -60,10 +60,6 @@ renders them as a table in Obsidian, and a session derives the same table with
 
 [Calendar Periodic-Notes Arc Follow-up — Monthly-Note Panel Parity](monthly-note-panel-parity.md) — The monthly note's read-only planning panel, deliberately not built with the weekly one — gated on lived monthly-note use.
 
-## Secrets Follow-ups — DISPOSITION
-
-[Secrets Follow-ups — DISPOSITION](secrets-follow-ups-disposition.md) — Disposition record: the two small secrets follow-ups were taken into Mike's personal queue and removed from the register; full text in git history.
-
 ## Content Linting — the two survivors
 
 [Content Linting — the two survivors](content-linting-survivors.md) — The two content-lint ideas `validator.py` does not cover — a NOUS vocabulary check and lint-time orphan detection — waiting on authoring volume.
@@ -179,10 +175,6 @@ renders them as a table in Obsidian, and a session derives the same table with
 ## Parked Features — Memory-Only Until Now
 
 [Parked Features — Memory-Only Until Now](parked-features.md) — Four feature-shaped threads — activity ledger, interest/engagement signal, icon provider swap, activity-templates re-homing — each with its ruled constraint and an absence check.
-
-## Docs `updated:` Frontmatter — Auto-Stamp
-
-[Docs updated: Frontmatter — Auto-Stamp](docs-updated-auto-stamp.md) — SHIPPED 2026-09-01 — kept for its settled forks, permanent rules and the traps a future session would reintroduce; its sub-finding rules out a contradictory-prose detector.
 
 ## Catalog Copies in Code — the duplicated-fact defect, measured
 
