@@ -40,5 +40,6 @@ regardless of measured use, the parity being cheap: the weekly panel's producer
   and v1 habit exclusion; the panel `id` is `planning-panel`.
 - `/journals/{entry_uid}` passes the panel for weekly AND monthly notes through one branch;
   `PeriodicNotePage(planning_panel=…)`.
-- A quarterly/yearly note ([`../quarterly-yearly-periodic-notes.md`](../quarterly-yearly-periodic-notes.md))
-  would add one `planning_period` branch — the case file inherits this answer.
+- The quarterly/yearly notes ([`quarterly-yearly-periodic-notes.md`](quarterly-yearly-periodic-notes.md))
+  took that inherited answer the next day: one `planning_period` branch each, plus a
+  `groups_by_month` flag those two long periods set and the weekly/monthly panels do not.

@@ -156,10 +156,6 @@ renders them as a table in Obsidian, and a session derives the same table with
 
 [HabitMissed — Publisher-less Chain](habitmissed-publisher-less-chain.md) — A subscribed event with no publisher, ruled keep-staged; the publisher is a miss detector whose day model waits on the streak-semantics ruling — the `blocked_by` anchor for its `PLANNED_EVENTS` entry.
 
-## Quarterly / Yearly Periodic Notes — Founder Vault Pass First
-
-[Quarterly / Yearly Periodic Notes — Founder Vault Pass First](quarterly-yearly-periodic-notes.md) — Quarterly/yearly UID derivation and calendar door follow the first real note in the founder vault, not the empty stubs.
-
 ## PathStep → Ku Wiring Backlog — Ku-less PathSteps, PathStep-less Kus
 
 [PathStep → Ku Wiring Backlog — Ku-less PathSteps, PathStep-less Kus](pathstep-ku-wiring-backlog.md) — One PathStep Askesis cannot ground and 67 Kus no PathStep composes (and no MOC organises) — a content backlog with three counts as its check.

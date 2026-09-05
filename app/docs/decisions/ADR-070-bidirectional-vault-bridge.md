@@ -1,6 +1,6 @@
 ---
 title: "ADR-070: Bidirectional VaultBridge — Obsidian ↔ SKUEL Task Sync"
-updated: 2026-09-04
+updated: 2026-09-05
 status: accepted
 category: decisions
 tags: [adr, decisions, vault, obsidian, bidirectional-sync, vault-bridge]
@@ -43,7 +43,7 @@ related_skills: []
 
 ## Context
 
-Mike authors periodic notes (daily/weekly/monthly/yearly) in Obsidian using the
+Mike authors periodic notes (daily/weekly/monthly/quarterly/yearly) in Obsidian using the
 **obsidian-tasks plugin** checkbox syntax. PR-1 + PR-2 established one-way ingest:
 periodic note → `UserEntry`, `- [ ]` lines → `Task` entities via `EXTRACT_ACTIVITIES`.
 

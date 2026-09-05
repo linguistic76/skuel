@@ -786,6 +786,8 @@ def create_journals_routes(
     # GET /journals/daily/{date_str}  — find-or-create daily note
     # GET /journals/weekly/{year}/{week} — find-or-create weekly note
     # GET /journals/monthly/{year}/{month} — find-or-create monthly note
+    # GET /journals/quarterly/{year}/{quarter} — find-or-create quarterly note
+    # GET /journals/yearly/{year} — find-or-create yearly note
     #
     # These must be declared before the {entry_uid} catch-all below.
     # FastHTML resolves routes in declaration order.
@@ -839,6 +841,40 @@ def create_journals_routes(
             return Response("Error loading note", status_code=500)
         return RedirectResponse(f"/journals/{ensured.value}", status_code=302)
 
+    @rt("/journals/quarterly/{year}/{quarter}", methods=["GET"])
+    async def journal_quarterly_note(request: Request, year: int, quarter: int) -> Any:
+        user_uid = require_authenticated_user(request)
+        if user_entry_service is None:
+            return Response("Service unavailable", status_code=503)
+        # An out-of-range quarter degrades to the current one rather than
+        # minting a note under a key no parser accepts (the daily route's
+        # bad-date precedent).
+        if not 1 <= quarter <= 4:
+            quarter = (date.today().month - 1) // 3 + 1
+        ensured = await user_entry_service.ensure_periodic_note(
+            user_uid, "quarterly", f"{year}-Q{quarter}", f"Quarterly Note: Q{quarter} {year}"
+        )
+        if ensured.is_error:
+            return Response("Error loading note", status_code=500)
+        return RedirectResponse(f"/journals/{ensured.value}", status_code=302)
+
+    @rt("/journals/yearly/{year}", methods=["GET"])
+    async def journal_yearly_note(request: Request, year: int) -> Any:
+        user_uid = require_authenticated_user(request)
+        if user_entry_service is None:
+            return Response("Service unavailable", status_code=503)
+        # The yearly period key is exactly four digits (``yearly_period_start``
+        # rejects anything else), so a year outside that width degrades to this
+        # one rather than producing a panel-less note.
+        if not 1000 <= year <= 9999:
+            year = date.today().year
+        ensured = await user_entry_service.ensure_periodic_note(
+            user_uid, "yearly", f"{year}", f"Yearly Note: {year}"
+        )
+        if ensured.is_error:
+            return Response("Error loading note", status_code=500)
+        return RedirectResponse(f"/journals/{ensured.value}", status_code=302)
+
     @rt("/journals/{entry_uid}/note", methods=["POST"])
     @csrf_protected
     async def journal_save_note(request: Request, entry_uid: str) -> Any:
@@ -850,7 +886,7 @@ def create_journals_routes(
         user_uid = require_authenticated_user(request)
         if user_entry_service is None:
             return _P("Service unavailable", id="note-save-status", cls="text-13 text-destructive")
-        # Guard: only allow saves on owned periodic notes (daily/weekly/monthly).
+        # Guard: only allow saves on owned periodic notes (PERIODIC_NOTE_KINDS).
         # Prevents mutation of unrelated entries (e.g. TEACHER_REVIEW submissions)
         # via this route.
         entry_result = await user_entry_service.get_entry(entry_uid, user_uid)
@@ -1053,14 +1089,14 @@ def create_journals_routes(
 
     @rt("/journals/{entry_uid}", methods=["GET"])
     async def journal_chat(request: Request, entry_uid: str) -> Any:
-        """Periodic-note page (daily / weekly / monthly).
+        """Periodic-note page (daily / weekly / monthly / quarterly / yearly).
 
         Journal *sessions* are zero-persistence (ADR-073) — they render inline on
         ``/journals`` and are never stored, so there is nothing to reopen here.
         This route serves only the deliberate stored feature: periodic notes.
         Any non-periodic entry_uid → 404.
 
-        Weekly and monthly notes additionally carry a read-only panel of the
+        Every kind but daily additionally carries a read-only panel of the
         period's existing entities (periodic-notes arc S3) — see
         ``ui/journals/period_panel``.
         """
@@ -1091,10 +1127,10 @@ def create_journals_routes(
         from ui.layouts.base_page import BasePage
         from ui.layouts.page_types import PageType
 
-        # Weekly and monthly notes gain a read panel of the period's existing
-        # entities (periodic-notes arc S3, ruling E2: the vault plans, the app
-        # shows). The daily note stays panel-less — ``planning_period`` answers
-        # None for it. Degrades to no panel on an unparseable period key or a
+        # Weekly, monthly, quarterly and yearly notes gain a read panel of the
+        # period's existing entities (periodic-notes arc S3, ruling E2: the vault
+        # plans, the app shows). The daily note stays panel-less —
+        # ``planning_period`` answers None for it. Degrades to no panel on an unparseable period key or a
         # failed fetch — the note is primary.
         planning_panel = None
         if calendar_service is not None:

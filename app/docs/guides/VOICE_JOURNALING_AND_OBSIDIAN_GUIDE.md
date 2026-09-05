@@ -97,6 +97,8 @@ SKUEL's templates are designed for the **Periodic Notes** Obsidian plugin (by Li
 | Daily | `templates/t_daily.md` | `daily/` |
 | Weekly | `templates/t_weekly.md` | `weekly/` |
 | Monthly | `templates/t_monthly.md` | `monthly/` |
+| Quarterly | `templates/t_quarterly.md` | `quarterly/` |
+| Yearly | `templates/t_yearly.md` | `yearly/` |
 
 Open each period via the Command Palette (`Cmd/Ctrl+P → Open daily note`, etc.) and Periodic Notes will fill in the date tokens automatically.
 
@@ -227,6 +229,53 @@ Theme, constraints, what you are watching.
 The monthly template also includes a **Tasks plugin** query block that shows your upcoming p1 tasks for the next 30–45 days — a useful overview before starting the week.
 
 **When to use it:** Open your monthly note at the start of each month, write the big rocks as tasks, and give any habit you mean to keep this month its time block. Then work from your daily notes day-to-day.
+
+---
+
+### The Quarterly and Yearly Templates (`t_quarterly.md`, `t_yearly.md`)
+
+The two widest periods are plain periodic notes in the same shape as the others — the same frontmatter grammar, the same two line shapes that create entities. Only the period key differs: `quarter_of: 2026-Q3` and `year_of: 2026`.
+
+```markdown
+---
+type: user_entry
+pipeline: extract_activities
+title: Quarter 2026-Q3
+quarter_of: 2026-Q3
+tags:
+  - quarterly
+metadata:
+  entry_kind: quarterly
+---
+
+# 📅 Quarter 2026-Q3
+
+## Quarterly Theme
+
+The one thing this quarter is for.
+
+## Big Rocks
+
+- [ ] Close the deferred items that are genuinely in phase 📅 2026-09-30
+
+## Constraints & Risks
+
+What could take the quarter off course.
+
+## Quarterly Review
+
+- What moved?
+- One adjustment for next quarter.
+```
+
+The yearly template is identical in shape, with `year_of: 2026`, `entry_kind: yearly`, and Milestones in place of Big Rocks.
+
+**How to use them:**
+
+- **Write the theme in prose.** Prose creates nothing — only checkbox lines and explicit `@context()` lines become entities (the parse contract, [Part 3](#part-3--writing-activities-in-your-notes)). A quarter's constraints and a year's standing commitments belong in prose precisely because they are thinking, not commitments the graph should track.
+- **Keep the checkbox count low.** A quarter holds a handful of big rocks, not a backlog; the week and month notes are where work gets scheduled.
+- **Reaching them in SKUEL:** the calendar has week and month views only, so the quarterly and yearly notes are reached through the **period ladder** in any periodic note's sidebar — the "up" links that climb daily → weekly → monthly → quarterly → yearly.
+- **Their planning panels are month-grouped.** Over three months or twelve, the panel sub-heads its rows by month so a long list stays navigable.
 
 ---
 

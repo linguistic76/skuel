@@ -429,6 +429,21 @@ async def build_user_entry_request(
                     else str(month_of)
                 )
                 uid_override = f"ue:monthly:{user_uid}:{month_str}"
+        elif entry_kind == "quarterly":
+            quarter_of = data.get("quarter_of")
+            if quarter_of is not None:
+                uid_override = f"ue:quarterly:{user_uid}:{quarter_of}"
+        elif entry_kind == "yearly":
+            year_of = data.get("year_of")
+            if year_of is not None:
+                # ``year_of: 2026`` parses as an int, ``"2026"`` as a str, and a
+                # bare-year date coerces to a date — all three name one year.
+                year_str = (
+                    f"{year_of.year:04d}"
+                    if isinstance(year_of, (date, datetime))
+                    else str(year_of).strip()
+                )
+                uid_override = f"ue:yearly:{user_uid}:{year_str}"
 
     # Path-keyed identity for uid-less vault entries (contract:
     # docs/roadmap/done/uidless-vault-entry-identity-upsert.md). When the file carries no

@@ -199,14 +199,25 @@ path (`fulfills_exercise_uid` mints a random UID, fresh node every time);
 **with** a deterministic `uid:` it becomes the vault exercise channel's
 living entry — see the next section.
 
-**Periodic notes** (`entry_kind: daily | weekly | monthly`) get a
+**Periodic notes** (`entry_kind: daily | weekly | monthly | quarterly | yearly`) get a
 deterministic UID automatically — no explicit `uid:` needed:
 
-| `entry_kind` | auto-derived UID |
-|--------------|-----------------|
-| `daily` | `ue:daily:{user_uid}:{date}` (e.g. `ue:daily:user_mike:2026-06-28`) |
-| `weekly` | `ue:weekly:{user_uid}:{week_of}` |
-| `monthly` | `ue:monthly:{user_uid}:{YYYY-MM}` |
+| `entry_kind` | frontmatter field (the period key you author) | auto-derived UID |
+|--------------|-----------------|-----------------|
+| `daily` | `date: 2026-06-28` | `ue:daily:user_mike:2026-06-28` |
+| `weekly` | `week_of: 2026-W26` | `ue:weekly:user_mike:2026-W26` |
+| `monthly` | `month_of: 2026-06` | `ue:monthly:user_mike:2026-06` |
+| `quarterly` | `quarter_of: 2026-Q3` | `ue:quarterly:user_mike:2026-Q3` |
+| `yearly` | `year_of: 2026` | `ue:yearly:user_mike:2026` |
+
+Author the period key in exactly the form shown — each is parsed by exactly one
+kind, and the four written forms overlap (`2026-Q3` and `2026-W32` share a
+shape; `2026` is a prefix of all of them). A key in the wrong form ingests, but
+its note's planning panel can never resolve a period from it. YAML types are
+normalized where it is unambiguous: `date`/`month_of` coerce to dates and are
+truncated back (`month_of` to `YYYY-MM`), and `year_of` is accepted as an int,
+a string, or a date. Omit the field entirely and the note falls through to
+path-keyed identity rather than guessing at "the current quarter".
 
 This is the same UID the calendar routes use, so vault-synced daily notes
 resolve to the correct SKUEL journal page automatically. You may still
@@ -361,7 +372,7 @@ processing instead of being discarded.
 
 ### Periodic-note parse contract (what creates entities)
 
-For a periodic note (`entry_kind: daily | weekly | monthly` +
+For a periodic note (`entry_kind: daily | weekly | monthly | quarterly | yearly` +
 `pipeline: extract_activities`), exactly **two** line shapes create
 entities: untagged checkbox lines (→ Task, obsidian-tasks adapter) and
 explicit `@context()` DSL lines (the only path to Choices/Principles; on a

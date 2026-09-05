@@ -843,14 +843,28 @@ class TestDetectAndApplyMoves:
         backend.update_ingestion_metadata.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_periodic_new_file_never_a_destination(self, tmp_path) -> None:
-        # A periodic note derives its uid (ue:daily:{user}:{date}) — it never
-        # honors a prior uid, so rewriting a row toward it would orphan the
-        # gone node.
+    @pytest.mark.parametrize(
+        ("entry_kind", "period_field"),
+        [
+            ("daily", "date: 2026-07-12"),
+            ("weekly", "week_of: 2026-W28"),
+            ("monthly", "month_of: 2026-07"),
+            ("quarterly", "quarter_of: 2026-Q3"),
+            ("yearly", "year_of: 2026"),
+        ],
+    )
+    async def test_periodic_new_file_never_a_destination(
+        self, tmp_path, entry_kind: str, period_field: str
+    ) -> None:
+        # A periodic note derives its uid (ue:{kind}:{user}:{period_key}) — it
+        # never honors a prior uid, so rewriting a row toward it would orphan
+        # the gone node. The gate reads PERIODIC_NOTE_KINDS, so every kind in
+        # that vocabulary must be excluded, not just the original three.
         result, backend = await self._similarity_case(
             tmp_path,
-            "daily-note.md",
-            "---\ntype: user_entry\nmetadata:\n  entry_kind: daily\ndate: 2026-07-12\n---\n"
+            f"{entry_kind}-note.md",
+            f"---\ntype: user_entry\nmetadata:\n  entry_kind: {entry_kind}\n"
+            f"{period_field}\n---\n"
             f"{_LONG_BODY} Small addition.",
         )
         assert result.is_ok

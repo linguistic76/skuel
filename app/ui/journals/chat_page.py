@@ -13,7 +13,12 @@ from typing import TYPE_CHECKING, Any
 from fasthtml.common import A, Button, Div, Form, Input, P, Span
 
 from ui.components import Icon
-from ui.journals.period_panel import monthly_period_start, weekly_period_start
+from ui.journals.period_panel import (
+    monthly_period_start,
+    quarterly_period_start,
+    weekly_period_start,
+    yearly_period_start,
+)
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
@@ -154,6 +159,31 @@ def _periodic_note_sidebar(entry: "UserEntry") -> Any:
         next_url = f"/journals/monthly/{next_d.year}/{next_d.month}"
         prev_label = prev_d.strftime("%b %Y")
         next_label = next_d.strftime("%b %Y")
+    elif kind == "quarterly":
+        quarter_start = quarterly_period_start(period_key)
+        ref_date = (
+            quarter_start
+            if quarter_start is not None
+            else today.replace(month=3 * ((today.month - 1) // 3) + 1, day=1)
+        )
+        highlight_dates = set()
+        # Quarter arithmetic on the 0-based index, so Q1's previous is the
+        # previous year's Q4 and Q4's next is the next year's Q1.
+        index = ref_date.year * 4 + (ref_date.month - 1) // 3
+        prev_y, prev_q = divmod(index - 1, 4)
+        next_y, next_q = divmod(index + 1, 4)
+        prev_url = f"/journals/quarterly/{prev_y}/{prev_q + 1}"
+        next_url = f"/journals/quarterly/{next_y}/{next_q + 1}"
+        prev_label = f"Q{prev_q + 1} {prev_y}"
+        next_label = f"Q{next_q + 1} {next_y}"
+    elif kind == "yearly":
+        year_start = yearly_period_start(period_key)
+        ref_date = year_start if year_start is not None else today.replace(month=1, day=1)
+        highlight_dates = set()
+        prev_url = f"/journals/yearly/{ref_date.year - 1}"
+        next_url = f"/journals/yearly/{ref_date.year + 1}"
+        prev_label = str(ref_date.year - 1)
+        next_label = str(ref_date.year + 1)
     else:
         ref_date = today
         highlight_dates = set()
@@ -173,6 +203,7 @@ def _periodic_note_sidebar(entry: "UserEntry") -> Any:
             ),
             cls="px-4 py-3 border-b border-border",
         ),
+        _period_ladder(kind, ref_date),
         Div(
             _mini_month_calendar(ref_date, highlight_dates),
             cls="flex-1 py-2",
@@ -199,6 +230,73 @@ def _periodic_note_sidebar(entry: "UserEntry") -> Any:
             cls="flex items-center justify-between px-3 py-3 border-t border-border",
         ),
         cls="w-[220px] shrink-0 border-r border-border bg-slate-50 flex flex-col",
+    )
+
+
+# The ladder of nesting periods, widest last: a day sits in a week, in a month,
+# in a quarter, in a year. Each kind links to every period ABOVE it — the note's
+# own rung and everything below it are omitted (a year contains no wider period,
+# so a yearly note gets no ladder). This is the only door to the quarterly and
+# yearly notes: the calendar has week and month views only, so without it those
+# routes would be reachable by URL alone.
+_PERIOD_LADDER: dict[str, tuple[str, ...]] = {
+    "daily": ("weekly", "monthly", "quarterly", "yearly"),
+    "weekly": ("monthly", "quarterly", "yearly"),
+    "monthly": ("quarterly", "yearly"),
+    "quarterly": ("yearly",),
+    "yearly": (),
+}
+
+
+def _period_rung(kind: str, ref_date: datetime.date) -> "tuple[str, str]":
+    """The ``(url, label)`` of the period of ``kind`` that contains ``ref_date``.
+
+    ``ref_date`` is the note's own period START, so a week that crosses a month
+    boundary ladders up to its Monday's month — the same anchor the ISO week
+    and the planning panel's range already use.
+    """
+    if kind == "weekly":
+        iso_year, iso_week, _ = ref_date.isocalendar()
+        return f"/journals/weekly/{iso_year}/{iso_week}", f"Week {iso_week}"
+    if kind == "monthly":
+        return (
+            f"/journals/monthly/{ref_date.year}/{ref_date.month}",
+            ref_date.strftime("%B %Y"),
+        )
+    if kind == "quarterly":
+        quarter = (ref_date.month - 1) // 3 + 1
+        return f"/journals/quarterly/{ref_date.year}/{quarter}", f"Q{quarter} {ref_date.year}"
+    return f"/journals/yearly/{ref_date.year}", str(ref_date.year)
+
+
+def _period_ladder(kind: str, ref_date: datetime.date) -> Any:
+    """ "Up" links to the wider periods this note sits inside — widest FIRST.
+
+    ``_PERIOD_LADDER`` stores rungs narrowest-first, so they are reversed for
+    render: the column reads Year → Quarter → Month → Week, narrowing down
+    toward the note. Renders nothing for a yearly note (no wider period) or an
+    unknown kind.
+    """
+    rungs = _PERIOD_LADDER.get(kind, ())
+    if not rungs:
+        return None
+    return Div(
+        *[_period_ladder_link(*_period_rung(rung_kind, ref_date)) for rung_kind in reversed(rungs)],
+        cls="flex flex-col gap-0.5 px-3 py-2 border-b border-border",
+    )
+
+
+def _period_ladder_link(url: str, label: str) -> Any:
+    """One ladder rung — an ``↑`` link to a wider period's note."""
+    return A(
+        Icon("chevron-up", size=13),
+        Span(label, cls="text-11"),
+        href=url,
+        title=f"Open the {label} note",
+        cls=(
+            "flex items-center gap-1 px-1 py-0.5 rounded-[6px] text-muted-foreground"
+            " hover:text-foreground hover:bg-slate-200 transition-colors no-underline"
+        ),
     )
 
 

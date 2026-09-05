@@ -18,7 +18,7 @@ from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.pipeline import Pipeline
 from core.models.enums.user_entry_enums import EnrichmentMode
 from core.models.relationship_names import RelationshipName
-from core.models.user_entry.user_entry import UserEntry
+from core.models.user_entry.user_entry import PERIODIC_NOTE_KINDS, UserEntry
 from core.ports.output_generator_protocols import OutputInstruction
 from core.services.dsl import ActivityExtractionResult, DSLTransformResult
 from core.services.dsl.activity_extractor import ExtractedByVaultId
@@ -613,7 +613,10 @@ class TestExtractActivities:
         assert extractor.extract_and_create.await_args.kwargs["content_override"] == entry.content
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("entry_kind", ["daily", "weekly", "monthly"])
+    # Derived from the model's vocabulary, not re-listed: a new periodic kind
+    # inherits the bypass the moment it joins PERIODIC_NOTE_KINDS, and this
+    # test covers it without an edit.
+    @pytest.mark.parametrize("entry_kind", sorted(PERIODIC_NOTE_KINDS))
     async def test_periodic_entry_bypasses_bridge_pre_pass(self, entry_kind: str):
         # Periodic-note parse contract (E3, calendar-periodic-notes-arc): a
         # periodic entry's prose must NEVER reach the LLM bridge — entities
