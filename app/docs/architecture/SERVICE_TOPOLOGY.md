@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-02
+updated: 2026-09-05
 ---
 
 # Service Architecture: File Organization & Topology
@@ -440,8 +440,6 @@ HabitsService.__init__:  self.goals_service = None
 
 services_bootstrap/compose.py:  habits.goals_service = goals       # facade-level
                                 habits.goal_analytics.goals_service = goals  # sub-service-level
-```
-
 ```
 
 ```

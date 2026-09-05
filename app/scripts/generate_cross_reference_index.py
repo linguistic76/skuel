@@ -23,6 +23,7 @@ Usage:
 """
 
 import argparse
+import os
 import sys
 from operator import itemgetter
 from pathlib import Path
@@ -98,6 +99,19 @@ def load_pattern_frontmatter(base_path: Path) -> dict[str, dict[str, Any]]:
     return pattern_data
 
 
+def doc_link(target: str) -> str:
+    """``target`` as this artifact cites it.
+
+    A docs→docs link is written relative to the citing file (the vault rule —
+    ``scripts/docs_relative_links.py``), and this index lives at the root of ``docs/``,
+    so ``/docs/architecture/X.md`` becomes ``architecture/X.md``. A target outside
+    ``docs/`` (``/monitoring/README.md``) keeps its repo-root-absolute spelling.
+    """
+    if not target.startswith("/docs/"):
+        return target
+    return os.path.relpath(PROJECT_ROOT / target.lstrip("/"), ARTIFACT_PATH.parent)
+
+
 def generate_index_content(base_path: Path) -> str:
     """Generate the cross-reference index content."""
     skills_data = load_skills_metadata(base_path)
@@ -155,56 +169,57 @@ def generate_index_content(base_path: Path) -> str:
                 content.append("**Architecture:**")
                 for doc in arch_docs:
                     doc_name = doc.split("/")[-1]
-                    content.append(f"- [{doc_name}]({doc})")
+                    content.append(f"- [{doc_name}]({doc_link(doc)})")
                 content.append("")
 
             if intel_docs:
                 content.append("**Intelligence:**")
                 for doc in intel_docs:
                     doc_name = doc.split("/")[-1]
-                    content.append(f"- [{doc_name}]({doc})")
+                    content.append(f"- [{doc_name}]({doc_link(doc)})")
                 content.append("")
 
             if pattern_docs:
                 content.append("**Patterns (Primary):**")
                 for doc in pattern_docs:
                     doc_name = doc.split("/")[-1]
-                    content.append(f"- [{doc_name}]({doc})")
+                    content.append(f"- [{doc_name}]({doc_link(doc)})")
                 content.append("")
 
             if guide_docs:
                 content.append("**Guides:**")
                 for doc in guide_docs:
                     doc_name = doc.split("/")[-1]
-                    content.append(f"- [{doc_name}]({doc})")
+                    content.append(f"- [{doc_name}]({doc_link(doc)})")
                 content.append("")
 
             if domain_docs:
                 content.append("**Domain Docs:**")
                 for doc in domain_docs:
                     doc_name = doc.split("/")[-1]
-                    content.append(f"- [{doc_name}]({doc})")
+                    content.append(f"- [{doc_name}]({doc_link(doc)})")
                 content.append("")
 
             if other_docs:
                 content.append("**Other:**")
                 for doc in other_docs:
                     doc_name = doc.split("/")[-1]
-                    content.append(f"- [{doc_name}]({doc})")
+                    content.append(f"- [{doc_name}]({doc_link(doc)})")
                 content.append("")
 
         if patterns:
             content.append("**Patterns (Additional):**")
             for doc in patterns:
                 doc_name = doc.split("/")[-1]
-                content.append(f"- [{doc_name}]({doc})")
+                content.append(f"- [{doc_name}]({doc_link(doc)})")
             content.append("")
 
         if related_adrs:
             content.append("**ADRs:**")
             for adr in related_adrs:
                 adr_file = resolve_adr_filename(adr, decisions_dir)
-                content.append(f"- [{adr_display(adr)}](/docs/decisions/{adr_file})")
+                adr_path = f"/docs/decisions/{adr_file}"
+                content.append(f"- [{adr_display(adr)}]({doc_link(adr_path)})")
             content.append("")
 
         if not primary_docs and not patterns and not related_adrs:
@@ -236,7 +251,7 @@ def generate_index_content(base_path: Path) -> str:
         skills = sorted(set(arch_to_skills[doc_name]))
         skills_str = ", ".join(f"@{s}" for s in skills)
         doc_path = f"/docs/architecture/{doc_name}"
-        content.append(f"- [{doc_name}]({doc_path}) → {skills_str}")
+        content.append(f"- [{doc_name}]({doc_link(doc_path)}) → {skills_str}")
 
     content.append("")
 
@@ -257,7 +272,7 @@ def generate_index_content(base_path: Path) -> str:
         skills = sorted(set(intel_to_skills[doc_name]))
         skills_str = ", ".join(f"@{s}" for s in skills)
         doc_path = f"/docs/intelligence/{doc_name}"
-        content.append(f"- [{doc_name}]({doc_path}) → {skills_str}")
+        content.append(f"- [{doc_name}]({doc_link(doc_path)}) → {skills_str}")
 
     content.append("")
 
@@ -291,7 +306,7 @@ def generate_index_content(base_path: Path) -> str:
             continue
         skills_str = ", ".join(f"@{s}" for s in skills)
         doc_path = f"/docs/patterns/{doc_name}"
-        content.append(f"- [{doc_name}]({doc_path}) → {skills_str}")
+        content.append(f"- [{doc_name}]({doc_link(doc_path)}) → {skills_str}")
 
     content.append("")
 
@@ -314,7 +329,7 @@ def generate_index_content(base_path: Path) -> str:
         skills = sorted(set(adr_to_skills[adr_file]))
         skills_str = ", ".join(f"@{s}" for s in skills)
         adr_path = f"/docs/decisions/{adr_file}"
-        content.append(f"- [{adr_display(adr_file)}]({adr_path}) → {skills_str}")
+        content.append(f"- [{adr_display(adr_file)}]({doc_link(adr_path)}) → {skills_str}")
 
     content.append("")
 

@@ -109,6 +109,13 @@ case "$1" in
     uv run python scripts/history_in_code.py "${@:2}"
     ;;
 
+  docs-links)
+    # Advisory, never a gate (ruled script-only, 2026-09-04): names every repo-root-absolute
+    # docs→docs link; `--apply` rewrites the ones that resolve to the relative form.
+    echo -e "${YELLOW}Checking docs→docs links are path-relative (advisory)...${NC}" >&2
+    uv run python scripts/docs_relative_links.py "${@:2}"
+    ;;
+
   test)
     echo -e "${GREEN}Running COMPREHENSIVE test suite (recommended)${NC}"
     uv run python scripts/run_tests.py comprehensive
@@ -345,6 +352,7 @@ case "$1" in
     echo "  ./dev bloat-events   - Detect unused events only"
     echo "  ./dev bloat-methods  - Detect unused service methods only"
     echo "  ./dev history-in-code - Advisory census of history in comments/docstrings (--top N | --verbose | --json | PATH...)"
+    echo "  ./dev docs-links     - Advisory: docs→docs links still repo-root-absolute (--apply rewrites them relative)"
     echo ""
     echo "Health Checks:"
     echo "  ./dev health         - Run all health checks (modules + links + names + headings + updated + xref)"

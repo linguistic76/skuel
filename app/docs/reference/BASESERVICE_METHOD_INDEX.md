@@ -546,7 +546,7 @@ result = await core.create_task(request, user_uid)
 
 ## See Also
 
-- [Sub-Service Catalog](/docs/reference/SUB_SERVICE_CATALOG.md) - Which service does what
-- [Quick Start Guide](/docs/guides/BASESERVICE_QUICK_START.md) - Usage patterns
-- [Service Topology](/docs/architecture/SERVICE_TOPOLOGY.md) - Architecture diagrams
+- [Sub-Service Catalog](SUB_SERVICE_CATALOG.md) - Which service does what
+- [Quick Start Guide](../guides/BASESERVICE_QUICK_START.md) - Usage patterns
+- [Service Topology](../architecture/SERVICE_TOPOLOGY.md) - Architecture diagrams
 - [BaseService Source](/core/services/base_service.py) - Implementation
