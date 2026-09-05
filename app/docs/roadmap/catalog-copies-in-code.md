@@ -114,6 +114,12 @@ most of the instances below rely on today.
    every "Supported rules" list and pins it to the set. Same family: CLAUDE.md's rule table
    carries 25 of the 32 live rules in `RULE_DOCS` (SKUEL002, 005, 006, 008, 009, 010, 018
    absent) — now labelled partial rather than pinned.
+   ✅ **BUILT (2026-09-05, linter-hardening arc PR-4):** `tests/unit/docs/test_suppressible_rules_docs.py`
+   discovers every "Supported rules:" list under `CLAUDE.md`, `docs/` and `.claude/skills/` and
+   pins each to `SkuelLinter.SUPPRESSIBLE_RULES` (both directions; explicit ids only — range
+   notation is refused, not expanded). It found a third copy on arrival —
+   `docs/guides/LINTER_GUIDE.md`, in range notation and four members stale — which is the
+   enumerate-vs-discover argument measuring itself; both lists now carry the 24 members.
 5. **Lateral relationship types.** `_LATERAL_TYPES` (17) and the generated
    `GRAPH_CONTRACT.yaml` `lateral` trait (17, drift-tested ✓) versus CLAUDE.md's "6 …
    `PREREQUISITE_FOR/DEPENDS_ON`" and `docs/architecture/RELATIONSHIPS_ARCHITECTURE.md`'s
@@ -193,10 +199,10 @@ production calls are the mixin's own `self.backend.add_attendee(...)`). So the f
   is the defect this whole section is about.
 - The gate landed **green**: true stale count is 0, masked count is 2.
 
-**Build order if scheduled** — each is small; item 2 is DONE (above), the rest unscheduled:
+**Build order if scheduled** — each is small; items 2 and 4 are DONE (above), the rest unscheduled:
 ~~the janitor floor for stale markings~~ → the health-check single source + parity test (the `updated:` guard's "update all three"
 collapses to one edit) → the precache pin test → the three derivations (worker subscribe,
-`EMBEDDING_NODE_LABELS`, `ENTITY_TYPE_TO_LABEL`; each deletes more than it adds) → the
-suppressible-rules docs test → one vector-index constant. Do not build a same-file
+`EMBEDDING_NODE_LABELS`, `ENTITY_TYPE_TO_LABEL`; each deletes more than it adds) →
+~~the suppressible-rules docs test~~ → one vector-index constant. Do not build a same-file
 contradictory-prose detector (sub-finding above) or a free-prose count checker: the count
 claims that matter are pinned or gone, and "N things" in running text has no reliable anchor.
