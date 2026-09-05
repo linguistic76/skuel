@@ -208,12 +208,12 @@ def is_non_entity_note(file_path: Path) -> bool:
     ingest gate does (markdown frontmatter, or the YAML document) and reports
     the detector's no-type verdict without raising. Everything that is NOT that
     one verdict is False — an unsupported extension, an unreadable, empty or
-    oversized file, a YAML file that does not parse, a non-mapping document,
-    any declared type — so a caller that skips non-entity notes still counts
-    every file whose sync outcome would be an error or an ingest. One
-    faithful asymmetry: markdown whose frontmatter is not valid YAML parses as
-    EMPTY frontmatter (``parse_markdown`` logs and continues), so the gate
-    reports it as "no 'type:' field" — and this returns True for it too.
+    oversized file, a document whose frontmatter or YAML does not parse, a
+    non-mapping document, any declared type — so a caller that skips
+    non-entity notes still counts every file whose sync outcome would be an
+    error or an ingest. A file with no frontmatter fence at all is the loose
+    note this returns True for; one that authors a fence which does not parse
+    is an authoring error both doors now report.
     ``VaultReconciler.preview`` uses it so a vault of loose notes is one
     set-aside count, not hundreds of pending "new" ingests.
     """
