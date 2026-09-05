@@ -1,6 +1,6 @@
 ---
 title: Documentation Index
-updated: 2026-09-04
+updated: 2026-09-05
 status: current
 category: index
 tags: [index, navigation, documentation]
@@ -444,7 +444,11 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [The learning-aligned create verb](roadmap/learning-aligned-create-verb.md) | Ideas preserved from the deleted LearningAlignmentBridge create half: act-on-a-learning-recommendation and LP→calendar schedule, with the primitive/template build surface to use when either becomes a lived need; census of remaining dict-door creates (GoalTaskGenerator, HabitEventScheduler) |
 | [BGE Embeddings Migration (ADR-083 Arc 3)](roadmap/bge-embeddings-migration.md) | Cutover from OpenAI to BGE-M3 embeddings: factory swap + `EMBEDDINGS_PROVIDER` env var, `EMBEDDING_VERSION` v3→v4, `HF_API_TOKEN`, batch re-embed; no index rebuild (both 1024-dim); independent of Arc 2 |
 | [Askesis Intent Classification — Activation Arc](roadmap/askesis-intent-classification-activation.md) | The intent-conditioned Askesis layer, dormant since it was built, is ON: PR-2 (2026-08-31) kept the measured-best `mean` aggregation and moved the gate 0.65 → 0.35 — 19 of the 45 ratified queries fire, 0 wrong (`./dev eval-intent-classification`; PR-1 + baseline ratified 2026-08-31). The `AGGREGATION` carve-out was lifted the same day by the tool-selection first slice (a count question is answered by a vetted user-scoped tool or explicitly declined); the chunk-type filter stays hard-wired off as a gated PR-3 |
-| [Deferred Work](roadmap/deferred-work.md) | Intelligence features and decision points deferred until data/business prerequisites exist |
+| [Deferred Work](roadmap/deferred-work.md) | The deferred-work MOC — one `##` per item with a link to its case file; trigger, check and status live in the case files' frontmatter (`deferred-work.base` renders them as a table) |
+| [Habit-Completion Persistence Bundle](roadmap/habit-completion-persistence-bundle.md) | Six defects around the `HabitCompletion` node plus the node-less third door — one shared lock-derived writer is the shape; defect 3 needs Mike's one-per-day ruling first |
+| [⚠️ Vault Re-Sync Never Retracts a Share](roadmap/vault-resync-never-retracts-a-share.md) | Open privacy gap: narrowing or removing `audience:` does nothing on re-sync — read before touching sharing fan-out or planning a second user |
+| [Catalog Copies in Code](roadmap/catalog-copies-in-code.md) | The duplicated-fact class in code: ten measured instances, the rule for new code, the remedies strongest-first |
+| [Per-Domain Chunking Knobs + Chunk-Type-Aware Retrieval](roadmap/per-domain-chunking-knobs.md) | Chunking v2 and the eval instrument shipped; knob tuning, `chunk_type_weights` and the Askesis intent filter wait on a measured miss and a content-typing classifier |
 | [Dead-doc-links sweep queue](roadmap/dead-doc-links-sweep-queue.md) | The live-docs residue of the B1–B8 arc (871 → 280): per-directory split, the tail shape that decides the fix (most targets have no same-basename match, so the usual fix is the citing prose — but a rename looks the same, so investigate first), the four classes a finding can belong to and the different action each takes, the ride-along protocol — plus disproven claims about files that exist, which the scanner is blind to |
 | [Security Hardening — Deferred](roadmap/security-hardening-deferred.md) | The security hardening backlog — see its Priority Order table for current status (most items now shipped or closed) |
 | [Teacher-Askesis Interface — Deferred](roadmap/teacher-askesis-interface-deferred.md) | Teacher view/adjust/annotate interface; requires ZPDService + Neo4j persistence first |

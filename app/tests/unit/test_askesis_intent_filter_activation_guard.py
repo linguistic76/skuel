@@ -224,7 +224,7 @@ class TestScoreIsAveragedNotMaximised:
             "core/constants.py (the comment above the constant), "
             "docs/roadmap/askesis-intent-classification-activation.md (§ PR-2: the "
             "proposal and the shipped measurement), "
-            "docs/roadmap/deferred-work.md (Named work 4), "
+            "docs/roadmap/per-domain-chunking-knobs.md (Named work 4), "
             "docs/architecture/ASKESIS_HOW_IT_WORKS.md, "
             "docs/guides/ASKESIS_RAG_PIPELINE.md (three sites), "
             "docs/intelligence/ASKESIS_INTELLIGENCE.md, "

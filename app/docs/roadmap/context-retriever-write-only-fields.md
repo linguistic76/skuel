@@ -1,5 +1,11 @@
 ---
-updated: 2026-08-21
+title: "ContextRetriever's Three Write-Only Fields"
+updated: 2026-09-05
+status: "open — events/principles half"
+registered: 2026-08-20
+ruled: 2026-08-21
+trigger: "the Askesis arc completes the events/principles projection + bundle fetch; the templates-vs-activities authoring question is settled first"
+check: "load_ps_bundle still hardcodes events = [] / principles = [] in core/services/askesis/context_retriever.py"
 ---
 
 # ContextRetriever's Three Write-Only Fields
@@ -10,7 +16,10 @@ move to `docs/roadmap/done/` when nothing in it remains open.*
 `ContextRetriever` (`core/services/askesis/context_retriever.py`) assigned three `self.*` fields
 that nothing reads. Surfaced by the AST sweep in PR #1108 and deliberately left there, because
 they are **not** the case that PR was closing (write-only *deps copies*, all superseded).
-**Case A (`graph_intel`) is now executed — deleted 2026-08-21.** Case B remains open below.
+**Case A (`graph_intel`) is now executed — deleted 2026-08-21.** Case B remains open below: its
+P1 disclosure is CLOSED (ADR-085 G1+G2, the ownership bundle, 2026-08-21); what remains is the
+events/principles projection + bundle fetch (the Askesis arc) and the templates-vs-activities
+authoring question, with the `event_template_uids` rename HELD until that is settled.
 
 Verified against `main` @ `409aded1d` on 2026-08-20. **Line refs drift and registers lie — re-run
 every census yourself.** The sibling register for the substance-write arc needed **seven** Codex
@@ -177,7 +186,13 @@ own `practice_habits` pattern returns it. **Not run:** a live Askesis session.
 requires that PathStep to be active for a user. That is user state; no part of the plumbing
 remains in doubt.
 
-### 🛑 P1 — OPTION A IS BLOCKED ON AN OWNERSHIP RULING (Codex, #1112, 2026-08-21)
+### ✅ P1 — RESOLVED BY THE OWNERSHIP BUNDLE (ADR-085, PR-3, 2026-08-21); was: OPTION A BLOCKED ON AN OWNERSHIP RULING
+
+> Status: the cross-user disclosure mechanism described below is CLOSED — see
+> the un-suspended verdict at the end of this entry. The findings below are the
+> 2026-08-21 investigation record (file:lines as of that date); the open
+> remainder is the templates-vs-activities authoring question and the
+> events/principles projection completion (Askesis arc).
 
 **A shared PathStep pointing at a user-owned activity crosses an ownership boundary.** Verified at
 every link:
@@ -226,13 +241,115 @@ So the P1 is a **known-cause bug, not an open design question**. What still need
 general one it shares with three sibling entries in `deferred-work.md`: what enforces ownership on
 a read that does not pass through SearchRouter?
 
-**Until this is ruled, the verdict below is suspended.** The mechanism findings stand; the
-recommendation does not.
+### 🔑 But the type system already answers this, and its answer is TEMPLATES
+
+Measured 2026-08-21 via `EntityType.<T>.content_origin()`:
+
+| entity | `content_origin` |
+|---|---|
+| `Habit` / `Event` / `Principle` | **`user_created`** |
+| `HabitTemplate` / `EventTemplate` / `PrincipleTemplate` | **`curriculum`** |
+
+So **"a shared curriculum Habit" is not representable — by design.** The
+curriculum-side representation of an activity *is* the Template (CLAUDE.md's
+tier B). Combined with Mike's ruling that `0vault` is shared curriculum, it
+follows that **content-vault activity files are authoring the wrong entity
+type**: they should be `HabitTemplate` / `EventTemplate` / `PrincipleTemplate`,
+not `Habit` / `Event` / `Principle`.
+
+Which reframes the P1's root cause once more: the direct-edge channels point
+**curriculum at user-owned instances** — that is the boundary violation — while
+the template channels (`HAS_HABIT_TEMPLATE` → `HabitTemplate`) point curriculum
+at curriculum and violate nothing. ⚠️ **Way 2 may be right after all**, for a
+type-system reason rather than the ownership one.
+
+⚠️ **And here is the actual gap: neither path is currently usable.**
+
+- The **correct** entity type (Template) is **not vault-ingestible** — no
+  reference to any `*Template` class exists under `core/services/ingestion/`
+  (verified). It can only be created through the PathStep template routes in the
+  app.
+- The **authorable** entity type (Activity, via `habit_uids` etc.) is
+  user-created and crosses the ownership boundary.
+
+So a content author cannot currently express "this lesson has this practice" in
+the vault without authoring a user-owned entity. **That is the design question
+for the fresh context** — bigger than the four ownership entries, and upstream of
+them.
+
+**The question, in plain terms** (the first framing was too abstract to answer —
+Mike said so, fairly). *When you write a lesson in the vault and want to say
+"practise this by doing X", what should X be?*
+
+| | X is a **Template** | X is an **Activity** (today's fields) |
+|---|---|---|
+| what it means | a curriculum-owned *pattern* — "a 2-min evening check-in". On engagement the app spawns **the learner's own copy** | the lesson points at **one real Habit/Event** that belongs to somebody |
+| ownership | shared → shared; no boundary crossed | shared → user-owned; **every learner sees the author's item** (the P1) |
+| type system | `*Template` is `content_origin=curriculum`, `requires_user_uid=False` ✅ | activities are `user_created`, `requires_user_uid=True` ✗ |
+| works today? | **no** — templates are not vault-ingestible at all | yes, and that is how the P1 arose |
+
+**Mike's leaning (2026-08-21): make Templates vault-ingestible** — *"Templates are
+a basic part of this app and must be easy to use and understand."* ⚠️ Recorded as
+a **leaning, not a ruling**: Mike said the question as first put to him was
+unclear, so the fresh context should re-put it using the table above and confirm
+before building. The leaning is well-aligned — templates are already the app's
+stated model (CLAUDE.md: *"Activity Templates — PS-owned, spawn instances on
+engagement"*) — but it implies real work: a new vault ingestion path for six
+template types.
+
+**✅ Ruled firmly (Mike, 2026-08-21): HOLD the `event_template_uids` → `event_uids`
+rename** until this is settled. That rename was ruled on the framing "the
+behaviour is right, the label lies". If the answer is Templates, the label was
+right and the **target** is wrong — the option that ruling rejected. Do not
+rename toward a model we may be leaving.
+
+⚠️ Not established, and worth checking before acting: whether the direct-edge
+channels were *intended* for something else (a teacher linking a PathStep to a
+real personal habit as an exemplar), which would make them correct-but-misused
+rather than wrong.
+
+⚠️ **This is the read-side facet of a question three other `deferred-work.md`
+entries circled** (Mike, 2026-08-21). The root: **ownership is declared in three
+places — the `user_uid` property, the `(User)-[:OWNS]->` edge, and DomainConfig's
+`SearchVisibility` — and enforced in one**, `build_search_visibility_clause`,
+"the one Cypher composition point" (CLAUDE.md § Ownership Scoping). The Askesis
+bundle never reaches it: `context_retriever.py` references neither
+`SearchVisibility` nor that clause, and reads entities directly through
+`service.get()`, bypassing SearchRouter.
+
+The other three facets were `deferred-work.md` entries until their closure record was archived
+to `docs/roadmap/done/ownership-bundle.md`; the table below now cites that record.
+
+| facet | where it landed |
+|---|---|
+| write-side (`:OWNS` writers that skipped `user_uid`) | ✅ RESOLVED — ADR-086 + bundle PR-2 residue collapse: paper channel deleted, attendee triple retargeted onto consent-carrying `ATTENDS`. See `done/ownership-bundle.md` § 1 |
+| declaration-side (`GroupService` declared `OWNER_ONLY` on a model with no `user_uid`) | ✅ RESOLVED — bundle PR-4: `DomainConfig.ownership_property`, Group declares `owner_uid`, guard test tightened to the declaration. See `done/ownership-bundle.md` § 3 |
+| index-side (`User.uid` had no index or constraint) | ✅ RESOLVED — bundle PR-4: `User_uid_unique` uniqueness constraint via startup DDL, applied live + `NodeUniqueIndexSeek` confirmed. See `done/ownership-bundle.md` § 2 |
+| **this P1** | **read-side** — ✅ RESOLVED (ADR-085 G1+G2, bundle PR-3: `_fetch_entities_by_uid` reads through `get_visible_to_user`, and the MEGA-QUERY habit/task projections carry `user_uid = user.uid`) |
+
+**Ruled 2026-08-21 (Mike): this is significant cross-cutting work and belongs to
+a fresh context, taken with the other three facets together rather than as four
+separate fixes** — which is how the ownership bundle was in fact taken. Whoever
+takes it should settle the general question — *what enforces ownership on a read
+that does not go through SearchRouter?* — before touching any single site.
+⚠️ `CrudOperationsMixin.get` (`:135`) is used by every domain; changing its
+signature is a repo-wide change, not a local one.
+
+**✅ That ruling landed — ADR-085 (the read-enforcement contract, bundle PR-1),
+and the mechanism is CLOSED (bundle PR-3, 2026-08-21):** two chokepoints, one
+floor; `get_visible_to_user` promoted to THE audience-aware by-UID read (now a
+`BaseService` method); bare `get()` stays unscoped with §3 legality rules —
+`CrudOperationsMixin.get`'s signature was indeed left alone. This entry's two
+disclosure paths are both shut: `_fetch_entities_by_uid` threads `user_uid` and
+reads through `get_visible_to_user` (G1), and the MEGA-QUERY `practice_habits`/
+`practice_tasks` projections re-tie to the anchored user (G2) — the vault-stamped
+`user_admin` habit no longer reaches another learner's bundle OR their rich
+context. The verdict below is therefore UN-SUSPENDED.
 
 ---
 
-**Verdict — Option A in shape, but ⚠️ the test does NOT generalize to events.** ⚠️ **Suspended by
-the P1 above.** The arc is no
+**Verdict — Option A in shape, but ⚠️ the test does NOT generalize to events.** (The P1 above
+is closed; nothing here is suspended.) The arc is no
 longer "which of two authoring models should the tutor see?": Way 2 (templates + spawn) stays
 entirely unused and needs no decision, and the projection + `_fetch_entities_by_uid` +
 `total_practice_opportunities` shape is right. ⚠️ Populate through the projection — **never** by
@@ -426,6 +543,10 @@ spawned instances, so nothing superseded anything.
 
 Both halves have their edges registered and already counted by `fetch_practice_counts`, so
 neither is built from scratch.
+
+The events/principles projection completion stays with the **Askesis arc**, not the ownership
+bundle — new channels inherit the G1/G2 scoping by construction (the fetch helper requires
+`user_uid`; a new projection copies the owner-predicate shape).
 
 ⚠️ **Do not re-litigate the events-vs-principles tiebreaker on consumer strength.** An early draft
 argued payoff favoured events (a direct ENCOURAGING-prompt consumer) over principles (only

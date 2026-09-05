@@ -1,5 +1,5 @@
 ---
-updated: 2026-08-31
+updated: 2026-09-05
 ---
 
 # Askesis Intent Classification — Activation Arc
@@ -17,8 +17,8 @@ registered but gated.
 `IntentClassifier` had never returned anything but `SPECIFIC` in production until PR-2
 (2026-08-31). That was not a tuning miss — an entire intent-conditioned layer of Askesis had
 never executed. This doc is the contract that turned it on; the discovery that produced it lives in
-[deferred-work.md](deferred-work.md) § "Per-Domain Chunking Knobs + Chunk-Type-Aware
-Retrieval", Named work 4, which is where the chunk-filter half stays.
+[per-domain-chunking-knobs.md](per-domain-chunking-knobs.md), Named work 4 (the
+`deferred-work.md` entry of that name), which is where the chunk-filter half stays.
 
 ---
 
@@ -173,7 +173,7 @@ there?") while its chunk-type mapping is `INTRODUCTION`/`SUMMARY`/`DEFINITION`, 
      partition needs breadth-vs-depth — a distinction of shape, not object, which is the kind
      short-sentence embeddings resolve worst.
 
-   ⚠ **Consequence, recorded in [deferred-work.md](deferred-work.md) Named work 4:** the
+   ⚠ **Consequence, recorded in [per-domain-chunking-knobs.md](per-domain-chunking-knobs.md) Named work 4:** the
    `_INTENT_CHUNK_TYPES` mapping `INTRODUCTION`/`SUMMARY`/`DEFINITION` is now wrong *on its own
    terms* — it types chunks for topic orientation under an intent that no longer means that. A
    browsing question does not want an introduction passage; it wants the catalog. That is
@@ -411,7 +411,7 @@ RELATIONSHIP deliberately rather than hoping a sample reaches it.**
   precisely so this cannot be forgotten, and its failure message carries the list:
   1. `core/constants.py` — the constant, and the comment above it explaining why 0.65 was strict
      (that explanation stops being true).
-  2. [deferred-work.md](deferred-work.md) — Named work 4.
+  2. [per-domain-chunking-knobs.md](per-domain-chunking-knobs.md) — Named work 4.
   3. [ASKESIS_HOW_IT_WORKS.md](../architecture/ASKESIS_HOW_IT_WORKS.md) — the measured-inert box.
   4. [ASKESIS_RAG_PIPELINE.md](../guides/ASKESIS_RAG_PIPELINE.md) — Step 5a.
   5. `docs/intelligence/ASKESIS_INTELLIGENCE.md` — "≥0.65 threshold", stated as live behaviour.
@@ -534,7 +534,7 @@ the method away.
 
 ### PR-3 — the chunk-type filter (REGISTERED, GATED — may never happen)
 
-Blocked on the content-typing classifier ([deferred-work.md](deferred-work.md) Named work 3).
+Blocked on the content-typing classifier ([per-domain-chunking-knobs.md](per-domain-chunking-knobs.md) Named work 3).
 Measured on the live 925-chunk v2 corpus, the current mapping is the worst available shape:
 
 | intent | eligible chunks | note |

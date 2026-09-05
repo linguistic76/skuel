@@ -1,5 +1,11 @@
 ---
-updated: 2026-08-20
+title: "LP intelligence: two backend methods that were never built"
+updated: 2026-09-05
+status: "ruled build, not now"
+registered: 2026-08-20
+ruled: 2026-08-20
+trigger: "Mike schedules it — a full feature (backend methods + frozen contract + consumer surface)"
+check: "the three `Any | None` handles and their comments are the in-code markers"
 ---
 
 # LP intelligence: two backend methods that were never built
