@@ -13,7 +13,13 @@ from typing import TYPE_CHECKING, Any
 from fasthtml.common import A, Button, Div, Form, Input, P, Span
 
 from ui.components import Icon
-from ui.journals.period_links import period_link
+from ui.journals.period_links import (
+    PERIOD_ICONS,
+    PERIOD_KINDS,
+    PERIOD_NAMES,
+    period_link,
+    period_step,
+)
 from ui.journals.period_panel import (
     monthly_period_start,
     quarterly_period_start,
@@ -118,78 +124,29 @@ def PeriodicNotePage(
 
 
 def _periodic_note_sidebar(entry: "UserEntry") -> Any:
-    from datetime import date, timedelta
+    """The periodic note's navigation column: a mini month, then a period rail.
 
+    Two pickers, no overlap. The **mini month** is the fine-grained one — its
+    day cells open daily notes and its ISO-week rail opens weekly notes, the
+    same two doors the full month grid carries (``ui/calendar/components.py``),
+    so the sidebar teaches the same gesture as the calendar it shrinks. The
+    **period rail** below it is the coarse one: one row per period kind, each
+    naming the period this note sits inside, opening it, and stepping to its
+    neighbours.
+
+    Every row is present on every note — the rail is the same five rows whether
+    you are reading a day or a year, with the note's own row marked current —
+    so there is exactly one prev/next mechanism to learn.
+    """
     kind = entry.metadata.get("entry_kind", "daily")
     # period_key is stamped by the calendar routes but not by vault ingestion;
     # the UID always encodes it as the last colon-delimited segment.
     period_key = entry.metadata.get("period_key") or entry.uid.rsplit(":", 1)[-1]
-    today = date.today()
-
-    if kind == "daily":
-        try:
-            ref_date = date.fromisoformat(period_key)
-        except ValueError:
-            ref_date = today
-        highlight_dates: set[date] = {ref_date}
-        prev_d = ref_date - timedelta(days=1)
-        next_d = ref_date + timedelta(days=1)
-        prev_url = f"/journals/daily/{prev_d.isoformat()}"
-        next_url = f"/journals/daily/{next_d.isoformat()}"
-        prev_label = prev_d.strftime("%a, %b %-d")
-        next_label = next_d.strftime("%a, %b %-d")
-    elif kind == "weekly":
-        monday = weekly_period_start(period_key)
-        ref_date = monday if monday is not None else today - timedelta(days=today.weekday())
-        highlight_dates = {ref_date + timedelta(days=i) for i in range(7)}
-        prev_mon = ref_date - timedelta(weeks=1)
-        next_mon = ref_date + timedelta(weeks=1)
-        py, pw, _ = prev_mon.isocalendar()
-        ny, nw, _ = next_mon.isocalendar()
-        prev_url = f"/journals/weekly/{py}/{pw}"
-        next_url = f"/journals/weekly/{ny}/{nw}"
-        prev_label = f"Week {pw}"
-        next_label = f"Week {nw}"
-    elif kind == "monthly":
-        month_start = monthly_period_start(period_key)
-        ref_date = month_start if month_start is not None else today.replace(day=1)
-        highlight_dates = set()
-        prev_d = (ref_date - timedelta(days=1)).replace(day=1)
-        next_d = (ref_date + timedelta(days=32)).replace(day=1)
-        prev_url = f"/journals/monthly/{prev_d.year}/{prev_d.month}"
-        next_url = f"/journals/monthly/{next_d.year}/{next_d.month}"
-        prev_label = prev_d.strftime("%b %Y")
-        next_label = next_d.strftime("%b %Y")
-    elif kind == "quarterly":
-        quarter_start = quarterly_period_start(period_key)
-        ref_date = (
-            quarter_start
-            if quarter_start is not None
-            else today.replace(month=3 * ((today.month - 1) // 3) + 1, day=1)
-        )
-        highlight_dates = set()
-        # Quarter arithmetic on the 0-based index, so Q1's previous is the
-        # previous year's Q4 and Q4's next is the next year's Q1.
-        index = ref_date.year * 4 + (ref_date.month - 1) // 3
-        prev_y, prev_q = divmod(index - 1, 4)
-        next_y, next_q = divmod(index + 1, 4)
-        prev_url = f"/journals/quarterly/{prev_y}/{prev_q + 1}"
-        next_url = f"/journals/quarterly/{next_y}/{next_q + 1}"
-        prev_label = f"Q{prev_q + 1} {prev_y}"
-        next_label = f"Q{next_q + 1} {next_y}"
-    elif kind == "yearly":
-        year_start = yearly_period_start(period_key)
-        ref_date = year_start if year_start is not None else today.replace(month=1, day=1)
-        highlight_dates = set()
-        prev_url = f"/journals/yearly/{ref_date.year - 1}"
-        next_url = f"/journals/yearly/{ref_date.year + 1}"
-        prev_label = str(ref_date.year - 1)
-        next_label = str(ref_date.year + 1)
-    else:
-        ref_date = today
-        highlight_dates = set()
-        prev_url = next_url = "/cal"
-        prev_label = next_label = ""
+    ref_date, highlight_dates = _note_anchor(kind, period_key)
+    # The rail's own row for a weekly note is the week rail's row too, so the
+    # week number is marked alongside its seven days.
+    iso_year, iso_week, _ = ref_date.isocalendar()
+    active_week = (iso_year, iso_week) if kind == "weekly" else None
 
     return Div(
         Div(
@@ -204,97 +161,158 @@ def _periodic_note_sidebar(entry: "UserEntry") -> Any:
             ),
             cls="px-4 py-3 border-b border-border",
         ),
-        _period_ladder(kind, ref_date),
         Div(
-            _mini_month_calendar(ref_date, highlight_dates),
-            cls="flex-1 py-2",
+            _mini_month_calendar(ref_date, highlight_dates, active_week),
+            cls="py-3",
         ),
-        Div(
-            A(
-                Icon("chevron-left", size=13),
-                Span(prev_label, cls="text-11"),
-                href=prev_url,
-                cls=(
-                    "flex items-center gap-0.5 text-muted-foreground hover:text-foreground"
-                    " transition-colors no-underline"
-                ),
-            ),
-            A(
-                Span(next_label, cls="text-11"),
-                Icon("chevron-right", size=13),
-                href=next_url,
-                cls=(
-                    "flex items-center gap-0.5 text-muted-foreground hover:text-foreground"
-                    " transition-colors no-underline"
-                ),
-            ),
-            cls="flex items-center justify-between px-3 py-3 border-t border-border",
-        ),
-        cls="w-[220px] shrink-0 border-r border-border bg-slate-50 flex flex-col",
+        _period_rail(kind, ref_date),
+        cls=("w-[240px] shrink-0 border-r border-border bg-slate-50 flex flex-col overflow-y-auto"),
     )
 
 
-# The ladder of nesting periods, widest last: a day sits in a week, in a month,
-# in a quarter, in a year. Each kind links to every period ABOVE it — the note's
-# own rung and everything below it are omitted (a year contains no wider period,
-# so a yearly note gets no ladder). This is the in-note door to the wider
-# periods; the top-level door is the navbar "Notes" picker
-# (``ui/layouts/period_notes.py``).
-_PERIOD_LADDER: dict[str, tuple[str, ...]] = {
-    "daily": ("weekly", "monthly", "quarterly", "yearly"),
-    "weekly": ("monthly", "quarterly", "yearly"),
-    "monthly": ("quarterly", "yearly"),
-    "quarterly": ("yearly",),
-    "yearly": (),
-}
+def _note_anchor(kind: str, period_key: str) -> "tuple[datetime.date, set[datetime.date]]":
+    """Where the sidebar centres, and which days the mini month marks.
+
+    The anchor is the note's period START, so a week crossing a month boundary
+    shows (and ladders up to) its Monday's month — the same anchor the ISO week
+    and the planning panel's range already use. A period_key the parsers reject
+    falls back to the current period rather than raising: the sidebar renders
+    around whatever the route already served.
+
+    Only the two periods a month grid can draw are marked — a day and its week.
+    A month, quarter or year would either mark the whole grid or lie about
+    where it ends, so those notes get an unmarked calendar and lean on the rail.
+    """
+    from datetime import date, timedelta
+
+    today = date.today()
+    if kind == "daily":
+        try:
+            day = date.fromisoformat(period_key)
+        except ValueError:
+            day = today
+        return day, {day}
+    if kind == "weekly":
+        monday = weekly_period_start(period_key)
+        if monday is None:
+            monday = today - timedelta(days=today.weekday())
+        return monday, {monday + timedelta(days=offset) for offset in range(7)}
+    if kind == "monthly":
+        month_start = monthly_period_start(period_key)
+        return (month_start if month_start is not None else today.replace(day=1)), set()
+    if kind == "quarterly":
+        quarter_start = quarterly_period_start(period_key)
+        if quarter_start is None:
+            quarter_start = today.replace(month=3 * ((today.month - 1) // 3) + 1, day=1)
+        return quarter_start, set()
+    if kind == "yearly":
+        year_start = yearly_period_start(period_key)
+        return (year_start if year_start is not None else today.replace(month=1, day=1)), set()
+    return today, set()
 
 
-def _period_rung(kind: str, ref_date: datetime.date) -> "tuple[str, str]":
-    """The ``(url, label)`` of the period of ``kind`` that contains ``ref_date``.
+# ─────────────────────────────────────────────────────────────────────────────
+# Period rail — one row per period kind, on every periodic note
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# Replaces the "up"-links ladder (#1277) that showed only the periods WIDER
+# than the note and could not step between notes of a kind. The rail shows all
+# five, because a rail that changes shape per note is a rail you re-read every
+# time, and every row steps.
+#
+# Journal routes answer with a 302 redirect that HTMX boost would swap into the
+# current target instead of navigating, so every rail link opts out.
+_NO_BOOST = {"hx-boost": "false"}
 
-    ``ref_date`` is the note's own period START, so a week that crosses a month
-    boundary ladders up to its Monday's month — the same anchor the ISO week
-    and the planning panel's range already use.
 
-    Derivation: :func:`ui.journals.period_links.period_link`, shared with the
-    navbar "Notes" picker so both doors resolve a boundary identically.
+def _period_rail(kind: str, ref_date: datetime.date) -> Any:
+    """The five period rows, narrowest first — day at the top, year at the bottom.
+
+    Narrowest-first matches the calendar above it (days, then their week) and
+    the navbar picker's order, so the three surfaces read top-to-bottom the
+    same way.
+    """
+    return Div(
+        *[
+            _period_rail_row(row_kind, ref_date, is_current=row_kind == kind)
+            for row_kind in PERIOD_KINDS
+        ],
+        cls="flex flex-col gap-0.5 px-2 py-2 border-t border-border",
+    )
+
+
+def _period_rail_row(kind: str, ref_date: datetime.date, *, is_current: bool) -> Any:
+    """One period: step back, open it, step forward.
+
+    ``is_current`` marks the row for the note being read. It is a visual mark
+    plus ``aria-current`` — the row still links to its own note, because the
+    label is also how you get *back* after wandering the calendar.
     """
     link = period_link(kind, ref_date)
-    return link.href, link.label
-
-
-def _period_ladder(kind: str, ref_date: datetime.date) -> Any:
-    """ "Up" links to the wider periods this note sits inside — widest FIRST.
-
-    ``_PERIOD_LADDER`` stores rungs narrowest-first, so they are reversed for
-    render: the column reads Year → Quarter → Month → Week, narrowing down
-    toward the note. Renders nothing for a yearly note (no wider period) or an
-    unknown kind.
-    """
-    rungs = _PERIOD_LADDER.get(kind, ())
-    if not rungs:
-        return None
+    name = PERIOD_NAMES[kind]
+    label_cls = (
+        "flex-1 flex items-center gap-1.5 min-w-0 px-1.5 py-1 rounded-[6px] no-underline"
+        " transition-colors"
+    )
+    label_cls += (
+        " bg-slate-200 text-foreground font-semibold"
+        if is_current
+        else " text-muted-foreground hover:text-foreground hover:bg-slate-200"
+    )
     return Div(
-        *[_period_ladder_link(*_period_rung(rung_kind, ref_date)) for rung_kind in reversed(rungs)],
-        cls="flex flex-col gap-0.5 px-3 py-2 border-b border-border",
+        _period_rail_step(kind, ref_date, -1, name),
+        A(
+            Icon(PERIOD_ICONS[kind], size=13, cls="shrink-0"),
+            Span(link.label, cls="text-11 truncate"),
+            href=link.href,
+            title=f"Open the {link.label} note",
+            aria_label=f"{name} note — {link.label}",
+            aria_current="page" if is_current else None,
+            **_NO_BOOST,
+            cls=label_cls,
+        ),
+        _period_rail_step(kind, ref_date, 1, name),
+        cls="flex items-center gap-0.5",
     )
 
 
-def _period_ladder_link(url: str, label: str) -> Any:
-    """One ladder rung — an ``↑`` link to a wider period's note."""
+def _period_rail_step(kind: str, ref_date: datetime.date, steps: int, name: str) -> Any:
+    """One prev/next arrow — the neighbouring period's note.
+
+    The neighbour is named in the tooltip and the accessible name, so a step
+    across a month, quarter or year boundary says where it went before you
+    take it. Arithmetic: :func:`ui.journals.period_links.period_step`.
+    """
+    link = period_link(kind, period_step(kind, ref_date, steps))
+    direction = "Previous" if steps < 0 else "Next"
     return A(
-        Icon("chevron-up", size=13),
-        Span(label, cls="text-11"),
-        href=url,
-        title=f"Open the {label} note",
+        Icon("chevron-left" if steps < 0 else "chevron-right", size=13),
+        href=link.href,
+        title=f"{direction}: {link.label}",
+        aria_label=f"{direction} {name.lower()} note — {link.label}",
+        **_NO_BOOST,
         cls=(
-            "flex items-center gap-1 px-1 py-0.5 rounded-[6px] text-muted-foreground"
-            " hover:text-foreground hover:bg-slate-200 transition-colors no-underline"
+            "shrink-0 flex items-center justify-center w-5 h-6 rounded-[6px]"
+            " text-muted-foreground hover:text-foreground hover:bg-slate-200"
+            " transition-colors no-underline"
         ),
     )
 
 
-def _mini_month_calendar(ref_date: datetime.date, highlight_dates: "set[datetime.date]") -> Any:
+def _mini_month_calendar(
+    ref_date: datetime.date,
+    highlight_dates: "set[datetime.date]",
+    active_week: "tuple[int, int] | None" = None,
+) -> Any:
+    """A month at sidebar scale, with the same two doors as the full month grid.
+
+    Day cells open daily notes; the leading ISO-week rail opens weekly notes —
+    the mini form of ``create_month_grid``'s rail (``ui/calendar/components.py``),
+    down to the Monday-first columns the ISO week numbers depend on.
+
+    ``highlight_dates`` marks the days the note covers; ``active_week`` is the
+    ``(iso_year, iso_week)`` of a weekly note, marking its number in the rail.
+    """
     import calendar as _cal
     from datetime import date
 
@@ -306,31 +324,65 @@ def _mini_month_calendar(ref_date: datetime.date, highlight_dates: "set[datetime
 
     def _day_cell(day_num: int) -> Any:
         if day_num == 0:
-            return Div(cls="w-7 h-7")
+            return Div(cls="w-6 h-6")
         d = date(year, month, day_num)
         is_hi = d in highlight_dates
         is_today = d == today
         if is_hi and is_today:
             cls = (
-                "w-7 h-7 flex items-center justify-center text-11 rounded-full"
+                "w-6 h-6 flex items-center justify-center text-11 rounded-full"
                 " bg-foreground text-background font-bold ring-2 ring-offset-1 ring-foreground"
             )
         elif is_hi:
             cls = (
-                "w-7 h-7 flex items-center justify-center text-11 rounded-full"
+                "w-6 h-6 flex items-center justify-center text-11 rounded-full"
                 " bg-foreground text-background font-semibold"
             )
         elif is_today:
             cls = (
-                "w-7 h-7 flex items-center justify-center text-11 rounded-full"
+                "w-6 h-6 flex items-center justify-center text-11 rounded-full"
                 " ring-1 ring-foreground font-medium text-foreground"
             )
         else:
             cls = (
-                "w-7 h-7 flex items-center justify-center text-11 rounded-full"
+                "w-6 h-6 flex items-center justify-center text-11 rounded-full"
                 " hover:bg-slate-200 text-foreground"
             )
-        return A(str(day_num), href=f"/journals/daily/{d.isoformat()}", cls=f"{cls} no-underline")
+        return A(
+            str(day_num),
+            href=f"/journals/daily/{d.isoformat()}",
+            title=f"Daily note — {d:%a, %b %-d}",
+            **_NO_BOOST,
+            cls=f"{cls} no-underline",
+        )
+
+    def _week_rail(week: "list[int]") -> Any:
+        """The week number for a rendered row, linked to its weekly note.
+
+        The row's own days name the week: any real day in it carries the same
+        ISO week, and a row always has one (``monthcalendar`` never emits an
+        all-zero row).
+        """
+        anchor = date(year, month, next(day for day in week if day))
+        iso_year, iso_week, _ = anchor.isocalendar()
+        is_active = active_week == (iso_year, iso_week)
+        cls = (
+            "w-5 h-6 flex items-center justify-center font-mono text-10 rounded-[4px]"
+            " no-underline transition-colors"
+        )
+        cls += (
+            " bg-foreground text-background font-semibold"
+            if is_active
+            else " text-muted-foreground hover:text-foreground hover:bg-slate-200"
+        )
+        return A(
+            str(iso_week),
+            href=f"/journals/weekly/{iso_year}/{iso_week}",
+            title=f"Weekly note — W{iso_week}, {iso_year}",
+            aria_label=f"Weekly note — week {iso_week} of {iso_year}",
+            **_NO_BOOST,
+            cls=cls,
+        )
 
     return Div(
         Div(
@@ -338,13 +390,20 @@ def _mini_month_calendar(ref_date: datetime.date, highlight_dates: "set[datetime
             cls="flex justify-center mb-3 px-1",
         ),
         Div(
+            Div(
+                "WK",
+                cls="w-5 text-10 text-muted-foreground text-center font-bold tracking-[0.04em]",
+            ),
             *[
-                Div(h, cls="w-7 text-10 text-muted-foreground text-center font-medium")
+                Div(h, cls="w-6 text-10 text-muted-foreground text-center font-medium")
                 for h in dow_headers
             ],
             cls="flex gap-0.5 mb-1",
         ),
-        *[Div(*[_day_cell(d) for d in week], cls="flex gap-0.5 mb-0.5") for week in weeks],
+        *[
+            Div(_week_rail(week), *[_day_cell(d) for d in week], cls="flex gap-0.5 mb-0.5")
+            for week in weeks
+        ],
         cls="px-3",
     )
 

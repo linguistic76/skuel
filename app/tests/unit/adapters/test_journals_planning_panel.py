@@ -233,7 +233,7 @@ def test_vault_ingested_yearly_note_derives_year_from_uid() -> None:
 
 
 # The month sub-head's own class — a month NAME is not a usable marker on a
-# page whose period ladder also names months ("Open the August 2026 note").
+# page whose period rail also names months ("Open the July 2026 note").
 _SUB_HEAD_MARKER = "tracking-[0.06em]"
 
 
@@ -251,34 +251,62 @@ def test_long_period_pages_sub_head_their_rows_by_month() -> None:
     assert _SUB_HEAD_MARKER not in _get_note_page(client, weekly.uid)
 
 
-def test_every_periodic_kind_but_yearly_ladders_up_to_a_wider_period() -> None:
-    """The ladder is the ONLY door to the quarterly and yearly notes — the
-    calendar has week and month views only (ruling 2026-09-05)."""
-    expected = {
-        "daily": ("2026-08-04", ["/journals/weekly/2026/32", "/journals/quarterly/2026/3"]),
-        "weekly": ("2026-W32", ["/journals/monthly/2026/8", "/journals/quarterly/2026/3"]),
-        "monthly": ("2026-08", ["/journals/quarterly/2026/3", "/journals/yearly/2026"]),
-        "quarterly": ("2026-Q3", ["/journals/yearly/2026"]),
+def test_every_periodic_kind_reaches_every_other_period_from_its_own_page() -> None:
+    """The sidebar's period rail is the in-note door to all five periods — and
+    for the quarterly and yearly notes one of only two doors anywhere, since
+    the calendar has week and month views only (ruling 2026-09-05).
+
+    Route-level, not component-level: the rail is only a door if the served
+    page carries it. Which *period* each row opens is anchored to the note and
+    pinned in ``tests/unit/ui/test_periodic_note_sidebar.py``; this pins that
+    the route reaches all five rows on every kind.
+    """
+    pages = {
+        "daily": "2026-08-04",
+        "weekly": "2026-W32",
+        "monthly": "2026-08",
+        "quarterly": "2026-Q3",
+        "yearly": "2026",
     }
-    for kind, (period_key, rungs) in expected.items():
+    for kind, period_key in pages.items():
         client, _cal = _client(_entry(kind, period_key))
         body = _get_note_page(client, f"ue:{kind}:{_USER_UID}:{period_key}")
-        for rung in rungs:
-            assert f'href="{rung}"' in body, f"{kind} note is missing its {rung} rung"
+        for row_kind in pages:
+            assert f'href="/journals/{row_kind}/' in body, (
+                f"{kind} note is missing its {row_kind} rail row"
+            )
 
 
-def test_the_yearly_note_has_no_ladder() -> None:
-    """A year contains no wider period — the rung list is empty, not a stub."""
+def test_the_rail_anchors_every_row_on_the_note_own_period() -> None:
+    """An August note's wider rows name August's quarter and year — the anchor
+    is the note's period, not today's. A yearly note anchors on January, so its
+    quarterly row is Q1: the rail follows the note, and says which period it
+    landed on."""
+    client, _cal = _client(_entry("monthly", "2026-08"))
+    august = _get_note_page(client, f"ue:monthly:{_USER_UID}:2026-08")
+    assert 'href="/journals/quarterly/2026/3"' in august
+    assert 'href="/journals/yearly/2026"' in august
+
+    client, _cal = _client(_entry("yearly", "2026"))
+    year = _get_note_page(client, f"ue:yearly:{_USER_UID}:2026")
+    assert 'href="/journals/quarterly/2026/1"' in year
+    assert 'href="/journals/monthly/2026/1"' in year
+
+
+def test_the_yearly_note_steps_between_years_and_still_reaches_every_period() -> None:
+    """A year contains no wider period, which under the old "up"-links ladder
+    left the yearly note with no rail at all. The rail is kind-independent:
+    the widest note still steps its own period and still reaches the narrower
+    ones."""
     entry = _entry("yearly", "2026")
     client, _cal = _client(entry)
 
     body = _get_note_page(client, entry.uid)
 
-    # No rung of any width — only the yearly prev/next and the mini-month's
-    # own daily links remain.
-    for wider in ("/journals/weekly/", "/journals/monthly/", "/journals/quarterly/"):
-        assert wider not in body
-    assert 'href="/journals/yearly/2025"' in body  # prev/next still navigate
+    assert 'href="/journals/yearly/2025"' in body  # prev
+    assert 'href="/journals/yearly/2027"' in body  # next
+    for narrower in ("/journals/weekly/", "/journals/monthly/", "/journals/quarterly/"):
+        assert narrower in body
 
 
 # ---------------------------------------------------------------------------
