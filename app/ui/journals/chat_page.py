@@ -238,8 +238,8 @@ def _periodic_note_sidebar(entry: "UserEntry") -> Any:
 # in a quarter, in a year. Each kind links to every period ABOVE it — the note's
 # own rung and everything below it are omitted (a year contains no wider period,
 # so a yearly note gets no ladder). This is the in-note door to the wider
-# periods; the top-level door is the "Notes" picker on the calendar and Today
-# toolbars (``ui/calendar/components.py``).
+# periods; the top-level door is the navbar "Notes" picker
+# (``ui/layouts/period_notes.py``).
 _PERIOD_LADDER: dict[str, tuple[str, ...]] = {
     "daily": ("weekly", "monthly", "quarterly", "yearly"),
     "weekly": ("monthly", "quarterly", "yearly"),
@@ -257,7 +257,7 @@ def _period_rung(kind: str, ref_date: datetime.date) -> "tuple[str, str]":
     and the planning panel's range already use.
 
     Derivation: :func:`ui.journals.period_links.period_link`, shared with the
-    calendar/Today "Notes" picker so both doors resolve a boundary identically.
+    navbar "Notes" picker so both doors resolve a boundary identically.
     """
     link = period_link(kind, ref_date)
     return link.href, link.label

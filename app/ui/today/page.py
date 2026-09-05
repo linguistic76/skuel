@@ -158,8 +158,6 @@ def _header(view_date: date, heading: str) -> FT:
                 prev_href=f"/today/{_step_day(view_date, -1).isoformat()}",
                 next_href=f"/today/{_step_day(view_date, +1).isoformat()}",
                 today_href="/today",
-                own_kind="daily",
-                own_date=view_date,
             ),
             _stats_row(),
             cls="flex flex-col items-end gap-4",

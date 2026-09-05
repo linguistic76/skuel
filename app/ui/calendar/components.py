@@ -6,9 +6,9 @@ UI components for the redesigned calendar views (month, week).
 
 Both views share one visual language:
 - large period title + a per-type legend (``create_calendar_header``)
-- a Prev/Now/Next + periodic-note toolbar (``create_calendar_toolbar``) — lens
-  switching lives in the activity sidebar (Today / Weekly / Monthly links), not
-  in the page chrome
+- a Prev/Now/Next toolbar (``create_calendar_toolbar``) — lens switching lives
+  in the activity sidebar (Today / Weekly / Monthly links) and periodic notes in
+  the navbar "Notes" picker, not in the page chrome
 - per-type colored event chips (``_event_chip``) — a leading dot + accent bar in
   the item's type color, fill at ~10% alpha
 
@@ -41,10 +41,9 @@ from core.models.event.calendar_models import (
 )
 from ui.components import Button, ButtonT, Card, CardBody, CardHeader, CardTitle, Icon, Input
 from ui.feedback import Badge, BadgeT
-from ui.journals.period_links import PERIOD_KINDS, PERIOD_NAMES, period_link
 from ui.layout import Size
 from ui.patterns.modal import AlpineModal
-from ui.primitives import ButtonLink, dropdown_menu
+from ui.primitives import ButtonLink
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
@@ -159,104 +158,15 @@ def _nav_button(label: str, href: str, icon_name: str, *, trailing: bool = False
     )
 
 
-def _period_note_row(kind: str, ref_date: date) -> A:
-    """One period's row in the Notes menu — its name, then the period it opens.
-
-    The trailing short label ("W36", "September", "Q3") is what makes the menu
-    self-documenting: the row heading names the KIND, the label names the
-    period, so a row that does not follow the viewed period says so on its face.
-    """
-    link = period_link(kind, ref_date)
-    name = PERIOD_NAMES[kind]
-    return A(
-        Span(name, cls="text-13 font-medium"),
-        Span(
-            link.short_label,
-            cls="ml-auto text-11 text-muted-foreground tabular-nums whitespace-nowrap",
-        ),
-        href=link.href,
-        title=f"Open the {link.label} note",
-        aria_label=f"{name} note — {link.label}",
-        **_NO_BOOST,
-        cls=(
-            "flex items-center gap-4 px-[11px] py-2 rounded-[9px] no-underline"
-            " text-foreground hover:bg-muted focus-visible:bg-muted"
-        ),
-    )
-
-
-def _period_note_picker(own_kind: str, own_date: date) -> Div:
-    """The "Notes" disclosure — one door to all five periodic notes.
-
-    A disclosure, not an ARIA menu: every row is a plain navigation link, so Tab
-    walks them and Escape closes, with no arrow-key roving to hand-roll.
-
-    Which note each row opens: the row matching ``own_kind`` follows the VIEWED
-    period (the month view's Monthly row opens the month on screen), every other
-    row opens the CURRENT period (ruling 2026-09-05). The daily row on the Today
-    surface is therefore the viewed day, and its quarterly/yearly rows are always
-    this quarter and this year.
-    """
-    today = date.today()
-    rows = [
-        _period_note_row(kind, own_date if kind == own_kind else today) for kind in PERIOD_KINDS
-    ]
-    return Div(
-        HtmlButton(
-            Icon("square-pen", cls="w-[15px] h-[15px]"),
-            Span("Notes"),
-            Icon("chevron-down", cls="w-[13px] h-[13px] opacity-60"),
-            type="button",
-            aria_expanded="false",
-            aria_controls="period-note-menu",
-            cls=(
-                "inline-flex items-center gap-[7px] h-[34px] px-[13px] border border-border"
-                " bg-card rounded-lg text-13 font-medium text-foreground hover:bg-muted"
-                " whitespace-nowrap cursor-pointer"
-            ),
-            **{
-                "x-ref": "trigger",
-                "@click": "open = !open",
-                ":aria-expanded": "open ? 'true' : 'false'",
-            },
-        ),
-        dropdown_menu(
-            *rows,
-            align="right",
-            cls="w-[232px]",
-            id="period-note-menu",
-            **{
-                "x-show": "open",
-                "x-cloak": True,  # boundary: fasthtml-elements
-                "@click.outside": "open = false",
-            },
-        ),
-        cls="relative",
-        **{
-            "x-data": "{ open: false }",
-            # Escape anywhere inside (trigger or a focused row) closes and hands
-            # focus back to the trigger, so keyboard focus never lands nowhere.
-            "@keydown.escape": "open = false; $refs.trigger.focus()",
-        },
-    )
-
-
-def calendar_nav_cluster(
-    prev_href: str,
-    next_href: str,
-    today_href: str,
-    own_kind: str,
-    own_date: date,
-) -> Div:
-    """Prev/Now/Next pills + the "Notes" period picker, right-aligned (no margin).
+def calendar_nav_cluster(prev_href: str, next_href: str, today_href: str) -> Div:
+    """Prev/Now/Next pills, right-aligned (no margin).
 
     The recenter pill is labelled "Now" — the word "Today" belongs solely to the
     Today surface (sidebar link), keeping the two meanings distinct.
 
-    ``own_kind``/``own_date`` name the period the surface is showing — "monthly"
-    + the first of the viewed month, "weekly" + its Monday, "daily" + the viewed
-    day. :func:`_period_note_picker` uses them to decide which of its five rows
-    follows the view; the rest open the current period.
+    Periodic notes are NOT here: the "Notes" picker moved to the navbar, where it
+    is one click from every page and still opens the period this view is showing
+    (``ui/layouts/period_notes.py`` derives it from the request path).
 
     Shared by the calendar toolbar (Week/Month) and the Today day-lens header, so
     all three temporal lenses carry an identical navigation cluster (#665).
@@ -272,29 +182,20 @@ def calendar_nav_cluster(
             ),
         ),
         _nav_button("Next", next_href, "chevron-right", trailing=True),
-        Div(cls="w-px h-[22px] bg-border mx-1"),
-        _period_note_picker(own_kind, own_date),
-        # flex-wrap: on phones the full cluster is wider than the viewport —
-        # without it the leading "Prev" pill clips off the left edge; wrapped,
-        # the Notes picker drops to a second row instead.
+        # flex-wrap: on a narrow phone the three pills still exceed the column —
+        # without it the leading "Prev" pill clips off the left edge.
         cls="flex items-center justify-end gap-2 flex-wrap",
     )
 
 
-def create_calendar_toolbar(
-    prev_href: str,
-    next_href: str,
-    today_href: str,
-    own_kind: str,
-    own_date: date,
-) -> Div:
-    """Right-aligned Prev/Now/Next + Notes toolbar row (Week/Month views).
+def create_calendar_toolbar(prev_href: str, next_href: str, today_href: str) -> Div:
+    """Right-aligned Prev/Now/Next toolbar row (Week/Month views).
 
     Thin margin wrapper around :func:`calendar_nav_cluster`; the Today surface
     embeds the bare cluster in its header column instead.
     """
     return Div(
-        calendar_nav_cluster(prev_href, next_href, today_href, own_kind, own_date),
+        calendar_nav_cluster(prev_href, next_href, today_href),
         cls="flex items-center justify-end gap-4 flex-wrap mb-5",
     )
 

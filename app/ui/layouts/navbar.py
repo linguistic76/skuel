@@ -5,9 +5,14 @@ Navbar Component - SKUEL Patterns
 Navigation bar using Tailwind utilities.
 
 Layout:
-- Mobile: slim top bar (brand + bell + signout) + fixed bottom nav derived
-  from ``ICON_NAV_ITEMS`` with Calendar and Search appended
-- Desktop: slim top bar (brand + text nav links + search + bell + signout)
+- Mobile: slim top bar (brand + Notes + askesis + inbox + bell + avatar) +
+  fixed bottom nav derived from ``ICON_NAV_ITEMS`` with Calendar and Search
+  appended — five icons, the width the bar carried before Notes arrived
+- Desktop: the same bar plus text nav links, search, calendar and sign-out
+
+The "Notes" picker (``ui/layouts/period_notes.py``) is the one door to all five
+periodic notes; it reads the period the page is showing off the request path, so
+the calendar's month view still opens the month on screen (#1278).
 
 Usage:
     from ui.layouts.navbar import create_navbar, create_bottom_nav
@@ -28,6 +33,7 @@ from ui.layouts.nav_config import (
     IconNavItem,
     NavItem,
 )
+from ui.layouts.period_notes import PeriodNotesPicker
 
 if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import Request
@@ -84,12 +90,19 @@ def _search_button(active_page: str = "", desktop_only: bool = False) -> A:
 
 
 def _signout_button() -> A:
-    """Sign-out icon button."""
+    """Sign-out icon button — desktop only.
+
+    The Notes picker made a sixth top-bar icon, and six 44px targets plus the
+    brand overflow a 320px viewport. Sign-out is the one that gives way because
+    it is the only icon whose destination is an action rather than a surface:
+    phones reach it from the ``sm:hidden`` sign-out row on /profile
+    (``ui/profile/hub.py``), so exactly one door exists at every width.
+    """
     return A(
         Span("Sign out", cls="sr-only"),
         Icon("log-out", cls="size-6", aria_hidden="true"),
         href="/logout",
-        cls="inline-flex items-center justify-center size-11 rounded-full hover:bg-accent text-muted-foreground hover:text-foreground",
+        cls="hidden sm:inline-flex items-center justify-center size-11 rounded-full hover:bg-accent text-muted-foreground hover:text-foreground",
     )
 
 
@@ -246,12 +259,14 @@ def create_navbar(
     active_page: str = "",
     is_admin: bool = False,
     is_teacher: bool = False,
+    path: str = "",
 ) -> Nav:
     """
     Create the slim top navigation bar.
 
-    Mobile: brand + bell + signout (search lives in bottom nav).
-    Desktop: brand + text nav links + search + bell + signout.
+    Mobile: brand + Notes + askesis + inbox + bell + avatar (search and
+    calendar live in the bottom nav, sign-out on /profile).
+    Desktop: the same, plus text nav links, search, calendar and sign-out.
 
     Args:
         current_user: Current user's display name or UID
@@ -259,6 +274,8 @@ def create_navbar(
         active_page: Current page slug for highlighting
         is_admin: Whether user has admin role
         is_teacher: Whether user has teacher role or higher
+        path: Request path — the Notes picker reads the shown period off it
+            (see ``ui/layouts/period_notes.py``); "" means no period is shown
 
     Returns:
         FastHTML Nav element (slim top bar)
@@ -343,6 +360,7 @@ def create_navbar(
         right_section: Any = Div(
             _search_button(active_page, desktop_only=True),
             _calendar_button(active_page),
+            PeriodNotesPicker(path),
             _askesis_button(active_page),
             _shared_inbox_button(active_page),
             _notification_badge_placeholder(),
@@ -463,7 +481,8 @@ def create_navbar_for_request(
     """
     Create top navbar with automatic user/admin detection from the
     middleware-set auth context (AuthContextMiddleware mirrors the session
-    per request; the request parameter is kept so routes need no changes).
+    per request). The request also supplies the path the Notes picker reads
+    its period from.
 
     Badge counts (notifications, insights) are lazy-loaded via HTMX from
     /api/navbar/notification-badge — not fetched here to keep page render fast.
@@ -482,6 +501,7 @@ def create_navbar_for_request(
         active_page=active_page,
         is_admin=auth.is_admin,
         is_teacher=auth.is_teacher,
+        path=request.url.path,
     )
 
 

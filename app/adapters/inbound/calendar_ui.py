@@ -124,8 +124,6 @@ def _calendar_shell(
     prev_href: str,
     next_href: str,
     today_href: str,
-    own_kind: str,
-    own_date: date,
     content_route: str,
     content_id: str,
 ) -> "FT":
@@ -139,11 +137,10 @@ def _calendar_shell(
     # hiding (calendar.css) survives HTMX grid swaps without any re-init.
     content = Div(
         create_calendar_header(title),
-        # One "Notes" picker doors to all five periodic notes (daily → yearly);
-        # the row for this view's own period follows the view, the rest open the
-        # current period. Per-cell date-number links remain the door to any
-        # specific day's note.
-        create_calendar_toolbar(prev_href, next_href, today_href, own_kind, own_date),
+        # Periodic notes live in the navbar "Notes" picker, which still opens the
+        # month/week on screen (it reads the period off the request path).
+        # Per-cell date-number links remain the door to any specific day's note.
+        create_calendar_toolbar(prev_href, next_href, today_href),
         content_loading_placeholder(
             content_route,
             content_id,
@@ -200,8 +197,6 @@ def create_calendar_ui_routes(_app, rt, calendar_service):
             prev_href=f"/cal/month/{prev_y}/{prev_m}",
             next_href=f"/cal/month/{next_y}/{next_m}",
             today_href="/cal",
-            own_kind="monthly",
-            own_date=date(year, month, 1),
             content_route=f"/cal/month/{year}/{month}/content",
             content_id="calendar-month-content",
         )
@@ -251,8 +246,6 @@ def create_calendar_ui_routes(_app, rt, calendar_service):
             prev_href=f"/cal/week/{_get_prev_week(week_start)}",
             next_href=f"/cal/week/{_get_next_week(week_start)}",
             today_href=f"/cal/week/{date.today().isoformat()}",
-            own_kind="weekly",
-            own_date=week_start,
             content_route=f"/cal/week/{date_str}/content",
             content_id="calendar-week-content",
         )

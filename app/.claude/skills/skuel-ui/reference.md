@@ -316,10 +316,10 @@ Current `ICON_NAV_ITEMS` (in order):
 
 - **Left:** SKUEL brand text link → `/explore` (authed) or `/` (anon)
 - **Center (desktop only):** text links from `ICON_NAV_ITEMS` (minus Today) + `MAIN_NAV_ITEMS` (Teaching, when teacher)
-- **Right (icon buttons):** Search (`/search`) and Calendar (`/cal`, `page_key="calendar"`) — both desktop only, mobile folds them into the bottom nav (a sixth always-visible top-bar icon would break the 44px tap-target minimum at 320px) → Askesis flame (`/askesis`) → Shared-inbox (`/profile/shared`) → notification bell (HTMX lazy-loaded badge from `/api/navbar/notification-badge`) → Profile avatar (`/profile`) → Sign out (`/logout`)
-- **Mobile:** slim top bar (brand + right icon cluster) + fixed bottom nav via `create_bottom_nav()` — `ICON_NAV_ITEMS` tabs plus Calendar and Search tabs, `sm:hidden`, respects `safe-area-inset-bottom`
+- **Right (icon buttons):** Search (`/search`) and Calendar (`/cal`, `page_key="calendar"`) — both desktop only, mobile folds them into the bottom nav (a sixth always-visible top-bar icon would break the 44px tap-target minimum at 320px) → **Notes** (`PeriodNotesPicker`, all widths) → Askesis flame (`/askesis`) → Shared-inbox (`/profile/shared`) → notification bell (HTMX lazy-loaded badge from `/api/navbar/notification-badge`) → Profile avatar (`/profile`) → Sign out (`/logout`, desktop only — the phone reaches it from the `sm:hidden` row on `/profile`, so exactly one door exists at every width)
+- **Mobile:** slim top bar (brand + right icon cluster, five icons) + fixed bottom nav via `create_bottom_nav()` — `ICON_NAV_ITEMS` tabs plus Calendar and Search tabs, `sm:hidden`, respects `safe-area-inset-bottom`
 
-There are no navbar dropdowns — all items are direct links. `ACTIVITY_DROPDOWN_ITEMS` in `nav_config.py` lists the 6 activity domains for other surfaces; activity domains are reached via the Profile hub, not the navbar.
+**Notes** (`ui/layouts/period_notes.py`) is the navbar's one dropdown — a disclosure listing all five periodic notes (daily → yearly). Global chrome has no viewed period, so `viewed_period(path)` reads it off the request path: on `/cal/month/2026/10` the Monthly row opens October, on a periodic note its own period, and everywhere else every row opens the current period. Every other navbar item is a direct link. `ACTIVITY_DROPDOWN_ITEMS` in `nav_config.py` lists the 6 activity domains for other surfaces; activity domains are reached via the Profile hub, not the navbar.
 
 ### Admin Navbar
 

@@ -13,6 +13,12 @@ check: "shipped 2026-09-05 — chosen from four rendered options"
 *Shipped 2026-09-05. Additive to `quarterly-yearly-periodic-notes.md`; the period ladder
 inside a note is unchanged.*
 
+> **Where the picker lives now:** the navbar, not the calendar toolbar — Mike moved it the
+> same day. The component is `ui/layouts/period_notes.py`, and the viewed period it follows
+> is read off the request path instead of being passed in by the surface. Everything below
+> about the choice (why one disclosure, why the mixed row rule, why not four icons) still
+> holds; only the host changed.
+
 ## The ask
 
 Mike, after #1277 shipped the quarterly and yearly notes: *"I want a top-level entry — I am

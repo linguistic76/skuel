@@ -2,9 +2,9 @@
 
 A periodic note is addressed by the period that CONTAINS a reference date, and
 three surfaces need that mapping: the in-note period ladder (``ui/journals/
-chat_page.py``), the calendar/Today "Notes" picker (``ui/calendar/
-components.py``), and any future door. Deriving the URL twice is how a quarter
-boundary drifts between them, so it is derived once here.
+chat_page.py``), the navbar "Notes" picker (``ui/layouts/period_notes.py``),
+and any future door. Deriving the URL twice is how a quarter boundary drifts
+between them, so it is derived once here.
 
 The reference date is a date INSIDE the period, never a period key — the
 key-parsing direction is ``ui/journals/period_panel.py``'s job.

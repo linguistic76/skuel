@@ -339,97 +339,40 @@ def test_week_card_click_opens_day_lens_head_keeps_daily_note() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Toolbar: one "Notes" picker doors to all five periodic notes. The row for the
-# surface's own period follows the VIEW; every other row opens the CURRENT
-# period (ruling 2026-09-05).
+# Toolbar: Prev/Now/Next only. The "Notes" picker moved to the navbar
+# (tests/unit/ui/test_navbar_period_notes.py).
 # ---------------------------------------------------------------------------
 
 
-def test_toolbar_notes_picker_lists_all_five_periods() -> None:
+def test_toolbar_carries_the_three_nav_pills_and_no_notes_door() -> None:
     toolbar = to_xml(
         create_calendar_toolbar(
             prev_href="/cal/month/2026/7",
             next_href="/cal/month/2026/9",
             today_href="/cal",
-            own_kind="monthly",
-            own_date=date(2026, 8, 1),
         )
     )
-    for name in ("Daily", "Weekly", "Monthly", "Quarterly", "Yearly"):
-        assert f">{name}</span>" in toolbar, name
-    # The quarterly and yearly rows are the whole point — they had no door
-    # outside a periodic note's own ladder before this picker.
-    today = date.today()
-    quarter = (today.month - 1) // 3 + 1
-    assert f'href="/journals/quarterly/{today.year}/{quarter}"' in toolbar
-    assert f'href="/journals/yearly/{today.year}"' in toolbar
+    assert 'href="/cal/month/2026/7"' in toolbar
+    assert 'href="/cal/month/2026/9"' in toolbar
+    assert 'href="/cal"' in toolbar
+    # The periodic-note door is the navbar's now — two doors would drift apart.
+    assert "period-note-menu" not in toolbar
+    assert "/journals/" not in toolbar
 
 
-def test_notes_picker_own_period_row_follows_the_view() -> None:
-    """The month view's Monthly row opens the month ON SCREEN, not this month —
-    the behaviour the replaced "Monthly note" pill carried."""
-    toolbar = to_xml(
-        create_calendar_toolbar(
-            prev_href="/cal/month/2026/7",
-            next_href="/cal/month/2026/9",
-            today_href="/cal",
-            own_kind="monthly",
-            own_date=date(2026, 8, 1),
-        )
-    )
-    assert 'href="/journals/monthly/2026/8"' in toolbar
-
-
-def test_notes_picker_other_rows_open_the_current_period() -> None:
-    """A month view far from today: only the Monthly row moves with the view."""
-    toolbar = to_xml(
-        create_calendar_toolbar(
-            prev_href="/cal/month/1999/1",
-            next_href="/cal/month/1999/3",
-            today_href="/cal",
-            own_kind="monthly",
-            own_date=date(1999, 2, 1),
-        )
-    )
-    assert 'href="/journals/monthly/1999/2"' in toolbar
-    assert "/journals/yearly/1999" not in toolbar
-    assert f'href="/journals/yearly/{date.today().year}"' in toolbar
-
-
-def test_day_lens_cluster_daily_row_follows_the_viewed_day() -> None:
-    """The Today header's own period is the day, so its Daily row is the viewed
-    date — what its single "Daily note" button used to do."""
+def test_day_lens_cluster_is_the_same_three_pills() -> None:
+    """The Today header embeds the bare cluster, so all three temporal lenses
+    carry an identical navigation cluster (#665)."""
     cluster = to_xml(
         calendar_nav_cluster(
             prev_href="/today/2026-08-01",
             next_href="/today/2026-08-03",
             today_href="/today",
-            own_kind="daily",
-            own_date=date(2026, 8, 2),
         )
     )
-    assert 'href="/journals/daily/2026-08-02"' in cluster
-    # One picker, not a row of pills.
-    assert cluster.count('id="period-note-menu"') == 1
-
-
-def test_notes_picker_is_a_keyboard_operable_disclosure() -> None:
-    """Accessible name + expanded state on the trigger, Escape returns focus."""
-    cluster = to_xml(
-        calendar_nav_cluster(
-            prev_href="/today/2026-08-01",
-            next_href="/today/2026-08-03",
-            today_href="/today",
-            own_kind="daily",
-            own_date=date(2026, 8, 2),
-        )
-    )
-    assert 'aria-controls="period-note-menu"' in cluster
-    assert 'aria-expanded="false"' in cluster
-    assert ":aria-expanded=\"open ? 'true' : 'false'\"" in cluster
-    assert "$refs.trigger.focus()" in cluster
-    # Every row carries a name that survives the icon-free trailing label.
-    assert 'aria-label="Quarterly note' in cluster
+    assert 'href="/today/2026-08-01"' in cluster
+    assert 'href="/today/2026-08-03"' in cluster
+    assert "period-note-menu" not in cluster
 
 
 # ---------------------------------------------------------------------------
