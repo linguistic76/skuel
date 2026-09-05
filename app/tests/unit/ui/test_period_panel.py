@@ -1,11 +1,13 @@
-"""Unit tests for the weekly-note read panel (periodic-notes arc S3).
+"""Unit tests for the periodic-note read panel (periodic-notes arc S3).
 
-The panel shows the ISO week's existing entities in pair vocabulary
+The panel shows the period's existing entities in pair vocabulary
 (Tasks + Events / Goals + Habits), each row dooring to its day's lens
 (/today/{date}). Strictly read-only (ruling E2 — no app-side planning
-affordances on the weekly note); habits never render in v1; a due-only task
-keeps its ⏰ + red STATE cue (E1). ``PeriodicNotePage`` grows a third column
-only when a panel is passed — daily/monthly stay two-column.
+affordances on the note); habits never render in v1; a due-only task keeps its
+⏰ + red STATE cue (E1). ``planning_period`` resolves the weekly note to its
+ISO week and the monthly note to its calendar month;
+the daily note gets no period. ``PeriodicNotePage`` grows a third column only
+when a panel is passed.
 """
 
 from __future__ import annotations
@@ -15,9 +17,27 @@ from datetime import date, datetime
 from fastcore.xml import to_xml  # type: ignore[import-untyped]
 
 from core.models.event.calendar_models import CalendarItem, CalendarItemType
-from ui.journals.week_panel import WeeklyPlanningPanel, weekly_period_start
+from ui.journals.period_panel import (
+    PlanningPanel,
+    PlanningPeriod,
+    monthly_period_start,
+    planning_period,
+    weekly_period_start,
+)
 
 _WEEK_START = date(2026, 8, 3)  # Monday of ISO week 2026-W32
+
+
+def _week() -> PlanningPeriod:
+    period = planning_period("weekly", "2026-W32")
+    assert period is not None
+    return period
+
+
+def _month() -> PlanningPeriod:
+    period = planning_period("monthly", "2026-08")
+    assert period is not None
+    return period
 
 
 def _item(
@@ -42,12 +62,12 @@ def _item(
     )
 
 
-def _panel_xml(items: list[CalendarItem]) -> str:
-    return to_xml(WeeklyPlanningPanel(items, week_start=_WEEK_START))
+def _panel_xml(items: list[CalendarItem], period: PlanningPeriod | None = None) -> str:
+    return to_xml(PlanningPanel(items, period if period is not None else _week()))
 
 
 # ---------------------------------------------------------------------------
-# weekly_period_start — the period-key contract
+# weekly_period_start / monthly_period_start — the period-key contracts
 # ---------------------------------------------------------------------------
 
 
@@ -64,8 +84,60 @@ def test_weekly_period_start_rejects_non_weekly_keys() -> None:
     assert weekly_period_start("2026-W99") is None  # no such ISO week
 
 
+def test_monthly_period_start_parses_the_contract_form() -> None:
+    assert monthly_period_start("2026-08") == date(2026, 8, 1)
+    assert monthly_period_start("2026-12") == date(2026, 12, 1)
+
+
+def test_monthly_period_start_rejects_non_monthly_keys() -> None:
+    assert monthly_period_start("2026-08-03") is None  # a daily key — never truncated
+    assert monthly_period_start("2026-W32") is None  # a weekly key
+    assert monthly_period_start("2026") is None
+    assert monthly_period_start("junk") is None
+    assert monthly_period_start("2026-13") is None  # no such month
+
+
 # ---------------------------------------------------------------------------
-# WeeklyPlanningPanel — pair vocabulary, day-lens doors, read-only
+# planning_period — which notes plan, and against what range
+# ---------------------------------------------------------------------------
+
+
+def test_weekly_period_is_the_iso_week() -> None:
+    period = _week()
+    assert (period.start, period.end) == (date(2026, 8, 3), date(2026, 8, 9))
+    assert period.heading == "This week"
+    assert period.empty_label == "Nothing this week"
+
+
+def test_monthly_period_is_the_calendar_month() -> None:
+    period = _month()
+    assert (period.start, period.end) == (date(2026, 8, 1), date(2026, 8, 31))
+    assert period.heading == "This month"
+    assert period.range_label == "August 2026"
+    assert period.empty_label == "Nothing this month"
+
+
+def test_monthly_period_end_respects_short_months() -> None:
+    feb = planning_period("monthly", "2028-02")  # leap year
+    assert feb is not None and feb.end == date(2028, 2, 29)
+    apr = planning_period("monthly", "2026-04")
+    assert apr is not None and apr.end == date(2026, 4, 30)
+
+
+def test_daily_and_unknown_kinds_get_no_period() -> None:
+    """The day lens IS the daily note's panel; nothing else plans."""
+    assert planning_period("daily", "2026-08-03") is None
+    assert planning_period("quarterly", "2026-Q3") is None
+    assert planning_period("", "2026-08") is None
+
+
+def test_unparseable_key_degrades_to_no_period() -> None:
+    assert planning_period("weekly", "2026-08") is None
+    assert planning_period("monthly", "2026-W32") is None
+
+
+# ---------------------------------------------------------------------------
+# PlanningPanel — pair vocabulary, day-lens doors, read-only
 # ---------------------------------------------------------------------------
 
 
@@ -157,6 +229,21 @@ def test_panel_header_names_the_week_range() -> None:
     assert "Aug 3 \u2013 9" in xml
 
 
+def test_monthly_panel_speaks_the_month() -> None:
+    """Parity: the same panel, headed by the month, rows still door to days."""
+    xml = _panel_xml(
+        [
+            _item("task-task_1", CalendarItemType.TASK, title="Write draft", day=date(2026, 8, 20)),
+        ],
+        _month(),
+    )
+
+    assert "This month" in xml and "August 2026" in xml
+    assert "This week" not in xml
+    assert xml.count("Nothing this month") == 1  # the Goals + Habits group
+    assert 'href="/today/2026-08-20"' in xml
+
+
 # ---------------------------------------------------------------------------
 # PeriodicNotePage — the panel column appears only when passed
 # ---------------------------------------------------------------------------
@@ -184,16 +271,16 @@ def test_periodic_note_page_includes_panel_when_passed() -> None:
 
     from ui.journals.chat_page import PeriodicNotePage
 
-    panel = WeeklyPlanningPanel([], week_start=_WEEK_START)
+    panel = PlanningPanel([], _month())
     xml = to_xml(
         PeriodicNotePage(
-            entry=_entry("weekly", "2026-W32"),
+            entry=_entry("monthly", "2026-08"),
             initial_workspace=Div("workspace"),
-            week_panel=panel,
+            planning_panel=panel,
         )
     )
 
-    assert 'id="week-panel"' in xml
+    assert 'id="planning-panel"' in xml
     assert "Tasks + Events" in xml
 
 
@@ -209,5 +296,5 @@ def test_periodic_note_page_stays_two_column_without_panel() -> None:
         )
     )
 
-    assert 'id="week-panel"' not in xml
+    assert 'id="planning-panel"' not in xml
     assert "Tasks + Events" not in xml

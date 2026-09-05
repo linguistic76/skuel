@@ -56,10 +56,6 @@ renders them as a table in Obsidian, and a session derives the same table with
 
 [ZPD Snapshot History & Trend Analysis](zpd-snapshot-history.md) — Keeping the ZPD snapshot timeline instead of only the latest node — waits on a consumer wanting progress trends and on enough snapshots to say anything.
 
-## Calendar Periodic-Notes Arc Follow-up — Monthly-Note Panel Parity
-
-[Calendar Periodic-Notes Arc Follow-up — Monthly-Note Panel Parity](monthly-note-panel-parity.md) — The monthly note's read-only planning panel, deliberately not built with the weekly one — gated on lived monthly-note use.
-
 ## Content Linting — the two survivors
 
 [Content Linting — the two survivors](content-linting-survivors.md) — The two content-lint ideas `validator.py` does not cover — a NOUS vocabulary check and lint-time orphan detection — waiting on authoring volume.

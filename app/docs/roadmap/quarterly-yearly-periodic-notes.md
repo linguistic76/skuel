@@ -23,8 +23,9 @@ calendar door.
 **Ruling 2026-08-28 (Mike):** founder vault pass first — the templates get authored when a
 quarterly/yearly rhythm actually starts; app support follows the first real note, not the stub.
 **Named work (then):** `ue:quarterly:{user}:{YYYY-Qn}` / `ue:yearly:{user}:{YYYY}` derivation +
-frontmatter date parsing beside the monthly branch; the calendar panel question
-(§ Monthly-Note Panel Parity) inherits the same answer.
+frontmatter date parsing beside the monthly branch, plus one `planning_period` branch in
+`ui/journals/period_panel.py` so the note carries the read panel the weekly and monthly notes
+have ([`done/monthly-note-panel-parity.md`](done/monthly-note-panel-parity.md)).
 **Trigger:** the first file in either folder —
 `find ~/0bsidian/skuel/periodic_notes/Quarterly ~/0bsidian/skuel/periodic_notes/yearly -type f | wc -l` > 0
 (founder-owned check, non-repo — `find -type f`, not `ls`: with two directory operands `ls` prints
