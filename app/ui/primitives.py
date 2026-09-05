@@ -120,11 +120,18 @@ def dropdown_separator() -> Any:  # boundary: fasthtml-elements
 
 
 def dropdown_menu(
-    *content: Any, cls: str = "", **kwargs: Any
+    *content: Any, cls: str = "", align: str = "stretch", **kwargs: Any
 ) -> Any:  # boundary: fasthtml-elements
-    """Canonical floating menu shell for custom Alpine dropdowns."""
+    """Canonical floating menu shell for custom Alpine dropdowns.
+
+    ``align="stretch"`` (the default) pins both edges, so the menu takes the
+    width of its ``relative`` parent — right for a full-width field. When the
+    trigger is a small pill the menu must be wider than, anchor ONE edge —
+    ``"right"`` or ``"left"`` — and give the width in ``cls``.
+    """
+    edges = {"right": "right-0", "left": "left-0"}.get(align, "left-0 right-0")
     base = (
-        "absolute top-[calc(100%+6px)] left-0 right-0 z-30 "
+        f"absolute top-[calc(100%+6px)] {edges} z-30 "
         "bg-card border border-border rounded-[13px] p-[6px] flex flex-col gap-[3px] "
         "shadow-[0_12px_32px_rgba(15,23,42,0.13)]"
     )

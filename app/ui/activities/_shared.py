@@ -183,7 +183,8 @@ def PriorityBadgeDropdown(
         trigger,
         dropdown_menu(
             *options,
-            cls="w-36 right-auto",
+            cls="w-36",
+            align="left",
             **{"x-show": "open"},
             **{"x-cloak": True},
         ),

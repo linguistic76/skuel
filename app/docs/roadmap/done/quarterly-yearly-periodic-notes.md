@@ -81,7 +81,8 @@ nothing** — the live proof of the FULL-tier `EXTRACT_ACTIVITIES` bridge bypass
   than derived from the range — a week CAN cross a month boundary (Jul 27 – Aug 2) but still
   reads as one run of days, so the weekly and monthly panels are visually unchanged.
 - **Period ladder** (ruling 2026-09-05, Mike): the periodic-note sidebar gains "up" links
-  climbing daily → weekly → monthly → quarterly → yearly. This is the **only** door to the two
+  climbing daily → weekly → monthly → quarterly → yearly. This is the **in-note** door to the two
   new notes — the calendar has week and month views only, so without it the routes would be
   reachable by URL alone, which is the affordance-invisibility disease the calendar arc named
-  and cured twice.
+  and cured twice. It was their only door until the top-level "Notes" picker landed (see
+  `period-notes-toolbar-picker.md`), which is additive: the ladder is unchanged.

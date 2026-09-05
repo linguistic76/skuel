@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Any
 from fasthtml.common import A, Button, Div, Form, Input, P, Span
 
 from ui.components import Icon
+from ui.journals.period_links import period_link
 from ui.journals.period_panel import (
     monthly_period_start,
     quarterly_period_start,
@@ -236,9 +237,9 @@ def _periodic_note_sidebar(entry: "UserEntry") -> Any:
 # The ladder of nesting periods, widest last: a day sits in a week, in a month,
 # in a quarter, in a year. Each kind links to every period ABOVE it — the note's
 # own rung and everything below it are omitted (a year contains no wider period,
-# so a yearly note gets no ladder). This is the only door to the quarterly and
-# yearly notes: the calendar has week and month views only, so without it those
-# routes would be reachable by URL alone.
+# so a yearly note gets no ladder). This is the in-note door to the wider
+# periods; the top-level door is the "Notes" picker on the calendar and Today
+# toolbars (``ui/calendar/components.py``).
 _PERIOD_LADDER: dict[str, tuple[str, ...]] = {
     "daily": ("weekly", "monthly", "quarterly", "yearly"),
     "weekly": ("monthly", "quarterly", "yearly"),
@@ -254,19 +255,12 @@ def _period_rung(kind: str, ref_date: datetime.date) -> "tuple[str, str]":
     ``ref_date`` is the note's own period START, so a week that crosses a month
     boundary ladders up to its Monday's month — the same anchor the ISO week
     and the planning panel's range already use.
+
+    Derivation: :func:`ui.journals.period_links.period_link`, shared with the
+    calendar/Today "Notes" picker so both doors resolve a boundary identically.
     """
-    if kind == "weekly":
-        iso_year, iso_week, _ = ref_date.isocalendar()
-        return f"/journals/weekly/{iso_year}/{iso_week}", f"Week {iso_week}"
-    if kind == "monthly":
-        return (
-            f"/journals/monthly/{ref_date.year}/{ref_date.month}",
-            ref_date.strftime("%B %Y"),
-        )
-    if kind == "quarterly":
-        quarter = (ref_date.month - 1) // 3 + 1
-        return f"/journals/quarterly/{ref_date.year}/{quarter}", f"Q{quarter} {ref_date.year}"
-    return f"/journals/yearly/{ref_date.year}", str(ref_date.year)
+    link = period_link(kind, ref_date)
+    return link.href, link.label
 
 
 def _period_ladder(kind: str, ref_date: datetime.date) -> Any:
