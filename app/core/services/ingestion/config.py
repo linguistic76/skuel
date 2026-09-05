@@ -547,7 +547,16 @@ def je_pro_skip_reason(path: Path) -> str | None:
                 f"{_JE_PRO_GATE_READ_CHARS // 1024} KB — consent cannot be read "
                 "(fail-closed); fix or shrink the frontmatter"
             )
-        data, _ = parse_frontmatter(text)
+        parsed = parse_frontmatter(text)
+        if parsed.is_error:
+            # Without this the gate fell through to the "no explicit 'pipeline:'"
+            # reason below, telling the author to add a field their file already
+            # has. Same fail-closed shape as the unclosed-fence branch above.
+            return (
+                f"{parsed.expect_error().display_message} — consent cannot be "
+                "read (fail-closed); fix the frontmatter"
+            )
+        data, _ = parsed.value
     raw_pipeline = data.get("pipeline")
     if raw_pipeline is None or not str(raw_pipeline).strip():
         return (

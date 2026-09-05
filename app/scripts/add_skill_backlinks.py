@@ -47,14 +47,19 @@ def build_doc_to_skills_map(skills: list[dict]) -> dict[str, set[str]]:
     return doc_to_skills
 
 
-def parse_frontmatter(content: str) -> tuple[dict, str]:
+def parse_frontmatter(content: str) -> tuple[dict, str] | None:
     """
     Parse YAML frontmatter from markdown content.
 
-    Returns (frontmatter_dict, body_content).
-    If no frontmatter, returns (empty_dict, full_content).
+    Returns (frontmatter_dict, body_content); no frontmatter is
+    (empty_dict, full_content). Returns None when a fence IS present but does
+    not parse — this script REWRITES the file, and treating a broken fence as
+    absent would emit a second `---` block above the original one.
     """
-    return _parse_frontmatter(content)
+    parsed = _parse_frontmatter(content)
+    if parsed.is_error:
+        return None
+    return parsed.value
 
 
 def serialize_frontmatter(frontmatter: dict) -> str:
@@ -68,7 +73,11 @@ def add_related_skills(content: str, skill_names: set[str]) -> tuple[str, bool]:
 
     Returns (new_content, was_modified).
     """
-    frontmatter, body = parse_frontmatter(content)
+    parsed = parse_frontmatter(content)
+    if parsed is None:
+        print("  SKIP: frontmatter does not parse — not rewriting", file=sys.stderr)
+        return content, False
+    frontmatter, body = parsed
 
     # Get existing related_skills
     existing_skills = set(frontmatter.get("related_skills", []))

@@ -457,7 +457,14 @@ def scan_vault_task_lines(root: Path, allowlist: SyncAllowlist | None) -> list[V
             text = path.read_text(encoding="utf-8")
         except UnicodeDecodeError:
             continue
-        frontmatter, _body = parse_frontmatter(text)
+        parsed_frontmatter = parse_frontmatter(text)
+        if parsed_frontmatter.is_error:
+            print(
+                f"⚠️  {path}: {parsed_frontmatter.expect_error().display_message}",
+                file=sys.stderr,
+            )
+            continue
+        frontmatter, _body = parsed_frontmatter.value
         try:
             pipeline = Pipeline(str(frontmatter.get("pipeline", "")).strip().casefold())
         except ValueError:

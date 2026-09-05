@@ -86,7 +86,11 @@ DEFAULT_FREQUENCIES = {
 def parse_frontmatter(doc_path: Path) -> dict:
     """Parse YAML frontmatter from a markdown file."""
     content = doc_path.read_text(encoding="utf-8")
-    return _parse_frontmatter(content)[0]
+    parsed = _parse_frontmatter(content)
+    if parsed.is_error:
+        print(f"⚠️  {doc_path}: {parsed.expect_error().display_message}", file=sys.stderr)
+        return {}
+    return parsed.value[0]
 
 
 def calculate_review_status(

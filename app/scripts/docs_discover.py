@@ -138,8 +138,16 @@ TASK_MAP = {
 
 
 def parse_frontmatter(content: str) -> dict[str, Any]:
-    """Parse YAML frontmatter from markdown content."""
-    return _parse_frontmatter(content)[0]
+    """Parse YAML frontmatter from markdown content.
+
+    A fence that does not parse is reported and treated as absent, so one
+    broken doc cannot abort a whole-tree scan.
+    """
+    parsed = _parse_frontmatter(content)
+    if parsed.is_error:
+        print(f"⚠️  {parsed.expect_error().display_message}", file=sys.stderr)
+        return {}
+    return parsed.value[0]
 
 
 def extract_snippet(content: str, query: str, max_length: int = 150) -> str:

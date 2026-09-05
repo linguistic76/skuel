@@ -14,14 +14,14 @@ from typing import Any
 import yaml
 
 from core.utils.exception_types import FILE_IO_EXCEPTIONS
-from core.utils.frontmatter import split_frontmatter
+from core.utils.frontmatter import (
+    FRONTMATTER_LINE_OFFSET,
+    split_frontmatter,
+    yaml_error_location,
+)
 from core.utils.result_simplified import Errors, Result
 
 from .config import DEFAULT_MAX_FILE_SIZE_BYTES
-
-# split_frontmatter captures the text AFTER the opening `---` line, so a YAML
-# error's line number is one short of the line the author sees in the file.
-_FRONTMATTER_LINE_OFFSET = 1
 
 
 def format_file_size(size_bytes: int) -> str:
@@ -77,42 +77,6 @@ def check_file_size(
         )
 
 
-def extract_yaml_error_location(error: yaml.YAMLError) -> tuple[int | None, int | None]:
-    """
-    Extract line and column numbers from a YAML error.
-
-    Args:
-        error: YAML parsing error
-
-    Returns:
-        Tuple of (line_number, column) or (None, None)
-    """
-    problem_mark = getattr(error, "problem_mark", None)
-    if problem_mark is not None:
-        mark = problem_mark
-        # YAML uses 0-based indexing, convert to 1-based for display
-        return (mark.line + 1, mark.column + 1)
-    return (None, None)
-
-
-def _yaml_error_location(error: yaml.YAMLError, line_offset: int = 0) -> str:
-    """Render a YAML error's position as ``" at line N, column M"``, else ``""``.
-
-    ``line_offset`` shifts the line into the enclosing FILE's numbering: YAML
-    sees only the text handed to it, so a frontmatter error's line 5 is the
-    file's line 6 once the opening ``---`` fence is counted. An author who is
-    sent to the wrong line has to find the fault themselves, which is most of
-    the work this message exists to save.
-    """
-    line_num, col = extract_yaml_error_location(error)
-    if line_num is None:
-        return ""
-    line_num += line_offset
-    if col is None:
-        return f" at line {line_num}"
-    return f" at line {line_num}, column {col}"
-
-
 def parse_markdown(
     file_path: Path,
     max_file_size_bytes: int = DEFAULT_MAX_FILE_SIZE_BYTES,
@@ -155,7 +119,7 @@ def parse_markdown(
                 # unclaimed uid. Same VALIDATION shape parse_yaml returns, which
                 # is what files it under the ``parsing`` stage batch.py already
                 # documents. A file with NO fence stays a loose note.
-                location = _yaml_error_location(e, line_offset=_FRONTMATTER_LINE_OFFSET)
+                location = yaml_error_location(e, line_offset=FRONTMATTER_LINE_OFFSET)
                 return Result.fail(
                     Errors.validation(
                         f"Invalid YAML frontmatter{location}: {e}",
@@ -215,7 +179,7 @@ def parse_yaml(
         return Result.ok(data)
 
     except yaml.YAMLError as e:
-        location_info = _yaml_error_location(e)
+        location_info = yaml_error_location(e)
         error_msg = f"Invalid YAML syntax{location_info}: {e}"
         return Result.fail(
             Errors.validation(
@@ -236,7 +200,6 @@ def parse_yaml(
 
 __all__ = [
     "check_file_size",
-    "extract_yaml_error_location",
     "format_file_size",
     "parse_markdown",
     "parse_yaml",

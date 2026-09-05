@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from core.utils.frontmatter import parse_frontmatter as _parse_frontmatter
+from core.utils.result_simplified import Result
 from core.utils.uid_generator import UIDGenerator
 
 
@@ -88,12 +89,7 @@ class HierarchyStructure:
         }
 
 
-def parse_frontmatter(content: str) -> tuple[dict, str]:
-    """Extract YAML frontmatter and body."""
-    return _parse_frontmatter(content)
-
-
-def parse_hierarchy_markdown(content: str) -> HierarchyStructure:
+def parse_hierarchy_markdown(content: str) -> Result[HierarchyStructure]:
     """
     Parse a hierarchical markdown file into a structured tree.
 
@@ -101,9 +97,15 @@ def parse_hierarchy_markdown(content: str) -> HierarchyStructure:
         content: Raw markdown content
 
     Returns:
-        HierarchyStructure with parsed hierarchy
+        Result with the parsed HierarchyStructure, or a VALIDATION failure when
+        the frontmatter fence is present but does not parse — a MOC whose
+        metadata cannot be read must not silently generate Kus under the
+        fallback uid ``ku:unknown``.
     """
-    frontmatter, body = parse_frontmatter(content)
+    parsed = _parse_frontmatter(content)
+    if parsed.is_error:
+        return Result.fail(parsed)
+    frontmatter, body = parsed.value
 
     # Extract metadata
     uid = frontmatter.get("uid", "ku:unknown")
@@ -142,12 +144,14 @@ def parse_hierarchy_markdown(content: str) -> HierarchyStructure:
     # Build tree structure
     sections = build_heading_tree(nodes)
 
-    return HierarchyStructure(
-        uid=uid,
-        title=title,
-        description=description,
-        domain=domain,
-        sections=sections,
+    return Result.ok(
+        HierarchyStructure(
+            uid=uid,
+            title=title,
+            description=description,
+            domain=domain,
+            sections=sections,
+        )
     )
 
 
@@ -184,7 +188,7 @@ def build_heading_tree(nodes: list[HeadingNode]) -> list[HeadingNode]:
     return root_nodes
 
 
-def parse_hierarchy_file(file_path: Path | str) -> HierarchyStructure:
+def parse_hierarchy_file(file_path: Path | str) -> Result[HierarchyStructure]:
     """
     Parse a hierarchical markdown file.
 
@@ -192,7 +196,7 @@ def parse_hierarchy_file(file_path: Path | str) -> HierarchyStructure:
         file_path: Path to the markdown file
 
     Returns:
-        HierarchyStructure with parsed hierarchy
+        Result with the parsed HierarchyStructure (see parse_hierarchy_markdown).
     """
     file_path = Path(file_path)
     content = file_path.read_text(encoding="utf-8")

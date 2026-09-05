@@ -362,7 +362,16 @@ class JournalBatchService:
                     "close within the bounded read"
                 )
                 return None
-            frontmatter, body = parse_frontmatter(raw_text)
+            parsed = parse_frontmatter(raw_text)
+            if parsed.is_error:
+                # Same hazard as the unclosed fence above: empty frontmatter
+                # defaults je_use to BOTH and injects the raw YAML as style.
+                self.logger.warning(
+                    f"Skipping journal exemplar {path.name!r}: "
+                    f"{parsed.expect_error().display_message}"
+                )
+                return None
+            frontmatter, body = parsed.value
             return frontmatter, body[:EXEMPLAR_MAX_CHARS]
 
         raw_by_stem = _text_files(self._je_raw_dir)

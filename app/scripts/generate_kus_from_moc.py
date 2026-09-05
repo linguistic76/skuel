@@ -167,7 +167,11 @@ def main():
     output_base = Path(args.output_path)
 
     print(f"Parsing: {moc_path}")
-    hierarchy = parse_hierarchy_file(moc_path)
+    hierarchy_result = parse_hierarchy_file(moc_path)
+    if hierarchy_result.is_error:
+        print(f"ERROR: {hierarchy_result.expect_error().display_message}")
+        sys.exit(1)
+    hierarchy = hierarchy_result.value
 
     print(f"Title: {hierarchy.title}")
     print(f"UID: {hierarchy.uid}")
