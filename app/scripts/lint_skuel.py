@@ -1821,7 +1821,9 @@ class SkuelLinter:
         line that no COMMENT token carries is returned separately as a
         `HiddenSuppressionMarker`, because `_is_line_suppressed` honours it all
         the same and the audit must be able to tell whether it silenced anything.
-        File-level markers inside strings are inert and are not returned.
+        Inert by construction, so never returned: file-level markers inside
+        strings, and a line-level one for a rule the file already file-suppresses
+        (the checker returns before it reads any line).
         Returns ([], []) on unreadable or syntactically untokenizable files.
         """
         try:
@@ -1854,8 +1856,13 @@ class SkuelLinter:
 
         # Hidden markers: the same regex over the raw lines, minus every
         # (line, rule) a genuine comment already accounts for. Same `split("\n")`
-        # numbering the checkers read `lines[lineno - 1]` by.
+        # numbering the checkers read `lines[lineno - 1]` by. A rule the file
+        # already file-suppresses is skipped outright: every checker runs
+        # `_is_file_suppressed` before it reads a single line, so an in-string
+        # line marker for that rule is inert by construction — the genuine
+        # file-level comment is the suppressor, and it is audited (Kody, #1275).
         seen = {(c.line_number, c.rule_id) for c in comments if not c.file_level}
+        file_suppressed: dict[str, bool] = {}
         hidden: list[HiddenSuppressionMarker] = []
         for line_number, line in enumerate(content.split("\n"), start=1):
             if "skuel-lint:" not in line:
@@ -1863,15 +1870,20 @@ class SkuelLinter:
             for match in self._SUPPRESSION_COMMENT_RE.finditer(line):
                 if match.group("filelevel"):
                     continue
-                key = (line_number, match.group("rule"))
+                rule_id = match.group("rule")
+                key = (line_number, rule_id)
                 if key in seen:
                     continue
                 seen.add(key)
+                if rule_id not in file_suppressed:
+                    file_suppressed[rule_id] = self._is_file_suppressed(content, rule_id)
+                if file_suppressed[rule_id]:
+                    continue
                 hidden.append(
                     HiddenSuppressionMarker(
                         file_path=rel_path,
                         line_number=line_number,
-                        rule_id=match.group("rule"),
+                        rule_id=rule_id,
                         line_content=line.strip(),
                     )
                 )

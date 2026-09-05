@@ -5780,6 +5780,45 @@ class TestSKUEL026:
         comments, hidden = linter._find_suppression_markers(tmp_path / "core/services/x.py")
         assert (comments, hidden) == ([], [])
 
+    def test_hidden_marker_under_a_file_level_suppression_is_inert(self, tmp_path: Path) -> None:
+        """Kody on #1275: a genuine file-level comment returns the checker
+        before it reads any line, so an in-string line marker for the same rule
+        silences nothing — the file-level comment is the suppressor (counted,
+        used), and the hidden marker is neither flagged nor collected. The
+        used-test alone would have misread this: the baseline is empty because
+        the FILE comment emptied it."""
+        content = (
+            "# skuel-lint: disable-file=SKUEL031 -- legacy notes name the old tool\n"
+            '"""Notes.\n'
+            "\n"
+            "Run pip install x first.  # skuel-lint: disable=SKUEL031 -- stale\n"
+            '"""\n'
+        )
+        linter = self._lint_tree(tmp_path, {"core/services/x.py": content})
+        assert linter.result.violations == []
+        assert [(s.file_level, s.used) for s in linter.result.suppressions] == [(True, True)]
+        comments, hidden = linter._find_suppression_markers(tmp_path / "core/services/x.py")
+        assert [c.file_level for c in comments] == [True]
+        assert hidden == []
+
+    def test_hidden_marker_beside_a_malformed_file_level_comment_is_flagged(
+        self, tmp_path: Path
+    ) -> None:
+        """The inertness above is the checker's own gate, not the presence of a
+        file-level comment: a malformed one (`#skuel-lint:disable-file=`) is not
+        honoured, the line scan runs, and the in-string marker IS the silencer."""
+        content = (
+            "#skuel-lint:disable-file=SKUEL031 -- malformed\n"
+            '"""Notes.\n'
+            "\n"
+            "Run pip install x first.  # skuel-lint: disable=SKUEL031 -- stale\n"
+            '"""\n'
+        )
+        linter = self._lint_tree(tmp_path, {"core/services/x.py": content})
+        hidden_flags = [v for v in linter.result.violations if self.HIDDEN_MESSAGE in v.message]
+        assert [(v.rule_id, v.line_number) for v in hidden_flags] == [("SKUEL026", 4)]
+        assert [v.rule_id for v in linter.result.violations if v.rule_id == "SKUEL031"] == []
+
 
 # ============================================================================
 # SKUEL027 — ui/ Must Not Import adapters/
@@ -7950,17 +7989,16 @@ class TestExplicitFileTargetHonoursExclusions:
 
     BANNED = "poetry install\npip install requests\n"
 
-    @staticmethod
-    def _cases() -> list[str]:
-        # Both shapes a POSIX prefix admits: the file-prefix shape (the real
-        # `scripts/lint_skuel.py`) and the tree shape (`scripts/migrations/`).
-        return [
+    # Both shapes a POSIX prefix admits: the file-prefix shape (the real
+    # `scripts/lint_skuel.py`) and the tree shape (`scripts/migrations/`).
+    @pytest.mark.parametrize(
+        "rel",
+        [
             rel
             for prefix in SkuelLinter.EXCLUDED_PATH_PREFIXES
             for rel in (f"{prefix}.py", f"{prefix}/x.py")
-        ]
-
-    @pytest.mark.parametrize("rel", _cases())
+        ],
+    )
     def test_excluded_file_target_scans_nothing_and_says_so(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str], rel: str
     ) -> None:
