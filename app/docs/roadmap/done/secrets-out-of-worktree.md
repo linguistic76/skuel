@@ -1,5 +1,5 @@
 ---
-updated: 2026-08-21
+updated: 2026-09-05
 ---
 
 # Secrets Out of the Worktree
@@ -110,8 +110,8 @@ Combined effect: if a credential the active tier needs is missing from both the 
 ## What's left
 
 > Disposition 2026-08-21: the live register entry was retired — Mike took both follow-ups
-> into his personal queue (they are small and optional; `../deferred-work.md` § Secrets
-> Follow-ups now records the disposition). The list below remains the record.
+> into his personal queue (they are small and optional; the `deferred-work.md` entry that
+> recorded the disposition was retired 2026-09-05). The list below remains the record.
 
 Nothing structurally — Stages 1–3 cover the full "no plaintext secrets on disk" goal for a single-developer machine. Open follow-ups, all small and optional:
 

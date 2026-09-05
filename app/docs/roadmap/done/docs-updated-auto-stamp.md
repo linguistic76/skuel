@@ -4,13 +4,11 @@ updated: 2026-09-05
 status: "shipped"
 registered: 2026-08-29
 ruled: 2026-09-01
-trigger: "none — built 2026-09-01; kept for the settled forks and permanent rules"
-check: "./dev health-updated green"
 ---
 
 # Docs `updated:` Frontmatter — Auto-Stamp
 
-*Case file for the [deferred-work.md](deferred-work.md) entry of the same name; move to `done/` when nothing in it remains open.*
+*Closure record. Was the [deferred-work.md](../deferred-work.md) entry of the same name until 2026-09-05; the feature SHIPPED 2026-09-01 and nothing here is open — kept for the settled forks, the permanent rules and the traps a future session would reintroduce.*
 
 **Built.** The field is now written by machine and checked by machine. Three pieces,
 one shared module (`scripts/docs_updated_field.py`) so none is a catalog copy of the
@@ -25,7 +23,7 @@ others:
 **Result:** 412 of 412 green, in 2.6s. Before the backfill, 373 were wrong — 193 with
 no `updated:` at all, 180 lagging their last substantive commit by over a week (33 by
 over six months). The design and its reasoning live in
-[`docs/tools/HEALTH_CHECKS.md` § 7](../tools/HEALTH_CHECKS.md) and the scripts'
+[`docs/tools/HEALTH_CHECKS.md` § 7](../../tools/HEALTH_CHECKS.md) and the scripts'
 docstrings; **this section deliberately does not restate them** — the sixteen traps
 registered here were found by ten review rounds of *this prose*, four of them being
 this document contradicting itself, and a stamp that is mechanically written is the
