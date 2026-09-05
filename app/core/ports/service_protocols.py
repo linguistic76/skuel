@@ -100,8 +100,8 @@ class CalendarServiceOperations(Protocol):
     ) -> "Result[list[CalendarItem]]":
         """The range's plannable items — tasks + events + goal Milestones, no habits.
 
-        Weekly-note read-panel producer (periodic-notes arc S3); mirrors the
-        grid's due-OR-scheduled task semantics (act-from arc C2).
+        Weekly/monthly-note read-panel producer (periodic-notes arc S3);
+        mirrors the grid's due-OR-scheduled task semantics (act-from arc C2).
         """
         ...
 

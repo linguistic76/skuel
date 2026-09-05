@@ -228,13 +228,13 @@ class CalendarService:
     ) -> Result[list[CalendarItem]]:
         """The range's plannable items — tasks + events + goal Milestones, no habits.
 
-        Producer for the weekly-note read panel (periodic-notes arc S3): the
-        vault plans, the app shows. Composes the SAME internal fetches as the
-        calendar grid, so the due-OR-scheduled task semantics (act-from arc C2)
-        can never drift between the two surfaces. Habits are deliberately
-        excluded — daily recurrence is calendar texture, not weekly planning
-        matter (v1 ruling) — and each fetch degrades to empty on failure,
-        matching the grid's best-effort display contract.
+        Producer for the weekly- and monthly-note read panels (periodic-notes
+        arc S3): the vault plans, the app shows. Composes the SAME internal
+        fetches as the calendar grid, so the due-OR-scheduled task semantics
+        (act-from arc C2) can never drift between the surfaces. Habits are
+        deliberately excluded — daily recurrence is calendar texture, not
+        planning matter (v1 ruling) — and each fetch degrades to empty on
+        failure, matching the grid's best-effort display contract.
         """
         task_items = await self._fetch_tasks(user_uid, start_date, end_date, False)
         event_items = await self._fetch_events(user_uid, start_date, end_date, False)
@@ -242,10 +242,10 @@ class CalendarService:
         # The grid's range rule, applied listwise: an item lives on its
         # ``start_time.date()`` (``_items_by_date``), and the due-OR-scheduled
         # task fetch can match a task whose PLACEMENT day is outside the range
-        # (scheduled before the week, due within it). The week
-        # grid never renders such a chip (its day is outside the view), so the
-        # panel filters identically — same fetch, same placement, same
-        # visibility; that task shows on the week its scheduled day lives in.
+        # (scheduled before the period, due within it). The grid never
+        # renders such a chip (its day is outside the view), so the panel
+        # filters identically — same fetch, same placement, same visibility;
+        # that task shows on the period its scheduled day lives in.
         items = [
             item
             for item in (*task_items, *event_items, *goal_items)

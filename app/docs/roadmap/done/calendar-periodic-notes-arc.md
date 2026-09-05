@@ -1,5 +1,5 @@
 ---
-updated: 2026-08-28
+updated: 2026-09-05
 ---
 
 # Calendar × Periodic Notes Arc — Rulings & Contract
@@ -196,9 +196,10 @@ for the weekly/monthly notes. That is this arc.
   deferred).
 - App-side quick-add on the weekly note (E2 — the vault plans; the day lens already
   owns task quick-add per act-from C6).
-- Habits in the weekly panel v1; monthly-note panel parity (follow-ups gated on
-  lived use — both tracked live in `../deferred-work.md`: § Habit-Rhythm Arc
-  Follow-ups and § Calendar Periodic-Notes Arc Follow-up respectively).
+- Habits in the weekly panel v1 (follow-up gated on lived use — tracked live in
+  `../deferred-work.md` § Habit-Rhythm Arc Follow-ups). Monthly-note panel parity
+  was the other follow-up; ruled and shipped 2026-09-05 — see
+  [`monthly-note-panel-parity.md`](monthly-note-panel-parity.md).
 - Re-litigating Monday-start / ISO-week rail (PERMANENT) or any act-from arc choice.
 - Background/watcher-based ingestion (ADR-070 Decision 9 stands — sync is
   human-initiated).

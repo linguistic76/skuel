@@ -1,10 +1,11 @@
-"""Weekly-note page read panel — route gate tests (periodic-notes arc S3).
+"""Periodic-note page read panel — route gate tests (periodic-notes arc S3).
 
-Only the WEEKLY note page carries the panel; daily/monthly stay panel-less; a
-failed calendar fetch degrades to a panel-less page (the note is primary,
-never a 5xx); a vault-ingested weekly note (no ``period_key`` metadata stamp)
-derives the week from its UID's last colon segment. Harness mirrors
-``test_journals_discussion_routes.py`` — real ``fast_app`` + mocked services.
+The WEEKLY and MONTHLY note pages carry the panel over their own range; the
+daily note stays panel-less; a failed calendar fetch degrades to a panel-less
+page (the note is primary, never a 5xx); a vault-ingested note (no
+``period_key`` metadata stamp) derives its period from the UID's last colon
+segment. Harness mirrors ``test_journals_discussion_routes.py`` — real
+``fast_app`` + mocked services.
 """
 
 from __future__ import annotations
@@ -54,8 +55,8 @@ def _entry(kind: str, period_key: str, *, stamp_period_key: bool = True) -> User
     )
 
 
-def _week_task() -> CalendarItem:
-    start = datetime(2026, 8, 4, 9, 0)
+def _task(day: date) -> CalendarItem:
+    start = datetime.combine(day, datetime.min.time().replace(hour=9))
     return CalendarItem(
         uid="task-task_1",
         source_uid="task_1",
@@ -79,7 +80,9 @@ def _client(
 
     calendar = MagicMock()
     calendar.get_planning_items = AsyncMock(
-        return_value=calendar_result if calendar_result is not None else Result.ok([_week_task()])
+        return_value=(
+            calendar_result if calendar_result is not None else Result.ok([_task(date(2026, 8, 4))])
+        )
     )
 
     services = MagicMock()
@@ -102,12 +105,28 @@ def test_weekly_note_page_shows_the_week_panel() -> None:
 
     body = _get_note_page(client, entry.uid)
 
-    assert 'id="week-panel"' in body
+    assert 'id="planning-panel"' in body
+    assert "This week" in body
     assert "Tasks + Events" in body and "Goals + Habits" in body
     assert "Write draft" in body
     assert 'href="/today/2026-08-04"' in body
     calendar.get_planning_items.assert_awaited_once_with(
         _USER_UID, date(2026, 8, 3), date(2026, 8, 9)
+    )
+
+
+def test_monthly_note_page_shows_the_month_panel() -> None:
+    """Parity: the monthly note plans against its own month."""
+    entry = _entry("monthly", "2026-08")
+    client, calendar = _client(entry)
+
+    body = _get_note_page(client, entry.uid)
+
+    assert 'id="planning-panel"' in body
+    assert "This month" in body and "August 2026" in body
+    assert "Write draft" in body
+    calendar.get_planning_items.assert_awaited_once_with(
+        _USER_UID, date(2026, 8, 1), date(2026, 8, 31)
     )
 
 
@@ -119,9 +138,21 @@ def test_vault_ingested_weekly_note_derives_week_from_uid() -> None:
 
     body = _get_note_page(client, entry.uid)
 
-    assert 'id="week-panel"' in body
+    assert 'id="planning-panel"' in body
     calendar.get_planning_items.assert_awaited_once_with(
         _USER_UID, date(2026, 8, 3), date(2026, 8, 9)
+    )
+
+
+def test_vault_ingested_monthly_note_derives_month_from_uid() -> None:
+    entry = _entry("monthly", "2026-08", stamp_period_key=False)
+    client, calendar = _client(entry)
+
+    body = _get_note_page(client, entry.uid)
+
+    assert 'id="planning-panel"' in body
+    calendar.get_planning_items.assert_awaited_once_with(
+        _USER_UID, date(2026, 8, 1), date(2026, 8, 31)
     )
 
 
@@ -131,17 +162,7 @@ def test_daily_note_page_has_no_panel() -> None:
 
     body = _get_note_page(client, entry.uid)
 
-    assert 'id="week-panel"' not in body
-    calendar.get_planning_items.assert_not_called()
-
-
-def test_monthly_note_page_has_no_panel() -> None:
-    entry = _entry("monthly", "2026-08")
-    client, calendar = _client(entry)
-
-    body = _get_note_page(client, entry.uid)
-
-    assert 'id="week-panel"' not in body
+    assert 'id="planning-panel"' not in body
     calendar.get_planning_items.assert_not_called()
 
 
@@ -154,5 +175,5 @@ def test_failed_panel_fetch_degrades_to_a_panel_less_page() -> None:
 
     body = _get_note_page(client, entry.uid)
 
-    assert 'id="week-panel"' not in body
+    assert 'id="planning-panel"' not in body
     assert "Weekly Note" in body  # the editor still renders

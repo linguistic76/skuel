@@ -15,7 +15,7 @@ Routes:
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -1060,8 +1060,9 @@ def create_journals_routes(
         This route serves only the deliberate stored feature: periodic notes.
         Any non-periodic entry_uid → 404.
 
-        Weekly notes additionally carry a read-only panel of the ISO week's
-        existing entities (periodic-notes arc S3) — see ``ui/journals/week_panel``.
+        Weekly and monthly notes additionally carry a read-only panel of the
+        period's existing entities (periodic-notes arc S3) — see
+        ``ui/journals/period_panel``.
         """
         from adapters.inbound.result_helpers import require_found
         from core.utils.result_simplified import ErrorCategory
@@ -1086,32 +1087,33 @@ def create_journals_routes(
 
         from ui.journals import PeriodicNoteFragment
         from ui.journals.chat_page import PeriodicNotePage
-        from ui.journals.week_panel import WeeklyPlanningPanel, weekly_period_start
+        from ui.journals.period_panel import PlanningPanel, planning_period
         from ui.layouts.base_page import BasePage
         from ui.layouts.page_types import PageType
 
-        # Weekly notes gain a read panel of the week's existing entities
-        # (periodic-notes arc S3, ruling E2: the vault plans, the app shows).
-        # Daily/monthly notes stay panel-less. Degrades to no panel on an
-        # unparseable period key or a failed fetch — the note is primary.
-        week_panel = None
-        if calendar_service is not None and entry.metadata.get("entry_kind") == "weekly":
+        # Weekly and monthly notes gain a read panel of the period's existing
+        # entities (periodic-notes arc S3, ruling E2: the vault plans, the app
+        # shows). The daily note stays panel-less — ``planning_period`` answers
+        # None for it. Degrades to no panel on an unparseable period key or a
+        # failed fetch — the note is primary.
+        planning_panel = None
+        if calendar_service is not None:
             # period_key is stamped by the calendar routes but not by vault
             # ingestion; the UID always encodes it as the last colon segment.
             period_key = str(entry.metadata.get("period_key") or entry.uid.rsplit(":", 1)[-1])
-            week_start = weekly_period_start(period_key)
-            if week_start is not None:
+            period = planning_period(str(entry.metadata.get("entry_kind")), period_key)
+            if period is not None:
                 items_result = await calendar_service.get_planning_items(
-                    user_uid, week_start, week_start + timedelta(days=6)
+                    user_uid, period.start, period.end
                 )
                 if items_result.is_error:
                     logger.warning(
-                        "Weekly panel fetch failed for %s: %s",
+                        "Planning panel fetch failed for %s: %s",
                         entry.uid,
                         items_result.expect_error(),
                     )
                 else:
-                    week_panel = WeeklyPlanningPanel(items_result.value, week_start=week_start)
+                    planning_panel = PlanningPanel(items_result.value, period)
 
         initial_workspace = PeriodicNoteFragment(
             entry_uid=entry.uid,
@@ -1119,7 +1121,7 @@ def create_journals_routes(
             content=entry.content or "",
         )
         page_content = PeriodicNotePage(
-            entry=entry, initial_workspace=initial_workspace, week_panel=week_panel
+            entry=entry, initial_workspace=initial_workspace, planning_panel=planning_panel
         )
 
         if request.headers.get("HX-Request"):

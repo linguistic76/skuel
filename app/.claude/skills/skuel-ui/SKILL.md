@@ -481,7 +481,7 @@ When building a new SKUEL page or feature, verify:
 | `/core/utils/connection_configs.py` | Pure-data `ConnectionConfig` + 6 per-domain constants. The batch connection Cypher lives below the boundary in `ConnectionFetchBackend` (behind `ConnectionFetchOperations`, ADR-044); UI factories receive the port as `ActivityUIConfig.backend` |
 | `/core/utils/entity_filters.py` | `filter_tasks/goals/habits/events/choices/principles()` — business filtering/sorting logic extracted from UI views |
 | `/adapters/inbound/activity_ui_factory.py` | `ActivityUIConfig` dataclass + `create_activity_ui_routes()` — shared factory generating 5 routes per Activity Domain (page shell, content fragment, list-fragment, detail shell, detail content). Each `{domain}_ui.py` is ~50 lines creating an `ActivityUIConfig` and delegating here |
-| `/ui/journals/` | Journal UI rendering: `chat_page.py`, `components.py`, `forms.py`, `week_panel.py` — used by `user_entry_ui.py` and `journals_routes.py` |
+| `/ui/journals/` | Journal UI rendering: `chat_page.py`, `components.py`, `forms.py`, `period_panel.py` — used by `user_entry_ui.py` and `journals_routes.py` |
 | `/ui/insights/` | Insight UI rendering: `components.py`, `filters.py`, `insight_card.py` — extracted from `insights_ui.py` |
 | `/ui/pathways/` | Pathways UI rendering: `components.py` — extracted from `pathways_ui.py` |
 | `/ui/notifications/` | Notification UI rendering: `cards.py` — extracted from `notifications_routes.py` |

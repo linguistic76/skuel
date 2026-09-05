@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Any
 from fasthtml.common import A, Button, Div, Form, Input, P, Span
 
 from ui.components import Icon
-from ui.journals.week_panel import weekly_period_start
+from ui.journals.period_panel import monthly_period_start, weekly_period_start
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
@@ -79,16 +79,16 @@ def JournalsLandingPage(
 def PeriodicNotePage(
     entry: "UserEntry",
     initial_workspace: Any,
-    week_panel: "FT | None" = None,
+    planning_panel: "FT | None" = None,
 ) -> Any:
     """Full-height layout for periodic notes (daily/weekly/monthly).
 
     Uses a compact calendar navigation sidebar instead of the journal session
     sidebar — periodic notes are date-oriented, not pipeline-session-oriented.
 
-    ``week_panel`` — the weekly note's read panel of the week's existing
-    entities (periodic-notes arc S3), rendered as a right column. Only the
-    weekly-note route passes it; daily/monthly pages stay two-column.
+    ``planning_panel`` — the note's read panel of the period's existing
+    entities (periodic-notes arc S3), rendered as a right column. The route
+    passes it for weekly and monthly notes; the daily page stays two-column.
     """
     columns: list[FT] = [
         _periodic_note_sidebar(entry),
@@ -97,10 +97,10 @@ def PeriodicNotePage(
             cls="flex-1 flex flex-col overflow-hidden",
         ),
     ]
-    if week_panel is not None:
+    if planning_panel is not None:
         columns.append(
             Div(
-                week_panel,
+                planning_panel,
                 cls=("w-[300px] shrink-0 border-l border-border bg-slate-50 overflow-y-auto p-4"),
             )
         )
@@ -145,13 +145,8 @@ def _periodic_note_sidebar(entry: "UserEntry") -> Any:
         prev_label = f"Week {pw}"
         next_label = f"Week {nw}"
     elif kind == "monthly":
-        parts = period_key.split("-")
-        try:
-            year_m = int(parts[0]) if len(parts) > 0 else today.year
-            month_m = int(parts[1]) if len(parts) > 1 else today.month
-            ref_date = date(year_m, month_m, 1)
-        except ValueError:
-            ref_date = today.replace(day=1)
+        month_start = monthly_period_start(period_key)
+        ref_date = month_start if month_start is not None else today.replace(day=1)
         highlight_dates = set()
         prev_d = (ref_date - timedelta(days=1)).replace(day=1)
         next_d = (ref_date + timedelta(days=32)).replace(day=1)
