@@ -1,6 +1,6 @@
 ---
 title: Linter Guide
-updated: 2026-09-03
+updated: 2026-09-05
 category: guides
 related_skills:
 - python
@@ -292,7 +292,7 @@ route_count = len(app.routes) if hasattr(app, "routes") else 0  # skuel-lint: di
 # skuel-lint: disable-file=SKUEL005 -- Cache service, raw values not Result[T]
 ```
 
-**Supported rules:** SKUEL005, SKUEL011–SKUEL015, SKUEL017–SKUEL025, SKUEL027–SKUEL030, SKUEL032 (the `SUPPRESSIBLE_RULES` set in `lint_skuel.py`, drift-guarded by `TestSuppressibleRulesDrift`). Every run audits suppressions and flags unused ones as SKUEL026.
+**Supported rules:** SKUEL005, SKUEL011, SKUEL012, SKUEL013, SKUEL014, SKUEL015, SKUEL016, SKUEL017, SKUEL018, SKUEL019, SKUEL020, SKUEL021, SKUEL022, SKUEL023, SKUEL024, SKUEL025, SKUEL027, SKUEL028, SKUEL029, SKUEL030, SKUEL031, SKUEL032, SKUEL033, SKUEL034 (the `SUPPRESSIBLE_RULES` set in `lint_skuel.py`; `TestSuppressibleRulesDrift` pins the set to the checkers' call sites, `tests/unit/docs/test_suppressible_rules_docs.py` pins this list to the set — explicit ids only, no ranges). Every run audits suppressions and flags unused ones as SKUEL026.
 
 **SKUEL017 additional markers:**
 ```python

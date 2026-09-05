@@ -1,6 +1,6 @@
 ---
 title: Code Quality Enforcement - Linter Rules
-updated: 2026-08-30
+updated: 2026-09-05
 category: patterns
 related_skills:
 - python
@@ -102,7 +102,7 @@ route_count = len(app.routes) if hasattr(app, "routes") else 0  # skuel-lint: di
 # skuel-lint: disable-file=SKUEL005 -- Cache service, raw values not Result[T]
 ```
 
-**Supported rules:** SKUEL005, SKUEL011, SKUEL012, SKUEL013, SKUEL014, SKUEL015, SKUEL017, SKUEL018, SKUEL019, SKUEL020, SKUEL021, SKUEL022, SKUEL023, SKUEL024, SKUEL025, SKUEL027, SKUEL028, SKUEL029, SKUEL030, SKUEL032, SKUEL033, SKUEL034 — the `SUPPRESSIBLE_RULES` set in `lint_skuel.py`. `TestSuppressibleRulesDrift` pins that *set* to the checkers' suppression-helper call sites; it does not pin this list to the set (SKUEL033 was missing here for a month) — the list-side pin is registered in `docs/roadmap/deferred-work.md` § Catalog Copies in Code. A comment naming any other rule does nothing and is flagged by SKUEL026.
+**Supported rules:** SKUEL005, SKUEL011, SKUEL012, SKUEL013, SKUEL014, SKUEL015, SKUEL016, SKUEL017, SKUEL018, SKUEL019, SKUEL020, SKUEL021, SKUEL022, SKUEL023, SKUEL024, SKUEL025, SKUEL027, SKUEL028, SKUEL029, SKUEL030, SKUEL031, SKUEL032, SKUEL033, SKUEL034 — the `SUPPRESSIBLE_RULES` set in `lint_skuel.py`. Two pins, two subjects: `TestSuppressibleRulesDrift` pins that *set* to the checkers' suppression-helper call sites, and `tests/unit/docs/test_suppressible_rules_docs.py` pins every "Supported rules:" list in the docs to the set — a member added to one and not the other fails the build (SKUEL033 was once missing here for a month with the set-side pin green). Write the list explicitly, in ascending order; range notation is refused. A comment naming any other rule does nothing and is flagged by SKUEL026.
 
 **SKUEL017** additionally recognizes `# intentional-broad: <reason>` and `# safety-net: <reason>` (anywhere in the except-clause header, or the line above — both survive formatter wrapping).
 
@@ -1247,7 +1247,7 @@ Add to pre-commit hooks or CI pipeline:
 ## Linter Configuration Files
 
 - **pyproject.toml** - Main configuration for ruff, mypy, pyright
-- **scripts/lint_skuel.py** - Custom SKUEL pattern enforcement (31 rules)
+- **scripts/lint_skuel.py** - Custom SKUEL pattern enforcement (33 rules)
 - **scripts/cypher_linter.py** - Cypher query static analysis (11 rules, 2 disabled)
 - **Exceptions documented in:** `pyproject.toml` section `[tool.ruff.lint.per-file-ignores]`
 
