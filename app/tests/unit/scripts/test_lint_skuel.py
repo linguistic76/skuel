@@ -2079,6 +2079,24 @@ class TestSKUEL016:
             (Path("core/services/x.py"), "SKUEL016")
         ]
 
+    def test_the_linter_itself_is_excluded_by_path_not_by_rule(self, tmp_path: Path) -> None:
+        """``scripts/lint_skuel*`` never reaches ANY rule in a sweep —
+        ``EXCLUDED_PATH_PREFIXES``, one path-level mechanism — which is why its
+        ``RULE_DOCS`` examples may name the banned patterns without a per-rule
+        allowlist or a suppression comment. Covers both text rules at once:
+        the exclusion is a property of the path, not of a checker."""
+        banned = "poetry install\npip install requests\n"
+        _write_tree(
+            tmp_path,
+            {"scripts/lint_skuel.py": banned, "scripts/other.py": banned},
+        )
+        linter = SkuelLinter(root_dir=tmp_path, rules_filter=["SKUEL016", "SKUEL031"])
+        linter.lint()
+        assert sorted((v.file_path, v.rule_id) for v in linter.result.violations) == [
+            (Path("scripts/other.py"), "SKUEL016"),
+            (Path("scripts/other.py"), "SKUEL031"),
+        ]
+
     def test_rule_is_registered_as_suppressible(self) -> None:
         from lint_skuel import RULE_DOCS  # type: ignore[import-not-found]
 
