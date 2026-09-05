@@ -115,7 +115,10 @@ def parse_frontmatter_bytes(content: bytes) -> Result[dict[str, Any]]:
     """
     try:
         text = content.decode("utf-8", errors="replace")
-    except Exception:  # safety-net: malformed bytes should not crash upload
+    except UnicodeDecodeError, ValueError:
+        # ``errors="replace"`` already absorbs malformed bytes, so this is the
+        # narrow residue (a decoder that rejects the input outright), not a
+        # catch-all: anything else here is a real bug and must propagate.
         return Result.fail(
             Errors.validation(
                 "Frontmatter bytes could not be decoded",

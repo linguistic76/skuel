@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
-from core.utils.frontmatter import parse_frontmatter, split_frontmatter
+from core.utils.frontmatter import (
+    parse_frontmatter,
+    parse_frontmatter_bytes,
+    split_frontmatter,
+)
 from core.utils.result_simplified import ErrorCategory
 
 
@@ -74,3 +78,30 @@ class TestSplitFrontmatter:
         raw, body = split_frontmatter("plain content")
         assert raw is None
         assert body == "plain content"
+
+
+class TestParseFrontmatterBytes:
+    """The bytes door has no callers today (Kody #1269), so its contract is
+    pinned here rather than by a consumer — a Result, not a bare dict."""
+
+    def test_valid_bytes_yield_the_frontmatter_dict(self):
+        result = parse_frontmatter_bytes(b"---\ntitle: t\nuid: ku.a.b\n---\nbody")
+        assert result.is_ok
+        assert result.value == {"title": "t", "uid": "ku.a.b"}
+
+    def test_no_fence_is_an_empty_dict_not_an_error(self):
+        result = parse_frontmatter_bytes(b"just body, no fence")
+        assert result.is_ok
+        assert result.value == {}
+
+    def test_a_broken_fence_fails_rather_than_returning_empty(self):
+        result = parse_frontmatter_bytes(b"---\n: [unclosed\n---\nbody")
+        assert result.is_error
+        assert result.expect_error().category is ErrorCategory.VALIDATION
+
+    def test_non_utf8_bytes_are_replaced_not_rejected(self):
+        """errors="replace" is why the decode guard is narrow: undecodable
+        bytes become replacement chars and still parse."""
+        result = parse_frontmatter_bytes(b"---\ntitle: caf\xff\n---\nbody")
+        assert result.is_ok
+        assert "caf" in str(result.value["title"])
