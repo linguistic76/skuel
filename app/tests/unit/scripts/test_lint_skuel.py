@@ -7,6 +7,7 @@ Uses synthetic string content — no filesystem access needed.
 """
 
 import ast
+import json
 import re
 import sys
 from pathlib import Path
@@ -7397,3 +7398,131 @@ class TestGitChangedFiles:
 
         files = SkuelLinter._git_changed_files(app, staged_only=True)
         assert files == [target]
+
+
+# ============================================================================
+# INTERNAL ERRORS — a crashing rule fails the run instead of silencing it
+# ============================================================================
+
+
+def _raise_rule_bug(self: SkuelLinter, *args: object) -> None:
+    """Stand-in checker that crashes — monkeypatched over a real rule."""
+    raise RuntimeError("rule bug")
+
+
+def _write_tree(tmp_path: Path, files: dict[str, str]) -> None:
+    for rel, content in files.items():
+        p = tmp_path / rel
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(content, encoding="utf-8")
+
+
+class TestInternalErrors:
+    """A rule that raises is recorded, isolated to that rule, and fails the run.
+
+    One ``except Exception`` around all rules used to print to stderr and
+    continue: a rule bug took every rule off every file it touched, and the
+    ``--strict --quiet`` CI gate reported green over an unchecked tree.
+    """
+
+    # SKUEL003 is the first rule dispatched; crashing it and still seeing
+    # SKUEL011 fire on the same file is the per-rule-``try`` proof.
+    HASATTR_FILE = 'ok = hasattr(app, "routes")\n'
+    CLEAN_FILE = "x = 1\n"
+
+    def test_crashing_rule_is_recorded_and_other_rules_still_run(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _write_tree(tmp_path, {"core/services/x.py": self.HASATTR_FILE})
+        monkeypatch.setattr(SkuelLinter, "_check_is_err_usage", _raise_rule_bug)
+
+        linter = SkuelLinter(root_dir=tmp_path)
+        linter.lint()
+
+        assert linter.result.internal_errors == [
+            (Path("core/services/x.py"), "SKUEL003", "RuntimeError: rule bug")
+        ]
+        assert [v.rule_id for v in linter.result.violations] == ["SKUEL011"]
+
+    def test_internal_error_exits_2_regardless_of_strict(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        _write_tree(tmp_path, {"core/services/x.py": self.CLEAN_FILE})
+        monkeypatch.setattr(SkuelLinter, "_check_is_err_usage", _raise_rule_bug)
+
+        linter = SkuelLinter(root_dir=tmp_path)
+        linter.lint()
+
+        assert linter.result.violations == []
+        assert linter.result.exit_code(strict=False) == 2
+        assert linter.result.exit_code(strict=True) == 2
+
+        # Quiet (CI) mode prints the crash under its own heading, then fails.
+        assert linter.print_report(strict=False, quiet=True) == 2
+        out = capsys.readouterr().out
+        assert "INTERNAL ERRORS: 1" in out
+        assert "core/services/x.py" in out and "[SKUEL003]" in out and "rule bug" in out
+
+        # Full report: same heading, an Internal: line in the summary, exit 2.
+        assert linter.print_report(strict=False, quiet=False) == 2
+        out = capsys.readouterr().out
+        assert "INTERNAL ERRORS: 1" in out and "Internal: 1" in out
+        assert "Critical/Error violations found" not in out
+
+    def test_clean_tree_has_no_internal_errors(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        _write_tree(tmp_path, {"core/services/x.py": self.CLEAN_FILE})
+
+        linter = SkuelLinter(root_dir=tmp_path)
+        linter.lint()
+
+        assert linter.result.internal_errors == []
+        assert linter.print_report(strict=True, quiet=True) == 0
+        assert "INTERNAL" not in capsys.readouterr().out
+
+    def test_unreadable_file_is_recorded_under_read_failure_id(self, tmp_path: Path) -> None:
+        target = tmp_path / "core" / "services" / "bad.py"
+        target.parent.mkdir(parents=True)
+        target.write_bytes(b"x = '\xff'\n")  # not UTF-8
+
+        linter = SkuelLinter(root_dir=tmp_path)
+        linter.lint()
+
+        assert len(linter.result.internal_errors) == 1
+        file_path, rule_id, message = linter.result.internal_errors[0]
+        assert file_path == Path("core/services/bad.py")
+        assert rule_id == SkuelLinter.READ_FAILURE_ID
+        assert message.startswith("UnicodeDecodeError")
+        assert linter.result.exit_code(strict=False) == 2
+
+    def test_json_output_carries_internal_errors_and_exits_2(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        import lint_skuel  # type: ignore[import-not-found]
+
+        _write_tree(tmp_path, {"core/services/x.py": self.CLEAN_FILE})
+        monkeypatch.setattr(SkuelLinter, "_check_is_err_usage", _raise_rule_bug)
+        # main() roots the scan at the linter's parent.parent — point it at tmp_path.
+        monkeypatch.setattr(lint_skuel, "__file__", str(tmp_path / "scripts" / "lint_skuel.py"))
+        monkeypatch.setattr(sys, "argv", ["lint_skuel.py", "--json"])
+        # main() calls Colors.disable() for non-tty stdout, which rewrites the
+        # class attributes for the whole session; pre-blank them under the
+        # monkeypatch so the rewrite is a no-op that is restored afterwards.
+        for name in ("RED", "GREEN", "YELLOW", "BLUE", "CYAN", "BOLD", "DIM", "RESET"):
+            monkeypatch.setattr(lint_skuel.Colors, name, "")
+
+        with pytest.raises(SystemExit) as exc:
+            lint_skuel.main()
+
+        assert exc.value.code == 2
+        payload = json.loads(capsys.readouterr().out)
+        assert payload["summary"]["internal_errors"] == 1
+        assert payload["internal_errors"] == [
+            {
+                "file": "core/services/x.py",
+                "rule_id": "SKUEL003",
+                "message": "RuntimeError: rule bug",
+            }
+        ]
+        assert payload["violations"] == []
