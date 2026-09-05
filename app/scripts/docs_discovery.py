@@ -82,7 +82,11 @@ class DocsReport:
 
 def extract_frontmatter(content: str) -> tuple[dict, bool]:
     """Extract YAML frontmatter from content. Returns (data, has_frontmatter)."""
-    result = parse_frontmatter(content)[0]
+    parsed = parse_frontmatter(content)
+    if parsed.is_error:
+        print(f"⚠️  {parsed.expect_error().display_message}", file=sys.stderr)
+        return {}, False
+    result = parsed.value[0]
     return result, bool(result)
 
 

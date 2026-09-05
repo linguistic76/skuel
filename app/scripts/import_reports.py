@@ -77,7 +77,12 @@ async def main(teacher_uid: str, done_dir: Path) -> None:
 
     for path in report_files:
         text = path.read_text(encoding="utf-8")
-        fm, body = parse_frontmatter(text)
+        parsed = parse_frontmatter(text)
+        if parsed.is_error:
+            print(f"  SKIP {path.name}: {parsed.expect_error().display_message}")
+            err_count += 1
+            continue
+        fm, body = parsed.value
         body = body.strip()
 
         submission_uid = fm.get("submission_uid")

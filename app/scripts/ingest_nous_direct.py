@@ -24,7 +24,11 @@ def parse_markdown_file(file_path: Path) -> dict | None:
     """Parse a markdown file with YAML frontmatter."""
     content = file_path.read_text(encoding="utf-8")
 
-    frontmatter, body = parse_frontmatter(content)
+    parsed = parse_frontmatter(content)
+    if parsed.is_error:
+        print(f"⚠️  {file_path}: {parsed.expect_error().display_message}")
+        return None
+    frontmatter, body = parsed.value
     if not frontmatter:
         return None
 

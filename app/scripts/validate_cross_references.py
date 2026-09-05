@@ -41,6 +41,7 @@ Usage:
 
 import argparse
 import subprocess
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -93,7 +94,13 @@ def find_skill_references_in_file(file_path: Path) -> set[str]:
     registry. A name that doesn't resolve is a broken link and the caller reports
     it; filtering here is what made that check unreachable before.
     """
-    frontmatter, _ = parse_frontmatter(file_path.read_text())
+    parsed = parse_frontmatter(file_path.read_text())
+    if parsed.is_error:
+        # A pre-commit hook must not abort a whole-tree scan over one bad file;
+        # report it and read no links from it.
+        print(f"⚠️  {file_path}: {parsed.expect_error().display_message}", file=sys.stderr)
+        return set()
+    frontmatter, _ = parsed.value
     related = frontmatter.get("related_skills") or []
     # Tolerate the scalar form (`related_skills: fasthtml`) alongside the list form.
     if isinstance(related, str):

@@ -47,9 +47,17 @@ VALID_SKILLS = {
 }
 
 
-def extract_frontmatter(content: str) -> tuple[dict[str, Any] | None, str]:
-    """Extract YAML frontmatter and body from markdown content."""
-    frontmatter, body = _parse_frontmatter(content)
+def extract_frontmatter(content: str) -> tuple[dict[str, Any] | None, str] | None:
+    """Extract YAML frontmatter and body from markdown content.
+
+    Returns None when a fence IS present but does not parse: this script
+    rewrites the file, and treating a broken fence as absent would emit a
+    second `---` block above the original one.
+    """
+    parsed = _parse_frontmatter(content)
+    if parsed.is_error:
+        return None
+    frontmatter, body = parsed.value
     if not frontmatter:
         return None, content
     return frontmatter, body
@@ -138,7 +146,11 @@ def standardize_frontmatter(
     file_path: Path, content: str, dry_run: bool = True
 ) -> tuple[str, dict[str, Any]]:
     """Standardize frontmatter for a single file."""
-    frontmatter, body = extract_frontmatter(content)
+    extracted = extract_frontmatter(content)
+    if extracted is None:
+        print(f"  SKIP {file_path.name}: frontmatter does not parse — not rewriting")
+        return content, {}
+    frontmatter, body = extracted
 
     # Extract or infer required fields
     if frontmatter:
