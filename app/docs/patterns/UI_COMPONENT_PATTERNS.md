@@ -1,6 +1,6 @@
 ---
 title: UI Component Patterns
-updated: '2026-09-04'
+updated: '2026-09-05'
 category: patterns
 related_skills:
   - accessibility-guide
@@ -110,6 +110,8 @@ SKUEL uses a layered UI component architecture built on its own pure-Tailwind + 
 **Evolution (2026-06-28):** Profile avatar button (`_profile_button`) re-wired into navbar right section, placed between notification bell and Sign out. Brand "SKUEL" link updated from `/profile` → `/explore` (the ZPD-surfaced reading focal point — primary landing destination after login). `Explore` removed from `ICON_NAV_ITEMS`; the brand link is now the sole entry point. Right section is now: Search + Askesis (flame) + bell + Profile avatar + Sign out.
 
 **Evolution (2026-07-17):** Tasks+ removed from `ICON_NAV_ITEMS` (activity domains are reached via the Profile hub); Journals (`/journals`, `Icon("book-open")`) takes its slot. Calendar icon button (`_calendar_button`, `Icon("calendar")` → `/cal`) added to the navbar right section after Search — desktop only, mirroring Search: mobile folds Calendar into the bottom nav (`_CALENDAR_TAB`) to preserve 44px tap targets at 320px. Calendar pages now pass `active_page="calendar"` (was `"tasks"`). Right section is now: Search + Calendar (both desktop-only) + Askesis (flame) + Shared-inbox + bell + Profile avatar + Sign out.
+
+**Evolution (2026-09-05):** The "Notes" periodic-note picker (`PeriodNotesPicker`, `ui/layouts/period_notes.py`) moved off the calendar/Today toolbars into the navbar right section, after Calendar — the navbar's only dropdown, and visible at every width. Because global chrome has no viewed period to follow, `viewed_period(path)` reads it off the request path, so the month view's Monthly row still opens the month on screen. Sign-out became desktop-only (`hidden sm:inline-flex`) to keep the mobile bar at five icons; `/profile` carries an `sm:hidden` sign-out row instead (`ui/profile/hub.py`), so exactly one sign-out door exists at every width. Right section is now: Search + Calendar (both desktop-only) + Notes + Askesis (flame) + Shared-inbox + bell + Profile avatar + Sign out (desktop-only).
 
 **Evolution (2026-04-06d):** Performance pass — `personal_header()` on `/tasks` was blocking the page render with the 1034-line MEGA_QUERY just for 3 fields. Replaced with `personal_header_placeholder()` — an HTMX div that lazy-loads via `GET /api/personal-header` (registered in `home_routes.py`) after the page renders. Use `personal_header_placeholder()` on any page that doesn't already have `UserContext` loaded; use `personal_header(context)` only when the full context is already in scope (e.g. `/home`). Explore page and sidebar queries parallelized with `asyncio.gather`. `RequestTimingMiddleware` added — logs all requests with duration; `SLOW` at WARNING for >100ms.
 
