@@ -1,7 +1,7 @@
 """Periodic-note page read panel — route gate tests (periodic-notes arc S3).
 
-The WEEKLY and MONTHLY note pages carry the panel over their own range; the
-daily note stays panel-less; a failed calendar fetch degrades to a panel-less
+The WEEKLY, MONTHLY, QUARTERLY and YEARLY note pages carry the panel over their
+own range; the daily note stays panel-less; a failed calendar fetch degrades to a panel-less
 page (the note is primary, never a 5xx); a vault-ingested note (no
 ``period_key`` metadata stamp) derives its period from the UID's last colon
 segment. Harness mirrors ``test_journals_discussion_routes.py`` — real
@@ -75,6 +75,7 @@ def _client(
 
     user_entry = MagicMock()
     user_entry.get_entry = AsyncMock(return_value=Result.ok(entry))
+    user_entry.update_entry = AsyncMock(return_value=Result.ok(entry))
     # Periodic-ness is a model predicate (UserEntry.is_periodic_note) — the
     # real entry's entry_kind metadata answers it; nothing to mock.
 
@@ -177,3 +178,149 @@ def test_failed_panel_fetch_degrades_to_a_panel_less_page() -> None:
 
     assert 'id="planning-panel"' not in body
     assert "Weekly Note" in body  # the editor still renders
+
+
+def test_quarterly_note_page_shows_the_quarter_panel() -> None:
+    entry = _entry("quarterly", "2026-Q3")
+    client, calendar = _client(entry)
+
+    body = _get_note_page(client, entry.uid)
+
+    assert 'id="planning-panel"' in body
+    # Escaped: ruff flags a literal en dash as confusable, and the label must
+    # match the panel byte-for-byte.
+    assert "This quarter" in body and "Q3 2026 \u00b7 Jul \u2013 Sep" in body
+    assert "Write draft" in body
+    calendar.get_planning_items.assert_awaited_once_with(
+        _USER_UID, date(2026, 7, 1), date(2026, 9, 30)
+    )
+
+
+def test_yearly_note_page_shows_the_year_panel() -> None:
+    entry = _entry("yearly", "2026")
+    client, calendar = _client(entry)
+
+    body = _get_note_page(client, entry.uid)
+
+    assert 'id="planning-panel"' in body
+    assert "This year" in body
+    assert "Write draft" in body
+    calendar.get_planning_items.assert_awaited_once_with(
+        _USER_UID, date(2026, 1, 1), date(2026, 12, 31)
+    )
+
+
+def test_vault_ingested_quarterly_note_derives_quarter_from_uid() -> None:
+    """No ``period_key`` stamp (vault ingestion) — the UID's last colon segment
+    carries the same key form. ``2026-Q3`` must not read as a weekly key."""
+    entry = _entry("quarterly", "2026-Q3", stamp_period_key=False)
+    client, calendar = _client(entry)
+
+    assert 'id="planning-panel"' in _get_note_page(client, entry.uid)
+    calendar.get_planning_items.assert_awaited_once_with(
+        _USER_UID, date(2026, 7, 1), date(2026, 9, 30)
+    )
+
+
+def test_vault_ingested_yearly_note_derives_year_from_uid() -> None:
+    entry = _entry("yearly", "2026", stamp_period_key=False)
+    client, calendar = _client(entry)
+
+    assert 'id="planning-panel"' in _get_note_page(client, entry.uid)
+    calendar.get_planning_items.assert_awaited_once_with(
+        _USER_UID, date(2026, 1, 1), date(2026, 12, 31)
+    )
+
+
+# The month sub-head's own class — a month NAME is not a usable marker on a
+# page whose period ladder also names months ("Open the August 2026 note").
+_SUB_HEAD_MARKER = "tracking-[0.06em]"
+
+
+def test_long_period_pages_sub_head_their_rows_by_month() -> None:
+    """The panel's long-period affordance reaches the page (quarterly/yearly)
+    and leaves the weekly page's flat list alone."""
+    quarterly = _entry("quarterly", "2026-Q3")
+    client, _cal = _client(quarterly)
+    quarterly_body = _get_note_page(client, quarterly.uid)
+    assert _SUB_HEAD_MARKER in quarterly_body
+    assert "August 2026" in quarterly_body
+
+    weekly = _entry("weekly", "2026-W32")
+    client, _cal = _client(weekly)
+    assert _SUB_HEAD_MARKER not in _get_note_page(client, weekly.uid)
+
+
+def test_every_periodic_kind_but_yearly_ladders_up_to_a_wider_period() -> None:
+    """The ladder is the ONLY door to the quarterly and yearly notes — the
+    calendar has week and month views only (ruling 2026-09-05)."""
+    expected = {
+        "daily": ("2026-08-04", ["/journals/weekly/2026/32", "/journals/quarterly/2026/3"]),
+        "weekly": ("2026-W32", ["/journals/monthly/2026/8", "/journals/quarterly/2026/3"]),
+        "monthly": ("2026-08", ["/journals/quarterly/2026/3", "/journals/yearly/2026"]),
+        "quarterly": ("2026-Q3", ["/journals/yearly/2026"]),
+    }
+    for kind, (period_key, rungs) in expected.items():
+        client, _cal = _client(_entry(kind, period_key))
+        body = _get_note_page(client, f"ue:{kind}:{_USER_UID}:{period_key}")
+        for rung in rungs:
+            assert f'href="{rung}"' in body, f"{kind} note is missing its {rung} rung"
+
+
+def test_the_yearly_note_has_no_ladder() -> None:
+    """A year contains no wider period — the rung list is empty, not a stub."""
+    entry = _entry("yearly", "2026")
+    client, _cal = _client(entry)
+
+    body = _get_note_page(client, entry.uid)
+
+    # No rung of any width — only the yearly prev/next and the mini-month's
+    # own daily links remain.
+    for wider in ("/journals/weekly/", "/journals/monthly/", "/journals/quarterly/"):
+        assert wider not in body
+    assert 'href="/journals/yearly/2025"' in body  # prev/next still navigate
+
+
+# ---------------------------------------------------------------------------
+# The save guard — the fourth thing PERIODIC_NOTE_KINDS membership switches on
+# ---------------------------------------------------------------------------
+
+
+def _save_note(entry: UserEntry, *, content: str = "edited") -> str:
+    """POST the note-save route as its owner; return the status fragment."""
+    from adapters.inbound.csrf import CSRF_COOKIE_NAME, CSRF_HEADER_NAME, mint_token
+
+    client, _calendar = _client(entry)
+    token = mint_token()
+    client.cookies.set(CSRF_COOKIE_NAME, token)
+    response = client.post(
+        f"/journals/{entry.uid}/note",
+        data={"content": content},
+        headers={CSRF_HEADER_NAME: token},
+    )
+    assert response.status_code == 200
+    return response.text
+
+
+@pytest.mark.parametrize("kind,period_key", [("quarterly", "2026-Q3"), ("yearly", "2026")])
+def test_new_kinds_pass_the_note_save_guard(kind: str, period_key: str) -> None:
+    """The guard is ``is_periodic_note()`` — a kind outside PERIODIC_NOTE_KINDS
+    is refused as "Not a periodic note", so an unwidened frozenset would leave
+    these two notes readable but unsaveable."""
+    assert "Saved" in _save_note(_entry(kind, period_key))
+
+
+def test_a_non_periodic_entry_is_still_refused_by_the_save_guard() -> None:
+    """Widening the vocabulary must not open the route to every entry kind."""
+    entry = _entry("weekly", "2026-W32")
+    entry = UserEntry(
+        uid="ue_abcd1234",
+        user_uid=_USER_UID,
+        title="Turn-in",
+        content="",
+        status=entry.status,
+        created_at=entry.created_at,
+        updated_at=entry.updated_at,
+        metadata={},
+    )
+    assert "Not a periodic note" in _save_note(entry)

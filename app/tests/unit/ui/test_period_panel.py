@@ -5,8 +5,10 @@ The panel shows the period's existing entities in pair vocabulary
 (/today/{date}). Strictly read-only (ruling E2 — no app-side planning
 affordances on the note); habits never render in v1; a due-only task keeps its
 ⏰ + red STATE cue (E1). ``planning_period`` resolves the weekly note to its
-ISO week and the monthly note to its calendar month;
-the daily note gets no period. ``PeriodicNotePage`` grows a third column only
+ISO week, the monthly note to its calendar month, the quarterly note to its
+three months and the yearly note to Jan 1 through Dec 31; the daily note gets no
+period. A period long enough to lose one's place in (quarterly, yearly)
+sub-heads its rows by month. ``PeriodicNotePage`` grows a third column only
 when a panel is passed.
 """
 
@@ -22,7 +24,9 @@ from ui.journals.period_panel import (
     PlanningPeriod,
     monthly_period_start,
     planning_period,
+    quarterly_period_start,
     weekly_period_start,
+    yearly_period_start,
 )
 
 _WEEK_START = date(2026, 8, 3)  # Monday of ISO week 2026-W32
@@ -125,9 +129,9 @@ def test_monthly_period_end_respects_short_months() -> None:
 
 
 def test_daily_and_unknown_kinds_get_no_period() -> None:
-    """The day lens IS the daily note's panel; nothing else plans."""
+    """The day lens IS the daily note's panel; an unknown kind never plans."""
     assert planning_period("daily", "2026-08-03") is None
-    assert planning_period("quarterly", "2026-Q3") is None
+    assert planning_period("fortnightly", "2026-08") is None
     assert planning_period("", "2026-08") is None
 
 
@@ -298,3 +302,155 @@ def test_periodic_note_page_stays_two_column_without_panel() -> None:
 
     assert 'id="planning-panel"' not in xml
     assert "Tasks + Events" not in xml
+
+
+# ---------------------------------------------------------------------------
+# quarterly_period_start / yearly_period_start — the two new key contracts
+# ---------------------------------------------------------------------------
+
+_FOREIGN_KEYS = ("2026-W32", "2026-08", "2026-08-03", "2026-Q3", "2026")
+
+
+def test_quarterly_period_start_parses_the_contract_form() -> None:
+    assert quarterly_period_start("2026-Q1") == date(2026, 1, 1)
+    assert quarterly_period_start("2026-Q3") == date(2026, 7, 1)
+    assert quarterly_period_start("2026-Q4") == date(2026, 10, 1)
+
+
+def test_quarterly_period_start_rejects_an_out_of_range_quarter() -> None:
+    """Q5 would wrap into month 13 — rejected, never coerced."""
+    assert quarterly_period_start("2026-Q0") is None
+    assert quarterly_period_start("2026-Q5") is None
+
+
+def test_yearly_period_start_parses_the_contract_form() -> None:
+    assert yearly_period_start("2026") == date(2026, 1, 1)
+    assert yearly_period_start("2024") == date(2024, 1, 1)
+
+
+def test_every_parser_rejects_every_foreign_key_form() -> None:
+    """The four key forms overlap dangerously: ``2026-Q3`` and ``2026-W32``
+    share a shape, and ``2026`` is a prefix of all three others. Each parser
+    must answer None for every key that is not its own — a coerced key would
+    silently plan the wrong range.
+    """
+    parsers = {
+        "2026-W32": weekly_period_start,
+        "2026-08": monthly_period_start,
+        "2026-Q3": quarterly_period_start,
+        "2026": yearly_period_start,
+    }
+    for own_key, parser in parsers.items():
+        assert parser(own_key) is not None, own_key
+        for foreign in _FOREIGN_KEYS:
+            if foreign == own_key:
+                continue
+            assert parser(foreign) is None, f"{parser.__name__} accepted {foreign}"
+
+
+# ---------------------------------------------------------------------------
+# planning_period — the two new ranges
+# ---------------------------------------------------------------------------
+
+
+def test_quarterly_period_is_the_quarters_three_months() -> None:
+    period = planning_period("quarterly", "2026-Q3")
+    assert period is not None
+    assert (period.start, period.end) == (date(2026, 7, 1), date(2026, 9, 30))
+    assert period.heading == "This quarter"
+    # The en dash is escaped so the assertion stays byte-exact against the
+    # label the panel renders (ruff flags a literal one as confusable).
+    assert period.range_label == "Q3 2026 \u00b7 Jul \u2013 Sep"
+    assert period.empty_label == "Nothing this quarter"
+
+
+def test_quarterly_period_covers_q1_and_q4_edges_and_leap_february() -> None:
+    q1 = planning_period("quarterly", "2024-Q1")  # leap year
+    assert q1 is not None and (q1.start, q1.end) == (date(2024, 1, 1), date(2024, 3, 31))
+    assert q1.start <= date(2024, 2, 29) <= q1.end
+    q4 = planning_period("quarterly", "2026-Q4")
+    assert q4 is not None and (q4.start, q4.end) == (date(2026, 10, 1), date(2026, 12, 31))
+
+
+def test_yearly_period_is_january_first_to_december_thirty_first() -> None:
+    period = planning_period("yearly", "2026")
+    assert period is not None
+    assert (period.start, period.end) == (date(2026, 1, 1), date(2026, 12, 31))
+    assert period.heading == "This year"
+    assert period.range_label == "2026"
+    assert period.empty_label == "Nothing this year"
+
+
+def test_new_kinds_degrade_to_no_period_on_an_unparseable_key() -> None:
+    assert planning_period("quarterly", "2026-W32") is None
+    assert planning_period("yearly", "2026-08") is None
+
+
+# ---------------------------------------------------------------------------
+# Month sub-headings — long periods only
+# ---------------------------------------------------------------------------
+
+
+def _spanning_items() -> list[CalendarItem]:
+    """Chronological items in three consecutive months (a Q3 spread)."""
+    return [
+        _item("task-task_jul", CalendarItemType.TASK, title="July work", day=date(2026, 7, 6)),
+        _item("task-task_aug", CalendarItemType.TASK, title="August work", day=date(2026, 8, 3)),
+        _item("task-task_sep", CalendarItemType.TASK, title="Sept work", day=date(2026, 9, 14)),
+    ]
+
+
+def test_quarterly_and_yearly_periods_group_by_month() -> None:
+    for kind, key in (("quarterly", "2026-Q3"), ("yearly", "2026")):
+        period = planning_period(kind, key)
+        assert period is not None and period.groups_by_month, kind
+
+
+def test_weekly_and_monthly_periods_do_not_group_by_month() -> None:
+    """Parity is preserved: the two shipped panels render exactly as before."""
+    assert not _week().groups_by_month
+    assert not _month().groups_by_month
+
+
+def test_cross_month_week_still_renders_flat() -> None:
+    """A week CAN span two months (Jul 27 to Aug 2) but still reads as one run
+    of days — the sub-heading is a long-period affordance, not a span test."""
+    week = planning_period("weekly", "2026-W31")
+    assert week is not None
+    assert (week.start, week.end) == (date(2026, 7, 27), date(2026, 8, 2))
+    assert not week.groups_by_month
+
+
+def test_quarterly_panel_sub_heads_each_month_run() -> None:
+    period = planning_period("quarterly", "2026-Q3")
+    assert period is not None
+    xml = _panel_xml(_spanning_items(), period)
+
+    assert "July 2026" in xml and "August 2026" in xml and "September 2026" in xml
+    # Sub-heads open each run in chronological order, above their own rows.
+    assert xml.index("July 2026") < xml.index("July work") < xml.index("August 2026")
+    assert xml.index("August 2026") < xml.index("August work") < xml.index("September 2026")
+
+
+def test_weekly_panel_has_no_month_sub_heads() -> None:
+    xml = _panel_xml(_spanning_items(), _week())
+
+    assert "July work" in xml  # rows still render
+    assert "July 2026" not in xml and "September 2026" not in xml
+
+
+def test_monthly_panel_has_no_month_sub_heads() -> None:
+    """The month's own name is the panel's range label — never a row sub-head."""
+    xml = _panel_xml(_spanning_items(), _month())
+
+    assert xml.count("August 2026") == 1  # the range label alone
+    assert "July 2026" not in xml
+
+
+def test_sub_headed_panel_stays_read_only() -> None:
+    period = planning_period("yearly", "2026")
+    assert period is not None
+    xml = _panel_xml(_spanning_items(), period)
+
+    assert "<form" not in xml
+    assert "<button" not in xml

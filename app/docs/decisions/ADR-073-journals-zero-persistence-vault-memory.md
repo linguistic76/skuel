@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-02
+updated: 2026-09-05
 ---
 
 # ADR-073: Journals Are a Zero-Persistence Private Workshop; the Vault Is the Only Memory Channel
@@ -111,7 +111,7 @@ Everything else in the vault is **walled off by default** (fail-closed `SyncAllo
 
 - **Journal sessions** (`/journals/start`, `/journals/upload`): **zero** Neo4j persistence.
   The durable artifact is the file SKUEL writes to `je_out/` for the user to download and keep.
-- **Periodic notes** (daily / weekly / monthly): **kept** — stored as `UserEntry` and editable
+- **Periodic notes** (daily / weekly / monthly / quarterly / yearly): **kept** — stored as `UserEntry` and editable
   in-app (`/journals/{uid}/note`). This is a valued feature, distinct from a brainstorm session.
 - **Doorway notes**: ingested on sync as `UserEntry`; `knowledge` notes feed the context
   digest, `extract_activities` notes create real entities (ADR-069). *(Amended 2026-09-02:

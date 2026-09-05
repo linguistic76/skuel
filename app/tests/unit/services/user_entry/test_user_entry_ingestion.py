@@ -1,5 +1,6 @@
 """Tests for user_entry_ingestion (/upload → UserEntryService bridge)."""
 
+from datetime import date
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
@@ -781,3 +782,58 @@ class TestVaultExerciseChannel:
         request = service.create_entry.await_args.kwargs["request"]
         assert request.status == EntityStatus.SUBMITTED  # authored status flows
         service.get_latest_entry_for_exercise.assert_not_called()
+
+
+class TestPeriodicUidDerivation:
+    """Vault frontmatter → the derived ``ue:{kind}:{user}:{period_key}`` uid.
+
+    One frontmatter field per kind is the authoring contract
+    (``docs/patterns/UNIFIED_INGESTION_GUIDE.md``); the derived uid must match
+    the one ``UserEntryService.ensure_periodic_note`` mints for the same period,
+    or the vault note and the in-app note become two nodes.
+    """
+
+    @staticmethod
+    async def _uid(data: dict[str, object], kind: str) -> str | None:
+        result = await build_user_entry_request(
+            data={"pipeline": "extract_activities", "metadata": {"entry_kind": kind}, **data},
+            file_path=Path(f"/vault/periodic_notes/{kind}.md"),
+            user_uid="user_1",
+            audience_resolver=_resolver(),
+        )
+        assert result.is_ok
+        return result.value.uid
+
+    @pytest.mark.asyncio
+    async def test_quarterly_derives_from_quarter_of(self):
+        assert await self._uid({"quarter_of": "2026-Q3"}, "quarterly") == (
+            "ue:quarterly:user_1:2026-Q3"
+        )
+
+    @pytest.mark.asyncio
+    async def test_yearly_derives_from_year_of_however_yaml_typed_it(self):
+        """``year_of: 2026`` parses as an int; ``"2026"`` as a str. One year."""
+        assert await self._uid({"year_of": 2026}, "yearly") == "ue:yearly:user_1:2026"
+        assert await self._uid({"year_of": "2026"}, "yearly") == "ue:yearly:user_1:2026"
+
+    @pytest.mark.asyncio
+    async def test_yearly_normalizes_a_date_typed_year(self):
+        """A bare ``year_of: 2026-01-01`` coerces to a date — take its year."""
+        assert await self._uid({"year_of": date(2026, 1, 1)}, "yearly") == "ue:yearly:user_1:2026"
+
+    @pytest.mark.asyncio
+    async def test_ride_along_daily_weekly_monthly_still_derive(self):
+        """The three kinds this change extends keep their existing contracts."""
+        assert await self._uid({"date": date(2026, 8, 4)}, "daily") == "ue:daily:user_1:2026-08-04"
+        assert await self._uid({"week_of": "2026-W32"}, "weekly") == "ue:weekly:user_1:2026-W32"
+        # ``month_of: 2026-08`` coerces to a date; truncated back to YYYY-MM.
+        assert await self._uid({"month_of": date(2026, 8, 1)}, "monthly") == (
+            "ue:monthly:user_1:2026-08"
+        )
+
+    @pytest.mark.asyncio
+    async def test_missing_period_field_mints_fresh_rather_than_guessing(self):
+        """No ``quarter_of``/``year_of`` → no derived identity, never a guess
+        at "the current quarter" (which would fuse two periods' notes)."""
+        assert await self._uid({}, "quarterly") is None
+        assert await self._uid({}, "yearly") is None

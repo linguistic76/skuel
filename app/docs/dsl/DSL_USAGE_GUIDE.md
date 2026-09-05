@@ -1,6 +1,6 @@
 ---
 title: SKUEL Activity DSL - Usage Guide
-updated: 2026-09-04
+updated: 2026-09-05
 status: current
 category: dsl
 tags: [dsl, examples, patterns, guide, usage, periodic-notes]
@@ -56,7 +56,7 @@ Most Activity Lines follow this pattern:
 ## Periodic Notes — The Parse Contract
 
 **This is the authoritative statement of what creates entities from a
-periodic note** (a Daily/Weekly/Monthly vault note with `entry_kind:` +
+periodic note** (a Daily/Weekly/Monthly/Quarterly/Yearly vault note with `entry_kind:` +
 `pipeline: extract_activities` frontmatter — see the ingestion guide's
 [UserEntry section](../patterns/UNIFIED_INGESTION_GUIDE.md#userentry-yamls-type-user_entry--adr-054)
 for the frontmatter and the derived `ue:{kind}:{user}:{period}` UIDs).

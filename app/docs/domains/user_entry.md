@@ -210,7 +210,8 @@ Neither uses the directory-ingest door that serves content-vault curriculum.
 `create_entry()` is the one convergence point — which is why the audience,
 exercise-link and `Interaction` rules live there rather than on either door.
 
-`ensure_periodic_note()` covers the three stored periodic-note kinds; the
+`ensure_periodic_note()` covers the stored periodic-note kinds — the ladder of
+nesting periods (daily → weekly → monthly → quarterly → yearly); the
 membership vocabulary is the single `PERIODIC_NOTE_KINDS` frozenset on the
 model, imported by every consumer.
 

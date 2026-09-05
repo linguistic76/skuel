@@ -52,12 +52,19 @@ from core.models.enums.user_entry_enums import SubmissionModality
 from core.models.type_hints import UserUID
 from core.models.user_owned_entity import UserOwnedEntity
 
-# The three stored periodic-note kinds (ADR-073: journal *sessions* are never
+# The five stored periodic-note kinds (ADR-073: journal *sessions* are never
 # stored; periodic notes are the one deliberate stored journal feature). THE
 # membership vocabulary — every consumer (UserEntryService.ensure_periodic_note,
 # IngestionTracker's similarity gate, journals routes, the EXTRACT_ACTIVITIES
 # bridge gate) imports this one frozenset; a second literal list would drift.
-PERIODIC_NOTE_KINDS: frozenset[str] = frozenset({"daily", "weekly", "monthly"})
+#
+# Membership is load-bearing in four places at once — adding a kind here turns
+# on its page, its save guard, its bridge bypass and its similarity gate
+# together. It is the ladder of nesting periods a note can plan against:
+# a day sits in a week, in a month, in a quarter, in a year.
+PERIODIC_NOTE_KINDS: frozenset[str] = frozenset(
+    {"daily", "weekly", "monthly", "quarterly", "yearly"}
+)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -162,7 +169,7 @@ class UserEntry(UserOwnedEntity):
     # =========================================================================
 
     def is_periodic_note(self) -> bool:
-        """True when this entry is a stored periodic note (daily/weekly/monthly).
+        """True when this entry is a stored periodic note (see PERIODIC_NOTE_KINDS).
 
         The metadata ``entry_kind`` stamp is the discriminator. Routes use it to
         keep the periodic-note page/save surface off every other entry kind, and
