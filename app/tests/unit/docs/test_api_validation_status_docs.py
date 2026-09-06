@@ -84,7 +84,7 @@ def _documented_rows() -> dict[str, str]:
     return rows
 
 
-async def _status_of[T](result: Result[T]) -> int:
+def _status_of[T](result: Result[T]) -> int:
     """The HTTP status a failed Result actually reaches the client with."""
     assert result.is_error, "driver input was accepted — it must be rejected to have a status"
     return result_to_response(result).status_code
@@ -121,15 +121,14 @@ async def test_body_helpers_return_the_documented_status(row: str) -> None:
     parse = parse_json_body if row.startswith("JSON") else parse_form_body
     request = _JsonRequest() if row.startswith("JSON") else _FormRequest()
 
-    status = await _status_of(await parse(request, _Body))  # type: ignore[arg-type]
+    status = _status_of(await parse(request, _Body))  # type: ignore[arg-type]
 
     assert str(status) == _documented_rows()[row]
 
 
-@pytest.mark.asyncio
-async def test_strict_query_helper_returns_the_documented_status() -> None:
+def test_strict_query_helper_returns_the_documented_status() -> None:
     """The strict helpers' row — a rejected required param."""
-    status = await _status_of(parse_date_param_strict("not-a-date", "start_date"))
+    status = _status_of(parse_date_param_strict("not-a-date", "start_date"))
 
     assert str(status) == _documented_rows()["Required Params (GET)"]
 
