@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-04
+updated: 2026-09-06
 ---
 
 # ADR-074: Ingestion Never Embeds Inline — One Post-Persist Event Chokepoint for Both Doors
@@ -56,12 +56,20 @@ live producers.
 
 ### 2. Tier gate at the composition root
 
-`UnifiedIngestionService` gets `event_bus=event_bus if tier.ai_enabled else None`
-(`compose.py`) — the same gate and rationale `BatchChunkingService` already had: publishing
-embedding events in CORE is a queue-with-no-listener. The ingestion step treats
-`event_bus is None` as a silent no-op, so CORE boots and ingests with zero listener-less
-publishes. Chunking and `:Content` persistence still run in CORE — chunks are Analog
-(stored, not embedded), per the graceful-degradation contract.
+`UnifiedIngestionService` gets `embeddings_enabled=tier.ai_enabled` (`compose.py`), and the
+embedding publishes treat a false flag as a silent no-op — so CORE boots and ingests with
+zero listener-less publishes, publishing embedding events in CORE being a
+queue-with-no-listener. Chunking and `:Content` persistence still run in CORE — chunks are
+Analog (stored, not embedded), per the graceful-degradation contract.
+
+**The gate is the flag, not the bus** (amended 2026-09-06, Codex #1290). It was originally
+`event_bus=event_bus if tier.ai_enabled else None`, borrowed from `BatchChunkingService`,
+which publishes nothing but embedding events. Ingestion is not in that position: since
+ADR-087's vault-door status contract it also publishes the completion cascade a file's
+status change earns (`TaskCompleted` / `GoalAchieved` / `CalendarEventCompleted`), which is
+**Analog** — its subscribers are wired unconditionally, and every activity service holds the
+real bus at CORE. Withholding the bus made the vault door the one write path that does not
+cascade at $0. Only two services take a tier-gated bus; ingestion is no longer one of them.
 
 ### 3. Chunk unification — one shared body-chunk step for both doors
 
