@@ -1,17 +1,23 @@
-"""Clearing an edge picker on the Tasks/Events edit forms clears the edge.
+"""The Tasks/Events edit forms can turn a linked edge and a checked box OFF.
 
-The picker's ``clear()`` (``entityPicker`` in ``static/js/skuel.js``) blanks its hidden
-input, so the browser posts ``fulfills_goal_uid=""``. ``parse_form_body`` maps an empty
-string to ``None``, the field is then in ``model_fields_set``, and ``to_intent()`` carries
-``None`` — the ADR-066 explicit-clear signal both facades consume to delete the edge
-(``TasksService._sync_relationship_edges`` / ``EventsService._replace_edge``).
+This is the form→intent seam: the render half is pinned by
+``tests/unit/ui/test_activity_forms_render.py``, the graph half by
+``tests/integration/test_task_goal_edge_update_roundtrip.py``, and the step between them
+decides whether "off" survives the submit at all.
 
-Nothing pinned that chain end to end: the render half is covered by
-``tests/unit/ui/test_activity_forms_render.py`` and the graph half by
-``tests/integration/test_task_goal_edge_update_roundtrip.py``, but the form→intent seam
-between them — the ``"" → None`` mapping the whole clear depends on — had no test. One
-``if stripped`` in ``parse_form_body`` reverting to "omit blanks" would silently make every
-edge unclearable from the UI again, which is exactly the bug this file reproduces against.
+Two controls have to post something for "off" to reach the write:
+
+- An **edge picker** clear (``entityPicker.clear()`` in ``static/js/skuel.js``) blanks its
+  hidden input, so the browser posts ``fulfills_goal_uid=""``. ``parse_form_body`` maps an
+  empty string to ``None``, the field lands in ``model_fields_set``, and ``to_intent()``
+  carries ``None`` — the ADR-066 explicit-clear signal both facades turn into an edge
+  deletion (``TasksService._sync_relationship_edges`` / ``EventsService._replace_edge``).
+- An **unchecked checkbox** is not a successful control, so ``FormGenerator`` renders a
+  hidden ``"false"`` companion ahead of it. Without one the browser posts nothing, the
+  field stays ``UNSET``, and the box cannot be turned off.
+
+The mirror obligation: a field the edit form does **not** render stays ``UNSET``, so an
+unrendered list field is never blanked into an edge wipe on save.
 
 Picker names are DERIVED from the rendered edit form rather than typed here, so renaming a
 field on only one side of the seam fails the test instead of quietly dropping the value.
@@ -82,9 +88,15 @@ def _picker_names(html: str) -> set[str]:
     """Hidden-input names the EntityPicker widgets emit on this form.
 
     Every picker renders exactly one hidden input carrying the UID; the visible search box
-    is deliberately unnamed so it never reaches the POST body.
+    is deliberately unnamed so it never reaches the POST body. Keyed on the picker's own
+    ``x-ref="hidden"`` marker rather than ``type="hidden"``, which every checkbox companion
+    also carries.
     """
-    names = set(re.findall(r'<input[^>]*type="hidden"[^>]*name="([^"]+)"', html))
+    names = {
+        match.group(1)
+        for tag in re.findall(r"<input[^>]*>", html)
+        if 'x-ref="hidden"' in tag and (match := re.search(r'name="([^"]+)"', tag))
+    }
     return names - _CSRF_NAMES
 
 
@@ -193,3 +205,37 @@ class TestEventsEditFormEdgeClear:
 
         assert intent.reinforces_habit_uid == "habit_z"
         assert intent.milestone_celebration_for_goal == "goal_y"
+
+
+class TestEventsEditFormCheckboxOff:
+    """An unchecked box reaches the write as False, not as an absent field."""
+
+    def test_every_rendered_checkbox_has_a_hidden_false_companion(self, event: Event) -> None:
+        html = to_xml(EventEditForm(event))
+        checkboxes = {
+            match.group(1)
+            for tag in re.findall(r"<input[^>]*>", html)
+            if 'type="checkbox"' in tag and (match := re.search(r'name="([^"]+)"', tag))
+        }
+        assert checkboxes, "the Events edit form renders booleans — the fixture must show one"
+        for name in checkboxes:
+            assert re.search(rf'<input type="hidden" name="{name}" value="false">', html), (
+                f"{name} posts nothing when unchecked, so it could never be turned off"
+            )
+
+    async def test_unchecking_writes_false(self, event: Event) -> None:
+        """The companion's value alone — what an unchecked box posts — means False."""
+        body = {"title": event.title, "is_online": "false"}
+
+        intent = (await _parse(body, EventUpdateRequest)).to_intent()
+
+        assert intent.is_online is False
+        assert intent.to_changes()["is_online"] is False
+
+    async def test_checking_still_wins(self, event: Event) -> None:
+        """A checked box appends "true" after the companion; FormData takes the last value."""
+        body = {"title": event.title, "is_online": "true"}
+
+        intent = (await _parse(body, EventUpdateRequest)).to_intent()
+
+        assert intent.is_online is True

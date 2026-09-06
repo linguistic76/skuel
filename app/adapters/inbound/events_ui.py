@@ -218,11 +218,13 @@ def create_events_ui_routes(
 
         # ADR-066: build the typed EventUpdateIntent from explicitly-set fields only
         # (model_fields_set). A field the edit form does not render is absent from the body
-        # and stays UNSET — untouched, never clobbered. A field the form DOES render posts
-        # on every submit, and a blank one arrives as "" which parse_form_body maps to None:
-        # an explicit clear. That is how the edge pickers are cleared — the facade splits
-        # the CELEBRATES_GOAL / REINFORCES_HABIT edges off the intent and a None deletes
-        # the edge. Pinned by tests/unit/adapters/test_edit_form_edge_clear.py.
+        # and stays UNSET — untouched, never clobbered. Every control the form DOES render
+        # posts on each submit, so "off" is expressible: a cleared picker arrives as "",
+        # which parse_form_body maps to None (the explicit clear the facade turns into an
+        # edge deletion, splitting CELEBRATES_GOAL / REINFORCES_HABIT off the intent), and
+        # an unchecked box arrives as its FormGenerator hidden "false" companion — a bare
+        # checkbox would post nothing and be unturnable-off.
+        # Pinned by tests/unit/adapters/test_edit_form_edge_clear.py.
         result = await events_service.update_event(uid, parsed.value.to_intent())
         if result.is_error:
             err = result.expect_error()

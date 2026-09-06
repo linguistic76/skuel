@@ -48,3 +48,17 @@ against a door that had already moved.
 
 Tasks and Events remain the only two edit forms carrying pickers; `GoalEditForm` has none
 (`GoalUpdateRequest` exposes no single-UID cross-domain field).
+
+## The live bug the review found next door
+
+Correcting the comment drew a Codex finding on the replacement claim — an unchecked
+checkbox is not a successful control, so the browser omits it and "every rendered field
+posts" was not yet true. Behind the wording sat a real defect of the same family: `Event`'s
+`is_online` and `knowledge_retention_check` render as bare checkboxes, so unchecking one
+posted nothing, left the intent field `UNSET`, and never reached the write — **the boxes
+could be turned on but never off**. Verified by driving the path before fixing it.
+
+`FormGenerator._build_widget` now renders a hidden `"false"` companion ahead of every
+checkbox and gives the box `value="true"`; Starlette's `FormData` resolves the repeated key
+to its last value, so checked still wins. One chokepoint, so every FormGenerator form gets
+it. Tasks' edit sections render no booleans, which is why only Events showed the symptom.
