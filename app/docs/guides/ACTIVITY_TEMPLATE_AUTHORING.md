@@ -72,9 +72,12 @@ tags:
 | ChoiceTemplate | `choice_template` | `ct.` | `choice_template_uids:` |
 | PrincipleTemplate | `principle_template` | `pt.` | `principle_template_uids:` |
 
-**`uid:`** — always author it. Its prefix is validated, and a file with no `uid:` derives
-one from the filename stem, so renaming the file later orphans the node. Dot form only
-(`tt.{grouping}.{slug}`); the colon spelling was retired 2026-08-14 and fails validation.
+**`uid:`** — always author it. Its prefix is validated, and a file with no `uid:` derives one
+from the filename stem — which leaks the stem into the UID and makes identity depend on the
+filename. The sync's move pre-pass recovers a pure rename by content hash, but a rename plus an
+edit in the same sync is a new node; templates carry no body for the similarity fallback to
+compare, so hash matching is the only net. Dot form only (`tt.{grouping}.{slug}`); the colon
+spelling was retired 2026-08-14 and fails validation.
 
 **`title:`** — the only required field on all six. Everything else is optional.
 
