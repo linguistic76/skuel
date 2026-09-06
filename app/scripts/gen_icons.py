@@ -86,8 +86,8 @@ def scan_used_names(valid_keys: set[str]) -> set[str]:
 def icon_name_literals() -> dict[str, str]:
     """Map every icon-intent string literal to the source file it appears in.
 
-    Covers the three shapes in ``ICON_INTENT_RX`` — ``Icon("name")``, ``icon="name"``,
-    and ``_icon_*("name")`` — where a literal can only be meant as an icon name. Dynamic
+    Covers the four shapes in ``ICON_INTENT_RX`` — ``Icon("name")``, ``icon="name"``,
+    ``"icon": "name"`` and ``_icon_*("name")`` — where a literal can only be meant as an icon name. Dynamic
     forms (``Icon(name)``, ``icon=variable``) are skipped: they can't be validated
     statically. These literals are where a typo slips through unnoticed — the generator
     drops an unknown name, so the icon renders a silent help-circle fallback with no build
