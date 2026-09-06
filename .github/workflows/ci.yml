@@ -79,6 +79,12 @@ jobs:
               # residual (a table planted in a NEW doc is unreachable by any
               # filter), the same residual deferred-work.md's entry carries.
               - 'app/docs/guides/ACTIVITY_TEMPLATE_AUTHORING.md'
+              # Same shape again: tests/unit/docs/test_status_table_docs.py
+              # derives the per-type status table FROM this guide. The
+              # ingestion validator enforces that table, so a wrong cell is a
+              # rule an author is held to — and a docs-only edit to it is
+              # exactly the change that breaks the drift test.
+              - 'app/docs/guides/YAML_AUTHORING_GUIDE.md'
               # The uv.lock pinning guard's inputs (tests/unit/
               # test_workflow_uv_lock_pinning.py). It reads EVERY workflow, not
               # just ci.yml (unlike the filters below), and follows what those

@@ -32,6 +32,7 @@ from core.models.templates.offset_helpers import (
     authored_offset_to_jsonable,
 )
 from core.models.type_hints import UserUID
+from core.services.completion_stamp import validate_status_target
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -179,7 +180,8 @@ def validate_entity_data(
     file_path: Path,
 ) -> Result[None]:
     """
-    Validate prepared entity data: enum vocabulary, door policy, required fields.
+    Validate prepared entity data: enum vocabulary, status legality, door policy,
+    required fields.
 
     Called AFTER prepare_entity_data — defaults are applied, auto-generated
     fields are present, and ``canonicalize_enum_values`` has already resolved
@@ -200,6 +202,12 @@ def validate_entity_data(
     alias-aware parsers ("in process" → active) and fails loudly on genuine
     garbage — a literal gate here would reject on the batch path what
     single-file UserEntry ingestion accepts.
+
+    Membership is not legality: ``status: completed`` is a real ``EntityStatus``
+    and still meaningless on a Principle. The per-type legality rule lives with
+    the status-guarded write (ADR-087) and the bulk vault upsert bypasses that
+    write entirely, so this door asks the same question pre-persist via
+    :func:`core.services.completion_stamp.validate_status_target`.
 
     Args:
         entity_type: EntityType | NonKuDomain enum value
@@ -242,6 +250,43 @@ def validate_entity_data(
                         f"File {file_path.name} ({entity_type.value}): {details}. "
                         "Casing is normalized automatically — these values are outside the "
                         "field's vocabulary. Edit the file to use a listed value."
+                    ),
+                )
+            )
+
+    # Status-legality gate. The vocabulary gate above proves ``status`` names a
+    # real ``EntityStatus`` member; it cannot know that COMPLETED is meaningless
+    # for a Principle (``EntityType.PRINCIPLE.valid_statuses()`` is ACTIVE /
+    # PAUSED / ARCHIVED). The Activity update chokepoints enforce that per-type
+    # legality at the write (ADR-087), and the bulk vault upsert does not go
+    # through them — so the file door enforces it here, pre-persist, by calling
+    # the SAME check rather than keeping a second copy of the rule. That check
+    # reads only the ``status`` key, so handing it the prepared entity data asks
+    # exactly the legality question and nothing else. ``NonKuDomain`` types have
+    # no ``valid_statuses()`` and are skipped rather than crashed on; USER_ENTRY
+    # stays exempt for the reason given above.
+    #
+    # ``None`` is ABSENCE, not a value, exactly as the vocabulary gate reads it:
+    # the authored ``none`` marker and an empty ``status:`` line both prepare to
+    # a present key holding ``None``, and the entity reader supplies the type
+    # default for a status that was never stored. Handing that key to a check
+    # that tests membership of the key would refuse a file both gates admit.
+    authored_status = entity_data.get("status")
+    if (
+        authored_status is not None
+        and isinstance(entity_type, EntityType)
+        and entity_type is not EntityType.USER_ENTRY
+    ):
+        status_legality = validate_status_target(entity_type, entity_data)
+        if status_legality.is_error:
+            detail = status_legality.expect_error().message
+            return Result.fail(
+                Errors.validation(
+                    detail,
+                    field="status",
+                    user_message=(
+                        f"File {file_path.name} ({entity_type.value}): {detail}. "
+                        "Edit the file to use a status this entity type has."
                     ),
                 )
             )

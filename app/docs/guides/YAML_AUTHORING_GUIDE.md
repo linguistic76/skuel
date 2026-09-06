@@ -186,7 +186,7 @@ All enum classes live in `core/models/enums/`. For the complete enum catalog and
 
 ### Entity Status
 
-The `status` field is governed by `EntityStatus` (14 values). Not every status is valid for every entity type — each type has a constrained subset and a default. If you omit `status` from your YAML, the default for that entity type is used.
+The `status` field is governed by `EntityStatus` (14 values). Not every status is valid for every entity type — each type has a constrained subset and a default. Omitting `status` is normal: most types persist no status property at all, and the reader supplies the type default when it loads the entity (`Entity.__post_init__`). PathStep and the six Activity Templates are the exception — the ingest door stamps them `active` (an authored `status:` still wins), because a template that reads back `draft` silently never spawns.
 
 **Status categories:**
 
@@ -198,22 +198,39 @@ The `status` field is governed by `EntityStatus` (14 values). Not every status i
 | Terminal | `completed`, `failed`, `cancelled`, `archived` | No further progression |
 | Special | `revision_requested` | Completed but sent back |
 
-**Valid statuses and defaults per ingestible entity type:**
+**Valid statuses and defaults per ingestible entity type**, derived from
+`EntityType.valid_statuses()` / `default_status()` and the ingest door's
+`ENTITY_CONFIGS` (`tests/unit/docs/test_status_table_docs.py` fails if this table
+and the code disagree):
 
-| Type | Valid Statuses | Default |
-|------|---------------|---------|
-| Ku | `draft`, `completed`, `archived` | `draft` |
-| PathStep, LearningPath | `draft`, `active`, `completed`, `archived` | `draft` |
-| Task | `draft`, `scheduled`, `active`, `paused`, `blocked`, `completed`, `cancelled`, `postponed`, `failed` | `draft` |
-| Goal | `draft`, `active`, `paused`, `completed`, `cancelled`, `failed`, `archived` | `draft` |
-| Habit | `active`, `paused`, `completed`, `cancelled`, `archived` | `active` |
-| Event | `scheduled`, `active`, `completed`, `cancelled` | `scheduled` |
-| Choice | `draft`, `active`, `completed`, `archived` | `draft` |
-| Principle | `active`, `paused`, `archived` | `active` |
-| UserEntry | `draft`, `submitted`, `queued`, `processing`, `completed`, `failed`, `revision_requested`, `archived` | `draft` |
-| LifePath | `active`, `archived` | `active` |
+| Type | Valid statuses | Type default | Stamped at the ingest door |
+|------|---------------|--------------|----------------------------|
+| Choice | `active`, `archived`, `completed`, `draft` | `draft` | — |
+| Choice Template | `active`, `archived`, `draft` | `draft` | `active` |
+| Event | `active`, `cancelled`, `completed`, `scheduled` | `scheduled` | — |
+| Event Template | `active`, `archived`, `draft` | `draft` | `active` |
+| Exercise | `active`, `archived`, `completed`, `draft` | `draft` | — |
+| Goal | `active`, `archived`, `cancelled`, `completed`, `draft`, `failed`, `paused` | `draft` | — |
+| Goal Template | `active`, `archived`, `draft` | `draft` | `active` |
+| Habit | `active`, `archived`, `cancelled`, `completed`, `paused` | `active` | — |
+| Habit Template | `active`, `archived`, `draft` | `draft` | `active` |
+| Interaction | `active`, `archived` | `active` | — |
+| Knowledge Unit | `archived`, `completed`, `draft` | `completed` | — |
+| Learning Path | `active`, `archived`, `completed`, `draft` | `draft` | — |
+| Life Path | `active`, `archived` | `active` | — |
+| PathStep | `active`, `archived`, `completed`, `draft` | `draft` | `active` |
+| Principle | `active`, `archived`, `paused` | `active` | — |
+| Principle Template | `active`, `archived`, `draft` | `draft` | `active` |
+| Resource | `archived`, `completed`, `draft` | `completed` | — |
+| Task | `active`, `blocked`, `cancelled`, `completed`, `draft`, `failed`, `paused`, `postponed`, `scheduled` | `draft` | — |
+| Task Template | `active`, `archived`, `draft` | `draft` | `active` |
+| User Entry | `archived`, `completed`, `draft`, `failed`, `processing`, `queued`, `revision_requested`, `submitted` | `draft` | — |
 
-Using a status not in the valid set for that entity type will fail validation during ingestion.
+Using a status not in the valid set for that entity type fails validation during
+ingestion — the file is ignored with a reason naming the legal set, the same
+per-type legality the status-guarded write enforces (ADR-087). `status: completed`
+on a Principle and `status: draft` on an Event are both real `EntityStatus`
+members and both refused: membership is not legality.
 
 **Two lifecycle patterns** govern which statuses appear:
 
