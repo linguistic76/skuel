@@ -34,19 +34,23 @@ See: /docs/decisions/ADR-087-status-guarded-conditional-writes.md,
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
-from typing import TYPE_CHECKING, Any
+from types import MappingProxyType
+from typing import Any
 
 from core.events import BaseEvent, CalendarEventCompleted, GoalAchieved, TaskCompleted
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.type_hints import UserUID
 from core.services.completion_stamp import COMPLETION_FIELDS, completion_moment
 
-if TYPE_CHECKING:
-    from collections.abc import Mapping
-
-__all__ = ["IngestStatusTransitions", "classify_ingest_status_transitions"]
+__all__ = [
+    "EVENT_SOURCE_FIELDS",
+    "IngestStatusTransitions",
+    "build_completion_events",
+    "classify_ingest_status_transitions",
+]
 
 _COMPLETED = EntityStatus.COMPLETED.value
 
@@ -56,13 +60,17 @@ class IngestStatusTransitions:
     """What one persisted batch's status changes oblige the door to do.
 
     ``reopened_uids`` are the entities whose completion stamp must be removed;
-    ``completion_events`` are ready to publish in order. Both are empty for a
-    batch that changed no entity's completion state — the ordinary case, and the
-    one a ``--force`` re-ingest must produce.
+    ``completed_uids`` are the ones that transitioned INTO completed and owe a
+    domain event. Both are empty for a batch that changed no entity's completion
+    state — the ordinary case, and the one a ``--force`` re-ingest must produce.
+
+    The events are built separately (:func:`build_completion_events`) because
+    they describe the entity as PERSISTED, which needs a read the classification
+    itself cannot do.
     """
 
     reopened_uids: tuple[str, ...] = ()
-    completion_events: tuple[BaseEvent, ...] = ()
+    completed_uids: tuple[str, ...] = ()
 
 
 def classify_ingest_status_transitions(
@@ -95,7 +103,7 @@ def classify_ingest_status_transitions(
         return IngestStatusTransitions()
 
     reopened: list[str] = []
-    events: list[BaseEvent] = []
+    completed: list[str] = []
     for entity in entities:
         uid = entity.get("uid")
         if not uid:
@@ -115,29 +123,78 @@ def classify_ingest_status_transitions(
         new_status = _status_of(entity.get("status"))
         prior_status = prior_status_by_uid.get(uid)
         if new_status == _COMPLETED and prior_status != _COMPLETED:
-            event = _completion_event(entity_type, uid, entity)
-            if event is not None:
-                events.append(event)
+            completed.append(uid)
         elif prior_status == _COMPLETED and declares_status and new_status != _COMPLETED:
             reopened.append(uid)
 
-    return IngestStatusTransitions(tuple(reopened), tuple(events))
+    return IngestStatusTransitions(tuple(reopened), tuple(completed))
+
+
+#: The node properties each domain's completion event reads, beyond the status
+#: itself. Published so the caller can fetch exactly these back from the graph:
+#: an event describes the entity as PERSISTED, and the file payload is only the
+#: half the file happens to declare (``SET n += props`` keeps every property the
+#: frontmatter omits, so a file that changes nothing but ``status`` still leaves
+#: a due date and an elapsed duration standing on the node).
+EVENT_SOURCE_FIELDS: Mapping[EntityType, tuple[str, ...]] = MappingProxyType(
+    {
+        EntityType.TASK: ("user_uid", "completion_date", "due_date", "actual_minutes"),
+        EntityType.GOAL: ("user_uid", "achieved_date", "created_at"),
+        EntityType.EVENT: ("user_uid", "completed_at", "event_date"),
+    }
+)
+
+
+def build_completion_events(
+    entity_type: EntityType,
+    completed_uids: tuple[str, ...],
+    # boundary: node properties read back from Neo4j — heterogeneous per domain
+    # (dates, ints, strings), narrowed by the coercions below.
+    persisted_by_uid: Mapping[str, Mapping[str, Any]],
+) -> tuple[BaseEvent, ...]:
+    """Build the completion events a classified batch owes, from PERSISTED state.
+
+    ``persisted_by_uid`` holds the properties named by :data:`EVENT_SOURCE_FIELDS`
+    read back AFTER the upsert, which is the only honest source: the upsert merges
+    (``SET n += props``), so the file payload is a subset of what the node ends up
+    holding and an event built from it would report a task as neither overdue nor
+    timed while the persisted task carries both.
+
+    Mirrors each domain's born-completed create-door publish
+    (``*CoreService._publish_born_completed``) so the vault door and the create
+    door announce a completion identically. Habit and Choice yield nothing: their
+    events (``HabitCompleted`` — a daily occurrence, ``ChoiceMade`` — the decide
+    moment) describe different moments than the entity retiring.
+
+    A uid with no persisted row is skipped rather than guessed at: it means the
+    node vanished between the write and this read, and an event about an entity
+    that is gone has nobody to serve.
+    """
+    if entity_type not in EVENT_SOURCE_FIELDS:
+        return ()
+    events: list[BaseEvent] = []
+    for uid in completed_uids:
+        persisted = persisted_by_uid.get(uid)
+        if persisted is None:
+            continue
+        event = _completion_event(entity_type, uid, persisted)
+        if event is not None:
+            events.append(event)
+    return tuple(events)
 
 
 def _completion_event(
     entity_type: EntityType,
     uid: str,
-    # boundary: see ``classify_ingest_status_transitions``.
-    entity: dict[str, Any],
+    # boundary: node properties read back from Neo4j (see ``build_completion_events``).
+    entity: Mapping[str, Any],
 ) -> BaseEvent | None:
-    """Build the domain's completion event for one entity born or edited into ``completed``.
+    """Build one domain completion event from the entity's persisted properties.
 
-    Mirrors each domain's born-completed create-door publish
-    (``*CoreService._publish_born_completed``) so the vault door and the create
-    door announce a completion identically. ``occurred_at`` carries the entity's
-    own completion stamp, which is what lets a historical vault line report the
-    day it happened rather than the ingest moment. Returns ``None`` for the two
-    stamping domains with no entity-completion event (Habit, Choice).
+    ``occurred_at`` carries the entity's own completion stamp, which is what lets
+    a historical vault line report the day it happened rather than the ingest
+    moment. Returns ``None`` for the two stamping domains with no
+    entity-completion event (Habit, Choice).
     """
     user_uid = UserUID(str(entity.get("user_uid") or ""))
     occurred_at = completion_moment(_stamp_of(entity_type, entity))
@@ -187,8 +244,8 @@ def _completion_event(
 
 def _stamp_of(
     entity_type: EntityType,
-    # boundary: see ``classify_ingest_status_transitions``.
-    entity: dict[str, Any],
+    # boundary: node properties read back from Neo4j (see ``build_completion_events``).
+    entity: Mapping[str, Any],
 ) -> date | datetime | None:
     """The domain's authored completion stamp, widened from whatever YAML produced.
 
@@ -211,8 +268,23 @@ def _status_of(value: Any) -> str | None:  # boundary: parsed YAML value
     return None
 
 
-def _as_date(value: Any) -> date | None:  # boundary: parsed YAML value
-    """Read a date from YAML's ``date``/``datetime``/ISO-string forms; ``None`` otherwise."""
+def _to_native(value: Any) -> Any:  # boundary: a Neo4j property value
+    """Unwrap a ``neo4j.time`` temporal into its Python equivalent; pass anything else through.
+
+    The driver hands back ``neo4j.time.Date``/``DateTime`` rather than ``date``/
+    ``datetime``, and neither is an instance of the stdlib type, so every
+    coercion below would fall through to ``None`` without this.
+    """
+    if getattr(type(value), "__module__", "") == "neo4j.time":
+        to_native = getattr(value, "to_native", None)
+        if to_native is not None:
+            return to_native()
+    return value
+
+
+def _as_date(value: Any) -> date | None:  # boundary: a Neo4j property value
+    """Read a date from ``date``/``datetime``/neo4j-temporal/ISO-string forms."""
+    value = _to_native(value)
     if isinstance(value, datetime):
         return value.date()
     if isinstance(value, date):
@@ -225,8 +297,8 @@ def _as_date(value: Any) -> date | None:  # boundary: parsed YAML value
     return None
 
 
-def _as_datetime(value: Any) -> datetime | None:  # boundary: parsed YAML value
-    """Read a NAIVE datetime from YAML's ``datetime``/``date``/ISO-string forms.
+def _as_datetime(value: Any) -> datetime | None:  # boundary: a Neo4j property value
+    """Read a NAIVE datetime from ``datetime``/``date``/neo4j-temporal/ISO-string forms.
 
     A bare date widens to midnight — the same widening ``completion_moment``
     applies, kept here so a ``created_at:`` authored as a plain day still yields
@@ -239,6 +311,7 @@ def _as_datetime(value: Any) -> datetime | None:  # boundary: parsed YAML value
     the mixed-awareness subtraction is not hypothetical — it is the ordinary
     case for an authored goal.
     """
+    value = _to_native(value)
     if isinstance(value, datetime):
         parsed = value
     elif isinstance(value, date):
@@ -258,7 +331,7 @@ def _as_datetime(value: Any) -> datetime | None:  # boundary: parsed YAML value
     return parsed
 
 
-def _as_int(value: Any) -> int | None:  # boundary: parsed YAML value
+def _as_int(value: Any) -> int | None:  # boundary: a Neo4j property value
     """Read an int from YAML's numeric/string forms; ``None`` when it is neither."""
     if isinstance(value, bool):
         return None

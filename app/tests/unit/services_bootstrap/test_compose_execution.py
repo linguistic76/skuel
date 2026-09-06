@@ -542,10 +542,9 @@ def _assert_ingestion_bus_wiring(
     CORE — but the ADR-087 completion cascade a vault file's status change earns
     is Analog, and its subscribers (goal progress, PS engagement auto-complete,
     context invalidation) are wired unconditionally, as ``_assert_subscriptions_wired``
-    proves. Withholding the bus from ingestion at CORE, which is how the tier
-    gate used to be expressed, would make the vault door the single write path
-    that does not cascade at $0 — while the app's own update chokepoints, which
-    hold the real bus in both tiers, still would.
+    proves. Withholding the bus from ingestion at CORE would make the vault door
+    the single write path that does not cascade at $0 — while the app's own
+    update chokepoints, which hold the real bus in both tiers, still would.
     """
     # The container types this as the route-facing ISP protocol, which names
     # neither field; narrowing to the concrete service is what lets the wiring

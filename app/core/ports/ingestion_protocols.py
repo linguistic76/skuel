@@ -176,6 +176,22 @@ class IngestionWriteOperations(Protocol):
         """
         ...
 
+    async def read_entity_fields(
+        self, uids: list[str], fields: list[str]
+    ) -> dict[str, dict[str, Any]]:
+        """Read ``fields`` off each named entity; return them keyed by uid.
+
+        The post-write read the ingest door's completion events are built from
+        (ADR-087): the upsert MERGES properties, so a file that declares only
+        ``status`` still leaves the stored due date and elapsed duration on the
+        node, and an event built from the file fragment would report neither.
+        ``fields`` comes from ``EVENT_SOURCE_FIELDS`` in
+        ``core.services.ingestion.status_transitions`` — enum-keyed and trusted,
+        never user input. A uid with no node yields no entry, which is how the
+        caller tells "gone" from "has no values".
+        """
+        ...
+
 
 @runtime_checkable
 class BulkUpsertOperations(Protocol):

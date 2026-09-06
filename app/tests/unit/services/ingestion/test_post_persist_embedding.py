@@ -493,9 +493,9 @@ async def test_chunk_step_core_tier_persists_chunks_without_publishing():
 async def test_core_tier_gate_is_embeddings_enabled_not_the_bus():
     """CORE holds a REAL bus and still publishes no embedding events.
 
-    The gate moved off ``event_bus`` so the ADR-087 completion cascade — Analog,
-    with unconditionally-wired subscribers — can ride the bus in both tiers while
-    the ADR-074 embedding publishes stay FULL-only (Codex #1290).
+    The gate is ``embeddings_enabled``, not the presence of a bus, so the ADR-087
+    completion cascade — Analog, with unconditionally-wired subscribers — rides
+    the bus in both tiers while the ADR-074 embedding publishes stay FULL-only.
     """
     from core.services.ingestion.types import ChunkSource
 

@@ -400,6 +400,35 @@ async def test_a_file_that_declares_no_status_leaves_the_stamp_alone(
 
 
 @pytest.mark.asyncio
+async def test_the_event_reads_state_the_completing_file_never_declared(
+    clean_neo4j, neo4j_driver, door, bus: _CapturingBus, tmp_path: Path
+) -> None:
+    """The event describes the PERSISTED entity, not the file fragment (Codex #1290).
+
+    The upsert MERGES, so a file edited down to just its status leaves the stored
+    ``due_date`` and ``actual_minutes`` standing on the node. Built from the file
+    payload alone, the event would report a task that is neither overdue nor
+    timed while the persisted task carries both — and ``was_overdue`` APPENDS a
+    PersistedInsight.
+    """
+    _write(
+        tmp_path,
+        "vault-status-merged",
+        "status: in_progress\ndue_date: 2026-03-10\nactual_minutes: 45\n",
+    )
+    path = tmp_path / "vault-status-merged.md"
+    assert (await door.ingest_file(path)).is_ok
+
+    # The completing edit drops both fields; `n += props` keeps them on the node.
+    _write(tmp_path, "vault-status-merged", "status: completed\ncompletion_date: 2026-03-14\n")
+    assert (await door.ingest_file(path)).is_ok
+
+    (event,) = bus.completions(TaskCompleted)
+    assert event.was_overdue is True, "due_date survives on the node and must be read"
+    assert event.completion_time_seconds == 45 * 60
+
+
+@pytest.mark.asyncio
 async def test_the_clear_spares_an_entity_an_app_writer_re_completed(
     clean_neo4j, neo4j_driver, door, tmp_path: Path
 ) -> None:

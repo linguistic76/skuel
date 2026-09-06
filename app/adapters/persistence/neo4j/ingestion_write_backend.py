@@ -301,3 +301,34 @@ class IngestionWriteBackend:
             completed_status=EntityStatus.COMPLETED.value,
         )
         return int(records[0]["cleared"]) if records else 0
+
+    async def read_entity_fields(
+        self, uids: list[str], fields: list[str]
+    ) -> dict[str, dict[str, Any]]:
+        """Read ``fields`` off each named entity; return them keyed by uid.
+
+        The post-write read the ingest door's completion events are built from
+        (ADR-087). The upsert MERGES properties, so what a file declares is only
+        part of what the node ends up holding — a file that changes nothing but
+        ``status`` leaves the stored due date and elapsed duration standing, and
+        an event built from the file fragment alone would report neither.
+
+        ``fields`` comes from ``EVENT_SOURCE_FIELDS`` in
+        ``core.services.ingestion.status_transitions`` (enum-keyed, trusted —
+        never user input), which is what makes the projection safe; the driver
+        requires a ``LiteralString``, hence the ignores. A uid with no node
+        yields no entry rather than an empty one, so the caller can tell "gone"
+        from "has no values".
+        """
+        if not uids or not fields:
+            return {}
+        projection = ", ".join(f".{field}" for field in fields)
+        records, _, _ = await self._driver.execute_query(  # pyright: ignore[reportArgumentType, reportCallIssue]
+            f"""
+            UNWIND $uids AS uid
+            MATCH (n:Entity {{uid: uid}})
+            RETURN uid, n{{{projection}}} AS props
+            """,
+            uids=list(uids),
+        )
+        return {str(record["uid"]): dict(record["props"]) for record in records}

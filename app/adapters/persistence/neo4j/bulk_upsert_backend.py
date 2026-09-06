@@ -53,7 +53,7 @@ logger = get_logger("skuel.adapters.bulk_upsert")
 _BULK_INGESTION_TIMEOUT_SECONDS: float = 600.0
 
 # Carries MERGE's create/match signal from the ON CREATE / ON MATCH branches to
-# the property write, which can no longer live in those branches: the node's
+# the property write, which sits below them rather than inside them: the node's
 # PRIOR status has to be read between the MERGE and the write that overwrites it
 # (ADR-087 — the prior is read under the node's write-lock, never before the
 # statement). The marker is removed in the same transaction and is never
@@ -167,10 +167,10 @@ WITH item, item._node_props AS props
 MERGE (n:{label_clause} {{uid: item.uid}})
   ON CREATE SET n.{_CREATE_MARKER} = true
   ON MATCH SET n.{_CREATE_MARKER} = false
-// The prior status is read here — after the MERGE took the node's write-lock,
+// The prior status is read here — after the MERGE takes the node's write-lock,
 // before the property write overwrites it (ADR-087). The create/match branches
-// therefore move out of MERGE and into the FOREACHes below, which preserve
-// their semantics exactly: `n = props` REPLACES, `n += props` MERGES.
+// therefore live in the FOREACHes below rather than on the MERGE, with their
+// semantics intact: `n = props` REPLACES, `n += props` MERGES.
 WITH item, props, n, n.status AS prior_status, n.{_CREATE_MARKER} AS created
 FOREACH (_ IN CASE WHEN created THEN [1] ELSE [] END |
   SET n = props,

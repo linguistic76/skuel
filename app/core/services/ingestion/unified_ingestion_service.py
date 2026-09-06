@@ -97,7 +97,11 @@ from .preparer import (
     prepare_edge_data,
     prepare_entity_data,
 )
-from .status_transitions import classify_ingest_status_transitions
+from .status_transitions import (
+    EVENT_SOURCE_FIELDS,
+    build_completion_events,
+    classify_ingest_status_transitions,
+)
 from .types import (
     BundleStats,
     ChunkSource,
@@ -195,11 +199,11 @@ class UnifiedIngestionService:
                        chokepoints already publish it at CORE — withholding the bus here
                        would make the vault door the one write path that does not cascade.
                        Ingestion never embeds inline (ADR-074).
-            embeddings_enabled: Whether to publish the embedding requests specifically —
-                       the tier gate, moved off ``event_bus`` where it used to live. False
-                       in CORE, where the embedding worker isn't running and a publish
-                       would be a queue-with-no-listener. It does NOT gate completion
-                       events; that is the whole point of separating the two.
+            embeddings_enabled: The tier gate, and it gates the embedding requests
+                       ALONE. False in CORE, where the embedding worker isn't running and
+                       a publish would be a queue-with-no-listener. Completion events are
+                       not behind it: they are Analog, and separating the two is what
+                       lets the bus be wired in both tiers.
             ingestion_backend: Backend for ingestion tracking (optional).
             user_entry_service: UserEntryService for routing UserEntry YAMLs through
                                 the same create_entry() pipeline as /submit. Required
@@ -630,6 +634,8 @@ class UnifiedIngestionService:
         if not isinstance(entity_type, EntityType):
             return
         transitions = classify_ingest_status_transitions(entity_type, entities, prior_status_by_uid)
+        if transitions.completed_uids and self.event_bus is not None:
+            await self._publish_completions(entity_type, transitions.completed_uids)
         if transitions.reopened_uids:
             field_name = COMPLETION_FIELDS[entity_type]
             try:
@@ -646,9 +652,43 @@ class UnifiedIngestionService:
                     f"reopened {entity_type.value} entit(ies) — the stamp is stranded on a "
                     f"non-completed entity until the file changes again: {e}"
                 )
-        if self.event_bus is not None:
-            for event in transitions.completion_events:
-                await publish_event(self.event_bus, event, self.logger)
+
+    async def _publish_completions(
+        self, entity_type: EntityType, completed_uids: tuple[str, ...]
+    ) -> None:
+        """Announce entities this ingest moved INTO completed, as the graph now holds them.
+
+        The event describes the PERSISTED entity, not the file fragment that
+        completed it. The upsert merges (``SET n += props``), so a file that
+        declares nothing but ``status`` leaves the stored due date and elapsed
+        duration standing on the node — building the event from the payload
+        alone would report a task as neither overdue nor timed while the
+        persisted task carries both. So the fields each domain's event reads are
+        fetched back after the write.
+
+        A read failure loses the announcement rather than the ingest: the
+        entities and their edges have landed, and there is nothing left to retry
+        against (the next ingest reads them as already completed). It is logged
+        at ERROR for that reason.
+
+        Backend: IngestionWriteBackend.read_entity_fields.
+        """
+        fields = EVENT_SOURCE_FIELDS.get(entity_type)
+        if not fields:
+            return
+        try:
+            persisted = await self._write_backend.read_entity_fields(
+                list(completed_uids), list(fields)
+            )
+        except NEO4J_EXCEPTIONS as e:
+            self.logger.error(
+                f"Failed to read back {len(completed_uids)} completed {entity_type.value} "
+                f"entit(ies); their completion events are not published and nothing retries "
+                f"them: {e}"
+            )
+            return
+        for event in build_completion_events(entity_type, completed_uids, persisted):
+            await publish_event(self.event_bus, event, self.logger)
 
     # ========================================================================
     # MOC EDGE PASS — ``moc: true`` body links → ORGANIZES edges
