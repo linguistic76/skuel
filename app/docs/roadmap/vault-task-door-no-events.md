@@ -1,27 +1,121 @@
 ---
-title: "Vault Task Door Publishes No Task Events"
-updated: 2026-09-05
-status: "registered"
+title: "The Completion Cascade Does Not Reach Every Door"
+updated: 2026-09-06
+status: "ruled — arc in flight"
 registered: 2026-08-24
-trigger: "the R4 build, or the next vault-door touch"
-check: "git grep -n \"event_bus\" adapters/persistence/neo4j/bulk_upsert_backend.py — empty until wired"
+ruled: 2026-09-06
+trigger: "FIRED 2026-09-06 — the next-vault-door-touch half; scope ruled all 5 stamping domains"
+check: "git grep -n \"event_bus\" adapters/persistence/neo4j/bulk_upsert_backend.py — empty until PR-3"
 ---
 
-# Vault Task Door Publishes No Task Events
+# The Completion Cascade Does Not Reach Every Door
 
-*Case file for the [deferred-work.md](deferred-work.md) entry of the same name; move to `done/` when nothing in it remains open.*
+*Case file for the [deferred-work.md](deferred-work.md) entry of the same name; move to `done/`
+when nothing in it remains open.*
 
-The direct `type: task` frontmatter ingestion path persists through
+Registered 2026-08-24 as "Vault Task Door Publishes No Task Events". The trigger fired
+2026-09-06 and the door was read; the gap it named is real but **narrower in one direction and
+wider in two others** than the registration said. This file records what the code actually does,
+and the shape ruled for closing it.
+
+## What the registration got wrong
+
+It said checkbox/DSL **extraction**-created tasks "go through the activity services and DO
+cascade — only the frontmatter bulk-upsert door is silent." They cascade `TaskCreated` only.
+
+A `- [x]` line converts to `TaskCreateRequest(status=COMPLETED, completion_date=✅date)`
+(`core/services/dsl/activity_domain_converters.py:127`) and reaches
+`TasksCoreService.create_task`, whose announcement step `_publish_created`
+(`core/services/tasks/tasks_core_service.py:619`) publishes `TaskCreated` and the ADR-074
+embedding request — **and no `TaskCompleted`**. `GoalsCoreService._publish_created` and
+`EventsCoreService`' sibling have the identical shape.
+
+So an entity **born completed** is silent at the *service* door too, and that is the door
+carrying the live traffic: the vault holds **zero** real `type: task` frontmatter files (four
+matches, all code examples and templates). `get_productivity_analytics`' own docstring already
+named "a task created already completed" as a drift source; this is that sentence's cause.
+
+## The three defects
+
+**1 — Born-completed creates publish no completion event.** `create_task` / `create_goal` /
+`create_event` publish only `*Created`. Every `TaskCompleted` subscriber therefore skips a task
+that arrives already done: goal-progress recompute, PS-engagement auto-complete, context
+invalidation, the Prometheus `entities_completed{task}` counter, and the `ProductivityAnalytics`
+stamps. Reached by the DSL/checkbox extractor and by any API create carrying
+`status: completed`.
+
+**2 — The vault bulk door skips the whole status guard, not just the events.**
 `UnifiedIngestionService` → `BulkUpsertBackend.upsert_with_relationships`
-(`adapters/persistence/neo4j/bulk_upsert_backend.py`) — no event bus anywhere in that chain. A
-task that arrives completed (or is completed by a later re-ingest of its file) through that door
-publishes no `TaskCompleted`, so nothing event-driven runs for it — concretely, the
-`ProductivityAnalytics.first/last_completion_at` stamps never move: this is the residual root of
-the `last_completion_at` staleness that survives #1142 (which derives the COUNT at read but kept
-the stamps stored). Don't overstate the gap: checkbox/DSL **extraction**-created tasks go through
-the activity services and DO cascade — only the frontmatter bulk-upsert door is silent.
+(`adapters/persistence/neo4j/bulk_upsert_backend.py`) MERGEs and returns `count(n)`. It never
+calls `update_with_status_guard`, so **all three** of that primitive's jobs are skipped at this
+door (ADR-087):
 
-**Trigger:** the R4 build (its reconciliation branch needs the same event honesty) or the next
-vault-door touch.
-**Named cost:** completion stamps drift stale for vault-frontmatter-authored completions; any
-reader of first/last completion stamps under-reports that door's activity.
+- *no completion event* — nothing knows a prior status, and without one an honest publish is
+  impossible: a `--force` re-ingest of N completed files must publish **zero**;
+- *no reopen-clear* — a file edited from `status: completed` to `status: in_progress` strands
+  `completion_date` / `achieved_date` / `completed_at` on a non-completed entity, breaking the
+  invariant that the stamp is non-null exactly when the entity is completed;
+- *no status-target legality* — the ingestion validator's vocabulary gate
+  (`core/services/ingestion/validator.py:216`) checks enum **membership** only, so
+  `type: principle, status: completed` passes it although COMPLETED is not in
+  `EntityType.PRINCIPLE.valid_statuses()`.
+
+**3 — `stamp_productivity_completion` is not monotone.**
+`SET analytics.last_completion_at = datetime($occurred_at)`
+(`adapters/persistence/neo4j/cross_domain_backend.py:493`) is unconditional. That is correct only
+while every publisher's `occurred_at` is *now*. The moment an authored `✅` date publishes, an
+out-of-order batch moves "when did this user most recently complete something" **backward**. The
+fix belongs in whichever change first backdates `occurred_at`.
+
+## Why "all 5 stamping domains" splits into 3 and 5
+
+The scope was ruled 2026-09-06 as all five stamping domains. Only three of them have an
+entity-completion event to publish, and the other two must not be given one:
+
+| Domain | update-chokepoint publish on transition INTO completed | entity-completion event exists? |
+|---|---|---|
+| Task | `TaskCompleted` | yes |
+| Goal | `GoalAchieved` | yes |
+| Event | `CalendarEventCompleted` | yes |
+| Habit | none | **no** — `HabitCompleted` is a logged daily *occurrence* (it feeds the `total_completions` tally and the streak services), not the habit entity retiring |
+| Choice | none | **no** — `ChoiceMade` is the DRAFT→ACTIVE *decide* moment published by `make_choice`, a different moment from COMPLETED |
+
+A new `HabitFinished` / `ChoiceCompleted` would have zero subscribers — staged bloat, not a fix.
+So **defect 1 and the event half of defect 2 are Task/Goal/Event**, while **the status-contract
+half of defect 2 is all five plus Principle's legality gate**.
+
+## The shape
+
+Four changes, in this order.
+
+1. **Born-completed creates cascade** (Task/Goal/Event). The domain's completion event is
+   published after `*Created` when the created entity's status is COMPLETED. A create has no
+   prior, so it is unambiguously a transition into completed — `is_repeat=False` for Task, no
+   prior-status machinery needed. `occurred_at` is the entity's authored stamp, falling back to
+   now. Carries defect 3, because this is what first backdates `occurred_at`.
+2. **The validator refuses a status the entity type does not allow** — `valid_statuses()`
+   membership, pre-persist, no Cypher.
+3. **The bulk door learns its prior status.** The node-upsert template splits the MERGE from the
+   property write so the prior status is read *under the node's write-lock* (the ADR-087 shape,
+   not a pre-read) and returns it per row. Post-persist then applies the reopen-clear for all
+   five stamping domains and publishes the three completion events on genuine transitions only.
+4. **Docs** — several docstrings currently state this gap as permanent and must stop
+   (`core/events/task_events.py`, `core/services/cross_domain_analytics_service.py`,
+   `adapters/persistence/neo4j/cross_domain_backend.py`, `adapters/inbound/analytics_api.py`,
+   `docs/domains/tasks.md`, and the premise of
+   `scripts/backfill_productivity_completion_stamps.py`).
+
+## Rejected
+
+**Deriving the stamps at read.** `get_productivity_analytics`' existing traversal already
+computes `completed_on` per completed task, so `min()` / `max()` would derive both stamps in the
+same read — exactly what `scripts/backfill_productivity_completion_stamps.py` reconstructs
+offline — and the stored stamps, their writer, the `:ProductivityAnalytics` node and the backfill
+script could all go. It is the cheapest option and it is what #1142 chose for the *count*. It was
+rejected because it fixes **only** the stamps: goal progress, PS-engagement auto-complete and
+context invalidation stay silent for every born-completed entity, which is the larger half of the
+bug. Revisit only if the event half is abandoned.
+
+**Named cost while open:** completion stamps drift stale, and the goal-progress /
+PS-engagement / context-invalidation cascade does not run, for every entity that arrives already
+completed through the DSL, API-create or vault-frontmatter doors.
