@@ -1,6 +1,6 @@
 ---
 title: API Validation Patterns
-updated: 2026-08-23
+updated: 2026-09-06
 category: patterns
 related_skills:
 - pydantic
@@ -359,35 +359,33 @@ return Result.fail(
 
 ---
 
-### JSON Body Errors (422 Unprocessable Entity)
+### JSON and Form Body Errors (400 Bad Request)
 
-Pydantic automatically generates validation errors:
+A rejected body is malformed input, not a rule violation, so it carries the same
+status and the same client-safe envelope as a rejected query parameter — 400,
+whichever of the two bindings above produced it. 422 is reserved for
+`ErrorCategory.BUSINESS`: a well-formed request that breaks a domain rule.
+
+Pydantic composes its per-field detail into the single `message` string; the
+envelope keys are whatever `ErrorContext.to_client_dict()` emits, never
+Pydantic's own `detail` array.
 
 **Request:**
 ```json
 {
-  "context": "string",  // Should be dict
-  "reflection": "x" * 2001  // Exceeds max_length
+  "context": "string",
+  "reflection": "xxx… (2001 chars)"
 }
 ```
 
-**HTTP Response (422):**
+**HTTP Response (400):**
 ```json
 {
-  "detail": [
-    {
-      "type": "dict_type",
-      "loc": ["body", "context"],
-      "msg": "Input should be a valid dictionary",
-      "input": "string"
-    },
-    {
-      "type": "string_too_long",
-      "loc": ["body", "reflection"],
-      "msg": "String should have at most 2000 characters",
-      "input": "xxx..."
-    }
-  ]
+  "category": "validation",
+  "code": "VALIDATION_FIELD_BODY",
+  "message": "2 validation errors for ContextualTaskCompletionRequest\ncontext\n  Input should be a valid dictionary [type=dict_type, input_value='string', input_type=str]\nreflection\n  String should have at most 2000 characters [type=string_too_long, input_value='xxx…', input_type=str]",
+  "severity": "low",
+  "timestamp": "2026-01-15T10:30:00+00:00"
 }
 ```
 
@@ -512,19 +510,21 @@ class TaskCreateRequest(BaseModel):
         return self
 ```
 
-The error surfaces as a 422 field error on `__root__` (model level), caught by route handlers and rendered as a user-friendly banner.
+A `mode="after"` failure is a model-level Pydantic error — `loc` is empty, not a
+field name — and reaches the client as the same 400 as any other rejected body.
+UI routes render it as a user-friendly banner rather than returning the JSON envelope.
 
 ---
 
 ## When to Use Each Pattern
 
-| Input Type | Pattern | Error Code | Use Case |
+| Input Type | Pattern | HTTP Status | Use Case |
 |------------|---------|------------|----------|
 | **Query Params (GET)** | Silent helpers (`parse_*_query_param`) | 200 (default) | Booleans, dates, CSV lists, pagination |
 | **Required Params (GET)** | Strict helpers (`parse_*_param_strict`) | 400 | Required dates, bounded integers |
 | **HTML Form Params (GET)** | `Model.from_form_params()` classmethod | 400 | Many checkbox/enum/optional string params needing coercion |
-| **JSON Bodies (POST/PUT)** | `parse_json_body(request, Model)` | 422 | Structured data, complex validation |
-| **Form Data Bodies (POST)** | `parse_form_body(request, Model)` | 422 | Structured form data with validation |
+| **JSON Bodies (POST/PUT)** | `parse_json_body(request, Model)` | 400 | Structured data, complex validation |
+| **Form Data Bodies (POST)** | `parse_form_body(request, Model)` | 400 | Structured form data with validation |
 | **Path Params** | Avoid (SKUEL uses query params) | N/A | Not used in SKUEL API routes |
 
 **SKUEL Preference:** Query parameters over path parameters for all routes. See [ROUTE_NAMING_CONVENTION.md](ROUTE_NAMING_CONVENTION.md).
@@ -963,7 +963,7 @@ Live counterpart: `tests/unit/models/test_task_completion_context.py`.
 | `parse_date_param_strict(value, field)` | `Result[date]` | ISO date with validation error on failure |
 | `parse_int_param_strict(value, field, min, max)` | `Result[int]` | Integer in range with validation error on failure |
 
-**Silent vs strict:** Use silent helpers (`parse_*_query_param`) when invalid input should fall back to a default. Use strict helpers (`parse_*_param_strict`) when invalid input should surface as a 400/422 error.
+**Silent vs strict:** Use silent helpers (`parse_*_query_param`) when invalid input should fall back to a default. Use strict helpers (`parse_*_param_strict`) when invalid input should surface as a 400 error.
 
 ## Reference Implementations
 
@@ -1021,7 +1021,7 @@ Live counterpart: `tests/unit/models/test_task_completion_context.py`.
 ## Key Takeaways
 
 1. **Validate Early:** Catch errors at API boundaries, not deep in service logic
-2. **Fail Fast:** Return clear 400/422 errors immediately
+2. **Fail Fast:** Return a clear 400 the moment input is rejected
 3. **Use Right Tool:**
    - Simple inputs → Helper functions
    - Complex data → Pydantic models

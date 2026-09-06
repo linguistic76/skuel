@@ -21,8 +21,11 @@ from core.models.enums.user_entry_enums import ExerciseScope
 
 
 def _validate_domain_value(value: str | None) -> str | None:
-    """Reject domain strings that are not Domain enum values (422 at the boundary,
-    not a 500 in conversion — conversion does ``Domain(schema.domain)``)."""
+    """Reject domain strings that are not Domain enum values.
+
+    The rejection belongs at the request boundary because conversion does a bare
+    ``Domain(schema.domain)``, which would raise mid-conversion instead.
+    """
     if value is None:
         return None
     try:
