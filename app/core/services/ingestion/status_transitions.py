@@ -79,7 +79,8 @@ def classify_ingest_status_transitions(
         entity_type: The domain being ingested. Types with no completion field
             (everything outside the five stamping domains) yield nothing.
         entities: The dicts that were just persisted, exactly as the upsert saw
-            them — ``status`` is the NEW status.
+            them — ``status`` is the NEW status, and its ABSENCE as a key is
+            distinct from its presence holding ``None`` (see the loop).
         prior_status_by_uid: What each node's status was before the write, from
             ``IngestionResult.prior_status_by_uid``. A uid absent from the map is
             treated as having no prior status (the shape a create produces), so a
@@ -100,13 +101,24 @@ def classify_ingest_status_transitions(
         if not uid:
             continue
         uid = str(uid)
+        # Presence, not truthiness: the upsert's ``SET n += props`` writes
+        # whatever key the file declares, and a null value REMOVES the stored
+        # property. So an absent ``status:`` key leaves the stored status alone
+        # (no transition either way), while a present-but-empty one
+        # (``status:`` / ``status: none``, both of which the ingest validator
+        # deliberately admits as absence) deletes it — leaving an entity that is
+        # definitively no longer completed. Only the second is a reopen. This is
+        # where the ingest door's reading legitimately differs from
+        # ``is_reopen_transition``: there a null status means "not changing the
+        # status", here it means "erase it".
+        declares_status = "status" in entity
         new_status = _status_of(entity.get("status"))
         prior_status = prior_status_by_uid.get(uid)
         if new_status == _COMPLETED and prior_status != _COMPLETED:
             event = _completion_event(entity_type, uid, entity)
             if event is not None:
                 events.append(event)
-        elif prior_status == _COMPLETED and new_status is not None and new_status != _COMPLETED:
+        elif prior_status == _COMPLETED and declares_status and new_status != _COMPLETED:
             reopened.append(uid)
 
     return IngestStatusTransitions(tuple(reopened), tuple(events))

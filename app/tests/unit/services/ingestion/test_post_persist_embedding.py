@@ -310,15 +310,12 @@ async def test_batch_door_strips_file_path_and_calls_post_persist(tmp_path: Path
     )
 
     backend = _FakeBulkBackend()
-    calls: list[tuple[Any, list[dict[str, Any]], dict[str, Any], dict[str, Any]]] = []
+    calls: list[tuple[Any, list[dict[str, Any]], dict[str, Any]]] = []
 
     async def post_persist(
-        entity_type: Any,
-        entities: list[dict[str, Any]],
-        chunk_sources: dict[str, Any],
-        prior_status_by_uid: dict[str, Any],
+        entity_type: Any, entities: list[dict[str, Any]], chunk_sources: dict[str, Any]
     ) -> None:
-        calls.append((entity_type, entities, chunk_sources, prior_status_by_uid))
+        calls.append((entity_type, entities, chunk_sources))
 
     result = await ingest_directory(
         directory=tmp_path,
@@ -335,7 +332,7 @@ async def test_batch_door_strips_file_path_and_calls_post_persist(tmp_path: Path
 
     # post-persist callback ran once for the Ku group with the persisted entities
     assert len(calls) == 1
-    entity_type, entities, chunk_sources, _ = calls[0]
+    entity_type, entities, chunk_sources = calls[0]
     assert entity_type == EntityType.KU
     assert [e["uid"] for e in entities] == ["ku.batch-embed-test"]
     # Ku is a chunks_body_content type (stubs → lessons): body popped
@@ -362,15 +359,12 @@ async def test_batch_door_pops_path_step_content_and_threads_chunk_source(tmp_pa
     )
 
     backend = _FakeBulkBackend()
-    calls: list[tuple[Any, list[dict[str, Any]], dict[str, Any], dict[str, Any]]] = []
+    calls: list[tuple[Any, list[dict[str, Any]], dict[str, Any]]] = []
 
     async def post_persist(
-        entity_type: Any,
-        entities: list[dict[str, Any]],
-        chunk_sources: dict[str, Any],
-        prior_status_by_uid: dict[str, Any],
+        entity_type: Any, entities: list[dict[str, Any]], chunk_sources: dict[str, Any]
     ) -> None:
-        calls.append((entity_type, entities, chunk_sources, prior_status_by_uid))
+        calls.append((entity_type, entities, chunk_sources))
 
     result = await ingest_directory(
         directory=tmp_path,
@@ -388,7 +382,7 @@ async def test_batch_door_pops_path_step_content_and_threads_chunk_source(tmp_pa
 
     # the popped body is threaded to the callback keyed by uid
     assert len(calls) == 1
-    _, _, chunk_sources, _ = calls[0]
+    _, _, chunk_sources = calls[0]
     assert set(chunk_sources) == {"ps.test.chunk-unification"}
     source = chunk_sources["ps.test.chunk-unification"]
     assert source.content.strip() == body.strip()
@@ -455,7 +449,6 @@ async def test_ingest_post_persist_publishes_entity_event_and_chunk_event():
         EntityType.PATH_STEP,
         [{"uid": uid, "title": "Batch Chunks", "word_count": len(_PS_BODY.split())}],
         {uid: ChunkSource(content=_PS_BODY, file_format="markdown", source_path="x.md")},
-        {},
     )
 
     # :Content + :ContentChunk persisted through the adapter
@@ -487,7 +480,6 @@ async def test_chunk_step_core_tier_persists_chunks_without_publishing():
         EntityType.PATH_STEP,
         [{"uid": uid, "title": "Core Chunks"}],
         {uid: ChunkSource(content=_PS_BODY, file_format="markdown", source_path="x.md")},
-        {},
     )
 
     assert [u for u, _ in adapter.stored] == [uid]
@@ -603,15 +595,12 @@ async def test_batch_door_empty_body_writes_zero_word_count_and_threads_clear(tm
     ps_file.write_text("---\ntype: path_step\nuid: ps.test.emptied\ntitle: Emptied\n---\n")
 
     backend = _FakeBulkBackend()
-    calls: list[tuple[Any, list[dict[str, Any]], dict[str, Any], dict[str, Any]]] = []
+    calls: list[tuple[Any, list[dict[str, Any]], dict[str, Any]]] = []
 
     async def post_persist(
-        entity_type: Any,
-        entities: list[dict[str, Any]],
-        chunk_sources: dict[str, Any],
-        prior_status_by_uid: dict[str, Any],
+        entity_type: Any, entities: list[dict[str, Any]], chunk_sources: dict[str, Any]
     ) -> None:
-        calls.append((entity_type, entities, chunk_sources, prior_status_by_uid))
+        calls.append((entity_type, entities, chunk_sources))
 
     result = await ingest_directory(
         directory=tmp_path,
@@ -626,7 +615,7 @@ async def test_batch_door_empty_body_writes_zero_word_count_and_threads_clear(tm
     assert persisted["word_count"] == 0
 
     assert len(calls) == 1
-    _, _, chunk_sources, _ = calls[0]
+    _, _, chunk_sources = calls[0]
     assert set(chunk_sources) == {"ps.test.emptied"}
     assert chunk_sources["ps.test.emptied"].content == ""
 
@@ -643,15 +632,12 @@ async def test_batch_door_null_content_frontmatter_is_treated_as_empty(tmp_path:
     )
 
     backend = _FakeBulkBackend()
-    calls: list[tuple[Any, list[dict[str, Any]], dict[str, Any], dict[str, Any]]] = []
+    calls: list[tuple[Any, list[dict[str, Any]], dict[str, Any]]] = []
 
     async def post_persist(
-        entity_type: Any,
-        entities: list[dict[str, Any]],
-        chunk_sources: dict[str, Any],
-        prior_status_by_uid: dict[str, Any],
+        entity_type: Any, entities: list[dict[str, Any]], chunk_sources: dict[str, Any]
     ) -> None:
-        calls.append((entity_type, entities, chunk_sources, prior_status_by_uid))
+        calls.append((entity_type, entities, chunk_sources))
 
     result = await ingest_directory(
         directory=tmp_path,
@@ -680,7 +666,6 @@ async def test_ingest_post_persist_empty_source_clears_without_chunk_events():
         EntityType.PATH_STEP,
         [{"uid": uid, "title": "Emptied", "word_count": 0}],
         {uid: ChunkSource(content="", file_format="markdown", source_path="x.md")},
-        {},
     )
 
     assert adapter.cleared == [uid]

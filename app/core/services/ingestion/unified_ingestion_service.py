@@ -549,19 +549,22 @@ class UnifiedIngestionService:
         entity_type: EntityType | NonKuDomain,
         entities: list[dict[str, Any]],
         chunk_sources: dict[str, ChunkSource],
-        prior_status_by_uid: Mapping[str, str | None],
     ) -> None:
         """
-        Batch-door post-persist step: status transitions, embeddings, body chunking.
+        Batch-door post-persist step: embedding publishes + body chunking.
 
         Passed to ``batch.ingest_directory`` as ``post_persist_fn``, invoked
         per successful per-type upsert. Mirrors ``ingest_file``'s post-persist
-        sequence: the ADR-087 status-transition step, then entity
-        ``*EmbeddingRequested`` publishes, then the shared chunk step for each
-        ``chunks_body_content`` entity whose content the engine popped
-        pre-upsert (``chunk_sources`` is empty for every other type).
+        sequence: entity ``*EmbeddingRequested`` publishes first, then the
+        shared chunk step for each ``chunks_body_content`` entity whose
+        content the engine popped pre-upsert (``chunk_sources`` is empty for
+        every other type).
+
+        The ADR-087 status-transition step is NOT here: it publishes events
+        whose subscribers traverse edges the batch door has not written yet, so
+        it runs as ``status_transition_fn`` at end-of-sync instead. Neither
+        step below reads an edge, which is why they stay in phase 1.
         """
-        await self._apply_status_transitions(entity_type, entities, prior_status_by_uid)
         await self._publish_embedding_requests(entity_type, entities)
         params = resolve_chunking_params(entity_type)
         for uid, source in chunk_sources.items():
@@ -1073,12 +1076,6 @@ class UnifiedIngestionService:
                 authored_edges,
             )
 
-        # Post-persist status-transition step (ADR-087): the completion event
-        # this file's status change earns, and the reopen-clear it owes — the
-        # same step the batch door runs, off the prior status the upsert read
-        # under the node's write-lock.
-        await self._apply_status_transitions(entity_type, [entity_data], stats.prior_status_by_uid)
-
         # Post-persist embedding step (ADR-074): publish the entity's
         # *EmbeddingRequested event for the background worker. For chunked
         # types the content body was popped above and is deliberately NOT
@@ -1112,6 +1109,18 @@ class UnifiedIngestionService:
                 file_path,
                 frontmatter_organizes_targets(entity_data),
             )
+
+        # Status transitions (ADR-087) — the completion event this file's status
+        # change earns and the reopen-clear it owes, off the prior status the
+        # upsert read under the node's write-lock. LAST, after every edge this
+        # call writes (relationships, then the MOC pass above): the event is
+        # consumed synchronously by subscribers that traverse those edges —
+        # ``PsPracticeService.handle_event_completed`` follows APPLIES_KNOWLEDGE,
+        # which this file's relationship config authors — and nothing would
+        # repair a cascade they skipped, since the next ingest reads the node as
+        # already completed and publishes nothing. Same rule and same reason as
+        # the batch door's end-of-sync pass.
+        await self._apply_status_transitions(entity_type, [entity_data], stats.prior_status_by_uid)
 
         result_payload: dict[str, Any] = {
             "uid": entity_data["uid"],
@@ -1265,6 +1274,7 @@ class UnifiedIngestionService:
             owner_is_authoritative=self._owner_is_authoritative,
             post_persist_fn=self._ingest_post_persist,
             moc_pass_fn=self._apply_moc_links,
+            status_transition_fn=self._apply_status_transitions,
         )
 
     async def ingest_vault(

@@ -104,11 +104,40 @@ def test_reopen_clears_and_publishes_nothing() -> None:
 
 
 def test_missing_new_status_is_not_a_reopen() -> None:
-    """A file that declares no status states no target — nothing is inferred."""
+    """No ``status`` key writes no status — the stored ``completed`` survives."""
     entity = {"uid": "task.no-status", "user_uid": OWNER, "title": "No status"}
 
     transitions = classify_ingest_status_transitions(
         EntityType.TASK, [entity], {"task.no-status": "completed"}
+    )
+
+    assert transitions.reopened_uids == ()
+    assert transitions.completion_events == ()
+
+
+def test_a_present_but_null_status_is_a_reopen() -> None:
+    """``status:`` / ``status: none`` prepare to a present key holding None.
+
+    The upsert's ``SET n += props`` DELETES a property written null, so the
+    entity ends up with no status at all — definitively not completed. Presence
+    of the key, not truthiness of the value, is what separates this from the
+    test above.
+    """
+    entity = {"uid": "task.erased", "user_uid": OWNER, "status": None}
+
+    transitions = classify_ingest_status_transitions(
+        EntityType.TASK, [entity], {"task.erased": "completed"}
+    )
+
+    assert transitions.reopened_uids == ("task.erased",)
+    assert transitions.completion_events == ()
+
+
+def test_a_null_status_over_an_open_prior_changes_nothing() -> None:
+    entity = {"uid": "task.erased-open", "user_uid": OWNER, "status": None}
+
+    transitions = classify_ingest_status_transitions(
+        EntityType.TASK, [entity], {"task.erased-open": "in_progress"}
     )
 
     assert transitions.reopened_uids == ()

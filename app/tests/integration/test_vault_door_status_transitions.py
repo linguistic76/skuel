@@ -36,19 +36,28 @@ from typing import Any
 
 import pytest
 
-from core.events import GoalAchieved, TaskCompleted
+from core.events import CalendarEventCompleted, GoalAchieved, TaskCompleted
 
 OWNER_UID = "user_test_integration"  # seeded by the ensure_test_users fixture
 
 
 class _CapturingBus:
-    """Records every published event; the ingestion service only publishes."""
+    """Records every published event; the ingestion service only publishes.
+
+    ``edge_probe`` lets a test observe the graph AT THE MOMENT of publication —
+    the real bus awaits its subscribers inline, so what the graph holds here is
+    exactly what a subscriber would see.
+    """
 
     def __init__(self) -> None:
         self.published: list[Any] = []
+        self.probes: list[Any] = []
+        self.edge_probe: Any = None
 
     async def publish_async(self, event: Any) -> None:
         self.published.append(event)
+        if self.edge_probe is not None:
+            self.probes.append((type(event).__name__, await self.edge_probe()))
 
     def completions(self, event_class: type) -> list[Any]:
         return [e for e in self.published if isinstance(e, event_class)]
@@ -255,6 +264,139 @@ async def test_directory_door_publishes_a_goal_achievement(
     assert event.goal_uid == "goal.vault-status-goal"
     assert event.occurred_at == datetime(2026, 3, 4, 0, 0)
     assert event.actual_duration_days == 62
+
+
+@pytest.mark.asyncio
+async def test_completion_publishes_only_after_the_entity_edges_exist(
+    clean_neo4j, neo4j_driver, door, bus: _CapturingBus, tmp_path: Path
+) -> None:
+    """The ordering rule: a completion event is published AFTER every edge this
+    sync writes (Codex #1290 P1).
+
+    The bus awaits its subscribers inline, and those subscribers traverse the
+    entity's edges — ``PsPracticeService.handle_event_completed`` follows
+    ``APPLIES_KNOWLEDGE`` to count KU practice. The directory door writes nodes
+    in phase 1 and edges in phase 2, so publishing inside phase 1 would hand
+    every subscriber an entity with no edges, they would find nothing and skip,
+    and nothing would repair it: the next sync reads the node as already
+    completed and publishes no event at all.
+    """
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    (vault / "vault-status-ku.md").write_text(
+        "---\ntype: ku\nuid: ku.vault-status-edge\ntitle: Edge KU\n---\n\nBody.\n"
+    )
+    _write(
+        vault,
+        "vault-status-edges",
+        "status: completed\ncompleted_at: '2026-03-04T09:00:00'\n"
+        "connections:\n  applies_knowledge:\n    - ku.vault-status-edge\n",
+        entity_type="event",
+    )
+
+    async def probe_edges() -> int:
+        async with neo4j_driver.session() as session:
+            result = await session.run(
+                "MATCH (:Entity {uid: 'event.vault-status-edges'})"
+                "-[r:APPLIES_KNOWLEDGE]->(:Entity {uid: 'ku.vault-status-edge'}) "
+                "RETURN count(r) AS edges"
+            )
+            record = await result.single()
+            return int(record["edges"]) if record else 0
+
+    bus.edge_probe = probe_edges
+    assert (await door.ingest_directory(vault)).is_ok
+
+    (event,) = bus.completions(CalendarEventCompleted)
+    assert event.event_uid == "event.vault-status-edges"
+    completion_probes = [edges for name, edges in bus.probes if name == "CalendarEventCompleted"]
+    assert completion_probes == [1], (
+        "the APPLIES_KNOWLEDGE edge must already exist when the completion "
+        f"event publishes, got {completion_probes}"
+    )
+
+
+@pytest.mark.asyncio
+async def test_single_file_door_publishes_after_its_edges_too(
+    clean_neo4j, neo4j_driver, door, bus: _CapturingBus, tmp_path: Path
+) -> None:
+    """Same rule at the other door, which writes edges inside its own upsert call."""
+    (tmp_path / "vault-status-ku-single.md").write_text(
+        "---\ntype: ku\nuid: ku.vault-status-edge-single\ntitle: Edge KU\n---\n\nBody.\n"
+    )
+    assert (await door.ingest_file(tmp_path / "vault-status-ku-single.md")).is_ok
+
+    path = _write(
+        tmp_path,
+        "vault-status-edges-single",
+        "status: completed\ncompleted_at: '2026-03-04T09:00:00'\n"
+        "connections:\n  applies_knowledge:\n    - ku.vault-status-edge-single\n",
+        entity_type="event",
+    )
+
+    async def probe_edges() -> int:
+        async with neo4j_driver.session() as session:
+            result = await session.run(
+                "MATCH (:Entity {uid: 'event.vault-status-edges-single'})"
+                "-[r:APPLIES_KNOWLEDGE]->(:Entity {uid: 'ku.vault-status-edge-single'}) "
+                "RETURN count(r) AS edges"
+            )
+            record = await result.single()
+            return int(record["edges"]) if record else 0
+
+    bus.edge_probe = probe_edges
+    assert (await door.ingest_file(path)).is_ok
+
+    completion_probes = [edges for name, edges in bus.probes if name == "CalendarEventCompleted"]
+    assert completion_probes == [1]
+
+
+@pytest.mark.asyncio
+async def test_an_emptied_status_line_is_a_reopen(
+    clean_neo4j, neo4j_driver, door, bus: _CapturingBus, tmp_path: Path
+) -> None:
+    """``status:`` with no value ERASES the stored status (Codex #1290 P2).
+
+    The ingest validator admits an empty ``status:`` as absence, and the
+    upsert's ``SET n += props`` deletes a property whose new value is null. The
+    entity is then definitively not completed, so its stamp must go — an absent
+    ``status`` KEY (which writes nothing) is the case that must stay silent, and
+    the two are distinguished by key presence, not by value.
+    """
+    _write(tmp_path, "vault-status-erased", "status: completed\ncompletion_date: 2026-03-04\n")
+    path = tmp_path / "vault-status-erased.md"
+    assert (await door.ingest_file(path)).is_ok
+    assert await _prop(neo4j_driver, "task.vault-status-erased", "completion_date") is not None
+
+    _write(tmp_path, "vault-status-erased", "status:\n")
+    assert (await door.ingest_file(path)).is_ok
+
+    assert await _prop(neo4j_driver, "task.vault-status-erased", "status") is None, (
+        "precondition: a null status property is removed by `n += props`"
+    )
+    assert await _prop(neo4j_driver, "task.vault-status-erased", "completion_date") is None
+    assert len(bus.completions(TaskCompleted)) == 1
+
+
+@pytest.mark.asyncio
+async def test_a_file_that_declares_no_status_leaves_the_stamp_alone(
+    clean_neo4j, neo4j_driver, door, bus: _CapturingBus, tmp_path: Path
+) -> None:
+    """The other side of the presence test: no ``status`` key writes no status.
+
+    The stored ``completed`` survives untouched, so there is no reopen and the
+    stamp must stay — clearing it here would break the same invariant from the
+    opposite direction.
+    """
+    _write(tmp_path, "vault-status-silent", "status: completed\ncompletion_date: 2026-03-04\n")
+    path = tmp_path / "vault-status-silent.md"
+    assert (await door.ingest_file(path)).is_ok
+
+    _write(tmp_path, "vault-status-silent", "description: no status line here\n")
+    assert (await door.ingest_file(path)).is_ok
+
+    assert await _prop(neo4j_driver, "task.vault-status-silent", "status") == "completed"
+    assert await _prop(neo4j_driver, "task.vault-status-silent", "completion_date") is not None
 
 
 @pytest.mark.asyncio
