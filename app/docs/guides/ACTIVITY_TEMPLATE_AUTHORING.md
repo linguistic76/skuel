@@ -714,13 +714,19 @@ Three consequences for you as the author:
   review is kept. Author as though what you spawn will stay in their life.
 - **Abandon is total.** It removes every instance of that engagement, finished or not —
   and, until [the scope defect](../roadmap/shared-template-engagement-scope.md) is fixed,
-  some instances of *other* engagements too. See
-  [Reuse across PathSteps](#reuse-across-pathsteps).
+  instances of *other* engagements too. Two flows reach it: re-engaging one step (below)
+  and [sharing a template across steps](#reuse-across-pathsteps).
 - **One engagement at a time, per step.** A second `engage` on the same step while one is
   active is refused (`engagement_already_active`) — a learner does not accumulate
   duplicates by clicking twice. After completing or abandoning, they *may* engage the
   same step again, and that opens a fresh engagement. Engagements on *different* steps
   run concurrently as a matter of course.
+
+  ⚠ **Re-engaging a step is not safe yet, and this one needs no template sharing.**
+  Keep an instance at the review (it becomes `owned`), engage the same step again, then
+  abandon: the instance lookup returns the kept instance too — `owned` is in its state
+  list — and abandon deletes what the learner earned in the first engagement. Case 1 in
+  [shared-template-engagement-scope.md](../roadmap/shared-template-engagement-scope.md).
 
 Spawning is **best-effort, not one transaction**: if a later layer fails to persist, the
 orchestrator deletes the instances it already wrote and returns the failure. You will not
