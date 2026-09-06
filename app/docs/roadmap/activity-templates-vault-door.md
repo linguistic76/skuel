@@ -139,7 +139,7 @@ Verified by driving the real doors against the live graph, not by reading: both 
 a template file deleted its node, `entities_deleted: 1`). All six read back through the service
 with their offsets, enums, milestones, options and expressions intact.
 
-Four things PR-2 found that the scope did not name:
+Five things PR-2 found that the scope did not name:
 
 - **`type: TaskTemplate` was rejected.** The content vault spells every other kind in PascalCase
   (`type: PathStep`, `type: Ku`, `type: Habit`) and that resolves because lowercasing is enough —
@@ -153,6 +153,12 @@ Four things PR-2 found that the scope did not name:
   `type:`/prefix/attachment rows against three separate authorities and any spelled-out enum
   vocabulary against `ENUM_FIELD_TYPES`. That last check caught the doc calling `event_type`
   free-text when the ingest door enum-validates it.
+- **The JSON API the guide pointed at as the second door named routes that do not exist** —
+  `POST /api/task-templates/` and `POST /api/ps/{ps_uid}/task-templates/{uid}/attach`. The
+  factory builds `/api/{domain_name}` and every template config names itself
+  `pathstep-{domain}-templates`. Same class as `priority`, so it gets the same treatment: the
+  docs test pins the documented pattern against the six configs, derived from the six
+  EntityTypes. The `POST /api/ps/{ps_uid}/publish` route in the same section is real.
 - **A structured-list item without its nested `uid:` corrupts silently** — registered as its own
   case file, [structured-list-items-need-a-nested-uid.md](structured-list-items-need-a-nested-uid.md).
   Not template-specific (Goal and Choice have carried it since they became ingestible), so the fix
