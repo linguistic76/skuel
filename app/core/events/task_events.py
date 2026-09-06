@@ -169,9 +169,9 @@ class TaskReopened(BaseEvent):
        predicate, not an event. And once state is the authority the event has no
        verb left — a completion also only reaches the vault on the next
        human-initiated sync, so a subscriber would buy nothing but an asymmetric
-       eagerness and a second live path to one outcome. (The vault door now knows
-       a reopen too, but it learns it while ingesting the file that made it —
-       there is nothing to write back.)
+       eagerness and a second live path to one outcome. (The vault door also
+       detects a reopen, but it learns of one while ingesting the file that made
+       it — there is nothing to write back.)
     3. Kept published, deliberately **unsubscribed**.
 
     ``./dev bloat`` reporting this as INFO (published, never subscribed) is the

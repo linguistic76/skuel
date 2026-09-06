@@ -510,11 +510,10 @@ class CrossDomainAnalyticsService:
         Only the two stamps come from the node, and only the ``TaskCompleted``
         handler writes them. Every door into ``completed`` publishes that event,
         the vault bulk upsert included, so a user with real counts and ``None``
-        stamps has no stamped completion at all — every one predating the
-        handler, or its announcement lost — and
-        ``./dev backfill-productivity-stamps`` fills those. A lost announcement
-        *after* a stamp exists leaves ``last_completion_at`` stale instead, which
-        nothing repairs today
+        stamps has no stamped completion at all, and
+        ``./dev backfill-productivity-stamps`` fills those (its docstring
+        enumerates how a stamp goes missing). A completion lost *after* a stamp
+        exists leaves ``last_completion_at`` stale instead, which nothing repairs
         (``docs/roadmap/ingest-transition-obligation-durability.md``).
 
         Args:

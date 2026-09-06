@@ -17,14 +17,20 @@ Two things can be wrong for that shape, and this script fixes both:
 
 1. **Null stamps.** A user can own completed tasks and still carry no stamp —
    no ``ProductivityAnalytics`` node at all, or a node whose stamps are
-   ``null``. Two causes: completions older than the handler that writes the
-   stamps (the bulk of it, and the reason this script exists — the account is
-   in ``docs/roadmap/done/vault-task-door-no-events.md``), and an announcement
-   the vault door loses, which is why the set does not only shrink. That door
-   has no outbox: when reading the persisted entities back fails,
-   ``UnifiedIngestionService._publish_completions`` logs and drops the
-   completion event, and nothing retries it — the next ingest reads those
-   entities as already completed. So this is worth re-running, not only running.
+   ``null``. Three causes, and only the first is finite — which is why this is
+   worth re-running, not only running:
+
+   - completions older than the handler that writes the stamps (the bulk of it,
+     and the reason this script exists — the account is in
+     ``docs/roadmap/done/vault-task-door-no-events.md``);
+   - an announcement the vault door loses. That door has no outbox: when reading
+     the persisted entities back fails,
+     ``UnifiedIngestionService._publish_completions`` logs and drops the
+     completion event, and nothing retries it — the next ingest reads those
+     entities as already completed;
+   - a stamp write that fails. ``CrossDomainAnalyticsService.handle_task_completed``
+     logs a failed ``stamp_productivity_completion`` and returns ok, so the
+     announcement is published and heard while the stamp never lands.
 
    ⚠ **It repairs a NULL stamp and nothing else** — the fill's contract is
    right below, and a stamp that exists is never moved. So a user who holds both
