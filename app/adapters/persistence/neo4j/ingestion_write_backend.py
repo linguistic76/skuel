@@ -21,6 +21,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from core.models.enums.entity_enums import EntityStatus
+
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
@@ -251,3 +253,82 @@ class IngestionWriteBackend:
             ],
         )
         return int(records[0]["deleted"]) if records else 0
+
+    async def clear_completion_stamps(self, field_name: str, uids: list[str]) -> int:
+        """REMOVE ``field_name`` from each named entity; return how many were cleared.
+
+        The vault door's reopen-clear (ADR-087): a file edited ``status:
+        completed`` → ``status: in_progress`` must not leave its completion stamp
+        behind, because the invariant the stamp carries is "non-null exactly when
+        the entity is completed" — a stranded ``completion_date`` reads to every
+        consumer as a task that is still done.
+
+        **Conditional on the entity still being reopened.** The caller decided
+        this was a reopen from the prior status the upsert read, but the write
+        happens later — at end-of-sync for the directory door, which is a wide
+        window — and an app writer may have completed the entity in between,
+        stamping it through the guarded write. An unconditional ``REMOVE`` would
+        delete that fresh stamp and leave a completed entity with none, which is
+        the exact state this whole contract exists to prevent. So the condition
+        travels to the write: only an entity that is *not currently completed*
+        loses its stamp, which makes the clear a no-op precisely when the caller's
+        verdict has been overtaken.
+
+        ``coalesce`` matters — a status property that is ABSENT is one of the
+        reopen shapes this clears (a file whose ``status:`` line is empty writes
+        null, and ``SET n += props`` deletes the property), and a bare
+        ``n.status <> $completed`` would evaluate to null there and skip exactly
+        the row it must clear.
+
+        ``field_name`` is a value of ``core.services.completion_stamp.COMPLETION_FIELDS``
+        (enum-keyed, trusted — never user input), which is what makes the
+        interpolation safe; the driver requires a ``LiteralString``, hence the
+        ignores. An entity whose stamp is already absent matches nothing and is
+        not an error.
+        """
+        if not uids:
+            return 0
+        records, _, _ = await self._driver.execute_query(  # pyright: ignore[reportArgumentType, reportCallIssue]
+            f"""
+            UNWIND $uids AS uid
+            MATCH (n:Entity {{uid: uid}})
+            WHERE coalesce(n.status, '') <> $completed_status
+              AND n.{field_name} IS NOT NULL
+            REMOVE n.{field_name}
+            RETURN count(n) AS cleared
+            """,
+            uids=list(uids),
+            completed_status=EntityStatus.COMPLETED.value,
+        )
+        return int(records[0]["cleared"]) if records else 0
+
+    async def read_entity_fields(
+        self, uids: list[str], fields: list[str]
+    ) -> dict[str, dict[str, Any]]:
+        """Read ``fields`` off each named entity; return them keyed by uid.
+
+        The post-write read the ingest door's completion events are built from
+        (ADR-087). The upsert MERGES properties, so what a file declares is only
+        part of what the node ends up holding — a file that changes nothing but
+        ``status`` leaves the stored due date and elapsed duration standing, and
+        an event built from the file fragment alone would report neither.
+
+        ``fields`` comes from ``EVENT_SOURCE_FIELDS`` in
+        ``core.services.ingestion.status_transitions`` (enum-keyed, trusted —
+        never user input), which is what makes the projection safe; the driver
+        requires a ``LiteralString``, hence the ignores. A uid with no node
+        yields no entry rather than an empty one, so the caller can tell "gone"
+        from "has no values".
+        """
+        if not uids or not fields:
+            return {}
+        projection = ", ".join(f".{field}" for field in fields)
+        records, _, _ = await self._driver.execute_query(  # pyright: ignore[reportArgumentType, reportCallIssue]
+            f"""
+            UNWIND $uids AS uid
+            MATCH (n:Entity {{uid: uid}})
+            RETURN uid, n{{{projection}}} AS props
+            """,
+            uids=list(uids),
+        )
+        return {str(record["uid"]): dict(record["props"]) for record in records}

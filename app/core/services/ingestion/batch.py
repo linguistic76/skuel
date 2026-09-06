@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import asyncio
 import re
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -617,6 +617,11 @@ async def ingest_directory(
     ]
     | None = None,
     moc_pass_fn: Callable[[str, list[str], Path, list[str]], Awaitable[list[str]]] | None = None,
+    status_transition_fn: Callable[
+        [EntityType | NonKuDomain, list[dict[str, Any]], Mapping[str, str | None]],
+        Awaitable[None],
+    ]
+    | None = None,
 ) -> Result[IngestionStats | IncrementalStats | DryRunPreview]:
     """
     Ingest all supported files in a directory.
@@ -667,7 +672,8 @@ async def ingest_directory(
             door's half of the shared post-persist step (ADR-074:
             ``UnifiedIngestionService._ingest_post_persist``, embedding
             publishes + body chunking). Never called for failed batches
-            or in dry-run mode.
+            or in dry-run mode. Neither step reads graph edges, which is why
+            this one runs inside phase 1 and ``status_transition_fn`` does not.
         moc_pass_fn: Optional MOC edge-pass callback
             (``UnifiedIngestionService._apply_moc_links``). Files with
             ``moc: true`` have their body-link suffixes collected during the
@@ -678,6 +684,19 @@ async def ingest_directory(
             protected_target_uids) -> warnings``;
             returned warnings merge into the sync stats (content-vault
             posture; personal vaults return none).
+        status_transition_fn: Optional per-type-batch callback for the ADR-087
+            status contract (``UnifiedIngestionService._apply_status_transitions``:
+            the completion event a file's status change earns, and the
+            reopen-clear it owes), invoked with the persisted entity dicts and
+            the prior status the upsert read under each node's write-lock.
+            Signature: ``async (entity_type, entities, prior_status_by_uid)``.
+            Deliberately NOT part of ``post_persist_fn``: a completion event is
+            consumed SYNCHRONOUSLY by subscribers that traverse the entity's
+            edges — ``PsPracticeService.handle_event_completed`` follows
+            ``APPLIES_KNOWLEDGE``, which is exactly what the Task and Event
+            relationship configs author — and phase 1 has written none of them
+            yet, so this runs at end-of-sync, after every edge this run writes.
+            Never called for failed batches or in dry-run mode.
 
     Returns:
         Result with IngestionStats (full mode), IncrementalStats (incremental/smart mode), or DryRunPreview (dry-run mode)
@@ -1125,6 +1144,11 @@ async def ingest_directory(
     # IngestionMetadata rows. (entity_uid, ordered link suffixes, source file,
     # frontmatter ``organizes:`` targets spared from the stale-edge refresh)
     moc_items: list[tuple[str, list[str], Path, list[str]]] = []
+    # Per-type (entities, prior statuses) for the deferred status-transition
+    # pass at end-of-sync — see ``status_transition_fn``.
+    status_transition_batches: list[
+        tuple[EntityType | NonKuDomain, list[dict[str, Any]], Mapping[str, str | None]]
+    ] = []
 
     # Per-file routing — two types whose persistence is more than the bulk
     # upsert, so the batch door hands each file to ingest_file_fn (the
@@ -1339,6 +1363,10 @@ async def ingest_directory(
                 relationship_passes.append((entity_type, entities, rel_config))
             if post_persist_fn is not None:
                 await post_persist_fn(entity_type, entities, chunk_sources)
+            # The status-transition step is DEFERRED to end-of-sync (see the
+            # pass below): its subscribers traverse edges no phase-1 batch has
+            # written yet.
+            status_transition_batches.append((entity_type, entities, stats.prior_status_by_uid))
             # Only persisted entities get their MOC edge pass — a failed
             # batch would refresh edges against a node that never landed.
             moc_items.extend(batch_moc_items)
@@ -1556,6 +1584,23 @@ async def ingest_directory(
                 )
                 if tracker is not None and ingestion_mode != "full":
                     await tracker.delete_ingestion_metadata([moc_path])
+
+    # Status transitions (ADR-087) — AFTER every edge this run writes: phase
+    # 2's frontmatter relationships, the edge files, and the MOC pass above.
+    # A completion event is consumed synchronously (``publish_async`` awaits its
+    # subscribers), and those subscribers traverse the entity's edges:
+    # ``PsPracticeService.handle_event_completed`` follows APPLIES_KNOWLEDGE,
+    # which the Task and Event relationship configs both author.
+    # Publishing in phase 1 would hand them an entity with no edges yet, they
+    # would find nothing and skip, and NOTHING would repair it: the next sync
+    # reads the node as already completed and publishes no event at all. The
+    # rule is deliberately unconditional — "after every edge", not "after the
+    # edges today's subscribers happen to read" — so a future subscriber cannot
+    # silently fall outside it. (Same ordering constraint the create door states
+    # in ``TasksCoreService._publish_created``.)
+    if status_transition_fn is not None:
+        for st_entity_type, st_entities, st_prior in status_transition_batches:
+            await status_transition_fn(st_entity_type, st_entities, st_prior)
 
     duration = (datetime.now() - start_time).total_seconds()
 

@@ -158,6 +158,40 @@ class IngestionWriteOperations(Protocol):
         """
         ...
 
+    async def clear_completion_stamps(self, field_name: str, uids: list[str]) -> int:
+        """Drop the domain completion stamp from each named entity; return how many lost it.
+
+        The vault door's reopen-clear (ADR-087): a file edited out of
+        ``completed`` must not strand its completion stamp, whose invariant is
+        "non-null exactly when the entity is completed".
+
+        Conditional on the entity still being reopened when the write lands: the
+        caller's verdict comes from a prior status read earlier, and an app
+        writer may have completed the entity since. An entity that is currently
+        completed keeps its stamp — the clear is a no-op exactly when the verdict
+        has been overtaken. ``field_name`` comes
+        from ``core.services.completion_stamp.COMPLETION_FIELDS`` — enum-keyed
+        and trusted, never user input. An entity whose stamp is already absent
+        is not an error.
+        """
+        ...
+
+    async def read_entity_fields(
+        self, uids: list[str], fields: list[str]
+    ) -> dict[str, dict[str, Any]]:
+        """Read ``fields`` off each named entity; return them keyed by uid.
+
+        The post-write read the ingest door's completion events are built from
+        (ADR-087): the upsert MERGES properties, so a file that declares only
+        ``status`` still leaves the stored due date and elapsed duration on the
+        node, and an event built from the file fragment would report neither.
+        ``fields`` comes from ``EVENT_SOURCE_FIELDS`` in
+        ``core.services.ingestion.status_transitions`` — enum-keyed and trusted,
+        never user input. A uid with no node yields no entry, which is how the
+        caller tells "gone" from "has no values".
+        """
+        ...
+
 
 @runtime_checkable
 class BulkUpsertOperations(Protocol):

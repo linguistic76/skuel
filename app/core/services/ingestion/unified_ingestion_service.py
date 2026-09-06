@@ -50,6 +50,7 @@ __version__ = "2.0"
 from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
     from pathlib import Path
 
     from core.ports.ingestion_protocols import (
@@ -64,11 +65,13 @@ if TYPE_CHECKING:
     from core.services.user_service import UserService
     from core.services.vault.vault_descriptor import VaultRegistry
 
+from core.events import publish_event
 from core.models.enums.entity_enums import EntityType, NonKuDomain
 from core.models.enums.pipeline import Pipeline
 from core.models.ps_content.content_chunks import ChunkingParams
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID, UserUID
+from core.services.completion_stamp import COMPLETION_FIELDS
 from core.services.vault.vault_descriptor import VaultKind
 from core.utils.decorators import with_error_handling
 from core.utils.exception_types import NEO4J_EXCEPTIONS
@@ -93,6 +96,11 @@ from .parser import parse_markdown, parse_yaml
 from .preparer import (
     prepare_edge_data,
     prepare_entity_data,
+)
+from .status_transitions import (
+    EVENT_SOURCE_FIELDS,
+    build_completion_events,
+    classify_ingest_status_transitions,
 )
 from .types import (
     BundleStats,
@@ -156,6 +164,7 @@ class UnifiedIngestionService:
         chunking_service: Any | None = None,
         content_adapter: Any | None = None,
         event_bus: Any | None = None,
+        embeddings_enabled: bool = True,
         ingestion_backend: "IngestionBackendOperations | None" = None,
         user_entry_service: UserEntryService | None = None,
         user_service: UserService | None = None,
@@ -180,12 +189,21 @@ class UnifiedIngestionService:
             content_adapter: Neo4jContentAdapter for persisting :Content and :ContentChunk nodes
                              after chunk generation. Required in production for RAG retrieval;
                              when omitted, chunks remain in-memory only.
-            event_bus: EventBusOperations for the post-persist embedding step — publishes
-                       ``*EmbeddingRequested`` (per persisted embeddable entity, both ingest
-                       doors) and ``ChunkEmbeddingRequested`` to the background embedding
-                       worker. Tier-gated at the composition root: wired only at FULL, ``None``
-                       in CORE where the worker isn't running (a publish would be a
-                       queue-with-no-listener). Ingestion never embeds inline (ADR-074).
+            event_bus: EventBusOperations for every post-persist publish — the ADR-087
+                       completion events a vault file's status change earns, and the
+                       ADR-074 embedding requests (``*EmbeddingRequested`` per persisted
+                       embeddable entity, ``ChunkEmbeddingRequested`` for chunks). Wired in
+                       BOTH tiers: the completion cascade (goal progress, PS engagement
+                       auto-complete, context invalidation) is Analog behavior whose
+                       subscribers are wired unconditionally, and the app's own update
+                       chokepoints already publish it at CORE — withholding the bus here
+                       would make the vault door the one write path that does not cascade.
+                       Ingestion never embeds inline (ADR-074).
+            embeddings_enabled: The tier gate, and it gates the embedding requests
+                       ALONE. False in CORE, where the embedding worker isn't running and
+                       a publish would be a queue-with-no-listener. Completion events are
+                       not behind it: they are Analog, and separating the two is what
+                       lets the bus be wired in both tiers.
             ingestion_backend: Backend for ingestion tracking (optional).
             user_entry_service: UserEntryService for routing UserEntry YAMLs through
                                 the same create_entry() pipeline as /submit. Required
@@ -227,7 +245,10 @@ class UnifiedIngestionService:
         self.max_file_size_bytes = max_file_size_bytes
         self.chunking = chunking_service  # Can be None - graceful degradation
         self.content_adapter = content_adapter  # Can be None - graceful degradation
-        self.event_bus = event_bus  # None in CORE tier — no embedding publishes
+        self.event_bus = event_bus
+        # The tier gate for EMBEDDING publishes only — completion events are Analog
+        # and ride the same bus in both tiers (see the ``event_bus`` arg note).
+        self.embeddings_enabled = embeddings_enabled
         self.user_entry_service = user_entry_service
         self.user_service = user_service
         # Late-bound at the composition root (UserEntryProcessingService is built
@@ -262,10 +283,10 @@ class UnifiedIngestionService:
             self.logger.warning(
                 "⚠️ Chunking enabled but content_adapter missing — chunks will not be persisted to Neo4j"
             )
-        if self.content_adapter and not self.event_bus:
+        if self.content_adapter and not (self.event_bus and self.embeddings_enabled):
             self.logger.info(
-                "Content adapter wired without event_bus — chunks persist but no embedding "
-                "events publish (expected in CORE tier, miswired in FULL)"
+                "Embedding publishes disabled — chunks persist but no embedding events "
+                "publish (expected in CORE tier, miswired in FULL)"
             )
 
     # ========================================================================
@@ -429,11 +450,17 @@ class UnifiedIngestionService:
         (``core.events.embedding_publisher``); the background worker embeds
         asynchronously. Ingestion never embeds inline (ADR-074).
 
-        No-op when ``event_bus`` is None (CORE tier — gated at the composition
-        root, so no queue-with-no-listener publishes and no dropped-event
-        warnings), for NonKuDomain types, and for non-embeddable configs.
+        No-op when embedding publishes are disabled (CORE tier — the worker isn't
+        running, so a publish would be a queue-with-no-listener), when there is no
+        bus at all, for NonKuDomain types, and for non-embeddable configs. The
+        ADR-087 completion publish is deliberately NOT behind this gate: it is
+        Analog behavior and runs in both tiers.
         """
-        if self.event_bus is None or not isinstance(entity_type, EntityType):
+        if (
+            self.event_bus is None
+            or not self.embeddings_enabled
+            or not isinstance(entity_type, EntityType)
+        ):
             return
         config = ENTITY_CONFIGS.get(entity_type)
         if config is None or not config.embeddable:
@@ -473,7 +500,7 @@ class UnifiedIngestionService:
 
         Failures never fail ingestion — chunks can be regenerated later.
         Chunking and persistence run in CORE too (Analog behavior); only the
-        embedding publish is tier-gated (``event_bus`` None → no publish).
+        embedding publish is tier-gated (``embeddings_enabled`` False → no publish).
 
         An empty body takes the explicit clear path instead (ADR-074): an
         entity re-ingested with its body emptied must not keep the previous
@@ -523,7 +550,7 @@ class UnifiedIngestionService:
             return False
 
         # Request async embedding generation for the persisted chunks
-        if self.event_bus and content.chunks:
+        if self.event_bus and self.embeddings_enabled and content.chunks:
             from datetime import datetime
 
             from core.events import ChunkEmbeddingRequested, publish_event
@@ -555,6 +582,11 @@ class UnifiedIngestionService:
         shared chunk step for each ``chunks_body_content`` entity whose
         content the engine popped pre-upsert (``chunk_sources`` is empty for
         every other type).
+
+        The ADR-087 status-transition step is NOT here: it publishes events
+        whose subscribers traverse edges the batch door has not written yet, so
+        it runs as ``status_transition_fn`` at end-of-sync instead. Neither
+        step below reads an edge, which is why they stay in phase 1.
         """
         await self._publish_embedding_requests(entity_type, entities)
         params = resolve_chunking_params(entity_type)
@@ -562,6 +594,101 @@ class UnifiedIngestionService:
             await self._chunk_entity_content(
                 uid, source.content, source.file_format, source.source_path, params
             )
+
+    async def _apply_status_transitions(
+        self,
+        entity_type: EntityType | NonKuDomain,
+        entities: list[dict[str, Any]],
+        prior_status_by_uid: Mapping[str, str | None],
+    ) -> None:
+        """Honour ADR-087's status contract for a persisted batch — both ingest doors.
+
+        The bulk upsert ``MERGE``s rather than going through
+        ``update_with_status_guard``, so the primitive's two prior-dependent jobs
+        are done here from the prior status the upsert returned (read under the
+        node's write-lock, so a re-ingest cannot mistake a repeat for a
+        transition):
+
+        - a file that arrives ``completed`` when the node was not publishes the
+          domain's completion event, so goal progress, PS engagement
+          auto-complete, productivity analytics and context invalidation see the
+          vault's completions exactly as they see the app's;
+        - a file edited out of ``completed`` has its completion stamp removed, so
+          the invariant "the stamp is non-null exactly when the entity is
+          completed" survives an edit made in Obsidian.
+
+        A ``--force`` re-ingest of already-completed files is neither, and is
+        therefore silent.
+
+        Both halves are Analog and run in CORE: the clear is a graph write, and the
+        completion event reaches subscribers (goal progress, PS engagement
+        auto-complete, context invalidation) that the composition root wires in
+        both tiers — the app's update chokepoints already publish it at CORE, so
+        gating the vault door's copy would make it the one write path that does
+        not cascade. The tier gate belongs to the EMBEDDING publishes alone
+        (``embeddings_enabled``). A failed clear is logged, not
+        raised: the entity and its tracker stamp have already landed, so failing
+        the file would only hide a stranded stamp behind a sync error that the
+        next run — seeing an unchanged hash — would never retry.
+        """
+        if not isinstance(entity_type, EntityType):
+            return
+        transitions = classify_ingest_status_transitions(entity_type, entities, prior_status_by_uid)
+        if transitions.completed_uids and self.event_bus is not None:
+            await self._publish_completions(entity_type, transitions.completed_uids)
+        if transitions.reopened_uids:
+            field_name = COMPLETION_FIELDS[entity_type]
+            try:
+                cleared = await self._write_backend.clear_completion_stamps(
+                    field_name, list(transitions.reopened_uids)
+                )
+                self.logger.info(
+                    f"Reopen-clear: removed {field_name} from {cleared} "
+                    f"{entity_type.value} entit(ies) the vault moved out of completed"
+                )
+            except NEO4J_EXCEPTIONS as e:
+                self.logger.error(
+                    f"Failed to clear {field_name} for {len(transitions.reopened_uids)} "
+                    f"reopened {entity_type.value} entit(ies) — the stamp is stranded on a "
+                    f"non-completed entity until the file changes again: {e}"
+                )
+
+    async def _publish_completions(
+        self, entity_type: EntityType, completed_uids: tuple[str, ...]
+    ) -> None:
+        """Announce entities this ingest moved INTO completed, as the graph now holds them.
+
+        The event describes the PERSISTED entity, not the file fragment that
+        completed it. The upsert merges (``SET n += props``), so a file that
+        declares nothing but ``status`` leaves the stored due date and elapsed
+        duration standing on the node — building the event from the payload
+        alone would report a task as neither overdue nor timed while the
+        persisted task carries both. So the fields each domain's event reads are
+        fetched back after the write.
+
+        A read failure loses the announcement rather than the ingest: the
+        entities and their edges have landed, and there is nothing left to retry
+        against (the next ingest reads them as already completed). It is logged
+        at ERROR for that reason.
+
+        Backend: IngestionWriteBackend.read_entity_fields.
+        """
+        fields = EVENT_SOURCE_FIELDS.get(entity_type)
+        if not fields:
+            return
+        try:
+            persisted = await self._write_backend.read_entity_fields(
+                list(completed_uids), list(fields)
+            )
+        except NEO4J_EXCEPTIONS as e:
+            self.logger.error(
+                f"Failed to read back {len(completed_uids)} completed {entity_type.value} "
+                f"entit(ies); their completion events are not published and nothing retries "
+                f"them: {e}"
+            )
+            return
+        for event in build_completion_events(entity_type, completed_uids, persisted):
+            await publish_event(self.event_bus, event, self.logger)
 
     # ========================================================================
     # MOC EDGE PASS — ``moc: true`` body links → ORGANIZES edges
@@ -1047,6 +1174,18 @@ class UnifiedIngestionService:
                 frontmatter_organizes_targets(entity_data),
             )
 
+        # Status transitions (ADR-087) — the completion event this file's status
+        # change earns and the reopen-clear it owes, off the prior status the
+        # upsert read under the node's write-lock. LAST, after every edge this
+        # call writes (relationships, then the MOC pass above): the event is
+        # consumed synchronously by subscribers that traverse those edges —
+        # ``PsPracticeService.handle_event_completed`` follows APPLIES_KNOWLEDGE,
+        # which this file's relationship config authors — and nothing would
+        # repair a cascade they skipped, since the next ingest reads the node as
+        # already completed and publishes nothing. Same rule and same reason as
+        # the batch door's end-of-sync pass.
+        await self._apply_status_transitions(entity_type, [entity_data], stats.prior_status_by_uid)
+
         result_payload: dict[str, Any] = {
             "uid": entity_data["uid"],
             "title": entity_data.get("title") or entity_data.get("name"),
@@ -1199,6 +1338,7 @@ class UnifiedIngestionService:
             owner_is_authoritative=self._owner_is_authoritative,
             post_persist_fn=self._ingest_post_persist,
             moc_pass_fn=self._apply_moc_links,
+            status_transition_fn=self._apply_status_transitions,
         )
 
     async def ingest_vault(

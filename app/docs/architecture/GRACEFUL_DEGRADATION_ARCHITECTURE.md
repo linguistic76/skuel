@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-05
+updated: 2026-09-06
 ---
 
 # Graceful Degradation Architecture
@@ -134,7 +134,7 @@ EmbeddingBackgroundWorker picks up event 30s later
 Embedding stored on Neo4j node
 ```
 
-When AI is disabled, no worker exists and ingestion publishes nothing (its `event_bus` is `None` — compose-gated); in-app service publishes go to a subscriber-less bus and are dropped. The entity is created identically — it just doesn't have an embedding property.
+When AI is disabled, no worker exists and ingestion publishes no EMBEDDING event (compose passes `embeddings_enabled=False`; it still holds the bus, because its ADR-087 completion cascade is Analog); in-app service publishes go to a subscriber-less bus and are dropped. The entity is created identically — it just doesn't have an embedding property.
 
 ### Pattern: Search Fallback
 

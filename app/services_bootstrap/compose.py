@@ -670,11 +670,19 @@ async def compose_services(
         # Create UnifiedIngestionService (ADR-014: Merged MD + YAML ingestion)
         # Wires the chunk pipeline end-to-end: chunk generation → Neo4j persistence →
         # ChunkEmbeddingRequested event → background worker.
-        # event_bus is wired only in FULL tier (same gate + rationale as
-        # BatchChunkingService below): ingestion uses it exclusively for the
-        # post-persist embedding step (*EmbeddingRequested per persisted entity +
-        # ChunkEmbeddingRequested for chunks — ADR-074), and in CORE the embedding
-        # worker isn't running, so publishing would be a queue-with-no-listener.
+        # The bus is wired in BOTH tiers; the TIER GATE is embeddings_enabled.
+        # Ingestion publishes two unrelated kinds of event, and only one of them
+        # is AI-shaped: the ADR-074 embedding requests (*EmbeddingRequested,
+        # ChunkEmbeddingRequested), whose worker isn't running in CORE — that is
+        # what embeddings_enabled turns off, so no publish is a
+        # queue-with-no-listener. The other kind is the ADR-087 completion
+        # cascade a vault file's status change earns (TaskCompleted /
+        # GoalAchieved / CalendarEventCompleted), which is Analog: its
+        # subscribers — goal progress, PS engagement auto-complete, context
+        # invalidation — are wired unconditionally, and every activity service
+        # here holds the real bus at CORE too. Withholding it from ingestion
+        # alone would make the vault door the single write path that does not
+        # cascade at $0 (Codex #1290).
         from adapters.persistence.neo4j.ingestion_backend import IngestionBackend
         from adapters.persistence.neo4j.ingestion_service_factory import (
             make_unified_ingestion_service,
@@ -687,7 +695,8 @@ async def compose_services(
             ingestion_backend=ingestion_backend,
             chunking_service=chunking_service,  # Automatic chunk generation for KU entities
             content_adapter=content_adapter,  # Persist :ContentChunk nodes for RAG retrieval
-            event_bus=event_bus if tier.ai_enabled else None,
+            event_bus=event_bus,
+            embeddings_enabled=tier.ai_enabled,
             user_service=user_service,  # Role lookup for audience:public gate (Finding 2)
         )
 

@@ -79,15 +79,26 @@ class CypherExecutor[T]:
             extra_params: Additional parameters for the query
 
         Returns:
-            Result containing aggregated statistics
+            Result containing aggregated statistics plus ``rows`` — every record the
+            template returned, in batch order. Templates that ``RETURN`` per-item data
+            (the node upsert returns each item's prior status, ADR-087) read it there;
+            templates that return a single aggregate contribute one row nobody reads.
         """
         if not items:
             return Result.ok(
-                {"nodes_created": 0, "relationships_created": 0, "batches_processed": 0}
+                {"nodes_created": 0, "relationships_created": 0, "batches_processed": 0, "rows": []}
             )
 
         try:
-            total_stats = {
+            # boundary: rows are raw Neo4j records whose columns are whatever
+            # THIS template returns — the executor is generic over templates, so
+            # a TypedDict here would name one caller's shape and mis-describe
+            # every other. Callers narrow them (see ``_prior_statuses``).
+            rows: list[dict[str, Any]] = []
+            # boundary: heterogeneous by construction — int counters plus the
+            # ``rows`` list under one key. Annotated rather than inferred so the
+            # widening is a stated decision, not a silent one.
+            total_stats: dict[str, Any] = {
                 "nodes_created": 0,
                 "nodes_deleted": 0,
                 "relationships_created": 0,
@@ -106,6 +117,10 @@ class CypherExecutor[T]:
                 tx = await self.session.begin_transaction()
                 try:
                     result = await tx.run(template.template, params)
+                    # Drain BEFORE consume(): the summary counters are only
+                    # available once the stream is exhausted, and consuming
+                    # first discards the records.
+                    rows.extend([dict(record) async for record in result])
                     summary = await result.consume()
 
                     total_stats["nodes_created"] += summary.counters.nodes_created
@@ -126,6 +141,7 @@ class CypherExecutor[T]:
                 f"Batch execution complete: {len(items)} items in "
                 f"{total_stats['batches_processed']} batches"
             )
+            total_stats["rows"] = rows
             return Result.ok(total_stats)
 
         except NEO4J_EXCEPTIONS as e:
