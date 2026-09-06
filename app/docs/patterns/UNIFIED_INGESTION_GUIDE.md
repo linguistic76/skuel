@@ -1,6 +1,6 @@
 ---
 title: Unified Ingestion Implementation Guide
-updated: 2026-09-05
+updated: 2026-09-06
 category: patterns
 related_skills: []
 related_docs:
@@ -967,6 +967,12 @@ also auto-fall back to the filename.
 | `choice` | `choice.` | `:Entity:Choice` | title | `choice_career-path.yaml` |
 | `principle` | `principle.` | `:Entity:Principle` | title, statement | `principle_consistency.yaml` |
 | `user_entry` | `ue.` | `:Entity:UserEntry` | title (+ `pipeline:`, door-level) | `ue_journal-2026-06-12.yaml` |
+| `task_template` | `tt.` | `:Entity:TaskTemplate` | title | `tt_log-first-5-sessions.md` |
+| `goal_template` | `gt.` | `:Entity:GoalTemplate` | title | `gt_mindfulness-beginner.md` |
+| `habit_template` | `ht.` | `:Entity:HabitTemplate` | title | `ht_daily-2min-breath.md` |
+| `event_template` | `et.` | `:Entity:EventTemplate` | title | `et_practice-block.md` |
+| `choice_template` | `ct.` | `:Entity:ChoiceTemplate` | title | `ct_2-minutes-now.md` |
+| `principle_template` | `pt.` | `:Entity:PrincipleTemplate` | title | `pt_small-steps.md` |
 | `interaction` | `ia.` | `:Entity:Interaction` | interaction_type, target_uid | `ia_viewed-ps.yaml` |
 | `group` | `group.` | `:Group` | name | `group_class-of-2026.yaml` |
 | `lifepath` | `lifepath.` | `:Entity:LifePath` | user_uid | `lifepath_vision.yaml` |
@@ -980,6 +986,11 @@ explicit `uid:` and the filename stays fully free. The `Prefix` column is the *s
 prefix the validator enforces on explicit `uid:` values, always dot-form.
 
 **Multi-label architecture:** All domain entities get both `:Entity` (universal base) and a domain-specific label (e.g., `:Task`). This enables cross-domain queries via `:Entity` and fast indexed queries via domain labels. Group is the exception — `:Group` only, no `:Entity` base label (it lives in `NonKuDomain`, ADR-053).
+
+**Activity Templates default to `status: active` at this door** — `PsEngagementService` refuses
+to spawn from a non-ACTIVE template, and ingestion applies no model defaults, so a file omitting
+`status:` would persist none and read `DRAFT`. An authored `status:` still wins. A PathStep
+attaches them with `{domain}_template_uids:` (see the PathStep relationship-field table above).
 
 **Retired:** `type: expense` / `type: finance` are rejected by the detector with an ADR pointer — ADR-052 Phase 5 demolished the native expense module (finance is a Firefly III sidecar, not vault-ingestible).
 
@@ -1140,7 +1151,13 @@ move, and is never borrowed.
 | `choice_uids` | INFORMS_CHOICE | Entity | outgoing |
 | `habit_uids` | BUILDS_HABIT | Entity | outgoing |
 | `task_uids` | ASSIGNS_TASK | Task | outgoing |
-| `event_template_uids` | SCHEDULES_EVENT | Event | outgoing |
+| `event_uids` | SCHEDULES_EVENT | Event | outgoing |
+| `task_template_uids` | HAS_TASK_TEMPLATE | TaskTemplate | outgoing |
+| `goal_template_uids` | HAS_GOAL_TEMPLATE | GoalTemplate | outgoing |
+| `habit_template_uids` | HAS_HABIT_TEMPLATE | HabitTemplate | outgoing |
+| `event_template_uids` | HAS_EVENT_TEMPLATE | EventTemplate | outgoing |
+| `choice_template_uids` | HAS_CHOICE_TEMPLATE | ChoiceTemplate | outgoing |
+| `principle_template_uids` | HAS_PRINCIPLE_TEMPLATE | PrincipleTemplate | outgoing |
 | `learning_path_uids` | HAS_STEP | Entity | incoming |
 
 > **Note:** Single-value fields `learning_path_uid` and `knowledge_uid` are auto-converted

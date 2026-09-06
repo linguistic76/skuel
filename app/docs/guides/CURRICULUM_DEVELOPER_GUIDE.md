@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-05
+updated: 2026-09-06
 ---
 
 # Curriculum Developer Guide
@@ -686,7 +686,7 @@ habit_uids:
 task_uids:
   - task.perspective-journal          # ASSIGNS_TASK → Task
 
-event_template_uids:
+event_uids:
   - event.weekly-reflection           # SCHEDULES_EVENT → Event
 
 goal_uids:
@@ -697,7 +697,20 @@ principle_uids:
 
 choice_uids:
   - choice.ask-before-assuming        # INFORMS_CHOICE → Choice
+
+# Activity template wiring — spawned as instances when a learner engages the PS
+task_template_uids:
+  - tt.perspective-journal            # HAS_TASK_TEMPLATE → TaskTemplate
+
+habit_template_uids:
+  - ht.daily-empathy-check            # HAS_HABIT_TEMPLATE → HabitTemplate
 ```
+
+The two blocks are different grains. `habit_uids` points at a Habit that already
+exists; `habit_template_uids` points at a HabitTemplate the PathStep spawns a
+fresh Habit from, per learner, on engagement. The remaining template channels are
+`goal_template_uids`, `event_template_uids`, `choice_template_uids` and
+`principle_template_uids`.
 
 Not every PathStep needs all 6. Use what fits the content.
 

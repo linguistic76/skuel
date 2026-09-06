@@ -29,7 +29,7 @@ meta:
     contract: core/models/relationship_registry.py
     findings: scripts/lint_skuel.py::SkuelLinter.SKUEL030_BASELINE
   coverage:
-    relationships: {total: 172, with_contract: 89}
+    relationships: {total: 172, with_contract: 95}
     labels: {total: 61, with_contract: 16}
   legacy_label_config_aliases: [Lesson, Ls, Lp]
 
@@ -566,17 +566,35 @@ relationships:
   REQUESTED:
     contract: null
   HAS_TASK_TEMPLATE:
-    contract: null
+    contract:
+      - config: PathStep
+        definitions:
+          - {direction: outgoing, target: TaskTemplate, context_field: task_templates, method: task_templates, ingestion_field: task_template_uids}
   HAS_GOAL_TEMPLATE:
-    contract: null
+    contract:
+      - config: PathStep
+        definitions:
+          - {direction: outgoing, target: GoalTemplate, context_field: goal_templates, method: goal_templates, ingestion_field: goal_template_uids}
   HAS_HABIT_TEMPLATE:
-    contract: null
+    contract:
+      - config: PathStep
+        definitions:
+          - {direction: outgoing, target: HabitTemplate, context_field: habit_templates, method: habit_templates, ingestion_field: habit_template_uids}
   HAS_EVENT_TEMPLATE:
-    contract: null
+    contract:
+      - config: PathStep
+        definitions:
+          - {direction: outgoing, target: EventTemplate, context_field: event_templates, method: event_templates, ingestion_field: event_template_uids}
   HAS_CHOICE_TEMPLATE:
-    contract: null
+    contract:
+      - config: PathStep
+        definitions:
+          - {direction: outgoing, target: ChoiceTemplate, context_field: choice_templates, method: choice_templates, ingestion_field: choice_template_uids}
   HAS_PRINCIPLE_TEMPLATE:
-    contract: null
+    contract:
+      - config: PathStep
+        definitions:
+          - {direction: outgoing, target: PrincipleTemplate, context_field: principle_templates, method: principle_templates, ingestion_field: principle_template_uids}
   SPAWNED_FROM:
     contract: null
   ENGAGED_WITH:
@@ -661,7 +679,7 @@ relationships:
           - {direction: outgoing, target: Event, context_field: scheduled_events, method: scheduled_events, fields: [uid, title, start_time]}
       - config: PathStep
         definitions:
-          - {direction: outgoing, target: Event, context_field: scheduled_events, method: practice_events, ingestion_field: event_template_uids}
+          - {direction: outgoing, target: Event, context_field: scheduled_events, method: practice_events, ingestion_field: event_uids}
   HAS_EXERCISE:
     contract:
       - config: PathStep
@@ -1091,6 +1109,12 @@ labels:
         - GUIDED_BY_PRINCIPLE
         - INFORMS_CHOICE
         - HAS_EXERCISE
+        - HAS_TASK_TEMPLATE
+        - HAS_GOAL_TEMPLATE
+        - HAS_HABIT_TEMPLATE
+        - HAS_EVENT_TEMPLATE
+        - HAS_CHOICE_TEMPLATE
+        - HAS_PRINCIPLE_TEMPLATE
         - CITES_RESOURCE
         - HAS_STEP
       semantic_types: ["learn:requires_theoretical_understanding", "learn:provides_practical_application", "learn:builds_on_foundation"]

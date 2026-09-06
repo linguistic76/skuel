@@ -82,7 +82,7 @@ renders them as a table in Obsidian, and a session derives the same table with
 
 ## ContextRetriever's Three Write-Only Fields
 
-[ContextRetriever's Three Write-Only Fields](context-retriever-write-only-fields.md) — `events_service`/`principles_service` are staged, not dead: the MEGA-QUERY projection + bundle fetch for both channels is the remaining work; the P1 disclosure is closed, the `event_template_uids` rename is HELD.
+[ContextRetriever's Three Write-Only Fields](context-retriever-write-only-fields.md) — `events_service`/`principles_service` are staged, not dead: the MEGA-QUERY projection + bundle fetch for both channels is the remaining work; the P1 disclosure is closed, the `event_template_uids` rename is DONE.
 
 ## ContextRetriever — Four Code-Shaped Findings
 
@@ -170,7 +170,7 @@ renders them as a table in Obsidian, and a session derives the same table with
 
 ## Activity Templates Get a Vault Door
 
-[Activity Templates Get a Vault Door](activity-templates-vault-door.md) — The 2026-07-06 re-homing ruling got its shape on 2026-09-05: zero templates exist because their only door is the web CRUD the Activity Domains deleted; the vault is the home, and the arc is scoped, unscheduled.
+[Activity Templates Get a Vault Door](activity-templates-vault-door.md) — The 2026-07-06 re-homing ruling got its shape on 2026-09-05: zero templates exist because their only door is the web CRUD the Activity Domains deleted; the vault is the home. PR-1 opened the door; PR-2 (authoring surface) and PR-3 (delete the CRUD forms) remain.
 
 ## Catalog Copies in Code — the duplicated-fact defect, measured
 

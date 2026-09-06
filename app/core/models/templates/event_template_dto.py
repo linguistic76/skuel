@@ -12,10 +12,14 @@ from typing import Any
 from core.models.entity_dto import EntityDTO
 from core.models.enum_field_registry import enum_fields_for
 from core.models.enums.entity_enums import EntityType
-from core.models.templates.offset_helpers import jsonable_to_offset, offset_to_jsonable
+from core.models.templates.offset_helpers import (
+    TEMPLATE_OFFSET_FIELDS,
+    jsonable_to_offset,
+    offset_to_jsonable,
+)
 from core.models.templates.relative_offset import RelativeOffset
 
-_OFFSET_FIELDS: tuple[str, ...] = ("event_offset", "recurrence_end_offset")
+_OFFSET_FIELDS: tuple[str, ...] = TEMPLATE_OFFSET_FIELDS[EntityType.EVENT_TEMPLATE]
 
 
 @dataclass

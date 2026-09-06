@@ -11,10 +11,14 @@ from core.models.enum_field_registry import enum_fields_for
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.habit_enums import HabitCategory, HabitDifficulty, HabitPolarity
 from core.models.enums.scheduling_enums import TimeOfDay
-from core.models.templates.offset_helpers import jsonable_to_offset, offset_to_jsonable
+from core.models.templates.offset_helpers import (
+    TEMPLATE_OFFSET_FIELDS,
+    jsonable_to_offset,
+    offset_to_jsonable,
+)
 from core.models.templates.relative_offset import RelativeOffset
 
-_OFFSET_FIELDS: tuple[str, ...] = ("recurrence_end_offset",)
+_OFFSET_FIELDS: tuple[str, ...] = TEMPLATE_OFFSET_FIELDS[EntityType.HABIT_TEMPLATE]
 
 
 @dataclass

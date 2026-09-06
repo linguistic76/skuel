@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-05
+updated: 2026-09-06
 ---
 
 # YAML to Graph — A Creator's Guide to SKUEL Content
@@ -152,7 +152,7 @@ tags:
   - foundational
 ```
 
-**Python** — `PathStep` extends `Curriculum`, which extends `Entity`. The `Curriculum` base adds ~21 fields including `content`, `complexity`, `domain`, and `quality_score`. PathStep adds activity-wiring fields (habit_uids, task_uids, choice_uids, event_template_uids, principle_uids) on top.
+**Python** — `PathStep` extends `Curriculum`, which extends `Entity`. The `Curriculum` base adds ~21 fields including `content`, `complexity`, `domain`, and `quality_score`. The activity-wiring keys below (`habit_uids`, `task_uids`, `choice_uids`, `event_uids`, `principle_uids`) are **not** model fields — they are edge sources the relationship registry reads, filtered off the node before it is stored.
 
 **How flattening works:** The preparer extracts the nested `connections` dict and flattens it to dotted keys:
 
@@ -210,7 +210,13 @@ Every UID-list field on a PathStep becomes a set of edges in the graph:
 | `habit_uids` | `BUILDS_HABIT` | outgoing | Habit |
 | `task_uids` | `ASSIGNS_TASK` | outgoing | Task |
 | `choice_uids` | `INFORMS_CHOICE` | outgoing | Choice |
-| `event_template_uids` | `SCHEDULES_EVENT` | outgoing | Event |
+| `event_uids` | `SCHEDULES_EVENT` | outgoing | Event |
+| `task_template_uids` | `HAS_TASK_TEMPLATE` | outgoing | TaskTemplate |
+| `goal_template_uids` | `HAS_GOAL_TEMPLATE` | outgoing | GoalTemplate |
+| `habit_template_uids` | `HAS_HABIT_TEMPLATE` | outgoing | HabitTemplate |
+| `event_template_uids` | `HAS_EVENT_TEMPLATE` | outgoing | EventTemplate |
+| `choice_template_uids` | `HAS_CHOICE_TEMPLATE` | outgoing | ChoiceTemplate |
+| `principle_template_uids` | `HAS_PRINCIPLE_TEMPLATE` | outgoing | PrincipleTemplate |
 
 **YAML** (`ps_mindfulness-101_step-1.yaml`):
 
@@ -247,7 +253,7 @@ habit_uids:
 task_uids:
   - task.log-first-5-sessions
 
-event_template_uids:
+event_uids:
   - event.practice-block-2min
 
 mastery_threshold: 0.7

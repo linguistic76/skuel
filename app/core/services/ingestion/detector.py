@@ -72,6 +72,15 @@ TYPE_MAPPING: dict[str, EntityType | NonKuDomain] = {
     "ia": EntityType.INTERACTION,  # UID prefix alias
     # Destination
     "lifepath": EntityType.LIFE_PATH,
+    # Activity Templates — PS-owned curriculum content that spawns Activity
+    # instances on engagement. Vault-authored like every other curriculum type;
+    # the PathStep attaches them via ``{domain}_template_uids`` frontmatter.
+    "task_template": EntityType.TASK_TEMPLATE,
+    "goal_template": EntityType.GOAL_TEMPLATE,
+    "habit_template": EntityType.HABIT_TEMPLATE,
+    "event_template": EntityType.EVENT_TEMPLATE,
+    "choice_template": EntityType.CHOICE_TEMPLATE,
+    "principle_template": EntityType.PRINCIPLE_TEMPLATE,
 }
 
 # Shown in the missing-type reason. TYPE_MAPPING accepts more spellings
@@ -79,7 +88,9 @@ TYPE_MAPPING: dict[str, EntityType | NonKuDomain] = {
 # per ingestible kind so the hint stays readable.
 _ACCEPTED_TYPES_HINT = (
     "e.g. ku, ps, lp, exercise, resource, user_entry, "
-    "task, goal, habit, event, choice, principle, group, lifepath"
+    "task, goal, habit, event, choice, principle, "
+    "task_template (and its goal/habit/event/choice/principle siblings), "
+    "group, lifepath"
 )
 
 

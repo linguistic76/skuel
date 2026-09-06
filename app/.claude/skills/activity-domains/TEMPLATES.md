@@ -59,8 +59,12 @@ ACTIVE   — live; students can engage this template via its PathStep
 ARCHIVED — retired; no new engagements, existing spawned instances unaffected
 ```
 
-The default status at creation is `DRAFT`. Templates must be explicitly promoted
-to `ACTIVE` before a PathStep engagement will include them in the spawn.
+The model default is `DRAFT`, and the JSON API / teaching UI leave it there —
+those templates must be explicitly promoted to `ACTIVE` before a PathStep
+engagement will include them in the spawn. **The vault door stamps `ACTIVE`
+instead** (`ENTITY_CONFIGS` default): ingestion applies no model defaults, so an
+unstamped node would carry no status, read `DRAFT`, and make every
+vault-authored template silently inert. An authored `status:` still wins.
 
 **Immutability at engagement:** Templates are immutable once `ACTIVE`. The
 `(instance)-[:SPAWNED_FROM]->(template)` edge freezes the template at spawn

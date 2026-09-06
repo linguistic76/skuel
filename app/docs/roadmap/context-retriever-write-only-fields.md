@@ -1,10 +1,10 @@
 ---
 title: "ContextRetriever's Three Write-Only Fields"
-updated: 2026-09-05
+updated: 2026-09-06
 status: "open — events/principles half"
 registered: 2026-08-20
 ruled: 2026-08-21
-trigger: "the Askesis arc completes the events/principles projection + bundle fetch; the templates-vs-activities authoring question is settled first"
+trigger: "the Askesis arc completes the events/principles projection + bundle fetch"
 check: "load_ps_bundle still hardcodes events = [] / principles = [] in core/services/askesis/context_retriever.py"
 ---
 
@@ -303,6 +303,16 @@ behaviour is right, the label lies". If the answer is Templates, the label was
 right and the **target** is wrong — the option that ruling rejected. Do not
 rename toward a model we may be leaving.
 
+**✅ HOLD RELEASED, rename EXECUTED 2026-09-05** — the templates question was
+settled on 2026-09-05 (templates are vault-authored; see
+[activity-templates-vault-door.md](activity-templates-vault-door.md)), and it
+settled in the direction that makes the rename *required*, not merely tidy: the
+template door registers `HAS_EVENT_TEMPLATE` under `event_template_uids`, and
+`generate_ingestion_relationship_config` keys on `yaml_field_path`, so the two
+channels could not share the name. `SCHEDULES_EVENT` → `:Event` is now
+`event_uids`; `event_template_uids` targets `:EventTemplate`, which is what an
+author reading the name expects. Both halves of the hazard below are closed.
+
 ⚠️ Not established, and worth checking before acting: whether the direct-edge
 channels were *intended* for something else (a teacher linking a PathStep to a
 real personal habit as an exemplar), which would make them correct-but-misused
@@ -409,20 +419,24 @@ sound for both permissive (`:Entity`) and strict (`:Event`) targets. Graph now: 
 `:EventTemplate` nodes** — but it becomes live the moment anyone creates one through the PathStep
 template routes.
 
-**⏸️ RENAME HELD (Mike, 2026-08-21). Do not execute it yet.**
+**✅ RENAME EXECUTED (2026-09-05, with the template vault door).**
 
 Mike first ruled *rename to `event_uids`*, on the framing "the behaviour is proven correct — it is
 the label that lies", with retargeting the edge at `EventTemplate` rejected. **He then held it**
 once the type-system finding landed: if the answer is Templates, the label was right all along and
-the **target** is wrong — the option that ruling rejected. Renaming now would move toward a model
-the arc may be leaving. **Resume only after the template-vs-activity question is settled.**
+the **target** is wrong — the option that ruling rejected.
 
-Scope, if it is resumed — measured before scoping: `yaml_field_path` in
-`relationship_registry.py:1861`, one test (`test_ingestion_edge_and_wiring.py:439`), three
-authoring docs (`CURRICULUM_DEVELOPER_GUIDE.md`, `UNIFIED_INGESTION_GUIDE.md`,
-`yaml-to-graph.md`), a **regenerated** `docs/reference/GRAPH_CONTRACT.yaml` (drift-tested — run
-`scripts/generate_graph_contract.py`, never hand-edit), and the one vault file now using it.
-Clean rename, no alias, no deprecation (One Path Forward).
+The templates answer resolved it without either horn: **both channels are real**, so the instance
+channel keeps its proven behaviour under an honest name (`event_uids`) and the template channel
+takes the name that describes it (`event_template_uids` → `:EventTemplate`). The naming hazard is
+gone in both directions — a uid followed from either field now lands on the label the field names.
+
+Scope, as measured and as executed: `yaml_field_path` in `relationship_registry.py`, one test
+(`test_ingestion_edge_and_wiring.py`), three authoring docs (`CURRICULUM_DEVELOPER_GUIDE.md`,
+`UNIFIED_INGESTION_GUIDE.md`, `yaml-to-graph.md`), a **regenerated**
+`docs/reference/GRAPH_CONTRACT.yaml` (drift-tested — run `scripts/generate_graph_contract.py`,
+never hand-edit), and the one vault file using it. Clean rename, no alias, no deprecation
+(One Path Forward). The measurement held: nothing outside that list needed touching.
 
 ⚠️ Two things that make it smaller than it looks, both verified: the raw frontmatter key **does
 not persist as a node property**, so no data migration is owed; and it is **not a PathStep model
