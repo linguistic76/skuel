@@ -192,6 +192,14 @@ renders them as a table in Obsidian, and a session derives the same table with
 
 [History-in-Code Sweep — the finder is built, the sweep is the queue](history-in-code-sweep.md) — The finder ships advisory; the queue is its `--top 20` output, worked one file or cluster per PR, the why moved to the record, never deleted.
 
+## Goal Progress Reads an Edge Nothing Writes
+
+[Goal Progress Reads an Edge Nothing Writes](goal-progress-reads-an-unwritten-edge.md) — A live defect, not a deferral: four readers in `activity_backends.py` match `(Goal)-[:SUPPORTS_GOAL]->(activity)`, which no writer produces, so event-driven goal progress never updates from a task or habit completion on any door; scheduled for immediately after the vault-door completion-cascade arc.
+
+## Ingest Transition Obligation Durability
+
+[Ingest Transition Obligation Durability](ingest-transition-obligation-durability.md) — A status transition the ingest doors discover is graph state, not recorded intent, so a failure between the committed status write and the publish loses the cascade permanently; closing it needs an outbox, and the ordering it fights with is the one that has to win.
+
 ## Review Schedule
 
 Review this document at the **September 2026 quarterly review**. The sections ARE the checklist:
