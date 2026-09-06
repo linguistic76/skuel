@@ -436,15 +436,34 @@ class TestLsFieldWiring:
             "choice_uids",
             "habit_uids",
             "task_uids",
-            "event_template_uids",
+            # The INSTANCE channel. Named ``event_template_uids`` until the
+            # template door landed; ``event_template_uids`` now targets an
+            # EventTemplate, which is what an author reading it expects.
+            "event_uids",
         ):
             assert field in config
 
-    def test_total_field_count(self):
-        """PS should have 17 relationship fields wired (knowledge + steps + paths + activity wiring + connections + exercises + resources)."""
+    def test_activity_template_wiring_present(self):
+        """PathStep attaches all 6 Activity Templates, each at its own domain label."""
         config = generate_ingestion_relationship_config(EntityType.PATH_STEP)
         assert config is not None
-        assert len(config) == 17
+        for field, rel_type, target_label in (
+            ("task_template_uids", "HAS_TASK_TEMPLATE", "TaskTemplate"),
+            ("goal_template_uids", "HAS_GOAL_TEMPLATE", "GoalTemplate"),
+            ("habit_template_uids", "HAS_HABIT_TEMPLATE", "HabitTemplate"),
+            ("event_template_uids", "HAS_EVENT_TEMPLATE", "EventTemplate"),
+            ("choice_template_uids", "HAS_CHOICE_TEMPLATE", "ChoiceTemplate"),
+            ("principle_template_uids", "HAS_PRINCIPLE_TEMPLATE", "PrincipleTemplate"),
+        ):
+            assert config[field]["rel_type"] == rel_type
+            assert config[field]["target_label"] == target_label
+            assert config[field]["direction"] == "outgoing"
+
+    def test_total_field_count(self):
+        """PS should have 23 relationship fields wired (knowledge + steps + paths + activity wiring + activity templates + connections + exercises + resources)."""
+        config = generate_ingestion_relationship_config(EntityType.PATH_STEP)
+        assert config is not None
+        assert len(config) == 23
 
 
 # ============================================================================

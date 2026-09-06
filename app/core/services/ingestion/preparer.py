@@ -22,6 +22,10 @@ from typing import Any
 from core.ingestion.ingestion_types import RelationshipConfig
 from core.models.enum_field_registry import ENUM_FIELD_TYPES
 from core.models.enums.entity_enums import EntityType, NonKuDomain
+from core.models.templates.offset_helpers import (
+    TEMPLATE_OFFSET_FIELDS,
+    authored_offset_to_jsonable,
+)
 from core.models.type_hints import TypeConverter, UserUID
 from core.utils.logging import get_logger
 
@@ -130,6 +134,33 @@ def generate_uid(entity_type: EntityType | NonKuDomain, file_path: Path) -> str:
     config = ENTITY_CONFIGS.get(entity_type)
     prefix = config.uid_prefix if config else entity_type.value
     return f"{prefix}.{file_path.stem}"
+
+
+def canonicalize_template_offsets(
+    entity_type: EntityType | NonKuDomain, entity_data: dict[str, Any]
+) -> None:
+    """Rewrite authored Activity-Template offsets to their canonical storage dict, in place.
+
+    ``due_offset: {days: 7}`` in frontmatter becomes ``{"days": 7, "hours": 0,
+    "minutes": 0}`` — the same three-key shape the DTO write path stores, so a
+    template authored in the vault and one created through the JSON API persist
+    identically. The single ``json.dumps`` still happens once, in the Neo4j
+    mapper; this only normalizes the value it serializes.
+
+    An UNAUTHORABLE value (an int, a list, a mapping with a mistyped key) is
+    left verbatim on purpose — ``validate_entity_data`` owns the rejection so
+    the author gets one actionable per-file message, the same division of labour
+    the ``created_at`` gate uses.
+    """
+    if not isinstance(entity_type, EntityType):
+        return
+    for field_name in TEMPLATE_OFFSET_FIELDS.get(entity_type, ()):
+        raw = entity_data.get(field_name)
+        if raw is None:
+            continue
+        canonical = authored_offset_to_jsonable(raw)
+        if canonical is not None:
+            entity_data[field_name] = canonical
 
 
 def canonicalize_enum_values(entity_data: dict[str, Any]) -> None:
@@ -330,6 +361,9 @@ def prepare_entity_data(
 
     # Canonicalize authored enum values ("plain English in, working code out")
     canonicalize_enum_values(entity_data)
+
+    # Activity Templates: authored RelativeOffset maps → their storage shape.
+    canonicalize_template_offsets(entity_type, entity_data)
 
     # Stamp the owner for multi-tenant entity types. When ``owner_is_authoritative``
     # (descriptor-governed ingestion), the vault-resolved owner WINS over any

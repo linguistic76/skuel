@@ -1788,13 +1788,16 @@ PS_CONFIG = DomainRelationshipConfig(
             "practice_tasks",
             yaml_field_path="task_uids",
         ),
+        # ``event_uids``, not ``event_template_uids``: this channel targets an
+        # Event INSTANCE. The old spelling now names the HAS_EVENT_TEMPLATE
+        # channel below, which is what an author reading it would expect.
         UnifiedRelationshipDefinition(
             RelationshipName.SCHEDULES_EVENT,
             "Event",
             "outgoing",
             "scheduled_events",
             "practice_events",
-            yaml_field_path="event_template_uids",
+            yaml_field_path="event_uids",
         ),
         UnifiedRelationshipDefinition(
             RelationshipName.SUPPORTS_GOAL,
@@ -1827,6 +1830,60 @@ PS_CONFIG = DomainRelationshipConfig(
             "exercises",
             "exercises",
             yaml_field_path="exercise_uids",
+        ),
+        # === Activity Templates: PS → template, spawned on engagement ===
+        # The six channels the block above mirrors at the template grain. Each
+        # targets its own domain label (a template node is :Entity:TaskTemplate),
+        # so a uid pointing at the wrong kind matches nothing rather than
+        # creating an edge no reader consults. PsEngagementService walks these
+        # same edges at spawn time (ps_engagement/_template_loader.py).
+        UnifiedRelationshipDefinition(
+            RelationshipName.HAS_TASK_TEMPLATE,
+            "TaskTemplate",
+            "outgoing",
+            "task_templates",
+            "task_templates",
+            yaml_field_path="task_template_uids",
+        ),
+        UnifiedRelationshipDefinition(
+            RelationshipName.HAS_GOAL_TEMPLATE,
+            "GoalTemplate",
+            "outgoing",
+            "goal_templates",
+            "goal_templates",
+            yaml_field_path="goal_template_uids",
+        ),
+        UnifiedRelationshipDefinition(
+            RelationshipName.HAS_HABIT_TEMPLATE,
+            "HabitTemplate",
+            "outgoing",
+            "habit_templates",
+            "habit_templates",
+            yaml_field_path="habit_template_uids",
+        ),
+        UnifiedRelationshipDefinition(
+            RelationshipName.HAS_EVENT_TEMPLATE,
+            "EventTemplate",
+            "outgoing",
+            "event_templates",
+            "event_templates",
+            yaml_field_path="event_template_uids",
+        ),
+        UnifiedRelationshipDefinition(
+            RelationshipName.HAS_CHOICE_TEMPLATE,
+            "ChoiceTemplate",
+            "outgoing",
+            "choice_templates",
+            "choice_templates",
+            yaml_field_path="choice_template_uids",
+        ),
+        UnifiedRelationshipDefinition(
+            RelationshipName.HAS_PRINCIPLE_TEMPLATE,
+            "PrincipleTemplate",
+            "outgoing",
+            "principle_templates",
+            "principle_templates",
+            yaml_field_path="principle_template_uids",
         ),
         # === Reference material: PS cites curated Resources ===
         UnifiedRelationshipDefinition(

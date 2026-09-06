@@ -26,6 +26,11 @@ from core.models.enums.entity_enums import EntityType, NonKuDomain
 from core.models.enums.neo_labels import NeoLabel
 from core.models.enums.user_entry_enums import ExerciseScope
 from core.models.relationship_names import RelationshipName
+from core.models.templates.offset_helpers import (
+    OFFSET_KEYS,
+    TEMPLATE_OFFSET_FIELDS,
+    authored_offset_to_jsonable,
+)
 from core.models.type_hints import UserUID
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -277,6 +282,34 @@ def validate_entity_data(
                     ),
                 )
             )
+
+    # Activity-Template offset gate. ``prepare_entity_data`` rewrote every
+    # AUTHORABLE offset to its canonical dict and left the rest verbatim, so a
+    # value that still does not parse here is one an author must fix. Gated for
+    # the same reason as ``created_at`` above and with a worse failure if it is
+    # not: the Neo4j mapper serializes any mapping, so a mistyped
+    # ``due_offset: {day: 7}`` persists happily and the reader rebuilds it as a
+    # zero offset — the template spawns an instance due TODAY, and the write
+    # that stored it reported success.
+    offset_fields = (
+        TEMPLATE_OFFSET_FIELDS.get(entity_type, ()) if isinstance(entity_type, EntityType) else ()
+    )
+    for offset_field in offset_fields:
+        authored_offset = entity_data.get(offset_field)
+        if authored_offset is None or authored_offset_to_jsonable(authored_offset) is not None:
+            continue
+        return Result.fail(
+            Errors.validation(
+                f"Unparseable '{offset_field}': {authored_offset!r}",
+                field=offset_field,
+                user_message=(
+                    f"File {file_path.name} ({entity_type.value}): '{offset_field}' must be a "
+                    f"mapping of whole numbers keyed by {', '.join(sorted(OFFSET_KEYS))} "
+                    f"(e.g. {offset_field}: {{days: 7}}); got {authored_offset!r}. "
+                    "Fix or remove the line — omitting it leaves the offset unset."
+                ),
+            )
+        )
 
     # File-ingested exercises carry no user OWNS edge, so every non-curriculum
     # scope describes an owner or group the ingestion path cannot provide —

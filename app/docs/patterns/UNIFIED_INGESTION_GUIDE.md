@@ -1,6 +1,6 @@
 ---
 title: Unified Ingestion Implementation Guide
-updated: 2026-09-05
+updated: 2026-09-06
 category: patterns
 related_skills: []
 related_docs:
@@ -1140,7 +1140,13 @@ move, and is never borrowed.
 | `choice_uids` | INFORMS_CHOICE | Entity | outgoing |
 | `habit_uids` | BUILDS_HABIT | Entity | outgoing |
 | `task_uids` | ASSIGNS_TASK | Task | outgoing |
-| `event_template_uids` | SCHEDULES_EVENT | Event | outgoing |
+| `event_uids` | SCHEDULES_EVENT | Event | outgoing |
+| `task_template_uids` | HAS_TASK_TEMPLATE | TaskTemplate | outgoing |
+| `goal_template_uids` | HAS_GOAL_TEMPLATE | GoalTemplate | outgoing |
+| `habit_template_uids` | HAS_HABIT_TEMPLATE | HabitTemplate | outgoing |
+| `event_template_uids` | HAS_EVENT_TEMPLATE | EventTemplate | outgoing |
+| `choice_template_uids` | HAS_CHOICE_TEMPLATE | ChoiceTemplate | outgoing |
+| `principle_template_uids` | HAS_PRINCIPLE_TEMPLATE | PrincipleTemplate | outgoing |
 | `learning_path_uids` | HAS_STEP | Entity | incoming |
 
 > **Note:** Single-value fields `learning_path_uid` and `knowledge_uid` are auto-converted

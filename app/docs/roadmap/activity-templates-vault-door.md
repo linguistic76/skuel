@@ -1,11 +1,11 @@
 ---
 title: "Activity Templates Get a Vault Door"
 updated: 2026-09-06
-status: "shape ruled, arc unscheduled"
+status: "open — PR-1 (the door) shipped; PR-2 + PR-3 remain"
 registered: 2026-09-05
 ruled: 2026-09-05
-trigger: "Mike schedules the arc — the shape is settled, the build is not"
-check: "`git grep -n 'TASK_TEMPLATE' -- core/services/ingestion/config.py` → empty (no vault door yet)"
+trigger: "Mike schedules PR-2 — the door is open, the authoring surface is not built"
+check: "`git grep -n 'templates_forms' -- adapters/inbound/templates_ui.py` → non-empty (the teacher CRUD forms PR-3 deletes are still wired)"
 ---
 
 # Activity Templates Get a Vault Door
@@ -67,23 +67,63 @@ Two standing defects dissolve rather than needing separate fixes:
 `json.dumps(offset_to_jsonable(...))`. So YAML frontmatter `due_offset: {days: 7}` parses to
 exactly the dict that helper takes. The authoring form needs no new vocabulary.
 
-### The one real technical risk
+### The technical risk — measured false, and what was actually owed
 
-Ingestion persists **raw property dicts** through `_bulk_backend.upsert_with_relationships` — it
-does not go through the DTO layer, which is where offset serialization lives. A nested-map property
-reaches Neo4j as a map and is rejected. The ingest path therefore needs a per-type coercion step
-that runs the existing helpers over the `*_OFFSET_FIELDS` before upsert. Reuse
-`offset_helpers`; do not introduce a second serialization.
+The risk recorded here was that ingestion persists **raw property dicts** through
+`_bulk_backend.upsert_with_relationships`, bypassing the DTO layer where offset serialization
+lives, so a nested-map property would reach Neo4j as a map and be rejected.
+
+**Reproduced on 2026-09-05 and it does not happen.** `prepare_batch_items` → `to_neo4j_node` →
+`Neo4jGenericMapper._dict_to_node` already `json.dumps`es any mapping value, and
+`jsonable_to_offset` accepts a JSON string — so `due_offset: {days: 7}` round-trips today with no
+coercion at all:
+
+```python
+to_neo4j_node({"due_offset": {"days": 7}})   # {'due_offset': '{"days": 7}'}
+jsonable_to_offset('{"days": 7}')            # RelativeOffset(days=7, hours=0, minutes=0)
+```
+
+What the ingest path *did* owe is the opposite of a coercion — a **gate**. Because the mapper
+serializes any mapping, a mistyped `due_offset: {day: 7}` persists happily and the reader rebuilds
+it as a **zero** offset: the template spawns an instance due today, and the write reports success.
+An int, a list or an unparseable string lands as a silent `None`; `{"days": "seven"}` makes
+`jsonable_to_offset` raise inside the reader.
+
+PR-1 therefore ships, following the `created_at` precedent in the same validator: the preparer
+canonicalizes every *authorable* offset to the three-key dict the DTO write path stores (so both
+doors persist one shape) and leaves anything else **verbatim**, and `validate_entity_data` rejects
+it with one actionable per-file message. There is still exactly one `json.dumps`, in the mapper.
+`TEMPLATE_OFFSET_FIELDS` in `offset_helpers.py` is now the one list of offset field names — the
+six DTOs read their own row from it rather than each keeping a private tuple.
 
 ## The arc
 
 Three PRs, fresh context each, per the standard multi-PR arc workflow.
 
-**PR-1 — the door.** Six `EntityIngestionConfig` entries (`uid_prefix` `tt`/`gt`/`ht`/`et`/`ct`/`pt`,
-matching the generated prefixes the route files already use). The offset coercion described above.
-Six `relationship_registry.py` entries for `HAS_*_TEMPLATE` with `yaml_field_path`, so PS
+**PR-1 — the door. ✅ SHIPPED 2026-09-05.** Six `EntityIngestionConfig` entries
+(`uid_prefix` `tt`/`gt`/`ht`/`et`/`ct`/`pt`, matching the generated prefixes the route files
+already use), the six `type:` values registered in the detector, the offset gate described above,
+and six `relationship_registry.py` entries for `HAS_*_TEMPLATE` with `yaml_field_path`, so PS
 attachment is authorable — these edges already exist, so registering them is not a new coupling.
-Correct the `ENTITY_CONFIGS` comment that states the opposite premise.
+The `ENTITY_CONFIGS` comment that stated the opposite premise is corrected.
+
+Two things PR-1 had to settle that the scope above did not name:
+
+- **`status: active` by default.** `PsEngagementService` refuses to spawn from a non-ACTIVE
+  template (`ps_engagement/_validator._check_template_statuses`), and ingestion applies no model
+  defaults — a vault file omitting `status:` would persist no status at all, the DTO would read
+  DRAFT, and every vault-authored template would silently never spawn. Stamped at the ingest door
+  exactly as PathStep stamps ACTIVE, and an authored `status:` still wins.
+- **The `event_template_uids` collision — Mike's HELD rename executed.** The name was already
+  taken by `SCHEDULES_EVENT` → `:Event`, an *instance* channel; `generate_ingestion_relationship_config`
+  keys on `yaml_field_path`, so registering `HAS_EVENT_TEMPLATE` under it would have silently
+  dropped one of the two. Mike ruled the `event_template_uids` → `event_uids` rename on 2026-08-21
+  and then **held** it pending "the template-vs-activity question" — the question this arc's
+  2026-09-05 ruling settled, and settled in the direction that makes the rename *required* rather
+  than merely tidy. Executed here at the scope that case file measured: the registry, one test,
+  three authoring docs, a regenerated `GRAPH_CONTRACT.yaml`, and the one vault file using it
+  (`0vault/Ps/Ps_dev/noticing-patterns_Ps.md`). See
+  [context-retriever-write-only-fields.md](context-retriever-write-only-fields.md).
 
 **PR-2 — the authoring surface.** A `_tmpl.md` filename suffix following the `_Ku`/`_Ps`/`_exer`/
 `_edge` convention, with the six kinds separated by an explicit `type:` (the detector already keys

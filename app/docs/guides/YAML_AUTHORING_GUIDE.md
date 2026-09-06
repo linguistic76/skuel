@@ -1,7 +1,7 @@
 ---
 title: YAML Authoring Guide
 created: 2026-03-21
-updated: 2026-09-05
+updated: 2026-09-06
 status: current
 category: guides
 tags: [yaml, ingestion, authoring, substance, relationships, curriculum, activity-domains]
@@ -124,7 +124,7 @@ title: My Task Title    # Display title
 
 ### Ingestible Entity Types
 
-14 of SKUEL's entity types are file-ingestible. The remaining 11 are created via API or internal pipelines (RevisedExercise, FormTemplate, FormSubmission, EntryReport, ActivityReport, and the 6 Activity Templates).
+20 of SKUEL's entity types are file-ingestible. The remaining 5 are created via API or internal pipelines (RevisedExercise, FormTemplate, FormSubmission, EntryReport, ActivityReport).
 
 | Type Value | Aliases | Prefix | Example UID |
 |------------|---------|--------|-------------|
@@ -142,6 +142,12 @@ title: My Task Title    # Display title
 | `user_entry` | `ue` (requires explicit `pipeline:`) | `ue.` | `ue.my-work` |
 | `Interaction` | `ia` | `ia.` | `ia.viewed-ps` |
 | `LifePath` | — | `lifepath.` | `lifepath.my-direction` |
+| `task_template` | — | `tt.` | `tt.log-first-5-sessions` |
+| `goal_template` | — | `gt.` | `gt.mindfulness-beginner` |
+| `habit_template` | — | `ht.` | `ht.daily-2min-breath` |
+| `event_template` | — | `et.` | `et.practice-block-2min` |
+| `choice_template` | — | `ct.` | `ct.2-minutes-right-now` |
+| `principle_template` | — | `pt.` | `pt.small-steps` |
 | `Group` | — | `group.` | `group.class-of-2026` |
 | `Edge` | — | *(n/a)* | *(standalone relationship file)* |
 
@@ -460,16 +466,18 @@ When a student engages the PathStep, the system:
 4. Creates `SPAWNED_FROM` edges from each Task back to its template
 5. Fires `ps-engaged` — the PathStep detail page reloads the Tasks section
 
-### Creating a TaskTemplate (Admin)
+### Creating a TaskTemplate
 
-TaskTemplates are not ingestible via YAML — they're authored via the admin API or admin UI. The workflow for a curriculum developer:
+TaskTemplates are vault-authored like every other curriculum type — a file with
+`type: task_template` and a `tt.` uid, attached from the PathStep's
+`task_template_uids:` frontmatter. The JSON API below remains as a second door.
 
 **Step 1 — Create the TaskTemplate:**
 
 ```
 POST /api/task-templates/
 {
-  "uid": "tt:mindfulness-101:log-first-5-sessions",
+  "uid": "tt.mindfulness-101.log-first-5-sessions",
   "title": "Log Your First 5 Sessions",
   "description": "After each of your first 5 breath-awareness sessions, write 2–3 sentences about what you noticed. Use the journal or a note.",
   "priority": "medium",
@@ -483,7 +491,7 @@ POST /api/task-templates/
 **Step 2 — Attach it to the PathStep:**
 
 ```
-POST /api/ps/ps.mindfulness-101.breath-awareness-basics/task-templates/tt:mindfulness-101:log-first-5-sessions/attach
+POST /api/ps/ps.mindfulness-101.breath-awareness-basics/task-templates/tt.mindfulness-101.log-first-5-sessions/attach
 ```
 
 This creates the `(PathStep)-[:HAS_TASK_TEMPLATE]->(TaskTemplate)` edge. The attachment is permanent until explicitly detached — publish the PathStep once all templates are attached.
@@ -505,7 +513,7 @@ This example creates two tasks that spawn together when a student engages the br
 ```
 POST /api/task-templates/
 {
-  "uid": "tt:mindfulness-101:breath-practice-primary",
+  "uid": "tt.mindfulness-101.breath-practice-primary",
   "title": "Complete 5 Breath-Awareness Sessions",
   "description": "Do five separate practice sessions of any length. One minute counts.",
   "priority": "high",
@@ -519,20 +527,20 @@ POST /api/task-templates/
 ```
 POST /api/task-templates/
 {
-  "uid": "tt:mindfulness-101:breath-practice-reflection",
+  "uid": "tt.mindfulness-101.breath-practice-reflection",
   "title": "Write a Reflection After Each Session",
   "description": "After each session, note one observation: what you noticed about your attention, breath, or mind-wandering.",
   "priority": "medium",
   "due_offset": { "days": 7 },
-  "parent_template_uid": "tt:mindfulness-101:breath-practice-primary"
+  "parent_template_uid": "tt.mindfulness-101.breath-practice-primary"
 }
 ```
 
 **Attach both to the PathStep:**
 
 ```
-POST /api/ps/ps.mindfulness-101.breath-awareness-basics/task-templates/tt:mindfulness-101:breath-practice-primary/attach
-POST /api/ps/ps.mindfulness-101.breath-awareness-basics/task-templates/tt:mindfulness-101:breath-practice-reflection/attach
+POST /api/ps/ps.mindfulness-101.breath-awareness-basics/task-templates/tt.mindfulness-101.breath-practice-primary/attach
+POST /api/ps/ps.mindfulness-101.breath-awareness-basics/task-templates/tt.mindfulness-101.breath-practice-reflection/attach
 ```
 
 **What the student sees after engaging:**
@@ -544,13 +552,13 @@ On the PathStep detail page, under **Tasks**:
     ☐ Write a Reflection After Each Session
 ```
 
-Both tasks are owned by the student, scheduled relative to today. Their UID formats follow the standard task format (`task:...`) — the template UID is only on the blueprint.
+Both tasks are owned by the student, scheduled relative to today. Their UID formats follow the standard task format (`task.…`) — the template UID is only on the blueprint.
 
 ### TaskTemplate Field Reference
 
 | Field | Type | Purpose |
 |-------|------|---------|
-| `uid` | `tt:{namespace}:{slug}` | Unique identifier |
+| `uid` | `tt.{namespace}.{slug}` | Unique identifier |
 | `title` | string | Task title (copied to spawned Task) |
 | `description` | string | Optional context |
 | `priority` | `low`/`medium`/`high`/`critical` | Copied to spawned Task |
@@ -559,10 +567,10 @@ Both tasks are owned by the student, scheduled relative to today. Their UID form
 | `duration_minutes` | int | Estimated duration (copied to spawned Task) |
 | `recurrence_pattern` | RecurrencePattern | Optional recurrence |
 | `recurrence_end_offset` | `{days, hours, minutes}` | When recurrence ends |
-| `parent_template_uid` | `tt:...` | Spawns this task as a sub-task of that template's instance |
-| `fulfills_goal_template_uid` | `tt:...` | Resolve to the spawned Goal instance at engagement |
-| `reinforces_habit_template_uid` | `tt:...` | Resolve to the spawned Habit instance at engagement |
-| `scheduled_event_template_uid` | `tt:...` | Resolve to the spawned Event instance at engagement |
+| `parent_template_uid` | `tt.…` | Spawns this task as a sub-task of that template's instance |
+| `fulfills_goal_template_uid` | `gt.…` | Resolve to the spawned Goal instance at engagement |
+| `reinforces_habit_template_uid` | `ht.…` | Resolve to the spawned Habit instance at engagement |
+| `scheduled_event_template_uid` | `et.…` | Resolve to the spawned Event instance at engagement |
 | `goal_progress_contribution` | float 0.0–1.0 | How much this task contributes to goal progress |
 | `knowledge_mastery_check` | bool | Whether completing this task marks a mastery checkpoint |
 | `habit_streak_maintainer` | bool | Whether completing maintains a habit streak |

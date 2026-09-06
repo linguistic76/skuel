@@ -18,16 +18,16 @@ from core.models.entity_dto import EntityDTO
 from core.models.enum_field_registry import enum_fields_for
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.scheduling_enums import RecurrencePattern
-from core.models.templates.offset_helpers import jsonable_to_offset, offset_to_jsonable
+from core.models.templates.offset_helpers import (
+    TEMPLATE_OFFSET_FIELDS,
+    jsonable_to_offset,
+    offset_to_jsonable,
+)
 from core.models.templates.relative_offset import RelativeOffset
 
-# Names of fields that hold a RelativeOffset value. Centralised so adding a
-# new offset later is a single-line change.
-_OFFSET_FIELDS: tuple[str, ...] = (
-    "due_offset",
-    "scheduled_offset",
-    "recurrence_end_offset",
-)
+# Names of fields that hold a RelativeOffset value — read from the shared
+# registry so the vault ingest door and this DTO can never disagree.
+_OFFSET_FIELDS: tuple[str, ...] = TEMPLATE_OFFSET_FIELDS[EntityType.TASK_TEMPLATE]
 
 
 @dataclass

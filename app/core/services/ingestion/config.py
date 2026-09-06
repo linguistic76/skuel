@@ -190,13 +190,12 @@ class EntityIngestionConfig:
 
 # ENTITY_CONFIGS — Ingestion Entity Configuration
 #
-# 15 configs: 14 of the 25 EntityTypes are file-ingestible, plus one
+# 21 configs: 20 of the 25 EntityTypes are file-ingestible, plus one
 # NonKuDomain type (GROUP — FINANCE was demolished by ADR-052 Phase 5; the
 # detector rejects ``type: expense``/``finance``). Not file-ingestible:
 #   - REVISED_EXERCISE: Created via API as part of the feedback loop
 #   - FORM_TEMPLATE/FORM_SUBMISSION: Created via API
 #   - ENTRY_REPORT/ACTIVITY_REPORT: Created via report generation pipeline
-#   - The six Activity Templates: PS-owned, spawned on engagement
 # USER_ENTRY is ingestible via ``type: user_entry`` + an explicit ``pipeline:``;
 # the legacy ``je_input``/``exercise_submission`` type strings are rejected
 # by the detector with a pointer to ADR-054 (no silent aliasing).
@@ -363,6 +362,61 @@ ENTITY_CONFIGS: dict[EntityType | NonKuDomain, EntityIngestionConfig] = {
         entity_label="LifePath",
         uid_prefix="lifepath",
         required_fields=("user_uid",),
+    ),
+    # --- The 6 Activity Templates ------------------------------------------
+    # PS-owned curriculum content that spawns Activity instances on engagement.
+    # Vault-authored like every other curriculum type; the PS attaches them via
+    # its ``{domain}_template_uids`` frontmatter (HAS_*_TEMPLATE edges in the
+    # relationship registry). uid_prefix matches the prefix the JSON API's
+    # generated uids already use, so both doors mint the same shape.
+    #
+    # ``status: active`` by default: PsEngagementService REFUSES to spawn from a
+    # non-ACTIVE template (``_validator._check_template_statuses``), and a vault
+    # file that omits the field would otherwise persist no status at all — the
+    # DTO then reads DRAFT and the template silently never spawns. Same reason
+    # PathStep stamps ACTIVE here; an authored ``status:`` still wins.
+    #
+    # Only ``title`` is required, matching the web door's TemplateCreateRequest
+    # (every other field is optional on all six) — the vault door adds no
+    # authoring constraint the form did not already have.
+    #
+    # Not ``embeddable``: templates have no EMBEDDING_FIELD_MAPS entry and stay
+    # out of SearchRouter for this arc, so there is nothing to embed for.
+    EntityType.TASK_TEMPLATE: EntityIngestionConfig(
+        entity_label="TaskTemplate",
+        uid_prefix="tt",
+        required_fields=("title",),
+        default_values={"status": EntityStatus.ACTIVE.value},
+    ),
+    EntityType.GOAL_TEMPLATE: EntityIngestionConfig(
+        entity_label="GoalTemplate",
+        uid_prefix="gt",
+        required_fields=("title",),
+        default_values={"status": EntityStatus.ACTIVE.value},
+    ),
+    EntityType.HABIT_TEMPLATE: EntityIngestionConfig(
+        entity_label="HabitTemplate",
+        uid_prefix="ht",
+        required_fields=("title",),
+        default_values={"status": EntityStatus.ACTIVE.value},
+    ),
+    EntityType.EVENT_TEMPLATE: EntityIngestionConfig(
+        entity_label="EventTemplate",
+        uid_prefix="et",
+        required_fields=("title",),
+        default_values={"status": EntityStatus.ACTIVE.value},
+    ),
+    EntityType.CHOICE_TEMPLATE: EntityIngestionConfig(
+        entity_label="ChoiceTemplate",
+        uid_prefix="ct",
+        required_fields=("title",),
+        default_values={"status": EntityStatus.ACTIVE.value},
+    ),
+    EntityType.PRINCIPLE_TEMPLATE: EntityIngestionConfig(
+        entity_label="PrincipleTemplate",
+        uid_prefix="pt",
+        required_fields=("title",),
+        default_values={"status": EntityStatus.ACTIVE.value},
     ),
 }
 
