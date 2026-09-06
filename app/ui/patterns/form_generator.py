@@ -607,11 +607,20 @@ class FormGenerator:
                     )
                 return Select(*options, **attrs)
 
-        # Checkbox
+        # Checkbox — paired with a hidden companion so the control posts on EVERY submit.
+        # An unchecked box is not a successful control: the browser omits it entirely, which
+        # reads downstream as "field absent" — UNSET on an update intent — so a box that is
+        # already checked can never be UNchecked from an edit form. The hidden input carries
+        # "false" and renders first; a checked box appends "true" after it, and Starlette's
+        # FormData resolves a repeated key to its LAST value, so checked still wins.
         if widget_type == "checkbox":
+            attrs["value"] = "true"
             if normalized_value:
                 attrs["checked"] = True
-            return Checkbox(**attrs)
+            return (
+                FTInput(type="hidden", name=field_name, value="false"),
+                Checkbox(**attrs),
+            )
 
         # Standard inputs (text, number, date, datetime-local, email, url)
         attrs["type"] = widget_type
