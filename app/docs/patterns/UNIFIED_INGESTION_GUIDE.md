@@ -967,12 +967,12 @@ also auto-fall back to the filename.
 | `choice` | `choice.` | `:Entity:Choice` | title | `choice_career-path.yaml` |
 | `principle` | `principle.` | `:Entity:Principle` | title, statement | `principle_consistency.yaml` |
 | `user_entry` | `ue.` | `:Entity:UserEntry` | title (+ `pipeline:`, door-level) | `ue_journal-2026-06-12.yaml` |
-| `task_template` | `tt.` | `:Entity:TaskTemplate` | title | `tt_log-first-5-sessions.md` |
-| `goal_template` | `gt.` | `:Entity:GoalTemplate` | title | `gt_mindfulness-beginner.md` |
-| `habit_template` | `ht.` | `:Entity:HabitTemplate` | title | `ht_daily-2min-breath.md` |
-| `event_template` | `et.` | `:Entity:EventTemplate` | title | `et_practice-block.md` |
-| `choice_template` | `ct.` | `:Entity:ChoiceTemplate` | title | `ct_2-minutes-now.md` |
-| `principle_template` | `pt.` | `:Entity:PrincipleTemplate` | title | `pt_small-steps.md` |
+| `task_template` | `tt.` | `:Entity:TaskTemplate` | title | `log-first-5-sessions_tmpl.md` |
+| `goal_template` | `gt.` | `:Entity:GoalTemplate` | title | `mindfulness-beginner_tmpl.md` |
+| `habit_template` | `ht.` | `:Entity:HabitTemplate` | title | `daily-2min-breath_tmpl.md` |
+| `event_template` | `et.` | `:Entity:EventTemplate` | title | `practice-block_tmpl.md` |
+| `choice_template` | `ct.` | `:Entity:ChoiceTemplate` | title | `2-minutes-now_tmpl.md` |
+| `principle_template` | `pt.` | `:Entity:PrincipleTemplate` | title | `small-steps_tmpl.md` |
 | `interaction` | `ia.` | `:Entity:Interaction` | interaction_type, target_uid | `ia_viewed-ps.yaml` |
 | `group` | `group.` | `:Group` | name | `group_class-of-2026.yaml` |
 | `lifepath` | `lifepath.` | `:Entity:LifePath` | user_uid | `lifepath_vision.yaml` |
@@ -991,6 +991,9 @@ prefix the validator enforces on explicit `uid:` values, always dot-form.
 to spawn from a non-ACTIVE template, and ingestion applies no model defaults, so a file omitting
 `status:` would persist none and read `DRAFT`. An authored `status:` still wins. A PathStep
 attaches them with `{domain}_template_uids:` (see the PathStep relationship-field table above).
+The six share one `_tmpl.md` filename suffix and are told apart by `type:`, which accepts both the
+canonical `task_template` and the PascalCase `TaskTemplate` the vault uses for every other kind.
+Field by field: [Activity Template Authoring](../guides/ACTIVITY_TEMPLATE_AUTHORING.md).
 
 **Retired:** `type: expense` / `type: finance` are rejected by the detector with an ADR pointer — ADR-052 Phase 5 demolished the native expense module (finance is a Firefly III sidecar, not vault-ingestible).
 
