@@ -68,6 +68,7 @@ from core.utils.result_simplified import Errors, Result
 
 __all__ = [
     "COMPLETION_FIELDS",
+    "completion_moment",
     "is_completion_transition",
     "is_reopen_transition",
     "status_transition_guard",
@@ -96,6 +97,26 @@ _STAMP_SPECS: dict[EntityType, tuple[str, Callable[[], date | datetime]]] = {
 COMPLETION_FIELDS: Mapping[EntityType, str] = MappingProxyType(
     {entity_type: field for entity_type, (field, _) in _STAMP_SPECS.items()}
 )
+
+
+def completion_moment(stamp: date | datetime | None) -> datetime:
+    """Widen a domain completion stamp into the ``datetime`` an event's ``occurred_at`` wants.
+
+    The born-completed create doors publish their completion event with the moment
+    the entity says it was completed, not the moment it was ingested, so a vault
+    ``- [x] … ✅ 2026-03-04`` line reports March 4th. Task and Goal stamp a ``date``
+    (``completion_date`` / ``achieved_date``) while ``BaseEvent.occurred_at`` is a
+    ``datetime``, so the widening has to be explicit — ``datetime`` is checked first
+    because it is a subclass of ``date``.
+
+    An absent stamp falls back to now, which is exactly what ``BaseEvent`` would have
+    defaulted to.
+    """
+    if isinstance(stamp, datetime):
+        return stamp
+    if isinstance(stamp, date):
+        return datetime.combine(stamp, datetime.min.time())
+    return datetime.now()
 
 
 def _coerce_status(value: EntityStatus | str | None) -> EntityStatus | None:

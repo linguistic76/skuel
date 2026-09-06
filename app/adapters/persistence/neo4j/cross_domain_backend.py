@@ -455,6 +455,13 @@ class CrossDomainBackend:
         precisely because they do have one, and a task can be reopened: their
         count is derived at read (:meth:`get_productivity_analytics`) and the
         node keeps only the two stamps (:meth:`stamp_productivity_completion`).
+
+        ``last_prop`` is a MONOTONE max, not an assignment: completions no longer
+        arrive in chronological order. A born-completed event carries its authored
+        ``completed_at`` as the event's ``occurred_at``, so ingesting a March
+        completion after an April one must not move "most recent" backward. The
+        ``IS NULL`` arm matters — ``ON CREATE`` never writes ``last_prop``, so the
+        second completion is always comparing against null.
         """
         return await self.executor.execute_query(
             f"""
@@ -464,7 +471,12 @@ class CrossDomainBackend:
                 analytics.{first_prop} = datetime($occurred_at)
             ON MATCH SET
                 analytics.{counter} = analytics.{counter} + 1,
-                analytics.{last_prop} = datetime($occurred_at)
+                analytics.{last_prop} = CASE
+                    WHEN analytics.{last_prop} IS NULL
+                      OR analytics.{last_prop} < datetime($occurred_at)
+                    THEN datetime($occurred_at)
+                    ELSE analytics.{last_prop}
+                END
             """,
             {"user_uid": user_uid, "occurred_at": occurred_at},
         )
@@ -476,9 +488,17 @@ class CrossDomainBackend:
 
         The node holds exactly two figures — ``first_completion_at`` and
         ``last_completion_at`` — and this is their only writer. ``first`` is
-        written once and never moved (``coalesce``); ``last`` advances to every
-        completion moment. Idempotent per moment: re-running with the same
-        ``occurred_at`` lands on the same state.
+        written once and never moved (``coalesce``); ``last`` advances to the
+        LATEST completion moment, whatever order the moments arrive in.
+        Idempotent per moment: re-running with the same ``occurred_at`` lands on
+        the same state.
+
+        ``last`` is a monotone max rather than an assignment because completion
+        moments are no longer chronological: the born-completed create doors
+        publish ``TaskCompleted`` with the task's own ``completion_date`` as
+        ``occurred_at``, so a vault sync that ingests a March ``✅`` line after an
+        April one would otherwise move "when did this user most recently complete
+        something" backward.
 
         Nothing else lives on the node. ``tasks_completed`` is **derived at
         read** (:meth:`get_productivity_analytics`) from the tasks the user
@@ -493,7 +513,12 @@ class CrossDomainBackend:
             SET analytics.first_completion_at = coalesce(
                     analytics.first_completion_at, datetime($occurred_at)
                 ),
-                analytics.last_completion_at = datetime($occurred_at)
+                analytics.last_completion_at = CASE
+                    WHEN analytics.last_completion_at IS NULL
+                      OR analytics.last_completion_at < datetime($occurred_at)
+                    THEN datetime($occurred_at)
+                    ELSE analytics.last_completion_at
+                END
             """,
             {"user_uid": user_uid, "occurred_at": occurred_at},
         )
