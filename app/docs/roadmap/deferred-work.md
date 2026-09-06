@@ -112,9 +112,9 @@ renders them as a table in Obsidian, and a session derives the same table with
 
 [A Frontmatter Edge Whose Target Does Not Exist Yet Is Silent](frontmatter-edge-target-missing-is-silent.md) — Every `*_uids:` channel drops an edge whose target node is absent and reports nothing; MOC body links already warn, the structural channels do not.
 
-## Vault Task Door Publishes No Task Events
+## The Completion Cascade Does Not Reach Every Door
 
-[Vault Task Door Publishes No Task Events](vault-task-door-no-events.md) — The `type: task` frontmatter door persists through the bulk upsert with no event bus, so vault-authored completions publish no `TaskCompleted`.
+[The Completion Cascade Does Not Reach Every Door](vault-task-door-no-events.md) — An entity that arrives already completed publishes no completion event, through the DSL/API create door as well as the vault bulk upsert; the vault door also skips the reopen-clear and the status-legality gate.
 
 ## `HabitEventScheduler` Stamps a Goal on a Field `Event` Does Not Have
 
