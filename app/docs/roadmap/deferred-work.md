@@ -176,6 +176,10 @@ renders them as a table in Obsidian, and a session derives the same table with
 
 [Parked Features — Memory-Only Until Now](parked-features.md) — Three feature-shaped threads — activity ledger, interest/engagement signal, icon provider swap — each with its ruled constraint and an absence check.
 
+## Engagement Instance Scope — the query that cannot tell two engagements apart
+
+[Engagement Instance Scope — the query that cannot tell two engagements apart](shared-template-engagement-scope.md) — `fetch_engaged_instances` scopes by template, not by engagement, so completing or abandoning one engagement reaches another's instances; reachable by re-engaging a single step, and by the template reuse the authoring guide advertises. Latent while six templates sit on one PathStep.
+
 ## Catalog Copies in Code — the duplicated-fact defect, measured
 
 [Catalog Copies in Code — the duplicated-fact defect, measured](catalog-copies-in-code.md) — The class, its ten measured instances and the rule for new code; the stale-PLANNED gate and the `blocked_by` pointer form are built, the rest is Mike's to schedule.

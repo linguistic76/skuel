@@ -485,10 +485,11 @@ Every date on a template is engagement-relative (`due_offset: {days: 14}`), and 
 cross-reference points at another *template* (`fulfills_goal_template_uid`) which resolves
 to the instance spawned alongside it. `status:` is stamped `active` at the ingest door.
 
-**See: [Activity Template Authoring](ACTIVITY_TEMPLATE_AUTHORING.md)** — the six kinds,
-their complete field references, the offset vocabulary, structured lists, and what
-engagement does. The JSON API (`POST /api/pathstep-task-templates/` and its
-`/attach`, one route file per kind) remains a second door.
+**See: [Activity Template Authoring](ACTIVITY_TEMPLATE_AUTHORING.md)** — its Part 1
+walks one template from file to verified-in-the-graph; Part 3 is the complete field
+reference for all six kinds, and Part 4 is what spawning does and does not let you change
+afterwards. The JSON API (`POST /api/pathstep-task-templates/` and its `/attach`, one
+route file per kind) remains a second door.
 
 ### PathStep YAML with `task_uids` (Static Approach)
 
