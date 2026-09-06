@@ -21,7 +21,7 @@ against null, which is the arm a naive ``<`` comparison drops.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime
 
 import pytest
 
@@ -35,8 +35,19 @@ PRODUCTIVITY_USER = "user_monotone_productivity"
 ATTENDANCE_USER = "user_monotone_attendance"
 
 
-def _utc(moment: str) -> datetime:
-    return datetime.fromisoformat(moment).replace(tzinfo=UTC)
+def _wall_clock(stored: object) -> datetime:
+    """The stored stamp as naive wall-clock time.
+
+    The production writer hands the backend a NAIVE ISO string
+    (``handle_task_completed`` passes ``event.occurred_at.isoformat()``, and
+    ``occurred_at`` is a naive ``datetime``), so these tests send naive strings too.
+    Neo4j reads such a string in the server's default timezone, which decides whether
+    ``to_native()`` comes back aware or naive — a detail this suite is not about.
+    Dropping the offset compares the digits Neo4j preserved either way, so the
+    assertions hold under any ``db.temporal.timezone``.
+    """
+    native = stored.to_native()  # type: ignore[attr-defined]  # boundary: neo4j DateTime
+    return native.replace(tzinfo=None)
 
 
 async def _productivity(neo4j_driver, user_uid: str):
@@ -76,9 +87,9 @@ class TestProductivityStampIsMonotone:
         assert (await backend.stamp_productivity_completion(PRODUCTIVITY_USER, MARCH)).is_ok
 
         row = await _productivity(neo4j_driver, PRODUCTIVITY_USER)
-        assert row["last"].to_native() == _utc(APRIL)
+        assert _wall_clock(row["last"]) == datetime.fromisoformat(APRIL)
         # first is a coalesce — the April write created it and March must not move it.
-        assert row["first"].to_native() == _utc(APRIL)
+        assert _wall_clock(row["first"]) == datetime.fromisoformat(APRIL)
 
     async def test_a_later_completion_still_advances_last(self, neo4j_driver, clean_neo4j) -> None:
         backend = CrossDomainBackend(Neo4jQueryExecutor(neo4j_driver))
@@ -87,8 +98,8 @@ class TestProductivityStampIsMonotone:
         assert (await backend.stamp_productivity_completion(PRODUCTIVITY_USER, APRIL)).is_ok
 
         row = await _productivity(neo4j_driver, PRODUCTIVITY_USER)
-        assert row["last"].to_native() == _utc(APRIL)
-        assert row["first"].to_native() == _utc(MARCH)
+        assert _wall_clock(row["last"]) == datetime.fromisoformat(APRIL)
+        assert _wall_clock(row["first"]) == datetime.fromisoformat(MARCH)
 
 
 @pytest.mark.asyncio
@@ -107,13 +118,13 @@ class TestCounterAnalyticsLastStampIsMonotone:
 
         assert (await backend.upsert_event_analytics(ATTENDANCE_USER, MARCH)).is_ok
         row = await _attendance(neo4j_driver, ATTENDANCE_USER)
-        assert row["last"].to_native() == _utc(MARCH)
+        assert _wall_clock(row["last"]) == datetime.fromisoformat(MARCH)
 
         assert (await backend.upsert_event_analytics(ATTENDANCE_USER, APRIL)).is_ok
         row = await _attendance(neo4j_driver, ATTENDANCE_USER)
-        assert row["last"].to_native() == _utc(APRIL)
+        assert _wall_clock(row["last"]) == datetime.fromisoformat(APRIL)
 
         assert (await backend.upsert_event_analytics(ATTENDANCE_USER, MARCH)).is_ok
         row = await _attendance(neo4j_driver, ATTENDANCE_USER)
-        assert row["last"].to_native() == _utc(APRIL)
+        assert _wall_clock(row["last"]) == datetime.fromisoformat(APRIL)
         assert row["attended"] == 4
