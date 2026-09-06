@@ -32,6 +32,13 @@ The same applies to the reopen-clear: a failed `clear_completion_stamps` strands
 stamp on a non-completed entity, and the next ingest reads a non-completed prior and sees nothing
 to do.
 
+**The analytics half is not repairable offline either**, which is worth knowing before reaching for
+the backfill script. `./dev backfill-productivity-stamps` fills only NULL stamps — it never moves
+one that exists (`coalesce`, deliberate: the handler's value is the real moment, the script's is a
+day-grained reconstruction). So a user who already had both stamps and then lost an announcement
+keeps a stale `last_completion_at`, and nothing today fixes it. A user left without a stamp at all
+is the one case the script does repair.
+
 ## Why the ordering cannot fix it
 
 The publish sits late in the call **by design** (#1290 round 1): a completion event is consumed

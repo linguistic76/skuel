@@ -29,7 +29,7 @@ unparseable value reads as absent) because a malformed optional analytics field
 must not stop a completion the file plainly declares.
 
 See: /docs/decisions/ADR-087-status-guarded-conditional-writes.md,
-     /docs/roadmap/vault-task-door-no-events.md
+     /docs/roadmap/done/vault-task-door-no-events.md
 """
 
 from __future__ import annotations

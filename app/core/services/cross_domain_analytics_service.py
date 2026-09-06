@@ -218,10 +218,9 @@ class CrossDomainAnalyticsService:
         ``last_completion_at`` — and this handler is their only writer.
         ``tasks_completed`` is not maintained here or anywhere: it is derived
         at read from the tasks the user currently owns in ``completed``
-        (:meth:`get_productivity_metrics`), so a completion that arrives
-        through a door that publishes no task event — the vault ``- [x]`` bulk
-        upsert — is counted the moment it exists, and a reopen lowers the
-        count without anyone having to hear about it.
+        (:meth:`get_productivity_metrics`), so it needs no event at all — a
+        reopen or a deletion lowers it without anyone having to hear about it,
+        which a stored tally maintained from completion events cannot do.
 
         **``is_repeat`` gates the whole handler, because the whole handler
         accumulates.** The arc's contract is that the flag gates what
@@ -499,18 +498,23 @@ class CrossDomainAnalyticsService:
         falls inside the window, counted by the same traversal — so the window
         is a subset of the total by construction and the payload cannot
         contradict itself. The total used to be a stored figure the event
-        handlers maintained, and it drifted from the graph through every door
-        that publishes no task event (a task created already completed, a
-        completed task deleted, the vault ``- [x]`` upsert above all); the
-        stored field, its reconciliation instrument and the contradiction they
-        produced together are gone. Neither count needs the analytics node to
-        exist. A completed task carrying no ``completion_date`` is in the total
-        but excluded from the window rather than assumed recent.
+        handlers maintained, and a tally that only ever counts up cannot
+        follow a graph where completions are also *removed* — a completed task
+        deleted, or reopened. The stored field, its reconciliation instrument
+        and the contradiction they produced together are gone
+        (``CrossDomainBackend.get_productivity_analytics`` records the
+        measurement). Neither count needs the analytics node to exist. A completed
+        task carrying no ``completion_date`` is in the total but excluded from
+        the window rather than assumed recent.
 
         Only the two stamps come from the node, and only the ``TaskCompleted``
-        handler writes them, so a user whose completions all arrived through
-        the vault door has real counts and ``None`` stamps — honest, and
-        history is filled once by ``./dev backfill-productivity-stamps``.
+        handler writes them. Every door into ``completed`` publishes that event,
+        the vault bulk upsert included, so a user with real counts and ``None``
+        stamps has no stamped completion at all, and
+        ``./dev backfill-productivity-stamps`` fills those (its docstring
+        enumerates how a stamp goes missing). A completion lost *after* a stamp
+        exists leaves ``last_completion_at`` stale instead, which nothing repairs
+        (``docs/roadmap/ingest-transition-obligation-durability.md``).
 
         Args:
             user_uid: UID of the user

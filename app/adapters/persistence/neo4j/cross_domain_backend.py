@@ -494,11 +494,12 @@ class CrossDomainBackend:
         the same state.
 
         ``last`` is a monotone max rather than an assignment because completion
-        moments are no longer chronological: the born-completed create doors
-        publish ``TaskCompleted`` with the task's own ``completion_date`` as
-        ``occurred_at``, so a vault sync that ingests a March ``✅`` line after an
-        April one would otherwise move "when did this user most recently complete
-        something" backward.
+        moments are no longer chronological: the doors that ingest a completion
+        authored elsewhere — the born-completed create door and the vault bulk
+        upsert — publish ``TaskCompleted`` with the task's own
+        ``completion_date`` as ``occurred_at``, so a sync that ingests a March
+        ``✅`` line after an April one would otherwise move "when did this user
+        most recently complete something" backward.
 
         Nothing else lives on the node. ``tasks_completed`` is **derived at
         read** (:meth:`get_productivity_analytics`) from the tasks the user
@@ -644,20 +645,20 @@ class CrossDomainBackend:
 
         **Both counts are derived from the same traversal, so the window is a
         subset of the total by construction.** The total used to be a stored
-        figure the event handlers maintained, and it drifted from the graph
-        through every door that publishes no task event — a task created
-        already completed, a completed task deleted, and above all the vault
-        ``- [x]`` bulk upsert — so the stored number and the live window count
-        could contradict each other on one read (stored 9, actual 85 on the
-        live graph, 2026-08-23). Counting both here removes the stored field,
-        its reconciliation instrument, and the contradiction in one move. A
-        reopen lowers the total without anyone having to hear about it.
+        figure the event handlers maintained, and a tally maintained from
+        completion events can only count up, while the graph it claimed to
+        describe also *loses* completions — a completed task deleted, or
+        reopened — so the stored number and the live window count could
+        contradict each other on one read (stored 9, actual 85 on the live
+        graph, 2026-08-23). Counting both here removes the stored field, its
+        reconciliation instrument, and the contradiction in one move. A reopen
+        lowers the total without anyone having to hear about it.
 
         **Neither count depends on the node existing.** Every match here is
         OPTIONAL and the aggregation always yields exactly one row, so a user
-        whose completions arrived through a door that writes no analytics node
-        still gets real counts instead of the confident 0.0 a mandatory MATCH
-        produced; only the stamps are absent for them, and honestly so.
+        with no ``:ProductivityAnalytics`` node still gets real counts instead
+        of the confident 0.0 a mandatory MATCH produced; only the stamps are
+        absent for them, and honestly so.
 
         ``window_start`` and ``window_end`` are ISO ``YYYY-MM-DD`` dates and the
         window is inclusive of both (``CompletionVelocityWindow.start_date`` /

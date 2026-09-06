@@ -1,22 +1,43 @@
 #!/usr/bin/env python3
-"""Fill the NULL completion stamps on ``ProductivityAnalytics`` from task history — once.
+"""Fill the NULL completion stamps on ``ProductivityAnalytics`` from task history.
 
-A ONE-SHOT migration — no background loop, so the CORE "no background workers"
-guarantee holds. Tier-independent: pure graph maintenance, no API keys.
+An **idempotent, on-demand pass** — run by hand, never a loop, so the CORE
+"no background workers" guarantee holds. Tier-independent: pure graph
+maintenance, no API keys. What it fills and what it refuses to touch is in 1
+below.
 
-``ProductivityAnalytics`` now holds exactly two figures: ``first_completion_at``
+``ProductivityAnalytics`` holds exactly two figures: ``first_completion_at``
 and ``last_completion_at``, written by the ``TaskCompleted`` handler on every
 genuine completion moment. ``tasks_completed`` is **derived at read** — the
 tasks the user currently owns in ``completed``, counted by
 ``CrossDomainBackend.get_productivity_analytics`` on the same traversal as the
 velocity window — so nothing maintains it and nothing should still store it.
 
-Two things about history are wrong for that shape, and this script fixes both:
+Two things can be wrong for that shape, and this script fixes both:
 
-1. **Null stamps.** A completion that arrived through a door publishing no task
-   event — the vault ``- [x]`` bulk upsert above all, and every completion that
-   predates the event handler — left the node without a stamp, or without a
-   node at all. Those users have a real derived count and ``null`` stamps.
+1. **Null stamps.** A user can own completed tasks and still carry no stamp —
+   no ``ProductivityAnalytics`` node at all, or a node whose stamps are
+   ``null``. Three causes, and only the first is finite — which is why this is
+   worth re-running, not only running:
+
+   - completions older than the handler that writes the stamps (the bulk of it,
+     and the reason this script exists — the account is in
+     ``docs/roadmap/done/vault-task-door-no-events.md``);
+   - an announcement the vault door loses. That door has no outbox: when reading
+     the persisted entities back fails,
+     ``UnifiedIngestionService._publish_completions`` logs and drops the
+     completion event, and nothing retries it — the next ingest reads those
+     entities as already completed;
+   - a stamp write that fails. ``CrossDomainAnalyticsService.handle_task_completed``
+     logs a failed ``stamp_productivity_completion`` and returns ok, so the
+     announcement is published and heard while the stamp never lands.
+
+   ⚠ **It repairs a NULL stamp and nothing else** — the fill's contract is
+   right below, and a stamp that exists is never moved. So a user who holds both
+   stamps and then loses an announcement keeps a stale ``last_completion_at``,
+   and nothing repairs that: it belongs to the durability gap
+   (``docs/roadmap/ingest-transition-obligation-durability.md``), not here.
+
    This fills **only NULL stamps**: ``first_completion_at`` from the earliest
    ``Task.completion_date`` the user currently owns in ``completed``,
    ``last_completion_at`` from the latest. A stamp that exists is never moved —
@@ -43,9 +64,9 @@ through ``left(toString(...), 10)`` because the *writer* decides its storage
 type, not this reader — an ISO string on every live row, but a native
 ``date``/``datetime`` has to project to the same day rather than vanish.
 
-Idempotent: the second run finds no NULL stamp it can fill and no retired count,
-and changes nothing. The write is one statement per concern, so an interrupted
-run leaves each user either untouched or complete.
+Idempotent: a re-run with no NULL stamp left to fill and no retired count
+changes nothing — which is what makes running it again safe. The write is one statement per concern, so an
+interrupted run leaves each user either untouched or complete.
 
 Usage:
     uv run scripts/backfill_productivity_completion_stamps.py             # census only (default)
@@ -81,8 +102,8 @@ _OWNS = RelationshipName.OWNS.value
 
 # READ-ONLY. One row per user who either has a node or owns a stamped completed
 # task. Both arms matter: the first catches a node whose stamps are null and
-# unfillable (reported, left alone); the second catches the vault door — real
-# completions, no node at all.
+# unfillable (reported, left alone); the second catches a user who owns stamped
+# completed tasks but has no analytics node at all.
 CENSUS_QUERY = f"""
 MATCH (u:{_USER})
 OPTIONAL MATCH (u)-[:{_OWNS}]->(t:{_TASK} {{status: $completed}})
@@ -114,9 +135,9 @@ RETURN count(a) AS n
 # Fills NULL stamps only. ``old_first`` / ``old_last`` are read into scope
 # BEFORE the SET so both right-hand sides see the pre-write values, and the
 # guard keeps a filled value from crossing the stamp that already exists.
-# MERGE creates the node for a user who never had one (the vault door); a user
-# with both stamps present is matched, coalesced to themselves, and counted in
-# neither total. Idempotent by construction.
+# MERGE creates the node for a user who never had one; a user with both stamps
+# present is matched, coalesced to themselves, and counted in neither total.
+# Idempotent by construction.
 BACKFILL_QUERY = f"""
 MATCH (u:{_USER})-[:{_OWNS}]->(t:{_TASK} {{status: $completed}})
 WHERE t.completion_date IS NOT NULL
@@ -246,7 +267,7 @@ def _print_census(plans: list[StampPlan], retired_nodes: int, *, confirm: bool) 
     print(f"  Stamps to fill         {firsts + lasts:>6}   first: {firsts}   last: {lasts}")
     print(
         f"  Nodes to create        {sum(1 for p in plans if p.creates_node):>6}   "
-        "(stamped completions, no node — the vault door)"
+        "(stamped completions, no node — pre-cascade history)"
     )
     print(
         f"  Unfillable             {sum(1 for p in plans if p.unfillable):>6}   "

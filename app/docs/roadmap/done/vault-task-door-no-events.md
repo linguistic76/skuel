@@ -1,22 +1,36 @@
 ---
 title: "The Completion Cascade Does Not Reach Every Door"
 updated: 2026-09-06
-status: "ruled — arc in flight"
+status: done
 registered: 2026-08-24
 ruled: 2026-09-06
-trigger: "FIRED 2026-09-06 — the next-vault-door-touch half; scope ruled all 5 stamping domains"
-check: "git grep -n \"event_bus\" adapters/persistence/neo4j/bulk_upsert_backend.py — empty until PR-3"
 ---
 
 # The Completion Cascade Does Not Reach Every Door
 
-*Case file for the [deferred-work.md](deferred-work.md) entry of the same name; move to `done/`
-when nothing in it remains open.*
+*Shipped 2026-09-06 (#1287 shape, #1288, #1289, #1290, and this docs close-out). Registered
+2026-08-24 as "Vault Task Door Publishes No Task Events"; left the live folder when the last of
+the three defects closed. Kept as the record of why the cascade is shaped the way it is — and of
+the two alternatives that were rejected on the way.*
 
-Registered 2026-08-24 as "Vault Task Door Publishes No Task Events". The trigger fired
-2026-09-06 and the door was read; the gap it named is real but **narrower in one direction and
-wider in two others** than the registration said. This file records what the code actually does,
-and the shape ruled for closing it.
+The trigger fired 2026-09-06 and the door was read; the gap the registration named was real but
+**narrower in one direction and wider in two others** than it said. This file records what the
+code did, what it does now, and why.
+
+## What shipped
+
+| Defect | Closed by | Where the contract now lives |
+|---|---|---|
+| 1 — born-completed creates publish no completion event | #1288 | `TasksCoreService._publish_born_completed` and its Goal/Event siblings |
+| 3 — `last_completion_at` is not monotone | #1288 | `CrossDomainBackend.stamp_productivity_completion` (a `CASE` max, no APOC) |
+| 2c — the validator admits an illegal status target | #1289 | `IngestionValidator.validate_entity_data`, against `EntityType.<T>.valid_statuses()` |
+| 2a/2b — the vault door skips the completion event and the reopen-clear | #1290 | `core/services/ingestion/status_transitions.py` + `UnifiedIngestionService._apply_status_transitions` |
+
+Two obligations were found while building it and are **still open**, each with its own case file:
+[the goal-progress edge nothing writes](../goal-progress-reads-an-unwritten-edge.md) and
+[ingest transition-obligation durability](../ingest-transition-obligation-durability.md) — the vault
+door's post-persist announcement has no outbox, so a read-back failure loses the announcement
+rather than the ingest.
 
 ## What the registration got wrong
 
@@ -35,19 +49,19 @@ carrying the live traffic: the vault holds **zero** real `type: task` frontmatte
 matches, all code examples and templates). `get_productivity_analytics`' own docstring already
 named "a task created already completed" as a drift source; this is that sentence's cause.
 
-## The three defects
+## The three defects, as they were
 
-**1 — Born-completed creates publish no completion event.** `create_task` / `create_goal` /
-`create_event` publish only `*Created`. Every `TaskCompleted` subscriber therefore skips a task
-that arrives already done: goal-progress recompute, PS-engagement auto-complete, context
+**1 — Born-completed creates published no completion event.** `create_task` / `create_goal` /
+`create_event` published only `*Created`. Every `TaskCompleted` subscriber therefore skipped a
+task that arrived already done: goal-progress recompute, PS-engagement auto-complete, context
 invalidation, the Prometheus `entities_completed{task}` counter, and the `ProductivityAnalytics`
 stamps. Reached by the DSL/checkbox extractor and by any API create carrying
 `status: completed`.
 
-**2 — The vault bulk door skips the whole status guard, not just the events.**
+**2 — The vault bulk door skipped the whole status guard, not just the events.**
 `UnifiedIngestionService` → `BulkUpsertBackend.upsert_with_relationships`
-(`adapters/persistence/neo4j/bulk_upsert_backend.py`) MERGEs and returns `count(n)`. It never
-calls `update_with_status_guard`, so **all three** of that primitive's jobs are skipped at this
+(`adapters/persistence/neo4j/bulk_upsert_backend.py`) MERGEd and returned `count(n)`. It never
+called `update_with_status_guard`, so **all three** of that primitive's jobs were skipped at this
 door (ADR-087):
 
 - *no completion event* — nothing knows a prior status, and without one an honest publish is
@@ -60,12 +74,12 @@ door (ADR-087):
   `type: principle, status: completed` passes it although COMPLETED is not in
   `EntityType.PRINCIPLE.valid_statuses()`.
 
-**3 — `stamp_productivity_completion` is not monotone.**
+**3 — `stamp_productivity_completion` was not monotone.**
 `SET analytics.last_completion_at = datetime($occurred_at)`
-(`adapters/persistence/neo4j/cross_domain_backend.py:493`) is unconditional. That is correct only
+(`adapters/persistence/neo4j/cross_domain_backend.py`) was unconditional. That is correct only
 while every publisher's `occurred_at` is *now*. The moment an authored `✅` date publishes, an
-out-of-order batch moves "when did this user most recently complete something" **backward**. The
-fix belongs in whichever change first backdates `occurred_at`.
+out-of-order batch moves "when did this user most recently complete something" **backward**, so
+the fix rode with the change that first backdated `occurred_at`.
 
 ## Why "all 5 stamping domains" splits into 3 and 5
 
@@ -84,7 +98,7 @@ A new `HabitFinished` / `ChoiceCompleted` would have zero subscribers — staged
 So **defect 1 and the event half of defect 2 are Task/Goal/Event**, while **the status-contract
 half of defect 2 is all five plus Principle's legality gate**.
 
-## The shape
+## The shape that was built
 
 Four changes, in this order.
 
@@ -99,11 +113,12 @@ Four changes, in this order.
    property write so the prior status is read *under the node's write-lock* (the ADR-087 shape,
    not a pre-read) and returns it per row. Post-persist then applies the reopen-clear for all
    five stamping domains and publishes the three completion events on genuine transitions only.
-4. **Docs** — several docstrings currently state this gap as permanent and must stop
+4. **Docs** — several docstrings stated this gap as permanent and stopped
    (`core/events/task_events.py`, `core/services/cross_domain_analytics_service.py`,
    `adapters/persistence/neo4j/cross_domain_backend.py`, `adapters/inbound/analytics_api.py`,
    `docs/domains/tasks.md`, and the premise of
-   `scripts/backfill_productivity_completion_stamps.py`).
+   `scripts/backfill_productivity_completion_stamps.py`, whose reason for existing is narrowed to
+   pre-fix history rather than removed).
 
 ## Rejected
 
@@ -116,6 +131,9 @@ rejected because it fixes **only** the stamps: goal progress, PS-engagement auto
 context invalidation stay silent for every born-completed entity, which is the larger half of the
 bug. Revisit only if the event half is abandoned.
 
-**Named cost while open:** completion stamps drift stale, and the goal-progress /
-PS-engagement / context-invalidation cascade does not run, for every entity that arrives already
-completed through the DSL, API-create or vault-frontmatter doors.
+**The cost this carried while open:** completion stamps drifted stale, and the goal-progress /
+PS-engagement / context-invalidation cascade did not run, for every entity that arrived already
+completed through the DSL, API-create or vault-frontmatter doors. `./dev
+backfill-productivity-stamps` fills that history — and stays useful afterwards for a user left
+without a stamp by a lost announcement, since the vault door still has no outbox
+([ingest transition-obligation durability](../ingest-transition-obligation-durability.md)).

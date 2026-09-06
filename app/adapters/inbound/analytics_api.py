@@ -123,9 +123,12 @@ def register_analytics_routes(app, services):
         from the graph on one read — the tasks the user currently owns in
         COMPLETED, and the subset stamped inside the window — so the window is
         a subset of the total by construction. Only the two stamps come from
-        the analytics node; a user whose completions all arrived through a
-        door that publishes no task event (the vault ``- [x]`` upsert) has
-        real counts and ``null`` stamps. See
+        the analytics node, so a user with no stamped completion yet has real
+        counts and ``null`` stamps until ``./dev backfill-productivity-stamps``
+        runs (that script's docstring enumerates how a stamp goes missing). A
+        stamp lost *after* one exists is a different case and not repairable
+        there: the counts stay current while ``last_completion_at`` goes stale
+        (``docs/roadmap/ingest-transition-obligation-durability.md``). See
         ``CrossDomainAnalyticsService.get_productivity_metrics``.
         """
         user_uid = require_authenticated_user(request)

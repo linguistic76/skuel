@@ -1,7 +1,7 @@
 ---
 title: Tasks Domain
 created: 2025-12-04
-updated: 2026-09-05
+updated: 2026-09-06
 status: current
 category: domains
 tags:
@@ -261,11 +261,18 @@ The Tasks domain publishes domain events for cross-service communication:
 
 **Event handling:** Other services subscribe to these events (e.g., UserContext invalidation, goal progress updates).
 
-**Every door to COMPLETED publishes `TaskCompleted`.** Three publishers, one contract:
+**Every door to COMPLETED publishes `TaskCompleted`.** Five doors, one contract:
 `complete_task_with_cascade` (the explicit-complete doors), the status chokepoint
-`update_task` (`POST /api/tasks/{uid}/status`), and a per-row fan-out from
-`complete_tasks_bulk`. The last two are transition-gated, so they publish exactly when the
-write moved the task INTO completed and stay silent otherwise.
+`update_task` (`POST /api/tasks/{uid}/status`), a per-row fan-out from `complete_tasks_bulk`,
+the create door for a task born `completed` (`TasksCoreService._publish_born_completed` — a DSL
+`- [x]` line or an API create carrying the status), and the vault door's post-persist
+announcement (`UnifiedIngestionService._apply_status_transitions`). Three of the five are
+transition-gated — the status chokepoint, the bulk fan-out and the vault door — so they publish
+exactly when the write moved the task INTO completed and stay silent otherwise; the vault door
+reads its prior status under the node's write-lock, which is what makes a `--force` re-ingest of
+already-completed files silent. The create door has no prior status, so its publish is a
+transition by construction. The explicit-complete doors are the exception on purpose: they re-run
+on an already-completed task and report it (`is_repeat=True`, the repair path below).
 
 **`TasksBulkCompleted` is published alongside the per-row events, not instead of them** — it
 carries the shape of the *batch* (size, time of day) for pattern classification. A consumer
@@ -283,8 +290,8 @@ repeat. See the `TaskCompleted` docstring in `core/events/task_events.py` for th
 
 **`tasks_completed` is derived at read, not stored.** `GET /api/analytics/productivity` counts
 the user's tasks currently in `completed` on the same traversal that counts the velocity window,
-so the window is a subset of the total by construction and a completion arriving through a door
-that publishes no task event (the vault `- [x]` upsert) is counted the moment it exists. The
+so the window is a subset of the total by construction and the total *falls* when a completed
+task is deleted or reopened — which a tally maintained from completion events cannot do. The
 `ProductivityAnalytics` node holds only `first_completion_at` / `last_completion_at`.
 
 **`TaskReopened` is the mirror**, published from `update_task` alone on a transition OUT of

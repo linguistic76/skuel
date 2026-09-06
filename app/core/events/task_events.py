@@ -90,14 +90,17 @@ class TaskCompleted(BaseEvent):
 
     **Only the explicit-complete cascade ever sets ``is_repeat=True``.** The
     other publishers cannot reach a repeat: the status chokepoint
-    (``update_task``) and the per-row fan-out from ``complete_tasks_bulk`` are
-    transition-gated, publishing exactly when the write moved the task INTO
-    completed; the create door (``TasksCoreService._publish_born_completed``,
-    for a task born ``completed`` — a DSL ``- [x]`` line or an API create
-    carrying the status) has no prior status at all, so its publish is a
-    transition by construction.
+    (``update_task``), the per-row fan-out from ``complete_tasks_bulk`` and the
+    vault door's post-persist announcement
+    (``UnifiedIngestionService._apply_status_transitions``, from the prior status
+    the bulk upsert returns under the node's write-lock) are transition-gated,
+    publishing exactly when the write moved the task INTO completed; the create
+    door (``TasksCoreService._publish_born_completed``, for a task born
+    ``completed`` — a DSL ``- [x]`` line or an API create carrying the status)
+    has no prior status at all, so its publish is a transition by construction.
 
-    A born-completed task carries its own ``completion_date`` as ``occurred_at``,
+    A task completed away from the app carries its own ``completion_date`` as
+    ``occurred_at`` — the born-completed create door and the vault door both —
     which is why the stamps a subscriber keeps must be order-insensitive: a vault
     sync hands historical completions to the graph in file order, not
     chronological order.
@@ -132,6 +135,14 @@ class TaskReopened(BaseEvent):
     it records no completion moment and must leave completion timestamps where
     they are.
 
+    ⚠ **The chokepoint is not the only place a task leaves ``completed``.** The
+    vault door detects the same transition from the prior status its bulk upsert
+    returns and performs the reopen's *effect* — removing ``completion_date``
+    (``UnifiedIngestionService._apply_status_transitions``) — without publishing
+    this event, because it has no subscriber to serve. Anyone who ever gives it
+    one must wire that door too, or a reopen made in Obsidian will be the half
+    the subscriber never hears.
+
     Subscribers: **none, by ruling** (2026-08-24 — see below, not an accident
     of nobody having gotten to it). It was introduced so ``ProductivityAnalytics``
     could hold ``tasks_completed`` as a recomputed number that can fall; that
@@ -158,7 +169,9 @@ class TaskReopened(BaseEvent):
        predicate, not an event. And once state is the authority the event has no
        verb left — a completion also only reaches the vault on the next
        human-initiated sync, so a subscriber would buy nothing but an asymmetric
-       eagerness and a second live path to one outcome.
+       eagerness and a second live path to one outcome. (The vault door also
+       detects a reopen, but it learns of one while ingesting the file that made
+       it — there is nothing to write back.)
     3. Kept published, deliberately **unsubscribed**.
 
     ``./dev bloat`` reporting this as INFO (published, never subscribed) is the
