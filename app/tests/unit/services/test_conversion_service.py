@@ -2,7 +2,7 @@
 Unit tests for ConversionServiceV2 — the request→domain conversion choke point.
 
 Testing-gap roadmap item 4: ConversionServiceV2 is THE single request→domain
-converter for all create paths (CRUDRouteFactory registry lookup + templates_ui),
+converter for all create paths (CRUDRouteFactory registry lookup),
 yet until now it had only indirect coverage through route-factory tests. These
 tests exercise the converters directly, mock-free — every converter is a sync
 classmethod, pure except the uuid4 fallback and datetime.now() timestamp

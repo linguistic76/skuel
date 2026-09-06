@@ -2,8 +2,8 @@
 Shared base for Activity Template create-request models.
 
 Hoists the `title` field shared by all six *TemplateCreateRequest classes so
-generic code (e.g. `parse_template_form_body[T: TemplateCreateRequest]`) can
-rely on `.title` being present without per-schema casts.
+generic code (route factories, converters) can rely on `.title` being present
+without per-schema casts.
 """
 
 from __future__ import annotations

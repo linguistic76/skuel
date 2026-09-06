@@ -11,7 +11,7 @@ check: "`git grep -n 'milestones' core/services/ingestion/validator.py` — empt
 
 *Case file for the [deferred-work.md](deferred-work.md) entry of the same name; move to `done/`
 when nothing in it remains open. Found while driving the vault door in the
-[activity-templates-vault-door](activity-templates-vault-door.md) arc, PR-2.*
+[activity-templates-vault-door](done/activity-templates-vault-door.md) arc, PR-2.*
 
 Three fields take a list of maps rather than a list of strings: `milestones` (Goal and
 GoalTemplate), `options` (Choice and ChoiceTemplate), and `expressions` (Principle and

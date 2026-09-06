@@ -21,7 +21,7 @@ script fixes that blind spot.
 
 **What counts as a mutation (the gate).** A handler declares a mutating HTTP
 method (``POST``/``PUT``/``DELETE``/``PATCH``) **or** reads a request body —
-form (``request.form()`` / ``parse_form_body`` / ``parse_template_form_body``)
+form (``request.form()`` / ``parse_form_body``)
 **or** JSON (``request.json()`` / ``parse_json_body``) — regardless of the
 ``methods=`` kwarg. JSON endpoints are harder to exploit via classic form-CSRF
 (a cross-site ``<form>`` can't set ``application/json``), but Starlette parses a
@@ -67,7 +67,7 @@ ROUTE_DECORATORS = {"rt", "route"}
 CSRF_DECORATOR = "csrf_protected"
 ROLE_DECORATORS = {"require_admin", "require_member", "require_teacher", "require_role"}
 AUTH_CALLS = {"require_authenticated_user", "verify_entity_ownership", "require_owned_entity"}
-FORM_HELPERS = {"parse_form_body", "parse_template_form_body"}
+FORM_HELPERS = {"parse_form_body"}
 JSON_HELPERS = {"parse_json_body"}
 
 # ── Intentional exemptions ───────────────────────────────────────────────────

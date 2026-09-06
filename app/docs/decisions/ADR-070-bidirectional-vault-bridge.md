@@ -285,18 +285,18 @@ edges — plus CURRICULUM-scope Exercises. Verified 2026-09-03:
   the content vault's `edges/` (`PrereqSuggestionService`) — the vault stays the author and the
   next sync reads it back.
 
-**What SKUEL does author in-app** (the sole-author claim stops here): the six PathStep-owned
-Activity Templates — teaching UI `/teaching/ps/{ps_uid}/templates/{domain}/{new,edit,detach}` plus
-the `/api/pathstep-{domain}-templates/*` JSON CRUD, TEACHER+ — and PERSONAL / ASSIGNED /
-ASSESSMENT exercises, which are user-owned.
+**What SKUEL does author in-app** (the sole-author claim stops here): PERSONAL / ASSIGNED /
+ASSESSMENT exercises, which are user-owned. The six PathStep-owned Activity Templates keep a
+`/api/pathstep-{domain}-templates/*` JSON CRUD (TEACHER+), but the vault is their author.
 
 > **Amended 2026-09-05 — Activity Templates are no longer an exception.** Decision 10 named them
 > in-app-authored because the teaching UI was their only door. It was also the reason zero
 > templates existed: they had been given precisely the surface the Activity instances deleted in
 > March. They are now vault-ingestible (`type: task_template`, …; a PathStep attaches them via
 > `{domain}_template_uids:` frontmatter), so Decision 10's sole-author claim extends to them and
-> the remaining exception is user-owned exercises. The teaching CRUD is scheduled for deletion.
-> See [activity-templates-vault-door.md](../roadmap/activity-templates-vault-door.md).
+> the remaining exception is user-owned exercises. The teaching create/edit/detach forms were
+> deleted 2026-09-06; `/teaching/ps/{ps_uid}/templates` survives as a read-only panel on the PS
+> detail page. See [activity-templates-vault-door.md](../roadmap/done/activity-templates-vault-door.md).
 
 **Consequence.** A SKUEL-side editor for curriculum structure is a new decision, not an extension
 of this one: it needs outbound-before-inbound ordering in the reconciler, two-sided conflict
@@ -424,4 +424,4 @@ personal vault's own direction statement).
 | 2026-07-01 | Mike + Claude Code | Decision 9 — ingestion is human-initiated per event (1a); raw `/api/ingest/directory` deleted, content-vault sync unified onto the reconciler via new admin `POST /api/vault/sync/content` (resolves review A1); continuous watcher + provisioner deleted, all unattended scheduling out of scope, enforcing Alternative E (resolves review A2). | 0.5 |
 | 2026-08-24 | Mike + Claude Code | **Resolved Design Question 2 AMENDED** — the undone round-trip is BUILT: a reopen un-checks its vault line and strips the `✅` date, byte-exact reverse of the done write, gated on a TRAILING `✅` token so it only ever takes back SKUEL's OWN write (a dateless `[x]` the user ticked, and a `✅ date` in their own task text, are both left alone). Two of the deferral's three premises were false (inbound does not "work for free"; a stale `✅` date is a wrong record, not a UX gap). Driven by the outbound pass's state predicate, not by `TaskReopened` (which stays published and deliberately unsubscribed). Field-authority row for undone moves to SKUEL. Wire-protocol change: `PROTOCOL_VERSION` 2 → 3. ⚠️ Outbound only — inbound propagation stays parked (deferred-work § R4). | 0.6 |
 | 2026-09-03 | Mike + Claude Code | **Decision 10** — curriculum ingestion is one-way; the content vault is the sole author of curriculum structure (Ku/PathStep/LP + CURRICULUM-scope exercises: no create/update/delete route; the PS composition endpoints have no UI caller; prereq approval writes into the vault). The in-app-authored exceptions are named: Activity Templates (teaching UI) and user-scoped exercises. Records Mike's 2026-07-11 ruling (signal arc, Q3). | 0.7 |
-| 2026-09-05 | Mike + Claude Code | **Decision 10 AMENDED** — Activity Templates leave the in-app-authored exception list: they are vault-ingestible (`type: <domain>_template`, PathStep attaches via `{domain}_template_uids:`). The teaching UI was their only door and the whole explanation for zero templates existing. User-scoped exercises remain the one exception. See `roadmap/activity-templates-vault-door.md`. | 0.8 |
+| 2026-09-05 | Mike + Claude Code | **Decision 10 AMENDED** — Activity Templates leave the in-app-authored exception list: they are vault-ingestible (`type: <domain>_template`, PathStep attaches via `{domain}_template_uids:`). The teaching UI was their only door and the whole explanation for zero templates existing. User-scoped exercises remain the one exception. See `roadmap/done/activity-templates-vault-door.md`. | 0.8 |

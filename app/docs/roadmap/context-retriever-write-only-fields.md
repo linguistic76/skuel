@@ -305,7 +305,7 @@ rename toward a model we may be leaving.
 
 **✅ HOLD RELEASED, rename EXECUTED 2026-09-05** — the templates question was
 settled on 2026-09-05 (templates are vault-authored; see
-[activity-templates-vault-door.md](activity-templates-vault-door.md)), and it
+[activity-templates-vault-door.md](done/activity-templates-vault-door.md)), and it
 settled in the direction that makes the rename *required*, not merely tidy: the
 template door registers `HAS_EVENT_TEMPLATE` under `event_template_uids`, and
 `generate_ingestion_relationship_config` keys on `yaml_field_path`, so the two

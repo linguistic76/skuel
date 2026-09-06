@@ -15,7 +15,7 @@ Test Categories:
 4. RelativeOffset authoring — canonical storage shape, and the loud rejection
    of a value the reader would silently rebuild as a zero offset
 
-See: /docs/roadmap/activity-templates-vault-door.md
+See: /docs/roadmap/done/activity-templates-vault-door.md
 """
 
 from __future__ import annotations
