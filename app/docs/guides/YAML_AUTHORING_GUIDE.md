@@ -487,8 +487,8 @@ to the instance spawned alongside it. `status:` is stamped `active` at the inges
 
 **See: [Activity Template Authoring](ACTIVITY_TEMPLATE_AUTHORING.md)** — the six kinds,
 their complete field references, the offset vocabulary, structured lists, and what
-engagement does. The JSON API (`POST /api/task-templates/` + `/attach`) remains a second
-door.
+engagement does. The JSON API (`POST /api/pathstep-task-templates/` and its
+`/attach`, one route file per kind) remains a second door.
 
 ### PathStep YAML with `task_uids` (Static Approach)
 

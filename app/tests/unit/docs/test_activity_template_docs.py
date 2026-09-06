@@ -344,3 +344,54 @@ def test_documented_enum_vocabularies_match_the_registry(
             f"{documented} but {enum_cls.__name__} is "
             f"{[member.value for member in enum_cls]}."
         )
+
+
+def test_documented_json_api_path_matches_the_route_configs() -> None:
+    """The guide's second-door path must match the six route configs' ``domain_name``.
+
+    The guide it replaced named ``POST /api/task-templates/`` and
+    ``POST /api/ps/{ps_uid}/task-templates/{uid}/attach``. Neither route has ever
+    existed — the factory builds ``/api/{domain_name}`` and every template config
+    names itself ``pathstep-{domain}-templates``. Same failure class as the
+    ``priority`` field: prose naming a surface nobody checked.
+    """
+    from adapters.inbound.pathstep_choice_templates_routes import (
+        PATHSTEP_CHOICE_TEMPLATES_CONFIG,
+    )
+    from adapters.inbound.pathstep_event_templates_routes import (
+        PATHSTEP_EVENT_TEMPLATES_CONFIG,
+    )
+    from adapters.inbound.pathstep_goal_templates_routes import PATHSTEP_GOAL_TEMPLATES_CONFIG
+    from adapters.inbound.pathstep_habit_templates_routes import (
+        PATHSTEP_HABIT_TEMPLATES_CONFIG,
+    )
+    from adapters.inbound.pathstep_principle_templates_routes import (
+        PATHSTEP_PRINCIPLE_TEMPLATES_CONFIG,
+    )
+    from adapters.inbound.pathstep_task_templates_routes import PATHSTEP_TASK_TEMPLATES_CONFIG
+
+    configs = (
+        PATHSTEP_TASK_TEMPLATES_CONFIG,
+        PATHSTEP_GOAL_TEMPLATES_CONFIG,
+        PATHSTEP_HABIT_TEMPLATES_CONFIG,
+        PATHSTEP_EVENT_TEMPLATES_CONFIG,
+        PATHSTEP_CHOICE_TEMPLATES_CONFIG,
+        PATHSTEP_PRINCIPLE_TEMPLATES_CONFIG,
+    )
+    documented = "/api/pathstep-{domain}-templates/"
+    guide = ATA_GUIDE.read_text(encoding="utf-8")
+    assert documented in guide, (
+        f"{ATA_GUIDE.name} no longer documents the second door as {documented!r}."
+    )
+    # Expected names come from the six EntityTypes, not from the configs, so the
+    # check is a derivation rather than a round trip through the value under test.
+    expected = {
+        documented.format(domain=entity_type.value.removesuffix("_template"))
+        .strip("/")
+        .removeprefix("api/")
+        for entity_type in (_entity_type_of(cls) for cls in TEMPLATE_CLASSES.values())
+    }
+    assert {config.domain_name for config in configs} == expected, (
+        f"Route configs name themselves {sorted(config.domain_name for config in configs)}; "
+        f"{ATA_GUIDE.name} documents {documented!r}, i.e. {sorted(expected)}."
+    )

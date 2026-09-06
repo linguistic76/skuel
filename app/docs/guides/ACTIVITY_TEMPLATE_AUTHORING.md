@@ -17,8 +17,10 @@ every engagement-relative offset resolved against the moment they engaged. One
 `HabitTemplate` on a PathStep becomes a personal Habit for every learner who starts it.
 
 Templates are curriculum, so they are authored the way all curriculum is authored —
-as files in the content vault. The JSON API remains a second door; the vault is the
-one you should use.
+as files in the content vault. A JSON API remains as a second door — one route file per
+kind, `POST /api/pathstep-{domain}-templates/` to create and
+`POST /api/pathstep-{domain}-templates/attach?ps_uid=…&template_uid=…` to attach — but the
+vault is the one you should use.
 
 | | Instance (`Task`, `Habit`, …) | Template (`TaskTemplate`, `HabitTemplate`, …) |
 |---|---|---|
