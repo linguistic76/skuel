@@ -52,12 +52,42 @@ logger = get_logger("skuel.adapters.bulk_upsert")
 # need headroom but should still be bounded.
 _BULK_INGESTION_TIMEOUT_SECONDS: float = 600.0
 
+# Carries MERGE's create/match signal from the ON CREATE / ON MATCH branches to
+# the property write, which can no longer live in those branches: the node's
+# PRIOR status has to be read between the MERGE and the write that overwrites it
+# (ADR-087 — the prior is read under the node's write-lock, never before the
+# statement). The marker is removed in the same transaction and is never
+# committed; the created branch's ``SET n = props`` already drops it, so the
+# REMOVE is the matched branch's cleanup. Named once because Cypher reads an
+# unknown property as null rather than erroring, which would silently turn the
+# flag into a constant. (Same device as ``IngestionWriteBackend``'s edge-writer
+# marker.)
+_CREATE_MARKER = "_ingest_new"
+
 
 def _label_clause(entity_label: str, base_label: str | None) -> str:
     """Neo4j label clause for MERGE/CREATE, e.g. 'Entity:Task' or just 'Group'."""
     if base_label and base_label != entity_label:
         return f"{base_label}:{entity_label}"
     return entity_label
+
+
+def _prior_statuses(rows: list[dict[str, Any]]) -> dict[str, str | None]:
+    """Map ``uid`` → the status each node held BEFORE this upsert wrote to it.
+
+    Reads the node template's rows (see :func:`build_node_upsert_template`).
+    Rows without a ``uid`` key are skipped rather than assumed: ``execute_batch``
+    is shared with the relationship template, whose single ``count(n)`` row has a
+    different shape.
+    """
+    prior: dict[str, str | None] = {}
+    for row in rows:
+        uid = row.get("uid")
+        if uid is None:
+            continue
+        status = row.get("prior_status")
+        prior[str(uid)] = None if status is None else str(status)
+    return prior
 
 
 def build_node_upsert_template(
@@ -70,6 +100,15 @@ def build_node_upsert_template(
     Uses pre-filtered ``item._node_props`` for node storage — connection keys
     are excluded in Python (``batch_preparer``) so relationship sources never
     leak onto the node as properties.
+
+    Returns one row per item carrying ``uid`` and the node's **prior status** —
+    the status the node held before this ingest overwrote it, read between the
+    ``MERGE`` and the property write and therefore under the node's write-lock
+    (ADR-087: a status transition is decided BY the write, never before it).
+    That prior is what lets the vault door tell a genuine completion from a
+    ``--force`` re-ingest of an already-completed file, and a reopen from an
+    ordinary edit. ``null`` for a node this batch created — a create has no
+    prior status.
 
     For ``:Entity``-based labels the template also maintains the owner edge:
     every row persisted with a ``user_uid`` property gets its
@@ -95,7 +134,7 @@ def build_node_upsert_template(
 // The stale-owner DELETE enforces the single-owner invariant on re-ingest:
 // when the resolved owner changes (or an out-of-band edge exists), the
 // former owner must not keep access through a leftover :OWNS edge.
-WITH n, props
+WITH item, props, n, prior_status
 CALL (n, props) {
   WITH n, props.user_uid AS _owner_uid
   WHERE _owner_uid IS NOT NULL
@@ -119,14 +158,22 @@ CALL (n, props) {
 UNWIND $items AS item
 WITH item, item._node_props AS props
 MERGE (n:{label_clause} {{uid: item.uid}})
-  ON CREATE SET
-    n = props,
-    n.created_at = coalesce(props.created_at, toString(datetime()))
-  ON MATCH SET
-    n += props,
-    n.updated_at = datetime()
+  ON CREATE SET n.{_CREATE_MARKER} = true
+  ON MATCH SET n.{_CREATE_MARKER} = false
+// The prior status is read here — after the MERGE took the node's write-lock,
+// before the property write overwrites it (ADR-087). The create/match branches
+// therefore move out of MERGE and into the FOREACHes below, which preserve
+// their semantics exactly: `n = props` REPLACES, `n += props` MERGES.
+WITH item, props, n, n.status AS prior_status, n.{_CREATE_MARKER} AS created
+FOREACH (_ IN CASE WHEN created THEN [1] ELSE [] END |
+  SET n = props,
+      n.created_at = coalesce(props.created_at, toString(datetime())))
+FOREACH (_ IN CASE WHEN created THEN [] ELSE [1] END |
+  SET n += props,
+      n.updated_at = datetime())
+REMOVE n.{_CREATE_MARKER}
 {owns_clause}
-RETURN count(n) as processed
+RETURN item.uid AS uid, prior_status
 """
     return CypherTemplate(
         name=f"{entity_label.lower()}_node_upsert",
@@ -270,6 +317,7 @@ class BulkUpsertBackend:
                         nodes_updated=0,  # Calculated from properties_set when needed
                         relationships_created=0,
                         errors=[],
+                        prior_status_by_uid=_prior_statuses(stats.get("rows", [])),
                     )
                 )
 
@@ -472,5 +520,7 @@ class BulkUpsertBackend:
                 nodes_updated=nodes.nodes_updated,
                 relationships_created=rels_result.value.relationships_created,
                 errors=[],
+                # The prior statuses belong to phase 1; phase 2 writes only edges.
+                prior_status_by_uid=nodes.prior_status_by_uid,
             )
         )

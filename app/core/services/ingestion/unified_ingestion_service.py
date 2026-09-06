@@ -50,6 +50,7 @@ __version__ = "2.0"
 from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
     from pathlib import Path
 
     from core.ports.ingestion_protocols import (
@@ -64,11 +65,13 @@ if TYPE_CHECKING:
     from core.services.user_service import UserService
     from core.services.vault.vault_descriptor import VaultRegistry
 
+from core.events import publish_event
 from core.models.enums.entity_enums import EntityType, NonKuDomain
 from core.models.enums.pipeline import Pipeline
 from core.models.ps_content.content_chunks import ChunkingParams
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID, UserUID
+from core.services.completion_stamp import COMPLETION_FIELDS
 from core.services.vault.vault_descriptor import VaultKind
 from core.utils.decorators import with_error_handling
 from core.utils.exception_types import NEO4J_EXCEPTIONS
@@ -94,6 +97,7 @@ from .preparer import (
     prepare_edge_data,
     prepare_entity_data,
 )
+from .status_transitions import classify_ingest_status_transitions
 from .types import (
     BundleStats,
     ChunkSource,
@@ -545,23 +549,79 @@ class UnifiedIngestionService:
         entity_type: EntityType | NonKuDomain,
         entities: list[dict[str, Any]],
         chunk_sources: dict[str, ChunkSource],
+        prior_status_by_uid: Mapping[str, str | None],
     ) -> None:
         """
-        Batch-door post-persist step: embedding publishes + body chunking.
+        Batch-door post-persist step: status transitions, embeddings, body chunking.
 
         Passed to ``batch.ingest_directory`` as ``post_persist_fn``, invoked
         per successful per-type upsert. Mirrors ``ingest_file``'s post-persist
-        sequence: entity ``*EmbeddingRequested`` publishes first, then the
-        shared chunk step for each ``chunks_body_content`` entity whose
-        content the engine popped pre-upsert (``chunk_sources`` is empty for
-        every other type).
+        sequence: the ADR-087 status-transition step, then entity
+        ``*EmbeddingRequested`` publishes, then the shared chunk step for each
+        ``chunks_body_content`` entity whose content the engine popped
+        pre-upsert (``chunk_sources`` is empty for every other type).
         """
+        await self._apply_status_transitions(entity_type, entities, prior_status_by_uid)
         await self._publish_embedding_requests(entity_type, entities)
         params = resolve_chunking_params(entity_type)
         for uid, source in chunk_sources.items():
             await self._chunk_entity_content(
                 uid, source.content, source.file_format, source.source_path, params
             )
+
+    async def _apply_status_transitions(
+        self,
+        entity_type: EntityType | NonKuDomain,
+        entities: list[dict[str, Any]],
+        prior_status_by_uid: Mapping[str, str | None],
+    ) -> None:
+        """Honour ADR-087's status contract for a persisted batch — both ingest doors.
+
+        The bulk upsert ``MERGE``s rather than going through
+        ``update_with_status_guard``, so the primitive's two prior-dependent jobs
+        are done here from the prior status the upsert returned (read under the
+        node's write-lock, so a re-ingest cannot mistake a repeat for a
+        transition):
+
+        - a file that arrives ``completed`` when the node was not publishes the
+          domain's completion event, so goal progress, PS engagement
+          auto-complete, productivity analytics and context invalidation see the
+          vault's completions exactly as they see the app's;
+        - a file edited out of ``completed`` has its completion stamp removed, so
+          the invariant "the stamp is non-null exactly when the entity is
+          completed" survives an edit made in Obsidian.
+
+        A ``--force`` re-ingest of already-completed files is neither, and is
+        therefore silent.
+
+        The clear is an Analog write and runs in CORE too; only the publish is
+        tier-gated (``event_bus`` is None there). A failed clear is logged, not
+        raised: the entity and its tracker stamp have already landed, so failing
+        the file would only hide a stranded stamp behind a sync error that the
+        next run — seeing an unchanged hash — would never retry.
+        """
+        if not isinstance(entity_type, EntityType):
+            return
+        transitions = classify_ingest_status_transitions(entity_type, entities, prior_status_by_uid)
+        if transitions.reopened_uids:
+            field_name = COMPLETION_FIELDS[entity_type]
+            try:
+                cleared = await self._write_backend.clear_completion_stamps(
+                    field_name, list(transitions.reopened_uids)
+                )
+                self.logger.info(
+                    f"Reopen-clear: removed {field_name} from {cleared} "
+                    f"{entity_type.value} entit(ies) the vault moved out of completed"
+                )
+            except NEO4J_EXCEPTIONS as e:
+                self.logger.error(
+                    f"Failed to clear {field_name} for {len(transitions.reopened_uids)} "
+                    f"reopened {entity_type.value} entit(ies) — the stamp is stranded on a "
+                    f"non-completed entity until the file changes again: {e}"
+                )
+        if self.event_bus is not None:
+            for event in transitions.completion_events:
+                await publish_event(self.event_bus, event, self.logger)
 
     # ========================================================================
     # MOC EDGE PASS — ``moc: true`` body links → ORGANIZES edges
@@ -1012,6 +1072,12 @@ class UnifiedIngestionService:
                 tracker.compute_file_hash(file_path),
                 authored_edges,
             )
+
+        # Post-persist status-transition step (ADR-087): the completion event
+        # this file's status change earns, and the reopen-clear it owes — the
+        # same step the batch door runs, off the prior status the upsert read
+        # under the node's write-lock.
+        await self._apply_status_transitions(entity_type, [entity_data], stats.prior_status_by_uid)
 
         # Post-persist embedding step (ADR-074): publish the entity's
         # *EmbeddingRequested event for the background worker. For chunked

@@ -158,6 +158,18 @@ class IngestionWriteOperations(Protocol):
         """
         ...
 
+    async def clear_completion_stamps(self, field_name: str, uids: list[str]) -> int:
+        """Drop the domain completion stamp from each named entity; return how many lost it.
+
+        The vault door's reopen-clear (ADR-087): a file edited out of
+        ``completed`` must not strand its completion stamp, whose invariant is
+        "non-null exactly when the entity is completed". ``field_name`` comes
+        from ``core.services.completion_stamp.COMPLETION_FIELDS`` — enum-keyed
+        and trusted, never user input. An entity whose stamp is already absent
+        is not an error.
+        """
+        ...
+
 
 @runtime_checkable
 class BulkUpsertOperations(Protocol):

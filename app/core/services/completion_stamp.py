@@ -30,6 +30,11 @@ its repeat-complete protection is the write's condition.
 Bypass paths are handled elsewhere by design: ingestion never auto-stamps (the
 file is the source of truth for its own dates), and the DSL ``[x]`` create door
 parses the obsidian-tasks ``✅ date`` into ``completion_date`` at conversion.
+The ingest doors do owe the other two rules, and honour them without the guard:
+they ``MERGE`` in bulk, so ``core.services.ingestion.status_transitions``
+reassembles the transition verdicts from the prior status the upsert returns —
+same rules (:data:`COMPLETION_FIELDS` is the shared mapping), a different write
+primitive.
 
 **Why every ``changes`` parameter below is ``Mapping[str, Any]``** (the ``# boundary:``
 each one carries, stated once here rather than five times): ``changes`` is a materialized

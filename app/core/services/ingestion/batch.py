@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import asyncio
 import re
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -612,7 +612,12 @@ async def ingest_directory(
     allowlist: SyncAllowlist | None = None,
     owner_is_authoritative: bool = False,
     post_persist_fn: Callable[
-        [EntityType | NonKuDomain, list[dict[str, Any]], dict[str, ChunkSource]],
+        [
+            EntityType | NonKuDomain,
+            list[dict[str, Any]],
+            dict[str, ChunkSource],
+            Mapping[str, str | None],
+        ],
         Awaitable[None],
     ]
     | None = None,
@@ -663,11 +668,12 @@ async def ingest_directory(
         post_persist_fn: Optional per-type-batch callback invoked AFTER a
             successful bulk upsert with the persisted entity dicts plus the
             ``chunks_body_content`` (PathStep, Ku) content the engine popped
-            pre-upsert (keyed by uid; empty for every other type) — the batch
-            door's half of the shared post-persist step (ADR-074:
-            ``UnifiedIngestionService._ingest_post_persist``, embedding
-            publishes + body chunking). Never called for failed batches
-            or in dry-run mode.
+            pre-upsert (keyed by uid; empty for every other type) and the prior
+            status of each upserted node (ADR-087) — the batch door's half of
+            the shared post-persist step
+            (``UnifiedIngestionService._ingest_post_persist``: status
+            transitions, embedding publishes, body chunking). Never called for
+            failed batches or in dry-run mode.
         moc_pass_fn: Optional MOC edge-pass callback
             (``UnifiedIngestionService._apply_moc_links``). Files with
             ``moc: true`` have their body-link suffixes collected during the
@@ -1338,7 +1344,9 @@ async def ingest_directory(
             if rel_config:
                 relationship_passes.append((entity_type, entities, rel_config))
             if post_persist_fn is not None:
-                await post_persist_fn(entity_type, entities, chunk_sources)
+                await post_persist_fn(
+                    entity_type, entities, chunk_sources, stats.prior_status_by_uid
+                )
             # Only persisted entities get their MOC edge pass — a failed
             # batch would refresh edges against a node that never landed.
             moc_items.extend(batch_moc_items)

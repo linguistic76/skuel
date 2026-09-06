@@ -251,3 +251,32 @@ class IngestionWriteBackend:
             ],
         )
         return int(records[0]["deleted"]) if records else 0
+
+    async def clear_completion_stamps(self, field_name: str, uids: list[str]) -> int:
+        """REMOVE ``field_name`` from each named entity; return how many were cleared.
+
+        The vault door's reopen-clear (ADR-087): a file edited ``status:
+        completed`` → ``status: in_progress`` must not leave its completion stamp
+        behind, because the invariant the stamp carries is "non-null exactly when
+        the entity is completed" — a stranded ``completion_date`` reads to every
+        consumer as a task that is still done.
+
+        ``field_name`` is a value of ``core.services.completion_stamp.COMPLETION_FIELDS``
+        (enum-keyed, trusted — never user input), which is what makes the
+        interpolation safe; the driver requires a ``LiteralString``, hence the
+        ignores. An entity whose stamp is already absent matches nothing and is
+        not an error.
+        """
+        if not uids:
+            return 0
+        records, _, _ = await self._driver.execute_query(  # pyright: ignore[reportArgumentType, reportCallIssue]
+            f"""
+            UNWIND $uids AS uid
+            MATCH (n:Entity {{uid: uid}})
+            WHERE n.{field_name} IS NOT NULL
+            REMOVE n.{field_name}
+            RETURN count(n) AS cleared
+            """,
+            uids=list(uids),
+        )
+        return int(records[0]["cleared"]) if records else 0

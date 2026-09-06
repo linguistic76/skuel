@@ -17,7 +17,7 @@ lives below the boundary in ``adapters/persistence/neo4j/bulk_upsert_backend.py`
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Literal, NamedTuple, TypedDict
 
 from core.models.relationship_names import RelationshipName
@@ -81,6 +81,10 @@ class IngestionResult:
     duration_ms: float | None = None
     nodes_deleted: int = 0
     relationships_deleted: int = 0
+    #: uid → the status each upserted node held BEFORE this write, read under
+    #: the node's write-lock (ADR-087). ``None`` for a node the write created.
+    #: Empty for every operation that is not a node upsert.
+    prior_status_by_uid: dict[str, str | None] = field(default_factory=dict)
 
     @property
     def success_rate(self) -> float:
