@@ -522,10 +522,17 @@ UI routes render it as a user-friendly banner rather than returning the JSON env
 |------------|---------|------------|----------|
 | **Query Params (GET)** | Silent helpers (`parse_*_query_param`) | 200 (default) | Booleans, dates, CSV lists, pagination |
 | **Required Params (GET)** | Strict helpers (`parse_*_param_strict`) | 400 | Required dates, bounded integers |
-| **HTML Form Params (GET)** | `Model.from_form_params()` classmethod | 400 | Many checkbox/enum/optional string params needing coercion |
+| **HTML Form Params (GET)** | `Model.from_form_params()` classmethod | 200 (banner) | Many checkbox/enum/optional string params needing coercion |
 | **JSON Bodies (POST/PUT)** | `parse_json_body(request, Model)` | 400 | Structured data, complex validation |
 | **Form Data Bodies (POST)** | `parse_form_body(request, Model)` | 400 | Structured form data with validation |
 | **Path Params** | Avoid (SKUEL uses query params) | N/A | Not used in SKUEL API routes |
+
+**Why the form-params row has no error status.** It is the one UI-route pattern
+in the table. `from_form_params()` drops an unrecognised facet silently, and a
+value it does reject raises a `ValidationError` — a `ValueError` subclass, which
+is what lets `/search/results` catch it and answer with `render_search_error`, an
+FT node FastHTML serves as **200**. No status is chosen anywhere on that path, so
+a reader looking for a 4xx to branch on will not find one.
 
 **SKUEL Preference:** Query parameters over path parameters for all routes. See [ROUTE_NAMING_CONVENTION.md](ROUTE_NAMING_CONVENTION.md).
 

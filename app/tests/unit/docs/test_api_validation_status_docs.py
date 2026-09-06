@@ -24,6 +24,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from fasthtml.common import FT
 from pydantic import BaseModel, Field
 
 from adapters.inbound.boundary import _get_status_for_error, result_to_response
@@ -32,7 +33,9 @@ from adapters.inbound.route_factories import (
     parse_bool_query_param,
     parse_date_param_strict,
 )
+from core.models.search_request import SearchRequest
 from core.utils.result_simplified import Errors, Result
+from ui.search.components import render_search_error
 
 _DOC = Path(__file__).resolve().parents[3] / "docs" / "patterns" / "API_VALIDATION_PATTERNS.md"
 _TABLE_HEADING = "## When to Use Each Pattern"
@@ -40,8 +43,6 @@ _TABLE_HEADING = "## When to Use Each Pattern"
 # Rows the table documents but this module does not drive, each with the reason.
 # A NEW row is neither driven nor listed, so it fails until someone decides which.
 _UNDRIVEN = {
-    # A classmethod on one search model, not a shared helper — nothing generic to drive.
-    "HTML Form Params (GET)": "400",
     # "Avoid (SKUEL uses query params)" — the row exists to say the pattern is unused.
     "Path Params": "N/A",
 }
@@ -106,6 +107,7 @@ def test_every_table_row_is_driven_or_declared_undriven() -> None:
         "Required Params (GET)",
         "JSON Bodies (POST/PUT)",
         "Form Data Bodies (POST)",
+        "HTML Form Params (GET)",
     }
     assert set(documented) == driven | set(_UNDRIVEN)
 
@@ -182,3 +184,27 @@ def test_guide_claims_no_422_for_a_validation_failure() -> None:
     ]
 
     assert offenders == [], f"422 claimed outside a BUSINESS context: {offenders}"
+
+
+def test_html_form_params_row_answers_with_a_banner_not_a_status() -> None:
+    """The table's one UI-route row: nothing on its path picks a status code.
+
+    An unrecognised facet is dropped silently, and a value the model does reject
+    raises a ``ValidationError`` — a ``ValueError`` subclass, which is what lets
+    ``/search/results`` catch it and return ``render_search_error``, an FT node
+    FastHTML serves as 200. A reader looking for a 4xx to branch on finds none.
+    """
+    kept = SearchRequest.from_form_params(query="x", user_uid="user_mike", entity_type="task")
+    dropped = SearchRequest.from_form_params(
+        query="x", user_uid="user_mike", entity_type="nonsense_facet"
+    )
+    assert kept.entity_types == ["task"], (
+        "the facet is parsed at all — the check below means something"
+    )
+    assert dropped.entity_types == []
+
+    with pytest.raises(ValueError):
+        SearchRequest.from_form_params(query="x", user_uid="user_mike", limit=0)
+
+    assert isinstance(render_search_error("Invalid filter selection.", "warning"), FT)
+    assert _documented_rows()["HTML Form Params (GET)"] == "200 (banner)"
