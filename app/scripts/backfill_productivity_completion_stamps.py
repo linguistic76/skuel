@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""Fill the NULL completion stamps on ``ProductivityAnalytics`` from task history — once.
+"""Fill the NULL completion stamps on ``ProductivityAnalytics`` from task history.
 
-A ONE-SHOT migration — no background loop, so the CORE "no background workers"
-guarantee holds. Tier-independent: pure graph maintenance, no API keys.
+An **idempotent, on-demand repair pass** — run by hand, never a loop, so the
+CORE "no background workers" guarantee holds. Tier-independent: pure graph
+maintenance, no API keys. Its first run is the migration off the pre-cascade
+history; it stays useful afterwards for the failure mode named in 1 below.
 
 ``ProductivityAnalytics`` now holds exactly two figures: ``first_completion_at``
 and ``last_completion_at``, written by the ``TaskCompleted`` handler on every
@@ -27,6 +29,7 @@ Two things about history are wrong for that shape, and this script fixes both:
    script's shape, so **re-run it after any such ERROR**, not only against
    pre-cascade history. See
    ``docs/roadmap/ingest-transition-obligation-durability.md``.
+
    This fills **only NULL stamps**: ``first_completion_at`` from the earliest
    ``Task.completion_date`` the user currently owns in ``completed``,
    ``last_completion_at`` from the latest. A stamp that exists is never moved —
@@ -53,9 +56,10 @@ through ``left(toString(...), 10)`` because the *writer* decides its storage
 type, not this reader — an ISO string on every live row, but a native
 ``date``/``datetime`` has to project to the same day rather than vanish.
 
-Idempotent: the second run finds no NULL stamp it can fill and no retired count,
-and changes nothing. The write is one statement per concern, so an interrupted
-run leaves each user either untouched or complete.
+Idempotent: a re-run with nothing new to repair finds no NULL stamp it can fill
+and no retired count, and changes nothing — which is what makes running it after
+a lost announcement safe. The write is one statement per concern, so an
+interrupted run leaves each user either untouched or complete.
 
 Usage:
     uv run scripts/backfill_productivity_completion_stamps.py             # census only (default)
