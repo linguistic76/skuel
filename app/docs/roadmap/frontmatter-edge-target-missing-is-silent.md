@@ -11,7 +11,7 @@ check: "`git grep -n 'unresolved' core/services/ingestion/batch.py` — empty un
 
 *Case file for the [deferred-work.md](deferred-work.md) entry of the same name; move to `done/`
 when nothing in it remains open. Found while driving the vault door in the
-[activity-templates-vault-door](activity-templates-vault-door.md) arc, PR-2.*
+[activity-templates-vault-door](done/activity-templates-vault-door.md) arc, PR-2.*
 
 Every registered `*_uids:` frontmatter channel (`uses_kus`, `exercise_uids`, `task_uids`, the six
 `*_template_uids`, …) writes its edge with a `MATCH` on the target. When the target node does not

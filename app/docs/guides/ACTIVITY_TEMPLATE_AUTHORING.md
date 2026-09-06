@@ -482,4 +482,4 @@ rewrites the tracker row instead.
 - [Curriculum Developer Guide](CURRICULUM_DEVELOPER_GUIDE.md) — authoring a PathStep end to end
 - [Unified Ingestion Guide](../patterns/UNIFIED_INGESTION_GUIDE.md) — the ingest pipeline
 - [ADR-061 — spawn layer consolidation](../decisions/ADR-061-spawn-layer-consolidation.md) — the spawn registry
-- [Activity Templates get a vault door](../roadmap/activity-templates-vault-door.md) — why the vault is the door
+- [Activity Templates get a vault door](../roadmap/done/activity-templates-vault-door.md) — why the vault is the door

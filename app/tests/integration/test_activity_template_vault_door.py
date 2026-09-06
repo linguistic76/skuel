@@ -21,7 +21,7 @@ Also pinned here, because neither is visible to a config assertion:
 
 Requires: Docker running with Neo4j testcontainer.
 
-See: /docs/roadmap/activity-templates-vault-door.md
+See: /docs/roadmap/done/activity-templates-vault-door.md
 """
 
 from __future__ import annotations

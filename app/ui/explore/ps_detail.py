@@ -40,6 +40,7 @@ from ui.patterns.detail_nav import (
     render_entity_not_found,
 )
 from ui.primitives import section_label
+from ui.teaching.templates_panel import render_templates_panel_placeholder
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
@@ -102,7 +103,8 @@ def render_ps_detail_content(
         is_in_progress: Whether the user is currently working on this step.
         is_mastered: Whether the user has mastered this step.
         user_uid: Current user UID, or None if unauthenticated.
-        user_role: Viewer's role — gates teacher-only controls.
+        user_role: Viewer's role — TEACHER+ gets the read-only Activity
+            Templates panel (HTMX fragment from the teaching route).
         has_task_templates: True when the PS has TaskTemplates — "Start learning"
             triggers engagement (task spawn) rather than read-progress toggle.
         kus: Atomic Kus this step composes (USES_KU) — rendered as reader links.
@@ -152,6 +154,9 @@ def render_ps_detail_content(
         _next_step_related_placeholder() if show_next_step_related else Div(),
         _tasks_section(uid) if user_uid else Div(),
         _learning_loop_section(uid) if user_uid else Div(),
+        render_templates_panel_placeholder(uid)
+        if user_role is not None and user_role.has_permission(UserRole.TEACHER)
+        else Div(),
         _deps_accordion(),
         detail_footer_nav("Back to Explore", "/explore"),
         id="ps-detail-content",

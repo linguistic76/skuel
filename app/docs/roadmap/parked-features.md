@@ -18,7 +18,7 @@ absent. **Trigger for all three: Mike schedules it** — none is a data threshol
 self-scoped.
 
 A fourth thread, activity-templates re-homing, graduated out on 2026-09-05 when Mike ruled its
-shape — it is now [activity-templates-vault-door.md](activity-templates-vault-door.md).
+shape — it is now [activity-templates-vault-door.md](done/activity-templates-vault-door.md).
 
 Each thread names live code as of 2026-09-05. Paths decay; the *premise* under each constraint is
 what to re-verify, not the line number.

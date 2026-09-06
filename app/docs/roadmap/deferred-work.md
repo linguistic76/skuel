@@ -176,10 +176,6 @@ renders them as a table in Obsidian, and a session derives the same table with
 
 [Parked Features — Memory-Only Until Now](parked-features.md) — Three feature-shaped threads — activity ledger, interest/engagement signal, icon provider swap — each with its ruled constraint and an absence check.
 
-## Activity Templates Get a Vault Door
-
-[Activity Templates Get a Vault Door](activity-templates-vault-door.md) — The 2026-07-06 re-homing ruling got its shape on 2026-09-05: zero templates exist because their only door is the web CRUD the Activity Domains deleted; the vault is the home. PR-1 opened the door, PR-2 built the authoring surface; PR-3 (delete the CRUD forms) remains.
-
 ## Catalog Copies in Code — the duplicated-fact defect, measured
 
 [Catalog Copies in Code — the duplicated-fact defect, measured](catalog-copies-in-code.md) — The class, its ten measured instances and the rule for new code; the stale-PLANNED gate and the `blocked_by` pointer form are built, the rest is Mike's to schedule.

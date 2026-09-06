@@ -1,18 +1,16 @@
 ---
 title: "Activity Templates Get a Vault Door"
 updated: 2026-09-06
-status: "open — PR-1 (the door) and PR-2 (the authoring surface) shipped; PR-3 remains"
+status: done
 registered: 2026-09-05
 ruled: 2026-09-05
-trigger: "Mike schedules PR-3 — the door is open and authored against; the teacher CRUD forms are still wired"
-check: "`git grep -n 'templates_forms' -- adapters/inbound/templates_ui.py` → non-empty (the teacher CRUD forms PR-3 deletes are still wired)"
 ---
 
 # Activity Templates Get a Vault Door
 
-*Case file for the [deferred-work.md](deferred-work.md) entry of the same name; move to `done/`
-when nothing in it remains open. Graduated out of [parked-features.md](parked-features.md)
-2026-09-05 when the shape was ruled.*
+*Shipped 2026-09-06 in three PRs (#1283, #1284, PR-3). Graduated out of
+[parked-features.md](../parked-features.md) 2026-09-05 when the shape was ruled; left the live
+folder when PR-3 closed the last open half.*
 
 The 2026-07-06 ruling said the 6 Activity Templates belong *somewhere of their own* and explicitly
 declined to force a shape. On 2026-09-05 the shape was ruled: **the vault**. This file records the
@@ -123,10 +121,10 @@ Two things PR-1 had to settle that the scope above did not name:
   than merely tidy. Executed here at the scope that case file measured: the registry, one test,
   three authoring docs, a regenerated `GRAPH_CONTRACT.yaml`, and the one vault file using it
   (`0vault/Ps/Ps_dev/noticing-patterns_Ps.md`). See
-  [context-retriever-write-only-fields.md](context-retriever-write-only-fields.md).
+  [context-retriever-write-only-fields.md](../context-retriever-write-only-fields.md).
 
 **PR-2 — the authoring surface. ✅ SHIPPED 2026-09-06.** The `_tmpl.md` suffix, with the six
-kinds separated by `type:` as planned. [ACTIVITY_TEMPLATE_AUTHORING.md](../guides/ACTIVITY_TEMPLATE_AUTHORING.md)
+kinds separated by `type:` as planned. [ACTIVITY_TEMPLATE_AUTHORING.md](../../guides/ACTIVITY_TEMPLATE_AUTHORING.md)
 is the new authoring reference — the six kinds, complete field references, the offset vocabulary,
 structured lists, and what engagement does; `YAML_AUTHORING_GUIDE`'s API-centric TaskTemplate
 section becomes a short vault-first section pointing at it. Six worked examples live in
@@ -160,19 +158,38 @@ Five things PR-2 found that the scope did not name:
   docs test pins the documented pattern against the six configs, derived from the six
   EntityTypes. The `POST /api/ps/{ps_uid}/publish` route in the same section is real.
 - **A structured-list item without its nested `uid:` corrupts silently** — registered as its own
-  case file, [structured-list-items-need-a-nested-uid.md](structured-list-items-need-a-nested-uid.md).
+  case file, [structured-list-items-need-a-nested-uid.md](../structured-list-items-need-a-nested-uid.md).
   Not template-specific (Goal and Choice have carried it since they became ingestible), so the fix
   belongs at the shared gate, not on six template configs.
 - **A frontmatter edge whose target does not exist yet is written nowhere and reported nowhere** —
-  registered as [frontmatter-edge-target-missing-is-silent.md](frontmatter-edge-target-missing-is-silent.md).
+  registered as [frontmatter-edge-target-missing-is-silent.md](../frontmatter-edge-target-missing-is-silent.md).
   Hit in the ordinary course: one template failed validation, so the PathStep in the same batch
   silently got five of six edges and the sync reported success.
 
-**PR-3 — One Path Forward.** Delete the create/edit/detach handlers in `templates_ui.py` and the
-form builders (`ui/teaching/templates_forms.py`, `ui/teaching/_template_widgets.py`). Keep
-`ui/teaching/templates_panel.py` as a **read-only** view on the PS detail page — that is the
-"surfaced" half of the ruling. Keep the services, backends and JSON API, matching the March
-precedent.
+**PR-3 — One Path Forward. ✅ SHIPPED 2026-09-06.** The create/edit/detach handlers and the form
+builders are gone: `templates_ui.py` 508 → 111 lines (the panel fragment route and nothing else),
+`ui/teaching/templates_forms.py` (586), `ui/teaching/_template_widgets.py` (123) and
+`adapters/inbound/_template_form_parsing.py` (88 — the dotted-offset form parser, whose only
+caller was the create/edit submit) deleted, and `parse_template_form_body` dropped from
+`audit_route_security.py`'s `FORM_HELPERS`. The services, backends and JSON CRUD stay, matching
+the March precedent.
+
+Two things PR-3 had to settle that the scope above did not name:
+
+- **The panel was never surfaced.** "Keep the panel as a read-only view on the PS detail page" was
+  a *build*, not a keep: `render_templates_panel_placeholder` had **zero callers**, so the
+  TEACHER-gated fragment route existed with nothing loading it, and
+  `render_ps_detail_content`'s `user_role` parameter — documented as "gates teacher-only
+  controls" — gated nothing at all. Both halves are now live: TEACHER+ viewers of
+  `/explore/ps/{uid}` get the panel, everyone else gets no node. The panel itself lost its
+  "+ Add" / "Edit" / "Detach" controls and gained the line that names the real door — an
+  `_tmpl.md` file plus the step's `{domain}_template_uids:` frontmatter.
+- **`ActivityTemplateOperations` was the deleted handlers' port.** It declared six members
+  (`create`/`get`/`update`/`attach_to_pathstep`/`detach_from_pathstep`/`list_for_pathstep`) and
+  had exactly one consumer, `templates_ui.py`, which now calls one of them. Narrowed to
+  `list_for_pathstep` and no longer generic — the type parameter existed only for `create`'s
+  contravariant argument position, and every remaining member returns property dicts. The JSON
+  CRUD reaches the concrete services, so it is unaffected.
 
 ## Constraints (from the 2026-07-06 ruling, still binding)
 

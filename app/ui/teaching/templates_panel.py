@@ -2,28 +2,25 @@
 Teacher-only Activity Templates panel embedded on the PS detail page.
 
 Renders the templates currently attached to a PathStep, grouped by Activity
-Domain. Each domain row offers:
+Domain. The panel is **read-only** — templates are authored as ``_tmpl.md``
+files in the content vault and attached by the PathStep's
+``{domain}_template_uids:`` frontmatter, so there is nothing to add, edit or
+detach here.
 
-- "+ Add" — link to the create form (full page at
-  ``/teaching/ps/{ps_uid}/templates/{domain}/new``).
-- Per-template "Edit" link + "Detach" inline form (POST). Detach returns this
-  same panel fragment so the list refreshes in place.
+The wrapper id ``TEMPLATES_PANEL_ID`` is stable so the HTMX load targets a
+known node.
 
-The wrapper id ``TEMPLATES_PANEL_ID`` is stable so detach/refresh HTMX swaps
-target the right node.
+See: /docs/guides/ACTIVITY_TEMPLATE_AUTHORING.md
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-from fasthtml.common import H3, H4, Button, Div, Form, Li, P, Span, Ul
+from fasthtml.common import H3, H4, Code, Div, Li, P, Span, Ul
 
-from ui.components import ButtonT
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
-from ui.patterns.csrf import csrf_hidden_input
-from ui.primitives import ButtonLink
 
 TEMPLATES_PANEL_ID = "ps-templates-panel"
 
@@ -44,15 +41,15 @@ def render_templates_panel(
     ps_uid: str,
     attached: dict[str, list[dict[str, Any]]],
 ) -> Any:
-    """Render the templates panel for a PathStep.
+    """Render the read-only templates panel for a PathStep.
 
     Args:
-        ps_uid: PathStep UID — used to build add/edit/detach URLs.
+        ps_uid: PathStep UID — identifies the panel in the rendered markup.
         attached: ``{domain: [template_props_dict, ...]}``. Each dict carries
             at minimum ``uid`` and ``title``. Missing domains render as empty.
     """
     rows = [
-        _render_domain_row(ps_uid, domain, label, attached.get(domain, []))
+        _render_domain_row(domain, label, attached.get(domain, []))
         for domain, label in PANEL_DOMAINS
     ]
 
@@ -64,39 +61,38 @@ def render_templates_panel(
                 "with this PathStep.",
                 cls="text-sm text-muted-foreground",
             ),
+            P(
+                "Authored in the content vault as ",
+                Code("_tmpl.md", cls="text-xs"),
+                " files and attached by this step's ",
+                Code("{domain}_template_uids:", cls="text-xs"),
+                " frontmatter.",
+                cls="text-xs text-muted-foreground mt-1",
+            ),
             cls="mb-4",
         ),
         Div(*rows, cls="space-y-3"),
         id=TEMPLATES_PANEL_ID,
+        data_ps_uid=ps_uid,
         cls="rounded-lg border border-border bg-card p-5 mt-8",
     )
 
 
 def _render_domain_row(
-    ps_uid: str,
     domain: str,
     label: str,
     templates: list[dict[str, Any]],
 ) -> Any:
-    """One domain's subsection: header + add button + list of templates."""
+    """One domain's subsection: header + list of attached templates."""
     header = Div(
-        Div(
-            H4(label, cls="text-sm font-medium"),
-            Badge(
-                str(len(templates)),
-                variant=BadgeT.neutral,
-                size=Size.sm,
-                cls="ml-2",
-            ),
-            cls="flex items-center",
+        H4(label, cls="text-sm font-medium"),
+        Badge(
+            str(len(templates)),
+            variant=BadgeT.neutral,
+            size=Size.sm,
+            cls="ml-2",
         ),
-        ButtonLink(
-            "+ Add",
-            href=f"/teaching/ps/{ps_uid}/templates/{domain}/new",
-            cls=ButtonT.ghost,
-            size="sm",
-        ),
-        cls="flex items-center justify-between",
+        cls="flex items-center",
     )
 
     body: Any
@@ -107,62 +103,35 @@ def _render_domain_row(
         )
     else:
         body = Ul(
-            *[_render_template_row(ps_uid, domain, t) for t in templates],
+            *[_render_template_row(t) for t in templates],
             cls="mt-2 space-y-1",
         )
 
-    return Div(header, body, cls="border-b border-border last:border-b-0 pb-3 last:pb-0")
+    return Div(
+        header,
+        body,
+        data_domain=domain,
+        cls="border-b border-border last:border-b-0 pb-3 last:pb-0",
+    )
 
 
-def _render_template_row(
-    ps_uid: str,
-    domain: str,
-    template: dict[str, Any],
-) -> Any:
-    """One template row: title + edit link + detach inline form."""
+def _render_template_row(template: dict[str, Any]) -> Any:
+    """One template row: title + its authored UID."""
     uid = str(template.get("uid", ""))
     title = str(template.get("title") or uid)
 
-    detach_form = Form(
-        csrf_hidden_input(),
-        Button(
-            "Detach",
-            type="submit",
-            cls=(
-                "text-xs px-2 py-1 rounded-sm border border-border bg-background "
-                "hover:bg-destructive/10 hover:text-destructive hover:border-destructive/40"
-            ),
-        ),
-        method="POST",
-        action=f"/teaching/ps/{ps_uid}/templates/{domain}/detach?uid={uid}",
-        hx_post=f"/teaching/ps/{ps_uid}/templates/{domain}/detach?uid={uid}",
-        hx_target=f"#{TEMPLATES_PANEL_ID}",
-        hx_swap="outerHTML",
-        hx_confirm=f"Detach {title} from this PathStep?",
-        cls="inline",
-    )
-
     return Li(
         Span(title, cls="text-sm flex-1 min-w-0 truncate"),
-        Div(
-            ButtonLink(
-                "Edit",
-                href=f"/teaching/ps/{ps_uid}/templates/{domain}/edit?uid={uid}",
-                cls=ButtonT.ghost,
-                size="sm",
-            ),
-            detach_form,
-            cls="flex items-center gap-2 shrink-0",
-        ),
-        cls=("flex items-center justify-between gap-3 px-2 py-1 rounded-sm hover:bg-muted/40"),
+        Code(uid, cls="text-xs text-muted-foreground shrink-0"),
+        cls="flex items-center justify-between gap-3 px-2 py-1 rounded-sm hover:bg-muted/40",
     )
 
 
 def render_templates_panel_placeholder(ps_uid: str) -> Any:
     """HTMX-load placeholder that fetches the panel fragment on-load.
 
-    Drop this into the PS detail page (teacher-only) so the panel can be
-    swapped in place after detach without refetching the whole detail page.
+    Rendered on the PS detail page for TEACHER+ viewers; the fragment route
+    (``GET /teaching/ps/{ps_uid}/templates``) enforces the same gate.
     """
     return Div(
         id=TEMPLATES_PANEL_ID,
