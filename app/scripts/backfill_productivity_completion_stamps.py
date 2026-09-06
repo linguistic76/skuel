@@ -15,11 +15,18 @@ Two things about history are wrong for that shape, and this script fixes both:
 
 1. **Null stamps.** A completion that arrived before its door published a task
    event left the node without a stamp, or without a node at all. Those users
-   have a real derived count and ``null`` stamps. **This is history only** —
-   every door into ``completed`` publishes ``TaskCompleted`` now (the create
-   door for a task born completed, and the vault bulk upsert, were the last two
-   to be wired), so no *new* completion lands here unstamped and this script
-   fills a fixed, shrinking-to-nothing set.
+   have a real derived count and ``null`` stamps. Most of that is *history*:
+   every door into ``completed`` publishes ``TaskCompleted`` now, so the
+   ordinary completion no longer lands here unstamped.
+
+   ⚠ **Not a strictly shrinking set, so this is not a one-time run.** The vault
+   door's announcement has no outbox: if reading the persisted entities back
+   fails, ``UnifiedIngestionService._publish_completions`` logs and drops the
+   completion event, and nothing retries it — the next ingest reads those
+   entities as already completed. A completion lost that way is exactly this
+   script's shape, so **re-run it after any such ERROR**, not only against
+   pre-cascade history. See
+   ``docs/roadmap/ingest-transition-obligation-durability.md``.
    This fills **only NULL stamps**: ``first_completion_at`` from the earliest
    ``Task.completion_date`` the user currently owns in ``completed``,
    ``last_completion_at`` from the latest. A stamp that exists is never moved —

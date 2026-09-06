@@ -124,8 +124,8 @@ def register_analytics_routes(app, services):
         COMPLETED, and the subset stamped inside the window — so the window is
         a subset of the total by construction. Only the two stamps come from
         the analytics node, so a user whose completions predate the cascade
-        reaching their door has real counts and ``null`` stamps until
-        ``./dev backfill-productivity-stamps`` fills that history. See
+        reaching their door — or whose announcement was lost — has real counts
+        and ``null`` stamps until ``./dev backfill-productivity-stamps`` runs. See
         ``CrossDomainAnalyticsService.get_productivity_metrics``.
         """
         user_uid = require_authenticated_user(request)

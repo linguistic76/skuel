@@ -509,9 +509,10 @@ class CrossDomainAnalyticsService:
 
         Only the two stamps come from the node, and only the ``TaskCompleted``
         handler writes them. Every door into ``completed`` now publishes that
-        event — the vault bulk upsert included — so a user's stamps are absent
-        only for completions that predate the cascade reaching their door;
-        ``./dev backfill-productivity-stamps`` fills that history once.
+        event — the vault bulk upsert included — so a user with real counts and
+        ``None`` stamps has completions that predate the cascade reaching their
+        door, or one whose announcement the vault door lost (that door has no
+        outbox). ``./dev backfill-productivity-stamps`` fills both.
 
         Args:
             user_uid: UID of the user
