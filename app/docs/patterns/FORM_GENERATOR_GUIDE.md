@@ -1,5 +1,5 @@
 ---
-updated: 2026-08-05
+updated: 2026-09-06
 ---
 
 # FormGenerator User Guide
@@ -192,7 +192,7 @@ Value handling by type:
 - **Text/Number:** sets `value="..."` attribute
 - **Textarea:** sets content between tags
 - **Select (enum):** sets `selected` on matching option
-- **Checkbox:** sets `checked` attribute
+- **Checkbox:** sets `checked` attribute (see the boolean row below — a checkbox is two elements)
 - **Date:** calls `.isoformat()` on date/datetime objects
 
 ---
@@ -355,11 +355,19 @@ form = Form(
 | `str` (name contains "description", "notes", "content", "body") | `<textarea>` | `uk-textarea` |
 | `str` (max_length > 100) | `<textarea>` | `uk-textarea` |
 | `int`, `float` | `<input type="number">` | `uk-input` |
-| `bool` | `<input type="checkbox">` | `uk-checkbox` |
+| `bool` | hidden `"false"` companion + `<input type="checkbox" value="true">` | `uk-checkbox` |
 | `date` | `<input type="date">` | `uk-input` |
 | `datetime` | `<input type="datetime-local">` | `uk-input` |
 | `Enum` subclass | `<select>` | `uk-select` |
 | `list[str]` | `<textarea>` | `uk-textarea` |
+
+**Why a boolean is two elements:** an unchecked checkbox is not a successful control — the
+browser omits it from the POST entirely. Downstream that reads as "field absent", which
+`parse_form_body` leaves out of `model_fields_set` and an `*UpdateIntent` therefore leaves
+`UNSET`, so a box could be turned on but never off from an edit form. The hidden companion
+renders first and carries `"false"`; a checked box appends `"true"` after it, and
+Starlette's `FormData` resolves a repeated key to its **last** value, so checked wins.
+Pinned by `tests/unit/adapters/test_edit_form_edge_clear.py`.
 
 ### Pydantic metadata overrides
 
