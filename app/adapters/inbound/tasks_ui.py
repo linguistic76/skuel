@@ -233,7 +233,10 @@ def create_tasks_ui_routes(
 
         # ADR-066: build the typed update intent from explicitly-set fields. Only fields
         # the form actually submitted become non-UNSET, so untouched fields are left alone
-        # (an explicitly-cleared field clears; absent fields are not written).
+        # (an explicitly-cleared field clears; absent fields are not written). A cleared
+        # edge picker posts "", which parse_form_body maps to None — the explicit-clear
+        # signal update_task turns into an edge deletion. Pinned by
+        # tests/unit/adapters/test_edit_form_edge_clear.py.
         result = await tasks_service.update_task(uid, parsed.value.to_intent())
         if result.is_error:
             err = result.expect_error()

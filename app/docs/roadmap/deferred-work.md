@@ -64,10 +64,6 @@ renders them as a table in Obsidian, and a session derives the same table with
 
 [Principles _validate_update Reform (or Deletion)](principles-validate-update-reform.md) — A stale, partly unsatisfiable update hook that `update_principle` bypasses — and the same class in Events — resolved only by a ruling: reform onto the intent or delete.
 
-## Tasks/Events Edge-Clear on Edit (`""` → None)
-
-[Tasks/Events Edge-Clear on Edit ("" → None)](tasks-events-edge-clear-on-edit.md) — Clearing an edge picker submits `""`, which never maps to `None` — a UX bug that rides along on the next edit-form touch, re-verified first.
-
 ## Skill↔Doc Backlink Reconciliation (post-canonicalization)
 
 [Skill↔Doc Backlink Reconciliation (post-canonicalization)](skill-doc-backlink-reconciliation.md) — The 28 real backlink warnings the canonical-field validator surfaced, and the 3 drifted `## Related Skills` blocks — each a judgment call, neither blocking.

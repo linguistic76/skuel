@@ -1,6 +1,6 @@
 ---
 title: "Roadmap: Typed Update Intents migration"
-updated: 2026-08-24
+updated: 2026-09-06
 status: complete
 category: roadmap
 tags: [roadmap, activity-domains, typing, immutability, one-path-forward]
@@ -253,7 +253,7 @@ Shared `UNSET` sentinel: ☑ (Phase 1, `core/models/sentinels.py`) · Base param
 - **Phase 7 — Teardown + One-Path cleanup + base parameterization.** Split into two PRs.
   The edge-clear UX gap (Tasks/Events
   picker `""`→None) is **out of Phase 7** — a deferred UX bug, not One-Path teardown; track separately
-  (now tracked live in `../deferred-work.md` § Tasks/Events Edge-Clear on Edit).
+  (closed 2026-09-06 — did not reproduce; see `tasks-events-edge-clear-on-edit.md`).
 
   **Phase 7a — base parameterization (atomic code, one PR). ✅ DONE (2026-06-05).** *Forced-atomic*:
   parameterizing the base over the update type mechanically forced the funnel/factory/hook changes
