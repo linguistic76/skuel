@@ -265,7 +265,18 @@ def validate_entity_data(
     # exactly the legality question and nothing else. ``NonKuDomain`` types have
     # no ``valid_statuses()`` and are skipped rather than crashed on; USER_ENTRY
     # stays exempt for the reason given above.
-    if isinstance(entity_type, EntityType) and entity_type is not EntityType.USER_ENTRY:
+    #
+    # ``None`` is ABSENCE, not a value, exactly as the vocabulary gate reads it:
+    # the authored ``none`` marker and an empty ``status:`` line both prepare to
+    # a present key holding ``None``, and the entity reader supplies the type
+    # default for a status that was never stored. Handing that key to a check
+    # that tests membership of the key would refuse a file both gates admit.
+    authored_status = entity_data.get("status")
+    if (
+        authored_status is not None
+        and isinstance(entity_type, EntityType)
+        and entity_type is not EntityType.USER_ENTRY
+    ):
         status_legality = validate_status_target(entity_type, entity_data)
         if status_legality.is_error:
             detail = status_legality.expect_error().message

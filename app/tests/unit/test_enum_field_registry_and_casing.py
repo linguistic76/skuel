@@ -305,6 +305,20 @@ class TestStatusLegalityGateAtTheDoor:
         result = validate_entity_data(NonKuDomain.GROUP, data, self._FILE)
         assert not (result.is_error and result.expect_error().details.get("field") == "status")
 
+    def test_null_status_is_absence_not_an_illegal_value(self) -> None:
+        # The authored ``none`` marker and an empty ``status:`` line both
+        # prepare to a PRESENT key holding None. The vocabulary gate reads
+        # that as absent; a legality check that tests key membership instead
+        # would refuse a file both gates admit (Codex #1289).
+        for authored in ("none", None):
+            prepared = prepare_entity_data(
+                EntityType.TASK, {"title": "T", "status": authored}, None, self._FILE
+            )
+            assert prepared["status"] is None
+            assert validate_entity_data(EntityType.TASK, prepared, self._FILE).is_ok, (
+                f"status: {authored!r} must be admitted as absence"
+            )
+
     def test_absent_status_is_not_a_verdict(self) -> None:
         assert validate_entity_data(
             EntityType.PRINCIPLE, {"title": "P", "statement": "S"}, self._FILE

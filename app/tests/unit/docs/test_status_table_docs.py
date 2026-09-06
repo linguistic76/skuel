@@ -2,23 +2,18 @@
 
 Why this exists
 ---------------
-The table's claim — "using a status not in the valid set for that entity type
-will fail validation during ingestion" — was aspirational until the ingestion
-validator grew its status-legality gate: the vocabulary gate checked enum
-MEMBERSHIP only, so ``type: principle, status: completed`` passed the door.
-Now the door enforces it, which turns every cell of this table into a rule an
-author is held to.
-
-At the moment the table became enforceable it was also wrong: Knowledge Unit's
-default read ``draft`` where the code says ``completed``, and eight ingestible
-types (Resource, Exercise, Interaction, the six Activity Templates) had no row
-at all — an author looking up a template's legal statuses found nothing and
-guessed.
+The table is a rule authors are held to, not a summary: the ingestion validator
+refuses a ``status:`` outside the entity type's ``valid_statuses()``, so a wrong
+cell sends an author to write a file the door ignores, and a missing row leaves
+them guessing at a type's legal set. The columns also answer two different
+questions that are easy to conflate — most types persist no status property and
+the READER supplies the type default, while PathStep and the six Activity
+Templates are stamped by the DOOR.
 
 So the table is derived-checked. Adding an ingestible type, widening a type's
 valid statuses, or changing a door default breaks the build until the guide
-agrees. ``app/docs/guides/YAML_AUTHORING_GUIDE.md`` is in CI's ``py`` path
-filter so a docs-only edit to the table still runs this module.
+agrees. ``app/docs/guides/YAML_AUTHORING_GUIDE.md`` is in CI's ``py`` path filter
+so a docs-only edit to the table still runs this module.
 """
 
 from __future__ import annotations
