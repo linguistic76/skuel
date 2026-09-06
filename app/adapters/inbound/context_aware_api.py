@@ -185,9 +185,9 @@ def create_context_aware_api_routes(
             Result containing completed habit
 
         Note:
-            Quality validation is now handled by Pydantic (QualityLiteral type).
-            Manual validation removed - Pydantic rejects invalid values, and the
-            auto-bound body's guard turns that into a 400.
+            Pydantic owns quality validation (the QualityLiteral type). It
+            rejects an invalid value during body binding, and the auto-bound
+            body's guard turns that rejection into a 400.
         """
         user_uid = require_authenticated_user(request)
         return await context_service.complete_habit_with_context(

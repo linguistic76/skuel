@@ -22,10 +22,12 @@ so a docs-only edit to a status cell still runs this module.
 from __future__ import annotations
 
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
-from fasthtml.common import FT
+from fasthtml.common import fast_app
 from pydantic import BaseModel, Field
+from starlette.testclient import TestClient
 
 from adapters.inbound.boundary import _get_status_for_error, result_to_response
 from adapters.inbound.form_helpers import parse_form_body, parse_json_body
@@ -33,12 +35,18 @@ from adapters.inbound.route_factories import (
     parse_bool_query_param,
     parse_date_param_strict,
 )
+from adapters.inbound.search_routes import create_search_api_routes
 from core.models.search_request import SearchRequest
 from core.utils.result_simplified import Errors, Result
-from ui.search.components import render_search_error
 
 _DOC = Path(__file__).resolve().parents[3] / "docs" / "patterns" / "API_VALIDATION_PATTERNS.md"
 _TABLE_HEADING = "## When to Use Each Pattern"
+
+
+def _fake_authenticated_user(request: object) -> str:
+    """Stand in for the session lookup — this row is about validation, not auth."""
+    return "user_mike"
+
 
 # Rows the table documents but this module does not drive, each with the reason.
 # A NEW row is neither driven nor listed, so it fails until someone decides which.
@@ -186,25 +194,32 @@ def test_guide_claims_no_422_for_a_validation_failure() -> None:
     assert offenders == [], f"422 claimed outside a BUSINESS context: {offenders}"
 
 
-def test_html_form_params_row_answers_with_a_banner_not_a_status() -> None:
-    """The table's one UI-route row: nothing on its path picks a status code.
+def test_html_form_params_row_answers_with_a_banner_not_a_status(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The table's one UI-route row, measured through the route itself.
 
     An unrecognised facet is dropped silently, and a value the model does reject
     raises a ``ValidationError`` — a ``ValueError`` subclass, which is what lets
-    ``/search/results`` catch it and return ``render_search_error``, an FT node
-    FastHTML serves as 200. A reader looking for a 4xx to branch on finds none.
+    ``/search/results`` catch it and answer with a banner. Nothing on that path
+    picks a status code, so a reader looking for a 4xx to branch on finds none.
+    The status is taken from a real response rather than inferred from the
+    pieces: a wrapper that started choosing one would have to show up here.
     """
     kept = SearchRequest.from_form_params(query="x", user_uid="user_mike", entity_type="task")
     dropped = SearchRequest.from_form_params(
         query="x", user_uid="user_mike", entity_type="nonsense_facet"
     )
-    assert kept.entity_types == ["task"], (
-        "the facet is parsed at all — the check below means something"
-    )
+    assert kept.entity_types == ["task"], "the facet parses at all — the next check means something"
     assert dropped.entity_types == []
 
-    with pytest.raises(ValueError):
-        SearchRequest.from_form_params(query="x", user_uid="user_mike", limit=0)
+    app, rt = fast_app(pico=False, default_hdrs=False)
+    monkeypatch.setattr(
+        "adapters.inbound.search_routes.require_authenticated_user", _fake_authenticated_user
+    )
+    # limit=0 fails in from_form_params, before the route reaches the router.
+    create_search_api_routes(app, rt, MagicMock())
+    response = TestClient(app).get("/search/results", params={"query": "x", "limit": 0})
 
-    assert isinstance(render_search_error("Invalid filter selection.", "warning"), FT)
-    assert _documented_rows()["HTML Form Params (GET)"] == "200 (banner)"
+    assert str(response.status_code) + " (banner)" == _documented_rows()["HTML Form Params (GET)"]
+    assert "Invalid filter selection" in response.text
