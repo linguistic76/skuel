@@ -104,6 +104,14 @@ renders them as a table in Obsidian, and a session derives the same table with
 
 [Vault Re-Sync Never Retracts a Share](vault-resync-never-retracts-a-share.md) — Narrowing or removing `audience:` does nothing on re-sync — the one write-once-widen door, ruled leave-registered until share reconciliation is built.
 
+## Structured-List Items Silently Corrupt Without a Nested `uid:`
+
+[Structured-List Items Silently Corrupt Without a Nested uid](structured-list-items-need-a-nested-uid.md) — `milestones` and `options` authored without the `uid` their element dataclass requires read back as the raw JSON string; the fix is a shared ingest gate, not six template configs.
+
+## A Frontmatter Edge Whose Target Does Not Exist Yet Is Silent
+
+[A Frontmatter Edge Whose Target Does Not Exist Yet Is Silent](frontmatter-edge-target-missing-is-silent.md) — Every `*_uids:` channel drops an edge whose target node is absent and reports nothing; MOC body links already warn, the structural channels do not.
+
 ## Vault Task Door Publishes No Task Events
 
 [Vault Task Door Publishes No Task Events](vault-task-door-no-events.md) — The `type: task` frontmatter door persists through the bulk upsert with no event bus, so vault-authored completions publish no `TaskCompleted`.
@@ -170,7 +178,7 @@ renders them as a table in Obsidian, and a session derives the same table with
 
 ## Activity Templates Get a Vault Door
 
-[Activity Templates Get a Vault Door](activity-templates-vault-door.md) — The 2026-07-06 re-homing ruling got its shape on 2026-09-05: zero templates exist because their only door is the web CRUD the Activity Domains deleted; the vault is the home. PR-1 opened the door; PR-2 (authoring surface) and PR-3 (delete the CRUD forms) remain.
+[Activity Templates Get a Vault Door](activity-templates-vault-door.md) — The 2026-07-06 re-homing ruling got its shape on 2026-09-05: zero templates exist because their only door is the web CRUD the Activity Domains deleted; the vault is the home. PR-1 opened the door, PR-2 built the authoring surface; PR-3 (delete the CRUD forms) remains.
 
 ## Catalog Copies in Code — the duplicated-fact defect, measured
 

@@ -1,6 +1,6 @@
 ---
 title: Documentation Index
-updated: 2026-09-05
+updated: 2026-09-06
 status: current
 category: index
 tags: [index, navigation, documentation]
@@ -356,6 +356,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [Protocol Implementation Guide](guides/PROTOCOL_IMPLEMENTATION_GUIDE.md) | |
 | **[Curriculum Developer Guide](guides/CURRICULUM_DEVELOPER_GUIDE.md)** | |
 | **[YAML Authoring Guide](guides/YAML_AUTHORING_GUIDE.md)** | |
+| **[Activity Template Authoring](guides/ACTIVITY_TEMPLATE_AUTHORING.md)** | The 6 Activity Templates as vault files — `_tmpl.md`, offsets, the six field references |
 | **[Tasks User Guide](guides/TASKS_USER_GUIDE.md)** | |
 | **[Voice Journaling and Obsidian Guide](guides/VOICE_JOURNALING_AND_OBSIDIAN_GUIDE.md)** | |
 | **[Vault Agent Guide](guides/VAULT_AGENT_GUIDE.md)** | |

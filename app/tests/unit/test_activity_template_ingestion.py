@@ -71,6 +71,20 @@ def test_explicit_template_type_detected(entity_type: EntityType) -> None:
     assert detect_entity_type({"type": entity_type.value}, _FILE) is entity_type
 
 
+@pytest.mark.parametrize("entity_type", _TEMPLATE_TYPES)
+def test_pascal_case_template_type_detected(entity_type: EntityType) -> None:
+    """``type: TaskTemplate`` resolves, the way ``PathStep`` and ``Ku`` already do.
+
+    ``EntityType.from_string`` lowercases and swaps ``-``/space for ``_`` but does
+    not insert one, so the six canonical values — the only ingestible ones with an
+    internal underscore — were the one family whose PascalCase class name did not
+    resolve. The content vault spells every other kind that way.
+    """
+    pascal = "".join(word.capitalize() for word in entity_type.value.split("_"))
+    assert pascal.endswith("Template")  # TaskTemplate, GoalTemplate, ...
+    assert detect_entity_type({"type": pascal}, _FILE) is entity_type
+
+
 def test_template_without_type_rejected() -> None:
     """Never-sniff: the filename says nothing — only an explicit ``type:`` opts in."""
     with pytest.raises(ValueError, match="no 'type:' field"):

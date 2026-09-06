@@ -69,6 +69,16 @@ jobs:
               # pointer — otherwise the docs-only skip merges it green and the
               # weekly janitor is the first reader (Codex P2, PR #1191).
               - 'app/docs/roadmap/deferred-work.md'
+              # Same shape, different reader: tests/unit/docs/
+              # test_activity_template_docs.py derives the six Activity-Template
+              # field tables, the type/prefix/attachment rows and the enum
+              # vocabularies FROM this guide, so a docs-only edit to a table is
+              # exactly the change that breaks the drift test — and would skip
+              # unit_tests without this line. Only the guide is listed: the
+              # module reads it by path, and its docs-wide table glob is a
+              # residual (a table planted in a NEW doc is unreachable by any
+              # filter), the same residual deferred-work.md's entry carries.
+              - 'app/docs/guides/ACTIVITY_TEMPLATE_AUTHORING.md'
               # The uv.lock pinning guard's inputs (tests/unit/
               # test_workflow_uv_lock_pinning.py). It reads EVERY workflow, not
               # just ci.yml (unlike the filters below), and follows what those

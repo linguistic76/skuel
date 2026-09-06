@@ -6,6 +6,11 @@
 > dataclasses with incompatible state machines, incompatible ownership, and
 > statically typed field pairs that cannot be merged.
 
+This file is the architecture reference. **To author a template**, see
+`/docs/guides/ACTIVITY_TEMPLATE_AUTHORING.md` — templates are vault files
+(`<slug>_tmpl.md`, told apart by `type:`), attached from a PathStep's
+`{domain}_template_uids:` frontmatter.
+
 ---
 
 ## 1. Two-Entity Split (why templates and instances are separate models)
