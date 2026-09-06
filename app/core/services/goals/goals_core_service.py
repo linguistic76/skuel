@@ -46,7 +46,11 @@ from core.models.update_contracts import StatusWriteGuard
 from core.ports.domain_protocols import GoalsOperations
 from core.ports.query_types import GoalStats
 from core.services.base_service import BaseService
-from core.services.completion_stamp import is_completion_transition, status_transition_guard
+from core.services.completion_stamp import (
+    completion_moment,
+    is_completion_transition,
+    status_transition_guard,
+)
 from core.services.domain_config import create_activity_domain_config
 from core.services.mixins.hierarchy_read_mixin import HierarchyReadMixin
 from core.services.mixins.link_edge_guard import (
@@ -548,7 +552,8 @@ class GoalsCoreService(
             )
 
     async def _publish_created(self, goal: Goal) -> None:
-        """Announce a newly created goal: GoalCreated + the ADR-074 embedding refresh.
+        """Announce a newly created goal: GoalCreated, GoalAchieved when it was born
+        completed, and the ADR-074 embedding refresh.
 
         ORDERING: call this only once the goal's hierarchy edge is written. ``GoalCreated``
         is subscribed to ``invalidate_context`` (services_bootstrap/_event_wiring.py),
@@ -569,8 +574,43 @@ class GoalsCoreService(
         )
         await publish_event(self.event_bus, event, self.logger)
 
+        await self._publish_born_completed(goal)
+
         # Post-persist embedding refresh (ADR-074) — the background worker embeds async
         await publish_embedding_requested(self.event_bus, EntityType.GOAL, goal, self.logger)
+
+    async def _publish_born_completed(self, goal: Goal) -> None:
+        """Publish ``GoalAchieved`` for a goal that was CREATED already achieved.
+
+        The entity door persists whatever status it is handed, so a vault-authored or
+        API-created ``status: completed`` goal never passes through ``update_goal`` and
+        every ``GoalAchieved`` subscriber — the goal event handler, PS engagement
+        auto-complete, report generation, context invalidation — used to be skipped for
+        it. A create has no prior status, so this is unambiguously a transition INTO
+        completed.
+
+        ``occurred_at`` carries the goal's own ``achieved_date`` so a backdated goal
+        reports the day it was achieved rather than the ingest moment.
+
+        ``actual_duration_days`` is measured the same way the chokepoint measures it —
+        from ``created_at`` — which on this door is the create itself. That is the honest
+        answer: a goal born achieved spent no observed time in SKUEL, and there is no
+        second date to derive a real elapsed span from.
+        """
+        if goal.status is not EntityStatus.COMPLETED:
+            return
+
+        actual_duration_days = (datetime.now() - goal.created_at).days if goal.created_at else None
+        await publish_event(
+            self.event_bus,
+            GoalAchieved(
+                goal_uid=goal.uid,
+                user_uid=goal.user_uid,
+                actual_duration_days=actual_duration_days,
+                occurred_at=completion_moment(goal.achieved_date),
+            ),
+            self.logger,
+        )
 
     async def create_goal(
         self, goal_request: "GoalCreateRequest", user_uid: UserUID

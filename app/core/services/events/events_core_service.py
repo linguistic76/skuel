@@ -40,7 +40,11 @@ from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
 from core.ports.query_types import EventStats
 from core.services.base_service import BaseService
-from core.services.completion_stamp import is_completion_transition, status_transition_guard
+from core.services.completion_stamp import (
+    completion_moment,
+    is_completion_transition,
+    status_transition_guard,
+)
 from core.services.domain_config import create_activity_domain_config
 from core.services.mixins.hierarchy_read_mixin import HierarchyReadMixin
 from core.services.mixins.link_edge_guard import LinkEdge, keep_permitted_link_edges
@@ -453,8 +457,8 @@ class EventsCoreService(
             )
 
     async def _publish_created(self, event: Event) -> None:
-        """Announce a newly created event: CalendarEventCreated + the ADR-074 embedding
-        refresh.
+        """Announce a newly created event: CalendarEventCreated, CalendarEventCompleted
+        when it was born completed, and the ADR-074 embedding refresh.
 
         ORDERING: call this only once the event's graph edges are written.
         ``CalendarEventCreated`` is subscribed to ``invalidate_context``
@@ -477,8 +481,42 @@ class EventsCoreService(
         )
         await publish_event(self.event_bus, domain_event, self.logger)
 
+        await self._publish_born_completed(event)
+
         # Post-persist embedding refresh (ADR-074) — the background worker embeds async
         await publish_embedding_requested(self.event_bus, EntityType.EVENT, event, self.logger)
+
+    async def _publish_born_completed(self, event: Event) -> None:
+        """Publish ``CalendarEventCompleted`` for an event that was CREATED completed.
+
+        The entity door persists whatever status it is handed, so a vault-authored or
+        API-created ``status: completed`` event never passes through ``update_event`` and
+        every ``CalendarEventCompleted`` subscriber — habit reinforcement, PS practice
+        tracking, PS engagement auto-complete, attendance analytics, context invalidation
+        — used to be skipped for it. A create has no prior status, so this is
+        unambiguously a transition INTO completed.
+
+        ``occurred_at`` carries the event's own ``completed_at`` so a backdated event
+        reports the moment it was completed rather than the ingest moment.
+
+        ``quality_score`` is honestly ``None`` here for the same reason it is at the
+        update chokepoint: the score is owned by the progress / habit-completion
+        services, which fire their own ``CalendarEventCompleted`` carrying it.
+        """
+        if event.status is not EntityStatus.COMPLETED:
+            return
+
+        await publish_event(
+            self.event_bus,
+            CalendarEventCompleted(
+                event_uid=event.uid,
+                user_uid=event.user_uid,
+                completion_date=event.event_date or date.today(),
+                quality_score=None,
+                occurred_at=completion_moment(event.completed_at),
+            ),
+            self.logger,
+        )
 
     async def create_event(self, request: EventCreateRequest, user_uid: UserUID) -> Result[Event]:
         """Create an event from a validated request — the request door.

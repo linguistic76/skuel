@@ -48,6 +48,7 @@ from core.models.task.task_update_intent import TaskUpdateIntent
 from core.ports.query_types import ParentProgressResult, TaskStats
 from core.services.base_service import BaseService
 from core.services.completion_stamp import (
+    completion_moment,
     is_completion_transition,
     is_reopen_transition,
     status_transition_guard,
@@ -617,7 +618,8 @@ class TasksCoreService(
         return WrittenLinks.from_edges(relationships)
 
     async def _publish_created(self, task: Task) -> None:
-        """Announce a newly created task: TaskCreated + the ADR-074 embedding refresh.
+        """Announce a newly created task: TaskCreated, TaskCompleted when it was born
+        completed, and the ADR-074 embedding refresh.
 
         ORDERING: call this only once the task's graph edges are written. ``TaskCreated``
         is subscribed to ``invalidate_context`` (services_bootstrap/_event_wiring.py),
@@ -641,8 +643,49 @@ class TasksCoreService(
         )
         await publish_event(self.event_bus, event, self.logger)
 
+        await self._publish_born_completed(task)
+
         # Post-persist embedding refresh (ADR-074) — the background worker embeds async
         await publish_embedding_requested(self.event_bus, EntityType.TASK, task, self.logger)
+
+    async def _publish_born_completed(self, task: Task) -> None:
+        """Publish ``TaskCompleted`` for a task that was CREATED already completed.
+
+        A DSL ``- [x]`` line and an API create carrying ``status=completed`` both persist
+        a task that never passes through ``update_task``, so every ``TaskCompleted``
+        subscriber — goal progress, PS engagement auto-complete, duration calibration,
+        productivity analytics, context invalidation — used to be skipped for it. A
+        create has no prior status, so this is unambiguously a transition INTO completed:
+        ``is_repeat`` is False and no prior-status machinery is needed.
+
+        ``occurred_at`` carries the task's own ``completion_date`` (CLAUDE.md's sanctioned
+        case: a derived event about a source occurrence), so an ingested historical ``✅``
+        date reports the day it happened rather than the ingest moment.
+
+        ``was_overdue`` is measured against that same completion moment, not against
+        today: the update chokepoint compares to ``date.today()`` because there the two
+        are the same day, while here a backfilled task completed on time in March would
+        otherwise be announced overdue purely because March is now in the past — and the
+        overdue branch APPENDS a ``PersistedInsight`` (``TaskEventHandlerService``).
+        """
+        if task.status is not EntityStatus.COMPLETED:
+            return
+
+        completed_at = completion_moment(task.completion_date)
+        await publish_event(
+            self.event_bus,
+            TaskCompleted(
+                task_uid=task.uid,
+                user_uid=task.user_uid,
+                completion_time_seconds=(
+                    task.actual_minutes * 60 if task.actual_minutes is not None else None
+                ),
+                was_overdue=task.due_date < completed_at.date() if task.due_date else False,
+                is_repeat=False,
+                occurred_at=completed_at,
+            ),
+            self.logger,
+        )
 
     async def _publish_knowledge_substance(self, task: Task, knowledge_uids: list[str]) -> None:
         """Announce applied knowledge: single-item for 1 Ku, bulk for 2+.

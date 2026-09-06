@@ -89,10 +89,18 @@ class TaskCompleted(BaseEvent):
     **accumulates** (an append, a stamp), never the part that **derives**.
 
     **Only the explicit-complete cascade ever sets ``is_repeat=True``.** The
-    other two publishers are transition-gated, so a repeat cannot reach them:
-    the status chokepoint (``update_task``) and the per-row fan-out from
-    ``complete_tasks_bulk`` publish exactly when the write moved the task INTO
-    completed, and stay silent otherwise.
+    other publishers cannot reach a repeat: the status chokepoint
+    (``update_task``) and the per-row fan-out from ``complete_tasks_bulk`` are
+    transition-gated, publishing exactly when the write moved the task INTO
+    completed; the create door (``TasksCoreService._publish_born_completed``,
+    for a task born ``completed`` — a DSL ``- [x]`` line or an API create
+    carrying the status) has no prior status at all, so its publish is a
+    transition by construction.
+
+    A born-completed task carries its own ``completion_date`` as ``occurred_at``,
+    which is why the stamps a subscriber keeps must be order-insensitive: a vault
+    sync hands historical completions to the graph in file order, not
+    chronological order.
     """
 
     task_uid: str
