@@ -18,6 +18,7 @@ See: /docs/guides/ACTIVITY_TEMPLATE_AUTHORING.md
 
 from __future__ import annotations
 
+import asyncio
 from typing import TYPE_CHECKING, Any, cast
 
 from adapters.inbound.auth import make_service_getter, require_authenticated_user
@@ -82,12 +83,20 @@ def create_templates_ui_routes(
     get_user_service = make_service_getter(user_service)
 
     async def _gather_attached(ps_uid: str) -> dict[str, list[dict[str, Any]]]:
-        """Fetch the property-dict list of templates attached to ``ps_uid``."""
-        attached: dict[str, list[dict[str, Any]]] = {}
-        for domain, service in template_services.items():
-            result = await service.list_for_pathstep(ps_uid)
-            attached[domain] = result.value if result.is_ok else []
-        return attached
+        """Fetch the property-dict list of templates attached to ``ps_uid``.
+
+        Six independent reads, one per Activity Domain — fanned out rather than
+        awaited in turn, because this runs on every TEACHER+ PS detail page
+        load and each is its own graph round-trip.
+        """
+        domains = list(template_services)
+        results = await asyncio.gather(
+            *(template_services[domain].list_for_pathstep(ps_uid) for domain in domains)
+        )
+        return {
+            domain: result.value if result.is_ok else []
+            for domain, result in zip(domains, results, strict=True)
+        }
 
     # ------------------------------------------------------------------
     # GET /teaching/ps/{ps_uid}/templates  — panel fragment
