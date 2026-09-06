@@ -80,11 +80,10 @@ jobs:
               # filter), the same residual deferred-work.md's entry carries.
               - 'app/docs/guides/ACTIVITY_TEMPLATE_AUTHORING.md'
               # Same shape again: tests/unit/docs/test_status_table_docs.py
-              # derives the per-type status table FROM this guide. That table
-              # became enforceable when the ingestion validator grew its
-              # status-legality gate, so a wrong cell is now a rule an author
-              # is held to — and a docs-only edit to it is exactly the change
-              # that breaks the drift test.
+              # derives the per-type status table FROM this guide. The
+              # ingestion validator enforces that table, so a wrong cell is a
+              # rule an author is held to — and a docs-only edit to it is
+              # exactly the change that breaks the drift test.
               - 'app/docs/guides/YAML_AUTHORING_GUIDE.md'
               # The uv.lock pinning guard's inputs (tests/unit/
               # test_workflow_uv_lock_pinning.py). It reads EVERY workflow, not
