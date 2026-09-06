@@ -3,38 +3,34 @@
 
 An **idempotent, on-demand pass** — run by hand, never a loop, so the CORE
 "no background workers" guarantee holds. Tier-independent: pure graph
-maintenance, no API keys. Its first run is the migration off the pre-cascade
-history; what it can and cannot repair afterwards is in 1 below.
+maintenance, no API keys. What it fills and what it refuses to touch is in 1
+below.
 
-``ProductivityAnalytics`` now holds exactly two figures: ``first_completion_at``
+``ProductivityAnalytics`` holds exactly two figures: ``first_completion_at``
 and ``last_completion_at``, written by the ``TaskCompleted`` handler on every
 genuine completion moment. ``tasks_completed`` is **derived at read** — the
 tasks the user currently owns in ``completed``, counted by
 ``CrossDomainBackend.get_productivity_analytics`` on the same traversal as the
 velocity window — so nothing maintains it and nothing should still store it.
 
-Two things about history are wrong for that shape, and this script fixes both:
+Two things can be wrong for that shape, and this script fixes both:
 
-1. **Null stamps.** A completion that arrived before its door published a task
-   event left the node without a stamp, or without a node at all. Those users
-   have a real derived count and ``null`` stamps. Most of that is *history*:
-   every door into ``completed`` publishes ``TaskCompleted`` now, so the
-   ordinary completion no longer lands here unstamped.
-
-   ⚠ **The set is not strictly shrinking.** The vault door's announcement has
-   no outbox: if reading the persisted entities back fails,
+1. **Null stamps.** A user can own completed tasks and still carry no stamp —
+   no ``ProductivityAnalytics`` node at all, or a node whose stamps are
+   ``null``. Two causes: completions older than the handler that writes the
+   stamps (the bulk of it, and the reason this script exists — the account is
+   in ``docs/roadmap/done/vault-task-door-no-events.md``), and an announcement
+   the vault door loses, which is why the set does not only shrink. That door
+   has no outbox: when reading the persisted entities back fails,
    ``UnifiedIngestionService._publish_completions`` logs and drops the
    completion event, and nothing retries it — the next ingest reads those
-   entities as already completed. So a *new* null stamp can still appear, and
-   re-running after such an ERROR is worth doing.
+   entities as already completed. So this is worth re-running, not only running.
 
-   ⚠ **But re-running repairs only a user whose stamp is NULL.** This script
-   never moves a stamp that exists (``coalesce`` below, deliberate: the
-   handler's value is the real moment and this is a day-grained
-   reconstruction). A user who already had both stamps and then lost an
-   announcement keeps a stale ``last_completion_at``, and nothing here fixes
-   it — that is the durability gap, not this script's job. See
-   ``docs/roadmap/ingest-transition-obligation-durability.md``.
+   ⚠ **It repairs a NULL stamp and nothing else** — the fill's contract is
+   right below, and a stamp that exists is never moved. So a user who holds both
+   stamps and then loses an announcement keeps a stale ``last_completion_at``,
+   and nothing repairs that: it belongs to the durability gap
+   (``docs/roadmap/ingest-transition-obligation-durability.md``), not here.
 
    This fills **only NULL stamps**: ``first_completion_at`` from the earliest
    ``Task.completion_date`` the user currently owns in ``completed``,
