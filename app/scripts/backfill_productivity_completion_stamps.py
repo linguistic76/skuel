@@ -13,10 +13,13 @@ velocity window — so nothing maintains it and nothing should still store it.
 
 Two things about history are wrong for that shape, and this script fixes both:
 
-1. **Null stamps.** A completion that arrived through a door publishing no task
-   event — the vault ``- [x]`` bulk upsert above all, and every completion that
-   predates the event handler — left the node without a stamp, or without a
-   node at all. Those users have a real derived count and ``null`` stamps.
+1. **Null stamps.** A completion that arrived before its door published a task
+   event left the node without a stamp, or without a node at all. Those users
+   have a real derived count and ``null`` stamps. **This is history only** —
+   every door into ``completed`` publishes ``TaskCompleted`` now (the create
+   door for a task born completed, and the vault bulk upsert, were the last two
+   to be wired), so no *new* completion lands here unstamped and this script
+   fills a fixed, shrinking-to-nothing set.
    This fills **only NULL stamps**: ``first_completion_at`` from the earliest
    ``Task.completion_date`` the user currently owns in ``completed``,
    ``last_completion_at`` from the latest. A stamp that exists is never moved —
@@ -81,8 +84,8 @@ _OWNS = RelationshipName.OWNS.value
 
 # READ-ONLY. One row per user who either has a node or owns a stamped completed
 # task. Both arms matter: the first catches a node whose stamps are null and
-# unfillable (reported, left alone); the second catches the vault door — real
-# completions, no node at all.
+# unfillable (reported, left alone); the second catches a user whose completions
+# all predate the cascade reaching their door — real completions, no node at all.
 CENSUS_QUERY = f"""
 MATCH (u:{_USER})
 OPTIONAL MATCH (u)-[:{_OWNS}]->(t:{_TASK} {{status: $completed}})
@@ -114,9 +117,9 @@ RETURN count(a) AS n
 # Fills NULL stamps only. ``old_first`` / ``old_last`` are read into scope
 # BEFORE the SET so both right-hand sides see the pre-write values, and the
 # guard keeps a filled value from crossing the stamp that already exists.
-# MERGE creates the node for a user who never had one (the vault door); a user
-# with both stamps present is matched, coalesced to themselves, and counted in
-# neither total. Idempotent by construction.
+# MERGE creates the node for a user who never had one; a user with both stamps
+# present is matched, coalesced to themselves, and counted in neither total.
+# Idempotent by construction.
 BACKFILL_QUERY = f"""
 MATCH (u:{_USER})-[:{_OWNS}]->(t:{_TASK} {{status: $completed}})
 WHERE t.completion_date IS NOT NULL
@@ -246,7 +249,7 @@ def _print_census(plans: list[StampPlan], retired_nodes: int, *, confirm: bool) 
     print(f"  Stamps to fill         {firsts + lasts:>6}   first: {firsts}   last: {lasts}")
     print(
         f"  Nodes to create        {sum(1 for p in plans if p.creates_node):>6}   "
-        "(stamped completions, no node — the vault door)"
+        "(stamped completions, no node — pre-cascade history)"
     )
     print(
         f"  Unfillable             {sum(1 for p in plans if p.unfillable):>6}   "

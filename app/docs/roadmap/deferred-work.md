@@ -112,10 +112,6 @@ renders them as a table in Obsidian, and a session derives the same table with
 
 [A Frontmatter Edge Whose Target Does Not Exist Yet Is Silent](frontmatter-edge-target-missing-is-silent.md) — Every `*_uids:` channel drops an edge whose target node is absent and reports nothing; MOC body links already warn, the structural channels do not.
 
-## The Completion Cascade Does Not Reach Every Door
-
-[The Completion Cascade Does Not Reach Every Door](vault-task-door-no-events.md) — An entity that arrives already completed publishes no completion event, through the DSL/API create door as well as the vault bulk upsert; the vault door also skips the reopen-clear and the status-legality gate.
-
 ## `HabitEventScheduler` Stamps a Goal on a Field `Event` Does Not Have
 
 [HabitEventScheduler Stamps a Goal on a Field Event Does Not Have](habit-event-scheduler-dead-goal-stamp.md) — A dead `fulfills_goal_uid` stamp under a `type: ignore` — the real work is the `CONTRIBUTES_TO_GOAL` edge post-persist, guarded.
