@@ -266,11 +266,13 @@ The Tasks domain publishes domain events for cross-service communication:
 `update_task` (`POST /api/tasks/{uid}/status`), a per-row fan-out from `complete_tasks_bulk`,
 the create door for a task born `completed` (`TasksCoreService._publish_born_completed` — a DSL
 `- [x]` line or an API create carrying the status), and the vault door's post-persist
-announcement (`UnifiedIngestionService._apply_status_transitions`). All but the create door are
-transition-gated, so they publish exactly when the write moved the task INTO completed and stay
-silent otherwise — the vault door from the prior status its bulk upsert reads under the node's
-write-lock, which is what makes a `--force` re-ingest of already-completed files silent. A
-create has no prior status, so its publish is a transition by construction.
+announcement (`UnifiedIngestionService._apply_status_transitions`). Three of the five are
+transition-gated — the status chokepoint, the bulk fan-out and the vault door — so they publish
+exactly when the write moved the task INTO completed and stay silent otherwise; the vault door
+reads its prior status under the node's write-lock, which is what makes a `--force` re-ingest of
+already-completed files silent. The create door has no prior status, so its publish is a
+transition by construction. The explicit-complete doors are the exception on purpose: they re-run
+on an already-completed task and report it (`is_repeat=True`, the repair path below).
 
 **`TasksBulkCompleted` is published alongside the per-row events, not instead of them** — it
 carries the shape of the *batch* (size, time of day) for pattern classification. A consumer

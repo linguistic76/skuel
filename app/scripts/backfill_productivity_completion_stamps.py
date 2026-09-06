@@ -102,8 +102,8 @@ _OWNS = RelationshipName.OWNS.value
 
 # READ-ONLY. One row per user who either has a node or owns a stamped completed
 # task. Both arms matter: the first catches a node whose stamps are null and
-# unfillable (reported, left alone); the second catches a user whose completions
-# all predate the cascade reaching their door — real completions, no node at all.
+# unfillable (reported, left alone); the second catches a user who owns stamped
+# completed tasks but has no analytics node at all.
 CENSUS_QUERY = f"""
 MATCH (u:{_USER})
 OPTIONAL MATCH (u)-[:{_OWNS}]->(t:{_TASK} {{status: $completed}})

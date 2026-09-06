@@ -656,9 +656,9 @@ class CrossDomainBackend:
 
         **Neither count depends on the node existing.** Every match here is
         OPTIONAL and the aggregation always yields exactly one row, so a user
-        whose completions all predate the cascade reaching their door still
-        gets real counts instead of the confident 0.0 a mandatory MATCH
-        produced; only the stamps are absent for them, and honestly so.
+        with no ``:ProductivityAnalytics`` node still gets real counts instead
+        of the confident 0.0 a mandatory MATCH produced; only the stamps are
+        absent for them, and honestly so.
 
         ``window_start`` and ``window_end`` are ISO ``YYYY-MM-DD`` dates and the
         window is inclusive of both (``CompletionVelocityWindow.start_date`` /
