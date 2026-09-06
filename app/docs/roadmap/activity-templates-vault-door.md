@@ -1,10 +1,10 @@
 ---
 title: "Activity Templates Get a Vault Door"
 updated: 2026-09-06
-status: "open — PR-1 (the door) shipped; PR-2 + PR-3 remain"
+status: "open — PR-1 (the door) and PR-2 (the authoring surface) shipped; PR-3 remains"
 registered: 2026-09-05
 ruled: 2026-09-05
-trigger: "Mike schedules PR-2 — the door is open, the authoring surface is not built"
+trigger: "Mike schedules PR-3 — the door is open and authored against; the teacher CRUD forms are still wired"
 check: "`git grep -n 'templates_forms' -- adapters/inbound/templates_ui.py` → non-empty (the teacher CRUD forms PR-3 deletes are still wired)"
 ---
 
@@ -125,10 +125,42 @@ Two things PR-1 had to settle that the scope above did not name:
   (`0vault/Ps/Ps_dev/noticing-patterns_Ps.md`). See
   [context-retriever-write-only-fields.md](context-retriever-write-only-fields.md).
 
-**PR-2 — the authoring surface.** A `_tmpl.md` filename suffix following the `_Ku`/`_Ps`/`_exer`/
-`_edge` convention, with the six kinds separated by an explicit `type:` (the detector already keys
-off `type:`; six suffixes would buy nothing). Authoring documentation and one worked example per
-domain in the content vault. Verify both ingest doors, `--preview`, and deletion reconciliation.
+**PR-2 — the authoring surface. ✅ SHIPPED 2026-09-06.** The `_tmpl.md` suffix, with the six
+kinds separated by `type:` as planned. [ACTIVITY_TEMPLATE_AUTHORING.md](../guides/ACTIVITY_TEMPLATE_AUTHORING.md)
+is the new authoring reference — the six kinds, complete field references, the offset vocabulary,
+structured lists, and what engagement does; `YAML_AUTHORING_GUIDE`'s API-centric TaskTemplate
+section becomes a short vault-first section pointing at it. Six worked examples live in
+`0vault/Tmpl/`, attached to `ps.mindfulness-101.step-1`.
+
+Verified by driving the real doors against the live graph, not by reading: both directory doors
+(`./dev vault-sync --vault content` and the admin `POST /api/vault/sync/content` are the same
+`VaultReconciler.sync` call), the single-file door (`ingest_file`), `--preview`, edge retraction
+(dropping a uid from the PS took the edge and left the node), and deletion propagation (deleting
+a template file deleted its node, `entities_deleted: 1`). All six read back through the service
+with their offsets, enums, milestones, options and expressions intact.
+
+Four things PR-2 found that the scope did not name:
+
+- **`type: TaskTemplate` was rejected.** The content vault spells every other kind in PascalCase
+  (`type: PathStep`, `type: Ku`, `type: Habit`) and that resolves because lowercasing is enough —
+  but `EntityType.from_string` inserts no underscore, so the six canonical values, the only
+  ingestible ones with an internal underscore, were the one family it missed. `type: Task Template`
+  worked; `type: TaskTemplate` did not. The six spellings join `pathstep`/`learningpath` in the
+  detector's `TYPE_MAPPING`.
+- **The TaskTemplate field table documented a `priority` field that has never existed** anywhere in
+  the stack, and two worked examples POSTed it. `tests/unit/docs/test_activity_template_docs.py`
+  now derives every documented table from the live dataclasses — names both ways, plus the
+  `type:`/prefix/attachment rows against three separate authorities and any spelled-out enum
+  vocabulary against `ENUM_FIELD_TYPES`. That last check caught the doc calling `event_type`
+  free-text when the ingest door enum-validates it.
+- **A structured-list item without its nested `uid:` corrupts silently** — registered as its own
+  case file, [structured-list-items-need-a-nested-uid.md](structured-list-items-need-a-nested-uid.md).
+  Not template-specific (Goal and Choice have carried it since they became ingestible), so the fix
+  belongs at the shared gate, not on six template configs.
+- **A frontmatter edge whose target does not exist yet is written nowhere and reported nowhere** —
+  registered as [frontmatter-edge-target-missing-is-silent.md](frontmatter-edge-target-missing-is-silent.md).
+  Hit in the ordinary course: one template failed validation, so the PathStep in the same batch
+  silently got five of six edges and the sync reported success.
 
 **PR-3 — One Path Forward.** Delete the create/edit/detach handlers in `templates_ui.py` and the
 form builders (`ui/teaching/templates_forms.py`, `ui/teaching/_template_widgets.py`). Keep

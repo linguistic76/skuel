@@ -159,8 +159,6 @@ The `type` value is case-insensitive. Aliases resolve to the canonical type duri
 
 **What happens during ingestion:** The `type` field determines which Neo4j labels the node gets (e.g., `type: Task` creates a node with `:Entity:Task` labels) and sets the `entity_type` property on the node (e.g., `entity_type: "task"`). The `type` field itself is not stored — it is translated into labels and properties.
 
-See `yaml_templates/_schemas/` for the complete field reference per entity type.
-
 ### Enum-Governed Fields
 
 Many YAML fields are constrained by Python enums — using an invalid value will fail Pydantic validation during ingestion with a clear error message. These are not free-text fields; they accept only the values defined in the corresponding enum class.
@@ -437,144 +435,60 @@ exercise_uids: [ex.mindfulness-101.breath-awareness-check-in]
 
 ---
 
-## PS → TaskTemplate → Task Engagement Workflow
+## PS → Activity Template → Instance Engagement Workflow
 
-A PathStep can spawn tasks for each student when they engage it, rather than assigning a single shared task to everyone. This is the **TaskTemplate pattern** — the recommended approach for curriculum-driven tasks.
+A PathStep can spawn its own copy of a task, habit, goal, event, choice or principle for
+each learner when they engage it, rather than assigning a single shared entity to
+everyone. That blueprint is an **Activity Template**.
 
-### Two Ways to Connect Tasks to a PathStep
+### Two ways to connect an activity to a PathStep
 
-| Approach | Field | Relationship | When each task spawns |
-|----------|-------|-------------|----------------------|
-| **Static assignment** | `task_uids` on PathStep | `ASSIGNS_TASK` | Never — the task already exists and is shared |
-| **Engagement templates** | TaskTemplate (via API/admin) | `HAS_TASK_TEMPLATE` | When any student clicks "Start learning" |
+| Approach | Field on the PathStep | Relationship | When the learner gets one |
+|----------|----------------------|--------------|---------------------------|
+| **Static assignment** | `task_uids`, `habit_uids`, `goal_uids`, `event_uids`, `choice_uids`, `principle_uids` | `ASSIGNS_TASK`, `BUILDS_HABIT`, … | Never — the entity already exists and is shared by everyone |
+| **Engagement templates** | `task_template_uids`, `habit_template_uids`, … | `HAS_TASK_TEMPLATE`, … | On "Start learning" — one fresh instance per learner |
 
-Use `task_uids` for pre-authored reference tasks that everyone shares. Use TaskTemplates when you want each student to get their own personal copy of a task, scheduled relative to when they engaged the PathStep.
+Use the instance channels for pre-authored reference material everyone shares. Use
+templates when each learner should get their own copy, dated relative to when *they*
+engaged.
 
-### How TaskTemplates Work
+### The template file
 
-A TaskTemplate is a blueprint. It has all the fields of a Task, plus:
+Templates are vault-authored like every other curriculum type: one `<slug>_tmpl.md` file
+per template, told apart by `type:`, attached from the PathStep's frontmatter.
 
-- **`due_offset`** — days/hours from engagement until the spawned task is due
-- **`parent_template_uid`** — makes this template a sub-task of another template (the hierarchy spawns together)
-- **Cross-template references** — `fulfills_goal_template_uid`, `reinforces_habit_template_uid`, `scheduled_event_template_uid` — these resolve to the actual spawned instances at engagement time
-
-When a student engages the PathStep, the system:
-
-1. Reads all `HAS_TASK_TEMPLATE` edges from the PathStep
-2. For each TaskTemplate, creates one Task owned by that student
-3. Resolves relative offsets to absolute dates (due in N days from today)
-4. Creates `SPAWNED_FROM` edges from each Task back to its template
-5. Fires `ps-engaged` — the PathStep detail page reloads the Tasks section
-
-### Creating a TaskTemplate
-
-TaskTemplates are vault-authored like every other curriculum type — a file with
-`type: task_template` and a `tt.` uid, attached from the PathStep's
-`task_template_uids:` frontmatter. The JSON API below remains as a second door.
-
-**Step 1 — Create the TaskTemplate:**
-
-```
-POST /api/task-templates/
-{
-  "uid": "tt.mindfulness-101.log-first-5-sessions",
-  "title": "Log Your First 5 Sessions",
-  "description": "After each of your first 5 breath-awareness sessions, write 2–3 sentences about what you noticed. Use the journal or a note.",
-  "priority": "medium",
-  "due_offset": { "days": 14 },
-  "duration_minutes": 30,
-  "knowledge_mastery_check": false,
-  "completion_updates_goal": true
-}
+```yaml
+# Tmpl/log-first-5-sessions_tmpl.md
+---
+type: task_template
+uid: tt.mindfulness.log-first-5-sessions
+title: Log Your First 5 Sessions
+description: After each of your first five sessions, write two or three sentences.
+due_offset: {days: 14}
+duration_minutes: 30
+---
 ```
 
-**Step 2 — Attach it to the PathStep:**
+```yaml
+# Ps/breath-awareness-basics_Ps.md
+---
+type: PathStep
+uid: ps.mindfulness.breath-awareness-basics
+title: Breath Awareness — Basics
 
-```
-POST /api/ps/ps.mindfulness-101.breath-awareness-basics/task-templates/tt.mindfulness-101.log-first-5-sessions/attach
-```
-
-This creates the `(PathStep)-[:HAS_TASK_TEMPLATE]->(TaskTemplate)` edge. The attachment is permanent until explicitly detached — publish the PathStep once all templates are attached.
-
-**Step 3 — Publish the PathStep:**
-
-```
-POST /api/ps/ps.mindfulness-101.breath-awareness-basics/publish
+task_template_uids:
+  - tt.mindfulness.log-first-5-sessions
+---
 ```
 
-Publishing validates all cross-template references and flips the PathStep status to `published`. Students can't engage an unpublished PathStep.
+Every date on a template is engagement-relative (`due_offset: {days: 14}`), and every
+cross-reference points at another *template* (`fulfills_goal_template_uid`) which resolves
+to the instance spawned alongside it. `status:` is stamped `active` at the ingest door.
 
-### Worked Example: Mindfulness 101, Step 1
-
-This example creates two tasks that spawn together when a student engages the breath-awareness PathStep — a primary practice task and a reflection sub-task.
-
-**Template 1 — Primary practice task:**
-
-```
-POST /api/task-templates/
-{
-  "uid": "tt.mindfulness-101.breath-practice-primary",
-  "title": "Complete 5 Breath-Awareness Sessions",
-  "description": "Do five separate practice sessions of any length. One minute counts.",
-  "priority": "high",
-  "due_offset": { "days": 7 },
-  "completion_updates_goal": true
-}
-```
-
-**Template 2 — Sub-task (reflection after each session):**
-
-```
-POST /api/task-templates/
-{
-  "uid": "tt.mindfulness-101.breath-practice-reflection",
-  "title": "Write a Reflection After Each Session",
-  "description": "After each session, note one observation: what you noticed about your attention, breath, or mind-wandering.",
-  "priority": "medium",
-  "due_offset": { "days": 7 },
-  "parent_template_uid": "tt.mindfulness-101.breath-practice-primary"
-}
-```
-
-**Attach both to the PathStep:**
-
-```
-POST /api/ps/ps.mindfulness-101.breath-awareness-basics/task-templates/tt.mindfulness-101.breath-practice-primary/attach
-POST /api/ps/ps.mindfulness-101.breath-awareness-basics/task-templates/tt.mindfulness-101.breath-practice-reflection/attach
-```
-
-**What the student sees after engaging:**
-
-On the PathStep detail page, under **Tasks**:
-
-```
-☐ Complete 5 Breath-Awareness Sessions   (due 7 days from now)
-    ☐ Write a Reflection After Each Session
-```
-
-Both tasks are owned by the student, scheduled relative to today. Their UID formats follow the standard task format (`task.…`) — the template UID is only on the blueprint.
-
-### TaskTemplate Field Reference
-
-| Field | Type | Purpose |
-|-------|------|---------|
-| `uid` | `tt.{namespace}.{slug}` | Unique identifier |
-| `title` | string | Task title (copied to spawned Task) |
-| `description` | string | Optional context |
-| `priority` | `low`/`medium`/`high`/`critical` | Copied to spawned Task |
-| `due_offset` | `{days, hours, minutes}` | Due date = engagement date + offset |
-| `scheduled_offset` | `{days, hours, minutes}` | Scheduled date = engagement date + offset |
-| `duration_minutes` | int | Estimated duration (copied to spawned Task) |
-| `recurrence_pattern` | RecurrencePattern | Optional recurrence |
-| `recurrence_end_offset` | `{days, hours, minutes}` | When recurrence ends |
-| `parent_template_uid` | `tt.…` | Spawns this task as a sub-task of that template's instance |
-| `fulfills_goal_template_uid` | `gt.…` | Resolve to the spawned Goal instance at engagement |
-| `reinforces_habit_template_uid` | `ht.…` | Resolve to the spawned Habit instance at engagement |
-| `scheduled_event_template_uid` | `et.…` | Resolve to the spawned Event instance at engagement |
-| `goal_progress_contribution` | float 0.0–1.0 | How much this task contributes to goal progress |
-| `knowledge_mastery_check` | bool | Whether completing this task marks a mastery checkpoint |
-| `habit_streak_maintainer` | bool | Whether completing maintains a habit streak |
-| `completion_updates_goal` | bool | Whether completion triggers a goal progress update |
+**See: [Activity Template Authoring](ACTIVITY_TEMPLATE_AUTHORING.md)** — the six kinds,
+their complete field references, the offset vocabulary, structured lists, and what
+engagement does. The JSON API (`POST /api/task-templates/` + `/attach`) remains a second
+door.
 
 ### PathStep YAML with `task_uids` (Static Approach)
 
@@ -789,8 +703,7 @@ YAML Author writes type + connections.*
 - [Unified Ingestion Guide](../patterns/UNIFIED_INGESTION_GUIDE.md) — full ingestion API
 - [Relationship Registry](/core/models/relationship_registry.py) — source of truth for `yaml_field_path` mappings
 - [Entity Type Architecture](../architecture/ENTITY_TYPE_ARCHITECTURE.md) — all entity types
-- [YAML Templates README](/yaml_templates/README.md) — directory structure and UID formats
-- [Schema Templates](/yaml_templates/_schemas/) — complete field reference per entity type
+- [Activity Template Authoring](ACTIVITY_TEMPLATE_AUTHORING.md) — the 6 Activity Templates, field by field
 
 ### Ingestion Pipeline Source Files
 
@@ -800,5 +713,5 @@ YAML Author writes type + connections.*
 | `core/services/ingestion/config.py` | `ENTITY_CONFIGS`: `EntityType` → Neo4j label, UID prefix, required fields |
 | `core/services/ingestion/preparer.py` | Data preparation: strip YAML metadata, inject `entity_type`, normalize UIDs |
 | `core/services/ingestion/validator.py` | Required field validation, UID format validation, data validation |
-| `core/ingestion/bulk_ingestion.py` | Cypher generation and Neo4j writes |
+| `adapters/persistence/neo4j/bulk_upsert_backend.py` | Cypher generation and Neo4j writes |
 | `core/models/relationship_registry.py` | `yaml_field_path` → relationship type mappings |

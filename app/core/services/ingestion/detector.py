@@ -81,6 +81,19 @@ TYPE_MAPPING: dict[str, EntityType | NonKuDomain] = {
     "event_template": EntityType.EVENT_TEMPLATE,
     "choice_template": EntityType.CHOICE_TEMPLATE,
     "principle_template": EntityType.PRINCIPLE_TEMPLATE,
+    # The PascalCase class name, lowercased — the spelling the content vault
+    # already uses for every other kind (``type: PathStep``, ``type: Ku``,
+    # ``type: Habit``). ``EntityType.from_string`` only lowercases and swaps
+    # ``-``/space for ``_``, so it resolves ``Task Template`` but NOT
+    # ``TaskTemplate``: the six canonical values are the only ingestible ones
+    # carrying an internal underscore. Same reason ``pathstep`` and
+    # ``learningpath`` are spelled out above.
+    "tasktemplate": EntityType.TASK_TEMPLATE,
+    "goaltemplate": EntityType.GOAL_TEMPLATE,
+    "habittemplate": EntityType.HABIT_TEMPLATE,
+    "eventtemplate": EntityType.EVENT_TEMPLATE,
+    "choicetemplate": EntityType.CHOICE_TEMPLATE,
+    "principletemplate": EntityType.PRINCIPLE_TEMPLATE,
 }
 
 # Shown in the missing-type reason. TYPE_MAPPING accepts more spellings
