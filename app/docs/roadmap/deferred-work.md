@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-05
+updated: 2026-09-06
 ---
 
 # Deferred Work
@@ -166,7 +166,11 @@ renders them as a table in Obsidian, and a session derives the same table with
 
 ## Parked Features — Memory-Only Until Now
 
-[Parked Features — Memory-Only Until Now](parked-features.md) — Four feature-shaped threads — activity ledger, interest/engagement signal, icon provider swap, activity-templates re-homing — each with its ruled constraint and an absence check.
+[Parked Features — Memory-Only Until Now](parked-features.md) — Three feature-shaped threads — activity ledger, interest/engagement signal, icon provider swap — each with its ruled constraint and an absence check.
+
+## Activity Templates Get a Vault Door
+
+[Activity Templates Get a Vault Door](activity-templates-vault-door.md) — The 2026-07-06 re-homing ruling got its shape on 2026-09-05: zero templates exist because their only door is the web CRUD the Activity Domains deleted; the vault is the home, and the arc is scoped, unscheduled.
 
 ## Catalog Copies in Code — the duplicated-fact defect, measured
 
