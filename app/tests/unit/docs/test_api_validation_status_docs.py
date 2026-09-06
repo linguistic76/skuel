@@ -2,20 +2,18 @@
 
 Why this exists
 ---------------
-The guide told readers for months that a rejected JSON or form body came back
-**422**, in a section heading, an example payload and two rows of the
-"When to Use Each Pattern" table. It never did: both body helpers return
-``Errors.validation``, and ``_get_status_for_error`` maps
-``ErrorCategory.VALIDATION`` to 400 — 422 belongs to ``BUSINESS``, a
-well-formed request that breaks a domain rule. A status column is a contract a
-client integrator codes against, so a wrong cell sends someone to branch on a
-status the app never emits.
+A status column is a contract a client integrator branches on, so a wrong cell
+sends someone to handle a status the app never emits. The guide's claims rest
+on one fact: ``_get_status_for_error`` maps ``ErrorCategory.VALIDATION`` to 400,
+and 422 belongs to ``BUSINESS`` — a well-formed request that breaks a domain
+rule, which this guide does not cover.
 
 So the columns are derived-checked, and by *driving the helper* rather than
 reading its source: each documented row runs its real parser over input it must
 reject and asserts the response ``result_to_response`` builds carries the
-status the table claims. A row with no driver must be listed in
-``_UNDRIVEN`` — adding a row to the table without either breaks the build.
+status the table claims. A row with no driver declares its documented status in
+``_UNDRIVEN`` instead, which is checked the same way; a row that does neither
+breaks the build.
 
 ``app/docs/patterns/API_VALIDATION_PATTERNS.md`` is in CI's ``py`` path filter
 so a docs-only edit to a status cell still runs this module.
@@ -24,7 +22,6 @@ so a docs-only edit to a status cell still runs this module.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
 
 import pytest
 from pydantic import BaseModel, Field
@@ -35,7 +32,7 @@ from adapters.inbound.route_factories import (
     parse_bool_query_param,
     parse_date_param_strict,
 )
-from core.utils.result_simplified import Errors
+from core.utils.result_simplified import Errors, Result
 
 _DOC = Path(__file__).resolve().parents[3] / "docs" / "patterns" / "API_VALIDATION_PATTERNS.md"
 _TABLE_HEADING = "## When to Use Each Pattern"
@@ -59,14 +56,14 @@ class _Body(BaseModel):
 class _JsonRequest:
     """Stands in for the JSON half of a Starlette request."""
 
-    async def json(self) -> dict[str, Any]:
+    async def json(self) -> dict[str, str]:
         return {"reflection": "x" * 10}
 
 
 class _FormRequest:
     """Stands in for the form half of a Starlette request."""
 
-    async def form(self) -> dict[str, Any]:
+    async def form(self) -> dict[str, str]:
         return {"reflection": "x" * 10}
 
 
@@ -87,7 +84,7 @@ def _documented_rows() -> dict[str, str]:
     return rows
 
 
-async def _status_of(result: Any) -> int:
+async def _status_of[T](result: Result[T]) -> int:
     """The HTTP status a failed Result actually reaches the client with."""
     assert result.is_error, "driver input was accepted — it must be rejected to have a status"
     return result_to_response(result).status_code
@@ -111,6 +108,10 @@ def test_every_table_row_is_driven_or_declared_undriven() -> None:
         "Form Data Bodies (POST)",
     }
     assert set(documented) == driven | set(_UNDRIVEN)
+
+    # An undriven row still has a documented status, and nothing else pins it —
+    # the 422 scan passes on a 401 just as happily. Its declared value is the pin.
+    assert {row: documented[row] for row in _UNDRIVEN} == _UNDRIVEN
 
 
 @pytest.mark.parametrize("row", ["JSON Bodies (POST/PUT)", "Form Data Bodies (POST)"])
