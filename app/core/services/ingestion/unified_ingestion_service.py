@@ -160,6 +160,7 @@ class UnifiedIngestionService:
         chunking_service: Any | None = None,
         content_adapter: Any | None = None,
         event_bus: Any | None = None,
+        embeddings_enabled: bool = True,
         ingestion_backend: "IngestionBackendOperations | None" = None,
         user_entry_service: UserEntryService | None = None,
         user_service: UserService | None = None,
@@ -184,12 +185,21 @@ class UnifiedIngestionService:
             content_adapter: Neo4jContentAdapter for persisting :Content and :ContentChunk nodes
                              after chunk generation. Required in production for RAG retrieval;
                              when omitted, chunks remain in-memory only.
-            event_bus: EventBusOperations for the post-persist embedding step — publishes
-                       ``*EmbeddingRequested`` (per persisted embeddable entity, both ingest
-                       doors) and ``ChunkEmbeddingRequested`` to the background embedding
-                       worker. Tier-gated at the composition root: wired only at FULL, ``None``
-                       in CORE where the worker isn't running (a publish would be a
-                       queue-with-no-listener). Ingestion never embeds inline (ADR-074).
+            event_bus: EventBusOperations for every post-persist publish — the ADR-087
+                       completion events a vault file's status change earns, and the
+                       ADR-074 embedding requests (``*EmbeddingRequested`` per persisted
+                       embeddable entity, ``ChunkEmbeddingRequested`` for chunks). Wired in
+                       BOTH tiers: the completion cascade (goal progress, PS engagement
+                       auto-complete, context invalidation) is Analog behavior whose
+                       subscribers are wired unconditionally, and the app's own update
+                       chokepoints already publish it at CORE — withholding the bus here
+                       would make the vault door the one write path that does not cascade.
+                       Ingestion never embeds inline (ADR-074).
+            embeddings_enabled: Whether to publish the embedding requests specifically —
+                       the tier gate, moved off ``event_bus`` where it used to live. False
+                       in CORE, where the embedding worker isn't running and a publish
+                       would be a queue-with-no-listener. It does NOT gate completion
+                       events; that is the whole point of separating the two.
             ingestion_backend: Backend for ingestion tracking (optional).
             user_entry_service: UserEntryService for routing UserEntry YAMLs through
                                 the same create_entry() pipeline as /submit. Required
@@ -231,7 +241,10 @@ class UnifiedIngestionService:
         self.max_file_size_bytes = max_file_size_bytes
         self.chunking = chunking_service  # Can be None - graceful degradation
         self.content_adapter = content_adapter  # Can be None - graceful degradation
-        self.event_bus = event_bus  # None in CORE tier — no embedding publishes
+        self.event_bus = event_bus
+        # The tier gate for EMBEDDING publishes only — completion events are Analog
+        # and ride the same bus in both tiers (see the ``event_bus`` arg note).
+        self.embeddings_enabled = embeddings_enabled
         self.user_entry_service = user_entry_service
         self.user_service = user_service
         # Late-bound at the composition root (UserEntryProcessingService is built
@@ -266,10 +279,10 @@ class UnifiedIngestionService:
             self.logger.warning(
                 "⚠️ Chunking enabled but content_adapter missing — chunks will not be persisted to Neo4j"
             )
-        if self.content_adapter and not self.event_bus:
+        if self.content_adapter and not (self.event_bus and self.embeddings_enabled):
             self.logger.info(
-                "Content adapter wired without event_bus — chunks persist but no embedding "
-                "events publish (expected in CORE tier, miswired in FULL)"
+                "Embedding publishes disabled — chunks persist but no embedding events "
+                "publish (expected in CORE tier, miswired in FULL)"
             )
 
     # ========================================================================
@@ -433,11 +446,17 @@ class UnifiedIngestionService:
         (``core.events.embedding_publisher``); the background worker embeds
         asynchronously. Ingestion never embeds inline (ADR-074).
 
-        No-op when ``event_bus`` is None (CORE tier — gated at the composition
-        root, so no queue-with-no-listener publishes and no dropped-event
-        warnings), for NonKuDomain types, and for non-embeddable configs.
+        No-op when embedding publishes are disabled (CORE tier — the worker isn't
+        running, so a publish would be a queue-with-no-listener), when there is no
+        bus at all, for NonKuDomain types, and for non-embeddable configs. The
+        ADR-087 completion publish is deliberately NOT behind this gate: it is
+        Analog behavior and runs in both tiers.
         """
-        if self.event_bus is None or not isinstance(entity_type, EntityType):
+        if (
+            self.event_bus is None
+            or not self.embeddings_enabled
+            or not isinstance(entity_type, EntityType)
+        ):
             return
         config = ENTITY_CONFIGS.get(entity_type)
         if config is None or not config.embeddable:
@@ -477,7 +496,7 @@ class UnifiedIngestionService:
 
         Failures never fail ingestion — chunks can be regenerated later.
         Chunking and persistence run in CORE too (Analog behavior); only the
-        embedding publish is tier-gated (``event_bus`` None → no publish).
+        embedding publish is tier-gated (``embeddings_enabled`` False → no publish).
 
         An empty body takes the explicit clear path instead (ADR-074): an
         entity re-ingested with its body emptied must not keep the previous
@@ -527,7 +546,7 @@ class UnifiedIngestionService:
             return False
 
         # Request async embedding generation for the persisted chunks
-        if self.event_bus and content.chunks:
+        if self.event_bus and self.embeddings_enabled and content.chunks:
             from datetime import datetime
 
             from core.events import ChunkEmbeddingRequested, publish_event
@@ -597,8 +616,13 @@ class UnifiedIngestionService:
         A ``--force`` re-ingest of already-completed files is neither, and is
         therefore silent.
 
-        The clear is an Analog write and runs in CORE too; only the publish is
-        tier-gated (``event_bus`` is None there). A failed clear is logged, not
+        Both halves are Analog and run in CORE: the clear is a graph write, and the
+        completion event reaches subscribers (goal progress, PS engagement
+        auto-complete, context invalidation) that the composition root wires in
+        both tiers — the app's update chokepoints already publish it at CORE, so
+        gating the vault door's copy would make it the one write path that does
+        not cascade. The tier gate belongs to the EMBEDDING publishes alone
+        (``embeddings_enabled``). A failed clear is logged, not
         raised: the entity and its tracker stamp have already landed, so failing
         the file would only hide a stranded stamp behind a sync error that the
         next run — seeing an unchanged hash — would never retry.

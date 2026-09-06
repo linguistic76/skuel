@@ -29,6 +29,7 @@ from adapters.infrastructure.event_bus import InMemoryEventBus
 from adapters.persistence.neo4j.neo4j_schema_manager import Neo4jSchemaManager
 from adapters.persistence.neo4j.session_backend import SessionBackend
 from core.config.unified_config import UnifiedConfig
+from core.services.ingestion.unified_ingestion_service import UnifiedIngestionService
 from core.services.performance_optimization_service import PerformanceOptimizationService
 from core.services.user_service import UserService
 from core.utils.result_simplified import Result
@@ -531,6 +532,33 @@ def _assert_subscriptions_wired(event_bus: InMemoryEventBus, *, full_tier: bool)
     )
 
 
+def _assert_ingestion_bus_wiring(
+    services: Services, event_bus: InMemoryEventBus, *, embeddings_enabled: bool
+) -> None:
+    """The ingestion service holds the REAL bus in both tiers (Codex #1290).
+
+    Ingestion publishes two unrelated kinds of event and only one is AI-shaped.
+    The ADR-074 embedding requests are FULL-only — their worker isn't running at
+    CORE — but the ADR-087 completion cascade a vault file's status change earns
+    is Analog, and its subscribers (goal progress, PS engagement auto-complete,
+    context invalidation) are wired unconditionally, as ``_assert_subscriptions_wired``
+    proves. Withholding the bus from ingestion at CORE, which is how the tier
+    gate used to be expressed, would make the vault door the single write path
+    that does not cascade at $0 — while the app's own update chokepoints, which
+    hold the real bus in both tiers, still would.
+    """
+    # The container types this as the route-facing ISP protocol, which names
+    # neither field; narrowing to the concrete service is what lets the wiring
+    # be inspected at all.
+    ingestion = services.unified_ingestion
+    assert isinstance(ingestion, UnifiedIngestionService)
+    assert ingestion.event_bus is event_bus, (
+        "ingestion must hold the real bus in BOTH tiers — the tier gate is "
+        "embeddings_enabled, not the presence of a bus"
+    )
+    assert ingestion.embeddings_enabled is embeddings_enabled
+
+
 class TestComposeServicesExecution:
     """compose_services() must wire the full container in both tiers."""
 
@@ -550,6 +578,7 @@ class TestComposeServicesExecution:
         _assert_container_complete(services, NONE_OK_CORE_TIER)
         _assert_subscriptions_wired(event_bus, full_tier=False)
         assert set(startup_calls) == EXPECTED_STARTUP_CALLS_CORE
+        _assert_ingestion_bus_wiring(services, event_bus, embeddings_enabled=False)
 
     async def test_full_tier_composes_and_wires_events(
         self, monkeypatch, compose_config, startup_calls, hermetic_credentials
@@ -570,6 +599,7 @@ class TestComposeServicesExecution:
         _assert_container_complete(services, NONE_OK_BOTH_TIERS)
         _assert_subscriptions_wired(event_bus, full_tier=True)
         assert set(startup_calls) == EXPECTED_STARTUP_CALLS_FULL
+        _assert_ingestion_bus_wiring(services, event_bus, embeddings_enabled=True)
 
     async def test_full_tier_without_transcription_composes(
         self, monkeypatch, compose_config, startup_calls, hermetic_credentials

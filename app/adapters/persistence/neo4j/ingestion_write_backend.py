@@ -21,6 +21,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from core.models.enums.entity_enums import EntityStatus
+
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
@@ -261,6 +263,23 @@ class IngestionWriteBackend:
         the entity is completed" — a stranded ``completion_date`` reads to every
         consumer as a task that is still done.
 
+        **Conditional on the entity still being reopened.** The caller decided
+        this was a reopen from the prior status the upsert read, but the write
+        happens later — at end-of-sync for the directory door, which is a wide
+        window — and an app writer may have completed the entity in between,
+        stamping it through the guarded write. An unconditional ``REMOVE`` would
+        delete that fresh stamp and leave a completed entity with none, which is
+        the exact state this whole contract exists to prevent. So the condition
+        travels to the write: only an entity that is *not currently completed*
+        loses its stamp, which makes the clear a no-op precisely when the caller's
+        verdict has been overtaken.
+
+        ``coalesce`` matters — a status property that is ABSENT is one of the
+        reopen shapes this clears (a file whose ``status:`` line is empty writes
+        null, and ``SET n += props`` deletes the property), and a bare
+        ``n.status <> $completed`` would evaluate to null there and skip exactly
+        the row it must clear.
+
         ``field_name`` is a value of ``core.services.completion_stamp.COMPLETION_FIELDS``
         (enum-keyed, trusted — never user input), which is what makes the
         interpolation safe; the driver requires a ``LiteralString``, hence the
@@ -273,10 +292,12 @@ class IngestionWriteBackend:
             f"""
             UNWIND $uids AS uid
             MATCH (n:Entity {{uid: uid}})
-            WHERE n.{field_name} IS NOT NULL
+            WHERE coalesce(n.status, '') <> $completed_status
+              AND n.{field_name} IS NOT NULL
             REMOVE n.{field_name}
             RETURN count(n) AS cleared
             """,
             uids=list(uids),
+            completed_status=EntityStatus.COMPLETED.value,
         )
         return int(records[0]["cleared"]) if records else 0

@@ -72,7 +72,14 @@ def _label_clause(entity_label: str, base_label: str | None) -> str:
     return entity_label
 
 
-def _prior_statuses(rows: list[dict[str, Any]]) -> dict[str, str | None]:
+def _prior_statuses(
+    # boundary: raw Neo4j records, one per RETURN column of whichever template
+    # ran — the node upsert's ``uid``/``prior_status`` here, a relationship
+    # template's ``processed`` count elsewhere. Genuinely heterogeneous by
+    # construction: ``execute_batch`` is generic over templates, so no TypedDict
+    # can name one shape without claiming the others do not reach it.
+    rows: list[dict[str, Any]],
+) -> dict[str, str | None]:
     """Map ``uid`` → the status each node held BEFORE this upsert wrote to it.
 
     Reads the node template's rows (see :func:`build_node_upsert_template`).

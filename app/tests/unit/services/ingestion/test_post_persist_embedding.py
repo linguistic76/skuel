@@ -57,10 +57,11 @@ class _CapturingBus:
         self.published.append(event)
 
 
-def _service(event_bus: Any) -> UnifiedIngestionService:
+def _service(event_bus: Any, *, embeddings_enabled: bool = True) -> UnifiedIngestionService:
     """Bare service exposing only what _publish_embedding_requests touches."""
     service = object.__new__(UnifiedIngestionService)
     service.event_bus = event_bus
+    service.embeddings_enabled = embeddings_enabled
     service.logger = logger
     return service
 
@@ -415,12 +416,15 @@ class _FakeContentAdapter:
         return True
 
 
-def _chunking_service(event_bus: Any, content_adapter: Any) -> UnifiedIngestionService:
+def _chunking_service(
+    event_bus: Any, content_adapter: Any, *, embeddings_enabled: bool = True
+) -> UnifiedIngestionService:
     """Bare service exposing what the post-persist + chunk steps touch."""
     from core.services.entity_chunking_service import EntityChunkingService
 
     service = object.__new__(UnifiedIngestionService)
     service.event_bus = event_bus
+    service.embeddings_enabled = embeddings_enabled
     service.logger = logger
     service.chunking = EntityChunkingService()  # pure in-memory, real chunker
     service.content_adapter = content_adapter
@@ -483,6 +487,32 @@ async def test_chunk_step_core_tier_persists_chunks_without_publishing():
     )
 
     assert [u for u, _ in adapter.stored] == [uid]
+
+
+@pytest.mark.asyncio
+async def test_core_tier_gate_is_embeddings_enabled_not_the_bus():
+    """CORE holds a REAL bus and still publishes no embedding events.
+
+    The gate moved off ``event_bus`` so the ADR-087 completion cascade — Analog,
+    with unconditionally-wired subscribers — can ride the bus in both tiers while
+    the ADR-074 embedding publishes stay FULL-only (Codex #1290).
+    """
+    from core.services.ingestion.types import ChunkSource
+
+    bus = _CapturingBus()
+    adapter = _FakeContentAdapter()
+    service = _chunking_service(bus, adapter, embeddings_enabled=False)
+
+    uid = "ps.test.core-gate"
+    await service._ingest_post_persist(
+        EntityType.PATH_STEP,
+        [{"uid": uid, "title": "Core Gate"}],
+        {uid: ChunkSource(content=_PS_BODY, file_format="markdown", source_path="x.md")},
+    )
+
+    # Chunks still persist (Analog), no embedding event of either kind publishes
+    assert [u for u, _ in adapter.stored] == [uid]
+    assert bus.published == []
 
 
 @pytest.mark.asyncio

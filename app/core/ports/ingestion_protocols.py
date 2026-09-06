@@ -163,7 +163,13 @@ class IngestionWriteOperations(Protocol):
 
         The vault door's reopen-clear (ADR-087): a file edited out of
         ``completed`` must not strand its completion stamp, whose invariant is
-        "non-null exactly when the entity is completed". ``field_name`` comes
+        "non-null exactly when the entity is completed".
+
+        Conditional on the entity still being reopened when the write lands: the
+        caller's verdict comes from a prior status read earlier, and an app
+        writer may have completed the entity since. An entity that is currently
+        completed keeps its stamp — the clear is a no-op exactly when the verdict
+        has been overtaken. ``field_name`` comes
         from ``core.services.completion_stamp.COMPLETION_FIELDS`` — enum-keyed
         and trusted, never user input. An entity whose stamp is already absent
         is not an error.

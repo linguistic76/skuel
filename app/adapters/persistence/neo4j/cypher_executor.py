@@ -90,7 +90,14 @@ class CypherExecutor[T]:
             )
 
         try:
+            # boundary: rows are raw Neo4j records whose columns are whatever
+            # THIS template returns — the executor is generic over templates, so
+            # a TypedDict here would name one caller's shape and mis-describe
+            # every other. Callers narrow them (see ``_prior_statuses``).
             rows: list[dict[str, Any]] = []
+            # boundary: heterogeneous by construction — int counters plus the
+            # ``rows`` list under one key. Annotated rather than inferred so the
+            # widening is a stated decision, not a silent one.
             total_stats: dict[str, Any] = {
                 "nodes_created": 0,
                 "nodes_deleted": 0,

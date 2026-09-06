@@ -400,6 +400,64 @@ async def test_a_file_that_declares_no_status_leaves_the_stamp_alone(
 
 
 @pytest.mark.asyncio
+async def test_the_clear_spares_an_entity_an_app_writer_re_completed(
+    clean_neo4j, neo4j_driver, door, tmp_path: Path
+) -> None:
+    """The reopen-clear is conditional on the entity still being reopened
+    (Codex #1290).
+
+    The verdict comes from a prior status read during the upsert; the clear
+    lands later — at end-of-sync for the directory door, a wide window. If an
+    app writer completes the entity in between (through the guarded write, which
+    stamps it), an unconditional REMOVE would delete that FRESH stamp and leave a
+    completed entity with none — the exact state the contract exists to prevent.
+
+    Driven at the backend, because the race is by definition not reachable
+    through a single-threaded pass over the door.
+    """
+    from adapters.persistence.neo4j.ingestion_write_backend import IngestionWriteBackend
+
+    _write(tmp_path, "vault-status-raced", "status: completed\ncompletion_date: 2026-03-04\n")
+    assert (await door.ingest_file(tmp_path / "vault-status-raced.md")).is_ok
+
+    # The entity is currently completed with a stamp — the shape an app writer
+    # would leave behind after re-completing it mid-sync.
+    backend = IngestionWriteBackend(neo4j_driver)
+    cleared = await backend.clear_completion_stamps("completion_date", ["task.vault-status-raced"])
+
+    assert cleared == 0
+    assert await _prop(neo4j_driver, "task.vault-status-raced", "completion_date") is not None
+
+
+@pytest.mark.asyncio
+async def test_the_clear_still_reaches_an_entity_with_no_status_at_all(
+    clean_neo4j, neo4j_driver, door, tmp_path: Path
+) -> None:
+    """The condition must not skip the status-erased reopen shape.
+
+    A bare ``n.status <> 'completed'`` evaluates to null on a node whose status
+    property was deleted — filtering out exactly the row that most needs
+    clearing. The guard coalesces for that reason.
+    """
+    from adapters.persistence.neo4j.ingestion_write_backend import IngestionWriteBackend
+
+    _write(tmp_path, "vault-status-nostatus", "status: completed\ncompletion_date: 2026-03-04\n")
+    path = tmp_path / "vault-status-nostatus.md"
+    assert (await door.ingest_file(path)).is_ok
+
+    async with neo4j_driver.session() as session:
+        await session.run("MATCH (n:Entity {uid: 'task.vault-status-nostatus'}) REMOVE n.status")
+
+    backend = IngestionWriteBackend(neo4j_driver)
+    cleared = await backend.clear_completion_stamps(
+        "completion_date", ["task.vault-status-nostatus"]
+    )
+
+    assert cleared == 1
+    assert await _prop(neo4j_driver, "task.vault-status-nostatus", "completion_date") is None
+
+
+@pytest.mark.asyncio
 async def test_habit_reopen_clears_without_an_event(
     clean_neo4j, neo4j_driver, door, bus: _CapturingBus, tmp_path: Path
 ) -> None:
