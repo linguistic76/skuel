@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Fill the NULL completion stamps on ``ProductivityAnalytics`` from task history.
 
-An **idempotent, on-demand repair pass** — run by hand, never a loop, so the
-CORE "no background workers" guarantee holds. Tier-independent: pure graph
+An **idempotent, on-demand pass** — run by hand, never a loop, so the CORE
+"no background workers" guarantee holds. Tier-independent: pure graph
 maintenance, no API keys. Its first run is the migration off the pre-cascade
-history; it stays useful afterwards for the failure mode named in 1 below.
+history; what it can and cannot repair afterwards is in 1 below.
 
 ``ProductivityAnalytics`` now holds exactly two figures: ``first_completion_at``
 and ``last_completion_at``, written by the ``TaskCompleted`` handler on every
@@ -21,13 +21,19 @@ Two things about history are wrong for that shape, and this script fixes both:
    every door into ``completed`` publishes ``TaskCompleted`` now, so the
    ordinary completion no longer lands here unstamped.
 
-   ⚠ **Not a strictly shrinking set, so this is not a one-time run.** The vault
-   door's announcement has no outbox: if reading the persisted entities back
-   fails, ``UnifiedIngestionService._publish_completions`` logs and drops the
+   ⚠ **The set is not strictly shrinking.** The vault door's announcement has
+   no outbox: if reading the persisted entities back fails,
+   ``UnifiedIngestionService._publish_completions`` logs and drops the
    completion event, and nothing retries it — the next ingest reads those
-   entities as already completed. A completion lost that way is exactly this
-   script's shape, so **re-run it after any such ERROR**, not only against
-   pre-cascade history. See
+   entities as already completed. So a *new* null stamp can still appear, and
+   re-running after such an ERROR is worth doing.
+
+   ⚠ **But re-running repairs only a user whose stamp is NULL.** This script
+   never moves a stamp that exists (``coalesce`` below, deliberate: the
+   handler's value is the real moment and this is a day-grained
+   reconstruction). A user who already had both stamps and then lost an
+   announcement keeps a stale ``last_completion_at``, and nothing here fixes
+   it — that is the durability gap, not this script's job. See
    ``docs/roadmap/ingest-transition-obligation-durability.md``.
 
    This fills **only NULL stamps**: ``first_completion_at`` from the earliest
@@ -56,9 +62,8 @@ through ``left(toString(...), 10)`` because the *writer* decides its storage
 type, not this reader — an ISO string on every live row, but a native
 ``date``/``datetime`` has to project to the same day rather than vanish.
 
-Idempotent: a re-run with nothing new to repair finds no NULL stamp it can fill
-and no retired count, and changes nothing — which is what makes running it after
-a lost announcement safe. The write is one statement per concern, so an
+Idempotent: a re-run with no NULL stamp left to fill and no retired count
+changes nothing — which is what makes running it again safe. The write is one statement per concern, so an
 interrupted run leaves each user either untouched or complete.
 
 Usage:

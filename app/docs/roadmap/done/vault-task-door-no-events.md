@@ -134,6 +134,6 @@ bug. Revisit only if the event half is abandoned.
 **The cost this carried while open:** completion stamps drifted stale, and the goal-progress /
 PS-engagement / context-invalidation cascade did not run, for every entity that arrived already
 completed through the DSL, API-create or vault-frontmatter doors. `./dev
-backfill-productivity-stamps` fills that history — and stays useful afterwards, because the vault
-door's announcement still has no outbox
+backfill-productivity-stamps` fills that history — and stays useful afterwards for a user left
+without a stamp by a lost announcement, since the vault door still has no outbox
 ([ingest transition-obligation durability](../ingest-transition-obligation-durability.md)).
