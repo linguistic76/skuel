@@ -4,18 +4,21 @@ updated: 2026-09-06
 status: "parked"
 registered: 2026-08-28
 trigger: "Mike schedules each — feature work, never self-scoped"
-check: "the four git grep absence checks in the case file, all empty"
+check: "the three git grep absence checks in the case file, all empty"
 ---
 
 # Parked Features — Memory-Only Until Now
 
 *Case file for the [deferred-work.md](deferred-work.md) entry of the same name; move to `done/` when nothing in it remains open.*
 
-Four feature-shaped threads Mike ruled *build later, from a stated design* — parked under the
+Three feature-shaped threads Mike ruled *build later, from a stated design* — parked under the
 2026-08 stabilize directive. Each carries: what it is, why the deleted implementation is not the
 starting point, the design already stated, the ruled constraint, and a check that it is still
-absent. **Trigger for all four: Mike schedules it** — none is a data threshold, and none may be
+absent. **Trigger for all three: Mike schedules it** — none is a data threshold, and none may be
 self-scoped.
+
+A fourth thread, activity-templates re-homing, graduated out on 2026-09-05 when Mike ruled its
+shape — it is now [activity-templates-vault-door.md](activity-templates-vault-door.md).
 
 Each thread names live code as of 2026-09-05. Paths decay; the *premise* under each constraint is
 what to re-verify, not the line number.
@@ -135,32 +138,3 @@ blank icon for any name the app uses.
 Do not bolt a second name vocabulary onto the single `ICON_PATHS`.
 
 **Check:** `git grep -n "IconName\|ICON_PROVIDER" -- ui/ core/` → empty.
-
-## Activity-templates re-homing (ruled 2026-07-06, shape undecided)
-
-**What it is.** The 6 Activity Templates (`TASK_TEMPLATE`, `GOAL_TEMPLATE`, `HABIT_TEMPLATE`,
-`EVENT_TEMPLATE`, `CHOICE_TEMPLATE`, `PRINCIPLE_TEMPLATE`) should be modelled and surfaced
-**somewhere of their own**, not left living implicitly under PathStep/curriculum. Beyond that
-direction Mike explicitly did not want a shape forced yet.
-
-**Current state — what "their own home" is a move away from.**
-
-- Templates are **PS-owned**: authored inside PathSteps and TEACHER-gated
-  (`require_role=UserRole.TEACHER`, `adapters/inbound/_pathstep_template_routes_helpers.py`).
-  They spawn real user-owned instances on PathStep *engagement*.
-- Templates are **invisible to search**: absent from `SearchRouter._SEARCHABLE_DOMAINS`
-  (`core/orchestrator/search_router.py`), and absent from the `/search` Types facet —
-  `_ENTITY_TYPE_OPTIONS` (`ui/search/components.py`) now lists only the 6 activity instance types,
-  Ku/PS/LP having moved to the NOUS facet.
-
-**Adjacent question, raised in the same thread and NOT ruled.** The `/search` Types facet is an
-entity-type filter over existing instances (mostly the user's own). It does the "filter what
-exists" job, not the "discover curriculum by domain" job. Whether that facet — or templates —
-should ever serve content-discovery-by-domain is an open, distinct design question. Do not
-conflate it with the re-homing ruling.
-
-**Constraint.** A separate arc — do not fold this into search/nous work. Entities stay orthogonal:
-no coupling edges added to make templates "belong" somewhere.
-
-**Check:** `git grep -n "_TEMPLATE" -- core/orchestrator/search_router.py` → empty (still
-unsearchable); no templates hub under `ui/`.
