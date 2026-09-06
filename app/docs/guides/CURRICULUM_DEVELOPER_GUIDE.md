@@ -712,7 +712,9 @@ fresh Habit from, per learner, on engagement. The remaining template channels ar
 `goal_template_uids`, `event_template_uids`, `choice_template_uids` and
 `principle_template_uids`.
 
-Not every PathStep needs all 6. Use what fits the content.
+Not every PathStep needs all 6. Use what fits the content — a good first step is one
+HabitTemplate and one TaskTemplate. Authoring the template files themselves is
+[Activity Template Authoring](ACTIVITY_TEMPLATE_AUTHORING.md); start at its Part 1.
 
 ### LearningPath Inherits from PathSteps
 
