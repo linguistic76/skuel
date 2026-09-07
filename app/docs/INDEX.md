@@ -1,6 +1,6 @@
 ---
 title: Documentation Index
-updated: 2026-09-06
+updated: 2026-09-07
 status: current
 category: index
 tags: [index, navigation, documentation]
@@ -461,6 +461,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 
 | Document | Completed | Description |
 |----------|-----------|-------------|
+| [`TaskUpdateRequest` Future `completion_date`](roadmap/done/task-update-future-completion-date.md) | 2026-09-07 | The create/update asymmetry, ruled: the update door refuses a future completion stamp too, since the habits precedent (a future *occurrence* is real) does not reach a task claiming it was *completed* next year. The investigation found the create door enforcing TWO rules and the update door neither — the second, "non-null exactly when completed", was a live bug that let a reopen keep its stamp, now refused at the ADR-087 guard for all five stamping domains. Reachable from the edit form's "Completed on" input, not just the API |
 | [Activity Templates Get a Vault Door](roadmap/done/activity-templates-vault-door.md) | 2026-09-06 | All 3 PRs (#1283, #1284, PR-3): the 6 Activity Templates leave the teacher CRUD forms for the vault. Zero templates existed because their only door was the surface the Activity instances deleted in March 2026. PR-1 opened the ingest door (six configs, the offset gate, six `HAS_*_TEMPLATE` registry entries, the held `event_template_uids` rename), PR-2 built the `_tmpl.md` authoring surface + its derivation-tested guide, PR-3 deleted the forms and finally surfaced the read-only panel — which had never been mounted |
 | [Quarterly / Yearly Periodic Notes](roadmap/done/quarterly-yearly-periodic-notes.md) | 2026-09-05 | The two widest periodic notes, built on Mike's ruling after the founder-vault gate was re-derived and found unfired (`0` files, both templates unauthored — the seeded specimens that now make it `2` are proof, not lived use). `PERIODIC_NOTE_KINDS` widened to five, which switches on four behaviours at once; `quarter_of`/`year_of` derivation; two find-or-create doors; month-sub-headed panels; and the sidebar period ladder that was their only door |
 | [Periodic-Note Doors — one "Notes" picker](roadmap/done/period-notes-toolbar-picker.md) | 2026-09-05 | The top-level door to the quarterly and yearly notes. Mike's ask was "a simple icon"; the real problem was crowding (four note pills in a toolbar that already wraps on a phone) and the fact that no mark in the 159-icon set says QUARTER or YEAR. Chosen from four rendered options: the note family collapses into one "Notes" disclosure listing all five periods on Week/Month/Today. The row for the surface's own period follows the VIEW; the rest open the CURRENT period, made legible by each row's trailing short label |

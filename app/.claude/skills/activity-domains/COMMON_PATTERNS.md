@@ -109,6 +109,15 @@ How it flows:
   gate is target-only legality, prior-independent, so there is no race to close, and it
   calls `validate_status_target(EntityType.PRINCIPLE, changes)` for that check alone
   (ADR-087 § Scope).
+- **A patch that sets a non-null completion stamp must set `status=completed` in the SAME
+  patch**, or the guard refuses it (`_refuse_stranded_stamp`). Supplying the stamp field
+  stands the guard's own patches down — that is the authority rule, which exists so an
+  explicit complete can carry its own date — so without this a reopen carrying a stamp
+  skipped the clear and kept it. Clearing (`None`) and re-posting `completed` with a
+  corrected date both stay legal. The refusal is the guard's alone: `validate_status_target`
+  keeps only the legality check, because the ingestion validator shares it and a vault file
+  with a stale `completion_date:` beside an open status must be ingested and cleaned, not
+  refused.
 - ⚠ **A `# raw-write:` is not an exemption from the guard.** A writer that sets a status
   outside its domain chokepoint (`make_decision`, `miss_habit_event`,
   `unblock_task_if_ready`, the four `GoalsProgressService` progress writers) keeps its raw
