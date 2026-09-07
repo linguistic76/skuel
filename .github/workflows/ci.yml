@@ -575,6 +575,18 @@ jobs:
           uv run pytest tests/unit/scripts/test_generate_cross_reference_index.py -q --no-cov || echo "xref_drift_failed=true" >> $GITHUB_OUTPUT
         continue-on-error: true
 
+      # Same reasoning as the drift test above: this guard's input is every doc
+      # and skill in the repo, so a docs-only PR is exactly what must run it —
+      # and putting docs/** into the `py` filter would erode the deliberate
+      # docs-only skip wholesale. It also runs in unit_tests via `py`.
+      - name: Check no doc claims 422 for a validation failure
+        id: status_claims
+        working-directory: app
+        run: |
+          echo "Running the validation-status claim guard..."
+          uv run pytest tests/unit/docs/test_no_validation_422_claims.py -q --no-cov || echo "status_claims_failed=true" >> $GITHUB_OUTPUT
+        continue-on-error: true
+
       - name: Check for broken documentation links (optional)
         id: broken_links
         working-directory: app
@@ -612,6 +624,7 @@ jobs:
           (steps.freshness.outputs.freshness_failed == 'true' ||
           steps.skills.outputs.skills_failed == 'true' ||
           steps.xref_drift.outputs.xref_drift_failed == 'true' ||
+          steps.status_claims.outputs.status_claims_failed == 'true' ||
           steps.broken_links.outputs.broken_links_warning == 'true')
         continue-on-error: true  # never red the job if commenting is unavailable (e.g. fork PRs)
         uses: actions/github-script@v9
@@ -620,12 +633,14 @@ jobs:
             const freshnessStatus = '${{ steps.freshness.outputs.freshness_failed }}' === 'true' ? '❌' : '✅';
             const skillsStatus = '${{ steps.skills.outputs.skills_failed }}' === 'true' ? '❌' : '✅';
             const xrefStatus = '${{ steps.xref_drift.outputs.xref_drift_failed }}' === 'true' ? '❌' : '✅';
+            const statusClaims = '${{ steps.status_claims.outputs.status_claims_failed }}' === 'true' ? '❌' : '✅';
             const brokenLinksWarning = '${{ steps.broken_links.outputs.broken_links_warning }}' === 'true';
 
             let comment = `## Documentation Quality Checks\n\n`;
             comment += `${freshnessStatus} **Documentation Freshness** (critical issues only)\n`;
             comment += `${skillsStatus} **Skills Metadata Validation**\n`;
             comment += `${xrefStatus} **CROSS_REFERENCE_INDEX Drift**\n`;
+            comment += `${statusClaims} **Validation-Status Claims** (422 vs 400)\n`;
 
             if (brokenLinksWarning) {
               comment += `\n⚠️ **Warning**: More than 10 broken documentation links found\n`;
@@ -654,14 +669,17 @@ jobs:
         if: >-
           steps.freshness.outputs.freshness_failed == 'true' ||
           steps.skills.outputs.skills_failed == 'true' ||
-          steps.xref_drift.outputs.xref_drift_failed == 'true'
+          steps.xref_drift.outputs.xref_drift_failed == 'true' ||
+          steps.status_claims.outputs.status_claims_failed == 'true'
         run: |
           freshness_failed="${{ steps.freshness.outputs.freshness_failed }}"
           skills_failed="${{ steps.skills.outputs.skills_failed }}"
           xref_drift_failed="${{ steps.xref_drift.outputs.xref_drift_failed }}"
+          status_claims_failed="${{ steps.status_claims.outputs.status_claims_failed }}"
           echo "Documentation freshness: $([ "$freshness_failed" == "true" ] && echo '❌ FAILED' || echo '✅ passed')"
           echo "Skills validation:       $([ "$skills_failed" == "true" ] && echo '❌ FAILED' || echo '✅ passed')"
           echo "CROSS_REFERENCE_INDEX:   $([ "$xref_drift_failed" == "true" ] && echo '❌ STALE' || echo '✅ fresh')"
+          echo "Validation-status claims: $([ "$status_claims_failed" == "true" ] && echo '❌ FAILED' || echo '✅ passed')"
           echo ""
           if [ "$freshness_failed" == "true" ]; then
             echo "::error::Critical documentation freshness issues found"
@@ -675,6 +693,10 @@ jobs:
             echo "::error::CROSS_REFERENCE_INDEX drift/honesty guards failed"
             echo "  Run locally: uv run pytest tests/unit/scripts/test_generate_cross_reference_index.py"
             echo "  If merely stale: uv run python scripts/generate_cross_reference_index.py"
+          fi
+          if [ "$status_claims_failed" == "true" ]; then
+            echo "::error::A doc claims 422 for a validation failure (VALIDATION maps to 400)"
+            echo "  Run locally: uv run pytest tests/unit/docs/test_no_validation_422_claims.py"
           fi
           exit 1
 

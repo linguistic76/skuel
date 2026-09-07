@@ -1,6 +1,6 @@
 ---
 title: Domain-Specific Hooks Pattern
-updated: 2026-08-23
+updated: 2026-09-07
 category: patterns
 related_skills: []
 related_docs: []
@@ -408,7 +408,7 @@ class FormTemplateService(BaseService[FormTemplateBackendOperations, FormTemplat
 behind a stricter request edge (`GoalCreateRequest` rejects a past target date and enforces
 the same ordering; `HabitCreateRequest` bounds its field at `ge=1, le=7`;
 `EventCreateRequest` has no `duration_minutes` field at all). None of them fires for an HTTP
-caller — Pydantic returns a 422 first. What they backstop is every caller that hands
+caller — Pydantic returns a 400 first. What they backstop is every caller that hands
 `create(entity)` an entity it assembled itself. That is a real surface, but do not describe
 these as API-level validation.
 

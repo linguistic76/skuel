@@ -1,6 +1,6 @@
 ---
 title: Three-Tier Type System
-updated: 2026-09-05
+updated: 2026-09-07
 category: patterns
 related_skills:
 - python
@@ -56,7 +56,7 @@ User Client
      │ POST /api/tasks/create + JSON
      ▼
 [Tier 1: Pydantic Request]
-     │ Validates JSON, returns 422 on failure
+     │ Validates JSON, returns 400 on failure
      ▼
 [Tier 2: DTO]
      │ Generate UID, set timestamps, prepare for persistence
@@ -327,7 +327,7 @@ async def complete_task(
 - ✅ **Automatic Validation**: Structure, types, and constraints checked automatically
 - ✅ **Type Safety**: MyPy validates field access at dev time
 - ✅ **Self-Documenting**: Models show expected structure and constraints
-- ✅ **Clear Errors**: 422 responses with field-level details
+- ✅ **Clear Errors**: 400 responses with field-level details
 - ✅ **No Boilerplate**: No manual JSON parsing or validation needed
 
 ### Validation Features
@@ -340,14 +340,25 @@ class MyRequest(BaseModel):
     tags: list[str] = Field(max_length=10)  # Max 10 tags
 ```
 
-**Enum Validation (Literal Types):**
+**Enum Validation (field validator):**
 ```python
-QualityLiteral = Literal["poor", "fair", "good", "excellent"]
+CONTEXTUAL_QUALITY_VALUES: Final = ("poor", "fair", "good", "excellent")
 
-class HabitRequest(BaseModel):
-    quality: QualityLiteral = Field(default="good")
-    # Invalid values → 422: "Input should be 'poor', 'fair', 'good' or 'excellent'"
+class ContextualHabitCompletionRequest(BaseModel):
+    quality: str = Field(default="good")
+
+    @field_validator("quality")
+    @classmethod
+    def validate_quality(cls, value: str) -> str:
+        if value not in CONTEXTUAL_QUALITY_VALUES:
+            raise ValueError(f"quality must be one of: {', '.join(CONTEXTUAL_QUALITY_VALUES)}")
+        return value
+    # Invalid values → 400 with that message
 ```
+
+⚠ A `Literal` annotation cannot be used on an auto-bound body field: FastHTML
+calls the annotation to coerce each incoming value, and `Literal(...)` raises
+`TypeError`, which no guard converts. Narrow a `str` with a validator instead.
 
 **Optional Fields with Defaults:**
 ```python
@@ -822,12 +833,12 @@ The `total=False` makes all fields optional, matching the partial update semanti
 **Solution**: Validate at API boundaries BEFORE any service code runs.
 
 **Benefits**:
-- Automatic 422 responses with field-level error details
+- Automatic 400 responses with field-level error details
 - Self-documenting API contracts
 - Type-safe parameter extraction
 - No manual JSON parsing
 
-**Example**: Without Pydantic validation, `{"priority": "super-high"}` would cause a crash when converting to Priority enum. With Pydantic, it returns 422 immediately: "Input should be 'low', 'medium', 'high', or 'critical'".
+**Example**: Without Pydantic validation, `{"priority": "super-high"}` would cause a crash when converting to Priority enum. With Pydantic, it returns 400 immediately: "Input should be 'low', 'medium', 'high', or 'critical'".
 
 ### Tier 2 (DTO) - Flexibility in Services
 
