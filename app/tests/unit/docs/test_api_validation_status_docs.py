@@ -22,6 +22,7 @@ so a docs-only edit to a status cell still runs this module.
 from __future__ import annotations
 
 import json
+import re
 from datetime import date
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
@@ -87,6 +88,25 @@ class _FormRequest:
 
     async def form(self) -> dict[str, str]:
         return {"reflection": "x" * 10}
+
+
+def _json_block(text: str, heading: str) -> dict[str, str]:
+    """The first fenced JSON block after *heading*."""
+    start = text.index("```json", text.index(heading)) + len("```json")
+    return dict(json.loads(text[start : text.index("```", start)]))
+
+
+def _expand(body: dict[str, str]) -> dict[str, str]:
+    """Expand the request block's abbreviated field to the value it stands for.
+
+    A doc cannot print 2001 characters, so the block writes the placeholder the
+    prose above it explains. Expanding it here is what makes the shown request
+    and the shown response one run rather than two claims.
+    """
+    return {
+        key: ("x" * int(m.group(1)) if (m := re.fullmatch(r"<(\d+) x's>", value)) else value)
+        for key, value in body.items()
+    }
 
 
 def _documented_rows() -> dict[str, str]:
@@ -321,14 +341,13 @@ async def test_the_documented_response_example_is_what_that_model_emits() -> Non
     ``ContextualTaskCompletionRequest``, and every field but the timestamp must
     match what the guide prints.
     """
-    body = {"context": "string", "reflection": "x" * 2001}
+    text = _DOC.read_text(encoding="utf-8")
+    body = _expand(_json_block(text, "**Request:**"))
+    documented = _json_block(text, "**HTTP Response (400):**")
+
     result = await parse_json_body(_StubRequest(body), ContextualTaskCompletionRequest)  # type: ignore[arg-type]
     response = result_to_response(result)
     measured = json.loads(response.body)
-
-    text = _DOC.read_text(encoding="utf-8")
-    start = text.index("**HTTP Response (400):**")
-    documented = json.loads(text[text.index("```json", start) + 7 : text.index("```", start + 30)])
 
     assert response.status_code == 400
     assert {k: v for k, v in measured.items() if k != "timestamp"} == {

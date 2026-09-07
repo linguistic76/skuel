@@ -377,12 +377,14 @@ Pydantic composes its per-field detail into the single `message` string; the
 envelope keys are whatever `ErrorContext.to_client_dict()` emits, never
 Pydantic's own `detail` array.
 
-**Request:** `reflection` is 2001 characters — one over `max_length`.
+**Request:** `reflection` is abbreviated below — the placeholder stands for that
+many literal `x` characters, one over `max_length`. Both blocks come from the
+same run.
 
 ```json
 {
   "context": "string",
-  "reflection": "xxxx\u2026"
+  "reflection": "<2001 x's>"
 }
 ```
 
