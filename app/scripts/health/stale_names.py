@@ -467,12 +467,12 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         (66, "ProfileLayout"): Allow(_ui_comp),
     },
     "docs/patterns/three_tier_type_system.md": {
-        # 949/950 → 947/948: the Key Files table above them lost its row for a
-        # migration script that has never existed in this repo, and the
-        # finance/automated-fixing prose shortened (B7, 2026-09-02). Anchors
-        # re-derived from the scanner's report, never by adding the diff delta.
-        (947, "KuType"): Allow(_three_tier),
-        (948, "KuStatus"): Allow(_three_tier),
+        # 947/948 → 958/959: the enum-validation example above them grew when
+        # the phantom `QualityLiteral` was replaced with the field validator the
+        # code actually uses. Anchors re-derived from the scanner's report,
+        # never by adding the diff delta.
+        (958, "KuType"): Allow(_three_tier),
+        (959, "KuStatus"): Allow(_three_tier),
     },
     "docs/roadmap/dead-doc-links-sweep-queue.md": {
         # 219 → 241: § "Named, still queued" above it gained the `/journals/browse`
