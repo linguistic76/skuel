@@ -17,6 +17,7 @@ from starlette.responses import Response
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
+from adapters.inbound.form_helpers import parse_json_body
 from adapters.inbound.result_helpers import require_found
 from core.models.pathways.path_step import PathStep
 from core.models.pathways.pathways_request import (
@@ -91,9 +92,13 @@ def create_pathways_api_routes(
         for each via UserService delegation to UserProgressRecorderService.
         """
         user_uid = require_authenticated_user(request)
-        body = await request.json()
 
-        progress_req = LearningPathProgressRequest.model_validate(body)
+        # A rejected body is bad input, not a server fault: without the helper
+        # the raw ValidationError reaches `boundary_handler` as a 500.
+        parsed = await parse_json_body(request, LearningPathProgressRequest)
+        if parsed.is_error:
+            return Result.fail(parsed)
+        progress_req = parsed.value
 
         # Resolve step to knowledge UIDs
         step_found = require_found(
