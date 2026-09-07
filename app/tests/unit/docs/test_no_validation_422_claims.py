@@ -23,13 +23,16 @@ neighbour on either side names validation is a claim about validation.
 
 The blind spot, stated
 ----------------------
-An ASCII flow box splits its claim across rows: `│ Validates JSON │` above,
-`│ - Returns 422 on failure │` below. The second line names no category, so
-nothing charges the status to validation and the guard stays quiet. Reaching it
-means widening the unit to a whole fenced block, which then lets one line answer
-for its neighbours and flags a deliberately non-SKUEL example as a claim about
-SKUEL. The box shape is left to review; a green run here means the prose is
-clean, not that no 422 remains.
+A status with no category word in its own clause is invisible here, and that
+covers two real shapes: the ASCII flow box, which splits the claim across rows
+(`│ Validates JSON │` above, `│ - Returns 422 on failure │` below), and a
+sentence that puts the category on the far side of a clause boundary. Both are
+deliberate. Reaching them means widening the unit until one fragment answers for
+its neighbours — which is exactly how a correct `BUSINESS -> 422, VALIDATION ->
+400` starts reading as a violation, and how a deliberately non-SKUEL example
+starts reading as a claim about SKUEL. A guard that cries wolf gets muted, so
+this one stays narrow: a green run means the prose is clean, not that no 422
+remains.
 """
 
 from __future__ import annotations
@@ -66,10 +69,16 @@ def _units(text: str) -> list[str]:
 
     Granularity is the whole design. A line is too narrow for prose — a sentence
     naming 422 and the category that owns it wraps across two lines. A paragraph
-    is too wide — a semicolon can join a correct 400 clause to a 422 one, and
-    the reading would run across the join. Inside a fence there are no blank
-    lines to bound a paragraph, so a fence would collapse into a single unit and
-    a foreign code example would answer for its neighbours.
+    is too wide — a semicolon or a comma joins one category's mapping to the
+    next (`BUSINESS -> 422, VALIDATION -> 400`), and a reading that runs across
+    the join charges each status to its neighbour's category. Inside a fence
+    there are no blank lines to bound a paragraph, so a fence would collapse
+    into a single unit and a foreign code example would answer for its
+    neighbours.
+
+    Commas inside backticks or parentheses are not boundaries: they belong to
+    the code or the aside they sit in (`Errors.business(rule=..., ...)`), and
+    splitting there would cut a term in half.
     """
     blocks: list[str] = []
     buffer: list[str] = []
@@ -95,11 +104,30 @@ def _units(text: str) -> list[str]:
     flush()
 
     return [
-        clause
-        for block in blocks
-        for part in re.split(r"(?<=[.!?])\s+|;", block)
-        if (clause := part.strip())
+        clause for block in blocks for part in _split_clauses(block) if (clause := part.strip())
     ]
+
+
+def _split_clauses(block: str) -> list[str]:
+    """Split on sentence ends, semicolons, and commas that separate clauses.
+
+    A comma inside backticks or parentheses is part of a term, not a boundary,
+    so those spans are masked before the split and restored after it.
+    """
+    masked = list(block)
+    depth = 0
+    in_code = False
+    for index, char in enumerate(block):
+        if char == "`":
+            in_code = not in_code
+        elif char == "(":
+            depth += 1
+        elif char == ")":
+            depth = max(0, depth - 1)
+        if char == "," and (in_code or depth):
+            masked[index] = "\x00"
+    parts = re.split(r"(?<=[.!?])\s+|[;,]", "".join(masked))
+    return [part.replace("\x00", ",") for part in parts]
 
 
 def _charges_422_to_validation(unit: str) -> bool:
@@ -145,6 +173,8 @@ def test_the_predicate_separates_the_two_categories() -> None:
         "```python\n# Invalid values → 422: not a real status\n```",
     ]
     charges_business = [
+        "maps error categories: BUSINESS → 422, VALIDATION → 400.",
+        "the reverse ordering: VALIDATION → 400, 422 → BUSINESS.",
         "422 is reserved for `ErrorCategory.BUSINESS`, a well-formed request that breaks a rule.",
         "| `BUSINESS` | 422 | Domain rule violated | Duplicate journal title |",
         "maps error categories: **VALIDATION → 400**, BUSINESS → 422, NOT_FOUND → 404.",
