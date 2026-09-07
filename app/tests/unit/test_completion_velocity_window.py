@@ -214,12 +214,11 @@ async def test_the_window_is_bounded_at_today_so_a_future_stamp_cannot_inflate_i
 
     Without an upper bound a future-stamped task counts in *every* window
     between now and its date: a velocity inflated permanently and silently,
-    because nothing about the number looks wrong. Both task doors now refuse a
-    future ``completion_date`` (create always did; update since 2026-09-07), so
-    this asserts the reader's own guarantee rather than a writer's — a trailing
-    window ends where the present does whatever the doors promise, and rows
-    stamped before they agreed are still out there. Both ends come from the
-    window class so they cannot drift from the constant divisor between them.
+    because nothing about the number looks wrong. The assertion is the reader's
+    own guarantee, not a writer's — a trailing window ends where the present
+    does whatever the doors promise, and a stamp already in the graph is
+    contained by this bound alone. Both ends come from the window class so they
+    cannot drift from the constant divisor between them.
     """
     backend = _FakeBackend(completed_in_window=3)
 

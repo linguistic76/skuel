@@ -271,15 +271,13 @@ class TestCompletionVelocityWindow:
     ):
         """The upper bound, isolated so the two rows are the whole answer.
 
-        A lower-bound-only predicate counted a future-stamped task in *every*
+        A lower-bound-only predicate counts a future-stamped task in *every*
         window between now and its date: a velocity inflated permanently, and
-        silently, because nothing about the number looks wrong. Both task doors
-        now refuse a future ``completion_date`` (create always did; update since
-        2026-09-07) — which is why this seeds the graph directly: the bound is
-        the reader's own guarantee, owed to rows stamped before the doors
-        agreed and to any writer that never passes a request model. Today's row
-        is seeded beside it so this discriminates the bound rather than merely
-        counting.
+        silently, because nothing about the number looks wrong. The graph is
+        seeded directly because the bound is the reader's own guarantee, owed to
+        any stamp already stored and to any writer that never passes a request
+        model. Today's row is seeded beside it so this discriminates the bound
+        rather than merely counting.
         """
         await _seed_task(
             neo4j_driver, WINDOW, "task.bound_today", completion_date=TODAY.isoformat()
