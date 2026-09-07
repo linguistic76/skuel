@@ -1,6 +1,6 @@
 ---
 title: Domain Patterns Catalog
-updated: 2026-09-05
+updated: 2026-09-07
 category: patterns
 related_skills:
 - python
@@ -77,7 +77,7 @@ Does the domain have 3+ business logic methods?
 │ TIER 1: Pydantic Request Model   │
 │ - Validates JSON structure       │
 │ - Validates types & constraints  │
-│ - Returns 422 on failure         │
+│ - Returns 400 on failure         │
 └────────┬─────────────────────────┘
          │ Validated data
          ▼
@@ -184,7 +184,7 @@ class TaskCreateRequest(CreateRequestBase):
 - Ensures `title` is 1-200 chars
 - Ensures `duration_minutes` is 5-480
 - Ensures `priority` is valid enum value
-- Returns 422 with field errors if validation fails
+- Returns 400 with field errors if validation fails
 
 #### Tier 2: DTO (Service Layer - Mutable)
 
@@ -568,7 +568,7 @@ def task_pure_to_dto(task: Task) -> TaskDTO:
 ┌──────────────────────────────────┐
 │ TIER 1: Pydantic Request Model   │
 │ - Validates JSON structure       │
-│ - Returns 422 on failure         │
+│ - Returns 400 on failure         │
 └────────┬─────────────────────────┘
          │ Validated data
          ▼
@@ -641,7 +641,7 @@ class ExpenseCreateRequest(CreateRequestBase):
 **What it does**:
 - Validates amount > 0
 - Validates category not empty
-- Returns 422 on validation failure
+- Returns 400 on validation failure
 
 #### Tier 2: DTO (Used Directly - No Domain Model)
 

@@ -314,7 +314,7 @@ from adapters.inbound.form_helpers import parse_json_body, parse_form_body
 async def create_milestone(request: Request, entity: Any) -> Result[dict[str, Any]]:
     result = await parse_json_body(request, MilestoneCreateRequest)
     if result.is_error:
-        return result  # type: ignore[return-value]  → 422 with validation details
+        return result  # type: ignore[return-value]  → 400 with validation details
     req = result.value
     return await goals_service.create_milestone(entity.uid, req.title, req.target_date)
 

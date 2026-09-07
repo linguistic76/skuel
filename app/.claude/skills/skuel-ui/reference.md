@@ -570,7 +570,7 @@ exercise_fields = FormGenerator.from_model(
 |------|------------|-----------|------|
 | **Client hints** | HTML5 `required`, `maxlength`, `min`/`max` | Browser native | Always (FormGenerator adds these from Pydantic constraints) |
 | **Early validation** | Pure Python function | `Result[None]` with clear message | Before Pydantic, custom rules |
-| **Schema validation** | Pydantic request model | 422 Unprocessable Entity | Type safety |
+| **Schema validation** | Pydantic request model via `parse_form_body` | `Result[T]` failure → banner (400 on an API route) | Type safety |
 
 ### Manual Form Structure
 
