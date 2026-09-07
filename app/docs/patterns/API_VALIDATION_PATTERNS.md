@@ -359,12 +359,19 @@ return Result.fail(
 
 ---
 
-### JSON and Form Body Errors (400 Bad Request)
+### Body Errors on an API Route (400 Bad Request)
 
+This is the shape a route gets when it returns the failed `Result` onward — an
+API route under `@boundary_handler`, or either of the two JSON bindings above.
 A rejected body is malformed input, not a rule violation, so it carries the same
-status and the same client-safe envelope as a rejected query parameter — 400,
-whichever of the two bindings above produced it. 422 is reserved for
-`ErrorCategory.BUSINESS`: a well-formed request that breaks a domain rule.
+status and the same client-safe envelope as a rejected query parameter: **400**.
+422 is reserved for `ErrorCategory.BUSINESS`, a well-formed request that breaks
+a domain rule.
+
+A UI route that unwraps the failure instead and re-renders its form answers
+**200** with a banner and no envelope at all — see the form-body row in
+[When to Use Each Pattern](#when-to-use-each-pattern) below. The status is the
+consumer's, not the helper's.
 
 Pydantic composes its per-field detail into the single `message` string; the
 envelope keys are whatever `ErrorContext.to_client_dict()` emits, never

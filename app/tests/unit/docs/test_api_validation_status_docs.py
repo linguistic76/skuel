@@ -313,12 +313,12 @@ def test_path_params_row_reports_the_disagreement_it_documents(
 
 @pytest.mark.asyncio
 async def test_the_documented_response_example_is_what_that_model_emits() -> None:
-    """The guide's 400 example is regenerated from the model it names.
+    """The guide's 400 example is derived from the model it names.
 
-    A hand-edited example is a claim about a live response, and this one named a
-    model it had never been run against — Pydantic's real message for that body
-    says ``model_type``, not ``dict_type``. So the block is derived: the same
-    input goes through the same helper, and every field but the timestamp must
+    An example payload is a claim about a live response, down to the wording
+    Pydantic chooses for the field it rejects. So it is measured rather than
+    written: the documented input goes through the same helper against
+    ``ContextualTaskCompletionRequest``, and every field but the timestamp must
     match what the guide prints.
     """
     body = {"context": "string", "reflection": "x" * 2001}
