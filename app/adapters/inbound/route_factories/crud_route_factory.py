@@ -61,6 +61,7 @@ from pydantic import BaseModel
 
 from adapters.inbound.auth.session import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request
+from adapters.inbound.form_helpers import parse_json_body
 from adapters.inbound.route_factories.route_helpers import check_required_role
 from core.models.enums import ContentScope, UserRole
 from core.models.type_hints import UserUID
@@ -405,10 +406,13 @@ class CRUDRouteFactory[T]:
             if role_check.is_error:
                 return cast("Result[T]", role_check)
 
-            body = await request.json()
-
-            # Pydantic validation
-            schema = create_schema.model_validate(body)
+            # Parse + validate through the shared helper: a rejected body is
+            # ordinary bad input, and `boundary_handler`'s catch-all would
+            # otherwise turn the raw ValidationError into a 500.
+            parsed = await parse_json_body(request, create_schema)
+            if parsed.is_error:
+                return Result.fail(parsed)
+            schema = parsed.value
 
             # Extract user_uid from session (FAIL-FAST: raises 401 if not authenticated)
             user_uid = require_authenticated_user(request)
@@ -546,11 +550,12 @@ class CRUDRouteFactory[T]:
             if role_check.is_error:
                 return cast("Result[T]", role_check)
 
-            # uid extracted from query params via type hint
-            body = await request.json()
-
-            # Pydantic validation
-            schema = update_schema.model_validate(body)
+            # uid extracted from query params via type hint; body parsed and
+            # validated through the shared helper (see the create route above).
+            parsed = await parse_json_body(request, update_schema)
+            if parsed.is_error:
+                return Result.fail(parsed)
+            schema = parsed.value
 
             # Build the typed update value (ADR-066). Activity Domains' `*UpdateRequest`
             # carry `.to_intent()` → a frozen `*UpdateIntent`; other domains (curriculum,
