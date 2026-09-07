@@ -122,6 +122,14 @@ jobs:
               - 'app/docs/**'
               - 'app/.claude/skills/**'
               - 'app/scripts/docs_*.py'
+              # Every tracked markdown file, because the validation-status guard
+              # (tests/unit/docs/test_no_validation_422_claims.py) reads them
+              # all — it asks git for its corpus so a new doc anywhere is
+              # covered the moment it lands. Scoped to the two directories
+              # above, a 422 claim added to a top-level or in-tree README would
+              # trigger neither this job nor unit_tests, and the guard would
+              # stay green while the contract regressed.
+              - '**/*.md'
               - 'app/scripts/skills_validator.py'
               - '.github/workflows/ci.yml'
             ui:
