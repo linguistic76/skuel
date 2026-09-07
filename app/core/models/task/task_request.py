@@ -183,23 +183,37 @@ class TaskUpdateRequest(UpdateRequestBase):
     prerequisite_task_uids: list[str] | None = None
 
     @model_validator(mode="after")
-    def refuse_future_completion_date(self) -> "TaskUpdateRequest":
-        """A supplied completion date must not be in the future — as on create.
+    def resolve_completion_date(self) -> "TaskUpdateRequest":
+        """Leaving ``completed`` clears the stamp; what survives must not be future.
 
-        The edit form renders this field as "Completed on", a plain date input
-        beside ``status``, so the door is reachable by typing. A task claiming it
-        was completed on a day that has not arrived is not the habits case: a
-        future habit *occurrence* is a real scheduled thing, a future task
-        *completion* is not.
+        **The clear.** The stamp is non-null exactly when the task is completed, so
+        an update that names any other status makes the stamp null by definition —
+        the same reopen-clear the guarded write applies when the patch omits the
+        field (``core.services.completion_stamp``). Doing it here matters because
+        the edit form renders ``completion_date`` as "Completed on" and prefills it
+        from the stored task, so reopening from the status control submits the
+        stale date alongside the new status without the user touching it. Status is
+        what the user changed, so status wins.
 
-        Only the future is refused. Clearing (``None``) is the explicit
-        reopen-clear, and a back-dated stamp is the point of the field. The
-        companion invariant — a non-null stamp means the task is completed — is
-        prior-dependent and lives on the guarded write
-        (``core.services.completion_stamp``), not here.
+        Untouched when no status is named: such a patch resolves against the task's
+        prior state, which this model cannot see (see
+        ``docs/roadmap/stranded-completion-stamp.md``).
+
+        **The refusal**, applied to whatever survives the clear — as on create. A
+        task claiming it was completed on a day that has not arrived is not the
+        habits case: a future habit *occurrence* is a real scheduled thing, a future
+        task *completion* is not. A back-dated stamp is the point of the field.
 
         See: ``docs/roadmap/done/task-update-future-completion-date.md``
         """
+        if (
+            self.completion_date is not None
+            and self.status is not None
+            and self.status is not EntityStatus.COMPLETED
+        ):
+            # Already in ``model_fields_set`` (it arrived non-null), so ``to_intent``
+            # carries the clear as an explicit patch rather than dropping it.
+            self.completion_date = None
         _refuse_future_completion_date(self.completion_date)
         return self
 

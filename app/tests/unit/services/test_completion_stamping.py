@@ -1132,6 +1132,46 @@ class TestTaskUpdateRequestCompletionDate:
 
         assert TaskUpdateRequest(title="renamed").to_intent().completion_date is UNSET
 
+    def test_reopening_clears_a_stamp_the_form_carried_along(self):
+        """The edit form's reopen: status is what the user changed, so status wins.
+
+        ``completion_date`` renders as "Completed on" and is prefilled from the
+        stored task, so choosing a non-completed status submits the stale date
+        beside the new one without the user touching it. Refusing that patch would
+        break the form's status control for every completed task; the stamp is null
+        by definition once the task is not completed, so it is cleared.
+        """
+        intent = TaskUpdateRequest(
+            status=EntityStatus.ACTIVE, completion_date=date(2026, 3, 4)
+        ).to_intent()
+        assert intent.completion_date is None, "carried as an explicit clear, not UNSET"
+        assert "completion_date" in intent.to_changes(), "the clear must reach the write"
+
+    def test_the_clear_runs_before_the_future_check(self):
+        """A reopen must not be blocked by the stamp it is about to discard.
+
+        A task stamped in the future is refused at both doors now, but one already
+        stored is prefilled into the form like any other, and reopening is exactly
+        how a user would fix it.
+        """
+        intent = TaskUpdateRequest(
+            status=EntityStatus.ACTIVE, completion_date=date.today() + timedelta(days=400)
+        ).to_intent()
+        assert intent.completion_date is None
+
+    def test_a_patch_naming_no_status_keeps_its_stamp(self):
+        """Nothing here can judge it — it resolves against the task's prior state."""
+        intent = TaskUpdateRequest(completion_date=date(2026, 3, 4)).to_intent()
+        assert intent.completion_date == date(2026, 3, 4)
+
+    def test_re_posting_completed_keeps_the_supplied_date(self):
+        """Editing any field of a completed task round-trips status + stamp; the
+        stamp must survive, or every such edit would silently erase it."""
+        intent = TaskUpdateRequest(
+            status=EntityStatus.COMPLETED, completion_date=date(2026, 3, 4)
+        ).to_intent()
+        assert intent.completion_date == date(2026, 3, 4)
+
 
 # ============================================================================
 # 4. THE EXPLICIT COMPLETE PATH (PR-3)

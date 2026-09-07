@@ -67,3 +67,19 @@ caught on #1297: `ChoiceUpdateRequest` exposes `completed_at` and no `status` fi
 that rule was unsatisfiable rather than strict for Choice — it made a documented update
 field unusable. Narrowed to patches that NAME a status, and pinned by
 `test_a_choice_may_correct_its_own_timestamp`.
+
+## Why the update door clears rather than refuses
+
+`TaskUpdateRequest.resolve_completion_date` clears the stamp when the patch names a
+non-completed status, and only then applies the future check. Codex caught the third
+version too: the Task edit form is the one form that renders its stamp ("Completed on",
+prefilled from the stored task), so reopening from its status control submits the stale
+date alongside the new status without the user touching it. Refusing that patch breaks
+the status control for every completed task.
+
+Clearing is not a concession — it *is* the invariant. Once the task is not completed the
+stamp is null by definition, which is exactly what the guarded write already does on a
+reopen that omits the field. Ordering the clear before the future check also means a
+task carrying a future stamp stored before this change can still be reopened, which is
+how a user would fix one. The guard's refusal stays as the backstop for intents built in
+code and for the three sibling domains, whose forms render no stamp.
