@@ -21,8 +21,10 @@ so a docs-only edit to a status cell still runs this module.
 
 from __future__ import annotations
 
+import json
+from datetime import date
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fasthtml.common import fast_app
@@ -37,8 +39,10 @@ from adapters.inbound.route_factories import (
 )
 from adapters.inbound.search_routes import create_search_api_routes
 from adapters.inbound.tasks_ui import create_tasks_ui_routes
+from adapters.inbound.today_routes import create_today_routes
 from core.models.enums.entity_enums import EntityType
 from core.models.search_request import SearchRequest
+from core.models.task.task_request import ContextualTaskCompletionRequest
 from core.utils.result_simplified import Errors, Result
 
 _DOC = Path(__file__).resolve().parents[3] / "docs" / "patterns" / "API_VALIDATION_PATTERNS.md"
@@ -52,10 +56,7 @@ def _fake_authenticated_user(request: object) -> str:
 
 # Rows the table documents but this module does not drive, each with the reason.
 # A NEW row is neither driven nor listed, so it fails until someone decides which.
-_UNDRIVEN = {
-    # "Avoid (SKUEL uses query params)" — the row exists to say the pattern is unused.
-    "Path Params": "N/A",
-}
+_UNDRIVEN: dict[str, str] = {}
 
 
 class _Body(BaseModel):
@@ -69,6 +70,16 @@ class _JsonRequest:
 
     async def json(self) -> dict[str, str]:
         return {"reflection": "x" * 10}
+
+
+class _StubRequest:
+    """Serves a caller-supplied JSON body — for driving the guide's own example."""
+
+    def __init__(self, body: dict[str, str]) -> None:
+        self._body = body
+
+    async def json(self) -> dict[str, str]:
+        return self._body
 
 
 class _FormRequest:
@@ -118,6 +129,7 @@ def test_every_table_row_is_driven_or_declared_undriven() -> None:
         "JSON Bodies (POST/PUT)",
         "Form Data Bodies (POST)",
         "HTML Form Params (GET)",
+        "Path Params",
     }
     assert set(documented) == driven | set(_UNDRIVEN)
 
@@ -260,3 +272,65 @@ def test_html_form_params_row_answers_with_a_banner_not_a_status(
 
     assert str(response.status_code) + " (banner)" == _documented_rows()["HTML Form Params (GET)"]
     assert "Invalid filter selection" in response.text
+
+
+def test_path_params_row_reports_the_disagreement_it_documents(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The row says "varies" — so both behaviours it cites are measured.
+
+    Path params are used across the app, so the row is a preference, not an
+    absence, and its routes genuinely disagree. ``/today/{date_str}`` coerces an
+    unparseable date to today and carries on; the drawer beside it answers 404
+    for a uid the caller does not own. Neither belongs in one cell, which is
+    what "varies" claims.
+    """
+    app, rt = fast_app(pico=False, default_hdrs=False)
+    monkeypatch.setattr(
+        "adapters.inbound.today_routes.require_authenticated_user", _fake_authenticated_user
+    )
+    services = MagicMock()
+    build_context = AsyncMock(return_value=Result.fail(Errors.validation("stub context")))
+    services.today_orchestrator.build_context = build_context
+    services.tasks.core.verify_ownership = AsyncMock(
+        return_value=Result.fail(Errors.not_found("Task", "task_someone_else"))
+    )
+    create_today_routes(app, rt, services)
+    client = TestClient(app)
+
+    # Coercion, not rejection: the garbage date reaches the orchestrator as today.
+    client.get("/today/not-a-date")
+    assert build_context.await_args is not None, "the route never reached the orchestrator"
+    assert date.today() in build_context.await_args.args, (
+        "an unparseable date no longer degrades to today"
+    )
+
+    # The route beside it rejects instead, with a different status again.
+    assert client.get("/today/tasks/task_someone_else/drawer").status_code == 404
+
+    assert _documented_rows()["Path Params"] == "varies"
+
+
+@pytest.mark.asyncio
+async def test_the_documented_response_example_is_what_that_model_emits() -> None:
+    """The guide's 400 example is regenerated from the model it names.
+
+    A hand-edited example is a claim about a live response, and this one named a
+    model it had never been run against — Pydantic's real message for that body
+    says ``model_type``, not ``dict_type``. So the block is derived: the same
+    input goes through the same helper, and every field but the timestamp must
+    match what the guide prints.
+    """
+    body = {"context": "string", "reflection": "x" * 2001}
+    result = await parse_json_body(_StubRequest(body), ContextualTaskCompletionRequest)  # type: ignore[arg-type]
+    response = result_to_response(result)
+    measured = json.loads(response.body)
+
+    text = _DOC.read_text(encoding="utf-8")
+    start = text.index("**HTTP Response (400):**")
+    documented = json.loads(text[text.index("```json", start) + 7 : text.index("```", start + 30)])
+
+    assert response.status_code == 400
+    assert {k: v for k, v in measured.items() if k != "timestamp"} == {
+        k: v for k, v in documented.items() if k != "timestamp"
+    }

@@ -370,11 +370,12 @@ Pydantic composes its per-field detail into the single `message` string; the
 envelope keys are whatever `ErrorContext.to_client_dict()` emits, never
 Pydantic's own `detail` array.
 
-**Request:**
+**Request:** `reflection` is 2001 characters — one over `max_length`.
+
 ```json
 {
   "context": "string",
-  "reflection": "xxx… (2001 chars)"
+  "reflection": "xxxx\u2026"
 }
 ```
 
@@ -383,7 +384,7 @@ Pydantic's own `detail` array.
 {
   "category": "validation",
   "code": "VALIDATION_FIELD_BODY",
-  "message": "2 validation errors for ContextualTaskCompletionRequest\ncontext\n  Input should be a valid dictionary [type=dict_type, input_value='string', input_type=str]\nreflection\n  String should have at most 2000 characters [type=string_too_long, input_value='xxx…', input_type=str]",
+  "message": "2 validation errors for ContextualTaskCompletionRequest\ncontext\n  Input should be a valid dictionary or instance of TaskCompletionContext [type=model_type, input_value='string', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/model_type\nreflection\n  String should have at most 2000 characters [type=string_too_long, input_value='xxxxxxxxxxxxxxxxxxxxxxxx...xxxxxxxxxxxxxxxxxxxxxxx', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/string_too_long",
   "severity": "low",
   "timestamp": "2026-01-15T10:30:00+00:00"
 }
@@ -525,7 +526,15 @@ UI routes render it as a user-friendly banner rather than returning the JSON env
 | **HTML Form Params (GET)** | `Model.from_form_params()` classmethod | 200 (banner) | Many checkbox/enum/optional string params needing coercion |
 | **JSON Bodies (POST/PUT)** | `parse_json_body(request, Model)` | 400 | Structured data, complex validation |
 | **Form Data Bodies (POST)** | `parse_form_body(request, Model)` | 400 API · 200 banner | Structured form data with validation |
-| **Path Params** | Avoid (SKUEL uses query params) | N/A | Not used in SKUEL API routes |
+| **Path Params** | No shared helper — each route coerces or 404s | varies | Used on UI routes; query params preferred for new API routes |
+
+**Why the path-params row says "varies".** Path params are used — the day
+lens, the calendar, the journals periodics, `/explore/{uid}` and two `/api/`
+routes among them — so this row is a preference, not an absence. There is no
+shared validation helper behind them, and the routes genuinely disagree:
+`/today/{date_str}` coerces an unparseable date to today and carries on, while
+`/today/tasks/{uid}/drawer` answers **404** for a uid the caller does not own.
+One cell cannot describe both; read the route.
 
 **Why the form-body row names two answers.** `parse_form_body` returns a
 `Result` and picks no status — the consumer does. An API route that returns the
