@@ -130,14 +130,29 @@ def _split_clauses(block: str) -> list[str]:
     return [part.replace("\x00", ",") for part in parts]
 
 
+def _nearest_category(unit: str, status: re.Match[str]) -> str | None:
+    """The category word closest to *status*, looking both ways.
+
+    Both sides have to be weighed together. Taking either one alone convicts
+    `Validation maps to 400 while 422 represents a business failure`, where the
+    validation word is merely the first thing to the left and business is what
+    the status is actually about.
+    """
+    candidates: list[tuple[int, str]] = []
+    before = list(_CATEGORY.finditer(unit[: status.start()]))
+    after = list(_CATEGORY.finditer(unit[status.end() :]))
+    if before:
+        candidates.append((status.start() - before[-1].end(), before[-1].group()))
+    if after:
+        candidates.append((after[0].start(), after[0].group()))
+    return min(candidates)[1] if candidates else None
+
+
 def _charges_422_to_validation(unit: str) -> bool:
-    """True when a 422 in this unit sits next to a validation word, not business."""
+    """True when the category word nearest a 422 names validation, not business."""
     for status in _STATUS_422.finditer(unit):
-        before = list(_CATEGORY.finditer(unit[: status.start()]))
-        after = list(_CATEGORY.finditer(unit[status.end() :]))
-        if before and not _BUSINESS.search(before[-1].group()):
-            return True
-        if after and not _BUSINESS.search(after[0].group()):
+        nearest = _nearest_category(unit, status)
+        if nearest is not None and not _BUSINESS.search(nearest):
             return True
     return False
 
@@ -173,6 +188,7 @@ def test_the_predicate_separates_the_two_categories() -> None:
         "```python\n# Invalid values → 422: not a real status\n```",
     ]
     charges_business = [
+        "Validation maps to 400 while 422 represents a business failure.",
         "maps error categories: BUSINESS → 422, VALIDATION → 400.",
         "the reverse ordering: VALIDATION → 400, 422 → BUSINESS.",
         "422 is reserved for `ErrorCategory.BUSINESS`, a well-formed request that breaks a rule.",
