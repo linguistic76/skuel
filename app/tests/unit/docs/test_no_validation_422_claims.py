@@ -23,11 +23,11 @@ neighbour on either side names validation is a claim about validation.
 
 The blind spot, stated
 ----------------------
-A status with no category word in its own clause is invisible here, and that
-covers two real shapes: the ASCII flow box, which splits the claim across rows
-(`│ Validates JSON │` above, `│ - Returns 422 on failure │` below), and a
-sentence that puts the category on the far side of a clause boundary. Both are
-deliberate. Reaching them means widening the unit until one fragment answers for
+A status with no category word in its own clause is invisible here. That covers
+the ASCII flow box, which splits the claim across rows (`│ Validates JSON │`
+above, `│ - Returns 422 on failure │` below); a sentence that puts the category
+on the far side of a clause boundary; and an interrupting phrase that pushes it
+there (`Validation, when it fails, returns 422`). All are deliberate. Reaching them means widening the unit until one fragment answers for
 its neighbours — which is exactly how a correct `BUSINESS -> 422, VALIDATION ->
 400` starts reading as a violation, and how a deliberately non-SKUEL example
 starts reading as a claim about SKUEL. A guard that cries wolf gets muted, so
@@ -44,6 +44,7 @@ from pathlib import Path
 _ROOT = Path(__file__).resolve().parents[4]
 _CATEGORY = re.compile(r"validat\w*|pydantic|invalid|malformed|bad input|business", re.IGNORECASE)
 _BUSINESS = re.compile(r"business", re.IGNORECASE)
+_NEGATION = re.compile(r"\b(?:not|never|isn't|aren't|rather than|instead of)\b", re.IGNORECASE)
 # A status, not a magnitude: "2,422 lines" and a "421-422" line range are
 # numbers, and "#422" is a reference. All three shapes exist in the docs.
 _STATUS_422 = re.compile(r"(?<![\d,.#\-\u2013])422(?![\d.])")
@@ -136,29 +137,47 @@ def _split_clauses(block: str) -> list[str]:
     return [part.replace("\x00", ",") for part in parts]
 
 
-def _nearest_category(unit: str, status: re.Match[str]) -> str | None:
-    """The category word closest to *status*, looking both ways.
+def _nearest_category(unit: str, status: re.Match[str]) -> tuple[str, str] | None:
+    """The category word closest to *status*, with the text lying between them.
 
     Both sides have to be weighed together. Taking either one alone convicts
     `Validation maps to 400 while 422 represents a business failure`, where the
     validation word is merely the first thing to the left and business is what
-    the status is actually about.
+    the status is actually about. The span between is returned because what
+    sits in it can reverse the reading.
     """
-    candidates: list[tuple[int, str]] = []
+    tail = unit[status.end() :]
+    candidates: list[tuple[int, str, str]] = []
     before = list(_CATEGORY.finditer(unit[: status.start()]))
-    after = list(_CATEGORY.finditer(unit[status.end() :]))
+    after = list(_CATEGORY.finditer(tail))
     if before:
-        candidates.append((status.start() - before[-1].end(), before[-1].group()))
+        candidates.append(
+            (
+                status.start() - before[-1].end(),
+                before[-1].group(),
+                unit[before[-1].end() : status.start()],
+            )
+        )
     if after:
-        candidates.append((after[0].start(), after[0].group()))
-    return min(candidates)[1] if candidates else None
+        candidates.append((after[0].start(), after[0].group(), tail[: after[0].start()]))
+    if not candidates:
+        return None
+    _, word, between = min(candidates)
+    return word, between
 
 
 def _charges_422_to_validation(unit: str) -> bool:
-    """True when the category word nearest a 422 names validation, not business."""
+    """True when the category word nearest a 422 names validation, not business.
+
+    A negation in the span between them reverses the claim — `422 is not a
+    validation status` is the correction, not the error — so it is not charged.
+    """
     for status in _STATUS_422.finditer(unit):
         nearest = _nearest_category(unit, status)
-        if nearest is not None and not _BUSINESS.search(nearest):
+        if nearest is None:
+            continue
+        word, between = nearest
+        if not _BUSINESS.search(word) and not _NEGATION.search(between):
             return True
     return False
 
@@ -189,6 +208,7 @@ def test_the_predicate_separates_the_two_categories() -> None:
     claims_validation = [
         "**If validation fails**: Pydantic returns `422 Unprocessable Entity`.",
         "Returns 422 for invalid input",
+        "Returns 422 for invalid input, not 400.",
         "Validation failures return 422, unlike business failures.",
         "| Schema validation | Pydantic request model | 422 Unprocessable Entity |",
         "```python\n# Invalid values → 422: not a real status\n```",
@@ -205,6 +225,8 @@ def test_the_predicate_separates_the_two_categories() -> None:
         "maps error categories: **VALIDATION → 400**, BUSINESS → 422, NOT_FOUND → 404.",
         "invalid bodies → **400** (`ErrorCategory.VALIDATION`); 422 is `BUSINESS`, a rule violation",
         "| uniqueness as `Errors.validation` | a domain rule → `Errors.business(...)` (422, not 400) |",
+        "422 is not a validation status.",
+        "A rejected body is never 422 — that status is for a rule violation.",
         "```python\ntry:\n    pass\nexcept ValidationError as e:\n    return 422\n```",
     ]
 
