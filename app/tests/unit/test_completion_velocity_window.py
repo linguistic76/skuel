@@ -212,12 +212,13 @@ async def test_the_query_is_bound_to_the_trailing_window_not_to_stored_history()
 async def test_the_window_is_bounded_at_today_so_a_future_stamp_cannot_inflate_it():
     """A trailing window ends where the present does.
 
-    ``TaskCreateRequest`` refuses a future ``completion_date`` — "semantically
-    impossible and would pin itself atop completion-date-ordered reads" — but
-    ``TaskUpdateRequest`` does not, so the stamp is reachable. Without an upper
-    bound such a task counts in *every* window between now and its date, a
-    velocity inflated permanently and silently. Both ends come from the window
-    class so they cannot drift from the constant divisor between them.
+    Without an upper bound a future-stamped task counts in *every* window
+    between now and its date: a velocity inflated permanently and silently,
+    because nothing about the number looks wrong. The assertion is the reader's
+    own guarantee, not a writer's — a trailing window ends where the present
+    does whatever the doors promise, and a stamp already in the graph is
+    contained by this bound alone. Both ends come from the window class so they
+    cannot drift from the constant divisor between them.
     """
     backend = _FakeBackend(completed_in_window=3)
 

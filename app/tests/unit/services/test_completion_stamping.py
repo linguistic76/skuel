@@ -51,7 +51,7 @@ from core.models.habit.habit_update_intent import HabitUpdateIntent
 from core.models.principle.principle import Principle
 from core.models.principle.principle_update_intent import PrincipleUpdateIntent
 from core.models.task.task import Task
-from core.models.task.task_request import TaskCreateRequest
+from core.models.task.task_request import TaskCreateRequest, TaskUpdateRequest
 from core.models.task.task_update_intent import TaskUpdateIntent
 from core.services.completion_stamp import (
     is_completion_transition,
@@ -329,9 +329,14 @@ class TestGoalsChokepoint:
         authority over the STAMP, which makes ``status_transition_guard`` return a guard
         with NO patches at all — so a reset that merely EXTENDED the existing reopen
         patch would silently vanish for exactly these intents. The authority rule is
-        about the stamp field; it says nothing about progress."""
+        about the stamp field; it says nothing about progress.
+
+        The vehicle is an explicit CLEAR, the only stamp a reopen may carry: a
+        non-null one is refused outright as a stranded stamp. The claim under test is
+        authority over the stamp not buying silence over progress.
+        """
         service, _backend, recorder = self._service(EntityStatus.COMPLETED)
-        intent = GoalUpdateIntent(status="active", achieved_date=date(2026, 1, 1))
+        intent = GoalUpdateIntent(status="active", achieved_date=None)
         result = await service.update_goal("goal_1", intent)
         assert result.is_ok
         assert recorder.last_guard.patch_if_prior_in == (
@@ -340,7 +345,19 @@ class TestGoalsChokepoint:
         )
         merged = recorder.merged_patch()
         assert merged["progress_percentage"] == 0.0
-        assert merged["achieved_date"] == date(2026, 1, 1), "the caller's stamp kept authority"
+        assert merged["achieved_date"] is None, "the caller's clear kept authority"
+
+    async def test_a_reopen_carrying_a_non_null_stamp_is_refused(self):
+        """The invariant reaches the Goals chokepoint too, not just Tasks.
+
+        Without it the guard stood down on the stamp field and the reopen clear never
+        fired, leaving a goal in ``active`` still holding an ``achieved_date``.
+        """
+        service, _backend, _recorder = self._service(EntityStatus.COMPLETED)
+        intent = GoalUpdateIntent(status="active", achieved_date=date(2026, 1, 1))
+        result = await service.update_goal("goal_1", intent)
+        assert result.is_error
+        assert "achieved_date requires status=completed" in result.expect_error().message
 
     async def test_activate_goal_reopens_a_completed_goal(self):
         # The live reopen door: POST /api/goals/{uid}/status → set_status →
@@ -1052,6 +1069,108 @@ class TestTaskCreateRequestCompletionDefault:
         )
         task = Task.from_request(request, user_uid=USER)
         assert task.completion_date == date(2026, 8, 15)
+
+
+class TestTaskUpdateRequestCompletionDate:
+    """The update door refuses a future stamp exactly as the create door does.
+
+    One rule at two doors, because the edit form renders ``completion_date`` as
+    "Completed on" — a plain date input beside ``status`` — so a stamp the create
+    door refuses is otherwise reachable by typing it. The habits precedent does not
+    reach here: a future habit *occurrence* is a real scheduled thing; a task
+    claiming it was *completed* next year is not.
+
+    See: ``docs/roadmap/done/task-update-future-completion-date.md``
+    """
+
+    def test_future_completion_date_is_refused(self):
+        from pydantic import ValidationError
+
+        with pytest.raises(ValidationError, match="cannot be in the future"):
+            TaskUpdateRequest(
+                status=EntityStatus.COMPLETED,
+                completion_date=date.today() + timedelta(days=1),
+            )
+
+    def test_a_bare_future_stamp_is_refused_with_no_status_in_the_patch(self):
+        """The field is refused on its own merits, not as a rider on a status change."""
+        from pydantic import ValidationError
+
+        with pytest.raises(ValidationError, match="cannot be in the future"):
+            TaskUpdateRequest(completion_date=date.today() + timedelta(days=365))
+
+    def test_the_two_doors_refuse_the_same_date(self):
+        """One rule, two doors — they share ``_refuse_future_completion_date`` so the
+        create door cannot tighten or loosen without the update door following."""
+        from pydantic import ValidationError
+
+        future = date.today() + timedelta(days=1)
+        with pytest.raises(ValidationError, match="cannot be in the future"):
+            TaskCreateRequest(title="t", status=EntityStatus.COMPLETED, completion_date=future)
+        with pytest.raises(ValidationError, match="cannot be in the future"):
+            TaskUpdateRequest(status=EntityStatus.COMPLETED, completion_date=future)
+
+    def test_a_back_dated_stamp_is_kept(self):
+        """Back-dating is the point of the field — only the future is refused."""
+        request = TaskUpdateRequest(
+            status=EntityStatus.COMPLETED, completion_date=date(2026, 8, 15)
+        )
+        assert request.to_intent().completion_date == date(2026, 8, 15)
+
+    def test_today_is_not_the_future(self):
+        request = TaskUpdateRequest(status=EntityStatus.COMPLETED, completion_date=date.today())
+        assert request.to_intent().completion_date == date.today()
+
+    def test_an_explicit_clear_passes(self):
+        """``None`` is the reopen-clear, not a completion claim."""
+        request = TaskUpdateRequest(status=EntityStatus.ACTIVE, completion_date=None)
+        assert request.to_intent().completion_date is None
+
+    def test_an_absent_stamp_stays_unset(self):
+        """A patch that never mentions the field must not acquire an opinion on it."""
+        from core.models.sentinels import UNSET
+
+        assert TaskUpdateRequest(title="renamed").to_intent().completion_date is UNSET
+
+    def test_reopening_clears_a_stamp_the_form_carried_along(self):
+        """The edit form's reopen: status is what the user changed, so status wins.
+
+        ``completion_date`` renders as "Completed on" and is prefilled from the
+        stored task, so choosing a non-completed status submits the stale date
+        beside the new one without the user touching it. Refusing that patch would
+        break the form's status control for every completed task; the stamp is null
+        by definition once the task is not completed, so it is cleared.
+        """
+        intent = TaskUpdateRequest(
+            status=EntityStatus.ACTIVE, completion_date=date(2026, 3, 4)
+        ).to_intent()
+        assert intent.completion_date is None, "carried as an explicit clear, not UNSET"
+        assert "completion_date" in intent.to_changes(), "the clear must reach the write"
+
+    def test_the_clear_runs_before_the_future_check(self):
+        """A reopen must not be blocked by the stamp it is about to discard.
+
+        A task stamped in the future is refused at both doors now, but one already
+        stored is prefilled into the form like any other, and reopening is exactly
+        how a user would fix it.
+        """
+        intent = TaskUpdateRequest(
+            status=EntityStatus.ACTIVE, completion_date=date.today() + timedelta(days=400)
+        ).to_intent()
+        assert intent.completion_date is None
+
+    def test_a_patch_naming_no_status_keeps_its_stamp(self):
+        """Nothing here can judge it — it resolves against the task's prior state."""
+        intent = TaskUpdateRequest(completion_date=date(2026, 3, 4)).to_intent()
+        assert intent.completion_date == date(2026, 3, 4)
+
+    def test_re_posting_completed_keeps_the_supplied_date(self):
+        """Editing any field of a completed task round-trips status + stamp; the
+        stamp must survive, or every such edit would silently erase it."""
+        intent = TaskUpdateRequest(
+            status=EntityStatus.COMPLETED, completion_date=date(2026, 3, 4)
+        ).to_intent()
+        assert intent.completion_date == date(2026, 3, 4)
 
 
 # ============================================================================

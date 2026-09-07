@@ -31,6 +31,22 @@ from core.models.validation_rules import (
 )
 
 
+def _refuse_future_completion_date(completion_date: date | None) -> None:
+    """Refuse a completion date that has not happened yet.
+
+    Shared by the create and update doors so both speak with one voice: a task
+    cannot have been completed on a day that has not arrived. A future stamp is
+    semantically impossible and would pin itself atop completion-date-ordered
+    reads — and, being a trailing-window upper bound away from every velocity
+    metric, would count in every window from now until its date arrived.
+
+    Clearing (``None``) and back-dating are both untouched: a historical ``✅``
+    line from a note is exactly what this field exists to carry.
+    """
+    if completion_date is not None and completion_date > date.today():
+        raise ValueError("completion_date cannot be in the future")
+
+
 class TaskCreateRequest(CreateRequestBase):
     """External API request for creating a task."""
 
@@ -132,10 +148,8 @@ class TaskCreateRequest(CreateRequestBase):
         if self.status == EntityStatus.COMPLETED:
             if self.completion_date is None:
                 self.completion_date = date.today()
-            elif self.completion_date > date.today():
-                # A future completion is semantically impossible and would pin
-                # itself atop completion-date-ordered reads.
-                raise ValueError("completion_date cannot be in the future")
+            else:
+                _refuse_future_completion_date(self.completion_date)
         elif self.completion_date is not None:
             raise ValueError("completion_date requires status=completed")
         return self
@@ -167,6 +181,41 @@ class TaskUpdateRequest(UpdateRequestBase):
     habit_streak_maintainer: bool | None = None
     prerequisite_knowledge_uids: list[str] | None = None
     prerequisite_task_uids: list[str] | None = None
+
+    @model_validator(mode="after")
+    def resolve_completion_date(self) -> "TaskUpdateRequest":
+        """Leaving ``completed`` clears the stamp; what survives must not be future.
+
+        **The clear.** The stamp is non-null exactly when the task is completed, so
+        an update that names any other status makes the stamp null by definition —
+        the same reopen-clear the guarded write applies when the patch omits the
+        field (``core.services.completion_stamp``). Doing it here matters because
+        the edit form renders ``completion_date`` as "Completed on" and prefills it
+        from the stored task, so reopening from the status control submits the
+        stale date alongside the new status without the user touching it. Status is
+        what the user changed, so status wins.
+
+        Untouched when no status is named: such a patch resolves against the task's
+        prior state, which this model cannot see (see
+        ``docs/roadmap/stranded-completion-stamp.md``).
+
+        **The refusal**, applied to whatever survives the clear — as on create. A
+        task claiming it was completed on a day that has not arrived is not the
+        habits case: a future habit *occurrence* is a real scheduled thing, a future
+        task *completion* is not. A back-dated stamp is the point of the field.
+
+        See: ``docs/roadmap/done/task-update-future-completion-date.md``
+        """
+        if (
+            self.completion_date is not None
+            and self.status is not None
+            and self.status is not EntityStatus.COMPLETED
+        ):
+            # Already in ``model_fields_set`` (it arrived non-null), so ``to_intent``
+            # carries the clear as an explicit patch rather than dropping it.
+            self.completion_date = None
+        _refuse_future_completion_date(self.completion_date)
+        return self
 
     def to_intent(self) -> TaskUpdateIntent:
         """Build the typed ``TaskUpdateIntent`` (ADR-066) from explicitly-set fields.

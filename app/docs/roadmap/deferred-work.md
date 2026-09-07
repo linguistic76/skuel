@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-06
+updated: 2026-09-07
 ---
 
 # Deferred Work
@@ -136,9 +136,9 @@ renders them as a table in Obsidian, and a session derives the same table with
 
 [Habit-Completion Persistence Bundle — Orphans, UID Collisions, Non-Atomic Day Uniqueness](habit-completion-persistence-bundle.md) — Six persistence defects around the `HabitCompletion` node — orphans, uid collisions, non-atomic day uniqueness, stranded stats, a DISTINCT-day read, a refused untrack — plus the node-less third door; one shared lock-derived writer is the shape.
 
-## `TaskUpdateRequest` Future `completion_date` — Create/Update Asymmetry
+## Stranded Completion Stamp — the Halves the Guard Cannot Judge
 
-[TaskUpdateRequest Future completion_date — Create/Update Asymmetry](task-update-future-completion-date.md) — Create refuses a future `completion_date`, update passes one through — an unruled asymmetry inside Tasks; the habits ruling does not extend to it.
+[Stranded Completion Stamp — the Halves the Guard Cannot Judge](stranded-completion-stamp.md) — Two ways a non-null stamp still lands on an open entity: a patch that names no status, and a vault file authored open-with-a-stamp on first ingest. Both need the prior, so neither is a plain refusal.
 
 ## "Vault Has Un-Synced Changes" Signal
 

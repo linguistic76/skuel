@@ -1,7 +1,7 @@
 ---
 title: Tasks Domain
 created: 2025-12-04
-updated: 2026-09-06
+updated: 2026-09-07
 status: current
 category: domains
 tags:
@@ -140,6 +140,17 @@ set, breaking the invariant that the stamp is non-null exactly when the task is 
 Since ADR-087 the check is a condition the *write* evaluates
 (`StatusWriteGuard(refuse_if_prior_in=TERMINAL)`), not a status read beforehand — a
 dependent being completed concurrently is exactly what a read-then-write gate misses.
+
+**What the doors do with a caller-supplied `completion_date`.** Both `TaskCreateRequest`
+and `TaskUpdateRequest` refuse a date in the future — a task cannot have been completed
+on a day that has not arrived, and such a stamp would sit atop every completion-ordered
+read and inside every trailing window until its date arrived. Back-dating is untouched:
+carrying a historical `✅` date is what the field is for. On update, naming a
+non-completed status **clears** the stamp rather than refusing the patch, because the
+stamp is null by definition once the task is not completed — the edit form renders
+`completion_date` as "Completed on" and prefills it, so a reopen from the status control
+would otherwise submit a stale date the user never touched. A patch naming no status
+resolves against the prior and is left alone (`docs/roadmap/stranded-completion-stamp.md`).
 
 ### Incoming (Other → Task)
 

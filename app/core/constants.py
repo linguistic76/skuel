@@ -544,11 +544,13 @@ class CompletionVelocityWindow:
         Trivial today, and defined here anyway, because a window needs both ends
         stated in one place: the divisor is a constant, so a bound that drifts
         from :meth:`start_date` silently changes what :attr:`WEEKS` divides.
-        The upper bound is load-bearing rather than decorative — nothing refuses
-        a future ``completion_date`` on the task *update* door
-        (``TaskCreateRequest`` refuses one; ``TaskUpdateRequest`` does not), and
-        a lower-bound-only predicate would count such a stamp in every window
-        from now until the date arrives.
+        The upper bound is load-bearing rather than decorative: a
+        lower-bound-only predicate counts a future-dated stamp in every window
+        from now until the date arrives — a permanent inflation, silently. Both
+        task doors refuse a future ``completion_date``, so no new row carries
+        one; the bound stands anyway, because a reader does not depend on a
+        writer-side invariant for the correctness of its own predicate, and any
+        such stamp already in the graph is contained here rather than upstream.
         """
         return today
 

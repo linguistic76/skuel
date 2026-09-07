@@ -96,14 +96,87 @@ class TestGuardBuilder:
         assert guard.is_ok
         assert guard.value.has_patches() is False
 
-    def test_the_authority_rule_holds_on_the_reopen_direction_too(self) -> None:
-        """A caller that supplies the field while REOPENING keeps it just the same —
-        otherwise the clear would silently discard a date the caller meant to write."""
+    def test_a_non_null_stamp_while_reopening_is_refused(self) -> None:
+        """The invariant: the stamp is non-null exactly when the entity is completed.
+
+        The authority rule stands the guard down on any patch carrying the stamp
+        field, so this pair would otherwise take the reopen without its clear and
+        leave the entity in ``active`` still stamped — the stranded stamp the vault
+        door's ``clear_completion_stamps`` exists to undo, which reads to every
+        consumer as an entity that is still done.
+
+        See: ``docs/decisions/ADR-087-status-guarded-conditional-writes.md``
+        """
         guard = status_transition_guard(
             EntityType.TASK, {"status": "active", "completion_date": date(2026, 1, 1)}
         )
+        assert guard.is_error
+        assert "requires status=completed" in guard.expect_error().message
+
+    def test_a_stamp_with_no_status_named_is_out_of_reach(self) -> None:
+        """A patch carrying a stamp and no status resolves against the PRIOR.
+
+        Nothing here can judge it, so it passes: the resulting status is whatever the
+        node already holds. Refusing it instead would demand a status the caller may
+        have no way to send — ``ChoiceUpdateRequest`` exposes ``completed_at`` and no
+        status field at all, so a Choice correcting its own timestamp could never
+        satisfy such a rule. The prior-dependent half of the invariant is tracked in
+        ``docs/roadmap/stranded-completion-stamp.md``.
+        """
+        guard = status_transition_guard(EntityType.TASK, {"completion_date": date(2026, 1, 1)})
+        assert guard.is_ok
+
+    def test_a_choice_may_correct_its_own_timestamp(self) -> None:
+        """The shape ``ChoiceUpdateRequest`` can actually express, kept working.
+
+        Its update request carries ``completed_at`` and no ``status``; the separate
+        status endpoint sends ``status`` alone. A rule demanding both in one patch
+        makes the documented field unusable rather than merely strict.
+        """
+        guard = status_transition_guard(EntityType.CHOICE, {"completed_at": datetime(2026, 1, 1)})
+        assert guard.is_ok
+
+    def test_a_choice_reopen_carrying_a_stamp_is_still_refused(self) -> None:
+        """Narrowing to patches that NAME a status keeps the actual bug closed."""
+        guard = status_transition_guard(
+            EntityType.CHOICE, {"status": "active", "completed_at": datetime(2026, 1, 1)}
+        )
+        assert guard.is_error
+        assert "completed_at requires status=completed" in guard.expect_error().message
+
+    def test_an_explicit_clear_while_reopening_still_keeps_authority(self) -> None:
+        """Only a NON-NULL stamp is a completion claim. Clearing is the reopen itself,
+        so a caller that writes ``None`` still keeps authority and the guard adds no
+        patch of its own — the write carries the clear."""
+        guard = status_transition_guard(
+            EntityType.TASK, {"status": "active", "completion_date": None}
+        )
         assert guard.is_ok
         assert guard.value.has_patches() is False
+
+    def test_re_dating_a_finished_entity_stays_legal(self) -> None:
+        """Re-posting ``completed`` with a corrected date is the shape the invariant
+        asks for, and is not a transition — so it re-dates without firing a completion
+        event. The deliberate re-date the authority rule exists to serve."""
+        guard = status_transition_guard(
+            EntityType.TASK, {"status": "completed", "completion_date": date(2026, 1, 1)}
+        )
+        assert guard.is_ok
+        assert guard.value.has_patches() is False
+
+    @pytest.mark.parametrize("entity_type", _STAMPING_TYPES)
+    def test_the_invariant_holds_for_every_stamping_domain(self, entity_type: EntityType) -> None:
+        """Not a Task rule. Goal, Event and Choice carry their stamp on the update
+        intent too, so each could strand one the same way."""
+        field = COMPLETION_FIELDS[entity_type]
+        reopen_target = next(
+            s.value for s in entity_type.valid_statuses() if s is not EntityStatus.COMPLETED
+        )
+        guard = status_transition_guard(
+            entity_type, {"status": reopen_target, field: datetime(2026, 1, 1)}
+        )
+        assert guard.is_error
+        assert f"{field} requires status=completed" in guard.expect_error().message
 
     def test_a_domain_with_no_completion_field_gets_no_patches(self) -> None:
         """Principle records no completion moment — and cannot be completed at all."""
@@ -219,6 +292,20 @@ class TestValidateStatusTarget:
     def test_an_update_with_no_status_key_passes(self) -> None:
         """There is no target to judge — a title edit is not a status change."""
         assert validate_status_target(EntityType.PRINCIPLE, {"title": "renamed"}).is_ok
+
+    def test_it_does_not_carry_the_stranded_stamp_refusal(self) -> None:
+        """Legality only — the invariant is the GUARD's, and must not leak here.
+
+        This door's callers ask one question: is this status legal for this type.
+        The ingestion validator is one of them, and a vault file carrying a stale
+        ``completion_date:`` beside an open status must be ingested and CLEANED (the
+        vault door clears the stamp after the write), never refused — refusing it
+        rejects a file over a line the door exists to tidy up. Sharing
+        ``_stamp_target`` makes that leak a one-line accident, so it is pinned.
+        """
+        changes = {"status": "active", "completion_date": date(2026, 1, 1)}
+        assert validate_status_target(EntityType.TASK, changes).is_ok
+        assert status_transition_guard(EntityType.TASK, changes).is_error
 
     def test_it_carries_no_stamp_for_a_stamping_domain_either(self) -> None:
         """It answers legality and nothing else — the caller that wants a stamp asks
