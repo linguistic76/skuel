@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-05
+updated: 2026-09-07
 ---
 
 # Data Flow Walkthrough: Following a Task Creation Request
@@ -118,7 +118,7 @@ class TaskCreateRequest(CreateRequestBase):
 - ✅ `applies_knowledge_uids` is a list of strings
 - ✅ Custom validators ensure due_date is in the future
 
-**If validation fails**: Pydantic returns `422 Unprocessable Entity` with field-level errors **before** any service code runs.
+**If validation fails**: Pydantic returns `400 Bad Request` with field-level errors **before** any service code runs.
 
 **Result after Stage 1**:
 ```python
@@ -598,7 +598,7 @@ USER CLIENT
 │ TaskCreateRequest                          │
 │ - Validates JSON structure                 │
 │ - Validates types and constraints          │
-│ - Returns 422 on failure                   │
+│ - Returns 400 on failure                   │
 └────────────────┬───────────────────────────┘
                  │ Validated data
                  ▼
@@ -681,7 +681,7 @@ USER CLIENT
 1. **Tier 1 (Pydantic)** - External boundary protection
    - Validates ALL external input before it reaches business logic
    - Prevents 500 errors from malformed data
-   - Auto-generates 422 responses with field-level errors
+   - Auto-generates 400 responses with field-level errors
    - Self-documenting API contracts
 
 2. **Tier 2 (DTO)** - Service layer flexibility
@@ -791,7 +791,7 @@ response = TaskResponse.from_dto(dto, rels)
 ---
 
 **TL;DR**:
-- **Tier 1 (Pydantic)**: Validates at API boundaries (422 on failure)
+- **Tier 1 (Pydantic)**: Validates at API boundaries (400 on failure)
 - **Tier 2 (DTO)**: Mutable for service operations, serializes to Neo4j
 - **Tier 3 (Domain)**: Immutable business logic, type-safe protocols
 - **Relationships**: Stored as Neo4j edges, fetched separately via `*Relationships.fetch()`

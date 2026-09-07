@@ -343,7 +343,7 @@ StatusBadge("submitted")
 Badge("Ku", variant=BadgeT.accent, size=Size.sm)
 
 # ❌ Skipping early validation
-result = TaskCreateRequest(**form_data)  # Generic 422 on error
+result = TaskCreateRequest(**form_data)  # Raises; generic message, no field context
 # ✅ Early validation with clear messages
 validation = validate_task_form_data(form_dict)
 if validation.is_error: return render_error_banner(...)
