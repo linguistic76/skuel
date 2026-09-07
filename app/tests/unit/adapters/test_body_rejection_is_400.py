@@ -17,11 +17,11 @@ the code reads fine and the status is wrong.
 from __future__ import annotations
 
 import json
-from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fasthtml.common import fast_app
+from httpx import Response
 from pydantic import BaseModel, Field
 from starlette.testclient import TestClient
 
@@ -69,7 +69,7 @@ def _crud_client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
     return TestClient(app)
 
 
-def _assert_validation_400(response: Any) -> None:
+def _assert_validation_400(response: Response) -> None:
     """The status AND the envelope — a 400 with a crash body is still a crash."""
     assert response.status_code == 400, response.text
     payload = json.loads(response.text)
