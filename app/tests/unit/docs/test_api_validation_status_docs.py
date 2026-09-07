@@ -221,28 +221,37 @@ def test_silent_query_helper_never_errors() -> None:
 
 
 def _units(text: str) -> list[str]:
-    """Prose paragraphs, with each table row its own unit.
+    """Sentences, with each table row its own unit.
 
-    Line granularity is wrong here: a sentence that names 422 and the category
-    that owns it wraps across two lines, so a line scan reports its own
-    correction as an offence. A table row is scanned alone because the rows
-    around it make no claim about it.
+    A line is too narrow — a sentence that names 422 and the category that owns
+    it wraps across two lines, so a line scan reports the correction itself. A
+    paragraph is too wide — one approved mention of BUSINESS anywhere in it
+    would clear every other 422 claim beside it. So lines are joined into
+    paragraphs and paragraphs split back into sentences. A table row is scanned
+    alone: the rows around it make no claim about it.
     """
-    units: list[str] = []
+    paragraphs: list[str] = []
     buffer: list[str] = []
     for line in text.splitlines():
         if line.startswith("|"):
             if buffer:
-                units.append(" ".join(buffer))
+                paragraphs.append(" ".join(buffer))
                 buffer = []
-            units.append(line)
+            paragraphs.append(line)
         elif line.strip():
             buffer.append(line.strip())
         elif buffer:
-            units.append(" ".join(buffer))
+            paragraphs.append(" ".join(buffer))
             buffer = []
     if buffer:
-        units.append(" ".join(buffer))
+        paragraphs.append(" ".join(buffer))
+
+    units: list[str] = []
+    for paragraph in paragraphs:
+        if paragraph.startswith("|"):
+            units.append(paragraph)
+        else:
+            units.extend(re.split(r"(?<=[.!?])\s+", paragraph))
     return units
 
 
