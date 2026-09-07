@@ -521,8 +521,9 @@ class TaskCreateRequest(BaseModel):
 ```
 
 A `mode="after"` failure is a model-level Pydantic error — `loc` is empty, not a
-field name — and reaches the client as the same 400 as any other rejected body.
-UI routes render it as a user-friendly banner rather than returning the JSON envelope.
+field name. From there it follows the same split as any other rejected body: an
+API route that returns the failed `Result` onward answers 400 with the JSON
+envelope, while a UI form route re-renders with a banner at 200.
 
 ---
 
