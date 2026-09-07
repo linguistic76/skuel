@@ -27,7 +27,10 @@ A status with no category word in its own clause is invisible here. That covers
 the ASCII flow box, which splits the claim across rows (`│ Validates JSON │`
 above, `│ - Returns 422 on failure │` below); a sentence that puts the category
 on the far side of a clause boundary; and an interrupting phrase that pushes it
-there (`Validation, when it fails, returns 422`). All are deliberate. Reaching them means widening the unit until one fragment answers for
+there (`Validation, when it fails, returns 422`). The negation exemption has the
+same shape of gap: it reads any negation between the two, so a sentence that
+negates something else in that span (`Validation errors are not retried when
+they return 422`) is let through. All are deliberate. Reaching them means widening the unit until one fragment answers for
 its neighbours — which is exactly how a correct `BUSINESS -> 422, VALIDATION ->
 400` starts reading as a violation, and how a deliberately non-SKUEL example
 starts reading as a claim about SKUEL. A guard that cries wolf gets muted, so
