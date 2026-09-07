@@ -37,6 +37,7 @@ from adapters.inbound.route_factories import (
 )
 from adapters.inbound.search_routes import create_search_api_routes
 from adapters.inbound.tasks_ui import create_tasks_ui_routes
+from core.models.enums.entity_enums import EntityType
 from core.models.search_request import SearchRequest
 from core.utils.result_simplified import Errors, Result
 
@@ -238,11 +239,15 @@ def test_html_form_params_row_answers_with_a_banner_not_a_status(
     The status is taken from a real response rather than inferred from the
     pieces: a wrapper that started choosing one would have to show up here.
     """
-    kept = SearchRequest.from_form_params(query="x", user_uid="user_mike", entity_type="task")
+    kept = SearchRequest.from_form_params(
+        query="x", user_uid="user_mike", entity_type=EntityType.TASK.value
+    )
     dropped = SearchRequest.from_form_params(
         query="x", user_uid="user_mike", entity_type="nonsense_facet"
     )
-    assert kept.entity_types == ["task"], "the facet parses at all — the next check means something"
+    assert kept.entity_types == [EntityType.TASK.value], (
+        "the facet parses at all — the next check means something"
+    )
     assert dropped.entity_types == []
 
     app, rt = fast_app(pico=False, default_hdrs=False)
