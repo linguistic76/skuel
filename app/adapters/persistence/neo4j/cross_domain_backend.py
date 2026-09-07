@@ -662,12 +662,13 @@ class CrossDomainBackend:
 
         ``window_start`` and ``window_end`` are ISO ``YYYY-MM-DD`` dates and the
         window is inclusive of both (``CompletionVelocityWindow.start_date`` /
-        ``.end_date``). The upper bound is not decoration: nothing refuses a
-        future ``completion_date`` on the task update door
-        (``TaskCreateRequest`` refuses one, ``TaskUpdateRequest`` does not), and
-        a lower-bound-only predicate counts such a stamp in *every* window from
-        now until its date arrives — a permanent inflation, silently. A trailing
-        window ends where the present does. Window membership is the task's
+        ``.end_date``). The upper bound is not decoration: a lower-bound-only
+        predicate counts a future-dated stamp in *every* window from now until
+        its date arrives — a permanent inflation, silently. Both task doors now
+        refuse a future ``completion_date`` (create always did; update since
+        2026-09-07), so no new row can carry one — but a trailing window ends
+        where the present does regardless of what the writers promise, and rows
+        stamped before the doors agreed are contained here rather than upstream. Window membership is the task's
         canonical completion stamp and nothing else: ``Task.completion_date``,
         written at the six update chokepoints
         (``core/services/completion_stamp.py``) and frozen for history by

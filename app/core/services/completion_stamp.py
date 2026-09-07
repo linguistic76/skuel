@@ -245,6 +245,54 @@ def _stamp_target(
     return Result.ok((new_status, field_name, stamp_factory))
 
 
+def _refuse_stranded_stamp(
+    entity_type: EntityType,
+    # boundary: a materialized update patch (see the module note) — only ``status``'s
+    # VALUE is read, and ``_coerce_status`` narrows it; every other use is a key test.
+    changes: Mapping[str, Any],
+) -> Result[None]:
+    """Refuse a patch that SETS a completion stamp without completing the entity.
+
+    The stamp's invariant is "non-null exactly when the entity is completed", so a
+    non-null stamp in a patch is a claim that this write completes it — and must say
+    so in the same patch. Without this the authority rule in :func:`_stamp_target`
+    stood the guard fully down on any patch carrying the field, which let a reopen
+    keep its stamp (the clear never fired) and let a bare stamp patch land on an open
+    entity: the stranded stamp that reads to every consumer as still-completed, and
+    that the vault door's ``clear_completion_stamps`` exists to undo.
+
+    Prior-independent by construction — requiring the status in the SAME patch is what
+    makes the resulting status knowable without reading the node, so this is a plain
+    refusal rather than a guard condition. Re-posting ``completed`` alongside a
+    corrected date is exactly that patch and stays legal: not a transition, so it
+    re-dates without firing a completion event. Clearing (``None``) is untouched — it
+    is the reopen, not a completion claim.
+
+    **Deliberately not part of :func:`_stamp_target`.** That shared front half also
+    serves :func:`validate_status_target`, whose callers ask only "is this status legal
+    for this type" — including the ingestion validator, where a file carrying a stale
+    ``completion_date:`` beside an open status must be INGESTED AND CLEANED (the vault
+    door clears the stamp after the write), never refused.
+    """
+    spec = _STAMP_SPECS.get(entity_type)
+    if spec is None:
+        return Result.ok(None)
+    field_name, _stamp_factory = spec
+    if changes.get(field_name) is None:
+        return Result.ok(None)
+    if _coerce_status(changes.get("status")) is EntityStatus.COMPLETED:
+        return Result.ok(None)
+    return Result.fail(
+        Errors.validation(
+            message=(
+                f"{field_name} requires status={EntityStatus.COMPLETED.value} in the same update"
+            ),
+            field=field_name,
+            value=changes[field_name],
+        )
+    )
+
+
 def validate_status_target(
     entity_type: EntityType,
     # boundary: a materialized update patch (see the module note) — only ``status``'s
@@ -301,17 +349,29 @@ def status_transition_guard(
     Only the caller knows the target, so the guard never needs to tell the backend
     what ``completed`` means — every condition is set-membership of the prior.
 
+    A patch that SETS a non-null stamp without completing the entity is refused
+    outright (:func:`_refuse_stranded_stamp`): the authority rule above stands the
+    guard down on any patch carrying the field, so without that refusal the reopen
+    clear would silently not fire and the entity would keep a completion stamp while
+    open. That refusal is the guard's alone — :func:`validate_status_target` shares
+    only the legality check.
+
     Args:
         entity_type: The Activity domain being updated.
         changes: The materialized update patch (``intent.to_changes()``). Never mutated.
 
     Returns:
         ``Result.ok`` with the guard, or ``Result.fail`` (validation) on an illegal
-        status target — the same refusal :func:`validate_status_target` makes.
+        status target — the same refusal :func:`validate_status_target` makes — or on
+        a stranded stamp, which is this function's own.
     """
     target = _stamp_target(entity_type, changes)
     if target.is_error:
         return Result.fail(target)
+    # After legality, so an illegal status is still reported as one.
+    stranded = _refuse_stranded_stamp(entity_type, changes)
+    if stranded.is_error:
+        return Result.fail(stranded)
     if target.value is None:
         return Result.ok(StatusWriteGuard())
 

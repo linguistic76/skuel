@@ -1,6 +1,6 @@
 ---
 title: "ADR-087: Status-Guarded Conditional Writes"
-updated: 2026-08-24
+updated: 2026-09-07
 status: accepted
 category: decisions
 tags: [adr, decisions, concurrency, status, completion-stamp, neo4j, write-path]
@@ -165,6 +165,19 @@ two to four such writers. The lock is the mechanism; the `CASE` merges alone are
     is *absent* when the caller supplies its own `achieved_date` (the authority rule is
     about the stamp field, and says nothing about progress), so the reset constructs that
     patch when needed rather than merely extending it.
+  - **Amended 2026-09-07 — the authority rule needed a floor.** Standing the guard down
+    whenever the patch carries the stamp field left a hole: a patch that set a *non-null*
+    stamp alongside a non-completed status kept the stamp AND skipped the reopen clear,
+    stranding a completion stamp on an open entity. `_refuse_stranded_stamp` now refuses
+    that patch shape outright — a non-null stamp must be accompanied by
+    `status=completed` in the same patch, which keeps the check prior-independent.
+    Clearing (`None`) and re-dating a finished entity both stay legal, so the authority
+    rule keeps the cases it exists for. It lives on `status_transition_guard` and
+    **not** on the shared `_stamp_target`: `validate_status_target`'s callers ask only
+    whether a status is legal for the type, and the ingestion validator is one of them —
+    a vault file carrying a stale `completion_date:` beside an open status must be
+    ingested and cleaned, never refused. The vault door's own first-ingest gap is
+    tracked separately (`docs/roadmap/stranded-completion-stamp-vault-first-ingest.md`).
   - Choices' **decision immutability** becomes a `refuse_if_prior_in`. Which fields an
     update touches is known before the write, so only the prior-status half is left for
     the write to decide. It is still checked against the advisory pre-read as a fast

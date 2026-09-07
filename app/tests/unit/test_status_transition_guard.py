@@ -96,14 +96,67 @@ class TestGuardBuilder:
         assert guard.is_ok
         assert guard.value.has_patches() is False
 
-    def test_the_authority_rule_holds_on_the_reopen_direction_too(self) -> None:
-        """A caller that supplies the field while REOPENING keeps it just the same —
-        otherwise the clear would silently discard a date the caller meant to write."""
+    def test_a_non_null_stamp_while_reopening_is_refused(self) -> None:
+        """The invariant: the stamp is non-null exactly when the entity is completed.
+
+        This pair used to be ACCEPTED as the authority rule's reopen direction — the
+        caller "keeping a date it meant to write". It was the bug: the authority rule
+        stands the guard down, so the reopen clear never fired and the entity kept a
+        completion stamp while sitting in ``active``. That is the stranded stamp the
+        vault door's ``clear_completion_stamps`` exists to prevent, and it reads to
+        every consumer as an entity that is still done (ruled 2026-09-07).
+        """
         guard = status_transition_guard(
             EntityType.TASK, {"status": "active", "completion_date": date(2026, 1, 1)}
         )
+        assert guard.is_error
+        assert "requires status=completed" in guard.expect_error().message
+
+    def test_a_bare_non_null_stamp_with_no_status_is_refused(self) -> None:
+        """The same invariant, reached without a status key at all.
+
+        ``_stamp_target`` used to return early on a missing ``status``, so a patch of
+        nothing but a stamp sailed past every rule and landed on whatever status the
+        node happened to hold. Requiring the status in the SAME patch keeps the check
+        prior-independent: the resulting status is known without reading the node.
+        """
+        guard = status_transition_guard(EntityType.TASK, {"completion_date": date(2026, 1, 1)})
+        assert guard.is_error
+        assert "requires status=completed" in guard.expect_error().message
+
+    def test_an_explicit_clear_while_reopening_still_keeps_authority(self) -> None:
+        """Only a NON-NULL stamp is a completion claim. Clearing is the reopen itself,
+        so a caller that writes ``None`` still keeps authority and the guard adds no
+        patch of its own — the write carries the clear."""
+        guard = status_transition_guard(
+            EntityType.TASK, {"status": "active", "completion_date": None}
+        )
         assert guard.is_ok
         assert guard.value.has_patches() is False
+
+    def test_re_dating_a_finished_entity_stays_legal(self) -> None:
+        """Re-posting ``completed`` with a corrected date is the shape the invariant
+        asks for, and is not a transition — so it re-dates without firing a completion
+        event. The deliberate re-date the authority rule exists to serve."""
+        guard = status_transition_guard(
+            EntityType.TASK, {"status": "completed", "completion_date": date(2026, 1, 1)}
+        )
+        assert guard.is_ok
+        assert guard.value.has_patches() is False
+
+    @pytest.mark.parametrize("entity_type", _STAMPING_TYPES)
+    def test_the_invariant_holds_for_every_stamping_domain(self, entity_type: EntityType) -> None:
+        """Not a Task rule. Goal, Event and Choice carry their stamp on the update
+        intent too, so each could strand one the same way."""
+        field = COMPLETION_FIELDS[entity_type]
+        reopen_target = next(
+            s.value for s in entity_type.valid_statuses() if s is not EntityStatus.COMPLETED
+        )
+        guard = status_transition_guard(
+            entity_type, {"status": reopen_target, field: datetime(2026, 1, 1)}
+        )
+        assert guard.is_error
+        assert f"{field} requires status=completed" in guard.expect_error().message
 
     def test_a_domain_with_no_completion_field_gets_no_patches(self) -> None:
         """Principle records no completion moment — and cannot be completed at all."""
@@ -219,6 +272,20 @@ class TestValidateStatusTarget:
     def test_an_update_with_no_status_key_passes(self) -> None:
         """There is no target to judge — a title edit is not a status change."""
         assert validate_status_target(EntityType.PRINCIPLE, {"title": "renamed"}).is_ok
+
+    def test_it_does_not_carry_the_stranded_stamp_refusal(self) -> None:
+        """Legality only — the invariant is the GUARD's, and must not leak here.
+
+        This door's callers ask one question: is this status legal for this type.
+        The ingestion validator is one of them, and a vault file carrying a stale
+        ``completion_date:`` beside an open status must be ingested and CLEANED (the
+        vault door clears the stamp after the write), never refused — refusing it
+        would reject a file over a line the door exists to tidy up. Sharing
+        ``_stamp_target`` makes that leak a one-line accident, so it is pinned.
+        """
+        changes = {"status": "active", "completion_date": date(2026, 1, 1)}
+        assert validate_status_target(EntityType.TASK, changes).is_ok
+        assert status_transition_guard(EntityType.TASK, changes).is_error
 
     def test_it_carries_no_stamp_for_a_stamping_domain_either(self) -> None:
         """It answers legality and nothing else — the caller that wants a stamp asks
