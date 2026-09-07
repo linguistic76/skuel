@@ -85,6 +85,12 @@ jobs:
               # rule an author is held to — and a docs-only edit to it is
               # exactly the change that breaks the drift test.
               - 'app/docs/guides/YAML_AUTHORING_GUIDE.md'
+              # Same shape once more: tests/unit/docs/
+              # test_api_validation_status_docs.py DRIVES each helper this guide
+              # names and asserts the status column matches. The column is a
+              # contract a client integrator branches on, so a docs-only edit to
+              # a cell is exactly the change that must run the drift test.
+              - 'app/docs/patterns/API_VALIDATION_PATTERNS.md'
               # The uv.lock pinning guard's inputs (tests/unit/
               # test_workflow_uv_lock_pinning.py). It reads EVERY workflow, not
               # just ci.yml (unlike the filters below), and follows what those

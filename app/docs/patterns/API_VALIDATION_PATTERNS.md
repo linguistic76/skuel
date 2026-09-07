@@ -1,6 +1,6 @@
 ---
 title: API Validation Patterns
-updated: 2026-08-23
+updated: 2026-09-07
 category: patterns
 related_skills:
 - pydantic
@@ -359,35 +359,43 @@ return Result.fail(
 
 ---
 
-### JSON Body Errors (422 Unprocessable Entity)
+### Body Errors on an API Route (400 Bad Request)
 
-Pydantic automatically generates validation errors:
+This is the shape a route gets when it returns the failed `Result` onward — an
+API route under `@boundary_handler`, or either of the two JSON bindings above.
+A rejected body is malformed input, not a rule violation, so it carries the same
+status and the same client-safe envelope as a rejected query parameter: **400**.
+422 is reserved for `ErrorCategory.BUSINESS`, a well-formed request that breaks
+a domain rule.
 
-**Request:**
+A UI route that unwraps the failure instead and re-renders its form answers
+**200** with a banner and no envelope at all — see the form-body row in
+[When to Use Each Pattern](#when-to-use-each-pattern) below. The status is the
+consumer's, not the helper's.
+
+Pydantic composes its per-field detail into the single `message` string; the
+envelope keys are whatever `ErrorContext.to_client_dict()` emits, never
+Pydantic's own `detail` array.
+
+**Request:** `reflection` is abbreviated below — the placeholder stands for that
+many literal `x` characters, one over `max_length`. Both blocks come from the
+same run.
+
 ```json
 {
-  "context": "string",  // Should be dict
-  "reflection": "x" * 2001  // Exceeds max_length
+  "context": "string",
+  "reflection": "<2001 x's>"
 }
 ```
 
-**HTTP Response (422):**
+**HTTP Response (400):**
 ```json
 {
-  "detail": [
-    {
-      "type": "dict_type",
-      "loc": ["body", "context"],
-      "msg": "Input should be a valid dictionary",
-      "input": "string"
-    },
-    {
-      "type": "string_too_long",
-      "loc": ["body", "reflection"],
-      "msg": "String should have at most 2000 characters",
-      "input": "xxx..."
-    }
-  ]
+  "category": "validation",
+  "code": "VALIDATION_FIELD_BODY",
+  "message": "2 validation errors for ContextualTaskCompletionRequest\ncontext\n  Input should be a valid dictionary or instance of TaskCompletionContext [type=model_type, input_value='string', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/model_type\nreflection\n  String should have at most 2000 characters [type=string_too_long, input_value='xxxxxxxxxxxxxxxxxxxxxxxx...xxxxxxxxxxxxxxxxxxxxxxx', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/string_too_long",
+  "severity": "low",
+  "timestamp": "2026-01-15T10:30:00+00:00"
 }
 ```
 
@@ -512,20 +520,46 @@ class TaskCreateRequest(BaseModel):
         return self
 ```
 
-The error surfaces as a 422 field error on `__root__` (model level), caught by route handlers and rendered as a user-friendly banner.
+A `mode="after"` failure is a model-level Pydantic error — `loc` is empty, not a
+field name. From there it follows the same split as any other rejected body: an
+API route that returns the failed `Result` onward answers 400 with the JSON
+envelope, while a UI form route re-renders with a banner at 200.
 
 ---
 
 ## When to Use Each Pattern
 
-| Input Type | Pattern | Error Code | Use Case |
+| Input Type | Pattern | HTTP Status | Use Case |
 |------------|---------|------------|----------|
 | **Query Params (GET)** | Silent helpers (`parse_*_query_param`) | 200 (default) | Booleans, dates, CSV lists, pagination |
 | **Required Params (GET)** | Strict helpers (`parse_*_param_strict`) | 400 | Required dates, bounded integers |
-| **HTML Form Params (GET)** | `Model.from_form_params()` classmethod | 400 | Many checkbox/enum/optional string params needing coercion |
-| **JSON Bodies (POST/PUT)** | `parse_json_body(request, Model)` | 422 | Structured data, complex validation |
-| **Form Data Bodies (POST)** | `parse_form_body(request, Model)` | 422 | Structured form data with validation |
-| **Path Params** | Avoid (SKUEL uses query params) | N/A | Not used in SKUEL API routes |
+| **HTML Form Params (GET)** | `Model.from_form_params()` classmethod | 200 (banner) | Many checkbox/enum/optional string params needing coercion |
+| **JSON Bodies (POST/PUT)** | `parse_json_body(request, Model)` | 400 | Structured data, complex validation |
+| **Form Data Bodies (POST)** | `parse_form_body(request, Model)` | 400 API · 200 banner | Structured form data with validation |
+| **Path Params** | No shared helper — each route coerces or 404s | varies | Used on UI routes; query params preferred for new API routes |
+
+**Why the path-params row says "varies".** Path params are used — the day
+lens, the calendar, the journals periodics, `/explore/{uid}` and two `/api/`
+routes among them — so this row is a preference, not an absence. There is no
+shared validation helper behind them, and the routes genuinely disagree:
+`/today/{date_str}` coerces an unparseable date to today and carries on, while
+`/today/tasks/{uid}/drawer` answers **404** for a uid the caller does not own.
+One cell cannot describe both; read the route.
+
+**Why the form-body row names two answers.** `parse_form_body` returns a
+`Result` and picks no status — the consumer does. An API route that returns the
+failed `Result` through `@boundary_handler` gets the 400 above. The Activity
+domains' UI create/edit routes instead unwrap it and re-render the form with
+`render_error_banner`, which FastHTML serves as **200**: the user is being sent
+back to the field they got wrong, not handed a status to branch on. Check the
+route before assuming either.
+
+**Why the form-params row has no error status.** It is the one UI-route pattern
+in the table. `from_form_params()` drops an unrecognised facet silently, and a
+value it does reject raises a `ValidationError` — a `ValueError` subclass, which
+is what lets `/search/results` catch it and answer with `render_search_error`, an
+FT node FastHTML serves as **200**. No status is chosen anywhere on that path, so
+a reader looking for a 4xx to branch on will not find one.
 
 **SKUEL Preference:** Query parameters over path parameters for all routes. See [ROUTE_NAMING_CONVENTION.md](ROUTE_NAMING_CONVENTION.md).
 
@@ -963,7 +997,7 @@ Live counterpart: `tests/unit/models/test_task_completion_context.py`.
 | `parse_date_param_strict(value, field)` | `Result[date]` | ISO date with validation error on failure |
 | `parse_int_param_strict(value, field, min, max)` | `Result[int]` | Integer in range with validation error on failure |
 
-**Silent vs strict:** Use silent helpers (`parse_*_query_param`) when invalid input should fall back to a default. Use strict helpers (`parse_*_param_strict`) when invalid input should surface as a 400/422 error.
+**Silent vs strict:** Use silent helpers (`parse_*_query_param`) when invalid input should fall back to a default. Use strict helpers (`parse_*_param_strict`) when invalid input should surface as a 400 error.
 
 ## Reference Implementations
 
@@ -1021,7 +1055,7 @@ Live counterpart: `tests/unit/models/test_task_completion_context.py`.
 ## Key Takeaways
 
 1. **Validate Early:** Catch errors at API boundaries, not deep in service logic
-2. **Fail Fast:** Return clear 400/422 errors immediately
+2. **Fail Fast:** Return a clear 400 the moment input is rejected
 3. **Use Right Tool:**
    - Simple inputs → Helper functions
    - Complex data → Pydantic models

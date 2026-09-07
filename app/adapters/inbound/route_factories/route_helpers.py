@@ -340,7 +340,7 @@ def parse_pagination_params(
 def parse_date_param_strict(value: str | None, field: str) -> Result[date]:
     """Parse an ISO-format date string, returning a validation error on failure.
 
-    Use when invalid input should surface as a 400/422 to the caller rather
+    Use when invalid input should surface as a 400 to the caller rather
     than silently falling back to a default.
     """
     if not value:
