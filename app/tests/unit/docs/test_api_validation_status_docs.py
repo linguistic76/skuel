@@ -36,6 +36,7 @@ from adapters.inbound.route_factories import (
     parse_date_param_strict,
 )
 from adapters.inbound.search_routes import create_search_api_routes
+from adapters.inbound.tasks_ui import create_tasks_ui_routes
 from core.models.search_request import SearchRequest
 from core.utils.result_simplified import Errors, Result
 
@@ -124,16 +125,47 @@ def test_every_table_row_is_driven_or_declared_undriven() -> None:
     assert {row: documented[row] for row in _UNDRIVEN} == _UNDRIVEN
 
 
-@pytest.mark.parametrize("row", ["JSON Bodies (POST/PUT)", "Form Data Bodies (POST)"])
 @pytest.mark.asyncio
-async def test_body_helpers_return_the_documented_status(row: str) -> None:
-    """Both body doors reject into the status the table claims — not 422."""
-    parse = parse_json_body if row.startswith("JSON") else parse_form_body
-    request = _JsonRequest() if row.startswith("JSON") else _FormRequest()
+async def test_json_body_row_returns_the_documented_status() -> None:
+    """The JSON door rejects into the status the table claims — not 422.
 
-    status = _status_of(await parse(request, _Body))  # type: ignore[arg-type]
+    Every ``parse_json_body`` consumer returns the failed ``Result`` onward, so
+    one number describes the row.
+    """
+    status = _status_of(await parse_json_body(_JsonRequest(), _Body))  # type: ignore[arg-type]
 
-    assert str(status) == _documented_rows()[row]
+    assert str(status) == _documented_rows()["JSON Bodies (POST/PUT)"]
+
+
+@pytest.mark.asyncio
+async def test_form_body_row_names_both_answers_its_consumers_give(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The form door picks no status, so the row documents both of its consumers.
+
+    An API route hands the failed ``Result`` to ``result_to_response`` and gets
+    a 400. The Activity UI create/edit routes re-render the form with a banner,
+    which is a 200 — measured here by posting an invalid form at the real
+    ``/tasks/create`` rather than inferred from the handler's source.
+    """
+    api_status = _status_of(await parse_form_body(_FormRequest(), _Body))  # type: ignore[arg-type]
+
+    app, rt = fast_app(pico=False, default_hdrs=False)
+    monkeypatch.setattr(
+        "adapters.inbound.tasks_ui.require_authenticated_user", _fake_authenticated_user
+    )
+    create_tasks_ui_routes(app, rt, MagicMock(), MagicMock())
+    ui_response = TestClient(app).post(
+        "/tasks/create",
+        data={"title": ""},
+        cookies={"csrf_token": "tok"},
+        headers={"X-CSRF-Token": "tok"},
+    )
+
+    cell = _documented_rows()["Form Data Bodies (POST)"]
+    assert f"{api_status} API" in cell
+    assert f"{ui_response.status_code} banner" in cell
+    assert "error" in ui_response.text.lower(), "the UI route rendered no banner — wrong branch"
 
 
 def test_strict_query_helper_returns_the_documented_status() -> None:

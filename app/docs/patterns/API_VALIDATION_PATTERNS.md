@@ -1,6 +1,6 @@
 ---
 title: API Validation Patterns
-updated: 2026-09-06
+updated: 2026-09-07
 category: patterns
 related_skills:
 - pydantic
@@ -524,8 +524,16 @@ UI routes render it as a user-friendly banner rather than returning the JSON env
 | **Required Params (GET)** | Strict helpers (`parse_*_param_strict`) | 400 | Required dates, bounded integers |
 | **HTML Form Params (GET)** | `Model.from_form_params()` classmethod | 200 (banner) | Many checkbox/enum/optional string params needing coercion |
 | **JSON Bodies (POST/PUT)** | `parse_json_body(request, Model)` | 400 | Structured data, complex validation |
-| **Form Data Bodies (POST)** | `parse_form_body(request, Model)` | 400 | Structured form data with validation |
+| **Form Data Bodies (POST)** | `parse_form_body(request, Model)` | 400 API · 200 banner | Structured form data with validation |
 | **Path Params** | Avoid (SKUEL uses query params) | N/A | Not used in SKUEL API routes |
+
+**Why the form-body row names two answers.** `parse_form_body` returns a
+`Result` and picks no status — the consumer does. An API route that returns the
+failed `Result` through `@boundary_handler` gets the 400 above. The Activity
+domains' UI create/edit routes instead unwrap it and re-render the form with
+`render_error_banner`, which FastHTML serves as **200**: the user is being sent
+back to the field they got wrong, not handed a status to branch on. Check the
+route before assuming either.
 
 **Why the form-params row has no error status.** It is the one UI-route pattern
 in the table. `from_form_params()` drops an unrecognised facet silently, and a
