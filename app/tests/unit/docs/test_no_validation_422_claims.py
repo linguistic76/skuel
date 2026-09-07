@@ -44,7 +44,9 @@ from pathlib import Path
 _ROOT = Path(__file__).resolve().parents[4]
 _CATEGORY = re.compile(r"validat\w*|pydantic|invalid|malformed|bad input|business", re.IGNORECASE)
 _BUSINESS = re.compile(r"business", re.IGNORECASE)
-_STATUS_422 = re.compile(r"\b422\b")
+# A status, not a magnitude: "2,422 lines" and a "421-422" line range are
+# numbers, and "#422" is a reference. All three shapes exist in the docs.
+_STATUS_422 = re.compile(r"(?<![\d,.#\-\u2013])422(?![\d.])")
 
 
 def _tracked_markdown() -> list[Path]:
@@ -77,8 +79,9 @@ def _units(text: str) -> list[str]:
     neighbours.
 
     Commas inside backticks or parentheses are not boundaries: they belong to
-    the code or the aside they sit in (`Errors.business(rule=..., ...)`), and
-    splitting there would cut a term in half.
+    the code or the aside they sit in (`Errors.business(rule=..., ...)`). Nor is
+    a comma between two digits — splitting "2,422 lines" there leaves a bare
+    "422" that reads like a status.
     """
     blocks: list[str] = []
     buffer: list[str] = []
@@ -124,7 +127,10 @@ def _split_clauses(block: str) -> list[str]:
             depth += 1
         elif char == ")":
             depth = max(0, depth - 1)
-        if char == "," and (in_code or depth):
+        digit_group = (
+            index and block[index - 1].isdigit() and block[index + 1 : index + 2].isdigit()
+        )
+        if char == "," and (in_code or depth or digit_group):
             masked[index] = "\x00"
     parts = re.split(r"(?<=[.!?])\s+|[;,]", "".join(masked))
     return [part.replace("\x00", ",") for part in parts]
@@ -189,6 +195,9 @@ def test_the_predicate_separates_the_two_categories() -> None:
     ]
     charges_business = [
         "Validation maps to 400 while 422 represents a business failure.",
+        "The delegation rewrite removed 2,422 lines of validation boilerplate.",
+        "See issue #422 for the validation backlog.",
+        "`get_decision_patterns()` iterates them at 421-422 to validate satisfaction.",
         "maps error categories: BUSINESS → 422, VALIDATION → 400.",
         "the reverse ordering: VALIDATION → 400, 422 → BUSINESS.",
         "422 is reserved for `ErrorCategory.BUSINESS`, a well-formed request that breaks a rule.",

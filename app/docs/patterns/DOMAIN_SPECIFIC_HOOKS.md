@@ -408,7 +408,7 @@ class FormTemplateService(BaseService[FormTemplateBackendOperations, FormTemplat
 behind a stricter request edge (`GoalCreateRequest` rejects a past target date and enforces
 the same ordering; `HabitCreateRequest` bounds its field at `ge=1, le=7`;
 `EventCreateRequest` has no `duration_minutes` field at all). None of them fires for an HTTP
-caller — Pydantic returns a 400 first. What they backstop is every caller that hands
+caller — Pydantic rejects the request first, at whichever door it came in by. What they backstop is every caller that hands
 `create(entity)` an entity it assembled itself. That is a real surface, but do not describe
 these as API-level validation.
 
