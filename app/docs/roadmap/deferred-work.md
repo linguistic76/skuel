@@ -136,9 +136,9 @@ renders them as a table in Obsidian, and a session derives the same table with
 
 [Habit-Completion Persistence Bundle — Orphans, UID Collisions, Non-Atomic Day Uniqueness](habit-completion-persistence-bundle.md) — Six persistence defects around the `HabitCompletion` node — orphans, uid collisions, non-atomic day uniqueness, stranded stats, a DISTINCT-day read, a refused untrack — plus the node-less third door; one shared lock-derived writer is the shape.
 
-## Stranded Completion Stamp on Vault First Ingest
+## Stranded Completion Stamp — the Halves the Guard Cannot Judge
 
-[Stranded Completion Stamp on Vault First Ingest](stranded-completion-stamp-vault-first-ingest.md) — A vault file authored with an open status and a `completion_date` keeps the stamp on first ingest; the door's clear only fires on a reopen, and the ADR-087 guard does not cover the bulk upsert.
+[Stranded Completion Stamp — the Halves the Guard Cannot Judge](stranded-completion-stamp.md) — Two ways a non-null stamp still lands on an open entity: a patch that names no status, and a vault file authored open-with-a-stamp on first ingest. Both need the prior, so neither is a plain refusal.
 
 ## "Vault Has Un-Synced Changes" Signal
 

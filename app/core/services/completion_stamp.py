@@ -251,22 +251,29 @@ def _refuse_stranded_stamp(
     # VALUE is read, and ``_coerce_status`` narrows it; every other use is a key test.
     changes: Mapping[str, Any],
 ) -> Result[None]:
-    """Refuse a patch that SETS a completion stamp without completing the entity.
+    """Refuse a patch that sets a completion stamp while naming a status that is not
+    ``COMPLETED``.
 
     The stamp's invariant is "non-null exactly when the entity is completed", so a
-    non-null stamp in a patch is a claim that this write completes it — and must say
-    so in the same patch. Without this the authority rule in :func:`_stamp_target`
-    stood the guard fully down on any patch carrying the field, which let a reopen
-    keep its stamp (the clear never fired) and let a bare stamp patch land on an open
-    entity: the stranded stamp that reads to every consumer as still-completed, and
-    that the vault door's ``clear_completion_stamps`` exists to undo.
+    non-null stamp is a claim that the entity IS completed. A patch that makes that
+    claim while naming any other status contradicts itself, and the authority rule in
+    :func:`_stamp_target` would otherwise stand the guard fully down on it — no stamp,
+    and no reopen clear either — leaving the entity open and still stamped, which reads
+    to every consumer as done and is what the vault door's ``clear_completion_stamps``
+    exists to undo.
 
-    Prior-independent by construction — requiring the status in the SAME patch is what
-    makes the resulting status knowable without reading the node, so this is a plain
-    refusal rather than a guard condition. Re-posting ``completed`` alongside a
-    corrected date is exactly that patch and stays legal: not a transition, so it
-    re-dates without firing a completion event. Clearing (``None``) is untouched — it
-    is the reopen, not a completion claim.
+    Scoped to a patch that NAMES its status, which is the whole of what can be judged
+    here: the resulting status is then known without reading the node, so this is a
+    plain refusal rather than a guard condition. A patch carrying a stamp and no status
+    resolves against the prior and is out of reach — see
+    ``docs/roadmap/stranded-completion-stamp.md``. Requiring the status instead would
+    make the rule unsatisfiable for Choice, whose update request exposes ``completed_at``
+    and no status at all.
+
+    Two shapes stay legal, and both are the point: clearing (``None``) is the reopen
+    rather than a completion claim, and re-posting ``completed`` alongside a corrected
+    date re-dates a finished entity without firing a completion event (a re-post is not
+    a transition).
 
     **Deliberately not part of :func:`_stamp_target`.** That shared front half also
     serves :func:`validate_status_target`, whose callers ask only "is this status legal
@@ -280,7 +287,9 @@ def _refuse_stranded_stamp(
     field_name, _stamp_factory = spec
     if changes.get(field_name) is None:
         return Result.ok(None)
-    if _coerce_status(changes.get("status")) is EntityStatus.COMPLETED:
+    if "status" not in changes:
+        return Result.ok(None)
+    if _coerce_status(changes["status"]) is EntityStatus.COMPLETED:
         return Result.ok(None)
     return Result.fail(
         Errors.validation(
@@ -349,12 +358,11 @@ def status_transition_guard(
     Only the caller knows the target, so the guard never needs to tell the backend
     what ``completed`` means — every condition is set-membership of the prior.
 
-    A patch that SETS a non-null stamp without completing the entity is refused
-    outright (:func:`_refuse_stranded_stamp`): the authority rule above stands the
-    guard down on any patch carrying the field, so without that refusal the reopen
-    clear would silently not fire and the entity would keep a completion stamp while
-    open. That refusal is the guard's alone — :func:`validate_status_target` shares
-    only the legality check.
+    A patch that sets a non-null stamp while naming a status other than ``COMPLETED``
+    is refused outright (:func:`_refuse_stranded_stamp`): the authority rule stands the
+    guard down on any patch carrying the field, so absent that refusal the reopen clear
+    does not fire and the entity keeps a completion stamp while open. The refusal is
+    the guard's alone — :func:`validate_status_target` shares only the legality check.
 
     Args:
         entity_type: The Activity domain being updated.

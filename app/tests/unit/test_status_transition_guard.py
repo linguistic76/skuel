@@ -99,12 +99,13 @@ class TestGuardBuilder:
     def test_a_non_null_stamp_while_reopening_is_refused(self) -> None:
         """The invariant: the stamp is non-null exactly when the entity is completed.
 
-        This pair used to be ACCEPTED as the authority rule's reopen direction — the
-        caller "keeping a date it meant to write". It was the bug: the authority rule
-        stands the guard down, so the reopen clear never fired and the entity kept a
-        completion stamp while sitting in ``active``. That is the stranded stamp the
-        vault door's ``clear_completion_stamps`` exists to prevent, and it reads to
-        every consumer as an entity that is still done (ruled 2026-09-07).
+        The authority rule stands the guard down on any patch carrying the stamp
+        field, so this pair would otherwise take the reopen without its clear and
+        leave the entity in ``active`` still stamped — the stranded stamp the vault
+        door's ``clear_completion_stamps`` exists to undo, which reads to every
+        consumer as an entity that is still done.
+
+        See: ``docs/decisions/ADR-087-status-guarded-conditional-writes.md``
         """
         guard = status_transition_guard(
             EntityType.TASK, {"status": "active", "completion_date": date(2026, 1, 1)}
@@ -112,17 +113,36 @@ class TestGuardBuilder:
         assert guard.is_error
         assert "requires status=completed" in guard.expect_error().message
 
-    def test_a_bare_non_null_stamp_with_no_status_is_refused(self) -> None:
-        """The same invariant, reached without a status key at all.
+    def test_a_stamp_with_no_status_named_is_out_of_reach(self) -> None:
+        """A patch carrying a stamp and no status resolves against the PRIOR.
 
-        ``_stamp_target`` used to return early on a missing ``status``, so a patch of
-        nothing but a stamp sailed past every rule and landed on whatever status the
-        node happened to hold. Requiring the status in the SAME patch keeps the check
-        prior-independent: the resulting status is known without reading the node.
+        Nothing here can judge it, so it passes: the resulting status is whatever the
+        node already holds. Refusing it instead would demand a status the caller may
+        have no way to send — ``ChoiceUpdateRequest`` exposes ``completed_at`` and no
+        status field at all, so a Choice correcting its own timestamp could never
+        satisfy such a rule. The prior-dependent half of the invariant is tracked in
+        ``docs/roadmap/stranded-completion-stamp.md``.
         """
         guard = status_transition_guard(EntityType.TASK, {"completion_date": date(2026, 1, 1)})
+        assert guard.is_ok
+
+    def test_a_choice_may_correct_its_own_timestamp(self) -> None:
+        """The shape ``ChoiceUpdateRequest`` can actually express, kept working.
+
+        Its update request carries ``completed_at`` and no ``status``; the separate
+        status endpoint sends ``status`` alone. A rule demanding both in one patch
+        makes the documented field unusable rather than merely strict.
+        """
+        guard = status_transition_guard(EntityType.CHOICE, {"completed_at": datetime(2026, 1, 1)})
+        assert guard.is_ok
+
+    def test_a_choice_reopen_carrying_a_stamp_is_still_refused(self) -> None:
+        """Narrowing to patches that NAME a status keeps the actual bug closed."""
+        guard = status_transition_guard(
+            EntityType.CHOICE, {"status": "active", "completed_at": datetime(2026, 1, 1)}
+        )
         assert guard.is_error
-        assert "requires status=completed" in guard.expect_error().message
+        assert "completed_at requires status=completed" in guard.expect_error().message
 
     def test_an_explicit_clear_while_reopening_still_keeps_authority(self) -> None:
         """Only a NON-NULL stamp is a completion claim. Clearing is the reopen itself,
@@ -280,7 +300,7 @@ class TestValidateStatusTarget:
         The ingestion validator is one of them, and a vault file carrying a stale
         ``completion_date:`` beside an open status must be ingested and CLEANED (the
         vault door clears the stamp after the write), never refused — refusing it
-        would reject a file over a line the door exists to tidy up. Sharing
+        rejects a file over a line the door exists to tidy up. Sharing
         ``_stamp_target`` makes that leak a one-line accident, so it is pinned.
         """
         changes = {"status": "active", "completion_date": date(2026, 1, 1)}

@@ -331,10 +331,9 @@ class TestGoalsChokepoint:
         patch would silently vanish for exactly these intents. The authority rule is
         about the stamp field; it says nothing about progress.
 
-        The vehicle is an explicit CLEAR, which is the only stamp a reopen may now
-        carry: a non-null one is refused outright as a stranded stamp (ruled
-        2026-09-07). The claim under test is unchanged — authority over the stamp must
-        not buy silence over progress.
+        The vehicle is an explicit CLEAR, the only stamp a reopen may carry: a
+        non-null one is refused outright as a stranded stamp. The claim under test is
+        authority over the stamp not buying silence over progress.
         """
         service, _backend, recorder = self._service(EntityStatus.COMPLETED)
         intent = GoalUpdateIntent(status="active", achieved_date=None)
@@ -1075,12 +1074,13 @@ class TestTaskCreateRequestCompletionDefault:
 class TestTaskUpdateRequestCompletionDate:
     """The update door refuses a future stamp exactly as the create door does.
 
-    Ruled 2026-09-07. The two doors had drifted: create refused a future
-    ``completion_date``, update passed one through as a patch — and the edit form
-    renders that field as "Completed on", a plain date input beside ``status``, so
-    the stamp the create door exists to refuse was reachable by typing it. The
-    habits precedent does not reach here: a future habit *occurrence* is a real
-    scheduled thing; a task claiming it was *completed* next year is not.
+    One rule at two doors, because the edit form renders ``completion_date`` as
+    "Completed on" — a plain date input beside ``status`` — so a stamp the create
+    door refuses is otherwise reachable by typing it. The habits precedent does not
+    reach here: a future habit *occurrence* is a real scheduled thing; a task
+    claiming it was *completed* next year is not.
+
+    See: ``docs/roadmap/done/task-update-future-completion-date.md``
     """
 
     def test_future_completion_date_is_refused(self):

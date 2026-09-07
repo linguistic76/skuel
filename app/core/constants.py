@@ -547,11 +547,10 @@ class CompletionVelocityWindow:
         The upper bound is load-bearing rather than decorative: a
         lower-bound-only predicate counts a future-dated stamp in every window
         from now until the date arrives — a permanent inflation, silently. Both
-        task doors now refuse a future ``completion_date`` (create always did;
-        update since 2026-09-07), so no *new* row can carry one, but a reader
-        does not depend on a writer-side invariant for the correctness of its
-        own predicate, and rows stamped before the doors agreed are contained by
-        this bound rather than by anything upstream.
+        task doors refuse a future ``completion_date``, so no new row carries
+        one; the bound stands anyway, because a reader does not depend on a
+        writer-side invariant for the correctness of its own predicate, and any
+        such stamp already in the graph is contained here rather than upstream.
         """
         return today
 

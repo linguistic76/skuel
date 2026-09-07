@@ -186,18 +186,19 @@ class TaskUpdateRequest(UpdateRequestBase):
     def refuse_future_completion_date(self) -> "TaskUpdateRequest":
         """A supplied completion date must not be in the future — as on create.
 
-        The create door has always refused one; this door passed it straight
-        through as a patch, so the edit form's "Completed on" input could plant
-        exactly the stamp the create door exists to refuse (ruled 2026-09-07,
-        symmetry with create). The habits ruling does not reach here: a future
-        habit *occurrence* is a real scheduled thing, a task claiming it was
-        *completed* next year is not.
+        The edit form renders this field as "Completed on", a plain date input
+        beside ``status``, so the door is reachable by typing. A task claiming it
+        was completed on a day that has not arrived is not the habits case: a
+        future habit *occurrence* is a real scheduled thing, a future task
+        *completion* is not.
 
-        Only the future is refused. Clearing (``None``) stays the explicit
-        reopen-clear, and a back-dated stamp stays the point of the field. The
+        Only the future is refused. Clearing (``None``) is the explicit
+        reopen-clear, and a back-dated stamp is the point of the field. The
         companion invariant — a non-null stamp means the task is completed — is
-        prior-dependent and therefore lives on the guarded write
+        prior-dependent and lives on the guarded write
         (``core.services.completion_stamp``), not here.
+
+        See: ``docs/roadmap/done/task-update-future-completion-date.md``
         """
         _refuse_future_completion_date(self.completion_date)
         return self

@@ -31,9 +31,10 @@ the ruling.
 
 1. **The create door enforces two rules, not one.** R1: no future date. R2: the stamp
    is non-null exactly when the task is completed. The update door enforced *neither*.
-   R2's breach was a live bug rather than an unruled preference, and was fixed in the
-   same change — see [Stranded Completion Stamp on First Ingest](stranded-completion-stamp-vault-first-ingest.md)
-   for the one site that fix does not reach.
+   R2's breach was a live bug rather than an unruled preference, and the judgeable half
+   was fixed in the same change: a patch that sets a non-null stamp while NAMING a
+   non-completed status. See [Stranded Completion Stamp](../stranded-completion-stamp.md)
+   for the two prior-dependent halves it does not reach.
 
 2. **The vector was reachable from the ordinary edit form**, not only the API:
    `completion_date` renders as "Completed on", a plain date input in the same
@@ -59,5 +60,10 @@ the ruling.
 `status_transition_guard` **only**. It was first written into `_stamp_target`, the half
 shared with `validate_status_target` — which broke the vault door: a file carrying a
 stale `completion_date:` beside an open status must be ingested and CLEANED, never
-refused. Pinned by
-`test_it_does_not_carry_the_stranded_stamp_refusal`.
+refused. Pinned by `test_it_does_not_carry_the_stranded_stamp_refusal`.
+
+It was also first written to demand `status=completed` in the same patch, which Codex
+caught on #1297: `ChoiceUpdateRequest` exposes `completed_at` and no `status` field, so
+that rule was unsatisfiable rather than strict for Choice — it made a documented update
+field unusable. Narrowed to patches that NAME a status, and pinned by
+`test_a_choice_may_correct_its_own_timestamp`.

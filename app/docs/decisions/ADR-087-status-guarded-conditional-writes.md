@@ -169,15 +169,22 @@ two to four such writers. The lock is the mechanism; the `CASE` merges alone are
     whenever the patch carries the stamp field left a hole: a patch that set a *non-null*
     stamp alongside a non-completed status kept the stamp AND skipped the reopen clear,
     stranding a completion stamp on an open entity. `_refuse_stranded_stamp` now refuses
-    that patch shape outright — a non-null stamp must be accompanied by
-    `status=completed` in the same patch, which keeps the check prior-independent.
-    Clearing (`None`) and re-dating a finished entity both stay legal, so the authority
-    rule keeps the cases it exists for. It lives on `status_transition_guard` and
-    **not** on the shared `_stamp_target`: `validate_status_target`'s callers ask only
-    whether a status is legal for the type, and the ingestion validator is one of them —
-    a vault file carrying a stale `completion_date:` beside an open status must be
-    ingested and cleaned, never refused. The vault door's own first-ingest gap is
-    tracked separately (`docs/roadmap/stranded-completion-stamp-vault-first-ingest.md`).
+    that patch shape outright: a patch that sets a non-null stamp while NAMING a status
+    other than `completed`. Clearing (`None`) and re-dating a finished entity both stay
+    legal, so the authority rule keeps the cases it exists for.
+
+    Scoped to patches that name a status, which is the whole of what is judgeable
+    without reading the node. Demanding the status instead would be unsatisfiable rather
+    than strict for Choice, whose update request exposes `completed_at` and no status
+    field. The two prior-dependent halves that remain — a patch naming no status, and
+    the vault door's first ingest — are tracked in
+    `docs/roadmap/stranded-completion-stamp.md`.
+
+    It lives on `status_transition_guard` and **not** on the shared `_stamp_target`:
+    `validate_status_target`'s callers ask only whether a status is legal for the type,
+    and the ingestion validator is one of them — a vault file carrying a stale
+    `completion_date:` beside an open status must be ingested and cleaned, never
+    refused.
   - Choices' **decision immutability** becomes a `refuse_if_prior_in`. Which fields an
     update touches is known before the write, so only the prior-status half is left for
     the write to decide. It is still checked against the advisory pre-read as a fast
