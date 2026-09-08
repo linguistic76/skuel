@@ -608,6 +608,71 @@ class TestPatternFile:
             )
 
 
+class TestFailsClosed:
+    """A scanner with nothing to scan for must never report "clean".
+
+    Measured: with `mapfile` unavailable — macOS still ships /bin/bash 3.2, where
+    it is not a command — the arrays stayed empty, both loops iterated zero times,
+    and the scan exited 0 on a diff containing a real credential. Silent
+    fail-open, the worst failure mode a security control has.
+
+    The script no longer uses `mapfile`, and these pin the general guard rather
+    than that one cause: an empty pattern or name set is the observable symptom of
+    every cause — a missing builtin, a truncated or unreadable data file, a bad
+    path — so emptiness itself is what refuses to pass.
+    """
+
+    @staticmethod
+    def _sandbox(tmp_path: Path) -> Path:
+        for name in ("secret-scan.sh", "secret-patterns.txt", "credential-keys.txt"):
+            (tmp_path / name).write_bytes((HOOK_DIR / name).read_bytes())
+        return tmp_path
+
+    @staticmethod
+    def _run(sandbox: Path, line: str) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            ["bash", str(sandbox / "secret-scan.sh"), "the test diff"],
+            input=f"+{line}\n",
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+    @pytest.mark.parametrize("data_file", ["secret-patterns.txt", "credential-keys.txt"])
+    @pytest.mark.parametrize("state", ["comments-only", "empty", "missing"])
+    def test_an_unusable_data_file_refuses_to_report_clean(
+        self, tmp_path: Path, data_file: str, state: str
+    ) -> None:
+        sandbox = self._sandbox(tmp_path)
+        target = sandbox / data_file
+        if state == "comments-only":
+            target.write_text("# every line a comment\n")
+        elif state == "empty":
+            target.write_text("")
+        else:
+            target.unlink()
+
+        result = self._run(sandbox, f"NEO4J_PASSWORD={base64url_secret()}")
+        assert result.returncode != 0, (
+            f"{data_file} was {state} and the scan reported clean on a real "
+            f"credential:\n{result.stdout}{result.stderr}"
+        )
+        assert "refusing to report clean" in result.stderr or "missing data file" in result.stderr
+
+    def test_the_scan_uses_no_bash_4_only_builtin(self) -> None:
+        """`mapfile`/`readarray` are bash 4+; /bin/bash on macOS is 3.2."""
+        source = (HOOK_DIR / "secret-scan.sh").read_text()
+        for builtin in ("mapfile", "readarray"):
+            for line in source.splitlines():
+                stripped = line.strip()
+                if stripped.startswith("#"):
+                    continue  # the comment explaining why it is not used
+                assert not stripped.startswith(builtin), (
+                    f"{builtin} is bash 4+; a bash 3.2 host would load empty arrays "
+                    f"and the scan would exit 0 on every diff. Line: {line!r}"
+                )
+
+
 class TestPrePushRange:
     """Drive the real `pre-push` hook over a scratch repo.
 

@@ -93,8 +93,29 @@ read_data_file() {
   done < "$1"
 }
 
-mapfile -t pattern_entries < <(read_data_file "$patterns_file")
-mapfile -t catalog_keys < <(read_data_file "$catalog_file")
+# A plain read loop, not `mapfile`: mapfile is bash 4+, and macOS still ships
+# /bin/bash 3.2, where it is simply not a command. That failure is SILENT — the
+# array stays empty, both loops below iterate zero times, and the scan exits 0 on
+# a diff full of credentials.
+pattern_entries=()
+while IFS= read -r _line; do pattern_entries+=("$_line"); done < <(read_data_file "$patterns_file")
+catalog_keys=()
+while IFS= read -r _line; do catalog_keys+=("$_line"); done < <(read_data_file "$catalog_file")
+
+# Fail CLOSED on an empty set. This is the general guard, and it is why no bash
+# version check is needed: an empty array is the observable symptom of every
+# cause — a missing builtin, a truncated or unreadable data file, a bad path — and
+# a scanner with nothing to scan for must never report "clean".
+if [[ ${#pattern_entries[@]} -eq 0 ]]; then
+  printf '\033[31m✗ secret-scan: no patterns loaded from %s — refusing to report clean\033[0m\n' \
+    "$patterns_file" >&2
+  exit 1
+fi
+if [[ ${#catalog_keys[@]} -eq 0 ]]; then
+  printf '\033[31m✗ secret-scan: no credential names loaded from %s — refusing to report clean\033[0m\n' \
+    "$catalog_file" >&2
+  exit 1
+fi
 
 # The lead a credential NAME can appear behind, in either syntax. Split out
 # because both the matcher and the redaction expression need it.
