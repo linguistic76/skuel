@@ -667,7 +667,8 @@ class ChoicesCoreService(
             # write saw rather than assumed. Decision immutability is asked first because
             # it is the broader refusal — this choice may not change at all — while the
             # bare-stamp gate says only that ``completed_at`` needs a completed prior.
-            # The same check that ran as a pre-read fast path, now against the exact status.
+            # The same check ``_validate_update`` makes against the pre-read, re-asked
+            # here against the status the write locked.
             immutability = _decision_immutability_check(outcome.prior_status, changes)
             if immutability.is_error:
                 return Result.fail(immutability)
