@@ -79,7 +79,7 @@ The assignment half exists because a Deepgram key (40 hex chars), an AuraDB pass
 
 Two syntaxes are matched, because a credential name means different things in each:
 
-- **assignment** — `KEY=value`, `KEY: value`, `export KEY=value`. The env / shell / YAML-mapping form. A quoted value here may contain spaces: `NEO4J_PASSWORD="correct horse battery staple"` is one value, not four, and measuring only its first word would clear it.
+- **assignment** — `KEY=value`, `KEY: value`, `export KEY=value`, `KEY: str = value`. The env / shell / YAML-mapping form, plus the typed Python constant. A quoted value here may contain spaces: `NEO4J_PASSWORD="correct horse battery staple"` is one value, not four, and measuring only its first word would clear it.
 - **data literal** — `"KEY": value` and `config["KEY"] = value`, as JSON, dict literals and subscript assignment write it, whether one key per line or inline. Here the value must be **space-free** to count. A dict keyed by a credential name, in this repo, holds a *description* — `"OPENAI_API_KEY": "OpenAI API key for embeddings and AI features"` in `core/config/environment_validator.py`, and the catalog in `credential_setup.py` itself. Accepting a spaced value there would report the credential catalog as a leak; a real credential pasted into JSON has no spaces.
 
 A value is treated as a placeholder, and not reported, when it is empty, shorter than 20 characters, `your-`-prefixed, a `$`-interpolation such as `${NEO4J_PASSWORD}`, or contains an angle-bracketed token. That last arm is the docs convention, and it is the only one that looks past the start of the value: `NEO4J_AUTH=neo4j/<password>` in `SETUP.md` is a composite whose placeholder half is second, so the `your-` arm never sees it. A real credential contains no angle brackets.
@@ -94,7 +94,11 @@ Matches are always printed **redacted** — content matches with the matched tex
 
 `credential-keys.txt` is a **mirror**, not a second source of truth: bash cannot import Python, so the names are duplicated from `CredentialSetup.CREDENTIALS` and pinned by a drift test — the same arrangement `scripts/lint_skuel.py::SkuelLinter.CREDENTIAL_CATALOG` already uses.
 
-It carries two names the funnel does not: `NEO4J_AUTH`, which Docker Compose reads directly for `${VAR}` interpolation and whose `user/password` value carries a real password, and `SKUEL_MASTER_KEY`, which is not a stored credential but the key that decrypts all of them. What puts a name in this file is that assigning it a literal is a leak — a wider question than whether `get_credential()` manages it. Such names are declared in the drift test's `NON_FUNNEL_KEYS`, so the mirror stays pinned exactly in both directions and an unexplained extra fails.
+It carries three names `CredentialSetup.CREDENTIALS` does not:
+
+- `NEO4J_AUTH` — Docker Compose reads it directly for `${VAR}` interpolation, and its `user/password` value carries a real password.
+- `SKUEL_MASTER_KEY` — not a stored credential but the key that decrypts all of them.
+- `SIGNUP_INVITE_CODE` — read through `get_credential()` yet absent from the catalog, and its name matches none of SKUEL019's credential-shaped suffixes, so nothing else in the tree treats it as one. Leaking it opens registration. What puts a name in this file is that assigning it a literal is a leak — a wider question than whether `get_credential()` manages it. Such names are declared in the drift test's `NON_FUNNEL_KEYS`, so the mirror stays pinned exactly in both directions and an unexplained extra fails.
 
 ## Bypass mechanisms
 

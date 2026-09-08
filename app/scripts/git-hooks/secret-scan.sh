@@ -112,7 +112,12 @@ mapfile -t catalog_keys < <(read_data_file "$catalog_file")
 #     for embeddings and AI features"` in core/config/environment_validator.py,
 #     and the catalog in credential_setup.py itself. Accepting a spaced value here
 #     reports the credential catalog as a leak; a real credential has no spaces.
-sep="[[:space:]]*\]?[[:space:]]*[=:][[:space:]]*"
+# Between the name and its value: an optional `]` (subscript assignment), an
+# optional type annotation (`SESSION_SECRET_KEY: str = "…"`), then `=` or `:`.
+# The annotation group is optional and its `[=:]` is required, so a bare YAML
+# mapping (`KEY: value`) still matches by skipping the group.
+_ident="[A-Za-z_][A-Za-z0-9_.]*(\[[^]]*\])?"
+sep="[[:space:]]*\]?[[:space:]]*(:[[:space:]]*${_ident}[[:space:]]*)?[=:][[:space:]]*"
 assign_lead_for()  { printf '^\\+{1,2}[[:space:]]*(export[[:space:]]+)?%s%s' "$1" "$sep"; }
 literal_lead_for() { printf '^\\+{1,2}.*[\"'"'"']%s[\"'"'"']%s' "$1" "$sep"; }
 

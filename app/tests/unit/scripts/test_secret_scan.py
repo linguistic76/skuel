@@ -93,6 +93,11 @@ def subscript(key: str, value: str, quote: str = '"') -> str:
     return f"config[{quote}{key}{quote}] = {quote}{value}{quote}"
 
 
+def annotated(key: str, value: str, annotation: str) -> str:
+    """`KEY: str = "value"` — a typed Python constant."""
+    return f'{key}: {annotation} = "{value}"'
+
+
 def read_data_file(path: Path) -> list[str]:
     """Non-comment, non-blank lines — the same filter the shell script applies."""
     return [
@@ -217,6 +222,16 @@ class TestAssignmentShapeCoverage:
         assert detects(subscript("NEO4J_PASSWORD", base64url_secret()))
         assert detects(subscript("SESSION_SECRET_KEY", base64url_secret(), quote="'"))
 
+    def test_annotated_assignment_is_caught(self) -> None:
+        """`KEY: str = value` — a typed Python constant.
+
+        The bare `:` of a YAML mapping and the `:` of a type annotation look alike;
+        without the annotation arm the matcher reads `str` as the value and clears
+        the floor on three characters.
+        """
+        assert detects(annotated("SESSION_SECRET_KEY", base64url_secret(), "str"))
+        assert detects(annotated("NEO4J_PASSWORD", base64url_secret(), "Final[str]"))
+
     def test_the_key_survives_redaction_in_an_inline_literal(self) -> None:
         """Redaction anchors on the key, not the line's first `=`.
 
@@ -326,8 +341,12 @@ class TestFalsePositiveFloor:
         )
 
     def test_a_non_catalog_name_is_not_flagged(self) -> None:
-        # `SIGNUP_INVITE_CODE` and friends are config, not credentials.
-        assert not detects(f"SIGNUP_INVITE_CODE={alnum(40)}")
+        # Paths, hosts and tiers are config: long, sometimes high-entropy, not secret.
+        assert not detects(
+            "SKUEL_USER_VAULTS_ROOT=/home/someone/vaults/and/a/long/path",
+            "NEO4J_URI=neo4j+s://d2d160c4.databases.neo4j.io",
+            f"BUILD_REVISION={alnum(40)}",
+        )
 
     def test_removed_lines_are_never_scanned(self) -> None:
         """Deleting a secret must not block the commit that deletes it."""
@@ -407,6 +426,12 @@ NON_FUNNEL_KEYS = {
     # Not a stored credential — the key that decrypts the whole Fernet store
     # (core/config/credential_store.py). Leaking it exposes every key in the store.
     "SKUEL_MASTER_KEY",
+    # Read through get_credential() (adapters/inbound/auth_ui.py) but absent from
+    # the catalog, and its name matches none of SKUEL019's credential-shaped
+    # suffixes — so nothing else in the tree treats it as one. Leaking it opens
+    # registration; DO_MIGRATION_GUIDE.md calls it the throttle on node-cap growth
+    # and LLM-cost abuse.
+    "SIGNUP_INVITE_CODE",
 }
 
 
@@ -458,6 +483,12 @@ class TestCatalogDrift:
         """It decrypts every other credential, so it is the highest-value single line."""
         assert detects(f"SKUEL_MASTER_KEY={base64url_secret()}")
         assert not detects("SKUEL_MASTER_KEY=${SKUEL_MASTER_KEY}")
+
+    def test_the_signup_gate_is_scanned(self) -> None:
+        """A leaked invite code opens registration — it is a secret, not config."""
+        assert detects(f"SIGNUP_INVITE_CODE={base64url_secret()}")
+        # `.env.example` carries it commented out; a comment is not an assignment.
+        assert not detects("# SIGNUP_INVITE_CODE=choose-a-code")
 
 
 class TestPatternFile:
