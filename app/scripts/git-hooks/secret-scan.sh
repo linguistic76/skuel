@@ -139,13 +139,26 @@ while IFS= read -r key || [[ -n "$key" ]]; do
   # A double- or single-quoted run (spaces allowed), or a bare token.
   assign_value="([\"][^\"]${floor}|['][^']${floor}|[^[:space:]\"'][^[:space:]]${next_floor})"
 
-  literal_lead="^\+{1,2}[[:space:]]*[\"']${key}[\"']${sep}"
+  # No start-of-line anchor beyond the diff marker: a dict literal is as often
+  # inline (`config = {"NEO4J_PASSWORD": "…"}`) as it is one key per line.
+  literal_lead="^\+{1,2}.*[\"']${key}[\"']${sep}"
   literal_value="[\"']?[^[:space:]\"'][^[:space:]\"']${next_floor}"
 
+  # Placeholder arms, applied to whichever lead matched:
+  #   your-…      the template convention
+  #   $…          an interpolation is a reference to a credential, not one
+  #   …<token>…   the docs convention, and the only arm that has to look PAST the
+  #               start of the value: `NEO4J_AUTH=neo4j/<password>` in SETUP.md is
+  #               a composite whose placeholder half is second. A real credential
+  #               contains no angle brackets.
+  placeholder="(your-|[$]|[^[:space:]]*<[^>[:space:]]*>)"
   matches=$(grep -E -- "${assign_lead}${assign_value}|${literal_lead}${literal_value}" <<<"$added_lines" \
-    | grep -Ev -- "(${assign_lead}|${literal_lead})[\"']?(your-|[$])" || true)
-  # Redact everything past the separator; the name is what the reader needs.
-  [[ -n "$matches" ]] && report "$key assignment" "$matches" 's/([=:]).*/\1[REDACTED]/'
+    | grep -Ev -- "(${assign_lead}|${literal_lead})[\"']?${placeholder}" || true)
+  # Redact everything past the separator that follows THIS key — not the line's
+  # first `=`, which for an inline literal (`config = {"KEY": …}`) is the
+  # assignment to `config` and would swallow the name the reader needs.
+  [[ -n "$matches" ]] && report "$key assignment" "$matches" \
+    "s/(${key}[\"']?[[:space:]]*[=:]).*/\1[REDACTED]/"
 done < "$catalog_file"
 
 exit "$fail"

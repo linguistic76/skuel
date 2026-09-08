@@ -322,13 +322,17 @@ case "$1" in
 
   install-hooks)
     echo -e "${GREEN}Installing git hooks...${NC}"
-    repo_root=$(git rev-parse --show-toplevel)
-    if [[ -z "$repo_root" ]]; then
+    if ! git rev-parse --show-toplevel >/dev/null 2>&1; then
       echo "Not inside a git repo." >&2
       exit 1
     fi
-    ln -sfv "../../app/scripts/git-hooks/pre-commit" "$repo_root/.git/hooks/pre-commit"
-    echo "Hooks installed. Bypass once with: SKUEL_ALLOW_SECRETS=1 git commit ..."
+    # One relative path installs all three hooks: git runs the tracked scripts in
+    # app/scripts/git-hooks/ directly. Relative, so it resolves in any worktree and
+    # survives a fresh clone. Idempotent.
+    git config core.hooksPath app/scripts/git-hooks
+    echo "core.hooksPath = $(git config --get core.hooksPath)"
+    echo "Installed: pre-commit, pre-push, post-merge."
+    echo "Bypass the secret scan once with: SKUEL_ALLOW_SECRETS=1 git commit ..."
     ;;
 
   help|*)
@@ -388,7 +392,7 @@ case "$1" in
     echo "  ./dev deploy         - rsync + rebuild + health-gate the droplet stack (--content | --dry-run)"
     echo ""
     echo "Setup:"
-    echo "  ./dev install-hooks  - Install git pre-commit hook (secret-leak guard)"
+    echo "  ./dev install-hooks  - Point git at app/scripts/git-hooks (pre-commit, pre-push, post-merge)"
     echo ""
     echo "Development:"
     echo "  ./dev serve          - Start development server (requires Neo4j running)"

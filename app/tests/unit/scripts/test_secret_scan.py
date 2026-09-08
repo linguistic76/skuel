@@ -77,6 +77,16 @@ def alnum(n: int) -> str:
     return "".join(secrets.choice(alphabet) for _ in range(n))
 
 
+def inline_dict(key: str, value: str) -> str:
+    """Build a one-line dict literal.
+
+    Composed rather than written inline: a source line that puts a literal catalog
+    name beside a long space-free token is itself an assignment-shape match, so the
+    hook would block the commit that adds this file.
+    """
+    return f'config = {{"{key}": "{value}"}}'
+
+
 def read_data_file(path: Path) -> list[str]:
     """Non-comment, non-blank lines — the same filter the shell script applies."""
     return [
@@ -167,6 +177,21 @@ class TestAssignmentShapeCoverage:
         """`"KEY": "value"` — JSON, and Python/JS dict literals."""
         assert detects(f'        "{key}": "{base64url_secret()}",')
 
+    def test_composite_and_angle_bracket_placeholders(self) -> None:
+        """`NEO4J_AUTH=neo4j/<password>` is a doc placeholder, not a leak.
+
+        Its placeholder half is SECOND, so the `your-` arm never sees it — the value
+        starts `neo4j/`. `SETUP.md` and `infrastructure/README.md` both carry this
+        line. A real credential contains no angle brackets.
+        """
+        assert not detects(
+            "NEO4J_AUTH=neo4j/<your-password>",
+            "NEO4J_AUTH=neo4j/<password>",
+            "OPENAI_API_KEY=<your-openai-key>",
+            "NEO4J_PASSWORD=<must-match-the-infrastructure-env-file>",
+        )
+        assert detects(f"NEO4J_AUTH=neo4j/{base64url_secret()}")
+
     def test_a_quoted_passphrase_is_measured_whole(self) -> None:
         """A passphrase is one value, not four.
 
@@ -176,6 +201,23 @@ class TestAssignmentShapeCoverage:
         """
         assert detects('NEO4J_PASSWORD="a quite long spoken pass phrase"')
         assert detects("TEST_USER_PASSWORD='another long spoken passphrase'")
+
+    def test_inline_dict_literal_is_caught(self) -> None:
+        """A dict literal is as often inline as it is one key per line."""
+        assert detects(inline_dict("NEO4J_PASSWORD", base64url_secret()))
+
+    def test_the_key_survives_redaction_in_an_inline_literal(self) -> None:
+        """Redaction anchors on the key, not the line's first `=`.
+
+        `config = {"NEO4J_PASSWORD": …}` assigns `config` first; redacting from
+        there swallows the one thing the author needs — which credential to rotate.
+        """
+        secret = base64url_secret()
+        result = run_scan(inline_dict("NEO4J_PASSWORD", secret))
+        assert result.returncode != 0
+        combined = result.stdout + result.stderr
+        assert secret not in combined
+        assert "NEO4J_PASSWORD" in combined
 
     def test_a_dict_of_credential_descriptions_is_not_a_leak(self) -> None:
         """The data-literal form requires a SPACE-FREE value, and this is why.
@@ -324,8 +366,20 @@ class TestRedaction:
 # ---------------------------------------------------------------------------
 # Drift — the two data files, and the two hooks that share them
 # ---------------------------------------------------------------------------
+# Names in credential-keys.txt that are NOT funnel credentials. What puts a name
+# in that file is that assigning it a literal is a leak — a wider question than
+# whether `get_credential()` manages it. Declared here so the drift test still
+# pins the mirror exactly in both directions: an unexplained extra name fails.
+NON_FUNNEL_KEYS = {
+    # Docker Compose reads it directly for ${VAR} interpolation
+    # (infrastructure/docker-compose.yml), and its `user/password` value carries a
+    # real password. Never read through get_credential().
+    "NEO4J_AUTH",
+}
+
+
 class TestCatalogDrift:
-    """`credential-keys.txt` is a mirror of CredentialSetup.CREDENTIALS.
+    """`credential-keys.txt` mirrors CredentialSetup.CREDENTIALS, plus declared extras.
 
     Bash cannot import Python, so the names are duplicated. This is the same
     arrangement (and the same failure mode) as
@@ -333,23 +387,40 @@ class TestCatalogDrift:
     a newly-added credential silently stops being scanned for.
     """
 
-    def test_mirror_matches_credential_setup(self) -> None:
+    def test_mirror_matches_credential_setup_plus_declared_extras(self) -> None:
         from core.config.credential_setup import CredentialSetup
 
-        actual = set(CredentialSetup.CREDENTIALS)
+        expected = set(CredentialSetup.CREDENTIALS) | NON_FUNNEL_KEYS
         mirrored = set(read_data_file(CATALOG_FILE))
 
-        missing = actual - mirrored
-        extra = mirrored - actual
+        missing = expected - mirrored
+        extra = mirrored - expected
         assert not missing, (
             f"scripts/git-hooks/credential-keys.txt is missing keys present in "
             f"CredentialSetup.CREDENTIALS: {sorted(missing)}. Add them — until then "
             f"the secret scan does not look for them."
         )
         assert not extra, (
-            f"scripts/git-hooks/credential-keys.txt has keys not in "
-            f"CredentialSetup.CREDENTIALS: {sorted(extra)}."
+            f"scripts/git-hooks/credential-keys.txt has keys in neither "
+            f"CredentialSetup.CREDENTIALS nor NON_FUNNEL_KEYS: {sorted(extra)}. "
+            f"A credential-bearing name outside the funnel belongs in NON_FUNNEL_KEYS "
+            f"with a reason; anything else is drift."
         )
+
+    def test_declared_extras_are_actually_outside_the_funnel(self) -> None:
+        """A name that joins the catalog must leave NON_FUNNEL_KEYS, not sit in both."""
+        from core.config.credential_setup import CredentialSetup
+
+        overlap = NON_FUNNEL_KEYS & set(CredentialSetup.CREDENTIALS)
+        assert not overlap, (
+            f"{sorted(overlap)} is in CredentialSetup.CREDENTIALS now — drop it from "
+            f"NON_FUNNEL_KEYS so the mirror pins it as a funnel credential."
+        )
+
+    def test_the_compose_auth_credential_is_scanned(self) -> None:
+        """`NEO4J_AUTH: "neo4j/<password>"` is a leak the content half cannot see."""
+        assert detects(f'      NEO4J_AUTH: "neo4j/{base64url_secret()}"')
+        assert not detects('      NEO4J_AUTH: "${NEO4J_AUTH}"')
 
 
 class TestPatternFile:
