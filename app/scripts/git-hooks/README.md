@@ -52,7 +52,7 @@ One rewrite then four checks, fail-fast on any check:
 
 ### `pre-push` — runs on every `git push`
 
-**Secret scan only**, against the diff range being pushed — the same `secret-scan.sh` the commit hook calls. Exists because `git commit --no-verify` bypasses the commit-time scan, and a rushed dev who skipped commit-time checks will usually push next. Push history is permanent on most remotes — this is the last fence before that becomes a rotation incident.
+**Secret scan only**, against the diff range being pushed — the same `secret-scan.sh` the commit hook calls. The range covers merge commits (`--cc`, so a secret introduced only in a conflict resolution is seen) and parentless ones (`--root`, so an orphan branch or a first push to an empty remote is not handed a zero-byte diff). Exists because `git commit --no-verify` bypasses the commit-time scan, and a rushed dev who skipped commit-time checks will usually push next. Push history is permanent on most remotes — this is the last fence before that becomes a rotation incident.
 
 Cross-reference validation deliberately doesn't run here. It's a quality concern, not a security one, and adding it would slow down every push.
 

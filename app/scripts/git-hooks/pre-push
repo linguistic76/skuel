@@ -72,8 +72,12 @@ while read -r _ local_sha _ remote_sha; do
   # commits (without it diff-tree emits NO patch for a merge, so a secret
   # introduced only in a conflict resolution would evade the scan); for a
   # merge it prints the combined diff — exactly the resolution's own lines.
+  # --root, because diff-tree emits NO patch for a parentless commit without it:
+  # an orphan branch, or the first push to an empty remote, would hand the scan a
+  # zero-byte diff and pass. That is exactly the new-branch case this range exists
+  # to cover.
   this_diff=$(git rev-list "${range_args[@]}" 2>/dev/null \
-    | git diff-tree --stdin --cc -U0 --no-commit-id -r -- \
+    | git diff-tree --stdin --root --cc -U0 --no-commit-id -r -- \
       ':(exclude)*.lock' ':(exclude)*.lock.json' 2>/dev/null || true)
   diff_text+="$this_diff"$'\n'
 done

@@ -40,6 +40,7 @@ placeholder added there later is covered without touching this file.
 
 from __future__ import annotations
 
+import os
 import secrets
 import string
 import subprocess
@@ -605,6 +606,61 @@ class TestPatternFile:
             assert "/" not in regex.replace("\\/", ""), (
                 f"pattern regex contains an unescaped `/`: {entry!r}"
             )
+
+
+class TestPrePushRange:
+    """Drive the real `pre-push` hook over a scratch repo.
+
+    The scan is only as good as the diff it is handed, and assembling that diff is
+    the hook's own job. A root commit is the case that bites: `git diff-tree` emits
+    no patch at all for a parentless commit unless asked, so an orphan branch — or
+    the first push to an empty remote — hands the scan zero bytes and passes,
+    which is precisely the new-branch case the range logic exists to cover.
+    """
+
+    @staticmethod
+    def _repo_with_root_commit(tmp_path: Path, content: str) -> tuple[Path, str]:
+        run = subprocess.run
+        env = {**os.environ, "GIT_CONFIG_GLOBAL": "/dev/null", "GIT_CONFIG_SYSTEM": "/dev/null"}
+        run(["git", "init", "-q", str(tmp_path)], check=True, env=env)
+        for key, value in (("user.email", "t@example.invalid"), ("user.name", "t")):
+            run(["git", "-C", str(tmp_path), "config", key, value], check=True, env=env)
+        (tmp_path / "config.env").write_text(content + "\n")
+        run(["git", "-C", str(tmp_path), "add", "-A"], check=True, env=env)
+        run(["git", "-C", str(tmp_path), "commit", "-q", "-m", "root"], check=True, env=env)
+        sha = run(
+            ["git", "-C", str(tmp_path), "rev-parse", "HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
+            env=env,
+        ).stdout.strip()
+        return tmp_path, sha
+
+    def _push(self, repo: Path, sha: str) -> subprocess.CompletedProcess[str]:
+        zero = "0" * 40
+        return subprocess.run(
+            ["bash", str(HOOK_DIR / "pre-push"), "origin", "https://example.invalid/r.git"],
+            input=f"refs/heads/main {sha} refs/heads/main {zero}\n",
+            capture_output=True,
+            text=True,
+            cwd=repo,
+            check=False,
+        )
+
+    def test_a_secret_in_a_root_commit_blocks_the_push(self, tmp_path: Path) -> None:
+        repo, sha = self._repo_with_root_commit(
+            tmp_path / "leak", f"NEO4J_PASSWORD={base64url_secret()}"
+        )
+        result = self._push(repo, sha)
+        assert result.returncode != 0, (
+            f"a root commit's diff never reached the scan:\n{result.stdout}{result.stderr}"
+        )
+
+    def test_a_clean_root_commit_pushes(self, tmp_path: Path) -> None:
+        repo, sha = self._repo_with_root_commit(tmp_path / "clean", "LOG_LEVEL=INFO")
+        result = self._push(repo, sha)
+        assert result.returncode == 0, f"{result.stdout}{result.stderr}"
 
 
 class TestBothHooksShareTheScan:
