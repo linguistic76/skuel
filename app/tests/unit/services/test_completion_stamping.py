@@ -238,7 +238,7 @@ class TestTasksChokepoint:
         assert recorder.calls[-1][2].has_patches() is True
 
     async def test_a_bare_stamp_on_an_open_task_is_refused(self):
-        """The half the guard cannot judge from the patch (ruled 2026-09-07).
+        """The half the guard cannot judge from the patch (ADR-087).
 
         ``{"completion_date": …}`` with no status resolves against whatever the node
         holds, so the claim travels as the prior the write requires and comes back

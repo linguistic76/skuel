@@ -34,6 +34,8 @@ from core.models.task.task_update_intent import TaskUpdateIntent
 OWNER = "user_test_integration"  # seeded by the ensure_test_users fixture
 
 
+# boundary: raw Neo4j node properties — a heterogeneous property map read straight off
+# the driver, which is the shape these assertions are about.
 async def _props(neo4j_driver, uid: str) -> dict[str, Any]:
     async with neo4j_driver.session() as session:
         result = await session.run("MATCH (n:Entity {uid: $uid}) RETURN n", uid=uid)

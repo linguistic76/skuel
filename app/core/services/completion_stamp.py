@@ -338,7 +338,7 @@ def _bare_stamp_gate(
     - a domain with no completion field (Principle) has no stamp to strand.
 
     Why a refusal and not a silent clear: here the stamp IS the caller's edit. Dropping
-    it would discard the only field they sent and answer 200. Ruled 2026-09-07.
+    it would discard the only field they sent and answer 200. ADR-087 holds the record.
     """
     spec = _STAMP_SPECS.get(entity_type)
     if spec is None:

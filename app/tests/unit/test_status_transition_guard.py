@@ -371,8 +371,8 @@ class TestTheBareStampGate:
 
     It resolves against whatever status the node already holds, so it cannot be judged
     from the patch — the claim "this entity is completed" travels to the write as the
-    prior it REQUIRES, and comes back as ``applied=False``. Ruled 2026-09-07: a refusal,
-    not a silent clear, because here the stamp IS the caller's edit.
+    prior it REQUIRES, and comes back as ``applied=False``. A refusal, not a silent
+    clear, because here the stamp IS the caller's edit.
 
     Case file: ``docs/roadmap/done/stranded-completion-stamp.md``.
     """
