@@ -22,8 +22,11 @@ Pinned:
   worse than the gap it closes;
 - a file edited ``completed`` → ``in_progress`` has its completion stamp
   removed and publishes nothing;
+- a file authored open BESIDE a stamp loses that stamp on its FIRST ingest,
+  where no prior status exists and no transition can be read — and a completed
+  file in the same sync keeps its own;
 - both doors behave identically;
-- Habit gets the reopen-clear and no event.
+- Habit gets the stamp-clear and no event.
 
 Requires: Docker running with Neo4j testcontainer.
 """
@@ -189,6 +192,72 @@ async def test_a_file_that_is_not_completed_publishes_nothing(
     assert (await door.ingest_file(path)).is_ok
 
     assert bus.completions(TaskCompleted) == []
+
+
+@pytest.mark.asyncio
+async def test_a_new_file_authored_open_with_a_stamp_is_cleared(
+    clean_neo4j, neo4j_driver, door, bus: _CapturingBus, tmp_path: Path
+) -> None:
+    """The first-ingest half: a create has no prior, so no transition exists.
+
+    ``status: in_progress`` beside a leftover ``completion_date:`` used to land
+    verbatim — status ``active``, stamp intact — and every consumer that reads
+    the stamp as "completed" believed it. Refusing the file is the wrong fix:
+    the vault is the source of truth for user data, so the door tidies the line
+    rather than rejecting the note.
+    """
+    path = _write(
+        tmp_path, "vault-status-born-open", "status: in_progress\ncompletion_date: 2026-03-04\n"
+    )
+
+    assert (await door.ingest_file(path)).is_ok
+
+    assert await _prop(neo4j_driver, "task.vault-status-born-open", "status") == "active"
+    assert await _prop(neo4j_driver, "task.vault-status-born-open", "completion_date") is None
+    assert bus.completions(TaskCompleted) == []
+
+
+@pytest.mark.asyncio
+async def test_re_ingesting_that_file_clears_the_stamp_again(
+    clean_neo4j, neo4j_driver, door, bus: _CapturingBus, tmp_path: Path
+) -> None:
+    """The line stays in the file, so ``n += props`` re-writes the stamp every sync.
+
+    A clear that only ran on the first ingest would leave the second one
+    stranded — which is the shape a transition-gated clear produces.
+    """
+    path = _write(
+        tmp_path, "vault-status-born-again", "status: in_progress\ncompletion_date: 2026-03-04\n"
+    )
+    assert (await door.ingest_file(path)).is_ok
+    assert await _prop(neo4j_driver, "task.vault-status-born-again", "completion_date") is None
+
+    assert (await door.ingest_file(path)).is_ok
+
+    assert await _prop(neo4j_driver, "task.vault-status-born-again", "completion_date") is None
+
+
+@pytest.mark.asyncio
+async def test_the_directory_door_spares_the_completed_files_in_the_same_sync(
+    clean_neo4j, neo4j_driver, door, bus: _CapturingBus, tmp_path: Path
+) -> None:
+    """The clear is per-entity, decided from the status each one ends up holding.
+
+    A sync carrying both shapes must tidy only the open one — an over-wide clear
+    would strip the stamp off every completed file in the vault, breaking the
+    same invariant from the other side.
+    """
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    _write(vault, "vault-status-mixed-open", "status: in_progress\ncompletion_date: 2026-03-04\n")
+    _write(vault, "vault-status-mixed-done", "status: completed\ncompletion_date: 2026-03-05\n")
+
+    assert (await door.ingest_directory(vault, ingestion_mode="incremental")).is_ok
+
+    assert await _prop(neo4j_driver, "task.vault-status-mixed-open", "completion_date") is None
+    assert await _prop(neo4j_driver, "task.vault-status-mixed-done", "completion_date") is not None
+    (event,) = bus.completions(TaskCompleted)
+    assert event.task_uid == "task.vault-status-mixed-done"
 
 
 @pytest.mark.asyncio
@@ -432,7 +501,7 @@ async def test_the_event_reads_state_the_completing_file_never_declared(
 async def test_the_clear_spares_an_entity_an_app_writer_re_completed(
     clean_neo4j, neo4j_driver, door, tmp_path: Path
 ) -> None:
-    """The reopen-clear is conditional on the entity still being reopened
+    """The stamp-clear is conditional on the entity still being uncompleted
     (Codex #1290).
 
     The verdict comes from a prior status read during the upsert; the clear

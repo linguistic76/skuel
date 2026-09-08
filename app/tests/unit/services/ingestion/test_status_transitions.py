@@ -17,12 +17,17 @@ Pinned here:
 
 - a file that arrives ``completed`` over a node that was not is a transition; a
   repeat (prior already ``completed``) is not — the ``--force`` guarantee;
-- the mirror: prior ``completed``, new status not, is a reopen — including a
+- the mirror: prior ``completed``, new status not, clears the stamp — including a
   present-but-null status, which ERASES the stored one, and excluding an absent
   status key, which writes nothing;
+- the clear is decided from the status the entity ENDS UP holding, so a file
+  authored open beside a ``completion_date:`` line loses that stamp on its FIRST
+  ingest, where there is no prior and therefore no transition to read;
+- an entity with no stamp to lose is never listed, so an ordinary sync carries
+  nothing to a write that could only no-op;
 - ``occurred_at`` carries the entity's own authored completion stamp, so a
   historical vault line reports the day it happened;
-- Habit and Choice get the reopen-clear and no event (``HabitCompleted`` is a
+- Habit and Choice get the stamp-clear and no event (``HabitCompleted`` is a
   daily occurrence, ``ChoiceMade`` is the decide moment — neither is the entity
   retiring);
 - domains with no completion field (Principle, Ku) derive nothing at all.
@@ -35,6 +40,7 @@ from typing import Any
 
 from core.events import CalendarEventCompleted, GoalAchieved, TaskCompleted
 from core.models.enums.entity_enums import EntityType
+from core.services.completion_stamp import COMPLETION_FIELDS
 from core.services.ingestion.status_transitions import (
     EVENT_SOURCE_FIELDS,
     build_completion_events,
@@ -67,7 +73,7 @@ def test_completed_over_absent_prior_is_a_transition() -> None:
     )
 
     assert transitions.completed_uids == ("task.born",)
-    assert transitions.reopened_uids == ()
+    assert transitions.stamp_clear_uids == ()
 
 
 def test_completed_over_open_prior_is_a_transition() -> None:
@@ -86,7 +92,7 @@ def test_completed_over_completed_prior_is_silent() -> None:
     transitions = classify_ingest_status_transitions(EntityType.TASK, entities, prior)
 
     assert transitions.completed_uids == ()
-    assert transitions.reopened_uids == ()
+    assert transitions.stamp_clear_uids == ()
 
 
 def test_open_over_open_prior_is_silent() -> None:
@@ -109,7 +115,7 @@ def test_reopen_yields_a_clear_and_no_completion() -> None:
         {"task.reopened": "completed"},
     )
 
-    assert transitions.reopened_uids == ("task.reopened",)
+    assert transitions.stamp_clear_uids == ("task.reopened",)
     assert transitions.completed_uids == ()
 
 
@@ -121,7 +127,7 @@ def test_missing_status_key_is_not_a_reopen() -> None:
         EntityType.TASK, [entity], {"task.no-status": "completed"}
     )
 
-    assert transitions.reopened_uids == ()
+    assert transitions.stamp_clear_uids == ()
     assert transitions.completed_uids == ()
 
 
@@ -139,7 +145,7 @@ def test_a_present_but_null_status_is_a_reopen() -> None:
         EntityType.TASK, [entity], {"task.erased": "completed"}
     )
 
-    assert transitions.reopened_uids == ("task.erased",)
+    assert transitions.stamp_clear_uids == ("task.erased",)
     assert transitions.completed_uids == ()
 
 
@@ -150,8 +156,108 @@ def test_a_null_status_over_an_open_prior_changes_nothing() -> None:
         EntityType.TASK, [entity], {"task.erased-open": "in_progress"}
     )
 
-    assert transitions.reopened_uids == ()
+    assert transitions.stamp_clear_uids == ()
     assert transitions.completed_uids == ()
+
+
+# ---------------------------------------------------------------------------
+# the stamp-clear reaches a create, where there is no transition to read
+# ---------------------------------------------------------------------------
+
+
+def test_a_new_file_authored_open_with_a_stamp_is_cleared() -> None:
+    """The half the guard cannot judge, on the door that can.
+
+    A brand-new file carrying ``status: in_progress`` beside a leftover
+    ``completion_date:`` has NO prior status, so no transition exists to be read
+    — and the stamp lands on an entity that is open. The clear is decided from
+    the status the entity ends up holding, which is knowable for a create.
+    """
+    transitions = classify_ingest_status_transitions(
+        EntityType.TASK,
+        [_task("task.born-open", "in_progress", completion_date="2026-03-04")],
+        {},
+    )
+
+    assert transitions.stamp_clear_uids == ("task.born-open",)
+    assert transitions.completed_uids == ()
+
+
+def test_a_new_file_authored_open_without_a_stamp_is_silent() -> None:
+    """Nothing to clear, so nothing is carried to the write."""
+    transitions = classify_ingest_status_transitions(
+        EntityType.TASK, [_task("task.born-clean", "in_progress")], {}
+    )
+
+    assert transitions.stamp_clear_uids == ()
+
+
+def test_re_ingesting_the_same_open_file_clears_again() -> None:
+    """``SET n += props`` re-writes the stamp on every ingest, so the clear
+    cannot be a one-time repair of the first one."""
+    transitions = classify_ingest_status_transitions(
+        EntityType.TASK,
+        [_task("task.still-open", "in_progress", completion_date="2026-03-04")],
+        {"task.still-open": "active"},
+    )
+
+    assert transitions.stamp_clear_uids == ("task.still-open",)
+
+
+def test_a_stamp_authored_beside_completed_is_kept() -> None:
+    """The file is the source of truth for its own dates — this one is honest."""
+    transitions = classify_ingest_status_transitions(
+        EntityType.TASK,
+        [_task("task.honest", "completed", completion_date="2026-03-04")],
+        {},
+    )
+
+    assert transitions.completed_uids == ("task.honest",)
+    assert transitions.stamp_clear_uids == ()
+
+
+def test_a_completed_node_correcting_its_date_keeps_the_stamp() -> None:
+    """No ``status`` key resolves against the prior, which is ``completed`` — so
+    a file that edits only its ``completion_date:`` re-dates rather than strands."""
+    entity = {"uid": "task.re-dated", "user_uid": OWNER, "completion_date": "2026-03-05"}
+
+    transitions = classify_ingest_status_transitions(
+        EntityType.TASK, [entity], {"task.re-dated": "completed"}
+    )
+
+    assert transitions.stamp_clear_uids == ()
+    assert transitions.completed_uids == ()
+
+
+def test_an_open_node_gaining_a_bare_stamp_is_cleared() -> None:
+    """The same no-status shape over an OPEN prior is the stranding one."""
+    entity = {"uid": "task.bare-stamp", "user_uid": OWNER, "completion_date": "2026-03-05"}
+
+    transitions = classify_ingest_status_transitions(
+        EntityType.TASK, [entity], {"task.bare-stamp": "active"}
+    )
+
+    assert transitions.stamp_clear_uids == ("task.bare-stamp",)
+
+
+def test_each_domain_reads_its_own_stamp_field() -> None:
+    """The field is per-domain (``COMPLETION_FIELDS``), so a Task's key must not
+    be what decides a Habit — the datetime domains stamp ``completed_at``."""
+    for entity_type, field in COMPLETION_FIELDS.items():
+        uid = f"{entity_type.value}.open-stamped"
+        transitions = classify_ingest_status_transitions(
+            entity_type,
+            [{"uid": uid, "user_uid": OWNER, "status": "active", field: "2026-03-04"}],
+            {},
+        )
+        assert transitions.stamp_clear_uids == (uid,), entity_type
+
+        wrong_field = classify_ingest_status_transitions(
+            entity_type,
+            [{"uid": uid, "user_uid": OWNER, "status": "active", "updated_at": "2026-03-04"}],
+            {},
+        )
+        assert wrong_field.stamp_clear_uids == (), entity_type
 
 
 # ---------------------------------------------------------------------------
@@ -322,7 +428,7 @@ def test_habit_and_choice_clear_but_never_announce() -> None:
         # It IS a transition — it just earns a stamp, never an event.
         assert completed.completed_uids == (uid,), entity_type
         assert build_completion_events(entity_type, (uid,), {uid: {}}) == (), entity_type
-        assert reopened.reopened_uids == (uid,), entity_type
+        assert reopened.stamp_clear_uids == (uid,), entity_type
         assert reopened.completed_uids == (), entity_type
 
 
@@ -335,4 +441,4 @@ def test_domains_without_a_completion_field_derive_nothing() -> None:
             {"x": "active"},
         )
         assert transitions.completed_uids == (), entity_type
-        assert transitions.reopened_uids == (), entity_type
+        assert transitions.stamp_clear_uids == (), entity_type

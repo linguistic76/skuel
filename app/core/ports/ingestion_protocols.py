@@ -161,12 +161,13 @@ class IngestionWriteOperations(Protocol):
     async def clear_completion_stamps(self, field_name: str, uids: list[str]) -> int:
         """Drop the domain completion stamp from each named entity; return how many lost it.
 
-        The vault door's reopen-clear (ADR-087): a file edited out of
-        ``completed`` must not strand its completion stamp, whose invariant is
-        "non-null exactly when the entity is completed".
+        The vault door's stamp-clear (ADR-087): an entity the door leaves NOT
+        completed must not keep a completion stamp, whose invariant is "non-null
+        exactly when the entity is completed" — whether the file was edited out
+        of ``completed`` or authored open beside a leftover stamp line.
 
-        Conditional on the entity still being reopened when the write lands: the
-        caller's verdict comes from a prior status read earlier, and an app
+        Conditional on the entity still being uncompleted when the write lands:
+        the caller's verdict comes from a prior status read earlier, and an app
         writer may have completed the entity since. An entity that is currently
         completed keeps its stamp — the clear is a no-op exactly when the verdict
         has been overtaken. ``field_name`` comes

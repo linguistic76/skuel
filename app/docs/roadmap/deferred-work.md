@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-07
+updated: 2026-09-08
 ---
 
 # Deferred Work
@@ -136,9 +136,9 @@ renders them as a table in Obsidian, and a session derives the same table with
 
 [Habit-Completion Persistence Bundle — Orphans, UID Collisions, Non-Atomic Day Uniqueness](habit-completion-persistence-bundle.md) — Six persistence defects around the `HabitCompletion` node — orphans, uid collisions, non-atomic day uniqueness, stranded stats, a DISTINCT-day read, a refused untrack — plus the node-less third door; one shared lock-derived writer is the shape.
 
-## Stranded Completion Stamp — the Halves the Guard Cannot Judge
+## Stranded Completion Stamp — the Half the Guard Cannot Judge
 
-[Stranded Completion Stamp — the Halves the Guard Cannot Judge](stranded-completion-stamp.md) — Two ways a non-null stamp still lands on an open entity: a patch that names no status, and a vault file authored open-with-a-stamp on first ingest. Both need the prior, so neither is a plain refusal.
+[Stranded Completion Stamp — the Half the Guard Cannot Judge](stranded-completion-stamp.md) — The vault half is closed; what remains is a patch that carries a stamp and names no status, which resolves against a prior only the write can see. The guard's refuse gate fits, but its `applied=False` has to become an error at five chokepoints first.
 
 ## "Vault Has Un-Synced Changes" Signal
 

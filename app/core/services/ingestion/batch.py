@@ -687,7 +687,7 @@ async def ingest_directory(
         status_transition_fn: Optional per-type-batch callback for the ADR-087
             status contract (``UnifiedIngestionService._apply_status_transitions``:
             the completion event a file's status change earns, and the
-            reopen-clear it owes), invoked with the persisted entity dicts and
+            stamp-clear it owes), invoked with the persisted entity dicts and
             the prior status the upsert read under each node's write-lock.
             Signature: ``async (entity_type, entities, prior_status_by_uid)``.
             Deliberately NOT part of ``post_persist_fn``: a completion event is
