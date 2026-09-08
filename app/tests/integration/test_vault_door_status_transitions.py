@@ -198,12 +198,13 @@ async def test_a_file_that_is_not_completed_publishes_nothing(
 async def test_a_new_file_authored_open_with_a_stamp_is_cleared(
     clean_neo4j, neo4j_driver, door, bus: _CapturingBus, tmp_path: Path
 ) -> None:
-    """The first-ingest half: a create has no prior, so no transition exists.
+    """The first-ingest shape: a create has no prior, so no transition exists.
 
-    ``status: in_progress`` beside a leftover ``completion_date:`` used to land
-    verbatim — status ``active``, stamp intact — and every consumer that reads
-    the stamp as "completed" believed it. Refusing the file is the wrong fix:
-    the vault is the source of truth for user data, so the door tidies the line
+    ``status: in_progress`` beside a leftover ``completion_date:`` leaves the
+    entity open, so the stamp goes — the clear is decided from the status the
+    entity ends up holding, which is knowable for a create, and not from a
+    transition, which a create cannot have. The file itself is ingested: the
+    vault is the source of truth for user data, so the door tidies the line
     rather than rejecting the note.
     """
     path = _write(
