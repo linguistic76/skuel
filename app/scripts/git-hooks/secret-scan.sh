@@ -207,7 +207,16 @@ literal_value="[\"']?[^[:space:]\"'][^[:space:]\"']${next_floor}"
 # carries `sk-your-openai-key` and `# ANTHROPIC_API_KEY=sk-ant-your-anthropic-key`,
 # where the convention sits behind a provider prefix. Same reason the
 # angle-bracket arm looks past the start.
-placeholder="([^[:space:]]*your-|[$]|[^[:space:]]*<[^>[:space:]]*>)"
+#
+# The interpolation arm exempts a REFERENCE, not everything beginning with `$`.
+# `${VAR:-default}` is compose's live idiom (`${FIREFLY_DB_PASSWORD:-firefly-local-dev}`
+# in docker-compose.yml), and its fallback is a real value — swapping a production
+# credential in there would otherwise hide behind the `$`. So the fallback text is
+# measured by the same floor as any other value: under it, placeholder; over it,
+# reported. `$VAR`, `${VAR}` and `${VAR:-}` carry no value and are always exempt.
+_ref="[A-Za-z_][A-Za-z0-9_]*"
+_fallback="(:?[-+?][^}[:space:]]{0,$((MIN_SECRET_LEN - 1))})?"
+placeholder="([^[:space:]]*your-|[^[:space:]]*<[^>[:space:]]*>|[$](${_ref}|[{]${_ref}${_fallback}[}]))"
 
 for key in "${catalog_keys[@]}"; do
   assign_lead="$(assign_lead_for "$key")"

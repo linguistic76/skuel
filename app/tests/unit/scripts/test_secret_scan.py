@@ -230,6 +230,31 @@ class TestAssignmentShapeCoverage:
     def test_commented_export_is_caught(self) -> None:
         assert detects(f"#   export DEEPGRAM_API_KEY={base64url_secret()}")
 
+    def test_a_credential_in_an_interpolation_fallback_is_caught(self) -> None:
+        """`${VAR:-default}` carries a real value, so the fallback is measured.
+
+        Compose uses this idiom live (`${FIREFLY_DB_PASSWORD:-firefly-local-dev}`).
+        Exempting anything that starts with `$` would let a production credential
+        hide inside the fallback of a reference to itself.
+        """
+        secret = base64url_secret()
+        assert detects(f"NEO4J_PASSWORD=${{NEO4J_PASSWORD:-{secret}}}")
+        assert detects(f"      MYSQL_PASSWORD: ${{FIREFLY_DB_PASSWORD:-{secret}}}")
+        assert detects(f"      - GF_SECURITY_ADMIN_PASSWORD=${{GRAFANA_PASSWORD:-{secret}}}")
+
+    def test_the_live_compose_interpolations_stay_clean(self) -> None:
+        """A reference, and a fallback under the floor, carry no secret."""
+        assert not detects(
+            "      MYSQL_PASSWORD: ${FIREFLY_DB_PASSWORD:-firefly-local-dev}",
+            "      DB_PASSWORD: ${FIREFLY_DB_PASSWORD:-firefly-local-dev}",
+            "      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}",
+            "      DEEPGRAM_API_KEY: ${DEEPGRAM_API_KEY:-}",
+            "      NEO4J_PASSWORD: ${NEO4J_PASSWORD}",
+            '      NEO4J_AUTH: "${NEO4J_AUTH}"',
+            "      APP_KEY: ${FIREFLY_APP_KEY}              # MUST start with base64:",
+            "export SESSION_SECRET_KEY=$SESSION_SECRET_KEY_FROM_SOMEWHERE_ELSE",
+        )
+
     def test_quoted_compose_list_scalar_is_caught(self) -> None:
         """`- "KEY=value"` — compose writes env lists as a quoted scalar.
 
