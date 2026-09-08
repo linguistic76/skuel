@@ -33,8 +33,8 @@ yellow() { printf '\033[33m%s\033[0m\n' "$*"; }
 green()  { printf '\033[32m%s\033[0m\n' "$*"; }
 
 # Resolve this hook's own directory so the shared scan is found whether git
-# reaches the hook through core.hooksPath or through a legacy .git/hooks
-# symlink — realpath follows the symlink to the canonical script.
+# reaches the hook through core.hooksPath or through a .git/hooks symlink —
+# realpath follows the symlink to this file.
 hook_dir="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]:-$0}")")" && pwd)"
 
 # All-zeros = ref is being deleted; no diff to scan.
@@ -87,9 +87,8 @@ if ! grep -q '[^[:space:]]' <<<"$diff_text"; then
   exit 0
 fi
 
-# The scan itself lives in secret-scan.sh, which pre-commit calls too. These
-# two hooks used to carry hand-synced copies of the pattern array — a drift
-# there silently made the push-time fence weaker than the commit-time one.
+# The scan itself lives in secret-scan.sh, which pre-commit calls too, so this
+# fence is exactly as strong as the commit-time one — one pattern set, not two.
 if ! printf '%s\n' "$diff_text" \
     | "$hook_dir/secret-scan.sh" "commits being pushed"; then
   fail=1

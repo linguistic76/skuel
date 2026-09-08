@@ -1,36 +1,35 @@
 """Pin ``scripts/git-hooks/secret-scan.sh`` — the commit- and push-time secret fence.
 
-Why this file exists
---------------------
-The scan had no test at all, and a measurement of its own pattern array against
-six synthetic key shapes found it caught **one**:
+What this file guards
+---------------------
+The scan must catch six shapes. Five of them are easy to get wrong, in two
+different ways:
 
-===========================================  ==============
-shape                                         before
-===========================================  ==============
-``sk-proj-…`` (OpenAI project key)            detected
-``sk-ant-api03-…`` (Anthropic)                NOT detected
-``sk-<48>`` (legacy OpenAI)                   NOT detected
-Deepgram 40-hex                               NOT detected
-AuraDB password (43-char base64url)           NOT detected
-``SESSION_SECRET_KEY`` (43-char base64url)    NOT detected
-===========================================  ==============
+===========================================  ====================================
+shape                                         caught by
+===========================================  ====================================
+``sk-proj-…`` (OpenAI project key)            content pattern
+``sk-ant-api03-…`` (Anthropic)                content pattern
+``sk-<48>`` (legacy OpenAI)                   content pattern
+Deepgram 40-hex                               assignment shape
+AuraDB password (43-char base64url)           assignment shape
+``SESSION_SECRET_KEY`` (43-char base64url)    assignment shape
+===========================================  ====================================
 
-The last three rows are the reason the scan grew a second half. They are
-prefix-free high-entropy strings: a *content* regex that matched them would also
-match every hash, UUID and lockfile digest in the tree. So they are caught by
-*assignment shape* — a name from the credential catalog given a non-placeholder
-value — and the value's appearance is never consulted.
+The bottom three cannot be content patterns at all. They are prefix-free
+high-entropy strings, so a regex matching them matches every hash, UUID and
+lockfile digest in the tree — which is why the scan has a second half that keys
+off the credential NAME and never inspects the value's appearance.
 
 Every key below is generated from ``secrets`` (i.e. ``/dev/urandom``) at run
 time. No real key, and no value that could be mistaken for one, appears in this
 file or in its failure output.
 
-The negatives matter as much as the positives: a scan that blocks ``.env.example``
-gets bypassed with ``SKUEL_ALLOW_SECRETS=1`` until it stops being a fence at all.
-So the false-positive floor is asserted against the *live* ``.env.example`` and
-``.env.production.example`` rather than a copied excerpt — a placeholder added
-there later is covered without touching this file.
+The negatives matter as much as the positives: a scan that blocks
+``.env.example`` gets bypassed with ``SKUEL_ALLOW_SECRETS=1`` until it stops
+being a fence at all. So the false-positive floor is asserted against the *live*
+``.env.example`` and ``.env.production.example`` rather than a copied excerpt — a
+placeholder added there later is covered without touching this file.
 """
 
 from __future__ import annotations
@@ -111,8 +110,8 @@ def base64url_secret() -> str:
 # ---------------------------------------------------------------------------
 # The measured matrix — every row of it must now detect
 # ---------------------------------------------------------------------------
-class TestMeasuredGaps:
-    """The six shapes probed against the old pattern array. Five used to slip."""
+class TestRequiredShapes:
+    """The six shapes the scan is required to catch, one test each."""
 
     def test_anthropic_key_detected(self) -> None:
         assert detects(f"ANTHROPIC_API_KEY={anthropic_key()}")
@@ -134,8 +133,7 @@ class TestMeasuredGaps:
     def test_session_secret_key_detected(self) -> None:
         assert detects(f"SESSION_SECRET_KEY={base64url_secret()}")
 
-    def test_openai_project_key_still_detected(self) -> None:
-        """The one shape that already worked — a regression here is a loss."""
+    def test_openai_project_key_detected(self) -> None:
         assert detects(f'key = "{openai_project_key()}"')
 
 
@@ -158,6 +156,24 @@ class TestAssignmentShapeCoverage:
 
     def test_trailing_comment_does_not_hide_the_value(self) -> None:
         assert detects(f"NEO4J_PASSWORD={base64url_secret()}  # local only, honest")
+
+    @pytest.mark.parametrize("key", read_data_file(CATALOG_FILE))
+    def test_yaml_mapping_form_is_caught(self, key: str) -> None:
+        """`KEY: value`, the form the compose files use, is the same leak as `KEY=value`."""
+        assert detects(f"      {key}: {base64url_secret()}")
+
+    def test_interpolation_references_are_not_values(self) -> None:
+        """`docker-compose.yml` assigns credentials by reference, not by value.
+
+        `DEEPGRAM_API_KEY: ${DEEPGRAM_API_KEY:-}` is 23 characters, so it clears the
+        length floor; without the `$` guard the compose files stop being editable.
+        """
+        assert not detects(
+            "      NEO4J_PASSWORD: ${NEO4J_PASSWORD}",
+            "      DEEPGRAM_API_KEY: ${DEEPGRAM_API_KEY:-}",
+            "      FIREFLY_PAT_PERSONAL: ${FIREFLY_PAT_PERSONAL_LONG_ENOUGH_NAME}",
+            "export SESSION_SECRET_KEY=$SESSION_SECRET_KEY_FROM_SOMEWHERE_ELSE",
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -188,6 +204,31 @@ class TestFalsePositiveFloor:
         assert result.returncode == 0, (
             f"A member of _PLACEHOLDER_VALUES is reported as a secret:\n{result.stderr}"
         )
+
+    def test_the_length_floor_and_its_cost_are_deliberate(self) -> None:
+        """The assignment half treats a short value as a placeholder. That is a choice.
+
+        `_is_placeholder` calls only the empty string, a `your-` prefix and its own
+        `_PLACEHOLDER_VALUES` list placeholders, so the hook's floor is strictly
+        broader — and it has to be. `.env.example` and `SETUP.md` carry placeholders
+        that fit none of those arms (asserted below); an exact-list rule reports all
+        of them, and a scan that blocks the committed templates gets bypassed.
+
+        The cost is a locally-chosen credential under the floor. It is bounded: every
+        provider-issued credential in the catalog is far longer, and provider keys are
+        caught by the content half however they are assigned. If the floor is ever
+        removed, this test fails and the template question has to be answered again.
+        """
+        # The three live template placeholders no exact-list rule would cover.
+        assert not detects(
+            "FIREFLY_DB_PASSWORD=firefly-local-dev",  # 17 chars, not `your-`-prefixed
+            "OPENAI_API_KEY=sk-your-openai-key",  # 18 chars, prefix is `sk-your-`
+            "OPENAI_API_KEY=<your-openai-key>",  # 17 chars, SETUP.md form
+        )
+        # The gap that buys: a short hand-picked password is not reported.
+        assert not detects(f"TEST_ADMIN_PASSWORD={alnum(19)}")
+        # One character more, and it is.
+        assert detects(f"TEST_ADMIN_PASSWORD={alnum(20)}")
 
     def test_lockfile_digests_are_not_secrets(self) -> None:
         sha512 = secrets.token_urlsafe(64)
@@ -303,10 +344,10 @@ class TestPatternFile:
 
 
 class TestBothHooksShareTheScan:
-    """pre-commit and pre-push used to carry hand-synced copies of the array.
+    """One pattern set, read by both hooks.
 
-    The README asked humans to keep them equal; a drift there silently made the
-    push-time fence the weaker of the two. Neither may grow its own copy again.
+    A hook that grows its own copy makes one of the two fences the weaker, and the
+    weakness is invisible until a key gets through the one nobody updated.
     """
 
     @pytest.mark.parametrize("hook", ["pre-commit", "pre-push"])
@@ -314,6 +355,6 @@ class TestBothHooksShareTheScan:
         source = (HOOK_DIR / hook).read_text()
         assert "secret-scan.sh" in source, f"{hook} no longer calls the shared scan"
         assert "patterns=(" not in source, (
-            f"{hook} declares its own pattern array again — the two hooks must share "
+            f"{hook} declares its own pattern array — both hooks must read "
             f"secret-patterns.txt, not re-implement it."
         )

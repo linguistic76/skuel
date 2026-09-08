@@ -63,8 +63,8 @@ green()  { printf '\033[32m%s\033[0m\n' "$*"; }
 repo_root="$(git rev-parse --show-toplevel)"
 
 # Resolve this hook's own directory so the shared scan is found whether git
-# reaches the hook through core.hooksPath or through a legacy .git/hooks
-# symlink — realpath follows the symlink to the canonical script.
+# reaches the hook through core.hooksPath or through a .git/hooks symlink —
+# realpath follows the symlink to this file.
 hook_dir="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]:-$0}")")" && pwd)"
 fail=0
 
@@ -118,7 +118,7 @@ else
 
   # --- 1b: scan added lines for known credential shapes ------------------
   # -U0 = only changed lines, no surrounding context. The scan itself lives in
-  # secret-scan.sh so pre-commit and pre-push cannot drift apart.
+  # secret-scan.sh, the one pattern set both this hook and pre-push read.
   if ! git diff --cached -U0 --diff-filter=ACMR -- \
       ':(exclude)*.lock' ':(exclude)*.lock.json' \
       | "$hook_dir/secret-scan.sh" "staged changes"; then

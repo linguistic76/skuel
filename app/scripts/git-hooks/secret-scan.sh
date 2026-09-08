@@ -3,8 +3,8 @@
 #
 # Reads a unified diff on stdin, scans its ADDED lines, and exits non-zero if
 # anything credential-shaped is found. `pre-commit` and `pre-push` both call
-# this, so the two can no longer drift apart (they used to carry hand-synced
-# copies of the pattern array, and the README asked humans to keep them equal).
+# this file, which is what keeps the commit-time and push-time fences identical:
+# there is one pattern set, not two that a human has to keep equal.
 #
 # Two independent halves, because credentials come in two shapes:
 #
@@ -53,8 +53,8 @@ diff_text=$(cat)
 
 # One or two leading '+': a plain diff addition, or a line a merge resolution
 # added relative to BOTH parents in a `--cc` combined diff. Excludes the
-# '+++ b/file' header. pre-commit diffs never carry '++' lines, so using the
-# combined-diff form for both callers is strictly stronger, never weaker.
+# '+++ b/file' header. pre-commit diffs carry no '++' lines, so the combined-diff
+# form is strictly stronger for both callers, never weaker.
 added_lines=$(grep -E '^\+{1,2}[^+]' <<<"$diff_text" || true)
 [[ -z "$added_lines" ]] && exit 0
 
@@ -88,24 +88,42 @@ done < "$patterns_file"
 # ---------------------------------------------------------------------------
 # Half 2 — assignment shapes
 # ---------------------------------------------------------------------------
-# Placeholder rule, mirrored from core/config/credential_store.py::_is_placeholder
-# so the hook and the credential funnel agree on what a placeholder is:
+# What counts as a placeholder, and is therefore not reported:
 #
-#   empty                     → excluded by MIN_SECRET_LEN
-#   `your-*` prefix           → the second grep below
-#   member of _PLACEHOLDER_VALUES → every member is empty or `your-`-prefixed
-#                             except `test-key`, which is 8 chars. So the two
-#                             arms above subsume the list today; that is an
-#                             agreement, not a coincidence, and
-#                             test_secret_scan.py pins it by driving this script
-#                             with every member of the real set.
+#   empty, or shorter than MIN_SECRET_LEN   → the length quantifier below
+#   `your-*` prefix                         → the second grep below
+#   a `$`-interpolation (`${VAR}`, `$VAR`)  → the second grep below; a reference
+#                                             to a credential is not one
+#
+# This is deliberately BROADER than core/config/credential_store.py::_is_placeholder,
+# which calls only the empty string, a `your-*` prefix and its own _PLACEHOLDER_VALUES
+# list placeholders. Every member of that list is covered here (each is empty,
+# `your-`-prefixed, or under the length floor — test_secret_scan.py pins that by
+# driving this script with the real set), so the hook never reports something the
+# funnel would accept.
+#
+# The length floor is what the committed templates need: `.env.example` carries
+# `firefly-local-dev` and `sk-your-openai-key`, and the setup docs carry
+# `<your-openai-key>` — none `your-`-prefixed, none in _PLACEHOLDER_VALUES. An
+# exact-list rule would report all three, and a scan that blocks `.env.example`
+# gets bypassed with SKUEL_ALLOW_SECRETS=1 until it stops being a fence at all.
+#
+# The floor's cost, stated plainly: a locally-chosen credential under
+# MIN_SECRET_LEN characters is not caught by this half. That is a real gap, and
+# it is bounded — every provider-issued credential in the catalog is far longer
+# (an AuraDB password is 43 base64url chars, SESSION_SECRET_KEY 43, a Firefly PAT
+# hundreds), so what it leaves uncovered is a short hand-picked local password.
+# The content half catches the provider keys regardless of how they are assigned.
 while IFS= read -r key || [[ -n "$key" ]]; do
   [[ -z "${key// /}" || "$key" == \#* ]] && continue
-  lead="^\+{1,2}[[:space:]]*(export[[:space:]]+)?${key}[[:space:]]*=[[:space:]]*[\"']?"
+  # `=` is the env/shell form; `:` is the YAML mapping form the compose files use
+  # (`NEO4J_PASSWORD: ${NEO4J_PASSWORD}` in docker-compose.yml). A literal pasted
+  # over either one is the same leak.
+  lead="^\+{1,2}[[:space:]]*(export[[:space:]]+)?${key}[[:space:]]*[=:][[:space:]]*[\"']?"
   matches=$(grep -E -- "${lead}[^[:space:]\"']{${MIN_SECRET_LEN},}" <<<"$added_lines" \
-    | grep -Ev -- "${lead}your-" || true)
-  # Redact everything past the first `=`; the name is what the reader needs.
-  [[ -n "$matches" ]] && report "$key assignment" "$matches" 's/=.*/=[REDACTED]/'
+    | grep -Ev -- "${lead}(your-|[$])" || true)
+  # Redact everything past the separator; the name is what the reader needs.
+  [[ -n "$matches" ]] && report "$key assignment" "$matches" 's/([=:]).*/\1[REDACTED]/'
 done < "$catalog_file"
 
 exit "$fail"

@@ -62,11 +62,11 @@ Cross-reference validation deliberately doesn't run here. It's a quality concern
 
 **See:** [`/docs/development/GIT_HOOKS.md`](../../docs/development/GIT_HOOKS.md) and the `@docs-skills-evolution` skill's Library Upgrade Workflow.
 
-*(A `post-commit` hook used to live here for documentation checking. It was replaced on 2026-03-30 by the Claude Code PostToolUse hook at `.claude/hooks/post-commit-docs.sh` — see [`/docs/tools/AUTOMATIC_DOCS_CHECK.md`](../../docs/tools/AUTOMATIC_DOCS_CHECK.md).)*
+*(There is no `post-commit` git hook. Documentation checking after a commit runs as the Claude Code PostToolUse hook at `.claude/hooks/post-commit-docs.sh` — see [`/docs/tools/AUTOMATIC_DOCS_CHECK.md`](../../docs/tools/AUTOMATIC_DOCS_CHECK.md).)*
 
 ## The secret scan
 
-`secret-scan.sh` reads a unified diff on stdin and exits non-zero if any **added** line looks like a credential. Both hooks call it, so the commit-time and push-time fences are the same fence — they used to be hand-synced copies of one bash array, and a drift there silently made the push-time check the weaker of the two.
+`secret-scan.sh` reads a unified diff on stdin and exits non-zero if any **added** line looks like a credential. Both hooks call it, so the commit-time and push-time fences are the same fence: one pattern set, not two that a human keeps equal.
 
 It scans in two halves, because credentials come in two shapes:
 
@@ -77,7 +77,13 @@ It scans in two halves, because credentials come in two shapes:
 
 The assignment half exists because a Deepgram key (40 hex chars), an AuraDB password and a `SESSION_SECRET_KEY` are prefix-free high-entropy strings. A content regex that caught them would also catch every hash, UUID and lockfile digest in the tree — so for those the **name** is the signal, not the value.
 
-A value counts as a placeholder, and is not reported, when it is empty, shorter than 20 characters, or `your-`-prefixed. That mirrors `core/config/credential_store.py::_is_placeholder`, so the hook and the credential funnel agree on what a placeholder is; `tests/unit/scripts/test_secret_scan.py` pins the agreement by driving this script with every member of the real `_PLACEHOLDER_VALUES` set.
+Both separators are matched — `KEY=value` (env, shell) and `KEY: value` (the YAML mapping form the compose files use). A value is treated as a placeholder, and not reported, when it is empty, shorter than 20 characters, `your-`-prefixed, or a `$`-interpolation such as `${NEO4J_PASSWORD}`.
+
+That rule is deliberately **broader** than `core/config/credential_store.py::_is_placeholder`, which recognises only the empty string, a `your-` prefix, and its own `_PLACEHOLDER_VALUES` list. Every member of that list is covered here, and `tests/unit/scripts/test_secret_scan.py` pins it by driving the script with the real set — so the hook never reports a value the credential funnel would accept.
+
+The length floor is what the committed templates need: `.env.example` carries `firefly-local-dev` and `sk-your-openai-key`, and `SETUP.md` carries `<your-openai-key>` — none of them `your-`-prefixed, none in `_PLACEHOLDER_VALUES`. An exact-list rule reports all three, and a scan that blocks `.env.example` gets bypassed with `SKUEL_ALLOW_SECRETS=1` until it stops being a fence at all.
+
+**The floor's cost, stated plainly:** a locally-chosen credential under 20 characters is not caught by the assignment half. The gap is bounded — every provider-issued credential in the catalog is far longer (an AuraDB password is 43 base64url characters, `SESSION_SECRET_KEY` 43, a Firefly PAT hundreds), and the content half catches provider keys however they are assigned. What it leaves uncovered is a short hand-picked local password.
 
 Matches are always printed **redacted** — content matches with the matched text replaced, assignment matches with everything past the `=` replaced. The point is to block the commit without echoing the secret into terminal scrollback or CI logs.
 
@@ -130,7 +136,7 @@ The hooks above stay regardless. They are the seatbelt for the case the structur
 
 ## Editing the hooks
 
-This directory is the only hook source dir, and `core.hooksPath` points git straight at it:
+This directory is the hook source dir, and `core.hooksPath` points git straight at it:
 
 | File | Purpose |
 |---|---|
