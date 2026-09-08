@@ -1,6 +1,6 @@
 ---
 title: "ADR-087: Status-Guarded Conditional Writes"
-updated: 2026-09-07
+updated: 2026-09-08
 status: accepted
 category: decisions
 tags: [adr, decisions, concurrency, status, completion-stamp, neo4j, write-path]
@@ -176,9 +176,20 @@ two to four such writers. The lock is the mechanism; the `CASE` merges alone are
     Scoped to patches that name a status, which is the whole of what is judgeable
     without reading the node. Demanding the status instead would be unsatisfiable rather
     than strict for Choice, whose update request exposes `completed_at` and no status
-    field. The two prior-dependent halves that remain — a patch naming no status, and
-    the vault door's first ingest — are tracked in
+    field. One prior-dependent half remains — a patch naming no status, which resolves
+    against a prior only the write can see — and is tracked in
     `docs/roadmap/stranded-completion-stamp.md`.
+
+    **Amended 2026-09-07 — the vault door's first ingest is closed.** A file authored
+    `status: in_progress` beside a leftover `completion_date:` stranded a stamp on its
+    very first ingest, where a create has no prior and no transition exists to read. The
+    ingest door's clear is no longer gated on a transition out of `completed`: it fires
+    on any entity the write leaves NOT completed while a stamp sits on it
+    (`classify_ingest_status_transitions`, `IngestStatusTransitions.stamp_clear_uids`).
+    The status the entity ends up holding — the file's when it declares one, otherwise
+    the prior — is knowable for a create, which is why this half was reachable and the
+    app-side one is not. Refusing the file was rejected: the vault is the source of truth
+    for user data, so the door tidies the line rather than rejecting the note.
 
     It lives on `status_transition_guard` and **not** on the shared `_stamp_target`:
     `validate_status_target`'s callers ask only whether a status is legal for the type,

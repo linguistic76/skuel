@@ -257,26 +257,29 @@ class IngestionWriteBackend:
     async def clear_completion_stamps(self, field_name: str, uids: list[str]) -> int:
         """REMOVE ``field_name`` from each named entity; return how many were cleared.
 
-        The vault door's reopen-clear (ADR-087): a file edited ``status:
-        completed`` → ``status: in_progress`` must not leave its completion stamp
-        behind, because the invariant the stamp carries is "non-null exactly when
-        the entity is completed" — a stranded ``completion_date`` reads to every
-        consumer as a task that is still done.
+        The vault door's stamp-clear (ADR-087): an entity the door leaves NOT
+        completed must not keep a completion stamp behind, because the invariant
+        the stamp carries is "non-null exactly when the entity is completed" — a
+        stranded ``completion_date`` reads to every consumer as a task that is
+        still done. Two shapes reach here: a file edited ``status: completed`` →
+        ``status: in_progress``, and a file authored open beside a leftover
+        ``completion_date:`` line, which strands a stamp on its very first
+        ingest with no transition to be seen.
 
-        **Conditional on the entity still being reopened.** The caller decided
-        this was a reopen from the prior status the upsert read, but the write
-        happens later — at end-of-sync for the directory door, which is a wide
-        window — and an app writer may have completed the entity in between,
-        stamping it through the guarded write. An unconditional ``REMOVE`` would
-        delete that fresh stamp and leave a completed entity with none, which is
-        the exact state this whole contract exists to prevent. So the condition
-        travels to the write: only an entity that is *not currently completed*
-        loses its stamp, which makes the clear a no-op precisely when the caller's
-        verdict has been overtaken.
+        **Conditional on the entity still being uncompleted.** The caller decided
+        this entity is not completed from the prior status the upsert read plus
+        what the file declares, but the write happens later — at end-of-sync for
+        the directory door, which is a wide window — and an app writer may have
+        completed the entity in between, stamping it through the guarded write.
+        An unconditional ``REMOVE`` would delete that fresh stamp and leave a
+        completed entity with none, which is the exact state this whole contract
+        exists to prevent. So the condition travels to the write: only an entity
+        that is *not currently completed* loses its stamp, which makes the clear
+        a no-op precisely when the caller's verdict has been overtaken.
 
         ``coalesce`` matters — a status property that is ABSENT is one of the
-        reopen shapes this clears (a file whose ``status:`` line is empty writes
-        null, and ``SET n += props`` deletes the property), and a bare
+        shapes this clears (a file whose ``status:`` line is empty writes null,
+        and ``SET n += props`` deletes the property), and a bare
         ``n.status <> $completed`` would evaluate to null there and skip exactly
         the row it must clear.
 

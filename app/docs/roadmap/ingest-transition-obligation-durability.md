@@ -1,6 +1,6 @@
 ---
 title: "Ingest Transition Obligation Durability"
-updated: 2026-09-06
+updated: 2026-09-08
 status: "open — design needed"
 trigger: "a report of a vault-completed entity whose cascade did not run, OR a second writer of ingest-time status transitions"
 check: "no instrumentation today; the loss is silent by construction — count ERROR logs from `_publish_completions` / the reopen-clear, or add a counter, before deciding it is worth an outbox"
@@ -28,9 +28,11 @@ classification correctly reports a repeat, and the event is never published. The
 progress, PS engagement auto-complete, productivity analytics, context invalidation — is lost
 permanently for that entity, with no signal beyond an ERROR log at the time.
 
-The same applies to the reopen-clear: a failed `clear_completion_stamps` strands the completion
-stamp on a non-completed entity, and the next ingest reads a non-completed prior and sees nothing
-to do.
+The same applies to the stamp-clear: a failed `clear_completion_stamps` strands the completion
+stamp on a non-completed entity. A later sync retries it only while the file still declares the
+stamp — that shape re-writes it on every ingest, so the clear is re-derived each time. Where the
+file has since dropped the line, the prior is non-completed, the payload carries no stamp, and
+there is nothing left for classification to see.
 
 **The analytics half is not repairable offline either**, which is worth knowing before reaching for
 the backfill script. `./dev backfill-productivity-stamps` fills only NULL stamps — it never moves

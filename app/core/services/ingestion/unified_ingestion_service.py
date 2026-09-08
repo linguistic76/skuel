@@ -613,9 +613,12 @@ class UnifiedIngestionService:
           domain's completion event, so goal progress, PS engagement
           auto-complete, productivity analytics and context invalidation see the
           vault's completions exactly as they see the app's;
-        - a file edited out of ``completed`` has its completion stamp removed, so
+        - an entity the write leaves NOT completed loses its completion stamp, so
           the invariant "the stamp is non-null exactly when the entity is
-          completed" survives an edit made in Obsidian.
+          completed" survives both an edit made in Obsidian and a file authored
+          open beside a leftover ``completion_date:`` line. The second has no
+          prior to transition from, which is why the clear is decided from the
+          status the entity ends up holding rather than from a transition.
 
         A ``--force`` re-ingest of already-completed files is neither, and is
         therefore silent.
@@ -636,20 +639,20 @@ class UnifiedIngestionService:
         transitions = classify_ingest_status_transitions(entity_type, entities, prior_status_by_uid)
         if transitions.completed_uids and self.event_bus is not None:
             await self._publish_completions(entity_type, transitions.completed_uids)
-        if transitions.reopened_uids:
+        if transitions.stamp_clear_uids:
             field_name = COMPLETION_FIELDS[entity_type]
             try:
                 cleared = await self._write_backend.clear_completion_stamps(
-                    field_name, list(transitions.reopened_uids)
+                    field_name, list(transitions.stamp_clear_uids)
                 )
                 self.logger.info(
-                    f"Reopen-clear: removed {field_name} from {cleared} "
-                    f"{entity_type.value} entit(ies) the vault moved out of completed"
+                    f"Stamp-clear: removed {field_name} from {cleared} "
+                    f"{entity_type.value} entit(ies) the vault left not completed"
                 )
             except NEO4J_EXCEPTIONS as e:
                 self.logger.error(
-                    f"Failed to clear {field_name} for {len(transitions.reopened_uids)} "
-                    f"reopened {entity_type.value} entit(ies) — the stamp is stranded on a "
+                    f"Failed to clear {field_name} for {len(transitions.stamp_clear_uids)} "
+                    f"{entity_type.value} entit(ies) — the stamp is stranded on a "
                     f"non-completed entity until the file changes again: {e}"
                 )
 
@@ -1175,7 +1178,7 @@ class UnifiedIngestionService:
             )
 
         # Status transitions (ADR-087) — the completion event this file's status
-        # change earns and the reopen-clear it owes, off the prior status the
+        # change earns and the stamp-clear it owes, off the prior status the
         # upsert read under the node's write-lock. LAST, after every edge this
         # call writes (relationships, then the MOC pass above): the event is
         # consumed synchronously by subscribers that traverse those edges —

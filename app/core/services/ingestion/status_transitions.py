@@ -12,7 +12,12 @@ reassembled here from the prior status the bulk upsert now returns
 
 1. **the completion event** on a genuine transition — prior not ``completed``,
    new status ``completed``;
-2. **the reopen-clear** on the mirror — prior ``completed``, new status not;
+2. **the stamp-clear** on any entity the write leaves NOT completed while a
+   completion stamp sits on it. That is the mirror transition (prior
+   ``completed``, new status not) *and* the file authored open-beside-a-stamp,
+   which has no prior at all to transition from — the stamp's invariant is
+   "non-null exactly when the entity is completed", and a create can break it
+   just as an edit can;
 3. nothing at all for a repeat, which is what makes a ``--force`` re-ingest of
    a vault full of already-completed files silent.
 
@@ -20,7 +25,7 @@ Only the five stamping domains have a completion field (``COMPLETION_FIELDS``),
 and only three of them have an entity-completion event: ``HabitCompleted`` is a
 logged daily *occurrence* and ``ChoiceMade`` is the DRAFT→ACTIVE *decide*
 moment, neither of which is the entity retiring. Habit and Choice therefore get
-the reopen-clear and no event — inventing one with no subscribers would be
+the stamp-clear and no event — inventing one with no subscribers would be
 staged bloat, not a fix.
 
 Every value here arrives as parsed YAML, so dates may be native ``date``
@@ -59,17 +64,19 @@ _COMPLETED = EntityStatus.COMPLETED.value
 class IngestStatusTransitions:
     """What one persisted batch's status changes oblige the door to do.
 
-    ``reopened_uids`` are the entities whose completion stamp must be removed;
-    ``completed_uids`` are the ones that transitioned INTO completed and owe a
-    domain event. Both are empty for a batch that changed no entity's completion
-    state — the ordinary case, and the one a ``--force`` re-ingest must produce.
+    ``stamp_clear_uids`` are the entities left holding a completion stamp while
+    NOT completed — the invariant is "non-null exactly when the entity is
+    completed", so the stamp has to go. ``completed_uids`` are the ones that
+    transitioned INTO completed and owe a domain event. Both are empty for a
+    batch that changed no entity's completion state — the ordinary case, and the
+    one a ``--force`` re-ingest must produce.
 
     The events are built separately (:func:`build_completion_events`) because
     they describe the entity as PERSISTED, which needs a read the classification
     itself cannot do.
     """
 
-    reopened_uids: tuple[str, ...] = ()
+    stamp_clear_uids: tuple[str, ...] = ()
     completed_uids: tuple[str, ...] = ()
 
 
@@ -81,7 +88,15 @@ def classify_ingest_status_transitions(
     entities: list[dict[str, Any]],
     prior_status_by_uid: Mapping[str, str | None],
 ) -> IngestStatusTransitions:
-    """Derive the completion events and reopen-clears one persisted batch owes.
+    """Derive the completion events and stamp-clears one persisted batch owes.
+
+    The clear is decided from the status the entity ENDS UP holding, not from a
+    transition, because the file that strands a stamp most cheaply is one that
+    never transitions: a brand-new file authored ``status: in_progress`` beside
+    a leftover ``completion_date:`` has no prior at all, so there is nothing for
+    a transition to be measured against. What both shapes share — that file and
+    a file edited out of ``completed`` — is that the entity is left not
+    completed while a stamp sits on it.
 
     Args:
         entity_type: The domain being ingested. Types with no completion field
@@ -102,7 +117,8 @@ def classify_ingest_status_transitions(
     if entity_type not in COMPLETION_FIELDS:
         return IngestStatusTransitions()
 
-    reopened: list[str] = []
+    stamp_field = COMPLETION_FIELDS[entity_type]
+    stamp_clear: list[str] = []
     completed: list[str] = []
     for entity in entities:
         uid = entity.get("uid")
@@ -112,22 +128,30 @@ def classify_ingest_status_transitions(
         # Presence, not truthiness: the upsert's ``SET n += props`` writes
         # whatever key the file declares, and a null value REMOVES the stored
         # property. So an absent ``status:`` key leaves the stored status alone
-        # (no transition either way), while a present-but-empty one
+        # — the entity keeps whatever it held — while a present-but-empty one
         # (``status:`` / ``status: none``, both of which the ingest validator
-        # deliberately admits as absence) deletes it — leaving an entity that is
-        # definitively no longer completed. Only the second is a reopen. This is
-        # where the ingest door's reading legitimately differs from
-        # ``is_reopen_transition``: there a null status means "not changing the
-        # status", here it means "erase it".
+        # deliberately admits as absence) deletes it, leaving an entity that is
+        # definitively no longer completed. This is where the ingest door's
+        # reading legitimately differs from ``is_reopen_transition``: there a
+        # null status means "not changing the status", here it means "erase it".
         declares_status = "status" in entity
         new_status = _status_of(entity.get("status"))
         prior_status = prior_status_by_uid.get(uid)
+        resulting_status = new_status if declares_status else prior_status
         if new_status == _COMPLETED and prior_status != _COMPLETED:
             completed.append(uid)
-        elif prior_status == _COMPLETED and declares_status and new_status != _COMPLETED:
-            reopened.append(uid)
+        elif resulting_status != _COMPLETED and (
+            # Either the entity is leaving ``completed`` — so whatever stamp
+            # that completion left has to go with it — or this write just put a
+            # stamp on it. Anything else has no stamp this door is answerable
+            # for, and listing it would carry a whole ordinary sync to a write
+            # that could only no-op. (A node with no stamp at all matches
+            # nothing in the clear, so an over-listed uid is harmless, not free.)
+            prior_status == _COMPLETED or entity.get(stamp_field) is not None
+        ):
+            stamp_clear.append(uid)
 
-    return IngestStatusTransitions(tuple(reopened), tuple(completed))
+    return IngestStatusTransitions(tuple(stamp_clear), tuple(completed))
 
 
 #: The node properties each domain's completion event reads, beyond the status
