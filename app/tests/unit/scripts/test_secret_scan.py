@@ -162,6 +162,36 @@ class TestAssignmentShapeCoverage:
         """`KEY: value`, the form the compose files use, is the same leak as `KEY=value`."""
         assert detects(f"      {key}: {base64url_secret()}")
 
+    @pytest.mark.parametrize("key", read_data_file(CATALOG_FILE))
+    def test_json_data_literal_is_caught(self, key: str) -> None:
+        """`"KEY": "value"` — JSON, and Python/JS dict literals."""
+        assert detects(f'        "{key}": "{base64url_secret()}",')
+
+    def test_a_quoted_passphrase_is_measured_whole(self) -> None:
+        """A passphrase is one value, not four.
+
+        The length floor has to see past the first space, or
+        `NEO4J_PASSWORD="correct horse battery staple"` clears it on a five-letter
+        first word. Neo4j and the local test accounts can legitimately hold one.
+        """
+        assert detects('NEO4J_PASSWORD="a quite long spoken pass phrase"')
+        assert detects("TEST_USER_PASSWORD='another long spoken passphrase'")
+
+    def test_a_dict_of_credential_descriptions_is_not_a_leak(self) -> None:
+        """The data-literal form requires a SPACE-FREE value, and this is why.
+
+        A dict keyed by credential name, in this repo, holds a description —
+        `core/config/environment_validator.py` and `CredentialSetup.CREDENTIALS`
+        itself. Measuring the whole quoted value there reports the credential
+        catalog as a leak, which is the scan's own source of truth.
+        """
+        assert not detects(
+            '        "OPENAI_API_KEY": "OpenAI API key for embeddings and AI features"',
+            '        "NEO4J_PASSWORD": "Neo4j password (defaults to password)",',
+            '        "NEO4J_PASSWORD": {',
+            '            "description": "Session cookie signing key (32+ random bytes)",',
+        )
+
     def test_interpolation_references_are_not_values(self) -> None:
         """`docker-compose.yml` assigns credentials by reference, not by value.
 
@@ -170,6 +200,7 @@ class TestAssignmentShapeCoverage:
         """
         assert not detects(
             "      NEO4J_PASSWORD: ${NEO4J_PASSWORD}",
+            '      "NEO4J_PASSWORD": "${NEO4J_PASSWORD_FROM_THE_ENVIRONMENT}"',
             "      DEEPGRAM_API_KEY: ${DEEPGRAM_API_KEY:-}",
             "      FIREFLY_PAT_PERSONAL: ${FIREFLY_PAT_PERSONAL_LONG_ENOUGH_NAME}",
             "export SESSION_SECRET_KEY=$SESSION_SECRET_KEY_FROM_SOMEWHERE_ELSE",

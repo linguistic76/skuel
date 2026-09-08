@@ -77,7 +77,12 @@ It scans in two halves, because credentials come in two shapes:
 
 The assignment half exists because a Deepgram key (40 hex chars), an AuraDB password and a `SESSION_SECRET_KEY` are prefix-free high-entropy strings. A content regex that caught them would also catch every hash, UUID and lockfile digest in the tree — so for those the **name** is the signal, not the value.
 
-Both separators are matched — `KEY=value` (env, shell) and `KEY: value` (the YAML mapping form the compose files use). A value is treated as a placeholder, and not reported, when it is empty, shorter than 20 characters, `your-`-prefixed, or a `$`-interpolation such as `${NEO4J_PASSWORD}`.
+Two syntaxes are matched, because a credential name means different things in each:
+
+- **assignment** — `KEY=value`, `KEY: value`, `export KEY=value`. The env / shell / YAML-mapping form. A quoted value here may contain spaces: `NEO4J_PASSWORD="correct horse battery staple"` is one value, not four, and measuring only its first word would clear it.
+- **data literal** — `"KEY": value`, as JSON and Python/JS dicts write it. Here the value must be **space-free** to count. A dict keyed by a credential name, in this repo, holds a *description* — `"OPENAI_API_KEY": "OpenAI API key for embeddings and AI features"` in `core/config/environment_validator.py`, and the catalog in `credential_setup.py` itself. Accepting a spaced value there would report the credential catalog as a leak; a real credential pasted into JSON has no spaces.
+
+A value is treated as a placeholder, and not reported, when it is empty, shorter than 20 characters, `your-`-prefixed, or a `$`-interpolation such as `${NEO4J_PASSWORD}`.
 
 That rule is deliberately **broader** than `core/config/credential_store.py::_is_placeholder`, which recognises only the empty string, a `your-` prefix, and its own `_PLACEHOLDER_VALUES` list. Every member of that list is covered here, and `tests/unit/scripts/test_secret_scan.py` pins it by driving the script with the real set — so the hook never reports a value the credential funnel would accept.
 
@@ -120,17 +125,18 @@ A pre-commit hook is the cheap, fast first line — not a comprehensive defense.
 | Server-side scan (GitHub secret scanning) | after push, on remote | no, but post-leak — alerts you to rotate | depends on plan |
 | CI quality scan (MyPy + Lint) | on every PR / push to main | no — runs in CI | **yes** ([`ci.yml`](../../../.github/workflows/ci.yml)) |
 | CI secret scan (gitleaks / trufflehog) | on every PR / on schedule | no — runs in CI, separate auth | **not yet** |
-| No plaintext secrets on disk | always — there is no `.env` to commit | n/a | **yes** (see below) |
+| No plaintext secrets in the worktree | always — there is no `.env` to commit | n/a | **yes** (see below) |
+| No plaintext secrets on disk at all | always | n/a | **partly** — the keyring backend, yes; `~/.config/skuel/secrets.env` is still plaintext (see below) |
 
 The bottom row is the only structural fix. Everything above it is reactive.
 
-## "No plaintext secrets on disk"
+## "No plaintext secrets in the worktree"
 
-This is not aspirational any more, which is why the bottom row above reads **yes**. Credentials are read through `get_credential()` and resolved by the backend `SKUEL_CREDENTIAL_BACKEND` selects — `keyring` puts them in libsecret / macOS Keychain / Windows Credential Locker, and `app/.envrc` loads the non-keychain path from `~/.config/skuel/secrets.env`, outside the worktree either way. `git add .` cannot stage what is not on disk.
+That property holds, and it is the one the bottom rows distinguish. Credentials are read through `get_credential()` and resolved by the backend `SKUEL_CREDENTIAL_BACKEND` selects; `keyring` puts them in libsecret / macOS Keychain / Windows Credential Locker. Nothing under the repo holds a credential, so `git add .` has nothing to stage — which is what makes it a *structural* fix rather than a check that can be bypassed.
+
+**It is not the same as encryption at rest, and the stronger claim would be false.** `~/.config/skuel/secrets.env` is still a plaintext file (mode 0600), holding `NEO4J_AUTH` + `NEO4J_PASSWORD` for Docker Compose `${VAR}` interpolation, and `app/.envrc` sources it. Moving a file outside the worktree defeats `git add .`; it does not defeat anything that can read the filesystem. Only the keyring backend gives the at-rest property, and only for the keys it holds — see [`/docs/roadmap/done/secrets-out-of-worktree.md`](../../docs/roadmap/done/secrets-out-of-worktree.md) § `fed4287f`, whose item 3 records that file as deliberately still on disk.
 
 `sops` + `age` (commit an encrypted `.env.encrypted`, manage the decryption key outside git) is the one shape SKUEL has **not** adopted. It pays off when several developers share one secret set; with a single developer it is pure setup cost.
-
-**See:** [`/docs/roadmap/done/secrets-out-of-worktree.md`](../../docs/roadmap/done/secrets-out-of-worktree.md) for how the move happened, and `core/config/README.md` for the backends as they stand.
 
 The hooks above stay regardless. They are the seatbelt for the case the structure does not cover: a key pasted into a `.py`, a `.yaml`, or a doc.
 

@@ -116,12 +116,34 @@ done < "$patterns_file"
 # The content half catches the provider keys regardless of how they are assigned.
 while IFS= read -r key || [[ -n "$key" ]]; do
   [[ -z "${key// /}" || "$key" == \#* ]] && continue
-  # `=` is the env/shell form; `:` is the YAML mapping form the compose files use
-  # (`NEO4J_PASSWORD: ${NEO4J_PASSWORD}` in docker-compose.yml). A literal pasted
-  # over either one is the same leak.
-  lead="^\+{1,2}[[:space:]]*(export[[:space:]]+)?${key}[[:space:]]*[=:][[:space:]]*[\"']?"
-  matches=$(grep -E -- "${lead}[^[:space:]\"']{${MIN_SECRET_LEN},}" <<<"$added_lines" \
-    | grep -Ev -- "${lead}(your-|[$])" || true)
+  # Two syntaxes, because a credential name means different things in each.
+  #
+  #   assignment  KEY=value · KEY: value · export KEY=value
+  #     The env / shell / YAML-mapping form (`NEO4J_PASSWORD: ${NEO4J_PASSWORD}` in
+  #     docker-compose.yml). A quoted value here may contain spaces: a passphrase is
+  #     one value, not four, and anchoring the floor to its first word would clear
+  #     `NEO4J_PASSWORD="correct horse battery staple"`.
+  #
+  #   data literal  "KEY": value
+  #     JSON, and Python/JS dict literals. The value must be SPACE-FREE to count.
+  #     In this repo a dict keyed by a credential name holds a *description* —
+  #     `"OPENAI_API_KEY": "OpenAI API key for embeddings and AI features"` in
+  #     core/config/environment_validator.py, and the catalog in credential_setup.py
+  #     itself. Accepting a spaced value here reports the credential catalog as a
+  #     leak; a real credential pasted into JSON has no spaces.
+  sep="[[:space:]]*[=:][[:space:]]*"
+  floor="{${MIN_SECRET_LEN},}"
+  next_floor="{$((MIN_SECRET_LEN - 1)),}"
+
+  assign_lead="^\+{1,2}[[:space:]]*(export[[:space:]]+)?${key}${sep}"
+  # A double- or single-quoted run (spaces allowed), or a bare token.
+  assign_value="([\"][^\"]${floor}|['][^']${floor}|[^[:space:]\"'][^[:space:]]${next_floor})"
+
+  literal_lead="^\+{1,2}[[:space:]]*[\"']${key}[\"']${sep}"
+  literal_value="[\"']?[^[:space:]\"'][^[:space:]\"']${next_floor}"
+
+  matches=$(grep -E -- "${assign_lead}${assign_value}|${literal_lead}${literal_value}" <<<"$added_lines" \
+    | grep -Ev -- "(${assign_lead}|${literal_lead})[\"']?(your-|[$])" || true)
   # Redact everything past the separator; the name is what the reader needs.
   [[ -n "$matches" ]] && report "$key assignment" "$matches" 's/([=:]).*/\1[REDACTED]/'
 done < "$catalog_file"
