@@ -13,7 +13,7 @@ mocked backend can settle. Both doors that can reach the shape are here:
 - ``TaskUpdateRequest`` carries a status as well, so it satisfies the rule in one call;
 - ``ChoiceUpdateRequest`` exposes ``completed_at`` and NO status at all, which is why the
   rule demands a PRIOR rather than a status in the same patch — the latter would be
-  unsatisfiable at this door rather than strict (Codex, #1297).
+  unsatisfiable at this door rather than strict.
 
 Requires: Docker running with Neo4j testcontainer.
 """
