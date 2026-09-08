@@ -25,6 +25,12 @@ Every key below is generated from ``secrets`` (i.e. ``/dev/urandom``) at run
 time. No real key, and no value that could be mistaken for one, appears in this
 file or in its failure output.
 
+Assignment-shape cases are composed through the helpers below rather than written
+as inline f-strings. A source line that puts a literal catalog name beside a long
+space-free token is itself an assignment-shape match, so writing the case out
+literally makes this file un-committable — the scan blocks the commit that adds
+its own test.
+
 The negatives matter as much as the positives: a scan that blocks
 ``.env.example`` gets bypassed with ``SKUEL_ALLOW_SECRETS=1`` until it stops
 being a fence at all. So the false-positive floor is asserted against the *live*
@@ -78,13 +84,13 @@ def alnum(n: int) -> str:
 
 
 def inline_dict(key: str, value: str) -> str:
-    """Build a one-line dict literal.
-
-    Composed rather than written inline: a source line that puts a literal catalog
-    name beside a long space-free token is itself an assignment-shape match, so the
-    hook would block the commit that adds this file.
-    """
+    """`config = {"KEY": "value"}` — a one-line dict literal."""
     return f'config = {{"{key}": "{value}"}}'
+
+
+def subscript(key: str, value: str, quote: str = '"') -> str:
+    """`config["KEY"] = "value"` — the Python/JS subscript form."""
+    return f"config[{quote}{key}{quote}] = {quote}{value}{quote}"
 
 
 def read_data_file(path: Path) -> list[str]:
@@ -205,6 +211,11 @@ class TestAssignmentShapeCoverage:
     def test_inline_dict_literal_is_caught(self) -> None:
         """A dict literal is as often inline as it is one key per line."""
         assert detects(inline_dict("NEO4J_PASSWORD", base64url_secret()))
+
+    def test_subscript_assignment_is_caught(self) -> None:
+        """`config["KEY"] = value` — the Python/JS form, with `]` before the `=`."""
+        assert detects(subscript("NEO4J_PASSWORD", base64url_secret()))
+        assert detects(subscript("SESSION_SECRET_KEY", base64url_secret(), quote="'"))
 
     def test_the_key_survives_redaction_in_an_inline_literal(self) -> None:
         """Redaction anchors on the key, not the line's first `=`.
@@ -353,6 +364,24 @@ class TestRedaction:
         assert key not in combined
         assert "[REDACTED]" in combined
 
+    def test_a_second_credential_on_the_line_is_redacted_too(self) -> None:
+        """Every redaction applies to every printed line, not just the matching one.
+
+        One line can carry two credentials. Reporting them separately with only the
+        current expression prints each secret verbatim inside the other's report —
+        the scan would leak exactly what it exists to contain.
+        """
+        openai = openai_project_key()
+        anthropic = anthropic_key()
+        result = run_scan(f'k1 = "{openai}" ; k2 = "{anthropic}"')
+        assert result.returncode != 0
+        combined = result.stdout + result.stderr
+        assert openai not in combined
+        assert anthropic not in combined
+        # Both reports fire, and both are clean.
+        assert "OpenAI key" in combined
+        assert "Anthropic key" in combined
+
     def test_assignment_match_is_not_echoed(self) -> None:
         secret = base64url_secret()
         result = run_scan(f"NEO4J_PASSWORD={secret}")
@@ -375,6 +404,9 @@ NON_FUNNEL_KEYS = {
     # (infrastructure/docker-compose.yml), and its `user/password` value carries a
     # real password. Never read through get_credential().
     "NEO4J_AUTH",
+    # Not a stored credential — the key that decrypts the whole Fernet store
+    # (core/config/credential_store.py). Leaking it exposes every key in the store.
+    "SKUEL_MASTER_KEY",
 }
 
 
@@ -421,6 +453,11 @@ class TestCatalogDrift:
         """`NEO4J_AUTH: "neo4j/<password>"` is a leak the content half cannot see."""
         assert detects(f'      NEO4J_AUTH: "neo4j/{base64url_secret()}"')
         assert not detects('      NEO4J_AUTH: "${NEO4J_AUTH}"')
+
+    def test_the_store_master_key_is_scanned(self) -> None:
+        """It decrypts every other credential, so it is the highest-value single line."""
+        assert detects(f"SKUEL_MASTER_KEY={base64url_secret()}")
+        assert not detects("SKUEL_MASTER_KEY=${SKUEL_MASTER_KEY}")
 
 
 class TestPatternFile:

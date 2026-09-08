@@ -60,11 +60,19 @@ added_lines=$(grep -E '^\+{1,2}[^+]' <<<"$diff_text" || true)
 
 fail=0
 
-# $1 = label · $2 = matching lines · $3 = sed -E expression that redacts them.
+# EVERY redaction is applied to EVERY line printed, not just the one whose match
+# produced the report. One added line can carry two credentials — an OpenAI key
+# and an Anthropic key — and reporting them separately with only the current
+# expression prints each secret verbatim in the other's report. So the whole set
+# is assembled first, below, and `report` applies all of it.
+redact_args=(-E)
+add_redaction() { redact_args+=(-e "$1"); }
+
+# $1 = label · $2 = matching lines.
 report() {
-  local label="$1" matches="$2" redact="$3" shown
+  local label="$1" matches="$2" shown
   printf '\033[31m✗ Possible %s in %s:\033[0m\n' "$label" "$context" >&2
-  if shown=$(printf '%s\n' "$matches" | sed -E -e "$redact" 2>/dev/null); then
+  if shown=$(printf '%s\n' "$matches" | sed "${redact_args[@]}" 2>/dev/null); then
     printf '%s\n' "$shown" | head -5 | sed 's/^/    /' >&2
   else
     # A redaction that fails must never fall through to printing the raw line.
@@ -75,15 +83,61 @@ report() {
 }
 
 # ---------------------------------------------------------------------------
+# Read the two data files once. `#` comments and blank lines are ignored.
+# ---------------------------------------------------------------------------
+read_data_file() {
+  local line
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ -z "${line// /}" || "$line" == \#* ]] && continue
+    printf '%s\n' "$line"
+  done < "$1"
+}
+
+mapfile -t pattern_entries < <(read_data_file "$patterns_file")
+mapfile -t catalog_keys < <(read_data_file "$catalog_file")
+
+# The lead a credential NAME can appear behind, in either syntax. Split out
+# because both the matcher and the redaction expression need it.
+#
+#   assignment    KEY=value · KEY: value · export KEY=value
+#     The env / shell / YAML-mapping form (`NEO4J_PASSWORD: ${NEO4J_PASSWORD}` in
+#     docker-compose.yml). A quoted value here may contain spaces: a passphrase is
+#     one value, not four, and anchoring the floor to its first word would clear
+#     `NEO4J_PASSWORD="correct horse battery staple"`.
+#
+#   data literal  "KEY": value · config["KEY"] = value
+#     JSON, dict literals, and subscript assignment, inline or one key per line.
+#     The value must be SPACE-FREE to count. In this repo a dict keyed by a
+#     credential name holds a *description* — `"OPENAI_API_KEY": "OpenAI API key
+#     for embeddings and AI features"` in core/config/environment_validator.py,
+#     and the catalog in credential_setup.py itself. Accepting a spaced value here
+#     reports the credential catalog as a leak; a real credential has no spaces.
+sep="[[:space:]]*\]?[[:space:]]*[=:][[:space:]]*"
+assign_lead_for()  { printf '^\\+{1,2}[[:space:]]*(export[[:space:]]+)?%s%s' "$1" "$sep"; }
+literal_lead_for() { printf '^\\+{1,2}.*[\"'"'"']%s[\"'"'"']%s' "$1" "$sep"; }
+
+# ---------------------------------------------------------------------------
+# Assemble EVERY redaction before reporting anything (see `report` above).
+# ---------------------------------------------------------------------------
+for entry in "${pattern_entries[@]}"; do
+  add_redaction 's/'"${entry#*|}"'/[REDACTED]/g'
+done
+for key in "${catalog_keys[@]}"; do
+  # Anchored on the key, not the line's first `=`: for an inline literal
+  # (`config = {"KEY": …}`) that would be the assignment to `config`, and would
+  # swallow the one thing the reader needs — which credential to rotate.
+  add_redaction "s/(${key}[\"']?${sep}).*/\1[REDACTED]/"
+done
+
+# ---------------------------------------------------------------------------
 # Half 1 — content shapes
 # ---------------------------------------------------------------------------
-while IFS= read -r entry || [[ -n "$entry" ]]; do
-  [[ -z "${entry// /}" || "$entry" == \#* ]] && continue
+for entry in "${pattern_entries[@]}"; do
   label="${entry%%|*}"
   regex="${entry#*|}"
   matches=$(grep -E -- "$regex" <<<"$added_lines" || true)
-  [[ -n "$matches" ]] && report "$label" "$matches" 's/'"$regex"'/[REDACTED]/g'
-done < "$patterns_file"
+  [[ -n "$matches" ]] && report "$label" "$matches"
+done
 
 # ---------------------------------------------------------------------------
 # Half 2 — assignment shapes
@@ -91,9 +145,13 @@ done < "$patterns_file"
 # What counts as a placeholder, and is therefore not reported:
 #
 #   empty, or shorter than MIN_SECRET_LEN   → the length quantifier below
-#   `your-*` prefix                         → the second grep below
-#   a `$`-interpolation (`${VAR}`, `$VAR`)  → the second grep below; a reference
-#                                             to a credential is not one
+#   `your-*` prefix                         → the placeholder alternation below
+#   a `$`-interpolation (`${VAR}`, `$VAR`)  → a reference to a credential is not one
+#   an angle-bracketed token                → the docs convention; the only arm that
+#                                             looks PAST the start of the value,
+#                                             because `NEO4J_AUTH=neo4j/<password>`
+#                                             in SETUP.md is a composite whose
+#                                             placeholder half is second
 #
 # This is deliberately BROADER than core/config/credential_store.py::_is_placeholder,
 # which calls only the empty string, a `your-*` prefix and its own _PLACEHOLDER_VALUES
@@ -114,51 +172,19 @@ done < "$patterns_file"
 # (an AuraDB password is 43 base64url chars, SESSION_SECRET_KEY 43, a Firefly PAT
 # hundreds), so what it leaves uncovered is a short hand-picked local password.
 # The content half catches the provider keys regardless of how they are assigned.
-while IFS= read -r key || [[ -n "$key" ]]; do
-  [[ -z "${key// /}" || "$key" == \#* ]] && continue
-  # Two syntaxes, because a credential name means different things in each.
-  #
-  #   assignment  KEY=value · KEY: value · export KEY=value
-  #     The env / shell / YAML-mapping form (`NEO4J_PASSWORD: ${NEO4J_PASSWORD}` in
-  #     docker-compose.yml). A quoted value here may contain spaces: a passphrase is
-  #     one value, not four, and anchoring the floor to its first word would clear
-  #     `NEO4J_PASSWORD="correct horse battery staple"`.
-  #
-  #   data literal  "KEY": value
-  #     JSON, and Python/JS dict literals. The value must be SPACE-FREE to count.
-  #     In this repo a dict keyed by a credential name holds a *description* —
-  #     `"OPENAI_API_KEY": "OpenAI API key for embeddings and AI features"` in
-  #     core/config/environment_validator.py, and the catalog in credential_setup.py
-  #     itself. Accepting a spaced value here reports the credential catalog as a
-  #     leak; a real credential pasted into JSON has no spaces.
-  sep="[[:space:]]*[=:][[:space:]]*"
-  floor="{${MIN_SECRET_LEN},}"
-  next_floor="{$((MIN_SECRET_LEN - 1)),}"
+floor="{${MIN_SECRET_LEN},}"
+next_floor="{$((MIN_SECRET_LEN - 1)),}"
+# A double- or single-quoted run (spaces allowed), or a bare token.
+assign_value="([\"][^\"]${floor}|['][^']${floor}|[^[:space:]\"'][^[:space:]]${next_floor})"
+literal_value="[\"']?[^[:space:]\"'][^[:space:]\"']${next_floor}"
+placeholder="(your-|[$]|[^[:space:]]*<[^>[:space:]]*>)"
 
-  assign_lead="^\+{1,2}[[:space:]]*(export[[:space:]]+)?${key}${sep}"
-  # A double- or single-quoted run (spaces allowed), or a bare token.
-  assign_value="([\"][^\"]${floor}|['][^']${floor}|[^[:space:]\"'][^[:space:]]${next_floor})"
-
-  # No start-of-line anchor beyond the diff marker: a dict literal is as often
-  # inline (`config = {"NEO4J_PASSWORD": "…"}`) as it is one key per line.
-  literal_lead="^\+{1,2}.*[\"']${key}[\"']${sep}"
-  literal_value="[\"']?[^[:space:]\"'][^[:space:]\"']${next_floor}"
-
-  # Placeholder arms, applied to whichever lead matched:
-  #   your-…      the template convention
-  #   $…          an interpolation is a reference to a credential, not one
-  #   …<token>…   the docs convention, and the only arm that has to look PAST the
-  #               start of the value: `NEO4J_AUTH=neo4j/<password>` in SETUP.md is
-  #               a composite whose placeholder half is second. A real credential
-  #               contains no angle brackets.
-  placeholder="(your-|[$]|[^[:space:]]*<[^>[:space:]]*>)"
+for key in "${catalog_keys[@]}"; do
+  assign_lead="$(assign_lead_for "$key")"
+  literal_lead="$(literal_lead_for "$key")"
   matches=$(grep -E -- "${assign_lead}${assign_value}|${literal_lead}${literal_value}" <<<"$added_lines" \
     | grep -Ev -- "(${assign_lead}|${literal_lead})[\"']?${placeholder}" || true)
-  # Redact everything past the separator that follows THIS key — not the line's
-  # first `=`, which for an inline literal (`config = {"KEY": …}`) is the
-  # assignment to `config` and would swallow the name the reader needs.
-  [[ -n "$matches" ]] && report "$key assignment" "$matches" \
-    "s/(${key}[\"']?[[:space:]]*[=:]).*/\1[REDACTED]/"
-done < "$catalog_file"
+  [[ -n "$matches" ]] && report "$key assignment" "$matches"
+done
 
 exit "$fail"
