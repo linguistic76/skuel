@@ -230,6 +230,19 @@ class TestAssignmentShapeCoverage:
     def test_commented_export_is_caught(self) -> None:
         assert detects(f"#   export DEEPGRAM_API_KEY={base64url_secret()}")
 
+    def test_quoted_compose_list_scalar_is_caught(self) -> None:
+        """`- "KEY=value"` — compose writes env lists as a quoted scalar.
+
+        The quote wraps name AND value there, so the assignment lead has to take an
+        opening quote. It does not let a data literal in: `"KEY": "prose"` closes
+        its quote before the separator.
+        """
+        assert detects(f'      - "GF_SECURITY_ADMIN_PASSWORD={base64url_secret()}"')
+        assert detects(f"      - 'MYSQL_PASSWORD={base64url_secret()}'")
+        assert not detects(
+            '        "OPENAI_API_KEY": "OpenAI API key for embeddings and AI features"'
+        )
+
     def test_annotated_assignment_is_caught(self) -> None:
         """`KEY: str = value` — a typed Python constant.
 
@@ -254,12 +267,22 @@ class TestAssignmentShapeCoverage:
         assert "NEO4J_PASSWORD" in combined
 
     def test_a_dict_of_credential_descriptions_is_not_a_leak(self) -> None:
-        """The data-literal form requires a SPACE-FREE value, and this is why.
+        """The data-literal form requires a SPACE-FREE value, and this pins why.
 
-        A dict keyed by credential name, in this repo, holds a description —
-        `core/config/environment_validator.py` and `CredentialSetup.CREDENTIALS`
-        itself. Measuring the whole quoted value there reports the credential
-        catalog as a leak, which is the scan's own source of truth.
+        This is the one place the two syntaxes disagree — the assignment branch
+        measures a quoted passphrase whole, this one will not — so it is a
+        deliberate gap with a measured price on the other side.
+
+        A dict keyed by a credential name, in this repo, holds a description.
+        Accepting a spaced value here reports six lines in the files that ARE this
+        scan's source of truth: `core/config/environment_validator.py`,
+        `CredentialSetup.CREDENTIALS`, and this test file and the hook README that
+        quote them. No syntactic signal separates a description of a credential
+        from a passphrase.
+
+        The cost: a SPACED passphrase hard-coded in a dict literal is not caught.
+        A space-free one is, in every form. If the rule is ever removed, this test
+        fails and the catalog-files question has to be answered again.
         """
         assert not detects(
             '        "OPENAI_API_KEY": "OpenAI API key for embeddings and AI features"',
@@ -267,6 +290,10 @@ class TestAssignmentShapeCoverage:
             '        "NEO4J_PASSWORD": {',
             '            "description": "Session cookie signing key (32+ random bytes)",',
         )
+        # The documented gap, pinned: spaced in a data literal is out of reach...
+        assert not detects('{"NEO4J_PASSWORD": "correct horse battery staple"}')
+        # ...while the same passphrase in the assignment form is caught.
+        assert detects('NEO4J_PASSWORD="correct horse battery staple"')
 
     def test_interpolation_references_are_not_values(self) -> None:
         """`docker-compose.yml` assigns credentials by reference, not by value.

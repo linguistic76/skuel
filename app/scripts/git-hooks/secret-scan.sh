@@ -107,11 +107,22 @@ mapfile -t catalog_keys < <(read_data_file "$catalog_file")
 #
 #   data literal  "KEY": value · config["KEY"] = value
 #     JSON, dict literals, and subscript assignment, inline or one key per line.
-#     The value must be SPACE-FREE to count. In this repo a dict keyed by a
+#     The value must be SPACE-FREE to count, which is the one place these two
+#     syntaxes disagree: the assignment branch above measures a quoted passphrase
+#     whole, and this one will not.
+#
+#     The reason is measured, not stylistic. In this repo a dict keyed by a
 #     credential name holds a *description* — `"OPENAI_API_KEY": "OpenAI API key
 #     for embeddings and AI features"` in core/config/environment_validator.py,
 #     and the catalog in credential_setup.py itself. Accepting a spaced value here
-#     reports the credential catalog as a leak; a real credential has no spaces.
+#     reports six lines, in the files that ARE this scan's source of truth, plus
+#     its own README and test. There is no syntactic signal separating a
+#     description of a credential from a passphrase.
+#
+#     The cost, stated plainly: a SPACED passphrase hard-coded in a dict literal
+#     is not caught. A space-free one is, in every form. test_secret_scan.py pins
+#     this so removing the rule fails loudly and re-opens the question rather than
+#     quietly making the catalog files un-committable.
 # Between the name and its value: an optional `]` (subscript assignment), an
 # optional type annotation (`SESSION_SECRET_KEY: str = "…"`), then `=` or `:`.
 # The annotation group is optional and its `[=:]` is required, so a bare YAML
@@ -123,7 +134,12 @@ sep="[[:space:]]*\]?[[:space:]]*(:[[:space:]]*${_ident}[[:space:]]*)?[=:][[:spac
 # exactly as much as an uncommented one. A single `-` is the YAML sequence item
 # compose uses for env lists (`- GF_SECURITY_ADMIN_PASSWORD=…`).
 _marker="(([#;]+|//|--?|\*)[[:space:]]*)?"
-assign_lead_for()  { printf '^\\+{1,2}[[:space:]]*%s(export[[:space:]]+)?%s%s' "$_marker" "$1" "$sep"; }
+# An OPENING quote may precede the name — compose writes env lists as a quoted
+# scalar (`- "GF_SECURITY_ADMIN_PASSWORD=…"`), where the quote wraps name AND
+# value. It does not let a data literal in: `"OPENAI_API_KEY": "prose"` closes its
+# quote before the separator, so the lead fails there and the space-free
+# data-literal branch below stays the only thing that reads it.
+assign_lead_for()  { printf '^\\+{1,2}[[:space:]]*%s[\"'"'"']?(export[[:space:]]+)?%s%s' "$_marker" "$1" "$sep"; }
 literal_lead_for() { printf '^\\+{1,2}.*[\"'"'"']%s[\"'"'"']%s' "$1" "$sep"; }
 
 # ---------------------------------------------------------------------------
