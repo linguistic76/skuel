@@ -222,6 +222,14 @@ class TestAssignmentShapeCoverage:
         assert detects(subscript("NEO4J_PASSWORD", base64url_secret()))
         assert detects(subscript("SESSION_SECRET_KEY", base64url_secret(), quote="'"))
 
+    @pytest.mark.parametrize("prefix", ["# ", "#   ", "// ", "-- ", "; ", " *  "])
+    def test_commented_assignment_is_caught(self, prefix: str) -> None:
+        """A credential parked in a commented config example is in history all the same."""
+        assert detects(f"{prefix}NEO4J_PASSWORD={base64url_secret()}")
+
+    def test_commented_export_is_caught(self) -> None:
+        assert detects(f"#   export DEEPGRAM_API_KEY={base64url_secret()}")
+
     def test_annotated_assignment_is_caught(self) -> None:
         """`KEY: str = value` — a typed Python constant.
 
@@ -318,11 +326,14 @@ class TestFalsePositiveFloor:
         caught by the content half however they are assigned. If the floor is ever
         removed, this test fails and the template question has to be answered again.
         """
-        # The three live template placeholders no exact-list rule would cover.
+        # The live template placeholders no exact-list rule would cover.
         assert not detects(
             "FIREFLY_DB_PASSWORD=firefly-local-dev",  # 17 chars, not `your-`-prefixed
             "OPENAI_API_KEY=sk-your-openai-key",  # 18 chars, prefix is `sk-your-`
             "OPENAI_API_KEY=<your-openai-key>",  # 17 chars, SETUP.md form
+            # 25 chars, and `your-` sits behind the provider prefix — which is why
+            # that arm matches anywhere in the value rather than only at its start.
+            "# ANTHROPIC_API_KEY=sk-ant-your-anthropic-key   # [SECRET]",
         )
         # The gap that buys: a short hand-picked password is not reported.
         assert not detects(f"TEST_ADMIN_PASSWORD={alnum(19)}")
@@ -338,6 +349,13 @@ class TestFalsePositiveFloor:
             f'hash = "sha256:{sha256}"',
             f"    id: {uuid_like}",
             f"    revision = {alnum(40)}",
+        )
+
+    def test_hook_documentation_of_its_own_bypass_is_not_a_leak(self) -> None:
+        """`#   SKUEL_ALLOW_SECRETS=1 git commit ...` — a commented usage line."""
+        assert not detects(
+            "#   SKUEL_ALLOW_SECRETS=1 git commit ...   # skip secret scan only",
+            "# SIGNUP_INVITE_CODE=choose-a-code",
         )
 
     def test_a_non_catalog_name_is_not_flagged(self) -> None:

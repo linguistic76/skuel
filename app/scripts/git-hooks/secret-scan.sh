@@ -118,7 +118,11 @@ mapfile -t catalog_keys < <(read_data_file "$catalog_file")
 # mapping (`KEY: value`) still matches by skipping the group.
 _ident="[A-Za-z_][A-Za-z0-9_.]*(\[[^]]*\])?"
 sep="[[:space:]]*\]?[[:space:]]*(:[[:space:]]*${_ident}[[:space:]]*)?[=:][[:space:]]*"
-assign_lead_for()  { printf '^\\+{1,2}[[:space:]]*(export[[:space:]]+)?%s%s' "$1" "$sep"; }
+# A comment prefix is allowed before the name: a credential parked in a commented
+# config example (`# NEO4J_PASSWORD=…`) is in the history exactly as much as an
+# uncommented one.
+_comment="(([#;]+|//|--|\*)[[:space:]]*)?"
+assign_lead_for()  { printf '^\\+{1,2}[[:space:]]*%s(export[[:space:]]+)?%s%s' "$_comment" "$1" "$sep"; }
 literal_lead_for() { printf '^\\+{1,2}.*[\"'"'"']%s[\"'"'"']%s' "$1" "$sep"; }
 
 # ---------------------------------------------------------------------------
@@ -182,7 +186,11 @@ next_floor="{$((MIN_SECRET_LEN - 1)),}"
 # A double- or single-quoted run (spaces allowed), or a bare token.
 assign_value="([\"][^\"]${floor}|['][^']${floor}|[^[:space:]\"'][^[:space:]]${next_floor})"
 literal_value="[\"']?[^[:space:]\"'][^[:space:]\"']${next_floor}"
-placeholder="(your-|[$]|[^[:space:]]*<[^>[:space:]]*>)"
+# `your-` matches ANYWHERE in the value, not only at its start: `.env.example`
+# carries `sk-your-openai-key` and `# ANTHROPIC_API_KEY=sk-ant-your-anthropic-key`,
+# where the convention sits behind a provider prefix. Same reason the
+# angle-bracket arm looks past the start.
+placeholder="([^[:space:]]*your-|[$]|[^[:space:]]*<[^>[:space:]]*>)"
 
 for key in "${catalog_keys[@]}"; do
   assign_lead="$(assign_lead_for "$key")"
