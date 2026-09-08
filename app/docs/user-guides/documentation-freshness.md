@@ -1,6 +1,6 @@
 ---
 title: Documentation Freshness Guide
-updated: 2026-08-25
+updated: 2026-09-08
 status: current
 category: user-guides
 tags: [documentation, freshness, health-checks, hooks, cross-references, staleness]
@@ -186,7 +186,7 @@ prose `@skill` mentions, is what the validator reads.
 
 ### Post-Merge: Library Change Detection
 
-**Script:** `scripts/hooks/post-merge`
+**Script:** `scripts/git-hooks/post-merge`
 
 After `git pull` or merge, detects when `uv.lock` changed and reports affected skills.
 
@@ -246,7 +246,7 @@ uv run python scripts/docs_freshness.py --stale   # mtime-based staleness
 | `.claude/hooks/post-commit-docs.sh` | Claude Code post-commit hook |
 | `.claude/skills/skills_metadata.yaml` | Skill registry (source of truth) |
 | `scripts/health/stale_names.py` | Renamed/deleted identifier rules |
-| `scripts/hooks/post-merge` | Git post-merge hook |
+| `scripts/git-hooks/post-merge` | Git post-merge hook |
 
 ---
 

@@ -93,7 +93,7 @@ For the full step-by-step workflows — library upgrades, pattern deprecation, s
 | Health check docs | `docs/tools/HEALTH_CHECKS.md` |
 | Skills metadata | `.claude/skills/skills_metadata.yaml` |
 | Post-commit doc check | `.claude/hooks/post-commit-docs.sh` (Claude Code PostToolUse hook) |
-| Post-merge hook | `scripts/hooks/post-merge` |
+| Post-merge hook | `scripts/git-hooks/post-merge` |
 | Cross-reference validator | `scripts/validate_cross_references.py` |
 | Library change detector | `scripts/detect_library_changes.py` |
 | Cross-reference index | `docs/CROSS_REFERENCE_INDEX.md` (auto-generated) |

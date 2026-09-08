@@ -1,10 +1,12 @@
 ---
-updated: 2026-03-30
+updated: 2026-09-08
 ---
 
 # Git Hooks for SKUEL
 
 **Purpose:** Automated library-change detection after merges.
+
+**Scope:** this doc covers `post-merge` only. The commit- and push-time hooks (`pre-commit`, `pre-push`) and the secret scan they share are documented in `/scripts/git-hooks/README.md`.
 
 ---
 
@@ -12,17 +14,26 @@ updated: 2026-03-30
 
 | Hook | Trigger | Script | Blocks? |
 |------|---------|--------|---------|
-| `post-merge` | After `git pull` / merge | `scripts/hooks/post-merge` | No |
+| `post-merge` | After `git pull` / merge | `scripts/git-hooks/post-merge` | No |
 
 The hook does not block operations. It surfaces information you'd otherwise miss.
 
-**Note:** Post-commit documentation checking was previously handled by a git `post-commit` hook (`scripts/hooks/post-commit` + `scripts/docs_contextual_check_v2.py`). This was replaced (2026-03-30) by the Claude Code PostToolUse hook at `.claude/hooks/post-commit-docs.sh`. See `/docs/tools/AUTOMATIC_DOCS_CHECK.md`.
+**Install** — one line, from the repository root:
+
+```bash
+git config core.hooksPath app/scripts/git-hooks
+```
+
+That relative path points git at the tracked hook scripts, so it resolves in any worktree and
+survives a fresh clone. It installs all three hooks at once; there are no symlinks to refresh.
+
+**Note:** Post-commit documentation checking was previously handled by a git `post-commit` hook (`scripts/hooks/post-commit` + `scripts/docs_contextual_check_v2.py`; that directory is gone — the hooks now live in `scripts/git-hooks/`). This was replaced (2026-03-30) by the Claude Code PostToolUse hook at `.claude/hooks/post-commit-docs.sh`. See `/docs/tools/AUTOMATIC_DOCS_CHECK.md`.
 
 ---
 
 ## Post-Merge Hook: Library Change Detection
 
-**Script:** `scripts/hooks/post-merge`
+**Script:** `scripts/git-hooks/post-merge`
 
 Runs after `git pull` or merge. Detects when `uv.lock` changed and reports
 which library versions changed and which skills may be affected.
@@ -100,7 +111,8 @@ When you update a skill after a staleness warning:
 
 | File | Purpose |
 |------|---------|
-| `scripts/hooks/post-merge` | Post-merge hook (library change detection) |
+| `scripts/git-hooks/post-merge` | Post-merge hook (library change detection) |
+| `scripts/git-hooks/README.md` | The full hook set: pre-commit, pre-push, post-merge, secret scan |
 | `.claude/hooks/post-commit-docs.sh` | Claude Code PostToolUse hook (post-commit doc checking) |
 | `scripts/validate_cross_references.py` | Full cross-reference + staleness validator |
 | `.claude/skills/skills_metadata.yaml` | Skill registry (source of truth for valid skills) |
@@ -109,10 +121,10 @@ When you update a skill after a staleness warning:
 
 ## Troubleshooting
 
-**Hook not running** — check permissions:
+**Hook not running** — check that git is pointed at the hook directory, and that the script is executable:
 ```bash
-ls -la .git/hooks/post-merge   # should show -rwxr-xr-x
-chmod +x .git/hooks/post-merge
+git config --get core.hooksPath          # should print: app/scripts/git-hooks
+ls -la app/scripts/git-hooks/post-merge  # should show -rwxr-xr-x
 ```
 
 **Stale skills showing unexpectedly** — check git dates vs `last_reviewed`:

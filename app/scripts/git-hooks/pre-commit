@@ -15,7 +15,9 @@
 #   1. Secret-leak scan
 #      - .env / .env.local / .env.<anything> files staged
 #        (.env.example, .env.sample, and .env.<anything>.example are allowed)
-#      - high-confidence credential patterns in added lines
+#      - credential-shaped content in added lines, plus any credential
+#        catalog name assigned a non-placeholder value
+#        (scripts/git-hooks/secret-scan.sh — shared with pre-push)
 #
 #   2. Doc cross-reference validation
 #      - only when at least one .md file is staged
@@ -49,8 +51,8 @@
 #   SKUEL_SKIP_LINT=1     git commit ...   # skip Ruff + SKUEL lint only
 #   git commit --no-verify ...             # skip ALL (last resort)
 #
-# Install (idempotent):  app/scripts/install_git_hooks.sh
-# See:                    app/scripts/git-hooks/README.md
+# Install:  git config core.hooksPath app/scripts/git-hooks   (from the repo root)
+# See:      app/scripts/git-hooks/README.md
 
 set -uo pipefail
 
@@ -59,6 +61,11 @@ yellow() { printf '\033[33m%s\033[0m\n' "$*"; }
 green()  { printf '\033[32m%s\033[0m\n' "$*"; }
 
 repo_root="$(git rev-parse --show-toplevel)"
+
+# Resolve this hook's own directory so the shared scan is found whether git
+# reaches the hook through core.hooksPath or through a legacy .git/hooks
+# symlink — realpath follows the symlink to the canonical script.
+hook_dir="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]:-$0}")")" && pwd)"
 fail=0
 
 # =========================================================================
@@ -110,39 +117,13 @@ else
   done <<< "$staged_files"
 
   # --- 1b: scan added lines for known credential shapes ------------------
-  # -U0 = only changed lines, no surrounding context.
-  diff_text=$(git diff --cached -U0 --diff-filter=ACMR -- \
-    ':(exclude)*.lock' ':(exclude)*.lock.json')
-
-  # provider | regex.  Length thresholds avoid matching doc placeholders.
-  patterns=(
-    'OpenAI key|sk-(proj|live|test|or)-[A-Za-z0-9_-]{40,}'
-    'AWS access key|\bAKIA[0-9A-Z]{16}\b'
-    'Stripe webhook secret|\bwhsec_[A-Za-z0-9]{30,}\b'
-    'Stripe live key|\bsk_live_[A-Za-z0-9]{20,}\b'
-    'GitHub PAT|\bghp_[A-Za-z0-9]{36}\b'
-    'GitHub fine-grained PAT|\bgithub_pat_[A-Za-z0-9_]{60,}\b'
-    'HuggingFace token|\bhf_[A-Za-z0-9]{30,}\b'
-    'Slack token|\bxox[abprs]-[A-Za-z0-9-]{20,}\b'
-    'Google API key|\bAIza[0-9A-Za-z_-]{35}\b'
-    'Private key block|-----BEGIN (RSA |EC |OPENSSH |DSA |PGP )?PRIVATE KEY-----'
-  )
-
-  added_lines=$(printf '%s\n' "$diff_text" | grep -E '^\+[^+]' || true)
-
-  for entry in "${patterns[@]}"; do
-    label="${entry%%|*}"
-    regex="${entry#*|}"
-    matches=$(printf '%s\n' "$added_lines" | grep -E -- "$regex" || true)
-    if [[ -n "$matches" ]]; then
-      red "✗ Possible $label in staged changes:"
-      # Redact the actual match in the printed output so we don't echo the
-      # secret into terminal scrollback / CI logs.
-      printf '%s\n' "$matches" | sed -E -e 's/'"$regex"'/[REDACTED]/g' \
-        | head -5 | sed 's/^/    /' >&2
-      fail=1
-    fi
-  done
+  # -U0 = only changed lines, no surrounding context. The scan itself lives in
+  # secret-scan.sh so pre-commit and pre-push cannot drift apart.
+  if ! git diff --cached -U0 --diff-filter=ACMR -- \
+      ':(exclude)*.lock' ':(exclude)*.lock.json' \
+      | "$hook_dir/secret-scan.sh" "staged changes"; then
+    fail=1
+  fi
 fi
 
 # =========================================================================

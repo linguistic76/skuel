@@ -87,7 +87,8 @@ _REMEDY = {
     "missing": (
         "No `updated:` in the leading frontmatter block. The pre-commit hook adds "
         "one to every staged doc — a doc without it was committed with --no-verify, "
-        "or the hook is not installed (app/scripts/install_git_hooks.sh)."
+        "or the hook is not installed "
+        "(`git config core.hooksPath app/scripts/git-hooks`, from the repo root)."
     ),
     "duplicate": (
         "Two `updated:` keys in the leading block. Keep one; the hook rewrites the "

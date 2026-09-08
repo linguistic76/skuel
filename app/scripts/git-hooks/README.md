@@ -1,6 +1,23 @@
 # SKUEL Git Hooks
 
-Two hooks, two purposes, one canonical source per file. Install with `app/scripts/install_git_hooks.sh` — it symlinks (does not copy) the canonical scripts so future edits take effect immediately.
+Three hooks, three purposes, one canonical source per file — plus `secret-scan.sh`, the scan
+shared by `pre-commit` and `pre-push`.
+
+## Install
+
+One line, from the repository root (`/home/mike/skuel`):
+
+```bash
+git config core.hooksPath app/scripts/git-hooks
+```
+
+That is the whole installation. The path is **relative**, so it resolves against whichever
+worktree git is operating in and survives a fresh clone; git runs the tracked scripts directly,
+so there are no symlinks to refresh and edits take effect immediately. Verify with:
+
+```bash
+git config --get core.hooksPath   # → app/scripts/git-hooks
+```
 
 ## What runs and when
 
@@ -16,9 +33,7 @@ One rewrite then four checks, fail-fast on any check:
 
 1. **Secret-leak scan** — always runs.
    - Refuses to commit `.env` / `.env.local` / `.env.<anything>` (allows `.env.example` and `.env.sample`).
-   - Greps **added lines only** (`git diff --cached -U0`) for high-confidence credential shapes: OpenAI project/live/test keys, AWS access keys, Stripe live + webhook secrets, GitHub PATs (classic + fine-grained), HuggingFace tokens, Slack tokens, Google API keys, PEM private-key blocks.
-   - Length thresholds are tuned so doc placeholders like `sk-proj-...` don't trip.
-   - Matched strings are **redacted** in the printed output so the secret doesn't leak into terminal scrollback / CI logs.
+   - Pipes **added lines only** (`git diff --cached -U0`) into [`secret-scan.sh`](secret-scan.sh) — see [The secret scan](#the-secret-scan) below for what it catches.
 
 2. **Cross-reference validation** — only when at least one `.md` file is staged.
    - Runs `app/scripts/validate_cross_references.py --errors-only`.
@@ -37,9 +52,36 @@ One rewrite then four checks, fail-fast on any check:
 
 ### `pre-push` — runs on every `git push`
 
-**Secret scan only**, against the diff range being pushed. Exists because `git commit --no-verify` bypasses the commit-time scan, and a rushed dev who skipped commit-time checks will usually push next. Push history is permanent on most remotes — this is the last fence before that becomes a rotation incident.
+**Secret scan only**, against the diff range being pushed — the same `secret-scan.sh` the commit hook calls. Exists because `git commit --no-verify` bypasses the commit-time scan, and a rushed dev who skipped commit-time checks will usually push next. Push history is permanent on most remotes — this is the last fence before that becomes a rotation incident.
 
 Cross-reference validation deliberately doesn't run here. It's a quality concern, not a security one, and adding it would slow down every push.
+
+### `post-merge` — runs after every `git pull` / merge
+
+**Library-change detection, non-blocking.** When `uv.lock` changed in the merge it runs `app/scripts/detect_library_changes.py --from-ref ORIG_HEAD`, which reports the package versions that moved and the skills that may need review. It never blocks; it surfaces information you would otherwise miss.
+
+**See:** [`/docs/development/GIT_HOOKS.md`](../../docs/development/GIT_HOOKS.md) and the `@docs-skills-evolution` skill's Library Upgrade Workflow.
+
+*(A `post-commit` hook used to live here for documentation checking. It was replaced on 2026-03-30 by the Claude Code PostToolUse hook at `.claude/hooks/post-commit-docs.sh` — see [`/docs/tools/AUTOMATIC_DOCS_CHECK.md`](../../docs/tools/AUTOMATIC_DOCS_CHECK.md).)*
+
+## The secret scan
+
+`secret-scan.sh` reads a unified diff on stdin and exits non-zero if any **added** line looks like a credential. Both hooks call it, so the commit-time and push-time fences are the same fence — they used to be hand-synced copies of one bash array, and a drift there silently made the push-time check the weaker of the two.
+
+It scans in two halves, because credentials come in two shapes:
+
+| Half | Source of truth | Catches |
+|---|---|---|
+| **Content** | [`secret-patterns.txt`](secret-patterns.txt) (`label\|regex` per line) | Provider-issued keys with their own prefix: OpenAI (`sk-proj-…` and legacy `sk-<48>`), Anthropic (`sk-ant-…`), AWS, Stripe live + webhook, GitHub PATs (classic + fine-grained), HuggingFace, Slack, Google API keys, PEM private-key blocks. |
+| **Assignment** | [`credential-keys.txt`](credential-keys.txt) (one name per line) | Any credential-catalog **name** assigned a non-placeholder value, whatever the value looks like: `DEEPGRAM_API_KEY`, `NEO4J_PASSWORD`, `SESSION_SECRET_KEY`, the `FIREFLY_*` set, … |
+
+The assignment half exists because a Deepgram key (40 hex chars), an AuraDB password and a `SESSION_SECRET_KEY` are prefix-free high-entropy strings. A content regex that caught them would also catch every hash, UUID and lockfile digest in the tree — so for those the **name** is the signal, not the value.
+
+A value counts as a placeholder, and is not reported, when it is empty, shorter than 20 characters, or `your-`-prefixed. That mirrors `core/config/credential_store.py::_is_placeholder`, so the hook and the credential funnel agree on what a placeholder is; `tests/unit/scripts/test_secret_scan.py` pins the agreement by driving this script with every member of the real `_PLACEHOLDER_VALUES` set.
+
+Matches are always printed **redacted** — content matches with the matched text replaced, assignment matches with everything past the `=` replaced. The point is to block the commit without echoing the secret into terminal scrollback or CI logs.
+
+`credential-keys.txt` is a **mirror**, not a second source of truth: bash cannot import Python, so the names are duplicated from `CredentialSetup.CREDENTIALS` and pinned by a drift test — the same arrangement `scripts/lint_skuel.py::SkuelLinter.CREDENTIAL_CATALOG` already uses.
 
 ## Bypass mechanisms
 
@@ -72,37 +114,31 @@ A pre-commit hook is the cheap, fast first line — not a comprehensive defense.
 | Server-side scan (GitHub secret scanning) | after push, on remote | no, but post-leak — alerts you to rotate | depends on plan |
 | CI quality scan (MyPy + Lint) | on every PR / push to main | no — runs in CI | **yes** ([`ci.yml`](../../../.github/workflows/ci.yml)) |
 | CI secret scan (gitleaks / trufflehog) | on every PR / on schedule | no — runs in CI, separate auth | **not yet** |
-| No plaintext secrets on disk | always — there is no `.env` to commit | n/a | **not yet** (see below) |
+| No plaintext secrets on disk | always — there is no `.env` to commit | n/a | **yes** (see below) |
 
 The bottom row is the only structural fix. Everything above it is reactive.
 
-## Path to "no plaintext secrets on disk"
+## "No plaintext secrets on disk"
 
-SKUEL already has `core/config/credential_store.py` (encrypted store) and reads secrets via `get_credential("HF_API_TOKEN", fallback_to_env=True)`. The bones for moving off `.env` exist. Three practical migrations, in roughly increasing effort:
+This is not aspirational any more, which is why the bottom row above reads **yes**. Credentials are read through `get_credential()` and resolved by the backend `SKUEL_CREDENTIAL_BACKEND` selects — `keyring` puts them in libsecret / macOS Keychain / Windows Credential Locker, and `app/.envrc` loads the non-keychain path from `~/.config/skuel/secrets.env`, outside the worktree either way. `git add .` cannot stage what is not on disk.
 
-1. **`direnv` + per-user secrets file outside the repo.**
-   `.envrc` (committed, no secrets) sources `~/.config/skuel/secrets.env` (gitignored by virtue of being outside the repo). Simplest of the three; works today on any Unix.
+`sops` + `age` (commit an encrypted `.env.encrypted`, manage the decryption key outside git) is the one shape SKUEL has **not** adopted. It pays off when several developers share one secret set; with a single developer it is pure setup cost.
 
-2. **OS keychain (libsecret / Keychain).**
-   Extend `credential_store.py` to read from the OS keychain instead of `.env`. Credentials live in the keychain; the worktree never holds them. Survives `git add .` because there's nothing to add.
+**See:** [`/docs/roadmap/done/secrets-out-of-worktree.md`](../../docs/roadmap/done/secrets-out-of-worktree.md) for how the move happened, and `core/config/README.md` for the backends as they stand.
 
-3. **`sops` + `age` (or `git-crypt`).**
-   Commit an encrypted `.env.encrypted`; decryption key managed outside git. Lets the team share secrets via the repo without exposing them. Heaviest setup; pays off when more than one dev shares the same secrets.
-
-Any of these makes "I accidentally `git add .` my `.env`" structurally impossible. Until then, the hooks above are the seatbelt.
+The hooks above stay regardless. They are the seatbelt for the case the structure does not cover: a key pasted into a `.py`, a `.yaml`, or a doc.
 
 ## Editing the hooks
 
-The canonical scripts are in this directory:
+This directory is the only hook source dir, and `core.hooksPath` points git straight at it:
 
-- `pre-commit` — combined secret-scan + cross-ref check
-- `pre-push` — secret-scan over the push range
+| File | Purpose |
+|---|---|
+| `pre-commit` | doc stamp + secret scan + cross-ref + MyPy + lint |
+| `pre-push` | secret scan over the push range |
+| `post-merge` | library-change detection after a pull |
+| `secret-scan.sh` | the scan itself, called by both `pre-commit` and `pre-push` |
+| `secret-patterns.txt` | content patterns, `label\|regex` per line |
+| `credential-keys.txt` | credential names for the assignment half |
 
-The installed hooks are **symlinks** to these files. Edit the files directly; no re-install needed. To verify your install is correct:
-
-```bash
-readlink "$(git config --get core.hooksPath || git rev-parse --git-dir)/hooks/pre-commit"
-# should print: app/scripts/git-hooks/pre-commit (or absolute equivalent)
-```
-
-If the secret-scan patterns drift between `pre-commit` and `pre-push`, the push-time hook becomes weaker than the commit-time hook. Keep them in sync — they're intentionally identical bash arrays.
+Edit these files directly — git executes them where they sit, so there is nothing to re-install. Changing the scan means changing one file, not two: add a content pattern to `secret-patterns.txt`, or a credential name to `credential-keys.txt` (and to `CredentialSetup.CREDENTIALS`, which the drift test compares it against). Add the matching row to `tests/unit/scripts/test_secret_scan.py` in the same change.
