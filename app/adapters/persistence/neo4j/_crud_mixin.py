@@ -595,9 +595,13 @@ class _CrudMixin[T: DomainModelProtocol]:
               → ``Result.fail(not_found)``. Guard evaluation happens after the MATCH, so
               a returned row proves existence and no row proves absence — one query leg
               distinguishes them.
-            - **Guarded out** (prior in ``guard.refuse_if_prior_in``) → ``Result.ok`` with
+            - **Guarded out** (prior in ``guard.refuse_if_prior_in``, or outside a
+              non-empty ``guard.refuse_unless_prior_in``) → ``Result.ok`` with
               ``applied=False`` and the node byte-identical, ``updated_at`` included.
-              Callers branch on it; it is an outcome, never an error.
+              Callers branch on it; it is an outcome, never an error. Both gates are
+              evaluated against the same coalesced prior, so a node carrying NO status
+              property is judged like any other — which is the case an enumerated
+              complement would silently let through.
             - ``updated_at`` is stamped Python-side into ``updates`` (as ``update`` does),
               so it rides the same conditional merge and only lands when the write applies.
             - All three payloads pass through ``to_neo4j_node``, so storage shapes match
@@ -666,7 +670,9 @@ class _CrudMixin[T: DomainModelProtocol]:
         WITH n, n.status AS prior
         REMOVE n.`_sg_lock`
         WITH n, prior, coalesce(prior, '') AS prior_key
-        WITH n, prior, prior_key, (NOT prior_key IN $refuse_statuses) AS applied
+        WITH n, prior, prior_key,
+             (NOT prior_key IN $refuse_statuses
+              AND (size($require_statuses) = 0 OR prior_key IN $require_statuses)) AS applied
         SET n += CASE WHEN applied THEN $updates ELSE {{}} END
         SET n += CASE WHEN applied AND prior_key IN $patch_in_statuses THEN $patch_in ELSE {{}} END
         SET n += CASE
@@ -680,8 +686,11 @@ class _CrudMixin[T: DomainModelProtocol]:
             "lock_token": uuid4().hex,
             "updates": updates,
             # `x IN []` is false and `NOT x IN []` is true, so an unused knob is a no-op:
-            # the first patch never fires, the second merges an empty map.
+            # the first patch never fires, the second merges an empty map. The
+            # precondition gate needs the explicit `size(...) = 0` for the same reason
+            # in reverse — an empty requirement must demand nothing, not everything.
             "refuse_statuses": sorted(guard.refuse_if_prior_in),
+            "require_statuses": sorted(guard.refuse_unless_prior_in),
             "patch_in_statuses": patch_in_statuses,
             "patch_in": patch_in,
             "patch_not_in_statuses": patch_not_in_statuses,

@@ -1,7 +1,7 @@
 ---
 title: Tasks Domain
 created: 2025-12-04
-updated: 2026-09-07
+updated: 2026-09-08
 status: current
 category: domains
 tags:
@@ -149,8 +149,10 @@ carrying a historical `✅` date is what the field is for. On update, naming a
 non-completed status **clears** the stamp rather than refusing the patch, because the
 stamp is null by definition once the task is not completed — the edit form renders
 `completion_date` as "Completed on" and prefills it, so a reopen from the status control
-would otherwise submit a stale date the user never touched. A patch naming no status
-resolves against the prior and is left alone (`docs/roadmap/stranded-completion-stamp.md`).
+would otherwise submit a stale date the user never touched. A patch naming no status resolves
+against the prior, so it is judged by the WRITE: the stamp demands a completed prior and
+anything else is refused with a message naming the status the write saw
+(`docs/roadmap/done/stranded-completion-stamp.md`).
 
 ### Incoming (Other → Task)
 

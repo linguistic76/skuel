@@ -32,6 +32,7 @@ from datetime import date, datetime
 
 import pytest
 
+from core.models.choice.choice_request import ChoiceUpdateRequest
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.update_contracts import StatusWriteGuard
 from core.services.completion_stamp import (
@@ -39,8 +40,10 @@ from core.services.completion_stamp import (
     is_completion_transition,
     is_reopen_transition,
     status_transition_guard,
+    stranded_stamp_error,
     validate_status_target,
 )
+from core.utils.result_simplified import ErrorCategory
 
 _COMPLETED = frozenset({EntityStatus.COMPLETED.value})
 _STAMPING_TYPES = sorted(COMPLETION_FIELDS, key=lambda t: t.value)
@@ -113,15 +116,15 @@ class TestGuardBuilder:
         assert guard.is_error
         assert "requires status=completed" in guard.expect_error().message
 
-    def test_a_stamp_with_no_status_named_is_out_of_reach(self) -> None:
+    def test_a_stamp_with_no_status_named_is_not_refused_here(self) -> None:
         """A patch carrying a stamp and no status resolves against the PRIOR.
 
-        Nothing here can judge it, so it passes: the resulting status is whatever the
-        node already holds. Refusing it instead would demand a status the caller may
-        have no way to send — ``ChoiceUpdateRequest`` exposes ``completed_at`` and no
-        status field at all, so a Choice correcting its own timestamp could never
-        satisfy such a rule. The prior-dependent half of the invariant is tracked in
-        ``docs/roadmap/stranded-completion-stamp.md``.
+        Nothing at THIS layer can judge it, so the plain refusal does not fire: the
+        resulting status is whatever the node already holds. Demanding the status
+        instead would demand one the caller may have no way to send —
+        ``ChoiceUpdateRequest`` exposes ``completed_at`` and no status field at all.
+        The claim is judged by the write instead, as the prior it requires
+        (``TestTheBareStampGate`` below).
         """
         guard = status_transition_guard(EntityType.TASK, {"completion_date": date(2026, 1, 1)})
         assert guard.is_ok
@@ -184,11 +187,14 @@ class TestGuardBuilder:
         assert guard.is_ok
         assert guard.value.has_patches() is False
 
-    def test_the_guard_never_refuses_a_write_on_its_own(self) -> None:
-        """Refusal is a caller's knob (the terminal gate), never the stamp rules'."""
+    def test_the_guard_never_fills_the_refuse_set_on_its_own(self) -> None:
+        """``refuse_if_prior_in`` is a caller's knob (the terminal gate, decision
+        immutability), never the stamp rules'. The stamp rules refuse through the
+        PRECONDITION gate instead, and only for a bare stamp — see the class below."""
         for changes in ({"status": "completed"}, {"status": "active"}, {"title": "x"}):
             guard = status_transition_guard(EntityType.TASK, changes)
             assert guard.value.refuse_if_prior_in == frozenset()
+            assert guard.value.refuse_unless_prior_in == frozenset()
 
     @pytest.mark.parametrize("entity_type", _STAMPING_TYPES)
     def test_each_stamping_domain_names_its_own_field(self, entity_type: EntityType) -> None:
@@ -358,3 +364,98 @@ class TestVerdictsFromTheReturnedPrior:
         for prior in ("active", "completed", None):
             assert is_completion_transition(prior, {"title": "x"}) is False
             assert is_reopen_transition(prior, {"title": "x"}) is False
+
+
+class TestTheBareStampGate:
+    """A patch that carries a completion stamp and names NO status.
+
+    It resolves against whatever status the node already holds, so it cannot be judged
+    from the patch — the claim "this entity is completed" travels to the write as the
+    prior it REQUIRES, and comes back as ``applied=False``. A refusal, not a silent
+    clear, because here the stamp IS the caller's edit.
+
+    Case file: ``docs/roadmap/done/stranded-completion-stamp.md``.
+    """
+
+    @pytest.mark.parametrize("entity_type", _STAMPING_TYPES)
+    def test_a_bare_stamp_demands_a_completed_prior(self, entity_type: EntityType) -> None:
+        field = COMPLETION_FIELDS[entity_type]
+        guard = status_transition_guard(entity_type, {field: datetime(2026, 3, 4)})
+
+        assert guard.is_ok
+        assert guard.value.refuse_unless_prior_in == _COMPLETED
+        # Stated as a precondition, not an enumerated complement: an entity carrying no
+        # status property at all is outside the requirement and refused with the rest.
+        assert guard.value.refuse_if_prior_in == frozenset()
+        assert guard.value.has_patches() is False
+
+    @pytest.mark.parametrize("entity_type", _STAMPING_TYPES)
+    def test_clearing_the_stamp_demands_nothing(self, entity_type: EntityType) -> None:
+        """``None`` is the reopen's own clear, not a claim that anything completed."""
+        guard = status_transition_guard(entity_type, {COMPLETION_FIELDS[entity_type]: None})
+
+        assert guard.is_ok
+        assert guard.value.refuse_unless_prior_in == frozenset()
+
+    def test_a_stamp_that_names_completed_demands_nothing(self) -> None:
+        """The deliberate re-date the authority rule serves: the patch says what status
+        it means, so nothing is left for the write to decide."""
+        guard = status_transition_guard(
+            EntityType.TASK, {"status": "completed", "completion_date": date(2026, 3, 4)}
+        )
+
+        assert guard.is_ok
+        assert guard.value.refuse_unless_prior_in == frozenset()
+
+    def test_a_patch_carrying_no_stamp_demands_nothing(self) -> None:
+        for changes in ({"title": "x"}, {"due_date": date(2026, 3, 4)}, {}):
+            guard = status_transition_guard(EntityType.TASK, changes)
+            assert guard.value.refuse_unless_prior_in == frozenset(), changes
+
+    def test_a_foreign_field_is_not_this_domains_stamp(self) -> None:
+        """The gate reads the domain's OWN field (``COMPLETION_FIELDS``) — a Task's key
+        on a Habit patch is an ordinary property, not a completion claim."""
+        guard = status_transition_guard(EntityType.HABIT, {"completion_date": datetime.now()})
+
+        assert guard.value.refuse_unless_prior_in == frozenset()
+
+    def test_principle_has_no_stamp_to_gate(self) -> None:
+        guard = status_transition_guard(EntityType.PRINCIPLE, {"completed_at": datetime.now()})
+
+        assert guard.is_ok
+        assert guard.value.refuse_unless_prior_in == frozenset()
+
+
+class TestTheRefusalMessage:
+    """What the chokepoint says when the write comes back refused."""
+
+    @pytest.mark.parametrize("entity_type", _STAMPING_TYPES)
+    def test_it_names_the_field_the_domain_the_prior_and_both_remedies(
+        self, entity_type: EntityType
+    ) -> None:
+        error = stranded_stamp_error(entity_type, "active")
+
+        assert COMPLETION_FIELDS[entity_type] in error.message
+        assert entity_type.value in error.message
+        assert "'active'" in error.message
+        assert error.details["field"] == COMPLETION_FIELDS[entity_type]
+        assert error.details["value"] == "active"
+        assert error.category is ErrorCategory.VALIDATION
+
+    def test_an_absent_status_reads_as_one(self) -> None:
+        """A vault file can erase the property; the message must not say "is 'None'"."""
+        error = stranded_stamp_error(EntityType.TASK, None)
+
+        assert "has no status" in error.message
+        assert "None" not in error.message
+
+    def test_the_remedy_is_reachable_from_a_door_with_no_status_field(self) -> None:
+        """``ChoiceUpdateRequest`` exposes ``completed_at`` and NO status, so a message
+        whose only remedy was "send status in the same update" would instruct that door
+        to do something it cannot. The two-call route has to be named as well."""
+        assert "status" not in ChoiceUpdateRequest.model_fields
+        assert "completed_at" in ChoiceUpdateRequest.model_fields
+
+        message = stranded_stamp_error(EntityType.CHOICE, "active").message
+
+        assert "Complete it first" in message

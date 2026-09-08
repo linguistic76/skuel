@@ -52,6 +52,7 @@ from core.services.completion_stamp import (
     is_completion_transition,
     is_reopen_transition,
     status_transition_guard,
+    stranded_stamp_error,
 )
 from core.services.domain_config import create_activity_domain_config
 from core.services.mixins.hierarchy_read_mixin import HierarchyReadMixin
@@ -933,9 +934,13 @@ class TasksCoreService(
         if update_result.is_error:
             return Result.fail(update_result)
 
-        # This guard refuses nothing (``refuse_if_prior_in`` is empty), so the write
-        # always applied; only the prior it returned is news.
+        # The guard's only refuse condition here is the bare-stamp gate: a patch that
+        # sets a completion stamp while naming no status claims the task is completed,
+        # and the write refuses it unless the prior agrees. That is an OUTCOME, so the
+        # message is owed here — sourced from the prior the write itself captured.
         outcome = update_result.value
+        if not outcome.applied:
+            return Result.fail(stranded_stamp_error(EntityType.TASK, outcome.prior_status))
         task = self._to_domain_model(outcome.entity, TaskDTO, Task)
 
         # The verdicts, from the status the write actually saw. The same two pure helpers
@@ -1068,8 +1073,9 @@ class TasksCoreService(
             if result.is_error:
                 continue
 
-            # The guard refuses nothing, so a row that was written is a row that
-            # applied; ``outcome.entity`` is the post-write node, and the patch
+            # The patch names its status, so the bare-stamp gate is empty and the
+            # guard refuses nothing: a row that was written is a row that
+            # applied. ``outcome.entity`` is the post-write node, and the patch
             # touches status + stamp only, so it still carries this row's
             # due_date / actual_minutes.
             outcome = result.value

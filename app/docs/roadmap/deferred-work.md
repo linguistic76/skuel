@@ -136,10 +136,6 @@ renders them as a table in Obsidian, and a session derives the same table with
 
 [Habit-Completion Persistence Bundle — Orphans, UID Collisions, Non-Atomic Day Uniqueness](habit-completion-persistence-bundle.md) — Six persistence defects around the `HabitCompletion` node — orphans, uid collisions, non-atomic day uniqueness, stranded stats, a DISTINCT-day read, a refused untrack — plus the node-less third door; one shared lock-derived writer is the shape.
 
-## Stranded Completion Stamp — the Half the Guard Cannot Judge
-
-[Stranded Completion Stamp — the Half the Guard Cannot Judge](stranded-completion-stamp.md) — The vault half is closed; what remains is a patch that carries a stamp and names no status, which resolves against a prior only the write can see. The guard's refuse gate fits, but its `applied=False` has to become an error at five chokepoints first.
-
 ## "Vault Has Un-Synced Changes" Signal
 
 ["Vault Has Un-Synced Changes" Signal](vault-unsynced-changes-signal.md) — Telling the user a sync is worth running — the honest replacement for a reopen-only dirty flag; no last-sync state exists yet to build on.

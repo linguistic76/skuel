@@ -108,7 +108,9 @@ SET n.`_sg_lock` = $lock_token          -- takes the node write-lock BEFORE the 
 WITH n, n.status AS prior
 REMOVE n.`_sg_lock`
 WITH n, prior, coalesce(prior, '') AS prior_key
-WITH n, prior, prior_key, (NOT prior_key IN $refuse_statuses) AS applied
+WITH n, prior, prior_key,
+     (NOT prior_key IN $refuse_statuses
+      AND (size($require_statuses) = 0 OR prior_key IN $require_statuses)) AS applied
 SET n += CASE WHEN applied THEN $updates ELSE {} END
 SET n += CASE WHEN applied AND prior_key IN $patch_in_statuses THEN $patch_in ELSE {} END
 SET n += CASE WHEN applied AND NOT prior_key IN $patch_not_in_statuses
@@ -117,10 +119,18 @@ RETURN n AS node, prior AS prior, applied AS applied
 ```
 
 Parameter defaults make every unused knob a no-op: `refuse_statuses=[]` never refuses,
-`patch_in_statuses=[]` makes `x IN []` false, and `patch_not_in={}` makes the always-true
-`NOT x IN []` branch merge nothing. `prior_key = coalesce(prior, '')` gives null-safe
+`require_statuses=[]` demands nothing (the explicit `size(...) = 0`, since an empty
+requirement must not read as "no prior qualifies"), `patch_in_statuses=[]` makes `x IN []`
+false, and `patch_not_in={}` makes the always-true `NOT x IN []` branch merge nothing. `prior_key = coalesce(prior, '')` gives null-safe
 membership; the raw `prior` is what comes back, and mapping an unrecognized value to
 "absent" stays with `_coerce_status` at the service.
+
+**Two gates, and the second is a precondition.** `refuse_if_prior_in` names the priors
+that refuse; `refuse_unless_prior_in` names the only ones that pass. Some rules are
+satisfied by exactly one prior — "a completion stamp requires a completed entity" — and
+enumerating its complement would both miss a node carrying NO status property (a vault
+file can erase one; the coalesced `''` is outside every enumeration) and go stale the day
+an `EntityStatus` member is added. Guard the precondition, not the enumeration.
 
 `updated_at` is stamped Python-side into `$updates`, so it rides the same conditional merge
 and a guarded-out write leaves the node byte-identical. All three payloads pass through
@@ -176,9 +186,33 @@ two to four such writers. The lock is the mechanism; the `CASE` merges alone are
     Scoped to patches that name a status, which is the whole of what is judgeable
     without reading the node. Demanding the status instead would be unsatisfiable rather
     than strict for Choice, whose update request exposes `completed_at` and no status
-    field. One prior-dependent half remains — a patch naming no status, which resolves
-    against a prior only the write can see — and is tracked in
-    `docs/roadmap/stranded-completion-stamp.md`.
+    field. The other half — a patch naming no status, which resolves against a prior only
+    the write can see — is closed by the amendment below.
+
+    **Amended 2026-09-07 — the bare-stamp half is closed at the write.** A patch that
+    carries a non-null stamp and names NO status (`PUT /api/tasks/{uid}` with
+    `{"completion_date": …}`; every `ChoiceUpdateRequest` that touches `completed_at`)
+    resolves against whatever status the node holds, so it is judged by the write:
+    `_bare_stamp_gate` hands it `refuse_unless_prior_in={completed}` and the five
+    stamping chokepoints convert the resulting `applied=False` into a validation error
+    naming the status the write actually saw (`stranded_stamp_error`).
+
+    **A refusal, not a silent clear** (ruled 2026-09-07). The write could equally have
+    dropped the contradicting stamp with a `patch_if_prior_not_in` — one function, no
+    contract change — and that is what the vault door and `TaskUpdateRequest` do when a
+    status IS named ("status wins"). It is the wrong answer here because the stamp is the
+    caller's ONLY edit: discarding it and answering 200 tells them nothing. The cost
+    accepted with the ruling is the `applied=False` → error conversion at five seams,
+    which `ChoicesCoreService.update_choice` already had for decision immutability — and
+    which now has to disambiguate, since a decided choice edited with a bare stamp
+    trips both gates (immutability is voiced, being the broader refusal).
+
+    **The rule demands a PRIOR, not a status in the same patch**, and that is what makes
+    it satisfiable at every door: `ChoiceUpdateRequest` exposes `completed_at` and no
+    status at all, so the same-patch form would have been unsatisfiable there rather than
+    strict — the mistake #1297 made and pulled back. The message names both remedies for
+    the same reason. Habit is the one stamping domain no door can reach: `HabitUpdateIntent`
+    carries no `completed_at`, so its seam reads `applied` for the contract, not a live rule.
 
     **Amended 2026-09-07 — the vault door's first ingest is closed.** A file authored
     `status: in_progress` beside a leftover `completion_date:` stranded a stamp on its

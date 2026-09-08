@@ -29,7 +29,7 @@ from core.models.type_hints import UserUID
 from core.ports.domain_protocols import HabitsOperations
 from core.ports.query_types import HabitStats
 from core.services.base_service import BaseService
-from core.services.completion_stamp import status_transition_guard
+from core.services.completion_stamp import status_transition_guard, stranded_stamp_error
 from core.services.domain_config import create_activity_domain_config
 from core.services.mixins.hierarchy_read_mixin import HierarchyReadMixin
 from core.services.mixins.link_edge_guard import (
@@ -628,9 +628,16 @@ class HabitsCoreService(
         if update_result.is_error:
             return Result.fail(update_result)
 
-        # This guard refuses nothing (``refuse_if_prior_in`` is empty), so the write
-        # always applied.
-        habit = update_result.value.entity
+        # The guard's only refuse condition here is the bare-stamp gate, and no door can
+        # currently reach it: ``HabitUpdateIntent`` carries no ``completed_at``, so the
+        # guard's own completion patch is the only writer of that property. Read anyway,
+        # because ``applied=False`` returns the UNCHANGED entity — reporting it as a
+        # success is how a refused write becomes a silent one — and because a future
+        # field on the intent would otherwise re-open the hole without a word.
+        outcome = update_result.value
+        if not outcome.applied:
+            return Result.fail(stranded_stamp_error(EntityType.HABIT, outcome.prior_status))
+        habit = outcome.entity
         await publish_event(
             self.event_bus,
             HabitUpdated(

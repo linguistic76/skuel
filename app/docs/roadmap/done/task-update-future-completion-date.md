@@ -1,6 +1,6 @@
 ---
 title: "TaskUpdateRequest Future completion_date — Create/Update Asymmetry"
-updated: 2026-09-07
+updated: 2026-09-08
 status: "ruled and shipped"
 registered: 2026-08-24
 ruled: 2026-09-07
@@ -33,8 +33,8 @@ the ruling.
    is non-null exactly when the task is completed. The update door enforced *neither*.
    R2's breach was a live bug rather than an unruled preference, and the judgeable half
    was fixed in the same change: a patch that sets a non-null stamp while NAMING a
-   non-completed status. See [Stranded Completion Stamp](../stranded-completion-stamp.md)
-   for the two prior-dependent halves it does not reach.
+   non-completed status. See [Stranded Completion Stamp](stranded-completion-stamp.md)
+   for the two prior-dependent halves it did not reach, both since closed.
 
 2. **The vector was reachable from the ordinary edit form**, not only the API:
    `completion_date` renders as "Completed on", a plain date input in the same

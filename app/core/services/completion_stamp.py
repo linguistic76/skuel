@@ -17,6 +17,13 @@ through a write-time guard (:func:`status_transition_guard`), Principle through
    the mutable ``updated_at``.
 3. **Transitions OUT of ``COMPLETED`` clear that field** (reopen) — the stamp is
    non-null exactly when the entity is completed.
+4. **A patch that would strand a stamp is refused**, in both of the shapes that
+   can produce one: naming a status other than ``COMPLETED`` alongside a non-null
+   stamp is contradictory on its face (:func:`_refuse_stranded_stamp`), and naming
+   NO status makes the same claim against a prior only the write can see, so it
+   travels as the prior the write requires (:func:`_bare_stamp_gate`) and comes
+   back as ``applied=False`` for the chokepoint to voice
+   (:func:`stranded_stamp_error`).
 
 The gate is the *transition*, not the presence of the status key: re-posting
 ``status=completed`` on an already-completed entity must not re-date it. An
@@ -69,13 +76,14 @@ from typing import Any
 
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.update_contracts import StatusWriteGuard
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import ErrorContext, Errors, Result
 
 __all__ = [
     "COMPLETION_FIELDS",
     "completion_moment",
     "is_completion_transition",
     "is_reopen_transition",
+    "stranded_stamp_error",
     "status_transition_guard",
     "validate_status_target",
 ]
@@ -264,11 +272,12 @@ def _refuse_stranded_stamp(
 
     Scoped to a patch that NAMES its status, which is the whole of what can be judged
     here: the resulting status is then known without reading the node, so this is a
-    plain refusal rather than a guard condition. A patch carrying a stamp and no status
-    resolves against the prior and is out of reach — see
-    ``docs/roadmap/stranded-completion-stamp.md``. Requiring the status instead would
-    make the rule unsatisfiable for Choice, whose update request exposes ``completed_at``
-    and no status at all.
+    plain refusal rather than a guard condition. A patch carrying a stamp and NO status
+    makes the same claim against a prior only the write can see, and is refused there
+    instead (:func:`_bare_stamp_gate`). Requiring the status here would not have reached
+    it either, and would have been unsatisfiable for Choice, whose update request exposes
+    ``completed_at`` and no status at all — which is why the sibling gate demands the
+    PRIOR rather than the patch.
 
     Two shapes stay legal, and both are the point: clearing (``None``) is the reopen
     rather than a completion claim, and re-posting ``completed`` alongside a corrected
@@ -299,6 +308,79 @@ def _refuse_stranded_stamp(
             field=field_name,
             value=changes[field_name],
         )
+    )
+
+
+def _bare_stamp_gate(
+    entity_type: EntityType,
+    # boundary: a materialized update patch (see the module note) — only ``status``'s
+    # VALUE is read, and ``_coerce_status`` narrows it; every other use is a key test.
+    changes: Mapping[str, Any],
+) -> frozenset[str]:
+    """The prior this patch's completion stamp requires, when it names no status.
+
+    The mirror of :func:`_refuse_stranded_stamp` for the half that cannot be judged from
+    the patch: ``{"completion_date": …}`` with no ``status`` resolves against whatever
+    status the node already holds, so on an open entity it strands a stamp that reads to
+    every consumer as done. What the patch DOES say is that the entity is completed —
+    so the write demands exactly that prior, and refuses anything else.
+
+    Stated as a precondition (``refuse_unless_prior_in``) rather than an enumerated
+    complement: a node whose ``status`` property was erased — which a vault file can do —
+    is not "in" any enumeration of open statuses, and the complement would go stale the
+    day an ``EntityStatus`` member is added.
+
+    Returns an EMPTY set — demanding nothing — for every other shape:
+
+    - a patch that names a status is judged without reading the node
+      (:func:`_refuse_stranded_stamp` refuses it, or it legitimately completes);
+    - a patch that clears the stamp (``None``) makes no completion claim;
+    - a domain with no completion field (Principle) has no stamp to strand.
+
+    Why a refusal and not a silent clear: here the stamp IS the caller's edit. Dropping
+    it would discard the only field they sent and answer 200. ADR-087 holds the record.
+    """
+    spec = _STAMP_SPECS.get(entity_type)
+    if spec is None:
+        return frozenset()
+    field_name, _stamp_factory = spec
+    if changes.get(field_name) is None or "status" in changes:
+        return frozenset()
+    return frozenset({EntityStatus.COMPLETED.value})
+
+
+def stranded_stamp_error(
+    entity_type: EntityType,
+    prior_status: str | None,
+) -> ErrorContext:
+    """The message a chokepoint gives back when the bare-stamp gate refused its write.
+
+    The refusal is an *outcome* of the write (``applied=False``), read off the prior the
+    statement captured under the node's lock — so the message can name the status that
+    actually refused it rather than one read beforehand. Sourced here, once, so all five
+    stamping chokepoints say the same thing.
+
+    **The remedy names both routes, because no single one is open at every door.**
+    ``TaskUpdateRequest`` and ``EventUpdateRequest`` carry a status and can satisfy this
+    in one call; ``ChoiceUpdateRequest`` exposes ``completed_at`` and no status at all,
+    so a choice is completed through its status endpoint first and dated after. A message
+    naming only the same-update route would be an instruction that door cannot follow.
+
+    Args:
+        entity_type: The Activity domain whose write was refused.
+        prior_status: The status the node held at write time; ``None`` when it carries
+            no status property at all.
+    """
+    field_name = COMPLETION_FIELDS[entity_type]
+    holds = f"is '{prior_status}'" if prior_status else "has no status"
+    return Errors.validation(
+        message=(
+            f"{field_name} can only be set on a completed {entity_type.value}; "
+            f"this one {holds}. Complete it first, or name "
+            f"status={EntityStatus.COMPLETED.value} in the same update."
+        ),
+        field=field_name,
+        value=prior_status,
     )
 
 
@@ -353,16 +435,22 @@ def status_transition_guard(
       (the reopen);
     - no status key, a domain with no completion field, or an update that supplies
       the field itself → a guard with no patches (an ordinary write that still
-      returns its prior).
+      returns its prior) — carrying, when that patch sets a bare stamp, the prior it
+      demands (:func:`_bare_stamp_gate`).
 
     Only the caller knows the target, so the guard never needs to tell the backend
     what ``completed`` means — every condition is set-membership of the prior.
 
-    A patch that sets a non-null stamp while naming a status other than ``COMPLETED``
-    is refused outright (:func:`_refuse_stranded_stamp`): the authority rule stands the
-    guard down on any patch carrying the field, so absent that refusal the reopen clear
-    does not fire and the entity keeps a completion stamp while open. The refusal is
-    the guard's alone — :func:`validate_status_target` shares only the legality check.
+    **Both stranded-stamp shapes are refused, at the layer each is knowable.** A patch
+    that sets a non-null stamp while naming a status other than ``COMPLETED`` is refused
+    outright here (:func:`_refuse_stranded_stamp`) — the authority rule stands the guard
+    down on any patch carrying the field, so absent that refusal the reopen clear does
+    not fire and the entity keeps a completion stamp while open. A patch that sets one
+    and names no status resolves against the prior, so it cannot be judged here at all:
+    it becomes ``refuse_unless_prior_in={completed}`` and the write refuses it, reporting
+    ``applied=False`` for the chokepoint to convert with :func:`stranded_stamp_error`.
+    Both refusals are the guard's alone — :func:`validate_status_target` shares only the
+    legality check.
 
     Args:
         entity_type: The Activity domain being updated.
@@ -381,7 +469,12 @@ def status_transition_guard(
     if stranded.is_error:
         return Result.fail(stranded)
     if target.value is None:
-        return Result.ok(StatusWriteGuard())
+        # The one branch a bare stamp can reach: no status key means no stamp target,
+        # so the gate travels to the write as the prior it requires. Every other return
+        # below is reached only with a status in the patch, where the gate is empty.
+        return Result.ok(
+            StatusWriteGuard(refuse_unless_prior_in=_bare_stamp_gate(entity_type, changes))
+        )
 
     new_status, field_name, stamp_factory = target.value
     completed = frozenset({EntityStatus.COMPLETED.value})

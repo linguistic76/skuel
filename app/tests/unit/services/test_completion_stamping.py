@@ -30,6 +30,7 @@ Three layers, matching how the stamp actually reaches the graph:
 
 from __future__ import annotations
 
+import dataclasses
 from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, Mock
@@ -236,6 +237,34 @@ class TestTasksChokepoint:
         backend.get.assert_not_awaited()
         assert recorder.calls[-1][2].has_patches() is True
 
+    async def test_a_bare_stamp_on_an_open_task_is_refused(self):
+        """The half the guard cannot judge from the patch (ADR-087).
+
+        ``{"completion_date": …}`` with no status resolves against whatever the node
+        holds, so the claim travels as the prior the write requires and comes back
+        ``applied=False`` — which this seam owes the caller as a message.
+        """
+        service, _backend, recorder = self._service(EntityStatus.ACTIVE)
+        result = await service.update_task(
+            "task_1", TaskUpdateIntent(completion_date=date(2026, 3, 4))
+        )
+        assert result.is_error
+        assert recorder.last_guard.refuse_unless_prior_in == frozenset({"completed"})
+        assert "completion_date can only be set on a completed task" in (
+            result.expect_error().message
+        )
+        assert "'active'" in result.expect_error().message
+
+    async def test_a_bare_stamp_on_a_completed_task_re_dates_it(self):
+        """The shape the gate exists to preserve: correcting the date of a task that
+        IS completed needs no status in the patch."""
+        service, _backend, recorder = self._service(EntityStatus.COMPLETED)
+        result = await service.update_task(
+            "task_1", TaskUpdateIntent(completion_date=date(2026, 3, 4))
+        )
+        assert result.is_ok
+        assert recorder.merged_patch()["completion_date"] == date(2026, 3, 4)
+
     async def test_a_failed_priority_read_still_fails_the_update(self):
         """The advisory read survives for the overdue-priority rule, and a
         transient failure there must not be read as "no rule applies"."""
@@ -293,6 +322,25 @@ class TestGoalsChokepoint:
         result = await service.update_goal("goal_1", GoalUpdateIntent(status="active"))
         assert result.is_ok
         assert recorder.merged_patch()["achieved_date"] is None
+
+    async def test_a_bare_stamp_on_an_open_goal_is_refused(self):
+        service, _backend, recorder = self._service(EntityStatus.ACTIVE)
+        result = await service.update_goal(
+            "goal_1", GoalUpdateIntent(achieved_date=date(2026, 3, 4))
+        )
+        assert result.is_error
+        assert recorder.last_guard.refuse_unless_prior_in == frozenset({"completed"})
+        assert "achieved_date can only be set on a completed goal" in (
+            result.expect_error().message
+        )
+
+    async def test_a_bare_stamp_on_an_achieved_goal_re_dates_it(self):
+        service, _backend, recorder = self._service(EntityStatus.COMPLETED)
+        result = await service.update_goal(
+            "goal_1", GoalUpdateIntent(achieved_date=date(2026, 3, 4))
+        )
+        assert result.is_ok
+        assert recorder.merged_patch()["achieved_date"] == date(2026, 3, 4)
 
     async def test_reopen_resets_progress_percentage(self):
         # Without the reset a reopened goal stays a "100% complete" ACTIVE goal —
@@ -566,6 +614,20 @@ class TestHabitsChokepoint:
         assert result.is_ok
         assert recorder.merged_patch()["completed_at"] is None
 
+    async def test_no_door_can_hand_this_seam_a_bare_stamp(self):
+        """Habit is the one stamping domain with no bare-stamp door: its update intent
+        carries no ``completed_at``, so the only writer of that property is the guard's
+        own completion patch. The seam still converts ``applied=False`` — that is the
+        primitive's contract, and an unread refusal would return the UNCHANGED entity as
+        a success — but nothing can currently reach it.
+
+        If ``completed_at`` is added to ``HabitUpdateIntent``, this test fails: that is
+        the moment to add the refusal test the other four domains have.
+        """
+        from core.models.habit.habit_update_intent import HabitUpdateIntent as _Intent
+
+        assert "completed_at" not in {f.name for f in dataclasses.fields(_Intent)}
+
     async def test_the_streak_rule_still_fires_and_still_refuses(self):
         """Habits was already Shape A — its explicit ``_validate_habit_update`` call
         survives the write swap, and so does the transient ``force_archive`` bypass."""
@@ -632,6 +694,17 @@ class TestEventsChokepoint:
         result = await service.update_event("event_1", EventUpdateIntent(status="active"))
         assert result.is_ok
         assert recorder.merged_patch()["completed_at"] is None
+
+    async def test_a_bare_stamp_on_an_open_event_is_refused(self):
+        service, _backend, recorder = self._service(EntityStatus.ACTIVE)
+        result = await service.update_event(
+            "event_1", EventUpdateIntent(completed_at=datetime(2026, 3, 4, 9, 0))
+        )
+        assert result.is_error
+        assert recorder.last_guard.refuse_unless_prior_in == frozenset({"completed"})
+        assert "completed_at can only be set on a completed event" in (
+            result.expect_error().message
+        )
 
     async def test_past_event_immutability_still_fires_and_still_refuses(self):
         """Events' rule reads ``current.event_date`` and applies to EVERY field of
@@ -734,6 +807,45 @@ class TestChoicesChokepoint:
         result = await service.update_choice("choice_1", ChoiceUpdateIntent(status="paused"))
         assert result.is_error
         backend.update_with_status_guard.assert_not_awaited()
+
+    async def test_a_bare_stamp_on_an_undecided_choice_is_refused(self):
+        """Choice is the door that makes this rule's SHAPE load-bearing:
+        ``ChoiceUpdateRequest`` exposes ``completed_at`` and no status at all, so a rule
+        demanding the status in the same patch would be unsatisfiable here rather than
+        strict. Demanding the PRIOR is satisfiable — decide and complete the choice,
+        then date it — which is what the message says."""
+        service, _backend, recorder = self._service(EntityStatus.DRAFT)
+        result = await service.update_choice(
+            "choice_1", ChoiceUpdateIntent(completed_at=datetime(2026, 3, 4, 9, 0))
+        )
+        assert result.is_error
+        assert recorder.last_guard.refuse_unless_prior_in == frozenset({"completed"})
+        assert "Complete it first" in result.expect_error().message
+
+    async def test_immutability_outranks_the_stamp_gate_when_both_refuse(self):
+        """Both gates can be in force at once — a critical-field edit carrying a bare
+        stamp, over a prior that is both decided and not completed. The broader refusal
+        is the one voiced: this choice may not change at all, which is more than "that
+        one field needs another prior".
+
+        Driven through the same race the pre-read cannot see (``make_decision`` moves a
+        DRAFT choice to ACTIVE without passing here), because a decided prior the
+        pre-read CAN see is refused before the write.
+        """
+        service, backend, recorder = self._service(EntityStatus.ACTIVE)
+        backend.get = AsyncMock(
+            return_value=Result.ok(
+                Choice(uid="choice_1", user_uid=USER, title="c", status=EntityStatus.DRAFT)
+            )
+        )
+        result = await service.update_choice(
+            "choice_1",
+            ChoiceUpdateIntent(choice_type="reversible", completed_at=datetime(2026, 3, 4, 9, 0)),
+        )
+        assert result.is_error
+        assert recorder.last_guard.refuse_if_prior_in == frozenset({"active", "completed"})
+        assert recorder.last_guard.refuse_unless_prior_in == frozenset({"completed"})
+        assert "Decisions are historical records" in result.expect_error().message
 
     async def test_decision_immutability_still_fires_and_still_refuses(self):
         """The pre-read half of the rule: dropping the explicit ``_validate_update``

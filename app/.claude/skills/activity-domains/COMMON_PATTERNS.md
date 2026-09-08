@@ -109,16 +109,21 @@ How it flows:
   gate is target-only legality, prior-independent, so there is no race to close, and it
   calls `validate_status_target(EntityType.PRINCIPLE, changes)` for that check alone
   (ADR-087 § Scope).
-- **A patch that sets a non-null completion stamp while naming any status other than
-  `completed` is refused** (`_refuse_stranded_stamp`). Supplying the stamp field stands
-  the guard's own patches down — the authority rule, so an explicit complete can carry
-  its own date — which means such a patch otherwise takes the reopen without its clear
-  and leaves the entity open and still stamped. Clearing (`None`) and re-posting
-  `completed` with a corrected date both stay legal, as does a patch that names no
-  status (it resolves against the prior; `ChoiceUpdateRequest` can send nothing else).
-  The refusal is the guard's alone: `validate_status_target` keeps only the legality
-  check, because the ingestion validator shares it and a vault file with a stale
-  `completion_date:` beside an open status must be ingested and cleaned, not refused.
+- **A non-null completion stamp is refused unless the entity is completed**, in both
+  shapes. Supplying the stamp field stands the guard's own patches down — the authority
+  rule, so an explicit complete can carry its own date — which means such a patch would
+  otherwise take the reopen without its clear and leave the entity open and still
+  stamped. A patch that NAMES a status other than `completed` is refused from the patch
+  alone (`_refuse_stranded_stamp`); a patch that names NO status resolves against the
+  prior, so it travels to the write as `refuse_unless_prior_in={completed}`
+  (`_bare_stamp_gate`) and comes back `applied=False` for the chokepoint to voice with
+  `stranded_stamp_error`. Demanding the status in the same patch would have been
+  unsatisfiable rather than strict for `ChoiceUpdateRequest`, which exposes `completed_at`
+  and no status — demanding the PRIOR is satisfiable at every door. Clearing (`None`) and
+  re-posting `completed` with a corrected date both stay legal. Both refusals are the
+  guard's alone: `validate_status_target` keeps only the legality check, because the
+  ingestion validator shares it and a vault file with a stale `completion_date:` beside
+  an open status must be ingested and cleaned, not refused.
 - ⚠ **A `# raw-write:` is not an exemption from the guard.** A writer that sets a status
   outside its domain chokepoint (`make_decision`, `miss_habit_event`,
   `unblock_task_if_ready`, the four `GoalsProgressService` progress writers) keeps its raw

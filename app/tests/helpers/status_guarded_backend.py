@@ -6,7 +6,8 @@ write hands back. They cannot use the real backend, and a bare ``AsyncMock`` wou
 let a service assert nothing about the guard it just built.
 
 So this fake evaluates the guard the way the Cypher does, against a status it holds
-in memory: refuse-set first, then the two conditional patches, then the base patch.
+in memory: both refuse gates first (the set of priors that refuse, and the set a
+non-empty precondition demands), then the two conditional patches, then the base patch.
 It returns a real :class:`StatusGuardedOutcome` carrying the prior it saw. What it
 deliberately does NOT model is the mechanism that makes the real thing correct — the
 node write-lock. Concurrency and the storage shapes the merge produces are pinned
@@ -45,6 +46,20 @@ def prior_status_of(entity: Any) -> str | None:  # boundary: model-or-dict row s
     return value if isinstance(value, str) else None
 
 
+def guard_refuses(prior: str | None, guard: StatusWriteGuard) -> bool:
+    """Whether this guard's refuse gates reject this prior — the Cypher's ``applied``.
+
+    Both gates, in the same conjunction the statement uses: a prior IN
+    ``refuse_if_prior_in`` refuses, and so does one OUTSIDE a non-empty
+    ``refuse_unless_prior_in``. An empty precondition demands nothing. ``None`` (the
+    property absent) is outside every non-empty set, exactly as the Cypher's coalesced
+    ``''`` is — which is the case the precondition gate exists to catch.
+    """
+    if prior in guard.refuse_if_prior_in:
+        return True
+    return bool(guard.refuse_unless_prior_in) and prior not in guard.refuse_unless_prior_in
+
+
 def resolve_merged_patch(
     prior: str | None,
     updates: Mapping[str, Any],  # boundary: pre-serialization patch
@@ -57,7 +72,7 @@ def resolve_merged_patch(
     byte-identical. One implementation, so every fake below resolves a guard the
     same way.
     """
-    if prior in guard.refuse_if_prior_in:
+    if guard_refuses(prior, guard):
         return {}
     merged = dict(updates)
     if guard.patch_if_prior_in is not None:
@@ -125,7 +140,7 @@ class StatusGuardedWriteRecorder[T]:
         # as an un-awaited coroutine.
         self.calls.append((uid, dict(updates), guard))
         prior = self._prior_status()
-        applied = prior not in guard.refuse_if_prior_in
+        applied = not guard_refuses(prior, guard)
         return Result.ok(
             StatusGuardedOutcome(
                 applied=applied,
@@ -173,7 +188,7 @@ def echoing_guarded_write(backend: Mock) -> AsyncMock:
         written = backend.update.return_value
         if written.is_error:
             return written
-        applied = prior not in guard.refuse_if_prior_in
+        applied = not guard_refuses(prior, guard)
         return Result.ok(
             StatusGuardedOutcome(
                 applied=applied,
@@ -221,7 +236,7 @@ class GuardedRowStore[T]:
         if stored is None:
             return Result.fail(Errors.not_found("resource", f"Entity {uid} not found"))
         prior = prior_status_of(stored)
-        applied = prior not in guard.refuse_if_prior_in
+        applied = not guard_refuses(prior, guard)
         if applied:
             self.merged[uid] = resolve_merged_patch(prior, updates, guard)
         return Result.ok(StatusGuardedOutcome(applied=applied, prior_status=prior, entity=stored))

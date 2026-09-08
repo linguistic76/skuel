@@ -196,8 +196,10 @@ class TaskUpdateRequest(UpdateRequestBase):
         what the user changed, so status wins.
 
         Untouched when no status is named: such a patch resolves against the task's
-        prior state, which this model cannot see (see
-        ``docs/roadmap/stranded-completion-stamp.md``).
+        prior state, which this model cannot see. It is not unchecked — the write demands
+        a completed prior for it and refuses anything else
+        (``core.services.completion_stamp._bare_stamp_gate``), which is the rule stated
+        where the prior is actually known.
 
         **The refusal**, applied to whatever survives the clear — as on create. A
         task claiming it was completed on a day that has not arrived is not the

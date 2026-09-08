@@ -163,6 +163,81 @@ class TestStatusGuardedUpdate:
         assert result.value.applied is True
         assert result.value.entity.status == EntityStatus.SCHEDULED
 
+    async def test_the_precondition_gate_refuses_every_prior_outside_it(
+        self, backend, seed, neo4j_driver
+    ):
+        """``refuse_unless_prior_in`` — the bare-stamp gate's shape.
+
+        The rule is "a completion stamp requires a completed entity", which is a
+        statement about ONE prior. Enumerating its complement into
+        ``refuse_if_prior_in`` would go stale the day an ``EntityStatus`` member is
+        added, so the requirement travels as itself.
+        """
+        uid = await seed(EntityStatus.ACTIVE)
+        before = await self._props(neo4j_driver, uid)
+
+        result = await backend.update_with_status_guard(
+            uid,
+            {"completion_date": date(2026, 3, 4)},
+            StatusWriteGuard(refuse_unless_prior_in=_COMPLETED),
+        )
+
+        assert result.is_ok, "a guarded-out write is an outcome, not an error"
+        assert result.value.applied is False
+        assert result.value.prior_status == EntityStatus.ACTIVE.value
+        assert await self._props(neo4j_driver, uid) == before
+
+    async def test_the_required_prior_passes_the_precondition_gate(
+        self, backend, seed, neo4j_driver
+    ):
+        uid = await seed(EntityStatus.COMPLETED)
+
+        result = await backend.update_with_status_guard(
+            uid,
+            {"completion_date": date(2026, 3, 4)},
+            StatusWriteGuard(refuse_unless_prior_in=_COMPLETED),
+        )
+
+        assert result.is_ok
+        assert result.value.applied is True
+        assert (await self._props(neo4j_driver, uid))["completion_date"] == "2026-03-04"
+
+    async def test_a_node_with_no_status_property_is_refused_too(self, backend, seed, neo4j_driver):
+        """The case an enumerated complement silently lets through, and the whole
+        reason this gate is stated as a requirement.
+
+        A vault file whose ``status:`` line is empty REMOVES the property, so a node
+        with no status at all is reachable — and it is not completed, so a stamp must
+        not land on it. In Cypher the prior coalesces to ``''``, which is outside the
+        requirement.
+        """
+        uid = await seed(EntityStatus.ACTIVE)
+        async with neo4j_driver.session() as session:
+            await session.run("MATCH (n:Entity {uid: $uid}) REMOVE n.status", uid=uid)
+
+        result = await backend.update_with_status_guard(
+            uid,
+            {"completion_date": date(2026, 3, 4)},
+            StatusWriteGuard(refuse_unless_prior_in=_COMPLETED),
+        )
+
+        assert result.is_ok
+        assert result.value.applied is False
+        assert result.value.prior_status is None
+        assert "completion_date" not in await self._props(neo4j_driver, uid)
+
+    async def test_an_empty_precondition_demands_nothing(self, backend, seed):
+        """The default has to be "no requirement", not "no prior qualifies"."""
+        uid = await seed(EntityStatus.ACTIVE)
+
+        result = await backend.update_with_status_guard(
+            uid, {"title": "ordinary"}, StatusWriteGuard()
+        )
+
+        assert result.is_ok
+        assert result.value.applied is True
+        assert result.value.entity.title == "ordinary"
+
     async def test_guarded_out_and_not_found_are_distinguishable(self, backend, seed):
         """One query leg tells them apart: a row proves existence, no row proves absence."""
         uid = await seed(EntityStatus.CANCELLED)

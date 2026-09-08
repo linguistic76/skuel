@@ -1,6 +1,6 @@
 ---
 title: Documentation Index
-updated: 2026-09-07
+updated: 2026-09-08
 status: current
 category: index
 tags: [index, navigation, documentation]
@@ -461,6 +461,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 
 | Document | Completed | Description |
 |----------|-----------|-------------|
+| [Stranded Completion Stamp](roadmap/done/stranded-completion-stamp.md) | 2026-09-07 | The two halves of "non-null exactly when completed" that need the PRIOR, both closed (#1298, #1299). The vault door's clear stopped being gated on a transition out of `completed` — a file authored open beside a stamp has no prior to transition from — and a patch carrying a stamp with no status now travels to the write as `refuse_unless_prior_in={completed}`, refused with a message naming the status the write saw. Ruled: a refusal, not a silent clear, because there the stamp is the caller's only edit. Measured on AuraDB before building: zero stranded stamps live |
 | [`TaskUpdateRequest` Future `completion_date`](roadmap/done/task-update-future-completion-date.md) | 2026-09-07 | The create/update asymmetry, ruled: the update door refuses a future completion stamp too, since the habits precedent (a future *occurrence* is real) does not reach a task claiming it was *completed* next year. The investigation found the create door enforcing TWO rules and the update door neither — the second, "non-null exactly when completed", was a live bug that let a reopen keep its stamp, now refused at the ADR-087 guard for all five stamping domains. Reachable from the edit form's "Completed on" input, not just the API |
 | [Activity Templates Get a Vault Door](roadmap/done/activity-templates-vault-door.md) | 2026-09-06 | All 3 PRs (#1283, #1284, PR-3): the 6 Activity Templates leave the teacher CRUD forms for the vault. Zero templates existed because their only door was the surface the Activity instances deleted in March 2026. PR-1 opened the ingest door (six configs, the offset gate, six `HAS_*_TEMPLATE` registry entries, the held `event_template_uids` rename), PR-2 built the `_tmpl.md` authoring surface + its derivation-tested guide, PR-3 deleted the forms and finally surfaced the read-only panel — which had never been mounted |
 | [Quarterly / Yearly Periodic Notes](roadmap/done/quarterly-yearly-periodic-notes.md) | 2026-09-05 | The two widest periodic notes, built on Mike's ruling after the founder-vault gate was re-derived and found unfired (`0` files, both templates unauthored — the seeded specimens that now make it `2` are proof, not lived use). `PERIODIC_NOTE_KINDS` widened to five, which switches on four behaviours at once; `quarter_of`/`year_of` derivation; two find-or-create doors; month-sub-headed panels; and the sidebar period ladder that was their only door |

@@ -65,7 +65,9 @@ recorder.merged_patch()    # what the write would merge for THIS prior
 `guarded_rows_backend(rows)` is the multi-row form (per-row loops such as bulk completion),
 and `echoing_guarded_write(backend)` adapts fixtures that configure `get`/`update` return
 values. `resolve_merged_patch(prior, updates, guard)` resolves a guard by hand — the
-Cypher's CASE arms in one place, so no test re-implements them. ⚠ `StatusWriteGuard` is not
+Cypher's CASE arms in one place, so no test re-implements them — and
+`guard_refuses(prior, guard)` answers the refusal verdict alone, both gates
+(`refuse_if_prior_in`, and a prior outside a non-empty `refuse_unless_prior_in`). ⚠ `StatusWriteGuard` is not
 hashable (its patch holds a dict) — assert guard identity, never set membership.
 
 ⚠ **A fake driven by `backend.get` cannot test a transition verdict.** It answers the guard
