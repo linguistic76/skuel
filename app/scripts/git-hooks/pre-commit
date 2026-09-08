@@ -62,9 +62,9 @@ green()  { printf '\033[32m%s\033[0m\n' "$*"; }
 
 repo_root="$(git rev-parse --show-toplevel)"
 
-# Resolve this hook's own directory so the shared scan is found whether git
-# reaches the hook through core.hooksPath or through a .git/hooks symlink —
-# realpath follows the symlink to this file.
+# Resolve this hook's own directory, so the shared scan is found as a sibling
+# regardless of the path git invoked the hook by. realpath, because dirname of
+# a symlink gives the link's directory rather than the script's.
 hook_dir="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]:-$0}")")" && pwd)"
 fail=0
 

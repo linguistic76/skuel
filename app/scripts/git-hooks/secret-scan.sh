@@ -118,11 +118,12 @@ mapfile -t catalog_keys < <(read_data_file "$catalog_file")
 # mapping (`KEY: value`) still matches by skipping the group.
 _ident="[A-Za-z_][A-Za-z0-9_.]*(\[[^]]*\])?"
 sep="[[:space:]]*\]?[[:space:]]*(:[[:space:]]*${_ident}[[:space:]]*)?[=:][[:space:]]*"
-# A comment prefix is allowed before the name: a credential parked in a commented
-# config example (`# NEO4J_PASSWORD=…`) is in the history exactly as much as an
-# uncommented one.
-_comment="(([#;]+|//|--|\*)[[:space:]]*)?"
-assign_lead_for()  { printf '^\\+{1,2}[[:space:]]*%s(export[[:space:]]+)?%s%s' "$_comment" "$1" "$sep"; }
+# A line marker is allowed before the name. `#`, `//`, `--`, `;` and `*` are
+# comments — a credential parked in a commented config example is in the history
+# exactly as much as an uncommented one. A single `-` is the YAML sequence item
+# compose uses for env lists (`- GF_SECURITY_ADMIN_PASSWORD=…`).
+_marker="(([#;]+|//|--?|\*)[[:space:]]*)?"
+assign_lead_for()  { printf '^\\+{1,2}[[:space:]]*%s(export[[:space:]]+)?%s%s' "$_marker" "$1" "$sep"; }
 literal_lead_for() { printf '^\\+{1,2}.*[\"'"'"']%s[\"'"'"']%s' "$1" "$sep"; }
 
 # ---------------------------------------------------------------------------

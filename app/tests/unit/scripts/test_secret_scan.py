@@ -450,6 +450,15 @@ NON_FUNNEL_KEYS = {
     # registration; DO_MIGRATION_GUIDE.md calls it the throttle on node-cap growth
     # and LLM-cost abuse.
     "SIGNUP_INVITE_CODE",
+    # Credential env keys the deployed services read, enumerated from the compose
+    # files. Each is an interpolation there today, so a literal in its place is the
+    # leak. app/docker-compose.yml lines 114, 136, 142, 171, 224.
+    "MYSQL_PASSWORD",
+    "DB_PASSWORD",
+    "APP_KEY",
+    "FIREFLY_III_ACCESS_TOKEN",
+    "GF_SECURITY_ADMIN_PASSWORD",
+    "GRAFANA_PASSWORD",
 }
 
 
@@ -501,6 +510,21 @@ class TestCatalogDrift:
         """It decrypts every other credential, so it is the highest-value single line."""
         assert detects(f"SKUEL_MASTER_KEY={base64url_secret()}")
         assert not detects("SKUEL_MASTER_KEY=${SKUEL_MASTER_KEY}")
+
+    def test_the_deployed_service_credentials_are_scanned(self) -> None:
+        """A compose interpolation replaced by a literal is the leak these cover."""
+        assert detects(f"      MYSQL_PASSWORD: {base64url_secret()}")
+        assert detects(f"      FIREFLY_III_ACCESS_TOKEN: {base64url_secret()}")
+        assert detects(f"      - GF_SECURITY_ADMIN_PASSWORD={base64url_secret()}")
+        # The interpolations they are today stay clean.
+        assert not detects(
+            "      MYSQL_PASSWORD: ${FIREFLY_DB_PASSWORD:-firefly-local-dev}",
+            "      DB_PASSWORD: ${FIREFLY_DB_PASSWORD:-firefly-local-dev}",
+            "      APP_KEY: ${FIREFLY_APP_KEY}              # MUST start with base64:",
+            "      FIREFLY_III_ACCESS_TOKEN: ${FIREFLY_PAT_SKUEL:-}",
+            "      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}",
+            '      MYSQL_RANDOM_ROOT_PASSWORD: "yes"',
+        )
 
     def test_the_signup_gate_is_scanned(self) -> None:
         """A leaked invite code opens registration — it is a secret, not config."""
