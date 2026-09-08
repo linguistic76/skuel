@@ -95,15 +95,23 @@ class StatusWriteGuard:
         refuse_if_prior_in: Whole-write gate. When the prior status is in this set the
             node is left byte-identical and the outcome reports ``applied=False`` —
             an outcome, not an error.
+        refuse_unless_prior_in: The same gate stated as a **precondition**: an empty set
+            demands nothing, a non-empty one refuses every prior outside it. It exists
+            because some rules are satisfied by exactly one prior — "a completion stamp
+            requires a completed entity" — and enumerating the complement would both miss
+            an entity carrying NO status property (a vault file can erase one) and go
+            stale the day an ``EntityStatus`` member is added. Guard the precondition,
+            not the enumeration.
         patch_if_prior_in: ``(statuses, patch)`` — merge ``patch`` only when the prior
             status IS in ``statuses`` (the reopen clear: ``{stamp_field: None}``, which
             REMOVES the property).
-        patch_if_prior_not_in: ``(statuses, patch)`` — merge ``patch`` only when the
-            prior status is NOT in ``statuses`` (the completion stamp, so re-posting
+        patch_if_prior_not_in: ``(statuses, patch)`` — merge ``patch`` only when the prior
+            status is NOT in ``statuses`` (the completion stamp, so re-posting
             ``completed`` never re-dates).
     """
 
     refuse_if_prior_in: frozenset[str] = frozenset()
+    refuse_unless_prior_in: frozenset[str] = frozenset()
     patch_if_prior_in: tuple[frozenset[str], Neo4jProperties] | None = None
     patch_if_prior_not_in: tuple[frozenset[str], Neo4jProperties] | None = None
 
@@ -123,8 +131,11 @@ class StatusGuardedOutcome[T]:
 
     Attributes:
         applied: ``False`` when the guard refused the write (prior in
-            ``refuse_if_prior_in``); the node is untouched. Not an error — a
-            not-found entity is the error.
+            ``refuse_if_prior_in``, or outside a non-empty ``refuse_unless_prior_in``);
+            the node is untouched. An outcome, not an error — a not-found entity is the
+            error. A service whose guard carries a refuse condition owes the caller a
+            message, so it converts this into one (``ChoicesCoreService.update_choice``,
+            the five Activity stamping chokepoints).
         prior_status: The status the node held at write time, read under its
             write-lock. ``None`` when the property was absent.
         entity: The post-write node when applied; the unchanged node when refused.

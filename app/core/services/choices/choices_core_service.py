@@ -31,7 +31,7 @@ from core.models.type_hints import Neo4jProperties, UserUID
 from core.models.update_contracts import StatusWriteGuard
 from core.ports.query_types import ChoiceStats
 from core.services.base_service import BaseService
-from core.services.completion_stamp import status_transition_guard
+from core.services.completion_stamp import status_transition_guard, stranded_stamp_error
 from core.services.conversion_service import ConversionServiceV2
 from core.services.domain_config import create_activity_domain_config
 from core.services.mixins.hierarchy_read_mixin import HierarchyReadMixin
@@ -663,10 +663,15 @@ class ChoicesCoreService(
 
         outcome = update_result.value
         if not outcome.applied:
-            # The guard's refuse set IS this rule's prior-status half, so a refused write
-            # means the choice was decided between the pre-read and the write. Same rule,
-            # same message — sourced from the status the write actually saw.
-            return Result.fail(_decision_immutability_error(outcome.prior_status, changes))
+            # TWO rules can refuse this write, so the message is chosen from the prior the
+            # write saw rather than assumed. Decision immutability is asked first because
+            # it is the broader refusal — this choice may not change at all — while the
+            # bare-stamp gate says only that ``completed_at`` needs a completed prior.
+            # The same check that ran as a pre-read fast path, now against the exact status.
+            immutability = _decision_immutability_check(outcome.prior_status, changes)
+            if immutability.is_error:
+                return Result.fail(immutability)
+            return Result.fail(stranded_stamp_error(EntityType.CHOICE, outcome.prior_status))
 
         choice = outcome.entity
 
@@ -845,7 +850,8 @@ class ChoicesCoreService(
         if result.is_error:
             return Result.fail(result)
 
-        # This guard refuses nothing, so the write always applied.
+        # The patch names its own status, so the bare-stamp gate is empty and this
+        # guard carries no refuse condition — the write always applied.
         choice = self._to_domain_model(result.value.entity, ChoiceDTO, Choice)
 
         # Publish ChoiceMade event

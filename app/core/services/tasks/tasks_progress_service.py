@@ -341,8 +341,10 @@ class TasksProgressService(BaseService["TasksOperations", Task]):
         if update_result.is_error:
             return Result.fail(update_result)
 
-        # The guard refuses nothing (``refuse_if_prior_in`` is empty), so the write
-        # always applied; the prior it returned is what is news. One evaluation, two
+        # This patch names its status, so neither refuse condition is in force (no
+        # terminal set here, and the bare-stamp gate applies only to a patch that
+        # names none) — the write always applied; the prior it returned is what is
+        # news. One evaluation, two
         # consumers: the stamp the guard offered and ``TaskCompleted.is_repeat`` below
         # must agree on what counts as completing, and both now read the same prior.
         outcome = update_result.value
