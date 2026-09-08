@@ -81,10 +81,11 @@ deployment plan).
 > with `git config core.hooksPath app/scripts/git-hooks` from the repo root) blocks staged
 > `.env*` files (`.env.*.example` templates allowed) and pipes added lines into
 > `scripts/git-hooks/secret-scan.sh`, shared with `pre-push`. That scan matches both credential
-> *content* (provider key prefixes) and credential *assignment* — any name in
-> `CredentialSetup.CREDENTIALS` given a non-placeholder value, which is how the prefix-free
-> keys (Deepgram, AuraDB password, `SESSION_SECRET_KEY`) get caught. `SKUEL_ALLOW_SECRETS=1`
-> bypasses. The detect-secrets/baseline approach below remains an option if the home-grown
+> *content* (provider key prefixes) and credential *assignment* — any credential-bearing name
+> given a non-placeholder value, which is how the prefix-free keys (Deepgram, AuraDB password,
+> `SESSION_SECRET_KEY`, Compose's `NEO4J_AUTH`) get caught. The names mirror
+> `CredentialSetup.CREDENTIALS` plus a declared set outside the funnel, pinned by a drift test.
+> `SKUEL_ALLOW_SECRETS=1` bypasses. The detect-secrets/baseline approach below remains an option if the home-grown
 > patterns prove too narrow; the CI-side history scan (trufflehog/gitleaks) is still open —
 > see item 5.
 
