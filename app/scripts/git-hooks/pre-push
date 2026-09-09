@@ -19,8 +19,8 @@
 #   SKUEL_ALLOW_SECRETS=1 git push ...     # skip secret scan
 #   git push --no-verify ...               # skip ALL pre-push checks
 #
-# Install (idempotent):  app/scripts/install_git_hooks.sh
-# See:                    app/scripts/git-hooks/README.md
+# Install:  git config core.hooksPath app/scripts/git-hooks   (from the repo root)
+# See:      app/scripts/git-hooks/README.md
 
 set -uo pipefail
 
@@ -29,9 +29,13 @@ if [[ "${SKUEL_ALLOW_SECRETS:-0}" == "1" ]]; then
   exit 0
 fi
 
-red()    { printf '\033[31m%s\033[0m\n' "$*"; }
 yellow() { printf '\033[33m%s\033[0m\n' "$*"; }
 green()  { printf '\033[32m%s\033[0m\n' "$*"; }
+
+# Resolve this hook's own directory, so the shared scan is found as a sibling
+# regardless of the path git invoked the hook by. realpath, because dirname of
+# a symlink gives the link's directory rather than the script's.
+hook_dir="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]:-$0}")")" && pwd)"
 
 # All-zeros = ref is being deleted; no diff to scan.
 zero_sha="0000000000000000000000000000000000000000"
@@ -68,8 +72,12 @@ while read -r _ local_sha _ remote_sha; do
   # commits (without it diff-tree emits NO patch for a merge, so a secret
   # introduced only in a conflict resolution would evade the scan); for a
   # merge it prints the combined diff — exactly the resolution's own lines.
+  # --root, because diff-tree emits NO patch for a parentless commit without it:
+  # an orphan branch, or the first push to an empty remote, would hand the scan a
+  # zero-byte diff and pass. That is exactly the new-branch case this range exists
+  # to cover.
   this_diff=$(git rev-list "${range_args[@]}" 2>/dev/null \
-    | git diff-tree --stdin --cc -U0 --no-commit-id -r -- \
+    | git diff-tree --stdin --root --cc -U0 --no-commit-id -r -- \
       ':(exclude)*.lock' ':(exclude)*.lock.json' 2>/dev/null || true)
   diff_text+="$this_diff"$'\n'
 done
@@ -83,39 +91,12 @@ if ! grep -q '[^[:space:]]' <<<"$diff_text"; then
   exit 0
 fi
 
-# Same pattern set as the pre-commit hook. Kept in sync by hand because
-# bash doesn't have a clean way to share arrays between scripts without
-# `source`-ing, and a sourced helper adds more moving parts than two
-# small in-file lists.
-patterns=(
-  'OpenAI key|sk-(proj|live|test|or)-[A-Za-z0-9_-]{40,}'
-  'AWS access key|\bAKIA[0-9A-Z]{16}\b'
-  'Stripe webhook secret|\bwhsec_[A-Za-z0-9]{30,}\b'
-  'Stripe live key|\bsk_live_[A-Za-z0-9]{20,}\b'
-  'GitHub PAT|\bghp_[A-Za-z0-9]{36}\b'
-  'GitHub fine-grained PAT|\bgithub_pat_[A-Za-z0-9_]{60,}\b'
-  'HuggingFace token|\bhf_[A-Za-z0-9]{30,}\b'
-  'Slack token|\bxox[abprs]-[A-Za-z0-9-]{20,}\b'
-  'Google API key|\bAIza[0-9A-Za-z_-]{35}\b'
-  'Private key block|-----BEGIN (RSA |EC |OPENSSH |DSA |PGP )?PRIVATE KEY-----'
-)
-
-# One or two leading '+' (plain diff / --cc combined-diff addition), but not
-# the '+++ b/file' header — combined-diff lines added by a merge resolution
-# relative to both parents are prefixed '++'.
-added_lines=$(printf '%s\n' "$diff_text" | grep -E '^\+{1,2}[^+]' || true)
-
-for entry in "${patterns[@]}"; do
-  label="${entry%%|*}"
-  regex="${entry#*|}"
-  matches=$(printf '%s\n' "$added_lines" | grep -E -- "$regex" || true)
-  if [[ -n "$matches" ]]; then
-    red "✗ Possible $label in commits being pushed:"
-    printf '%s\n' "$matches" | sed -E -e 's/'"$regex"'/[REDACTED]/g' \
-      | head -5 | sed 's/^/    /' >&2
-    fail=1
-  fi
-done
+# The scan itself lives in secret-scan.sh, which pre-commit calls too, so this
+# fence is exactly as strong as the commit-time one — one pattern set, not two.
+if ! printf '%s\n' "$diff_text" \
+    | "$hook_dir/secret-scan.sh" "commits being pushed"; then
+  fail=1
+fi
 
 if [[ $fail -ne 0 ]]; then
   echo

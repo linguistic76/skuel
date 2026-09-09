@@ -1,6 +1,6 @@
 ---
 title: Security Hardening — Deferred Items
-updated: 2026-08-21
+updated: 2026-09-08
 category: roadmap
 tags: [roadmap, security, hardening]
 ---
@@ -77,12 +77,17 @@ deployment plan).
 
 ## 3. Pre-commit Hooks for Secret Scanning
 
-> **Status 2026-07-24 — largely shipped, home-grown.** `scripts/git-hooks/pre-commit` (installed
-> via `/scripts/install_git_hooks.sh`) blocks staged `.env*` files (`.env.*.example` templates
-> allowed) and scans added lines for high-confidence credential patterns
-> (`SKUEL_ALLOW_SECRETS=1` to bypass). The detect-secrets/baseline approach below remains an
-> option if the home-grown patterns prove too narrow; the CI-side history scan (trufflehog/
-> gitleaks) is still open — see item 5.
+> **Status 2026-09-08 — largely shipped, home-grown.** `scripts/git-hooks/pre-commit` (installed
+> with `git config core.hooksPath app/scripts/git-hooks` from the repo root) blocks staged
+> `.env*` files (`.env.*.example` templates allowed) and pipes added lines into
+> `scripts/git-hooks/secret-scan.sh`, shared with `pre-push`. That scan matches both credential
+> *content* (provider key prefixes) and credential *assignment* — any credential-bearing name
+> given a non-placeholder value, which is how the prefix-free keys (Deepgram, AuraDB password,
+> `SESSION_SECRET_KEY`, Compose's `NEO4J_AUTH`) get caught. The names mirror
+> `CredentialSetup.CREDENTIALS` plus a declared set outside the funnel, pinned by a drift test.
+> `SKUEL_ALLOW_SECRETS=1` bypasses. The detect-secrets/baseline approach below remains an option if the home-grown
+> patterns prove too narrow; the CI-side history scan (trufflehog/gitleaks) is still open —
+> see item 5.
 
 **Why deferred**: The current `.gitignore` covers the obvious secrets (`.env` files, Neo4j logs).
 Pre-commit hooks add developer workflow friction with marginal benefit while only one developer

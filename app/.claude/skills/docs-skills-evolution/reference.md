@@ -545,7 +545,7 @@ See `/docs/tools/AUTOMATIC_DOCS_CHECK.md` for trigger mechanics and guards.
 
 ### Post-Merge Hook (Automatic)
 
-**Location**: `.git/hooks/post-merge` → `scripts/hooks/post-merge`
+**Location**: `app/scripts/git-hooks/post-merge` (git reaches it via `core.hooksPath`)
 
 **Detects library changes after git pull:**
 ```bash
