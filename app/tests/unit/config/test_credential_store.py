@@ -9,7 +9,9 @@ developer's real keychain — the assertions are about *which* store the funnel
 reaches and *what* it puts there, which a fake records exactly.
 """
 
+import ast
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -201,6 +203,88 @@ class TestEnvBackend:
         out = capsys.readouterr().out
         assert "read-only" in out
         assert "Options:" not in out
+
+
+# ---------------------------------------------------------------------------
+# The catalog covers what the funnel actually reads
+# ---------------------------------------------------------------------------
+APP_ROOT = Path(__file__).resolve().parents[3]
+FUNNEL_TREES = ("core", "adapters", "services_bootstrap", "scripts", "ui")
+
+# Names read through get_credential() that are deliberately NOT credentials, and
+# so must never be stored. Each is connection config: where the database is, and
+# who we connect as. A keychain copy of either is a second source of truth that
+# goes stale the day the database moves — which is exactly what happened at the
+# AuraDB cutover.
+NON_CREDENTIAL_FUNNEL_READS = {
+    "NEO4J_URI",
+    "NEO4J_USERNAME",
+    "NEO4J_USER",
+}
+
+
+def _funnel_reads() -> set[str]:
+    """Every literal name passed to `get_credential()` in first-party code.
+
+    Under-approximates by design: a call whose first argument is a variable or a
+    module constant (`get_credential(SESSION_SECRET_KEY_ENV)` in
+    `adapters/inbound/auth/session.py`) is invisible to an AST walk, so this
+    finds a subset. That is the right trade — every name it does find is
+    certain, and a guard that missed nothing would need to resolve names it
+    cannot.
+    """
+    names: set[str] = set()
+    for tree in FUNNEL_TREES:
+        for path in (APP_ROOT / tree).rglob("*.py"):
+            try:
+                parsed = ast.parse(path.read_text())
+            except (OSError, SyntaxError):  # fmt: skip
+                continue
+            for node in ast.walk(parsed):
+                if not isinstance(node, ast.Call) or not node.args:
+                    continue
+                func = node.func
+                called = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", None)
+                if called != "get_credential":
+                    continue
+                first = node.args[0]
+                if isinstance(first, ast.Constant) and isinstance(first.value, str):
+                    names.add(first.value)
+    return names
+
+
+class TestTheCatalogCoversTheFunnel:
+    """Auto-migration is catalog-gated, so an uncatalogued read silently stops
+    reaching the keychain — and the setup tool, which walks the same catalog,
+    never offers it. Both failures are silent, which is why this is a test and
+    not a one-time census.
+    """
+
+    def test_every_funnel_read_is_catalogued_or_declared_non_credential(self) -> None:
+        found = _funnel_reads()
+        assert found, "the AST walk found no get_credential() call sites — it has stopped working"
+
+        unaccounted = found - set(CREDENTIAL_CATALOG) - NON_CREDENTIAL_FUNNEL_READS
+        assert not unaccounted, (
+            f"{sorted(unaccounted)} is read through get_credential() but is neither in "
+            f"CREDENTIAL_CATALOG nor declared non-credential. If it is a credential, add "
+            f"it to the catalog — until then it never migrates into the keychain and the "
+            f"setup tool cannot store it. If it is connection config, add it to "
+            f"NON_CREDENTIAL_FUNNEL_READS with the reason."
+        )
+
+    def test_the_declared_non_credentials_are_not_also_catalogued(self) -> None:
+        """A name cannot be both — the gate would then store what it exists to refuse."""
+        overlap = NON_CREDENTIAL_FUNNEL_READS & set(CREDENTIAL_CATALOG)
+        assert not overlap, f"{sorted(overlap)} is declared non-credential AND catalogued"
+
+    def test_the_walk_sees_the_call_sites_it_claims_to(self) -> None:
+        """Positive control: without this, an AST walk that finds nothing passes."""
+        found = _funnel_reads()
+        # auth_ui.py's invite gate and neo4j_connection.py's username read are the
+        # two ends of the question this class exists to answer.
+        assert "SIGNUP_INVITE_CODE" in found
+        assert "NEO4J_USERNAME" in found
 
 
 # ---------------------------------------------------------------------------

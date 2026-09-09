@@ -542,12 +542,6 @@ NON_FUNNEL_KEYS = {
     # (infrastructure/docker-compose.yml), and its `user/password` value carries a
     # real password. Never read through get_credential().
     "NEO4J_AUTH",
-    # Read through get_credential() (adapters/inbound/auth_ui.py) but absent from
-    # the catalog, and its name matches none of SKUEL019's credential-shaped
-    # suffixes — so nothing else in the tree treats it as one. Leaking it opens
-    # registration; DO_MIGRATION_GUIDE.md calls it the throttle on node-cap growth
-    # and LLM-cost abuse.
-    "SIGNUP_INVITE_CODE",
     # Credential env keys the deployed services read, enumerated from the compose
     # files. Each is an interpolation there today, so a literal in its place is the
     # leak. app/docker-compose.yml lines 114, 136, 142, 171, 224.

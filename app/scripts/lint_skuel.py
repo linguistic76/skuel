@@ -1599,6 +1599,7 @@ class SkuelLinter:
         {
             "NEO4J_PASSWORD",
             "SESSION_SECRET_KEY",
+            "SIGNUP_INVITE_CODE",
             "OPENAI_API_KEY",
             "ANTHROPIC_API_KEY",
             "HF_API_TOKEN",

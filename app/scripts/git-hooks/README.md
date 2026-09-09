@@ -105,7 +105,6 @@ Matches are always printed **redacted** — content matches with the matched tex
 It carries names `CREDENTIAL_CATALOG` does not:
 
 - `NEO4J_AUTH` — Docker Compose reads it directly for `${VAR}` interpolation, and its `user/password` value carries a real password.
-- `SIGNUP_INVITE_CODE` — read through `get_credential()` yet absent from the catalog, and its name matches none of SKUEL019's credential-shaped suffixes, so nothing else in the tree treats it as one. Leaking it opens registration.
 - The credential env keys the deployed services themselves read — `MYSQL_PASSWORD`, `DB_PASSWORD`, `APP_KEY`, `FIREFLY_III_ACCESS_TOKEN`, `GF_SECURITY_ADMIN_PASSWORD`, `GRAFANA_PASSWORD` — enumerated from the compose files, where each is an interpolation today. Replacing one with a literal is the leak they cover.
 
 A name-*shape* rule (`*_PASSWORD`, `*_TOKEN`, …, mirroring `SkuelLinter.CREDENTIAL_SHAPE_RE`) was measured as an alternative to that list and rejected: it reports ordinary code identifiers — `_AUTH_EVENT`, `FENCE_TOKEN_RE`, `ALLOWLIST_KEY` — and the exclusion list it would need is a security hole by construction. What puts a name in this file is that assigning it a literal is a leak — a wider question than whether `get_credential()` manages it. Such names are declared in the drift test's `NON_FUNNEL_KEYS`, so the mirror stays pinned exactly in both directions and an unexplained extra fails.

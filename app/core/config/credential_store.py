@@ -75,6 +75,11 @@ CREDENTIAL_CATALOG: dict[str, CredentialSpec] = {
         description="Session cookie signing key (32+ random bytes)",
         required=True,
     ),
+    # --- Signup gate ---
+    "SIGNUP_INVITE_CODE": CredentialSpec(
+        description="Registration invite code — unset leaves signup open",
+        required=False,
+    ),
     # --- AI providers (required for INTELLIGENCE_TIER=full) ---
     "OPENAI_API_KEY": CredentialSpec(
         description="OpenAI API key — embeddings + LLM (INTELLIGENCE_TIER=full)",
