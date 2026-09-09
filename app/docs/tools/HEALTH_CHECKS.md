@@ -1,6 +1,6 @@
 ---
 title: Codebase Health Checks
-updated: 2026-09-05
+updated: 2026-09-09
 status: current
 category: tools
 tags: [health, scripts, dead-code, documentation, maintenance, drift]
@@ -15,7 +15,7 @@ related: [AUTOMATIC_DOCS_CHECK.md, BLOAT_DETECTION.md]
 
 ## Overview
 
-Automated checks that prevent codebase drift — the kind that accumulates silently between refactors: orphaned files, broken doc links, stale names in documentation examples, duplicated document sections, skill↔doc cross-reference inconsistencies, and mypy suppressions that have stopped suppressing anything.
+Automated checks that prevent codebase drift — the kind that accumulates silently between refactors: orphaned files, broken doc links, stale names in documentation examples, duplicated document sections, skill↔doc cross-reference inconsistencies, mypy suppressions that have stopped suppressing anything, and a secret scan that has started firing on the repository's own content.
 
 ```bash
 ./dev health              # run every check except health-mypy
@@ -25,6 +25,7 @@ Automated checks that prevent codebase drift — the kind that accumulates silen
 ./dev health-headings     # repeated headings under one parent only
 ./dev health-updated      # docs whose `updated:` stamp has rotted or is missing
 ./dev health-xref         # cross-reference + staleness only
+./dev health-secrets      # run the commit-time secret scan over the whole tracked corpus
 ./dev health-mypy         # dead mypy suppressions only (~80s — NOT in ./dev health)
 ```
 
@@ -606,6 +607,51 @@ check runs.** Do not cite the field as staleness evidence anywhere else.
 
 ---
 
+### 8. `secret_scan_floor.py` — The Secret Scan's False-Positive Floor
+
+Runs `scripts/git-hooks/secret-scan.sh` against **every tracked text file**, as if each
+line were newly added, and fails if it reports anything. Nothing in the repository is a
+credential, so any finding is a false positive.
+
+```bash
+./dev health-secrets
+```
+
+**Why a corpus sweep when the scan has 150+ unit tests.** Because it shipped two
+false-positive regressions that only a corpus run caught, and both slipped for the same
+reason: every fixture in the test file shared a property that dodged the code path under
+test. The clearest was a POSIX bracket bug — `[[:space:],}\]]`, where a backslash is not
+an escape inside a bracket expression, so the value-terminator parsed as "a terminator
+*followed by* a literal `]`". It reported `.env.example`'s commented `ANTHROPIC_API_KEY`
+line. No unit test saw it, because every interpolation negative in the file either ended
+the line (satisfying `$`) or sat under the length floor, so none of them exercised the
+terminator at all.
+
+Fixtures are written by one person, at one moment, with one idea of what the input looks
+like, so they share blind spots by construction. The corpus does not — it holds env
+templates, compose interpolations, docs placeholders, lockfile digests and dict literals
+that nobody wrote as test data. **The general form: a checker that runs over the
+repository's own content should be tested against that content, not only against
+fixtures.**
+
+**Why it matters more than a cosmetic false positive.** A scan that blocks a legitimate
+commit gets bypassed with `SKUEL_ALLOW_SECRETS=1`, and a fence everyone routes around has
+stopped being a fence. The floor protects the scan's credibility, which is the only thing
+keeping it switched on.
+
+**It refuses to be vacuous.** Before trusting a clean sweep it plants a synthetic
+credential and fails if the scan misses it — a sweep that reports clean because the
+scanner is broken is worse than no sweep. That is the same fail-closed rule the scan
+itself follows: a checker with nothing to check for must never report success.
+
+**When it fires,** the fix is either the pattern or the value: make the value a
+recognised placeholder (empty, `your-`-prefixed, angle-bracketed, or under 20
+characters), or narrow the rule that matched. Never add a suppression — the whole point
+is that the corpus is the honest test set.
+
+**See:** `/scripts/git-hooks/README.md` § The secret scan.
+
+
 ## Maintaining `stale_names.py`
 
 This script is only as useful as its RENAMED/DELETED tables. **Update it whenever you rename or delete something significant.**
@@ -716,6 +762,7 @@ scripts/health/
 ├── stale_names.py                     # Deprecated identifier scanner
 ├── duplicate_headings.py              # Repeated headings under one parent
 ├── docs_updated.py                    # Rotted / missing `updated:` frontmatter stamps
+├── secret_scan_floor.py               # Secret scan's false-positive floor over the tracked corpus
 ├── markdown_fences.py                 # Shared CommonMark fence walker (links + names)
 └── mypy_suppressions.py               # Dead mypy suppression auditor
 scripts/docs_updated_field.py          # Shared stamp mechanics (guard + stamper + backfill)
