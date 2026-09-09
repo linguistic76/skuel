@@ -1,14 +1,17 @@
 """Secret-bearing fields must not survive ``repr()``.
 
-Pins PR-3 of the credential one-path arc: every field that holds a credential —
-a password, a session token, a reset token, a bcrypt digest — is either a
-``pydantic.SecretStr`` (masked repr) or carries ``field(repr=False)`` on its
-dataclass. Nothing logs these objects today; this is the guard that keeps a
-future log line, traceback frame or debugger view from disclosing one.
+Every field that holds a credential — a password, a session token, a reset
+token, a bcrypt digest — is either a ``pydantic.SecretStr`` (masked repr) or
+carries ``field(repr=False)`` on its dataclass, so no log line, traceback frame
+or debugger view that renders the object can disclose one.
 
 Every assertion is written against a sentinel value that is present in the
 object and absent from its ``repr()``. Each case also reads the secret back, so
 a field silently dropped (which would also pass the "not in repr" half) fails.
+The parametrized guards at the bottom assert the *declaration* rather than one
+instance, so a field retyped back to ``str`` fails even with no caller.
+
+See: /docs/patterns/AUTH_PATTERNS.md § Secret-bearing fields are unprintable
 """
 
 from __future__ import annotations
