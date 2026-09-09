@@ -27,7 +27,7 @@ import secrets
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import to_xml
-from pydantic import ValidationError
+from pydantic import SecretStr, ValidationError
 from starlette.responses import HTMLResponse, RedirectResponse
 
 from adapters.inbound.auth import (
@@ -71,8 +71,21 @@ def _signup_invite_code() -> str | None:
     return get_credential("SIGNUP_INVITE_CODE") or None
 
 
+# Pydantic error types that mean "the user left this field blank". Keyed on the
+# machine-stable ``type``, never the rendered message: a ``str`` min_length says
+# "String should have at least 1 character" while the same constraint on a
+# SecretStr field says "Value should have at least 1 item after validation" — a
+# substring match on the prose silently stops recognising the secret fields.
+_EMPTY_FIELD_ERROR_TYPES = frozenset({"missing", "string_too_short", "too_short"})
+
+
 def _first_validation_error(e: ValidationError) -> str:
-    """Extract a human-readable message from the first Pydantic validation error."""
+    """Extract a human-readable message from the first Pydantic validation error.
+
+    Reads only ``type``, ``msg`` and ``loc``. The error's ``input`` key holds the
+    raw submitted value — for a password field that is the plaintext — so it is
+    never read here and the ValidationError itself is never logged.
+    """
     first = e.errors()[0]
     msg = first.get("msg", "Validation error")
     # Pydantic prefixes model_validator messages with "Value error, "
@@ -82,7 +95,7 @@ def _first_validation_error(e: ValidationError) -> str:
     field = first.get("loc", ("",))[-1]
     if field:
         label = str(field).replace("_", " ").title()
-        if "at least 1 character" in msg or "required" in msg.lower():
+        if first.get("type") in _EMPTY_FIELD_ERROR_TYPES:
             return f"{label} is required"
         return f"{label}: {msg}"
     return msg
@@ -159,8 +172,8 @@ def create_auth_ui_routes(
                     username=safe_form_string(form_data.get("username")),
                     email=safe_form_string(form_data.get("email")),
                     display_name=safe_form_string(form_data.get("display_name")),
-                    password=safe_form_string(form_data.get("password")),
-                    confirm_password=safe_form_string(form_data.get("confirm_password")),
+                    password=SecretStr(safe_form_string(form_data.get("password"))),
+                    confirm_password=SecretStr(safe_form_string(form_data.get("confirm_password"))),
                     accept_terms=safe_form_bool(form_data.get("accept_terms")),
                     invite_code=safe_form_string(form_data.get("invite_code")),
                 )
@@ -192,7 +205,7 @@ def create_auth_ui_routes(
             logger.info(f"Registering user: {reg.username} ({reg.email})")
             auth_result = await graph_auth.sign_up(
                 email=reg.email,
-                password=reg.password,
+                password=reg.password.get_secret_value(),
                 username=reg.username,
                 display_name=reg.display_name,
             )
@@ -214,7 +227,7 @@ def create_auth_ui_routes(
             # Auto-login after registration
             login_result = await graph_auth.sign_in(
                 email=reg.email,
-                password=reg.password,
+                password=reg.password.get_secret_value(),
                 ip_address=ip_address,
                 user_agent=user_agent,
             )
@@ -283,7 +296,7 @@ def create_auth_ui_routes(
             try:
                 login = LoginRequest(
                     username=safe_form_string(form_data.get("username")),
-                    password=safe_form_string(form_data.get("password")),
+                    password=SecretStr(safe_form_string(form_data.get("password"))),
                 )
             except ValidationError as e:
                 error_msg = _first_validation_error(e)
@@ -322,7 +335,7 @@ def create_auth_ui_routes(
             # Authenticate with graph-native auth
             auth_result = await graph_auth.sign_in(
                 email=email,
-                password=login.password,
+                password=login.password.get_secret_value(),
                 ip_address=ip_address,
                 user_agent=user_agent,
             )
@@ -420,9 +433,9 @@ def create_auth_ui_routes(
             # Validate form data via Pydantic
             try:
                 reset = ResetPasswordRequest(
-                    token=token_value,
-                    password=safe_form_string(form_data.get("password")),
-                    confirm_password=safe_form_string(form_data.get("confirm_password")),
+                    token=SecretStr(token_value),
+                    password=SecretStr(safe_form_string(form_data.get("password"))),
+                    confirm_password=SecretStr(safe_form_string(form_data.get("confirm_password"))),
                 )
             except ValidationError as e:
                 error_msg = _first_validation_error(e)
@@ -435,7 +448,7 @@ def create_auth_ui_routes(
             if not graph_auth:
                 return AuthComponents.render_reset_password_page(
                     error_message="Authentication service unavailable",
-                    token=reset.token,
+                    token=token_value,
                 )
 
             # Get client info for audit trail
@@ -444,8 +457,8 @@ def create_auth_ui_routes(
 
             # Reset password with token
             result = await graph_auth.reset_password_with_token(
-                token_value=reset.token,
-                new_password=reset.password,
+                token_value=reset.token.get_secret_value(),
+                new_password=reset.password.get_secret_value(),
                 ip_address=ip_address,
                 user_agent=user_agent,
             )
@@ -454,7 +467,7 @@ def create_auth_ui_routes(
                 error = result.expect_error()
                 return AuthComponents.render_reset_password_page(
                     error_message=error.message,
-                    token=reset.token,
+                    token=token_value,
                 )
 
             logger.info("Password reset successfully via token")

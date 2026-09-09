@@ -1,6 +1,6 @@
 ---
 title: Authentication Patterns in SKUEL
-updated: '2026-09-05'
+updated: '2026-09-09'
 category: patterns
 related_skills: [security]
 related_docs: []
@@ -425,7 +425,7 @@ SKUEL uses **graph-native authentication** where all auth data lives in Neo4j:
 @dataclass(frozen=True)
 class Session:
     uid: str                    # "session_{hex}"
-    session_token: str          # Raw token (cookie only, never stored in Neo4j)
+    session_token: str = field(repr=False)  # Raw token: cookie only, never in Neo4j or repr()
     user_uid: UserUID               # "user_mike"
     created_at: datetime        # UTC-aware
     expires_at: datetime        # UTC-aware
@@ -537,16 +537,18 @@ Auth forms (registration, login, password reset) use Pydantic request models for
 
 **Models** (`core/models/auth/auth_request.py`):
 
-| Model | Fields | Validators |
+| Model | Fields (**bold** = `SecretStr`) | Validators |
 |-------|--------|------------|
-| `RegistrationRequest` | username, email, display_name, password, confirm_password, accept_terms | Password match, terms acceptance |
-| `LoginRequest` | username (email or username), password | Required fields |
-| `ResetPasswordRequest` | token, password, confirm_password | Password match |
+| `RegistrationRequest` | username, email, display_name, **password**, **confirm_password**, accept_terms, invite_code | Password match, terms acceptance |
+| `LoginRequest` | username (email or username), **password** | Required fields |
+| `ResetPasswordRequest` | **token**, **password**, **confirm_password** | Password match |
 | `ForgotPasswordRequest` | email | Required field |
 
 **Usage in route handlers:**
 
 ```python
+from pydantic import SecretStr
+
 from core.models.auth import RegistrationRequest
 
 form_data = await request.form()
@@ -554,13 +556,38 @@ try:
     reg = RegistrationRequest(
         username=safe_form_string(form_data.get("username")),
         email=safe_form_string(form_data.get("email")),
+        password=SecretStr(safe_form_string(form_data.get("password"))),
         ...
     )
 except ValidationError as e:
     return render_error(first_validation_error(e))
+
+await graph_auth.sign_up(email=reg.email, password=reg.password.get_secret_value(), ...)
 ```
 
-Cross-field validation (password matching, terms acceptance) uses `@model_validator(mode="after")` — business rules live in the model, not the route handler.
+Cross-field validation (password matching, terms acceptance) uses `@model_validator(mode="after")` — business rules live in the model, not the route handler. `SecretStr` compares by secret value, so the password-match validators read unchanged.
+
+### Secret-bearing fields are unprintable
+
+Every field that holds a credential is masked at the declaration, so no log line,
+traceback frame or debugger view can disclose it:
+
+| Field | Mechanism |
+|-------|-----------|
+| `RegistrationRequest` / `LoginRequest` / `ResetPasswordRequest` passwords + reset token | `pydantic.SecretStr` — `repr` and `model_dump()` render `**********` |
+| `Session.session_token` | `field(repr=False)` |
+| `PasswordResetToken.token` | `field(repr=False)` |
+| `User.password_hash` | `field(repr=False)` — a bcrypt digest is offline-crackable |
+| `DatabaseConfig.neo4j_password`, `CacheConfig.redis_password`, `MessageQueueConfig.password` | `field(repr=False)` |
+
+Wrap at the boundary (`SecretStr(...)` on the form value), read at the point of use
+(`.get_secret_value()`), and never in between. Pinned by
+`tests/unit/models/test_secret_fields_unprintable.py`, which asserts both the rendered
+`repr()` and the field declaration itself.
+
+⚠ `ValidationError.errors()[0]["input"]` carries the **raw submitted value** even for a
+`SecretStr` field. `_first_validation_error` (`adapters/inbound/auth_ui.py`) reads only
+`type`, `msg` and `loc`; never log a `ValidationError` from an auth route whole.
 
 ### User node schema (the ruling, July 2026 — Arc F/G12)
 

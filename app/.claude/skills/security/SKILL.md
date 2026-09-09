@@ -116,6 +116,30 @@ if not api_key:
 
 **See:** `core/config/README.md` — the live credential setup; `docs/roadmap/done/secrets-out-of-worktree.md` — how credentials got out of the worktree; `docs/patterns/linter_rules.md` § SKUEL019.
 
+### Secret-Bearing Fields Are Unprintable
+
+A credential that reaches a model must not survive `repr()`. Two mechanisms, chosen by model kind:
+
+| Model kind | Mechanism | Sites |
+|---|---|---|
+| Pydantic | `pydantic.SecretStr` — `repr` and `model_dump()` render `**********` | `RegistrationRequest` / `LoginRequest` / `ResetPasswordRequest` passwords, `confirm_password`, reset `token` |
+| Dataclass | `field(repr=False)` | `Session.session_token`, `PasswordResetToken.token`, `User.password_hash`, `DatabaseConfig.neo4j_password`, `CacheConfig.redis_password`, `MessageQueueConfig.password` |
+
+Wrap at the boundary, read at the point of use:
+
+```python
+# Route: wrap the raw form value immediately
+reg = RegistrationRequest(password=SecretStr(safe_form_string(form_data.get("password"))), ...)
+# Service call: unwrap only where the plaintext is needed
+await graph_auth.sign_up(password=reg.password.get_secret_value(), ...)
+```
+
+⚠ `ValidationError.errors()[0]["input"]` holds the **raw submitted value** even for a `SecretStr` field — never log a `ValidationError` from an auth route whole. `_first_validation_error` reads only `type`/`msg`/`loc`.
+
+⚠ `User.password_hash` is a bcrypt digest — offline-crackable, so it is a credential, not an opaque id.
+
+Pinned by `tests/unit/models/test_secret_fields_unprintable.py`, which asserts the rendered `repr()` **and** the field declaration, so a field retyped back to `str` fails.
+
 ### Session Configuration
 
 - `SESSION_SECRET_KEY` read via `get_credential()` from the active backend — required in production, auto-generated in development.
@@ -183,7 +207,7 @@ When adding a new route, verify:
 2. **Authorization** — `@require_admin(get_service)` if admin-only; `@require_teacher(get_service)` if teacher-only
 3. **Ownership** — For USER_OWNED entities, verify `entity.user_uid == user_uid` (return 404 if not)
 4. **Error boundary** — `@boundary_handler()` wrapping the route handler
-5. **No PII in logs** — Never log user passwords, tokens, or session IDs
+5. **No PII in logs** — Never log user passwords, tokens, or session IDs. Secret-bearing model fields are `SecretStr` / `field(repr=False)` so a whole-object log line cannot disclose one (see Secret-Bearing Fields Are Unprintable) — but a `ValidationError` still carries the raw input.
 6. **Input validation** — Pydantic models for POST bodies, helper functions for query params
 7. **Decorator order** — `@rt > @require_admin > @boundary_handler > async def`
 

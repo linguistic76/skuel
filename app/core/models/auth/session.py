@@ -31,7 +31,7 @@ Neo4j Schema:
 
 import hashlib
 import secrets
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 
 from core.models.type_hints import UserUID
@@ -65,7 +65,7 @@ class Session:
 
     Attributes:
         uid: Unique session identifier (e.g., "session_abc123...")
-        session_token: Secure token stored in HTTP-only cookie
+        session_token: Secure token stored in HTTP-only cookie (excluded from repr)
         user_uid: Reference to owning user
         created_at: When session was created
         expires_at: When session expires (hard limit)
@@ -76,7 +76,10 @@ class Session:
     """
 
     uid: str
-    session_token: str
+    # repr=False: the raw token authenticates the bearer. Keeping it out of
+    # repr() keeps it out of log lines, tracebacks and debugger frames that
+    # render the dataclass.
+    session_token: str = field(repr=False)
     user_uid: UserUID
     created_at: datetime
     expires_at: datetime

@@ -1,6 +1,6 @@
 ---
 title: API Validation Patterns
-updated: 2026-09-07
+updated: 2026-09-09
 category: patterns
 related_skills:
 - pydantic
@@ -636,7 +636,7 @@ core/models/user_pins_request.py      # PinEntityRequest, ReorderPinsRequest
 core/models/entity_requests.py        # SmartDismissRequest, bulk ops, cross-domain models
 ```
 
-**Note:** Auth request models validate HTML form data (not JSON bodies), but follow the same Pydantic pattern. Form data is extracted with `safe_form_string()` then passed to the model constructor.
+**Note:** Auth request models validate HTML form data (not JSON bodies), but follow the same Pydantic pattern. Form data is extracted with `safe_form_string()` then passed to the model constructor — passwords and reset tokens are wrapped in `pydantic.SecretStr` on the way in, so the model's `repr` and `model_dump()` cannot disclose them. See `/docs/patterns/AUTH_PATTERNS.md` § Secret-bearing fields are unprintable.
 
 ### Route Files
 

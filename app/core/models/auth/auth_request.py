@@ -6,9 +6,13 @@ Pydantic models for authentication form validation.
 
 These models extract and validate HTML form data for registration,
 login, and password reset — moving business validation out of route handlers.
+
+Passwords and reset tokens are ``SecretStr``: their ``repr`` is ``**********``,
+so a model that reaches a log line, a traceback frame or a debugger carries no
+plaintext credential. Read them with ``.get_secret_value()`` at the point of use.
 """
 
-from pydantic import Field, model_validator
+from pydantic import Field, SecretStr, model_validator
 
 from core.models.request_base import RequestBase
 
@@ -19,8 +23,8 @@ class RegistrationRequest(RequestBase):
     username: str = Field(min_length=1, max_length=100)
     email: str = Field(min_length=1, max_length=255)
     display_name: str = Field(min_length=1, max_length=200)
-    password: str = Field(min_length=1)
-    confirm_password: str = Field(min_length=1)
+    password: SecretStr = Field(min_length=1)
+    confirm_password: SecretStr = Field(min_length=1)
     accept_terms: bool = False
     # Checked against SIGNUP_INVITE_CODE at the route boundary (auth_ui.py) —
     # env reads stay out of core/. Empty when the deployment runs open signup.
@@ -39,15 +43,15 @@ class LoginRequest(RequestBase):
     """Validates login form data."""
 
     username: str = Field(min_length=1, description="Username or email")
-    password: str = Field(min_length=1)
+    password: SecretStr = Field(min_length=1)
 
 
 class ResetPasswordRequest(RequestBase):
     """Validates password reset form data."""
 
-    token: str = Field(min_length=1)
-    password: str = Field(min_length=1)
-    confirm_password: str = Field(min_length=1)
+    token: SecretStr = Field(min_length=1)
+    password: SecretStr = Field(min_length=1)
+    confirm_password: SecretStr = Field(min_length=1)
 
     @model_validator(mode="after")
     def validate_passwords_match(self) -> "ResetPasswordRequest":
