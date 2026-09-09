@@ -1,6 +1,6 @@
 ---
 title: "Catalog Copies in Code — the duplicated-fact defect, measured"
-updated: 2026-09-05
+updated: 2026-09-09
 status: "inventory — mechanical items unscheduled"
 registered: 2026-08-29
 ruled: 2026-08-29
@@ -49,6 +49,12 @@ most of the instances below rely on today.
    have been missed by anyone scoping from it; they were found by
    `git grep -l duplicate_headings`, which is the honest way to enumerate a copy set. Those
    three became pointers rather than lists in the same change — the rest still enumerate.
+   **It drifted-by-hand a second time on 2026-09-09**, adding `secret_scan_floor.py`:
+   nine edits across six files (`dev` ×3 — the health block, a `health-secrets` target
+   and the help line; `weekly-janitor.yml` ×4; `HEALTH_CHECKS.md` ×3; the skill's
+   table). The copies were found the honest way again, by `git grep -l
+   duplicate_headings`. Nothing caught the addition automatically — same instance,
+   same cost, two data points now.
    Noticed by nothing:
    `tests/unit/scripts/test_quality_ci_parity.py` pins `run_quality_checks.py` ↔ `ci.yml` and
    is the exact precedent, but no test reads `dev` or the janitor. **Remedy — one source.**
