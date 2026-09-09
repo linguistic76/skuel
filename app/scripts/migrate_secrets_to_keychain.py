@@ -291,6 +291,11 @@ def main() -> int:
     for key in sorted(set(existing_index) - set(CREDENTIAL_CATALOG)):
         try:
             stored = _keyring.get_password(SERVICE_NAME, key)
+        # intentional-broad: the value comes back through whichever backend
+        # `keyring` selected — SecretService, Keychain, Credential Locker —
+        # each raising its own tree, and D-Bus faults arrive from below all of
+        # them. A credential tool must report a keychain it cannot reach, not
+        # crash on the shape of the failure.
         except Exception as e:
             print(f"✗ Couldn't query keychain for {key}: {e}")
             return 1
@@ -309,6 +314,11 @@ def main() -> int:
     for key, value in sorted(secrets.items()):
         try:
             existing = _keyring.get_password(SERVICE_NAME, key)
+        # intentional-broad: the value comes back through whichever backend
+        # `keyring` selected — SecretService, Keychain, Credential Locker —
+        # each raising its own tree, and D-Bus faults arrive from below all of
+        # them. A credential tool must report a keychain it cannot reach, not
+        # crash on the shape of the failure.
         except Exception as e:
             print(f"✗ Couldn't query keychain for {key}: {e}")
             return 1
@@ -379,6 +389,10 @@ def main() -> int:
             continue
         try:
             _keyring.delete_password(SERVICE_NAME, key)
+        # intentional-broad: the delete goes out through whichever backend
+        # `keyring` selected, each raising its own tree, over a D-Bus session
+        # that can fault beneath all of them. The one shape ruled out above is a
+        # missing value — that is classified as a phantom and never reaches here.
         except Exception as e:
             # Report and carry on — one backend failure must not cost the index
             # repair for every other name.
