@@ -26,13 +26,14 @@ npm install
 
 ### 2. Configure Environment
 
-Non-secret config lives in `app/.env` (gitignored). Credentials are read via `get_credential()` from one of three backends, picked by `SKUEL_CREDENTIAL_BACKEND`:
+Non-secret config lives in `app/.env` (gitignored). Credentials are read via `get_credential()`, which resolves them through the backend `SKUEL_CREDENTIAL_BACKEND` selects:
 
 | Backend | Selector | Where credentials sit | When to pick it |
 |---|---|---|---|
-| **OS keychain** (recommended) | `SKUEL_CREDENTIAL_BACKEND=keyring` | libsecret / macOS Keychain / Windows Credential Locker | Desktop dev — no plaintext on disk |
-| Fernet-encrypted JSON | unset | `~/.skuel/credentials.enc`, keyed by `SKUEL_MASTER_KEY` | Headless boxes that can't reach the OS keychain |
-| direnv two-file (Stage 2) | unset | `~/.config/skuel/secrets.env` (mode 0600) sourced by `app/.envrc` | Fallback / CI |
+| **OS keychain** | `keyring` (the default) | libsecret / macOS Keychain / Windows Credential Locker | Desktop dev — no plaintext on disk |
+| **Process environment** (read-only) | `env` | Whatever starts the process; on the droplet, `/opt/skuel/secrets.env` loaded by compose | Headless — droplet, CI, ssh, no keychain daemon |
+
+There is no third value: an unrecognised selector is refused at boot rather than resolved to a fallback.
 
 The `.env.example` template lists every credential the app reads (marked `[SECRET]`) and every non-secret config key. Do not paste real credentials into `.env` — leave the `[SECRET]` lines blank there and load them into the active backend.
 
@@ -40,27 +41,23 @@ The `.env.example` template lists every credential the app reads (marked `[SECRE
 
 ```bash
 cp app/.env.example app/.env
-$EDITOR app/.env                           # set SKUEL_CREDENTIAL_BACKEND=keyring + non-secret config
+$EDITOR app/.env                           # non-secret config; SKUEL_CREDENTIAL_BACKEND=keyring is the default
 uv run python -m core.config               # interactive: writes credentials into the keychain
 ```
 
 **Migrating an older `.env` that still has credentials in it:**
 
 ```bash
-# Path A: move credentials out of the worktree into ~/.config/skuel/secrets.env (Stage 2)
-uv run python scripts/migrate_secrets_to_homedir.py
-
-# Path B: move credentials from secrets.env (or env) into the OS keychain (Stage 3)
 uv run python scripts/migrate_secrets_to_keychain.py
 ```
 
-Both scripts are idempotent. The Stage 3 path is what you want unless you're on a box without a graphical session.
+It reads `~/.config/skuel/secrets.env` and `app/.env` (the latter filtered to credential names, so non-secret config stays put), diffs both against the keychain, and prompts before writing. `app/.env` is only read — never rewritten or deleted; delete the credential lines yourself once the keychain has them. Idempotent.
 
-**Docker note:** Docker Compose interpolates `${VAR}` directly from a `.env`-shaped file, bypassing `get_credential()`. The two keys it needs for the Neo4j services (`NEO4J_AUTH`, `NEO4J_PASSWORD`) are kept in `~/.config/skuel/secrets.env` even after Stage 3. To run docker-compose with keychain-only credentials, use `./scripts/dev/with-secrets docker compose up`.
+**Docker note:** Docker Compose interpolates `${VAR}` directly from a `.env`-shaped file, bypassing `get_credential()`. The two keys it needs for the local Neo4j sandbox (`NEO4J_AUTH`, `NEO4J_PASSWORD`) are kept in `~/.config/skuel/secrets.env` (mode 0600, loaded by `app/.envrc`) for that reason alone — it is not a credential backend, and nothing selects it. To run docker-compose with keychain-only credentials, use `./scripts/dev/with-secrets docker compose up`.
 
 **Missing-credential behavior:** every credential the active intelligence tier needs is required at boot, not request time. Anything missing fails the bootstrap with a clear error (commit `fed4287f`). If the app starts, the credentials it needs are present.
 
-See `docs/roadmap/done/secrets-out-of-worktree.md` for the full design — three stages, what each shipped, and the table of where each key actually lives today.
+See `docs/roadmap/done/secrets-out-of-worktree.md` for how credentials got out of the worktree, and the table of where each key lives today.
 
 ### 3. Start Neo4j Infrastructure
 

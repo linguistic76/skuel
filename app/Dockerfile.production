@@ -30,9 +30,9 @@ FROM python:3.14-slim AS production
 
 # Create non-root user for security. Fixed UID/GID 10001: host-side bind
 # mounts (droplet /opt/skuel/personal-vault, ./logs) must be chowned to the
-# container user by deploy.sh, which needs a UID it can rely on. -m:
-# CredentialStore initializes ~/.skuel at import even when secrets come from
-# the environment (headless env-file shape), so the user needs a real home.
+# container user by deploy.sh, which needs a UID it can rely on. -m: the user
+# needs a real home — a homeless system user is a boot crash for any library
+# that assumes a writable $HOME.
 RUN groupadd -r -g 10001 skuel && useradd -r -m -u 10001 -g skuel skuel
 
 # Install runtime dependencies

@@ -2562,13 +2562,6 @@ class TestSKUEL019:
         violations = lint_content(linter, '    p = os.environ.get("SKUEL_INGESTION_ALLOWED_PATHS")')
         assert len(violations) == 0
 
-    def test_master_key_passes(self) -> None:
-        """SKUEL_MASTER_KEY decrypts the Fernet store — it has to come from env,
-        and its name doesn't match any credential-shape suffix."""
-        linter = make_linter(["SKUEL019"])
-        violations = lint_content(linter, '    k = os.getenv("SKUEL_MASTER_KEY")')
-        assert len(violations) == 0
-
     def test_credential_backend_selector_passes(self) -> None:
         """SKUEL_CREDENTIAL_BACKEND is the backend selector, not a credential."""
         linter = make_linter(["SKUEL019"])
@@ -2602,17 +2595,8 @@ class TestSKUEL019:
         linter = make_linter(["SKUEL019"])
         violations = lint_content(
             linter,
-            '    if not os.getenv("SKUEL_MASTER_KEY"):',
+            '    value = os.getenv("NEO4J_PASSWORD")',
             file_path="core/config/credential_setup.py",
-        )
-        assert len(violations) == 0
-
-    def test_migrate_homedir_script_exempt(self) -> None:
-        linter = make_linter(["SKUEL019"])
-        violations = lint_content(
-            linter,
-            '    pw = os.getenv("NEO4J_PASSWORD")',
-            file_path="scripts/migrate_secrets_to_homedir.py",
         )
         assert len(violations) == 0
 
@@ -2696,30 +2680,30 @@ class TestSKUEL019:
 
 
 class TestCredentialCatalogDrift:
-    """The linter mirrors the credential catalog from credential_setup.py.
+    """The linter mirrors the credential catalog from credential_store.py.
     If those drift, lint coverage silently loses the new credentials.
     """
 
-    def test_linter_catalog_matches_credential_setup(self) -> None:
+    def test_linter_catalog_matches_the_credential_catalog(self) -> None:
         # Import inside the test so collection still works in environments
         # where core/ isn't importable (e.g. minimal CI lint runners).
-        from core.config.credential_setup import CredentialSetup
+        from core.config.credential_store import CREDENTIAL_CATALOG
 
-        actual = set(CredentialSetup.CREDENTIALS.keys())
+        actual = set(CREDENTIAL_CATALOG)
         mirrored = set(SkuelLinter.CREDENTIAL_CATALOG)
 
         missing = actual - mirrored
         extra = mirrored - actual
         assert not missing, (
             f"SkuelLinter.CREDENTIAL_CATALOG is missing keys present in "
-            f"CredentialSetup.CREDENTIALS: {sorted(missing)}. "
+            f"core/config/credential_store.py::CREDENTIAL_CATALOG: {sorted(missing)}. "
             f"Add them to scripts/lint_skuel.py::SkuelLinter.CREDENTIAL_CATALOG."
         )
         assert not extra, (
             f"SkuelLinter.CREDENTIAL_CATALOG has keys not in "
-            f"CredentialSetup.CREDENTIALS: {sorted(extra)}. "
+            f"core/config/credential_store.py::CREDENTIAL_CATALOG: {sorted(extra)}. "
             f"Remove them from scripts/lint_skuel.py::SkuelLinter.CREDENTIAL_CATALOG "
-            f"(or add them to CredentialSetup.CREDENTIALS if they're real credentials)."
+            f"(or add them to CREDENTIAL_CATALOG if they're real credentials)."
         )
 
 

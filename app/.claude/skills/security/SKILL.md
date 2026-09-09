@@ -105,16 +105,16 @@ if not api_key:
 
 | Layer | Mechanism |
 |---|---|
-| **Storage** | OS keychain (`SKUEL_CREDENTIAL_BACKEND=keyring`, recommended) → libsecret / macOS Keychain / Windows Credential Locker. Or Fernet-encrypted JSON at `~/.skuel/credentials.enc` keyed by `SKUEL_MASTER_KEY`. |
-| **Funnel** | `get_credential(K, fallback_to_env=True)` in `core/config/credential_store.py`. Dispatches via `SKUEL_CREDENTIAL_BACKEND`. Falls back to env, auto-migrates env values into the backend on first read. |
+| **Storage** | OS keychain (`SKUEL_CREDENTIAL_BACKEND=keyring`, the default) → libsecret / macOS Keychain / Windows Credential Locker. Or `SKUEL_CREDENTIAL_BACKEND=env` (headless: droplet, CI) → the process environment, read-only. Any other value is refused at boot. |
+| **Funnel** | `get_credential(K, fallback_to_env=True)` in `core/config/credential_store.py`. Dispatches via `SKUEL_CREDENTIAL_BACKEND`. Falls back to env, and auto-migrates an env value into a writable backend on first read — only for keys in `CREDENTIAL_CATALOG`, so connection config (`NEO4J_URI`, `NEO4J_USERNAME`) is never stored. |
 | **Boot validation** | Tier-gated services fail-fast when their credential is missing (commit `fed4287f`) — no silent half-on state. |
-| **Lint enforcement** | SKUEL019 — ERROR for catalog credentials, WARNING for credential-shape names not yet in the catalog. Catalog mirrored from `CredentialSetup.CREDENTIALS` and pinned by a drift test. |
+| **Lint enforcement** | SKUEL019 — ERROR for catalog credentials, WARNING for credential-shape names not yet in the catalog. Catalog mirrored from `CREDENTIAL_CATALOG` and pinned by a drift test. |
 
-**Catalog as the single source of truth:** when adding a new credential, register it in `core/config/credential_setup.py::CredentialSetup.CREDENTIALS`. The drift test (`test_lint_skuel.py::TestCredentialCatalogDrift`) will tell you to mirror it in `SkuelLinter.CREDENTIAL_CATALOG` so SKUEL019 catches future bypasses with ERROR severity.
+**Catalog as the single source of truth:** when adding a new credential, register it in `core/config/credential_store.py::CREDENTIAL_CATALOG`. Two drift tests then tell you to mirror the name — `test_lint_skuel.py::TestCredentialCatalogDrift` into `SkuelLinter.CREDENTIAL_CATALOG` (so SKUEL019 catches bypasses at ERROR severity), and `test_secret_scan.py::TestCatalogDrift` into `scripts/git-hooks/credential-keys.txt` (so the commit-time scan looks for it).
 
-**Exempt files** (raw env reads ARE the implementation): `credential_store.py`, `credential_setup.py`, `migrate_secrets_to_homedir.py`, `migrate_secrets_to_keychain.py`, test files.
+**Exempt files** (raw env reads ARE the implementation): `credential_store.py`, `credential_setup.py`, `migrate_secrets_to_keychain.py`, test files.
 
-**See:** `docs/roadmap/done/secrets-out-of-worktree.md` — full storage architecture; `docs/patterns/linter_rules.md` § SKUEL019.
+**See:** `core/config/README.md` — the live credential setup; `docs/roadmap/done/secrets-out-of-worktree.md` — how credentials got out of the worktree; `docs/patterns/linter_rules.md` § SKUEL019.
 
 ### Session Configuration
 
@@ -200,7 +200,7 @@ When adding a new route, verify:
 | No lambdas | SKUEL012 | Use named functions (prevents injection via closable scope) |
 | No `print()` in production | SKUEL015 | Use `logger.*()` — print can leak to stdout |
 | No `eval()`/`exec()` | — | Never execute dynamic code |
-| No hardcoded secrets | — | All secret reads go through `get_credential(KEY, fallback_to_env=True)` from `core/config/credential_store` — never raw `os.getenv("FOO_API_KEY")`. Backend (keychain / Fernet / direnv-loaded env) is selected by `SKUEL_CREDENTIAL_BACKEND`. Tier-gated services fail-fast at boot when a required credential is missing (commit `fed4287f`). |
+| No hardcoded secrets | — | All secret reads go through `get_credential(KEY, fallback_to_env=True)` from `core/config/credential_store` — never raw `os.getenv("FOO_API_KEY")`. Backend (OS keychain, or the read-only process environment when headless) is selected by `SKUEL_CREDENTIAL_BACKEND`. Tier-gated services fail-fast at boot when a required credential is missing (commit `fed4287f`). |
 | No APOC in domain services | SKUEL001 | APOC scoped to `apoc.meta.*` only |
 
 ---

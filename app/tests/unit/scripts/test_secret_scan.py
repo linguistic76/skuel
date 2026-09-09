@@ -344,11 +344,11 @@ class TestAssignmentShapeCoverage:
         deliberate gap with a measured price on the other side.
 
         A dict keyed by a credential name, in this repo, holds a description.
-        Accepting a spaced value here reports six lines in the files that ARE this
+        Accepting a spaced value here reports lines in the files that ARE this
         scan's source of truth: `core/config/environment_validator.py`,
-        `CredentialSetup.CREDENTIALS`, and this test file and the hook README that
-        quote them. No syntactic signal separates a description of a credential
-        from a passphrase.
+        `CREDENTIAL_CATALOG`, and this test file and the hook README that quote
+        them. No syntactic signal separates a description of a credential from a
+        passphrase.
 
         The cost: a SPACED passphrase hard-coded in a dict literal is not caught.
         A space-free one is, in every form. If the rule is ever removed, this test
@@ -357,9 +357,13 @@ class TestAssignmentShapeCoverage:
         assert not detects(
             '        "OPENAI_API_KEY": "OpenAI API key for embeddings and AI features"',
             '        "NEO4J_PASSWORD": "Neo4j password (defaults to password)",',
-            '        "NEO4J_PASSWORD": {',
-            '            "description": "Session cookie signing key (32+ random bytes)",',
         )
+        # `CREDENTIAL_CATALOG` keys a credential name to a SPACE-FREE value, so it
+        # clears the dict-literal rule only on the length floor: `CredentialSpec(`
+        # is 15 characters. Pinned because it is a near-miss, not a comfortable
+        # pass — renaming the class to something 20+ characters long makes
+        # core/config/credential_store.py un-committable, and this says why.
+        assert not detects('    "NEO4J_PASSWORD": CredentialSpec(')
         # The documented gap, pinned: spaced in a data literal is out of reach...
         assert not detects('{"NEO4J_PASSWORD": "correct horse battery staple"}')
         # ...while the same passphrase in the assignment form is caught.
@@ -412,11 +416,12 @@ class TestFalsePositiveFloor:
     def test_the_length_floor_and_its_cost_are_deliberate(self) -> None:
         """The assignment half treats a short value as a placeholder. That is a choice.
 
-        `_is_placeholder` calls only the empty string, a `your-` prefix and its own
-        `_PLACEHOLDER_VALUES` list placeholders, so the hook's floor is strictly
-        broader — and it has to be. `.env.example` and `SETUP.md` carry placeholders
-        that fit none of those arms (asserted below); an exact-list rule reports all
-        of them, and a scan that blocks the committed templates gets bypassed.
+        `_is_placeholder` calls the empty string, any value containing `your-`, and
+        its own `_PLACEHOLDER_VALUES` list placeholders, so the hook's floor is
+        strictly broader — and it has to be. `.env.example` carries
+        `firefly-local-dev`, which fits none of those arms (asserted below); an
+        exact-list rule reports it, and a scan that blocks the committed templates
+        gets bypassed.
 
         The cost is a locally-chosen credential under the floor. It is bounded: every
         provider-issued credential in the catalog is far longer, and provider keys are
@@ -425,11 +430,14 @@ class TestFalsePositiveFloor:
         """
         # The live template placeholders no exact-list rule would cover.
         assert not detects(
-            "FIREFLY_DB_PASSWORD=firefly-local-dev",  # 17 chars, not `your-`-prefixed
-            "OPENAI_API_KEY=sk-your-openai-key",  # 18 chars, prefix is `sk-your-`
+            # 17 chars, and the only one of these the funnel would NOT call a
+            # placeholder — the length floor is what carries it.
+            "FIREFLY_DB_PASSWORD=firefly-local-dev",
+            "OPENAI_API_KEY=sk-your-openai-key",  # 18 chars, `your-` behind `sk-`
             "OPENAI_API_KEY=<your-openai-key>",  # 17 chars, SETUP.md form
             # 25 chars, and `your-` sits behind the provider prefix — which is why
-            # that arm matches anywhere in the value rather than only at its start.
+            # both this arm and `_is_placeholder` match anywhere in the value
+            # rather than only at its start.
             "# ANTHROPIC_API_KEY=sk-ant-your-anthropic-key   # [SECRET]",
         )
         # The gap that buys: a short hand-picked password is not reported.
@@ -538,15 +546,6 @@ NON_FUNNEL_KEYS = {
     # (infrastructure/docker-compose.yml), and its `user/password` value carries a
     # real password. Never read through get_credential().
     "NEO4J_AUTH",
-    # Not a stored credential — the key that decrypts the whole Fernet store
-    # (core/config/credential_store.py). Leaking it exposes every key in the store.
-    "SKUEL_MASTER_KEY",
-    # Read through get_credential() (adapters/inbound/auth_ui.py) but absent from
-    # the catalog, and its name matches none of SKUEL019's credential-shaped
-    # suffixes — so nothing else in the tree treats it as one. Leaking it opens
-    # registration; DO_MIGRATION_GUIDE.md calls it the throttle on node-cap growth
-    # and LLM-cost abuse.
-    "SIGNUP_INVITE_CODE",
     # Credential env keys the deployed services read, enumerated from the compose
     # files. Each is an interpolation there today, so a literal in its place is the
     # leak. app/docker-compose.yml lines 114, 136, 142, 171, 224.
@@ -560,7 +559,7 @@ NON_FUNNEL_KEYS = {
 
 
 class TestCatalogDrift:
-    """`credential-keys.txt` mirrors CredentialSetup.CREDENTIALS, plus declared extras.
+    """`credential-keys.txt` mirrors CREDENTIAL_CATALOG, plus declared extras.
 
     Bash cannot import Python, so the names are duplicated. This is the same
     arrangement (and the same failure mode) as
@@ -568,33 +567,33 @@ class TestCatalogDrift:
     a newly-added credential silently stops being scanned for.
     """
 
-    def test_mirror_matches_credential_setup_plus_declared_extras(self) -> None:
-        from core.config.credential_setup import CredentialSetup
+    def test_mirror_matches_the_credential_catalog_plus_declared_extras(self) -> None:
+        from core.config.credential_store import CREDENTIAL_CATALOG
 
-        expected = set(CredentialSetup.CREDENTIALS) | NON_FUNNEL_KEYS
+        expected = set(CREDENTIAL_CATALOG) | NON_FUNNEL_KEYS
         mirrored = set(read_data_file(CATALOG_FILE))
 
         missing = expected - mirrored
         extra = mirrored - expected
         assert not missing, (
             f"scripts/git-hooks/credential-keys.txt is missing keys present in "
-            f"CredentialSetup.CREDENTIALS: {sorted(missing)}. Add them — until then "
+            f"CREDENTIAL_CATALOG: {sorted(missing)}. Add them — until then "
             f"the secret scan does not look for them."
         )
         assert not extra, (
             f"scripts/git-hooks/credential-keys.txt has keys in neither "
-            f"CredentialSetup.CREDENTIALS nor NON_FUNNEL_KEYS: {sorted(extra)}. "
+            f"CREDENTIAL_CATALOG nor NON_FUNNEL_KEYS: {sorted(extra)}. "
             f"A credential-bearing name outside the funnel belongs in NON_FUNNEL_KEYS "
             f"with a reason; anything else is drift."
         )
 
     def test_declared_extras_are_actually_outside_the_funnel(self) -> None:
         """A name that joins the catalog must leave NON_FUNNEL_KEYS, not sit in both."""
-        from core.config.credential_setup import CredentialSetup
+        from core.config.credential_store import CREDENTIAL_CATALOG
 
-        overlap = NON_FUNNEL_KEYS & set(CredentialSetup.CREDENTIALS)
+        overlap = NON_FUNNEL_KEYS & set(CREDENTIAL_CATALOG)
         assert not overlap, (
-            f"{sorted(overlap)} is in CredentialSetup.CREDENTIALS now — drop it from "
+            f"{sorted(overlap)} is in CREDENTIAL_CATALOG now — drop it from "
             f"NON_FUNNEL_KEYS so the mirror pins it as a funnel credential."
         )
 
@@ -602,11 +601,6 @@ class TestCatalogDrift:
         """`NEO4J_AUTH: "neo4j/<password>"` is a leak the content half cannot see."""
         assert detects(f'      NEO4J_AUTH: "neo4j/{base64url_secret()}"')
         assert not detects('      NEO4J_AUTH: "${NEO4J_AUTH}"')
-
-    def test_the_store_master_key_is_scanned(self) -> None:
-        """It decrypts every other credential, so it is the highest-value single line."""
-        assert detects(f"SKUEL_MASTER_KEY={base64url_secret()}")
-        assert not detects("SKUEL_MASTER_KEY=${SKUEL_MASTER_KEY}")
 
     def test_the_deployed_service_credentials_are_scanned(self) -> None:
         """A compose interpolation replaced by a literal is the leak these cover."""

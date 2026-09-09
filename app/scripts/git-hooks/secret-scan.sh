@@ -135,7 +135,7 @@ fi
 #     The reason is measured, not stylistic. In this repo a dict keyed by a
 #     credential name holds a *description* — `"OPENAI_API_KEY": "OpenAI API key
 #     for embeddings and AI features"` in core/config/environment_validator.py,
-#     and the catalog in credential_setup.py itself. Accepting a spaced value here
+#     and the catalog in credential_store.py itself. Accepting a spaced value here
 #     reports six lines, in the files that ARE this scan's source of truth, plus
 #     its own README and test. There is no syntactic signal separating a
 #     description of a credential from a passphrase.
@@ -203,15 +203,15 @@ done
 # This is deliberately BROADER than core/config/credential_store.py::_is_placeholder,
 # which calls only the empty string, a `your-*` prefix and its own _PLACEHOLDER_VALUES
 # list placeholders. Every member of that list is covered here (each is empty,
-# `your-`-prefixed, or under the length floor — test_secret_scan.py pins that by
-# driving this script with the real set), so the hook never reports something the
-# funnel would accept.
+# contains `your-`, or is under the length floor — test_secret_scan.py pins that
+# by driving this script with the real set), so the hook never reports something
+# the funnel would accept.
 #
 # The length floor is what the committed templates need: `.env.example` carries
-# `firefly-local-dev` and `sk-your-openai-key`, and the setup docs carry
-# `<your-openai-key>` — none `your-`-prefixed, none in _PLACEHOLDER_VALUES. An
-# exact-list rule would report all three, and a scan that blocks `.env.example`
-# gets bypassed with SKUEL_ALLOW_SECRETS=1 until it stops being a fence at all.
+# `firefly-local-dev`, which contains no `your-` and is not in
+# _PLACEHOLDER_VALUES. An exact-list rule would report it, and a scan that blocks
+# `.env.example` gets bypassed with SKUEL_ALLOW_SECRETS=1 until it stops being a
+# fence at all.
 #
 # The floor's cost, stated plainly: a locally-chosen credential under
 # MIN_SECRET_LEN characters is not caught by this half. That is a real gap, and

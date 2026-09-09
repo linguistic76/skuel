@@ -1,26 +1,34 @@
-#!/usr/bin/env python3
 # skuel-lint: disable-file=SKUEL015 -- Interactive CLI utility
 """
 Credential Setup Tool
 =====================
 
-Interactive tool to set up and manage encrypted credentials for SKUEL.
-All sensitive data is stored encrypted, never in plain text.
+Interactive tool to load SKUEL's credentials into the active backend. It is
+reached one way, `uv run python -m core.config`, whose `__main__` calls `main()`
+below. It writes through ``get_active_backend()``,
+so what it stores is exactly what ``get_credential()`` later reads — there is
+no second write path.
+
+The catalog it walks is ``CREDENTIAL_CATALOG`` in ``credential_store.py``.
 """
 
-__version__ = "1.0"
+__version__ = "2.0"
 
 import getpass
 import os
 import sys
-from collections.abc import Callable
-from pathlib import Path
-from typing import Any, ClassVar
 
 # Load environment variables from .env file if it exists
 from dotenv import load_dotenv
 
-from core.config.credential_store import CredentialStore, get_credential_store
+from core.config.credential_store import (
+    CREDENTIAL_CATALOG,
+    CredentialBackend,
+    CredentialSpec,
+    _is_placeholder,
+    get_active_backend,
+)
+from core.errors import ConfigurationError
 from core.utils.logging import get_logger
 
 load_dotenv()
@@ -28,200 +36,40 @@ load_dotenv()
 logger = get_logger(__name__)
 
 
-def _validate_openai_key(key: str) -> bool:
-    """Validate OpenAI API key format."""
-    if not key.startswith("sk-"):
-        print("⚠️  Warning: OpenAI keys usually start with 'sk-'")
-        return False
-    return True
+def _env_value(name: str) -> str | None:
+    """The environment's value for `name`, or None when it is a placeholder.
+
+    Uses the same placeholder rule as `get_credential()`'s auto-migration, so a
+    half-filled `.env` template never lands in the backend either way.
+    """
+    value = os.getenv(name)
+    return None if _is_placeholder(value) else value
 
 
 class CredentialSetup:
     """Interactive credential setup utility."""
 
-    # Credentials to manage. Required = production cannot start without it;
-    # Optional = feature degrades gracefully when missing (e.g. AI features
-    # disabled, Firefly sidecar not used). All are stored encrypted.
-    CREDENTIALS: ClassVar[dict[str, dict[str, Any | bool | Callable[[str], bool] | None]]] = {
-        # --- Core infra (required for app to function) ---
-        "NEO4J_PASSWORD": {
-            "description": "Neo4j database password",
-            "required": True,
-            "sensitive": True,
-            "default": None,
-        },
-        "SESSION_SECRET_KEY": {
-            "description": "Session cookie signing key (32+ random bytes)",
-            "required": True,
-            "sensitive": True,
-            "default": None,
-        },
-        # --- AI providers (required for INTELLIGENCE_TIER=full) ---
-        "OPENAI_API_KEY": {
-            "description": "OpenAI API key — embeddings + LLM (INTELLIGENCE_TIER=full)",
-            "required": False,
-            "sensitive": True,
-            "default": None,
-            "validation": _validate_openai_key,
-        },
-        "ANTHROPIC_API_KEY": {
-            "description": "Anthropic API key — only when LLMConfig.provider=anthropic",
-            "required": False,
-            "sensitive": True,
-            "default": None,
-        },
-        "HF_API_TOKEN": {
-            "description": "HuggingFace Inference API token (BAAI/bge-m3 — staged until Arc 3, ADR-083)",
-            "required": False,
-            "sensitive": True,
-            "default": None,
-        },
-        "DEEPGRAM_API_KEY": {
-            "description": "Deepgram API key — voice journal transcription",
-            "required": False,
-            "sensitive": True,
-            "default": None,
-        },
-        # --- Firefly III finance sidecar (ADR-051) ---
-        "FIREFLY_APP_KEY": {
-            "description": "Firefly III APP_KEY (base64:... format, 32 bytes)",
-            "required": False,
-            "sensitive": True,
-            "default": None,
-        },
-        "FIREFLY_DB_PASSWORD": {
-            "description": "Firefly III Postgres password",
-            "required": False,
-            "sensitive": True,
-            "default": None,
-        },
-        "FIREFLY_PAT_PERSONAL": {
-            "description": "Firefly Personal Access Token — Mike's personal account",
-            "required": False,
-            "sensitive": True,
-            "default": None,
-        },
-        "FIREFLY_PAT_SKUEL": {
-            "description": "Firefly Personal Access Token — SKUEL business account",
-            "required": False,
-            "sensitive": True,
-            "default": None,
-        },
-        # --- Stripe → Firefly revenue sync ---
-        "STRIPE_WEBHOOK_SECRET": {
-            "description": "Stripe webhook signing secret (whsec_... format)",
-            "required": False,
-            "sensitive": True,
-            "default": None,
-        },
-        # --- Transactional email (required when EMAIL_ENABLED=true) ---
-        "RESEND_API_KEY": {
-            "description": "Resend API key — password reset emails (gated by EMAIL_ENABLED)",
-            "required": False,
-            "sensitive": True,
-            "default": None,
-        },
-        # --- Dev/test accounts (local development only) ---
-        "TEST_ADMIN_PASSWORD": {
-            "description": "Test admin account password (local dev/integration tests)",
-            "required": False,
-            "sensitive": True,
-            "default": None,
-        },
-        "TEST_USER_PASSWORD": {
-            "description": "Test regular user password (local dev/integration tests)",
-            "required": False,
-            "sensitive": True,
-            "default": None,
-        },
-    }
-
     def __init__(self) -> None:
-        """Initialize the credential setup."""
-        self.store: CredentialStore | None = None
-        self._check_master_key()
+        """Initialize the credential setup against the active backend."""
+        self.backend: CredentialBackend = get_active_backend()
 
-    def _check_master_key(self) -> bool:
-        """Check if master key is set up."""
-        if not os.getenv("SKUEL_MASTER_KEY"):
-            print("\n⚠️  SKUEL_MASTER_KEY not found!")
-            print("\nThe master key is required to encrypt credentials.")
-            print("Options:")
-            print("  1. Generate a new master key")
-            print("  2. Use existing master key from .env")
-            print("  3. Exit")
-
-            choice = input("\nChoice [1-3]: ").strip()
-
-            if choice == "1":
-                self._generate_master_key()
-                return True
-            elif choice == "2":
-                print("\nPlease ensure SKUEL_MASTER_KEY is set in your .env file")
-                return False
-            else:
-                sys.exit(0)
-        return True
-
-    def _generate_master_key(self) -> None:
-        """Generate and display a new master key."""
-        import base64
-        import secrets
-
-        key = base64.b64encode(secrets.token_bytes(32)).decode()
-
-        print("\n🔑 Generated master key:")
-        print(f"\nSKUEL_MASTER_KEY={key}")
-        print("\n⚠️  IMPORTANT:")
-        print("  1. Add this to your .env file")
-        print("  2. Keep this key safe - it's needed to decrypt credentials")
-        print("  3. Never commit this key to version control")
-
-        save = input("\nSave to .env file? [y/N]: ").strip().lower()
-        if save == "y":
-            self._update_env_file("SKUEL_MASTER_KEY", key)
-            os.environ["SKUEL_MASTER_KEY"] = key
-            print("✅ Master key saved to .env")
-
-    def _update_env_file(self, key: str, value: str) -> None:
-        """Update or add a key in .env file."""
-        env_path = Path.cwd() / ".env"
-
-        if env_path.exists():
-            lines = env_path.read_text().splitlines()
-            updated = False
-
-            for i, line in enumerate(lines):
-                if line.startswith(f"{key}="):
-                    lines[i] = f"{key}={value}"
-                    updated = True
-                    break
-
-            if not updated:
-                lines.append("\n# Added by credential setup")
-                lines.append(f"{key}={value}")
-
-            env_path.write_text("\n".join(lines) + "\n")
-        else:
-            env_path.write_text(f"# SKUEL Environment Configuration\n{key}={value}\n")
-
-    def run(self):
+    def run(self) -> None:
         """Run the interactive credential setup."""
         print("\n" + "=" * 60)
-        print("SKUEL Encrypted Credential Setup")
+        print("SKUEL Credential Setup")
         print("=" * 60)
 
-        if not self._check_master_key():
+        backend_name = type(self.backend).__name__
+        if self.backend.READ_ONLY:
+            print(f"\n❌ The active backend ({backend_name}) is read-only.")
+            print("\nSKUEL_CREDENTIAL_BACKEND=env resolves credentials from the process")
+            print("environment — this tool has nothing to write to. Set the values in")
+            print("whatever loads that environment (on the droplet: /opt/skuel/secrets.env,")
+            print("loaded by docker-compose.production.yml), or switch to")
+            print("SKUEL_CREDENTIAL_BACKEND=keyring on a machine with a keychain.")
             return
 
-        try:
-            self.store = get_credential_store()
-        except ValueError as e:
-            print(f"\n❌ Error: {e}")
-            return
-
-        print("\nThis tool will help you securely store sensitive credentials.")
-        print("All credentials are encrypted using your master key.\n")
+        print(f"\nCredentials are stored via {backend_name} — never in plain text.\n")
 
         while True:
             self._show_menu()
@@ -259,113 +107,92 @@ class CredentialSetup:
 
     def _setup_all_credentials(self) -> None:
         """Set up all credentials interactively."""
-        if self.store is None:
-            print("❌ Credential store not initialized")
-            return
-
         print("\n📝 Setting up all credentials...\n")
 
-        for cred_name, config in self.CREDENTIALS.items():
-            current = self.store.get(cred_name)
-
-            if current:
+        for cred_name, spec in CREDENTIAL_CATALOG.items():
+            if self.backend.exists(cred_name):
                 update = input(f"{cred_name} already set. Update? [y/N]: ").strip().lower()
                 if update != "y":
                     continue
 
-            self._setup_credential(cred_name, config)
+            self._setup_credential(cred_name, spec)
 
     def _setup_single_credential(self) -> None:
         """Set up a single credential."""
         print("\nAvailable credentials:")
-        for i, (name, config) in enumerate(self.CREDENTIALS.items(), 1):
-            required = "Required" if config["required"] else "Optional"
-            print(f"  {i}. {name} - {config['description']} [{required}]")
+        for i, (name, spec) in enumerate(CREDENTIAL_CATALOG.items(), 1):
+            required = "Required" if spec.required else "Optional"
+            print(f"  {i}. {name} - {spec.description} [{required}]")
 
-        choice = input(f"\nSelect credential [1-{len(self.CREDENTIALS)}]: ").strip()
+        choice = input(f"\nSelect credential [1-{len(CREDENTIAL_CATALOG)}]: ").strip()
 
         try:
             idx = int(choice) - 1
-            cred_name = list(self.CREDENTIALS.keys())[idx]
-            self._setup_credential(cred_name, self.CREDENTIALS[cred_name])
+            if idx < 0:
+                raise IndexError(choice)
+            cred_name = list(CREDENTIAL_CATALOG)[idx]
         except (ValueError, IndexError):  # fmt: skip
             print("❌ Invalid choice")
-
-    def _setup_credential(self, name: str, config: dict) -> None:
-        """Set up a single credential."""
-        if self.store is None:
-            print("❌ Credential store not initialized")
             return
 
-        print(f"\n{config['description']}:")
+        self._setup_credential(cred_name, CREDENTIAL_CATALOG[cred_name])
 
-        if config["sensitive"]:
-            value = getpass.getpass(f"Enter {name}: ").strip()
-            if value:
-                confirm = getpass.getpass(f"Confirm {name}: ").strip()
-                if value != confirm:
-                    print("❌ Values don't match!")
-                    return
-        else:
-            value = input(f"Enter {name}: ").strip()
+    def _setup_credential(self, name: str, spec: CredentialSpec) -> None:
+        """Prompt for one credential and store it."""
+        print(f"\n{spec.description}:")
+
+        value = getpass.getpass(f"Enter {name}: ").strip()
+        if value:
+            confirm = getpass.getpass(f"Confirm {name}: ").strip()
+            if value != confirm:
+                print("❌ Values don't match!")
+                return
 
         if not value:
-            if config["required"]:
+            if spec.required:
                 print(f"❌ {name} is required!")
-                return
             else:
                 print(f"⏭️  Skipping {name}")
-                return
+            return
 
-        # Validate if validator exists
-        if config.get("validation"):
-            config["validation"](value)
+        if spec.expected_prefix and not value.startswith(spec.expected_prefix):
+            # Advisory only — storing anyway. See CredentialSpec.expected_prefix.
+            print(f"⚠️  Warning: {name} values usually start with '{spec.expected_prefix}'")
 
-        self.store.set(name, value)
+        self.backend.set(name, value)
         print(f"✅ {name} stored securely")
 
     def _view_credentials(self) -> None:
         """View stored credentials (keys only, not values)."""
-        if self.store is None:
-            print("❌ Credential store not initialized")
-            return
-
         print("\n📋 Stored credentials:")
-        keys = self.store.list_keys()
+        keys = self.backend.list_keys()
 
         if not keys:
             print("  No credentials stored")
-        else:
-            for key in keys:
-                desc = self.CREDENTIALS.get(key, {}).get("description", "Unknown")
-                print(f"  • {key}: {desc}")
-
-    def _migrate_from_env(self) -> None:
-        """Migrate credentials from environment variables."""
-        if self.store is None:
-            print("❌ Credential store not initialized")
             return
 
+        for key in keys:
+            spec = CREDENTIAL_CATALOG.get(key)
+            description = spec.description if spec else "Not in the credential catalog"
+            print(f"  • {key}: {description}")
+
+    def _migrate_from_env(self) -> None:
+        """Migrate catalog credentials from environment variables."""
         print("\n🔄 Migrating from environment variables...\n")
 
         migrated = []
-        for cred_name in self.CREDENTIALS:
-            env_value = os.getenv(cred_name)
+        for cred_name in CREDENTIAL_CATALOG:
+            env_value = _env_value(cred_name)
+            if not env_value:
+                continue
 
-            # Skip placeholders
-            if env_value and env_value not in [
-                "your-api-key-here",
-                "your-openai-api-key-here",
-                "your-deepgram-api-key-here",
-                "password",
-            ]:
-                existing = self.store.get(cred_name)
-                if existing:
-                    print(f"  ⏭️  {cred_name} already in store, skipping")
-                else:
-                    self.store.set(cred_name, env_value)
-                    migrated.append(cred_name)
-                    print(f"  ✅ Migrated {cred_name}")
+            if self.backend.exists(cred_name):
+                print(f"  ⏭️  {cred_name} already stored, skipping")
+                continue
+
+            self.backend.set(cred_name, env_value)
+            migrated.append(cred_name)
+            print(f"  ✅ Migrated {cred_name}")
 
         if migrated:
             print(f"\n✅ Migrated {len(migrated)} credential(s)")
@@ -376,44 +203,21 @@ class CredentialSetup:
             print("\n  No credentials to migrate")
 
     def _test_credentials(self) -> None:
-        """Test stored credentials."""
-        if self.store is None:
-            print("❌ Credential store not initialized")
-            return
-
+        """Report which catalog credentials are present."""
         print("\n🧪 Testing credentials...\n")
 
-        # Test Neo4j
-        neo4j_pass = self.store.get("NEO4J_PASSWORD")
-        if neo4j_pass:
-            print("  • NEO4J_PASSWORD: ✅ Set")
-        else:
-            print("  • NEO4J_PASSWORD: ❌ Not set")
-
-        # Test OpenAI
-        openai_key = self.store.get("OPENAI_API_KEY")
-        if openai_key:
-            if openai_key.startswith("sk-"):
-                print("  • OPENAI_API_KEY: ✅ Set (format looks valid)")
+        for name, spec in CREDENTIAL_CATALOG.items():
+            requirement = "REQUIRED" if spec.required else "optional"
+            if self.backend.exists(name):
+                print(f"  • {name}: ✅ Set ({requirement})")
+            elif spec.required:
+                print(f"  • {name}: ❌ Not set ({requirement})")
             else:
-                print("  • OPENAI_API_KEY: ⚠️  Set (format may be invalid)")
-        else:
-            print("  • OPENAI_API_KEY: ❌ Not set (REQUIRED)")
-
-        # Test Deepgram
-        deepgram_key = self.store.get("DEEPGRAM_API_KEY")
-        if deepgram_key:
-            print("  • DEEPGRAM_API_KEY: ✅ Set")
-        else:
-            print("  • DEEPGRAM_API_KEY: ⚠️  Not set (optional)")
+                print(f"  • {name}: ⚠️  Not set ({requirement})")
 
     def _remove_credential(self) -> None:
-        """Remove a credential from the store."""
-        if self.store is None:
-            print("❌ Credential store not initialized")
-            return
-
-        keys = self.store.list_keys()
+        """Remove a credential from the backend."""
+        keys = self.backend.list_keys()
 
         if not keys:
             print("\n  No credentials to remove")
@@ -427,32 +231,32 @@ class CredentialSetup:
 
         try:
             idx = int(choice) - 1
+            if idx < 0:
+                raise IndexError(choice)
             key_to_remove = keys[idx]
-
-            confirm = (
-                input(f"\n⚠️  Remove {key_to_remove}? This cannot be undone. [y/N]: ")
-                .strip()
-                .lower()
-            )
-            if confirm == "y":
-                self.store.delete(key_to_remove)
-                print(f"✅ {key_to_remove} removed")
         except (ValueError, IndexError):  # fmt: skip
             print("❌ Invalid choice")
+            return
+
+        confirm = (
+            input(f"\n⚠️  Remove {key_to_remove}? This cannot be undone. [y/N]: ").strip().lower()
+        )
+        if confirm == "y":
+            self.backend.delete(key_to_remove)
+            print(f"✅ {key_to_remove} removed")
 
 
-def main():
+def main() -> None:
     """Main entry point for credential setup."""
     try:
         setup = CredentialSetup()
         setup.run()
-    except KeyboardInterrupt:
+    except KeyboardInterrupt, EOFError:
         print("\n\n👋 Credential setup cancelled")
         sys.exit(0)
+    except ConfigurationError as e:
+        print(f"\n❌ {e}")
+        sys.exit(1)
     except Exception as e:  # intentional-broad: CLI entrypoint
         print(f"\n❌ Error: {e}")
         sys.exit(1)
-
-
-if __name__ == "__main__":
-    main()

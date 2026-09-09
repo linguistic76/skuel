@@ -38,6 +38,12 @@ services:
       APP_HOST: 0.0.0.0
       APP_PORT: 5001
       SKUEL_ENVIRONMENT: production
+      # No OS keychain exists in this container, so credentials resolve from the
+      # process environment the two env_file entries above build. Pinned here
+      # rather than left to .env.production because the default is `keyring`:
+      # an operator who omits the line gets a boot that cannot read a single
+      # credential.
+      SKUEL_CREDENTIAL_BACKEND: env
     ports:
       # Loopback only — Caddy fronts the world; the deploy health gate and
       # droplet-side curl use 127.0.0.1:5001 directly.

@@ -172,7 +172,7 @@ neo4j_uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
 neo4j_user = os.getenv("NEO4J_USERNAME", "neo4j")
 ```
 
-Passwords are resolved via the credential store (`core.config.credential_store`) with env fallback. Set credentials in `.env` or export them directly.
+Passwords are resolved via `get_credential()` (`core.config.credential_store`), which reads the backend `SKUEL_CREDENTIAL_BACKEND` selects and falls back to the environment. Load them once with `uv run python -m core.config`.
 
 ## Safety Features
 
@@ -280,7 +280,7 @@ Error: Invalid username or password
 
 **Solution:**
 1. Check Neo4j credentials in `.env` or environment
-2. Set password via credential store: `uv run python scripts/set_neo4j_password.py`
+2. Set password via the credential setup tool: `uv run python -m core.config`
 3. Or reset Neo4j password
 
 ### Partial Ingestion

@@ -1,5 +1,5 @@
 ---
-updated: 2026-08-16
+updated: 2026-09-09
 ---
 
 # Development Setup Guide
@@ -26,7 +26,7 @@ SKUEL requires Neo4j as its primary database. All dependencies are REQUIRED — 
    NEO4J_URI=bolt://localhost:7687
    NEO4J_USERNAME=neo4j
    ```
-3. Load `NEO4J_PASSWORD` into the active credential backend (the keychain by default — `SKUEL_CREDENTIAL_BACKEND=keyring` in `app/.env`). See `app/README.md` § "Configure Environment" for the three supported shapes and the `python -m core.config` entry point.
+3. Load `NEO4J_PASSWORD` into the active credential backend (the keychain by default — `SKUEL_CREDENTIAL_BACKEND=keyring` in `app/.env`). See `app/README.md` § "Configure Environment" for the two supported backends and the `python -m core.config` entry point.
 
 > **Hosted alternative:** a Neo4j AuraDB Free instance works identically (`NEO4J_URI=neo4j+s://<dbid>.databases.neo4j.io`) — since 2026-08-15 the primary dev machine's daily graph is AuraDB, with local Docker kept as an opt-in sandbox. ⚠️ Aura usernames are the **instance ID**, not `neo4j` — copy `NEO4J_USERNAME` from the Aura credentials file. See `/docs/deployment/AURADB_MIGRATION_GUIDE.md` § 6.1.
 
@@ -84,7 +84,7 @@ APP_PORT=8000
 LOG_LEVEL=INFO
 ```
 
-Credentials (`NEO4J_PASSWORD`, `OPENAI_API_KEY`, `DEEPGRAM_API_KEY`, …) are read via `get_credential()` from the backend selected above — do **not** `export` them as shell env or paste them into `.env`. Load them once with `uv run python core/config/credential_setup.py` (interactive) or `uv run python scripts/migrate_secrets_to_keychain.py`. The full inventory of credential keys lives in `core/config/credential_setup.py::CredentialSetup.CREDENTIALS`.
+Credentials (`NEO4J_PASSWORD`, `OPENAI_API_KEY`, `DEEPGRAM_API_KEY`, …) are read via `get_credential()` from the backend selected above — do **not** `export` them as shell env or paste them into `.env`. Load them once with `uv run python -m core.config` (interactive) or `uv run python scripts/migrate_secrets_to_keychain.py`. The full inventory of credential keys lives in `core/config/credential_store.py::CREDENTIAL_CATALOG`.
 
 ## Running the Application
 

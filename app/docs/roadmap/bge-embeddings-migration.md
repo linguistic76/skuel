@@ -1,5 +1,5 @@
 ---
-updated: 2026-08-15
+updated: 2026-09-09
 ---
 
 # BGE Embeddings Migration (ADR-083 Arc 3)
@@ -24,7 +24,7 @@ secret on the droplet, and one batch re-embed.
 | BGE adapter | Implemented, pointed at `BAAI/bge-m3`, same `EmbeddingClientOperations` port as OpenAI | `adapters/external/embeddings/huggingface_adapter.py` |
 | Dimension parity | 1024 frozen via `EmbeddingGeometry.DIMENSION`; OpenAI already requests 1024 via `dimensions` param; BGE-M3 emits 1024 natively | `core/constants.py` |
 | Vector indexes | All 7 AuraDB indexes at 1024/COSINE — **no drop/recreate needed** | `scripts/create_vector_indexes.py`, `adapters/persistence/neo4j/query/schema_ddl.py` |
-| Credential catalog | `HF_API_TOKEN` catalogued (optional, sensitive, staged) | `core/config/credential_setup.py` |
+| Credential catalog | `HF_API_TOKEN` catalogued (optional, staged) | `core/config/credential_store.py::CREDENTIAL_CATALOG` |
 | Re-embed tooling | `--stale` backfill, idempotent, version-outranks-hash | `scripts/generate_embeddings_batch.py` |
 | Chunk-budget guard | Prevents chunking grain drifting past the 8192-token M3 window | `tests/unit/test_chunk_embedding_budget.py` |
 
