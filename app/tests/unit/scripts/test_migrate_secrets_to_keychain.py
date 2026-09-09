@@ -13,6 +13,13 @@ answers `NEO4J_URI` is a second source of truth for where the database lives,
 and it goes stale the day the database moves. So the filter is the contract,
 and both halves of it are asserted below — the names that must come through,
 and the names that must not.
+
+The other two cases here are about what a *value* is. `app/.env` overrides
+`secrets.env`, and the script offers to delete `secrets.env` afterwards, so a
+value admitted wrongly does not merely add a bad keychain entry — it replaces a
+good one and then the plaintext original is offered up for deletion. A
+placeholder copied from `.env.example` and a quoted dotenv value are the two
+ways that happens.
 """
 
 from __future__ import annotations
@@ -27,10 +34,13 @@ import migrate_secrets_to_keychain as mig  # type: ignore[import-not-found]
 
 from core.config.credential_store import CREDENTIAL_CATALOG
 
-# Angle-bracketed values, because the commit-time secret scan reads this file
-# like any other: a credential name assigned a 20+ character non-placeholder is
-# what it exists to block, and a fixture is indistinguishable from the real
-# thing. `<...>` is one of its recognised placeholder forms.
+# Every fixture value below has to clear the commit-time secret scan, which
+# reads this file like any other: a credential name assigned a 20+ character
+# non-placeholder is what it exists to block, and a fixture is
+# indistinguishable from the real thing. Two of its placeholder forms are used
+# here — `<...>`, which must span the WHOLE value (so a *quoted* one does not
+# qualify), and anything under 20 characters. That is why the quoted cases are
+# short rather than bracketed.
 LEGACY_ENV = """\
 # SKUEL Environment Configuration
 SKUEL_ENVIRONMENT=local
@@ -78,3 +88,55 @@ def test_it_leaves_connection_config_alone(tmp_path: Path) -> None:
 
 def test_a_missing_file_is_not_an_error(tmp_path: Path) -> None:
     assert mig.parse_env_file_credentials(tmp_path / "nonexistent.env") == {}
+
+
+def test_a_placeholder_never_migrates(tmp_path: Path) -> None:
+    """`.env.example`'s own values, which is what a copied `.env` carries.
+
+    Admitting one overwrites a valid stored credential with a public string —
+    and the script then offers to delete the plaintext file that still held the
+    real value.
+    """
+    env_file = tmp_path / ".env"
+    env_file.write_text(
+        "NEO4J_PASSWORD=your-neo4j-password\n"
+        "OPENAI_API_KEY=sk-your-openai-key\n"
+        "DEEPGRAM_API_KEY=your-deepgram-key\n"
+        "SESSION_SECRET_KEY=\n"
+        "STRIPE_WEBHOOK_SECRET=  # not set yet\n"
+    )
+
+    assert mig.parse_env_file_credentials(env_file) == {}
+
+
+def test_a_quoted_value_migrates_unquoted(tmp_path: Path) -> None:
+    """Stored with its quotes, the app authenticates with a different string.
+
+    Hand-edited `.env` files quote routinely, and dotenv — which is what reads
+    these files at runtime — does not treat the quotes as part of the value.
+    """
+    env_file = tmp_path / ".env"
+    env_file.write_text(
+        'NEO4J_PASSWORD="<a-pw>"\n'
+        "OPENAI_API_KEY='<a-key>'\n"
+        'RESEND_API_KEY="<a-val>"  # with a trailing comment\n'
+        'ANTHROPIC_API_KEY="<a#b>"\n'
+    )
+
+    assert mig.parse_env_file_credentials(env_file) == {
+        "NEO4J_PASSWORD": "<a-pw>",
+        "OPENAI_API_KEY": "<a-key>",
+        "RESEND_API_KEY": "<a-val>",
+        # The `#` is inside the quotes, so it is part of the value, not a comment.
+        "ANTHROPIC_API_KEY": "<a#b>",
+    }
+
+
+def test_a_dollar_sign_survives_verbatim(tmp_path: Path) -> None:
+    """Interpolation is off — a credential is a literal, not a template."""
+    env_file = tmp_path / ".env"
+    env_file.write_text("NEO4J_PASSWORD=<abc$def-not-a-variable>\n")
+
+    assert mig.parse_env_file_credentials(env_file) == {
+        "NEO4J_PASSWORD": "<abc$def-not-a-variable>"
+    }

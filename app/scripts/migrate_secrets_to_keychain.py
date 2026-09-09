@@ -52,12 +52,11 @@ import shutil
 import sys
 from pathlib import Path
 
+from dotenv import dotenv_values
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from core.config.credential_store import CREDENTIAL_CATALOG
-
-# `.env`-shaped KV line.
-KV_LINE_RE = re.compile(r"^\s*([A-Z_][A-Z0-9_]*)\s*=\s*(.*)$")
+from core.config.credential_store import CREDENTIAL_CATALOG, _is_placeholder
 
 SERVICE_NAME = "skuel"
 
@@ -69,39 +68,39 @@ def detect_paths() -> tuple[Path, Path]:
 
 
 def parse_secrets_file(path: Path) -> dict[str, str]:
-    """Load KV pairs from secrets.env (or any .env-shaped file)."""
+    """Load usable KV pairs from a `.env`-shaped file.
+
+    Parsed with `python-dotenv`, which is what these files are read by at
+    runtime (`load_dotenv`, and direnv's `dotenv_if_exists` in `app/.envrc`) —
+    so a quoted value (`NEO4J_PASSWORD="..."`) reaches the keychain as the
+    string the app would have seen, not with its quotes attached. Interpolation
+    is off: a credential containing `$` must survive verbatim.
+
+    Two shapes are dropped as non-values:
+
+    * a value starting with `#` — `KEY=  # note` is a commented-out blank, and
+      Docker Compose reads it as the literal `# note`. Neither is a credential.
+    * a placeholder, by `_is_placeholder` — the credential funnel's own rule, so
+      a half-filled template never reaches the keychain. Without this, a `.env`
+      copied from `.env.example` migrates `your-neo4j-password` over a valid
+      stored credential and the plaintext original is then offered for deletion.
+    """
     if not path.exists():
         return {}
-    out: dict[str, str] = {}
-    for line in path.read_text().splitlines():
-        m = KV_LINE_RE.match(line)
-        if not m:
-            continue
-        key, raw = m.group(1), m.group(2).strip()
-        # Strip dotenv-style trailing `# comment` for unquoted values. Docker
-        # Compose treats `KEY=  # foo` as the literal value `# foo`, which is
-        # what bare line parsing gives too — and migrating that as if the
-        # comment were the value would carry garbage into the keychain.
-        if raw and raw[0] not in ('"', "'"):
-            for sep in ("  #", "\t#"):
-                idx = raw.find(sep)
-                if idx != -1:
-                    raw = raw[:idx].rstrip()
-                    break
-            if raw.startswith("#"):
-                raw = ""
-        if raw:
-            out[key] = raw
-    return out
+    return {
+        key: raw
+        for key, raw in dotenv_values(path, interpolate=False).items()
+        if raw is not None and not raw.startswith("#") and not _is_placeholder(raw)
+    }
 
 
 def parse_env_file_credentials(path: Path) -> dict[str, str]:
     """Load only CREDENTIAL_CATALOG names from a `.env`-shaped config file.
 
-    `app/.env` holds mostly non-secret config. Migrating it whole is the bug
-    ADR-less fact 3 of the credential arc describes: a keychain that answers
-    `NEO4J_URI` becomes a second source of truth for where the database lives,
-    and goes stale the day it moves.
+    `app/.env` holds mostly non-secret config, and migrating it whole is the
+    defect the funnel's catalog gate exists to prevent: a keychain that answers
+    `NEO4J_URI` is a second source of truth for where the database lives, and it
+    goes stale the day the database moves.
     """
     return {k: v for k, v in parse_secrets_file(path).items() if k in CREDENTIAL_CATALOG}
 
@@ -193,7 +192,9 @@ def main() -> int:
     if not secrets:
         # Fall back to the current shell env — useful when direnv already
         # loaded the values but the source files are gone.
-        secrets = {k: v for k in CREDENTIAL_CATALOG if (v := os.getenv(k))}
+        secrets = {
+            k: v for k in CREDENTIAL_CATALOG if (v := os.getenv(k)) and not _is_placeholder(v)
+        }
         if not secrets:
             print("\nNo credentials found in either file or the shell environment.")
             print("Nothing to migrate.")

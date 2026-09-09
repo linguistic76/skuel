@@ -164,11 +164,20 @@ _PLACEHOLDER_VALUES: frozenset[str] = frozenset(
 
 
 def _is_placeholder(value: str | None) -> bool:
-    """True if `value` is empty or a known template placeholder."""
+    """True if `value` is empty or a known template placeholder.
+
+    The `your-` test looks anywhere in the value, not only at its start: the
+    convention routinely sits behind a provider prefix, and `.env.example`'s own
+    `sk-your-openai-key` and `sk-ant-your-anthropic-key` are exactly that shape.
+    `scripts/git-hooks/secret-scan.sh` reads them the same way for the same
+    reason. A real credential containing the literal `your-` is not a case worth
+    protecting against the one this catches — a copied template overwriting a
+    valid stored credential with a public string.
+    """
     if not value:
         return True
-    # Catch any "your-*" pattern so new templates don't require a list update.
-    if value.startswith("your-"):
+    # Substring, not prefix, so a new template needs no list update.
+    if "your-" in value:
         return True
     return value in _PLACEHOLDER_VALUES
 

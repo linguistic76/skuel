@@ -200,7 +200,18 @@ class TestEnvBackend:
 
         assert EnvBackend().list_keys() == ["NEO4J_PASSWORD"]
 
-    @pytest.mark.parametrize("placeholder", ["your-neo4j-password", "your-anything", ""])
+    @pytest.mark.parametrize(
+        "placeholder",
+        [
+            "your-neo4j-password",
+            "your-anything",
+            # `.env.example`'s own value: the convention sits behind a provider
+            # prefix, so the check has to look past the start of the value.
+            "sk-your-openai-key",
+            "sk-ant-your-anthropic-key",
+            "",
+        ],
+    )
     def test_a_placeholder_reads_as_absent(self, monkeypatch, placeholder: str) -> None:
         """`.env.example` is meant to be copied, so this is where placeholders arrive.
 

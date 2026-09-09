@@ -416,11 +416,12 @@ class TestFalsePositiveFloor:
     def test_the_length_floor_and_its_cost_are_deliberate(self) -> None:
         """The assignment half treats a short value as a placeholder. That is a choice.
 
-        `_is_placeholder` calls only the empty string, a `your-` prefix and its own
-        `_PLACEHOLDER_VALUES` list placeholders, so the hook's floor is strictly
-        broader — and it has to be. `.env.example` and `SETUP.md` carry placeholders
-        that fit none of those arms (asserted below); an exact-list rule reports all
-        of them, and a scan that blocks the committed templates gets bypassed.
+        `_is_placeholder` calls the empty string, any value containing `your-`, and
+        its own `_PLACEHOLDER_VALUES` list placeholders, so the hook's floor is
+        strictly broader — and it has to be. `.env.example` carries
+        `firefly-local-dev`, which fits none of those arms (asserted below); an
+        exact-list rule reports it, and a scan that blocks the committed templates
+        gets bypassed.
 
         The cost is a locally-chosen credential under the floor. It is bounded: every
         provider-issued credential in the catalog is far longer, and provider keys are
@@ -429,11 +430,14 @@ class TestFalsePositiveFloor:
         """
         # The live template placeholders no exact-list rule would cover.
         assert not detects(
-            "FIREFLY_DB_PASSWORD=firefly-local-dev",  # 17 chars, not `your-`-prefixed
-            "OPENAI_API_KEY=sk-your-openai-key",  # 18 chars, prefix is `sk-your-`
+            # 17 chars, and the only one of these the funnel would NOT call a
+            # placeholder — the length floor is what carries it.
+            "FIREFLY_DB_PASSWORD=firefly-local-dev",
+            "OPENAI_API_KEY=sk-your-openai-key",  # 18 chars, `your-` behind `sk-`
             "OPENAI_API_KEY=<your-openai-key>",  # 17 chars, SETUP.md form
             # 25 chars, and `your-` sits behind the provider prefix — which is why
-            # that arm matches anywhere in the value rather than only at its start.
+            # both this arm and `_is_placeholder` match anywhere in the value
+            # rather than only at its start.
             "# ANTHROPIC_API_KEY=sk-ant-your-anthropic-key   # [SECRET]",
         )
         # The gap that buys: a short hand-picked password is not reported.
