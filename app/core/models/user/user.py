@@ -106,7 +106,9 @@ class User:
     description: str = ""
     email: str = ""
     display_name: str = ""
-    password_hash: str = ""  # Bcrypt password hash (graph-native authentication)
+    # Bcrypt password hash (graph-native authentication). repr=False: a bcrypt
+    # digest is offline-crackable, so it is a credential, not an opaque id.
+    password_hash: str = field(default="", repr=False)
 
     # User preferences
     preferences: UserPreferences = field(default_factory=UserPreferences)

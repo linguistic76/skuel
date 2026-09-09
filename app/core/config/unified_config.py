@@ -298,7 +298,10 @@ class DatabaseConfig:
     # (see core/config/validation.py production URI guard).
     neo4j_uri: str = os.getenv("NEO4J_URI", "neo4j://localhost:7687")
     neo4j_username: str = os.getenv("NEO4J_USERNAME", "neo4j")
-    neo4j_password: str = field(default_factory=_get_neo4j_password)
+    # repr=False keeps the password out of any log line, traceback frame or
+    # debugger view that renders the config. UnifiedConfig.to_dict() already
+    # projects only neo4j_uri.
+    neo4j_password: str = field(default_factory=_get_neo4j_password, repr=False)
 
     # Connection pool / driver-level timeouts (applied at AsyncGraphDatabase.driver).
     # NOTE: these bound connection establishment, pool acquisition, and managed-
@@ -380,7 +383,7 @@ class CacheConfig:
     redis_host: str = "localhost"
     redis_port: int = 6379
     redis_db: int = 0
-    redis_password: str | None = None
+    redis_password: str | None = field(default=None, repr=False)  # repr=False: credential
 
     # Cache behavior
     default_ttl: int = 3600  # 1 hour
@@ -418,7 +421,7 @@ class MessageQueueConfig:
     host: str = "localhost"
     port: int = 5672
     username: str = "guest"
-    password: str = "guest"
+    password: str = field(default="guest", repr=False)  # repr=False: credential
 
     # Queue settings (FUTURE - For RabbitMQ/Kafka when implemented)
     exchange: str = "skuel"

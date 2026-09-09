@@ -25,7 +25,7 @@ Neo4j Schema:
 """
 
 import secrets
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 
 from core.models.type_hints import UserUID
@@ -54,7 +54,7 @@ class PasswordResetToken:
 
     Attributes:
         uid: Unique token identifier
-        token: Secure token value (provided to user)
+        token: Secure token value (provided to user; excluded from repr)
         user_uid: User this token is for
         created_at: When token was created
         expires_at: When token expires
@@ -63,7 +63,9 @@ class PasswordResetToken:
     """
 
     uid: str
-    token: str
+    # repr=False: whoever holds this token can reset the password. Keeping it
+    # out of repr() keeps it out of log lines, tracebacks and debugger frames.
+    token: str = field(repr=False)
     user_uid: UserUID
     created_at: datetime
     expires_at: datetime
