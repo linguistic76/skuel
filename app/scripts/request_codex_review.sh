@@ -27,13 +27,10 @@
 #   - plain issue comment matching the clean signature  = CLEAN
 #   - any other Codex issue comment                     = READ-it (rc 2)
 #
-# The first two are INDEPENDENT surfaces, and a finding can arrive on either.
-# This script used to count both and print only the inline one, so a body-only
-# finding was announced as "FINDINGS" and never shown — measured on #1301, where
-# a P1 (the push scan was blind to parentless commits) lived only in a review
-# body beside three unrelated inline comments, and was found afterwards by
-# querying the API by hand. Counting a channel without printing it is worse than
-# not reading it: the reader is told findings exist and shown a different set.
+# The first two are INDEPENDENT surfaces and a finding can arrive on either, so
+# every channel the verdict COUNTS is also PRINTED. Counting one without printing
+# it is worse than not reading it: the reader is told findings exist and shown a
+# different set. (Incident: #1301.)
 #
 # Outcomes:
 #   - clean    -> post consideration note + apply `codex-considered`, exit 0
@@ -149,19 +146,14 @@ check_verdict() {
   if (( reviews > 0 || inline > 0 )); then
     local printed=0
 
-    # Channel A — REVIEW BODIES. A finding can land here with no inline comment
-    # at all, and the two channels are independent: measured on #1301, where a P1
-    # about `git diff-tree --root` (the push scan was blind to parentless
-    # commits) lived ONLY in a review body while three unrelated inline comments
-    # printed normally. The old code counted this channel in the branch condition
-    # and then printed only the other one, so that finding was reported as
-    # "FINDINGS" and never shown — the reader saw three findings and had no way
-    # to know a fourth existed.
+    # Channel A — REVIEW BODIES. Independent of the inline channel: a finding can
+    # arrive in a review body with no inline comment at all. Every channel the
+    # branch condition COUNTS must also be PRINTED, or the reader is told findings
+    # exist and shown a different set. (Incident: #1301.)
     #
-    # Boilerplate-only bodies ("Here are some automated review suggestions for
-    # this pull request." + the reviewed-commit line, which is what 8 of 9
-    # reviews on #1301 carried) strip to empty and are skipped, so this stays
-    # silent unless Codex actually wrote something.
+    # Boilerplate-only bodies — the "Here are some automated review suggestions"
+    # preamble plus the reviewed-commit line — strip to empty and are skipped, so
+    # this section is silent unless Codex wrote something.
     local body_jq bodies
     body_jq='.[] | select(.user.login|test("codex";"i")) | select(.submitted_at > "'"$since"'")'
     body_jq+=' | . as $r | ($r.body'
@@ -172,7 +164,10 @@ check_verdict() {
     body_jq+=' | sub("^\\s+"; "") | sub("\\s+$"; "")) as $b'
     body_jq+=' | select($b | length > 0)'
     body_jq+=' | "── review on " + ($r.commit_id[0:10]) + " ──\n" + $b'
-    bodies=$(gh_retry api "repos/$REPO/pulls/$PR/reviews?per_page=100" --jq "$body_jq" 2>/dev/null) || bodies=""
+    # rc 4, never an empty string: a failed lookup is not an empty result. Coercing
+    # it would print "no findings" over a review that was counted but never read,
+    # and invite the label on it. Same rule the count lookups above follow.
+    bodies=$(gh_retry api "repos/$REPO/pulls/$PR/reviews?per_page=100" --jq "$body_jq" 2>/dev/null) || return 4
     if [[ -n "${bodies//[[:space:]]/}" ]]; then
       echo "── Codex FINDINGS (review body) ──"
       printf '%s\n' "$bodies"
@@ -189,9 +184,9 @@ check_verdict() {
 
     # Never print an empty findings section: a review whose body is pure
     # boilerplate and which carries no inline comments is Codex saying nothing,
-    # and silence dressed as "FINDINGS" is what sent the reader looking for
-    # content that was not there. Still rc 2 — it needs a human read, and the
-    # label is never applied without one.
+    # and silence dressed as "FINDINGS" sends the reader looking for content that
+    # is not there. Still rc 2 — it needs a human read, and the label is never
+    # applied without one.
     if (( printed == 0 )); then
       echo "── Codex submitted ${reviews} review(s) with no findings in body or inline ──"
       echo "   Nothing to address. Read the PR before applying the label."

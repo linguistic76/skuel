@@ -1,27 +1,30 @@
 """Tests for scripts/request_codex_review.sh — the Codex verdict reader.
 
-Why this file exists
---------------------
-Codex delivers findings on two independent surfaces: inline review comments, and
-the body of the review object itself. `check_verdict` counted BOTH when deciding
-that findings exist, then printed only the inline ones. So a finding that arrived
-in a review body was announced as "FINDINGS" and never shown.
+The invariant these pin
+-----------------------
+Codex delivers findings on two independent surfaces: inline (line-anchored)
+review comments, and the body of the review object itself. One review can carry
+both, or only the body. So:
 
-That is not hypothetical. On PR #1301 a P1 — the push-time scan was blind to
-parentless commits, `git diff-tree` emitting zero bytes without `--root` — lived
-only in the body of the review on `a139169db9`, alongside three unrelated inline
-comments that printed normally. The reader saw three findings and had no way to
-know a fourth existed; it was found later by querying the API by hand. Measured
-on that PR: 20 inline comments and 1 body-only finding, across 9 reviews of which
-8 carried nothing but boilerplate.
+1. Every channel the verdict COUNTS is also PRINTED. Counting one and printing
+   another announces findings the reader cannot see, which is worse than not
+   reading the channel at all — there is no signal that anything is missing.
+2. A failed lookup is not an empty result. An unreadable channel returns rc 4 so
+   polling continues; coercing it to "" would report "no findings" over a review
+   nobody read, and invite the label on it.
+3. A review with nothing in either surface says so, and still returns rc 2. An
+   unread review is not a clean verdict, and the label needs one.
+
+(Incident that motivated 1 and 2: #1301.)
 
 Approach follows test_pre_merge_check.py: a stub `gh` on PATH returns the POST-jq
 value each query would yield, and the real script is sourced so `check_verdict`
 runs unmodified. That covers the bash state machine — which channel is counted,
-which is printed, what the exit code is — which is exactly where this defect
-lived. Fidelity of the embedded jq programs is out of scope here; the body-strip
-program was verified against the live API responses on #1301 (8 boilerplate
-bodies strip to empty, the 1 substantive body survives).
+which is printed, what the exit code is — which is the layer these invariants
+live in. Fidelity of the embedded jq programs is out of scope here; the
+body-strip program is anchored to API responses measured on #1301, where 8 of 9
+review bodies were pure boilerplate and stripped to empty while the 1 substantive
+body survived.
 """
 
 from __future__ import annotations
@@ -39,6 +42,12 @@ SCRIPT = APP_ROOT / "scripts" / "request_codex_review.sh"
 # so it is matched on its own marker BEFORE the counting queries.
 GH_STUB = """#!/usr/bin/env bash
 args="$*"
+# STUB_FAIL_MATCH names a substring of the invocation that must fail after
+# retries, so an unreadable channel can be distinguished from an empty one.
+if [[ -n "${STUB_FAIL_MATCH:-}" && "$args" == *"${STUB_FAIL_MATCH}"* ]]; then
+  echo "stub: simulated API failure" >&2
+  exit 1
+fi
 case "$args" in
   *"auth token"*)        echo "stub-token" ;;
   *"review on"*)         printf '%s' "${STUB_REVIEW_BODIES}" ;;
@@ -63,6 +72,7 @@ def run_check_verdict(
     inline_text: str = "",
     issue_count: str = "0",
     issue_body: str = "",
+    fail_match: str = "",
 ) -> subprocess.CompletedProcess[str]:
     """Source the real script and run check_verdict against one stubbed PR state."""
     bin_dir = tmp_path / "bin"
@@ -79,6 +89,7 @@ def run_check_verdict(
         "STUB_INLINE_TEXT": inline_text,
         "STUB_ISSUE_COUNT": issue_count,
         "STUB_ISSUE_BODY": issue_body,
+        "STUB_FAIL_MATCH": fail_match,
     }
     program = f'source "{SCRIPT}" 1301\ncheck_verdict "{SINCE}"\nexit $?\n'
     return subprocess.run(
@@ -145,6 +156,29 @@ class TestNoEmptyFindingsSection:
         )
         assert result.returncode == 2, result.stderr
         assert "no findings in body or inline" in result.stdout
+
+
+class TestUnreadableChannelIsNotEmpty:
+    """rc 4, so the caller keeps polling — never "no findings" over an unread review."""
+
+    def test_a_failed_review_body_fetch_returns_rc4(self, tmp_path: Path) -> None:
+        result = run_check_verdict(
+            tmp_path,
+            review_count="1",
+            review_bodies=BODY_FINDING,
+            inline_count="0",
+            fail_match="review on",  # only the body-extraction call fails
+        )
+        assert result.returncode == 4, (
+            "an unreadable review-body channel was treated as empty — the operator "
+            f"would be told there is nothing to address:\n{result.stdout}"
+        )
+        assert "no findings in body or inline" not in result.stdout
+
+    def test_a_failed_count_lookup_still_returns_rc4(self, tmp_path: Path) -> None:
+        """The pre-existing guard on the counting queries, unchanged by this file."""
+        result = run_check_verdict(tmp_path, fail_match="reviews?per_page")
+        assert result.returncode == 4, result.stdout
 
 
 class TestOtherChannels:
