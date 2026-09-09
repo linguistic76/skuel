@@ -41,6 +41,13 @@ secret on the droplet, and one batch re-embed.
 3. **Supply `HF_API_TOKEN`** — keychain locally; on the droplet add to
    `/opt/skuel/secrets.env` (mode 0600). `OPENAI_API_KEY` stays required regardless: chat
    still runs on OpenAI until Arc 2.
+
+   **Nothing here validates the token, so paste a real one.** `HuggingFaceEmbeddingAdapter`
+   gates on `if not api_key` and the setup tool reports a stored credential from `exists()`
+   alone, so any non-empty string clears both — a wrong value first surfaces as a 401 from
+   the Inference API, three times, inside the tenacity retry, reading as a transient network
+   fault. The catalog's `expected_prefix="hf_"` warns on paste and is advisory by design
+   (`CredentialSpec.expected_prefix`). The one real check is a live call after step 4 starts.
 4. **Restart, then re-embed:**
    ```bash
    uv run python scripts/generate_embeddings_batch.py --stale

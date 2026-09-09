@@ -457,7 +457,9 @@ async def test_embedding_service_initialization(neo4j_driver):
     from adapters.persistence.neo4j.embeddings_backend import EmbeddingsBackend
     from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 
-    embedding_client = HuggingFaceEmbeddingAdapter(api_key="test-token")
+    # `your-`-prefixed so `_is_placeholder` refuses it: a fixture credential that
+    # reaches the environment must not migrate into a real keychain.
+    embedding_client = HuggingFaceEmbeddingAdapter(api_key="your-hf-token")
     embeddings_backend = EmbeddingsBackend(executor=Neo4jQueryExecutor(neo4j_driver))
     embeddings_service = EmbeddingsService(
         backend=embeddings_backend, embedding_client=embedding_client

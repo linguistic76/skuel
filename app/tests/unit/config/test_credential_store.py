@@ -160,6 +160,20 @@ class TestAutoMigrationIsCatalogGated:
         assert get_credential("NEO4J_PASSWORD") is None
         assert ("skuel", "NEO4J_PASSWORD") not in fake_keychain.store
 
+    def test_a_fixture_credential_never_migrates(self, monkeypatch, fake_keychain) -> None:
+        """A test fixture reaching the environment must not plant a credential.
+
+        The funnel is the only place that can refuse one. Nothing catches an
+        unusable credential downstream: `HuggingFaceEmbeddingAdapter` gates on
+        `if not api_key` and the setup tool reports a stored credential from
+        `exists()` alone, so a non-token clears both presence checks and fails
+        later as a 401, inside a retry wrapper.
+        """
+        monkeypatch.setenv("HF_API_TOKEN", "your-hf-token")
+
+        assert get_credential("HF_API_TOKEN") is None
+        assert ("skuel", "HF_API_TOKEN") not in fake_keychain.store
+
     def test_fallback_to_env_false_never_reaches_the_environment(
         self, monkeypatch, fake_keychain
     ) -> None:

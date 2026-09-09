@@ -14,13 +14,27 @@ import numpy as np
 import pytest
 
 from adapters.external.embeddings import HuggingFaceEmbeddingAdapter
+from core.config.credential_store import _is_placeholder
 
 DIM = 1024
+
+# The adapter gates on `if not api_key`, so any non-empty string builds one. That
+# makes the fixture a value that can travel: exported for a test run, it reaches
+# `get_credential()` and auto-migrates into the developer's real keychain, where
+# it satisfies every presence check downstream and fails as a 401 at first call.
+# `_is_placeholder` is what refuses it, and the assertion below is what keeps
+# this string inside that rule.
+FIXTURE_TOKEN = "your-hf-token"
+
+
+def test_the_fixture_token_is_one_the_credential_funnel_refuses() -> None:
+    """A fixture credential must be unstorable, or a test run can plant one."""
+    assert _is_placeholder(FIXTURE_TOKEN)
 
 
 def _adapter() -> HuggingFaceEmbeddingAdapter:
     """Build an adapter with a mocked inference client (no network)."""
-    adapter = HuggingFaceEmbeddingAdapter(api_key="test-token")
+    adapter = HuggingFaceEmbeddingAdapter(api_key=FIXTURE_TOKEN)
     adapter._client = MagicMock()
     return adapter
 
@@ -33,7 +47,7 @@ def test_fail_fast_without_api_key():
 
 def test_model_and_dimension_properties():
     """model/dimension/max_input_chars are exposed for the consuming service."""
-    adapter = HuggingFaceEmbeddingAdapter(api_key="test-token")
+    adapter = HuggingFaceEmbeddingAdapter(api_key=FIXTURE_TOKEN)
     assert adapter.model == "BAAI/bge-m3"
     assert adapter.dimension == DIM
     assert adapter.max_input_chars == 20000  # ~6.7k tokens, under the 8192-token M3 window

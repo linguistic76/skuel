@@ -3,14 +3,18 @@
 Migrate secrets into the OS keychain.
 ======================================
 
-Sources, in order of increasing precedence:
+Sources, in order of increasing precedence. Every one is filtered to
+``CREDENTIAL_CATALOG`` names, because connection config must never reach the
+keychain — a keychain that answers ``NEO4J_URI`` is a second source of truth for
+where the database lives, and it goes stale the day the database moves.
 
-* ``~/.config/skuel/secrets.env`` — the dedicated secrets file, taken whole.
-* ``app/.env`` — filtered to ``CREDENTIAL_CATALOG`` names, because that file is
-  mostly non-secret config and a URI or a username must never reach the
-  keychain. This is the migration path for a legacy ``.env`` that still carries
-  credentials; the file is READ only, never rewritten or deleted, since the
-  config in it is still live.
+* ``~/.config/skuel/secrets.env`` — the dedicated secrets file. It also carries
+  ``NEO4J_AUTH`` for Docker Compose ``${VAR}`` interpolation; that name is not a
+  catalog credential and nothing reads it through the funnel, so the filter is
+  what keeps a re-run from adding it to the keychain inventory.
+* ``app/.env`` — the migration path for a legacy ``.env`` that still carries
+  credentials, and mostly non-secret config besides; the file is READ only,
+  never rewritten or deleted, since the config in it is still live.
 * the current shell environment, when neither file exists.
 
 After this script runs:
@@ -18,7 +22,8 @@ After this script runs:
 * Every credential found lives in the OS keychain (libsecret on Linux, Keychain
   on macOS, Credential Locker on Windows) under service ``skuel``.
 * ``~/.config/skuel/secrets.env`` is deleted (with explicit confirmation),
-  removing the last plaintext copy on disk.
+  removing the last plaintext copy on disk — unless the catalog filter refused
+  something in it, in which case the file is that value's only copy and is kept.
 * ``SKUEL_CREDENTIAL_BACKEND=keyring`` needs to be set in your environment
   for the app to actually use the keychain. The migration script will offer
   to add it to ``app/.env`` (where direnv loads it from).
@@ -46,6 +51,7 @@ Caveats this script will print (worth re-reading before you delete the file):
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import re
 import shutil
@@ -74,8 +80,11 @@ def detect_paths() -> tuple[Path, Path]:
     return Path.home() / ".config" / "skuel" / "secrets.env", repo_app / ".env"
 
 
-def parse_secrets_file(path: Path) -> dict[str, str]:
-    """Load usable KV pairs from a `.env`-shaped file.
+def _parse_env_shaped_file(path: Path) -> dict[str, str]:
+    """Load usable KV pairs from a `.env`-shaped file, before the catalog gate.
+
+    Private because an unfiltered read is never what a caller wants — go through
+    `parse_credentials`.
 
     Parsed with `python-dotenv`, which is what these files are read by at
     runtime (`load_dotenv`, and direnv's `dotenv_if_exists` in `app/.envrc`) —
@@ -105,15 +114,30 @@ def parse_secrets_file(path: Path) -> dict[str, str]:
     }
 
 
-def parse_env_file_credentials(path: Path) -> dict[str, str]:
-    """Load only CREDENTIAL_CATALOG names from a `.env`-shaped config file.
+def parse_credentials(path: Path) -> dict[str, str]:
+    """Load only CREDENTIAL_CATALOG names from a `.env`-shaped file.
 
-    `app/.env` holds mostly non-secret config, and migrating it whole is the
-    defect the funnel's catalog gate exists to prevent: a keychain that answers
-    `NEO4J_URI` is a second source of truth for where the database lives, and it
-    goes stale the day the database moves.
+    The catalog is the same gate `get_credential()` applies before it writes an
+    env-supplied value into the keychain (`credential_store.py`, auto-migration).
+    This script writes to the keychain directly, so without the filter here the
+    two paths disagree about what a credential is: `secrets.env` holds
+    `NEO4J_AUTH` for Docker Compose, the funnel refuses that name, and a re-run
+    of this script would store it anyway.
     """
-    return {k: v for k, v in parse_secrets_file(path).items() if k in CREDENTIAL_CATALOG}
+    return {k: v for k, v in _parse_env_shaped_file(path).items() if k in CREDENTIAL_CATALOG}
+
+
+def unmigrated_names(path: Path, migrated: dict[str, str]) -> list[str]:
+    """Names `path` holds that the catalog filter did not migrate.
+
+    The catalog gate and the offer to delete the source are two halves of one
+    decision: whatever the gate refuses stays in the file, and the file is then
+    that value's only copy. `secrets.env` holds `NEO4J_AUTH` for the
+    `${NEO4J_AUTH}` interpolation in `infrastructure/docker-compose.yml`, which
+    `scripts/dev/with-secrets` cannot supply — it exports the keyring index, and
+    an uncatalogued name is never in it.
+    """
+    return sorted(set(_parse_env_shaped_file(path)) - set(migrated))
 
 
 def confirm(prompt: str, *, assume_yes: bool) -> bool:
@@ -216,11 +240,11 @@ def main() -> int:
     # `app/.env` wins over `secrets.env`: a credential sitting in the worktree
     # is the one that most needs moving, and the diff below shows every
     # overwrite before anything is written.
-    from_secrets = parse_secrets_file(secrets_path) if secrets_path.exists() else {}
-    from_env_file = parse_env_file_credentials(app_env_path) if app_env_path.exists() else {}
+    from_secrets = parse_credentials(secrets_path) if secrets_path.exists() else {}
+    from_env_file = parse_credentials(app_env_path) if app_env_path.exists() else {}
     secrets = {**from_secrets, **from_env_file}
     if from_secrets:
-        print(f"Source:   {secrets_path} ({len(from_secrets)})")
+        print(f"Source:   {secrets_path} ({len(from_secrets)}, catalog names only)")
     if from_env_file:
         print(f"Source:   {app_env_path} ({len(from_env_file)}, catalog names only)")
 
@@ -230,13 +254,57 @@ def main() -> int:
         secrets = {
             k: v for k in CREDENTIAL_CATALOG if (v := os.getenv(k)) and not _is_placeholder(v)
         }
-        if not secrets:
-            print("\nNo credentials found in either file or the shell environment.")
-            print("Nothing to migrate.")
-            return 0
-        print(f"Source:   shell environment ({len(secrets)}, catalog names only)")
+        if secrets:
+            print(f"Source:   shell environment ({len(secrets)}, catalog names only)")
+        else:
+            # No early exit: nothing to migrate is not nothing to do. A name the
+            # catalog refuses can still be in the keychain, and the sweep below
+            # is the only thing that takes one out — reachable exactly when
+            # `secrets.env` has been trimmed to its Compose residue.
+            print("\nNo credentials to migrate — checking the keychain for stale entries.")
 
     print()
+
+    # The index KeyringBackend maintains, read before the diff so `--dry-run`
+    # reports removals too.
+    index_path = secrets_path.parent / "keyring-index.json"
+    existing_index: list[str] = []
+    if index_path.exists():
+        try:
+            existing_index = list(json.loads(index_path.read_text()))
+        except OSError, json.JSONDecodeError:
+            existing_index = []
+
+    # A name the catalog refuses does not belong in the keychain at all: the
+    # funnel reads `backend.get(key)` FIRST for any key, catalog or not, so a
+    # stored copy is served in preference to the environment — and
+    # `scripts/dev/with-secrets` exports the index over the shell it inherits.
+    # Either way the stale copy wins the day the real value is rotated. A union
+    # merge can only ever grow, so this is the one place that can shed one.
+    # Three cases, because "stale" is not one situation: a name the keychain
+    # does not actually hold is index drift to repair, not a value to delete,
+    # and one the source file cannot re-supply is a last copy to leave alone.
+    still_sourced = set(_parse_env_shaped_file(secrets_path))
+    removable: list[str] = []
+    only_copies: list[str] = []
+    phantoms: list[str] = []
+    for key in sorted(set(existing_index) - set(CREDENTIAL_CATALOG)):
+        try:
+            stored = _keyring.get_password(SERVICE_NAME, key)
+        # intentional-broad: the value comes back through whichever backend
+        # `keyring` selected — SecretService, Keychain, Credential Locker —
+        # each raising its own tree, and D-Bus faults arrive from below all of
+        # them. A credential tool must report a keychain it cannot reach, not
+        # crash on the shape of the failure.
+        except Exception as e:
+            print(f"✗ Couldn't query keychain for {key}: {e}")
+            return 1
+        if stored is None:
+            phantoms.append(key)
+        elif key in still_sourced:
+            removable.append(key)
+        else:
+            only_copies.append(key)
 
     # Diff against what's already in the keychain so the user sees what
     # actually changes.
@@ -246,6 +314,11 @@ def main() -> int:
     for key, value in sorted(secrets.items()):
         try:
             existing = _keyring.get_password(SERVICE_NAME, key)
+        # intentional-broad: the value comes back through whichever backend
+        # `keyring` selected — SecretService, Keychain, Credential Locker —
+        # each raising its own tree, and D-Bus faults arrive from below all of
+        # them. A credential tool must report a keychain it cannot reach, not
+        # crash on the shape of the failure.
         except Exception as e:
             print(f"✗ Couldn't query keychain for {key}: {e}")
             return 1
@@ -268,6 +341,20 @@ def main() -> int:
         print(f"Already up-to-date in keychain ({len(already_correct)}):")
         for k in already_correct:
             print(f"  = {k}")
+    if removable:
+        print(f"Will OFFER TO REMOVE {len(removable)} non-catalog credential(s):")
+        for k in removable:
+            print(f"  - {k} (sourced from {secrets_path})")
+    if phantoms:
+        print(f"Will DROP {len(phantoms)} index entry(ies) the keychain does not hold:")
+        for k in phantoms:
+            print(f"  - {k}")
+    for k in only_copies:
+        print(
+            f"⚠ {k} is in the keychain, is not a catalog credential, and "
+            f"{secrets_path} has no copy of it. Leaving it: the keychain is its "
+            f"only source."
+        )
     print()
 
     if args.dry_run:
@@ -287,21 +374,37 @@ def main() -> int:
             _keyring.set_password(SERVICE_NAME, key, secrets[key])
             print(f"✓ Stored {key}")
 
-    # Refresh the keyring-index.json that KeyringBackend maintains so the
-    # interactive credential_setup.py can show what's stored.
-    index_path = secrets_path.parent / "keyring-index.json"
-    # Migrating straight from `app/.env` never touches ~/.config/skuel, and
-    # KeyringBackend (which creates it) is never instantiated here.
-    index_path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-    import json
+    # Dropped without a prompt: there is nothing to destroy, and leaving the
+    # name in means repeating this every run.
+    removed: set[str] = set(phantoms)
+    for key in phantoms:
+        print(f"✓ Dropped {key} from the index (the keychain does not hold it)")
 
-    existing_index: list[str] = []
-    if index_path.exists():
+    for key in removable:
+        if not confirm(
+            f"Remove {key} from the keychain? It is not a catalog credential, "
+            f"and {secrets_path} is its source of truth",
+            assume_yes=args.yes,
+        ):
+            continue
         try:
-            existing_index = list(json.loads(index_path.read_text()))
-        except OSError, json.JSONDecodeError:
-            existing_index = []
-    merged_index = sorted(set(existing_index) | set(secrets.keys()))
+            _keyring.delete_password(SERVICE_NAME, key)
+        # intentional-broad: the delete goes out through whichever backend
+        # `keyring` selected, each raising its own tree, over a D-Bus session
+        # that can fault beneath all of them. The one shape ruled out above is a
+        # missing value — that is classified as a phantom and never reaches here.
+        except Exception as e:
+            # Report and carry on — one backend failure must not cost the index
+            # repair for every other name.
+            print(f"✗ Couldn't remove {key} from the keychain: {e}")
+            continue
+        removed.add(key)
+        print(f"✓ Removed {key} from the keychain")
+
+    # Migrating straight from `app/.env` never touches ~/.config/skuel, and
+    # KeyringBackend (which creates the index) is never instantiated here.
+    index_path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    merged_index = sorted((set(existing_index) - removed) | set(secrets.keys()))
     index_path.write_text(json.dumps(merged_index, indent=2))
     index_path.chmod(0o600)
     print(f"✓ Updated index at {index_path}")
@@ -312,6 +415,13 @@ def main() -> int:
     # Finally — offer to remove the plaintext source file.
     if args.keep_source:
         print(f"\nKeeping {secrets_path} intact (--keep-source).")
+    elif secrets_path.exists() and (residue := unmigrated_names(secrets_path, from_secrets)):
+        print(
+            f"\nKeeping {secrets_path} — it still holds {', '.join(residue)}, which "
+            f"{'is' if len(residue) == 1 else 'are'} not a catalog credential and so "
+            f"{'was' if len(residue) == 1 else 'were'} not migrated. This file is the "
+            f"only copy; Docker Compose interpolates from it directly."
+        )
     elif secrets_path.exists():
         if confirm(
             f"\nDelete {secrets_path} now? It contains the credentials you just migrated.",

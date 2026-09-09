@@ -93,6 +93,7 @@ CREDENTIAL_CATALOG: dict[str, CredentialSpec] = {
     "HF_API_TOKEN": CredentialSpec(
         description="HuggingFace Inference API token (BAAI/bge-m3 — staged until Arc 3, ADR-083)",
         required=False,
+        expected_prefix="hf_",
     ),
     "DEEPGRAM_API_KEY": CredentialSpec(
         description="Deepgram API key — voice journal transcription",
