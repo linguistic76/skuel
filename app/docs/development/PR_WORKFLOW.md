@@ -1,5 +1,5 @@
 ---
-updated: 2026-08-31
+updated: 2026-09-09
 ---
 
 # PR-Based Development Workflow
@@ -97,9 +97,10 @@ Three reviewers can run on a PR, gated by **two required status checks** (CI Gat
 - **Codex is the second opinion you summon.** Comment **`@codex review`** to invoke it. Its *verdict* is *advisory* and **invisible to `gh pr checks`** — what shows up in checks is the separate **Codex Review Gate** (above), which only enforces that you *considered* the review. The verdict can land on any of **three** surfaces, so scan all three (the first command below misses inline review-comments — the surface Codex often uses for a specific finding):
 
   ```bash
-  # issue-comments + review-objects
+  # issue-comments + review-objects — print the BODY, not just the state:
+  # a review's body is its own finding surface (see failure mode 4).
   gh pr view <PR#> --json reviews,comments \
-    -q '(.reviews[], .comments[]) | select(.author.login|test("codex|kody";"i")) | "\(.author.login)\t\(.state // "comment")"'
+    -q '(.reviews[], .comments[]) | select(.author.login|test("codex|kody";"i")) | "\(.author.login)\t\(.state // "comment")\n\(.body)\n"'
   # inline review-comments (easy to miss — anchored to a file/line)
   gh api repos/linguistic76/skuel/pulls/<PR#>/comments \
     -q '.[] | select(.user.login|test("codex";"i")) | "\(.commit_id[0:8]) \(.path):\(.line) \(.body[0:80])"'
@@ -107,10 +108,11 @@ Three reviewers can run on a PR, gated by **two required status checks** (CI Gat
 
   > ⚠️ **Match the login by substring, never by exact string — it varies by surface.** Codex posts as `chatgpt-codex-connector` on the issue-comment surface (`gh pr view --json comments`) but as `chatgpt-codex-connector[bot]` on the review and inline-comment APIs. A filter like `select(.author.login == "chatgpt-codex-connector[bot]")` therefore silently returns *nothing* on the issue-comment surface — making a posted review look like no review at all. Always use the substring/regex form above (`test("codex";"i")`).
 
-  **Three failure modes to rule out before you apply `codex-considered`:**
+  **Four failure modes to rule out before you apply `codex-considered`:**
   1. **"Nothing found" is not proof of "no review" — it is a STOP.** An empty result usually means your filter or surface was wrong (the login-suffix trap above, a not-yet-posted review, or a surface you didn't scan), not that Codex stayed silent. Never clear the gate on the assumption "no news is good news." If you cannot **positively locate the verdict and read its actual text**, do not clear the gate — re-query the other surfaces, wait, or re-summon. The gate exists so a human/agent consciously reads what Codex said; clearing it on an unread or merely-presumed verdict defeats its entire purpose.
   2. **A located review may be stale-at-head.** `commit_id == head` is necessary but **not sufficient** — Codex can re-emit a prior finding verbatim while re-anchoring it to a new commit. Also confirm the finding's **premise still exists in the code** (e.g. if it cites a function/branch you already changed, `grep` for it). A finding whose premise is gone is refuted; document that disposition in a PR comment, then apply `codex-considered`.
   3. **The label can be race-stripped by an in-flight gate run.** The gate removes `codex-considered` when it processes a `synchronize` event — and a gate run still **queued from the last push** does that *after* you apply the label (observed live on #584: the label silently vanished and the gate read RED at merge time). Apply the label with **`scripts/apply_codex_considered.sh <PR#>`**, which waits for in-flight gate runs on the head SHA to finish, applies the label, and polls until the gate status actually reports green (re-adding once if stripped). If labeling by hand instead, wait until no gate runs are in flight and **re-check the label + gate status immediately before merging**.
+  4. **A review's BODY and its inline comments are separate surfaces — read both.** One review can carry findings in either, or only in its body, and a query that prints `.state` without `.body` shows a body-only finding as an empty `COMMENTED` review. Measured on #1301: 20 inline comments and **1 body-only P1** across 9 reviews (8 of which held nothing but boilerplate) — the body-only one was a real hole in the push-time secret scan, and it was found only by querying the API by hand after the round was reported complete. `scripts/request_codex_review.sh` prints both surfaces; a manual check must too. ⚠️ Related trap: GitHub **re-points an outdated inline comment to a newer SHA** when its line still resolves, so `commit_id` does not date a finding — `original_commit_id` does, and **`line: null` means the comment is outdated** (its line is gone from the diff). A batch of "new" findings on the head SHA is often old ones resurfacing.
 
 Why two AI reviewers, both on demand? Defense-in-depth from a second, independent model (OpenAI Codex alongside Kodus) catches more than one alone. They differ in authority: when summoned, **Kody posts a real blocking review** (a `CHANGES_REQUESTED` that holds the merge), while **Codex only ever comments** — so Kody is the reviewer you reach for when you want a verdict that gates, Codex when you want a second pair of eyes. Both are on-demand as of 2026-05-25 for the same reason: auto-review on every intermediate commit produced noise, and a flaky, usage-capped external service should never be able to deadlock a merge — so the only thing that runs automatically is the mechanical CI Gate. The cost of that choice is honest: **review coverage is no longer automatic.** A PR merged without anyone commenting `@kody start-review` gets *no* AI review at all. That is acceptable only because the founder owns the discipline of summoning review before merging anything that matters.
 
