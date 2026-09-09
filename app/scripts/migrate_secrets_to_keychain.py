@@ -22,7 +22,8 @@ After this script runs:
 * Every credential found lives in the OS keychain (libsecret on Linux, Keychain
   on macOS, Credential Locker on Windows) under service ``skuel``.
 * ``~/.config/skuel/secrets.env`` is deleted (with explicit confirmation),
-  removing the last plaintext copy on disk.
+  removing the last plaintext copy on disk — unless the catalog filter refused
+  something in it, in which case the file is that value's only copy and is kept.
 * ``SKUEL_CREDENTIAL_BACKEND=keyring`` needs to be set in your environment
   for the app to actually use the keychain. The migration script will offer
   to add it to ``app/.env`` (where direnv loads it from).
@@ -123,6 +124,19 @@ def parse_credentials(path: Path) -> dict[str, str]:
     of this script would store it anyway.
     """
     return {k: v for k, v in _parse_env_shaped_file(path).items() if k in CREDENTIAL_CATALOG}
+
+
+def unmigrated_names(path: Path, migrated: dict[str, str]) -> list[str]:
+    """Names `path` holds that the catalog filter did not migrate.
+
+    The catalog gate and the offer to delete the source are two halves of one
+    decision: whatever the gate refuses stays in the file, and the file is then
+    that value's only copy. `secrets.env` holds `NEO4J_AUTH` for the
+    `${NEO4J_AUTH}` interpolation in `infrastructure/docker-compose.yml`, which
+    `scripts/dev/with-secrets` cannot supply — it exports the keyring index, and
+    an uncatalogued name is never in it.
+    """
+    return sorted(set(_parse_env_shaped_file(path)) - set(migrated))
 
 
 def confirm(prompt: str, *, assume_yes: bool) -> bool:
@@ -321,6 +335,13 @@ def main() -> int:
     # Finally — offer to remove the plaintext source file.
     if args.keep_source:
         print(f"\nKeeping {secrets_path} intact (--keep-source).")
+    elif secrets_path.exists() and (residue := unmigrated_names(secrets_path, from_secrets)):
+        print(
+            f"\nKeeping {secrets_path} — it still holds {', '.join(residue)}, which "
+            f"{'is' if len(residue) == 1 else 'are'} not a catalog credential and so "
+            f"{'was' if len(residue) == 1 else 'were'} not migrated. This file is the "
+            f"only copy; Docker Compose interpolates from it directly."
+        )
     elif secrets_path.exists():
         if confirm(
             f"\nDelete {secrets_path} now? It contains the credentials you just migrated.",

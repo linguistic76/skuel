@@ -35,8 +35,26 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
 
 import migrate_secrets_to_keychain as mig  # type: ignore[import-not-found]
+import pytest
 
 from core.config.credential_store import CREDENTIAL_CATALOG
+
+
+class _FakeKeyring:
+    """Stands in for the `keyring` package — records what reaches the keychain."""
+
+    def __init__(self) -> None:
+        self.store: dict[tuple[str, str], str] = {}
+
+    def set_password(self, service: str, key: str, value: str) -> None:
+        self.store[(service, key)] = value
+
+    def get_password(self, service: str, key: str) -> str | None:
+        return self.store.get((service, key))
+
+    def get_keyring(self) -> "_FakeKeyring":
+        return self
+
 
 # Every fixture value below has to clear the commit-time secret scan, which
 # reads this file like any other: a credential name assigned a 20+ character
@@ -226,3 +244,60 @@ def test_a_dollar_sign_survives_verbatim(tmp_path: Path) -> None:
     env_file.write_text("NEO4J_PASSWORD=<abc$def-not-a-variable>\n")
 
     assert mig.parse_credentials(env_file) == {"NEO4J_PASSWORD": "<abc$def-not-a-variable>"}
+
+
+class TestTheSourceFileSurvivesWhatTheFilterRefuses:
+    """The catalog filter and the offer to delete the source are one decision.
+
+    Whatever the filter refuses stays in the file, which makes the file that
+    value's only copy — `scripts/dev/with-secrets` exports the keyring index,
+    and an uncatalogued name is never in it. `secrets.env` holds `NEO4J_AUTH`
+    for the `${NEO4J_AUTH}` interpolation in `infrastructure/docker-compose.yml`,
+    so deleting the file on the way past takes the local Neo4j sandbox with it.
+
+    Driven through `main()` under `--yes`, which answers every prompt: the guard
+    is the only thing between the refused name and a zero-filled file.
+    """
+
+    @pytest.fixture
+    def run_migration(self, monkeypatch, tmp_path):
+        """Run `main()` against a temp secrets file and a fake keychain."""
+        fake = _FakeKeyring()
+        monkeypatch.setitem(sys.modules, "keyring", fake)
+        monkeypatch.setattr(sys, "argv", ["migrate_secrets_to_keychain.py", "--yes"])
+
+        def _run(secrets_body: str) -> tuple[Path, _FakeKeyring]:
+            secrets = tmp_path / "secrets.env"
+            secrets.write_text(secrets_body)
+            env_file = tmp_path / ".env"
+            env_file.write_text("SKUEL_CREDENTIAL_BACKEND=keyring\n")
+
+            def _paths() -> tuple[Path, Path]:
+                return secrets, env_file
+
+            monkeypatch.setattr(mig, "detect_paths", _paths)
+            assert mig.main() == 0
+            return secrets, fake
+
+        return _run
+
+    def test_a_refused_name_keeps_the_file(self, run_migration) -> None:
+        body = "NEO4J_AUTH=neo4j/<password>\nNEO4J_PASSWORD=<a-neo4j-password>\n"
+
+        secrets, fake = run_migration(body)
+
+        assert secrets.exists(), "the only copy of NEO4J_AUTH was deleted"
+        assert secrets.read_text() == body, "the file was zero-filled in place"
+        assert not secrets.with_suffix(".env.bak").exists()
+        # The catalog half still happened — this is a narrower deletion, not a
+        # migration that quietly did nothing.
+        assert fake.store[("skuel", "NEO4J_PASSWORD")] == "<a-neo4j-password>"
+        assert ("skuel", "NEO4J_AUTH") not in fake.store
+
+    def test_a_fully_migrated_file_is_still_deleted(self, run_migration) -> None:
+        """The complement: the guard must not freeze the behaviour it narrows."""
+        secrets, fake = run_migration("NEO4J_PASSWORD=<a-neo4j-password>\n")
+
+        assert not secrets.exists()
+        assert secrets.with_suffix(".env.bak").exists()
+        assert fake.store[("skuel", "NEO4J_PASSWORD")] == "<a-neo4j-password>"

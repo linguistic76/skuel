@@ -160,9 +160,9 @@ _PLACEHOLDER_VALUES: frozenset[str] = frozenset(
         "your-key",
         "your-api-key",
         "test-key",
-        # The fixture string the HuggingFace adapter's own tests construct with.
-        # It reached a real keychain once: it is short enough to look like a
-        # token to a presence check and matches no other arm here.
+        # The fixture string `HuggingFaceEmbeddingAdapter`'s own tests construct
+        # with. It is long enough to satisfy a presence check and matches no other
+        # arm here, so this entry is the only thing between it and the keychain.
         "test-token",
     }
 )
