@@ -51,6 +51,7 @@ Caveats this script will print (worth re-reading before you delete the file):
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import re
 import shutil
@@ -261,6 +262,29 @@ def main() -> int:
 
     print()
 
+    # The index KeyringBackend maintains, read before the diff so `--dry-run`
+    # reports removals too.
+    index_path = secrets_path.parent / "keyring-index.json"
+    existing_index: list[str] = []
+    if index_path.exists():
+        try:
+            existing_index = list(json.loads(index_path.read_text()))
+        except OSError, json.JSONDecodeError:
+            existing_index = []
+
+    # A name the catalog refuses does not belong in the keychain at all: the
+    # funnel reads `backend.get(key)` FIRST for any key, catalog or not, so a
+    # stored copy is served in preference to the environment — and
+    # `scripts/dev/with-secrets` exports the index over the shell it inherits.
+    # Either way the stale copy wins the day the real value is rotated. A union
+    # merge can only ever grow, so this is the one place that can shed one.
+    still_sourced = set(_parse_env_shaped_file(secrets_path))
+    stale = sorted(set(existing_index) - set(CREDENTIAL_CATALOG))
+    removable = [k for k in stale if k in still_sourced]
+    # Removing one of these deletes the only copy — the same reason the source
+    # file is kept at the end.
+    only_copies = [k for k in stale if k not in still_sourced]
+
     # Diff against what's already in the keychain so the user sees what
     # actually changes.
     new_keys: list[str] = []
@@ -291,6 +315,16 @@ def main() -> int:
         print(f"Already up-to-date in keychain ({len(already_correct)}):")
         for k in already_correct:
             print(f"  = {k}")
+    if removable:
+        print(f"Will OFFER TO REMOVE {len(removable)} non-catalog credential(s):")
+        for k in removable:
+            print(f"  - {k} (sourced from {secrets_path})")
+    for k in only_copies:
+        print(
+            f"⚠ {k} is in the keychain, is not a catalog credential, and "
+            f"{secrets_path} has no copy of it. Leaving it: the keychain is its "
+            f"only source."
+        )
     print()
 
     if args.dry_run:
@@ -310,21 +344,21 @@ def main() -> int:
             _keyring.set_password(SERVICE_NAME, key, secrets[key])
             print(f"✓ Stored {key}")
 
-    # Refresh the keyring-index.json that KeyringBackend maintains so the
-    # interactive credential_setup.py can show what's stored.
-    index_path = secrets_path.parent / "keyring-index.json"
-    # Migrating straight from `app/.env` never touches ~/.config/skuel, and
-    # KeyringBackend (which creates it) is never instantiated here.
-    index_path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-    import json
+    removed: set[str] = set()
+    for key in removable:
+        if confirm(
+            f"Remove {key} from the keychain? It is not a catalog credential, "
+            f"and {secrets_path} is its source of truth",
+            assume_yes=args.yes,
+        ):
+            _keyring.delete_password(SERVICE_NAME, key)
+            removed.add(key)
+            print(f"✓ Removed {key} from the keychain")
 
-    existing_index: list[str] = []
-    if index_path.exists():
-        try:
-            existing_index = list(json.loads(index_path.read_text()))
-        except OSError, json.JSONDecodeError:
-            existing_index = []
-    merged_index = sorted(set(existing_index) | set(secrets.keys()))
+    # Migrating straight from `app/.env` never touches ~/.config/skuel, and
+    # KeyringBackend (which creates the index) is never instantiated here.
+    index_path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    merged_index = sorted((set(existing_index) - removed) | set(secrets.keys()))
     index_path.write_text(json.dumps(merged_index, indent=2))
     index_path.chmod(0o600)
     print(f"✓ Updated index at {index_path}")

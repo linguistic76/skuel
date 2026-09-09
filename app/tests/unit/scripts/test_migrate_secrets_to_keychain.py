@@ -28,6 +28,7 @@ ways that happens.
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -51,6 +52,9 @@ class _FakeKeyring:
 
     def get_password(self, service: str, key: str) -> str | None:
         return self.store.get((service, key))
+
+    def delete_password(self, service: str, key: str) -> None:
+        del self.store[(service, key)]
 
     def get_keyring(self) -> "_FakeKeyring":
         return self
@@ -246,6 +250,45 @@ def test_a_dollar_sign_survives_verbatim(tmp_path: Path) -> None:
     assert mig.parse_credentials(env_file) == {"NEO4J_PASSWORD": "<abc$def-not-a-variable>"}
 
 
+@pytest.fixture
+def run_migration(monkeypatch, tmp_path):
+    """Run `main()` against a temp secrets file, index, and fake keychain.
+
+    Driven under `--yes` unless a test says otherwise, which answers every
+    prompt — so a guard is the only thing that can stop a destructive step.
+    """
+    fake = _FakeKeyring()
+    monkeypatch.setitem(sys.modules, "keyring", fake)
+    index_path = tmp_path / "keyring-index.json"
+
+    def _run(
+        secrets_body: str,
+        *,
+        index: list[str] | None = None,
+        stored: dict[str, str] | None = None,
+        args: tuple[str, ...] = ("--yes",),
+    ) -> tuple[Path, _FakeKeyring, Path]:
+        secrets = tmp_path / "secrets.env"
+        secrets.write_text(secrets_body)
+        env_file = tmp_path / ".env"
+        env_file.write_text("SKUEL_CREDENTIAL_BACKEND=keyring\n")
+        if index is not None:
+            index_path.write_text(json.dumps(index))
+        for key, value in (stored or {}).items():
+            fake.store[("skuel", key)] = value
+
+        monkeypatch.setattr(sys, "argv", ["migrate_secrets_to_keychain.py", *args])
+
+        def _paths() -> tuple[Path, Path]:
+            return secrets, env_file
+
+        monkeypatch.setattr(mig, "detect_paths", _paths)
+        assert mig.main() == 0
+        return secrets, fake, index_path
+
+    return _run
+
+
 class TestTheSourceFileSurvivesWhatTheFilterRefuses:
     """The catalog filter and the offer to delete the source are one decision.
 
@@ -254,37 +297,12 @@ class TestTheSourceFileSurvivesWhatTheFilterRefuses:
     and an uncatalogued name is never in it. `secrets.env` holds `NEO4J_AUTH`
     for the `${NEO4J_AUTH}` interpolation in `infrastructure/docker-compose.yml`,
     so deleting the file on the way past takes the local Neo4j sandbox with it.
-
-    Driven through `main()` under `--yes`, which answers every prompt: the guard
-    is the only thing between the refused name and a zero-filled file.
     """
-
-    @pytest.fixture
-    def run_migration(self, monkeypatch, tmp_path):
-        """Run `main()` against a temp secrets file and a fake keychain."""
-        fake = _FakeKeyring()
-        monkeypatch.setitem(sys.modules, "keyring", fake)
-        monkeypatch.setattr(sys, "argv", ["migrate_secrets_to_keychain.py", "--yes"])
-
-        def _run(secrets_body: str) -> tuple[Path, _FakeKeyring]:
-            secrets = tmp_path / "secrets.env"
-            secrets.write_text(secrets_body)
-            env_file = tmp_path / ".env"
-            env_file.write_text("SKUEL_CREDENTIAL_BACKEND=keyring\n")
-
-            def _paths() -> tuple[Path, Path]:
-                return secrets, env_file
-
-            monkeypatch.setattr(mig, "detect_paths", _paths)
-            assert mig.main() == 0
-            return secrets, fake
-
-        return _run
 
     def test_a_refused_name_keeps_the_file(self, run_migration) -> None:
         body = "NEO4J_AUTH=neo4j/<password>\nNEO4J_PASSWORD=<a-neo4j-password>\n"
 
-        secrets, fake = run_migration(body)
+        secrets, fake, _ = run_migration(body)
 
         assert secrets.exists(), "the only copy of NEO4J_AUTH was deleted"
         assert secrets.read_text() == body, "the file was zero-filled in place"
@@ -296,8 +314,60 @@ class TestTheSourceFileSurvivesWhatTheFilterRefuses:
 
     def test_a_fully_migrated_file_is_still_deleted(self, run_migration) -> None:
         """The complement: the guard must not freeze the behaviour it narrows."""
-        secrets, fake = run_migration("NEO4J_PASSWORD=<a-neo4j-password>\n")
+        secrets, fake, _ = run_migration("NEO4J_PASSWORD=<a-neo4j-password>\n")
 
         assert not secrets.exists()
         assert secrets.with_suffix(".env.bak").exists()
         assert fake.store[("skuel", "NEO4J_PASSWORD")] == "<a-neo4j-password>"
+
+
+class TestStaleNonCatalogEntriesAreShed:
+    """Filtering the source stops future writes; it cannot undo past ones.
+
+    An earlier unfiltered run left `NEO4J_AUTH` in the keychain and the index,
+    and the index merge is a union that can only grow. Both readers then prefer
+    that stale copy over the live one: `get_credential()` reads `backend.get()`
+    FIRST for any key, catalog or not, and `scripts/dev/with-secrets` exports
+    the index over the shell it inherits. Rotate the value in `secrets.env` and
+    the old one still wins.
+    """
+
+    def test_a_stale_entry_with_a_live_source_is_removed(self, run_migration) -> None:
+        secrets, fake, index_path = run_migration(
+            "NEO4J_AUTH=neo4j/<new-password>\nNEO4J_PASSWORD=<a-neo4j-password>\n",
+            index=["NEO4J_AUTH", "NEO4J_PASSWORD"],
+            stored={"NEO4J_AUTH": "neo4j/<old-password>"},
+        )
+
+        assert ("skuel", "NEO4J_AUTH") not in fake.store
+        assert json.loads(index_path.read_text()) == ["NEO4J_PASSWORD"]
+        # Removed from the keychain, not from the file that sources it.
+        assert "NEO4J_AUTH" in secrets.read_text()
+
+    def test_a_stale_entry_that_is_the_only_copy_is_kept(self, run_migration) -> None:
+        """An older run migrated it and then deleted the file it came from.
+
+        The keychain is now that value's only source, and `with-secrets` is how
+        Compose gets it — so removing it here breaks the sandbox it exists for.
+        """
+        _, fake, index_path = run_migration(
+            "NEO4J_PASSWORD=<a-neo4j-password>\n",
+            index=["NEO4J_AUTH", "NEO4J_PASSWORD"],
+            stored={"NEO4J_AUTH": "neo4j/<only-copy>"},
+        )
+
+        assert fake.store[("skuel", "NEO4J_AUTH")] == "neo4j/<only-copy>"
+        assert json.loads(index_path.read_text()) == ["NEO4J_AUTH", "NEO4J_PASSWORD"]
+
+    def test_a_dry_run_reports_the_removal_and_writes_nothing(self, run_migration, capsys) -> None:
+        """`--dry-run` is a preview, so a removal it would make has to appear."""
+        _, fake, index_path = run_migration(
+            "NEO4J_AUTH=neo4j/<password>\nNEO4J_PASSWORD=<a-neo4j-password>\n",
+            index=["NEO4J_AUTH", "NEO4J_PASSWORD"],
+            stored={"NEO4J_AUTH": "neo4j/<old-password>"},
+            args=("--dry-run",),
+        )
+
+        assert "NEO4J_AUTH" in capsys.readouterr().out
+        assert fake.store[("skuel", "NEO4J_AUTH")] == "neo4j/<old-password>"
+        assert json.loads(index_path.read_text()) == ["NEO4J_AUTH", "NEO4J_PASSWORD"]
