@@ -55,11 +55,31 @@ REPO_ROOT = APP_ROOT.parent
 SCAN = APP_ROOT / "scripts" / "git-hooks" / "secret-scan.sh"
 
 
+def _chunked(items: list[str], size: int = 400) -> list[list[str]]:
+    """Argument lists in batches, so a growing repo cannot hit ARG_MAX (E2BIG).
+
+    2948 paths fit comfortably today; batching removes the failure mode rather than
+    waiting to detect it, which matters for a check whose whole job is not to pass
+    when it has not looked.
+    """
+    return [items[i : i + size] for i in range(0, len(items), size)]
+
+
+def _fail(message: str) -> None:
+    """Abort loudly. Every abort here is a refusal to report a verdict.
+
+    A corpus check that cannot read the corpus has not found "no problems" — it has
+    found nothing, and saying so is the only honest outcome.
+    """
+    print(f"{Colors.RED}{Colors.BOLD}✗ {message}{Colors.RESET}")
+    raise SystemExit(1)
+
+
 def tracked_text_files() -> list[str]:
     """Every tracked file git considers text, repo-root-relative.
 
-    ``grep -Il ''`` is git's own text/binary discriminator by proxy — a binary file
-    would feed the scan bytes that mean nothing and can only produce noise.
+    ``grep -Il ''`` is the text/binary discriminator — a binary file would feed the
+    scan bytes that mean nothing and can only produce noise.
     """
     listed = subprocess.run(
         ["git", "ls-files", "-z"],
@@ -69,27 +89,62 @@ def tracked_text_files() -> list[str]:
         check=True,
     ).stdout.split("\0")
     paths = [p for p in listed if p]
-    text = subprocess.run(
-        ["grep", "-Il", "", *paths],
-        cwd=REPO_ROOT,
-        capture_output=True,
-        text=True,
-        check=False,
-    ).stdout.splitlines()
-    return [p for p in text if p]
+    if not paths:
+        _fail("git ls-files returned nothing — refusing to report a clean corpus")
+
+    text: list[str] = []
+    for batch in _chunked(paths):
+        result = subprocess.run(
+            ["grep", "-Il", "", *batch],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        # 0 = some file matched, 1 = none did (an all-binary batch). Both are answers.
+        # 2 is grep failing, and treating that as "no text files" is how a broken
+        # sweep reports success.
+        if result.returncode not in (0, 1):
+            _fail(
+                f"grep failed (exit {result.returncode}) while selecting text files:\n"
+                f"  {result.stderr.strip()}"
+            )
+        text.extend(line for line in result.stdout.splitlines() if line)
+
+    if not text:
+        _fail("no tracked text files found — refusing to report a clean corpus")
+    return text
 
 
-def as_added_diff(paths: list[str], extra: str = "") -> str:
+def as_added_diff(paths: list[str]) -> str:
     """Every line of every file, prefixed as a diff addition."""
-    joined = subprocess.run(
-        ["sed", "s/^/+/", *paths],
-        cwd=REPO_ROOT,
-        capture_output=True,
-        text=True,
-        check=False,
-        errors="replace",
-    ).stdout
-    return joined + extra
+    if not paths:
+        _fail("asked to build a diff from no files — refusing to report a clean corpus")
+
+    chunks: list[str] = []
+    for batch in _chunked(paths):
+        result = subprocess.run(
+            ["sed", "s/^/+/", *batch],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+            errors="replace",
+        )
+        if result.returncode != 0:
+            _fail(
+                f"sed failed (exit {result.returncode}) while building the corpus diff:\n"
+                f"  {result.stderr.strip()}"
+            )
+        chunks.append(result.stdout)
+
+    diff = "".join(chunks)
+    # A non-empty file list that produces no lines means the read failed somewhere
+    # quiet — an empty diff scans clean, which is the false pass this check exists
+    # to make impossible.
+    if not diff.strip():
+        _fail(f"{len(paths)} files produced an empty diff — the corpus was not read")
+    return diff
 
 
 def run_scan(diff: str) -> subprocess.CompletedProcess[str]:
