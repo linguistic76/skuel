@@ -344,11 +344,11 @@ class TestAssignmentShapeCoverage:
         deliberate gap with a measured price on the other side.
 
         A dict keyed by a credential name, in this repo, holds a description.
-        Accepting a spaced value here reports six lines in the files that ARE this
+        Accepting a spaced value here reports lines in the files that ARE this
         scan's source of truth: `core/config/environment_validator.py`,
-        `CredentialSetup.CREDENTIALS`, and this test file and the hook README that
-        quote them. No syntactic signal separates a description of a credential
-        from a passphrase.
+        `CREDENTIAL_CATALOG`, and this test file and the hook README that quote
+        them. No syntactic signal separates a description of a credential from a
+        passphrase.
 
         The cost: a SPACED passphrase hard-coded in a dict literal is not caught.
         A space-free one is, in every form. If the rule is ever removed, this test
@@ -357,9 +357,13 @@ class TestAssignmentShapeCoverage:
         assert not detects(
             '        "OPENAI_API_KEY": "OpenAI API key for embeddings and AI features"',
             '        "NEO4J_PASSWORD": "Neo4j password (defaults to password)",',
-            '        "NEO4J_PASSWORD": {',
-            '            "description": "Session cookie signing key (32+ random bytes)",',
         )
+        # `CREDENTIAL_CATALOG` keys a credential name to a SPACE-FREE value, so it
+        # clears the dict-literal rule only on the length floor: `CredentialSpec(`
+        # is 15 characters. Pinned because it is a near-miss, not a comfortable
+        # pass — renaming the class to something 20+ characters long makes
+        # core/config/credential_store.py un-committable, and this says why.
+        assert not detects('    "NEO4J_PASSWORD": CredentialSpec(')
         # The documented gap, pinned: spaced in a data literal is out of reach...
         assert not detects('{"NEO4J_PASSWORD": "correct horse battery staple"}')
         # ...while the same passphrase in the assignment form is caught.
