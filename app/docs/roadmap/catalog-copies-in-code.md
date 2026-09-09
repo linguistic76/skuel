@@ -54,7 +54,16 @@ most of the instances below rely on today.
    and the help line; `weekly-janitor.yml` ×4; `HEALTH_CHECKS.md` ×3; the skill's
    table). The copies were found the honest way again, by `git grep -l
    duplicate_headings`. Nothing caught the addition automatically — same instance,
-   same cost, two data points now.
+   same cost, two data points now. **And the copy list above was itself incomplete:**
+   the skill's SKILL.md carried a SECOND enumeration — a `./dev health-*` command block,
+   distinct from the file-locations row this entry names — which nobody had updated since
+   at least 2026-09-01. It was missing `health-updated`, `health-xref` AND `health-mypy`
+   before this change, so it had been silently stale across a prior addition and was
+   found only by hand-checking each listed site while writing this note. Converted to a
+   pointer (2026-09-09), like its three siblings. **This is the enumerate-vs-discover
+   argument measuring itself a second time** — item 4 below records the same shape, where
+   a discovering drift test found a third copy on arrival. An inventory of copies is a
+   catalog copy too, and this one under-counted by one for eight days.
    Noticed by nothing:
    `tests/unit/scripts/test_quality_ci_parity.py` pins `run_quality_checks.py` ↔ `ci.yml` and
    is the exact precedent, but no test reads `dev` or the janitor. **Remedy — one source.**
@@ -212,3 +221,24 @@ collapses to one edit) → the precache pin test → the three derivations (work
 ~~the suppressible-rules docs test~~ → one vector-index constant. Do not build a same-file
 contradictory-prose detector (sub-finding above) or a free-prose count checker: the count
 claims that matter are pinned or gone, and "N things" in running text has no reliable anchor.
+
+**Trigger fired and was deferred — 2026-09-09 (Mike).** The frontmatter `trigger` says to
+ride the remedy along on any PR adding a health check. `secret_scan_floor.py` was such a PR
+(#1303) and the ride-along was **not** taken: the credential one-path arc was mid-flight with
+a written 3-PR contract, and no health check is added by its remaining two PRs, so the
+catalog cannot drift again before the arc closes — waiting carries zero drift risk while
+interleaving would have delayed the arc's highest-risk change (`SKUEL_CREDENTIAL_BACKEND=env`
+in `.env.production.example`, without which the parked production deploy breaks on unpark).
+
+Recorded because a `trigger` with no firing history reads as never-tested. This one has now
+fired **twice** (2026-09-01, 2026-09-09) and been taken **zero** times. If it fires a third
+time without the remedy being built, that is the signal that the remedy is either not worth
+building or not actually reachable through a ride-along — and the honest move then is to
+schedule it directly or retire it, not to log a third miss.
+
+**The remedy needs no re-derivation when scheduled.** Item 1 above already names the shape
+(`dev --list`, janitor consumes it, parity test over runnable `scripts/health/*.py`) and both
+traps (`markdown_fences.py` has no `__main__`; `validate_cross_references.py` lives outside
+`scripts/health/`). What 2026-09-09 adds to it: **`dev` holds THREE copies, not two** — the
+`health)` block, the individual `health-<name>)` target, and the help line — so a `--list`
+mode must cover the target names too, not only the roster.

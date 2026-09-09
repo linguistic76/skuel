@@ -103,12 +103,12 @@ For the full step-by-step workflows — library upgrades, pattern deprecation, s
 
 ```bash
 # Health checks (run after any refactor/rename)
-./dev health              # every check below
-./dev health-modules      # orphaned Python modules
-./dev health-links        # broken doc links
-./dev health-names        # stale identifiers in doc code blocks
+./dev health              # the whole set
+./dev help                # the individual health-* targets, always current
 ./dev health-names --list # print full RENAMED/DELETED tables
-./dev health-headings     # repeated headings under one parent
+# Roster and what each check finds: docs/tools/HEALTH_CHECKS.md
+# (a member list here is a catalog copy that goes stale the moment a check is added
+#  — this one silently was, across two additions, before anyone noticed)
 
 # Cross-reference validation
 uv run python scripts/validate_cross_references.py
