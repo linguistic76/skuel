@@ -160,6 +160,19 @@ class TestAutoMigrationIsCatalogGated:
         assert get_credential("NEO4J_PASSWORD") is None
         assert ("skuel", "NEO4J_PASSWORD") not in fake_keychain.store
 
+    def test_a_test_fixture_string_never_migrates(self, monkeypatch, fake_keychain) -> None:
+        """`test-token` is what `HuggingFaceEmbeddingAdapter`'s own tests construct with.
+
+        It reached a real keychain once. Nothing catches it downstream: the
+        adapter gates on `if not api_key`, and the setup tool reports a stored
+        credential from `exists()` alone — so a ten-character non-token passes
+        both presence checks and fails later as a 401, inside a retry wrapper.
+        """
+        monkeypatch.setenv("HF_API_TOKEN", "test-token")
+
+        assert get_credential("HF_API_TOKEN") is None
+        assert ("skuel", "HF_API_TOKEN") not in fake_keychain.store
+
     def test_fallback_to_env_false_never_reaches_the_environment(
         self, monkeypatch, fake_keychain
     ) -> None:

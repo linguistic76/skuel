@@ -93,6 +93,7 @@ CREDENTIAL_CATALOG: dict[str, CredentialSpec] = {
     "HF_API_TOKEN": CredentialSpec(
         description="HuggingFace Inference API token (BAAI/bge-m3 — staged until Arc 3, ADR-083)",
         required=False,
+        expected_prefix="hf_",
     ),
     "DEEPGRAM_API_KEY": CredentialSpec(
         description="Deepgram API key — voice journal transcription",
@@ -159,6 +160,10 @@ _PLACEHOLDER_VALUES: frozenset[str] = frozenset(
         "your-key",
         "your-api-key",
         "test-key",
+        # The fixture string the HuggingFace adapter's own tests construct with.
+        # It reached a real keychain once: it is short enough to look like a
+        # token to a presence check and matches no other arm here.
+        "test-token",
     }
 )
 
