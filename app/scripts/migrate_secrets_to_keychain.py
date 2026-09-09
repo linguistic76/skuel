@@ -60,6 +60,13 @@ from core.config.credential_store import CREDENTIAL_CATALOG, _is_placeholder
 
 SERVICE_NAME = "skuel"
 
+# `KEY=  # note` — an assignment whose UNQUOTED value is a comment. dotenv
+# returns the comment text as the value, and Docker Compose reads it the same
+# way; neither is a credential. Matched on the raw line rather than the decoded
+# value because `KEY="#secret"` decodes to `#secret` too, and that one IS a
+# credential — the quote is the only thing that tells them apart.
+_COMMENTED_OUT_RE = re.compile(r"^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*#", re.MULTILINE)
+
 
 def detect_paths() -> tuple[Path, Path]:
     """Return (secrets_path, app_env_path)."""
@@ -78,8 +85,10 @@ def parse_secrets_file(path: Path) -> dict[str, str]:
 
     Two shapes are dropped as non-values:
 
-    * a value starting with `#` — `KEY=  # note` is a commented-out blank, and
-      Docker Compose reads it as the literal `# note`. Neither is a credential.
+    * a commented-out blank — `KEY=  # note`, decided on the raw line so that a
+      quoted `KEY="#secret"` (a real credential that happens to start with `#`)
+      is kept. Dropping it silently would lose a credential from a migration
+      that then offers to delete the plaintext original.
     * a placeholder, by `_is_placeholder` — the credential funnel's own rule, so
       a half-filled template never reaches the keychain. Without this, a `.env`
       copied from `.env.example` migrates `your-neo4j-password` over a valid
@@ -87,10 +96,12 @@ def parse_secrets_file(path: Path) -> dict[str, str]:
     """
     if not path.exists():
         return {}
+    text = path.read_text()
+    commented_out = {m.group(1) for m in _COMMENTED_OUT_RE.finditer(text)}
     return {
         key: raw
         for key, raw in dotenv_values(path, interpolate=False).items()
-        if raw is not None and not raw.startswith("#") and not _is_placeholder(raw)
+        if raw is not None and key not in commented_out and not _is_placeholder(raw)
     }
 
 
@@ -113,11 +124,16 @@ def confirm(prompt: str, *, assume_yes: bool) -> bool:
 
 
 def ensure_backend_env_var(app_env_path: Path, *, assume_yes: bool) -> None:
-    """Add ``SKUEL_CREDENTIAL_BACKEND=keyring`` to app/.env if missing.
+    """Point ``SKUEL_CREDENTIAL_BACKEND`` at the keychain we just populated.
 
     The variable is non-secret (it just selects which backend to use), so it
-    belongs in the in-repo .env, not the homedir secrets file. We append
-    rather than overwrite to preserve any existing config.
+    belongs in the in-repo .env, not the homedir secrets file. We append rather
+    than overwrite to preserve any existing config.
+
+    An existing assignment is checked, not merely detected: `env` is a valid
+    value now, and leaving it in place after a keychain migration means the app
+    keeps reading the process environment — so once `secrets.env` is deleted,
+    a fresh shell has no credentials at all.
     """
     if not app_env_path.exists():
         print(
@@ -126,8 +142,27 @@ def ensure_backend_env_var(app_env_path: Path, *, assume_yes: bool) -> None:
         return
 
     content = app_env_path.read_text()
-    if re.search(r"^\s*SKUEL_CREDENTIAL_BACKEND\s*=", content, re.MULTILINE):
-        print(f"✓ {app_env_path.name} already has SKUEL_CREDENTIAL_BACKEND set; leaving it alone.")
+    existing = re.search(
+        r"^(\s*(?:export\s+)?SKUEL_CREDENTIAL_BACKEND\s*=\s*)(\S*)", content, re.MULTILINE
+    )
+    if existing:
+        current = existing.group(2).strip().strip("\"'").lower()
+        if current == "keyring":
+            print(f"✓ {app_env_path.name} already selects the keychain; leaving it alone.")
+            return
+        print(
+            f"⚠ {app_env_path.name} sets SKUEL_CREDENTIAL_BACKEND={current or '(empty)'}, "
+            f"so the app would not read the keychain you just populated."
+        )
+        if not confirm(
+            f"Change it to keyring in {app_env_path}?",
+            assume_yes=assume_yes,
+        ):
+            print("⚠ Skipped. The credentials are in the keychain but the app will not read them.")
+            return
+        start, end = existing.span()
+        app_env_path.write_text(content[:start] + existing.group(1) + "keyring" + content[end:])
+        print(f"✓ Set SKUEL_CREDENTIAL_BACKEND=keyring in {app_env_path}")
         return
 
     if not confirm(
@@ -255,6 +290,9 @@ def main() -> int:
     # Refresh the keyring-index.json that KeyringBackend maintains so the
     # interactive credential_setup.py can show what's stored.
     index_path = secrets_path.parent / "keyring-index.json"
+    # Migrating straight from `app/.env` never touches ~/.config/skuel, and
+    # KeyringBackend (which creates it) is never instantiated here.
+    index_path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     import json
 
     existing_index: list[str] = []

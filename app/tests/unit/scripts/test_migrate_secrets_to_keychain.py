@@ -90,6 +90,43 @@ def test_a_missing_file_is_not_an_error(tmp_path: Path) -> None:
     assert mig.parse_env_file_credentials(tmp_path / "nonexistent.env") == {}
 
 
+class TestTheBackendSelector:
+    """`ensure_backend_env_var` has to read the selector's VALUE, not just find one.
+
+    `env` became a valid value in this arc. Left in place after a keychain
+    migration, the app keeps reading the process environment — so once
+    `secrets.env` is deleted, a fresh shell has no credentials at all.
+    """
+
+    def test_it_replaces_a_non_keyring_selector(self, tmp_path: Path) -> None:
+        env_file = tmp_path / ".env"
+        env_file.write_text("APP_PORT=8000\nSKUEL_CREDENTIAL_BACKEND=env\nLOG_LEVEL=INFO\n")
+
+        mig.ensure_backend_env_var(env_file, assume_yes=True)
+
+        assert "SKUEL_CREDENTIAL_BACKEND=keyring" in env_file.read_text()
+        # The rest of the file is untouched.
+        assert "APP_PORT=8000" in env_file.read_text()
+        assert "LOG_LEVEL=INFO" in env_file.read_text()
+
+    def test_it_leaves_an_existing_keyring_selector_alone(self, tmp_path: Path) -> None:
+        env_file = tmp_path / ".env"
+        before = "SKUEL_CREDENTIAL_BACKEND=keyring\n"
+        env_file.write_text(before)
+
+        mig.ensure_backend_env_var(env_file, assume_yes=True)
+
+        assert env_file.read_text() == before
+
+    def test_it_appends_when_absent(self, tmp_path: Path) -> None:
+        env_file = tmp_path / ".env"
+        env_file.write_text("APP_PORT=8000\n")
+
+        mig.ensure_backend_env_var(env_file, assume_yes=True)
+
+        assert "SKUEL_CREDENTIAL_BACKEND=keyring" in env_file.read_text()
+
+
 def test_a_placeholder_never_migrates(tmp_path: Path) -> None:
     """`.env.example`'s own values, which is what a copied `.env` carries.
 
@@ -129,6 +166,33 @@ def test_a_quoted_value_migrates_unquoted(tmp_path: Path) -> None:
         "RESEND_API_KEY": "<a-val>",
         # The `#` is inside the quotes, so it is part of the value, not a comment.
         "ANTHROPIC_API_KEY": "<a#b>",
+    }
+
+
+def test_a_commented_out_blank_is_not_a_value(tmp_path: Path) -> None:
+    """`KEY=  # note` — dotenv returns the comment text, and it is not a credential."""
+    env_file = tmp_path / ".env"
+    env_file.write_text(
+        "NEO4J_PASSWORD=  # not set yet\n"
+        "export OPENAI_API_KEY= # also not set\n"
+        "RESEND_API_KEY=<a-val>\n"
+    )
+
+    assert mig.parse_env_file_credentials(env_file) == {"RESEND_API_KEY": "<a-val>"}
+
+
+def test_a_quoted_hash_value_is_kept(tmp_path: Path) -> None:
+    """A credential may legitimately begin with `#`; the quote is what says so.
+
+    Dropping it on the decoded value loses a credential from a migration that
+    then offers to delete the plaintext original — silent, and unrecoverable.
+    """
+    env_file = tmp_path / ".env"
+    env_file.write_text("NEO4J_PASSWORD=\"#a-pw\"\nOPENAI_API_KEY='#a-key'\n")
+
+    assert mig.parse_env_file_credentials(env_file) == {
+        "NEO4J_PASSWORD": "#a-pw",
+        "OPENAI_API_KEY": "#a-key",
     }
 
 
