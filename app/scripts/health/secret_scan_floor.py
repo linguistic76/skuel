@@ -198,7 +198,9 @@ def main() -> int:
         f"{Colors.YELLOW}A scan that blocks a legitimate commit gets bypassed with "
         f"SKUEL_ALLOW_SECRETS=1, and a fence everyone routes around is not a "
         f"fence — fix the pattern, or make the value a recognised placeholder "
-        f"(empty, `your-`-prefixed, angle-bracketed, or under 20 characters).{Colors.RESET}"
+        f"(empty, containing `your-`, wholly angle-bracketed, or under 20 "
+        f'characters). A placeholder arm must span the WHOLE value: `"<x>"` is '
+        f"quoted, not bracketed.{Colors.RESET}"
     )
     print(f"{Colors.YELLOW}See: app/scripts/git-hooks/README.md § The secret scan{Colors.RESET}")
     return 1

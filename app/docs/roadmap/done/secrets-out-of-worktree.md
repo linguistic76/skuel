@@ -28,6 +28,10 @@ updated: 2026-09-09
 > two-file convention survives only as the docker-compose carve-out described in the table above:
 > `~/.config/skuel/secrets.env` is not a credential backend and nothing selects it.
 >
+> One helper described below has also widened since: `_is_placeholder()` now matches
+> `your-` anywhere in a value, not only at its start, so `.env.example`'s own
+> `sk-your-openai-key` no longer migrates into the keychain.
+>
 > Read this document for *why* and *how it went*. For the shape that runs today, see
 > `core/config/README.md` and `app/README.md` § Configure Environment.
 

@@ -645,7 +645,7 @@ scanner is broken is worse than no sweep. That is the same fail-closed rule the 
 itself follows: a checker with nothing to check for must never report success.
 
 **When it fires,** the fix is either the pattern or the value: make the value a
-recognised placeholder (empty, `your-`-prefixed, angle-bracketed, or under 20
+recognised placeholder (empty, containing `your-`, wholly angle-bracketed, or under 20
 characters), or narrow the rule that matched. Never add a suppression — the whole point
 is that the corpus is the honest test set.
 
