@@ -34,6 +34,16 @@ gh pr view <PR#> --json reviews,comments \
   -q '(.reviews[], .comments[]) | select(.author.login|test("codex|kody";"i")) | "\(.author.login)\t\(.state // "comment")\t\(.submittedAt // .createdAt)"'
 ```
 
+> ⚠️ **A review has two finding surfaces, and they are independent.** Findings
+> arrive as inline (line-anchored) comments *and* in the review object's own
+> **body** — one review can carry both, or only the body. Measured on #1301: 20
+> inline comments and 1 body-only P1, across 9 reviews of which 8 carried nothing
+> but boilerplate. `request_codex_review.sh` prints both surfaces; a manual check
+> must read both too, or it will silently miss whole findings. Also note that
+> GitHub **re-points an outdated inline comment to a newer SHA** when its line
+> still resolves, so `commit_id` does not tell you when a finding was made —
+> `original_commit_id` does, and `line: null` means the comment is outdated.
+
 To confirm which GitHub App owns each *check*:
 
 ```bash
