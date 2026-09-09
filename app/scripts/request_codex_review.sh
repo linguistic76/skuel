@@ -21,10 +21,16 @@
 # apply the label without a real verdict. The label means a human/agent READ a
 # verdict and decided — not that a timer expired.
 #
-# Verdict channels (poll BOTH every interval):
-#   - inline review comments / submitted reviews (SHA-anchored) = FINDINGS
-#   - plain issue comment matching the clean signature           = CLEAN
-#   - any other Codex issue comment                              = READ-it (rc 2)
+# Verdict channels (poll ALL every interval, and PRINT every one that fires):
+#   - inline review comments (SHA-anchored)             = FINDINGS
+#   - the BODY of a submitted review                    = FINDINGS
+#   - plain issue comment matching the clean signature  = CLEAN
+#   - any other Codex issue comment                     = READ-it (rc 2)
+#
+# The first two are INDEPENDENT surfaces and a finding can arrive on either, so
+# every channel the verdict COUNTS is also PRINTED. Counting one without printing
+# it is worse than not reading it: the reader is told findings exist and shown a
+# different set. (Incident: #1301.)
 #
 # Outcomes:
 #   - clean    -> post consideration note + apply `codex-considered`, exit 0
@@ -138,9 +144,58 @@ check_verdict() {
     2>/dev/null) || return 4
   [[ "$inline" =~ ^[0-9]+$ ]] || return 4
   if (( reviews > 0 || inline > 0 )); then
-    echo "── Codex FINDINGS (inline review) ──"
-    gh_retry api "repos/$REPO/pulls/$PR/comments?since=$since&per_page=100" \
-      --jq ".[] | select(.user.login|test(\"codex\";\"i\")) | select(.created_at > \"$since\") | \"\(.path):\(.line // 0)\n\(.body)\n\"" || true
+    local printed=0
+
+    # Channel A — REVIEW BODIES. Independent of the inline channel: a finding can
+    # arrive in a review body with no inline comment at all. Every channel the
+    # branch condition COUNTS must also be PRINTED, or the reader is told findings
+    # exist and shown a different set. (Incident: #1301.)
+    #
+    # Boilerplate-only bodies — the "Here are some automated review suggestions"
+    # preamble plus the reviewed-commit line — strip to empty and are skipped, so
+    # this section is silent unless Codex wrote something.
+    local body_jq bodies
+    body_jq='.[] | select(.user.login|test("codex";"i")) | select(.submitted_at > "'"$since"'")'
+    body_jq+=' | . as $r | ($r.body'
+    # Only the KNOWN boilerplate footer, identified by its summary line — never
+    # an arbitrary <details>. Codex wraps supporting evidence in collapsible
+    # sections, and stripping those would hide submitted content from the
+    # operator, which is the defect this whole function exists to prevent. Same
+    # marker .github/workflows/strip-codex-footer.yml matches on.
+    body_jq+=' | gsub("(?s)<details>\\s*<summary>[^<]*About Codex in GitHub</summary>.*?</details>"; "")'
+    body_jq+=' | gsub("### 💡 Codex Review"; "")'
+    body_jq+=' | gsub("Here are some automated review suggestions for this pull request\\."; "")'
+    body_jq+=' | gsub("\\*\\*Reviewed commit:\\*\\* `[0-9a-f]+`"; "")'
+    body_jq+=' | sub("^\\s+"; "") | sub("\\s+$"; "")) as $b'
+    body_jq+=' | select($b | length > 0)'
+    body_jq+=' | "── review on " + ($r.commit_id[0:10]) + " ──\n" + $b'
+    # rc 4, never an empty string: a failed lookup is not an empty result. Coercing
+    # it would print "no findings" over a review that was counted but never read,
+    # and invite the label on it. Same rule the count lookups above follow.
+    bodies=$(gh_retry api "repos/$REPO/pulls/$PR/reviews?per_page=100" --jq "$body_jq" 2>/dev/null) || return 4
+    if [[ -n "${bodies//[[:space:]]/}" ]]; then
+      echo "── Codex FINDINGS (review body) ──"
+      printf '%s\n' "$bodies"
+      printed=1
+    fi
+
+    # Channel B — INLINE review comments.
+    if (( inline > 0 )); then
+      echo "── Codex FINDINGS (inline comments) ──"
+      gh_retry api "repos/$REPO/pulls/$PR/comments?since=$since&per_page=100" \
+        --jq ".[] | select(.user.login|test(\"codex\";\"i\")) | select(.created_at > \"$since\") | \"\(.path):\(.line // 0)\n\(.body)\n\"" || true
+      printed=1
+    fi
+
+    # Never print an empty findings section: a review whose body is pure
+    # boilerplate and which carries no inline comments is Codex saying nothing,
+    # and silence dressed as "FINDINGS" sends the reader looking for content that
+    # is not there. Still rc 2 — it needs a human read, and the label is never
+    # applied without one.
+    if (( printed == 0 )); then
+      echo "── Codex submitted ${reviews} review(s) with no findings in body or inline ──"
+      echo "   Nothing to address. Read the PR before applying the label."
+    fi
     return 2
   fi
   comments=$(gh_retry api "repos/$REPO/issues/$PR/comments?since=$since&per_page=100" \
@@ -225,6 +280,12 @@ wait_for_verdict() {
   (( read_ok )) && return 1
   return 4
 }
+
+# Everything above is definitions. Sourcing the file (tests/unit/scripts/
+# test_request_codex_review.py) stops here, so `check_verdict` can be exercised
+# against a stubbed gh without summoning anybody. Executed directly, the flow
+# below runs as normal.
+[[ "${BASH_SOURCE[0]}" != "$0" ]] && return 0
 
 echo "▶ summoning @codex review on #$PR"
 echo "  waiting up to ${DEADLINE}s — Codex on this repo has taken >13min; patience is in-script by design (portable across harnesses)."
