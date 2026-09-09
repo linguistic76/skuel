@@ -254,11 +254,14 @@ def main() -> int:
         secrets = {
             k: v for k in CREDENTIAL_CATALOG if (v := os.getenv(k)) and not _is_placeholder(v)
         }
-        if not secrets:
-            print("\nNo credentials found in either file or the shell environment.")
-            print("Nothing to migrate.")
-            return 0
-        print(f"Source:   shell environment ({len(secrets)}, catalog names only)")
+        if secrets:
+            print(f"Source:   shell environment ({len(secrets)}, catalog names only)")
+        else:
+            # No early exit: nothing to migrate is not nothing to do. A name the
+            # catalog refuses can still be in the keychain, and the sweep below
+            # is the only thing that takes one out — reachable exactly when
+            # `secrets.env` has been trimmed to its Compose residue.
+            print("\nNo credentials to migrate — checking the keychain for stale entries.")
 
     print()
 
@@ -278,12 +281,25 @@ def main() -> int:
     # `scripts/dev/with-secrets` exports the index over the shell it inherits.
     # Either way the stale copy wins the day the real value is rotated. A union
     # merge can only ever grow, so this is the one place that can shed one.
+    # Three cases, because "stale" is not one situation: a name the keychain
+    # does not actually hold is index drift to repair, not a value to delete,
+    # and one the source file cannot re-supply is a last copy to leave alone.
     still_sourced = set(_parse_env_shaped_file(secrets_path))
-    stale = sorted(set(existing_index) - set(CREDENTIAL_CATALOG))
-    removable = [k for k in stale if k in still_sourced]
-    # Removing one of these deletes the only copy — the same reason the source
-    # file is kept at the end.
-    only_copies = [k for k in stale if k not in still_sourced]
+    removable: list[str] = []
+    only_copies: list[str] = []
+    phantoms: list[str] = []
+    for key in sorted(set(existing_index) - set(CREDENTIAL_CATALOG)):
+        try:
+            stored = _keyring.get_password(SERVICE_NAME, key)
+        except Exception as e:
+            print(f"✗ Couldn't query keychain for {key}: {e}")
+            return 1
+        if stored is None:
+            phantoms.append(key)
+        elif key in still_sourced:
+            removable.append(key)
+        else:
+            only_copies.append(key)
 
     # Diff against what's already in the keychain so the user sees what
     # actually changes.
@@ -319,6 +335,10 @@ def main() -> int:
         print(f"Will OFFER TO REMOVE {len(removable)} non-catalog credential(s):")
         for k in removable:
             print(f"  - {k} (sourced from {secrets_path})")
+    if phantoms:
+        print(f"Will DROP {len(phantoms)} index entry(ies) the keychain does not hold:")
+        for k in phantoms:
+            print(f"  - {k}")
     for k in only_copies:
         print(
             f"⚠ {k} is in the keychain, is not a catalog credential, and "
@@ -344,16 +364,28 @@ def main() -> int:
             _keyring.set_password(SERVICE_NAME, key, secrets[key])
             print(f"✓ Stored {key}")
 
-    removed: set[str] = set()
+    # Dropped without a prompt: there is nothing to destroy, and leaving the
+    # name in means repeating this every run.
+    removed: set[str] = set(phantoms)
+    for key in phantoms:
+        print(f"✓ Dropped {key} from the index (the keychain does not hold it)")
+
     for key in removable:
-        if confirm(
+        if not confirm(
             f"Remove {key} from the keychain? It is not a catalog credential, "
             f"and {secrets_path} is its source of truth",
             assume_yes=args.yes,
         ):
+            continue
+        try:
             _keyring.delete_password(SERVICE_NAME, key)
-            removed.add(key)
-            print(f"✓ Removed {key} from the keychain")
+        except Exception as e:
+            # Report and carry on — one backend failure must not cost the index
+            # repair for every other name.
+            print(f"✗ Couldn't remove {key} from the keychain: {e}")
+            continue
+        removed.add(key)
+        print(f"✓ Removed {key} from the keychain")
 
     # Migrating straight from `app/.env` never touches ~/.config/skuel, and
     # KeyringBackend (which creates the index) is never instantiated here.

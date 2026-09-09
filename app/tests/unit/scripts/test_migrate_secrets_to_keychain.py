@@ -260,6 +260,12 @@ def run_migration(monkeypatch, tmp_path):
     fake = _FakeKeyring()
     monkeypatch.setitem(sys.modules, "keyring", fake)
     index_path = tmp_path / "keyring-index.json"
+    # `main()` falls back to the shell for catalog names, and this process
+    # inherits a developer's direnv-loaded environment — which would both leak a
+    # real credential into the assertions and make the outcome depend on whose
+    # machine runs them.
+    for name in CREDENTIAL_CATALOG:
+        monkeypatch.delenv(name, raising=False)
 
     def _run(
         secrets_body: str,
@@ -322,14 +328,14 @@ class TestTheSourceFileSurvivesWhatTheFilterRefuses:
 
 
 class TestStaleNonCatalogEntriesAreShed:
-    """Filtering the source stops future writes; it cannot undo past ones.
+    """A keychain holding a name the catalog refuses is what these fixtures set up.
 
-    An earlier unfiltered run left `NEO4J_AUTH` in the keychain and the index,
-    and the index merge is a union that can only grow. Both readers then prefer
-    that stale copy over the live one: `get_credential()` reads `backend.get()`
-    FIRST for any key, catalog or not, and `scripts/dev/with-secrets` exports
-    the index over the shell it inherits. Rotate the value in `secrets.env` and
-    the old one still wins.
+    Both readers prefer that copy over the live one: `get_credential()` reads
+    `backend.get()` FIRST for any key, catalog or not, and
+    `scripts/dev/with-secrets` exports the index over the shell it inherits. So
+    the stored value wins over `secrets.env`, including after the real one is
+    rotated. Filtering the source cannot reach it — the index merge is a union,
+    and this sweep is the only thing that shrinks it.
     """
 
     def test_a_stale_entry_with_a_live_source_is_removed(self, run_migration) -> None:
@@ -345,10 +351,10 @@ class TestStaleNonCatalogEntriesAreShed:
         assert "NEO4J_AUTH" in secrets.read_text()
 
     def test_a_stale_entry_that_is_the_only_copy_is_kept(self, run_migration) -> None:
-        """An older run migrated it and then deleted the file it came from.
+        """The index names it, the keychain holds it, and the file has no copy.
 
-        The keychain is now that value's only source, and `with-secrets` is how
-        Compose gets it — so removing it here breaks the sandbox it exists for.
+        The keychain is then that value's only source, and `with-secrets` is how
+        Compose gets it — so removing it breaks the sandbox it exists for.
         """
         _, fake, index_path = run_migration(
             "NEO4J_PASSWORD=<a-neo4j-password>\n",
@@ -371,3 +377,37 @@ class TestStaleNonCatalogEntriesAreShed:
         assert "NEO4J_AUTH" in capsys.readouterr().out
         assert fake.store[("skuel", "NEO4J_AUTH")] == "neo4j/<old-password>"
         assert json.loads(index_path.read_text()) == ["NEO4J_AUTH", "NEO4J_PASSWORD"]
+
+    def test_a_phantom_index_entry_is_dropped_without_a_prompt(self, run_migration) -> None:
+        """The index names it; the keychain does not hold it.
+
+        `delete_password` raises `PasswordDeleteError` on every supported backend
+        for a value that is not there, and the index is best-effort — someone can
+        rotate a secret with `secret-tool` or `seahorse` and never touch it. So
+        the name is dropped rather than deleted: nothing to destroy, and leaving
+        it in means meeting the same entry on every run.
+        """
+        _, fake, index_path = run_migration(
+            "NEO4J_PASSWORD=<a-neo4j-password>\n",
+            index=["NEO4J_AUTH", "NEO4J_PASSWORD"],
+            stored={},
+        )
+
+        assert ("skuel", "NEO4J_AUTH") not in fake.store
+        assert json.loads(index_path.read_text()) == ["NEO4J_PASSWORD"]
+
+    def test_the_sweep_runs_with_nothing_left_to_migrate(self, run_migration) -> None:
+        """`secrets.env` trimmed to its Compose residue is the end state.
+
+        Every catalog credential is already in the keychain, so the migration has
+        nothing to move — and that is exactly when a stale non-catalog entry is
+        left to find. The sweep cannot sit behind an "anything to migrate?" exit.
+        """
+        _, fake, index_path = run_migration(
+            "NEO4J_AUTH=neo4j/<password>\n",
+            index=["NEO4J_AUTH"],
+            stored={"NEO4J_AUTH": "neo4j/<old-password>"},
+        )
+
+        assert ("skuel", "NEO4J_AUTH") not in fake.store
+        assert json.loads(index_path.read_text()) == []
