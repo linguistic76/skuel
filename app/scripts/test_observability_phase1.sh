@@ -17,6 +17,17 @@ echo "🧪 Testing Observability Phase 1 Implementation"
 echo "================================================"
 echo ""
 
+# `jq` is a hard precondition of every Prometheus assertion below, checked here
+# rather than declared in the header and hoped for. Checking it is what keeps a
+# missing tool from being reported as a broken service: `test_step` runs each
+# command under `> /dev/null 2>&1`, so a 127 would arrive with its message
+# swallowed and be named as a failing Prometheus check.
+if ! command -v jq > /dev/null 2>&1; then
+    echo "❌ jq is not installed, and every check below parses JSON with it."
+    echo "   Install it (e.g. apt install jq) and re-run."
+    exit 1
+fi
+
 # Colors for output
 GREEN='\033[0;32m'
 RED='\033[0;31m'
