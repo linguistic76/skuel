@@ -31,7 +31,7 @@ PR's **Files changed / Conversation** tabs, or run:
 
 ```bash
 gh pr view <PR#> --json reviews,comments \
-  -q '(.reviews[], .comments[]) | select(.author.login|test("codex|kody";"i")) | "\(.author.login)\t\(.state // "comment")\t\(.submittedAt // .createdAt)"'
+  -q '(.reviews[], .comments[]) | select(.author.login|test("codex|kody";"i")) | "\(.author.login)\t\(.state // "comment")\t\(.submittedAt // .createdAt)\n\(.body)\n"'
 ```
 
 > ⚠️ **A review has two finding surfaces, and they are independent.** Findings
@@ -39,10 +39,10 @@ gh pr view <PR#> --json reviews,comments \
 > **body** — one review can carry both, or only the body. Measured on #1301: 20
 > inline comments and 1 body-only P1, across 9 reviews of which 8 carried nothing
 > but boilerplate. `request_codex_review.sh` prints both surfaces; a manual check
-> must read both too, or it will silently miss whole findings. Also note that
-> GitHub **re-points an outdated inline comment to a newer SHA** when its line
-> still resolves, so `commit_id` does not tell you when a finding was made —
-> `original_commit_id` does, and `line: null` means the comment is outdated.
+> must read both too — the command above prints `.body` for that reason, since a
+> body-only finding otherwise shows as an empty `COMMENTED` review.
+> 
+> Also note that GitHub **re-points an outdated inline comment to a newer SHA** when its line still resolves, so `commit_id` does not tell you when a finding was made — `original_commit_id` does. For staleness, read `subject_type` first: a `"line"` comment with `line: null` is outdated (its line left the diff), but a `"file"` comment has `line: null` **by design** and may be perfectly current — treating null as stale would dismiss a live file-level finding.
 
 To confirm which GitHub App owns each *check*:
 
