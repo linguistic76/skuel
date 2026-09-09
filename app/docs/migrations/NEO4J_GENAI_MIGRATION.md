@@ -1,5 +1,5 @@
 ---
-updated: 2026-07-25
+updated: 2026-09-09
 ---
 
 # Neo4j GenAI Plugin Migration Guide
@@ -160,7 +160,7 @@ GENAI_MAX_DAILY_EMBEDDINGS=10000  # Prevent runaway costs
 **Option A: Use Credential Store (Recommended)**
 
 ```bash
-uv run python -m core.config.credential_setup
+uv run python -m core.config
 
 # Interactive prompts:
 # [1] Initialize credential store

@@ -77,7 +77,7 @@ class EnvironmentValidator:
                 + "\n".join(missing)
                 + "\n\nTo fix this:\n"
                 + "  1. Run the credential setup script:\n"
-                + "     python -m core.config.credential_setup\n"
+                + "     uv run python -m core.config\n"
                 + "  2. Or add to .env file temporarily:\n"
                 + "     OPENAI_API_KEY='your-api-key'\n"
                 + "  3. Credentials will be auto-migrated to encrypted store on first run\n\n"

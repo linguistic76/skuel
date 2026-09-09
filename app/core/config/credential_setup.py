@@ -1,11 +1,11 @@
-#!/usr/bin/env python3
 # skuel-lint: disable-file=SKUEL015 -- Interactive CLI utility
 """
 Credential Setup Tool
 =====================
 
-Interactive tool to load SKUEL's credentials into the active backend
-(`uv run python -m core.config`). It writes through ``get_active_backend()``,
+Interactive tool to load SKUEL's credentials into the active backend. It is
+reached one way, `uv run python -m core.config`, whose `__main__` calls `main()`
+below. It writes through ``get_active_backend()``,
 so what it stores is exactly what ``get_credential()`` later reads — there is
 no second write path.
 
@@ -260,7 +260,3 @@ def main() -> None:
     except Exception as e:  # intentional-broad: CLI entrypoint
         print(f"\n❌ Error: {e}")
         sys.exit(1)
-
-
-if __name__ == "__main__":
-    main()

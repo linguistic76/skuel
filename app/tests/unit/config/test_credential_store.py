@@ -246,8 +246,9 @@ FUNNEL_TREES = ("core", "adapters", "services_bootstrap", "scripts", "ui")
 # Names read through get_credential() that are deliberately NOT credentials, and
 # so must never be stored. Each is connection config: where the database is, and
 # who we connect as. A keychain copy of either is a second source of truth that
-# goes stale the day the database moves — which is exactly what happened at the
-# AuraDB cutover.
+# goes stale the day the database moves, and authenticating as the wrong user
+# against Aura is indistinguishable from a bad password
+# (docs/deployment/AURADB_MIGRATION_GUIDE.md § 6.1).
 NON_CREDENTIAL_FUNNEL_READS = {
     "NEO4J_URI",
     "NEO4J_USERNAME",
