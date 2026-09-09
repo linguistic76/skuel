@@ -157,7 +157,12 @@ check_verdict() {
     local body_jq bodies
     body_jq='.[] | select(.user.login|test("codex";"i")) | select(.submitted_at > "'"$since"'")'
     body_jq+=' | . as $r | ($r.body'
-    body_jq+=' | gsub("(?s)<details>.*?</details>"; "")'
+    # Only the KNOWN boilerplate footer, identified by its summary line — never
+    # an arbitrary <details>. Codex wraps supporting evidence in collapsible
+    # sections, and stripping those would hide submitted content from the
+    # operator, which is the defect this whole function exists to prevent. Same
+    # marker .github/workflows/strip-codex-footer.yml matches on.
+    body_jq+=' | gsub("(?s)<details>\\s*<summary>[^<]*About Codex in GitHub</summary>.*?</details>"; "")'
     body_jq+=' | gsub("### 💡 Codex Review"; "")'
     body_jq+=' | gsub("Here are some automated review suggestions for this pull request\\."; "")'
     body_jq+=' | gsub("\\*\\*Reviewed commit:\\*\\* `[0-9a-f]+`"; "")'

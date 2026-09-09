@@ -207,6 +207,30 @@ class TestOtherChannels:
         assert result.returncode == 1, result.stderr
 
 
+class TestBoilerplateStripIsTargeted:
+    """Only the known footer may be stripped from a review body.
+
+    Source-level, deliberately: the strip lives in a jq program that `gh` runs,
+    and there is no jq engine on the machine to drive it offline — a Python
+    reimplementation would test a different regex engine and prove nothing. The
+    behaviour that IS reachable was verified against the live API (8 boilerplate
+    bodies on #1301 strip to empty, the 1 substantive body survives); what this
+    pins is the property that makes the strip safe in general.
+    """
+
+    def test_only_the_named_footer_is_stripped(self) -> None:
+        source = SCRIPT.read_text()
+        assert "About Codex in GitHub</summary>" in source, (
+            "the <details> strip must identify the boilerplate footer by its summary "
+            "line — the same marker .github/workflows/strip-codex-footer.yml uses"
+        )
+        assert 'gsub("(?s)<details>.*?</details>"' not in source, (
+            "an unrestricted <details> strip deletes any collapsible section Codex "
+            "wrote, including supporting evidence — hiding submitted content is the "
+            "defect this function exists to prevent."
+        )
+
+
 class TestScriptShape:
     def test_the_script_is_sourceable_without_summoning(self, tmp_path: Path) -> None:
         """The tests above depend on it, and an accidental removal would summon Codex."""
