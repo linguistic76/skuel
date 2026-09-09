@@ -1,13 +1,22 @@
 #!/usr/bin/env python3
 """
-Migrate secrets from ~/.config/skuel/secrets.env into the OS keychain (Stage 3).
-================================================================================
+Migrate secrets into the OS keychain.
+======================================
+
+Sources, in order of increasing precedence:
+
+* ``~/.config/skuel/secrets.env`` — the dedicated secrets file, taken whole.
+* ``app/.env`` — filtered to ``CREDENTIAL_CATALOG`` names, because that file is
+  mostly non-secret config and a URI or a username must never reach the
+  keychain. This is the migration path for a legacy ``.env`` that still carries
+  credentials; the file is READ only, never rewritten or deleted, since the
+  config in it is still live.
+* the current shell environment, when neither file exists.
 
 After this script runs:
 
-* Every credential currently in ``~/.config/skuel/secrets.env`` lives in the
-  OS keychain (libsecret on Linux, Keychain on macOS, Credential Locker on
-  Windows) under service ``skuel``.
+* Every credential found lives in the OS keychain (libsecret on Linux, Keychain
+  on macOS, Credential Locker on Windows) under service ``skuel``.
 * ``~/.config/skuel/secrets.env`` is deleted (with explicit confirmation),
   removing the last plaintext copy on disk.
 * ``SKUEL_CREDENTIAL_BACKEND=keyring`` needs to be set in your environment
@@ -43,8 +52,11 @@ import shutil
 import sys
 from pathlib import Path
 
-# `.env`-shaped KV line. Kept literal so the script runs without an import
-# dependency on the package.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from core.config.credential_store import CREDENTIAL_CATALOG
+
+# `.env`-shaped KV line.
 KV_LINE_RE = re.compile(r"^\s*([A-Z_][A-Z0-9_]*)\s*=\s*(.*)$")
 
 SERVICE_NAME = "skuel"
@@ -81,6 +93,17 @@ def parse_secrets_file(path: Path) -> dict[str, str]:
         if raw:
             out[key] = raw
     return out
+
+
+def parse_env_file_credentials(path: Path) -> dict[str, str]:
+    """Load only CREDENTIAL_CATALOG names from a `.env`-shaped config file.
+
+    `app/.env` holds mostly non-secret config. Migrating it whole is the bug
+    ADR-less fact 3 of the credential arc describes: a keychain that answers
+    `NEO4J_URI` becomes a second source of truth for where the database lives,
+    and goes stale the day it moves.
+    """
+    return {k: v for k, v in parse_secrets_file(path).items() if k in CREDENTIAL_CATALOG}
 
 
 def confirm(prompt: str, *, assume_yes: bool) -> bool:
@@ -153,32 +176,31 @@ def main() -> int:
         return 1
 
     backend = _keyring.get_keyring()
-    print(f"Source:   {secrets_path}")
     print(f"Backend:  {type(backend).__module__}.{type(backend).__name__}")
     print(f"Service:  {SERVICE_NAME}")
-    print()
 
-    if not secrets_path.exists():
-        # Fall back to current shell env — useful if direnv already loaded
-        # secrets.env but the user has since deleted the source file.
-        from_env_only = {
-            k: v
-            for k, v in os.environ.items()
-            if k.endswith(("_PASSWORD", "_KEY", "_TOKEN", "_SECRET", "_PAT", "_AUTH"))
-            and not k.startswith(("SKUEL_", "FIREFLY_TIMEOUT_"))
-        }
-        if not from_env_only:
-            print(f"⚠ {secrets_path} doesn't exist and no credential-shaped env vars found.")
-            print("  Nothing to migrate.")
-            return 0
-        print(f"⚠ {secrets_path} doesn't exist; falling back to current shell env.")
-        secrets = from_env_only
-    else:
-        secrets = parse_secrets_file(secrets_path)
+    # `app/.env` wins over `secrets.env`: a credential sitting in the worktree
+    # is the one that most needs moving, and the diff below shows every
+    # overwrite before anything is written.
+    from_secrets = parse_secrets_file(secrets_path) if secrets_path.exists() else {}
+    from_env_file = parse_env_file_credentials(app_env_path) if app_env_path.exists() else {}
+    secrets = {**from_secrets, **from_env_file}
+    if from_secrets:
+        print(f"Source:   {secrets_path} ({len(from_secrets)})")
+    if from_env_file:
+        print(f"Source:   {app_env_path} ({len(from_env_file)}, catalog names only)")
 
     if not secrets:
-        print("No secrets to migrate.")
-        return 0
+        # Fall back to the current shell env — useful when direnv already
+        # loaded the values but the source files are gone.
+        secrets = {k: v for k in CREDENTIAL_CATALOG if (v := os.getenv(k))}
+        if not secrets:
+            print("\nNo credentials found in either file or the shell environment.")
+            print("Nothing to migrate.")
+            return 0
+        print(f"Source:   shell environment ({len(secrets)}, catalog names only)")
+
+    print()
 
     # Diff against what's already in the keychain so the user sees what
     # actually changes.

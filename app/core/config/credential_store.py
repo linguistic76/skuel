@@ -287,16 +287,25 @@ class EnvBackend:
     READ_ONLY: ClassVar[bool] = True
 
     def get(self, key: str, default: str | None = None) -> str | None:
-        """Read the credential from the process environment."""
-        return os.getenv(key, default)
+        """Read the credential from the process environment.
+
+        A placeholder reads as absent. `.env.example` is meant to be copied, so
+        the environment is exactly where `your-neo4j-password` arrives — and a
+        credential that is *present but unusable* fails at the first
+        authentication instead of at the boot check that exists to catch it.
+        `get_credential()` applies the same rule to an env value reaching it by
+        fallback, so both backends treat one identically.
+        """
+        value = os.getenv(key)
+        return default if _is_placeholder(value) else value
 
     def exists(self, key: str) -> bool:
-        """True if the environment carries a non-empty value for the key."""
-        return bool(os.getenv(key))
+        """True if the environment carries a usable value for the key."""
+        return self.get(key) is not None
 
     def list_keys(self) -> list[str]:
         """Catalog credentials the environment actually carries."""
-        return [key for key in CREDENTIAL_CATALOG if os.getenv(key)]
+        return [key for key in CREDENTIAL_CATALOG if self.exists(key)]
 
     def set(self, key: str, value: str) -> NoReturn:  # noqa: ARG002 — backend interface
         """Always raises — the environment is not writable storage."""

@@ -99,7 +99,11 @@ class TestBackendSelection:
 # ---------------------------------------------------------------------------
 class TestOneWritePath:
     def test_the_setup_tool_writes_where_get_credential_reads(self, fake_keychain) -> None:
-        """The defect this arc closes: the tool wrote to a store nothing read."""
+        """Setup stores into the backend `get_credential()` reads.
+
+        Two of them means a credential that stores successfully and never
+        resolves — a silent failure on both sides of the funnel.
+        """
         setup = CredentialSetup()
         setup.backend.set("OPENAI_API_KEY", "sk-written-by-the-setup-tool")
 
@@ -138,11 +142,11 @@ class TestAutoMigrationIsCatalogGated:
     ) -> None:
         """These reach the funnel from real callers and are NOT credentials.
 
-        Storing them made the keychain a second source of truth for where the
-        database lives, and it went stale at the AuraDB cutover: a keychain
-        holding `NEO4J_USERNAME=neo4j` authenticates as the wrong user against
-        Aura, which presents as Unauthorized — indistinguishable from a bad
-        password.
+        Storing one makes the keychain a second source of truth for where the
+        database lives — one that goes stale the day the database moves. A
+        keychain answering `NEO4J_USERNAME=neo4j` authenticates as the wrong
+        user against Aura, which presents as Unauthorized, indistinguishable
+        from a bad password.
         """
         monkeypatch.setenv(key, "neo4j+s://d2d160c4.databases.neo4j.io")
 
@@ -182,7 +186,7 @@ class TestEnvBackend:
         assert get_credential("STRIPE_WEBHOOK_SECRET") is None
 
     def test_writes_raise_rather_than_silently_discarding(self) -> None:
-        """A tool that reported success while dropping the key is the worse bug."""
+        """A tool that reports success while dropping the key is the worse bug."""
         with pytest.raises(ConfigurationError, match="read-only"):
             EnvBackend().set("OPENAI_API_KEY", "sk-discarded")
         with pytest.raises(ConfigurationError, match="read-only"):
@@ -195,6 +199,23 @@ class TestEnvBackend:
         monkeypatch.setenv("PATH_TO_SOMETHING_ELSE", "not-a-credential")
 
         assert EnvBackend().list_keys() == ["NEO4J_PASSWORD"]
+
+    @pytest.mark.parametrize("placeholder", ["your-neo4j-password", "your-anything", ""])
+    def test_a_placeholder_reads_as_absent(self, monkeypatch, placeholder: str) -> None:
+        """`.env.example` is meant to be copied, so this is where placeholders arrive.
+
+        Returning one makes a required credential look configured: the boot
+        check that exists to catch a missing key passes, and the failure
+        surfaces later as an authentication error against the database instead.
+        The keyring path already applies this rule to an env value reaching it
+        by fallback; both backends must agree.
+        """
+        monkeypatch.setenv("NEO4J_PASSWORD", placeholder)
+
+        assert EnvBackend().get("NEO4J_PASSWORD") is None
+        assert EnvBackend().exists("NEO4J_PASSWORD") is False
+        assert "NEO4J_PASSWORD" not in EnvBackend().list_keys()
+        assert get_credential("NEO4J_PASSWORD") is None
 
     def test_the_setup_tool_refuses_instead_of_pretending(self, capsys) -> None:
         """`run()` must return without prompting — the tool has nowhere to write."""
@@ -254,10 +275,10 @@ def _funnel_reads() -> set[str]:
 
 
 class TestTheCatalogCoversTheFunnel:
-    """Auto-migration is catalog-gated, so an uncatalogued read silently stops
-    reaching the keychain — and the setup tool, which walks the same catalog,
-    never offers it. Both failures are silent, which is why this is a test and
-    not a one-time census.
+    """Auto-migration is catalog-gated, so an uncatalogued read never reaches
+    the keychain — and the setup tool, which walks the same catalog, cannot
+    offer it. Both failures are silent, which is why this is a test rather than
+    a census someone runs once.
     """
 
     def test_every_funnel_read_is_catalogued_or_declared_non_credential(self) -> None:

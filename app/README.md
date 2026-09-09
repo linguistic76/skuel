@@ -51,7 +51,7 @@ uv run python -m core.config               # interactive: writes credentials int
 uv run python scripts/migrate_secrets_to_keychain.py
 ```
 
-Idempotent — it diffs what it finds against the keychain and prompts before writing.
+It reads `~/.config/skuel/secrets.env` and `app/.env` (the latter filtered to credential names, so non-secret config stays put), diffs both against the keychain, and prompts before writing. `app/.env` is only read — never rewritten or deleted; delete the credential lines yourself once the keychain has them. Idempotent.
 
 **Docker note:** Docker Compose interpolates `${VAR}` directly from a `.env`-shaped file, bypassing `get_credential()`. The two keys it needs for the local Neo4j sandbox (`NEO4J_AUTH`, `NEO4J_PASSWORD`) are kept in `~/.config/skuel/secrets.env` (mode 0600, loaded by `app/.envrc`) for that reason alone — it is not a credential backend, and nothing selects it. To run docker-compose with keychain-only credentials, use `./scripts/dev/with-secrets docker compose up`.
 
