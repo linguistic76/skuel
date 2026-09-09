@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-05
+updated: 2026-09-09
 ---
 
 # Secrets Out of the Worktree
@@ -19,13 +19,25 @@ updated: 2026-09-05
 
 **This document is canonical.** It was the in-repo "where are we" view alongside an untracked working plan; that plan no longer exists, and this is now the full record — design, decision points, and current state.
 
+> **Superseded in part — 2026-09-09.** The three-stage landscape below is the record of how
+> credentials left the worktree, and it is accurate about what happened. The *backend* half of it
+> is no longer live: `CredentialStore` (the Fernet-encrypted JSON at `~/.skuel/credentials.enc`),
+> `SKUEL_MASTER_KEY`, and `scripts/migrate_secrets_to_homedir.py` were **deleted**, not shelved.
+> `SKUEL_CREDENTIAL_BACKEND` now takes exactly two values — `keyring` (the default) and `env`
+> (read-only, for headless deployments) — and anything else is refused at boot. The Stage 2
+> two-file convention survives only as the docker-compose carve-out described in the table above:
+> `~/.config/skuel/secrets.env` is not a credential backend and nothing selects it.
+>
+> Read this document for *why* and *how it went*. For the shape that runs today, see
+> `core/config/README.md` and `app/README.md` § Configure Environment.
+
 ---
 
 ## Why this work exists
 
 `.env` in the worktree is one `git add .` away from a credential leak — and the pre-commit secret-scan hook is a seatbelt, not a structural fix. The hook can be bypassed with `--no-verify`, and its regex set is necessarily incomplete. The structural answer is: don't keep secrets in the worktree at all.
 
-SKUEL already had bones for this — `core/config/credential_store.py` is a Fernet-encrypted JSON store with `get_credential(K, fallback_to_env=True)` that auto-migrates env values into the store on first read. The work was wiring that path consistently and getting secrets off the disk path that `git add` walks.
+SKUEL already had bones for this — `core/config/credential_store.py` was a Fernet-encrypted JSON store with `get_credential(K, fallback_to_env=True)` that auto-migrates env values into the store on first read. The work was wiring that path consistently and getting secrets off the disk path that `git add` walks.
 
 ---
 

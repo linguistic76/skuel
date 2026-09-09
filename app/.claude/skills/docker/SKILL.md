@@ -91,7 +91,7 @@ docker compose -f docker-compose.production.yml up -d
 # scratch AuraDB Free instance to rehearse the real neo4j+s:// path.
 ```
 
-Config layering on the droplet: `.env.production` (non-secret, survives deploys) + `/opt/skuel/secrets.env` (0600 — `NEO4J_PASSWORD`, `OPENAI_API_KEY`, `DEEPGRAM_API_KEY`, `SESSION_SECRET_KEY`, optional per-feature keys), both loaded via compose `env_file`. Caddy reads `SKUEL_DOMAIN`/`ACME_EMAIL` from `.env.production` via its own `env_file` — no shell exports needed.
+Config layering on the droplet: `.env.production` (non-secret, survives deploys) + `/opt/skuel/secrets.env` (0600 — `NEO4J_PASSWORD`, `OPENAI_API_KEY`, `DEEPGRAM_API_KEY`, `SESSION_SECRET_KEY`, optional per-feature keys), both loaded via compose `env_file`. `get_credential()` reads straight out of that combined environment because compose pins `SKUEL_CREDENTIAL_BACKEND: env` inline — there is no keychain daemon in the container, and the default is `keyring`. Caddy reads `SKUEL_DOMAIN`/`ACME_EMAIL` from `.env.production` via its own `env_file` — no shell exports needed.
 
 Deploying is `./dev deploy` (`--content`, `--dry-run`): rsync via `.deployignore` → chown writable bind mounts to UID 10001 → build + up → poll `/health/ready` (~2 min default, `SKUEL_DEPLOY_HEALTH_ATTEMPTS` widens; covers AuraDB wake-from-pause) → only past a green gate, an ID-based idempotent promote tags `skuel-app:latest` as `skuel-app:rollback`, keeping the previous gate-passed image as `skuel-app:rollback-prev`. No auto-rollback; a failed gate auto-prints app logs. See `/docs/deployment/DO_MIGRATION_GUIDE.md` for the runbook.
 
@@ -115,7 +115,7 @@ FROM python:3.14-slim AS production
 Rules learned the hard way (each broke a real rehearsal or deploy):
 
 - **`uv sync --frozen --no-dev --no-install-project`** — exactly these flags. `--no-root` is a Poetry-ism uv rejects (the image never built); `--frozen` makes a stale `uv.lock` fail the build instead of silently re-resolving; `--no-install-project` because the app ships as source, not a package. `uv.lock` must be committed.
-- **`useradd -m`** — CredentialStore initializes `~/.skuel` at import even in the headless env-file shape; a system user without a home directory crashes boot.
+- **`useradd -m`** — keep the home directory. The original reason is gone (the Fernet store initialised `~/.skuel` at import, in every shape); production now sets `SKUEL_CREDENTIAL_BACKEND=env`, and only `KeyringBackend` touches `$HOME`. It stays because a homeless system user is a boot crash waiting for the first library that assumes a writable `$HOME`, and `-m` costs nothing.
 - **UID/GID pinned to 10001** — host-side writable bind mounts (droplet personal-vault, `logs/`) must be chowned to the container user by `deploy.sh`, which needs a UID it can rely on. A bind mount hides the image's chowned directory, so ownership is a host-side concern.
 - **Pre-create every compose mount point in the image** — a mount point absent from the image is auto-created root-owned by the daemon, and the app then can't write siblings (e.g. `/app/data/reports`).
 - **The container contract is port 5001** — baked as `ENV APP_PORT=5001` so a bare `docker run` honors it; Caddy proxies to `skuel-app:5001`, the healthcheck and deploy gate hit it. Do not change it.

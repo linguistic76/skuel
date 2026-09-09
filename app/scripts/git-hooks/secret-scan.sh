@@ -135,7 +135,7 @@ fi
 #     The reason is measured, not stylistic. In this repo a dict keyed by a
 #     credential name holds a *description* — `"OPENAI_API_KEY": "OpenAI API key
 #     for embeddings and AI features"` in core/config/environment_validator.py,
-#     and the catalog in credential_setup.py itself. Accepting a spaced value here
+#     and the catalog in credential_store.py itself. Accepting a spaced value here
 #     reports six lines, in the files that ARE this scan's source of truth, plus
 #     its own README and test. There is no syntactic signal separating a
 #     description of a credential from a passphrase.

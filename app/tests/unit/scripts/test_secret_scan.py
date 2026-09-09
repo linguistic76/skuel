@@ -538,9 +538,6 @@ NON_FUNNEL_KEYS = {
     # (infrastructure/docker-compose.yml), and its `user/password` value carries a
     # real password. Never read through get_credential().
     "NEO4J_AUTH",
-    # Not a stored credential — the key that decrypts the whole Fernet store
-    # (core/config/credential_store.py). Leaking it exposes every key in the store.
-    "SKUEL_MASTER_KEY",
     # Read through get_credential() (adapters/inbound/auth_ui.py) but absent from
     # the catalog, and its name matches none of SKUEL019's credential-shaped
     # suffixes — so nothing else in the tree treats it as one. Leaking it opens
@@ -560,7 +557,7 @@ NON_FUNNEL_KEYS = {
 
 
 class TestCatalogDrift:
-    """`credential-keys.txt` mirrors CredentialSetup.CREDENTIALS, plus declared extras.
+    """`credential-keys.txt` mirrors CREDENTIAL_CATALOG, plus declared extras.
 
     Bash cannot import Python, so the names are duplicated. This is the same
     arrangement (and the same failure mode) as
@@ -568,33 +565,33 @@ class TestCatalogDrift:
     a newly-added credential silently stops being scanned for.
     """
 
-    def test_mirror_matches_credential_setup_plus_declared_extras(self) -> None:
-        from core.config.credential_setup import CredentialSetup
+    def test_mirror_matches_the_credential_catalog_plus_declared_extras(self) -> None:
+        from core.config.credential_store import CREDENTIAL_CATALOG
 
-        expected = set(CredentialSetup.CREDENTIALS) | NON_FUNNEL_KEYS
+        expected = set(CREDENTIAL_CATALOG) | NON_FUNNEL_KEYS
         mirrored = set(read_data_file(CATALOG_FILE))
 
         missing = expected - mirrored
         extra = mirrored - expected
         assert not missing, (
             f"scripts/git-hooks/credential-keys.txt is missing keys present in "
-            f"CredentialSetup.CREDENTIALS: {sorted(missing)}. Add them — until then "
+            f"CREDENTIAL_CATALOG: {sorted(missing)}. Add them — until then "
             f"the secret scan does not look for them."
         )
         assert not extra, (
             f"scripts/git-hooks/credential-keys.txt has keys in neither "
-            f"CredentialSetup.CREDENTIALS nor NON_FUNNEL_KEYS: {sorted(extra)}. "
+            f"CREDENTIAL_CATALOG nor NON_FUNNEL_KEYS: {sorted(extra)}. "
             f"A credential-bearing name outside the funnel belongs in NON_FUNNEL_KEYS "
             f"with a reason; anything else is drift."
         )
 
     def test_declared_extras_are_actually_outside_the_funnel(self) -> None:
         """A name that joins the catalog must leave NON_FUNNEL_KEYS, not sit in both."""
-        from core.config.credential_setup import CredentialSetup
+        from core.config.credential_store import CREDENTIAL_CATALOG
 
-        overlap = NON_FUNNEL_KEYS & set(CredentialSetup.CREDENTIALS)
+        overlap = NON_FUNNEL_KEYS & set(CREDENTIAL_CATALOG)
         assert not overlap, (
-            f"{sorted(overlap)} is in CredentialSetup.CREDENTIALS now — drop it from "
+            f"{sorted(overlap)} is in CREDENTIAL_CATALOG now — drop it from "
             f"NON_FUNNEL_KEYS so the mirror pins it as a funnel credential."
         )
 
@@ -602,11 +599,6 @@ class TestCatalogDrift:
         """`NEO4J_AUTH: "neo4j/<password>"` is a leak the content half cannot see."""
         assert detects(f'      NEO4J_AUTH: "neo4j/{base64url_secret()}"')
         assert not detects('      NEO4J_AUTH: "${NEO4J_AUTH}"')
-
-    def test_the_store_master_key_is_scanned(self) -> None:
-        """It decrypts every other credential, so it is the highest-value single line."""
-        assert detects(f"SKUEL_MASTER_KEY={base64url_secret()}")
-        assert not detects("SKUEL_MASTER_KEY=${SKUEL_MASTER_KEY}")
 
     def test_the_deployed_service_credentials_are_scanned(self) -> None:
         """A compose interpolation replaced by a literal is the leak these cover."""

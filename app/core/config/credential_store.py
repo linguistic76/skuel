@@ -1,48 +1,144 @@
 """
-Credential Store — Fernet (default) + OS Keychain (opt-in)
-============================================================
+Credential Store — the OS keychain, with an explicit env shape for headless
+===========================================================================
 
-Two backends with the same get/set/delete/list/exists/migrate interface:
+One storage backend and one read-through shape, selected by
+``SKUEL_CREDENTIAL_BACKEND``:
 
-- ``CredentialStore`` (default): Fernet-encrypted JSON at
-  ``~/.skuel/credentials.enc``. Keyed by ``SKUEL_MASTER_KEY``.
-- ``KeyringBackend`` (Stage 3 opt-in): OS keychain via ``keyring`` package —
-  libsecret on Linux (gnome-keyring / kwallet via D-Bus SecretService),
-  Keychain on macOS, Credential Locker on Windows. No plaintext on disk.
+    ``keyring`` (default)  → ``KeyringBackend``: the OS keychain — libsecret on
+                             Linux (gnome-keyring / kwallet over the D-Bus
+                             SecretService), Keychain on macOS, Credential
+                             Locker on Windows. No plaintext on disk.
+    ``env``                → ``EnvBackend``: the process environment, read-only.
+                             For headless deployments (droplet, CI, ssh) where
+                             no keychain daemon exists. Credentials arrive
+                             through the environment — on the droplet, compose
+                             loads ``/opt/skuel/secrets.env``.
 
-Pick a backend by setting ``SKUEL_CREDENTIAL_BACKEND``:
+Any other value raises ``ConfigurationError`` at the first credential read,
+which is boot. A typo'd selector must not resolve to a silent fallback.
 
-    unset / anything            → ``CredentialStore`` (Fernet JSON)
-    "keyring"                   → ``KeyringBackend``
-
-``get_credential(key, fallback_to_env=True)`` is the public funnel. It picks
-the active backend, looks up the key, falls back to ``os.getenv`` if missing,
-and auto-migrates env values into the backend on first read (so transitioning
-from direnv-loaded ``~/.config/skuel/secrets.env`` to a keychain happens
-organically as services hit each credential for the first time).
+``get_credential(key, fallback_to_env=True)`` is the public funnel: it reads the
+active backend, falls back to ``os.getenv``, and — for catalog credentials only
+— writes an env-supplied value into a writable backend so subsequent reads come
+from the keychain. ``CREDENTIAL_CATALOG`` is what makes that gate meaningful:
+connection config such as ``NEO4J_URI`` / ``NEO4J_USERNAME`` is read through the
+same funnel by callers and must never be stored, or the keychain becomes a
+second, stale source of truth for where the database lives.
 """
 
-__version__ = "2.0"
+__version__ = "3.0"
 
 import json
 import os
-from base64 import b64encode
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import ClassVar, NoReturn
 
-from cryptography.exceptions import InvalidTag
-from cryptography.fernet import Fernet, InvalidToken
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-
+from core.errors import ConfigurationError
 from core.utils.logging import get_logger
 
 logger = get_logger(__name__)
 
 
+@dataclass(frozen=True)
+class CredentialSpec:
+    """What the catalog declares about one credential.
+
+    ``required`` means the app cannot start without it; an optional credential
+    gates a feature that degrades (AI off, Firefly sidecar unused).
+
+    ``expected_prefix`` is advisory — the setup tool warns when a pasted value
+    doesn't start with it, and stores the value anyway. A provider can change
+    its prefix before we do, so this must never become a refusal.
+    """
+
+    description: str
+    required: bool
+    expected_prefix: str | None = None
+
+
+# THE credential catalog. Three consumers read it and two mirrors pin it:
+#   - get_credential() gates auto-migration on membership (below)
+#   - core/config/credential_setup.py drives the interactive setup tool from it
+#   - scripts/lint_skuel.py::SkuelLinter.CREDENTIAL_CATALOG mirrors the names
+#     (SKUEL019 severity) and scripts/git-hooks/credential-keys.txt mirrors them
+#     for the secret scan; both mirrors are pinned by drift tests.
+# Adding a credential here is what makes every one of those cover it.
+CREDENTIAL_CATALOG: dict[str, CredentialSpec] = {
+    # --- Core infra (required for app to function) ---
+    "NEO4J_PASSWORD": CredentialSpec(
+        description="Neo4j database password",
+        required=True,
+    ),
+    "SESSION_SECRET_KEY": CredentialSpec(
+        description="Session cookie signing key (32+ random bytes)",
+        required=True,
+    ),
+    # --- AI providers (required for INTELLIGENCE_TIER=full) ---
+    "OPENAI_API_KEY": CredentialSpec(
+        description="OpenAI API key — embeddings + LLM (INTELLIGENCE_TIER=full)",
+        required=False,
+        expected_prefix="sk-",
+    ),
+    "ANTHROPIC_API_KEY": CredentialSpec(
+        description="Anthropic API key — only when LLMConfig.provider=anthropic",
+        required=False,
+    ),
+    "HF_API_TOKEN": CredentialSpec(
+        description="HuggingFace Inference API token (BAAI/bge-m3 — staged until Arc 3, ADR-083)",
+        required=False,
+    ),
+    "DEEPGRAM_API_KEY": CredentialSpec(
+        description="Deepgram API key — voice journal transcription",
+        required=False,
+    ),
+    # --- Firefly III finance sidecar (ADR-051) ---
+    "FIREFLY_APP_KEY": CredentialSpec(
+        description="Firefly III APP_KEY (base64:... format, 32 bytes)",
+        required=False,
+    ),
+    "FIREFLY_DB_PASSWORD": CredentialSpec(
+        description="Firefly III Postgres password",
+        required=False,
+    ),
+    "FIREFLY_PAT_PERSONAL": CredentialSpec(
+        description="Firefly Personal Access Token — Mike's personal account",
+        required=False,
+    ),
+    "FIREFLY_PAT_SKUEL": CredentialSpec(
+        description="Firefly Personal Access Token — SKUEL business account",
+        required=False,
+    ),
+    # --- Stripe → Firefly revenue sync ---
+    "STRIPE_WEBHOOK_SECRET": CredentialSpec(
+        description="Stripe webhook signing secret (whsec_... format)",
+        required=False,
+    ),
+    # --- Transactional email (required when EMAIL_ENABLED=true) ---
+    "RESEND_API_KEY": CredentialSpec(
+        description="Resend API key — password reset emails (gated by EMAIL_ENABLED)",
+        required=False,
+    ),
+    # --- Dev/test accounts (local development only) ---
+    "TEST_ADMIN_PASSWORD": CredentialSpec(
+        description="Test admin account password (local dev/integration tests)",
+        required=False,
+    ),
+    "TEST_USER_PASSWORD": CredentialSpec(
+        description="Test regular user password (local dev/integration tests)",
+        required=False,
+    ),
+}
+
+
 # Values that auto-migration should *not* copy into the backend. Captures the
 # common placeholder patterns from the `.env.example`-style templates so a
 # half-filled template doesn't end up persisting into the keychain.
+#
+# `scripts/git-hooks/secret-scan.sh` implements a deliberately broader rule and
+# `tests/unit/scripts/test_secret_scan.py` drives the hook with every member of
+# this set, so the hook never reports a value this funnel would accept.
 _PLACEHOLDER_VALUES: frozenset[str] = frozenset(
     {
         "",
@@ -72,187 +168,8 @@ def _is_placeholder(value: str | None) -> bool:
     return value in _PLACEHOLDER_VALUES
 
 
-class CredentialStore:
-    """
-    Encrypted credential storage using Fernet symmetric encryption.
-
-    Credentials are stored in a JSON file encrypted with a master key.
-    The master key is derived from the SKUEL_MASTER_KEY environment variable.
-    """
-
-    def __init__(self, store_path: Path | None = None) -> None:
-        """
-        Initialize the credential store.
-
-        Args:
-            store_path: Path to the encrypted credential file.
-                       Defaults to ~/.skuel/credentials.enc
-        """
-        if store_path is None:
-            home = Path.home()
-            skuel_dir = home / ".skuel"
-            skuel_dir.mkdir(exist_ok=True, mode=0o700)  # Secure directory
-            self.store_path = skuel_dir / "credentials.enc"
-        else:
-            self.store_path = Path(store_path)
-
-        self.cipher = self._initialize_cipher()
-
-    def _initialize_cipher(self) -> Fernet:
-        """Initialize the encryption cipher with the master key."""
-        master_key = os.getenv("SKUEL_MASTER_KEY")
-
-        if not master_key:
-            raise ValueError(
-                "SKUEL_MASTER_KEY environment variable not set. "
-                "Generate one with: openssl rand -base64 32"
-            )
-
-        try:
-            # Use the master key directly if it's already base64 encoded
-            if len(master_key) == 44 and master_key.endswith("="):
-                # Looks like a base64 key
-                key = master_key.encode()
-            else:
-                # Derive a key from the master key
-                kdf = PBKDF2HMAC(
-                    algorithm=hashes.SHA256(),
-                    length=32,
-                    salt=b"skuel_salt_v1",  # Static salt for deterministic key
-                    iterations=100000,
-                )
-                key = b64encode(kdf.derive(master_key.encode()))
-
-            return Fernet(key)
-        except (ValueError, TypeError, InvalidTag) as e:
-            raise ValueError(f"Failed to initialize encryption: {e}") from e
-
-    def _load_store(self) -> dict[str, Any]:
-        """Load and decrypt the credential store."""
-        if not self.store_path.exists():
-            return {}
-
-        try:
-            with self.store_path.open("rb") as f:
-                encrypted_data = f.read()
-
-            decrypted_data = self.cipher.decrypt(encrypted_data)
-            return json.loads(decrypted_data.decode())
-        except (OSError, InvalidToken, json.JSONDecodeError, UnicodeDecodeError) as e:
-            logger.error(f"Failed to load credential store: {e}")
-            return {}
-
-    def _save_store(self, data: dict[str, Any]) -> None:
-        """Encrypt and save the credential store."""
-        try:
-            json_data = json.dumps(data, indent=2)
-            encrypted_data = self.cipher.encrypt(json_data.encode())
-
-            # Save with secure permissions
-            with self.store_path.open("wb") as f:
-                f.write(encrypted_data)
-
-            # Ensure file has secure permissions (owner read/write only)
-            self.store_path.chmod(0o600)
-
-        except (OSError, TypeError, InvalidToken) as e:
-            logger.error(f"Failed to save credential store: {e}")
-            raise
-
-    def set(self, key: str, value: str) -> None:
-        """
-        Store a credential securely.
-
-        Args:
-            key: The credential key (e.g., 'NEO4J_PASSWORD', 'OPENAI_API_KEY')
-            value: The credential value to encrypt and store
-        """
-        store = self._load_store()
-        store[key] = value
-        self._save_store(store)
-        logger.info(f"✅ Credential '{key}' stored securely")
-
-    def get(self, key: str, default: str | None = None) -> str | None:
-        """
-        Retrieve a credential.
-
-        Args:
-            key: The credential key
-            default: Default value if key not found
-
-        Returns:
-            The decrypted credential value or default
-        """
-        store = self._load_store()
-        return store.get(key, default)
-
-    def delete(self, key: str) -> bool:
-        """
-        Delete a credential.
-
-        Args:
-            key: The credential key to delete
-
-        Returns:
-            True if deleted, False if key didn't exist
-        """
-        store = self._load_store()
-        if key in store:
-            del store[key]
-            self._save_store(store)
-            logger.info(f"✅ Credential '{key}' deleted")
-            return True
-        return False
-
-    def list_keys(self) -> list[str]:
-        """
-        List all stored credential keys (not values).
-
-        Returns:
-            List of credential keys
-        """
-        store = self._load_store()
-        return list(store.keys())
-
-    def exists(self, key: str) -> bool:
-        """
-        Check if a credential exists.
-
-        Args:
-            key: The credential key
-
-        Returns:
-            True if the credential exists
-        """
-        store = self._load_store()
-        return key in store
-
-    def migrate_from_env(self, keys: list[str]) -> dict[str, bool]:
-        """
-        Migrate credentials from environment variables to encrypted store.
-
-        Args:
-            keys: List of environment variable names to migrate
-
-        Returns:
-            Dict mapping keys to migration success status
-        """
-        results: dict[str, bool] = {}
-
-        for key in keys:
-            value = os.getenv(key)
-            if value and not _is_placeholder(value):
-                self.set(key, value)
-                results[key] = True
-                logger.info(f"✅ Migrated {key} to encrypted store")
-            else:
-                results[key] = False
-
-        return results
-
-
 class KeyringBackend:
-    """OS-keychain credential storage (Stage 3).
+    """OS-keychain credential storage — the default backend.
 
     Delegates to the ``keyring`` package, which selects an OS-appropriate
     backend at import time:
@@ -273,13 +190,14 @@ class KeyringBackend:
     source of truth.
     """
 
+    READ_ONLY: ClassVar[bool] = False
+
     SERVICE = "skuel"
     INDEX_PATH = Path.home() / ".config" / "skuel" / "keyring-index.json"
 
     def __init__(self) -> None:
-        # Import lazily — only the keyring path needs the dependency, and
-        # devs on the Fernet path shouldn't pay the import cost (which
-        # touches D-Bus on Linux).
+        # Import lazily — the env backend must not pay the import cost, which
+        # touches D-Bus on Linux and has no daemon to reach on a droplet.
         import keyring as _keyring
 
         self._keyring = _keyring
@@ -321,21 +239,6 @@ class KeyringBackend:
         """True if the key has a non-None value in the keychain."""
         return self.get(key) is not None
 
-    def migrate_from_env(self, keys: list[str]) -> dict[str, bool]:
-        """Migrate env-var values into the keychain. Same interface as
-        CredentialStore.migrate_from_env so both backends are swappable
-        from credential_setup.py.
-        """
-        results: dict[str, bool] = {}
-        for key in keys:
-            value = os.getenv(key)
-            if value and not _is_placeholder(value):
-                self.set(key, value)
-                results[key] = True
-            else:
-                results[key] = False
-        return results
-
     # ----- Index maintenance --------------------------------------------------
 
     def _index_load(self) -> list[str]:
@@ -364,48 +267,81 @@ class KeyringBackend:
             self._index_save(keys)
 
 
-# Singleton instance for the Fernet backend (kept across calls so we don't
-# re-derive the KDF key on every credential read).
-_store_instance: CredentialStore | None = None
+class EnvBackend:
+    """The process environment, read-only — the headless shape.
 
+    Selected by ``SKUEL_CREDENTIAL_BACKEND=env`` where no keychain daemon
+    exists: the droplet (compose loads ``/opt/skuel/secrets.env`` into the
+    container environment), CI, an ssh session with no D-Bus.
 
-def get_credential_store() -> CredentialStore:
-    """Get the singleton Fernet-backed credential store instance.
-
-    Kept as a public helper so older callers that imported it directly
-    (e.g. credential_setup.py's interactive flow) keep working. New code
-    should prefer ``get_credential()`` which dispatches to the active
-    backend.
+    Writes raise rather than no-op. A process cannot durably store a
+    credential in its own environment, and a setup tool that appeared to
+    succeed while discarding the key is worse than one that refuses.
     """
-    global _store_instance
-    if _store_instance is None:
-        _store_instance = CredentialStore()
-    return _store_instance
+
+    READ_ONLY: ClassVar[bool] = True
+
+    def get(self, key: str, default: str | None = None) -> str | None:
+        """Read the credential from the process environment."""
+        return os.getenv(key, default)
+
+    def exists(self, key: str) -> bool:
+        """True if the environment carries a non-empty value for the key."""
+        return bool(os.getenv(key))
+
+    def list_keys(self) -> list[str]:
+        """Catalog credentials the environment actually carries."""
+        return [key for key in CREDENTIAL_CATALOG if os.getenv(key)]
+
+    def set(self, key: str, value: str) -> NoReturn:  # noqa: ARG002 — backend interface
+        """Always raises — the environment is not writable storage."""
+        raise ConfigurationError(
+            f"Cannot store '{key}': SKUEL_CREDENTIAL_BACKEND=env is read-only. "
+            f"Set the value in the environment this process is started with "
+            f"(on the droplet: /opt/skuel/secrets.env, loaded by compose)."
+        )
+
+    def delete(self, key: str) -> NoReturn:
+        """Always raises — the environment is not writable storage."""
+        raise ConfigurationError(
+            f"Cannot delete '{key}': SKUEL_CREDENTIAL_BACKEND=env is read-only. "
+            f"Remove the value from the environment this process is started with."
+        )
 
 
 # Type alias for "anything with the credential-backend interface".
 # Used in get_active_backend() to express that either class is acceptable.
-CredentialBackend = CredentialStore | KeyringBackend
+CredentialBackend = KeyringBackend | EnvBackend
+
+_BACKENDS: dict[str, type[KeyringBackend] | type[EnvBackend]] = {
+    "keyring": KeyringBackend,
+    "env": EnvBackend,
+}
 
 
 def get_active_backend() -> CredentialBackend:
     """Return the credential backend selected by ``SKUEL_CREDENTIAL_BACKEND``.
 
     Values:
-        ``"keyring"`` — OS keychain (Stage 3). Requires a desktop session
-                        with gnome-keyring / kwallet running on Linux, or
-                        Keychain/Credential Locker on macOS/Windows.
-        anything else / unset — Fernet-encrypted JSON (the default).
+        ``"keyring"`` — OS keychain. The default: desktop development, where a
+                        gnome-keyring / kwallet / Keychain / Credential Locker
+                        session exists.
+        ``"env"``     — the process environment, read-only. Headless: droplet,
+                        CI, ssh.
 
     Raises:
-        ValueError: if Fernet is selected and ``SKUEL_MASTER_KEY`` is unset.
-            Callers that want a graceful fallback should catch this and
-            consult ``os.getenv`` directly.
+        ConfigurationError: on any other value. Selecting a backend by typo is
+            how a machine ends up reading credentials from somewhere nobody
+            wrote them, so an unknown selector fails rather than falling back.
     """
-    backend_name = os.getenv("SKUEL_CREDENTIAL_BACKEND", "").lower()
-    if backend_name == "keyring":
-        return KeyringBackend()
-    return get_credential_store()
+    name = os.getenv("SKUEL_CREDENTIAL_BACKEND", "keyring").strip().lower()
+    backend_class = _BACKENDS.get(name)
+    if backend_class is None:
+        raise ConfigurationError(
+            f"SKUEL_CREDENTIAL_BACKEND={name!r} is not a credential backend. "
+            f"Use 'keyring' (desktop, the default) or 'env' (headless — droplet, CI)."
+        )
+    return backend_class()
 
 
 def get_credential(key: str, fallback_to_env: bool = True) -> str | None:
@@ -414,26 +350,26 @@ def get_credential(key: str, fallback_to_env: bool = True) -> str | None:
     Args:
         key: The credential key (e.g. ``"HF_API_TOKEN"``).
         fallback_to_env: If the backend doesn't have a value, check
-            ``os.getenv(key)`` — and auto-migrate that value into the
-            backend so subsequent reads are direct. Defaults True.
+            ``os.getenv(key)`` — and, for a key in ``CREDENTIAL_CATALOG``,
+            auto-migrate that value into a writable backend so subsequent
+            reads are direct. Defaults True.
 
     Returns:
         The credential value, or None if not found in either location.
 
+    Raises:
+        ConfigurationError: if ``SKUEL_CREDENTIAL_BACKEND`` names no backend.
+
     Behavior matrix:
         backend_has_value      → return it
-        env_has_value          → auto-migrate to backend, return env value
+        env_has_value          → return it; auto-migrate when the key is a
+                                 catalog credential and the backend is writable
         neither                → return None
-        backend_unavailable    → fall through to env (no auto-migration)
-                                  This matters when SKUEL_MASTER_KEY isn't
-                                  set OR keychain D-Bus isn't reachable —
-                                  callers shouldn't crash on get_credential.
+        backend_read_fails     → fall through to env (no auto-migration)
+                                 D-Bus can be unreachable mid-session; a
+                                 credential read must not crash on it.
     """
-    try:
-        backend = get_active_backend()
-    except ValueError:
-        # Fernet backend, master key absent — fall straight to env.
-        return os.getenv(key) if fallback_to_env else None
+    backend = get_active_backend()
 
     try:
         value = backend.get(key)
@@ -447,11 +383,16 @@ def get_credential(key: str, fallback_to_env: bool = True) -> str | None:
 
     env_value = os.getenv(key)
     if env_value and not _is_placeholder(env_value):
-        try:
-            backend.set(key, env_value)
-            logger.info(f"Auto-migrated {key} from environment to {type(backend).__name__}")
-        except Exception as e:  # safety-net: never block on a migration failure
-            logger.warning(f"Auto-migration failed for {key}: {e}")
+        # Catalog-gated: only a declared credential is ever written into the
+        # backend. Callers read connection config (NEO4J_URI, NEO4J_USERNAME)
+        # through this same funnel, and storing those makes the keychain a
+        # second source of truth that goes stale the day the database moves.
+        if not backend.READ_ONLY and key in CREDENTIAL_CATALOG:
+            try:
+                backend.set(key, env_value)
+                logger.info(f"Auto-migrated {key} from environment to {type(backend).__name__}")
+            except Exception as e:  # safety-net: never block on a migration failure
+                logger.warning(f"Auto-migration failed for {key}: {e}")
         return env_value
 
     return None

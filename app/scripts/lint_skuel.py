@@ -475,14 +475,15 @@ for goal_uid in self.context.habits_by_goal:
         "description": """Credential-shaped env reads (`os.getenv`, `os.environ.get`,
 `os.environ[K]`) must route through `get_credential()` from
 `core.config.credential_store`. The funnel dispatches to the active backend
-(`SKUEL_CREDENTIAL_BACKEND=keyring` → OS keychain, unset → Fernet-encrypted JSON)
-and falls back to env when neither has the value. Raw `os.getenv` reads silently
-skip the keychain under Stage 3 and only happen to work if the user runs through
-the `with-secrets` wrapper — fragile and inconsistent.
+(`SKUEL_CREDENTIAL_BACKEND=keyring` → OS keychain, `env` → the process
+environment) and falls back to env when the backend has no value. Raw
+`os.getenv` reads silently skip the keychain on a desktop and only happen to
+work if the user runs through the `with-secrets` wrapper — fragile and
+inconsistent.
 
 Severity is decided by name:
   ERROR    — Name matches the credential catalog mirrored from
-             `core/config/credential_setup.py::CredentialSetup.CREDENTIALS`
+             `core/config/credential_store.py::CREDENTIAL_CATALOG`
              (e.g. NEO4J_PASSWORD, OPENAI_API_KEY, RESEND_API_KEY).
   WARNING  — Name matches the credential-shape regex (`*_PASSWORD`, `*_TOKEN`,
              `*_API_KEY`, `*_SECRET`, `*_AUTH`, `*_PAT_*`) but isn't yet in
@@ -490,9 +491,8 @@ Severity is decided by name:
 
 Exempt files (raw env reads are the implementation):
   core/config/credential_store.py        — defines get_credential()
-  core/config/credential_setup.py        — checks SKUEL_MASTER_KEY
-  scripts/migrate_secrets_to_homedir.py  — Stage 2 migration source
-  scripts/migrate_secrets_to_keychain.py — Stage 3 migration source
+  core/config/credential_setup.py        — reads the migration source
+  scripts/migrate_secrets_to_keychain.py — keychain migration source
   Test files                             — fixtures often poke env directly
 
 Suppress: # skuel-lint: disable=SKUEL019 -- <reason>
@@ -1590,11 +1590,11 @@ class SkuelLinter:
 
     # SKUEL019: Credential keys that must route through get_credential().
     #
-    # Mirrored from `core/config/credential_setup.py::CredentialSetup.CREDENTIALS`.
+    # Mirrored from `core/config/credential_store.py::CREDENTIAL_CATALOG`.
     # The linter deliberately has no runtime dependency on `core/`, so the catalog
     # is duplicated here and pinned by `test_credential_catalog_drift.py`.
-    # Keep both in sync — add a new credential to CREDENTIALS and the test will
-    # tell you to mirror it here.
+    # Keep both in sync — add a new credential to CREDENTIAL_CATALOG and the test
+    # will tell you to mirror it here.
     CREDENTIAL_CATALOG: ClassVar[frozenset[str]] = frozenset(
         {
             "NEO4J_PASSWORD",
@@ -1618,17 +1618,16 @@ class SkuelLinter:
     # flagged as warnings — they're credential-shaped and probably belong in the
     # catalog. Matches `_(PASSWORD|TOKEN|API_KEY|SECRET|AUTH|PAT)` followed by
     # end-of-string or another underscore. So `SESSION_SECRET_KEY` matches via
-    # `_SECRET_`, `FIREFLY_PAT_PERSONAL` matches via `_PAT_`, while `SKUEL_MASTER_KEY`
-    # and `INGESTION_PATH` don't match anything.
+    # `_SECRET_`, `FIREFLY_PAT_PERSONAL` matches via `_PAT_`, while
+    # `SKUEL_CREDENTIAL_BACKEND` and `INGESTION_PATH` don't match anything.
     CREDENTIAL_SHAPE_RE: ClassVar[str] = r"_(PASSWORD|TOKEN|API_KEY|SECRET|AUTH|PAT)(?:_|$)"
 
     # SKUEL019: Files where raw env reads ARE the implementation. The funnel reads
-    # env internally; the migration scripts parse env-shaped files; everything else
-    # routes through get_credential().
+    # env internally; the keychain migration script parses env-shaped files;
+    # everything else routes through get_credential().
     CREDENTIAL_PLUMBING_FILES: ClassVar[tuple[str, ...]] = (
         "core/config/credential_store.py",
         "core/config/credential_setup.py",
-        "scripts/migrate_secrets_to_homedir.py",
         "scripts/migrate_secrets_to_keychain.py",
     )
 
@@ -4154,7 +4153,7 @@ class SkuelLinter:
 
         Severity is decided by name:
           ERROR    — key is in ``CREDENTIAL_CATALOG`` (mirrored from
-                     credential_setup.py).
+                     credential_store.py).
           WARNING  — key matches ``CREDENTIAL_SHAPE_RE`` but isn't catalogued
                      yet (probably belongs in the catalog).
 

@@ -1,6 +1,6 @@
 ---
 title: Security Hardening — Deferred Items
-updated: 2026-09-08
+updated: 2026-09-09
 category: roadmap
 tags: [roadmap, security, hardening]
 ---
@@ -84,7 +84,8 @@ deployment plan).
 > *content* (provider key prefixes) and credential *assignment* — any credential-bearing name
 > given a non-placeholder value, which is how the prefix-free keys (Deepgram, AuraDB password,
 > `SESSION_SECRET_KEY`, Compose's `NEO4J_AUTH`) get caught. The names mirror
-> `CredentialSetup.CREDENTIALS` plus a declared set outside the funnel, pinned by a drift test.
+> `core/config/credential_store.py::CREDENTIAL_CATALOG` plus a declared set outside the funnel,
+> pinned by a drift test.
 > `SKUEL_ALLOW_SECRETS=1` bypasses. The detect-secrets/baseline approach below remains an option if the home-grown
 > patterns prove too narrow; the CI-side history scan (trufflehog/gitleaks) is still open —
 > see item 5.

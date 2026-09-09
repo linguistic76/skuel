@@ -429,24 +429,15 @@ def startup_calls(monkeypatch, tmp_path) -> dict[str, int]:
 
 @pytest.fixture
 def hermetic_credentials(monkeypatch) -> None:
-    """Force get_credential() onto the pure env-fallback path.
+    """Force get_credential() onto the read-only env backend.
 
-    Without a master key the Fernet backend raises and get_credential falls
-    straight to os.getenv — critically, WITHOUT the env→backend auto-migration
-    that would otherwise write this test's fake API keys into the developer's
-    real credential store.
-
-    The cached store singleton is also reset: any earlier get_credential()
-    call in this process (another test, or UnifiedConfig's NEO4J_PASSWORD
-    default) may have already constructed a real Fernet store while
-    SKUEL_MASTER_KEY was still set, and deleting the env var alone would not
-    invalidate that cache.
+    `SKUEL_CREDENTIAL_BACKEND=env` resolves every credential from the process
+    environment and cannot write — so this test's fake API keys reach neither
+    the developer's real keychain nor anything else that outlives the test.
+    The developer's `.env` selects `keyring`, and without this the keychain
+    would answer first and the auto-migration would write into it.
     """
-    import core.config.credential_store as credential_store
-
-    monkeypatch.delenv("SKUEL_MASTER_KEY", raising=False)
-    monkeypatch.setenv("SKUEL_CREDENTIAL_BACKEND", "fernet")
-    monkeypatch.setattr(credential_store, "_store_instance", None)
+    monkeypatch.setenv("SKUEL_CREDENTIAL_BACKEND", "env")
     monkeypatch.delenv("EMAIL_ENABLED", raising=False)
     # tests/conftest.py runs load_dotenv() — a TRANSCRIPTION_ENABLED line in the
     # developer's .env would otherwise leak into the tier tests (locally, not CI).

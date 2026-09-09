@@ -1,6 +1,6 @@
 ---
 title: Code Quality Enforcement - Linter Rules
-updated: 2026-09-05
+updated: 2026-09-09
 category: patterns
 related_skills:
 - python
@@ -503,7 +503,7 @@ old single-line regex). Bare `except:` is ruff E722's territory. File-level
 
 ## Rule: SKUEL019 - Credential Reads Must Use get_credential()
 
-**Pattern:** Credential-shaped env reads must route through `get_credential()` from `core.config.credential_store`. The funnel dispatches to the active backend (`SKUEL_CREDENTIAL_BACKEND=keyring` → OS keychain, unset → Fernet-encrypted JSON) and falls back to env when neither has the value. Raw `os.getenv` reads silently skip the keychain under Stage 3.
+**Pattern:** Credential-shaped env reads must route through `get_credential()` from `core.config.credential_store`. The funnel dispatches to the active backend (`SKUEL_CREDENTIAL_BACKEND=keyring` → OS keychain, `env` → the process environment) and falls back to env when the backend has no value. Raw `os.getenv` reads silently skip the keychain on a desktop.
 
 ```python
 # ❌ VIOLATION (ERROR) — catalog credential read via env
@@ -524,20 +524,18 @@ if not api_key:
 ```
 
 **Severity logic:**
-- **ERROR** — name is in the credential catalog mirrored from `core/config/credential_setup.py::CredentialSetup.CREDENTIALS`. These are known credentials and must use the funnel.
-- **WARNING** — name matches the credential-shape regex (`_PASSWORD`, `_TOKEN`, `_API_KEY`, `_SECRET`, `_AUTH`, `_PAT_*`) but isn't catalogued yet. Likely a new credential — add it to `CredentialSetup.CREDENTIALS` (and the linter will pick it up automatically via the drift test).
+- **ERROR** — name is in the credential catalog mirrored from `core/config/credential_store.py::CREDENTIAL_CATALOG`. These are known credentials and must use the funnel.
+- **WARNING** — name matches the credential-shape regex (`_PASSWORD`, `_TOKEN`, `_API_KEY`, `_SECRET`, `_AUTH`, `_PAT_*`) but isn't catalogued yet. Likely a new credential — add it to `CREDENTIAL_CATALOG` (and the linter will pick it up automatically via the drift test).
 
-**Catalog drift test:** `tests/unit/scripts/test_lint_skuel.py::TestCredentialCatalogDrift::test_linter_catalog_matches_credential_setup` pins `SkuelLinter.CREDENTIAL_CATALOG` against `CredentialSetup.CREDENTIALS`. Add a new credential to one place, the test tells you to mirror it in the other.
+**Catalog drift test:** `tests/unit/scripts/test_lint_skuel.py::TestCredentialCatalogDrift::test_linter_catalog_matches_the_credential_catalog` pins `SkuelLinter.CREDENTIAL_CATALOG` against `CREDENTIAL_CATALOG`. Add a new credential to one place, the test tells you to mirror it in the other. `scripts/git-hooks/credential-keys.txt` is a second mirror of the same names, pinned by `tests/unit/scripts/test_secret_scan.py::TestCatalogDrift`.
 
 **Exempt files** (raw env reads ARE the implementation):
 - `core/config/credential_store.py` — defines `get_credential()`
-- `core/config/credential_setup.py` — reads `SKUEL_MASTER_KEY` to unlock the Fernet store
-- `scripts/migrate_secrets_to_homedir.py` — Stage 2 migration source
-- `scripts/migrate_secrets_to_keychain.py` — Stage 3 migration source
+- `core/config/credential_setup.py` — reads the env-var migration source
+- `scripts/migrate_secrets_to_keychain.py` — keychain migration source
 - Test files (`tests/**/*.py`) — fixtures often poke env directly
 
 **False-positive guards** built into the regex:
-- `SKUEL_MASTER_KEY` doesn't match — ends in `_KEY`, not any credential suffix
 - `SKUEL_CREDENTIAL_BACKEND` doesn't match — backend selector, not a credential
 - `*_PATH`, `*_DIR`, `*_FILE`, `*_BACKEND`, `*_USERNAME` all don't match
 
@@ -1271,7 +1269,7 @@ The linter automatically excludes certain files from specific rules. Per-file ex
 | **SKUEL015** | Tests, `scripts/`, `examples/`, `debug_*`, `lint_skuel.py`, `dev`, `__main__` blocks, docstrings | `# skuel-lint: disable=SKUEL015` |
 | **SKUEL017** | Tests, `scripts/`, `result_simplified.py` | `# intentional-broad:`, `# safety-net:`, or `# skuel-lint: disable=SKUEL017` |
 | **SKUEL018** | Tests, `unified_user_context.py`, `user_context_populator.py` | `# skuel-lint: disable=SKUEL018` |
-| **SKUEL019** | Tests, `credential_store.py`, `credential_setup.py`, both `migrate_secrets_*` scripts, `lint_skuel.py` | `# skuel-lint: disable=SKUEL019` |
+| **SKUEL019** | Tests, `credential_store.py`, `credential_setup.py`, `migrate_secrets_to_keychain.py`, `lint_skuel.py` | `# skuel-lint: disable=SKUEL019` |
 | **SKUEL030** | Everything outside `adapters/persistence/`; `scripts/migrations/`; docstrings; names in `SKUEL030_BASELINE` | `# skuel-lint: disable=SKUEL030` |
 
 ## Benefits Achieved

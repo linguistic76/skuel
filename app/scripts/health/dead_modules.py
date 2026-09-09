@@ -69,9 +69,10 @@ ENTRY_POINTS = {
     # ADR-075 user-side vault agent (agent/skuel_vault_agent.py) — PEP 723
     # uv-runnable on the user's machine; see docs/guides/VAULT_AGENT_GUIDE.md.
     "skuel_vault_agent.py",
-    # Interactive credential-store CLI (core/config/credential_setup.py); its
-    # CREDENTIALS catalog is mirrored by lint_skuel.py with a drift test.
-    "credential_setup.py",
+    # `uv run python -m core.config` — the credential setup tool's entry point
+    # (core/config/__main__.py). Executed by the runtime, never imported; the
+    # module it calls into IS imported, so only this file needs declaring.
+    "__main__.py",
 }
 
 # These modules are intentionally standalone (convention-discovered, not imported)

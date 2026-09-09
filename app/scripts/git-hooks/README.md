@@ -82,7 +82,7 @@ Two syntaxes are matched, because a credential name means different things in ea
 - **assignment** — `KEY=value`, `KEY: value`, `export KEY=value`, `KEY: str = value`, `- "KEY=value"` (compose's quoted env-list scalar), and any of those behind a line marker (`#`, `//`, `--`, `;`, `*`). The env / shell / YAML form, plus the typed Python constant. A credential parked in a commented config example is in the history exactly as much as an uncommented one. A quoted value here may contain spaces: `NEO4J_PASSWORD="correct horse battery staple"` is one value, not four, and measuring only its first word would clear it.
 - **data literal** — `"KEY": value` and `config["KEY"] = value`, as JSON, dict literals and subscript assignment write it, whether one key per line or inline. Here the value must be **space-free** to count.
 
-That space-free rule is the one place the two syntaxes disagree, and it is measured rather than stylistic. A dict keyed by a credential name, in this repo, holds a *description* — `"OPENAI_API_KEY": "OpenAI API key for embeddings and AI features"` in `core/config/environment_validator.py`, and the catalog in `credential_setup.py` itself. Accepting a spaced value there reports six lines in the files that **are** this scan's source of truth, plus this README and the test that quote them, and no syntactic signal separates a description of a credential from a passphrase.
+That space-free rule is the one place the two syntaxes disagree, and it is measured rather than stylistic. A dict keyed by a credential name, in this repo, holds a *description* — `"OPENAI_API_KEY": "OpenAI API key for embeddings and AI features"` in `core/config/environment_validator.py`, and the catalog in `credential_store.py` itself. Accepting a spaced value there reports six lines in the files that **are** this scan's source of truth, plus this README and the test that quote them, and no syntactic signal separates a description of a credential from a passphrase.
 
 **Its cost, stated plainly:** a *spaced* passphrase hard-coded in a dict literal is not caught. A space-free one is, in every form, and the assignment syntax catches spaced passphrases (`NEO4J_PASSWORD="correct horse battery staple"`). The test pins both halves, so removing the rule fails loudly instead of quietly making the catalog files un-committable.
 
@@ -100,12 +100,11 @@ The scan **fails closed**: if it loads no patterns or no credential names — a 
 
 Matches are always printed **redacted** — content matches with the matched text replaced, assignment matches with everything past the separator replaced. Every redaction is applied to every printed line, not only the one whose match produced the report: a single line can carry two credentials, and redacting only the current match would print each secret verbatim inside the other's report. A redaction that fails withholds the line rather than falling through to printing it. The point is to block the commit without echoing the secret into terminal scrollback or CI logs.
 
-`credential-keys.txt` is a **mirror**, not a second source of truth: bash cannot import Python, so the names are duplicated from `CredentialSetup.CREDENTIALS` and pinned by a drift test — the same arrangement `scripts/lint_skuel.py::SkuelLinter.CREDENTIAL_CATALOG` already uses.
+`credential-keys.txt` is a **mirror**, not a second source of truth: bash cannot import Python, so the names are duplicated from `core/config/credential_store.py::CREDENTIAL_CATALOG` and pinned by a drift test — the same arrangement `scripts/lint_skuel.py::SkuelLinter.CREDENTIAL_CATALOG` already uses.
 
-It carries three names `CredentialSetup.CREDENTIALS` does not:
+It carries names `CREDENTIAL_CATALOG` does not:
 
 - `NEO4J_AUTH` — Docker Compose reads it directly for `${VAR}` interpolation, and its `user/password` value carries a real password.
-- `SKUEL_MASTER_KEY` — not a stored credential but the key that decrypts all of them.
 - `SIGNUP_INVITE_CODE` — read through `get_credential()` yet absent from the catalog, and its name matches none of SKUEL019's credential-shaped suffixes, so nothing else in the tree treats it as one. Leaking it opens registration.
 - The credential env keys the deployed services themselves read — `MYSQL_PASSWORD`, `DB_PASSWORD`, `APP_KEY`, `FIREFLY_III_ACCESS_TOKEN`, `GF_SECURITY_ADMIN_PASSWORD`, `GRAFANA_PASSWORD` — enumerated from the compose files, where each is an interpolation today. Replacing one with a literal is the leak they cover.
 
@@ -170,4 +169,4 @@ This directory is the hook source dir, and `core.hooksPath` points git straight 
 | `secret-patterns.txt` | content patterns, `label\|regex` per line |
 | `credential-keys.txt` | credential names for the assignment half |
 
-Edit these files directly — git executes them where they sit, so there is nothing to re-install. Changing the scan means changing one file, not two: add a content pattern to `secret-patterns.txt`, or a credential name to `credential-keys.txt` (and to `CredentialSetup.CREDENTIALS`, which the drift test compares it against). Add the matching row to `tests/unit/scripts/test_secret_scan.py` in the same change.
+Edit these files directly — git executes them where they sit, so there is nothing to re-install. Changing the scan means changing one file, not two: add a content pattern to `secret-patterns.txt`, or a credential name to `credential-keys.txt` (and to `CREDENTIAL_CATALOG`, which the drift test compares it against). Add the matching row to `tests/unit/scripts/test_secret_scan.py` in the same change.

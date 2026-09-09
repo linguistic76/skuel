@@ -43,8 +43,8 @@ import shutil
 import sys
 from pathlib import Path
 
-# Same KV regex shape as the Stage 2 migration — kept literal so the script
-# runs without an import dependency on the package.
+# `.env`-shaped KV line. Kept literal so the script runs without an import
+# dependency on the package.
 KV_LINE_RE = re.compile(r"^\s*([A-Z_][A-Z0-9_]*)\s*=\s*(.*)$")
 
 SERVICE_NAME = "skuel"
@@ -66,8 +66,10 @@ def parse_secrets_file(path: Path) -> dict[str, str]:
         if not m:
             continue
         key, raw = m.group(1), m.group(2).strip()
-        # Strip dotenv-style trailing `# comment` for unquoted values.
-        # Matches the Docker-Compose-quirk handling in Stage 2's migration.
+        # Strip dotenv-style trailing `# comment` for unquoted values. Docker
+        # Compose treats `KEY=  # foo` as the literal value `# foo`, which is
+        # what bare line parsing gives too — and migrating that as if the
+        # comment were the value would carry garbage into the keychain.
         if raw and raw[0] not in ('"', "'"):
             for sep in ("  #", "\t#"):
                 idx = raw.find(sep)
@@ -115,8 +117,9 @@ def ensure_backend_env_var(app_env_path: Path, *, assume_yes: bool) -> None:
 
     suffix = "" if content.endswith("\n") else "\n"
     addition = (
-        "\n# Stage 3: route credential reads through the OS keychain.\n"
-        "# Unset to fall back to the Fernet-encrypted JSON store (~/.skuel/credentials.enc).\n"
+        "\n# Route credential reads through the OS keychain (the default).\n"
+        "# The only other value is `env` — the read-only process environment,\n"
+        "# for headless boxes with no keychain daemon.\n"
         "SKUEL_CREDENTIAL_BACKEND=keyring\n"
     )
     app_env_path.write_text(content + suffix + addition)
