@@ -243,6 +243,50 @@ class TestAssignmentShapeCoverage:
         assert detects(f"      MYSQL_PASSWORD: ${{FIREFLY_DB_PASSWORD:-{secret}}}")
         assert detects(f"      - GF_SECURITY_ADMIN_PASSWORD=${{GRAFANA_PASSWORD:-{secret}}}")
 
+    def test_a_literal_appended_to_an_interpolation_is_caught(self) -> None:
+        """A placeholder arm has to span the WHOLE value, not just its start.
+
+        `${NEO4J_PASSWORD}<secret>` is a real shell concatenation — it expands to
+        the reference followed by the literal — so exempting it for beginning with
+        a reference hands the secret through.
+        """
+        secret = base64url_secret()
+        assert detects(f"NEO4J_PASSWORD=${{NEO4J_PASSWORD}}{secret}")
+        assert detects(f"NEO4J_PASSWORD=${{NEO4J_PASSWORD:-admin}}{secret}")
+        assert detects(f'      NEO4J_AUTH: "${{NEO4J_AUTH}}{secret}"')
+        # A bare reference concatenates only across a non-identifier boundary.
+        assert detects(f"export SESSION_SECRET_KEY=$SESSION_SECRET_KEY-{secret}")
+
+    def test_a_bare_reference_followed_by_identifier_chars_is_one_name(self) -> None:
+        """Not a gap — there is no literal on this line.
+
+        `$SESSION_SECRET_KEYabc` is the variable named `SESSION_SECRET_KEYabc`,
+        which expands to the empty string. The shell reads it as one name, so
+        nothing has been concatenated and nothing is being leaked. Only the braced
+        form `${VAR}abc` concatenates, and that is caught above.
+        """
+        alnum_suffix = alnum(32)
+        assert not detects(f"export SESSION_SECRET_KEY=$SESSION_SECRET_KEY{alnum_suffix}")
+
+    def test_a_reference_followed_by_trailing_content_stays_clean(self) -> None:
+        """The placeholder must end at the VALUE, not only at end-of-line.
+
+        Every interpolation negative elsewhere in this file either ends the line or
+        sits under the length floor, so none of them exercises the value-terminator.
+        A whole-tree sweep found the gap they left: `]` written as `\\]` inside a
+        POSIX bracket expression is not an escape, so the terminator read as "a
+        space followed by a literal ]" and a reference trailed by a comment was
+        reported. These names are long enough to clear the floor, so the positive
+        fires and the terminator is what has to stop it.
+        """
+        assert not detects(
+            "      NEO4J_PASSWORD: ${NEO4J_PASSWORD_FOR_THE_LOCAL_SANDBOX}   # sandbox only",
+            '        "NEO4J_PASSWORD": "${NEO4J_PASSWORD_FOR_THE_SANDBOX}",',
+            '  {"NEO4J_PASSWORD": "${NEO4J_PASSWORD_FOR_THE_SANDBOX}"}',
+            "# ANTHROPIC_API_KEY=sk-ant-your-anthropic-key   # [SECRET -> secrets.env]",
+            "NEO4J_AUTH=neo4j/<password>   # see SETUP.md",
+        )
+
     def test_the_live_compose_interpolations_stay_clean(self) -> None:
         """A reference, and a fallback under the floor, carry no secret."""
         assert not detects(

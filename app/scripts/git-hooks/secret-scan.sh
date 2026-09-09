@@ -235,9 +235,26 @@ literal_value="[\"']?[^[:space:]\"'][^[:space:]\"']${next_floor}"
 # credential in there would otherwise hide behind the `$`. So the fallback text is
 # measured by the same floor as any other value: under it, placeholder; over it,
 # reported. `$VAR`, `${VAR}` and `${VAR:-}` carry no value and are always exempt.
+# Each arm must span the WHOLE value, and `_value_end` pins that. A placeholder
+# that only has to match the START of the value is a bypass: `${NEO4J_PASSWORD}`
+# followed by a literal secret would be exempted for merely beginning with a
+# reference.
+#
+# The bare `$VAR` arm needs no such worry, and the shell is the authority on why:
+# `$SESSION_SECRET_KEYabc` is the variable named `SESSION_SECRET_KEYabc` (it
+# expands to nothing), NOT a reference with `abc` appended — so there is no
+# literal on that line to catch. Concatenation onto a bare reference requires a
+# non-identifier boundary (`$VAR-literal`), and `_value_end` reports that.
 _ref="[A-Za-z_][A-Za-z0-9_]*"
 _fallback="(:?[-+?][^}[:space:]]{0,$((MIN_SECRET_LEN - 1))})?"
-placeholder="([^[:space:]]*your-|[^[:space:]]*<[^>[:space:]]*>|[$](${_ref}|[{]${_ref}${_fallback}[}]))"
+_rest="[^[:space:]\"']*"
+# A value ends at whitespace, end of line, or the punctuation that closes it in
+# JSON/YAML — `"KEY": "${VAR}",` is a complete, legitimate reference.
+# `]` sits FIRST inside the bracket, which is how POSIX makes it literal — a
+# backslash is not an escape inside a bracket expression, so `[...\]]` would read
+# as "a terminator followed by a literal ]".
+_value_end="[\"']*([][:space:],}]|$)"
+placeholder="(${_rest}your-${_rest}|${_rest}<[^>[:space:]]*>${_rest}|[$](${_ref}|[{]${_ref}${_fallback}[}]))${_value_end}"
 
 for key in "${catalog_keys[@]}"; do
   assign_lead="$(assign_lead_for "$key")"
