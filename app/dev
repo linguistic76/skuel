@@ -246,6 +246,8 @@ case "$1" in
     echo ""
     uv run python scripts/validate_cross_references.py || failed=1
     echo ""
+    uv run python scripts/health/secret_scan_floor.py || failed=1
+    echo ""
     if [ $failed -eq 1 ]; then
       echo -e "${RED}✗ Health check found issues — review output above${NC}"
       exit 1
@@ -282,6 +284,11 @@ case "$1" in
   health-xref)
     echo -e "${YELLOW}Validating skill↔doc cross-references...${NC}"
     uv run python scripts/validate_cross_references.py
+    ;;
+
+  health-secrets)
+    echo -e "${YELLOW}Running the secret scan over every tracked text file...${NC}"
+    uv run python scripts/health/secret_scan_floor.py
     ;;
 
   health-mypy)
@@ -366,6 +373,7 @@ case "$1" in
     echo "  ./dev health-headings - Find repeated headings under one parent in docs"
     echo "  ./dev health-updated - Find docs whose \`updated:\` stamp has rotted or is missing"
     echo "  ./dev health-xref    - Validate skill↔doc cross-references and staleness"
+    echo "  ./dev health-secrets - Run the commit-time secret scan over the whole tracked corpus"
     echo "  ./dev health-mypy    - Find mypy suppressions that suppress nothing (~80s, not in health)"
     echo ""
     echo "Testing:"
