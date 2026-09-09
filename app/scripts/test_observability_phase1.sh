@@ -17,6 +17,15 @@ echo "🧪 Testing Observability Phase 1 Implementation"
 echo "================================================"
 echo ""
 
+# Every Prometheus assertion below parses JSON with `jq`, and `test_step` runs its
+# command under `> /dev/null 2>&1` — so an absent `jq` exits 127 with its message
+# swallowed and reports as four checks blaming Prometheus. Fail once, honestly.
+if ! command -v jq > /dev/null 2>&1; then
+    echo "❌ jq is not installed, and every check below parses JSON with it."
+    echo "   Install it (e.g. apt install jq) and re-run."
+    exit 1
+fi
+
 # Colors for output
 GREEN='\033[0;32m'
 RED='\033[0;31m'
