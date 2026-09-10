@@ -138,33 +138,54 @@ async def test_helper_changed_fields_gate_publishes_on_text_change():
     assert len(bus.published) == 1
 
 
-def test_event_map_mirrors_worker_subscriptions():
-    """EMBEDDING_EVENT_TYPES must cover exactly the 13 worker-subscribed types."""
-    assert set(EMBEDDING_EVENT_TYPES) == {
-        EntityType.TASK,
-        EntityType.GOAL,
-        EntityType.HABIT,
-        EntityType.EVENT,
-        EntityType.CHOICE,
-        EntityType.PRINCIPLE,
-        EntityType.KU,
-        EntityType.RESOURCE,
-        EntityType.EXERCISE,
-        EntityType.PATH_STEP,
-        EntityType.LEARNING_PATH,
-        EntityType.REVISED_EXERCISE,
-        EntityType.USER_ENTRY,
+def test_worker_subscribes_to_every_publishable_event():
+    """The worker's subscriptions must cover EMBEDDING_EVENT_TYPES exactly.
+
+    This used to pin the map to a literal set written INSIDE the test, which
+    left the worker itself an unguarded fourth copy: a type could be added to
+    the map, published on every create, and silently never subscribed. The
+    worker now derives its subscriptions from the map, and this drives
+    ``subscribe()`` against a recording bus to prove it — plus the two chunk
+    events, which are deliberately outside the map (no EntityType, own queue).
+    """
+    from core.events import ChunkEmbeddingRequested, ReferenceChunkEmbeddingRequested
+    from core.services.background.embedding_worker import EmbeddingBackgroundWorker
+
+    class _RecordingBus:
+        def __init__(self) -> None:
+            self.subscribed: list[type] = []
+
+        def subscribe(self, event_cls: type, _handler: object) -> None:
+            self.subscribed.append(event_cls)
+
+    bus = _RecordingBus()
+    worker = EmbeddingBackgroundWorker(
+        event_bus=bus,  # type: ignore[arg-type]  # recording double, subscribe() only
+        embeddings_service=None,  # type: ignore[arg-type]  # unused by subscribe()
+    )
+    worker.subscribe()
+
+    assert set(bus.subscribed) == set(EMBEDDING_EVENT_TYPES.values()) | {
+        ChunkEmbeddingRequested,
+        ReferenceChunkEmbeddingRequested,
     }
+    assert len(bus.subscribed) == len(set(bus.subscribed)), "a duplicate subscription"
 
 
-def test_node_label_map_mirrors_event_map():
-    """EMBEDDING_NODE_LABELS (worker storage + backfill queries) must cover
-    exactly the EMBEDDING_EVENT_TYPES types — the two maps extend together."""
+def test_node_label_map_is_derived_from_the_event_map():
+    """EMBEDDING_NODE_LABELS covers exactly the EMBEDDING_EVENT_TYPES types.
+
+    Derived rather than transcribed, so this is a guard on the derivation, not
+    on two hand-kept lists: labels come from ``NeoLabel``, membership from the
+    event map.
+    """
+    from core.models.enums.neo_labels import NeoLabel
+
     assert set(EMBEDDING_NODE_LABELS) == set(EMBEDDING_EVENT_TYPES)
-    # Labels are the Neo4j node labels — non-empty, unique, PascalCase-shaped.
     labels = list(EMBEDDING_NODE_LABELS.values())
     assert len(set(labels)) == len(labels)
-    assert all(label and label[0].isupper() for label in labels)
+    for entity_type, label in EMBEDDING_NODE_LABELS.items():
+        assert label == NeoLabel.from_entity_type(entity_type).value
 
 
 def test_embedding_scan_labels_cover_every_embeddable_label():

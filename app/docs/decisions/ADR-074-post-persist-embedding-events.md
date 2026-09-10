@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-06
+updated: 2026-09-10
 ---
 
 # ADR-074: Ingestion Never Embeds Inline — One Post-Persist Event Chokepoint for Both Doors
@@ -42,8 +42,9 @@ not gated — preparation is one sync function for both doors.
 
 The chokepoint is `core/events/embedding_publisher.py`:
 
-- `EMBEDDING_EVENT_TYPES` — the one `EntityType → event class` map (one entry per embeddable
-  type, mirroring the worker's subscriptions).
+- `EMBEDDING_EVENT_TYPES` — the one `EntityType → event class` map, one entry per embeddable
+  type. The worker's `subscribe()` iterates it and `EMBEDDING_NODE_LABELS` is derived from it,
+  so this map is the whole roster rather than one of three lists kept in step.
 - `publish_embedding_requested(event_bus, entity_type, source, logger, changed_fields=...)` —
   used by **every** producer: both ingest doors (via
   `UnifiedIngestionService._publish_embedding_requests`), all in-app create paths, and all

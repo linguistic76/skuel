@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-08
+updated: 2026-09-10
 ---
 
 # Deferred Work
@@ -170,7 +170,7 @@ renders them as a table in Obsidian, and a session derives the same table with
 
 ## Catalog Copies in Code — the duplicated-fact defect, measured
 
-[Catalog Copies in Code — the duplicated-fact defect, measured](catalog-copies-in-code.md) — The class, its ten measured instances and the rule for new code; the stale-PLANNED gate and the `blocked_by` pointer form are built, the rest is Mike's to schedule.
+[Catalog Copies in Code — the duplicated-fact defect, measured](catalog-copies-in-code.md) — The class, its ten measured instances and the rule for new code; every remedy in the build order is now built, and what remains is the two ruled-leave instances plus the lateral-relationship category table.
 
 ## Dead-Doc-Links Instrument — Rulings + Scheduled Work
 

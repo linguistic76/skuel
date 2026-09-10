@@ -208,16 +208,8 @@ async def compose_services(
         # tier a missing vector index means db.index.vector.queryNodes() returns
         # zero results — Askesis RAG silently degrades to graph-only (Gap #6).
         if tier.ai_enabled:
-            vector_labels = [
-                "Entity",  # Base label — covers all entity types via multi-label
-                "ContentChunk",  # RAG chunks
-                "ReferenceChunk",  # Canon reference-book chunks (own index, SearchRouter-invisible)
-                "Ku",  # Ku→Ku similarity — "Related concepts" on /explore/ku/{uid}
-                "PathStep",  # PS→PS similarity — "Related concepts" on /explore/ps/{uid}
-                "LearningPath",  # Hybrid rung's vector half (SearchRouter)
-            ]
             vector_result = await schema_manager.sync_vector_indexes(
-                entity_labels=vector_labels,
+                entity_labels=list(EmbeddingGeometry.INDEX_LABELS),
                 dimension=EmbeddingGeometry.DIMENSION,
                 similarity="cosine",
             )

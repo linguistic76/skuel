@@ -1,6 +1,6 @@
 ---
 title: Codebase Health Checks
-updated: 2026-09-09
+updated: 2026-09-10
 status: current
 category: tools
 tags: [health, scripts, dead-code, documentation, maintenance, drift]
@@ -19,6 +19,7 @@ Automated checks that prevent codebase drift — the kind that accumulates silen
 
 ```bash
 ./dev health              # run every check except health-mypy
+./dev health --list       # print the roster the janitor consumes (name:script)
 ./dev health-modules      # dead Python modules only
 ./dev health-links        # broken doc links only
 ./dev health-names        # stale identifiers in docs only
@@ -29,6 +30,14 @@ Automated checks that prevent codebase drift — the kind that accumulates silen
 ./dev health-mypy         # dead mypy suppressions only (~80s — NOT in ./dev health)
 ```
 
+The roster itself lives in ONE place — the `HEALTH_CHECKS` array in `app/dev` —
+which the `health` block, the `health-<name>` dispatcher, this help text and
+`.github/workflows/weekly-janitor.yml` (via `./dev health --list`) all read.
+Adding a check is one edit there. The block above is the one surviving copy and
+is pinned to that array by `tests/unit/scripts/test_health_check_parity.py`,
+which *discovers* command blocks rather than naming files — a second copy
+planted anywhere under `docs/` or `.claude/skills/` is covered on arrival.
+
 Every check exits non-zero when issues are found, so they can be used in CI —
 and all of them now ARE: everything in `./dev health` runs weekly via
 `.github/workflows/weekly-janitor.yml` (Mondays 06:30 UTC, together with the
@@ -38,9 +47,9 @@ its run on findings; `health-mypy` has its own weekly workflow
 feeds the CI gate.
 
 > The per-check sections below are the inventory. This overview deliberately carries no
-> count and no roster: it went stale the moment a sixth check landed, and
-> `duplicate_headings.py` exists precisely because a summary that restates a fact
-> outlives the fact.
+> count: the command block above is a *pinned* copy of the roster, and
+> `duplicate_headings.py` exists precisely because an unpinned summary that restates a
+> fact outlives the fact.
 
 **`health-mypy` is deliberately outside `./dev health`.** The others are file scans that finish in seconds; the mypy audit needs one full type-check run per suppression it verifies. Bolting ~80s onto the aggregate target is how a health target stops being run at all — so it gets its own entry point and a weekly CI schedule instead.
 
@@ -753,24 +762,21 @@ The `./dev health` scripts are fast enough to run on every commit if desired (a 
 
 ---
 
-## File Structure
+## Companion scripts
 
-```
-scripts/health/
-├── dead_modules.py                    # Zero-importer modules + orphan packages
-├── dead_doc_links.py                  # Markdown link validator
-├── stale_names.py                     # Deprecated identifier scanner
-├── duplicate_headings.py              # Repeated headings under one parent
-├── docs_updated.py                    # Rotted / missing `updated:` frontmatter stamps
-├── secret_scan_floor.py               # Secret scan's false-positive floor over the tracked corpus
-├── markdown_fences.py                 # Shared CommonMark fence walker (links + names)
-└── mypy_suppressions.py               # Dead mypy suppression auditor
-scripts/docs_updated_field.py          # Shared stamp mechanics (guard + stamper + backfill)
-scripts/stamp_docs_updated.py          # Pre-commit stamper (hook check 0)
-scripts/backfill_docs_updated.py       # One-shot seed from commit history
-scripts/validate_cross_references.py   # Skill↔doc cross-reference validator
-scripts/docs_relative_links.py         # Advisory docs→docs link-form sweep (`./dev docs-links`; not in health)
-```
+The checks themselves are `ls scripts/health/` — a tree here would be a third
+copy of the roster. These are the *neighbours*, which no roster names:
+
+| Script | Role |
+|--------|------|
+| `scripts/health/markdown_fences.py` | Shared CommonMark fence walker (links + names). A library, not a check — no `__main__`, so the parity test does not demand a roster entry for it |
+| `scripts/docs_updated_field.py` | Shared stamp mechanics (guard + stamper + backfill) |
+| `scripts/stamp_docs_updated.py` | Pre-commit stamper (hook check 0) |
+| `scripts/backfill_docs_updated.py` | One-shot seed from commit history |
+| `scripts/docs_relative_links.py` | Advisory docs→docs link-form sweep (`./dev docs-links`; not in health) |
+
+`scripts/validate_cross_references.py` is the one check that lives *outside*
+`scripts/health/` — the family is a roster, not a directory.
 
 **Related:**
 - `./dev health` — runs every check above except `mypy_suppressions.py` (weekly CI)

@@ -19,7 +19,9 @@ from fasthtml.common import Link, Script
 # Version constants for self-hosted dependencies
 HTMX_VERSION = "1.9.10"
 ALPINE_VERSION = "3.14.8"
-CHARTJS_VERSION = "4"
+# No CHARTJS_VERSION: chart.umd.js is vendored unversioned, so a constant here
+# would be a copy of a fact nothing reads — it said "4" beside a 4.5.1 bundle.
+# The adapter IS versioned in its filename, so its constant builds the URL.
 CHARTJS_ADAPTER_VERSION = "3"
 
 
@@ -154,6 +156,5 @@ __all__ = [
     "chartjs_headers",
     "HTMX_VERSION",
     "ALPINE_VERSION",
-    "CHARTJS_VERSION",
     "CHARTJS_ADAPTER_VERSION",
 ]

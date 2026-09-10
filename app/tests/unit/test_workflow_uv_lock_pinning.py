@@ -303,6 +303,11 @@ _STATE_NEUTRAL_VERBS = frozenset(
         "[[",
         "trap",
         "read",
+        # `read`'s array sibling: it assigns a shell variable from stdin and
+        # exports nothing. weekly-janitor.yml reads the health-check roster
+        # with it (`mapfile -t checks < <(./dev health --list)`).
+        "mapfile",
+        "readarray",
         "shift",
         "git",
         "npm",
@@ -963,6 +968,36 @@ def _collect_from_shell(
                 )
             continue
 
+        # `./dev <verb>` — this repo's own command runner, invoked by
+        # weekly-janitor.yml to read the health-check roster. Two judgements,
+        # both narrow:
+        #
+        #   It is not FOLLOWED. Script resolution is path-based, not
+        #   control-flow aware, so following `dev` would drag every script any
+        #   OTHER verb runs (pre_merge_check.sh, deploy.sh) into a census of a
+        #   job that runs none of them — 30+ phantom findings from one
+        #   `./dev health --list`.
+        #
+        #   It is not EXCUSED either. Nearly every `dev` verb runs uv, and a
+        #   child process inherits the job's environment — which is the only
+        #   thing that pins uv inside it. So it is recorded as an unpinned,
+        #   lock-touching invocation: the job must declare UV_FROZEN (rule 1),
+        #   exactly as if the uv command were written in the YAML. Adding
+        #   `dev` to _STATE_NEUTRAL_VERBS instead would let a `./dev`-only job
+        #   pass with no pin at all, which is the vacuous-green this guard
+        #   exists to prevent.
+        if _is_repo_dev_runner(written, workdir, root):
+            inputs.add((workdir / written).resolve())
+            found.append(
+                UvInvocation(
+                    origin=origin,
+                    rendered=" ".join(tokens),
+                    subcommand="run",
+                    option_region=(),
+                )
+            )
+            continue
+
         # `command -v NAME` (and -V) is a pure QUERY: it prints how NAME would
         # resolve and executes nothing, so it can neither invoke uv nor change
         # what a later command sees. The judgement is deliberately this narrow —
@@ -1029,6 +1064,18 @@ def _collect_from_shell(
                 )
             )
     return found
+
+
+def _is_repo_dev_runner(written: str, workdir: Path, root: Path) -> bool:
+    """True when this command is THIS repo's `app/dev`, not some other `dev`.
+
+    Keyed on the resolved path, not the basename: a `dev` on PATH elsewhere is
+    not the runner whose uv usage this judgement covers.
+    """
+    if PurePath(written).name != "dev":
+        return False
+    path = (workdir / written).resolve()
+    return path.is_file() and path == (root / "app" / "dev").resolve()
 
 
 def _resolve_script(
@@ -1887,6 +1934,103 @@ jobs:
     )
     assert len(problems) == 1
     assert "lock env var is written inside a shell command" in problems[0]
+
+
+def _write_dev_runner(tmp_path: Path) -> Path:
+    """A stand-in for this repo's `app/dev`, so the resolved-path test matches."""
+    runner = tmp_path / "app" / "dev"
+    runner.parent.mkdir(parents=True, exist_ok=True)
+    runner.write_text("#!/bin/bash\nuv run python scripts/health/x.py\n", encoding="utf-8")
+    return runner
+
+
+def test_control_dev_runner_demands_a_pin(tmp_path: Path) -> None:
+    """`./dev <verb>` counts as uv usage — an unpinned job that runs it is red.
+
+    weekly-janitor.yml reads its health-check roster with `./dev health --list`.
+    Treating `dev` as a state-neutral verb would have excused the whole job:
+    almost every verb it carries runs uv, and the guard cannot see those from
+    the YAML. The narrow judgement is "not followed, but not excused".
+    """
+    _write_dev_runner(tmp_path)
+    problems = _problems(
+        tmp_path,
+        """
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - working-directory: app
+        run: ./dev health --list
+""",
+    )
+    assert len(problems) == 1
+    assert "invokes uv without pinning app/uv.lock" in problems[0]
+
+
+def test_control_dev_runner_is_satisfied_by_job_level_frozen(tmp_path: Path) -> None:
+    """The child inherits the job's env, so a job-level UV_FROZEN does pin it."""
+    _write_dev_runner(tmp_path)
+    assert (
+        _problems(
+            tmp_path,
+            """
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      UV_FROZEN: "1"
+    steps:
+      - working-directory: app
+        run: mapfile -t checks < <(./dev health --list)
+""",
+        )
+        == []
+    )
+
+
+def test_control_dev_runner_is_not_followed(tmp_path: Path) -> None:
+    """Resolution is path-based, not control-flow aware.
+
+    Following `dev` would audit every script any OTHER verb runs. The stand-in
+    here carries a command the guard refuses (`gh`), exactly as the real `dev`
+    reaches through `pre_merge_check.sh`; a followed `dev` would report it.
+    """
+    runner = tmp_path / "app" / "dev"
+    runner.parent.mkdir(parents=True, exist_ok=True)
+    runner.write_text("#!/bin/bash\ngh pr view\n", encoding="utf-8")
+    problems = _problems(
+        tmp_path,
+        """
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      UV_FROZEN: "1"
+    steps:
+      - working-directory: app
+        run: ./dev health --list
+""",
+    )
+    assert problems == [], f"dev was followed into its other verbs: {problems}"
+
+
+def test_control_a_different_dev_on_path_is_still_refused(tmp_path: Path) -> None:
+    """The judgement is about THIS repo's runner, matched by resolved path."""
+    problems = _problems(
+        tmp_path,
+        """
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      UV_FROZEN: "1"
+    steps:
+      - run: dev deploy
+""",
+    )
+    assert len(problems) == 1
+    assert "unrecognised command verb ('dev')" in problems[0]
 
 
 def test_control_uv_lock_check_is_pin_evidence(tmp_path: Path) -> None:

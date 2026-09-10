@@ -2543,40 +2543,14 @@ def get_config_by_label(entity_label: str) -> DomainRelationshipConfig | None:
 
 # Maps EntityType to registry config key (Neo4j label string).
 # All domain entities are :Entity nodes; virtual config keys kept for lookup.
+#
+# DERIVED from NeoLabel, and over EntityType rather than a hand-written key set:
+# this was 25 literal rows restating _ENTITY_TYPE_TO_LABEL, with nothing pinning
+# the two to each other or either to completeness (a missing key surfaced as a
+# KeyError at first use, not at import). Deriving makes a missing NeoLabel
+# mapping an import-time failure and a new EntityType covered on arrival.
 ENTITY_TYPE_TO_LABEL: dict[EntityType, str] = {
-    # Curriculum (4)
-    EntityType.KU: "Ku",
-    EntityType.PATH_STEP: "PathStep",
-    EntityType.LEARNING_PATH: "LearningPath",
-    EntityType.EXERCISE: "Exercise",
-    # Instruction Templates (2)
-    EntityType.REVISED_EXERCISE: "RevisedExercise",
-    EntityType.RESOURCE: "Resource",
-    # Activity (6)
-    EntityType.TASK: "Task",
-    EntityType.GOAL: "Goal",
-    EntityType.HABIT: "Habit",
-    EntityType.EVENT: "Event",
-    EntityType.CHOICE: "Choice",
-    EntityType.PRINCIPLE: "Principle",
-    # Activity Templates (6) — PS-owned, spawn Activity instances on engagement
-    EntityType.TASK_TEMPLATE: "TaskTemplate",
-    EntityType.GOAL_TEMPLATE: "GoalTemplate",
-    EntityType.HABIT_TEMPLATE: "HabitTemplate",
-    EntityType.EVENT_TEMPLATE: "EventTemplate",
-    EntityType.CHOICE_TEMPLATE: "ChoiceTemplate",
-    EntityType.PRINCIPLE_TEMPLATE: "PrincipleTemplate",
-    # User-authored content + Reports (3)
-    EntityType.USER_ENTRY: "UserEntry",
-    EntityType.ACTIVITY_REPORT: "ActivityReport",
-    EntityType.ENTRY_REPORT: "EntryReport",
-    # General-Purpose Forms (2)
-    EntityType.FORM_TEMPLATE: "FormTemplate",
-    EntityType.FORM_SUBMISSION: "FormSubmission",
-    # Interaction audit (1) — User Interaction Contract
-    EntityType.INTERACTION: "Interaction",
-    # Destination (1)
-    EntityType.LIFE_PATH: "LifePath",
+    entity_type: NeoLabel.from_entity_type(entity_type).value for entity_type in EntityType
 }
 
 LABEL_TO_DEFAULT_ENTITY_TYPE: dict[str, EntityType] = {
