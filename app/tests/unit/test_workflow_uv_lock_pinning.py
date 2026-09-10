@@ -979,8 +979,7 @@ def _collect_from_shell(
         #   UV_FROZEN, while `audit-deps` reaches audit_dependencies.sh, which
         #   exits 3 *under* UV_FROZEN because the var guts its own
         #   `uv lock --check`. Synthesizing "unpinned uv run" for every verb
-        #   leaves that entrypoint with no accepted configuration at all
-        #   (Codex P2, PR #1308).
+        #   leaves that entrypoint with no accepted configuration at all.
         #
         # So: a verb known to run no uv passes; everything else is REFUSED
         # until someone classifies it. Fail-closed, and deliberately not a
@@ -1053,7 +1052,7 @@ def _collect_from_shell(
                 # `-C callback` is the exception and stays refused: bash
                 # evaluates it in THIS shell every QUANTUM lines, so it can
                 # `cd` while the verb reads as neutral, moving the ground under
-                # _resolve_script for every later command (Codex P2, PR #1308).
+                # _resolve_script for every later command.
                 continue
             if name == "set" and not {"-a", "+a", "allexport"} & set(args):
                 # Shell OPTIONS (`set -euo pipefail`) touch neither env nor cwd.

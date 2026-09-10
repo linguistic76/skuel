@@ -88,9 +88,9 @@ jobs:
               # cannot stand in, because smoke_test.py stubs service-worker
               # registration outright. That is exactly the change most likely to
               # break `cache.addAll()`, which rejects wholesale on one 404 and
-              # takes PWA install down for every client (Codex P2, PR #1308).
-              # Named files and one small vendored tree, not a corpus: this
-              # erodes no deliberate skip.
+              # takes PWA install down for every client. Named files and one
+              # small vendored tree, not a corpus: this erodes no deliberate
+              # skip.
               - 'app/static/service-worker.js'
               - 'app/static/vendor/**'
               # Same shape, third reader: tests/unit/scripts/
@@ -612,9 +612,9 @@ jobs:
       # table or fence — so its corpus is all of docs/ and .claude/skills/, and
       # a docs-only PR is exactly the change that breaks it. Listing the files
       # that happen to carry a copy in the `py` filter would be the
-      # enumerate-instead-of-discover defect this very module exists to remove
-      # (Codex P2, PR #1308). It also runs in unit_tests via `py`, which is what
-      # covers the array in app/dev and the janitor.
+      # enumerate-instead-of-discover defect this very module exists to remove.
+      # It also runs in unit_tests via `py`, which is what covers the array in
+      # app/dev and the janitor.
       - name: Check the health-check roster's documented copies
         id: health_roster
         working-directory: app

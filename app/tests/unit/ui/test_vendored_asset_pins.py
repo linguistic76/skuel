@@ -50,7 +50,15 @@ MIN_PRECACHE_URLS = 10
 MIN_VERSION_CONSTANTS = 3
 
 _PRECACHE_RE = re.compile(r"const PRECACHE_URLS\s*=\s*\[(?P<body>.*?)\];", re.DOTALL)
-_URL_RE = re.compile(r"'(?P<url>[^']+)'")
+# Both quote styles: a double-quoted entry is valid JavaScript and nothing in
+# this repo forbids one. A single-quote-only pattern would SKIP it silently
+# while the floor below stayed satisfied by its neighbours — so a nonexistent
+# URL could pass this module and still reject the service-worker install.
+_URL_RE = re.compile(r"""(?P<q>['"])(?P<url>[^'"]+)(?P=q)""")
+# A line inside the array that carries neither a URL nor a comment is a shape
+# the extractor cannot read; `test_every_precache_line_is_parsed` fails on it
+# rather than letting it drop out of coverage.
+_COMMENT_LINE_RE = re.compile(r"^\s*(//|/\*|\*)")
 _VERSION_CONST_RE = re.compile(
     r"^(?P<name>[A-Z][A-Z0-9_]*_VERSION)\s*=\s*\"(?P<value>[^\"]+)\"", re.MULTILINE
 )
@@ -98,6 +106,50 @@ def versioned_asset_urls() -> dict[str, str]:
 def static_path(url: str) -> Path:
     """The file a served URL maps to. ``/offline.html`` is served from ``static/``."""
     return STATIC / url.removeprefix("/static/").removeprefix("/")
+
+
+def precache_body() -> str:
+    match = _PRECACHE_RE.search(SERVICE_WORKER.read_text(encoding="utf-8"))
+    assert match is not None, "PRECACHE_URLS array not found in static/service-worker.js"
+    return match.group("body")
+
+
+def test_every_precache_line_is_parsed() -> None:
+    """Completeness, not just a floor: no entry may drop out of coverage.
+
+    A floor alone is satisfied by the entries the extractor DOES read, so an
+    unreadable one is invisible — which is how a quoting style the pattern
+    misses would let a nonexistent URL through while `cache.addAll()` rejects
+    the whole install.
+    """
+    unparsed = [
+        line
+        for line in precache_body().splitlines()
+        if line.strip() and not _COMMENT_LINE_RE.match(line) and not _URL_RE.search(line)
+    ]
+    assert not unparsed, (
+        f"PRECACHE_URLS lines this module cannot read: {unparsed}. Every entry must "
+        "be checked — teach the extractor the new shape rather than leaving it "
+        "silently uncovered."
+    )
+
+
+@pytest.mark.parametrize(
+    ("sample", "expected"),
+    [
+        ("  '/static/a.js',", ["/static/a.js"]),
+        ('  "/static/b.js",', ["/static/b.js"]),
+        (
+            """  '/static/a.js',
+  "/static/b.js",""",
+            ["/static/a.js", "/static/b.js"],
+        ),
+    ],
+    ids=["single", "double", "mixed"],
+)
+def test_url_pattern_reads_both_quote_styles(sample: str, expected: list[str]) -> None:
+    """Both are valid JavaScript, so both must be seen."""
+    assert [m.group("url") for m in _URL_RE.finditer(sample)] == expected
 
 
 def test_extraction_is_above_the_floor() -> None:
