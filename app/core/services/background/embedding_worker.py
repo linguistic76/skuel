@@ -157,11 +157,9 @@ class EmbeddingBackgroundWorker:
         ``drain()`` the queues once — without the timer loop. In the app process,
         ``start()`` calls this and then loops.
         """
-        # DERIVED from the publisher's map, not transcribed from it. A hand-written
-        # subscription per entity type was a copy of EMBEDDING_EVENT_TYPES that
-        # nothing pinned: a new embeddable type could gain an event class, be
-        # published, and be silently dropped here. Iterating the map makes
-        # "publishable" and "subscribed" the same fact.
+        # DERIVED from the publisher's map: iterating EMBEDDING_EVENT_TYPES makes
+        # "publishable" and "subscribed" the same fact, so a type that gains an
+        # event class is subscribed by that alone.
         # UserEntry rides this loop like the rest — it is pipeline-scoped at the
         # PUBLISHER (UserEntryService gates on pipeline=knowledge), so everything
         # that arrives here embeds.

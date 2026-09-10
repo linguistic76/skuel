@@ -38,12 +38,18 @@ from four directions:
    of it globbed fences only and missed a table; the inventory it implements had
    named neither, and under-counted its own copy set by one for eight days.
 
-Residual, stated rather than approximated: ``unit_tests`` runs on the ``py`` path
-filter, so a *docs-only* PR reaches direction 4 only for files listed in that
-filter. ``docs/tools/HEALTH_CHECKS.md`` is listed there for this reason. A roster
-copy planted in a brand-new doc is unreachable by any filter — the same residual
-``deferred-work.md`` and ``ACTIVITY_TEMPLATE_AUTHORING.md`` carry — and is caught by
-the next ``py``-touching PR.
+Both filters, because one is not enough
+---------------------------------------
+``unit_tests`` runs on ci.yml's ``py`` filter, which covers directions 1-3 (the
+array in ``dev``, the scripts, the janitor). Direction 4's corpus is all of
+``docs/`` and ``.claude/skills/``, and a docs-only PR skips ``unit_tests``
+entirely — so this module ALSO runs as a step in the ``validate_documentation``
+job, which the ``docs`` filter gates. Listing the files that happen to carry a
+copy in ``py`` instead would be the enumerate-instead-of-discover defect this
+module exists to remove: it would cover today's copies and miss tomorrow's,
+which is exactly how the two stale copies below were able to sit unnoticed.
+(``docs/tools/HEALTH_CHECKS.md`` is in ``py`` as well, so a change to the pinned
+copy reds both jobs rather than one.)
 
 Docs pins usually live in ``tests/unit/docs/``; this one lives beside the roster
 parser it shares, because a second copy of *that* parser would be the defect this

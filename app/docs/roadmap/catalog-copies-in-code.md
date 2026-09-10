@@ -205,7 +205,15 @@ most of the instances below rely on today.
    already covered by `entity_embedding_idx` — two indexes were being created that no query
    could reach. `task_embedding_idx`/`goal_embedding_idx` joined `drop_stale_indexes()` so a
    graph where the older script ran cleans itself up; the live-graph question the entry left
-   open is answered by making it not matter. CLAUDE.md now points at the constant.
+   open is answered by making it not matter. **A fourth copy was found in review** — the
+   `neo4j-cypher-patterns` skill's index inventory advertised eight vector indexes and named
+   Task/Goal as ones the script adds, i.e. an inventory the app now actively deletes. Both it
+   and CLAUDE.md are pointers at the constant now.
+   **Doc copies here are pointer-shaped, not pinned, and that is a ruling:** a discovering
+   check ("every `<label>_embedding_idx` a doc names must be a live index") would need an
+   exclusion list for `docs/migrations/` and `docs/roadmap/done/`, whose sample terminal
+   output legitimately records indexes that no longer exist. A suppressor list fails silent,
+   which is worse than the pointer.
 7. **`EntityType → label`.** `_ENTITY_TYPE_TO_LABEL` in `core/models/enums/neo_labels.py`
    (25, the accessor's source), `ENTITY_TYPE_TO_LABEL` in `core/models/relationship_registry.py`
    (25 strings, one consumer: ingestion config), plus `EMBEDDING_NODE_LABELS` above. All

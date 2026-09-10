@@ -399,12 +399,13 @@ class EmbeddingGeometry:
     # Vector dimension shared by all embedding providers and vector indexes.
     DIMENSION: Final = 1024
 
-    # THE labels that carry a vector index — read by the bootstrap sync
-    # (services_bootstrap/compose.py) and by scripts/create_vector_indexes.py,
-    # which held two hand-written lists with two different values (six vs eight)
-    # and no way to tell which the live graph matched.
+    # THE labels that carry a vector index — the one list read by the bootstrap
+    # sync (services_bootstrap/compose.py) and by
+    # scripts/create_vector_indexes.py. `drop_stale_indexes()` removes the
+    # vector index of any label absent here.
     #
-    # Membership is what a query path actually READS, measured 2026-09-09:
+    # Membership rule: a label belongs here only if a query path READS its
+    # index. Each member names its reader:
     #   Entity          — cross-domain semantic search (daily planning, learning
     #                     intelligence); covers every domain node via multi-label
     #   ContentChunk    — RAG chunk retrieval (SearchRouter, Askesis)
@@ -413,14 +414,12 @@ class EmbeddingGeometry:
     #   Ku / PathStep   — node→node "Related concepts" on the explore detail pages
     #   LearningPath    — the SearchRouter hybrid rung's vector half
     #
-    # Task and Goal were in the script's list only. Nothing passes either as a
-    # vector-search label: the per-domain `find_similar_*` methods rank in Python
-    # through `_rank_similar_entities`, never through an index, and Task/Goal
-    # nodes are already covered by the `Entity` index. Two indexes were being
-    # created that no query could reach. If a per-label index is ever wanted for
-    # them, add the label here AND the reader that justifies it.
+    # Per-domain `find_similar_*` needs no entry: it ranks in Python through
+    # `_rank_similar_entities`, never through an index, and its entities are
+    # reachable via the `Entity` index. Adding a label here means adding the
+    # reader that justifies it in the same change.
     #
-    # Index NAMES are safe either way: creation and query both derive
+    # Index NAMES need no coordination: creation and query both derive
     # `{label.lower()}_embedding_idx`.
     INDEX_LABELS: Final[tuple[str, ...]] = (
         "Entity",

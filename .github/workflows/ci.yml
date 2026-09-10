@@ -593,6 +593,22 @@ jobs:
           uv run pytest tests/unit/scripts/test_generate_cross_reference_index.py -q --no-cov || echo "xref_drift_failed=true" >> $GITHUB_OUTPUT
         continue-on-error: true
 
+      # Same reasoning again, and the same shape: this module DISCOVERS every
+      # documented copy of the `./dev health-*` roster — any doc, any file, any
+      # table or fence — so its corpus is all of docs/ and .claude/skills/, and
+      # a docs-only PR is exactly the change that breaks it. Listing the files
+      # that happen to carry a copy in the `py` filter would be the
+      # enumerate-instead-of-discover defect this very module exists to remove
+      # (Codex P2, PR #1308). It also runs in unit_tests via `py`, which is what
+      # covers the array in app/dev and the janitor.
+      - name: Check the health-check roster's documented copies
+        id: health_roster
+        working-directory: app
+        run: |
+          echo "Running the health-check roster parity + docs pins..."
+          uv run pytest tests/unit/scripts/test_health_check_parity.py -q --no-cov || echo "health_roster_failed=true" >> $GITHUB_OUTPUT
+        continue-on-error: true
+
       # Same reasoning as the drift test above: this guard's input is every doc
       # and skill in the repo, so a docs-only PR is exactly what must run it —
       # and putting docs/** into the `py` filter would erode the deliberate
@@ -688,15 +704,18 @@ jobs:
           steps.freshness.outputs.freshness_failed == 'true' ||
           steps.skills.outputs.skills_failed == 'true' ||
           steps.xref_drift.outputs.xref_drift_failed == 'true' ||
+          steps.health_roster.outputs.health_roster_failed == 'true' ||
           steps.status_claims.outputs.status_claims_failed == 'true'
         run: |
           freshness_failed="${{ steps.freshness.outputs.freshness_failed }}"
           skills_failed="${{ steps.skills.outputs.skills_failed }}"
           xref_drift_failed="${{ steps.xref_drift.outputs.xref_drift_failed }}"
+          health_roster_failed="${{ steps.health_roster.outputs.health_roster_failed }}"
           status_claims_failed="${{ steps.status_claims.outputs.status_claims_failed }}"
           echo "Documentation freshness: $([ "$freshness_failed" == "true" ] && echo '❌ FAILED' || echo '✅ passed')"
           echo "Skills validation:       $([ "$skills_failed" == "true" ] && echo '❌ FAILED' || echo '✅ passed')"
           echo "CROSS_REFERENCE_INDEX:   $([ "$xref_drift_failed" == "true" ] && echo '❌ STALE' || echo '✅ fresh')"
+          echo "Health-check roster:     $([ "$health_roster_failed" == "true" ] && echo '❌ DRIFTED' || echo '✅ in sync')"
           echo "Validation-status claims: $([ "$status_claims_failed" == "true" ] && echo '❌ FAILED' || echo '✅ passed')"
           echo ""
           if [ "$freshness_failed" == "true" ]; then
@@ -711,6 +730,11 @@ jobs:
             echo "::error::CROSS_REFERENCE_INDEX drift/honesty guards failed"
             echo "  Run locally: uv run pytest tests/unit/scripts/test_generate_cross_reference_index.py"
             echo "  If merely stale: uv run python scripts/generate_cross_reference_index.py"
+          fi
+          if [ "$health_roster_failed" == "true" ]; then
+            echo "::error::A documented copy of the ./dev health roster disagrees with app/dev"
+            echo "  Run locally: uv run pytest tests/unit/scripts/test_health_check_parity.py"
+            echo "  The roster is the HEALTH_CHECKS array in app/dev; ./dev health --list prints it."
           fi
           if [ "$status_claims_failed" == "true" ]; then
             echo "::error::A doc claims 422 for a validation failure (VALIDATION maps to 400)"

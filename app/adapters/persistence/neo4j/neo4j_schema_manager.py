@@ -874,13 +874,11 @@ class Neo4jSchemaManager(Neo4jSessionRunner):
             "ku_schema_version_idx",
             "ku_domain_level_idx",
             "ku_parent_level_idx",
-            # Vector indexes for labels no query reads. scripts/create_vector_indexes.py
-            # used to create these two beyond the set the app's own bootstrap syncs;
-            # both lists now read EmbeddingGeometry.INDEX_LABELS, which excludes them
-            # because nothing passes "Task"/"Goal" as a vector-search label (the
-            # per-domain find_similar_* methods rank in Python, and Task/Goal nodes are
-            # covered by entity_embedding_idx). These drop the leftovers on any DB
-            # where the older script ran.
+            # Vector indexes for labels outside EmbeddingGeometry.INDEX_LABELS —
+            # nothing passes "Task"/"Goal" as a vector-search label (the per-domain
+            # find_similar_* methods rank in Python, and Task/Goal nodes are reachable
+            # through entity_embedding_idx), so neither index has a reader. A label
+            # that gains one is added to INDEX_LABELS and removed from here.
             "task_embedding_idx",
             "goal_embedding_idx",
         ]

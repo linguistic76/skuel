@@ -2544,11 +2544,10 @@ def get_config_by_label(entity_label: str) -> DomainRelationshipConfig | None:
 # Maps EntityType to registry config key (Neo4j label string).
 # All domain entities are :Entity nodes; virtual config keys kept for lookup.
 #
-# DERIVED from NeoLabel, and over EntityType rather than a hand-written key set:
-# this was 25 literal rows restating _ENTITY_TYPE_TO_LABEL, with nothing pinning
-# the two to each other or either to completeness (a missing key surfaced as a
-# KeyError at first use, not at import). Deriving makes a missing NeoLabel
-# mapping an import-time failure and a new EntityType covered on arrival.
+# DERIVED from NeoLabel, over EntityType rather than a hand-written key set, so
+# it cannot disagree with the accessor and cannot be incomplete: a new
+# EntityType is covered on arrival, and an EntityType with no NeoLabel mapping
+# fails at import rather than as a KeyError at first use.
 ENTITY_TYPE_TO_LABEL: dict[EntityType, str] = {
     entity_type: NeoLabel.from_entity_type(entity_type).value for entity_type in EntityType
 }

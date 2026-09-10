@@ -53,9 +53,8 @@ logger = get_logger("skuel.scripts.create_vector_indexes")
 
 
 # The labels this script creates indexes for — THE same constant the app's own
-# bootstrap sync reads (services_bootstrap/compose.py). Two hand-written lists
-# stood here and there with two different values; the reasons for each member,
-# and why Task/Goal are no longer among them, live on the constant.
+# bootstrap sync reads (services_bootstrap/compose.py), so the two cannot
+# disagree. The membership rule and each member's reader live on the constant.
 PRIORITY_ENTITIES = list(EmbeddingGeometry.INDEX_LABELS)
 
 

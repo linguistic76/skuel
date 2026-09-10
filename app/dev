@@ -22,11 +22,11 @@ NC='\033[0m' # No Color
 #
 # Readers: the `health)` block, the `health-*)` dispatcher, the help block, and
 # `./dev health --list`, which is what .github/workflows/weekly-janitor.yml
-# consumes. Adding a check was nine hand edits across six files; it is now one
-# entry here plus the one documented copy, and that copy is PINNED —
-# tests/unit/scripts/test_health_check_parity.py fails and names the file
-# rather than leaving it to be noticed. The same module pins this array to the
-# runnable scripts under scripts/health/ and to the janitor.
+# consumes. Adding a check is one entry here plus the one documented copy in
+# docs/tools/HEALTH_CHECKS.md, and that copy is PINNED — no reader keeps its
+# own list. tests/unit/scripts/test_health_check_parity.py holds all of it
+# shut: this array, the documented copy, the janitor, and every runnable
+# script under scripts/health/.
 #
 # Single-quoted elements: a backtick inside a double-quoted bash string opens
 # command substitution.

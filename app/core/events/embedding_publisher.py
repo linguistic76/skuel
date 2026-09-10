@@ -78,10 +78,8 @@ EMBEDDING_EVENT_TYPES: dict[EntityType, type[EmbeddingRequested]] = {
 # Consumed by the background worker (embedding storage label) and the backfill
 # script (candidate queries + storage).
 #
-# DERIVED, not transcribed: the membership comes from EMBEDDING_EVENT_TYPES and
-# each label from NeoLabel, so neither can drift. Written out by hand it was a
-# third copy of "which types are embeddable" beside a second copy of
-# "EntityType → label", and both had to be edited in step with the first.
+# DERIVED, never written out: membership comes from EMBEDDING_EVENT_TYPES and
+# each label from NeoLabel, so this map cannot disagree with either.
 EMBEDDING_NODE_LABELS: dict[EntityType, str] = {
     entity_type: NeoLabel.from_entity_type(entity_type).value
     for entity_type in EMBEDDING_EVENT_TYPES
