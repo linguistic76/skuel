@@ -139,6 +139,7 @@ from functools import lru_cache
 from pathlib import Path, PurePath, PurePosixPath
 from typing import NamedTuple
 
+import pytest
 import tree_sitter_bash
 import yaml
 from tree_sitter import Language, Node, Parser
@@ -303,11 +304,6 @@ _STATE_NEUTRAL_VERBS = frozenset(
         "[[",
         "trap",
         "read",
-        # `read`'s array sibling: it assigns a shell variable from stdin and
-        # exports nothing. weekly-janitor.yml reads the health-check roster
-        # with it (`mapfile -t checks < <(./dev health --list)`).
-        "mapfile",
-        "readarray",
         "shift",
         "git",
         "npm",
@@ -1039,6 +1035,15 @@ def _collect_from_shell(
             continue
 
         if name not in _STATE_NEUTRAL_VERBS and not command.local_function:
+            if name in _ARRAY_READ_BUILTINS and not _reads_with_callback(args):
+                # `read`'s array siblings assign a shell variable and export
+                # nothing — weekly-janitor.yml reads the health-check roster
+                # with `mapfile -t checks < <(./dev health --list)`.
+                # `-C callback` is the exception and stays refused: bash
+                # evaluates it in THIS shell every QUANTUM lines, so it can
+                # `cd` while the verb reads as neutral, moving the ground under
+                # _resolve_script for every later command (Codex P2, PR #1308).
+                continue
             if name == "set" and not {"-a", "+a", "allexport"} & set(args):
                 # Shell OPTIONS (`set -euo pipefail`) touch neither env nor cwd.
                 # `set -a` would, by exporting every later assignment, so it is
@@ -1064,6 +1069,21 @@ def _collect_from_shell(
                 )
             )
     return found
+
+
+_ARRAY_READ_BUILTINS = frozenset({"mapfile", "readarray"})
+
+
+def _reads_with_callback(args: list[str]) -> bool:
+    """True when a mapfile/readarray call carries ``-C``, which bash evaluates here.
+
+    Fails closed on option CLUSTERING: bash accepts ``-tC cb`` as one token
+    carrying both flags, so the test is "a short-option bundle containing C",
+    not equality with ``-C``.
+    """
+    return any(
+        token.startswith("-") and not token.startswith("--") and "C" in token for token in args
+    )
 
 
 def _is_repo_dev_runner(written: str, workdir: Path, root: Path) -> bool:
@@ -1942,6 +1962,50 @@ def _write_dev_runner(tmp_path: Path) -> Path:
     runner.parent.mkdir(parents=True, exist_ok=True)
     runner.write_text("#!/bin/bash\nuv run python scripts/health/x.py\n", encoding="utf-8")
     return runner
+
+
+def test_control_mapfile_without_a_callback_is_neutral(tmp_path: Path) -> None:
+    """The janitor's shape: `mapfile -t` only assigns an array."""
+    assert (
+        _problems(
+            tmp_path,
+            """
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - run: mapfile -t checks < <(cat roster.txt)
+""",
+        )
+        == []
+    )
+
+
+@pytest.mark.parametrize(
+    "invocation",
+    ["mapfile -C do_thing -c 1 -t checks < f", "readarray -tC do_thing -c 1 checks < f"],
+    ids=["separate", "clustered"],
+)
+def test_control_mapfile_with_a_callback_is_refused(tmp_path: Path, invocation: str) -> None:
+    """`-C callback` is evaluated in THIS shell and can `cd`.
+
+    The clustered form is the reason the check is "a bundle containing C"
+    rather than equality with "-C": bash accepts `-tC cb`, and an equality
+    test would wave it through while the callback moves the working directory
+    under every script resolved afterwards.
+    """
+    problems = _problems(
+        tmp_path,
+        f"""
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - run: {invocation}
+""",
+    )
+    assert len(problems) == 1
+    assert "unrecognised command verb" in problems[0]
 
 
 def test_control_dev_runner_demands_a_pin(tmp_path: Path) -> None:
