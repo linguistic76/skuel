@@ -399,6 +399,46 @@ class EmbeddingGeometry:
     # Vector dimension shared by all embedding providers and vector indexes.
     DIMENSION: Final = 1024
 
+    # THE labels that carry a vector index — the one list read by the bootstrap
+    # sync (services_bootstrap/compose.py) and by
+    # scripts/create_vector_indexes.py.
+    #
+    # Each member and its reader:
+    #   Entity          — cross-domain semantic search (daily planning, learning
+    #                     intelligence); covers every domain node via multi-label
+    #   ContentChunk    — RAG chunk retrieval (SearchRouter, Askesis)
+    #   ReferenceChunk  — canon reference-book retrieval, own index, deliberately
+    #                     invisible to SearchRouter
+    #   Ku / PathStep   — node→node "Related concepts" on the explore detail pages
+    #   LearningPath    — the SearchRouter hybrid rung's vector half
+    #   Task / Goal     — reached by the label-generic semantic / learning-aware
+    #                     rung (`SearchRouter._semantic_or_learning_search`), whose
+    #                     label is `NeoLabel.from_domain(entity_type)` for whatever
+    #                     domain the request scopes to
+    #
+    # ⚠ That last rung can ask for a label NOT in this tuple — Habit, Choice,
+    # Principle, Event, Exercise and UserEntry are all reachable through it and
+    # have no per-label index, so the `/search` "Semantic boost" and
+    # "Learning-aware" toggles degrade to standard search for them without
+    # saying so. This tuple is what EXISTS, not a set anyone chose; closing the
+    # gap is a search-design decision, registered in
+    # docs/roadmap/deferred-work.md § Label-Generic Vector Rung Has No Index for
+    # Most Domains. Until it is taken, do not narrow this tuple: a label removed
+    # here is a rung that silently stops working.
+    #
+    # Index NAMES need no coordination: creation and query both derive
+    # `{label.lower()}_embedding_idx`.
+    INDEX_LABELS: Final[tuple[str, ...]] = (
+        "Entity",
+        "ContentChunk",
+        "ReferenceChunk",
+        "Ku",
+        "PathStep",
+        "LearningPath",
+        "Task",
+        "Goal",
+    )
+
 
 class QueryProcessorConfidence:
     """

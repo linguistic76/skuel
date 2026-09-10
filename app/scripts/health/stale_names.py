@@ -290,7 +290,6 @@ _adr073 = "ADR-073 § 3 amendment (2026-09-02) recording the Pipeline.JOURNAL de
 _askesis_arch = "change-history table recording the entities_rich unification / ActivityDataReader absorption / ActivityReviewService split"
 _askesis_intel = "'the former ActivityReviewService was split' -- historical record of the split"
 _entity_arch = "'Pipeline and ReportSource (supersede ProcessorType)' explainer -- names the retired enum to document its replacement"
-_freshness = "demonstrates this scanner by naming tracked (renamed/deleted) identifiers as examples"
 _intel_index = "'KnowledgePatternAnalyzer generalized from AnalyticsEngine' -- provenance of the generalization"
 _m2a = "'Methods moved from' provenance table -- names the source file the methods migrated from"
 _m_actui = "migration record -- test snippets using KuStatus as it stood pre-EntityStatus rename"
@@ -477,13 +476,6 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         # lead (#1255, 2026-09-04). Anchor re-derived from the scanner's report,
         # never by adding the diff's line delta.
         (241, "Pipeline.JOURNAL"): Allow(_sweep_q),
-    },
-    "docs/user-guides/documentation-freshness.md": {
-        # 127/128 → 128/129: the health-command list above them gained a
-        # `health-headings` line (2026-08-25). Anchors re-derived from the
-        # scanner's report, never by adding the diff's line delta.
-        (128, "KuTaskCreateRequest"): Allow(_freshness),
-        (129, "ProfileLayout"): Allow(_freshness),
     },
 }
 

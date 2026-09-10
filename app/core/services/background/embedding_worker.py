@@ -50,24 +50,9 @@ if TYPE_CHECKING:
 
     from core.services.embeddings_service import EmbeddingsService
 
-from core.events import (
-    ChoiceEmbeddingRequested,
-    ChunkEmbeddingRequested,
-    EventEmbeddingRequested,
-    ExerciseEmbeddingRequested,
-    GoalEmbeddingRequested,
-    HabitEmbeddingRequested,
-    KuEmbeddingRequested,
-    LearningPathEmbeddingRequested,
-    PathStepEmbeddingRequested,
-    PrincipleEmbeddingRequested,
-    ReferenceChunkEmbeddingRequested,
-    ResourceEmbeddingRequested,
-    RevisedExerciseEmbeddingRequested,
-    TaskEmbeddingRequested,
-    UserEntryEmbeddingRequested,
-)
+from core.events import ChunkEmbeddingRequested, ReferenceChunkEmbeddingRequested
 from core.events.embedding_events import EmbeddingRequested
+from core.events.embedding_publisher import EMBEDDING_EVENT_TYPES
 from core.ports.infrastructure_protocols import EventBusOperations
 from core.services.embeddings_service import EMBEDDING_VERSION
 from core.utils.exception_types import NEO4J_EXCEPTIONS
@@ -172,26 +157,17 @@ class EmbeddingBackgroundWorker:
         ``drain()`` the queues once — without the timer loop. In the app process,
         ``start()`` calls this and then loops.
         """
-        # Subscribe to all embedding request events — Activity domains
-        self.event_bus.subscribe(TaskEmbeddingRequested, self._queue_request)
-        self.event_bus.subscribe(GoalEmbeddingRequested, self._queue_request)
-        self.event_bus.subscribe(HabitEmbeddingRequested, self._queue_request)
-        self.event_bus.subscribe(EventEmbeddingRequested, self._queue_request)
-        self.event_bus.subscribe(ChoiceEmbeddingRequested, self._queue_request)
-        self.event_bus.subscribe(PrincipleEmbeddingRequested, self._queue_request)
+        # DERIVED from the publisher's map: iterating EMBEDDING_EVENT_TYPES makes
+        # "publishable" and "subscribed" the same fact, so a type that gains an
+        # event class is subscribed by that alone.
+        # UserEntry rides this loop like the rest — it is pipeline-scoped at the
+        # PUBLISHER (UserEntryService gates on pipeline=knowledge), so everything
+        # that arrives here embeds.
+        for event_cls in EMBEDDING_EVENT_TYPES.values():
+            self.event_bus.subscribe(event_cls, self._queue_request)
 
-        # Subscribe to all embedding request events — Curriculum types
-        self.event_bus.subscribe(KuEmbeddingRequested, self._queue_request)
-        self.event_bus.subscribe(ResourceEmbeddingRequested, self._queue_request)
-        self.event_bus.subscribe(ExerciseEmbeddingRequested, self._queue_request)
-        self.event_bus.subscribe(PathStepEmbeddingRequested, self._queue_request)
-        self.event_bus.subscribe(LearningPathEmbeddingRequested, self._queue_request)
-        self.event_bus.subscribe(RevisedExerciseEmbeddingRequested, self._queue_request)
-
-        # UserEntry — pipeline-scoped at the publisher (UserEntryService gates
-        # on pipeline=knowledge), so everything that arrives here embeds.
-        self.event_bus.subscribe(UserEntryEmbeddingRequested, self._queue_request)
-
+        # Chunk events are NOT in that map and stay explicit: they carry no
+        # EntityType, land in a separate queue, and are keyed by chunk uid.
         # Subscribe to chunk embedding requests (separate queue). Both the
         # curriculum and canon reference variants share the queue and the
         # _PendingChunkRequest wrapper — the batch routes each to its adapter

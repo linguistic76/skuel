@@ -1,6 +1,6 @@
 ---
 title: Documentation Freshness Guide
-updated: 2026-09-08
+updated: 2026-09-10
 status: current
 category: user-guides
 tags: [documentation, freshness, health-checks, hooks, cross-references, staleness]
@@ -24,8 +24,8 @@ Commit lands
 
 Any time
     │
-    ├─ ./dev health          → the automated drift checks
-    └─ ./dev health-xref     → cross-reference + staleness
+    └─ ./dev health          → the automated drift checks
+         (roster: ./dev health --list; one at a time: ./dev help)
 ```
 
 ---
@@ -80,105 +80,39 @@ A skill is flagged when either:
 
 ## System 2: Health Checks (`./dev health`)
 
-**Location:** `scripts/health/` + `scripts/validate_cross_references.py`
+**Location:** the `HEALTH_CHECKS` array in `app/dev` — one roster, read by the
+`health` block, the `health-<name>` targets, `./dev help` and the weekly janitor
 **Trigger:** Manual — run anytime, especially after refactors
 
-Each check catches a different kind of drift:
-
 ```bash
-./dev health              # every check below
-./dev health-modules      # dead Python modules only
-./dev health-links        # broken doc links only
-./dev health-names        # stale identifiers in docs only
-./dev health-headings     # repeated headings under one parent only
-./dev health-xref         # cross-reference + staleness only
+./dev health              # every check in the roster
+./dev health --list       # print the roster (name:script)
+./dev health-<name>       # one check; `./dev help` lists the targets
 ```
 
-Each exits non-zero when issues are found (CI-compatible).
+Each check exits non-zero when issues are found (CI-compatible). Everything in the
+roster also runs weekly via `.github/workflows/weekly-janitor.yml`, which reads
+the roster from `./dev health --list`; `health-mypy` sits outside it (~80s) and
+has its own weekly workflow.
 
-### Check 1: Dead Modules (`health-modules`)
+**The roster and the per-check detail live in
+[../tools/HEALTH_CHECKS.md](../tools/HEALTH_CHECKS.md)** — what each check finds,
+its sample output, its scope and its known limitations. This guide deliberately
+does not repeat them: the two enumerations that stood here (a command block and
+the Quick Reference table below) had both gone three checks stale, listing five
+of eight, which is what a second copy of a membership fact does.
 
-Finds Python files with zero importers — orphaned after refactors.
+Two per-check notes that belong to *this* guide's workflow rather than to the
+checks themselves:
 
-```
-Dead Modules — 23 files with zero importers:
-  ● (example removed — skuel_query_templates.py deleted March 2026)
-```
-
-**When to run:** After monolith dissolution, service splits, major refactors.
-**False positives:** Low. Review flagged files before deleting — some may be dynamically loaded.
-
-### Check 2: Dead Doc Links (`health-links`)
-
-Finds broken links in `.md` files (markdown links, backtick paths, bare absolute paths).
-
-```
-  docs/patterns/three_tier_type_system.md
-    L 500  [backtick]  /core/models/task/task_converters.py
-```
-
-**When to run:** After file renames or deletes.
-
-### Check 3: Stale Names (`health-names`)
-
-Finds renamed or deleted identifiers in documentation code blocks.
-
-```
-  CLAUDE.md
-    L  47  KuTaskCreateRequest → TaskCreateRequest
-    L 945  [DELETED] ProfileLayout
-```
-
-Only scans code blocks (fenced ` ``` ` and inline backticks), not prose. Prose mentions like "we renamed X to Y" are legitimate.
-
-**Maintenance:** Update `scripts/health/stale_names.py` whenever you rename or delete a significant class, method, enum, or module. Run `./dev health-names --list` to see all rules.
-
-### Check 4: Duplicate Headings (`health-headings`)
-
-Finds headings repeated at the same level under the same parent — a superseded section
-that outlived its replacement.
-
-```
-  docs/reference/SUB_SERVICE_CATALOG.md
-    L443   'EventHandlerService' repeats L291 under Sub-Service Catalog › Domain-Specific
-```
-
-`git grep` does not cover this: the duplicate is found by *position*, not by string, so
-grepping the title returns both copies and looks correct. Only a repeat under the **same
-parent** counts — `### Tests` under each of five sections is good structure, not a defect.
-
-**Scope:** `docs/` + `.claude/skills/`, excluding `docs/design-principles/` (pasted
-transcripts, where a repeated `## next` is faithful capture).
-
-### Check 5: Cross-References (`health-xref`)
-
-Validates bidirectional consistency between skills and documentation, and detects stale skills.
-
-```
-✅ Bidirectional Links: 80/111 (72.1%)
-❌ Broken Links: 1
-⚠️  Missing Reverse Links: 51
-🔵 Stale Skills: 0
-```
-
-**What it checks:**
-
-A doc declares its skill links in `related_skills:` frontmatter — that field, not
-prose `@skill` mentions, is what the validator reads.
-
-| Check | Severity | Meaning |
-|-------|----------|---------|
-| Broken skill reference | Error | A name in a doc's `related_skills` doesn't exist in `skills_metadata.yaml` |
-| Broken doc link | Error | Doc referenced in `skills_metadata.yaml` doesn't exist on disk |
-| Missing reverse link | Warning | Doc's `related_skills` names a skill that doesn't list that doc (or vice versa) |
-| Stale skill | Info | A skill's `primary_docs` have git commits after its `last_reviewed` date |
-
-**Fixing stale skills:**
-1. Review the skill's `SKILL.md` against its updated primary docs
-2. Make any needed changes to the skill content
-3. Bump `last_reviewed` in `.claude/skills/skills_metadata.yaml`
-
-**More detail:** `uv run python scripts/validate_cross_references.py --verbose`
+- **`health-names` is only as good as its tables.** Update `scripts/health/stale_names.py`
+  whenever you rename or delete a significant class, method, enum or module;
+  `./dev health-names --list` shows the current rules.
+- **`health-xref` reads frontmatter, not prose.** A doc declares its skill links in
+  `related_skills:` — an `@skill` mention in the body is invisible to the validator.
+  Fixing a stale skill means reviewing its `SKILL.md` against its updated
+  `primary_docs`, then bumping `last_reviewed` in
+  `.claude/skills/skills_metadata.yaml`.
 
 ---
 
@@ -232,11 +166,8 @@ uv run python scripts/docs_freshness.py --stale   # mtime-based staleness
 | Command | What It Does |
 |---------|-------------|
 | `./dev health` | Run every health check except `health-mypy` |
-| `./dev health-modules` | Find orphaned Python files |
-| `./dev health-links` | Find broken doc links |
-| `./dev health-names` | Find stale identifiers in doc code blocks |
-| `./dev health-headings` | Find repeated headings under one parent |
-| `./dev health-xref` | Validate skill↔doc cross-references |
+| `./dev health --list` | Print the roster — the names the `health-<name>` targets take |
+| `./dev help` | The individual `health-<name>` targets, one line each |
 | `./dev docs-check` | Run post-commit docs hook manually |
 
 **Configuration files:**

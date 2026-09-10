@@ -40,14 +40,16 @@ from core.events.embedding_events import (
     UserEntryEmbeddingRequested,
 )
 from core.models.enums.entity_enums import EntityType
+from core.models.enums.neo_labels import NeoLabel
 from core.utils.embedding_text_builder import EMBEDDING_FIELD_MAPS, build_embedding_text
 
 if TYPE_CHECKING:
     from core.ports.infrastructure_protocols import EventBusOperations
 
-# EntityType → event class for every type the background worker subscribes to.
-# Mirrors the worker's subscription list (embedding_worker.start) — extend both
-# together when a new entity type becomes embeddable.
+# EntityType → event class. THE embeddable-type roster: the background worker
+# subscribes by iterating this map and EMBEDDING_NODE_LABELS is derived from it,
+# so one entry here is the whole wiring — a type with a field map but no entry
+# here is embeddable in name only (registered in PLANNED_EMBEDDING_MAPS).
 # RESOURCE's producer is vault ingestion (Arc D 2026-07-03): descriptor files
 # ingest via ENTITY_CONFIGS[RESOURCE] (embeddable=True), so both ingest doors
 # publish ResourceEmbeddingRequested through this chokepoint. ResourceService
@@ -74,23 +76,13 @@ EMBEDDING_EVENT_TYPES: dict[EntityType, type[EmbeddingRequested]] = {
 
 # EntityType → Neo4j node label for every embeddable type — THE one label map.
 # Consumed by the background worker (embedding storage label) and the backfill
-# script (candidate queries + storage). Mirrors EMBEDDING_EVENT_TYPES 1:1
-# (guarded by tests/unit/services/ingestion/test_post_persist_embedding.py) —
-# extend all three together when a new entity type becomes embeddable.
+# script (candidate queries + storage).
+#
+# DERIVED, never written out: membership comes from EMBEDDING_EVENT_TYPES and
+# each label from NeoLabel, so this map cannot disagree with either.
 EMBEDDING_NODE_LABELS: dict[EntityType, str] = {
-    EntityType.TASK: "Task",
-    EntityType.GOAL: "Goal",
-    EntityType.HABIT: "Habit",
-    EntityType.EVENT: "Event",
-    EntityType.CHOICE: "Choice",
-    EntityType.PRINCIPLE: "Principle",
-    EntityType.KU: "Ku",
-    EntityType.RESOURCE: "Resource",
-    EntityType.EXERCISE: "Exercise",
-    EntityType.PATH_STEP: "PathStep",
-    EntityType.LEARNING_PATH: "LearningPath",
-    EntityType.REVISED_EXERCISE: "RevisedExercise",
-    EntityType.USER_ENTRY: "UserEntry",
+    entity_type: NeoLabel.from_entity_type(entity_type).value
+    for entity_type in EMBEDDING_EVENT_TYPES
 }
 
 

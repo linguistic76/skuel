@@ -45,17 +45,15 @@ const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 
 ### Pre-cached Assets (install event)
 
-```javascript
-const PRECACHE_URLS = [
-  '/offline.html',
-  '/static/css/main.css',
-  '/static/css/hierarchy.css',
-  '/static/js/skuel.js',
-  '/static/js/focus_trap.js',
-  '/static/icons/icon-192x192.png',
-  '/static/icons/icon-512x512.png',
-];
-```
+`PRECACHE_URLS` in `static/service-worker.js` is the list — read it there, never
+from this page. It covers the offline page, the shared CSS/JS, the app icons and
+every vendored library. A list here went stale the moment the vendor entries were
+added (this page carried 7 of 14 for months), and the cost of a wrong one is not
+cosmetic: `install` calls `cache.addAll()`, which rejects **wholesale** on a
+single 404, so one bad path breaks service-worker install for every client.
+
+`tests/unit/ui/test_vendored_asset_pins.py` pins the real list to the files on
+disk and to `ui/theme.py`'s version constants.
 
 ## Common Tasks
 

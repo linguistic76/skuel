@@ -52,22 +52,10 @@ from core.utils.logging import get_logger
 logger = get_logger("skuel.scripts.create_vector_indexes")
 
 
-# Labels carrying vector indexes. `Entity` covers every domain node via the
-# multi-label architecture; Task/Goal are per-label query optimizations;
-# ContentChunk powers RAG retrieval; ReferenceChunk powers canon reference
-# retrieval on its own index (SearchRouter-invisible); Ku/PathStep power the
-# node→node "Related concepts" lens on the explore detail pages;
-# LearningPath powers the SearchRouter hybrid rung's vector half.
-PRIORITY_ENTITIES = [
-    "Entity",
-    "ContentChunk",
-    "ReferenceChunk",
-    "Task",
-    "Goal",
-    "Ku",
-    "PathStep",
-    "LearningPath",
-]
+# The labels this script creates indexes for — THE same constant the app's own
+# bootstrap sync reads (services_bootstrap/compose.py), so the two cannot
+# disagree. The membership rule and each member's reader live on the constant.
+PRIORITY_ENTITIES = list(EmbeddingGeometry.INDEX_LABELS)
 
 
 async def create_vector_indexes(

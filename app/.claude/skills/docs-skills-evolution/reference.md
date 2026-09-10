@@ -570,20 +570,16 @@ Automated scripts in `scripts/health/` that prevent drift between refactors, doc
 
 ```bash
 ./dev health              # run every check (exit non-zero if any issues)
-./dev health-modules      # dead Python modules only
-./dev health-links        # broken doc links only
-./dev health-names        # stale identifiers in doc code blocks only
-./dev health-headings     # repeated headings under one parent only
+./dev health --list       # the roster, always current
 ```
 
-| Script | What it finds | When to run |
-|--------|--------------|-------------|
-| `dead_modules.py` | Python files with zero importers, and packages nothing outside themselves imports | After a monolith dissolution or service split |
-| `dead_doc_links.py` | Broken markdown links, backtick paths, bare absolute paths, fenced-code path tokens | After any file rename/delete |
-| `stale_names.py` | Old class/method/enum names in doc code blocks | After a rename or deprecation |
-| `duplicate_headings.py` | Repeated headings at the same level under the same parent — a superseded section outliving its replacement | After rewriting or reorganising a long document |
-| `docs_updated.py` | Docs whose frontmatter `updated:` stamp is missing or has rotted past the merge-latency window | Never by hand — the pre-commit stamper writes the field; this catches a bypassed hook |
-| `secret_scan_floor.py` | The commit-time secret scan firing on the repository's own content — a false positive that would get the fence bypassed | After changing `secret-patterns.txt`, `credential-keys.txt`, or `secret-scan.sh` |
+**The roster is not repeated here.** It lives in the `HEALTH_CHECKS` array in
+`app/dev`, and `docs/tools/HEALTH_CHECKS.md` carries the one pinned copy plus a
+section per check (what it finds, when to run, known limitations). The two
+enumerations that stood here — a five-line command block and a six-row script
+table — were both stale: the block had been missing `health-updated`,
+`health-xref` and `health-secrets` since those landed, and the table never had
+`validate_cross_references.py`. That is the whole argument for a pointer.
 
 **`dead_doc_links.py`** is the fastest way to confirm INDEX.md is clean after pruning docs. It specifically calls out INDEX.md violations:
 

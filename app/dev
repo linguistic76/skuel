@@ -13,6 +13,38 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
+# ---------------------------------------------------------------------------
+# THE health-check roster — one source, four readers
+# ---------------------------------------------------------------------------
+# Fields: name|script|tier|running-message|help-text
+#   tier "health" — runs inside `./dev health` (and the weekly janitor)
+#   tier "target" — reachable only as `./dev health-<name>`; own CI schedule
+#
+# Readers: the `health)` block, the `health-*)` dispatcher, the help block, and
+# `./dev health --list`, which is what .github/workflows/weekly-janitor.yml
+# consumes. Adding a check is one entry here plus the one documented copy in
+# docs/tools/HEALTH_CHECKS.md, and that copy is PINNED — no reader keeps its
+# own list. tests/unit/scripts/test_health_check_parity.py holds all of it
+# shut: this array, the documented copy, the janitor, and every runnable
+# script under scripts/health/.
+#
+# Single-quoted elements: a backtick inside a double-quoted bash string opens
+# command substitution.
+HEALTH_CHECKS=(
+  'modules|scripts/health/dead_modules.py|health|Checking for dead Python modules...|Find Python files with zero importers'
+  'links|scripts/health/dead_doc_links.py|health|Checking for broken documentation links...|Find broken links in docs/ and .claude/skills/'
+  'names|scripts/health/stale_names.py|health|Checking for stale/deprecated names in docs...|Find stale/deprecated identifiers in doc code blocks'
+  'headings|scripts/health/duplicate_headings.py|health|Checking for duplicate Markdown headings...|Find repeated headings under one parent in docs'
+  'updated|scripts/health/docs_updated.py|health|Checking docs `updated:` frontmatter stamps...|Find docs whose `updated:` stamp has rotted or is missing'
+  'xref|scripts/validate_cross_references.py|health|Validating skill↔doc cross-references...|Validate skill↔doc cross-references and staleness'
+  'secrets|scripts/health/secret_scan_floor.py|health|Running the secret scan over every tracked text file...|Run the commit-time secret scan over the whole tracked corpus'
+  # Deliberately NOT tier "health" — one mypy run per (block, code) pair puts
+  # this at ~80s, and a fast target that grows a slow tail stops being run. It
+  # has its own weekly workflow (mypy-suppressions.yml). See the script
+  # docstring for the full placement reasoning.
+  'mypy|scripts/health/mypy_suppressions.py|target|Auditing mypy suppressions that suppress nothing...|Find mypy suppressions that suppress nothing (~80s, not in health)'
+)
+
 case "$1" in
   format)
     echo -e "${GREEN}Formatting code...${NC}"
@@ -231,23 +263,29 @@ case "$1" in
     ;;
 
   health)
+    # `--list` is the machine door: one `name:script` line per tier-"health"
+    # entry, consumed by .github/workflows/weekly-janitor.yml. Pure bash — no
+    # uv, no venv — so reading the roster cannot fail for toolchain reasons,
+    # and an empty result means the array, not the environment.
+    if [ "$2" = "--list" ]; then
+      for check in "${HEALTH_CHECKS[@]}"; do
+        IFS='|' read -r name script tier _msg _help <<< "$check"
+        if [ "$tier" = "health" ]; then
+          echo "$name:$script"
+        fi
+      done
+      exit 0
+    fi
     echo -e "${YELLOW}Running codebase health checks...${NC}"
     echo ""
     failed=0
-    uv run python scripts/health/dead_modules.py || failed=1
-    echo ""
-    uv run python scripts/health/dead_doc_links.py || failed=1
-    echo ""
-    uv run python scripts/health/stale_names.py || failed=1
-    echo ""
-    uv run python scripts/health/duplicate_headings.py || failed=1
-    echo ""
-    uv run python scripts/health/docs_updated.py || failed=1
-    echo ""
-    uv run python scripts/validate_cross_references.py || failed=1
-    echo ""
-    uv run python scripts/health/secret_scan_floor.py || failed=1
-    echo ""
+    for check in "${HEALTH_CHECKS[@]}"; do
+      IFS='|' read -r _name script tier _msg _help <<< "$check"
+      if [ "$tier" = "health" ]; then
+        uv run python "$script" || failed=1
+        echo ""
+      fi
+    done
     if [ $failed -eq 1 ]; then
       echo -e "${RED}✗ Health check found issues — review output above${NC}"
       exit 1
@@ -256,47 +294,32 @@ case "$1" in
     fi
     ;;
 
-  health-modules)
-    echo -e "${YELLOW}Checking for dead Python modules...${NC}"
-    uv run python scripts/health/dead_modules.py
-    ;;
-
-  health-links)
-    echo -e "${YELLOW}Checking for broken documentation links...${NC}"
-    uv run python scripts/health/dead_doc_links.py
-    ;;
-
-  health-names)
-    echo -e "${YELLOW}Checking for stale/deprecated names in docs...${NC}"
-    uv run python scripts/health/stale_names.py "${@:2}"
-    ;;
-
-  health-headings)
-    echo -e "${YELLOW}Checking for duplicate Markdown headings...${NC}"
-    uv run python scripts/health/duplicate_headings.py "${@:2}"
-    ;;
-
-  health-updated)
-    echo -e "${YELLOW}Checking docs \`updated:\` frontmatter stamps...${NC}"
-    uv run python scripts/health/docs_updated.py "${@:2}"
-    ;;
-
-  health-xref)
-    echo -e "${YELLOW}Validating skill↔doc cross-references...${NC}"
-    uv run python scripts/validate_cross_references.py
-    ;;
-
-  health-secrets)
-    echo -e "${YELLOW}Running the secret scan over every tracked text file...${NC}"
-    uv run python scripts/health/secret_scan_floor.py
-    ;;
-
-  health-mypy)
-    # Deliberately NOT part of `./dev health` — one mypy run per (block, code)
-    # pair puts this at ~80s, and a fast target that grows a slow tail stops
-    # being run. See the script docstring for the full placement reasoning.
-    echo -e "${YELLOW}Auditing mypy suppressions that suppress nothing...${NC}"
-    uv run python scripts/health/mypy_suppressions.py "${@:2}"
+  health-*)
+    # One dispatcher for every `./dev health-<name>` target. Args after the
+    # target name are forwarded to EVERY check: an arm that drops "${@:2}"
+    # swallows the flag it was invoked with and reports on something else.
+    target="${1#health-}"
+    script=""
+    msg=""
+    for check in "${HEALTH_CHECKS[@]}"; do
+      IFS='|' read -r name entry_script _tier entry_msg _help <<< "$check"
+      if [ "$name" = "$target" ]; then
+        script="$entry_script"
+        msg="$entry_msg"
+        break
+      fi
+    done
+    if [ -z "$script" ]; then
+      echo -e "${RED}Unknown health target: $1${NC}" >&2
+      echo -n "Known targets:" >&2
+      for check in "${HEALTH_CHECKS[@]}"; do
+        echo -n " health-${check%%|*}" >&2
+      done
+      echo "" >&2
+      exit 1
+    fi
+    echo -e "${YELLOW}${msg}${NC}"
+    uv run python "$script" "${@:2}"
     ;;
 
   docs-check)
@@ -366,15 +389,11 @@ case "$1" in
     echo "  ./dev docs-links     - Advisory: docs→docs links still repo-root-absolute (--apply rewrites them relative)"
     echo ""
     echo "Health Checks:"
-    echo "  ./dev health         - Run all health checks (modules + links + names + headings + updated + xref)"
-    echo "  ./dev health-modules - Find Python files with zero importers"
-    echo "  ./dev health-links   - Find broken links in docs/ and .claude/skills/"
-    echo "  ./dev health-names   - Find stale/deprecated identifiers in doc code blocks"
-    echo "  ./dev health-headings - Find repeated headings under one parent in docs"
-    echo "  ./dev health-updated - Find docs whose \`updated:\` stamp has rotted or is missing"
-    echo "  ./dev health-xref    - Validate skill↔doc cross-references and staleness"
-    echo "  ./dev health-secrets - Run the commit-time secret scan over the whole tracked corpus"
-    echo "  ./dev health-mypy    - Find mypy suppressions that suppress nothing (~80s, not in health)"
+    echo "  ./dev health         - Run every check in the roster (--list prints it)"
+    for check in "${HEALTH_CHECKS[@]}"; do
+      IFS='|' read -r name _script _tier _msg help_text <<< "$check"
+      printf "  ./dev health-%-9s- %s\n" "$name" "$help_text"
+    done
     echo ""
     echo "Testing:"
     echo "  ./dev test              - unit + integration + infrastructure [RECOMMENDED]"

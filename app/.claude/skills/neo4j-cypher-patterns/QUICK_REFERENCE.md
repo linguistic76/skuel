@@ -86,7 +86,7 @@ validate_identifier(field)   # safe identifier or ValueError
 | Domain (uid/status/date/composite) | ~48 | Always | `sync_domain_indexes()` |
 | Full-text (Lucene) | 14 | Always | 6 Activity + 4 Curriculum + 2 Learning Loop + 2 Forms. Read by the hybrid rung (Ku/PS/LP, FULL tier, `advanced_search` only) — every other text search is `CONTAINS` |
 | Auth | — | Always | sessions, rate limiting, email uniqueness |
-| Vector (1024-dim cosine) | 8 | FULL only | Entity, ContentChunk, ReferenceChunk, Ku, PathStep, LearningPath (bootstrap) + Goal, Task (`scripts/create_vector_indexes.py`) |
+| Vector (1024-dim cosine) | — | FULL only | `EmbeddingGeometry.INDEX_LABELS` is the list — one constant read by both the bootstrap sync and `scripts/create_vector_indexes.py`. It holds what exists, not a chosen set: the label-generic semantic/learning rung can ask for a domain outside it and degrades silently (see `deferred-work.md` § Label-Generic Vector Rung) |
 
 ```cypher
 CALL db.index.fulltext.queryNodes('task_fulltext_idx', 'urgent deadline') YIELD node, score

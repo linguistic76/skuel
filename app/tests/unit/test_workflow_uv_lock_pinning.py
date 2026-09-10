@@ -139,6 +139,7 @@ from functools import lru_cache
 from pathlib import Path, PurePath, PurePosixPath
 from typing import NamedTuple
 
+import pytest
 import tree_sitter_bash
 import yaml
 from tree_sitter import Language, Node, Parser
@@ -963,6 +964,46 @@ def _collect_from_shell(
                 )
             continue
 
+        # `./dev <verb>` — this repo's own command runner. It is a DISPATCHER,
+        # so the invocation is classified by verb rather than followed or
+        # modelled wholesale:
+        #
+        #   Not FOLLOWED. Script resolution is path-based, not control-flow
+        #   aware, so following `dev` would drag every script any OTHER verb
+        #   runs (pre_merge_check.sh, deploy.sh) into the census of a job that
+        #   runs none of them — 30+ phantom findings from one `./dev health
+        #   --list`.
+        #
+        #   Not modelled as one uv shape either. The arms have CONTRADICTORY
+        #   requirements: `health` runs `uv run` and needs a job-level
+        #   UV_FROZEN, while `audit-deps` reaches audit_dependencies.sh, which
+        #   exits 3 *under* UV_FROZEN because the var guts its own
+        #   `uv lock --check`. Synthesizing "unpinned uv run" for every verb
+        #   leaves that entrypoint with no accepted configuration at all.
+        #
+        # So: a verb known to run no uv passes; everything else is REFUSED
+        # until someone classifies it. Fail-closed, and deliberately not a
+        # copy of `dev`'s case labels — this is the set a WORKFLOW invokes,
+        # which is one entry today.
+        if _is_repo_dev_runner(written, workdir, root):
+            inputs.add((workdir / written).resolve())
+            if tuple(args) in _DEV_INVOCATIONS_WITHOUT_UV:
+                continue
+            refused.append(
+                RefusedCommand(
+                    origin=origin,
+                    rendered=" ".join(tokens),
+                    headline="an unclassified ./dev verb",
+                    reason="`dev` is a dispatcher, so this guard cannot tell which arm "
+                    "runs, and the arms disagree about uv (`health` needs UV_FROZEN; "
+                    "`audit-deps` refuses to run under it)",
+                    fix="invoke the underlying script directly, or add this exact "
+                    "invocation to _DEV_INVOCATIONS_WITHOUT_UV once you have checked "
+                    "that the verb runs no uv",
+                )
+            )
+            continue
+
         # `command -v NAME` (and -V) is a pure QUERY: it prints how NAME would
         # resolve and executes nothing, so it can neither invoke uv nor change
         # what a later command sees. The judgement is deliberately this narrow —
@@ -1004,6 +1045,15 @@ def _collect_from_shell(
             continue
 
         if name not in _STATE_NEUTRAL_VERBS and not command.local_function:
+            if name in _ARRAY_READ_BUILTINS and not _reads_with_callback(args):
+                # `read`'s array siblings assign a shell variable and export
+                # nothing — weekly-janitor.yml reads the health-check roster
+                # with `mapfile -t checks < <(./dev health --list)`.
+                # `-C callback` is the exception and stays refused: bash
+                # evaluates it in THIS shell every QUANTUM lines, so it can
+                # `cd` while the verb reads as neutral, moving the ground under
+                # _resolve_script for every later command.
+                continue
             if name == "set" and not {"-a", "+a", "allexport"} & set(args):
                 # Shell OPTIONS (`set -euo pipefail`) touch neither env nor cwd.
                 # `set -a` would, by exporting every later assignment, so it is
@@ -1029,6 +1079,38 @@ def _collect_from_shell(
                 )
             )
     return found
+
+
+# `./dev` invocations a workflow may make that run no uv at all, as exact
+# argument vectors. `health --list` prints the HEALTH_CHECKS array from bash and
+# never reaches the venv — weekly-janitor.yml reads its roster with it.
+_DEV_INVOCATIONS_WITHOUT_UV: frozenset[tuple[str, ...]] = frozenset({("health", "--list")})
+
+_ARRAY_READ_BUILTINS = frozenset({"mapfile", "readarray"})
+
+
+def _reads_with_callback(args: list[str]) -> bool:
+    """True when a mapfile/readarray call carries ``-C``, which bash evaluates here.
+
+    Fails closed on option CLUSTERING: bash accepts ``-tC cb`` as one token
+    carrying both flags, so the test is "a short-option bundle containing C",
+    not equality with ``-C``.
+    """
+    return any(
+        token.startswith("-") and not token.startswith("--") and "C" in token for token in args
+    )
+
+
+def _is_repo_dev_runner(written: str, workdir: Path, root: Path) -> bool:
+    """True when this command is THIS repo's `app/dev`, not some other `dev`.
+
+    Keyed on the resolved path, not the basename: a `dev` on PATH elsewhere is
+    not the runner whose uv usage this judgement covers.
+    """
+    if PurePath(written).name != "dev":
+        return False
+    path = (workdir / written).resolve()
+    return path.is_file() and path == (root / "app" / "dev").resolve()
 
 
 def _resolve_script(
@@ -1887,6 +1969,168 @@ jobs:
     )
     assert len(problems) == 1
     assert "lock env var is written inside a shell command" in problems[0]
+
+
+def _write_dev_runner(tmp_path: Path) -> Path:
+    """A stand-in for this repo's `app/dev`, so the resolved-path test matches."""
+    runner = tmp_path / "app" / "dev"
+    runner.parent.mkdir(parents=True, exist_ok=True)
+    runner.write_text("#!/bin/bash\nuv run python scripts/health/x.py\n", encoding="utf-8")
+    return runner
+
+
+def test_control_mapfile_without_a_callback_is_neutral(tmp_path: Path) -> None:
+    """The janitor's shape: `mapfile -t` only assigns an array."""
+    assert (
+        _problems(
+            tmp_path,
+            """
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - run: mapfile -t checks < <(cat roster.txt)
+""",
+        )
+        == []
+    )
+
+
+@pytest.mark.parametrize(
+    "invocation",
+    ["mapfile -C do_thing -c 1 -t checks < f", "readarray -tC do_thing -c 1 checks < f"],
+    ids=["separate", "clustered"],
+)
+def test_control_mapfile_with_a_callback_is_refused(tmp_path: Path, invocation: str) -> None:
+    """`-C callback` is evaluated in THIS shell and can `cd`.
+
+    The clustered form is the reason the check is "a bundle containing C"
+    rather than equality with "-C": bash accepts `-tC cb`, and an equality
+    test would wave it through while the callback moves the working directory
+    under every script resolved afterwards.
+    """
+    problems = _problems(
+        tmp_path,
+        f"""
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - run: {invocation}
+""",
+    )
+    assert len(problems) == 1
+    assert "unrecognised command verb" in problems[0]
+
+
+def test_control_dev_runner_classified_verb_runs_no_uv(tmp_path: Path) -> None:
+    """`./dev health --list` prints a bash array — no uv, so no pin is demanded.
+
+    weekly-janitor.yml reads its health-check roster this way.
+    """
+    _write_dev_runner(tmp_path)
+    assert (
+        _problems(
+            tmp_path,
+            """
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - working-directory: app
+        run: mapfile -t checks < <(./dev health --list)
+""",
+        )
+        == []
+    )
+
+
+def test_control_dev_runner_unclassified_verb_is_refused(tmp_path: Path) -> None:
+    """Fail closed: `dev` is a dispatcher, so an unclassified verb is unreadable.
+
+    `audit-deps` is the case that makes "model every verb as unpinned uv"
+    wrong — it reaches audit_dependencies.sh, which exits 3 UNDER UV_FROZEN, so
+    demanding a job-level pin would leave it with no valid configuration.
+    Refusing instead puts the decision at the call site.
+    """
+    _write_dev_runner(tmp_path)
+    problems = _problems(
+        tmp_path,
+        """
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      UV_FROZEN: "1"
+    steps:
+      - working-directory: app
+        run: ./dev audit-deps
+""",
+    )
+    assert len(problems) == 1
+    assert "an unclassified ./dev verb" in problems[0]
+
+
+def test_control_dev_runner_bare_verb_is_refused(tmp_path: Path) -> None:
+    """A classified PREFIX does not license the verb alone: `health` runs uv."""
+    _write_dev_runner(tmp_path)
+    problems = _problems(
+        tmp_path,
+        """
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      UV_FROZEN: "1"
+    steps:
+      - working-directory: app
+        run: ./dev health
+""",
+    )
+    assert len(problems) == 1
+    assert "an unclassified ./dev verb" in problems[0]
+
+
+def test_control_dev_runner_is_not_followed(tmp_path: Path) -> None:
+    """Resolution is path-based, not control-flow aware.
+
+    The stand-in carries a command the guard refuses (`gh`), exactly as the real
+    `dev` reaches through `pre_merge_check.sh`; a followed `dev` would report it
+    even for a job that invokes no such verb.
+    """
+    runner = tmp_path / "app" / "dev"
+    runner.parent.mkdir(parents=True, exist_ok=True)
+    runner.write_text("#!/bin/bash\ngh pr view\n", encoding="utf-8")
+    problems = _problems(
+        tmp_path,
+        """
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - working-directory: app
+        run: ./dev health --list
+""",
+    )
+    assert problems == [], f"dev was followed into its other verbs: {problems}"
+
+
+def test_control_a_different_dev_on_path_is_still_refused(tmp_path: Path) -> None:
+    """The judgement is about THIS repo's runner, matched by resolved path."""
+    problems = _problems(
+        tmp_path,
+        """
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      UV_FROZEN: "1"
+    steps:
+      - run: dev deploy
+""",
+    )
+    assert len(problems) == 1
+    assert "unrecognised command verb ('dev')" in problems[0]
 
 
 def test_control_uv_lock_check_is_pin_evidence(tmp_path: Path) -> None:
