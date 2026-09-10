@@ -1,42 +1,29 @@
 """Pin the health-check roster to its readers — ``dev``, the janitor, the docs.
 
-Why this exists
----------------
-``./dev health`` used to be a *catalog copy*: the same membership fact written out
-by hand in nine places across six files (``dev`` three times — the ``health`` block,
-one ``health-<name>`` arm each, and the help line — plus five sites in
-``.github/workflows/weekly-janitor.yml`` and the docs). It drifted by hand twice on
-record: ``docs_updated.py`` (2026-09-01) and ``secret_scan_floor.py`` (2026-09-09),
-each costing a hand edit at every site, and each time a site was missed. Nothing
-caught either addition automatically.
-
-``app/dev``'s ``HEALTH_CHECKS`` array is now the one source: the ``health`` block,
-the ``health-*`` dispatcher and the help block all read it, and ``./dev health
---list`` hands the roster to the weekly janitor. This module holds the seam shut
-from four directions:
+The roster is the ``HEALTH_CHECKS`` array in ``app/dev``. The ``health`` block,
+the ``health-*`` dispatcher and the help block read it, and ``./dev health
+--list`` hands it to ``.github/workflows/weekly-janitor.yml``. This module holds
+that seam shut from four directions:
 
 1. **The array parses and the script agrees with it.** The literal is read out of
    ``dev`` AND ``./dev health --list`` is executed — a roster that parses but does
    not run is not a source.
 2. **No runnable check is left off it.** Every ``scripts/health/*.py`` with a
-   ``__main__`` guard is in the roster or in :data:`DELIBERATELY_UNREGISTERED` with
-   a reason (and an entry there that IS in the roster is stale — the SKUEL026
-   discipline). Two traps this direction has to survive: ``markdown_fences.py`` is
-   a *library* with no ``__main__`` and must not be demanded, and
-   ``validate_cross_references.py`` lives outside ``scripts/health/`` — the family
-   is a roster, not a directory.
-3. **The janitor enumerates nothing.** It must call ``./dev health --list`` and must
-   not name a health-tier script itself.
+   ``__main__`` guard is in the roster or in :data:`DELIBERATELY_UNREGISTERED`
+   with a reason (and an entry there that IS in the roster is stale — the
+   SKUEL026 discipline). Two traps this direction must survive:
+   ``markdown_fences.py`` is a *library* with no ``__main__`` and must not be
+   demanded, and ``validate_cross_references.py`` lives outside
+   ``scripts/health/`` — the family is a roster, not a directory.
+3. **The janitor enumerates nothing.** It must call ``./dev health --list`` and
+   must not name a health-tier script itself.
 4. **Documented copies equal the roster.** Discovered, not enumerated: anywhere
    under ``CLAUDE.md`` / ``docs/`` / ``.claude/skills/``, a run of two or more
    *consecutive lines* each invoking a ``./dev health-<name>`` target is a roster
    copy and is pinned to the array. Contiguity is the discriminator, not a fence:
-   the copies in the wild were a bash block AND a Markdown table, while the
-   single-target usage examples the guides are full of ("after file renames, run
-   ``./dev health-links``") sit alone between prose lines. Naming file paths
-   instead would have the failure this module exists to prevent — the first draft
-   of it globbed fences only and missed a table; the inventory it implements had
-   named neither, and under-counted its own copy set by one for eight days.
+   a copy may be a bash block or a Markdown table, while the single-target usage
+   examples the guides are full of ("after file renames, run
+   ``./dev health-links``") sit alone between prose lines.
 
 Both filters, because one is not enough
 ---------------------------------------
@@ -44,16 +31,16 @@ Both filters, because one is not enough
 array in ``dev``, the scripts, the janitor). Direction 4's corpus is all of
 ``docs/`` and ``.claude/skills/``, and a docs-only PR skips ``unit_tests``
 entirely — so this module ALSO runs as a step in the ``validate_documentation``
-job, which the ``docs`` filter gates. Listing the files that happen to carry a
-copy in ``py`` instead would be the enumerate-instead-of-discover defect this
-module exists to remove: it would cover today's copies and miss tomorrow's,
-which is exactly how the two stale copies below were able to sit unnoticed.
+job, which the ``docs`` filter gates. Listing the files that carry a copy in
+``py`` instead would cover today's copies and miss tomorrow's.
 (``docs/tools/HEALTH_CHECKS.md`` is in ``py`` as well, so a change to the pinned
 copy reds both jobs rather than one.)
 
 Docs pins usually live in ``tests/unit/docs/``; this one lives beside the roster
-parser it shares, because a second copy of *that* parser would be the defect this
-module is about.
+parser it shares.
+
+Why the roster is one array, and what the discovery threshold is for:
+``docs/roadmap/catalog-copies-in-code.md`` § 1.
 """
 
 from __future__ import annotations

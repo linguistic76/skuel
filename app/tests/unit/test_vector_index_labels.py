@@ -1,19 +1,20 @@
 """Pin the vector-index label set to its two importers.
 
-Why this exists
----------------
-Which labels carry a vector index was written out twice, with two different
-values: ``services_bootstrap/compose.py`` created six, and
-``scripts/create_vector_indexes.py``'s ``PRIORITY_ENTITIES`` named eight (adding
-``Task`` and ``Goal``). Nothing reconciled them, and nothing said which the live
-graph held — an index that exists is invisible until a query returns zero rows,
-which is also what a *missing* index looks like.
+Which labels carry a vector index is decided by
+:data:`EmbeddingGeometry.INDEX_LABELS`, read by the bootstrap sync
+(``services_bootstrap/compose.py``) and by ``scripts/create_vector_indexes.py``.
+This module asserts both still read it, and that every member is a real
+``NeoLabel``: SKUEL030 cannot see through the schema manager's
+``f"{label.lower()}_embedding_idx"`` interpolation, and Neo4j answers an unknown
+label with an empty index rather than an error — so a typo yields a silent
+zero-row index, which is indistinguishable from a missing one.
 
-Both now read :data:`EmbeddingGeometry.INDEX_LABELS`. This module asserts the two
-importers still do, and that every member is a real ``NeoLabel``: SKUEL030 cannot
-see through the schema manager's ``f"{label.lower()}_embedding_idx"``
-interpolation, and Neo4j answers an unknown label with an empty index rather than
-an error.
+The set holds what EXISTS, not a chosen minimum. The label-generic semantic /
+learning rung can request a domain outside it and degrades silently; that gap is
+tracked in ``docs/roadmap/deferred-work.md`` § Label-Generic Vector Rung Has No
+Index for Most Domains, which also records the ruling not to narrow this tuple.
+
+Why one constant instead of two lists: ``docs/roadmap/catalog-copies-in-code.md`` § 6.
 """
 
 from __future__ import annotations

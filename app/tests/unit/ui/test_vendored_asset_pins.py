@@ -1,41 +1,35 @@
 """Pin the vendored-asset version constants to the service worker's precache list.
 
-Why this exists
----------------
-Three copies of one fact — which version of HTMX, Alpine and the Chart.js date
-adapter this app serves — sit in three files: the ``*_VERSION`` constants in
-``ui/theme.py``, the versioned filenames in ``static/service-worker.js``'s
-``PRECACHE_URLS``, and the files themselves under ``static/vendor/``. Until this
-module they were held in sync by a warning in CLAUDE.md ("upgrading Alpine/HTMX
-touches two files"), which is the weakest possible remedy: a discipline a human
-must remember.
+One fact — which version of HTMX, Alpine and the Chart.js date adapter this app
+serves — lives in three files: the ``*_VERSION`` constants in ``ui/theme.py``,
+the versioned filenames in ``static/service-worker.js``'s ``PRECACHE_URLS``, and
+the files themselves under ``static/vendor/``. Nothing but a CLAUDE.md warning
+holds them together, and the cost of a mismatch is not a stale asset: ``install``
+calls ``cache.addAll(PRECACHE_URLS)``, which rejects **wholesale** on a single
+404, so one bad filename breaks service-worker installation for every PWA client
+— silently, in the browser, rather than loudly in CI.
 
-The cost of forgetting is not a stale asset. ``install`` calls
-``cache.addAll(PRECACHE_URLS)``, which rejects **wholesale** on a single 404 — so
-one missed filename breaks service-worker installation for every PWA client, and
-does it silently in the browser rather than loudly in CI.
+Three directions:
 
-Three directions, all cheap:
-
-1. Every ``PRECACHE_URLS`` entry resolves to a file on disk. This is the
-   ``addAll`` contract stated as an assertion.
+1. Every ``PRECACHE_URLS`` entry resolves to a file on disk — the ``addAll``
+   contract stated as an assertion.
 2. Every ``/static/`` asset ``ui/theme.py`` emits from a ``*_VERSION`` constant is
-   in ``PRECACHE_URLS``. This is the direction the CLAUDE.md warning describes.
-3. Every ``*_VERSION`` constant is actually used to build a URL. A version
-   constant nothing reads is a catalog copy with no reader — it cannot drift into
-   a broken precache, but it also states a fact nothing checks. (``CHARTJS_VERSION``
-   was exactly that, and was deleted rather than exempted.)
+   vendored AND precached.
+3. Every ``*_VERSION`` constant builds a URL. A version constant nothing reads
+   cannot break a precache, but it states a fact nothing can check.
 
-This module's inputs reach CI through ci.yml's ``py`` filter, which lists
-``app/static/service-worker.js`` and ``app/static/vendor/**`` explicitly — they
-are not Python, so ``app/**/*.py`` does not match them and a bare vendor bump
-would otherwise skip ``unit_tests`` entirely. The render smoke test is not a
-substitute: ``smoke_test.py`` stubs service-worker registration.
+Reaching CI: this module's inputs are listed in ci.yml's ``py`` filter as
+``app/static/service-worker.js`` and ``app/static/vendor/**``. They are not
+Python, so ``app/**/*.py`` does not match them and a bare vendor bump would skip
+``unit_tests`` — the change most likely to break direction 1. The render smoke
+test is no substitute: ``smoke_test.py`` stubs service-worker registration.
 
 Not asserted: that ``PRECACHE_URLS`` covers everything ``theme.py`` emits.
 ``output.css`` is deliberately absent — it is a build artifact, and
 ``cacheFirst()`` caches every ``/static/`` response anyway, which is why
 ``CACHE_VERSION`` and not precache membership is what a change to it must bump.
+
+Why these three files hold one fact: ``docs/roadmap/catalog-copies-in-code.md`` § 8.
 """
 
 from __future__ import annotations
@@ -146,6 +140,6 @@ def test_every_version_constant_builds_a_url() -> None:
     unread = sorted(set(version_constants()) - used)
     assert not unread, (
         f"*_VERSION constants in ui/theme.py that build no asset URL: {unread}. "
-        "Delete them — a version nobody reads is a copy of a fact with no reader "
-        "(CHARTJS_VERSION was one, and said '4' beside a vendored Chart.js 4.5.1)."
+        "Delete them: a constant that names a version no URL interpolates is a "
+        "copy of a fact with no reader, so nothing can detect it going wrong."
     )
