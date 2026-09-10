@@ -401,11 +401,9 @@ class EmbeddingGeometry:
 
     # THE labels that carry a vector index — the one list read by the bootstrap
     # sync (services_bootstrap/compose.py) and by
-    # scripts/create_vector_indexes.py. `drop_stale_indexes()` removes the
-    # vector index of any label absent here.
+    # scripts/create_vector_indexes.py.
     #
-    # Membership rule: a label belongs here only if a query path READS its
-    # index. Each member names its reader:
+    # Each member and its reader:
     #   Entity          — cross-domain semantic search (daily planning, learning
     #                     intelligence); covers every domain node via multi-label
     #   ContentChunk    — RAG chunk retrieval (SearchRouter, Askesis)
@@ -413,11 +411,20 @@ class EmbeddingGeometry:
     #                     invisible to SearchRouter
     #   Ku / PathStep   — node→node "Related concepts" on the explore detail pages
     #   LearningPath    — the SearchRouter hybrid rung's vector half
+    #   Task / Goal     — reached by the label-generic semantic / learning-aware
+    #                     rung (`SearchRouter._semantic_or_learning_search`), whose
+    #                     label is `NeoLabel.from_domain(entity_type)` for whatever
+    #                     domain the request scopes to
     #
-    # Per-domain `find_similar_*` needs no entry: it ranks in Python through
-    # `_rank_similar_entities`, never through an index, and its entities are
-    # reachable via the `Entity` index. Adding a label here means adding the
-    # reader that justifies it in the same change.
+    # ⚠ That last rung can ask for a label NOT in this tuple — Habit, Choice,
+    # Principle, Event, Exercise and UserEntry are all reachable through it and
+    # have no per-label index, so the `/search` "Semantic boost" and
+    # "Learning-aware" toggles degrade to standard search for them without
+    # saying so. This tuple is what EXISTS, not a set anyone chose; closing the
+    # gap is a search-design decision, registered in
+    # docs/roadmap/deferred-work.md § Label-Generic Vector Rung Has No Index for
+    # Most Domains. Until it is taken, do not narrow this tuple: a label removed
+    # here is a rung that silently stops working.
     #
     # Index NAMES need no coordination: creation and query both derive
     # `{label.lower()}_embedding_idx`.
@@ -428,6 +435,8 @@ class EmbeddingGeometry:
         "Ku",
         "PathStep",
         "LearningPath",
+        "Task",
+        "Goal",
     )
 
 

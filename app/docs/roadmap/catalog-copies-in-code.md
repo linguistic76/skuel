@@ -198,17 +198,25 @@ most of the instances below rely on today.
    ✅ **BUILT (2026-09-09):** `EmbeddingGeometry.INDEX_LABELS`, read by both importers, pinned
    by `tests/unit/test_vector_index_labels.py` (every member a real `NeoLabel` — SKUEL030
    cannot see through the interpolation, and Neo4j answers an unknown label with an empty
-   index rather than an error). **The value is six, and that was measured, not chosen:** no
-   call site passes `"Task"` or `"Goal"` as a vector-search label. The per-domain
-   `find_similar_*` methods rank in Python through `_rank_similar_entities`, the hybrid rung
-   is Ku/PathStep/LearningPath, related-concepts is Ku/PathStep, and Task/Goal nodes are
-   already covered by `entity_embedding_idx` — two indexes were being created that no query
-   could reach. `task_embedding_idx`/`goal_embedding_idx` joined `drop_stale_indexes()` so a
-   graph where the older script ran cleans itself up; the live-graph question the entry left
-   open is answered by making it not matter. **A fourth copy was found in review** — the
-   `neo4j-cypher-patterns` skill's index inventory advertised eight vector indexes and named
-   Task/Goal as ones the script adds, i.e. an inventory the app now actively deletes. Both it
-   and CLAUDE.md are pointers at the constant now.
+   index rather than an error). **The value is the union, eight** — the de-duplication changes
+   which *list* decides, never which indexes exist.
+
+   ⚠️ **A first attempt set it to six and was wrong.** The reasoning was: nothing passes
+   `"Task"`/`"Goal"` as a vector-search label, so those two indexes have no reader. That came
+   from grepping `find_similar_*` call sites — and the reader is
+   `SearchRouter._semantic_or_learning_search`, which computes its label as
+   `NeoLabel.from_domain(entity_type)` for whatever domain the request scopes to, behind the
+   `/search` **Semantic boost** and **Learning-aware** checkboxes. **A computed argument is
+   invisible to a name grep**, so no search for a literal could have found it, and
+   "no call site passes X" was only ever as strong as the search behind it. Caught by Codex
+   (P1, #1308) before merge; both labels restored and the `drop_stale_indexes()` entries
+   removed. The same read turned up a real defect that outlives this item — the rung can
+   request a label for any of twelve domains while eight indexes exist — now registered as
+   `deferred-work.md` § Label-Generic Vector Rung Has No Index for Most Domains.
+
+   **A fourth doc copy was found in review** — the `neo4j-cypher-patterns` skill's index
+   inventory advertised eight vector indexes and named Task/Goal as script-only additions;
+   it and CLAUDE.md are pointers at the constant now.
    **Doc copies here are pointer-shaped, not pinned, and that is a ruling:** a discovering
    check ("every `<label>_embedding_idx` a doc names must be a live index") would need an
    exclusion list for `docs/migrations/` and `docs/roadmap/done/`, whose sample terminal

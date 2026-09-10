@@ -168,6 +168,10 @@ renders them as a table in Obsidian, and a session derives the same table with
 
 [Engagement Instance Scope — the query that cannot tell two engagements apart](shared-template-engagement-scope.md) — `fetch_engaged_instances` scopes by template, not by engagement, so completing or abandoning one engagement reaches another's instances; reachable by re-engaging a single step, and by the template reuse the authoring guide advertises. Latent while six templates sit on one PathStep.
 
+## Label-Generic Vector Rung Has No Index for Most Domains
+
+[Label-Generic Vector Rung Has No Index for Most Domains](label-generic-vector-rung.md) — `/search`'s Semantic-boost and Learning-aware toggles silently do nothing for seven domains that have no per-label vector index; the fix is the `Entity` index plus an `entity_type` filter, not seven more indexes.
+
 ## Catalog Copies in Code — the duplicated-fact defect, measured
 
 [Catalog Copies in Code — the duplicated-fact defect, measured](catalog-copies-in-code.md) — The class, its ten measured instances and the rule for new code; every remedy in the build order is now built, and what remains is the two ruled-leave instances plus the lateral-relationship category table.

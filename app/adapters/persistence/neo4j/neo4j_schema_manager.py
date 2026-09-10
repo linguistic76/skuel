@@ -815,8 +815,6 @@ class Neo4jSchemaManager(Neo4jSessionRunner):
           exercise_report_* (labels dropped long ago; the INDEX was what kept
           :Lesson, :LearningStep, :Expense and :ExerciseReport in db.labels()
           at zero nodes — #1011)
-        - task_embedding_idx / goal_embedding_idx (vector indexes for labels no
-          query reads — see EmbeddingGeometry.INDEX_LABELS)
         - knowledge_fulltext (legacy — label Entity with old field set)
         - tasks_fulltext (legacy — replaced by task_fulltext_idx)
         - journals_fulltext (legacy — label Document no longer exists)
@@ -874,13 +872,6 @@ class Neo4jSchemaManager(Neo4jSessionRunner):
             "ku_schema_version_idx",
             "ku_domain_level_idx",
             "ku_parent_level_idx",
-            # Vector indexes for labels outside EmbeddingGeometry.INDEX_LABELS —
-            # nothing passes "Task"/"Goal" as a vector-search label (the per-domain
-            # find_similar_* methods rank in Python, and Task/Goal nodes are reachable
-            # through entity_embedding_idx), so neither index has a reader. A label
-            # that gains one is added to INDEX_LABELS and removed from here.
-            "task_embedding_idx",
-            "goal_embedding_idx",
         ]
         results: dict[str, Any] = {"dropped": [], "failed": []}
 
