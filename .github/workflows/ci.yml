@@ -79,6 +79,20 @@ jobs:
               # residual (a table planted in a NEW doc is unreachable by any
               # filter), the same residual deferred-work.md's entry carries.
               - 'app/docs/guides/ACTIVITY_TEMPLATE_AUTHORING.md'
+              # The vendored-asset pin (tests/unit/ui/test_vendored_asset_pins.py)
+              # reads three things: ui/theme.py (already matched as *.py), the
+              # service worker's PRECACHE_URLS, and the vendored files
+              # themselves. The latter two are NOT Python, so a PR that only
+              # bumps a vendored library or edits the precache list matches the
+              # `ui` filter and skips unit_tests — and the render smoke test
+              # cannot stand in, because smoke_test.py stubs service-worker
+              # registration outright. That is exactly the change most likely to
+              # break `cache.addAll()`, which rejects wholesale on one 404 and
+              # takes PWA install down for every client (Codex P2, PR #1308).
+              # Named files and one small vendored tree, not a corpus: this
+              # erodes no deliberate skip.
+              - 'app/static/service-worker.js'
+              - 'app/static/vendor/**'
               # Same shape, third reader: tests/unit/scripts/
               # test_health_check_parity.py pins the `./dev health-*` command
               # block in this doc to the HEALTH_CHECKS array in app/dev. It is
@@ -658,6 +672,7 @@ jobs:
           (steps.freshness.outputs.freshness_failed == 'true' ||
           steps.skills.outputs.skills_failed == 'true' ||
           steps.xref_drift.outputs.xref_drift_failed == 'true' ||
+          steps.health_roster.outputs.health_roster_failed == 'true' ||
           steps.status_claims.outputs.status_claims_failed == 'true' ||
           steps.broken_links.outputs.broken_links_warning == 'true')
         continue-on-error: true  # never red the job if commenting is unavailable (e.g. fork PRs)
@@ -667,6 +682,7 @@ jobs:
             const freshnessStatus = '${{ steps.freshness.outputs.freshness_failed }}' === 'true' ? '❌' : '✅';
             const skillsStatus = '${{ steps.skills.outputs.skills_failed }}' === 'true' ? '❌' : '✅';
             const xrefStatus = '${{ steps.xref_drift.outputs.xref_drift_failed }}' === 'true' ? '❌' : '✅';
+            const healthRoster = '${{ steps.health_roster.outputs.health_roster_failed }}' === 'true' ? '❌' : '✅';
             const statusClaims = '${{ steps.status_claims.outputs.status_claims_failed }}' === 'true' ? '❌' : '✅';
             const brokenLinksWarning = '${{ steps.broken_links.outputs.broken_links_warning }}' === 'true';
 
@@ -674,6 +690,7 @@ jobs:
             comment += `${freshnessStatus} **Documentation Freshness** (critical issues only)\n`;
             comment += `${skillsStatus} **Skills Metadata Validation**\n`;
             comment += `${xrefStatus} **CROSS_REFERENCE_INDEX Drift**\n`;
+            comment += `${healthRoster} **Health-Check Roster** (documented copies vs app/dev)\n`;
             comment += `${statusClaims} **Validation-Status Claims** (422 vs 400)\n`;
 
             if (brokenLinksWarning) {

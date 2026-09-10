@@ -26,6 +26,12 @@ Three directions, all cheap:
    a broken precache, but it also states a fact nothing checks. (``CHARTJS_VERSION``
    was exactly that, and was deleted rather than exempted.)
 
+This module's inputs reach CI through ci.yml's ``py`` filter, which lists
+``app/static/service-worker.js`` and ``app/static/vendor/**`` explicitly — they
+are not Python, so ``app/**/*.py`` does not match them and a bare vendor bump
+would otherwise skip ``unit_tests`` entirely. The render smoke test is not a
+substitute: ``smoke_test.py`` stubs service-worker registration.
+
 Not asserted: that ``PRECACHE_URLS`` covers everything ``theme.py`` emits.
 ``output.css`` is deliberately absent — it is a build artifact, and
 ``cacheFirst()`` caches every ``/static/`` response anyway, which is why
