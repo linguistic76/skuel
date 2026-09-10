@@ -22,10 +22,19 @@ label = neo_label.value
 # → index_name = f"{label.lower()}_embedding_idx"
 ```
 
-It runs whenever a `/search` request carries **Semantic boost** or
-**Learning-aware** — both are checkboxes in `ui/search/components.py`, wired
-through `adapters/inbound/search_routes.py` into `SearchRequest`. So the rung can
-ask for any of the twelve searchable domains, while
+It runs when a request satisfies `has_semantic_boost()` or
+`has_learning_aware()`, and the two reach it by different doors:
+
+- **Learning-aware** is `enable_learning_aware` alone. It is a checkbox in
+  `ui/search/components.py`, wired through `adapters/inbound/search_routes.py`
+  into `SearchRequest`, and the route supplies the `user_uid` the branch
+  requires — so it is reachable from the HTML `/search` form for **any domain in
+  scope**.
+- **Semantic boost** also needs `context_uids`, which the HTML form never
+  supplies (`SEARCH_ARCHITECTURE.md` records this), so that half arrives only
+  through the `/api/search/unified` JSON endpoint.
+
+Either way the rung can ask for any of the twelve searchable domains, while
 `EmbeddingGeometry.INDEX_LABELS` holds eight.
 
 **Habit, Choice, Principle, Event, Exercise, RevisedExercise and UserEntry have

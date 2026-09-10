@@ -1,6 +1,6 @@
 ---
 title: Search Architecture - Unified Search System
-updated: 2026-09-03
+updated: 2026-09-10
 status: current
 category: architecture
 tags:
@@ -637,6 +637,13 @@ request = SearchRequest(
 | MASTERED | −20% | Already known |
 
 **Note:** Learning-aware search currently supports the KU label only (learning state relationships only exist for Knowledge Units).
+
+**Note:** both modes query `{label.lower()}_embedding_idx` for whatever domain is in
+scope (`NeoLabel.from_domain(entity_type)`), and only the labels in
+`EmbeddingGeometry.INDEX_LABELS` have one. A domain outside it returns nothing and
+falls through to standard search without saying so — see
+[../roadmap/deferred-work.md](../roadmap/deferred-work.md) § Label-Generic Vector Rung
+Has No Index for Most Domains.
 
 **Entry point:** both modes above run through `SearchRouter.advanced_search()` — the
 `/api/search/unified` JSON endpoint — and `has_semantic_boost()` requires
