@@ -1,6 +1,6 @@
 ---
 title: Relationships Architecture
-updated: 2026-09-05
+updated: 2026-09-11
 status: current
 category: architecture
 version: 2.0.0
@@ -122,26 +122,35 @@ class DomainRelationshipConfig:
 
 **Location:** `core/models/relationship_names.py`
 
-80+ typed relationship names, organised by domain. SKUEL rule SKUEL013 requires using `RelationshipName` enum values — no string literals in relationship Cypher. Cypher query strings use f-string interpolation: `f"[:{RelationshipName.X.value}]"`.
+The enum is the source of truth for typed relationship names, and the generated
+[GRAPH_CONTRACT.yaml](../reference/GRAPH_CONTRACT.yaml) carries every member with its traits —
+that file, not this one, answers any membership or count question. SKUEL rule SKUEL013 requires
+using `RelationshipName` enum values — no string literals in relationship Cypher. Cypher query
+strings use f-string interpolation: `f"[:{RelationshipName.X.value}]"`.
 
-**Key groupings:**
+**Key groupings — an orientation aid, not the full set.** Each row names a few members of a
+domain family. The families overlap (`ULTIMATE_PATH` is both an ownership and a life-path edge)
+and are a reading convenience, not a partition the code knows about: the classifications the
+code branches on are the trait predicates on the enum (`is_knowledge_relationship`,
+`is_blocking_relationship`, `is_lateral_relationship`, …), emitted as the `traits` key on every
+relationship in the generated contract.
 
-| Group | Count | Examples |
-|-------|-------|---------|
-| Knowledge | 18 | `REQUIRES_KNOWLEDGE`, `APPLIES_KNOWLEDGE`, `REINFORCES_KNOWLEDGE`, `ENABLES_KNOWLEDGE` |
-| Task | 14 | `HAS_SUBTASK`, `SUBTASK_OF`, `DEPENDS_ON`, `BLOCKS`, `BLOCKED_BY`, `CONTRIBUTES_TO_GOAL`, `FULFILLS_GOAL` |
-| Goal | 12 | `HAS_SUBGOAL`, `SUBGOAL_OF`, `GUIDED_BY_PRINCIPLE`, `SUPPORTS_GOAL`, `ALIGNED_WITH_PATH` |
-| Habit | 12 | `HAS_SUBHABIT`, `SUBHABIT_OF`, `REQUIRES_PREREQUISITE_HABIT`, `ENABLES_HABIT`, `EMBODIES_PRINCIPLE`, `UNLOCKED_ACHIEVEMENT`, `EARNED_BADGE` |
-| Event | 5 | `HAS_SUBEVENT`, `SUBEVENT_OF`, `CONFLICTS_WITH`, `FUNDS_EVENT`, `ATTENDS` |
-| Principle | 9 | `HAS_SUBPRINCIPLE`, `SUBPRINCIPLE_OF`, `SUPPORTS_PRINCIPLE`, `GUIDES_GOAL`, `GUIDES_CHOICE`, `REFLECTS_ON`, `REVEALS_CONFLICT` |
-| Choice | 8 | `HAS_SUBCHOICE`, `SUBCHOICE_OF`, `ALIGNED_WITH_PRINCIPLE`, `CONFLICTS_WITH_PRINCIPLE`, `AFFECTS_GOAL`, `INFORMS_CHOICE` |
-| User / Ownership | 5 | `OWNS` (THE universal ownership edge, ADR-086), `MEMBER_OF`, `SHARES_WITH`, `SHARED_WITH_GROUP`, `ULTIMATE_PATH` |
-| Curriculum | 5 | `ORGANIZES`, `REQUIRES_PREREQUISITE`, `HAS_NARROWER`, `HAS_BROADER` |
-| Life Path | 3 | `SERVES_LIFE_PATH`, `ULTIMATE_PATH`, `ALIGNMENT_SNAPSHOT` |
-| Exercise / Group | 3 | `FOR_GROUP`, `FULFILLS_EXERCISE`, `ASSIGNED_TO` |
-| Resource | 1 | `CITES_RESOURCE` — `(PathStep/Ku)-[:CITES_RESOURCE {context}]->(Resource)` |
-| Content / Processing | 3 | `REPORT_FOR`, `TRANSCRIBED_FOR`, `HAS_SCHEDULE` |
-| Lateral | 17 | the `lateral` trait in the generated `GRAPH_CONTRACT.yaml` (`_LATERAL_TYPES` in `core/models/relationship_names.py`); `PREREQUISITE_FOR` ↔ `REQUIRES_PREREQUISITE`, `BLOCKS` ↔ `BLOCKED_BY` — `DEPENDS_ON` is the separate Task scheduling edge, not a lateral type |
+| Group | Examples |
+|-------|---------|
+| Knowledge | `REQUIRES_KNOWLEDGE`, `APPLIES_KNOWLEDGE`, `REINFORCES_KNOWLEDGE`, `ENABLES_KNOWLEDGE` |
+| Task | `HAS_SUBTASK`, `SUBTASK_OF`, `DEPENDS_ON`, `BLOCKS`, `BLOCKED_BY`, `CONTRIBUTES_TO_GOAL`, `FULFILLS_GOAL` |
+| Goal | `HAS_SUBGOAL`, `SUBGOAL_OF`, `GUIDED_BY_PRINCIPLE`, `SUPPORTS_GOAL`, `ALIGNED_WITH_PATH` |
+| Habit | `HAS_SUBHABIT`, `SUBHABIT_OF`, `REQUIRES_PREREQUISITE_HABIT`, `ENABLES_HABIT`, `EMBODIES_PRINCIPLE`, `UNLOCKED_ACHIEVEMENT`, `EARNED_BADGE` |
+| Event | `HAS_SUBEVENT`, `SUBEVENT_OF`, `CONFLICTS_WITH`, `FUNDS_EVENT`, `ATTENDS` |
+| Principle | `HAS_SUBPRINCIPLE`, `SUBPRINCIPLE_OF`, `SUPPORTS_PRINCIPLE`, `GUIDES_GOAL`, `GUIDES_CHOICE`, `REFLECTS_ON`, `REVEALS_CONFLICT` |
+| Choice | `HAS_SUBCHOICE`, `SUBCHOICE_OF`, `ALIGNED_WITH_PRINCIPLE`, `CONFLICTS_WITH_PRINCIPLE`, `AFFECTS_GOAL`, `INFORMS_CHOICE` |
+| User / Ownership | `OWNS` (THE universal ownership edge, ADR-086), `MEMBER_OF`, `SHARES_WITH`, `SHARED_WITH_GROUP`, `ULTIMATE_PATH` |
+| Curriculum | `ORGANIZES`, `REQUIRES_PREREQUISITE`, `HAS_NARROWER`, `HAS_BROADER` |
+| Life Path | `SERVES_LIFE_PATH`, `ULTIMATE_PATH`, `ALIGNMENT_SNAPSHOT` |
+| Exercise / Group | `FULFILLS_EXERCISE`, `ASSIGNED_TO` |
+| Resource | `CITES_RESOURCE` — `(PathStep/Ku)-[:CITES_RESOURCE {context}]->(Resource)` |
+| Content / Processing | `REPORT_FOR`, `TRANSCRIBED_FOR`, `HAS_SCHEDULE` |
+| Lateral | the `lateral` trait in the generated `GRAPH_CONTRACT.yaml` (`_LATERAL_TYPES` in `core/models/relationship_names.py`); `PREREQUISITE_FOR` ↔ `REQUIRES_PREREQUISITE`, `BLOCKS` ↔ `BLOCKED_BY` — `DEPENDS_ON` is the separate Task scheduling edge, not a lateral type |
 
 ---
 
@@ -260,7 +269,7 @@ Lateral relationships capture semantics that hierarchies cannot: dependencies be
 | Type | Inverse | Use Case |
 |------|---------|---------|
 | `BLOCKS` | `BLOCKED_BY` | Task A must complete before Task B |
-| `PREREQUISITE_FOR` | `DEPENDS_ON` | KU A required before KU B |
+| `PREREQUISITE_FOR` | `REQUIRES_PREREQUISITE` | KU A required before KU B |
 | `ENABLES` | `ENABLED_BY` | Completing A unlocks B |
 
 **Semantic relationships** (symmetric):
@@ -290,7 +299,18 @@ Lateral relationships capture semantics that hierarchies cannot: dependencies be
 **Phase 5 deployed types** (fully tested across 9 domains — Tasks, Goals, Habits, Events, Choices, Principles, KU, PS, LP):
 `BLOCKS/BLOCKED_BY`, `PREREQUISITE_FOR/REQUIRES_PREREQUISITE`, `ALTERNATIVE_TO`, `COMPLEMENTARY_TO`, `SIBLING`, `RELATED_TO` (`DEPENDS_ON` was never the lateral inverse — it is the Task scheduling edge)
 
-The extended types (`ENABLES`, `SIMILAR_TO`, `CONFLICTS_WITH`, `COUSIN`, `RECOMMENDED_WITH`, `STACKS_WITH`) are defined in `RelationshipName` and available to services but not yet wired to Phase 5 UI endpoints.
+Which lateral types have an HTTP **writer** is decided by the routes, not by a list here:
+`LateralRouteFactory` serves `blocks` / `prerequisites` / `alternatives` / `complementary` on
+every wired domain, and `adapters/inbound/lateral_routes.py` adds the domain-specific `stacks`
+(Habits), `conflicts` (Events/Choices/Principles) and `enables` (KU) writers. `SIBLING` is
+read-only — `GET .../lateral/siblings` derives it from the hierarchy. `SIMILAR_TO`, `COUSIN`,
+`RECOMMENDED_WITH` and the kinship pair `AUNT_UNCLE` / `NIECE_NEPHEW` are available to services
+with no HTTP writer.
+
+⚠ `LATERAL_ENABLES` and `LATERAL_ENABLED_BY` are the only two members whose Python name differs
+from the edge value they write (`ENABLES`, `ENABLED_BY`) — the value is what appears in Cypher
+and in the tables above. A check keyed on `.name` reads the wire name as unknown; match on
+`.value`.
 
 ### Per-Domain Wiring — One Service, No Wrappers
 

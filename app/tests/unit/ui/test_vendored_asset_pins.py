@@ -29,7 +29,7 @@ Not asserted: that ``PRECACHE_URLS`` covers everything ``theme.py`` emits.
 ``cacheFirst()`` caches every ``/static/`` response anyway, which is why
 ``CACHE_VERSION`` and not precache membership is what a change to it must bump.
 
-Why these three files hold one fact: ``docs/roadmap/catalog-copies-in-code.md`` § 8.
+Why these three files hold one fact: ``docs/roadmap/done/catalog-copies-in-code.md`` § 8.
 """
 
 from __future__ import annotations

@@ -26,7 +26,7 @@ parser a second place where "which ids does this span cover" is decided, and a r
 silently absorbs a later-deleted id. The terminator matters for the other reason —
 the sentence after the list in ``linter_rules.md`` names SKUEL026 and SKUEL033 in
 prose, and a whole-line ``SKUEL\\d{3}`` grab reports one of them as a phantom extra
-member (the census in ``docs/roadmap/catalog-copies-in-code.md`` § 9 did exactly
+member (the census in ``docs/roadmap/done/catalog-copies-in-code.md`` § 9 did exactly
 that).
 
 Not an enumeration, not checked

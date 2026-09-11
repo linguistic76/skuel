@@ -1,10 +1,10 @@
 ---
 title: "Catalog Copies in Code — the duplicated-fact defect, measured"
-updated: 2026-09-10
-status: "build order complete — two ruled-leave instances + the lateral category table remain"
+updated: 2026-09-11
+status: "closed — every remedy built or ruled; nothing open"
 registered: 2026-08-29
-ruled: 2026-08-29
-trigger: "Item 5 is the last unbuilt remedy and needs a RULING first (delete the Count column / add a group trait and generate / replace with a pointer) — measured 2026-09-09, see §5"
+ruled: 2026-09-10
+trigger: "none — item 5 ruled (a) and built 2026-09-10; items 9 and 10 are ruled leave"
 check: "uv run pytest tests/unit/scripts/test_health_check_parity.py tests/unit/ui/test_vendored_asset_pins.py tests/unit/test_vector_index_labels.py tests/unit/docs/test_suppressible_rules_docs.py; uv run python scripts/detect_bloat.py --json → planned-marking-stale count"
 ---
 
@@ -190,6 +190,62 @@ most of the instances below rely on today.
    only option that makes the counts true and keeps them true); **(c)** replace the table
    wholesale with a pointer. Whichever is chosen, the `"80+"` headline goes with it — as a
    pointer, not as `"172"`, which is the same copy with a fresher date.
+
+   ✅ **RULED (a) + BUILT (2026-09-10).** The Count column is gone, the fourteen rows are
+   labelled an orientation aid rather than a partition, and both the headline and the
+   membership question now point at the generated `GRAPH_CONTRACT.yaml`, which already carries
+   all 172 members with their traits and is drift-tested. The row overlap is stated where the
+   table sits (`ULTIMATE_PATH` is both an ownership and a life-path edge), so the grouping
+   cannot be read as a set partition.
+
+   **(b) was priced and declined on a measurement.** The nine trait predicates on the enum
+   cover **55 of 172** members; 117 have no trait at all. They are behavioural sets that code
+   branches on, not a taxonomy — `is_knowledge_relationship()` returns 9 where the doc's
+   Knowledge row said 18. Building (b) meant inventing a grouping for 172 members, necessarily
+   multi-valued, whose only reader would be a doc table, and teaching a YAML generator to emit
+   markdown into a hand-written architecture doc. A code-level fact manufactured to justify a
+   doc is this file's own defect running backwards; the nine traits that exist earned their
+   place by having code readers.
+
+   **No discovering drift test is buildable for this fact, and that is the ruling** — the same
+   shape as item 6's, reached the same way, by trying to build one and measuring the corpus:
+
+   - `[:NAME]` edge syntax across `docs/`: 659 occurrences, **104 non-members in 38 files**.
+     The noise is structural, not stale: placeholders (`REL_TYPE`, `X`, `R`, `HAS_`), ADR
+     history, deliberate counter-examples in `linter_rules.md`, staged proposals in roadmap.
+   - Backticked UPPER_SNAKE tokens in the 64 files that mention `RelationshipName`:
+     overwhelmingly env vars, config constants, status values and Cypher keywords.
+   - A header-marker test keyed on `| Group | Count | Examples |` matches **exactly one table
+     in the tree** — enumeration wearing a discovery costume, which is the trap this file's
+     § 1 and § 4 each recorded.
+
+   Either real corpus needs the fail-silent suppressor list item 6 already ruled against, so
+   the doc copy here is pointer-shaped and labelled-partial (remedy (c) of the rule above),
+   not pinned.
+
+   **Two live defects the entry had not named, both found by re-measuring rather than by
+   re-reading it:**
+   - **`FOR_GROUP` in the Exercise/Group row was not a member** — retired by ADR-053 and
+     removed from the enum, so the table advertised a dead edge for roughly five months.
+   - **The "extended types … not yet wired to Phase 5 UI endpoints" line was false for three
+     of its six.** `ENABLES`, `CONFLICTS_WITH` and `STACKS_WITH` each have a dedicated POST
+     route (`/api/ku/{uid}/lateral/enables`, `/lateral/conflicts` on Events/Choices/Principles,
+     `/api/habits/{uid}/lateral/stacks`). The line is now a pointer at the two route sources
+     that decide it, naming only the genuinely writer-less types.
+
+   **And the pairing this entry recorded as fixed was fixed in one place of two.** The
+   2026-08-29 correction reached the Lateral row and CLAUDE.md, but the *Dependency
+   relationships* table three sections down still gave `PREREQUISITE_FOR`'s inverse as
+   `DEPENDS_ON` — the same false pairing, in the same document, surviving the change that
+   claimed to remove it. Corrected here. **A correction is a copy set too: grep the claim, not
+   the cell you were shown.**
+
+   ⚠ **A name-keyed check would have called a live edge dead.** `LATERAL_ENABLES` and
+   `LATERAL_ENABLED_BY` are the only two members whose Python name differs from the value they
+   write (`ENABLES`, `ENABLED_BY`), and the doc names the *value*. A first pass keyed on
+   `.name` reported the doc's `ENABLES` as a non-member and nearly published it as a finding;
+   the corpus scan that cleared it was keyed on `.value`. The trap is now stated in the doc
+   beside the tables that use the wire names.
 6. **Vector-index label set.** `services_bootstrap/compose.py` created six (`Entity`,
    `ContentChunk`, `ReferenceChunk`, `Ku`, `PathStep`, `LearningPath`);
    `scripts/create_vector_indexes.py` `PRIORITY_ENTITIES` named eight (adding `Task`, `Goal`);
@@ -299,11 +355,12 @@ than it added. Still deliberately NOT built: a same-file contradictory-prose det
 (sub-finding above) and a free-prose count checker — the count claims that matter are pinned
 or gone, and "N things" in running text has no reliable anchor.
 
-**What remains open** is item 5 — now measured (above) and confirmed as a *ruling*, not a
-mechanical fix: the doc's 14-group taxonomy has no counterpart in the code, so nothing can be
-derived until someone decides between deleting the Count column, giving the enum a real `group`
-trait, or replacing the table with a pointer. Plus the two ruled-leave instances in item 10.
-Item 9's counts are ruled leave.
+**Nothing remains open.** Item 5 was ruled (a) and built on 2026-09-10 — the last mechanical
+remedy — and its measurement produced a second ruling worth as much as the build: *no
+discovering drift test is buildable over relationship names in prose*, because the only two
+corpora that could carry one are dominated by placeholders, ADR history and deliberate
+counter-examples. That lands item 5 where item 6 already sits: pointer-shaped doc copies by
+ruling, not by omission. Items 9 and 10 are ruled leave.
 
 **One thing the build changed about the inventory itself.** Three of the six remedies found a
 copy the inventory had not named: the health roster had two more (both stale), and the
