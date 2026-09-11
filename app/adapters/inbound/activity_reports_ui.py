@@ -33,12 +33,12 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler, ui_boundary_handler
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request, RouteDecorator
-from adapters.inbound.form_helpers import parse_json_body
+from adapters.inbound.form_helpers import parse_form_body
 from adapters.outbound.activity_report_renderer import (
     activity_report_filename,
     render_activity_report_md,
 )
-from core.models.entity_requests import AnnotationSaveRequest, ProgressReportGenerateRequest
+from core.models.entity_requests import AnnotationFormRequest, ProgressReportGenerateRequest
 from core.utils.logging import get_logger
 from core.utils.result_simplified import ErrorCategory, Errors, Result
 from core.utils.text_truncation import truncate_to_budget
@@ -201,16 +201,16 @@ def create_activity_reports_ui_routes(
     async def generate_activity_report(request: Request) -> Result["FT"]:
         """Generate a report for the signed-in user now.
 
-        Answers the request form's JSON post (``time_period``, ``depth``,
-        ``include_insights``) with a fragment for ``#generate-status``: a link
-        to the new report plus an out-of-band refresh of the recent-reports
-        list. The generator's cooldown refusal (a report within the last hour)
-        renders inline; malformed bodies are 400, anything else propagates.
+        Answers the request form's url-encoded post (``time_period``, ``depth``)
+        with a fragment for ``#generate-status``: a link to the new report plus
+        an out-of-band refresh of the recent-reports list. The generator's
+        cooldown refusal (a report within the last hour) renders inline; a body
+        outside the period/depth vocabulary is 400; anything else propagates.
         """
         user_uid = require_authenticated_user(request)
         if progress_generator is None:
             return Result.fail(Errors.system("Activity report generator unavailable"))
-        parsed = await parse_json_body(request, ProgressReportGenerateRequest)
+        parsed = await parse_form_body(request, ProgressReportGenerateRequest)
         if parsed.is_error:
             return Result.fail(parsed)
         req = parsed.value
@@ -246,17 +246,19 @@ def create_activity_reports_ui_routes(
     async def annotate_activity_report(request: Request) -> Result["FT"]:
         """Save the owner's commentary or replacement text on one of their reports.
 
-        Answers the detail page's JSON post with a fragment for
-        ``#annotation-status``. A mode without its text renders inline; a report
-        the user does not own is not found (404), as every owner-scoped read.
+        Answers the detail page's url-encoded post (``uid``, ``annotation_mode``,
+        ``annotation_text``) with a fragment for ``#annotation-status``; the one
+        text field lands in the field the chosen mode stores. A mode without its
+        text renders inline; a report the user does not own is not found (404),
+        as every owner-scoped read.
         """
         user_uid = require_authenticated_user(request)
         if orchestrator is None:
             return Result.fail(Errors.system("Activity report orchestrator unavailable"))
-        parsed = await parse_json_body(request, AnnotationSaveRequest)
+        parsed = await parse_form_body(request, AnnotationFormRequest)
         if parsed.is_error:
             return Result.fail(parsed)
-        req = parsed.value
+        req = parsed.value.to_save_request()
         result = await orchestrator.annotate_activity_report(
             req.uid,
             user_uid,
@@ -272,11 +274,12 @@ def create_activity_reports_ui_routes(
         return Result.ok(_status_note("Saved.", ok=True))
 
     @rt("/activity-reports/md")
-    async def download_activity_report_md(request: Request) -> Any:
+    async def download_activity_report_md(request: Request) -> Response:
         """Download one of the user's reports as a Markdown file.
 
         Owner-scoped through the orchestrator's ``get_activity_report`` — a
-        foreign or unknown uid is "not found", never rendered.
+        foreign or unknown uid is "not found", never rendered; a read that
+        fails for any other reason is reported as unavailable, not as absent.
         """
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "").strip()
@@ -284,7 +287,13 @@ def create_activity_reports_ui_routes(
         if not uid or orchestrator is None:
             return not_found
         result = await orchestrator.get_activity_report(uid, user_uid)
-        if result.is_error or not result.value:
+        if result.is_error:
+            error = result.expect_error()
+            if error.category == ErrorCategory.NOT_FOUND:
+                return not_found
+            logger.error("activity-report download failed for uid=%s: %s", uid, error.message)
+            return Response("Report unavailable", status_code=503, media_type="text/plain")
+        if not result.value:
             return not_found
         report = result.value
         return Response(

@@ -17,13 +17,13 @@ from __future__ import annotations
 
 import re
 from datetime import date
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from core.models.report.activity_report import ActivityReport
 
 
-def _stamp(value: Any) -> str:
+def _stamp(value: object | None) -> str:
     """A date-ish value as ``YYYY-MM-DD`` (datetimes, Neo4j temporals, ISO strings).
 
     Neo4j temporals and ISO strings both stringify ISO-first, so the first ten

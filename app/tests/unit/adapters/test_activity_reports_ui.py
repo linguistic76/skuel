@@ -1,8 +1,8 @@
 """Activity report producers: generate now, annotate, download as Markdown.
 
-The three routes restored/added by the calendar priority-lens arc (PR A2).
 Handlers are invoked directly on request stubs, as the other route suites do;
-CSRF is a real cookie+header pair (``tests/fixtures/csrf``).
+the two POST routes read url-encoded form bodies, and CSRF is a real
+cookie+header pair (``tests/fixtures/csrf``).
 """
 
 from __future__ import annotations
@@ -45,7 +45,7 @@ class _RouteRegistry:
 def _make_request(
     *,
     user_uid: str = "user_reports",
-    json_body: dict | None = None,
+    form_data: dict | None = None,
     query_params: dict | None = None,
     method: str = "POST",
 ):
@@ -56,7 +56,7 @@ def _make_request(
     request.cookies = {}
     request.headers = {}
     request.query_params = query_params or {}
-    request.json = AsyncMock(return_value=json_body if json_body is not None else {})
+    request.form = AsyncMock(return_value=form_data if form_data is not None else {})
     return attach_csrf(request)
 
 
@@ -126,7 +126,7 @@ class TestGenerate:
         handler = registry.get("/api/reports/progress/generate", "POST")
 
         response = await handler(
-            _make_request(json_body={"time_period": "30d", "depth": "summary"})
+            _make_request(form_data={"time_period": "30d", "depth": "summary"})
         )
 
         assert response.status_code == 200
@@ -152,7 +152,7 @@ class TestGenerate:
         )
         handler = registry.get("/api/reports/progress/generate", "POST")
 
-        response = await handler(_make_request(json_body={"time_period": "7d"}))
+        response = await handler(_make_request(form_data={"time_period": "7d"}))
 
         assert response.status_code == 200
         assert "12 minutes ago" in _body(response)
@@ -162,7 +162,7 @@ class TestGenerate:
         registry, _, generator = registry_orchestrator_generator
         handler = registry.get("/api/reports/progress/generate", "POST")
 
-        response = await handler(_make_request(json_body={"time_period": "last-tuesday"}))
+        response = await handler(_make_request(form_data={"time_period": "last-tuesday"}))
 
         assert response.status_code == 400
         generator.generate.assert_not_awaited()
@@ -171,7 +171,7 @@ class TestGenerate:
     async def test_missing_csrf_is_refused(self, registry_orchestrator_generator) -> None:
         registry, _, generator = registry_orchestrator_generator
         handler = registry.get("/api/reports/progress/generate", "POST")
-        request = _make_request(json_body={"time_period": "7d"})
+        request = _make_request(form_data={"time_period": "7d"})
         request.headers = {}
 
         response = await handler(request)
@@ -198,11 +198,10 @@ class TestAnnotate:
 
         response = await handler(
             _make_request(
-                json_body={
+                form_data={
                     "uid": "r1",
                     "annotation_mode": "additive",
-                    "user_annotation": "Good week.",
-                    "user_revision": None,
+                    "annotation_text": "Good week.",
                 }
             )
         )
@@ -228,7 +227,7 @@ class TestAnnotate:
         handler = registry.get("/api/activity-reports/annotate", "POST")
 
         response = await handler(
-            _make_request(json_body={"uid": "r1", "annotation_mode": "additive"})
+            _make_request(form_data={"uid": "r1", "annotation_mode": "additive"})
         )
 
         assert response.status_code == 200
@@ -244,7 +243,7 @@ class TestAnnotate:
 
         response = await handler(
             _make_request(
-                json_body={"uid": "r9", "annotation_mode": "revision", "user_revision": "x"}
+                form_data={"uid": "r9", "annotation_mode": "revision", "annotation_text": "x"}
             )
         )
 
@@ -372,3 +371,55 @@ class TestRenderer:
         assert activity_report_filename(_report(time_period=None, created_at=None)) == (
             "activity-report.md"
         )
+
+
+class TestAnnotateModes:
+    @pytest.mark.asyncio
+    async def test_revision_mode_routes_the_text_to_user_revision(
+        self, registry_orchestrator_generator
+    ) -> None:
+        registry, orchestrator, _ = registry_orchestrator_generator
+        orchestrator.annotate_activity_report = AsyncMock(
+            return_value=Result.ok({"uid": "r1", "annotation_mode": "revision"})
+        )
+        handler = registry.get("/api/activity-reports/annotate", "POST")
+
+        await handler(
+            _make_request(
+                form_data={"uid": "r1", "annotation_mode": "revision", "annotation_text": "Mine."}
+            )
+        )
+
+        orchestrator.annotate_activity_report.assert_awaited_once_with(
+            "r1", "user_reports", "revision", user_annotation=None, user_revision="Mine."
+        )
+
+    @pytest.mark.asyncio
+    async def test_unknown_mode_is_400(self, registry_orchestrator_generator) -> None:
+        registry, orchestrator, _ = registry_orchestrator_generator
+        handler = registry.get("/api/activity-reports/annotate", "POST")
+
+        response = await handler(
+            _make_request(
+                form_data={"uid": "r1", "annotation_mode": "sideways", "annotation_text": "x"}
+            )
+        )
+
+        assert response.status_code == 400
+        orchestrator.annotate_activity_report.assert_not_awaited()
+
+
+class TestDownloadFailures:
+    @pytest.mark.asyncio
+    async def test_read_failure_is_unavailable_not_absent(
+        self, registry_orchestrator_generator
+    ) -> None:
+        registry, orchestrator, _ = registry_orchestrator_generator
+        orchestrator.get_activity_report = AsyncMock(
+            return_value=Result.fail(Errors.database("get_activity_report", "graph unreachable"))
+        )
+        handler = registry.get("/activity-reports/md", "GET")
+
+        response = await handler(_make_request(method="GET", query_params={"uid": "r1"}))
+
+        assert response.status_code == 503
