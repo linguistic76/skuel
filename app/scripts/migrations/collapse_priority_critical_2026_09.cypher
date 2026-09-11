@@ -21,13 +21,15 @@
 //      it back for edge width. Anchored on the lateral type set
 //      (core/models/relationship_names.py `_LATERAL_TYPES`).
 //
-// Idempotent: a row already at 'high' does not match either WHERE.
+// Idempotent and re-runnable: a row already at 'high' does not match either
+//   WHERE. Run it TWICE around the code cutover — once before the enum member
+//   is deleted (so no read raises while the old code still runs) and once
+//   again right after the deleting code is deployed: until that deploy, the
+//   old enum still accepts 'critical' on every activity write, so a row
+//   written between the first run and the cutover would escape it. The second
+//   run is the write cutoff; its verify below must return no 'critical' row.
 //
-// Census (2026-09-11, AuraDB, read-only, before this migration):
-//   task: 65 medium / 4 high / 7 critical; every other Activity type medium or
-//   high only; no non-Entity node and no relationship carried 'critical'.
-//
-// Verify (before/after):
+// Verify (before/after each run):
 //   MATCH (n) WHERE n.priority IS NOT NULL
 //   RETURN labels(n) AS labels, toString(n.priority) AS value, count(*) AS n
 //   ORDER BY labels, value
