@@ -388,6 +388,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             "milestones": updated_milestones,
             "progress_percentage": new_progress,
             "current_value": completed_count,
+            "last_progress_update": datetime.now(),
         }
         guard, achievement = _achievement_write(target_achieved)
 
@@ -491,7 +492,10 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             # current_value is untouched: the contribution is normalized against
             # STREAK_NORMALIZATION_DAYS, not against this goal's target_value, so
             # there is no measurement in target_value's unit to record here.
-            updates: dict[str, Any] = {"progress_percentage": new_progress}
+            updates: dict[str, Any] = {
+                "progress_percentage": new_progress,
+                "last_progress_update": datetime.now(),
+            }
 
             # Check if goal is achieved — on the TRANSITION, matching the gate in
             # _update_goal_from_habit_completion. `>= 100` alone re-stamps
@@ -786,7 +790,10 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
 
         # Update progress. progress_value is a percent (0-100), so it goes to
         # progress_percentage only — current_value holds domain units.
-        updates: dict[str, Any] = {"progress_percentage": progress_value}
+        updates: dict[str, Any] = {
+            "progress_percentage": progress_value,
+            "last_progress_update": datetime.now(),
+        }
 
         if notes:
             # Append notes to metadata (access via DTO)
@@ -1099,7 +1106,10 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         # purpose — this path publishes its own GoalProgressUpdated below with the
         # task-completion provenance (triggered_by_task_completion) that the generic
         # update_goal cannot express. A plain dict literal is the honest type here.
-        updates: dict[str, Any] = {"progress_percentage": new_progress}
+        updates: dict[str, Any] = {
+            "progress_percentage": new_progress,
+            "last_progress_update": datetime.now(),
+        }
 
         if goal.measurement_type == MeasurementType.TASK_BASED:
             # The measurement IS the linked-task tally, so this writer owns both ends of
@@ -1310,7 +1320,10 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         # purpose — this path publishes its own GoalProgressUpdated below with the
         # habit-completion provenance (triggered_by_habit_completion) that the generic
         # update_goal cannot express. A plain dict literal is the honest type here.
-        updates: dict[str, Any] = {"progress_percentage": new_progress}
+        updates: dict[str, Any] = {
+            "progress_percentage": new_progress,
+            "last_progress_update": datetime.now(),
+        }
 
         if goal.measurement_type == MeasurementType.HABIT_BASED:
             # target_value is the desired streak length (see the division above), so

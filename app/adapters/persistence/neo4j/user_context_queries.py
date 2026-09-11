@@ -578,7 +578,9 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 // CHOICES - Fetch UIDs AND rich data (pending/active; windowed completed also included)
 // ====================================================================
 OPTIONAL MATCH (user)-[:OWNS]->(choice:Choice)
-WHERE choice.status IN $pending_choice_statuses OR datetime(choice.created_at) >= datetime($window_start)
+WHERE choice.status IN $pending_choice_statuses
+   OR datetime(choice.created_at) >= datetime($window_start)
+   OR (choice.decided_at IS NOT NULL AND datetime(choice.decided_at) >= datetime($window_start))
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,

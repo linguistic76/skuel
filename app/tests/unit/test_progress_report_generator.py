@@ -858,12 +858,17 @@ class TestCompletionsFromContext:
                         {"goal_context": {"uid": "g1", "title": "Ship v1"}},
                     ),
                     _row({"uid": "t2", "title": "Completed, no stamp", "status": "completed"}),
+                    _row({"uid": "t3", "title": "Still open", "status": "active"}),
+                    _row({"uid": "t4", "title": "Cancelled", "status": "cancelled"}),
                 ]
             },
         )
-        assert completions["tasks_total"] == 2
+        # Only the open task is in play; the old completions and the cancelled
+        # task are outside the period's denominator.
+        assert completions["tasks_total"] == 1
         assert completions["tasks_completed"] == 0
         assert completions["goal_alignments"] == []
+        assert len(completions["tasks_details"]) == 4
 
     def test_events_attended_counts_only_completed_in_window_events(self, generator):
         completions = self._map(

@@ -54,6 +54,14 @@ from core.utils.timestamp_helpers import parse_date_value, parse_iso_utc
 logger = get_logger("skuel.services.report.progress_generator")
 
 
+def _is_terminal_status(raw: object) -> bool:
+    """Whether a stored status string names a terminal state; unreadable reads as open."""
+    try:
+        return EntityStatus(str(raw)).is_terminal()
+    except ValueError:
+        return False
+
+
 def _naive_utc(value: object) -> datetime | None:
     """A stored timestamp as a naive-UTC datetime, or None when absent or unreadable.
 
@@ -803,7 +811,8 @@ class ProgressReportGenerator:
         every principle), which is what the ``*_details`` lists show as "in play":
         ``tasks_completed`` = status completed with ``completion_date`` in period
         (the rich query selects completed tasks by ``updated_at``, so an old
-        completion re-edited in the period must not count); ``goals_progressed`` =
+        completion re-edited in the period must not count) over ``tasks_total`` =
+        completed in period + open now, the period's own denominator; ``goals_progressed`` =
         ``last_progress_update`` in period; ``habits_completed`` = ``last_completed``
         in period (a habit whose NODE status is completed is a retired habit);
         ``events_attended`` = in-period events whose status is completed (attendance
@@ -845,13 +854,21 @@ class ProgressReportGenerator:
                     for ref in graph_ctx.get("applied_knowledge") or []
                     if ref.get("title")
                 ]
-                result["tasks_total"] += 1
-                if entity.get("status") == EntityStatus.COMPLETED and in_period(
+                status = entity.get("status")
+                completed_in_period = status == EntityStatus.COMPLETED and in_period(
                     entity.get("completion_date")
-                ):
+                )
+                # The completion rate's denominator is the period's own: what was
+                # completed in it plus what is still open now. A completion from an
+                # earlier period (re-edited or not) is neither, and counting it
+                # would print a falsely low rate.
+                if completed_in_period:
                     result["tasks_completed"] += 1
+                    result["tasks_total"] += 1
                     result["goal_alignments"].extend(goal_titles)
                     result["knowledge_applications"].extend(ku_titles)
+                elif not _is_terminal_status(status):
+                    result["tasks_total"] += 1
                 result["tasks_details"].append(
                     {
                         "uid": entity["uid"],
@@ -1024,7 +1041,10 @@ class ProgressReportGenerator:
         if tasks_total > 0:
             rate = (tasks_completed / tasks_total * 100) if tasks_total else 0
             sections.append("## Task Completion Summary")
-            sections.append(f"- **Completed:** {tasks_completed} / {tasks_total} ({rate:.0f}%)")
+            sections.append(
+                f"- **Completed this period:** {tasks_completed} / {tasks_total} in play"
+                f" ({rate:.0f}%)"
+            )
             if depth != ProgressDepth.SUMMARY:
                 for task in completions.get("tasks_details", [])[:10]:
                     status_icon = (

@@ -448,6 +448,9 @@ class PrinciplesAlignmentService:
         # DTO stores alignment_history as list[dict] (flattened on to_dict via asdict);
         # convert here so the transfer-tier contract stays honest. See Principle._from_dto.
         dto.alignment_history.append(asdict(ku_assessment))
+        # A self-assessment IS a review: stamp the date the review cadence and the
+        # report's principles_reviewed counter read.
+        dto.last_review_date = date.today()
 
         # raw-write: full-DTO entity replace after appending to alignment_history (not a
         # partial property patch). ADR-066's PrincipleUpdateIntent models partial column

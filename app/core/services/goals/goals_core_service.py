@@ -698,6 +698,12 @@ class GoalsCoreService(
         ``GoalsProgressService``, which owns the progress-propagation provenance.)
         """
         changes = intent.to_changes()
+        # A progress figure carried by the intent (complete_goal's 100%, an explicit
+        # edit) is a progress event: stamp last_progress_update — the field
+        # GoalsProgressService stamps on every progress write and the report's
+        # goals_progressed counter reads.
+        if "progress_percentage" in changes:
+            changes["last_progress_update"] = datetime.now()
         # Capture the intended fields now: the backend stamps updated_at in place, so
         # reading changes.keys() after the write would leak that bump into the event.
         updated_fields = list(changes.keys())

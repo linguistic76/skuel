@@ -262,3 +262,35 @@ class TestCalculateAverageAlignment:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+class TestSelfAssessmentReviewStamp:
+    """A stored self-assessment is a review: it stamps ``last_review_date``, the
+    date the review cadence and the report's ``principles_reviewed`` counter read."""
+
+    @pytest.mark.asyncio
+    async def test_store_user_assessment_stamps_last_review_date(
+        self, alignment_service, mock_backend, sample_principle_with_alignment
+    ) -> None:
+        from datetime import date
+
+        from core.models.enums.principle_enums import AlignmentLevel
+        from core.models.principle.principle_types import AlignmentAssessment
+
+        mock_backend.get = AsyncMock(return_value=Result.ok(sample_principle_with_alignment))
+        mock_backend.update = AsyncMock(return_value=Result.ok(None))
+
+        await alignment_service._store_user_assessment(
+            sample_principle_with_alignment.uid,
+            AlignmentAssessment(
+                assessed_date=date.today(),
+                alignment_level=AlignmentLevel.ALIGNED,
+                evidence="Kept my word under pressure",
+                reflection="Felt right",
+            ),
+        )
+
+        mock_backend.update.assert_awaited_once()
+        written = mock_backend.update.await_args.args[1]
+        assert str(written["last_review_date"])[:10] == date.today().isoformat()
+        assert written["alignment_history"][-1]["evidence"] == "Kept my word under pressure"
