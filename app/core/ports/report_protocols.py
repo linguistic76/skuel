@@ -253,7 +253,7 @@ class ProgressReportOperations(Protocol):
     ActivityReport inherits UserOwnedEntity directly (not Submission).
 
     processor_type discriminates source:
-        ReportSource.AUTOMATIC — scheduled system generation
+        ReportSource.AUTOMATIC — programmatic generation (no LLM available)
         ReportSource.LLM       — on-demand AI generation
         ReportSource.HUMAN     — admin-written activity review
 

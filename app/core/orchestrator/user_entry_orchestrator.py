@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     from core.models.report.entry_report import EntryReport
     from core.models.user_entry.user_entry import UserEntry
     from core.ports.query_types import (
+        AnnotationResult,
         ExchangeThread,
         KnowledgeEntryGroundingRow,
         OrganizerResult,
@@ -326,6 +327,23 @@ class UserEntryOrchestrator:
     ) -> Result[list[ActivityReport]]:
         """Fetch history of activity-based feedback."""
         return await self._activity_report.get_history(subject_uid=user_uid, limit=limit)
+
+    async def annotate_activity_report(
+        self,
+        uid: str,
+        user_uid: UserUID,
+        annotation_mode: str,
+        user_annotation: str | None = None,
+        user_revision: str | None = None,
+    ) -> Result[AnnotationResult]:
+        """Save the owner's commentary (additive) or replacement text (revision) on a report."""
+        return await self._activity_report.annotate(
+            uid,
+            user_uid,
+            annotation_mode,
+            user_annotation=user_annotation,
+            user_revision=user_revision,
+        )
 
     # ------------------------------------------------------------------
     # Revised Exercises
