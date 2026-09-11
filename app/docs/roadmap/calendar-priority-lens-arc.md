@@ -10,6 +10,9 @@ ruled: 2026-09-11
 
 **Status:** ACTIVE 2026-09-11 (founder rulings taken the same day against a full code read + live-graph
 census). Five sub-arcs, A→E, each a short PR chain run in a fresh context against this document.
+PR 0 (#1312) Codex review: three P1 findings, all accepted and folded in — the report's events are
+bounded to the window in A.1 (not E.2); the backfill (B2) runs before the enum deletion (B1); E.2's
+data cutoff is `min(now, period_end)`.
 **Related:** [`done/calendar-act-from-arc.md`](done/calendar-act-from-arc.md) (C1–C7),
 [`done/calendar-periodic-notes-arc.md`](done/calendar-periodic-notes-arc.md) (R1–R5, E1–E4, S1–S4),
 [`done/habit-rhythm-arc.md`](done/habit-rhythm-arc.md) (M1–M7),
@@ -162,6 +165,12 @@ line → `user_context_queries.py` line):
 
 Same PR: `habits_completed` counts habits whose NODE status is COMPLETED (a retired habit) — derive
 "≥1 completion in window" from `entity["last_completed"] >= window_start` instead (no query change).
+**Events are bounded to `[window_start, window_end]` by `event_date` in the mapper** — the rich query
+selects every event from `window_start` onward with no upper bound, so without this cut a scheduled
+future event is reported as already attended (Codex P1 on PR 0; the query-level bound for explicit
+periods is E.2's, and must not touch the live context's forward-looking event rows, which
+`events_habit_integration_service` and `principles_planning_service` consume). The admin snapshot
+(`ActivityReportService.create_snapshot`) reads the same five wrong keys and is fixed in the same PR.
 Tests: a NEW `TestCompletionsFromContext` seeding rows in the real shape and asserting non-zero
 deltas against the current all-zero result (the standing "assert an output DELTA" rule); the `kus`
 fixture at :289 becomes the mapper's real output.
@@ -216,6 +225,11 @@ below).
 - Backfill: one label-anchored idempotent `.cypher` migration modelled on
   `scripts/migrations/lowercase_event_type_2026_08.cypher`, rewriting BOTH `n.priority` (7 Task nodes) and
   `r.priority` on lateral relationships, with a verify query. Run once against Aura (authorised).
+  **Ordering (Codex P1 on PR 0): the backfill runs against Aura BEFORE B1 merges.** `Priority(task.priority)`
+  is constructed directly in `_task_to_calendar_item` and the Today orchestrator, so a deleted member
+  with seven persisted `critical` rows would raise on every calendar/Today read in between. `'high'` is
+  valid under both vocabularies, so running the backfill first is safe; B1 then registers `priority` in
+  `ENUM_FIELD_TYPES` so the vault cannot reintroduce the value.
 - Docs: ADR-045 amendment (delete the fictional daily-planning override), `PRIORITY_CONFIDENCE_ARCHITECTURE.md`,
   `ENUM_ARCHITECTURE.md`, `calendar_models.py:149` comment, `ui/today/orchestrator.py:81` (`Priority.NONE`
   does not exist).
@@ -296,7 +310,9 @@ lens-status question (dated CANCELLED/FAILED tasks: **render** — the lens show
   `GET /activity-reports/latest` redirects to the newest owned report (`get_history limit=1`) or to
   `/submit-activity-report`.
 - **E.2 calendar-aligned periods:** tokens `2026-09` / `2026-W37` beside the trailing windows; the generator
-  derives (start, end) via `week_bounds`/month bounds; `build_rich(window_start=, window_end=)`; add
+  derives (start, end) via `week_bounds`/month bounds, keeps `period_end` as the report's metadata, and
+  passes **`min(now, period_end)` as the DATA cutoff** to `build_rich(window_start=, window_end=)` (Codex
+  P1 on PR 0: a September report generated on the 11th must not count events scheduled for the 20th); add
   `<= datetime($window_end)` to the "touched" predicates (tasks :112, goals :170, habits :285, events :372,
   choices :579) — never the "active" half; stop defaulting unknown tokens (generator 7d vs builder 30d);
   `ActivityReportBackend.find_by_period(subject_uid, time_period)`; `GET /activity-reports/for?kind=monthly|weekly&date=…`
@@ -345,10 +361,10 @@ history lives here and in the `done/` docs.
 | PR | Scope | Acceptance (live case) |
 |----|-------|------------------------|
 | 0 | This doc + the deferred case file + MOC entry (docs-only; summon Codex explicitly) | Doc reflects rulings 1–10 and the amendments table; `./dev docs-links` clean |
-| A1 | A.1 + A.1b — mapper rename table; habits_completed from `last_completed`; MEGA-QUERY `progress_percentage/100.0`; `goals_core_service` abandon-progress | New mapper tests assert non-zero deltas for all eight keys; a goal with `progress_percentage=40` yields `goal_progress==0.4` in an integration test; `./dev quality` 0 errors |
+| A1 | A.1 + A.1b — mapper rename table; events bounded to the window; habits_completed from `last_completed`; the admin snapshot's five identical reads; MEGA-QUERY `progress_percentage/100.0`; `goals_core_service` abandon-progress | New mapper tests assert non-zero deltas for all eight keys and exclude a future event; a goal with `progress_percentage=40` yields `goal_progress==0.4` in an integration test; `./dev quality` 0 errors |
 | A2 | A.2 + A.3 + A.4 — restore generate/annotate/annotation routes as HTMX fragments; `.md` download; de-fiction | Clicking "Generate" on `/submit-activity-report` produces a report and links to its detail (headless Chrome); annotate saves; `/activity-reports/md?uid=` downloads owned reports and 404s foreign ones; no doc names a route that does not exist |
-| B1 | Priority collapse — enum, maps, DSL/Obsidian remap, `ENUM_FIELD_TYPES`, docs | `Priority` has three members; `./dev quality` 0 errors; `@priority(1)` and ⏫ both create HIGH tasks; 🔼 creates MEDIUM |
-| B2 | Backfill migration + verify | `MATCH (n) WHERE n.priority='critical' RETURN count(n)` = 0 and the same for relationships, run against Aura after the migration |
+| B2 | Backfill migration committed AND run against Aura + verify — **lands before B1** | `MATCH (n) WHERE n.priority='critical' RETURN count(n)` = 0 and the same for relationships, run against Aura after the migration |
+| B1 | Priority collapse — enum, maps, DSL/Obsidian remap, `ENUM_FIELD_TYPES`, docs | `Priority` has three members; `./dev quality` 0 errors; `@priority(1)` and ⏫ both create HIGH tasks; 🔼 creates MEDIUM; the live graph carries no `critical` (B2 verified) |
 | C1 | ViewSpec + converter priority + CalendarItem/CalendarData/CalendarFilter cleanup + delete `/api/v2/calendar/items` + per-view legend | Month view shows only events ≥ medium (live: 6 medium events, 0 habit chips); week view shows the 3 medium/high habits + high tasks + events; a low-priority habit is absent from week; legend on month is absent, on week has four swatches; `./dev quality` 0 errors |
 | D0 | One completion door (see D.0) | All three clicks in the three-click integration test go through `update_task`; `TRIGGERS_ON_COMPLETION` dependents still schedule (handler test); `is_repeat` gone; `/today` complete still works |
 | D1 | The day view (see D.1) + ADR-058 amendment | `/today` renders overdue + tasks (TaskCard) + events + habits + milestones for the day with no JS bundle; completing a task from the day view goes through `/api/tasks/{uid}/status`; quick-add still creates `scheduled_date`-only tasks; the calendar's day-cell click lands on the new view; 375px verified |
@@ -356,5 +372,6 @@ history lives here and in the `done/` docs.
 | E2 | Calendar-aligned periods + find-or-generate doors | "Report for September" on the month toolbar opens a report whose window is Sep 1–30; a task completed Oct 1 is excluded; clicking again re-opens the same report |
 | E3 | Retire the schedule producer | `./dev bloat --check` clean with the entry removed; `GRAPH_CONTRACT.yaml` regenerated; no worker starts at bootstrap |
 
-Order: 0 → A1 → A2 → B1 → B2 → C1 → D0 → D1 → E1 → E2 → E3. A and D0 are independent of the rest and
-may land earlier; C requires B; D1 requires D0; E2 requires A2; E3 requires E2.
+Order: 0 → A1 → A2 → B2 → B1 → C1 → D0 → D1 → E1 → E2 → E3. A and D0 are independent of the rest and
+may land earlier; B1 requires B2 (backfill run first); C requires B; D1 requires D0; E2 requires A2;
+E3 requires E2.
