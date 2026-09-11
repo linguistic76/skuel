@@ -10,7 +10,11 @@ ruled: 2026-09-11
 
 **Status:** ACTIVE 2026-09-11 (founder rulings taken the same day against a full code read + live-graph
 census). Five sub-arcs, A→E, each a short PR chain run in a fresh context against this document.
-PR 0 (#1312) Codex review, five rounds, all findings accepted and folded in (round 5: A.2 posts
+PR 0 (#1312) Codex review, six rounds, all findings accepted and folded in (round 6: the task
+completion rate's denominator is in-period — completed in period + open now — never the whole
+inventory; the week legend lists Milestone; a task both overdue and scheduled today renders once, in
+Overdue; D1 regenerates the graph contract when it deletes `PINNED_TODAY` and clears the persisted
+edges; round 5: A.2 posts
 url-encoded form bodies and a real submit button — shipped that way on #1314; the rich query admits
 choices by `decided_at`; A2 merged before A1c, so A1c is the next PR and the goal/principle
 counters read zero until it lands; the B1 cutoff is stop-old-app → migrate → start-B1; closed-period
@@ -143,7 +147,7 @@ longer has.
 |---|---|---|
 | **#623 convention** ("All chips render; legend filters are the only hiding mechanism") | every kind renders; client CSS is the only filter | **The server renders each view's DECLARED membership (kind × priority). Within that membership, all chips render and legend filters remain the only client-side hiding.** Toggle-reversibility — #623's rationale — survives: nothing the legend can hide is missing from the DOM. |
 | **C3** (per-day habit tick on month AND week) | month + week | week (habits ≥ medium) + the day lens. The month view carries no habits. |
-| **C5** ("every legend entry has a producer") | one four-kind legend | the legend is **per-view**: month has none (one kind, nothing to toggle); week shows Event / Habit / Task. |
+| **C5** ("every legend entry has a producer") | one four-kind legend | the legend is **per-view**: month has none (one kind, nothing to toggle); week shows Event / Habit / Task / Milestone — every kind the WEEK spec renders. |
 | **S1 / habit-rhythm non-goal** ("four-kind legend ships as-is; no new filter vocabulary") | frozen | superseded by the per-view legend above. Priority is NOT a legend control — it is view membership (ruling 2). |
 | **M4 / R2** (Goals, Choices, Principles are not weekly filters / chips) | binding | **unchanged** — deferred half in [`weekly-goals-choices-chips.md`](weekly-goals-choices-chips.md). Goals still reach the grid as Milestones (C5) — on the WEEK view only, ≥ medium. |
 | **ADR-045** (four levels, CRITICAL "surfaces to top of daily plan") | LOW/MEDIUM/HIGH/CRITICAL | LOW/MEDIUM/HIGH. The cited override never existed; the amendment de-fictions it. |
@@ -185,6 +189,9 @@ periods is E.2's, and must not touch the live context's forward-looking event ro
 counter is an in-period transition read off the entity's own stamp, never the row count** (Codex P1,
 rounds 2–3): `tasks_completed` = status COMPLETED with `completion_date` in period (the rich query
 selects completed tasks by `updated_at`, so an old completion re-edited in the window must not count),
+and its ratio's denominator is in-period too — `tasks_total` = completed in period + open now — never
+the whole touched inventory, which would print a falsely low rate and a "reduce scope"
+recommendation for anyone with old open tasks (Codex P1, round 6);
 `goals_progressed` = `last_progress_update` in period, `habits_completed` = `last_completed` in period
 (both bounds), `events_attended` = in-window events whose status is COMPLETED (attendance is the
 completed state — `EventsProgressService.get_attendance_rate` — so a cancelled or merely passed event
@@ -333,7 +340,10 @@ below).
 
 **D.1 — the day view.** Keep `GET /today` and `/today/{date}` (all link-ins, auth redirects and C6 survive).
 Render server-side: `PageHeader` + `calendar_nav_cluster` + the existing quick-add (C6) + **Overdue** on the
-live day only (`is_triage_member`) + **Tasks** = `ActivityList`/`TaskCard` over `is_ribbon_member(t, view_date)`
+live day only (`is_triage_member`) + **Tasks** = `ActivityList`/`TaskCard` over `is_ribbon_member(t, view_date)` minus the tasks already
+shown in Overdue — a task both overdue and scheduled today renders once, in Overdue, because `TaskCard`
+derives its DOM id and HTMX target from the task uid alone and two copies would swap only one (Codex
+P2, round 6)
 + **Events** for the day (`EventCard`) + **Habits** due that day as the calendar's day-stamped chips with the
 per-day complete door (`POST /cal/habit/{uid}/complete`, C3) + **Milestones** (goal `target_date == day`) as
 read-only rows + **Choices** whose `decision_deadline` or `decided_at` falls on the day, as read-only rows
@@ -347,7 +357,9 @@ groups (Codex P2, round 3 — a swatch whose kind has no selector toggles its pr
 nothing). `ActivityList` gains `empty_state` and `list_id`
 parameters. Defer: a server-rendered "Defer 1d / 1w" control posting the existing route
 (`source=day|triage`). Delete: today.js, today.css, `drawer.py`, spine/ribbon/drawer/star/wake/keyboard
-sections, `PINNED_TODAY` edge + backend methods + protocol entries, the six seed TypedDicts, the
+sections, `PINNED_TODAY` edge + backend methods + protocol entries (regenerate `GRAPH_CONTRACT.yaml` in the same
+PR — its drift test byte-compares the artifact against the enums — and ship a one-shot statement that
+detaches the persisted `PINNED_TODAY` edges; Codex P2, round 6), the six seed TypedDicts, the
 `docs/design-handoff/today/` pair (archive to `docs/roadmap/done/`), service-worker `CACHE_VERSION` bump,
 `ALPINE_JS_ARCHITECTURE.md` registry row. Orchestrator slims to ~120 lines returning per-domain lists;
 `membership.py` stays. Amend ADR-058 (keep the `ui/` placement rationale SKUEL032 cites; fix the brand-link
