@@ -10,7 +10,10 @@ ruled: 2026-09-11
 
 **Status:** ACTIVE 2026-09-11 (founder rulings taken the same day against a full code read + live-graph
 census). Five sub-arcs, A→E, each a short PR chain run in a fresh context against this document.
-PR 0 (#1312) Codex review, three rounds, all findings accepted and folded in: the report's events are
+PR 0 (#1312) Codex review, four rounds, all findings accepted and folded in (round 4: the goal
+and principle stamps the counters read are written by no producer — A.1c stamps them; E.2 keeps
+no upper bound on `updated_at`, the mapper's canonical stamps are the bound; the Reports door reads
+the newest OWNED report; a partial report is finalised once its period closes): the report's events are
 bounded to the window in A.1 (not E.2); the backfill (B2) runs before the enum deletion (B1); E.2's
 data cutoff is `min(now, period_end)`; A.1's headline counters are in-period transitions, never
 inventory — tasks by `completion_date`, events attended only when COMPLETED; the day view covers every
@@ -183,7 +186,17 @@ selects completed tasks by `updated_at`, so an old completion re-edited in the w
 completed state — `EventsProgressService.get_attendance_rate` — so a cancelled or merely passed event
 is inventory, not attendance), `choices_made` = `decided_at` in period, `principles_reviewed` =
 `last_review_date` in period; the `*_details` lists remain the context's inventory and the markdown
-names them "in play". The admin snapshot (`ActivityReportService.create_snapshot`) reads the same
+names them "in play".
+
+**A.1c — the stamps those counters read must be WRITTEN (Codex P1, round 4).** No goal progress
+writer persists `last_progress_update` (`GoalsProgressService` updates `progress_percentage` and
+relies on the generic `updated_at`), and no principle flow persists `last_review_date`
+(`record_principle_reflection` only publishes; `_store_user_assessment` appends `alignment_history`;
+the field is absent from `PrincipleUpdateIntent`). A mapper test that seeds the field passes while
+production counts zero. A.1c (own PR, after A1): every progress-writing path stamps
+`last_progress_update`, every reflection/assessment path stamps `last_review_date` (and the intent
+carries it), with integration tests that drive the WRITER and assert the report counter — never a
+seeded row. The admin snapshot (`ActivityReportService.create_snapshot`) reads the same
 five wrong keys and is fixed in the same PR.
 Tests: a NEW `TestCompletionsFromContext` seeding rows in the real shape and asserting non-zero
 deltas against the current all-zero result (the standing "assert an output DELTA" rule); the `kus`
@@ -333,19 +346,26 @@ lens-status question (dated CANCELLED/FAILED tasks: **render** — the lens show
 - **E.1 sidebar variant:** `render_activity_sidebar_page(items=...)` with `CALENDAR_SIDEBAR_ITEMS`
   (Today / Weekly / Monthly / Journal / Reports → `/activity-reports/latest`); a `badges: bool` gate on
   `SidebarPage` so calendar/Today pages do not fire `/api/sidebar/badges`; fix the `events` slug drift.
-  `GET /activity-reports/latest` redirects to the newest owned report (`get_history limit=1`) or to
-  `/submit-activity-report`.
+  `GET /activity-reports/latest` redirects to the newest report the user OWNS — a new owner-scoped
+  backend read (`user_uid = subject`), not `get_history`, which is subject-scoped and returns
+  admin-authored HUMAN reports the owner-scoped detail then refuses (Codex P2, round 4) — or to
+  `/submit-activity-report` when none.
 - **E.2 calendar-aligned periods:** tokens `2026-09` / `2026-W37` beside the trailing windows; the generator
   derives (start, end) via `week_bounds`/month bounds, keeps `period_end` as the report's metadata, and
-  passes **`min(now, period_end)` as the DATA cutoff** to `build_rich(window_start=, window_end=)` (Codex
-  P1 on PR 0: a September report generated on the 11th must not count events scheduled for the 20th); add
-  `<= datetime($window_end)` to the "touched" predicates (tasks :112, goals :170, habits :285, events :372,
-  choices :579) — never the "active" half; stop defaulting unknown tokens (generator 7d vs builder 30d);
+  passes **`min(now, period_end)` as the DATA cutoff** — the mapper's `window_end` (Codex P1 on PR 0: a
+  September report generated on the 11th must not count events scheduled for the 20th). **The rich
+  query gets NO upper bound on its `updated_at` "touched" predicates** (Codex P1, round 4): a task
+  completed inside the period but edited after it must still reach the mapper, whose canonical stamps
+  (`completion_date`, `last_completed`, `decided_at`, `last_review_date`, `last_progress_update`,
+  `event_date`) are the one bound; `build_rich(window_start=)` selects touched-since-start as today.
+  Stop defaulting unknown tokens (generator 7d vs builder 30d);
   `ActivityReportBackend.find_by_period(subject_uid, time_period)`; `GET /activity-reports/for?kind=monthly|weekly&date=…`
   = find-or-generate → detail; toolbar pill "Report for September" / "Report for W37" via `period_link`;
   cooldown keyed per (user, period). Partial-period semantics: the first click generates a partial report
-  and later clicks re-open it until the period ends; a "Regenerate" action on the detail page is the
-  explicit refresh.
+  (its data cutoff stored as `metadata["data_cutoff"]`) and later clicks re-open it while the period is
+  still open; **once the period has closed, a report whose data cutoff precedes `period_end` is
+  stale — `find_by_period` treats it as absent and the door generates the final report, superseding
+  it** (Codex P2, round 4); a "Regenerate" action on the detail page is the explicit refresh.
 - **E.3 retire the schedule producer** (ruling 7): worker, `ProgressScheduleService`, `core/models/report_schedule/`,
   `ReportScheduleBackend`, both protocols, `ScheduleType`, both request models, `NeoLabel.REPORT_SCHEDULE`,
   `RelationshipName.HAS_SCHEDULE`, `MIN_AUTO_REPORT_INTERVAL_HOURS`, compose/container/bootstrap wiring, the
@@ -388,6 +408,7 @@ history lives here and in the `done/` docs.
 |----|-------|------------------------|
 | 0 | This doc + the deferred case file + MOC entry (docs-only; summon Codex explicitly) | Doc reflects rulings 1–10 and the amendments table; `./dev docs-links` clean |
 | A1 | A.1 + A.1b — mapper rename table; events bounded to the window and attended only when COMPLETED; in-period counters for tasks (by `completion_date`), goals, habits, choices and principles from the entities' own stamps; the admin snapshot's five identical reads; MEGA-QUERY `progress_percentage/100.0`; `goals_core_service` abandon-progress | New mapper tests assert non-zero deltas for all eight keys, exclude a future event and an after-window habit completion, and count only in-period goal/choice/principle transitions; a goal with `progress_percentage=40` yields `goal_progress==0.4` in an integration test; `./dev quality` 0 errors |
+| A1c | A.1c — goal progress writers stamp `last_progress_update`; principle reflection/assessment writers stamp `last_review_date` (intent carries it) | Integration tests drive `GoalsProgressService`'s progress door and the principle assessment door, then assert `goals_progressed == 1` / `principles_reviewed == 1` through the mapper — no seeded stamp |
 | A2 | A.2 + A.3 + A.4 — restore generate/annotate/annotation routes as HTMX fragments; `.md` download; de-fiction | Clicking "Generate" on `/submit-activity-report` produces a report and links to its detail (headless Chrome); annotate saves; `/activity-reports/md?uid=` downloads owned reports and 404s foreign ones; no doc names a route that does not exist |
 | B2 | Backfill migration committed AND run against Aura + verify — **lands before B1** | `MATCH (n) WHERE n.priority='critical' RETURN count(n)` = 0 and the same for relationships, run against Aura after the migration |
 | B1 | Priority collapse — enum, maps, DSL/Obsidian remap, `ENUM_FIELD_TYPES`, docs | `Priority` has three members; `./dev quality` 0 errors; `@priority(1)` and ⏫ both create HIGH tasks; 🔼 creates MEDIUM; **the B2 migration is re-run right after B1 deploys** (the write cutoff — until then the old enum still accepts `critical` on every activity write; Codex P1 on #1315) and its verify returns no `critical` row |
@@ -395,9 +416,9 @@ history lives here and in the `done/` docs.
 | D0 | One completion door (see D.0) | All three clicks in the three-click integration test go through `update_task`; `TRIGGERS_ON_COMPLETION` dependents still schedule (handler test); `is_repeat` gone; `/today` complete still works |
 | D1 | The day view (see D.1) + ADR-058 amendment | `/today` renders overdue + tasks (TaskCard) + events + habits + milestones + the day's choices with no page-local JS bundle; the legend's Habits swatch hides the habits section and the Choice swatch hides the choices section (the calendar's `calendarLegend` controller bound on the day shell; `choice` in calendar.css); completing a task from the day view goes through `/api/tasks/{uid}/status`; quick-add still creates `scheduled_date`-only tasks; the calendar's day-cell click lands on the new view; 375px verified |
 | E1 | Sidebar variant + `/activity-reports/latest` | Calendar/Today pages show Today/Weekly/Monthly/Journal/Reports and issue no `/api/sidebar/badges` request; `/tasks` unchanged |
-| E2 | Calendar-aligned periods + find-or-generate doors | "Report for September" on the month toolbar opens a report whose window is Sep 1–30; a task completed Oct 1 is excluded; clicking again re-opens the same report |
+| E2 | Calendar-aligned periods + find-or-generate doors | "Report for September" on the month toolbar opens a report whose window is Sep 1–30; a task completed Oct 1 is excluded while a task completed Sep 20 and edited Oct 3 is counted; clicking again re-opens the same report while September is open; the first click after Sep 30 on a partial report generates the final one |
 | E3 | Retire the schedule producer | `./dev bloat --check` clean with the entry removed; `GRAPH_CONTRACT.yaml` regenerated; no worker starts at bootstrap |
 
-Order: 0 → A1 → A2 → B2 → B1 → C1 → D0 → D1 → E1 → E2 → E3. A and D0 are independent of the rest and
+Order: 0 → A1 → A2 → A1c → B2 → B1 → C1 → D0 → D1 → E1 → E2 → E3. A and D0 are independent of the rest and
 may land earlier; B1 requires B2 (backfill run first); C requires B; D1 requires D0; E2 requires A2;
 E3 requires E2.
