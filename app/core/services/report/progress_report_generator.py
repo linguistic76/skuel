@@ -417,7 +417,8 @@ class ProgressReportGenerator:
             progress_values = [g.get("progress") or 0 for g in goals_details]
             avg_progress = sum(progress_values) / len(progress_values) if progress_values else 0.0
         trends["goals"] = {
-            "total": goals_progressed,
+            "total": len(goals_details),
+            "progressed": goals_progressed,
             "avg_progress": round(avg_progress, 2),
         }
 
@@ -447,6 +448,7 @@ class ProgressReportGenerator:
         principled = sum(1 for c in choices_details if c.get("principles"))
         trends["choices"] = {
             "total": len(choices_details),
+            "decided": completions.get("choices_made", 0),
             "principled": principled,
         }
 
@@ -460,6 +462,7 @@ class ProgressReportGenerator:
         )
         trends["principles"] = {
             "total": len(principles_details),
+            "reviewed": completions.get("principles_reviewed", 0),
             "aligned": aligned,
             "needs_attention": needs_attention,
         }
@@ -794,12 +797,17 @@ class ProgressReportGenerator:
         these names are a contract with the query, pinned by
         ``TestCompletionsFromContext``.
 
-        ``window_start``/``window_end`` are the report's period. Habits count as
-        completed when their last recorded completion falls inside it (a habit whose
-        NODE status is completed is a retired habit, not a completed one). Events are
-        kept only when their ``event_date`` falls inside it — the rich query selects
-        every event from ``window_start`` onward with no upper bound, so without this
-        cut a scheduled future event would be reported as already attended.
+        ``window_start``/``window_end`` are the report's period, and every headline
+        counter is an in-period transition read off the entity's own stamp — the
+        rows themselves are the context's inventory (active goals, pending choices,
+        every principle), which is what the ``*_details`` lists show as "in play":
+        ``goals_progressed`` = ``last_progress_update`` in period; ``habits_completed``
+        = ``last_completed`` in period (a habit whose NODE status is completed is a
+        retired habit); ``choices_made`` = ``decided_at`` in period;
+        ``principles_reviewed`` = ``last_review_date`` in period. Events are kept
+        only when their ``event_date`` falls inside the period — the rich query
+        selects every event from ``window_start`` onward with no upper bound, so a
+        scheduled future event would otherwise read as already attended.
 
         Consumed by _build_report_content() and _build_llm_prompt().
         """
@@ -807,6 +815,17 @@ class ProgressReportGenerator:
         result = self._empty_completions()
         window_floor = _naive_utc(window_start)
         window_ceiling = _naive_utc(window_end)
+
+        def in_period(stamp: object) -> bool:
+            moment = _naive_utc(stamp)
+            if moment is None:
+                day = parse_date_value(stamp)
+                if day is None:
+                    return False
+                moment = datetime.combine(day, datetime.min.time())
+            return (window_floor is None or moment >= window_floor) and (
+                window_ceiling is None or moment <= window_ceiling
+            )
 
         # Tasks
         if include_all or "tasks" in (domains or []):
@@ -839,7 +858,8 @@ class ProgressReportGenerator:
         if include_all or "goals" in (domains or []):
             for item in context.entities_rich.get("goals", []):
                 entity = item["entity"]
-                result["goals_progressed"] += 1
+                if in_period(entity.get("last_progress_update")):
+                    result["goals_progressed"] += 1
                 result["goals_details"].append(
                     {
                         "uid": entity["uid"],
@@ -853,12 +873,7 @@ class ProgressReportGenerator:
         if include_all or "habits" in (domains or []):
             for item in context.entities_rich.get("habits", []):
                 entity = item["entity"]
-                last_completed = _naive_utc(entity.get("last_completed"))
-                if (
-                    last_completed is not None
-                    and window_floor is not None
-                    and last_completed >= window_floor
-                ):
+                if in_period(entity.get("last_completed")):
                     result["habits_completed"] += 1
                 result["habits_details"].append(
                     {
@@ -895,7 +910,8 @@ class ProgressReportGenerator:
             for item in context.entities_rich.get("choices", []):
                 entity = item["entity"]
                 graph_ctx = item.get("graph_context", {})
-                result["choices_made"] += 1
+                if in_period(entity.get("decided_at")):
+                    result["choices_made"] += 1
                 result["choices_details"].append(
                     {
                         "uid": entity["uid"],
@@ -912,7 +928,8 @@ class ProgressReportGenerator:
         if include_all or "principles" in (domains or []):
             for item in context.entities_rich.get("principles", []):
                 entity = item["entity"]
-                result["principles_reviewed"] += 1
+                if in_period(entity.get("last_review_date")):
+                    result["principles_reviewed"] += 1
                 result["principles_details"].append(
                     {
                         "uid": entity["uid"],
@@ -1010,9 +1027,10 @@ class ProgressReportGenerator:
         # Goal Alignment
         goal_alignments = completions.get("goal_alignments", [])
         goals_progressed = completions.get("goals_progressed", 0)
-        if goals_progressed > 0 or goal_alignments:
+        if goals_progressed > 0 or goal_alignments or completions.get("goals_details"):
             sections.append("## Goal Alignment")
-            sections.append(f"- **Goals touched:** {goals_progressed}")
+            sections.append(f"- **Goals progressed this period:** {goals_progressed}")
+            sections.append(f"- **Goals in play:** {len(completions.get('goals_details', []))}")
             if goal_alignments:
                 unique_goals = list(set(goal_alignments))
                 sections.append(f"- **Tasks served goals:** {', '.join(unique_goals[:5])}")
@@ -1065,7 +1083,10 @@ class ProgressReportGenerator:
         if choices_details:
             principled_choices = [c for c in choices_details if c.get("principles")]
             sections.append("## Principle Alignment")
-            sections.append(f"- **Choices made:** {len(choices_details)}")
+            sections.append(
+                f"- **Choices decided this period:** {completions.get('choices_made', 0)}"
+            )
+            sections.append(f"- **Choices in play:** {len(choices_details)}")
             sections.append(f"- **Guided by principles:** {len(principled_choices)}")
             if depth != ProgressDepth.SUMMARY and principled_choices:
                 for choice in principled_choices[:5]:
@@ -1083,7 +1104,10 @@ class ProgressReportGenerator:
                 p for p in principles_details if p.get("alignment") in ("drifting", "misaligned")
             ]
             sections.append("## Principles")
-            sections.append(f"- **Principles active this period:** {len(principles_details)}")
+            sections.append(
+                f"- **Principles reviewed this period:** {completions.get('principles_reviewed', 0)}"
+            )
+            sections.append(f"- **Principles active:** {len(principles_details)}")
             if well_aligned:
                 sections.append(f"- **Well-aligned:** {len(well_aligned)}")
             if needs_attention:

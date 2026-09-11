@@ -522,10 +522,10 @@ def _row(entity: dict, graph_context: dict | None = None) -> dict:
 
 
 class TestCompletionsFromContext:
-    """Rows are ``{entity: properties(n), graph_context: {...}}``; the mapper must
-    read the property names the models persist and the aliases the query emits.
-    Every assertion here is a non-zero delta against a mapper that read the wrong
-    key (which zeroed the metric silently)."""
+    """The mapper's row contract: rows are ``{entity: properties(n), graph_context:
+    {...}}``, keys are the persisted property names and the query's graph-context
+    aliases, and every headline counter is an in-period transition read off the
+    entity's own stamp. Each assertion pins a non-zero value for one key."""
 
     WINDOW_START = datetime(2026, 9, 1, 0, 0, 0)
     WINDOW_END = datetime(2026, 9, 11, 12, 0, 0)
@@ -731,3 +731,88 @@ class TestCompletionsFromContext:
         )
         assert completions["events_attended"] == 3
         assert [e["uid"] for e in completions["events_details"]] == ["e1", "e2", "e5"]
+
+    def test_habit_completed_after_the_window_is_not_counted(self, generator):
+        completions = self._map(
+            generator,
+            {
+                "habits": [
+                    _row(
+                        {
+                            "uid": "h6",
+                            "title": "After window",
+                            "status": "active",
+                            "last_completed": datetime(2026, 9, 12, 7, 0, 0),
+                        }
+                    )
+                ]
+            },
+        )
+        assert completions["habits_completed"] == 0
+
+    def test_goals_progressed_counts_in_period_progress_updates(self, generator):
+        completions = self._map(
+            generator,
+            {
+                "goals": [
+                    _row(
+                        {
+                            "uid": "g1",
+                            "title": "Moved",
+                            "last_progress_update": datetime(2026, 9, 3),
+                        }
+                    ),
+                    _row(
+                        {
+                            "uid": "g2",
+                            "title": "Stale",
+                            "last_progress_update": datetime(2026, 7, 1),
+                        }
+                    ),
+                    _row({"uid": "g3", "title": "Never moved"}),
+                ]
+            },
+        )
+        assert completions["goals_progressed"] == 1
+        assert len(completions["goals_details"]) == 3
+        trends = generator._compute_domain_trends(completions)["goals"]
+        assert (trends["total"], trends["progressed"]) == (3, 1)
+
+    def test_choices_made_counts_in_period_decisions(self, generator):
+        completions = self._map(
+            generator,
+            {
+                "choices": [
+                    _row({"uid": "c1", "title": "Decided", "decided_at": "2026-09-04T10:00:00"}),
+                    _row({"uid": "c2", "title": "Pending"}),
+                    _row(
+                        {"uid": "c3", "title": "Old decision", "decided_at": datetime(2026, 8, 1)}
+                    ),
+                ]
+            },
+        )
+        assert completions["choices_made"] == 1
+        assert len(completions["choices_details"]) == 3
+        assert generator._compute_domain_trends(completions)["choices"]["decided"] == 1
+
+    def test_principles_reviewed_counts_in_period_reviews(self, generator):
+        completions = self._map(
+            generator,
+            {
+                "principles": [
+                    _row({"uid": "p1", "title": "Reviewed", "last_review_date": date(2026, 9, 6)}),
+                    _row(
+                        {
+                            "uid": "p2",
+                            "title": "Reviewed (string)",
+                            "last_review_date": "2026-09-02",
+                        }
+                    ),
+                    _row({"uid": "p3", "title": "Long ago", "last_review_date": date(2026, 1, 6)}),
+                    _row({"uid": "p4", "title": "Never"}),
+                ]
+            },
+        )
+        assert completions["principles_reviewed"] == 2
+        assert len(completions["principles_details"]) == 4
+        assert generator._compute_domain_trends(completions)["principles"]["reviewed"] == 2
