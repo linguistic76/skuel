@@ -10,7 +10,10 @@ ruled: 2026-09-11
 
 **Status:** ACTIVE 2026-09-11 (founder rulings taken the same day against a full code read + live-graph
 census). Five sub-arcs, A→E, each a short PR chain run in a fresh context against this document.
-PR 0 (#1312) Codex review, seven rounds, all findings accepted and folded in (round 7: the rich
+PR 0 (#1312) Codex review, eight rounds, all findings accepted and folded in (round 8: a
+calendar-period report counts from persisted HISTORY — `HabitCompletion` rows, `progress_history`,
+`alignment_history` — never from a latest-only stamp that a later transition overwrites; its
+period-end denominator is an approximation with a named false positive; round 7: the rich
 query's touched predicates gate nothing today — E.2 moves them onto the row; a calendar period's
 denominator is open AT PERIOD END; `find_by_period` is owner-scoped; round 6: the task
 completion rate's denominator is in-period — completed in period + open now — never the whole
@@ -386,7 +389,22 @@ lens-status question (dated CANCELLED/FAILED tasks: **render** — the lens show
   query gets NO upper bound on its `updated_at` "touched" predicates** (Codex P1, round 4): a task
   completed inside the period but edited after it must still reach the mapper, whose canonical stamps
   (`completion_date`, `last_completed`, `decided_at`, `last_review_date`, `last_progress_update`,
-  `event_date`) are the one bound; `build_rich(window_start=)` selects touched-since-start — **and E.2 makes that selection real**: the
+  `event_date`) are the one bound; **A calendar-period report counts transitions from persisted history, not from the node's latest
+  stamp** (Codex P1, round 8): `last_completed`, `last_progress_update` and `last_review_date` are
+  overwritten by every later completion, progress write or review, so a September report generated
+  in October would count zero for a habit done in both months. E.2 reads `habits_completed` from
+  `HabitCompletion` rows dated in the period, `goals_progressed` from `progress_history` entries in
+  it, `principles_reviewed` from `alignment_history` assessments dated in it (`completion_date` on
+  a task and `decided_at` on a choice are single stamps and stay as they are); a trailing window
+  ending now keeps the latest-stamp reads, which coincide with history for it.
+  **The period-end denominator is an approximation with a named false positive** (Codex P1, round
+  8): "open at period end" = created no later than `period_end` and either non-terminal now or
+  terminal with its terminal stamp (`completion_date`, else `updated_at`) after `period_end`. A
+  task terminal before the period and merely edited after it is counted as open — SKUEL persists no
+  status-transition history, and E.2 records that limit in the report's metadata rather than
+  promising a precision it cannot keep; the final report generated at first open after the period
+  closes is as close to the period-end state as the data allows.
+  `build_rich(window_start=)` selects touched-since-start — **and E.2 makes that selection real**: the
   touched predicates at `user_context_queries.py:112` (tasks) and `:170` (goals) sit on the
   neighbourhood `OPTIONAL MATCH`, so today they null the matched subtask/contributing task and keep
   the carried row, which is still collected; an untouched closed task reaches `entities_rich`
