@@ -36,17 +36,15 @@ ACTIVITY_BLOCKS: list[HubBlockData] = [
 
 
 _PRIORITY_COLORS: dict[Priority, str] = {
-    Priority.CRITICAL: "bg-red-500",
     Priority.HIGH: "bg-orange-500",
     Priority.MEDIUM: "bg-blue-500",
     Priority.LOW: "bg-gray-400",
 }
 
 _PRIORITY_LABELS: dict[Priority, str] = {
-    Priority.CRITICAL: "P1",
-    Priority.HIGH: "P2",
-    Priority.MEDIUM: "P3",
-    Priority.LOW: "P4",
+    Priority.HIGH: "P1",
+    Priority.MEDIUM: "P2",
+    Priority.LOW: "P3",
 }
 
 

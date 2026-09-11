@@ -314,8 +314,7 @@ def score_priority_level(
             )
 
     score_map = {
-        Priority.CRITICAL: (1.0, "Critical priority"),
-        Priority.HIGH: (0.8, "High priority"),
+        Priority.HIGH: (1.0, "High priority"),
         Priority.MEDIUM: (0.5, "Medium priority"),
         Priority.LOW: (0.25, "Low priority"),
     }

@@ -35,25 +35,21 @@ def map_dsl_priority_to_enum(dsl_priority: int | None) -> Priority:
     Map DSL priority (1-5) to SKUEL Priority enum.
 
     DSL: 1=highest, 5=lowest
-    SKUEL: LOW, MEDIUM, HIGH, CRITICAL
+    SKUEL: LOW, MEDIUM, HIGH
 
     Mapping:
-    - 1 → CRITICAL
-    - 2 → HIGH
+    - 1, 2 → HIGH
     - 3 → MEDIUM
     - 4, 5 → LOW
     """
     if dsl_priority is None:
         return Priority.MEDIUM
 
-    if dsl_priority == 1:
-        return Priority.CRITICAL
-    elif dsl_priority == 2:
+    if dsl_priority <= 2:
         return Priority.HIGH
-    elif dsl_priority == 3:
+    if dsl_priority == 3:
         return Priority.MEDIUM
-    else:
-        return Priority.LOW
+    return Priority.LOW
 
 
 def map_repeat_to_recurrence(repeat_pattern: dict[str, Any] | None) -> RecurrencePattern | None:

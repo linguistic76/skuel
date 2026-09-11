@@ -48,7 +48,7 @@ _TASK_ACTIVE_STATUSES = frozenset(
 
 # -- Shared sort constants ----------------------------------------------------
 
-PRIORITY_ORDER: dict[str, int] = {"critical": 0, "high": 1, "medium": 2, "low": 3}
+PRIORITY_ORDER: dict[str, int] = {"high": 0, "medium": 1, "low": 2}
 
 STRENGTH_ORDER: dict[str, int] = {
     "core": 0,
@@ -65,7 +65,7 @@ STRENGTH_ORDER: dict[str, int] = {
 
 
 def _task_sort_by_priority(task: Task) -> int:
-    return PRIORITY_ORDER.get(str(task.priority) if task.priority else "", 4)
+    return PRIORITY_ORDER.get(str(task.priority) if task.priority else "", 3)
 
 
 def _task_sort_by_due_date(task: Task) -> str:
@@ -117,7 +117,7 @@ def filter_tasks(
 
 
 def _goal_sort_by_priority(goal: Goal) -> int:
-    return PRIORITY_ORDER.get(str(goal.priority) if goal.priority else "", 4)
+    return PRIORITY_ORDER.get(str(goal.priority) if goal.priority else "", 3)
 
 
 def _goal_sort_by_target_date(goal: Goal) -> str:
@@ -280,7 +280,7 @@ def filter_choices(
         return str(c.decision_deadline or "9999-12-31")[:10]
 
     def by_priority(c: Any) -> int:
-        return PRIORITY_ORDER.get(str(c.priority) if c.priority else "", 4)
+        return PRIORITY_ORDER.get(str(c.priority) if c.priority else "", 3)
 
     def by_title(c: Any) -> str:
         return (c.title or "").lower()

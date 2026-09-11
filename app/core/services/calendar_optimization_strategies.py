@@ -111,17 +111,13 @@ class _SchedulingStrategiesMixin:
     ) -> EnergyAlignedStrategy:
         """Apply energy-aligned scheduling strategy."""
 
-        # Categorize tasks by energy requirements — CRITICAL and HIGH both
-        # demand peak energy; CRITICAL is seated first.
+        # Categorize tasks by energy requirements — HIGH priority and
+        # knowledge-mastery work demand peak energy.
         def _priority_rank(task) -> int:
             return Priority.from_value(task.priority).sort_order()
 
         high_energy_tasks = sorted(
-            (
-                t
-                for t in tasks
-                if t.priority in (Priority.CRITICAL, Priority.HIGH) or t.knowledge_mastery_check
-            ),
+            (t for t in tasks if t.priority == Priority.HIGH or t.knowledge_mastery_check),
             key=_priority_rank,
         )
         medium_energy_tasks = [t for t in tasks if t.priority == Priority.MEDIUM]
@@ -129,8 +125,7 @@ class _SchedulingStrategiesMixin:
 
         schedule = {}
 
-        # Assign high-energy tasks to peak/high energy slots, best capacity
-        # first so CRITICAL is seated into PEAK before HIGH slots.
+        # Assign high-energy tasks to peak/high energy slots, best capacity first.
         peak_slots = sorted(
             (s for s in slots if s.energy_level in [SlotEnergyLevel.PEAK, SlotEnergyLevel.HIGH]),
             key=attrgetter("cognitive_capacity"),

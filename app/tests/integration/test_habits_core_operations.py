@@ -440,7 +440,7 @@ class TestHabitsCoreOperations:
             reward="Feel energized and flexible",
             reinforces_identity="I am a healthy person",
             is_identity_habit=True,
-            priority=Priority.CRITICAL,
+            priority=Priority.HIGH,
         )
 
         # Act
@@ -454,7 +454,7 @@ class TestHabitsCoreOperations:
         assert created.preferred_time is TimeOfDay.MORNING
         assert created.duration_minutes == 30
         assert created.target_days_per_week == 5
-        assert created.priority == Priority.CRITICAL
+        assert created.priority == Priority.HIGH
 
     async def test_habit_without_optional_fields(self, habits_service, test_user_uid):
         """Test creating a habit with minimal required fields."""

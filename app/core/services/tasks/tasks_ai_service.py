@@ -25,6 +25,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from core.models.enums.activity_enums import Priority
 from core.models.enums.entity_enums import EntityType
 from core.models.task.task import Task
 from core.models.type_hints import EntityUID
@@ -252,7 +253,7 @@ Keep it under 100 words."""
         }
 
         prompt = """Analyze this task and suggest a priority level.
-Priority levels: CRITICAL, HIGH, MEDIUM, LOW, NONE
+Priority levels: HIGH, MEDIUM, LOW
 
 Respond in this format:
 PRIORITY: [your suggestion]
@@ -266,14 +267,19 @@ REASONING: [brief explanation, 1-2 sentences]"""
         response = insight_result.value
         lines = response.strip().split("\n")
 
-        suggested_priority = "MEDIUM"  # Default
+        raw_priority = ""
         reasoning = "Unable to determine reasoning"
 
         for line in lines:
             if line.upper().startswith("PRIORITY:"):
-                suggested_priority = line.split(":", 1)[1].strip().upper()
+                raw_priority = line.split(":", 1)[1].strip()
             elif line.upper().startswith("REASONING:"):
                 reasoning = line.split(":", 1)[1].strip()
+
+        # The suggestion is a Priority member, spoken in its canonical value — a
+        # model answer outside the three-level vocabulary reads as MEDIUM, the
+        # same default every request model carries.
+        suggested_priority = Priority.from_value(raw_priority).value
 
         return Result.ok(
             {

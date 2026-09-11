@@ -104,7 +104,7 @@ class TestCategorizePriorityChange:
         assert _categorize_priority_change("low", "high") == "escalation"
 
     def test_de_escalation(self):
-        assert _categorize_priority_change("critical", "medium") == "de-escalation"
+        assert _categorize_priority_change("high", "medium") == "de-escalation"
 
     def test_lateral(self):
         assert _categorize_priority_change("medium", "medium") == "lateral"
@@ -113,7 +113,7 @@ class TestCategorizePriorityChange:
         assert _categorize_priority_change("unknown", "high") == "lateral"
 
     def test_full_escalation(self):
-        assert _categorize_priority_change("low", "critical") == "escalation"
+        assert _categorize_priority_change("low", "high") == "escalation"
 
 
 class TestDetectBatchPattern:
@@ -303,9 +303,8 @@ class TestHandleTaskPriorityChanged:
             task_uid="task_test_abc",
             user_uid="user_mike",
             old_priority="low",
-            new_priority="critical",
+            new_priority="high",
             occurred_at=datetime.now(),
-            escalated_to_urgent=True,
         )
 
         with patch.object(service.logger, "info") as mock_log:

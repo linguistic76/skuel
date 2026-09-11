@@ -481,7 +481,7 @@ async def test_update_task_refuses_priority_decrease_on_overdue_task(core_servic
 async def test_update_task_refuses_priority_clear_on_overdue_task(core_service, mock_backend):
     """Clearing the priority is measured as MEDIUM, not skipped — it cannot duck the rule."""
     mock_backend.get.return_value = Result.ok(
-        _stored_task(priority=Priority.CRITICAL.value, due_date=_YESTERDAY)
+        _stored_task(priority=Priority.HIGH.value, due_date=_YESTERDAY)
     )
 
     result = await core_service.update_task("task:123", TaskUpdateIntent(priority=None))
@@ -517,16 +517,16 @@ async def test_update_task_allows_priority_increase_on_overdue_task(core_service
         _stored_task(priority=Priority.LOW.value, due_date=_YESTERDAY)
     )
     mock_backend.update.return_value = Result.ok(
-        _stored_task(priority=Priority.CRITICAL.value, due_date=_YESTERDAY)
+        _stored_task(priority=Priority.HIGH.value, due_date=_YESTERDAY)
     )
 
     result = await core_service.update_task(
-        "task:123", TaskUpdateIntent(priority=Priority.CRITICAL.value)
+        "task:123", TaskUpdateIntent(priority=Priority.HIGH.value)
     )
 
     assert result.is_ok
     mock_backend.update_with_status_guard.assert_called_once_with(
-        "task:123", {"priority": Priority.CRITICAL.value}, ANY
+        "task:123", {"priority": Priority.HIGH.value}, ANY
     )
 
 

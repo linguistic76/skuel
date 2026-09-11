@@ -674,7 +674,7 @@ class TestDeletedRulesAdmitTheLiveShapes:
                 uid="task:dsl",
                 user_uid=USER_UID,
                 title="Call the bank",
-                priority=Priority.CRITICAL,
+                priority=Priority.HIGH,
                 due_date=None,
             )
         )

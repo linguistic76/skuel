@@ -77,18 +77,14 @@ def _build_kinds() -> dict[str, KindMeta]:
     }
 
 
-# Priority → view-string mapping. The mock uses "high" / "medium" / "low";
-# SKUEL's enum also has CRITICAL and NONE which we collapse.
+# Priority → view string: the enum's three values ARE the view vocabulary;
+# an unreadable stored value reads as low.
 def _priority_label(raw: object) -> str:
     try:
         p = raw if isinstance(raw, Priority) else Priority(str(raw).lower())
     except ValueError:
         return "low"
-    if p in (Priority.CRITICAL, Priority.HIGH):
-        return "high"
-    if p == Priority.MEDIUM:
-        return "medium"
-    return "low"
+    return p.value
 
 
 def _due_label(d: date | None, today: date) -> str:

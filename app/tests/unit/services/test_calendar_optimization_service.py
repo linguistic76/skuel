@@ -341,12 +341,12 @@ class TestTaskCognitiveLoadAnalysis:
         # Raw sum is 1.4 — clamped to 1.0.
         assert analysis.total_load == pytest.approx(1.0)
 
-    def test_critical_priority_gets_same_intrinsic_boost_as_high(
+    def test_medium_priority_gets_no_intrinsic_boost(
         self, service: CalendarOptimizationService
     ) -> None:
-        task = make_task("task_critical_load_1", priority=Priority.CRITICAL)
+        task = make_task("task_medium_load_1", priority=Priority.MEDIUM)
         analysis = service._analyze_task_cognitive_load(task, [])
-        assert analysis.intrinsic_load == pytest.approx(0.5)  # 0.3 + 0.2
+        assert analysis.intrinsic_load == pytest.approx(0.3)
 
     def test_domain_complexity_map_and_default(self, service: CalendarOptimizationService) -> None:
         assert service._calculate_domain_complexity(Domain.TECH) == pytest.approx(0.8)
@@ -462,31 +462,27 @@ class TestEnergyAlignedStrategy:
         # 2 optimal out of 4 scheduled.
         assert result["energy_efficiency"] == pytest.approx(0.5)
 
-    def test_critical_priority_tasks_get_peak_slots_ahead_of_high(
+    def test_high_priority_tasks_take_peak_slots_best_capacity_first(
         self, service: CalendarOptimizationService
     ) -> None:
-        # CRITICAL joins the high-energy bucket and is seated before HIGH,
-        # so the most urgent task claims the best-capacity peak slot (the
-        # 9:00 PEAK, not the chronologically earlier 8:00 HIGH slot).
+        # Two HIGH tasks both join the high-energy bucket; slots are consumed
+        # best-capacity-first (9:00 PEAK, then 10:00 PEAK), in listed order.
         profile = service._get_user_energy_profile(USER_UID)
         slots = service._generate_available_slots(TARGET_DATE, [], profile)
-        high = make_task("task_high_1", priority=Priority.HIGH)
-        critical = make_task("task_critical_1", priority=Priority.CRITICAL)
+        first = make_task("task_high_1", priority=Priority.HIGH)
+        second = make_task("task_high_2", priority=Priority.HIGH)
 
-        result = service._apply_energy_aligned_strategy(slots, [high, critical], profile)
+        result = service._apply_energy_aligned_strategy(slots, [first, second], profile)
         schedule = result["schedule"]
 
-        for uid in (critical.uid, high.uid):
+        for uid in (first.uid, second.uid):
             assert schedule[uid]["energy_match"] == "optimal"
-        # CRITICAL is seated first even though it was listed after HIGH,
-        # and slots are consumed best-capacity-first: 9:00 PEAK then 10:00 PEAK.
-        assert schedule[critical.uid]["slot"].energy_level == SlotEnergyLevel.PEAK
-        assert schedule[critical.uid]["slot"].start_time.hour == 9
-        assert schedule[high.uid]["slot"].energy_level == SlotEnergyLevel.PEAK
-        assert schedule[high.uid]["slot"].start_time.hour == 10
+            assert schedule[uid]["slot"].energy_level == SlotEnergyLevel.PEAK
+        assert schedule[first.uid]["slot"].start_time.hour == 9
+        assert schedule[second.uid]["slot"].start_time.hour == 10
         assert (
-            schedule[critical.uid]["slot"].cognitive_capacity
-            >= schedule[high.uid]["slot"].cognitive_capacity
+            schedule[first.uid]["slot"].cognitive_capacity
+            >= schedule[second.uid]["slot"].cognitive_capacity
         )
         assert result["energy_efficiency"] == pytest.approx(1.0)
 

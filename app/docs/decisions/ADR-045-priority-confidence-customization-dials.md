@@ -1,6 +1,6 @@
 ---
 title: "ADR-045: Priority & Confidence as First-Class Customization Dials"
-updated: 2026-09-04
+updated: 2026-09-11
 status: current
 category: decisions
 tags: [adr, decisions, enums, priority, confidence, planning, graph-visualization]
@@ -9,9 +9,18 @@ related: [ADR-030, ADR-037]
 
 # ADR-045: Priority & Confidence as First-Class Customization Dials
 
-**Status:** Accepted
+**Status:** Accepted — **amended 2026-09-11**
 
 **Date:** 2026-03-05
+
+**Amendment (2026-09-11, calendar priority-lens arc ruling 1):** Priority has **three** levels —
+LOW / MEDIUM / HIGH. The fourth member this ADR introduced, `CRITICAL`, is deleted (persisted
+rows converged to `high` by `scripts/migrations/collapse_priority_critical_2026_09.cypher`), and
+the vault door refuses the value (`priority` is registered in `ENUM_FIELD_TYPES`). The
+justification the original text gave for the fourth level — a "CRITICAL priority override" at the
+top of the daily plan — never existed in `daily_planning.py`; Priority reaches planning through
+the surfaces that rank by it (see `/docs/architecture/PRIORITY_CONFIDENCE_ARCHITECTURE.md`
+§ Planning Layer). Contract: `/docs/roadmap/calendar-priority-lens-arc.md`.
 
 **Decision Type:** ⬜ Query Architecture  ⬜ Graph Schema  ✅ Pattern/Practice
 
@@ -36,7 +45,7 @@ Two orthogonal concerns emerged from actual usage:
    where it represents the strength of the assertion that two entities are related.
 
 These dimensions appear together constantly in real planning:
-> "I have a CRITICAL task (priority), but I'm UNCERTAIN (confidence) whether it'll be completed."
+> "I have a HIGH-priority task, but I'm UNCERTAIN (confidence) whether it'll be completed."
 > "This KU is CERTAIN (confidence) foundational knowledge, LOW priority for *this* user right now."
 
 Without first-class support, both dimensions collapsed into ad-hoc string fields or got lost.
@@ -52,8 +61,7 @@ Without first-class support, both dimensions collapsed into ad-hoc string fields
 class Priority(str, Enum):
     LOW      = "low"       # to_numeric() → 1, get_color() → green
     MEDIUM   = "medium"    # → 2, blue
-    HIGH     = "high"      # → 3, amber
-    CRITICAL = "critical"  # → 4, red  ← surfaces to top of daily plan
+    HIGH     = "high"      # → 3, amber — the top level
 
 # Confidence — on Curriculum (KU, PS, LP) + ALL lateral relationship edges
 class Confidence(str, Enum):
@@ -82,13 +90,13 @@ distinct meaning:
 
 | Priority | Confidence | Meaning |
 |----------|------------|---------|
-| CRITICAL | CERTAIN    | Execute now. Important AND well-founded. |
-| CRITICAL | UNCERTAIN  | Investigate first. Important but uncertain. |
+| HIGH     | CERTAIN    | Execute now. Important AND well-founded. |
+| HIGH     | UNCERTAIN  | Investigate first. Important but uncertain. |
 | LOW      | CERTAIN    | Reliable background. Not urgent. |
 | LOW      | UNCERTAIN  | Prune or validate. Low signal. |
 
 Collapsing them into a single "importance" scalar would lose the epistemic dimension entirely.
-A task can be CRITICAL (must happen today) while UNCERTAIN (you're not sure the approach is right).
+A task can be HIGH priority (must happen soon) while UNCERTAIN (you're not sure the approach is right).
 A KU can be CERTAIN (foundational, proven knowledge) while LOW priority for a specific learner.
 
 ---
@@ -125,7 +133,7 @@ This applies uniformly regardless of which domain the entities belong to.
 ## Consequences
 
 ### Positive Consequences
-- ✅ Planning layer responds to Priority: CRITICAL items override the top of `DailyWorkPlan`
+- ✅ Planning surfaces rank by Priority through the enum's own `sort_order()` / `to_numeric()`
 - ✅ Graph visualization expresses relationship certainty via vis.js edge styling (solid/dashed/dotted)
 - ✅ Admin-curated curriculum carries explicit epistemic confidence — search and ZPD can rank by it
 - ✅ Named levels are user-friendly and actionable (no raw floats in the UI)
@@ -150,7 +158,6 @@ This applies uniformly regardless of which domain the entities belong to.
 - Priority field: `core/models/user_owned_entity.py` — `priority: str | None = None`
 - Confidence field: `core/models/curriculum.py` — `confidence: str | None = None`
 - Confidence request models: `core/models/pathways/pathways_request.py`
-- Planning integration: `core/services/user/intelligence/daily_planning.py` — "CRITICAL PRIORITY OVERRIDE" block
 - Graph visualization: `core/services/lateral_relationships/lateral_relationship_service.py` — returns `confidence` + `priority` on each edge
 - Vis.js edge styling: `static/js/skuel.js` — `renderNetwork()` function
 
@@ -160,7 +167,6 @@ This applies uniformly regardless of which domain the entities belong to.
   `tests/unit/test_ui_components.py`; `Confidence`'s methods have no test. The
   `test_activity_enums.py` this line once claimed as passing was never written — `git log`
   for it is empty
-- [x] Integration: Planning service tests verify CRITICAL items surface correctly
 - [x] Graph visualization: vis.js edge styling verified in browser
 
 ---
@@ -173,7 +179,7 @@ Future capabilities enabled by these dials:
 |-----------|-------------|---------|
 | Confidence-weighted search | High-confidence KU ranks higher in results | When search quality becomes the bottleneck |
 | Uncertainty review queue | Admin dashboard for UNCERTAIN curriculum items | When curriculum grows >500 KUs |
-| Priority-filtered notifications | Push only CRITICAL items | When notification system is built |
+| Priority-filtered notifications | Push only HIGH items | When notification system is built |
 | Confidence decay | Certainty degrades over time without reinforcement | When longitudinal knowledge tracking is needed |
 | Cross-domain propagation | If prerequisite KU is UNCERTAIN, dependent PS confidence drops | When ZPD service is in production |
 

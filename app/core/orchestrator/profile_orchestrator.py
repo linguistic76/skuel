@@ -24,10 +24,9 @@ if TYPE_CHECKING:
 
 
 _PREVIEW_PRIORITY_ORDER = {
-    Priority.CRITICAL: 0,
-    Priority.HIGH: 1,
-    Priority.MEDIUM: 2,
-    Priority.LOW: 3,
+    Priority.HIGH: 0,
+    Priority.MEDIUM: 1,
+    Priority.LOW: 2,
 }
 
 # Valid Activity Domain slugs
@@ -36,7 +35,7 @@ _TERMINAL_STRINGS = frozenset(["completed", "failed", "cancelled", "archived"])
 
 
 def _preview_priority_sort_key(item: Any) -> int:
-    """Sort key for domain preview items by priority (CRITICAL first).
+    """Sort key for domain preview items by priority (HIGH first).
 
     Coerces string priority values to Priority enum before lookup so that
     service backends returning plain strings sort correctly.
@@ -47,7 +46,7 @@ def _preview_priority_sort_key(item: Any) -> int:
             raw = Priority(str(raw).lower())
         except ValueError:
             raw = Priority.LOW
-    return _PREVIEW_PRIORITY_ORDER.get(raw, 4)
+    return _PREVIEW_PRIORITY_ORDER.get(raw, 3)
 
 
 class ProfileOrchestrator:

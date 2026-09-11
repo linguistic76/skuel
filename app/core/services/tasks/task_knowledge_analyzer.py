@@ -31,7 +31,7 @@ from core.constants import (
     KnowledgeEnhancementScore,
     PriorityScoringWeight,
 )
-from core.models.enums import EntityStatus
+from core.models.enums import EntityStatus, Priority
 from core.models.task.task import Task as Task
 from core.services.knowledge.knowledge_pattern_analyzer import (
     ActivityInsight,
@@ -521,9 +521,7 @@ class TaskKnowledgeAnalyzer:
         )
 
         priority_boost = 0.0
-        if task.priority == "critical":
-            priority_boost = KnowledgeEnhancementScore.CRITICAL_PRIORITY_BOOST
-        elif task.priority == "high":
+        if task.priority == Priority.HIGH.value:
             priority_boost = KnowledgeEnhancementScore.HIGH_PRIORITY_BOOST
 
         return min(1.0, base_score + priority_boost)
@@ -615,7 +613,7 @@ class TaskKnowledgeAnalyzer:
         )
 
         priority_boost = 0.0
-        if task.priority in ["high", "critical"]:
+        if task.priority == Priority.HIGH.value:
             priority_boost = CrossDomainImpactScore.CROSS_DOMAIN_PRIORITY_BOOST
 
         tag_boost = 0.0

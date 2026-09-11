@@ -203,7 +203,6 @@ FILTER_CONFIGS: dict[str, FilterBarConfig] = {
                 label="Priority",
                 options=[
                     ("All", "all"),
-                    ("Critical", "critical"),
                     ("High", "high"),
                     ("Medium", "medium"),
                     ("Low", "low"),

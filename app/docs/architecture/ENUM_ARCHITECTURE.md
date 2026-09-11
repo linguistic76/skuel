@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-05
+updated: 2026-09-11
 ---
 
 # Enum Architecture
@@ -270,7 +270,7 @@ Domain-specific enum fields: Goal (+3), Habit (+3), Principle (+4), Choice (+1),
 
 | Enum | File | Values | Used By |
 |------|------|--------|---------|
-| Priority | activity_enums.py | LOW, MEDIUM, HIGH, CRITICAL | All UserOwnedEntity nodes (Tasks, Goals, Habits, Events, Choices, Principles, Submissions, LifePath) |
+| Priority | activity_enums.py | LOW, MEDIUM, HIGH | All UserOwnedEntity nodes (Tasks, Goals, Habits, Events, Choices, Principles, Submissions, LifePath) |
 | Confidence | activity_enums.py | UNCERTAIN, LOW, MEDIUM, HIGH, CERTAIN | Curriculum entities (KU, PS, LP); lateral relationship edges (all 9 domains) |
 | ActivityType | activity_enums.py | TASK, HABIT, EVENT, LEARNING, MILESTONE, ... (12) | Calendar, scheduling |
 | EngagementState | activity_enums.py | ENGAGED, OWNED | All 6 Activity Domain instances spawned from a PathStep template; `None` = standalone (not curriculum-spawned) |
@@ -435,7 +435,7 @@ EntityStatus.from_search_text("in progress")  # → [EntityStatus.ACTIVE]
 EntityStatus.from_search_text("done")          # → [EntityStatus.COMPLETED]
 
 # Find priorities
-Priority.from_search_text("urgent")  # → [Priority.HIGH, Priority.CRITICAL]
+Priority.from_search_text("urgent")  # → [Priority.HIGH]
 ```
 
 **Enums with search support:** EntityStatus, Priority, Domain, LearningLevel, ContentType
@@ -557,14 +557,14 @@ way users and admins express dimensional weight across the graph.
 They are orthogonal: Priority says "how important", Confidence says "how certain".
 Both flow into the intelligence layer (planning) and graph visualization (vis.js):
 
-- **Priority → Planning:** CRITICAL items override the top of `DailyWorkPlan` in `daily_planning.py` (cap: 3)
+- **Priority → Planning:** every surface that orders by priority (calendar optimization, search scoring, Today, previews, list sorts) ranks through `sort_order()` / `to_numeric()` — no override block
 - **Confidence → Vis.js:** Edge line style (solid/dashed/dotted) and opacity in `renderNetwork()`
 
 ```python
 # Priority
 Priority.HIGH.to_numeric()                   # → 3
 Priority.HIGH.get_color()                    # → "#F59E0B" (amber)
-Priority.from_search_text("urgent")          # → [Priority.HIGH, Priority.CRITICAL]
+Priority.from_search_text("urgent")          # → [Priority.HIGH]
 
 # Confidence
 Confidence.HIGH.to_numeric()                 # → 0.9
@@ -606,7 +606,7 @@ These YAML fields are constrained by Python enums. Using an invalid value fails 
 | YAML Field | Enum Class | Applies To | Example Values |
 |------------|------------|-----------|----------------|
 | `type` | `EntityType` | All entities | `Task`, `Habit`, `Ku`, `PathStep` |
-| `priority` | `Priority` | All activities | `low`, `medium`, `high`, `critical` |
+| `priority` | `Priority` | All activities | `low`, `medium`, `high` |
 | `status` | `EntityStatus` | All entities | `draft`, `active`, `completed` |
 | `polarity` | `HabitPolarity` | Habit | `build`, `break`, `neutral` |
 | `category` (habit) | `HabitCategory` | Habit | `health`, `fitness`, `learning` |

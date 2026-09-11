@@ -29,8 +29,7 @@ from ui.today.orchestrator import (
 # ---------------------------------------------------------------------------
 
 
-def test_priority_label_collapses_critical_to_high() -> None:
-    assert _priority_label(Priority.CRITICAL) == "high"
+def test_priority_label_is_the_enum_value() -> None:
     assert _priority_label(Priority.HIGH) == "high"
     assert _priority_label(Priority.MEDIUM) == "medium"
     assert _priority_label(Priority.LOW) == "low"
@@ -294,7 +293,7 @@ async def test_build_context_splits_today_tasks_and_triage() -> None:
                 _fake_task(
                     uid="t-late",
                     due_date=today - timedelta(days=2),
-                    priority=Priority.CRITICAL,
+                    priority=Priority.HIGH,
                 ),
                 _fake_task(uid="t-future", due_date=today + timedelta(days=3)),
             ]

@@ -93,8 +93,8 @@ class TestPriorityBridgeFunctions:
         result = get_priority_border_class("invalid")
         assert result == "border-l-border"
 
-    def test_priority_dot_class_critical(self) -> None:
-        result = get_priority_dot_class("critical")
+    def test_priority_dot_class_high(self) -> None:
+        result = get_priority_dot_class("high")
         assert isinstance(result, str)
 
     def test_priority_dot_class_invalid(self) -> None:

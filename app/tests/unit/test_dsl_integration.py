@@ -38,14 +38,14 @@ class TestActivityToTaskConversion:
         assert request.title == "Call mom"
 
     def test_convert_task_with_priority(self):
-        """Priority 1 maps to CRITICAL."""
+        """Priority 1 maps to HIGH."""
         result = parse_journal_text("- [ ] Urgent @context(task) @priority(1)")
         task_activity = result.value.get_tasks()[0]
         convert_result = activity_to_task_request(task_activity)
 
         assert convert_result.is_ok
         request = convert_result.value
-        assert request.priority.value == "critical"
+        assert request.priority.value == "high"
 
     def test_convert_task_with_due_date(self):
         """@when maps to due_date."""

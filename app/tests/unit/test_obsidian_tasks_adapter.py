@@ -112,7 +112,7 @@ class TestDates:
 class TestPriority:
     @pytest.mark.parametrize(
         "emoji,expected",
-        [("🔺", 1), ("⏫", 1), ("🔼", 2), ("🔽", 4), ("⏬", 5)],
+        [("🔺", 1), ("⏫", 1), ("🔼", 3), ("🔽", 4), ("⏬", 5)],
     )
     def test_priority_emoji_mapping(self, emoji, expected):
         parsed = obsidian_task_line_to_parsed(f"- [ ] Task {emoji}")

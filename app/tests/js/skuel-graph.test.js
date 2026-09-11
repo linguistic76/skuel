@@ -180,14 +180,13 @@ describe('SKUEL.graph.styleEdgesByConfidence', () => {
 
   it('maps priority to stroke width', () => {
     const styled = window.SKUEL.graph.styleEdgesByConfidence([
-      { priority: 'critical' },
       { priority: 'high' },
       { priority: 'medium' },
       { priority: 'low' },
       {},
     ]);
 
-    expect(styled.map((e) => e.width)).toEqual([4, 3, 2, 1, 2]);
+    expect(styled.map((e) => e.width)).toEqual([3, 2, 1, 2]);
   });
 
   it('dashes and fades low-confidence edges', () => {

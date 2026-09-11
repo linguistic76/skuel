@@ -169,13 +169,13 @@ class TestNextBestAction:
 
     @pytest.mark.asyncio
     async def test_get_next_best_action_critical_priority_habit(self, engine, critical_context):
-        """Critical priority: Prevent habit streak loss (14+ days)."""
+        """High priority: prevent habit streak loss (14+ days)."""
         result = await engine.get_next_best_action(critical_context)
 
         assert result.is_ok
         recommendation = result.value
         # Should recommend protecting the streak
-        assert recommendation.priority in [Priority.CRITICAL, Priority.HIGH]
+        assert recommendation.priority == Priority.HIGH
 
     @pytest.mark.asyncio
     async def test_get_next_best_action_high_priority_unblock(self, engine, blocked_context):

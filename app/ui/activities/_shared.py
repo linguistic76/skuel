@@ -114,16 +114,13 @@ def safe_id(uid: str) -> str:
     return uid.replace(".", "-").replace(":", "-")
 
 
-PRIORITY_ORDER: dict[str, int] = {"critical": 0, "high": 1, "medium": 2, "low": 3}
-
-
 def PriorityBadgeDropdown(
     uid: str,
     priority: str | None,
     domain: str,
     singular: str,
 ) -> "FT":
-    """Interactive priority badge: click opens a dropdown of the 4 priority levels.
+    """Interactive priority badge: click opens a dropdown of the three priority levels.
 
     Alpine owns the open/close state (inline ``x-data``); picking a level does
     ``POST /api/{domain}/{uid}/priority`` via HTMX and swaps the re-rendered
