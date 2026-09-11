@@ -10,7 +10,11 @@ ruled: 2026-09-11
 
 **Status:** ACTIVE 2026-09-11 (founder rulings taken the same day against a full code read + live-graph
 census). Five sub-arcs, A→E, each a short PR chain run in a fresh context against this document.
-PR 0 (#1312) Codex review, four rounds, all findings accepted and folded in (round 4: the goal
+PR 0 (#1312) Codex review, five rounds, all findings accepted and folded in (round 5: A.2 posts
+url-encoded form bodies and a real submit button — shipped that way on #1314; the rich query admits
+choices by `decided_at`; A2 merged before A1c, so A1c is the next PR and the goal/principle
+counters read zero until it lands; the B1 cutoff is stop-old-app → migrate → start-B1; closed-period
+finalisation bypasses the cooldown and comparisons skip superseded same-period reports; round 4: the goal
 and principle stamps the counters read are written by no producer — A.1c stamps them; E.2 keeps
 no upper bound on `updated_at`, the mapper's canonical stamps are the bound; the Reports door reads
 the newest OWNED report; a partial report is finalised once its period closes): the report's events are
@@ -188,7 +192,12 @@ is inventory, not attendance), `choices_made` = `decided_at` in period, `princip
 `last_review_date` in period; the `*_details` lists remain the context's inventory and the markdown
 names them "in play".
 
-**A.1c — the stamps those counters read must be WRITTEN (Codex P1, round 4).** No goal progress
+**A.1c — the stamps those counters read must be WRITTEN (Codex P1, round 4).** A2 (#1314) merged before
+A1c, so until A1c lands a generated report reads zero goals progressed and zero principles reviewed
+(Codex P1, round 5) — A1c is the next PR in line. It also widens the rich query's choice selection to
+admit a choice by `decided_at >= window_start` (today a choice created before the window, decided in
+it and completed before generation is dropped by the draft/active-or-created-in-window predicate at
+`user_context_queries.py:579`, so `choices_made` undercounts the very transition it promises). No goal progress
 writer persists `last_progress_update` (`GoalsProgressService` updates `progress_percentage` and
 relies on the generic `updated_at`), and no principle flow persists `last_review_date`
 (`record_principle_reflection` only publishes; `_store_user_assessment` appends `alignment_history`;
@@ -210,10 +219,13 @@ Integration test: a goal written with `progress_percentage=40.0` yields `context
 (today 0.0). The compounding `SUPPORTS_GOAL`-direction defect stays in its own case file.
 
 **A.2 — restore the two dead producers** inside `create_activity_reports_ui_routes`:
-`POST /api/reports/progress/generate` and `POST /api/activity-reports/annotate` (+ `GET …/annotation`),
-under today's conventions: `@rt(path, methods=["POST"])` → `@csrf_protected` → `@boundary_handler`,
-`parse_json_body` + `Result.fail(parsed)`, returning `Result[FT]` fragments that the two LIVE HTMX forms
-already target (`#generate-status` with a link to the detail page and an `HX-Trigger` refreshing
+`POST /api/reports/progress/generate` and `POST /api/activity-reports/annotate` (the annotation GET has
+no consumer and is not restored), under today's conventions: `@rt(path, methods=["POST"])` →
+`@csrf_protected` → `@boundary_handler`, **`parse_form_body`** + `Result.fail(parsed)` — HTMX sends
+the enclosing form's fields url-encoded, and the forms' former `hx-headers`/`hx-vals` JSON attempt
+never produced a JSON body (Codex P1, round 5; shipped this way on #1314). The notes form's "Save
+Notes" is a real submit `Button`, not an anchor. Both handlers return `Result[FT]` fragments the two
+LIVE forms target (`#generate-status` with a link to the detail page and an out-of-band refresh of
 `#progress-list`; `#annotation-status`). The generator reaches the factory as a kwarg from the container
 (`services.progress_report_generator`) the way `batch_transcription` is wired at
 `user_entry_routes.py:64-80`. The shelved list/schedule/privacy routes are NOT restored (list is
@@ -252,8 +264,9 @@ below).
 - Backfill: one label-anchored idempotent `.cypher` migration modelled on
   `scripts/migrations/lowercase_event_type_2026_08.cypher`, rewriting BOTH `n.priority` (7 Task nodes) and
   `r.priority` on lateral relationships, with a verify query. Run against Aura (authorised) **twice**: before
-  B1 merges and again right after B1 deploys — the second run is the write cutoff (the old enum accepts
-  `critical` on every activity write until the deploy).
+  B1 merges and as B1 deploys — **stop the old app, run the migration, start B1** (Codex P1, round 5):
+  the second run is the write cutoff, and nothing writes between it and the new code serving, so no
+  row the old enum accepted can meet the new one.
   **Ordering (Codex P1 on PR 0): the backfill runs against Aura BEFORE B1 merges.** `Priority(task.priority)`
   is constructed directly in `_task_to_calendar_item` and the Today orchestrator, so a deleted member
   with seven persisted `critical` rows would raise on every calendar/Today read in between. `'high'` is
@@ -365,7 +378,10 @@ lens-status question (dated CANCELLED/FAILED tasks: **render** — the lens show
   (its data cutoff stored as `metadata["data_cutoff"]`) and later clicks re-open it while the period is
   still open; **once the period has closed, a report whose data cutoff precedes `period_end` is
   stale — `find_by_period` treats it as absent and the door generates the final report, superseding
-  it** (Codex P2, round 4); a "Regenerate" action on the detail page is the explicit refresh.
+  it** (Codex P2, round 4). That finalisation bypasses the per-(user, period) cooldown — a partial
+  generated in the period's last hour must not block its own final snapshot — and
+  `_collect_comparison` selects the preceding DISTINCT period, never a superseded same-period row
+  (Codex P2s, round 5); a "Regenerate" action on the detail page is the explicit refresh.
 - **E.3 retire the schedule producer** (ruling 7): worker, `ProgressScheduleService`, `core/models/report_schedule/`,
   `ReportScheduleBackend`, both protocols, `ScheduleType`, both request models, `NeoLabel.REPORT_SCHEDULE`,
   `RelationshipName.HAS_SCHEDULE`, `MIN_AUTO_REPORT_INTERVAL_HOURS`, compose/container/bootstrap wiring, the
@@ -411,7 +427,7 @@ history lives here and in the `done/` docs.
 | A1c | A.1c — goal progress writers stamp `last_progress_update`; principle reflection/assessment writers stamp `last_review_date` (intent carries it) | Integration tests drive `GoalsProgressService`'s progress door and the principle assessment door, then assert `goals_progressed == 1` / `principles_reviewed == 1` through the mapper — no seeded stamp |
 | A2 | A.2 + A.3 + A.4 — restore generate/annotate/annotation routes as HTMX fragments; `.md` download; de-fiction | Clicking "Generate" on `/submit-activity-report` produces a report and links to its detail (headless Chrome); annotate saves; `/activity-reports/md?uid=` downloads owned reports and 404s foreign ones; no doc names a route that does not exist |
 | B2 | Backfill migration committed AND run against Aura + verify — **lands before B1** | `MATCH (n) WHERE n.priority='critical' RETURN count(n)` = 0 and the same for relationships, run against Aura after the migration |
-| B1 | Priority collapse — enum, maps, DSL/Obsidian remap, `ENUM_FIELD_TYPES`, docs | `Priority` has three members; `./dev quality` 0 errors; `@priority(1)` and ⏫ both create HIGH tasks; 🔼 creates MEDIUM; **the B2 migration is re-run right after B1 deploys** (the write cutoff — until then the old enum still accepts `critical` on every activity write; Codex P1 on #1315) and its verify returns no `critical` row |
+| B1 | Priority collapse — enum, maps, DSL/Obsidian remap, `ENUM_FIELD_TYPES`, docs | `Priority` has three members; `./dev quality` 0 errors; `@priority(1)` and ⏫ both create HIGH tasks; 🔼 creates MEDIUM; **the B2 migration is re-run as B1 deploys — stop the old app, migrate, start B1** (the write cutoff — until then the old enum still accepts `critical` on every activity write; Codex P1 on #1315 and round 5) and its verify returns no `critical` row |
 | C1 | ViewSpec + converter priority + CalendarItem/CalendarData/CalendarFilter cleanup + delete `/api/v2/calendar/items` + per-view legend | Month view shows only events ≥ medium (live: 6 medium events, 0 habit chips); week view shows the 3 medium/high habits + high tasks + events; a low-priority habit is absent from week; legend on month is absent and the month shell binds no legend controller (hiding Event on the week leaves the month intact); on week the legend has four swatches; `./dev quality` 0 errors |
 | D0 | One completion door (see D.0) | All three clicks in the three-click integration test go through `update_task`; `TRIGGERS_ON_COMPLETION` dependents still schedule (handler test); `is_repeat` gone; `/today` complete still works |
 | D1 | The day view (see D.1) + ADR-058 amendment | `/today` renders overdue + tasks (TaskCard) + events + habits + milestones + the day's choices with no page-local JS bundle; the legend's Habits swatch hides the habits section and the Choice swatch hides the choices section (the calendar's `calendarLegend` controller bound on the day shell; `choice` in calendar.css); completing a task from the day view goes through `/api/tasks/{uid}/status`; quick-add still creates `scheduled_date`-only tasks; the calendar's day-cell click lands on the new view; 375px verified |
