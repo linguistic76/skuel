@@ -10,7 +10,7 @@ check: "uv run pytest tests/unit/scripts/test_health_check_parity.py tests/unit/
 
 # Catalog Copies in Code — the duplicated-fact defect, measured
 
-*Case file for the [deferred-work.md](deferred-work.md) entry of the same name; move to `done/` when nothing in it remains open.*
+*Completed record. This was the case file for a [deferred-work.md](../deferred-work.md) entry of the same name; the entry left the MOC when the last remedy was ruled and built on 2026-09-10.*
 
 The documentation lesson recorded across #1153, #1176 and #1184 — every summary line is a
 duplicated fact, stale copies are paraphrases `git grep` cannot find, and re-syncing a copy is
@@ -194,7 +194,7 @@ most of the instances below rely on today.
    ✅ **RULED (a) + BUILT (2026-09-10).** The Count column is gone, the fourteen rows are
    labelled an orientation aid rather than a partition, and both the headline and the
    membership question now point at the generated `GRAPH_CONTRACT.yaml`, which already carries
-   all 172 members with their traits and is drift-tested. The row overlap is stated where the
+   all 172 members (with the traits each one has — 55 carry any) and is drift-tested. The row overlap is stated where the
    table sits (`ULTIMATE_PATH` is both an ownership and a life-path edge), so the grouping
    cannot be read as a set partition.
 

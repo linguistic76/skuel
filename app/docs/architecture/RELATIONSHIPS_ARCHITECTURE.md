@@ -123,17 +123,19 @@ class DomainRelationshipConfig:
 **Location:** `core/models/relationship_names.py`
 
 The enum is the source of truth for typed relationship names, and the generated
-[GRAPH_CONTRACT.yaml](../reference/GRAPH_CONTRACT.yaml) carries every member with its traits —
-that file, not this one, answers any membership or count question. SKUEL rule SKUEL013 requires
-using `RelationshipName` enum values — no string literals in relationship Cypher. Cypher query
-strings use f-string interpolation: `f"[:{RelationshipName.X.value}]"`.
+[GRAPH_CONTRACT.yaml](../reference/GRAPH_CONTRACT.yaml) carries every member, with the traits
+and contract each one has — that file, not this one, answers any membership or count question.
+SKUEL rule SKUEL013 requires using `RelationshipName` enum values — no string literals in
+relationship Cypher. Cypher query strings use f-string interpolation:
+`f"[:{RelationshipName.X.value}]"`.
 
 **Key groupings — an orientation aid, not the full set.** Each row names a few members of a
 domain family. The families overlap (`ULTIMATE_PATH` is both an ownership and a life-path edge)
 and are a reading convenience, not a partition the code knows about: the classifications the
 code branches on are the trait predicates on the enum (`is_knowledge_relationship`,
-`is_blocking_relationship`, `is_lateral_relationship`, …), emitted as the `traits` key on every
-relationship in the generated contract.
+`is_blocking_relationship`, `is_lateral_relationship`, …). They classify 55 of the 172 members
+between them and are not a cover: the generated contract carries a `traits` key only for a
+relationship at least one predicate matches, so 117 entries have none.
 
 | Group | Examples |
 |-------|---------|
